@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Components</title>
+  <link rel="stylesheet" href="../build/css/variables.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="showcase.css">
+  <style>
+    /* Panel Component */
+    .panel {
+      background: var(--panel-background);
+      border: var(--panel-border-width) solid var(--panel-border);
+      border-radius: var(--panel-border-radius);
+      box-shadow: var(--shadow-panel);
+      margin-bottom: var(--spacing-scale-5);
+    }
+
+    .panel-header {
+      background: var(--color-semantic-background-panel-header);
+      padding: var(--panel-header-padding);
+      font: var(--font-semantic-heading-default);
+      color: var(--panel-header-text);
+      font-size: var(--font-size-md);
+    }
+
+    .panel-content {
+      padding: var(--panel-content-padding);
+      color: var(--color-semantic-text-primary);
+      line-height: 1.6;
+    }
+
+    /* Button Component */
+    .button {
+      padding: var(--button-padding-v) var(--button-padding-h);
+      border-radius: var(--button-border-radius);
+      font: var(--button-font);
+      cursor: pointer;
+      border: var(--border-width-default) solid;
+      display: inline-block;
+      margin-right: var(--spacing-scale-3);
+      margin-bottom: var(--spacing-scale-3);
+      transition: all 0.2s ease;
+    }
+
+    .button-primary {
+      background: var(--button-primary-background-default);
+      color: var(--button-primary-text);
+      border-color: var(--button-primary-border);
+    }
+
+    .button-primary:hover {
+      background: var(--button-primary-background-hover);
+      box-shadow: var(--shadow-glow-accent);
+    }
+
+    .button-secondary {
+      background: var(--button-secondary-background-default);
+      color: var(--button-secondary-text);
+      border-color: var(--button-secondary-border);
+    }
+
+    .button-secondary:hover {
+      background: var(--button-secondary-background-hover);
+      box-shadow: var(--shadow-glow-accent-faint);
+    }
+
+    /* Select Component */
+    .select {
+      /* Reset default appearance */
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      
+      /* Custom styling */
+      background: var(--select-background);
+      color: var(--select-text);
+      border: var(--select-border-width) solid var(--select-border);
+      border-radius: var(--select-border-radius);
+      padding: var(--select-padding-v) var(--select-padding-h);
+      padding-right: calc(var(--select-padding-h) + 20px); /* Space for arrow */
+      font: var(--font-semantic-body-default);
+      cursor: pointer;
+      margin-bottom: var(--spacing-scale-3);
+      min-width: 200px;
+      
+      /* Custom arrow using background gradient */
+      background-image: linear-gradient(45deg, transparent 50%, var(--select-text) 50%),
+                        linear-gradient(135deg, var(--select-text) 50%, transparent 50%);
+      background-position: calc(100% - 12px) center,
+                           calc(100% - 8px) center;
+      background-size: 4px 4px,
+                       4px 4px;
+      background-repeat: no-repeat;
+    }
+
+    .select:hover {
+      border-color: var(--color-semantic-border-accent);
+      background-color: var(--color-semantic-background-panel-header);
+    }
+
+    .select:focus {
+      outline: 2px solid var(--color-semantic-border-accent);
+      outline-offset: 2px;
+      background-color: var(--select-background);
+    }
+
+    /* Firefox fix for background */
+    .select:-moz-focusring {
+      color: transparent;
+      text-shadow: 0 0 0 var(--select-text);
+    }
+
+    /* List Component */
+    .list {
+      list-style: none;
+      margin-bottom: var(--spacing-scale-5);
+      border: var(--border-width-default) solid var(--color-semantic-border-default);
+      border-radius: var(--border-radius-sm);
+      overflow: hidden;
+    }
+
+    .list-item {
+      padding: var(--list-item-padding-v) var(--list-item-padding-h);
+      border-bottom: var(--list-item-border-width) solid var(--list-item-border-color);
+      transition: background 0.2s ease;
+      color: var(--color-semantic-text-primary);
+    }
+
+    .list-item:last-child {
+      border-bottom: none;
+    }
+
+    .list-item:hover {
+      background: var(--list-item-background-hover);
+    }
+
+    /* File Tree Component */
+    .file-tree {
+      background: var(--file-tree-background);
+      padding: var(--spacing-scale-3);
+      border-radius: var(--border-radius-sm);
+      font-size: var(--file-tree-font-size);
+      border: var(--border-width-default) solid var(--color-semantic-border-default);
+    }
+
+    .file-tree-item {
+      padding: var(--file-tree-item-padding-v) var(--file-tree-item-padding-h);
+      color: var(--file-tree-item-text-default);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: var(--border-radius-sm);
+    }
+
+    .file-tree-item:hover {
+      background: var(--file-tree-item-background-hover);
+      color: var(--file-tree-item-text-hover);
+    }
+
+    .file-tree-item.selected {
+      background: var(--file-tree-item-background-selected);
+      color: var(--file-tree-item-text-hover);
+    }
+
+    .file-tree-item.nested {
+      padding-left: calc(var(--file-tree-item-padding-h) + var(--file-tree-item-indent));
+    }
+
+    .file-tree-item.nested-2 {
+      padding-left: calc(var(--file-tree-item-padding-h) + var(--file-tree-item-indent) * 2);
+    }
+
+    .file-tree-item.nested-3 {
+      padding-left: calc(var(--file-tree-item-padding-h) + var(--file-tree-item-indent) * 3);
+    }
+
+    .icon {
+      color: var(--file-tree-item-icon-color);
+      margin-right: var(--spacing-scale-2);
+    }
+
+    /* Component showcase boxes */
+    .component-demo {
+      background: var(--color-semantic-background-panel-default);
+      border: var(--border-width-default) solid var(--color-semantic-border-default);
+      border-radius: var(--border-radius-sm);
+      padding: var(--spacing-scale-5);
+      margin-bottom: var(--spacing-scale-5);
+    }
+
+    .variant-section {
+      margin-bottom: var(--spacing-scale-5);
+    }
+
+    .variant-section:last-child {
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <header class="top-header">
+    <div class="header-title">Design System Showcase</div>
+  </header>
+
+  <div class="layout-container">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-category">
+          <span class="icon">📖</span>
+          <span>Overview</span>
+        </div>
+        <div class="sidebar-items">
+          <a href="index.html" class="sidebar-item">
+            <span class="icon">🏠</span>
+            <span>Introduction</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-category collapsed" onclick="toggleCategory(this)">
+          <span class="icon">▼</span>
+          <span>Tokens</span>
+        </div>
+        <div class="sidebar-items hidden">
+          <a href="tokens.html#colors" class="sidebar-item">
+            <span class="icon">🎨</span>
+            <span>Colors</span>
+          </a>
+          <a href="tokens.html#typography" class="sidebar-item">
+            <span class="icon">📝</span>
+            <span>Typography</span>
+          </a>
+          <a href="tokens.html#spacing" class="sidebar-item">
+            <span class="icon">📏</span>
+            <span>Spacing</span>
+          </a>
+          <a href="tokens.html#borders" class="sidebar-item">
+            <span class="icon">⬜</span>
+            <span>Borders</span>
+          </a>
+          <a href="tokens.html#shadows" class="sidebar-item">
+            <span class="icon">💫</span>
+            <span>Shadows</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-category" onclick="toggleCategory(this)">
+          <span class="icon">▼</span>
+          <span>Components</span>
+        </div>
+        <div class="sidebar-items">
+          <a href="#buttons" class="sidebar-item">
+            <span class="icon">🔘</span>
+            <span>Buttons</span>
+          </a>
+          <a href="#panels" class="sidebar-item">
+            <span class="icon">📋</span>
+            <span>Panels</span>
+          </a>
+          <a href="#select" class="sidebar-item">
+            <span class="icon">🔽</span>
+            <span>Select</span>
+          </a>
+          <a href="#lists" class="sidebar-item">
+            <span class="icon">📃</span>
+            <span>Lists</span>
+          </a>
+          <a href="#file-tree" class="sidebar-item">
+            <span class="icon">📁</span>
+            <span>File Tree</span>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+    <h1>Components</h1>
+    <p class="description">
+      Interactive component library built using the design tokens. Each component demonstrates
+      proper token usage, hover states, and accessibility considerations.
+    </p>
+
+    <!-- Buttons -->
+    <section id="buttons" class="showcase-section">
+      <h2>Buttons</h2>
+      <p class="description">
+        Button components with primary and secondary variants. Uses button-specific tokens for
+        consistent styling across states.
+      </p>
+
+      <div class="component-demo">
+        <div class="variant-section">
+          <h3>Primary Buttons</h3>
+          <button class="button button-primary">Primary Action</button>
+          <button class="button button-primary">Save Changes</button>
+          <button class="button button-primary">Submit</button>
+        </div>
+
+        <div class="variant-section">
+          <h3>Secondary Buttons</h3>
+          <button class="button button-secondary">Cancel</button>
+          <button class="button button-secondary">Learn More</button>
+          <button class="button button-secondary">Settings</button>
+        </div>
+
+        <div class="variant-section">
+          <h3>Mixed Usage</h3>
+          <button class="button button-primary">Confirm</button>
+          <button class="button button-secondary">Cancel</button>
+        </div>
+      </div>
+
+      <div class="code-block">/* Button tokens used */
+--button-padding-v, --button-padding-h
+--button-border-radius
+--button-font
+--button-primary-background-default
+--button-primary-background-hover
+--button-primary-text
+--button-primary-border</div>
+    </section>
+
+    <!-- Panels -->
+    <section id="panels" class="showcase-section">
+      <h2>Panels</h2>
+      <p class="description">
+        Panel components with headers and content areas. Ideal for grouping related information
+        with clear visual hierarchy.
+      </p>
+
+      <div class="panel">
+        <div class="panel-header">System Information</div>
+        <div class="panel-content">
+          <p style="margin-bottom: var(--spacing-scale-3);">
+            This panel demonstrates the header and content separation using semantic background colors.
+            The header uses a distinct background color to create visual hierarchy.
+          </p>
+          <p>
+            Panel shadows provide subtle depth, and the border radius creates soft, approachable edges.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">Configuration Settings</div>
+        <div class="panel-content">
+          <p style="margin-bottom: var(--spacing-scale-3);">
+            <strong>Game Mode:</strong> Survival<br>
+            <strong>Difficulty:</strong> Hard<br>
+            <strong>World Seed:</strong> 892374923
+          </p>
+          <button class="button button-primary">Apply Settings</button>
+          <button class="button button-secondary">Reset</button>
+        </div>
+      </div>
+
+      <div class="code-block">/* Panel tokens used */
+--panel-background
+--panel-border-width, --panel-border
+--panel-border-radius
+--panel-header-padding
+--panel-content-padding
+--shadow-panel</div>
+    </section>
+
+    <!-- Select -->
+    <section id="select" class="showcase-section">
+      <h2>Select Inputs</h2>
+      <p class="description">
+        Dropdown select components styled consistently with the design system.
+      </p>
+
+      <div class="component-demo">
+        <div class="variant-section">
+          <label for="select1" style="display: block; margin-bottom: var(--spacing-scale-2); color: var(--color-semantic-text-primary);">
+            Choose a biome:
+          </label>
+          <select id="select1" class="select">
+            <option>Select biome...</option>
+            <option>Forest</option>
+            <option>Desert</option>
+            <option>Tundra</option>
+            <option>Ocean</option>
+            <option>Mountains</option>
+          </select>
+        </div>
+
+        <div class="variant-section">
+          <label for="select2" style="display: block; margin-bottom: var(--spacing-scale-2); color: var(--color-semantic-text-primary);">
+            Select difficulty:
+          </label>
+          <select id="select2" class="select">
+            <option>Choose difficulty...</option>
+            <option>Easy</option>
+            <option>Normal</option>
+            <option>Hard</option>
+            <option>Expert</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="code-block">/* Select tokens used */
+--select-background
+--select-text
+--select-border-width, --select-border
+--select-border-radius
+--select-padding-v, --select-padding-h</div>
+    </section>
+
+    <!-- Lists -->
+    <section id="lists" class="showcase-section">
+      <h2>Lists</h2>
+      <p class="description">
+        List components with hover interactions for displaying collections of items.
+      </p>
+
+      <div class="component-demo">
+        <h3>Inventory Items</h3>
+        <ul class="list">
+          <li class="list-item">Iron Sword - Damage: 25</li>
+          <li class="list-item">Health Potion - Restores: 50 HP</li>
+          <li class="list-item">Leather Armor - Defense: 15</li>
+          <li class="list-item">Wooden Shield - Block: 20</li>
+          <li class="list-item">Gold Coins - Amount: 150</li>
+        </ul>
+      </div>
+
+      <div class="component-demo">
+        <h3>Recent Activities</h3>
+        <ul class="list">
+          <li class="list-item">Defeated Dragon Boss</li>
+          <li class="list-item">Discovered Hidden Temple</li>
+          <li class="list-item">Crafted Legendary Weapon</li>
+          <li class="list-item">Completed Quest: Save the Village</li>
+        </ul>
+      </div>
+
+      <div class="code-block">/* List tokens used */
+--list-item-padding-v, --list-item-padding-h
+--list-item-border-width
+--list-item-border-color
+--list-item-background-hover</div>
+    </section>
+
+    <!-- File Tree -->
+    <section id="file-tree" class="showcase-section">
+      <h2>File Tree</h2>
+      <p class="description">
+        Hierarchical file tree component with indentation and selection states.
+        Perfect for file browsers or navigation menus.
+      </p>
+
+      <div class="component-demo">
+        <div class="file-tree">
+          <div class="file-tree-item">
+            <span class="icon">📁</span> game-assets
+          </div>
+          <div class="file-tree-item nested">
+            <span class="icon">📁</span> textures
+          </div>
+          <div class="file-tree-item nested-2">
+            <span class="icon">🖼️</span> terrain.png
+          </div>
+          <div class="file-tree-item nested-2">
+            <span class="icon">🖼️</span> characters.png
+          </div>
+          <div class="file-tree-item nested-2 selected">
+            <span class="icon">🖼️</span> items.png
+          </div>
+          <div class="file-tree-item nested">
+            <span class="icon">📁</span> audio
+          </div>
+          <div class="file-tree-item nested-2">
+            <span class="icon">🎵</span> background-music.mp3
+          </div>
+          <div class="file-tree-item nested-2">
+            <span class="icon">🔊</span> sound-effects.wav
+          </div>
+          <div class="file-tree-item nested">
+            <span class="icon">📁</span> models
+          </div>
+          <div class="file-tree-item nested-2">
+            <span class="icon">📁</span> characters
+          </div>
+          <div class="file-tree-item nested-3">
+            <span class="icon">🎭</span> player.obj
+          </div>
+          <div class="file-tree-item nested-3">
+            <span class="icon">🎭</span> enemy.obj
+          </div>
+          <div class="file-tree-item nested-2">
+            <span class="icon">📁</span> environment
+          </div>
+          <div class="file-tree-item nested-3">
+            <span class="icon">🌳</span> tree.obj
+          </div>
+          <div class="file-tree-item nested-3">
+            <span class="icon">🏔️</span> mountain.obj
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block">/* File tree tokens used */
+--file-tree-background
+--file-tree-font-size
+--file-tree-item-padding-v, --file-tree-item-padding-h
+--file-tree-item-indent
+--file-tree-item-text-default
+--file-tree-item-text-hover
+--file-tree-item-background-hover
+--file-tree-item-background-selected
+--file-tree-item-icon-color</div>
+    </section>
+
+    <!-- Component Composition -->
+    <section class="showcase-section">
+      <h2>Composition Example</h2>
+      <p class="description">
+        Components working together to create a more complex interface.
+      </p>
+
+      <div class="panel">
+        <div class="panel-header">World Generator</div>
+        <div class="panel-content">
+          <div style="margin-bottom: var(--spacing-scale-4);">
+            <label for="biome-select" style="display: block; margin-bottom: var(--spacing-scale-2); font-weight: 500;">
+              Primary Biome:
+            </label>
+            <select id="biome-select" class="select">
+              <option>Forest</option>
+              <option>Desert</option>
+              <option>Tundra</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: var(--spacing-scale-4);">
+            <h3 style="margin-bottom: var(--spacing-scale-3);">Available Presets:</h3>
+            <ul class="list">
+              <li class="list-item">Classic Survival</li>
+              <li class="list-item">Creative Mode</li>
+              <li class="list-item">Hardcore Challenge</li>
+              <li class="list-item">Peaceful Explorer</li>
+            </ul>
+          </div>
+
+          <div>
+            <button class="button button-primary">Generate World</button>
+            <button class="button button-secondary">Load Preset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div style="
+      margin-top: var(--spacing-scale-6);
+      padding: var(--spacing-scale-4);
+      border-top: var(--border-width-default) solid var(--color-semantic-border-default);
+      font: var(--font-semantic-body-small);
+      color: var(--color-semantic-text-secondary);
+    ">
+      All components are built using design tokens for consistent styling and easy theming.
+      Hover over interactive elements to see state changes.
+    </div>
+    </main>
+  </div>
+
+  <script>
+    function toggleCategory(element) {
+      element.classList.toggle('collapsed');
+      const items = element.nextElementSibling;
+      items.classList.toggle('hidden');
+    }
+
+    // Highlight active sidebar item based on hash
+    function updateActiveSidebarItem() {
+      const hash = window.location.hash;
+      document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.classList.remove('active');
+        if (hash && item.getAttribute('href') === hash) {
+          item.classList.add('active');
+        }
+      });
+    }
+
+    window.addEventListener('hashchange', updateActiveSidebarItem);
+    window.addEventListener('load', updateActiveSidebarItem);
+  </script>
+</body>
+</html>

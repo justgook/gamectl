@@ -83,96 +83,278 @@ StyleDictionary.registerFormat({
 });
 
 /**
- * Component Classes Format
- * Creates component classes like:
- * .button { ... }
- * .button-primary { ... }
+ * Helper: Map token path/name to CSS property
+ */
+function getCssProperty(pathSegment, tokenType) {
+  const mappings = {
+    'background': 'background-color',
+    'text': 'color',
+    'border': 'border-color',
+    'border-radius': 'border-radius',
+    'border-width': 'border-width',
+    'padding': 'padding',
+    'padding-v': 'padding-top-bottom',
+    'padding-h': 'padding-left-right',
+    'font': 'font',
+    'font-size': 'font-size',
+    'indent': 'padding-left',
+  };
+
+  return mappings[pathSegment] || pathSegment;
+}
+
+/**
+ * Helper: Check if a path segment is a state modifier
+ */
+function isState(segment) {
+  return ['default', 'hover', 'active', 'focus', 'selected', 'disabled'].includes(segment);
+}
+
+/**
+ * Helper: Check if a path segment is a variant
+ */
+function isVariant(segment, componentTokens) {
+  // Check if this segment has background/text/border children (typical variant pattern)
+  const token = componentTokens.find(t => t.path.includes(segment));
+  if (!token) return false;
+
+  const childPaths = componentTokens
+    .filter(t => t.path[0] === token.path[0] && t.path[1] === segment)
+    .map(t => t.path[2]);
+
+  return childPaths.some(p => ['background', 'text', 'border'].includes(p));
+}
+
+/**
+ * Helper: Check if a path segment is a sub-component (like 'item', 'header', 'content')
+ */
+function isSubComponent(segment) {
+  return ['item', 'header', 'content', 'icon'].includes(segment);
+}
+
+/**
+ * Generic Component Classes Format
+ * Automatically handles all component structures:
+ * - Flat components (select, panel base)
+ * - Components with variants (button: primary, secondary)
+ * - Components with sub-components (file-tree: item, panel: header/content)
+ * - Components with states (hover, selected, default)
  */
 StyleDictionary.registerFormat({
   name: 'css/components',
   format: ({ dictionary }) => {
-    const components = {};
+    const componentGroups = {};
 
-    // Group tokens by component
+    // Group all tokens by component name
     dictionary.allTokens.forEach(token => {
-      if (token.path[0] === 'button') {
-        const component = 'button';
-        if (!components[component]) {
-          components[component] = {
-            base: {},
-            variants: {}
-          };
-        }
+      const componentName = token.path[0];
 
-        // Base button properties (not nested in variants)
-        if (['padding-v', 'padding-h', 'border-radius', 'font'].includes(token.path[1])) {
-          components[component].base[token.path[1]] = token;
-        }
-
-        // Variant-specific properties
-        if (token.path[1] === 'primary' || token.path[1] === 'secondary') {
-          const variant = token.path[1];
-          if (!components[component].variants[variant]) {
-            components[component].variants[variant] = [];
-          }
-          components[component].variants[variant].push(token);
-        }
+      // Skip non-component tokens
+      if (!['button', 'file-tree', 'list', 'panel', 'select'].includes(componentName) &&
+        !componentName.includes('component')) {
+        return;
       }
+
+      if (!componentGroups[componentName]) {
+        componentGroups[componentName] = [];
+      }
+      componentGroups[componentName].push(token);
     });
 
-    // Generate CSS classes
-    const cssClasses = [];
+    const cssOutput = [];
 
-    Object.entries(components).forEach(([componentName, { base, variants }]) => {
-      // Base component class
+    // Process each component
+    Object.entries(componentGroups).forEach(([componentName, tokens]) => {
+      cssOutput.push(`/* ${componentName.toUpperCase()} Component */`);
+
+      // Organize tokens by structure
       const baseProps = [];
-      if (base['padding-v'] && base['padding-h']) {
-        baseProps.push(`  padding: var(--${base['padding-v'].name}) var(--${base['padding-h'].name});`);
-      }
-      if (base['border-radius']) {
-        baseProps.push(`  border-radius: var(--${base['border-radius'].name});`);
-      }
-      if (base['font']) {
-        baseProps.push(`  font: var(--${base['font'].name});`);
-      }
-      baseProps.push(`  border-style: solid;`);
-      baseProps.push(`  cursor: pointer;`);
-      baseProps.push(`  transition: all 0.2s ease;`);
+      const variants = {};
+      const subComponents = {};
 
-      cssClasses.push(`.${componentName} {\n${baseProps.join('\n')}\n}`);
+      tokens.forEach(token => {
+        const path = token.path;
 
-      // Variant classes
-      Object.entries(variants).forEach(([variantName, tokens]) => {
-        const variantProps = [];
-
-        tokens.forEach(token => {
-          const property = token.path[2]; // e.g., background, text, border
-
-          if (property === 'background') {
-            if (token.path[3] === 'default') {
-              variantProps.push(`  background-color: var(--${token.name});`);
-            }
-          } else if (property === 'text') {
-            variantProps.push(`  color: var(--${token.name});`);
-          } else if (property === 'border') {
-            variantProps.push(`  border-color: var(--${token.name});`);
+        // Base properties (direct children of component)
+        if (path.length === 2) {
+          baseProps.push(token);
+        }
+        // Variants (e.g., button.primary, button.secondary)
+        else if (path.length >= 3 && isVariant(path[1], tokens)) {
+          const variantName = path[1];
+          if (!variants[variantName]) {
+            variants[variantName] = [];
           }
-        });
-
-        // Add hover states
-        cssClasses.push(`.${componentName}-${variantName} {\n${variantProps.join('\n')}\n}`);
-
-        // Add hover class
-        const hoverToken = tokens.find(t => t.path[2] === 'background' && t.path[3] === 'hover');
-        if (hoverToken) {
-          cssClasses.push(`.${componentName}-${variantName}:hover {\n  background-color: var(--${hoverToken.name});\n}`);
+          variants[variantName].push(token);
+        }
+        // Sub-components (e.g., file-tree.item, panel.header)
+        else if (path.length >= 3 && isSubComponent(path[1])) {
+          const subName = path[1];
+          if (!subComponents[subName]) {
+            subComponents[subName] = [];
+          }
+          subComponents[subName].push(token);
         }
       });
+
+      // Generate base component class
+      if (baseProps.length > 0) {
+        const cssProps = generateCssProperties(baseProps, componentName);
+        if (cssProps.length > 0) {
+          cssOutput.push(`.${componentName} {`);
+          cssProps.forEach(prop => cssOutput.push(`  ${prop}`));
+          cssOutput.push(`}`);
+        }
+      }
+
+      // Generate variant classes (e.g., .button-primary, .button-secondary)
+      Object.entries(variants).forEach(([variantName, variantTokens]) => {
+        const cssProps = generateCssProperties(variantTokens, componentName);
+        const stateProps = extractStateProperties(variantTokens);
+
+        // Base variant class
+        cssOutput.push(`.${componentName}-${variantName} {`);
+        cssProps.forEach(prop => cssOutput.push(`  ${prop}`));
+        cssOutput.push(`}`);
+
+        // State modifiers (e.g., :hover, :focus)
+        Object.entries(stateProps).forEach(([state, props]) => {
+          if (state !== 'default' && props.length > 0) {
+            cssOutput.push(`.${componentName}-${variantName}:${state} {`);
+            props.forEach(prop => cssOutput.push(`  ${prop}`));
+            cssOutput.push(`}`);
+          }
+        });
+      });
+
+      // Generate sub-component classes (e.g., .file-tree-item, .panel-header)
+      Object.entries(subComponents).forEach(([subName, subTokens]) => {
+        const cssProps = generateCssProperties(subTokens, componentName);
+        const stateProps = extractStateProperties(subTokens);
+
+        // Base sub-component class
+        cssOutput.push(`.${componentName}-${subName} {`);
+        cssProps.forEach(prop => cssOutput.push(`  ${prop}`));
+        cssOutput.push(`}`);
+
+        // State modifiers
+        Object.entries(stateProps).forEach(([state, props]) => {
+          if (state !== 'default' && props.length > 0) {
+            cssOutput.push(`.${componentName}-${subName}:${state} {`);
+            props.forEach(prop => cssOutput.push(`  ${prop}`));
+            cssOutput.push(`}`);
+          }
+        });
+      });
+
+      cssOutput.push(''); // Empty line between components
     });
 
-    return `/* Component Classes */\n/* Generated from Style Dictionary */\n\n${cssClasses.join('\n\n')}`;
+    return `/* Component Classes */\n/* Generated from Style Dictionary */\n\n${cssOutput.join('\n')}`;
   }
 });
+
+/**
+ * Generate CSS properties from tokens (excluding state-specific ones)
+ */
+function generateCssProperties(tokens, componentName) {
+  const props = [];
+  const processed = new Set();
+
+  tokens.forEach(token => {
+    const path = token.path;
+    const lastSegment = path[path.length - 1];
+    const secondLast = path.length > 1 ? path[path.length - 2] : null;
+
+    // Skip state-specific tokens (handled separately)
+    if (isState(lastSegment) && lastSegment !== 'default') {
+      return;
+    }
+
+    // Skip if we've already processed this property
+    const propKey = path.slice(1).join('-');
+    if (processed.has(propKey)) {
+      return;
+    }
+    processed.add(propKey);
+
+    // Handle 'default' state - use it for base property
+    let propertyName = secondLast;
+    if (lastSegment === 'default') {
+      propertyName = secondLast;
+    } else if (!isState(lastSegment)) {
+      propertyName = lastSegment;
+    }
+
+    // Map to CSS property
+    const cssProperty = getCssProperty(propertyName, token.$type);
+
+    // Generate CSS
+    if (cssProperty === 'padding-top-bottom') {
+      props.push(`padding-top: var(--${token.name});`);
+      props.push(`padding-bottom: var(--${token.name});`);
+    } else if (cssProperty === 'padding-left-right') {
+      props.push(`padding-left: var(--${token.name});`);
+      props.push(`padding-right: var(--${token.name});`);
+    } else {
+      props.push(`${cssProperty}: var(--${token.name});`);
+    }
+  });
+
+  // Add common properties for interactive components
+  if (componentName === 'button' || componentName === 'select') {
+    if (!props.some(p => p.includes('cursor'))) {
+      props.push('cursor: pointer;');
+    }
+    if (!props.some(p => p.includes('border-style'))) {
+      props.push('border-style: solid;');
+    }
+    if (!props.some(p => p.includes('transition'))) {
+      props.push('transition: all 0.2s ease;');
+    }
+  }
+
+  return props;
+}
+
+/**
+ * Extract state-specific properties (hover, selected, etc.)
+ */
+function extractStateProperties(tokens) {
+  const stateProps = {
+    default: [],
+    hover: [],
+    active: [],
+    focus: [],
+    selected: [],
+    disabled: []
+  };
+
+  tokens.forEach(token => {
+    const path = token.path;
+    const lastSegment = path[path.length - 1];
+    const secondLast = path.length > 1 ? path[path.length - 2] : null;
+
+    // Check if this is a state token
+    if (isState(lastSegment)) {
+      const state = lastSegment;
+      const propertyName = secondLast;
+      const cssProperty = getCssProperty(propertyName, token.$type);
+
+      if (cssProperty === 'padding-top-bottom') {
+        stateProps[state].push(`padding-top: var(--${token.name});`);
+        stateProps[state].push(`padding-bottom: var(--${token.name});`);
+      } else if (cssProperty === 'padding-left-right') {
+        stateProps[state].push(`padding-left: var(--${token.name});`);
+        stateProps[state].push(`padding-right: var(--${token.name});`);
+      } else {
+        stateProps[state].push(`${cssProperty}: var(--${token.name});`);
+      }
+    }
+  });
+
+  return stateProps;
+}
 
 // ============================================
 // CONFIGURATION
@@ -210,8 +392,9 @@ export default {
           "destination": "components.css",
           "format": "css/components",
           "filter": (token) => {
-            // Only include component tokens
-            return token.path[0] === 'button' || token.path[0].includes('component');
+            // Include all component tokens
+            return ['button', 'file-tree', 'list', 'panel', 'select'].includes(token.path[0]) ||
+              token.path[0].includes('component');
           }
         }
       ]
