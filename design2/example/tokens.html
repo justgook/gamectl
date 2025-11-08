@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Tokens</title>
+  <link rel="stylesheet" href="../build/css/variables.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="showcase.css">
+  <style>
+    /* Color swatches */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: var(--spacing-scale-3);
+      margin-bottom: var(--spacing-scale-5);
+    }
+
+    .color-swatch {
+      text-align: center;
+    }
+
+    .color-box {
+      height: 100px;
+      border-radius: var(--border-radius-sm);
+      margin-bottom: var(--spacing-scale-2);
+      border: var(--border-width-default) solid var(--color-semantic-border-default);
+    }
+
+    .color-label {
+      font: var(--font-semantic-body-small);
+      color: var(--color-semantic-text-secondary);
+      word-wrap: break-word;
+    }
+
+    /* Spacing visualization */
+    .spacing-demo {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--spacing-scale-2);
+      margin-bottom: var(--spacing-scale-5);
+      flex-wrap: wrap;
+    }
+
+    .spacing-box {
+      background: var(--color-semantic-background-accent-default);
+      text-align: center;
+      padding: var(--spacing-scale-2);
+      font: var(--font-semantic-body-small);
+      color: var(--color-semantic-text-on-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Typography samples */
+    .typography-sample {
+      margin-bottom: var(--spacing-scale-4);
+      padding: var(--spacing-scale-4);
+      background: var(--color-semantic-background-panel-default);
+      border: var(--border-width-default) solid var(--color-semantic-border-default);
+      border-radius: var(--border-radius-sm);
+    }
+
+    .typography-label {
+      font: var(--font-semantic-body-small);
+      color: var(--color-semantic-text-secondary);
+      margin-bottom: var(--spacing-scale-2);
+      font-family: 'Courier New', monospace;
+    }
+
+    /* Shadow samples */
+    .shadow-demo {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--spacing-scale-4);
+      margin-bottom: var(--spacing-scale-5);
+    }
+
+    .shadow-box {
+      background: var(--color-semantic-background-panel-default);
+      padding: var(--spacing-scale-5);
+      border-radius: var(--border-radius-md);
+      text-align: center;
+      color: var(--color-semantic-text-primary);
+    }
+
+    /* Border samples */
+    .border-demo {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: var(--spacing-scale-3);
+    }
+
+    .border-box {
+      padding: var(--spacing-scale-4);
+      background: var(--color-semantic-background-panel-default);
+      text-align: center;
+      font: var(--font-semantic-body-small);
+    }
+  </style>
+</head>
+<body>
+  <header class="top-header">
+    <div class="header-title">Design System Showcase</div>
+  </header>
+
+  <div class="layout-container">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-category">
+          <span class="icon">📖</span>
+          <span>Overview</span>
+        </div>
+        <div class="sidebar-items">
+          <a href="index.html" class="sidebar-item">
+            <span class="icon">🏠</span>
+            <span>Introduction</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-category" onclick="toggleCategory(this)">
+          <span class="icon">▼</span>
+          <span>Tokens</span>
+        </div>
+        <div class="sidebar-items">
+          <a href="#colors" class="sidebar-item">
+            <span class="icon">🎨</span>
+            <span>Colors</span>
+          </a>
+          <a href="#typography" class="sidebar-item">
+            <span class="icon">📝</span>
+            <span>Typography</span>
+          </a>
+          <a href="#spacing" class="sidebar-item">
+            <span class="icon">📏</span>
+            <span>Spacing</span>
+          </a>
+          <a href="#borders" class="sidebar-item">
+            <span class="icon">⬜</span>
+            <span>Borders</span>
+          </a>
+          <a href="#shadows" class="sidebar-item">
+            <span class="icon">💫</span>
+            <span>Shadows</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-category collapsed" onclick="toggleCategory(this)">
+          <span class="icon">▼</span>
+          <span>Components</span>
+        </div>
+        <div class="sidebar-items hidden">
+          <a href="components.html#buttons" class="sidebar-item">
+            <span class="icon">🔘</span>
+            <span>Buttons</span>
+          </a>
+          <a href="components.html#panels" class="sidebar-item">
+            <span class="icon">📋</span>
+            <span>Panels</span>
+          </a>
+          <a href="components.html#select" class="sidebar-item">
+            <span class="icon">🔽</span>
+            <span>Select</span>
+          </a>
+          <a href="components.html#lists" class="sidebar-item">
+            <span class="icon">📃</span>
+            <span>Lists</span>
+          </a>
+          <a href="components.html#file-tree" class="sidebar-item">
+            <span class="icon">📁</span>
+            <span>File Tree</span>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+    <h1>Design Tokens</h1>
+    <p class="description">
+      All design tokens following the DTCG standard format. These tokens are organized into
+      global primitives, semantic tokens, and component-specific tokens.
+    </p>
+
+    <!-- Colors -->
+    <section id="colors" class="showcase-section">
+      <h2>Colors - Global Palette</h2>
+      <h3>Base Colors</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-black);"></div>
+          <div class="color-label">Black</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-white);"></div>
+          <div class="color-label">White</div>
+        </div>
+      </div>
+
+      <h3>Grey Scale</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-grey-900);"></div>
+          <div class="color-label">Grey 900</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-grey-800);"></div>
+          <div class="color-label">Grey 800</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-grey-700);"></div>
+          <div class="color-label">Grey 700</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-grey-600);"></div>
+          <div class="color-label">Grey 600</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-grey-500);"></div>
+          <div class="color-label">Grey 500</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-grey-400);"></div>
+          <div class="color-label">Grey 400</div>
+        </div>
+      </div>
+
+      <h3>Cyan Palette</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-cyan-500);"></div>
+          <div class="color-label">Cyan 500</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-cyan-300);"></div>
+          <div class="color-label">Cyan 300</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-cyan-100);"></div>
+          <div class="color-label">Cyan 100</div>
+        </div>
+      </div>
+
+      <h3>Accent Colors</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-red-500);"></div>
+          <div class="color-label">Red 500</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-yellow-500);"></div>
+          <div class="color-label">Yellow 500</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-global-green-500);"></div>
+          <div class="color-label">Green 500</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Semantic Colors -->
+    <section class="showcase-section">
+      <h2>Colors - Semantic</h2>
+      <h3>Background Colors</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-background-default);"></div>
+          <div class="color-label">Default</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-background-panel-default);"></div>
+          <div class="color-label">Panel</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-background-panel-header);"></div>
+          <div class="color-label">Panel Header</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-background-accent-default);"></div>
+          <div class="color-label">Accent</div>
+        </div>
+      </div>
+
+      <h3>Text Colors</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-text-primary);"></div>
+          <div class="color-label">Primary</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-text-secondary);"></div>
+          <div class="color-label">Secondary</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-text-accent);"></div>
+          <div class="color-label">Accent</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-text-on-accent);"></div>
+          <div class="color-label">On Accent</div>
+        </div>
+      </div>
+
+      <h3>Border Colors</h3>
+      <div class="color-grid">
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-border-default);"></div>
+          <div class="color-label">Default</div>
+        </div>
+        <div class="color-swatch">
+          <div class="color-box" style="background: var(--color-semantic-border-accent);"></div>
+          <div class="color-label">Accent</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Spacing -->
+    <section id="spacing" class="showcase-section">
+      <h2>Spacing Scale</h2>
+      <p class="description">8px base spacing scale (0, 4, 8, 12, 16, 24, 32)</p>
+      <div class="spacing-demo">
+        <div class="spacing-box" style="width: var(--spacing-scale-0); height: 60px;">0</div>
+        <div class="spacing-box" style="width: var(--spacing-scale-1); height: 60px;">1</div>
+        <div class="spacing-box" style="width: var(--spacing-scale-2); height: 60px;">2</div>
+        <div class="spacing-box" style="width: var(--spacing-scale-3); height: 60px;">3</div>
+        <div class="spacing-box" style="width: var(--spacing-scale-4); height: 60px;">4</div>
+        <div class="spacing-box" style="width: var(--spacing-scale-5); height: 60px;">5</div>
+        <div class="spacing-box" style="width: var(--spacing-scale-6); height: 60px;">6</div>
+      </div>
+    </section>
+
+    <!-- Typography -->
+    <section id="typography" class="showcase-section">
+      <h2>Typography</h2>
+      
+      <div class="typography-sample">
+        <div class="typography-label">heading-default (Orbitron Bold 24px)</div>
+        <div style="font: var(--font-semantic-heading-default);">
+          The quick brown fox jumps over the lazy dog
+        </div>
+      </div>
+
+      <div class="typography-sample">
+        <div class="typography-label">body-default (Roboto Regular 14px)</div>
+        <div style="font: var(--font-semantic-body-default);">
+          The quick brown fox jumps over the lazy dog. This is the default body text used throughout the interface.
+        </div>
+      </div>
+
+      <div class="typography-sample">
+        <div class="typography-label">body-small (Roboto Regular 12px)</div>
+        <div style="font: var(--font-semantic-body-small);">
+          The quick brown fox jumps over the lazy dog. Smaller text for secondary information and labels.
+        </div>
+      </div>
+
+      <h3>Font Sizes</h3>
+      <div class="token-grid">
+        <div class="token-item">
+          <div class="token-name">--font-size-xs</div>
+          <div class="token-value" style="font-size: var(--font-size-xs);">11px sample</div>
+        </div>
+        <div class="token-item">
+          <div class="token-name">--font-size-sm</div>
+          <div class="token-value" style="font-size: var(--font-size-sm);">12px sample</div>
+        </div>
+        <div class="token-item">
+          <div class="token-name">--font-size-md</div>
+          <div class="token-value" style="font-size: var(--font-size-md);">14px sample</div>
+        </div>
+        <div class="token-item">
+          <div class="token-name">--font-size-lg</div>
+          <div class="token-value" style="font-size: var(--font-size-lg);">16px sample</div>
+        </div>
+        <div class="token-item">
+          <div class="token-name">--font-size-xl</div>
+          <div class="token-value" style="font-size: var(--font-size-xl);">24px sample</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Borders -->
+    <section id="borders" class="showcase-section">
+      <h2>Borders</h2>
+      
+      <h3>Border Widths</h3>
+      <div class="border-demo">
+        <div class="border-box" style="border: var(--border-width-thin) solid var(--color-semantic-border-default);">
+          Thin (1px)
+        </div>
+        <div class="border-box" style="border: var(--border-width-default) solid var(--color-semantic-border-default);">
+          Default (1px)
+        </div>
+        <div class="border-box" style="border: var(--border-width-thick) solid var(--color-semantic-border-default);">
+          Thick (2px)
+        </div>
+      </div>
+
+      <h3>Border Radius</h3>
+      <div class="border-demo">
+        <div class="border-box" style="border: var(--border-width-default) solid var(--color-semantic-border-default); border-radius: var(--border-radius-none);">
+          None (0px)
+        </div>
+        <div class="border-box" style="border: var(--border-width-default) solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm);">
+          Small (4px)
+        </div>
+        <div class="border-box" style="border: var(--border-width-default) solid var(--color-semantic-border-default); border-radius: var(--border-radius-md);">
+          Medium (8px)
+        </div>
+        <div class="border-box" style="border: var(--border-width-default) solid var(--color-semantic-border-default); border-radius: var(--border-radius-lg);">
+          Large (12px)
+        </div>
+      </div>
+    </section>
+
+    <!-- Shadows -->
+    <section id="shadows" class="showcase-section">
+      <h2>Shadows</h2>
+      <div class="shadow-demo">
+        <div class="shadow-box" style="box-shadow: var(--shadow-panel);">
+          Panel Shadow
+        </div>
+        <div class="shadow-box" style="box-shadow: var(--shadow-glow-accent-faint);">
+          Faint Glow
+        </div>
+        <div class="shadow-box" style="box-shadow: var(--shadow-glow-accent);">
+          Accent Glow
+        </div>
+        <div class="shadow-box" style="box-shadow: var(--shadow-glow-accent-strong);">
+          Strong Glow
+        </div>
+      </div>
+    </section>
+
+    <div style="
+      margin-top: var(--spacing-scale-6);
+      padding: var(--spacing-scale-4);
+      border-top: var(--border-width-default) solid var(--color-semantic-border-default);
+      font: var(--font-semantic-body-small);
+      color: var(--color-semantic-text-secondary);
+    ">
+      All tokens are defined in JSON following the DTCG standard and compiled to CSS custom properties.
+    </div>
+    </main>
+  </div>
+
+  <script>
+    function toggleCategory(element) {
+      element.classList.toggle('collapsed');
+      const items = element.nextElementSibling;
+      items.classList.toggle('hidden');
+    }
+
+    // Highlight active sidebar item based on hash
+    function updateActiveSidebarItem() {
+      const hash = window.location.hash;
+      document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.classList.remove('active');
+        if (hash && item.getAttribute('href') === hash) {
+          item.classList.add('active');
+        }
+      });
+    }
+
+    window.addEventListener('hashchange', updateActiveSidebarItem);
+    window.addEventListener('load', updateActiveSidebarItem);
+  </script>
+</body>
+</html>

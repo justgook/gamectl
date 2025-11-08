@@ -1,0 +1,44 @@
+{
+  "shadow": {
+    "$type": "shadow",
+    "$description": "Shadow effects - glow and depth",
+    "glow-accent-faint": {
+      "$value": {
+        "color": "{color.cyan-500}",
+        "offsetX": "0px",
+        "offsetY": "0px",
+        "blur": "4px",
+        "spread": "0px"
+      }
+    },
+    "glow-accent": {
+      "$value": {
+        "color": "{color.cyan-500}",
+        "offsetX": "0px",
+        "offsetY": "0px",
+        "blur": "6px",
+        "spread": "0px"
+      },
+      "$description": "Standard accent glow for interactive elements"
+    },
+    "glow-accent-strong": {
+      "$value": {
+        "color": "{color.cyan-500}",
+        "offsetX": "0px",
+        "offsetY": "0px",
+        "blur": "10px",
+        "spread": "0px"
+      }
+    },
+    "panel": {
+      "$value": {
+        "color": "#000000",
+        "offsetX": "0px",
+        "offsetY": "4px",
+        "blur": "12px",
+        "spread": "0px"
+      },
+      "$description": "Subtle depth shadow for panels"
+    }
+  }
+}

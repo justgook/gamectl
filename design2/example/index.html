@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design System - Overview</title>
+  <link rel="stylesheet" href="../build/css/variables.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="showcase.css">
+</head>
+<body>
+  <header class="top-header">
+    <div class="header-title">Design System Showcase</div>
+  </header>
+
+  <div class="layout-container">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-category">
+          <span class="icon">📖</span>
+          <span>Overview</span>
+        </div>
+        <div class="sidebar-items">
+          <a href="index.html" class="sidebar-item active">
+            <span class="icon">🏠</span>
+            <span>Introduction</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-category" onclick="toggleCategory(this)">
+          <span class="icon">▼</span>
+          <span>Tokens</span>
+        </div>
+        <div class="sidebar-items">
+          <a href="tokens.html#colors" class="sidebar-item">
+            <span class="icon">🎨</span>
+            <span>Colors</span>
+          </a>
+          <a href="tokens.html#typography" class="sidebar-item">
+            <span class="icon">📝</span>
+            <span>Typography</span>
+          </a>
+          <a href="tokens.html#spacing" class="sidebar-item">
+            <span class="icon">📏</span>
+            <span>Spacing</span>
+          </a>
+          <a href="tokens.html#borders" class="sidebar-item">
+            <span class="icon">⬜</span>
+            <span>Borders</span>
+          </a>
+          <a href="tokens.html#shadows" class="sidebar-item">
+            <span class="icon">💫</span>
+            <span>Shadows</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-category" onclick="toggleCategory(this)">
+          <span class="icon">▼</span>
+          <span>Components</span>
+        </div>
+        <div class="sidebar-items">
+          <a href="components.html#buttons" class="sidebar-item">
+            <span class="icon">🔘</span>
+            <span>Buttons</span>
+          </a>
+          <a href="components.html#panels" class="sidebar-item">
+            <span class="icon">📋</span>
+            <span>Panels</span>
+          </a>
+          <a href="components.html#select" class="sidebar-item">
+            <span class="icon">🔽</span>
+            <span>Select</span>
+          </a>
+          <a href="components.html#lists" class="sidebar-item">
+            <span class="icon">📃</span>
+            <span>Lists</span>
+          </a>
+          <a href="components.html#file-tree" class="sidebar-item">
+            <span class="icon">📁</span>
+            <span>File Tree</span>
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+    <h1>Welcome to the Design System</h1>
+    
+    <p class="description">
+      This is a lightweight design system showcase built with plain HTML and CSS. 
+      It demonstrates all design tokens and components using the DTCG (Design Tokens Community Group) standard format.
+      No heavy JavaScript frameworks required - just simple, clean HTML that showcases the design system.
+    </p>
+
+    <div class="showcase-section">
+      <h2>What's Included</h2>
+      
+      <div class="token-grid">
+        <div class="token-item">
+          <h3>Design Tokens</h3>
+          <p class="description" style="margin-bottom: 0;">
+            Browse all global and semantic tokens including colors, typography, spacing, borders, shadows, and more.
+            All tokens follow the DTCG standard and are properly typed.
+          </p>
+        </div>
+
+        <div class="token-item">
+          <h3>Components</h3>
+          <p class="description" style="margin-bottom: 0;">
+            Explore interactive components like buttons, panels, select inputs, lists, and file trees.
+            Each component demonstrates proper usage of design tokens and includes hover states.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="showcase-section">
+      <h2>Quick Links</h2>
+      <div style="display: flex; gap: var(--spacing-scale-3); flex-wrap: wrap;">
+        <a href="tokens.html" style="
+          background: var(--button-primary-background-default);
+          color: var(--button-primary-text);
+          border: var(--border-width-default) solid var(--button-primary-border);
+          padding: var(--button-padding-v) var(--button-padding-h);
+          border-radius: var(--button-border-radius);
+          text-decoration: none;
+          font: var(--button-font);
+          transition: all 0.2s ease;
+          display: inline-block;
+        ">View All Tokens</a>
+        
+        <a href="components.html" style="
+          background: var(--button-secondary-background-default);
+          color: var(--button-secondary-text);
+          border: var(--border-width-default) solid var(--button-secondary-border);
+          padding: var(--button-padding-v) var(--button-padding-h);
+          border-radius: var(--button-border-radius);
+          text-decoration: none;
+          font: var(--button-font);
+          transition: all 0.2s ease;
+          display: inline-block;
+        ">View Components</a>
+      </div>
+    </div>
+
+    <div class="showcase-section">
+      <h2>About DTCG Standard</h2>
+      <p class="description">
+        The Design Tokens Community Group (DTCG) format is a W3C standard for defining design tokens.
+        Key features include:
+      </p>
+      <ul style="
+        list-style: none;
+        padding-left: var(--spacing-scale-4);
+        color: var(--color-semantic-text-secondary);
+        line-height: 1.8;
+      ">
+        <li>✓ Proper type declarations with <code class="code-block" style="display: inline; padding: 2px 8px;">$type</code></li>
+        <li>✓ Clean reference syntax without .value suffix</li>
+        <li>✓ Composite types for shadows and typography</li>
+        <li>✓ Clear separation of global, semantic, and component tokens</li>
+        <li>✓ Build-time transformation to CSS custom properties</li>
+      </ul>
+    </div>
+
+    <div style="
+      margin-top: var(--spacing-scale-6);
+      padding: var(--spacing-scale-4);
+      border-top: var(--border-width-default) solid var(--color-semantic-border-default);
+      font: var(--font-semantic-body-small);
+      color: var(--color-semantic-text-secondary);
+    ">
+      Built with DTCG standard design tokens • Minimal JavaScript • Pure HTML & CSS
+    </div>
+    </main>
+  </div>
+
+  <script>
+    function toggleCategory(element) {
+      element.classList.toggle('collapsed');
+      const items = element.nextElementSibling;
+      items.classList.toggle('hidden');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "color": {
+    "$type": "color",
+    "$description": "Foundation color palette - base colors that should be referenced by semantic tokens",
+    "black": {
+      "$value": "#05080a",
+      "$description": "Deepest background color"
+    },
+    "grey-900": {
+      "$value": "#11151a"
+    },
+    "grey-800": {
+      "$value": "#1a2026"
+    },
+    "grey-700": {
+      "$value": "#2d3741"
+    },
+    "cyan-500": {
+      "$value": "#00e5ff",
+      "$description": "Primary accent color"
+    },
+    "cyan-300": {
+      "$value": "#80f2ff"
+    },
+    "cyan-100": {
+      "$value": "#a6f5ff"
+    },
+    "white": {
+      "$value": "#f0f8ff"
+    },
+    "red-500": {
+      "$value": "#ff3b30",
+      "$description": "Danger/error color"
+    },
+    "yellow-500": {
+      "$value": "#ffcc00",
+      "$description": "Warning color"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "font-semantic": {
+    "$description": "Semantic typography tokens - complete typographic styles",
+    "body": {
+      "$type": "typography",
+      "default": {
+        "$value": {
+          "fontFamily": "{font.family.ui}",
+          "fontSize": "{font.size.md}",
+          "fontWeight": "{font.weight.regular}",
+          "lineHeight": "{font.line-height.default}"
+        },
+        "$description": "Default body text style"
+      },
+      "small": {
+        "$value": {
+          "fontFamily": "{font.family.ui}",
+          "fontSize": "{font.size.sm}",
+          "fontWeight": "{font.weight.regular}",
+          "lineHeight": "{font.line-height.compact}"
+        },
+        "$description": "Small body text (e.g., labels, captions)"
+      }
+    },
+    "heading": {
+      "$type": "typography",
+      "default": {
+        "$value": {
+          "fontFamily": "{font.family.display}",
+          "fontSize": "{font.size.lg}",
+          "fontWeight": "{font.weight.bold}",
+          "lineHeight": "{font.line-height.compact}"
+        },
+        "$description": "Default heading style"
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "panel": {
+    "$description": "Panel component tokens",
+    "background": {
+      "$value": "{color-semantic.background.panel}",
+      "$type": "color"
+    },
+    "border": {
+      "$value": "{color-semantic.border.default}",
+      "$type": "color"
+    },
+    "border-width": {
+      "$value": "{border.width.default}",
+      "$type": "dimension"
+    },
+    "border-radius": {
+      "$value": "{border.radius.sharp}",
+      "$type": "dimension"
+    },
+    "header": {
+      "$description": "Panel header styles",
+      "background": {
+        "$value": "{color-semantic.background.panel-header}",
+        "$type": "color"
+      },
+      "padding": {
+        "$value": "{spacing.scale-3}",
+        "$type": "dimension"
+      },
+      "font": {
+        "$value": "{font-semantic.heading.default}",
+        "$type": "typography"
+      },
+      "text": {
+        "$value": "{color-semantic.text.accent}",
+        "$type": "color"
+      }
+    },
+    "content": {
+      "$description": "Panel content area",
+      "padding": {
+        "$value": "{spacing.scale-4}",
+        "$type": "dimension"
+      }
+    }
+  }
+}

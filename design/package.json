@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "scripts": {
+    "build": "style-dictionary build --config config.js"
+  },
+  "devDependencies": {
+    "style-dictionary": "^5.1.1"
+  }
+}

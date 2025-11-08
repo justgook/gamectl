@@ -1,0 +1,15 @@
+{
+  "border": {
+    "$description": "Border properties",
+    "radius": {
+      "$type": "dimension",
+      "sharp": { "$value": "0px" },
+      "sm": { "$value": "3px" }
+    },
+    "width": {
+      "$type": "dimension",
+      "default": { "$value": "1px" },
+      "thick": { "$value": "2px" }
+    }
+  }
+}

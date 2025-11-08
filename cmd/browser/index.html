@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Nested Web Components Example</title>
+  <style>
+    body {
+      background: #202020;
+      color: white;
+      font-family: sans-serif;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    layout-parent {
+      position: relative;
+      width: 400px;
+      height: 300px;
+      background: #333;
+      border: 2px solid #555;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body>
+
+  <layout-parent id="scene"></layout-parent>
+
+  <script type="module">
+    import {LayoutParent} from "./views/layout.js"
+    import {ChildBox} from "./views/delme.js"
+    customElements.define('layout-parent', LayoutParent);
+    customElements.define('child-box', ChildBox);
+
+
+    // --- Usage example ---
+    const scene = document.getElementById('scene');
+
+    // Add a few children over time
+    let count = 0;
+    const interval = setInterval(() => {
+      const box = document.createElement('child-box');
+      box.textContent = ++count;
+      scene.appendChild(box);
+      if (count >= 5) clearInterval(interval);
+    }, 1000);
+  </script>
+
+</body>
+
+</html>
