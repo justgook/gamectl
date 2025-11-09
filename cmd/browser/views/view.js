@@ -1,5 +1,5 @@
 export class View extends HTMLElement {
-  static get observedAttributes() { return ['x', 'y', 'w', 'h']; }
+  static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel']; }
   constructor() {
     super();
     this._x = 0;
@@ -19,6 +19,7 @@ export class View extends HTMLElement {
     if (name === 'y') this._y = parseFloat(newVal);
     if (name === 'w') this._w = parseFloat(newVal);
     if (name === 'h') this._h = parseFloat(newVal);
+    if (name === 'panel' && this.debug) this.debug.textContent = newVal
     this._updatePosition();
   }
 
@@ -42,6 +43,10 @@ export class View extends HTMLElement {
   addChrome() {
     const chrome = new ViewChrome(this)
     this.appendChild(chrome)
+    this.debug = document.createElement("div")
+    this.debug.textContent = this.getAttribute("panel")
+    this.debug.style.position = "absolute"
+    this.appendChild(this.debug)
   }
 }
 
@@ -71,18 +76,37 @@ class ViewChrome extends HTMLElement {
     this.addEventListener("drop", (event) => {
       event.preventDefault()
 
-      console.log("this.dragDirection could be wrong or empty if drag from other panel", this.dragDirection)
+      console.log("this.dragDirection is null then it came from other panel", this.dragDirection)
       if (!this.dragDirection) {
-        const plainText2 = event.dataTransfer.getData('text/plain')
-        const plainText = this.view.getAttribute("panel")
-        console.log(`it came from ${plainText}`, this.view.getAttribute("panel"))
-        const result = this.view.layout.layout.join(plainText2, plainText)
-        if (result) {
-          const child = this.view.layout.querySelector(`[panel="${plainText2}"]`)
-          this.view.layout.removeChild(child)
-          this.view.layout.reset()
+        const toPanel = event.dataTransfer.getData('text/plain')
+        const fromPanel = this.view.getAttribute("panel")
+        this.view.layout.layout.join(fromPanel, toPanel)
+
+        const allPanels = this.view.layout.layout.getPanels().map(({ id }) => id)
+        console.log({ allPanels })
+        console.log(allPanels.length)
+
+        const childsToRemove = []
+        for (const child of this.view.layout.children) {
+          if (child instanceof View) {
+            const childPanel = child.getAttribute("panel")
+            console.log(childPanel, { removing: !allPanels.includes(childPanel) })
+            if (!allPanels.includes(childPanel)) {
+              childsToRemove.push(child)
+            }
+            const index = allPanels.indexOf(childPanel)
+            if (index !== -1) {
+              allPanels.splice(index, 1);
+            }
+          }
         }
-        console.log(result)
+        console.log(allPanels, allPanels.length)
+        if (allPanels.length > 0) {
+          console.error(`missing dom element(s) for: ${allPanels.join("")}`)
+        }
+        childsToRemove.map((a) => a.parentNode.removeChild(a))
+        this.view.layout.reset()
+
         return
       }
 
