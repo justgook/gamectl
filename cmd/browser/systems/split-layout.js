@@ -279,44 +279,220 @@ export class SplitLayout {
 
 
   // === Merge =============================================================
+  
+  /**
+   * Join fromPanel into toPanel (fromPanel disappears, toPanel expands)
+   * This implements Blender-style panel merging with BST restructuring
+   */
   join(fromPanelId, toPanelId) {
+    // Find paths to both panels
     const pathFrom = this.findPath(this.root, fromPanelId)
     const pathTo = this.findPath(this.root, toPanelId)
-    if (!pathFrom || !pathTo) throw new Error("One of panels not found")
-
-    // Find lowest common ancestor (LCA)
-    let lca = null
-    for (let i = 0; i < Math.min(pathFrom.length, pathTo.length); i++) {
-      if (pathFrom[i] === pathTo[i]) lca = pathFrom[i]
-      else break
+    if (!pathFrom || !pathTo) {
+      console.warn("One of panels not found")
+      return false
     }
 
+    // Find lowest common ancestor (LCA)
+    const lca = this.findLCA(pathFrom, pathTo)
     if (!lca || lca.type !== "split") {
       console.warn("No direct split between panels")
       return false
     }
 
-    // Determine sides
-    const left = lca.left
-    const right = lca.right
+    // Determine which side contains which panel
+    const fromInLeft = this.isNodeInSubtree(lca.left, fromPanelId)
+    const fromNode = fromInLeft ? lca.left : lca.right
+    const toNode = fromInLeft ? lca.right : lca.left
 
-    let merged = null
+    // Handle different cases based on node types
+    let replacement = null
 
-    if (left.type === "panel" && left.id === fromPanelId && right.type === "panel" && right.id === toPanelId) {
-      merged = this.mergePanels(lca, left, right)
-    } else if (left.type === "panel" && left.id === toPanelId && right.type === "panel" && right.id === fromPanelId) {
-      merged = this.mergePanels(lca, left, right)
-    } else {
-      console.warn("Panels are not directly adjacent")
+    if (fromNode.type === "panel" && toNode.type === "panel") {
+      // Case 1: Both are panels - simple merge
+      // Just keep the toNode (winner panel)
+      replacement = toNode
+    } 
+    else if (fromNode.type === "panel" && toNode.type === "split") {
+      // Case 2: Panel merges into subtree
+      // The entire subtree survives and expands
+      replacement = toNode
+    }
+    else if (fromNode.type === "split" && toNode.type === "panel") {
+      // Case 3: Panel from subtree merges into single panel
+      // Need to extract fromPanel and keep its siblings
+      replacement = this.extractAndRestructure(fromNode, fromPanelId, toNode, lca.vertical)
+    }
+    else {
+      // Case 4: Panel from one subtree merges into another subtree
+      // Extract fromPanel, keep siblings, toNode subtree survives
+      replacement = this.extractAndRestructure(fromNode, fromPanelId, toNode, lca.vertical)
+    }
+
+    if (!replacement) {
+      console.warn("Failed to create replacement structure")
       return false
     }
 
-    // Replace LCA split node with the merged panel in its parent
-    this.replaceNode(this.root, lca.id, merged)
+    // Replace LCA with the new structure
+    if (lca === this.root) {
+      this.root = replacement
+    } else {
+      this.replaceNode(this.root, lca.id, replacement)
+    }
 
-    // Recompute bounds
+    // Recompute all bounds
     this.recomputePanelBounds(this.root, 0, 0, this.width, this.height)
     return true
+  }
+
+  /**
+   * Find lowest common ancestor of two paths
+   */
+  findLCA(pathFrom, pathTo) {
+    let lca = null
+    for (let i = 0; i < Math.min(pathFrom.length, pathTo.length); i++) {
+      if (pathFrom[i] === pathTo[i]) {
+        lca = pathFrom[i]
+      } else {
+        break
+      }
+    }
+    return lca
+  }
+
+  /**
+   * Check if a panel exists in a subtree
+   */
+  isNodeInSubtree(node, panelId) {
+    if (node.type === "panel") {
+      return node.id === panelId
+    }
+    if (node.type === "split") {
+      return this.isNodeInSubtree(node.left, panelId) || 
+             this.isNodeInSubtree(node.right, panelId)
+    }
+    return false
+  }
+
+  /**
+   * Extract a panel from a subtree and restructure with the winner node
+   * This is the complex case where we need to:
+   * 1. Remove fromPanel from the fromSubtree
+   * 2. Keep the sibling panels
+   * 3. Create new split structure with toNode and remaining panels
+   */
+  extractAndRestructure(fromSubtree, fromPanelId, toNode, originalSplitVertical) {
+    // Find the fromPanel in the subtree and get its sibling
+    const result = this.findAndExtractPanel(fromSubtree, fromPanelId)
+    
+    if (!result) {
+      console.warn("Could not find panel in subtree")
+      return null
+    }
+
+    const { sibling, removedPanel } = result
+
+    // If there's no sibling, just return toNode (the entire fromSubtree was just one panel)
+    if (!sibling) {
+      return toNode
+    }
+
+    // Create a new split with toNode and the remaining sibling subtree
+    // The new split orientation should be perpendicular to the original
+    // This allows both toNode and sibling to expand in the merge direction
+    // 
+    // We need to set pos to match where the removed panel was
+    // If original split was vertical, new split is horizontal, so pos should be Y
+    // If original split was horizontal, new split is vertical, so pos should be X
+    let pos
+    if (!originalSplitVertical) {
+      // New split is vertical (left-right)
+      // Use the original X position of the removed panel as reference
+      pos = removedPanel ? removedPanel.x + removedPanel.w : 100
+    } else {
+      // New split is horizontal (top-bottom)
+      // Use the original Y position of the removed panel as reference  
+      pos = removedPanel ? removedPanel.y + removedPanel.h : 100
+    }
+
+    const newSplit = {
+      type: "split",
+      id: genId("handle"),
+      vertical: !originalSplitVertical, // Perpendicular!
+      pos,
+      left: toNode,
+      right: sibling
+    }
+
+    return newSplit
+  }
+
+  /**
+   * Find a panel in a subtree and extract it, returning its sibling
+   * Returns: { sibling: node, removedPanel: node } or null
+   */
+  findAndExtractPanel(node, panelId) {
+    if (node.type === "panel") {
+      // Shouldn't happen - means we're trying to extract the root panel
+      return null
+    }
+
+    if (node.type === "split") {
+      const leftIsPanel = node.left.type === "panel"
+      const rightIsPanel = node.right.type === "panel"
+
+      // Check if the panel is a direct child
+      if (leftIsPanel && node.left.id === panelId) {
+        // Panel is on the left, return right sibling
+        return { sibling: node.right, removedPanel: node.left }
+      }
+      if (rightIsPanel && node.right.id === panelId) {
+        // Panel is on the right, return left sibling
+        return { sibling: node.left, removedPanel: node.right }
+      }
+
+      // Panel is deeper in the tree - recurse
+      if (this.isNodeInSubtree(node.left, panelId)) {
+        // Panel is somewhere in left subtree
+        const result = this.findAndExtractPanel(node.left, panelId)
+        if (result && result.sibling) {
+          // Now we need to reconstruct: right + extracted sibling
+          return {
+            sibling: {
+              type: "split",
+              id: node.id, // Reuse the split ID
+              vertical: node.vertical,
+              pos: node.pos,
+              left: result.sibling,
+              right: node.right
+            },
+            removedPanel: result.removedPanel
+          }
+        }
+        return result
+      } else {
+        // Panel is somewhere in right subtree
+        const result = this.findAndExtractPanel(node.right, panelId)
+        if (result && result.sibling) {
+          // Reconstruct: left + extracted sibling
+          return {
+            sibling: {
+              type: "split",
+              id: node.id, // Reuse the split ID
+              vertical: node.vertical,
+              pos: node.pos,
+              left: node.left,
+              right: result.sibling
+            },
+            removedPanel: result.removedPanel
+          }
+        }
+        return result
+      }
+    }
+
+    return null
   }
 
   findPath(node, panelId, path = []) {
@@ -333,30 +509,17 @@ export class SplitLayout {
 
   replaceNode(node, targetId, newNode) {
     if (node.type === "split") {
-      if (node.left.id === targetId) node.left = newNode
-      else if (node.right.id === targetId) node.right = newNode
-      else {
-        this.replaceNode(node.left, targetId, newNode)
-        this.replaceNode(node.right, targetId, newNode)
+      if (node.left.id === targetId) {
+        node.left = newNode
+        return true
       }
+      if (node.right.id === targetId) {
+        node.right = newNode
+        return true
+      }
+      return this.replaceNode(node.left, targetId, newNode) ||
+             this.replaceNode(node.right, targetId, newNode)
     }
-  }
-
-  mergePanels(split, left, right) {
-    if (split.vertical) {
-      // Merge horizontally
-      const x = Math.min(left.x, right.x)
-      const y = left.y
-      const w = left.w + this.handleW + right.w
-      const h = left.h
-      return { type: "panel", id: left.id, x, y, w, h }
-    } else {
-      // Merge vertically
-      const x = left.x
-      const y = Math.min(left.y, right.y)
-      const w = left.w
-      const h = left.h + this.handleH + right.h
-      return { type: "panel", id: left.id, x, y, w, h }
-    }
+    return false
   }
 }

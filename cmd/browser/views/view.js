@@ -78,7 +78,7 @@ class ViewChrome extends HTMLElement {
         console.log(`it came from ${plainText}`, this.view.getAttribute("panel"))
         const result = this.view.layout.layout.join(plainText2, plainText)
         if (result) {
-          const child = this.view.layout.querySelector(`[panel="${plainText}"]`)
+          const child = this.view.layout.querySelector(`[panel="${plainText2}"]`)
           this.view.layout.removeChild(child)
           this.view.layout.reset()
         }
