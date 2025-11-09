@@ -1,57 +1,163 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYE html>
+  <html lang="en">
 
-<head>
-  <meta charset="UTF-8" />
-  <title>Nested Web Components Example</title>
-  <style>
-    body {
-      background: #202020;
-      color: white;
-      font-family: sans-serif;
-      height: 100vh;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+  <head>
+    <meta charset="UTF-8" />
 
-    layout-parent {
-      position: relative;
-      width: 400px;
-      height: 300px;
-      background: #333;
-      border: 2px solid #555;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-  </style>
-</head>
+    <title>Nested Web Components Example</title>
+    <link rel="stylesheet" href="reset.css">
+    <link rel="stylesheet" href="build.nosync/tokens/css/variables.css">
+    <link rel="stylesheet" href="build.nosync/tokens/css/atomic.css">
+    <link rel="stylesheet" href="build.nosync/tokens/css/components.css">
 
-<body>
-
-  <layout-parent id="scene"></layout-parent>
-
-  <script type="module">
-    import {LayoutParent} from "./views/layout.js"
-    import {ChildBox} from "./views/delme.js"
-    customElements.define('layout-parent', LayoutParent);
-    customElements.define('child-box', ChildBox);
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet">
 
 
-    // --- Usage example ---
-    const scene = document.getElementById('scene');
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        background: var(--color-semantic-background-default);
+        color: var(--color-semantic-text-primary);
+        font-family: 'Roboto Mono', monospace;
+      }
+
+      layout-parent {
+        position: relative;
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        background: #333;
+        overflow: hidden;
+      }
+
+      .panel {
+        height: 100%;
+      }
+
+      .ne,
+      .se,
+      .sw,
+      .nw {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background-color: red;
+      }
+
+      .ne,
+      .nw {
+        top: 0
+      }
+
+      .se,
+      .sw {
+        bottom: 0
+      }
+
+      .ne,
+      .se {
+        right: 0;
+      }
+
+      .nw,
+      .sw {
+        left: 0
+      }
+
+      .nw {
+        border-radius: 0 0 100% 0;
+        cursor: se-resize;
+      }
+
+      .ne {
+        border-radius: 0 0 0 100%;
+        cursor: sw-resize;
+      }
+
+      .sw {
+        border-radius: 0 100% 0 0;
+        cursor: ne-resize;
+      }
+
+      .se {
+        border-radius: 100% 0 0 0;
+        cursor: nw-resize;
+      }
+    </style>
+  </head>
+
+  <body>
+    <template id="view-testing">
+      <div class="panel">
+        <div class="panel-header">Panel Header</div>
+        <div class="panel-content">
+          <button class="button-primary" type="button">ok</button>
+          <button class="button-secondary" type="button">cancel</button>
+        </div>
+      </div>
+    </template>
+
+    <template id="view-splitter">
+      <div class="panel">
+        <div class="panel-header">Splitter</div>
+        <div class="panel-content">
+          <button class="button-primary" type="button" data-action="split-vertical">Vertical</button>
+          <button class="button-secondary" type="button" data-action="split-horizontal">Horizontal</button>
+        </div>
+      </div>
+    </template>
+
+    <template id="view-chrome">
+      <div class="panel-header" style="background-color: transparent;">
+        <select class="select">
+          <option>111</option>
+        </select>
+      </div>
+      <div class="ne" data-action="ne" draggable="true"></div>
+      <div class="se" data-action="se" draggable="true"></div>
+      <div class="sw" data-action="sw" draggable="true"></div>
+      <div class="nw" data-action="nw" draggable="true"></div>
+    </template>
+
+    <layout-parent handle-width="6" handle-height="20" id="scene">
+      <view-splitter panel="panel_1" />
+    </layout-parent>
+
+
+    <script type="module">
+      import {LayoutParent} from "./views/layout.js"
+      import {ViewTesting} from "./views/view-testing.js"
+      import {ViewSplitter} from "./views/view-splitter.js"
+
+      customElements.define('layout-parent', LayoutParent)
+      customElements.define('view-testing', ViewTesting)
+      customElements.define('view-splitter', ViewSplitter)
+
+
+
+      // --- Usage example ---
+      const scene = document.getElementById('scene')
 
     // Add a few children over time
-    let count = 0;
-    const interval = setInterval(() => {
-      const box = document.createElement('child-box');
-      box.textContent = ++count;
-      scene.appendChild(box);
-      if (count >= 5) clearInterval(interval);
-    }, 1000);
-  </script>
+    // let count = 0
+    // const interval = setInterval(() => {
+    //   const box = document.createElement('view-testing')
+    //   // box.textContent = ++count
+    //   count++
+    //   scene.appendChild(box)
+    //   if (count >= 5) clearInterval(interval)
+    // }, 1000)
+    </script>
 
-</body>
+  </body>
 
-</html>
+  </html>

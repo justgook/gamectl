@@ -45,7 +45,7 @@ SYS_GOARCH := $(shell go env GOARCH)
 GO_MODULE_NAME ?= $(shell go list -m)
 
 .PHONY: all
-all: lsp
+all: browser
 
 .PHONY: plugins-release
 plugins-release: $(PLUGIN_TARGETS)
@@ -61,21 +61,19 @@ $(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) 
 	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
 
 # Design token files
-DESIGN_TOKEN_FILES := $(BUILD_DIR)/tokens/css/variables.css $(BUILD_DIR)/tokens/js/tokens.js
+DESIGN_TOKEN_FILES := $(BUILD_DIR)/tokens/css/components.css $(BUILD_DIR)/tokens/css/variables.css $(BUILD_DIR)/tokens/css/atomic.css $(BUILD_DIR)/tokens/js/tokens.js
 
 .PHONY: design-tokens
 design-tokens: $(DESIGN_TOKEN_FILES)
 
 # Rule to build design tokens
-$(BUILD_DIR)/tokens/css/variables.css $(BUILD_DIR)/tokens/js/tokens.js: $(wildcard $(DESIGN_DIR)/tokens/**/*.json) $(DESIGN_DIR)/config.json
-	$(Q)echo "Building design tokens..."
+$(DESIGN_TOKEN_FILES): $(wildcard $(DESIGN_DIR)/tokens/**/*.json)
+	$(Q)echo "Building design tokens...AAA"
 	$(Q)mkdir -p $(BUILD_DIR)/tokens/css $(BUILD_DIR)/tokens/js
-	$(Q)cd $(DESIGN_DIR) && npx style-dictionary build --verbose && cp build/css/variables.css ../$(BUILD_DIR)/tokens/css/ && cp build/js/tokens.js ../$(BUILD_DIR)/tokens/js/
-
-
+	$(Q)cd $(DESIGN_DIR) && npx style-dictionary build --verbose && cp build/css/* ../$(BUILD_DIR)/tokens/css/ && cp build/js/* ../$(BUILD_DIR)/tokens/js
 
 .PHONY: browser
-browser: design-tokens
+browser: design-tokens $(PLUGIN_TARGETS)
 	$(Q)go build -o $(BUILD_DIR)/browser-server ./cmd/browser/server.go
 
 .PHONY: browser-run

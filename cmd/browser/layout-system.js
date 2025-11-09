@@ -3,7 +3,7 @@
  * Pure layout management using a binary tree structure.
  * No rendering or event handling - just layout calculations.
  */
-class LayoutSystem {
+export class LayoutSystem {
   constructor(config = {}) {
     this.config = {
       handleWidth: config.handleWidth || 6,
@@ -338,14 +338,4 @@ class LayoutSystem {
     const result = this._findNodeAndParent(panelId);
     return result && result.parent !== null;
   }
-}
-
-// Export for use in browser
-if (typeof window !== 'undefined') {
-  window.LayoutSystem = LayoutSystem;
-}
-
-// Export for use in Node.js (if needed)
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = LayoutSystem;
 }
