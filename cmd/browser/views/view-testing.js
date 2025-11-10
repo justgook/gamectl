@@ -4,11 +4,11 @@ export class ViewTesting extends View {
   // constructor() {
   //   super()
   // }
+  constructor() {
+    super('view-testing')
+  }
   connectedCallback() {
-    super.connectedCallback()
-    const template = document.getElementById('view-testing')
-    const content = template.content.cloneNode(true)
-    this.appendChild(content)
+    super.connectedCallback('view-testing')
   }
 }
 

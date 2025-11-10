@@ -1,16 +1,20 @@
+import { panelJoin } from "../systems/split-layout-join.js"
+const defaultView = "view-empty"
 export class View extends HTMLElement {
   static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel']; }
-  constructor() {
+  constructor(contentTag = defaultView) {
     super();
-    this._x = 0;
-    this._y = 0;
-    this._w = 0;
-    this._h = 0;
+    this._x = 0
+    this._y = 0
+    this._w = 0
+    this._h = 0
+    this.content = contentTag
   }
 
   connectedCallback() {
     this.style.position = "absolute"
-    this._updatePosition();
+    this._updatePosition()
+    this.appendChild(this.mounedContent)
     this.addChrome()
   }
 
@@ -20,8 +24,26 @@ export class View extends HTMLElement {
     if (name === 'w') this._w = parseFloat(newVal);
     if (name === 'h') this._h = parseFloat(newVal);
     if (name === 'panel' && this.debug) this.debug.textContent = newVal
-    this._updatePosition();
+    this._updatePosition()
   }
+
+
+  set content(tag = defaultView) {
+    const haveMount = this.mounedContent
+    this._content = tag
+    const template = document.getElementById(tag)
+    const content = template.content.cloneNode(true)
+    this.mounedContent = document.createElement("div")
+    this.mounedContent.style.display = "content"
+    this.mounedContent.appendChild(content)
+    this.mounedContent.template = tag
+
+    if (!this.isConnected) return
+    if (haveMount) this.replaceChild(this.mounedContent, haveMount)
+    else this.appendChild(this.mounedContent)
+  }
+
+  get content() { return this.mounedContent }
 
   set x(v) { this._x = v; this._updatePosition(); }
   set y(v) { this._y = v; this._updatePosition(); }
@@ -43,9 +65,12 @@ export class View extends HTMLElement {
   addChrome() {
     const chrome = new ViewChrome(this)
     this.appendChild(chrome)
+    //TODO: delete DEBUG STUFF
     this.debug = document.createElement("div")
     this.debug.textContent = this.getAttribute("panel")
     this.debug.style.position = "absolute"
+    this.debug.style.top = 0
+    this.debug.style.right = 25
     this.appendChild(this.debug)
   }
 }
@@ -61,8 +86,7 @@ class ViewChrome extends HTMLElement {
     const template = document.getElementById('view-chrome')
     const elm = template.content.cloneNode(true)
     this.style.position = "absolute"
-    this.style.width = "100%"
-    this.style.height = "100%"
+    this.style.inset = 0
     this.style.zIndex = "100"
 
       ;["ne", "se", "sw", "nw"].map(dir => {
@@ -72,50 +96,12 @@ class ViewChrome extends HTMLElement {
         corner.addEventListener("dragend", this._cornerDragEnd)
       })
 
+    const select = elm.querySelector(`[data-action="select-view"]`)
+    select.value = this.view.content.template
+    select.addEventListener("change", (event) => { this.view.content = event.target.value })
+
     this.addEventListener("dragover", (event) => { event.preventDefault() })
-    this.addEventListener("drop", (event) => {
-      event.preventDefault()
-
-      console.log("this.dragDirection is null then it came from other panel", this.dragDirection)
-      if (!this.dragDirection) {
-        const toPanel = event.dataTransfer.getData('text/plain')
-        const fromPanel = this.view.getAttribute("panel")
-        this.view.layout.layout.join(fromPanel, toPanel)
-
-        const allPanels = this.view.layout.layout.getPanels().map(({ id }) => id)
-        console.log({ allPanels })
-        console.log(allPanels.length)
-
-        const childsToRemove = []
-        for (const child of this.view.layout.children) {
-          if (child instanceof View) {
-            const childPanel = child.getAttribute("panel")
-            console.log(childPanel, { removing: !allPanels.includes(childPanel) })
-            if (!allPanels.includes(childPanel)) {
-              childsToRemove.push(child)
-            }
-            const index = allPanels.indexOf(childPanel)
-            if (index !== -1) {
-              allPanels.splice(index, 1);
-            }
-          }
-        }
-        console.log(allPanels, allPanels.length)
-        if (allPanels.length > 0) {
-          console.error(`missing dom element(s) for: ${allPanels.join("")}`)
-        }
-        childsToRemove.map((a) => a.parentNode.removeChild(a))
-        this.view.layout.reset()
-
-        return
-      }
-
-      const child = document.createElement("view-splitter")
-      child.setAttribute("nesw", this.dragDirection)
-      child.setAttribute("p", this.dragDirection === "n" || this.dragDirection === "s" ? event.clientY : event.clientX)
-      child.setAttribute("from", this.view.getAttribute("panel"))
-      this.view.layout.appendChild(child)
-    })
+    this.addEventListener("drop", this._onDrop)
 
     this.appendChild(elm)
   }
@@ -153,8 +139,45 @@ class ViewChrome extends HTMLElement {
       }
     }
   }
-}
+  _onDrop = (event) => {
+    event.preventDefault()
+    if (!this.dragDirection) { //Comes from other panal - so we merge
+      const toPanel = event.dataTransfer.getData('text/plain')
+      const fromPanel = this.view.getAttribute("panel")
+      panelJoin.call(this.view.layout.layout, fromPanel, toPanel)
 
+      const allPanels = this.view.layout.layout.getPanels().map(({ id }) => id)
+
+      const childsToRemove = []
+      for (const child of this.view.layout.children) {
+        if (child instanceof View) {
+          const childPanel = child.getAttribute("panel")
+          if (!allPanels.includes(childPanel)) {
+            childsToRemove.push(child)
+          }
+          const index = allPanels.indexOf(childPanel)
+          if (index !== -1) {
+            allPanels.splice(index, 1);
+          }
+        }
+      }
+
+      if (allPanels.length > 0) {
+        console.error(`missing dom element(s) for: ${allPanels.join("")}`)
+      }
+      childsToRemove.map((a) => a.parentNode.removeChild(a))
+      this.view.layout.reset()
+
+      return
+    }
+
+    const child = document.createElement(this.view.content.template)
+    child.setAttribute("nesw", this.dragDirection)
+    child.setAttribute("p", this.dragDirection === "n" || this.dragDirection === "s" ? event.clientY : event.clientX)
+    child.setAttribute("from", this.view.getAttribute("panel"))
+    this.view.layout.appendChild(child)
+  }
+}
 
 
 customElements.define('view--chrome', ViewChrome)

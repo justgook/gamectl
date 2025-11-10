@@ -10,8 +10,6 @@ export class LayoutParent extends HTMLElement {
       parseFloat(this.getAttribute('handle-height')),
     )
 
-    this._delme_id = "panel_1"
-
     this._observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
         for (const node of m.addedNodes) {
@@ -51,14 +49,28 @@ export class LayoutParent extends HTMLElement {
 
     for (const child of this.children) {
       if (child instanceof View) {
-        this._resizeChild(child)
+        this._resizePanel(child)
+      } else if (child instanceof Handle) {
+        this.handle
       }
     }
   }
 
-  _resizeChild(child) { // TODO: move to _onResized
+  _resizeHandle(child) {
+    const panel = this.layout.getPanel(panelAttr)
+    child.x = panel.x
+    child.y = panel.y
+    child.w = panel.w
+    child.h = panel.h
+  }
+  _resizePanel(child) {
     child.layout = this
-    const panel = this.layout.getPanel(child.getAttribute("panel"))
+    let panelAttr = child.getAttribute("panel")
+    if (!panelAttr) {
+      this._onChildAdded(child)
+      panelAttr = child.getAttribute("panel")
+    }
+    const panel = this.layout.getPanel(panelAttr)
     child.x = panel.x
     child.y = panel.y
     child.w = panel.w
@@ -66,14 +78,16 @@ export class LayoutParent extends HTMLElement {
   }
 
   _onChildAdded(child) {
+    console.log("_on")
     const from = child.getAttribute("from")
     const fn = {
-      "n": this.layout.splitFromNorth,
-      "e": this.layout.splitFromEast,
-      "w": this.layout.splitFromWest,
-      "s": this.layout.splitFromSouth,
+      "s": this.layout.splitFromNorth,
+      "w": this.layout.splitFromEast,
+      "e": this.layout.splitFromWest,
+      "n": this.layout.splitFromSouth,
     }[child.getAttribute("nesw")]
     const { newPanelId, handleId } = fn(from, parseFloat(child.getAttribute("p")))
+    this._addHandle(handleId)
     const panel = this.layout.getPanel(newPanelId)
     child.setAttribute("panel", newPanelId)
     child.x = panel.x
@@ -81,9 +95,62 @@ export class LayoutParent extends HTMLElement {
     child.w = panel.w
     child.h = panel.h
     child.removeAttribute("from")
-    child.removeAttribute("y")
+    child.removeAttribute("p")
     child.removeAttribute("nesw")
-    this._onResized(this.clientWidth, this.clientHeight) // TODO resize only "from" and "newPanelId"
+    this._onResized(this.clientWidth, this.clientHeight) // TODO: maybe resize only "from" and "newPanelId"
+
+  }
+
+  _addHandle(handleId) {
+    const panel = this.layout.getHandles().find(({ id }) => handleId == id)
+    if (!panel) {
+      console.warn("remove handle??")
+      return
+    }
+
+    const child = new Handle(panel, this)
+    this.appendChild(child)
   }
 }
+
+class Handle extends HTMLElement {
+  constructor(info, layout) {
+    super()
+
+    this.layout = layout
+    this.handleId = info.id
+
+    this.style.position = "absolute"
+    this.style.left = info.x
+    this.style.top = info.y
+    this.style.width = info.w
+    this.style.height = info.h
+    this.vertical = info.h > info.w
+  }
+
+  connectedCallback() {
+    const template = document.getElementById("view-handle")
+    const content = template.content.cloneNode(true)
+    const elm = content.querySelector(`[data-action="resize"]`)
+    elm.addEventListener("drag", this._onDrag)
+    // elm.addEventListener("dragstart", e => {
+    //   const emptyImg = new Image();
+    //   emptyImg.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4DwQMBAABvwFyP+zYJwAAAABJRU5ErkJggg==";
+    //   e.dataTransfer.setDragImage(emptyImg, 0, 0);
+    // });
+    this.appendChild(content)
+  }
+  _onDrag = (event) => {
+    this.layout.layout.setHandlePosition(this.handleId, event.clientX, event.clientY)
+    this.style.position = "absolute"
+    if (this.vertical) {
+      this.style.left = event.clientX
+    } else {
+      this.style.top = event.clientY
+    }
+    this.layout.reset()
+  }
+}
+
+customElements.define('view--handle', Handle)
 

@@ -1,0 +1,87 @@
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background: var(--color-semantic-background-default);
+  color: var(--color-semantic-text-primary);
+  font-family: 'Roboto Mono', monospace;
+}
+
+layout-parent {
+  position: relative;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: #333;
+  overflow: hidden;
+}
+
+.panel {
+  position:absolute;
+  inset: 0;
+}
+
+.panel-header{
+  padding-left: 170px;
+}
+.handle {
+  position: absolute;
+  inset: 0;
+  background-color:red;
+}
+
+.ne,
+.se,
+.sw,
+.nw {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: red;
+}
+
+.ne,
+.nw {
+  top: 0
+}
+
+.se,
+.sw {
+  bottom: 0
+}
+
+.ne,
+.se {
+  right: 0;
+}
+
+.nw,
+.sw {
+  left: 0
+}
+
+.nw {
+  border-radius: 0 0 100% 0;
+  cursor: se-resize;
+}
+
+.ne {
+  border-radius: 0 0 0 100%;
+  cursor: sw-resize;
+}
+
+.sw {
+  border-radius: 0 100% 0 0;
+  cursor: ne-resize;
+}
+
+.se {
+  border-radius: 100% 0 0 0;
+  cursor: nw-resize;
+}

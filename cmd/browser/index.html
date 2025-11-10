@@ -9,96 +9,23 @@
     <link rel="stylesheet" href="build.nosync/tokens/css/variables.css">
     <link rel="stylesheet" href="build.nosync/tokens/css/atomic.css">
     <link rel="stylesheet" href="build.nosync/tokens/css/components.css">
-
+    <link rel="stylesheet" href="app.css">
     <link
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet">
-
-
-    <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-      }
-
-      body {
-        background: var(--color-semantic-background-default);
-        color: var(--color-semantic-text-primary);
-        font-family: 'Roboto Mono', monospace;
-      }
-
-      layout-parent {
-        position: relative;
-        display: block;
-        width: 100vw;
-        height: 100vh;
-        background: #333;
-        overflow: hidden;
-      }
-
-      .panel {
-        height: 100%;
-      }
-
-      .ne,
-      .se,
-      .sw,
-      .nw {
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        background-color: red;
-      }
-
-      .ne,
-      .nw {
-        top: 0
-      }
-
-      .se,
-      .sw {
-        bottom: 0
-      }
-
-      .ne,
-      .se {
-        right: 0;
-      }
-
-      .nw,
-      .sw {
-        left: 0
-      }
-
-      .nw {
-        border-radius: 0 0 100% 0;
-        cursor: se-resize;
-      }
-
-      .ne {
-        border-radius: 0 0 0 100%;
-        cursor: sw-resize;
-      }
-
-      .sw {
-        border-radius: 0 100% 0 0;
-        cursor: ne-resize;
-      }
-
-      .se {
-        border-radius: 100% 0 0 0;
-        cursor: nw-resize;
-      }
-    </style>
   </head>
 
   <body>
+
+    <template id="view-empty">
+      <div class="panel">
+        <div class="panel-header">Empty</div>
+        <div class="panel-content">aaa</div>
+      </div>
+    </template>
     <template id="view-testing">
       <div class="panel">
-        <div class="panel-header">Panel Header</div>
+        <div class="panel-header">Testing Panel</div>
         <div class="panel-content">
           <button class="button-primary" type="button">ok</button>
           <button class="button-secondary" type="button">cancel</button>
@@ -116,10 +43,16 @@
       </div>
     </template>
 
+    <template id="view-handle">
+      <div data-action="resize" class="handle" draggable="true">handle</div>
+    </template>
+
     <template id="view-chrome">
-      <div class="panel-header" style="background-color: transparent;">
-        <select class="select">
-          <option>111</option>
+      <div class="panel-header" style="background-color: transparent; padding-left: var(--panel-header-padding);">
+        <select class="select" data-action="select-view">
+          <option value="view-splitter">view-splitter</option>
+          <option value="view-testing">view-testing</option>
+          <option value="view-empty">view-empty</option>
         </select>
       </div>
       <div class="ne" data-action="ne" draggable="true"></div>
@@ -129,35 +62,26 @@
     </template>
 
     <layout-parent handle-width="6" handle-height="20" id="scene">
-      <view-splitter panel="panel_1" />
+      <view-testing panel="panel_1"></view-testing>
+      <view-testing nesw="n" p="639" from="panel_1"></view-testing>
     </layout-parent>
+
 
 
     <script type="module">
       import {LayoutParent} from "./views/layout.js"
+      import {ViewEmpty} from "./views/view-empty.js"
       import {ViewTesting} from "./views/view-testing.js"
       import {ViewSplitter} from "./views/view-splitter.js"
+      // import {bus} from "./systems/event-bus.js"
+      // window.bus = bus
 
       customElements.define('layout-parent', LayoutParent)
+      customElements.define('view-empty', ViewEmpty)
       customElements.define('view-testing', ViewTesting)
       customElements.define('view-splitter', ViewSplitter)
 
-
-
-      // --- Usage example ---
-      const scene = document.getElementById('scene')
-
-    // Add a few children over time
-    // let count = 0
-    // const interval = setInterval(() => {
-    //   const box = document.createElement('view-testing')
-    //   // box.textContent = ++count
-    //   count++
-    //   scene.appendChild(box)
-    //   if (count >= 5) clearInterval(interval)
-    // }, 1000)
     </script>
-
   </body>
 
   </html>
