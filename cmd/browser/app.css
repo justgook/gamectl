@@ -1,4 +1,3 @@
-
 html,
 body {
   margin: 0;
@@ -22,18 +21,28 @@ layout-parent {
   overflow: hidden;
 }
 
-.panel {
-  position:absolute;
-  inset: 0;
+view--chrome {
+  pointer-events: none;
 }
 
-.panel-header{
+view--chrome * {
+  pointer-events: auto;
+}
+
+.panel {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+.panel-header {
   padding-left: 170px;
 }
+
 .handle {
   position: absolute;
   inset: 0;
-  background-color:red;
+  background-color: red;
 }
 
 .ne,

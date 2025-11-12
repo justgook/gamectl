@@ -5,6 +5,8 @@
     <meta charset="UTF-8" />
 
     <title>Nested Web Components Example</title>
+    <link rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
     <link rel="stylesheet" href="reset.css">
     <link rel="stylesheet" href="build.nosync/tokens/css/variables.css">
     <link rel="stylesheet" href="build.nosync/tokens/css/atomic.css">
@@ -20,15 +22,23 @@
     <template id="view-empty">
       <div class="panel">
         <div class="panel-header">Empty</div>
-        <div class="panel-content">aaa</div>
+        <div class="panel-content">Empty panel</div>
       </div>
     </template>
     <template id="view-testing">
       <div class="panel">
         <div class="panel-header">Testing Panel</div>
-        <div class="panel-content">
-          <button class="button-primary" type="button">ok</button>
-          <button class="button-secondary" type="button">cancel</button>
+        <div class="panel-content" style="display: flex; flex-direction: column;">
+          <button class="button-primary" type="button" onclick="pluginManager.call('host', 'log', 'hello world')">call
+            log</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').generateWorldgraph()">Create
+            world graph</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getTree()">Get World
+            tree</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').createMinimap()">Create
+            minimap</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getMinimap()">Get
+            minimap</button>
         </div>
       </div>
     </template>
@@ -67,12 +77,13 @@
     </layout-parent>
 
 
-
+    <script src="./plugin-manager.js"> </script>
     <script type="module">
       import {LayoutParent} from "./views/layout.js"
       import {ViewEmpty} from "./views/view-empty.js"
       import {ViewTesting} from "./views/view-testing.js"
       import {ViewSplitter} from "./views/view-splitter.js"
+      import { } from "./plugin-manager.js"
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
 
@@ -80,6 +91,43 @@
       customElements.define('view-empty', ViewEmpty)
       customElements.define('view-testing', ViewTesting)
       customElements.define('view-splitter', ViewSplitter)
+
+
+
+      /// THE PLUGIN MANAGER TESTING!!!
+      const pluginNames = [
+        'random',
+        'tree-storage',
+        'worldgraph',
+        'minimap',
+        'tilemap-storage',
+        'automap'
+      ];
+
+      // Create modules array for plugin manager
+      const modules = pluginNames.map(name => ({
+        name: name,
+        url: `/build.nosync/${name}.wasm`
+      }));
+      window.pluginManager = await PluginManager.create({
+        modules: modules,
+        hostFunctions: [
+          {
+            module: 'host',
+            function: 'log',
+            handler: (input) => {
+              const message = new TextDecoder().decode(input)
+              console.log('[Plugin]', message)
+              return {returnCode: 0, output: new Uint8Array()}
+            }
+          }
+        ]
+      })
+      // const r1 = await pluginManager.call('host', 'log', 'hello world')
+      // const r2 = await pluginManager.call('worldgraph', 'worldgraph', 'hello world')
+
+      // console.log(pluginManager)
+
 
     </script>
   </body>

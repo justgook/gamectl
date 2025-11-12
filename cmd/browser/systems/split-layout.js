@@ -26,11 +26,8 @@ export class SplitLayout {
     return this.panelCache.get(id) || null
   }
 
-  getHandle(id) {
-    this.walkBreak(this.root, node => {
-      if (node.type === "handle") panels.push({ ...node })
-    })
-    return this.panelCache.get(id) || null
+  getHandle(handleId) {
+    return this.getHandles().find(({ id }) => handleId == id)
   }
 
   getPanels() {
@@ -43,30 +40,43 @@ export class SplitLayout {
 
   getHandles() {
     const handles = []
-    this.walk(this.root, node => {
+    const walk = (node, x, y, w, h) => {
       if (node.type === "split") {
         if (node.vertical) {
+          const leftW = node.pos - x
+          const rightX = node.pos + this.handleW
+          const rightW = x + w - rightX
+          // correct absolute position
           handles.push({
             id: node.id,
             x: node.pos,
-            y: this.getY(node),
+            y,
             w: this.handleW,
-            h: this.getH(node)
+            h
           })
+          walk(node.left, x, y, leftW, h)
+          walk(node.right, rightX, y, rightW, h)
         } else {
+          const topH = node.pos - y
+          const bottomY = node.pos + this.handleH
+          const bottomH = y + h - bottomY
           handles.push({
             id: node.id,
-            x: this.getX(node),
+            x,
             y: node.pos,
-            w: this.getW(node),
+            w,
             h: this.handleH
           })
+          walk(node.left, x, y, w, topH)
+          walk(node.right, x, bottomY, w, bottomH)
         }
       }
-    })
+    }
 
+    walk(this.root, 0, 0, this.width, this.height)
     return handles
   }
+
 
   walk(node, fn) {
     fn(node)

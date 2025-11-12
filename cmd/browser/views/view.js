@@ -23,7 +23,10 @@ export class View extends HTMLElement {
     if (name === 'y') this._y = parseFloat(newVal);
     if (name === 'w') this._w = parseFloat(newVal);
     if (name === 'h') this._h = parseFloat(newVal);
-    if (name === 'panel' && this.debug) this.debug.textContent = newVal
+    if (name === 'panel') {
+      this.panel = newVal
+      if (this.debug) this.debug.textContent = newVal
+    }
     this._updatePosition()
   }
 
