@@ -67,10 +67,13 @@ DESIGN_TOKEN_FILES := $(BUILD_DIR)/tokens/css/components.css $(BUILD_DIR)/tokens
 design-tokens: $(DESIGN_TOKEN_FILES)
 
 # Rule to build design tokens
-$(DESIGN_TOKEN_FILES): $(wildcard $(DESIGN_DIR)/tokens/**/*.json)
-	$(Q)echo "Building design tokens...AAA"
+$(DESIGN_TOKEN_FILES): $(wildcard $(DESIGN_DIR)/tokens/**/*.json) $(DESIGN_DIR)/node_modules
+	$(Q)echo "Building design tokens..."
 	$(Q)mkdir -p $(BUILD_DIR)/tokens/css $(BUILD_DIR)/tokens/js
-	$(Q)cd $(DESIGN_DIR) && npx style-dictionary build --verbose && cp build/css/* ../$(BUILD_DIR)/tokens/css/ && cp build/js/* ../$(BUILD_DIR)/tokens/js
+	$(Q)cd $(DESIGN_DIR) && bun run build --verbose && cp build/css/* ../$(BUILD_DIR)/tokens/css/ && cp build/js/* ../$(BUILD_DIR)/tokens/js
+
+$(DESIGN_DIR)/node_modules:
+	$(Q)cd $(DESIGN_DIR) && bun install 
 
 .PHONY: browser
 browser: design-tokens $(PLUGIN_TARGETS)
