@@ -10,7 +10,6 @@ const MAX_SCALE = 3;
 export class ViewCanvasBase extends View {
   constructor(contentTag) {
     super(contentTag);
-    
     // Viewport state
     this.scale = 1;
     this.offsetX = 0;
@@ -20,13 +19,13 @@ export class ViewCanvasBase extends View {
     this.dragStartY = 0;
     // Defines the bounding box of the content in world coordinates (minX, maxX, minY, maxY)
     this.contentBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-    
+
     this.canvas = null;
     this.ctx = null;
     this.wrapper = null;
     this.tileInfo = null; // For hover tooltip
     this.data = null;
-    
+
     // Bind event handlers
     this._onWheel = this._onWheel.bind(this);
     this._onMouseDown = this._onMouseDown.bind(this);
@@ -35,9 +34,59 @@ export class ViewCanvasBase extends View {
     this._onMouseLeave = this._onMouseLeave.bind(this);
   }
 
+  _createControls() {
+    const controls = document.createElement('div');
+    controls.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+    `;
+
+    // Reload Button
+    const reloadButton = document.createElement('button');
+    reloadButton.textContent = '🔄 Reload';
+    reloadButton.className = 'button-secondary'; // Assuming a class from app.css/design tokens
+    reloadButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
+    reloadButton.onclick = () => this.loadAndDraw();
+    
+    // Zoom In Button
+    const zoomInButton = document.createElement('button');
+    zoomInButton.textContent = '+';
+    zoomInButton.className = 'button-secondary';
+    zoomInButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
+    zoomInButton.onclick = () => this.zoomIn();
+
+    // Zoom Out Button
+    const zoomOutButton = document.createElement('button');
+    zoomOutButton.textContent = '−';
+    zoomOutButton.className = 'button-secondary';
+    zoomOutButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
+    zoomOutButton.onclick = () => this.zoomOut();
+
+    // Fit to Content Button
+    const fitButton = document.createElement('button');
+    fitButton.textContent = '⊡ Fit';
+    fitButton.className = 'button-secondary';
+    fitButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
+    fitButton.onclick = () => this.fitToContent();
+
+    controls.appendChild(reloadButton);
+    controls.appendChild(zoomInButton);
+    controls.appendChild(zoomOutButton);
+    controls.appendChild(fitButton);
+
+    return controls;
+  }
+
   connectedCallback() {
     super.connectedCallback();
-    
+
     // Setup DOM structure: wrapper > canvas + tileInfo
     this.wrapper = document.createElement('div');
     this.wrapper.style.cssText = `
@@ -47,7 +96,7 @@ export class ViewCanvasBase extends View {
       overflow: hidden;
       cursor: grab;
     `;
-    
+
     this.canvas = document.createElement('canvas');
     this.canvas.style.cssText = `
       position: absolute;
@@ -55,7 +104,7 @@ export class ViewCanvasBase extends View {
       left: 0;
       transform-origin: 0 0;
     `;
-    
+
     this.tileInfo = document.createElement('div');
     this.tileInfo.id = 'tileInfo';
     this.tileInfo.style.cssText = `
@@ -73,9 +122,10 @@ export class ViewCanvasBase extends View {
 
     this.wrapper.appendChild(this.canvas);
     this.wrapper.appendChild(this.tileInfo);
-    
+    this.wrapper.appendChild(this._createControls());
+
     // Clear any template content and append our canvas wrapper
-    this.content.innerHTML = ''; 
+    this.content.innerHTML = '';
     this.content.appendChild(this.wrapper);
     
     this.ctx = this.canvas.getContext('2d');
@@ -86,8 +136,58 @@ export class ViewCanvasBase extends View {
     this.loadAndDraw();
   }
   
-  disconnectedCallback() {
-    super.disconnectedCallback();
+  _createControls() {
+    const controls = document.createElement('div');
+    controls.style.cssText = `
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+    `;
+
+    // Reload Button
+    const reloadButton = document.createElement('button');
+    reloadButton.textContent = '🔄 Reload';
+    reloadButton.className = 'button-secondary'; // Assuming a class from app.css/design tokens
+    reloadButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
+    reloadButton.onclick = () => this.loadAndDraw();
+    
+    // Zoom In Button
+    const zoomInButton = document.createElement('button');
+    zoomInButton.textContent = '+';
+    zoomInButton.className = 'button-secondary';
+    zoomInButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
+    zoomInButton.onclick = () => this.zoomIn();
+
+    // Zoom Out Button
+    const zoomOutButton = document.createElement('button');
+    zoomOutButton.textContent = '−';
+    zoomOutButton.className = 'button-secondary';
+    zoomOutButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
+    zoomOutButton.onclick = () => this.zoomOut();
+
+    // Fit to Content Button
+    const fitButton = document.createElement('button');
+    fitButton.textContent = '⊡ Fit';
+    fitButton.className = 'button-secondary';
+    fitButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
+    fitButton.onclick = () => this.fitToContent();
+
+    controls.appendChild(reloadButton);
+    controls.appendChild(zoomInButton);
+    controls.appendChild(zoomOutButton);
+    controls.appendChild(fitButton);
+
+    return controls;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
     this._removeEventListeners();
   }
 
@@ -119,32 +219,32 @@ export class ViewCanvasBase extends View {
     // Set canvas resolution to match the element size for sharp rendering
     this.canvas.width = width;
     this.canvas.height = height;
-    
+
     // Redraw on resize
     this.draw();
   }
-  
+
   // --- Abstract Methods (Subclasses must implement) ---
-  
+
   async fetchData() {
     throw new Error("Subclass must implement fetchData()");
   }
-  
+
   calculateContentBounds(data) {
     throw new Error("Subclass must implement calculateContentBounds(data)");
   }
-  
+
   drawContent(ctx, data) {
     throw new Error("Subclass must implement drawContent(ctx, data)");
   }
-  
+
   getHoverInfo(worldX, worldY, data) {
     // Optional: return null if no info
     return null;
   }
-  
+
   // --- Data and Drawing Pipeline ---
-  
+
   async loadAndDraw() {
     try {
       this.data = await this.fetchData();
@@ -165,7 +265,7 @@ export class ViewCanvasBase extends View {
     const { width, height } = this.canvas;
     this.ctx.save();
     this.ctx.clearRect(0, 0, width, height);
-    
+
     // Apply background
     this.ctx.fillStyle = '#1e1e1e'; // Dark background
     this.ctx.fillRect(0, 0, width, height);
@@ -182,7 +282,7 @@ export class ViewCanvasBase extends View {
 
     this.ctx.restore();
   }
-  
+
   _drawPlaceholder(width, height) {
     this.ctx.save();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform for placeholder
@@ -199,29 +299,29 @@ export class ViewCanvasBase extends View {
 
   _constrainPosition() {
     if (!this.data) return;
-    
+
     const wrapperWidth = this.w;
     const wrapperHeight = this.h;
     const { minX, maxX, minY, maxY } = this.contentBounds;
-    
+
     const contentWidth = maxX - minX;
     const contentHeight = maxY - minY;
-    
+
     // Calculate allowed offset ranges
     const minVisibleRatio = 0.2;
     const minVisibleWidth = contentWidth * minVisibleRatio;
     const minVisibleHeight = contentHeight * minVisibleRatio;
-    
+
     // Max offset: keep content's minX/minY visible
     const maxOffsetX = wrapperWidth - minX * this.scale - minVisibleWidth;
     const minOffsetX = -maxX * this.scale + minVisibleWidth;
     const maxOffsetY = wrapperHeight - minY * this.scale - minVisibleHeight;
     const minOffsetY = -maxY * this.scale + minVisibleHeight;
-    
+
     // Apply constraints
     this.offsetX = Math.max(minOffsetX, Math.min(maxOffsetX, this.offsetX));
     this.offsetY = Math.max(minOffsetY, Math.min(maxOffsetY, this.offsetY));
-    
+
     // Additional constraints to prevent extreme panning
     const maxPanDistance = Math.max(wrapperWidth, wrapperHeight) * 2;
     this.offsetX = Math.max(-maxPanDistance, Math.min(maxPanDistance, this.offsetX));
@@ -253,7 +353,7 @@ export class ViewCanvasBase extends View {
 
   fitToContent() {
     if (!this.data) return;
-    
+
     const wrapperWidth = this.w;
     const wrapperHeight = this.h;
     const { minX, maxX, minY, maxY } = this.contentBounds;
@@ -333,7 +433,7 @@ export class ViewCanvasBase extends View {
       this._constrainPosition();
       this.draw();
     }
-    
+
     this._handleHover(e);
   }
 
@@ -347,7 +447,7 @@ export class ViewCanvasBase extends View {
     this.wrapper.style.cursor = 'grab';
     this.tileInfo.style.display = 'none';
   }
-  
+
   _handleHover(e) {
     if (!this.data || this.isDragging) {
       this.tileInfo.style.display = 'none';
