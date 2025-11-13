@@ -142,17 +142,7 @@ class PluginManager {
       memory: wasmModule.instance.exports.memory
     });
 
-    // Pre-allocate a small amount of memory to ensure the memory system is initialized
-    // This prevents issues with the first cross-plugin call
-    try {
-      const initPtr = this.allocFunc(module.name, 64); // Allocate 64 bytes for initialization
-      if (initPtr > 0) {
-        // Successfully initialized memory allocation system
-        console.log(`Memory system initialized for plugin: ${module.name}`);
-      }
-    } catch (e) {
-      console.warn(`Failed to pre-initialize memory for ${module.name}:`, e);
-    }
+    // No need to track memory offsets - we'll allocate dynamically
   }
 
   /**
@@ -297,25 +287,18 @@ class PluginManager {
     const module = this.wasmModules.get(moduleName);
     if (!module) return 0;
 
-    // Ensure minimum size for allocation
-    if (size === 0) size = 1;
+    // Get current memory size in bytes
+    const currentSize = module.memory.buffer.byteLength;
     
     // Calculate how many pages we need to add for this allocation
     // We'll add extra pages to reduce frequency of grows
     const pagesNeeded = Math.ceil(size / 65536) || 1;
     
-    // Grow memory with proper error handling and initialization
+    // Grow memory
     try {
       const oldPages = module.memory.grow(pagesNeeded);
-      const allocPtr = oldPages * 65536;
-      
-      // Initialize the allocated memory to zeros to avoid garbage data issues
-      const memory = new Uint8Array(module.memory.buffer);
-      for (let i = allocPtr; i < allocPtr + size; i++) {
-        memory[i] = 0;
-      }
-      
-      return allocPtr;
+      // Allocation starts at the beginning of the newly added pages
+      return oldPages * 65536;
     } catch (e) {
       console.error(`Failed to grow memory for ${moduleName}: tried to add ${pagesNeeded} pages (${size} bytes requested)`, e);
       throw new Error(`Out of memory in ${moduleName}`);
