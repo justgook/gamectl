@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Graph Visualizer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <link rel="stylesheet" href="shared-styles.css">
+  <style>
+    h1 {
+      background: linear-gradient(135deg, #1e3c72 0%, #7e22ce 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .control-section {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    #graph {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .node circle {
+      cursor: pointer;
+      stroke: #fff;
+      stroke-width: 2px;
+      transition: all 0.3s;
+    }
+
+    .node circle:hover {
+      stroke-width: 4px;
+    }
+
+    .node text {
+      font-size: 12px;
+      pointer-events: none;
+      user-select: none;
+      font-weight: 600;
+    }
+
+    .link {
+      stroke: #999;
+      stroke-opacity: 0.6;
+      stroke-width: 2px;
+      fill: none;
+    }
+
+    .link.external {
+      stroke: #ff6b6b;
+      stroke-dasharray: 5, 5;
+    }
+
+    .link-label {
+      font-size: 10px;
+      fill: #666;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .arrow {
+      fill: #999;
+    }
+
+    .arrow.external {
+      fill: #ff6b6b;
+    }
+
+    .legend {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .legend h3 {
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .legend-line {
+      width: 40px;
+      height: 2px;
+      margin-right: 10px;
+    }
+
+    .legend-line.internal {
+      background: #999;
+    }
+
+    .legend-line.external {
+      background: #ff6b6b;
+      background-image: repeating-linear-gradient(90deg, #ff6b6b, #ff6b6b 5px, transparent 5px, transparent 10px);
+    }
+
+    .header {
+      margin-bottom: 25px;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="nav">
+    <div class="nav-content">
+      <div class="nav-brand">🎮 Game Dev Tools</div>
+      <ul class="nav-links">
+        <li><a href="index.html">Level Visualizer</a></li>
+        <li><a href="graph-viz.html" class="active">Graph Visualizer</a></li>
+        <li><a href="minimap_visualizer.html">Minimap Visualizer</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="header">
+      <h1>🔗 Graph Visualizer</h1>
+      <div class="subtitle">Visualize graph structures with internal and external dependencies</div>
+
+      <div class="control-section">
+        <div class="input-group">
+          <label for="jsonInput">Paste your Graph JSON:</label>
+          <textarea id="jsonInput"
+            placeholder='{"nodes": {"A": {"name": "A", "edges": [{"to": "B", "name": "edge1"}]}, "B": {"name": "B", "edges": []}}, "external": {"C": [{"to": "A", "name": "external1"}]}}'></textarea>
+        </div>
+        <div class="button-group">
+          <button onclick="renderGraph()">✨ Visualize Graph</button>
+          <button class="secondary" onclick="formatJSON()">📝 Format JSON</button>
+        </div>
+        <div class="error" id="error"></div>
+      </div>
+    </div>
+
+    <div id="graph"></div>
+
+    <div class="legend">
+      <h3>Legend</h3>
+      <div class="legend-item">
+        <div class="legend-line internal"></div>
+        <span>Internal Edge</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line external"></div>
+        <span>External Edge</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const width = 1200;
+    const height = 700;
+
+    // Check for data in URL query parameter on load
+    function initializeGraph() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const dataParam = urlParams.get('data');
+
+      if (dataParam) {
+        try {
+          const jsonString = atob(dataParam);
+          document.getElementById('jsonInput').value = jsonString;
+          renderGraph();
+          return;
+        } catch (e) {
+          console.error('Failed to decode URL parameter:', e);
+        }
+      }
+
+      // Load example if no URL parameter
+      document.getElementById('jsonInput').value = JSON.stringify(exampleGraph, null, 2);
+      renderGraph();
+    }
+
+    function formatJSON() {
+      const input = document.getElementById('jsonInput').value;
+      const errorDiv = document.getElementById('error');
+      errorDiv.style.display = 'none';
+
+      if (!input.trim()) {
+        errorDiv.textContent = 'Please paste JSON to format';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(input);
+        document.getElementById('jsonInput').value = JSON.stringify(parsed, null, 2);
+      } catch (e) {
+        errorDiv.textContent = 'Invalid JSON: ' + e.message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    function renderGraph() {
+      const input = document.getElementById('jsonInput').value;
+      const errorDiv = document.getElementById('error');
+      errorDiv.style.display = 'none';
+
+      if (!input.trim()) {
+        errorDiv.textContent = 'Please paste a graph JSON';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      let graphData;
+      try {
+        graphData = JSON.parse(input);
+      } catch (e) {
+        errorDiv.textContent = 'Invalid JSON: ' + e.message;
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      // Clear previous graph
+      d3.select('#graph').html('');
+
+      // Convert graph data to D3 format
+      const nodes = [];
+      const links = [];
+      const nodeSet = new Set();
+
+      // Add all internal nodes
+      if (graphData.nodes) {
+        Object.entries(graphData.nodes).forEach(([key, node]) => {
+          if (!nodeSet.has(key)) {
+            nodes.push({id: key, label: node.name, type: 'internal'});
+            nodeSet.add(key);
+          }
+
+          // Add internal edges
+          if (node.edges) {
+            node.edges.forEach(edge => {
+              if (!nodeSet.has(edge.to)) {
+                // Check if this target exists in nodes map
+                const targetNode = graphData.nodes[edge.to];
+                const targetLabel = targetNode ? targetNode.name : edge.to;
+                nodes.push({id: edge.to, label: targetLabel, type: 'internal'});
+                nodeSet.add(edge.to);
+              }
+              links.push({
+                source: key,
+                target: edge.to,
+                label: edge.name,
+                external: false
+              });
+            });
+          }
+        });
+      }
+
+      // Add external edges
+      if (graphData.external) {
+        Object.entries(graphData.external).forEach(([from, edges]) => {
+          if (!nodeSet.has(from)) {
+            nodes.push({id: from, type: 'external'});
+            nodeSet.add(from);
+          }
+
+          edges.forEach(edge => {
+            if (!nodeSet.has(edge.to)) {
+              nodes.push({id: edge.to, type: 'external'});
+              nodeSet.add(edge.to);
+            }
+            links.push({
+              source: from,
+              target: edge.to,
+              label: edge.name,
+              external: true
+            });
+          });
+        });
+      }
+
+      // Create SVG
+      const svg = d3.select('#graph')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      // Define arrow markers
+      svg.append('defs').selectAll('marker')
+        .data(['arrow', 'arrow-external'])
+        .join('marker')
+        .attr('id', d => d)
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 25)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('class', d => d === 'arrow-external' ? 'arrow external' : 'arrow');
+
+      // Create force simulation with better untangling
+      const simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(200).strength(1))
+        .force('charge', d3.forceManyBody().strength(-1000).distanceMax(500))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(50))
+        .force('x', d3.forceX(width / 2).strength(0.05))
+        .force('y', d3.forceY(height / 2).strength(0.05))
+        .alphaDecay(0.01)
+        .velocityDecay(0.3);
+
+      // Create links
+      const link = svg.append('g')
+        .selectAll('path')
+        .data(links)
+        .join('path')
+        .attr('class', d => d.external ? 'link external' : 'link')
+        .attr('marker-end', d => d.external ? 'url(#arrow-external)' : 'url(#arrow)');
+
+      // Create link labels
+      const linkLabel = svg.append('g')
+        .selectAll('text')
+        .data(links.filter(d => d.label))
+        .join('text')
+        .attr('class', 'link-label')
+        .text(d => d.label);
+
+      // Create nodes
+      const node = svg.append('g')
+        .selectAll('g')
+        .data(nodes)
+        .join('g')
+        .attr('class', 'node')
+        .call(d3.drag()
+          .on('start', dragstarted)
+          .on('drag', dragged)
+          .on('end', dragended));
+
+      node.append('circle')
+        .attr('r', 20)
+        .attr('fill', d => d.type === 'external' ? '#ff6b6b' : '#667eea');
+
+      node.append('text')
+        .attr('dy', 35)
+        .attr('text-anchor', 'middle')
+        .text(d => d.label || d.id);
+
+      // Update positions on tick
+      simulation.on('tick', () => {
+        link.attr('d', d => {
+          const dx = d.target.x - d.source.x;
+          const dy = d.target.y - d.source.y;
+          const dr = Math.sqrt(dx * dx + dy * dy);
+          return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`;
+        });
+
+        linkLabel
+          .attr('x', d => (d.source.x + d.target.x) / 2)
+          .attr('y', d => (d.source.y + d.target.y) / 2);
+
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+
+      function dragstarted(event) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+      }
+
+      function dragged(event) {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+      }
+
+      function dragended(event) {
+        if (!event.active) simulation.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+      }
+    }
+
+    // Example graph on load
+    const exampleGraph = {
+      "nodes": {
+        "A": {
+          "name": "A",
+          "edges": [
+            {"to": "B", "name": "connects"},
+            {"to": "C", "name": "links"}
+          ]
+        },
+        "B": {
+          "name": "B",
+          "edges": [
+            {"to": "D", "name": "flows"}
+          ]
+        },
+        "C": {
+          "name": "C",
+          "edges": [
+            {"to": "D", "name": "points"}
+          ]
+        },
+        "D": {
+          "name": "D",
+          "edges": []
+        }
+      },
+      "external": {
+        "E": [
+          {"to": "A", "name": "external"}
+        ]
+      }
+    };
+  </script>
+  <script>
+    // Initialize on load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeGraph);
+    } else {
+      initializeGraph();
+    }
+  </script>
+</body>
+
+</html>

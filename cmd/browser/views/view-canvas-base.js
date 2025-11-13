@@ -132,62 +132,14 @@ export class ViewCanvasBase extends View {
     
     this._addEventListeners();
     
+    // Ensure canvas is sized correctly (handles case where w/h were set before connectedCallback)
+    this.onResize(this.w, this.h);
+    
     // Initial data load and draw
     this.loadAndDraw();
   }
   
-  _createControls() {
-    const controls = document.createElement('div');
-    controls.style.cssText = `
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 100;
-      display: flex;
-      gap: 8px;
-      padding: 8px;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 4px;
-    `;
-
-    // Reload Button
-    const reloadButton = document.createElement('button');
-    reloadButton.textContent = '🔄 Reload';
-    reloadButton.className = 'button-secondary'; // Assuming a class from app.css/design tokens
-    reloadButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
-    reloadButton.onclick = () => this.loadAndDraw();
-    
-    // Zoom In Button
-    const zoomInButton = document.createElement('button');
-    zoomInButton.textContent = '+';
-    zoomInButton.className = 'button-secondary';
-    zoomInButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
-    zoomInButton.onclick = () => this.zoomIn();
-
-    // Zoom Out Button
-    const zoomOutButton = document.createElement('button');
-    zoomOutButton.textContent = '−';
-    zoomOutButton.className = 'button-secondary';
-    zoomOutButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
-    zoomOutButton.onclick = () => this.zoomOut();
-
-    // Fit to Content Button
-    const fitButton = document.createElement('button');
-    fitButton.textContent = '⊡ Fit';
-    fitButton.className = 'button-secondary';
-    fitButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
-    fitButton.onclick = () => this.fitToContent();
-
-    controls.appendChild(reloadButton);
-    controls.appendChild(zoomInButton);
-    controls.appendChild(zoomOutButton);
-    controls.appendChild(fitButton);
-
-    return controls;
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
+  disconnectedCallback() {
     this._removeEventListeners();
   }
 
@@ -200,6 +152,7 @@ export class ViewCanvasBase extends View {
   }
 
   _removeEventListeners() {
+    if (!this.wrapper) return;
     this.wrapper.removeEventListener('wheel', this._onWheel);
     this.wrapper.removeEventListener('mousedown', this._onMouseDown);
     this.wrapper.removeEventListener('mousemove', this._onMouseMove);

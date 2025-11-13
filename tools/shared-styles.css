@@ -1,0 +1,357 @@
+/* Shared Styles for Game Dev Tools */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Navigation */
+.nav {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.nav-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.nav-brand {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e3c72;
+  padding: 18px 0;
+  margin-right: 40px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 0;
+  list-style: none;
+}
+
+.nav-links a {
+  display: block;
+  padding: 20px 24px;
+  color: #555;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s;
+  border-bottom: 3px solid transparent;
+}
+
+.nav-links a:hover {
+  color: #1e3c72;
+  background: rgba(30, 60, 114, 0.05);
+}
+
+.nav-links a.active {
+  color: #7e22ce;
+  border-bottom-color: #7e22ce;
+}
+
+/* Container */
+.container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 30px 20px;
+}
+
+/* Buttons */
+button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  font-family: inherit;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button.secondary {
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+}
+
+button.secondary:hover {
+  box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+}
+
+/* Form Elements */
+label {
+  display: block;
+  margin-bottom: 10px;
+  color: #333;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+textarea {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  resize: vertical;
+  transition: all 0.3s;
+  background: #fafafa;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #7e22ce;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.1);
+}
+
+input {
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.3s;
+  background: #fafafa;
+}
+
+input:focus {
+  outline: none;
+  border-color: #7e22ce;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.1);
+}
+
+/* Messages and Alerts */
+.error {
+  background: linear-gradient(135deg, #fee 0%, #fdd 100%);
+  border: 2px solid #fcc;
+  border-radius: 10px;
+  padding: 14px;
+  color: #c33;
+  margin-top: 12px;
+  display: none;
+  font-weight: 500;
+}
+
+.error.visible {
+  display: block;
+}
+
+.info {
+  color: #666;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.success {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  border: 2px solid #b1dfbb;
+  border-radius: 10px;
+  padding: 14px;
+  color: #155724;
+  margin-top: 12px;
+  display: none;
+  font-weight: 500;
+}
+
+.success.visible {
+  display: block;
+}
+
+/* Card/Panel Styles */
+.header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 30px;
+  margin-bottom: 25px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.control-section {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 25px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.canvas-container {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+}
+
+/* Canvas Wrapper */
+.canvas-wrapper {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #f0f0f0;
+  border-radius: 12px;
+  background: #fafafa;
+  cursor: grab;
+  height: 600px;
+}
+
+.canvas-wrapper:active {
+  cursor: grabbing;
+}
+
+canvas {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Controls */
+.button-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.controls {
+  position: absolute;
+  top: 35px;
+  right: 35px;
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.control-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  min-width: auto;
+  border-radius: 6px;
+}
+
+.zoom-level {
+  padding: 8px 12px;
+  background: rgba(126, 34, 206, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #7e22ce;
+  display: flex;
+  align-items: center;
+}
+
+/* Indicators */
+.edge-indicators {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.indicator {
+  position: absolute;
+  background: rgba(126, 34, 206, 0.8);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.indicator.visible {
+  display: flex;
+}
+
+.indicator.top {
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.indicator.bottom {
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.indicator.left {
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.indicator.right {
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header,
+.canvas-container,
+.control-section {
+  animation: fadeIn 0.5s ease-out;
+}

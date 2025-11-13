@@ -62,7 +62,7 @@ export class ViewMinimap extends ViewCanvasBase {
     if (!data || !data.layers || data.layers.length === 0) {
       return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
     }
-    
+
     const roomsLayer = data.layers.find(l => l.meta.name === 'rooms');
     if (!roomsLayer) {
       return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
@@ -102,12 +102,12 @@ export class ViewMinimap extends ViewCanvasBase {
       for (let x = 0; x < mapW; x++) {
         const index = y * mapW + x;
         const tileValue = roomsLayer.data[index];
-        
+
         if (tileValue > 0) {
           // Get room ID from meta
           const metaKey = `${x}_${y}`;
           const metaString = roomsLayer.meta[metaKey];
-          
+
           let roomId = null;
           if (metaString) {
             try {
@@ -120,7 +120,7 @@ export class ViewMinimap extends ViewCanvasBase {
 
           ctx.fillStyle = getRoomColor(roomId);
           ctx.fillRect(x * tileW, y * tileH, tileW, tileH);
-          
+
           // Optional: Draw a border to distinguish tiles
           ctx.strokeStyle = '#111111';
           ctx.lineWidth = 1 / this.scale; // Scale line width
@@ -132,12 +132,12 @@ export class ViewMinimap extends ViewCanvasBase {
     // 2. Draw Doors Layer
     ctx.strokeStyle = DOOR_COLOR;
     ctx.lineWidth = 2 / this.scale; // Scale line width
-    
+
     for (let y = 0; y < mapH; y++) {
       for (let x = 0; x < mapW; x++) {
         const index = y * mapW + x;
         const doorMask = doorsLayer.data[index];
-        
+
         if (doorMask > 0) {
           const x0 = x * tileW;
           const y0 = y * tileH;
@@ -145,7 +145,7 @@ export class ViewMinimap extends ViewCanvasBase {
           const y1 = (y + 1) * tileH;
           const midX = x0 + tileW / 2;
           const midY = y0 + tileH / 2;
-          
+
           // Door size (e.g., 1/3 of the tile edge)
           const doorSizeW = tileW / 3;
           const doorSizeH = tileH / 3;
@@ -172,7 +172,7 @@ export class ViewMinimap extends ViewCanvasBase {
             ctx.moveTo(x0, midY - doorSizeH / 2);
             ctx.lineTo(x0, midY + doorSizeH / 2);
           }
-          
+
           ctx.stroke();
         }
       }

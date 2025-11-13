@@ -21,11 +21,13 @@ layout-parent {
   overflow: hidden;
 }
 
-view--chrome {
+view--chrome,
+view--chrome * {
   pointer-events: none;
 }
 
-view--chrome * {
+view--chrome select,
+view--chrome [draggable] {
   pointer-events: auto;
 }
 

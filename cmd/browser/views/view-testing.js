@@ -24,6 +24,10 @@ export class ViewTesting extends View {
     const result = await pluginManager.call('tree-storage', 'get', `{"id":"demo-world"}`)
     console.log(this.DE.decode(result.output))
   }
+  async getTreeJSON() {
+    const result = await pluginManager.call('tree-storage', 'toJSON', `{"id":"demo-world"}`)
+    console.log(this.DE.decode(result.output))
+  }
   async generateWorldgraph() {
     console.log('=== Phase 1: Worldgraph Generation ===');
 

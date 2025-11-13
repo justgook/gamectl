@@ -101,7 +101,9 @@ class ViewChrome extends HTMLElement {
 
     const select = elm.querySelector(`[data-action="select-view"]`)
     select.value = this.view.content.template
-    select.addEventListener("change", (event) => { this.view.content = event.target.value })
+    select.addEventListener("change", (event) => { 
+      this._switchView(event.target.value)
+    })
 
     this.addEventListener("dragover", (event) => { event.preventDefault() })
     this.addEventListener("drop", this._onDrop)
@@ -142,6 +144,25 @@ class ViewChrome extends HTMLElement {
       }
     }
   }
+  _switchView(viewTag) {
+    // Create a new custom element instance
+    const newView = document.createElement(viewTag)
+    
+    // Copy panel attribute and position from old view
+    const panel = this.view.getAttribute("panel")
+    newView.setAttribute("panel", panel)
+    
+    // Copy position/size using attributes to trigger attributeChangedCallback
+    newView.setAttribute("x", this.view._x)
+    newView.setAttribute("y", this.view._y)
+    newView.setAttribute("w", this.view._w)
+    newView.setAttribute("h", this.view._h)
+    newView.layout = this.view.layout
+    
+    // Replace the view in the DOM
+    this.view.parentNode.replaceChild(newView, this.view)
+  }
+
   _onDrop = (event) => {
     event.preventDefault()
     if (!this.dragDirection) { //Comes from other panal - so we merge

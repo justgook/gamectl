@@ -35,6 +35,8 @@
             world graph</button>
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').getTree()">Get World
             tree</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getTreeJSON()">Get Tree
+            JSON</button>
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').createMinimap()">Create
             minimap</button>
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').getMinimap()">Get
@@ -71,6 +73,15 @@
       </div>
     </template>
 
+    <template id="view-tree">
+      <div class="panel">
+        <div class="panel-header">Tree Visualizer</div>
+        <div class="panel-content" data-tree-container>
+          <!-- Canvas is now managed by ViewCanvasBase -->
+        </div>
+      </div>
+    </template>
+
     <template id="view-handle">
       <div data-action="resize" class="handle" draggable="true">handle</div>
     </template>
@@ -82,6 +93,7 @@
           <option value="view-testing">view-testing</option>
           <option value="view-minimap">view-minimap</option>
           <option value="view-level-canvas">view-level-canvas</option>
+          <option value="view-tree">view-tree</option>
           <option value="view-empty">view-empty</option>
         </select>
       </div>
@@ -106,6 +118,7 @@
       import {ViewSplitter} from "./views/view-splitter.js"
       import {ViewMinimap} from "./views/view-minimap.js"
       import {ViewLevelCanvas} from "./views/view-level-canvas.js"
+      import {ViewTree} from "./views/view-tree.js"
       import { } from "./plugin-manager.js"
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
@@ -116,6 +129,7 @@
       customElements.define('view-splitter', ViewSplitter)
       customElements.define('view-minimap', ViewMinimap)
       customElements.define('view-level-canvas', ViewLevelCanvas)
+      customElements.define('view-tree', ViewTree)
 
 
       /// THE PLUGIN MANAGER TESTING!!!
