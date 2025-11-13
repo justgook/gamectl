@@ -34,11 +34,31 @@ view--chrome [draggable] {
 .panel {
   position: absolute;
   inset: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .panel-header {
   padding-left: 170px;
+}
+
+.panel-content {
+  position: absolute;
+  inset: 0;
+  top: 25px;
+  overflow: auto;
+}
+
+.tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  pointer-events: none;
+  display: none;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .handle {

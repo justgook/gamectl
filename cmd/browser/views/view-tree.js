@@ -36,7 +36,7 @@ export class ViewTree extends ViewCanvasBase {
     super("view-tree")
     this.treeKey = 'demo-world' // Key for tree data storage
     this.DE = new TextDecoder()
-    
+
     // Tree-specific state
     this.nodePositions = {};
     this.nodeSizes = {};
@@ -63,34 +63,34 @@ export class ViewTree extends ViewCanvasBase {
         "nodes": {
           "root": {
             "name": "Tutorial",
-            "data": {"difficulty": "easy", "type": "intro", "time": "5min"},
+            "data": { "difficulty": "easy", "type": "intro", "time": "5min" },
             "children": [
-              {"to": "level1", "name": "Next Level"},
-              {"to": "bonus1", "name": "Secret Path"}
+              { "to": "level1", "name": "Next Level" },
+              { "to": "bonus1", "name": "Secret Path" }
             ]
           },
           "level1": {
             "name": "Forest Path",
-            "data": {"difficulty": "medium", "enemies": "3", "collectibles": "5"},
+            "data": { "difficulty": "medium", "enemies": "3", "collectibles": "5" },
             "parent": "root",
             "children": [
-              {"to": "level2a", "name": "Main Route"},
-              {"to": "level2b", "name": "Alternate Path"}
+              { "to": "level2a", "name": "Main Route" },
+              { "to": "level2b", "name": "Alternate Path" }
             ]
           },
           "bonus1": {
             "name": "Hidden Cave",
-            "data": {"difficulty": "hard", "reward": "legendary sword"},
+            "data": { "difficulty": "hard", "reward": "legendary sword" },
             "parent": "root"
           },
           "level2a": {
             "name": "Mountain Pass",
-            "data": {"difficulty": "hard", "boss": "Dragon"},
+            "data": { "difficulty": "hard", "boss": "Dragon" },
             "parent": "level1"
           },
           "level2b": {
             "name": "River Valley",
-            "data": {"difficulty": "medium", "puzzle": "bridge"},
+            "data": { "difficulty": "medium", "puzzle": "bridge" },
             "parent": "level1"
           }
         },
@@ -103,21 +103,21 @@ export class ViewTree extends ViewCanvasBase {
     if (!data || !data.nodes || !data.root) {
       return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
     }
-    
+
     // First calculate layout to get node positions
     this._calculateLayout(data);
-    
+
     // Find bounds from node positions
     let minX = Infinity, minY = Infinity;
     let maxX = -Infinity, maxY = -Infinity;
-    
+
     for (const pos of Object.values(this.nodePositions)) {
       minX = Math.min(minX, pos.x);
       minY = Math.min(minY, pos.y);
       maxX = Math.max(maxX, pos.x + pos.width);
       maxY = Math.max(maxY, pos.y + pos.height);
     }
-    
+
     // Add padding
     return {
       minX: minX - PADDING,
@@ -150,28 +150,28 @@ export class ViewTree extends ViewCanvasBase {
     // Check if hovering over any node
     for (const [nodeId, pos] of Object.entries(this.nodePositions)) {
       if (worldX >= pos.x && worldX <= pos.x + pos.width &&
-          worldY >= pos.y && worldY <= pos.y + pos.height) {
+        worldY >= pos.y && worldY <= pos.y + pos.height) {
         const node = data.nodes[nodeId];
         const isRoot = nodeId === data.root;
-        
+
         let html = `
           <div class="info-row"><span class="info-label">Node:</span> <span class="info-value">${node.name || nodeId}</span></div>
           <div class="info-row"><span class="info-label">ID:</span> <span class="info-value">${nodeId}</span></div>
         `;
-        
+
         if (isRoot) {
           html += `<div class="info-row"><span class="info-label">Type:</span> <span class="info-value">Root</span></div>`;
         } else if (node.parent) {
           html += `<div class="info-row"><span class="info-label">Parent:</span> <span class="info-value">${node.parent}</span></div>`;
         }
-        
+
         const childCount = node.children ? node.children.length : 0;
         html += `<div class="info-row"><span class="info-label">Children:</span> <span class="info-value">${childCount}</span></div>`;
-        
+
         return html;
       }
     }
-    
+
     return null;
   }
 
@@ -185,7 +185,7 @@ export class ViewTree extends ViewCanvasBase {
     // Calculate node sizes
     const calculateSizes = (nodeId) => {
       if (this.nodeSizes[nodeId]) return;
-      
+
       const size = this._calculateNodeSize(data, nodeId);
       this.nodeSizes[nodeId] = size;
 
@@ -465,8 +465,8 @@ export class ViewTree extends ViewCanvasBase {
       const edgeMaxY = Math.max(startY, endY) + 100 / this.scale;
 
       if (testY - height / 2 >= edgeMinY &&
-          testY + height / 2 <= edgeMaxY &&
-          !this._checkLabelOverlap(bounds)) {
+        testY + height / 2 <= edgeMaxY &&
+        !this._checkLabelOverlap(bounds)) {
         return { x: midX, y: testY, bounds };
       }
     }
@@ -483,9 +483,9 @@ export class ViewTree extends ViewCanvasBase {
   _checkLabelOverlap(bounds) {
     for (const existing of this.edgeLabelBounds) {
       if (!(bounds.right < existing.left ||
-            bounds.left > existing.right ||
-            bounds.bottom < existing.top ||
-            bounds.top > existing.bottom)) {
+        bounds.left > existing.right ||
+        bounds.bottom < existing.top ||
+        bounds.top > existing.bottom)) {
         return true;
       }
     }
@@ -561,7 +561,7 @@ export class ViewTree extends ViewCanvasBase {
         ctx.fillStyle = TREE_COLORS.BUTTON_BG;
         const buttonRadius = 6 / this.scale;
         ctx.beginPath();
-        this._roundRect(ctx, pos.x + NODE_PADDING / this.scale, buttonY, 
+        this._roundRect(ctx, pos.x + NODE_PADDING / this.scale, buttonY,
           pos.width - NODE_PADDING * 2 / this.scale, 26 / this.scale, buttonRadius);
         ctx.fill();
 
@@ -596,7 +596,7 @@ export class ViewTree extends ViewCanvasBase {
       return;
     }
 
-    const rect = this.wrapper.getBoundingClientRect();
+    const rect = this.canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - this.offsetX) / this.scale;
     const y = (e.clientY - rect.top - this.offsetY) / this.scale;
 
@@ -619,7 +619,7 @@ export class ViewTree extends ViewCanvasBase {
       const buttonHeight = 26 / this.scale;
 
       if (x >= buttonX && x <= buttonX + buttonWidth &&
-          y >= buttonY && y <= buttonY + buttonHeight) {
+        y >= buttonY && y <= buttonY + buttonHeight) {
         if (this.expandedNodes.has(nodeId)) {
           this.expandedNodes.delete(nodeId);
         } else {

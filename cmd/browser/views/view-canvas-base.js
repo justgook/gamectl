@@ -22,7 +22,6 @@ export class ViewCanvasBase extends View {
 
     this.canvas = null;
     this.ctx = null;
-    this.wrapper = null;
     this.tileInfo = null; // For hover tooltip
     this.data = null;
 
@@ -34,130 +33,39 @@ export class ViewCanvasBase extends View {
     this._onMouseLeave = this._onMouseLeave.bind(this);
   }
 
-  _createControls() {
-    const controls = document.createElement('div');
-    controls.style.cssText = `
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 100;
-      display: flex;
-      gap: 8px;
-      padding: 8px;
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 4px;
-    `;
-
-    // Reload Button
-    const reloadButton = document.createElement('button');
-    reloadButton.textContent = '🔄 Reload';
-    reloadButton.className = 'button-secondary'; // Assuming a class from app.css/design tokens
-    reloadButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
-    reloadButton.onclick = () => this.loadAndDraw();
-    
-    // Zoom In Button
-    const zoomInButton = document.createElement('button');
-    zoomInButton.textContent = '+';
-    zoomInButton.className = 'button-secondary';
-    zoomInButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
-    zoomInButton.onclick = () => this.zoomIn();
-
-    // Zoom Out Button
-    const zoomOutButton = document.createElement('button');
-    zoomOutButton.textContent = '−';
-    zoomOutButton.className = 'button-secondary';
-    zoomOutButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
-    zoomOutButton.onclick = () => this.zoomOut();
-
-    // Fit to Content Button
-    const fitButton = document.createElement('button');
-    fitButton.textContent = '⊡ Fit';
-    fitButton.className = 'button-secondary';
-    fitButton.style.cssText = 'padding: 4px 8px; font-size: 12px; cursor: pointer;';
-    fitButton.onclick = () => this.fitToContent();
-
-    controls.appendChild(reloadButton);
-    controls.appendChild(zoomInButton);
-    controls.appendChild(zoomOutButton);
-    controls.appendChild(fitButton);
-
-    return controls;
-  }
-
   connectedCallback() {
     super.connectedCallback();
-
-    // Setup DOM structure: wrapper > canvas + tileInfo
-    this.wrapper = document.createElement('div');
-    this.wrapper.style.cssText = `
-      width: 100%;
-      height: 100%;
-      position: relative;
-      overflow: hidden;
-      cursor: grab;
-    `;
-
-    this.canvas = document.createElement('canvas');
-    this.canvas.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      transform-origin: 0 0;
-    `;
-
-    this.tileInfo = document.createElement('div');
-    this.tileInfo.id = 'tileInfo';
-    this.tileInfo.style.cssText = `
-      position: absolute;
-      background: rgba(0, 0, 0, 0.85);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      pointer-events: none;
-      display: none;
-      z-index: 1000;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    `;
-
-    this.wrapper.appendChild(this.canvas);
-    this.wrapper.appendChild(this.tileInfo);
-    this.wrapper.appendChild(this._createControls());
-
-    // Clear any template content and append our canvas wrapper
-    this.content.innerHTML = '';
-    this.content.appendChild(this.wrapper);
-    
-    this.ctx = this.canvas.getContext('2d');
-    
-    this._addEventListeners();
-    
-    // Ensure canvas is sized correctly (handles case where w/h were set before connectedCallback)
-    this.onResize(this.w, this.h);
-    
-    // Initial data load and draw
-    this.loadAndDraw();
+    this.tileInfo = this.content.querySelector("[data-tooltip]")
+    this.content.querySelector(`[data-action="reload"]`).onclick = () => this.loadAndDraw()
+    this.content.querySelector(`[data-action="zoom-in"]`).onclick = () => this.zoomIn()
+    this.content.querySelector(`[data-action="zoom-out"]`).onclick = () => this.zoomOut()
+    this.content.querySelector(`[data-action="zoom-fit"]`).onclick = () => this.fitToContent()
+    this.canvas = this.content.querySelector(`canvas`)
+    this.ctx = this.canvas.getContext('2d')
+    this._addEventListeners()
+    this.onResize(this.w, this.h)
+    this.loadAndDraw()
   }
-  
+
   disconnectedCallback() {
     this._removeEventListeners();
   }
 
   _addEventListeners() {
-    this.wrapper.addEventListener('wheel', this._onWheel, { passive: false });
-    this.wrapper.addEventListener('mousedown', this._onMouseDown);
-    this.wrapper.addEventListener('mousemove', this._onMouseMove);
-    this.wrapper.addEventListener('mouseup', this._onMouseUp);
-    this.wrapper.addEventListener('mouseleave', this._onMouseLeave);
+    this.canvas.addEventListener('wheel', this._onWheel, { passive: false });
+    this.canvas.addEventListener('mousedown', this._onMouseDown);
+    this.canvas.addEventListener('mousemove', this._onMouseMove);
+    this.canvas.addEventListener('mouseup', this._onMouseUp);
+    this.canvas.addEventListener('mouseleave', this._onMouseLeave);
   }
 
   _removeEventListeners() {
-    if (!this.wrapper) return;
-    this.wrapper.removeEventListener('wheel', this._onWheel);
-    this.wrapper.removeEventListener('mousedown', this._onMouseDown);
-    this.wrapper.removeEventListener('mousemove', this._onMouseMove);
-    this.wrapper.removeEventListener('mouseup', this._onMouseUp);
-    this.wrapper.removeEventListener('mouseleave', this._onMouseLeave);
+    if (!this.canvas) return;
+    this.canvas.removeEventListener('wheel', this._onWheel);
+    this.canvas.removeEventListener('mousedown', this._onMouseDown);
+    this.canvas.removeEventListener('mousemove', this._onMouseMove);
+    this.canvas.removeEventListener('mouseup', this._onMouseUp);
+    this.canvas.removeEventListener('mouseleave', this._onMouseLeave);
   }
 
   // Called by View on resize
@@ -167,14 +75,10 @@ export class ViewCanvasBase extends View {
   }
 
   onResize(width, height) {
-    if (!this.canvas) return;
-
-    // Set canvas resolution to match the element size for sharp rendering
-    this.canvas.width = width;
-    this.canvas.height = height;
-
-    // Redraw on resize
-    this.draw();
+    if (!this.canvas) return
+    this.canvas.width = width
+    this.canvas.height = height
+    this.draw()
   }
 
   // --- Abstract Methods (Subclasses must implement) ---
@@ -183,15 +87,15 @@ export class ViewCanvasBase extends View {
     throw new Error("Subclass must implement fetchData()");
   }
 
-  calculateContentBounds(data) {
+  calculateContentBounds(_data) {
     throw new Error("Subclass must implement calculateContentBounds(data)");
   }
 
-  drawContent(ctx, data) {
+  drawContent(_ctx, _data) {
     throw new Error("Subclass must implement drawContent(ctx, data)");
   }
 
-  getHoverInfo(worldX, worldY, data) {
+  getHoverInfo(_worldX, _worldY, _data) {
     // Optional: return null if no info
     return null;
   }
@@ -215,25 +119,25 @@ export class ViewCanvasBase extends View {
   draw() {
     if (!this.ctx) return;
 
-    const { width, height } = this.canvas;
-    this.ctx.save();
-    this.ctx.clearRect(0, 0, width, height);
+    const { width, height } = this.canvas
+    this.ctx.save()
+    this.ctx.clearRect(0, 0, width, height)
 
     // Apply background
     this.ctx.fillStyle = '#1e1e1e'; // Dark background
-    this.ctx.fillRect(0, 0, width, height);
+    this.ctx.fillRect(0, 0, width, height)
 
     // Apply transform
-    this.ctx.translate(this.offsetX, this.offsetY);
-    this.ctx.scale(this.scale, this.scale);
+    this.ctx.translate(this.offsetX, this.offsetY)
+    this.ctx.scale(this.scale, this.scale)
 
     if (this.data) {
-      this.drawContent(this.ctx, this.data);
+      this.drawContent(this.ctx, this.data)
     } else {
-      this._drawPlaceholder(width, height);
+      this._drawPlaceholder(width, height)
     }
 
-    this.ctx.restore();
+    this.ctx.restore()
   }
 
   _drawPlaceholder(width, height) {
@@ -357,7 +261,7 @@ export class ViewCanvasBase extends View {
 
   _onWheel(e) {
     e.preventDefault();
-    const rect = this.wrapper.getBoundingClientRect();
+    const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
@@ -376,7 +280,7 @@ export class ViewCanvasBase extends View {
     this.isDragging = true;
     this.dragStartX = e.clientX - this.offsetX;
     this.dragStartY = e.clientY - this.offsetY;
-    this.wrapper.style.cursor = 'grabbing';
+    this.canvas.style.cursor = 'grabbing';
   }
 
   _onMouseMove(e) {
@@ -392,12 +296,12 @@ export class ViewCanvasBase extends View {
 
   _onMouseUp() {
     this.isDragging = false;
-    this.wrapper.style.cursor = 'grab';
+    this.canvas.style.cursor = 'grab';
   }
 
   _onMouseLeave() {
     this.isDragging = false;
-    this.wrapper.style.cursor = 'grab';
+    this.canvas.style.cursor = 'grab';
     this.tileInfo.style.display = 'none';
   }
 
@@ -407,7 +311,7 @@ export class ViewCanvasBase extends View {
       return;
     }
 
-    const rect = this.wrapper.getBoundingClientRect();
+    const rect = this.canvas.getBoundingClientRect();
 
     // Calculate mouse position in world coordinates
     const mouseX = (e.clientX - rect.left - this.offsetX) / this.scale;
@@ -427,4 +331,5 @@ export class ViewCanvasBase extends View {
     }
   }
 }
+
 customElements.define('view-canvas-base', ViewCanvasBase);

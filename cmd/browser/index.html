@@ -58,26 +58,33 @@
     <template id="view-minimap">
       <div class="panel">
         <div class="panel-header">Minimap</div>
-        <div class="panel-content" data-minimap-container>
-          <!-- Canvas is now managed by ViewCanvasBase -->
-        </div>
-      </div>
-    </template>
-
-    <template id="view-level-canvas">
-      <div class="panel">
-        <div class="panel-header">Level Visualizer</div>
-        <div class="panel-content" data-level-container>
-          <!-- Canvas is now managed by ViewCanvasBase -->
+        <div class="panel-content" style="padding: 0;">
+          <canvas></canvas>
+          <div
+            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
+            <button data-action="reload" class="button-secondary">🔄 Reload</button>
+            <button data-action="zoom-in" class="button-secondary">+</button>
+            <button data-action="zoom-out" class="button-secondary">−</button>
+            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+          </div>
+          <div class="tooltip" data-tooltip></div>
         </div>
       </div>
     </template>
 
     <template id="view-tree">
       <div class="panel">
-        <div class="panel-header">Tree Visualizer</div>
-        <div class="panel-content" data-tree-container>
-          <!-- Canvas is now managed by ViewCanvasBase -->
+        <div class="panel-header">Minimap</div>
+        <div class="panel-content" style="padding: 0;">
+          <canvas></canvas>
+          <div
+            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
+            <button data-action="reload" class="button-secondary">🔄 Reload</button>
+            <button data-action="zoom-in" class="button-secondary">+</button>
+            <button data-action="zoom-out" class="button-secondary">−</button>
+            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+          </div>
+          <div class="tooltip" data-tooltip></div>
         </div>
       </div>
     </template>
@@ -92,7 +99,6 @@
           <option value="view-splitter">view-splitter</option>
           <option value="view-testing">view-testing</option>
           <option value="view-minimap">view-minimap</option>
-          <option value="view-level-canvas">view-level-canvas</option>
           <option value="view-tree">view-tree</option>
           <option value="view-empty">view-empty</option>
         </select>
@@ -117,9 +123,7 @@
       import {ViewTesting} from "./views/view-testing.js"
       import {ViewSplitter} from "./views/view-splitter.js"
       import {ViewMinimap} from "./views/view-minimap.js"
-      import {ViewLevelCanvas} from "./views/view-level-canvas.js"
       import {ViewTree} from "./views/view-tree.js"
-      import { } from "./plugin-manager.js"
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
 
@@ -128,7 +132,6 @@
       customElements.define('view-testing', ViewTesting)
       customElements.define('view-splitter', ViewSplitter)
       customElements.define('view-minimap', ViewMinimap)
-      customElements.define('view-level-canvas', ViewLevelCanvas)
       customElements.define('view-tree', ViewTree)
 
 

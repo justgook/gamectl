@@ -90,25 +90,21 @@ export class LayoutParent extends HTMLElement {
   _onChildAdded(child) {
     const from = child.getAttribute("from")
     const nesw = child.getAttribute("nesw")
-    
+
     // If child already has a panel attribute, it's already positioned (e.g., from view switching)
     if (!from || !nesw) {
       console.warn("Child added without required split attributes (from, nesw), skipping split logic")
       return
     }
-    
+
     const fn = {
       "s": this.layout.splitFromNorth,
       "w": this.layout.splitFromEast,
       "e": this.layout.splitFromWest,
       "n": this.layout.splitFromSouth,
     }[nesw]
-    
-    if (!fn) {
-      console.warn(`Invalid nesw attribute value: "${nesw}", expected one of: s, w, e, n`)
-      return
-    }
-    
+
+
     const { newPanelId, handleId } = fn(from, parseFloat(child.getAttribute("p")))
     this._addHandle(handleId)
     const panel = this.layout.getPanel(newPanelId)
