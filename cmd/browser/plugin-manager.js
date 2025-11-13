@@ -564,6 +564,20 @@ class PluginManager {
     return this.callSync(moduleName, functionName, input);
   }
 
+  rawCall(moduleName, functionName, input) {
+    const module = this.wasmModules.get(moduleName)
+    if (!module) {
+      throw new Error(`WASM module ${moduleName} not found`)
+    }
+
+    const fn = module.instance.exports[functionName]
+    if (!fn) {
+      throw new Error(`Function ${functionName} not found in module ${moduleName}`)
+    }
+
+    return fn(input)
+  }
+
   /**
    * Close and cleanup
    */

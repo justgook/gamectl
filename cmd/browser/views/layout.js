@@ -98,14 +98,35 @@ export class LayoutParent extends HTMLElement {
     }
 
     const fn = {
-      "s": this.layout.splitFromNorth,
-      "w": this.layout.splitFromEast,
-      "e": this.layout.splitFromWest,
-      "n": this.layout.splitFromSouth,
+      "n": this.layout.splitFromNorth,
+      "e": this.layout.splitFromEast,
+      "w": this.layout.splitFromWest,
+      "s": this.layout.splitFromSouth,
     }[nesw]
 
+    let p = parseFloat(child.getAttribute("p"))
+    const r = child.getAttribute("r")
+    if (r) {
+      const fromPanel = this.layout.getPanel(from)
+      const rVal = parseFloat(r)
+      switch (nesw) {
+        case "n": // splitFromSouth: new panel above, r from top
+          p = fromPanel.y + rVal
+          break
+        case "s": // splitFromNorth: new panel below, r from bottom
+          p = fromPanel.y + fromPanel.h - rVal - this.layout.handleH
+          break
+        case "w": // splitFromEast: new panel on left, r from left
+          p = fromPanel.x + rVal
+          break
+        case "e": // splitFromWest: new panel on right, r from right
+          p = fromPanel.x + fromPanel.w - rVal - this.layout.handleW
+          break
+      }
+    }
 
-    const { newPanelId, handleId } = fn(from, parseFloat(child.getAttribute("p")))
+
+    const { newPanelId, handleId } = fn(from, p)
     this._addHandle(handleId)
     const panel = this.layout.getPanel(newPanelId)
     child.setAttribute("panel", newPanelId)
@@ -115,6 +136,7 @@ export class LayoutParent extends HTMLElement {
     child.h = panel.h
     child.removeAttribute("from")
     child.removeAttribute("p")
+    child.removeAttribute("r")
     child.removeAttribute("nesw")
     this._onResized(this.clientWidth, this.clientHeight) // TODO: maybe resize only "from" and "newPanelId"
   }

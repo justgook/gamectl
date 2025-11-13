@@ -1,5 +1,13 @@
 var x: u32 = 46;
 
+export fn setSeed(a: u32) void {
+    x = a;
+}
+
+export fn seed() u32 {
+    return x;
+}
+
 export fn next() f32 {
     x +%= 0x9E3779B9;
     var z: u32 = x;

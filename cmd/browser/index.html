@@ -55,6 +55,15 @@
       </div>
     </template>
 
+    <template id="view-console">
+      <div class="panel">
+        <div class="panel-header">Console</div>
+        <div class="panel-content">
+          <pre data-element="log-output" style="white-space: pre-wrap;"></pre>
+        </div>
+      </div>
+    </template>
+
     <template id="view-minimap">
       <div class="panel">
         <div class="panel-header">Minimap</div>
@@ -101,6 +110,7 @@
           <option value="view-minimap">view-minimap</option>
           <option value="view-tree">view-tree</option>
           <option value="view-empty">view-empty</option>
+          <option value="view-console">view-console</option>
         </select>
       </div>
       <div class="ne" data-action="ne" draggable="true"></div>
@@ -111,7 +121,8 @@
 
     <layout-parent handle-width="6" handle-height="20" id="scene">
       <view-minimap panel="panel_1"></view-minimap>
-      <view-testing nesw="n" p="639" from="panel_1"></view-testing>
+      <view-console nesw="s" r="200" from="panel_1"></view-console>
+      <view-testing nesw="w" r="200" from="panel_1"></view-testing>
     </layout-parent>
 
 
@@ -124,6 +135,7 @@
       import {ViewSplitter} from "./views/view-splitter.js"
       import {ViewMinimap} from "./views/view-minimap.js"
       import {ViewTree} from "./views/view-tree.js"
+      import {ViewConsole} from "./views/view-console.js"
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
 
@@ -133,6 +145,7 @@
       customElements.define('view-splitter', ViewSplitter)
       customElements.define('view-minimap', ViewMinimap)
       customElements.define('view-tree', ViewTree)
+      customElements.define('view-console', ViewConsole)
 
 
       /// THE PLUGIN MANAGER TESTING!!!
@@ -149,7 +162,8 @@
       const modules = pluginNames.map(name => ({
         name: name,
         url: `/build.nosync/${name}.wasm`
-      }));
+      }))
+
       window.pluginManager = await PluginManager.create({
         modules: modules,
         hostFunctions: [
@@ -159,17 +173,15 @@
             handler: (input) => {
               const message = new TextDecoder().decode(input)
               console.log('[Plugin]', message)
+              document.querySelectorAll("view-console")?.forEach(a => a.log(message))
               return {returnCode: 0, output: new Uint8Array()}
             }
           }
         ]
       })
-      // const r1 = await pluginManager.call('host', 'log', 'hello world')
-      // const r2 = await pluginManager.call('worldgraph', 'worldgraph', 'hello world')
 
-      // console.log(pluginManager)
-
-
+      pluginManager.rawCall('random', 'setSeed', 25)
+      const rrr = pluginManager.rawCall('random', 'seed')
     </script>
   </body>
 

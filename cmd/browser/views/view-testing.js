@@ -14,7 +14,9 @@ export class ViewTesting extends View {
   async createMinimap() {
     const result = await pluginManager.call('minimap', 'minimap', `{"treeId":"demo-world"}`)
     const result2 = await pluginManager.call('tilemap-storage', 'get', `{"id":"minimap"}`)
-    console.log(this.DE.decode(result2.output))
+    await pluginManager.call('host', 'log', result2.output)
+
+    // console.log(this.DE.decode(result2.output))
   }
   async getMinimap() {
     const result = await pluginManager.call('tilemap-storage', 'get', `{"id":"minimap"}`)
