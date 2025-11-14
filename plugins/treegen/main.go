@@ -49,26 +49,27 @@ func Gen() uint32 {
 		Tree tree3.Tree `json:"tree"`
 	}
 
-	// req.ID = params.Name
+	req.ID = params.Name
 	req.Tree = GenerateTree(params.GenerateTreeConfig, &MyRandom{})
-	//
-	// storeJSON, err := json.Marshal(req)
-	// if err != nil {
-	// 	pdk.Output(errorResponse(err.Error()))
-	// 	return 1
-	// }
-	//
-	// _, _, callErr := pdk.Call("tree-storage2", "set", storeJSON)
-	// if callErr != nil {
-	// 	pdk.Output(errorResponse(callErr.Error()))
-	// 	return 1
-	// }
-	pdk.Output(successResponse(&req.Tree))
+
+	storeJSON, err := json.Marshal(req)
+	if err != nil {
+		pdk.Output(errorResponse(err.Error()))
+		return 1
+	}
+
+	_, _, callErr := pdk.Call("tree-storage2", "set", storeJSON)
+	if callErr != nil {
+		pdk.Output(errorResponse(callErr.Error()))
+		return 1
+	}
+
+	pdk.Output(successResponse())
 	return 0
 }
 
-func successResponse(t *tree3.Tree) []byte {
-	resp := SuccessResponse{Success: true, Data: t}
+func successResponse() []byte {
+	resp := SuccessResponse{Success: true}
 	data, _ := json.Marshal(resp)
 	return data
 }

@@ -183,32 +183,9 @@
         ]
       })
 
-      pluginManager.rawCall('random', 'setSeed', 27)
-      const rrr = pluginManager.rawCall('random', 'seed')
-      console.log(rrr)
+      import {develop} from "./test_plugins.js"
 
-      const balancedTree = {
-        "nodeCount": 0,
-        "maxDepth": 6,
-        "maxBranching": 3,
-        "minBranching": 1,
-        "shapeBias": 0,
-        "density": 0.7,
-        "rootBranches": 0,
-        "leafRatio": 0.4,
-      }
-
-      const treeName = "progresion"
-
-      const treeResult = await pluginManager.call("treegen", "gen", JSON.stringify({name: treeName, ...balancedTree}))
-      // console.log(treeResult)
-      const DE = new TextDecoder()
-      let data = await DE.decode(treeResult.output)
-      console.log(JSON.parse(data).data)
-      // console.log(3333)
-      // const treeResult2 = await pluginManager.call("tree-storage2", "get", `{"id": "${treeName}"}`)
-      // data = await DE.decode(treeResult2.output)
-      // console.log(treeResult2, data)
+      develop()
 
 
     </script>

@@ -96,6 +96,13 @@ func (g *treeGenerator) generateStructure() {
 		queue = append(queue, queueNode{node: child, depth: 2})
 	}
 
+	// Ensure minimum viable tree - if no root children, create at least one
+	if len(queue) == 0 && g.config.NodeCount <= 0 {
+		child := g.tree.Add(0, nil)
+		g.nodes++
+		queue = append(queue, queueNode{node: child, depth: 2})
+	}
+
 	// Process queue (breadth-first with shape bias)
 	for len(queue) > 0 {
 		// Shape bias affects processing order
@@ -205,6 +212,16 @@ func (g *treeGenerator) removeFromQueue(queue []queueNode, target queueNode) []q
 func (g *treeGenerator) shouldBranch(depth int) bool {
 	// Base probability from density
 	prob := g.config.Density
+
+	// When nodeCount is 0 (unlimited), ensure minimum viable branching
+	// at shallow depths to avoid degenerate trees
+	if g.config.NodeCount <= 0 && depth <= 3 && g.nodes < 6 {
+		// Increase probability for shallow depths when tree is too small
+		minProbAtShallow := 0.8
+		if prob < minProbAtShallow {
+			prob = minProbAtShallow
+		}
+	}
 
 	// Shape bias affects branching probability by depth
 	if g.config.ShapeBias > 0 {
