@@ -1,4 +1,4 @@
-package tree
+package tree3
 
 import (
 	"iter"
@@ -7,7 +7,7 @@ import (
 type Tree []*Node
 
 type Node struct {
-	Data     map[string]string `json:"data"`
+	Data     map[string]string `json:"data,omitempty"`
 	ParentId int               `json:"parent,omitempty"`
 }
 
@@ -25,7 +25,7 @@ func (t *Tree) Parent(node *Node) *Node {
 }
 
 func (t *Tree) Children(node *Node) iter.Seq[*Node] {
-	parentIdx := t.indexOf(node)
+	parentIdx := t.IndexOf(node)
 
 	return func(yield func(*Node) bool) {
 		for _, n := range *t {
@@ -53,7 +53,7 @@ func (t *Tree) Traverse(root *Node) iter.Seq[*Node] {
 			}
 
 			// collect children
-			parentIdx := t.indexOf(n)
+			parentIdx := t.IndexOf(n)
 			children := make([]*Node, 0)
 
 			for _, c := range *t {
@@ -70,7 +70,7 @@ func (t *Tree) Traverse(root *Node) iter.Seq[*Node] {
 	}
 }
 
-func (t *Tree) indexOf(node *Node) int {
+func (t *Tree) IndexOf(node *Node) int {
 	for i, n := range *t {
 		if n == node {
 			return i
