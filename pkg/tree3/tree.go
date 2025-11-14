@@ -8,7 +8,7 @@ type Tree []*Node
 
 type Node struct {
 	Data     map[string]string `json:"data,omitempty"`
-	ParentId int               `json:"parent,omitempty"`
+	ParentId int               `json:"parent"`
 }
 
 func (t *Tree) Add(parent int, data map[string]string) *Node {

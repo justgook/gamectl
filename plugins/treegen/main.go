@@ -21,60 +21,48 @@ type SuccessResponse struct {
 //go:wasmimport random next
 func nextRand() float32
 
+//go:wasmimport random float64
+func rndF64() float64
+
+//go:wasmimport random intn
+func rndIntn(n uint32) uint32
+
 type MyRandom struct{}
 
 func (rng *MyRandom) Float64() float64 {
-	return float64(nextRand())
+	return rndF64()
 }
-
 func (rng *MyRandom) Intn(n int) int {
-	return int(nextRand()*float32(n) + 0.5)
+	return int(rndIntn(uint32(n)))
 }
-
-// func (r *Rand) Int63n(n int64) int64 {
-// 	if n <= 0 {
-// 		panic("invalid argument to Int63n")
-// 	}
-// 	if n&(n-1) == 0 { // n is power of two, can mask
-// 		return r.Int63() & (n - 1)
-// 	}
-// 	max := int64((1 << 63) - 1 - (1<<63)%uint64(n))
-// 	v := r.Int63()
-// 	for v > max {
-// 		v = r.Int63()
-// 	}
-// 	return v % n
-// }
 
 //export gen
 func Gen() uint32 {
 	input := pdk.Input()
-
 	params := Input{}
 	if err := json.Unmarshal(input, &params); err != nil {
 		pdk.Output(errorResponse("invalid input: " + err.Error()))
 		return 1
 	}
-
 	var req struct {
 		ID   string     `json:"id"`
 		Tree tree3.Tree `json:"tree"`
 	}
 
-	req.ID = params.Name
+	// req.ID = params.Name
 	req.Tree = GenerateTree(params.GenerateTreeConfig, &MyRandom{})
-
-	storeJSON, err := json.Marshal(req)
-	if err != nil {
-		pdk.Output(errorResponse(err.Error()))
-		return 1
-	}
-
-	_, _, callErr := pdk.Call("tree-storage2", "set", storeJSON)
-	if callErr != nil {
-		pdk.Output(errorResponse(callErr.Error()))
-		return 1
-	}
+	//
+	// storeJSON, err := json.Marshal(req)
+	// if err != nil {
+	// 	pdk.Output(errorResponse(err.Error()))
+	// 	return 1
+	// }
+	//
+	// _, _, callErr := pdk.Call("tree-storage2", "set", storeJSON)
+	// if callErr != nil {
+	// 	pdk.Output(errorResponse(callErr.Error()))
+	// 	return 1
+	// }
 	pdk.Output(successResponse(&req.Tree))
 	return 0
 }

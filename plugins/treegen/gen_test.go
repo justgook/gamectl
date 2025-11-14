@@ -1,10 +1,11 @@
-package main
+package main_test
 
 import (
 	"math/rand"
 	"testing"
 
 	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/plugins/treegen"
 )
 
 // GoRNG implements the Random interface using math/rand
@@ -14,12 +15,11 @@ func NewGoRNG(seed int64) *GoRNG {
 	return &GoRNG{rand.New(rand.NewSource(seed))}
 }
 
-// Helper to count nodes in a tree
+// Test helpers
 func countNodes(t tree3.Tree) int {
 	return len(t)
 }
 
-// Helper to get max depth of a tree
 func getMaxDepth(t tree3.Tree) int {
 	maxDepth := 0
 	for _, node := range t {
@@ -31,150 +31,299 @@ func getMaxDepth(t tree3.Tree) int {
 	return maxDepth
 }
 
-func TestGenerateTree_Skinny(t *testing.T) {
-	seed := int64(123)
-	rng := NewGoRNG(seed)
-
-	cfg := DefaultConfig(rng)
-	cfg.MaxDepth = 20
-	cfg.MaxBranching = 2
-	cfg.MinBranching = 0
-	cfg.BranchingProbability = 0.6
-	cfg.BalanceBias = -0.8 // very tall
-
-	tree := GenerateTree(cfg, rng)
-
-	if countNodes(tree) < 1 {
-		t.Errorf("Skinny tree should have at least 1 node, got %d", countNodes(tree))
+func getDepth(t *tree3.Tree, n *tree3.Node) int {
+	depth := 1
+	curr := n
+	for curr.ParentId != -1 {
+		curr = (*t)[curr.ParentId]
+		depth++
 	}
-	if getMaxDepth(tree) > cfg.MaxDepth+1 { // +1 because root is depth 1, children depth 2 etc.
-		t.Errorf("Skinny tree max depth %d exceeded configured max depth %d", getMaxDepth(tree), cfg.MaxDepth)
-	}
-	// For a skinny tree, we expect a relatively low node count and high depth
-	// Exact numbers are hard to assert due to randomness, but we can check general characteristics
-	if countNodes(tree) > 100 { // Arbitrary upper bound for a "skinny" tree with these settings
-		t.Errorf("Skinny tree node count %d seems too high for a skinny tree", countNodes(tree))
-	}
-	if getMaxDepth(tree) < 5 { // Arbitrary lower bound for depth
-		t.Errorf("Skinny tree max depth %d seems too low for a skinny tree", getMaxDepth(tree))
-	}
+	return depth
 }
 
-func TestGenerateTree_Bushy(t *testing.T) {
-	seed := int64(456)
-	rng := NewGoRNG(seed)
-
-	cfg := DefaultConfig(rng)
-	cfg.MaxDepth = 4
-	cfg.MaxBranching = 5
-	cfg.MinBranching = 2
-	cfg.BranchingProbability = 0.95
-	cfg.BalanceBias = +0.7 // wide
-
-	tree := GenerateTree(cfg, rng)
-
-	if countNodes(tree) < 1 {
-		t.Errorf("Bushy tree should have at least 1 node, got %d", countNodes(tree))
+func countRootChildren(t tree3.Tree) int {
+	if len(t) == 0 {
+		return 0
 	}
-	if getMaxDepth(tree) > cfg.MaxDepth+1 {
-		t.Errorf("Bushy tree max depth %d exceeded configured max depth %d", getMaxDepth(tree), cfg.MaxDepth)
+	root := t[0]
+	count := 0
+	for range t.Children(root) {
+		count++
 	}
-	// For a bushy tree, we expect a relatively high node count and low depth
-	if countNodes(tree) < 20 { // Arbitrary lower bound for a "bushy" tree
-		t.Errorf("Bushy tree node count %d seems too low for a bushy tree", countNodes(tree))
-	}
-	if getMaxDepth(tree) > 5 { // Should be close to MaxDepth
-		t.Errorf("Bushy tree max depth %d seems too high for a bushy tree", getMaxDepth(tree))
-	}
+	return count
 }
 
-func TestGenerateTree_Balanced(t *testing.T) {
-	seed := int64(789)
-	rng := NewGoRNG(seed)
+func countLeaves(t tree3.Tree) int {
+	childCount := make([]int, len(t))
+	for _, node := range t {
+		if node.ParentId >= 0 {
+			childCount[node.ParentId]++
+		}
+	}
 
-	cfg := DefaultConfig(rng)
-	cfg.MaxDepth = 6
-	cfg.MaxBranching = 3
-	cfg.MinBranching = 1
-	cfg.BranchingProbability = 0.85
-	cfg.DepthFalloff = 0.65
-	cfg.BalanceBias = 0
-
-	tree := GenerateTree(cfg, rng)
-
-	if countNodes(tree) < 1 {
-		t.Errorf("Balanced tree should have at least 1 node, got %d", countNodes(tree))
+	leaves := 0
+	for i := range t {
+		if childCount[i] == 0 {
+			leaves++
+		}
 	}
-	if getMaxDepth(tree) > cfg.MaxDepth+1 {
-		t.Errorf("Balanced tree max depth %d exceeded configured max depth %d", getMaxDepth(tree), cfg.MaxDepth)
-	}
-	// For a balanced tree, node count and depth should be within reasonable bounds
-	if countNodes(tree) < 10 || countNodes(tree) > 150 {
-		t.Errorf("Balanced tree node count %d seems out of expected range", countNodes(tree))
-	}
-	if getMaxDepth(tree) < 3 || getMaxDepth(tree) > 7 {
-		t.Errorf("Balanced tree max depth %d seems out of expected range", getMaxDepth(tree))
-	}
+	return leaves
 }
 
-func TestGenerateTree_TargetNodeCount(t *testing.T) {
-	seed := int64(101112)
-	rng := NewGoRNG(seed)
+// Test basic functionality
+func TestGenerateTree_Basic(t *testing.T) {
+	rng := NewGoRNG(123)
 
-	cfg := DefaultConfig(rng)
-	cfg.NodeCount = 100
-	cfg.MaxDepth = 10 // Provide a max depth to prevent infinite loops if branching is too low
-	cfg.MaxBranching = 4
-	cfg.MinBranching = 1
+	cfg := main.GenerateTreeConfig{
+		NodeCount:    10,
+		MaxDepth:     5,
+		MaxBranching: 3,
+		MinBranching: 1,
+		ShapeBias:    0.0,
+		Density:      0.7,
+		RootBranches: 0,
+		LeafRatio:    0.0,
+	}
 
-	tree := GenerateTree(cfg, rng)
+	tree := main.GenerateTree(cfg, rng)
 
 	if countNodes(tree) != cfg.NodeCount {
-		t.Errorf("Tree with target node count %d, got %d nodes", cfg.NodeCount, countNodes(tree))
+		t.Errorf("Expected %d nodes, got %d", cfg.NodeCount, countNodes(tree))
 	}
-	if getMaxDepth(tree) > cfg.MaxDepth+1 {
-		t.Errorf("Tree with target node count max depth %d exceeded configured max depth %d", getMaxDepth(tree), cfg.MaxDepth)
+
+	if getMaxDepth(tree) > cfg.MaxDepth {
+		t.Errorf("Max depth %d exceeded configured max depth %d", getMaxDepth(tree), cfg.MaxDepth)
+	}
+
+	if countNodes(tree) < 1 {
+		t.Errorf("Tree should have at least 1 node (root)")
 	}
 }
 
-func TestGenerateTree_RequiredRootBranches(t *testing.T) {
-	seed := int64(131415)
-	rng := NewGoRNG(seed)
+// Test NodeCount = 0 (generate until MaxDepth)
+func TestGenerateTree_NoNodeLimit(t *testing.T) {
+	rng := NewGoRNG(456)
 
-	cfg := DefaultConfig(rng)
-	cfg.MaxDepth = 3
-	cfg.MaxBranching = 5
-	cfg.MinBranching = 0
-	cfg.BranchingProbability = 0.1 // Low probability to see if required branches are guaranteed
-	cfg.RequireRootBranchCount = 3
-
-	tree := GenerateTree(cfg, rng)
-
-	rootNode := tree[0] // Assuming root is always at index 0
-
-	rootChildrenCount := 0
-	for range tree.Children(rootNode) {
-		rootChildrenCount++
+	cfg := main.GenerateTreeConfig{
+		NodeCount:    0, // No limit
+		MaxDepth:     4,
+		MaxBranching: 2,
+		MinBranching: 1,
+		ShapeBias:    0.0,
+		Density:      0.8,
+		RootBranches: 2,
+		LeafRatio:    0.0,
 	}
 
-	if rootChildrenCount != cfg.RequireRootBranchCount {
-		t.Errorf("Expected %d root children, got %d", cfg.RequireRootBranchCount, rootChildrenCount)
+	tree := main.GenerateTree(cfg, rng)
+
+	if countNodes(tree) < 1 {
+		t.Errorf("Tree should have at least 1 node (root)")
 	}
 
-	// Check if children of required root branches also branch (subject to probability)
-	// This is harder to assert precisely due to randomness, but we can check if they exist
-	hasGrandchildren := false
-	for child := range tree.Children(rootNode) { // Iterate over children of the root
-		grandchildCount := 0
-		for range tree.Children(child) { // Iterate over children of the current child (grandchildren)
-			grandchildCount++
-		}
-		if grandchildCount > 0 {
-			hasGrandchildren = true
-			break
-		}
+	if getMaxDepth(tree) > cfg.MaxDepth {
+		t.Errorf("Max depth %d exceeded configured max depth %d", getMaxDepth(tree), cfg.MaxDepth)
 	}
-	if !hasGrandchildren {
-		t.Errorf("Expected at least one grandchild from required root branches, but found none. Branching probability might be too aggressive.")
+
+	// Should reach max depth when no node limit
+	if getMaxDepth(tree) < cfg.MaxDepth {
+		t.Errorf("Expected tree to reach max depth %d, got %d", cfg.MaxDepth, getMaxDepth(tree))
+	}
+}
+
+// Test RootBranches constraint
+func TestGenerateTree_RootBranches(t *testing.T) {
+	rng := NewGoRNG(789)
+
+	cfg := main.GenerateTreeConfig{
+		NodeCount:    20,
+		MaxDepth:     4,
+		MaxBranching: 3,
+		MinBranching: 1,
+		ShapeBias:    0.0,
+		Density:      0.9,
+		RootBranches: 3, // Specific root branches
+		LeafRatio:    0.0,
+	}
+
+	tree := main.GenerateTree(cfg, rng)
+
+	rootChildren := countRootChildren(tree)
+	if rootChildren != cfg.RootBranches {
+		t.Errorf("Expected %d root children, got %d", cfg.RootBranches, rootChildren)
+	}
+}
+
+// Test ShapeBias - Wide trees (positive bias)
+func TestGenerateTree_WideBias(t *testing.T) {
+	rng := NewGoRNG(101)
+
+	cfg := main.GenerateTreeConfig{
+		NodeCount:    50,
+		MaxDepth:     6,
+		MaxBranching: 4,
+		MinBranching: 1,
+		ShapeBias:    0.8, // Strong wide bias
+		Density:      0.7,
+		RootBranches: 0,
+		LeafRatio:    0.0,
+	}
+
+	tree := main.GenerateTree(cfg, rng)
+
+	// Wide trees should have more nodes at shallow depths
+	// This is hard to test precisely, but we can check basic properties
+	if countNodes(tree) != cfg.NodeCount {
+		t.Errorf("Expected %d nodes, got %d", cfg.NodeCount, countNodes(tree))
+	}
+
+	// Wide trees should have more root children on average
+	rootChildren := countRootChildren(tree)
+	if rootChildren < 2 {
+		t.Errorf("Wide tree should have multiple root children, got %d", rootChildren)
+	}
+}
+
+// Test ShapeBias - Tall trees (negative bias)
+func TestGenerateTree_TallBias(t *testing.T) {
+	rng := NewGoRNG(202)
+
+	cfg := main.GenerateTreeConfig{
+		NodeCount:    30,
+		MaxDepth:     8,
+		MaxBranching: 3,
+		MinBranching: 1,
+		ShapeBias:    -0.7, // Strong tall bias
+		Density:      0.6,
+		RootBranches: 0,
+		LeafRatio:    0.0,
+	}
+
+	tree := main.GenerateTree(cfg, rng)
+
+	if countNodes(tree) != cfg.NodeCount {
+		t.Errorf("Expected %d nodes, got %d", cfg.NodeCount, countNodes(tree))
+	}
+
+	// Tall trees should reach deeper depths
+	if getMaxDepth(tree) < 4 {
+		t.Errorf("Tall tree should reach reasonable depth, got %d", getMaxDepth(tree))
+	}
+}
+
+// Test Density parameter
+func TestGenerateTree_Density(t *testing.T) {
+	rng1 := NewGoRNG(303)
+	rng2 := NewGoRNG(303) // Same seed for comparison
+
+	// Low density
+	cfgSparse := main.GenerateTreeConfig{
+		NodeCount:    0,
+		MaxDepth:     6,
+		MaxBranching: 4,
+		MinBranching: 1,
+		ShapeBias:    0.0,
+		Density:      0.2, // Low density
+		RootBranches: 2,
+		LeafRatio:    0.0,
+	}
+
+	// High density
+	cfgDense := main.GenerateTreeConfig{
+		NodeCount:    0,
+		MaxDepth:     6,
+		MaxBranching: 4,
+		MinBranching: 1,
+		ShapeBias:    0.0,
+		Density:      0.9, // High density
+		RootBranches: 2,
+		LeafRatio:    0.0,
+	}
+
+	sparseTree := main.GenerateTree(cfgSparse, rng1)
+	denseTree := main.GenerateTree(cfgDense, rng2)
+
+	// Dense tree should have more nodes
+	if countNodes(denseTree) <= countNodes(sparseTree) {
+		t.Errorf("Dense tree (%d nodes) should have more nodes than sparse tree (%d nodes)",
+			countNodes(denseTree), countNodes(sparseTree))
+	}
+}
+
+// Test constraint priority: NodeCount > MaxDepth > Branching
+func TestGenerateTree_ConstraintPriority(t *testing.T) {
+	rng := NewGoRNG(404)
+
+	cfg := main.GenerateTreeConfig{
+		NodeCount:    5,  // Very small limit
+		MaxDepth:     10, // Large depth
+		MaxBranching: 5,  // Large branching
+		MinBranching: 3,  // Large min branching
+		ShapeBias:    0.0,
+		Density:      1.0, // Maximum density
+		RootBranches: 0,
+		LeafRatio:    0.0,
+	}
+
+	tree := main.GenerateTree(cfg, rng)
+
+	// NodeCount should be respected above all else
+	if countNodes(tree) != cfg.NodeCount {
+		t.Errorf("NodeCount constraint violated: expected %d, got %d", cfg.NodeCount, countNodes(tree))
+	}
+}
+
+// Test edge cases
+func TestGenerateTree_EdgeCases(t *testing.T) {
+	rng := NewGoRNG(505)
+
+	// Single node tree
+	cfg := main.GenerateTreeConfig{
+		NodeCount:    1,
+		MaxDepth:     1,
+		MaxBranching: 0,
+		MinBranching: 0,
+		ShapeBias:    0.0,
+		Density:      0.0,
+		RootBranches: 0,
+		LeafRatio:    0.0,
+	}
+
+	tree := main.GenerateTree(cfg, rng)
+
+	if countNodes(tree) != 1 {
+		t.Errorf("Single node tree should have exactly 1 node, got %d", countNodes(tree))
+	}
+
+	if getMaxDepth(tree) != 1 {
+		t.Errorf("Single node tree should have depth 1, got %d", getMaxDepth(tree))
+	}
+}
+
+// Test branching limits
+func TestGenerateTree_BranchingLimits(t *testing.T) {
+	rng := NewGoRNG(606)
+
+	cfg := main.GenerateTreeConfig{
+		NodeCount:    15, // Reduced to match tree structure: 1 root + 2 children + 4 grandchildren + 8 great-grandchildren = 15
+		MaxDepth:     4,
+		MaxBranching: 2,
+		MinBranching: 2, // Force exactly 2 children per node
+		ShapeBias:    0.0,
+		Density:      1.0, // Always branch
+		RootBranches: 2,
+		LeafRatio:    0.0,
+	}
+
+	tree := main.GenerateTree(cfg, rng)
+
+	// Check that branching limits are respected
+	// This is complex to verify precisely, but basic checks
+	if countNodes(tree) != cfg.NodeCount {
+		t.Errorf("Expected %d nodes, got %d", cfg.NodeCount, countNodes(tree))
+	}
+
+	if countRootChildren(tree) != cfg.RootBranches {
+		t.Errorf("Expected %d root children, got %d", cfg.RootBranches, countRootChildren(tree))
 	}
 }
