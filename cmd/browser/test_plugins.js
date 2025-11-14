@@ -4,7 +4,7 @@ export async function develop() {
   console.log(rrr)
 
   const balancedTree = {
-    "nodeCount": 0,
+    "nodeCount": 50,
     "maxDepth": 6,
     "maxBranching": 3,
     "minBranching": 1,

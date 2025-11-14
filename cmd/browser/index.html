@@ -98,6 +98,22 @@
       </div>
     </template>
 
+    <template id="view-tree2">
+      <div class="panel">
+        <div class="panel-header">Minimap</div>
+        <div class="panel-content" style="padding: 0;">
+          <canvas></canvas>
+          <div
+            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
+            <button data-action="reload" class="button-secondary">🔄 Reload</button>
+            <button data-action="zoom-in" class="button-secondary">+</button>
+            <button data-action="zoom-out" class="button-secondary">−</button>
+            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+          </div>
+          <div class="tooltip" data-tooltip></div>
+        </div>
+      </div>
+    </template>
     <template id="view-handle">
       <div data-action="resize" class="handle" draggable="true">handle</div>
     </template>
@@ -105,12 +121,17 @@
     <template id="view-chrome">
       <div class="panel-header" style="background-color: transparent; padding-left: var(--panel-header-padding);">
         <select class="select" data-action="select-view">
-          <option value="view-splitter">view-splitter</option>
-          <option value="view-testing">view-testing</option>
-          <option value="view-minimap">view-minimap</option>
-          <option value="view-tree">view-tree</option>
-          <option value="view-empty">view-empty</option>
-          <option value="view-console">view-console</option>
+          <optgroup label="Old">
+            <option value="view-splitter">view-splitter</option>
+            <option value="view-testing">view-testing</option>
+            <option value="view-minimap">view-minimap</option>
+            <option value="view-tree">view-tree</option>
+            <option value="view-empty">view-empty</option>
+            <option value="view-console">view-console</option>
+          </optgroup>
+          <optgroup label="new">
+            <option value="view-tree2">view-tree2</option>
+          </optgroup>
         </select>
       </div>
       <div class="ne" data-action="ne" draggable="true"></div>
@@ -135,6 +156,7 @@
       import {ViewSplitter} from "./views/view-splitter.js"
       import {ViewMinimap} from "./views/view-minimap.js"
       import {ViewTree} from "./views/view-tree.js"
+      import {ViewTree2} from "./views/view-tree2.js"
       import {ViewConsole} from "./views/view-console.js"
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
@@ -145,6 +167,7 @@
       customElements.define('view-splitter', ViewSplitter)
       customElements.define('view-minimap', ViewMinimap)
       customElements.define('view-tree', ViewTree)
+      customElements.define('view-tree2', ViewTree2)
       customElements.define('view-console', ViewConsole)
 
 
