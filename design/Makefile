@@ -14,7 +14,7 @@ tokens:
 	
 	@# Run Style Dictionary. Assumes node_modules/.bin is in path or installed globally.
 	@# We pass BUILD_DIR as an env var so it's picked up by config.json
-	@BUILD_DIR=$(BUILD_DIR) npx style-dictionary build --verbose --config ./config.js
+	@BUILD_DIR=$(BUILD_DIR) bun run style-dictionary build --verbose --config ./config.js
 	
 	@echo "--- Design Tokens built successfully in $(BUILD_DIR) ---"
 

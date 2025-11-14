@@ -16,15 +16,15 @@ type Random interface {
 }
 
 type GenerateTreeConfig struct {
-	NodeCount              int
-	MaxDepth               int
-	MaxBranching           int
-	MinBranching           int
-	BranchingProbability   float64
-	DepthFalloff           float64
-	BalanceBias            float64
-	RequireLeafCount       int
-	RequireRootBranchCount int
+	NodeCount              int     `json:"nodeCount"`
+	MaxDepth               int     `json:"maxDepth"`
+	MaxBranching           int     `json:"maxBranching"`
+	MinBranching           int     `json:"minBranching"`
+	BranchingProbability   float64 `json:"branchingProbability"`
+	DepthFalloff           float64 `json:"depthFalloff"`
+	BalanceBias            float64 `json:"balanceBias"`
+	RequireLeafCount       int     `json:"requireLeafCount"`
+	RequireRootBranchCount int     `json:"requireRootBranchCount"`
 }
 
 func DefaultConfig(rng Random) GenerateTreeConfig {
@@ -86,11 +86,17 @@ func GenerateTree(cfg GenerateTreeConfig, rng Random) tree3.Tree {
 		}
 
 		// skip branching decision for root (already processed)
-		if fn.depth != 1 {
-			depthFactor := math.Pow(cfg.DepthFalloff, float64(fn.depth-1))
-			effectiveProb := cfg.BranchingProbability * depthFactor
-			if rng.Float64() > effectiveProb {
-				continue
+		// and for required root branches
+		if fn.depth > 1 { // This means it's not the root itself
+			// If it's a direct child of the root (depth 2) AND we had required root branches,
+			// then these branches are guaranteed and should not be subject to branching probability.
+			// Branching probability should only apply to their children (depth 3 and beyond).
+			if !(cfg.RequireRootBranchCount > 0 && fn.depth == 2) { // Apply probability if NOT a required root child
+				depthFactor := math.Pow(cfg.DepthFalloff, float64(fn.depth-1))
+				effectiveProb := cfg.BranchingProbability * depthFactor
+				if rng.Float64() > effectiveProb {
+					continue
+				}
 			}
 		}
 

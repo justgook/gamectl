@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 
+	"github.com/justgook/gamectl/pkg/tree3"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -12,8 +13,9 @@ type Input = struct {
 }
 
 type SuccessResponse struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
+	Success bool        `json:"success"`
+	Error   string      `json:"error,omitempty"`
+	Data    *tree3.Tree `json:"data,omitempty"`
 }
 
 //go:wasmimport random next
@@ -54,15 +56,31 @@ func Gen() uint32 {
 		return 1
 	}
 
-	rng := &MyRandom{}
-	GenerateTree(params.GenerateTreeConfig, rng)
+	var req struct {
+		ID   string     `json:"id"`
+		Tree tree3.Tree `json:"tree"`
+	}
 
-	pdk.Output(successResponse())
+	req.ID = params.Name
+	req.Tree = GenerateTree(params.GenerateTreeConfig, &MyRandom{})
+
+	storeJSON, err := json.Marshal(req)
+	if err != nil {
+		pdk.Output(errorResponse(err.Error()))
+		return 1
+	}
+
+	_, _, callErr := pdk.Call("tree-storage2", "set", storeJSON)
+	if callErr != nil {
+		pdk.Output(errorResponse(callErr.Error()))
+		return 1
+	}
+	pdk.Output(successResponse(&req.Tree))
 	return 0
 }
 
-func successResponse() []byte {
-	resp := SuccessResponse{Success: true}
+func successResponse(t *tree3.Tree) []byte {
+	resp := SuccessResponse{Success: true, Data: t}
 	data, _ := json.Marshal(resp)
 	return data
 }
