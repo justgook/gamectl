@@ -149,24 +149,27 @@
 
     <script src="./plugin-manager.js"> </script>
     <script type="module">
+      //outdated
+      import {ViewTree} from "./views/view-tree.js"
+      // current
+      import {ViewEmpty} from "./views/view-empty.js"
+      import {ViewSplitter} from "./views/view-splitter.js"
       import {LayoutParent} from "./views/layout.js"
       import {ViewCanvasBase} from "./views/view-canvas-base.js"
-      import {ViewEmpty} from "./views/view-empty.js"
-      import {ViewTesting} from "./views/view-testing.js"
-      import {ViewSplitter} from "./views/view-splitter.js"
-      import {ViewMinimap} from "./views/view-minimap.js"
-      import {ViewTree} from "./views/view-tree.js"
       import {ViewTree2} from "./views/view-tree2.js"
       import {ViewConsole} from "./views/view-console.js"
+      import {ViewMinimap} from "./views/view-minimap.js"
+      import {ViewTesting} from "./views/view-testing.js"
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
 
+      customElements.define('view-tree', ViewTree)// outdated
+      //current stuff
       customElements.define('layout-parent', LayoutParent)
       customElements.define('view-empty', ViewEmpty)
       customElements.define('view-testing', ViewTesting)
       customElements.define('view-splitter', ViewSplitter)
       customElements.define('view-minimap', ViewMinimap)
-      customElements.define('view-tree', ViewTree)
       customElements.define('view-tree2', ViewTree2)
       customElements.define('view-console', ViewConsole)
 
@@ -182,6 +185,7 @@
         // THE NEW stuff
         'tree-storage2',
         'treegen',
+        'minimap2',
       ];
 
       // Create modules array for plugin manager

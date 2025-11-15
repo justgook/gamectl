@@ -37,7 +37,7 @@ const TILE_SIZE = 40;
 export class ViewMinimap extends ViewCanvasBase {
   constructor() {
     super("view-minimap")
-    this.tilemapKey = 'minimap'
+    this.tilemapKey = 'new_map'
     this.DE = new TextDecoder()
   }
 
