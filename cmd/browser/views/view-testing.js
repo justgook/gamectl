@@ -10,45 +10,66 @@ export class ViewTesting extends View {
   }
   connectedCallback() {
     super.connectedCallback('view-testing')
+    this.treeId = "progresion"
+    this.mapId = "new_map"
   }
   async createMinimap() {
-    const result = await pluginManager.call('minimap', 'minimap', `{"treeId":"demo-world"}`)
-    const result2 = await pluginManager.call('tilemap-storage', 'get', `{"id":"minimap"}`)
-    await pluginManager.call('host', 'log', result2.output)
-
-    // console.log(this.DE.decode(result2.output))
+    const minimapInput = {
+      "treeId": this.treeId,  // Required: tree to read from tree-storage2
+      "mapId": this.mapId,    // Required: map ID to save in tilemap-storage
+      "config": {             // Optional: generation configuration
+        "maxAttempts": 20,    // Maximum placement attempts per room
+        "roomSpacing": 0,     // Minimum spacing between rooms
+        "layoutStyle": "bfs", // Layout generation style
+        "allowOverlap": false,// Allow room overlap
+        "preferCompact": true // Prefer compact layouts
+      }
+    }
+    const minimapResult = await pluginManager.call("minimap2", "gen", JSON.stringify(minimapInput))
+    await pluginManager.call('host', 'log', minimapResult.output)
   }
   async getMinimap() {
-    const result = await pluginManager.call('tilemap-storage', 'get', `{"id":"minimap"}`)
-    console.log(this.DE.decode(result.output))
+    const result = await await this.readFromStorage("tilemap-storage", this.mapId)
+    await pluginManager.call('host', 'log', JSON.stringify(result))
   }
+
   async getTree() {
-    const result = await pluginManager.call('tree-storage', 'get', `{"id":"demo-world"}`)
-    console.log(this.DE.decode(result.output))
+    const result = await await this.readFromStorage("tree-storage2", this.treeId)
+    await pluginManager.call('host', 'log', JSON.stringify(result))
   }
-  async getTreeJSON() {
-    const result = await pluginManager.call('tree-storage', 'toJSON', `{"id":"demo-world"}`)
-    console.log(this.DE.decode(result.output))
+
+  assignBiomeNames = async () => {
+    if (!this.biomesNames) {
+      this.biomesNames = await (await fetch("./data/biomes.json")).json();
+    }
+    const biomesNames = [...this.biomesNames]
+    console.log(this.biomesNames)
+    const worldTree = await await this.readFromStorage("tree-storage2", this.treeId)
+    worldTree.forEach(a => a.data = { name: biomesNames.splice(Math.floor(Math.random() * biomesNames.length), 1)[0].name })
+
+    const result = await pluginManager.call("tree-storage2", "set", JSON.stringify({ id: this.treeId, tree: worldTree }))
+    await pluginManager.call('host', 'log', result.output)
   }
+
   async generateWorldgraph() {
-    console.log('=== Phase 1: Worldgraph Generation ===');
+    const balancedTree = {
+      "nodeCount": 50,
+      "maxDepth": 6,
+      "maxBranching": 3,
+      "minBranching": 1,
+      "shapeBias": 0.55,
+      "density": 0.8,
+      "rootBranches": 2,
+      "leafRatio": 0.2,
+    }
+    const result = await pluginManager.call("treegen", "gen", JSON.stringify({ name: this.treeId, ...balancedTree }))
+    await pluginManager.call('host', 'log', result.output)
+  }
 
-    const biomes = {
-      biomes: ["Start", "Caves", "Ruins", "Tower", "Lab", "Depths"],
-      keys: ["DoubleJump", "KeyA", "KeyB", "Fireball"],
-      treeId: "demo-world",
-      storeTree: true
-    };
-
-    const input = JSON.stringify(biomes)
-    const result = await pluginManager.call('worldgraph', 'worldgraph2', input)
-    const result2 = await pluginManager.call('tree-storage', 'get', `{"id":"demo-world"}`)
-
-
-    const tree = this.DE.decode(result.output)
-    console.log(this.DE.decode(result2.output))
-
-    return tree
+  async readFromStorage(storage, id) {
+    const result = await pluginManager.call(storage, "get", `{"id": "${id}"}`)
+    const data = this.DE.decode(result.output)
+    return JSON.parse(data)
   }
 }
 

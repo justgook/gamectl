@@ -32,11 +32,12 @@
           <button class="button-primary" type="button" onclick="pluginManager.call('host', 'log', 'hello world')">call
             log</button>
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').generateWorldgraph()">Create
-            world graph</button>
+            world tree</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').assignBiomeNames()">Set Biome
+            names</button>
+
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').getTree()">Get World
             tree</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getTreeJSON()">Get Tree
-            JSON</button>
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').createMinimap()">Create
             minimap</button>
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').getMinimap()">Get
@@ -105,15 +106,14 @@
       <div class="panel-header" style="background-color: transparent; padding-left: var(--panel-header-padding);">
         <select class="select" data-action="select-view">
           <optgroup label="Old">
-            <option value="view-splitter">view-splitter</option>
-            <option value="view-testing">view-testing</option>
-            <option value="view-minimap">view-minimap</option>
-            <option value="view-tree">view-tree</option>
-            <option value="view-empty">view-empty</option>
-            <option value="view-console">view-console</option>
+            <option value="view-splitter">splitter</option>
+            <option value="view-testing">testing</option>
+            <option value="view-empty">empty</option>
+            <option value="view-console">console</option>
           </optgroup>
           <optgroup label="new">
-            <option value="view-tree2">view-tree2</option>
+            <option value="view-tree2">tree2</option>
+            <option value="view-minimap">minimap</option>
           </optgroup>
         </select>
       </div>
@@ -178,7 +178,7 @@
             module: 'host',
             function: 'log',
             handler: (input) => {
-              const message = new TextDecoder().decode(input)
+              const message = typeof input === "string" ? input : new TextDecoder().decode(input)
               console.log('[Plugin]', message)
               document.querySelectorAll("view-console")?.forEach(a => a.log(message))
               return {returnCode: 0, output: new Uint8Array()}
@@ -186,12 +186,6 @@
           }
         ]
       })
-
-      import {develop} from "./test_plugins.js"
-
-      develop()
-
-
     </script>
   </body>
 
