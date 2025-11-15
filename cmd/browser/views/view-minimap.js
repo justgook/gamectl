@@ -21,23 +21,23 @@ function hashString(str) {
 // Generate a distinct color using HSL color space for better distribution
 function generateDistinctColor(roomId, index = 0) {
   if (!roomId) return '#1e1e1e'; // Dark background for empty space
-  
+
   const hash = hashString(roomId + index);
-  
+
   // Use golden ratio to distribute hues evenly
   const goldenRatio = 0.618033988749;
   const hue = ((hash * goldenRatio) % 1) * 360;
-  
+
   // Vary saturation and lightness for additional distinction
   const saturationVariations = [70, 85, 95];
   const lightnessVariations = [45, 60, 75];
-  
+
   const satIndex = hash % saturationVariations.length;
   const lightIndex = Math.floor(hash / saturationVariations.length) % lightnessVariations.length;
-  
+
   const saturation = saturationVariations[satIndex];
   const lightness = lightnessVariations[lightIndex];
-  
+
   return `hsl(${Math.round(hue)}, ${saturation}%, ${lightness}%)`;
 }
 
@@ -47,11 +47,11 @@ const colorCache = new Map();
 // Helper to get a color based on a string ID with caching
 function getRoomColor(roomId) {
   if (!roomId) return '#1e1e1e'; // Dark background for empty space
-  
+
   if (colorCache.has(roomId)) {
     return colorCache.get(roomId);
   }
-  
+
   const color = generateDistinctColor(roomId);
   colorCache.set(roomId, color);
   return color;
@@ -252,23 +252,5 @@ export class ViewMinimap extends ViewCanvasBase {
       <div class="info-row"><span class="info-label">Position:</span> <span class="info-value">(${tileX}, ${tileY})</span></div>
       <div class="info-row"><span class="info-label">Doors:</span> <span class="info-value">${doorText}</span></div>
     `;
-  }
-
-  // --- Legacy Methods (Kept for external calls) ---
-
-  async createMinimap() {
-    if (!window.pluginManager) {
-      console.warn('Plugin manager not available.')
-      return
-    }
-    try {
-      // 1. Generate the minimap data
-      await window.pluginManager.call('minimap', 'minimap', `{"treeId":"demo-world"}`)
-
-      // 2. Reload and draw the new minimap
-      this.loadAndDraw()
-    } catch (error) {
-      console.error('Failed to create minimap:', error)
-    }
   }
 }
