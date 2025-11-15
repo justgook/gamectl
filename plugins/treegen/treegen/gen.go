@@ -1,4 +1,4 @@
-package main
+package treegen
 
 import (
 	"github.com/justgook/gamectl/pkg/tree3"

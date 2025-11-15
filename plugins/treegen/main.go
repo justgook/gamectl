@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 
 	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/plugins/treegen/treegen"
 	"github.com/justgook/wpm/pdk"
 )
 
 type Input = struct {
-	Name               string `json:"name"`
-	GenerateTreeConfig `json:",inline"`
+	Name                       string `json:"name"`
+	treegen.GenerateTreeConfig `json:",inline"`
 }
 
 type SuccessResponse struct {
@@ -50,7 +51,7 @@ func Gen() uint32 {
 	}
 
 	req.ID = params.Name
-	req.Tree = GenerateTree(params.GenerateTreeConfig, &MyRandom{})
+	req.Tree = treegen.GenerateTree(params.GenerateTreeConfig, &MyRandom{})
 
 	storeJSON, err := json.Marshal(req)
 	if err != nil {

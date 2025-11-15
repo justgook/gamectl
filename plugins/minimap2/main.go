@@ -25,26 +25,21 @@ import (
 
 	"github.com/justgook/gamectl/pkg/minimap"
 	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/plugins/minimap2/minimap2"
 	"github.com/justgook/wpm/pdk"
 )
 
 // Input represents the plugin input structure
 type Input struct {
-	TreeId string                `json:"treeId"`           // Required: tree to read from tree-storage2
-	MapId  string                `json:"mapId"`            // Required: map ID to save in tilemap-storage
-	Config GenerateMinimapConfig `json:"config,omitempty"` // Optional: generation configuration
+	TreeId string                         `json:"treeId"`           // Required: tree to read from tree-storage2
+	MapId  string                         `json:"mapId"`            // Required: map ID to save in tilemap-storage
+	Config minimap2.GenerateMinimapConfig `json:"config,omitempty"` // Optional: generation configuration
 }
 
 // SuccessResponse represents the plugin output
 type SuccessResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
-}
-
-// Random interface for dependency injection (matches treegen pattern)
-type Random interface {
-	Intn(n int) int
-	Float64() float64
 }
 
 // MyRandom implements Random interface using WASM imports
@@ -113,7 +108,7 @@ func Gen() uint32 {
 
 	// Generate minimap using pure generation logic
 	rng := &MyRandom{}
-	tileMap, err := GenerateMinimap(tree, params.Config, rng, getRoomShape)
+	tileMap, err := minimap2.GenerateMinimap(tree, params.Config, rng, getRoomShape)
 	if err != nil {
 		pdk.Output(errorResponse("minimap generation failed: " + err.Error()))
 		return 1
