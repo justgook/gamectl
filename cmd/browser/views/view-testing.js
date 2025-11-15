@@ -15,7 +15,7 @@ export class ViewTesting extends View {
   }
   async createMinimap() {
     const minimapInput = {
-      "treeId": this.treeId,  // Required: tree to read from tree-storage2
+      "treeId": this.treeId,  // Required: tree to read from tree-storage
       "mapId": this.mapId,    // Required: map ID to save in tilemap-storage
       "config": {             // Optional: generation configuration
         "maxAttempts": 20,    // Maximum placement attempts per room
@@ -25,7 +25,7 @@ export class ViewTesting extends View {
         "preferCompact": true // Prefer compact layouts
       }
     }
-    const minimapResult = await pluginManager.call("minimap2", "gen", JSON.stringify(minimapInput))
+    const minimapResult = await pluginManager.call("minimap", "gen", JSON.stringify(minimapInput))
     await pluginManager.call('host', 'log', minimapResult.output)
   }
   async getMinimap() {
@@ -34,7 +34,7 @@ export class ViewTesting extends View {
   }
 
   async getTree() {
-    const result = await await this.readFromStorage("tree-storage2", this.treeId)
+    const result = await await this.readFromStorage("tree-storage", this.treeId)
     await pluginManager.call('host', 'log', JSON.stringify(result))
   }
 
@@ -44,10 +44,10 @@ export class ViewTesting extends View {
     }
     const biomesNames = [...this.biomesNames]
     console.log(this.biomesNames)
-    const worldTree = await await this.readFromStorage("tree-storage2", this.treeId)
+    const worldTree = await await this.readFromStorage("tree-storage", this.treeId)
     worldTree.forEach(a => a.data = { name: biomesNames.splice(Math.floor(Math.random() * biomesNames.length), 1)[0].name })
 
-    const result = await pluginManager.call("tree-storage2", "set", JSON.stringify({ id: this.treeId, tree: worldTree }))
+    const result = await pluginManager.call("tree-storage", "set", JSON.stringify({ id: this.treeId, tree: worldTree }))
     await pluginManager.call('host', 'log', result.output)
   }
 

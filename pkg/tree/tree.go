@@ -1,4 +1,4 @@
-package tree3
+package tree
 
 import (
 	"iter"

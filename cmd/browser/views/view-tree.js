@@ -25,13 +25,13 @@ const TREE_COLORS = {
 };
 
 /**
- * Tree Visualizer View Component for tree3 structure.
+ * Tree Visualizer View Component for tree structure.
  * Displays hierarchical tree structures using a canvas.
  * Supports configurable store key via data-store-key attribute.
  */
-export class ViewTree2 extends ViewCanvasBase {
+export class ViewTree extends ViewCanvasBase {
   constructor() {
-    super("view-tree2")
+    super("view-tree")
     this.treeKey = 'progresion' // Default key for tree data storage
     this.DE = new TextDecoder()
 
@@ -58,12 +58,12 @@ export class ViewTree2 extends ViewCanvasBase {
     try {
       // Get tree data using the configured store key
       const storeKey = this.getStoreKey();
-      const result = await window.pluginManager.call('tree-storage2', 'get', `{"id":"${storeKey}"}`)
+      const result = await window.pluginManager.call('tree-storage', 'get', `{"id":"${storeKey}"}`)
       const data = this.DE.decode(result.output)
       return JSON.parse(data)
     } catch (error) {
       console.warn('Failed to get tree data:', error)
-      // Return example tree3 structure for testing
+      // Return example tree structure for testing
       return [
         {
           "data": { "name": "Tutorial", "difficulty": "easy", "type": "intro" },

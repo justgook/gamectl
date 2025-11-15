@@ -82,7 +82,7 @@
       </div>
     </template>
 
-    <template id="view-tree2">
+    <template id="view-tree">
       <div class="panel">
         <div class="panel-header">Minimap</div>
         <div class="panel-content" style="padding: 0;">
@@ -112,7 +112,7 @@
             <option value="view-console">console</option>
           </optgroup>
           <optgroup label="new">
-            <option value="view-tree2">tree2</option>
+            <option value="view-tree">tree</option>
             <option value="view-minimap">minimap</option>
           </optgroup>
         </select>
@@ -137,7 +137,7 @@
       import {ViewSplitter} from "./views/view-splitter.js"
       import {LayoutParent} from "./views/layout.js"
       import {ViewCanvasBase} from "./views/view-canvas-base.js"
-      import {ViewTree2} from "./views/view-tree2.js"
+      import {ViewTree} from "./views/view-tree.js"
       import {ViewConsole} from "./views/view-console.js"
       import {ViewMinimap} from "./views/view-minimap.js"
       import {ViewTesting} from "./views/view-testing.js"
@@ -150,7 +150,7 @@
       customElements.define('view-testing', ViewTesting)
       customElements.define('view-splitter', ViewSplitter)
       customElements.define('view-minimap', ViewMinimap)
-      customElements.define('view-tree2', ViewTree2)
+      customElements.define('view-tree', ViewTree)
       customElements.define('view-console', ViewConsole)
 
       /// THE PLUGIN MANAGER TESTING!!!
@@ -158,9 +158,9 @@
         // THE NEW stuff
         'random',
         'tilemap-storage',
-        'tree-storage2',
+        'tree-storage',
         'treegen',
-        'minimap2',
+        'minimap',
         // upcomming
         'automap',
       ];

@@ -1,10 +1,10 @@
-# Minimap2 Plugin - Incremental Corridor Generation
+# minimap Plugin - Incremental Corridor Generation
 
 Modern refactored minimap generation plugin for GameCtl using incremental corridor generation algorithm that guarantees 100% success rate for any tree structure.
 
 ## Overview
 
-Minimap2 generates 2D spatial layouts from `tree3.Tree` structures for Metroidvania-style minimap generation using a revolutionary **incremental corridor generation** approach that eliminates placement failures through adaptive room extensions and systematic pathfinding.
+minimap generates 2D spatial layouts from `tree.Tree` structures for Metroidvania-style minimap generation using a revolutionary **incremental corridor generation** approach that eliminates placement failures through adaptive room extensions and systematic pathfinding.
 
 ## Core Algorithm: Incremental Corridor Generation
 
@@ -28,7 +28,7 @@ Instead of trying to place rooms optimally and failing when constraints can't be
 ### **Algorithm Flow**
 
 ```
-For each node in tree3.Tree.Traverse(root):
+For each node in tree.Tree.Traverse(root):
   1. Calculate required doors = number of children
   2. Check if room shape has enough door capacity
   3. If insufficient: Extend room with minimal corridor tiles
@@ -166,7 +166,7 @@ cache.solutions[problemHash] = extension
 ### **🏗️ Implementation Simplicity**
 - **Single spatial constraint** ("path to outside")
 - **Clean data model** (corridors are room tiles with different metadata)
-- **Natural integration** with tree3.Tree traversal
+- **Natural integration** with tree.Tree traversal
 - **Minimal edge cases** due to systematic approach
 
 ## Architecture
@@ -178,7 +178,7 @@ cache.solutions[problemHash] = extension
 
 ### **Key Design Principles**
 1. **Clean Separation**: Plugin concerns separated from generation logic
-2. **tree3.Tree Integration**: Uses natural DFS traversal for parent-before-children ordering
+2. **tree.Tree Integration**: Uses natural DFS traversal for parent-before-children ordering
 3. **Dependency Injection**: `getRoomShape` function passed as parameter for testability  
 4. **Pure Functions**: Generation logic can be unit tested without WASM context
 5. **Configurable Parameters**: Extension depth and other constants easily tunable
@@ -188,7 +188,7 @@ cache.solutions[problemHash] = extension
 ### **Input Configuration**
 ```json
 {
-  "treeId": "string",           // Required: tree to read from tree-storage2
+  "treeId": "string",           // Required: tree to read from tree-storage
   "mapId": "string",            // Required: map ID to save in tilemap-storage  
   "config": {                   // Optional: generation configuration
     "maxExtensionDepth": 20,    // Maximum corridor extension search depth
@@ -226,8 +226,8 @@ cache.solutions[problemHash] = extension
 
 ## Workflow
 
-1. **Read Tree**: Retrieve `tree3.Tree` from `tree-storage2` using provided `treeId`
-2. **Traverse Tree**: Use `tree3.Tree.Traverse()` for natural parent-before-children ordering
+1. **Read Tree**: Retrieve `tree.Tree` from `tree-storage` using provided `treeId`
+2. **Traverse Tree**: Use `tree.Tree.Traverse()` for natural parent-before-children ordering
 3. **Incremental Generation**: Place each room with required door capacity and connections
 4. **Adaptive Extensions**: Add corridor tiles as needed to maintain connectivity
 5. **Store Tilemap**: Save resulting layout to `tilemap-storage` using provided `mapId`
@@ -235,14 +235,14 @@ cache.solutions[problemHash] = extension
 ## Integration
 
 The plugin integrates with:
-- **tree-storage2**: Input tree source with rich node metadata
+- **tree-storage**: Input tree source with rich node metadata
 - **tilemap-storage**: Output tilemap destination with dual-layer format
 - **pkg/minimap**: Core spatial data structures and utilities
-- **pkg/tree3**: Modern tree traversal and node relationships
+- **pkg/tree**: Modern tree traversal and node relationships
 
 ## Room Shape Selection
 
-Currently implemented in `main.go` as `getRoomShape(*tree3.Node) minimap.RoomShape`. This function:
+Currently implemented in `main.go` as `getRoomShape(*tree.Node) minimap.RoomShape`. This function:
 - Provides random shape selection from predefined shape library
 - Can be enhanced to use node metadata for data-driven shape selection
 - Will be extracted to dedicated plugin for modular room design

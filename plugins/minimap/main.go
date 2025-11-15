@@ -1,17 +1,17 @@
-// Package main implements the minimap2 WASM plugin for GameCtl.
+// Package main implements the minimap WASM plugin for GameCtl.
 //
-// This plugin generates 2D spatial layouts from tree3 structures for Metroidvania-style
+// This plugin generates 2D spatial layouts from tree structures for Metroidvania-style
 // minimap generation. It follows the treegen pattern with clean separation between
 // plugin wrapper logic (main.go) and pure generation logic (gen.go).
 //
 // Features:
-//   - Reads tree3.Tree from tree-storage2 by ID
+//   - Reads tree.Tree from tree-storage by ID
 //   - Generates 2D spatial layout with room placement and door connections
 //   - Stores resulting tilemap in tilemap-storage
 //   - Clean architecture with dependency injection for testability
 //
 // Input:
-//   - treeId: ID to read tree from tree-storage2
+//   - treeId: ID to read tree from tree-storage
 //   - mapId: ID to save generated minimap into tilemap-storage
 //   - config: Optional generation configuration
 //
@@ -24,15 +24,15 @@ import (
 	"encoding/json"
 
 	"github.com/justgook/gamectl/pkg/tilemap"
-	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/pkg/tree"
 	"github.com/justgook/gamectl/pkg/util"
-	"github.com/justgook/gamectl/plugins/minimap2/minimap2"
+	"github.com/justgook/gamectl/plugins/minimap/minimap"
 	"github.com/justgook/wpm/pdk"
 )
 
 // Input represents the plugin input structure
 type Input struct {
-	TreeId string `json:"treeId"` // Required: tree to read from tree-storage2
+	TreeId string `json:"treeId"` // Required: tree to read from tree-storage
 	MapId  string `json:"mapId"`  // Required: map ID to save in tilemap-storage
 }
 
@@ -72,7 +72,7 @@ func Gen() uint32 {
 		return 1
 	}
 
-	// Get tree from tree-storage2
+	// Get tree from tree-storage
 	getTreeReq := struct {
 		ID string `json:"id"`
 	}{ID: params.TreeId}
@@ -83,18 +83,18 @@ func Gen() uint32 {
 		return 1
 	}
 
-	status, treeOutput, callErr := pdk.Call("tree-storage2", "get", getTreeJSON)
+	status, treeOutput, callErr := pdk.Call("tree-storage", "get", getTreeJSON)
 	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to call tree-storage2: " + callErr.Error()))
+		pdk.Output(util.ErrorResponse("failed to call tree-storage: " + callErr.Error()))
 		return 1
 	}
 	if status != 0 {
-		pdk.Output(util.ErrorResponse("tree-storage2 returned error status"))
+		pdk.Output(util.ErrorResponse("tree-storage returned error status"))
 		return 1
 	}
 
 	// Parse tree from storage
-	var tree tree3.Tree
+	var tree tree.Tree
 	if err := json.Unmarshal(treeOutput, &tree); err != nil {
 		pdk.Output(util.ErrorResponse("failed to parse tree: " + err.Error()))
 		return 1
@@ -102,7 +102,7 @@ func Gen() uint32 {
 
 	// Generate minimap using pure generation logic
 	rng := &MyRandom{}
-	tileMap, err := minimap2.GenerateMinimap(rng, tree, getRoomShape)
+	tileMap, err := minimap.GenerateMinimap(rng, tree, getRoomShape)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("minimap generation failed: " + err.Error()))
 		return 1
@@ -138,14 +138,14 @@ func Gen() uint32 {
 	return 0
 }
 
-func getRoomShape(node *tree3.Node) minimap2.RoomShape {
+func getRoomShape(node *tree.Node) minimap.RoomShape {
 	rng := &MyRandom{}
 	idx := rng.Intn(len(roomShapesToChooseFrom))
 	return roomShapesToChooseFrom[idx]
 }
 
 // Room shapes available for selection (same as original minimap)
-var roomShapesToChooseFrom = []minimap2.RoomShape{
+var roomShapesToChooseFrom = []minimap.RoomShape{
 	// Single tiles - most flexible for tight spaces
 	{{0, 0}},
 	// 2-tile shapes

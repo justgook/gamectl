@@ -1,15 +1,15 @@
-package minimap2_test
+package minimap_test
 
 import (
 	"math/rand"
 	"testing"
 
-	"github.com/justgook/gamectl/pkg/tree3"
-	"github.com/justgook/gamectl/plugins/minimap2/minimap2"
+	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gamectl/plugins/minimap/minimap"
 )
 
-func SingleTile(*tree3.Node) minimap2.RoomShape {
-	return minimap2.RoomShape{{0, 0}}
+func SingleTile(*tree.Node) minimap.RoomShape {
+	return minimap.RoomShape{{0, 0}}
 }
 
 type GenResult struct {
@@ -21,16 +21,16 @@ func TestGenerateMinimap(t *testing.T) {
 	tests := []struct {
 		name string // description of this test case
 		// Named input parameters for target function.
-		tree         tree3.Tree
-		rng          minimap2.Random
-		getRoomShape minimap2.GetRoomShapeFunc
+		tree         tree.Tree
+		rng          minimap.Random
+		getRoomShape minimap.GetRoomShapeFunc
 		// want         *minimap.TileMap
 		want    GenResult
 		wantErr bool
 	}{
 		{
 			name:         "single tile",
-			tree:         []*tree3.Node{},
+			tree:         []*tree.Node{},
 			rng:          rand.New(rand.NewSource(42)),
 			getRoomShape: SingleTile,
 			want:         GenResult{},
@@ -39,7 +39,7 @@ func TestGenerateMinimap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := minimap2.GenerateMinimap(tt.rng, tt.tree, tt.getRoomShape)
+			got, gotErr := minimap.GenerateMinimap(tt.rng, tt.tree, tt.getRoomShape)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("GenerateMinimap() failed: %v", gotErr)

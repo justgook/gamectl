@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/pkg/tree"
 	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/gamectl/plugins/treegen/treegen"
 	"github.com/justgook/wpm/pdk"
@@ -41,8 +41,8 @@ func Gen() uint32 {
 		return 1
 	}
 	var req struct {
-		ID   string     `json:"id"`
-		Tree tree3.Tree `json:"tree"`
+		ID   string    `json:"id"`
+		Tree tree.Tree `json:"tree"`
 	}
 
 	req.ID = params.Name
@@ -54,7 +54,7 @@ func Gen() uint32 {
 		return 1
 	}
 
-	_, _, callErr := pdk.Call("tree-storage2", "set", storeJSON)
+	_, _, callErr := pdk.Call("tree-storage", "set", storeJSON)
 	if callErr != nil {
 		pdk.Output(util.ErrorResponse(callErr.Error()))
 		return 1

@@ -1,7 +1,7 @@
 package treegen
 
 import (
-	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/pkg/tree"
 )
 
 // ------------------------------------------------------------
@@ -28,8 +28,8 @@ type GenerateTreeConfig struct {
 // GenerateTree
 // ------------------------------------------------------------
 
-func GenerateTree(cfg GenerateTreeConfig, rng Random) tree3.Tree {
-	t := tree3.Tree{}
+func GenerateTree(cfg GenerateTreeConfig, rng Random) tree.Tree {
+	t := tree.Tree{}
 	t.Add(-1, nil) // Add root node
 
 	gen := &treeGenerator{
@@ -50,14 +50,14 @@ func GenerateTree(cfg GenerateTreeConfig, rng Random) tree3.Tree {
 // ------------------------------------------------------------
 
 type treeGenerator struct {
-	tree   *tree3.Tree
+	tree   *tree.Tree
 	config GenerateTreeConfig
 	rng    Random
 	nodes  int
 }
 
 type poolNode struct {
-	node  *tree3.Node
+	node  *tree.Node
 	depth int
 }
 
@@ -156,7 +156,7 @@ func (g *treeGenerator) determineRootBranches() int {
 }
 
 // Check if a node can have more children
-func (g *treeGenerator) canNodeHaveChildren(node *tree3.Node, depth int) bool {
+func (g *treeGenerator) canNodeHaveChildren(node *tree.Node, depth int) bool {
 	if depth >= g.config.MaxDepth {
 		return false
 	}

@@ -1,11 +1,11 @@
-// Package main implements the tree-storage2 WASM plugin for GameCtl.
+// Package main implements the tree-storage WASM plugin for GameCtl.
 //
-// This plugin provides centralized storage for tree3 structures that can be
+// This plugin provides centralized storage for tree structures that can be
 // accessed by other plugins via pdk.Call(). It maintains an in-memory map of trees
 // during the plugin's lifecycle.
 //
 // Features:
-//   - Store and retrieve tree3.Tree instances
+//   - Store and retrieve tree.Tree instances
 //   - Simple set/get API for tree management
 //
 // The plugin exposes three functions:
@@ -17,13 +17,13 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/pkg/tree"
 	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
 
 // Global storage - persists while WASM module is loaded
-var storage = make(map[string]*tree3.Tree)
+var storage = make(map[string]*tree.Tree)
 
 // Response types for JSON output
 type ListResponse struct {
@@ -39,8 +39,8 @@ type ListResponse struct {
 func Set() int32 {
 	input := pdk.Input()
 	var req struct {
-		ID   string      `json:"id"`
-		Tree *tree3.Tree `json:"tree"`
+		ID   string     `json:"id"`
+		Tree *tree.Tree `json:"tree"`
 	}
 	if err := json.Unmarshal(input, &req); err != nil {
 		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))

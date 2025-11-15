@@ -1,8 +1,8 @@
-package minimap2
+package minimap
 
 import (
 	"github.com/justgook/gamectl/pkg/tilemap"
-	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/pkg/tree"
 )
 
 const (
@@ -18,11 +18,11 @@ type Random interface {
 type RoomShape [][2]int
 
 // GetRoomShapeFunc defines the function signature for room shape selection
-type GetRoomShapeFunc func(*tree3.Node) RoomShape
+type GetRoomShapeFunc func(*tree.Node) RoomShape
 
 func GenerateMinimap(
 	rng Random,
-	tree tree3.Tree,
+	tree tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 ) (*tilemap.TileMap, error) {
 	panic("implement me")
