@@ -6,7 +6,7 @@ export fn setSeed(seed_value: u32) void {
     state = @as(u64, seed_value) | (@as(u64, seed_value) << 32);
     inc = 0xda3e39cb94b95bdb;
     // Advance the state once to mix the seed
-    _ = next32();
+    // _ = next32();
 }
 
 export fn seed() u32 {

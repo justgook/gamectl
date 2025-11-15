@@ -6,29 +6,55 @@ const DoorEast = 2;
 const DoorSouth = 4;
 const DoorWest = 8;
 
-// Simple color palette for rooms
-const ROOM_COLORS = [
-  '#3498db', // Blue
-  '#2ecc71', // Green
-  '#e74c3c', // Red
-  '#f1c40f', // Yellow
-  '#9b59b6', // Purple
-  '#1abc9c', // Turquoise
-  '#e67e22', // Orange
-];
-
 // Door color
 const DOOR_COLOR = '#ffffff'; // White
 
-// Helper to get a color based on a string ID
+// Enhanced hash function for better distribution
+function hashString(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+  }
+  return Math.abs(hash);
+}
+
+// Generate a distinct color using HSL color space for better distribution
+function generateDistinctColor(roomId, index = 0) {
+  if (!roomId) return '#1e1e1e'; // Dark background for empty space
+  
+  const hash = hashString(roomId + index);
+  
+  // Use golden ratio to distribute hues evenly
+  const goldenRatio = 0.618033988749;
+  const hue = ((hash * goldenRatio) % 1) * 360;
+  
+  // Vary saturation and lightness for additional distinction
+  const saturationVariations = [70, 85, 95];
+  const lightnessVariations = [45, 60, 75];
+  
+  const satIndex = hash % saturationVariations.length;
+  const lightIndex = Math.floor(hash / saturationVariations.length) % lightnessVariations.length;
+  
+  const saturation = saturationVariations[satIndex];
+  const lightness = lightnessVariations[lightIndex];
+  
+  return `hsl(${Math.round(hue)}, ${saturation}%, ${lightness}%)`;
+}
+
+// Cache colors for performance and consistency
+const colorCache = new Map();
+
+// Helper to get a color based on a string ID with caching
 function getRoomColor(roomId) {
   if (!roomId) return '#1e1e1e'; // Dark background for empty space
-  let hash = 0;
-  for (let i = 0; i < roomId.length; i++) {
-    hash = roomId.charCodeAt(i) + ((hash << 5) - hash);
+  
+  if (colorCache.has(roomId)) {
+    return colorCache.get(roomId);
   }
-  const index = Math.abs(hash) % ROOM_COLORS.length;
-  return ROOM_COLORS[index];
+  
+  const color = generateDistinctColor(roomId);
+  colorCache.set(roomId, color);
+  return color;
 }
 
 // Default tile size for minimap visualization
