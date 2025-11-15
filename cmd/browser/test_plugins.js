@@ -57,7 +57,6 @@ export async function develop() {
   const minimapResult = await pluginManager.call("minimap2", "gen", JSON.stringify(minimapInput))
   console.log("minimapResult", minimapResult)
   console.log(await readFromStorage("tilemap-storage", "new_map"))
-
 }
 
 async function readFromStorage(storage, id) {

@@ -81,23 +81,6 @@
       </div>
     </template>
 
-    <template id="view-tree">
-      <div class="panel">
-        <div class="panel-header">Minimap</div>
-        <div class="panel-content" style="padding: 0;">
-          <canvas></canvas>
-          <div
-            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
-            <button data-action="reload" class="button-secondary">🔄 Reload</button>
-            <button data-action="zoom-in" class="button-secondary">+</button>
-            <button data-action="zoom-out" class="button-secondary">−</button>
-            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
-          </div>
-          <div class="tooltip" data-tooltip></div>
-        </div>
-      </div>
-    </template>
-
     <template id="view-tree2">
       <div class="panel">
         <div class="panel-header">Minimap</div>
@@ -149,8 +132,6 @@
 
     <script src="./plugin-manager.js"> </script>
     <script type="module">
-      //outdated
-      import {ViewTree} from "./views/view-tree.js"
       // current
       import {ViewEmpty} from "./views/view-empty.js"
       import {ViewSplitter} from "./views/view-splitter.js"
@@ -163,7 +144,6 @@
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
 
-      customElements.define('view-tree', ViewTree)// outdated
       //current stuff
       customElements.define('layout-parent', LayoutParent)
       customElements.define('view-empty', ViewEmpty)
@@ -173,19 +153,16 @@
       customElements.define('view-tree2', ViewTree2)
       customElements.define('view-console', ViewConsole)
 
-
       /// THE PLUGIN MANAGER TESTING!!!
       const pluginNames = [
-        'random',
-        'tree-storage',
-        'worldgraph',
-        'minimap',
-        'tilemap-storage',
-        'automap',
         // THE NEW stuff
+        'random',
+        'tilemap-storage',
         'tree-storage2',
         'treegen',
         'minimap2',
+        // upcomming
+        'automap',
       ];
 
       // Create modules array for plugin manager
