@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -25,11 +26,6 @@ import (
 var storage = make(map[string]*tree3.Tree)
 
 // Response types for JSON output
-type SuccessResponse struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
-}
-
 type ListResponse struct {
 	IDs   []string `json:"ids,omitempty"`
 	Error string   `json:"error,omitempty"`
@@ -47,22 +43,22 @@ func Set() int32 {
 		Tree *tree3.Tree `json:"tree"`
 	}
 	if err := json.Unmarshal(input, &req); err != nil {
-		pdk.Output(errorResponse("invalid input: " + err.Error()))
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
 		return 1
 	}
 
 	if req.ID == "" {
-		pdk.Output(errorResponse("id is required"))
+		pdk.Output(util.ErrorResponse("id is required"))
 		return 1
 	}
 
 	if req.Tree == nil {
-		pdk.Output(errorResponse("tree is required"))
+		pdk.Output(util.ErrorResponse("tree is required"))
 		return 1
 	}
 
 	storage[req.ID] = req.Tree
-	pdk.Output(successResponse())
+	pdk.Output(util.SuccessResponse())
 	return 0
 }
 
@@ -73,19 +69,19 @@ func Get() int32 {
 		ID string `json:"id"`
 	}
 	if err := json.Unmarshal(input, &req); err != nil {
-		pdk.Output(errorResponse("invalid input: " + err.Error()))
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
 		return 1
 	}
 
 	t, exists := storage[req.ID]
 	if !exists {
-		pdk.Output(errorResponse("tree not found: " + req.ID))
+		pdk.Output(util.ErrorResponse("tree not found: " + req.ID))
 		return 1
 	}
 
 	output, err := json.Marshal(t)
 	if err != nil {
-		pdk.Output(errorResponse("failed to marshal tree: " + err.Error()))
+		pdk.Output(util.ErrorResponse("failed to marshal tree: " + err.Error()))
 		return 1
 	}
 
@@ -108,23 +104,8 @@ func List() int32 {
 // Helper functions
 // =============================================================================
 
-func successResponse() []byte {
-	resp := SuccessResponse{Success: true}
-	data, _ := json.Marshal(resp)
-	return data
-}
-
-func errorResponse(msg string) []byte {
-	resp := SuccessResponse{Success: false, Error: msg}
-	data, _ := json.Marshal(resp)
-	return data
-}
-
 func listResponse(ids []string) []byte {
 	resp := ListResponse{IDs: ids}
 	data, _ := json.Marshal(resp)
 	return data
 }
-
-// Required main function for WASM
-func main() {}

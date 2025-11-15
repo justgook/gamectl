@@ -23,23 +23,17 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/justgook/gamectl/pkg/minimap"
+	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/gamectl/pkg/tree3"
+	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/gamectl/plugins/minimap2/minimap2"
 	"github.com/justgook/wpm/pdk"
 )
 
 // Input represents the plugin input structure
 type Input struct {
-	TreeId string                         `json:"treeId"`           // Required: tree to read from tree-storage2
-	MapId  string                         `json:"mapId"`            // Required: map ID to save in tilemap-storage
-	Config minimap2.GenerateMinimapConfig `json:"config,omitempty"` // Optional: generation configuration
-}
-
-// SuccessResponse represents the plugin output
-type SuccessResponse struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
+	TreeId string `json:"treeId"` // Required: tree to read from tree-storage2
+	MapId  string `json:"mapId"`  // Required: map ID to save in tilemap-storage
 }
 
 // MyRandom implements Random interface using WASM imports
@@ -64,17 +58,17 @@ func Gen() uint32 {
 	input := pdk.Input()
 	params := Input{}
 	if err := json.Unmarshal(input, &params); err != nil {
-		pdk.Output(errorResponse("invalid input: " + err.Error()))
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
 		return 1
 	}
 
 	// Validate required parameters
 	if params.TreeId == "" {
-		pdk.Output(errorResponse("treeId is required"))
+		pdk.Output(util.ErrorResponse("treeId is required"))
 		return 1
 	}
 	if params.MapId == "" {
-		pdk.Output(errorResponse("mapId is required"))
+		pdk.Output(util.ErrorResponse("mapId is required"))
 		return 1
 	}
 
@@ -85,39 +79,39 @@ func Gen() uint32 {
 
 	getTreeJSON, err := json.Marshal(getTreeReq)
 	if err != nil {
-		pdk.Output(errorResponse("failed to marshal tree request: " + err.Error()))
+		pdk.Output(util.ErrorResponse("failed to marshal tree request: " + err.Error()))
 		return 1
 	}
 
 	status, treeOutput, callErr := pdk.Call("tree-storage2", "get", getTreeJSON)
 	if callErr != nil {
-		pdk.Output(errorResponse("failed to call tree-storage2: " + callErr.Error()))
+		pdk.Output(util.ErrorResponse("failed to call tree-storage2: " + callErr.Error()))
 		return 1
 	}
 	if status != 0 {
-		pdk.Output(errorResponse("tree-storage2 returned error status"))
+		pdk.Output(util.ErrorResponse("tree-storage2 returned error status"))
 		return 1
 	}
 
 	// Parse tree from storage
 	var tree tree3.Tree
 	if err := json.Unmarshal(treeOutput, &tree); err != nil {
-		pdk.Output(errorResponse("failed to parse tree: " + err.Error()))
+		pdk.Output(util.ErrorResponse("failed to parse tree: " + err.Error()))
 		return 1
 	}
 
 	// Generate minimap using pure generation logic
 	rng := &MyRandom{}
-	tileMap, err := minimap2.GenerateMinimap(tree, params.Config, rng, getRoomShape)
+	tileMap, err := minimap2.GenerateMinimap(rng, tree, getRoomShape)
 	if err != nil {
-		pdk.Output(errorResponse("minimap generation failed: " + err.Error()))
+		pdk.Output(util.ErrorResponse("minimap generation failed: " + err.Error()))
 		return 1
 	}
 
 	// Store tilemap in tilemap-storage
 	storeReq := struct {
 		ID  string           `json:"id"`
-		Map *minimap.TileMap `json:"map"`
+		Map *tilemap.TileMap `json:"map"`
 	}{
 		ID:  params.MapId,
 		Map: tileMap,
@@ -125,37 +119,33 @@ func Gen() uint32 {
 
 	storeJSON, err := json.Marshal(storeReq)
 	if err != nil {
-		pdk.Output(errorResponse("failed to marshal tilemap: " + err.Error()))
+		pdk.Output(util.ErrorResponse("failed to marshal tilemap: " + err.Error()))
 		return 1
 	}
 
 	status, _, callErr = pdk.Call("tilemap-storage", "set", storeJSON)
 	if callErr != nil {
-		pdk.Output(errorResponse("failed to call tilemap-storage: " + callErr.Error()))
+		pdk.Output(util.ErrorResponse("failed to call tilemap-storage: " + callErr.Error()))
 		return 1
 	}
 	if status != 0 {
-		pdk.Output(errorResponse("tilemap-storage returned error status"))
+		pdk.Output(util.ErrorResponse("tilemap-storage returned error status"))
 		return 1
 	}
 
 	// Return success
-	pdk.Output(successResponse())
+	pdk.Output(util.SuccessResponse())
 	return 0
 }
 
-// getRoomShape selects a room shape for a given tree3 node
-// This is plugin-level logic that will eventually be extracted to a dedicated plugin
-func getRoomShape(node *tree3.Node) minimap.RoomShape {
-	// Use same room shape selection logic as original minimap
-	// Pick random shape variant using WASM random import
+func getRoomShape(node *tree3.Node) minimap2.RoomShape {
 	rng := &MyRandom{}
 	idx := rng.Intn(len(roomShapesToChooseFrom))
 	return roomShapesToChooseFrom[idx]
 }
 
 // Room shapes available for selection (same as original minimap)
-var roomShapesToChooseFrom = []minimap.RoomShape{
+var roomShapesToChooseFrom = []minimap2.RoomShape{
 	// Single tiles - most flexible for tight spaces
 	{{0, 0}},
 	// 2-tile shapes
@@ -177,19 +167,3 @@ var roomShapesToChooseFrom = []minimap.RoomShape{
 	{{0, 0}, {1, 0}, {2, 0}, {1, 1}},
 	{{0, 0}, {0, 1}, {0, 2}, {-1, 1}},
 }
-
-// Helper functions for response formatting
-func successResponse() []byte {
-	resp := SuccessResponse{Success: true}
-	data, _ := json.Marshal(resp)
-	return data
-}
-
-func errorResponse(msg string) []byte {
-	resp := SuccessResponse{Success: false, Error: msg}
-	data, _ := json.Marshal(resp)
-	return data
-}
-
-// Required main function for WASM
-func main() {}
