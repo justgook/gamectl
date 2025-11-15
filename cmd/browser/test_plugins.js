@@ -30,14 +30,14 @@ export async function develop() {
 
   // assign biome names to tree
 
-  // const biomes = await (await fetch("./data/biomes.json")).json();
-  // worldTree.forEach(a => a.data = { name: biomes.splice(Math.floor(Math.random() * biomes.length), 1)[0].name })
-  //
-  // treeResult2 = await pluginManager.call("tree-storage2", "set", JSON.stringify({ id: treeName, tree: worldTree }))
-  //
-  // treeResult2 = await pluginManager.call("tree-storage2", "get", `{"id": "${treeName}"}`)
-  // data = DE.decode(treeResult2.output)
-  // worldTree = JSON.parse(data)
-  // console.log("UPDATED IN BASE", treeResult2, worldTree)
+  const biomes = await (await fetch("./data/biomes.json")).json();
+  worldTree.forEach(a => a.data = { name: biomes.splice(Math.floor(Math.random() * biomes.length), 1)[0].name })
+
+  treeResult2 = await pluginManager.call("tree-storage2", "set", JSON.stringify({ id: treeName, tree: worldTree }))
+
+  treeResult2 = await pluginManager.call("tree-storage2", "get", `{"id": "${treeName}"}`)
+  data = DE.decode(treeResult2.output)
+  worldTree = JSON.parse(data)
+  console.log("UPDATED IN BASE", treeResult2, worldTree)
 
 }

@@ -65,6 +65,10 @@ func GenerateTree(cfg GenerateTreeConfig, rng Random) tree3.Tree {
 		gen.adjustLeafRatio()
 	}
 
+	// Debug: The actual length should match the nodes count
+	// This helps verify our algorithm is working
+	// Note: len(t) should equal gen.nodes
+
 	return t
 }
 
@@ -113,26 +117,78 @@ func (g *treeGenerator) generateStructure() {
 			continue
 		}
 
-		// Decide if this node should branch
-		if !g.shouldBranch(current.depth) {
-			continue
-		}
-
-		// Determine number of children
-		childCount := g.determineChildCount(current.depth)
-
-		// Add children
-		parentIdx := g.tree.IndexOf(current.node)
-		for i := 0; i < childCount; i++ {
-			if !g.canAddNode() {
-				return // Stop if we hit node limit
+		// Special handling for nodeCount target
+		if g.config.NodeCount > 0 {
+			// If we've reached the target, stop generating
+			if g.nodes >= g.config.NodeCount {
+				break
 			}
-			child := g.tree.Add(parentIdx, nil)
-			g.nodes++
-			queue = append(queue, queueNode{
-				node:  child,
-				depth: current.depth + 1,
-			})
+
+			// Force branching until we reach target (unless at max depth)
+			shouldBranch := true
+
+			// Determine number of children based on how many nodes we need
+			remainingNodes := g.config.NodeCount - g.nodes
+			maxChildren := g.config.MaxBranching
+			minChildren := g.config.MinBranching
+
+			var childCount int
+			if remainingNodes >= maxChildren {
+				// We need lots of nodes, use max branching
+				childCount = maxChildren
+			} else if remainingNodes >= minChildren {
+				// We need some nodes, use what we need (up to max)
+				childCount = remainingNodes
+				if childCount > maxChildren {
+					childCount = maxChildren
+				}
+			} else if remainingNodes > 0 {
+				// We need just a few nodes
+				childCount = remainingNodes
+			} else {
+				// We've reached the target
+				break
+			}
+
+			// Add children
+			if shouldBranch && childCount > 0 {
+				parentIdx := g.tree.IndexOf(current.node)
+				for i := 0; i < childCount && g.nodes < g.config.NodeCount; i++ {
+					child := g.tree.Add(parentIdx, nil)
+					g.nodes++
+					if current.depth+1 < g.config.MaxDepth {
+						queue = append(queue, queueNode{
+							node:  child,
+							depth: current.depth + 1,
+						})
+					}
+				}
+			}
+		} else {
+			// Original logic for unlimited nodeCount
+			// Decide if this node should branch
+			if !g.shouldBranch(current.depth) {
+				continue
+			}
+
+			// Determine number of children
+			childCount := g.determineChildCount(current.depth)
+
+			// If we determined 0 children, skip
+			if childCount <= 0 {
+				continue
+			}
+
+			// Add children
+			parentIdx := g.tree.IndexOf(current.node)
+			for i := 0; i < childCount; i++ {
+				child := g.tree.Add(parentIdx, nil)
+				g.nodes++
+				queue = append(queue, queueNode{
+					node:  child,
+					depth: current.depth + 1,
+				})
+			}
 		}
 	}
 }
@@ -151,6 +207,43 @@ func (g *treeGenerator) determineRootBranches() int {
 
 	if min == max {
 		return min
+	}
+
+	// If we have a specific nodeCount target, be strategic about root branches
+	if g.config.NodeCount > 0 {
+		// For larger targets, prefer more root branches to have multiple growth paths
+		if g.config.NodeCount >= 20 {
+			// Prefer max branching for large trees
+			count := max
+			// Add some randomness but bias toward max
+			if g.rng.Float64() < 0.3 {
+				count = min + g.rng.Intn(max-min+1)
+			}
+			return count
+		}
+
+		// For medium targets, use a balanced approach
+		if g.config.NodeCount >= 10 {
+			// Prefer middle to high branching
+			mid := (min + max) / 2
+			return mid + g.rng.Intn(max-mid+1)
+		}
+
+		// For small targets, use more conservative branching
+		return min + g.rng.Intn(max-min+1)
+	}
+
+	// For unlimited nodeCount (0), create varied root structure for interesting trees
+	if g.config.NodeCount <= 0 {
+		// Create 1-3 main branches randomly, but bias toward having multiple paths
+		baseCount := min + g.rng.Intn(max-min+1)
+
+		// 70% chance to have at least 2 branches for more interesting trees
+		if baseCount == 1 && g.rng.Float64() < 0.7 && max > 1 {
+			baseCount = 2
+		}
+
+		return baseCount
 	}
 
 	count := min + g.rng.Intn(max-min+1)
@@ -210,18 +303,39 @@ func (g *treeGenerator) removeFromQueue(queue []queueNode, target queueNode) []q
 }
 
 func (g *treeGenerator) shouldBranch(depth int) bool {
-	// Base probability from density
-	prob := g.config.Density
+	// If we have a specific nodeCount target and haven't reached it yet,
+	// be very aggressive about branching until we reach the target
+	if g.config.NodeCount > 0 && g.nodes < g.config.NodeCount {
+		remainingNodes := g.config.NodeCount - g.nodes
 
-	// When nodeCount is 0 (unlimited), ensure minimum viable branching
-	// at shallow depths to avoid degenerate trees
-	if g.config.NodeCount <= 0 && depth <= 3 && g.nodes < 6 {
-		// Increase probability for shallow depths when tree is too small
-		minProbAtShallow := 0.8
-		if prob < minProbAtShallow {
-			prob = minProbAtShallow
+		// If we're significantly under the target, always branch (unless at max depth)
+		if remainingNodes >= 5 {
+			return true
+		}
+
+		// If we're close to the target, still be aggressive but with some randomness
+		if remainingNodes > 1 {
+			// High probability of branching when under target
+			return g.rng.Float64() < 0.9
+		}
+
+		// If we need exactly 1 more node, branch with high probability
+		if remainingNodes == 1 {
+			return g.rng.Float64() < 0.8
 		}
 	}
+
+	// For unlimited nodeCount (0), use the original logic with improvements
+	if g.config.NodeCount <= 0 {
+		// Ensure minimum viable branching at shallow depths to avoid degenerate trees
+		if depth <= 3 && g.nodes < 6 {
+			minProbAtShallow := 0.8
+			return g.rng.Float64() < minProbAtShallow
+		}
+	}
+
+	// Base probability from density
+	prob := g.config.Density
 
 	// Shape bias affects branching probability by depth
 	if g.config.ShapeBias > 0 {
@@ -256,7 +370,67 @@ func (g *treeGenerator) determineChildCount(depth int) int {
 		return min
 	}
 
-	// Base count
+	// If we have a specific nodeCount target, be strategic about child count
+	if g.config.NodeCount > 0 {
+		remainingNodes := g.config.NodeCount - g.nodes
+		remainingDepth := g.config.MaxDepth - depth
+
+		// If we've reached or exceeded the target, stop adding children
+		if remainingNodes <= 0 {
+			return 0
+		}
+
+		// If we need many more nodes and have depth remaining, prefer more children
+		if remainingNodes > remainingDepth*2 && remainingDepth > 1 {
+			// Calculate how many children we can afford to add
+			maxAffordable := remainingNodes
+			if max < maxAffordable {
+				maxAffordable = max
+			}
+			if maxAffordable < min {
+				return maxAffordable
+			}
+
+			// Bias toward higher counts when we need lots of nodes
+			count := max
+			if g.rng.Float64() < 0.2 { // 20% chance for randomness
+				count = min + g.rng.Intn(max-min+1)
+			}
+			if count > maxAffordable {
+				count = maxAffordable
+			}
+			return count
+		}
+
+		// If we're getting close to the target but not there yet
+		if remainingNodes <= 10 && remainingNodes > 1 {
+			// Be more careful but still try to reach the target
+			maxAffordable := remainingNodes
+			if max < maxAffordable {
+				maxAffordable = max
+			}
+			if maxAffordable < min {
+				return maxAffordable
+			}
+
+			// Use minimum or slightly more
+			count := min
+			if remainingNodes >= min*2 && g.rng.Float64() < 0.5 {
+				count = min + 1
+			}
+			if count > maxAffordable {
+				count = maxAffordable
+			}
+			return count
+		}
+
+		// If we only need 1 more node
+		if remainingNodes == 1 {
+			return 1
+		}
+	}
+
+	// Base count for unlimited or normal cases
 	count := min + g.rng.Intn(max-min+1)
 
 	// Shape bias affects child count
