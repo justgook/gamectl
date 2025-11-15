@@ -28,7 +28,7 @@ type GenerateTreeConfig struct {
 // GenerateTree
 // ------------------------------------------------------------
 
-func GenerateTree(cfg GenerateTreeConfig, rng Random) tree.Tree {
+func GenerateTree(rng Random, cfg *GenerateTreeConfig) tree.Tree {
 	t := tree.Tree{}
 	t.Add(-1, nil) // Add root node
 
@@ -51,7 +51,7 @@ func GenerateTree(cfg GenerateTreeConfig, rng Random) tree.Tree {
 
 type treeGenerator struct {
 	tree   *tree.Tree
-	config GenerateTreeConfig
+	config *GenerateTreeConfig
 	rng    Random
 	nodes  int
 }

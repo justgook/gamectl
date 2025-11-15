@@ -10,8 +10,8 @@ import (
 )
 
 type Input = struct {
-	Name                       string `json:"name"`
-	treegen.GenerateTreeConfig `json:",inline"`
+	Name                        string `json:"name"`
+	*treegen.GenerateTreeConfig `json:",inline"`
 }
 
 //go:wasmimport random next
@@ -46,7 +46,7 @@ func Gen() uint32 {
 	}
 
 	req.ID = params.Name
-	req.Tree = treegen.GenerateTree(params.GenerateTreeConfig, &MyRandom{})
+	req.Tree = treegen.GenerateTree(&MyRandom{}, params.GenerateTreeConfig)
 
 	storeJSON, err := json.Marshal(req)
 	if err != nil {
