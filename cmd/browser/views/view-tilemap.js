@@ -53,11 +53,23 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   calculateContentBounds(data) {
+    console.log(data)
+    const width = data.layers.reduce((acc, item) =>
+      // TODO EXTRACT tileHeigt from level 
+      Math.max(item.width * this.tw, acc)
+      , 0)
+
+    const height = data.layers.reduce((acc, item) =>
+      // TODO EXTRACT tileHeigt from level 
+      Math.max(item.data.length / item.width * this.th, acc)
+      , 0)
+
+
     return {
       minX: 0,
       minY: 0,
-      maxX: 200,
-      maxY: 200,
+      maxX: width,
+      maxY: height,
     }
   }
 
@@ -76,13 +88,22 @@ export class ViewTilemap extends ViewCanvasBase {
     fillCanvasWithGrid(ctx, this.tw, this.th, this.settings.grid.color, this.settings.grid.border)
     console.log(ctx.canvas === this.offscreen)
 
-    data.layers.forEach(layer => {
+    for (let i = 0; i < data.layers.length; i++) {
+      const layer = data.layers[i]
       if (layer.meta?.type === "doors") {
         console.error("implement doors drawing")
       } else if (layer.meta?.tileset) {
         console.error("implement tileset drawing")
       } else {
-        drawColoredTiles(
+        if (i == 1) {
+          drawDoors(
+            ctx,
+            layer?.meta?.tw || this.tw,
+            layer?.meta?.th || this.th,
+            layer.width,
+            layer.data,
+          )
+        } else drawColoredTiles(
           ctx,
           layer?.meta?.tw || this.tw,
           layer?.meta?.th || this.th,
@@ -90,24 +111,155 @@ export class ViewTilemap extends ViewCanvasBase {
           layer.data,
         )
       }
-    })
+    }
 
     console.log("_renderOffscreen", data)
 
     this.isDirty = false
   }
+
+  getHoverInfo(worldX, worldY, data) {
+    if (!data || !data.layers || data.layers.length < 2) return null;
+
+    const roomsLayer = data.layers[0]
+    const doorsLayer = data.layers[1]
+
+    const mapW = roomsLayer.width;
+    const tileW = this.tw;
+    const tileH = this.th;
+
+    // Convert world coordinates to tile coordinates
+    const tileX = Math.floor(worldX / tileW);
+    const tileY = Math.floor(worldY / tileH);
+    const index = tileY * mapW + tileX;
+
+    if (tileX < 0 || tileY < 0 || tileX >= mapW || index >= roomsLayer.data.length) return null;
+
+    const tileValue = roomsLayer.data[index];
+    if (tileValue === 0) return null; // Empty space
+
+    // const metaKey = `${tileX}_${tileY}`;
+    // const metaString = roomsLayer.meta[metaKey];
+    // const doorMask = doorsLayer.data[index];
+
+    let roomId = 'ROOM_' + tileValue;
+    // if (metaString) {
+    //   try {
+    //     const meta = JSON.parse(metaString);
+    //     roomId = meta.room || roomId;
+    //   } catch (e) {
+    //     // Ignore parse error
+    //   }
+    // }
+
+    const doorMask = doorsLayer.data[index]
+    const DoorNorth = 1, DoorEast = 2, DoorSouth = 4, DoorWest = 8;
+    const doorText = doorMask ?
+      [(doorMask & DoorNorth) && 'N',
+      (doorMask & DoorEast) && 'E',
+      (doorMask & DoorSouth) && 'S',
+      (doorMask & DoorWest) && 'W']
+        .filter(Boolean).join(', ') :
+      'None';
+
+    return `
+      <div class="info-row"><span class="info-label">Room:</span> <span class="info-value">${roomId}</span></div>
+      <div class="info-row"><span class="info-label">Position:</span> <span class="info-value">(${tileX}, ${tileY})</span></div>
+      <div class="info-row"><span class="info-label">Doors:</span> <span class="info-value">${doorText}</span></div>
+    `;
+  }
+
 }
 
+const colors = generateHsluvColors(50)
+
+
 function drawColoredTiles(ctx, tw, th, w, data) {
-  const colors = generateHsluvColors(50)
   for (let i = 0; i < data.length; i++) {
     if (data[i] < 1) continue
-    const x = i % w
-    const y = Math.floor(i / w)
+    const x = i % w * tw
+    const y = Math.floor(i / w) * th
     ctx.fillStyle = colors[data[i]]
+    console.log(`${data[i]}->${colors[data[i]]}`)
     ctx.fillRect(x, y, tw, th)
   }
 }
+
+function drawDoors(ctx, tw, th, w, doorData) {
+  const DoorNorth = 1, DoorEast = 2, DoorSouth = 4, DoorWest = 8;
+
+  // Door styling
+  const doorWidth = tw * 0.4;  // Door is 40% of tile width
+  const doorDepth = 8;  // How "deep" the door looks
+  const doorInset = 6;  // Distance from tile edge
+
+  for (let i = 0; i < doorData.length; i++) {
+    const doorMask = doorData[i];
+    if (!doorMask) continue;
+
+    const x = (i % w) * tw;
+    const y = Math.floor(i / w) * th;
+    const cx = x + tw / 2;
+    const cy = y + th / 2;
+
+    ctx.save();
+
+    // North door
+    if (doorMask & DoorNorth) {
+      // Door frame (darker)
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(cx - doorWidth / 2 - 2, y + doorInset, doorWidth + 4, doorDepth + 2);
+      // Door (lighter brown)
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(cx - doorWidth / 2, y + doorInset + 1, doorWidth, doorDepth);
+      // Door handle
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(cx + doorWidth / 3, y + doorInset + doorDepth / 2 - 1, 3, 3);
+    }
+
+    // East door
+    if (doorMask & DoorEast) {
+      // Door frame
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(x + tw - doorInset - doorDepth - 2, cy - doorWidth / 2 - 2, doorDepth + 2, doorWidth + 4);
+      // Door
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(x + tw - doorInset - doorDepth, cy - doorWidth / 2, doorDepth, doorWidth);
+      // Door handle
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(x + tw - doorInset - doorDepth / 2 - 1, cy + doorWidth / 3, 3, 3);
+    }
+
+    // South door
+    if (doorMask & DoorSouth) {
+      // Door frame
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(cx - doorWidth / 2 - 2, y + th - doorInset - doorDepth - 2, doorWidth + 4, doorDepth + 2);
+      // Door
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(cx - doorWidth / 2, y + th - doorInset - doorDepth, doorWidth, doorDepth);
+      // Door handle
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(cx - doorWidth / 3 - 3, y + th - doorInset - doorDepth / 2 - 1, 3, 3);
+    }
+
+    // West door
+    if (doorMask & DoorWest) {
+      // Door frame
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(x + doorInset, cy - doorWidth / 2 - 2, doorDepth + 2, doorWidth + 4);
+      // Door
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(x + doorInset + 1, cy - doorWidth / 2, doorDepth, doorWidth);
+      // Door handle
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(x + doorInset + doorDepth / 2 - 1, cy - doorWidth / 3 - 3, 3, 3);
+    }
+
+    ctx.restore();
+  }
+}
+
 /**
  * The "Factory" Function
  * Creates a reusable grid pattern from an off-screen canvas.

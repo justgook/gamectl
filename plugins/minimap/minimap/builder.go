@@ -1,6 +1,8 @@
 package minimap
 
 import (
+	"fmt"
+
 	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/gamectl/pkg/tree"
 )
@@ -57,7 +59,7 @@ func (b *MinimapBuilder) PlaceRoom(node *tree.Node, getRoomShape GetRoomShapeFun
 
 	// Track occupied tiles for this room
 	absShape := toAbsShape(position, shape)
-	// fmt.Printf("PlaceRoom: node=%v, pos=%v, shape=%v, absShape=%v, exits=%v\n", node, position, shape, absShape, exits)
+	fmt.Printf("PlaceRoom: room[%d] pos=%v, shape=%v, exits=%v\n", index, position, shape, exits)
 
 	for _, tileCoord := range absShape {
 		b.occupiedTiles[tileCoord] = index
@@ -210,7 +212,7 @@ func (b *MinimapBuilder) calculateDoorMask(roomIndex int, coord XY) uint32 {
 	room := b.rooms[roomIndex]
 	doors := uint32(0)
 
-	// fmt.Printf("  calculateDoorMask: room[%d] at coord %v\n", roomIndex, coord)
+	fmt.Printf("  calculateDoorMask: room[%d] at coord %v\n", roomIndex, coord)
 
 	// PART 1: Check exits from this room (doors leading to children)
 	for exitCoord, childNode := range room.Exits {
@@ -221,28 +223,31 @@ func (b *MinimapBuilder) calculateDoorMask(roomIndex int, coord XY) uint32 {
 		// fmt.Printf("    exit %v -> doorTile %v, childNode: %p\n", exitCoord, doorTileCoord, childNode)
 
 		if doorTileCoord == coord {
-			// Determine door direction based on exit position relative to door tile
-			relX := exitCoord[0]
-			relY := exitCoord[1]
+			// Calculate direction from door tile to exit position
+			exitAbsCoord := toAbs(room.Position, exitCoord)
+			relX := exitAbsCoord[0] - coord[0] // Direction from door tile to exit
+			relY := exitAbsCoord[1] - coord[1]
+
+			fmt.Printf("      doorTile %v -> exit %v, direction: [%d,%d]\n", coord, exitAbsCoord, relX, relY)
 
 			// Only add door for the primary direction (largest absolute component)
 			if abs(relX) > abs(relY) {
 				// X direction is dominant
 				if relX > 0 {
 					doors |= DoorEast
-					// fmt.Printf("      adding East door (X-dominant)\n")
+					fmt.Printf("      adding East door (X-dominant)\n")
 				} else if relX < 0 {
 					doors |= DoorWest
-					// fmt.Printf("      adding West door (X-dominant)\n")
+					fmt.Printf("      adding West door (X-dominant)\n")
 				}
 			} else {
 				// Y direction is dominant (or equal)
 				if relY > 0 {
 					doors |= DoorSouth
-					// fmt.Printf("      adding South door (Y-dominant)\n")
+					fmt.Printf("      adding South door (Y-dominant)\n")
 				} else if relY < 0 {
 					doors |= DoorNorth
-					// fmt.Printf("      adding North door (Y-dominant)\n")
+					fmt.Printf("      adding North door (Y-dominant)\n")
 				}
 			}
 		}
@@ -259,32 +264,36 @@ func (b *MinimapBuilder) calculateDoorMask(roomIndex int, coord XY) uint32 {
 		if coord == childEntranceAbs {
 			// Find parent's exit that leads to this room to determine direction
 			parent := b.rooms[room.Node.ParentId]
-			// fmt.Printf("      entrance tile, parent exits: %v\n", parent.Exits)
+			fmt.Printf("      entrance tile, parent exits: %v\n", parent.Exits)
 			for parentExitCoord, childNode := range parent.Exits {
 				if childNode == room.Node {
-					// fmt.Printf("      found parent exit %v leading to this room\n", parentExitCoord)
-					// Add opposite direction door from parent's exit direction
-					relX := parentExitCoord[0]
-					relY := parentExitCoord[1]
+					// Calculate direction from parent door tile to child entrance tile
+					parentDoorTile := b.findDoorTileForExit(parent, parentExitCoord)
+
+					relX := coord[0] - parentDoorTile[0] // Direction from parent door to child entrance
+					relY := coord[1] - parentDoorTile[1]
+
+					fmt.Printf("      parentDoorTile %v -> childEntrance %v, direction: [%d,%d]\n", parentDoorTile, coord, relX, relY)
 
 					// Only add door for the primary direction (largest absolute component)
+					// For entrance doors, use the OPPOSITE direction (door faces toward parent)
 					if abs(relX) > abs(relY) {
 						// X direction is dominant
 						if relX > 0 {
-							doors |= DoorWest // Opposite of East
-							// fmt.Printf("        adding West entrance door (X-dominant)\n")
+							doors |= DoorWest // Opposite direction - door faces toward parent
+							fmt.Printf("        adding West entrance door (X-dominant)\n")
 						} else if relX < 0 {
-							doors |= DoorEast // Opposite of West
-							// fmt.Printf("        adding East entrance door (X-dominant)\n")
+							doors |= DoorEast // Opposite direction - door faces toward parent
+							fmt.Printf("        adding East entrance door (X-dominant)\n")
 						}
 					} else {
 						// Y direction is dominant (or equal)
 						if relY > 0 {
-							doors |= DoorNorth // Opposite of South
-							// fmt.Printf("        adding North entrance door (Y-dominant)\n")
+							doors |= DoorNorth // Opposite direction - door faces toward parent
+							fmt.Printf("        adding North entrance door (Y-dominant)\n")
 						} else if relY < 0 {
-							doors |= DoorSouth // Opposite of North
-							// fmt.Printf("        adding South entrance door (Y-dominant)\n")
+							doors |= DoorSouth // Opposite direction - door faces toward parent
+							fmt.Printf("        adding South entrance door (Y-dominant)\n")
 						}
 					}
 					break
@@ -439,7 +448,7 @@ func (b *MinimapBuilder) updateParentExit(childNode *tree.Node, newChildPosition
 			delete(parent.Exits, exitCoord)        // Remove old exit
 			parent.Exits[newExitCoord] = childNode // Add new exit
 
-			// fmt.Printf("  Updated parent exit: %v -> %v (child moved to %v)\n", exitCoord, newExitCoord, newChildPosition)
+			fmt.Printf("  Updated parent exit: %v -> %v (child moved to %v)\n", exitCoord, newExitCoord, newChildPosition)
 			break
 		}
 	}
