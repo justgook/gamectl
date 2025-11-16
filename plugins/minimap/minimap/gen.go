@@ -2,7 +2,6 @@ package minimap
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/gamectl/pkg/tree"
@@ -24,8 +23,7 @@ func GenerateMinimap(
 	tree tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 ) (*tilemap.TileMap, error) {
-	fmt.Println("====================================================================================================")
-	defer fmt.Println("====================================================================================================")
+	// Debug output removed
 
 	if len(tree) == 0 {
 		return nil, errors.New("empty tree")
