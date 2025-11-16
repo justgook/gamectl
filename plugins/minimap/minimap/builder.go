@@ -29,7 +29,13 @@ func (b *MinimapBuilder) PlaceRoom(node *tree.Node, getRoomShape GetRoomShapeFun
 	index := b.tree.IndexOf(node)
 
 	// Check for collisions and resolve them
+	originalPosition := position
 	position = b.resolveCollisions(shape, position, node)
+
+	// If position changed due to collision resolution, update parent's exit map
+	if node.ParentId >= 0 && position != originalPosition {
+		b.updateParentExit(node, position)
+	}
 
 	// Calculate required exits first
 	exits := b.calculateExits(node)
@@ -51,7 +57,7 @@ func (b *MinimapBuilder) PlaceRoom(node *tree.Node, getRoomShape GetRoomShapeFun
 
 	// Track occupied tiles for this room
 	absShape := toAbsShape(position, shape)
-	// fmt.Printf("PlaceRoom: node=%v, pos=%v, shape=%v, absShape=%v\n", node, position, shape, absShape)
+	// fmt.Printf("PlaceRoom: node=%v, pos=%v, shape=%v, absShape=%v, exits=%v\n", node, position, shape, absShape, exits)
 
 	for _, tileCoord := range absShape {
 		b.occupiedTiles[tileCoord] = index
@@ -122,10 +128,11 @@ func (b *MinimapBuilder) calculateRoomPosition(node *tree.Node) XY {
 	}
 
 	parent := b.rooms[node.ParentId]
+	// fmt.Printf("  calculateRoomPosition: node parentId=%d, parent.Position=%v, parent.Exits=%v\n", node.ParentId, parent.Position, parent.Exits)
 	for k, v := range parent.Exits {
 		if v == node {
 			output = toAbs(parent.Position, k)
-
+			// fmt.Printf("    found exit %v -> absolute position %v\n", k, output)
 			break
 		}
 	}
@@ -203,26 +210,40 @@ func (b *MinimapBuilder) calculateDoorMask(roomIndex int, coord XY) uint32 {
 	room := b.rooms[roomIndex]
 	doors := uint32(0)
 
+	// fmt.Printf("  calculateDoorMask: room[%d] at coord %v\n", roomIndex, coord)
+
 	// PART 1: Check exits from this room (doors leading to children)
 	for exitCoord, childNode := range room.Exits {
 		// Find which tile in parent shape should have the door
 		// Door should be on the parent tile that's adjacent to the exit position
 		doorTileCoord := b.findDoorTileForExit(room, exitCoord)
 
+		// fmt.Printf("    exit %v -> doorTile %v, childNode: %p\n", exitCoord, doorTileCoord, childNode)
+
 		if doorTileCoord == coord {
 			// Determine door direction based on exit position relative to door tile
 			relX := exitCoord[0]
 			relY := exitCoord[1]
 
-			if relX > 0 {
-				doors |= DoorEast
-			} else if relX < 0 {
-				doors |= DoorWest
-			}
-			if relY > 0 {
-				doors |= DoorSouth
-			} else if relY < 0 {
-				doors |= DoorNorth
+			// Only add door for the primary direction (largest absolute component)
+			if abs(relX) > abs(relY) {
+				// X direction is dominant
+				if relX > 0 {
+					doors |= DoorEast
+					// fmt.Printf("      adding East door (X-dominant)\n")
+				} else if relX < 0 {
+					doors |= DoorWest
+					// fmt.Printf("      adding West door (X-dominant)\n")
+				}
+			} else {
+				// Y direction is dominant (or equal)
+				if relY > 0 {
+					doors |= DoorSouth
+					// fmt.Printf("      adding South door (Y-dominant)\n")
+				} else if relY < 0 {
+					doors |= DoorNorth
+					// fmt.Printf("      adding North door (Y-dominant)\n")
+				}
 			}
 		}
 		_ = childNode // Avoid unused variable
@@ -233,24 +254,38 @@ func (b *MinimapBuilder) calculateDoorMask(roomIndex int, coord XY) uint32 {
 		// Entrance is ALWAYS at {0,0} of child shape (first tile)
 		childEntranceAbs := toAbs(room.Position, XY{0, 0})
 
+		// fmt.Printf("    checking entrance: childEntranceAbs=%v, coord=%v\n", childEntranceAbs, coord)
+
 		if coord == childEntranceAbs {
 			// Find parent's exit that leads to this room to determine direction
 			parent := b.rooms[room.Node.ParentId]
+			// fmt.Printf("      entrance tile, parent exits: %v\n", parent.Exits)
 			for parentExitCoord, childNode := range parent.Exits {
 				if childNode == room.Node {
+					// fmt.Printf("      found parent exit %v leading to this room\n", parentExitCoord)
 					// Add opposite direction door from parent's exit direction
 					relX := parentExitCoord[0]
 					relY := parentExitCoord[1]
 
-					if relX > 0 {
-						doors |= DoorWest // Opposite of East
-					} else if relX < 0 {
-						doors |= DoorEast // Opposite of West
-					}
-					if relY > 0 {
-						doors |= DoorNorth // Opposite of South
-					} else if relY < 0 {
-						doors |= DoorSouth // Opposite of North
+					// Only add door for the primary direction (largest absolute component)
+					if abs(relX) > abs(relY) {
+						// X direction is dominant
+						if relX > 0 {
+							doors |= DoorWest // Opposite of East
+							// fmt.Printf("        adding West entrance door (X-dominant)\n")
+						} else if relX < 0 {
+							doors |= DoorEast // Opposite of West
+							// fmt.Printf("        adding East entrance door (X-dominant)\n")
+						}
+					} else {
+						// Y direction is dominant (or equal)
+						if relY > 0 {
+							doors |= DoorNorth // Opposite of South
+							// fmt.Printf("        adding North entrance door (Y-dominant)\n")
+						} else if relY < 0 {
+							doors |= DoorSouth // Opposite of North
+							// fmt.Printf("        adding South entrance door (Y-dominant)\n")
+						}
 					}
 					break
 				}
@@ -258,6 +293,7 @@ func (b *MinimapBuilder) calculateDoorMask(roomIndex int, coord XY) uint32 {
 		}
 	}
 
+	// fmt.Printf("    final doors: %d (binary: %08b)\n", doors, doors)
 	return doors
 }
 
@@ -387,6 +423,26 @@ func (b *MinimapBuilder) findExtensionCandidates(shape RoomShape, position XY) [
 	}
 
 	return candidates
+}
+
+// updateParentExit updates the parent room's exit map when a child gets relocated
+func (b *MinimapBuilder) updateParentExit(childNode *tree.Node, newChildPosition XY) {
+	parent := b.rooms[childNode.ParentId]
+
+	// Find the exit that points to this child and update it
+	for exitCoord, childPtr := range parent.Exits {
+		if childPtr == childNode {
+			// Calculate the new relative exit coordinate
+			newExitCoord := XY{newChildPosition[0] - parent.Position[0], newChildPosition[1] - parent.Position[1]}
+
+			// Update the exit map
+			delete(parent.Exits, exitCoord)        // Remove old exit
+			parent.Exits[newExitCoord] = childNode // Add new exit
+
+			// fmt.Printf("  Updated parent exit: %v -> %v (child moved to %v)\n", exitCoord, newExitCoord, newChildPosition)
+			break
+		}
+	}
 }
 
 // isPositionOccupied checks if a position is already occupied by another room
