@@ -246,7 +246,7 @@ func (b *MinimapBuilder) connectRoomToParent(childRoom *Room) error {
 	// Generate corridor path
 	path := b.generateCorridorPath(parentTile, childTile)
 
-	// Add corridor tiles to child room (corridors should belong to the child, not parent)
+	// Add corridor tiles to parent room (parent extends to reach children)
 	for _, tile := range path {
 		// Skip tiles that are already occupied by rooms
 		if existingTile, exists := b.tiles[tile]; exists {
@@ -257,12 +257,12 @@ func (b *MinimapBuilder) connectRoomToParent(childRoom *Room) error {
 		}
 
 		b.tiles[tile] = TileInfo{
-			RoomID:   childRoom.ID, // Corridor belongs to child
+			RoomID:   parentRoom.ID, // Corridor belongs to parent
 			TileType: "connection",
 		}
 	}
 
-	fmt.Printf("Connected room %d to parent %d with %d corridor tiles (assigned to child)\n",
+	fmt.Printf("Connected room %d to parent %d with %d corridor tiles (assigned to parent)\n",
 		childRoom.ID, parentRoom.ID, len(path))
 
 	return nil
@@ -431,7 +431,7 @@ func (b *MinimapBuilder) calculateDoorMask(coord Coordinate, tileInfo TileInfo) 
 		if adjTileInfo, exists := b.tiles[adjacent]; exists {
 			if adjTileInfo.RoomID != tileInfo.RoomID {
 				// Only add door if this coordinate is the designated door location for this room pair
-				if b.isDesignatedDoorLocation(coord, tileInfo.RoomID, adjTileInfo.RoomID) {
+				if b.isDesignatedDoorPair(coord, adjacent, tileInfo.RoomID, adjTileInfo.RoomID) {
 					doors |= dir.flag
 				}
 			}
@@ -441,28 +441,42 @@ func (b *MinimapBuilder) calculateDoorMask(coord Coordinate, tileInfo TileInfo) 
 	return doors
 }
 
-// isDesignatedDoorLocation determines if this coordinate should have a door for the given room connection
-func (b *MinimapBuilder) isDesignatedDoorLocation(coord Coordinate, roomA, roomB int) bool {
-	roomAObj := b.rooms[roomA]
-	roomBObj := b.rooms[roomB]
 
-	if roomAObj == nil || roomBObj == nil {
+// isDesignatedDoorPair checks if the pair (coordA, coordB) is the single designated door location
+func (b *MinimapBuilder) isDesignatedDoorPair(coordA, coordB Coordinate, roomA, roomB int) bool {
+	// Ensure consistent ordering for getDesignatedDoorPair call
+	r1, r2 := roomA, roomB
+	c1, c2 := coordA, coordB
+
+	// Canonicalize the room IDs for the lookup key
+	if roomA > roomB {
+		r1, r2 = roomB, roomA
+		c1, c2 = coordB, coordA // Swap coordinates to match the canonical room order
+	}
+
+	room1Obj := b.rooms[r1]
+	room2Obj := b.rooms[r2]
+
+	if room1Obj == nil || room2Obj == nil {
 		return false
 	}
 
 	// CRITICAL: Only allow doors between rooms that have a direct parent-child relationship
-	isParentChild := (roomAObj.Node.ParentId == roomB) || (roomBObj.Node.ParentId == roomA)
+	isParentChild := (room1Obj.Node.ParentId == r2) || (room2Obj.Node.ParentId == r1)
 	if !isParentChild {
 		return false // No doors between non-parent-child rooms
 	}
 
-	// Find the designated door pair for this room connection
-	designatedPair := b.getDesignatedDoorPair(roomA, roomB)
+	// Find the designated door pair for this room connection.
+	// This call will return a pair (TileA, TileB) where TileA is in r1 and TileB is in r2.
+	designatedPair := b.getDesignatedDoorPair(r1, r2)
+	if designatedPair == nil {
+		return false
+	}
 
-	// This coordinate gets the door if it's part of the designated pair
-	return designatedPair != nil && (designatedPair.TileA == coord || designatedPair.TileB == coord)
+	// Check if the canonicalized input pair (c1, c2) matches the designated pair (TileA, TileB).
+	return designatedPair.TileA == c1 && designatedPair.TileB == c2
 }
-
 // getDesignatedDoorPair finds the single adjacent pair where doors should be placed for a room connection
 func (b *MinimapBuilder) getDesignatedDoorPair(roomA, roomB int) *AdjacentPair {
 	// Find all adjacent tiles between these two rooms
@@ -477,8 +491,23 @@ func (b *MinimapBuilder) getDesignatedDoorPair(roomA, roomB int) *AdjacentPair {
 	var designatedPair *AdjacentPair
 
 	for i, pair := range adjacentPairs {
-		if designatedPair == nil || b.isAdjacentPairSmaller(pair, *designatedPair) {
+		if designatedPair == nil {
 			designatedPair = &adjacentPairs[i]
+		} else {
+			// Prefer pairs involving shape tiles over corridor tiles
+			currentHasShape := b.pairHasShapeTile(pair)
+			designatedHasShape := b.pairHasShapeTile(*designatedPair)
+
+			if currentHasShape && !designatedHasShape {
+				// Current pair has shape tile, designated doesn't - prefer current
+				designatedPair = &adjacentPairs[i]
+			} else if currentHasShape == designatedHasShape {
+				// Both have same shape preference, use lexicographic ordering
+				if b.isAdjacentPairSmaller(pair, *designatedPair) {
+					designatedPair = &adjacentPairs[i]
+				}
+			}
+			// If designated has shape and current doesn't, keep designated
 		}
 	}
 
@@ -547,4 +576,16 @@ func (b *MinimapBuilder) isCoordinateSmaller(coord1, coord2 Coordinate) bool {
 		return coord1[0] < coord2[0]
 	}
 	return coord1[1] < coord2[1]
+}
+
+// pairHasShapeTile returns true if either tile in the pair is a shape tile
+func (b *MinimapBuilder) pairHasShapeTile(pair AdjacentPair) bool {
+	tileA, existsA := b.tiles[pair.TileA]
+	tileB, existsB := b.tiles[pair.TileB]
+
+	if !existsA || !existsB {
+		return false
+	}
+
+	return tileA.TileType == "shape" || tileB.TileType == "shape"
 }
