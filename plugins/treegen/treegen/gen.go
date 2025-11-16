@@ -134,7 +134,28 @@ func (g *treeGenerator) generateStructure() {
 
 func (g *treeGenerator) determineRootBranches() int {
 	if g.config.RootBranches > 0 {
+		// Still respect nodeCount limit even when RootBranches is specified
+		if g.config.NodeCount > 0 {
+			maxPossible := g.config.NodeCount - 1 // subtract 1 for root node
+			if maxPossible <= 0 {
+				return 0
+			}
+			if g.config.RootBranches > maxPossible {
+				return maxPossible
+			}
+		}
 		return g.config.RootBranches
+	}
+
+	// Check nodeCount limit first - if very small, be conservative
+	if g.config.NodeCount > 0 {
+		maxPossible := g.config.NodeCount - 1 // subtract 1 for root node
+		if maxPossible <= 0 {
+			return 0 // only root node
+		}
+		if maxPossible == 1 {
+			return 1 // root + 1 child = 2 nodes total
+		}
 	}
 
 	// Simple random root branching between 1 and max
@@ -144,12 +165,24 @@ func (g *treeGenerator) determineRootBranches() int {
 		max = min
 	}
 
+	// Apply nodeCount constraint to max branching
+	if g.config.NodeCount > 0 {
+		maxPossible := g.config.NodeCount - 1 // subtract 1 for root node
+		if max > maxPossible {
+			max = maxPossible
+		}
+	}
+
 	// For interesting trees, bias toward having multiple root branches
+	// But only if nodeCount allows it
 	count := min + g.rng.Intn(max-min+1)
 
 	// 70% chance to have at least 2 branches for more variety
+	// But only if nodeCount > 2 (root + 2 children = 3 nodes minimum)
 	if count == 1 && g.rng.Float64() < 0.7 && max > 1 {
-		count = 2
+		if g.config.NodeCount <= 0 || g.config.NodeCount > 2 {
+			count = 2
+		}
 	}
 
 	return count
