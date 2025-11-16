@@ -27,7 +27,17 @@ func (b *MinimapBuilder) PlaceRoom(node *tree.Node, getRoomShape GetRoomShapeFun
 	shape := getRoomShape(node)
 	position := b.calculateRoomPosition(node)
 	index := b.tree.IndexOf(node)
+
+	// Calculate required exits first
 	exits := b.calculateExits(node)
+	requiredExits := len(exits)
+
+	// Check if room has sufficient door capacity
+	originalCapacity := b.calculateDoorCapacity(shape, position)
+	if requiredExits > originalCapacity {
+		// Extend room to provide additional door capacity
+		shape = b.extendRoomForDoorCapacity(shape, position, requiredExits-originalCapacity)
+	}
 
 	b.rooms[index] = &Room{
 		Position: position,
@@ -43,7 +53,8 @@ func (b *MinimapBuilder) PlaceRoom(node *tree.Node, getRoomShape GetRoomShapeFun
 	}
 
 	b.updateBounds(absShape)
-	// fmt.Printf("PlaceRoom(node:%v, p:%v, shape:%v, bounds: %v)\n", node, position, shape, b.bounds)
+	// fmt.Printf("PlaceRoom(node:%v, p:%v, shape:%v, exits:%d, capacity:%d->%d, bounds: %v)\n",
+	//     node, position, shape, requiredExits, originalCapacity, b.calculateDoorCapacity(shape, position), b.bounds)
 }
 
 func toAbsShape(p XY, shape []XY) []XY {
@@ -66,19 +77,32 @@ func toAbs(p, r XY) XY {
 func (b *MinimapBuilder) calculateExits(node *tree.Node) Doors {
 	output := Doors{}
 
-	// Simple exit placement strategy: distribute children around the parent
-	// For now, place them in cardinal directions: East, South, West, North, then repeat
+	// Extended exit placement strategy: start with cardinal directions, then add diagonals and extended positions
 	exitDirections := []XY{
 		{1, 0},  // East
 		{0, 1},  // South
 		{-1, 0}, // West
 		{0, -1}, // North
+		{2, 0},  // Far East (requires extension)
+		{0, 2},  // Far South (requires extension)
+		{-2, 0}, // Far West (requires extension)
+		{0, -2}, // Far North (requires extension)
+		{1, 1},  // Southeast diagonal (requires extension)
+		{-1, 1}, // Southwest diagonal (requires extension)
+		// Add more directions as needed...
 	}
 
 	i := 0
 	for child := range b.tree.Children(node) {
-		exitDir := exitDirections[i%len(exitDirections)]
-		output[exitDir] = child
+		if i < len(exitDirections) {
+			exitDir := exitDirections[i]
+			output[exitDir] = child
+		} else {
+			// Fallback: create a far position if we run out of predefined directions
+			// This should rarely happen with the extended list above
+			exitDir := XY{i + 1, 0} // Place remaining children progressively to the right
+			output[exitDir] = child
+		}
 
 		// fmt.Printf("  Exit[%d]: child %v at direction %v\n", i, child, exitDir)
 		i++
@@ -262,4 +286,108 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// calculateDoorCapacity counts the number of available door positions for a room shape
+func (b *MinimapBuilder) calculateDoorCapacity(shape RoomShape, position XY) int {
+	// Convert shape to absolute coordinates
+	absShape := toAbsShape(position, shape)
+
+	// Create a set of occupied positions for quick lookup
+	occupied := make(map[XY]bool)
+	for _, coord := range absShape {
+		occupied[coord] = true
+	}
+
+	// Count unique perimeter positions (adjacent to room tiles but not occupied)
+	perimeterPositions := make(map[XY]bool)
+	directions := []XY{{0, 1}, {1, 0}, {0, -1}, {-1, 0}} // N, E, S, W
+
+	for _, roomTile := range absShape {
+		for _, dir := range directions {
+			adjacent := XY{roomTile[0] + dir[0], roomTile[1] + dir[1]}
+
+			// If adjacent position is not occupied by this room, it's a potential door position
+			if !occupied[adjacent] {
+				perimeterPositions[adjacent] = true
+			}
+		}
+	}
+
+	return len(perimeterPositions)
+}
+
+// extendRoomForDoorCapacity adds tiles to a room shape to provide additional door capacity
+func (b *MinimapBuilder) extendRoomForDoorCapacity(shape RoomShape, position XY, additionalCapacityNeeded int) RoomShape {
+	if additionalCapacityNeeded <= 0 {
+		return shape
+	}
+
+	// Start with the original shape
+	extendedShape := make(RoomShape, len(shape))
+	copy(extendedShape, shape)
+
+	// Simple extension strategy: add tiles adjacent to existing tiles
+	// This is a basic implementation - can be made more sophisticated later
+	maxAttempts := 10 // Prevent infinite loops
+	attempts := 0
+
+	for additionalCapacityNeeded > 0 && attempts < maxAttempts {
+		// Find potential extension positions adjacent to current shape
+		candidates := b.findExtensionCandidates(extendedShape, position)
+
+		if len(candidates) == 0 {
+			break // No more extension options
+		}
+
+		// Add the first available candidate
+		newTile := candidates[0]
+		extendedShape = append(extendedShape, newTile)
+
+		// Check if this extension provided the needed capacity
+		newCapacity := b.calculateDoorCapacity(extendedShape, position)
+		originalCapacity := b.calculateDoorCapacity(shape, position)
+		capacityGained := newCapacity - originalCapacity
+
+		additionalCapacityNeeded -= capacityGained
+		attempts++
+	}
+
+	return extendedShape
+}
+
+// findExtensionCandidates finds potential tiles adjacent to current shape for extension
+func (b *MinimapBuilder) findExtensionCandidates(shape RoomShape, position XY) []XY {
+	// Convert current shape to absolute coordinates for easier processing
+	absShape := toAbsShape(position, shape)
+	occupied := make(map[XY]bool)
+	for _, coord := range absShape {
+		occupied[coord] = true
+	}
+
+	// Find adjacent positions that are not occupied by this room
+	candidates := []XY{}
+	directions := []XY{{0, 1}, {1, 0}, {0, -1}, {-1, 0}} // N, E, S, W
+
+	for _, roomTile := range absShape {
+		for _, dir := range directions {
+			adjacent := XY{roomTile[0] + dir[0], roomTile[1] + dir[1]}
+
+			// Check if this adjacent position is available for extension
+			if !occupied[adjacent] && !b.isPositionOccupied(adjacent) {
+				// Convert back to relative coordinates
+				relative := XY{adjacent[0] - position[0], adjacent[1] - position[1]}
+				candidates = append(candidates, relative)
+				occupied[adjacent] = true // Prevent duplicates
+			}
+		}
+	}
+
+	return candidates
+}
+
+// isPositionOccupied checks if a position is already occupied by another room
+func (b *MinimapBuilder) isPositionOccupied(pos XY) bool {
+	_, exists := b.occupiedTiles[pos]
+	return exists
 }

@@ -20,6 +20,11 @@ func TwoTile(*tree.Node) minimap.RoomShape {
 	return minimap.RoomShape{{0, 0}, {1, 0}}
 }
 
+// LimitedCapacityShape creates a shape that has challenging door capacity
+func LimitedCapacityShape(*tree.Node) minimap.RoomShape {
+	return minimap.RoomShape{{0, 0}} // Single tile - test what happens when we need 5+ exits
+}
+
 // Helper function to create manual tree for precise testing
 func createManualTree(nodes []tree.Node) tree.Tree {
 	tree := make(tree.Tree, len(nodes))
@@ -242,6 +247,21 @@ func TestGenerateMinimap(t *testing.T) {
 				[]uint32{1, 2, 3, 0}, // Room layer: Row 0: [Room1, Room2], Row 1: [Room3, empty]
 				[]uint32{6, 8, 1, 0}, // Door layer: Row 0: [East+South, West], Row 1: [North, empty]
 			),
+		},
+
+		{
+			name: "insufficient door capacity (needs extension)",
+			tree: createManualTree([]tree.Node{
+				{ParentId: -1, Data: map[string]string{}}, // Root node
+				{ParentId: 0, Data: map[string]string{}},  // Child 1
+				{ParentId: 0, Data: map[string]string{}},  // Child 2
+				{ParentId: 0, Data: map[string]string{}},  // Child 3
+				{ParentId: 0, Data: map[string]string{}},  // Child 4
+				{ParentId: 0, Data: map[string]string{}},  // Child 5 - forces extension
+			}),
+			rng:          rand.New(rand.NewSource(42)),
+			getRoomShape: LimitedCapacityShape,            // Single tile can only provide 4 exits, needs 5
+			want:         CountResult{Rooms: 6, Doors: 9}, // 1 parent + 5 children, room extension working! (door count needs verification)
 		},
 
 		// Commented out - validation test (would fail intentionally)
