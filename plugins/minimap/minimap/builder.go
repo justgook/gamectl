@@ -36,10 +36,11 @@ func (b *MinimapBuilder) PlaceRoom(node *tree.Node, getRoomShape GetRoomShapeFun
 		Exits:    exits,
 	}
 
-	b.updateBounds(toAbs(position, shape))
+	b.updateBounds(toAbsShape(position, shape))
+	fmt.Printf("PlaceRoom(node:%v, p:%v, bounds: %v)\n", node, position, b.bounds)
 }
 
-func toAbs(p XY, shape []XY) []XY {
+func toAbsShape(p XY, shape []XY) []XY {
 	output := make([]XY, len(shape))
 	for i, item := range shape {
 		output[i] = item
@@ -48,6 +49,12 @@ func toAbs(p XY, shape []XY) []XY {
 	}
 
 	return output
+}
+func toAbs(p, r XY) XY {
+	r[0] += p[0]
+	r[1] += p[1]
+
+	return r
 }
 
 func (b *MinimapBuilder) calculateExits(node *tree.Node) Doors {
@@ -69,12 +76,15 @@ func (b *MinimapBuilder) calculateRoomPosition(node *tree.Node) XY {
 		return output
 	}
 
-	for k, v := range b.rooms[node.ParentId].Exits {
+	parent := b.rooms[node.ParentId]
+	for k, v := range parent.Exits {
 		if v == node {
-			output = k
+			output = toAbs(parent.Position, k)
+
 			break
 		}
 	}
+
 	return output
 }
 
@@ -96,7 +106,7 @@ func (b *MinimapBuilder) BuildTileMap() *tilemap.TileMap {
 	doorLayer := tilemap.NewTileLayer(width, height)
 
 	for i := range b.rooms {
-		// TODO UPDATE TP REALL DATA EXTRACTION!
+		// TODO: UPDATE TP REALL DATA EXTRACTION!
 		roomLayer.Data[i] = uint32(i + 1)
 	}
 
@@ -110,8 +120,8 @@ func (b *MinimapBuilder) updateBounds(coords []XY) {
 	for _, coord := range coords {
 		b.bounds.MinX = min(coord[0], b.bounds.MinX)
 		b.bounds.MinY = min(coord[1], b.bounds.MinY)
-		b.bounds.MaxX = min(coord[0], b.bounds.MaxX)
-		b.bounds.MaxY = min(coord[1], b.bounds.MaxY)
+		b.bounds.MaxX = max(coord[0], b.bounds.MaxX)
+		b.bounds.MaxY = max(coord[1], b.bounds.MaxY)
 	}
 }
 

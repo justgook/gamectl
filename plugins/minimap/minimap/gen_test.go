@@ -33,8 +33,8 @@ func TestGenerateMinimap(t *testing.T) {
 			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
 				&treegen.GenerateTreeConfig{
 					NodeCount:    1,
-					MaxDepth:     10,
-					MaxBranching: 10,
+					MaxDepth:     100,
+					MaxBranching: 1,
 					MinBranching: 1,
 					ShapeBias:    0.55,
 					Density:      0.8,
@@ -52,8 +52,8 @@ func TestGenerateMinimap(t *testing.T) {
 			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
 				&treegen.GenerateTreeConfig{
 					NodeCount:    2,
-					MaxDepth:     10,
-					MaxBranching: 10,
+					MaxDepth:     100,
+					MaxBranching: 1,
 					MinBranching: 1,
 					ShapeBias:    0.55,
 					Density:      0.8,
@@ -71,8 +71,8 @@ func TestGenerateMinimap(t *testing.T) {
 			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
 				&treegen.GenerateTreeConfig{
 					NodeCount:    3,
-					MaxDepth:     10,
-					MaxBranching: 10,
+					MaxDepth:     100,
+					MaxBranching: 1,
 					MinBranching: 1,
 					ShapeBias:    0.55,
 					Density:      0.8,
@@ -90,8 +90,8 @@ func TestGenerateMinimap(t *testing.T) {
 			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
 				&treegen.GenerateTreeConfig{
 					NodeCount:    10,
-					MaxDepth:     10,
-					MaxBranching: 10,
+					MaxDepth:     100,
+					MaxBranching: 1,
 					MinBranching: 1,
 					ShapeBias:    0.55,
 					Density:      0.8,

@@ -24,6 +24,9 @@ func GenerateMinimap(
 	tree tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 ) (*tilemap.TileMap, error) {
+	fmt.Println("====================================================================================================")
+	defer fmt.Println("====================================================================================================")
+
 	if len(tree) == 0 {
 		return nil, errors.New("empty tree")
 	}
@@ -33,7 +36,6 @@ func GenerateMinimap(
 	fmt.Printf("GenerateMinimap:%v\n", tree)
 	// Clean main loop: traverse tree and place each room with required doors
 	for node := range tree.Traverse(tree[0]) {
-		fmt.Printf("GenerateMinimap:%v\n", node)
 		builder.PlaceRoom(node, getRoomShape, rng)
 	}
 
