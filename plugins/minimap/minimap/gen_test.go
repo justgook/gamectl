@@ -15,6 +15,10 @@ func SingleTile(*tree.Node) minimap.RoomShape {
 	return minimap.RoomShape{{0, 0}}
 }
 
+func TwoTile(*tree.Node) minimap.RoomShape {
+	return minimap.RoomShape{{0, 0}, {1, 0}}
+}
+
 type CountResult struct {
 	Rooms int
 	Doors int
@@ -103,6 +107,25 @@ func TestGenerateMinimap(t *testing.T) {
 			getRoomShape: SingleTile,
 			want:         CountResult{Rooms: 10, Doors: 18},
 		},
+
+		{
+			name: "realTest",
+			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
+				&treegen.GenerateTreeConfig{
+					NodeCount:    10,
+					MaxDepth:     6,
+					MaxBranching: 3,
+					MinBranching: 1,
+					ShapeBias:    0.55,
+					Density:      0.8,
+					RootBranches: 0,
+					LeafRatio:    0.2,
+				},
+			),
+			rng:          rand.New(rand.NewSource(42)),
+			getRoomShape: TwoTile,
+			want:         CountResult{Rooms: 1, Doors: 0},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -140,4 +163,35 @@ func countDoors(doorLayer tilemap.TileLayer) int {
 		total += bits.OnesCount32(m)
 	}
 	return total
+}
+
+var TheRandom = rand.New(rand.NewSource(125))
+
+var roomShapesToChooseFrom = []minimap.RoomShape{
+	// Single tiles - most flexible for tight spaces
+	{{0, 0}},
+	// 2-tile shapes
+	{{0, 0}, {0, -1}},
+	{{0, 0}, {0, 1}},
+	{{0, 0}, {1, 0}},
+	{{0, 0}, {-1, 0}},
+	// Small L-shapes
+	{{0, 0}, {1, 0}, {0, 1}},
+	{{0, 0}, {-1, 0}, {0, 1}},
+	// Larger rooms
+	{{0, 0}, {1, 0}, {0, 1}, {1, 1}},
+	{{0, 0}, {1, 0}, {0, 1}, {1, 1}, {0, 2}, {1, 2}},
+	{{0, 0}, {0, 1}, {1, 0}, {1, 1}, {2, 0}, {2, 1}},
+	{{0, 0}, {1, 0}, {0, 1}, {0, 2}},
+	{{0, 0}, {1, 0}, {1, 1}, {1, 2}},
+	{{0, 0}, {0, 1}, {1, 1}, {2, 1}},
+	{{0, 0}, {0, 1}, {-1, 1}, {-2, 1}},
+	{{0, 0}, {1, 0}, {2, 0}, {1, 1}},
+	{{0, 0}, {0, 1}, {0, 2}, {-1, 1}},
+}
+
+func getRoomShape(_node *tree.Node) minimap.RoomShape {
+	rng := TheRandom
+	idx := rng.Intn(len(roomShapesToChooseFrom))
+	return roomShapesToChooseFrom[idx]
 }
