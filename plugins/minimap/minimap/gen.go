@@ -33,7 +33,6 @@ func GenerateMinimap(
 
 	builder := NewBuilder(tree)
 
-	fmt.Printf("GenerateMinimap:%v\n", tree)
 	// Clean main loop: traverse tree and place each room with required doors
 	for node := range tree.Traverse(tree[0]) {
 		builder.PlaceRoom(node, getRoomShape, rng)

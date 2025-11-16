@@ -95,11 +95,9 @@ func (b *MinimapBuilder) validatePathToOutside(position XY) bool {
 
 // buildTileMap converts internal map representation to tilemap format
 func (b *MinimapBuilder) BuildTileMap() *tilemap.TileMap {
-	fmt.Println("BuildTileMap", b.bounds)
 	// Calculate map dimensions
 	width := b.bounds.MaxX - b.bounds.MinX + 1
 	height := b.bounds.MaxY - b.bounds.MinY + 1
-	fmt.Printf("BuildTileMap(%d): width = %d\n", len(b.rooms), width)
 
 	// Create layers
 	roomLayer := tilemap.NewTileLayer(width, height)
@@ -107,7 +105,15 @@ func (b *MinimapBuilder) BuildTileMap() *tilemap.TileMap {
 
 	for i := range b.rooms {
 		// TODO: UPDATE TP REALL DATA EXTRACTION!
+		doors := uint32(0)
+		if len(b.rooms[i].Exits) > 0 {
+			doors |= DoorEast
+		}
+		if b.rooms[i].Node.ParentId >= 0 {
+			doors |= DoorWest
+		}
 		roomLayer.Data[i] = uint32(i + 1)
+		doorLayer.Data[i] = doors
 	}
 
 	return &tilemap.TileMap{
