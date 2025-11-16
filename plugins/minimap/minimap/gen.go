@@ -18,23 +18,30 @@ type RoomShape [][2]int
 type GetRoomShapeFunc func(*tree.Node) RoomShape
 
 // GenerateMinimap creates a minimap from a tree using incremental corridor generation
+// This is a complete rewrite using the two-phase breadth-first algorithm:
+// Phase 1: Place all rooms at ideal positions (breadth-first)
+// Phase 2: Connect all parent-child relationships with corridors
 func GenerateMinimap(
 	rng Random,
 	tree tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 ) (*tilemap.TileMap, error) {
-	// Debug output removed
-
 	if len(tree) == 0 {
 		return nil, errors.New("empty tree")
 	}
 
-	builder := NewBuilder(tree)
+	builder := NewMinimapBuilder(tree)
 
-	// Clean main loop: traverse tree and place each room with required doors
-	for node := range tree.Traverse(tree[0]) {
-		builder.PlaceRoom(node, getRoomShape, rng)
+	// Phase 1: Breadth-first room placement
+	if err := builder.PlaceAllRooms(getRoomShape); err != nil {
+		return nil, err
 	}
 
+	// Phase 2: Connect all parent-child relationships with corridors
+	if err := builder.ConnectAllRooms(); err != nil {
+		return nil, err
+	}
+
+	// Generate the final tilemap
 	return builder.BuildTileMap(), nil
 }
