@@ -1,6 +1,7 @@
 package minimap_test
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -334,4 +335,164 @@ func TestGenerateMinimap_Extreme60Children(t *testing.T) {
 	if totalDoors < 120 { // At least 60 connections * 2 doors each
 		t.Errorf("Expected at least 120 doors, got %d", totalDoors)
 	}
+}
+
+func TestGenerateMinimap_MultiTileRoomConnections(t *testing.T) {
+	// Test scenario with multi-tile rooms touching each other
+	var testTree tree.Tree
+
+	// Root node (will be L-shape)
+	testTree = append(testTree, &tree.Node{ParentId: -1, Data: map[string]string{}})
+
+	// Child node (will also be L-shape)
+	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
+
+	rng := NewTestRandom(42)
+
+	result, err := minimap.GenerateMinimap(rng, testTree, LShape)
+	if err != nil {
+		t.Fatalf("GenerateMinimap with L-shapes failed: %v", err)
+	}
+
+	roomLayer := result.Layers[0]
+	doorLayer := result.Layers[1]
+
+	// Print the result for debugging
+	t.Logf("Room layer data: %v", roomLayer.Data)
+	t.Logf("Door layer data: %v", doorLayer.Data)
+	t.Logf("Dimensions: %dx%d", roomLayer.Width, roomLayer.Height())
+
+	// Count doors
+	totalDoors := 0
+	for _, doors := range doorLayer.Data {
+		for i := 0; i < 4; i++ {
+			if doors&(1<<i) != 0 {
+				totalDoors++
+			}
+		}
+	}
+
+	// Should have exactly 2 doors (one on each room for the connection)
+	expectedDoors := 2
+	if totalDoors != expectedDoors {
+		t.Errorf("Expected exactly %d doors for single connection, got %d", expectedDoors, totalDoors)
+	}
+
+	// Verify connectivity
+	if !isConnected(result) {
+		t.Error("Multi-tile rooms are not properly connected")
+	}
+}
+
+// TestGenerateMinimap_BugReproduction reproduces the specific bug scenario
+func TestGenerateMinimap_BugReproduction(t *testing.T) {
+	// Create the exact tree structure from the bug report:
+	// world: [{"parent":-1},{"parent":0},{"parent":0},{"parent":0},{"parent":0},{"parent":0}]
+	// This means: root(0) has children 1,2,3,4,5
+	// But from the expected hierarchy root(1) -> room(2) -> room(6)
+	// This suggests the tree is: [{"parent":-1},{"parent":0},{"parent":1},{"parent":0},{"parent":0},{"parent":2}]
+	var testTree tree.Tree
+
+	// Node 0: root
+	testTree = append(testTree, &tree.Node{ParentId: -1, Data: map[string]string{}})
+	// Node 1: child of root
+	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
+	// Node 2: child of node 1
+	testTree = append(testTree, &tree.Node{ParentId: 1, Data: map[string]string{}})
+	// Node 3: child of root
+	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
+	// Node 4: child of root
+	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
+	// Node 5: child of node 2
+	testTree = append(testTree, &tree.Node{ParentId: 2, Data: map[string]string{}})
+
+	// Use a shape function that creates multi-tile shapes (to trigger the multiple door bug)
+	multiTileShape := func(node *tree.Node) minimap.RoomShape {
+		// Create shapes that could have multiple touching tiles
+		return minimap.RoomShape{{0, 0}, {1, 0}, {0, 1}, {1, 1}} // 2x2 square
+	}
+
+	rng := NewTestRandom(42)
+
+	result, err := minimap.GenerateMinimap(rng, testTree, multiTileShape)
+	if err != nil {
+		t.Fatalf("GenerateMinimap failed: %v", err)
+	}
+
+	roomLayer := result.Layers[0]
+	doorLayer := result.Layers[1]
+
+	// Verify that we have the correct number of rooms
+	roomIds := make(map[uint32]bool)
+	for _, tile := range roomLayer.Data {
+		if tile != 0 {
+			roomIds[tile] = true
+		}
+	}
+
+	expectedRooms := 6
+	if len(roomIds) != expectedRooms {
+		t.Errorf("Expected %d rooms, got %d", expectedRooms, len(roomIds))
+	}
+
+	// Count doors between each pair of connected rooms
+	doorConnections := make(map[string]int)
+
+	width := roomLayer.Width
+	height := roomLayer.Height()
+	directions := [][2]int{{0, -1}, {1, 0}, {0, 1}, {-1, 0}} // N, E, S, W
+	doorBits := []uint32{1, 2, 4, 8}
+
+	for i, tile := range roomLayer.Data {
+		if tile == 0 {
+			continue
+		}
+
+		x := i % width
+		y := i / width
+		doors := doorLayer.Data[i]
+
+		for j, dir := range directions {
+			doorBit := doorBits[j]
+			if doors&doorBit == 0 {
+				continue // No door in this direction
+			}
+
+			// Get adjacent tile
+			adjX := x + dir[0]
+			adjY := y + dir[1]
+			if adjX < 0 || adjX >= width || adjY < 0 || adjY >= height {
+				continue
+			}
+
+			adjI := adjY*width + adjX
+			adjRoom := roomLayer.Data[adjI]
+			if adjRoom == 0 {
+				continue
+			}
+
+			// Count connection (use consistent ordering)
+			room1, room2 := tile, adjRoom
+			if room1 > room2 {
+				room1, room2 = room2, room1
+			}
+			connKey := fmt.Sprintf("%d-%d", room1, room2)
+			doorConnections[connKey]++
+		}
+	}
+
+	// Check that each connection has exactly 2 doors (one from each room)
+	for conn, doorCount := range doorConnections {
+		if doorCount != 2 {
+			t.Errorf("Connection %s should have exactly 2 doors, got %d", conn, doorCount)
+		}
+	}
+
+	// Verify connectivity
+	if !isConnected(result) {
+		t.Error("Generated minimap is not fully connected")
+	}
+
+	t.Logf("Bug reproduction test passed: %dx%d with %d rooms and %d door connections",
+		roomLayer.Width, roomLayer.Height(), len(roomIds), len(doorConnections))
 }

@@ -246,7 +246,7 @@ func (b *MinimapBuilder) connectRoomToParent(childRoom *Room) error {
 	// Generate corridor path
 	path := b.generateCorridorPath(parentTile, childTile)
 
-	// Add corridor tiles to parent room
+	// Add corridor tiles to child room (corridors should belong to the child, not parent)
 	for _, tile := range path {
 		// Skip tiles that are already occupied by rooms
 		if existingTile, exists := b.tiles[tile]; exists {
@@ -257,12 +257,12 @@ func (b *MinimapBuilder) connectRoomToParent(childRoom *Room) error {
 		}
 
 		b.tiles[tile] = TileInfo{
-			RoomID:   parentRoom.ID, // Corridor belongs to parent
+			RoomID:   childRoom.ID, // Corridor belongs to child
 			TileType: "connection",
 		}
 	}
 
-	fmt.Printf("Connected room %d to parent %d with %d corridor tiles\n",
+	fmt.Printf("Connected room %d to parent %d with %d corridor tiles (assigned to child)\n",
 		childRoom.ID, parentRoom.ID, len(path))
 
 	return nil
@@ -430,10 +430,105 @@ func (b *MinimapBuilder) calculateDoorMask(coord Coordinate, tileInfo TileInfo) 
 		// Check if adjacent tile exists and belongs to a different room
 		if adjTileInfo, exists := b.tiles[adjacent]; exists {
 			if adjTileInfo.RoomID != tileInfo.RoomID {
-				doors |= dir.flag
+				// Only add door if this coordinate is the designated door location for this room pair
+				if b.isDesignatedDoorLocation(coord, tileInfo.RoomID, adjTileInfo.RoomID) {
+					doors |= dir.flag
+				}
 			}
 		}
 	}
 
 	return doors
+}
+
+// isDesignatedDoorLocation determines if this coordinate should have a door for the given room connection
+func (b *MinimapBuilder) isDesignatedDoorLocation(coord Coordinate, roomA, roomB int) bool {
+	roomAObj := b.rooms[roomA]
+	roomBObj := b.rooms[roomB]
+
+	if roomAObj == nil || roomBObj == nil {
+		return false
+	}
+
+	// Check if these rooms have a parent-child relationship OR if one room's corridors touch the other
+	isParentChild := (roomAObj.Node.ParentId == roomB) || (roomBObj.Node.ParentId == roomA)
+
+	// Allow doors between any adjacent rooms (not just parent-child)
+	// This handles cases where corridors from different children meet
+	if !isParentChild {
+		// Still allow doors for any adjacent rooms
+	}
+
+	// Find all adjacent tiles between these two rooms
+	adjacentPairs := b.findAdjacentTilesBetweenRooms(roomA, roomB)
+
+	// If there are no adjacent pairs, no door
+	if len(adjacentPairs) == 0 {
+		return false
+	}
+
+	// Find the lexicographically smallest coordinate that touches both rooms
+	// This ensures we always pick the same location for the same room connection
+	var designatedCoord *Coordinate
+	for _, pair := range adjacentPairs {
+		candidates := []Coordinate{pair.TileA, pair.TileB}
+		for _, candidate := range candidates {
+			if candidate == coord {
+				if designatedCoord == nil || b.isCoordinateSmaller(candidate, *designatedCoord) {
+					designatedCoord = &candidate
+				}
+			}
+		}
+	}
+
+	// This coordinate gets the door if it's the designated location
+	return designatedCoord != nil && *designatedCoord == coord
+}
+
+type AdjacentPair struct {
+	TileA, TileB Coordinate
+	RoomA, RoomB int
+}
+
+// findAdjacentTilesBetweenRooms finds all adjacent tile pairs between two specific rooms
+func (b *MinimapBuilder) findAdjacentTilesBetweenRooms(roomA, roomB int) []AdjacentPair {
+	var pairs []AdjacentPair
+
+	directions := []Coordinate{
+		{0, -1}, {1, 0}, {0, 1}, {-1, 0}, // N, E, S, W
+	}
+
+	// Check all tiles in roomA
+	for coord, tileInfo := range b.tiles {
+		if tileInfo.RoomID != roomA {
+			continue
+		}
+
+		// Check if any adjacent tile belongs to roomB
+		for _, dir := range directions {
+			adjacent := Coordinate{
+				coord[0] + dir[0],
+				coord[1] + dir[1],
+			}
+
+			if adjTileInfo, exists := b.tiles[adjacent]; exists && adjTileInfo.RoomID == roomB {
+				pairs = append(pairs, AdjacentPair{
+					TileA: coord,
+					TileB: adjacent,
+					RoomA: roomA,
+					RoomB: roomB,
+				})
+			}
+		}
+	}
+
+	return pairs
+}
+
+// isCoordinateSmaller compares two coordinates lexicographically
+func (b *MinimapBuilder) isCoordinateSmaller(coord1, coord2 Coordinate) bool {
+	if coord1[0] != coord2[0] {
+		return coord1[0] < coord2[0]
+	}
+	return coord1[1] < coord2[1]
 }
