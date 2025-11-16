@@ -51,12 +51,12 @@ all: browser
 plugins-release: $(PLUGIN_TARGETS)
 
 # Rule to build Go plugins
-$(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.go | $(BUILD_DIR)
+$(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/*.go) | $(BUILD_DIR)
 	$(Q)echo "Building Go plugin $*..."
 	$(Q)GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o $@ ./$(PLUGIN_DIR)/$*/
 
 # Rule to build Zig plugins
-$(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.zig | $(BUILD_DIR)
+$(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)
 	$(Q)echo "Building Zig plugin $*..."
 	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
 

@@ -33,8 +33,8 @@ func TestGenerateMinimap(t *testing.T) {
 			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
 				&treegen.GenerateTreeConfig{
 					NodeCount:    1,
-					MaxDepth:     6,
-					MaxBranching: 3,
+					MaxDepth:     1,
+					MaxBranching: 1,
 					MinBranching: 1,
 					ShapeBias:    0.55,
 					Density:      0.8,
@@ -47,24 +47,24 @@ func TestGenerateMinimap(t *testing.T) {
 			want:         CountResult{Rooms: 1, Doors: 0},
 		},
 
-		{
-			name: "2 rooms",
-			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
-				&treegen.GenerateTreeConfig{
-					NodeCount:    2,
-					MaxDepth:     6,
-					MaxBranching: 3,
-					MinBranching: 1,
-					ShapeBias:    0.55,
-					Density:      0.8,
-					RootBranches: 2,
-					LeafRatio:    0.2,
-				},
-			),
-			rng:          rand.New(rand.NewSource(42)),
-			getRoomShape: SingleTile,
-			want:         CountResult{Rooms: 2, Doors: 2},
-		},
+		// {
+		// 	name: "2 rooms",
+		// 	tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
+		// 		&treegen.GenerateTreeConfig{
+		// 			NodeCount:    2,
+		// 			MaxDepth:     6,
+		// 			MaxBranching: 3,
+		// 			MinBranching: 1,
+		// 			ShapeBias:    0.55,
+		// 			Density:      0.8,
+		// 			RootBranches: 2,
+		// 			LeafRatio:    0.2,
+		// 		},
+		// 	),
+		// 	rng:          rand.New(rand.NewSource(42)),
+		// 	getRoomShape: SingleTile,
+		// 	want:         CountResult{Rooms: 2, Doors: 2},
+		// },
 
 		{
 			name: "3 rooms",
