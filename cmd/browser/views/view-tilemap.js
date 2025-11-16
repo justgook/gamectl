@@ -1,6 +1,5 @@
 import { ViewCanvasBase } from "./view-canvas-base.js"
 import { generateHsluvColors } from "../util/colors.js"
-import { Hsluv } from "../util/hlsuv.js"
 
 const DEFAULT_TILE_SIZE = 40;
 const TILEMAP_ATTR = "data-key"
@@ -166,6 +165,7 @@ export class ViewTilemap extends ViewCanvasBase {
       <div class="info-row"><span class="info-label">Room:</span> <span class="info-value">${roomId}</span></div>
       <div class="info-row"><span class="info-label">Position:</span> <span class="info-value">(${tileX}, ${tileY})</span></div>
       <div class="info-row"><span class="info-label">Doors:</span> <span class="info-value">${doorText}</span></div>
+      <div class="info-row"><span class="info-label">index:</span> <span class="info-value">${index}</span></div>
     `;
   }
 

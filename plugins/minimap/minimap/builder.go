@@ -450,39 +450,55 @@ func (b *MinimapBuilder) isDesignatedDoorLocation(coord Coordinate, roomA, roomB
 		return false
 	}
 
-	// Check if these rooms have a parent-child relationship OR if one room's corridors touch the other
+	// CRITICAL: Only allow doors between rooms that have a direct parent-child relationship
 	isParentChild := (roomAObj.Node.ParentId == roomB) || (roomBObj.Node.ParentId == roomA)
-
-	// Allow doors between any adjacent rooms (not just parent-child)
-	// This handles cases where corridors from different children meet
 	if !isParentChild {
-		// Still allow doors for any adjacent rooms
+		return false // No doors between non-parent-child rooms
 	}
 
+	// Find the designated door pair for this room connection
+	designatedPair := b.getDesignatedDoorPair(roomA, roomB)
+
+	// This coordinate gets the door if it's part of the designated pair
+	return designatedPair != nil && (designatedPair.TileA == coord || designatedPair.TileB == coord)
+}
+
+// getDesignatedDoorPair finds the single adjacent pair where doors should be placed for a room connection
+func (b *MinimapBuilder) getDesignatedDoorPair(roomA, roomB int) *AdjacentPair {
 	// Find all adjacent tiles between these two rooms
 	adjacentPairs := b.findAdjacentTilesBetweenRooms(roomA, roomB)
 
 	// If there are no adjacent pairs, no door
 	if len(adjacentPairs) == 0 {
-		return false
+		return nil
 	}
 
-	// Find the lexicographically smallest coordinate that touches both rooms
-	// This ensures we always pick the same location for the same room connection
-	var designatedCoord *Coordinate
-	for _, pair := range adjacentPairs {
-		candidates := []Coordinate{pair.TileA, pair.TileB}
-		for _, candidate := range candidates {
-			if candidate == coord {
-				if designatedCoord == nil || b.isCoordinateSmaller(candidate, *designatedCoord) {
-					designatedCoord = &candidate
-				}
-			}
+	// Find the lexicographically smallest coordinate pair
+	var designatedPair *AdjacentPair
+
+	for i, pair := range adjacentPairs {
+		if designatedPair == nil || b.isAdjacentPairSmaller(pair, *designatedPair) {
+			designatedPair = &adjacentPairs[i]
 		}
 	}
 
-	// This coordinate gets the door if it's the designated location
-	return designatedCoord != nil && *designatedCoord == coord
+	return designatedPair
+}
+
+// isAdjacentPairSmaller compares two adjacent pairs lexicographically
+func (b *MinimapBuilder) isAdjacentPairSmaller(pair1, pair2 AdjacentPair) bool {
+	// Compare based on the lexicographically smallest coordinate in each pair
+	min1 := pair1.TileA
+	if b.isCoordinateSmaller(pair1.TileB, pair1.TileA) {
+		min1 = pair1.TileB
+	}
+
+	min2 := pair2.TileA
+	if b.isCoordinateSmaller(pair2.TileB, pair2.TileA) {
+		min2 = pair2.TileB
+	}
+
+	return b.isCoordinateSmaller(min1, min2)
 }
 
 type AdjacentPair struct {

@@ -384,31 +384,28 @@ func TestGenerateMinimap_MultiTileRoomConnections(t *testing.T) {
 	}
 }
 
-// TestGenerateMinimap_BugReproduction reproduces the specific bug scenario
-func TestGenerateMinimap_BugReproduction(t *testing.T) {
+// TestGenerateMinimap_ExactTreeStructure tests the exact problematic tree structure
+func TestGenerateMinimap_ExactTreeStructure(t *testing.T) {
 	// Create the exact tree structure from the bug report:
-	// world: [{"parent":-1},{"parent":0},{"parent":0},{"parent":0},{"parent":0},{"parent":0}]
+	// [{"parent":-1},{"parent":0},{"parent":0},{"parent":0},{"parent":0},{"parent":0}]
 	// This means: root(0) has children 1,2,3,4,5
-	// But from the expected hierarchy root(1) -> room(2) -> room(6)
-	// This suggests the tree is: [{"parent":-1},{"parent":0},{"parent":1},{"parent":0},{"parent":0},{"parent":2}]
 	var testTree tree.Tree
 
-	// Node 0: root
+	// Node 0: root (becomes room 1 in 1-based indexing)
 	testTree = append(testTree, &tree.Node{ParentId: -1, Data: map[string]string{}})
-	// Node 1: child of root
+	// Node 1: child of root (becomes room 2)
 	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
-	// Node 2: child of node 1
-	testTree = append(testTree, &tree.Node{ParentId: 1, Data: map[string]string{}})
-	// Node 3: child of root
+	// Node 2: child of root (becomes room 3)
 	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
-	// Node 4: child of root
+	// Node 3: child of root (becomes room 4)
 	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
-	// Node 5: child of node 2
-	testTree = append(testTree, &tree.Node{ParentId: 2, Data: map[string]string{}})
+	// Node 4: child of root (becomes room 5)
+	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
+	// Node 5: child of root (becomes room 6)
+	testTree = append(testTree, &tree.Node{ParentId: 0, Data: map[string]string{}})
 
-	// Use a shape function that creates multi-tile shapes (to trigger the multiple door bug)
+	// Use a shape function that creates multi-tile shapes
 	multiTileShape := func(node *tree.Node) minimap.RoomShape {
-		// Create shapes that could have multiple touching tiles
 		return minimap.RoomShape{{0, 0}, {1, 0}, {0, 1}, {1, 1}} // 2x2 square
 	}
 
@@ -435,13 +432,14 @@ func TestGenerateMinimap_BugReproduction(t *testing.T) {
 		t.Errorf("Expected %d rooms, got %d", expectedRooms, len(roomIds))
 	}
 
-	// Count doors between each pair of connected rooms
-	doorConnections := make(map[string]int)
-
+	// Analyze door connections and validate they match the tree structure
 	width := roomLayer.Width
 	height := roomLayer.Height()
 	directions := [][2]int{{0, -1}, {1, 0}, {0, 1}, {-1, 0}} // N, E, S, W
 	doorBits := []uint32{1, 2, 4, 8}
+
+	actualConnections := make(map[string]bool)
+	doorCounts := make(map[string]int)
 
 	for i, tile := range roomLayer.Data {
 		if tile == 0 {
@@ -467,32 +465,51 @@ func TestGenerateMinimap_BugReproduction(t *testing.T) {
 
 			adjI := adjY*width + adjX
 			adjRoom := roomLayer.Data[adjI]
-			if adjRoom == 0 {
+			if adjRoom == 0 || adjRoom == tile {
 				continue
 			}
 
-			// Count connection (use consistent ordering)
+			// Record connection (use consistent ordering)
 			room1, room2 := tile, adjRoom
 			if room1 > room2 {
 				room1, room2 = room2, room1
 			}
 			connKey := fmt.Sprintf("%d-%d", room1, room2)
-			doorConnections[connKey]++
+			actualConnections[connKey] = true
+			doorCounts[connKey]++
 		}
 	}
 
-	// Check that each connection has exactly 2 doors (one from each room)
-	for conn, doorCount := range doorConnections {
-		if doorCount != 2 {
-			t.Errorf("Connection %s should have exactly 2 doors, got %d", conn, doorCount)
+	// Expected connections based on tree: only root (room 1) should connect to all others
+	expectedConnections := map[string]bool{
+		"1-2": true, // root to child 1
+		"1-3": true, // root to child 2
+		"1-4": true, // root to child 3
+		"1-5": true, // root to child 4
+		"1-6": true, // root to child 5
+	}
+
+	// Verify we only have the expected connections
+	for conn := range actualConnections {
+		if !expectedConnections[conn] {
+			t.Errorf("Unexpected connection found: %s", conn)
 		}
 	}
 
-	// Verify connectivity
-	if !isConnected(result) {
-		t.Error("Generated minimap is not fully connected")
+	// Verify we have all expected connections
+	for conn := range expectedConnections {
+		if !actualConnections[conn] {
+			t.Errorf("Missing expected connection: %s", conn)
+		}
 	}
 
-	t.Logf("Bug reproduction test passed: %dx%d with %d rooms and %d door connections",
-		roomLayer.Width, roomLayer.Height(), len(roomIds), len(doorConnections))
+	// Verify each connection has exactly 2 doors (one from each room)
+	for conn, count := range doorCounts {
+		if count != 2 {
+			t.Errorf("Connection %s should have exactly 2 doors, got %d", conn, count)
+		}
+	}
+
+	t.Logf("Exact tree structure test passed: %dx%d with %d rooms and %d connections",
+		roomLayer.Width, roomLayer.Height(), len(roomIds), len(actualConnections))
 }
