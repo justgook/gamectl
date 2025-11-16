@@ -25,6 +25,21 @@ func LimitedCapacityShape(*tree.Node) minimap.RoomShape {
 	return minimap.RoomShape{{0, 0}} // Single tile - test what happens when we need 5+ exits
 }
 
+// CustomShapeSequence creates different shapes for different nodes to test collision detection
+func CustomShapeSequence(node *tree.Node) minimap.RoomShape {
+	// Use node's position in tree to determine shape
+	if node.ParentId == -1 {
+		// Root: single tile
+		return minimap.RoomShape{{0, 0}}
+	} else if node.ParentId == 0 {
+		// First level children: L-shape
+		return minimap.RoomShape{{0, 0}, {0, 1}, {1, -1}}
+	} else {
+		// Second level children: horizontal line
+		return minimap.RoomShape{{0, 0}, {1, 0}}
+	}
+}
+
 // Helper function to create manual tree for precise testing
 func createManualTree(nodes []tree.Node) tree.Tree {
 	tree := make(tree.Tree, len(nodes))
@@ -262,6 +277,30 @@ func TestGenerateMinimap(t *testing.T) {
 			rng:          rand.New(rand.NewSource(42)),
 			getRoomShape: LimitedCapacityShape,            // Single tile can only provide 4 exits, needs 5
 			want:         CountResult{Rooms: 6, Doors: 9}, // 1 parent + 5 children, room extension working! (door count needs verification)
+		},
+
+		{
+			name: "custom shapes with collision detection",
+			tree: createManualTree([]tree.Node{
+				{ParentId: -1, Data: map[string]string{}}, // Root: single tile
+				{ParentId: 0, Data: map[string]string{}},  // Child 1: L-shape {{0,0},{0,1},{1,-1}}
+				{ParentId: 1, Data: map[string]string{}},  // Grandchild: 2-tile {{0,0},{1,0}} - should not overlap!
+			}),
+			rng:          rand.New(rand.NewSource(42)),
+			getRoomShape: CustomShapeSequence,
+			want:         CountResult{Rooms: 3, Doors: 4}, // Should place all 3 rooms without overlap
+		},
+
+		{
+			name: "forced overlap scenario",
+			tree: createManualTree([]tree.Node{
+				{ParentId: -1, Data: map[string]string{}}, // Root at [0,0]
+				{ParentId: 0, Data: map[string]string{}},  // Child 1 should go to [1,0] with shape [[0,0],[1,0]]
+				{ParentId: 0, Data: map[string]string{}},  // Child 2 should go to [0,1] with shape [[0,0],[1,0]] - will overlap with child 1!
+			}),
+			rng:          rand.New(rand.NewSource(42)),
+			getRoomShape: TwoTile,                         // All rooms have 2-tile horizontal shape
+			want:         CountResult{Rooms: 3, Doors: 4}, // If collision detection works, should resolve overlap
 		},
 
 		// Commented out - validation test (would fail intentionally)

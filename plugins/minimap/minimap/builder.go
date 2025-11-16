@@ -28,6 +28,9 @@ func (b *MinimapBuilder) PlaceRoom(node *tree.Node, getRoomShape GetRoomShapeFun
 	position := b.calculateRoomPosition(node)
 	index := b.tree.IndexOf(node)
 
+	// Check for collisions and resolve them
+	position = b.resolveCollisions(shape, position, node)
+
 	// Calculate required exits first
 	exits := b.calculateExits(node)
 	requiredExits := len(exits)
@@ -48,13 +51,13 @@ func (b *MinimapBuilder) PlaceRoom(node *tree.Node, getRoomShape GetRoomShapeFun
 
 	// Track occupied tiles for this room
 	absShape := toAbsShape(position, shape)
+	// fmt.Printf("PlaceRoom: node=%v, pos=%v, shape=%v, absShape=%v\n", node, position, shape, absShape)
+
 	for _, tileCoord := range absShape {
 		b.occupiedTiles[tileCoord] = index
 	}
 
 	b.updateBounds(absShape)
-	// fmt.Printf("PlaceRoom(node:%v, p:%v, shape:%v, exits:%d, capacity:%d->%d, bounds: %v)\n",
-	//     node, position, shape, requiredExits, originalCapacity, b.calculateDoorCapacity(shape, position), b.bounds)
 }
 
 func toAbsShape(p XY, shape []XY) []XY {
@@ -390,4 +393,63 @@ func (b *MinimapBuilder) findExtensionCandidates(shape RoomShape, position XY) [
 func (b *MinimapBuilder) isPositionOccupied(pos XY) bool {
 	_, exists := b.occupiedTiles[pos]
 	return exists
+}
+
+// resolveCollisions finds a non-colliding position for the room
+func (b *MinimapBuilder) resolveCollisions(shape RoomShape, originalPos XY, node *tree.Node) XY {
+	// Check if original position has any collisions
+	if !b.hasCollision(shape, originalPos) {
+		return originalPos // No collision, use original position
+	}
+
+	// fmt.Printf("  COLLISION detected at %v, searching for alternative position...\n", originalPos)
+
+	// Try positions in expanding search pattern around the original position
+	maxSearchRadius := 10 // Prevent infinite search
+
+	for radius := 1; radius <= maxSearchRadius; radius++ {
+		// Generate candidate positions in a square pattern around original
+		candidates := b.generateSearchPositions(originalPos, radius)
+
+		for _, candidatePos := range candidates {
+			if !b.hasCollision(shape, candidatePos) {
+				// fmt.Printf("  Found collision-free position: %v (radius %d)\n", candidatePos, radius)
+				return candidatePos
+			}
+		}
+	}
+
+	// If no collision-free position found, fall back to original position
+	// (this should trigger parent room extension in a full implementation)
+	// fmt.Printf("  WARNING: No collision-free position found, using original position %v\n", originalPos)
+	return originalPos
+}
+
+// hasCollision checks if placing a room shape at a position would cause collisions
+func (b *MinimapBuilder) hasCollision(shape RoomShape, position XY) bool {
+	absShape := toAbsShape(position, shape)
+	for _, tileCoord := range absShape {
+		if b.isPositionOccupied(tileCoord) {
+			return true
+		}
+	}
+	return false
+}
+
+// generateSearchPositions creates candidate positions in a search pattern
+func (b *MinimapBuilder) generateSearchPositions(center XY, radius int) []XY {
+	candidates := []XY{}
+
+	// Generate positions in a square pattern around center
+	for dx := -radius; dx <= radius; dx++ {
+		for dy := -radius; dy <= radius; dy++ {
+			if dx == 0 && dy == 0 {
+				continue // Skip center position
+			}
+			candidate := XY{center[0] + dx, center[1] + dy}
+			candidates = append(candidates, candidate)
+		}
+	}
+
+	return candidates
 }
