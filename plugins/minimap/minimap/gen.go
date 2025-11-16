@@ -27,7 +27,7 @@ func GenerateMinimap(
 				Data:  []uint32{1},
 			}, {
 				Width: 1,
-				Data:  []uint32{1},
+				Data:  []uint32{0},
 			},
 		},
 	}, nil

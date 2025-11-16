@@ -116,7 +116,7 @@ func TestGenerateMinimap(t *testing.T) {
 				Rooms: countRooms(got.Layers[0]),
 				Doors: countDoors(got.Layers[1]),
 			}
-			if gotResult.Rooms != tt.want.Rooms || gotResult.Doors != tt.want.Rooms {
+			if gotResult.Rooms != tt.want.Rooms || gotResult.Doors != tt.want.Doors {
 				t.Errorf("GenerateMinimap(rooms: %d, doors: %d) / want rooms: %d; doors: %d;", gotResult.Rooms, gotResult.Doors, tt.want.Rooms, tt.want.Doors)
 			}
 		})
@@ -127,7 +127,9 @@ func TestGenerateMinimap(t *testing.T) {
 func countRooms(roomLayer tilemap.TileLayer) int {
 	m := make(map[uint32]struct{}, len(roomLayer.Data))
 	for _, v := range roomLayer.Data {
-		m[v] = struct{}{}
+		if v != 0 { // Ignore empty tiles
+			m[v] = struct{}{}
+		}
 	}
 	return len(m)
 }
