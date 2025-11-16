@@ -32,3 +32,10 @@ func GenerateMinimap(
 		},
 	}, nil
 }
+
+const (
+	DoorNorth = 1 // 0001
+	DoorEast  = 2 // 0010
+	DoorSouth = 4 // 0100
+	DoorWest  = 8 // 1000
+)

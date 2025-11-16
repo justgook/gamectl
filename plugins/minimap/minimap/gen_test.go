@@ -1,6 +1,7 @@
 package minimap_test
 
 import (
+	"math/bits"
 	"math/rand"
 	"testing"
 
@@ -26,40 +27,89 @@ func TestGenerateMinimap(t *testing.T) {
 		rng          minimap.Random
 		getRoomShape minimap.GetRoomShapeFunc
 		want         CountResult
-		wantErr      bool
 	}{
 		{
-			name: "single tile",
-			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)), &treegen.GenerateTreeConfig{
-				NodeCount:    1,
-				MaxDepth:     6,
-				MaxBranching: 3,
-				MinBranching: 1,
-				ShapeBias:    0.55,
-				Density:      0.8,
-				RootBranches: 2,
-				LeafRatio:    0.2,
-			}),
+			name: "1 room",
+			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
+				&treegen.GenerateTreeConfig{
+					NodeCount:    1,
+					MaxDepth:     6,
+					MaxBranching: 3,
+					MinBranching: 1,
+					ShapeBias:    0.55,
+					Density:      0.8,
+					RootBranches: 2,
+					LeafRatio:    0.2,
+				},
+			),
 			rng:          rand.New(rand.NewSource(42)),
 			getRoomShape: SingleTile,
-			want: CountResult{
-				Rooms: 1,
-				Doors: 0,
-			},
-			wantErr: false,
+			want:         CountResult{Rooms: 1, Doors: 0},
+		},
+
+		{
+			name: "2 rooms",
+			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
+				&treegen.GenerateTreeConfig{
+					NodeCount:    2,
+					MaxDepth:     6,
+					MaxBranching: 3,
+					MinBranching: 1,
+					ShapeBias:    0.55,
+					Density:      0.8,
+					RootBranches: 2,
+					LeafRatio:    0.2,
+				},
+			),
+			rng:          rand.New(rand.NewSource(42)),
+			getRoomShape: SingleTile,
+			want:         CountResult{Rooms: 2, Doors: 2},
+		},
+
+		{
+			name: "3 rooms",
+			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
+				&treegen.GenerateTreeConfig{
+					NodeCount:    3,
+					MaxDepth:     6,
+					MaxBranching: 3,
+					MinBranching: 1,
+					ShapeBias:    0.55,
+					Density:      0.8,
+					RootBranches: 2,
+					LeafRatio:    0.2,
+				},
+			),
+			rng:          rand.New(rand.NewSource(42)),
+			getRoomShape: SingleTile,
+			want:         CountResult{Rooms: 3, Doors: 4},
+		},
+
+		{
+			name: "10 rooms",
+			tree: treegen.GenerateTree(rand.New(rand.NewSource(42)),
+				&treegen.GenerateTreeConfig{
+					NodeCount:    10,
+					MaxDepth:     6,
+					MaxBranching: 3,
+					MinBranching: 1,
+					ShapeBias:    0.55,
+					Density:      0.8,
+					RootBranches: 2,
+					LeafRatio:    0.2,
+				},
+			),
+			rng:          rand.New(rand.NewSource(42)),
+			getRoomShape: SingleTile,
+			want:         CountResult{Rooms: 10, Doors: 18},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotErr := minimap.GenerateMinimap(tt.rng, tt.tree, tt.getRoomShape)
 			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("GenerateMinimap() failed: %v", gotErr)
-				}
+				t.Errorf("GenerateMinimap() failed: %v", gotErr)
 				return
-			}
-			if tt.wantErr {
-				t.Fatal("GenerateMinimap() succeeded unexpectedly")
 			}
 
 			gotResult := CountResult{
@@ -75,9 +125,17 @@ func TestGenerateMinimap(t *testing.T) {
 
 /*========================================UTIL========================================*/
 func countRooms(roomLayer tilemap.TileLayer) int {
-	return 0
+	m := make(map[uint32]struct{}, len(roomLayer.Data))
+	for _, v := range roomLayer.Data {
+		m[v] = struct{}{}
+	}
+	return len(m)
 }
 
 func countDoors(doorLayer tilemap.TileLayer) int {
-	return 0
+	total := 0
+	for _, m := range doorLayer.Data {
+		total += bits.OnesCount32(m)
+	}
+	return total
 }

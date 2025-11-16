@@ -82,6 +82,24 @@
       </div>
     </template>
 
+
+    <template id="view-tilemap">
+      <div class="panel">
+        <div class="panel-header">Tilemap</div>
+        <div class="panel-content" style="padding: 0;">
+          <canvas></canvas>
+          <div
+            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
+            <button data-action="reload" class="button-secondary">🔄 Reload</button>
+            <button data-action="zoom-in" class="button-secondary">+</button>
+            <button data-action="zoom-out" class="button-secondary">−</button>
+            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+          </div>
+          <div class="tooltip" data-tooltip></div>
+        </div>
+      </div>
+    </template>
+
     <template id="view-tree">
       <div class="panel">
         <div class="panel-header">Minimap</div>
@@ -114,6 +132,7 @@
           <optgroup label="new">
             <option value="view-tree">tree</option>
             <option value="view-minimap">minimap</option>
+            <option value="view-tilemap">tilemap</option>
           </optgroup>
         </select>
       </div>
@@ -124,7 +143,7 @@
     </template>
 
     <layout-parent handle-width="6" handle-height="20" id="scene">
-      <view-minimap panel="panel_1"></view-minimap>
+      <view-tilemap panel="panel_1"></view-tilemap>
       <view-console nesw="s" r="200" from="panel_1"></view-console>
       <view-testing nesw="w" r="200" from="panel_1"></view-testing>
     </layout-parent>
@@ -136,10 +155,10 @@
       import {ViewEmpty} from "./views/view-empty.js"
       import {ViewSplitter} from "./views/view-splitter.js"
       import {LayoutParent} from "./views/layout.js"
-      import {ViewCanvasBase} from "./views/view-canvas-base.js"
       import {ViewTree} from "./views/view-tree.js"
       import {ViewConsole} from "./views/view-console.js"
       import {ViewMinimap} from "./views/view-minimap.js"
+      import {ViewTilemap} from "./views/view-tilemap.js"
       import {ViewTesting} from "./views/view-testing.js"
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
@@ -150,6 +169,7 @@
       customElements.define('view-testing', ViewTesting)
       customElements.define('view-splitter', ViewSplitter)
       customElements.define('view-minimap', ViewMinimap)
+      customElements.define('view-tilemap', ViewTilemap)
       customElements.define('view-tree', ViewTree)
       customElements.define('view-console', ViewConsole)
 
