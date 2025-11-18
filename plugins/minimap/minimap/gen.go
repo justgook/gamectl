@@ -2,7 +2,6 @@ package minimap
 
 import (
 	"container/heap"
-	"errors"
 	"fmt"
 	"math"
 
@@ -10,262 +9,388 @@ import (
 	"github.com/justgook/gamectl/pkg/tree"
 )
 
+// tree.Node mock (assuming your existing structure)
+type TreeNode struct {
+	ID       int
+	ParentID int
+	Children []*TreeNode
+}
+
 type Random interface {
 	Intn(n int) int
 	Float64() float64
 }
 
 type RoomShape [][2]int
+type GetRoomShapeFunc func(*tree.Node) RoomShape // Adjusted to take ID for simplicity in this snippet
 
-// GetRoomShapeFunc defines the function signature for room shape selection
-type GetRoomShapeFunc func(*tree.Node) RoomShape
+// --- Generator Logic ---
 
-// GenerateMinimap creates a minimap from a tree using incremental corridor generation
-// This is a complete rewrite using the two-phase breadth-first algorithm:
-// Phase 1: Place all rooms at ideal positions (breadth-first)
-// Phase 2: Connect all parent-child relationships with corridors
-func GenerateMinimap(
-	rng Random,
-	treeInput tree.Tree,
-	getRoomShape GetRoomShapeFunc,
-) (*tilemap.TileMap, error) {
-	if len(treeInput) == 0 {
-		return nil, errors.New("empty tree")
+type Point [2]int
+
+type MinimapGenerator struct {
+	Grid         map[Point]int  // The final map: Coord -> NodeIndex (or TileID)
+	Reservations map[Point]bool // Temporary paths to outside
+	Bounds       struct {
+		MinX, MinY, MaxX, MaxY int
+	}
+	Rng Random
+}
+
+func NewMinimapGenerator(rng Random) *MinimapGenerator {
+	return &MinimapGenerator{
+		Grid:         make(map[Point]int),
+		Reservations: make(map[Point]bool),
+		Rng:          rng,
+		Bounds: struct{ MinX, MinY, MaxX, MaxY int }{
+			MinX: 0, MinY: 0, MaxX: 0, MaxY: 0,
+		},
+	}
+}
+
+// GenerateMinimap is the entry point
+func GenerateMinimap(rng Random, inputTree tree.Tree, getShape GetRoomShapeFunc) (*tilemap.TileMap, error) {
+	nodes := make([]*TreeNode, len(inputTree))
+	for i := range nodes {
+		nodes[i] = &TreeNode{ID: i, ParentID: inputTree[i].ParentId}
+	}
+	var root *TreeNode
+	for i, n := range nodes {
+		if n.ParentID == -1 {
+			root = n
+		} else {
+			// simple safety check
+			if n.ParentID >= 0 && n.ParentID < len(nodes) {
+				nodes[n.ParentID].Children = append(nodes[n.ParentID].Children, nodes[i])
+			}
+		}
 	}
 
-	result := GenerateMinimap2(rng, treeInput, getRoomShape)
-	rooms, w, _ := BakeToFlatArray(result)
+	gen := NewMinimapGenerator(rng)
 
-	// Generate the final tilemap
+	// 2. Place Root
+	rootShape := getShape(inputTree[root.ID])
+	gen.PlaceShape(root.ID, Point{0, 0}, rootShape)
+
+	// Reserve path for root to outside immediately
+	rootExitPath := gen.FindPathToOutside(Point{0, 0})
+	gen.AddReservation(rootExitPath)
+
+	// 3. Process Tree (BFS to grow outward)
+	queue := []*TreeNode{root}
+
+	// Map to track the specific exit path used by a node so we can remove it later
+	nodeExitPaths := make(map[int][]Point)
+	nodeExitPaths[root.ID] = rootExitPath
+
+	for len(queue) > 0 {
+		parent := queue[0]
+		queue = queue[1:]
+
+		// We are about to process children.
+		// Current state: Parent is placed, Parent has a Reserved Path to outside.
+
+		for i, child := range parent.Children {
+			childShape := getShape(inputTree[child.ID])
+			placed := false
+
+			// Try to place child around parent
+			// We try multiple attempts to find a spot that respects eisting rooms AND reservations
+			attempts := 0
+			maxAttempts := 20
+
+			parentCenter := gen.GetNodeCenter(parent.ID, getShape(inputTree[parent.ID])) // Simplified center find
+
+			for attempts < maxAttempts {
+				// Pick a candidate spot near parent
+				candidate := gen.GetRandomPointNear(parentCenter, 5, 15)
+
+				// 1. Check basic collision (rooms + current reservations)
+				if gen.CheckCollision(candidate, childShape) {
+					attempts++
+					continue
+				}
+
+				// 2. Check if this new child can reach the outside?
+				// We temporarily place to check pathing
+				pathOutside := gen.FindPathToOutside(candidate)
+				if len(pathOutside) == 0 {
+					attempts++
+					continue
+				}
+
+				// 3. SUCCESS: Commit placement
+				gen.PlaceShape(child.ID, candidate, childShape)
+				gen.AddReservation(pathOutside)
+				nodeExitPaths[child.ID] = pathOutside
+
+				// 4. Connect to Parent (Draw Corridor)
+				// Using A* ignoring the parent's specific reservation (logic below)
+				corridor := gen.FindPath(candidate, parentCenter, true)
+				for _, p := range corridor {
+					gen.Grid[p] = child.ID // Mark corridor as part of child or separate ID
+				}
+
+				placed = true
+				queue = append(queue, child)
+				break
+			}
+
+			if !placed {
+				fmt.Printf("Warning: Could not place child %d of parent %d\n", child.ID, parent.ID)
+			}
+
+			// LOGIC: "Before last child of parent is placed remove that parent tmp child"
+			// If this is the last child, we can remove the PARENT'S reservation to allow
+			// the last child to potentially use that space.
+			if i == len(parent.Children)-2 { // -2 because we are currently *on* the second to last?
+				// The prompt says "before last child".
+				// Actually, safer logic: Once we start placing children, the parent is "surrounded".
+				// The parent's reservation is to ensure *at least one* child can get out or be placed.
+				// If we remove it now, we free up space for the remaining children.
+				gen.RemoveReservation(nodeExitPaths[parent.ID])
+			}
+		}
+
+		// Fallback: ensure parent reservation is gone if it wasn't removed in loop
+		gen.RemoveReservation(nodeExitPaths[parent.ID])
+	}
+
+	// 4. Convert to TileLayer (Flatten)
+	layer := gen.Export()
 	return &tilemap.TileMap{
-		Layers: []tilemap.TileLayer{
-			{Width: w, Data: rooms},
-		},
-		Meta: map[string]string{},
+		Layers: []tilemap.TileLayer{*layer},
 	}, nil
 }
 
-// --- The Minimap Generator ---
+// --- Helper Methods ---
 
-type Point struct {
-	X, Y int
+func (g *MinimapGenerator) PlaceShape(id int, pos Point, shape RoomShape) {
+	for _, offset := range shape {
+		p := Point{pos[0] + offset[0], pos[1] + offset[1]}
+		g.Grid[p] = id
+		g.UpdateBounds(p)
+	}
 }
 
-type NodeInput struct {
-	Parent int
+func (g *MinimapGenerator) UpdateBounds(p Point) {
+	if p[0] < g.Bounds.MinX {
+		g.Bounds.MinX = p[0]
+	}
+	if p[0] > g.Bounds.MaxX {
+		g.Bounds.MaxX = p[0]
+	}
+	if p[1] < g.Bounds.MinY {
+		g.Bounds.MinY = p[1]
+	}
+	if p[1] > g.Bounds.MaxY {
+		g.Bounds.MaxY = p[1]
+	}
 }
 
-type MinimapResult struct {
-	Grid      map[Point]int   // Map of Coordinate -> NodeID
-	NodeTiles map[int][]Point // Map of NodeID -> List of all its tiles
-}
-
-type MapBounds struct {
-	MinX, MaxX, MinY, MaxY int
-}
-
-type EscapePath struct {
-	ParentID    int     // Which parent this escape path belongs to
-	PathTiles   []Point // Actual path tiles (added to Grid as parent tiles)
-	IsTemporary bool    // Will be removed when placing last child
-}
-
-// --- The Generator ---
-
-func GenerateMinimap2(
-	rnd Random,
-	treeInput tree.Tree,
-	getRoomShape GetRoomShapeFunc,
-) *MinimapResult {
-
-	// 1. Build Adjacency List
-	childrenMap := make(map[int][]int)
-	var rootID int = -1
-
-	for i, node := range treeInput {
-		if node.ParentId == -1 {
-			rootID = i
-		} else {
-			childrenMap[node.ParentId] = append(childrenMap[node.ParentId], i)
+func (g *MinimapGenerator) CheckCollision(pos Point, shape RoomShape) bool {
+	for _, offset := range shape {
+		p := Point{pos[0] + offset[0], pos[1] + offset[1]}
+		// Check against existing rooms
+		if _, exists := g.Grid[p]; exists {
+			return true
 		}
-	}
-
-	if rootID == -1 {
-		return nil
-	}
-
-	// 2. Init Result
-	result := &MinimapResult{
-		Grid:      make(map[Point]int),
-		NodeTiles: make(map[int][]Point),
-	}
-
-	// 3. Place Root
-	rootShape := getRoomShape(treeInput[rootID])
-	placeShapeOnGrid(result, rootID, rootShape, Point{0, 0})
-
-	// 4. Track incomplete parents (parents that still have unplaced children)
-	incompleteParents := make(map[int]int) // parentID -> remaining children count
-	for parentID, children := range childrenMap {
-		incompleteParents[parentID] = len(children)
-	}
-
-	// 5. Initialize escape path system
-	escapePaths := make(map[int]*EscapePath) // parentID -> escape path
-	mapBounds := calculateMapBounds(result)
-
-	// 6. BFS Queue
-	queue := []int{rootID}
-
-	for len(queue) > 0 {
-		currentID := queue[0]
-		queue = queue[1:]
-
-		childNodes := childrenMap[currentID]
-
-		// Establish escape path for parent if they have multiple children and don't have one yet
-		if len(childNodes) > 1 {
-			if _, exists := escapePaths[currentID]; !exists {
-				// Always try to establish an escape path - it's just actual tiles now
-				if escapePath := establishEscapePath(currentID, result, &mapBounds); escapePath != nil {
-					escapePaths[currentID] = escapePath
-				}
-			}
-		}
-
-		for _, childID := range childNodes {
-			childShape := getRoomShape(treeInput[childID])
-
-			// Try to place the child and find a valid path
-			success := attemptPlaceAndConnect(result, currentID, childID, childShape, rnd, incompleteParents, escapePaths, &mapBounds, childrenMap)
-
-			if !success {
-				panic(fmt.Sprintf("Critical: Could not place Node %d (No space/path found)\n", childID))
-				// In a real game, you might want to retry with a larger radius here
-			} else {
-				// Update incomplete parents count
-				incompleteParents[currentID]--
-				if incompleteParents[currentID] == 0 {
-					delete(incompleteParents, currentID) // Parent is complete
-				}
-				queue = append(queue, childID)
-			}
-		}
-	}
-
-	return result
-}
-
-// --- Placement & Connection Logic ---
-
-func attemptPlaceAndConnect(
-	m *MinimapResult,
-	parentID, childID int,
-	childShape RoomShape,
-	rnd Random,
-	incompleteParents map[int]int,
-	escapePaths map[int]*EscapePath,
-	mapBounds *MapBounds,
-	childrenMap map[int][]int,
-) bool {
-	parentTiles := m.NodeTiles[parentID]
-	if len(parentTiles) == 0 {
-		return false
-	}
-
-	// Check if this is the last child of the parent
-	isLastChild := isLastChildOfParent(parentID, incompleteParents)
-
-	maxAttempts := 150 // Balanced search parameters
-
-	for i := 0; i < maxAttempts; i++ {
-		// 1. Pick Start
-		refTile := parentTiles[rnd.Intn(len(parentTiles))]
-
-		// 2. Pick Offset (spiral out logic or random) - balanced expansion
-		radius := 2 + (i / 2) // Balanced radius expansion
-		dx := rnd.Intn(radius*2+1) - radius
-		dy := rnd.Intn(radius*2+1) - radius
-
-		// Don't place on top of itself
-		if dx == 0 && dy == 0 {
-			continue
-		}
-
-		attemptOffset := Point{X: refTile.X + dx, Y: refTile.Y + dy}
-
-		// 3. Check if Room Fits (ignoreID = -1, we don't want to overlap ANYONE, even parent)
-		if checkCollision(m, childShape, attemptOffset, -1) {
-			continue
-		}
-
-		// 4. No need for special escape path collision check -
-		// escape paths are real tiles, handled by normal collision detection
-
-		// 5. Find closest connection points
-		closestChildTile := Point{}
-		minDist := math.MaxFloat64
-
-		// Calculate absolute child position for A* targeting
-		for _, p := range childShape {
-			absP := Point{p[0] + attemptOffset.X, p[1] + attemptOffset.Y}
-			d := distance(refTile, absP)
-			if d < minDist {
-				minDist = d
-				closestChildTile = absP
-			}
-		}
-
-		// 6. Run A* // Pass childID as the "TargetID" so A* can enter the room
-		path, found := findPathAStar(m, refTile, closestChildTile, parentID, childID)
-
-		if found {
-			// 7. No need for special escape path or parent blocking checks!
-			// Escape paths are real tiles, so they naturally block placements
-			// This guarantees parents can't be completely surrounded
-
-			// SUCCESS! Safe to commit
-
-			// A. Place the Room
-			placeShapeOnGrid(m, childID, childShape, attemptOffset)
-
-			// B. Place the Path
-			for _, p := range path {
-				// Only write if empty.
-				// This prevents overwriting the Child we just placed,
-				// and prevents overwriting the Parent (self-intersection).
-				if _, exists := m.Grid[p]; !exists {
-					m.Grid[p] = parentID
-					m.NodeTiles[parentID] = append(m.NodeTiles[parentID], p)
-				}
-			}
-
-			// C. If this is the last child, remove parent's escape path and recreate optimal paths
-			if isLastChild {
-				if escapePath, exists := escapePaths[parentID]; exists {
-					removeEscapePath(escapePath, m)
-					// Recreate optimal paths to all children now that escape path is gone
-					recreatePathsForParent(parentID, childrenMap, m)
-					delete(escapePaths, parentID) // No longer needed
-				}
-			}
-
+		// Check against reservations
+		if _, reserved := g.Reservations[p]; reserved {
 			return true
 		}
 	}
-
 	return false
 }
 
-// --- A* Pathfinding ---
-
-type Item struct {
-	Point    Point
-	Priority float64
-	Index    int
+func (g *MinimapGenerator) AddReservation(path []Point) {
+	for _, p := range path {
+		g.Reservations[p] = true
+	}
 }
 
-// PriorityQueue boiler plate for A*
+func (g *MinimapGenerator) RemoveReservation(path []Point) {
+	for _, p := range path {
+		delete(g.Reservations, p)
+	}
+}
+
+// FindPathToOutside finds a path from start to outside the current bounding box
+func (g *MinimapGenerator) FindPathToOutside(start Point) []Point {
+	// Target is any point outside Bounds + Padding
+	// Simplified A*: Heuristic is distance to nearest bound edge
+	// We treat Reservations as obstacles here (we can't cross another reservation)
+	// But we treat Empty Space as Walkable.
+
+	// BFS is usually sufficient for "nearest exit" on unweighted grid
+	queue := []Point{start}
+	cameFrom := make(map[Point]Point)
+	visited := make(map[Point]bool)
+	visited[start] = true
+
+	// Limit search depth to prevent infinite loops
+	limit := 200
+
+	for len(queue) > 0 && len(visited) < limit*limit {
+		current := queue[0]
+		queue = queue[1:]
+
+		// Check if outside bounds (plus padding of 2)
+		if current[0] < g.Bounds.MinX-2 || current[0] > g.Bounds.MaxX+2 ||
+			current[1] < g.Bounds.MinY-2 || current[1] > g.Bounds.MaxY+2 {
+			return reconstructPath(cameFrom, current)
+		}
+
+		// Neighbors
+		dirs := [][2]int{{0, 1}, {0, -1}, {1, 0}, {-1, 0}}
+		for _, d := range dirs {
+			next := Point{current[0] + d[0], current[1] + d[1]}
+
+			if visited[next] {
+				continue
+			}
+
+			// Obstacle Check:
+			// 1. Cannot walk on existing Grid nodes
+			if _, isRoom := g.Grid[next]; isRoom {
+				continue
+			}
+			// 2. Cannot walk on Reservations
+			if _, isRes := g.Reservations[next]; isRes {
+				continue
+			}
+
+			visited[next] = true
+			cameFrom[next] = current
+			queue = append(queue, next)
+		}
+	}
+	return nil // No path found
+}
+
+// FindPath generic A* for connecting rooms
+func (g *MinimapGenerator) FindPath(start, end Point, ignoreReservations bool) []Point {
+	// Standard A* implementation
+	// cost = 1 for empty, high cost for walls (if we allowed digging through rooms)
+	// Here we assume we walk through empty space
+
+	type Node struct {
+		Pt   Point
+		F, G int
+	}
+
+	openSet := make(PriorityQueue, 0)
+	heap.Init(&openSet)
+	heap.Push(&openSet, &Item{Value: Node{Pt: start, G: 0, F: manhattan(start, end)}, Priority: 0})
+
+	cameFrom := make(map[Point]Point)
+	gScore := make(map[Point]int)
+	gScore[start] = 0
+
+	for openSet.Len() > 0 {
+		current := heap.Pop(&openSet).(*Item).Value.(Node).Pt
+
+		if current == end {
+			return reconstructPath(cameFrom, end)
+		}
+
+		dirs := [][2]int{{0, 1}, {0, -1}, {1, 0}, {-1, 0}}
+		for _, d := range dirs {
+			next := Point{current[0] + d[0], current[1] + d[1]}
+
+			// Collision logic for corridor:
+			// Can walk on empty or the target room.
+			_, isRoom := g.Grid[next]
+			// We allow walking on the End node (to connect) but not other rooms
+			if isRoom && next != end {
+				continue
+			}
+
+			if !ignoreReservations {
+				if _, isRes := g.Reservations[next]; isRes {
+					continue
+				}
+			}
+
+			newG := gScore[current] + 1
+			if val, ok := gScore[next]; !ok || newG < val {
+				gScore[next] = newG
+				f := newG + manhattan(next, end)
+				cameFrom[next] = current
+				heap.Push(&openSet, &Item{Value: Node{Pt: next, G: newG, F: f}, Priority: f})
+			}
+		}
+	}
+	return nil
+}
+
+func (g *MinimapGenerator) GetRandomPointNear(center Point, minR, maxR int) Point {
+	angle := g.Rng.Float64() * 2 * math.Pi
+	dist := float64(minR) + g.Rng.Float64()*float64(maxR-minR)
+	return Point{
+		center[0] + int(math.Cos(angle)*dist),
+		center[1] + int(math.Sin(angle)*dist),
+	}
+}
+
+func (g *MinimapGenerator) GetNodeCenter(id int, shape RoomShape) Point {
+	// scan grid for this ID to find center (slow) or just return first point found
+	// optimization: store centers in map
+	for p, nodeID := range g.Grid {
+		if nodeID == id {
+			return p
+		}
+	}
+	return Point{0, 0}
+}
+
+func (g *MinimapGenerator) Export() *tilemap.TileLayer {
+	width := (g.Bounds.MaxX - g.Bounds.MinX) + 1
+	height := (g.Bounds.MaxY - g.Bounds.MinY) + 1
+
+	data := make([]uint32, width*height)
+
+	for p, val := range g.Grid {
+		// Normalize coordinates to 0..Width
+		x := p[0] - g.Bounds.MinX
+		y := p[1] - g.Bounds.MinY
+		idx := y*width + x
+		if idx >= 0 && idx < len(data) {
+			data[idx] = uint32(val + 1) // 0 is empty, so shift IDs by 1
+		}
+	}
+
+	return &tilemap.TileLayer{
+		Width: width,
+		Data:  data,
+	}
+}
+
+// --- Boilerplate Helpers (PQ, Math) ---
+
+func reconstructPath(cameFrom map[Point]Point, current Point) []Point {
+	totalPath := []Point{current}
+	for {
+		prev, ok := cameFrom[current]
+		if !ok {
+			break
+		}
+		current = prev
+		totalPath = append([]Point{current}, totalPath...)
+	}
+	return totalPath
+}
+
+func manhattan(a, b Point) int {
+	return int(math.Abs(float64(a[0]-b[0])) + math.Abs(float64(a[1]-b[1])))
+}
+
+// Priority Queue Implementation for A*
+type Item struct {
+	Value    interface{}
+	Priority int
+	Index    int
+}
 type PriorityQueue []*Item
 
 func (pq PriorityQueue) Len() int           { return len(pq) }
@@ -285,424 +410,4 @@ func (pq *PriorityQueue) Pop() interface{} {
 	item.Index = -1
 	*pq = old[0 : n-1]
 	return item
-}
-
-// findPathAStar finds a path that avoids all nodes except the `allowedID`
-func findPathAStar(m *MinimapResult, start, end Point, allowedID, targetID int) ([]Point, bool) {
-
-	dirs := []Point{{0, 1}, {0, -1}, {1, 0}, {-1, 0}}
-
-	pq := &PriorityQueue{}
-	heap.Init(pq)
-	heap.Push(pq, &Item{Point: start, Priority: 0})
-
-	cameFrom := make(map[Point]Point)
-	costSoFar := make(map[Point]float64)
-
-	cameFrom[start] = start
-	costSoFar[start] = 0
-
-	found := false
-
-	for pq.Len() > 0 {
-		current := heap.Pop(pq).(*Item).Point
-
-		if current == end {
-			found = true
-			break
-		}
-
-		for _, d := range dirs {
-			next := Point{current.X + d.X, current.Y + d.Y}
-
-			// --- LOGIC FIX HERE ---
-			if owner, exists := m.Grid[next]; exists {
-				// We can walk on:
-				// 1. The Parent (allowedID)
-				// 2. The Child we are trying to reach (targetID) <--- NEW
-				if owner != allowedID && owner != targetID {
-					continue // Blocked by a third-party room
-				}
-			}
-			// ----------------------
-
-			newCost := costSoFar[current] + 1.0
-
-			if c, exists := costSoFar[next]; !exists || newCost < c {
-				costSoFar[next] = newCost
-				// Heuristic: Manhattan distance
-				priority := newCost + (math.Abs(float64(next.X-end.X)) + math.Abs(float64(next.Y-end.Y)))
-				heap.Push(pq, &Item{Point: next, Priority: priority})
-				cameFrom[next] = current
-			}
-		}
-	}
-
-	if !found {
-		return nil, false
-	}
-
-	// Reconstruct Path
-	var path []Point
-	curr := end
-	for curr != start {
-		path = append(path, curr)
-		curr = cameFrom[curr]
-	}
-	return path, true
-}
-
-// --- Escape Path Management ---
-
-// calculateMapBounds determines current map boundaries from placed tiles
-func calculateMapBounds(m *MinimapResult) MapBounds {
-	if len(m.Grid) == 0 {
-		return MapBounds{MinX: -5, MaxX: 5, MinY: -5, MaxY: 5} // Default bounds
-	}
-
-	minX, maxX, minY, maxY := math.MaxInt32, math.MinInt32, math.MaxInt32, math.MinInt32
-	for p := range m.Grid {
-		if p.X < minX {
-			minX = p.X
-		}
-		if p.X > maxX {
-			maxX = p.X
-		}
-		if p.Y < minY {
-			minY = p.Y
-		}
-		if p.Y > maxY {
-			maxY = p.Y
-		}
-	}
-
-	// Add padding around current bounds
-	padding := 3
-	return MapBounds{
-		MinX: minX - padding,
-		MaxX: maxX + padding,
-		MinY: minY - padding,
-		MaxY: maxY + padding,
-	}
-}
-
-// findNearestBoundary finds the shortest path from parent tiles to map boundary
-func findNearestBoundary(parentTiles []Point, bounds MapBounds, m *MinimapResult) (Point, []Point) {
-	if len(parentTiles) == 0 {
-		return Point{}, nil
-	}
-
-	// Try all four directions and find the shortest path
-	directions := []Point{{0, 1}, {0, -1}, {1, 0}, {-1, 0}} // N, S, E, W
-	bestDirection := Point{}
-	bestPath := []Point{}
-	shortestDistance := math.MaxInt32
-
-	for _, dir := range directions {
-		for _, parentTile := range parentTiles {
-			path := findPathToBoundary(parentTile, dir, bounds, m)
-			if len(path) > 0 && len(path) < shortestDistance {
-				shortestDistance = len(path)
-				bestDirection = dir
-				bestPath = path
-			}
-		}
-	}
-
-	return bestDirection, bestPath
-}
-
-// findPathToBoundary creates a straight path from start point to boundary in given direction
-func findPathToBoundary(start Point, direction Point, bounds MapBounds, m *MinimapResult) []Point {
-	var path []Point
-	current := start
-
-	// Move in the direction until we reach boundary
-	for {
-		current.X += direction.X
-		current.Y += direction.Y
-
-		// Check if we've reached the boundary
-		if current.X <= bounds.MinX || current.X >= bounds.MaxX ||
-			current.Y <= bounds.MinY || current.Y >= bounds.MaxY {
-			break
-		}
-
-		// Check if this tile is occupied by another room (not allowed in escape path)
-		if _, exists := m.Grid[current]; exists {
-			return nil // Path blocked, can't use this direction
-		}
-
-		path = append(path, current)
-
-		// Safety check to prevent infinite loops
-		if len(path) > 50 {
-			break
-		}
-	}
-
-	return path
-}
-
-// establishEscapePath creates an actual path from parent to boundary and places tiles
-func establishEscapePath(parentID int, m *MinimapResult, bounds *MapBounds) *EscapePath {
-	parentTiles := m.NodeTiles[parentID]
-	if len(parentTiles) == 0 {
-		return nil
-	}
-
-	direction, pathTiles := findNearestBoundary(parentTiles, *bounds, m)
-
-	// If no path found or path is too long, extend map boundary
-	maxEscapePathLength := 15
-	if len(pathTiles) == 0 || len(pathTiles) > maxEscapePathLength {
-		extendMapBoundary(bounds, direction)
-		direction, pathTiles = findNearestBoundary(parentTiles, *bounds, m)
-	}
-
-	if len(pathTiles) == 0 {
-		return nil // Still couldn't find a path
-	}
-
-	// Actually place the escape path tiles in the grid as parent tiles
-	for _, tile := range pathTiles {
-		m.Grid[tile] = parentID
-		m.NodeTiles[parentID] = append(m.NodeTiles[parentID], tile)
-	}
-
-	return &EscapePath{
-		ParentID:    parentID,
-		PathTiles:   pathTiles,
-		IsTemporary: true,
-	}
-}
-
-// extendMapBoundary expands the map boundaries in the given direction
-func extendMapBoundary(bounds *MapBounds, direction Point) {
-	extension := 10 // How much to extend
-
-	if direction.X > 0 { // East
-		bounds.MaxX += extension
-	} else if direction.X < 0 { // West
-		bounds.MinX -= extension
-	}
-
-	if direction.Y > 0 { // North
-		bounds.MaxY += extension
-	} else if direction.Y < 0 { // South
-		bounds.MinY -= extension
-	}
-}
-
-// No need for complex escape path collision checks anymore!
-// The escape paths are actual tiles in the grid, so normal collision detection handles them.
-
-// isLastChildOfParent determines if this child is the last one for its parent
-func isLastChildOfParent(parentID int, incompleteParents map[int]int) bool {
-	remainingChildren := incompleteParents[parentID]
-	return remainingChildren == 1 // This child is the last one
-}
-
-// removeEscapePath removes the temporary escape path tiles from the grid
-func removeEscapePath(escapePath *EscapePath, m *MinimapResult) {
-	if !escapePath.IsTemporary {
-		return
-	}
-
-	parentID := escapePath.ParentID
-
-	// Remove escape path tiles from grid
-	for _, tile := range escapePath.PathTiles {
-		delete(m.Grid, tile)
-	}
-
-	// Remove escape path tiles from parent's tile list
-	newTiles := []Point{}
-	escapePathMap := make(map[Point]bool)
-	for _, tile := range escapePath.PathTiles {
-		escapePathMap[tile] = true
-	}
-
-	for _, tile := range m.NodeTiles[parentID] {
-		if !escapePathMap[tile] {
-			newTiles = append(newTiles, tile)
-		}
-	}
-	m.NodeTiles[parentID] = newTiles
-
-	escapePath.IsTemporary = false
-}
-
-// recreatePathsForParent recreates optimal paths to all children of a parent
-func recreatePathsForParent(parentID int, childrenMap map[int][]int, m *MinimapResult) {
-	children := childrenMap[parentID]
-	if len(children) == 0 {
-		return
-	}
-
-	parentTiles := m.NodeTiles[parentID]
-	if len(parentTiles) == 0 {
-		return
-	}
-
-	// For each child, find the optimal path and recreate it
-	for _, childID := range children {
-		childTiles := m.NodeTiles[childID]
-		if len(childTiles) == 0 {
-			continue
-		}
-
-		// Find closest parent and child tiles
-		var bestParentTile, bestChildTile Point
-		minDist := math.MaxFloat64
-
-		for _, parentTile := range parentTiles {
-			for _, childTile := range childTiles {
-				dist := distance(parentTile, childTile)
-				if dist < minDist {
-					minDist = dist
-					bestParentTile = parentTile
-					bestChildTile = childTile
-				}
-			}
-		}
-
-		// Find optimal path between these tiles
-		if path, found := findPathAStar(m, bestParentTile, bestChildTile, parentID, childID); found {
-			// Place the optimal path
-			for _, p := range path {
-				if _, exists := m.Grid[p]; !exists {
-					m.Grid[p] = parentID
-					m.NodeTiles[parentID] = append(m.NodeTiles[parentID], p)
-				}
-			}
-		}
-	}
-}
-
-// --- Helpers ---
-
-func placeShapeOnGrid(m *MinimapResult, id int, relativeShape RoomShape, offset Point) {
-	for _, p := range relativeShape {
-		absPos := Point{p[0] + offset.X, p[1] + offset.Y}
-		m.Grid[absPos] = id
-		m.NodeTiles[id] = append(m.NodeTiles[id], absPos)
-	}
-}
-
-func checkCollision(m *MinimapResult, shape RoomShape, offset Point, ignoreID int) bool {
-	for _, p := range shape {
-		abs := Point{p[0] + offset.X, p[1] + offset.Y}
-		if id, exists := m.Grid[abs]; exists {
-			if id != ignoreID {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func distance(a, b Point) float64 {
-	// Manhattan distance is often better for grid alignment heuristics
-	return math.Abs(float64(a.X-b.X)) + math.Abs(float64(a.Y-b.Y))
-}
-
-// wouldBlockIncompleteParents checks if placing a room and its connection path
-// would block escape routes for other incomplete parents
-func wouldBlockIncompleteParents(
-	m *MinimapResult,
-	parentID int,
-	childShape RoomShape,
-	childOffset Point,
-	projectedPath []Point,
-	incompleteParents map[int]int,
-) bool {
-	// Create temporary occupation map with room + path
-	tempOccupied := make(map[Point]bool)
-
-	// Add child room tiles
-	for _, p := range childShape {
-		tempOccupied[Point{p[0] + childOffset.X, p[1] + childOffset.Y}] = true
-	}
-
-	// Add projected path tiles
-	for _, p := range projectedPath {
-		tempOccupied[p] = true
-	}
-
-	// Check each incomplete parent for blocked escape routes
-	for incompleteParentID := range incompleteParents {
-		if incompleteParentID == parentID { // Skip the current parent being processed
-			continue
-		}
-
-		parentTiles := m.NodeTiles[incompleteParentID]
-
-		for _, parentTile := range parentTiles {
-			hasEscapeRoute := false
-
-			// Check 4 adjacent directions
-			for _, dir := range []Point{{0, 1}, {0, -1}, {1, 0}, {-1, 0}} {
-				adjacent := Point{parentTile.X + dir.X, parentTile.Y + dir.Y}
-
-				// Check if this adjacent tile would be blocked by new room or path
-				if tempOccupied[adjacent] {
-					continue // Blocked by new room or path
-				}
-
-				// Check if already occupied by existing rooms
-				if _, exists := m.Grid[adjacent]; !exists {
-					hasEscapeRoute = true
-					break
-				}
-			}
-
-			if !hasEscapeRoute {
-				return true // This parent would be completely blocked
-			}
-		}
-	}
-
-	return false
-}
-
-// ConvertGridToTileLayer converts a map[Point]int into a tilemap.TileLayer.
-// It automatically computes bounds and fills missing tiles with 0.
-func BakeToFlatArray(m *MinimapResult) ([]uint32, int, int) {
-	if len(m.Grid) == 0 {
-		return nil, 0, 0
-	}
-
-	// 1. Find bounds
-	minX, maxX, minY, maxY := 999999, -999999, 999999, -999999
-	for p := range m.Grid {
-		if p.X < minX {
-			minX = p.X
-		}
-		if p.X > maxX {
-			maxX = p.X
-		}
-		if p.Y < minY {
-			minY = p.Y
-		}
-		if p.Y > maxY {
-			maxY = p.Y
-		}
-	}
-
-	width := (maxX - minX) + 1
-	height := (maxY - minY) + 1
-
-	flat := make([]uint32, width*height)
-
-	for p, id := range m.Grid {
-		// Shift coordinates to be 0-based relative to min
-		relX := p.X - minX
-		relY := p.Y - minY
-
-		index := relY*width + relX
-		flat[index] = uint32(id + 1) // ID+1 as per your request
-	}
-
-	return flat, width, height
 }

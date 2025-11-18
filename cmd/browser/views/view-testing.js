@@ -53,7 +53,7 @@ export class ViewTesting extends View {
 
   async generateWorldgraph() {
     const balancedTree = {
-      "nodeCount": 30,
+      "nodeCount": 5,
       "maxDepth": 6,
       "maxBranching": 3,
       "minBranching": 1,
