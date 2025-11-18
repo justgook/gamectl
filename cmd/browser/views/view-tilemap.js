@@ -52,7 +52,6 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   calculateContentBounds(data) {
-    console.log(data)
     const width = data.layers.reduce((acc, item) =>
       // TODO EXTRACT tileHeigt from level 
       Math.max(item.width * this.tw, acc)
@@ -77,7 +76,6 @@ export class ViewTilemap extends ViewCanvasBase {
     ctx.drawImage(this.offscreen, 0, 0)
   }
 
-  getHoverInfo(worldX, worldY, data) { }
   _renderOffscreen(ctx, data) {
     const canvas = ctx.canvas
     const { maxX: width, maxY: height } = this.calculateContentBounds(data)
@@ -85,7 +83,6 @@ export class ViewTilemap extends ViewCanvasBase {
     canvas.height = height
     ctx.clearRect(0, 0, width, height)
     fillCanvasWithGrid(ctx, this.tw, this.th, this.settings.grid.color, this.settings.grid.border)
-    console.log(ctx.canvas === this.offscreen)
 
     for (let i = 0; i < data.layers.length; i++) {
       const layer = data.layers[i]
@@ -112,16 +109,13 @@ export class ViewTilemap extends ViewCanvasBase {
       }
     }
 
-    console.log("_renderOffscreen", data)
-
     this.isDirty = false
   }
 
   getHoverInfo(worldX, worldY, data) {
-    if (!data || !data.layers || data.layers.length < 2) return null;
+    if (!data || !data.layers || data.layers.length < 1) return null;
 
     const roomsLayer = data.layers[0]
-    const doorsLayer = data.layers[1]
 
     const mapW = roomsLayer.width;
     const tileW = this.tw;
@@ -151,7 +145,8 @@ export class ViewTilemap extends ViewCanvasBase {
     //   }
     // }
 
-    const doorMask = doorsLayer.data[index]
+    const doorsLayer = data.layers[1]
+    const doorMask = doorsLayer?.data[index]
     const DoorNorth = 1, DoorEast = 2, DoorSouth = 4, DoorWest = 8;
     const doorText = doorMask ?
       [(doorMask & DoorNorth) && 'N',
@@ -180,7 +175,6 @@ function drawColoredTiles(ctx, tw, th, w, data) {
     const x = i % w * tw
     const y = Math.floor(i / w) * th
     ctx.fillStyle = colors[data[i]]
-    console.log(`${data[i]}->${colors[data[i]]}`)
     ctx.fillRect(x, y, tw, th)
   }
 }
