@@ -3,7 +3,6 @@ package minimap
 import (
 	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/gamectl/pkg/tree"
-	"github.com/justgook/gamectl/plugins/minimap/minimap/converter"
 )
 
 type Random interface {
@@ -12,24 +11,21 @@ type Random interface {
 }
 
 type RoomShape [][2]int
-type GetRoomShapeFunc func(*tree.Node) RoomShape // Adjusted to take ID for simplicity in this snippet
+type GetRoomShapeFunc func(*tree.Node) RoomShape
 
-// --- Generator Logic ---
-
-// GenerateMinimap creates a minimap from a tree using incremental corridor generation
 func GenerateMinimap(
 	rng Random,
-	_treeInput *tree.Tree,
+	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 ) (*tilemap.TileMap, error) {
-	converter := converter.NewTreeToTilemapConverter(rng)
-	result, err := converter.Convert(_treeInput)
-	if err != nil {
-		return nil, err
-	}
-	return result.Tilemap, nil
+	input := &Grid{}
+	Stage1(rng, treeInput, getRoomShape, input)
 
-	// return &tilemap.TileMap{
-	// 	Layers: []tilemap.TileLayer{},
-	// }, nil
+	data, width := Grid2Tilemap(input)
+	return &tilemap.TileMap{
+		Layers: []tilemap.TileLayer{{
+			Width: width,
+			Data:  data,
+		}},
+	}, nil
 }
