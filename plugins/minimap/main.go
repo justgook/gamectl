@@ -1,23 +1,3 @@
-// Package main implements the minimap WASM plugin for GameCtl.
-//
-// This plugin generates 2D spatial layouts from tree structures for Metroidvania-style
-// minimap generation. It follows the treegen pattern with clean separation between
-// plugin wrapper logic (main.go) and pure generation logic (gen.go).
-//
-// Features:
-//   - Reads tree.Tree from tree-storage by ID
-//   - Generates 2D spatial layout with room placement and door connections
-//   - Stores resulting tilemap in tilemap-storage
-//   - Clean architecture with dependency injection for testability
-//
-// Input:
-//   - treeId: ID to read tree from tree-storage
-//   - mapId: ID to save generated minimap into tilemap-storage
-//   - config: Optional generation configuration
-//
-// Output:
-//   - Success/error response
-//   - Minimap stored in tilemap-storage under specified mapId
 package main
 
 import (
@@ -102,7 +82,7 @@ func Gen() uint32 {
 
 	// Generate minimap using pure generation logic
 	rng := &MyRandom{}
-	tileMap, err := minimap.GenerateMinimap(rng, tree, getRoomShape)
+	tileMap, err := minimap.GenerateMinimap(rng, &tree, getRoomShape)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("minimap generation failed: " + err.Error()))
 		return 1
