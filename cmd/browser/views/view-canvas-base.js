@@ -42,6 +42,7 @@ export class ViewCanvasBase extends View {
     this.content.querySelector(`[data-action="zoom-fit"]`).onclick = () => this.fitToContent()
     this.canvas = this.content.querySelector(`canvas`)
     this.ctx = this.canvas.getContext('2d')
+    this.ctx.imageSmoothingEnabled = false
     this._addEventListeners()
     this.onResize(this.w, this.h)
     this.loadAndDraw()

@@ -254,64 +254,21 @@ function drawDoors(ctx, tw, th, w, doorData) {
   }
 }
 
-/**
- * The "Factory" Function
- * Creates a reusable grid pattern from an off-screen canvas.
- *
- * @param {CanvasRenderingContext2D} ctx - The main canvas context (used to call createPattern).
- * @param {number} gridWidth - The width of a single grid cell.
- * @param {number} gridHeight - The height of a single grid cell.
- * @param {string} color - The color of the grid lines.
- * @param {number} [lineWidth=1] - The thickness of the grid lines.
- * @returns {CanvasPattern} A reusable pattern to be used with fillStyle.
- */
 function createGridPattern(ctx, gridWidth, gridHeight, color, lineWidth = 1) {
-  // 1. Create the off-screen "tile" canvas
   const tileCanvas = document.createElement('canvas');
   tileCanvas.width = gridWidth;
   tileCanvas.height = gridHeight;
   const tileCtx = tileCanvas.getContext('2d');
-
-  // 2. Draw the single grid cell
   tileCtx.fillStyle = color;
-
-  // --- The "Seamless" Trick ---
-  // We only draw the bottom and right lines.
-  // When tiled, the "bottom" of one tile meets the "top" (empty) 
-  // of the tile below it, creating a perfect single line.
-
-  // Draw the horizontal line (bottom)
   tileCtx.fillRect(0, gridHeight - lineWidth, gridWidth, lineWidth);
-  // Draw the vertical line (right)
   tileCtx.fillRect(gridWidth - lineWidth, 0, lineWidth, gridHeight);
-
-  // 3. Create the pattern
-  // The main context (ctx) is used to create the pattern from the tile.
   return ctx.createPattern(tileCanvas, 'repeat');
 }
 
-/**
- * The "ClearRect" Function
- * Fills the *entire* canvas with a grid, just like clearing it.
- *
- * @param {CanvasRenderingContext2D} ctx - The main canvas context to fill.
- * @param {number} gridWidth - The width of a single grid cell.
- * @param {number} gridHeight - The height of a single grid cell.
- * @param {string} color - The color of the grid lines.
- * @param {number} [lineWidth=1] - The thickness of the grid lines.
- */
 function fillCanvasWithGrid(ctx, gridWidth, gridHeight, color, lineWidth = 1) {
-  // Get the main canvas dimensions
   const { width, height } = ctx.canvas;
-
-  // Use our factory function to create the pattern
   const gridPattern = createGridPattern(ctx, gridWidth, gridHeight, color, lineWidth);
-
-  // Set the fill style to our new pattern
   ctx.fillStyle = gridPattern;
-
-  // Fill the entire canvas
-  // This overwrites everything, just like clearRect
   ctx.fillRect(0, 0, width, height);
 }
 
