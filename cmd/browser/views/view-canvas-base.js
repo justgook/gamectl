@@ -162,28 +162,28 @@ export class ViewCanvasBase extends View {
     const wrapperHeight = this.h;
     const { minX, maxX, minY, maxY } = this.contentBounds;
 
-    const contentWidth = maxX - minX;
-    const contentHeight = maxY - minY;
+    const scaledContentWidth = (maxX - minX) * this.scale;
+    const scaledContentHeight = (maxY - minY) * this.scale;
 
-    // Calculate allowed offset ranges
-    const minVisibleRatio = 0.2;
-    const minVisibleWidth = contentWidth * minVisibleRatio;
-    const minVisibleHeight = contentHeight * minVisibleRatio;
+    // Minimum visible margin (in screen pixels)
+    const margin = 50;
 
-    // Max offset: keep content's minX/minY visible
-    const maxOffsetX = wrapperWidth - minX * this.scale - minVisibleWidth;
-    const minOffsetX = -maxX * this.scale + minVisibleWidth;
-    const maxOffsetY = wrapperHeight - minY * this.scale - minVisibleHeight;
-    const minOffsetY = -maxY * this.scale + minVisibleHeight;
+    // Calculate constraints ensuring you can always pan to see all content
+    // maxOffset: left/top edge of content can go up to (wrapperSize - margin) from left/top of viewport
+    // minOffset: right/bottom edge of content must stay at least margin pixels from right/bottom of viewport
+    const maxOffsetX = wrapperWidth - margin - minX * this.scale;
+    const minOffsetX = margin - maxX * this.scale;
+    const maxOffsetY = wrapperHeight - margin - minY * this.scale;
+    const minOffsetY = margin - maxY * this.scale;
 
-    // Apply constraints
-    this.offsetX = Math.max(minOffsetX, Math.min(maxOffsetX, this.offsetX));
-    this.offsetY = Math.max(minOffsetY, Math.min(maxOffsetY, this.offsetY));
-
-    // Additional constraints to prevent extreme panning
-    const maxPanDistance = Math.max(wrapperWidth, wrapperHeight) * 2;
-    this.offsetX = Math.max(-maxPanDistance, Math.min(maxPanDistance, this.offsetX));
-    this.offsetY = Math.max(-maxPanDistance, Math.min(maxPanDistance, this.offsetY));
+    // Only constrain if content fits - if minOffset > maxOffset, content is larger than viewport
+    // In that case, allow full panning range
+    if (minOffsetX <= maxOffsetX) {
+      this.offsetX = Math.max(minOffsetX, Math.min(maxOffsetX, this.offsetX));
+    }
+    if (minOffsetY <= maxOffsetY) {
+      this.offsetY = Math.max(minOffsetY, Math.min(maxOffsetY, this.offsetY));
+    }
   }
 
   zoom(x, y, factor) {
