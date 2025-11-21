@@ -40,13 +40,19 @@ func Gen() uint32 {
 		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
 		return 1
 	}
+
+	theTree, err := treegen.GenerateTree(&MyRandom{}, params.GenerateTreeConfig)
+	if err != nil {
+		pdk.Output(util.ErrorResponse(err.Error()))
+		return 1
+	}
+
 	var req struct {
 		ID   string    `json:"id"`
 		Tree tree.Tree `json:"tree"`
 	}
-
 	req.ID = params.Name
-	req.Tree = treegen.GenerateTree(&MyRandom{}, params.GenerateTreeConfig)
+	req.Tree = theTree
 
 	storeJSON, err := json.Marshal(req)
 	if err != nil {

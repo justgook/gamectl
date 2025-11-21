@@ -1,12 +1,94 @@
 package minimap
 
-import (
-	"github.com/justgook/gamectl/pkg/tree"
-)
+import "github.com/justgook/gamectl/pkg/tree"
 
-// Stage1 implements linear hierarchical layout with top-aligned rows
-// and parent-child horizontal centering
-func Stage1(rng Random,
+// Helper functions for shape manipulation
+
+// normalizedShape represents a shape with its bounds and normalized points
+type normalizedShape struct {
+	points []Point
+	width  int
+	height int
+}
+
+// normalizeShape takes a shape and returns it normalized so minX=0, minY=0
+// along with its width and height
+func normalizeShape(shape RoomShape) normalizedShape {
+	if len(shape) == 0 {
+		return normalizedShape{points: []Point{}, width: 0, height: 0}
+	}
+
+	// Find bounds
+	minX, maxX := shape[0][0], shape[0][0]
+	minY, maxY := shape[0][1], shape[0][1]
+	for _, point := range shape[1:] {
+		if point[0] < minX {
+			minX = point[0]
+		}
+		if point[0] > maxX {
+			maxX = point[0]
+		}
+		if point[1] < minY {
+			minY = point[1]
+		}
+		if point[1] > maxY {
+			maxY = point[1]
+		}
+	}
+
+	// Normalize points
+	normalized := make([]Point, len(shape))
+	for i, point := range shape {
+		normalized[i] = Point{point[0] - minX, point[1] - minY}
+	}
+
+	return normalizedShape{
+		points: normalized,
+		width:  maxX - minX + 1,
+		height: maxY - minY + 1,
+	}
+}
+
+// nodeLayout stores positioning information for a node
+type nodeLayout struct {
+	nodeIndex  int
+	depth      int
+	unitWidth  int
+	centerX    int
+	topY       int
+	normalized normalizedShape
+}
+
+// buildDepthMap organizes nodes by their depth in the tree
+func buildDepthMap(treeInput *tree.Tree) (map[int][]int, map[int][]int, int) {
+	depthMap := make(map[int][]int)    // depth -> []nodeIndex
+	childrenMap := make(map[int][]int) // parentIndex -> []childIndex
+	maxDepth := 0
+
+	// Build children map and calculate depths
+	depths := make([]int, len(*treeInput))
+	for i, node := range *treeInput {
+		parentId := node.ParentId
+		if parentId == -1 {
+			depths[i] = 0
+		} else {
+			depths[i] = depths[parentId] + 1
+			childrenMap[parentId] = append(childrenMap[parentId], i)
+		}
+
+		if depths[i] > maxDepth {
+			maxDepth = depths[i]
+		}
+		depthMap[depths[i]] = append(depthMap[depths[i]], i)
+	}
+
+	return depthMap, childrenMap, maxDepth
+}
+
+// Stage1 places nodes on the grid using a bottom-up unit calculation
+// followed by top-down placement
+func Stage1(
+	rng Random,
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 	grid *Grid,
@@ -15,89 +97,109 @@ func Stage1(rng Random,
 		return
 	}
 
-	// 1. Find root and analyze tree structure
-	root := GetRootNode(treeInput)
+	// Build depth map and relationships
+	depthMap, childrenMap, maxDepth := buildDepthMap(treeInput)
 
-	// 2. Calculate positions for all nodes level by level
-	positions := make(map[*tree.Node]Point)
-	maxDepth := GetTreeDepth(treeInput, root)
-
-	// Debug: Print tree structure
-	// fmt.Printf("Tree depth: %d, Root index: %d\n", maxDepth, treeInput.IndexOf(root))
-
-	// 3. Place root at origin (0,0) with top edge alignment
-	rootShape := getRoomShape(root)
-	_, rootMinY, _, _ := GetBoundingBox(rootShape)
-	rootPos := Point{0, -rootMinY} // Adjust so top edge is at Y=0
-	positions[root] = rootPos
-
-	// 4. Process each level from top to bottom
-	for level := 1; level <= maxDepth; level++ {
-		nodesAtLevel := GetNodesAtLevel(treeInput, root, level)
-		if len(nodesAtLevel) == 0 {
-			continue
+	// Prepare layouts for all nodes
+	layouts := make([]nodeLayout, len(*treeInput))
+	for i, node := range *treeInput {
+		shape := getRoomShape(node)
+		layouts[i] = nodeLayout{
+			nodeIndex:  i,
+			normalized: normalizeShape(shape),
 		}
+	}
 
-		// Group nodes by their parent to process sibling groups together
-		parentGroups := make(map[*tree.Node][]*tree.Node)
-		for _, node := range nodesAtLevel {
-			parent := treeInput.Parent(node)
-			if parent != nil {
-				parentGroups[parent] = append(parentGroups[parent], node)
-			}
-		}
+	// Step 1: Calculate unit widths (bottom-up)
+	for depth := maxDepth; depth >= 0; depth-- {
+		for _, nodeIndex := range depthMap[depth] {
+			children := childrenMap[nodeIndex]
 
-		// Debug: Print parent groups for this level
-		// fmt.Printf("Level %d parent groups:\n", level)
-		// for parent, children := range parentGroups {
-		//     parentIndex := treeInput.IndexOf(parent)
-		//     childIndices := make([]int, len(children))
-		//     for i, child := range children {
-		//         childIndices[i] = treeInput.IndexOf(child)
-		//     }
-		//     fmt.Printf("  Parent %d → children %v\n", parentIndex, childIndices)
-		// }
-
-		// Process each parent's children as a group
-		for parent, children := range parentGroups {
-			// Calculate the horizontal span needed for all children
-			totalWidth := 0
-			for _, child := range children {
-				shape := getRoomShape(child)
-				totalWidth += GetShapeWidth(shape) + NodeSpacing
-			}
-			if totalWidth > 0 {
-				totalWidth -= NodeSpacing // remove last spacing
-			}
-
-			// Center the children group under the parent
-			parentPos := positions[parent]
-			parentShape := getRoomShape(parent)
-			parentWidth := GetShapeWidth(parentShape)
-
-			// Start position for children (leftmost position)
-			startX := parentPos[0] + parentWidth/2 - totalWidth/2
-
-			// Position each child
-			currentX := startX
-			for _, child := range children {
-				shape := getRoomShape(child)
-				_, shapeMinY, _, _ := GetBoundingBox(shape)
-
-				// Top-align: place shape so its top edge is at level Y
-				levelY := level * LevelSpacing
-				childPos := Point{currentX, levelY - shapeMinY}
-				positions[child] = childPos
-
-				currentX += GetShapeWidth(shape) + NodeSpacing
+			if len(children) == 0 {
+				// Leaf node: unit width is just its shape width
+				layouts[nodeIndex].unitWidth = layouts[nodeIndex].normalized.width
+			} else {
+				// Parent node: sum of children widths + spacing between them
+				totalWidth := 0
+				for _, childIndex := range children {
+					totalWidth += layouts[childIndex].unitWidth
+				}
+				totalWidth += (len(children) - 1) * NodeSpacing
+				layouts[nodeIndex].unitWidth = totalWidth
 			}
 		}
 	}
 
-	// 5. Place all shapes on the grid
-	for node, position := range positions {
-		shape := getRoomShape(node)
-		roomID := treeInput.IndexOf(node) // Use node index directly (0-based)
-		PlaceShapeOnGrid(grid, shape, position, roomID)
+	// Step 2: Calculate positions (top-down)
+	previousLevelMaxBottomY := 0
+
+	for depth := 0; depth <= maxDepth; depth++ {
+		// Calculate Y position for this level
+		var levelTopY int
+		if depth == 0 {
+			levelTopY = 0
+		} else {
+			levelTopY = previousLevelMaxBottomY + LevelSpacing + 1
+		}
+
+		// Track max bottom Y for this level
+		levelMaxBottomY := levelTopY
+
+		for _, nodeIndex := range depthMap[depth] {
+			layouts[nodeIndex].topY = levelTopY
+
+			// Update level max bottom
+			nodeBottomY := levelTopY + layouts[nodeIndex].normalized.height - 1
+			if nodeBottomY > levelMaxBottomY {
+				levelMaxBottomY = nodeBottomY
+			}
+
+			// Calculate X position
+			if depth == 0 {
+				// Root: centered at X=0
+				layouts[nodeIndex].centerX = 0
+			} else {
+				// Position within parent's unit space
+				parentIndex := (*treeInput)[nodeIndex].ParentId
+				parentLayout := layouts[parentIndex]
+
+				// Find this node's position among siblings
+				siblings := childrenMap[parentIndex]
+				siblingIndex := 0
+				for i, sibId := range siblings {
+					if sibId == nodeIndex {
+						siblingIndex = i
+						break
+					}
+				}
+
+				// Calculate starting X for parent's children
+				parentStartX := parentLayout.centerX - parentLayout.unitWidth/2
+
+				// Calculate accumulated width before this child
+				accumulatedWidth := 0
+				for i := 0; i < siblingIndex; i++ {
+					accumulatedWidth += layouts[siblings[i]].unitWidth + NodeSpacing
+				}
+
+				// This child's center is at the center of its unit allocation
+				layouts[nodeIndex].centerX = parentStartX + accumulatedWidth + layouts[nodeIndex].unitWidth/2
+			}
+		}
+
+		previousLevelMaxBottomY = levelMaxBottomY
+	}
+
+	// Step 3: Place shapes on grid
+	for nodeIndex, layout := range layouts {
+		// Calculate offset to center the shape horizontally
+		shapeOffsetX := layout.centerX - layout.normalized.width/2
+
+		// Place each point of the normalized shape
+		for _, point := range layout.normalized.points {
+			gridX := point[0] + shapeOffsetX
+			gridY := point[1] + layout.topY
+			(*grid)[Point{gridX, gridY}] = nodeIndex
+		}
 	}
 }
