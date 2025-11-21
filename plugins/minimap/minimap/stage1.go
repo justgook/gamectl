@@ -190,7 +190,7 @@ func Stage1(
 		previousLevelMaxBottomY = levelMaxBottomY
 	}
 
-	// Step 3: Place shapes on grid
+	// Step 3: Place shapes on grid (1-based IDs)
 	for nodeIndex, layout := range layouts {
 		// Calculate offset to center the shape horizontally
 		shapeOffsetX := layout.centerX - layout.normalized.width/2
@@ -199,7 +199,7 @@ func Stage1(
 		for _, point := range layout.normalized.points {
 			gridX := point[0] + shapeOffsetX
 			gridY := point[1] + layout.topY
-			(*grid)[Point{gridX, gridY}] = nodeIndex
+			(*grid)[Point{gridX, gridY}] = nodeIndex + 1
 		}
 	}
 }

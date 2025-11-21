@@ -53,10 +53,10 @@ export class ViewTesting extends View {
 
   async generateWorldgraph() {
     const balancedTree = {
-      "nodeCount": 15,
+      "nodeCount": 25,
       "maxDepth": 0,
       "maxBranching": 0,
-      "rootBranches": 0,
+      "rootBranches": 2,
     }
     const result = await pluginManager.call("treegen", "gen", JSON.stringify({ name: this.treeId, ...balancedTree }))
     await pluginManager.call('host', 'log', result.output)

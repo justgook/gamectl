@@ -50,9 +50,13 @@ func Grid2Tilemap(input *Grid) ([]uint32, int) {
 		y := int(p[1] - minY)
 		idx := y*width + x
 
-		// empty space = 0
-		// stored item = id + 1
-		data[idx] = uint32(id + 1)
+		// Grid already uses 1-based IDs for rooms
+		// Paths use negative IDs, convert to positive for tilemap
+		if id < 0 {
+			data[idx] = uint32(-id)
+		} else {
+			data[idx] = uint32(id)
+		}
 	}
 
 	return data, width

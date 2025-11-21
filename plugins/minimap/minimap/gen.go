@@ -20,6 +20,9 @@ func GenerateMinimap(
 ) (*tilemap.TileMap, error) {
 	input := &Grid{}
 	Stage1(rng, treeInput, getRoomShape, input)
+	if err := Stage3(rng, treeInput, getRoomShape, input); err != nil {
+		return nil, err
+	}
 
 	data, width := Grid2Tilemap(input)
 	return &tilemap.TileMap{
