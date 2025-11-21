@@ -36,7 +36,7 @@ func GenerateTree(rng Random, cfg *GenerateTreeConfig) (tree.Tree, error) {
 	t.Add(-1, nil)
 
 	canHaveChilds := make([]*Victim, 0)
-	if cfg.RootBranches > 0 {
+	if cfg.RootBranches < 1 {
 		canHaveChilds = append(canHaveChilds, &Victim{
 			Index:  0,
 			Childs: 0,
@@ -73,6 +73,10 @@ func GenerateTree(rng Random, cfg *GenerateTreeConfig) (tree.Tree, error) {
 	}
 
 	for range cfg.NodeCount - len(t) {
+		if len(canHaveChilds) < 1 {
+			break
+		}
+
 		parentIndex := 0
 		if len(canHaveChilds) > 1 {
 			parentIndex = rng.Intn(len(canHaveChilds))
@@ -83,9 +87,6 @@ func GenerateTree(rng Random, cfg *GenerateTreeConfig) (tree.Tree, error) {
 		canHaveChilds[parentIndex].Childs += 1
 		if cfg.MaxBranching > 0 && canHaveChilds[parentIndex].Childs >= cfg.MaxBranching {
 			canHaveChilds = slices.Delete(canHaveChilds, parentIndex, parentIndex+1)
-			if len(canHaveChilds) < 1 {
-				return t, nil
-			}
 		}
 
 		depth := calculateNodeDepth(&t, childId)

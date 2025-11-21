@@ -21,9 +21,9 @@ func TestGenerateTree(t *testing.T) {
 			rng:  rand.New(rand.NewSource(42)),
 			cfg: &treegen.GenerateTreeConfig{
 				NodeCount:    25,
-				RootBranches: 2,
+				MaxBranching: 1,
+				RootBranches: 0,
 				MaxDepth:     0,
-				MaxBranching: 0,
 			},
 		},
 	}
@@ -34,8 +34,9 @@ func TestGenerateTree(t *testing.T) {
 				t.Errorf("GenerateTree() failed: %v", gotErr)
 				return
 			}
-			t.Errorf("GenerateTree() failed: %v", treegen.PrettyJson(gotErr))
-
+			if tt.cfg.NodeCount != len(got) {
+				t.Errorf("GenerateTree() failed: want:%d, got:%d", tt.cfg.NodeCount, len(got))
+			}
 			fmt.Println("got tree", treegen.PrettyJson(got))
 		})
 	}

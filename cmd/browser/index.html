@@ -46,6 +46,37 @@
       </div>
     </template>
 
+    <template id="view-pipeline">
+      <div class="panel">
+        <div class="panel-header">Pipeline</div>
+        <div class="panel-content" style="display: flex; flex-direction: column; gap: 8px;">
+          <details open>
+            <summary>1. Create World Tree</summary>
+            <form name="tree" style="display: flex; flex-direction: column; gap: 4px; padding: 8px;">
+              <label>Node Count: <span>10</span> <input type="range" name="nodeCount" min="5" max="100" value="10"
+                  oninput="this.previousElementSibling.textContent=this.value"></label>
+              <label>Max Depth: <span>0</span> <input type="range" name="maxDepth" min="0" max="10" value="0"
+                  oninput="this.previousElementSibling.textContent=this.value"></label>
+              <label>Max Branching: <span>0</span> <input type="range" name="maxBranching" min="0" max="10" value="0"
+                  oninput="this.previousElementSibling.textContent=this.value"></label>
+              <label>Root Branches: <span>0</span> <input type="range" name="rootBranches" min="0" max="20" value="0"
+                  oninput="this.previousElementSibling.textContent=this.value"></label>
+              <label>Output Name: <input type="text" name="treeId" value="progression"></label>
+              <button class="button-primary" type="submit">Generate Tree</button>
+            </form>
+          </details>
+          <details>
+            <summary>2. Create Minimap</summary>
+            <form name="minimap" style="display: flex; flex-direction: column; gap: 4px; padding: 8px;">
+              <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
+              <label>Output Map: <input type="text" name="mapId" value="new_map"></label>
+              <button class="button-primary" type="submit">Generate Minimap</button>
+            </form>
+          </details>
+        </div>
+      </div>
+    </template>
+
     <template id="view-splitter">
       <div class="panel">
         <div class="panel-header">Splitter</div>
@@ -110,6 +141,7 @@
           <optgroup label="Old">
             <option value="view-splitter">splitter</option>
             <option value="view-testing">testing</option>
+            <option value="view-pipeline">pipeline</option>
             <option value="view-empty">empty</option>
             <option value="view-console">console</option>
           </optgroup>
@@ -128,7 +160,7 @@
     <layout-parent handle-width="6" handle-height="20" id="scene">
       <view-tilemap panel="panel_1"></view-tilemap>
       <view-console nesw="s" r="200" from="panel_1"></view-console>
-      <view-testing nesw="w" r="200" from="panel_1"></view-testing>
+      <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
     </layout-parent>
 
 
@@ -142,6 +174,7 @@
       import {ViewConsole} from "./views/view-console.js"
       import {ViewTilemap} from "./views/view-tilemap.js"
       import {ViewTesting} from "./views/view-testing.js"
+      import {ViewPipeline} from "./views/view-pipeline.js"
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
 
@@ -153,6 +186,7 @@
       customElements.define('view-tilemap', ViewTilemap)
       customElements.define('view-tree', ViewTree)
       customElements.define('view-console', ViewConsole)
+      customElements.define('view-pipeline', ViewPipeline)
 
       /// THE PLUGIN MANAGER TESTING!!!
       const pluginNames = [

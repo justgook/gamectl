@@ -10,7 +10,7 @@ export class ViewTesting extends View {
   }
   connectedCallback() {
     super.connectedCallback('view-testing')
-    this.treeId = "progresion"
+    this.treeId = "progression"
     this.mapId = "new_map"
   }
   async createMinimap() {
