@@ -96,7 +96,24 @@
       </div>
     </template>
 
-
+    <template id="view-nodegraph">
+      <div class="panel">
+        <div class="panel-header">Node Graph</div>
+        <div class="panel-content" style="padding: 0; position: relative;">
+          <canvas style="cursor: grab;"></canvas>
+          <div
+            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
+            <button data-action="add-node" class="button-primary">+ Node</button>
+            <button data-action="run" class="button-success">▶ Run</button>
+            <button data-action="reload" class="button-secondary">🔄 Reload</button>
+            <button data-action="zoom-in" class="button-secondary">+</button>
+            <button data-action="zoom-out" class="button-secondary">−</button>
+            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+          </div>
+          <div class="tooltip" data-tooltip></div>
+        </div>
+      </div>
+    </template>
 
     <template id="view-tilemap">
       <div class="panel">
@@ -146,6 +163,7 @@
             <option value="view-console">console</option>
           </optgroup>
           <optgroup label="new">
+            <option value="view-nodegraph">nodegraph</option>
             <option value="view-tree">tree</option>
             <option value="view-tilemap">tilemap</option>
           </optgroup>
@@ -158,7 +176,13 @@
     </template>
 
     <layout-parent handle-width="6" handle-height="20" id="scene">
-      <view-tilemap panel="panel_1"></view-tilemap>
+      <view-nodegraph panel="panel_1">
+        <node-input id="n1" x="100" y="100" value="10" label="Count"></node-input>
+        <node-plugin id="n2" x="400" y="100" plugin="treegen" function="gen" inputs="nodeCount" input-nodeCount="n1">
+        </node-plugin>
+        <node-output id="n3" x="700" y="100" input-value="n2"></node-output>
+      </view-nodegraph>
+      <!-- <view-tilemap panel="panel_1"></view-tilemap> -->
       <view-console nesw="s" r="200" from="panel_1"></view-console>
       <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
     </layout-parent>
@@ -175,6 +199,14 @@
       import {ViewTilemap} from "./views/view-tilemap.js"
       import {ViewTesting} from "./views/view-testing.js"
       import {ViewPipeline} from "./views/view-pipeline.js"
+      import {ViewNodeGraph} from "./views/view-nodegraph.js"
+
+      // Node graph components
+      import "./views/nodegraph/node-base.js"
+      import "./views/nodegraph/node-input.js"
+      import "./views/nodegraph/node-plugin.js"
+      import "./views/nodegraph/node-output.js"
+
       // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
 
@@ -187,6 +219,7 @@
       customElements.define('view-tree', ViewTree)
       customElements.define('view-console', ViewConsole)
       customElements.define('view-pipeline', ViewPipeline)
+      customElements.define('view-nodegraph', ViewNodeGraph)
 
       /// THE PLUGIN MANAGER TESTING!!!
       const pluginNames = [
