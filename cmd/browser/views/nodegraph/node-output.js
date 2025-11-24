@@ -6,9 +6,16 @@ import { NodeBase } from './node-base.js'
  * Attributes:
  * - label: Display label (default: id)
  * - format: 'json' | 'text' | 'number' (default: 'text')
- * - input-value: Connection to source node
+ * - inputs: Connection to source node
  * 
- * Example:
+ * New Format Example (recommended):
+ * <node-output id="result" x="1000" y="100"
+ *              label="Result"
+ *              format="json"
+ *              inputs="value:treegen">
+ * </node-output>
+ * 
+ * Old Format Example (still supported):
  * <node-output id="result" x="1000" y="100"
  *              label="Result"
  *              format="json"

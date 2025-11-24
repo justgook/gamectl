@@ -1,0 +1,64 @@
+<!-- 
+  Example Node Graph Usage
+  
+  This demonstrates the new simplified syntax for node connections.
+  Copy this into your main HTML or use as reference.
+-->
+
+<view-nodegraph>
+  <!-- Example 1: Simple Tree Generation Pipeline -->
+  
+  <!-- Input Nodes (left side) -->
+  <node-input id="nodeCount" x="100" y="100" type="number" value="10" label="Node Count"></node-input>
+  <node-input id="maxDepth" x="100" y="180" type="number" value="3" label="Max Depth"></node-input>
+  <node-input id="maxBranching" x="100" y="260" type="number" value="2" label="Max Branching"></node-input>
+  <node-input id="rootBranches" x="100" y="340" type="number" value="1" label="Root Branches"></node-input>
+  
+  <!-- Tree Generator (middle) -->
+  <!-- NEW SYNTAX: All inputs defined in one attribute with semicolon separators -->
+  <node-plugin id="treeGenerator" 
+               x="400" y="220"
+               plugin="treegen" 
+               function="gen"
+               inputs="nodeCount:nodeCount;maxDepth:maxDepth;maxBranching:maxBranching;rootBranches:rootBranches"
+               outputs="tree">
+  </node-plugin>
+  
+  <!-- Minimap Generator (right-middle) -->
+  <node-plugin id="minimapGenerator" 
+               x="700" y="220"
+               plugin="minimap" 
+               function="gen"
+               inputs="treeId:treeGenerator"
+               outputs="map">
+  </node-plugin>
+  
+  <!-- Output Node (right side) -->
+  <node-output id="finalOutput" 
+               x="1000" y="220"
+               label="Generated Map"
+               format="json"
+               inputs="value:minimapGenerator">
+  </node-output>
+</view-nodegraph>
+
+<!--
+  Key Points:
+  
+  1. Connection Syntax: inputs="portName:sourceNodeId;anotherPort:anotherSource"
+     - Semicolon (;) separates different connections
+     - Colon (:) separates port name from source node
+     - Much cleaner than individual input-* attributes
+  
+  2. Multiple Inputs Example:
+     inputs="nodeCount:nodeCount;maxDepth:maxDepth;maxBranching:maxBranching;rootBranches:rootBranches"
+     This connects 4 different input nodes to 4 different ports on the plugin node
+  
+  3. Source Port Specification (if needed):
+     inputs="data:sourceNode.outputPortName"
+     Use dot notation if source has multiple output ports
+  
+  4. Backward Compatibility:
+     Old syntax still works: input-portName="sourceNode"
+     But new syntax is recommended for cleaner markup
+-->

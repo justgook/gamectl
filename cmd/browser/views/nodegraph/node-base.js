@@ -15,7 +15,7 @@
  */
 export class NodeBase extends HTMLElement {
   static get observedAttributes() {
-    return ['x', 'y', 'state', 'selected']
+    return ['x', 'y', 'state', 'selected', 'inputs']
   }
 
   constructor() {
@@ -25,6 +25,7 @@ export class NodeBase extends HTMLElement {
     this.selected = false
     this.outputValue = null // Result of node execution
     this.error = null
+    this._parsedInputs = new Map() // Parsed from inputs attribute
   }
 
   connectedCallback() {
@@ -39,6 +40,12 @@ export class NodeBase extends HTMLElement {
     this.position.y = parseFloat(this.getAttribute('y')) || 0
     this.state = this.getAttribute('state') || 'idle'
     this.selected = this.hasAttribute('selected')
+
+    // Parse inputs attribute (for new syntax)
+    const inputsAttr = this.getAttribute('inputs')
+    if (inputsAttr) {
+      this._parseInputsAttribute(inputsAttr)
+    }
   }
 
   disconnectedCallback() {
@@ -68,7 +75,33 @@ export class NodeBase extends HTMLElement {
         this.selected = newVal !== null
         this.requestRedraw()
         break
+      case 'inputs':
+        this._parseInputsAttribute(newVal)
+        this.requestRedraw()
+        break
     }
+  }
+
+  /**
+   * Parse inputs attribute: "port1:source1;port2:source2.outputPort;port3:source3"
+   * @private
+   */
+  _parseInputsAttribute(value) {
+    this._parsedInputs.clear()
+
+    if (!value) return
+
+    const pairs = value.split(';').map(s => s.trim()).filter(Boolean)
+
+    for (const pair of pairs) {
+      const [portName, source] = pair.split(':').map(s => s.trim())
+      if (portName && source) {
+        const [sourceNodeId, sourcePort = 'output'] = source.split('.')
+        this._parsedInputs.set(portName, { sourceNodeId, sourcePort })
+      }
+    }
+
+    console.log(`[${this.id}] Parsed inputs:`, Array.from(this._parsedInputs.entries()))
   }
 
   /**
@@ -82,32 +115,59 @@ export class NodeBase extends HTMLElement {
 
   /**
    * Get all input connections for this node
+   * Supports both:
+   * - New format: inputs="port1:source1;port2:source2"
+   * - Old format: input-port1="source1" input-port2="source2"
    * @returns {Array<{port: string, sourceNodeId: string, sourcePort: string}>}
    */
   getInputConnections() {
     const connections = []
+
+    // First, check new format (inputs attribute)
+    for (const [port, { sourceNodeId, sourcePort }] of this._parsedInputs) {
+      connections.push({ port, sourceNodeId, sourcePort })
+    }
+
+    // Also support old format (input-* attributes) for backward compatibility
     for (const attr of this.attributes) {
       if (attr.name.startsWith('input-')) {
         const port = attr.name.replace('input-', '')
         const [sourceNodeId, sourcePort = 'output'] = attr.value.split('.')
-        connections.push({ port, sourceNodeId, sourcePort })
+
+        // Skip if already defined in new format
+        if (!this._parsedInputs.has(port)) {
+          connections.push({ port, sourceNodeId, sourcePort })
+        }
       }
     }
+
     return connections
   }
 
   /**
    * Get input value from a connected source node
+   * Supports both new and old format
    * @param {string} port - Input port name
    * @returns {any} Value from source node, or null if not connected
    */
   getInputValue(port) {
-    const sourceAttr = this.getAttribute(`input-${port}`)
-    if (!sourceAttr) return null
+    let sourceNodeId, sourcePort
 
-    const [sourceNodeId, sourcePort = 'output'] = sourceAttr.split('.')
+    // Check new format first
+    if (this._parsedInputs.has(port)) {
+      const conn = this._parsedInputs.get(port)
+      sourceNodeId = conn.sourceNodeId
+      sourcePort = conn.sourcePort
+    } else {
+      // Fall back to old format
+      const sourceAttr = this.getAttribute(`input-${port}`)
+      if (!sourceAttr) return null
+
+      [sourceNodeId, sourcePort = 'output'] = sourceAttr.split('.')
+    }
+
     const sourceNode = this.graph?.nodes.get(sourceNodeId)
-    
+
     if (!sourceNode) return null
 
     // For nodes with named outputs, get specific port value
@@ -132,14 +192,14 @@ export class NodeBase extends HTMLElement {
    */
   canExecute() {
     const connections = this.getInputConnections()
-    
+
     for (const { sourceNodeId } of connections) {
       const sourceNode = this.graph?.nodes.get(sourceNodeId)
       if (!sourceNode || sourceNode.state !== 'success') {
         return false
       }
     }
-    
+
     return true
   }
 

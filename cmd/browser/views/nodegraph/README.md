@@ -15,9 +15,11 @@ A visual node-based pipeline editor for creating procedural generation workflows
 ### Connection Model
 
 Nodes use **Input ← Output** (reverse reference) connection model:
-- Target nodes declare their input sources via attributes: `input-{portName}="sourceNodeId"`
+- Target nodes declare their input sources via the `inputs` attribute
+- **New format (recommended)**: `inputs="port1:source1;port2:source2;port3:source3"`
+- **Old format (deprecated)**: `input-port1="source1" input-port2="source2"`
 - This makes dependency resolution straightforward
-- Example: `<node-plugin input-nodeCount="n1" input-maxDepth="n2">`
+- Example: `<node-plugin inputs="nodeCount:n1;maxDepth:n2;maxBranching:n3">`
 
 ### Node Lifecycle
 
@@ -31,35 +33,50 @@ Nodes use **Input ← Output** (reverse reference) connection model:
 
 ### Creating a Simple Pipeline
 
+**New Syntax (Recommended):**
 ```html
 <view-nodegraph>
   <!-- Input nodes -->
-  <node-input id="count" 
-              x="100" y="100" 
-              type="number" 
-              value="10" 
-              label="Node Count">
-  </node-input>
+  <node-input id="count" x="100" y="100" type="number" value="10" label="Node Count"></node-input>
+  <node-input id="depth" x="100" y="200" type="number" value="5" label="Max Depth"></node-input>
+  <node-input id="branch" x="100" y="300" type="number" value="3" label="Max Branching"></node-input>
   
-  <node-input id="depth" 
-              x="100" y="200" 
-              type="number" 
-              value="5" 
-              label="Max Depth">
-  </node-input>
-  
-  <!-- Plugin node - declares its inputs -->
+  <!-- Plugin node - declares inputs with connections in one attribute -->
   <node-plugin id="treegen" 
                x="400" y="150"
                plugin="treegen" 
                function="gen"
-               inputs="nodeCount,maxDepth,maxBranching,rootBranches"
+               inputs="nodeCount:count;maxDepth:depth;maxBranching:branch"
+               outputs="tree">
+  </node-plugin>
+  
+  <!-- Output node -->
+  <node-output id="result" 
+               x="700" y="150"
+               label="Tree Result"
+               format="json"
+               inputs="value:treegen">
+  </node-output>
+</view-nodegraph>
+```
+
+**Old Syntax (Still Supported):**
+```html
+<view-nodegraph>
+  <node-input id="count" x="100" y="100" type="number" value="10" label="Node Count"></node-input>
+  <node-input id="depth" x="100" y="200" type="number" value="5" label="Max Depth"></node-input>
+  
+  <!-- Plugin node - separate attributes for port definitions and connections -->
+  <node-plugin id="treegen" 
+               x="400" y="150"
+               plugin="treegen" 
+               function="gen"
+               inputs="nodeCount,maxDepth"
                outputs="tree"
                input-nodeCount="count"
                input-maxDepth="depth">
   </node-plugin>
   
-  <!-- Output node -->
   <node-output id="result" 
                x="700" y="150"
                label="Tree Result"
@@ -96,6 +113,18 @@ Provides user-configurable values.
 #### Plugin Node
 Executes a WASM plugin function.
 
+**New Format (Recommended):**
+```html
+<node-plugin id="myPlugin" 
+             x="400" y="100"
+             plugin="pluginName"
+             function="functionName"
+             inputs="port1:sourceNode1;port2:sourceNode2;port3:sourceNode3.outputPort"
+             outputs="output">
+</node-plugin>
+```
+
+**Old Format (Still Supported):**
 ```html
 <node-plugin id="myPlugin" 
              x="400" y="100"
@@ -111,9 +140,9 @@ Executes a WASM plugin function.
 **Attributes:**
 - `plugin`: Plugin module name
 - `function`: Function to call
-- `inputs`: Comma-separated input port names
+- `inputs`: Input ports with connections (new: `port1:source1;port2:source2` or old: `port1,port2,port3`)
 - `outputs`: Comma-separated output port names
-- `input-{portName}`: Connection to source node (format: `nodeId` or `nodeId.portName`)
+- `input-{portName}`: (Old format) Connection to source node (format: `nodeId` or `nodeId.portName`)
 
 **Behavior:**
 - Collects inputs from connected nodes
@@ -123,6 +152,17 @@ Executes a WASM plugin function.
 #### Output Node
 Terminal node that displays/logs results.
 
+**New Format (Recommended):**
+```html
+<node-output id="result" 
+             x="700" y="100"
+             label="Result"
+             format="json|text|number"
+             inputs="value:sourceNode">
+</node-output>
+```
+
+**Old Format (Still Supported):**
 ```html
 <node-output id="result" 
              x="700" y="100"
@@ -135,7 +175,8 @@ Terminal node that displays/logs results.
 **Attributes:**
 - `label`: Display label
 - `format`: Output format (json, text, number)
-- `input-value`: Connection to source node
+- `inputs`: (New format) Connection definition `value:sourceNode`
+- `input-value`: (Old format) Connection to source node
 
 **Behavior:**
 - Formats input value according to `format` attribute
@@ -271,6 +312,7 @@ console.log('Inputs:', node.getInputConnections())
 
 ## Example: Tree Generation Pipeline
 
+**Using New Syntax:**
 ```html
 <view-nodegraph>
   <!-- Inputs -->
@@ -279,16 +321,12 @@ console.log('Inputs:', node.getInputConnections())
   <node-input id="branch" x="100" y="260" type="number" value="0" label="Max Branching"></node-input>
   <node-input id="root" x="100" y="340" type="number" value="0" label="Root Branches"></node-input>
   
-  <!-- Tree Generator -->
+  <!-- Tree Generator - all inputs defined in one attribute -->
   <node-plugin id="treegen" 
                x="400" y="200"
                plugin="treegen" 
                function="gen"
-               inputs="nodeCount,maxDepth,maxBranching,rootBranches"
-               input-nodeCount="count"
-               input-maxDepth="depth"
-               input-maxBranching="branch"
-               input-rootBranches="root">
+               inputs="nodeCount:count;maxDepth:depth;maxBranching:branch;rootBranches:root">
   </node-plugin>
   
   <!-- Minimap Generator -->
@@ -296,15 +334,14 @@ console.log('Inputs:', node.getInputConnections())
                x="700" y="200"
                plugin="minimap" 
                function="gen"
-               inputs="treeId"
-               input-treeId="treegen">
+               inputs="treeId:treegen">
   </node-plugin>
   
   <!-- Output -->
   <node-output id="result" 
                x="1000" y="200"
                label="Final Map"
-               input-value="minimap">
+               inputs="value:minimap">
   </node-output>
 </view-nodegraph>
 ```

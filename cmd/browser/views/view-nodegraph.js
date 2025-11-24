@@ -49,35 +49,35 @@ const COLORS = {
 export class ViewNodeGraph extends ViewCanvasBase {
   constructor() {
     super('view-nodegraph')
-    
+
     // Node registry (id -> node element)
     this.nodes = new Map()
-    
+
     // Interaction state
     this.selectedNodes = new Set()
     this.draggedNode = null
     this.dragOffset = { x: 0, y: 0 }
-    
+
     // Connection creation state
     this.connectionDragStart = null // { nodeId, port, x, y }
     this.connectionDragCurrent = null // { x, y }
-    
+
     // Cached connection index for rendering
     this.connectionIndex = []
-    
+
     // Execution state
     this.isExecuting = false
   }
 
   connectedCallback() {
     super.connectedCallback()
-    
+
     // Setup UI buttons
     const addNodeBtn = this.content.querySelector('[data-action="add-node"]')
     if (addNodeBtn) {
       addNodeBtn.onclick = () => this.addNodeMenu()
     }
-    
+
     const runBtn = this.content.querySelector('[data-action="run"]')
     if (runBtn) {
       runBtn.onclick = () => this.executeGraph()
@@ -92,7 +92,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       console.error('Node must have an id attribute', nodeElement)
       return
     }
-    
+
     this.nodes.set(id, nodeElement)
     this.rebuildConnectionIndex()
     this.draw()
@@ -115,22 +115,22 @@ export class ViewNodeGraph extends ViewCanvasBase {
   calculateContentBounds(data) {
     let minX = Infinity, maxX = -Infinity
     let minY = Infinity, maxY = -Infinity
-    
+
     if (data.nodes.size === 0) {
       return { minX: 0, maxX: 800, minY: 0, maxY: 600 }
     }
-    
+
     for (const node of data.nodes.values()) {
       const x = parseFloat(node.getAttribute('x')) || 0
       const y = parseFloat(node.getAttribute('y')) || 0
       const info = node.getDisplayInfo()
-      
+
       minX = Math.min(minX, x)
       maxX = Math.max(maxX, x + info.width)
       minY = Math.min(minY, y)
       maxY = Math.max(maxY, y + info.height)
     }
-    
+
     // Add padding
     const padding = 100
     return {
@@ -144,17 +144,17 @@ export class ViewNodeGraph extends ViewCanvasBase {
   drawContent(ctx, data) {
     // 1. Draw grid
     this.drawGrid(ctx)
-    
+
     // 2. Draw connections
     for (const conn of this.connectionIndex) {
       this.drawConnection(ctx, conn)
     }
-    
+
     // 3. Draw active connection being created
     if (this.connectionDragStart && this.connectionDragCurrent) {
       this.drawActiveConnection(ctx)
     }
-    
+
     // 4. Draw nodes
     for (const node of data.nodes.values()) {
       this.drawNode(ctx, node)
@@ -164,10 +164,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
   getHoverInfo(worldX, worldY, _data) {
     const node = this.getNodeAt(worldX, worldY)
     if (!node) return null
-    
+
     const inputs = node.getInputConnections()
     const inputStr = inputs.map(c => `${c.port}: ${c.sourceNodeId}`).join('<br>')
-    
+
     return `
       <strong>${node.id}</strong><br>
       Type: ${node.constructor.name}<br>
@@ -181,10 +181,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
   drawGrid(ctx) {
     const gridSize = 50
     const { minX, maxX, minY, maxY } = this.contentBounds
-    
+
     ctx.strokeStyle = COLORS.grid
     ctx.lineWidth = 1
-    
+
     // Vertical lines
     for (let x = Math.floor(minX / gridSize) * gridSize; x < maxX; x += gridSize) {
       ctx.beginPath()
@@ -192,7 +192,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       ctx.lineTo(x, maxY)
       ctx.stroke()
     }
-    
+
     // Horizontal lines
     for (let y = Math.floor(minY / gridSize) * gridSize; y < maxY; y += gridSize) {
       ctx.beginPath()
@@ -207,36 +207,36 @@ export class ViewNodeGraph extends ViewCanvasBase {
     const y = parseFloat(node.getAttribute('y')) || 0
     const selected = this.selectedNodes.has(node)
     const info = node.getDisplayInfo()
-    
+
     // Determine colors
     const nodeColor = COLORS.node[node.state] || COLORS.node.idle
     const headerColor = COLORS.nodeHeader[info.type] || COLORS.nodeHeader.plugin
-    
+
     // Draw selection highlight
     if (selected) {
       ctx.strokeStyle = COLORS.selection
       ctx.lineWidth = 3
       ctx.strokeRect(x - 2, y - 2, info.width + 4, info.height + 4)
     }
-    
+
     // Draw node body
     ctx.fillStyle = nodeColor
     ctx.fillRect(x, y, info.width, info.height)
-    
+
     // Draw node header
     ctx.fillStyle = headerColor
     ctx.fillRect(x, y, info.width, NODE_HEADER_HEIGHT)
-    
+
     // Draw title
     ctx.fillStyle = COLORS.text
     ctx.font = '14px sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.fillText(info.title, x + 10, y + NODE_HEADER_HEIGHT / 2)
-    
+
     // Draw input ports
     this.drawPorts(ctx, x, y + NODE_HEADER_HEIGHT, info.inputs, 'input', node)
-    
+
     // Draw output ports
     this.drawPorts(ctx, x, y + NODE_HEADER_HEIGHT, info.outputs, 'output', node)
   }
@@ -244,10 +244,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
   drawPorts(ctx, nodeX, startY, ports, type, node) {
     const isInput = type === 'input'
     const portX = isInput ? nodeX : nodeX + NODE_WIDTH
-    
+
     ports.forEach((port, index) => {
       const portY = startY + (index + 1) * PORT_SPACING
-      
+
       // Check if port is connected
       let isConnected = false
       if (isInput) {
@@ -258,13 +258,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
           conn => conn.fromNodeId === node.id && conn.fromPort === port.name
         )
       }
-      
+
       // Draw port circle
       ctx.fillStyle = isConnected ? COLORS.portConnected : COLORS.port
       ctx.beginPath()
       ctx.arc(portX, portY, PORT_SIZE / 2, 0, Math.PI * 2)
       ctx.fill()
-      
+
       // Draw port label
       ctx.fillStyle = COLORS.textSecondary
       ctx.font = '11px sans-serif'
@@ -278,23 +278,29 @@ export class ViewNodeGraph extends ViewCanvasBase {
   drawConnection(ctx, conn) {
     const fromNode = this.nodes.get(conn.fromNodeId)
     const toNode = this.nodes.get(conn.toNodeId)
-    
+
     if (!fromNode || !toNode) return
-    
+
     const fromInfo = fromNode.getDisplayInfo()
     const toInfo = toNode.getDisplayInfo()
-    
+
     // Calculate port positions
     const fromX = parseFloat(fromNode.getAttribute('x')) || 0
     const fromY = parseFloat(fromNode.getAttribute('y')) || 0
     const fromPortIndex = fromInfo.outputs.findIndex(p => p.name === conn.fromPort)
-    const fromPortY = fromY + NODE_HEADER_HEIGHT + (fromPortIndex + 1) * PORT_SPACING
-    
+
+    // If port not found, default to first port (index 0)
+    const validFromPortIndex = fromPortIndex >= 0 ? fromPortIndex : 0
+    const fromPortY = fromY + NODE_HEADER_HEIGHT + (validFromPortIndex + 1) * PORT_SPACING
+
     const toX = parseFloat(toNode.getAttribute('x')) || 0
     const toY = parseFloat(toNode.getAttribute('y')) || 0
     const toPortIndex = toInfo.inputs.findIndex(p => p.name === conn.toPort)
-    const toPortY = toY + NODE_HEADER_HEIGHT + (toPortIndex + 1) * PORT_SPACING
-    
+
+    // If port not found, default to first port (index 0)
+    const validToPortIndex = toPortIndex >= 0 ? toPortIndex : 0
+    const toPortY = toY + NODE_HEADER_HEIGHT + (validToPortIndex + 1) * PORT_SPACING
+
     // Draw bezier curve
     this.drawBezierConnection(
       ctx,
@@ -307,14 +313,14 @@ export class ViewNodeGraph extends ViewCanvasBase {
   drawActiveConnection(ctx) {
     const { x: fromX, y: fromY } = this.connectionDragStart
     const { x: toX, y: toY } = this.connectionDragCurrent
-    
+
     this.drawBezierConnection(ctx, fromX, fromY, toX, toY, COLORS.connectionActive)
   }
 
   drawBezierConnection(ctx, x1, y1, x2, y2, color) {
     const dx = Math.abs(x2 - x1)
     const cpOffset = Math.min(dx * 0.5, 100)
-    
+
     ctx.strokeStyle = color
     ctx.lineWidth = 2
     ctx.beginPath()
@@ -331,10 +337,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   rebuildConnectionIndex() {
     this.connectionIndex = []
-    
+
     for (const node of this.nodes.values()) {
       const connections = node.getInputConnections()
-      
+      console.log(`[${node.id}] getInputConnections returned:`, connections)
+
       for (const conn of connections) {
         this.connectionIndex.push({
           fromNodeId: conn.sourceNodeId,
@@ -344,6 +351,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
         })
       }
     }
+
+    console.log('Connection index rebuilt:', this.connectionIndex)
   }
 
   // --- Interaction Helpers ---
@@ -366,9 +375,9 @@ export class ViewNodeGraph extends ViewCanvasBase {
       const x = parseFloat(node.getAttribute('x')) || 0
       const y = parseFloat(node.getAttribute('y')) || 0
       const info = node.getDisplayInfo()
-      
+
       if (worldX >= x && worldX <= x + info.width &&
-          worldY >= y && worldY <= y + info.height) {
+        worldY >= y && worldY <= y + info.height) {
         return node
       }
     }
@@ -383,31 +392,31 @@ export class ViewNodeGraph extends ViewCanvasBase {
     const x = parseFloat(node.getAttribute('x')) || 0
     const y = parseFloat(node.getAttribute('y')) || 0
     const info = node.getDisplayInfo()
-    
+
     const startY = y + NODE_HEADER_HEIGHT
-    
+
     // Check input ports (left side)
     for (let i = 0; i < info.inputs.length; i++) {
       const portX = x
       const portY = startY + (i + 1) * PORT_SPACING
       const dist = Math.sqrt((worldX - portX) ** 2 + (worldY - portY) ** 2)
-      
+
       if (dist <= PORT_SIZE) {
         return { port: info.inputs[i], type: 'input', index: i }
       }
     }
-    
+
     // Check output ports (right side)
     for (let i = 0; i < info.outputs.length; i++) {
       const portX = x + info.width
       const portY = startY + (i + 1) * PORT_SPACING
       const dist = Math.sqrt((worldX - portX) ** 2 + (worldY - portY) ** 2)
-      
+
       if (dist <= PORT_SIZE) {
         return { port: info.outputs[i], type: 'output', index: i }
       }
     }
-    
+
     return null
   }
 
@@ -416,18 +425,18 @@ export class ViewNodeGraph extends ViewCanvasBase {
   _onMouseDown(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
     const node = this.getNodeAt(worldPos.x, worldPos.y)
-    
+
     if (node) {
       // Check if clicking on a port
       const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
-      
+
       if (portHit && portHit.type === 'output') {
         // Start connection drag from output port
         const info = node.getDisplayInfo()
         const nodeX = parseFloat(node.getAttribute('x')) || 0
         const nodeY = parseFloat(node.getAttribute('y')) || 0
         const portY = nodeY + NODE_HEADER_HEIGHT + (portHit.index + 1) * PORT_SPACING
-        
+
         this.connectionDragStart = {
           nodeId: node.id,
           port: portHit.port.name,
@@ -437,38 +446,38 @@ export class ViewNodeGraph extends ViewCanvasBase {
         this.connectionDragCurrent = { x: worldPos.x, y: worldPos.y }
         return
       }
-      
+
       // Start node drag
       if (!e.ctrlKey && !e.metaKey) {
         this.selectedNodes.clear()
       }
       this.selectedNodes.add(node)
-      
+
       const nodeX = parseFloat(node.getAttribute('x')) || 0
       const nodeY = parseFloat(node.getAttribute('y')) || 0
-      
+
       this.draggedNode = node
       this.dragOffset = {
         x: worldPos.x - nodeX,
         y: worldPos.y - nodeY
       }
-      
+
       this.draw()
       return
     }
-    
+
     // Clear selection and pan viewport
     if (!e.ctrlKey && !e.metaKey) {
       this.selectedNodes.clear()
       this.draw()
     }
-    
+
     super._onMouseDown(e)
   }
 
   _onMouseMove(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
-    
+
     // Handle connection drag
     if (this.connectionDragStart) {
       this.connectionDragCurrent = { x: worldPos.x, y: worldPos.y }
@@ -476,17 +485,17 @@ export class ViewNodeGraph extends ViewCanvasBase {
       this._handleHover(e)
       return
     }
-    
+
     // Handle node drag
     if (this.draggedNode && !this.isDragging) {
       const newX = worldPos.x - this.dragOffset.x
       const newY = worldPos.y - this.dragOffset.y
-      
+
       this.draggedNode.setAttribute('x', newX)
       this.draggedNode.setAttribute('y', newY)
       return
     }
-    
+
     super._onMouseMove(e)
   }
 
@@ -495,10 +504,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
     if (this.connectionDragStart) {
       const worldPos = this.screenToWorld(e.clientX, e.clientY)
       const targetNode = this.getNodeAt(worldPos.x, worldPos.y)
-      
+
       if (targetNode && targetNode.id !== this.connectionDragStart.nodeId) {
         const portHit = this.getPortAt(targetNode, worldPos.x, worldPos.y)
-        
+
         if (portHit && portHit.type === 'input') {
           // Create connection
           this.connectNodes(
@@ -509,16 +518,16 @@ export class ViewNodeGraph extends ViewCanvasBase {
           )
         }
       }
-      
+
       this.connectionDragStart = null
       this.connectionDragCurrent = null
       this.draw()
       return
     }
-    
+
     // End node drag
     this.draggedNode = null
-    
+
     super._onMouseUp(e)
   }
 
@@ -527,10 +536,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
   connectNodes(fromNodeId, fromPort, toNodeId, toPort) {
     const toNode = this.nodes.get(toNodeId)
     if (!toNode) return
-    
+
     // Set the input attribute (our connection model)
     toNode.setAttribute(`input-${toPort}`, `${fromNodeId}.${fromPort}`)
-    
+
     this.rebuildConnectionIndex()
     this.draw()
   }
@@ -539,15 +548,15 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   async executeGraph() {
     if (this.isExecuting) return
-    
+
     this.isExecuting = true
     console.log('Executing graph...')
-    
+
     // TODO: Implement topological sort and execution
     // For now, just log
     console.log('Nodes:', Array.from(this.nodes.keys()))
     console.log('Connections:', this.connectionIndex)
-    
+
     this.isExecuting = false
   }
 

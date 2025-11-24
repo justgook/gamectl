@@ -178,7 +178,8 @@
     <layout-parent handle-width="6" handle-height="20" id="scene">
       <view-nodegraph panel="panel_1">
         <node-input id="n1" x="100" y="100" value="10" label="Count"></node-input>
-        <node-plugin id="n2" x="400" y="100" plugin="treegen" function="gen" inputs="nodeCount" input-nodeCount="n1">
+        <node-input id="n4" x="100" y="250" value="5" label="max Depth"></node-input>
+        <node-plugin id="n2" x="400" y="100" plugin="treegen" function="gen" inputs="nodeCount:n1;maxDepth:n4">
         </node-plugin>
         <node-output id="n3" x="700" y="100" input-value="n2"></node-output>
       </view-nodegraph>
@@ -207,8 +208,8 @@
       import "./views/nodegraph/node-plugin.js"
       import "./views/nodegraph/node-output.js"
 
-      // import {bus} from "./systems/event-bus.js"
       // window.bus = bus
+      // import {bus} from "./systems/event-bus.js"
 
       //current stuff
       customElements.define('layout-parent', LayoutParent)
@@ -219,7 +220,7 @@
       customElements.define('view-tree', ViewTree)
       customElements.define('view-console', ViewConsole)
       customElements.define('view-pipeline', ViewPipeline)
-      customElements.define('view-nodegraph', ViewNodeGraph)
+      // customElements.define('view-nodegraph', ViewNodeGraph) //already registered in file
 
       /// THE PLUGIN MANAGER TESTING!!!
       const pluginNames = [

@@ -6,23 +6,31 @@ import { NodeBase } from './node-base.js'
  * Attributes:
  * - plugin: Plugin module name (e.g., 'treegen')
  * - function: Function name to call (e.g., 'gen')
- * - inputs: Comma-separated input port names
+ * - inputs: Port definitions with optional connections
+ *   Format 1 (ports only): "nodeCount,maxDepth,maxBranching"
+ *   Format 2 (with connections): "nodeCount:n1;maxDepth:n2;maxBranching:n3"
  * - outputs: Comma-separated output port names (default: 'output')
- * - input-{portName}: Connection to source node (e.g., input-nodeCount="n1")
  * 
- * Example:
+ * New Format Example (recommended):
  * <node-plugin id="treegen" x="400" y="100"
  *              plugin="treegen" 
  *              function="gen"
- *              inputs="nodeCount,maxDepth,maxBranching,rootBranches"
- *              outputs="tree"
+ *              inputs="nodeCount:n1;maxDepth:n2;maxBranching:n3"
+ *              outputs="tree">
+ * </node-plugin>
+ * 
+ * Old Format Example (still supported):
+ * <node-plugin id="treegen" x="400" y="100"
+ *              plugin="treegen" 
+ *              function="gen"
+ *              inputs="nodeCount,maxDepth,maxBranching"
  *              input-nodeCount="n1"
  *              input-maxDepth="n2">
  * </node-plugin>
  */
 export class NodePlugin extends NodeBase {
   static get observedAttributes() {
-    return [...super.observedAttributes, 'plugin', 'function', 'inputs', 'outputs']
+    return [...super.observedAttributes, 'plugin', 'function', 'outputs']
   }
 
   constructor() {
@@ -41,11 +49,38 @@ export class NodePlugin extends NodeBase {
     this.plugin = this.getAttribute('plugin') || ''
     this.functionName = this.getAttribute('function') || ''
 
-    const inputsAttr = this.getAttribute('inputs') || ''
-    this.inputPorts = inputsAttr ? inputsAttr.split(',').map(s => s.trim()) : []
+    // Parse input ports from the inputs attribute
+    this._updateInputPorts()
 
     const outputsAttr = this.getAttribute('outputs') || 'output'
     this.outputPorts = outputsAttr.split(',').map(s => s.trim())
+  }
+
+  /**
+   * Update inputPorts array based on inputs attribute format
+   * Called after parent has parsed the inputs attribute
+   * @private
+   */
+  _updateInputPorts() {
+    const inputsAttr = this.getAttribute('inputs') || ''
+
+    if (!inputsAttr) {
+      this.inputPorts = []
+      return
+    }
+
+    // Detect format by checking if it contains ':' (new format) or ',' (old format)
+    if (inputsAttr.includes(':')) {
+      // New format: "port1:source1;port2:source2"
+      // Parent has already parsed into this._parsedInputs
+      // Extract port names from the parsed connections
+      this.inputPorts = Array.from(this._parsedInputs.keys())
+      console.log(`[${this.id}] Updated inputPorts from new format:`, this.inputPorts)
+    } else {
+      // Old format: "port1,port2,port3"
+      this.inputPorts = inputsAttr.split(',').map(s => s.trim()).filter(Boolean)
+      console.log(`[${this.id}] Updated inputPorts from old format:`, this.inputPorts)
+    }
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
@@ -60,10 +95,6 @@ export class NodePlugin extends NodeBase {
         break
       case 'function':
         this.functionName = newVal || ''
-        this.requestRedraw()
-        break
-      case 'inputs':
-        this.inputPorts = newVal ? newVal.split(',').map(s => s.trim()) : []
         this.requestRedraw()
         break
       case 'outputs':
