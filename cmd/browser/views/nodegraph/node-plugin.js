@@ -19,16 +19,39 @@ import { NodeBase } from './node-base.js'
  */
 export class NodePlugin extends NodeBase {
   static get observedAttributes() {
-    return [...super.observedAttributes, 'plugin', 'function', 'outputs']
+    return [...super.observedAttributes, 'plugin', 'function']
   }
 
   constructor() {
     super()
     this.plugin = ''
     this.functionName = ''
-    this.inputPorts = []
-    this.outputPorts = ['output']
     this.outputValues = {} // Multiple outputs support
+  }
+
+  connectedCallback() {
+    super.connectedCallback()
+
+    // Parse plugin-specific attributes
+    this.plugin = this.getAttribute('plugin') || ''
+    this.functionName = this.getAttribute('function') || ''
+  }
+
+  attributeChangedCallback(name, oldVal, newVal) {
+    super.attributeChangedCallback(name, oldVal, newVal)
+
+    if (oldVal === newVal) return
+
+    switch (name) {
+      case 'plugin':
+        this.plugin = newVal || ''
+        this.requestRedraw()
+        break
+      case 'function':
+        this.functionName = newVal || ''
+        this.requestRedraw()
+        break
+    }
   }
 
   connectedCallback() {
@@ -94,43 +117,22 @@ export class NodePlugin extends NodeBase {
   }
 
   getDisplayInfo() {
+    const inputs = this.getInputPorts()
+    const outputs = this.getOutputPorts()
+
     return {
       title: `${this.plugin}.${this.functionName}`,
       type: 'plugin',
       width: 200,
-      height: Math.max(120, 50 + Math.max(this.inputPorts.length, this.outputPorts.length) * 24),
-      inputs: this.inputPorts.map(name => ({
-        name,
-        type: 'any',
-        label: name
-      })),
-      outputs: this.outputPorts.map(name => ({
-        name,
-        type: 'any',
-        label: name
-      }))
+      height: Math.max(120, 50 + Math.max(inputs.length, outputs.length) * 24),
+      inputs,
+      outputs
     }
-  }
-
-  getInputPorts() {
-    return this.inputPorts.map(name => ({
-      name,
-      type: 'any',
-      label: name
-    }))
-  }
-
-  getOutputPorts() {
-    return this.outputPorts.map(name => ({
-      name,
-      type: 'any',
-      label: name
-    }))
   }
 
   getOutputValue(port) {
     // Support multiple outputs
-    if (this.outputPorts.length === 1) {
+    if (this._parsedOutputs.length === 1) {
       return this.outputValue
     }
     return this.outputValues[port]
@@ -156,13 +158,15 @@ export class NodePlugin extends NodeBase {
     try {
       // Collect inputs from connected nodes
       const inputs = {}
-      for (const portName of this.inputPorts) {
-        const value = this.getInputValue(portName)
+      const inputPorts = this.getInputPorts()
+
+      for (const port of inputPorts) {
+        const value = this.getInputValue(port.name)
         if (value === null) {
           // TODO: Decide if null inputs are allowed
           // For now, we'll allow them
         }
-        inputs[portName] = value
+        inputs[port.name] = value
       }
 
       console.log(`Executing ${this.plugin}.${this.functionName} with inputs:`, inputs)
@@ -175,7 +179,7 @@ export class NodePlugin extends NodeBase {
       )
 
       // Store output(s)
-      if (this.outputPorts.length === 1) {
+      if (this._parsedOutputs.length === 1) {
         this.outputValue = result.output
       } else {
         // Parse multiple outputs (assuming JSON response with named outputs)

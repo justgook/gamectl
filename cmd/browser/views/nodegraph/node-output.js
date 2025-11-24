@@ -50,26 +50,22 @@ export class NodeOutput extends NodeBase {
   }
 
   getDisplayInfo() {
+    const inputs = this.getInputPorts()
+    const outputs = this.getOutputPorts()
+
     return {
       title: this.label,
       type: 'output',
       width: 200,
       height: 100,
-      inputs: [
-        { name: 'value', type: 'any', label: 'Input' }
-      ],
-      outputs: [] // No outputs
+      inputs,
+      outputs
     }
   }
 
-  getInputPorts() {
-    return [
-      { name: 'value', type: 'any', label: 'Input' }
-    ]
-  }
-
   getOutputPorts() {
-    return [] // Terminal node
+    // Terminal node - no outputs
+    return []
   }
 
   async execute() {

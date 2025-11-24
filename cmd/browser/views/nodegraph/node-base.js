@@ -16,7 +16,7 @@
  */
 export class NodeBase extends HTMLElement {
   static get observedAttributes() {
-    return ['x', 'y', 'state', 'selected', 'inputs']
+    return ['x', 'y', 'state', 'selected', 'inputs', 'outputs']
   }
 
   constructor() {
@@ -27,6 +27,7 @@ export class NodeBase extends HTMLElement {
     this.outputValue = null // Result of node execution
     this.error = null
     this._parsedInputs = new Map() // Parsed from inputs attribute
+    this._parsedOutputs = [] // Parsed from outputs attribute
   }
 
   connectedCallback() {
@@ -47,6 +48,10 @@ export class NodeBase extends HTMLElement {
     if (inputsAttr) {
       this._parseInputsAttribute(inputsAttr)
     }
+
+    // Parse outputs attribute (default to 'output' if not specified)
+    const outputsAttr = this.getAttribute('outputs') || 'output'
+    this._parseOutputsAttribute(outputsAttr)
   }
 
   disconnectedCallback() {
@@ -80,6 +85,10 @@ export class NodeBase extends HTMLElement {
         this._parseInputsAttribute(newVal)
         this.requestRedraw()
         break
+      case 'outputs':
+        this._parseOutputsAttribute(newVal)
+        this.requestRedraw()
+        break
     }
   }
 
@@ -101,8 +110,19 @@ export class NodeBase extends HTMLElement {
         this._parsedInputs.set(portName, { sourceNodeId, sourcePort })
       }
     }
+  }
 
+  /**
+   * Parse outputs attribute: "output1,output2,output3"
+   * @private
+   */
+  _parseOutputsAttribute(value) {
+    if (!value) {
+      this._parsedOutputs = ['output']
+      return
+    }
 
+    this._parsedOutputs = value.split(',').map(s => s.trim()).filter(Boolean)
   }
 
   /**
@@ -120,11 +140,11 @@ export class NodeBase extends HTMLElement {
    */
   getInputConnections() {
     const connections = []
-    
+
     for (const [port, { sourceNodeId, sourcePort }] of this._parsedInputs) {
       connections.push({ port, sourceNodeId, sourcePort })
     }
-    
+
     return connections
   }
 
@@ -135,10 +155,10 @@ export class NodeBase extends HTMLElement {
    */
   getInputValue(port) {
     if (!this._parsedInputs.has(port)) return null
-    
+
     const { sourceNodeId, sourcePort } = this._parsedInputs.get(port)
     const sourceNode = this.graph?.nodes.get(sourceNodeId)
-    
+
     if (!sourceNode) return null
 
     // For nodes with named outputs, get specific port value
@@ -199,19 +219,29 @@ export class NodeBase extends HTMLElement {
   }
 
   /**
-   * Get input port definitions (override in subclasses)
+   * Get input port definitions
+   * Default: extracts from _parsedInputs
    * @returns {Array<{name: string, type: string, label: string}>}
    */
   getInputPorts() {
-    return []
+    return Array.from(this._parsedInputs.keys()).map(name => ({
+      name,
+      type: 'any',
+      label: name
+    }))
   }
 
   /**
-   * Get output port definitions (override in subclasses)
+   * Get output port definitions
+   * Default: uses _parsedOutputs
    * @returns {Array<{name: string, type: string, label: string}>}
    */
   getOutputPorts() {
-    return [{ name: 'output', type: 'any', label: 'Output' }]
+    return this._parsedOutputs.map(name => ({
+      name,
+      type: 'any',
+      label: name
+    }))
   }
 }
 
