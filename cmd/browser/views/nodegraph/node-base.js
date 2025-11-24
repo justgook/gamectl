@@ -105,9 +105,15 @@ export class NodeBase extends HTMLElement {
 
     for (const pair of pairs) {
       const [portName, source] = pair.split(':').map(s => s.trim())
-      if (portName && source) {
-        const [sourceNodeId, sourcePort = 'output'] = source.split('.')
-        this._parsedInputs.set(portName, { sourceNodeId, sourcePort })
+      if (portName) {
+        if (source) {
+          // Connected: "portName:sourceNode.sourcePort"
+          const [sourceNodeId, sourcePort = 'output'] = source.split('.')
+          this._parsedInputs.set(portName, { sourceNodeId, sourcePort })
+        } else {
+          // Disconnected: "portName" (no source)
+          this._parsedInputs.set(portName, null)
+        }
       }
     }
   }
@@ -141,8 +147,15 @@ export class NodeBase extends HTMLElement {
   getInputConnections() {
     const connections = []
 
-    for (const [port, { sourceNodeId, sourcePort }] of this._parsedInputs) {
-      connections.push({ port, sourceNodeId, sourcePort })
+    for (const [port, connection] of this._parsedInputs) {
+      if (connection) {
+        // Only include connected ports
+        connections.push({ 
+          port, 
+          sourceNodeId: connection.sourceNodeId, 
+          sourcePort: connection.sourcePort 
+        })
+      }
     }
 
     return connections
@@ -156,7 +169,10 @@ export class NodeBase extends HTMLElement {
   getInputValue(port) {
     if (!this._parsedInputs.has(port)) return null
 
-    const { sourceNodeId, sourcePort } = this._parsedInputs.get(port)
+    const connection = this._parsedInputs.get(port)
+    if (!connection) return null // Port exists but is disconnected
+
+    const { sourceNodeId, sourcePort } = connection
     const sourceNode = this.graph?.nodes.get(sourceNodeId)
 
     if (!sourceNode) return null

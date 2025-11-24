@@ -6,6 +6,8 @@ const NODE_HEIGHT = 120
 const NODE_HEADER_HEIGHT = 30
 const PORT_SIZE = 12
 const PORT_SPACING = 24
+const PORT_HIT_RADIUS = 20 // Larger hit area for easier clicking
+const CONNECTION_HIT_RADIUS = 10 // How close to click on connection line
 
 // Colors (TODO: integrate with design tokens)
 const COLORS = {
@@ -58,9 +60,15 @@ export class ViewNodeGraph extends ViewCanvasBase {
     this.draggedNode = null
     this.dragOffset = { x: 0, y: 0 }
 
-    // Connection creation state
-    this.connectionDragStart = null // { nodeId, port, x, y }
-    this.connectionDragCurrent = null // { x, y }
+    // Connection interaction state
+    this.connectionDragState = null
+    // Structure:
+    // {
+    //   mode: 'create' | 'reconnect-input' | 'reconnect-output',
+    //   fixedEnd: { nodeId, port, type: 'input'|'output', x, y },
+    //   movingEnd: { x, y },
+    //   originalConnection: { fromNodeId, fromPort, toNodeId, toPort } // if reconnecting
+    // }
 
     // Cached connection index for rendering
     this.connectionIndex = []
@@ -147,11 +155,21 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // 2. Draw connections
     for (const conn of this.connectionIndex) {
+      // Skip drawing the original connection if we're currently reconnecting it
+      if (this.connectionDragState?.originalConnection) {
+        const orig = this.connectionDragState.originalConnection
+        if (conn.fromNodeId === orig.fromNodeId &&
+          conn.fromPort === orig.fromPort &&
+          conn.toNodeId === orig.toNodeId &&
+          conn.toPort === orig.toPort) {
+          continue // Skip this connection during drag
+        }
+      }
       this.drawConnection(ctx, conn)
     }
 
-    // 3. Draw active connection being created
-    if (this.connectionDragStart && this.connectionDragCurrent) {
+    // 3. Draw active connection being created/reconnected
+    if (this.connectionDragState) {
       this.drawActiveConnection(ctx)
     }
 
@@ -251,7 +269,9 @@ export class ViewNodeGraph extends ViewCanvasBase {
       // Check if port is connected
       let isConnected = false
       if (isInput) {
-        isConnected = node._parsedInputs?.has(port.name) || false
+        // Check if port exists AND has a connection (not null)
+        const connection = node._parsedInputs?.get(port.name)
+        isConnected = connection !== undefined && connection !== null
       } else {
         // Check if any node uses this output
         isConnected = this.connectionIndex.some(
@@ -311,10 +331,28 @@ export class ViewNodeGraph extends ViewCanvasBase {
   }
 
   drawActiveConnection(ctx) {
-    const { x: fromX, y: fromY } = this.connectionDragStart
-    const { x: toX, y: toY } = this.connectionDragCurrent
+    const { fixedEnd, movingEnd } = this.connectionDragState
 
-    this.drawBezierConnection(ctx, fromX, fromY, toX, toY, COLORS.connectionActive)
+    // Determine connection direction based on port type
+    // Output ports are on the right, input ports on the left
+    if (fixedEnd.type === 'output') {
+      // Fixed end is output (right side), moving end will be input (left side)
+      this.drawBezierConnection(
+        ctx,
+        fixedEnd.x, fixedEnd.y,
+        movingEnd.x, movingEnd.y,
+        COLORS.connectionActive
+      )
+    } else {
+      // Fixed end is input (left side), moving end will be output (right side)
+      // Reverse the connection so it flows output -> input
+      this.drawBezierConnection(
+        ctx,
+        movingEnd.x, movingEnd.y,
+        fixedEnd.x, fixedEnd.y,
+        COLORS.connectionActive
+      )
+    }
   }
 
   drawBezierConnection(ctx, x1, y1, x2, y2, color) {
@@ -337,10 +375,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   rebuildConnectionIndex() {
     this.connectionIndex = []
-    
+
     for (const node of this.nodes.values()) {
       const connections = node.getInputConnections()
-      
+
       for (const conn of connections) {
         this.connectionIndex.push({
           fromNodeId: conn.sourceNodeId,
@@ -350,6 +388,119 @@ export class ViewNodeGraph extends ViewCanvasBase {
         })
       }
     }
+  }
+
+  // --- Connection Interaction ---
+
+  /**
+   * Get connection at world coordinates
+   * @returns {{ connection: object, side: 'input'|'output' } | null}
+   */
+  getConnectionAt(worldX, worldY) {
+    for (const conn of this.connectionIndex) {
+      const dist = this.distanceToConnection(worldX, worldY, conn)
+
+      if (dist < CONNECTION_HIT_RADIUS) {
+        // Determine which side is closer
+        const side = this.getConnectionSide(worldX, worldY, conn)
+        return { connection: conn, side }
+      }
+    }
+    return null
+  }
+
+  /**
+   * Calculate distance from point to connection bezier curve
+   */
+  distanceToConnection(x, y, connection) {
+    const points = this.getConnectionCurvePoints(connection)
+    if (!points) return Infinity
+
+    const { x1, y1, x2, y2, cp1x, cp1y, cp2x, cp2y } = points
+
+    // Sample points along bezier curve
+    let minDist = Infinity
+    for (let t = 0; t <= 1; t += 0.05) {
+      const px = this.bezierPoint(t, x1, cp1x, cp2x, x2)
+      const py = this.bezierPoint(t, y1, cp1y, cp2y, y2)
+      const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2)
+      minDist = Math.min(minDist, dist)
+    }
+
+    return minDist
+  }
+
+  /**
+   * Calculate point on cubic bezier curve at t (0 to 1)
+   */
+  bezierPoint(t, p0, p1, p2, p3) {
+    const u = 1 - t
+    return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3
+  }
+
+  /**
+   * Get bezier curve control points for a connection
+   */
+  getConnectionCurvePoints(connection) {
+    const fromNode = this.nodes.get(connection.fromNodeId)
+    const toNode = this.nodes.get(connection.toNodeId)
+
+    if (!fromNode || !toNode) return null
+
+    const fromInfo = fromNode.getDisplayInfo()
+    const toInfo = toNode.getDisplayInfo()
+
+    // Calculate port positions
+    const fromX = parseFloat(fromNode.getAttribute('x')) || 0
+    const fromY = parseFloat(fromNode.getAttribute('y')) || 0
+    const fromPortIndex = fromInfo.outputs.findIndex(p => p.name === connection.fromPort)
+    const validFromPortIndex = fromPortIndex >= 0 ? fromPortIndex : 0
+    const fromPortY = fromY + NODE_HEADER_HEIGHT + (validFromPortIndex + 1) * PORT_SPACING
+
+    const toX = parseFloat(toNode.getAttribute('x')) || 0
+    const toY = parseFloat(toNode.getAttribute('y')) || 0
+    const toPortIndex = toInfo.inputs.findIndex(p => p.name === connection.toPort)
+    const validToPortIndex = toPortIndex >= 0 ? toPortIndex : 0
+    const toPortY = toY + NODE_HEADER_HEIGHT + (validToPortIndex + 1) * PORT_SPACING
+
+    const x1 = fromX + fromInfo.width
+    const y1 = fromPortY
+    const x2 = toX
+    const y2 = toPortY
+
+    const dx = Math.abs(x2 - x1)
+    const cpOffset = Math.min(dx * 0.5, 100)
+
+    return {
+      x1, y1, x2, y2,
+      cp1x: x1 + cpOffset,
+      cp1y: y1,
+      cp2x: x2 - cpOffset,
+      cp2y: y2
+    }
+  }
+
+  /**
+   * Determine which side of connection is closer to point
+   * @returns {'input'|'output'}
+   */
+  getConnectionSide(worldX, worldY, connection) {
+    const points = this.getConnectionCurvePoints(connection)
+    if (!points) return 'input'
+
+    const distToStart = Math.sqrt((worldX - points.x1) ** 2 + (worldY - points.y1) ** 2)
+    const distToEnd = Math.sqrt((worldX - points.x2) ** 2 + (worldY - points.y2) ** 2)
+
+    return distToStart < distToEnd ? 'output' : 'input'
+  }
+
+  /**
+   * Find existing connection to an input port
+   */
+  findConnectionToInput(nodeId, portName) {
+    return this.connectionIndex.find(
+      conn => conn.toNodeId === nodeId && conn.toPort === portName
+    )
   }
 
   // --- Interaction Helpers ---
@@ -398,7 +549,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       const portY = startY + (i + 1) * PORT_SPACING
       const dist = Math.sqrt((worldX - portX) ** 2 + (worldY - portY) ** 2)
 
-      if (dist <= PORT_SIZE) {
+      if (dist <= PORT_HIT_RADIUS) {
         return { port: info.inputs[i], type: 'input', index: i }
       }
     }
@@ -409,7 +560,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       const portY = startY + (i + 1) * PORT_SPACING
       const dist = Math.sqrt((worldX - portX) ** 2 + (worldY - portY) ** 2)
 
-      if (dist <= PORT_SIZE) {
+      if (dist <= PORT_HIT_RADIUS) {
         return { port: info.outputs[i], type: 'output', index: i }
       }
     }
@@ -421,29 +572,42 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   _onMouseDown(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
+
+    // Priority 1: Check if clicking on connection line
+    const connHit = this.getConnectionAt(worldPos.x, worldPos.y)
+    if (connHit) {
+      this.startConnectionReconnect(connHit.connection, connHit.side, worldPos)
+      return
+    }
+
+    // Priority 2: Check if clicking on a port (extended hit area)
+    // We check ALL nodes for port hits, not just nodes at this position
+    for (const node of this.nodes.values()) {
+      const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
+
+      if (portHit) {
+        if (portHit.type === 'output') {
+          // Start connection from output port
+          this.startConnectionCreate(node, portHit.port, 'output', worldPos)
+        } else {
+          // Input port - check if already connected
+          const existingConn = this.findConnectionToInput(node.id, portHit.port.name)
+          if (existingConn) {
+            // Reconnect existing connection
+            this.startConnectionReconnect(existingConn, 'input', worldPos)
+          } else {
+            // Start new connection from input port
+            this.startConnectionCreate(node, portHit.port, 'input', worldPos)
+          }
+        }
+        return
+      }
+    }
+
+    // Priority 3: Check if clicking on node body
     const node = this.getNodeAt(worldPos.x, worldPos.y)
 
     if (node) {
-      // Check if clicking on a port
-      const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
-
-      if (portHit && portHit.type === 'output') {
-        // Start connection drag from output port
-        const info = node.getDisplayInfo()
-        const nodeX = parseFloat(node.getAttribute('x')) || 0
-        const nodeY = parseFloat(node.getAttribute('y')) || 0
-        const portY = nodeY + NODE_HEADER_HEIGHT + (portHit.index + 1) * PORT_SPACING
-
-        this.connectionDragStart = {
-          nodeId: node.id,
-          port: portHit.port.name,
-          x: nodeX + info.width,
-          y: portY
-        }
-        this.connectionDragCurrent = { x: worldPos.x, y: worldPos.y }
-        return
-      }
-
       // Start node drag
       if (!e.ctrlKey && !e.metaKey) {
         this.selectedNodes.clear()
@@ -463,106 +627,271 @@ export class ViewNodeGraph extends ViewCanvasBase {
       return
     }
 
-    // Clear selection and pan viewport
-    if (!e.ctrlKey && !e.metaKey) {
-      this.selectedNodes.clear()
-      this.draw()
-    }
-
+    // Start canvas pan
     super._onMouseDown(e)
   }
 
-  _onMouseMove(e) {
+_onMouseMove(e) {
+  const worldPos = this.screenToWorld(e.clientX, e.clientY)
+
+  // Handle connection drag
+  if (this.connectionDragState) {
+    this.connectionDragState.movingEnd = { x: worldPos.x, y: worldPos.y }
+    this.draw()
+    this._handleHover(e)
+    return
+  }
+
+  // Handle node drag
+  if (this.draggedNode && !this.isDragging) {
+    const newX = worldPos.x - this.dragOffset.x
+    const newY = worldPos.y - this.dragOffset.y
+
+    this.draggedNode.setAttribute('x', newX)
+    this.draggedNode.setAttribute('y', newY)
+    return
+  }
+
+  super._onMouseMove(e)
+}
+
+_onMouseUp(e) {
+  // Handle connection creation/reconnection
+  if (this.connectionDragState) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
 
-    // Handle connection drag
-    if (this.connectionDragStart) {
-      this.connectionDragCurrent = { x: worldPos.x, y: worldPos.y }
-      this.draw()
-      this._handleHover(e)
-      return
-    }
+    // Check if dropping on any port (extended hit area)
+    let targetNode = null
+    let portHit = null
 
-    // Handle node drag
-    if (this.draggedNode && !this.isDragging) {
-      const newX = worldPos.x - this.dragOffset.x
-      const newY = worldPos.y - this.dragOffset.y
-
-      this.draggedNode.setAttribute('x', newX)
-      this.draggedNode.setAttribute('y', newY)
-      return
-    }
-
-    super._onMouseMove(e)
-  }
-
-  _onMouseUp(e) {
-    // Handle connection creation
-    if (this.connectionDragStart) {
-      const worldPos = this.screenToWorld(e.clientX, e.clientY)
-      const targetNode = this.getNodeAt(worldPos.x, worldPos.y)
-
-      if (targetNode && targetNode.id !== this.connectionDragStart.nodeId) {
-        const portHit = this.getPortAt(targetNode, worldPos.x, worldPos.y)
-
-        if (portHit && portHit.type === 'input') {
-          // Create connection
-          this.connectNodes(
-            this.connectionDragStart.nodeId,
-            this.connectionDragStart.port,
-            targetNode.id,
-            portHit.port.name
-          )
-        }
+    for (const node of this.nodes.values()) {
+      const hit = this.getPortAt(node, worldPos.x, worldPos.y)
+      if (hit) {
+        targetNode = node
+        portHit = hit
+        break
       }
-
-      this.connectionDragStart = null
-      this.connectionDragCurrent = null
-      this.draw()
-      return
     }
 
-    // End node drag
-    this.draggedNode = null
+    if (targetNode && portHit) {
+      // Validate: can we connect?
+      const isValid = this.validateConnection(
+        this.connectionDragState,
+        targetNode,
+        portHit
+      )
 
-    super._onMouseUp(e)
-  }
+      if (isValid) {
+        // Determine from/to based on port types
+        let fromNodeId, fromPort, toNodeId, toPort
 
-  // --- Connection Management ---
+        if (this.connectionDragState.fixedEnd.type === 'output') {
+          // Fixed end is output, moving end connected to input
+          fromNodeId = this.connectionDragState.fixedEnd.nodeId
+          fromPort = this.connectionDragState.fixedEnd.port
+          toNodeId = targetNode.id
+          toPort = portHit.port.name
+        } else {
+          // Fixed end is input, moving end connected to output
+          fromNodeId = targetNode.id
+          fromPort = portHit.port.name
+          toNodeId = this.connectionDragState.fixedEnd.nodeId
+          toPort = this.connectionDragState.fixedEnd.port
+        }
 
-  connectNodes(fromNodeId, fromPort, toNodeId, toPort) {
-    const toNode = this.nodes.get(toNodeId)
-    if (!toNode) return
+        // If reconnecting, disconnect the old connection first
+        if (this.connectionDragState.mode !== 'create' && this.connectionDragState.originalConnection) {
+          const orig = this.connectionDragState.originalConnection
+          this.disconnectInput(orig.toNodeId, orig.toPort)
+        }
 
-    // Set the input attribute (our connection model)
-    toNode.setAttribute(`input-${toPort}`, `${fromNodeId}.${fromPort}`)
+        this.completeConnection(fromNodeId, fromPort, toNodeId, toPort)
+      } else if (this.connectionDragState.mode !== 'create' && this.connectionDragState.originalConnection) {
+        // Reconnection to invalid port - disconnect (delete the connection)
+        const orig = this.connectionDragState.originalConnection
+        this.disconnectInput(orig.toNodeId, orig.toPort)
+      }
+    } else if (this.connectionDragState.mode !== 'create' && this.connectionDragState.originalConnection) {
+      // Dropped on empty space during reconnection - disconnect (delete)
+      const orig = this.connectionDragState.originalConnection
+      this.disconnectInput(orig.toNodeId, orig.toPort)
+    }
 
-    this.rebuildConnectionIndex()
+    // Clear state
+    this.connectionDragState = null
     this.draw()
+    return
   }
 
-  // --- Execution ---
+  // End node drag
+  this.draggedNode = null
+
+  super._onMouseUp(e)
+}
+
+// --- Connection Management ---
+
+/**
+ * Disconnect an input port (removes the :source part, keeps the port definition)
+ */
+disconnectInput(nodeId, portName) {
+  const node = this.nodes.get(nodeId)
+  if (!node) return
+
+  const currentInputs = node.getAttribute('inputs') || ''
+  const inputPairs = currentInputs.split(';').map(s => s.trim()).filter(Boolean)
+
+  // Convert "portName:source" -> "portName" (keeping port, removing connection)
+  const updated = inputPairs.map(pair => {
+    const [port] = pair.split(':')
+    if (port === portName) {
+      return port // Remove the :source part, keep just the port name
+    }
+    return pair // Keep other ports unchanged
+  })
+
+  node.setAttribute('inputs', updated.join(';'))
+  this.rebuildConnectionIndex()
+}
+
+/**
+ * Complete a connection (create or reconnect)
+ */
+completeConnection(fromNodeId, fromPort, toNodeId, toPort) {
+  const toNode = this.nodes.get(toNodeId)
+  if (!toNode) return
+
+  const currentInputs = toNode.getAttribute('inputs') || ''
+  const inputPairs = currentInputs.split(';').map(s => s.trim()).filter(Boolean)
+
+  // Update the connection for this port (preserve port order)
+  const updated = inputPairs.map(pair => {
+    const [port] = pair.split(':')
+    if (port === toPort) {
+      // Update this port's connection
+      return `${toPort}:${fromNodeId}.${fromPort}`
+    }
+    return pair // Keep other ports unchanged
+  })
+
+  // If port didn't exist yet, add it
+  const portExists = inputPairs.some(pair => pair.split(':')[0] === toPort)
+  if (!portExists) {
+    updated.push(`${toPort}:${fromNodeId}.${fromPort}`)
+  }
+
+  // Update attribute
+  toNode.setAttribute('inputs', updated.join(';'))
+
+  this.rebuildConnectionIndex()
+  this.draw()
+}
+
+/**
+ * Validate if connection can be created
+ */
+validateConnection(dragState, targetNode, targetPort) {
+  // Rule 1: Can't connect output to output, or input to input
+  if (dragState.fixedEnd.type === targetPort.type) {
+    return false
+  }
+
+  // Rule 2: Can't connect node to itself
+  if (dragState.fixedEnd.nodeId === targetNode.id) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Start creating a new connection from a port
+ */
+startConnectionCreate(node, port, portType, worldPos) {
+  const nodeX = parseFloat(node.getAttribute('x')) || 0
+  const nodeY = parseFloat(node.getAttribute('y')) || 0
+  const info = node.getDisplayInfo()
+
+  const portList = portType === 'output' ? info.outputs : info.inputs
+  const portIndex = portList.findIndex(p => p.name === port.name)
+  const validPortIndex = portIndex >= 0 ? portIndex : 0
+  const portY = nodeY + NODE_HEADER_HEIGHT + (validPortIndex + 1) * PORT_SPACING
+  const portX = portType === 'output' ? nodeX + info.width : nodeX
+
+  this.connectionDragState = {
+    mode: 'create',
+    fixedEnd: {
+      nodeId: node.id,
+      port: port.name,
+      type: portType,
+      x: portX,
+      y: portY
+    },
+    movingEnd: { x: worldPos.x, y: worldPos.y }
+  }
+}
+
+/**
+ * Start reconnecting an existing connection
+ */
+startConnectionReconnect(connection, grabbedSide, worldPos) {
+  // Store original connection - we'll need this to restore if user cancels
+  this.connectionDragState = {
+    mode: grabbedSide === 'input' ? 'reconnect-input' : 'reconnect-output',
+    originalConnection: { ...connection },
+    movingEnd: { x: worldPos.x, y: worldPos.y }
+  }
+
+  // Get the fixed end position
+  const points = this.getConnectionCurvePoints(connection)
+  if (grabbedSide === 'input') {
+    // Disconnecting input side, output stays fixed
+    this.connectionDragState.fixedEnd = {
+      nodeId: connection.fromNodeId,
+      port: connection.fromPort,
+      type: 'output',
+      x: points.x1,
+      y: points.y1
+    }
+  } else {
+    // Disconnecting output side, input stays fixed  
+    this.connectionDragState.fixedEnd = {
+      nodeId: connection.toNodeId,
+      port: connection.toPort,
+      type: 'input',
+      x: points.x2,
+      y: points.y2
+    }
+  }
+
+  // Don't actually disconnect yet - we'll do that only when:
+  // 1. User successfully connects to a new target, OR
+  // 2. User drops on empty space (intentional delete)
+  // The draw() method will skip rendering this connection during the drag
+}
+
+// --- Execution ---
 
   async executeGraph() {
-    if (this.isExecuting) return
+  if (this.isExecuting) return
 
-    this.isExecuting = true
-    console.log('Executing graph...')
+  this.isExecuting = true
+  console.log('Executing graph...')
 
-    // TODO: Implement topological sort and execution
-    // For now, just log
-    console.log('Nodes:', Array.from(this.nodes.keys()))
-    console.log('Connections:', this.connectionIndex)
+  // TODO: Implement topological sort and execution
+  // For now, just log
+  console.log('Nodes:', Array.from(this.nodes.keys()))
+  console.log('Connections:', this.connectionIndex)
 
-    this.isExecuting = false
-  }
+  this.isExecuting = false
+}
 
-  // --- UI Actions ---
+// --- UI Actions ---
 
-  addNodeMenu() {
-    // TODO: Show a menu to add different node types
-    console.log('Add node menu - to be implemented')
-  }
+addNodeMenu() {
+  // TODO: Show a menu to add different node types
+  console.log('Add node menu - to be implemented')
+}
 }
 
 customElements.define('view-nodegraph', ViewNodeGraph)
