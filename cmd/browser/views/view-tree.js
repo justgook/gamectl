@@ -32,7 +32,7 @@ const TREE_COLORS = {
 export class ViewTree extends ViewCanvasBase {
   constructor() {
     super("view-tree")
-    this.treeKey = 'progresion' // Default key for tree data storage
+    this.treeKey = 'progression' // Default key for tree data storage
     this.DE = new TextDecoder()
 
     // Tree-specific state

@@ -67,7 +67,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
     //   mode: 'create' | 'reconnect-input' | 'reconnect-output',
     //   fixedEnd: { nodeId, port, type: 'input'|'output', x, y },
     //   movingEnd: { x, y },
-    //   originalConnection: { fromNodeId, fromPort, toNodeId, toPort } // if reconnecting
+    //   originalConnection: { fromNodeId, fromPort, toNodeId, toPort }, // if reconnecting
+    //   hoverTarget: { nodeId, port, type } | null // current valid hover target
     // }
 
     // Cached connection index for rendering
@@ -266,24 +267,63 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ports.forEach((port, index) => {
       const portY = startY + (index + 1) * PORT_SPACING
 
-      // Check if port is connected
+      // Check if this port is being dragged from (should show as disconnected)
+      let isBeingDragged = false
+      if (this.connectionDragState?.originalConnection) {
+        const orig = this.connectionDragState.originalConnection
+        if (isInput) {
+          // Check if this is the input port being reconnected
+          isBeingDragged = orig.toNodeId === node.id && orig.toPort === port.name
+        } else {
+          // Check if this is the output port being reconnected
+          isBeingDragged = orig.fromNodeId === node.id && orig.fromPort === port.name
+        }
+      }
+
+      // Check if this port is the hover target (should show as highlighted)
+      let isHoverTarget = false
+      if (this.connectionDragState?.hoverTarget) {
+        const hover = this.connectionDragState.hoverTarget
+        isHoverTarget = hover.nodeId === node.id && hover.port === port.name && hover.type === type
+      }
+
+      // Check if port is connected (but not if it's being dragged)
       let isConnected = false
-      if (isInput) {
-        // Check if port exists AND has a connection (not null)
-        const connection = node._parsedInputs?.get(port.name)
-        isConnected = connection !== undefined && connection !== null
-      } else {
-        // Check if any node uses this output
-        isConnected = this.connectionIndex.some(
-          conn => conn.fromNodeId === node.id && conn.fromPort === port.name
-        )
+      if (!isBeingDragged) {
+        if (isInput) {
+          // Check if port exists AND has a connection (not null)
+          const connection = node._parsedInputs?.get(port.name)
+          isConnected = connection !== undefined && connection !== null
+        } else {
+          // Check if any node uses this output
+          isConnected = this.connectionIndex.some(
+            conn => conn.fromNodeId === node.id && conn.fromPort === port.name
+          )
+        }
+      }
+
+      // Determine port color
+      let portColor = COLORS.port // Default: gray
+      if (isHoverTarget) {
+        portColor = COLORS.portConnected // Hover target: blue
+      } else if (isConnected) {
+        portColor = COLORS.portConnected // Connected: blue
       }
 
       // Draw port circle
-      ctx.fillStyle = isConnected ? COLORS.portConnected : COLORS.port
+      ctx.fillStyle = portColor
       ctx.beginPath()
       ctx.arc(portX, portY, PORT_SIZE / 2, 0, Math.PI * 2)
       ctx.fill()
+
+      // Draw hover highlight ring
+      if (isHoverTarget) {
+        ctx.strokeStyle = COLORS.portConnected
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(portX, portY, PORT_SIZE / 2 + 3, 0, Math.PI * 2)
+        ctx.stroke()
+      }
 
       // Draw port label
       ctx.fillStyle = COLORS.textSecondary
@@ -637,6 +677,25 @@ _onMouseMove(e) {
   // Handle connection drag
   if (this.connectionDragState) {
     this.connectionDragState.movingEnd = { x: worldPos.x, y: worldPos.y }
+    
+    // Find hover target for visual feedback
+    this.connectionDragState.hoverTarget = null
+    for (const node of this.nodes.values()) {
+      const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
+      if (portHit) {
+        // Check if this is a valid connection target
+        const isValid = this.validateConnection(this.connectionDragState, node, portHit)
+        if (isValid) {
+          this.connectionDragState.hoverTarget = {
+            nodeId: node.id,
+            port: portHit.port.name,
+            type: portHit.type
+          }
+        }
+        break
+      }
+    }
+    
     this.draw()
     this._handleHover(e)
     return
