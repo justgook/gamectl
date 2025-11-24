@@ -16,8 +16,9 @@ A visual node-based pipeline editor for creating procedural generation workflows
 
 Nodes use **Input ← Output** (reverse reference) connection model:
 - Target nodes declare their input sources via the `inputs` attribute
-- **New format (recommended)**: `inputs="port1:source1;port2:source2;port3:source3"`
-- **Old format (deprecated)**: `input-port1="source1" input-port2="source2"`
+- **Format**: `inputs="port1:source1;port2:source2;port3:source3"`
+- Use semicolon (`;`) to separate multiple connections
+- Use colon (`:`) to separate port name from source node
 - This makes dependency resolution straightforward
 - Example: `<node-plugin inputs="nodeCount:n1;maxDepth:n2;maxBranching:n3">`
 
@@ -33,7 +34,6 @@ Nodes use **Input ← Output** (reverse reference) connection model:
 
 ### Creating a Simple Pipeline
 
-**New Syntax (Recommended):**
 ```html
 <view-nodegraph>
   <!-- Input nodes -->
@@ -56,32 +56,6 @@ Nodes use **Input ← Output** (reverse reference) connection model:
                label="Tree Result"
                format="json"
                inputs="value:treegen">
-  </node-output>
-</view-nodegraph>
-```
-
-**Old Syntax (Still Supported):**
-```html
-<view-nodegraph>
-  <node-input id="count" x="100" y="100" type="number" value="10" label="Node Count"></node-input>
-  <node-input id="depth" x="100" y="200" type="number" value="5" label="Max Depth"></node-input>
-  
-  <!-- Plugin node - separate attributes for port definitions and connections -->
-  <node-plugin id="treegen" 
-               x="400" y="150"
-               plugin="treegen" 
-               function="gen"
-               inputs="nodeCount,maxDepth"
-               outputs="tree"
-               input-nodeCount="count"
-               input-maxDepth="depth">
-  </node-plugin>
-  
-  <node-output id="result" 
-               x="700" y="150"
-               label="Tree Result"
-               format="json"
-               input-value="treegen">
   </node-output>
 </view-nodegraph>
 ```
@@ -113,7 +87,6 @@ Provides user-configurable values.
 #### Plugin Node
 Executes a WASM plugin function.
 
-**New Format (Recommended):**
 ```html
 <node-plugin id="myPlugin" 
              x="400" y="100"
@@ -124,25 +97,11 @@ Executes a WASM plugin function.
 </node-plugin>
 ```
 
-**Old Format (Still Supported):**
-```html
-<node-plugin id="myPlugin" 
-             x="400" y="100"
-             plugin="pluginName"
-             function="functionName"
-             inputs="port1,port2,port3"
-             outputs="output"
-             input-port1="sourceNode1"
-             input-port2="sourceNode2.outputPort">
-</node-plugin>
-```
-
 **Attributes:**
 - `plugin`: Plugin module name
 - `function`: Function to call
-- `inputs`: Input ports with connections (new: `port1:source1;port2:source2` or old: `port1,port2,port3`)
+- `inputs`: Input ports with connections: `port1:source1;port2:source2`
 - `outputs`: Comma-separated output port names
-- `input-{portName}`: (Old format) Connection to source node (format: `nodeId` or `nodeId.portName`)
 
 **Behavior:**
 - Collects inputs from connected nodes
@@ -152,7 +111,6 @@ Executes a WASM plugin function.
 #### Output Node
 Terminal node that displays/logs results.
 
-**New Format (Recommended):**
 ```html
 <node-output id="result" 
              x="700" y="100"
@@ -162,21 +120,10 @@ Terminal node that displays/logs results.
 </node-output>
 ```
 
-**Old Format (Still Supported):**
-```html
-<node-output id="result" 
-             x="700" y="100"
-             label="Result"
-             format="json|text|number"
-             input-value="sourceNode">
-</node-output>
-```
-
 **Attributes:**
 - `label`: Display label
 - `format`: Output format (json, text, number)
-- `inputs`: (New format) Connection definition `value:sourceNode`
-- `input-value`: (Old format) Connection to source node
+- `inputs`: Connection definition `value:sourceNode`
 
 **Behavior:**
 - Formats input value according to `format` attribute

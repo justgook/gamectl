@@ -6,26 +6,15 @@ import { NodeBase } from './node-base.js'
  * Attributes:
  * - plugin: Plugin module name (e.g., 'treegen')
  * - function: Function name to call (e.g., 'gen')
- * - inputs: Port definitions with optional connections
- *   Format 1 (ports only): "nodeCount,maxDepth,maxBranching"
- *   Format 2 (with connections): "nodeCount:n1;maxDepth:n2;maxBranching:n3"
+ * - inputs: Port definitions with connections: "nodeCount:n1;maxDepth:n2;maxBranching:n3"
  * - outputs: Comma-separated output port names (default: 'output')
  * 
- * New Format Example (recommended):
+ * Example:
  * <node-plugin id="treegen" x="400" y="100"
  *              plugin="treegen" 
  *              function="gen"
  *              inputs="nodeCount:n1;maxDepth:n2;maxBranching:n3"
  *              outputs="tree">
- * </node-plugin>
- * 
- * Old Format Example (still supported):
- * <node-plugin id="treegen" x="400" y="100"
- *              plugin="treegen" 
- *              function="gen"
- *              inputs="nodeCount,maxDepth,maxBranching"
- *              input-nodeCount="n1"
- *              input-maxDepth="n2">
  * </node-plugin>
  */
 export class NodePlugin extends NodeBase {

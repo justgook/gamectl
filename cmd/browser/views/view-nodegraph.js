@@ -251,7 +251,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       // Check if port is connected
       let isConnected = false
       if (isInput) {
-        isConnected = node.getAttribute(`input-${port.name}`) !== null
+        isConnected = node._parsedInputs?.has(port.name) || false
       } else {
         // Check if any node uses this output
         isConnected = this.connectionIndex.some(
@@ -337,11 +337,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   rebuildConnectionIndex() {
     this.connectionIndex = []
-
+    
     for (const node of this.nodes.values()) {
       const connections = node.getInputConnections()
-      console.log(`[${node.id}] getInputConnections returned:`, connections)
-
+      
       for (const conn of connections) {
         this.connectionIndex.push({
           fromNodeId: conn.sourceNodeId,
@@ -351,8 +350,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
         })
       }
     }
-
-    console.log('Connection index rebuilt:', this.connectionIndex)
   }
 
   // --- Interaction Helpers ---
