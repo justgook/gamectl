@@ -105,24 +105,39 @@ class ViewChrome extends HTMLElement {
       this._switchView(event.target.value)
     })
 
-    this.addEventListener("dragover", (event) => { event.preventDefault() })
+    // Only allow drop when drag direction is detected or drag comes from another panel
+    this.addEventListener("dragover", this._onDragOver)
     this.addEventListener("drop", this._onDrop)
 
     this.appendChild(elm)
   }
 
   _cornerDragEnd = () => {
+    // Restore pointer-events to none on ALL chromes
+    document.querySelectorAll('view--chrome').forEach(chrome => {
+      chrome.style.pointerEvents = ''
+    })
+    
     this.dragStartX = 0
     this.dragStartY = 0
     this.dragDirection = null
+    this._isDraggingFromThisPanel = false
+    this.removeAttribute('data-split-direction')
   }
 
   _cornerDragStart = (event) => {
     this.dragStartX = event.clientX;
     this.dragStartY = event.clientY;
     this.dragDirection = null; // Reset on new drag
+    this._isDraggingFromThisPanel = true // Mark that drag started from this panel
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData('text/plain', this.view.getAttribute("panel"))
+    event.dataTransfer.setData('panelId', this.view.getAttribute("panel")) // Also store as specific key
+    
+    // Enable pointer events on ALL chromes so they can receive drop events
+    document.querySelectorAll('view--chrome').forEach(chrome => {
+      chrome.style.pointerEvents = 'auto'
+    })
   }
 
   _cornerDrag = (event) => {
@@ -142,7 +157,15 @@ class ViewChrome extends HTMLElement {
       else {
         this.dragDirection = rawDeltaY > 0 ? "s" : "n"; // "s" (down) or "n" (up)
       }
+      // Add visual feedback
+      this.setAttribute('data-split-direction', this.dragDirection)
     }
+  }
+
+  _onDragOver = (event) => {
+    // Always allow drop during a drag operation
+    // We'll validate the direction in _onDrop
+    event.preventDefault()
   }
   _switchView(viewTag) {
     // Create a new custom element instance
@@ -165,6 +188,12 @@ class ViewChrome extends HTMLElement {
 
   _onDrop = (event) => {
     event.preventDefault()
+    
+    // If no direction detected and dragging from this panel's corner, cancel the drop
+    if (!this.dragDirection && this._isDraggingFromThisPanel) {
+      return
+    }
+    
     if (!this.dragDirection) { //Comes from other panal - so we merge
       const toPanel = event.dataTransfer.getData('text/plain')
       const fromPanel = this.view.getAttribute("panel")
@@ -186,18 +215,20 @@ class ViewChrome extends HTMLElement {
         }
       }
 
-      if (allPanels.length > 0) {
-        console.error(`missing dom element(s) for: ${allPanels.join("")}`)
-      }
       childsToRemove.map((a) => a.parentNode.removeChild(a))
       this.view.layout.reset()
 
       return
     }
 
+    // Convert viewport coordinates to layout-relative coordinates
+    const rect = this.view.layout.getBoundingClientRect()
+    const relativeX = event.clientX - rect.left
+    const relativeY = event.clientY - rect.top
+
     const child = document.createElement(this.view.content.template)
     child.setAttribute("nesw", this.dragDirection)
-    child.setAttribute("p", this.dragDirection === "n" || this.dragDirection === "s" ? event.clientY : event.clientX)
+    child.setAttribute("p", this.dragDirection === "n" || this.dragDirection === "s" ? relativeY : relativeX)
     child.setAttribute("from", this.view.getAttribute("panel"))
     this.view.layout.appendChild(child)
   }

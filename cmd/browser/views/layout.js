@@ -93,7 +93,6 @@ export class LayoutParent extends HTMLElement {
 
     // If child already has a panel attribute, it's already positioned (e.g., from view switching)
     if (!from || !nesw) {
-      console.warn("Child added without required split attributes (from, nesw), skipping split logic")
       return
     }
 
@@ -106,6 +105,7 @@ export class LayoutParent extends HTMLElement {
 
     let p = parseFloat(child.getAttribute("p"))
     const r = child.getAttribute("r")
+    
     if (r) {
       const fromPanel = this.layout.getPanel(from)
       const rVal = parseFloat(r)
@@ -125,8 +125,8 @@ export class LayoutParent extends HTMLElement {
       }
     }
 
-
     const { newPanelId, handleId } = fn(from, p)
+    
     this._addHandle(handleId)
     const panel = this.layout.getPanel(newPanelId)
     child.setAttribute("panel", newPanelId)
@@ -144,7 +144,6 @@ export class LayoutParent extends HTMLElement {
   _addHandle(handleId) {
     const panel = this.layout.getHandles().find(({ id }) => handleId == id)
     if (!panel) {
-      console.warn("remove handle??")
       return
     }
 
