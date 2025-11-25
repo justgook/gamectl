@@ -28,20 +28,13 @@
     <template id="view-testing">
       <div class="panel">
         <div class="panel-header">Testing Panel</div>
-        <div class="panel-content" style="display: flex; flex-direction: column;">
-          <button class="button-primary" type="button" onclick="pluginManager.call('host', 'log', 'hello world')">call
-            log</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').generateWorldgraph()">Create
-            world tree</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').assignBiomeNames()">Set Biome
-            names</button>
-
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getTree()">Get World
-            tree</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').createMinimap()">Create
-            minimap</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getMinimap()">Get
-            minimap</button>
+        <div class="panel-content" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
+          <button type="button" onclick="pluginManager.call('host', 'log', 'hello world')">Call log</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').generateWorldgraph()">Create world tree</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').assignBiomeNames()">Set biome names</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getTree()">Get world tree</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').createMinimap()">Create minimap</button>
+          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getMinimap()">Get minimap</button>
         </div>
       </div>
     </template>
@@ -49,10 +42,10 @@
     <template id="view-pipeline">
       <div class="panel">
         <div class="panel-header">Pipeline</div>
-        <div class="panel-content" style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="panel-content" style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
           <details open>
             <summary>1. Create World Tree</summary>
-            <form name="tree" style="display: flex; flex-direction: column; gap: 4px; padding: 8px;">
+            <form name="tree" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
               <label>Node Count: <span>10</span> <input type="range" name="nodeCount" min="5" max="100" value="10"
                   oninput="this.previousElementSibling.textContent=this.value"></label>
               <label>Max Depth: <span>0</span> <input type="range" name="maxDepth" min="0" max="10" value="0"
@@ -62,15 +55,15 @@
               <label>Root Branches: <span>0</span> <input type="range" name="rootBranches" min="0" max="20" value="0"
                   oninput="this.previousElementSibling.textContent=this.value"></label>
               <label>Output Name: <input type="text" name="treeId" value="progression"></label>
-              <button class="button-primary" type="submit">Generate Tree</button>
+              <button type="submit">Generate Tree</button>
             </form>
           </details>
           <details>
             <summary>2. Create Minimap</summary>
-            <form name="minimap" style="display: flex; flex-direction: column; gap: 4px; padding: 8px;">
+            <form name="minimap" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
               <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
               <label>Output Map: <input type="text" name="mapId" value="new_map"></label>
-              <button class="button-primary" type="submit">Generate Minimap</button>
+              <button type="submit">Generate Minimap</button>
             </form>
           </details>
         </div>
@@ -80,8 +73,8 @@
     <template id="view-splitter">
       <div class="panel">
         <div class="panel-header">Splitter</div>
-        <div class="panel-content">
-          <button class="button-primary" type="button" data-action="split-vertical">Vertical</button>
+        <div class="panel-content" style="display: flex; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
+          <button type="button" data-action="split-vertical">Vertical</button>
           <button class="button-secondary" type="button" data-action="split-horizontal">Horizontal</button>
         </div>
       </div>
@@ -90,8 +83,8 @@
     <template id="view-console">
       <div class="panel">
         <div class="panel-header">Console</div>
-        <div class="panel-content">
-          <pre data-element="log-output" style="white-space: pre-wrap;"></pre>
+        <div class="panel-content" style="padding: var(--spacing-scale-3);">
+          <pre data-element="log-output" style="white-space: pre-wrap; font-family: 'Roboto Mono', monospace; font-size: var(--font-size-sm); line-height: 1.4;"></pre>
         </div>
       </div>
     </template>
@@ -101,9 +94,8 @@
         <div class="panel-header">Node Graph</div>
         <div class="panel-content" style="padding: 0; position: relative;">
           <canvas style="cursor: grab;"></canvas>
-          <div
-            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
-            <button data-action="add-node" class="button-primary">+ Node</button>
+          <div style="position: absolute; top: var(--spacing-scale-3); right: var(--spacing-scale-3); z-index: 100; display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3); background: var(--color-semantic-background-panel-header); border-radius: var(--border-radius-sm); border: var(--border-width-default) solid var(--color-semantic-border-default);">
+            <button data-action="add-node">+ Node</button>
             <button data-action="run" class="button-success">▶ Run</button>
             <button data-action="reload" class="button-secondary">🔄 Reload</button>
             <button data-action="zoom-in" class="button-secondary">+</button>
@@ -120,8 +112,7 @@
         <div class="panel-header">Tilemap</div>
         <div class="panel-content" style="padding: 0;">
           <canvas></canvas>
-          <div
-            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
+          <div style="position: absolute; top: var(--spacing-scale-3); right: var(--spacing-scale-3); z-index: 100; display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3); background: var(--color-semantic-background-panel-header); border-radius: var(--border-radius-sm); border: var(--border-width-default) solid var(--color-semantic-border-default);">
             <button data-action="reload" class="button-secondary">🔄 Reload</button>
             <button data-action="zoom-in" class="button-secondary">+</button>
             <button data-action="zoom-out" class="button-secondary">−</button>
@@ -137,8 +128,7 @@
         <div class="panel-header">Minimap</div>
         <div class="panel-content" style="padding: 0;">
           <canvas></canvas>
-          <div
-            style="position: absolute; top: 10px; right: 10px; z-index: 100; display: flex; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.5); border-radius: 4px;">
+          <div style="position: absolute; top: var(--spacing-scale-3); right: var(--spacing-scale-3); z-index: 100; display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3); background: var(--color-semantic-background-panel-header); border-radius: var(--border-radius-sm); border: var(--border-width-default) solid var(--color-semantic-border-default);">
             <button data-action="reload" class="button-secondary">🔄 Reload</button>
             <button data-action="zoom-in" class="button-secondary">+</button>
             <button data-action="zoom-out" class="button-secondary">−</button>
@@ -154,7 +144,7 @@
 
     <template id="view-chrome">
       <div class="panel-header" style="background-color: transparent; padding-left: var(--panel-header-padding);">
-        <select class="select" data-action="select-view">
+        <select data-action="select-view">
           <optgroup label="Old">
             <option value="view-splitter">splitter</option>
             <option value="view-testing">testing</option>

@@ -102,7 +102,7 @@ function generateShowcase() {
     colors: allTokens.filter(t => t.$type === 'color').length,
     spacing: allTokens.filter(t => t.$type === 'dimension' && t.path[0] === 'spacing').length,
     components: new Set(allTokens.filter(t =>
-      ['button', 'file-tree', 'list', 'panel', 'select'].includes(t.path[0])
+      ['button', 'file-tree', 'list', 'panel', 'select', 'text-input', 'textarea'].includes(t.path[0])
     ).map(t => t.path[0])).size
   };
 

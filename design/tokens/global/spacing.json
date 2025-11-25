@@ -8,6 +8,10 @@
     "scale-3": { "$value": "8px" },
     "scale-4": { "$value": "12px" },
     "scale-5": { "$value": "16px" },
-    "scale-6": { "$value": "24px" }
+    "scale-6": { "$value": "24px" },
+    "scale-7": { "$value": "32px" },
+    "scale-8": { "$value": "48px" },
+    "scale-9": { "$value": "64px" },
+    "scale-10": { "$value": "80px" }
   }
 }

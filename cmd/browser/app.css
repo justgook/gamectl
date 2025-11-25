@@ -1,12 +1,8 @@
-html,
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-}
+/* Reset is now handled by reset.css */
 
 body {
+  width: 100%;
+  height: 100%;
   background: var(--color-semantic-background-default);
   color: var(--color-semantic-text-primary);
   font-family: 'Roboto Mono', monospace;
@@ -17,7 +13,7 @@ layout-parent {
   display: block;
   width: 100vw;
   height: 100vh;
-  background: #333;
+  background: var(--color-semantic-background-panel-default);
   overflow: hidden;
 }
 
@@ -38,35 +34,43 @@ view--chrome [draggable] {
 }
 
 .panel-header {
-  padding-left: 170px;
+  padding-left: var(--spacing-scale-8, 170px); /* Fallback for transition period */
 }
 
 .panel-content {
   position: absolute;
   inset: 0;
-  top: 25px;
+  top: var(--spacing-scale-6, 25px); /* Fallback for transition period */
   overflow: auto;
 }
 
 .tooltip {
   position: absolute;
-  background: rgba(0, 0, 0, 0.85);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+  background: var(--color-semantic-background-panel-header);
+  color: var(--color-semantic-text-primary);
+  padding: var(--spacing-scale-2) var(--spacing-scale-3);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
   pointer-events: none;
   display: none;
-  z-index: 1000;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  z-index: var(--z-index-tooltip, 1000);
+  box-shadow: var(--shadow-glow-accent-faint);
+  border: var(--border-width-default) solid var(--color-semantic-border-default);
 }
 
 .handle {
   position: absolute;
   inset: 0;
-  background-color: red;
+  background-color: var(--color-semantic-border-interactive);
   touch-action: none; /* Prevent default touch actions like scrolling */
   user-select: none; /* Prevent text selection while dragging */
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.handle:hover {
+  opacity: 0.6;
+  background-color: var(--color-semantic-background-accent-default);
 }
 
 /* Determine cursor based on handle orientation */
@@ -88,19 +92,29 @@ view--handle[data-dragging="true"] .handle {
 .sw,
 .nw {
   position: absolute;
-  width: 20px;
-  height: 20px;
-  background-color: red;
+  width: var(--spacing-scale-5);
+  height: var(--spacing-scale-5);
+  background-color: var(--color-semantic-border-interactive);
+  opacity: 0.4;
+  transition: all 0.2s ease;
+}
+
+.ne:hover,
+.se:hover,
+.sw:hover,
+.nw:hover {
+  opacity: 0.8;
+  background-color: var(--color-semantic-background-accent-default);
 }
 
 .ne,
 .nw {
-  top: 0
+  top: 0;
 }
 
 .se,
 .sw {
-  bottom: 0
+  bottom: 0;
 }
 
 .ne,
@@ -110,7 +124,7 @@ view--handle[data-dragging="true"] .handle {
 
 .nw,
 .sw {
-  left: 0
+  left: 0;
 }
 
 .nw {

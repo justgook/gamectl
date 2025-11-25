@@ -463,7 +463,9 @@ function generateComponentExample(componentName) {
     panel: generatePanelExample(),
     select: generateSelectExample(),
     list: generateListExample(),
-    'file-tree': generateFileTreeExample()
+    'file-tree': generateFileTreeExample(),
+    'text-input': generateTextInputExample(),
+    'textarea': generateTextareaExample()
   };
 
   return examples[componentName] || generateGenericComponentExample(componentName);
@@ -473,14 +475,25 @@ function generateButtonExample() {
   return `        <div id="button" class="section">
           <h2 class="subsection-title">Button</h2>
           <div class="example-container">
-            <div class="example-label">Variants</div>
+            <div class="example-label">Automatic Element Styling (Primary)</div>
+            <div class="example-row">
+              <button>Auto-styled Button</button>
+              <button>Another Button</button>
+            </div>
+          </div>
+          <div class="example-container">
+            <div class="example-label">Explicit Variants</div>
             <div class="example-row">
               <button class="button-primary">Primary</button>
               <button class="button-secondary">Secondary</button>
-              <button class="button-danger">Danger</button>
             </div>
           </div>
-          <div class="code-block">&lt;button class="button-primary"&gt;Primary&lt;/button&gt;</div>
+          <div class="code-block">&lt;!-- Automatic primary styling --&gt;
+&lt;button&gt;Auto-styled&lt;/button&gt;
+
+&lt;!-- Explicit variants --&gt;
+&lt;button class="button-primary"&gt;Primary&lt;/button&gt;
+&lt;button class="button-secondary"&gt;Secondary&lt;/button&gt;</div>
         </div>`;
 }
 
@@ -506,13 +519,31 @@ function generateSelectExample() {
   return `        <div id="select" class="section">
           <h2 class="subsection-title">Select</h2>
           <div class="example-container">
-            <select class="select">
-              <option>Option 1</option>
-              <option>Option 2</option>
-              <option>Option 3</option>
-            </select>
+            <div class="example-label">Automatic Element Styling</div>
+            <div class="example-row">
+              <select>
+                <option>Auto-styled Option 1</option>
+                <option>Auto-styled Option 2</option>
+                <option>Auto-styled Option 3</option>
+              </select>
+            </div>
           </div>
-          <div class="code-block">&lt;select class="select"&gt;...&lt;/select&gt;</div>
+          <div class="example-container">
+            <div class="example-label">With Class (Optional)</div>
+            <div class="example-row">
+              <select class="select">
+                <option>With explicit class</option>
+                <option>Option 2</option>
+              </select>
+            </div>
+          </div>
+          <div class="code-block">&lt;!-- Automatic styling --&gt;
+&lt;select&gt;
+  &lt;option&gt;Auto-styled&lt;/option&gt;
+&lt;/select&gt;
+
+&lt;!-- Optional class --&gt;
+&lt;select class="select"&gt;...&lt;/select&gt;</div>
         </div>`;
 }
 
@@ -546,6 +577,54 @@ function generateFileTreeExample() {
           <div class="code-block">&lt;div class="file-tree"&gt;
   &lt;div class="file-tree-item"&gt;Item&lt;/div&gt;
 &lt;/div&gt;</div>
+        </div>`;
+}
+
+function generateTextInputExample() {
+  return `        <div id="text-input" class="section">
+          <h2 class="subsection-title">Text Input</h2>
+          <div class="example-container">
+            <div class="example-label">Automatic Element Styling</div>
+            <div class="example-row">
+              <input type="text" placeholder="Styled automatically">
+              <input type="email" placeholder="Email input">
+              <input type="number" placeholder="123">
+            </div>
+          </div>
+          <div class="example-container">
+            <div class="example-label">With Class (Optional)</div>
+            <div class="example-row">
+              <input type="text" class="text-input" placeholder="With explicit class">
+            </div>
+          </div>
+          <div class="code-block">&lt;!-- Automatic styling --&gt;
+&lt;input type="text" placeholder="Auto-styled"&gt;
+
+&lt;!-- Optional class --&gt;
+&lt;input type="text" class="text-input" placeholder="Explicit"&gt;</div>
+        </div>`;
+}
+
+function generateTextareaExample() {
+  return `        <div id="textarea" class="section">
+          <h2 class="subsection-title">Textarea</h2>
+          <div class="example-container">
+            <div class="example-label">Automatic Element Styling</div>
+            <div class="example-row">
+              <textarea placeholder="This textarea is automatically styled from design tokens" rows="4"></textarea>
+            </div>
+          </div>
+          <div class="example-container">
+            <div class="example-label">With Class (Optional)</div>
+            <div class="example-row">
+              <textarea class="textarea" placeholder="With explicit class" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="code-block">&lt;!-- Automatic styling --&gt;
+&lt;textarea placeholder="Auto-styled"&gt;&lt;/textarea&gt;
+
+&lt;!-- Optional class --&gt;
+&lt;textarea class="textarea"&gt;&lt;/textarea&gt;</div>
         </div>`;
 }
 
