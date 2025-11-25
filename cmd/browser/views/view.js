@@ -152,10 +152,10 @@ class ViewChrome extends HTMLElement {
     const absDeltaY = Math.abs(rawDeltaY);
     if (absDeltaX > threshold || absDeltaY > threshold) {
       if (absDeltaX > absDeltaY) {
-        this.dragDirection = rawDeltaX > 0 ? "e" : "w"; // "e" (right) or "w" (left)
+        this.dragDirection = rawDeltaX > 0 ? "w" : "e"; // Drag right -> new panel on left (west); drag left -> new panel on right (east)
       }
       else {
-        this.dragDirection = rawDeltaY > 0 ? "s" : "n"; // "s" (down) or "n" (up)
+        this.dragDirection = rawDeltaY > 0 ? "n" : "s"; // Drag down -> new panel above (north); drag up -> new panel below (south)
       }
       // Add visual feedback
       this.setAttribute('data-split-direction', this.dragDirection)
