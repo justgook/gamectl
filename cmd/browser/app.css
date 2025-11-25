@@ -65,6 +65,22 @@ view--chrome [draggable] {
   position: absolute;
   inset: 0;
   background-color: red;
+  touch-action: none; /* Prevent default touch actions like scrolling */
+  user-select: none; /* Prevent text selection while dragging */
+}
+
+/* Determine cursor based on handle orientation */
+view--handle[data-orientation="vertical"] .handle {
+  cursor: ew-resize;
+}
+
+view--handle[data-orientation="horizontal"] .handle {
+  cursor: ns-resize;
+}
+
+/* Active state */
+view--handle[data-dragging="true"] .handle {
+  cursor: grabbing;
 }
 
 .ne,

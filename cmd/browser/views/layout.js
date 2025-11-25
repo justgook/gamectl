@@ -166,18 +166,26 @@ class Handle extends HTMLElement {
     this._w = 0
     this._h = 0
     this.style.position = "absolute"
+    
+    // Determine handle orientation for cursor styling
+    const handleData = this.layout.layout.getHandle(panel.id)
+    if (handleData) {
+      const isVertical = handleData.w < handleData.h
+      this.setAttribute("data-orientation", isVertical ? "vertical" : "horizontal")
+    }
   }
 
   connectedCallback() {
     const template = document.getElementById("view-handle")
     const content = template.content.cloneNode(true)
     const elm = content.querySelector(`[data-action="resize"]`)
-    elm.addEventListener("drag", this._onDrag)
-    // elm.addEventListener("dragstart", e => {
-    //   const emptyImg = new Image();
-    //   emptyImg.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4DwQMBAABvwFyP+zYJwAAAABJRU5ErkJggg==";
-    //   e.dataTransfer.setDragImage(emptyImg, 0, 0);
-    // });
+    
+    // Remove draggable attribute - we're using pointer events instead
+    elm.removeAttribute('draggable')
+    
+    // Use pointer events for smooth, reliable dragging (like Blender)
+    elm.addEventListener("pointerdown", this._onPointerDown)
+    
     this.appendChild(content)
   }
   attributeChangedCallback(name, _oldVal, newVal) {
@@ -207,9 +215,43 @@ class Handle extends HTMLElement {
     this.style.height = this._h + 'px';
   }
 
-  _onDrag = (event) => {
-    this.layout.layout.setHandlePosition(this.panel, event.clientX, event.clientY)
+  _onPointerDown = (event) => {
+    event.preventDefault()
+    event.target.setPointerCapture(event.pointerId)
+    
+    this._isDragging = true
+    this.setAttribute("data-dragging", "true")
+    
+    // Add move/up listeners to document for smooth dragging
+    document.addEventListener("pointermove", this._onPointerMove)
+    document.addEventListener("pointerup", this._onPointerUp)
+  }
+
+  _onPointerMove = (event) => {
+    if (!this._isDragging) return
+    event.preventDefault()
+    
+    // Calculate position relative to layout container (not viewport!)
+    const rect = this.layout.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    
+    // Update handle position
+    this.layout.layout.setHandlePosition(this.panel, x, y)
     this.layout.reset()
+  }
+
+  _onPointerUp = (event) => {
+    this._isDragging = false
+    this.removeAttribute("data-dragging")
+    
+    // Clean up listeners
+    document.removeEventListener("pointermove", this._onPointerMove)
+    document.removeEventListener("pointerup", this._onPointerUp)
+    
+    if (event.target.hasPointerCapture(event.pointerId)) {
+      event.target.releasePointerCapture(event.pointerId)
+    }
   }
 }
 

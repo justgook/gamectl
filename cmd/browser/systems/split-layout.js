@@ -336,21 +336,51 @@ export class SplitLayout {
   }
 
   setHandlePosition(handleId, newX, newY) {
-    const updated = this.updateSplitPosition(this.root, handleId, newX, newY)
+    const updated = this.updateSplitPosition(this.root, handleId, newX, newY, 0, 0, this.width, this.height)
     if (!updated) throw new Error(`Handle ${handleId} not found`)
   }
 
-  updateSplitPosition(node, handleId, newX, newY) {
+  updateSplitPosition(node, handleId, newX, newY, parentX = 0, parentY = 0, parentW = this.width, parentH = this.height) {
     if (node.type === "split") {
       if (node.id === handleId) {
-        node.pos = node.vertical ? newX : newY
+        const minSize = 50 // Minimum panel size in pixels
+        
+        if (node.vertical) {
+          // Constrain vertical split (left/right panels)
+          const minPos = parentX + minSize
+          const maxPos = parentX + parentW - minSize - this.handleW
+          node.pos = Math.max(minPos, Math.min(maxPos, newX))
+        } else {
+          // Constrain horizontal split (top/bottom panels)
+          const minPos = parentY + minSize
+          const maxPos = parentY + parentH - minSize - this.handleH
+          node.pos = Math.max(minPos, Math.min(maxPos, newY))
+        }
+        
         this.recomputePanelBounds(this.root, 0, 0, this.width, this.height)
         return true
       }
-      return (
-        this.updateSplitPosition(node.left, handleId, newX, newY) ||
-        this.updateSplitPosition(node.right, handleId, newX, newY)
-      )
+      
+      // Recursively search children with updated bounds
+      if (node.vertical) {
+        const leftW = node.pos - parentX
+        const rightX = node.pos + this.handleW
+        const rightW = parentX + parentW - rightX
+        
+        return (
+          this.updateSplitPosition(node.left, handleId, newX, newY, parentX, parentY, leftW, parentH) ||
+          this.updateSplitPosition(node.right, handleId, newX, newY, rightX, parentY, rightW, parentH)
+        )
+      } else {
+        const topH = node.pos - parentY
+        const bottomY = node.pos + this.handleH
+        const bottomH = parentY + parentH - bottomY
+        
+        return (
+          this.updateSplitPosition(node.left, handleId, newX, newY, parentX, parentY, parentW, topH) ||
+          this.updateSplitPosition(node.right, handleId, newX, newY, parentX, bottomY, parentW, bottomH)
+        )
+      }
     }
     return false
   }
