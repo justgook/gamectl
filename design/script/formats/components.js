@@ -60,7 +60,7 @@ function isSubComponent(segment) {
 /**
  * Generate CSS properties from tokens (excluding state-specific ones)
  */
-function generateCssProperties(tokens, componentName) {
+function generateCssProperties(tokens, componentName, isBaseComponent = false) {
   const props = [];
   const processed = new Set();
   let hasBorderWidth = false;
@@ -115,8 +115,8 @@ function generateCssProperties(tokens, componentName) {
     props.push('border-style: solid;');
   }
 
-  // Add common properties for interactive components
-  if (componentName === 'button' || componentName === 'select') {
+  // Add common properties for interactive components (only for base component, not variants)
+  if (isBaseComponent && (componentName === 'button' || componentName === 'select')) {
     if (!props.some(p => p.includes('cursor'))) {
       props.push('cursor: pointer;');
     }
@@ -168,12 +168,34 @@ function extractStateProperties(tokens) {
 }
 
 /**
+ * Element-to-Component Mapping
+ * Maps component tokens to HTML element selectors for automatic styling
+ */
+const ELEMENT_MAPPINGS = {
+  'button': {
+    selector: 'button',
+    defaultVariant: 'primary', // button without classes gets primary styling
+    variantSelector: 'button:not([class*="button-"])'
+  },
+  'select': {
+    selector: 'select'
+  },
+  'text-input': {
+    selector: 'input[type="text"], input[type="number"], input[type="email"], input[type="password"], input[type="url"], input[type="search"]'
+  },
+  'textarea': {
+    selector: 'textarea'
+  }
+};
+
+/**
  * Generic Component Classes Format
  * Automatically handles all component structures:
  * - Flat components (select, panel base)
  * - Components with variants (button: primary, secondary)
  * - Components with sub-components (file-tree: item, panel: header/content)
  * - Components with states (hover, selected, default)
+ * - Element selectors (button, select, input, textarea) for automatic styling
  */
 export function registerComponentsFormat(StyleDictionary) {
   StyleDictionary.registerFormat({
@@ -186,7 +208,7 @@ export function registerComponentsFormat(StyleDictionary) {
         const componentName = token.path[0];
 
         // Skip non-component tokens
-        if (!['button', 'file-tree', 'list', 'panel', 'select'].includes(componentName) &&
+        if (!['button', 'file-tree', 'list', 'panel', 'select', 'text-input', 'textarea'].includes(componentName) &&
           !componentName.includes('component')) {
           return;
         }
@@ -233,11 +255,19 @@ export function registerComponentsFormat(StyleDictionary) {
           }
         });
 
-        // Generate base component class
+        // Generate base component class (with optional element selector)
         if (baseProps.length > 0) {
-          const cssProps = generateCssProperties(baseProps, componentName);
+          const cssProps = generateCssProperties(baseProps, componentName, true);
           if (cssProps.length > 0) {
-            cssOutput.push(`.${componentName} {`);
+            const elementMapping = ELEMENT_MAPPINGS[componentName];
+            if (elementMapping && elementMapping.selector) {
+              // Generate combined selector: .component, element
+              cssOutput.push(`.${componentName},`);
+              cssOutput.push(`${elementMapping.selector} {`);
+            } else {
+              // Generate class-only selector
+              cssOutput.push(`.${componentName} {`);
+            }
             cssProps.forEach(prop => cssOutput.push(`  ${prop}`));
             cssOutput.push(`}`);
           }
@@ -247,16 +277,32 @@ export function registerComponentsFormat(StyleDictionary) {
         Object.entries(variants).forEach(([variantName, variantTokens]) => {
           const cssProps = generateCssProperties(variantTokens, componentName);
           const stateProps = extractStateProperties(variantTokens);
+          const elementMapping = ELEMENT_MAPPINGS[componentName];
 
-          // Base variant class
-          cssOutput.push(`.${componentName}-${variantName} {`);
+          // Check if this is the default variant for element styling
+          const isDefaultVariant = elementMapping && elementMapping.defaultVariant === variantName;
+          
+          if (isDefaultVariant && elementMapping.variantSelector) {
+            // Generate combined selector for default variant: .component-variant, element:not([class*="component-"])
+            cssOutput.push(`.${componentName}-${variantName},`);
+            cssOutput.push(`${elementMapping.variantSelector} {`);
+          } else {
+            // Generate class-only selector
+            cssOutput.push(`.${componentName}-${variantName} {`);
+          }
           cssProps.forEach(prop => cssOutput.push(`  ${prop}`));
           cssOutput.push(`}`);
 
           // State modifiers (e.g., :hover, :focus)
           Object.entries(stateProps).forEach(([state, props]) => {
             if (state !== 'default' && props.length > 0) {
-              cssOutput.push(`.${componentName}-${variantName}:${state} {`);
+              if (isDefaultVariant && elementMapping.variantSelector) {
+                // Generate combined state selector for default variant
+                cssOutput.push(`.${componentName}-${variantName}:${state},`);
+                cssOutput.push(`${elementMapping.variantSelector}:${state} {`);
+              } else {
+                cssOutput.push(`.${componentName}-${variantName}:${state} {`);
+              }
               props.forEach(prop => cssOutput.push(`  ${prop}`));
               cssOutput.push(`}`);
             }

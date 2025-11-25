@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Element Auto-Styling Test</title>
+    <link rel="stylesheet" href="reset.css">
+    <link rel="stylesheet" href="build.nosync/tokens/css/variables.css">
+    <link rel="stylesheet" href="build.nosync/tokens/css/atomic.css">
+    <link rel="stylesheet" href="build.nosync/tokens/css/components.css">
+    <link rel="stylesheet" href="app.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div style="padding: 20px; max-width: 800px; margin: 0 auto;">
+        <h1 style="color: var(--color-semantic-text-accent); font-family: Orbitron, sans-serif; margin-bottom: 30px;">
+            Element Auto-Styling Test
+        </h1>
+        
+        <section style="margin-bottom: 40px;">
+            <h2 style="color: var(--color-semantic-text-primary); margin-bottom: 15px;">Buttons</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button>Auto-styled (Primary)</button>
+                <button>Another Button</button>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="button-primary">Explicit Primary</button>
+                <button class="button-secondary">Explicit Secondary</button>
+            </div>
+        </section>
+
+        <section style="margin-bottom: 40px;">
+            <h2 style="color: var(--color-semantic-text-primary); margin-bottom: 15px;">Form Inputs</h2>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <input type="text" placeholder="Auto-styled text input">
+                <input type="email" placeholder="Auto-styled email input">
+                <input type="number" placeholder="123">
+                <input type="text" class="text-input" placeholder="With explicit class">
+            </div>
+        </section>
+
+        <section style="margin-bottom: 40px;">
+            <h2 style="color: var(--color-semantic-text-primary); margin-bottom: 15px;">Select Dropdown</h2>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <select>
+                    <option>Auto-styled select</option>
+                    <option>Option 2</option>
+                    <option>Option 3</option>
+                </select>
+                <select class="select">
+                    <option>With explicit class</option>
+                    <option>Option 2</option>
+                </select>
+            </div>
+        </section>
+
+        <section style="margin-bottom: 40px;">
+            <h2 style="color: var(--color-semantic-text-primary); margin-bottom: 15px;">Textarea</h2>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <textarea placeholder="Auto-styled textarea" rows="4"></textarea>
+                <textarea class="textarea" placeholder="With explicit class" rows="3"></textarea>
+            </div>
+        </section>
+
+        <section>
+            <h2 style="color: var(--color-semantic-text-primary); margin-bottom: 15px;">Mixed Form</h2>
+            <form style="display: flex; flex-direction: column; gap: 15px; max-width: 400px;">
+                <label style="color: var(--color-semantic-text-secondary);">
+                    Name:
+                    <input type="text" placeholder="Enter your name" style="display: block; margin-top: 5px; width: 100%;">
+                </label>
+                <label style="color: var(--color-semantic-text-secondary);">
+                    Email:
+                    <input type="email" placeholder="Enter your email" style="display: block; margin-top: 5px; width: 100%;">
+                </label>
+                <label style="color: var(--color-semantic-text-secondary);">
+                    Message:
+                    <textarea placeholder="Your message" rows="4" style="display: block; margin-top: 5px; width: 100%;"></textarea>
+                </label>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit">Submit (Auto Primary)</button>
+                    <button type="button" class="button-secondary">Cancel</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</body>
+</html>

@@ -46,7 +46,7 @@ export default {
           "format": "css/components",
           "filter": (token) => {
             // Include all component tokens
-            return ['button', 'file-tree', 'list', 'panel', 'select'].includes(token.path[0]) ||
+            return ['button', 'file-tree', 'list', 'panel', 'select', 'text-input', 'textarea'].includes(token.path[0]) ||
               token.path[0].includes('component');
           }
         }
