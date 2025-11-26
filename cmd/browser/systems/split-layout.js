@@ -1,10 +1,22 @@
+// Import design tokens for handle sizes
+const HANDLE_TOKENS = {
+  resize: {
+    interaction: 12, // from ResizeHandleSizeInteraction: "12px"
+    visual: 2        // from ResizeHandleSizeVisual: "2px"
+  },
+  corner: {
+    interaction: 24, // from CornerHandleSizeInteraction: "24px" - Updated for better usability  
+    visual: 16       // from CornerHandleSizeVisual: "16px" - Updated for better visibility
+  }
+}
+
 let idCounter = 0
 function genId(prefix) {
   return `${prefix}_${++idCounter}`
 }
 
 export class SplitLayout {
-  constructor(width, height, handleW = 4, handleH = 4) {
+  constructor(width, height, handleW = HANDLE_TOKENS.resize.interaction, handleH = HANDLE_TOKENS.resize.interaction) {
     this.width = width
     this.height = height
     this.handleW = handleW

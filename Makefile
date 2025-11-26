@@ -60,6 +60,11 @@ $(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) 
 	$(Q)echo "Building Zig plugin $*..."
 	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
 
+# Rule to build C plugins using Zig (bare WASM)
+$(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)
+	$(Q)echo "Building C plugin $*..."
+	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
+
 # Design token files
 DESIGN_TOKEN_FILES := $(BUILD_DIR)/tokens/css/components.css $(BUILD_DIR)/tokens/css/variables.css $(BUILD_DIR)/tokens/css/atomic.css $(BUILD_DIR)/tokens/js/tokens.js
 

@@ -208,7 +208,7 @@ export function registerComponentsFormat(StyleDictionary) {
         const componentName = token.path[0];
 
         // Skip non-component tokens
-        if (!['button', 'file-tree', 'list', 'panel', 'select', 'text-input', 'textarea'].includes(componentName) &&
+        if (!['button', 'file-tree', 'list', 'panel', 'select', 'text-input', 'textarea', 'resize-handle', 'corner-handle'].includes(componentName) &&
           !componentName.includes('component')) {
           return;
         }
