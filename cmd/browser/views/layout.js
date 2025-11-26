@@ -166,7 +166,7 @@ class Handle extends HTMLElement {
     this._h = 0
     this.style.position = "absolute"
     
-    // Determine handle orientation for cursor styling
+    // Determine handle orientation for cursor styling and CSS classes
     const handleData = this.layout.layout.getHandle(panel.id)
     if (handleData) {
       const isVertical = handleData.w < handleData.h

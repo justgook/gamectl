@@ -23,7 +23,11 @@ view--chrome * {
 }
 
 view--chrome select,
-view--chrome [draggable] {
+view--chrome [draggable],
+view--chrome .nw,
+view--chrome .ne,
+view--chrome .sw,
+view--chrome .se {
   pointer-events: auto;
 }
 
@@ -58,91 +62,127 @@ view--chrome [draggable] {
   border: var(--border-width-default) solid var(--color-semantic-border-default);
 }
 
+/* Handle positioning and basic behavior */
 .handle {
   position: absolute;
   inset: 0;
-  background-color: var(--color-semantic-border-interactive);
   touch-action: none; /* Prevent default touch actions like scrolling */
   user-select: none; /* Prevent text selection while dragging */
-  opacity: 0.3;
-  transition: opacity 0.2s ease;
+  transition: all 0.2s ease;
 }
 
-.handle:hover {
-  opacity: 0.6;
-  background-color: var(--color-semantic-background-accent-default);
+/* Create thin visual line using pseudo-element while keeping full interaction area */
+.handle::before {
+  content: '';
+  position: absolute;
+  background: var(--resize-handle-background);
+  box-shadow: var(--resize-handle-box-shadow);
+  transition: all 0.2s ease;
 }
 
-/* Determine cursor based on handle orientation */
+/* Orientation-specific styling for handles */
 view--handle[data-orientation="vertical"] .handle {
-  cursor: ew-resize;
+  cursor: var(--resize-handle-vertical-cursor);
+}
+
+view--handle[data-orientation="vertical"] .handle::before {
+  /* Vertical handles: thin width, full height */
+  left: 50%;
+  width: var(--resize-handle-size-visual);
+  height: 100%;
+  transform: translateX(-50%);
 }
 
 view--handle[data-orientation="horizontal"] .handle {
-  cursor: ns-resize;
+  cursor: var(--resize-handle-horizontal-cursor);
 }
 
-/* Active state */
+view--handle[data-orientation="horizontal"] .handle::before {
+  /* Horizontal handles: full width, thin height */
+  top: 50%;
+  width: 100%;
+  height: var(--resize-handle-size-visual);
+  transform: translateY(-50%);
+}
+
+/* Handle states - apply to pseudo-element */
+.handle:hover::before {
+  background: var(--resize-handle-hover-background);
+  box-shadow: var(--resize-handle-hover-box-shadow);
+}
+
+view--handle[data-dragging="true"] .handle::before {
+  background: var(--resize-handle-active-background);
+  box-shadow: var(--resize-handle-active-box-shadow);
+}
+
 view--handle[data-dragging="true"] .handle {
   cursor: grabbing;
 }
 
-.ne,
-.se,
+/* Corner handle positioning and styling - Simple opacity control */
+.nw,
+.ne, 
 .sw,
-.nw {
+.se {
   position: absolute;
-  width: var(--spacing-scale-5);
-  height: var(--spacing-scale-5);
-  background-color: var(--color-semantic-border-interactive);
-  opacity: 0.4;
-  transition: all 0.2s ease;
+  width: var(--corner-handle-width);
+  height: var(--corner-handle-height);
+  border-radius: var(--corner-handle-border-radius);
+  border: var(--corner-handle-border-width) solid transparent;
+  background: transparent;
+  transition: all 0.15s ease-out;
+  /* Invisible by default */
+  opacity: 0;
+  pointer-events: auto;
 }
 
-.ne:hover,
-.se:hover,
-.sw:hover,
-.nw:hover {
-  opacity: 0.8;
-  background-color: var(--color-semantic-background-accent-default);
-}
-
+/* Position corners with offset for equal distance from edges */
 .ne,
 .nw {
-  top: 0;
+  top: var(--corner-handle-position-offset);
 }
 
 .se,
 .sw {
-  bottom: 0;
+  bottom: var(--corner-handle-position-offset);
 }
 
 .ne,
 .se {
-  right: 0;
+  right: var(--corner-handle-position-offset);
 }
 
 .nw,
 .sw {
-  left: 0;
+  left: var(--corner-handle-position-offset);
 }
 
-.nw {
-  border-radius: 0 0 100% 0;
-  cursor: se-resize;
+/* Corner handle cursor styles */
+.corner-handle-nw {
+  cursor: var(--corner-handle-nw-cursor);
 }
 
-.ne {
-  border-radius: 0 0 0 100%;
-  cursor: sw-resize;
+.corner-handle-ne {
+  cursor: var(--corner-handle-ne-cursor);
 }
 
-.sw {
-  border-radius: 0 100% 0 0;
-  cursor: ne-resize;
+.corner-handle-sw {
+  cursor: var(--corner-handle-sw-cursor);
 }
 
-.se {
-  border-radius: 100% 0 0 0;
-  cursor: nw-resize;
+.corner-handle-se {
+  cursor: var(--corner-handle-se-cursor);
+}
+
+/* Simple hover state - show with background on hover */
+.corner-handle:hover,
+.nw:hover,
+.ne:hover,
+.sw:hover,
+.se:hover {
+  opacity: 1;
+  background: rgba(0, 229, 255, 0.3);
+  border-color: rgba(0, 229, 255, 0.5);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
 }
