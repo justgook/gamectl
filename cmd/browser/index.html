@@ -181,18 +181,22 @@
 
     <layout-parent handle-width="12" handle-height="12" id="scene">
       <view-nodegraph panel="panel_1">
-        <node-input id="n1" x="100" y="100" value="10" label="Count"></node-input>
-        <node-input id="n4" x="100" y="250" value="5" label="max Depth"></node-input>
-        <node-plugin id="n2" x="400" y="175" plugin="treegen" function="gen" inputs="nodeCount:n1;maxDepth:n4"
-          outputs="output,output2">
+        <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
+        <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen" inputs="nodeCount:nodeCount"
+          outputs="result"></node-plugin>
+        <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
+          outputs="output,returnCode"></node-fields>
+        <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
+        <node-plugin id="logger" x="518.1018207797425" y="303.02118151361793" plugin="host" function="log"
+          inputs="logInput:toString">
         </node-plugin>
-        <node-output id="n3" x="700" y="100" inputs="value:n2"></node-output>
-        <node-output id="n5" x="700" y="250" inputs="theData:n2.output2"></node-output>
       </view-nodegraph>
-      <!-- <view-tilemap panel="panel_1"></view-tilemap> -->
       <view-console nesw="s" r="200" from="panel_1"></view-console>
       <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
     </layout-parent>
+
+
+
 
 
     <script src="./plugin-manager.js"> </script>
@@ -213,6 +217,9 @@
       import "./views/nodegraph/node-input.js"
       import "./views/nodegraph/node-plugin.js"
       import "./views/nodegraph/node-output.js"
+      import "./views/nodegraph/node-tostring.js"
+      import "./views/nodegraph/node-fromjson.js"
+      import "./views/nodegraph/node-fields.js"
 
       // window.bus = bus
       // import {bus} from "./systems/event-bus.js"

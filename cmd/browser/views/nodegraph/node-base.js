@@ -28,6 +28,11 @@ export class NodeBase extends HTMLElement {
     this.error = null
     this._parsedInputs = new Map() // Parsed from inputs attribute
     this._parsedOutputs = [] // Parsed from outputs attribute
+    
+    // Promise-based output system
+    this.outputPromises = new Map() // Map<portName, Promise>
+    this.executionPromise = null    // Promise for the node's execution
+    this.isExecuting = false
   }
 
   connectedCallback() {
@@ -162,11 +167,11 @@ export class NodeBase extends HTMLElement {
   }
 
   /**
-   * Get input value from a connected source node
+   * Get input value from a connected source node (Promise-based)
    * @param {string} port - Input port name
-   * @returns {any} Value from source node, or null if not connected
+   * @returns {Promise<any>} Value from source node, or null if not connected
    */
-  getInputValue(port) {
+  async getInputValue(port) {
     if (!this._parsedInputs.has(port)) return null
 
     const connection = this._parsedInputs.get(port)
@@ -177,45 +182,84 @@ export class NodeBase extends HTMLElement {
 
     if (!sourceNode) return null
 
-    // For nodes with named outputs, get specific port value
-    // Otherwise get the default outputValue
-    return sourceNode.getOutputValue(sourcePort)
+    // This naturally blocks until source is ready
+    return await sourceNode.getOutputValue(sourcePort)
   }
 
   /**
-   * Get output value for a specific port
-   * Default implementation returns the single output value
-   * Override in subclasses with multiple outputs
+   * Get output value for a specific port (Promise-based)
    * @param {string} port - Output port name
-   * @returns {any}
+   * @returns {Promise<any>}
    */
-  getOutputValue(_port) {
-    return this.outputValue
+  getOutputValue(port = 'output') {
+    if (!this.outputPromises.has(port)) {
+      // Lazy execution - create Promise when first accessed
+      this.startExecution()
+    }
+    return this.outputPromises.get(port)
   }
 
   /**
    * Check if this node can execute (all inputs ready)
+   * Note: With Promise-based system, this is less critical as dependencies
+   * are automatically resolved via await in getInputValue
    * @returns {boolean}
    */
   canExecute() {
-    const connections = this.getInputConnections()
+    // With Promise-based system, execution will naturally wait for dependencies
+    // This method is kept for compatibility and UI feedback
+    return !this.isExecuting
+  }
 
-    for (const { sourceNodeId } of connections) {
-      const sourceNode = this.graph?.nodes.get(sourceNodeId)
-      if (!sourceNode || sourceNode.state !== 'success') {
-        return false
-      }
+  /**
+   * Start execution and create output promises
+   * @returns {Promise<void>}
+   */
+  async startExecution() {
+    if (this.isExecuting) return this.executionPromise
+    this.isExecuting = true
+
+    // Create output promises
+    const resolvers = new Map()
+    for (const outputName of this._parsedOutputs) {
+      const { promise, resolve, reject } = this.createPromise()
+      this.outputPromises.set(outputName, promise)
+      resolvers.set(outputName, { resolve, reject })
     }
 
-    return true
+    // Execute and resolve outputs
+    this.executionPromise = this.executeNode(resolvers)
+    return this.executionPromise
+  }
+
+  /**
+   * Create a new Promise with exposed resolve/reject
+   * @returns {object} {promise, resolve, reject}
+   */
+  createPromise() {
+    let resolve, reject
+    const promise = new Promise((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
   }
 
   /**
    * Execute this node (override in subclasses)
+   * @param {Map} resolvers - Map of output name to {resolve, reject}
+   * @returns {Promise<void>}
+   */
+  async executeNode(resolvers) {
+    throw new Error(`${this.constructor.name} must implement executeNode()`)
+  }
+
+  /**
+   * Legacy execute method - now calls startExecution
    * @returns {Promise<void>}
    */
   async execute() {
-    throw new Error(`${this.constructor.name} must implement execute()`)
+    return this.startExecution()
   }
 
   /**

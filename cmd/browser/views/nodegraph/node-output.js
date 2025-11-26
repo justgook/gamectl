@@ -68,19 +68,24 @@ export class NodeOutput extends NodeBase {
     return []
   }
 
-  async execute() {
+  async executeNode(resolvers) {
     this.state = 'running'
     this.requestRedraw()
 
     try {
-      // Get input value
-      const value = this.getInputValue('value')
+      // Get input value (this naturally waits for dependencies)
+      const value = await this.getInputValue('value')
 
       // Format for display/output
       this.outputValue = this.formatValue(value)
 
       // Log to console for now
       console.log(`Output [${this.label}]:`, this.outputValue)
+
+      // Output nodes typically don't have outputs, but resolve any if they exist
+      for (const outputName of this._parsedOutputs) {
+        resolvers.get(outputName).resolve(this.outputValue)
+      }
 
       this.state = 'success'
       this.error = null
@@ -89,6 +94,11 @@ export class NodeOutput extends NodeBase {
       this.state = 'error'
       this.error = error.message
       console.error(`Output [${this.label}] failed:`, error)
+      
+      // Reject any outputs
+      for (const outputName of this._parsedOutputs) {
+        resolvers.get(outputName).reject(error)
+      }
     }
 
     this.requestRedraw()

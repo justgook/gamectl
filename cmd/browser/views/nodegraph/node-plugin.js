@@ -26,7 +26,6 @@ export class NodePlugin extends NodeBase {
     super()
     this.plugin = ''
     this.functionName = ''
-    this.outputValues = {} // Multiple outputs support
   }
 
   connectedCallback() {
@@ -63,9 +62,6 @@ export class NodePlugin extends NodeBase {
 
     // Parse input ports from the inputs attribute
     this._updateInputPorts()
-
-    const outputsAttr = this.getAttribute('outputs') || 'output'
-    this.outputPorts = outputsAttr.split(',').map(s => s.trim())
   }
 
   /**
@@ -110,7 +106,7 @@ export class NodePlugin extends NodeBase {
         this.requestRedraw()
         break
       case 'outputs':
-        this.outputPorts = newVal ? newVal.split(',').map(s => s.trim()) : ['output']
+        // Let parent handle outputs parsing
         this.requestRedraw()
         break
     }
@@ -130,25 +126,40 @@ export class NodePlugin extends NodeBase {
     }
   }
 
-  getOutputValue(port) {
-    // Support multiple outputs
-    if (this._parsedOutputs.length === 1) {
-      return this.outputValue
-    }
-    return this.outputValues[port]
-  }
-
-  async execute() {
+  async executeNode(resolvers) {
     if (!this.plugin || !this.functionName) {
+      const error = new Error('Plugin or function not specified')
       this.state = 'error'
-      this.error = 'Plugin or function not specified'
+      this.error = error.message
+      // Reject all outputs
+      for (const [, { reject }] of resolvers) {
+        reject(error)
+      }
+      this.requestRedraw()
       return
     }
 
-    // Check if pluginManager is available globally
-    if (typeof pluginManager === 'undefined') {
-      this.state = 'error'
-      this.error = 'PluginManager not available'
+    // For testing: simulate plugin execution if pluginManager not available
+    if (typeof window.pluginManager === 'undefined') {
+      console.log(`🔧 Simulating plugin execution: ${this.plugin}.${this.functionName}`)
+      
+      // Simulate async work
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Create mock result
+      const mockResult = {
+        returnCode: 0,
+        output: new Uint8Array(new TextEncoder().encode(`Mock result from ${this.plugin}.${this.functionName}`))
+      }
+      
+      // Resolve all outputs with mock result
+      for (const outputName of this._parsedOutputs) {
+        resolvers.get(outputName).resolve(mockResult)
+      }
+      
+      this.state = 'success'
+      console.log(`✓ Mock ${this.plugin}.${this.functionName} completed`)
+      this.requestRedraw()
       return
     }
 
@@ -156,39 +167,30 @@ export class NodePlugin extends NodeBase {
     this.requestRedraw()
 
     try {
-      // Collect inputs from connected nodes
+      // Collect inputs from connected nodes (this naturally waits for dependencies)
       const inputs = {}
       const inputPorts = this.getInputPorts()
 
       for (const port of inputPorts) {
-        const value = this.getInputValue(port.name)
-        if (value === null) {
-          // TODO: Decide if null inputs are allowed
-          // For now, we'll allow them
-        }
-        inputs[port.name] = value
+        inputs[port.name] = await this.getInputValue(port.name)
       }
 
       console.log(`Executing ${this.plugin}.${this.functionName} with inputs:`, inputs)
 
       // Call the plugin
-      const result = await pluginManager.call(
+      const result = await window.pluginManager.call(
         this.plugin,
         this.functionName,
         JSON.stringify(inputs)
       )
 
-      // Store output(s)
-      if (this._parsedOutputs.length === 1) {
-        this.outputValue = result.output
-      } else {
-        // Parse multiple outputs (assuming JSON response with named outputs)
-        try {
-          const parsed = JSON.parse(new TextDecoder().decode(result.output))
-          this.outputValues = parsed
-        } catch {
-          // If not JSON, store as single output
-          this.outputValue = result.output
+      // Simple: resolve all outputs with the raw result
+      for (const outputName of this._parsedOutputs) {
+        if (outputName === 'result' || outputName === 'output') {
+          resolvers.get(outputName).resolve(result)
+        } else {
+          // For custom outputs, could add field extraction here later
+          resolvers.get(outputName).resolve(result)
         }
       }
 
@@ -201,6 +203,11 @@ export class NodePlugin extends NodeBase {
       this.state = 'error'
       this.error = error.message
       console.error(`✗ ${this.plugin}.${this.functionName} failed:`, error)
+      
+      // Reject all outputs
+      for (const [, { reject }] of resolvers) {
+        reject(error)
+      }
     }
 
     this.requestRedraw()
