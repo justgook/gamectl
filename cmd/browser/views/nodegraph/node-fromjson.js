@@ -23,8 +23,8 @@ export class NodeFromJson extends NodeBase {
     return {
       title: 'FromJSON',
       type: 'helper',
-      width: 150,
-      height: Math.max(100, 50 + Math.max(inputs.length, outputs.length) * 24),
+      width: 200,
+      height: Math.max(120, 50 + Math.max(inputs.length, outputs.length) * 24),
       inputs,
       outputs
     }

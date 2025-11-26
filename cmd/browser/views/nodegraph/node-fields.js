@@ -28,7 +28,7 @@ export class NodeFields extends NodeBase {
     return {
       title: 'Fields',
       type: 'helper',
-      width: 180,
+      width: 200,
       height: Math.max(120, 50 + Math.max(inputs.length, outputs.length) * 24),
       inputs,
       outputs
