@@ -189,12 +189,13 @@ export class NodeBase extends HTMLElement {
   /**
    * Get output value for a specific port (Promise-based)
    * @param {string} port - Output port name
+   * @param {boolean} forceRerun - Force re-execution even if already completed
    * @returns {Promise<any>}
    */
-  getOutputValue(port = 'output') {
-    if (!this.outputPromises.has(port)) {
-      // Lazy execution - create Promise when first accessed
-      this.startExecution()
+  getOutputValue(port = 'output', forceRerun = false) {
+    if (!this.outputPromises.has(port) || forceRerun) {
+      // Lazy execution - create Promise when first accessed or force rerun
+      this.startExecution(forceRerun)
     }
     return this.outputPromises.get(port)
   }
@@ -213,22 +214,38 @@ export class NodeBase extends HTMLElement {
 
   /**
    * Start execution and create output promises
+   * @param {boolean} forceRerun - Force re-execution even if already completed
    * @returns {Promise<void>}
    */
-  async startExecution() {
-    if (this.isExecuting) return this.executionPromise
-    this.isExecuting = true
-
-    // Create output promises
-    const resolvers = new Map()
-    for (const outputName of this._parsedOutputs) {
-      const { promise, resolve, reject } = this.createPromise()
-      this.outputPromises.set(outputName, promise)
-      resolvers.set(outputName, { resolve, reject })
+  async startExecution(forceRerun = false) {
+    // If already executing, return existing promise
+    if (this.isExecuting && !forceRerun) {
+      return this.executionPromise
     }
 
-    // Execute and resolve outputs
-    this.executionPromise = this.executeNode(resolvers)
+    // If forcing rerun or first run, reset state
+    if (forceRerun || !this.executionPromise) {
+      this.isExecuting = true
+      this.state = 'idle'
+      this.error = null
+
+      // Create new output promises
+      const resolvers = new Map()
+      for (const outputName of this._parsedOutputs) {
+        const { promise, resolve, reject } = this.createPromise()
+        this.outputPromises.set(outputName, promise)
+        resolvers.set(outputName, { resolve, reject })
+      }
+
+      // Execute and resolve outputs
+      this.executionPromise = this.executeNode(resolvers)
+      
+      // Reset execution flag when done
+      this.executionPromise.finally(() => {
+        this.isExecuting = false
+      })
+    }
+
     return this.executionPromise
   }
 

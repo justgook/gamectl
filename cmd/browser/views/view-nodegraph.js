@@ -428,20 +428,20 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     switch (node.state) {
       case 'running':
-        buttonColor = COLORS.nodeRunning
+        buttonColor = COLORS.node.running
         icon = '⏸'
         break
       case 'success':
-        buttonColor = COLORS.nodeSuccess
-        icon = '✓'
+        buttonColor = COLORS.node.success
+        icon = '↻'  // Rerun icon for completed nodes
         break
       case 'error':
-        buttonColor = COLORS.nodeError
-        icon = '✗'
+        buttonColor = COLORS.node.error
+        icon = '↻'  // Rerun icon for failed nodes
         break
       default:
         buttonColor = COLORS.port
-        icon = '▶'
+        icon = '▶'  // Play icon for idle nodes
     }
 
     // Draw button background
@@ -1021,11 +1021,17 @@ startConnectionReconnect(connection, grabbedSide, worldPos) {
       return
     }
 
-    console.log(`Running node: ${node.id}`)
+    const isRerun = node.state === 'success' || node.state === 'error'
+    const action = isRerun ? 'Re-running' : 'Running'
+    
+    console.log(`${action} node: ${node.id}`)
     
     try {
-      // This will trigger the Promise-based execution
-      await node.getOutputValue('result') // Use the first output or 'result'
+      // Force rerun if the node has already completed
+      const outputPorts = node.getOutputPorts()
+      const firstOutput = outputPorts.length > 0 ? outputPorts[0].name : 'output'
+      
+      await node.getOutputValue(firstOutput, isRerun) // Force rerun if needed
       console.log(`✓ Node ${node.id} completed successfully`)
     } catch (error) {
       console.error(`✗ Node ${node.id} failed:`, error)
