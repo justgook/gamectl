@@ -127,8 +127,15 @@ export class NodeInput extends NodeBase {
     ]
   }
 
-  async execute() {
-    // Input nodes don't execute, they just provide values
+  async executeNode(resolvers) {
+    // Input nodes immediately resolve with their value
+    this.state = 'running'
+
+    // Resolve all outputs with the current value
+    for (const outputName of this._parsedOutputs) {
+      resolvers.get(outputName).resolve(this.value)
+    }
+
     this.state = 'success'
     this.outputValue = this.value
   }

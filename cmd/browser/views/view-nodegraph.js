@@ -253,6 +253,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.textBaseline = 'middle'
     ctx.fillText(info.title, x + 10, y + NODE_HEADER_HEIGHT / 2)
 
+    // Draw run button for plugin nodes
+    if (info.type === 'plugin') {
+      this.drawRunButton(ctx, x, y, info, node)
+    }
+
     // Draw input ports
     this.drawPorts(ctx, x, y + NODE_HEADER_HEIGHT, info.inputs, 'input', node)
 
@@ -409,6 +414,63 @@ export class ViewNodeGraph extends ViewCanvasBase {
       x2, y2
     )
     ctx.stroke()
+  }
+
+  drawRunButton(ctx, nodeX, nodeY, info, node) {
+    const buttonSize = 16
+    const buttonX = nodeX + info.width - buttonSize - 6
+    const buttonY = nodeY + (NODE_HEADER_HEIGHT - buttonSize) / 2
+
+    // Determine button color based on node state
+    let buttonColor = COLORS.port
+    let iconColor = COLORS.text
+    let icon = '▶'
+
+    switch (node.state) {
+      case 'running':
+        buttonColor = COLORS.nodeRunning
+        icon = '⏸'
+        break
+      case 'success':
+        buttonColor = COLORS.nodeSuccess
+        icon = '✓'
+        break
+      case 'error':
+        buttonColor = COLORS.nodeError
+        icon = '✗'
+        break
+      default:
+        buttonColor = COLORS.port
+        icon = '▶'
+    }
+
+    // Draw button background
+    ctx.fillStyle = buttonColor
+    ctx.beginPath()
+    ctx.arc(buttonX + buttonSize/2, buttonY + buttonSize/2, buttonSize/2, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Draw button border
+    ctx.strokeStyle = COLORS.text
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.arc(buttonX + buttonSize/2, buttonY + buttonSize/2, buttonSize/2, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // Draw icon
+    ctx.fillStyle = iconColor
+    ctx.font = '10px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(icon, buttonX + buttonSize/2, buttonY + buttonSize/2)
+
+    // Store button bounds for click detection
+    node._runButtonBounds = {
+      x: buttonX,
+      y: buttonY,
+      width: buttonSize,
+      height: buttonSize
+    }
   }
 
   // --- Connection Index ---
@@ -648,6 +710,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
     const node = this.getNodeAt(worldPos.x, worldPos.y)
 
     if (node) {
+      // Check if clicking on run button first
+      if (node._runButtonBounds && this.isPointInRunButton(worldPos, node)) {
+        this.onRunButtonClick(node)
+        return
+      }
+
       // Start node drag
       if (!e.ctrlKey && !e.metaKey) {
         this.selectedNodes.clear()
@@ -929,21 +997,76 @@ startConnectionReconnect(connection, grabbedSide, worldPos) {
   // The draw() method will skip rendering this connection during the drag
 }
 
-// --- Execution ---
+  // --- Run Button Handling ---
+
+  /**
+   * Check if a point is within a node's run button
+   */
+  isPointInRunButton(worldPos, node) {
+    if (!node._runButtonBounds) return false
+
+    const bounds = node._runButtonBounds
+    return worldPos.x >= bounds.x && 
+           worldPos.x <= bounds.x + bounds.width &&
+           worldPos.y >= bounds.y && 
+           worldPos.y <= bounds.y + bounds.height
+  }
+
+  /**
+   * Handle run button click
+   */
+  async onRunButtonClick(node) {
+    if (node.isExecuting) {
+      console.log(`Node ${node.id} is already executing`)
+      return
+    }
+
+    console.log(`Running node: ${node.id}`)
+    
+    try {
+      // This will trigger the Promise-based execution
+      await node.getOutputValue('result') // Use the first output or 'result'
+      console.log(`✓ Node ${node.id} completed successfully`)
+    } catch (error) {
+      console.error(`✗ Node ${node.id} failed:`, error)
+    }
+    
+    this.draw()
+  }
+
+  // --- Execution ---
 
   async executeGraph() {
-  if (this.isExecuting) return
+    if (this.isExecuting) return
 
-  this.isExecuting = true
-  console.log('Executing graph...')
+    this.isExecuting = true
+    console.log('Executing entire graph...')
 
-  // TODO: Implement topological sort and execution
-  // For now, just log
-  console.log('Nodes:', Array.from(this.nodes.keys()))
-  console.log('Connections:', this.connectionIndex)
+    try {
+      // Execute all output nodes (they will naturally trigger their dependencies)
+      const outputNodes = Array.from(this.nodes.values()).filter(
+        node => node.getOutputPorts().length === 0 || node.constructor.name === 'NodeOutput'
+      )
 
-  this.isExecuting = false
-}
+      if (outputNodes.length === 0) {
+        console.log('No output nodes found. Try adding some output nodes or use individual run buttons.')
+        return
+      }
+
+      for (const node of outputNodes) {
+        console.log(`Executing output node: ${node.id}`)
+        try {
+          await node.startExecution()
+        } catch (error) {
+          console.error(`Output node ${node.id} failed:`, error)
+        }
+      }
+
+      console.log('✓ Graph execution completed')
+    } finally {
+      this.isExecuting = false
+    }
+  }
 
 // --- UI Actions ---
 
