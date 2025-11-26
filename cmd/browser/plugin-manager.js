@@ -177,11 +177,11 @@ class PluginManager {
       plugin_call_output_len: () => this.pluginCallOutputLenFunc()
     };
 
-    // Add WASI support (minimal polyfill for TinyGo/WASI plugins)
+    // Add WASI support (comprehensive polyfill for WASI plugins like SQLite3)
     importObject.wasi_snapshot_preview1 = {
-      // File descriptor operations (no-ops for browser)
+      // File descriptor operations
       fd_close: () => 0,
-      fd_write: (fd, _iovs, _iovsLen, _nwritten) => {
+      fd_write: (fd, iovs, iovsLen, nwritten) => {
         // Minimal console.log support for stdout/stderr
         if (fd === 1 || fd === 2) {
           // fd 1 = stdout, fd 2 = stderr
@@ -192,20 +192,62 @@ class PluginManager {
       },
       fd_read: () => 0,
       fd_seek: () => 0,
-      fd_fdstat_get: () => 0,
+      fd_sync: () => 0,
+      fd_fdstat_get: (fd, stat) => {
+        // Return minimal fdstat structure
+        // For in-memory operations, we can return success
+        return 0;
+      },
       fd_fdstat_set_flags: () => 0,
+      fd_filestat_get: (fd, buf) => {
+        // Return minimal filestat structure
+        // SQLite3 uses this to check file properties
+        const module = this.wasmModules.get(moduleName);
+        if (module && buf) {
+          const memory = new Uint8Array(module.memory.buffer);
+          // Fill with zeros (minimal valid filestat)
+          for (let i = 0; i < 64; i++) {
+            memory[buf + i] = 0;
+          }
+        }
+        return 0;
+      },
+      fd_filestat_set_size: () => 0,
+      fd_filestat_set_times: () => 0,
+      fd_pread: () => 0,
+      fd_pwrite: () => 0,
+      fd_readdir: () => 0,
+      fd_renumber: () => 0,
+      fd_tell: () => 0,
+      fd_advise: () => 0,
+      fd_allocate: () => 0,
+      fd_datasync: () => 0,
+      
+      // Prestat operations
       fd_prestat_get: () => 8, // Return EBADF (bad file descriptor)
       fd_prestat_dir_name: () => 0,
 
-      // Path operations (no-ops)
-      path_open: () => 8,
+      // Path operations (return EBADF for all)
+      path_create_directory: () => 8,
       path_filestat_get: () => 8,
+      path_filestat_set_times: () => 8,
+      path_link: () => 8,
+      path_open: () => 8,
+      path_readlink: () => 8,
       path_remove_directory: () => 8,
+      path_rename: () => 8,
+      path_symlink: () => 8,
       path_unlink_file: () => 8,
 
       // Environment
       environ_sizes_get: (environCount, environBufSize) => {
         // No environment variables
+        const module = this.wasmModules.get(moduleName);
+        if (module && environCount && environBufSize) {
+          const memory = new DataView(module.memory.buffer);
+          memory.setUint32(environCount, 0, true);
+          memory.setUint32(environBufSize, 0, true);
+        }
         return 0;
       },
       environ_get: () => 0,
@@ -213,19 +255,40 @@ class PluginManager {
       // Arguments
       args_sizes_get: (argc, argvBufSize) => {
         // No command line arguments
+        const module = this.wasmModules.get(moduleName);
+        if (module && argc && argvBufSize) {
+          const memory = new DataView(module.memory.buffer);
+          memory.setUint32(argc, 0, true);
+          memory.setUint32(argvBufSize, 0, true);
+        }
         return 0;
       },
       args_get: () => 0,
 
       // Clock
+      clock_res_get: (clockId, resolution) => {
+        // Return 1 nanosecond resolution
+        const module = this.wasmModules.get(moduleName);
+        if (module && resolution) {
+          const memory = new DataView(module.memory.buffer);
+          memory.setBigUint64(resolution, BigInt(1), true);
+        }
+        return 0;
+      },
       clock_time_get: (clockId, precision, timestamp) => {
         // Return current time in nanoseconds
+        const module = this.wasmModules.get(moduleName);
+        if (module && timestamp) {
+          const memory = new DataView(module.memory.buffer);
+          const now = BigInt(Date.now()) * BigInt(1000000); // Convert ms to ns
+          memory.setBigUint64(timestamp, now, true);
+        }
         return 0;
       },
 
       // Random
       random_get: (buf, bufLen) => {
-        // Fill with random bytes using crypto API if available
+        // Fill with random bytes using crypto API
         if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
           const module = this.wasmModules.get(moduleName);
           if (module) {
@@ -240,13 +303,20 @@ class PluginManager {
 
       // Process
       proc_exit: (code) => {
-        throw new Error(`WASI proc_exit called with code ${code}`);
+        console.warn(`WASI proc_exit called with code ${code}`);
+        throw new Error(`WASI proc_exit: ${code}`);
       },
+      proc_raise: (sig) => {
+        console.warn(`WASI proc_raise called with signal ${sig}`);
+        return 0;
+      },
+      sched_yield: () => 0,
 
       // Poll (no-op)
       poll_oneoff: () => 0,
 
-      // Socket operations (no-ops)
+      // Socket operations (return EBADF for all)
+      sock_accept: () => 8,
       sock_recv: () => 8,
       sock_send: () => 8,
       sock_shutdown: () => 8

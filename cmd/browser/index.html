@@ -240,6 +240,8 @@
         'automap',
         // delete those
         'math',
+        // THE new stuff
+        'sql',
       ];
 
       // Create modules array for plugin manager
@@ -263,7 +265,18 @@
           }
         ]
       })
-      window.pluginManager.call("math", "add", "a=1")
+      // TESTING C PLUGIN
+      const result = await window.pluginManager.call("math", "add", "a=5,b=3")
+      const DE = new TextDecoder()
+      console.log(DE.decode(result.output))
+
+      // TESTING C PLUGIN
+      const result2 = await window.pluginManager.call("sql", "open", "")
+      console.log(DE.decode(result2.output))
+
+      const sql = 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER)';
+      const result3 = await window.pluginManager.call('sql', 'exec', sql)
+
     </script>
   </body>
 

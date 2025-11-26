@@ -60,6 +60,30 @@ $(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) 
 	$(Q)echo "Building Zig plugin $*..."
 	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
 
+# Special rule for SQL plugin with SQLite3
+# Note: Uses wasm32-wasi target (not freestanding) because SQLite3 needs libc
+$(BUILD_DIR)/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/sqlite3.c $(wildcard $(PLUGIN_DIR)/sql/*.h) | $(BUILD_DIR)
+	$(Q)echo "Building SQL plugin with SQLite3..."
+	$(Q)zig build-exe $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/sqlite3.c \
+		-target wasm32-wasi \
+		-lc \
+		-rdynamic \
+		-O ReleaseFast \
+		-DSQLITE_OMIT_LOAD_EXTENSION \
+		-DSQLITE_THREADSAFE=0 \
+		-DSQLITE_OMIT_WAL \
+		-DSQLITE_DEFAULT_MEMSTATUS=0 \
+		-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1 \
+		-DSQLITE_LIKE_DOESNT_MATCH_BLOBS \
+		-DSQLITE_MAX_EXPR_DEPTH=0 \
+		-DSQLITE_OMIT_DECLTYPE \
+		-DSQLITE_OMIT_DEPRECATED \
+		-DSQLITE_OMIT_PROGRESS_CALLBACK \
+		-DSQLITE_OMIT_SHARED_CACHE \
+		-DSQLITE_USE_ALLOCA \
+		-DSQLITE_TEMP_STORE=3 \
+		-femit-bin=$@
+
 # Rule to build C plugins using Zig (bare WASM)
 $(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)
 	$(Q)echo "Building C plugin $*..."
