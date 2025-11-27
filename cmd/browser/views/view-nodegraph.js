@@ -675,22 +675,17 @@ export class ViewNodeGraph extends ViewCanvasBase {
   _onMouseDown(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
 
-    // Priority 1: Check if clicking on connection line
-    const connHit = this.getConnectionAt(worldPos.x, worldPos.y)
-    if (connHit) {
-      this.startConnectionReconnect(connHit.connection, connHit.side, worldPos)
-      return
-    }
-
-    // Priority 2: Check if clicking on a port (extended hit area)
+    // Priority 1: Check if clicking on a port (extended hit area)
     // We check ALL nodes for port hits, not just nodes at this position
+    let outputPortHit = null
     for (const node of this.nodes.values()) {
       const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
 
       if (portHit) {
         if (portHit.type === 'output') {
-          // Start connection from output port
+          // Output port - always create new connection (outputs support multiple connections)
           this.startConnectionCreate(node, portHit.port, 'output', worldPos)
+          return
         } else {
           // Input port - check if already connected
           const existingConn = this.findConnectionToInput(node.id, portHit.port.name)
@@ -701,9 +696,16 @@ export class ViewNodeGraph extends ViewCanvasBase {
             // Start new connection from input port
             this.startConnectionCreate(node, portHit.port, 'input', worldPos)
           }
+          return
         }
-        return
       }
+    }
+
+    // Priority 2: Check if clicking on connection line (only if no ports were hit)
+    const connHit = this.getConnectionAt(worldPos.x, worldPos.y)
+    if (connHit) {
+      this.startConnectionReconnect(connHit.connection, connHit.side, worldPos)
+      return
     }
 
     // Priority 3: Check if clicking on node body
@@ -866,7 +868,7 @@ disconnectInput(nodeId, portName) {
   if (!node) return
 
   const currentInputs = node.getAttribute('inputs') || ''
-  const inputPairs = currentInputs.split(';').map(s => s.trim()).filter(Boolean)
+  const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
 
   // Convert "portName:source" -> "portName" (keeping port, removing connection)
   const updated = inputPairs.map(pair => {
@@ -877,7 +879,7 @@ disconnectInput(nodeId, portName) {
     return pair // Keep other ports unchanged
   })
 
-  node.setAttribute('inputs', updated.join(';'))
+  node.setAttribute('inputs', updated.join(','))
   this.rebuildConnectionIndex()
 }
 
@@ -889,7 +891,7 @@ completeConnection(fromNodeId, fromPort, toNodeId, toPort) {
   if (!toNode) return
 
   const currentInputs = toNode.getAttribute('inputs') || ''
-  const inputPairs = currentInputs.split(';').map(s => s.trim()).filter(Boolean)
+  const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
 
   // Update the connection for this port (preserve port order)
   const updated = inputPairs.map(pair => {
@@ -908,7 +910,7 @@ completeConnection(fromNodeId, fromPort, toNodeId, toPort) {
   }
 
   // Update attribute
-  toNode.setAttribute('inputs', updated.join(';'))
+  toNode.setAttribute('inputs', updated.join(','))
 
   this.rebuildConnectionIndex()
   this.draw()
