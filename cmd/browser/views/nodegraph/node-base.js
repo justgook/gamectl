@@ -54,8 +54,8 @@ export class NodeBase extends HTMLElement {
       this._parseInputsAttribute(inputsAttr)
     }
 
-    // Parse outputs attribute (default to 'output' if not specified)
-    const outputsAttr = this.getAttribute('outputs') || 'output'
+    // Parse outputs attribute (no defaults - only what's explicitly specified)
+    const outputsAttr = this.getAttribute('outputs')
     this._parseOutputsAttribute(outputsAttr)
   }
 
@@ -129,7 +129,12 @@ export class NodeBase extends HTMLElement {
    */
   _parseOutputsAttribute(value) {
     if (!value) {
-      this._parsedOutputs = ['output']
+      // Input and ToString nodes should have a default 'output', other nodes should have no outputs
+      if (this.constructor.name === 'NodeInput' || this.constructor.name === 'NodeToString') {
+        this._parsedOutputs = ['output']
+      } else {
+        this._parsedOutputs = []
+      }
       return
     }
 
@@ -193,6 +198,21 @@ export class NodeBase extends HTMLElement {
    * @returns {Promise<any>}
    */
   getOutputValue(port = 'output', forceRerun = false) {
+    // If this node has no outputs, just execute it and return the execution promise
+    if (this._parsedOutputs.length === 0) {
+      return this.startExecution(forceRerun)
+    }
+    
+    // If requesting a port that doesn't exist, use the first available port or default
+    if (!this._parsedOutputs.includes(port)) {
+      if (this._parsedOutputs.length > 0) {
+        port = this._parsedOutputs[0] // Use first available port
+      } else {
+        // No outputs at all - this shouldn't happen due to check above, but just in case
+        return this.startExecution(forceRerun)
+      }
+    }
+    
     if (!this.outputPromises.has(port) || forceRerun) {
       // Lazy execution - create Promise when first accessed or force rerun
       this.startExecution(forceRerun)
@@ -240,6 +260,13 @@ export class NodeBase extends HTMLElement {
       // Execute and resolve outputs
       this.executionPromise = this.executeNode(resolvers)
       
+      // Reset downstream nodes AFTER this node completes execution (plugin nodes only)
+      if (forceRerun && this.constructor.name === 'NodePlugin') {
+        this.executionPromise.finally(() => {
+          this.resetDownstreamNodes()
+        })
+      }
+      
       // Reset execution flag when done
       this.executionPromise.finally(() => {
         this.isExecuting = false
@@ -260,6 +287,67 @@ export class NodeBase extends HTMLElement {
       reject = rej
     })
     return { promise, resolve, reject }
+  }
+
+  /**
+   * Reset all downstream nodes to idle state when this node starts execution
+   * This ensures that downstream nodes will re-execute when this node's output changes
+   */
+  resetDownstreamNodes() {
+    if (!this.graph) return
+
+    // Find all nodes that depend on this node's output
+    const downstreamNodes = this.findDownstreamNodes()
+    
+    for (const node of downstreamNodes) {
+      // Skip if node is already idle or not yet executed
+      if (node.state === 'idle' && !node.executionPromise) {
+        continue
+      }
+
+      console.log(`[${this.id}] Resetting downstream node: ${node.id}`)
+      
+      // Reset the node state
+      node.state = 'idle'
+      node.error = null
+      node.isExecuting = false
+      
+      // Clear execution promises to force re-execution
+      node.executionPromise = null
+      node.outputPromises.clear()
+      
+      // Request redraw to update visual state
+      node.requestRedraw()
+    }
+  }
+
+  /**
+   * Find all nodes downstream from this node (recursive)
+   * @returns {Set<NodeBase>} Set of downstream nodes
+   */
+  findDownstreamNodes() {
+    const downstream = new Set()
+    const visited = new Set()
+    
+    const traverse = (nodeId) => {
+      if (visited.has(nodeId)) return
+      visited.add(nodeId)
+      
+      // Find all connections from this node
+      for (const connection of this.graph.connectionIndex) {
+        if (connection.fromNodeId === nodeId) {
+          const targetNode = this.graph.nodes.get(connection.toNodeId)
+          if (targetNode) {
+            downstream.add(targetNode)
+            // Recursively find downstream nodes
+            traverse(connection.toNodeId)
+          }
+        }
+      }
+    }
+    
+    traverse(this.id)
+    return downstream
   }
 
   /**
