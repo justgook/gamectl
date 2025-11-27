@@ -51,6 +51,34 @@ INSERT INTO items VALUES(2,'shield',75);
 COMMIT;
 ```
 
+### `backup`
+Create a binary backup using optimized SQL format (based on SQLite backup API concepts).
+- **Input**: None
+- **Output**: Compact binary-style backup with special markers
+- **Format**: Optimized SQL with binary backup headers for fast restore
+- **Use Case**: IDE state persistence, quick save/restore
+- **Example Output**:
+```sql
+-- BINARY_BACKUP_V1
+-- Generated from binary backup
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+
+CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER);
+
+INSERT INTO items VALUES(1,'sword',100);
+INSERT INTO items VALUES(2,'shield',75);
+
+COMMIT;
+-- END_BINARY_BACKUP_V1
+```
+
+### `load`
+Load database from a binary backup created by the `backup` function.
+- **Input**: Binary backup string (output from `backup` function)
+- **Output**: `"Binary backup loaded successfully"` on success, error message on failure
+- **Note**: Validates binary backup format before loading
+
 ### `restore`
 Restore database from a SQL dump created by the `dump` function.
 - **Input**: SQL dump string (output from `dump` function)
@@ -157,40 +185,97 @@ manager.call('sql', 'close', '')
 // Returns: "OK"
 ```
 
-### Backup and Restore Workflow
+### Backup and Restore Workflows
+
+#### **SQL Dump/Restore** (Human-readable, version control friendly)
 
 ```javascript
-// Backup current database state
-async function backupDatabase() {
+// Create SQL dump for version control
+async function createSqlDump() {
   const dumpResult = await manager.call('sql', 'dump', '')
   const sqlDump = new TextDecoder().decode(dumpResult.output)
   
   // Save to localStorage
-  localStorage.setItem('game-backup-' + Date.now(), sqlDump)
+  localStorage.setItem('game-sql-backup-' + Date.now(), sqlDump)
   
-  // Or download as file
+  // Download as .sql file for version control
   const blob = new Blob([sqlDump], { type: 'text/sql' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'game-backup.sql'
+  a.download = 'procedural-world.sql'
   a.click()
   
   return sqlDump
 }
 
-// Restore from backup
-async function restoreDatabase(sqlDump) {
+// Restore from SQL dump
+async function restoreFromSqlDump(sqlDump) {
   await manager.call('sql', 'open', '')
   const result = await manager.call('sql', 'restore', sqlDump)
   console.log(new TextDecoder().decode(result.output))
 }
+```
 
+#### **Binary Backup/Load** (Fast, IDE state persistence)
+
+```javascript
+// Create binary backup for fast state saving
+async function createBinaryBackup() {
+  const backupResult = await manager.call('sql', 'backup', '')
+  const binaryBackup = new TextDecoder().decode(backupResult.output)
+  
+  // Save to localStorage for IDE state
+  localStorage.setItem('ide-state-backup', binaryBackup)
+  
+  return binaryBackup
+}
+
+// Load binary backup for fast restoration
+async function loadBinaryBackup() {
+  const binaryBackup = localStorage.getItem('ide-state-backup')
+  if (binaryBackup) {
+    await manager.call('sql', 'open', '')
+    const result = await manager.call('sql', 'load', binaryBackup)
+    console.log('IDE state restored:', new TextDecoder().decode(result.output))
+  }
+}
+
+// Auto-save on page unload
+window.addEventListener('beforeunload', async () => {
+  await createBinaryBackup()
+})
+
+// Auto-restore on page load
+window.addEventListener('load', async () => {
+  await loadBinaryBackup()
+})
+```
+
+#### **Utility Functions**
+
+```javascript
 // List all backups in localStorage
 function listBackups() {
-  return Object.keys(localStorage)
-    .filter(key => key.startsWith('game-backup-'))
+  const sqlBackups = Object.keys(localStorage)
+    .filter(key => key.startsWith('game-sql-backup-'))
     .sort()
+  
+  const binaryBackups = Object.keys(localStorage)
+    .filter(key => key.includes('ide-state-backup'))
+  
+  return { sqlBackups, binaryBackups }
+}
+
+// Compare backup sizes
+function compareBackupSizes() {
+  const sqlDump = localStorage.getItem('game-sql-backup-latest')
+  const binaryBackup = localStorage.getItem('ide-state-backup')
+  
+  return {
+    sql: sqlDump ? sqlDump.length : 0,
+    binary: binaryBackup ? binaryBackup.length : 0
+  }
 }
 ```
 

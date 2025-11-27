@@ -302,19 +302,43 @@
       localStorage.setItem('sql-backup', sqlDump)
       console.log('Dump saved to localStorage')
 
-      // Test restore by clearing database and restoring
+      // Test binary backup functionality
+      const binaryBackupResult = await window.pluginManager.call('sql', 'backup', '')
+      const binaryBackup = DE.decode(binaryBackupResult.output)
+      console.log('Binary Backup generated:', binaryBackup.substring(0, 200) + '...')
+      
+      // Save binary backup to localStorage
+      localStorage.setItem('sql-binary-backup', binaryBackup)
+      console.log('Binary backup saved to localStorage')
+
+      // Test restore by clearing database and restoring with SQL dump
       await window.pluginManager.call('sql', 'exec', 'DROP TABLE items')
       console.log('Table dropped')
 
-      // Restore from dump
+      // Restore from SQL dump first
       const savedDump = localStorage.getItem('sql-backup')
       if (savedDump) {
         const restoreResult = await window.pluginManager.call('sql', 'restore', savedDump)
-        console.log('Restore result:', DE.decode(restoreResult.output))
+        console.log('SQL Restore result:', DE.decode(restoreResult.output))
         
         // Verify restoration worked
         const queryResult = await window.pluginManager.call('sql', 'query', 'SELECT * FROM items')
-        console.log('Data after restore:', DE.decode(queryResult.output))
+        console.log('Data after SQL restore:', DE.decode(queryResult.output))
+      }
+
+      // Now test binary backup restore
+      await window.pluginManager.call('sql', 'exec', 'DROP TABLE items')
+      console.log('Table dropped again for binary test')
+
+      // Restore from binary backup
+      const savedBinaryBackup = localStorage.getItem('sql-binary-backup')
+      if (savedBinaryBackup) {
+        const loadResult = await window.pluginManager.call('sql', 'load', savedBinaryBackup)
+        console.log('Binary Load result:', DE.decode(loadResult.output))
+        
+        // Verify binary restoration worked
+        const queryResult = await window.pluginManager.call('sql', 'query', 'SELECT * FROM items')
+        console.log('Data after binary load:', DE.decode(queryResult.output))
       }
 
     </script>
