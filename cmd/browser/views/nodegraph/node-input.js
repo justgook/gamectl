@@ -40,6 +40,11 @@ export class NodeInput extends NodeBase {
     this.max = parseFloat(this.getAttribute('max')) || 100
     this.step = parseFloat(this.getAttribute('step')) || 1
 
+    // Ensure input nodes have 'output' in _parsedOutputs for promise management
+    if (!this._parsedOutputs.includes('output')) {
+      this._parsedOutputs = ['output']
+    }
+
     // Set initial output value
     this.outputValue = this.value
     this.state = 'success' // Input nodes are always "ready"
