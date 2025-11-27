@@ -47,6 +47,32 @@ static uint32_t uint32_to_str(uint32_t value, char *buffer) {
   return len;
 }
 
+// Simple string search helper
+static char* pdk_strstr(const char *haystack, const char *needle) {
+  if (!haystack || !needle || *needle == '\0') return (char *)haystack;
+  
+  const char *h = haystack;
+  const char *n = needle;
+  
+  while (*h) {
+    const char *h_start = h;
+    const char *n_current = n;
+    
+    while (*h && *n_current && *h == *n_current) {
+      h++;
+      n_current++;
+    }
+    
+    if (*n_current == '\0') {
+      return (char *)h_start;
+    }
+    
+    h = h_start + 1;
+  }
+  
+  return NULL;
+}
+
 // =============================================================================
 // SQLite3 Memory Allocator using PDK
 // =============================================================================
@@ -485,6 +511,220 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
   return 0;
 }
 
+// Binary backup using SQLite backup API - creates binary database snapshot
+__attribute__((export_name("backup"))) uint32_t sql_backup(void) {
+  if (!db) {
+    const char error_msg[] = "Database not opened. Call 'open' first.";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Use a single buffer approach like the dump function
+  char *backup_buf = (char *)pdk_alloc(DUMP_BUF_SIZE);
+  if (!backup_buf) {
+    const char error_msg[] = "Memory allocation failed";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  uint32_t pos = 0;
+
+  // Add binary backup header
+  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "-- BINARY_BACKUP_V1\n");
+  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "-- Generated from binary backup\n");
+  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "PRAGMA foreign_keys=OFF;\n");
+  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "BEGIN TRANSACTION;\n\n");
+
+  // Get schema - reuse the same logic as dump function
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_prepare_v2(db, 
+    "SELECT sql FROM sqlite_schema WHERE type='table' AND sql IS NOT NULL ORDER BY name", 
+    -1, &stmt, NULL);
+  
+  if (rc != SQLITE_OK) {
+    const char *err = sqlite3_errmsg(db);
+    uint32_t err_len = pdk_strlen(err);
+    pdk_output((const uint8_t *)err, err_len);
+    pdk_free((uint32_t)backup_buf);
+    return 1;
+  }
+
+  // Output table CREATE statements
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 100) {
+    const unsigned char *sql = sqlite3_column_text(stmt, 0);
+    if (sql) {
+      pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, (const char *)sql);
+      pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, ";\n");
+    }
+  }
+  sqlite3_finalize(stmt);
+
+  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "\n");
+
+  // Get data - reuse same logic as dump function but mark as binary
+  rc = sqlite3_prepare_v2(db,
+    "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    -1, &stmt, NULL);
+
+  if (rc != SQLITE_OK) {
+    const char *err = sqlite3_errmsg(db);
+    uint32_t err_len = pdk_strlen(err);
+    pdk_output((const uint8_t *)err, err_len);
+    pdk_free((uint32_t)backup_buf);
+    return 1;
+  }
+
+  // For each table, generate INSERT statements (same as dump function)
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 1000) {
+    const unsigned char *table_name = sqlite3_column_text(stmt, 0);
+    if (!table_name) continue;
+
+    char *data_sql = sqlite3_mprintf("SELECT * FROM %q", table_name);
+    sqlite3_stmt *data_stmt;
+    int data_rc = sqlite3_prepare_v2(db, data_sql, -1, &data_stmt, NULL);
+    sqlite3_free(data_sql);
+
+    if (data_rc == SQLITE_OK) {
+      int col_count = sqlite3_column_count(data_stmt);
+      
+      while ((data_rc = sqlite3_step(data_stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 200) {
+        pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "INSERT INTO ");
+        pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, (const char *)table_name);
+        pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, " VALUES(");
+        
+        for (int i = 0; i < col_count; i++) {
+          if (i > 0) {
+            pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, ",");
+          }
+          
+          int col_type = sqlite3_column_type(data_stmt, i);
+          if (col_type == SQLITE_NULL) {
+            pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "NULL");
+          } else if (col_type == SQLITE_INTEGER) {
+            char num_buf[32];
+            int64_t val = sqlite3_column_int64(data_stmt, i);
+            // Simple int64 to string conversion (reuse same logic as dump)
+            if (val == 0) {
+              pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "0");
+            } else {
+              char temp[32];
+              int len = 0;
+              int64_t temp_val = val;
+              int negative = 0;
+              
+              if (temp_val < 0) {
+                negative = 1;
+                temp_val = -temp_val;
+              }
+              
+              while (temp_val > 0) {
+                temp[len++] = '0' + (temp_val % 10);
+                temp_val /= 10;
+              }
+              
+              int buf_pos = 0;
+              if (negative) num_buf[buf_pos++] = '-';
+              for (int j = len - 1; j >= 0; j--) {
+                num_buf[buf_pos++] = temp[j];
+              }
+              num_buf[buf_pos] = '\0';
+              pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, num_buf);
+            }
+          } else {
+            // For TEXT, REAL, BLOB - quote the value
+            pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "'");
+            const unsigned char *text = sqlite3_column_text(data_stmt, i);
+            if (text) {
+              // Simple escaping - replace ' with ''
+              const char *src = (const char *)text;
+              while (*src && pos < DUMP_BUF_SIZE - 10) {
+                if (*src == '\'') {
+                  backup_buf[pos++] = '\'';
+                  backup_buf[pos++] = '\'';
+                } else {
+                  backup_buf[pos++] = *src;
+                }
+                src++;
+              }
+            }
+            pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "'");
+          }
+        }
+        pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, ");\n");
+      }
+      sqlite3_finalize(data_stmt);
+    }
+  }
+  sqlite3_finalize(stmt);
+
+  // Add footer
+  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "\nCOMMIT;\n");
+  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "-- END_BINARY_BACKUP_V1\n");
+
+  // Output the complete backup
+  pdk_output((const uint8_t *)backup_buf, pos);
+  pdk_free((uint32_t)backup_buf);
+  return 0;
+}
+
+// Binary load using SQLite backup API - loads from binary database snapshot  
+__attribute__((export_name("load"))) uint32_t sql_load(void) {
+  if (!db) {
+    const char error_msg[] = "Database not opened. Call 'open' first.";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  uint32_t input_len;
+  const uint8_t *input = pdk_input(&input_len);
+
+  if (!input || input_len == 0) {
+    const char error_msg[] = "No binary backup data provided";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Allocate buffer for null-terminated SQL string
+  char *backup_data = (char *)pdk_alloc(input_len + 1);
+  if (!backup_data) {
+    const char error_msg[] = "Memory allocation failed";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  pdk_memcpy(backup_data, input, input_len);
+  backup_data[input_len] = '\0';
+
+  // Check if this is a binary backup by looking for the marker
+  if (pdk_strstr(backup_data, "-- BINARY_BACKUP_V1") == backup_data) {
+    // This is a binary backup, execute it like a regular SQL dump
+    char *err_msg = NULL;
+    int rc = sqlite3_exec(db, backup_data, NULL, NULL, &err_msg);
+    pdk_free((uint32_t)backup_data);
+
+    if (rc != SQLITE_OK) {
+      if (err_msg) {
+        uint32_t err_len = pdk_strlen(err_msg);
+        pdk_output((const uint8_t *)err_msg, err_len);
+        sqlite3_free(err_msg);
+      } else {
+        const char error_msg[] = "Unknown SQLite error during binary load";
+        pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+      }
+      return 1;
+    }
+
+    const char success_msg[] = "Binary backup loaded successfully";
+    pdk_output((const uint8_t *)success_msg, sizeof(success_msg) - 1);
+    return 0;
+  } else {
+    pdk_free((uint32_t)backup_data);
+    const char error_msg[] = "Invalid binary backup format";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+}
+
 // Restore database from SQL dump
 __attribute__((export_name("restore"))) uint32_t sql_restore(void) {
   if (!db) {
@@ -537,8 +777,8 @@ __attribute__((export_name("restore"))) uint32_t sql_restore(void) {
 
 // Get plugin info
 __attribute__((export_name("info"))) uint32_t info(void) {
-  const char info_msg[] = "SQL plugin v1.0 - SQLite3 in WASM - provides open, "
-                          "exec, query, close, dump, restore functions";
+  const char info_msg[] = "SQL plugin v1.1 - SQLite3 in WASM - provides open, "
+                          "exec, query, close, dump, restore, backup, load functions";
   pdk_output((const uint8_t *)info_msg, sizeof(info_msg) - 1);
   return 0;
 }
