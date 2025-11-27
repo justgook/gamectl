@@ -305,10 +305,240 @@ __attribute__((export_name("close"))) uint32_t sql_close(void) {
   return 0;
 }
 
+// Dump database as SQL statements
+__attribute__((export_name("dump"))) uint32_t sql_dump(void) {
+  if (!db) {
+    const char error_msg[] = "Database not opened. Call 'open' first.";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Allocate buffer for the dump output
+#define DUMP_BUF_SIZE 32768
+  char *dump_buf = (char *)pdk_alloc(DUMP_BUF_SIZE);
+  if (!dump_buf) {
+    const char error_msg[] = "Memory allocation failed";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  uint32_t pos = 0;
+
+  // Add header comment
+  pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "-- SQLite database dump\n");
+  pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "PRAGMA foreign_keys=OFF;\n");
+  pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "BEGIN TRANSACTION;\n\n");
+
+  // First, dump table schemas
+  sqlite3_stmt *stmt;
+  int rc = sqlite3_prepare_v2(db, 
+    "SELECT sql FROM sqlite_schema WHERE type='table' AND sql IS NOT NULL ORDER BY name", 
+    -1, &stmt, NULL);
+  
+  if (rc != SQLITE_OK) {
+    const char *err = sqlite3_errmsg(db);
+    uint32_t err_len = pdk_strlen(err);
+    pdk_output((const uint8_t *)err, err_len);
+    pdk_free((uint32_t)dump_buf);
+    return 1;
+  }
+
+  // Output table CREATE statements
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 100) {
+    const unsigned char *sql = sqlite3_column_text(stmt, 0);
+    if (sql) {
+      pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, (const char *)sql);
+      pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, ";\n");
+    }
+  }
+  sqlite3_finalize(stmt);
+
+  pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "\n");
+
+  // Now dump table data
+  rc = sqlite3_prepare_v2(db,
+    "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    -1, &stmt, NULL);
+
+  if (rc != SQLITE_OK) {
+    const char *err = sqlite3_errmsg(db);
+    uint32_t err_len = pdk_strlen(err);
+    pdk_output((const uint8_t *)err, err_len);
+    pdk_free((uint32_t)dump_buf);
+    return 1;
+  }
+
+  // For each table, generate INSERT statements
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 1000) {
+    const unsigned char *table_name = sqlite3_column_text(stmt, 0);
+    if (!table_name) continue;
+
+    // Create SELECT statement to get data
+    char *data_sql = sqlite3_mprintf(
+      "SELECT 'INSERT INTO %q VALUES(' || group_concat(quote(CASE WHEN typeof(c0) = 'null' THEN NULL ELSE c0 END) || CASE WHEN c1 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c1) = 'null' THEN NULL ELSE c1 END) ELSE '' END || CASE WHEN c2 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c2) = 'null' THEN NULL ELSE c2 END) ELSE '' END || CASE WHEN c3 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c3) = 'null' THEN NULL ELSE c3 END) ELSE '' END || CASE WHEN c4 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c4) = 'null' THEN NULL ELSE c4 END) ELSE '' END || CASE WHEN c5 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c5) = 'null' THEN NULL ELSE c5 END) ELSE '' END || CASE WHEN c6 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c6) = 'null' THEN NULL ELSE c6 END) ELSE '' END || CASE WHEN c7 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c7) = 'null' THEN NULL ELSE c7 END) ELSE '' END, ');') FROM (SELECT * FROM %q) AS t(%s)",
+      table_name, table_name, "c0,c1,c2,c3,c4,c5,c6,c7");
+    
+    // Simplified approach: just use a basic INSERT generation
+    sqlite3_free(data_sql);
+    data_sql = sqlite3_mprintf("SELECT * FROM %q", table_name);
+
+    sqlite3_stmt *data_stmt;
+    rc = sqlite3_prepare_v2(db, data_sql, -1, &data_stmt, NULL);
+    sqlite3_free(data_sql);
+
+    if (rc == SQLITE_OK) {
+      int col_count = sqlite3_column_count(data_stmt);
+      
+      while ((rc = sqlite3_step(data_stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 200) {
+        pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "INSERT INTO ");
+        pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, (const char *)table_name);
+        pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, " VALUES(");
+        
+        for (int i = 0; i < col_count; i++) {
+          if (i > 0) {
+            pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, ",");
+          }
+          
+          int col_type = sqlite3_column_type(data_stmt, i);
+          if (col_type == SQLITE_NULL) {
+            pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "NULL");
+          } else if (col_type == SQLITE_INTEGER) {
+            char num_buf[32];
+            int64_t val = sqlite3_column_int64(data_stmt, i);
+            // Simple int64 to string conversion
+            if (val == 0) {
+              pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "0");
+            } else {
+              char temp[32];
+              int len = 0;
+              int64_t temp_val = val;
+              int negative = 0;
+              
+              if (temp_val < 0) {
+                negative = 1;
+                temp_val = -temp_val;
+              }
+              
+              while (temp_val > 0) {
+                temp[len++] = '0' + (temp_val % 10);
+                temp_val /= 10;
+              }
+              
+              int buf_pos = 0;
+              if (negative) num_buf[buf_pos++] = '-';
+              for (int j = len - 1; j >= 0; j--) {
+                num_buf[buf_pos++] = temp[j];
+              }
+              num_buf[buf_pos] = '\0';
+              pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, num_buf);
+            }
+          } else {
+            // For TEXT, REAL, BLOB - quote the value
+            pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "'");
+            const unsigned char *text = sqlite3_column_text(data_stmt, i);
+            if (text) {
+              // Simple escaping - replace ' with ''
+              const char *src = (const char *)text;
+              while (*src && pos < DUMP_BUF_SIZE - 10) {
+                if (*src == '\'') {
+                  dump_buf[pos++] = '\'';
+                  dump_buf[pos++] = '\'';
+                } else {
+                  dump_buf[pos++] = *src;
+                }
+                src++;
+              }
+            }
+            pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "'");
+          }
+        }
+        pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, ");\n");
+      }
+      sqlite3_finalize(data_stmt);
+    }
+  }
+  sqlite3_finalize(stmt);
+
+  // Add indexes, triggers, views
+  rc = sqlite3_prepare_v2(db,
+    "SELECT sql FROM sqlite_schema WHERE type IN ('index','trigger','view') AND sql IS NOT NULL ORDER BY type",
+    -1, &stmt, NULL);
+
+  if (rc == SQLITE_OK) {
+    pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "\n-- Indexes, triggers, and views\n");
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 100) {
+      const unsigned char *sql = sqlite3_column_text(stmt, 0);
+      if (sql) {
+        pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, (const char *)sql);
+        pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, ";\n");
+      }
+    }
+    sqlite3_finalize(stmt);
+  }
+
+  // Add footer
+  pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "\nCOMMIT;\n");
+
+  // Output the complete dump
+  pdk_output((const uint8_t *)dump_buf, pos);
+  pdk_free((uint32_t)dump_buf);
+  return 0;
+}
+
+// Restore database from SQL dump
+__attribute__((export_name("restore"))) uint32_t sql_restore(void) {
+  if (!db) {
+    const char error_msg[] = "Database not opened. Call 'open' first.";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  uint32_t input_len;
+  const uint8_t *input = pdk_input(&input_len);
+
+  if (!input || input_len == 0) {
+    const char error_msg[] = "No SQL dump provided";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Allocate buffer for null-terminated SQL string
+  char *sql_dump = (char *)pdk_alloc(input_len + 1);
+  if (!sql_dump) {
+    const char error_msg[] = "Memory allocation failed";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  pdk_memcpy(sql_dump, input, input_len);
+  sql_dump[input_len] = '\0';
+
+  // Execute the entire dump as one script
+  char *err_msg = NULL;
+  int rc = sqlite3_exec(db, sql_dump, NULL, NULL, &err_msg);
+  pdk_free((uint32_t)sql_dump);
+
+  if (rc != SQLITE_OK) {
+    if (err_msg) {
+      uint32_t err_len = pdk_strlen(err_msg);
+      pdk_output((const uint8_t *)err_msg, err_len);
+      sqlite3_free(err_msg);
+    } else {
+      const char error_msg[] = "Unknown SQLite error during restore";
+      pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    }
+    return 1;
+  }
+
+  const char success_msg[] = "Database restored successfully";
+  pdk_output((const uint8_t *)success_msg, sizeof(success_msg) - 1);
+  return 0;
+}
+
 // Get plugin info
 __attribute__((export_name("info"))) uint32_t info(void) {
   const char info_msg[] = "SQL plugin v1.0 - SQLite3 in WASM - provides open, "
-                          "exec, query, close functions";
+                          "exec, query, close, dump, restore functions";
   pdk_output((const uint8_t *)info_msg, sizeof(info_msg) - 1);
   return 0;
 }

@@ -32,6 +32,31 @@ Execute SELECT queries and return results in CSV format.
 - **Example Input**: `"SELECT * FROM users"`
 - **Example Output**: `"id,name\n1,Alice\n2,Bob\n"`
 
+### `dump`
+Export the entire database as SQL statements (like `pg_dump` or SQLite `.dump`).
+- **Input**: None
+- **Output**: Complete SQL dump including schema and data
+- **Format**: SQL statements that can recreate the database
+- **Example Output**: 
+```sql
+-- SQLite database dump
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+
+CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER);
+
+INSERT INTO items VALUES(1,'sword',100);
+INSERT INTO items VALUES(2,'shield',75);
+
+COMMIT;
+```
+
+### `restore`
+Restore database from a SQL dump created by the `dump` function.
+- **Input**: SQL dump string (output from `dump` function)
+- **Output**: `"Database restored successfully"` on success, error message on failure
+- **Note**: Executes the entire dump as a transaction
+
 ### `close`
 Close the database connection and free resources.
 - **Input**: None
@@ -112,13 +137,61 @@ manager.call('sql', 'exec', "INSERT INTO items (name, value) VALUES ('shield', 7
 manager.call('sql', 'query', 'SELECT * FROM items WHERE value > 50')
 // Returns: "id,name,value\n1,sword,100\n2,shield,75\n"
 
-// 5. Update data
+// 5. Backup database
+const dumpResult = manager.call('sql', 'dump', '')
+const sqlDump = new TextDecoder().decode(dumpResult.output)
+localStorage.setItem('my-game-backup', sqlDump)
+// Save dump for later restoration
+
+// 6. Update data
 manager.call('sql', 'exec', "UPDATE items SET value = 120 WHERE name = 'sword'")
 // Returns: "OK"
 
-// 6. Close database
+// 7. Restore from backup (if needed)
+const savedDump = localStorage.getItem('my-game-backup')
+manager.call('sql', 'restore', savedDump)
+// Returns: "Database restored successfully"
+
+// 8. Close database
 manager.call('sql', 'close', '')
 // Returns: "OK"
+```
+
+### Backup and Restore Workflow
+
+```javascript
+// Backup current database state
+async function backupDatabase() {
+  const dumpResult = await manager.call('sql', 'dump', '')
+  const sqlDump = new TextDecoder().decode(dumpResult.output)
+  
+  // Save to localStorage
+  localStorage.setItem('game-backup-' + Date.now(), sqlDump)
+  
+  // Or download as file
+  const blob = new Blob([sqlDump], { type: 'text/sql' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'game-backup.sql'
+  a.click()
+  
+  return sqlDump
+}
+
+// Restore from backup
+async function restoreDatabase(sqlDump) {
+  await manager.call('sql', 'open', '')
+  const result = await manager.call('sql', 'restore', sqlDump)
+  console.log(new TextDecoder().decode(result.output))
+}
+
+// List all backups in localStorage
+function listBackups() {
+  return Object.keys(localStorage)
+    .filter(key => key.startsWith('game-backup-'))
+    .sort()
+}
 ```
 
 ### Procedural Generation Use Case
@@ -195,19 +268,23 @@ manager.call('sql', 'query', `
 
 ## Limitations
 
-1. **In-Memory Only**: Database is lost when plugin is unloaded
-2. **No Persistence**: Cannot save to disk (WASI filesystem not exposed)
-3. **Size**: Large WASM file due to full SQLite3 engine
+1. **In-Memory Only**: Database is ephemeral by default (but can be backed up with `dump`/`restore`)
+2. **No Direct File I/O**: Cannot save to disk directly (use `dump` + localStorage/server instead)
+3. **Size**: Large WASM file (~4.2MB) due to full SQLite3 engine
 4. **WASI Required**: Host must support WASI runtime
+5. **Dump Size**: Large databases may exceed output buffer limits (32KB currently)
 
 ## Future Enhancements
 
-- [ ] Persistent storage via plugin-to-plugin calls (e.g., storage plugin)
-- [ ] JSON output format option
+- [x] **Database dump/restore functionality** (✅ IMPLEMENTED)
+- [ ] Larger dump buffer sizes for big databases
+- [ ] Incremental/differential backups
+- [ ] JSON output format option for dumps
 - [ ] Prepared statement caching
-- [ ] Transaction support
+- [ ] Advanced transaction support
 - [ ] Custom SQL functions via PDK callbacks
-- [ ] Database export/import functionality
+- [ ] Binary database serialization (smaller than SQL dumps)
+- [ ] Compression for dumps
 
 ## Technical Notes
 
