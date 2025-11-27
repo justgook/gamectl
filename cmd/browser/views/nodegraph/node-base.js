@@ -98,7 +98,7 @@ export class NodeBase extends HTMLElement {
   }
 
   /**
-   * Parse inputs attribute: "port1:source1;port2:source2.outputPort;port3:source3"
+   * Parse inputs attribute: "port1:source1,port2:source2.outputPort,port3:source3" or "port1:source1;port2:source2;port3:source3"
    * @private
    */
   _parseInputsAttribute(value) {
@@ -106,7 +106,9 @@ export class NodeBase extends HTMLElement {
 
     if (!value) return
 
-    const pairs = value.split(';').map(s => s.trim()).filter(Boolean)
+    // Support both comma and semicolon separators for consistency
+    const separator = value.includes(',') ? ',' : ';'
+    const pairs = value.split(separator).map(s => s.trim()).filter(Boolean)
 
     for (const pair of pairs) {
       const [portName, source] = pair.split(':').map(s => s.trim())
