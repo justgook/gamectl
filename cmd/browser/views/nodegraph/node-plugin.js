@@ -77,17 +77,17 @@ export class NodePlugin extends NodeBase {
       return
     }
 
-    // Detect format by checking if it contains ':' (new format) or ',' (old format)
+    // Detect format by checking if it contains ':' (connected format) or not (port list format)
     if (inputsAttr.includes(':')) {
-      // New format: "port1:source1;port2:source2"
+      // Connected format: "port1:source1,port2:source2" or "port1:source1;port2:source2"
       // Parent has already parsed into this._parsedInputs
       // Extract port names from the parsed connections
       this.inputPorts = Array.from(this._parsedInputs.keys())
-      console.log(`[${this.id}] Updated inputPorts from new format:`, this.inputPorts)
+      console.log(`[${this.id}] Updated inputPorts from connected format:`, this.inputPorts)
     } else {
-      // Old format: "port1,port2,port3"
+      // Port list format: "port1,port2,port3" (unconnected ports)
       this.inputPorts = inputsAttr.split(',').map(s => s.trim()).filter(Boolean)
-      console.log(`[${this.id}] Updated inputPorts from old format:`, this.inputPorts)
+      console.log(`[${this.id}] Updated inputPorts from port list format:`, this.inputPorts)
     }
   }
 
