@@ -156,6 +156,37 @@
       <div data-action="resize" class="handle"></div>
     </template>
 
+    <template id="node-template-selector">
+      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center;"
+        data-element="modal-backdrop">
+        <div class="panel" style="width: 500px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Select Node Template</span>
+            <button data-action="close" style="background: none; border: none; color: inherit; font-size: 1.5rem; cursor: pointer; padding: 0 var(--spacing-scale-2);">×</button>
+          </div>
+          <div class="panel-content" style="flex: 1; overflow-y: auto; padding: var(--spacing-scale-3);">
+            <div data-element="template-list" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);">
+              <!-- Templates will be inserted here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template id="node-template-category">
+      <div style="margin-bottom: var(--spacing-scale-3);">
+        <h3 data-element="category-name" style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); text-transform: uppercase;"></h3>
+        <div data-element="category-items" style="display: flex; flex-direction: column; gap: var(--spacing-scale-1);"></div>
+      </div>
+    </template>
+
+    <template id="node-template-item">
+      <button class="button-secondary" data-action="select-template" style="width: 100%; text-align: left; padding: var(--spacing-scale-2); display: flex; flex-direction: column; align-items: flex-start;">
+        <strong data-element="template-name"></strong>
+        <small data-element="template-description" style="color: var(--color-semantic-text-secondary); margin-top: var(--spacing-scale-1);"></small>
+      </button>
+    </template>
+
     <template id="view-chrome">
       <div class="panel-header" style="background-color: transparent; padding-left: var(--panel-header-padding);">
         <select data-action="select-view">
@@ -340,6 +371,34 @@
         const queryResult = await window.pluginManager.call('sql', 'query', 'SELECT * FROM items')
         console.log('Data after binary load:', DE.decode(queryResult.output))
       }
+
+      // Initialize Node Templates Database
+      async function initNodeTemplates() {
+        try {
+          // Fetch migration file
+          const response = await fetch('/data/node-templates.sql')
+          if (!response.ok) {
+            console.error('Failed to load node-templates.sql:', response.statusText)
+            return
+          }
+          
+          const migrationSql = await response.text()
+          
+          // Execute migration (uses restore since it's a SQL script)
+          const result = await window.pluginManager.call('sql', 'restore', migrationSql)
+          console.log('Node templates initialized:', DE.decode(result.output))
+          
+          // Verify templates loaded
+          const verifyResult = await window.pluginManager.call('sql', 'query', 
+            'SELECT COUNT(*) as count FROM node_templates'
+          )
+          console.log('Templates loaded:', DE.decode(verifyResult.output))
+        } catch (error) {
+          console.error('Error initializing node templates:', error)
+        }
+      }
+
+      await initNodeTemplates()
 
     </script>
   </body>

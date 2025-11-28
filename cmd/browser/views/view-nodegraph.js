@@ -76,6 +76,9 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Execution state
     this.isExecuting = false
+
+    // Node ID counter for simple incrementing IDs
+    this.nodeIdCounter = 1
   }
 
   connectedCallback() {
@@ -447,14 +450,14 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // Draw button background
     ctx.fillStyle = buttonColor
     ctx.beginPath()
-    ctx.arc(buttonX + buttonSize/2, buttonY + buttonSize/2, buttonSize/2, 0, Math.PI * 2)
+    ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
     ctx.fill()
 
     // Draw button border
     ctx.strokeStyle = COLORS.text
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.arc(buttonX + buttonSize/2, buttonY + buttonSize/2, buttonSize/2, 0, Math.PI * 2)
+    ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
     ctx.stroke()
 
     // Draw icon
@@ -462,7 +465,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.font = '10px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(icon, buttonX + buttonSize/2, buttonY + buttonSize/2)
+    ctx.fillText(icon, buttonX + buttonSize / 2, buttonY + buttonSize / 2)
 
     // Store button bounds for click detection
     node._runButtonBounds = {
@@ -741,263 +744,263 @@ export class ViewNodeGraph extends ViewCanvasBase {
     super._onMouseDown(e)
   }
 
-_onMouseMove(e) {
-  const worldPos = this.screenToWorld(e.clientX, e.clientY)
-
-  // Handle connection drag
-  if (this.connectionDragState) {
-    this.connectionDragState.movingEnd = { x: worldPos.x, y: worldPos.y }
-    
-    // Find hover target for visual feedback
-    this.connectionDragState.hoverTarget = null
-    for (const node of this.nodes.values()) {
-      const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
-      if (portHit) {
-        // Check if this is a valid connection target
-        const isValid = this.validateConnection(this.connectionDragState, node, portHit)
-        if (isValid) {
-          this.connectionDragState.hoverTarget = {
-            nodeId: node.id,
-            port: portHit.port.name,
-            type: portHit.type
-          }
-        }
-        break
-      }
-    }
-    
-    this.draw()
-    this._handleHover(e)
-    return
-  }
-
-  // Handle node drag
-  if (this.draggedNode && !this.isDragging) {
-    const newX = worldPos.x - this.dragOffset.x
-    const newY = worldPos.y - this.dragOffset.y
-
-    this.draggedNode.setAttribute('x', newX)
-    this.draggedNode.setAttribute('y', newY)
-    return
-  }
-
-  super._onMouseMove(e)
-}
-
-_onMouseUp(e) {
-  // Handle connection creation/reconnection
-  if (this.connectionDragState) {
+  _onMouseMove(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
 
-    // Check if dropping on any port (extended hit area)
-    let targetNode = null
-    let portHit = null
+    // Handle connection drag
+    if (this.connectionDragState) {
+      this.connectionDragState.movingEnd = { x: worldPos.x, y: worldPos.y }
 
-    for (const node of this.nodes.values()) {
-      const hit = this.getPortAt(node, worldPos.x, worldPos.y)
-      if (hit) {
-        targetNode = node
-        portHit = hit
-        break
+      // Find hover target for visual feedback
+      this.connectionDragState.hoverTarget = null
+      for (const node of this.nodes.values()) {
+        const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
+        if (portHit) {
+          // Check if this is a valid connection target
+          const isValid = this.validateConnection(this.connectionDragState, node, portHit)
+          if (isValid) {
+            this.connectionDragState.hoverTarget = {
+              nodeId: node.id,
+              port: portHit.port.name,
+              type: portHit.type
+            }
+          }
+          break
+        }
       }
+
+      this.draw()
+      this._handleHover(e)
+      return
     }
 
-    if (targetNode && portHit) {
-      // Validate: can we connect?
-      const isValid = this.validateConnection(
-        this.connectionDragState,
-        targetNode,
-        portHit
-      )
+    // Handle node drag
+    if (this.draggedNode && !this.isDragging) {
+      const newX = worldPos.x - this.dragOffset.x
+      const newY = worldPos.y - this.dragOffset.y
 
-      if (isValid) {
-        // Determine from/to based on port types
-        let fromNodeId, fromPort, toNodeId, toPort
+      this.draggedNode.setAttribute('x', newX)
+      this.draggedNode.setAttribute('y', newY)
+      return
+    }
 
-        if (this.connectionDragState.fixedEnd.type === 'output') {
-          // Fixed end is output, moving end connected to input
-          fromNodeId = this.connectionDragState.fixedEnd.nodeId
-          fromPort = this.connectionDragState.fixedEnd.port
-          toNodeId = targetNode.id
-          toPort = portHit.port.name
-        } else {
-          // Fixed end is input, moving end connected to output
-          fromNodeId = targetNode.id
-          fromPort = portHit.port.name
-          toNodeId = this.connectionDragState.fixedEnd.nodeId
-          toPort = this.connectionDragState.fixedEnd.port
+    super._onMouseMove(e)
+  }
+
+  _onMouseUp(e) {
+    // Handle connection creation/reconnection
+    if (this.connectionDragState) {
+      const worldPos = this.screenToWorld(e.clientX, e.clientY)
+
+      // Check if dropping on any port (extended hit area)
+      let targetNode = null
+      let portHit = null
+
+      for (const node of this.nodes.values()) {
+        const hit = this.getPortAt(node, worldPos.x, worldPos.y)
+        if (hit) {
+          targetNode = node
+          portHit = hit
+          break
         }
+      }
 
-        // If reconnecting, disconnect the old connection first
-        if (this.connectionDragState.mode !== 'create' && this.connectionDragState.originalConnection) {
+      if (targetNode && portHit) {
+        // Validate: can we connect?
+        const isValid = this.validateConnection(
+          this.connectionDragState,
+          targetNode,
+          portHit
+        )
+
+        if (isValid) {
+          // Determine from/to based on port types
+          let fromNodeId, fromPort, toNodeId, toPort
+
+          if (this.connectionDragState.fixedEnd.type === 'output') {
+            // Fixed end is output, moving end connected to input
+            fromNodeId = this.connectionDragState.fixedEnd.nodeId
+            fromPort = this.connectionDragState.fixedEnd.port
+            toNodeId = targetNode.id
+            toPort = portHit.port.name
+          } else {
+            // Fixed end is input, moving end connected to output
+            fromNodeId = targetNode.id
+            fromPort = portHit.port.name
+            toNodeId = this.connectionDragState.fixedEnd.nodeId
+            toPort = this.connectionDragState.fixedEnd.port
+          }
+
+          // If reconnecting, disconnect the old connection first
+          if (this.connectionDragState.mode !== 'create' && this.connectionDragState.originalConnection) {
+            const orig = this.connectionDragState.originalConnection
+            this.disconnectInput(orig.toNodeId, orig.toPort)
+          }
+
+          this.completeConnection(fromNodeId, fromPort, toNodeId, toPort)
+        } else if (this.connectionDragState.mode !== 'create' && this.connectionDragState.originalConnection) {
+          // Reconnection to invalid port - disconnect (delete the connection)
           const orig = this.connectionDragState.originalConnection
           this.disconnectInput(orig.toNodeId, orig.toPort)
         }
-
-        this.completeConnection(fromNodeId, fromPort, toNodeId, toPort)
       } else if (this.connectionDragState.mode !== 'create' && this.connectionDragState.originalConnection) {
-        // Reconnection to invalid port - disconnect (delete the connection)
+        // Dropped on empty space during reconnection - disconnect (delete)
         const orig = this.connectionDragState.originalConnection
         this.disconnectInput(orig.toNodeId, orig.toPort)
       }
-    } else if (this.connectionDragState.mode !== 'create' && this.connectionDragState.originalConnection) {
-      // Dropped on empty space during reconnection - disconnect (delete)
-      const orig = this.connectionDragState.originalConnection
-      this.disconnectInput(orig.toNodeId, orig.toPort)
+
+      // Clear state
+      this.connectionDragState = null
+      this.draw()
+      return
     }
 
-    // Clear state
-    this.connectionDragState = null
+    // End node drag
+    this.draggedNode = null
+
+    super._onMouseUp(e)
+  }
+
+  // --- Connection Management ---
+
+  /**
+   * Disconnect an input port (removes the :source part, keeps the port definition)
+   */
+  disconnectInput(nodeId, portName) {
+    const node = this.nodes.get(nodeId)
+    if (!node) return
+
+    const currentInputs = node.getAttribute('inputs') || ''
+    const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
+
+    // Convert "portName:source" -> "portName" (keeping port, removing connection)
+    const updated = inputPairs.map(pair => {
+      const [port] = pair.split(':')
+      if (port === portName) {
+        return port // Remove the :source part, keep just the port name
+      }
+      return pair // Keep other ports unchanged
+    })
+
+    node.setAttribute('inputs', updated.join(','))
+    this.rebuildConnectionIndex()
+  }
+
+  /**
+   * Complete a connection (create or reconnect)
+   */
+  completeConnection(fromNodeId, fromPort, toNodeId, toPort) {
+    const toNode = this.nodes.get(toNodeId)
+    if (!toNode) return
+
+    const currentInputs = toNode.getAttribute('inputs') || ''
+    const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
+
+    // Update the connection for this port (preserve port order)
+    const updated = inputPairs.map(pair => {
+      const [port] = pair.split(':')
+      if (port === toPort) {
+        // Update this port's connection
+        return `${toPort}:${fromNodeId}.${fromPort}`
+      }
+      return pair // Keep other ports unchanged
+    })
+
+    // If port didn't exist yet, add it
+    const portExists = inputPairs.some(pair => pair.split(':')[0] === toPort)
+    if (!portExists) {
+      updated.push(`${toPort}:${fromNodeId}.${fromPort}`)
+    }
+
+    // Update attribute
+    toNode.setAttribute('inputs', updated.join(','))
+
+    this.rebuildConnectionIndex()
     this.draw()
-    return
   }
 
-  // End node drag
-  this.draggedNode = null
-
-  super._onMouseUp(e)
-}
-
-// --- Connection Management ---
-
-/**
- * Disconnect an input port (removes the :source part, keeps the port definition)
- */
-disconnectInput(nodeId, portName) {
-  const node = this.nodes.get(nodeId)
-  if (!node) return
-
-  const currentInputs = node.getAttribute('inputs') || ''
-  const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
-
-  // Convert "portName:source" -> "portName" (keeping port, removing connection)
-  const updated = inputPairs.map(pair => {
-    const [port] = pair.split(':')
-    if (port === portName) {
-      return port // Remove the :source part, keep just the port name
+  /**
+   * Validate if connection can be created
+   */
+  validateConnection(dragState, targetNode, targetPort) {
+    // Rule 1: Can't connect output to output, or input to input
+    if (dragState.fixedEnd.type === targetPort.type) {
+      return false
     }
-    return pair // Keep other ports unchanged
-  })
 
-  node.setAttribute('inputs', updated.join(','))
-  this.rebuildConnectionIndex()
-}
-
-/**
- * Complete a connection (create or reconnect)
- */
-completeConnection(fromNodeId, fromPort, toNodeId, toPort) {
-  const toNode = this.nodes.get(toNodeId)
-  if (!toNode) return
-
-  const currentInputs = toNode.getAttribute('inputs') || ''
-  const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
-
-  // Update the connection for this port (preserve port order)
-  const updated = inputPairs.map(pair => {
-    const [port] = pair.split(':')
-    if (port === toPort) {
-      // Update this port's connection
-      return `${toPort}:${fromNodeId}.${fromPort}`
+    // Rule 2: Can't connect node to itself
+    if (dragState.fixedEnd.nodeId === targetNode.id) {
+      return false
     }
-    return pair // Keep other ports unchanged
-  })
 
-  // If port didn't exist yet, add it
-  const portExists = inputPairs.some(pair => pair.split(':')[0] === toPort)
-  if (!portExists) {
-    updated.push(`${toPort}:${fromNodeId}.${fromPort}`)
+    return true
   }
 
-  // Update attribute
-  toNode.setAttribute('inputs', updated.join(','))
+  /**
+   * Start creating a new connection from a port
+   */
+  startConnectionCreate(node, port, portType, worldPos) {
+    const nodeX = parseFloat(node.getAttribute('x')) || 0
+    const nodeY = parseFloat(node.getAttribute('y')) || 0
+    const info = node.getDisplayInfo()
 
-  this.rebuildConnectionIndex()
-  this.draw()
-}
+    const portList = portType === 'output' ? info.outputs : info.inputs
+    const portIndex = portList.findIndex(p => p.name === port.name)
+    const validPortIndex = portIndex >= 0 ? portIndex : 0
+    const portY = nodeY + NODE_HEADER_HEIGHT + (validPortIndex + 1) * PORT_SPACING
+    const portX = portType === 'output' ? nodeX + info.width : nodeX
 
-/**
- * Validate if connection can be created
- */
-validateConnection(dragState, targetNode, targetPort) {
-  // Rule 1: Can't connect output to output, or input to input
-  if (dragState.fixedEnd.type === targetPort.type) {
-    return false
-  }
-
-  // Rule 2: Can't connect node to itself
-  if (dragState.fixedEnd.nodeId === targetNode.id) {
-    return false
-  }
-
-  return true
-}
-
-/**
- * Start creating a new connection from a port
- */
-startConnectionCreate(node, port, portType, worldPos) {
-  const nodeX = parseFloat(node.getAttribute('x')) || 0
-  const nodeY = parseFloat(node.getAttribute('y')) || 0
-  const info = node.getDisplayInfo()
-
-  const portList = portType === 'output' ? info.outputs : info.inputs
-  const portIndex = portList.findIndex(p => p.name === port.name)
-  const validPortIndex = portIndex >= 0 ? portIndex : 0
-  const portY = nodeY + NODE_HEADER_HEIGHT + (validPortIndex + 1) * PORT_SPACING
-  const portX = portType === 'output' ? nodeX + info.width : nodeX
-
-  this.connectionDragState = {
-    mode: 'create',
-    fixedEnd: {
-      nodeId: node.id,
-      port: port.name,
-      type: portType,
-      x: portX,
-      y: portY
-    },
-    movingEnd: { x: worldPos.x, y: worldPos.y }
-  }
-}
-
-/**
- * Start reconnecting an existing connection
- */
-startConnectionReconnect(connection, grabbedSide, worldPos) {
-  // Store original connection - we'll need this to restore if user cancels
-  this.connectionDragState = {
-    mode: grabbedSide === 'input' ? 'reconnect-input' : 'reconnect-output',
-    originalConnection: { ...connection },
-    movingEnd: { x: worldPos.x, y: worldPos.y }
-  }
-
-  // Get the fixed end position
-  const points = this.getConnectionCurvePoints(connection)
-  if (grabbedSide === 'input') {
-    // Disconnecting input side, output stays fixed
-    this.connectionDragState.fixedEnd = {
-      nodeId: connection.fromNodeId,
-      port: connection.fromPort,
-      type: 'output',
-      x: points.x1,
-      y: points.y1
-    }
-  } else {
-    // Disconnecting output side, input stays fixed  
-    this.connectionDragState.fixedEnd = {
-      nodeId: connection.toNodeId,
-      port: connection.toPort,
-      type: 'input',
-      x: points.x2,
-      y: points.y2
+    this.connectionDragState = {
+      mode: 'create',
+      fixedEnd: {
+        nodeId: node.id,
+        port: port.name,
+        type: portType,
+        x: portX,
+        y: portY
+      },
+      movingEnd: { x: worldPos.x, y: worldPos.y }
     }
   }
 
-  // Don't actually disconnect yet - we'll do that only when:
-  // 1. User successfully connects to a new target, OR
-  // 2. User drops on empty space (intentional delete)
-  // The draw() method will skip rendering this connection during the drag
-}
+  /**
+   * Start reconnecting an existing connection
+   */
+  startConnectionReconnect(connection, grabbedSide, worldPos) {
+    // Store original connection - we'll need this to restore if user cancels
+    this.connectionDragState = {
+      mode: grabbedSide === 'input' ? 'reconnect-input' : 'reconnect-output',
+      originalConnection: { ...connection },
+      movingEnd: { x: worldPos.x, y: worldPos.y }
+    }
+
+    // Get the fixed end position
+    const points = this.getConnectionCurvePoints(connection)
+    if (grabbedSide === 'input') {
+      // Disconnecting input side, output stays fixed
+      this.connectionDragState.fixedEnd = {
+        nodeId: connection.fromNodeId,
+        port: connection.fromPort,
+        type: 'output',
+        x: points.x1,
+        y: points.y1
+      }
+    } else {
+      // Disconnecting output side, input stays fixed  
+      this.connectionDragState.fixedEnd = {
+        nodeId: connection.toNodeId,
+        port: connection.toPort,
+        type: 'input',
+        x: points.x2,
+        y: points.y2
+      }
+    }
+
+    // Don't actually disconnect yet - we'll do that only when:
+    // 1. User successfully connects to a new target, OR
+    // 2. User drops on empty space (intentional delete)
+    // The draw() method will skip rendering this connection during the drag
+  }
 
   // --- Run Button Handling ---
 
@@ -1008,10 +1011,10 @@ startConnectionReconnect(connection, grabbedSide, worldPos) {
     if (!node._runButtonBounds) return false
 
     const bounds = node._runButtonBounds
-    return worldPos.x >= bounds.x && 
-           worldPos.x <= bounds.x + bounds.width &&
-           worldPos.y >= bounds.y && 
-           worldPos.y <= bounds.y + bounds.height
+    return worldPos.x >= bounds.x &&
+      worldPos.x <= bounds.x + bounds.width &&
+      worldPos.y >= bounds.y &&
+      worldPos.y <= bounds.y + bounds.height
   }
 
   /**
@@ -1025,20 +1028,20 @@ startConnectionReconnect(connection, grabbedSide, worldPos) {
 
     const isRerun = node.state === 'success' || node.state === 'error'
     const action = isRerun ? 'Re-running' : 'Running'
-    
+
     console.log(`${action} node: ${node.id}`)
-    
+
     try {
       // Force rerun if the node has already completed
       const outputPorts = node.getOutputPorts()
       const firstOutput = outputPorts.length > 0 ? outputPorts[0].name : 'output'
-      
+
       await node.getOutputValue(firstOutput, isRerun) // Force rerun if needed
       console.log(`✓ Node ${node.id} completed successfully`)
     } catch (error) {
       console.error(`✗ Node ${node.id} failed:`, error)
     }
-    
+
     this.draw()
   }
 
@@ -1076,12 +1079,176 @@ startConnectionReconnect(connection, grabbedSide, worldPos) {
     }
   }
 
-// --- UI Actions ---
+  // --- UI Actions ---
 
-addNodeMenu() {
-  // TODO: Show a menu to add different node types
-  console.log('Add node menu - to be implemented')
-}
+  async addNodeMenu() {
+    try {
+      // Query templates from database
+      const result = await window.pluginManager.call('sql', 'query',
+        'SELECT name, category, description, html_template FROM node_templates ORDER BY category, name'
+      )
+
+      const csv = new TextDecoder().decode(result.output)
+      const templates = this.parseTemplatesCSV(csv)
+
+      if (templates.length === 0) {
+        console.error('No templates found in database')
+        return
+      }
+
+      // Show modal
+      this.showTemplateSelector(templates)
+    } catch (error) {
+      console.error('Error loading node templates:', error)
+    }
+  }
+
+  showTemplateSelector(templates) {
+    // Clone modal template
+    const modalTemplate = document.getElementById('node-template-selector')
+    if (!modalTemplate) {
+      console.error('node-template-selector template not found')
+      return
+    }
+
+    const modal = modalTemplate.content.cloneNode(true)
+    const modalContainer = modal.querySelector('[data-element="modal-backdrop"]')
+    const templateList = modal.querySelector('[data-element="template-list"]')
+    const closeBtn = modal.querySelector('[data-action="close"]')
+
+    // Group templates by category
+    const grouped = {}
+    templates.forEach(t => {
+      if (!grouped[t.category]) {
+        grouped[t.category] = []
+      }
+      grouped[t.category].push(t)
+    })
+
+    // Get category and item templates
+    const categoryTemplate = document.getElementById('node-template-category')
+    const itemTemplate = document.getElementById('node-template-item')
+    
+    if (!categoryTemplate || !itemTemplate) {
+      console.error('Template elements not found')
+      return
+    }
+
+    // Build template list using templates
+    Object.keys(grouped).sort().forEach(category => {
+      // Clone category template
+      const categoryElement = categoryTemplate.content.cloneNode(true)
+      const categoryName = categoryElement.querySelector('[data-element="category-name"]')
+      const categoryItems = categoryElement.querySelector('[data-element="category-items"]')
+      
+      categoryName.textContent = category.toUpperCase()
+
+      // Add each template item
+      grouped[category].forEach(template => {
+        const itemElement = itemTemplate.content.cloneNode(true)
+        const itemButton = itemElement.querySelector('[data-action="select-template"]')
+        const itemName = itemElement.querySelector('[data-element="template-name"]')
+        const itemDescription = itemElement.querySelector('[data-element="template-description"]')
+        
+        itemName.textContent = template.name
+        
+        if (template.description) {
+          itemDescription.textContent = template.description
+        } else {
+          itemDescription.remove()
+        }
+        
+        itemButton.onclick = () => {
+          this.createNodeFromTemplate(template.html_template)
+          document.body.removeChild(modalContainer)
+        }
+        
+        categoryItems.appendChild(itemElement)
+      })
+
+      templateList.appendChild(categoryElement)
+    })
+
+    // Close button handler
+    closeBtn.onclick = () => document.body.removeChild(modalContainer)
+
+    // Close on backdrop click
+    modalContainer.onclick = (e) => {
+      if (e.target === modalContainer) {
+        document.body.removeChild(modalContainer)
+      }
+    }
+
+    // Add to body
+    document.body.appendChild(modal)
+  }
+
+  createNodeFromTemplate(htmlTemplate) {
+    // Parse HTML template
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = htmlTemplate.trim()
+    const nodeElement = tempDiv.firstElementChild
+
+    if (!nodeElement) {
+      console.error('Invalid template HTML:', htmlTemplate)
+      return
+    }
+
+    // Generate unique ID using simple counter
+    const nodeId = `node_${this.nodeIdCounter++}`
+    nodeElement.id = nodeId
+
+    // Set position (center of viewport or at last mouse position)
+    const pos = this.getCreationPosition()
+    nodeElement.setAttribute('x', pos.x.toString())
+    nodeElement.setAttribute('y', pos.y.toString())
+
+    // Insert into DOM - node will auto-register via connectedCallback
+    this.appendChild(nodeElement)
+
+    console.log('Created node:', nodeId, 'at', pos)
+  }
+
+  getCreationPosition() {
+    // Try to use viewport center in world coordinates
+    if (this.canvas && this.camera) {
+      // Get canvas center
+      const canvasCenterX = this.canvas.width / 2
+      const canvasCenterY = this.canvas.height / 2
+
+      // Convert to world coordinates
+      const worldX = (canvasCenterX - this.camera.x) / this.camera.zoom
+      const worldY = (canvasCenterY - this.camera.y) / this.camera.zoom
+
+      return { x: Math.round(worldX), y: Math.round(worldY) }
+    }
+
+    // Fallback to origin
+    return { x: 0, y: 0 }
+  }
+
+  parseTemplatesCSV(csv) {
+    const lines = csv.trim().split('\n')
+    if (lines.length < 2) return []
+
+    const headers = lines[0].split(',')
+    const templates = []
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i]
+      if (!line.trim()) continue
+
+      const values = line.split(',')
+      templates.push({
+        name: values[0] || '',
+        category: values[1] || 'other',
+        description: values[2] || '',
+        html_template: values[3] || ''
+      })
+    }
+
+    return templates
+  }
 }
 
 customElements.define('view-nodegraph', ViewNodeGraph)
