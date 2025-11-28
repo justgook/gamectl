@@ -1,5 +1,7 @@
 import { ViewCanvasBase } from "./view-canvas-base.js"
 
+import { parseCSVLines } from '../util/csv.js'
+
 // Node constants
 const NODE_WIDTH = 200
 const NODE_HEIGHT = 120
@@ -346,9 +348,9 @@ export class ViewNodeGraph extends ViewCanvasBase {
       ctx.textAlign = isInput ? 'left' : 'right'
       ctx.textBaseline = 'middle'
       const labelX = isInput ? portX + 10 : portX - 10
-      
+
       let labelText = port.label || port.name
-      
+
       // For template nodes, show output values
       if (node.constructor.name === 'NodeTemplate' && !isInput && port.hasValue) {
         const value = port.value
@@ -356,7 +358,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
         labelText = `${port.name}: ${truncatedValue}`
         ctx.fillStyle = COLORS.text // Make value text more visible
       }
-      
+
       ctx.fillText(labelText, labelX, portY)
     })
   }
@@ -555,7 +557,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
       const displayValue = String(value).length > 15 ? String(value).substring(0, 15) + '...' : String(value)
       const text = `${key}: ${displayValue}`
-      
+
       // Measure text and truncate if needed
       const textWidth = ctx.measureText(text).width
       let finalText = text
@@ -1236,6 +1238,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
         return
       }
 
+      console.log(templates)
       // Show popup using new system
       this.showTemplateSelectorPopup(templates)
     } catch (error) {
@@ -1395,17 +1398,16 @@ export class ViewNodeGraph extends ViewCanvasBase {
   }
 
   parseTemplatesCSV(csv) {
-    const lines = csv.trim().split('\n')
+    const lines = parseCSVLines(csv.trim())
     if (lines.length < 2) return []
 
-    const headers = lines[0].split(',')
+    const headers = lines[0]
     const templates = []
 
     for (let i = 1; i < lines.length; i++) {
-      const line = lines[i]
-      if (!line.trim()) continue
+      const values = lines[i]
+      if (values.length === 0) continue
 
-      const values = line.split(',')
       templates.push({
         name: values[0] || '',
         category: values[1] || 'other',

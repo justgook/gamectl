@@ -32,7 +32,7 @@ export class NodeTemplate extends NodeBase {
 
   connectedCallback() {
     super.connectedCallback()
-    
+
     // Parse values attribute
     const valuesAttr = this.getAttribute('values')
     if (valuesAttr) {
@@ -116,14 +116,14 @@ export class NodeTemplate extends NodeBase {
       // Resolve each output with its stored value
       for (const outputName of this._parsedOutputs) {
         const value = this.storedValues.get(outputName)
-        
+
         if (resolvers.has(outputName)) {
           // Convert stored string values to appropriate types
           let resolvedValue = value
           if (value === 'true') resolvedValue = true
           else if (value === 'false') resolvedValue = false
           else if (value && !isNaN(value)) resolvedValue = Number(value)
-          
+
           resolvers.get(outputName).resolve(resolvedValue)
         }
       }
@@ -135,7 +135,7 @@ export class NodeTemplate extends NodeBase {
       this.state = 'error'
       this.error = error.message
       console.error(`Template node ${this.id} failed:`, error)
-      
+
       // Reject all outputs
       for (const [, { reject }] of resolvers) {
         reject(error)
@@ -162,8 +162,8 @@ export class NodeTemplate extends NodeBase {
    */
   async openEditPopup() {
     // Find popup manager
-    const popupManager = this.closest('popup-manager') || 
-                        document.querySelector('popup-manager')
+    const popupManager = this.closest('popup-manager') ||
+      document.querySelector('popup-manager')
     if (!popupManager) {
       console.error('popup-manager not found')
       return
@@ -205,13 +205,13 @@ export class NodeTemplate extends NodeBase {
     }
 
     const cancelBtn = document.createElement('button')
-    cancelBtn.className = 'button-secondary' 
+    cancelBtn.className = 'button-secondary'
     cancelBtn.textContent = 'Cancel'
     cancelBtn.onclick = () => popup.close()
 
     buttonContainer.appendChild(cancelBtn)
     buttonContainer.appendChild(saveBtn)
-    
+
     content.appendChild(buttonContainer)
     popup.appendChild(content)
     popupManager.appendChild(popup)
@@ -228,7 +228,7 @@ export class NodeTemplate extends NodeBase {
    */
   async applyInputsToPopup(popupContent) {
     const inputElements = popupContent.querySelectorAll('[data-input]')
-    
+
     for (const element of inputElements) {
       const inputName = element.getAttribute('data-input')
       try {
@@ -248,7 +248,7 @@ export class NodeTemplate extends NodeBase {
    */
   applyOutputsToPopup(popupContent) {
     const outputElements = popupContent.querySelectorAll('[data-output]')
-    
+
     outputElements.forEach(element => {
       const outputName = element.getAttribute('data-output')
       if (this.storedValues.has(outputName)) {
@@ -302,11 +302,11 @@ export class NodeTemplate extends NodeBase {
     // Collect values from output elements
     const values = []
     const outputElements = popupContent.querySelectorAll('[data-output]')
-    
+
     outputElements.forEach(element => {
       const outputName = element.getAttribute('data-output')
       const value = this.getElementValue(element)
-      
+
       if (value !== null) {
         values.push(`${outputName}:${value}`)
       }
@@ -315,14 +315,14 @@ export class NodeTemplate extends NodeBase {
     // Update values attribute
     const newValues = values.join(',')
     const oldValues = this.getAttribute('values') || ''
-    
+
     if (newValues !== oldValues) {
       this.setAttribute('values', newValues)
-      
+
       // Reset this node and downstream nodes
       this.resetNodeState()
       this.resetDownstreamNodes()
-      
+
       console.log(`Template ${this.id} values updated:`, newValues)
     }
   }
