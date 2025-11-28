@@ -1,0 +1,8 @@
+# Ignore a big vendor folder (e.g. C vendor code)
+vendor/** linguist-vendored
+
+# Ignore documentation and examples dirs
+docs/** linguist-documentation
+examples/** linguist-documentation
+**/vendor/** linguist-vendored
+
