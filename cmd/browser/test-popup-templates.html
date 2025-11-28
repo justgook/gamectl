@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Template-Based Popup Test</title>
+    <link rel="stylesheet" href="reset.css">
+    <link rel="stylesheet" href="/tokens/css/variables.css">
+    <link rel="stylesheet" href="/tokens/css/atomic.css">
+    <link rel="stylesheet" href="/tokens/css/components.css">
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+    <!-- Include the same popup templates -->
+    <template id="popup-container">
+      <div class="popup-container">
+        <div class="popup-header" data-element="header">
+          <h2 class="popup-title" data-element="title"></h2>
+          <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
+        </div>
+        <div class="popup-content" data-element="content"></div>
+      </div>
+    </template>
+
+    <template id="popup-container-no-header">
+      <div class="popup-container">
+        <div class="popup-content" data-element="content"></div>
+      </div>
+    </template>
+
+    <popup-manager>
+        <div style="padding: var(--spacing-scale-4); background: var(--color-semantic-background-panel); min-height: 100vh;">
+            <h1 style="color: var(--color-semantic-text-accent); margin-bottom: var(--spacing-scale-4);">
+                Template-Based Popup System Test
+            </h1>
+            
+            <div style="display: flex; gap: var(--spacing-scale-2); flex-wrap: wrap; margin-bottom: var(--spacing-scale-4);">
+                <button id="test-with-title" class="button-primary">Popup with Title</button>
+                <button id="test-no-title" class="button-secondary">Popup without Title</button>
+                <button id="test-dynamic" class="button-secondary">Dynamic Title Change</button>
+            </div>
+            
+            <div style="background: var(--color-semantic-background-panel-header); padding: var(--spacing-scale-3); border-radius: var(--border-radius-sm); margin-bottom: var(--spacing-scale-4);">
+                <h2 style="margin: 0 0 var(--spacing-scale-2) 0; color: var(--color-semantic-text-accent);">
+                    ✅ Template-Based Benefits
+                </h2>
+                <ul style="margin: 0; padding-left: var(--spacing-scale-4); color: var(--color-semantic-text-secondary);">
+                    <li>🏗️ HTML structure defined declaratively in templates</li>
+                    <li>🎨 Easier to modify UI structure without touching JS</li>
+                    <li>🔧 Better separation of concerns (HTML vs behavior)</li>
+                    <li>📝 More maintainable and readable code</li>
+                    <li>🚀 Consistent structure across all popups</li>
+                </ul>
+            </div>
+            
+            <div id="log" style="background: var(--color-semantic-background-default); padding: var(--spacing-scale-3); border-radius: var(--border-radius-sm); font-family: monospace; font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); max-height: 200px; overflow-y: auto;">
+                <div>🚀 Template-based popup system ready for testing...</div>
+            </div>
+        </div>
+    </popup-manager>
+
+    <script type="module">
+        import { PopupManager } from "./views/popup-manager.js"
+        import { ViewPopup } from "./views/view-popup.js"
+
+        const log = document.getElementById('log')
+        
+        function logMessage(msg) {
+            const div = document.createElement('div')
+            div.textContent = `${new Date().toLocaleTimeString()}: ${msg}`
+            log.appendChild(div)
+            log.scrollTop = log.scrollHeight
+        }
+
+        const popupManager = document.querySelector('popup-manager')
+
+        // Test popup with title (uses popup-container template)
+        document.getElementById('test-with-title').onclick = () => {
+            logMessage('Creating popup with title using template...')
+            
+            const popup = document.createElement('view-popup')
+            popup.setAttribute('title', 'Template-Based Popup')
+            popup.setAttribute('size', 'medium')
+            popup.innerHTML = `
+                <div style="text-align: center; padding: var(--spacing-scale-2);">
+                    <h3 style="color: var(--color-semantic-text-accent); margin-bottom: var(--spacing-scale-3);">
+                        🎉 Success!
+                    </h3>
+                    <p style="margin-bottom: var(--spacing-scale-3);">
+                        This popup was created using the <code>popup-container</code> template.
+                    </p>
+                    <p style="margin-bottom: var(--spacing-scale-3); font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">
+                        The header with title and close button came from HTML, not JavaScript DOM creation.
+                    </p>
+                    <button class="button-primary" onclick="this.closest('view-popup').close()">
+                        Close Me
+                    </button>
+                </div>
+            `
+            
+            popupManager.appendChild(popup)
+            logMessage('✅ Popup with title created successfully')
+        }
+
+        // Test popup without title (uses popup-container-no-header template)
+        document.getElementById('test-no-title').onclick = () => {
+            logMessage('Creating popup without title using template...')
+            
+            const popup = document.createElement('view-popup')
+            popup.setAttribute('size', 'small')
+            // No title attribute = uses popup-container-no-header template
+            popup.innerHTML = `
+                <div style="text-align: center; padding: var(--spacing-scale-2);">
+                    <h3 style="color: var(--color-semantic-text-accent); margin-bottom: var(--spacing-scale-3);">
+                        📄 No Header
+                    </h3>
+                    <p style="margin-bottom: var(--spacing-scale-3);">
+                        This popup uses the <code>popup-container-no-header</code> template.
+                    </p>
+                    <p style="margin-bottom: var(--spacing-scale-3); font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">
+                        No header bar, just content area.
+                    </p>
+                    <button class="button-secondary" onclick="this.closest('view-popup').close()">
+                        Close Me
+                    </button>
+                </div>
+            `
+            
+            popupManager.appendChild(popup)
+            logMessage('✅ Popup without title created successfully')
+        }
+
+        // Test dynamic title changes
+        document.getElementById('test-dynamic').onclick = () => {
+            logMessage('Creating popup with dynamic title changes...')
+            
+            const popup = document.createElement('view-popup')
+            popup.setAttribute('title', 'Dynamic Title Test')
+            popup.setAttribute('size', 'medium')
+            
+            let counter = 1
+            popup.innerHTML = `
+                <div style="text-align: center; padding: var(--spacing-scale-2);">
+                    <h3 style="color: var(--color-semantic-text-accent); margin-bottom: var(--spacing-scale-3);">
+                        🔄 Dynamic Updates
+                    </h3>
+                    <p style="margin-bottom: var(--spacing-scale-3);">
+                        Watch the title bar change when you click the button below.
+                    </p>
+                    <button id="change-title" class="button-primary" style="margin-right: var(--spacing-scale-2);">
+                        Change Title (${counter})
+                    </button>
+                    <button class="button-secondary" onclick="this.closest('view-popup').close()">
+                        Close
+                    </button>
+                </div>
+            `
+            
+            popupManager.appendChild(popup)
+            
+            // Set up title changing
+            popup.querySelector('#change-title').onclick = () => {
+                counter++
+                const newTitle = `Updated Title ${counter}`
+                popup.setTitle(newTitle)
+                popup.querySelector('#change-title').textContent = `Change Title (${counter})`
+                logMessage(`📝 Title changed to: "${newTitle}"`)
+            }
+            
+            logMessage('✅ Dynamic popup created successfully')
+        }
+
+        logMessage('Template-based popup system loaded successfully! 🎉')
+        logMessage('The HTML templates are now handling popup structure instead of JavaScript DOM manipulation.')
+    </script>
+</body>
+</html>

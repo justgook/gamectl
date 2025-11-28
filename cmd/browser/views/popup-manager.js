@@ -8,7 +8,7 @@
 export class PopupManager extends HTMLElement {
   constructor() {
     super()
-    
+
     // Track if we have any popups for backdrop management
     this.observer = null
   }
@@ -16,13 +16,13 @@ export class PopupManager extends HTMLElement {
   connectedCallback() {
     // Add CSS class for styling
     this.classList.add('popup-manager')
-    
+
     // Set up mutation observer to watch for popup changes
     this.observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.type === 'childList') {
           this.updateBackdrop()
-          
+
           // Handle new popup animations
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'VIEW-POPUP') {
@@ -32,15 +32,15 @@ export class PopupManager extends HTMLElement {
         }
       })
     })
-    
+
     this.observer.observe(this, {
       childList: true,
       subtree: false
     })
-    
+
     // Initial backdrop state
     this.updateBackdrop()
-    
+
     // Handle escape key for closing topmost popup
     this.setupKeyboardHandling()
   }
@@ -49,7 +49,7 @@ export class PopupManager extends HTMLElement {
     if (this.observer) {
       this.observer.disconnect()
     }
-    
+
     // Remove global event listeners
     document.removeEventListener('keydown', this.handleKeydown)
   }
@@ -59,7 +59,7 @@ export class PopupManager extends HTMLElement {
    */
   updateBackdrop() {
     const popups = this.querySelectorAll('view-popup')
-    
+
     if (popups.length > 0) {
       this.setAttribute('has-popups', '')
     } else {
@@ -75,15 +75,15 @@ export class PopupManager extends HTMLElement {
     popup.style.opacity = '0'
     popup.style.transform = 'scale(0.95)'
     popup.style.transition = 'none'
-    
+
     // Force reflow
     popup.offsetHeight
-    
+
     // Enable transition and animate to final state
     popup.style.transition = 'opacity var(--popup-animation-duration) var(--popup-animation-easing), transform var(--popup-animation-duration) var(--popup-animation-easing)'
     popup.style.opacity = '1'
     popup.style.transform = 'scale(1)'
-    
+
     // Clean up inline styles after animation
     setTimeout(() => {
       popup.style.opacity = ''
@@ -106,7 +106,7 @@ export class PopupManager extends HTMLElement {
         }
       }
     }
-    
+
     document.addEventListener('keydown', this.handleKeydown)
   }
 
@@ -120,23 +120,23 @@ export class PopupManager extends HTMLElement {
    */
   showPopup({ title = '', content = '', size = 'medium' } = {}) {
     const popup = document.createElement('view-popup')
-    
+
     if (title) {
       popup.setAttribute('title', title)
     }
-    
+
     if (size) {
       popup.setAttribute('size', size)
     }
-    
+
     if (typeof content === 'string') {
       popup.innerHTML = content
     } else if (content instanceof HTMLElement) {
       popup.appendChild(content)
     }
-    
+
     this.appendChild(popup)
-    
+
     return popup
   }
 
