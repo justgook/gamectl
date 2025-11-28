@@ -232,7 +232,7 @@
       import {ViewTesting} from "./views/view-testing.js"
       import {ViewPipeline} from "./views/view-pipeline.js"
       import {ViewNodeGraph} from "./views/view-nodegraph.js"
-      
+
       // Popup system
       import {PopupManager} from "./views/popup-manager.js"
       import {ViewPopup} from "./views/view-popup.js"
@@ -245,6 +245,7 @@
       import "./views/nodegraph/node-tostring.js"
       import "./views/nodegraph/node-fromjson.js"
       import "./views/nodegraph/node-fields.js"
+      import "./views/nodegraph/node-template.js"
 
       // window.bus = bus
       // import {bus} from "./systems/event-bus.js"
@@ -375,15 +376,15 @@
             console.error('Failed to load node-templates.sql:', response.statusText)
             return
           }
-          
+
           const migrationSql = await response.text()
-          
+
           // Execute migration (uses restore since it's a SQL script)
           const result = await window.pluginManager.call('sql', 'restore', migrationSql)
           console.log('Node templates initialized:', DE.decode(result.output))
-          
+
           // Verify templates loaded
-          const verifyResult = await window.pluginManager.call('sql', 'query', 
+          const verifyResult = await window.pluginManager.call('sql', 'query',
             'SELECT COUNT(*) as count FROM node_templates'
           )
           console.log('Templates loaded:', DE.decode(verifyResult.output))
