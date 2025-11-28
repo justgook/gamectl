@@ -84,13 +84,21 @@ export class NodeTemplate extends NodeBase {
     const inputs = this.getInputPorts()
     const outputs = this.getOutputPorts()
 
+    // Create display values for outputs
+    const outputsWithValues = outputs.map(output => ({
+      ...output,
+      value: this.storedValues.get(output.name) || '',
+      hasValue: this.storedValues.has(output.name)
+    }))
+
     return {
       title: this.id || 'Template',
       type: 'template',
       width: 200,
       height: Math.max(120, 50 + Math.max(inputs.length, outputs.length) * 24),
       inputs,
-      outputs
+      outputs: outputsWithValues,
+      values: this.storedValues
     }
   }
 
