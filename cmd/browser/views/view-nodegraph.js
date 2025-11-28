@@ -265,6 +265,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // Draw edit button for template nodes
     if (info.type === 'template') {
       this.drawEditButton(ctx, x, y, info, node)
+      this.drawTemplateValues(ctx, x, y, info, node)
     }
 
     // Draw input ports
@@ -345,7 +346,18 @@ export class ViewNodeGraph extends ViewCanvasBase {
       ctx.textAlign = isInput ? 'left' : 'right'
       ctx.textBaseline = 'middle'
       const labelX = isInput ? portX + 10 : portX - 10
-      ctx.fillText(port.label || port.name, labelX, portY)
+      
+      let labelText = port.label || port.name
+      
+      // For template nodes, show output values
+      if (node.constructor.name === 'NodeTemplate' && !isInput && port.hasValue) {
+        const value = port.value
+        const truncatedValue = value.length > 8 ? value.substring(0, 8) + '...' : value
+        labelText = `${port.name}: ${truncatedValue}`
+        ctx.fillStyle = COLORS.text // Make value text more visible
+      }
+      
+      ctx.fillText(labelText, labelX, portY)
     })
   }
 
@@ -518,6 +530,50 @@ export class ViewNodeGraph extends ViewCanvasBase {
       y: buttonY,
       width: buttonSize,
       height: buttonSize
+    }
+  }
+
+  drawTemplateValues(ctx, nodeX, nodeY, info, node) {
+    // Show current output values in the node body
+    if (!info.values || info.values.size === 0) return
+
+    const valuesY = nodeY + NODE_HEADER_HEIGHT + 8
+    const maxWidth = info.width - 20
+
+    ctx.fillStyle = COLORS.textSecondary
+    ctx.font = '10px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+
+    let currentY = valuesY
+    const lineHeight = 14
+
+    // Display up to 3 values to avoid cluttering
+    let count = 0
+    for (const [key, value] of info.values) {
+      if (count >= 3) break
+
+      const displayValue = String(value).length > 15 ? String(value).substring(0, 15) + '...' : String(value)
+      const text = `${key}: ${displayValue}`
+      
+      // Measure text and truncate if needed
+      const textWidth = ctx.measureText(text).width
+      let finalText = text
+      if (textWidth > maxWidth) {
+        // Truncate text to fit
+        const ratio = maxWidth / textWidth
+        const truncateIndex = Math.floor(text.length * ratio) - 3
+        finalText = text.substring(0, Math.max(0, truncateIndex)) + '...'
+      }
+
+      ctx.fillText(finalText, nodeX + 10, currentY)
+      currentY += lineHeight
+      count++
+    }
+
+    // Show "..." if there are more values
+    if (info.values.size > 3) {
+      ctx.fillText('...', nodeX + 10, currentY)
     }
   }
 
