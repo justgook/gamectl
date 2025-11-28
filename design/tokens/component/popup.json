@@ -1,0 +1,135 @@
+{
+  "popup": {
+    "$description": "Popup component tokens",
+    "backdrop": {
+      "$description": "Backdrop overlay styling",
+      "background": {
+        "$value": "rgba(0, 0, 0, 0.7)",
+        "$type": "color"
+      },
+      "z-index": {
+        "$value": "999",
+        "$type": "dimension"
+      }
+    },
+    "container": {
+      "$description": "Popup container styling",
+      "background": {
+        "$value": "{color-semantic.background.panel}",
+        "$type": "color"
+      },
+      "border": {
+        "$value": "{color-semantic.border.default}",
+        "$type": "color"
+      },
+      "border-width": {
+        "$value": "{border.width.default}",
+        "$type": "dimension"
+      },
+      "border-radius": {
+        "$value": "{border.radius.sharp}",
+        "$type": "dimension"
+      },
+      "shadow": {
+        "$value": "{shadow.panel}",
+        "$type": "shadow"
+      },
+      "z-index": {
+        "$value": "1000",
+        "$type": "dimension"
+      },
+      "max-width": {
+        "$value": "90vw",
+        "$type": "dimension"
+      },
+      "max-height": {
+        "$value": "90vh",
+        "$type": "dimension"
+      },
+      "min-width": {
+        "$value": "320px",
+        "$type": "dimension"
+      }
+    },
+    "header": {
+      "$description": "Popup header styling",
+      "background": {
+        "$value": "{color-semantic.background.panel-header}",
+        "$type": "color"
+      },
+      "padding": {
+        "$value": "{spacing.scale-3}",
+        "$type": "dimension"
+      },
+      "font": {
+        "$value": "{font-semantic.heading.default}",
+        "$type": "typography"
+      },
+      "text": {
+        "$value": "{color-semantic.text.accent}",
+        "$type": "color"
+      },
+      "border-bottom": {
+        "$value": "{color-semantic.border.default}",
+        "$type": "color"
+      }
+    },
+    "content": {
+      "$description": "Popup content area",
+      "padding": {
+        "$value": "{spacing.scale-4}",
+        "$type": "dimension"
+      },
+      "overflow": {
+        "$value": "auto",
+        "$type": "string"
+      }
+    },
+    "close-button": {
+      "$description": "Close button styling",
+      "size": {
+        "$value": "{spacing.scale-6}",
+        "$type": "dimension"
+      },
+      "background": {
+        "$value": "transparent",
+        "$type": "color"
+      },
+      "color": {
+        "$value": "{color-semantic.text.secondary}",
+        "$type": "color"
+      },
+      "color-hover": {
+        "$value": "{color-semantic.text.primary}",
+        "$type": "color"
+      },
+      "background-hover": {
+        "$value": "{color-semantic.background.interactive-hover}",
+        "$type": "color"
+      }
+    },
+    "animation": {
+      "$description": "Popup animation properties",
+      "duration": {
+        "$value": "200ms",
+        "$type": "duration"
+      },
+      "easing": {
+        "$value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "$type": "string"
+      },
+      "scale-from": {
+        "$value": "0.95",
+        "$type": "number"
+      },
+      "opacity-from": {
+        "$value": "0",
+        "$type": "number"
+      },
+      "transform-origin": {
+        "$value": "center center",
+        "$type": "string"
+      }
+    }
+  }
+}

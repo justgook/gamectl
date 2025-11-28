@@ -1096,25 +1096,23 @@ export class ViewNodeGraph extends ViewCanvasBase {
         return
       }
 
-      // Show modal
-      this.showTemplateSelector(templates)
+      // Show popup using new system
+      this.showTemplateSelectorPopup(templates)
     } catch (error) {
       console.error('Error loading node templates:', error)
     }
   }
 
-  showTemplateSelector(templates) {
-    // Clone modal template
-    const modalTemplate = document.getElementById('node-template-selector')
-    if (!modalTemplate) {
-      console.error('node-template-selector template not found')
+  showTemplateSelectorPopup(templates) {
+    // Find popup manager
+    const popupManager = this.closest('popup-manager')
+    if (!popupManager) {
+      console.error('popup-manager not found')
       return
     }
 
-    const modal = modalTemplate.content.cloneNode(true)
-    const modalContainer = modal.querySelector('[data-element="modal-backdrop"]')
-    const templateList = modal.querySelector('[data-element="template-list"]')
-    const closeBtn = modal.querySelector('[data-action="close"]')
+    // Create content for popup
+    const content = document.createElement('div')
 
     // Group templates by category
     const grouped = {}
@@ -1125,62 +1123,91 @@ export class ViewNodeGraph extends ViewCanvasBase {
       grouped[t.category].push(t)
     })
 
-    // Get category and item templates
-    const categoryTemplate = document.getElementById('node-template-category')
-    const itemTemplate = document.getElementById('node-template-item')
-    
-    if (!categoryTemplate || !itemTemplate) {
-      console.error('Template elements not found')
-      return
-    }
-
-    // Build template list using templates
+    // Build template list
     Object.keys(grouped).sort().forEach(category => {
-      // Clone category template
-      const categoryElement = categoryTemplate.content.cloneNode(true)
-      const categoryName = categoryElement.querySelector('[data-element="category-name"]')
-      const categoryItems = categoryElement.querySelector('[data-element="category-items"]')
-      
-      categoryName.textContent = category.toUpperCase()
+      // Create category section
+      const categorySection = document.createElement('div')
+      categorySection.style.marginBottom = 'var(--spacing-scale-3)'
+
+      // Category title
+      const categoryTitle = document.createElement('h3')
+      categoryTitle.textContent = category.toUpperCase()
+      categoryTitle.style.cssText = `
+        margin: 0 0 var(--spacing-scale-2) 0;
+        font-size: var(--font-size-sm);
+        color: var(--color-semantic-text-secondary);
+        text-transform: uppercase;
+      `
+      categorySection.appendChild(categoryTitle)
+
+      // Category items container
+      const categoryItems = document.createElement('div')
+      categoryItems.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-scale-1);
+      `
 
       // Add each template item
       grouped[category].forEach(template => {
-        const itemElement = itemTemplate.content.cloneNode(true)
-        const itemButton = itemElement.querySelector('[data-action="select-template"]')
-        const itemName = itemElement.querySelector('[data-element="template-name"]')
-        const itemDescription = itemElement.querySelector('[data-element="template-description"]')
-        
+        const itemButton = document.createElement('button')
+        itemButton.className = 'button-secondary'
+        itemButton.style.cssText = `
+          width: 100%;
+          text-align: left;
+          padding: var(--spacing-scale-2);
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        `
+
+        const itemName = document.createElement('strong')
         itemName.textContent = template.name
-        
+        itemButton.appendChild(itemName)
+
         if (template.description) {
+          const itemDescription = document.createElement('small')
           itemDescription.textContent = template.description
-        } else {
-          itemDescription.remove()
+          itemDescription.style.cssText = `
+            color: var(--color-semantic-text-secondary);
+            margin-top: var(--spacing-scale-1);
+          `
+          itemButton.appendChild(itemDescription)
         }
-        
+
+        // Handle template selection
         itemButton.onclick = () => {
           this.createNodeFromTemplate(template.html_template)
-          document.body.removeChild(modalContainer)
+          // Find and close the popup
+          const popup = itemButton.closest('view-popup')
+          if (popup) {
+            popup.close()
+          }
         }
-        
-        categoryItems.appendChild(itemElement)
+
+        categoryItems.appendChild(itemButton)
       })
 
-      templateList.appendChild(categoryElement)
+      categorySection.appendChild(categoryItems)
+      content.appendChild(categorySection)
     })
 
-    // Close button handler
-    closeBtn.onclick = () => document.body.removeChild(modalContainer)
+    // Set content styles for scrolling
+    content.style.cssText = `
+      max-height: 60vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-scale-2);
+    `
 
-    // Close on backdrop click
-    modalContainer.onclick = (e) => {
-      if (e.target === modalContainer) {
-        document.body.removeChild(modalContainer)
-      }
-    }
+    // Create and show popup
+    const popup = document.createElement('view-popup')
+    popup.setAttribute('title', 'Select Node Template')
+    popup.setAttribute('size', 'medium')
+    popup.appendChild(content)
 
-    // Add to body
-    document.body.appendChild(modal)
+    popupManager.appendChild(popup)
   }
 
   createNodeFromTemplate(htmlTemplate) {

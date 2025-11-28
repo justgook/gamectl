@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popup System Test</title>
+    <link rel="stylesheet" href="reset.css">
+    <link rel="stylesheet" href="/tokens/css/variables.css">
+    <link rel="stylesheet" href="/tokens/css/atomic.css">
+    <link rel="stylesheet" href="/tokens/css/components.css">
+    <link rel="stylesheet" href="app.css">
+</head>
+<body>
+    <popup-manager>
+        <div style="padding: var(--spacing-scale-4); background: var(--color-semantic-background-panel); min-height: 100vh;">
+            <h1 style="color: var(--color-semantic-text-accent); margin-bottom: var(--spacing-scale-4);">
+                Popup System Test
+            </h1>
+            
+            <div style="display: flex; gap: var(--spacing-scale-2); flex-wrap: wrap; margin-bottom: var(--spacing-scale-4);">
+                <button id="test-simple" class="button-primary">Simple Popup</button>
+                <button id="test-form" class="button-secondary">Form Popup</button>
+                <button id="test-view" class="button-secondary">View in Popup</button>
+                <button id="test-nested" class="button-secondary">Nested Popups</button>
+                <button id="test-sizes" class="button-secondary">Different Sizes</button>
+            </div>
+            
+            <div style="background: var(--color-semantic-background-panel-header); padding: var(--spacing-scale-3); border-radius: var(--border-radius-sm); margin-bottom: var(--spacing-scale-4);">
+                <h2 style="margin: 0 0 var(--spacing-scale-2) 0; color: var(--color-semantic-text-accent);">
+                    Usage Examples
+                </h2>
+                <pre style="margin: 0; font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); white-space: pre-wrap;">
+// Basic usage from any component:
+const popupManager = this.closest('popup-manager')
+const popup = document.createElement('view-popup')
+popup.setAttribute('title', 'My Popup')
+popup.innerHTML = '&lt;p&gt;Hello World!&lt;/p&gt;'
+popupManager.appendChild(popup)
+
+// Using the convenience API:
+popupManager.showPopup({
+    title: 'My Popup',
+    content: '&lt;p&gt;Hello World!&lt;/p&gt;',
+    size: 'medium'
+})
+                </pre>
+            </div>
+            
+            <div id="log" style="background: var(--color-semantic-background-default); padding: var(--spacing-scale-3); border-radius: var(--border-radius-sm); font-family: monospace; font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); max-height: 200px; overflow-y: auto;">
+                <div>🚀 Popup system ready for testing...</div>
+            </div>
+        </div>
+    </popup-manager>
+
+    <script type="module">
+        import { PopupManager } from "./views/popup-manager.js"
+        import { ViewPopup } from "./views/view-popup.js"
+
+        const log = document.getElementById('log')
+        
+        function logMessage(msg) {
+            const div = document.createElement('div')
+            div.textContent = `${new Date().toLocaleTimeString()}: ${msg}`
+            log.appendChild(div)
+            log.scrollTop = log.scrollHeight
+        }
+
+        const popupManager = document.querySelector('popup-manager')
+
+        // Test simple popup
+        document.getElementById('test-simple').onclick = () => {
+            logMessage('Creating simple popup...')
+            
+            const popup = popupManager.showPopup({
+                title: 'Simple Test',
+                content: '<p style="margin: 0;">This is a simple popup with some content. Click the X or press Escape to close.</p>',
+                size: 'small'
+            })
+            
+            popup.addEventListener('popup-closing', () => {
+                logMessage('Simple popup closed')
+            })
+        }
+
+        // Test form popup
+        document.getElementById('test-form').onclick = () => {
+            logMessage('Creating form popup...')
+            
+            const formContent = `
+                <form style="display: flex; flex-direction: column; gap: var(--spacing-scale-3);">
+                    <div>
+                        <label style="display: block; margin-bottom: var(--spacing-scale-1); color: var(--color-semantic-text-primary);">
+                            Name:
+                        </label>
+                        <input type="text" style="width: 100%; padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-background-panel);">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: var(--spacing-scale-1); color: var(--color-semantic-text-primary);">
+                            Description:
+                        </label>
+                        <textarea rows="3" style="width: 100%; padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-background-panel); resize: vertical;"></textarea>
+                    </div>
+                    <div style="display: flex; gap: var(--spacing-scale-2); justify-content: flex-end;">
+                        <button type="button" class="button-secondary" onclick="this.closest('view-popup').close()">Cancel</button>
+                        <button type="submit" class="button-primary">Save</button>
+                    </div>
+                </form>
+            `
+            
+            const popup = popupManager.showPopup({
+                title: 'Create New Item',
+                content: formContent,
+                size: 'medium'
+            })
+            
+            popup.querySelector('form').onsubmit = (e) => {
+                e.preventDefault()
+                logMessage('Form submitted!')
+                popup.close()
+            }
+        }
+
+        // Test view in popup
+        document.getElementById('test-view').onclick = () => {
+            logMessage('Creating view popup...')
+            
+            const viewContent = document.createElement('div')
+            viewContent.innerHTML = `
+                <div class="panel" style="position: relative;">
+                    <div class="panel-header">Mini Console View</div>
+                    <div class="panel-content" style="padding: var(--spacing-scale-3); position: relative; height: 200px;">
+                        <div style="background: var(--color-semantic-background-default); padding: var(--spacing-scale-2); border-radius: var(--border-radius-sm); height: 100%; overflow-y: auto; font-family: monospace; font-size: var(--font-size-sm);">
+                            <div>$ echo "Hello from popup view!"</div>
+                            <div style="color: var(--color-semantic-text-secondary);">Hello from popup view!</div>
+                            <div>$ ls -la</div>
+                            <div style="color: var(--color-semantic-text-secondary);">drwxr-xr-x  5 user  staff   160 Nov 28 19:25 .</div>
+                            <div style="color: var(--color-semantic-text-secondary);">drwxr-xr-x  3 user  staff    96 Nov 28 19:25 ..</div>
+                            <div style="color: var(--color-semantic-text-secondary);">-rw-r--r--  1 user  staff  1234 Nov 28 19:25 file.txt</div>
+                        </div>
+                    </div>
+                </div>
+            `
+            
+            const popup = popupManager.showPopup({
+                title: 'Preview: Console View',
+                content: viewContent,
+                size: 'large'
+            })
+        }
+
+        // Test nested popups
+        document.getElementById('test-nested').onclick = () => {
+            logMessage('Creating nested popups...')
+            
+            const popup1 = popupManager.showPopup({
+                title: 'First Popup',
+                content: `
+                    <p style="margin-bottom: var(--spacing-scale-3);">This is the first popup. Click the button below to open a second popup on top.</p>
+                    <button class="button-primary" onclick="openSecondPopup()">Open Second Popup</button>
+                `,
+                size: 'medium'
+            })
+            
+            window.openSecondPopup = () => {
+                logMessage('Opening second popup...')
+                
+                const popup2 = popupManager.showPopup({
+                    title: 'Second Popup',
+                    content: `
+                        <p style="margin-bottom: var(--spacing-scale-3);">This is the second popup. It stacks on top of the first one.</p>
+                        <p style="margin-bottom: var(--spacing-scale-3);">When you close this, the first popup will be visible again.</p>
+                        <button class="button-secondary" onclick="this.closest('view-popup').close()">Close This Popup</button>
+                    `,
+                    size: 'small'
+                })
+                
+                popup2.addEventListener('popup-closing', () => {
+                    logMessage('Second popup closed, first popup should be visible again')
+                })
+            }
+        }
+
+        // Test different sizes
+        document.getElementById('test-sizes').onclick = () => {
+            logMessage('Showing size options...')
+            
+            const sizeContent = `
+                <p style="margin-bottom: var(--spacing-scale-3);">Choose a popup size to test:</p>
+                <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);">
+                    <button class="button-secondary" onclick="showSizePopup('small')">Small</button>
+                    <button class="button-secondary" onclick="showSizePopup('medium')">Medium</button>
+                    <button class="button-secondary" onclick="showSizePopup('large')">Large</button>
+                    <button class="button-secondary" onclick="showSizePopup('xlarge')">Extra Large</button>
+                    <button class="button-secondary" onclick="showSizePopup('fullscreen')">Fullscreen</button>
+                </div>
+            `
+            
+            const popup = popupManager.showPopup({
+                title: 'Size Test',
+                content: sizeContent,
+                size: 'small'
+            })
+            
+            window.showSizePopup = (size) => {
+                logMessage(`Showing ${size} popup...`)
+                
+                popupManager.showPopup({
+                    title: `${size.toUpperCase()} Popup`,
+                    content: `
+                        <p>This is a <strong>${size}</strong> popup.</p>
+                        <p style="margin: var(--spacing-scale-3) 0;">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                        <p>The popup system automatically handles centering and responsiveness for different screen sizes.</p>
+                    `,
+                    size: size
+                })
+            }
+        }
+
+        // Log popup manager events
+        popupManager.addEventListener('popup-closing', (e) => {
+            logMessage(`Popup "${e.detail.popup.getAttribute('title') || 'Untitled'}" is closing`)
+        })
+
+        logMessage('Test page loaded successfully! Try the buttons above.')
+    </script>
+</body>
+</html>

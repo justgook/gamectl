@@ -156,36 +156,7 @@
       <div data-action="resize" class="handle"></div>
     </template>
 
-    <template id="node-template-selector">
-      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center;"
-        data-element="modal-backdrop">
-        <div class="panel" style="width: 500px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Select Node Template</span>
-            <button data-action="close" style="background: none; border: none; color: inherit; font-size: 1.5rem; cursor: pointer; padding: 0 var(--spacing-scale-2);">×</button>
-          </div>
-          <div class="panel-content" style="flex: 1; overflow-y: auto; padding: var(--spacing-scale-3);">
-            <div data-element="template-list" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);">
-              <!-- Templates will be inserted here -->
-            </div>
-          </div>
-        </div>
-      </div>
-    </template>
 
-    <template id="node-template-category">
-      <div style="margin-bottom: var(--spacing-scale-3);">
-        <h3 data-element="category-name" style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); text-transform: uppercase;"></h3>
-        <div data-element="category-items" style="display: flex; flex-direction: column; gap: var(--spacing-scale-1);"></div>
-      </div>
-    </template>
-
-    <template id="node-template-item">
-      <button class="button-secondary" data-action="select-template" style="width: 100%; text-align: left; padding: var(--spacing-scale-2); display: flex; flex-direction: column; align-items: flex-start;">
-        <strong data-element="template-name"></strong>
-        <small data-element="template-description" style="color: var(--color-semantic-text-secondary); margin-top: var(--spacing-scale-1);"></small>
-      </button>
-    </template>
 
     <template id="view-chrome">
       <div class="panel-header" style="background-color: transparent; padding-left: var(--panel-header-padding);">
@@ -210,23 +181,25 @@
       <div class="nw corner-handle corner-handle-nw" data-action="nw" draggable="true"></div>
     </template>
 
-    <layout-parent handle-width="12" handle-height="12" id="scene">
-      <view-nodegraph panel="panel_1">
-        <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
-        <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen" inputs="nodeCount:nodeCount"
-          outputs="result"></node-plugin>
-        <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
-          outputs="output,returnCode"></node-fields>
-        <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
-        <node-plugin id="logger" x="518.1018207797425" y="303.02118151361793" plugin="host" function="log"
-          inputs="logInput:toString">
-        </node-plugin>
-        <node-plugin id="minimap" x="135" y="60" plugin="minimap" function="gen" inputs="treeId,mapId"
-          outputs="result"></node-plugin>
-      </view-nodegraph>
-      <view-console nesw="s" r="200" from="panel_1"></view-console>
-      <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
-    </layout-parent>
+    <popup-manager>
+      <layout-parent handle-width="12" handle-height="12" id="scene">
+        <view-nodegraph panel="panel_1">
+          <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
+          <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen" inputs="nodeCount:nodeCount"
+            outputs="result"></node-plugin>
+          <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
+            outputs="output,returnCode"></node-fields>
+          <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
+          <node-plugin id="logger" x="518.1018207797425" y="303.02118151361793" plugin="host" function="log"
+            inputs="logInput:toString">
+          </node-plugin>
+          <node-plugin id="minimap" x="135" y="60" plugin="minimap" function="gen" inputs="treeId,mapId"
+            outputs="result"></node-plugin>
+        </view-nodegraph>
+        <view-console nesw="s" r="200" from="panel_1"></view-console>
+        <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
+      </layout-parent>
+    </popup-manager>
 
 
 
@@ -242,6 +215,10 @@
       import {ViewTesting} from "./views/view-testing.js"
       import {ViewPipeline} from "./views/view-pipeline.js"
       import {ViewNodeGraph} from "./views/view-nodegraph.js"
+      
+      // Popup system
+      import {PopupManager} from "./views/popup-manager.js"
+      import {ViewPopup} from "./views/view-popup.js"
 
       // Node graph components
       import "./views/nodegraph/node-base.js"
