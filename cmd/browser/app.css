@@ -51,15 +51,145 @@ view--chrome .se {
 .tooltip {
   position: absolute;
   background: var(--color-semantic-background-panel-header);
-  color: var(--color-semantic-text-primary);
-  padding: var(--spacing-scale-2) var(--spacing-scale-3);
-  border-radius: var(--border-radius-sm);
-  font-size: var(--font-size-xs);
-  pointer-events: none;
-  display: none;
-  z-index: var(--z-index-tooltip, 1000);
-  box-shadow: var(--shadow-glow-accent-faint);
   border: var(--border-width-default) solid var(--color-semantic-border-default);
+  border-radius: var(--border-radius-sm);
+  padding: var(--spacing-scale-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  max-width: 250px;
+  word-wrap: break-word;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  transform: translate(-50%, -100%);
+}
+
+/* Popup System Styles */
+popup-manager {
+  display: contents;
+  position: relative;
+}
+
+/* Backdrop - shown when popups exist */
+popup-manager[has-popups]::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--popup-backdrop-background, rgba(0, 0, 0, 0.7));
+  z-index: var(--popup-backdrop-z-index, 999);
+  animation: popup-backdrop-in var(--popup-animation-duration, 200ms) var(--popup-animation-easing, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+@keyframes popup-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Only show the topmost popup */
+popup-manager view-popup:not(:last-of-type) {
+  display: none;
+}
+
+/* Base popup styles */
+view-popup {
+  position: fixed;
+  inset: 0;
+  z-index: var(--popup-container-z-index, 1000);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-scale-4, 16px);
+}
+
+/* Popup container */
+view-popup .popup-container {
+  background: var(--popup-container-background, var(--color-semantic-background-panel));
+  border: var(--popup-container-border-width, var(--border-width-default)) solid var(--popup-container-border, var(--color-semantic-border-default));
+  border-radius: var(--popup-container-border-radius, var(--border-radius-sm));
+  box-shadow: var(--popup-container-shadow, var(--shadow-panel));
+  max-width: var(--popup-container-max-width, 90vw);
+  max-height: var(--popup-container-max-height, 90vh);
+  min-width: var(--popup-container-min-width, 320px);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform-origin: var(--popup-animation-transform-origin, center center);
+}
+
+/* Popup sizes */
+view-popup.popup-size-small .popup-container {
+  max-width: 400px;
+}
+
+view-popup.popup-size-medium .popup-container {
+  max-width: 600px;
+}
+
+view-popup.popup-size-large .popup-container {
+  max-width: 800px;
+}
+
+view-popup.popup-size-xlarge .popup-container {
+  max-width: 1200px;
+}
+
+view-popup.popup-size-fullscreen .popup-container {
+  max-width: 95vw;
+  max-height: 95vh;
+}
+
+/* Popup header */
+view-popup .popup-header {
+  background: var(--popup-header-background, var(--color-semantic-background-panel-header));
+  padding: var(--popup-header-padding, var(--spacing-scale-3));
+  border-bottom: var(--border-width-default) solid var(--popup-header-border-bottom, var(--color-semantic-border-default));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+view-popup .popup-title {
+  font: var(--popup-header-font, var(--font-semantic-heading-default));
+  color: var(--popup-header-text, var(--color-semantic-text-accent));
+  margin: 0;
+  flex: 1;
+}
+
+view-popup .popup-close {
+  background: var(--popup-close-button-background, transparent);
+  border: none;
+  color: var(--popup-close-button-color, var(--color-semantic-text-secondary));
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  cursor: pointer;
+  width: var(--popup-close-button-size, var(--spacing-scale-6));
+  height: var(--popup-close-button-size, var(--spacing-scale-6));
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+view-popup .popup-close:hover {
+  background: var(--popup-close-button-background-hover, var(--color-semantic-background-interactive-hover));
+  color: var(--popup-close-button-color-hover, var(--color-semantic-text-primary));
+}
+
+view-popup .popup-close:focus {
+  outline: 2px solid var(--color-semantic-border-interactive);
+  outline-offset: 2px;
+}
+
+/* Popup content */
+view-popup .popup-content {
+  padding: var(--popup-content-padding, var(--spacing-scale-4));
+  overflow: var(--popup-content-overflow, auto);
+  flex: 1;
+  min-height: 0; /* Allow shrinking */
 }
 
 /* Handle positioning and basic behavior */
