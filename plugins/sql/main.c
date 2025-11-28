@@ -1,5 +1,5 @@
-#include "pdk.h"
-#include "sqlite3.h"
+#include "vendor/pdk.h"
+#include "vendor/sqlite3.h"
 
 // SQL plugin implemented in C with SQLite3
 // Demonstrates:
@@ -48,28 +48,29 @@ static uint32_t uint32_to_str(uint32_t value, char *buffer) {
 }
 
 // Simple string search helper
-static char* pdk_strstr(const char *haystack, const char *needle) {
-  if (!haystack || !needle || *needle == '\0') return (char *)haystack;
-  
+static char *pdk_strstr(const char *haystack, const char *needle) {
+  if (!haystack || !needle || *needle == '\0')
+    return (char *)haystack;
+
   const char *h = haystack;
   const char *n = needle;
-  
+
   while (*h) {
     const char *h_start = h;
     const char *n_current = n;
-    
+
     while (*h && *n_current && *h == *n_current) {
       h++;
       n_current++;
     }
-    
+
     if (*n_current == '\0') {
       return (char *)h_start;
     }
-    
+
     h = h_start + 1;
   }
-  
+
   return NULL;
 }
 
@@ -357,10 +358,11 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
 
   // First, dump table schemas
   sqlite3_stmt *stmt;
-  int rc = sqlite3_prepare_v2(db, 
-    "SELECT sql FROM sqlite_schema WHERE type='table' AND sql IS NOT NULL ORDER BY name", 
-    -1, &stmt, NULL);
-  
+  int rc = sqlite3_prepare_v2(db,
+                              "SELECT sql FROM sqlite_schema WHERE "
+                              "type='table' AND sql IS NOT NULL ORDER BY name",
+                              -1, &stmt, NULL);
+
   if (rc != SQLITE_OK) {
     const char *err = sqlite3_errmsg(db);
     uint32_t err_len = pdk_strlen(err);
@@ -383,8 +385,9 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
 
   // Now dump table data
   rc = sqlite3_prepare_v2(db,
-    "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-    -1, &stmt, NULL);
+                          "SELECT name FROM sqlite_schema WHERE type='table' "
+                          "AND name NOT LIKE 'sqlite_%' ORDER BY name",
+                          -1, &stmt, NULL);
 
   if (rc != SQLITE_OK) {
     const char *err = sqlite3_errmsg(db);
@@ -395,15 +398,30 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
   }
 
   // For each table, generate INSERT statements
-  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 1000) {
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW &&
+         pos < DUMP_BUF_SIZE - 1000) {
     const unsigned char *table_name = sqlite3_column_text(stmt, 0);
-    if (!table_name) continue;
+    if (!table_name)
+      continue;
 
     // Create SELECT statement to get data
     char *data_sql = sqlite3_mprintf(
-      "SELECT 'INSERT INTO %q VALUES(' || group_concat(quote(CASE WHEN typeof(c0) = 'null' THEN NULL ELSE c0 END) || CASE WHEN c1 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c1) = 'null' THEN NULL ELSE c1 END) ELSE '' END || CASE WHEN c2 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c2) = 'null' THEN NULL ELSE c2 END) ELSE '' END || CASE WHEN c3 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c3) = 'null' THEN NULL ELSE c3 END) ELSE '' END || CASE WHEN c4 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c4) = 'null' THEN NULL ELSE c4 END) ELSE '' END || CASE WHEN c5 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c5) = 'null' THEN NULL ELSE c5 END) ELSE '' END || CASE WHEN c6 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c6) = 'null' THEN NULL ELSE c6 END) ELSE '' END || CASE WHEN c7 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c7) = 'null' THEN NULL ELSE c7 END) ELSE '' END, ');') FROM (SELECT * FROM %q) AS t(%s)",
-      table_name, table_name, "c0,c1,c2,c3,c4,c5,c6,c7");
-    
+        "SELECT 'INSERT INTO %q VALUES(' || group_concat(quote(CASE WHEN "
+        "typeof(c0) = 'null' THEN NULL ELSE c0 END) || CASE WHEN c1 IS NOT "
+        "NULL THEN ',' || quote(CASE WHEN typeof(c1) = 'null' THEN NULL ELSE "
+        "c1 END) ELSE '' END || CASE WHEN c2 IS NOT NULL THEN ',' || "
+        "quote(CASE WHEN typeof(c2) = 'null' THEN NULL ELSE c2 END) ELSE '' "
+        "END || CASE WHEN c3 IS NOT NULL THEN ',' || quote(CASE WHEN "
+        "typeof(c3) = 'null' THEN NULL ELSE c3 END) ELSE '' END || CASE WHEN "
+        "c4 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c4) = 'null' THEN "
+        "NULL ELSE c4 END) ELSE '' END || CASE WHEN c5 IS NOT NULL THEN ',' || "
+        "quote(CASE WHEN typeof(c5) = 'null' THEN NULL ELSE c5 END) ELSE '' "
+        "END || CASE WHEN c6 IS NOT NULL THEN ',' || quote(CASE WHEN "
+        "typeof(c6) = 'null' THEN NULL ELSE c6 END) ELSE '' END || CASE WHEN "
+        "c7 IS NOT NULL THEN ',' || quote(CASE WHEN typeof(c7) = 'null' THEN "
+        "NULL ELSE c7 END) ELSE '' END, ');') FROM (SELECT * FROM %q) AS t(%s)",
+        table_name, table_name, "c0,c1,c2,c3,c4,c5,c6,c7");
+
     // Simplified approach: just use a basic INSERT generation
     sqlite3_free(data_sql);
     data_sql = sqlite3_mprintf("SELECT * FROM %q", table_name);
@@ -414,17 +432,19 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
 
     if (rc == SQLITE_OK) {
       int col_count = sqlite3_column_count(data_stmt);
-      
-      while ((rc = sqlite3_step(data_stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 200) {
+
+      while ((rc = sqlite3_step(data_stmt)) == SQLITE_ROW &&
+             pos < DUMP_BUF_SIZE - 200) {
         pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "INSERT INTO ");
-        pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, (const char *)table_name);
+        pos =
+            append_str(dump_buf, pos, DUMP_BUF_SIZE, (const char *)table_name);
         pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, " VALUES(");
-        
+
         for (int i = 0; i < col_count; i++) {
           if (i > 0) {
             pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, ",");
           }
-          
+
           int col_type = sqlite3_column_type(data_stmt, i);
           if (col_type == SQLITE_NULL) {
             pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "NULL");
@@ -439,19 +459,20 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
               int len = 0;
               int64_t temp_val = val;
               int negative = 0;
-              
+
               if (temp_val < 0) {
                 negative = 1;
                 temp_val = -temp_val;
               }
-              
+
               while (temp_val > 0) {
                 temp[len++] = '0' + (temp_val % 10);
                 temp_val /= 10;
               }
-              
+
               int buf_pos = 0;
-              if (negative) num_buf[buf_pos++] = '-';
+              if (negative)
+                num_buf[buf_pos++] = '-';
               for (int j = len - 1; j >= 0; j--) {
                 num_buf[buf_pos++] = temp[j];
               }
@@ -486,13 +507,17 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
   sqlite3_finalize(stmt);
 
   // Add indexes, triggers, views
-  rc = sqlite3_prepare_v2(db,
-    "SELECT sql FROM sqlite_schema WHERE type IN ('index','trigger','view') AND sql IS NOT NULL ORDER BY type",
-    -1, &stmt, NULL);
+  rc = sqlite3_prepare_v2(
+      db,
+      "SELECT sql FROM sqlite_schema WHERE type IN ('index','trigger','view') "
+      "AND sql IS NOT NULL ORDER BY type",
+      -1, &stmt, NULL);
 
   if (rc == SQLITE_OK) {
-    pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, "\n-- Indexes, triggers, and views\n");
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 100) {
+    pos = append_str(dump_buf, pos, DUMP_BUF_SIZE,
+                     "\n-- Indexes, triggers, and views\n");
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW &&
+           pos < DUMP_BUF_SIZE - 100) {
       const unsigned char *sql = sqlite3_column_text(stmt, 0);
       if (sql) {
         pos = append_str(dump_buf, pos, DUMP_BUF_SIZE, (const char *)sql);
@@ -531,16 +556,19 @@ __attribute__((export_name("backup"))) uint32_t sql_backup(void) {
 
   // Add binary backup header
   pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "-- BINARY_BACKUP_V1\n");
-  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "-- Generated from binary backup\n");
-  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "PRAGMA foreign_keys=OFF;\n");
+  pos = append_str(backup_buf, pos, DUMP_BUF_SIZE,
+                   "-- Generated from binary backup\n");
+  pos =
+      append_str(backup_buf, pos, DUMP_BUF_SIZE, "PRAGMA foreign_keys=OFF;\n");
   pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "BEGIN TRANSACTION;\n\n");
 
   // Get schema - reuse the same logic as dump function
   sqlite3_stmt *stmt;
-  int rc = sqlite3_prepare_v2(db, 
-    "SELECT sql FROM sqlite_schema WHERE type='table' AND sql IS NOT NULL ORDER BY name", 
-    -1, &stmt, NULL);
-  
+  int rc = sqlite3_prepare_v2(db,
+                              "SELECT sql FROM sqlite_schema WHERE "
+                              "type='table' AND sql IS NOT NULL ORDER BY name",
+                              -1, &stmt, NULL);
+
   if (rc != SQLITE_OK) {
     const char *err = sqlite3_errmsg(db);
     uint32_t err_len = pdk_strlen(err);
@@ -563,8 +591,9 @@ __attribute__((export_name("backup"))) uint32_t sql_backup(void) {
 
   // Get data - reuse same logic as dump function but mark as binary
   rc = sqlite3_prepare_v2(db,
-    "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-    -1, &stmt, NULL);
+                          "SELECT name FROM sqlite_schema WHERE type='table' "
+                          "AND name NOT LIKE 'sqlite_%' ORDER BY name",
+                          -1, &stmt, NULL);
 
   if (rc != SQLITE_OK) {
     const char *err = sqlite3_errmsg(db);
@@ -575,9 +604,11 @@ __attribute__((export_name("backup"))) uint32_t sql_backup(void) {
   }
 
   // For each table, generate INSERT statements (same as dump function)
-  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 1000) {
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW &&
+         pos < DUMP_BUF_SIZE - 1000) {
     const unsigned char *table_name = sqlite3_column_text(stmt, 0);
-    if (!table_name) continue;
+    if (!table_name)
+      continue;
 
     char *data_sql = sqlite3_mprintf("SELECT * FROM %q", table_name);
     sqlite3_stmt *data_stmt;
@@ -586,17 +617,19 @@ __attribute__((export_name("backup"))) uint32_t sql_backup(void) {
 
     if (data_rc == SQLITE_OK) {
       int col_count = sqlite3_column_count(data_stmt);
-      
-      while ((data_rc = sqlite3_step(data_stmt)) == SQLITE_ROW && pos < DUMP_BUF_SIZE - 200) {
+
+      while ((data_rc = sqlite3_step(data_stmt)) == SQLITE_ROW &&
+             pos < DUMP_BUF_SIZE - 200) {
         pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "INSERT INTO ");
-        pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, (const char *)table_name);
+        pos = append_str(backup_buf, pos, DUMP_BUF_SIZE,
+                         (const char *)table_name);
         pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, " VALUES(");
-        
+
         for (int i = 0; i < col_count; i++) {
           if (i > 0) {
             pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, ",");
           }
-          
+
           int col_type = sqlite3_column_type(data_stmt, i);
           if (col_type == SQLITE_NULL) {
             pos = append_str(backup_buf, pos, DUMP_BUF_SIZE, "NULL");
@@ -611,19 +644,20 @@ __attribute__((export_name("backup"))) uint32_t sql_backup(void) {
               int len = 0;
               int64_t temp_val = val;
               int negative = 0;
-              
+
               if (temp_val < 0) {
                 negative = 1;
                 temp_val = -temp_val;
               }
-              
+
               while (temp_val > 0) {
                 temp[len++] = '0' + (temp_val % 10);
                 temp_val /= 10;
               }
-              
+
               int buf_pos = 0;
-              if (negative) num_buf[buf_pos++] = '-';
+              if (negative)
+                num_buf[buf_pos++] = '-';
               for (int j = len - 1; j >= 0; j--) {
                 num_buf[buf_pos++] = temp[j];
               }
@@ -667,7 +701,7 @@ __attribute__((export_name("backup"))) uint32_t sql_backup(void) {
   return 0;
 }
 
-// Binary load using SQLite backup API - loads from binary database snapshot  
+// Binary load using SQLite backup API - loads from binary database snapshot
 __attribute__((export_name("load"))) uint32_t sql_load(void) {
   if (!db) {
     const char error_msg[] = "Database not opened. Call 'open' first.";
@@ -777,8 +811,9 @@ __attribute__((export_name("restore"))) uint32_t sql_restore(void) {
 
 // Get plugin info
 __attribute__((export_name("info"))) uint32_t info(void) {
-  const char info_msg[] = "SQL plugin v1.1 - SQLite3 in WASM - provides open, "
-                          "exec, query, close, dump, restore, backup, load functions";
+  const char info_msg[] =
+      "SQL plugin v1.1 - SQLite3 in WASM - provides open, "
+      "exec, query, close, dump, restore, backup, load functions";
   pdk_output((const uint8_t *)info_msg, sizeof(info_msg) - 1);
   return 0;
 }
