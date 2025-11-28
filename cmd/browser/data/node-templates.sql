@@ -68,3 +68,24 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   'Convert to string',
   '<node-tostring inputs="input"></node-tostring>'
 );
+
+-- Interactive Template Nodes  
+INSERT INTO node_templates (name, category, description, html_template) VALUES
+(
+  'Number Input with Numpad',
+  'template', 
+  'Interactive number input with numpad interface',
+  '<node-template outputs="value"><div style="padding:16px"><input type="number" data-output="value" value="0" style="font-size:20px;padding:12px;text-align:center;border:2px solid #ddd;border-radius:8px;width:100%"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px"><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''7'';i.focus()" style="padding:12px;font-size:16px">7</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''8'';i.focus()" style="padding:12px;font-size:16px">8</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''9'';i.focus()" style="padding:12px;font-size:16px">9</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''4'';i.focus()" style="padding:12px;font-size:16px">4</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''5'';i.focus()" style="padding:12px;font-size:16px">5</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''6'';i.focus()" style="padding:12px;font-size:16px">6</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''1'';i.focus()" style="padding:12px;font-size:16px">1</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''2'';i.focus()" style="padding:12px;font-size:16px">2</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''3'';i.focus()" style="padding:12px;font-size:16px">3</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value+=''0'';i.focus()" style="padding:12px;font-size:16px">0</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value=i.value.slice(0,-1);i.focus()" style="padding:12px;font-size:16px">⌫</button><button type="button" onclick="let i=document.querySelector(''[data-output=value]'');i.value='''';i.focus()" style="padding:12px;font-size:16px">Clear</button></div></div></node-template>'
+),
+(
+  'Text Input',
+  'template',
+  'Simple text input field',
+  '<node-template outputs="text"><div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..." style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div></node-template>'
+),
+(
+  'Input Processor',
+  'template', 
+  'Example showing input and output data attributes',
+  '<node-template inputs="baseValue" outputs="result"><div style="padding:16px"><label>From connected node:</label><input type="number" data-input="baseValue" readonly style="background:#f5f5f5;padding:8px;border:1px solid #ddd;border-radius:4px;width:100%;margin-bottom:8px"><label>Manual value:</label><input type="number" data-output="result" value="10" style="padding:8px;border:2px solid #ddd;border-radius:4px;width:100%;margin-bottom:8px"><button type="button" onclick="let b=document.querySelector(''[data-input=baseValue]'');let r=document.querySelector(''[data-output=result]'');if(b.value)r.value=b.value" style="padding:8px;background:#007bff;color:white;border:none;border-radius:4px">Copy Base Value</button></div></node-template>'
+);

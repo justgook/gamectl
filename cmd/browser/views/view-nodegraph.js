@@ -23,7 +23,8 @@ const COLORS = {
   nodeHeader: {
     input: '#6366f1',
     plugin: '#8b5cf6',
-    output: '#ec4899'
+    output: '#ec4899',
+    template: '#10b981'  // Green for template nodes
   },
   connection: '#64748b',
   connectionActive: '#3b82f6',
@@ -261,6 +262,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
       this.drawRunButton(ctx, x, y, info, node)
     }
 
+    // Draw edit button for template nodes
+    if (info.type === 'template') {
+      this.drawEditButton(ctx, x, y, info, node)
+    }
+
     // Draw input ports
     this.drawPorts(ctx, x, y + NODE_HEADER_HEIGHT, info.inputs, 'input', node)
 
@@ -469,6 +475,45 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Store button bounds for click detection
     node._runButtonBounds = {
+      x: buttonX,
+      y: buttonY,
+      width: buttonSize,
+      height: buttonSize
+    }
+  }
+
+  drawEditButton(ctx, nodeX, nodeY, info, node) {
+    const buttonSize = 16
+    const buttonX = nodeX + info.width - buttonSize - 6
+    const buttonY = nodeY + (NODE_HEADER_HEIGHT - buttonSize) / 2
+
+    // Edit button color - blue for template nodes
+    const buttonColor = COLORS.nodeHeader.input // Blue color
+    const iconColor = COLORS.text
+    const icon = '📝' // Edit icon
+
+    // Draw button background
+    ctx.fillStyle = buttonColor
+    ctx.beginPath()
+    ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Draw button border
+    ctx.strokeStyle = COLORS.text
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // Draw icon
+    ctx.fillStyle = iconColor
+    ctx.font = '10px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(icon, buttonX + buttonSize / 2, buttonY + buttonSize / 2)
+
+    // Store button bounds for click detection
+    node._editButtonBounds = {
       x: buttonX,
       y: buttonY,
       width: buttonSize,
@@ -718,6 +763,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
       // Check if clicking on run button first
       if (node._runButtonBounds && this.isPointInRunButton(worldPos, node)) {
         this.onRunButtonClick(node)
+        return
+      }
+
+      // Check if clicking on edit button for template nodes
+      if (node._editButtonBounds && this.isPointInEditButton(worldPos, node)) {
+        this.onEditButtonClick(node)
         return
       }
 
@@ -1043,6 +1094,39 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
 
     this.draw()
+  }
+
+  // --- Edit Button Handling ---
+
+  /**
+   * Check if a point is within a node's edit button
+   */
+  isPointInEditButton(worldPos, node) {
+    if (!node._editButtonBounds) return false
+
+    const bounds = node._editButtonBounds
+    return worldPos.x >= bounds.x &&
+      worldPos.x <= bounds.x + bounds.width &&
+      worldPos.y >= bounds.y &&
+      worldPos.y <= bounds.y + bounds.height
+  }
+
+  /**
+   * Handle edit button click
+   */
+  async onEditButtonClick(node) {
+    if (node.constructor.name !== 'NodeTemplate') {
+      console.error('Edit button clicked on non-template node:', node)
+      return
+    }
+
+    console.log(`Opening edit popup for template node: ${node.id}`)
+
+    try {
+      await node.openEditPopup()
+    } catch (error) {
+      console.error(`Failed to open edit popup for ${node.id}:`, error)
+    }
   }
 
   // --- Execution ---
