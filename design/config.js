@@ -13,6 +13,9 @@ registerComponentsFormat(StyleDictionary);
 // CONFIGURATION
 // ============================================
 
+// Get build path from environment variable or use default
+const buildDir = process.env.DESIGN_BUILD_DIR || './build';
+
 export default {
   "usesDtcg": true,
   "source": [
@@ -21,7 +24,7 @@ export default {
   "platforms": {
     "css": {
       "transformGroup": "css",
-      "buildPath": "build/css/",
+      "buildPath": `${buildDir}/css/`,
       "files": [
         {
           "destination": "variables.css",
@@ -54,7 +57,7 @@ export default {
     },
     "js": {
       "transformGroup": "js",
-      "buildPath": "build/js/",
+      "buildPath": `${buildDir}/js/`,
       "files": [
         {
           "destination": "tokens.js",
