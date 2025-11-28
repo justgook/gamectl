@@ -181,6 +181,23 @@
       <div class="nw corner-handle corner-handle-nw" data-action="nw" draggable="true"></div>
     </template>
 
+    <!-- Popup System Templates -->
+    <template id="popup-container">
+      <div class="popup-container">
+        <div class="popup-header" data-element="header">
+          <h2 class="popup-title" data-element="title"></h2>
+          <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
+        </div>
+        <div class="popup-content" data-element="content"></div>
+      </div>
+    </template>
+
+    <template id="popup-container-no-header">
+      <div class="popup-container">
+        <div class="popup-content" data-element="content"></div>
+      </div>
+    </template>
+
     <popup-manager>
       <layout-parent handle-width="12" handle-height="12" id="scene">
         <view-nodegraph panel="panel_1">

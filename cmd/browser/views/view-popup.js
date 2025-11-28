@@ -24,7 +24,7 @@ export class ViewPopup extends HTMLElement {
   }
 
   /**
-   * Render popup structure
+   * Render popup structure using HTML templates
    */
   render() {
     // Get attributes
@@ -34,46 +34,46 @@ export class ViewPopup extends HTMLElement {
     // Store original content
     const originalContent = Array.from(this.childNodes)
 
-    // Clear and rebuild with popup structure
+    // Clear current content
     this.innerHTML = ''
 
     // Add CSS classes
     this.classList.add('popup', `popup-size-${size}`)
 
-    // Create popup structure
-    const container = document.createElement('div')
-    container.className = 'popup-container'
+    // Get appropriate template
+    const templateId = title ? 'popup-container' : 'popup-container-no-header'
+    const template = document.getElementById(templateId)
 
-    // Create header if title provided
-    if (title) {
-      const header = document.createElement('div')
-      header.className = 'popup-header'
-
-      const titleElement = document.createElement('h2')
-      titleElement.className = 'popup-title'
-      titleElement.textContent = title
-
-      const closeButton = document.createElement('button')
-      closeButton.className = 'popup-close'
-      closeButton.type = 'button'
-      closeButton.innerHTML = '×'
-      closeButton.setAttribute('aria-label', 'Close popup')
-      closeButton.addEventListener('click', () => this.close())
-
-      header.appendChild(titleElement)
-      header.appendChild(closeButton)
-      container.appendChild(header)
+    if (!template) {
+      console.error(`Popup template "${templateId}" not found`)
+      return
     }
 
-    // Create content area
-    const content = document.createElement('div')
-    content.className = 'popup-content'
+    // Clone template content
+    const templateContent = template.content.cloneNode(true)
 
-    // Restore original content
-    originalContent.forEach(node => content.appendChild(node))
+    // Set title if provided
+    if (title) {
+      const titleElement = templateContent.querySelector('[data-element="title"]')
+      if (titleElement) {
+        titleElement.textContent = title
+      }
 
-    container.appendChild(content)
-    this.appendChild(container)
+      // Set up close button
+      const closeButton = templateContent.querySelector('[data-action="close"]')
+      if (closeButton) {
+        closeButton.addEventListener('click', () => this.close())
+      }
+    }
+
+    // Get content container and restore original content
+    const contentContainer = templateContent.querySelector('[data-element="content"]')
+    if (contentContainer) {
+      originalContent.forEach(node => contentContainer.appendChild(node))
+    }
+
+    // Append to popup
+    this.appendChild(templateContent)
   }
 
   /**
@@ -94,6 +94,12 @@ export class ViewPopup extends HTMLElement {
         e.stopPropagation()
       })
     }
+
+    // Setup additional close button handlers (from template)
+    const closeButtons = this.querySelectorAll('[data-action="close"]')
+    closeButtons.forEach(button => {
+      button.addEventListener('click', () => this.close())
+    })
   }
 
   /**
@@ -129,7 +135,7 @@ export class ViewPopup extends HTMLElement {
    */
   setTitle(title) {
     this.setAttribute('title', title)
-    const titleElement = this.querySelector('.popup-title')
+    const titleElement = this.querySelector('[data-element="title"]')
     if (titleElement) {
       titleElement.textContent = title
     }
@@ -151,7 +157,7 @@ export class ViewPopup extends HTMLElement {
    * Get popup content container
    */
   get contentContainer() {
-    return this.querySelector('.popup-content')
+    return this.querySelector('[data-element="content"]')
   }
 
   /**
@@ -212,7 +218,7 @@ export class ViewPopup extends HTMLElement {
 
     switch (name) {
       case 'title':
-        const titleElement = this.querySelector('.popup-title')
+        const titleElement = this.querySelector('[data-element="title"]')
         if (titleElement) {
           titleElement.textContent = newValue || ''
         }
