@@ -8,9 +8,9 @@
     <link rel="icon"
       href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
     <link rel="stylesheet" href="reset.css">
-    <link rel="stylesheet" href="build.nosync/tokens/css/variables.css">
-    <link rel="stylesheet" href="build.nosync/tokens/css/atomic.css">
-    <link rel="stylesheet" href="build.nosync/tokens/css/components.css">
+    <link rel="stylesheet" href="/tokens/css/variables.css">
+    <link rel="stylesheet" href="/tokens/css/atomic.css">
+    <link rel="stylesheet" href="/tokens/css/components.css">
     <link rel="stylesheet" href="app.css">
     <link
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;500;700&display=swap"
@@ -254,7 +254,7 @@
       // Create modules array for plugin manager with cache-busting
       const modules = pluginNames.map(name => ({
         name: name,
-        url: `/build.nosync/${name}.wasm?t=${Date.now()}`
+        url: `/plugins/${name}.wasm?t=${Date.now()}`
       }))
 
       window.pluginManager = await PluginManager.create({
@@ -297,7 +297,7 @@
       const dumpResult = await window.pluginManager.call('sql', 'dump', '')
       const sqlDump = DE.decode(dumpResult.output)
       console.log('SQL Dump generated:', sqlDump)
-      
+
       // Save dump to localStorage for persistence
       localStorage.setItem('sql-backup', sqlDump)
       console.log('Dump saved to localStorage')
@@ -306,7 +306,7 @@
       const binaryBackupResult = await window.pluginManager.call('sql', 'backup', '')
       const binaryBackup = DE.decode(binaryBackupResult.output)
       console.log('Binary Backup generated:', binaryBackup.substring(0, 200) + '...')
-      
+
       // Save binary backup to localStorage
       localStorage.setItem('sql-binary-backup', binaryBackup)
       console.log('Binary backup saved to localStorage')
@@ -320,7 +320,7 @@
       if (savedDump) {
         const restoreResult = await window.pluginManager.call('sql', 'restore', savedDump)
         console.log('SQL Restore result:', DE.decode(restoreResult.output))
-        
+
         // Verify restoration worked
         const queryResult = await window.pluginManager.call('sql', 'query', 'SELECT * FROM items')
         console.log('Data after SQL restore:', DE.decode(queryResult.output))
@@ -335,7 +335,7 @@
       if (savedBinaryBackup) {
         const loadResult = await window.pluginManager.call('sql', 'load', savedBinaryBackup)
         console.log('Binary Load result:', DE.decode(loadResult.output))
-        
+
         // Verify binary restoration worked
         const queryResult = await window.pluginManager.call('sql', 'query', 'SELECT * FROM items')
         console.log('Data after binary load:', DE.decode(queryResult.output))

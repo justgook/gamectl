@@ -38,7 +38,7 @@ DESIGN_DIR ?= design
 # Detect all plugin subdirectories
 PLUGIN_DIRS := $(wildcard $(PLUGIN_DIR)/*)
 PLUGINS := $(notdir $(PLUGIN_DIRS))
-PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/,$(addsuffix .wasm,$(PLUGINS)))
+PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
 
 SYS_GOOS := $(shell go env GOOS)
 SYS_GOARCH := $(shell go env GOARCH)
@@ -51,18 +51,18 @@ all: browser
 plugins-release: $(PLUGIN_TARGETS)
 
 # Rule to build Go plugins
-$(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/*.go) | $(BUILD_DIR)
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/*.go) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Go plugin $*..."
 	$(Q)GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o $@ ./$(PLUGIN_DIR)/$*/
 
 # Rule to build Zig plugins
-$(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Zig plugin $*..."
 	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
 
 # Special rule for SQL plugin with SQLite3
 # Note: Uses wasm32-wasi target (not freestanding) because SQLite3 needs libc
-$(BUILD_DIR)/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/sqlite3.c $(wildcard $(PLUGIN_DIR)/sql/*.h) | $(BUILD_DIR)
+$(BUILD_DIR)/plugins/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/sqlite3.c $(wildcard $(PLUGIN_DIR)/sql/*.h) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building SQL plugin with SQLite3..."
 	$(Q)zig build-exe $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/sqlite3.c \
 		-target wasm32-wasi \
@@ -85,7 +85,7 @@ $(BUILD_DIR)/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/sqlite3.c $(wi
 		-femit-bin=$@
 
 # Rule to build C plugins using Zig (bare WASM)
-$(BUILD_DIR)/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building C plugin $*..."
 	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
 
@@ -99,10 +99,13 @@ design-tokens: $(DESIGN_TOKEN_FILES)
 $(DESIGN_TOKEN_FILES): $(wildcard $(DESIGN_DIR)/tokens/**/*.json) $(DESIGN_DIR)/node_modules
 	$(Q)echo "Building design tokens..."
 	$(Q)mkdir -p $(BUILD_DIR)/tokens/css $(BUILD_DIR)/tokens/js
-	$(Q)cd $(DESIGN_DIR) && bun run build --verbose && cp build/css/* ../$(BUILD_DIR)/tokens/css/ && cp build/js/* ../$(BUILD_DIR)/tokens/js
+	$(Q)cd $(DESIGN_DIR) && DESIGN_BUILD_DIR="$(shell pwd)/$(BUILD_DIR)/tokens" bun run build --verbose
 
-$(DESIGN_DIR)/node_modules:
-	$(Q)cd $(DESIGN_DIR) && bun install 
+# Auto-install design dependencies when needed
+$(DESIGN_DIR)/node_modules: $(DESIGN_DIR)/package.json $(DESIGN_DIR)/bun.lock
+	$(Q)echo "Installing design dependencies..."
+	$(Q)cd $(DESIGN_DIR) && bun install
+	# $(Q)touch $@ 
 
 .PHONY: browser
 browser: design-tokens $(PLUGIN_TARGETS)
@@ -111,13 +114,30 @@ browser: design-tokens $(PLUGIN_TARGETS)
 .PHONY: browser-run
 browser-run: browser $(PLUGIN_TARGETS)
 	$(Q)echo "Starting GameCtl Browser IDE..."
-	$(Q)$(BUILD_DIR)/browser-server -port 8080
+	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
 
-# Ensure build directory exists
+# Ensure build directories exist
 $(BUILD_DIR):
 	$(Q)mkdir -p $@
 
+$(BUILD_DIR)/plugins:
+	$(Q)mkdir -p $@
+
+# Production web deployment target
+.PHONY: web
+web: $(DESIGN_TOKEN_FILES) $(PLUGIN_TARGETS)
+	$(Q)rm -rf $(BUILD_DIR)/web
+	$(Q)echo "Creating production web build in $(BUILD_DIR)/web/..."
+	$(Q)mkdir -p $(BUILD_DIR)/web/tokens $(BUILD_DIR)/web/plugins
+	$(Q)echo "  Copying browser files..."
+	$(Q)cp cmd/browser/*.html cmd/browser/*.css cmd/browser/*.js $(BUILD_DIR)/web/
+	$(Q)cp -r cmd/browser/data cmd/browser/systems cmd/browser/util cmd/browser/views $(BUILD_DIR)/web/
+	$(Q)echo "  Copying design tokens..."
+	$(Q)cp -r $(BUILD_DIR)/tokens/* $(BUILD_DIR)/web/tokens/
+	$(Q)echo "  Copying plugins..."
+	$(Q)cp $(BUILD_DIR)/plugins/*.wasm $(BUILD_DIR)/web/plugins/
+	$(Q)echo "✓ Production build ready at $(BUILD_DIR)/web/"
+
 .PHONY: clean
 clean:
-	$(Q)git ls-files -oi --exclude-standard | (grep -v '^\.idea' || exit 0) | xargs trash
 	$(Q)rm -rf $(BUILD_DIR)

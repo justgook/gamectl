@@ -19,23 +19,32 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Get build directory from environment variable, default to "build.nosync"
+	buildDirName := os.Getenv("BUILD_DIR")
+	if buildDirName == "" {
+		buildDirName = "build.nosync"
+	}
+
 	// Serve cmd/browser directory
 	browserDir := filepath.Join(cwd, "cmd", "browser")
 
-	// Serve build.nosync directory for WASM plugins
-	buildDir := filepath.Join(cwd, "build.nosync")
+	// Serve build directory for WASM plugins and design tokens
+	buildDir := filepath.Join(cwd, buildDirName)
 
 	fmt.Printf("🚀 GameCtl Browser IDE Server\n")
 	fmt.Printf("   Current Working Directory: %s\n", cwd)
 	fmt.Printf("   Browser files: %s\n", browserDir)
-	fmt.Printf("   Build files:   %s\n", buildDir)
+	fmt.Printf("   Build files:   %s (via /build/)\n", buildDir)
 	fmt.Printf("   Starting server on http://localhost:%s\n\n", *port)
 
 	// Create a file server for the browser directory
 	http.Handle("/", http.FileServer(http.Dir(browserDir)))
 
-	// Create a file server for the build directory
-	http.Handle("/build.nosync/", http.StripPrefix("/build.nosync/", http.FileServer(http.Dir(buildDir))))
+	// Serve design tokens from build directory
+	http.Handle("/tokens/", http.StripPrefix("/tokens/", http.FileServer(http.Dir(filepath.Join(buildDir, "tokens")))))
+
+	// Serve plugins from build directory
+	http.Handle("/plugins/", http.StripPrefix("/plugins/", http.FileServer(http.Dir(filepath.Join(buildDir, "plugins")))))
 
 	// Add CORS headers for WASM
 	handler := corsMiddleware(http.DefaultServeMux)
