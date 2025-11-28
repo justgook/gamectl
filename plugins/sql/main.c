@@ -136,6 +136,57 @@ static const sqlite3_mem_methods pdk_mem_methods = {
 };
 
 // =============================================================================
+// CSV Helper Functions
+// =============================================================================
+
+// Check if a string needs CSV quoting (contains comma, quote, or newline)
+static int csv_needs_quoting(const char *str) {
+  if (!str) return 0;
+  
+  while (*str) {
+    if (*str == ',' || *str == '"' || *str == '\n' || *str == '\r') {
+      return 1;
+    }
+    str++;
+  }
+  return 0;
+}
+
+// Add a properly escaped CSV field to buffer
+static uint32_t append_csv_field(char *buf, uint32_t pos, uint32_t max, const char *field) {
+  if (!field) {
+    return append_str(buf, pos, max, "");
+  }
+  
+  int needs_quotes = csv_needs_quoting(field);
+  
+  if (needs_quotes && pos < max) {
+    buf[pos++] = '"';
+  }
+  
+  // Copy field content, escaping quotes by doubling them
+  const char *src = field;
+  while (*src && pos < max - 1) {
+    if (*src == '"' && needs_quotes) {
+      // Escape quote by doubling it
+      if (pos < max - 1) {
+        buf[pos++] = '"';
+        buf[pos++] = '"';
+      }
+    } else {
+      buf[pos++] = *src;
+    }
+    src++;
+  }
+  
+  if (needs_quotes && pos < max) {
+    buf[pos++] = '"';
+  }
+  
+  return pos;
+}
+
+// =============================================================================
 // Exported Plugin Functions
 // =============================================================================
 
@@ -257,7 +308,7 @@ __attribute__((export_name("query"))) uint32_t sql_query(void) {
 
 // Build CSV-style result
 // Format: "col1,col2,col3\nval1,val2,val3\n..."
-#define RESULT_BUF_SIZE 8192
+#define RESULT_BUF_SIZE 32768  // Increased from 8192 for large HTML templates
   char *result_buf = (char *)pdk_alloc(RESULT_BUF_SIZE);
   if (!result_buf) {
     sqlite3_finalize(stmt);
@@ -273,7 +324,7 @@ __attribute__((export_name("query"))) uint32_t sql_query(void) {
   for (int i = 0; i < col_count; i++) {
     const char *col_name = sqlite3_column_name(stmt, i);
     if (col_name) {
-      pos = append_str(result_buf, pos, RESULT_BUF_SIZE, col_name);
+      pos = append_csv_field(result_buf, pos, RESULT_BUF_SIZE, col_name);
     }
 
     if (i < col_count - 1) {
@@ -284,18 +335,18 @@ __attribute__((export_name("query"))) uint32_t sql_query(void) {
         result_buf[pos++] = '\n';
     }
 
-    if (pos >= RESULT_BUF_SIZE - 1)
+    if (pos >= RESULT_BUF_SIZE - 100)
       break;
   }
 
   // Write data rows
-  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < RESULT_BUF_SIZE - 1) {
+  while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && pos < RESULT_BUF_SIZE - 100) {
     for (int i = 0; i < col_count; i++) {
       const unsigned char *text = sqlite3_column_text(stmt, i);
       if (text) {
-        pos = append_str(result_buf, pos, RESULT_BUF_SIZE, (const char *)text);
+        pos = append_csv_field(result_buf, pos, RESULT_BUF_SIZE, (const char *)text);
       } else {
-        pos = append_str(result_buf, pos, RESULT_BUF_SIZE, "NULL");
+        pos = append_csv_field(result_buf, pos, RESULT_BUF_SIZE, "NULL");
       }
 
       if (i < col_count - 1) {
@@ -306,7 +357,7 @@ __attribute__((export_name("query"))) uint32_t sql_query(void) {
           result_buf[pos++] = '\n';
       }
 
-      if (pos >= RESULT_BUF_SIZE - 1)
+      if (pos >= RESULT_BUF_SIZE - 100)
         break;
     }
   }
