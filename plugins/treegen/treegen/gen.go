@@ -15,9 +15,9 @@ type Random interface {
 
 type GenerateTreeConfig struct {
 	NodeCount    int `json:"nodeCount"`    // target node count (0 = unlimited)
-	RootBranches int `json:"rootBranches"` // specific number of root children (0 = auto)
 	MaxDepth     int `json:"maxDepth"`     // maximum tree depth (0 = unlimited)
 	MaxBranching int `json:"maxBranching"` // maximum children per node (0 = unlimited)
+	RootBranches int `json:"rootBranches"` // specific number of root children (0 = auto)
 }
 
 func GenerateTree(rng Random, cfg *GenerateTreeConfig) (tree.Tree, error) {

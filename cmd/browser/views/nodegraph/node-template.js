@@ -81,8 +81,8 @@ export class NodeTemplate extends NodeBase {
   }
 
   getDisplayInfo() {
-    const inputs = this.getInputPorts()
-    const outputs = this.getOutputPorts()
+    const base = super.getDisplayInfo()
+    const outputs = base.outputs
 
     // Create display values for outputs
     const outputsWithValues = outputs.map(output => ({
@@ -91,15 +91,11 @@ export class NodeTemplate extends NodeBase {
       hasValue: this.storedValues.has(output.name)
     }))
 
-    return {
-      title: this.id || 'Template',
+    return Object.assign(base, {
       type: 'template',
-      width: 200,
-      height: Math.max(120, 50 + Math.max(inputs.length, outputs.length) * 24),
-      inputs,
       outputs: outputsWithValues,
       values: this.storedValues
-    }
+    })
   }
 
   /**
@@ -171,7 +167,7 @@ export class NodeTemplate extends NodeBase {
 
     // Create popup with template's inner content
     const popup = document.createElement('view-popup')
-    popup.setAttribute('title', `Edit ${this.id}`)
+    popup.setAttribute('title', `Edit ${this.title}(${this.id})`)
     popup.setAttribute('size', 'medium')
 
     // Clone our inner HTML for editing

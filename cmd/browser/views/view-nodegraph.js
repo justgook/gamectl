@@ -1238,7 +1238,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
         return
       }
 
-      console.log(templates)
       // Show popup using new system
       this.showTemplateSelectorPopup(templates)
     } catch (error) {

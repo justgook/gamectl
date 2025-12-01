@@ -38,17 +38,17 @@ export class NodeFields extends NodeBase {
   async executeNode(resolvers) {
     this.state = 'running'
     this.requestRedraw()
-    
+
     try {
       const input = await this.getInputValue('input')
-      
+
       // Extract each field specified in outputs
       for (const outputName of this._parsedOutputs) {
         const fieldPath = outputName
         const value = this.extractField(input, fieldPath)
         resolvers.get(outputName).resolve(value)
       }
-      
+
       this.state = 'success'
       console.log(`✓ Fields extraction completed for paths:`, this._parsedOutputs)
 
@@ -56,7 +56,7 @@ export class NodeFields extends NodeBase {
       this.state = 'error'
       this.error = error.message
       console.error(`✗ Fields extraction failed:`, error)
-      
+
       // Reject all outputs
       for (const outputName of this._parsedOutputs) {
         resolvers.get(outputName).reject(error)
@@ -84,7 +84,7 @@ export class NodeFields extends NodeBase {
         if (match && Array.isArray(obj)) {
           const index = parseInt(match[1])
           const remaining = match[2]
-          
+
           if (remaining.length === 0) {
             // Just array access: [0]
             return obj[index]
@@ -103,7 +103,7 @@ export class NodeFields extends NodeBase {
       if (path.includes('.')) {
         const [first, ...rest] = path.split('.')
         const restPath = rest.join('.')
-        
+
         // Handle array access in first part: items[0]
         if (first.includes('[') && first.includes(']')) {
           const arrayMatch = first.match(/^([^\\[]+)\\[(\\d+)\\]$/)
@@ -115,7 +115,7 @@ export class NodeFields extends NodeBase {
             }
           }
         }
-        
+
         return this.extractField(obj[first], restPath)
       }
 

@@ -202,8 +202,10 @@
       <layout-parent handle-width="12" handle-height="12" id="scene">
         <view-nodegraph panel="panel_1">
           <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
-          <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen" inputs="nodeCount:nodeCount"
-            outputs="result"></node-plugin>
+          <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen"
+            inputs="name,nodeCount:nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>
+
+
           <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
             outputs="output,returnCode"></node-fields>
           <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
