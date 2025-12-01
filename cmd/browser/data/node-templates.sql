@@ -39,7 +39,7 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   'Tree Generator',
   'plugin',
   'Generate procedural tree',
-  '<node-plugin plugin="treegen" function="gen" inputs="nodeCount" outputs="result"></node-plugin>'
+  '<node-plugin x="135" y="160" plugin="treegen" function="gen" inputs="name,nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>'
 ),
 (
   'Minimap Generator',
@@ -75,7 +75,7 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   'Text Input',
   'template',
   'Simple text input field',
-  '<node-template outputs="text"><div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..." style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div></node-template>'
+  '<node-template title="Text" label="THE TEXT" outputs="text"><div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..." style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div></node-template>'
 ),
 (
   'Input Processor',

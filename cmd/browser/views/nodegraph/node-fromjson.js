@@ -33,7 +33,7 @@ export class NodeFromJson extends NodeBase {
   async executeNode(resolvers) {
     this.state = 'running'
     this.requestRedraw()
-    
+
     try {
       const input = await this.getInputValue('input')
       let jsonString
@@ -50,7 +50,7 @@ export class NodeFromJson extends NodeBase {
       for (const outputName of this._parsedOutputs) {
         resolvers.get(outputName).resolve(parsed)
       }
-      
+
       this.state = 'success'
       console.log(`✓ FromJSON completed:`, parsed)
 
@@ -58,7 +58,7 @@ export class NodeFromJson extends NodeBase {
       this.state = 'error'
       this.error = `Invalid JSON: ${error.message}`
       console.error(`✗ FromJSON failed:`, error)
-      
+
       // Reject all outputs
       for (const outputName of this._parsedOutputs) {
         resolvers.get(outputName).reject(new Error(this.error))

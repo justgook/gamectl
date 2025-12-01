@@ -142,21 +142,21 @@ export class NodePlugin extends NodeBase {
     // For testing: simulate plugin execution if pluginManager not available
     if (typeof window.pluginManager === 'undefined') {
       console.log(`🔧 Simulating plugin execution: ${this.plugin}.${this.functionName}`)
-      
+
       // Simulate async work
       await new Promise(resolve => setTimeout(resolve, 500))
-      
+
       // Create mock result
       const mockResult = {
         returnCode: 0,
         output: new Uint8Array(new TextEncoder().encode(`Mock result from ${this.plugin}.${this.functionName}`))
       }
-      
+
       // Resolve all outputs with mock result
       for (const outputName of this._parsedOutputs) {
         resolvers.get(outputName).resolve(mockResult)
       }
-      
+
       this.state = 'success'
       console.log(`✓ Mock ${this.plugin}.${this.functionName} completed`)
       this.requestRedraw()
@@ -203,7 +203,7 @@ export class NodePlugin extends NodeBase {
       this.state = 'error'
       this.error = error.message
       console.error(`✗ ${this.plugin}.${this.functionName} failed:`, error)
-      
+
       // Reject all outputs
       for (const [, { reject }] of resolvers) {
         reject(error)

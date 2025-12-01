@@ -94,7 +94,7 @@ export class NodeOutput extends NodeBase {
       this.state = 'error'
       this.error = error.message
       console.error(`Output [${this.label}] failed:`, error)
-      
+
       // Reject any outputs
       for (const outputName of this._parsedOutputs) {
         resolvers.get(outputName).reject(error)

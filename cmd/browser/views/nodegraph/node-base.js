@@ -28,7 +28,7 @@ export class NodeBase extends HTMLElement {
     this.error = null
     this._parsedInputs = new Map() // Parsed from inputs attribute
     this._parsedOutputs = [] // Parsed from outputs attribute
-    
+
     // Promise-based output system
     this.outputPromises = new Map() // Map<portName, Promise>
     this.executionPromise = null    // Promise for the node's execution
@@ -47,6 +47,7 @@ export class NodeBase extends HTMLElement {
     this.position.y = parseFloat(this.getAttribute('y')) || 0
     this.state = this.getAttribute('state') || 'idle'
     this.selected = this.hasAttribute('selected')
+    this.title = this.getAttribute('title') || ""
 
     // Parse inputs attribute
     const inputsAttr = this.getAttribute('inputs')
@@ -84,6 +85,10 @@ export class NodeBase extends HTMLElement {
         break
       case 'selected':
         this.selected = newVal !== null
+        this.requestRedraw()
+        break
+      case 'title':
+        this.title = newVal
         this.requestRedraw()
         break
       case 'inputs':
@@ -160,10 +165,10 @@ export class NodeBase extends HTMLElement {
     for (const [port, connection] of this._parsedInputs) {
       if (connection) {
         // Only include connected ports
-        connections.push({ 
-          port, 
-          sourceNodeId: connection.sourceNodeId, 
-          sourcePort: connection.sourcePort 
+        connections.push({
+          port,
+          sourceNodeId: connection.sourceNodeId,
+          sourcePort: connection.sourcePort
         })
       }
     }
@@ -202,7 +207,7 @@ export class NodeBase extends HTMLElement {
     if (this._parsedOutputs.length === 0) {
       return this.startExecution(forceRerun)
     }
-    
+
     // If requesting a port that doesn't exist, use the first available port or default
     if (!this._parsedOutputs.includes(port)) {
       if (this._parsedOutputs.length > 0) {
@@ -212,7 +217,7 @@ export class NodeBase extends HTMLElement {
         return this.startExecution(forceRerun)
       }
     }
-    
+
     if (!this.outputPromises.has(port) || forceRerun) {
       // Lazy execution - create Promise when first accessed or force rerun
       this.startExecution(forceRerun)
@@ -259,14 +264,14 @@ export class NodeBase extends HTMLElement {
 
       // Execute and resolve outputs
       this.executionPromise = this.executeNode(resolvers)
-      
+
       // Reset downstream nodes AFTER this node completes execution (plugin nodes only)
       if (forceRerun && this.constructor.name === 'NodePlugin') {
         this.executionPromise.finally(() => {
           this.resetDownstreamNodes()
         })
       }
-      
+
       // Reset execution flag when done
       this.executionPromise.finally(() => {
         this.isExecuting = false
@@ -298,7 +303,7 @@ export class NodeBase extends HTMLElement {
 
     // Find all nodes that depend on this node's output
     const downstreamNodes = this.findDownstreamNodes()
-    
+
     for (const node of downstreamNodes) {
       // Skip if node is already idle or not yet executed
       if (node.state === 'idle' && !node.executionPromise) {
@@ -306,16 +311,16 @@ export class NodeBase extends HTMLElement {
       }
 
       console.log(`[${this.id}] Resetting downstream node: ${node.id}`)
-      
+
       // Reset the node state
       node.state = 'idle'
       node.error = null
       node.isExecuting = false
-      
+
       // Clear execution promises to force re-execution
       node.executionPromise = null
       node.outputPromises.clear()
-      
+
       // Request redraw to update visual state
       node.requestRedraw()
     }
@@ -328,11 +333,11 @@ export class NodeBase extends HTMLElement {
   findDownstreamNodes() {
     const downstream = new Set()
     const visited = new Set()
-    
+
     const traverse = (nodeId) => {
       if (visited.has(nodeId)) return
       visited.add(nodeId)
-      
+
       // Find all connections from this node
       for (const connection of this.graph.connectionIndex) {
         if (connection.fromNodeId === nodeId) {
@@ -345,7 +350,7 @@ export class NodeBase extends HTMLElement {
         }
       }
     }
-    
+
     traverse(this.id)
     return downstream
   }
@@ -373,13 +378,16 @@ export class NodeBase extends HTMLElement {
    * @returns {object}
    */
   getDisplayInfo() {
+    const inputs = this.getInputPorts()
+    const outputs = this.getOutputPorts()
+
     return {
-      title: this.id || 'Node',
+      title: this.title || this.id || 'Node',
       type: this.constructor.name.replace('Node', '').toLowerCase(),
       width: 200,
-      height: 100,
-      inputs: this.getInputPorts(),
-      outputs: this.getOutputPorts()
+      height: Math.max(80, 50 + Math.max(inputs.length, outputs.length) * 24),
+      inputs,
+      outputs,
     }
   }
 
