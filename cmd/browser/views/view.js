@@ -12,10 +12,23 @@ export class View extends HTMLElement {
   }
 
   connectedCallback() {
-    this.style.position = "absolute"
-    this._updatePosition()
-    this.appendChild(this.mounedContent)
-    this.addChrome()
+    // Only use absolute positioning and chrome when in LayoutParent
+    const inLayout = this.parentElement?.tagName === 'LAYOUT-PARENT' ||
+      this.closest('layout-parent')
+
+    if (inLayout) {
+      this.style.position = "absolute"
+      this._updatePosition()
+      this.appendChild(this.mounedContent)
+      this.addChrome()
+    } else {
+      // In popup or standalone - use relative positioning
+      this.style.position = "relative"
+      this.style.display = "block"
+      this.appendChild(this.mounedContent)
+      // Still need to update dimensions if they're set
+      this._updatePosition()
+    }
   }
 
   attributeChangedCallback(name, _oldVal, newVal) {
@@ -100,7 +113,10 @@ class ViewChrome extends HTMLElement {
       })
 
     const select = elm.querySelector(`[data-action="select-view"]`)
-    select.value = this.view.content.template
+    // Only set value if view content is mounted
+    if (this.view.content && this.view.content.template) {
+      select.value = this.view.content.template
+    }
     select.addEventListener("change", (event) => {
       this._switchView(event.target.value)
     })
@@ -117,7 +133,7 @@ class ViewChrome extends HTMLElement {
     document.querySelectorAll('view--chrome').forEach(chrome => {
       chrome.style.pointerEvents = ''
     })
-    
+
     this.dragStartX = 0
     this.dragStartY = 0
     this.dragDirection = null
@@ -133,7 +149,7 @@ class ViewChrome extends HTMLElement {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData('text/plain', this.view.getAttribute("panel"))
     event.dataTransfer.setData('panelId', this.view.getAttribute("panel")) // Also store as specific key
-    
+
     // Enable pointer events on ALL chromes so they can receive drop events
     document.querySelectorAll('view--chrome').forEach(chrome => {
       chrome.style.pointerEvents = 'auto'
@@ -188,12 +204,12 @@ class ViewChrome extends HTMLElement {
 
   _onDrop = (event) => {
     event.preventDefault()
-    
+
     // If no direction detected and dragging from this panel's corner, cancel the drop
     if (!this.dragDirection && this._isDraggingFromThisPanel) {
       return
     }
-    
+
     if (!this.dragDirection) { //Comes from other panal - so we merge
       const toPanel = event.dataTransfer.getData('text/plain')
       const fromPanel = this.view.getAttribute("panel")
