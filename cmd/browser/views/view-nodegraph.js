@@ -1173,7 +1173,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
    * Handle edit button click
    */
   async onEditButtonClick(node) {
-    if (node.constructor.name !== 'NodeTemplate') {
+    if (node.constructor.name !== 'NodePopup') {
       console.error('Edit button clicked on non-template node:', node)
       return
     }
