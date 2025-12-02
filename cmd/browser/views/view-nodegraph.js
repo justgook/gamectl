@@ -114,8 +114,17 @@ export class ViewNodeGraph extends ViewCanvasBase {
   }
 
   unregisterNode(nodeElement) {
-    this.nodes.delete(nodeElement.id)
+    const nodeId = nodeElement.id
+    console.log(`Unregistering node: ${nodeId}`)
+    
+    // Clean up connections TO this node before removing it
+    this.removeConnectionsToNode(nodeId)
+    
+    // Remove from internal state
+    this.nodes.delete(nodeId)
     this.selectedNodes.delete(nodeElement)
+    
+    // Rebuild connection index and redraw
     this.rebuildConnectionIndex()
     this.draw()
   }
@@ -268,6 +277,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
     if (info.type === 'template') {
       this.drawEditButton(ctx, x, y, info, node)
       this.drawTemplateValues(ctx, x, y, info, node)
+    }
+
+    // Draw delete button for selected nodes
+    if (selected) {
+      this.drawDeleteButton(ctx, x, y, info, node)
     }
 
     // Draw input ports
@@ -579,6 +593,45 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
   }
 
+  drawDeleteButton(ctx, nodeX, nodeY, info, node) {
+    const buttonSize = 14
+    const buttonX = nodeX + 4 // Position in top-left corner of node
+    const buttonY = nodeY + 4
+
+    // Delete button color - red for danger
+    const buttonColor = COLORS.node.error // Red color
+    const iconColor = COLORS.text
+    const icon = '✕' // Delete/close icon
+
+    // Draw button background
+    ctx.fillStyle = buttonColor
+    ctx.beginPath()
+    ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Draw button border
+    ctx.strokeStyle = COLORS.text
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
+    ctx.stroke()
+
+    // Draw icon
+    ctx.fillStyle = iconColor
+    ctx.font = '10px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(icon, buttonX + buttonSize / 2, buttonY + buttonSize / 2)
+
+    // Store button bounds for click detection
+    node._deleteButtonBounds = {
+      x: buttonX,
+      y: buttonY,
+      width: buttonSize,
+      height: buttonSize
+    }
+  }
+
   // --- Connection Index ---
 
   rebuildConnectionIndex() {
@@ -818,7 +871,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
     const node = this.getNodeAt(worldPos.x, worldPos.y)
 
     if (node) {
-      // Check if clicking on run button first
+      // Check delete button first (highest priority for selected nodes)
+      if (this.selectedNodes.has(node) && node._deleteButtonBounds && this.isPointInDeleteButton(worldPos, node)) {
+        this.onDeleteButtonClick(node)
+        return
+      }
+
+      // Check if clicking on run button
       if (node._runButtonBounds && this.isPointInRunButton(worldPos, node)) {
         this.onRunButtonClick(node)
         return
@@ -830,11 +889,19 @@ export class ViewNodeGraph extends ViewCanvasBase {
         return
       }
 
-      // Start node drag
-      if (!e.ctrlKey && !e.metaKey) {
+      // Handle multi-selection with Ctrl/Cmd key
+      if (e.ctrlKey || e.metaKey) {
+        // Toggle selection with Ctrl/Cmd
+        if (this.selectedNodes.has(node)) {
+          this.selectedNodes.delete(node)
+        } else {
+          this.selectedNodes.add(node)
+        }
+      } else {
+        // Single selection (clear others)
         this.selectedNodes.clear()
+        this.selectedNodes.add(node)
       }
-      this.selectedNodes.add(node)
 
       const nodeX = parseFloat(node.getAttribute('x')) || 0
       const nodeY = parseFloat(node.getAttribute('y')) || 0
@@ -968,6 +1035,81 @@ export class ViewNodeGraph extends ViewCanvasBase {
     this.draggedNode = null
 
     super._onMouseUp(e)
+  }
+
+  // --- Node Deletion ---
+
+  /**
+   * Delete a node by removing it from the DOM
+   * This triggers the disconnectedCallback -> unregisterNode flow automatically
+   * @param {string} nodeId - ID of the node to delete
+   */
+  deleteNode(nodeId) {
+    const node = this.nodes.get(nodeId)
+    if (!node) {
+      console.warn(`Cannot delete node ${nodeId}: not found`)
+      return false
+    }
+
+    console.log(`Deleting node: ${nodeId}`)
+    
+    // Remove from DOM - this triggers disconnectedCallback -> unregisterNode
+    node.remove()
+    return true
+  }
+
+  /**
+   * Delete currently selected nodes
+   */
+  deleteSelectedNodes() {
+    const nodesToDelete = Array.from(this.selectedNodes)
+    if (nodesToDelete.length === 0) {
+      console.log('No nodes selected for deletion')
+      return 0
+    }
+
+    console.log(`Deleting ${nodesToDelete.length} selected nodes`)
+    
+    for (const node of nodesToDelete) {
+      this.deleteNode(node.id)
+    }
+    
+    return nodesToDelete.length
+  }
+
+  /**
+   * Remove all connections TO a specific node
+   * This cleans up input connections on other nodes that reference the deleted node
+   * @param {string} nodeId - ID of the node being deleted
+   */
+  removeConnectionsToNode(nodeId) {
+    console.log(`Cleaning up connections to node: ${nodeId}`)
+    
+    // Find all nodes that have inputs connected to this node
+    for (const [id, node] of this.nodes) {
+      if (id === nodeId) continue // Skip the node being deleted
+      
+      const currentInputs = node.getAttribute('inputs') || ''
+      if (!currentInputs) continue
+      
+      const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
+      
+      // Filter out connections to the deleted node
+      const updatedPairs = inputPairs.filter(pair => {
+        const [, source] = pair.split(':')
+        if (!source) return true // Keep disconnected ports
+        
+        const [sourceNodeId] = source.split('.')
+        return sourceNodeId !== nodeId // Remove connections to deleted node
+      })
+      
+      // Update the inputs attribute if connections were removed
+      if (updatedPairs.length !== inputPairs.length) {
+        const newInputs = updatedPairs.join(',')
+        console.log(`  Updated ${node.id} inputs: ${currentInputs} -> ${newInputs}`)
+        node.setAttribute('inputs', newInputs)
+      }
+    }
   }
 
   // --- Connection Management ---
@@ -1152,6 +1294,31 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
 
     this.draw()
+  }
+
+  // --- Delete Button Handling ---
+
+  /**
+   * Check if a point is within a node's delete button
+   */
+  isPointInDeleteButton(worldPos, node) {
+    if (!node._deleteButtonBounds) return false
+
+    const bounds = node._deleteButtonBounds
+    return worldPos.x >= bounds.x &&
+      worldPos.x <= bounds.x + bounds.width &&
+      worldPos.y >= bounds.y &&
+      worldPos.y <= bounds.y + bounds.height
+  }
+
+  /**
+   * Handle delete button click
+   */
+  onDeleteButtonClick(node) {
+    console.log(`Delete button clicked for node: ${node.id}`)
+    
+    // Delete immediately for better UX (no confirmation dialog)
+    this.deleteNode(node.id)
   }
 
   // --- Edit Button Handling ---
@@ -1416,6 +1583,32 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
 
     return templates
+  }
+
+  // --- Public API for External Access ---
+
+  /**
+   * Public method to delete nodes programmatically
+   * Usage: nodegraph.deleteNodes('node1') or nodegraph.deleteNodes(['node1', 'node2'])
+   */
+  deleteNodes(nodeIds) {
+    const ids = Array.isArray(nodeIds) ? nodeIds : [nodeIds]
+    let deletedCount = 0
+    
+    for (const nodeId of ids) {
+      if (this.deleteNode(nodeId)) {
+        deletedCount++
+      }
+    }
+    
+    return deletedCount
+  }
+
+  /**
+   * Get all node IDs for debugging/external access
+   */
+  getNodeIds() {
+    return Array.from(this.nodes.keys())
   }
 }
 
