@@ -91,3 +91,25 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
 );
 
 INSERT INTO node_templates (name, category, description, html_template) VALUES ('Number Input with Numpad','template','Interactive number input with numpad interface','<node-popup outputs="value"><div style="padding:12px" data-numpad><input type="number" data-output="value" value="0" style="font-size:16px;padding:8px;width:100%;text-align:center;margin-bottom:10px"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px"><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `7`; i.focus()" style="padding:8px;font-size:14px">7</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `8`; i.focus()" style="padding:8px;font-size:14px">8</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `9`; i.focus()" style="padding:8px;font-size:14px">9</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `4`; i.focus()" style="padding:8px;font-size:14px">4</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `5`; i.focus()" style="padding:8px;font-size:14px">5</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `6`; i.focus()" style="padding:8px;font-size:14px">6</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `1`; i.focus()" style="padding:8px;font-size:14px">1</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `2`; i.focus()" style="padding:8px;font-size:14px">2</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `3`; i.focus()" style="padding:8px;font-size:14px">3</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `0`; i.focus()" style="padding:8px;font-size:14px">0</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value=i.value.slice(0,-1); i.focus()" style="padding:8px;font-size:14px;background:#ff6b6b;color:white">⌫</button><button onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value=``; i.focus()" style="padding:8px;font-size:14px;background:#ff6b6b;color:white">Clear</button></div></div></node-popup>');
+
+
+-- Preview Nodes
+INSERT INTO node_templates (name, category, description, html_template) VALUES
+(
+  'Tree Preview',
+  'preview',
+  'Preview tree structure from input (uses data-input-target)',
+  '<node-popup inputs="storeKey" outputs="storeKey" data-input-target="storeKey:view-tree@data-store-key"><view-tree data-store-key="progression" style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tree></node-popup>'
+),
+(
+  'Tilemap Preview',
+  'preview',
+  'Preview tilemap from input (uses data-input-target)',
+  '<node-popup inputs="mapId" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"><view-tilemap data-key="new_map" style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></node-popup>'
+),
+(
+  'Tree Preview (onopen)',
+  'preview',
+  'Preview tree with custom onopen handler',
+  '<node-popup inputs="storeKey" outputs="storeKey" onopen="const tree = content.querySelector(''view-tree''); if (inputs.storeKey) tree.setAttribute(''data-store-key'', inputs.storeKey);"><view-tree data-store-key="progression" style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tree></node-popup>'
+);

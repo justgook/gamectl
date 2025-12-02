@@ -30,7 +30,10 @@ export class ViewTilemap extends ViewCanvasBase {
 
   attributeChangedCallback(name, oldVal, newVal) {
     super.attributeChangedCallback(name, oldVal, newVal)
-    if (name === TILEMAP_ATTR) this.tilemapKey = newVal
+    if (name === TILEMAP_ATTR && oldVal !== newVal) {
+      this.tilemapKey = newVal
+      if (this.isConnected) this.loadAndDraw()
+    }
   }
 
   // --- Abstract Methods Implementation ---
