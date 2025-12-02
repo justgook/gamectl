@@ -49,12 +49,16 @@ export class ViewTilemap extends ViewCanvasBase {
       const data = this.DE.decode(result.output)
       return JSON.parse(data)
     } catch (error) {
-      console.error('Failed to get minimap data:', error)
+      console.warn('Failed to get tilemap data:', error)
       return null
     }
   }
 
   calculateContentBounds(data) {
+    if (!data || !data.layers || !Array.isArray(data.layers) || data.layers.length === 0) {
+      return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    }
+
     const width = data.layers.reduce((acc, item) =>
       // TODO EXTRACT tileHeigt from level 
       Math.max(item.width * this.tw, acc)
@@ -75,6 +79,9 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   drawContent(ctx, data) {
+    if (!data || !data.layers || !Array.isArray(data.layers) || data.layers.length === 0) {
+      return;
+    }
     if (this.isDirty) this._renderOffscreen(this.offCtx, data)
     ctx.drawImage(this.offscreen, 0, 0)
   }
@@ -86,6 +93,8 @@ export class ViewTilemap extends ViewCanvasBase {
     canvas.height = height
     ctx.clearRect(0, 0, width, height)
     fillCanvasWithGrid(ctx, this.tw, this.th, this.settings.grid.color, this.settings.grid.border)
+
+    if (!data || !data.layers || !Array.isArray(data.layers)) return;
 
     for (let i = 0; i < data.layers.length; i++) {
       const layer = data.layers[i]
