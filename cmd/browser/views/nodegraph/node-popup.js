@@ -1,7 +1,7 @@
 import { NodeBase } from './node-base.js'
 
 /**
- * Template Node - Interactive input/output node with custom popup UI
+ * Popup Node - Interactive input/output node with custom popup UI
  * 
  * Attributes:
  * - inputs: Port definitions with connections (standard NodeBase)
@@ -13,14 +13,14 @@ import { NodeBase } from './node-base.js'
  * - data-output="outputName": Element value becomes node output
  * 
  * Example:
- * <node-template id="input1" x="100" y="100" 
+ * <node-popup id="input1" x="100" y="100" 
  *                outputs="value,enabled"
  *                values="value:42,enabled:true">
  *   <input type="number" data-output="value" value="0">
  *   <input type="checkbox" data-output="enabled"> Enabled
- * </node-template>
+ * </node-popup>
  */
-export class NodeTemplate extends NodeBase {
+export class NodePopup extends NodeBase {
   static get observedAttributes() {
     return [...super.observedAttributes, 'values']
   }
@@ -324,4 +324,4 @@ export class NodeTemplate extends NodeBase {
   }
 }
 
-customElements.define('node-template', NodeTemplate)
+customElements.define('node-popup', NodePopup)
