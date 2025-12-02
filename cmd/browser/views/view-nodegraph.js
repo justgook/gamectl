@@ -109,6 +109,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
 
     this.nodes.set(id, nodeElement)
+
+    // Restore state from DOM attribute if it exists (for DOM-based state persistence)
+    this.restoreNodeState(nodeElement)
+
     this.rebuildConnectionIndex()
     this.draw()
   }
@@ -116,7 +120,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
   unregisterNode(nodeElement) {
     const nodeId = nodeElement.id
     console.log(`Unregistering node: ${nodeId}`)
-    
+
     // Skip connection cleanup if we're just reordering nodes in DOM
     if (!this._isReordering) {
       console.log(`Cleaning up connections for deleted node: ${nodeId}`)
@@ -125,11 +129,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
     } else {
       console.log(`Skipping connection cleanup for reordered node: ${nodeId}`)
     }
-    
+
     // Remove from internal state
     this.nodes.delete(nodeId)
     // Focus state is automatically removed when element is removed from DOM
-    
+
     // Rebuild connection index and redraw
     this.rebuildConnectionIndex()
     this.draw()
@@ -160,7 +164,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // Calculate bounds from DOM children (consistent with rendering)
     for (const node of this.children) {
       if (!node.getDisplayInfo) continue
-      
+
       const x = parseFloat(node.getAttribute('x')) || 0
       const y = parseFloat(node.getAttribute('y')) || 0
       const info = node.getDisplayInfo()
@@ -783,6 +787,34 @@ export class ViewNodeGraph extends ViewCanvasBase {
     )
   }
 
+  // --- DOM State Management ---
+
+  /**
+   * Store node state in DOM attribute for persistence during DOM operations
+   * @param {Element} node - The node to save state for
+   */
+  preserveNodeState(node) {
+    if (!node) return
+
+    if (node.state) {
+      node.setAttribute('data-state', node.state)
+    }
+  }
+
+  /**
+   * Restore node state from DOM attribute if it was lost
+   * @param {Element} node - The node to restore state for
+   */
+  restoreNodeState(node) {
+    if (!node) return
+
+    const preservedState = node.getAttribute('data-state')
+    if (preservedState && node.state !== preservedState) {
+      console.log(`Restoring node ${node.id} state: ${preservedState}`)
+      node.state = preservedState
+    }
+  }
+
   // --- Focus Management (DOM-based state) ---
 
   /**
@@ -792,7 +824,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   setNodeFocus(node, focused) {
     if (!node) return
-    
+
     if (focused) {
       node.setAttribute('focused', 'true')
     } else {
@@ -842,26 +874,32 @@ export class ViewNodeGraph extends ViewCanvasBase {
     if (!node || !this.contains(node)) {
       return
     }
-    
+
     // Check if node is already last (no need to move)
     if (this.lastElementChild === node) {
       return
     }
-    
-    console.log(`Moving node ${node.id} to front (preserving connections)`)
-    
+
+    console.log(`Moving node ${node.id} to front (preserving state and connections)`)
+
+    // Preserve the current state in DOM attribute before moving
+    this.preserveNodeState(node)
+
     // Temporarily disable connection cleanup during reordering
     this._isReordering = true
-    
+
     // appendChild automatically moves the element to the end if it's already a child
     // This makes it the "front" layer for both rendering and click detection
     this.appendChild(node)
-    
+
+    // Restore the state after DOM move (in case it was reset)
+    this.restoreNodeState(node)
+
     // Re-enable connection cleanup
     this._isReordering = false
-    
+
     console.log(`Node ${node.id} moved to front successfully`)
-    
+
     // Redraw to show the new layering
     this.draw()
   }
@@ -887,10 +925,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
     const children = Array.from(this.children)
     for (let i = children.length - 1; i >= 0; i--) {
       const node = children[i]
-      
+
       // Only check actual node elements
       if (!node.getDisplayInfo) continue
-      
+
       const x = parseFloat(node.getAttribute('x')) || 0
       const y = parseFloat(node.getAttribute('y')) || 0
       const info = node.getDisplayInfo()
@@ -950,7 +988,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     for (let i = children.length - 1; i >= 0; i--) {
       const node = children[i]
       if (!node.getDisplayInfo) continue
-      
+
       const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
 
       if (portHit) {
@@ -1056,7 +1094,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       for (let i = children.length - 1; i >= 0; i--) {
         const node = children[i]
         if (!node.getDisplayInfo) continue
-        
+
         const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
         if (portHit) {
           // Check if this is a valid connection target
@@ -1103,7 +1141,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       for (let i = children.length - 1; i >= 0; i--) {
         const node = children[i]
         if (!node.getDisplayInfo) continue
-        
+
         const hit = this.getPortAt(node, worldPos.x, worldPos.y)
         if (hit) {
           targetNode = node
@@ -1183,7 +1221,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
 
     console.log(`Deleting node: ${nodeId}`)
-    
+
     // Remove from DOM - this triggers disconnectedCallback -> unregisterNode
     node.remove()
     return true
@@ -1200,11 +1238,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
 
     console.log(`Deleting ${nodesToDelete.length} focused nodes`)
-    
+
     for (const node of nodesToDelete) {
       this.deleteNode(node.id)
     }
-    
+
     return nodesToDelete.length
   }
 
@@ -1223,23 +1261,23 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   removeConnectionsToNode(nodeId) {
     console.log(`Cleaning up connections to node: ${nodeId}`)
-    
+
     let anyUpdated = false
-    
+
     // Find all nodes that have inputs connected to this node
     for (const [id, node] of this.nodes) {
       if (id === nodeId) continue // Skip the node being deleted
-      
+
       const currentInputs = node.getAttribute('inputs') || ''
       if (!currentInputs) continue
-      
+
       const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
-      
+
       // Disconnect connections to the deleted node (keep port, remove connection)
       const updatedPairs = inputPairs.map(pair => {
         const [port, source] = pair.split(':')
         if (!source) return pair // Keep disconnected ports as-is
-        
+
         const [sourceNodeId] = source.split('.')
         if (sourceNodeId === nodeId) {
           // Disconnect this port (remove source, keep port definition)
@@ -1247,7 +1285,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
         }
         return pair // Keep connected ports to other nodes
       })
-      
+
       // Update the inputs attribute if any connections were disconnected
       const hasChanges = updatedPairs.some((pair, index) => pair !== inputPairs[index])
       if (hasChanges) {
@@ -1257,7 +1295,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
         anyUpdated = true
       }
     }
-    
+
     // Rebuild connection index if any connections were updated
     if (anyUpdated) {
       this.rebuildConnectionIndex()
@@ -1468,7 +1506,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   onDeleteButtonClick(node) {
     console.log(`Delete button clicked for node: ${node.id}`)
-    
+
     // Delete immediately for better UX (no confirmation dialog)
     this.deleteNode(node.id)
   }
@@ -1746,13 +1784,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
   deleteNodes(nodeIds) {
     const ids = Array.isArray(nodeIds) ? nodeIds : [nodeIds]
     let deletedCount = 0
-    
+
     for (const nodeId of ids) {
       if (this.deleteNode(nodeId)) {
         deletedCount++
       }
     }
-    
+
     return deletedCount
   }
 
