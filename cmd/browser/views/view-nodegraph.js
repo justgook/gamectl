@@ -59,7 +59,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     this.nodes = new Map()
 
     // Interaction state
-    this.selectedNodes = new Set()
+    // Note: selectedNodes replaced with DOM-based 'focused' attributes
     this.draggedNode = null
     this.dragOffset = { x: 0, y: 0 }
 
@@ -117,12 +117,18 @@ export class ViewNodeGraph extends ViewCanvasBase {
     const nodeId = nodeElement.id
     console.log(`Unregistering node: ${nodeId}`)
     
-    // Clean up connections TO this node before removing it
-    this.removeConnectionsToNode(nodeId)
+    // Skip connection cleanup if we're just reordering nodes in DOM
+    if (!this._isReordering) {
+      console.log(`Cleaning up connections for deleted node: ${nodeId}`)
+      // Clean up connections TO this node before removing it
+      this.removeConnectionsToNode(nodeId)
+    } else {
+      console.log(`Skipping connection cleanup for reordered node: ${nodeId}`)
+    }
     
     // Remove from internal state
     this.nodes.delete(nodeId)
-    this.selectedNodes.delete(nodeElement)
+    // Focus state is automatically removed when element is removed from DOM
     
     // Rebuild connection index and redraw
     this.rebuildConnectionIndex()
@@ -133,18 +139,28 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   async fetchData() {
     // We don't fetch - our data IS the DOM nodes
-    return { nodes: this.nodes }
+    // Return a simple object for compatibility, but rendering uses this.children directly
+    return { nodeCount: this.children.length }
   }
 
   calculateContentBounds(data) {
     let minX = Infinity, maxX = -Infinity
     let minY = Infinity, maxY = -Infinity
 
-    if (data.nodes.size === 0) {
+    // Count actual node elements
+    let nodeCount = 0
+    for (const child of this.children) {
+      if (child.getDisplayInfo) nodeCount++
+    }
+
+    if (nodeCount === 0) {
       return { minX: 0, maxX: 800, minY: 0, maxY: 600 }
     }
 
-    for (const node of data.nodes.values()) {
+    // Calculate bounds from DOM children (consistent with rendering)
+    for (const node of this.children) {
+      if (!node.getDisplayInfo) continue
+      
       const x = parseFloat(node.getAttribute('x')) || 0
       const y = parseFloat(node.getAttribute('y')) || 0
       const info = node.getDisplayInfo()
@@ -189,9 +205,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
       this.drawActiveConnection(ctx)
     }
 
-    // 4. Draw nodes
-    for (const node of data.nodes.values()) {
-      this.drawNode(ctx, node)
+    // 4. Draw nodes in DOM order (first child = back layer, last child = front layer)
+    for (const node of this.children) {
+      // Only draw actual node elements (skip other possible child elements)
+      if (node.getDisplayInfo) {
+        this.drawNode(ctx, node)
+      }
     }
   }
 
@@ -239,15 +258,15 @@ export class ViewNodeGraph extends ViewCanvasBase {
   drawNode(ctx, node) {
     const x = parseFloat(node.getAttribute('x')) || 0
     const y = parseFloat(node.getAttribute('y')) || 0
-    const selected = this.selectedNodes.has(node)
+    const focused = this.isNodeFocused(node)
     const info = node.getDisplayInfo()
 
     // Determine colors
     const nodeColor = COLORS.node[node.state] || COLORS.node.idle
     const headerColor = COLORS.nodeHeader[info.type] || COLORS.nodeHeader.plugin
 
-    // Draw selection highlight
-    if (selected) {
+    // Draw focus highlight
+    if (focused) {
       ctx.strokeStyle = COLORS.selection
       ctx.lineWidth = 3
       ctx.strokeRect(x - 2, y - 2, info.width + 4, info.height + 4)
@@ -279,8 +298,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
       this.drawTemplateValues(ctx, x, y, info, node)
     }
 
-    // Draw delete button for selected nodes
-    if (selected) {
+    // Draw delete button for focused nodes
+    if (focused) {
       this.drawDeleteButton(ctx, x, y, info, node)
     }
 
@@ -764,6 +783,89 @@ export class ViewNodeGraph extends ViewCanvasBase {
     )
   }
 
+  // --- Focus Management (DOM-based state) ---
+
+  /**
+   * Set focus state on a node (DOM attribute-based)
+   * @param {Element} node - The node to focus
+   * @param {boolean} focused - Whether to focus or unfocus
+   */
+  setNodeFocus(node, focused) {
+    if (!node) return
+    
+    if (focused) {
+      node.setAttribute('focused', 'true')
+    } else {
+      node.removeAttribute('focused')
+    }
+  }
+
+  /**
+   * Check if a node is focused (DOM attribute-based)
+   * @param {Element} node - The node to check
+   * @returns {boolean}
+   */
+  isNodeFocused(node) {
+    return node && node.hasAttribute('focused')
+  }
+
+  /**
+   * Get all currently focused nodes (DOM attribute-based)
+   * @returns {Array<Element>}
+   */
+  getFocusedNodes() {
+    const focused = []
+    for (const child of this.children) {
+      if (child.hasAttribute('focused')) {
+        focused.push(child)
+      }
+    }
+    return focused
+  }
+
+  /**
+   * Clear focus from all nodes
+   */
+  clearAllFocus() {
+    for (const child of this.children) {
+      if (child.hasAttribute('focused')) {
+        child.removeAttribute('focused')
+      }
+    }
+  }
+
+  /**
+   * Move a node to the front (last in DOM order) for both visual and click priority
+   * This implements "DOM as state" - last child = front layer = highest priority
+   */
+  focusNode(node) {
+    if (!node || !this.contains(node)) {
+      return
+    }
+    
+    // Check if node is already last (no need to move)
+    if (this.lastElementChild === node) {
+      return
+    }
+    
+    console.log(`Moving node ${node.id} to front (preserving connections)`)
+    
+    // Temporarily disable connection cleanup during reordering
+    this._isReordering = true
+    
+    // appendChild automatically moves the element to the end if it's already a child
+    // This makes it the "front" layer for both rendering and click detection
+    this.appendChild(node)
+    
+    // Re-enable connection cleanup
+    this._isReordering = false
+    
+    console.log(`Node ${node.id} moved to front successfully`)
+    
+    // Redraw to show the new layering
+    this.draw()
+  }
+
   // --- Interaction Helpers ---
 
   /**
@@ -778,9 +880,17 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   /**
    * Get node at world coordinates
+   * Iterates in reverse DOM order so last child (front layer) gets priority
    */
   getNodeAt(worldX, worldY) {
-    for (const node of this.nodes.values()) {
+    // Iterate through DOM children in reverse order (last child = front layer = highest priority)
+    const children = Array.from(this.children)
+    for (let i = children.length - 1; i >= 0; i--) {
+      const node = children[i]
+      
+      // Only check actual node elements
+      if (!node.getDisplayInfo) continue
+      
       const x = parseFloat(node.getAttribute('x')) || 0
       const y = parseFloat(node.getAttribute('y')) || 0
       const info = node.getDisplayInfo()
@@ -834,10 +944,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
   _onMouseDown(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
 
-    // Priority 1: Check if clicking on a port (extended hit area)
-    // We check ALL nodes for port hits, not just nodes at this position
-    let outputPortHit = null
-    for (const node of this.nodes.values()) {
+    // Priority 1: Check if clicking on a port (extended hit area - highest priority)
+    // Check nodes in reverse DOM order so front nodes get priority
+    const children = Array.from(this.children)
+    for (let i = children.length - 1; i >= 0; i--) {
+      const node = children[i]
+      if (!node.getDisplayInfo) continue
+      
       const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
 
       if (portHit) {
@@ -860,19 +973,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
       }
     }
 
-    // Priority 2: Check if clicking on connection line (only if no ports were hit)
-    const connHit = this.getConnectionAt(worldPos.x, worldPos.y)
-    if (connHit) {
-      this.startConnectionReconnect(connHit.connection, connHit.side, worldPos)
-      return
-    }
-
-    // Priority 3: Check if clicking on node body
+    // Priority 2: Check if clicking on node body
     const node = this.getNodeAt(worldPos.x, worldPos.y)
 
     if (node) {
-      // Check delete button first (highest priority for selected nodes)
-      if (this.selectedNodes.has(node) && node._deleteButtonBounds && this.isPointInDeleteButton(worldPos, node)) {
+      // Check delete button first (highest priority for focused nodes)
+      if (this.isNodeFocused(node) && node._deleteButtonBounds && this.isPointInDeleteButton(worldPos, node)) {
         this.onDeleteButtonClick(node)
         return
       }
@@ -891,16 +997,20 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
       // Handle multi-selection with Ctrl/Cmd key
       if (e.ctrlKey || e.metaKey) {
-        // Toggle selection with Ctrl/Cmd
-        if (this.selectedNodes.has(node)) {
-          this.selectedNodes.delete(node)
+        // Toggle focus with Ctrl/Cmd
+        if (this.isNodeFocused(node)) {
+          this.setNodeFocus(node, false)
         } else {
-          this.selectedNodes.add(node)
+          this.setNodeFocus(node, true)
+          // Move focused node to front
+          this.focusNode(node)
         }
       } else {
         // Single selection (clear others)
-        this.selectedNodes.clear()
-        this.selectedNodes.add(node)
+        this.clearAllFocus()
+        this.setNodeFocus(node, true)
+        // Move focused node to front
+        this.focusNode(node)
       }
 
       const nodeX = parseFloat(node.getAttribute('x')) || 0
@@ -912,8 +1022,21 @@ export class ViewNodeGraph extends ViewCanvasBase {
         y: worldPos.y - nodeY
       }
 
-      this.draw()
+      // No need to call this.draw() here since focusNode already calls it
       return
+    }
+
+    // Priority 3: Check if clicking on connection line (lowest priority)
+    const connHit = this.getConnectionAt(worldPos.x, worldPos.y)
+    if (connHit) {
+      this.startConnectionReconnect(connHit.connection, connHit.side, worldPos)
+      return
+    }
+
+    // Clicked on empty space - clear all focus (defocus)
+    if (!e.ctrlKey && !e.metaKey) {
+      this.clearAllFocus()
+      this.draw()
     }
 
     // Start canvas pan
@@ -929,7 +1052,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
       // Find hover target for visual feedback
       this.connectionDragState.hoverTarget = null
-      for (const node of this.nodes.values()) {
+      const children = Array.from(this.children)
+      for (let i = children.length - 1; i >= 0; i--) {
+        const node = children[i]
+        if (!node.getDisplayInfo) continue
+        
         const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
         if (portHit) {
           // Check if this is a valid connection target
@@ -972,7 +1099,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
       let targetNode = null
       let portHit = null
 
-      for (const node of this.nodes.values()) {
+      const children = Array.from(this.children)
+      for (let i = children.length - 1; i >= 0; i--) {
+        const node = children[i]
+        if (!node.getDisplayInfo) continue
+        
         const hit = this.getPortAt(node, worldPos.x, worldPos.y)
         if (hit) {
           targetNode = node
@@ -1059,22 +1190,30 @@ export class ViewNodeGraph extends ViewCanvasBase {
   }
 
   /**
-   * Delete currently selected nodes
+   * Delete currently focused nodes
    */
-  deleteSelectedNodes() {
-    const nodesToDelete = Array.from(this.selectedNodes)
+  deleteFocusedNodes() {
+    const nodesToDelete = this.getFocusedNodes()
     if (nodesToDelete.length === 0) {
-      console.log('No nodes selected for deletion')
+      console.log('No nodes focused for deletion')
       return 0
     }
 
-    console.log(`Deleting ${nodesToDelete.length} selected nodes`)
+    console.log(`Deleting ${nodesToDelete.length} focused nodes`)
     
     for (const node of nodesToDelete) {
       this.deleteNode(node.id)
     }
     
     return nodesToDelete.length
+  }
+
+  /**
+   * Delete currently selected nodes (backward compatibility)
+   * @deprecated Use deleteFocusedNodes() instead
+   */
+  deleteSelectedNodes() {
+    return this.deleteFocusedNodes()
   }
 
   /**
@@ -1085,6 +1224,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
   removeConnectionsToNode(nodeId) {
     console.log(`Cleaning up connections to node: ${nodeId}`)
     
+    let anyUpdated = false
+    
     // Find all nodes that have inputs connected to this node
     for (const [id, node] of this.nodes) {
       if (id === nodeId) continue // Skip the node being deleted
@@ -1094,21 +1235,32 @@ export class ViewNodeGraph extends ViewCanvasBase {
       
       const inputPairs = currentInputs.split(',').map(s => s.trim()).filter(Boolean)
       
-      // Filter out connections to the deleted node
-      const updatedPairs = inputPairs.filter(pair => {
-        const [, source] = pair.split(':')
-        if (!source) return true // Keep disconnected ports
+      // Disconnect connections to the deleted node (keep port, remove connection)
+      const updatedPairs = inputPairs.map(pair => {
+        const [port, source] = pair.split(':')
+        if (!source) return pair // Keep disconnected ports as-is
         
         const [sourceNodeId] = source.split('.')
-        return sourceNodeId !== nodeId // Remove connections to deleted node
+        if (sourceNodeId === nodeId) {
+          // Disconnect this port (remove source, keep port definition)
+          return port
+        }
+        return pair // Keep connected ports to other nodes
       })
       
-      // Update the inputs attribute if connections were removed
-      if (updatedPairs.length !== inputPairs.length) {
+      // Update the inputs attribute if any connections were disconnected
+      const hasChanges = updatedPairs.some((pair, index) => pair !== inputPairs[index])
+      if (hasChanges) {
         const newInputs = updatedPairs.join(',')
-        console.log(`  Updated ${node.id} inputs: ${currentInputs} -> ${newInputs}`)
+        console.log(`  Disconnected ${node.id} inputs: ${currentInputs} -> ${newInputs}`)
         node.setAttribute('inputs', newInputs)
+        anyUpdated = true
       }
+    }
+    
+    // Rebuild connection index if any connections were updated
+    if (anyUpdated) {
+      this.rebuildConnectionIndex()
     }
   }
 
