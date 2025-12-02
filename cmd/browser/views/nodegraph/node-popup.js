@@ -3,10 +3,15 @@ import { NodeBase } from './node-base.js'
 /**
  * Popup Node - Interactive input/output node with custom popup UI
  * 
+ * IMPORTANT: Content must be wrapped in a <template> tag to prevent
+ * premature rendering (especially for View components like view-tree).
+ * 
  * Attributes:
  * - inputs: Port definitions with connections (standard NodeBase)
  * - outputs: Comma-separated output port names (standard NodeBase) 
  * - values: Stored output values "outputName:value,outputName2:value2"
+ * - data-input-target: Map inputs to element attributes "input:selector@attr"
+ * - onopen: JavaScript to execute when popup opens (has content, inputs, outputs)
  * 
  * Data Attributes in template HTML:
  * - data-input="inputName": Element shows value from connected input
@@ -16,8 +21,10 @@ import { NodeBase } from './node-base.js'
  * <node-popup id="input1" x="100" y="100" 
  *                outputs="value,enabled"
  *                values="value:42,enabled:true">
- *   <input type="number" data-output="value" value="0">
- *   <input type="checkbox" data-output="enabled"> Enabled
+ *   <template>
+ *     <input type="number" data-output="value" value="0">
+ *     <input type="checkbox" data-output="enabled"> Enabled
+ *   </template>
  * </node-popup>
  */
 export class NodePopup extends NodeBase {
@@ -33,10 +40,41 @@ export class NodePopup extends NodeBase {
   connectedCallback() {
     super.connectedCallback()
 
+    // Validate that content is wrapped in <template>
+    this._validateTemplateStructure()
+
     // Parse values attribute
     const valuesAttr = this.getAttribute('values')
     if (valuesAttr) {
       this._parseValuesAttribute(valuesAttr)
+    }
+  }
+
+  /**
+   * Validate that node-popup has exactly one <template> child
+   * @private
+   */
+  _validateTemplateStructure() {
+    const children = Array.from(this.children)
+    
+    // Filter out text nodes (whitespace)
+    const elementChildren = children.filter(child => child.nodeType === Node.ELEMENT_NODE)
+    
+    if (elementChildren.length === 0) {
+      // Empty is OK - might have text content only
+      return
+    }
+    
+    if (elementChildren.length !== 1) {
+      throw new Error(
+        `node-popup (${this.id}) must have exactly one <template> child element, found ${elementChildren.length}`
+      )
+    }
+    
+    if (elementChildren[0].tagName !== 'TEMPLATE') {
+      throw new Error(
+        `node-popup (${this.id}) child must be a <template> element, found <${elementChildren[0].tagName.toLowerCase()}>`
+      )
     }
   }
 
@@ -200,9 +238,17 @@ export class NodePopup extends NodeBase {
     popup.setAttribute('title', `Edit ${this.title}(${this.id})`)
     popup.setAttribute('size', 'medium')
 
-    // Clone our inner HTML for editing
+    // Extract content from <template> element
+    const templateElement = this.querySelector('template')
+    if (!templateElement) {
+      console.error(`node-popup (${this.id}) has no <template> child`)
+      return
+    }
+
+    // Clone template content for editing
     const content = document.createElement('div')
-    content.innerHTML = this.innerHTML
+    const templateContent = templateElement.content.cloneNode(true)
+    content.appendChild(templateContent)
     content.style.padding = 'var(--spacing-scale-3)'
 
     // Apply current input values from connected nodes
@@ -265,6 +311,44 @@ export class NodePopup extends NodeBase {
     content.appendChild(buttonContainer)
     popup.appendChild(content)
     popupManager.appendChild(popup)
+
+    // Initialize View elements AFTER popup is in DOM
+    // Popup acts as a layout manager, setting x/y/w/h like LayoutParent does
+    setTimeout(() => {
+      const viewElements = popup.querySelectorAll('view-tree, view-tilemap')
+      for (const view of viewElements) {
+        let width = 0
+        let height = 0
+        
+        // Try to get dimensions from inline style attribute (before computed styles mess it up)
+        const styleAttr = view.getAttribute('style')
+        if (styleAttr) {
+          const widthMatch = styleAttr.match(/width:\s*(\d+)px/)
+          const heightMatch = styleAttr.match(/height:\s*(\d+)px/)
+          if (widthMatch) width = parseInt(widthMatch[1])
+          if (heightMatch) height = parseInt(heightMatch[1])
+        }
+        
+        // If no explicit size in style, use popup content area size
+        if (!width || width < 100) { // Sanity check (< 100px is probably wrong)
+          const popupContent = popup.querySelector('.popup-content')
+          if (popupContent) {
+            const contentRect = popupContent.getBoundingClientRect()
+            width = Math.max(contentRect.width - 32, 600) // Min 600px
+            height = Math.max(contentRect.height - 100, 400) // Min 400px
+          } else {
+            width = 800 // Fallback
+            height = 600
+          }
+        }
+        
+        // Position at 0,0 within popup content, use computed dimensions
+        view.setAttribute('x', '0')
+        view.setAttribute('y', '0')
+        view.setAttribute('w', width.toString())
+        view.setAttribute('h', height.toString())
+      }
+    }, 0)
 
     // Focus first input
     const firstInput = content.querySelector('input, textarea, select')
