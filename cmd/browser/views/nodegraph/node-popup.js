@@ -22,7 +22,7 @@ import { NodeBase } from './node-base.js'
  */
 export class NodePopup extends NodeBase {
   static get observedAttributes() {
-    return [...super.observedAttributes, 'values']
+    return [...super.observedAttributes, 'values', 'data-input-target', 'onopen']
   }
 
   constructor() {
@@ -78,6 +78,36 @@ export class NodePopup extends NodeBase {
         this.storedValues.set(outputName, outputValue)
       }
     }
+  }
+
+  /**
+   * Parse data-input-target attribute: "inputName:selector@attr,input2:sel2@attr2"
+   * @private
+   */
+  _parseInputTargets(value) {
+    const targets = []
+    if (!value) return targets
+    
+    const mappings = value.split(',').map(s => s.trim()).filter(Boolean)
+    
+    for (const mapping of mappings) {
+      // Parse format: "inputName:selector@attribute"
+      const colonIndex = mapping.indexOf(':')
+      if (colonIndex < 0) continue
+      
+      const inputName = mapping.substring(0, colonIndex).trim()
+      const rest = mapping.substring(colonIndex + 1)
+      const atIndex = rest.indexOf('@')
+      
+      if (atIndex < 0) continue
+      
+      const selector = rest.substring(0, atIndex).trim()
+      const attribute = rest.substring(atIndex + 1).trim()
+      
+      targets.push({ inputName, selector, attribute })
+    }
+    
+    return targets
   }
 
   getDisplayInfo() {
@@ -181,6 +211,30 @@ export class NodePopup extends NodeBase {
     // Apply stored output values  
     this.applyOutputsToPopup(content)
 
+    // Execute onopen handler if defined
+    const onOpenAttr = this.getAttribute('onopen')
+    if (onOpenAttr) {
+      try {
+        // Create context object with access to inputs and content
+        const inputValues = {}
+        for (const inputName of this._parsedInputs || []) {
+          try {
+            inputValues[inputName] = await this.getInputValue(inputName)
+          } catch (e) {
+            inputValues[inputName] = null
+          }
+        }
+        
+        const outputValues = Object.fromEntries(this.storedValues)
+        
+        // Execute the inline handler
+        const handler = new Function('content', 'inputs', 'outputs', onOpenAttr)
+        handler.call(this, content, inputValues, outputValues)
+      } catch (error) {
+        console.error('Error executing onopen handler:', error)
+      }
+    }
+
     // Add save/cancel buttons
     const buttonContainer = document.createElement('div')
     buttonContainer.style.cssText = `
@@ -235,6 +289,28 @@ export class NodePopup extends NodeBase {
       } catch (error) {
         console.warn(`Failed to get input ${inputName}:`, error)
         this.setElementValue(element, '') // Clear on error
+      }
+    }
+
+    // Handle data-input-target mappings
+    const inputTargetAttr = this.getAttribute('data-input-target')
+    if (inputTargetAttr) {
+      const targets = this._parseInputTargets(inputTargetAttr)
+      
+      for (const { inputName, selector, attribute } of targets) {
+        try {
+          const value = await this.getInputValue(inputName)
+          if (value !== null && value !== undefined) {
+            const targetElement = popupContent.querySelector(selector)
+            if (targetElement) {
+              targetElement.setAttribute(attribute, value)
+            } else {
+              console.warn(`Target element not found: ${selector}`)
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to apply input target ${inputName}:`, error)
+        }
       }
     }
   }

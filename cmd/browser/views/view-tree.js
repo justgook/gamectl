@@ -30,6 +30,10 @@ const TREE_COLORS = {
  * Supports configurable store key via data-store-key attribute.
  */
 export class ViewTree extends ViewCanvasBase {
+  static get observedAttributes() { 
+    return [...super.observedAttributes, 'data-store-key']; 
+  }
+
   constructor() {
     super("view-tree")
     this.treeKey = 'progression' // Default key for tree data storage
@@ -40,6 +44,14 @@ export class ViewTree extends ViewCanvasBase {
     this.nodeSizes = {};
     this.expandedNodes = new Set();
     console.log("2222")
+  }
+
+  attributeChangedCallback(name, oldVal, newVal) {
+    super.attributeChangedCallback(name, oldVal, newVal)
+    if (name === 'data-store-key' && oldVal !== newVal) {
+      this.treeKey = newVal
+      if (this.isConnected) this.loadAndDraw()
+    }
   }
 
   // Get store key from data-store-key attribute or use default
