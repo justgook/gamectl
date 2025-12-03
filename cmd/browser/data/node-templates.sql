@@ -40,13 +40,19 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   'Tree Generator',
   'plugin',
   'Generate procedural tree',
-  '<node-plugin x="135" y="160" plugin="treegen" function="gen" inputs="name,nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>'
+  '<node-plugin title="Tree Generator" x="135" y="160" plugin="treegen" function="gen" inputs="name,nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>'
+),
+(
+  'AutoMap',
+  'plugin',
+  'Generate tiles from rules',
+  '<node-plugin title="AutoMap" x="135" y="160" plugin="automap" function="automap" inputs="rulesMapId,inputMapId,outputMapId" outputs="result"></node-plugin>'
 ),
 (
   'Minimap Generator',
   'plugin',
   'Generate minimap from tree',
-  '<node-plugin plugin="minimap" function="gen" inputs="treeId,mapId" outputs="result"></node-plugin>'
+  '<node-plugin title="Minimap Generator" plugin="minimap" function="gen" inputs="treeId,mapId" outputs="result"></node-plugin>'
 ),
 (
   'Logger',
