@@ -1,5 +1,9 @@
 import { ViewCanvasBase } from "./view-canvas-base.js"
-import { generateHsluvColors } from "../util/colors.js"
+import { LayerRendererManager } from "./tilemap/LayerRendererManager.js"
+import { GridRenderer } from "./tilemap/renderers/GridRenderer.js"
+import { ColoredTilesRenderer } from "./tilemap/renderers/ColoredTilesRenderer.js"
+import { DoorsRenderer } from "./tilemap/renderers/DoorsRenderer.js"
+import { TilesetRenderer } from "./tilemap/renderers/TilesetRenderer.js"
 
 const DEFAULT_TILE_SIZE = 40;
 const TILEMAP_ATTR = "data-key"
@@ -11,7 +15,6 @@ export class ViewTilemap extends ViewCanvasBase {
     this.tilemapKey = 'new_map'
     this.DE = new TextDecoder()
 
-
     // Create offscreen canvas here
     this.offscreen = document.createElement('canvas')
     this.offCtx = this.offscreen.getContext('2d')
@@ -20,12 +23,44 @@ export class ViewTilemap extends ViewCanvasBase {
 
     this.tw = DEFAULT_TILE_SIZE
     this.th = DEFAULT_TILE_SIZE
-    this.settings = {
-      grid: {
-        border: 1,
-        color: "#ccc"
-      }
-    }
+
+    // Initialize modular renderer system
+    this.rendererManager = new LayerRendererManager()
+    this._registerDefaultRenderers()
+  }
+
+  /**
+   * Register default renderers for the tilemap system
+   * @private
+   */
+  _registerDefaultRenderers() {
+    // Grid renderer (auto-registered, renders first)
+    this.rendererManager.registerGridRenderer(GridRenderer)
+    
+    // Layer-specific renderers (order matters - more specific first)
+    this.rendererManager.registerRenderer('[type="doors"]', DoorsRenderer)
+    this.rendererManager.registerRenderer('[meta.tileset]', TilesetRenderer)
+    this.rendererManager.registerRenderer('*', ColoredTilesRenderer) // Fallback - always last
+
+    // Debug output
+    console.log('🎨 Tilemap renderer system initialized:', this.rendererManager.getDebugInfo())
+  }
+
+  /**
+   * External API for registering custom renderers
+   * @param {string} selector - CSS-like selector
+   * @param {Function} rendererFactory - Renderer class/factory
+   */
+  registerRenderer(selector, rendererFactory) {
+    return this.rendererManager.registerRenderer(selector, rendererFactory)
+  }
+
+  /**
+   * External API for registering custom grid renderer
+   * @param {Function} rendererFactory - Grid renderer class/factory
+   */
+  registerGridRenderer(rendererFactory) {
+    return this.rendererManager.registerGridRenderer(rendererFactory)
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
@@ -40,6 +75,9 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async fetchData() {
     this.isDirty = true
+    // Mark all renderers dirty on data reload
+    this.rendererManager.markAllDirty()
+    
     if (!window.pluginManager) {
       console.warn('Plugin manager not available.')
       return null
@@ -82,46 +120,57 @@ export class ViewTilemap extends ViewCanvasBase {
     if (!data || !data.layers || !Array.isArray(data.layers) || data.layers.length === 0) {
       return;
     }
-    if (this.isDirty) this._renderOffscreen(this.offCtx, data)
+    if (this.isDirty) this._renderWithRendererManager(this.offCtx, data)
     ctx.drawImage(this.offscreen, 0, 0)
   }
 
-  _renderOffscreen(ctx, data) {
-    const canvas = ctx.canvas
-    const { maxX: width, maxY: height } = this.calculateContentBounds(data)
-    canvas.width = width
-    canvas.height = height
-    ctx.clearRect(0, 0, width, height)
-    fillCanvasWithGrid(ctx, this.tw, this.th, this.settings.grid.color, this.settings.grid.border)
+  /**
+   * Render using the modular renderer system
+   * @private
+   */
+  _renderWithRendererManager(ctx, data, eventType = 'reload', eventData = null) {
+    try {
+      const canvas = ctx.canvas
+      const { maxX: width, maxY: height } = this.calculateContentBounds(data)
+      canvas.width = width
+      canvas.height = height
+      ctx.clearRect(0, 0, width, height)
 
-    if (!data || !data.layers || !Array.isArray(data.layers)) return;
+      // Get viewport matrix for renderers
+      const viewport = this.getViewportMatrix()
 
-    for (let i = 0; i < data.layers.length; i++) {
-      const layer = data.layers[i]
-      if (layer.meta?.type === "doors") {
-        console.error("implement doors drawing")
-      } else if (layer.meta?.tileset) {
-        console.error("implement tileset drawing")
-      } else {
-        if (i == 1) {
-          drawDoors(
-            ctx,
-            layer?.meta?.tw || this.tw,
-            layer?.meta?.th || this.th,
-            layer.width,
-            layer.data,
-          )
-        } else drawColoredTiles(
-          ctx,
-          layer?.meta?.tw || this.tw,
-          layer?.meta?.th || this.th,
-          layer.width,
-          layer.data,
-        )
-      }
+      // Use renderer manager to render all layers
+      this.rendererManager.renderAll(ctx, data, viewport, eventType, eventData)
+
+      this.isDirty = false
+      
+    } catch (error) {
+      // Handle renderer errors with screen display
+      this._displayRenderError(ctx, error)
+      throw error // Re-throw to maintain STOP behavior
     }
+  }
 
-    this.isDirty = false
+  /**
+   * Display render error on canvas for debugging
+   * @private
+   */
+  _displayRenderError(ctx, error) {
+    const canvas = ctx.canvas
+    
+    // Clear canvas and show error
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0) // Reset transform
+    ctx.fillStyle = '#ff0000'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '16px monospace'
+    ctx.textAlign = 'center'
+    ctx.fillText('🔥 RENDER ERROR 🔥', canvas.width / 2, canvas.height / 2 - 20)
+    ctx.font = '12px monospace'
+    ctx.fillText(error.message, canvas.width / 2, canvas.height / 2 + 10)
+    ctx.restore()
   }
 
   getHoverInfo(worldX, worldY, data) {
@@ -176,111 +225,67 @@ export class ViewTilemap extends ViewCanvasBase {
     `;
   }
 
-}
+  // --- Event-Driven Rendering Overrides ---
 
-const colors = generateHsluvColors(50)
-
-
-function drawColoredTiles(ctx, tw, th, w, data) {
-  for (let i = 0; i < data.length; i++) {
-    if (data[i] < 1) continue
-    const x = i % w * tw
-    const y = Math.floor(i / w) * th
-    ctx.fillStyle = colors[data[i]]
-    ctx.fillRect(x, y, tw, th)
+  /**
+   * Override zoom to trigger renderer events
+   */
+  zoom(x, y, factor) {
+    super.zoom(x, y, factor)
+    this._triggerRendererEvent('zoom', { x, y, factor })
   }
-}
 
-function drawDoors(ctx, tw, th, w, doorData) {
-  const DoorNorth = 1, DoorEast = 2, DoorSouth = 4, DoorWest = 8;
-
-  // Door styling
-  const doorWidth = tw * 0.4;  // Door is 40% of tile width
-  const doorDepth = 8;  // How "deep" the door looks
-  const doorInset = 6;  // Distance from tile edge
-
-  for (let i = 0; i < doorData.length; i++) {
-    const doorMask = doorData[i];
-    if (!doorMask) continue;
-
-    const x = (i % w) * tw;
-    const y = Math.floor(i / w) * th;
-    const cx = x + tw / 2;
-    const cy = y + th / 2;
-
-    ctx.save();
-
-    // North door
-    if (doorMask & DoorNorth) {
-      // Door frame (darker)
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(cx - doorWidth / 2 - 2, y + doorInset, doorWidth + 4, doorDepth + 2);
-      // Door (lighter brown)
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(cx - doorWidth / 2, y + doorInset + 1, doorWidth, doorDepth);
-      // Door handle
-      ctx.fillStyle = '#FFD700';
-      ctx.fillRect(cx + doorWidth / 3, y + doorInset + doorDepth / 2 - 1, 3, 3);
-    }
-
-    // East door
-    if (doorMask & DoorEast) {
-      // Door frame
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(x + tw - doorInset - doorDepth - 2, cy - doorWidth / 2 - 2, doorDepth + 2, doorWidth + 4);
-      // Door
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(x + tw - doorInset - doorDepth, cy - doorWidth / 2, doorDepth, doorWidth);
-      // Door handle
-      ctx.fillStyle = '#FFD700';
-      ctx.fillRect(x + tw - doorInset - doorDepth / 2 - 1, cy + doorWidth / 3, 3, 3);
-    }
-
-    // South door
-    if (doorMask & DoorSouth) {
-      // Door frame
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(cx - doorWidth / 2 - 2, y + th - doorInset - doorDepth - 2, doorWidth + 4, doorDepth + 2);
-      // Door
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(cx - doorWidth / 2, y + th - doorInset - doorDepth, doorWidth, doorDepth);
-      // Door handle
-      ctx.fillStyle = '#FFD700';
-      ctx.fillRect(cx - doorWidth / 3 - 3, y + th - doorInset - doorDepth / 2 - 1, 3, 3);
-    }
-
-    // West door
-    if (doorMask & DoorWest) {
-      // Door frame
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(x + doorInset, cy - doorWidth / 2 - 2, doorDepth + 2, doorWidth + 4);
-      // Door
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(x + doorInset + 1, cy - doorWidth / 2, doorDepth, doorWidth);
-      // Door handle
-      ctx.fillStyle = '#FFD700';
-      ctx.fillRect(x + doorInset + doorDepth / 2 - 1, cy - doorWidth / 3 - 3, 3, 3);
-    }
-
-    ctx.restore();
+  /**
+   * Override draw to trigger renderer events when appropriate
+   */
+  draw() {
+    super.draw()
+    // Note: draw() is called for many events, so we rely on individual event methods
   }
+
+  /**
+   * Trigger renderer manager event and re-render if needed
+   * @private
+   */
+  _triggerRendererEvent(eventType, eventData = null) {
+    if (!this.data || !this.rendererManager) return
+
+    try {
+      const viewport = this.getViewportMatrix()
+      
+      // Check if any renderer needs redraw for this event
+      let needsRedraw = false
+      
+      if (this.rendererManager.gridRenderer) {
+        if (this.rendererManager.gridRenderer.needsRedraw(eventType, null, this.data, eventData)) {
+          needsRedraw = true
+        }
+      }
+
+      // Check layer renderers
+      for (const layer of this.data.layers) {
+        const renderer = this.rendererManager.getRendererForLayer(layer, this.data)
+        if (renderer && renderer.needsRedraw(eventType, layer, this.data, eventData)) {
+          needsRedraw = true
+        }
+      }
+
+      // Re-render offscreen if needed
+      if (needsRedraw) {
+        this._renderWithRendererManager(this.offCtx, this.data, eventType, eventData)
+        // Main canvas will be redrawn by ViewCanvasBase.draw()
+      }
+      
+    } catch (error) {
+      console.error(`🔥 Event-driven render failed for ${eventType}:`, error)
+    }
+  }
+
 }
 
-function createGridPattern(ctx, gridWidth, gridHeight, color, lineWidth = 1) {
-  const tileCanvas = document.createElement('canvas');
-  tileCanvas.width = gridWidth;
-  tileCanvas.height = gridHeight;
-  const tileCtx = tileCanvas.getContext('2d');
-  tileCtx.fillStyle = color;
-  tileCtx.fillRect(0, gridHeight - lineWidth, gridWidth, lineWidth);
-  tileCtx.fillRect(gridWidth - lineWidth, 0, lineWidth, gridHeight);
-  return ctx.createPattern(tileCanvas, 'repeat');
-}
-
-function fillCanvasWithGrid(ctx, gridWidth, gridHeight, color, lineWidth = 1) {
-  const { width, height } = ctx.canvas;
-  const gridPattern = createGridPattern(ctx, gridWidth, gridHeight, color, lineWidth);
-  ctx.fillStyle = gridPattern;
-  ctx.fillRect(0, 0, width, height);
-}
+// Old standalone functions removed - functionality now handled by modular renderers:
+// - drawColoredTiles -> ColoredTilesRenderer
+// - drawDoors -> DoorsRenderer  
+// - createGridPattern/fillCanvasWithGrid -> GridRenderer
+// - colors array -> ColoredTilesRenderer (internal)
 
