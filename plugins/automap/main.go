@@ -52,9 +52,6 @@ func Automap() int32 {
 		return 1
 	}
 
-	// For now, just create the three example tilemaps
-	// Future: implement actual automapping logic here
-
 	// Generate default IDs if not provided
 	if config.RulesMapID == "" {
 		config.RulesMapID = "rules-basic-walls"
@@ -66,23 +63,39 @@ func Automap() int32 {
 		config.OutputMapID = "output-result-map"
 	}
 
-	// Create and store the three tilemaps
-	if err := createRulesMap(config.RulesMapID); err != nil {
-		pdk.Output(errorResponse("failed to create rules map: " + err.Error()))
+	// Load tilemaps from storage
+	rulesMap, err := getTilemap(config.RulesMapID)
+	if err != nil {
+		pdk.Output(errorResponse("failed to load rules map: " + err.Error()))
 		return 1
 	}
 
-	if err := createInputMap(config.InputMapID); err != nil {
-		pdk.Output(errorResponse("failed to create input map: " + err.Error()))
+	inputMap, err := getTilemap(config.InputMapID)
+	if err != nil {
+		pdk.Output(errorResponse("failed to load input map: " + err.Error()))
 		return 1
 	}
 
-	if err := createOutputMap(config.OutputMapID); err != nil {
-		pdk.Output(errorResponse("failed to create output map: " + err.Error()))
+	outputMap, err := getTilemap(config.OutputMapID)
+	if err != nil {
+		pdk.Output(errorResponse("failed to load output map: " + err.Error()))
 		return 1
 	}
 
-	// Return success with the created map IDs
+	// Apply automapping
+	engine := &AutomapEngine{}
+	if err := engine.Apply(rulesMap, inputMap, outputMap); err != nil {
+		pdk.Output(errorResponse("automapping failed: " + err.Error()))
+		return 1
+	}
+
+	// Store the output map back
+	if err := storeTilemap(config.OutputMapID, outputMap); err != nil {
+		pdk.Output(errorResponse("failed to store output map: " + err.Error()))
+		return 1
+	}
+
+	// Return success with the map IDs
 	resp := Response{
 		Success:     true,
 		RulesMapID:  config.RulesMapID,
