@@ -113,17 +113,11 @@ export class NodePlugin extends NodeBase {
   }
 
   getDisplayInfo() {
-    const inputs = this.getInputPorts()
-    const outputs = this.getOutputPorts()
+    const base = super.getDisplayInfo()
 
-    return {
-      title: `${this.plugin}.${this.functionName}`,
+    return Object.assign(base, {
       type: 'plugin',
-      width: 200,
-      height: Math.max(120, 50 + Math.max(inputs.length, outputs.length) * 24),
-      inputs,
-      outputs
-    }
+    })
   }
 
   async executeNode(resolvers) {

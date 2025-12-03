@@ -56,21 +56,21 @@ export class NodePopup extends NodeBase {
    */
   _validateTemplateStructure() {
     const children = Array.from(this.children)
-    
+
     // Filter out text nodes (whitespace)
     const elementChildren = children.filter(child => child.nodeType === Node.ELEMENT_NODE)
-    
+
     if (elementChildren.length === 0) {
       // Empty is OK - might have text content only
       return
     }
-    
+
     if (elementChildren.length !== 1) {
       throw new Error(
         `node-popup (${this.id}) must have exactly one <template> child element, found ${elementChildren.length}`
       )
     }
-    
+
     if (elementChildren[0].tagName !== 'TEMPLATE') {
       throw new Error(
         `node-popup (${this.id}) child must be a <template> element, found <${elementChildren[0].tagName.toLowerCase()}>`
@@ -125,26 +125,26 @@ export class NodePopup extends NodeBase {
   _parseInputTargets(value) {
     const targets = []
     if (!value) return targets
-    
+
     const mappings = value.split(',').map(s => s.trim()).filter(Boolean)
-    
+
     for (const mapping of mappings) {
       // Parse format: "inputName:selector@attribute"
       const colonIndex = mapping.indexOf(':')
       if (colonIndex < 0) continue
-      
+
       const inputName = mapping.substring(0, colonIndex).trim()
       const rest = mapping.substring(colonIndex + 1)
       const atIndex = rest.indexOf('@')
-      
+
       if (atIndex < 0) continue
-      
+
       const selector = rest.substring(0, atIndex).trim()
       const attribute = rest.substring(atIndex + 1).trim()
-      
+
       targets.push({ inputName, selector, attribute })
     }
-    
+
     return targets
   }
 
@@ -270,9 +270,9 @@ export class NodePopup extends NodeBase {
             inputValues[inputName] = null
           }
         }
-        
+
         const outputValues = Object.fromEntries(this.storedValues)
-        
+
         // Execute the inline handler
         const handler = new Function('content', 'inputs', 'outputs', onOpenAttr)
         handler.call(this, content, inputValues, outputValues)
@@ -319,7 +319,7 @@ export class NodePopup extends NodeBase {
       for (const view of viewElements) {
         let width = 0
         let height = 0
-        
+
         // Try to get dimensions from inline style attribute (before computed styles mess it up)
         const styleAttr = view.getAttribute('style')
         if (styleAttr) {
@@ -328,7 +328,7 @@ export class NodePopup extends NodeBase {
           if (widthMatch) width = parseInt(widthMatch[1])
           if (heightMatch) height = parseInt(heightMatch[1])
         }
-        
+
         // If no explicit size in style, use popup content area size
         if (!width || width < 100) { // Sanity check (< 100px is probably wrong)
           const popupContent = popup.querySelector('.popup-content')
@@ -341,7 +341,7 @@ export class NodePopup extends NodeBase {
             height = 600
           }
         }
-        
+
         // Position at 0,0 within popup content, use computed dimensions
         view.setAttribute('x', '0')
         view.setAttribute('y', '0')
@@ -380,7 +380,7 @@ export class NodePopup extends NodeBase {
     const inputTargetAttr = this.getAttribute('data-input-target')
     if (inputTargetAttr) {
       const targets = this._parseInputTargets(inputTargetAttr)
-      
+
       for (const { inputName, selector, attribute } of targets) {
         try {
           const value = await this.getInputValue(inputName)
