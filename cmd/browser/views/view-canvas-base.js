@@ -155,6 +155,35 @@ export class ViewCanvasBase extends View {
 
   // --- Viewport Management ---
 
+  /**
+   * Get current viewport transform matrix for renderers
+   * @returns {Object} Viewport transform with helper methods
+   */
+  getViewportMatrix() {
+    return {
+      scale: this.scale,
+      offsetX: this.offsetX,
+      offsetY: this.offsetY,
+      
+      // Helper methods for coordinate transformation
+      transformPoint: (worldX, worldY) => ({
+        x: worldX * this.scale + this.offsetX,
+        y: worldY * this.scale + this.offsetY
+      }),
+      
+      inverseTransformPoint: (screenX, screenY) => ({
+        x: (screenX - this.offsetX) / this.scale,
+        y: (screenY - this.offsetY) / this.scale
+      }),
+      
+      // Apply transform to canvas context
+      applyTransform: (ctx) => {
+        ctx.translate(this.offsetX, this.offsetY)
+        ctx.scale(this.scale, this.scale)
+      }
+    }
+  }
+
   _constrainPosition() {
     if (!this.data) return;
 
