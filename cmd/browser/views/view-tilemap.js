@@ -228,53 +228,68 @@ export class ViewTilemap extends ViewCanvasBase {
   // --- Event-Driven Rendering Overrides ---
 
   /**
-   * Override zoom to trigger renderer events
+   * Override zoom to mark dirty and trigger re-render
    */
   zoom(x, y, factor) {
     super.zoom(x, y, factor)
+    this.isDirty = true // Mark dirty to force offscreen re-render
     this._triggerRendererEvent('zoom', { x, y, factor })
   }
 
   /**
-   * Override draw to trigger renderer events when appropriate
+   * Override onResize to mark dirty
    */
-  draw() {
-    super.draw()
-    // Note: draw() is called for many events, so we rely on individual event methods
+  onResize(width, height) {
+    super.onResize(width, height)
+    this.isDirty = true // Mark dirty to force offscreen re-render
+    this._triggerRendererEvent('resize', { width, height })
   }
 
   /**
-   * Trigger renderer manager event and re-render if needed
+   * Override _onWheel to handle pan via mousewheel
+   */
+  _onWheel(e) {
+    super._onWheel(e)
+    // Mark dirty after any wheel event (zoom or pan)
+    this.isDirty = true
+    if (e.ctrlKey || e.metaKey) {
+      this._triggerRendererEvent('zoom', { deltaY: e.deltaY })
+    } else {
+      this._triggerRendererEvent('pan', { deltaX: e.deltaX, deltaY: e.deltaY })
+    }
+  }
+
+  /**
+   * Override _onMouseMove to handle drag panning
+   */
+  _onMouseMove(e) {
+    const wasDragging = this.isDragging
+    super._onMouseMove(e)
+    
+    // Mark dirty if we were dragging (panning)
+    if (wasDragging && this.isDragging) {
+      this.isDirty = true
+      this._triggerRendererEvent('pan', { isDragging: true })
+    }
+  }
+
+  /**
+   * Trigger renderer manager event for future extensibility
    * @private
    */
   _triggerRendererEvent(eventType, eventData = null) {
     if (!this.data || !this.rendererManager) return
 
     try {
-      const viewport = this.getViewportMatrix()
+      // For viewport changes, mark all renderers dirty
+      const isViewportChange = ['zoom', 'pan', 'resize'].includes(eventType)
       
-      // Check if any renderer needs redraw for this event
-      let needsRedraw = false
-      
-      if (this.rendererManager.gridRenderer) {
-        if (this.rendererManager.gridRenderer.needsRedraw(eventType, null, this.data, eventData)) {
-          needsRedraw = true
-        }
+      if (isViewportChange) {
+        this.rendererManager.markAllDirty()
       }
 
-      // Check layer renderers
-      for (const layer of this.data.layers) {
-        const renderer = this.rendererManager.getRendererForLayer(layer, this.data)
-        if (renderer && renderer.needsRedraw(eventType, layer, this.data, eventData)) {
-          needsRedraw = true
-        }
-      }
-
-      // Re-render offscreen if needed
-      if (needsRedraw) {
-        this._renderWithRendererManager(this.offCtx, this.data, eventType, eventData)
-        // Main canvas will be redrawn by ViewCanvasBase.draw()
-      }
+      // For now, rely on isDirty flag to trigger re-rendering in drawContent()
+      // Future: implement selective renderer updates for hover events, etc.
       
     } catch (error) {
       console.error(`🔥 Event-driven render failed for ${eventType}:`, error)
