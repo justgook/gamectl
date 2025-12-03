@@ -2,8 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
-	"github.com/justgook/gamectl/pkg/tree"
 	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/gamectl/plugins/treegen/treegen"
 	"github.com/justgook/wpm/pdk"
@@ -47,22 +48,27 @@ func Gen() uint32 {
 		return 1
 	}
 
-	var req struct {
-		ID   string    `json:"id"`
-		Tree tree.Tree `json:"tree"`
-	}
-	req.ID = params.Name
-	req.Tree = theTree
-
-	storeJSON, err := json.Marshal(req)
+	// Prepare tree JSON for SQL storage
+	treeJSON, err := json.Marshal(theTree)
 	if err != nil {
-		pdk.Output(util.ErrorResponse(err.Error()))
+		pdk.Output(util.ErrorResponse("failed to marshal tree: " + err.Error()))
 		return 1
 	}
 
-	_, _, callErr := pdk.Call("tree-storage", "set", storeJSON)
+	// Escape SQL string and insert
+	escapedData := strings.ReplaceAll(string(treeJSON), "'", "''")
+	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tree_storage (name, data) VALUES ('%s', '%s')",
+		params.Name, escapedData)
+
+	_, output, callErr := pdk.Call("sql", "exec", []byte(sqlQuery))
 	if callErr != nil {
-		pdk.Output(util.ErrorResponse(callErr.Error()))
+		pdk.Output(util.ErrorResponse("failed to store tree: " + callErr.Error()))
+		return 1
+	}
+
+	// Check if SQL execution was successful
+	if len(output) > 0 && string(output) != "OK" {
+		pdk.Output(util.ErrorResponse("SQL execution failed: " + string(output)))
 		return 1
 	}
 

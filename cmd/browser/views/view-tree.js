@@ -1,4 +1,5 @@
 import { ViewCanvasBase } from "./view-canvas-base.js"
+import { parseCSVLines } from "../util/csv.js"
 
 // Layout constants
 const NODE_MIN_WIDTH = 200;
@@ -68,10 +69,20 @@ export class ViewTree extends ViewCanvasBase {
       return null
     }
     try {
-      // Get tree data using the configured store key
+      // Query tree from SQL storage
       const storeKey = this.getStoreKey();
-      const result = await window.pluginManager.call('tree-storage', 'get', `{"id":"${storeKey}"}`)
-      const data = this.DE.decode(result.output)
+      const sqlQuery = `SELECT data FROM tree_storage WHERE name = '${storeKey}'`
+      const result = await window.pluginManager.call('sql', 'query', sqlQuery)
+      const csv = this.DE.decode(result.output)
+
+      // Parse CSV to get JSON data
+      const lines = parseCSVLines(csv.trim())
+      if (lines.length < 2 || lines[1].length < 1) {
+        console.warn(`Tree not found: ${storeKey}`)
+        throw new Error(`Tree not found: ${storeKey}`)
+      }
+
+      const data = lines[1][0] // First column of second row
       return JSON.parse(data)
     } catch (error) {
       console.warn('Failed to get tree data:', error)

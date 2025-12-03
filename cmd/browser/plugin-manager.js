@@ -222,7 +222,7 @@ class PluginManager {
       fd_advise: () => 0,
       fd_allocate: () => 0,
       fd_datasync: () => 0,
-      
+
       // Prestat operations
       fd_prestat_get: () => 8, // Return EBADF (bad file descriptor)
       fd_prestat_dir_name: () => 0,
@@ -394,7 +394,7 @@ class PluginManager {
 
   freeFunc(moduleName, ptr) {
     // No-op - we can't shrink WASM memory
-    // The memory will be reused after the WASM instance is recreated
+    // The memory will be reused after the WASM instance is recreated 
   }
 
   inputPtrFunc() {
