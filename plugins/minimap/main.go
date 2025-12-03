@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/gamectl/pkg/tree"
@@ -52,30 +53,29 @@ func Gen() uint32 {
 		return 1
 	}
 
-	// Get tree from tree-storage
-	getTreeReq := struct {
-		ID string `json:"id"`
-	}{ID: params.TreeId}
-
-	getTreeJSON, err := json.Marshal(getTreeReq)
-	if err != nil {
-		pdk.Output(util.ErrorResponse("failed to marshal tree request: " + err.Error()))
-		return 1
-	}
-
-	status, treeOutput, callErr := pdk.Call("tree-storage", "get", getTreeJSON)
+	// Query tree from SQL storage
+	sqlQuery := fmt.Sprintf("SELECT data FROM tree_storage WHERE name = '%s'", params.TreeId)
+	status, csvOutput, callErr := pdk.Call("sql", "query", []byte(sqlQuery))
 	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to call tree-storage: " + callErr.Error()))
+		pdk.Output(util.ErrorResponse("failed to query tree: " + callErr.Error()))
 		return 1
 	}
 	if status != 0 {
-		pdk.Output(util.ErrorResponse("tree-storage returned error status"))
+		pdk.Output(util.ErrorResponse("SQL query failed"))
 		return 1
 	}
 
-	// Parse tree from storage
+	// Parse CSV response to get JSON data
+	csv := string(csvOutput)
+	lines := util.ParseCSVLines(csv)
+	if len(lines) < 2 || len(lines[1]) < 1 {
+		pdk.Output(util.ErrorResponse("tree not found: " + params.TreeId))
+		return 1
+	}
+
+	// Parse tree from JSON data
 	var tree tree.Tree
-	if err := json.Unmarshal(treeOutput, &tree); err != nil {
+	if err := json.Unmarshal([]byte(lines[1][0]), &tree); err != nil {
 		pdk.Output(util.ErrorResponse("failed to parse tree: " + err.Error()))
 		return 1
 	}
