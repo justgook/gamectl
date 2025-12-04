@@ -4,6 +4,7 @@ import { GridRenderer } from "./tilemap/renderers/GridRenderer.js"
 import { ColoredTilesRenderer } from "./tilemap/renderers/ColoredTilesRenderer.js"
 import { DoorsRenderer } from "./tilemap/renderers/DoorsRenderer.js"
 import { TilesetRenderer } from "./tilemap/renderers/TilesetRenderer.js"
+import { parseCSVLines } from "../util/csv.js"
 
 const DEFAULT_TILE_SIZE = 40;
 const TILEMAP_ATTR = "data-key"
@@ -83,8 +84,19 @@ export class ViewTilemap extends ViewCanvasBase {
       return null
     }
     try {
-      const result = await window.pluginManager.call('tilemap-storage', 'get', `{"id":"${this.tilemapKey}"}`)
-      const data = this.DE.decode(result.output)
+      // Query tilemap from SQL storage
+      const sqlQuery = `SELECT data FROM tilemap_storage WHERE name = '${this.tilemapKey}'`
+      const result = await window.pluginManager.call('sql', 'query', sqlQuery)
+      const csv = this.DE.decode(result.output)
+
+      // Parse CSV to get JSON data
+      const lines = parseCSVLines(csv.trim())
+      if (lines.length < 2 || lines[1].length < 1) {
+        console.warn(`Tilemap not found: ${this.tilemapKey}`)
+        return null
+      }
+
+      const data = lines[1][0] // First column of second row
       return JSON.parse(data)
     } catch (error) {
       console.warn('Failed to get tilemap data:', error)
