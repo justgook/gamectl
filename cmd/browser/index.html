@@ -267,8 +267,6 @@
       const pluginNames = [
         // THE NEW stuff
         'random',
-        'tilemap-storage',
-        'tree-storage',
         'treegen',
         'minimap',
         // upcomming
@@ -424,6 +422,34 @@
       }
 
       await initTreeStorage()
+
+      // Initialize Tilemap Storage Database
+      async function initTilemapStorage() {
+        try {
+          // Fetch migration file
+          const response = await fetch('/data/tilemap-storage.sql')
+          if (!response.ok) {
+            console.error('Failed to load tilemap-storage.sql:', response.statusText)
+            return
+          }
+
+          const migrationSql = await response.text()
+
+          // Execute migration (uses restore since it's a SQL script)
+          const result = await window.pluginManager.call('sql', 'restore', migrationSql)
+          console.log('Tilemap storage initialized:', DE.decode(result.output))
+
+          // Verify table created
+          const verifyResult = await window.pluginManager.call('sql', 'query',
+            'SELECT name FROM sqlite_schema WHERE type="table" AND name="tilemap_storage"'
+          )
+          console.log('Tilemap storage table check:', DE.decode(verifyResult.output))
+        } catch (error) {
+          console.error('Error initializing tilemap storage:', error)
+        }
+      }
+
+      await initTilemapStorage()
 
     </script>
   </body>

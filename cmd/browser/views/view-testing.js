@@ -1,4 +1,5 @@
 import { View } from "./view.js"
+import { parseCSVLines } from "../util/csv.js"
 export class ViewTesting extends View {
   // static get observedAttributes() { return View.observedAttributes }
   // constructor() {
@@ -29,12 +30,12 @@ export class ViewTesting extends View {
     await pluginManager.call('host', 'log', minimapResult.output)
   }
   async getMinimap() {
-    const result = await await this.readFromStorage("tilemap-storage", this.mapId)
+    const result = await this.readFromSqlStorage("tilemap_storage", this.mapId)
     await pluginManager.call('host', 'log', JSON.stringify(result))
   }
 
   async getTree() {
-    const result = await await this.readFromStorage("tree-storage", this.treeId)
+    const result = await this.readFromSqlStorage("tree_storage", this.treeId)
     await pluginManager.call('host', 'log', JSON.stringify(result))
   }
 
@@ -44,10 +45,14 @@ export class ViewTesting extends View {
     }
     const biomesNames = [...this.biomesNames]
     console.log(this.biomesNames)
-    const worldTree = await await this.readFromStorage("tree-storage", this.treeId)
+    const worldTree = await this.readFromSqlStorage("tree_storage", this.treeId)
     worldTree.forEach(a => a.data = { name: biomesNames.splice(Math.floor(Math.random() * biomesNames.length), 1)[0].name })
 
-    const result = await pluginManager.call("tree-storage", "set", JSON.stringify({ id: this.treeId, tree: worldTree }))
+    // Store tree back via SQL
+    const treeJSON = JSON.stringify(worldTree)
+    const escapedData = treeJSON.replace(/'/g, "''")
+    const sqlQuery = `INSERT OR REPLACE INTO tree_storage (name, data) VALUES ('${this.treeId}', '${escapedData}')`
+    const result = await pluginManager.call("sql", "exec", sqlQuery)
     await pluginManager.call('host', 'log', result.output)
   }
 
@@ -65,6 +70,21 @@ export class ViewTesting extends View {
   async readFromStorage(storage, id) {
     const result = await pluginManager.call(storage, "get", `{"id": "${id}"}`)
     const data = this.DE.decode(result.output)
+    return JSON.parse(data)
+  }
+
+  async readFromSqlStorage(tableName, name) {
+    const sqlQuery = `SELECT data FROM ${tableName} WHERE name = '${name}'`
+    const result = await pluginManager.call('sql', 'query', sqlQuery)
+    const csv = this.DE.decode(result.output)
+
+    // Parse CSV to get JSON data
+    const lines = parseCSVLines(csv.trim())
+    if (lines.length < 2 || lines[1].length < 1) {
+      throw new Error(`Data not found in ${tableName}: ${name}`)
+    }
+
+    const data = lines[1][0] // First column of second row
     return JSON.parse(data)
   }
 }

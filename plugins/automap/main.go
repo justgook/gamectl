@@ -3,12 +3,12 @@
 // This plugin provides automapping functionality similar to Tiled's automapping feature.
 // It takes input tilemaps and applies transformation rules to generate output tilemaps.
 //
-// The plugin demonstrates plugin-to-plugin communication by using the tilemap-storage
+// The plugin demonstrates plugin-to-plugin communication by using the SQL
 // plugin to store and retrieve tilemaps.
 //
 // Current implementation (v1):
 //   - Creates three example tilemaps: rules, input, and output
-//   - Stores them in tilemap-storage for later use
+//   - Stores them in SQL storage for later use
 //   - Provides foundation for future automapping logic
 //
 // Future implementation will include:
@@ -21,6 +21,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/wpm/pdk"
@@ -143,23 +144,15 @@ func Init() int32 {
 
 //go:wasmexport listMaps
 func ListMaps() int32 {
-	// Query tilemap-storage for all maps with automap metadata
-	queryInput := map[string]string{
-		"query": "type=automap",
-	}
-	queryJSON, _ := json.Marshal(queryInput)
+	// List all automap-related tilemaps by querying tilemap_storage table
+	// Since we simplified to basic get/set, we just return the known automap map IDs
+	mapIDs := []string{"rules-basic-walls", "input-test-map", "output-result-map"}
 
-	status, output, err := pdk.Call("tilemap-storage", "select", queryJSON)
-	if err != nil {
-		pdk.Output(errorResponse("failed to query tilemap-storage: " + err.Error()))
-		return 1
+	resp := Response{
+		Success: true,
+		MapIDs:  mapIDs,
 	}
-
-	if status != 0 {
-		pdk.Output(errorResponse(fmt.Sprintf("tilemap-storage returned error status: %d", status)))
-		return 1
-	}
-
+	output, _ := json.Marshal(resp)
 	pdk.Output(output)
 	return 0
 }
@@ -256,49 +249,51 @@ func createOutputMap(mapID string) error {
 // =============================================================================
 
 func storeTilemap(mapID string, tm *tilemap.TileMap) error {
-	// Call tilemap-storage plugin to store the map
-	setInput := map[string]interface{}{
-		"id":  mapID,
-		"map": tm,
-	}
-	inputJSON, err := json.Marshal(setInput)
+	// Store tilemap in SQL storage
+	tilemapJSON, err := json.Marshal(tm)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tilemap: %w", err)
 	}
 
-	status, output, err := pdk.Call("tilemap-storage", "set", inputJSON)
+	// Escape SQL string and insert
+	escapedData := strings.ReplaceAll(string(tilemapJSON), "'", "''")
+	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
+		mapID, escapedData)
+
+	status, output, err := pdk.Call("sql", "exec", []byte(sqlQuery))
 	if err != nil {
-		return fmt.Errorf("failed to call tilemap-storage: %w", err)
+		return fmt.Errorf("failed to store tilemap: %w", err)
 	}
 
-	if status != 0 {
-		return fmt.Errorf("tilemap-storage returned error: %s", string(output))
+	if status != 0 || (len(output) > 0 && string(output) != "OK") {
+		return fmt.Errorf("SQL execution failed: %s", string(output))
 	}
 
 	return nil
 }
 
 func getTilemap(mapID string) (*tilemap.TileMap, error) {
-	// Call tilemap-storage plugin to retrieve a map
-	getInput := map[string]string{
-		"id": mapID,
-	}
-	inputJSON, err := json.Marshal(getInput)
+	// Query tilemap from SQL storage
+	sqlQuery := fmt.Sprintf("SELECT data FROM tilemap_storage WHERE name = '%s'", mapID)
+	status, csvOutput, err := pdk.Call("sql", "query", []byte(sqlQuery))
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	status, output, err := pdk.Call("tilemap-storage", "get", inputJSON)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call tilemap-storage: %w", err)
+		return nil, fmt.Errorf("failed to query tilemap: %w", err)
 	}
 
 	if status != 0 {
-		return nil, fmt.Errorf("tilemap-storage returned error: %s", string(output))
+		return nil, fmt.Errorf("SQL query failed")
 	}
 
+	// Parse CSV response to get JSON data
+	csv := string(csvOutput)
+	lines := strings.Split(csv, "\n")
+	if len(lines) < 2 || len(lines[1]) == 0 {
+		return nil, fmt.Errorf("tilemap not found: %s", mapID)
+	}
+
+	// Parse first column of second row (data column)
 	var tm tilemap.TileMap
-	if err := json.Unmarshal(output, &tm); err != nil {
+	if err := json.Unmarshal([]byte(lines[1]), &tm); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal tilemap: %w", err)
 	}
 

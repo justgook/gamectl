@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
-	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/gamectl/pkg/tree"
 	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/gamectl/plugins/minimap/minimap"
@@ -88,28 +88,28 @@ func Gen() uint32 {
 		return 1
 	}
 
-	// Store tilemap in tilemap-storage
-	storeReq := struct {
-		ID  string           `json:"id"`
-		Map *tilemap.TileMap `json:"map"`
-	}{
-		ID:  params.MapId,
-		Map: tileMap,
-	}
-
-	storeJSON, err := json.Marshal(storeReq)
+	// Store tilemap in SQL storage
+	tilemapJSON, err := json.Marshal(tileMap)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("failed to marshal tilemap: " + err.Error()))
 		return 1
 	}
 
-	status, _, callErr = pdk.Call("tilemap-storage", "set", storeJSON)
+	// Escape SQL string and insert
+	escapedData := strings.ReplaceAll(string(tilemapJSON), "'", "''")
+	sqlQuery = fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
+		params.MapId, escapedData)
+
+	var output []byte
+	status, output, callErr = pdk.Call("sql", "exec", []byte(sqlQuery))
 	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to call tilemap-storage: " + callErr.Error()))
+		pdk.Output(util.ErrorResponse("failed to store tilemap: " + callErr.Error()))
 		return 1
 	}
-	if status != 0 {
-		pdk.Output(util.ErrorResponse("tilemap-storage returned error status"))
+
+	// Check if SQL execution was successful
+	if len(output) > 0 && string(output) != "OK" {
+		pdk.Output(util.ErrorResponse("SQL execution failed: " + string(output)))
 		return 1
 	}
 
