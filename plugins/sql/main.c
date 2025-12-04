@@ -1,12 +1,14 @@
+#include <stddef.h>
+#include <stdint.h>
 #include "vendor/pdk.h"
 #include "vendor/sqlite3.h"
 
 // SQL plugin implemented in C with SQLite3
 // Demonstrates:
-// - Embedded SQLite3 database in WASM
+// - Embedded SQLite3 database in WASM with mem3 allocator
 // - In-memory database operations
 // - SQL query execution and result formatting
-// - PDK-compatible memory management
+// - SQLite's built-in mem3 memory management
 
 // Global database connection (in-memory)
 static sqlite3 *db = NULL;
@@ -75,65 +77,17 @@ static char *pdk_strstr(const char *haystack, const char *needle) {
 }
 
 // =============================================================================
-// SQLite3 Memory Allocator using PDK
+// SQLite3 Memory Management using mem3
 // =============================================================================
 
-// Custom memory allocator for SQLite3 using PDK
-static void *sqlite_malloc(int size) {
-  if (size <= 0)
-    return NULL;
-  return (void *)pdk_alloc((uint64_t)size);
-}
+// We'll use SQLite's built-in mem3 allocator with a heap we allocate from PDK
+// This is much more reliable than implementing our own allocator
 
-static void sqlite_free(void *ptr) {
-  if (ptr) {
-    pdk_free((uint32_t)ptr);
-  }
-}
+// Allocate a large heap for SQLite mem3 (64MB to start, expandable to 256MB)
+#define INITIAL_HEAP_SIZE (64 * 1024 * 1024)
 
-static void *sqlite_realloc(void *ptr, int size) {
-  if (size <= 0) {
-    sqlite_free(ptr);
-    return NULL;
-  }
-
-  // Simple realloc: allocate new, copy old, free old
-  // Note: This is inefficient but works for WASM
-  void *new_ptr = sqlite_malloc(size);
-  if (new_ptr && ptr) {
-    // We don't know the old size, so we just copy 'size' bytes
-    // This is a limitation of this simple implementation
-    pdk_memcpy(new_ptr, ptr, (uint32_t)size);
-    sqlite_free(ptr);
-  }
-  return new_ptr;
-}
-
-static int sqlite_size(void *ptr) {
-  // We can't track sizes in this simple implementation
-  // Return -1 to indicate unknown size
-  return -1;
-}
-
-static int sqlite_roundup(int size) {
-  // Round up to nearest 8 bytes
-  return (size + 7) & ~7;
-}
-
-static int sqlite_init(void *data) {
-  return 0; // Success
-}
-
-static void sqlite_shutdown(void *data) {
-  // Nothing to do
-}
-
-// SQLite3 memory methods structure
-static const sqlite3_mem_methods pdk_mem_methods = {
-    sqlite_malloc, sqlite_free,     sqlite_realloc, sqlite_size, sqlite_roundup,
-    sqlite_init,   sqlite_shutdown,
-    NULL // pAppData
-};
+static void *g_sqlite_heap = NULL;
+static size_t g_heap_size = 0;
 
 // =============================================================================
 // CSV Helper Functions
@@ -192,10 +146,23 @@ static uint32_t append_csv_field(char *buf, uint32_t pos, uint32_t max, const ch
 
 // Initialize and open in-memory database
 __attribute__((export_name("open"))) uint32_t sql_open(void) {
-  // Configure SQLite3 to use our PDK memory allocator
-  int rc = sqlite3_config(SQLITE_CONFIG_MALLOC, &pdk_mem_methods);
+  // Allocate heap for SQLite mem3 if not already allocated
+  if (!g_sqlite_heap) {
+    uint32_t heap_ptr = pdk_alloc((uint64_t)INITIAL_HEAP_SIZE);
+    if (heap_ptr == 0) {
+      const char error_msg[] = "Failed to allocate heap for SQLite";
+      pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+      return 1;
+    }
+    g_sqlite_heap = (void *)(uintptr_t)heap_ptr;
+    g_heap_size = INITIAL_HEAP_SIZE;
+  }
+  
+  // Configure SQLite3 to use mem3 with our heap
+  // Args: heap pointer, size in bytes, minimum allocation size (32 bytes = 2^5)
+  int rc = sqlite3_config(SQLITE_CONFIG_HEAP, g_sqlite_heap, (int)g_heap_size, 32);
   if (rc != SQLITE_OK) {
-    const char error_msg[] = "Failed to configure SQLite memory allocator";
+    const char error_msg[] = "Failed to configure SQLite mem3 allocator";
     pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
     return 1;
   }
@@ -863,9 +830,31 @@ __attribute__((export_name("restore"))) uint32_t sql_restore(void) {
 // Get plugin info
 __attribute__((export_name("info"))) uint32_t info(void) {
   const char info_msg[] =
-      "SQL plugin v1.1 - SQLite3 in WASM - provides open, "
-      "exec, query, close, dump, restore, backup, load functions";
+      "SQL plugin v2.0 - SQLite3 with mem3 allocator - provides open, "
+      "exec, query, close, dump, restore, backup, load, mem_stats functions";
   pdk_output((const uint8_t *)info_msg, sizeof(info_msg) - 1);
+  return 0;
+}
+
+// Get memory statistics
+__attribute__((export_name("mem_stats"))) uint32_t mem_stats(void) {
+  // With mem3, we can report the heap size we allocated
+  char buf[128];
+  uint32_t pos = 0;
+  char temp[32];
+  
+  // Report heap size
+  const char msg1[] = "heap_size=";
+  for (uint32_t i = 0; i < sizeof(msg1) - 1 && pos < sizeof(buf); i++) {
+    buf[pos++] = msg1[i];
+  }
+  
+  uint32_t len = uint32_to_str((uint32_t)g_heap_size, temp);
+  for (uint32_t i = 0; i < len && pos < sizeof(buf); i++) {
+    buf[pos++] = temp[i];
+  }
+
+  pdk_output((const uint8_t *)buf, pos);
   return 0;
 }
 
