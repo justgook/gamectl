@@ -229,8 +229,6 @@
       </layout-parent>
     </popup-manager>
 
-
-
     <script src="./plugin-manager.js"> </script>
     <script type="module">
       // current
@@ -307,74 +305,11 @@
           }
         ]
       })
-      // TESTING C PLUGIN
-      const result = await window.pluginManager.call("math", "add", "a=5,b=3")
+
       const DE = new TextDecoder()
-      console.log(DE.decode(result.output))
 
       // TESTING SQL PLUGIN WITH DUMP/RESTORE
       const result2 = await window.pluginManager.call("sql", "open", "")
-      console.log('SQL open:', DE.decode(result2.output))
-
-      // Create and populate test data
-      const sql = 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER)';
-      const result3 = await window.pluginManager.call('sql', 'exec', sql)
-      console.log('Create table:', DE.decode(result3.output))
-
-      // Insert test data
-      await window.pluginManager.call('sql', 'exec', "INSERT INTO items (name, value) VALUES ('sword', 100)")
-      await window.pluginManager.call('sql', 'exec', "INSERT INTO items (name, value) VALUES ('shield', 75)")
-      await window.pluginManager.call('sql', 'exec', "INSERT INTO items (name, value) VALUES ('potion', 25)")
-
-      console.log('Test data inserted')
-
-      // Test dump functionality
-      const dumpResult = await window.pluginManager.call('sql', 'dump', '')
-      const sqlDump = DE.decode(dumpResult.output)
-      console.log('SQL Dump generated:', sqlDump)
-
-      // Save dump to localStorage for persistence
-      localStorage.setItem('sql-backup', sqlDump)
-      console.log('Dump saved to localStorage')
-
-      // Test binary backup functionality
-      const binaryBackupResult = await window.pluginManager.call('sql', 'backup', '')
-      const binaryBackup = DE.decode(binaryBackupResult.output)
-      console.log('Binary Backup generated:', binaryBackup.substring(0, 200) + '...')
-
-      // Save binary backup to localStorage
-      localStorage.setItem('sql-binary-backup', binaryBackup)
-      console.log('Binary backup saved to localStorage')
-
-      // Test restore by clearing database and restoring with SQL dump
-      await window.pluginManager.call('sql', 'exec', 'DROP TABLE items')
-      console.log('Table dropped')
-
-      // Restore from SQL dump first
-      const savedDump = localStorage.getItem('sql-backup')
-      if (savedDump) {
-        const restoreResult = await window.pluginManager.call('sql', 'restore', savedDump)
-        console.log('SQL Restore result:', DE.decode(restoreResult.output))
-
-        // Verify restoration worked
-        const queryResult = await window.pluginManager.call('sql', 'query', 'SELECT * FROM items')
-        console.log('Data after SQL restore:', DE.decode(queryResult.output))
-      }
-
-      // Now test binary backup restore
-      await window.pluginManager.call('sql', 'exec', 'DROP TABLE items')
-      console.log('Table dropped again for binary test')
-
-      // Restore from binary backup
-      const savedBinaryBackup = localStorage.getItem('sql-binary-backup')
-      if (savedBinaryBackup) {
-        const loadResult = await window.pluginManager.call('sql', 'load', savedBinaryBackup)
-        console.log('Binary Load result:', DE.decode(loadResult.output))
-
-        // Verify binary restoration worked
-        const queryResult = await window.pluginManager.call('sql', 'query', 'SELECT * FROM items')
-        console.log('Data after binary load:', DE.decode(queryResult.output))
-      }
 
       // Initialize Node Templates Database
       async function initNodeTemplates() {

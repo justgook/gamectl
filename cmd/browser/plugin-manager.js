@@ -148,7 +148,7 @@ class PluginManager {
       const initPtr = this.allocFunc(module.name, 64); // Allocate 64 bytes for initialization
       if (initPtr > 0) {
         // Successfully initialized memory allocation system
-        console.log(`Memory system initialized for plugin: ${module.name}`);
+        // console.log(`Memory system initialized for plugin: ${module.name}`);
       }
     } catch (e) {
       console.warn(`Failed to pre-initialize memory for ${module.name}:`, e);

@@ -110,25 +110,17 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     this.nodes.set(id, nodeElement)
 
-    // Restore state from DOM attribute if it exists (for DOM-based state persistence)
-    this.restoreNodeState(nodeElement)
-
     this.rebuildConnectionIndex()
-    this.draw()
+    this.draw("registerNode")
   }
 
   unregisterNode(nodeElement) {
     const nodeId = nodeElement.id
     console.log(`Unregistering node: ${nodeId}`)
 
-    // Skip connection cleanup if we're just reordering nodes in DOM
-    if (!this._isReordering) {
-      console.log(`Cleaning up connections for deleted node: ${nodeId}`)
-      // Clean up connections TO this node before removing it
-      this.removeConnectionsToNode(nodeId)
-    } else {
-      console.log(`Skipping connection cleanup for reordered node: ${nodeId}`)
-    }
+    // Clean up connections TO this node before removing it
+    console.log(`Cleaning up connections for deleted node: ${nodeId}`)
+    this.removeConnectionsToNode(nodeId)
 
     // Remove from internal state
     this.nodes.delete(nodeId)
@@ -136,7 +128,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Rebuild connection index and redraw
     this.rebuildConnectionIndex()
-    this.draw()
+    this.draw("unregisterNode")
   }
 
   // --- Data Pipeline (overrides from ViewCanvasBase) ---
@@ -787,34 +779,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
     )
   }
 
-  // --- DOM State Management ---
-
-  /**
-   * Store node state in DOM attribute for persistence during DOM operations
-   * @param {Element} node - The node to save state for
-   */
-  preserveNodeState(node) {
-    if (!node) return
-
-    if (node.state) {
-      node.setAttribute('data-state', node.state)
-    }
-  }
-
-  /**
-   * Restore node state from DOM attribute if it was lost
-   * @param {Element} node - The node to restore state for
-   */
-  restoreNodeState(node) {
-    if (!node) return
-
-    const preservedState = node.getAttribute('data-state')
-    if (preservedState && node.state !== preservedState) {
-      console.log(`Restoring node ${node.id} state: ${preservedState}`)
-      node.state = preservedState
-    }
-  }
-
   // --- Focus Management (DOM-based state) ---
 
   /**
@@ -869,6 +833,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
   /**
    * Move a node to the front (last in DOM order) for both visual and click priority
    * This implements "DOM as state" - last child = front layer = highest priority
+   * Uses moveBefore() to preserve state without triggering disconnected/connected callbacks
    */
   focusNode(node) {
     if (!node || !this.contains(node)) {
@@ -882,26 +847,16 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     console.log(`Moving node ${node.id} to front (preserving state and connections)`)
 
-    // Preserve the current state in DOM attribute before moving
-    this.preserveNodeState(node)
-
-    // Temporarily disable connection cleanup during reordering
-    this._isReordering = true
-
-    // appendChild automatically moves the element to the end if it's already a child
-    // This makes it the "front" layer for both rendering and click detection
-    this.appendChild(node)
-
-    // Restore the state after DOM move (in case it was reset)
-    this.restoreNodeState(node)
-
-    // Re-enable connection cleanup
-    this._isReordering = false
+    // Use moveBefore() to move the node to the end
+    // parent.moveBefore(child, null) moves child to the end of parent
+    // This triggers connectedMoveCallback instead of disconnected/connected callbacks
+    // which preserves all state automatically without needing workarounds
+    this.moveBefore(node, null)
 
     console.log(`Node ${node.id} moved to front successfully`)
 
     // Redraw to show the new layering
-    this.draw()
+    this.draw("focusNode")
   }
 
   // --- Interaction Helpers ---

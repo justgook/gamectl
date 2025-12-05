@@ -24,6 +24,7 @@ export class ViewCanvasBase extends View {
     this.ctx = null;
     this.tileInfo = null; // For hover tooltip
     this.data = null;
+    this.loading = true
 
     // Bind event handlers
     this._onWheel = this._onWheel.bind(this);
@@ -76,10 +77,11 @@ export class ViewCanvasBase extends View {
   }
 
   onResize(width, height) {
-    if (!this.canvas) return
+    console.log("onResize", width, height)
+    if (!this.canvas || (this.canvas.width === width && this.canvas.height === height)) return
     this.canvas.width = width
     this.canvas.height = height
-    this.draw()
+    this.draw("resize", { width, height })
   }
 
   // --- Abstract Methods (Subclasses must implement) ---
@@ -109,16 +111,18 @@ export class ViewCanvasBase extends View {
       if (this.data) {
         this.contentBounds = this.calculateContentBounds(this.data);
       }
-      this.draw();
+      this.loading = false
+      this.draw("loadAndDraw")
     } catch (e) {
       console.error("Error loading or drawing canvas data:", e);
       this.data = null;
-      this.draw(); // Draw placeholder/error state
+      this.draw("loadAndDraw:error"); // Draw placeholder/error state
     }
   }
 
-  draw() {
-    if (!this.ctx) return;
+  draw(reason = "unknown", data = {}) {
+    if (!this.ctx || this.loading) return;
+    console.log("ViewCanvasBase::draw", reason, data)
 
     const { width, height } = this.canvas
     this.ctx.save()
@@ -164,18 +168,18 @@ export class ViewCanvasBase extends View {
       scale: this.scale,
       offsetX: this.offsetX,
       offsetY: this.offsetY,
-      
+
       // Helper methods for coordinate transformation
       transformPoint: (worldX, worldY) => ({
         x: worldX * this.scale + this.offsetX,
         y: worldY * this.scale + this.offsetY
       }),
-      
+
       inverseTransformPoint: (screenX, screenY) => ({
         x: (screenX - this.offsetX) / this.scale,
         y: (screenY - this.offsetY) / this.scale
       }),
-      
+
       // Apply transform to canvas context
       applyTransform: (ctx) => {
         ctx.translate(this.offsetX, this.offsetY)
@@ -227,7 +231,7 @@ export class ViewCanvasBase extends View {
     this.offsetY -= relY * scaleChange;
 
     this._constrainPosition();
-    this.draw();
+    this.draw("zoom")
   }
 
   zoomIn() {
@@ -268,7 +272,7 @@ export class ViewCanvasBase extends View {
     this.offsetY = wrapperHeight / 2 - contentCenterY * this.scale;
 
     this._constrainPosition();
-    this.draw();
+    this.draw("fitToContent")
   }
 
   resetView() {
@@ -284,7 +288,7 @@ export class ViewCanvasBase extends View {
       this.offsetY = 0;
     }
     this._constrainPosition();
-    this.draw();
+    this.draw("resetView")
   }
 
   // --- Interaction Handlers ---
@@ -302,7 +306,7 @@ export class ViewCanvasBase extends View {
       this.offsetX -= e.deltaX;
       this.offsetY -= e.deltaY;
       this._constrainPosition();
-      this.draw();
+      this.draw("onWheel")
     }
   }
 
@@ -318,7 +322,7 @@ export class ViewCanvasBase extends View {
       this.offsetX = e.clientX - this.dragStartX;
       this.offsetY = e.clientY - this.dragStartY;
       this._constrainPosition();
-      this.draw();
+      this.draw("onMouseMove")
     }
 
     this._handleHover(e);
