@@ -10,11 +10,6 @@ export class TilesetRenderer extends LayerRenderer {
 
   _render(ctx, layer, _tilemap, _viewport) {
     console.log("THE REAL RENDER")
-
-    ctx.rect(20, 20, 150, 100);
-    ctx.fillStyle = "red";
-    ctx.fill();
-
     const tw = parseFloat(layer.meta?.tw) || this.defaultTileWidth
     const th = parseFloat(layer.meta?.th) || this.defaultTileHeight
 
@@ -33,12 +28,6 @@ export class TilesetRenderer extends LayerRenderer {
     }
     ctx.restore()
 
-  }
-
-  needsRedraw(eventType, _layer, _tilemap, _eventData) {
-    console.log("needsRedraw", eventType)
-
-    return true
   }
 
   async loadTileset(_ctx, layer, _tilemap, _viewport) {

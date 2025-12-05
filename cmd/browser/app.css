@@ -192,11 +192,9 @@ view-popup .popup-close:focus {
 
 /* Popup content */
 view-popup .popup-content {
-  padding: var(--popup-content-padding, var(--spacing-scale-4));
   overflow: var(--popup-content-overflow, auto);
   flex: 1;
   min-height: 0;
-  /* Allow shrinking */
 }
 
 /* Handle positioning and basic behavior */

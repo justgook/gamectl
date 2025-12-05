@@ -13,7 +13,7 @@ export class GridRenderer extends LayerRenderer {
 
   constructor(options = {}) {
     super(options)
-    
+
     // Grid-specific configuration (independent from ViewTilemap settings)
     this.config = {
       tileWidth: 40,
@@ -22,7 +22,7 @@ export class GridRenderer extends LayerRenderer {
       color: '#ccc',
       ...options.grid // Allow override via options.grid
     }
-    
+
     // Grid renderer responds to zoom and resize events
     this.respondsToZoom = true
     this.respondsToResize = true
@@ -41,12 +41,12 @@ export class GridRenderer extends LayerRenderer {
       // Calculate content bounds for grid sizing
       const contentBounds = this._calculateContentBounds(tilemap)
       if (!contentBounds) return
-      
+
       const { maxX: width, maxY: height } = contentBounds
-      
+
       // Create and fill grid pattern
       this._fillCanvasWithGrid(ctx, width, height)
-      
+
     } catch (error) {
       this.handleError(error, 'GridRenderer.render')
     }
@@ -105,18 +105,18 @@ export class GridRenderer extends LayerRenderer {
    */
   _createGridPattern(ctx) {
     const { tileWidth, tileHeight, color, lineWidth } = this.config
-    
+
     // Create small tile canvas for pattern
     const tileCanvas = document.createElement('canvas')
     tileCanvas.width = tileWidth
     tileCanvas.height = tileHeight
     const tileCtx = tileCanvas.getContext('2d')
-    
+
     // Draw grid lines on bottom and right edges
     tileCtx.fillStyle = color
     tileCtx.fillRect(0, tileHeight - lineWidth, tileWidth, lineWidth) // Bottom edge
     tileCtx.fillRect(tileWidth - lineWidth, 0, lineWidth, tileHeight) // Right edge
-    
+
     return ctx.createPattern(tileCanvas, 'repeat')
   }
 }
