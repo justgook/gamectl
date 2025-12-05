@@ -38,13 +38,15 @@ view--chrome .se {
 }
 
 .panel-header {
-  padding-left: var(--spacing-scale-8, 170px); /* Fallback for transition period */
+  padding-left: var(--spacing-scale-8, 170px);
+  /* Fallback for transition period */
 }
 
 .panel-content {
   position: absolute;
   inset: 0;
-  top: var(--spacing-scale-6, 25px); /* Fallback for transition period */
+  top: var(--spacing-scale-6, 25px);
+  /* Fallback for transition period */
   overflow: auto;
 }
 
@@ -82,8 +84,13 @@ popup-manager[has-popups]::before {
 }
 
 @keyframes popup-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* Only show the topmost popup */
@@ -99,7 +106,6 @@ view-popup {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-scale-4, 16px);
 }
 
 /* Popup container */
@@ -189,15 +195,18 @@ view-popup .popup-content {
   padding: var(--popup-content-padding, var(--spacing-scale-4));
   overflow: var(--popup-content-overflow, auto);
   flex: 1;
-  min-height: 0; /* Allow shrinking */
+  min-height: 0;
+  /* Allow shrinking */
 }
 
 /* Handle positioning and basic behavior */
 .handle {
   position: absolute;
   inset: 0;
-  touch-action: none; /* Prevent default touch actions like scrolling */
-  user-select: none; /* Prevent text selection while dragging */
+  touch-action: none;
+  /* Prevent default touch actions like scrolling */
+  user-select: none;
+  /* Prevent text selection while dragging */
   transition: all 0.2s ease;
 }
 
@@ -252,7 +261,7 @@ view--handle[data-dragging="true"] .handle {
 
 /* Corner handle positioning and styling - Simple opacity control */
 .nw,
-.ne, 
+.ne,
 .sw,
 .se {
   position: absolute;

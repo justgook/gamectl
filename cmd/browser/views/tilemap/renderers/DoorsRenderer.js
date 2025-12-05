@@ -12,17 +12,17 @@ export class DoorsRenderer extends LayerRenderer {
 
   constructor(options = {}) {
     super(options)
-    
+
     // Door bit mask constants
     this.DoorNorth = 1
-    this.DoorEast = 2 
+    this.DoorEast = 2
     this.DoorSouth = 4
     this.DoorWest = 8
-    
+
     // Default tile dimensions (can be overridden by layer meta)
     this.defaultTileWidth = 40
     this.defaultTileHeight = 40
-    
+
     // Door visual configuration
     this.doorConfig = {
       widthRatio: 0.4,    // Door is 40% of tile width
@@ -33,7 +33,7 @@ export class DoorsRenderer extends LayerRenderer {
       handleColor: '#FFD700',
       ...options.doors    // Allow override via options.doors
     }
-    
+
     // Doors don't need to respond to zoom/pan (they're part of the world)
     this.respondsToZoom = false
     this.respondsToResize = true
@@ -58,7 +58,7 @@ export class DoorsRenderer extends LayerRenderer {
       const tileHeight = layer.meta?.th || this.defaultTileHeight
 
       this._drawDoors(ctx, tileWidth, tileHeight, layer.width, layer.data)
-      
+
     } catch (error) {
       this.handleError(error, `DoorsRenderer.render for layer with ${layer?.data?.length || 0} door masks`)
     }
@@ -180,15 +180,15 @@ export class DoorsRenderer extends LayerRenderer {
    */
   _drawDoor(ctx, coords) {
     const { frameColor, doorColor, handleColor } = this.doorConfig
-    
+
     // Door frame (darker)
     ctx.fillStyle = frameColor
     ctx.fillRect(coords.frameX, coords.frameY, coords.frameW, coords.frameH)
-    
+
     // Door (lighter brown)
     ctx.fillStyle = doorColor
     ctx.fillRect(coords.doorX, coords.doorY, coords.doorW, coords.doorH)
-    
+
     // Door handle
     ctx.fillStyle = handleColor
     ctx.fillRect(coords.handleX, coords.handleY, 3, 3)

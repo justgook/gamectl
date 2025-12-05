@@ -29,7 +29,7 @@ export class ViewPopup extends HTMLElement {
   render() {
     // Get attributes
     const title = this.getAttribute('title') || ''
-    const size = this.getAttribute('size') || 'medium'
+    const size = this.getAttribute('size') || 'large'
 
     // Store original content
     const originalContent = Array.from(this.childNodes)
@@ -224,7 +224,7 @@ export class ViewPopup extends HTMLElement {
         }
         break
       case 'size':
-        this.setSize(newValue || 'medium')
+        this.setSize(newValue || 'large')
         break
     }
   }

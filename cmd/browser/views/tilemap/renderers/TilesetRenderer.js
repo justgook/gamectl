@@ -1,117 +1,83 @@
 import { LayerRenderer } from './LayerRenderer.js'
 
-/**
- * Tileset renderer for layers that use external tileset images.
- * 
- * This is a stub implementation that will be expanded when tileset
- * support is added to the tilemap system.
- * 
- * Selector: [meta.tileset] - matches layers with tileset metadata
- */
 export class TilesetRenderer extends LayerRenderer {
-
   constructor(options = {}) {
     super(options)
-    
-    // Default tile dimensions
-    this.defaultTileWidth = 40
-    this.defaultTileHeight = 40
-    
-    // Tileset rendering typically responds to zoom for crisp display
-    this.respondsToZoom = true
-    this.respondsToResize = true
-    
-    // Track loaded tilesets (for future implementation)
-    this.loadedTilesets = new Map()
+    this.loading = false
+    this.tileset = null
+    this.render = (ctx, layer, tilemap, viewport) => this.loadTileset(ctx, layer, tilemap, viewport)
   }
 
-  /**
-   * Render tileset layer (stub implementation)
-   * 
-   * @param {CanvasRenderingContext2D} ctx - Canvas context to draw to
-   * @param {Object} layer - Layer data with tileset metadata
-   * @param {Object} tilemap - Full tilemap data
-   * @param {Object} viewport - Viewport transform matrix
-   */
-  render(ctx, layer, tilemap, viewport) {
-    try {
-      // For now, log that tileset rendering is not implemented
-      // and render a placeholder
-      
-      console.warn('🎨 TilesetRenderer: Tileset rendering not yet implemented', {
-        layer: layer,
-        tilesetPath: layer.meta?.tileset
-      })
-      
-      this._renderPlaceholder(ctx, layer)
-      
-    } catch (error) {
-      this.handleError(error, `TilesetRenderer.render for tileset: ${layer?.meta?.tileset || 'unknown'}`)
-    }
-  }
+  _render(ctx, layer, _tilemap, _viewport) {
+    console.log("THE REAL RENDER")
 
-  /**
-   * Load tileset image (stub for future implementation)
-   * @param {string} tilesetPath - Path to tileset image
-   * @returns {Promise<HTMLImageElement>} Promise resolving to loaded image
-   */
-  async loadTileset(tilesetPath) {
-    // TODO: Implement tileset loading
-    console.log(`📋 TilesetRenderer: Would load tileset from ${tilesetPath}`)
-    return null
-  }
+    ctx.rect(20, 20, 150, 100);
+    ctx.fillStyle = "red";
+    ctx.fill();
 
-  /**
-   * Update default tile dimensions
-   * @param {number} width - Default tile width
-   * @param {number} height - Default tile height
-   */
-  updateDefaultTileSize(width, height) {
-    this.defaultTileWidth = width
-    this.defaultTileHeight = height
-    this.markDirty()
-  }
+    const tw = parseFloat(layer.meta?.tw) || this.defaultTileWidth
+    const th = parseFloat(layer.meta?.th) || this.defaultTileHeight
 
-  // --- Private Methods ---
-
-  /**
-   * Render placeholder for tileset layers
-   * @private
-   */
-  _renderPlaceholder(ctx, layer) {
-    if (!layer || !Array.isArray(layer.data) || !layer.width) {
-      return
-    }
-
-    const tileWidth = layer.meta?.tw || this.defaultTileWidth
-    const tileHeight = layer.meta?.th || this.defaultTileHeight
-    const tilesetName = layer.meta?.tileset || 'unknown'
-
-    // Render placeholder rectangles with tileset name
     ctx.save()
-    ctx.strokeStyle = '#ff6b6b'
-    ctx.fillStyle = 'rgba(255, 107, 107, 0.1)'
-    ctx.font = '12px monospace'
-    ctx.textAlign = 'center'
-
     for (let i = 0; i < layer.data.length; i++) {
-      const tileValue = layer.data[i]
-      
-      if (tileValue < 1) continue
-      
-      const x = (i % layer.width) * tileWidth
-      const y = Math.floor(i / layer.width) * tileHeight
-      
-      // Draw placeholder rectangle
-      ctx.fillRect(x, y, tileWidth, tileHeight)
-      ctx.strokeRect(x, y, tileWidth, tileHeight)
-      
-      // Draw tile ID in center
-      ctx.fillStyle = '#ff6b6b'
-      ctx.fillText(String(tileValue), x + tileWidth/2, y + tileHeight/2)
-      ctx.fillStyle = 'rgba(255, 107, 107, 0.1)'
-    }
+      const tileId = layer.data[i]
 
+      // Skip empty tiles (ID 0)
+      if (tileId === 0) continue
+
+      // Calculate tile position in world coordinates
+      const worldX = (i % layer.width) * tw
+      const worldY = Math.floor(i / layer.width) * th
+
+      this._renderTile(ctx, tileId, worldX, worldY)
+    }
     ctx.restore()
+
+  }
+
+  needsRedraw(eventType, _layer, _tilemap, _eventData) {
+    console.log("needsRedraw", eventType)
+
+    return true
+  }
+
+  async loadTileset(_ctx, layer, _tilemap, _viewport) {
+    this.render = () => { }
+
+    this.loading = true
+    const tilesetData = layer.meta.tileset
+    const tileWidth = parseFloat(layer.meta?.tw) || this.defaultTileWidth
+    const tileHeight = parseFloat(layer.meta?.th) || this.defaultTileHeight
+    const img = new Image()
+
+    // Wait for image to load
+    await new Promise((resolve, reject) => {
+      img.onload = resolve
+      img.onerror = reject
+      img.src = tilesetData
+    })
+
+    const cols = Math.floor(img.width / tileWidth)
+    this.loading = false
+    this.tileset = {
+      image: img,
+      tileWidth,
+      tileHeight,
+      cols,
+    }
+    this.render = this._render.bind(this)
+  }
+
+  _renderTile(ctx, tileId, worldX, worldY) {
+    const tilesetInfo = this.tileset
+    const tileIndex = tileId - 1
+    const srcX = (tileIndex % tilesetInfo.cols) * tilesetInfo.tileWidth
+    const srcY = Math.floor(tileIndex / tilesetInfo.cols) * tilesetInfo.tileHeight
+
+    ctx.drawImage(
+      tilesetInfo.image,
+      srcX, srcY, tilesetInfo.tileWidth, tilesetInfo.tileHeight,
+      worldX, worldY, tilesetInfo.tileWidth, tilesetInfo.tileHeight,
+    )
   }
 }

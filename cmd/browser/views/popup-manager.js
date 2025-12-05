@@ -118,7 +118,7 @@ export class PopupManager extends HTMLElement {
    * @param {string} options.size - Popup size (small, medium, large)
    * @returns {HTMLElement} The created popup element
    */
-  showPopup({ title = '', content = '', size = 'medium' } = {}) {
+  showPopup({ title = '', content = '', size = 'large' } = {}) {
     const popup = document.createElement('view-popup')
 
     if (title) {
