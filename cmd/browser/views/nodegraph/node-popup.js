@@ -175,7 +175,7 @@ export class NodePopup extends NodeBase {
 
     try {
       // Wait a brief moment to show running state
-      await new Promise(resolve => setTimeout(resolve, 50))
+      // await new Promise(resolve => setTimeout(resolve, 50))
 
       // Resolve each output with its stored value
       for (const outputName of this._parsedOutputs) {
@@ -246,10 +246,7 @@ export class NodePopup extends NodeBase {
     }
 
     // Clone template content for editing
-    const content = document.createElement('div')
-    const templateContent = templateElement.content.cloneNode(true)
-    content.appendChild(templateContent)
-    content.style.padding = 'var(--spacing-scale-3)'
+    const content = templateElement.content.cloneNode(true)
 
     // Apply current input values from connected nodes
     await this.applyInputsToPopup(content)
@@ -296,7 +293,7 @@ export class NodePopup extends NodeBase {
     saveBtn.className = 'button-primary'
     saveBtn.textContent = 'Save'
     saveBtn.onclick = () => {
-      this.saveFromPopup(content)
+      this.saveFromPopup(popup)
       popup.close()
     }
 
@@ -308,47 +305,9 @@ export class NodePopup extends NodeBase {
     buttonContainer.appendChild(cancelBtn)
     buttonContainer.appendChild(saveBtn)
 
-    content.appendChild(buttonContainer)
     popup.appendChild(content)
+    popup.appendChild(buttonContainer)
     popupManager.appendChild(popup)
-
-    // Initialize View elements AFTER popup is in DOM
-    // Popup acts as a layout manager, setting x/y/w/h like LayoutParent does
-    setTimeout(() => {
-      const viewElements = popup.querySelectorAll('view-tree, view-tilemap')
-      for (const view of viewElements) {
-        let width = 0
-        let height = 0
-
-        // Try to get dimensions from inline style attribute (before computed styles mess it up)
-        const styleAttr = view.getAttribute('style')
-        if (styleAttr) {
-          const widthMatch = styleAttr.match(/width:\s*(\d+)px/)
-          const heightMatch = styleAttr.match(/height:\s*(\d+)px/)
-          if (widthMatch) width = parseInt(widthMatch[1])
-          if (heightMatch) height = parseInt(heightMatch[1])
-        }
-
-        // If no explicit size in style, use popup content area size
-        if (!width || width < 100) { // Sanity check (< 100px is probably wrong)
-          const popupContent = popup.querySelector('.popup-content')
-          if (popupContent) {
-            const contentRect = popupContent.getBoundingClientRect()
-            width = Math.max(contentRect.width - 32, 600) // Min 600px
-            height = Math.max(contentRect.height - 100, 400) // Min 400px
-          } else {
-            width = 800 // Fallback
-            height = 600
-          }
-        }
-
-        // Position at 0,0 within popup content, use computed dimensions
-        view.setAttribute('x', '0')
-        view.setAttribute('y', '0')
-        view.setAttribute('w', width.toString())
-        view.setAttribute('h', height.toString())
-      }
-    }, 0)
 
     // Focus first input
     const firstInput = content.querySelector('input, textarea, select')
@@ -458,6 +417,7 @@ export class NodePopup extends NodeBase {
     // Collect values from output elements
     const values = []
     const outputElements = popupContent.querySelectorAll('[data-output]')
+    console.log(popupContent)
 
     outputElements.forEach(element => {
       const outputName = element.getAttribute('data-output')

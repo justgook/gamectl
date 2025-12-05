@@ -12,17 +12,11 @@ export class ColoredTilesRenderer extends LayerRenderer {
 
   constructor(options = {}) {
     super(options)
-    
+
     // Generate color palette for tile rendering
-    this.colors = generateHsluvColors(50)
-    
-    // Default tile dimensions (can be overridden by layer meta)
-    this.defaultTileWidth = 40
-    this.defaultTileHeight = 40
-    
-    // Responds to zoom events (colors may need re-rendering at different scales)
-    this.respondsToZoom = false // Colors don't change with zoom
-    this.respondsToResize = true
+    this.colors = generateHsluvColors(100)
+
+
   }
 
   /**
@@ -44,7 +38,7 @@ export class ColoredTilesRenderer extends LayerRenderer {
       const tileHeight = layer.meta?.th || this.defaultTileHeight
 
       this._drawColoredTiles(ctx, tileWidth, tileHeight, layer.width, layer.data)
-      
+
     } catch (error) {
       this.handleError(error, `ColoredTilesRenderer.render for layer with ${layer?.data?.length || 0} tiles`)
     }
@@ -80,18 +74,18 @@ export class ColoredTilesRenderer extends LayerRenderer {
   _drawColoredTiles(ctx, tileWidth, tileHeight, layerWidth, data) {
     for (let i = 0; i < data.length; i++) {
       const tileValue = data[i]
-      
+
       // Skip empty tiles (value 0)
       if (tileValue < 1) continue
-      
+
       // Calculate tile position
       const x = (i % layerWidth) * tileWidth
       const y = Math.floor(i / layerWidth) * tileHeight
-      
+
       // Get color for this tile value (with bounds checking)
       const colorIndex = tileValue % this.colors.length
       ctx.fillStyle = this.colors[colorIndex]
-      
+
       // Draw tile rectangle
       ctx.fillRect(x, y, tileWidth, tileHeight)
     }

@@ -216,8 +216,10 @@
             outputs="result"></node-plugin>
           <!-- THE NEW STUFF -->
           <node-popup inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
-            id="node_2" x="362" y="464" title=""><template><view-tilemap data-key="new_map"
-                style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></template></node-popup>
+            id="node_2" x="362" y="464" title="THE TILEMAP">
+            <template><view-tilemap data-key="new_map" w="629" h="454"></view-tilemap>
+            </template>
+          </node-popup>
           <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="62" y="204" data-state="idle"
             values="text:tileset_demo"><template>
               <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."

@@ -9,11 +9,13 @@ export class ViewTesting extends View {
     super('view-testing')
     this.DE = new TextDecoder()
   }
+
   connectedCallback() {
-    super.connectedCallback('view-testing')
+    super.connectedCallback()
     this.treeId = "progression"
     this.mapId = "new_map"
   }
+
   async createMinimap() {
     const minimapInput = {
       "treeId": this.treeId,  // Required: tree to read from tree-storage

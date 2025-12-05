@@ -1,16 +1,28 @@
 import { ViewCanvasBase } from "./view-canvas-base.js"
-import { LayerRendererManager } from "./tilemap/LayerRendererManager.js"
 import { GridRenderer } from "./tilemap/renderers/GridRenderer.js"
 import { ColoredTilesRenderer } from "./tilemap/renderers/ColoredTilesRenderer.js"
 import { DoorsRenderer } from "./tilemap/renderers/DoorsRenderer.js"
 import { TilesetRenderer } from "./tilemap/renderers/TilesetRenderer.js"
 import { parseCSVLines } from "../util/csv.js"
+import { TilemapSelector } from './tilemap/TilemapSelector.js'
+
 
 export class ViewTilemap extends ViewCanvasBase {
   constructor() {
     super("view-tilemap")
     this.DE = new TextDecoder()
     this.tilemapKey = 'tileset_demo'
+    this.rendersBefore = [new GridRenderer()]
+
+    this.availableRenders = new Map()
+    this.availableRenders.set('[type="doors"]', DoorsRenderer)
+    this.availableRenders.set('[tileset]', TilesetRenderer)
+    this.availableRenders.set('*', ColoredTilesRenderer) // Fallback - always last
+  }
+
+  connectedCallback() {
+    super.connectedCallback()
+    this.renders = []
   }
 
   async fetchData() {
@@ -26,8 +38,10 @@ export class ViewTilemap extends ViewCanvasBase {
       return null
     }
 
-    const data = lines[1][0] // First column of second row
-    return JSON.parse(data)
+    const data = JSON.parse(lines[1][0]) // First column of second row
+    console.log(data)
+    this._prepareRenders(data)
+    return data
   }
 
   calculateContentBounds(data) {
@@ -55,7 +69,31 @@ export class ViewTilemap extends ViewCanvasBase {
     }
   }
 
-  drawContent(ctx, data) {
+  drawContent(ctx, tilemap) {
     console.log("ViewTilemap:drawContent")
+    const viewport = this.getViewportMatrix()
+    this.rendersBefore.map(rr => rr.render(ctx, null, tilemap, viewport))
+    tilemap.layers.forEach((layer, i) => {
+      const renderer = this.renders[i]
+      const result = renderer.render(ctx, layer, tilemap, viewport)
+      if (typeof result?.then !== "function") return
+      console.log("pospone render")
+      result.then(() => { this.drawContent(ctx, tilemap) })
+    })
+  }
+
+  _prepareRenders(tilemap) {
+    const found = []
+    for (let [key, value] of this.availableRenders) {
+      TilemapSelector.findLayers(tilemap, key).map((layer) => {
+        const index = tilemap.layers.indexOf(layer)
+        if (!found[index]) found[index] = []
+        found[index].push(value)
+      })
+    }
+
+    this.renders = tilemap.layers.map((_layer, i) => new (found[i][0])())
   }
 }
+
+
