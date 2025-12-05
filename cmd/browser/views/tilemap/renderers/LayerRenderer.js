@@ -7,7 +7,7 @@
  * - Renderer-controlled re-rendering decisions
  */
 export class LayerRenderer {
-  
+
   /**
    * Constructor for base renderer
    * @param {Object} options - Renderer configuration options
@@ -15,10 +15,10 @@ export class LayerRenderer {
   constructor(options = {}) {
     this.isDirty = true
     this.options = { ...options }
-    
+
     // Event responsiveness flags - subclasses should override
     this.respondsToZoom = false
-    this.respondsToPan = false  
+    this.respondsToPan = false
     this.respondsToHover = false
     this.respondsToResize = true // Most renderers need to respond to resize
   }
@@ -93,10 +93,10 @@ export class LayerRenderer {
   handleError(error, context = '') {
     const message = `🔥 RENDERER ERROR [${this.getSelector()}]: ${error.message}`
     const fullContext = context ? ` (Context: ${context})` : ''
-    
+
     // Log angry error to console  
     console.error(`${message}${fullContext}`, error)
-    
+
     // Re-throw to stop all rendering (as requested)
     throw new Error(`${message}${fullContext}`)
   }

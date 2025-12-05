@@ -57,7 +57,7 @@ export class LayerRendererManager {
 
       // Create a temporary tilemap with single layer for testing
       const testTilemap = { layers: [layer] }
-      
+
       // Test if selector matches this layer
       let matches = false
       if (registration.selector.startsWith('#')) {
@@ -72,8 +72,8 @@ export class LayerRendererManager {
       if (matches) {
         // Lazy instantiation - create renderer instance if not exists
         if (!registration.instance) {
-          registration.instance = new registration.rendererFactory({ 
-            selector: registration.selector 
+          registration.instance = new registration.rendererFactory({
+            selector: registration.selector
           })
         }
         return registration.instance
@@ -107,10 +107,23 @@ export class LayerRendererManager {
         for (let i = 0; i < tilemap.layers.length; i++) {
           const layer = tilemap.layers[i]
           const renderer = this.getRendererForLayer(layer, tilemap)
-          
+
           if (renderer) {
             if (renderer.needsRedraw(eventType, layer, tilemap, eventData)) {
-              renderer.render(ctx, layer, tilemap, viewport)
+              const result = renderer.render(ctx, layer, tilemap, viewport)
+
+              if (typeof result?.then === "function") {
+                console.log("pospone render")
+
+                result.then(() => {
+                  console.log("and now we render promise", ctx.canvas)
+                  this.renderAll(ctx, tilemap, viewport, eventType = 'async_render')
+                  ctx.rect(20, 20, 150, 100);
+                  ctx.fillStyle = "blue";
+                  ctx.fill();
+                }
+                )
+              }
               renderer.markClean()
             }
           } else {
@@ -165,13 +178,13 @@ export class LayerRendererManager {
   _handleNoRendererError(layer, layerIndex) {
     const layerType = layer.meta?.type || 'unknown'
     const message = `🔥 NO RENDERER FOUND for layer ${layerIndex} (type: ${layerType})`
-    
+
     console.error(message, {
       layer,
       layerIndex,
       registeredSelectors: this.rendererRegistrations.map(r => r.selector)
     })
-    
+
     throw new Error(message)
   }
 
@@ -181,16 +194,16 @@ export class LayerRendererManager {
    */
   _handleRenderingError(error, eventType) {
     const message = `🔥🔥🔥 TILEMAP RENDERING FAILED 🔥🔥🔥`
-    
+
     // Angry console output
     console.error(`\n${message}`)
     console.error(`Event Type: ${eventType}`)
     console.error(`Error:`, error)
     console.error(`Stack:`, error.stack)
-    
+
     // Try to display error on screen (if we have canvas context)
     // This will be handled by ViewTilemap when it catches the error
-    
+
     // Re-throw to stop all rendering (STOP behavior as requested)
     throw new Error(`${message}: ${error.message}`)
   }

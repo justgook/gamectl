@@ -236,7 +236,7 @@ export class NodePopup extends NodeBase {
     // Create popup with template's inner content
     const popup = document.createElement('view-popup')
     popup.setAttribute('title', `Edit ${this.title}(${this.id})`)
-    popup.setAttribute('size', 'medium')
+    popup.setAttribute('size', 'large')
 
     // Extract content from <template> element
     const templateElement = this.querySelector('template')

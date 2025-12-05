@@ -37,10 +37,10 @@ export class ViewTilemap extends ViewCanvasBase {
   _registerDefaultRenderers() {
     // Grid renderer (auto-registered, renders first)
     this.rendererManager.registerGridRenderer(GridRenderer)
-    
+
     // Layer-specific renderers (order matters - more specific first)
     this.rendererManager.registerRenderer('[type="doors"]', DoorsRenderer)
-    this.rendererManager.registerRenderer('[meta.tileset]', TilesetRenderer)
+    this.rendererManager.registerRenderer('[tileset]', TilesetRenderer)
     this.rendererManager.registerRenderer('*', ColoredTilesRenderer) // Fallback - always last
 
     // Debug output
@@ -78,7 +78,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.isDirty = true
     // Mark all renderers dirty on data reload
     this.rendererManager.markAllDirty()
-    
+
     if (!window.pluginManager) {
       console.warn('Plugin manager not available.')
       return null
@@ -155,7 +155,7 @@ export class ViewTilemap extends ViewCanvasBase {
       this.rendererManager.renderAll(ctx, data, viewport, eventType, eventData)
 
       this.isDirty = false
-      
+
     } catch (error) {
       // Handle renderer errors with screen display
       this._displayRenderError(ctx, error)
@@ -169,13 +169,13 @@ export class ViewTilemap extends ViewCanvasBase {
    */
   _displayRenderError(ctx, error) {
     const canvas = ctx.canvas
-    
+
     // Clear canvas and show error
     ctx.save()
     ctx.setTransform(1, 0, 0, 1, 0, 0) // Reset transform
     ctx.fillStyle = '#ff0000'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
+
     ctx.fillStyle = '#ffffff'
     ctx.font = '16px monospace'
     ctx.textAlign = 'center'
@@ -277,7 +277,7 @@ export class ViewTilemap extends ViewCanvasBase {
   _onMouseMove(e) {
     const wasDragging = this.isDragging
     super._onMouseMove(e)
-    
+
     // Mark dirty if we were dragging (panning)
     if (wasDragging && this.isDragging) {
       this.isDirty = true
@@ -295,14 +295,14 @@ export class ViewTilemap extends ViewCanvasBase {
     try {
       // For viewport changes, mark all renderers dirty
       const isViewportChange = ['zoom', 'pan', 'resize'].includes(eventType)
-      
+
       if (isViewportChange) {
         this.rendererManager.markAllDirty()
       }
 
       // For now, rely on isDirty flag to trigger re-rendering in drawContent()
       // Future: implement selective renderer updates for hover events, etc.
-      
+
     } catch (error) {
       console.error(`🔥 Event-driven render failed for ${eventType}:`, error)
     }

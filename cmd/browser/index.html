@@ -214,6 +214,15 @@
           </node-plugin>
           <node-plugin id="minimap" x="135" y="60" plugin="minimap" function="gen" inputs="treeId,mapId"
             outputs="result"></node-plugin>
+          <!-- THE NEW STUFF -->
+          <node-popup inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
+            id="node_2" x="362" y="464" title=""><template><view-tilemap data-key="new_map"
+                style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></template></node-popup>
+          <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="62" y="204" data-state="idle"
+            values="text:tileset_demo"><template>
+              <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                  style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+            </template></node-popup>
         </view-nodegraph>
         <view-console nesw="s" r="200" from="panel_1"></view-console>
         <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
