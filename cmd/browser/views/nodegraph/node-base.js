@@ -67,6 +67,10 @@ export class NodeBase extends HTMLElement {
     }
   }
 
+  connectedMoveCallback() {
+    this.requestRedraw()
+  }
+
   attributeChangedCallback(name, oldVal, newVal) {
     if (oldVal === newVal) return
 
@@ -151,7 +155,7 @@ export class NodeBase extends HTMLElement {
    */
   requestRedraw() {
     if (this.graph) {
-      this.graph.draw()
+      this.graph.draw("NodeBase::requestRedraw")
     }
   }
 

@@ -171,9 +171,7 @@ export class ViewPopup extends HTMLElement {
 
     if (typeof content === 'string') {
       contentContainer.innerHTML = content
-    } else if (content instanceof HTMLElement) {
-      contentContainer.appendChild(content)
-    } else if (content instanceof DocumentFragment) {
+    } else if (content instanceof HTMLElement || content instanceof DocumentFragment) {
       contentContainer.appendChild(content)
     }
   }
@@ -191,9 +189,7 @@ export class ViewPopup extends HTMLElement {
       while (temp.firstChild) {
         contentContainer.appendChild(temp.firstChild)
       }
-    } else if (content instanceof HTMLElement) {
-      contentContainer.appendChild(content)
-    } else if (content instanceof DocumentFragment) {
+    } else if (content instanceof HTMLElement || content instanceof DocumentFragment) {
       contentContainer.appendChild(content)
     }
   }
@@ -214,8 +210,8 @@ export class ViewPopup extends HTMLElement {
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
+    console.log("ViewPopup::attributeChangedCallback", name)
     if (!this.isConnected) return
-
     switch (name) {
       case 'title':
         const titleElement = this.querySelector('[data-element="title"]')

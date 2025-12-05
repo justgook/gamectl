@@ -83,11 +83,11 @@ export class NodePlugin extends NodeBase {
       // Parent has already parsed into this._parsedInputs
       // Extract port names from the parsed connections
       this.inputPorts = Array.from(this._parsedInputs.keys())
-      console.log(`[${this.id}] Updated inputPorts from connected format:`, this.inputPorts)
+      // console.log(`[${this.id}] Updated inputPorts from connected format:`, this.inputPorts)
     } else {
       // Port list format: "port1,port2,port3" (unconnected ports)
       this.inputPorts = inputsAttr.split(',').map(s => s.trim()).filter(Boolean)
-      console.log(`[${this.id}] Updated inputPorts from port list format:`, this.inputPorts)
+      // console.log(`[${this.id}] Updated inputPorts from port list format:`, this.inputPorts)
     }
   }
 
