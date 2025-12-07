@@ -201,6 +201,46 @@
     <popup-manager>
       <layout-parent handle-width="12" handle-height="12" id="scene">
         <view-nodegraph panel="panel_1">
+          <div style="position: absolute; top:64px; z-index: 2;">
+            <details class="tree">
+              <summary>111</summary>
+              <details>
+                <summary>222</summary>
+                <div>333</div>
+                <details>
+                  <summary>333</summary>
+                  <div>444</div>
+                  <div>444</div>
+                  <div>444</div>
+                  <div>444</div>
+                </details>
+                <div>333</div>
+                <div>333</div>
+                <div>333</div>
+                <details>
+                  <summary>333</summary>
+                  <div>444</div>
+                  <div>444</div>
+                  <div>444</div>
+                  <div>444</div>
+                </details>
+              </details>
+              <details>
+                <summary>222</summary>
+                <div>333</div>
+                <details>
+                  <summary>333</summary>
+                  <div>444</div>
+                  <div>444</div>
+                  <div>444</div>
+                  <div>444</div>
+                </details>
+                <div>333</div>
+                <div>333</div>
+                <div>333</div>
+              </details>
+            </details>
+          </div>
           <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
           <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen"
             inputs="name,nodeCount:nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>
