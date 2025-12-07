@@ -5,6 +5,7 @@ import { DoorsRenderer } from "./tilemap/renderers/DoorsRenderer.js"
 import { TilesetRenderer } from "./tilemap/renderers/TilesetRenderer.js"
 import { parseCSVLines } from "../util/csv.js"
 import { TilemapSelector } from './tilemap/TilemapSelector.js'
+import { TilemapMenu } from './tilemap/menu.js'
 
 
 export class ViewTilemap extends ViewCanvasBase {
@@ -22,6 +23,8 @@ export class ViewTilemap extends ViewCanvasBase {
 
   connectedCallback() {
     super.connectedCallback()
+    this.menu = new TilemapMenu()
+    this.appendChild(this.menu)
     this.renders = []
   }
 
@@ -41,6 +44,8 @@ export class ViewTilemap extends ViewCanvasBase {
     const data = JSON.parse(lines[1][0]) // First column of second row
     console.log(data)
     this._prepareRenders(data)
+    this.menu.title = this.tilemapKey
+    this.menu.data = data
     return data
   }
 
