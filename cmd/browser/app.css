@@ -326,17 +326,50 @@ view--handle[data-dragging="true"] .handle {
 
 /* Simple Tree */
 
+
 details.tree,
+details.tree>div,
 details.tree details,
 details.tree details>div {
   margin-left: 16px;
 }
 
 details.tree,
+details.tree div,
 details.tree details,
-details.tree summary,
-details.tree details>div {
+details.tree summary {
   position: relative;
+}
+
+details.tree summary::before,
+details.tree div::before,
+details.tree details::before {
+  content: "";
+  position: absolute;
+  left: -28px;
+  width: 24px;
+  height: 100%;
+  border-left: 2px solid var(--color-semantic-text-primary);
+}
+
+details.tree summary::before,
+details.tree div::before {
+  top: -7px;
+  border-bottom: 2px solid var(--color-semantic-text-primary);
+}
+
+details.tree details::before {
+  top: -7px;
+}
+
+details.tree details:last-child::before {
+  border-left: none;
+}
+
+/* PLUSS SIGHN FOR TREEE and decoratuon */
+details.tree>summary::before {
+  border-left: none;
+  border-bottom: none;
 }
 
 details.tree>summary:focus,
@@ -347,9 +380,8 @@ details.tree details>summary:focus {
 details.tree>summary::after,
 details.tree details>summary::after {
   position: absolute;
+  left: -10px;
   content: "+";
-  top: 0;
-  left: -12px;
 }
 
 details.tree[open]>summary::after,
@@ -357,48 +389,19 @@ details.tree details[open]>summary::after {
   content: "";
 }
 
-details.tree details>summary::before,
-details.tree details>div::before {
-  position: absolute;
+details.tree>summary::before,
+details.tree details>summary::before {
+  width: 16px;
   content: "";
-  top: 1px;
-  left: -22px;
-  width: 12px;
-  height: 16px;
-  transform: translate(-50%, -50%);
-  border-bottom: 2px solid var(--color-semantic-text-primary);
 }
 
-details.tree details[open]>summary::before,
-details.tree details[open]>div::before {
-  left: -16px;
+details.tree[open]>summary::before,
+details.tree details[open]>summary::before {
   width: 24px;
-}
-
-details.tree>:not(summary)::after,
-details.tree details>:not(summary)::after {
   content: "";
-  position: absolute;
-  top: -9px;
-  left: -28px;
-  bottom: 0;
-  border-left: 2px solid var(--color-semantic-text-primary);
-}
-
-details.tree>:not(summary):last-child::after,
-details.tree details>:not(summary):last-child::after {
-  border-left: none;
-}
-
-
-details.tree>details:last-child>summary::before,
-details.tree details>details:last-child>summary::before,
-details.tree details>div:last-child::before {
-  border-left: 2px solid var(--color-semantic-text-primary);
 }
 
 /* Attempt 2 */
-
 ul.tree,
 ul.tree ul {
   list-style: none;
