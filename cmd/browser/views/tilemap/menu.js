@@ -22,6 +22,8 @@ export class TilemapMenu extends HTMLDetailsElement {
 
   renderData() {
     this.innerHTML = `<summary>${this.title}</summary>`
+    const layers = document.createElement("details")
+    layers.innerHTML = `<summary>layers(${this.data.layers.length})</summary>`
     this.data.layers.forEach((layer, i) => {
       const layerName = layer.meta?.name || `layer_${i}`
       if (!layer.meta) {
@@ -31,6 +33,7 @@ export class TilemapMenu extends HTMLDetailsElement {
 
         return
       }
+
       const details = document.createElement("details")
       const summary = document.createElement("summary")
       summary.innerText = layerName
@@ -39,11 +42,27 @@ export class TilemapMenu extends HTMLDetailsElement {
         const div = document.createElement("div")
         div.innerText = `${k}:${truncateWithEllipses(v, 25)}`
         details.appendChild(div)
-
       })
-      this.appendChild(details)
+      layers.appendChild(details)
     })
-    console.log("rendering data")
+
+    const props = Object.entries(this.data.meta || {})
+    let propsComp
+    if (props.length) {
+      propsComp = document.createElement("details")
+      propsComp.innerHTML = `<summary>props(${props.length})</summary>`
+    } else {
+      propsComp = document.createElement("div")
+      propsComp.innerHTML = `<div>props(${props.length})</div>`
+    }
+    props.forEach(([k, v]) => {
+      const div = document.createElement("div")
+      div.innerText = `${k}:${truncateWithEllipses(v, 25)}`
+      propsComp.appendChild(div)
+    })
+
+    this.appendChild(layers)
+    this.appendChild(propsComp)
   }
 }
 function truncateWithEllipses(text, max) {
