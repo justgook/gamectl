@@ -24,7 +24,7 @@ export class ViewPipeline extends View {
       maxBranching: +data.maxBranching,
       rootBranches: +data.rootBranches
     }))
-    await pluginManager.call('host', 'log', result.output)
+    console.log('[Plugin]', this.DE.decode(result.output))
   }
 
   async generateMinimap(e) {
@@ -34,6 +34,6 @@ export class ViewPipeline extends View {
       treeId: data.inputTreeId,
       mapId: data.mapId
     }))
-    await pluginManager.call('host', 'log', result.output)
+    console.log('[Plugin]', this.DE.decode(result.output))
   }
 }

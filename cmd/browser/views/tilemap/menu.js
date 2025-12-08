@@ -8,7 +8,7 @@ export class TilemapMenu extends HTMLDetailsElement {
     this.className = "tree"
     this.style.position = "absolute"
     this.style.top = 32
-    this.innerHTML = "<summary>loading..</summary>"
+    this.innerHTML = `<summary>loading..</summary>`
   }
 
   get data() {
@@ -22,14 +22,16 @@ export class TilemapMenu extends HTMLDetailsElement {
 
   renderData() {
     this.innerHTML = `<summary>${this.title}</summary>`
+
     const layers = document.createElement("details")
     layers.innerHTML = `<summary>layers(${this.data.layers.length})</summary>`
+
     this.data.layers.forEach((layer, i) => {
       const layerName = layer.meta?.name || `layer_${i}`
       if (!layer.meta) {
         const div = document.createElement("div")
         div.innerText = layerName
-        this.appendChild(div)
+        layers.appendChild(div)
 
         return
       }

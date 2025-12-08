@@ -9,85 +9,31 @@ import { generateHsluvColors } from '../../../util/colors.js'
  * specific renderers.
  */
 export class ColoredTilesRenderer extends LayerRenderer {
-
   constructor(options = {}) {
     super(options)
 
     // Generate color palette for tile rendering
     this.colors = generateHsluvColors(100)
-
-
+    this.defaultTileHeight = 40
+    this.defaultTileWidth = 40
   }
 
-  /**
-   * Render colored tiles for the layer
-   * 
-   * @param {CanvasRenderingContext2D} ctx - Canvas context to draw to
-   * @param {Object} layer - Layer data with width, data, and optional meta
-   * @param {Object} tilemap - Full tilemap data
-   * @param {Object} viewport - Viewport transform matrix
-   */
-  render(ctx, layer, tilemap, viewport) {
-    try {
-      if (!layer || !Array.isArray(layer.data) || !layer.width) {
-        return // Nothing to render
-      }
+  render(ctx, layer, _tilemap, _viewport) {
+    const tw = parseFloat(layer.meta?.tw) || this.defaultTileWidth
+    const th = parseFloat(layer.meta?.th) || this.defaultTileHeight
+    const layerWidth = layer.width
+    for (let i = 0; i < layer.data.length; i++) {
+      const tileValue = layer.data[i]
+      if (!tileValue) continue
 
-      // Get tile dimensions from layer meta or use defaults
-      const tileWidth = layer.meta?.tw || this.defaultTileWidth
-      const tileHeight = layer.meta?.th || this.defaultTileHeight
+      const x = (i % layerWidth) * tw
+      const y = Math.floor(i / layerWidth) * th
 
-      this._drawColoredTiles(ctx, tileWidth, tileHeight, layer.width, layer.data)
-
-    } catch (error) {
-      this.handleError(error, `ColoredTilesRenderer.render for layer with ${layer?.data?.length || 0} tiles`)
-    }
-  }
-
-  /**
-   * Update the color palette
-   * @param {Array} newColors - Array of color strings
-   */
-  updateColors(newColors) {
-    this.colors = newColors
-    this.markDirty()
-  }
-
-  /**
-   * Update default tile dimensions
-   * @param {number} width - Default tile width
-   * @param {number} height - Default tile height
-   */
-  updateDefaultTileSize(width, height) {
-    this.defaultTileWidth = width
-    this.defaultTileHeight = height
-    this.markDirty()
-  }
-
-  // --- Private Methods ---
-
-  /**
-   * Draw colored tiles based on layer data
-   * Extracted from original view-tilemap.js drawColoredTiles function
-   * @private
-   */
-  _drawColoredTiles(ctx, tileWidth, tileHeight, layerWidth, data) {
-    for (let i = 0; i < data.length; i++) {
-      const tileValue = data[i]
-
-      // Skip empty tiles (value 0)
-      if (tileValue < 1) continue
-
-      // Calculate tile position
-      const x = (i % layerWidth) * tileWidth
-      const y = Math.floor(i / layerWidth) * tileHeight
-
-      // Get color for this tile value (with bounds checking)
       const colorIndex = tileValue % this.colors.length
       ctx.fillStyle = this.colors[colorIndex]
 
-      // Draw tile rectangle
-      ctx.fillRect(x, y, tileWidth, tileHeight)
+      ctx.fillRect(x, y, tw, th)
     }
+    ctx.restore()
   }
 }
