@@ -30,7 +30,7 @@
         <div class="panel-header">Testing Panel</div>
         <div class="panel-content"
           style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
-          <button type="button" onclick="pluginManager.call('host', 'log', 'hello world')">Call log</button>
+          <button type="button" onclick="console.log('[Plugin] hello world')">Call log</button>
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').generateWorldgraph()">Create
             world tree</button>
           <button class="button-secondary" type="button" onclick="this.closest('[panel]').assignBiomeNames()">Set biome
@@ -272,7 +272,7 @@
       </layout-parent>
     </popup-manager>
 
-    <script src="./plugin-manager.js"> </script>
+    <script src="./plugin-manager-proxy.js"> </script>
     <script type="module">
       // current
       import {ViewEmpty} from "./views/view-empty.js"
@@ -333,21 +333,7 @@
         url: `/plugins/${name}.wasm?t=${Date.now()}`
       }))
 
-      window.pluginManager = await PluginManager.create({
-        modules: modules,
-        hostFunctions: [
-          {
-            module: 'host',
-            function: 'log',
-            handler: (input) => {
-              const message = typeof input === "string" ? input : new TextDecoder().decode(input)
-              console.log('[Plugin]', message)
-              document.querySelectorAll("view-console")?.forEach(a => a.log(message))
-              return {returnCode: 0, output: new Uint8Array()}
-            }
-          }
-        ]
-      })
+      window.pluginManager = await PluginManagerProxy.create({modules: modules})
 
       const DE = new TextDecoder()
 

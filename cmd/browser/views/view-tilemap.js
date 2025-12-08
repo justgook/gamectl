@@ -9,10 +9,22 @@ import { TilemapMenu } from './tilemap/menu.js'
 
 
 export class ViewTilemap extends ViewCanvasBase {
+  static get observedAttributes() {
+    return [...super.observedAttributes, 'data-key'];
+  }
+  attributeChangedCallback(name, oldVal, newVal) {
+    super.attributeChangedCallback(name, oldVal, newVal)
+    if (name === 'data-key' && oldVal !== newVal) {
+      this.tilemapKey = newVal
+      if (this.isConnected) this.loadAndDraw()
+    }
+  }
+
+
   constructor() {
     super("view-tilemap")
     this.DE = new TextDecoder()
-    this.tilemapKey = 'tileset_demo'
+    this.tilemapKey = 'new_map'
     this.rendersBefore = [new GridRenderer()]
 
     this.availableRenders = new Map()
@@ -50,7 +62,6 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   calculateContentBounds(data) {
-    console.log("ViewTilemap::calculateContentBounds")
     if (!data || !data.layers || !Array.isArray(data.layers) || data.layers.length === 0) {
       return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
     }

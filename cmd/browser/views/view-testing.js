@@ -29,16 +29,16 @@ export class ViewTesting extends View {
       }
     }
     const minimapResult = await pluginManager.call("minimap", "gen", JSON.stringify(minimapInput))
-    await pluginManager.call('host', 'log', minimapResult.output)
+    console.log('[Plugin]', this.DE.decode(minimapResult.output))
   }
   async getMinimap() {
     const result = await this.readFromSqlStorage("tilemap_storage", this.mapId)
-    await pluginManager.call('host', 'log', JSON.stringify(result))
+    console.log('[Plugin]', JSON.stringify(result))
   }
 
   async getTree() {
     const result = await this.readFromSqlStorage("tree_storage", this.treeId)
-    await pluginManager.call('host', 'log', JSON.stringify(result))
+    console.log('[Plugin]', JSON.stringify(result))
   }
 
   assignBiomeNames = async () => {
@@ -55,7 +55,7 @@ export class ViewTesting extends View {
     const escapedData = treeJSON.replace(/'/g, "''")
     const sqlQuery = `INSERT OR REPLACE INTO tree_storage (name, data) VALUES ('${this.treeId}', '${escapedData}')`
     const result = await pluginManager.call("sql", "exec", sqlQuery)
-    await pluginManager.call('host', 'log', result.output)
+    console.log('[Plugin]', this.DE.decode(result.output))
   }
 
   async generateWorldgraph() {
@@ -66,7 +66,7 @@ export class ViewTesting extends View {
       "rootBranches": 2,
     }
     const result = await pluginManager.call("treegen", "gen", JSON.stringify({ name: this.treeId, ...balancedTree }))
-    await pluginManager.call('host', 'log', result.output)
+    console.log('[Plugin]', this.DE.decode(result.output))
   }
 
   async readFromStorage(storage, id) {
