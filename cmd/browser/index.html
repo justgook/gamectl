@@ -274,6 +274,10 @@
 
     <script src="./plugin-manager-proxy.js"> </script>
     <script type="module">
+      // Initialize event bus first
+      import "./systems/event-bus.js"
+      import "./systems/cache.js"
+
       // current
       import {ViewEmpty} from "./views/view-empty.js"
       import {ViewSplitter} from "./views/view-splitter.js"
@@ -298,9 +302,6 @@
       import "./views/nodegraph/node-fromjson.js"
       import "./views/nodegraph/node-fields.js"
       import "./views/nodegraph/node-popup.js"
-
-      // window.bus = bus
-      // import {bus} from "./systems/event-bus.js"
 
       //current stuff
       customElements.define('layout-parent', LayoutParent)
