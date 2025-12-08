@@ -3,10 +3,11 @@ import { GridRenderer } from "./tilemap/renderers/GridRenderer.js"
 import { ColoredTilesRenderer } from "./tilemap/renderers/ColoredTilesRenderer.js"
 import { DoorsRenderer } from "./tilemap/renderers/DoorsRenderer.js"
 import { TilesetRenderer } from "./tilemap/renderers/TilesetRenderer.js"
-import { parseCSVLines } from "../util/csv.js"
 import { TilemapSelector } from './tilemap/TilemapSelector.js'
 import { TilemapMenu } from './tilemap/menu.js'
+import { bus } from "../systems/event-bus.js"
 
+function noop() { }
 
 export class ViewTilemap extends ViewCanvasBase {
   static get observedAttributes() {
@@ -16,6 +17,8 @@ export class ViewTilemap extends ViewCanvasBase {
     super.attributeChangedCallback(name, oldVal, newVal)
     if (name === 'data-key' && oldVal !== newVal) {
       this.tilemapKey = newVal
+      this.unsubscibe()
+      this.unsubscibe = bus.on(this.sqlQuery(), this.dataChanged)
       if (this.isConnected) this.loadAndDraw()
     }
   }
@@ -31,6 +34,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.availableRenders.set('[type="doors"]', DoorsRenderer)
     this.availableRenders.set('[tileset]', TilesetRenderer)
     this.availableRenders.set('*', ColoredTilesRenderer) // Fallback - always last
+    this.unsubscibe = noop
   }
 
   connectedCallback() {
@@ -38,27 +42,33 @@ export class ViewTilemap extends ViewCanvasBase {
     this.menu = new TilemapMenu()
     this.appendChild(this.menu)
     this.renders = []
+    this.unsubscibe = bus.on(this.sqlQuery(), this.dataChanged)
   }
 
-  async fetchData() {
-    const sqlQuery = `SELECT data FROM tilemap_storage WHERE name = '${this.tilemapKey}'`
-    const result = await window.pluginManager.call('sql', 'query', sqlQuery)
-    console.log("fetchData::result", result)
-    const csv = this.DE.decode(result.output)
+  disconnectedCallback() {
+    this.unsubscibe()
+  }
 
-    // Parse CSV to get JSON data
-    const lines = parseCSVLines(csv.trim())
-    if (lines.length < 2 || lines[1].length < 1) {
-      console.warn(`Tilemap not found: ${this.tilemapKey}`)
-      return null
-    }
-
-    const data = JSON.parse(lines[1][0]) // First column of second row
-    console.log(data)
+  dataChanged = (data) => {
+    this.data = data
     this._prepareRenders(data)
     this.menu.title = this.tilemapKey
     this.menu.data = data
-    return data
+
+    // reimplementing fetchData
+    this.contentBounds = this.calculateContentBounds(this.data)
+    this.draw()
+    console.log("dataChanged")
+  }
+
+  sqlQuery() {
+    return `cache:read:SELECT data FROM tilemap_storage WHERE name = '${this.tilemapKey}'`
+  }
+
+  async fetchData() {
+    bus.emit(this.sqlQuery().replace("cache:read:", "cache:load:"))
+
+    return this.data
   }
 
   calculateContentBounds(data) {
@@ -86,14 +96,12 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   drawContent(ctx, tilemap) {
-    console.log("ViewTilemap:drawContent")
     const viewport = this.getViewportMatrix()
     this.rendersBefore.map(rr => rr.render(ctx, null, tilemap, viewport))
     tilemap.layers.forEach((layer, i) => {
       const renderer = this.renders[i]
       const result = renderer.render(ctx, layer, tilemap, viewport)
       if (typeof result?.then !== "function") return
-      console.log("pospone render")
       result.then(() => { this.drawContent(ctx, tilemap) })
     })
   }

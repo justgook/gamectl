@@ -1,5 +1,8 @@
 class EventBus {
   listeners = new Map()
+  subscriptionHook = () => { }
+  unSubscriptionHook = () => { }
+
   on(eventType, listener) {
     let set = this.listeners.get(eventType)
     if (!set) {
@@ -7,6 +10,9 @@ class EventBus {
       this.listeners.set(eventType, set)
     }
     set.add(listener)
+
+    this.subscriptionHook(eventType, listener)
+
     return () => {
       this.off(eventType, listener)
     }
@@ -30,6 +36,8 @@ class EventBus {
     if (set.size === 0) {
       this.listeners.delete(eventType)
     }
+
+    this.unSubscriptionHook(eventType, listener)
   }
 
   emit(eventType, payload) {

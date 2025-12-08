@@ -122,7 +122,7 @@ export class ViewCanvasBase extends View {
 
   draw(reason = "unknown", data = {}) {
     if (!this.ctx || this.loading) return;
-    console.log("ViewCanvasBase::draw", reason, data)
+    // console.log("ViewCanvasBase::draw", reason, data)
 
     const { width, height } = this.canvas
     this.ctx.save()
