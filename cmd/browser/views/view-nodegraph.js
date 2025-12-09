@@ -932,9 +932,9 @@ export class ViewNodeGraph extends ViewCanvasBase {
     return null
   }
 
-  // --- Mouse Event Overrides ---
+  // --- Canvas Hook Implementations (called when space is NOT pressed) ---
 
-  _onMouseDown(e) {
+  onCanvasMouseDown(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
 
     // Priority 1: Check if clicking on a port (extended hit area - highest priority)
@@ -1031,12 +1031,9 @@ export class ViewNodeGraph extends ViewCanvasBase {
       this.clearAllFocus()
       this.draw()
     }
-
-    // Start canvas pan
-    super._onMouseDown(e)
   }
 
-  _onMouseMove(e) {
+  onCanvasMouseMove(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
 
     // Handle connection drag
@@ -1066,24 +1063,22 @@ export class ViewNodeGraph extends ViewCanvasBase {
       }
 
       this.draw()
-      this._handleHover(e)
       return
     }
 
     // Handle node drag
-    if (this.draggedNode && !this.isDragging) {
+    if (this.draggedNode) {
       const newX = worldPos.x - this.dragOffset.x
       const newY = worldPos.y - this.dragOffset.y
 
       this.draggedNode.setAttribute('x', newX)
       this.draggedNode.setAttribute('y', newY)
+      this.draw()
       return
     }
-
-    super._onMouseMove(e)
   }
 
-  _onMouseUp(e) {
+  onCanvasMouseUp(e) {
     // Handle connection creation/reconnection
     if (this.connectionDragState) {
       const worldPos = this.screenToWorld(e.clientX, e.clientY)
@@ -1157,8 +1152,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // End node drag
     this.draggedNode = null
-
-    super._onMouseUp(e)
   }
 
   // --- Node Deletion ---
