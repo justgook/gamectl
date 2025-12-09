@@ -20,7 +20,6 @@ export class ViewTilemap extends ViewCanvasBase {
       this.tilemapKey = newVal
       this.unsubscibe()
       this.unsubscibe = bus.on(this.sqlQuery(), this.dataChanged)
-      if (this.isConnected) this.loadAndDraw()
     }
   }
 
@@ -35,11 +34,11 @@ export class ViewTilemap extends ViewCanvasBase {
     this.availableRenders.set('[tileset]', TilesetRenderer)
     this.availableRenders.set('*', ColoredTilesRenderer) // Fallback - always last
     this.unsubscibe = noop
+    this.menu = new TilemapMenu()
   }
 
   connectedCallback() {
     super.connectedCallback()
-    this.menu = new TilemapMenu()
     this.appendChild(this.menu)
     this.renders = []
     this.unsubscibe = bus.on(this.sqlQuery(), this.dataChanged)

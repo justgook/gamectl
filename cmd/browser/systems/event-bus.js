@@ -18,6 +18,21 @@ class EventBus {
     }
   }
 
+  onSkipHook(eventType, listener) {
+    let set = this.listeners.get(eventType)
+    if (!set) {
+      set = new Set()
+      this.listeners.set(eventType, set)
+    }
+    set.add(listener)
+
+    // Skip subscriptionHook call to avoid recursion
+
+    return () => {
+      this.off(eventType, listener)
+    }
+  }
+
   once(eventType, listener) {
     const wrapper = payload => {
       try {
