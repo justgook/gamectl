@@ -22,11 +22,18 @@ class CacheManager {
     this.bus.on(`cache:load:${sqlQuery}`, () => {
       this.requestData(sqlQuery, (data) => this.bus.emit(`cache:read:${sqlQuery}`, data))
     })
+    console.log("init new", sqlQuery,)
+
+    // this.bus.on(`cache:read:${sqlQuery}`, () => {
+    // console.log("self read")
+    // this.requestData(sqlQuery, (data) => this.bus.emit(`cache:read:${sqlQuery}`, data))
+    // })
   }
 
   unSubscriptionHook(eventType, listener) {
     console.warn("IMPLEMENT CacheManager::unSubscriptionHook")
   }
+
   async requestData(sqlQuery, listener) {
     const result = await window.pluginManager.call('sql', 'query', sqlQuery)
     const csv = this.DE.decode(result.output)

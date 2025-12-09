@@ -24,7 +24,6 @@ export class ViewCanvasBase extends View {
     this.ctx = null;
     this.tileInfo = null; // For hover tooltip
     this.data = null;
-    this.loading = true
 
     // Bind event handlers
     this._onWheel = this._onWheel.bind(this);
@@ -37,7 +36,7 @@ export class ViewCanvasBase extends View {
   connectedCallback() {
     super.connectedCallback();
     this.tileInfo = this.content.querySelector("[data-tooltip]")
-    this.content.querySelector(`[data-action="reload"]`).onclick = () => this.loadAndDraw()
+    this.content.querySelector(`[data-action="reload"]`).onclick = () => this.fetchData()
     this.content.querySelector(`[data-action="zoom-in"]`).onclick = () => this.zoomIn()
     this.content.querySelector(`[data-action="zoom-out"]`).onclick = () => this.zoomOut()
     this.content.querySelector(`[data-action="zoom-fit"]`).onclick = () => this.fitToContent()
@@ -46,7 +45,6 @@ export class ViewCanvasBase extends View {
     this.ctx.imageSmoothingEnabled = false
     this._addEventListeners()
     this.onResize(this.w, this.h)
-    this.loadAndDraw()
   }
 
   disconnectedCallback() {
@@ -77,7 +75,7 @@ export class ViewCanvasBase extends View {
   }
 
   onResize(width, height) {
-    console.log("onResize", width, height)
+    // console.log("onResize", width, height)
     if (!this.canvas || (this.canvas.width === width && this.canvas.height === height)) return
     this.canvas.width = width
     this.canvas.height = height
@@ -103,27 +101,7 @@ export class ViewCanvasBase extends View {
     return null;
   }
 
-  // --- Data and Drawing Pipeline ---
-
-  async loadAndDraw() {
-    try {
-      this.data = await this.fetchData();
-      if (this.data) {
-        this.contentBounds = this.calculateContentBounds(this.data);
-      }
-      this.loading = false
-      this.draw("loadAndDraw")
-    } catch (e) {
-      console.error("Error loading or drawing canvas data:", e);
-      this.data = null;
-      this.draw("loadAndDraw:error"); // Draw placeholder/error state
-    }
-  }
-
   draw(reason = "unknown", data = {}) {
-    if (!this.ctx || this.loading) return;
-    // console.log("ViewCanvasBase::draw", reason, data)
-
     const { width, height } = this.canvas
     this.ctx.save()
     this.ctx.clearRect(0, 0, width, height)
@@ -136,11 +114,8 @@ export class ViewCanvasBase extends View {
     this.ctx.translate(this.offsetX, this.offsetY)
     this.ctx.scale(this.scale, this.scale)
 
-    if (this.data) {
-      this.drawContent(this.ctx, this.data)
-    } else {
-      this._drawPlaceholder(width, height)
-    }
+    this.drawContent(this.ctx, this.data)
+
 
     this.ctx.restore()
   }

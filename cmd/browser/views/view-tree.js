@@ -33,8 +33,8 @@ const TREE_COLORS = {
  * Supports configurable store key via data-key attribute.
  */
 export class ViewTree extends ViewCanvasBase {
-  static get observedAttributes() { 
-    return [...super.observedAttributes, 'data-key']; 
+  static get observedAttributes() {
+    return [...super.observedAttributes, 'data-key'];
   }
 
   constructor() {
@@ -75,6 +75,7 @@ export class ViewTree extends ViewCanvasBase {
 
   async fetchData() {
     bus.emit(this.sqlQuery().replace("cache:read:", "cache:load:"))
+
     return this.data
   }
 
