@@ -1,4 +1,6 @@
 import { panelJoin } from "../systems/split-layout-join.js"
+import { bus } from "../systems/event-bus.js"
+
 const defaultView = "view-empty"
 export class View extends HTMLElement {
   static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel']; }
@@ -9,6 +11,10 @@ export class View extends HTMLElement {
     this._w = 0
     this._h = 0
     this.content = contentTag
+    
+    // Bind focus/blur handlers
+    this._handleFocusIn = this._handleFocusIn.bind(this)
+    this._handleFocusOut = this._handleFocusOut.bind(this)
   }
 
   connectedCallback() {
@@ -29,6 +35,44 @@ export class View extends HTMLElement {
       // Still need to update dimensions if they're set
       this._updatePosition()
     }
+    
+    // Add focus/blur event listeners for keybinding context
+    this.addEventListener('focusin', this._handleFocusIn)
+    this.addEventListener('focusout', this._handleFocusOut)
+  }
+  
+  disconnectedCallback() {
+    // Clean up event listeners
+    this.removeEventListener('focusin', this._handleFocusIn)
+    this.removeEventListener('focusout', this._handleFocusOut)
+  }
+  
+  _handleFocusIn() {
+    // Get view type from tag name or content template
+    const viewType = this.getViewMode()
+    if (viewType) {
+      bus.emit('view:focus', { view: this.tagName.toLowerCase(), mode: viewType })
+    }
+  }
+  
+  _handleFocusOut() {
+    const viewType = this.getViewMode()
+    if (viewType) {
+      bus.emit('view:blur', { view: this.tagName.toLowerCase(), mode: viewType })
+    }
+  }
+  
+  /**
+   * Get the mode/context name for this view
+   * Override in subclasses to provide specific mode names
+   */
+  getViewMode() {
+    // Default: use tag name without 'view-' prefix
+    const tagName = this.tagName.toLowerCase()
+    if (tagName.startsWith('view-')) {
+      return tagName.substring(5) // Remove 'view-' prefix
+    }
+    return 'global'
   }
 
   attributeChangedCallback(name, _oldVal, newVal) {

@@ -1,5 +1,5 @@
 import { ViewCanvasBase } from "./view-canvas-base.js"
-
+import { bus } from "../systems/event-bus.js"
 import { parseCSVLines } from '../util/csv.js'
 
 // Node constants
@@ -97,6 +97,30 @@ export class ViewNodeGraph extends ViewCanvasBase {
     if (runBtn) {
       runBtn.onclick = () => this.executeGraph()
     }
+
+    // Setup keybinding event listeners
+    this.setupKeybindings()
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    // Clean up keybinding listeners
+    if (this.keybindingUnsubscribers) {
+      this.keybindingUnsubscribers.forEach(unsub => unsub())
+      this.keybindingUnsubscribers = []
+    }
+  }
+
+  setupKeybindings() {
+    // Store unsubscribe functions for cleanup
+    this.keybindingUnsubscribers = [
+      bus.on('node:create', () => this.addNodeMenu()),
+      bus.on('node:delete', () => this.deleteFocusedNodes()),
+      bus.on('node:run', () => this.executeGraph()),
+      bus.on('view:zoom-in', () => this.zoomIn()),
+      bus.on('view:zoom-out', () => this.zoomOut()),
+      bus.on('view:zoom-fit', () => this.fitToContent()),
+    ]
   }
 
   // --- Node Registry ---
@@ -1194,13 +1218,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
     return nodesToDelete.length
   }
 
-  /**
-   * Delete currently selected nodes (backward compatibility)
-   * @deprecated Use deleteFocusedNodes() instead
-   */
-  deleteSelectedNodes() {
-    return this.deleteFocusedNodes()
-  }
 
   /**
    * Remove all connections TO a specific node
