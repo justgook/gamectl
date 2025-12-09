@@ -22,12 +22,11 @@ class CacheManager {
     this.bus.on(`cache:load:${sqlQuery}`, () => {
       this.requestData(sqlQuery, (data) => this.bus.emit(`cache:read:${sqlQuery}`, data))
     })
-    console.log("init new", sqlQuery,)
 
-    // this.bus.on(`cache:read:${sqlQuery}`, () => {
-    // console.log("self read")
-    // this.requestData(sqlQuery, (data) => this.bus.emit(`cache:read:${sqlQuery}`, data))
-    // })
+    this.bus.onSkipHook(`cache:read:${sqlQuery}`, (data) => {
+      if (this.caches.get(sqlQuery) === data) { return }
+      this.caches.set(sqlQuery, data)
+    })
   }
 
   unSubscriptionHook(eventType, listener) {

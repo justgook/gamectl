@@ -34,6 +34,7 @@ export class ViewPipeline extends View {
       treeId: data.inputTreeId,
       mapId: data.mapId
     }))
+
     console.log('[Plugin]', this.DE.decode(result.output))
   }
 }

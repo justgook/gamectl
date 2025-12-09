@@ -79,7 +79,7 @@ export class ViewCanvasBase extends View {
     if (!this.canvas || (this.canvas.width === width && this.canvas.height === height)) return
     this.canvas.width = width
     this.canvas.height = height
-    this.draw("resize", { width, height })
+    this.draw()
   }
 
   // --- Abstract Methods (Subclasses must implement) ---
@@ -101,7 +101,8 @@ export class ViewCanvasBase extends View {
     return null;
   }
 
-  draw(reason = "unknown", data = {}) {
+  draw() {
+    if (!this.canvas) { return }
     const { width, height } = this.canvas
     this.ctx.save()
     this.ctx.clearRect(0, 0, width, height)
@@ -206,7 +207,7 @@ export class ViewCanvasBase extends View {
     this.offsetY -= relY * scaleChange;
 
     this._constrainPosition();
-    this.draw("zoom")
+    this.draw()
   }
 
   zoomIn() {
@@ -247,7 +248,7 @@ export class ViewCanvasBase extends View {
     this.offsetY = wrapperHeight / 2 - contentCenterY * this.scale;
 
     this._constrainPosition();
-    this.draw("fitToContent")
+    this.draw()
   }
 
   resetView() {
@@ -263,10 +264,8 @@ export class ViewCanvasBase extends View {
       this.offsetY = 0;
     }
     this._constrainPosition();
-    this.draw("resetView")
+    this.draw()
   }
-
-  // --- Interaction Handlers ---
 
   _onWheel(e) {
     e.preventDefault();
@@ -281,7 +280,7 @@ export class ViewCanvasBase extends View {
       this.offsetX -= e.deltaX;
       this.offsetY -= e.deltaY;
       this._constrainPosition();
-      this.draw("onWheel")
+      this.draw()
     }
   }
 
@@ -297,7 +296,7 @@ export class ViewCanvasBase extends View {
       this.offsetX = e.clientX - this.dragStartX;
       this.offsetY = e.clientY - this.dragStartY;
       this._constrainPosition();
-      this.draw("onMouseMove")
+      this.draw()
     }
 
     this._handleHover(e);
