@@ -11,19 +11,19 @@ class CacheManager {
   }
 
   subscriptionHook(eventType, listener) {
-    if (!eventType.startsWith("cache:read:")) { return }
+    if (!eventType.startsWith("cache:changed:")) { return }
 
-    const sqlQuery = eventType.replace("cache:read:", "")
+    const sqlQuery = eventType.replace("cache:changed:", "")
     if (this.caches.has(sqlQuery)) {
       return listener(this.caches.get(sqlQuery))
     }
 
     this.requestData(sqlQuery, listener)
     this.bus.on(`cache:load:${sqlQuery}`, () => {
-      this.requestData(sqlQuery, (data) => this.bus.emit(`cache:read:${sqlQuery}`, data))
+      this.requestData(sqlQuery, (data) => this.bus.emit(`cache:changed:${sqlQuery}`, data))
     })
 
-    this.bus.onSkipHook(`cache:read:${sqlQuery}`, (data) => {
+    this.bus.onSkipHook(`cache:changed:${sqlQuery}`, (data) => {
       if (this.caches.get(sqlQuery) === data) { return }
       this.caches.set(sqlQuery, data)
     })
