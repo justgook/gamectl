@@ -17,6 +17,7 @@ export class ViewCanvasBase extends View {
     this.isDragging = false;
     this.dragStartX = 0;
     this.dragStartY = 0;
+    this.spacePressed = false;
     // Defines the bounding box of the content in world coordinates (minX, maxX, minY, maxY)
     this.contentBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 
@@ -31,6 +32,8 @@ export class ViewCanvasBase extends View {
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onMouseUp = this._onMouseUp.bind(this);
     this._onMouseLeave = this._onMouseLeave.bind(this);
+    this._onKeyDown = this._onKeyDown.bind(this);
+    this._onKeyUp = this._onKeyUp.bind(this);
   }
 
   connectedCallback() {
@@ -57,6 +60,8 @@ export class ViewCanvasBase extends View {
     this.canvas.addEventListener('mousemove', this._onMouseMove);
     this.canvas.addEventListener('mouseup', this._onMouseUp);
     this.canvas.addEventListener('mouseleave', this._onMouseLeave);
+    window.addEventListener('keydown', this._onKeyDown);
+    window.addEventListener('keyup', this._onKeyUp);
   }
 
   _removeEventListeners() {
@@ -66,6 +71,8 @@ export class ViewCanvasBase extends View {
     this.canvas.removeEventListener('mousemove', this._onMouseMove);
     this.canvas.removeEventListener('mouseup', this._onMouseUp);
     this.canvas.removeEventListener('mouseleave', this._onMouseLeave);
+    window.removeEventListener('keydown', this._onKeyDown);
+    window.removeEventListener('keyup', this._onKeyUp);
   }
 
   // Called by View on resize
@@ -99,6 +106,30 @@ export class ViewCanvasBase extends View {
   getHoverInfo(_worldX, _worldY, _data) {
     // Optional: return null if no info
     return null;
+  }
+
+  /**
+   * Hook for child classes to handle mouse down when space is NOT pressed
+   * @param {MouseEvent} e - Mouse event
+   */
+  onCanvasMouseDown(_e) {
+    // Override in child classes for custom behavior (e.g., painting)
+  }
+
+  /**
+   * Hook for child classes to handle mouse move when space is NOT pressed
+   * @param {MouseEvent} e - Mouse event
+   */
+  onCanvasMouseMove(_e) {
+    // Override in child classes for custom behavior (e.g., painting)
+  }
+
+  /**
+   * Hook for child classes to handle mouse up when space is NOT pressed
+   * @param {MouseEvent} e - Mouse event
+   */
+  onCanvasMouseUp(_e) {
+    // Override in child classes for custom behavior (e.g., painting)
   }
 
   draw() {
@@ -285,31 +316,45 @@ export class ViewCanvasBase extends View {
   }
 
   _onMouseDown(e) {
-    this.isDragging = true;
-    this.dragStartX = e.clientX - this.offsetX;
-    this.dragStartY = e.clientY - this.offsetY;
-    this.canvas.style.cursor = 'grabbing';
+    if (this.spacePressed) {
+      // Space is pressed: pan viewport
+      this.isDragging = true;
+      this.dragStartX = e.clientX - this.offsetX;
+      this.dragStartY = e.clientY - this.offsetY;
+      this.canvas.style.cursor = 'grabbing';
+    } else {
+      // Space not pressed: delegate to child class
+      this.onCanvasMouseDown(e);
+    }
   }
 
   _onMouseMove(e) {
-    if (this.isDragging) {
+    if (this.isDragging && this.spacePressed) {
+      // Panning with space
       this.offsetX = e.clientX - this.dragStartX;
       this.offsetY = e.clientY - this.dragStartY;
       this._constrainPosition();
       this.draw()
+    } else if (!this.spacePressed) {
+      // Not panning: delegate to child class
+      this.onCanvasMouseMove(e);
     }
 
     this._handleHover(e);
   }
 
-  _onMouseUp() {
-    this.isDragging = false;
-    this.canvas.style.cursor = 'grab';
+  _onMouseUp(e) {
+    if (this.isDragging && this.spacePressed) {
+      this.isDragging = false;
+      this.canvas.style.cursor = 'grab';
+    } else if (!this.spacePressed) {
+      this.onCanvasMouseUp(e);
+    }
   }
 
   _onMouseLeave() {
     this.isDragging = false;
-    this.canvas.style.cursor = 'grab';
+    this.canvas.style.cursor = this.spacePressed ? 'grab' : 'default';
     this.tileInfo.style.display = 'none';
   }
 
@@ -336,6 +381,25 @@ export class ViewCanvasBase extends View {
       this.tileInfo.style.display = 'block';
     } else {
       this.tileInfo.style.display = 'none';
+    }
+  }
+
+  _onKeyDown(e) {
+    if (e.code === 'Space' && !this.spacePressed) {
+      this.spacePressed = true;
+      if (this.canvas) {
+        this.canvas.style.cursor = 'grab';
+      }
+      e.preventDefault();
+    }
+  }
+
+  _onKeyUp(e) {
+    if (e.code === 'Space') {
+      this.spacePressed = false;
+      if (this.canvas) {
+        this.canvas.style.cursor = 'default';
+      }
     }
   }
 }

@@ -70,11 +70,11 @@ export class ViewTree extends ViewCanvasBase {
   // --- Abstract Methods Implementation ---
 
   sqlQuery() {
-    return `cache:read:SELECT data FROM tree_storage WHERE name = '${this.treeKey}'`
+    return `cache:changed:SELECT data FROM tree_storage WHERE name = '${this.treeKey}'`
   }
 
   async fetchData() {
-    bus.emit(this.sqlQuery().replace("cache:read:", "cache:load:"))
+    bus.emit(this.sqlQuery().replace("cache:changed:", "cache:load:"))
 
     return this.data
   }
