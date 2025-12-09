@@ -116,10 +116,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   unregisterNode(nodeElement) {
     const nodeId = nodeElement.id
-    console.log(`Unregistering node: ${nodeId}`)
+    // console.log(`Unregistering node: ${nodeId}`)
 
     // Clean up connections TO this node before removing it
-    console.log(`Cleaning up connections for deleted node: ${nodeId}`)
+    // console.log(`Cleaning up connections for deleted node: ${nodeId}`)
     this.removeConnectionsToNode(nodeId)
 
     // Remove from internal state
@@ -845,7 +845,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       return
     }
 
-    console.log(`Moving node ${node.id} to front (preserving state and connections)`)
+    // console.log(`Moving node ${node.id} to front (preserving state and connections)`)
 
     // Use moveBefore() to move the node to the end
     // parent.moveBefore(child, null) moves child to the end of parent
@@ -853,7 +853,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // which preserves all state automatically without needing workarounds
     this.moveBefore(node, null)
 
-    console.log(`Node ${node.id} moved to front successfully`)
+    // console.log(`Node ${node.id} moved to front successfully`)
 
     // Redraw to show the new layering
     this.draw("focusNode")
@@ -1175,7 +1175,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       return false
     }
 
-    console.log(`Deleting node: ${nodeId}`)
+    // console.log(`Deleting node: ${nodeId}`)
 
     // Remove from DOM - this triggers disconnectedCallback -> unregisterNode
     node.remove()
@@ -1188,11 +1188,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
   deleteFocusedNodes() {
     const nodesToDelete = this.getFocusedNodes()
     if (nodesToDelete.length === 0) {
-      console.log('No nodes focused for deletion')
+      // console.log('No nodes focused for deletion')
       return 0
     }
 
-    console.log(`Deleting ${nodesToDelete.length} focused nodes`)
+    // console.log(`Deleting ${nodesToDelete.length} focused nodes`)
 
     for (const node of nodesToDelete) {
       this.deleteNode(node.id)
@@ -1215,7 +1215,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
    * @param {string} nodeId - ID of the node being deleted
    */
   removeConnectionsToNode(nodeId) {
-    console.log(`Cleaning up connections to node: ${nodeId}`)
+    // console.log(`Cleaning up connections to node: ${nodeId}`)
 
     let anyUpdated = false
 
@@ -1245,7 +1245,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       const hasChanges = updatedPairs.some((pair, index) => pair !== inputPairs[index])
       if (hasChanges) {
         const newInputs = updatedPairs.join(',')
-        console.log(`  Disconnected ${node.id} inputs: ${currentInputs} -> ${newInputs}`)
+        // console.log(`  Disconnected ${node.id} inputs: ${currentInputs} -> ${newInputs}`)
         node.setAttribute('inputs', newInputs)
         anyUpdated = true
       }
@@ -1418,14 +1418,14 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   async onRunButtonClick(node) {
     if (node.isExecuting) {
-      console.log(`Node ${node.id} is already executing`)
+      // console.log(`Node ${node.id} is already executing`)
       return
     }
 
     const isRerun = node.state === 'success' || node.state === 'error'
     const action = isRerun ? 'Re-running' : 'Running'
 
-    console.log(`${action} node: ${node.id}`)
+    // console.log(`${action} node: ${node.id}`)
 
     try {
       // Force rerun if the node has already completed
@@ -1433,7 +1433,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       const firstOutput = outputPorts.length > 0 ? outputPorts[0].name : 'output'
 
       await node.getOutputValue(firstOutput, isRerun) // Force rerun if needed
-      console.log(`✓ Node ${node.id} completed successfully`)
+      // console.log(`✓ Node ${node.id} completed successfully`)
     } catch (error) {
       console.error(`✗ Node ${node.id} failed:`, error)
     }
@@ -1460,7 +1460,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
    * Handle delete button click
    */
   onDeleteButtonClick(node) {
-    console.log(`Delete button clicked for node: ${node.id}`)
+    // console.log(`Delete button clicked for node: ${node.id}`)
 
     // Delete immediately for better UX (no confirmation dialog)
     this.deleteNode(node.id)
@@ -1490,7 +1490,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       return
     }
 
-    console.log(`Opening edit popup for template node: ${node.id}`)
+    // console.log(`Opening edit popup for template node: ${node.id}`)
 
     try {
       await node.openEditPopup()
@@ -1505,7 +1505,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     if (this.isExecuting) return
 
     this.isExecuting = true
-    console.log('Executing entire graph...')
+    // console.log('Executing entire graph...')
 
     try {
       // Execute all output nodes (they will naturally trigger their dependencies)
@@ -1514,12 +1514,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
       )
 
       if (outputNodes.length === 0) {
-        console.log('No output nodes found. Try adding some output nodes or use individual run buttons.')
+        // console.log('No output nodes found. Try adding some output nodes or use individual run buttons.')
         return
       }
 
       for (const node of outputNodes) {
-        console.log(`Executing output node: ${node.id}`)
+        // console.log(`Executing output node: ${node.id}`)
         try {
           await node.startExecution()
         } catch (error) {
@@ -1687,7 +1687,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // Insert into DOM - node will auto-register via connectedCallback
     this.appendChild(nodeElement)
 
-    console.log('Created node:', nodeId, 'at', pos)
+    // console.log('Created node:', nodeId, 'at', pos)
   }
 
   getCreationPosition() {

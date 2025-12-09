@@ -13,6 +13,7 @@ export class ViewTilemap extends ViewCanvasBase {
   static get observedAttributes() {
     return [...super.observedAttributes, 'data-key'];
   }
+
   attributeChangedCallback(name, oldVal, newVal) {
     super.attributeChangedCallback(name, oldVal, newVal)
     if (name === 'data-key' && oldVal !== newVal) {
@@ -22,7 +23,6 @@ export class ViewTilemap extends ViewCanvasBase {
       if (this.isConnected) this.loadAndDraw()
     }
   }
-
 
   constructor() {
     super("view-tilemap")
@@ -58,7 +58,6 @@ export class ViewTilemap extends ViewCanvasBase {
     // reimplementing fetchData
     this.contentBounds = this.calculateContentBounds(this.data)
     this.draw()
-    console.log("dataChanged")
   }
 
   sqlQuery() {
@@ -96,6 +95,7 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   drawContent(ctx, tilemap) {
+    if (!this.data) { return }
     const viewport = this.getViewportMatrix()
     this.rendersBefore.map(rr => rr.render(ctx, null, tilemap, viewport))
     tilemap.layers.forEach((layer, i) => {
