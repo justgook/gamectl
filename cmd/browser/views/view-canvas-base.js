@@ -397,6 +397,8 @@ export class ViewCanvasBase extends View {
   _onKeyUp(e) {
     if (e.code === 'Space') {
       this.spacePressed = false;
+      // Clear dragging state when space is released to prevent jump on next space press
+      this.isDragging = false;
       if (this.canvas) {
         this.canvas.style.cursor = 'default';
       }
