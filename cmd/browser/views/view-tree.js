@@ -1,5 +1,7 @@
 import { ViewCanvasBase } from "./view-canvas-base.js"
-import { parseCSVLines } from "../util/csv.js"
+import { bus } from "../systems/event-bus.js"
+
+function noop() { }
 
 // Layout constants
 const NODE_MIN_WIDTH = 200;
@@ -28,88 +30,58 @@ const TREE_COLORS = {
 /**
  * Tree Visualizer View Component for tree structure.
  * Displays hierarchical tree structures using a canvas.
- * Supports configurable store key via data-store-key attribute.
+ * Supports configurable store key via data-key attribute.
  */
 export class ViewTree extends ViewCanvasBase {
   static get observedAttributes() { 
-    return [...super.observedAttributes, 'data-store-key']; 
+    return [...super.observedAttributes, 'data-key']; 
   }
 
   constructor() {
     super("view-tree")
     this.treeKey = 'progression' // Default key for tree data storage
-    this.DE = new TextDecoder()
 
     // Tree-specific state
     this.nodePositions = {};
     this.nodeSizes = {};
     this.expandedNodes = new Set();
-    console.log("2222")
+    this.unsubscribe = noop
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
     super.attributeChangedCallback(name, oldVal, newVal)
-    if (name === 'data-store-key' && oldVal !== newVal) {
+    if (name === 'data-key' && oldVal !== newVal) {
       this.treeKey = newVal
+      this.unsubscribe()
+      this.unsubscribe = bus.on(this.sqlQuery(), this.dataChanged)
       if (this.isConnected) this.loadAndDraw()
     }
   }
 
-  // Get store key from data-store-key attribute or use default
-  getStoreKey() {
-    return this.element?.getAttribute('data-store-key') || this.treeKey;
+  connectedCallback() {
+    super.connectedCallback()
+    this.unsubscribe = bus.on(this.sqlQuery(), this.dataChanged)
+  }
+
+  disconnectedCallback() {
+    this.unsubscribe()
   }
 
   // --- Abstract Methods Implementation ---
 
+  sqlQuery() {
+    return `cache:read:SELECT data FROM tree_storage WHERE name = '${this.treeKey}'`
+  }
+
   async fetchData() {
-    console.log("fetchData")
-    if (!window.pluginManager) {
-      console.warn('Plugin manager not available.')
-      return null
-    }
-    try {
-      // Query tree from SQL storage
-      const storeKey = this.getStoreKey();
-      const sqlQuery = `SELECT data FROM tree_storage WHERE name = '${storeKey}'`
-      const result = await window.pluginManager.call('sql', 'query', sqlQuery)
-      const csv = this.DE.decode(result.output)
+    bus.emit(this.sqlQuery().replace("cache:read:", "cache:load:"))
+    return this.data
+  }
 
-      // Parse CSV to get JSON data
-      const lines = parseCSVLines(csv.trim())
-      if (lines.length < 2 || lines[1].length < 1) {
-        console.warn(`Tree not found: ${storeKey}`)
-        throw new Error(`Tree not found: ${storeKey}`)
-      }
-
-      const data = lines[1][0] // First column of second row
-      return JSON.parse(data)
-    } catch (error) {
-      console.warn('Failed to get tree data:', error)
-      // Return example tree structure for testing
-      return [
-        {
-          "data": { "name": "Tutorial", "difficulty": "easy", "type": "intro" },
-          "parent": 0
-        },
-        {
-          "data": { "name": "Forest Path", "difficulty": "medium", "enemies": "3" },
-          "parent": 0
-        },
-        {
-          "data": { "name": "Hidden Cave", "difficulty": "hard", "reward": "legendary sword" },
-          "parent": 0
-        },
-        {
-          "data": { "name": "Mountain Pass", "difficulty": "hard", "boss": "Dragon" },
-          "parent": 1
-        },
-        {
-          "data": { "difficulty": "medium", "puzzle": "bridge" },
-          "parent": 1
-        }
-      ];
-    }
+  dataChanged = (data) => {
+    this.data = data
+    this.contentBounds = this.calculateContentBounds(this.data)
+    this.draw()
   }
 
   calculateContentBounds(data) {
@@ -496,7 +468,8 @@ export class ViewTree extends ViewCanvasBase {
         } else {
           this.expandedNodes.add(nodeIndex);
         }
-        this.loadAndDraw();
+        this.contentBounds = this.calculateContentBounds(this.data)
+        this.draw()
         return true;
       }
     }
