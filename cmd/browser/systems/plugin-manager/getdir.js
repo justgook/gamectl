@@ -49,9 +49,11 @@ async function verifyPermission(handle, mode = "readwrite") {
   if ((await handle.queryPermission(opts)) === "granted") return true
 
   // Request permission if not
-  if ((await handle.requestPermission(opts)) === "granted") return true
-
-  return false
+  return await new Promise((resolve) => {
+    document.addEventListener("click", async function() {
+      resolve((await handle.requestPermission(opts)) === "granted")
+    }, { once: true })
+  })
 }
 
 async function handleExists(dirHandle) {
@@ -85,10 +87,8 @@ export async function getDirectoryHandle() {
 
   // Otherwise ask user once
   handle = await new Promise((resolve) => {
-    document.addEventListener("click", async function(evnt) {
-      console.log(evnt.target.id)
-      const dir = await window.showDirectoryPicker({ id: 'demo', mode: 'readwrite' })
-      resolve(dir)
+    document.addEventListener("click", async function() {
+      resolve(await window.showDirectoryPicker({ id: 'demo', mode: 'readwrite' }))
     }, { once: true })
   })
 

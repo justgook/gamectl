@@ -149,7 +149,7 @@ web: $(DESIGN_TOKEN_FILES) $(PLUGIN_TARGETS)
 	$(Q)echo "  Copying design tokens..."
 	$(Q)cp -r $(BUILD_DIR)/tokens/* $(BUILD_DIR)/web/tokens/
 	$(Q)echo "  Copying plugins..."
-	$(Q)cp $(BUILD_DIR)/plugins/*.wasm $(BUILD_DIR)/web/plugins/
+	$(Q)cp -r $(BUILD_DIR)/plugins/* $(BUILD_DIR)/web/plugins/
 	$(Q)echo "✓ Production build ready at $(BUILD_DIR)/web/"
 
 .PHONY: clean
