@@ -9,6 +9,9 @@
 
 // Import the PluginManager class
 importScripts('./plugin-manager.js')
+// importScripts("/plugins/fs/index.js")
+// import { Delme } from "/plugins/fs/index.js"
+// console.log("THE PLUGIN WORKER", Delme)
 
 let manager = null
 
@@ -21,7 +24,7 @@ self.onmessage = async (e) => {
   try {
     switch (type) {
       case 'init':
-        await handleInit(id, payload)
+        await handleInit(id)
         break
 
       case 'call':
@@ -48,9 +51,39 @@ self.onmessage = async (e) => {
   }
 }
 
-async function handleInit(id, options) {
+async function handleInit(id) {
+  const pluginNames = [
+    // THE NEW stuff
+    'random',
+    'treegen',
+    'minimap',
+    // upcomming
+    'automap',
+    // delete those
+    'math',
+    // THE new stuff
+    'sql',
+  ];
+
+  // Create modules array for plugin manager with cache-busting
+  const modules = pluginNames.map(name => ({
+    name: name,
+    url: `/plugins/${name}.wasm?t=${Date.now()}`
+  }))
   // Remove any host functions - we don't need them in the worker
-  const workerOptions = { ...options, hostFunctions: [] }
+  const workerOptions = {
+    modules, hostFunctions: [
+      {
+        module: 'host',
+        function: 'log',
+        handler: (input) => {
+          const message = typeof input === "string" ? input : new TextDecoder().decode(input)
+          console.log('[Plugin]', message)
+          return { returnCode: 0, output: new Uint8Array() }
+        }
+      }
+    ]
+  }
 
   manager = await PluginManager.create(workerOptions)
 
@@ -59,6 +92,8 @@ async function handleInit(id, options) {
     type: 'init-success'
   })
 }
+
+
 
 /**
  * Handle plugin call

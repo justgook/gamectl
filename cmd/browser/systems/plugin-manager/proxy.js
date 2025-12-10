@@ -9,7 +9,7 @@
  *   const result = await manager.call('plugin', 'function', input)
  */
 
-class PluginManagerProxy {
+export class PluginManagerProxy {
   constructor() {
     this.worker = null
     this.messageId = 0
@@ -21,31 +21,25 @@ class PluginManagerProxy {
    * @param {Object} options - Same options as PluginManager.create()
    * @returns {Promise<PluginManagerProxy>}
    */
-  static async create(options = {}) {
+  static async create() {
+
     const proxy = new PluginManagerProxy()
-    await proxy.init(options)
+    await proxy.init()
     return proxy
   }
 
   /**
    * Initialize the worker and plugin manager
    */
-  async init(options) {
+  async init() {
     // Create worker
-    this.worker = new Worker('./plugin-manager-worker.js')
+    this.worker = new Worker(new URL("worker.js", import.meta.url))
 
     // Set up message handler
     this.worker.onmessage = (e) => this.handleMessage(e)
     this.worker.onerror = (error) => this.handleError(error)
 
-    // Initialize plugin manager in worker
-    // Remove hostFunctions - they're not needed
-    const workerOptions = {
-      modules: options.modules || [],
-      config: options.config || {}
-    }
-
-    return this.sendMessage('init', workerOptions)
+    return this.sendMessage('init')
   }
 
   /**
@@ -173,9 +167,3 @@ class PluginManagerProxy {
   }
 }
 
-// Export for both browser and module environments
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { PluginManagerProxy }
-} else if (typeof window !== 'undefined') {
-  window.PluginManagerProxy = PluginManagerProxy
-}

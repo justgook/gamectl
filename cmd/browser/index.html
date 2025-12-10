@@ -272,7 +272,6 @@
       </layout-parent>
     </popup-manager>
 
-    <script src="./plugin-manager-proxy.js"> </script>
     <script type="module">
       // Initialize event bus first
       import "./systems/event-bus.js"
@@ -291,6 +290,7 @@
 
       // Popup system
       import {PopupManager} from "./views/popup-manager.js"
+      import {PluginManagerProxy} from "./systems/plugin-manager/proxy.js"
       import {ViewPopup} from "./views/view-popup.js"
 
       // Node graph components
@@ -315,26 +315,7 @@
       // customElements.define('view-nodegraph', ViewNodeGraph) //already registered in file
 
       /// THE PLUGIN MANAGER TESTING!!!
-      const pluginNames = [
-        // THE NEW stuff
-        'random',
-        'treegen',
-        'minimap',
-        // upcomming
-        'automap',
-        // delete those
-        'math',
-        // THE new stuff
-        'sql',
-      ];
-
-      // Create modules array for plugin manager with cache-busting
-      const modules = pluginNames.map(name => ({
-        name: name,
-        url: `/plugins/${name}.wasm?t=${Date.now()}`
-      }))
-
-      window.pluginManager = await PluginManagerProxy.create({modules: modules})
+      window.pluginManager = await PluginManagerProxy.create()
 
       const DE = new TextDecoder()
 
@@ -431,7 +412,7 @@
           // Detect OS (for future multi-platform support)
           const platform = navigator.platform.toLowerCase()
           let keybindingsFile = 'keybindings-macos.sql' // Default to macOS for now
-          
+
           /* Future OS detection:
           if (platform.includes('win')) {
             keybindingsFile = 'keybindings-windows.sql'
@@ -439,17 +420,17 @@
             keybindingsFile = 'keybindings-linux.sql'
           }
           */
-          
+
           const response = await fetch(`/data/${keybindingsFile}`)
           if (!response.ok) {
             console.error('Failed to load keybindings:', response.statusText)
             return
           }
-          
+
           const migrationSql = await response.text()
           const result = await window.pluginManager.call('sql', 'restore', migrationSql)
           console.log('Keybindings initialized:', DE.decode(result.output))
-          
+
           // Verify bindings loaded
           const verifyResult = await window.pluginManager.call('sql', 'query',
             'SELECT COUNT(*) as count FROM keybindings WHERE enabled=1'
@@ -463,7 +444,7 @@
       await initKeybindings()
 
       // Initialize keybinding manager
-      import { keybindingManager } from "./systems/keybinding-manager.js"
+      import {keybindingManager} from "./systems/keybinding-manager.js"
       await keybindingManager.init()
       window.keybindingManager = keybindingManager // Expose for debugging
 
