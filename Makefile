@@ -44,6 +44,26 @@ SYS_GOOS := $(shell go env GOOS)
 SYS_GOARCH := $(shell go env GOARCH)
 GO_MODULE_NAME ?= $(shell go list -m)
 
+
+
+VENDOR_DIR := cmd/browser/vendor
+MEMFS_BUNDLE := $(VENDOR_DIR)/memfs.bundle.min.js
+
+.PHONY: vendor-memfs
+vendor-memfs: $(MEMFS_BUNDLE)
+
+$(MEMFS_BUNDLE): $(BUILD_DIR)
+	@echo "💡 Building memfs-browser bundle..."
+	@cd $(BUILD_DIR) && \
+	  bun install memfs-browser --no-save && \
+	  bunx esbuild \
+	    node_modules/memfs-browser/dist/memfs.esm.min.js \
+	    --bundle \
+	    --platform=browser \
+	    --minify \
+	    --outfile=../$(MEMFS_BUNDLE)
+
+
 .PHONY: all
 all: browser
 
@@ -109,11 +129,11 @@ $(DESIGN_DIR)/node_modules: $(DESIGN_DIR)/package.json $(DESIGN_DIR)/bun.lock
 	# $(Q)touch $@ 
 
 .PHONY: browser
-browser: design-tokens $(PLUGIN_TARGETS)
+browser: vendor-memfs design-tokens $(PLUGIN_TARGETS)
 	$(Q)go build -o $(BUILD_DIR)/browser-server ./cmd/browser/server.go
 
 .PHONY: browser-run
-browser-run: browser $(PLUGIN_TARGETS)
+browser-run: vendor-memfs browser $(PLUGIN_TARGETS)
 	$(Q)echo "Starting GameCtl Browser IDE..."
 	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
 
