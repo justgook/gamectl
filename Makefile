@@ -38,31 +38,19 @@ DESIGN_DIR ?= design
 # Detect all plugin subdirectories
 PLUGIN_DIRS := $(wildcard $(PLUGIN_DIR)/*)
 PLUGINS := $(notdir $(PLUGIN_DIRS))
-PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
+PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS))) $(BUILD_DIR)/plugins/fs/index.js $(BUILD_DIR)/fs/worker.js
 
 SYS_GOOS := $(shell go env GOOS)
 SYS_GOARCH := $(shell go env GOARCH)
 GO_MODULE_NAME ?= $(shell go list -m)
 
 
-
-VENDOR_DIR := cmd/browser/vendor
-MEMFS_BUNDLE := $(VENDOR_DIR)/memfs.bundle.min.js
-
-.PHONY: vendor-memfs
-vendor-memfs: $(MEMFS_BUNDLE)
-
-$(MEMFS_BUNDLE): $(BUILD_DIR)
-	@echo "💡 Building memfs-browser bundle..."
-	@cd $(BUILD_DIR) && \
-	  bun install memfs-browser --no-save && \
-	  bunx esbuild \
-	    node_modules/memfs-browser/dist/memfs.esm.min.js \
-	    --bundle \
-	    --platform=browser \
-	    --minify \
-	    --outfile=../$(MEMFS_BUNDLE)
-
+$(BUILD_DIR)/plugins/fs/index.js $(BUILD_DIR)/fs/worker.js: $(BUILD_DIR) $(wildcard $(PLUGIN_DIR)/fs/*.js)
+	$(Q)echo "💡 Building fs plugin bundle..."
+	$(Q)cd $(BUILD_DIR) && \
+	  bun install esbuild memfs esbuild-plugins-node-modules-polyfill --no-save && \
+	  cp -R ../plugins/fs . && \
+	  bun run ./fs/esbuild.config.js
 
 .PHONY: all
 all: browser
@@ -79,6 +67,10 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Zig plugin $*..."
 	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
+
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
+	$(Q)echo "nothing to do $*..."
+	$(Q)touch $@
 
 # Special rule for SQL plugin with SQLite3
 # Note: Uses wasm32-wasi target (not freestanding) because SQLite3 needs libc
@@ -129,11 +121,11 @@ $(DESIGN_DIR)/node_modules: $(DESIGN_DIR)/package.json $(DESIGN_DIR)/bun.lock
 	# $(Q)touch $@ 
 
 .PHONY: browser
-browser: vendor-memfs design-tokens $(PLUGIN_TARGETS)
+browser: design-tokens $(PLUGIN_TARGETS)
 	$(Q)go build -o $(BUILD_DIR)/browser-server ./cmd/browser/server.go
 
 .PHONY: browser-run
-browser-run: vendor-memfs browser $(PLUGIN_TARGETS)
+browser-run: browser $(PLUGIN_TARGETS)
 	$(Q)echo "Starting GameCtl Browser IDE..."
 	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
 
