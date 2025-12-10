@@ -1,3 +1,4 @@
+import { getDirectoryHandle } from "./getdir.js"
 /**
  * Plugin Manager Proxy (Main Thread)
  * 
@@ -39,7 +40,10 @@ export class PluginManagerProxy {
     this.worker.onmessage = (e) => this.handleMessage(e)
     this.worker.onerror = (error) => this.handleError(error)
 
-    return this.sendMessage('init')
+    const dir = window.showDirectoryPicker ? await getDirectoryHandle() : null
+
+    return this.sendMessage('init', dir)
+
   }
 
   /**
