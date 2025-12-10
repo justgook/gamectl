@@ -38,7 +38,7 @@ DESIGN_DIR ?= design
 # Detect all plugin subdirectories
 PLUGIN_DIRS := $(wildcard $(PLUGIN_DIR)/*)
 PLUGINS := $(notdir $(PLUGIN_DIRS))
-PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS))) $(BUILD_DIR)/plugins/fs/index.js $(BUILD_DIR)/fs/worker.js
+PLUGIN_TARGETS := $(BUILD_DIR)/plugins/fs/index.js $(BUILD_DIR)/fs/worker.js $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
 
 SYS_GOOS := $(shell go env GOOS)
 SYS_GOARCH := $(shell go env GOARCH)
@@ -143,6 +143,7 @@ web: $(DESIGN_TOKEN_FILES) $(PLUGIN_TARGETS)
 	$(Q)echo "Creating production web build in $(BUILD_DIR)/web/..."
 	$(Q)mkdir -p $(BUILD_DIR)/web/tokens $(BUILD_DIR)/web/plugins
 	$(Q)echo "  Copying browser files..."
+	$(Q)pwd
 	$(Q)cp cmd/browser/*.html cmd/browser/*.css cmd/browser/*.js $(BUILD_DIR)/web/
 	$(Q)cp -r cmd/browser/data cmd/browser/systems cmd/browser/util cmd/browser/views $(BUILD_DIR)/web/
 	$(Q)echo "  Copying design tokens..."
