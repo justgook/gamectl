@@ -5,9 +5,10 @@ build({
   entryPoints: ['fs/index.js', 'fs/worker.js'],  // your entry point
   bundle: true,
   minify: true,
-  format: 'esm',
+  format: 'iife',
   platform: 'browser',
   outdir: 'plugins/fs',
+  globalName: "PluginFileSystem",
   plugins: [
     nodeModulesPolyfillPlugin({
       //     globals: { Buffer: true },

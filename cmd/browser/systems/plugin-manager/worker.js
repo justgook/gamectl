@@ -9,9 +9,7 @@
 
 // Import the PluginManager class
 importScripts('./plugin-manager.js')
-// importScripts("/plugins/fs/index.js")
-// import { Delme } from "/plugins/fs/index.js"
-// console.log("THE PLUGIN WORKER", Delme)
+importScripts("/plugins/fs/index.js")
 
 let manager = null
 
@@ -24,7 +22,11 @@ self.onmessage = async (e) => {
   try {
     switch (type) {
       case 'init':
-        await handleInit(id)
+        await handleInit(id, payload)
+        break
+
+      case 'setDir':
+        await handleSetDir(id, payload)
         break
 
       case 'call':
@@ -51,28 +53,28 @@ self.onmessage = async (e) => {
   }
 }
 
-async function handleInit(id) {
+async function handleInit(id, maybeDir) {
+
   const pluginNames = [
-    // THE NEW stuff
     'random',
     'treegen',
     'minimap',
-    // upcomming
     'automap',
     // delete those
     'math',
-    // THE new stuff
     'sql',
   ];
 
-  // Create modules array for plugin manager with cache-busting
-  const modules = pluginNames.map(name => ({
-    name: name,
-    url: `/plugins/${name}.wasm?t=${Date.now()}`
-  }))
-  // Remove any host functions - we don't need them in the worker
+  const dir = maybeDir ?? await navigator.storage.getDirectory()
+
+  await PluginFileSystem.create(dir)
+
   const workerOptions = {
-    modules, hostFunctions: [
+    modules: pluginNames.map(name => ({
+      name: name,
+      url: `/plugins/${name}.wasm?t=${Date.now()}`
+    })),
+    hostFunctions: [
       {
         module: 'host',
         function: 'log',
@@ -81,9 +83,11 @@ async function handleInit(id) {
           console.log('[Plugin]', message)
           return { returnCode: 0, output: new Uint8Array() }
         }
-      }
+      },
+      { module: 'fs', function: 'mkdir', handler: PluginFileSystem.mkdir }
     ]
   }
+
 
   manager = await PluginManager.create(workerOptions)
 
@@ -93,7 +97,13 @@ async function handleInit(id) {
   })
 }
 
-
+async function handleSetDir(id, payload) {
+  await PluginFileSystem.create(payload)
+  self.postMessage({
+    id,
+    type: 'setdir-success'
+  })
+}
 
 /**
  * Handle plugin call
