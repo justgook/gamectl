@@ -13,7 +13,7 @@ A minimal, flexible tile map representation library for game world generation in
 ## Philosophy
 
 This library takes a minimalist approach:
-- **No forced structure** - Use metadata to define your own conventions
+- **No forced structure** - Use Propsdata to define your own conventions
 - **Plugin-friendly** - Core types are simple, plugins add features
 - **Flexible** - Layers can represent tiles, collision, biomes, or anything else
 - **Serializable** - Clean JSON format for easy storage and transmission
@@ -22,38 +22,38 @@ This library takes a minimalist approach:
 
 ### TileMap
 
-The root structure containing layers and metadata.
+The root structure containing layers and Propsdata.
 
 ```go
 type TileMap struct {
     Layers []TileLayer       `json:"layers"`
-    Meta   map[string]string `json:"meta"`
+    Props   map[string]string `json:"Props"`
 }
 ```
 
-**Common metadata conventions:**
+**Common Propsdata conventions:**
 - `version` - Format version
 - `tileWidth`, `tileHeight` - Default tile dimensions
 - `name` - Map name
 
 ### TileLayer
 
-A single layer of tiles with width, data array, and metadata.
+A single layer of tiles with width, data array, and Propsdata.
 
 ```go
 type TileLayer struct {
     Width int               `json:"width"`
     Data  []uint32          `json:"data"`
-    Meta  map[string]string `json:"meta"`
+    Props  map[string]string `json:"Props"`
 }
 ```
 
 **Data format:**
 - Flat array of tile indices: `Data[y * Width + x]`
 - `0` = empty/no tile
-- `1+` = tile ID (meaning defined by layer metadata)
+- `1+` = tile ID (meaning defined by layer Propsdata)
 
-**Common metadata conventions:**
+**Common Propsdata conventions:**
 - `name` - Layer name
 - `tileset` - JSON string with tileset info: `{"source":"tiles.png","tileWidth":32,"tileHeight":32}`
 - `collision` - Boolean flag: `"true"` for collision layers
@@ -75,13 +75,13 @@ import "github.com/justgook/wasm-tiled/tilemap"
 
 // Create a new map
 tileMap := tilemap.NewTileMap()
-tileMap.Meta["tileWidth"] = "32"
-tileMap.Meta["tileHeight"] = "32"
+tileMap.Props["tileWidth"] = "32"
+tileMap.Props["tileHeight"] = "32"
 
 // Create a layer
 layer := tilemap.NewTileLayer(20, 15) // 20x15 tiles
-layer.Meta["name"] = "ground"
-layer.Meta["tileset"] = `{"source":"tiles.png","tileWidth":32,"tileHeight":32}`
+layer.Props["name"] = "ground"
+layer.Props["tileset"] = `{"source":"tiles.png","tileWidth":32,"tileHeight":32}`
 
 // Set some tiles
 layer.Data[0] = 1  // Top-left tile
@@ -110,8 +110,8 @@ Layers don't require tilesets - they can represent any grid data:
 
 ```go
 collisionLayer := tilemap.NewTileLayer(20, 15)
-collisionLayer.Meta["name"] = "collision"
-collisionLayer.Meta["collision"] = "true"
+collisionLayer.Props["name"] = "collision"
+collisionLayer.Props["collision"] = "true"
 
 // 0 = passable, 1 = solid
 collisionLayer.Data[0] = 1  // Solid tile at (0, 0)
@@ -134,7 +134,7 @@ This creates a sample map with:
 1. **Minimal core** - Only essential types, no assumptions about usage
 2. **Plugin extensibility** - Features added through plugins, not core library
 3. **WASM-friendly** - Simple types that cross WASM boundaries easily
-4. **Metadata-driven** - Use `Meta` maps for flexible, custom properties
+4. **Propsdata-driven** - Use `Props` maps for flexible, custom properties
 5. **No dependencies** - Only standard library
 
 ## Use Cases

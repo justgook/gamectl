@@ -19,8 +19,8 @@ export class ColoredTilesRenderer extends LayerRenderer {
   }
 
   render(ctx, layer, _tilemap, _viewport) {
-    const tw = parseFloat(layer.meta?.tw) || this.defaultTileWidth
-    const th = parseFloat(layer.meta?.th) || this.defaultTileHeight
+    const tw = parseFloat(layer.props?.tw) || this.defaultTileWidth
+    const th = parseFloat(layer.props?.th) || this.defaultTileHeight
     const layerWidth = layer.width
     for (let i = 0; i < layer.data.length; i++) {
       const tileValue = layer.data[i]

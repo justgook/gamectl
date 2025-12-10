@@ -16,7 +16,7 @@ func (e *AutomapEngine) Apply(
 	outputMap *tilemap.TileMap,
 ) error {
 	// 1. Parse global config
-	config, err := ParseGlobalConfig(rulesMap.Meta)
+	config, err := ParseGlobalConfig(rulesMap.Props)
 	if err != nil {
 		return fmt.Errorf("parse config: %w", err)
 	}

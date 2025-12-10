@@ -98,7 +98,7 @@ func findLayerByAttribute(tilemap *TileMap, attrExpr string) *TileLayer {
 
 // matchesAttribute checks if a layer matches an attribute expression
 func matchesAttribute(layer *TileLayer, attrExpr string) bool {
-	if layer.Meta == nil {
+	if layer.Props == nil {
 		return false
 	}
 
@@ -113,7 +113,7 @@ func matchesAttribute(layer *TileLayer, attrExpr string) bool {
 	} else {
 		// Key exists: [key]
 		key := strings.TrimSpace(attrExpr)
-		_, exists := layer.Meta[key]
+		_, exists := layer.Props[key]
 		return exists
 	}
 }
@@ -131,7 +131,7 @@ func matchesExactAttribute(layer *TileLayer, attrExpr string) bool {
 	// Remove quotes if present
 	value = strings.Trim(value, `"'`)
 
-	return layer.Meta[key] == value
+	return layer.Props[key] == value
 }
 
 // matchesNegatedAttribute checks [key!="value"] pattern
@@ -148,7 +148,7 @@ func matchesNegatedAttribute(layer *TileLayer, attrExpr string) bool {
 	value = strings.Trim(value, `"'`)
 
 	// If key doesn't exist, treat as not equal to any value
-	layerValue, exists := layer.Meta[key]
+	layerValue, exists := layer.Props[key]
 	if !exists {
 		return true
 	}

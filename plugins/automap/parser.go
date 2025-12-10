@@ -13,10 +13,10 @@ func ParseRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, error
 	for i := range rulesMap.Layers {
 		layer := &rulesMap.Layers[i]
 
-		if layer.Meta["rule_role"] != "output" {
+		if layer.Props["rule_role"] != "output" {
 			continue
 		}
-		if parseBool(layer.Meta["rule_Disabled"], false) {
+		if parseBool(layer.Props["rule_Disabled"], false) {
 			continue
 		}
 
@@ -31,9 +31,9 @@ func ParseRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, error
 
 		output := &OutputLayer{
 			Tiles:          tiles,
-			TargetSelector: layer.Meta["rule_target_layer"],
-			OutputIndex:    layer.Meta["rule_output_index"],
-			Probability:    parseFloat(layer.Meta["rule_output_Probability"], 1.0),
+			TargetSelector: layer.Props["rule_target_layer"],
+			OutputIndex:    layer.Props["rule_output_index"],
+			Probability:    parseFloat(layer.Props["rule_output_Probability"], 1.0),
 		}
 
 		idx := output.OutputIndex
@@ -50,14 +50,14 @@ func ParseRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, error
 	for i := range rulesMap.Layers {
 		layer := &rulesMap.Layers[i]
 
-		if layer.Meta["rule_role"] != "input" {
+		if layer.Props["rule_role"] != "input" {
 			continue
 		}
-		if parseBool(layer.Meta["rule_Disabled"], false) {
+		if parseBool(layer.Props["rule_Disabled"], false) {
 			continue
 		}
 
-		inputIndex := layer.Meta["rule_input_index"]
+		inputIndex := layer.Props["rule_input_index"]
 		if inputIndex == "" {
 			inputIndex = "default"
 		}
@@ -73,9 +73,9 @@ func ParseRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, error
 
 		input := &InputLayer{
 			Tiles:          tiles,
-			TargetSelector: layer.Meta["rule_target_layer"],
-			IsNegated:      parseBool(layer.Meta["rule_input_not"], false),
-			AutoEmpty:      parseBool(layer.Meta["rule_layer_AutoEmpty"], false),
+			TargetSelector: layer.Props["rule_target_layer"],
+			IsNegated:      parseBool(layer.Props["rule_input_not"], false),
+			AutoEmpty:      parseBool(layer.Props["rule_layer_AutoEmpty"], false),
 		}
 
 		inputsByIndex[inputIndex] = append(inputsByIndex[inputIndex], input)
@@ -83,11 +83,11 @@ func ParseRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, error
 		// Store rule constraints (from first input layer per index)
 		if ruleConstraints[inputIndex] == nil {
 			ruleConstraints[inputIndex] = &Rule{
-				ModX:        parseInt(layer.Meta["rule_ModX"], config.ModX),
-				ModY:        parseInt(layer.Meta["rule_ModY"], config.ModY),
-				OffsetX:     parseInt(layer.Meta["rule_OffsetX"], config.OffsetX),
-				OffsetY:     parseInt(layer.Meta["rule_OffsetY"], config.OffsetY),
-				Probability: parseFloat(layer.Meta["rule_Probability"], config.Probability),
+				ModX:        parseInt(layer.Props["rule_ModX"], config.ModX),
+				ModY:        parseInt(layer.Props["rule_ModY"], config.ModY),
+				OffsetX:     parseInt(layer.Props["rule_OffsetX"], config.OffsetX),
+				OffsetY:     parseInt(layer.Props["rule_OffsetY"], config.OffsetY),
+				Probability: parseFloat(layer.Props["rule_Probability"], config.Probability),
 			}
 		}
 	}

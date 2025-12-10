@@ -165,17 +165,17 @@ func createRulesMap(mapID string) error {
 	// Create a rules tilemap with example pattern matching rules
 	// In future: this will contain patterns and their transformations
 	rulesMap := tilemap.NewTileMap()
-	rulesMap.Meta["name"] = "Basic Wall Rules"
-	rulesMap.Meta["type"] = "automap"
-	rulesMap.Meta["category"] = "rules"
-	rulesMap.Meta["tileWidth"] = "32"
-	rulesMap.Meta["tileHeight"] = "32"
-	rulesMap.Meta["description"] = "Example rules for wall corner detection"
+	rulesMap.Props["name"] = "Basic Wall Rules"
+	rulesMap.Props["type"] = "automap"
+	rulesMap.Props["category"] = "rules"
+	rulesMap.Props["tileWidth"] = "32"
+	rulesMap.Props["tileHeight"] = "32"
+	rulesMap.Props["description"] = "Example rules for wall corner detection"
 
 	// Layer 0: Input pattern layer (what to match)
 	patternLayer := tilemap.NewTileLayer(8, 8)
-	patternLayer.Meta["name"] = "pattern-input"
-	patternLayer.Meta["description"] = "Pattern to match in the input"
+	patternLayer.Props["name"] = "pattern-input"
+	patternLayer.Props["description"] = "Pattern to match in the input"
 	// Simple 3x3 pattern: corners
 	// 1 = wall, 0 = empty
 	patternLayer.Data[0*8+0] = 1 // top-left corner
@@ -185,8 +185,8 @@ func createRulesMap(mapID string) error {
 
 	// Layer 1: Output transformation layer (what to place)
 	outputLayer := tilemap.NewTileLayer(8, 8)
-	outputLayer.Meta["name"] = "pattern-output"
-	outputLayer.Meta["description"] = "Tiles to place when pattern matches"
+	outputLayer.Props["name"] = "pattern-output"
+	outputLayer.Props["description"] = "Tiles to place when pattern matches"
 	// Place specific corner tile
 	outputLayer.Data[0*8+0] = 10 // corner tile ID
 	rulesMap.Layers = append(rulesMap.Layers, *outputLayer)
@@ -197,17 +197,17 @@ func createRulesMap(mapID string) error {
 func createInputMap(mapID string) error {
 	// Create an input tilemap with some basic wall layout
 	inputMap := tilemap.NewTileMap()
-	inputMap.Meta["name"] = "Test Input Map"
-	inputMap.Meta["type"] = "automap"
-	inputMap.Meta["category"] = "input"
-	inputMap.Meta["tileWidth"] = "32"
-	inputMap.Meta["tileHeight"] = "32"
-	inputMap.Meta["description"] = "Example input map for automapping"
+	inputMap.Props["name"] = "Test Input Map"
+	inputMap.Props["type"] = "automap"
+	inputMap.Props["category"] = "input"
+	inputMap.Props["tileWidth"] = "32"
+	inputMap.Props["tileHeight"] = "32"
+	inputMap.Props["description"] = "Example input map for automapping"
 
 	// Create a 20x15 map with a simple room outline
 	layer := tilemap.NewTileLayer(20, 15)
-	layer.Meta["name"] = "walls"
-	layer.Meta["collision"] = "true"
+	layer.Props["name"] = "walls"
+	layer.Props["collision"] = "true"
 
 	// Draw a room border (simple rectangle)
 	for x := 0; x < 20; x++ {
@@ -227,17 +227,17 @@ func createInputMap(mapID string) error {
 func createOutputMap(mapID string) error {
 	// Create an output tilemap (initially empty, will be filled by automapping)
 	outputMap := tilemap.NewTileMap()
-	outputMap.Meta["name"] = "Automap Output"
-	outputMap.Meta["type"] = "automap"
-	outputMap.Meta["category"] = "output"
-	outputMap.Meta["tileWidth"] = "32"
-	outputMap.Meta["tileHeight"] = "32"
-	outputMap.Meta["description"] = "Result of automapping transformation"
+	outputMap.Props["name"] = "Automap Output"
+	outputMap.Props["type"] = "automap"
+	outputMap.Props["category"] = "output"
+	outputMap.Props["tileWidth"] = "32"
+	outputMap.Props["tileHeight"] = "32"
+	outputMap.Props["description"] = "Result of automapping transformation"
 
 	// Create empty layer matching input size
 	layer := tilemap.NewTileLayer(20, 15)
-	layer.Meta["name"] = "generated"
-	layer.Meta["generated"] = "true"
+	layer.Props["name"] = "generated"
+	layer.Props["generated"] = "true"
 
 	outputMap.Layers = append(outputMap.Layers, *layer)
 

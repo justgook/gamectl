@@ -7,7 +7,7 @@
  *   - Wildcard selector: "*" (first available layer)
  */
 export class TilemapSelector {
-  
+
   /**
    * Find first layer matching the selector
    * @param {Object} tilemap - Tilemap object with layers array
@@ -106,11 +106,11 @@ export class TilemapSelector {
   static _findLayerByIndex(tilemap, selector) {
     const indexStr = selector.slice(1) // Remove '#' prefix
     const idx = parseInt(indexStr, 10)
-    
+
     if (isNaN(idx) || idx < 0 || idx >= tilemap.layers.length) {
       return null
     }
-    
+
     return tilemap.layers[idx]
   }
 
@@ -132,7 +132,7 @@ export class TilemapSelector {
    * @private
    */
   static _matchesAttribute(layer, attrExpr) {
-    if (!layer.meta || typeof layer.meta !== 'object') {
+    if (!layer.props || typeof layer.props !== 'object') {
       return false
     }
 
@@ -147,7 +147,7 @@ export class TilemapSelector {
     } else {
       // Key exists: [key]
       const key = attrExpr.trim()
-      return Object.prototype.hasOwnProperty.call(layer.meta, key)
+      return Object.prototype.hasOwnProperty.call(layer.props, key)
     }
   }
 
@@ -167,7 +167,7 @@ export class TilemapSelector {
     // Remove quotes if present
     value = value.replace(/^["']|["']$/g, '')
 
-    return layer.meta[key] === value
+    return layer.props[key] === value
   }
 
   /**
@@ -187,10 +187,10 @@ export class TilemapSelector {
     value = value.replace(/^["']|["']$/g, '')
 
     // If key doesn't exist, treat as not equal to any value
-    if (!Object.prototype.hasOwnProperty.call(layer.meta, key)) {
+    if (!Object.prototype.hasOwnProperty.call(layer.props, key)) {
       return true
     }
 
-    return layer.meta[key] !== value
+    return layer.props[key] !== value
   }
 }
