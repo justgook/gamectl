@@ -19,7 +19,7 @@ export class DoorsRenderer extends LayerRenderer {
     this.DoorSouth = 4
     this.DoorWest = 8
 
-    // Default tile dimensions (can be overridden by layer meta)
+    // Default tile dimensions (can be overridden by layer props)
     this.defaultTileWidth = 40
     this.defaultTileHeight = 40
 
@@ -53,9 +53,9 @@ export class DoorsRenderer extends LayerRenderer {
         return // Nothing to render
       }
 
-      // Get tile dimensions from layer meta or use defaults
-      const tileWidth = layer.meta?.tw || this.defaultTileWidth
-      const tileHeight = layer.meta?.th || this.defaultTileHeight
+      // Get tile dimensions from layer props or use defaults
+      const tileWidth = layer.props?.tw || this.defaultTileWidth
+      const tileHeight = layer.props?.th || this.defaultTileHeight
 
       this._drawDoors(ctx, tileWidth, tileHeight, layer.width, layer.data)
 

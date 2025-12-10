@@ -10,8 +10,8 @@ export class TilesetRenderer extends LayerRenderer {
 
   _render(ctx, layer, _tilemap, _viewport) {
     console.log("THE REAL RENDER")
-    const tw = parseFloat(layer.meta?.tw) || this.defaultTileWidth
-    const th = parseFloat(layer.meta?.th) || this.defaultTileHeight
+    const tw = parseFloat(layer.props?.tw) || this.defaultTileWidth
+    const th = parseFloat(layer.props?.th) || this.defaultTileHeight
 
     ctx.save()
     for (let i = 0; i < layer.data.length; i++) {
@@ -34,9 +34,9 @@ export class TilesetRenderer extends LayerRenderer {
     this.render = () => { }
 
     this.loading = true
-    const tilesetData = layer.meta.tileset
-    const tileWidth = parseFloat(layer.meta?.tw) || this.defaultTileWidth
-    const tileHeight = parseFloat(layer.meta?.th) || this.defaultTileHeight
+    const tilesetData = layer.props.tileset
+    const tileWidth = parseFloat(layer.props?.tw) || this.defaultTileWidth
+    const tileHeight = parseFloat(layer.props?.th) || this.defaultTileHeight
     const img = new Image()
 
     // Wait for image to load

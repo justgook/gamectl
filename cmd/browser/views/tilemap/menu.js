@@ -27,8 +27,8 @@ export class TilemapMenu extends HTMLDetailsElement {
     layers.innerHTML = `<summary>layers(${this.data.layers.length})</summary>`
 
     this.data.layers.forEach((layer, i) => {
-      const layerName = layer.meta?.name || `layer_${i}`
-      if (!layer.meta) {
+      const layerName = layer.props?.name || `layer_${i}`
+      if (!layer.props) {
         const div = document.createElement("div")
         div.innerText = layerName
         layers.appendChild(div)
@@ -40,7 +40,7 @@ export class TilemapMenu extends HTMLDetailsElement {
       const summary = document.createElement("summary")
       summary.innerText = layerName
       details.appendChild(summary)
-      Object.entries(layer.meta).forEach(([k, v]) => {
+      Object.entries(layer.props).forEach(([k, v]) => {
         const div = document.createElement("div")
         div.innerText = `${k}:${truncateWithEllipses(v, 25)}`
         details.appendChild(div)
@@ -48,7 +48,7 @@ export class TilemapMenu extends HTMLDetailsElement {
       layers.appendChild(details)
     })
 
-    const props = Object.entries(this.data.meta || {})
+    const props = Object.entries(this.data.props || {})
     let propsComp
     if (props.length) {
       propsComp = document.createElement("details")

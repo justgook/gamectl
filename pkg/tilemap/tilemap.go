@@ -3,16 +3,16 @@ package tilemap
 // TileMap represents the root map structure.
 // It contains layers of tiles and metadata for map-wide properties.
 type TileMap struct {
-	Layers []TileLayer       `json:"layers"`         // Array of tile layers
-	Meta   map[string]string `json:"meta,omitempty"` // Map metadata (tilesets, dimensions, version, etc.)
+	Layers []TileLayer       `json:"layers"`          // Array of tile layers
+	Props  map[string]string `json:"props,omitempty"` // Map metadata (tilesets, dimensions, version, etc.)
 }
 
 // TileLayer represents a single layer of tiles.
 // Each layer has a width, flat data array, and metadata for layer-specific properties.
 type TileLayer struct {
-	Width int               `json:"width"`          // Width in tiles
-	Data  []uint32          `json:"data"`           // Flat array of tile indices (0 = empty, 1+ = tile ID)
-	Meta  map[string]string `json:"meta,omitempty"` // Layer metadata (name, tileset info, collision, etc.)
+	Width int               `json:"width"`           // Width in tiles
+	Data  []uint32          `json:"data"`            // Flat array of tile indices (0 = empty, 1+ = tile ID)
+	Props map[string]string `json:"props,omitempty"` // Layer metadata (name, tileset info, collision, etc.)
 }
 
 // Height returns the calculated height of the layer based on data length and width.
@@ -27,7 +27,7 @@ func (l *TileLayer) Height() int {
 func NewTileMap() *TileMap {
 	return &TileMap{
 		Layers: make([]TileLayer, 0),
-		Meta:   make(map[string]string),
+		Props:  make(map[string]string),
 	}
 }
 
@@ -36,6 +36,6 @@ func NewTileLayer(width, height int) *TileLayer {
 	return &TileLayer{
 		Width: width,
 		Data:  make([]uint32, width*height),
-		Meta:  make(map[string]string),
+		Props: make(map[string]string),
 	}
 }

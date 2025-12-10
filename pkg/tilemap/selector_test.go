@@ -10,21 +10,21 @@ func TestFindLayer(t *testing.T) {
 
 	// Layer 0: walls with collision metadata
 	layer0 := NewTileLayer(3, 3)
-	layer0.Meta["name"] = "walls"
-	layer0.Meta["collision"] = "solid"
-	layer0.Meta["type"] = "foreground"
+	layer0.Props["name"] = "walls"
+	layer0.Props["collision"] = "solid"
+	layer0.Props["type"] = "foreground"
 	tm.Layers = append(tm.Layers, *layer0)
 
 	// Layer 1: background layer
 	layer1 := NewTileLayer(3, 3)
-	layer1.Meta["name"] = "background"
-	layer1.Meta["type"] = "background"
+	layer1.Props["name"] = "background"
+	layer1.Props["type"] = "background"
 	tm.Layers = append(tm.Layers, *layer1)
 
 	// Layer 2: decorative layer
 	layer2 := NewTileLayer(3, 3)
-	layer2.Meta["decorative"] = "true"
-	layer2.Meta["type"] = "decoration"
+	layer2.Props["decorative"] = "true"
+	layer2.Props["type"] = "decoration"
 	tm.Layers = append(tm.Layers, *layer2)
 
 	tests := []struct {
@@ -80,16 +80,16 @@ func TestFindLayers(t *testing.T) {
 	// Add multiple layers with same type
 	for i := 0; i < 3; i++ {
 		layer := NewTileLayer(2, 2)
-		layer.Meta["type"] = "wall"
+		layer.Props["type"] = "wall"
 		if i == 1 {
-			layer.Meta["special"] = "true"
+			layer.Props["special"] = "true"
 		}
 		tm.Layers = append(tm.Layers, *layer)
 	}
 
 	// Add one different layer
 	bgLayer := NewTileLayer(2, 2)
-	bgLayer.Meta["type"] = "background"
+	bgLayer.Props["type"] = "background"
 	tm.Layers = append(tm.Layers, *bgLayer)
 
 	tests := []struct {
@@ -131,7 +131,7 @@ func TestFindLayerEdgeCases(t *testing.T) {
 	// Test with layer without metadata
 	tm := NewTileMap()
 	layer := NewTileLayer(2, 2)
-	layer.Meta = nil // Explicitly nil metadata
+	layer.Props = nil // Explicitly nil metadata
 	tm.Layers = append(tm.Layers, *layer)
 
 	if result := FindLayer(tm, "[name]"); result != nil {
@@ -145,9 +145,9 @@ func TestFindLayerEdgeCases(t *testing.T) {
 
 func TestAttributeMatching(t *testing.T) {
 	layer := NewTileLayer(2, 2)
-	layer.Meta["key1"] = "value1"
-	layer.Meta["key2"] = "value2"
-	layer.Meta["empty"] = ""
+	layer.Props["key1"] = "value1"
+	layer.Props["key2"] = "value2"
+	layer.Props["empty"] = ""
 
 	tests := []struct {
 		name     string
@@ -180,7 +180,7 @@ func TestAttributeMatching(t *testing.T) {
 func TestHelperFunctions(t *testing.T) {
 	tm := NewTileMap()
 	layer := NewTileLayer(2, 2)
-	layer.Meta["type"] = "wall"
+	layer.Props["type"] = "wall"
 	tm.Layers = append(tm.Layers, *layer)
 
 	// Test HasLayerWithSelector
