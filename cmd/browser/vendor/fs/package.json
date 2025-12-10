@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "esbuild": "^0.27.1",
+    "esbuild-plugins-node-modules-polyfill": "^1.7.1",
+    "install": "^0.13.0",
+    "memfs": "^4.51.1"
+  },
+  "scripts": {
+    "build-memfs": "bun run ./esbuild.config.js"
+  }
+}
