@@ -6,11 +6,11 @@
  * 
  * Usage:
  *   import { toast } from './systems/toast.js'
- *   
+ *
  *   toast('Hello world')
  *   toast.success('Saved!')
  *   toast.error('Failed', { duration: 5000 })
- *   
+ *
  *   await toast.alert('Something happened')
  *   const confirmed = await toast.confirm('Delete item?')
  */
