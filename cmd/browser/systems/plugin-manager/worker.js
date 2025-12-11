@@ -84,7 +84,14 @@ async function handleInit(id, maybeDir) {
           return { returnCode: 0, output: new Uint8Array() }
         }
       },
-      { module: 'fs', function: 'mkdir', handler: PluginFileSystem.mkdir }
+      { module: 'fs', function: 'read', handler: PluginFileSystem.read },
+      { module: 'fs', function: 'write', handler: PluginFileSystem.write },
+      { module: 'fs', function: 'delete', handler: PluginFileSystem.remove },
+      { module: 'fs', function: 'exists', handler: PluginFileSystem.exists },
+      { module: 'fs', function: 'list', handler: PluginFileSystem.list },
+      { module: 'fs', function: 'mkdir', handler: PluginFileSystem.mkdir },
+      { module: 'fs', function: 'rmdir', handler: PluginFileSystem.rmdir },
+      { module: 'fs', function: 'stat', handler: PluginFileSystem.stat },
     ]
   }
 

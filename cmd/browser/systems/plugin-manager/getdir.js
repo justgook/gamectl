@@ -74,11 +74,11 @@ async function handleExists(dirHandle) {
 export async function getDirectoryHandle() {
   let handle = await loadHandle()
 
-  if (handle && handle.queryPermission) {
-    const ok = await verifyPermission(handle)
-    if (ok) {
-      const exists = await handleExists(handle)
-      if (exists) {
+  if (handle) {
+    const exists = await handleExists(handle)
+    if (exists) {
+      const ok = await verifyPermission(handle)
+      if (ok) {
         return handle
       }
       console.warn("Stored directory no longer exists")
