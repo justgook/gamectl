@@ -441,3 +441,170 @@ ul.tree li:before {
 ul.tree li:last-child:before {
   border-left: 1px solid rgb(100, 100, 100);
 }
+
+/* Toast System Styles */
+toast-manager {
+  display: contents;
+}
+
+/* Base toast styles */
+view-toast {
+  position: fixed;
+  z-index: var(--toast-z-index, 1100);
+  pointer-events: auto;
+}
+
+/* Hidden state for limited positions */
+view-toast[hidden] {
+  display: none !important;
+}
+
+/* Position: top-right (default) */
+view-toast[position="top-right"] {
+  top: var(--spacing-scale-3);
+  right: var(--spacing-scale-3);
+  /* Stack offset using CSS custom property set by JS */
+  transform: translateY(calc(var(--toast-stack-index, 0) * (100% + var(--spacing-scale-2))));
+}
+
+/* Position: bottom-center */
+view-toast[position="bottom-center"] {
+  bottom: var(--spacing-scale-3);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Position: center (for alert/confirm) */
+view-toast[position="center"] {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Toast container */
+view-toast .toast-container {
+  background: var(--toast-background, var(--color-semantic-background-panel));
+  border: var(--border-width-default) solid var(--toast-border, var(--color-semantic-border-default));
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow-panel);
+  padding: var(--spacing-scale-3) var(--spacing-scale-4);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-scale-3);
+  min-width: 200px;
+  max-width: 400px;
+}
+
+/* Toast type colors - left border accent */
+view-toast.toast-type-info .toast-container {
+  border-left: 3px solid var(--color-global-blue-500, #3b82f6);
+}
+
+view-toast.toast-type-success .toast-container {
+  border-left: 3px solid var(--color-global-green-500, #22c55e);
+}
+
+view-toast.toast-type-warning .toast-container {
+  border-left: 3px solid var(--color-global-yellow-500, #eab308);
+}
+
+view-toast.toast-type-error .toast-container {
+  border-left: 3px solid var(--color-global-red-500, #ef4444);
+}
+
+/* Toast message */
+view-toast .toast-message {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-semantic-text-primary);
+  line-height: 1.4;
+}
+
+/* Toast close button */
+view-toast .toast-close {
+  background: transparent;
+  border: none;
+  color: var(--color-semantic-text-secondary);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+  width: var(--spacing-scale-5);
+  height: var(--spacing-scale-5);
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+view-toast .toast-close:hover {
+  background: var(--color-semantic-background-interactive-hover);
+  color: var(--color-semantic-text-primary);
+}
+
+/* Close button visibility: hover-only for timed toasts */
+view-toast .toast-close.toast-close-hover-only {
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+view-toast:hover .toast-close.toast-close-hover-only {
+  opacity: 1;
+}
+
+/* Toast with clickable area (for toast mode) */
+view-toast[mode="toast"] {
+  cursor: pointer;
+}
+
+/* Alert/Confirm container - slightly larger */
+view-toast .toast-container-alert,
+view-toast .toast-container-confirm {
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 280px;
+  padding: var(--spacing-scale-4);
+}
+
+view-toast .toast-container-alert .toast-message,
+view-toast .toast-container-confirm .toast-message {
+  margin-bottom: var(--spacing-scale-3);
+  text-align: center;
+}
+
+/* Toast actions (buttons) */
+view-toast .toast-actions {
+  display: flex;
+  gap: var(--spacing-scale-2);
+  justify-content: center;
+}
+
+/* Toast buttons */
+view-toast .toast-button {
+  padding: var(--spacing-scale-2) var(--spacing-scale-4);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+  border: var(--border-width-default) solid var(--color-semantic-border-default);
+  background: var(--color-semantic-background-interactive);
+  color: var(--color-semantic-text-primary);
+}
+
+view-toast .toast-button:hover {
+  background: var(--color-semantic-background-interactive-hover);
+  border-color: var(--color-semantic-border-interactive);
+}
+
+view-toast .toast-button-primary {
+  background: var(--color-semantic-background-interactive-active, var(--color-global-blue-600, #2563eb));
+  border-color: var(--color-semantic-background-interactive-active, var(--color-global-blue-600, #2563eb));
+  color: var(--color-semantic-text-inverse, #fff);
+}
+
+view-toast .toast-button-primary:hover {
+  background: var(--color-global-blue-700, #1d4ed8);
+  border-color: var(--color-global-blue-700, #1d4ed8);
+}

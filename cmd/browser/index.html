@@ -156,8 +156,6 @@
       <div data-action="resize" class="handle"></div>
     </template>
 
-
-
     <template id="view-chrome">
       <div class="panel-header" style="background-color: transparent; padding-left: var(--panel-header-padding);">
         <select data-action="select-view">
@@ -198,79 +196,110 @@
       </div>
     </template>
 
-    <popup-manager>
-      <layout-parent handle-width="12" handle-height="12" id="scene">
-        <view-nodegraph panel="panel_1">
-          <div style="position: absolute; top:64px; z-index: 2;">
-            <details class="tree">
-              <summary>111</summary>
-              <details>
-                <summary>222</summary>
-                <div>333</div>
+    <!-- Toast System Templates -->
+    <template id="toast-container">
+      <div class="toast-container">
+        <span class="toast-message" data-element="message"></span>
+        <button class="toast-close" data-action="close" aria-label="Close">×</button>
+      </div>
+    </template>
+
+    <template id="toast-container-alert">
+      <div class="toast-container toast-container-alert">
+        <span class="toast-message" data-element="message"></span>
+        <div class="toast-actions">
+          <button class="toast-button toast-button-primary" data-action="confirm"
+            data-element="confirm-button">OK</button>
+        </div>
+      </div>
+    </template>
+
+    <template id="toast-container-confirm">
+      <div class="toast-container toast-container-confirm">
+        <span class="toast-message" data-element="message"></span>
+        <div class="toast-actions">
+          <button class="toast-button" data-action="cancel" data-element="cancel-button">Cancel</button>
+          <button class="toast-button toast-button-primary" data-action="confirm"
+            data-element="confirm-button">Confirm</button>
+        </div>
+      </div>
+    </template>
+
+    <toast-manager>
+      <popup-manager>
+        <layout-parent handle-width="12" handle-height="12" id="scene">
+          <view-nodegraph panel="panel_1">
+            <div style="position: absolute; top:64px; z-index: 2;">
+              <details class="tree">
+                <summary>111</summary>
                 <details>
-                  <summary>333</summary>
-                  <div>444</div>
-                  <div>444</div>
-                  <div>444</div>
-                  <div>444</div>
+                  <summary>222</summary>
+                  <div>333</div>
+                  <details>
+                    <summary>333</summary>
+                    <div>444</div>
+                    <div>444</div>
+                    <div>444</div>
+                    <div>444</div>
+                  </details>
+                  <div>333</div>
+                  <div>333</div>
+                  <div>333</div>
+                  <details>
+                    <summary>333</summary>
+                    <div>444</div>
+                    <div>444</div>
+                    <div>444</div>
+                    <div>444</div>
+                  </details>
                 </details>
-                <div>333</div>
-                <div>333</div>
-                <div>333</div>
                 <details>
-                  <summary>333</summary>
-                  <div>444</div>
-                  <div>444</div>
-                  <div>444</div>
-                  <div>444</div>
+                  <summary>222</summary>
+                  <div>333</div>
+                  <details>
+                    <summary>333</summary>
+                    <div>444</div>
+                    <div>444</div>
+                    <div>444</div>
+                    <div>444</div>
+                  </details>
+                  <div>333</div>
+                  <div>333</div>
+                  <div>333</div>
                 </details>
+                <div>empty</div>
               </details>
-              <details>
-                <summary>222</summary>
-                <div>333</div>
-                <details>
-                  <summary>333</summary>
-                  <div>444</div>
-                  <div>444</div>
-                  <div>444</div>
-                  <div>444</div>
-                </details>
-                <div>333</div>
-                <div>333</div>
-                <div>333</div>
-              </details>
-              <div>empty</div>
-            </details>
-          </div>
-          <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
-          <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen"
-            inputs="name,nodeCount:nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>
+            </div>
+            <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
+            <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen"
+              inputs="name,nodeCount:nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>
 
 
-          <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
-            outputs="output,returnCode"></node-fields>
-          <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
-          <node-plugin id="logger" x="518.1018207797425" y="303.02118151361793" plugin="host" function="log"
-            inputs="logInput:toString">
-          </node-plugin>
-          <node-plugin id="minimap" x="135" y="60" plugin="minimap" function="gen" inputs="treeId,mapId"
-            outputs="result"></node-plugin>
-          <!-- THE NEW STUFF -->
-          <node-popup inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
-            id="node_2" x="362" y="464" title="THE TILEMAP">
-            <template><view-tilemap data-key="new_map" w="629" h="454"></view-tilemap>
-            </template>
-          </node-popup>
-          <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="62" y="204" data-state="idle"
-            values="text:tileset_demo"><template>
-              <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
-                  style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-            </template></node-popup>
-        </view-nodegraph>
-        <view-console nesw="s" r="200" from="panel_1"></view-console>
-        <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
-      </layout-parent>
-    </popup-manager>
+            <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
+              outputs="output,returnCode"></node-fields>
+            <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
+            <node-plugin id="logger" x="518.1018207797425" y="303.02118151361793" plugin="host" function="log"
+              inputs="logInput:toString">
+            </node-plugin>
+            <node-plugin id="minimap" x="135" y="60" plugin="minimap" function="gen" inputs="treeId,mapId"
+              outputs="result"></node-plugin>
+            <!-- THE NEW STUFF -->
+            <node-popup inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
+              id="node_2" x="362" y="464" title="THE TILEMAP">
+              <template><view-tilemap data-key="new_map" w="629" h="454"></view-tilemap>
+              </template>
+            </node-popup>
+            <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="62" y="204" data-state="idle"
+              values="text:tileset_demo"><template>
+                <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                    style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+              </template></node-popup>
+          </view-nodegraph>
+          <view-console nesw="s" r="200" from="panel_1"></view-console>
+          <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
+        </layout-parent>
+      </popup-manager>
+    </toast-manager>
     <script src="coi-serviceworker.js"></script>
     <script type="module" src="/app.js"></script>
   </body>
