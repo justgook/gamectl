@@ -19,6 +19,10 @@ import { PopupManager } from "./views/popup-manager.js"
 import { PluginManagerProxy } from "./systems/plugin-manager/proxy.js"
 import { ViewPopup } from "./views/view-popup.js"
 
+// Toast system
+import { ToastManager } from "./views/toast-manager.js"
+import { ViewToast } from "./views/view-toast.js"
+
 // Node graph components
 import "./views/nodegraph/node-base.js"
 import "./views/nodegraph/node-input.js"
