@@ -34,19 +34,16 @@ view--chrome .se {
 .panel {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-header {
-  padding-left: var(--spacing-scale-8, 170px);
-  /* Fallback for transition period */
+  flex: 0 0 auto;
 }
 
 .panel-content {
-  position: absolute;
-  inset: 0;
-  top: var(--spacing-scale-6, 25px);
-  /* Fallback for transition period */
+  flex: 1 1 auto;
   overflow: auto;
 }
 

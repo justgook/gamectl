@@ -6,6 +6,7 @@ import { toast } from './systems/toast.js'
 import "./systems/cache.js"
 
 // current
+import { ViewChrome } from "./views/chrome.js"
 import { ViewEmpty } from "./views/view-empty.js"
 import { ViewSplitter } from "./views/view-splitter.js"
 import { LayoutParent } from "./views/layout.js"

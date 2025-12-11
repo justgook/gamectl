@@ -1,4 +1,4 @@
-import { View } from "./view.js"
+import { bus } from "../systems/event-bus.js"
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 3;
@@ -6,10 +6,17 @@ const MAX_SCALE = 3;
 /**
  * Base class for all canvas-based views (Minimap, Level Visualizer, Tree Visualizer).
  * Handles viewport management (pan, zoom, fit-to-content) and interaction.
+ * Uses ResizeObserver on itself to detect size changes from CSS/parent.
  */
-export class ViewCanvasBase extends View {
-  constructor(contentTag) {
-    super(contentTag);
+export class ViewCanvasBase extends HTMLElement {
+  constructor() {
+    super();
+
+    // Create canvas
+    this.canvas = document.createElement('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.ctx.imageSmoothingEnabled = false;
+
     // Viewport state
     this.scale = 1;
     this.offsetX = 0;
@@ -18,13 +25,22 @@ export class ViewCanvasBase extends View {
     this.dragStartX = 0;
     this.dragStartY = 0;
     this.spacePressed = false;
+
     // Defines the bounding box of the content in world coordinates (minX, maxX, minY, maxY)
     this.contentBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 
-    this.canvas = null;
-    this.ctx = null;
     this.tileInfo = null; // For hover tooltip
     this.data = null;
+
+    // ResizeObserver watches THIS element's size
+    this._resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === this) {
+          const { width, height } = entry.contentRect;
+          this._onResized(width, height);
+        }
+      }
+    });
 
     // Bind event handlers
     this._onWheel = this._onWheel.bind(this);
@@ -34,24 +50,90 @@ export class ViewCanvasBase extends View {
     this._onMouseLeave = this._onMouseLeave.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onKeyUp = this._onKeyUp.bind(this);
+
+    // Focus handlers
+    this._handleFocusIn = this._handleFocusIn.bind(this);
+    this._handleFocusOut = this._handleFocusOut.bind(this);
   }
 
   connectedCallback() {
-    super.connectedCallback();
-    this.tileInfo = this.content.querySelector("[data-tooltip]")
-    this.content.querySelector(`[data-action="reload"]`).onclick = () => this.fetchData()
-    this.content.querySelector(`[data-action="zoom-in"]`).onclick = () => this.zoomIn()
-    this.content.querySelector(`[data-action="zoom-out"]`).onclick = () => this.zoomOut()
-    this.content.querySelector(`[data-action="zoom-fit"]`).onclick = () => this.fitToContent()
-    this.canvas = this.content.querySelector(`canvas`)
-    this.ctx = this.canvas.getContext('2d')
-    this.ctx.imageSmoothingEnabled = false
-    this._addEventListeners()
-    this.onResize(this.w, this.h)
+    // Add tabindex for focus management
+    if (!this.hasAttribute('tabindex')) {
+      this.setAttribute('tabindex', '0');
+    }
+
+    // Make this element fill its container
+    this.style.display = 'block';
+    this.style.width = '100%';
+    this.style.height = '100%';
+    this.style.position = 'relative';
+
+    // Add canvas
+    this.canvas.style.display = 'block';
+    this.canvas.style.width = '100%';
+    this.canvas.style.height = '100%';
+    this.appendChild(this.canvas);
+
+    // Setup UI elements (subclasses should override setupUI())
+    this.setupUI();
+
+    // Start observing own size changes
+    this._resizeObserver.observe(this);
+
+    // Add event listeners
+    this._addEventListeners();
+
+    // Add focus event listeners
+    this.addEventListener('focusin', this._handleFocusIn);
+    this.addEventListener('focusout', this._handleFocusOut);
   }
 
   disconnectedCallback() {
+    this._resizeObserver.disconnect();
     this._removeEventListeners();
+    this.removeEventListener('focusin', this._handleFocusIn);
+    this.removeEventListener('focusout', this._handleFocusOut);
+  }
+
+  /**
+   * Override in subclasses to setup UI buttons, tooltips, etc.
+   */
+  setupUI() {
+    // Default: do nothing
+  }
+
+  /**
+   * Get the mode/context name for this view
+   * Override in subclasses to provide specific mode names
+   */
+  getViewMode() {
+    // Default: use tag name without 'view-' prefix
+    const tagName = this.tagName.toLowerCase();
+    if (tagName.startsWith('view-')) {
+      return tagName.substring(5); // Remove 'view-' prefix
+    }
+    return 'global';
+  }
+
+  _handleFocusIn() {
+    const viewMode = this.getViewMode();
+    if (viewMode) {
+      bus.emit('view:focus', { view: this.tagName.toLowerCase(), mode: viewMode });
+    }
+  }
+
+  _handleFocusOut() {
+    const viewMode = this.getViewMode();
+    if (viewMode) {
+      bus.emit('view:blur', { view: this.tagName.toLowerCase(), mode: viewMode });
+    }
+  }
+
+  _onResized(width, height) {
+    if (!this.canvas || (this.canvas.width === width && this.canvas.height === height)) return;
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.draw();
   }
 
   _addEventListeners() {
@@ -73,20 +155,6 @@ export class ViewCanvasBase extends View {
     this.canvas.removeEventListener('mouseleave', this._onMouseLeave);
     window.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keyup', this._onKeyUp);
-  }
-
-  // Called by View on resize
-  _updatePosition() {
-    super._updatePosition();
-    this.onResize(this.w, this.h);
-  }
-
-  onResize(width, height) {
-    // console.log("onResize", width, height)
-    if (!this.canvas || (this.canvas.width === width && this.canvas.height === height)) return
-    this.canvas.width = width
-    this.canvas.height = height
-    this.draw()
   }
 
   // --- Abstract Methods (Subclasses must implement) ---
@@ -148,7 +216,6 @@ export class ViewCanvasBase extends View {
 
     this.drawContent(this.ctx, this.data)
 
-
     this.ctx.restore()
   }
 
@@ -198,8 +265,8 @@ export class ViewCanvasBase extends View {
   _constrainPosition() {
     if (!this.data) return;
 
-    const wrapperWidth = this.w;
-    const wrapperHeight = this.h;
+    const wrapperWidth = this.canvas.width;
+    const wrapperHeight = this.canvas.height;
     const { minX, maxX, minY, maxY } = this.contentBounds;
 
     const scaledContentWidth = (maxX - minX) * this.scale;
@@ -242,18 +309,18 @@ export class ViewCanvasBase extends View {
   }
 
   zoomIn() {
-    this.zoom(this.w / 2, this.h / 2, 1.2);
+    this.zoom(this.canvas.width / 2, this.canvas.height / 2, 1.2);
   }
 
   zoomOut() {
-    this.zoom(this.w / 2, this.h / 2, 0.8);
+    this.zoom(this.canvas.width / 2, this.canvas.height / 2, 0.8);
   }
 
   fitToContent() {
     if (!this.data) return;
 
-    const wrapperWidth = this.w;
-    const wrapperHeight = this.h;
+    const wrapperWidth = this.canvas.width;
+    const wrapperHeight = this.canvas.height;
     const { minX, maxX, minY, maxY } = this.contentBounds;
 
     const contentWidth = maxX - minX;
@@ -288,8 +355,8 @@ export class ViewCanvasBase extends View {
       const { minX, maxX, minY, maxY } = this.contentBounds;
       const contentCenterX = (minX + maxX) / 2;
       const contentCenterY = (minY + maxY) / 2;
-      this.offsetX = this.w / 2 - contentCenterX * this.scale;
-      this.offsetY = this.h / 2 - contentCenterY * this.scale;
+      this.offsetX = this.canvas.width / 2 - contentCenterX * this.scale;
+      this.offsetY = this.canvas.height / 2 - contentCenterY * this.scale;
     } else {
       this.offsetX = 0;
       this.offsetY = 0;
@@ -355,12 +422,16 @@ export class ViewCanvasBase extends View {
   _onMouseLeave() {
     this.isDragging = false;
     this.canvas.style.cursor = this.spacePressed ? 'grab' : 'default';
-    this.tileInfo.style.display = 'none';
+    if (this.tileInfo) {
+      this.tileInfo.style.display = 'none';
+    }
   }
 
   _handleHover(e) {
-    if (!this.data || this.isDragging) {
-      this.tileInfo.style.display = 'none';
+    if (!this.data || this.isDragging || !this.tileInfo) {
+      if (this.tileInfo) {
+        this.tileInfo.style.display = 'none';
+      }
       return;
     }
 

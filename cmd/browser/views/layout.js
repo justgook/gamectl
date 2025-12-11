@@ -1,6 +1,5 @@
 import { SplitLayout } from "../systems/split-layout.js"
 
-import { View } from "./view.js"
 export class LayoutParent extends HTMLElement {
   constructor() {
     super()
@@ -13,7 +12,7 @@ export class LayoutParent extends HTMLElement {
     this._observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
         for (const node of m.addedNodes) {
-          if (node instanceof View) {
+          if (node.tagName === 'VIEW-CHROME') {
             this._onChildAdded(node)
           }
         }
@@ -51,7 +50,7 @@ export class LayoutParent extends HTMLElement {
     const toRemove = []
 
     for (const child of Array.from(this.children)) {
-      if (child instanceof View) {
+      if (child.tagName === 'VIEW-CHROME') {
         this._resizePanel(child)
       } else if (child instanceof Handle) {
         const panel = handles.find(({ id }) => id === child.panel)
@@ -73,18 +72,18 @@ export class LayoutParent extends HTMLElement {
     child.h = panel.h
   }
 
-  _resizePanel(child) {
-    child.layout = this
-    let panelAttr = child.getAttribute("panel")
+  _resizePanel(chrome) {
+    chrome.layout = this
+    let panelAttr = chrome.getAttribute("panel")
     if (!panelAttr) {
-      this._onChildAdded(child)
-      panelAttr = child.panel
+      this._onChildAdded(chrome)
+      panelAttr = chrome.panel
     }
     const panel = this.layout.getPanel(panelAttr)
-    child.x = panel.x
-    child.y = panel.y
-    child.w = panel.w
-    child.h = panel.h
+    chrome.x = panel.x
+    chrome.y = panel.y
+    chrome.w = panel.w
+    chrome.h = panel.h
   }
 
   _onChildAdded(child) {
