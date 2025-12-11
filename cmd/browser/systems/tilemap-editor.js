@@ -15,20 +15,20 @@ export class TilemapEditor {
   static paint(tilemap, tileIndices) {
     // Deep clone to avoid mutating original
     const newTilemap = JSON.parse(JSON.stringify(tilemap))
-    
+
     tileIndices.forEach((tileIdx, layerIdx) => {
       // Skip if layer doesn't exist
       if (layerIdx >= newTilemap.layers.length) return
-      
+
       const layer = newTilemap.layers[layerIdx]
-      
+
       // Skip if tile index is out of bounds (silent ignore)
       if (tileIdx < 0 || tileIdx >= layer.data.length) return
-      
+
       // Paint tile with value 1
       layer.data[tileIdx] = 1
     })
-    
+
     return newTilemap
   }
 }
