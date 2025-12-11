@@ -1,4 +1,5 @@
 import { View } from "./view.js"
+import { bus } from "../systems/event-bus.js"
 
 export class ViewPipeline extends View {
   constructor() {
@@ -36,5 +37,7 @@ export class ViewPipeline extends View {
     }))
 
     console.log('[Plugin]', this.DE.decode(result.output))
+
+    bus.emit(`cache:load:SELECT data FROM tilemap_storage WHERE name = '${data.mapId}'`)
   }
 }
