@@ -9,7 +9,6 @@ export class TilesetRenderer extends LayerRenderer {
   }
 
   _render(ctx, layer, _tilemap, _viewport) {
-    console.log("THE REAL RENDER")
     const tw = parseFloat(layer.props?.tw) || this.defaultTileWidth
     const th = parseFloat(layer.props?.th) || this.defaultTileHeight
 

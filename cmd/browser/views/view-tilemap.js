@@ -8,6 +8,10 @@ import { TilemapMenu } from './tilemap/menu.js'
 import { bus } from "../systems/event-bus.js"
 import { TilemapEditor } from "../systems/tilemap-editor.js"
 
+// Default tile dimensions when not specified in layer.props
+const DEFAULT_TILE_WIDTH = 40
+const DEFAULT_TILE_HEIGHT = 40
+
 function noop() { }
 
 export class ViewTilemap extends ViewCanvasBase {
@@ -20,14 +24,14 @@ export class ViewTilemap extends ViewCanvasBase {
     if (name === 'data-key' && oldVal !== newVal) {
       this.tilemapKey = newVal
       this.unsubscibe()
-      this.unsubscibe = bus.on(this.sqlQuery(), this.dataChanged)
+      this.unsubscibe = bus.on(`cache:changed:${this.sqlQuery()}`, this.dataChanged)
     }
   }
 
   constructor() {
     super("view-tilemap")
     this.DE = new TextDecoder()
-    this.tilemapKey = 'new_map'
+    this.tilemapKey = 'tileset_demo'
     this.rendersBefore = [new GridRenderer()]
 
     this.availableRenders = new Map()
@@ -46,7 +50,7 @@ export class ViewTilemap extends ViewCanvasBase {
     super.connectedCallback()
     this.appendChild(this.menu)
     this.renders = []
-    this.unsubscibe = bus.on(this.sqlQuery(), this.dataChanged)
+    this.unsubscibe = bus.on(`cache:changed:${this.sqlQuery()}`, this.dataChanged)
   }
 
   disconnectedCallback() {
@@ -59,17 +63,16 @@ export class ViewTilemap extends ViewCanvasBase {
     this.menu.title = this.tilemapKey
     this.menu.data = data
 
-    // reimplementing fetchData
     this.contentBounds = this.calculateContentBounds(this.data)
     this.draw()
   }
 
   sqlQuery() {
-    return `cache:changed:SELECT data FROM tilemap_storage WHERE name = '${this.tilemapKey}'`
+    return `SELECT data FROM tilemap_storage WHERE name = '${this.tilemapKey}'`
   }
 
   async fetchData() {
-    bus.emit(this.sqlQuery().replace("cache:changed:", "cache:load:"))
+    bus.emit(`cache:load:${this.sqlQuery()}`)
 
     return this.data
   }
@@ -79,16 +82,15 @@ export class ViewTilemap extends ViewCanvasBase {
       return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
     }
 
-    const width = data.layers.reduce((acc, item) =>
-      // TODO EXTRACT tileHeigt from level 
-      Math.max(item.width * this.tw, acc)
-      , 0)
+    const width = data.layers.reduce((acc, item) => {
+      const tw = parseFloat(item.props?.tw) || DEFAULT_TILE_WIDTH
+      return Math.max(item.width * tw, acc)
+    }, 0)
 
-    const height = data.layers.reduce((acc, item) =>
-      // TODO EXTRACT tileHeigt from level 
-      Math.max(item.data.length / item.width * this.th, acc)
-      , 0)
-
+    const height = data.layers.reduce((acc, item) => {
+      const th = parseFloat(item.props?.th) || DEFAULT_TILE_HEIGHT
+      return Math.max((item.data.length / item.width) * th, acc)
+    }, 0)
 
     return {
       minX: 0,
@@ -98,15 +100,19 @@ export class ViewTilemap extends ViewCanvasBase {
     }
   }
 
-  drawContent(ctx, tilemap) {
+  drawContent() {
     if (!this.data) { return }
+    const ctx = this.ctx
+    const tilemap = this.data
     const viewport = this.getViewportMatrix()
     this.rendersBefore.map(rr => rr.render(ctx, null, tilemap, viewport))
     tilemap.layers.forEach((layer, i) => {
       const renderer = this.renders[i]
       const result = renderer.render(ctx, layer, tilemap, viewport)
       if (typeof result?.then !== "function") return
-      result.then(() => { this.drawContent(ctx, tilemap) })
+      result.then(() => { 
+        this.draw()
+      })
     })
   }
 
@@ -132,12 +138,9 @@ export class ViewTilemap extends ViewCanvasBase {
    * @returns {Array<number>} Array of tile indices (one per layer)
    */
   _screenToTileIndices(worldX, worldY) {
-    const DEFAULT_TW = 40
-    const DEFAULT_TH = 40
-
     return this.data.layers.map(layer => {
-      const tw = parseFloat(layer.meta?.tw) || DEFAULT_TW
-      const th = parseFloat(layer.meta?.th) || DEFAULT_TH
+      const tw = parseFloat(layer.props?.tw) || DEFAULT_TILE_WIDTH
+      const th = parseFloat(layer.props?.th) || DEFAULT_TILE_HEIGHT
 
       const tileX = Math.floor(worldX / tw)
       const tileY = Math.floor(worldY / th)
@@ -180,8 +183,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
     // Paint and emit change event
     const newTilemap = TilemapEditor.paint(this.data, tileIndices)
-    const sqlQuery = this.sqlQuery().replace('cache:changed:', '')
-    bus.emit(`cache:changed:${sqlQuery}`, newTilemap)
+    bus.emit(`cache:changed:${this.sqlQuery()}`, newTilemap)
   }
 
   // Override parent class hooks for painting
