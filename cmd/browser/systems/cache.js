@@ -30,6 +30,8 @@ class CacheManager {
   }
 
   unSubscriptionHook(eventType, listener) {
+    if (!eventType.startsWith("cache:changed:")) { return }
+
     console.warn("IMPLEMENT CacheManager::unSubscriptionHook")
   }
 

@@ -1,6 +1,8 @@
 
 // Initialize event bus first
 import "./systems/event-bus.js"
+import { toast } from './systems/toast.js'
+
 import "./systems/cache.js"
 
 // current
@@ -178,3 +180,4 @@ import { keybindingManager } from "./systems/keybinding-manager.js"
 await keybindingManager.init()
 window.keybindingManager = keybindingManager // Expose for debugging
 
+toast.success("App is ready")
