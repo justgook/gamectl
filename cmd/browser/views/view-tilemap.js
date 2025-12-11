@@ -16,7 +16,7 @@ function noop() { }
 
 export class ViewTilemap extends ViewCanvasBase {
   static get observedAttributes() {
-    return [...super.observedAttributes, 'data-key'];
+    return ['data-key'];
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
@@ -29,7 +29,7 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   constructor() {
-    super("view-tilemap")
+    super()
     this.DE = new TextDecoder()
     this.tilemapKey = 'tileset_demo'
     this.rendersBefore = [new GridRenderer()]
@@ -46,14 +46,58 @@ export class ViewTilemap extends ViewCanvasBase {
     this.lastPaintedTile = null
   }
 
+  setupUI() {
+    // Add menu
+    this.appendChild(this.menu)
+
+    // Create toolbar
+    const toolbar = document.createElement('div')
+    toolbar.style.cssText = 'position: absolute; top: 8px; right: 8px; z-index: 100; display: flex; gap: 8px;'
+    toolbar.innerHTML = `
+      <button data-action="reload" class="button-secondary">🔄 Reload</button>
+      <button data-action="zoom-in" class="button-secondary">+</button>
+      <button data-action="zoom-out" class="button-secondary">−</button>
+      <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+    `
+    this.appendChild(toolbar)
+
+    // Create tooltip
+    this.tileInfo = document.createElement('div')
+    this.tileInfo.className = 'tooltip'
+    this.tileInfo.setAttribute('data-tooltip', '')
+    this.tileInfo.style.display = 'none'
+    this.appendChild(this.tileInfo)
+  }
+
   connectedCallback() {
     super.connectedCallback()
-    this.appendChild(this.menu)
     this.renders = []
     this.unsubscibe = bus.on(`cache:changed:${this.sqlQuery()}`, this.dataChanged)
+
+    // Setup button handlers
+    const reloadBtn = this.querySelector('[data-action="reload"]')
+    if (reloadBtn) {
+      reloadBtn.onclick = () => this.fetchData()
+    }
+
+    const zoomInBtn = this.querySelector('[data-action="zoom-in"]')
+    if (zoomInBtn) {
+      zoomInBtn.onclick = () => this.zoomIn()
+    }
+
+    const zoomOutBtn = this.querySelector('[data-action="zoom-out"]')
+    if (zoomOutBtn) {
+      zoomOutBtn.onclick = () => this.zoomOut()
+    }
+
+    const zoomFitBtn = this.querySelector('[data-action="zoom-fit"]')
+    if (zoomFitBtn) {
+      zoomFitBtn.onclick = () => this.fitToContent()
+    }
   }
 
   disconnectedCallback() {
+    super.disconnectedCallback()
     this.unsubscibe()
   }
 
@@ -110,7 +154,7 @@ export class ViewTilemap extends ViewCanvasBase {
       const renderer = this.renders[i]
       const result = renderer.render(ctx, layer, tilemap, viewport)
       if (typeof result?.then !== "function") return
-      result.then(() => { 
+      result.then(() => {
         this.draw()
       })
     })

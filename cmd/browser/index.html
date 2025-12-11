@@ -20,163 +20,109 @@
   <body>
 
     <template id="view-empty">
-      <div class="panel">
-        <div class="panel-header">Empty</div>
-        <div class="panel-content">Empty panel</div>
-      </div>
+      <div style="padding: var(--spacing-scale-3);">Empty panel</div>
     </template>
     <template id="view-testing">
-      <div class="panel">
-        <div class="panel-header">Testing Panel</div>
-        <div class="panel-content"
-          style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
-          <button type="button" onclick="console.log('[Plugin] hello world')">Call log</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').generateWorldgraph()">Create
-            world tree</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').assignBiomeNames()">Set biome
-            names</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getTree()">Get world
-            tree</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').createMinimap()">Create
-            minimap</button>
-          <button class="button-secondary" type="button" onclick="this.closest('[panel]').getMinimap()">Get
-            minimap</button>
-        </div>
+      <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
+        <button type="button" onclick="console.log('[Plugin] hello world')">Call log</button>
+        <button class="button-secondary" type="button"
+          onclick="this.closest('view-testing').generateWorldgraph()">Create
+          world tree</button>
+        <button class="button-secondary" type="button" onclick="this.closest('view-testing').assignBiomeNames()">Set
+          biome
+          names</button>
+        <button class="button-secondary" type="button" onclick="this.closest('view-testing').getTree()">Get world
+          tree</button>
+        <button class="button-secondary" type="button" onclick="this.closest('view-testing').createMinimap()">Create
+          minimap</button>
+        <button class="button-secondary" type="button" onclick="this.closest('view-testing').getMinimap()">Get
+          minimap</button>
       </div>
     </template>
 
     <template id="view-pipeline">
-      <div class="panel">
-        <div class="panel-header">Pipeline</div>
-        <div class="panel-content"
-          style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
-          <details open>
-            <summary>1. Create World Tree</summary>
-            <form name="tree"
-              style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
-              <label>Node Count: <span>10</span> <input type="range" name="nodeCount" min="5" max="100" value="10"
-                  oninput="this.previousElementSibling.textContent=this.value"></label>
-              <label>Max Depth: <span>0</span> <input type="range" name="maxDepth" min="0" max="10" value="0"
-                  oninput="this.previousElementSibling.textContent=this.value"></label>
-              <label>Max Branching: <span>0</span> <input type="range" name="maxBranching" min="0" max="10" value="0"
-                  oninput="this.previousElementSibling.textContent=this.value"></label>
-              <label>Root Branches: <span>0</span> <input type="range" name="rootBranches" min="0" max="20" value="0"
-                  oninput="this.previousElementSibling.textContent=this.value"></label>
-              <label>Output Name: <input type="text" name="treeId" value="progression"></label>
-              <button type="submit">Generate Tree</button>
-            </form>
-          </details>
-          <details>
-            <summary>2. Create Minimap</summary>
-            <form name="minimap"
-              style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
-              <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
-              <label>Output Map: <input type="text" name="mapId" value="new_map"></label>
-              <button type="submit">Generate Minimap</button>
-            </form>
-          </details>
-        </div>
+      <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
+        <details open>
+          <summary>1. Create World Tree</summary>
+          <form name="tree"
+            style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
+            <label>Node Count: <span>10</span> <input type="range" name="nodeCount" min="5" max="100" value="10"
+                oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Max Depth: <span>0</span> <input type="range" name="maxDepth" min="0" max="10" value="0"
+                oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Max Branching: <span>0</span> <input type="range" name="maxBranching" min="0" max="10" value="0"
+                oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Root Branches: <span>0</span> <input type="range" name="rootBranches" min="0" max="20" value="0"
+                oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Output Name: <input type="text" name="treeId" value="progression"></label>
+            <button type="submit">Generate Tree</button>
+          </form>
+        </details>
+        <details>
+          <summary>2. Create Minimap</summary>
+          <form name="minimap"
+            style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
+            <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
+            <label>Output Map: <input type="text" name="mapId" value="new_map"></label>
+            <button type="submit">Generate Minimap</button>
+          </form>
+        </details>
       </div>
     </template>
 
     <template id="view-splitter">
-      <div class="panel">
-        <div class="panel-header">Splitter</div>
-        <div class="panel-content" style="display: flex; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
-          <button type="button" data-action="split-vertical">Vertical</button>
-          <button class="button-secondary" type="button" data-action="split-horizontal">Horizontal</button>
-        </div>
+      <div style="display: flex; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
+        <button type="button" data-action="split-vertical">Vertical</button>
+        <button class="button-secondary" type="button" data-action="split-horizontal">Horizontal</button>
       </div>
     </template>
 
     <template id="view-console">
-      <div class="panel">
-        <div class="panel-header">Console</div>
-        <div class="panel-content" style="padding: var(--spacing-scale-3);">
-          <pre data-element="log-output"
-            style="white-space: pre-wrap; font-family: 'Roboto Mono', monospace; font-size: var(--font-size-sm); line-height: 1.4;">
-          </pre>
-        </div>
-      </div>
+      <pre data-element="log-output"
+        style="white-space: pre-wrap; font-family: 'Roboto Mono', monospace; font-size: var(--font-size-sm); line-height: 1.4; padding: var(--spacing-scale-3); margin: 0; width: 100%; height: 100%; overflow: auto;">
+      </pre>
     </template>
 
-    <template id="view-nodegraph">
-      <div class="panel">
-        <div class="panel-header">Node Graph</div>
-        <div class="panel-content" style="padding: 0; position: relative;">
-          <canvas style="cursor: grab;"></canvas>
-          <div
-            style="position: absolute; top: var(--spacing-scale-3); right: var(--spacing-scale-3); z-index: 100; display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3); background: var(--color-semantic-background-panel-header); border-radius: var(--border-radius-sm); border: var(--border-width-default) solid var(--color-semantic-border-default);">
-            <button data-action="add-node">+ Node</button>
-            <button data-action="run" class="button-success">▶ Run</button>
-            <button data-action="reload" class="button-secondary">🔄 Reload</button>
-            <button data-action="zoom-in" class="button-secondary">+</button>
-            <button data-action="zoom-out" class="button-secondary">−</button>
-            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
-          </div>
-          <div class="tooltip" data-tooltip></div>
-        </div>
-      </div>
-    </template>
-
-    <template id="view-tilemap">
-      <div class="panel">
-        <div class="panel-header">Tilemap</div>
-        <div class="panel-content" style="padding: 0;">
-          <canvas></canvas>
-          <div
-            style="position: absolute; top: var(--spacing-scale-3); right: var(--spacing-scale-3); z-index: 100; display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3); background: var(--color-semantic-background-panel-header); border-radius: var(--border-radius-sm); border: var(--border-width-default) solid var(--color-semantic-border-default);">
-            <button data-action="reload" class="button-secondary">🔄 Reload</button>
-            <button data-action="zoom-in" class="button-secondary">+</button>
-            <button data-action="zoom-out" class="button-secondary">−</button>
-            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
-          </div>
-          <div class="tooltip" data-tooltip></div>
-        </div>
-      </div>
-    </template>
-
-    <template id="view-tree">
-      <div class="panel">
-        <div class="panel-header">Minimap</div>
-        <div class="panel-content" style="padding: 0;">
-          <canvas></canvas>
-          <div
-            style="position: absolute; top: var(--spacing-scale-3); right: var(--spacing-scale-3); z-index: 100; display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3); background: var(--color-semantic-background-panel-header); border-radius: var(--border-radius-sm); border: var(--border-width-default) solid var(--color-semantic-border-default);">
-            <button data-action="reload" class="button-secondary">🔄 Reload</button>
-            <button data-action="zoom-in" class="button-secondary">+</button>
-            <button data-action="zoom-out" class="button-secondary">−</button>
-            <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
-          </div>
-          <div class="tooltip" data-tooltip></div>
-        </div>
-      </div>
-    </template>
+    <!-- Canvas views (nodegraph, tilemap, tree) create their content programmatically -->
     <template id="view-handle">
       <div data-action="resize" class="handle"></div>
     </template>
 
-    <template id="view-chrome">
-      <div class="panel-header" style="background-color: transparent; padding-left: var(--panel-header-padding);">
-        <select data-action="select-view">
-          <optgroup label="Old">
-            <option value="view-splitter">splitter</option>
-            <option value="view-testing">testing</option>
-            <option value="view-pipeline">pipeline</option>
-            <option value="view-empty">empty</option>
-            <option value="view-console">console</option>
-          </optgroup>
-          <optgroup label="new">
-            <option value="view-nodegraph">nodegraph</option>
-            <option value="view-tree">tree</option>
-            <option value="view-tilemap">tilemap</option>
-          </optgroup>
-        </select>
+    <template id="chrome-template">
+      <link rel="stylesheet" href="reset.css">
+      <link rel="stylesheet" href="/tokens/css/variables.css">
+      <link rel="stylesheet" href="/tokens/css/atomic.css">
+      <link rel="stylesheet" href="/tokens/css/components.css">
+      <link rel="stylesheet" href="app.css">
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">
+            <slot name="title">View</slot>
+          </span>
+          <select data-action="select-view" class="view-selector">
+            <optgroup label="Canvas">
+              <option value="view-nodegraph">Node Graph</option>
+              <option value="view-tree">Tree View</option>
+              <option value="view-tilemap">Tilemap</option>
+            </optgroup>
+            <optgroup label="Utilities">
+              <option value="view-console">Console</option>
+              <option value="view-empty">Empty</option>
+              <option value="view-testing">Testing</option>
+              <option value="view-pipeline">Pipeline</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="panel-content" data-element="content">
+          <slot></slot>
+        </div>
+        <!-- Corner handles -->
+        <div class="ne corner-handle corner-handle-ne" data-action="ne" draggable="true"></div>
+        <div class="se corner-handle corner-handle-se" data-action="se" draggable="true"></div>
+        <div class="sw corner-handle corner-handle-sw" data-action="sw" draggable="true"></div>
+        <div class="nw corner-handle corner-handle-nw" data-action="nw" draggable="true"></div>
       </div>
-      <div class="ne corner-handle corner-handle-ne" data-action="ne" draggable="true"></div>
-      <div class="se corner-handle corner-handle-se" data-action="se" draggable="true"></div>
-      <div class="sw corner-handle corner-handle-sw" data-action="sw" draggable="true"></div>
-      <div class="nw corner-handle corner-handle-nw" data-action="nw" draggable="true"></div>
     </template>
 
     <!-- Popup System Templates -->
@@ -228,75 +174,85 @@
     <toast-manager>
       <popup-manager>
         <layout-parent handle-width="12" handle-height="12" id="scene">
-          <view-nodegraph panel="panel_1">
-            <div style="position: absolute; top:64px; z-index: 2;">
-              <details class="tree">
-                <summary>111</summary>
-                <details>
-                  <summary>222</summary>
-                  <div>333</div>
+          <view-chrome panel="panel_1">
+            <span slot="title">Node Graph</span>
+            <view-nodegraph>
+              <div style="position: absolute; top:64px; z-index: 2;">
+                <details class="tree">
+                  <summary>111</summary>
                   <details>
-                    <summary>333</summary>
-                    <div>444</div>
-                    <div>444</div>
-                    <div>444</div>
-                    <div>444</div>
+                    <summary>222</summary>
+                    <div>333</div>
+                    <details>
+                      <summary>333</summary>
+                      <div>444</div>
+                      <div>444</div>
+                      <div>444</div>
+                      <div>444</div>
+                    </details>
+                    <div>333</div>
+                    <div>333</div>
+                    <div>333</div>
+                    <details>
+                      <summary>333</summary>
+                      <div>444</div>
+                      <div>444</div>
+                      <div>444</div>
+                      <div>444</div>
+                    </details>
                   </details>
-                  <div>333</div>
-                  <div>333</div>
-                  <div>333</div>
                   <details>
-                    <summary>333</summary>
-                    <div>444</div>
-                    <div>444</div>
-                    <div>444</div>
-                    <div>444</div>
+                    <summary>222</summary>
+                    <div>333</div>
+                    <details>
+                      <summary>333</summary>
+                      <div>444</div>
+                      <div>444</div>
+                      <div>444</div>
+                      <div>444</div>
+                    </details>
+                    <div>333</div>
+                    <div>333</div>
+                    <div>333</div>
                   </details>
+                  <div>empty</div>
                 </details>
-                <details>
-                  <summary>222</summary>
-                  <div>333</div>
-                  <details>
-                    <summary>333</summary>
-                    <div>444</div>
-                    <div>444</div>
-                    <div>444</div>
-                    <div>444</div>
-                  </details>
-                  <div>333</div>
-                  <div>333</div>
-                  <div>333</div>
-                </details>
-                <div>empty</div>
-              </details>
-            </div>
-            <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
-            <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen"
-              inputs="name,nodeCount:nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>
+              </div>
+              <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
+              <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen"
+                inputs="name,nodeCount:nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>
 
 
-            <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
-              outputs="output,returnCode"></node-fields>
-            <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
-            <node-plugin id="logger" x="518.1018207797425" y="303.02118151361793" plugin="host" function="log"
-              inputs="logInput:toString">
-            </node-plugin>
-            <node-plugin id="minimap" x="135" y="60" plugin="minimap" function="gen" inputs="treeId,mapId"
-              outputs="result"></node-plugin>
-            <!-- THE NEW STUFF -->
-            <node-popup inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
-              id="node_2" x="362" y="464" title="THE TILEMAP">
-              <template><view-tilemap data-key="new_map" w="629" h="454"></view-tilemap>
-              </template>
-            </node-popup>
-            <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="62" y="204" data-state="idle"
-              values="text:tileset_demo"><template>
-                <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
-                    style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-              </template></node-popup>
-          </view-nodegraph>
-          <view-console nesw="s" r="200" from="panel_1"></view-console>
-          <view-pipeline nesw="w" r="200" from="panel_1"></view-pipeline>
+              <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
+                outputs="output,returnCode"></node-fields>
+              <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
+              <node-plugin id="logger" x="518.1018207797425" y="303.02118151361793" plugin="host" function="log"
+                inputs="logInput:toString">
+              </node-plugin>
+              <node-plugin id="minimap" x="135" y="60" plugin="minimap" function="gen" inputs="treeId,mapId"
+                outputs="result"></node-plugin>
+              <!-- THE NEW STUFF -->
+              <node-popup inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
+                id="node_2" x="362" y="464" title="THE TILEMAP">
+                <template><view-tilemap data-key="new_map" w="629" h="454"></view-tilemap>
+                </template>
+              </node-popup>
+              <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="62" y="204" data-state="idle"
+                values="text:tileset_demo"><template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template></node-popup>
+            </view-nodegraph>
+          </view-chrome>
+          <view-chrome nesw="s" r="200" from="panel_1">
+            <span slot="title">Console</span>
+
+            <view-console></view-console>
+          </view-chrome>
+          <view-chrome nesw="w" r="200" from="panel_1">
+            <span slot="title">Pipeline</span>
+            <view-pipeline></view-pipeline>
+          </view-chrome>
         </layout-parent>
       </popup-manager>
     </toast-manager>

@@ -1,17 +1,23 @@
-import { View } from "./view.js"
 import { bus } from "../systems/event-bus.js"
 
-export class ViewPipeline extends View {
+export class ViewPipeline extends HTMLElement {
   constructor() {
-    super('view-pipeline')
+    super()
     this.DE = new TextDecoder()
   }
 
   connectedCallback() {
-    super.connectedCallback('view-pipeline')
-    this.content.querySelector('form[name="tree"]')
+    this.style.display = 'block'
+    this.style.width = '100%'
+    this.style.height = '100%'
+    
+    const template = document.getElementById('view-pipeline')
+    const content = template.content.cloneNode(true)
+    this.appendChild(content)
+    
+    this.querySelector('form[name="tree"]')
       ?.addEventListener('submit', (e) => this.generateWorldTree(e))
-    this.content.querySelector('form[name="minimap"]')
+    this.querySelector('form[name="minimap"]')
       ?.addEventListener('submit', (e) => this.generateMinimap(e))
   }
 
