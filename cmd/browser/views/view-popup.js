@@ -1,19 +1,57 @@
 /**
- * Popup Wrapper Component
+ * Popup Component with Shadow DOM
  * 
- * Wraps content with popup UI (header, close button, styling).
- * Handles its own cleanup and provides consistent popup interface.
+ * Uses slot-based architecture similar to ViewChrome.
+ * - Main content goes in default slot
+ * - Title goes in "title" named slot
+ * - Header controls go in "header-controls" named slot
  */
 export class ViewPopup extends HTMLElement {
+  static get observedAttributes() { return ['size'] }
+
   constructor() {
     super()
 
     this.isClosing = false
+
+    // Create shadow DOM
+    const template = document.getElementById('popup-template')
+    const shadowRoot = this.attachShadow({ mode: 'open' })
+    shadowRoot.appendChild(document.importNode(template.content, true))
+
+    // Setup close button
+    const closeBtn = this.shadowRoot.querySelector('[data-action="close"]')
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.close())
+    }
+
+    // Setup backdrop click handler
+    const backdrop = this.shadowRoot.querySelector('.popup-backdrop')
+    if (backdrop) {
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) {
+          this.close()
+        }
+      })
+    }
+
+    // Prevent clicks inside container from closing
+    const container = this.shadowRoot.querySelector('.popup-container')
+    if (container) {
+      container.addEventListener('click', (e) => {
+        e.stopPropagation()
+      })
+    }
   }
 
   connectedCallback() {
-    this.render()
-    this.setupEventHandlers()
+    // Add base popup class
+    if (!this.classList.contains('popup')) {
+      this.classList.add('popup')
+    }
+
+    // Add size class
+    this._updateSizeClass()
 
     // Auto-cleanup when close event is fired
     this.addEventListener('close', () => {
@@ -23,83 +61,18 @@ export class ViewPopup extends HTMLElement {
     })
   }
 
-  /**
-   * Render popup structure using HTML templates
-   */
-  render() {
-    // Get attributes
-    const title = this.getAttribute('title') || ''
-    const size = this.getAttribute('size') || 'large'
-
-    // Store original content
-    const originalContent = Array.from(this.childNodes)
-
-    // Clear current content
-    this.innerHTML = ''
-
-    // Add CSS classes
-    this.classList.add('popup', `popup-size-${size}`)
-
-    // Get appropriate template
-    const templateId = title ? 'popup-container' : 'popup-container-no-header'
-    const template = document.getElementById(templateId)
-
-    if (!template) {
-      console.error(`Popup template "${templateId}" not found`)
-      return
+  attributeChangedCallback(name, oldVal, newVal) {
+    if (name === 'size' && this.isConnected) {
+      this._updateSizeClass()
     }
-
-    // Clone template content
-    const templateContent = template.content.cloneNode(true)
-
-    // Set title if provided
-    if (title) {
-      const titleElement = templateContent.querySelector('[data-element="title"]')
-      if (titleElement) {
-        titleElement.textContent = title
-      }
-
-      // Set up close button
-      const closeButton = templateContent.querySelector('[data-action="close"]')
-      if (closeButton) {
-        closeButton.addEventListener('click', () => this.close())
-      }
-    }
-
-    // Get content container and restore original content
-    const contentContainer = templateContent.querySelector('[data-element="content"]')
-    if (contentContainer) {
-      originalContent.forEach(node => contentContainer.appendChild(node))
-    }
-
-    // Append to popup
-    this.appendChild(templateContent)
   }
 
-  /**
-   * Set up event handlers
-   */
-  setupEventHandlers() {
-    // Close on backdrop click
-    this.addEventListener('click', (e) => {
-      if (e.target === this) {
-        this.close()
-      }
-    })
-
-    // Prevent clicks inside popup from bubbling to backdrop
-    const container = this.querySelector('.popup-container')
-    if (container) {
-      container.addEventListener('click', (e) => {
-        e.stopPropagation()
-      })
-    }
-
-    // Setup additional close button handlers (from template)
-    const closeButtons = this.querySelectorAll('[data-action="close"]')
-    closeButtons.forEach(button => {
-      button.addEventListener('click', () => this.close())
-    })
+  _updateSizeClass() {
+    const size = this.getAttribute('size') || 'large'
+    // Remove old size classes
+    this.className = this.className.replace(/popup-size-\w+/g, '').trim()
+    // Add new size class
+    this.classList.add(`popup-size-${size}`)
   }
 
   /**
@@ -128,101 +101,6 @@ export class ViewPopup extends HTMLElement {
         this.parentNode.removeChild(this)
       }
     }, 200) // Match animation duration
-  }
-
-  /**
-   * Set popup title
-   */
-  setTitle(title) {
-    this.setAttribute('title', title)
-    const titleElement = this.querySelector('[data-element="title"]')
-    if (titleElement) {
-      titleElement.textContent = title
-    }
-  }
-
-  /**
-   * Set popup size
-   */
-  setSize(size) {
-    // Remove old size class
-    this.className = this.className.replace(/popup-size-\w+/g, '')
-
-    // Add new size class
-    this.setAttribute('size', size)
-    this.classList.add(`popup-size-${size}`)
-  }
-
-  /**
-   * Get popup content container
-   */
-  get contentContainer() {
-    return this.querySelector('[data-element="content"]')
-  }
-
-  /**
-   * Set content (replaces existing content)
-   */
-  setContent(content) {
-    const contentContainer = this.contentContainer
-    if (!contentContainer) return
-
-    contentContainer.innerHTML = ''
-
-    if (typeof content === 'string') {
-      contentContainer.innerHTML = content
-    } else if (content instanceof HTMLElement || content instanceof DocumentFragment) {
-      contentContainer.appendChild(content)
-    }
-  }
-
-  /**
-   * Add content (appends to existing content)
-   */
-  addContent(content) {
-    const contentContainer = this.contentContainer
-    if (!contentContainer) return
-
-    if (typeof content === 'string') {
-      const temp = document.createElement('div')
-      temp.innerHTML = content
-      while (temp.firstChild) {
-        contentContainer.appendChild(temp.firstChild)
-      }
-    } else if (content instanceof HTMLElement || content instanceof DocumentFragment) {
-      contentContainer.appendChild(content)
-    }
-  }
-
-  /**
-   * Clear content
-   */
-  clearContent() {
-    const contentContainer = this.contentContainer
-    if (contentContainer) {
-      contentContainer.innerHTML = ''
-    }
-  }
-
-  // Lifecycle callbacks for attribute changes
-  static get observedAttributes() {
-    return ['title', 'size']
-  }
-
-  attributeChangedCallback(name, oldValue, newValue) {
-    console.log("ViewPopup::attributeChangedCallback", name)
-    if (!this.isConnected) return
-    switch (name) {
-      case 'title':
-        const titleElement = this.querySelector('[data-element="title"]')
-        if (titleElement) {
-          titleElement.textContent = newValue || ''
-        }
-        break
-      case 'size':
-        this.setSize(newValue || 'large')
-        break
-    }
   }
 }
 

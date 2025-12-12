@@ -20,7 +20,6 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
-    super.attributeChangedCallback(name, oldVal, newVal)
     if (name === 'data-key' && oldVal !== newVal) {
       this.tilemapKey = newVal
       this.unsubscibe()

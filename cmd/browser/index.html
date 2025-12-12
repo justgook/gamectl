@@ -156,19 +156,26 @@
     </template>
 
     <!-- Popup System Templates -->
-    <template id="popup-container">
-      <div class="popup-container">
-        <div class="popup-header" data-element="header">
-          <h2 class="popup-title" data-element="title"></h2>
-          <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
-        </div>
-        <div class="popup-content" data-element="content"></div>
-      </div>
-    </template>
+    <template id="popup-template">
+      <link rel="stylesheet" href="reset.css">
+      <link rel="stylesheet" href="/tokens/css/variables.css">
+      <link rel="stylesheet" href="/tokens/css/atomic.css">
+      <link rel="stylesheet" href="/tokens/css/components.css">
+      <link rel="stylesheet" href="app.css">
 
-    <template id="popup-container-no-header">
-      <div class="popup-container">
-        <div class="popup-content" data-element="content"></div>
+      <div class="popup-backdrop">
+        <div class="popup-container">
+          <div class="popup-header">
+            <slot name="title"></slot>
+            <div class="popup-header-controls">
+              <slot name="header-controls"></slot>
+            </div>
+            <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
+          </div>
+          <div class="popup-content">
+            <slot></slot>
+          </div>
+        </div>
       </div>
     </template>
 
