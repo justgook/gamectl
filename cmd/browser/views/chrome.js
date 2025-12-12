@@ -1,21 +1,7 @@
 import { panelJoin } from "../systems/split-layout-join.js"
 
-/**
- * ViewChrome Component
- * 
- * Wraps view components and provides:
- * - Panel styling (background, border, header)
- * - View title display
- * - View type selector dropdown
- * - Corner drag handles for splitting panels
- * - Manages slotted view content
- * 
- * Layout works ONLY with chrome elements (not views directly).
- * Chrome receives x, y, w, h, panel attributes from layout.
- * Views inside chrome fill naturally via CSS.
- */
 export class ViewChrome extends HTMLElement {
-  static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel', 'title']; }
+  static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel'] }
 
   constructor() {
     super();
@@ -65,9 +51,7 @@ export class ViewChrome extends HTMLElement {
     if (name === 'panel') {
       this.panel = newVal;
     }
-    if (name === 'title' && this.titleElement) {
-      this._updateTitle();
-    }
+
     this._updatePosition();
   }
 
