@@ -30,7 +30,7 @@ export class ViewTilemap extends ViewCanvasBase {
   constructor() {
     super()
     this.DE = new TextDecoder()
-    this.tilemapKey = 'tileset_demo'
+    this.tilemapKey = 'rules1'
     this.rendersBefore = [new GridRenderer()]
 
     this.availableRenders = new Map()
@@ -150,9 +150,7 @@ export class ViewTilemap extends ViewCanvasBase {
       const renderer = this.renders[i]
       const result = renderer.render(ctx, layer, tilemap, viewport)
       if (typeof result?.then !== "function") return
-      result.then(() => {
-        this.draw()
-      })
+      result.then(this.draw)
     })
   }
 

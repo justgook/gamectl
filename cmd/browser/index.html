@@ -86,7 +86,8 @@
     <!-- Canvas views (nodegraph, tilemap, tree) create their content programmatically -->
     <template id="view-tilemap">
       <div slot="header-controls" class="view-header-controls">
-        <input type="number" data-action="tile-value" value="1" min="0" style="width: 32px; height: 32px; text-align: center; padding: 0; border: 2px solid var(--color-semantic-border-interactive); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary);">
+        <input type="number" data-action="tile-value" value="1" min="0"
+          style="width: 32px; height: 32px; text-align: center; padding: 0; border: 2px solid var(--color-semantic-border-interactive); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary);">
         <button data-action="reload" class="button-secondary">🔄 Reload</button>
         <button data-action="zoom-in" class="button-secondary">+</button>
         <button data-action="zoom-out" class="button-secondary">−</button>
@@ -275,7 +276,7 @@
                 </template>
               </node-popup>
               <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="62" y="204" data-state="idle"
-                values="text:tileset_demo"><template>
+                values="text:rules1"><template>
                   <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
                       style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
                 </template></node-popup>

@@ -214,7 +214,7 @@ view-popup .popup-close:focus,
 /* Popup content (both light DOM and shadow DOM) */
 view-popup .popup-content,
 .popup-content {
-  overflow: var(--popup-content-overflow, auto);
+  overflow: var(--popup-content-overflow, hidden);
   flex: 1;
   min-height: 0;
 }
