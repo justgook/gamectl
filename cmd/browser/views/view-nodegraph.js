@@ -1630,6 +1630,85 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
   }
 
+  /**
+   * Fuzzy search: returns match info with positions for highlighting
+   * @param {string} query - Search query (lowercase)
+   * @param {string} text - Text to search in
+   * @returns {{ matches: boolean, score: number, positions: number[] } | null}
+   */
+  fuzzyMatch(query, text) {
+    if (!query) return { matches: true, score: 0, positions: [] }
+    
+    const textLower = text.toLowerCase()
+    const positions = []
+    let queryIndex = 0
+    let score = 0
+    let lastMatchIndex = -1
+    
+    for (let i = 0; i < textLower.length && queryIndex < query.length; i++) {
+      if (textLower[i] === query[queryIndex]) {
+        positions.push(i)
+        
+        // Consecutive matches score higher
+        if (lastMatchIndex === i - 1) {
+          score += 2
+        } else {
+          score += 1
+        }
+        
+        // Matches at start of word score higher
+        if (i === 0 || text[i - 1] === ' ' || text[i - 1] === '-' || text[i - 1] === '_') {
+          score += 3
+        }
+        
+        lastMatchIndex = i
+        queryIndex++
+      }
+    }
+    
+    // All query characters must match
+    if (queryIndex !== query.length) {
+      return null
+    }
+    
+    return { matches: true, score, positions }
+  }
+
+  /**
+   * Highlight matched characters in text
+   * @param {string} text - Original text
+   * @param {number[]} positions - Positions to highlight
+   * @returns {DocumentFragment}
+   */
+  highlightMatches(text, positions) {
+    const fragment = document.createDocumentFragment()
+    const posSet = new Set(positions)
+    let currentSpan = null
+    let isHighlighted = false
+    
+    for (let i = 0; i < text.length; i++) {
+      const shouldHighlight = posSet.has(i)
+      
+      if (shouldHighlight !== isHighlighted || !currentSpan) {
+        currentSpan = document.createElement('span')
+        if (shouldHighlight) {
+          currentSpan.style.cssText = `
+            background: var(--color-semantic-accent-primary);
+            color: var(--color-semantic-text-on-accent);
+            border-radius: 2px;
+            padding: 0 1px;
+          `
+        }
+        fragment.appendChild(currentSpan)
+        isHighlighted = shouldHighlight
+      }
+      
+      currentSpan.textContent += text[i]
+    }
+    
+    return fragment
+  }
+
   showTemplateSelectorPopup(templates) {
     // Find popup manager
     const popupManager = this.closest('popup-manager')
@@ -1638,88 +1717,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
       return
     }
 
-    // Create content for popup
+    // Create content container
     const content = document.createElement('div')
-
-    // Group templates by category
-    const grouped = {}
-    templates.forEach(t => {
-      if (!grouped[t.category]) {
-        grouped[t.category] = []
-      }
-      grouped[t.category].push(t)
-    })
-
-    // Build template list
-    Object.keys(grouped).sort().forEach(category => {
-      // Create category section
-      const categorySection = document.createElement('div')
-      categorySection.style.marginBottom = 'var(--spacing-scale-3)'
-
-      // Category title
-      const categoryTitle = document.createElement('h3')
-      categoryTitle.textContent = category.toUpperCase()
-      categoryTitle.style.cssText = `
-        margin: 0 0 var(--spacing-scale-2) 0;
-        font-size: var(--font-size-sm);
-        color: var(--color-semantic-text-secondary);
-        text-transform: uppercase;
-      `
-      categorySection.appendChild(categoryTitle)
-
-      // Category items container
-      const categoryItems = document.createElement('div')
-      categoryItems.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        gap: var(--spacing-scale-1);
-      `
-
-      // Add each template item
-      grouped[category].forEach(template => {
-        const itemButton = document.createElement('button')
-        itemButton.className = 'button-secondary'
-        itemButton.style.cssText = `
-          width: 100%;
-          text-align: left;
-          padding: var(--spacing-scale-2);
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-        `
-
-        const itemName = document.createElement('strong')
-        itemName.textContent = template.name
-        itemButton.appendChild(itemName)
-
-        if (template.description) {
-          const itemDescription = document.createElement('small')
-          itemDescription.textContent = template.description
-          itemDescription.style.cssText = `
-            color: var(--color-semantic-text-secondary);
-            margin-top: var(--spacing-scale-1);
-          `
-          itemButton.appendChild(itemDescription)
-        }
-
-        // Handle template selection
-        itemButton.onclick = () => {
-          this.createNodeFromTemplate(template.html_template)
-          // Find and close the popup
-          const popup = itemButton.closest('view-popup')
-          if (popup) {
-            popup.close()
-          }
-        }
-
-        categoryItems.appendChild(itemButton)
-      })
-
-      categorySection.appendChild(categoryItems)
-      content.appendChild(categorySection)
-    })
-
-    // Set content styles for scrolling
     content.style.cssText = `
       max-height: 60vh;
       overflow-y: auto;
@@ -1727,6 +1726,155 @@ export class ViewNodeGraph extends ViewCanvasBase {
       flex-direction: column;
       gap: var(--spacing-scale-2);
     `
+
+    // Store references for search filtering
+    let currentQuery = ''
+
+    /**
+     * Render template list (filtered by query)
+     */
+    const renderTemplateList = (query = '') => {
+      content.innerHTML = ''
+      const queryLower = query.toLowerCase().trim()
+
+      // Filter and score templates
+      const scoredTemplates = templates
+        .map(template => {
+          // Match against name, category, and description
+          const nameMatch = this.fuzzyMatch(queryLower, template.name)
+          const categoryMatch = this.fuzzyMatch(queryLower, template.category)
+          const descMatch = template.description ? this.fuzzyMatch(queryLower, template.description) : null
+
+          // Use best match
+          let bestMatch = null
+          let matchField = null
+          
+          if (nameMatch && (!bestMatch || nameMatch.score > bestMatch.score)) {
+            bestMatch = nameMatch
+            matchField = 'name'
+          }
+          if (categoryMatch && (!bestMatch || categoryMatch.score > bestMatch.score)) {
+            bestMatch = categoryMatch
+            matchField = 'category'
+          }
+          if (descMatch && (!bestMatch || descMatch.score > bestMatch.score)) {
+            bestMatch = descMatch
+            matchField = 'description'
+          }
+
+          if (!bestMatch) return null
+
+          return {
+            template,
+            score: bestMatch.score,
+            namePositions: nameMatch?.positions || [],
+            descPositions: descMatch?.positions || []
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score)
+
+      if (scoredTemplates.length === 0) {
+        const noResults = document.createElement('div')
+        noResults.style.cssText = `
+          padding: var(--spacing-scale-3);
+          text-align: center;
+          color: var(--color-semantic-text-secondary);
+        `
+        noResults.textContent = query ? `No templates matching "${query}"` : 'No templates available'
+        content.appendChild(noResults)
+        return
+      }
+
+      // Group filtered templates by category
+      const grouped = {}
+      scoredTemplates.forEach(({ template, namePositions, descPositions }) => {
+        if (!grouped[template.category]) {
+          grouped[template.category] = []
+        }
+        grouped[template.category].push({ template, namePositions, descPositions })
+      })
+
+      // Build template list
+      Object.keys(grouped).sort().forEach(category => {
+        // Create category section
+        const categorySection = document.createElement('div')
+        categorySection.style.marginBottom = 'var(--spacing-scale-3)'
+
+        // Category title
+        const categoryTitle = document.createElement('h3')
+        categoryTitle.textContent = category.toUpperCase()
+        categoryTitle.style.cssText = `
+          margin: 0 0 var(--spacing-scale-2) 0;
+          font-size: var(--font-size-sm);
+          color: var(--color-semantic-text-secondary);
+          text-transform: uppercase;
+        `
+        categorySection.appendChild(categoryTitle)
+
+        // Category items container
+        const categoryItems = document.createElement('div')
+        categoryItems.style.cssText = `
+          display: flex;
+          flex-direction: column;
+          gap: var(--spacing-scale-1);
+        `
+
+        // Add each template item
+        grouped[category].forEach(({ template, namePositions, descPositions }) => {
+          const itemButton = document.createElement('button')
+          itemButton.className = 'button-secondary'
+          itemButton.style.cssText = `
+            width: 100%;
+            text-align: left;
+            padding: var(--spacing-scale-2);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+          `
+
+          const itemName = document.createElement('strong')
+          if (queryLower && namePositions.length > 0) {
+            itemName.appendChild(this.highlightMatches(template.name, namePositions))
+          } else {
+            itemName.textContent = template.name
+          }
+          itemButton.appendChild(itemName)
+
+          if (template.description) {
+            const itemDescription = document.createElement('small')
+            itemDescription.style.cssText = `
+              color: var(--color-semantic-text-secondary);
+              margin-top: var(--spacing-scale-1);
+            `
+            if (queryLower && descPositions.length > 0) {
+              itemDescription.appendChild(this.highlightMatches(template.description, descPositions))
+            } else {
+              itemDescription.textContent = template.description
+            }
+            itemButton.appendChild(itemDescription)
+          }
+
+          // Handle template selection
+          itemButton.onclick = () => {
+            this.createNodeFromTemplate(template.html_template)
+            // Find and close the popup
+            const popup = itemButton.closest('view-popup')
+            if (popup) {
+              popup.close()
+            }
+          }
+
+          categoryItems.appendChild(itemButton)
+        })
+
+        categorySection.appendChild(categoryItems)
+        content.appendChild(categorySection)
+      })
+    }
+
+    // Initial render
+    renderTemplateList()
 
     // Create and show popup
     const popup = document.createElement('view-popup')
@@ -1739,8 +1887,57 @@ export class ViewNodeGraph extends ViewCanvasBase {
     titleElement.textContent = 'Select Node Template'
     popup.appendChild(titleElement)
 
+    // Create search input for header-controls slot
+    const headerControls = document.createElement('div')
+    headerControls.slot = 'header-controls'
+    headerControls.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-scale-2);
+    `
+
+    const searchInput = document.createElement('input')
+    searchInput.type = 'text'
+    searchInput.placeholder = 'Search nodes...'
+    searchInput.style.cssText = `
+      padding: var(--spacing-scale-1) var(--spacing-scale-2);
+      border: 1px solid var(--color-semantic-border-default);
+      border-radius: var(--border-radius-sm);
+      background: var(--color-semantic-bg-secondary);
+      color: var(--color-semantic-text-primary);
+      font-size: var(--font-size-sm);
+      min-width: 200px;
+    `
+
+    // Debounced search
+    let searchTimeout = null
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout)
+      searchTimeout = setTimeout(() => {
+        currentQuery = e.target.value
+        renderTemplateList(currentQuery)
+      }, 100)
+    })
+
+    // Focus search on popup open
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && searchInput.value) {
+        e.stopPropagation()
+        searchInput.value = ''
+        currentQuery = ''
+        renderTemplateList('')
+      }
+    })
+
+    headerControls.appendChild(searchInput)
+    popup.appendChild(headerControls)
     popup.appendChild(content)
     popupManager.appendChild(popup)
+
+    // Auto-focus search input after popup is added
+    requestAnimationFrame(() => {
+      searchInput.focus()
+    })
   }
 
   createNodeFromTemplate(htmlTemplate) {
