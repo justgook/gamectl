@@ -23,6 +23,9 @@ export class TilemapEditor {
 
       const layer = newTilemap.layers[layerIdx]
 
+      // Skip if layer is readonly
+      if (layer.props?.readonly === "true") return
+
       // Skip if tile index is out of bounds (silent ignore)
       if (tileIdx < 0 || tileIdx >= layer.data.length) return
 

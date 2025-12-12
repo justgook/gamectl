@@ -16,8 +16,8 @@ export class GridRenderer extends LayerRenderer {
 
     // Grid-specific configuration (independent from ViewTilemap settings)
     this.config = {
-      tileWidth: 40,
-      tileHeight: 40,
+      tileWidth: 16,
+      tileHeight: 16,
       lineWidth: 1,
       color: '#ccc',
       ...options.grid // Allow override via options.grid

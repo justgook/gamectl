@@ -62,11 +62,14 @@ export class ViewCanvasBase extends HTMLElement {
       this.setAttribute('tabindex', '0');
     }
 
-    // Make this element fill its container
+    // Make this element fill its container, or use explicit w/h attributes if present
     this.style.display = 'block';
-    this.style.width = '100%';
-    this.style.height = '100%';
     this.style.position = 'relative';
+
+    const explicitWidth = this.getAttribute('w');
+    const explicitHeight = this.getAttribute('h');
+    this.style.width = explicitWidth ? `${explicitWidth}px` : '100%';
+    this.style.height = explicitHeight ? `${explicitHeight}px` : '100%';
 
     // Add canvas
     this.canvas.style.display = 'block';
@@ -96,7 +99,7 @@ export class ViewCanvasBase extends HTMLElement {
     this._removeEventListeners();
     this.removeEventListener('focusin', this._handleFocusIn);
     this.removeEventListener('focusout', this._handleFocusOut);
-    
+
     // Remove header controls
     this._unmountHeaderControls();
   }
@@ -107,11 +110,11 @@ export class ViewCanvasBase extends HTMLElement {
   _mountHeaderControls() {
     const viewTag = this.tagName.toLowerCase();
     const template = document.getElementById(viewTag);
-    
+
     if (template && this.parentElement) {
       const content = template.content.cloneNode(true);
       const headerControls = content.querySelector('[slot="header-controls"]');
-      
+
       if (headerControls) {
         // Store reference for cleanup
         this._headerControlsElement = headerControls;
@@ -248,7 +251,7 @@ export class ViewCanvasBase extends HTMLElement {
     // Override in child classes for custom behavior (e.g., painting)
   }
 
-  draw() {
+  draw = () => {
     if (!this.canvas) { return }
     const { width, height } = this.canvas
     this.ctx.save()

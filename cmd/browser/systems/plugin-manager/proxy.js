@@ -40,7 +40,9 @@ export class PluginManagerProxy {
     this.worker.onmessage = (e) => this.handleMessage(e)
     this.worker.onerror = (error) => this.handleError(error)
 
-    const dir = window.showDirectoryPicker ? await getDirectoryHandle() : null
+
+    console.warn("FS temporary disabled")
+    const dir = window.showDirectoryPicker111 ? await getDirectoryHandle() : null
 
     return this.sendMessage('init', dir)
 

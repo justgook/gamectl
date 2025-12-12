@@ -25,8 +25,8 @@ export class TilesetRenderer extends LayerRenderer {
 
       this._renderTile(ctx, tileId, worldX, worldY)
     }
-    ctx.restore()
 
+    ctx.restore()
   }
 
   async loadTileset(_ctx, layer, _tilemap, _viewport) {
