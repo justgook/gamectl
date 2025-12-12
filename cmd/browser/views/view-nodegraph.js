@@ -987,11 +987,39 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   // --- Canvas Hook Implementations (called when space is NOT pressed) ---
 
+  /**
+   * Check if a world point is occluded by any node in front of the given node index
+   * Used to ensure front nodes' bodies take priority over back nodes' ports
+   * @param {number} worldX - World X coordinate
+   * @param {number} worldY - World Y coordinate  
+   * @param {number} behindNodeIndex - Index of the node we're checking ports for
+   * @param {Array} children - Array of child elements (DOM order)
+   * @returns {boolean} True if point is covered by a node in front
+   */
+  isPointOccludedByFrontNode(worldX, worldY, behindNodeIndex, children) {
+    // Check nodes that are in front (higher index = later in DOM = in front)
+    for (let j = behindNodeIndex + 1; j < children.length; j++) {
+      const frontNode = children[j]
+      if (!frontNode.getDisplayInfo) continue
+
+      const x = parseFloat(frontNode.getAttribute('x')) || 0
+      const y = parseFloat(frontNode.getAttribute('y')) || 0
+      const info = frontNode.getDisplayInfo()
+
+      if (worldX >= x && worldX <= x + info.width &&
+        worldY >= y && worldY <= y + info.height) {
+        return true // Point is occluded by this front node's body
+      }
+    }
+    return false
+  }
+
   onCanvasMouseDown(e) {
     const worldPos = this.screenToWorld(e.clientX, e.clientY)
 
     // Priority 1: Check if clicking on a port (extended hit area - highest priority)
     // Check nodes in reverse DOM order so front nodes get priority
+    // But also check that no front node's body occludes the port
     const children = Array.from(this.children)
     for (let i = children.length - 1; i >= 0; i--) {
       const node = children[i]
@@ -1000,6 +1028,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
       const portHit = this.getPortAt(node, worldPos.x, worldPos.y)
 
       if (portHit) {
+        // Check if this port is occluded by a node in front
+        // If so, skip this port hit and let the node body handle it
+        if (this.isPointOccludedByFrontNode(worldPos.x, worldPos.y, i, children)) {
+          continue // Port is hidden behind another node's body
+        }
+
         if (portHit.type === 'output') {
           // Output port - always create new connection (outputs support multiple connections)
           this.startConnectionCreate(node, portHit.port, 'output', worldPos)

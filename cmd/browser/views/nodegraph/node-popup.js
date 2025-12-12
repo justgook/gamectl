@@ -423,7 +423,6 @@ export class NodePopup extends NodeBase {
     // Collect values from output elements
     const values = []
     const outputElements = popupContent.querySelectorAll('[data-output]')
-    console.log(popupContent)
 
     outputElements.forEach(element => {
       const outputName = element.getAttribute('data-output')
