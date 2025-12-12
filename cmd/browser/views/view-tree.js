@@ -59,17 +59,6 @@ export class ViewTree extends ViewCanvasBase {
   }
 
   setupUI() {
-    // Create toolbar
-    const toolbar = document.createElement('div')
-    toolbar.style.cssText = 'position: absolute; top: 8px; right: 8px; z-index: 100; display: flex; gap: 8px;'
-    toolbar.innerHTML = `
-      <button data-action="reload" class="button-secondary">🔄 Reload</button>
-      <button data-action="zoom-in" class="button-secondary">+</button>
-      <button data-action="zoom-out" class="button-secondary">−</button>
-      <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
-    `
-    this.appendChild(toolbar)
-
     // Create tooltip
     this.tileInfo = document.createElement('div')
     this.tileInfo.className = 'tooltip'
@@ -82,23 +71,23 @@ export class ViewTree extends ViewCanvasBase {
     super.connectedCallback()
     this.unsubscribe = bus.on(this.sqlQuery(), this.dataChanged)
 
-    // Setup button handlers
-    const reloadBtn = this.querySelector('[data-action="reload"]')
+    // Setup button handlers (query from header controls)
+    const reloadBtn = this.queryHeaderControl('[data-action="reload"]')
     if (reloadBtn) {
       reloadBtn.onclick = () => this.fetchData()
     }
 
-    const zoomInBtn = this.querySelector('[data-action="zoom-in"]')
+    const zoomInBtn = this.queryHeaderControl('[data-action="zoom-in"]')
     if (zoomInBtn) {
       zoomInBtn.onclick = () => this.zoomIn()
     }
 
-    const zoomOutBtn = this.querySelector('[data-action="zoom-out"]')
+    const zoomOutBtn = this.queryHeaderControl('[data-action="zoom-out"]')
     if (zoomOutBtn) {
       zoomOutBtn.onclick = () => this.zoomOut()
     }
 
-    const zoomFitBtn = this.querySelector('[data-action="zoom-fit"]')
+    const zoomFitBtn = this.queryHeaderControl('[data-action="zoom-fit"]')
     if (zoomFitBtn) {
       zoomFitBtn.onclick = () => this.fitToContent()
     }

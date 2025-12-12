@@ -85,19 +85,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
   }
   
   setupUI() {
-    // Create toolbar UI
-    const toolbar = document.createElement('div')
-    toolbar.style.cssText = 'position: absolute; top: 8px; right: 8px; z-index: 100; display: flex; gap: 8px;'
-    toolbar.innerHTML = `
-      <button data-action="add-node">+ Node</button>
-      <button data-action="run" class="button-success">▶ Run</button>
-      <button data-action="reload" class="button-secondary">🔄 Reload</button>
-      <button data-action="zoom-in" class="button-secondary">+</button>
-      <button data-action="zoom-out" class="button-secondary">−</button>
-      <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
-    `
-    this.appendChild(toolbar)
-    
     // Create tooltip
     this.tileInfo = document.createElement('div')
     this.tileInfo.className = 'tooltip'
@@ -109,33 +96,33 @@ export class ViewNodeGraph extends ViewCanvasBase {
   connectedCallback() {
     super.connectedCallback()
 
-    // Setup UI button handlers
-    const addNodeBtn = this.querySelector('[data-action="add-node"]')
+    // Setup UI button handlers (query from header controls)
+    const addNodeBtn = this.queryHeaderControl('[data-action="add-node"]')
     if (addNodeBtn) {
       addNodeBtn.onclick = () => this.addNodeMenu()
     }
 
-    const runBtn = this.querySelector('[data-action="run"]')
+    const runBtn = this.queryHeaderControl('[data-action="run"]')
     if (runBtn) {
       runBtn.onclick = () => this.executeGraph()
     }
     
-    const reloadBtn = this.querySelector('[data-action="reload"]')
+    const reloadBtn = this.queryHeaderControl('[data-action="reload"]')
     if (reloadBtn) {
       reloadBtn.onclick = () => this.fetchData()
     }
     
-    const zoomInBtn = this.querySelector('[data-action="zoom-in"]')
+    const zoomInBtn = this.queryHeaderControl('[data-action="zoom-in"]')
     if (zoomInBtn) {
       zoomInBtn.onclick = () => this.zoomIn()
     }
     
-    const zoomOutBtn = this.querySelector('[data-action="zoom-out"]')
+    const zoomOutBtn = this.queryHeaderControl('[data-action="zoom-out"]')
     if (zoomOutBtn) {
       zoomOutBtn.onclick = () => this.zoomOut()
     }
     
-    const zoomFitBtn = this.querySelector('[data-action="zoom-fit"]')
+    const zoomFitBtn = this.queryHeaderControl('[data-action="zoom-fit"]')
     if (zoomFitBtn) {
       zoomFitBtn.onclick = () => this.fitToContent()
     }

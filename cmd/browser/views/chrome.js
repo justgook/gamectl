@@ -76,9 +76,7 @@ export class ViewChrome extends HTMLElement {
    * @param {string} viewTag - Tag name of new view (e.g., 'view-nodegraph')
    */
   switchView(viewTag) {
-    const currentView = this.shadowRoot.querySelector('slot:not([name]').assignedElements()[0] || null
-
-    if (!currentView) { return }
+    const currentView = this.shadowRoot.querySelector('slot:not([name])').assignedElements()[0] || null
 
     // Create new view
     const newView = document.createElement(viewTag)

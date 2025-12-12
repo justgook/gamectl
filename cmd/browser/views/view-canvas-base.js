@@ -77,6 +77,9 @@ export class ViewCanvasBase extends HTMLElement {
     // Setup UI elements (subclasses should override setupUI())
     this.setupUI();
 
+    // Add header controls from template if available
+    this._mountHeaderControls();
+
     // Start observing own size changes
     this._resizeObserver.observe(this);
 
@@ -93,6 +96,51 @@ export class ViewCanvasBase extends HTMLElement {
     this._removeEventListeners();
     this.removeEventListener('focusin', this._handleFocusIn);
     this.removeEventListener('focusout', this._handleFocusOut);
+    
+    // Remove header controls
+    this._unmountHeaderControls();
+  }
+
+  /**
+   * Mount header controls from template into parent chrome element
+   */
+  _mountHeaderControls() {
+    const viewTag = this.tagName.toLowerCase();
+    const template = document.getElementById(viewTag);
+    
+    if (template && this.parentElement) {
+      const content = template.content.cloneNode(true);
+      const headerControls = content.querySelector('[slot="header-controls"]');
+      
+      if (headerControls) {
+        // Store reference for cleanup
+        this._headerControlsElement = headerControls;
+        // Append to parent (chrome element) so it becomes a sibling
+        this.parentElement.appendChild(headerControls);
+      }
+    }
+  }
+
+  /**
+   * Remove header controls from parent chrome element
+   */
+  _unmountHeaderControls() {
+    if (this._headerControlsElement && this._headerControlsElement.parentElement) {
+      this._headerControlsElement.remove();
+      this._headerControlsElement = null;
+    }
+  }
+
+  /**
+   * Query for elements within the header controls
+   * @param {string} selector - CSS selector
+   * @returns {Element|null}
+   */
+  queryHeaderControl(selector) {
+    if (this._headerControlsElement) {
+      return this._headerControlsElement.querySelector(selector);
+    }
+    return null;
   }
 
   /**

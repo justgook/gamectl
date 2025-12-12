@@ -40,6 +40,8 @@ view--chrome .se {
 
 .panel-header {
   flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
 }
 
 .panel-content {

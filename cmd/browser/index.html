@@ -84,6 +84,35 @@
     </template>
 
     <!-- Canvas views (nodegraph, tilemap, tree) create their content programmatically -->
+    <template id="view-tilemap">
+      <div slot="header-controls" class="view-header-controls">
+        <button data-action="reload" class="button-secondary">🔄 Reload</button>
+        <button data-action="zoom-in" class="button-secondary">+</button>
+        <button data-action="zoom-out" class="button-secondary">−</button>
+        <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+      </div>
+    </template>
+
+    <template id="view-nodegraph">
+      <div slot="header-controls" class="view-header-controls">
+        <button data-action="add-node">+ Node</button>
+        <button data-action="run" class="button-success">▶ Run</button>
+        <button data-action="reload" class="button-secondary">🔄 Reload</button>
+        <button data-action="zoom-in" class="button-secondary">+</button>
+        <button data-action="zoom-out" class="button-secondary">−</button>
+        <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+      </div>
+    </template>
+
+    <template id="view-tree">
+      <div slot="header-controls" class="view-header-controls">
+        <button data-action="reload" class="button-secondary">🔄 Reload</button>
+        <button data-action="zoom-in" class="button-secondary">+</button>
+        <button data-action="zoom-out" class="button-secondary">−</button>
+        <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+      </div>
+    </template>
+
     <template id="view-handle">
       <div data-action="resize" class="handle"></div>
     </template>
@@ -98,7 +127,7 @@
       <div class="panel">
         <div class="panel-header">
 
-          <select data-action="select-view" class="view-selector">
+          <select name="view" data-action="select-view" class="view-selector">
             <optgroup label="Canvas">
               <option value="view-nodegraph">Node Graph</option>
               <option value="view-tree">Tree View</option>
@@ -111,9 +140,9 @@
               <option value="view-pipeline">Pipeline</option>
             </optgroup>
           </select>
-          <!-- <span class="panel-title"> -->
-          <!--   <slot name="title">View</slot> -->
-          <!-- </span> -->
+          <div class="panel-header-controls">
+            <slot name="header-controls"></slot>
+          </div>
         </div>
         <div class="panel-content" data-element="content">
           <slot></slot>
