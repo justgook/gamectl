@@ -43,6 +43,7 @@ export class ViewTilemap extends ViewCanvasBase {
     // Painting state
     this.isPainting = false
     this.lastPaintedTile = null
+    this.currentTileValue = 1
   }
 
   setupUI() {
@@ -81,6 +82,13 @@ export class ViewTilemap extends ViewCanvasBase {
     const zoomFitBtn = this.queryHeaderControl('[data-action="zoom-fit"]')
     if (zoomFitBtn) {
       zoomFitBtn.onclick = () => this.fitToContent()
+    }
+
+    const tileValueInput = this.queryHeaderControl('[data-action="tile-value"]')
+    if (tileValueInput) {
+      tileValueInput.oninput = (e) => {
+        this.currentTileValue = parseInt(e.target.value, 10) || 0
+      }
     }
   }
 
@@ -214,7 +222,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.lastPaintedTile = tileIndices
 
     // Paint and emit change event
-    const newTilemap = TilemapEditor.paint(this.data, tileIndices)
+    const newTilemap = TilemapEditor.paint(this.data, tileIndices, this.currentTileValue)
     bus.emit(`cache:changed:${this.sqlQuery()}`, newTilemap)
   }
 

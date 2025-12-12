@@ -10,9 +10,10 @@ export class TilemapEditor {
    * 
    * @param {Object} tilemap - Original tilemap data structure
    * @param {Array<number>} tileIndices - Array of tile indices (one per layer)
-   * @returns {Object} New tilemap with painted tiles (sets value 1 at each index)
+   * @param {number} tileValue - Value to paint (default 1)
+   * @returns {Object} New tilemap with painted tiles
    */
-  static paint(tilemap, tileIndices) {
+  static paint(tilemap, tileIndices, tileValue = 1) {
     // Deep clone to avoid mutating original
     const newTilemap = JSON.parse(JSON.stringify(tilemap))
 
@@ -25,8 +26,7 @@ export class TilemapEditor {
       // Skip if tile index is out of bounds (silent ignore)
       if (tileIdx < 0 || tileIdx >= layer.data.length) return
 
-      // Paint tile with value 1
-      layer.data[tileIdx] = 1
+      layer.data[tileIdx] = tileValue
     })
 
     return newTilemap
