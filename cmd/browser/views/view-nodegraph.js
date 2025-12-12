@@ -1696,10 +1696,16 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Create and show popup
     const popup = document.createElement('view-popup')
-    popup.setAttribute('title', 'Select Node Template')
     popup.setAttribute('size', 'large')
-    popup.appendChild(content)
 
+    // Create title element for slot
+    const titleElement = document.createElement('h2')
+    titleElement.slot = 'title'
+    titleElement.className = 'popup-title'
+    titleElement.textContent = 'Select Node Template'
+    popup.appendChild(titleElement)
+
+    popup.appendChild(content)
     popupManager.appendChild(popup)
   }
 

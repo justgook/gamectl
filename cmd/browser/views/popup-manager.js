@@ -121,16 +121,20 @@ export class PopupManager extends HTMLElement {
   showPopup({ title = '', content = '', size = 'large' } = {}) {
     const popup = document.createElement('view-popup')
 
-    if (title) {
-      popup.setAttribute('title', title)
-    }
-
     if (size) {
       popup.setAttribute('size', size)
     }
 
+    if (title) {
+      const titleElement = document.createElement('h2')
+      titleElement.slot = 'title'
+      titleElement.className = 'popup-title'
+      titleElement.textContent = title
+      popup.appendChild(titleElement)
+    }
+
     if (typeof content === 'string') {
-      popup.innerHTML = content
+      popup.innerHTML += content
     } else if (content instanceof HTMLElement) {
       popup.appendChild(content)
     }

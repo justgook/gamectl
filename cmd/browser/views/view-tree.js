@@ -49,7 +49,6 @@ export class ViewTree extends ViewCanvasBase {
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
-    super.attributeChangedCallback(name, oldVal, newVal)
     if (name === 'data-key' && oldVal !== newVal) {
       this.treeKey = newVal
       this.unsubscribe()
