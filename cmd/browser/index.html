@@ -97,9 +97,7 @@
 
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">
-            <slot name="title">View</slot>
-          </span>
+
           <select data-action="select-view" class="view-selector">
             <optgroup label="Canvas">
               <option value="view-nodegraph">Node Graph</option>
@@ -113,6 +111,9 @@
               <option value="view-pipeline">Pipeline</option>
             </optgroup>
           </select>
+          <!-- <span class="panel-title"> -->
+          <!--   <slot name="title">View</slot> -->
+          <!-- </span> -->
         </div>
         <div class="panel-content" data-element="content">
           <slot></slot>
@@ -175,7 +176,6 @@
       <popup-manager>
         <layout-parent handle-width="12" handle-height="12" id="scene">
           <view-chrome panel="panel_1">
-            <span slot="title">Node Graph</span>
             <view-nodegraph>
               <div style="position: absolute; top:64px; z-index: 2;">
                 <details class="tree">
@@ -245,12 +245,9 @@
             </view-nodegraph>
           </view-chrome>
           <view-chrome nesw="s" r="200" from="panel_1">
-            <span slot="title">Console</span>
-
             <view-console></view-console>
           </view-chrome>
           <view-chrome nesw="w" r="200" from="panel_1">
-            <span slot="title">Pipeline</span>
             <view-pipeline></view-pipeline>
           </view-chrome>
         </layout-parent>
