@@ -12,7 +12,6 @@ export class TilesetRenderer extends LayerRenderer {
     const tw = parseFloat(layer.props?.tw) || this.defaultTileWidth
     const th = parseFloat(layer.props?.th) || this.defaultTileHeight
 
-    ctx.save()
     for (let i = 0; i < layer.data.length; i++) {
       const tileId = layer.data[i]
 
@@ -25,8 +24,6 @@ export class TilesetRenderer extends LayerRenderer {
 
       this._renderTile(ctx, tileId, worldX, worldY)
     }
-
-    ctx.restore()
   }
 
   async loadTileset(_ctx, layer, _tilemap, _viewport) {

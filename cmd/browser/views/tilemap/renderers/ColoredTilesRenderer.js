@@ -34,6 +34,5 @@ export class ColoredTilesRenderer extends LayerRenderer {
 
       ctx.fillRect(x, y, tw, th)
     }
-    ctx.restore()
   }
 }
