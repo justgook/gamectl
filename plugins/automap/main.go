@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/justgook/gamectl/pkg/tilemap"
+	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -77,10 +78,25 @@ func Automap() int32 {
 		return 1
 	}
 
+	// Try to load output map, or create a copy of input map if it doesn't exist
 	outputMap, err := getTilemap(config.OutputMapID)
 	if err != nil {
-		pdk.Output(errorResponse("failed to load output map: " + err.Error()))
-		return 1
+		// Output map doesn't exist - create a copy of input map with all tiles set to 0
+		outputMap = tilemap.NewTileMap()
+		outputMap.Props = make(map[string]string)
+		for k, v := range inputMap.Props {
+			outputMap.Props[k] = v
+		}
+
+		// Copy layers structure but zero out all tile data
+		for _, inputLayer := range inputMap.Layers {
+			outputLayer := tilemap.NewTileLayer(inputLayer.Width, inputLayer.Height())
+			outputLayer.Props = make(map[string]string)
+			for k, v := range inputLayer.Props {
+				outputLayer.Props[k] = v
+			}
+			outputMap.Layers = append(outputMap.Layers, *outputLayer)
+		}
 	}
 
 	// Apply automapping
@@ -284,16 +300,19 @@ func getTilemap(mapID string) (*tilemap.TileMap, error) {
 		return nil, fmt.Errorf("SQL query failed")
 	}
 
-	// Parse CSV response to get JSON data
+	// Parse CSV response properly to handle quoted/escaped fields
 	csv := string(csvOutput)
-	lines := strings.Split(csv, "\n")
-	if len(lines) < 2 || len(lines[1]) == 0 {
+	lines := util.ParseCSVLines(csv)
+	if len(lines) < 2 || len(lines[1]) < 1 {
 		return nil, fmt.Errorf("tilemap not found: %s", mapID)
 	}
 
-	// Parse first column of second row (data column)
+	// Get data field (first column of second row)
+	dataJSON := lines[1][0]
+
+	// Parse JSON data
 	var tm tilemap.TileMap
-	if err := json.Unmarshal([]byte(lines[1]), &tm); err != nil {
+	if err := json.Unmarshal([]byte(dataJSON), &tm); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal tilemap: %w", err)
 	}
 

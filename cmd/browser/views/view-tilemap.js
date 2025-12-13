@@ -30,7 +30,7 @@ export class ViewTilemap extends ViewCanvasBase {
   constructor() {
     super()
     this.DE = new TextDecoder()
-    this.tilemapKey = 'rules1'
+    this.tilemapKey = 'rules'
     this.rendersBefore = [new GridRenderer()]
 
     this.availableRenders = new Map()

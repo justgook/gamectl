@@ -67,6 +67,16 @@
             <button type="submit">Generate Minimap</button>
           </form>
         </details>
+        <details>
+          <summary>3. Apply Automap Rules</summary>
+          <form name="automap"
+            style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
+            <label>Rules Map: <input type="text" name="rulesMapId" value="rules"></label>
+            <label>Input Map: <input type="text" name="inputMapId" value="new_map"></label>
+            <label>Output Map: <input type="text" name="outputMapId" value="automap_result"></label>
+            <button type="submit">Apply Automap</button>
+          </form>
+        </details>
       </div>
     </template>
 
@@ -210,76 +220,43 @@
       </div>
     </template>
 
+
+
+
+
+
     <toast-manager>
       <popup-manager>
         <layout-parent handle-width="12" handle-height="12" id="scene">
           <view-chrome panel="panel_1">
             <view-nodegraph>
-              <div style="position: absolute; top:64px; z-index: 2;">
-                <details class="tree">
-                  <summary>111</summary>
-                  <details>
-                    <summary>222</summary>
-                    <div>333</div>
-                    <details>
-                      <summary>333</summary>
-                      <div>444</div>
-                      <div>444</div>
-                      <div>444</div>
-                      <div>444</div>
-                    </details>
-                    <div>333</div>
-                    <div>333</div>
-                    <div>333</div>
-                    <details>
-                      <summary>333</summary>
-                      <div>444</div>
-                      <div>444</div>
-                      <div>444</div>
-                      <div>444</div>
-                    </details>
-                  </details>
-                  <details>
-                    <summary>222</summary>
-                    <div>333</div>
-                    <details>
-                      <summary>333</summary>
-                      <div>444</div>
-                      <div>444</div>
-                      <div>444</div>
-                      <div>444</div>
-                    </details>
-                    <div>333</div>
-                    <div>333</div>
-                    <div>333</div>
-                  </details>
-                  <div>empty</div>
-                </details>
-              </div>
-              <node-input id="nodeCount" x="-78" y="311" type="number" value="10" label="NodeCount"></node-input>
-              <node-plugin id="treegen" x="135" y="160" plugin="treegen" function="gen"
-                inputs="name,nodeCount:nodeCount,maxDepth,maxBranching,rootBranches" outputs="result"></node-plugin>
 
-
-              <node-fields id="extract" x="261" y="315" inputs="input:treegen.result"
-                outputs="output,returnCode"></node-fields>
-              <node-tostring id="toString" x="390" y="180" inputs="input:extract.output"></node-tostring>
-              <node-plugin id="logger" x="518.1018207797425" y="303.02118151361793" plugin="host" function="log"
-                inputs="logInput:toString">
-              </node-plugin>
-              <node-plugin id="minimap" x="135" y="60" plugin="minimap" function="gen" inputs="treeId,mapId"
-                outputs="result"></node-plugin>
-              <!-- THE NEW STUFF -->
-              <node-popup inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
-                id="node_2" x="362" y="464" title="THE TILEMAP">
-                <template><view-tilemap data-key="new_map" w="629" h="454"></view-tilemap>
-                </template>
-              </node-popup>
-              <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="62" y="204" data-state="idle"
-                values="text:rules1"><template>
+              <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="12" y="114"
+                values="text:rules"><template>
                   <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
                       style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup>
+                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="node_2" x="15"
+                y="207" values="text:new_map"><template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="node_4" x="11"
+                y="300" values="text:automap_result"><template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template></node-popup><node-popup inputs="mapId:node_2.text" outputs="mapId"
+                data-input-target="mapId:view-tilemap@data-key" id="node_6" x="242" y="204"
+                title=""><template><view-tilemap data-key="new_map"
+                    style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></template></node-popup><node-popup
+                inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key" id="node_7"
+                x="244" y="102" title=""><template><view-tilemap data-key="new_map"
+                    style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></template></node-popup><node-plugin
+                title="AutoMap" x="489" y="184" plugin="automap" function="automap"
+                inputs="rulesMapId:node_1.text,inputMapId:node_2.text,outputMapId:node_4.text" outputs="result"
+                id="node_3"></node-plugin><node-popup inputs="mapId:node_4.text" outputs="mapId"
+                data-input-target="mapId:view-tilemap@data-key" id="node_8" x="243" y="297"
+                title=""><template><view-tilemap data-key="new_map"
+                    style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></template></node-popup>
+
             </view-nodegraph>
           </view-chrome>
           <view-chrome nesw="s" r="200" from="panel_1">
