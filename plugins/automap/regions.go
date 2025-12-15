@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/justgook/gamectl/pkg/tilemap"
-	"github.com/justgook/wpm/pdk"
 )
 
 // Region represents a connected group of tiles across layers
