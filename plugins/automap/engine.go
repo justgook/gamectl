@@ -36,10 +36,17 @@ func (e *AutomapEngine) Apply(
 		config.SpecialTiles.Empty, config.SpecialTiles.NonEmpty, config.SpecialTiles.Ignore,
 		config.SpecialTiles.Other, config.SpecialTiles.Negate))
 
-	// 2. Parse rules
-	rules, err := ParseRules(rulesMap, config)
+	// 2. Detect regions and extract rules
+	logToConsole("[Automap] Detecting regions in rules map...")
+	regions, err := DetectRegions(rulesMap, config)
 	if err != nil {
-		return fmt.Errorf("parse rules: %w", err)
+		return fmt.Errorf("detect regions: %w", err)
+	}
+
+	logToConsole(fmt.Sprintf("[Automap] Extracting rules from %d regions...", len(regions)))
+	rules, err := ExtractRulesFromRegions(regions, rulesMap, config)
+	if err != nil {
+		return fmt.Errorf("extract rules: %w", err)
 	}
 
 	if len(rules) == 0 {
