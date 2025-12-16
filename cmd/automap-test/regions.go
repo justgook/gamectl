@@ -6,15 +6,14 @@ import (
 	"github.com/justgook/gamectl/pkg/tilemap"
 )
 
-// Region represents a connected group of tiles across layers
+// Region represents a connected group of tiles
 type Region struct {
 	MinX, MinY int
 	MaxX, MaxY int
-	Tiles      map[int][]Tile // layerIndex -> tiles in this region
+	Tiles      map[int][]Tile
 }
 
 // DetectRegions finds all connected tile regions in the rules map
-// Returns regions that span across all layers at the same positions
 func DetectRegions(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Region, error) {
 	if len(rulesMap.Layers) == 0 {
 		return nil, fmt.Errorf("no layers in rules map")
@@ -23,10 +22,7 @@ func DetectRegions(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Region, 
 	width := rulesMap.Layers[0].Width
 	height := rulesMap.Layers[0].Height()
 
-	logToConsole(fmt.Sprintf("[Regions] Detecting regions in %dx%d grid across %d layers", width, height, len(rulesMap.Layers)))
-
-	// Create a combined occupancy map across all layers
-	// A cell is occupied if ANY layer has a non-zero tile there
+	// Create combined occupancy map
 	occupied := make([]bool, width*height)
 
 	for layerIdx := range rulesMap.Layers {
@@ -50,7 +46,6 @@ func DetectRegions(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Region, 
 				continue
 			}
 
-			// Found a new region - flood fill to find all connected tiles
 			region := &Region{
 				MinX:  x,
 				MinY:  y,
@@ -64,17 +59,9 @@ func DetectRegions(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Region, 
 		}
 	}
 
-	logToConsole(fmt.Sprintf("[Regions] Detected %d regions", len(regions)))
-	for i, region := range regions {
-		logToConsole(fmt.Sprintf("[Regions] Region %d: bounds=(%d,%d)-(%d,%d), size=%dx%d",
-			i, region.MinX, region.MinY, region.MaxX, region.MaxY,
-			region.MaxX-region.MinX+1, region.MaxY-region.MinY+1))
-	}
-
 	return regions, nil
 }
 
-// floodFill performs 4-directional flood fill to find connected tiles
 func floodFill(x, y, width, height int, occupied, visited []bool, region *Region, rulesMap *tilemap.TileMap) {
 	idx := y*width + x
 
@@ -106,7 +93,6 @@ func floodFill(x, y, width, height int, occupied, visited []bool, region *Region
 		layer := &rulesMap.Layers[layerIdx]
 		tileValue := layer.Data[idx]
 
-		// Store tile (even if 0, as it's part of the pattern)
 		region.Tiles[layerIdx] = append(region.Tiles[layerIdx], Tile{
 			Point: Point{X: x, Y: y},
 			Value: tileValue,
@@ -124,10 +110,7 @@ func floodFill(x, y, width, height int, occupied, visited []bool, region *Region
 func ExtractRulesFromRegions(regions []*Region, rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, error) {
 	var rules []*Rule
 
-	logToConsole(fmt.Sprintf("[Regions] Extracting rules from %d regions", len(regions)))
-
-	for regionIdx, region := range regions {
-		// Separate input and output layers
+	for _, region := range regions {
 		var inputLayers []*InputLayer
 		var outputLayers []*OutputLayer
 
@@ -152,9 +135,6 @@ func ExtractRulesFromRegions(regions []*Region, rulesMap *tilemap.TileMap, confi
 				}
 				inputLayers = append(inputLayers, input)
 
-				logToConsole(fmt.Sprintf("[Regions] Region %d: input layer %d has %d tiles (normalized), target=%s",
-					regionIdx, layerIdx, len(tiles), input.TargetSelector))
-
 			} else if role == "output" {
 				output := &OutputLayer{
 					Tiles:          tiles,
@@ -163,9 +143,6 @@ func ExtractRulesFromRegions(regions []*Region, rulesMap *tilemap.TileMap, confi
 					Probability:    parseFloat(layer.Props["rule_output_Probability"], 1.0),
 				}
 				outputLayers = append(outputLayers, output)
-
-				logToConsole(fmt.Sprintf("[Regions] Region %d: output layer %d has %d tiles (normalized), target=%s",
-					regionIdx, layerIdx, len(tiles), output.TargetSelector))
 			}
 		}
 
@@ -177,12 +154,6 @@ func ExtractRulesFromRegions(regions []*Region, rulesMap *tilemap.TileMap, confi
 				Probability: config.Probability,
 			}
 			rules = append(rules, rule)
-
-			logToConsole(fmt.Sprintf("[Regions] Region %d -> Rule %d: %d inputs, %d outputs",
-				regionIdx, len(rules)-1, len(inputLayers), len(outputLayers)))
-		} else {
-			logToConsole(fmt.Sprintf("[Regions] Region %d skipped: inputs=%d, outputs=%d",
-				regionIdx, len(inputLayers), len(outputLayers)))
 		}
 	}
 
@@ -190,7 +161,6 @@ func ExtractRulesFromRegions(regions []*Region, rulesMap *tilemap.TileMap, confi
 	// This ensures more specific patterns match before less specific ones
 	sortRulesBySpecificity(rules)
 
-	logToConsole(fmt.Sprintf("[Regions] Created %d rules from %d regions", len(rules), len(regions)))
 	return rules, nil
 }
 
@@ -217,4 +187,33 @@ func countInputTiles(rule *Rule) int {
 		total += len(input.Tiles)
 	}
 	return total
+}
+
+// NormalizeTiles adjusts tile positions relative to (0, 0)
+func NormalizeTiles(tiles []Tile) []Tile {
+	if len(tiles) == 0 {
+		return tiles
+	}
+
+	// Find minimum coordinates
+	minX, minY := tiles[0].Point.X, tiles[0].Point.Y
+	for _, t := range tiles[1:] {
+		if t.Point.X < minX {
+			minX = t.Point.X
+		}
+		if t.Point.Y < minY {
+			minY = t.Point.Y
+		}
+	}
+
+	// Normalize
+	normalized := make([]Tile, len(tiles))
+	for i, t := range tiles {
+		normalized[i] = Tile{
+			Point: Point{X: t.Point.X - minX, Y: t.Point.Y - minY},
+			Value: t.Value,
+		}
+	}
+
+	return normalized
 }
