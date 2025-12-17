@@ -483,10 +483,10 @@ view-toast[hidden] {
 
 /* Position: top-right (default) */
 view-toast[position="top-right"] {
-  top: var(--spacing-scale-3);
   right: var(--spacing-scale-3);
-  /* Stack offset using CSS custom property set by JS */
-  transform: translateY(calc(var(--toast-stack-index, 0) * (100% + var(--spacing-scale-2))));
+  /* Stack offset using top position - avoids conflicts with animation transforms */
+  --toast-stack-offset: 60px;
+  top: calc(var(--spacing-scale-3) + var(--toast-stack-index, 0) * var(--toast-stack-offset));
 }
 
 /* Position: bottom-center */

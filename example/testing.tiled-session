@@ -3,15 +3,17 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "rules1.tmj",
     "automapping.whileDrawing": true,
     "expandedProjectPaths": [
+        "."
     ],
     "fileStates": {
         "": {
             "scaleInDock": 1
         },
         ":/automap-tiles.tsx": {
+            "scaleInDock": 1,
             "scaleInEditor": 1
         },
         "rules.tsj": {
@@ -19,11 +21,11 @@
             "scaleInEditor": 1
         },
         "rules1.tmj": {
-            "scale": 2.2819,
+            "scale": 1.1042,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 170.25285945922258,
-                "y": 211.4466015162803
+                "x": 172.52309364245608,
+                "y": 225.04980981706214
             }
         },
         "testground.tmj": {
@@ -46,14 +48,18 @@
     "map.tileWidth": 16,
     "map.width": 32,
     "openFiles": [
-    ],
-    "project": "testing.tiled-project",
-    "recentFiles": [
-        ":/automap-tiles.tsx",
         "testground.tmj",
         "rules1.tmj",
         "tileset-output.tsj",
         "rules.tsj"
+    ],
+    "project": "testing.tiled-project",
+    "recentFiles": [
+        "testground.tmj",
+        "rules.tsj",
+        "tileset-output.tsj",
+        "rules1.tmj",
+        ":/automap-tiles.tsx"
     ],
     "tileset.lastUsedFormat": "json",
     "tileset.tileSize": {

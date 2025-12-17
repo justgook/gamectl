@@ -227,6 +227,8 @@ export class ViewToast extends HTMLElement {
     setTimeout(() => {
       if (!this.isClosing) {
         this.style.transition = ''
+        this.style.transform = ''  // Clear to let CSS handle stacking
+        this.style.opacity = ''
       }
     }, 200)
   }
