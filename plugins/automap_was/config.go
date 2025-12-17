@@ -69,11 +69,9 @@ func parseUint32(s string, fallback uint32) uint32 {
 	if s == "" {
 		return fallback
 	}
-
 	if val, err := strconv.ParseUint(s, 10, 32); err == nil {
 		return uint32(val)
 	}
-
 	return fallback
 }
 
@@ -81,7 +79,6 @@ func parseBool(s string, fallback bool) bool {
 	if s == "" {
 		return fallback
 	}
-
 	return s == "true" || s == "1"
 }
 
@@ -89,11 +86,9 @@ func parseInt(s string, fallback int) int {
 	if s == "" {
 		return fallback
 	}
-
 	if val, err := strconv.Atoi(s); err == nil {
 		return val
 	}
-
 	return fallback
 }
 
@@ -101,11 +96,9 @@ func parseFloat(s string, fallback float64) float64 {
 	if s == "" {
 		return fallback
 	}
-
 	if val, err := strconv.ParseFloat(s, 64); err == nil {
 		return val
 	}
-
 	return fallback
 }
 
@@ -114,7 +107,6 @@ func (s *SpecialTileDefs) IsSpecial(tileID uint32) bool {
 	if tileID == 0 {
 		return false
 	}
-
 	return tileID == s.Empty ||
 		tileID == s.NonEmpty ||
 		tileID == s.Other ||

@@ -1,21 +1,3 @@
-// Package main implements the automap WASM plugin for GameCtl.
-//
-// This plugin provides automapping functionality similar to Tiled's automapping feature.
-// It takes input tilemaps and applies transformation rules to generate output tilemaps.
-//
-// The plugin demonstrates plugin-to-plugin communication by using the SQL
-// plugin to store and retrieve tilemaps.
-//
-// Current implementation (v1):
-//   - Creates three example tilemaps: rules, input, and output
-//   - Stores them in SQL storage for later use
-//   - Provides foundation for future automapping logic
-//
-// Future implementation will include:
-//   - Pattern matching against rules
-//   - Tile transformation based on neighbor analysis
-//   - Multiple rule sets and layers
-//   - Probability-based tile placement
 package main
 
 import (
@@ -28,21 +10,15 @@ import (
 	"github.com/justgook/wpm/pdk"
 )
 
-// AutomapConfig represents the configuration for automapping operations
 type AutomapConfig struct {
 	RulesMapID  string `json:"rulesMapId"`  // ID of the rules tilemap
 	InputMapID  string `json:"inputMapId"`  // ID of the input tilemap
 	OutputMapID string `json:"outputMapId"` // ID of the output tilemap
 }
 
-// Response types
 type Response struct {
-	Success     bool     `json:"success"`
-	Error       string   `json:"error,omitempty"`
-	RulesMapID  string   `json:"rulesMapId,omitempty"`
-	InputMapID  string   `json:"inputMapId,omitempty"`
-	OutputMapID string   `json:"outputMapId,omitempty"`
-	MapIDs      []string `json:"mapIds,omitempty"`
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
 }
 
 //go:wasmexport automap
@@ -51,18 +27,26 @@ func Automap() int32 {
 	var config AutomapConfig
 	if err := json.Unmarshal(input, &config); err != nil {
 		pdk.Output(errorResponse("invalid input: " + err.Error()))
+
 		return 1
 	}
 
-	// Generate default IDs if not provided
 	if config.RulesMapID == "" {
-		config.RulesMapID = "rules-basic-walls"
+		pdk.Output(errorResponse("missing rules map id"))
+
+		return 1
 	}
+
 	if config.InputMapID == "" {
-		config.InputMapID = "input-test-map"
+		pdk.Output(errorResponse("missing input map id"))
+
+		return 1
 	}
+
 	if config.OutputMapID == "" {
-		config.OutputMapID = "output-result-map"
+		pdk.Output(errorResponse("missing output map id"))
+
+		return 1
 	}
 
 	// Load tilemaps from storage
@@ -79,33 +63,35 @@ func Automap() int32 {
 	}
 
 	// Try to load output map, or create a copy of input map if it doesn't exist
-	outputMap, err := getTilemap(config.OutputMapID)
-	if err != nil {
-		// Output map doesn't exist - create a copy of input map with all tiles set to 0
-		outputMap = tilemap.NewTileMap()
-		outputMap.Props = make(map[string]string)
-		for k, v := range inputMap.Props {
-			outputMap.Props[k] = v
-		}
-
-		// Copy layers structure but zero out all tile data
-		for _, inputLayer := range inputMap.Layers {
-			outputLayer := tilemap.NewTileLayer(inputLayer.Width, inputLayer.Height())
-			outputLayer.Props = make(map[string]string)
-			for k, v := range inputLayer.Props {
-				outputLayer.Props[k] = v
-			}
-			outputMap.Layers = append(outputMap.Layers, *outputLayer)
-		}
-	}
+	// outputMap, err := getTilemap(config.OutputMapID)
+	// if err != nil {
+	// 	panic("Output map should be based not on input but on result of output of rules, or even better generated inside AutomapApply, and reutrned here to merge if tilemap exists!")
+	// 	// Output map doesn't exist - create a copy of input map with all tiles set to 0
+	// 	outputMap = tilemap.NewTileMap()
+	// 	outputMap.Props = make(map[string]string)
+	// 	for k, v := range inputMap.Props {
+	// 		outputMap.Props[k] = v
+	// 	}
+	//
+	// 	// Copy layers structure but zero out all tile data
+	// 	for _, inputLayer := range inputMap.Layers {
+	// 		outputLayer := tilemap.NewTileLayer(inputLayer.Width, inputLayer.Height())
+	// 		outputLayer.Props = make(map[string]string)
+	// 		for k, v := range inputLayer.Props {
+	// 			outputLayer.Props[k] = v
+	// 		}
+	// 		outputMap.Layers = append(outputMap.Layers, *outputLayer)
+	// 	}
+	// }
 
 	// Apply automapping
-	engine := &AutomapEngine{}
-	if err := engine.Apply(rulesMap, inputMap, outputMap); err != nil {
+	outputMap, err := AutomapApply(rulesMap, inputMap)
+	if err != nil {
 		pdk.Output(errorResponse("automapping failed: " + err.Error()))
 		return 1
 	}
 
+	// TODO: merge output map with existing (if it exists)
 	// Store the output map back
 	if err := storeTilemap(config.OutputMapID, outputMap); err != nil {
 		pdk.Output(errorResponse("failed to store output map: " + err.Error()))
@@ -113,151 +99,10 @@ func Automap() int32 {
 	}
 
 	// Return success with the map IDs
-	resp := Response{
-		Success:     true,
-		RulesMapID:  config.RulesMapID,
-		InputMapID:  config.InputMapID,
-		OutputMapID: config.OutputMapID,
-	}
-	output, _ := json.Marshal(resp)
+	output, _ := json.Marshal(Response{Success: true})
 	pdk.Output(output)
+
 	return 0
-}
-
-//go:wasmexport init
-func Init() int32 {
-	// Initialize automap plugin - create default tilemaps
-	rulesID := "rules-basic-walls"
-	inputID := "input-test-map"
-	outputID := "output-result-map"
-
-	if err := createRulesMap(rulesID); err != nil {
-		pdk.Output(errorResponse("failed to create default rules map: " + err.Error()))
-		return 1
-	}
-
-	if err := createInputMap(inputID); err != nil {
-		pdk.Output(errorResponse("failed to create default input map: " + err.Error()))
-		return 1
-	}
-
-	if err := createOutputMap(outputID); err != nil {
-		pdk.Output(errorResponse("failed to create default output map: " + err.Error()))
-		return 1
-	}
-
-	resp := Response{
-		Success:     true,
-		RulesMapID:  rulesID,
-		InputMapID:  inputID,
-		OutputMapID: outputID,
-		MapIDs:      []string{rulesID, inputID, outputID},
-	}
-	output, _ := json.Marshal(resp)
-	pdk.Output(output)
-	return 0
-}
-
-//go:wasmexport listMaps
-func ListMaps() int32 {
-	// List all automap-related tilemaps by querying tilemap_storage table
-	// Since we simplified to basic get/set, we just return the known automap map IDs
-	mapIDs := []string{"rules-basic-walls", "input-test-map", "output-result-map"}
-
-	resp := Response{
-		Success: true,
-		MapIDs:  mapIDs,
-	}
-	output, _ := json.Marshal(resp)
-	pdk.Output(output)
-	return 0
-}
-
-// =============================================================================
-// Helper functions for creating example tilemaps
-// =============================================================================
-
-func createRulesMap(mapID string) error {
-	// Create a rules tilemap with example pattern matching rules
-	// In future: this will contain patterns and their transformations
-	rulesMap := tilemap.NewTileMap()
-	rulesMap.Props["name"] = "Basic Wall Rules"
-	rulesMap.Props["type"] = "automap"
-	rulesMap.Props["category"] = "rules"
-	rulesMap.Props["tileWidth"] = "32"
-	rulesMap.Props["tileHeight"] = "32"
-	rulesMap.Props["description"] = "Example rules for wall corner detection"
-
-	// Layer 0: Input pattern layer (what to match)
-	patternLayer := tilemap.NewTileLayer(8, 8)
-	patternLayer.Props["name"] = "pattern-input"
-	patternLayer.Props["description"] = "Pattern to match in the input"
-	// Simple 3x3 pattern: corners
-	// 1 = wall, 0 = empty
-	patternLayer.Data[0*8+0] = 1 // top-left corner
-	patternLayer.Data[0*8+1] = 1
-	patternLayer.Data[1*8+0] = 1
-	rulesMap.Layers = append(rulesMap.Layers, *patternLayer)
-
-	// Layer 1: Output transformation layer (what to place)
-	outputLayer := tilemap.NewTileLayer(8, 8)
-	outputLayer.Props["name"] = "pattern-output"
-	outputLayer.Props["description"] = "Tiles to place when pattern matches"
-	// Place specific corner tile
-	outputLayer.Data[0*8+0] = 10 // corner tile ID
-	rulesMap.Layers = append(rulesMap.Layers, *outputLayer)
-
-	return storeTilemap(mapID, rulesMap)
-}
-
-func createInputMap(mapID string) error {
-	// Create an input tilemap with some basic wall layout
-	inputMap := tilemap.NewTileMap()
-	inputMap.Props["name"] = "Test Input Map"
-	inputMap.Props["type"] = "automap"
-	inputMap.Props["category"] = "input"
-	inputMap.Props["tileWidth"] = "32"
-	inputMap.Props["tileHeight"] = "32"
-	inputMap.Props["description"] = "Example input map for automapping"
-
-	// Create a 20x15 map with a simple room outline
-	layer := tilemap.NewTileLayer(20, 15)
-	layer.Props["name"] = "walls"
-	layer.Props["collision"] = "true"
-
-	// Draw a room border (simple rectangle)
-	for x := 0; x < 20; x++ {
-		layer.Data[0*20+x] = 1  // top wall
-		layer.Data[14*20+x] = 1 // bottom wall
-	}
-	for y := 0; y < 15; y++ {
-		layer.Data[y*20+0] = 1  // left wall
-		layer.Data[y*20+19] = 1 // right wall
-	}
-
-	inputMap.Layers = append(inputMap.Layers, *layer)
-
-	return storeTilemap(mapID, inputMap)
-}
-
-func createOutputMap(mapID string) error {
-	// Create an output tilemap (initially empty, will be filled by automapping)
-	outputMap := tilemap.NewTileMap()
-	outputMap.Props["name"] = "Automap Output"
-	outputMap.Props["type"] = "automap"
-	outputMap.Props["category"] = "output"
-	outputMap.Props["tileWidth"] = "32"
-	outputMap.Props["tileHeight"] = "32"
-	outputMap.Props["description"] = "Result of automapping transformation"
-
-	// Create empty layer matching input size
-	layer := tilemap.NewTileLayer(20, 15)
-	layer.Props["name"] = "generated"
-	layer.Props["generated"] = "true"
-
-	outputMap.Layers = append(outputMap.Layers, *layer)
-
-	return storeTilemap(mapID, outputMap)
 }
 
 // =============================================================================
