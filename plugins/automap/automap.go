@@ -16,12 +16,10 @@ func logToConsole(msg string) {
 func AutomapApply(
 	rulesMap *tilemap.TileMap,
 	inputMap *tilemap.TileMap,
-	// outputMap *tilemap.TileMap,
 ) (*tilemap.TileMap, error) {
 	logToConsole("[Automap] Starting automapping...")
 	logToConsole(fmt.Sprintf("[Automap] Rules map layers: %d", len(rulesMap.Layers)))
 	logToConsole(fmt.Sprintf("[Automap] Input map layers: %d", len(inputMap.Layers)))
-	// logToConsole(fmt.Sprintf("[Automap] Output map layers: %d", len(outputMap.Layers)))
 
 	// 1. Parse global config
 	config, err := ParseGlobalConfig(rulesMap.Props)
@@ -45,60 +43,51 @@ func AutomapApply(
 		return nil, fmt.Errorf("no rules found in rules map")
 	}
 
-	// logToConsole(fmt.Sprintf("[Automap] Parsed %d rules", len(rules)))
-	// for i, rule := range rules {
-	// 	logToConsole(fmt.Sprintf("[Automap] Rule %d: %d input layers, %d output variants",
-	// 		i, len(rule.InputLayers), len(rule.Outputs)))
-	// 	for j, input := range rule.InputLayers {
-	// 		logToConsole(fmt.Sprintf("[Automap]   Input %d: %d tiles, target=%s, negated=%v",
-	// 			j, len(input.Tiles), input.TargetSelector, input.IsNegated))
-	// 	}
-	// 	for j, output := range rule.Outputs {
-	// 		logToConsole(fmt.Sprintf("[Automap]   Output %d: %d tiles, target=%s, prob=%.2f",
-	// 			j, len(output.Tiles), output.TargetSelector, output.Probability))
-	// 	}
-	// }
-	//
-	// // 3. Initialize components
-	// matcher := &PatternMatcher{Config: config}
-	// applicator := &OutputApplicator{
-	// 	Config:   config,
-	// 	Occupied: NewOccupiedTracker(),
-	// }
-	//
-	// // 4. Scan and apply tile-by-tile, layer-by-layer
-	// if len(inputMap.Layers) == 0 {
-	// 	return nil
-	// }
-	//
-	// width := inputMap.Layers[0].Width
-	// height := inputMap.Layers[0].Height()
-	//
-	// logToConsole(fmt.Sprintf("[Automap] Scanning input map: %dx%d tiles", width, height))
-	//
-	// matchCount := 0
-	// // Scan left-to-right, top-to-bottom
-	// for y := 0; y < height; y++ {
-	// 	for x := 0; x < width; x++ {
-	// 		// Try each rule at this position (in order)
-	// 		for ruleIdx, rule := range rules {
-	// 			output := matcher.TryMatch(rule, inputMap, x, y)
-	// 			if output != nil {
-	// 				matchCount++
-	// 				if matchCount <= 10 { // Log first 10 matches
-	// 					logToConsole(fmt.Sprintf("[Automap] Match at (%d,%d) with rule %d", x, y, ruleIdx))
-	// 				}
-	// 				// Apply immediately
-	// 				err := applicator.Apply(output, outputMap, x, y)
-	// 				if err != nil {
-	// 					return fmt.Errorf("apply at (%d,%d): %w", x, y, err)
-	// 				}
-	// 				break // First match wins
-	// 			}
-	// 		}
-	// 	}
-	// }
+	// logToConsole("[Automap]" + string(must.Must(json.Marshal(rules))))
 
-	// logToConsole(fmt.Sprintf("[Automap] Total matches: %d", matchCount))
+	// TODO: normilize input map - make all layers same width / height
+
+	width := inputMap.Layers[0].Width
+	height := inputMap.Layers[0].Height()
+	outputLayers := make(map[string]*tilemap.TileLayer)
+	// 4. Scan and apply tile-by-tile, layer-by-layer
+	for i := range width * height {
+		for _, rule := range rules {
+			if !rule.Match(inputMap, i) {
+				continue
+			}
+
+			for _, layer := range rule.Outputs {
+				if _, ok := outputLayers[layer.TargetSelector]; !ok {
+					outputLayers[layer.TargetSelector] = tilemap.NewTileLayer(width, height)
+				}
+
+				applyTilesToOutput(outputLayers[layer.TargetSelector], i, layer.Tiles)
+			}
+
+			break
+		}
+	}
+
+	if len(outputLayers) < 1 {
+		return nil, fmt.Errorf("no rules match")
+	}
+
 	return nil, nil
+}
+
+func applyTilesToOutput(result *tilemap.TileLayer, index int, tiles []Tile) {
+	logToConsole("[Automap][TODO] implement applyTilesToOutput")
+}
+
+func createOutputTilemap(input map[string]*tilemap.TileLayer) *tilemap.TileMap {
+	result := tilemap.NewTileMap()
+
+	for _, target := range input {
+		logToConsole("[Automap][WARN] Make layer builder smarter")
+		result.Layers = append(result.Layers, *target)
+	}
+
+	return result
+
 }

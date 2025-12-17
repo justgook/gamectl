@@ -61,6 +61,10 @@ func Automap() int32 {
 		pdk.Output(errorResponse("failed to load input map: " + err.Error()))
 		return 1
 	}
+	if len(inputMap.Layers) == 0 {
+		pdk.Output(errorResponse("input map have no layers"))
+		return 1
+	}
 
 	// Try to load output map, or create a copy of input map if it doesn't exist
 	// outputMap, err := getTilemap(config.OutputMapID)
