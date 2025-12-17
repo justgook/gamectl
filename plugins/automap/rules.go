@@ -23,6 +23,12 @@ type Rule struct {
 	Probability      float64
 }
 
+func (r *Rule) Match(inputMap *tilemap.TileMap, index int) bool {
+	logToConsole("[Automap][TODO] implement Rule::Match")
+
+	return true
+}
+
 // InputLayer represents one input pattern layer
 // Tiles are stored as coordinate+value pairs (no bounding box assumption)
 type InputLayer struct {
@@ -235,35 +241,6 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 		}
 	}
 
-	// Sort rules by specificity (more tiles = higher priority)
-	// This ensures more specific patterns match before less specific ones
-	sortRulesBySpecificity(rules)
-
 	logToConsole(fmt.Sprintf("[Regions] Created %d rules", len(rules)))
 	return rules, nil
-}
-
-// sortRulesBySpecificity sorts rules so that patterns with more tiles come first
-func sortRulesBySpecificity(rules []*Rule) {
-	// Use bubble sort for simplicity (small number of rules)
-	n := len(rules)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			tilesJ := countInputTiles(rules[j])
-			tilesJ1 := countInputTiles(rules[j+1])
-
-			// Sort descending (more tiles first)
-			if tilesJ < tilesJ1 {
-				rules[j], rules[j+1] = rules[j+1], rules[j]
-			}
-		}
-	}
-}
-
-func countInputTiles(rule *Rule) int {
-	total := 0
-	for _, input := range rule.InputLayers {
-		total += len(input.Tiles)
-	}
-	return total
 }
