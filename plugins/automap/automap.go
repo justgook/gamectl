@@ -73,21 +73,38 @@ func AutomapApply(
 		return nil, fmt.Errorf("no rules match")
 	}
 
-	return nil, nil
+	return createOutputTilemap(outputLayers), nil
 }
 
 func applyTilesToOutput(result *tilemap.TileLayer, index int, tiles []Tile) {
-	logToConsole("[Automap][TODO] implement applyTilesToOutput")
+	width := result.Width
+	height := result.Height()
+
+	for _, tile := range tiles {
+		absIndex := RelativeToAbsoluteIndex(index, width, height, tile.Point.X, tile.Point.Y)
+
+		// Skip if out of bounds
+		if absIndex < 0 {
+			continue
+		}
+
+		// Overwrite (including zeros to erase)
+		result.Data[absIndex] = tile.Value
+		logToConsole(fmt.Sprintf("[Automap] setting %d to %d", absIndex, tile.Value))
+	}
 }
 
-func createOutputTilemap(input map[string]*tilemap.TileLayer) *tilemap.TileMap {
+func createOutputTilemap(outputLayers map[string]*tilemap.TileLayer) *tilemap.TileMap {
 	result := tilemap.NewTileMap()
 
-	for _, target := range input {
-		logToConsole("[Automap][WARN] Make layer builder smarter")
-		result.Layers = append(result.Layers, *target)
+	// Convert map of layers to array
+	// For now, just append all layers without specific ordering
+	// TODO: respect layer ordering, copy layer properties from rules/input
+	for targetSelector, layer := range outputLayers {
+		// Set layer name from target selector
+		layer.Props["name"] = targetSelector
+		result.Layers = append(result.Layers, *layer)
 	}
 
 	return result
-
 }

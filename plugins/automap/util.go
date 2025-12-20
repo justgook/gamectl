@@ -40,3 +40,27 @@ func NormalizeTiles(tiles []Tile) []Tile {
 
 	return normalized
 }
+
+// RelativeToAbsoluteIndex converts a flat array index plus relative offset to absolute index
+// startIndex: current position in flat array
+// width: layer width
+// height: layer height
+// relX, relY: relative offset from start position
+// Returns: absolute index, or -1 if out of bounds
+func RelativeToAbsoluteIndex(startIndex, width, height, relX, relY int) int {
+	// Convert start index to coordinates
+	startX := startIndex % width
+	startY := startIndex / width
+
+	// Calculate absolute coordinates
+	absoluteX := startX + relX
+	absoluteY := startY + relY
+
+	// Bounds check
+	if absoluteX < 0 || absoluteX >= width || absoluteY < 0 || absoluteY >= height {
+		return -1
+	}
+
+	// Convert back to index
+	return absoluteY*width + absoluteX
+}
