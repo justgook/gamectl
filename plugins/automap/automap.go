@@ -57,12 +57,12 @@ func AutomapApply(
 				continue
 			}
 
-			for _, layer := range rule.Outputs {
-				if _, ok := outputLayers[layer.TargetSelector]; !ok {
-					outputLayers[layer.TargetSelector] = tilemap.NewTileLayer(width, height)
+			for _, outputLayer := range rule.Outputs {
+				if _, ok := outputLayers[outputLayer.TargetSelector]; !ok {
+					outputLayers[outputLayer.TargetSelector] = tilemap.NewTileLayer(width, height)
 				}
 
-				applyTilesToOutput(outputLayers[layer.TargetSelector], i, layer.Tiles)
+				applyTilesToOutput(outputLayers[outputLayer.TargetSelector], i, outputLayer)
 			}
 
 			break
@@ -76,11 +76,12 @@ func AutomapApply(
 	return createOutputTilemap(outputLayers), nil
 }
 
-func applyTilesToOutput(result *tilemap.TileLayer, index int, tiles []Tile) {
-	width := result.Width
-	height := result.Height()
+func applyTilesToOutput(targetLayer *tilemap.TileLayer, index int, outputLayer *OutputLayer) {
+	width := targetLayer.Width
+	height := targetLayer.Height()
 
-	for _, tile := range tiles {
+	// Apply tiles to the target layer
+	for _, tile := range outputLayer.Tiles {
 		absIndex := RelativeToAbsoluteIndex(index, width, height, tile.Point.X, tile.Point.Y)
 
 		// Skip if out of bounds
@@ -89,8 +90,13 @@ func applyTilesToOutput(result *tilemap.TileLayer, index int, tiles []Tile) {
 		}
 
 		// Overwrite (including zeros to erase)
-		result.Data[absIndex] = tile.Value
+		targetLayer.Data[absIndex] = tile.Value
 		logToConsole(fmt.Sprintf("[Automap] setting %d to %d", absIndex, tile.Value))
+	}
+
+	// Copy non-rule properties from output layer to target layer
+	for key, value := range outputLayer.Props {
+		targetLayer.Props[key] = value
 	}
 }
 

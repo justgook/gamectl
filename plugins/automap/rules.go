@@ -6,6 +6,25 @@ import (
 	"github.com/justgook/gamectl/pkg/tilemap"
 )
 
+// rulePropsToExclude lists all rule-specific properties
+var rulePropsToExclude = map[string]bool{
+	"rule_role": true, "rule_target_layer": true, "rule_input_index": true,
+	"rule_input_not": true, "rule_layer_IgnoreHorizontalFlip": true,
+	"rule_layer_IgnoreVerticalFlip": true, "rule_layer_IgnoreDiagonalFlip": true,
+	"rule_layer_AutoEmpty": true, "rule_output_index": true,
+	"rule_output_Probability": true, "rule_ModX": true, "rule_ModY": true,
+	"rule_OffsetX": true, "rule_OffsetY": true, "rule_Probability": true,
+	"rule_Disabled": true, "rule_MatchOutsideMap": true, "rule_OverflowBorder": true,
+	"rule_WrapBorder": true, "rule_NoOverlappingOutput": true, "rule_MatchInOrder": true,
+	"rule_DeleteTiles": true, "rule_Empty": true, "rule_NonEmpty": true,
+	"rule_Other": true, "rule_Ignore": true, "rule_Negate": true,
+}
+
+// shouldCopyProp checks if a property should be copied
+func shouldCopyProp(key string) bool {
+	return !rulePropsToExclude[key]
+}
+
 // Rule represents one pattern alternative (one input_index)
 // Contains multiple InputLayers that define the matching conditions
 type Rule struct {
@@ -96,6 +115,9 @@ type OutputLayer struct {
 	// For probability-based selection
 	OutputIndex string
 	Probability float64
+
+	// Custom properties from the source layer (excluding rule_* properties)
+	Props map[string]string
 }
 
 // ExtractRules converts rules map into Rule objects using single-pass recursive extraction
@@ -159,11 +181,20 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 					IsNegated:      parseBool(layer.Props["rule_input_not"], false),
 				})
 			} else if role == "output" {
+				// Copy non-rule properties from source layer
+				props := make(map[string]string)
+				for key, value := range layer.Props {
+					if shouldCopyProp(key) {
+						props[key] = value
+					}
+				}
+
 				outputLayers = append(outputLayers, &OutputLayer{
 					Tiles:          tiles,
 					TargetSelector: targetLayer,
 					OutputIndex:    layer.Props["rule_output_index"],
 					Probability:    parseFloat(layer.Props["rule_output_Probability"], 1.0),
+					Props:          props,
 				})
 			}
 		}
