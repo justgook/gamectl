@@ -154,6 +154,23 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 		var inputLayers []*InputLayer
 		var outputLayers []*OutputLayer
 
+		// First pass: find global minimum coordinates across ALL layers in this rule
+		globalMinX, globalMinY := int(^uint(0)>>1), int(^uint(0)>>1) // Max int
+		for _, tiles := range ruleTiles {
+			if len(tiles) == 0 {
+				continue
+			}
+			for _, tile := range tiles {
+				if tile.Point.X < globalMinX {
+					globalMinX = tile.Point.X
+				}
+				if tile.Point.Y < globalMinY {
+					globalMinY = tile.Point.Y
+				}
+			}
+		}
+
+		// Second pass: normalize all tiles using the same global reference point
 		for layerIdx, tiles := range ruleTiles {
 			if len(tiles) == 0 {
 				continue
@@ -171,12 +188,18 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 				return nil, fmt.Errorf("layer %d missing rule_target_layer property", layerIdx)
 			}
 
-			// Normalize tiles to (0,0)
-			tiles = NormalizeTiles(tiles)
+			// Normalize tiles relative to global minimum
+			normalized := make([]Tile, len(tiles))
+			for i, t := range tiles {
+				normalized[i] = Tile{
+					Point: Point{X: t.Point.X - globalMinX, Y: t.Point.Y - globalMinY},
+					Value: t.Value,
+				}
+			}
 
 			if role == "input" {
 				inputLayers = append(inputLayers, &InputLayer{
-					Tiles:          tiles,
+					Tiles:          normalized,
 					TargetSelector: targetLayer,
 					IsNegated:      parseBool(layer.Props["rule_input_not"], false),
 				})
@@ -190,7 +213,7 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 				}
 
 				outputLayers = append(outputLayers, &OutputLayer{
-					Tiles:          tiles,
+					Tiles:          normalized,
 					TargetSelector: targetLayer,
 					OutputIndex:    layer.Props["rule_output_index"],
 					Probability:    parseFloat(layer.Props["rule_output_Probability"], 1.0),
