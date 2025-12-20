@@ -1,10 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
-	"github.com/justgook/gamectl/pkg/must"
 	"github.com/justgook/gamectl/pkg/tilemap"
 )
 
@@ -23,11 +21,54 @@ type Rule struct {
 	ModX, ModY       int
 	OffsetX, OffsetY int
 	Probability      float64
+
+	// Configuration for special tiles and matching behavior
+	Config *GlobalConfig
 }
 
 func (r *Rule) Match(inputMap *tilemap.TileMap, index int) bool {
-	logToConsole("[Automap][TODO] implement Rule::Match" + string(must.Must(json.Marshal(r.InputLayers))))
+	width := inputMap.Layers[0].Width
+	height := inputMap.Layers[0].Height()
 
+	// Loop through all input layers in this rule
+	for _, inputLayer := range r.InputLayers {
+		// Find the target layer using selector
+		targetLayer := tilemap.FindLayer(inputMap, inputLayer.TargetSelector)
+
+		// If target layer doesn't exist, rule cannot be applied
+		if targetLayer == nil {
+			return false
+		}
+
+		// Check all tiles in this input layer
+		for _, tile := range inputLayer.Tiles {
+			// Convert relative position to absolute index
+			absIndex := RelativeToAbsoluteIndex(index, width, height, tile.Point.X, tile.Point.Y)
+
+			// Out of bounds = no match
+			if absIndex < 0 {
+				return false
+			}
+
+			// Get the input map tile at this position
+			inputTileValue := targetLayer.Data[absIndex]
+
+			// Compare using special tile logic
+			matched := matchTile(tile.Value, inputTileValue, r.Config, r)
+
+			// Apply negation if needed
+			if inputLayer.IsNegated {
+				matched = !matched
+			}
+
+			// Early exit on first mismatch
+			if !matched {
+				return false
+			}
+		}
+	}
+
+	// All tiles matched!
 	return true
 }
 
@@ -133,6 +174,7 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 				InputLayers: inputLayers,
 				Outputs:     outputLayers,
 				Probability: config.Probability,
+				Config:      config,
 			})
 		} else {
 			return nil, fmt.Errorf("rule at position %d has only inputs=%d or only outputs=%d (need both)",
@@ -204,5 +246,57 @@ func hasAnyTile(rulesMap *tilemap.TileMap, idx int) bool {
 			return true
 		}
 	}
+	return false
+}
+
+// matchTile compares a rule tile value against an input tile value
+// Returns true if they match according to special tile rules
+func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, rule *Rule) bool {
+	// Special case: Ignore - always matches
+	if ruleTileValue == config.SpecialTiles.Ignore {
+		return true
+	}
+
+	// Special case: Empty - matches only tile value 0
+	if ruleTileValue == config.SpecialTiles.Empty {
+		return inputTileValue == 0
+	}
+
+	// Special case: NonEmpty - matches any non-zero tile
+	if ruleTileValue == config.SpecialTiles.NonEmpty {
+		return inputTileValue != 0
+	}
+
+	// Special case: Other - matches tiles NOT used in this rule
+	if ruleTileValue == config.SpecialTiles.Other {
+		return !rule.containsTileValue(inputTileValue)
+	}
+
+	// Regular match: exact value comparison
+	return ruleTileValue == inputTileValue
+}
+
+// containsTileValue checks if a tile value is used anywhere in this rule's input layers
+// Excludes special tiles from the check
+func (r *Rule) containsTileValue(tileValue uint32) bool {
+	// Zero is never "used" for Other matching
+	if tileValue == 0 {
+		return false
+	}
+
+	for _, inputLayer := range r.InputLayers {
+		for _, tile := range inputLayer.Tiles {
+			// Skip special tiles
+			if r.Config.SpecialTiles.IsSpecial(tile.Value) {
+				continue
+			}
+
+			// Found a match
+			if tile.Value == tileValue {
+				return true
+			}
+		}
+	}
+
 	return false
 }
