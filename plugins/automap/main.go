@@ -66,28 +66,6 @@ func Automap() int32 {
 		return 1
 	}
 
-	// Try to load output map, or create a copy of input map if it doesn't exist
-	// outputMap, err := getTilemap(config.OutputMapID)
-	// if err != nil {
-	// 	panic("Output map should be based not on input but on result of output of rules, or even better generated inside AutomapApply, and reutrned here to merge if tilemap exists!")
-	// 	// Output map doesn't exist - create a copy of input map with all tiles set to 0
-	// 	outputMap = tilemap.NewTileMap()
-	// 	outputMap.Props = make(map[string]string)
-	// 	for k, v := range inputMap.Props {
-	// 		outputMap.Props[k] = v
-	// 	}
-	//
-	// 	// Copy layers structure but zero out all tile data
-	// 	for _, inputLayer := range inputMap.Layers {
-	// 		outputLayer := tilemap.NewTileLayer(inputLayer.Width, inputLayer.Height())
-	// 		outputLayer.Props = make(map[string]string)
-	// 		for k, v := range inputLayer.Props {
-	// 			outputLayer.Props[k] = v
-	// 		}
-	// 		outputMap.Layers = append(outputMap.Layers, *outputLayer)
-	// 	}
-	// }
-
 	// Apply automapping
 	outputMap, err := AutomapApply(rulesMap, inputMap)
 	if err != nil {
