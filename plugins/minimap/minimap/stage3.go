@@ -10,18 +10,18 @@ import (
 // Stage3 creates paths between all parent-child pairs using A* pathfinding
 // Siblings (children of same parent) can share path tiles
 // But paths from different parent groups cannot overlap
-// Returns door connections for all parent-child relationships
+// Returns PathInfo for all parent-child relationships
 func Stage3(
 	rng Random,
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 	grid *Grid,
-) ([]DoorConnection, error) {
+) ([]PathInfo, error) {
 	if len(*treeInput) == 0 {
 		return nil, fmt.Errorf("tree cannot be empty")
 	}
 
-	var allDoors []DoorConnection
+	var allPathInfos []PathInfo
 
 	// Group children by parent
 	childrenByParent := make(map[int][]int)
@@ -50,7 +50,14 @@ func Stage3(
 
 			// Detect door tiles for this connection
 			doors := detectDoorTiles(grid, childIndex+1, parentIndex+1, fromEdges, toEdges, path)
-			allDoors = append(allDoors, doors...)
+
+			// Store PathInfo (path tiles are already in child→parent order from A*)
+			allPathInfos = append(allPathInfos, PathInfo{
+				ChildID:   childIndex + 1,
+				ParentID:  parentIndex + 1,
+				PathTiles: path,
+				Doors:     doors,
+			})
 		}
 
 		// Commit all sibling paths together (they can overlap, using same ID)
@@ -63,7 +70,7 @@ func Stage3(
 		}
 	}
 
-	return allDoors, nil
+	return allPathInfos, nil
 }
 
 // findPathBetweenShapes finds the shortest orthogonal path between two shapes
