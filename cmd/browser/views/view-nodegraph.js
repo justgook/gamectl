@@ -2031,6 +2031,15 @@ export class ViewNodeGraph extends ViewCanvasBase {
   getNodeIds() {
     return Array.from(this.nodes.keys())
   }
+
+  // Save functionality not implemented for NodeGraph (data is stored in DOM)
+  getSelectQuery() {
+    throw new Error("NodeGraph does not support cache-based save (data is stored in DOM)")
+  }
+
+  getInsertQueryFn() {
+    throw new Error("NodeGraph does not support cache-based save (data is stored in DOM)")
+  }
 }
 
 customElements.define('view-nodegraph', ViewNodeGraph)

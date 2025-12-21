@@ -109,6 +109,16 @@ export class ViewTree extends ViewCanvasBase {
     return this.data
   }
 
+  getSelectQuery() {
+    return `SELECT data FROM tree_storage WHERE name = '${this.treeKey}'`
+  }
+
+  getInsertQueryFn() {
+    return (name, escapedData) => {
+      return `INSERT OR REPLACE INTO tree_storage (name, data) VALUES ('${name}', '${escapedData}')`
+    }
+  }
+
   dataChanged = (data) => {
     this.data = data
     this.contentBounds = this.calculateContentBounds(this.data)

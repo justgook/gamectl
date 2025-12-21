@@ -23,7 +23,7 @@ export class ViewTilemap extends ViewCanvasBase {
     if (name === 'data-key' && oldVal !== newVal) {
       this.tilemapKey = newVal
       this.unsubscibe()
-      this.unsubscibe = bus.on(`cache:changed:${this.sqlQuery()}`, this.dataChanged)
+      this.unsubscibe = bus.on(`cache:changed:${this.getSelectQuery()}`, this.dataChanged)
     }
   }
 
@@ -61,7 +61,7 @@ export class ViewTilemap extends ViewCanvasBase {
   connectedCallback() {
     super.connectedCallback()
     this.renders = []
-    this.unsubscibe = bus.on(`cache:changed:${this.sqlQuery()}`, this.dataChanged)
+    this.unsubscibe = bus.on(`cache:changed:${this.getSelectQuery()}`, this.dataChanged)
 
     // Setup button handlers (query from header controls)
     const reloadBtn = this.queryHeaderControl('[data-action="reload"]')
@@ -107,14 +107,20 @@ export class ViewTilemap extends ViewCanvasBase {
     this.draw()
   }
 
-  sqlQuery() {
+  async fetchData() {
+    bus.emit(`cache:load:${this.getSelectQuery()}`)
+
+    return this.data
+  }
+
+  getSelectQuery() {
     return `SELECT data FROM tilemap_storage WHERE name = '${this.tilemapKey}'`
   }
 
-  async fetchData() {
-    bus.emit(`cache:load:${this.sqlQuery()}`)
-
-    return this.data
+  getInsertQueryFn() {
+    return (name, escapedData) => {
+      return `INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('${name}', '${escapedData}')`
+    }
   }
 
   calculateContentBounds(data) {
@@ -221,7 +227,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
     // Paint and emit change event
     const newTilemap = TilemapEditor.paint(this.data, tileIndices, this.currentTileValue)
-    bus.emit(`cache:changed:${this.sqlQuery()}`, newTilemap)
+    bus.emit(`cache:changed:${this.getSelectQuery()}`, newTilemap)
   }
 
   // Override parent class hooks for painting
