@@ -27,7 +27,7 @@ export class DoorsRenderer extends LayerRenderer {
     this.doorConfig = {
       widthRatio: 0.4,    // Door is 40% of tile width
       depth: 8,           // How "deep" the door looks
-      inset: 6,           // Distance from tile edge
+      inset: 1,           // Distance from tile edge
       frameColor: '#654321',
       doorColor: '#8B4513',
       handleColor: '#FFD700',

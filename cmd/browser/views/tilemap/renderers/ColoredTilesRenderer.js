@@ -14,8 +14,8 @@ export class ColoredTilesRenderer extends LayerRenderer {
 
     // Generate color palette for tile rendering
     this.colors = generateHsluvColors(100)
-    this.defaultTileHeight = 16
-    this.defaultTileWidth = 16
+    this.defaultTileHeight = 40
+    this.defaultTileWidth = 40
   }
 
   render(ctx, layer, _tilemap, _viewport) {

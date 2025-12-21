@@ -10,15 +10,18 @@ import (
 // Stage3 creates paths between all parent-child pairs using A* pathfinding
 // Siblings (children of same parent) can share path tiles
 // But paths from different parent groups cannot overlap
+// Returns door connections for all parent-child relationships
 func Stage3(
 	rng Random,
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 	grid *Grid,
-) error {
+) ([]DoorConnection, error) {
 	if len(*treeInput) == 0 {
-		return fmt.Errorf("tree cannot be empty")
+		return nil, fmt.Errorf("tree cannot be empty")
 	}
+
+	var allDoors []DoorConnection
 
 	// Group children by parent
 	childrenByParent := make(map[int][]int)
@@ -37,11 +40,17 @@ func Stage3(
 		// Find paths for all children of this parent (without committing)
 		// Use 1-based IDs for shape lookup
 		for _, childIndex := range children {
+			fromEdges := getShapeEdgeTiles(grid, childIndex+1)
+			toEdges := getShapeEdgeTiles(grid, parentIndex+1)
 			path := findPathBetweenShapes(grid, childIndex+1, parentIndex+1)
 			if path == nil {
-				return fmt.Errorf("cannot find path for: %d", childIndex)
+				return nil, fmt.Errorf("cannot find path for: %d", childIndex)
 			}
 			allPaths = append(allPaths, path)
+
+			// Detect door tiles for this connection
+			doors := detectDoorTiles(grid, childIndex+1, parentIndex+1, fromEdges, toEdges, path)
+			allDoors = append(allDoors, doors...)
 		}
 
 		// Commit all sibling paths together (they can overlap, using same ID)
@@ -54,7 +63,7 @@ func Stage3(
 		}
 	}
 
-	return nil
+	return allDoors, nil
 }
 
 // findPathBetweenShapes finds the shortest orthogonal path between two shapes
@@ -285,4 +294,89 @@ func (pq *priorityQueue) Pop() any {
 	item.index = -1
 	*pq = old[0 : n-1]
 	return item
+}
+
+// detectDoorTiles identifies door tiles for a parent-child connection
+// Returns two DoorConnections: one for child room, one for parent room
+func detectDoorTiles(
+	grid *Grid,
+	childID int,
+	parentID int,
+	childEdges []Point,
+	parentEdges []Point,
+	path []Point,
+) []DoorConnection {
+	var doors []DoorConnection
+
+	if len(path) == 0 {
+		// Direct neighbors case: rooms touch directly
+		// Find the edge tiles that are adjacent to each other
+		for _, childEdge := range childEdges {
+			for _, parentEdge := range parentEdges {
+				if areAdjacent(childEdge, parentEdge) {
+					// Child door: edge tile pointing toward parent
+					childDir := calculateDirection(childEdge, parentEdge)
+					doors = append(doors, DoorConnection{
+						Point:     childEdge,
+						RoomID:    childID,
+						Direction: childDir,
+					})
+
+					// Parent door: edge tile pointing toward child
+					parentDir := calculateDirection(parentEdge, childEdge)
+					doors = append(doors, DoorConnection{
+						Point:     parentEdge,
+						RoomID:    parentID,
+						Direction: parentDir,
+					})
+
+					return doors // Found the connection, done
+				}
+			}
+		}
+	} else {
+		// Path exists between rooms
+		// After conversion, path tiles become parent tiles
+		// So we have: [Child edge] ↔ [path...] ↔ [Parent edge]
+		// After: [Child edge] ↔ [parent tiles (was path)] ↔ [Parent edge]
+
+		firstPathPoint := path[0]
+
+		// Child door: on child edge tile, pointing toward first path point
+		for _, childEdge := range childEdges {
+			if areAdjacent(childEdge, firstPathPoint) {
+				childDir := calculateDirection(childEdge, firstPathPoint)
+				doors = append(doors, DoorConnection{
+					Point:     childEdge,
+					RoomID:    childID,
+					Direction: childDir,
+				})
+
+				// Parent door: on first path point (becomes parent), pointing toward child edge
+				parentDir := calculateDirection(firstPathPoint, childEdge)
+				doors = append(doors, DoorConnection{
+					Point:     firstPathPoint,
+					RoomID:    parentID, // Path becomes parent after conversion
+					Direction: parentDir,
+				})
+
+				return doors // Found the door pair
+			}
+		}
+	}
+
+	return doors
+}
+
+// areAdjacent checks if two points are orthogonally adjacent
+func areAdjacent(a, b Point) bool {
+	dx := a[0] - b[0]
+	dy := a[1] - b[1]
+	if dx < 0 {
+		dx = -dx
+	}
+	if dy < 0 {
+		dy = -dy
+	}
+	return (dx == 1 && dy == 0) || (dx == 0 && dy == 1)
 }

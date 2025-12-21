@@ -20,15 +20,35 @@ func GenerateMinimap(
 ) (*tilemap.TileMap, error) {
 	input := &Grid{}
 	Stage1(rng, treeInput, getRoomShape, input)
-	if err := Stage3(rng, treeInput, getRoomShape, input); err != nil {
+
+	// Collect door connections from Stage3
+	doors, err := Stage3(rng, treeInput, getRoomShape, input)
+	if err != nil {
 		return nil, err
 	}
 
-	data, width := Grid2Tilemap(input)
+	// Generate room layer (paths become parent tiles)
+	roomData, width := Grid2Tilemap(input)
+
+	// Generate door layer
+	doorData, doorWidth := GenerateDoorLayer(input, doors)
+
 	return &tilemap.TileMap{
-		Layers: []tilemap.TileLayer{{
-			Width: width,
-			Data:  data,
-		}},
+		Layers: []tilemap.TileLayer{
+			{
+				Width: width,
+				Data:  roomData,
+				Props: map[string]string{
+					"name": "rooms",
+				},
+			},
+			{
+				Width: doorWidth,
+				Data:  doorData,
+				Props: map[string]string{
+					"type": "doors",
+				},
+			},
+		},
 	}, nil
 }
