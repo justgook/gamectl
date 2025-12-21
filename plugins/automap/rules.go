@@ -354,3 +354,41 @@ func (r *Rule) containsTileValue(tileValue uint32) bool {
 
 	return false
 }
+
+// Bounds returns the maximum width and height needed for this rule's input region.
+// Returns (maxWidth, maxHeight) representing the bounding box of the rule pattern.
+// These values indicate how far from the origin (0,0) the rule extends.
+func (r *Rule) Bounds() (width, height int) {
+	maxX, maxY := 0, 0
+
+	// Check all input layers
+	for _, inputLayer := range r.InputLayers {
+		for _, tile := range inputLayer.Tiles {
+			if tile.Point.X > maxX {
+				maxX = tile.Point.X
+			}
+			if tile.Point.Y > maxY {
+				maxY = tile.Point.Y
+			}
+		}
+	}
+
+	// Convert from max coordinates to dimensions (add 1)
+	return maxX + 1, maxY + 1
+}
+
+// CalculateMaxRuleBounds finds the largest rule dimensions across all rules.
+// Returns (maxWidth, maxHeight) representing the maximum bounding box needed
+// to accommodate any rule in the set. Used for MatchOutsideMap padding calculation.
+func CalculateMaxRuleBounds(rules []*Rule) (maxWidth, maxHeight int) {
+	for _, rule := range rules {
+		w, h := rule.Bounds()
+		if w > maxWidth {
+			maxWidth = w
+		}
+		if h > maxHeight {
+			maxHeight = h
+		}
+	}
+	return maxWidth, maxHeight
+}
