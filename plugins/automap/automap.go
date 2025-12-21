@@ -47,13 +47,47 @@ func AutomapApply(
 
 	// TODO: normilize input map - make all layers same width / height
 
-	width := inputMap.Layers[0].Width
-	height := inputMap.Layers[0].Height()
+	// 3. Handle MatchOutsideMap by extending the input map if needed
+	var workingMap *tilemap.TileMap
+	var originalWidth, originalHeight int
+	var padX, padY int
+
+	if config.MatchOutsideMap {
+		// Calculate maximum rule bounds
+		maxRuleWidth, maxRuleHeight := CalculateMaxRuleBounds(rules)
+		logToConsole(fmt.Sprintf("[Automap] MatchOutsideMap enabled - max rule bounds: %dx%d", maxRuleWidth, maxRuleHeight))
+
+		// Store original dimensions
+		originalWidth = inputMap.Layers[0].Width
+		originalHeight = inputMap.Layers[0].Height()
+
+		// Calculate padding (rule size - 1)
+		padX = maxRuleWidth - 1
+		padY = maxRuleHeight - 1
+
+		logToConsole(fmt.Sprintf("[Automap] Extending map from %dx%d to %dx%d (padding: %d, %d)",
+			originalWidth, originalHeight,
+			originalWidth+padX*2, originalHeight+padY*2,
+			padX, padY))
+
+		// Extend all input layers
+		extendedLayers := tilemap.ExtendLayers(inputMap.Layers, padX, padY, padX, padY)
+
+		workingMap = &tilemap.TileMap{
+			Layers: extendedLayers,
+			Props:  inputMap.Props,
+		}
+	} else {
+		workingMap = inputMap
+	}
+
+	width := workingMap.Layers[0].Width
+	height := workingMap.Layers[0].Height()
 	outputLayers := make(map[string]*tilemap.TileLayer)
 	// 4. Scan and apply tile-by-tile, layer-by-layer
 	for i := range width * height {
 		for _, rule := range rules {
-			if !rule.Match(inputMap, i) {
+			if !rule.Match(workingMap, i) {
 				continue
 			}
 
@@ -71,6 +105,16 @@ func AutomapApply(
 
 	if len(outputLayers) < 1 {
 		return nil, fmt.Errorf("no rules match")
+	}
+
+	// 5. Crop output layers back to original size if we extended the map
+	if config.MatchOutsideMap {
+		logToConsole(fmt.Sprintf("[Automap] Cropping output layers back to original size: %dx%d", originalWidth, originalHeight))
+
+		for key, layer := range outputLayers {
+			croppedLayers := tilemap.CropLayers([]tilemap.TileLayer{*layer}, padX, padY, originalWidth, originalHeight)
+			outputLayers[key] = &croppedLayers[0]
+		}
 	}
 
 	return createOutputTilemap(outputLayers), nil
