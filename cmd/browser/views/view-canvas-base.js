@@ -83,6 +83,9 @@ export class ViewCanvasBase extends HTMLElement {
     // Add header controls from template if available
     this._mountHeaderControls();
 
+    // Setup save button handler (common for all canvas views)
+    this._setupSaveButton();
+
     // Start observing own size changes
     this._resizeObserver.observe(this);
 
@@ -131,6 +134,41 @@ export class ViewCanvasBase extends HTMLElement {
     if (this._headerControlsElement && this._headerControlsElement.parentElement) {
       this._headerControlsElement.remove();
       this._headerControlsElement = null;
+    }
+  }
+
+  /**
+   * Setup save button handler (common for all canvas views)
+   */
+  _setupSaveButton() {
+    const saveBtn = this.queryHeaderControl('[data-action="save"]');
+    if (saveBtn) {
+      saveBtn.onclick = async () => {
+        try {
+          await this.saveData();
+        } catch (error) {
+          // If save is not implemented, hide the button
+          if (error.message.includes('must implement')) {
+            saveBtn.style.display = 'none';
+          }
+        }
+      };
+    }
+  }
+
+  /**
+   * Save current data via cache system
+   */
+  async saveData() {
+    try {
+      const selectQuery = this.getSelectQuery();
+      const insertQueryFn = this.getInsertQueryFn();
+      
+      bus.emit('cache:save', { selectQuery, insertQueryFn });
+    } catch (error) {
+      console.error('Save failed:', error);
+      bus.emit('cache:save:error', { error: error.message });
+      throw error;
     }
   }
 
@@ -225,6 +263,24 @@ export class ViewCanvasBase extends HTMLElement {
   getHoverInfo(_worldX, _worldY, _data) {
     // Optional: return null if no info
     return null;
+  }
+
+  /**
+   * Get the SELECT query used to load data for this view
+   * Subclasses must implement this to enable save functionality
+   * @returns {string} SQL SELECT query
+   */
+  getSelectQuery() {
+    throw new Error("Subclass must implement getSelectQuery()");
+  }
+
+  /**
+   * Get the INSERT query function for saving data
+   * Subclasses must implement this to enable save functionality
+   * @returns {Function} Function that takes (name, escapedJsonData) and returns INSERT query string
+   */
+  getInsertQueryFn() {
+    throw new Error("Subclass must implement getInsertQueryFn()");
   }
 
   /**
