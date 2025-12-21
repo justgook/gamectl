@@ -275,7 +275,7 @@ __attribute__((export_name("query"))) uint32_t sql_query(void) {
 
 // Build CSV-style result
 // Format: "col1,col2,col3\nval1,val2,val3\n..."
-#define RESULT_BUF_SIZE 32768  // Increased from 8192 for large HTML templates
+#define RESULT_BUF_SIZE (2 * 1024 * 1024)  // 2MB for large tilemaps (was 32KB)
   char *result_buf = (char *)pdk_alloc(RESULT_BUF_SIZE);
   if (!result_buf) {
     sqlite3_finalize(stmt);
@@ -359,7 +359,7 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
   }
 
   // Allocate buffer for the dump output
-#define DUMP_BUF_SIZE 32768
+#define DUMP_BUF_SIZE (2 * 1024 * 1024)  // 2MB for large dumps (was 32KB)
   char *dump_buf = (char *)pdk_alloc(DUMP_BUF_SIZE);
   if (!dump_buf) {
     const char error_msg[] = "Memory allocation failed";
