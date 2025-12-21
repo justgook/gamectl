@@ -21,10 +21,22 @@ func GenerateMinimap(
 	input := &Grid{}
 	Stage1(rng, treeInput, getRoomShape, input)
 
-	// Collect door connections from Stage3
-	doors, err := Stage3(rng, treeInput, getRoomShape, input)
+	// Collect path info from Stage3
+	pathInfos, err := Stage3(rng, treeInput, getRoomShape, input)
 	if err != nil {
 		return nil, err
+	}
+
+	// Run Stage4 to reduce path lengths
+	pathInfos, err = Stage4(rng, treeInput, getRoomShape, input, pathInfos)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract all doors from PathInfo
+	var doors []DoorConnection
+	for _, pi := range pathInfos {
+		doors = append(doors, pi.Doors...)
 	}
 
 	// Generate room layer (paths become parent tiles)

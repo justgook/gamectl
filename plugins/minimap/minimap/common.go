@@ -20,6 +20,14 @@ type DoorConnection struct {
 	Direction uint8 // Bit mask: North=1, East=2, South=4, West=8
 }
 
+// PathInfo represents a path connection between child and parent
+type PathInfo struct {
+	ChildID   int              // Child room ID (1-based)
+	ParentID  int              // Parent room ID (1-based)
+	PathTiles []Point          // Ordered list of path tiles (child → parent direction)
+	Doors     []DoorConnection // Door connections for this path
+}
+
 // Door direction bit masks
 const (
 	DoorNorth = 1
