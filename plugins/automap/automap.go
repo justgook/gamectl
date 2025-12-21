@@ -49,36 +49,13 @@ func AutomapApply(
 
 	// 3. Handle MatchOutsideMap by extending the input map if needed
 	var workingMap *tilemap.TileMap
-	var originalWidth, originalHeight int
-	var padX, padY int
+	var edgeCtx *EdgeMatchContext
 
 	if config.MatchOutsideMap {
-		// Calculate maximum rule bounds
-		maxRuleWidth, maxRuleHeight := CalculateMaxRuleBounds(rules)
-		logToConsole(fmt.Sprintf("[Automap] MatchOutsideMap enabled - max rule bounds: %dx%d", maxRuleWidth, maxRuleHeight))
-
-		// Store original dimensions
-		originalWidth = inputMap.Layers[0].Width
-		originalHeight = inputMap.Layers[0].Height()
-
-		// Calculate padding (rule size - 1)
-		padX = maxRuleWidth - 1
-		padY = maxRuleHeight - 1
-
-		logToConsole(fmt.Sprintf("[Automap] Extending map from %dx%d to %dx%d (padding: %d, %d)",
-			originalWidth, originalHeight,
-			originalWidth+padX*2, originalHeight+padY*2,
-			padX, padY))
-
-		// Extend all input layers
-		extendedLayers := tilemap.ExtendLayers(inputMap.Layers, padX, padY, padX, padY)
-
-		workingMap = &tilemap.TileMap{
-			Layers: extendedLayers,
-			Props:  inputMap.Props,
-		}
+		workingMap, edgeCtx = PrepareMapForEdgeMatching(inputMap, rules)
 	} else {
 		workingMap = inputMap
+		edgeCtx = &EdgeMatchContext{WasExtended: false}
 	}
 
 	width := workingMap.Layers[0].Width
@@ -108,14 +85,7 @@ func AutomapApply(
 	}
 
 	// 5. Crop output layers back to original size if we extended the map
-	if config.MatchOutsideMap {
-		logToConsole(fmt.Sprintf("[Automap] Cropping output layers back to original size: %dx%d", originalWidth, originalHeight))
-
-		for key, layer := range outputLayers {
-			croppedLayers := tilemap.CropLayers([]tilemap.TileLayer{*layer}, padX, padY, originalWidth, originalHeight)
-			outputLayers[key] = &croppedLayers[0]
-		}
-	}
+	RestoreMapEdges(outputLayers, edgeCtx)
 
 	return createOutputTilemap(outputLayers), nil
 }
