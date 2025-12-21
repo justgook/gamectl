@@ -63,6 +63,7 @@ async function handleInit(id, maybeDir) {
     // delete those
     'math',
     'sql',
+    'scaler',
   ];
 
   const dir = maybeDir ?? await navigator.storage.getDirectory()

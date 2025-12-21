@@ -234,28 +234,28 @@
           <view-chrome panel="panel_1">
             <view-nodegraph>
 
-              <node-popup title="Text" label="THE TEXT" outputs="text" id="node_1" x="12" y="114"
+              <node-popup title="Text" label="THE TEXT" outputs="text" id="init_1" x="12" y="114"
                 values="text:rules"><template>
                   <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
                       style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="node_2" x="15"
+                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="init_2" x="15"
                 y="207" values="text:new_map"><template>
                   <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
                       style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="node_4" x="11"
+                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="init_4" x="11"
                 y="300" values="text:automap_result"><template>
                   <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
                       style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup><node-popup inputs="mapId:node_2.text" outputs="mapId"
-                data-input-target="mapId:view-tilemap@data-key" id="node_6" x="242" y="204"
+                </template></node-popup><node-popup inputs="mapId:init_2.text" outputs="mapId"
+                data-input-target="mapId:view-tilemap@data-key" id="init_6" x="242" y="204"
                 title=""><template><view-tilemap data-key="new_map"></view-tilemap></template></node-popup><node-popup
-                inputs="mapId:node_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key" id="node_7"
+                inputs="mapId:init_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key" id="init_7"
                 x="244" y="102" title=""><template><view-tilemap
                     data-key="new_map"></view-tilemap></template></node-popup><node-plugin title="AutoMap" x="489"
                 y="184" plugin="automap" function="automap"
-                inputs="rulesMapId:node_1.text,inputMapId:node_2.text,outputMapId:node_4.text" outputs="result"
-                id="node_3"></node-plugin><node-popup inputs="mapId:node_4.text" outputs="mapId"
-                data-input-target="mapId:view-tilemap@data-key" id="node_8" x="243" y="297"
+                inputs="rulesMapId:init_1.text,inputMapId:init_2.text,outputMapId:init_4.text" outputs="result"
+                id="init_3"></node-plugin><node-popup inputs="mapId:init_4.text" outputs="mapId"
+                data-input-target="mapId:view-tilemap@data-key" id="init_8" x="243" y="297"
                 title=""><template><view-tilemap data-key="new_map"></view-tilemap></template></node-popup>
 
             </view-nodegraph>
