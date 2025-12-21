@@ -9,8 +9,8 @@ import { bus } from "../systems/event-bus.js"
 import { TilemapEditor } from "../systems/tilemap-editor.js"
 
 // Default tile dimensions when not specified in layer.props
-const DEFAULT_TILE_WIDTH = 40
-const DEFAULT_TILE_HEIGHT = 40
+const DEFAULT_TILE_WIDTH = 16
+const DEFAULT_TILE_HEIGHT = 16
 
 function noop() { }
 
@@ -30,7 +30,7 @@ export class ViewTilemap extends ViewCanvasBase {
   constructor() {
     super()
     this.DE = new TextDecoder()
-    this.tilemapKey = 'rules'
+    this.tilemapKey = 'new_map'
     this.rendersBefore = [new GridRenderer()]
 
     this.availableRenders = new Map()
@@ -213,8 +213,18 @@ export class ViewTilemap extends ViewCanvasBase {
     if (!this.data) return
 
     const rect = this.canvas.getBoundingClientRect()
-    const worldX = (e.clientX - rect.left - this.offsetX) / this.scale
-    const worldY = (e.clientY - rect.top - this.offsetY) / this.scale
+
+    // Get mouse position in CSS pixels relative to canvas
+    const cssX = e.clientX - rect.left
+    const cssY = e.clientY - rect.top
+
+    // Convert to canvas bitmap pixels (accounting for any CSS scaling)
+    const bitmapX = (cssX * this.canvas.width) / rect.width
+    const bitmapY = (cssY * this.canvas.height) / rect.height
+
+    // Convert to world coordinates using viewport transform
+    const worldX = (bitmapX - this.offsetX) / this.scale
+    const worldY = (bitmapY - this.offsetY) / this.scale
 
     const tileIndices = this._screenToTileIndices(worldX, worldY)
 
