@@ -132,8 +132,9 @@ func scaleLayer(layer tilemap.TileLayer, scaleFactor int) tilemap.TileLayer {
 // =============================================================================
 
 func getTilemap(mapID string) (*tilemap.TileMap, error) {
-	// Query tilemap from SQL storage
-	sqlQuery := fmt.Sprintf("SELECT data FROM tilemap_storage WHERE name = '%s'", mapID)
+	// Query tilemap from SQL storage using proper SQL escaping
+	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
+	sqlQuery := fmt.Sprintf("SELECT data FROM tilemap_storage WHERE name = '%s'", escapedMapID)
 	status, csvOutput, err := pdk.Call("sql", "query", []byte(sqlQuery))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tilemap: %w", err)
@@ -150,10 +151,13 @@ func getTilemap(mapID string) (*tilemap.TileMap, error) {
 		return nil, fmt.Errorf("tilemap not found: %s", mapID)
 	}
 
+	// Get the JSON data from CSV
+	jsonData := lines[1][0]
+
 	// Parse tilemap from JSON data
 	var tm tilemap.TileMap
-	if err := json.Unmarshal([]byte(lines[1][0]), &tm); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal tilemap: %w", err)
+	if err := json.Unmarshal([]byte(jsonData), &tm); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tilemap (data length: %d): %w", len(jsonData), err)
 	}
 
 	return &tm, nil
@@ -166,18 +170,23 @@ func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 		return fmt.Errorf("failed to marshal tilemap: %w", err)
 	}
 
-	// Escape SQL string and insert
-	escapedData := strings.ReplaceAll(string(tilemapJSON), "'", "''")
+	jsonStr := string(tilemapJSON)
+
+	// Build SQL INSERT using proper escaping
+	// We need to escape both the mapID and the JSON data for SQL
+	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
+	escapedData := strings.ReplaceAll(jsonStr, "'", "''")
+
 	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
-		mapID, escapedData)
+		escapedMapID, escapedData)
 
 	status, output, err := pdk.Call("sql", "exec", []byte(sqlQuery))
 	if err != nil {
-		return fmt.Errorf("failed to store tilemap: %w", err)
+		return fmt.Errorf("failed to store tilemap (size: %d bytes): %w", len(jsonStr), err)
 	}
 
 	if status != 0 || (len(output) > 0 && string(output) != "OK") {
-		return fmt.Errorf("SQL execution failed: %s", string(output))
+		return fmt.Errorf("SQL execution failed (size: %d bytes): %s", len(jsonStr), string(output))
 	}
 
 	return nil
