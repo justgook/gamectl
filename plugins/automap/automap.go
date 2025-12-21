@@ -32,7 +32,6 @@ func AutomapApply(
 		config.SpecialTiles.Other, config.SpecialTiles.Negate))
 
 	// 2. Detect regions and extract rules
-	logToConsole("[Automap] Detecting regions in rules map...")
 
 	rules, err := ExtractRules(rulesMap, config)
 	if err != nil {
@@ -43,20 +42,10 @@ func AutomapApply(
 		return nil, fmt.Errorf("no rules found in rules map")
 	}
 
-	// logToConsole("[Automap]" + string(must.Must(json.Marshal(rules))))
-
 	// TODO: normilize input map - make all layers same width / height
 
-	// 3. Handle MatchOutsideMap by extending the input map if needed
-	var workingMap *tilemap.TileMap
-	var edgeCtx *EdgeMatchContext
-
-	if config.MatchOutsideMap {
-		workingMap, edgeCtx = PrepareMapForEdgeMatching(inputMap, rules)
-	} else {
-		workingMap = inputMap
-		edgeCtx = &EdgeMatchContext{WasExtended: false}
-	}
+	// 3. Prepare map for edge matching (handles MatchOutsideMap, OverflowBorder, WrapBorder)
+	workingMap, edgeCtx := PrepareMapForEdgeMatching(rulesMap, inputMap, rules)
 
 	width := workingMap.Layers[0].Width
 	height := workingMap.Layers[0].Height()
@@ -105,7 +94,6 @@ func applyTilesToOutput(targetLayer *tilemap.TileLayer, index int, outputLayer *
 
 		// Overwrite (including zeros to erase)
 		targetLayer.Data[absIndex] = tile.Value
-		logToConsole(fmt.Sprintf("[Automap] setting %d to %d", absIndex, tile.Value))
 	}
 
 	// Copy non-rule properties from output layer to target layer
