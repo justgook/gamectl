@@ -62,16 +62,13 @@ export class ViewCanvasBase extends HTMLElement {
       this.setAttribute('tabindex', '0');
     }
 
-    // Make this element fill its container, or use explicit w/h attributes if present
+    // Make this element fill its container - CSS controls all sizing
     this.style.display = 'block';
     this.style.position = 'relative';
+    this.style.width = '100%';
+    this.style.height = '100%';
 
-    const explicitWidth = this.getAttribute('w');
-    const explicitHeight = this.getAttribute('h');
-    this.style.width = explicitWidth ? `${explicitWidth}px` : '100%';
-    this.style.height = explicitHeight ? `${explicitHeight}px` : '100%';
-
-    // Add canvas
+    // Add canvas - it will match our size via CSS
     this.canvas.style.display = 'block';
     this.canvas.style.width = '100%';
     this.canvas.style.height = '100%';
