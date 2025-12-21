@@ -95,6 +95,8 @@ func scaleLayer(layer tilemap.TileLayer, scaleFactor int) tilemap.TileLayer {
 	newHeight := originalHeight * scaleFactor
 	newData := make([]uint32, newWidth*newHeight)
 
+	logToConsole(fmt.Sprintf("[Scaler] generating new layer %dx%d", newWidth, newHeight))
+
 	// For each tile in the original layer
 	for y := 0; y < originalHeight; y++ {
 		for x := 0; x < originalWidth; x++ {
@@ -190,6 +192,10 @@ func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	}
 
 	return nil
+}
+
+func logToConsole(msg string) {
+	pdk.Call("host", "log", []byte(msg))
 }
 
 // Required main function for WASM
