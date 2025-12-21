@@ -36,7 +36,9 @@ export class ViewCanvasBase extends HTMLElement {
     this._resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target === this) {
-          const { width, height } = entry.contentRect;
+          // Use clientWidth/clientHeight for accurate sizing that matches getBoundingClientRect
+          const width = this.clientWidth;
+          const height = this.clientHeight;
           this._onResized(width, height);
         }
       }
@@ -216,9 +218,13 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   _onResized(width, height) {
-    if (!this.canvas || (this.canvas.width === width && this.canvas.height === height)) return;
-    this.canvas.width = width;
-    this.canvas.height = height;
+    // Round to nearest integer to match canvas bitmap dimensions
+    const roundedWidth = Math.round(width);
+    const roundedHeight = Math.round(height);
+    
+    if (!this.canvas || (this.canvas.width === roundedWidth && this.canvas.height === roundedHeight)) return;
+    this.canvas.width = roundedWidth;
+    this.canvas.height = roundedHeight;
     this.draw();
   }
 
