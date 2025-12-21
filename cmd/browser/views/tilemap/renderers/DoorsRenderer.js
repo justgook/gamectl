@@ -20,8 +20,8 @@ export class DoorsRenderer extends LayerRenderer {
     this.DoorWest = 8
 
     // Default tile dimensions (can be overridden by layer props)
-    this.defaultTileWidth = 40
-    this.defaultTileHeight = 40
+    this.defaultTileWidth = 16
+    this.defaultTileHeight = 16
 
     // Door visual configuration
     this.doorConfig = {
@@ -112,13 +112,13 @@ export class DoorsRenderer extends LayerRenderer {
           frameX: cx - doorWidth / 2 - 2,
           frameY: y + inset,
           frameW: doorWidth + 4,
-          frameH: depth + 2,
+          frameH: depth - 1,
           doorX: cx - doorWidth / 2,
           doorY: y + inset + 1,
           doorW: doorWidth,
-          doorH: depth,
-          handleX: cx + doorWidth / 3,
-          handleY: y + inset + depth / 2 - 1
+          doorH: depth - 3,
+          handleX: cx - 1.5, // Centered horizontally on door
+          handleY: y + inset + 0.5 // North edge of door (top)
         })
       }
 
@@ -133,8 +133,8 @@ export class DoorsRenderer extends LayerRenderer {
           doorY: cy - doorWidth / 2,
           doorW: depth,
           doorH: doorWidth,
-          handleX: x + tileWidth - inset - depth / 2 - 1,
-          handleY: cy + doorWidth / 3
+          handleX: x + tileWidth - inset - depth + depth - 4.5, // East edge of door (right side, inside)
+          handleY: cy - 1.5 // Centered vertically on door
         })
       }
 
@@ -149,8 +149,8 @@ export class DoorsRenderer extends LayerRenderer {
           doorY: y + tileHeight - inset - depth,
           doorW: doorWidth,
           doorH: depth,
-          handleX: cx - doorWidth / 3 - 3,
-          handleY: y + tileHeight - inset - depth / 2 - 1
+          handleX: cx - 1.5, // Centered horizontally on door
+          handleY: y + tileHeight - inset - depth + depth - 4.5 // South edge of door (bottom, inside)
         })
       }
 
@@ -165,8 +165,8 @@ export class DoorsRenderer extends LayerRenderer {
           doorY: cy - doorWidth / 2,
           doorW: depth,
           doorH: doorWidth,
-          handleX: x + inset + depth / 2 - 1,
-          handleY: cy - doorWidth / 3 - 3
+          handleX: x + inset + 1.5, // West edge of door (left)
+          handleY: cy - 1.5 // Centered vertically on door
         })
       }
 
