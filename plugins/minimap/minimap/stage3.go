@@ -2,9 +2,15 @@ package minimap
 
 import (
 	"container/heap"
-	"fmt"
+	"errors"
 
 	"github.com/justgook/gamectl/pkg/tree"
+)
+
+// Stage3 error constants for clear error handling
+var (
+	ErrEmptyTree   = errors.New("stage3: tree cannot be empty")
+	ErrNoPathFound = errors.New("stage3: cannot find path between rooms")
 )
 
 // Stage3 creates paths between all parent-child pairs using A* pathfinding
@@ -12,13 +18,11 @@ import (
 // But paths from different parent groups cannot overlap
 // Returns PathInfo for all parent-child relationships
 func Stage3(
-	rng Random,
 	treeInput *tree.Tree,
-	getRoomShape GetRoomShapeFunc,
 	grid *Grid,
 ) ([]PathInfo, error) {
 	if len(*treeInput) == 0 {
-		return nil, fmt.Errorf("tree cannot be empty")
+		return nil, ErrEmptyTree
 	}
 
 	var allPathInfos []PathInfo
@@ -44,12 +48,12 @@ func Stage3(
 			toEdges := getShapeEdgeTiles(grid, parentIndex+1)
 			path := findPathBetweenShapes(grid, childIndex+1, parentIndex+1)
 			if path == nil {
-				return nil, fmt.Errorf("cannot find path for: %d", childIndex)
+				return nil, ErrNoPathFound
 			}
 			allPaths = append(allPaths, path)
 
 			// Detect door tiles for this connection
-			doors := detectDoorTiles(grid, childIndex+1, parentIndex+1, fromEdges, toEdges, path)
+			doors := detectDoorTiles(childIndex+1, parentIndex+1, fromEdges, toEdges, path)
 
 			// Store PathInfo (path tiles are already in child→parent order from A*)
 			allPathInfos = append(allPathInfos, PathInfo{
@@ -306,7 +310,6 @@ func (pq *priorityQueue) Pop() any {
 // detectDoorTiles identifies door tiles for a parent-child connection
 // Returns two DoorConnections: one for child room, one for parent room
 func detectDoorTiles(
-	grid *Grid,
 	childID int,
 	parentID int,
 	childEdges []Point,

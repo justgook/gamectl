@@ -10,7 +10,7 @@ type Point = [2]int
 // Layout constants for Stage 1
 const (
 	LevelSpacing = 1 // Vertical spacing between levels
-	NodeSpacing  = 2 // Horizontal spacing between siblings
+	NodeSpacing  = 0 // Horizontal spacing between siblings
 )
 
 // DoorConnection represents a door tile on the grid

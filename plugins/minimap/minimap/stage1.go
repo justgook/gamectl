@@ -119,13 +119,24 @@ func Stage1(
 				// Leaf node: unit width is just its shape width
 				layouts[nodeIndex].unitWidth = layouts[nodeIndex].normalized.width
 			} else {
-				// Parent node: sum of children widths + spacing between them
-				totalWidth := 0
+				// Parent node: max of (children total width, own shape width)
+				// Calculate total width needed for children including spacing between them
+				childrenTotalWidth := 0
 				for _, childIndex := range children {
-					totalWidth += layouts[childIndex].unitWidth
+					childrenTotalWidth += layouts[childIndex].unitWidth
 				}
-				totalWidth += (len(children) - 1) * NodeSpacing
-				layouts[nodeIndex].unitWidth = totalWidth
+				// Add spacing between children (not before first or after last)
+				childrenTotalWidth += (len(children) - 1) * NodeSpacing
+
+				// Parent needs enough width for its own shape
+				parentShapeWidth := layouts[nodeIndex].normalized.width
+
+				// Use the maximum to ensure both parent and children fit without overlapping
+				if childrenTotalWidth > parentShapeWidth {
+					layouts[nodeIndex].unitWidth = childrenTotalWidth
+				} else {
+					layouts[nodeIndex].unitWidth = parentShapeWidth
+				}
 			}
 		}
 	}

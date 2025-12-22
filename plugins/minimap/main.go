@@ -34,6 +34,10 @@ func (rng *MyRandom) Intn(n int) int {
 	return int(rndIntn(uint32(n)))
 }
 
+func logToConsole(msg string) {
+	pdk.Call("host", "log", []byte(msg))
+}
+
 //export gen
 func Gen() uint32 {
 	input := pdk.Input()
@@ -81,12 +85,19 @@ func Gen() uint32 {
 	}
 
 	// Generate minimap using pure generation logic
+	logToConsole(fmt.Sprintf("[Minimap] Starting generation for tree with %d nodes", len(tree)))
+
+	// Set up logging for stage4
+	minimap.LogFunc = logToConsole
+
 	rng := &MyRandom{}
 	tileMap, err := minimap.GenerateMinimap(rng, &tree, getRoomShape)
 	if err != nil {
+		logToConsole(fmt.Sprintf("[Minimap] Generation failed: %v", err))
 		pdk.Output(util.ErrorResponse("minimap generation failed: " + err.Error()))
 		return 1
 	}
+	logToConsole("[Minimap] Generation completed successfully")
 
 	// Store tilemap in SQL storage
 	tilemapJSON, err := json.Marshal(tileMap)
