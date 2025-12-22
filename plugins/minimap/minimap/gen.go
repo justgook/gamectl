@@ -18,26 +18,34 @@ func GenerateMinimap(
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 ) (*tilemap.TileMap, error) {
-	input := &Grid{}
-	Stage1(rng, treeInput, getRoomShape, input)
+	grid := &Grid{}
 
-	// Collect path info from Stage3
-	pathInfos, err := Stage3(rng, treeInput, getRoomShape, input)
+	// Stage 1: Initial hierarchical placement
+	Stage1(rng, treeInput, getRoomShape, grid)
+
+	// Stage 3: Initial pathfinding
+	pathInfos, err := Stage3(treeInput, grid)
 	if err != nil {
 		return nil, err
 	}
 
-	// Extract all doors from PathInfo
-	var doors []DoorConnection
-	for _, pi := range pathInfos {
-		doors = append(doors, pi.Doors...)
-	}
+	// Stage 4: Path compression
+	// _, err = Stage4(rng, treeInput, getRoomShape, grid)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	//
+	// // Final pathfinding to get door info
+	// pathInfos, err = Stage3(rng, treeInput, getRoomShape, grid)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	// Generate room layer (paths become parent tiles)
-	roomData, width := Grid2Tilemap(input)
+	roomData, width := Grid2Tilemap(grid)
 
 	// Generate door layer
-	doorData, doorWidth := GenerateDoorLayer(input, doors)
+	doorData, doorWidth := GenerateDoorLayer(grid, GenerateDoorsFromPaths(pathInfos))
 
 	return &tilemap.TileMap{
 		Layers: []tilemap.TileLayer{
