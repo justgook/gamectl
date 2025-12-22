@@ -27,12 +27,6 @@ func GenerateMinimap(
 		return nil, err
 	}
 
-	// Run Stage4 to reduce path lengths
-	pathInfos, err = Stage4(rng, treeInput, getRoomShape, input, pathInfos)
-	if err != nil {
-		return nil, err
-	}
-
 	// Extract all doors from PathInfo
 	var doors []DoorConnection
 	for _, pi := range pathInfos {
