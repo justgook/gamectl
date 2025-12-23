@@ -18,34 +18,36 @@ func GenerateMinimap(
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
 ) (*tilemap.TileMap, error) {
-	grid := &Grid{}
+	// Stage 1: Initial hierarchical placement (returns shapes with positions)
+	shapes := Stage1(rng, treeInput, getRoomShape)
 
-	// Stage 1: Initial hierarchical placement
-	Stage1(rng, treeInput, getRoomShape, grid)
-
-	// Stage 3: Initial pathfinding
-	pathInfos, err := Stage3(treeInput, grid)
+	// Stage 3: Pathfinding (builds internal grid, returns PathInfo only)
+	pathInfos, err := Stage3(treeInput, shapes)
 	if err != nil {
 		return nil, err
 	}
 
-	// Stage 4: Path compression
-	// _, err = Stage4(rng, treeInput, getRoomShape, grid)
+	// Stage 4: Path compression (modifies shape positions)
+	// err = Stage4(treeInput, shapes)
 	// if err != nil {
 	// 	return nil, err
 	// }
 	//
-	// // Final pathfinding to get door info
-	// pathInfos, err = Stage3(rng, treeInput, getRoomShape, grid)
+	// // Re-run pathfinding after compression
+	// pathInfos, err = Stage3(treeInput, shapes)
 	// if err != nil {
 	// 	return nil, err
 	// }
 
-	// Generate room layer (paths become parent tiles)
-	roomData, width := Grid2Tilemap(grid)
+	// Generate room layer from shapes
+	roomData, width, offset := ApplyShapesToTilemap(shapes, pathInfos)
+
+	// Apply paths to tilemap (paths become parent tiles)
+	ApplyPathsToTilemap(pathInfos, roomData, width, offset)
 
 	// Generate door layer
-	doorData, doorWidth := GenerateDoorLayer(grid, GenerateDoorsFromPaths(pathInfos))
+	doors := GenerateDoorsFromPaths(pathInfos)
+	doorData := generateDoorLayerFromOffset(doors, width, len(roomData)/width, offset)
 
 	return &tilemap.TileMap{
 		Layers: []tilemap.TileLayer{
@@ -57,7 +59,7 @@ func GenerateMinimap(
 				},
 			},
 			{
-				Width: doorWidth,
+				Width: width,
 				Data:  doorData,
 				Props: map[string]string{
 					"type": "doors",
@@ -65,4 +67,20 @@ func GenerateMinimap(
 			},
 		},
 	}, nil
+}
+
+// generateDoorLayerFromOffset creates door layer data using pre-calculated bounds
+func generateDoorLayerFromOffset(doors []DoorConnection, width, height int, offset Point) []uint32 {
+	data := make([]uint32, width*height)
+
+	for _, door := range doors {
+		x := door.Point[0] - offset[0]
+		y := door.Point[1] - offset[1]
+		idx := y*width + x
+		if idx >= 0 && idx < len(data) {
+			data[idx] |= uint32(door.Direction)
+		}
+	}
+
+	return data
 }

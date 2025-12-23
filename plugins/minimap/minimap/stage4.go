@@ -29,10 +29,10 @@ var (
 )
 
 // Stage4 compresses the layout by moving children closer to parents along existing paths
-// Returns metrics about compression effectiveness
+// Modifies shapes in place, returns error if compression fails
 func Stage4(
 	treeInput *tree.Tree,
-	grid *Grid,
+	shapes []PlacedShape,
 ) error {
 	return nil
 }
