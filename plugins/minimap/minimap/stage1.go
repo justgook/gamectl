@@ -417,16 +417,19 @@ func findSiblingIndex(siblings []int, nodeIndex int) int {
 
 // radialLayout stores positioning information for radial placement
 type radialLayout struct {
-	nodeIndex    int
-	normalized   PlacedShape
-	radius       float64 // bounding circle radius (half of max dimension + spacing)
-	angle        float64 // center angle in radians
-	angularWidth float64 // angular span needed for this subtree
-	ringRadius   float64 // distance from center
+	nodeIndex     int
+	normalized    PlacedShape
+	boundingSize  float64 // bounding circle diameter including spacing
+	angle         float64 // center angle in radians
+	sectorStart   float64 // start angle of this node's exclusive sector
+	sectorEnd     float64 // end angle of this node's exclusive sector
+	subtreeWeight float64 // weight of subtree (for proportional sector allocation)
+	ringRadius    float64 // distance from center
 }
 
 // placeRadial positions nodes in concentric rings around the center
-// Uses a packed circles approach where each depth level forms a ring
+// Uses a "pie slice" approach where each subtree gets an exclusive angular sector
+// This ensures paths from children to parent never cross other subtrees
 func placeRadial(treeInput *tree.Tree, getRoomShape GetRoomShapeFunc) []PlacedShape {
 	if len(*treeInput) == 0 {
 		return []PlacedShape{}
@@ -440,119 +443,149 @@ func placeRadial(treeInput *tree.Tree, getRoomShape GetRoomShapeFunc) []PlacedSh
 	for i, node := range *treeInput {
 		shape := getRoomShape(node)
 		normalized := normalizeShape(shape)
-		// Bounding circle radius is half the diagonal + spacing for clearance
-		maxDim := normalized.Width
-		if normalized.Height > maxDim {
-			maxDim = normalized.Height
-		}
+		// Bounding size is the diagonal of the bounding box + spacing
+		diagonal := math.Sqrt(float64(normalized.Width*normalized.Width + normalized.Height*normalized.Height))
 		layouts[i] = radialLayout{
-			nodeIndex:  i,
-			normalized: normalized,
-			radius:     float64(maxDim)/2.0 + float64(NodeSpacing)/2.0,
+			nodeIndex:    i,
+			normalized:   normalized,
+			boundingSize: diagonal + float64(NodeSpacing)*2,
 		}
 	}
 
-	// Calculate ring radii (cumulative max radius at each depth)
+	// Find max bounding size at each depth
+	maxBoundingAtDepth := make([]float64, maxDepth+1)
+	for depth := 0; depth <= maxDepth; depth++ {
+		for _, nodeIndex := range depthMap[depth] {
+			if layouts[nodeIndex].boundingSize > maxBoundingAtDepth[depth] {
+				maxBoundingAtDepth[depth] = layouts[nodeIndex].boundingSize
+			}
+		}
+	}
+
+	// Calculate ring radii
 	ringRadii := make([]float64, maxDepth+1)
 	for depth := 0; depth <= maxDepth; depth++ {
-		maxRadius := 0.0
-		for _, nodeIndex := range depthMap[depth] {
-			if layouts[nodeIndex].radius > maxRadius {
-				maxRadius = layouts[nodeIndex].radius
-			}
-		}
 		if depth == 0 {
-			ringRadii[depth] = 0 // Root at center
+			ringRadii[depth] = 0
 		} else {
-			// Ring radius = previous ring + previous max radius + current max radius + level spacing
-			prevMaxRadius := 0.0
-			for _, nodeIndex := range depthMap[depth-1] {
-				if layouts[nodeIndex].radius > prevMaxRadius {
-					prevMaxRadius = layouts[nodeIndex].radius
-				}
-			}
-			ringRadii[depth] = ringRadii[depth-1] + prevMaxRadius + maxRadius + float64(LevelSpacing)
+			prevHalf := maxBoundingAtDepth[depth-1] / 2
+			thisHalf := maxBoundingAtDepth[depth] / 2
+			ringRadii[depth] = ringRadii[depth-1] + prevHalf + float64(LevelSpacing) + thisHalf
 		}
 	}
 
-	// Step 1: Calculate angular widths bottom-up
-	// Each leaf needs enough angle to fit its bounding circle at its ring radius
+	// Step 1: Calculate subtree weights bottom-up
+	// Weight represents the "size" of a subtree for proportional sector allocation
+	// Leaf nodes get weight based on their bounding size at their ring
+	// Parent nodes get sum of children's weights (propagated up)
 	for depth := maxDepth; depth >= 0; depth-- {
 		for _, nodeIndex := range depthMap[depth] {
 			children := childrenMap[nodeIndex]
-			ringRadius := ringRadii[depth]
+			ringRadius := math.Max(ringRadii[depth], 1.0)
+
+			// Minimum weight for this node's shape
+			ownWeight := layouts[nodeIndex].boundingSize / ringRadius
 
 			if len(children) == 0 {
-				// Leaf node: angular width based on fitting bounding circle at ring radius
-				if ringRadius < 1 {
-					ringRadius = 1 // Prevent division by zero for root
-				}
-				// Arc length needed = 2 * radius, angular width = arc_length / ring_radius
-				arcLength := 2 * layouts[nodeIndex].radius
-				layouts[nodeIndex].angularWidth = arcLength / ringRadius
+				layouts[nodeIndex].subtreeWeight = ownWeight
 			} else {
-				// Parent node: sum of children's angular widths
-				totalAngularWidth := 0.0
+				// Sum of children's weights
+				childrenWeight := 0.0
 				for _, childIndex := range children {
-					totalAngularWidth += layouts[childIndex].angularWidth
+					childrenWeight += layouts[childIndex].subtreeWeight
 				}
-				// Also ensure parent itself fits
-				if ringRadius < 1 {
-					ringRadius = 1
-				}
-				ownAngularWidth := (2 * layouts[nodeIndex].radius) / ringRadius
-				if totalAngularWidth < ownAngularWidth {
-					totalAngularWidth = ownAngularWidth
-				}
-				layouts[nodeIndex].angularWidth = totalAngularWidth
+				// Parent's weight is max of own needs and children's total
+				layouts[nodeIndex].subtreeWeight = math.Max(ownWeight, childrenWeight)
 			}
 		}
 	}
 
-	// Step 2: Assign angles top-down
-	// Root starts at angle 0, children spread around it
+	// Step 2: Assign sectors top-down (pie slice approach)
+	// Root gets the full circle, children divide parent's sector proportionally
 	for depth := 0; depth <= maxDepth; depth++ {
 		for _, nodeIndex := range depthMap[depth] {
 			layouts[nodeIndex].ringRadius = ringRadii[depth]
 
 			if depth == 0 {
-				// Root at center, angle doesn't matter much but set to 0
+				// Root: full circle sector, centered at angle 0
+				layouts[nodeIndex].sectorStart = -math.Pi
+				layouts[nodeIndex].sectorEnd = math.Pi
 				layouts[nodeIndex].angle = 0
 			} else {
 				parentIndex := (*treeInput)[nodeIndex].ParentId
 				parentLayout := layouts[parentIndex]
-
 				siblings := childrenMap[parentIndex]
 				siblingIndex := findSiblingIndex(siblings, nodeIndex)
 
-				// Calculate starting angle for children (centered on parent's angle)
-				totalSiblingWidth := 0.0
+				// Calculate total weight of all siblings
+				totalWeight := 0.0
 				for _, sibIndex := range siblings {
-					totalSiblingWidth += layouts[sibIndex].angularWidth
+					totalWeight += layouts[sibIndex].subtreeWeight
 				}
 
-				startAngle := parentLayout.angle - totalSiblingWidth/2
+				// Parent's sector to divide among children
+				parentSectorSize := parentLayout.sectorEnd - parentLayout.sectorStart
 
-				// Accumulate angle for siblings before this one
-				accumulatedAngle := 0.0
+				// Calculate this node's sector within parent's sector
+				// Sectors are allocated proportionally to subtree weight
+				sectorStart := parentLayout.sectorStart
 				for i := 0; i < siblingIndex; i++ {
-					accumulatedAngle += layouts[siblings[i]].angularWidth
+					sibWeight := layouts[siblings[i]].subtreeWeight
+					sectorStart += (sibWeight / totalWeight) * parentSectorSize
 				}
 
-				// This node's center angle
-				layouts[nodeIndex].angle = startAngle + accumulatedAngle + layouts[nodeIndex].angularWidth/2
+				myWeight := layouts[nodeIndex].subtreeWeight
+				mySectorSize := (myWeight / totalWeight) * parentSectorSize
+
+				layouts[nodeIndex].sectorStart = sectorStart
+				layouts[nodeIndex].sectorEnd = sectorStart + mySectorSize
+				// Center angle within sector
+				layouts[nodeIndex].angle = sectorStart + mySectorSize/2
 			}
 		}
 	}
 
-	// Step 3: Convert polar to Cartesian coordinates
+	// Step 3: Verify spacing and adjust ring radii if needed
+	// At each ring, check if nodes have enough arc length for their bounding size
+	for depth := 1; depth <= maxDepth; depth++ {
+		needsExpansion := true
+		for needsExpansion {
+			needsExpansion = false
+			for _, nodeIndex := range depthMap[depth] {
+				layout := &layouts[nodeIndex]
+				sectorSize := layout.sectorEnd - layout.sectorStart
+				arcLength := sectorSize * layout.ringRadius
+
+				// Arc length must be at least bounding size
+				if arcLength < layout.boundingSize {
+					// Need to expand this ring
+					requiredRadius := layout.boundingSize / sectorSize
+					if requiredRadius > ringRadii[depth] {
+						// Expand this ring and all subsequent rings
+						expansion := requiredRadius - ringRadii[depth]
+						for d := depth; d <= maxDepth; d++ {
+							ringRadii[d] += expansion
+						}
+						// Update all layouts at this depth and deeper
+						for d := depth; d <= maxDepth; d++ {
+							for _, ni := range depthMap[d] {
+								layouts[ni].ringRadius = ringRadii[d]
+							}
+						}
+						needsExpansion = true
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Step 4: Convert polar to Cartesian coordinates
 	result := make([]PlacedShape, len(layouts))
 	for nodeIndex, layout := range layouts {
-		// Convert polar (ringRadius, angle) to Cartesian (x, y)
 		centerX := layout.ringRadius * math.Cos(layout.angle)
 		centerY := layout.ringRadius * math.Sin(layout.angle)
 
-		// Position is top-left corner of bounding box
 		posX := int(math.Round(centerX)) - layout.normalized.Width/2
 		posY := int(math.Round(centerY)) - layout.normalized.Height/2
 

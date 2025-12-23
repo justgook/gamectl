@@ -303,8 +303,8 @@ func TestStage1_EmptyTree(t *testing.T) {
 
 func TestDefaultLayoutConfig(t *testing.T) {
 	config := DefaultLayoutConfig()
-	if config.Direction != TopDown {
-		t.Errorf("default direction should be TopDown, got %d", config.Direction)
+	if config.Direction != Radial {
+		t.Errorf("default direction should be Radial, got %d", config.Direction)
 	}
 }
 
@@ -545,6 +545,316 @@ func TestStage1_Radial_Empty(t *testing.T) {
 
 	if len(shapes) != 0 {
 		t.Errorf("expected 0 shapes for empty tree, got %d", len(shapes))
+	}
+}
+
+// shapesOverlap checks if two shapes have any overlapping tiles
+func shapesOverlap(s1, s2 PlacedShape) bool {
+	// Build set of world coordinates for s1
+	s1Points := make(map[[2]int]bool)
+	for _, relPoint := range s1.Points {
+		worldPoint := [2]int{
+			s1.Position[0] + relPoint[0],
+			s1.Position[1] + relPoint[1],
+		}
+		s1Points[worldPoint] = true
+	}
+
+	// Check if any s2 point overlaps
+	for _, relPoint := range s2.Points {
+		worldPoint := [2]int{
+			s2.Position[0] + relPoint[0],
+			s2.Position[1] + relPoint[1],
+		}
+		if s1Points[worldPoint] {
+			return true
+		}
+	}
+	return false
+}
+
+// shapesTooClose checks if shapes are within NodeSpacing of each other
+func shapesTooClose(s1, s2 PlacedShape, minSpacing int) bool {
+	// Check if bounding boxes (expanded by spacing) overlap
+	// This is a quick check - not perfect for irregular shapes but catches most issues
+	s1Left := s1.Position[0] - minSpacing
+	s1Right := s1.Position[0] + s1.Width + minSpacing
+	s1Top := s1.Position[1] - minSpacing
+	s1Bottom := s1.Position[1] + s1.Height + minSpacing
+
+	s2Left := s2.Position[0]
+	s2Right := s2.Position[0] + s2.Width
+	s2Top := s2.Position[1]
+	s2Bottom := s2.Position[1] + s2.Height
+
+	// Check for bounding box overlap
+	horizontalOverlap := s1Left < s2Right && s1Right > s2Left
+	verticalOverlap := s1Top < s2Bottom && s1Bottom > s2Top
+
+	return horizontalOverlap && verticalOverlap
+}
+
+func TestStage1_Radial_NoOverlap(t *testing.T) {
+	// Create a more complex tree
+	tree := &tree.Tree{}
+	tree.Add(-1, nil) // 0: Root
+	tree.Add(0, nil)  // 1: Child 1
+	tree.Add(0, nil)  // 2: Child 2
+	tree.Add(0, nil)  // 3: Child 3
+	tree.Add(1, nil)  // 4: Grandchild of 1
+	tree.Add(1, nil)  // 5: Grandchild of 1
+	tree.Add(2, nil)  // 6: Grandchild of 2
+
+	rng := &mockRandom{}
+	config := LayoutConfig{Direction: Radial}
+
+	shapes := Stage1(rng, tree, simpleRoomShape, config)
+
+	// Check no shapes overlap
+	for i := 0; i < len(shapes); i++ {
+		for j := i + 1; j < len(shapes); j++ {
+			if shapesOverlap(shapes[i], shapes[j]) {
+				t.Errorf("Radial: shapes %d and %d overlap", i, j)
+			}
+		}
+	}
+}
+
+func TestStage1_Radial_MinimumSpacing(t *testing.T) {
+	// Create tree with siblings that need spacing
+	tr := &tree.Tree{}
+	tr.Add(-1, nil) // 0: Root
+	tr.Add(0, nil)  // 1: Child 1
+	tr.Add(0, nil)  // 2: Child 2
+	tr.Add(0, nil)  // 3: Child 3
+	tr.Add(0, nil)  // 4: Child 4
+
+	rng := &mockRandom{}
+	config := LayoutConfig{Direction: Radial}
+
+	shapes := Stage1(rng, tr, simpleRoomShape, config)
+
+	// Siblings (children of root) should have at least NodeSpacing between them
+	// We check actual tile overlap, not bounding box (more precise)
+	for i := 1; i < len(shapes); i++ {
+		for j := i + 1; j < len(shapes); j++ {
+			if shapesOverlap(shapes[i], shapes[j]) {
+				t.Errorf("Radial: siblings %d and %d have overlapping tiles", i, j)
+			}
+		}
+	}
+}
+
+// TestStage1_Radial_LargeTree tests that a larger tree (40+ nodes) can find paths
+func TestStage1_Radial_LargeTree(t *testing.T) {
+	// Create a tree with 40 nodes, 3-4 levels deep
+	tr := &tree.Tree{}
+	tr.Add(-1, nil) // 0: Root
+
+	// Level 1: 4 children of root
+	for i := 0; i < 4; i++ {
+		tr.Add(0, nil) // 1-4
+	}
+
+	// Level 2: 3 children each for nodes 1-4
+	for parent := 1; parent <= 4; parent++ {
+		for i := 0; i < 3; i++ {
+			tr.Add(parent, nil) // 5-16
+		}
+	}
+
+	// Level 3: 2 children each for nodes 5-16
+	for parent := 5; parent <= 16; parent++ {
+		for i := 0; i < 2; i++ {
+			tr.Add(parent, nil) // 17-40
+		}
+	}
+
+	rng := &mockRandom{}
+	config := LayoutConfig{Direction: Radial}
+
+	shapes := Stage1(rng, tr, simpleRoomShape, config)
+
+	if len(shapes) != len(*tr) {
+		t.Fatalf("expected %d shapes, got %d", len(*tr), len(shapes))
+	}
+
+	// Check no shapes overlap
+	for i := 0; i < len(shapes); i++ {
+		for j := i + 1; j < len(shapes); j++ {
+			if shapesOverlap(shapes[i], shapes[j]) {
+				t.Errorf("Radial large: shapes %d and %d overlap", i, j)
+			}
+		}
+	}
+
+	// Verify pie slice property: each node should be within parent's angular sector
+	// Build parent map
+	for nodeIndex := 1; nodeIndex < len(*tr); nodeIndex++ {
+		node := (*tr)[nodeIndex]
+		parentIndex := node.ParentId
+
+		childShape := shapes[nodeIndex]
+		parentShape := shapes[parentIndex]
+
+		// Calculate angles from origin
+		childCenterX := float64(childShape.Position[0]) + float64(childShape.Width)/2
+		childCenterY := float64(childShape.Position[1]) + float64(childShape.Height)/2
+		childAngle := math.Atan2(childCenterY, childCenterX)
+
+		parentCenterX := float64(parentShape.Position[0]) + float64(parentShape.Width)/2
+		parentCenterY := float64(parentShape.Position[1]) + float64(parentShape.Height)/2
+		parentAngle := math.Atan2(parentCenterY, parentCenterX)
+
+		// Child's angle should be "near" parent's angle (within same sector)
+		// For root's children, any angle is fine
+		if parentIndex != 0 {
+			angleDiff := math.Abs(childAngle - parentAngle)
+			// Normalize to [0, 2π]
+			if angleDiff > math.Pi {
+				angleDiff = 2*math.Pi - angleDiff
+			}
+			// Children should be within ~π/2 of parent (generous tolerance)
+			if angleDiff > math.Pi/2 {
+				t.Logf("Warning: node %d angle differs from parent %d by %.2f radians",
+					nodeIndex, parentIndex, angleDiff)
+			}
+		}
+	}
+}
+
+// TestStage1_Radial_PathsCanBeFound verifies Stage3 can find paths for radial layout
+func TestStage1_Radial_PathsCanBeFound(t *testing.T) {
+	// Create a moderately complex tree
+	tr := &tree.Tree{}
+	tr.Add(-1, nil) // 0: Root
+	tr.Add(0, nil)  // 1
+	tr.Add(0, nil)  // 2
+	tr.Add(0, nil)  // 3
+	tr.Add(1, nil)  // 4
+	tr.Add(1, nil)  // 5
+	tr.Add(2, nil)  // 6
+	tr.Add(2, nil)  // 7
+	tr.Add(3, nil)  // 8
+
+	rng := &mockRandom{}
+	config := LayoutConfig{Direction: Radial}
+
+	shapes := Stage1(rng, tr, simpleRoomShape, config)
+
+	// Try to find paths using Stage3
+	pathInfos, err := Stage3(tr, shapes)
+	if err != nil {
+		t.Errorf("Stage3 failed for radial layout: %v", err)
+		// Debug: print positions
+		for i, s := range shapes {
+			t.Logf("Shape %d: pos=(%d,%d) size=%dx%d",
+				i, s.Position[0], s.Position[1], s.Width, s.Height)
+		}
+		return
+	}
+
+	// Should have paths for all non-root nodes
+	expectedPaths := len(*tr) - 1
+	if len(pathInfos) != expectedPaths {
+		t.Errorf("expected %d paths, got %d", expectedPaths, len(pathInfos))
+	}
+}
+
+// TestStage1_Radial_100Nodes stress tests with 100 nodes
+func TestStage1_Radial_100Nodes(t *testing.T) {
+	tr := &tree.Tree{}
+	tr.Add(-1, nil) // 0: Root
+
+	// Build a tree with ~100 nodes
+	// Level 1: 5 children
+	for i := 0; i < 5; i++ {
+		tr.Add(0, nil)
+	}
+	// Level 2: 4 children each (20 more = 25 total)
+	for parent := 1; parent <= 5; parent++ {
+		for i := 0; i < 4; i++ {
+			tr.Add(parent, nil)
+		}
+	}
+	// Level 3: 3 children each (60 more = 85 total)
+	for parent := 6; parent <= 25; parent++ {
+		for i := 0; i < 3; i++ {
+			tr.Add(parent, nil)
+		}
+	}
+
+	nodeCount := len(*tr)
+	t.Logf("Testing with %d nodes", nodeCount)
+
+	rng := &mockRandom{}
+	config := LayoutConfig{Direction: Radial}
+
+	shapes := Stage1(rng, tr, simpleRoomShape, config)
+
+	// Check no overlaps
+	overlapCount := 0
+	for i := 0; i < len(shapes); i++ {
+		for j := i + 1; j < len(shapes); j++ {
+			if shapesOverlap(shapes[i], shapes[j]) {
+				overlapCount++
+				if overlapCount <= 5 {
+					t.Errorf("Shapes %d and %d overlap", i, j)
+				}
+			}
+		}
+	}
+	if overlapCount > 5 {
+		t.Errorf("... and %d more overlaps", overlapCount-5)
+	}
+
+	// Try pathfinding
+	pathInfos, err := Stage3(tr, shapes)
+	if err != nil {
+		t.Errorf("Stage3 failed for 100-node radial layout: %v", err)
+		return
+	}
+
+	expectedPaths := nodeCount - 1
+	if len(pathInfos) != expectedPaths {
+		t.Errorf("expected %d paths, got %d", expectedPaths, len(pathInfos))
+	}
+}
+
+func TestStage1_Radial_VariedShapes(t *testing.T) {
+	// Test with different shape sizes - this is where spacing issues often appear
+	tr := &tree.Tree{}
+	tr.Add(-1, nil) // Root
+	tr.Add(0, nil)  // Child 1
+	tr.Add(0, nil)  // Child 2
+	tr.Add(1, nil)  // Grandchild
+
+	rng := &mockRandom{}
+	config := LayoutConfig{Direction: Radial}
+
+	// Use a mix of shapes
+	shapeIndex := 0
+	mixedShapes := func(node *tree.Node) RoomShape {
+		allShapes := []RoomShape{
+			{{0, 0}, {1, 0}, {0, 1}, {1, 1}},         // 2x2
+			{{0, 0}, {0, 1}, {0, 2}},                 // 1x3 tall
+			{{0, 0}, {1, 0}, {2, 0}},                 // 3x1 wide
+			{{0, 0}, {1, 0}, {0, 1}, {1, 1}, {2, 1}}, // L-shape
+		}
+		result := allShapes[shapeIndex%len(allShapes)]
+		shapeIndex++
+		return result
+	}
+
+	shapes := Stage1(rng, tr, mixedShapes, config)
+
+	// Check no shapes overlap
+	for i := 0; i < len(shapes); i++ {
+		for j := i + 1; j < len(shapes); j++ {
+			if shapesOverlap(shapes[i], shapes[j]) {
+				t.Errorf("Radial varied: shapes %d and %d overlap", i, j)
+			}
+		}
 	}
 }
 

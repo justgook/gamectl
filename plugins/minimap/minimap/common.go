@@ -52,7 +52,7 @@ type LayoutConfig struct {
 	NodeDirections map[int]LayoutDirection
 }
 
-// DefaultLayoutConfig returns the default configuration (TopDown)
+// DefaultLayoutConfig returns the default configuration (Radial)
 func DefaultLayoutConfig() LayoutConfig {
 	return LayoutConfig{
 		Direction: Radial,
