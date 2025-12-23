@@ -55,7 +55,7 @@ type LayoutConfig struct {
 // DefaultLayoutConfig returns the default configuration (TopDown)
 func DefaultLayoutConfig() LayoutConfig {
 	return LayoutConfig{
-		Direction: TopDown,
+		Direction: Radial,
 	}
 }
 
