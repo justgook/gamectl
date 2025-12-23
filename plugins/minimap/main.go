@@ -13,8 +13,9 @@ import (
 
 // Input represents the plugin input structure
 type Input struct {
-	TreeId string `json:"treeId"` // Required: tree to read from tree-storage
-	MapId  string `json:"mapId"`  // Required: map ID to save in tilemap-storage
+	TreeId    string `json:"treeId"`    // Required: tree to read from tree-storage
+	MapId     string `json:"mapId"`     // Required: map ID to save in tilemap-storage
+	Direction string `json:"direction"` // Optional: layout direction (topDown, bottomUp, leftToRight, rightToLeft)
 }
 
 // MyRandom implements Random interface using WASM imports
@@ -90,8 +91,24 @@ func Gen() uint32 {
 	// Set up logging for stage4
 	minimap.LogFunc = logToConsole
 
+	// Parse layout direction
+	layoutConfig := minimap.DefaultLayoutConfig()
+	switch params.Direction {
+	case "bottomUp":
+		layoutConfig.Direction = minimap.BottomUp
+	case "leftToRight":
+		layoutConfig.Direction = minimap.LeftToRight
+	case "rightToLeft":
+		layoutConfig.Direction = minimap.RightToLeft
+	case "radial":
+		layoutConfig.Direction = minimap.Radial
+	case "directional":
+		layoutConfig.Direction = minimap.Directional
+		// "topDown" or empty string uses default
+	}
+
 	rng := &MyRandom{}
-	tileMap, err := minimap.GenerateMinimap(rng, &tree, getRoomShape)
+	tileMap, err := minimap.GenerateMinimap(rng, &tree, getRoomShape, layoutConfig)
 	if err != nil {
 		logToConsole(fmt.Sprintf("[Minimap] Generation failed: %v", err))
 		pdk.Output(util.ErrorResponse("minimap generation failed: " + err.Error()))

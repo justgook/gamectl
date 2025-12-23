@@ -45,9 +45,9 @@ func normalizeShape(shape RoomShape) PlacedShape {
 type nodeLayout struct {
 	nodeIndex  int
 	depth      int
-	unitWidth  int
-	centerX    int
-	topY       int
+	unitSize   int // size along secondary axis (width for vertical, height for horizontal)
+	centerPos  int // center position along secondary axis
+	levelPos   int // position along primary axis (topY for vertical, leftX for horizontal)
 	normalized PlacedShape
 }
 
@@ -77,15 +77,48 @@ func buildDepthMap(treeInput *tree.Tree) (map[int][]int, map[int][]int, int) {
 	return depthMap, childrenMap, maxDepth
 }
 
+// getSecondarySize returns the shape dimension used for sibling spreading
+func getSecondarySize(shape PlacedShape, dir LayoutDirection) int {
+	switch dir {
+	case TopDown, BottomUp:
+		return shape.Width
+	case LeftToRight, RightToLeft:
+		return shape.Height
+	default:
+		return shape.Width
+	}
+}
+
+// getPrimarySize returns the shape dimension used for level progression
+func getPrimarySize(shape PlacedShape, dir LayoutDirection) int {
+	switch dir {
+	case TopDown, BottomUp:
+		return shape.Height
+	case LeftToRight, RightToLeft:
+		return shape.Width
+	default:
+		return shape.Height
+	}
+}
+
 // Stage1 places nodes using a bottom-up unit calculation followed by top-down placement
 // Returns []PlacedShape where index corresponds to tree node index (ID = index + 1)
 func Stage1(
 	rng Random,
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
+	config LayoutConfig,
 ) []PlacedShape {
 	if len(*treeInput) == 0 {
 		return []PlacedShape{}
+	}
+
+	dir := config.Direction
+
+	// For Radial and Directional, fall back to TopDown for now
+	// These will be implemented separately
+	if dir == Radial || dir == Directional {
+		dir = TopDown
 	}
 
 	// Build depth map and relationships
@@ -101,110 +134,275 @@ func Stage1(
 		}
 	}
 
-	// Step 1: Calculate unit widths (bottom-up)
+	// Step 1: Calculate unit sizes (bottom-up)
+	// unitSize = space needed along secondary axis
 	for depth := maxDepth; depth >= 0; depth-- {
 		for _, nodeIndex := range depthMap[depth] {
 			children := childrenMap[nodeIndex]
+			shapeSecondarySize := getSecondarySize(layouts[nodeIndex].normalized, dir)
 
 			if len(children) == 0 {
-				// Leaf node: unit width is just its shape width
-				layouts[nodeIndex].unitWidth = layouts[nodeIndex].normalized.Width
+				// Leaf node: unit size is just its shape's secondary dimension
+				layouts[nodeIndex].unitSize = shapeSecondarySize
 			} else {
-				// Parent node: max of (children total width, own shape width)
-				// Calculate total width needed for children including spacing between them
-				childrenTotalWidth := 0
+				// Parent node: max of (children total size, own shape size)
+				childrenTotalSize := 0
 				for _, childIndex := range children {
-					childrenTotalWidth += layouts[childIndex].unitWidth
+					childrenTotalSize += layouts[childIndex].unitSize
 				}
-				// Add spacing between children (not before first or after last)
-				childrenTotalWidth += (len(children) - 1) * NodeSpacing
+				// Add spacing between children
+				childrenTotalSize += (len(children) - 1) * NodeSpacing
 
-				// Parent needs enough width for its own shape
-				parentShapeWidth := layouts[nodeIndex].normalized.Width
-
-				// Use the maximum to ensure both parent and children fit without overlapping
-				if childrenTotalWidth > parentShapeWidth {
-					layouts[nodeIndex].unitWidth = childrenTotalWidth
+				if childrenTotalSize > shapeSecondarySize {
+					layouts[nodeIndex].unitSize = childrenTotalSize
 				} else {
-					layouts[nodeIndex].unitWidth = parentShapeWidth
+					layouts[nodeIndex].unitSize = shapeSecondarySize
 				}
 			}
 		}
 	}
 
-	// Step 2: Calculate positions (top-down)
-	previousLevelMaxBottomY := 0
-
-	for depth := 0; depth <= maxDepth; depth++ {
-		// Calculate Y position for this level
-		var levelTopY int
-		if depth == 0 {
-			levelTopY = 0
-		} else {
-			levelTopY = previousLevelMaxBottomY + LevelSpacing + 1
-		}
-
-		// Track max bottom Y for this level
-		levelMaxBottomY := levelTopY
-
-		for _, nodeIndex := range depthMap[depth] {
-			layouts[nodeIndex].topY = levelTopY
-
-			// Update level max bottom
-			nodeBottomY := levelTopY + layouts[nodeIndex].normalized.Height - 1
-			if nodeBottomY > levelMaxBottomY {
-				levelMaxBottomY = nodeBottomY
-			}
-
-			// Calculate X position
-			if depth == 0 {
-				// Root: centered at X=0
-				layouts[nodeIndex].centerX = 0
-			} else {
-				// Position within parent's unit space
-				parentIndex := (*treeInput)[nodeIndex].ParentId
-				parentLayout := layouts[parentIndex]
-
-				// Find this node's position among siblings
-				siblings := childrenMap[parentIndex]
-				siblingIndex := 0
-				for i, sibId := range siblings {
-					if sibId == nodeIndex {
-						siblingIndex = i
-						break
-					}
-				}
-
-				// Calculate starting X for parent's children
-				parentStartX := parentLayout.centerX - parentLayout.unitWidth/2
-
-				// Calculate accumulated width before this child
-				accumulatedWidth := 0
-				for i := 0; i < siblingIndex; i++ {
-					accumulatedWidth += layouts[siblings[i]].unitWidth + NodeSpacing
-				}
-
-				// This child's center is at the center of its unit allocation
-				layouts[nodeIndex].centerX = parentStartX + accumulatedWidth + layouts[nodeIndex].unitWidth/2
-			}
-		}
-
-		previousLevelMaxBottomY = levelMaxBottomY
+	// Step 2: Calculate positions based on direction
+	switch dir {
+	case TopDown:
+		placeTopDown(depthMap, childrenMap, layouts, treeInput, maxDepth)
+	case BottomUp:
+		placeBottomUp(depthMap, childrenMap, layouts, treeInput, maxDepth)
+	case LeftToRight:
+		placeLeftToRight(depthMap, childrenMap, layouts, treeInput, maxDepth)
+	case RightToLeft:
+		placeRightToLeft(depthMap, childrenMap, layouts, treeInput, maxDepth)
 	}
 
 	// Step 3: Build PlacedShape results with calculated positions
 	result := make([]PlacedShape, len(layouts))
 	for nodeIndex, layout := range layouts {
-		// Calculate offset to center the shape horizontally
-		shapeOffsetX := layout.centerX - layout.normalized.Width/2
+		var posX, posY int
+
+		switch dir {
+		case TopDown:
+			// centerPos is X, levelPos is top Y
+			posX = layout.centerPos - layout.normalized.Width/2
+			posY = layout.levelPos
+		case BottomUp:
+			// centerPos is X, levelPos is bottom Y
+			posX = layout.centerPos - layout.normalized.Width/2
+			posY = layout.levelPos - layout.normalized.Height + 1
+		case LeftToRight:
+			// centerPos is Y, levelPos is left X
+			posX = layout.levelPos
+			posY = layout.centerPos - layout.normalized.Height/2
+		case RightToLeft:
+			// centerPos is Y, levelPos is right X
+			posX = layout.levelPos - layout.normalized.Width + 1
+			posY = layout.centerPos - layout.normalized.Height/2
+		}
 
 		result[nodeIndex] = PlacedShape{
 			Points:   layout.normalized.Points,
-			Position: Point{shapeOffsetX, layout.topY},
+			Position: Point{posX, posY},
 			Width:    layout.normalized.Width,
 			Height:   layout.normalized.Height,
 		}
 	}
 
 	return result
+}
+
+// placeTopDown positions nodes with root at top, children below
+func placeTopDown(depthMap, childrenMap map[int][]int, layouts []nodeLayout, treeInput *tree.Tree, maxDepth int) {
+	previousLevelMaxBottom := 0
+
+	for depth := 0; depth <= maxDepth; depth++ {
+		var levelTop int
+		if depth == 0 {
+			levelTop = 0
+		} else {
+			levelTop = previousLevelMaxBottom + LevelSpacing + 1
+		}
+
+		levelMaxBottom := levelTop
+
+		for _, nodeIndex := range depthMap[depth] {
+			layouts[nodeIndex].levelPos = levelTop
+
+			// Update level max bottom
+			nodeBottom := levelTop + layouts[nodeIndex].normalized.Height - 1
+			if nodeBottom > levelMaxBottom {
+				levelMaxBottom = nodeBottom
+			}
+
+			// Calculate secondary position (X)
+			if depth == 0 {
+				layouts[nodeIndex].centerPos = 0
+			} else {
+				parentIndex := (*treeInput)[nodeIndex].ParentId
+				parentLayout := layouts[parentIndex]
+
+				siblings := childrenMap[parentIndex]
+				siblingIndex := findSiblingIndex(siblings, nodeIndex)
+
+				parentStart := parentLayout.centerPos - parentLayout.unitSize/2
+				accumulated := 0
+				for i := 0; i < siblingIndex; i++ {
+					accumulated += layouts[siblings[i]].unitSize + NodeSpacing
+				}
+
+				layouts[nodeIndex].centerPos = parentStart + accumulated + layouts[nodeIndex].unitSize/2
+			}
+		}
+
+		previousLevelMaxBottom = levelMaxBottom
+	}
+}
+
+// placeBottomUp positions nodes with root at bottom, children above
+func placeBottomUp(depthMap, childrenMap map[int][]int, layouts []nodeLayout, treeInput *tree.Tree, maxDepth int) {
+	previousLevelMinTop := 0
+
+	for depth := 0; depth <= maxDepth; depth++ {
+		var levelBottom int
+		if depth == 0 {
+			levelBottom = 0
+		} else {
+			levelBottom = previousLevelMinTop - LevelSpacing - 1
+		}
+
+		levelMinTop := levelBottom
+
+		for _, nodeIndex := range depthMap[depth] {
+			layouts[nodeIndex].levelPos = levelBottom // levelPos = bottom Y for BottomUp
+
+			// Update level min top
+			nodeTop := levelBottom - layouts[nodeIndex].normalized.Height + 1
+			if nodeTop < levelMinTop {
+				levelMinTop = nodeTop
+			}
+
+			// Calculate secondary position (X) - same logic as TopDown
+			if depth == 0 {
+				layouts[nodeIndex].centerPos = 0
+			} else {
+				parentIndex := (*treeInput)[nodeIndex].ParentId
+				parentLayout := layouts[parentIndex]
+
+				siblings := childrenMap[parentIndex]
+				siblingIndex := findSiblingIndex(siblings, nodeIndex)
+
+				parentStart := parentLayout.centerPos - parentLayout.unitSize/2
+				accumulated := 0
+				for i := 0; i < siblingIndex; i++ {
+					accumulated += layouts[siblings[i]].unitSize + NodeSpacing
+				}
+
+				layouts[nodeIndex].centerPos = parentStart + accumulated + layouts[nodeIndex].unitSize/2
+			}
+		}
+
+		previousLevelMinTop = levelMinTop
+	}
+}
+
+// placeLeftToRight positions nodes with root on left, children to the right
+func placeLeftToRight(depthMap, childrenMap map[int][]int, layouts []nodeLayout, treeInput *tree.Tree, maxDepth int) {
+	previousLevelMaxRight := 0
+
+	for depth := 0; depth <= maxDepth; depth++ {
+		var levelLeft int
+		if depth == 0 {
+			levelLeft = 0
+		} else {
+			levelLeft = previousLevelMaxRight + LevelSpacing + 1
+		}
+
+		levelMaxRight := levelLeft
+
+		for _, nodeIndex := range depthMap[depth] {
+			layouts[nodeIndex].levelPos = levelLeft // levelPos = left X for LeftToRight
+
+			// Update level max right
+			nodeRight := levelLeft + layouts[nodeIndex].normalized.Width - 1
+			if nodeRight > levelMaxRight {
+				levelMaxRight = nodeRight
+			}
+
+			// Calculate secondary position (Y)
+			if depth == 0 {
+				layouts[nodeIndex].centerPos = 0
+			} else {
+				parentIndex := (*treeInput)[nodeIndex].ParentId
+				parentLayout := layouts[parentIndex]
+
+				siblings := childrenMap[parentIndex]
+				siblingIndex := findSiblingIndex(siblings, nodeIndex)
+
+				parentStart := parentLayout.centerPos - parentLayout.unitSize/2
+				accumulated := 0
+				for i := 0; i < siblingIndex; i++ {
+					accumulated += layouts[siblings[i]].unitSize + NodeSpacing
+				}
+
+				layouts[nodeIndex].centerPos = parentStart + accumulated + layouts[nodeIndex].unitSize/2
+			}
+		}
+
+		previousLevelMaxRight = levelMaxRight
+	}
+}
+
+// placeRightToLeft positions nodes with root on right, children to the left
+func placeRightToLeft(depthMap, childrenMap map[int][]int, layouts []nodeLayout, treeInput *tree.Tree, maxDepth int) {
+	previousLevelMinLeft := 0
+
+	for depth := 0; depth <= maxDepth; depth++ {
+		var levelRight int
+		if depth == 0 {
+			levelRight = 0
+		} else {
+			levelRight = previousLevelMinLeft - LevelSpacing - 1
+		}
+
+		levelMinLeft := levelRight
+
+		for _, nodeIndex := range depthMap[depth] {
+			layouts[nodeIndex].levelPos = levelRight // levelPos = right X for RightToLeft
+
+			// Update level min left
+			nodeLeft := levelRight - layouts[nodeIndex].normalized.Width + 1
+			if nodeLeft < levelMinLeft {
+				levelMinLeft = nodeLeft
+			}
+
+			// Calculate secondary position (Y) - same logic as LeftToRight
+			if depth == 0 {
+				layouts[nodeIndex].centerPos = 0
+			} else {
+				parentIndex := (*treeInput)[nodeIndex].ParentId
+				parentLayout := layouts[parentIndex]
+
+				siblings := childrenMap[parentIndex]
+				siblingIndex := findSiblingIndex(siblings, nodeIndex)
+
+				parentStart := parentLayout.centerPos - parentLayout.unitSize/2
+				accumulated := 0
+				for i := 0; i < siblingIndex; i++ {
+					accumulated += layouts[siblings[i]].unitSize + NodeSpacing
+				}
+
+				layouts[nodeIndex].centerPos = parentStart + accumulated + layouts[nodeIndex].unitSize/2
+			}
+		}
+
+		previousLevelMinLeft = levelMinLeft
+	}
+}
+
+// findSiblingIndex returns the index of nodeIndex within siblings slice
+func findSiblingIndex(siblings []int, nodeIndex int) int {
+	for i, sibId := range siblings {
+		if sibId == nodeIndex {
+			return i
+		}
+	}
+	return 0
 }

@@ -17,9 +17,16 @@ func GenerateMinimap(
 	rng Random,
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
+	layoutConfig ...LayoutConfig,
 ) (*tilemap.TileMap, error) {
+	// Use default config if not provided
+	config := DefaultLayoutConfig()
+	if len(layoutConfig) > 0 {
+		config = layoutConfig[0]
+	}
+
 	// Stage 1: Initial hierarchical placement (returns shapes with positions)
-	shapes := Stage1(rng, treeInput, getRoomShape)
+	shapes := Stage1(rng, treeInput, getRoomShape, config)
 
 	// Stage 3: Pathfinding (builds internal grid, returns PathInfo only)
 	pathInfos, err := Stage3(treeInput, shapes)

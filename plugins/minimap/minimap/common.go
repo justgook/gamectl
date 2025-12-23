@@ -9,9 +9,55 @@ type Point = [2]int
 
 // Layout constants for Stage 1
 const (
-	LevelSpacing = 1 // Vertical spacing between levels
-	NodeSpacing  = 2 // Horizontal spacing between siblings
+	LevelSpacing = 1 // Spacing between levels (along primary axis)
+	NodeSpacing  = 2 // Spacing between siblings (along secondary axis)
 )
+
+// LayoutDirection defines how the tree is laid out spatially
+type LayoutDirection int
+
+const (
+	// TopDown places root at top, children grow downward (Y increases)
+	// Siblings spread horizontally (X axis)
+	TopDown LayoutDirection = iota
+
+	// BottomUp places root at bottom, children grow upward (Y decreases)
+	// Siblings spread horizontally (X axis)
+	BottomUp
+
+	// LeftToRight places root on left, children grow rightward (X increases)
+	// Siblings spread vertically (Y axis)
+	LeftToRight
+
+	// RightToLeft places root on right, children grow leftward (X decreases)
+	// Siblings spread vertically (Y axis)
+	RightToLeft
+
+	// Radial places root at center, children in rings around it
+	// Uses packed circles approach for spacing
+	Radial
+
+	// Directional allows each branch to go in a different direction
+	// Requires per-node direction hints
+	Directional
+)
+
+// LayoutConfig configures how Stage1 places nodes
+type LayoutConfig struct {
+	// Direction is the primary layout direction
+	Direction LayoutDirection
+
+	// NodeDirections provides per-node direction overrides (for Directional mode)
+	// Key is node index, value is the direction that node's children should grow
+	NodeDirections map[int]LayoutDirection
+}
+
+// DefaultLayoutConfig returns the default configuration (TopDown)
+func DefaultLayoutConfig() LayoutConfig {
+	return LayoutConfig{
+		Direction: TopDown,
+	}
+}
 
 // DoorConnection represents a door tile on the grid
 type DoorConnection struct {
