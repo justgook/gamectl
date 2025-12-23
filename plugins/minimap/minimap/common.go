@@ -10,7 +10,7 @@ type Point = [2]int
 // Layout constants for Stage 1
 const (
 	LevelSpacing = 1 // Vertical spacing between levels
-	NodeSpacing  = 0 // Horizontal spacing between siblings
+	NodeSpacing  = 2 // Horizontal spacing between siblings
 )
 
 // DoorConnection represents a door tile on the grid
@@ -36,6 +36,32 @@ const (
 	DoorWest  = 8
 )
 
+// PlacedShape represents a shape with its placement position
+// The slice index + 1 equals the node ID used in grid/tilemap
+type PlacedShape struct {
+	Points   []Point // Relative tile positions (normalized, origin at 0,0)
+	Position Point   // World position (top-left corner of bounding box)
+	Width    int
+	Height   int
+}
+
+// BuildGridFromShapes creates a Grid from placed shapes
+// Each shape's index + 1 becomes its ID in the grid
+func BuildGridFromShapes(shapes []PlacedShape) *Grid {
+	grid := make(Grid)
+	for i, shape := range shapes {
+		nodeID := i + 1 // 1-based ID
+		for _, relPoint := range shape.Points {
+			worldPoint := Point{
+				shape.Position[0] + relPoint[0],
+				shape.Position[1] + relPoint[1],
+			}
+			grid[worldPoint] = nodeID
+		}
+	}
+	return &grid
+}
+
 // calculateDirection determines the direction from one point to an adjacent point
 func calculateDirection(fromPoint, toPoint Point) uint8 {
 	dx := toPoint[0] - fromPoint[0]
@@ -54,6 +80,103 @@ func calculateDirection(fromPoint, toPoint Point) uint8 {
 		return DoorWest
 	}
 	return 0
+}
+
+// getBoundsFromShapes calculates the bounding box for shapes and paths
+func getBoundsFromShapes(shapes []PlacedShape, pathInfos []PathInfo) (minX, minY, maxX, maxY int) {
+	if len(shapes) == 0 {
+		return 0, 0, 0, 0
+	}
+
+	// Start with first shape's bounds
+	first := shapes[0]
+	minX = first.Position[0]
+	minY = first.Position[1]
+	maxX = first.Position[0] + first.Width - 1
+	maxY = first.Position[1] + first.Height - 1
+
+	// Expand with all shapes
+	for _, shape := range shapes[1:] {
+		if shape.Position[0] < minX {
+			minX = shape.Position[0]
+		}
+		if shape.Position[1] < minY {
+			minY = shape.Position[1]
+		}
+		rightX := shape.Position[0] + shape.Width - 1
+		bottomY := shape.Position[1] + shape.Height - 1
+		if rightX > maxX {
+			maxX = rightX
+		}
+		if bottomY > maxY {
+			maxY = bottomY
+		}
+	}
+
+	// Expand with path tiles
+	for _, pathInfo := range pathInfos {
+		for _, p := range pathInfo.PathTiles {
+			if p[0] < minX {
+				minX = p[0]
+			}
+			if p[1] < minY {
+				minY = p[1]
+			}
+			if p[0] > maxX {
+				maxX = p[0]
+			}
+			if p[1] > maxY {
+				maxY = p[1]
+			}
+		}
+	}
+
+	return minX, minY, maxX, maxY
+}
+
+// ApplyShapesToTilemap places shapes onto a tilemap
+// Returns the tilemap data, width, and the offset applied (minX, minY)
+func ApplyShapesToTilemap(shapes []PlacedShape, pathInfos []PathInfo) ([]uint32, int, Point) {
+	if len(shapes) == 0 {
+		return []uint32{}, 0, Point{0, 0}
+	}
+
+	minX, minY, maxX, maxY := getBoundsFromShapes(shapes, pathInfos)
+	width := maxX - minX + 1
+	height := maxY - minY + 1
+
+	data := make([]uint32, width*height)
+
+	// Place each shape (index+1 = nodeID)
+	for i, shape := range shapes {
+		nodeID := uint32(i + 1)
+		for _, relPoint := range shape.Points {
+			worldX := shape.Position[0] + relPoint[0]
+			worldY := shape.Position[1] + relPoint[1]
+			x := worldX - minX
+			y := worldY - minY
+			idx := y*width + x
+			data[idx] = nodeID
+		}
+	}
+
+	return data, width, Point{minX, minY}
+}
+
+// ApplyPathsToTilemap places path tiles onto an existing tilemap
+// Path tiles become part of the parent room (pathInfo.ParentID)
+func ApplyPathsToTilemap(pathInfos []PathInfo, data []uint32, width int, offset Point) {
+	for _, pathInfo := range pathInfos {
+		parentID := uint32(pathInfo.ParentID)
+		for _, p := range pathInfo.PathTiles {
+			x := p[0] - offset[0]
+			y := p[1] - offset[1]
+			idx := y*width + x
+			if idx >= 0 && idx < len(data) {
+				data[idx] = parentID
+			}
+		}
+	}
 }
 
 func Grid2Tilemap(input *Grid) ([]uint32, int) {

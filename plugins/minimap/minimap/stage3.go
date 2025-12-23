@@ -16,14 +16,17 @@ var (
 // Stage3 creates paths between all parent-child pairs using A* pathfinding
 // Siblings (children of same parent) can share path tiles
 // But paths from different parent groups cannot overlap
-// Returns PathInfo for all parent-child relationships
+// Returns PathInfo for all parent-child relationships (does not mutate shapes)
 func Stage3(
 	treeInput *tree.Tree,
-	grid *Grid,
+	shapes []PlacedShape,
 ) ([]PathInfo, error) {
 	if len(*treeInput) == 0 {
 		return nil, ErrEmptyTree
 	}
+
+	// Build internal grid from shapes for pathfinding
+	grid := BuildGridFromShapes(shapes)
 
 	var allPathInfos []PathInfo
 
@@ -64,7 +67,7 @@ func Stage3(
 			})
 		}
 
-		// Commit all sibling paths together (they can overlap, using same ID)
+		// Mark paths in the internal grid (for subsequent pathfinding in same call)
 		// Use negative of 1-based parent ID for paths
 		pathID := -(parentIndex + 1)
 		for _, path := range allPaths {

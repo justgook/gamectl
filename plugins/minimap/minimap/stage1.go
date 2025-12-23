@@ -2,20 +2,11 @@ package minimap
 
 import "github.com/justgook/gamectl/pkg/tree"
 
-// Helper functions for shape manipulation
-
-// normalizedShape represents a shape with its bounds and normalized points
-type normalizedShape struct {
-	points []Point
-	width  int
-	height int
-}
-
-// normalizeShape takes a shape and returns it normalized so minX=0, minY=0
-// along with its width and height
-func normalizeShape(shape RoomShape) normalizedShape {
+// normalizeShape takes a shape and returns a PlacedShape with normalized points
+// (minX=0, minY=0) and Position at origin. Width/Height are calculated.
+func normalizeShape(shape RoomShape) PlacedShape {
 	if len(shape) == 0 {
-		return normalizedShape{points: []Point{}, width: 0, height: 0}
+		return PlacedShape{Points: []Point{}, Width: 0, Height: 0}
 	}
 
 	// Find bounds
@@ -42,10 +33,11 @@ func normalizeShape(shape RoomShape) normalizedShape {
 		normalized[i] = Point{point[0] - minX, point[1] - minY}
 	}
 
-	return normalizedShape{
-		points: normalized,
-		width:  maxX - minX + 1,
-		height: maxY - minY + 1,
+	return PlacedShape{
+		Points:   normalized,
+		Position: Point{0, 0}, // Will be set during placement
+		Width:    maxX - minX + 1,
+		Height:   maxY - minY + 1,
 	}
 }
 
@@ -56,7 +48,7 @@ type nodeLayout struct {
 	unitWidth  int
 	centerX    int
 	topY       int
-	normalized normalizedShape
+	normalized PlacedShape
 }
 
 // buildDepthMap organizes nodes by their depth in the tree
@@ -85,16 +77,15 @@ func buildDepthMap(treeInput *tree.Tree) (map[int][]int, map[int][]int, int) {
 	return depthMap, childrenMap, maxDepth
 }
 
-// Stage1 places nodes on the grid using a bottom-up unit calculation
-// followed by top-down placement
+// Stage1 places nodes using a bottom-up unit calculation followed by top-down placement
+// Returns []PlacedShape where index corresponds to tree node index (ID = index + 1)
 func Stage1(
 	rng Random,
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
-	grid *Grid,
-) {
+) []PlacedShape {
 	if len(*treeInput) == 0 {
-		return
+		return []PlacedShape{}
 	}
 
 	// Build depth map and relationships
@@ -117,7 +108,7 @@ func Stage1(
 
 			if len(children) == 0 {
 				// Leaf node: unit width is just its shape width
-				layouts[nodeIndex].unitWidth = layouts[nodeIndex].normalized.width
+				layouts[nodeIndex].unitWidth = layouts[nodeIndex].normalized.Width
 			} else {
 				// Parent node: max of (children total width, own shape width)
 				// Calculate total width needed for children including spacing between them
@@ -129,7 +120,7 @@ func Stage1(
 				childrenTotalWidth += (len(children) - 1) * NodeSpacing
 
 				// Parent needs enough width for its own shape
-				parentShapeWidth := layouts[nodeIndex].normalized.width
+				parentShapeWidth := layouts[nodeIndex].normalized.Width
 
 				// Use the maximum to ensure both parent and children fit without overlapping
 				if childrenTotalWidth > parentShapeWidth {
@@ -160,7 +151,7 @@ func Stage1(
 			layouts[nodeIndex].topY = levelTopY
 
 			// Update level max bottom
-			nodeBottomY := levelTopY + layouts[nodeIndex].normalized.height - 1
+			nodeBottomY := levelTopY + layouts[nodeIndex].normalized.Height - 1
 			if nodeBottomY > levelMaxBottomY {
 				levelMaxBottomY = nodeBottomY
 			}
@@ -201,16 +192,19 @@ func Stage1(
 		previousLevelMaxBottomY = levelMaxBottomY
 	}
 
-	// Step 3: Place shapes on grid (1-based IDs)
+	// Step 3: Build PlacedShape results with calculated positions
+	result := make([]PlacedShape, len(layouts))
 	for nodeIndex, layout := range layouts {
 		// Calculate offset to center the shape horizontally
-		shapeOffsetX := layout.centerX - layout.normalized.width/2
+		shapeOffsetX := layout.centerX - layout.normalized.Width/2
 
-		// Place each point of the normalized shape
-		for _, point := range layout.normalized.points {
-			gridX := point[0] + shapeOffsetX
-			gridY := point[1] + layout.topY
-			(*grid)[Point{gridX, gridY}] = nodeIndex + 1
+		result[nodeIndex] = PlacedShape{
+			Points:   layout.normalized.Points,
+			Position: Point{shapeOffsetX, layout.topY},
+			Width:    layout.normalized.Width,
+			Height:   layout.normalized.Height,
 		}
 	}
+
+	return result
 }
