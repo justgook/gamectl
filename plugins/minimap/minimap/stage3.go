@@ -101,7 +101,8 @@ func findPathBetweenShapes(grid *Grid, fromShapeID, toShapeID int) []Point {
 	return astarMultiSourceMultiTarget(grid, fromEdges, targetSet, toShapeID)
 }
 
-// getShapeEdgeTiles returns tiles of a shape that have at least one empty neighbor
+// getShapeEdgeTiles returns tiles of a shape that have at least one non-self neighbor
+// (either empty or belonging to a different shape)
 func getShapeEdgeTiles(grid *Grid, shapeID int) []Point {
 	var edges []Point
 
@@ -119,8 +120,9 @@ func getShapeEdgeTiles(grid *Grid, shapeID int) []Point {
 		}
 
 		for _, n := range neighbors {
-			if _, exists := (*grid)[n]; !exists {
-				// Has empty neighbor - this is an edge tile
+			neighborID, exists := (*grid)[n]
+			// Edge tile if neighbor is empty OR belongs to a different shape
+			if !exists || (neighborID != shapeID && neighborID > 0) {
 				edges = append(edges, point)
 				break
 			}
@@ -137,6 +139,24 @@ func astarMultiSourceMultiTarget(
 	targets map[Point]bool,
 	toShapeID int,
 ) []Point {
+	// First check: are any start tiles directly adjacent to target tiles?
+	// This handles the case where rooms are touching (gap = 0)
+	for _, start := range starts {
+		neighbors := []Point{
+			{start[0] + 1, start[1]},
+			{start[0] - 1, start[1]},
+			{start[0], start[1] + 1},
+			{start[0], start[1] - 1},
+		}
+
+		for _, n := range neighbors {
+			if targets[n] {
+				// Rooms are directly adjacent - no path tiles needed
+				return []Point{}
+			}
+		}
+	}
+
 	// Find any target point for heuristic (use centroid)
 	var targetCenterX, targetCenterY int
 	for p := range targets {
@@ -170,7 +190,7 @@ func astarMultiSourceMultiTarget(
 				continue
 			}
 
-			// Check if we immediately reached target
+			// Check if we immediately reached target (already checked above, but keep for safety)
 			if targets[n] {
 				// Direct neighbor - no path tiles needed
 				return []Point{}
