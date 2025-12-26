@@ -52,7 +52,7 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   'Minimap Generator',
   'plugin',
   'Generate minimap from tree',
-  '<node-plugin title="Minimap Generator" plugin="minimap" function="gen" inputs="treeId,mapId" outputs="result"></node-plugin>'
+  '<node-plugin title="Minimap Generator" plugin="minimap" function="gen" inputs="treeId,mapId,direction" outputs="result"></node-plugin>'
 ),
 (
   'Tilemap Scaler',

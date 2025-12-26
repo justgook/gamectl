@@ -28,23 +28,17 @@ func GenerateMinimap(
 	// Stage 1: Initial hierarchical placement (returns shapes with positions)
 	shapes := Stage1(rng, treeInput, getRoomShape, config)
 
+	// Stage 2: Compact layout (moves children toward parents to minimize path tiles)
+	err := Stage2(treeInput, shapes)
+	if err != nil {
+		return nil, err
+	}
+
 	// Stage 3: Pathfinding (builds internal grid, returns PathInfo only)
 	pathInfos, err := Stage3(treeInput, shapes)
 	if err != nil {
 		return nil, err
 	}
-
-	// Stage 4: Path compression (modifies shape positions)
-	// err = Stage4(treeInput, shapes)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	//
-	// // Re-run pathfinding after compression
-	// pathInfos, err = Stage3(treeInput, shapes)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	// Generate room layer from shapes
 	roomData, width, offset := ApplyShapesToTilemap(shapes, pathInfos)

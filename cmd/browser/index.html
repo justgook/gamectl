@@ -64,6 +64,16 @@
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
             <label>Output Map: <input type="text" name="mapId" value="new_map"></label>
+            <label>Layout Direction: 
+              <select name="direction">
+                <option value="radial" selected>Radial</option>
+                <option value="topDown">Top Down</option>
+                <option value="bottomUp">Bottom Up</option>
+                <option value="leftToRight">Left to Right</option>
+                <option value="rightToLeft">Right to Left</option>
+                <option value="directional">Directional</option>
+              </select>
+            </label>
             <button type="submit">Generate Minimap</button>
           </form>
         </details>

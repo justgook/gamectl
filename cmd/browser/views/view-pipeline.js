@@ -17,11 +17,11 @@ export class ViewPipeline extends HTMLElement {
     this.style.display = 'block'
     this.style.width = '100%'
     this.style.height = '100%'
-    
+
     const template = document.getElementById('view-pipeline')
     const content = template.content.cloneNode(true)
     this.appendChild(content)
-    
+
     this.querySelector('form[name="tree"]')
       ?.addEventListener('submit', (e) => this.generateWorldTree(e))
     this.querySelector('form[name="minimap"]')
@@ -32,10 +32,10 @@ export class ViewPipeline extends HTMLElement {
 
   async generateWorldTree(e, skipToast = false) {
     if (e) e.preventDefault()
-    
+
     const form = this.querySelector('form[name="tree"]')
     const data = Object.fromEntries(new FormData(form))
-    
+
     try {
       const result = await pluginManager.call("treegen", "gen", JSON.stringify({
         name: data.treeId,
@@ -46,7 +46,7 @@ export class ViewPipeline extends HTMLElement {
       }))
 
       const response = JSON.parse(this.DE.decode(result.output))
-      
+
       if (response.success) {
         this.completedSteps.tree = true
         if (!skipToast) {
@@ -68,25 +68,26 @@ export class ViewPipeline extends HTMLElement {
 
   async generateMinimap(e, skipToast = false) {
     if (e) e.preventDefault()
-    
+
     const form = this.querySelector('form[name="minimap"]')
     const data = Object.fromEntries(new FormData(form))
-    
+
     try {
       const result = await pluginManager.call("minimap", "gen", JSON.stringify({
         treeId: data.inputTreeId,
-        mapId: data.mapId
+        mapId: data.mapId,
+        direction: data.direction || 'radial'
       }))
 
       const response = JSON.parse(this.DE.decode(result.output))
-      
+
       if (response.success) {
         this.completedSteps.minimap = true
         if (!skipToast) {
           toast.success(`Minimap generated: ${data.mapId}`, { duration: 3000 })
         }
         console.log('[Minimap] Success:', response)
-        
+
         // Reload the map in cache/views
         bus.emit(`cache:load:SELECT data FROM tilemap_storage WHERE name = '${data.mapId}'`)
         return { success: true, mapId: data.mapId }
@@ -104,7 +105,7 @@ export class ViewPipeline extends HTMLElement {
 
   async handleMinimapSubmit(e) {
     e.preventDefault()
-    
+
     // Auto-generate tree if not done yet
     if (!this.completedSteps.tree) {
       toast.info('Generating world tree first...', { duration: 2000 })
@@ -113,14 +114,14 @@ export class ViewPipeline extends HTMLElement {
         return // Stop if tree generation failed
       }
     }
-    
+
     // Generate minimap
     await this.generateMinimap(null, false)
   }
 
   async handleAutomapSubmit(e) {
     e.preventDefault()
-    
+
     // Auto-generate tree if not done yet
     if (!this.completedSteps.tree) {
       toast.info('Generating world tree first...', { duration: 2000 })
@@ -129,7 +130,7 @@ export class ViewPipeline extends HTMLElement {
         return // Stop if tree generation failed
       }
     }
-    
+
     // Auto-generate minimap if not done yet
     if (!this.completedSteps.minimap) {
       toast.info('Generating minimap...', { duration: 2000 })
@@ -138,17 +139,17 @@ export class ViewPipeline extends HTMLElement {
         return // Stop if minimap generation failed
       }
     }
-    
+
     // Generate automap
     await this.generateAutomap(null, false)
   }
 
   async generateAutomap(e, skipToast = false) {
     if (e) e.preventDefault()
-    
+
     const form = this.querySelector('form[name="automap"]')
     const data = Object.fromEntries(new FormData(form))
-    
+
     try {
       const result = await pluginManager.call("automap", "automap", JSON.stringify({
         rulesMapId: data.rulesMapId,
@@ -157,14 +158,14 @@ export class ViewPipeline extends HTMLElement {
       }))
 
       const response = JSON.parse(this.DE.decode(result.output))
-      
+
       if (response.success) {
         this.completedSteps.automap = true
         if (!skipToast) {
           toast.success(`Automap generated: ${response.outputMapId}`, { duration: 4000 })
         }
         console.log('[Automap] Success:', response)
-        
+
         // Reload the output map in cache/views
         bus.emit(`cache:load:SELECT data FROM tilemap_storage WHERE name = '${response.outputMapId}'`)
         return { success: true, outputMapId: response.outputMapId }

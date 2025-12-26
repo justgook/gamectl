@@ -303,8 +303,8 @@ func TestStage1_EmptyTree(t *testing.T) {
 
 func TestDefaultLayoutConfig(t *testing.T) {
 	config := DefaultLayoutConfig()
-	if config.Direction != Radial {
-		t.Errorf("default direction should be Radial, got %d", config.Direction)
+	if config.Direction != TopDown {
+		t.Errorf("default direction should be TopDown, got %d", config.Direction)
 	}
 }
 
