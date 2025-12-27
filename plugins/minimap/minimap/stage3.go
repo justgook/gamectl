@@ -14,8 +14,7 @@ var (
 )
 
 // Stage3 creates paths between all parent-child pairs using A* pathfinding
-// Siblings (children of same parent) can share path tiles
-// But paths from different parent groups cannot overlap
+// Paths can share tiles regardless of parent group (necessary for compact layouts)
 // Returns PathInfo for all parent-child relationships (does not mutate shapes)
 func Stage3(
 	treeInput *tree.Tree,
@@ -185,19 +184,20 @@ func astarMultiSourceMultiTarget(
 		}
 
 		for _, n := range neighbors {
-			// Skip if occupied by anything other than target shape
-			if id, exists := (*grid)[n]; exists && id != toShapeID {
-				continue
-			}
-
-			// Check if we immediately reached target (already checked above, but keep for safety)
+			// Check if we immediately reached target
 			if targets[n] {
 				// Direct neighbor - no path tiles needed
 				return []Point{}
 			}
 
-			// Only consider empty tiles as path candidates
-			if _, exists := (*grid)[n]; exists {
+			// Skip if occupied by a room (positive ID) other than target
+			// Allow path tiles (negative IDs) and empty tiles
+			if id, exists := (*grid)[n]; exists && id > 0 && id != toShapeID {
+				continue
+			}
+
+			// Skip if this is a room tile (positive ID) - we can only START search from empty/path tiles
+			if id, exists := (*grid)[n]; exists && id > 0 {
 				continue
 			}
 
@@ -208,8 +208,18 @@ func astarMultiSourceMultiTarget(
 		}
 	}
 
+	// Calculate search bounds based on grid size and distance
+	// Limit search to reasonable area to prevent infinite exploration
+	maxSearchNodes := 10000 // safety limit
+	nodesSearched := 0
+
 	// A* main loop
 	for pq.Len() > 0 {
+		nodesSearched++
+		if nodesSearched > maxSearchNodes {
+			return nil // exceeded search limit, no path found
+		}
+
 		current := heap.Pop(pq).(*pqItem).point
 
 		if visited[current] {
@@ -236,8 +246,9 @@ func astarMultiSourceMultiTarget(
 				return reconstructPath(cameFrom, current)
 			}
 
-			// Skip if occupied (not empty)
-			if _, exists := (*grid)[n]; exists {
+			// Skip if occupied by a room (positive ID)
+			// Allow traversing through path tiles (negative IDs) or empty tiles
+			if id, exists := (*grid)[n]; exists && id > 0 {
 				continue
 			}
 
