@@ -408,6 +408,93 @@ func TestStage2_LargeTree(t *testing.T) {
 	}
 }
 
+func TestStage2_ManyRooms_NoInfiniteLoop(t *testing.T) {
+	// Test with 20+ rooms to verify no infinite loops
+	tr := &tree.Tree{}
+	tr.Add(-1, nil) // Root
+
+	// Level 1: 5 children
+	for i := 0; i < 5; i++ {
+		tr.Add(0, nil)
+	}
+
+	// Level 2: 3 children each (15 more = 21 total)
+	for parent := 1; parent <= 5; parent++ {
+		for i := 0; i < 3; i++ {
+			tr.Add(parent, nil)
+		}
+	}
+
+	t.Logf("Testing with %d rooms", len(*tr))
+
+	rng := &mockRandom{}
+	config := LayoutConfig{Direction: TopDown}
+
+	// Use Stage1 to create initial layout
+	shapes := Stage1(rng, tr, simpleRoomShape, config)
+
+	// This should complete without timeout/infinite loop
+	err := Stage2(tr, shapes)
+	if err != nil {
+		t.Fatalf("Stage2 failed: %v", err)
+	}
+
+	// Verify no overlaps
+	if hasAnyOverlap(shapes) {
+		t.Error("Overlaps detected after compaction")
+	}
+
+	// Verify paths work
+	_, err = Stage3(tr, shapes)
+	if err != nil {
+		t.Fatalf("Stage3 failed after Stage2: %v", err)
+	}
+}
+
+func TestStage2_30Rooms_NoInfiniteLoop(t *testing.T) {
+	// Test with 30+ rooms
+	tr := &tree.Tree{}
+	tr.Add(-1, nil) // Root
+
+	// Level 1: 5 children
+	for i := 0; i < 5; i++ {
+		tr.Add(0, nil)
+	}
+
+	// Level 2: 3 children each
+	for parent := 1; parent <= 5; parent++ {
+		for i := 0; i < 3; i++ {
+			tr.Add(parent, nil)
+		}
+	}
+
+	// Level 3: 1 child each for first 10 nodes at level 2
+	for parent := 6; parent <= 15; parent++ {
+		tr.Add(parent, nil)
+	}
+
+	t.Logf("Testing with %d rooms", len(*tr))
+
+	rng := &mockRandom{}
+	config := LayoutConfig{Direction: TopDown}
+
+	shapes := Stage1(rng, tr, simpleRoomShape, config)
+
+	err := Stage2(tr, shapes)
+	if err != nil {
+		t.Fatalf("Stage2 failed: %v", err)
+	}
+
+	if hasAnyOverlap(shapes) {
+		t.Error("Overlaps detected after compaction")
+	}
+
+	_, err = Stage3(tr, shapes)
+	if err != nil {
+		t.Fatalf("Stage3 failed after Stage2: %v", err)
+	}
+}
+
 // Benchmark tests
 func BenchmarkStage2_SmallTree(b *testing.B) {
 	tr := &tree.Tree{}

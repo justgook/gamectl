@@ -31,6 +31,7 @@ func Stage2(
 
 // compactLevel compacts all nodes at a given depth level
 // Iterates until no node can be moved closer to its parent
+// Detects oscillations by tracking position history
 func compactLevel(
 	depth int,
 	treeInput *tree.Tree,
@@ -40,8 +41,22 @@ func compactLevel(
 	// Get all nodes at this depth
 	nodesAtDepth := getNodesAtDepth(treeInput, depth)
 
+	// Track position history to detect oscillations
+	// Key: node index, Value: set of positions seen
+	positionHistory := make(map[int]map[Point]bool)
+	for _, nodeIndex := range nodesAtDepth {
+		positionHistory[nodeIndex] = make(map[Point]bool)
+	}
+
 	// Keep compacting until no changes (with max iterations as safety)
-	maxIterations := 100
+	maxIterations := len(nodesAtDepth) * 10 // proportional to number of nodes
+	if maxIterations < 20 {
+		maxIterations = 20
+	}
+	if maxIterations > 100 {
+		maxIterations = 100
+	}
+
 	for iteration := 0; iteration < maxIterations; iteration++ {
 		anyMoved := false
 
@@ -50,6 +65,13 @@ func compactLevel(
 			if parentIndex == -1 {
 				continue
 			}
+
+			// Check for oscillation - if we've seen this position before, skip
+			currentPos := shapes[nodeIndex].Position
+			if positionHistory[nodeIndex][currentPos] {
+				continue // already tried from this position, skip to avoid oscillation
+			}
+			positionHistory[nodeIndex][currentPos] = true
 
 			moved := compactNode(nodeIndex, parentIndex, treeInput, shapes, childrenMap)
 			if moved {
@@ -71,6 +93,7 @@ func getNodesAtDepth(treeInput *tree.Tree, targetDepth int) []int {
 
 // compactNode tries to move a node (and its subtree) toward its parent
 // using halving approach: try half distance, halve again if invalid, down to 1 tile
+// Tries vertical movement first, then horizontal if vertical not possible
 // Returns true if any movement was made
 func compactNode(
 	nodeIndex, parentIndex int,
@@ -78,30 +101,62 @@ func compactNode(
 	shapes []PlacedShape,
 	childrenMap map[int][]int,
 ) bool {
-	// Calculate direction vector from child center toward parent center
-	childCenter := getShapeCenter(shapes[nodeIndex])
-	parentCenter := getShapeCenter(shapes[parentIndex])
+	// Try vertical compaction first (most common for hierarchical layouts)
+	if tryCompactAxis(nodeIndex, parentIndex, treeInput, shapes, childrenMap, true) {
+		return true
+	}
 
-	dx := parentCenter[0] - childCenter[0]
-	dy := parentCenter[1] - childCenter[1]
+	// Then try horizontal
+	return tryCompactAxis(nodeIndex, parentIndex, treeInput, shapes, childrenMap, false)
+}
 
-	// Current distance (use max of dx/dy for grid-aligned movement)
-	absDx := abs(dx)
-	absDy := abs(dy)
+// tryCompactAxis attempts to compact along a single axis
+func tryCompactAxis(
+	nodeIndex, parentIndex int,
+	treeInput *tree.Tree,
+	shapes []PlacedShape,
+	childrenMap map[int][]int,
+	isVertical bool,
+) bool {
+	child := shapes[nodeIndex]
+	parent := shapes[parentIndex]
 
-	// If already adjacent, nothing to compact
-	if absDx <= 1 && absDy <= 1 {
+	var gap, moveDir int
+
+	if isVertical {
+		// Calculate vertical gap
+		if child.Position[1] >= parent.Position[1]+parent.Height {
+			// Child is below parent
+			gap = child.Position[1] - (parent.Position[1] + parent.Height)
+			moveDir = -1 // move up
+		} else if child.Position[1]+child.Height <= parent.Position[1] {
+			// Child is above parent
+			gap = parent.Position[1] - (child.Position[1] + child.Height)
+			moveDir = 1 // move down
+		} else {
+			return false // vertically overlapping
+		}
+	} else {
+		// Calculate horizontal gap
+		if child.Position[0] >= parent.Position[0]+parent.Width {
+			// Child is right of parent
+			gap = child.Position[0] - (parent.Position[0] + parent.Width)
+			moveDir = -1 // move left
+		} else if child.Position[0]+child.Width <= parent.Position[0] {
+			// Child is left of parent
+			gap = parent.Position[0] - (child.Position[0] + child.Width)
+			moveDir = 1 // move right
+		} else {
+			return false // horizontally overlapping
+		}
+	}
+
+	if gap <= 0 {
 		return false
 	}
 
-	// Calculate current gap (distance minus room sizes along movement axis)
-	currentGap := calculateGap(shapes[nodeIndex], shapes[parentIndex], dx, dy)
-	if currentGap <= 0 {
-		return false // already touching or overlapping
-	}
-
-	// Try halving approach: start with half the gap, halve until 1
-	moveAmount := currentGap / 2
+	// Try halving approach
+	moveAmount := gap / 2
 	if moveAmount < 1 {
 		moveAmount = 1
 	}
@@ -109,39 +164,50 @@ func compactNode(
 	totalMoved := 0
 
 	for moveAmount >= 1 {
-		// Calculate offset for this move amount (along the direction vector)
-		offset := calculateMoveOffset(dx, dy, moveAmount)
+		var offset Point
+		if isVertical {
+			offset = Point{0, moveDir * moveAmount}
+		} else {
+			offset = Point{moveDir * moveAmount, 0}
+		}
 
-		// Validate this movement
 		if isValidMove(nodeIndex, offset, treeInput, shapes, childrenMap) {
-			// Apply the move
 			moveSubtree(nodeIndex, offset, shapes, childrenMap)
 			totalMoved += moveAmount
 
-			// Update direction for next iteration
-			childCenter = getShapeCenter(shapes[nodeIndex])
-			dx = parentCenter[0] - childCenter[0]
-			dy = parentCenter[1] - childCenter[1]
-
 			// Recalculate gap
-			currentGap = calculateGap(shapes[nodeIndex], shapes[parentIndex], dx, dy)
-			if currentGap <= 0 {
-				break
+			child = shapes[nodeIndex]
+			if isVertical {
+				if moveDir == -1 {
+					gap = child.Position[1] - (parent.Position[1] + parent.Height)
+				} else {
+					gap = parent.Position[1] - (child.Position[1] + child.Height)
+				}
+			} else {
+				if moveDir == -1 {
+					gap = child.Position[0] - (parent.Position[0] + parent.Width)
+				} else {
+					gap = parent.Position[0] - (child.Position[0] + child.Width)
+				}
 			}
 
-			// Try same move amount again (might have more room)
+			if gap <= 0 {
+				break
+			}
 			continue
 		}
 
-		// Can't move by this amount, try smaller
 		moveAmount /= 2
 	}
 
 	// Try single tile movements
-	for {
-		offset := calculateMoveOffset(dx, dy, 1)
-		if offset[0] == 0 && offset[1] == 0 {
-			break
+	maxSingleMoves := gap + 5
+	for singleMoveCount := 0; singleMoveCount < maxSingleMoves; singleMoveCount++ {
+		var offset Point
+		if isVertical {
+			offset = Point{0, moveDir * 1}
+		} else {
+			offset = Point{moveDir * 1, 0}
 		}
 
 		if !isValidMove(nodeIndex, offset, treeInput, shapes, childrenMap) {
@@ -151,13 +217,22 @@ func compactNode(
 		moveSubtree(nodeIndex, offset, shapes, childrenMap)
 		totalMoved++
 
-		// Update direction
-		childCenter = getShapeCenter(shapes[nodeIndex])
-		dx = parentCenter[0] - childCenter[0]
-		dy = parentCenter[1] - childCenter[1]
+		child = shapes[nodeIndex]
+		if isVertical {
+			if moveDir == -1 {
+				gap = child.Position[1] - (parent.Position[1] + parent.Height)
+			} else {
+				gap = parent.Position[1] - (child.Position[1] + child.Height)
+			}
+		} else {
+			if moveDir == -1 {
+				gap = child.Position[0] - (parent.Position[0] + parent.Width)
+			} else {
+				gap = parent.Position[0] - (child.Position[0] + child.Width)
+			}
+		}
 
-		currentGap = calculateGap(shapes[nodeIndex], shapes[parentIndex], dx, dy)
-		if currentGap <= 0 {
+		if gap <= 0 {
 			break
 		}
 	}
@@ -227,8 +302,7 @@ func calculateMoveOffset(dx, dy, amount int) Point {
 
 // isValidMove checks if moving nodeIndex by offset is valid:
 // 1. No room overlaps with any other room
-// 2. Path from node to parent still possible
-// 3. Paths from node's children to node still possible
+// 2. ALL parent-child paths in the tree still exist
 func isValidMove(
 	nodeIndex int,
 	offset Point,
@@ -248,23 +322,14 @@ func isValidMove(
 	// Build grid from temp shapes for pathfinding
 	grid := BuildGridFromShapes(tempShapes)
 
-	// Check 2: Path from node to parent exists
-	parentIndex := (*treeInput)[nodeIndex].ParentId
-	if !pathExists(grid, nodeIndex+1, parentIndex+1) {
-		return false
-	}
-
-	// Check 3: Paths from each child to node exist
-	for _, childIndex := range childrenMap[nodeIndex] {
-		if !pathExists(grid, childIndex+1, nodeIndex+1) {
+	// Check 2: ALL parent-child paths must exist
+	// This is more expensive but necessary to prevent blocking cousin paths
+	for i := 1; i < len(*treeInput); i++ {
+		parentIndex := (*treeInput)[i].ParentId
+		if !pathExists(grid, i+1, parentIndex+1) {
 			return false
 		}
 	}
-
-	// Note: Path crossing validation is implicitly handled by:
-	// - Stage3 which enforces that paths from different parents don't overlap
-	// - The fact that we're only moving toward parent, not sideways
-	// - Rooms don't overlap (checked above), so paths have clear corridors
 
 	return true
 }
@@ -376,8 +441,16 @@ func pathExists(grid *Grid, fromShapeID, toShapeID int) bool {
 		}
 	}
 
-	// BFS
+	// BFS with search limit
+	maxSearchNodes := 5000 // safety limit for path existence check
+	nodesSearched := 0
+
 	for len(queue) > 0 {
+		nodesSearched++
+		if nodesSearched > maxSearchNodes {
+			return false // exceeded search limit
+		}
+
 		current := queue[0]
 		queue = queue[1:]
 
