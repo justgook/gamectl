@@ -4,490 +4,608 @@ import (
 	"github.com/justgook/gamectl/pkg/tree"
 )
 
-// Stage2 compresses the layout by moving children toward their parents
-// to minimize path tiles (empty space between rooms).
-// Uses a halving approach: try to move by half the distance, if invalid,
-// halve again until reaching 1 tile, then try 1 tile at a time.
-// Modifies shapes[] in place.
-func Stage2(
-	treeInput *tree.Tree,
-	shapes []PlacedShape,
-) error {
-	if len(*treeInput) <= 1 {
-		return nil // nothing to compact
-	}
-
-	// Build helper structures
-	_, childrenMap, maxDepth := buildDepthMap(treeInput)
-
-	// Process level by level (BFS order)
-	// For each level, keep iterating until no more compaction possible
-	for depth := 1; depth <= maxDepth; depth++ {
-		compactLevel(depth, treeInput, shapes, childrenMap)
-	}
-
-	return nil
+// Stage2Result contains the output of the grow-from-parent algorithm
+type Stage2Result struct {
+	Grid      Grid             // The generated grid (point -> roomID, where roomID is 1-based)
+	Doors     []DoorConnection // Door connections between rooms
+	RoomTiles map[int][]Point  // For each room ID (1-based), list of tiles
 }
 
-// compactLevel compacts all nodes at a given depth level
-// Iterates until no node can be moved closer to its parent
-// Detects oscillations by tracking position history
-func compactLevel(
-	depth int,
-	treeInput *tree.Tree,
+// Stage2 grows the minimap from root, placing each child adjacent to its parent.
+// This guarantees that every child shares at least one edge with its parent.
+// If a child's predefined shape can't fit adjacent to parent, the parent is extended
+// with corridor tiles (stored with negative ID internally, converted to parent ID on output).
+//
+// The algorithm:
+// 1. Place root shape at origin
+// 2. Process children in BFS order (level by level)
+// 3. For each child, find the best position adjacent to parent
+// 4. If no valid position exists, extend parent with corridor tiles
+func Stage2(treeInput *tree.Tree, shapes []PlacedShape) (*Stage2Result, error) {
+	n := len(*treeInput)
+	if n == 0 {
+		return &Stage2Result{
+			Grid:      make(Grid),
+			Doors:     nil,
+			RoomTiles: make(map[int][]Point),
+		}, nil
+	}
+
+	result := &Stage2Result{
+		Grid:      make(Grid),
+		Doors:     nil,
+		RoomTiles: make(map[int][]Point),
+	}
+
+	// Build children map
+	childrenMap := make(map[int][]int)
+	for i, node := range *treeInput {
+		if node.ParentId != -1 {
+			childrenMap[node.ParentId] = append(childrenMap[node.ParentId], i)
+		}
+	}
+
+	// Place root at origin (nodeIndex 0, roomID 1)
+	rootShape := shapes[0]
+	placeShapeAt(result, 0, rootShape, Point{0, 0})
+
+	// BFS queue: process nodes level by level
+	queue := []int{0}
+
+	for len(queue) > 0 {
+		parentIdx := queue[0]
+		queue = queue[1:]
+
+		children := childrenMap[parentIdx]
+		for _, childIdx := range children {
+			queue = append(queue, childIdx)
+		}
+
+		// Place all children of this parent
+		if len(children) > 0 {
+			placeChildrenAdjacentToParent(result, parentIdx, children, shapes, childrenMap)
+		}
+	}
+
+	return result, nil
+}
+
+// placeShapeAt places a shape at the given position in the grid
+func placeShapeAt(result *Stage2Result, nodeIdx int, shape PlacedShape, pos Point) {
+	roomID := nodeIdx + 1 // 1-based room ID
+
+	for _, relPoint := range shape.Points {
+		worldPoint := Point{pos[0] + relPoint[0], pos[1] + relPoint[1]}
+		result.Grid[worldPoint] = roomID
+		result.RoomTiles[roomID] = append(result.RoomTiles[roomID], worldPoint)
+	}
+}
+
+// placeChildrenAdjacentToParent places all children of a parent, ensuring each shares an edge
+func placeChildrenAdjacentToParent(
+	result *Stage2Result,
+	parentIdx int,
+	children []int,
 	shapes []PlacedShape,
 	childrenMap map[int][]int,
 ) {
-	// Get all nodes at this depth
-	nodesAtDepth := getNodesAtDepth(treeInput, depth)
+	parentID := parentIdx + 1
 
-	// Track position history to detect oscillations
-	// Key: node index, Value: set of positions seen
-	positionHistory := make(map[int]map[Point]bool)
-	for _, nodeIndex := range nodesAtDepth {
-		positionHistory[nodeIndex] = make(map[Point]bool)
+	// Get parent's edge tiles (tiles with at least one empty neighbor)
+	parentEdges := getEdgeTiles(result, parentID)
+
+	// For each child, find the best placement
+	for _, childIdx := range children {
+		childShape := shapes[childIdx]
+		childID := childIdx + 1
+
+		// Try to find a valid placement adjacent to parent
+		placed := tryPlaceChildAdjacent(result, parentID, childID, childShape, parentEdges)
+
+		if !placed {
+			// No valid placement found - need to extend parent with corridor
+			extendAndPlaceChild(result, parentIdx, childIdx, childShape, parentEdges, childrenMap)
+			// Update parent edges after extension
+			parentEdges = getEdgeTiles(result, parentID)
+		} else {
+			// Placement successful - create door connection
+			createDoorConnection(result, childID, parentID)
+			// Update parent edges for next child
+			parentEdges = getEdgeTiles(result, parentID)
+		}
+	}
+}
+
+// getEdgeTiles returns all tiles of a room that have at least one empty orthogonal neighbor
+func getEdgeTiles(result *Stage2Result, roomID int) []Point {
+	var edges []Point
+
+	for _, tile := range result.RoomTiles[roomID] {
+		neighbors := []Point{
+			{tile[0] + 1, tile[1]},
+			{tile[0] - 1, tile[1]},
+			{tile[0], tile[1] + 1},
+			{tile[0], tile[1] - 1},
+		}
+
+		for _, n := range neighbors {
+			if _, exists := result.Grid[n]; !exists {
+				edges = append(edges, tile)
+				break
+			}
+		}
 	}
 
-	// Keep compacting until no changes (with max iterations as safety)
-	maxIterations := len(nodesAtDepth) * 10 // proportional to number of nodes
-	if maxIterations < 20 {
-		maxIterations = 20
-	}
-	if maxIterations > 100 {
-		maxIterations = 100
+	return edges
+}
+
+// getAllRoomTiles returns all tiles belonging to a room (including corridor extensions)
+// Used when we need to find ANY edge, not just edges with empty neighbors
+func getAllRoomTiles(result *Stage2Result, roomID int) []Point {
+	return result.RoomTiles[roomID]
+}
+
+// getAnyEdgeTile returns any tile on the edge of the room
+// Unlike getEdgeTiles, this considers tiles adjacent to other rooms as edges
+func getAnyEdgeTile(result *Stage2Result, roomID int) []Point {
+	tiles := result.RoomTiles[roomID]
+	if len(tiles) == 0 {
+		return nil
 	}
 
-	for iteration := 0; iteration < maxIterations; iteration++ {
-		anyMoved := false
+	// Find the outermost tiles (those with neighbors not belonging to this room)
+	var edges []Point
+	for _, tile := range tiles {
+		neighbors := []Point{
+			{tile[0] + 1, tile[1]},
+			{tile[0] - 1, tile[1]},
+			{tile[0], tile[1] + 1},
+			{tile[0], tile[1] - 1},
+		}
 
-		for _, nodeIndex := range nodesAtDepth {
-			parentIndex := (*treeInput)[nodeIndex].ParentId
-			if parentIndex == -1 {
+		for _, n := range neighbors {
+			if id, exists := result.Grid[n]; !exists || id != roomID {
+				edges = append(edges, tile)
+				break
+			}
+		}
+	}
+
+	if len(edges) == 0 {
+		// Fallback: return first tile
+		return []Point{tiles[0]}
+	}
+	return edges
+}
+
+// tryPlaceChildAdjacent tries to place child shape adjacent to parent
+// Returns true if placement was successful
+func tryPlaceChildAdjacent(
+	result *Stage2Result,
+	parentID int,
+	childID int,
+	childShape PlacedShape,
+	parentEdges []Point,
+) bool {
+	// For each parent edge tile, try each direction
+	directions := []Point{
+		{1, 0},  // East
+		{-1, 0}, // West
+		{0, 1},  // South
+		{0, -1}, // North
+	}
+
+	type placement struct {
+		pos      Point
+		adjacent int // number of adjacent tiles to parent (prefer more connection)
+	}
+
+	var validPlacements []placement
+
+	for _, parentEdge := range parentEdges {
+		for _, dir := range directions {
+			// The position where child's "connection point" would be
+			connPoint := Point{parentEdge[0] + dir[0], parentEdge[1] + dir[1]}
+
+			// Skip if this point is already occupied
+			if _, exists := result.Grid[connPoint]; exists {
 				continue
 			}
 
-			// Check for oscillation - if we've seen this position before, skip
-			currentPos := shapes[nodeIndex].Position
-			if positionHistory[nodeIndex][currentPos] {
-				continue // already tried from this position, skip to avoid oscillation
+			// Try to place child shape such that one of its tiles is at connPoint
+			for _, childRelPoint := range childShape.Points {
+				// Calculate position so that childRelPoint aligns with connPoint
+				childPos := Point{
+					connPoint[0] - childRelPoint[0],
+					connPoint[1] - childRelPoint[1],
+				}
+
+				// Check if this placement is valid (no overlaps)
+				if canPlaceShape(result, childShape, childPos) {
+					// Count how many tiles would be adjacent to parent
+					adjCount := countAdjacentToRoom(result, childShape, childPos, parentID)
+					validPlacements = append(validPlacements, placement{
+						pos:      childPos,
+						adjacent: adjCount,
+					})
+				}
 			}
-			positionHistory[nodeIndex][currentPos] = true
-
-			moved := compactNode(nodeIndex, parentIndex, treeInput, shapes, childrenMap)
-			if moved {
-				anyMoved = true
-			}
-		}
-
-		if !anyMoved {
-			break
-		}
-	}
-}
-
-// getNodesAtDepth returns all node indices at a specific depth
-func getNodesAtDepth(treeInput *tree.Tree, targetDepth int) []int {
-	depthMap, _, _ := buildDepthMap(treeInput)
-	return depthMap[targetDepth]
-}
-
-// compactNode tries to move a node (and its subtree) toward its parent
-// using halving approach: try half distance, halve again if invalid, down to 1 tile
-// Tries vertical movement first, then horizontal if vertical not possible
-// Returns true if any movement was made
-func compactNode(
-	nodeIndex, parentIndex int,
-	treeInput *tree.Tree,
-	shapes []PlacedShape,
-	childrenMap map[int][]int,
-) bool {
-	// Try vertical compaction first (most common for hierarchical layouts)
-	if tryCompactAxis(nodeIndex, parentIndex, treeInput, shapes, childrenMap, true) {
-		return true
-	}
-
-	// Then try horizontal
-	return tryCompactAxis(nodeIndex, parentIndex, treeInput, shapes, childrenMap, false)
-}
-
-// tryCompactAxis attempts to compact along a single axis
-func tryCompactAxis(
-	nodeIndex, parentIndex int,
-	treeInput *tree.Tree,
-	shapes []PlacedShape,
-	childrenMap map[int][]int,
-	isVertical bool,
-) bool {
-	child := shapes[nodeIndex]
-	parent := shapes[parentIndex]
-
-	var gap, moveDir int
-
-	if isVertical {
-		// Calculate vertical gap
-		if child.Position[1] >= parent.Position[1]+parent.Height {
-			// Child is below parent
-			gap = child.Position[1] - (parent.Position[1] + parent.Height)
-			moveDir = -1 // move up
-		} else if child.Position[1]+child.Height <= parent.Position[1] {
-			// Child is above parent
-			gap = parent.Position[1] - (child.Position[1] + child.Height)
-			moveDir = 1 // move down
-		} else {
-			return false // vertically overlapping
-		}
-	} else {
-		// Calculate horizontal gap
-		if child.Position[0] >= parent.Position[0]+parent.Width {
-			// Child is right of parent
-			gap = child.Position[0] - (parent.Position[0] + parent.Width)
-			moveDir = -1 // move left
-		} else if child.Position[0]+child.Width <= parent.Position[0] {
-			// Child is left of parent
-			gap = parent.Position[0] - (child.Position[0] + child.Width)
-			moveDir = 1 // move right
-		} else {
-			return false // horizontally overlapping
 		}
 	}
 
-	if gap <= 0 {
+	if len(validPlacements) == 0 {
 		return false
 	}
 
-	// Try halving approach
-	moveAmount := gap / 2
-	if moveAmount < 1 {
-		moveAmount = 1
-	}
-
-	totalMoved := 0
-
-	for moveAmount >= 1 {
-		var offset Point
-		if isVertical {
-			offset = Point{0, moveDir * moveAmount}
-		} else {
-			offset = Point{moveDir * moveAmount, 0}
-		}
-
-		if isValidMove(nodeIndex, offset, treeInput, shapes, childrenMap) {
-			moveSubtree(nodeIndex, offset, shapes, childrenMap)
-			totalMoved += moveAmount
-
-			// Recalculate gap
-			child = shapes[nodeIndex]
-			if isVertical {
-				if moveDir == -1 {
-					gap = child.Position[1] - (parent.Position[1] + parent.Height)
-				} else {
-					gap = parent.Position[1] - (child.Position[1] + child.Height)
-				}
-			} else {
-				if moveDir == -1 {
-					gap = child.Position[0] - (parent.Position[0] + parent.Width)
-				} else {
-					gap = parent.Position[0] - (child.Position[0] + child.Width)
-				}
-			}
-
-			if gap <= 0 {
-				break
-			}
-			continue
-		}
-
-		moveAmount /= 2
-	}
-
-	// Try single tile movements
-	maxSingleMoves := gap + 5
-	for singleMoveCount := 0; singleMoveCount < maxSingleMoves; singleMoveCount++ {
-		var offset Point
-		if isVertical {
-			offset = Point{0, moveDir * 1}
-		} else {
-			offset = Point{moveDir * 1, 0}
-		}
-
-		if !isValidMove(nodeIndex, offset, treeInput, shapes, childrenMap) {
-			break
-		}
-
-		moveSubtree(nodeIndex, offset, shapes, childrenMap)
-		totalMoved++
-
-		child = shapes[nodeIndex]
-		if isVertical {
-			if moveDir == -1 {
-				gap = child.Position[1] - (parent.Position[1] + parent.Height)
-			} else {
-				gap = parent.Position[1] - (child.Position[1] + child.Height)
-			}
-		} else {
-			if moveDir == -1 {
-				gap = child.Position[0] - (parent.Position[0] + parent.Width)
-			} else {
-				gap = parent.Position[0] - (child.Position[0] + child.Width)
-			}
-		}
-
-		if gap <= 0 {
-			break
+	// Pick the placement with most adjacent tiles (better connection)
+	best := validPlacements[0]
+	for _, p := range validPlacements[1:] {
+		if p.adjacent > best.adjacent {
+			best = p
 		}
 	}
 
-	return totalMoved > 0
-}
-
-// getShapeCenter returns the center point of a shape
-func getShapeCenter(shape PlacedShape) Point {
-	return Point{
-		shape.Position[0] + shape.Width/2,
-		shape.Position[1] + shape.Height/2,
-	}
-}
-
-// calculateGap returns the distance between two shapes along the movement axis
-func calculateGap(child, parent PlacedShape, dx, dy int) int {
-	// Determine primary movement axis
-	absDx := abs(dx)
-	absDy := abs(dy)
-
-	if absDx >= absDy {
-		// Moving primarily horizontally
-		if dx > 0 {
-			// Child is left of parent, gap is parent.left - child.right
-			childRight := child.Position[0] + child.Width
-			return parent.Position[0] - childRight
-		}
-		// Child is right of parent
-		parentRight := parent.Position[0] + parent.Width
-		return child.Position[0] - parentRight
-	}
-
-	// Moving primarily vertically
-	if dy > 0 {
-		// Child is above parent, gap is parent.top - child.bottom
-		childBottom := child.Position[1] + child.Height
-		return parent.Position[1] - childBottom
-	}
-	// Child is below parent
-	parentBottom := parent.Position[1] + parent.Height
-	return child.Position[1] - parentBottom
-}
-
-// calculateMoveOffset returns the offset to move by given amount toward parent
-func calculateMoveOffset(dx, dy, amount int) Point {
-	absDx := abs(dx)
-	absDy := abs(dy)
-
-	if absDx == 0 && absDy == 0 {
-		return Point{0, 0}
-	}
-
-	// Move along the dominant axis
-	if absDx >= absDy {
-		if dx > 0 {
-			return Point{amount, 0}
-		}
-		return Point{-amount, 0}
-	}
-
-	if dy > 0 {
-		return Point{0, amount}
-	}
-	return Point{0, -amount}
-}
-
-// isValidMove checks if moving nodeIndex by offset is valid:
-// 1. No room overlaps with any other room
-// 2. ALL parent-child paths in the tree still exist
-func isValidMove(
-	nodeIndex int,
-	offset Point,
-	treeInput *tree.Tree,
-	shapes []PlacedShape,
-	childrenMap map[int][]int,
-) bool {
-	// Create temporary shapes with subtree moved
-	tempShapes := cloneShapes(shapes)
-	moveSubtree(nodeIndex, offset, tempShapes, childrenMap)
-
-	// Check 1: No room overlaps
-	if hasAnyOverlap(tempShapes) {
-		return false
-	}
-
-	// Build grid from temp shapes for pathfinding
-	grid := BuildGridFromShapes(tempShapes)
-
-	// Check 2: ALL parent-child paths must exist
-	// This is more expensive but necessary to prevent blocking cousin paths
-	for i := 1; i < len(*treeInput); i++ {
-		parentIndex := (*treeInput)[i].ParentId
-		if !pathExists(grid, i+1, parentIndex+1) {
-			return false
-		}
-	}
-
+	// Place the child
+	placeShapeAtPos(result, childID, childShape, best.pos)
 	return true
 }
 
-// cloneShapes creates a deep copy of shapes slice
-func cloneShapes(shapes []PlacedShape) []PlacedShape {
-	result := make([]PlacedShape, len(shapes))
-	for i, s := range shapes {
-		result[i] = PlacedShape{
-			Points:   append([]Point(nil), s.Points...),
-			Position: s.Position,
-			Width:    s.Width,
-			Height:   s.Height,
+// canPlaceShape checks if a shape can be placed at the given position without overlapping
+func canPlaceShape(result *Stage2Result, shape PlacedShape, pos Point) bool {
+	for _, relPoint := range shape.Points {
+		worldPoint := Point{pos[0] + relPoint[0], pos[1] + relPoint[1]}
+		if _, exists := result.Grid[worldPoint]; exists {
+			return false
 		}
 	}
-	return result
+	return true
 }
 
-// moveSubtree translates a node and all its descendants by offset
-func moveSubtree(
-	nodeIndex int,
-	offset Point,
-	shapes []PlacedShape,
+// countAdjacentToRoom counts how many tiles of a shape would be adjacent to a room
+func countAdjacentToRoom(result *Stage2Result, shape PlacedShape, pos Point, roomID int) int {
+	count := 0
+	for _, relPoint := range shape.Points {
+		worldPoint := Point{pos[0] + relPoint[0], pos[1] + relPoint[1]}
+		neighbors := []Point{
+			{worldPoint[0] + 1, worldPoint[1]},
+			{worldPoint[0] - 1, worldPoint[1]},
+			{worldPoint[0], worldPoint[1] + 1},
+			{worldPoint[0], worldPoint[1] - 1},
+		}
+		for _, n := range neighbors {
+			if result.Grid[n] == roomID {
+				count++
+				break // Count each shape tile only once
+			}
+		}
+	}
+	return count
+}
+
+// placeShapeAtPos places a shape at a specific position
+func placeShapeAtPos(result *Stage2Result, roomID int, shape PlacedShape, pos Point) {
+	for _, relPoint := range shape.Points {
+		worldPoint := Point{pos[0] + relPoint[0], pos[1] + relPoint[1]}
+		result.Grid[worldPoint] = roomID
+		result.RoomTiles[roomID] = append(result.RoomTiles[roomID], worldPoint)
+	}
+}
+
+// extendAndPlaceChild extends the parent room to reach and place the child
+func extendAndPlaceChild(
+	result *Stage2Result,
+	parentIdx int,
+	childIdx int,
+	childShape PlacedShape,
+	parentEdges []Point,
 	childrenMap map[int][]int,
 ) {
-	// Move this node
-	shapes[nodeIndex].Position[0] += offset[0]
-	shapes[nodeIndex].Position[1] += offset[1]
+	parentID := parentIdx + 1
+	childID := childIdx + 1
 
-	// Recursively move all descendants
-	for _, childIndex := range childrenMap[nodeIndex] {
-		moveSubtree(childIndex, offset, shapes, childrenMap)
+	// If parentEdges is empty (all sides occupied), use getAnyEdgeTile
+	edgesToTry := parentEdges
+	if len(edgesToTry) == 0 {
+		edgesToTry = getAnyEdgeTile(result, parentID)
 	}
-}
 
-// hasAnyOverlap checks if any two shapes in the slice overlap
-func hasAnyOverlap(shapes []PlacedShape) bool {
-	// Build a set of all occupied points
-	occupied := make(map[Point]int) // point -> shapeIndex
+	// Strategy: find the best direction to extend parent, then place child
+	// We'll try extending in each cardinal direction from each edge tile
 
-	for i, shape := range shapes {
-		for _, relPoint := range shape.Points {
-			worldPoint := Point{
-				shape.Position[0] + relPoint[0],
-				shape.Position[1] + relPoint[1],
-			}
-			if existingIdx, exists := occupied[worldPoint]; exists {
-				if existingIdx != i {
-					return true // overlap found
+	directions := []Point{
+		{1, 0},  // East
+		{-1, 0}, // West
+		{0, 1},  // South
+		{0, -1}, // North
+	}
+
+	// Try each parent edge tile
+	for _, edge := range edgesToTry {
+		for _, dir := range directions {
+			// Try extending 1-5 tiles in this direction
+			for extLen := 1; extLen <= 5; extLen++ {
+				extPoint := Point{edge[0] + dir[0]*extLen, edge[1] + dir[1]*extLen}
+
+				// Skip if occupied
+				if _, exists := result.Grid[extPoint]; exists {
+					break // Can't extend further in this direction
 				}
+
+				// Temporarily add extension tiles to parent
+				extensionTiles := make([]Point, extLen)
+				canExtend := true
+				for i := 1; i <= extLen; i++ {
+					pt := Point{edge[0] + dir[0]*i, edge[1] + dir[1]*i}
+					if _, exists := result.Grid[pt]; exists {
+						canExtend = false
+						break
+					}
+					extensionTiles[i-1] = pt
+				}
+
+				if !canExtend {
+					break
+				}
+
+				// Add extension tiles temporarily
+				for _, pt := range extensionTiles {
+					result.Grid[pt] = -parentID // Negative = corridor/extension
+					result.RoomTiles[parentID] = append(result.RoomTiles[parentID], pt)
+				}
+
+				// Now try to place child adjacent to extended parent
+				newEdges := getEdgeTiles(result, parentID)
+				placed := tryPlaceChildAdjacent(result, parentID, childID, childShape, newEdges)
+
+				if placed {
+					// Success! Convert extension tiles to parent ID (they were marked negative)
+					for pt, id := range result.Grid {
+						if id == -parentID {
+							result.Grid[pt] = parentID
+						}
+					}
+					createDoorConnection(result, childID, parentID)
+					return
+				}
+
+				// Failed - remove extension tiles and try longer extension
+				for _, pt := range extensionTiles {
+					delete(result.Grid, pt)
+				}
+				// Remove from RoomTiles
+				tiles := result.RoomTiles[parentID]
+				result.RoomTiles[parentID] = tiles[:len(tiles)-len(extensionTiles)]
 			}
-			occupied[worldPoint] = i
 		}
 	}
 
-	return false
+	// If we get here, we couldn't place the child at all
+	// Fall back: just place it somewhere with a long corridor
+	forcePlace(result, parentIdx, childIdx, childShape)
 }
 
-// pathExists checks if a path exists between two shapes (fast version)
-// Uses BFS which is simpler and often faster than A* for existence check
-func pathExists(grid *Grid, fromShapeID, toShapeID int) bool {
-	// Get edge tiles of both shapes
-	fromEdges := getShapeEdgeTiles(grid, fromShapeID)
-	toEdges := getShapeEdgeTiles(grid, toShapeID)
+// forcePlace places a child even if it requires a long corridor
+func forcePlace(result *Stage2Result, parentIdx int, childIdx int, childShape PlacedShape) {
+	parentID := parentIdx + 1
+	childID := childIdx + 1
 
-	if len(fromEdges) == 0 || len(toEdges) == 0 {
-		return false
-	}
-
-	// Create target set
-	targetSet := make(map[Point]bool)
-	for _, p := range toEdges {
-		targetSet[p] = true
-	}
-
-	// BFS from all fromEdges neighbors
-	visited := make(map[Point]bool)
-	queue := make([]Point, 0)
-
-	// Start with neighbors of from edges (not the shape tiles themselves)
-	for _, start := range fromEdges {
-		neighbors := []Point{
-			{start[0] + 1, start[1]},
-			{start[0] - 1, start[1]},
-			{start[0], start[1] + 1},
-			{start[0], start[1] - 1},
-		}
-
-		for _, n := range neighbors {
-			// Check if we immediately reached target
-			if targetSet[n] {
-				return true
+	// Get bounds of current grid
+	var minX, minY, maxX, maxY int
+	first := true
+	for pt := range result.Grid {
+		if first {
+			minX, maxX = pt[0], pt[0]
+			minY, maxY = pt[1], pt[1]
+			first = false
+		} else {
+			if pt[0] < minX {
+				minX = pt[0]
 			}
-
-			// Skip if occupied by anything other than target shape
-			if id, exists := (*grid)[n]; exists && id != toShapeID {
-				continue
+			if pt[0] > maxX {
+				maxX = pt[0]
 			}
-
-			// Only empty tiles are valid path candidates
-			if _, exists := (*grid)[n]; exists {
-				continue
+			if pt[1] < minY {
+				minY = pt[1]
 			}
-
-			if !visited[n] {
-				visited[n] = true
-				queue = append(queue, n)
+			if pt[1] > maxY {
+				maxY = pt[1]
 			}
 		}
 	}
 
-	// BFS with search limit
-	maxSearchNodes := 5000 // safety limit for path existence check
-	nodesSearched := 0
+	// Try placing outside the current bounds in each direction
+	// Using gap of 1 to leave room for corridor
+	positions := []Point{
+		{maxX + 2, minY},                        // Right
+		{minX - childShape.Width - 1, minY},     // Left
+		{minX, maxY + 2},                        // Below
+		{minX, minY - childShape.Height - 1},    // Above
+		{maxX + 2, maxY + 2},                    // Bottom-right corner
+		{minX - childShape.Width - 1, maxY + 2}, // Bottom-left corner
+	}
 
-	for len(queue) > 0 {
-		nodesSearched++
-		if nodesSearched > maxSearchNodes {
-			return false // exceeded search limit
-		}
+	for _, pos := range positions {
+		if canPlaceShape(result, childShape, pos) {
+			placeShapeAtPos(result, childID, childShape, pos)
 
-		current := queue[0]
-		queue = queue[1:]
+			// Build corridor from parent edge to child edge (finding nearest)
+			// Use getAnyEdgeTile since regular edges might all be occupied
+			parentEdges := getAnyEdgeTile(result, parentID)
+			childEdges := getAnyEdgeTile(result, childID)
 
-		neighbors := []Point{
-			{current[0] + 1, current[1]},
-			{current[0] - 1, current[1]},
-			{current[0], current[1] + 1},
-			{current[0], current[1] - 1},
-		}
-
-		for _, n := range neighbors {
-			if visited[n] {
-				continue
+			if len(parentEdges) > 0 && len(childEdges) > 0 {
+				// Find the nearest pair of edges
+				parentEdge, childEdge := findNearestEdgePair(parentEdges, childEdges)
+				buildCorridor(result, parentID, parentEdge, childEdge)
 			}
 
-			// Check if reached target
-			if targetSet[n] {
-				return true
-			}
-
-			// Skip if occupied
-			if _, exists := (*grid)[n]; exists {
-				continue
-			}
-
-			visited[n] = true
-			queue = append(queue, n)
+			createDoorConnection(result, childID, parentID)
+			return
 		}
 	}
 
-	return false
+	// Last resort: place far away with longer corridor
+	farPos := Point{maxX + 5, maxY + 5}
+	placeShapeAtPos(result, childID, childShape, farPos)
+
+	parentEdges := getAnyEdgeTile(result, parentID)
+	childEdges := getAnyEdgeTile(result, childID)
+	if len(parentEdges) > 0 && len(childEdges) > 0 {
+		parentEdge, childEdge := findNearestEdgePair(parentEdges, childEdges)
+		buildCorridor(result, parentID, parentEdge, childEdge)
+	}
+	createDoorConnection(result, childID, parentID)
 }
 
-// abs returns absolute value of an integer
+// findNearestEdgePair finds the pair of edges with minimum Manhattan distance
+func findNearestEdgePair(edges1, edges2 []Point) (Point, Point) {
+	minDist := -1
+	var best1, best2 Point
+
+	for _, e1 := range edges1 {
+		for _, e2 := range edges2 {
+			dist := abs(e1[0]-e2[0]) + abs(e1[1]-e2[1])
+			if minDist < 0 || dist < minDist {
+				minDist = dist
+				best1 = e1
+				best2 = e2
+			}
+		}
+	}
+
+	return best1, best2
+}
+
 func abs(x int) int {
 	if x < 0 {
 		return -x
 	}
 	return x
+}
+
+// buildCorridor builds a corridor from parent to child using BFS pathfinding
+// The corridor tiles become part of the parent room
+// If necessary, it will convert tiles from sibling rooms to parent room tiles
+func buildCorridor(result *Stage2Result, parentID int, parentEdge, childEdge Point) {
+	childID := result.Grid[childEdge]
+
+	type node struct {
+		pt   Point
+		path []Point
+	}
+
+	// Track visited tiles
+	visited := make(map[Point]bool)
+
+	// Start from parent room tiles
+	var queue []node
+	for _, tile := range result.RoomTiles[parentID] {
+		visited[tile] = true
+		queue = append(queue, node{pt: tile, path: nil})
+	}
+
+	// Also mark child room tiles - we want to reach them, not start from them
+	for _, tile := range result.RoomTiles[childID] {
+		visited[tile] = true
+	}
+
+	// Limit search area
+	maxSearchDist := 100
+
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+
+		// Check if we're adjacent to the child room
+		neighbors := []Point{
+			{curr.pt[0] + 1, curr.pt[1]},
+			{curr.pt[0] - 1, curr.pt[1]},
+			{curr.pt[0], curr.pt[1] + 1},
+			{curr.pt[0], curr.pt[1] - 1},
+		}
+
+		for _, n := range neighbors {
+			if result.Grid[n] == childID {
+				// Found! Add all path tiles to parent room
+				for _, pathPt := range curr.path {
+					existingID := result.Grid[pathPt]
+					if existingID != parentID && existingID != childID {
+						// Convert this tile to parent room
+						result.Grid[pathPt] = parentID
+						result.RoomTiles[parentID] = append(result.RoomTiles[parentID], pathPt)
+						// Note: we don't remove from the original room's RoomTiles
+						// because that would require more complex bookkeeping
+						// The Grid is the source of truth
+					}
+				}
+				return
+			}
+		}
+
+		// Limit search distance
+		if len(curr.path) > maxSearchDist {
+			continue
+		}
+
+		// Explore neighbors - can go through empty tiles OR other rooms (not parent/child)
+		for _, n := range neighbors {
+			if visited[n] {
+				continue
+			}
+
+			visited[n] = true
+			newPath := append([]Point{}, curr.path...)
+
+			// If this is an occupied tile (sibling room), add to path for conversion
+			// If empty, also add to path
+			existingID, exists := result.Grid[n]
+			if !exists || (existingID != parentID && existingID != childID) {
+				newPath = append(newPath, n)
+			}
+
+			queue = append(queue, node{pt: n, path: newPath})
+		}
+	}
+}
+
+// createDoorConnection creates door connections between child and parent
+func createDoorConnection(result *Stage2Result, childID, parentID int) {
+	childTiles := result.RoomTiles[childID]
+	parentTiles := result.RoomTiles[parentID]
+
+	// Find adjacent tiles between child and parent
+	parentSet := make(map[Point]bool)
+	for _, pt := range parentTiles {
+		parentSet[pt] = true
+	}
+
+	for _, childTile := range childTiles {
+		neighbors := []Point{
+			{childTile[0] + 1, childTile[1]},
+			{childTile[0] - 1, childTile[1]},
+			{childTile[0], childTile[1] + 1},
+			{childTile[0], childTile[1] - 1},
+		}
+
+		for _, n := range neighbors {
+			if parentSet[n] {
+				// Found connection point
+				childDir := calculateDirection(childTile, n)
+				parentDir := calculateDirection(n, childTile)
+
+				result.Doors = append(result.Doors, DoorConnection{
+					Point:     childTile,
+					RoomID:    childID,
+					Direction: childDir,
+				})
+				result.Doors = append(result.Doors, DoorConnection{
+					Point:     n,
+					RoomID:    parentID,
+					Direction: parentDir,
+				})
+
+				return // One door pair per connection is enough
+			}
+		}
+	}
 }

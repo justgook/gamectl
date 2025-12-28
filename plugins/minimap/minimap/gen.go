@@ -5,50 +5,27 @@ import (
 	"github.com/justgook/gamectl/pkg/tree"
 )
 
-type Random interface {
-	Intn(n int) int
-	Float64() float64
-}
-
 type RoomShape [][2]int
 type GetRoomShapeFunc func(*tree.Node) RoomShape
 
 func GenerateMinimap(
-	rng Random,
 	treeInput *tree.Tree,
 	getRoomShape GetRoomShapeFunc,
-	layoutConfig ...LayoutConfig,
 ) (*tilemap.TileMap, error) {
-	// Use default config if not provided
-	config := DefaultLayoutConfig()
-	if len(layoutConfig) > 0 {
-		config = layoutConfig[0]
-	}
+	// Stage 1: Collect and normalize shapes for each node
+	shapes := Stage1(treeInput, getRoomShape)
 
-	// Stage 1: Initial hierarchical placement (returns shapes with positions)
-	shapes := Stage1(rng, treeInput, getRoomShape, config)
-
-	// Stage 2: Compact layout (moves children toward parents to minimize path tiles)
-	err := Stage2(treeInput, shapes)
+	// Stage 2: Grow map from parent - places all shapes ensuring connectivity
+	result, err := Stage2(treeInput, shapes)
 	if err != nil {
 		return nil, err
 	}
 
-	// Stage 3: Pathfinding (builds internal grid, returns PathInfo only)
-	pathInfos, err := Stage3(treeInput, shapes)
-	if err != nil {
-		return nil, err
-	}
-
-	// Generate room layer from shapes
-	roomData, width, offset := ApplyShapesToTilemap(shapes, pathInfos)
-
-	// Apply paths to tilemap (paths become parent tiles)
-	ApplyPathsToTilemap(pathInfos, roomData, width, offset)
+	// Convert grid to tilemap
+	roomData, width, offset := gridToTilemapData(&result.Grid)
 
 	// Generate door layer
-	doors := GenerateDoorsFromPaths(pathInfos)
-	doorData := generateDoorLayerFromOffset(doors, width, len(roomData)/width, offset)
+	doorData := generateDoorLayerFromOffset(result.Doors, width, len(roomData)/width, offset)
 
 	return &tilemap.TileMap{
 		Layers: []tilemap.TileLayer{
@@ -68,6 +45,55 @@ func GenerateMinimap(
 			},
 		},
 	}, nil
+}
+
+// gridToTilemapData converts a Grid to tilemap data array
+func gridToTilemapData(grid *Grid) ([]uint32, int, Point) {
+	if grid == nil || len(*grid) == 0 {
+		return []uint32{}, 0, Point{0, 0}
+	}
+
+	// Find bounds
+	var minX, minY, maxX, maxY int
+	first := true
+	for pt := range *grid {
+		if first {
+			minX, maxX = pt[0], pt[0]
+			minY, maxY = pt[1], pt[1]
+			first = false
+		} else {
+			if pt[0] < minX {
+				minX = pt[0]
+			}
+			if pt[0] > maxX {
+				maxX = pt[0]
+			}
+			if pt[1] < minY {
+				minY = pt[1]
+			}
+			if pt[1] > maxY {
+				maxY = pt[1]
+			}
+		}
+	}
+
+	width := maxX - minX + 1
+	height := maxY - minY + 1
+	data := make([]uint32, width*height)
+
+	for pt, id := range *grid {
+		x := pt[0] - minX
+		y := pt[1] - minY
+		idx := y*width + x
+		// Convert any negative IDs to positive (corridors use parent's ID)
+		if id < 0 {
+			data[idx] = uint32(-id)
+		} else {
+			data[idx] = uint32(id)
+		}
+	}
+
+	return data, width, Point{minX, minY}
 }
 
 // generateDoorLayerFromOffset creates door layer data using pre-calculated bounds
