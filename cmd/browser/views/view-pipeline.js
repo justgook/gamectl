@@ -73,7 +73,7 @@ export class ViewPipeline extends HTMLElement {
     const data = Object.fromEntries(new FormData(form))
 
     try {
-      const result = await pluginManager.call("minimap", "gen", JSON.stringify({
+      const result = await pluginManager.call("minimap2", "gen", JSON.stringify({
         treeId: data.inputTreeId,
         mapId: data.mapId,
         direction: data.direction || 'radial'

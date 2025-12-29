@@ -148,7 +148,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
   drawContent() {
     if (!this.data) { return }
-    console.log(this.data)
+    console.log("THE map", this.data)
     const ctx = this.ctx
     const tilemap = this.data
     const viewport = this.getViewportMatrix()
