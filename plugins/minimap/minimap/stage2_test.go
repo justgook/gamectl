@@ -7,13 +7,21 @@ import (
 )
 
 // Helper to check if two rooms share an edge (are orthogonally adjacent)
+// Also considers corridors: room A shares edge with room B if A touches B's room tiles OR B's corridor tiles
 func roomsShareEdge(result *Stage2Result, roomA, roomB int) bool {
 	tilesA := result.RoomTiles[roomA]
-	tilesB := result.RoomTiles[roomB]
 
+	// Build set of all tiles belonging to room B (room + corridor)
 	bSet := make(map[Point]bool)
-	for _, pt := range tilesB {
+	for _, pt := range result.RoomTiles[roomB] {
 		bSet[pt] = true
+	}
+	// Also include corridor tiles (negative ID)
+	corridorB := -roomB
+	for pt, id := range result.Grid {
+		if id == corridorB {
+			bSet[pt] = true
+		}
 	}
 
 	for _, pt := range tilesA {

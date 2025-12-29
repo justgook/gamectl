@@ -59,6 +59,7 @@ async function handleInit(id, maybeDir) {
     'random',
     'treegen',
     'minimap',
+    'minimap2',
     'automap',
     // delete those
     'math',

@@ -5,22 +5,24 @@ import (
 )
 
 // Stage2Result contains the output of the grow-from-parent algorithm
+// Grid values:
+//   - Positive: room ID (1-based, corresponds to node index + 1)
+//   - Negative: corridor belonging to room |ID| (e.g., -5 means corridor of room 5)
+//   - Zero: empty
 type Stage2Result struct {
-	Grid      Grid             // The generated grid (point -> roomID, where roomID is 1-based)
+	Grid      Grid             // The generated grid (point -> roomID or negative corridor ID)
 	Doors     []DoorConnection // Door connections between rooms
-	RoomTiles map[int][]Point  // For each room ID (1-based), list of tiles
+	RoomTiles map[int][]Point  // For each room ID (1-based), list of room tiles (not corridors)
 }
 
 // Stage2 grows the minimap from root, placing each child adjacent to its parent.
-// This guarantees that every child shares at least one edge with its parent.
-// If a child's predefined shape can't fit adjacent to parent, the parent is extended
-// with corridor tiles (stored with negative ID internally, converted to parent ID on output).
+// This guarantees that every child shares at least one edge with its parent (or parent's corridor).
 //
-// The algorithm:
-// 1. Place root shape at origin
-// 2. Process children in BFS order (level by level)
-// 3. For each child, find the best position adjacent to parent
-// 4. If no valid position exists, extend parent with corridor tiles
+// Key rules:
+//   - Corridors use negative IDs: corridor of room N has ID -N
+//   - Children can share parent's corridors (they're "parent territory")
+//   - Children of different parents cannot cross each other's corridors
+//   - This preserves the tree structure in the spatial layout
 func Stage2(treeInput *tree.Tree, shapes []PlacedShape) (*Stage2Result, error) {
 	n := len(*treeInput)
 	if n == 0 {
@@ -47,7 +49,7 @@ func Stage2(treeInput *tree.Tree, shapes []PlacedShape) (*Stage2Result, error) {
 
 	// Place root at origin (nodeIndex 0, roomID 1)
 	rootShape := shapes[0]
-	placeShapeAt(result, 0, rootShape, Point{0, 0})
+	placeShape(result, 1, rootShape, Point{0, 0})
 
 	// BFS queue: process nodes level by level
 	queue := []int{0}
@@ -62,18 +64,16 @@ func Stage2(treeInput *tree.Tree, shapes []PlacedShape) (*Stage2Result, error) {
 		}
 
 		// Place all children of this parent
-		if len(children) > 0 {
-			placeChildrenAdjacentToParent(result, parentIdx, children, shapes, childrenMap)
+		for _, childIdx := range children {
+			placeChildAdjacentToParent(result, parentIdx, childIdx, shapes[childIdx])
 		}
 	}
 
 	return result, nil
 }
 
-// placeShapeAt places a shape at the given position in the grid
-func placeShapeAt(result *Stage2Result, nodeIdx int, shape PlacedShape, pos Point) {
-	roomID := nodeIdx + 1 // 1-based room ID
-
+// placeShape places a room shape at the given position
+func placeShape(result *Stage2Result, roomID int, shape PlacedShape, pos Point) {
 	for _, relPoint := range shape.Points {
 		worldPoint := Point{pos[0] + relPoint[0], pos[1] + relPoint[1]}
 		result.Grid[worldPoint] = roomID
@@ -81,46 +81,56 @@ func placeShapeAt(result *Stage2Result, nodeIdx int, shape PlacedShape, pos Poin
 	}
 }
 
-// placeChildrenAdjacentToParent places all children of a parent, ensuring each shares an edge
-func placeChildrenAdjacentToParent(
+// placeChildAdjacentToParent places a child room adjacent to its parent
+// If direct placement isn't possible, creates minimal corridors
+func placeChildAdjacentToParent(
 	result *Stage2Result,
 	parentIdx int,
-	children []int,
-	shapes []PlacedShape,
-	childrenMap map[int][]int,
+	childIdx int,
+	childShape PlacedShape,
 ) {
 	parentID := parentIdx + 1
+	childID := childIdx + 1
 
-	// Get parent's edge tiles (tiles with at least one empty neighbor)
-	parentEdges := getEdgeTiles(result, parentID)
+	// Get all tiles belonging to parent (room tiles + corridor tiles)
+	parentTiles := getParentTerritory(result, parentID)
 
-	// For each child, find the best placement
-	for _, childIdx := range children {
-		childShape := shapes[childIdx]
-		childID := childIdx + 1
+	// Try to place child directly adjacent to parent territory
+	placed := tryPlaceChildAdjacent(result, parentID, childID, childShape, parentTiles)
 
-		// Try to find a valid placement adjacent to parent
-		placed := tryPlaceChildAdjacent(result, parentID, childID, childShape, parentEdges)
-
-		if !placed {
-			// No valid placement found - need to extend parent with corridor
-			extendAndPlaceChild(result, parentIdx, childIdx, childShape, parentEdges, childrenMap)
-			// Update parent edges after extension
-			parentEdges = getEdgeTiles(result, parentID)
-		} else {
-			// Placement successful - create door connection
-			createDoorConnection(result, childID, parentID)
-			// Update parent edges for next child
-			parentEdges = getEdgeTiles(result, parentID)
-		}
+	if !placed {
+		// Need to extend with corridor and place child
+		extendAndPlaceChild(result, parentID, childID, childShape, parentTiles)
 	}
+
+	// Create door connection
+	createDoorConnection(result, childID, parentID)
 }
 
-// getEdgeTiles returns all tiles of a room that have at least one empty orthogonal neighbor
-func getEdgeTiles(result *Stage2Result, roomID int) []Point {
+// getParentTerritory returns all tiles that belong to a parent (room + corridors)
+// This includes the room tiles and any corridor tiles (negative ID)
+func getParentTerritory(result *Stage2Result, parentID int) []Point {
+	var tiles []Point
+
+	// Add room tiles
+	tiles = append(tiles, result.RoomTiles[parentID]...)
+
+	// Add corridor tiles (negative parent ID)
+	corridorID := -parentID
+	for pt, id := range result.Grid {
+		if id == corridorID {
+			tiles = append(tiles, pt)
+		}
+	}
+
+	return tiles
+}
+
+// getEdgeTiles returns tiles from the list that have at least one empty neighbor
+func getEdgeTiles(result *Stage2Result, tiles []Point) []Point {
 	var edges []Point
 
-	for _, tile := range result.RoomTiles[roomID] {
+	for _, tile := range tiles {
 		neighbors := []Point{
 			{tile[0] + 1, tile[1]},
 			{tile[0] - 1, tile[1]},
@@ -139,55 +149,19 @@ func getEdgeTiles(result *Stage2Result, roomID int) []Point {
 	return edges
 }
 
-// getAllRoomTiles returns all tiles belonging to a room (including corridor extensions)
-// Used when we need to find ANY edge, not just edges with empty neighbors
-func getAllRoomTiles(result *Stage2Result, roomID int) []Point {
-	return result.RoomTiles[roomID]
-}
-
-// getAnyEdgeTile returns any tile on the edge of the room
-// Unlike getEdgeTiles, this considers tiles adjacent to other rooms as edges
-func getAnyEdgeTile(result *Stage2Result, roomID int) []Point {
-	tiles := result.RoomTiles[roomID]
-	if len(tiles) == 0 {
-		return nil
-	}
-
-	// Find the outermost tiles (those with neighbors not belonging to this room)
-	var edges []Point
-	for _, tile := range tiles {
-		neighbors := []Point{
-			{tile[0] + 1, tile[1]},
-			{tile[0] - 1, tile[1]},
-			{tile[0], tile[1] + 1},
-			{tile[0], tile[1] - 1},
-		}
-
-		for _, n := range neighbors {
-			if id, exists := result.Grid[n]; !exists || id != roomID {
-				edges = append(edges, tile)
-				break
-			}
-		}
-	}
-
-	if len(edges) == 0 {
-		// Fallback: return first tile
-		return []Point{tiles[0]}
-	}
-	return edges
-}
-
-// tryPlaceChildAdjacent tries to place child shape adjacent to parent
-// Returns true if placement was successful
+// tryPlaceChildAdjacent tries to place child shape adjacent to parent territory
 func tryPlaceChildAdjacent(
 	result *Stage2Result,
 	parentID int,
 	childID int,
 	childShape PlacedShape,
-	parentEdges []Point,
+	parentTiles []Point,
 ) bool {
-	// For each parent edge tile, try each direction
+	parentEdges := getEdgeTiles(result, parentTiles)
+	if len(parentEdges) == 0 {
+		return false
+	}
+
 	directions := []Point{
 		{1, 0},  // East
 		{-1, 0}, // West
@@ -197,33 +171,27 @@ func tryPlaceChildAdjacent(
 
 	type placement struct {
 		pos      Point
-		adjacent int // number of adjacent tiles to parent (prefer more connection)
+		adjacent int
 	}
 
 	var validPlacements []placement
 
 	for _, parentEdge := range parentEdges {
 		for _, dir := range directions {
-			// The position where child's "connection point" would be
 			connPoint := Point{parentEdge[0] + dir[0], parentEdge[1] + dir[1]}
 
-			// Skip if this point is already occupied
 			if _, exists := result.Grid[connPoint]; exists {
 				continue
 			}
 
-			// Try to place child shape such that one of its tiles is at connPoint
 			for _, childRelPoint := range childShape.Points {
-				// Calculate position so that childRelPoint aligns with connPoint
 				childPos := Point{
 					connPoint[0] - childRelPoint[0],
 					connPoint[1] - childRelPoint[1],
 				}
 
-				// Check if this placement is valid (no overlaps)
 				if canPlaceShape(result, childShape, childPos) {
-					// Count how many tiles would be adjacent to parent
-					adjCount := countAdjacentToRoom(result, childShape, childPos, parentID)
+					adjCount := countAdjacentToParentTerritory(result, childShape, childPos, parentID)
 					validPlacements = append(validPlacements, placement{
 						pos:      childPos,
 						adjacent: adjCount,
@@ -237,7 +205,7 @@ func tryPlaceChildAdjacent(
 		return false
 	}
 
-	// Pick the placement with most adjacent tiles (better connection)
+	// Pick placement with most adjacent tiles
 	best := validPlacements[0]
 	for _, p := range validPlacements[1:] {
 		if p.adjacent > best.adjacent {
@@ -245,12 +213,11 @@ func tryPlaceChildAdjacent(
 		}
 	}
 
-	// Place the child
-	placeShapeAtPos(result, childID, childShape, best.pos)
+	placeShape(result, childID, childShape, best.pos)
 	return true
 }
 
-// canPlaceShape checks if a shape can be placed at the given position without overlapping
+// canPlaceShape checks if a shape can be placed without overlapping existing tiles
 func canPlaceShape(result *Stage2Result, shape PlacedShape, pos Point) bool {
 	for _, relPoint := range shape.Points {
 		worldPoint := Point{pos[0] + relPoint[0], pos[1] + relPoint[1]}
@@ -261,9 +228,11 @@ func canPlaceShape(result *Stage2Result, shape PlacedShape, pos Point) bool {
 	return true
 }
 
-// countAdjacentToRoom counts how many tiles of a shape would be adjacent to a room
-func countAdjacentToRoom(result *Stage2Result, shape PlacedShape, pos Point, roomID int) int {
+// countAdjacentToParentTerritory counts tiles adjacent to parent room or corridor
+func countAdjacentToParentTerritory(result *Stage2Result, shape PlacedShape, pos Point, parentID int) int {
+	corridorID := -parentID
 	count := 0
+
 	for _, relPoint := range shape.Points {
 		worldPoint := Point{pos[0] + relPoint[0], pos[1] + relPoint[1]}
 		neighbors := []Point{
@@ -273,124 +242,148 @@ func countAdjacentToRoom(result *Stage2Result, shape PlacedShape, pos Point, roo
 			{worldPoint[0], worldPoint[1] - 1},
 		}
 		for _, n := range neighbors {
-			if result.Grid[n] == roomID {
+			id := result.Grid[n]
+			if id == parentID || id == corridorID {
 				count++
-				break // Count each shape tile only once
+				break
 			}
 		}
 	}
 	return count
 }
 
-// placeShapeAtPos places a shape at a specific position
-func placeShapeAtPos(result *Stage2Result, roomID int, shape PlacedShape, pos Point) {
-	for _, relPoint := range shape.Points {
-		worldPoint := Point{pos[0] + relPoint[0], pos[1] + relPoint[1]}
-		result.Grid[worldPoint] = roomID
-		result.RoomTiles[roomID] = append(result.RoomTiles[roomID], worldPoint)
-	}
-}
-
-// extendAndPlaceChild extends the parent room to reach and place the child
+// extendAndPlaceChild places child with minimal corridor extension
 func extendAndPlaceChild(
 	result *Stage2Result,
-	parentIdx int,
-	childIdx int,
+	parentID int,
+	childID int,
 	childShape PlacedShape,
-	parentEdges []Point,
-	childrenMap map[int][]int,
+	parentTiles []Point,
 ) {
-	parentID := parentIdx + 1
-	childID := childIdx + 1
-
-	// If parentEdges is empty (all sides occupied), use getAnyEdgeTile
-	edgesToTry := parentEdges
-	if len(edgesToTry) == 0 {
-		edgesToTry = getAnyEdgeTile(result, parentID)
+	// BFS to find nearest valid position for child
+	// We search through BOTH empty tiles AND other room tiles (not other corridors)
+	// This allows us to find a path even when parent is surrounded
+	type searchNode struct {
+		pos  Point
+		dist int
+		path []Point // corridor path to reach this position
 	}
 
-	// Strategy: find the best direction to extend parent, then place child
-	// We'll try extending in each cardinal direction from each edge tile
+	visited := make(map[Point]bool)
+	var queue []searchNode
 
-	directions := []Point{
-		{1, 0},  // East
-		{-1, 0}, // West
-		{0, 1},  // South
-		{0, -1}, // North
+	// Mark parent tiles as visited (we start from their neighbors)
+	for _, tile := range parentTiles {
+		visited[tile] = true
 	}
 
-	// Try each parent edge tile
-	for _, edge := range edgesToTry {
-		for _, dir := range directions {
-			// Try extending 1-5 tiles in this direction
-			for extLen := 1; extLen <= 5; extLen++ {
-				extPoint := Point{edge[0] + dir[0]*extLen, edge[1] + dir[1]*extLen}
-
-				// Skip if occupied
-				if _, exists := result.Grid[extPoint]; exists {
-					break // Can't extend further in this direction
+	// Start from tiles adjacent to parent territory
+	for _, tile := range parentTiles {
+		neighbors := []Point{
+			{tile[0] + 1, tile[1]},
+			{tile[0] - 1, tile[1]},
+			{tile[0], tile[1] + 1},
+			{tile[0], tile[1] - 1},
+		}
+		for _, n := range neighbors {
+			if !visited[n] {
+				visited[n] = true
+				// Check if this is empty or occupied by a sibling room
+				if _, exists := result.Grid[n]; !exists {
+					// Empty tile - add to path
+					queue = append(queue, searchNode{pos: n, dist: 1, path: []Point{n}})
+				} else {
+					// Occupied tile - we can path through it but don't add to corridor
+					queue = append(queue, searchNode{pos: n, dist: 1, path: []Point{}})
 				}
-
-				// Temporarily add extension tiles to parent
-				extensionTiles := make([]Point, extLen)
-				canExtend := true
-				for i := 1; i <= extLen; i++ {
-					pt := Point{edge[0] + dir[0]*i, edge[1] + dir[1]*i}
-					if _, exists := result.Grid[pt]; exists {
-						canExtend = false
-						break
-					}
-					extensionTiles[i-1] = pt
-				}
-
-				if !canExtend {
-					break
-				}
-
-				// Add extension tiles temporarily
-				for _, pt := range extensionTiles {
-					result.Grid[pt] = -parentID // Negative = corridor/extension
-					result.RoomTiles[parentID] = append(result.RoomTiles[parentID], pt)
-				}
-
-				// Now try to place child adjacent to extended parent
-				newEdges := getEdgeTiles(result, parentID)
-				placed := tryPlaceChildAdjacent(result, parentID, childID, childShape, newEdges)
-
-				if placed {
-					// Success! Convert extension tiles to parent ID (they were marked negative)
-					for pt, id := range result.Grid {
-						if id == -parentID {
-							result.Grid[pt] = parentID
-						}
-					}
-					createDoorConnection(result, childID, parentID)
-					return
-				}
-
-				// Failed - remove extension tiles and try longer extension
-				for _, pt := range extensionTiles {
-					delete(result.Grid, pt)
-				}
-				// Remove from RoomTiles
-				tiles := result.RoomTiles[parentID]
-				result.RoomTiles[parentID] = tiles[:len(tiles)-len(extensionTiles)]
 			}
 		}
 	}
 
-	// If we get here, we couldn't place the child at all
-	// Fall back: just place it somewhere with a long corridor
-	forcePlace(result, parentIdx, childIdx, childShape)
+	corridorID := -parentID
+
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+
+		// Only try to place child at EMPTY positions
+		if _, occupied := result.Grid[curr.pos]; occupied {
+			// Can't place child on occupied tile, but continue searching through it
+			goto expandSearch
+		}
+
+		// Try to place child such that one of its tiles occupies curr.pos
+		for _, anchorPt := range childShape.Points {
+			childPos := Point{
+				curr.pos[0] - anchorPt[0],
+				curr.pos[1] - anchorPt[1],
+			}
+
+			if canPlaceShape(result, childShape, childPos) {
+				// Place corridor tiles (all tiles in path that are empty)
+				for _, pt := range curr.path {
+					if _, exists := result.Grid[pt]; !exists {
+						result.Grid[pt] = corridorID
+					}
+				}
+
+				// Place the child
+				placeShape(result, childID, childShape, childPos)
+				return
+			}
+		}
+
+	expandSearch:
+
+		// Limit search distance
+		if curr.dist >= 20 {
+			continue
+		}
+
+		// Expand search - can go through empty tiles or sibling rooms
+		neighbors := []Point{
+			{curr.pos[0] + 1, curr.pos[1]},
+			{curr.pos[0] - 1, curr.pos[1]},
+			{curr.pos[0], curr.pos[1] + 1},
+			{curr.pos[0], curr.pos[1] - 1},
+		}
+		for _, n := range neighbors {
+			if visited[n] {
+				continue
+			}
+			visited[n] = true
+
+			existingID, exists := result.Grid[n]
+			if !exists {
+				// Empty tile - add to corridor path
+				newPath := make([]Point, len(curr.path)+1)
+				copy(newPath, curr.path)
+				newPath[len(curr.path)] = n
+				queue = append(queue, searchNode{pos: n, dist: curr.dist + 1, path: newPath})
+			} else if existingID > 0 && existingID != parentID {
+				// Sibling room tile - can path through but don't add to corridor
+				// Keep the same path (corridor doesn't go through sibling rooms)
+				newPath := make([]Point, len(curr.path))
+				copy(newPath, curr.path)
+				queue = append(queue, searchNode{pos: n, dist: curr.dist + 1, path: newPath})
+			}
+			// Skip corridor tiles (negative IDs) - don't cross other parents' corridors
+		}
+	}
+
+	// Fallback: place far away with corridor
+	minX, minY, maxX, maxY := getBounds(result)
+	_ = minX
+	_ = maxY
+	farPos := Point{maxX + 3, minY}
+	placeShape(result, childID, childShape, farPos)
+
+	// Build corridor to connect
+	buildCorridor(result, parentID, childID, parentTiles)
 }
 
-// forcePlace places a child even if it requires a long corridor
-func forcePlace(result *Stage2Result, parentIdx int, childIdx int, childShape PlacedShape) {
-	parentID := parentIdx + 1
-	childID := childIdx + 1
-
-	// Get bounds of current grid
-	var minX, minY, maxX, maxY int
+// getBounds returns bounding box of all tiles
+func getBounds(result *Stage2Result) (minX, minY, maxX, maxY int) {
 	first := true
 	for pt := range result.Grid {
 		if first {
@@ -412,111 +405,68 @@ func forcePlace(result *Stage2Result, parentIdx int, childIdx int, childShape Pl
 			}
 		}
 	}
-
-	// Try placing outside the current bounds in each direction
-	// Using gap of 1 to leave room for corridor
-	positions := []Point{
-		{maxX + 2, minY},                        // Right
-		{minX - childShape.Width - 1, minY},     // Left
-		{minX, maxY + 2},                        // Below
-		{minX, minY - childShape.Height - 1},    // Above
-		{maxX + 2, maxY + 2},                    // Bottom-right corner
-		{minX - childShape.Width - 1, maxY + 2}, // Bottom-left corner
-	}
-
-	for _, pos := range positions {
-		if canPlaceShape(result, childShape, pos) {
-			placeShapeAtPos(result, childID, childShape, pos)
-
-			// Build corridor from parent edge to child edge (finding nearest)
-			// Use getAnyEdgeTile since regular edges might all be occupied
-			parentEdges := getAnyEdgeTile(result, parentID)
-			childEdges := getAnyEdgeTile(result, childID)
-
-			if len(parentEdges) > 0 && len(childEdges) > 0 {
-				// Find the nearest pair of edges
-				parentEdge, childEdge := findNearestEdgePair(parentEdges, childEdges)
-				buildCorridor(result, parentID, parentEdge, childEdge)
-			}
-
-			createDoorConnection(result, childID, parentID)
-			return
-		}
-	}
-
-	// Last resort: place far away with longer corridor
-	farPos := Point{maxX + 5, maxY + 5}
-	placeShapeAtPos(result, childID, childShape, farPos)
-
-	parentEdges := getAnyEdgeTile(result, parentID)
-	childEdges := getAnyEdgeTile(result, childID)
-	if len(parentEdges) > 0 && len(childEdges) > 0 {
-		parentEdge, childEdge := findNearestEdgePair(parentEdges, childEdges)
-		buildCorridor(result, parentID, parentEdge, childEdge)
-	}
-	createDoorConnection(result, childID, parentID)
+	return
 }
 
-// findNearestEdgePair finds the pair of edges with minimum Manhattan distance
-func findNearestEdgePair(edges1, edges2 []Point) (Point, Point) {
-	minDist := -1
-	var best1, best2 Point
+// buildCorridor builds minimal corridor from parent territory to child
+func buildCorridor(result *Stage2Result, parentID, childID int, parentTiles []Point) {
+	childTiles := result.RoomTiles[childID]
+	if len(childTiles) == 0 {
+		return
+	}
 
-	for _, e1 := range edges1 {
-		for _, e2 := range edges2 {
-			dist := abs(e1[0]-e2[0]) + abs(e1[1]-e2[1])
-			if minDist < 0 || dist < minDist {
-				minDist = dist
-				best1 = e1
-				best2 = e2
+	childSet := make(map[Point]bool)
+	for _, t := range childTiles {
+		childSet[t] = true
+	}
+
+	// Check if already adjacent
+	corridorID := -parentID
+	for _, pTile := range parentTiles {
+		neighbors := []Point{
+			{pTile[0] + 1, pTile[1]},
+			{pTile[0] - 1, pTile[1]},
+			{pTile[0], pTile[1] + 1},
+			{pTile[0], pTile[1] - 1},
+		}
+		for _, n := range neighbors {
+			if childSet[n] {
+				return // Already connected
 			}
 		}
 	}
 
-	return best1, best2
-}
-
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
-// buildCorridor builds a corridor from parent to child using BFS pathfinding
-// The corridor tiles become part of the parent room
-// If necessary, it will convert tiles from sibling rooms to parent room tiles
-func buildCorridor(result *Stage2Result, parentID int, parentEdge, childEdge Point) {
-	childID := result.Grid[childEdge]
-
+	// BFS to find shortest path
 	type node struct {
 		pt   Point
-		path []Point
+		prev *node
 	}
 
-	// Track visited tiles
 	visited := make(map[Point]bool)
-
-	// Start from parent room tiles
-	var queue []node
-	for _, tile := range result.RoomTiles[parentID] {
-		visited[tile] = true
-		queue = append(queue, node{pt: tile, path: nil})
+	for pt := range result.Grid {
+		visited[pt] = true
 	}
 
-	// Also mark child room tiles - we want to reach them, not start from them
-	for _, tile := range result.RoomTiles[childID] {
-		visited[tile] = true
+	var queue []*node
+	for _, tile := range parentTiles {
+		neighbors := []Point{
+			{tile[0] + 1, tile[1]},
+			{tile[0] - 1, tile[1]},
+			{tile[0], tile[1] + 1},
+			{tile[0], tile[1] - 1},
+		}
+		for _, n := range neighbors {
+			if !visited[n] {
+				visited[n] = true
+				queue = append(queue, &node{pt: n, prev: nil})
+			}
+		}
 	}
-
-	// Limit search area
-	maxSearchDist := 100
 
 	for len(queue) > 0 {
 		curr := queue[0]
 		queue = queue[1:]
 
-		// Check if we're adjacent to the child room
 		neighbors := []Point{
 			{curr.pt[0] + 1, curr.pt[1]},
 			{curr.pt[0] - 1, curr.pt[1]},
@@ -525,58 +475,39 @@ func buildCorridor(result *Stage2Result, parentID int, parentEdge, childEdge Poi
 		}
 
 		for _, n := range neighbors {
-			if result.Grid[n] == childID {
-				// Found! Add all path tiles to parent room
-				for _, pathPt := range curr.path {
-					existingID := result.Grid[pathPt]
-					if existingID != parentID && existingID != childID {
-						// Convert this tile to parent room
-						result.Grid[pathPt] = parentID
-						result.RoomTiles[parentID] = append(result.RoomTiles[parentID], pathPt)
-						// Note: we don't remove from the original room's RoomTiles
-						// because that would require more complex bookkeeping
-						// The Grid is the source of truth
-					}
+			if childSet[n] {
+				// Found! Add corridor tiles
+				for c := curr; c != nil; c = c.prev {
+					result.Grid[c.pt] = corridorID
 				}
 				return
 			}
 		}
 
-		// Limit search distance
-		if len(curr.path) > maxSearchDist {
-			continue
-		}
-
-		// Explore neighbors - can go through empty tiles OR other rooms (not parent/child)
 		for _, n := range neighbors {
 			if visited[n] {
 				continue
 			}
-
 			visited[n] = true
-			newPath := append([]Point{}, curr.path...)
-
-			// If this is an occupied tile (sibling room), add to path for conversion
-			// If empty, also add to path
-			existingID, exists := result.Grid[n]
-			if !exists || (existingID != parentID && existingID != childID) {
-				newPath = append(newPath, n)
-			}
-
-			queue = append(queue, node{pt: n, path: newPath})
+			queue = append(queue, &node{pt: n, prev: curr})
 		}
 	}
 }
 
-// createDoorConnection creates door connections between child and parent
+// createDoorConnection creates door between child and parent/corridor
 func createDoorConnection(result *Stage2Result, childID, parentID int) {
 	childTiles := result.RoomTiles[childID]
-	parentTiles := result.RoomTiles[parentID]
+	corridorID := -parentID
 
-	// Find adjacent tiles between child and parent
+	// Build set of parent territory
 	parentSet := make(map[Point]bool)
-	for _, pt := range parentTiles {
+	for _, pt := range result.RoomTiles[parentID] {
 		parentSet[pt] = true
+	}
+	for pt, id := range result.Grid {
+		if id == corridorID {
+			parentSet[pt] = true
+		}
 	}
 
 	for _, childTile := range childTiles {
@@ -589,7 +520,6 @@ func createDoorConnection(result *Stage2Result, childID, parentID int) {
 
 		for _, n := range neighbors {
 			if parentSet[n] {
-				// Found connection point
 				childDir := calculateDirection(childTile, n)
 				parentDir := calculateDirection(n, childTile)
 
@@ -603,9 +533,15 @@ func createDoorConnection(result *Stage2Result, childID, parentID int) {
 					RoomID:    parentID,
 					Direction: parentDir,
 				})
-
-				return // One door pair per connection is enough
+				return
 			}
 		}
 	}
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
