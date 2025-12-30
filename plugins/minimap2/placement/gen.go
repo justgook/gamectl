@@ -1,6 +1,8 @@
 package placement
 
 import (
+	"fmt"
+
 	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/gamectl/pkg/tree"
 )
@@ -29,6 +31,7 @@ type Generator struct {
 	GetExtensionTile GetExtensionTileFunc
 	Rng              Random
 	Placement        *Placement
+	Reservations     *ReservationSystem
 }
 
 // NewGenerator creates a new generator
@@ -39,11 +42,27 @@ func NewGenerator(t *tree.Tree, getRoomShape GetRoomShapeFunc, rng Random) *Gene
 		GetExtensionTile: DefaultGetExtensionTile,
 		Rng:              rng,
 		Placement:        NewPlacement(),
+		Reservations:     NewReservationSystem(),
 	}
 }
 
 // Generate performs the full room placement algorithm
 func (g *Generator) Generate() (*Placement, error) {
+	return g.generateWithRetry(0)
+}
+
+// generateWithRetry attempts placement, retrying if it fails
+func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
+	// Reset state for retry
+	if attempt > 0 {
+		g.Placement = NewPlacement()
+		g.Reservations = NewReservationSystem()
+		// Consume some random values to create variation on retry
+		for i := 0; i < attempt*7; i++ {
+			g.Rng.Intn(100)
+		}
+	}
+
 	if len(*g.Tree) == 0 {
 		return g.Placement, nil
 	}
@@ -59,6 +78,8 @@ func (g *Generator) Generate() (*Placement, error) {
 	// Check if root has children
 	if g.hasChildren(0) {
 		g.Placement.MarkUnfinished(0)
+		// Initial reservation calculation for root
+		g.Placement.UpdateReservations(g.Reservations)
 	}
 
 	// BFS traversal
@@ -75,24 +96,39 @@ func (g *Generator) Generate() (*Placement, error) {
 			isLastChild := i == len(children)-1
 
 			// Place this child
-			g.placeChild(parentIdx, childIdx, isLastChild)
+			err := g.placeChildSafe(parentIdx, childIdx, isLastChild)
+			if err != nil {
+				// Placement failed - retry if we haven't exceeded max attempts
+				if attempt < 10 {
+					return g.generateWithRetry(attempt + 1)
+				}
+				return nil, fmt.Errorf("failed to place node %d after %d attempts: %v", childIdx, attempt+1, err)
+			}
 
-			// If child has children, add to queue and mark unfinished
+			// IMPORTANT: Mark child as unfinished IMMEDIATELY after placing,
+			// so that when placing subsequent siblings, we check that they
+			// don't block this child's path to outside.
 			if g.hasChildren(childIdx) {
 				queue = append(queue, childIdx)
 				g.Placement.MarkUnfinished(childIdx)
 			}
+
+			// Update reservations after each child placement
+			// This recalculates critical tiles for all unfinished rooms
+			g.Placement.UpdateReservations(g.Reservations)
 		}
 
 		// Parent is now finished (all children placed)
 		g.Placement.MarkFinished(parentIdx)
+		// Update reservations since parent is no longer unfinished
+		g.Placement.UpdateReservations(g.Reservations)
 	}
 
 	return g.Placement, nil
 }
 
-// placeChild places a child room touching its parent
-func (g *Generator) placeChild(parentIdx, childIdx int, isLastChild bool) {
+// placeChildSafe is like placeChild but returns error instead of panicking
+func (g *Generator) placeChildSafe(parentIdx, childIdx int, isLastChild bool) error {
 	parent := g.Placement.Rooms[RoomID(parentIdx+1)]
 	childShape := g.GetRoomShape((*g.Tree)[childIdx])
 	childHasChildren := g.hasChildren(childIdx)
@@ -102,19 +138,15 @@ func (g *Generator) placeChild(parentIdx, childIdx int, isLastChild bool) {
 	originalParentShape := make([]Point, len(parent.CurrentShape))
 	copy(originalParentShape, parent.CurrentShape)
 
-	for {
+	maxIterations := 1000 // Prevent infinite loops
+	for iterations := 0; iterations < maxIterations; iterations++ {
 		// Find valid positions where child touches parent
 		positions := g.Placement.FindTouchingPositions(parent, childShape)
 
-		// Filter: if not last child OR child has children, must validate paths
-		if !isLastChild || childHasChildren {
-			positions = g.Placement.FilterValidPositions(
-				positions, childShape, childIdx, childHasChildren,
-			)
-		} else {
-			// Last child with no grandchildren - just check no collisions
-			// (already done in FindTouchingPositions)
-		}
+		// Filter positions using reservations and path validation
+		positions = g.Placement.FilterValidPositionsWithReservations(
+			positions, childShape, childIdx, childHasChildren, g.Reservations,
+		)
 
 		if len(positions) > 0 {
 			// Pick random valid position
@@ -129,20 +161,22 @@ func (g *Generator) placeChild(parentIdx, childIdx int, isLastChild bool) {
 				g.cleanupExtensions(parent, originalParentShape, extensionTiles, absoluteTiles)
 			}
 
-			return
+			return nil
 		}
 
 		// No valid position found - extend parent
 		extensionTile := g.extendParent(parent)
 		if extensionTile == nil {
-			// Should never happen if algorithm is correct, but safety check
-			panic("cannot extend parent - this should be impossible")
+			return fmt.Errorf("cannot extend parent node %d", parentIdx)
 		}
 		extensionTiles = append(extensionTiles, *extensionTile)
 	}
+
+	return fmt.Errorf("max iterations reached for placing child %d", childIdx)
 }
 
 // extendParent adds one tile to parent, ensuring it doesn't block any unfinished room
+// and respects reservations (except for the parent's own reservations)
 func (g *Generator) extendParent(parent *PlacedRoom) *Point {
 	validExtensions := g.Placement.GetValidExtensionTiles(parent)
 	if len(validExtensions) == 0 {
@@ -154,6 +188,11 @@ func (g *Generator) extendParent(parent *PlacedRoom) *Point {
 	parentRoomID := RoomID(parent.NodeIndex + 1)
 
 	for _, ext := range validExtensions {
+		// Check if this extension is on a reserved tile (that's not ours)
+		if g.Reservations != nil && !g.Reservations.CanPlaceTile(ext, parentRoomID) {
+			continue
+		}
+
 		// Temporarily add extension
 		g.Placement.Grid[ext] = parentRoomID
 

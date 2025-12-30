@@ -2,6 +2,7 @@ package placement
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
 
@@ -23,6 +24,22 @@ func (m *MockRandom) Intn(n int) int {
 	return v % n
 }
 
+// RealRandom uses actual random for stress testing
+type RealRandom struct {
+	r *rand.Rand
+}
+
+func NewRealRandom(seed int64) *RealRandom {
+	return &RealRandom{r: rand.New(rand.NewSource(seed))}
+}
+
+func (r *RealRandom) Intn(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	return r.r.Intn(n)
+}
+
 // Simple room shape helper
 func singleTile() RoomShape {
 	return RoomShape{{0, 0}}
@@ -42,6 +59,30 @@ func lShape() RoomShape {
 
 func squareShape() RoomShape {
 	return RoomShape{{0, 0}, {1, 0}, {0, 1}, {1, 1}}
+}
+
+// Room shapes available for selection (same as in main.go)
+var testRoomShapes = []RoomShape{
+	// Single tiles - most flexible for tight spaces
+	{{0, 0}},
+	// 2-tile shapes
+	{{0, 0}, {0, -1}},
+	{{0, 0}, {0, 1}},
+	{{0, 0}, {1, 0}},
+	{{0, 0}, {-1, 0}},
+	// Small L-shapes
+	{{0, 0}, {1, 0}, {0, 1}},
+	{{0, 0}, {-1, 0}, {0, 1}},
+	// Larger rooms
+	{{0, 0}, {1, 0}, {0, 1}, {1, 1}},
+	{{0, 0}, {1, 0}, {0, 1}, {1, 1}, {0, 2}, {1, 2}},
+	{{0, 0}, {0, 1}, {1, 0}, {1, 1}, {2, 0}, {2, 1}},
+	{{0, 0}, {1, 0}, {0, 1}, {0, 2}},
+	{{0, 0}, {1, 0}, {1, 1}, {1, 2}},
+	{{0, 0}, {0, 1}, {1, 1}, {2, 1}},
+	{{0, 0}, {0, 1}, {-1, 1}, {-2, 1}},
+	{{0, 0}, {1, 0}, {2, 0}, {1, 1}},
+	{{0, 0}, {0, 1}, {0, 2}, {-1, 1}},
 }
 
 // visualizePlacement creates ASCII art of the placement for debugging
@@ -67,7 +108,12 @@ func visualizePlacement(p *Placement) string {
 	for pos, roomID := range p.Grid {
 		x := pos.X - minX
 		y := pos.Y - minY
-		grid[y][x] = fmt.Sprintf("%d", roomID)
+		if roomID < 10 {
+			grid[y][x] = fmt.Sprintf("%d", roomID)
+		} else {
+			// Use letters for rooms 10+
+			grid[y][x] = string(rune('A' + roomID - 10))
+		}
 	}
 
 	// Build string
@@ -222,7 +268,7 @@ func TestPlaceManyChildrenRequiresExtension(t *testing.T) {
 		t.Errorf("Root should have been extended, has %d tiles", len(root.CurrentShape))
 	}
 
-	t.Logf("Root extended to %d tiles", len(root.CurrentShape))
+	t.Logf("Root extended to %d tiles for 10 children", len(root.CurrentShape))
 	t.Logf("Placement:\n%s", visualizePlacement(placement))
 }
 
@@ -582,4 +628,104 @@ func TestVariedRoomShapes(t *testing.T) {
 	}
 
 	t.Logf("Placement:\n%s", visualizePlacement(placement))
+}
+
+// generateRandomTree creates a random tree with n nodes
+func generateRandomTree(n int, rng *RealRandom) *tree.Tree {
+	tr := tree.Tree{}
+	tr.Add(0, nil) // Root
+
+	for i := 1; i < n; i++ {
+		// Pick random parent from existing nodes
+		parentIdx := rng.Intn(i)
+		tr.Add(parentIdx, nil)
+	}
+
+	return &tr
+}
+
+func TestStress50Rooms(t *testing.T) {
+	// Try multiple seeds to find failure cases
+	for seed := int64(0); seed < 10; seed++ {
+		t.Run(fmt.Sprintf("seed_%d", seed), func(t *testing.T) {
+			rng := NewRealRandom(seed)
+
+			// Generate random tree with 50 nodes
+			tr := generateRandomTree(50, rng)
+
+			gen := NewGenerator(tr, func(node *tree.Node) RoomShape {
+				return testRoomShapes[rng.Intn(len(testRoomShapes))]
+			}, rng)
+
+			placement, err := gen.Generate()
+			if err != nil {
+				t.Fatalf("Generate failed with seed %d: %v", seed, err)
+			}
+
+			if len(placement.Rooms) != 50 {
+				t.Errorf("Expected 50 rooms, got %d", len(placement.Rooms))
+			}
+
+			// Verify all parent-child adjacencies
+			for i := 1; i < len(*tr); i++ {
+				node := (*tr)[i]
+				parentIdx := node.ParentId
+				if parentIdx == i {
+					continue // Root
+				}
+
+				parentID := RoomID(parentIdx + 1)
+				childID := RoomID(i + 1)
+
+				parent := placement.Rooms[parentID]
+				child := placement.Rooms[childID]
+
+				if parent == nil || child == nil {
+					t.Errorf("Missing room: parent=%v child=%v", parent, child)
+					continue
+				}
+
+				adjacent := false
+				for _, t1 := range parent.CurrentShape {
+					for _, n := range t1.Neighbors() {
+						for _, t2 := range child.CurrentShape {
+							if n.X == t2.X && n.Y == t2.Y {
+								adjacent = true
+							}
+						}
+					}
+				}
+
+				if !adjacent {
+					t.Errorf("Node %d should be adjacent to parent %d", i, parentIdx)
+				}
+			}
+
+			t.Logf("Seed %d: Successfully placed 50 rooms", seed)
+		})
+	}
+}
+
+func TestStress50RoomsOnlySingleTiles(t *testing.T) {
+	// Simpler test: all single tiles should always work
+	for seed := int64(0); seed < 10; seed++ {
+		t.Run(fmt.Sprintf("seed_%d", seed), func(t *testing.T) {
+			rng := NewRealRandom(seed)
+
+			tr := generateRandomTree(50, rng)
+
+			gen := NewGenerator(tr, func(node *tree.Node) RoomShape {
+				return singleTile()
+			}, rng)
+
+			placement, err := gen.Generate()
+			if err != nil {
+				t.Fatalf("Generate failed with seed %d: %v", seed, err)
+			}
+
+			if len(placement.Rooms) != 50 {
+				t.Errorf("Expected 50 rooms, got %d", len(placement.Rooms))
+			}
+		})
+	}
 }
