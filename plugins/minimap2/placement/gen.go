@@ -31,7 +31,9 @@ type Generator struct {
 	GetExtensionTile GetExtensionTileFunc
 	Rng              Random
 	Placement        *Placement
-	Reservations     *ReservationSystem
+	Reservations     *ReservationSystem // Legacy - kept for compatibility
+	Constraints      *ConstraintSystem  // New constraint propagation system
+	MaxPathsPerRoom  int                // Max paths to enumerate per room (default 10)
 }
 
 // NewGenerator creates a new generator
@@ -43,6 +45,8 @@ func NewGenerator(t *tree.Tree, getRoomShape GetRoomShapeFunc, rng Random) *Gene
 		Rng:              rng,
 		Placement:        NewPlacement(),
 		Reservations:     NewReservationSystem(),
+		Constraints:      NewConstraintSystem(),
+		MaxPathsPerRoom:  10,
 	}
 }
 
@@ -57,6 +61,7 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 	if attempt > 0 {
 		g.Placement = NewPlacement()
 		g.Reservations = NewReservationSystem()
+		g.Constraints = NewConstraintSystem()
 		// Consume some random values to create variation on retry
 		for i := 0; i < attempt*7; i++ {
 			g.Rng.Intn(100)
@@ -78,8 +83,11 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 	// Check if root has children
 	if g.hasChildren(0) {
 		g.Placement.MarkUnfinished(0)
-		// Initial reservation calculation for root
-		g.Placement.UpdateReservations(g.Reservations)
+		// Initial constraint propagation for root
+		if !g.Constraints.Propagate(g.Placement, g.MaxPathsPerRoom) {
+			// Should never happen with just root
+			return nil, fmt.Errorf("root has no escape path")
+		}
 	}
 
 	// BFS traversal
@@ -99,7 +107,7 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 			err := g.placeChildSafe(parentIdx, childIdx, isLastChild)
 			if err != nil {
 				// Placement failed - retry if we haven't exceeded max attempts
-				if attempt < 10 {
+				if attempt < 20 {
 					return g.generateWithRetry(attempt + 1)
 				}
 				return nil, fmt.Errorf("failed to place node %d after %d attempts: %v", childIdx, attempt+1, err)
@@ -113,15 +121,29 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 				g.Placement.MarkUnfinished(childIdx)
 			}
 
-			// Update reservations after each child placement
-			// This recalculates critical tiles for all unfinished rooms
-			g.Placement.UpdateReservations(g.Reservations)
+			// Re-propagate constraints after each child placement
+			// This recalculates forced tiles for all unfinished rooms
+			if !g.Constraints.Propagate(g.Placement, g.MaxPathsPerRoom) {
+				// A room lost all escape paths - retry
+				if attempt < 20 {
+					return g.generateWithRetry(attempt + 1)
+				}
+				return nil, fmt.Errorf("propagation failed after placing node %d", childIdx)
+			}
+
+			// Check for conflicts (two rooms need the same forced tile)
+			if g.Constraints.HasConflict() {
+				if attempt < 20 {
+					return g.generateWithRetry(attempt + 1)
+				}
+				return nil, fmt.Errorf("conflict detected after placing node %d", childIdx)
+			}
 		}
 
 		// Parent is now finished (all children placed)
 		g.Placement.MarkFinished(parentIdx)
-		// Update reservations since parent is no longer unfinished
-		g.Placement.UpdateReservations(g.Reservations)
+		// Re-propagate constraints since parent is no longer unfinished
+		g.Constraints.Propagate(g.Placement, g.MaxPathsPerRoom)
 	}
 
 	return g.Placement, nil
@@ -132,6 +154,8 @@ func (g *Generator) placeChildSafe(parentIdx, childIdx int, isLastChild bool) er
 	parent := g.Placement.Rooms[RoomID(parentIdx+1)]
 	childShape := g.GetRoomShape((*g.Tree)[childIdx])
 	childHasChildren := g.hasChildren(childIdx)
+	parentRoomID := RoomID(parentIdx + 1)
+	childRoomID := RoomID(childIdx + 1)
 
 	// Track extension tiles for cleanup
 	extensionTiles := make([]Point, 0)
@@ -143,9 +167,9 @@ func (g *Generator) placeChildSafe(parentIdx, childIdx int, isLastChild bool) er
 		// Find valid positions where child touches parent
 		positions := g.Placement.FindTouchingPositions(parent, childShape)
 
-		// Filter positions using reservations and path validation
-		positions = g.Placement.FilterValidPositionsWithReservations(
-			positions, childShape, childIdx, childHasChildren, g.Reservations,
+		// Filter positions using constraint system
+		positions = g.filterPositionsWithConstraints(
+			positions, childShape, childIdx, childHasChildren, parentRoomID, childRoomID,
 		)
 
 		if len(positions) > 0 {
@@ -175,8 +199,110 @@ func (g *Generator) placeChildSafe(parentIdx, childIdx int, isLastChild bool) er
 	return fmt.Errorf("max iterations reached for placing child %d", childIdx)
 }
 
+// scoredPosition pairs a position with a quality score
+type scoredPosition struct {
+	pos   Point
+	score int // Higher is better
+}
+
+// filterPositionsWithConstraints filters positions using the constraint system
+// and scores them to prefer positions that leave more flexibility
+func (g *Generator) filterPositionsWithConstraints(
+	positions []Point,
+	childShape RoomShape,
+	childNodeIndex int,
+	childHasChildren bool,
+	parentRoomID, childRoomID RoomID,
+) []Point {
+	scored := make([]scoredPosition, 0)
+
+	for _, pos := range positions {
+		absoluteTiles := childShape.Translate(pos)
+
+		// Check if any tile would violate constraints (forced tiles)
+		if !g.Constraints.CanPlaceTiles(absoluteTiles, childRoomID, parentRoomID) {
+			continue
+		}
+
+		// Temporarily place child
+		for _, tile := range absoluteTiles {
+			g.Placement.Grid[tile] = childRoomID
+		}
+
+		// Create temporary room for checking
+		tempRoom := &PlacedRoom{
+			NodeIndex:    childNodeIndex,
+			CurrentShape: absoluteTiles,
+		}
+		g.Placement.Rooms[childRoomID] = tempRoom
+
+		// If child has children, mark as unfinished for constraint checking
+		if childHasChildren {
+			g.Placement.Unfinished[childRoomID] = true
+		}
+
+		// Check all unfinished rooms still have path to outside
+		allValid := true
+		score := 100 // Base score
+
+		for roomID := range g.Placement.Unfinished {
+			room := g.Placement.Rooms[roomID]
+			if room == nil {
+				continue
+			}
+			if !g.Placement.HasPathToOutside(room) {
+				allValid = false
+				break
+			}
+			// Score: prefer positions that leave other rooms with more free edges
+			freeEdges := g.Placement.GetFreeEdges(room)
+			score += len(freeEdges) * 5
+		}
+
+		// If child has children, it must also have path to outside and room to grow
+		if allValid && childHasChildren {
+			if !g.Placement.HasPathToOutside(tempRoom) {
+				allValid = false
+			} else {
+				extensionTiles := g.Placement.GetValidExtensionTiles(tempRoom)
+				if len(extensionTiles) < 2 {
+					allValid = false
+				}
+				// Score: more extension options is better
+				score += len(extensionTiles) * 10
+			}
+		}
+
+		// Remove temporary placement
+		for _, tile := range absoluteTiles {
+			delete(g.Placement.Grid, tile)
+		}
+		delete(g.Placement.Rooms, childRoomID)
+		if childHasChildren {
+			delete(g.Placement.Unfinished, childRoomID)
+		}
+
+		if allValid {
+			scored = append(scored, scoredPosition{pos: pos, score: score})
+		}
+	}
+
+	// Return all valid positions - the caller will pick randomly
+	// The scoring was for diagnostics; keeping positions unfiltered works better
+	if len(scored) == 0 {
+		return nil
+	}
+
+	result := make([]Point, len(scored))
+	for i, sp := range scored {
+		result[i] = sp.pos
+	}
+
+	return result
+}
+
 // extendParent adds one tile to parent, ensuring it doesn't block any unfinished room
-// and respects reservations (except for the parent's own reservations)
+// and respects constraints (forced tiles from other rooms)
 func (g *Generator) extendParent(parent *PlacedRoom) *Point {
 	validExtensions := g.Placement.GetValidExtensionTiles(parent)
 	if len(validExtensions) == 0 {
@@ -188,8 +314,9 @@ func (g *Generator) extendParent(parent *PlacedRoom) *Point {
 	parentRoomID := RoomID(parent.NodeIndex + 1)
 
 	for _, ext := range validExtensions {
-		// Check if this extension is on a reserved tile (that's not ours)
-		if g.Reservations != nil && !g.Reservations.CanPlaceTile(ext, parentRoomID) {
+		// Check if this extension is on a forced tile (that's not ours)
+		// Parent can use its own forced tiles (it's extending to reach children)
+		if !g.Constraints.CanPlaceTiles([]Point{ext}, parentRoomID, parentRoomID) {
 			continue
 		}
 
