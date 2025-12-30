@@ -66,19 +66,52 @@ func (p *Placement) isValidPlacement(parent *PlacedRoom, shape RoomShape, offset
 }
 
 // FilterValidPositions filters positions to only those where:
-// 1. After placing, all unfinished rooms still have path to outside
-// 2. If the child has children, it must also have path to outside
+// 1. No tiles are placed on fully reserved (critical) tiles
+// 2. After placing, all unfinished rooms still have path to outside
+// 3. If the child has children, it must also have path to outside
 func (p *Placement) FilterValidPositions(
 	positions []Point,
 	childShape RoomShape,
 	childNodeIndex int,
 	childHasChildren bool,
 ) []Point {
+	// For backward compatibility, call the version without reservations
+	return p.FilterValidPositionsWithReservations(positions, childShape, childNodeIndex, childHasChildren, nil)
+}
+
+// FilterValidPositionsWithReservations filters positions using reservation system
+func (p *Placement) FilterValidPositionsWithReservations(
+	positions []Point,
+	childShape RoomShape,
+	childNodeIndex int,
+	childHasChildren bool,
+	rs *ReservationSystem,
+) []Point {
 	valid := make([]Point, 0)
 	childRoomID := RoomID(childNodeIndex + 1)
 
 	for _, pos := range positions {
 		absoluteTiles := childShape.Translate(pos)
+
+		// Check if any tile would be placed on a fully reserved tile
+		if rs != nil {
+			blocksReservation := false
+			for _, tile := range absoluteTiles {
+				if rs.IsFullyReserved(tile) {
+					// Check if we're the only one who reserved it (our parent extending)
+					res := rs.GetReservation(tile)
+					if res != nil && len(res.RoomIDs) > 0 {
+						// Check if it's reserved by rooms other than our ancestors
+						// For now, just reject if any room reserves it
+						blocksReservation = true
+						break
+					}
+				}
+			}
+			if blocksReservation {
+				continue
+			}
+		}
 
 		// Temporarily place child
 		for _, tile := range absoluteTiles {
@@ -105,10 +138,15 @@ func (p *Placement) FilterValidPositions(
 			}
 		}
 
-		// If child has children, it must also have path to outside
+		// If child has children, it must also have path to outside and room to grow
 		if allValid && childHasChildren {
 			if !p.HasPathToOutside(tempRoom) {
 				allValid = false
+			} else {
+				extensionTiles := p.GetValidExtensionTiles(tempRoom)
+				if len(extensionTiles) < 2 {
+					allValid = false
+				}
 			}
 		}
 
