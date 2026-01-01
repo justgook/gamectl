@@ -189,6 +189,9 @@ func (g *Generator) placeChildSafe(parentIdx, childIdx int, isLastChild bool) er
 			// Place the child
 			g.Placement.PlaceRoom(childIdx, absoluteTiles)
 
+			// Create door connection between child and parent
+			g.createDoorConnection(childIdx, parentIdx, absoluteTiles, parent.CurrentShape)
+
 			// Cleanup: find minimal path and remove unnecessary extension tiles
 			if len(extensionTiles) > 0 {
 				g.cleanupExtensions(parent, originalParentShape, extensionTiles, absoluteTiles)
@@ -523,6 +526,28 @@ foundPath:
 	}
 }
 
+// createDoorConnection finds adjacent tiles between child and parent and creates a door
+func (g *Generator) createDoorConnection(childIdx, parentIdx int, childTiles, parentTiles []Point) {
+	childRoomID := childIdx + 1
+	parentRoomID := parentIdx + 1
+
+	// Build set of parent tiles for quick lookup
+	parentSet := make(map[Point]bool)
+	for _, pt := range parentTiles {
+		parentSet[pt] = true
+	}
+
+	// Find first adjacent pair
+	for _, childTile := range childTiles {
+		for _, neighbor := range childTile.Neighbors() {
+			if parentSet[neighbor] {
+				g.Placement.AddDoor(childTile, neighbor, childRoomID, parentRoomID)
+				return
+			}
+		}
+	}
+}
+
 // hasChildren checks if a node has children in the tree
 func (g *Generator) hasChildren(nodeIdx int) bool {
 	for _, node := range *g.Tree {
@@ -609,20 +634,43 @@ func (p *Placement) ToTileMap() *tilemap.TileMap {
 	minX, minY, maxX, maxY := p.GetBoundingBox()
 	width := maxX - minX + 1
 	height := maxY - minY + 1
+	offset := Point{X: minX, Y: minY}
 
-	// Create layer
-	layer := tilemap.NewTileLayer(width, height)
+	// Create rooms layer
+	roomLayer := tilemap.NewTileLayer(width, height)
+	roomLayer.Props = map[string]string{"name": "rooms"}
 
 	// Fill in room IDs (offset by 1, as RoomID is already nodeIndex+1)
 	for pos, roomID := range p.Grid {
 		x := pos.X - minX
 		y := pos.Y - minY
 		idx := y*width + x
-		layer.Data[idx] = uint32(roomID)
+		roomLayer.Data[idx] = uint32(roomID)
 	}
 
+	// Create doors layer
+	doorLayer := generateDoorLayer(p.Doors, width, height, offset)
+
 	tm := tilemap.NewTileMap()
-	tm.Layers = append(tm.Layers, *layer)
+	tm.Layers = append(tm.Layers, *roomLayer)
+	tm.Layers = append(tm.Layers, *doorLayer)
 
 	return tm
+}
+
+// generateDoorLayer creates door layer data from door connections
+func generateDoorLayer(doors []DoorConnection, width, height int, offset Point) *tilemap.TileLayer {
+	layer := tilemap.NewTileLayer(width, height)
+	layer.Props = map[string]string{"type": "doors"}
+
+	for _, door := range doors {
+		x := door.Point.X - offset.X
+		y := door.Point.Y - offset.Y
+		idx := y*width + x
+		if idx >= 0 && idx < len(layer.Data) {
+			layer.Data[idx] |= uint32(door.Direction)
+		}
+	}
+
+	return layer
 }

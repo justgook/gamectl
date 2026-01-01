@@ -28,6 +28,21 @@ const (
 	DirWest  = 3
 )
 
+// Door direction bit masks (for door layer encoding)
+const (
+	DoorNorth uint8 = 1
+	DoorEast  uint8 = 2
+	DoorSouth uint8 = 4
+	DoorWest  uint8 = 8
+)
+
+// DoorConnection represents a door tile on the grid
+type DoorConnection struct {
+	Point     Point // Grid coordinate of the door tile
+	RoomID    int   // Which room this door belongs to (1-based)
+	Direction uint8 // Bit mask: North=1, East=2, South=4, West=8
+}
+
 // DirectionOffset returns the dx, dy for a direction
 func DirectionOffset(dir int) (int, int) {
 	switch dir {
@@ -97,7 +112,8 @@ type RoomID int
 type Placement struct {
 	Grid       map[Point]RoomID // Sparse grid: position -> room owner
 	Rooms      map[RoomID]*PlacedRoom
-	Unfinished map[RoomID]bool // Rooms with unplaced children (set)
+	Unfinished map[RoomID]bool  // Rooms with unplaced children (set)
+	Doors      []DoorConnection // Door connections between rooms
 }
 
 // NewPlacement creates a new empty placement
@@ -176,6 +192,43 @@ func (p *Placement) MarkUnfinished(nodeIndex int) {
 // MarkFinished marks a room as having all children placed
 func (p *Placement) MarkFinished(nodeIndex int) {
 	delete(p.Unfinished, RoomID(nodeIndex+1))
+}
+
+// AddDoor adds a door connection between a child room and its parent
+func (p *Placement) AddDoor(childPoint, parentPoint Point, childRoomID, parentRoomID int) {
+	childDir := calculateDirection(childPoint, parentPoint)
+	parentDir := calculateDirection(parentPoint, childPoint)
+
+	p.Doors = append(p.Doors, DoorConnection{
+		Point:     childPoint,
+		RoomID:    childRoomID,
+		Direction: childDir,
+	})
+	p.Doors = append(p.Doors, DoorConnection{
+		Point:     parentPoint,
+		RoomID:    parentRoomID,
+		Direction: parentDir,
+	})
+}
+
+// calculateDirection determines the direction from one point to an adjacent point
+func calculateDirection(fromPoint, toPoint Point) uint8 {
+	dx := toPoint.X - fromPoint.X
+	dy := toPoint.Y - fromPoint.Y
+
+	if dy == -1 {
+		return DoorNorth
+	}
+	if dx == 1 {
+		return DoorEast
+	}
+	if dy == 1 {
+		return DoorSouth
+	}
+	if dx == -1 {
+		return DoorWest
+	}
+	return 0
 }
 
 // IsUnfinished checks if a room has unplaced children
