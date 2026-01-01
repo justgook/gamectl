@@ -372,11 +372,11 @@ func TestToTileMap(t *testing.T) {
 
 	tm := placement.ToTileMap()
 
-	if len(tm.Layers) != 1 {
-		t.Errorf("Expected 1 layer, got %d", len(tm.Layers))
+	if len(tm.Layers) != 2 {
+		t.Errorf("Expected 2 layers (rooms + doors), got %d", len(tm.Layers))
 	}
 
-	layer := tm.Layers[0]
+	layer := tm.Layers[0] // rooms layer
 
 	// Count non-zero tiles
 	nonZero := 0
@@ -448,6 +448,63 @@ func TestBranchingTree(t *testing.T) {
 	checkAdjacent(b, d, "B", "D")
 
 	t.Logf("Placement:\n%s", visualizePlacement(placement))
+}
+
+func TestDoorConnections(t *testing.T) {
+	// Tree:
+	//       A(0)
+	//      / \
+	//    B(1) C(2)
+	tr := tree.Tree{}
+	tr.Add(0, nil) // A
+	tr.Add(0, nil) // B
+	tr.Add(0, nil) // C
+
+	rng := &MockRandom{}
+	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
+		return singleTile()
+	}, rng)
+
+	placement, err := gen.Generate()
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	// Should have 2 door pairs (A-B and A-C)
+	// Each connection creates 2 door entries (one for each side)
+	if len(placement.Doors) != 4 {
+		t.Errorf("Expected 4 door entries (2 connections), got %d", len(placement.Doors))
+	}
+
+	// Convert to tilemap and check doors layer
+	tm := placement.ToTileMap()
+	if len(tm.Layers) != 2 {
+		t.Fatalf("Expected 2 layers (rooms + doors), got %d", len(tm.Layers))
+	}
+
+	doorsLayer := tm.Layers[1]
+	if doorsLayer.Props["type"] != "doors" {
+		t.Errorf("Expected doors layer to have type='doors', got %s", doorsLayer.Props["type"])
+	}
+
+	// Count non-zero door tiles
+	nonZeroDoors := 0
+	for _, v := range doorsLayer.Data {
+		if v != 0 {
+			nonZeroDoors++
+		}
+	}
+
+	// Should have door tiles (exact count depends on placement, but should have some)
+	if nonZeroDoors == 0 {
+		t.Error("Expected some non-zero door tiles")
+	}
+
+	t.Logf("Doors: %d entries, %d tiles with doors", len(placement.Doors), nonZeroDoors)
+	t.Logf("Door connections:")
+	for _, door := range placement.Doors {
+		t.Logf("  Room %d at (%d,%d) dir=%d", door.RoomID, door.Point.X, door.Point.Y, door.Direction)
+	}
 }
 
 func TestStressManyChildren(t *testing.T) {
