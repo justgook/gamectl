@@ -58,6 +58,7 @@ async function handleInit(id, maybeDir) {
   const pluginNames = [
     'random',
     'treegen',
+    'keylock',
     'minimap',
     'minimap2',
     'automap',

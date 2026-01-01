@@ -8,6 +8,7 @@ export class ViewPipeline extends HTMLElement {
     // Track which steps have been completed
     this.completedSteps = {
       tree: false,
+      keylock: false,
       minimap: false,
       automap: false
     }
@@ -24,6 +25,8 @@ export class ViewPipeline extends HTMLElement {
 
     this.querySelector('form[name="tree"]')
       ?.addEventListener('submit', (e) => this.generateWorldTree(e))
+    this.querySelector('form[name="keylock"]')
+      ?.addEventListener('submit', (e) => this.handleKeylockSubmit(e))
     this.querySelector('form[name="minimap"]')
       ?.addEventListener('submit', (e) => this.handleMinimapSubmit(e))
     this.querySelector('form[name="automap"]')
@@ -103,6 +106,58 @@ export class ViewPipeline extends HTMLElement {
     }
   }
 
+  async handleKeylockSubmit(e) {
+    e.preventDefault()
+
+    // Auto-generate tree if not done yet
+    if (!this.completedSteps.tree) {
+      toast.info('Generating world tree first...', { duration: 2000 })
+      const treeResult = await this.generateWorldTree(null, true)
+      if (!treeResult.success) {
+        return // Stop if tree generation failed
+      }
+    }
+
+    // Generate keylock
+    await this.generateKeylock(null, false)
+  }
+
+  async generateKeylock(e, skipToast = false) {
+    if (e) e.preventDefault()
+
+    const form = this.querySelector('form[name="keylock"]')
+    const data = Object.fromEntries(new FormData(form))
+
+    try {
+      const result = await pluginManager.call("keylock", "gen", JSON.stringify({
+        treeId: data.treeId,
+        keysQuery: data.keysQuery,
+        keyChance: +data.keyChance,
+        lockChance: +data.lockChance,
+        maxKeysPerLock: +data.maxKeysPerLock
+      }))
+
+      const response = JSON.parse(this.DE.decode(result.output))
+
+      if (response.success) {
+        this.completedSteps.keylock = true
+        if (!skipToast) {
+          toast.success(`Keys and locks assigned to: ${data.treeId}`, { duration: 3000 })
+        }
+        console.log('[Keylock] Success:', response)
+        return { success: true, treeId: data.treeId }
+      } else {
+        toast.error(`Keylock failed: ${response.error || 'Unknown error'}`, { duration: 5000 })
+        console.error('[Keylock] Error:', response)
+        return { success: false, error: response.error }
+      }
+    } catch (error) {
+      toast.error(`Keylock error: ${error.message}`, { duration: 5000 })
+      console.error('[Keylock] Exception:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
   async handleMinimapSubmit(e) {
     e.preventDefault()
 
@@ -112,6 +167,15 @@ export class ViewPipeline extends HTMLElement {
       const treeResult = await this.generateWorldTree(null, true)
       if (!treeResult.success) {
         return // Stop if tree generation failed
+      }
+    }
+
+    // Auto-generate keylock if not done yet
+    if (!this.completedSteps.keylock) {
+      toast.info('Assigning keys and locks...', { duration: 2000 })
+      const keylockResult = await this.generateKeylock(null, true)
+      if (!keylockResult.success) {
+        return // Stop if keylock failed
       }
     }
 
@@ -128,6 +192,15 @@ export class ViewPipeline extends HTMLElement {
       const treeResult = await this.generateWorldTree(null, true)
       if (!treeResult.success) {
         return // Stop if tree generation failed
+      }
+    }
+
+    // Auto-generate keylock if not done yet
+    if (!this.completedSteps.keylock) {
+      toast.info('Assigning keys and locks...', { duration: 2000 })
+      const keylockResult = await this.generateKeylock(null, true)
+      if (!keylockResult.success) {
+        return // Stop if keylock failed
       }
     }
 

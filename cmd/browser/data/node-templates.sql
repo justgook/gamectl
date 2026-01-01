@@ -49,6 +49,12 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   '<node-plugin title="AutoMap" x="135" y="160" plugin="automap" function="automap" inputs="rulesMapId,inputMapId,outputMapId" outputs="result"></node-plugin>'
 ),
 (
+  'Key-Lock Assigner',
+  'plugin',
+  'Assign keys and locks to tree nodes for progression',
+  '<node-plugin title="Key-Lock Assigner" plugin="keylock" function="gen" inputs="treeId,keysQuery,keyChance,lockChance,maxKeysPerLock" outputs="result"></node-plugin>'
+),
+(
   'Minimap Generator',
   'plugin',
   'Generate minimap from tree',
