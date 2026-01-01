@@ -62,8 +62,11 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 		g.Placement = NewPlacement()
 		g.Reservations = NewReservationSystem()
 		g.Constraints = NewConstraintSystem()
-		// Consume some random values to create variation on retry
-		for i := 0; i < attempt*7; i++ {
+		// Consume random values to create variation on retry
+		// Use prime numbers multiplied by attempt for better distribution
+		primes := []int{7, 11, 13, 17, 19, 23, 29, 31}
+		variationCount := primes[attempt%len(primes)] * (attempt + 1)
+		for i := 0; i < variationCount; i++ {
 			g.Rng.Intn(100)
 		}
 	}
@@ -97,8 +100,9 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 		parentIdx := queue[0]
 		queue = queue[1:]
 
-		// Get all children of this node
-		children := g.getChildrenIndices(parentIdx)
+		// Get all children of this node, sorted by subtree size (largest first)
+		// This gives larger subtrees more space to expand
+		children := g.getChildrenSortedBySubtreeSize(parentIdx)
 
 		for i, childIdx := range children {
 			isLastChild := i == len(children)-1
@@ -107,7 +111,10 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 			err := g.placeChildSafe(parentIdx, childIdx, isLastChild)
 			if err != nil {
 				// Placement failed - retry if we haven't exceeded max attempts
-				if attempt < 20 {
+				// Scale max attempts quadratically with tree size (conflicts compound)
+				treeSize := len(*g.Tree)
+				maxAttempts := 30 + treeSize/2 + treeSize*treeSize/500
+				if attempt < maxAttempts {
 					return g.generateWithRetry(attempt + 1)
 				}
 				return nil, fmt.Errorf("failed to place node %d after %d attempts: %v", childIdx, attempt+1, err)
@@ -123,9 +130,11 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 
 			// Re-propagate constraints after each child placement
 			// This recalculates forced tiles for all unfinished rooms
+			treeSize := len(*g.Tree)
+			maxAttempts := 30 + treeSize/2 + treeSize*treeSize/500
 			if !g.Constraints.Propagate(g.Placement, g.MaxPathsPerRoom) {
 				// A room lost all escape paths - retry
-				if attempt < 20 {
+				if attempt < maxAttempts {
 					return g.generateWithRetry(attempt + 1)
 				}
 				return nil, fmt.Errorf("propagation failed after placing node %d", childIdx)
@@ -133,7 +142,7 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 
 			// Check for conflicts (two rooms need the same forced tile)
 			if g.Constraints.HasConflict() {
-				if attempt < 20 {
+				if attempt < maxAttempts {
 					return g.generateWithRetry(attempt + 1)
 				}
 				return nil, fmt.Errorf("conflict detected after placing node %d", childIdx)
@@ -273,6 +282,50 @@ func (g *Generator) filterPositionsWithConstraints(
 			}
 		}
 
+		// Score based on how this position affects other rooms
+		if allValid && len(g.Placement.Unfinished) >= 1 {
+			for roomID := range g.Placement.Unfinished {
+				room := g.Placement.Rooms[roomID]
+				if room == nil {
+					continue
+				}
+				freeEdges := g.Placement.GetFreeEdges(room)
+				if len(freeEdges) <= 1 {
+					// Very constrained - heavy penalty
+					score -= 100
+				} else if len(freeEdges) == 2 {
+					// Somewhat constrained - moderate penalty
+					score -= 30
+				}
+			}
+		}
+
+		// Prefer positions that expand outward (closer to bounding box edge)
+		// This keeps the interior more open for future placements
+		if len(g.Placement.Grid) > 0 {
+			minX, minY, maxX, maxY := g.Placement.GetBoundingBox()
+
+			// Calculate how "outward" this position is
+			for _, tile := range absoluteTiles {
+				// Distance to nearest edge
+				distToEdge := tile.X - minX
+				if maxX-tile.X < distToEdge {
+					distToEdge = maxX - tile.X
+				}
+				if tile.Y-minY < distToEdge {
+					distToEdge = tile.Y - minY
+				}
+				if maxY-tile.Y < distToEdge {
+					distToEdge = maxY - tile.Y
+				}
+
+				// Bonus for being near the edge (expanding outward)
+				if distToEdge <= 1 {
+					score += 15
+				}
+			}
+		}
+
 		// Remove temporary placement
 		for _, tile := range absoluteTiles {
 			delete(g.Placement.Grid, tile)
@@ -287,15 +340,26 @@ func (g *Generator) filterPositionsWithConstraints(
 		}
 	}
 
-	// Return all valid positions - the caller will pick randomly
-	// The scoring was for diagnostics; keeping positions unfiltered works better
 	if len(scored) == 0 {
 		return nil
 	}
 
-	result := make([]Point, len(scored))
-	for i, sp := range scored {
-		result[i] = sp.pos
+	// Sort by score (descending) - prefer positions that leave more flexibility
+	for i := 0; i < len(scored); i++ {
+		for j := i + 1; j < len(scored); j++ {
+			if scored[j].score > scored[i].score {
+				scored[i], scored[j] = scored[j], scored[i]
+			}
+		}
+	}
+
+	// Return top positions (those with scores within threshold of best)
+	minScore := scored[0].score - 50 // Allow positions within 50 points of best
+	result := make([]Point, 0)
+	for _, sp := range scored {
+		if sp.score >= minScore || len(result) == 0 {
+			result = append(result, sp.pos)
+		}
 	}
 
 	return result
@@ -478,6 +542,61 @@ func (g *Generator) getChildrenIndices(parentIdx int) []int {
 		}
 	}
 	return children
+}
+
+// countDescendants returns the total number of descendants of a node
+func (g *Generator) countDescendants(nodeIdx int) int {
+	count := 0
+	children := g.getChildrenIndices(nodeIdx)
+	for _, childIdx := range children {
+		count++                               // Count the child itself
+		count += g.countDescendants(childIdx) // Plus all its descendants
+	}
+	return count
+}
+
+// getChildrenSortedBySubtreeSize returns children sorted by subtree size
+// Children with NO descendants (leaf nodes) go first - they don't need escape paths
+// Children with descendants go last - sorted by size (smallest first)
+func (g *Generator) getChildrenSortedBySubtreeSize(parentIdx int) []int {
+	children := g.getChildrenIndices(parentIdx)
+	if len(children) <= 1 {
+		return children
+	}
+
+	// Calculate subtree sizes and separate leaves from non-leaves
+	type childWithSize struct {
+		idx  int
+		size int
+	}
+	leaves := make([]int, 0)
+	nonLeaves := make([]childWithSize, 0)
+
+	for _, childIdx := range children {
+		size := g.countDescendants(childIdx)
+		if size == 0 {
+			leaves = append(leaves, childIdx)
+		} else {
+			nonLeaves = append(nonLeaves, childWithSize{idx: childIdx, size: size})
+		}
+	}
+
+	// Sort non-leaves by size (ascending - smallest subtrees first)
+	for i := 0; i < len(nonLeaves); i++ {
+		for j := i + 1; j < len(nonLeaves); j++ {
+			if nonLeaves[j].size < nonLeaves[i].size {
+				nonLeaves[i], nonLeaves[j] = nonLeaves[j], nonLeaves[i]
+			}
+		}
+	}
+
+	// Combine: leaves first, then non-leaves by size
+	result := make([]int, 0, len(children))
+	result = append(result, leaves...)
+	for _, ws := range nonLeaves {
+		result = append(result, ws.idx)
+	}
+	return result
 }
 
 // ToTileMap converts the placement to a TileMap
