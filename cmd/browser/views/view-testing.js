@@ -10,11 +10,11 @@ export class ViewTesting extends HTMLElement {
     this.style.display = 'block'
     this.style.width = '100%'
     this.style.height = '100%'
-    
+
     const template = document.getElementById('view-testing')
     const content = template.content.cloneNode(true)
     this.appendChild(content)
-    
+
     this.treeId = "progression"
     this.mapId = "new_map"
   }

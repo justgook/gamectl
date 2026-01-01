@@ -54,6 +54,24 @@ const DE = new TextDecoder()
 
 // TESTING SQL PLUGIN WITH DUMP/RESTORE
 const result2 = await window.pluginManager.call("sql", "open", "")
+async function initKeysLock() {
+  const response = await fetch('/data/keys.sql')
+  if (!response.ok) {
+    console.error('Failed to load keys.sql:', response.statusText)
+    return
+  }
+
+  const migrationSql = await response.text()
+
+  // Execute migration (uses restore since it's a SQL script)
+  const result = await window.pluginManager.call('sql', 'restore', migrationSql)
+  const verifyResult = await window.pluginManager.call('sql', 'query',
+    'SELECT COUNT(*) as count FROM keys'
+  )
+
+  console.log('keys loaded:', DE.decode(verifyResult.output))
+}
+initKeysLock()
 
 // Initialize Node Templates Database
 async function initNodeTemplates() {

@@ -58,8 +58,23 @@
             <button type="submit">Generate Tree</button>
           </form>
         </details>
+        <details>
+          <summary>2. Assign Keys & Locks</summary>
+          <form name="keylock"
+            style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
+            <label>Tree ID: <input type="text" name="treeId" value="progression"></label>
+            <label>Keys Query: <input type="text" name="keysQuery" value="SELECT name FROM keys ORDER BY RANDOM() LIMIT 15" style="width: 100%;"></label>
+            <label>Key Chance: <span>0.5</span> <input type="range" name="keyChance" min="0" max="1" step="0.1" value="0.5"
+                oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Lock Chance: <span>0.7</span> <input type="range" name="lockChance" min="0" max="1" step="0.1" value="0.7"
+                oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Max Keys Per Lock: <span>2</span> <input type="range" name="maxKeysPerLock" min="1" max="5" value="2"
+                oninput="this.previousElementSibling.textContent=this.value"></label>
+            <button type="submit">Assign Keys & Locks</button>
+          </form>
+        </details>
         <details open>
-          <summary>2. Create Minimap</summary>
+          <summary>3. Create Minimap</summary>
           <form name="minimap"
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
@@ -78,7 +93,7 @@
           </form>
         </details>
         <details>
-          <summary>3. Apply Automap Rules</summary>
+          <summary>4. Apply Automap Rules</summary>
           <form name="automap"
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Rules Map: <input type="text" name="rulesMapId" value="rules"></label>
