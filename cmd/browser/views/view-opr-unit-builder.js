@@ -23,7 +23,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     this.style.display = 'block'
     this.style.width = '100%'
     this.style.height = '100%'
-    
+
     // Load template
     const template = document.getElementById('view-opr-unit-builder')
     const content = template.content.cloneNode(true)
@@ -36,7 +36,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       unitSelect: this.querySelector('[data-select="unit"]'),
       unitDisplay: this.querySelector('[data-element="unit-display"]'),
       emptyState: this.querySelector('[data-element="empty-state"]'),
-      
+
       // Unit details
       unitName: this.querySelector('[data-element="unit-name"]'),
       unitSize: this.querySelector('[data-element="unit-size"]'),
@@ -44,7 +44,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       unitQuality: this.querySelector('[data-element="unit-quality"]'),
       unitDefense: this.querySelector('[data-element="unit-defense"]'),
       unitType: this.querySelector('[data-element="unit-type"]'),
-      
+
       // Sections
       specialRulesContainer: this.querySelector('[data-element="special-rules-container"]'),
       specialRules: this.querySelector('[data-element="special-rules"]'),
@@ -52,9 +52,9 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       weapons: this.querySelector('[data-element="weapons"]'),
       upgradesContainer: this.querySelector('[data-element="upgrades-container"]'),
       upgrades: this.querySelector('[data-element="upgrades"]'),
-      
+
       totalCost: this.querySelector('[data-element="total-cost"]'),
-      
+
       // Header controls
       randomBtn: this.querySelector('[data-action="random-unit"]'),
       exportBtn: this.querySelector('[data-action="export-json"]')
@@ -78,7 +78,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       this.elements.universeSelect.innerHTML = '<option value="">-- Select Universe --</option>'
       lines.forEach(line => {
         const [id, name, shortName] = line
@@ -97,22 +97,22 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     this.state.selectedUniverse = universeId
     this.state.selectedArmy = null
     this.state.selectedUnit = null
-    
+
     this.elements.armySelect.disabled = !universeId
     this.elements.unitSelect.disabled = true
     this.elements.armySelect.innerHTML = '<option value="">-- Select Army --</option>'
     this.elements.unitSelect.innerHTML = '<option value="">-- Select Unit --</option>'
     this.hideUnitDisplay()
-    
+
     if (!universeId) return
-    
+
     try {
       const result = await window.pluginManager.call('sql', 'query',
         `SELECT id, name FROM opr_armies WHERE universe_id = '${universeId}' ORDER BY name`
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       lines.forEach(line => {
         const [id, name] = line
         const option = document.createElement('option')
@@ -129,20 +129,20 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     const armyId = this.elements.armySelect.value
     this.state.selectedArmy = armyId
     this.state.selectedUnit = null
-    
+
     this.elements.unitSelect.disabled = !armyId
     this.elements.unitSelect.innerHTML = '<option value="">-- Select Unit --</option>'
     this.hideUnitDisplay()
-    
+
     if (!armyId) return
-    
+
     try {
       const result = await window.pluginManager.call('sql', 'query',
         `SELECT id, name, cost, unit_type FROM opr_units WHERE army_id = '${armyId}' ORDER BY cost, name`
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       lines.forEach(line => {
         const [id, name, cost, type] = line
         const option = document.createElement('option')
@@ -158,12 +158,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
   async onUnitChange() {
     const unitId = this.elements.unitSelect.value
     this.state.selectedUnit = unitId
-    
+
     if (!unitId) {
       this.hideUnitDisplay()
       return
     }
-    
+
     await this.loadUnitDetails(unitId)
   }
 
@@ -175,12 +175,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       )
       const unitCsv = DE.decode(unitResult.output)
       const unitLines = this.parseCSV(unitCsv)
-      
+
       if (unitLines.length === 0) return
-      
+
       const [id, name, size, cost, quality, defense, unitType, notes] = unitLines[0]
       this.state.baseCost = parseInt(cost)
-      
+
       // Update unit header
       this.elements.unitName.textContent = name
       this.elements.unitSize.textContent = size
@@ -188,16 +188,16 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.unitQuality.textContent = quality
       this.elements.unitDefense.textContent = defense
       this.elements.unitType.textContent = unitType
-      
+
       // Load special rules
       await this.loadSpecialRules(unitId)
-      
+
       // Load weapons
       await this.loadWeapons(unitId)
-      
+
       // Load upgrades
       await this.loadUpgrades(unitId)
-      
+
       // Show unit display
       this.showUnitDisplay()
       this.updateTotalCost()
@@ -217,26 +217,27 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       if (lines.length === 0) {
         this.elements.specialRulesContainer.style.display = 'none'
         return
       }
-      
+
       this.elements.specialRulesContainer.style.display = 'block'
       this.elements.specialRules.innerHTML = ''
-      
+
       lines.forEach(line => {
         const [name, description, rating] = line
         const ruleDiv = document.createElement('div')
         ruleDiv.style.cssText = 'padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); border-left: 3px solid var(--color-semantic-border-accent);'
-        
+
         // Handle NULL values from SQL (come through as empty string or "NULL")
         const hasRating = rating && rating !== '' && rating !== 'NULL'
         const ruleName = hasRating ? `${name}(${rating})` : name
+
+        // Use <abbr> with tooltip for special rules
         ruleDiv.innerHTML = `
-          <div style="font-weight: 500; color: var(--color-semantic-text-primary); margin-bottom: var(--spacing-scale-1);">${ruleName}</div>
-          <div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">${description}</div>
+            <abbr data-tooltip="${description}" style="text-decoration: underline dotted; cursor: help; text-decoration-color: var(--color-semantic-border-accent);">${ruleName}</abbr>
         `
         this.elements.specialRules.appendChild(ruleDiv)
       })
@@ -257,26 +258,26 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       if (lines.length === 0) {
         this.elements.weaponsContainer.style.display = 'none'
         return
       }
-      
+
       this.elements.weaponsContainer.style.display = 'block'
       this.elements.weapons.innerHTML = ''
-      
+
       lines.forEach(line => {
         const [name, range, attacks, ap, special, count] = line
         const weaponDiv = document.createElement('div')
         weaponDiv.style.cssText = 'padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm);'
-        
+
         // Handle NULL values from SQL
         const hasRange = range && range !== '' && range !== 'NULL'
         const rangeText = hasRange ? `${range}"` : 'Melee'
         const apText = (ap && ap !== '0' && ap !== 'NULL') ? ` AP(${ap})` : ''
         const specialText = (special && special !== '' && special !== 'NULL') ? ` ${special}` : ''
-        
+
         weaponDiv.innerHTML = `
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
@@ -306,21 +307,21 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       if (lines.length === 0) {
         this.elements.upgradesContainer.style.display = 'none'
         return
       }
-      
+
       this.elements.upgradesContainer.style.display = 'block'
       this.elements.upgrades.innerHTML = ''
       this.state.selectedUpgrades.clear()
-      
+
       lines.forEach(line => {
         const [id, name, cost, description] = line
         const upgradeDiv = document.createElement('label')
         upgradeDiv.style.cssText = 'display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); cursor: pointer; align-items: center;'
-        
+
         const costSign = parseInt(cost) >= 0 ? '+' : ''
         upgradeDiv.innerHTML = `
           <input type="checkbox" data-upgrade-id="${id}" data-upgrade-cost="${cost}" style="cursor: pointer;">
@@ -329,7 +330,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
             <div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">${description}</div>
           </div>
         `
-        
+
         const checkbox = upgradeDiv.querySelector('input[type="checkbox"]')
         checkbox.addEventListener('change', (e) => {
           if (e.target.checked) {
@@ -343,7 +344,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           }
           this.updateTotalCost()
         })
-        
+
         this.elements.upgrades.appendChild(upgradeDiv)
       })
     } catch (error) {
@@ -365,14 +366,14 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       alert('Please select an army first')
       return
     }
-    
+
     try {
       const result = await window.pluginManager.call('sql', 'query',
         `SELECT id FROM opr_units WHERE army_id = '${this.state.selectedArmy}' ORDER BY RANDOM() LIMIT 1`
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       if (lines.length > 0) {
         const [unitId] = lines[0]
         this.elements.unitSelect.value = unitId
@@ -389,7 +390,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       alert('No unit selected')
       return
     }
-    
+
     const data = {
       unitId: this.state.selectedUnit,
       unitName: this.elements.unitName.textContent,
@@ -401,7 +402,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       selectedUpgrades: Array.from(this.state.selectedUpgrades),
       totalCost: this.elements.totalCost.textContent
     }
-    
+
     console.log('Unit JSON:', JSON.stringify(data, null, 2))
     navigator.clipboard.writeText(JSON.stringify(data, null, 2))
     alert('Unit JSON copied to clipboard!')
@@ -420,13 +421,13 @@ export class ViewOPRUnitBuilder extends HTMLElement {
   parseCSV(csv) {
     const lines = csv.trim().split('\n')
     if (lines.length <= 1) return [] // Skip header or empty
-    
+
     return lines.slice(1).map(line => {
       // Simple CSV parsing (handles basic cases)
       const values = []
       let current = ''
       let inQuotes = false
-      
+
       for (let i = 0; i < line.length; i++) {
         const char = line[i]
         if (char === '"') {
@@ -439,7 +440,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
         }
       }
       values.push(current)
-      
+
       return values
     })
   }
