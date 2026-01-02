@@ -162,6 +162,82 @@
       </div>
     </template>
 
+    <template id="view-opr-unit-builder">
+      <div slot="header-controls" class="view-header-controls">
+        <button data-action="random-unit" class="button-secondary">🎲 Random Unit</button>
+        <button data-action="export-json" class="button-primary">📋 Export JSON</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3); height: 100%; overflow: auto;">
+        <!-- Universe/Army/Unit Selectors -->
+        <div style="display: flex; gap: var(--spacing-scale-2); flex-wrap: wrap;">
+          <label style="display: flex; flex-direction: column; gap: var(--spacing-scale-1); flex: 1; min-width: 150px;">
+            <span style="font-weight: 500; color: var(--color-semantic-text-secondary);">Universe</span>
+            <select data-select="universe" style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
+              <option value="">-- Select Universe --</option>
+            </select>
+          </label>
+          <label style="display: flex; flex-direction: column; gap: var(--spacing-scale-1); flex: 1; min-width: 150px;">
+            <span style="font-weight: 500; color: var(--color-semantic-text-secondary);">Army</span>
+            <select data-select="army" disabled style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
+              <option value="">-- Select Army --</option>
+            </select>
+          </label>
+          <label style="display: flex; flex-direction: column; gap: var(--spacing-scale-1); flex: 1; min-width: 150px;">
+            <span style="font-weight: 500; color: var(--color-semantic-text-secondary);">Unit</span>
+            <select data-select="unit" disabled style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
+              <option value="">-- Select Unit --</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Unit Display Area -->
+        <div data-element="unit-display" style="display: none; flex-direction: column; gap: var(--spacing-scale-3);">
+          <!-- Unit Header -->
+          <div style="background: var(--color-semantic-bg-tertiary); padding: var(--spacing-scale-3); border-radius: var(--border-radius-md); border-left: 4px solid var(--color-semantic-border-accent);">
+            <h2 data-element="unit-name" style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-xl); color: var(--color-semantic-text-primary);"></h2>
+            <div style="display: flex; gap: var(--spacing-scale-4); flex-wrap: wrap; font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">
+              <div><strong>Size:</strong> <span data-element="unit-size"></span></div>
+              <div><strong>Cost:</strong> <span data-element="unit-cost"></span>pts</div>
+              <div><strong>Quality:</strong> <span data-element="unit-quality"></span>+</div>
+              <div><strong>Defense:</strong> <span data-element="unit-defense"></span>+</div>
+              <div><strong>Type:</strong> <span data-element="unit-type"></span></div>
+            </div>
+          </div>
+
+          <!-- Special Rules -->
+          <div data-element="special-rules-container" style="display: none;">
+            <h3 style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">Special Rules</h3>
+            <div data-element="special-rules" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);"></div>
+          </div>
+
+          <!-- Weapons -->
+          <div data-element="weapons-container" style="display: none;">
+            <h3 style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">Weapons</h3>
+            <div data-element="weapons" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);"></div>
+          </div>
+
+          <!-- Upgrades -->
+          <div data-element="upgrades-container" style="display: none;">
+            <h3 style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">Available Upgrades</h3>
+            <div data-element="upgrades" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);"></div>
+          </div>
+
+          <!-- Total Cost -->
+          <div style="background: var(--color-semantic-bg-tertiary); padding: var(--spacing-scale-3); border-radius: var(--border-radius-md); margin-top: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <strong style="font-size: var(--font-size-lg);">Total Cost:</strong>
+              <strong data-element="total-cost" style="font-size: var(--font-size-xl); color: var(--color-semantic-text-accent);">0pts</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div data-element="empty-state" style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--color-semantic-text-tertiary); font-size: var(--font-size-lg);">
+          Select a universe, army, and unit to begin
+        </div>
+      </div>
+    </template>
+
     <template id="view-handle">
       <div data-action="resize" class="handle"></div>
     </template>
@@ -181,6 +257,9 @@
               <option value="view-nodegraph">Node Graph</option>
               <option value="view-tree">Tree View</option>
               <option value="view-tilemap">Tilemap</option>
+            </optgroup>
+            <optgroup label="OPR">
+              <option value="view-opr-unit-builder">Unit Builder</option>
             </optgroup>
             <optgroup label="Utilities">
               <option value="view-console">Console</option>

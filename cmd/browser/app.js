@@ -16,6 +16,7 @@ import { ViewTilemap } from "./views/view-tilemap.js"
 import { ViewTesting } from "./views/view-testing.js"
 import { ViewPipeline } from "./views/view-pipeline.js"
 import { ViewNodeGraph } from "./views/view-nodegraph.js"
+import { ViewOPRUnitBuilder } from "./views/view-opr-unit-builder.js"
 
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
@@ -45,6 +46,7 @@ customElements.define('view-tilemap', ViewTilemap)
 customElements.define('view-tree', ViewTree)
 customElements.define('view-console', ViewConsole)
 customElements.define('view-pipeline', ViewPipeline)
+customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
 // customElements.define('view-nodegraph', ViewNodeGraph) //already registered in file
 
 /// THE PLUGIN MANAGER TESTING!!!
@@ -213,6 +215,48 @@ async function initKeybindings() {
 }
 
 await initKeybindings()
+
+// Initialize OPR Database (One Page Rules - Grimdark Future, Age of Fantasy, etc.)
+async function initOPRDatabase() {
+  const sqlFiles = [
+    '00-schema.sql',
+    '01-universes.sql',
+    '02-special-rules-universal.sql',
+    '03-weapons-common.sql',
+    '10-gf-armies.sql',
+    '11-gf-special-rules.sql',
+    '12-gf-weapons.sql',
+    '13-gf-units-battle-brothers.sql',
+    '14-gf-units-alien-hives.sql',
+  ]
+
+  try {
+    for (const file of sqlFiles) {
+      const response = await fetch(`/data/opr/${file}`)
+      if (!response.ok) {
+        console.warn(`OPR: Skipping ${file} (not found)`)
+        continue
+      }
+      
+      const sql = await response.text()
+      await window.pluginManager.call('sql', 'restore', sql)
+      console.log(`OPR: Loaded ${file}`)
+    }
+
+    // Verify data loaded
+    const armyResult = await window.pluginManager.call('sql', 'query',
+      'SELECT COUNT(*) as count FROM opr_armies'
+    )
+    const unitResult = await window.pluginManager.call('sql', 'query',
+      'SELECT COUNT(*) as count FROM opr_units'
+    )
+    console.log('OPR Database:', DE.decode(armyResult.output), 'armies,', DE.decode(unitResult.output), 'units')
+  } catch (error) {
+    console.error('Error initializing OPR database:', error)
+  }
+}
+
+await initOPRDatabase()
 
 // Initialize keybinding manager
 import { keybindingManager } from "./systems/keybinding-manager.js"
