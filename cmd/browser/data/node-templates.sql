@@ -49,6 +49,12 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   '<node-plugin title="AutoMap" x="135" y="160" plugin="automap" function="automap" inputs="rulesMapId,inputMapId,outputMapId" outputs="result"></node-plugin>'
 ),
 (
+  'Biome Assigner',
+  'plugin',
+  'Assign biome names to tree nodes',
+  '<node-plugin title="Biome Assigner" plugin="biomes" function="gen" inputs="treeId,biomesQuery" outputs="result"></node-plugin>'
+),
+(
   'Key-Lock Assigner',
   'plugin',
   'Assign keys and locks to tree nodes for progression',
