@@ -63,7 +63,8 @@
           <form name="biomes"
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Tree ID: <input type="text" name="treeId" value="progression"></label>
-            <label>Biomes Query: <input type="text" name="biomesQuery" value="SELECT name FROM biomes ORDER BY RANDOM()" style="width: 100%;"></label>
+            <label>Biomes Query: <input type="text" name="biomesQuery" value="SELECT name FROM biomes ORDER BY RANDOM()"
+                style="width: 100%;"></label>
             <button type="submit">Assign Biomes</button>
           </form>
         </details>
@@ -72,11 +73,12 @@
           <form name="keylock"
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Tree ID: <input type="text" name="treeId" value="progression"></label>
-            <label>Keys Query: <input type="text" name="keysQuery" value="SELECT name FROM keys ORDER BY RANDOM() LIMIT 15" style="width: 100%;"></label>
-            <label>Key Chance: <span>0.5</span> <input type="range" name="keyChance" min="0" max="1" step="0.1" value="0.5"
-                oninput="this.previousElementSibling.textContent=this.value"></label>
-            <label>Lock Chance: <span>0.7</span> <input type="range" name="lockChance" min="0" max="1" step="0.1" value="0.7"
-                oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Keys Query: <input type="text" name="keysQuery"
+                value="SELECT name FROM keys ORDER BY RANDOM() LIMIT 15" style="width: 100%;"></label>
+            <label>Key Chance: <span>0.5</span> <input type="range" name="keyChance" min="0" max="1" step="0.1"
+                value="0.5" oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Lock Chance: <span>0.7</span> <input type="range" name="lockChance" min="0" max="1" step="0.1"
+                value="0.7" oninput="this.previousElementSibling.textContent=this.value"></label>
             <label>Max Keys Per Lock: <span>2</span> <input type="range" name="maxKeysPerLock" min="1" max="5" value="2"
                 oninput="this.previousElementSibling.textContent=this.value"></label>
             <button type="submit">Assign Keys & Locks</button>
@@ -88,7 +90,7 @@
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
             <label>Output Map: <input type="text" name="mapId" value="new_map"></label>
-            <label>Layout Direction: 
+            <label>Layout Direction:
               <select name="direction">
                 <option value="radial" selected>Radial</option>
                 <option value="topDown">Top Down</option>
@@ -167,24 +169,28 @@
         <button data-action="random-unit" class="button-secondary">🎲 Random Unit</button>
         <button data-action="export-json" class="button-primary">📋 Export JSON</button>
       </div>
-      <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3); height: 100%; overflow: auto;">
+      <div
+        style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3); height: 100%; overflow: auto;">
         <!-- Universe/Army/Unit Selectors -->
         <div style="display: flex; gap: var(--spacing-scale-2); flex-wrap: wrap;">
           <label style="display: flex; flex-direction: column; gap: var(--spacing-scale-1); flex: 1; min-width: 150px;">
             <span style="font-weight: 500; color: var(--color-semantic-text-secondary);">Universe</span>
-            <select data-select="universe" style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
+            <select data-select="universe"
+              style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
               <option value="">-- Select Universe --</option>
             </select>
           </label>
           <label style="display: flex; flex-direction: column; gap: var(--spacing-scale-1); flex: 1; min-width: 150px;">
             <span style="font-weight: 500; color: var(--color-semantic-text-secondary);">Army</span>
-            <select data-select="army" disabled style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
+            <select data-select="army" disabled
+              style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
               <option value="">-- Select Army --</option>
             </select>
           </label>
           <label style="display: flex; flex-direction: column; gap: var(--spacing-scale-1); flex: 1; min-width: 150px;">
             <span style="font-weight: 500; color: var(--color-semantic-text-secondary);">Unit</span>
-            <select data-select="unit" disabled style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
+            <select data-select="unit" disabled
+              style="padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary); font-size: var(--font-size-md);">
               <option value="">-- Select Unit --</option>
             </select>
           </label>
@@ -193,9 +199,13 @@
         <!-- Unit Display Area -->
         <div data-element="unit-display" style="display: none; flex-direction: column; gap: var(--spacing-scale-3);">
           <!-- Unit Header -->
-          <div style="background: var(--color-semantic-bg-tertiary); padding: var(--spacing-scale-3); border-radius: var(--border-radius-md); border-left: 4px solid var(--color-semantic-border-accent);">
-            <h2 data-element="unit-name" style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-xl); color: var(--color-semantic-text-primary);"></h2>
-            <div style="display: flex; gap: var(--spacing-scale-4); flex-wrap: wrap; font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">
+          <div
+            style="background: var(--color-semantic-bg-tertiary); padding: var(--spacing-scale-3); border-radius: var(--border-radius-md); border-left: 4px solid var(--color-semantic-border-accent);">
+            <h2 data-element="unit-name"
+              style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-xl); color: var(--color-semantic-text-primary);">
+            </h2>
+            <div
+              style="display: flex; gap: var(--spacing-scale-4); flex-wrap: wrap; font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">
               <div><strong>Size:</strong> <span data-element="unit-size"></span></div>
               <div><strong>Cost:</strong> <span data-element="unit-cost"></span>pts</div>
               <div><strong>Quality:</strong> <span data-element="unit-quality"></span>+</div>
@@ -206,33 +216,44 @@
 
           <!-- Special Rules -->
           <div data-element="special-rules-container" style="display: none;">
-            <h3 style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">Special Rules</h3>
-            <div data-element="special-rules" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);"></div>
+            <h3
+              style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">
+              Special Rules</h3>
+            <div data-element="special-rules" style="display: flex; gap: var(--spacing-scale-2);"></div>
           </div>
 
           <!-- Weapons -->
           <div data-element="weapons-container" style="display: none;">
-            <h3 style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">Weapons</h3>
-            <div data-element="weapons" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);"></div>
+            <h3
+              style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">
+              Weapons</h3>
+            <div data-element="weapons" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);">
+            </div>
           </div>
 
           <!-- Upgrades -->
           <div data-element="upgrades-container" style="display: none;">
-            <h3 style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">Available Upgrades</h3>
-            <div data-element="upgrades" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);"></div>
+            <h3
+              style="margin: 0 0 var(--spacing-scale-2) 0; font-size: var(--font-size-lg); color: var(--color-semantic-text-primary);">
+              Available Upgrades</h3>
+            <div data-element="upgrades" style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);">
+            </div>
           </div>
 
           <!-- Total Cost -->
-          <div style="background: var(--color-semantic-bg-tertiary); padding: var(--spacing-scale-3); border-radius: var(--border-radius-md); margin-top: auto;">
+          <div
+            style="background: var(--color-semantic-bg-tertiary); padding: var(--spacing-scale-3); border-radius: var(--border-radius-md); margin-top: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <strong style="font-size: var(--font-size-lg);">Total Cost:</strong>
-              <strong data-element="total-cost" style="font-size: var(--font-size-xl); color: var(--color-semantic-text-accent);">0pts</strong>
+              <strong data-element="total-cost"
+                style="font-size: var(--font-size-xl); color: var(--color-semantic-text-accent);">0pts</strong>
             </div>
           </div>
         </div>
 
         <!-- Empty State -->
-        <div data-element="empty-state" style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--color-semantic-text-tertiary); font-size: var(--font-size-lg);">
+        <div data-element="empty-state"
+          style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--color-semantic-text-tertiary); font-size: var(--font-size-lg);">
           Select a universe, army, and unit to begin
         </div>
       </div>

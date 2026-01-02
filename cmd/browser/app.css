@@ -66,6 +66,48 @@ view--chrome .se {
   transform: translate(-50%, -100%);
 }
 
+/* OPR Special Rules - Abbreviation tooltips */
+abbr[title] {
+  text-decoration: underline dotted;
+  text-decoration-color: var(--color-semantic-border-accent);
+  cursor: help;
+  position: relative;
+}
+
+abbr[title]:hover {
+  text-decoration-color: var(--color-semantic-text-accent);
+}
+
+
+abbr {
+  position: relative;
+  cursor: help;
+  text-decoration: underline dotted;
+}
+
+abbr::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  /* transform: translateX(-50%); */
+  margin-bottom: 6px;
+
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+
+  opacity: 0;
+  pointer-events: none;
+}
+
+abbr:hover::after {
+  opacity: 1;
+}
+
 /* Popup System Styles */
 popup-manager {
   display: contents;
@@ -223,11 +265,11 @@ view-popup .popup-content,
 }
 
 /* Canvas views inside popup (slotted content) fill available space */
-view-popup > view-tilemap,
-view-popup > view-minimap,
-view-popup > view-tree,
-view-popup > view-nodegraph,
-view-popup > view-canvas-base {
+view-popup>view-tilemap,
+view-popup>view-minimap,
+view-popup>view-tree,
+view-popup>view-nodegraph,
+view-popup>view-canvas-base {
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
