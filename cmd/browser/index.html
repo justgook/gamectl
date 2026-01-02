@@ -59,7 +59,16 @@
           </form>
         </details>
         <details>
-          <summary>2. Assign Keys & Locks</summary>
+          <summary>2. Assign Biomes</summary>
+          <form name="biomes"
+            style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
+            <label>Tree ID: <input type="text" name="treeId" value="progression"></label>
+            <label>Biomes Query: <input type="text" name="biomesQuery" value="SELECT name FROM biomes ORDER BY RANDOM()" style="width: 100%;"></label>
+            <button type="submit">Assign Biomes</button>
+          </form>
+        </details>
+        <details>
+          <summary>3. Assign Keys & Locks</summary>
           <form name="keylock"
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Tree ID: <input type="text" name="treeId" value="progression"></label>
@@ -74,7 +83,7 @@
           </form>
         </details>
         <details open>
-          <summary>3. Create Minimap</summary>
+          <summary>4. Create Minimap</summary>
           <form name="minimap"
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
@@ -93,7 +102,7 @@
           </form>
         </details>
         <details>
-          <summary>4. Apply Automap Rules</summary>
+          <summary>5. Apply Automap Rules</summary>
           <form name="automap"
             style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
             <label>Rules Map: <input type="text" name="rulesMapId" value="rules"></label>

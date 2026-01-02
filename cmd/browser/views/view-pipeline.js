@@ -8,6 +8,7 @@ export class ViewPipeline extends HTMLElement {
     // Track which steps have been completed
     this.completedSteps = {
       tree: false,
+      biomes: false,
       keylock: false,
       minimap: false,
       automap: false
@@ -25,6 +26,8 @@ export class ViewPipeline extends HTMLElement {
 
     this.querySelector('form[name="tree"]')
       ?.addEventListener('submit', (e) => this.generateWorldTree(e))
+    this.querySelector('form[name="biomes"]')
+      ?.addEventListener('submit', (e) => this.handleBiomesSubmit(e))
     this.querySelector('form[name="keylock"]')
       ?.addEventListener('submit', (e) => this.handleKeylockSubmit(e))
     this.querySelector('form[name="minimap"]')
@@ -106,6 +109,55 @@ export class ViewPipeline extends HTMLElement {
     }
   }
 
+  async handleBiomesSubmit(e) {
+    e.preventDefault()
+
+    // Auto-generate tree if not done yet
+    if (!this.completedSteps.tree) {
+      toast.info('Generating world tree first...', { duration: 2000 })
+      const treeResult = await this.generateWorldTree(null, true)
+      if (!treeResult.success) {
+        return // Stop if tree generation failed
+      }
+    }
+
+    // Generate biomes
+    await this.generateBiomes(null, false)
+  }
+
+  async generateBiomes(e, skipToast = false) {
+    if (e) e.preventDefault()
+
+    const form = this.querySelector('form[name="biomes"]')
+    const data = Object.fromEntries(new FormData(form))
+
+    try {
+      const result = await pluginManager.call("biomes", "gen", JSON.stringify({
+        treeId: data.treeId,
+        biomesQuery: data.biomesQuery
+      }))
+
+      const response = JSON.parse(this.DE.decode(result.output))
+
+      if (response.success) {
+        this.completedSteps.biomes = true
+        if (!skipToast) {
+          toast.success(`Biomes assigned to: ${data.treeId}`, { duration: 3000 })
+        }
+        console.log('[Biomes] Success:', response)
+        return { success: true, treeId: data.treeId }
+      } else {
+        toast.error(`Biomes failed: ${response.error || 'Unknown error'}`, { duration: 5000 })
+        console.error('[Biomes] Error:', response)
+        return { success: false, error: response.error }
+      }
+    } catch (error) {
+      toast.error(`Biomes error: ${error.message}`, { duration: 5000 })
+      console.error('[Biomes] Exception:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
   async handleKeylockSubmit(e) {
     e.preventDefault()
 
@@ -115,6 +167,15 @@ export class ViewPipeline extends HTMLElement {
       const treeResult = await this.generateWorldTree(null, true)
       if (!treeResult.success) {
         return // Stop if tree generation failed
+      }
+    }
+
+    // Auto-generate biomes if not done yet
+    if (!this.completedSteps.biomes) {
+      toast.info('Assigning biomes...', { duration: 2000 })
+      const biomesResult = await this.generateBiomes(null, true)
+      if (!biomesResult.success) {
+        return // Stop if biomes failed
       }
     }
 
@@ -170,6 +231,15 @@ export class ViewPipeline extends HTMLElement {
       }
     }
 
+    // Auto-generate biomes if not done yet
+    if (!this.completedSteps.biomes) {
+      toast.info('Assigning biomes...', { duration: 2000 })
+      const biomesResult = await this.generateBiomes(null, true)
+      if (!biomesResult.success) {
+        return // Stop if biomes failed
+      }
+    }
+
     // Auto-generate keylock if not done yet
     if (!this.completedSteps.keylock) {
       toast.info('Assigning keys and locks...', { duration: 2000 })
@@ -192,6 +262,15 @@ export class ViewPipeline extends HTMLElement {
       const treeResult = await this.generateWorldTree(null, true)
       if (!treeResult.success) {
         return // Stop if tree generation failed
+      }
+    }
+
+    // Auto-generate biomes if not done yet
+    if (!this.completedSteps.biomes) {
+      toast.info('Assigning biomes...', { duration: 2000 })
+      const biomesResult = await this.generateBiomes(null, true)
+      if (!biomesResult.success) {
+        return // Stop if biomes failed
       }
     }
 
