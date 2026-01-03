@@ -2,13 +2,6 @@
 -- Real data from GF - Alien Hives v3.5.1 PDF
 -- Fully normalized with upgrade groups and weapon special rules
 
--- Clean up existing data
-DELETE FROM opr_upgrades WHERE unit_id LIKE 'gf-ah-%';
-DELETE FROM opr_upgrade_groups WHERE unit_id LIKE 'gf-ah-%';
-DELETE FROM opr_unit_weapons WHERE unit_id LIKE 'gf-ah-%';
-DELETE FROM opr_unit_special_rules WHERE unit_id LIKE 'gf-ah-%';
-DELETE FROM opr_units WHERE army_id = 'gf-alien-hives';
-
 -- ============================================================================
 -- UNITS
 -- ============================================================================
@@ -155,7 +148,7 @@ INSERT INTO opr_upgrades (id, unit_id, group_id, upgrade_type, name, cost, descr
 -- Group 3: Additional Upgrades
 INSERT INTO opr_upgrades (id, unit_id, group_id, upgrade_type, name, cost, description, adds_special_rule_id, sort_order) VALUES
 ('gf-ah-grunt-veteran-up8', 'gf-ah-grunt-veteran', 'gf-ah-grunt-veteran-ug3', 'add-rule', 'Adrenaline Fueled (Agile)', 5, 'Unit gains Agile', 'agile', 1),
-('gf-ah-grunt-veteran-up9', 'gf-ah-grunt-veteran', 'gf-ah-grunt-veteran-ug3', 'add-rule', 'Toxic Cysts (Bane in Melee)', 5, 'Melee attacks gain Bane', NULL, 2),
+('gf-ah-grunt-veteran-up9', 'gf-ah-grunt-veteran', 'gf-ah-grunt-veteran-ug3', 'add-rule', 'Toxic Cysts (Bane in Melee)', 5, 'Melee attacks gain Bane', 'bane', 2),
 ('gf-ah-grunt-veteran-up10', 'gf-ah-grunt-veteran', 'gf-ah-grunt-veteran-ug3', 'add-rule', 'Combat Mutations (Piercing Growth)', 25, 'Unit gains Piercing Growth', 'piercing-growth', 3);
 
 -- Assault Grunts Upgrades
@@ -169,7 +162,7 @@ INSERT INTO opr_upgrades (id, unit_id, group_id, upgrade_type, name, cost, descr
 -- Group 2: Upgrade all models with one
 INSERT INTO opr_upgrades (id, unit_id, group_id, upgrade_type, name, cost, description, adds_special_rule_id, sort_order) VALUES
 ('gf-ah-assault-grunts-up5', 'gf-ah-assault-grunts', 'gf-ah-assault-grunts-ug2', 'add-rule', 'Adrenaline Fueled (Agile)', 5, 'All models gain Agile', 'agile', 1),
-('gf-ah-assault-grunts-up6', 'gf-ah-assault-grunts', 'gf-ah-assault-grunts-ug2', 'add-rule', 'Toxic Cysts (Bane in Melee)', 10, 'All models melee attacks gain Bane', NULL, 2),
+('gf-ah-assault-grunts-up6', 'gf-ah-assault-grunts', 'gf-ah-assault-grunts-ug2', 'add-rule', 'Toxic Cysts (Bane in Melee)', 10, 'All models melee attacks gain Bane', 'bane', 2),
 ('gf-ah-assault-grunts-up7', 'gf-ah-assault-grunts', 'gf-ah-assault-grunts-ug2', 'add-rule', 'Combat Mutations (Piercing Growth)', 25, 'All models gain Piercing Growth', 'piercing-growth', 3);
 
 -- Shooter Grunts Upgrades

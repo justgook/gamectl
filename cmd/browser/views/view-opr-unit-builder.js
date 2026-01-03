@@ -87,10 +87,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       lines.forEach(line => {
         const [id, name, description] = line
         this.state.specialRulesCache.set(id, { name, description })
+        // Also cache by lowercase name for easy lookup
+        this.state.specialRulesCache.set(name.toLowerCase(), { name, description })
       })
     } catch (error) {
       console.error('Error caching special rules:', error)
@@ -213,12 +215,17 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.unitCost.textContent = cost
       this.elements.unitQuality.textContent = `${quality}+`
       this.elements.unitDefense.textContent = `${defense}+`
-      
-      // Add Tough if present
+
+      // Add Tough if present with tooltip
       if (tough && tough !== 'NULL' && tough !== '') {
-        this.elements.unitDefense.textContent += ` (Tough ${tough})`
+        const toughData = this.state.specialRulesCache.get('tough')
+        if (toughData) {
+          this.elements.unitDefense.innerHTML = `${defense}+ (<abbr data-tooltip="${toughData.description}" style="text-decoration: underline dotted; cursor: help; text-decoration-color: var(--color-semantic-border-accent);">Tough(${tough})</abbr>)`
+        } else {
+          this.elements.unitDefense.textContent = `${defense}+ (Tough ${tough})`
+        }
       }
-      
+
       this.elements.unitType.textContent = unitType
 
       // Load special rules with tooltips
@@ -285,6 +292,21 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     }
   }
 
+  wrapPropertyWithTooltip(property) {
+    // Helper function to wrap weapon properties with tooltips
+    // Matches patterns like "AP(1)", "Blast(3)", "Reliable", etc.
+    const match = property.match(/^([A-Za-z]+)(?:\((\d+)\))?$/)
+    if (!match) return property
+
+    const [_, ruleName, rating] = match
+    const ruleData = this.state.specialRulesCache.get(ruleName.toLowerCase())
+
+    if (!ruleData) return property
+
+    const displayName = rating ? `${ruleName}(${rating})` : ruleName
+    return `<abbr data-tooltip="${ruleData.description}" style="text-decoration: underline dotted; cursor: help; text-decoration-color: var(--color-semantic-border-accent);">${displayName}</abbr>`
+  }
+
   async loadWeapons(unitId) {
     try {
       // Get weapons with special rules
@@ -314,7 +336,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
       lines.forEach(line => {
         const [weaponId, name, range, attacks, ap, count, specialRulesStr] = line
-        
+
         // Track current weapons
         this.state.currentWeapons.set(weaponId, { name, count: parseInt(count) })
 
@@ -323,8 +345,13 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
         const hasRange = range && range !== '' && range !== 'NULL'
         const rangeText = hasRange ? `${range}"` : 'Melee'
-        const apText = (ap && ap !== '0' && ap !== 'NULL') ? ` AP(${ap})` : ''
-        
+
+        // Wrap AP with tooltip if present
+        let apText = ''
+        if (ap && ap !== '0' && ap !== 'NULL') {
+          apText = ` ${this.wrapPropertyWithTooltip(`AP(${ap})`)}`
+        }
+
         // Parse special rules
         let specialRulesHTML = ''
         if (specialRulesStr && specialRulesStr !== 'NULL' && specialRulesStr !== '') {
@@ -333,11 +360,11 @@ export class ViewOPRUnitBuilder extends HTMLElement {
             const [ruleId, rating] = rule.split(':')
             const ruleData = this.state.specialRulesCache.get(ruleId)
             if (!ruleData) return ''
-            
+
             const ruleName = rating && rating !== '' ? `${ruleData.name}(${rating})` : ruleData.name
-            return `<abbr data-tooltip="${ruleData.description}" style="text-decoration: underline dotted; cursor: help;">${ruleName}</abbr>`
+            return `<abbr data-tooltip="${ruleData.description}" style="text-decoration: underline dotted; cursor: help; text-decoration-color: var(--color-semantic-border-accent);">${ruleName}</abbr>`
           }).filter(r => r !== '')
-          
+
           if (ruleElements.length > 0) {
             specialRulesHTML = ` ${ruleElements.join(', ')}`
           }
@@ -409,12 +436,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       if (ungroupedUpgrades.length > 0) {
         const ungroupedDiv = document.createElement('div')
         ungroupedDiv.style.cssText = 'margin-top: var(--spacing-scale-3);'
-        
+
         for (const upgradeLine of ungroupedUpgrades) {
           const upgradeDiv = await this.renderUpgrade(upgradeLine, null, 'pick-any', null)
           ungroupedDiv.appendChild(upgradeDiv)
         }
-        
+
         this.elements.upgrades.appendChild(ungroupedDiv)
       }
     } catch (error) {
@@ -430,18 +457,18 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     // Header
     const headerDiv = document.createElement('div')
     headerDiv.style.cssText = 'margin-bottom: var(--spacing-scale-3); display: flex; justify-content: space-between; align-items: baseline;'
-    
+
     let headerText = `<span style="font-weight: 600; color: var(--color-semantic-text-primary);">${label}</span>`
-    
+
     if (appliesTo && appliesTo !== 'NULL') {
       const scope = this.formatAppliesTo(appliesTo, appliesCount)
       headerText += ` <span style="font-weight: normal; color: var(--color-semantic-text-secondary); font-size: var(--font-size-sm);">(${scope})</span>`
     }
-    
-    const selectionInfo = selectionType === 'pick-one' 
+
+    const selectionInfo = selectionType === 'pick-one'
       ? `<span style="color: var(--color-semantic-text-accent); font-size: var(--font-size-sm);">Choose 1</span>`
       : `<span style="color: var(--color-semantic-text-tertiary); font-size: var(--font-size-sm);">Up to ${maxSel || '∞'}</span>`
-    
+
     headerDiv.innerHTML = `${headerText} ${selectionInfo}`
     groupDiv.appendChild(headerDiv)
 
@@ -456,7 +483,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   async renderUpgrade(upgradeLine, groupId, selectionType, maxSel) {
     const [id, _groupId, name, cost, description, upgradeType, replacesWeaponId, addsWeaponId, addsSpecialRuleId] = upgradeLine
-    
+
     const upgradeDiv = document.createElement('label')
     upgradeDiv.style.cssText = 'display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); cursor: pointer; align-items: flex-start; margin-bottom: var(--spacing-scale-1); transition: background 0.15s ease;'
     upgradeDiv.onmouseover = () => upgradeDiv.style.background = 'var(--color-semantic-bg-hover)'
@@ -465,7 +492,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     // Determine if this is a weapon replacement and calculate real cost
     let displayCost = parseInt(cost)
     let costLabel = ''
-    
+
     if (upgradeType === 'replace-weapon' && replacesWeaponId && replacesWeaponId !== 'NULL') {
       // This replaces a weapon, so the cost is really the difference
       costLabel = `${cost >= 0 ? '+' : ''}${cost}pts`
@@ -476,21 +503,35 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     const inputType = selectionType === 'pick-one' ? 'radio' : 'checkbox'
     const inputName = groupId ? `upgrade-group-${groupId}` : `upgrade-${id}`
 
-    // Clean up name - extract special rule from parentheses
-    let cleanName = name
-    let specialRuleTooltip = ''
-    
-    // Match pattern like "Adrenaline Fueled (Agile)"
-    const match = name.match(/^(.+?)\s*\(([^)]+)\)$/)
-    if (match && addsSpecialRuleId && addsSpecialRuleId !== 'NULL') {
-      const baseName = match[1]
-      const ruleName = match[2]
-      const ruleData = this.state.specialRulesCache.get(addsSpecialRuleId)
-      
-      if (ruleData) {
-        cleanName = baseName
-        specialRuleTooltip = `<abbr data-tooltip="${ruleData.description}" style="text-decoration: underline dotted; cursor: help; color: var(--color-semantic-text-accent);">${ruleName}</abbr>`
+    // Process upgrade name and add tooltips
+    let displayName = name
+
+    // For add-rule upgrades, extract and wrap special rule with tooltip
+    if (upgradeType === 'add-rule' && addsSpecialRuleId && addsSpecialRuleId !== 'NULL') {
+      const match = name.match(/^(.+?)\s*\(([^)]+)\)$/)
+      if (match) {
+        const baseName = match[1]
+        const ruleName = match[2]
+        const ruleData = this.state.specialRulesCache.get(addsSpecialRuleId)
+
+        if (ruleData) {
+          const ruleTooltip = `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dotted; cursor: help; color: var(--color-semantic-text-accent);">${ruleName}</abbr>`
+          displayName = `${baseName} (${ruleTooltip})`
+        }
       }
+    }
+
+    // For weapon replacements and attack replacements, wrap weapon properties with tooltips
+    if (upgradeType === 'replace-weapon' || upgradeType === 'replace-attacks') {
+      // Match patterns like "AP(1)", "Blast(3)", "Deadly(3)", "Rending" within the weapon stats
+      displayName = displayName.replace(/\b(AP|Blast|Deadly|Rending|Reliable|Bane|Takedown|Precise|Furious|Shred|Rupture|Unstoppable|Indirect|Strafing)(\((\d+)\))?/g, (match, ruleName, fullRating, rating) => {
+        const ruleData = this.state.specialRulesCache.get(ruleName.toLowerCase())
+        if (ruleData) {
+          const displayText = rating ? `${ruleName}(${rating})` : ruleName
+          return `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dotted; cursor: help; color: var(--color-semantic-text-accent);">${displayText}</abbr>`
+        }
+        return match
+      })
     }
 
     const prefix = upgradeType === 'replace-weapon' ? '→ ' : ''
@@ -505,7 +546,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
              style="cursor: pointer; margin-top: 2px; flex-shrink: 0;">
       <div style="flex: 1;">
         <div style="font-weight: 500; color: var(--color-semantic-text-primary);">
-          ${prefix}${cleanName} ${specialRuleTooltip}
+          ${prefix}${displayName}
           <span style="color: var(--color-semantic-text-accent); margin-left: var(--spacing-scale-1);">${costLabel}</span>
         </div>
         ${description && description !== 'NULL' ? `<div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); margin-top: var(--spacing-scale-1);">${description}</div>` : ''}
@@ -641,8 +682,16 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
       for (let i = 0; i < line.length; i++) {
         const char = line[i]
+        const nextChar = line[i + 1]
+
         if (char === '"') {
-          inQuotes = !inQuotes
+          // Check if this is an escaped quote ("") inside a quoted field
+          if (inQuotes && nextChar === '"') {
+            current += '"'  // Add single quote to output
+            i++  // Skip the next quote
+          } else {
+            inQuotes = !inQuotes  // Toggle quote state
+          }
         } else if (char === ',' && !inQuotes) {
           values.push(current)
           current = ''
