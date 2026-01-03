@@ -55,18 +55,18 @@ type Item struct {
 }
 
 type Content struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Type    string `json:"type"` // ArmyBookWeapon, ArmyBookRule
-	Range   int    `json:"range"`
-	Attacks int    `json:"attacks"`
-	Rating  int    `json:"rating"`
+	ID      string      `json:"id"`
+	Name    string      `json:"name"`
+	Type    string      `json:"type"` // ArmyBookWeapon, ArmyBookRule
+	Range   int         `json:"range"`
+	Attacks int         `json:"attacks"`
+	Rating  interface{} `json:"rating"` // Can be int or string
 }
 
 type Rule struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Rating int    `json:"rating"`
+	ID     string      `json:"id"`
+	Name   string      `json:"name"`
+	Rating interface{} `json:"rating"` // Can be int or string
 }
 
 type SpecialRule struct {
@@ -107,15 +107,15 @@ type Option struct {
 }
 
 type Gains struct {
-	ID           string  `json:"id"`
-	Name         string  `json:"name"`
-	Type         string  `json:"type"` // ArmyBookWeapon, ArmyBookRule, ArmyBookItem
-	Range        int     `json:"range"`
-	Attacks      int     `json:"attacks"`
-	Rating       int     `json:"rating"`
-	Count        int     `json:"count"`
-	SpecialRules []Rule  `json:"specialRules"`
-	Content      []Gains `json:"content"`
+	ID           string      `json:"id"`
+	Name         string      `json:"name"`
+	Type         string      `json:"type"` // ArmyBookWeapon, ArmyBookRule, ArmyBookItem
+	Range        int         `json:"range"`
+	Attacks      int         `json:"attacks"`
+	Rating       interface{} `json:"rating"` // Can be int or string
+	Count        int         `json:"count"`
+	SpecialRules []Rule      `json:"specialRules"`
+	Content      []Gains     `json:"content"`
 }
 
 // ============================================================================
@@ -305,7 +305,7 @@ func (g *SQLGenerator) addEquipmentWithGrants(name, equipType string, rng, attac
 	var rules []RuleDef
 	for _, rule := range specialRules {
 		ruleID := g.getRuleID(rule.Name)
-		rules = append(rules, RuleDef{ID: ruleID, Rating: rule.Rating})
+		rules = append(rules, RuleDef{ID: ruleID, Rating: extractRating(rule.Rating)})
 	}
 
 	g.equipmentMap[eqID] = &EquipmentDef{
@@ -380,7 +380,7 @@ func (g *SQLGenerator) generateUnits(book *ArmyBook) string {
 		for _, rule := range unit.Rules {
 			ruleID := g.getRuleID(rule.Name)
 			b.WriteString(fmt.Sprintf("INSERT OR IGNORE INTO opr_unit_special_rules (unit_id, special_rule_id, rating) VALUES\n"))
-			b.WriteString(fmt.Sprintf("  ('%s', '%s', %d);\n", unitID, ruleID, rule.Rating))
+			b.WriteString(fmt.Sprintf("  ('%s', '%s', %d);\n", unitID, ruleID, extractRating(rule.Rating)))
 		}
 
 		// Unit weapons
@@ -486,6 +486,27 @@ func (g *SQLGenerator) generateUpgrade(unitID, unitAPIID string, pkg *UpgradePac
 // ============================================================================
 // Utility Functions
 // ============================================================================
+
+// extractRating converts interface{} rating to int
+// Handles both int and string ratings (e.g., "Spores [5]" -> 0, ignoring string ratings)
+func extractRating(rating interface{}) int {
+	if rating == nil {
+		return 0
+	}
+
+	switch v := rating.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	case string:
+		// String ratings like "Spores [5]" are handled as 0
+		// The full string will be in the name
+		return 0
+	default:
+		return 0
+	}
+}
 
 func slugify(s string) string {
 	s = strings.ToLower(s)
