@@ -1,8 +1,12 @@
 /**
- * OPR Unit Builder View
- * Dynamic UI for building units from OPR armies (Grimdark Future, Age of Fantasy, etc.)
+ * OPR Unit Builder View v2
+ * Advanced unit builder with:
+ * - Normalized weapon/rule tooltips
+ * - Upgrade groups (radio/checkbox)
+ * - Clear weapon replacement costs
+ * - Multi-unit card system
  * 
- * Workflow: Universe → Army → Unit → Display stats/weapons/rules → Select upgrades
+ * Workflow: Universe → Army → Unit → Build → Add to List
  */
 
 const DE = new TextDecoder()
@@ -15,8 +19,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       selectedArmy: null,
       selectedUnit: null,
       selectedUpgrades: new Set(),
-      baseCost: 0
+      baseCost: 0,
+      currentWeapons: new Map(), // Track current weapon loadout
+      specialRulesCache: new Map(), // Cache special rule descriptions
+      weaponSpecialRulesCache: new Map() // Cache weapon special rules
     }
+    this.unitCards = [] // Array of built units
   }
 
   connectedCallback() {
@@ -69,6 +77,24 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
     // Initial load
     this.loadUniverses()
+    this.cacheSpecialRules()
+  }
+
+  async cacheSpecialRules() {
+    try {
+      const result = await window.pluginManager.call('sql', 'query',
+        'SELECT id, name, description FROM opr_special_rules'
+      )
+      const csv = DE.decode(result.output)
+      const lines = this.parseCSV(csv)
+      
+      lines.forEach(line => {
+        const [id, name, description] = line
+        this.state.specialRulesCache.set(id, { name, description })
+      })
+    } catch (error) {
+      console.error('Error caching special rules:', error)
+    }
   }
 
   async loadUniverses() {
@@ -171,31 +197,37 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     try {
       // Get unit base stats
       const unitResult = await window.pluginManager.call('sql', 'query',
-        `SELECT id, name, size, cost, quality, defense, unit_type, notes FROM opr_units WHERE id = '${unitId}'`
+        `SELECT id, name, size, cost, quality, defense, tough, unit_type, notes FROM opr_units WHERE id = '${unitId}'`
       )
       const unitCsv = DE.decode(unitResult.output)
       const unitLines = this.parseCSV(unitCsv)
 
       if (unitLines.length === 0) return
 
-      const [id, name, size, cost, quality, defense, unitType, notes] = unitLines[0]
+      const [id, name, size, cost, quality, defense, tough, unitType, notes] = unitLines[0]
       this.state.baseCost = parseInt(cost)
 
       // Update unit header
       this.elements.unitName.textContent = name
       this.elements.unitSize.textContent = size
       this.elements.unitCost.textContent = cost
-      this.elements.unitQuality.textContent = quality
-      this.elements.unitDefense.textContent = defense
+      this.elements.unitQuality.textContent = `${quality}+`
+      this.elements.unitDefense.textContent = `${defense}+`
+      
+      // Add Tough if present
+      if (tough && tough !== 'NULL' && tough !== '') {
+        this.elements.unitDefense.textContent += ` (Tough ${tough})`
+      }
+      
       this.elements.unitType.textContent = unitType
 
-      // Load special rules
+      // Load special rules with tooltips
       await this.loadSpecialRules(unitId)
 
-      // Load weapons
+      // Load weapons with special rules tooltips
       await this.loadWeapons(unitId)
 
-      // Load upgrades
+      // Load upgrades with groups
       await this.loadUpgrades(unitId)
 
       // Show unit display
@@ -209,7 +241,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
   async loadSpecialRules(unitId) {
     try {
       const result = await window.pluginManager.call('sql', 'query',
-        `SELECT sr.name, sr.description, usr.rating
+        `SELECT sr.id, sr.name, sr.description, usr.rating
          FROM opr_unit_special_rules usr
          JOIN opr_special_rules sr ON usr.special_rule_id = sr.id
          WHERE usr.unit_id = '${unitId}'
@@ -227,17 +259,23 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.specialRules.innerHTML = ''
 
       lines.forEach(line => {
-        const [name, description, rating] = line
+        const [id, name, description, rating] = line
         const ruleDiv = document.createElement('div')
-        ruleDiv.style.cssText = 'padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); border-left: 3px solid var(--color-semantic-border-accent);'
+        ruleDiv.style.cssText = 'display: inline-block; margin-right: var(--spacing-scale-2); margin-bottom: var(--spacing-scale-1);'
 
-        // Handle NULL values from SQL (come through as empty string or "NULL")
         const hasRating = rating && rating !== '' && rating !== 'NULL'
         const ruleName = hasRating ? `${name}(${rating})` : name
 
-        // Use <abbr> with tooltip for special rules
         ruleDiv.innerHTML = `
-            <abbr data-tooltip="${description}" style="text-decoration: underline dotted; cursor: help; text-decoration-color: var(--color-semantic-border-accent);">${ruleName}</abbr>
+          <abbr data-tooltip="${description}" style="
+            text-decoration: underline dotted;
+            cursor: help;
+            text-decoration-color: var(--color-semantic-border-accent);
+            padding: var(--spacing-scale-1) var(--spacing-scale-2);
+            background: var(--color-semantic-bg-secondary);
+            border-radius: var(--border-radius-sm);
+            font-size: var(--font-size-sm);
+          ">${ruleName}</abbr>
         `
         this.elements.specialRules.appendChild(ruleDiv)
       })
@@ -249,11 +287,15 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   async loadWeapons(unitId) {
     try {
+      // Get weapons with special rules
       const result = await window.pluginManager.call('sql', 'query',
-        `SELECT w.name, w.range, w.attacks, w.ap, w.special, uw.count
+        `SELECT w.id, w.name, w.range, w.attacks, w.ap, uw.count,
+                GROUP_CONCAT(wsr.special_rule_id || ':' || COALESCE(wsr.rating, '')) as special_rules
          FROM opr_unit_weapons uw
          JOIN opr_weapons w ON uw.weapon_id = w.id
+         LEFT JOIN opr_weapon_special_rules wsr ON w.id = wsr.weapon_id
          WHERE uw.unit_id = '${unitId}' AND uw.is_default = 1
+         GROUP BY w.id, w.name, w.range, w.attacks, w.ap, uw.count
          ORDER BY w.range DESC, w.name`
       )
       const csv = DE.decode(result.output)
@@ -267,16 +309,39 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.weaponsContainer.style.display = 'block'
       this.elements.weapons.innerHTML = ''
 
-      lines.forEach(line => {
-        const [name, range, attacks, ap, special, count] = line
-        const weaponDiv = document.createElement('div')
-        weaponDiv.style.cssText = 'padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm);'
+      // Initialize current weapons
+      this.state.currentWeapons.clear()
 
-        // Handle NULL values from SQL
+      lines.forEach(line => {
+        const [weaponId, name, range, attacks, ap, count, specialRulesStr] = line
+        
+        // Track current weapons
+        this.state.currentWeapons.set(weaponId, { name, count: parseInt(count) })
+
+        const weaponDiv = document.createElement('div')
+        weaponDiv.style.cssText = 'padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); margin-bottom: var(--spacing-scale-1);'
+
         const hasRange = range && range !== '' && range !== 'NULL'
         const rangeText = hasRange ? `${range}"` : 'Melee'
         const apText = (ap && ap !== '0' && ap !== 'NULL') ? ` AP(${ap})` : ''
-        const specialText = (special && special !== '' && special !== 'NULL') ? ` ${special}` : ''
+        
+        // Parse special rules
+        let specialRulesHTML = ''
+        if (specialRulesStr && specialRulesStr !== 'NULL' && specialRulesStr !== '') {
+          const rules = specialRulesStr.split(',')
+          const ruleElements = rules.map(rule => {
+            const [ruleId, rating] = rule.split(':')
+            const ruleData = this.state.specialRulesCache.get(ruleId)
+            if (!ruleData) return ''
+            
+            const ruleName = rating && rating !== '' ? `${ruleData.name}(${rating})` : ruleData.name
+            return `<abbr data-tooltip="${ruleData.description}" style="text-decoration: underline dotted; cursor: help;">${ruleName}</abbr>`
+          }).filter(r => r !== '')
+          
+          if (ruleElements.length > 0) {
+            specialRulesHTML = ` ${ruleElements.join(', ')}`
+          }
+        }
 
         weaponDiv.innerHTML = `
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -285,7 +350,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
               <span style="font-size: var(--font-size-sm); color: var(--color-semantic-text-tertiary);"> (${count}x)</span>
             </div>
             <div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">
-              Range: ${rangeText} | Attacks: ${attacks}${apText}${specialText}
+              Range: ${rangeText} | Attacks: ${attacks}${apText}${specialRulesHTML}
             </div>
           </div>
         `
@@ -299,16 +364,28 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   async loadUpgrades(unitId) {
     try {
-      const result = await window.pluginManager.call('sql', 'query',
-        `SELECT id, name, cost, description
-         FROM opr_upgrades
+      // Load upgrade groups
+      const groupsResult = await window.pluginManager.call('sql', 'query',
+        `SELECT id, label, selection_type, min_selections, max_selections, applies_to, applies_count
+         FROM opr_upgrade_groups
          WHERE unit_id = '${unitId}'
-         ORDER BY cost, name`
+         ORDER BY sort_order`
       )
-      const csv = DE.decode(result.output)
-      const lines = this.parseCSV(csv)
+      const groupsCsv = DE.decode(groupsResult.output)
+      const groups = this.parseCSV(groupsCsv)
 
-      if (lines.length === 0) {
+      // Load upgrades
+      const upgradesResult = await window.pluginManager.call('sql', 'query',
+        `SELECT u.id, u.group_id, u.name, u.cost, u.description, u.upgrade_type,
+                u.replaces_weapon_id, u.adds_weapon_id, u.adds_special_rule_id
+         FROM opr_upgrades u
+         WHERE u.unit_id = '${unitId}'
+         ORDER BY u.group_id, u.sort_order`
+      )
+      const upgradesCsv = DE.decode(upgradesResult.output)
+      const upgrades = this.parseCSV(upgradesCsv)
+
+      if (groups.length === 0 && upgrades.length === 0) {
         this.elements.upgradesContainer.style.display = 'none'
         return
       }
@@ -317,40 +394,175 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.upgrades.innerHTML = ''
       this.state.selectedUpgrades.clear()
 
-      lines.forEach(line => {
-        const [id, name, cost, description] = line
-        const upgradeDiv = document.createElement('label')
-        upgradeDiv.style.cssText = 'display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); cursor: pointer; align-items: center;'
+      // Render groups
+      for (const groupLine of groups) {
+        const [groupId, label, selectionType, minSel, maxSel, appliesTo, appliesCount] = groupLine
+        const groupUpgrades = upgrades.filter(u => u[1] === groupId)
 
-        const costSign = parseInt(cost) >= 0 ? '+' : ''
-        upgradeDiv.innerHTML = `
-          <input type="checkbox" data-upgrade-id="${id}" data-upgrade-cost="${cost}" style="cursor: pointer;">
-          <div style="flex: 1;">
-            <div style="font-weight: 500; color: var(--color-semantic-text-primary);">${name} <span style="color: var(--color-semantic-text-accent);">${costSign}${cost}pts</span></div>
-            <div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">${description}</div>
-          </div>
-        `
+        if (groupUpgrades.length === 0) continue
 
-        const checkbox = upgradeDiv.querySelector('input[type="checkbox"]')
-        checkbox.addEventListener('change', (e) => {
-          if (e.target.checked) {
-            this.state.selectedUpgrades.add({ id, cost: parseInt(cost) })
-          } else {
-            this.state.selectedUpgrades.forEach(upgrade => {
-              if (upgrade.id === id) {
-                this.state.selectedUpgrades.delete(upgrade)
-              }
-            })
-          }
-          this.updateTotalCost()
-        })
+        await this.renderUpgradeGroup(groupId, label, selectionType, maxSel, appliesTo, appliesCount, groupUpgrades)
+      }
 
-        this.elements.upgrades.appendChild(upgradeDiv)
-      })
+      // Handle ungrouped upgrades
+      const ungroupedUpgrades = upgrades.filter(u => !u[1] || u[1] === 'NULL' || u[1] === '')
+      if (ungroupedUpgrades.length > 0) {
+        const ungroupedDiv = document.createElement('div')
+        ungroupedDiv.style.cssText = 'margin-top: var(--spacing-scale-3);'
+        
+        for (const upgradeLine of ungroupedUpgrades) {
+          const upgradeDiv = await this.renderUpgrade(upgradeLine, null, 'pick-any', null)
+          ungroupedDiv.appendChild(upgradeDiv)
+        }
+        
+        this.elements.upgrades.appendChild(ungroupedDiv)
+      }
     } catch (error) {
       console.error('Error loading upgrades:', error)
       this.elements.upgradesContainer.style.display = 'none'
     }
+  }
+
+  async renderUpgradeGroup(groupId, label, selectionType, maxSel, appliesTo, appliesCount, upgrades) {
+    const groupDiv = document.createElement('div')
+    groupDiv.style.cssText = 'margin-bottom: var(--spacing-scale-4); padding: var(--spacing-scale-3); background: var(--color-semantic-bg-primary); border-radius: var(--border-radius-md); border: 1px solid var(--color-semantic-border-subtle);'
+
+    // Header
+    const headerDiv = document.createElement('div')
+    headerDiv.style.cssText = 'margin-bottom: var(--spacing-scale-3); display: flex; justify-content: space-between; align-items: baseline;'
+    
+    let headerText = `<span style="font-weight: 600; color: var(--color-semantic-text-primary);">${label}</span>`
+    
+    if (appliesTo && appliesTo !== 'NULL') {
+      const scope = this.formatAppliesTo(appliesTo, appliesCount)
+      headerText += ` <span style="font-weight: normal; color: var(--color-semantic-text-secondary); font-size: var(--font-size-sm);">(${scope})</span>`
+    }
+    
+    const selectionInfo = selectionType === 'pick-one' 
+      ? `<span style="color: var(--color-semantic-text-accent); font-size: var(--font-size-sm);">Choose 1</span>`
+      : `<span style="color: var(--color-semantic-text-tertiary); font-size: var(--font-size-sm);">Up to ${maxSel || '∞'}</span>`
+    
+    headerDiv.innerHTML = `${headerText} ${selectionInfo}`
+    groupDiv.appendChild(headerDiv)
+
+    // Render upgrades
+    for (const upgradeLine of upgrades) {
+      const upgradeDiv = await this.renderUpgrade(upgradeLine, groupId, selectionType, maxSel)
+      groupDiv.appendChild(upgradeDiv)
+    }
+
+    this.elements.upgrades.appendChild(groupDiv)
+  }
+
+  async renderUpgrade(upgradeLine, groupId, selectionType, maxSel) {
+    const [id, _groupId, name, cost, description, upgradeType, replacesWeaponId, addsWeaponId, addsSpecialRuleId] = upgradeLine
+    
+    const upgradeDiv = document.createElement('label')
+    upgradeDiv.style.cssText = 'display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); cursor: pointer; align-items: flex-start; margin-bottom: var(--spacing-scale-1); transition: background 0.15s ease;'
+    upgradeDiv.onmouseover = () => upgradeDiv.style.background = 'var(--color-semantic-bg-hover)'
+    upgradeDiv.onmouseout = () => upgradeDiv.style.background = 'var(--color-semantic-bg-secondary)'
+
+    // Determine if this is a weapon replacement and calculate real cost
+    let displayCost = parseInt(cost)
+    let costLabel = ''
+    
+    if (upgradeType === 'replace-weapon' && replacesWeaponId && replacesWeaponId !== 'NULL') {
+      // This replaces a weapon, so the cost is really the difference
+      costLabel = `${cost >= 0 ? '+' : ''}${cost}pts`
+    } else {
+      costLabel = `${cost >= 0 ? '+' : ''}${cost}pts`
+    }
+
+    const inputType = selectionType === 'pick-one' ? 'radio' : 'checkbox'
+    const inputName = groupId ? `upgrade-group-${groupId}` : `upgrade-${id}`
+
+    // Clean up name - extract special rule from parentheses
+    let cleanName = name
+    let specialRuleTooltip = ''
+    
+    // Match pattern like "Adrenaline Fueled (Agile)"
+    const match = name.match(/^(.+?)\s*\(([^)]+)\)$/)
+    if (match && addsSpecialRuleId && addsSpecialRuleId !== 'NULL') {
+      const baseName = match[1]
+      const ruleName = match[2]
+      const ruleData = this.state.specialRulesCache.get(addsSpecialRuleId)
+      
+      if (ruleData) {
+        cleanName = baseName
+        specialRuleTooltip = `<abbr data-tooltip="${ruleData.description}" style="text-decoration: underline dotted; cursor: help; color: var(--color-semantic-text-accent);">${ruleName}</abbr>`
+      }
+    }
+
+    const prefix = upgradeType === 'replace-weapon' ? '→ ' : ''
+
+    upgradeDiv.innerHTML = `
+      <input type="${inputType}" ${groupId ? `name="${inputName}"` : ''} 
+             data-upgrade-id="${id}" 
+             data-upgrade-cost="${cost}" 
+             data-group-id="${groupId || ''}"
+             data-upgrade-type="${upgradeType}"
+             data-replaces-weapon="${replacesWeaponId || ''}"
+             style="cursor: pointer; margin-top: 2px; flex-shrink: 0;">
+      <div style="flex: 1;">
+        <div style="font-weight: 500; color: var(--color-semantic-text-primary);">
+          ${prefix}${cleanName} ${specialRuleTooltip}
+          <span style="color: var(--color-semantic-text-accent); margin-left: var(--spacing-scale-1);">${costLabel}</span>
+        </div>
+        ${description && description !== 'NULL' ? `<div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); margin-top: var(--spacing-scale-1);">${description}</div>` : ''}
+      </div>
+    `
+
+    const input = upgradeDiv.querySelector('input')
+    input.addEventListener('change', (e) => {
+      this.handleUpgradeSelection(e.target, id, groupId, cost, selectionType, maxSel)
+    })
+
+    return upgradeDiv
+  }
+
+  formatAppliesTo(appliesTo, appliesCount) {
+    if (appliesTo === 'one-model') return 'one model'
+    if (appliesTo === 'all-models') return 'all models'
+    if (appliesTo === 'any-model') return 'any model'
+    if (appliesTo === 'up-to-X-models' && appliesCount) return `up to ${appliesCount} models`
+    return appliesTo
+  }
+
+  handleUpgradeSelection(input, upgradeId, groupId, cost, selectionType, maxSel) {
+    const isChecked = input.checked
+
+    if (selectionType === 'pick-one' && groupId) {
+      // Radio: clear others in group
+      if (isChecked) {
+        this.state.selectedUpgrades.forEach(upgrade => {
+          if (upgrade.groupId === groupId && upgrade.id !== upgradeId) {
+            this.state.selectedUpgrades.delete(upgrade)
+          }
+        })
+        this.state.selectedUpgrades.add({ id: upgradeId, groupId, cost: parseInt(cost) })
+      }
+    } else {
+      // Checkbox: enforce max
+      if (isChecked) {
+        if (groupId && maxSel) {
+          const groupSelections = Array.from(this.state.selectedUpgrades).filter(u => u.groupId === groupId)
+          if (groupSelections.length >= parseInt(maxSel)) {
+            input.checked = false
+            alert(`You can only select up to ${maxSel} upgrades from this group`)
+            return
+          }
+        }
+        this.state.selectedUpgrades.add({ id: upgradeId, groupId: groupId || null, cost: parseInt(cost) })
+      } else {
+        this.state.selectedUpgrades.forEach(upgrade => {
+          if (upgrade.id === upgradeId) {
+            this.state.selectedUpgrades.delete(upgrade)
+          }
+        })
+      }
+    }
+
+    this.updateTotalCost()
   }
 
   updateTotalCost() {
@@ -420,10 +632,9 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   parseCSV(csv) {
     const lines = csv.trim().split('\n')
-    if (lines.length <= 1) return [] // Skip header or empty
+    if (lines.length <= 1) return []
 
     return lines.slice(1).map(line => {
-      // Simple CSV parsing (handles basic cases)
       const values = []
       let current = ''
       let inQuotes = false
