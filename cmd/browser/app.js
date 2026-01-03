@@ -222,7 +222,7 @@ async function initOPRDatabase() {
     '00-schema.sql',
 
     // '00-schema2.sql',
-    // '01-universes.sql',
+    '01-universes.sql',
     // '02-special-rules-universal.sql',
     // '03-weapons-common.sql',
     '10-gf-armies.sql',

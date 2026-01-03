@@ -9,6 +9,8 @@
  * Workflow: Universe → Army → Unit → Build → Add to List
  */
 
+import { toast } from "../systems/toast.js"
+
 const DE = new TextDecoder()
 
 export class ViewOPRUnitBuilder extends HTMLElement {
@@ -77,7 +79,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
     // Initial load
     this.loadUniverses()
-    this.cacheSpecialRules()
+    // this.cacheSpecialRules()
   }
 
   async cacheSpecialRules() {
@@ -102,17 +104,17 @@ export class ViewOPRUnitBuilder extends HTMLElement {
   async loadUniverses() {
     try {
       const result = await window.pluginManager.call('sql', 'query',
-        'SELECT id, name, short_name FROM opr_universes ORDER BY name'
+        'SELECT id, name FROM opr_universes ORDER BY name'
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
 
       this.elements.universeSelect.innerHTML = '<option value="">-- Select Universe --</option>'
       lines.forEach(line => {
-        const [id, name, shortName] = line
+        const [id, name] = line
         const option = document.createElement('option')
         option.value = id
-        option.textContent = `${name} (${shortName})`
+        option.textContent = name
         this.elements.universeSelect.appendChild(option)
       })
     } catch (error) {
@@ -202,8 +204,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
         `SELECT id, name, size, cost, quality, defense, tough, unit_type, notes FROM opr_units WHERE id = '${unitId}'`
       )
       const unitCsv = DE.decode(unitResult.output)
-      const unitLines = this.parseCSV(unitCsv)
 
+      if (unitResult.returnCode) {
+        toast.error(`loadUnitDetailsfailed: ${unitCsv || 'Unknown error'}`, { duration: 5000 })
+      }
+
+      const unitLines = this.parseCSV(unitCsv)
       if (unitLines.length === 0) return
 
       const [id, name, size, cost, quality, defense, tough, unitType, notes] = unitLines[0]
