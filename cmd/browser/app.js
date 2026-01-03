@@ -220,15 +220,17 @@ await initKeybindings()
 async function initOPRDatabase() {
   const sqlFiles = [
     '00-schema.sql',
-    '00-schema2.sql',
-    '01-universes.sql',
-    '02-special-rules-universal.sql',
-    '03-weapons-common.sql',
+
+    // '00-schema2.sql',
+    // '01-universes.sql',
+    // '02-special-rules-universal.sql',
+    // '03-weapons-common.sql',
     '10-gf-armies.sql',
-    '11-gf-special-rules.sql',
-    '12-gf-weapons.sql',
-    '13-gf-units-battle-brothers.sql',
-    '14-gf-units-alien-hives.sql',
+    // '11-gf-special-rules.sql',
+    // '12-gf-weapons.sql',
+    // '13-gf-units-battle-brothers.sql',
+    // '14-gf-units-alien-hives.sql',
+    '15-gf-units-battle-brothers.sql',
     '20-aof-armies.sql',
   ]
 

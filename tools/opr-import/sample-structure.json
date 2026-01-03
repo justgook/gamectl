@@ -1,0 +1,844 @@
+{
+  "upgradePackages": {
+    "uid": "A1",
+    "hint": "Leader Weapons",
+    "sections": [
+      {
+        "id": "qqlQiLr",
+        "uid": "wwjZVUq",
+        "label": "Replace Gravity Pistol and CCW",
+        "options": [
+          {
+            "uid": "cpTlZnt",
+            "cost": 5,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 10,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": "vn6AZ_sj",
+                "name": "Dual Energy Claws",
+                "type": "ArmyBookWeapon",
+                "range": 0,
+                "attacks": 4,
+                "weaponId": "gLvu2axn",
+                "specialRules": [
+                  {
+                    "id": "cavWDboL4ubs",
+                    "name": "Rending",
+                    "type": "ArmyBookRule"
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Dual Energy Claws (A4, Rending)",
+                "count": 1
+              }
+            ],
+            "label": "Dual Energy Claws (A4, Rending)",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "wwjZVUq",
+            "parentSectionId": "wwjZVUq",
+            "id": "cpTlZnt"
+          },
+          {
+            "uid": "34SoHZt",
+            "cost": 5,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 10,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 10,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": "laXzb2Yd",
+                "name": "Heavy Chainsaw Sword",
+                "type": "ArmyBookWeapon",
+                "range": 0,
+                "attacks": 4,
+                "weaponId": "5gZ6s6Gv",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "rating": 1
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Heavy Chainsaw Sword (A4, AP(1))",
+                "count": 1
+              }
+            ],
+            "label": "Heavy Chainsaw Sword (A4, AP(1))",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "wwjZVUq",
+            "parentSectionId": "wwjZVUq",
+            "id": "34SoHZt"
+          }
+        ],
+        "parentPackageUid": "A1",
+        "type": "ArmyBookUpgradeSection",
+        "variant": "replace",
+        "targets": [
+          "Gravity Pistol",
+          "CCW"
+        ]
+      },
+      {
+        "id": "rUhFFei",
+        "uid": "C3M0Prp",
+        "label": "Replace Gravity Pistol",
+        "options": [
+          {
+            "uid": "oXpMinq",
+            "cost": 5,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 5,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": null,
+                "name": "Flamer Pistol",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 6,
+                "attacks": 1,
+                "weaponId": "agIlKQ_g",
+                "specialRules": [
+                  {
+                    "id": "w_vX0mi58KKt",
+                    "name": "Blast",
+                    "type": "ArmyBookRule",
+                    "rating": 3
+                  },
+                  {
+                    "id": "Zx4mWN0SbmK8",
+                    "name": "Reliable",
+                    "type": "ArmyBookRule"
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Flamer Pistol (6\", A1, Blast(3), Reliable)"
+              }
+            ],
+            "label": "Flamer Pistol (6\", A1, Blast(3), Reliable)",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "C3M0Prp",
+            "parentSectionId": "C3M0Prp",
+            "id": "oXpMinq"
+          },
+          {
+            "uid": "XIIJB",
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 5,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": null,
+                "name": "Master Heavy Pistol",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 12,
+                "attacks": 2,
+                "weaponId": "JTsVB5Jw",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 1
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Master Heavy Pistol (12\", A2, AP(1))"
+              }
+            ],
+            "label": "Master Heavy Pistol (12\", A2, AP(1))",
+            "parentSectionId": "C3M0Prp",
+            "id": "XIIJB"
+          },
+          {
+            "uid": "Yyq3J",
+            "cost": 5,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 5,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "name": "Fusion Pistol",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 6,
+                "attacks": 1,
+                "weaponId": "ffmWT-Hb",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 4
+                  },
+                  {
+                    "id": "_mrPya5SXSqW",
+                    "name": "Deadly",
+                    "type": "ArmyBookRule",
+                    "rating": 3
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Fusion Pistol (6\", A1, AP(4), Deadly(3))"
+              }
+            ],
+            "label": "Fusion Pistol (6\", A1, AP(4), Deadly(3))",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "C3M0Prp",
+            "parentSectionId": "C3M0Prp",
+            "id": "Yyq3J"
+          },
+          {
+            "uid": "iKz0_Zo",
+            "cost": 10,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 15,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 15,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "name": "Master Plasma Pistol",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 12,
+                "attacks": 2,
+                "weaponId": "X8Z9TsKe",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 4
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Master Plasma Pistol (12\", A2, AP(4))"
+              }
+            ],
+            "label": "Master Plasma Pistol (12\", A2, AP(4))",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "C3M0Prp",
+            "parentSectionId": "C3M0Prp",
+            "id": "iKz0_Zo"
+          },
+          {
+            "uid": "9r0K6",
+            "cost": 15,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 20,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 15,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "name": "Master Heavy Rifle",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 24,
+                "attacks": 2,
+                "weaponId": "cHcQ7pXY",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 1
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Master Heavy Rifle (24\", A2, AP(1))"
+              }
+            ],
+            "label": "Master Heavy Rifle (24\", A2, AP(1))",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "C3M0Prp",
+            "parentSectionId": "C3M0Prp",
+            "id": "9r0K6"
+          },
+          {
+            "uid": "DlsSaLF",
+            "cost": 45,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 50,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 35,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "name": "Master Storm Rifle",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 24,
+                "attacks": 4,
+                "weaponId": "nvbCCPod",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 1
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Master Storm Rifle (24\", A4, AP(1))"
+              }
+            ],
+            "label": "Master Storm Rifle (24\", A4, AP(1))",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "C3M0Prp",
+            "parentSectionId": "C3M0Prp",
+            "id": "DlsSaLF"
+          }
+        ],
+        "parentPackageUid": "A1",
+        "type": "ArmyBookUpgradeSection",
+        "variant": "replace",
+        "targets": [
+          "Gravity Pistol"
+        ]
+      },
+      {
+        "id": "ZXWo9_U",
+        "uid": "CPoQHGT",
+        "label": "Take one Master Heavy Rifle attachment",
+        "options": [
+          {
+            "uid": "GEIYmPu",
+            "cost": 5,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 5,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": "reHSsCbi",
+                "name": "Gravity-Mod",
+                "type": "ArmyBookWeapon",
+                "range": 18,
+                "attacks": 1,
+                "weaponId": "reHSsCbi",
+                "specialRules": [
+                  {
+                    "id": "9042COVrLCsI",
+                    "name": "Limited",
+                    "type": "ArmyBookRule"
+                  },
+                  {
+                    "id": "2Y_Spjz69MSD",
+                    "name": "Smash",
+                    "type": "ArmyBookRule"
+                  },
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "rating": 1
+                  }
+                ],
+                "label": "Gravity-Mod (18\", A1, AP(1), Limited, Smash)",
+                "count": 1
+              }
+            ],
+            "label": "Gravity-Mod (18\", A1, AP(1), Limited, Smash)",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "CPoQHGT",
+            "parentSectionId": "CPoQHGT",
+            "id": "GEIYmPu"
+          },
+          {
+            "uid": "JXo_1",
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 5,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "name": "Flamer-Mod",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 12,
+                "attacks": 1,
+                "weaponId": "mwWKIwKI",
+                "specialRules": [
+                  {
+                    "id": "w_vX0mi58KKt",
+                    "name": "Blast",
+                    "type": "ArmyBookRule",
+                    "rating": 3
+                  },
+                  {
+                    "id": "Zx4mWN0SbmK8",
+                    "name": "Reliable",
+                    "type": "ArmyBookRule"
+                  },
+                  {
+                    "id": "9042COVrLCsI",
+                    "name": "Limited",
+                    "type": "ArmyBookRule"
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Flamer-Mod (12\", A1, Blast(3), Limited, Reliable)"
+              }
+            ],
+            "label": "Flamer-Mod (12\", A1, Blast(3), Limited, Reliable)",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "CPoQHGT",
+            "parentSectionId": "CPoQHGT",
+            "id": "JXo_1"
+          },
+          {
+            "uid": "t3czEkE",
+            "cost": 5,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 10,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": "vFEaKZ-F",
+                "name": "Plasma-Mod",
+                "type": "ArmyBookWeapon",
+                "range": 24,
+                "attacks": 1,
+                "weaponId": "ZAiPbvUy",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 4
+                  },
+                  {
+                    "id": "9042COVrLCsI",
+                    "name": "Limited",
+                    "type": "ArmyBookRule"
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Plasma-Mod (24\", A1, AP(4), Limited)",
+                "count": 1
+              }
+            ],
+            "label": "Plasma-Mod (24\", A1, AP(4), Limited)",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "CPoQHGT",
+            "parentSectionId": "CPoQHGT",
+            "id": "t3czEkE"
+          },
+          {
+            "uid": "AjQmy1V",
+            "cost": 5,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 10,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 10,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": "FEWaBqDE",
+                "name": "Fusion-Mod",
+                "type": "ArmyBookWeapon",
+                "range": 12,
+                "attacks": 1,
+                "weaponId": "bqCLJdNS",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 4
+                  },
+                  {
+                    "id": "_mrPya5SXSqW",
+                    "name": "Deadly",
+                    "type": "ArmyBookRule",
+                    "rating": 3
+                  },
+                  {
+                    "id": "9042COVrLCsI",
+                    "name": "Limited",
+                    "type": "ArmyBookRule"
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Fusion-Mod (12\", A1, AP(4), Deadly(3), Limited)",
+                "count": 1
+              }
+            ],
+            "label": "Fusion-Mod (12\", A1, AP(4), Deadly(3), Limited)",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "CPoQHGT",
+            "parentSectionId": "CPoQHGT",
+            "id": "AjQmy1V"
+          }
+        ],
+        "parentPackageUid": "A1",
+        "type": "ArmyBookUpgradeSection",
+        "variant": "attachment",
+        "select": {
+          "type": "exactly",
+          "value": 1
+        },
+        "targets": [
+          "Master Heavy Rifle"
+        ]
+      },
+      {
+        "id": "VQOSU9d",
+        "uid": "3LJ6Wjx",
+        "label": "Replace CCW",
+        "options": [
+          {
+            "uid": "E7o-nOg",
+            "cost": 5,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 5,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": "NVB10_IU",
+                "name": "Energy Hammer",
+                "type": "ArmyBookWeapon",
+                "range": 0,
+                "attacks": 1,
+                "weaponId": "NQfH5qhr",
+                "specialRules": [
+                  {
+                    "id": "w_vX0mi58KKt",
+                    "name": "Blast",
+                    "rating": 3
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Energy Hammer (A1, Blast(3))",
+                "count": 1
+              }
+            ],
+            "label": "Energy Hammer (A1, Blast(3))",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "3LJ6Wjx",
+            "parentSectionId": "3LJ6Wjx",
+            "id": "E7o-nOg"
+          },
+          {
+            "uid": "ZRJfU6E",
+            "cost": 10,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 10,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 5,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "name": "Energy Sword",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 0,
+                "attacks": 2,
+                "weaponId": "0-erIAQg",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 1
+                  },
+                  {
+                    "id": "cavWDboL4ubs",
+                    "name": "Rending",
+                    "type": "ArmyBookRule"
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Energy Sword (A2, AP(1), Rending)"
+              }
+            ],
+            "label": "Energy Sword (A2, AP(1), Rending)",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "3LJ6Wjx",
+            "parentSectionId": "3LJ6Wjx",
+            "id": "ZRJfU6E"
+          },
+          {
+            "uid": "XHlLukF",
+            "cost": 15,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 15,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 10,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "id": "fGyS1UWe",
+                "name": "Chain-Fist",
+                "type": "ArmyBookWeapon",
+                "range": 0,
+                "attacks": 1,
+                "weaponId": "kZfUxxeV",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "rating": 2
+                  },
+                  {
+                    "id": "_mrPya5SXSqW",
+                    "name": "Deadly",
+                    "rating": 3
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Chain-Fist (A1, AP(2), Deadly(3))",
+                "count": 1
+              }
+            ],
+            "label": "Chain-Fist (A1, AP(2), Deadly(3))",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "3LJ6Wjx",
+            "parentSectionId": "3LJ6Wjx",
+            "id": "XHlLukF"
+          },
+          {
+            "uid": "mtqhfeI",
+            "cost": 15,
+            "type": "ArmyBookUpgradeOption",
+            "costs": [
+              {
+                "cost": 15,
+                "unitId": "FJRVn9S"
+              },
+              {
+                "cost": 15,
+                "unitId": "itAQcmT"
+              }
+            ],
+            "gains": [
+              {
+                "name": "Energy Fist",
+                "type": "ArmyBookWeapon",
+                "count": 1,
+                "range": 0,
+                "attacks": 2,
+                "weaponId": "niaDC-sy",
+                "specialRules": [
+                  {
+                    "id": "17crjK7P6_w6",
+                    "name": "AP",
+                    "type": "ArmyBookRule",
+                    "rating": 4
+                  }
+                ],
+                "attacksMultiplier": null,
+                "label": "Energy Fist (A2, AP(4))"
+              }
+            ],
+            "label": "Energy Fist (A2, AP(4))",
+            "parentPackageUid": "A1",
+            "parentSectionUid": "3LJ6Wjx",
+            "parentSectionId": "3LJ6Wjx",
+            "id": "mtqhfeI"
+          }
+        ],
+        "parentPackageUid": "A1",
+        "type": "ArmyBookUpgradeSection",
+        "variant": "replace",
+        "targets": [
+          "CCW"
+        ]
+      }
+    ],
+    "calcErrors": false
+  },
+  "unit": {
+    "id": "qMjB0Rk",
+    "key": "new-unit",
+    "cost": 130,
+    "name": "Master Destroyer",
+    "size": 1,
+    "bases": {
+      "round": "40",
+      "square": "40"
+    },
+    "items": [
+      {
+        "id": "1jV1R",
+        "name": "Combat Shield",
+        "type": "ArmyBookItem",
+        "bases": null,
+        "content": [
+          {
+            "id": "wsqfB0fq69eG",
+            "name": "Shielded",
+            "type": "ArmyBookRule"
+          }
+        ],
+        "count": 1
+      }
+    ],
+    "rules": [
+      {
+        "id": "6mJw5IdqSqNC",
+        "name": "Ambush",
+        "label": "Ambush"
+      },
+      {
+        "id": "T08VkBuVmNZ_",
+        "name": "Hero",
+        "label": "Hero"
+      },
+      {
+        "id": "a0YtInGiUDd6",
+        "name": "Tough",
+        "rating": 6,
+        "label": "Tough(6)"
+      },
+      {
+        "id": "741uN_Qma5mL",
+        "name": "Battleborn",
+        "label": "Battleborn"
+      },
+      {
+        "id": "2atvlmICQSCV",
+        "name": "Fearless",
+        "label": "Fearless"
+      }
+    ],
+    "valid": true,
+    "defense": 3,
+    "quality": 3,
+    "weapons": [
+      {
+        "id": "h4Ntaf0B",
+        "name": "CCW",
+        "type": "ArmyBookWeapon",
+        "count": 1,
+        "range": 0,
+        "attacks": 4,
+        "weaponId": "KAsYqgPq",
+        "specialRules": [],
+        "attacksMultiplier": null,
+        "label": "CCW (A4)",
+        "originalCount": 1
+      }
+    ],
+    "upgrades": [
+      "PzePx",
+      "gIdERs5O"
+    ],
+    "genericName": "Heavy Warrior Hero",
+    "hasCustomRule": false,
+    "disabledSections": [],
+    "hasBalanceInvalid": false,
+    "disabledUpgradeSections": []
+  }
+}
