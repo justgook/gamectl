@@ -228,6 +228,7 @@ async function initOPRDatabase() {
     '12-gf-weapons.sql',
     '13-gf-units-battle-brothers.sql',
     '14-gf-units-alien-hives.sql',
+    '20-aof-armies.sql',
   ]
 
   try {
@@ -237,7 +238,7 @@ async function initOPRDatabase() {
         console.warn(`OPR: Skipping ${file} (not found)`)
         continue
       }
-      
+
       const sql = await response.text()
       await window.pluginManager.call('sql', 'restore', sql)
       console.log(`OPR: Loaded ${file}`)
