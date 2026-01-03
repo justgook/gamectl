@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS opr_special_rules (
     name TEXT NOT NULL,               -- 'Tough', 'Fearless', 'Hive Bond', 'Blast'
     description TEXT,                 -- Rule description
     category TEXT,                    -- 'universal', 'army-wide', 'weapon-special' -- TODO: make VARCHAR and FOREIGN KEY to opr_special_rule_categories
-    is_stackable BOOLEAN DEFAULT 0,   -- Can have rating like Tough(3) or Blast(3)?
+    is_stackable BOOLEAN DEFAULT 0,   -- Can have rating like Tough(3) or Blast(3)? -- TODO: remove, it is denormalization
     universe_id TEXT,                 -- NULL for universal rules, or specific universe --TODO convert to VARCHAR
     FOREIGN KEY (universe_id) REFERENCES opr_universes(id)
 );
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS opr_weapons (
     id TEXT PRIMARY KEY,              -- 'razor-claws', 'shredder-cannon'
     name TEXT NOT NULL,               -- 'Razor Claws', 'Shredder Cannon'
     range INTEGER,                    -- Range in inches, NULL for melee --TODO add not null, and melee is 0
-    attacks TEXT,                     -- 'A1', 'A2', 'A3', etc. -- TODO convert to int noot null and
+    attacks TEXT,                     -- 'A1', 'A2', 'A3', etc. -- TODO convert to int not null
     ap INTEGER DEFAULT 0,             -- Armor Penetration
     category TEXT,                    -- 'universal', 'grimdark-future', 'alien-hives' -- TODO: remove
     universe_id TEXT,                 -- NULL for universal, or specific universe
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS opr_unit_weapons (
     unit_id TEXT, --TODO convert to VARCHAR
     weapon_id TEXT,--TODO convert to VARCHAR
     count INTEGER DEFAULT 1,          -- How many models/weapons equipped
-    is_default BOOLEAN DEFAULT 1,     -- Part of base loadout
+    is_default BOOLEAN DEFAULT 1,     -- Part of base loadout -- TODO move to opr_upgrades
     -- TODO add `slot` each model can have multiple slots for weapons, that can be replaced, as example "claw1" and "claw2"
     PRIMARY KEY (unit_id, weapon_id, is_default),
     FOREIGN KEY (unit_id) REFERENCES opr_units(id),
@@ -128,10 +128,10 @@ CREATE TABLE IF NOT EXISTS opr_upgrade_groups (
     unit_id TEXT NOT NULL,--TODO convert to VARCHAR
     label TEXT NOT NULL,              -- 'Upgrade with one', 'Replace Shredder Cannon' -- TODO remove - as that text should be created on ui based on upgrade group data
     selection_type TEXT NOT NULL,     -- 'pick-one', 'pick-any', 'replace-weapon' --TODO: remove
-    min_selections INTEGER DEFAULT 0, -- Minimum required selections
-    max_selections INTEGER DEFAULT 1, -- Maximum allowed selections
+    min_selections INTEGER DEFAULT 0, -- Minimum required selections -- TODO: remove
+    max_selections INTEGER DEFAULT 1, -- Maximum allowed selections -- TODO: update logic - is set to 0 - means apply to all and prce is per all, if set to other value - price is per 1 upgrade
     applies_to TEXT,                  -- 'one-model', 'all-models', 'any-model', 'up-to-X-models'-- TODO we don't need this one, as we already know count of models in unit and can just set `applies_count` to maximum if it applies to all
-    applies_count INTEGER,            -- NULL or number for "up to X models"
+    applies_count INTEGER,            -- NULL or number for "up to X models" -- TODO: remove, is handled by max_selection
     sort_order INTEGER DEFAULT 0,     -- Display order
     FOREIGN KEY (unit_id) REFERENCES opr_units(id)
 );
@@ -141,6 +141,8 @@ CREATE TABLE IF NOT EXISTS opr_upgrade_groups (
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS opr_upgrades (
+  --TODO add     is_default BOOLEAN DEFAULT 1,     -- Part of base loadout
+
     id TEXT PRIMARY KEY,              -- 'gf-ah-hive-lord-pheromone-host' --TODO convert to VARCHAR,
     unit_id TEXT NOT NULL, --TODO convert to VARCHAR,
     group_id TEXT,                    -- Links to upgrade group (NULL if standalone) --TODO convert to VARCHAR,

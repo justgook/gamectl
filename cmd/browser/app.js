@@ -220,6 +220,7 @@ await initKeybindings()
 async function initOPRDatabase() {
   const sqlFiles = [
     '00-schema.sql',
+    '00-schema2.sql',
     '01-universes.sql',
     '02-special-rules-universal.sql',
     '03-weapons-common.sql',
