@@ -13,6 +13,86 @@ import { toast } from "../systems/toast.js"
 
 const DE = new TextDecoder()
 
+// Custom radio/checkbox styles injected into shadow DOM
+const CUSTOM_INPUT_STYLES = `
+  <style>
+    /* Custom Radio Button */
+    .opr-radio {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--color-semantic-border-default);
+      border-radius: 50%;
+      background: var(--color-semantic-background-default);
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+      margin: 0;
+    }
+    
+    .opr-radio:hover {
+      border-color: var(--color-semantic-border-interactive);
+    }
+    
+    .opr-radio:checked {
+      border-color: var(--color-semantic-border-interactive);
+      background: var(--color-semantic-background-default);
+    }
+    
+    .opr-radio:checked::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--color-semantic-text-accent);
+    }
+    
+    /* Custom Checkbox */
+    .opr-checkbox {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--color-semantic-border-default);
+      border-radius: var(--border-radius-sm);
+      background: var(--color-semantic-background-default);
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+      margin: 0;
+    }
+    
+    .opr-checkbox:hover {
+      border-color: var(--color-semantic-border-interactive);
+    }
+    
+    .opr-checkbox:checked {
+      border-color: var(--color-semantic-border-interactive);
+      background: var(--color-semantic-background-accent-default);
+    }
+    
+    .opr-checkbox:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--color-semantic-text-on-accent);
+      font-size: 12px;
+      font-weight: bold;
+    }
+  </style>
+`
+
 export class ViewOPRUnitBuilder extends HTMLElement {
   constructor() {
     super()
@@ -37,6 +117,14 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     const template = document.getElementById('view-opr-unit-builder')
     const content = template.content.cloneNode(true)
     this.appendChild(content)
+    
+    // Inject custom input styles
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = CUSTOM_INPUT_STYLES
+    const styleElement = tempDiv.querySelector('style')
+    if (styleElement) {
+      this.appendChild(styleElement)
+    }
 
     // Get references to key elements
     this.elements = {
@@ -793,10 +881,10 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       optionDiv.innerHTML = `
         <label style="display: flex; gap: var(--spacing-scale-2); align-items: center; cursor: pointer;">
           <input type="radio" name="upgrade-group-${groupId}" 
+                 class="opr-radio"
                  data-option-id="${optionId}" 
                  data-equipment-id="${equipmentId}"
-                 data-cost="${cost}"
-                 style="cursor: pointer;">
+                 data-cost="${cost}">
           <div style="flex: 1;">
             ${equipmentDisplay}${baseSizeBadge}${costLabel}
           </div>
@@ -813,10 +901,10 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       optionDiv.innerHTML = `
         <label style="display: flex; gap: var(--spacing-scale-2); align-items: center; cursor: pointer;">
           <input type="checkbox"
+                 class="opr-checkbox"
                  data-option-id="${optionId}"
                  data-equipment-id="${equipmentId}"
-                 data-cost="${cost}"
-                 style="cursor: pointer;">
+                 data-cost="${cost}">
           <div style="flex: 1;">
             ${equipmentDisplay}${baseSizeBadge}${costLabel}
           </div>
