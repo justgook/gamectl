@@ -1,10 +1,10 @@
 /**
- * OPR Unit Builder View v2
- * Advanced unit builder with:
- * - Normalized weapon/rule tooltips
- * - Upgrade groups (radio/checkbox)
- * - Clear weapon replacement costs
- * - Multi-unit card system
+ * OPR Unit Builder View v3
+ * Updated for schema v3 with unified equipment design:
+ * - Equipment (weapons/items/mounts) from opr_equipment
+ * - Upgrade groups with flexible selection (radio/checkbox/counter)
+ * - Equipment grants (items → weapons)
+ * - All data from database (no hardcoded values)
  * 
  * Workflow: Universe → Army → Unit → Build → Add to List
  */
@@ -20,11 +20,10 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       selectedUniverse: null,
       selectedArmy: null,
       selectedUnit: null,
-      selectedUpgrades: new Set(),
+      selectedUpgrades: new Map(), // Map: optionId → { optionId, groupId, equipmentId, cost, count }
       baseCost: 0,
-      currentWeapons: new Map(), // Track current weapon loadout
-      specialRulesCache: new Map(), // Cache special rule descriptions
-      weaponSpecialRulesCache: new Map() // Cache weapon special rules
+      baseSize: null, // Track current base size
+      specialRulesCache: new Map(), // Cache special rule descriptions by ID
     }
     this.unitCards = [] // Array of built units
   }
@@ -79,22 +78,20 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
     // Initial load
     this.loadUniverses()
-    // this.cacheSpecialRules()
   }
 
-  async cacheSpecialRules() {
+  async cacheSpecialRules(armyId) {
     try {
       const result = await window.pluginManager.call('sql', 'query',
-        'SELECT id, name, description FROM opr_special_rules'
+        `SELECT id, name, description FROM opr_special_rules WHERE army_id = '${armyId}' OR army_id IS NULL`
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
 
+      this.state.specialRulesCache.clear()
       lines.forEach(line => {
         const [id, name, description] = line
         this.state.specialRulesCache.set(id, { name, description })
-        // Also cache by lowercase name for easy lookup
-        this.state.specialRulesCache.set(name.toLowerCase(), { name, description })
       })
     } catch (error) {
       console.error('Error caching special rules:', error)
@@ -166,6 +163,9 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
     if (!armyId) return
 
+    // Cache special rules for this army
+    await this.cacheSpecialRules(armyId)
+
     try {
       const result = await window.pluginManager.call('sql', 'query',
         `SELECT id, name, cost, unit_type FROM opr_units WHERE army_id = '${armyId}' ORDER BY cost, name`
@@ -201,19 +201,26 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     try {
       // Get unit base stats
       const unitResult = await window.pluginManager.call('sql', 'query',
-        `SELECT id, name, size, cost, quality, defense, tough, unit_type, notes FROM opr_units WHERE id = '${unitId}'`
+        `SELECT u.id, u.name, u.size, u.cost, u.quality, u.defense, u.unit_type, bs.shape, bs.dimensions
+         FROM opr_units u
+         LEFT JOIN opr_base_sizes bs ON u.base_size_id = bs.id
+         WHERE u.id = '${unitId}'`
       )
       const unitCsv = DE.decode(unitResult.output)
 
       if (unitResult.returnCode) {
-        toast.error(`loadUnitDetailsfailed: ${unitCsv || 'Unknown error'}`, { duration: 5000 })
+        toast.error(`loadUnitDetails failed: ${unitCsv || 'Unknown error'}`, { duration: 5000 })
+        return
       }
 
       const unitLines = this.parseCSV(unitCsv)
       if (unitLines.length === 0) return
 
-      const [id, name, size, cost, quality, defense, tough, unitType, notes] = unitLines[0]
+      const [id, name, size, cost, quality, defense, unitType, baseShape, baseDimensions] = unitLines[0]
       this.state.baseCost = parseInt(cost)
+      this.state.baseSize = baseShape && baseDimensions && baseShape !== 'NULL' 
+        ? `${baseDimensions} ${baseShape}` 
+        : null
 
       // Update unit header
       this.elements.unitName.textContent = name
@@ -221,24 +228,16 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.unitCost.textContent = cost
       this.elements.unitQuality.textContent = `${quality}+`
       this.elements.unitDefense.textContent = `${defense}+`
-
-      // Add Tough if present with tooltip
-      if (tough && tough !== 'NULL' && tough !== '') {
-        const toughData = this.state.specialRulesCache.get('tough')
-        if (toughData) {
-          this.elements.unitDefense.innerHTML = `${defense}+ (<abbr data-tooltip="${toughData.description}" style="text-decoration: underline dotted; cursor: help; text-decoration-color: var(--color-semantic-border-accent);">Tough(${tough})</abbr>)`
-        } else {
-          this.elements.unitDefense.textContent = `${defense}+ (Tough ${tough})`
-        }
-      }
-
       this.elements.unitType.textContent = unitType
 
-      // Load special rules with tooltips
+      // Load special rules (including Tough)
       await this.loadSpecialRules(unitId)
 
-      // Load weapons with special rules tooltips
-      await this.loadWeapons(unitId)
+      // Load equipment (weapons/items/mounts)
+      await this.loadEquipment(unitId)
+
+      // Load equipment grants (items that include weapons)
+      await this.loadEquipmentGrants(unitId)
 
       // Load upgrades with groups
       await this.loadUpgrades(unitId)
@@ -298,33 +297,40 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     }
   }
 
-  wrapPropertyWithTooltip(property) {
-    // Helper function to wrap weapon properties with tooltips
-    // Matches patterns like "AP(1)", "Blast(3)", "Reliable", etc.
-    const match = property.match(/^([A-Za-z]+)(?:\((\d+)\))?$/)
-    if (!match) return property
-
-    const [_, ruleName, rating] = match
-    const ruleData = this.state.specialRulesCache.get(ruleName.toLowerCase())
-
-    if (!ruleData) return property
-
-    const displayName = rating ? `${ruleName}(${rating})` : ruleName
-    return `<abbr data-tooltip="${ruleData.description}" style="text-decoration: underline dotted; cursor: help; text-decoration-color: var(--color-semantic-border-accent);">${displayName}</abbr>`
-  }
-
-  async loadWeapons(unitId) {
+  async loadEquipment(unitId) {
     try {
-      // Get weapons with special rules
+      // Get equipment (weapons/items/mounts) with special rules
       const result = await window.pluginManager.call('sql', 'query',
-        `SELECT w.id, w.name, w.range, w.attacks, w.ap, uw.count,
-                GROUP_CONCAT(wsr.special_rule_id || ':' || COALESCE(wsr.rating, '')) as special_rules
-         FROM opr_unit_weapons uw
-         JOIN opr_weapons w ON uw.weapon_id = w.id
-         LEFT JOIN opr_weapon_special_rules wsr ON w.id = wsr.weapon_id
-         WHERE uw.unit_id = '${unitId}' AND uw.is_default = 1
-         GROUP BY w.id, w.name, w.range, w.attacks, w.ap, uw.count
-         ORDER BY w.range DESC, w.name`
+        `SELECT 
+           e.id, 
+           e.name, 
+           e.type,
+           e.range, 
+           e.attacks, 
+           ue.count,
+           GROUP_CONCAT(
+             CASE 
+               WHEN esr.rating > 0 
+               THEN sr.name || '(' || esr.rating || ')'
+               ELSE sr.name
+             END,
+             ', '
+           ) as special_rules
+         FROM opr_unit_equipment ue
+         JOIN opr_equipment e ON ue.equipment_id = e.id
+         LEFT JOIN opr_equipment_special_rules esr ON e.id = esr.equipment_id
+         LEFT JOIN opr_special_rules sr ON esr.special_rule_id = sr.id
+         WHERE ue.unit_id = '${unitId}'
+         GROUP BY e.id, e.name, e.type, e.range, e.attacks, ue.count
+         ORDER BY 
+           CASE e.type 
+             WHEN 'weapon' THEN 1 
+             WHEN 'item' THEN 2 
+             WHEN 'mount' THEN 3 
+             ELSE 4 
+           END,
+           e.range DESC, 
+           e.name`
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
@@ -337,88 +343,278 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.weaponsContainer.style.display = 'block'
       this.elements.weapons.innerHTML = ''
 
-      // Initialize current weapons
-      this.state.currentWeapons.clear()
+      // Group equipment by type
+      const weapons = []
+      const items = []
+      const mounts = []
+      const other = []
 
       lines.forEach(line => {
-        const [weaponId, name, range, attacks, ap, count, specialRulesStr] = line
-
-        // Track current weapons
-        this.state.currentWeapons.set(weaponId, { name, count: parseInt(count) })
-
-        const weaponDiv = document.createElement('div')
-        weaponDiv.style.cssText = 'padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); margin-bottom: var(--spacing-scale-1);'
-
-        const hasRange = range && range !== '' && range !== 'NULL'
-        const rangeText = hasRange ? `${range}"` : 'Melee'
-
-        // Wrap AP with tooltip if present
-        let apText = ''
-        if (ap && ap !== '0' && ap !== 'NULL') {
-          apText = ` ${this.wrapPropertyWithTooltip(`AP(${ap})`)}`
+        const [equipId, name, type, range, attacks, count, specialRulesStr] = line
+        const equipData = { equipId, name, type, range, attacks, count, specialRulesStr }
+        
+        if (type === 'weapon' || (!type || type === 'NULL')) {
+          weapons.push(equipData)
+        } else if (type === 'item') {
+          items.push(equipData)
+        } else if (type === 'mount') {
+          mounts.push(equipData)
+        } else {
+          other.push(equipData)
         }
-
-        // Parse special rules
-        let specialRulesHTML = ''
-        if (specialRulesStr && specialRulesStr !== 'NULL' && specialRulesStr !== '') {
-          const rules = specialRulesStr.split(',')
-          const ruleElements = rules.map(rule => {
-            const [ruleId, rating] = rule.split(':')
-            const ruleData = this.state.specialRulesCache.get(ruleId)
-            if (!ruleData) return ''
-
-            const ruleName = rating && rating !== '' ? `${ruleData.name}(${rating})` : ruleData.name
-            return `<abbr data-tooltip="${ruleData.description}" style="text-decoration: underline dotted; cursor: help; text-decoration-color: var(--color-semantic-border-accent);">${ruleName}</abbr>`
-          }).filter(r => r !== '')
-
-          if (ruleElements.length > 0) {
-            specialRulesHTML = ` ${ruleElements.join(', ')}`
-          }
-        }
-
-        weaponDiv.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <span style="font-weight: 500; color: var(--color-semantic-text-primary);">${name}</span>
-              <span style="font-size: var(--font-size-sm); color: var(--color-semantic-text-tertiary);"> (${count}x)</span>
-            </div>
-            <div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">
-              Range: ${rangeText} | Attacks: ${attacks}${apText}${specialRulesHTML}
-            </div>
-          </div>
-        `
-        this.elements.weapons.appendChild(weaponDiv)
       })
+
+      // Render weapons table
+      if (weapons.length > 0) {
+        this.renderEquipmentTable('Weapons', weapons, true)
+      }
+
+      // Render items table (without weapon columns)
+      if (items.length > 0) {
+        this.renderEquipmentTable('Items', items, false)
+      }
+
+      // Render mounts table
+      if (mounts.length > 0) {
+        this.renderEquipmentTable('Mounts', mounts, false)
+      }
+
+      // Render other equipment
+      if (other.length > 0) {
+        this.renderEquipmentTable('Equipment', other, false)
+      }
     } catch (error) {
-      console.error('Error loading weapons:', error)
+      console.error('Error loading equipment:', error)
       this.elements.weaponsContainer.style.display = 'none'
     }
   }
 
+  async loadEquipmentGrants(unitId) {
+    try {
+      // Get equipment that grants other equipment (e.g., Combat Shield grants Bash)
+      const result = await window.pluginManager.call('sql', 'query',
+        `SELECT 
+           parent.name as parent_name,
+           granted.name as granted_name,
+           granted.type as granted_type,
+           granted.range as granted_range,
+           granted.attacks as granted_attacks,
+           eg.count,
+           GROUP_CONCAT(
+             CASE 
+               WHEN esr.rating > 0 
+               THEN sr.name || '(' || esr.rating || ')'
+               ELSE sr.name
+             END,
+             ', '
+           ) as special_rules
+         FROM opr_equipment_grants eg
+         JOIN opr_equipment parent ON eg.parent_equipment_id = parent.id
+         JOIN opr_equipment granted ON eg.granted_equipment_id = granted.id
+         LEFT JOIN opr_equipment_special_rules esr ON granted.id = esr.equipment_id
+         LEFT JOIN opr_special_rules sr ON esr.special_rule_id = sr.id
+         WHERE eg.parent_equipment_id IN (
+           SELECT equipment_id 
+           FROM opr_unit_equipment 
+           WHERE unit_id = '${unitId}'
+         )
+         GROUP BY parent.name, granted.name, granted.type, granted.range, granted.attacks, eg.count
+         ORDER BY parent.name, granted.name`
+      )
+      const csv = DE.decode(result.output)
+      const lines = this.parseCSV(csv)
+
+      if (lines.length === 0) return
+
+      // Render granted equipment section
+      const grantedDiv = document.createElement('div')
+      grantedDiv.style.cssText = 'margin-bottom: var(--spacing-scale-3);'
+
+      let tableHTML = `
+        <div style="font-weight: 600; margin-bottom: var(--spacing-scale-2); color: var(--color-semantic-text-primary);">Granted Equipment</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: var(--font-size-sm);">
+          <thead>
+            <tr style="border-bottom: 2px solid var(--color-semantic-border-default);">
+              <th style="text-align: left; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">From</th>
+              <th style="text-align: left; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">Grants</th>
+              <th style="text-align: center; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">RNG</th>
+              <th style="text-align: center; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">ATK</th>
+              <th style="text-align: left; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">SPE</th>
+            </tr>
+          </thead>
+          <tbody>
+      `
+
+      lines.forEach(line => {
+        const [parentName, grantedName, grantedType, range, attacks, count, specialRulesStr] = line
+
+        const hasRange = range && range !== '' && range !== 'NULL' && range !== '0'
+        const rangeText = hasRange ? `${range}"` : '-'
+        const attacksText = attacks && attacks !== '' && attacks !== 'NULL' && attacks !== '0' ? `A${attacks}` : '-'
+
+        // Build special rules with tooltips
+        let specialRulesHTML = '-'
+        if (specialRulesStr && specialRulesStr !== 'NULL' && specialRulesStr !== '') {
+          const rules = specialRulesStr.split(', ')
+          const ruleElements = rules.map(ruleText => {
+            const match = ruleText.match(/^(.+?)(?:\((\d+)\))?$/)
+            if (!match) return ruleText
+            
+            const [_, ruleName, rating] = match
+            
+            let ruleData = null
+            for (const [key, value] of this.state.specialRulesCache.entries()) {
+              if (value.name === ruleName) {
+                ruleData = value
+                break
+              }
+            }
+            
+            if (ruleData) {
+              return `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dashed; text-underline-offset: 4px; cursor: help;">${ruleText}</abbr>`
+            }
+            return ruleText
+          })
+          
+          specialRulesHTML = ruleElements.join(', ')
+        }
+
+        tableHTML += `
+          <tr style="border-bottom: 1px solid var(--color-semantic-border-subtle);">
+            <td style="padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-tertiary); font-style: italic;">${parentName}</td>
+            <td style="padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-primary);">${grantedName}</td>
+            <td style="text-align: center; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">${rangeText}</td>
+            <td style="text-align: center; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">${attacksText}</td>
+            <td style="padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">${specialRulesHTML}</td>
+          </tr>
+        `
+      })
+
+      tableHTML += `
+          </tbody>
+        </table>
+      `
+
+      grantedDiv.innerHTML = tableHTML
+      this.elements.weapons.appendChild(grantedDiv)
+    } catch (error) {
+      console.error('Error loading equipment grants:', error)
+    }
+  }
+
+  renderEquipmentTable(title, equipmentList, isWeapon) {
+    const tableDiv = document.createElement('div')
+    tableDiv.style.cssText = 'margin-bottom: var(--spacing-scale-3);'
+
+    let tableHTML = `
+      <div style="font-weight: 600; margin-bottom: var(--spacing-scale-2); color: var(--color-semantic-text-primary);">${title}</div>
+      <table style="width: 100%; border-collapse: collapse; font-size: var(--font-size-sm);">
+        <thead>
+          <tr style="border-bottom: 2px solid var(--color-semantic-border-default);">
+            <th style="text-align: left; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">${isWeapon ? 'Weapon' : 'Name'}</th>
+    `
+
+    if (isWeapon) {
+      tableHTML += `
+            <th style="text-align: center; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">RNG</th>
+            <th style="text-align: center; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">ATK</th>
+      `
+    }
+
+    tableHTML += `
+            <th style="text-align: left; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">SPE</th>
+          </tr>
+        </thead>
+        <tbody>
+    `
+
+    equipmentList.forEach(equip => {
+      const { name, range, attacks, count, specialRulesStr } = equip
+      
+      const hasRange = range && range !== '' && range !== 'NULL' && range !== '0'
+      const rangeText = hasRange ? `${range}"` : '-'
+      const attacksText = attacks && attacks !== '' && attacks !== 'NULL' && attacks !== '0' ? `A${attacks}` : '-'
+
+      // Build special rules with tooltips
+      let specialRulesHTML = '-'
+      if (specialRulesStr && specialRulesStr !== 'NULL' && specialRulesStr !== '') {
+        const rules = specialRulesStr.split(', ')
+        const ruleElements = rules.map(ruleText => {
+          // Parse "RuleName" or "RuleName(X)"
+          const match = ruleText.match(/^(.+?)(?:\((\d+)\))?$/)
+          if (!match) return ruleText
+          
+          const [_, ruleName, rating] = match
+          
+          // Find in cache by name
+          let ruleData = null
+          for (const [key, value] of this.state.specialRulesCache.entries()) {
+            if (value.name === ruleName) {
+              ruleData = value
+              break
+            }
+          }
+          
+          if (ruleData) {
+            return `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dashed; text-underline-offset: 4px; cursor: help;">${ruleText}</abbr>`
+          }
+          return ruleText
+        })
+        
+        specialRulesHTML = ruleElements.join(', ')
+      }
+
+      tableHTML += `
+          <tr style="border-bottom: 1px solid var(--color-semantic-border-subtle);">
+            <td style="padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-primary);">${name}</td>
+      `
+
+      if (isWeapon) {
+        tableHTML += `
+            <td style="text-align: center; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">${rangeText}</td>
+            <td style="text-align: center; padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">${attacksText}</td>
+        `
+      }
+
+      tableHTML += `
+            <td style="padding: var(--spacing-scale-1) var(--spacing-scale-2); color: var(--color-semantic-text-secondary);">${specialRulesHTML}</td>
+          </tr>
+      `
+    })
+
+    tableHTML += `
+        </tbody>
+      </table>
+    `
+
+    tableDiv.innerHTML = tableHTML
+    this.elements.weapons.appendChild(tableDiv)
+  }
+
   async loadUpgrades(unitId) {
     try {
-      // Load upgrade groups
+      // Load upgrade groups with what they replace
       const groupsResult = await window.pluginManager.call('sql', 'query',
-        `SELECT id, label, selection_type, min_selections, max_selections, applies_to, applies_count
-         FROM opr_upgrade_groups
-         WHERE unit_id = '${unitId}'
-         ORDER BY sort_order`
+        `SELECT 
+           ug.id,
+           ug.label,
+           ug.select_min,
+           ug.select_max,
+           ug.affects,
+           ug.affects_count,
+           ug.sort_order,
+           GROUP_CONCAT(e_replace.name, ', ') as replaces_equipment_names
+         FROM opr_upgrade_groups ug
+         LEFT JOIN opr_upgrade_group_replaces ugr ON ug.id = ugr.group_id
+         LEFT JOIN opr_equipment e_replace ON ugr.equipment_id = e_replace.id
+         WHERE ug.unit_id = '${unitId}'
+         GROUP BY ug.id
+         ORDER BY ug.sort_order`
       )
       const groupsCsv = DE.decode(groupsResult.output)
       const groups = this.parseCSV(groupsCsv)
 
-      // Load upgrades
-      const upgradesResult = await window.pluginManager.call('sql', 'query',
-        `SELECT u.id, u.group_id, u.name, u.cost, u.description, u.upgrade_type,
-                u.replaces_weapon_id, u.adds_weapon_id, u.adds_special_rule_id
-         FROM opr_upgrades u
-         WHERE u.unit_id = '${unitId}'
-         ORDER BY u.group_id, u.sort_order`
-      )
-      const upgradesCsv = DE.decode(upgradesResult.output)
-      const upgrades = this.parseCSV(upgradesCsv)
-
-      if (groups.length === 0 && upgrades.length === 0) {
+      if (groups.length === 0) {
         this.elements.upgradesContainer.style.display = 'none'
         return
       }
@@ -427,28 +623,47 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.upgrades.innerHTML = ''
       this.state.selectedUpgrades.clear()
 
-      // Render groups
+      // Render each group
       for (const groupLine of groups) {
-        const [groupId, label, selectionType, minSel, maxSel, appliesTo, appliesCount] = groupLine
-        const groupUpgrades = upgrades.filter(u => u[1] === groupId)
+        const [groupId, label, selectMin, selectMax, affects, affectsCount, sortOrder, replacesNames] = groupLine
 
-        if (groupUpgrades.length === 0) continue
+        // Load options for this group
+        const optionsResult = await window.pluginManager.call('sql', 'query',
+          `SELECT 
+             uo.id,
+             uo.equipment_id,
+             uo.cost,
+             uo.overrides_base_size_id,
+             uo.sort_order,
+             e.name,
+             e.type,
+             e.range,
+             e.attacks,
+             bs.shape as new_base_shape,
+             bs.dimensions as new_base_dimensions,
+             GROUP_CONCAT(
+               CASE 
+                 WHEN esr.rating > 0 
+                 THEN sr.name || '(' || esr.rating || ')'
+                 ELSE sr.name
+               END,
+               ', '
+             ) as special_rules
+           FROM opr_upgrade_options uo
+           JOIN opr_equipment e ON uo.equipment_id = e.id
+           LEFT JOIN opr_base_sizes bs ON uo.overrides_base_size_id = bs.id
+           LEFT JOIN opr_equipment_special_rules esr ON e.id = esr.equipment_id
+           LEFT JOIN opr_special_rules sr ON esr.special_rule_id = sr.id
+           WHERE uo.group_id = '${groupId}'
+           GROUP BY uo.id
+           ORDER BY uo.sort_order`
+        )
+        const optionsCsv = DE.decode(optionsResult.output)
+        const options = this.parseCSV(optionsCsv)
 
-        await this.renderUpgradeGroup(groupId, label, selectionType, maxSel, appliesTo, appliesCount, groupUpgrades)
-      }
-
-      // Handle ungrouped upgrades
-      const ungroupedUpgrades = upgrades.filter(u => !u[1] || u[1] === 'NULL' || u[1] === '')
-      if (ungroupedUpgrades.length > 0) {
-        const ungroupedDiv = document.createElement('div')
-        ungroupedDiv.style.cssText = 'margin-top: var(--spacing-scale-3);'
-
-        for (const upgradeLine of ungroupedUpgrades) {
-          const upgradeDiv = await this.renderUpgrade(upgradeLine, null, 'pick-any', null)
-          ungroupedDiv.appendChild(upgradeDiv)
+        if (options.length > 0) {
+          this.renderUpgradeGroup(groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, options)
         }
-
-        this.elements.upgrades.appendChild(ungroupedDiv)
       }
     } catch (error) {
       console.error('Error loading upgrades:', error)
@@ -456,156 +671,277 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     }
   }
 
-  async renderUpgradeGroup(groupId, label, selectionType, maxSel, appliesTo, appliesCount, upgrades) {
+  renderUpgradeGroup(groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, options) {
     const groupDiv = document.createElement('div')
     groupDiv.style.cssText = 'margin-bottom: var(--spacing-scale-4); padding: var(--spacing-scale-3); background: var(--color-semantic-bg-primary); border-radius: var(--border-radius-md); border: 1px solid var(--color-semantic-border-subtle);'
 
+    // Determine selection mode
+    const isRadio = selectMax === '1'
+    const isUnlimited = !selectMax || selectMax === 'NULL'
+    const isCounter = !isRadio && !isUnlimited && parseInt(selectMax) > 1
+
     // Header
     const headerDiv = document.createElement('div')
-    headerDiv.style.cssText = 'margin-bottom: var(--spacing-scale-3); display: flex; justify-content: space-between; align-items: baseline;'
+    headerDiv.style.cssText = 'margin-bottom: var(--spacing-scale-3);'
 
-    let headerText = `<span style="font-weight: 600; color: var(--color-semantic-text-primary);">${label}</span>`
+    let headerText = `<div style="font-weight: 600; color: var(--color-semantic-text-primary); margin-bottom: var(--spacing-scale-1);">${label}</div>`
 
-    if (appliesTo && appliesTo !== 'NULL') {
-      const scope = this.formatAppliesTo(appliesTo, appliesCount)
-      headerText += ` <span style="font-weight: normal; color: var(--color-semantic-text-secondary); font-size: var(--font-size-sm);">(${scope})</span>`
+    // Selection info
+    let selectionInfo = ''
+    if (isRadio) {
+      selectionInfo = '<span style="color: var(--color-semantic-text-accent); font-size: var(--font-size-sm);">Choose 1</span>'
+    } else if (isUnlimited) {
+      selectionInfo = '<span style="color: var(--color-semantic-text-tertiary); font-size: var(--font-size-sm);">Any amount</span>'
+    } else {
+      selectionInfo = `<span style="color: var(--color-semantic-text-tertiary); font-size: var(--font-size-sm);">Up to ${selectMax} total</span>`
     }
 
-    const selectionInfo = selectionType === 'pick-one'
-      ? `<span style="color: var(--color-semantic-text-accent); font-size: var(--font-size-sm);">Choose 1</span>`
-      : `<span style="color: var(--color-semantic-text-tertiary); font-size: var(--font-size-sm);">Up to ${maxSel || '∞'}</span>`
+    // Affects scope
+    let scopeInfo = ''
+    if (affects && affects !== 'NULL') {
+      const scope = this.formatAppliesTo(affects, affectsCount)
+      scopeInfo = ` <span style="color: var(--color-semantic-text-secondary); font-size: var(--font-size-sm);">(${scope})</span>`
+    }
 
-    headerDiv.innerHTML = `${headerText} ${selectionInfo}`
+    // Replaces info
+    let replacesInfo = ''
+    if (replacesNames && replacesNames !== 'NULL') {
+      replacesInfo = `<div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); font-style: italic;">Replaces: ${replacesNames}</div>`
+    }
+
+    headerDiv.innerHTML = `${headerText}<div>${selectionInfo}${scopeInfo}</div>${replacesInfo}`
     groupDiv.appendChild(headerDiv)
 
-    // Render upgrades
-    for (const upgradeLine of upgrades) {
-      const upgradeDiv = await this.renderUpgrade(upgradeLine, groupId, selectionType, maxSel)
-      groupDiv.appendChild(upgradeDiv)
+    // Render options based on selection mode
+    if (isRadio) {
+      // Radio buttons
+      options.forEach(optionLine => {
+        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'radio')
+        groupDiv.appendChild(optionDiv)
+      })
+    } else if (isUnlimited) {
+      // Checkboxes
+      options.forEach(optionLine => {
+        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'checkbox')
+        groupDiv.appendChild(optionDiv)
+      })
+    } else {
+      // Counter controls
+      options.forEach(optionLine => {
+        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'counter', selectMax)
+        groupDiv.appendChild(optionDiv)
+      })
     }
 
     this.elements.upgrades.appendChild(groupDiv)
   }
 
-  async renderUpgrade(upgradeLine, groupId, selectionType, maxSel) {
-    const [id, _groupId, name, cost, description, upgradeType, replacesWeaponId, addsWeaponId, addsSpecialRuleId] = upgradeLine
+  renderUpgradeOption(optionLine, groupId, mode, maxCount = null) {
+    const [optionId, equipmentId, cost, overridesBaseSize, sortOrder, name, type, range, attacks, newBaseShape, newBaseDimensions, specialRulesStr] = optionLine
 
-    const upgradeDiv = document.createElement('label')
-    upgradeDiv.style.cssText = 'display: flex; gap: var(--spacing-scale-2); padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); cursor: pointer; align-items: flex-start; margin-bottom: var(--spacing-scale-1); transition: background 0.15s ease;'
-    upgradeDiv.onmouseover = () => upgradeDiv.style.background = 'var(--color-semantic-bg-hover)'
-    upgradeDiv.onmouseout = () => upgradeDiv.style.background = 'var(--color-semantic-bg-secondary)'
+    const optionDiv = document.createElement('div')
+    optionDiv.style.cssText = 'padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm); margin-bottom: var(--spacing-scale-1);'
+    optionDiv.dataset.optionId = optionId
+    optionDiv.dataset.groupId = groupId
 
-    // Determine if this is a weapon replacement and calculate real cost
-    let displayCost = parseInt(cost)
-    let costLabel = ''
-
-    if (upgradeType === 'replace-weapon' && replacesWeaponId && replacesWeaponId !== 'NULL') {
-      // This replaces a weapon, so the cost is really the difference
-      costLabel = `${cost >= 0 ? '+' : ''}${cost}pts`
-    } else {
-      costLabel = `${cost >= 0 ? '+' : ''}${cost}pts`
+    // Build equipment display with stats
+    let equipmentDisplay = `<span style="font-weight: 500; color: var(--color-semantic-text-primary);">${name}</span>`
+    
+    // Add weapon stats if applicable
+    if ((type === 'weapon' || !type || type === 'NULL') && (range || attacks)) {
+      const rangeText = range && range !== 'NULL' && range !== '0' ? `${range}"` : 'Melee'
+      const attacksText = attacks && attacks !== 'NULL' && attacks !== '0' ? `A${attacks}` : ''
+      equipmentDisplay += ` <span style="font-size: var(--font-size-sm); color: var(--color-semantic-text-tertiary);">(${rangeText}${attacksText ? ', ' + attacksText : ''})</span>`
     }
 
-    const inputType = selectionType === 'pick-one' ? 'radio' : 'checkbox'
-    const inputName = groupId ? `upgrade-group-${groupId}` : `upgrade-${id}`
-
-    // Process upgrade name and add tooltips
-    let displayName = name
-
-    // For add-rule upgrades, extract and wrap special rule with tooltip
-    if (upgradeType === 'add-rule' && addsSpecialRuleId && addsSpecialRuleId !== 'NULL') {
-      const match = name.match(/^(.+?)\s*\(([^)]+)\)$/)
-      if (match) {
-        const baseName = match[1]
-        const ruleName = match[2]
-        const ruleData = this.state.specialRulesCache.get(addsSpecialRuleId)
-
-        if (ruleData) {
-          const ruleTooltip = `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dotted; cursor: help; color: var(--color-semantic-text-accent);">${ruleName}</abbr>`
-          displayName = `${baseName} (${ruleTooltip})`
+    // Add special rules with tooltips
+    if (specialRulesStr && specialRulesStr !== 'NULL') {
+      const rules = specialRulesStr.split(', ')
+      const ruleElements = rules.map(ruleText => {
+        const match = ruleText.match(/^(.+?)(?:\((\d+)\))?$/)
+        if (!match) return ruleText
+        
+        const [_, ruleName, rating] = match
+        
+        let ruleData = null
+        for (const [key, value] of this.state.specialRulesCache.entries()) {
+          if (value.name === ruleName) {
+            ruleData = value
+            break
+          }
         }
-      }
+        
+        if (ruleData) {
+          return `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dashed; text-underline-offset: 4px; cursor: help;">${ruleText}</abbr>`
+        }
+        return ruleText
+      })
+      
+      equipmentDisplay += ` <span style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">${ruleElements.join(', ')}</span>`
     }
 
-    // For weapon replacements and attack replacements, wrap weapon properties with tooltips
-    if (upgradeType === 'replace-weapon' || upgradeType === 'replace-attacks') {
-      // Match patterns like "AP(1)", "Blast(3)", "Deadly(3)", "Rending" within the weapon stats
-      displayName = displayName.replace(/\b(AP|Blast|Deadly|Rending|Reliable|Bane|Takedown|Precise|Furious|Shred|Rupture|Unstoppable|Indirect|Strafing)(\((\d+)\))?/g, (match, ruleName, fullRating, rating) => {
-        const ruleData = this.state.specialRulesCache.get(ruleName.toLowerCase())
-        if (ruleData) {
-          const displayText = rating ? `${ruleName}(${rating})` : ruleName
-          return `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dotted; cursor: help; color: var(--color-semantic-text-accent);">${displayText}</abbr>`
+    // Base size override badge
+    let baseSizeBadge = ''
+    if (overridesBaseSize && overridesBaseSize !== 'NULL' && newBaseShape && newBaseDimensions) {
+      baseSizeBadge = ` <span style="display: inline-block; padding: 2px 6px; background: var(--color-semantic-bg-accent); color: var(--color-semantic-text-on-accent); font-size: var(--font-size-xs); border-radius: var(--border-radius-sm);">⭘ ${newBaseDimensions} ${newBaseShape}</span>`
+    }
+
+    // Cost display
+    const costLabel = `<span style="color: var(--color-semantic-text-accent); margin-left: var(--spacing-scale-2);">${cost >= 0 ? '+' : ''}${cost}pts</span>`
+
+    if (mode === 'radio') {
+      optionDiv.innerHTML = `
+        <label style="display: flex; gap: var(--spacing-scale-2); align-items: center; cursor: pointer;">
+          <input type="radio" name="upgrade-group-${groupId}" 
+                 data-option-id="${optionId}" 
+                 data-equipment-id="${equipmentId}"
+                 data-cost="${cost}"
+                 style="cursor: pointer;">
+          <div style="flex: 1;">
+            ${equipmentDisplay}${baseSizeBadge}${costLabel}
+          </div>
+        </label>
+      `
+      
+      const input = optionDiv.querySelector('input')
+      input.addEventListener('change', () => {
+        if (input.checked) {
+          this.handleUpgradeSelection(groupId, optionId, equipmentId, parseInt(cost), 1, 'radio')
         }
-        return match
+      })
+    } else if (mode === 'checkbox') {
+      optionDiv.innerHTML = `
+        <label style="display: flex; gap: var(--spacing-scale-2); align-items: center; cursor: pointer;">
+          <input type="checkbox"
+                 data-option-id="${optionId}"
+                 data-equipment-id="${equipmentId}"
+                 data-cost="${cost}"
+                 style="cursor: pointer;">
+          <div style="flex: 1;">
+            ${equipmentDisplay}${baseSizeBadge}${costLabel}
+          </div>
+        </label>
+      `
+      
+      const input = optionDiv.querySelector('input')
+      input.addEventListener('change', () => {
+        this.handleUpgradeSelection(groupId, optionId, equipmentId, parseInt(cost), input.checked ? 1 : 0, 'checkbox')
+      })
+    } else if (mode === 'counter') {
+      optionDiv.innerHTML = `
+        <div style="display: flex; gap: var(--spacing-scale-2); align-items: center;">
+          <div style="flex: 1;">
+            ${equipmentDisplay}${baseSizeBadge}${costLabel}
+          </div>
+          <div style="display: flex; gap: var(--spacing-scale-1); align-items: center;">
+            <button type="button" data-action="decrement" 
+                    style="width: 28px; height: 28px; border: 1px solid var(--color-semantic-border-default); background: var(--color-semantic-bg-primary); color: var(--color-semantic-text-primary); border-radius: var(--border-radius-sm); cursor: pointer; font-weight: 600;">−</button>
+            <span data-element="count" style="min-width: 20px; text-align: center; font-weight: 500;">0</span>
+            <span style="color: var(--color-semantic-text-tertiary);">/ ${maxCount}</span>
+            <button type="button" data-action="increment"
+                    style="width: 28px; height: 28px; border: 1px solid var(--color-semantic-border-default); background: var(--color-semantic-bg-primary); color: var(--color-semantic-text-primary); border-radius: var(--border-radius-sm); cursor: pointer; font-weight: 600;">+</button>
+          </div>
+        </div>
+      `
+      
+      const decrementBtn = optionDiv.querySelector('[data-action="decrement"]')
+      const incrementBtn = optionDiv.querySelector('[data-action="increment"]')
+      const countSpan = optionDiv.querySelector('[data-element="count"]')
+      
+      decrementBtn.addEventListener('click', () => {
+        const currentCount = parseInt(countSpan.textContent)
+        if (currentCount > 0) {
+          const newCount = currentCount - 1
+          countSpan.textContent = newCount
+          this.handleUpgradeSelection(groupId, optionId, equipmentId, parseInt(cost), newCount, 'counter', maxCount)
+        }
+      })
+      
+      incrementBtn.addEventListener('click', () => {
+        const currentCount = parseInt(countSpan.textContent)
+        const groupTotal = this.getGroupTotal(groupId)
+        if (groupTotal < parseInt(maxCount)) {
+          const newCount = currentCount + 1
+          countSpan.textContent = newCount
+          this.handleUpgradeSelection(groupId, optionId, equipmentId, parseInt(cost), newCount, 'counter', maxCount)
+        }
       })
     }
 
-    const prefix = upgradeType === 'replace-weapon' ? '→ ' : ''
-
-    upgradeDiv.innerHTML = `
-      <input type="${inputType}" ${groupId ? `name="${inputName}"` : ''} 
-             data-upgrade-id="${id}" 
-             data-upgrade-cost="${cost}" 
-             data-group-id="${groupId || ''}"
-             data-upgrade-type="${upgradeType}"
-             data-replaces-weapon="${replacesWeaponId || ''}"
-             style="cursor: pointer; margin-top: 2px; flex-shrink: 0;">
-      <div style="flex: 1;">
-        <div style="font-weight: 500; color: var(--color-semantic-text-primary);">
-          ${prefix}${displayName}
-          <span style="color: var(--color-semantic-text-accent); margin-left: var(--spacing-scale-1);">${costLabel}</span>
-        </div>
-        ${description && description !== 'NULL' ? `<div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); margin-top: var(--spacing-scale-1);">${description}</div>` : ''}
-      </div>
-    `
-
-    const input = upgradeDiv.querySelector('input')
-    input.addEventListener('change', (e) => {
-      this.handleUpgradeSelection(e.target, id, groupId, cost, selectionType, maxSel)
-    })
-
-    return upgradeDiv
+    return optionDiv
   }
 
-  formatAppliesTo(appliesTo, appliesCount) {
-    if (appliesTo === 'one-model') return 'one model'
-    if (appliesTo === 'all-models') return 'all models'
-    if (appliesTo === 'any-model') return 'any model'
-    if (appliesTo === 'up-to-X-models' && appliesCount) return `up to ${appliesCount} models`
-    return appliesTo
+  formatAppliesTo(affects, affectsCount) {
+    if (affects === 'one-model') return 'one model'
+    if (affects === 'all-models') return 'all models'
+    if (affects === 'any-model') return 'any model'
+    if (affects === 'up-to-X' && affectsCount) return `up to ${affectsCount} models`
+    return affects
   }
 
-  handleUpgradeSelection(input, upgradeId, groupId, cost, selectionType, maxSel) {
-    const isChecked = input.checked
-
-    if (selectionType === 'pick-one' && groupId) {
-      // Radio: clear others in group
-      if (isChecked) {
-        this.state.selectedUpgrades.forEach(upgrade => {
-          if (upgrade.groupId === groupId && upgrade.id !== upgradeId) {
-            this.state.selectedUpgrades.delete(upgrade)
-          }
-        })
-        this.state.selectedUpgrades.add({ id: upgradeId, groupId, cost: parseInt(cost) })
+  getGroupTotal(groupId) {
+    let total = 0
+    for (const [optionId, data] of this.state.selectedUpgrades.entries()) {
+      if (data.groupId === groupId) {
+        total += data.count
       }
-    } else {
-      // Checkbox: enforce max
-      if (isChecked) {
-        if (groupId && maxSel) {
-          const groupSelections = Array.from(this.state.selectedUpgrades).filter(u => u.groupId === groupId)
-          if (groupSelections.length >= parseInt(maxSel)) {
-            input.checked = false
-            alert(`You can only select up to ${maxSel} upgrades from this group`)
-            return
-          }
+    }
+    return total
+  }
+
+  handleUpgradeSelection(groupId, optionId, equipmentId, cost, count, mode, maxCount = null) {
+    if (mode === 'radio') {
+      // Clear other selections in this group
+      for (const [key, data] of this.state.selectedUpgrades.entries()) {
+        if (data.groupId === groupId) {
+          this.state.selectedUpgrades.delete(key)
         }
-        this.state.selectedUpgrades.add({ id: upgradeId, groupId: groupId || null, cost: parseInt(cost) })
-      } else {
-        this.state.selectedUpgrades.forEach(upgrade => {
-          if (upgrade.id === upgradeId) {
-            this.state.selectedUpgrades.delete(upgrade)
-          }
+      }
+      
+      // Add this selection
+      if (count > 0) {
+        this.state.selectedUpgrades.set(optionId, {
+          optionId,
+          groupId,
+          equipmentId,
+          cost,
+          count
         })
+      }
+    } else if (mode === 'checkbox') {
+      if (count > 0) {
+        this.state.selectedUpgrades.set(optionId, {
+          optionId,
+          groupId,
+          equipmentId,
+          cost,
+          count
+        })
+      } else {
+        this.state.selectedUpgrades.delete(optionId)
+      }
+    } else if (mode === 'counter') {
+      // Check group total limit
+      const groupTotal = this.getGroupTotal(groupId)
+      const currentSelection = this.state.selectedUpgrades.get(optionId)
+      const currentCount = currentSelection ? currentSelection.count : 0
+      const newTotal = groupTotal - currentCount + count
+      
+      if (newTotal > parseInt(maxCount)) {
+        toast.error(`Cannot exceed ${maxCount} total selections in this group`, { duration: 3000 })
+        return
+      }
+      
+      if (count > 0) {
+        this.state.selectedUpgrades.set(optionId, {
+          optionId,
+          groupId,
+          equipmentId,
+          cost,
+          count
+        })
+      } else {
+        this.state.selectedUpgrades.delete(optionId)
       }
     }
 
@@ -614,9 +950,9 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   updateTotalCost() {
     let total = this.state.baseCost
-    this.state.selectedUpgrades.forEach(upgrade => {
-      total += upgrade.cost
-    })
+    for (const [optionId, data] of this.state.selectedUpgrades.entries()) {
+      total += data.cost * data.count
+    }
     this.elements.totalCost.textContent = `${total}pts`
   }
 
@@ -646,8 +982,18 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   exportJSON() {
     if (!this.state.selectedUnit) {
-      alert('No unit selected')
+      toast.error('No unit selected', { duration: 3000 })
       return
+    }
+
+    const upgrades = []
+    for (const [optionId, data] of this.state.selectedUpgrades.entries()) {
+      upgrades.push({
+        optionId: data.optionId,
+        equipmentId: data.equipmentId,
+        cost: data.cost,
+        count: data.count
+      })
     }
 
     const data = {
@@ -658,13 +1004,14 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       quality: this.elements.unitQuality.textContent,
       defense: this.elements.unitDefense.textContent,
       type: this.elements.unitType.textContent,
-      selectedUpgrades: Array.from(this.state.selectedUpgrades),
-      totalCost: this.elements.totalCost.textContent
+      baseSize: this.state.baseSize,
+      selectedUpgrades: upgrades,
+      totalCost: parseInt(this.elements.totalCost.textContent)
     }
 
     console.log('Unit JSON:', JSON.stringify(data, null, 2))
     navigator.clipboard.writeText(JSON.stringify(data, null, 2))
-    alert('Unit JSON copied to clipboard!')
+    toast.success('Unit JSON copied to clipboard!', { duration: 3000 })
   }
 
   showUnitDisplay() {
