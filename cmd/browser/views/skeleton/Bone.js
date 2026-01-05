@@ -74,9 +74,10 @@ export function computeWorldTransforms(skeleton) {
  * @param {number} py - Point Y in world coordinates
  * @param {Object} transform - Bone's world transform { worldX, worldY, endX, endY }
  * @param {number} threshold - Distance threshold for hit detection
+ * @param {number} excludeStartRadius - Exclude hits within this radius of bone start (for joints)
  * @returns {boolean} True if point is within threshold of bone line
  */
-export function hitTestBone(px, py, transform, threshold = 8) {
+export function hitTestBone(px, py, transform, threshold = 8, excludeStartRadius = 10) {
   const { worldX, worldY, endX, endY } = transform
   
   // Vector from start to end
@@ -88,6 +89,13 @@ export function hitTestBone(px, py, transform, threshold = 8) {
     // Zero-length bone - just check distance to point
     const distSq = (px - worldX) ** 2 + (py - worldY) ** 2
     return distSq <= threshold * threshold
+  }
+  
+  // Exclude hits near the start (joint area) - this prevents child bones from being
+  // detected when hovering near their joint (which overlaps with parent's tip)
+  const distFromStartSq = (px - worldX) ** 2 + (py - worldY) ** 2
+  if (distFromStartSq <= excludeStartRadius * excludeStartRadius) {
+    return false
   }
   
   // Project point onto line segment
@@ -151,12 +159,15 @@ export function findBoneAtPoint(worldX, worldY, transforms, options = {}) {
   // Priority: tips > joints > bone body
   // This ensures that when a child's joint overlaps a parent's tip, we detect the tip
   
-  // First pass: check all tips (highest priority)
+  // Expand hit radius for tips slightly to catch hovers earlier
+  const expandedTipRadius = tipRadius + 4
+  
+  // First pass: check all tips (highest priority) with expanded radius
   for (let i = transforms.length - 1; i >= 0; i--) {
     const transform = transforms[i]
     if (!transform) continue
     
-    if (hitTestTip(worldX, worldY, transform, tipRadius)) {
+    if (hitTestTip(worldX, worldY, transform, expandedTipRadius)) {
       return { index: i, part: 'tip' }
     }
   }
