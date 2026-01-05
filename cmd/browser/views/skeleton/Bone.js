@@ -148,21 +148,34 @@ export function findBoneAtPoint(worldX, worldY, transforms, options = {}) {
   const { jointRadius = 6, tipRadius = 6, boneThreshold = 8 } = options
   
   // Check in reverse order (later bones drawn on top)
+  // Priority: tips > joints > bone body
+  // This ensures that when a child's joint overlaps a parent's tip, we detect the tip
+  
+  // First pass: check all tips (highest priority)
   for (let i = transforms.length - 1; i >= 0; i--) {
     const transform = transforms[i]
     if (!transform) continue
     
-    // Check tip first (rotation handle - highest priority)
     if (hitTestTip(worldX, worldY, transform, tipRadius)) {
       return { index: i, part: 'tip' }
     }
+  }
+  
+  // Second pass: check all joints
+  for (let i = transforms.length - 1; i >= 0; i--) {
+    const transform = transforms[i]
+    if (!transform) continue
     
-    // Check joint (translation handle)
     if (hitTestJoint(worldX, worldY, transform, jointRadius)) {
       return { index: i, part: 'joint' }
     }
+  }
+  
+  // Third pass: check bone lines
+  for (let i = transforms.length - 1; i >= 0; i--) {
+    const transform = transforms[i]
+    if (!transform) continue
     
-    // Check bone line
     if (hitTestBone(worldX, worldY, transform, boneThreshold)) {
       return { index: i, part: 'bone' }
     }

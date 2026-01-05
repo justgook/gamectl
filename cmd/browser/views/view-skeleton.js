@@ -261,10 +261,10 @@ export class ViewSkeleton extends ViewCanvasBase {
     
     const { worldX, worldY } = this._screenToWorld(e.clientX, e.clientY)
     
-    // Check if clicking on a tip to start creating child bone
-    if (this.editorState.hoveredBone !== null && this.editorState.hoveredPart === 'tip') {
-      // Alt+click on tip starts child creation
-      if (e.altKey) {
+    // Alt+click to start creating child bone
+    // Check both tip (leaf bone) and joint (where child would attach to parent)
+    if (e.altKey && this.editorState.hoveredBone !== null) {
+      if (this.editorState.hoveredPart === 'tip' || this.editorState.hoveredPart === 'joint') {
         startCreateChild(this.editorState, this.data, this.editorState.hoveredBone, worldX, worldY)
         this.draw()
         return

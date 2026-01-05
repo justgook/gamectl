@@ -73,12 +73,14 @@ export function renderSkeleton(ctx, skeleton, transforms, state = {}) {
     // Only draw joint for root bone or if it's the hovered/selected bone
     // Child bones share their joint with parent's tip
     if (bone.parent === null || isHovered || isSelected) {
-      renderJoint(ctx, transform, isHovered && hoveredPart === 'joint', isSelected)
+      // Show joint as hovered if the bone is hovered (regardless of which part)
+      renderJoint(ctx, transform, isHovered, isSelected)
     }
     
     // Draw tip (rotation handle) if bone has length
     if (bone.l > 0) {
-      renderTip(ctx, transform, isHovered && hoveredPart === 'tip', isSelected)
+      // Show tip as hovered if the bone is hovered (regardless of which part)
+      renderTip(ctx, transform, isHovered, isSelected)
     }
   }
 }
