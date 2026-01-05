@@ -138,16 +138,32 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
       state.dragInitialAngle = angleBetweenPoints(transform.worldX, transform.worldY, worldX, worldY)
       state.dragInitialBoneAngle = skeleton.bones[index].a
     } else if (part === 'joint') {
-      // Translation mode (only for root bone)
+      // When clicking a joint, we want to rotate the parent bone
+      // The joint of a child bone is actually at the parent's tip
       const bone = skeleton.bones[index]
       if (bone.parent === null) {
+        // Root bone joint - translate the whole skeleton
         state.mode = EditorMode.TRANSLATE
       } else {
-        // For non-root bones, dragging joint also rotates
+        // Non-root bone joint - rotate the parent bone instead
         state.mode = EditorMode.ROTATE
-        const parentTransform = state.transforms[bone.parent]
-        state.dragInitialAngle = angleBetweenPoints(parentTransform.endX, parentTransform.endY, worldX, worldY)
-        state.dragInitialBoneAngle = bone.a
+        const parentIndex = bone.parent
+        const parentBone = skeleton.bones[parentIndex]
+        state.dragBoneIndex = parentIndex  // Rotate parent, not child
+        
+        // Get pivot point (parent's joint)
+        let pivotX, pivotY
+        if (parentBone.parent === null) {
+          pivotX = skeleton.x
+          pivotY = skeleton.y
+        } else {
+          const grandparentTransform = state.transforms[parentBone.parent]
+          pivotX = grandparentTransform.endX
+          pivotY = grandparentTransform.endY
+        }
+        
+        state.dragInitialAngle = angleBetweenPoints(pivotX, pivotY, worldX, worldY)
+        state.dragInitialBoneAngle = parentBone.a
       }
     } else {
       // Clicked on bone body - just selection, no drag action

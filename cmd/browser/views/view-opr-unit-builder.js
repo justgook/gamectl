@@ -104,6 +104,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       baseCost: 0,
       baseSize: null, // Track current base size
       specialRulesCache: new Map(), // Cache special rule descriptions by ID
+      
+      // Incremental upgrade dependencies
+      currentEquipment: new Set(), // Set of equipment IDs currently owned
+      baseEquipment: new Set(), // Set of base equipment IDs (never changes)
+      upgradeGroups: [], // Array of group data with dependencies
+      upgradeGroupsMap: new Map(), // Map: groupId → group data
     }
     this.unitCards = [] // Array of built units
   }
@@ -318,6 +324,9 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.unitDefense.textContent = `${defense}+`
       this.elements.unitType.textContent = unitType
 
+      // Initialize base equipment FIRST (needed for loadEquipment and loadUpgrades)
+      await this.initializeBaseEquipment(unitId)
+
       // Load special rules (including Tough)
       await this.loadSpecialRules(unitId)
 
@@ -387,7 +396,18 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   async loadEquipment(unitId) {
     try {
-      // Get equipment (weapons/items/mounts) with special rules
+      // Get current equipment IDs (base + upgrades - replacements)
+      const currentEquipmentIds = Array.from(this.state.currentEquipment)
+      
+      if (currentEquipmentIds.length === 0) {
+        this.elements.weaponsContainer.style.display = 'none'
+        return
+      }
+
+      // Build IN clause for SQL query
+      const equipmentIdsStr = currentEquipmentIds.map(id => `'${id}'`).join(',')
+      
+      // Get equipment details with special rules
       const result = await window.pluginManager.call('sql', 'query',
         `SELECT 
            e.id, 
@@ -395,7 +415,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
            e.type,
            e.range, 
            e.attacks, 
-           ue.count,
+           1 as count,
            GROUP_CONCAT(
              CASE 
                WHEN esr.rating > 0 
@@ -404,12 +424,11 @@ export class ViewOPRUnitBuilder extends HTMLElement {
              END,
              ', '
            ) as special_rules
-         FROM opr_unit_equipment ue
-         JOIN opr_equipment e ON ue.equipment_id = e.id
+         FROM opr_equipment e
          LEFT JOIN opr_equipment_special_rules esr ON e.id = esr.equipment_id
          LEFT JOIN opr_special_rules sr ON esr.special_rule_id = sr.id
-         WHERE ue.unit_id = '${unitId}'
-         GROUP BY e.id, e.name, e.type, e.range, e.attacks, ue.count
+         WHERE e.id IN (${equipmentIdsStr})
+         GROUP BY e.id, e.name, e.type, e.range, e.attacks
          ORDER BY 
            CASE e.type 
              WHEN 'weapon' THEN 1 
@@ -479,6 +498,16 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   async loadEquipmentGrants(unitId) {
     try {
+      // Get current equipment IDs
+      const currentEquipmentIds = Array.from(this.state.currentEquipment)
+      
+      if (currentEquipmentIds.length === 0) {
+        return
+      }
+
+      // Build IN clause for SQL query
+      const equipmentIdsStr = currentEquipmentIds.map(id => `'${id}'`).join(',')
+      
       // Get equipment that grants other equipment (e.g., Combat Shield grants Bash)
       const result = await window.pluginManager.call('sql', 'query',
         `SELECT 
@@ -501,11 +530,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
          JOIN opr_equipment granted ON eg.granted_equipment_id = granted.id
          LEFT JOIN opr_equipment_special_rules esr ON granted.id = esr.equipment_id
          LEFT JOIN opr_special_rules sr ON esr.special_rule_id = sr.id
-         WHERE eg.parent_equipment_id IN (
-           SELECT equipment_id 
-           FROM opr_unit_equipment 
-           WHERE unit_id = '${unitId}'
-         )
+         WHERE eg.parent_equipment_id IN (${equipmentIdsStr})
          GROUP BY parent.name, granted.name, granted.type, granted.range, granted.attacks, eg.count
          ORDER BY parent.name, granted.name`
       )
@@ -681,7 +706,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   async loadUpgrades(unitId) {
     try {
-      // Load upgrade groups with what they replace
+      // Load upgrade groups with what they replace (including equipment IDs)
       const groupsResult = await window.pluginManager.call('sql', 'query',
         `SELECT 
            ug.id,
@@ -691,7 +716,8 @@ export class ViewOPRUnitBuilder extends HTMLElement {
            ug.affects,
            ug.affects_count,
            ug.sort_order,
-           GROUP_CONCAT(e_replace.name, ', ') as replaces_equipment_names
+           GROUP_CONCAT(e_replace.name, ', ') as replaces_equipment_names,
+           GROUP_CONCAT(ugr.equipment_id, '|') as replaces_equipment_ids
          FROM opr_upgrade_groups ug
          LEFT JOIN opr_upgrade_group_replaces ugr ON ug.id = ugr.group_id
          LEFT JOIN opr_equipment e_replace ON ugr.equipment_id = e_replace.id
@@ -710,10 +736,17 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       this.elements.upgradesContainer.style.display = 'block'
       this.elements.upgrades.innerHTML = ''
       this.state.selectedUpgrades.clear()
+      this.state.upgradeGroups = []
+      this.state.upgradeGroupsMap.clear()
 
-      // Render each group
+      // Load all groups and their options
       for (const groupLine of groups) {
-        const [groupId, label, selectMin, selectMax, affects, affectsCount, sortOrder, replacesNames] = groupLine
+        const [groupId, label, selectMin, selectMax, affects, affectsCount, sortOrder, replacesNames, replacesIds] = groupLine
+
+        // Parse replacement equipment IDs
+        const replacesEquipmentIds = replacesIds && replacesIds !== 'NULL' 
+          ? replacesIds.split('|').filter(id => id && id !== 'NULL')
+          : []
 
         // Load options for this group
         const optionsResult = await window.pluginManager.call('sql', 'query',
@@ -750,18 +783,83 @@ export class ViewOPRUnitBuilder extends HTMLElement {
         const options = this.parseCSV(optionsCsv)
 
         if (options.length > 0) {
-          this.renderUpgradeGroup(groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, options)
+          const groupData = {
+            groupId,
+            label,
+            selectMin,
+            selectMax,
+            affects,
+            affectsCount,
+            sortOrder,
+            replacesNames,
+            replacesEquipmentIds,
+            options
+          }
+          
+          this.state.upgradeGroups.push(groupData)
+          this.state.upgradeGroupsMap.set(groupId, groupData)
         }
       }
+      
+      // Render all groups with initial enabled/disabled state
+      this.renderAllUpgradeGroups()
     } catch (error) {
       console.error('Error loading upgrades:', error)
       this.elements.upgradesContainer.style.display = 'none'
     }
   }
 
-  renderUpgradeGroup(groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, options) {
+  async initializeBaseEquipment(unitId) {
+    try {
+      const result = await window.pluginManager.call('sql', 'query',
+        `SELECT equipment_id FROM opr_unit_equipment WHERE unit_id = '${unitId}'`
+      )
+      const csv = DE.decode(result.output)
+      const lines = this.parseCSV(csv)
+      
+      this.state.baseEquipment.clear()
+      this.state.currentEquipment.clear()
+      
+      lines.forEach(line => {
+        const [equipmentId] = line
+        this.state.baseEquipment.add(equipmentId)
+        this.state.currentEquipment.add(equipmentId)
+      })
+    } catch (error) {
+      console.error('Error initializing base equipment:', error)
+    }
+  }
+
+  renderAllUpgradeGroups() {
+    this.elements.upgrades.innerHTML = ''
+    
+    for (const groupData of this.state.upgradeGroups) {
+      const { groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, replacesEquipmentIds, options } = groupData
+      
+      // Check if this group is enabled
+      const isEnabled = this.isGroupEnabled(groupId, replacesEquipmentIds)
+      
+      this.renderUpgradeGroup(groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, replacesEquipmentIds, options, isEnabled)
+    }
+  }
+
+  isGroupEnabled(groupId, replacesEquipmentIds) {
+    // If no replacement requirements, always enabled
+    if (!replacesEquipmentIds || replacesEquipmentIds.length === 0) {
+      return true
+    }
+    
+    // Group is enabled if user currently has ANY of the equipment it replaces
+    return replacesEquipmentIds.some(eqId => this.state.currentEquipment.has(eqId))
+  }
+
+  renderUpgradeGroup(groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, replacesEquipmentIds, options, isEnabled) {
     const groupDiv = document.createElement('div')
-    groupDiv.style.cssText = 'margin-bottom: var(--spacing-scale-4); padding: var(--spacing-scale-3); background: var(--color-semantic-bg-primary); border-radius: var(--border-radius-md); border: 1px solid var(--color-semantic-border-subtle);'
+    groupDiv.dataset.groupId = groupId
+    
+    // Apply disabled styling if not enabled
+    const disabledStyle = !isEnabled ? 'opacity: 0.5; pointer-events: none;' : ''
+    groupDiv.style.cssText = `margin-bottom: var(--spacing-scale-4); padding: var(--spacing-scale-3); background: var(--color-semantic-bg-primary); border-radius: var(--border-radius-md); border: 1px solid var(--color-semantic-border-subtle); ${disabledStyle}`
 
     // Determine selection mode
     const isRadio = selectMax === '1'
@@ -791,10 +889,14 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       scopeInfo = ` <span style="color: var(--color-semantic-text-secondary); font-size: var(--font-size-sm);">(${scope})</span>`
     }
 
-    // Replaces info
+    // Replaces info with requirement indicator
     let replacesInfo = ''
     if (replacesNames && replacesNames !== 'NULL') {
-      replacesInfo = `<div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); font-style: italic;">Replaces: ${replacesNames}</div>`
+      const requirementStyle = !isEnabled 
+        ? 'color: var(--color-semantic-text-warning); font-weight: 500;' 
+        : 'color: var(--color-semantic-text-secondary);'
+      const requirementIcon = !isEnabled ? '🔒 ' : ''
+      replacesInfo = `<div style="font-size: var(--font-size-sm); ${requirementStyle} font-style: italic;">${requirementIcon}${!isEnabled ? 'Requires' : 'Replaces'}: ${replacesNames}</div>`
     }
 
     headerDiv.innerHTML = `${headerText}<div>${selectionInfo}${scopeInfo}</div>${replacesInfo}`
@@ -804,19 +906,19 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     if (isRadio) {
       // Radio buttons
       options.forEach(optionLine => {
-        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'radio')
+        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'radio', null, isEnabled)
         groupDiv.appendChild(optionDiv)
       })
     } else if (isUnlimited) {
       // Checkboxes
       options.forEach(optionLine => {
-        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'checkbox')
+        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'checkbox', null, isEnabled)
         groupDiv.appendChild(optionDiv)
       })
     } else {
       // Counter controls
       options.forEach(optionLine => {
-        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'counter', selectMax)
+        const optionDiv = this.renderUpgradeOption(optionLine, groupId, 'counter', selectMax, isEnabled)
         groupDiv.appendChild(optionDiv)
       })
     }
@@ -824,7 +926,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     this.elements.upgrades.appendChild(groupDiv)
   }
 
-  renderUpgradeOption(optionLine, groupId, mode, maxCount = null) {
+  renderUpgradeOption(optionLine, groupId, mode, maxCount = null, isEnabled = true) {
     const [optionId, equipmentId, cost, overridesBaseSize, sortOrder, name, type, range, attacks, newBaseShape, newBaseDimensions, specialRulesStr] = optionLine
 
     const optionDiv = document.createElement('div')
@@ -877,6 +979,11 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     // Cost display
     const costLabel = `<span style="color: var(--color-semantic-text-accent); margin-left: var(--spacing-scale-2);">${cost >= 0 ? '+' : ''}${cost}pts</span>`
 
+    // Check if this option is currently selected
+    const currentSelection = this.state.selectedUpgrades.get(optionId)
+    const isSelected = !!currentSelection
+    const currentCount = currentSelection ? currentSelection.count : 0
+
     if (mode === 'radio') {
       optionDiv.innerHTML = `
         <label style="display: flex; gap: var(--spacing-scale-2); align-items: center; cursor: pointer;">
@@ -884,7 +991,8 @@ export class ViewOPRUnitBuilder extends HTMLElement {
                  class="opr-radio"
                  data-option-id="${optionId}" 
                  data-equipment-id="${equipmentId}"
-                 data-cost="${cost}">
+                 data-cost="${cost}"
+                 ${isSelected ? 'checked' : ''}>
           <div style="flex: 1;">
             ${equipmentDisplay}${baseSizeBadge}${costLabel}
           </div>
@@ -904,7 +1012,8 @@ export class ViewOPRUnitBuilder extends HTMLElement {
                  class="opr-checkbox"
                  data-option-id="${optionId}"
                  data-equipment-id="${equipmentId}"
-                 data-cost="${cost}">
+                 data-cost="${cost}"
+                 ${isSelected ? 'checked' : ''}>
           <div style="flex: 1;">
             ${equipmentDisplay}${baseSizeBadge}${costLabel}
           </div>
@@ -924,7 +1033,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           <div style="display: flex; gap: var(--spacing-scale-1); align-items: center;">
             <button type="button" data-action="decrement" 
                     style="width: 28px; height: 28px; border: 1px solid var(--color-semantic-border-default); background: var(--color-semantic-bg-primary); color: var(--color-semantic-text-primary); border-radius: var(--border-radius-sm); cursor: pointer; font-weight: 600;">−</button>
-            <span data-element="count" style="min-width: 20px; text-align: center; font-weight: 500;">0</span>
+            <span data-element="count" style="min-width: 20px; text-align: center; font-weight: 500;">${currentCount}</span>
             <span style="color: var(--color-semantic-text-tertiary);">/ ${maxCount}</span>
             <button type="button" data-action="increment"
                     style="width: 28px; height: 28px; border: 1px solid var(--color-semantic-border-default); background: var(--color-semantic-bg-primary); color: var(--color-semantic-text-primary); border-radius: var(--border-radius-sm); cursor: pointer; font-weight: 600;">+</button>
@@ -1033,7 +1142,177 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       }
     }
 
+    // Update current equipment state and cascade changes
+    this.updateCurrentEquipment()
+    
+    // Clear dependent selections if this change breaks their requirements
+    this.clearInvalidDependentSelections(groupId)
+    
+    // Re-render all upgrade groups to update enabled/disabled states
+    this.renderAllUpgradeGroups()
+    
+    // Update total cost
     this.updateTotalCost()
+    
+    // Update equipment and special rules display
+    this.updateEquipmentDisplay()
+  }
+
+  updateCurrentEquipment() {
+    // Start with base equipment
+    this.state.currentEquipment = new Set(this.state.baseEquipment)
+    
+    // Process each upgrade group in order
+    for (const groupData of this.state.upgradeGroups) {
+      const { groupId, replacesEquipmentIds } = groupData
+      
+      // Check if this group has any selections
+      const groupSelections = Array.from(this.state.selectedUpgrades.values())
+        .filter(sel => sel.groupId === groupId)
+      
+      if (groupSelections.length > 0) {
+        // Remove replaced equipment
+        if (replacesEquipmentIds && replacesEquipmentIds.length > 0) {
+          replacesEquipmentIds.forEach(eqId => {
+            this.state.currentEquipment.delete(eqId)
+          })
+        }
+        
+        // Add granted equipment
+        groupSelections.forEach(sel => {
+          this.state.currentEquipment.add(sel.equipmentId)
+        })
+      }
+    }
+  }
+
+  clearInvalidDependentSelections(changedGroupId) {
+    // Find the sort order of the changed group
+    const changedGroup = this.state.upgradeGroupsMap.get(changedGroupId)
+    if (!changedGroup) return
+    
+    const changedSortOrder = parseInt(changedGroup.sortOrder)
+    
+    // Clear selections from groups that come after this one and are now invalid
+    const selectionsToRemove = []
+    
+    for (const [optionId, selection] of this.state.selectedUpgrades.entries()) {
+      const selectionGroup = this.state.upgradeGroupsMap.get(selection.groupId)
+      if (!selectionGroup) continue
+      
+      const selectionSortOrder = parseInt(selectionGroup.sortOrder)
+      
+      // Only check groups that come after the changed group
+      if (selectionSortOrder > changedSortOrder) {
+        // Check if this group is still enabled with current equipment
+        const isStillEnabled = this.isGroupEnabled(
+          selection.groupId, 
+          selectionGroup.replacesEquipmentIds
+        )
+        
+        if (!isStillEnabled) {
+          selectionsToRemove.push(optionId)
+        }
+      }
+    }
+    
+    // Remove invalid selections
+    selectionsToRemove.forEach(optionId => {
+      this.state.selectedUpgrades.delete(optionId)
+    })
+    
+    if (selectionsToRemove.length > 0) {
+      console.log(`Cleared ${selectionsToRemove.length} dependent selections`)
+    }
+  }
+
+  async updateEquipmentDisplay() {
+    // Reload equipment display with current selections applied
+    if (this.state.selectedUnit) {
+      await this.loadEquipment(this.state.selectedUnit)
+      await this.loadEquipmentGrants(this.state.selectedUnit)
+      await this.loadSpecialRulesWithUpgrades(this.state.selectedUnit)
+    }
+  }
+
+  async loadSpecialRulesWithUpgrades(unitId) {
+    try {
+      // Get base unit special rules
+      const unitRulesResult = await window.pluginManager.call('sql', 'query',
+        `SELECT sr.id, sr.name, sr.description, usr.rating
+         FROM opr_unit_special_rules usr
+         JOIN opr_special_rules sr ON usr.special_rule_id = sr.id
+         WHERE usr.unit_id = '${unitId}'
+         ORDER BY sr.name`
+      )
+      const unitRulesCsv = DE.decode(unitRulesResult.output)
+      const unitRulesLines = this.parseCSV(unitRulesCsv)
+
+      // Get special rules from current equipment
+      const currentEquipmentIds = Array.from(this.state.currentEquipment)
+      let equipmentRulesLines = []
+      
+      if (currentEquipmentIds.length > 0) {
+        const equipmentIdsStr = currentEquipmentIds.map(id => `'${id}'`).join(',')
+        
+        const equipRulesResult = await window.pluginManager.call('sql', 'query',
+          `SELECT DISTINCT sr.id, sr.name, sr.description, esr.rating
+           FROM opr_equipment_special_rules esr
+           JOIN opr_special_rules sr ON esr.special_rule_id = sr.id
+           WHERE esr.equipment_id IN (${equipmentIdsStr})
+           ORDER BY sr.name`
+        )
+        const equipRulesCsv = DE.decode(equipRulesResult.output)
+        equipmentRulesLines = this.parseCSV(equipRulesCsv)
+      }
+
+      // Combine and deduplicate rules (unit rules take precedence for rating)
+      const rulesMap = new Map()
+      
+      unitRulesLines.forEach(line => {
+        const [id, name, description, rating] = line
+        rulesMap.set(name, { id, name, description, rating, source: 'unit' })
+      })
+      
+      equipmentRulesLines.forEach(line => {
+        const [id, name, description, rating] = line
+        if (!rulesMap.has(name)) {
+          rulesMap.set(name, { id, name, description, rating, source: 'equipment' })
+        }
+      })
+
+      if (rulesMap.size === 0) {
+        this.elements.specialRulesContainer.style.display = 'none'
+        return
+      }
+
+      this.elements.specialRulesContainer.style.display = 'block'
+      this.elements.specialRules.innerHTML = ''
+
+      rulesMap.forEach(({ id, name, description, rating, source }) => {
+        const ruleDiv = document.createElement('div')
+        ruleDiv.style.cssText = 'display: inline-block; margin-right: var(--spacing-scale-2); margin-bottom: var(--spacing-scale-1);'
+
+        const hasRating = rating && rating !== '' && rating !== 'NULL'
+        const ruleName = hasRating ? `${name}(${rating})` : name
+
+        ruleDiv.innerHTML = `
+          <abbr data-tooltip="${description}" style="
+            text-decoration: underline dotted;
+            cursor: help;
+            text-decoration-color: var(--color-semantic-border-accent);
+            padding: var(--spacing-scale-1) var(--spacing-scale-2);
+            background: var(--color-semantic-bg-secondary);
+            border-radius: var(--border-radius-sm);
+            font-size: var(--font-size-sm);
+          ">${ruleName}</abbr>
+        `
+        this.elements.specialRules.appendChild(ruleDiv)
+      })
+    } catch (error) {
+      console.error('Error loading special rules with upgrades:', error)
+      this.elements.specialRulesContainer.style.display = 'none'
+    }
   }
 
   updateTotalCost() {
