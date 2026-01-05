@@ -17,6 +17,7 @@ import { ViewTesting } from "./views/view-testing.js"
 import { ViewPipeline } from "./views/view-pipeline.js"
 import { ViewNodeGraph } from "./views/view-nodegraph.js"
 import { ViewOPRUnitBuilder } from "./views/view-opr-unit-builder.js"
+import { ViewSkeleton } from "./views/view-skeleton.js"
 
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
@@ -47,6 +48,7 @@ customElements.define('view-tree', ViewTree)
 customElements.define('view-console', ViewConsole)
 customElements.define('view-pipeline', ViewPipeline)
 customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
+// customElements.define('view-skeleton', ViewSkeleton) //already registered in file
 // customElements.define('view-nodegraph', ViewNodeGraph) //already registered in file
 
 /// THE PLUGIN MANAGER TESTING!!!
@@ -178,6 +180,34 @@ async function initTilemapStorage() {
 }
 
 await initTilemapStorage()
+
+// Initialize Skeleton Storage Database
+async function initSkeletonStorage() {
+  try {
+    // Fetch migration file
+    const response = await fetch('/data/skeleton-storage.sql')
+    if (!response.ok) {
+      console.error('Failed to load skeleton-storage.sql:', response.statusText)
+      return
+    }
+
+    const migrationSql = await response.text()
+
+    // Execute migration (uses restore since it's a SQL script)
+    const result = await window.pluginManager.call('sql', 'restore', migrationSql)
+    console.log('Skeleton storage initialized:', DE.decode(result.output))
+
+    // Verify table created
+    const verifyResult = await window.pluginManager.call('sql', 'query',
+      'SELECT name FROM sqlite_schema WHERE type="table" AND name="skeleton_storage"'
+    )
+    console.log('Skeleton storage table check:', DE.decode(verifyResult.output))
+  } catch (error) {
+    console.error('Error initializing skeleton storage:', error)
+  }
+}
+
+await initSkeletonStorage()
 
 // Initialize Keybindings System
 async function initKeybindings() {
