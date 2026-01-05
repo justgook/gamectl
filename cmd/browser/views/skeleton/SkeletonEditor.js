@@ -37,25 +37,25 @@ export function createEditorState() {
     hoveredBone: null,
     hoveredPart: null,  // 'joint', 'tip', or 'bone'
     selectedBones: new Set(),
-    
+
     // Drag state
     isDragging: false,
     dragStartX: 0,
     dragStartY: 0,
     dragBoneIndex: null,
     dragPart: null,
-    
+
     // For rotation - store initial angle
     dragInitialAngle: 0,
     dragInitialBoneAngle: 0,
-    
+
     // For creation
     createParentIndex: null,
     createStartX: 0,
     createStartY: 0,
     createEndX: 0,
     createEndY: 0,
-    
+
     // Computed transforms (cached)
     transforms: []
   }
@@ -72,12 +72,12 @@ export function createEditorState() {
  */
 export function updateHover(state, skeleton, worldX, worldY) {
   if (!skeleton || state.isDragging) return false
-  
+
   const hit = findBoneAtPoint(worldX, worldY, state.transforms)
-  
+
   const prevHovered = state.hoveredBone
   const prevPart = state.hoveredPart
-  
+
   if (hit) {
     // When hovering over a joint of a non-root bone, show parent bone as hovered
     let hoveredIndex = hit.index
@@ -87,14 +87,14 @@ export function updateHover(state, skeleton, worldX, worldY) {
         hoveredIndex = bone.parent
       }
     }
-    
+
     state.hoveredBone = hoveredIndex
     state.hoveredPart = hit.part
   } else {
     state.hoveredBone = null
     state.hoveredPart = null
   }
-  
+
   return state.hoveredBone !== prevHovered || state.hoveredPart !== prevPart
 }
 
@@ -110,13 +110,20 @@ export function updateHover(state, skeleton, worldX, worldY) {
  */
 export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
   if (!skeleton) return { changed: false, skeleton }
-  
+
   const hit = findBoneAtPoint(worldX, worldY, state.transforms)
-  
+
   if (hit) {
     // Clicked on a bone
-    const { index, part } = hit
-    
+    let { index, part } = hit
+
+    // Special case: zero-length root bone
+    // When clicking on a zero-length root bone's tip, treat it as joint for translation
+    const clickedBone = skeleton.bones[index]
+    if (part === 'tip' && clickedBone.parent === null && clickedBone.l === 0) {
+      part = 'joint'
+    }
+
     // Determine which bone to select based on part clicked
     // When clicking a joint of a non-root bone, select the parent instead
     let selectIndex = index
@@ -126,7 +133,7 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
         selectIndex = bone.parent
       }
     }
-    
+
     // Handle selection
     if (shiftKey) {
       // Toggle selection
@@ -142,60 +149,58 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
         state.selectedBones.add(selectIndex)
       }
     }
-    
+
     // Start drag based on part
+    // Note: selectIndex is the bone we selected (parent for joints), index is the hit bone
     state.isDragging = true
     state.dragStartX = worldX
     state.dragStartY = worldY
-    state.dragBoneIndex = index
+    state.dragBoneIndex = selectIndex  // Use selectIndex for consistency
     state.dragPart = part
-    
+
     if (part === 'tip') {
-      // Rotation mode
+      // Rotation mode - rotate the bone whose tip was clicked
+      // For tips, selectIndex and index are the same
       state.mode = EditorMode.ROTATE
-      const transform = state.transforms[index]
+      const transform = state.transforms[selectIndex]
       state.dragInitialAngle = angleBetweenPoints(transform.worldX, transform.worldY, worldX, worldY)
-      state.dragInitialBoneAngle = skeleton.bones[index].a
+      state.dragInitialBoneAngle = skeleton.bones[selectIndex].a
     } else if (part === 'joint') {
-      // When clicking a joint, we want to rotate the parent bone
-      // The joint of a child bone is actually at the parent's tip
-      const bone = skeleton.bones[index]
+      // When clicking a joint, we operate on the bone we selected (parent for child joints)
+      const bone = skeleton.bones[selectIndex]
       if (bone.parent === null) {
         // Root bone joint - translate the whole skeleton
         state.mode = EditorMode.TRANSLATE
       } else {
-        // Non-root bone joint - rotate the parent bone instead
+        // Non-root bone joint - rotate the parent bone (which is selectIndex)
         state.mode = EditorMode.ROTATE
-        const parentIndex = bone.parent
-        const parentBone = skeleton.bones[parentIndex]
-        state.dragBoneIndex = parentIndex  // Rotate parent, not child
-        
-        // Get pivot point (parent's joint)
+
+        // Get pivot point (bone's joint, not its parent's)
         let pivotX, pivotY
-        if (parentBone.parent === null) {
+        if (bone.parent === null) {
           pivotX = skeleton.x
           pivotY = skeleton.y
         } else {
-          const grandparentTransform = state.transforms[parentBone.parent]
-          pivotX = grandparentTransform.endX
-          pivotY = grandparentTransform.endY
+          const parentTransform = state.transforms[bone.parent]
+          pivotX = parentTransform.endX
+          pivotY = parentTransform.endY
         }
-        
+
         state.dragInitialAngle = angleBetweenPoints(pivotX, pivotY, worldX, worldY)
-        state.dragInitialBoneAngle = parentBone.a
+        state.dragInitialBoneAngle = bone.a
       }
     } else {
       // Clicked on bone body - just selection, no drag action
       state.isDragging = false
     }
-    
+
     return { changed: true, skeleton }
   } else {
     // Clicked on empty space
     if (!shiftKey) {
       state.selectedBones.clear()
     }
-    
+
     // Start creating a new root bone
     state.mode = EditorMode.CREATE
     state.isDragging = true
@@ -204,7 +209,7 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
     state.createStartY = worldY
     state.createEndX = worldX
     state.createEndY = worldY
-    
+
     return { changed: true, skeleton }
   }
 }
@@ -220,32 +225,32 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
  */
 export function handleMouseMove(state, skeleton, worldX, worldY) {
   if (!skeleton || !state.isDragging) return { changed: false, skeleton }
-  
+
   switch (state.mode) {
     case EditorMode.TRANSLATE: {
       // Move skeleton origin (root bone)
       const dx = worldX - state.dragStartX
       const dy = worldY - state.dragStartY
-      
+
       skeleton = {
         ...skeleton,
         x: skeleton.x + dx,
         y: skeleton.y + dy
       }
-      
+
       state.dragStartX = worldX
       state.dragStartY = worldY
-      
+
       // Recompute transforms
       state.transforms = computeWorldTransforms(skeleton)
-      
+
       return { changed: true, skeleton }
     }
-    
+
     case EditorMode.ROTATE: {
       const boneIndex = state.dragBoneIndex
       const bone = skeleton.bones[boneIndex]
-      
+
       // Get pivot point (joint position)
       let pivotX, pivotY, parentWorldAngle
       if (bone.parent === null) {
@@ -258,29 +263,29 @@ export function handleMouseMove(state, skeleton, worldX, worldY) {
         pivotY = parentTransform.endY
         parentWorldAngle = parentTransform.worldAngle
       }
-      
+
       // Calculate new angle
       const currentAngle = angleBetweenPoints(pivotX, pivotY, worldX, worldY)
       const angleDelta = currentAngle - state.dragInitialAngle
       const newLocalAngle = normalizeAngle(state.dragInitialBoneAngle + angleDelta)
-      
+
       // Update bone
       const newBones = [...skeleton.bones]
       newBones[boneIndex] = { ...bone, a: newLocalAngle }
       skeleton = { ...skeleton, bones: newBones }
-      
+
       // Recompute transforms
       state.transforms = computeWorldTransforms(skeleton)
-      
+
       return { changed: true, skeleton }
     }
-    
+
     case EditorMode.CREATE: {
       state.createEndX = worldX
       state.createEndY = worldY
       return { changed: true, skeleton }
     }
-    
+
     default:
       return { changed: false, skeleton }
   }
@@ -301,17 +306,17 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
     state.mode = EditorMode.SELECT
     return { changed: false, skeleton }
   }
-  
+
   let changed = false
-  
+
   if (state.mode === EditorMode.CREATE) {
     // Finish creating bone
     const length = distance(state.createStartX, state.createStartY, worldX, worldY)
-    
+
     // Only create if dragged a meaningful distance
     if (length > 10) {
       const angle = angleBetweenPoints(state.createStartX, state.createStartY, worldX, worldY)
-      
+
       if (state.createParentIndex === null) {
         // Creating a new root bone - but we should only have one root
         // Instead, move the skeleton origin and create from there
@@ -322,14 +327,14 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
             a: angle,
             l: length
           }
-          
+
           skeleton = {
             ...skeleton,
             x: state.createStartX,
             y: state.createStartY,
             bones: [newBone, ...skeleton.bones]
           }
-          
+
           // Update parent indices for existing bones
           skeleton.bones = skeleton.bones.map((b, i) => {
             if (i === 0) return b
@@ -338,7 +343,7 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
               parent: b.parent === null ? null : b.parent + 1
             }
           })
-          
+
           changed = true
         }
       } else {
@@ -346,41 +351,41 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
         const parentTransform = state.transforms[state.createParentIndex]
         const parentWorldAngle = parentTransform.worldAngle
         const localAngle = worldToLocalAngle(angle, parentWorldAngle)
-        
+
         const newBone = {
           parent: state.createParentIndex,
           a: localAngle,
           l: length
         }
-        
+
         const newBones = [...skeleton.bones, newBone]
         const newIndex = newBones.length - 1
-        
+
         // Add default name to props
         const newProps = { ...skeleton.props }
         newProps[newIndex] = { name: `bone_${newIndex}` }
-        
+
         skeleton = { ...skeleton, bones: newBones, props: newProps }
-        
+
         // Select the new bone
         state.selectedBones.clear()
         state.selectedBones.add(newIndex)
-        
+
         changed = true
       }
-      
+
       // Recompute transforms
       state.transforms = computeWorldTransforms(skeleton)
     }
   }
-  
+
   // Reset drag state
   state.isDragging = false
   state.mode = EditorMode.SELECT
   state.dragBoneIndex = null
   state.dragPart = null
   state.createParentIndex = null
-  
+
   return { changed, skeleton }
 }
 
@@ -396,7 +401,7 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
  */
 export function startCreateChild(state, skeleton, boneIndex, worldX, worldY) {
   const transform = state.transforms[boneIndex]
-  
+
   state.mode = EditorMode.CREATE
   state.isDragging = true
   state.createParentIndex = boneIndex
@@ -417,14 +422,14 @@ export function deleteSelectedBones(state, skeleton) {
   if (!skeleton || state.selectedBones.size === 0) {
     return { changed: false, skeleton }
   }
-  
+
   // Get all bones to delete (selected + their descendants)
   const toDelete = new Set(state.selectedBones)
   for (const index of state.selectedBones) {
     const descendants = getDescendants(index, skeleton.bones)
     descendants.forEach(d => toDelete.add(d))
   }
-  
+
   // Don't allow deleting the root bone if it has children
   const rootIndex = skeleton.bones.findIndex(b => b.parent === null)
   if (toDelete.has(rootIndex)) {
@@ -434,48 +439,48 @@ export function deleteSelectedBones(state, skeleton) {
       toDelete.delete(rootIndex)
     }
   }
-  
+
   if (toDelete.size === 0) {
     return { changed: false, skeleton }
   }
-  
+
   // Build new bones array, remapping parent indices
   const indexMap = new Map() // old index -> new index
   const newBones = []
   const newProps = {}
-  
+
   for (let i = 0; i < skeleton.bones.length; i++) {
     if (!toDelete.has(i)) {
       const newIndex = newBones.length
       indexMap.set(i, newIndex)
-      
+
       const bone = skeleton.bones[i]
       const newParent = bone.parent === null ? null : indexMap.get(bone.parent)
-      
+
       newBones.push({
         ...bone,
         parent: newParent
       })
-      
+
       // Copy props with new index
       if (skeleton.props?.[i]) {
         newProps[newIndex] = skeleton.props[i]
       }
     }
   }
-  
+
   skeleton = {
     ...skeleton,
     bones: newBones,
     props: newProps
   }
-  
+
   // Clear selection
   state.selectedBones.clear()
-  
+
   // Recompute transforms
   state.transforms = computeWorldTransforms(skeleton)
-  
+
   return { changed: true, skeleton }
 }
 
@@ -487,7 +492,7 @@ export function deleteSelectedBones(state, skeleton) {
  */
 export function selectAll(state, skeleton) {
   if (!skeleton) return
-  
+
   state.selectedBones.clear()
   for (let i = 0; i < skeleton.bones.length; i++) {
     state.selectedBones.add(i)
@@ -532,7 +537,7 @@ export function getCursor(state) {
       default: return 'default'
     }
   }
-  
+
   if (state.hoveredBone !== null) {
     switch (state.hoveredPart) {
       case 'joint': return 'move'
@@ -541,6 +546,6 @@ export function getCursor(state) {
       default: return 'default'
     }
   }
-  
+
   return 'crosshair' // Default to crosshair for creating bones
 }
