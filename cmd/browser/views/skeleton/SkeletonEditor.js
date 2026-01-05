@@ -79,7 +79,16 @@ export function updateHover(state, skeleton, worldX, worldY) {
   const prevPart = state.hoveredPart
   
   if (hit) {
-    state.hoveredBone = hit.index
+    // When hovering over a joint of a non-root bone, show parent bone as hovered
+    let hoveredIndex = hit.index
+    if (hit.part === 'joint') {
+      const bone = skeleton.bones[hit.index]
+      if (bone.parent !== null) {
+        hoveredIndex = bone.parent
+      }
+    }
+    
+    state.hoveredBone = hoveredIndex
     state.hoveredPart = hit.part
   } else {
     state.hoveredBone = null
@@ -108,19 +117,29 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
     // Clicked on a bone
     const { index, part } = hit
     
+    // Determine which bone to select based on part clicked
+    // When clicking a joint of a non-root bone, select the parent instead
+    let selectIndex = index
+    if (part === 'joint') {
+      const bone = skeleton.bones[index]
+      if (bone.parent !== null) {
+        selectIndex = bone.parent
+      }
+    }
+    
     // Handle selection
     if (shiftKey) {
       // Toggle selection
-      if (state.selectedBones.has(index)) {
-        state.selectedBones.delete(index)
+      if (state.selectedBones.has(selectIndex)) {
+        state.selectedBones.delete(selectIndex)
       } else {
-        state.selectedBones.add(index)
+        state.selectedBones.add(selectIndex)
       }
     } else {
       // Single select (unless already selected for drag)
-      if (!state.selectedBones.has(index)) {
+      if (!state.selectedBones.has(selectIndex)) {
         state.selectedBones.clear()
-        state.selectedBones.add(index)
+        state.selectedBones.add(selectIndex)
       }
     }
     
