@@ -223,7 +223,7 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
  * @param {number} worldY - Mouse Y in world coordinates
  * @returns {Object} { changed: boolean, skeleton: Object }
  */
-export function handleMouseMove(state, skeleton, worldX, worldY) {
+export function handleMouseMove(state, skeleton, worldX, worldY, bus = null) {
   if (!skeleton || !state.isDragging) return { changed: false, skeleton }
 
   switch (state.mode) {
@@ -240,6 +240,65 @@ export function handleMouseMove(state, skeleton, worldX, worldY) {
 
       state.dragStartX = worldX
       state.dragStartY = worldY
+
+      // Recompute transforms
+      state.transforms = computeWorldTransforms(skeleton)
+
+      // Emit skeleton transformation event
+      if (bus) {
+        bus.emit('skeleton:bone-transformed', {
+          skeletonId: skeleton.name || 'default',
+          boneIndex: 0, // Root bone
+          transform: {
+            x: skeleton.x,
+            y: skeleton.y
+          },
+          time: Date.now()
+        })
+      }
+
+      return { changed: true, skeleton }
+    }
+
+    case EditorMode.ROTATE: {
+      const boneIndex = state.dragBoneIndex
+      const bone = skeleton.bones[boneIndex]
+
+      // Get pivot point (joint position)
+      let pivotX, pivotY, parentWorldAngle
+      if (bone.parent === null) {
+        pivotX = skeleton.x
+        pivotY = skeleton.y
+        parentWorldAngle = 0
+      } else {
+        const parentTransform = state.transforms[bone.parent]
+        pivotX = parentTransform.endX
+        pivotY = parentTransform.endY
+        parentWorldAngle = parentTransform.worldAngle
+      }
+
+      // Calculate new angle
+      const currentAngle = angleBetweenPoints(pivotX, pivotY, worldX, worldY)
+      const angleDelta = currentAngle - state.dragInitialAngle
+      const newLocalAngle = normalizeAngle(state.dragInitialBoneAngle + angleDelta)
+
+      // Update bone
+      const newBones = [...skeleton.bones]
+      newBones[boneIndex] = { ...bone, a: newLocalAngle }
+      skeleton = { ...skeleton, bones: newBones }
+
+      // Emit bone transformation event for timeline recording
+      if (bus) {
+        bus.emit('skeleton:bone-transformed', {
+          skeletonId: skeleton.name || 'default',
+          boneIndex: boneIndex,
+          transform: {
+            angle: newLocalAngle,
+            length: bone.l || 0
+          },
+          time: Date.now()
+        })
+      }
 
       // Recompute transforms
       state.transforms = computeWorldTransforms(skeleton)
@@ -273,6 +332,19 @@ export function handleMouseMove(state, skeleton, worldX, worldY) {
       const newBones = [...skeleton.bones]
       newBones[boneIndex] = { ...bone, a: newLocalAngle }
       skeleton = { ...skeleton, bones: newBones }
+
+      // Emit bone transformation event for timeline recording
+      if (typeof window !== 'undefined' && window.bus) {
+        window.bus.emit('skeleton:bone-transformed', {
+          skeletonId: skeleton.name || 'default',
+          boneIndex: boneIndex,
+          transform: {
+            angle: newLocalAngle,
+            length: bone.l || 0
+          },
+          time: Date.now()
+        })
+      }
 
       // Recompute transforms
       state.transforms = computeWorldTransforms(skeleton)
@@ -514,7 +586,7 @@ export function deselectAll(state) {
  * @param {Object} state - Editor state
  * @param {Object} skeleton - Skeleton data
  */
-export function updateTransforms(state, skeleton) {
+export function updateTransforms(state, skeleton, bus = null) {
   if (skeleton) {
     state.transforms = computeWorldTransforms(skeleton)
   } else {

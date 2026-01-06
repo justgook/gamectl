@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Component Debug</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Roboto Mono', monospace;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .debug-container {
+            border: 1px solid #333;
+            padding: 20px;
+            margin: 20px 0;
+            background: #2a2a2a;
+        }
+        
+        .error {
+            color: #ff6b6b;
+            background: #3a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            color: #51cf66;
+            background: #1a3a1a;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        #timeline-container {
+            width: 800px;
+            height: 400px;
+            border: 2px solid #555;
+            background: #1a1a1a;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Timeline Component Debug</h1>
+    
+    <div class="debug-container">
+        <h3>Debug Info:</h3>
+        <div id="debug-info">Loading...</div>
+    </div>
+    
+    <button onclick="testTimelineComponent()">Test Timeline Component</button>
+    <button onclick="testMinimalTimeline()">Test Minimal Timeline</button>
+    <button onclick="clearErrors()">Clear</button>
+    
+    <div id="timeline-container"></div>
+    
+    <div class="debug-container">
+        <h3>Test Results:</h3>
+        <div id="test-results">Ready for testing...</div>
+    </div>
+
+    <script type="module">
+        // Test the timeline component step by step
+        
+        let debugInfo = document.getElementById('debug-info');
+        let testResults = document.getElementById('test-results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.textContent = message;
+            div.className = type;
+            testResults.appendChild(div);
+        }
+        
+        // Test basic module loading
+        window.testTimelineComponent = async function() {
+            try {
+                testResults.innerHTML = '';
+                log('Starting timeline component test...', 'info');
+                
+                // Check if custom elements are available
+                if (typeof customElements === 'undefined') {
+                    log('ERROR: customElements not available', 'error');
+                    return;
+                }
+                
+                // Import the timeline module
+                log('Importing timeline module...', 'info');
+                const module = await import('./views/view-timeline.js');
+                log('Timeline module imported successfully', 'success');
+                
+                // Check if ViewTimeline class exists
+                if (!module.ViewTimeline) {
+                    log('ERROR: ViewTimeline class not found in module', 'error');
+                    return;
+                }
+                log('ViewTimeline class found', 'success');
+                
+                // Check if it's already registered
+                const isRegistered = customElements.get('view-timeline') !== undefined;
+                log(`Timeline component registered: ${isRegistered}`, isRegistered ? 'success' : 'warning');
+                
+                // Try to create element
+                log('Creating timeline element...', 'info');
+                const timeline = document.createElement('view-timeline');
+                log('Timeline element created successfully', 'success');
+                
+                // Set attributes
+                timeline.setAttribute('data-timeline', 'debug_timeline');
+                timeline.setAttribute('data-key', 'debug_key');
+                log('Timeline attributes set', 'success');
+                
+                // Add to DOM
+                const container = document.getElementById('timeline-container');
+                container.innerHTML = '';
+                container.appendChild(timeline);
+                log('Timeline added to DOM', 'success');
+                
+                // Check if connectedCallback was called
+                setTimeout(() => {
+                    log('Timeline component should be initialized', 'success');
+                }, 1000);
+                
+            } catch (error) {
+                log(`ERROR: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            }
+        };
+        
+        // Test a minimal version to isolate the bind error
+        window.testMinimalTimeline = function() {
+            try {
+                testResults.innerHTML = '';
+                log('Testing minimal timeline component...', 'info');
+                
+                // Create a minimal custom element that extends ViewCanvasBase
+                const { ViewCanvasBase } = customElements.get('view-tilemap').constructor.prototype;
+                
+                class MinimalTimeline extends ViewCanvasBase {
+                    constructor() {
+                        super();
+                        log('MinimalTimeline constructor called', 'success');
+                    }
+                    
+                    connectedCallback() {
+                        log('connectedCallback called', 'info');
+                        super.connectedCallback();
+                        log('Parent connectedCallback completed', 'success');
+                    }
+                    
+                    drawContent(ctx, data) {
+                        log('drawContent called', 'info');
+                        ctx.fillStyle = '#4CAF50';
+                        ctx.fillRect(10, 10, 100, 50);
+                        ctx.fillStyle = 'white';
+                        ctx.font = '16px monospace';
+                        ctx.fillText('Timeline Test', 15, 35);
+                    }
+                    
+                    getSelectQuery() {
+                        return "SELECT 'test' as data";
+                    }
+                    
+                    getInsertQueryFn() {
+                        return () => "";
+                    }
+                }
+                
+                customElements.define('minimal-timeline', MinimalTimeline);
+                log('MinimalTimeline registered', 'success');
+                
+                const minimal = document.createElement('minimal-timeline');
+                const container = document.getElementById('timeline-container');
+                container.innerHTML = '';
+                container.appendChild(minimal);
+                log('MinimalTimeline added to DOM', 'success');
+                
+            } catch (error) {
+                log(`ERROR in minimal test: ${error.message}`, 'error');
+                console.error('Full minimal error:', error);
+            }
+        };
+        
+        window.clearErrors = function() {
+            testResults.innerHTML = '';
+            debugInfo.innerHTML = 'Cleared. Ready for next test.';
+        };
+        
+        // Initial debug info
+        debugInfo.innerHTML = `
+            <div>Custom Elements Available: ${typeof customElements !== 'undefined'}</div>
+            <div>ViewCanvasBase Available: ${typeof ViewCanvasBase !== 'undefined'}</div>
+            <div>Registered Elements: ${Array.from(customElements.keys()).join(', ')}</div>
+        `;
+        
+    </script>
+</body>
+</html>
