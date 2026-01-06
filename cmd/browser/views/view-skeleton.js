@@ -127,7 +127,7 @@ export class ViewSkeleton extends ViewCanvasBase {
 
   dataChanged = (data) => {
     this.data = data
-    updateTransforms(this.editorState, data, bus)
+    updateTransforms(this.editorState, data)
     this.contentBounds = this.calculateContentBounds(data)
     this.draw()
   }
@@ -284,7 +284,7 @@ export class ViewSkeleton extends ViewCanvasBase {
     const { worldX, worldY } = this._screenToWorld(e.clientX, e.clientY)
     
     if (this.editorState.isDragging) {
-      const result = handleMouseMove(this.editorState, this.data, worldX, worldY, bus)
+      const result = handleMouseMove(this.editorState, this.data, worldX, worldY)
       
       if (result.changed) {
         this.data = result.skeleton
