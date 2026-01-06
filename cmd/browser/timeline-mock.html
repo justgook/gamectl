@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Skeleton Timeline</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #1e1e1e;
+      color: #ddd;
+      overflow: hidden;
+    }
+
+    #toolbar {
+      display: flex;
+      gap: 8px;
+      padding: 6px;
+      background: #2a2a2a;
+      border-bottom: 1px solid #444;
+    }
+
+    button {
+      background: #444;
+      color: #ddd;
+      border: none;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #666;
+    }
+
+    #timeline {
+      display: flex;
+      height: calc(100vh - 36px);
+    }
+
+    #bones {
+      width: 180px;
+      background: #252525;
+      border-right: 1px solid #444;
+      overflow-y: auto;
+    }
+
+    .bone {
+      padding: 4px 6px;
+      cursor: pointer;
+      border-bottom: 1px solid #333;
+    }
+
+    .bone.selected {
+      background: #3a3a3a;
+    }
+
+    #tracks {
+      flex: 1;
+      position: relative;
+      overflow: auto;
+      background: #1a1a1a;
+    }
+
+    .track-row {
+      position: relative;
+      height: 24px;
+      border-bottom: 1px solid #222;
+    }
+
+    .key {
+      position: absolute;
+      top: 6px;
+      width: 8px;
+      height: 8px;
+      background: #ffcc00;
+      transform: rotate(45deg) translateX(-50%);
+      cursor: pointer;
+    }
+
+    #playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: red;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="toolbar">
+    <button id="play">Play</button>
+    <button id="addKey">Add Key</button>
+    <span id="timeLabel">t = 0.00</span>
+  </div>
+
+  <div id="timeline">
+    <div id="bones"></div>
+    <div id="tracks"></div>
+  </div>
+
+  <script>
+    /* -----------------------------
+       Config
+    ------------------------------ */
+    const duration = 1.2;
+    const pixelsPerSecond = 200;
+    const boneList = [
+      "root", "spine", "chest", "neck", "head",
+      "shoulder_l", "arm_upper_l", "arm_lower_l", "hand_l",
+      "shoulder_r", "arm_upper_r", "arm_lower_r", "hand_r",
+      "hip_l", "leg_upper_l", "leg_lower_l", "foot_l",
+      "hip_r", "leg_upper_r", "leg_lower_r", "foot_r"
+    ];
+
+    /* -----------------------------
+       State
+    ------------------------------ */
+    let time = 0;
+    let playing = false;
+    let selectedBones = new Set();
+    let tracks = {}; // boneId -> [{time,value}]
+    let lastTick = performance.now();
+
+    /* -----------------------------
+       DOM
+    ------------------------------ */
+    const bonesEl = document.getElementById("bones");
+    const tracksEl = document.getElementById("tracks");
+    const playheadEl = document.createElement("div");
+    playheadEl.id = "playhead";
+    tracksEl.appendChild(playheadEl);
+
+    /* -----------------------------
+       Build UI
+    ------------------------------ */
+    boneList.forEach((name, i) => {
+      const b = document.createElement("div");
+      b.className = "bone";
+      b.textContent = `${i}: ${name}`;
+      b.onclick = () => {
+        b.classList.toggle("selected");
+        b.classList.contains("selected")
+          ? selectedBones.add(i)
+          : selectedBones.delete(i);
+      };
+      bonesEl.appendChild(b);
+
+      const row = document.createElement("div");
+      row.className = "track-row";
+      row.dataset.bone = i;
+      tracksEl.appendChild(row);
+    });
+
+    /* -----------------------------
+       Helpers
+    ------------------------------ */
+    function timeToX(t) {
+      return t * pixelsPerSecond;
+    }
+
+    function updatePlayhead() {
+      playheadEl.style.left = timeToX(time) + "px";
+      document.getElementById("timeLabel").textContent =
+        "t = " + time.toFixed(2);
+    }
+
+    function addKey(bone, t, value) {
+      tracks[bone] ??= [];
+      tracks[bone].push({time: t, value});
+
+      const row = [...tracksEl.children]
+        .find(r => r.dataset?.bone == bone);
+
+      const k = document.createElement("div");
+      k.className = "key";
+      k.style.left = timeToX(t) + "px";
+      row.appendChild(k);
+    }
+
+    /* -----------------------------
+       Playback
+    ------------------------------ */
+    function tick(now) {
+      const dt = (now - lastTick) / 1000;
+      lastTick = now;
+
+      if (playing) {
+        time += dt;
+        if (time > duration) time = 0;
+        updatePlayhead();
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    /* -----------------------------
+       Buttons
+    ------------------------------ */
+    document.getElementById("play").onclick = () => {
+      playing = !playing;
+    };
+
+    document.getElementById("addKey").onclick = () => {
+      const msg = {
+        type: "request_add_keyframe",
+        time,
+        selectedBones: [...selectedBones]
+      };
+
+      let handled = false;
+
+      if (window.parent !== window) {
+        window.parent.postMessage(msg, "*");
+
+        const timeout = setTimeout(() => {
+          if (!handled) mockAdd();
+        }, 100);
+
+        window.addEventListener("message", function onMsg(e) {
+          if (e.data?.type === "add_keyframe_data") {
+            handled = true;
+            clearTimeout(timeout);
+            window.removeEventListener("message", onMsg);
+            for (const bone in e.data.keys) {
+              addKey(bone, time, e.data.keys[bone].angle);
+            }
+          }
+        });
+      } else {
+        mockAdd();
+      }
+
+      function mockAdd() {
+        selectedBones.forEach(b =>
+          addKey(b, time, (Math.random() * 40 - 20) | 0)
+        );
+      }
+    };
+
+    /* -----------------------------
+       Scrubbing
+    ------------------------------ */
+    tracksEl.addEventListener("mousedown", e => {
+      const rect = tracksEl.getBoundingClientRect();
+      time = (e.clientX - rect.left) / pixelsPerSecond;
+      time = Math.max(0, Math.min(duration, time));
+      updatePlayhead();
+    });
+  </script>
+
+</body>
+
+</html>
