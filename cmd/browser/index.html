@@ -176,6 +176,18 @@
       </div>
     </template>
 
+    <template id="view-timeline">
+      <div slot="header-controls" class="view-header-controls">
+        <button data-action="add-track" class="button-secondary">+ Track</button>
+        <button data-action="record" class="button-secondary">🔴 Record</button>
+        <button data-action="save" class="button-primary">💾 Save</button>
+        <button data-action="reload" class="button-secondary">🔄 Reload</button>
+        <button data-action="zoom-in" class="button-secondary">+</button>
+        <button data-action="zoom-out" class="button-secondary">−</button>
+        <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+      </div>
+    </template>
+
     <template id="view-opr-unit-builder">
       <div slot="header-controls" class="view-header-controls">
         <button data-action="random-unit" class="button-secondary">🎲 Random Unit</button>
@@ -291,6 +303,7 @@
               <option value="view-tree">Tree View</option>
               <option value="view-tilemap">Tilemap</option>
               <option value="view-skeleton">Skeleton</option>
+              <option value="view-timeline">Timeline</option>
             </optgroup>
             <optgroup label="OPR">
               <option value="view-opr-unit-builder">Unit Builder</option>

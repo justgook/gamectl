@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Component Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Roboto Mono', monospace;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        .test-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #333;
+            background: #2a2a2a;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background: #3a3a3a;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        button:hover {
+            background: #4a4a4a;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background: #2a2a2a;
+            border: 1px solid #333;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Timeline Component Test</h1>
+    
+    <div class="controls">
+        <button onclick="testTimeline()">Test Timeline View</button>
+        <button onclick="emitTestEvents()">Emit Test Events</button>
+        <button onclick="clearStatus()">Clear Status</button>
+    </div>
+    
+    <div class="test-container">
+        <view-timeline data-timeline="test_timeline" style="width: 100%; height: 100%;"></view-timeline>
+    </div>
+    
+    <div class="status" id="status">
+        Ready to test timeline component...
+    </div>
+
+    <script type="module">
+        // Import the timeline component
+        import { ViewTimeline } from './views/view-timeline.js';
+        import { bus } from './systems/event-bus.js';
+        
+        // Define the custom element
+        customElements.define('view-timeline', ViewTimeline);
+        
+        // Make functions available globally for button clicks
+        window.testTimeline = function() {
+            const status = document.getElementById('status');
+            const timeline = document.querySelector('view-timeline');
+            
+            if (timeline) {
+                status.innerHTML = 'Timeline component loaded successfully!<br>' +
+                    'Component class: ' + timeline.constructor.name + '<br>' +
+                    'Has canvas: ' + (timeline.canvas ? 'Yes' : 'No') + '<br>' +
+                    'Data key: ' + timeline.getAttribute('data-timeline');
+            } else {
+                status.innerHTML = 'Error: Timeline component not found';
+            }
+        };
+        
+        window.emitTestEvents = function() {
+            const status = document.getElementById('status');
+            
+            // Emit some test skeleton transformation events
+            bus.emit('skeleton:bone-transformed', {
+                skeletonId: 'test_skeleton',
+                boneIndex: 0,
+                transform: { angle: 45, length: 50 },
+                time: Date.now()
+            });
+            
+            bus.emit('skeleton:bone-transformed', {
+                skeletonId: 'test_skeleton',
+                boneIndex: 1,
+                transform: { angle: -30, length: 40 },
+                time: Date.now()
+            });
+            
+            status.innerHTML = 'Test events emitted!<br>' +
+                'Check browser console for event details.';
+            
+            console.log('Test events emitted to skeleton:bone-transformed');
+        };
+        
+        window.clearStatus = function() {
+            document.getElementById('status').innerHTML = 'Status cleared. Ready for next test.';
+        };
+        
+        // Listen for timeline events
+        bus.on('timeline:value-changed', (data) => {
+            console.log('Timeline value changed:', data);
+        });
+        
+        bus.on('timeline:keyframe-added', (data) => {
+            console.log('Keyframe added:', data);
+        });
+        
+        // Set up initial test timeline data
+        const testTimelineData = {
+            name: 'test_timeline',
+            duration: 3.0,
+            frameRate: 30,
+            loop: true,
+            tracks: [
+                {
+                    targetType: 'skeleton',
+                    targetId: 'test_skeleton',
+                    targetPath: 'bones.0.a',
+                    keyframes: [
+                        { time: 0.0, value: 0, easing: 'linear' },
+                        { time: 1.0, value: 45, easing: 'ease-in-out' },
+                        { time: 2.0, value: -30, easing: 'ease-out' },
+                        { time: 3.0, value: 0, easing: 'linear' }
+                    ]
+                },
+                {
+                    targetType: 'skeleton',
+                    targetId: 'test_skeleton',
+                    targetPath: 'bones.1.a',
+                    keyframes: [
+                        { time: 0.0, value: 90, easing: 'linear' },
+                        { time: 1.5, value: 120, easing: 'ease-in' },
+                        { time: 3.0, value: 90, easing: 'linear' }
+                    ]
+                }
+            ],
+            metadata: {
+                created: new Date().toISOString(),
+                modified: new Date().toISOString(),
+                author: 'test'
+            }
+        };
+        
+        // Save the test timeline data
+        setTimeout(() => {
+            bus.emit('cache:save', {
+                selectQuery: "SELECT data FROM timeline_storage WHERE name = 'test_timeline'",
+                insertQueryFn: (name, data) => `INSERT OR REPLACE INTO timeline_storage (name, data) VALUES ('${name}', '${data}')`,
+                name: 'test_timeline',
+                data: JSON.stringify(testTimelineData)
+            });
+            
+            console.log('Test timeline data saved');
+        }, 1000);
+        
+        console.log('Timeline test page loaded');
+    </script>
+</body>
+</html>
