@@ -1,7 +1,6 @@
 
 // Initialize event bus first
 import "./systems/event-bus.js"
-import { bus } from './systems/event-bus.js'
 import { toast } from './systems/toast.js'
 
 import "./systems/cache.js"
@@ -19,7 +18,6 @@ import { ViewPipeline } from "./views/view-pipeline.js"
 import { ViewNodeGraph } from "./views/view-nodegraph.js"
 import { ViewOPRUnitBuilder } from "./views/view-opr-unit-builder.js"
 import { ViewSkeleton } from "./views/view-skeleton.js"
-import { ViewTimeline } from "./views/view-timeline.js"
 
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
@@ -49,9 +47,6 @@ customElements.define('view-tilemap', ViewTilemap)
 customElements.define('view-tree', ViewTree)
 customElements.define('view-console', ViewConsole)
 customElements.define('view-pipeline', ViewPipeline)
-// customElements.define('view-nodegraph', ViewNodeGraph)
-// customElements.define('view-skeleton', ViewSkeleton)
-// customElements.define('view-timeline', ViewTimeline)
 customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
 // customElements.define('view-skeleton', ViewSkeleton) //already registered in file
 // customElements.define('view-nodegraph', ViewNodeGraph) //already registered in file
@@ -214,35 +209,7 @@ async function initSkeletonStorage() {
 
 await initSkeletonStorage()
 
-// Initialize Timeline Storage Database
-async function initTimelineStorage() {
-  try {
-    // Fetch migration file
-    const response = await fetch('/data/timeline-storage.sql')
-    if (!response.ok) {
-      console.error('Failed to load timeline-storage.sql:', response.statusText)
-      return
-    }
-
-    const migrationSql = await response.text()
-
-    // Execute migration (uses restore since it's a SQL script)
-    const result = await window.pluginManager.call('sql', 'restore', migrationSql)
-    console.log('Timeline storage initialized:', DE.decode(result.output))
-
-    // Verify table created
-    const verifyResult = await window.pluginManager.call('sql', 'query',
-      'SELECT name FROM sqlite_schema WHERE type="table" AND name="timeline_storage"'
-    )
-    console.log('Timeline storage table check:', DE.decode(verifyResult.output))
-  } catch (error) {
-    console.error('Error initializing timeline storage:', error)
-  }
-}
-
-await initTimelineStorage()
-
-// Initialize Keybindings Database
+// Initialize Keybindings System
 async function initKeybindings() {
   try {
     // Detect OS (for future multi-platform support)
@@ -322,9 +289,5 @@ await initOPRDatabase()
 import { keybindingManager } from "./systems/keybinding-manager.js"
 await keybindingManager.init()
 window.keybindingManager = keybindingManager // Expose for debugging
-
-// Initialize timeline storage with default data
-import { initializeTimelineStorage } from "./views/timeline-utils.js"
-initializeTimelineStorage(bus)
 
 toast.success("App is ready")
