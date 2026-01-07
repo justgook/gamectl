@@ -18,6 +18,7 @@ import { ViewPipeline } from "./views/view-pipeline.js"
 import { ViewNodeGraph } from "./views/view-nodegraph.js"
 import { ViewOPRUnitBuilder } from "./views/view-opr-unit-builder.js"
 import { ViewSkeleton } from "./views/view-skeleton.js"
+import "./views/view-timeline.js"
 
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"

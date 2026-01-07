@@ -162,7 +162,7 @@ export class ViewCanvasBase extends HTMLElement {
     try {
       const selectQuery = this.getSelectQuery();
       const insertQueryFn = this.getInsertQueryFn();
-      
+
       bus.emit('cache:save', { selectQuery, insertQueryFn });
     } catch (error) {
       console.error('Save failed:', error);
@@ -221,7 +221,7 @@ export class ViewCanvasBase extends HTMLElement {
     // Round to nearest integer to match canvas bitmap dimensions
     const roundedWidth = Math.round(width);
     const roundedHeight = Math.round(height);
-    
+
     if (!this.canvas || (this.canvas.width === roundedWidth && this.canvas.height === roundedHeight)) return;
     this.canvas.width = roundedWidth;
     this.canvas.height = roundedHeight;

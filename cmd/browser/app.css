@@ -688,3 +688,89 @@ view-toast .toast-button-primary:hover {
   background: var(--color-global-blue-700, #1d4ed8);
   border-color: var(--color-global-blue-700, #1d4ed8);
 }
+
+/*-------------------------timeline---------------------------*/
+
+view-timeline table {
+  border-collapse: collapse;
+  border: 0;
+  min-width: 200%;
+}
+
+view-timeline th,
+view-timeline td {
+  border: 1px solid #aaa;
+  background-clip: padding-box;
+  scroll-snap-align: start;
+}
+
+view-timeline tbody tr:last-child th,
+view-timeline tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+view-timeline th:last-child,
+view-timeline td:last-child {
+  border-right: 0;
+}
+
+view-timeline thead {
+  z-index: 1000;
+  position: relative;
+}
+
+view-timeline th,
+view-timeline td {
+  padding: 0.6rem;
+  min-width: 6rem;
+  text-align: left;
+  margin: 0;
+}
+
+view-timeline thead th {
+  position: sticky;
+  top: 0;
+  border-top: 0;
+  background-clip: padding-box;
+}
+
+view-timeline thead th.pin {
+  left: 0;
+  z-index: 1001;
+  border-left: 0;
+}
+
+view-timeline tbody th {
+  background-clip: padding-box;
+  border-left: 0;
+  width: 200px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+view-timeline tbody {
+  z-index: 10;
+  position: relative;
+}
+
+view-timeline tbody th {
+  position: sticky;
+  left: 0;
+}
+
+view-timeline th.ruler {
+  padding: 0;
+  vertical-align: bottom;
+}
+
+view-timeline canvas[data-element="ruler"] {
+  display: block;
+  width: 100%;
+  height: 24px;
+}
+
+view-timeline thead th,
+view-timeline tbody th {
+  background-color: #0f0f1a;
+}
