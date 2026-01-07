@@ -1,16 +1,4 @@
 export class ViewTimeline extends HTMLElement {
-  timeline = {
-    pixelsPerSecond: 100,
-    viewStartTime: 0,
-    // HARD LIMITS
-    minTime: 0,          // e.g. frame 0
-    maxTime: 60,         // e.g. 60 seconds (or compute from data)
-
-    // ZOOM LIMITS
-    minPixelsPerSecond: 10,
-    maxPixelsPerSecond: 800,
-  }
-
   _mockData() {
     const boneList = [
       "root", "spine", "chest", "neck", "head",
@@ -39,31 +27,21 @@ export class ViewTimeline extends HTMLElement {
 
     this.innerHTML = html
     this._mountHeaderControls()
-    this._mockData()
-    requestAnimationFrame(() => {
-      this._resizeRulerCanvas()
-      this._clampViewStartTime()
-      this._drawRuler()
-      this._attachRulerEvents()
-      this._observeRulerResize()
+
+    const ruler = this.querySelector('timeline-ruler')
+    ruler.addEventListener('timeline-change', e => {
+      const { pixelsPerSecond, viewStartTime } = e.detail
+
+      // 🔥 THIS is your single source of truth
+      // this._updateTracks(pixelsPerSecond, viewStartTime)
+      console.log({ pixelsPerSecond, viewStartTime })
     })
+
+    this._mockData()
   }
 
   disconnectedCallback() {
-    // 1. Remove header controls (you already have this)
     this._unmountHeaderControls()
-    // 2. Remove wheel listener from ruler canvas
-    const canvas = this._getRulerCanvas()
-    if (canvas && this._onRulerWheel) {
-      canvas.removeEventListener('wheel', this._onRulerWheel)
-      this._onRulerWheel = null
-    }
-
-    // 3. Disconnect ResizeObserver
-    if (this._resizeObserver) {
-      this._resizeObserver.disconnect()
-      this._resizeObserver = null
-    }
   }
 
   _mountHeaderControls() {
@@ -81,137 +59,187 @@ export class ViewTimeline extends HTMLElement {
       this._headerControlsElement = null;
     }
   }
-
-  // make as separate component ruler
-  _attachRulerEvents() {
-    const canvas = this._getRulerCanvas()
-    canvas.addEventListener('wheel', this._onRulerWheel)
-  }
-
-  _onRulerWheel = e => {
-    e.preventDefault()
-
-    const canvas = this._getRulerCanvas()
-    const rect = canvas.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-
-    const mouseTime =
-      mouseX / this.timeline.pixelsPerSecond +
-      this.timeline.viewStartTime
-
-    // Zoom
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9
-    let newPPS = this.timeline.pixelsPerSecond * zoomFactor
-
-    // Clamp zoom
-    newPPS = Math.min(
-      Math.max(newPPS, this.timeline.minPixelsPerSecond),
-      this.timeline.maxPixelsPerSecond
-    )
-
-    this.timeline.pixelsPerSecond = newPPS
-
-    // Keep mouse anchored
-    this.timeline.viewStartTime =
-      mouseTime - mouseX / newPPS
-
-    // Clamp scroll AFTER zoom
-    this._clampViewStartTime()
-
-    this._drawRuler()
-  }
-  _observeRulerResize() {
-    const canvas = this._getRulerCanvas()
-    const th = canvas.closest('th')
-
-    this._resizeObserver = new ResizeObserver(() => {
-      this._resizeRulerCanvas()
-      this._clampViewStartTime()
-      this._drawRuler()
-    })
-
-    this._resizeObserver.observe(th)
-  }
-
-  _drawRuler() {
-    const canvas = this._getRulerCanvas()
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    const w = canvas.width / devicePixelRatio
-    const h = canvas.height / devicePixelRatio
-
-    ctx.clearRect(0, 0, w, h)
-    ctx.font = '10px sans-serif'
-    ctx.fillStyle = '#888'
-    ctx.strokeStyle = '#555'
-
-    const { pixelsPerSecond, viewStartTime } = this.timeline
-
-    const timeToX = t => (t - viewStartTime) * pixelsPerSecond
-    const xToTime = x => x / pixelsPerSecond + viewStartTime
-
-    const tStart = viewStartTime
-    const tEnd = xToTime(w)
-
-    const step = this._chooseStep(pixelsPerSecond)
-    const first = Math.floor(tStart / step) * step
-
-    for (let t = first; t <= tEnd; t += step) {
-      const x = timeToX(t)
-
-      ctx.beginPath()
-      ctx.moveTo(x, h)
-      ctx.lineTo(x, 8)
-      ctx.stroke()
-
-      ctx.fillText(t.toFixed(2), x + 2, 10)
-    }
-  }
-  _chooseStep(pxPerSec) {
-    const targetPx = 100
-    const raw = targetPx / pxPerSec
-    const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50]
-    return steps.find(s => s >= raw) || steps.at(-1)
-  }
-
-  _getRulerCanvas() {
-    return this.querySelector('canvas[data-element="ruler"]')
-  }
-
-  _resizeRulerCanvas() {
-    const canvas = this._getRulerCanvas()
-    if (!canvas) return
-
-    const rect = canvas.getBoundingClientRect()
-    const dpr = window.devicePixelRatio || 1
-
-    canvas.width = Math.floor(rect.width * dpr)
-    canvas.height = Math.floor(rect.height * dpr)
-
-    const ctx = canvas.getContext('2d')
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  }
-
-  _getVisibleDuration() {
-    const canvas = this._getRulerCanvas()
-    const width = canvas.getBoundingClientRect().width
-    return width / this.timeline.pixelsPerSecond
-  }
-
-  _clampViewStartTime() {
-    const { minTime, maxTime } = this.timeline
-    const visible = this._getVisibleDuration()
-
-    const minStart = minTime
-    const maxStart = Math.max(minTime, maxTime - visible)
-
-    this.timeline.viewStartTime = Math.min(
-      Math.max(this.timeline.viewStartTime, minStart),
-      maxStart
-    )
-  }
 }
 
 
 customElements.define('view-timeline', ViewTimeline)
+
+
+
+
+export class TimelineRuler extends HTMLElement {
+  static ZOOM_LEVELS = [25, 50, 100, 200, 400, 800]
+
+  state = {
+    pixelsPerSecond: 100,
+    viewStartTime: 0,
+
+    minTime: 0,
+    maxTime: 60,
+  }
+
+  connectedCallback() {
+    this.attachShadow({ mode: 'open' })
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          height: 24px;
+          overflow: hidden;
+        }
+        canvas {
+          display: block;
+          height: 100%;
+        }
+      </style>
+      <canvas></canvas>
+    `
+
+    this.canvas = this.shadowRoot.querySelector('canvas')
+    this.ctx = this.canvas.getContext('2d')
+
+    this._resize()
+    this._clamp()
+    this._draw()
+
+    this._onWheel = this._onWheel.bind(this)
+    this.canvas.addEventListener('wheel', this._onWheel, { passive: false })
+
+    this._ro = new ResizeObserver(() => {
+      this._resize()
+      this._clamp()
+      this._draw()
+    })
+    this._ro.observe(this)
+  }
+
+  disconnectedCallback() {
+    this.canvas.removeEventListener('wheel', this._onWheel)
+    this._ro.disconnect()
+  }
+
+  // ---------- core math ----------
+
+  timeToX(t) {
+    return (t - this.state.viewStartTime) * this.state.pixelsPerSecond
+  }
+
+  xToTime(x) {
+    return x / this.state.pixelsPerSecond + this.state.viewStartTime
+  }
+
+  get visibleDuration() {
+    return this.clientWidth / this.state.pixelsPerSecond
+  }
+
+  _clamp() {
+    const { minTime, maxTime } = this.state
+    const visible = this.visibleDuration
+
+    const minStart = minTime
+    const maxStart = Math.max(minTime, maxTime - visible)
+
+    this.state.viewStartTime = Math.min(
+      Math.max(this.state.viewStartTime, minStart),
+      maxStart
+    )
+  }
+
+  // ---------- zoom ----------
+
+  _snapZoom(value) {
+    return TimelineRuler.ZOOM_LEVELS.reduce((a, b) =>
+      Math.abs(b - value) < Math.abs(a - value) ? b : a
+    )
+  }
+
+  _onWheel(e) {
+    e.preventDefault()
+
+    const rect = this.canvas.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const mouseTime = this.xToTime(mouseX)
+
+    const dir = e.deltaY < 0 ? 1.1 : 0.9
+    let pps = this.state.pixelsPerSecond * dir
+    pps = this._snapZoom(pps)
+
+    if (pps === this.state.pixelsPerSecond) return
+
+    this.state.pixelsPerSecond = pps
+    this.state.viewStartTime = mouseTime - mouseX / pps
+
+    this._clamp()
+    this._resize()
+    this._draw()
+    this._emit()
+  }
+
+  // ---------- rendering ----------
+
+  _resize() {
+    const dpr = devicePixelRatio || 1
+    const virtualWidth =
+      (this.state.maxTime - this.state.minTime) *
+      this.state.pixelsPerSecond
+
+    this.style.width = `${virtualWidth}px`
+
+    this.canvas.width = Math.floor(this.clientWidth * dpr)
+    this.canvas.height = Math.floor(this.clientHeight * dpr)
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  }
+
+  _chooseStep() {
+    const targetPx = 100
+    const raw = targetPx / this.state.pixelsPerSecond
+    const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10]
+    return steps.find(s => s >= raw) || steps.at(-1)
+  }
+
+  _draw() {
+    const { ctx } = this
+    const w = this.canvas.width / devicePixelRatio
+    const h = this.canvas.height / devicePixelRatio
+
+    ctx.clearRect(0, 0, w, h)
+    ctx.font = '10px sans-serif'
+    ctx.fillStyle = '#aaa'
+    ctx.strokeStyle = '#666'
+
+    const step = this._chooseStep()
+    const minor = step / 5
+
+    const start = Math.floor(this.state.viewStartTime / step) * step
+    const end = this.xToTime(w)
+
+    for (let t = start; t <= end; t += minor) {
+      const x = this.timeToX(t)
+      const isMajor = Math.abs(t % step) < 1e-6
+
+      ctx.beginPath()
+      ctx.moveTo(x, h)
+      ctx.lineTo(x, isMajor ? 6 : 10)
+      ctx.stroke()
+
+      if (isMajor) {
+        ctx.fillText(t.toFixed(2), x + 2, 10)
+      }
+    }
+  }
+
+  // ---------- events ----------
+
+  _emit() {
+    this.dispatchEvent(new CustomEvent('timeline-change', {
+      detail: {
+        pixelsPerSecond: this.state.pixelsPerSecond,
+        viewStartTime: this.state.viewStartTime,
+      },
+      bubbles: true,
+    }))
+  }
+}
+
+customElements.define('timeline-ruler', TimelineRuler)
+
