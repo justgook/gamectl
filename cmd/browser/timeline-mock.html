@@ -86,15 +86,6 @@
       border-color: var(--playhead);
     }
 
-    #snapToggle {
-      min-width: 80px;
-    }
-
-    #snapToggle.active {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-
     #timeLabel {
       font-family: 'SF Mono', Monaco, 'Courier New', monospace;
       font-size: 12px;
@@ -110,32 +101,21 @@
       flex: 1;
       overflow: auto;
       height: calc(100vh - 41px);
-      position: relative;
     }
 
     #timeline-scroll {
-      display: table;
-      table-layout: fixed;
-      border-collapse: collapse;
-      width: max-content;
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      grid-template-rows: 28px 1fr;
+      grid-template-areas:
+        "bones-header tracks-header"
+        "bones-column tracks-column";
       min-width: 100%;
-    }
-
-    #timeline-scroll > tbody > tr {
-      display: table-row;
-    }
-
-    #timeline-scroll > tbody > tr > td {
-      display: table-cell;
-      padding: 0;
-      margin: 0;
-      vertical-align: top;
+      min-height: 100%;
     }
 
     #bones-header {
-      display: table-cell;
-      width: 200px;
-      min-width: 200px;
+      grid-area: bones-header;
       background: var(--bg-tertiary);
       border-bottom: 1px solid var(--border-color);
       border-right: 1px solid var(--border-color);
@@ -147,67 +127,51 @@
       color: var(--text-secondary);
       position: sticky;
       top: 0;
-      left: 0;
       z-index: 5;
     }
 
     #tracks-header {
-      display: table-cell;
+      grid-area: tracks-header;
       background: var(--bg-tertiary);
       border-bottom: 1px solid var(--border-color);
-      padding: 0;
       position: sticky;
       top: 0;
       z-index: 4;
     }
 
     #ruler {
-      height: 28px;
-      min-width: 300px;
+      height: 100%;
       position: relative;
-      background: var(--bg-tertiary);
-      border-bottom: 1px solid var(--border-color);
     }
 
     #bones-column {
-      display: table-cell;
-      width: 200px;
-      min-width: 200px;
+      grid-area: bones-column;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border-color);
-      position: sticky;
-      left: 0;
-      z-index: 3;
-      vertical-align: top;
+      overflow-y: hidden;
+      overflow-x: hidden;
     }
 
     #tracks-column {
-      display: table-cell;
+      grid-area: tracks-column;
       background: var(--bg-primary);
+      overflow: hidden;
       position: relative;
-      vertical-align: top;
-      padding: 0;
     }
 
     #tracks {
       position: relative;
-      width: max-content;
       min-width: 100%;
-      background: var(--bg-primary);
     }
 
     .track-row {
       position: relative;
       height: 32px;
-      min-width: 300px;
       border-bottom: 1px solid var(--border-color);
       background: var(--bg-primary);
       transition: background 0.1s ease;
-      display: block;
-    }
-
-    .track-row:hover {
-      background: rgba(255, 255, 255, 0.02);
+      display: flex;
+      align-items: center;
     }
 
     .track-row:hover {
@@ -227,7 +191,6 @@
       transition: background 0.1s ease;
       height: 32px;
       box-sizing: border-box;
-      width: 200px;
     }
 
     .bone-row:hover {
@@ -260,27 +223,15 @@
       height: 12px;
       background: var(--keyframe);
       transform: rotate(45deg) translateX(-50%);
-      cursor: grab;
+      cursor: pointer;
       border: 2px solid var(--bg-primary);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       transition: all 0.15s ease;
-      z-index: 5;
     }
 
     .key:hover {
       background: var(--keyframe-hover);
       transform: rotate(45deg) translateX(-50%) scale(1.2);
-    }
-
-    .key.dragging {
-      cursor: grabbing;
-      background: var(--accent);
-      transform: rotate(45deg) translateX(-50%) scale(1.3);
-      z-index: 10;
-    }
-
-    .key.selected {
-      background: var(--accent);
     }
 
     #playhead {
@@ -332,44 +283,6 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--text-muted);
     }
-
-    input[type="number"] {
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      color: var(--text-primary);
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
-      font-size: 12px;
-      width: 70px;
-      text-align: center;
-    }
-
-    input[type="number"]:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    input[type="number"]::-webkit-inner-spin-button,
-    input[type="number"]::-webkit-outer-spin-button {
-      opacity: 1;
-    }
-
-    .snap-indicator {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 1px;
-      background: var(--accent);
-      opacity: 0.5;
-      pointer-events: none;
-      display: none;
-      z-index: 20;
-    }
-
-    .snap-indicator.visible {
-      display: block;
-    }
   </style>
 </head>
 
@@ -392,49 +305,33 @@
       <button id="zoomIn">+</button>
     </div>
     <div class="toolbar-divider"></div>
-    <div class="toolbar-group">
-      <button id="snapToggle" class="active">Snap: ON</button>
-    </div>
-    <div class="toolbar-divider"></div>
-    <div class="toolbar-group">
-      <input type="number" id="currentTime" value="0.00" step="0.01" min="0"/>
-      <span style="color: var(--text-muted);">/</span>
-      <input type="number" id="totalTime" value="1.20" step="0.1" min="0.1"/>
-      <span style="color: var(--text-muted);">s</span>
-    </div>
+    <span id="timeLabel">t = 0.00s</span>
   </div>
 
-    <div id="timeline">
-      <table id="timeline-scroll" cellpadding="0" cellspacing="0">
-        <tr>
-          <td id="bones-header">Bones</td>
-          <td id="tracks-header">
-            <div id="ruler">
-              <canvas id="ruler-canvas"></canvas>
-            </div>
-          </td>
-        </tr>
-        <tr>
-          <td id="bones-column"></td>
-          <td id="tracks-column">
-            <div id="tracks">
-              <div id="playhead"></div>
-              <div class="snap-indicator" id="snapIndicator"></div>
-            </div>
-          </td>
-        </tr>
-      </table>
+  <div id="timeline">
+    <div id="timeline-scroll">
+      <div id="bones-header">Bones</div>
+      <div id="tracks-header">
+        <div id="ruler">
+          <canvas id="ruler-canvas"></canvas>
+        </div>
+      </div>
+      <div id="bones-column"></div>
+      <div id="tracks-column">
+        <div id="tracks">
+          <div id="playhead"></div>
+        </div>
+      </div>
     </div>
+  </div>
 
   <script>
     /* -----------------------------
        Config
     ------------------------------ */
-    let duration = 1.2;
-    const pixelsPerSecond = 200;
+    const duration = 1.2;
+    let pixelsPerSecond = 200;
     let zoom = 1.0;
-    let snapEnabled = true;
-    const snapInterval = 0.05; // 50ms snap
     const boneList = [
       "root", "spine", "chest", "neck", "head",
       "shoulder_l", "arm_upper_l", "arm_lower_l", "hand_l",
@@ -515,48 +412,24 @@
       return x / (pixelsPerSecond * zoom);
     }
 
-    function snapToGrid(t) {
-      if (!snapEnabled) return t;
-      return Math.round(t / snapInterval) * snapInterval;
-    }
-
     function updatePlayhead() {
+      const maxWidth = timeToX(duration);
       playheadEl.style.left = timeToX(time) + "px";
-      const currentTimeInput = document.getElementById("currentTime");
-      if (document.activeElement !== currentTimeInput) {
-        currentTimeInput.value = time.toFixed(2);
-      }
-    }
-
-    function updateAllKeyframes() {
-      const keys = tracksScrollEl.querySelectorAll(".key");
-      keys.forEach(key => {
-        const t = parseFloat(key.dataset.time);
-        key.style.left = timeToX(t) + "px";
-      });
+      document.getElementById("timeLabel").textContent =
+        "t = " + time.toFixed(2) + "s";
     }
 
     function drawRuler() {
       const ctx = rulerCanvas.getContext("2d");
-      if (!ctx) {
-        console.error("Cannot get canvas context");
-        return;
-      }
-      
       const width = timeToX(duration);
-      const height = rulerEl.clientHeight || 28;
+      const height = rulerEl.clientHeight;
 
-      // Clear and set size
-      rulerCanvas.width = width * 2;
+      rulerCanvas.width = Math.max(width, tracksScrollEl.clientWidth) * 2;
       rulerCanvas.height = height * 2;
-      rulerCanvas.style.width = width + "px";
-      rulerCanvas.style.height = height + "px";
-
-      // Clear and draw
-      ctx.fillStyle = "#0f0f1a";
-      ctx.fillRect(0, 0, width, height);
+      rulerCanvas.style.width = rulerCanvas.width / 2 + "px";
 
       ctx.scale(2, 2);
+      ctx.clearRect(0, 0, rulerCanvas.width / 2, height);
 
       // Draw ticks and labels
       const interval = zoom < 0.5 ? 0.5 : zoom < 1.5 ? 0.2 : 0.1;
@@ -583,7 +456,7 @@
         }
       }
 
-      // Draw playhead
+      // Update playhead position
       updatePlayhead();
     }
 
@@ -608,66 +481,6 @@
         e.stopPropagation();
         k.classList.toggle("selected");
       };
-
-      // Keyframe dragging with snapping
-      k.addEventListener("mousedown", (e) => {
-        e.stopPropagation();
-        k.classList.add("dragging");
-        k.classList.add("selected");
-
-        const startX = e.clientX;
-        const startLeft = parseFloat(k.style.left);
-        const startTime = parseFloat(k.dataset.time);
-
-        const onMouseMove = (e) => {
-          const dx = e.clientX - startX;
-          let newX = startLeft + dx;
-          newX = Math.max(0, Math.min(timeToX(duration), newX));
-          
-          let newTime = xToTime(newX);
-          const snappedTime = snapToGrid(newTime);
-          
-          // Show snap indicator when close to snap point
-          if (snapEnabled && Math.abs(newTime - snappedTime) < 0.02) {
-            newTime = snappedTime;
-            newX = timeToX(newTime);
-            snapIndicator.style.left = newX + "px";
-            snapIndicator.classList.add("visible");
-          } else {
-            snapIndicator.classList.remove("visible");
-          }
-          
-          k.style.left = newX + "px";
-          k.dataset.time = newTime;
-          k.title = `t=${newTime.toFixed(3)}, value=${k.dataset.value}`;
-          
-          // DON'T update playhead - keep it at current time
-        };
-
-        const onMouseUp = (e) => {
-          k.classList.remove("dragging");
-          snapIndicator.classList.remove("visible");
-          
-          // Update tracks data
-          const bone = k.dataset.bone;
-          const oldT = startTime;
-          const newT = parseFloat(k.dataset.time);
-          const value = parseFloat(k.dataset.value);
-          
-          if (tracks[bone]) {
-            const index = tracks[bone].findIndex(k => Math.abs(k.time - oldT) < 0.0001);
-            if (index !== -1) {
-              tracks[bone][index] = { time: newT, value };
-            }
-          }
-
-          document.removeEventListener("mousemove", onMouseMove);
-          document.removeEventListener("mouseup", onMouseUp);
-        };
-
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
-      });
 
       row.appendChild(k);
     }
@@ -709,21 +522,12 @@
       zoom = Math.min(zoom * 1.2, 5);
       document.getElementById("zoomLabel").textContent = zoom.toFixed(1) + "x";
       drawRuler();
-      updateAllKeyframes();
     };
 
     document.getElementById("zoomOut").onclick = () => {
       zoom = Math.max(zoom / 1.2, 0.2);
       document.getElementById("zoomLabel").textContent = zoom.toFixed(1) + "x";
       drawRuler();
-      updateAllKeyframes();
-    };
-
-    document.getElementById("snapToggle").onclick = () => {
-      snapEnabled = !snapEnabled;
-      const btn = document.getElementById("snapToggle");
-      btn.textContent = snapEnabled ? "Snap: ON" : "Snap: OFF";
-      btn.classList.toggle("active", snapEnabled);
     };
 
     document.getElementById("deleteKey").onclick = () => {
@@ -737,40 +541,6 @@
         key.remove();
       });
     };
-
-    // Time input handlers
-    document.getElementById("currentTime").addEventListener("change", (e) => {
-      time = parseFloat(e.target.value) || 0;
-      time = Math.max(0, Math.min(duration, time));
-      updatePlayhead();
-    });
-
-    document.getElementById("totalTime").addEventListener("change", (e) => {
-      const newDuration = parseFloat(e.target.value) || 1.0;
-      if (newDuration > 0 && newDuration !== duration) {
-        // Scale all keyframe times proportionally
-        const scaleFactor = newDuration / duration;
-        for (const bone in tracks) {
-          tracks[bone] = tracks[bone].map(k => ({
-            time: k.time * scaleFactor,
-            value: k.value
-          }));
-        }
-        
-        // Update keyframe positions
-        const keys = tracksScrollEl.querySelectorAll(".key");
-        keys.forEach(key => {
-          const t = parseFloat(key.dataset.time);
-          const newTime = t * scaleFactor;
-          key.dataset.time = newTime;
-          key.style.left = timeToX(newTime) + "px";
-          key.title = `t=${newTime.toFixed(3)}, value=${key.dataset.value}`;
-        });
-        
-        duration = newDuration;
-        drawRuler();
-      }
-    });
 
     document.getElementById("addKey").onclick = () => {
       const msg = {
@@ -814,9 +584,7 @@
     ------------------------------ */
     function handleScrub(e) {
       const rect = tracksScrollEl.getBoundingClientRect();
-      const scrollLeft = timelineContainer.scrollLeft;
-      // Account for bones column (200px) and scroll position
-      time = xToTime(e.clientX - rect.left + scrollLeft - 200);
+      time = xToTime(e.clientX - rect.left + tracksScrollEl.scrollLeft);
       time = Math.max(0, Math.min(duration, time));
       updatePlayhead();
     }
@@ -840,88 +608,11 @@
       document.addEventListener("mouseup", onUp);
     });
 
-    // Sticky snapping for ruler when scrolling
-    const snapIndicator = document.getElementById("snapIndicator");
-    const timelineContainer = document.getElementById("timeline");
-    let isScrolling = false;
-    let scrollSnapTimeout;
-    
-    function updateSnapIndicator() {
-      if (!snapEnabled) {
-        snapIndicator.classList.remove("visible");
-        return;
-      }
-      
-      const scrollLeft = timelineContainer.scrollLeft;
-      const clientWidth = timelineContainer.clientWidth;
-      // Position in tracks area (subtract 200px for bones column)
-      const viewCenterInTracks = scrollLeft + clientWidth / 2 - 200;
-      
-      if (viewCenterInTracks < 0) {
-        snapIndicator.classList.remove("visible");
-        return;
-      }
-      
-      const snapTime = snapToGrid(xToTime(viewCenterInTracks));
-      const snapX = timeToX(snapTime);
-      
-      // Only show indicator if close to snap point
-      const distFromSnap = Math.abs(viewCenterInTracks - snapX);
-      if (distFromSnap > 2 && distFromSnap < 50) {
-        snapIndicator.style.left = snapX + "px";
-        snapIndicator.classList.add("visible");
-      } else {
-        snapIndicator.classList.remove("visible");
-      }
-    }
-    
-    timelineContainer.addEventListener("scroll", updateSnapIndicator);
-    timelineContainer.addEventListener("scrollend", () => {
-      snapIndicator.classList.remove("visible");
-      isScrolling = false;
-    });
+    // Initialize ruler
+    drawRuler();
 
-    // Simple scroll snap - just show indicator, don't auto-scroll
-    timelineContainer.addEventListener("scroll", () => {
-      isScrolling = true;
-      clearTimeout(scrollSnapTimeout);
-      
-      scrollSnapTimeout = setTimeout(() => {
-        isScrolling = false;
-      }, 150);
-    }, { passive: true });
-
-    // Toggle snap
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "s" && !e.ctrlKey && !e.metaKey && e.target.tagName !== "INPUT") {
-        snapEnabled = !snapEnabled;
-        const btn = document.getElementById("snapToggle");
-        btn.textContent = snapEnabled ? "Snap: ON" : "Snap: OFF";
-        btn.classList.toggle("active", snapEnabled);
-      }
-    });
-
-    // Initialize ruler after DOM is fully rendered
-    setTimeout(() => {
-      drawRuler();
-      updatePlayhead();
-    }, 10);
-    
     // Redraw ruler on window resize
     window.addEventListener("resize", drawRuler);
-
-    // Wheel zooming on ruler only (not on tracks to avoid scroll conflicts)
-    rulerEl.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      if (e.deltaY < 0) {
-        zoom = Math.min(zoom * 1.1, 5);
-      } else {
-        zoom = Math.max(zoom / 1.1, 0.2);
-      }
-      document.getElementById("zoomLabel").textContent = zoom.toFixed(1) + "x";
-      drawRuler();
-      updateAllKeyframes();
-    }, { passive: false });
   </script>
 
 </body>
