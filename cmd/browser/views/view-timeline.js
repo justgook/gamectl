@@ -231,11 +231,11 @@ export class TimelineRuler extends HTMLElement {
 
     // Nice intervals for time (in seconds)
     const niceIntervals = [
-      1/120,   // 1 frame at 120fps (for very high zoom)
-      1/60,    // 1 frame at 60fps
-      1/30,    // 2 frames
-      1/15,    // 4 frames  
-      1/10,    // 6 frames
+      1 / 120,   // 1 frame at 120fps (for very high zoom)
+      1 / 60,    // 1 frame at 60fps
+      1 / 30,    // 2 frames
+      1 / 15,    // 4 frames  
+      1 / 10,    // 6 frames
       0.1,     // 100ms
       0.2,     // 200ms
       0.25,    // 250ms (quarter second)
@@ -390,23 +390,30 @@ customElements.define('timeline-ruler', TimelineRuler)
  * - onTimeChanged(time)
  */
 export class ViewTimeline extends HTMLElement {
+  // Forward these attributes to the internal timeline-ruler
+  static RULER_ATTRIBUTES = ['min-value', 'max-value', 'pixels-per-second', 'snap-levels', 'scroll-inverted']
+
+  static get observedAttributes() {
+    return ViewTimeline.RULER_ATTRIBUTES
+  }
+
   constructor() {
     super()
     this._headerControlsElement = null
-    
+
     // State
     this._tracks = new Map()  // trackId -> { name, keyframes: Map<keyframeId, { time, value }> }
     this._selectedTracks = new Set()
     this._selectedKeyframes = new Set()
     this._keyframeIdCounter = 0
-    
+
     // Playback
     this._currentTime = 0
     this._playing = false
     this._loop = false
     this._lastFrameTime = 0
     this._animationFrameId = null
-    
+
     // Interaction state
     this._isDraggingPlayhead = false
     this._isDraggingKeyframe = false
@@ -415,7 +422,7 @@ export class ViewTimeline extends HTMLElement {
     this._isMarqueeSelecting = false
     this._marqueeStart = { x: 0, y: 0 }
     this._marqueeCurrent = { x: 0, y: 0 }
-    
+
     // Bind methods
     this._onPlayClick = this._onPlayClick.bind(this)
     this._onStopClick = this._onStopClick.bind(this)
@@ -430,8 +437,22 @@ export class ViewTimeline extends HTMLElement {
     this._playbackLoop = this._playbackLoop.bind(this)
   }
 
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue === newValue) return
+    
+    // Forward ruler attributes to internal ruler
+    if (ViewTimeline.RULER_ATTRIBUTES.includes(name) && this._ruler) {
+      if (newValue === null) {
+        this._ruler.removeAttribute(name)
+      } else {
+        this._ruler.setAttribute(name, newValue)
+      }
+    }
+  }
+
   connectedCallback() {
     this._buildDOM()
+    this._forwardInitialAttributes()
     this._mountHeaderControls()
     this._setupEventListeners()
     this._mockData()
@@ -444,9 +465,19 @@ export class ViewTimeline extends HTMLElement {
     this._stopPlayback()
   }
 
+  /** Forward initial attributes to ruler after DOM is built */
+  _forwardInitialAttributes() {
+    for (const attr of ViewTimeline.RULER_ATTRIBUTES) {
+      if (this.hasAttribute(attr)) {
+        this._ruler.setAttribute(attr, this.getAttribute(attr))
+      }
+    }
+  }
+
   // --- DOM Construction ---
 
   _buildDOM() {
+    // Default values - can be overridden by attributes on view-timeline
     this.innerHTML = `
       <div class="timeline-viewport">
         <div class="timeline-scroll-area">
@@ -454,7 +485,7 @@ export class ViewTimeline extends HTMLElement {
             <div class="corner-cell">Tracks</div>
             <timeline-ruler 
               min-value="0" 
-              max-value="10" 
+              max-value="60" 
               pixels-per-second="100">
             </timeline-ruler>
           </div>
@@ -468,7 +499,7 @@ export class ViewTimeline extends HTMLElement {
         <div class="selection-marquee" style="display: none;"></div>
       </div>
     `
-    
+
     // Cache element references
     this._viewport = this.querySelector('.timeline-viewport')
     this._scrollArea = this.querySelector('.timeline-scroll-area')
@@ -477,7 +508,7 @@ export class ViewTimeline extends HTMLElement {
     this._tracksArea = this.querySelector('.tracks-area')
     this._playhead = this.querySelector('.playhead')
     this._marquee = this.querySelector('.selection-marquee')
-    
+
     // Sync width with ruler
     this._ruler.addEventListener('pps-change', (e) => {
       const { width } = e.detail
@@ -485,7 +516,7 @@ export class ViewTimeline extends HTMLElement {
       this._updatePlayhead()
       this._updateAllKeyframePositions()
     })
-    
+
     this._tracksArea.style.width = `${this._ruler.width}px`
   }
 
@@ -502,7 +533,7 @@ export class ViewTimeline extends HTMLElement {
       if (headerControls) {
         this._headerControlsElement = headerControls
         this.parentElement.appendChild(headerControls)
-        
+
         // Setup button handlers
         const playBtn = this._queryHeaderControl('[data-action="play"]')
         const stopBtn = this._queryHeaderControl('[data-action="stop"]')
@@ -510,7 +541,7 @@ export class ViewTimeline extends HTMLElement {
         const deleteKeyBtn = this._queryHeaderControl('[data-action="delete-key"]')
         const loopCheckbox = this._queryHeaderControl('[data-action="loop"]')
         this._timeDisplay = this._queryHeaderControl('[data-element="time-display"]')
-        
+
         if (playBtn) playBtn.addEventListener('click', this._onPlayClick)
         if (stopBtn) stopBtn.addEventListener('click', this._onStopClick)
         if (addKeyBtn) addKeyBtn.addEventListener('click', this._onAddKeyClick)
@@ -569,7 +600,7 @@ export class ViewTimeline extends HTMLElement {
       console.log('No tracks selected')
       return
     }
-    
+
     for (const trackId of this._selectedTracks) {
       const value = this._onKeyframeAdded(trackId, this._currentTime)
       this.addKeyframe(trackId, this._currentTime, value)
@@ -594,13 +625,13 @@ export class ViewTimeline extends HTMLElement {
 
   _onTracksMouseDown(e) {
     const target = e.target
-    
+
     // Check if clicking on a keyframe
     if (target.classList.contains('keyframe')) {
       this._handleKeyframeClick(e, target)
       return
     }
-    
+
     // Check if clicking on a track row (for playhead scrubbing or marquee)
     const trackRow = target.closest('.track-row')
     if (trackRow) {
@@ -620,7 +651,7 @@ export class ViewTimeline extends HTMLElement {
   _handleKeyframeClick(e, keyframeEl) {
     e.stopPropagation()
     const keyframeId = keyframeEl.dataset.keyframeId
-    
+
     if (e.shiftKey) {
       // Add to selection
       this._toggleKeyframeSelection(keyframeId)
@@ -649,11 +680,11 @@ export class ViewTimeline extends HTMLElement {
     if (this._isDraggingPlayhead) {
       this._isDraggingPlayhead = false
     }
-    
+
     if (this._isDraggingKeyframe) {
       this._endKeyframeDrag(e)
     }
-    
+
     if (this._isMarqueeSelecting) {
       this._endMarqueeSelection(e)
     }
@@ -667,13 +698,13 @@ export class ViewTimeline extends HTMLElement {
         this._deleteSelectedKeyframes()
       }
     }
-    
+
     // Escape deselects all
     if (e.key === 'Escape') {
       this._deselectAllKeyframes()
       this._deselectAllTracks()
     }
-    
+
     // Space toggles playback
     if (e.key === ' ' && e.target === document.body) {
       e.preventDefault()
@@ -735,7 +766,7 @@ export class ViewTimeline extends HTMLElement {
     const label = this._trackLabels.querySelector(`[data-track-id="${trackId}"]`)
     const row = this._tracksArea.querySelector(`[data-track-id="${trackId}"]`)
     const isSelected = this._selectedTracks.has(trackId)
-    
+
     if (label) label.classList.toggle('selected', isSelected)
     if (row) row.classList.toggle('selected', isSelected)
   }
@@ -780,64 +811,96 @@ export class ViewTimeline extends HTMLElement {
     this._isDraggingKeyframe = true
     this._draggedKeyframe = keyframeEl
     this._dragStartTime = parseFloat(keyframeEl.dataset.time)
-    keyframeEl.classList.add('dragging')
+    
+    // Store initial times for all selected keyframes
+    this._dragInitialTimes = new Map()
+    for (const keyframeId of this._selectedKeyframes) {
+      const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
+      if (el) {
+        this._dragInitialTimes.set(keyframeId, parseFloat(el.dataset.time))
+        el.classList.add('dragging')
+      }
+    }
   }
 
   _dragKeyframe(e) {
     if (!this._draggedKeyframe) return
-    
+
     const rect = this._tracksArea.getBoundingClientRect()
     const scrollLeft = this._viewport.scrollLeft
     const x = e.clientX - rect.left + scrollLeft
     let newTime = this._ruler.xToTime(x)
-    
+
     // Snap to grid
     const snapInterval = this._ruler.snapInterval
     newTime = Math.round(newTime / snapInterval) * snapInterval
-    
-    // Clamp to bounds
-    newTime = Math.max(this._ruler.minValue, Math.min(this._ruler.maxValue, newTime))
-    
-    // Update visual position
-    const newX = this._ruler.timeToX(newTime)
-    this._draggedKeyframe.style.left = `${newX}px`
-    this._draggedKeyframe.dataset.time = newTime
+
+    // Calculate time delta from the dragged keyframe's original position
+    const timeDelta = newTime - this._dragStartTime
+
+    // Update all selected keyframes
+    for (const [keyframeId, initialTime] of this._dragInitialTimes) {
+      let keyframeNewTime = initialTime + timeDelta
+      
+      // Clamp to bounds
+      keyframeNewTime = Math.max(this._ruler.minValue, Math.min(this._ruler.maxValue, keyframeNewTime))
+      
+      // Update visual position
+      const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
+      if (el) {
+        const newX = this._ruler.timeToX(keyframeNewTime)
+        el.style.left = `${newX}px`
+        el.dataset.time = keyframeNewTime
+      }
+    }
   }
 
   _endKeyframeDrag(e) {
     if (!this._draggedKeyframe) return
-    
-    const keyframeId = this._draggedKeyframe.dataset.keyframeId
-    const newTime = parseFloat(this._draggedKeyframe.dataset.time)
-    
-    this._draggedKeyframe.classList.remove('dragging')
-    
-    if (Math.abs(newTime - this._dragStartTime) > 0.001) {
-      // Update internal state
-      const trackId = this._draggedKeyframe.dataset.trackId
-      const track = this._tracks.get(trackId)
-      if (track) {
-        const keyframe = track.keyframes.get(keyframeId)
-        if (keyframe) {
-          const oldTime = keyframe.time
-          keyframe.time = newTime
-          this._onKeyframeMoved(keyframeId, oldTime, newTime)
+
+    // Calculate final time delta
+    const finalTime = parseFloat(this._draggedKeyframe.dataset.time)
+    const timeDelta = finalTime - this._dragStartTime
+    const hasMoved = Math.abs(timeDelta) > 0.001
+
+    // Update all selected keyframes
+    for (const [keyframeId, initialTime] of this._dragInitialTimes) {
+      const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
+      if (el) {
+        el.classList.remove('dragging')
+        
+        if (hasMoved) {
+          const newTime = parseFloat(el.dataset.time)
+          // Update internal state
+          const trackId = el.dataset.trackId
+          const track = this._tracks.get(trackId)
+          if (track) {
+            const keyframe = track.keyframes.get(keyframeId)
+            if (keyframe) {
+              const oldTime = keyframe.time
+              keyframe.time = newTime
+              this._onKeyframeMoved(keyframeId, oldTime, newTime)
+            }
+          }
         }
       }
     }
-    
+
     this._isDraggingKeyframe = false
     this._draggedKeyframe = null
+    this._dragInitialTimes = null
   }
 
   // --- Marquee Selection ---
 
   _startMarqueeSelection(e) {
     this._isMarqueeSelecting = true
-    const rect = this._tracksArea.getBoundingClientRect()
+    // Use scroll-area as reference since marquee is positioned inside viewport
+    const scrollAreaRect = this._scrollArea.getBoundingClientRect()
+    const viewportRect = this._viewport.getBoundingClientRect()
     this._marqueeStart = {
-      x: e.clientX - rect.left + this._viewport.scrollLeft,
-      y: e.clientY - rect.top + this._viewport.scrollTop
+      x: e.clientX - viewportRect.left + this._viewport.scrollLeft,
+      y: e.clientY - viewportRect.top + this._viewport.scrollTop
     }
     this._marqueeCurrent = { ...this._marqueeStart }
     this._marquee.style.display = 'block'
@@ -845,10 +908,10 @@ export class ViewTimeline extends HTMLElement {
   }
 
   _updateMarquee(e) {
-    const rect = this._tracksArea.getBoundingClientRect()
+    const viewportRect = this._viewport.getBoundingClientRect()
     this._marqueeCurrent = {
-      x: e.clientX - rect.left + this._viewport.scrollLeft,
-      y: e.clientY - rect.top + this._viewport.scrollTop
+      x: e.clientX - viewportRect.left + this._viewport.scrollLeft,
+      y: e.clientY - viewportRect.top + this._viewport.scrollTop
     }
     this._updateMarqueeVisual()
   }
@@ -858,7 +921,7 @@ export class ViewTimeline extends HTMLElement {
     const y1 = Math.min(this._marqueeStart.y, this._marqueeCurrent.y)
     const x2 = Math.max(this._marqueeStart.x, this._marqueeCurrent.x)
     const y2 = Math.max(this._marqueeStart.y, this._marqueeCurrent.y)
-    
+
     this._marquee.style.left = `${x1}px`
     this._marquee.style.top = `${y1}px`
     this._marquee.style.width = `${x2 - x1}px`
@@ -868,20 +931,22 @@ export class ViewTimeline extends HTMLElement {
   _endMarqueeSelection(e) {
     this._isMarqueeSelecting = false
     this._marquee.style.display = 'none'
-    
-    // Find keyframes inside marquee
+
+    // Find keyframes inside marquee (coordinates are relative to viewport with scroll)
     const x1 = Math.min(this._marqueeStart.x, this._marqueeCurrent.x)
     const y1 = Math.min(this._marqueeStart.y, this._marqueeCurrent.y)
     const x2 = Math.max(this._marqueeStart.x, this._marqueeCurrent.x)
     const y2 = Math.max(this._marqueeStart.y, this._marqueeCurrent.y)
-    
+
+    const viewportRect = this._viewport.getBoundingClientRect()
     const keyframeEls = this._tracksArea.querySelectorAll('.keyframe')
+
     for (const el of keyframeEls) {
       const elRect = el.getBoundingClientRect()
-      const tracksRect = this._tracksArea.getBoundingClientRect()
-      const elX = elRect.left - tracksRect.left + this._viewport.scrollLeft + elRect.width / 2
-      const elY = elRect.top - tracksRect.top + this._viewport.scrollTop + elRect.height / 2
-      
+      // Calculate keyframe center position relative to viewport with scroll
+      const elX = elRect.left - viewportRect.left + this._viewport.scrollLeft + elRect.width / 2
+      const elY = elRect.top - viewportRect.top + this._viewport.scrollTop + elRect.height / 2
+
       if (elX >= x1 && elX <= x2 && elY >= y1 && elY <= y2) {
         this._selectKeyframe(el.dataset.keyframeId)
       }
@@ -930,12 +995,12 @@ export class ViewTimeline extends HTMLElement {
 
   _playbackLoop(now) {
     if (!this._playing) return
-    
+
     const dt = (now - this._lastFrameTime) / 1000
     this._lastFrameTime = now
-    
+
     let newTime = this._currentTime + dt
-    
+
     if (newTime >= this._ruler.maxValue) {
       if (this._loop) {
         newTime = this._ruler.minValue
@@ -944,9 +1009,9 @@ export class ViewTimeline extends HTMLElement {
         this.pause()
       }
     }
-    
+
     this.setCurrentTime(newTime)
-    
+
     if (this._playing) {
       this._animationFrameId = requestAnimationFrame(this._playbackLoop)
     }
@@ -989,22 +1054,22 @@ export class ViewTimeline extends HTMLElement {
 
   addTrack(id, name) {
     if (this._tracks.has(id)) return id
-    
+
     this._tracks.set(id, {
       name,
       keyframes: new Map()
     })
-    
+
     this._renderTrack(id, name)
     return id
   }
 
   removeTrack(id) {
     if (!this._tracks.has(id)) return
-    
+
     this._tracks.delete(id)
     this._selectedTracks.delete(id)
-    
+
     // Remove DOM elements
     const label = this._trackLabels.querySelector(`[data-track-id="${id}"]`)
     const row = this._tracksArea.querySelector(`[data-track-id="${id}"]`)
@@ -1022,7 +1087,7 @@ export class ViewTimeline extends HTMLElement {
 
   _renderTrack(id, name) {
     const index = this._tracks.size - 1
-    
+
     // Create label
     const label = document.createElement('div')
     label.className = 'track-label'
@@ -1030,7 +1095,7 @@ export class ViewTimeline extends HTMLElement {
     label.innerHTML = `<span class="track-index">${index.toString().padStart(2, '0')}</span>${name}`
     label.addEventListener('click', (e) => this._onTrackLabelClick(e, id))
     this._trackLabels.appendChild(label)
-    
+
     // Create track row (insert before playhead)
     const row = document.createElement('div')
     row.className = 'track-row'
@@ -1043,10 +1108,10 @@ export class ViewTimeline extends HTMLElement {
   addKeyframe(trackId, time, value) {
     const track = this._tracks.get(trackId)
     if (!track) return null
-    
+
     const keyframeId = `kf_${++this._keyframeIdCounter}`
     track.keyframes.set(keyframeId, { time, value })
-    
+
     this._renderKeyframe(trackId, keyframeId, time, value)
     return keyframeId
   }
@@ -1057,11 +1122,11 @@ export class ViewTimeline extends HTMLElement {
       if (track.keyframes.has(keyframeId)) {
         track.keyframes.delete(keyframeId)
         this._selectedKeyframes.delete(keyframeId)
-        
+
         // Remove DOM element
         const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
         el?.remove()
-        
+
         this._onKeyframeDeleted(keyframeId)
         return
       }
@@ -1074,14 +1139,14 @@ export class ViewTimeline extends HTMLElement {
       if (keyframe) {
         const oldTime = keyframe.time
         keyframe.time = newTime
-        
+
         // Update DOM
         const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
         if (el) {
           el.style.left = `${this._ruler.timeToX(newTime)}px`
           el.dataset.time = newTime
         }
-        
+
         this._onKeyframeMoved(keyframeId, oldTime, newTime)
         return
       }
@@ -1101,7 +1166,7 @@ export class ViewTimeline extends HTMLElement {
   _renderKeyframe(trackId, keyframeId, time, value) {
     const row = this._tracksArea.querySelector(`[data-track-id="${trackId}"]`)
     if (!row) return
-    
+
     const el = document.createElement('div')
     el.className = 'keyframe'
     el.dataset.keyframeId = keyframeId
@@ -1109,7 +1174,7 @@ export class ViewTimeline extends HTMLElement {
     el.dataset.time = time
     el.style.left = `${this._ruler.timeToX(time)}px`
     el.title = `t=${time.toFixed(3)}, value=${value}`
-    
+
     row.appendChild(el)
   }
 
