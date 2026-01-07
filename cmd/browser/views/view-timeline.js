@@ -74,6 +74,11 @@ export class TimelineRuler extends HTMLElement {
     return (this._maxValue - this._minValue) * this._pixelsPerSecond
   }
 
+  /** Returns the snap interval for keyframe snapping (minor tick interval) */
+  get snapInterval() {
+    return this._chooseTickInterval() / 4
+  }
+
   // --- Lifecycle ---
 
   connectedCallback() {
@@ -345,6 +350,16 @@ export class TimelineRuler extends HTMLElement {
     )
     this.pixelsPerSecond = clampedPPS
   }
+
+  /** Convert time to X position */
+  timeToX(time) {
+    return (time - this._minValue) * this._pixelsPerSecond
+  }
+
+  /** Convert X position to time */
+  xToTime(x) {
+    return x / this._pixelsPerSecond + this._minValue
+  }
 }
 
 customElements.define('timeline-ruler', TimelineRuler)
@@ -353,191 +368,155 @@ customElements.define('timeline-ruler', TimelineRuler)
 /**
  * View Timeline Component
  * 
- * Container for animation timeline with track labels on left and scrollable
- * timeline area on right. The ruler controls the scale (pixels-per-second)
- * and all tracks scale with it.
+ * Animation timeline with tracks, keyframes, playhead, and playback controls.
+ * 
+ * Features:
+ * - Track list with selection (click/shift+click)
+ * - Scalable ruler with snap-to-level zoom
+ * - Playhead with scrubbing
+ * - Playback controls (play/pause/stop/loop)
+ * - Keyframes with selection, drag & drop (with snapping)
+ * - Marquee selection for keyframes
+ * 
+ * API:
+ * - addTrack(id, name) / removeTrack(id) / getTracks()
+ * - addKeyframe(trackId, time, value) / removeKeyframe(id) / moveKeyframe(id, time)
+ * - play() / pause() / stop() / setCurrentTime(time)
+ * 
+ * Callbacks (override these):
+ * - onKeyframeAdded(trackId, time, value)
+ * - onKeyframeMoved(keyframeId, oldTime, newTime)
+ * - onKeyframeDeleted(keyframeId)
+ * - onTimeChanged(time)
  */
 export class ViewTimeline extends HTMLElement {
   constructor() {
     super()
     this._headerControlsElement = null
+    
+    // State
+    this._tracks = new Map()  // trackId -> { name, keyframes: Map<keyframeId, { time, value }> }
+    this._selectedTracks = new Set()
+    this._selectedKeyframes = new Set()
+    this._keyframeIdCounter = 0
+    
+    // Playback
+    this._currentTime = 0
+    this._playing = false
+    this._loop = false
+    this._lastFrameTime = 0
+    this._animationFrameId = null
+    
+    // Interaction state
+    this._isDraggingPlayhead = false
+    this._isDraggingKeyframe = false
+    this._draggedKeyframe = null
+    this._dragStartTime = 0
+    this._isMarqueeSelecting = false
+    this._marqueeStart = { x: 0, y: 0 }
+    this._marqueeCurrent = { x: 0, y: 0 }
+    
+    // Bind methods
+    this._onPlayClick = this._onPlayClick.bind(this)
+    this._onStopClick = this._onStopClick.bind(this)
+    this._onAddKeyClick = this._onAddKeyClick.bind(this)
+    this._onDeleteKeyClick = this._onDeleteKeyClick.bind(this)
+    this._onLoopChange = this._onLoopChange.bind(this)
+    this._onRulerMouseDown = this._onRulerMouseDown.bind(this)
+    this._onTracksMouseDown = this._onTracksMouseDown.bind(this)
+    this._onMouseMove = this._onMouseMove.bind(this)
+    this._onMouseUp = this._onMouseUp.bind(this)
+    this._onKeyDown = this._onKeyDown.bind(this)
+    this._playbackLoop = this._playbackLoop.bind(this)
   }
 
-  async connectedCallback() {
-    // Single scroll container with sticky header/labels - ONE scrollbar per axis
-    this.innerHTML = `
-      <div class="timeline-viewport">
-        <div class="timeline-scroll-area">
-          <!-- Header row: corner + ruler -->
-          <div class="timeline-header">
-            <div class="corner-cell">Tracks</div>
-            <timeline-ruler 
-              min-value="0" 
-              max-value="60" 
-              pixels-per-second="100">
-            </timeline-ruler>
-          </div>
-          <!-- Body: labels column + tracks grid -->
-          <div class="timeline-body">
-            <div class="track-labels"></div>
-            <div class="tracks-area"></div>
-          </div>
-        </div>
-      </div>
-      <style>
-        .timeline-viewport {
-          height: 100%;
-          overflow: auto;
-          background: var(--color-bg-secondary, #1a1a2e);
-          border-radius: 4px;
-        }
-
-        .timeline-scroll-area {
-          display: inline-block;
-          min-width: 100%;
-          min-height: 100%;
-        }
-
-        .timeline-header {
-          display: flex;
-          position: sticky;
-          top: 0;
-          z-index: 20;
-          background: var(--color-bg-secondary, #1a1a2e);
-          border-bottom: 1px solid var(--color-border, #2a2a3e);
-        }
-
-        .corner-cell {
-          width: 120px;
-          min-width: 120px;
-          padding: 4px 8px;
-          font-size: 11px;
-          font-weight: 500;
-          color: var(--color-text-secondary, #8888aa);
-          background: var(--color-bg-tertiary, #12121e);
-          border-right: 1px solid var(--color-border, #2a2a3e);
-          display: flex;
-          align-items: center;
-          position: sticky;
-          left: 0;
-          z-index: 30;
-        }
-
-        timeline-ruler {
-          cursor: ew-resize;
-        }
-
-        .timeline-body {
-          display: flex;
-        }
-
-        .track-labels {
-          width: 120px;
-          min-width: 120px;
-          background: var(--color-bg-tertiary, #12121e);
-          border-right: 1px solid var(--color-border, #2a2a3e);
-          position: sticky;
-          left: 0;
-          z-index: 10;
-        }
-
-        .track-label {
-          padding: 4px 8px;
-          font-size: 11px;
-          color: var(--color-text-primary, #ccccee);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          height: 24px;
-          display: flex;
-          align-items: center;
-          border-bottom: 1px solid var(--color-border, #2a2a3e);
-          box-sizing: border-box;
-        }
-
-        .track-label:hover {
-          background: var(--color-bg-hover, #2a2a3e);
-        }
-
-        .tracks-area {
-          flex: 1;
-        }
-
-        .track-row {
-          height: 24px;
-          border-bottom: 1px solid var(--color-border, #2a2a3e);
-          position: relative;
-          box-sizing: border-box;
-        }
-
-        .track-row:nth-child(even) {
-          background: rgba(255, 255, 255, 0.02);
-        }
-      </style>
-    `
-
-    this._setupComponents()
+  connectedCallback() {
+    this._buildDOM()
     this._mountHeaderControls()
+    this._setupEventListeners()
     this._mockData()
+    this._updatePlayhead()
   }
 
   disconnectedCallback() {
     this._unmountHeaderControls()
+    this._removeEventListeners()
+    this._stopPlayback()
   }
 
-  _setupComponents() {
-    const ruler = this.querySelector('timeline-ruler')
-    const tracksArea = this.querySelector('.tracks-area')
+  // --- DOM Construction ---
 
-    // Update tracks width when ruler PPS changes
-    ruler.addEventListener('pps-change', (e) => {
-      const { width, pixelsPerSecond } = e.detail
-      tracksArea.style.width = `${width}px`
-      console.log('PPS changed:', pixelsPerSecond, 'Width:', width)
+  _buildDOM() {
+    this.innerHTML = `
+      <div class="timeline-viewport">
+        <div class="timeline-scroll-area">
+          <div class="timeline-header">
+            <div class="corner-cell">Tracks</div>
+            <timeline-ruler 
+              min-value="0" 
+              max-value="10" 
+              pixels-per-second="100">
+            </timeline-ruler>
+          </div>
+          <div class="timeline-body">
+            <div class="track-labels"></div>
+            <div class="tracks-area">
+              <div class="playhead" style="left: 0px;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="selection-marquee" style="display: none;"></div>
+      </div>
+    `
+    
+    // Cache element references
+    this._viewport = this.querySelector('.timeline-viewport')
+    this._scrollArea = this.querySelector('.timeline-scroll-area')
+    this._ruler = this.querySelector('timeline-ruler')
+    this._trackLabels = this.querySelector('.track-labels')
+    this._tracksArea = this.querySelector('.tracks-area')
+    this._playhead = this.querySelector('.playhead')
+    this._marquee = this.querySelector('.selection-marquee')
+    
+    // Sync width with ruler
+    this._ruler.addEventListener('pps-change', (e) => {
+      const { width } = e.detail
+      this._tracksArea.style.width = `${width}px`
+      this._updatePlayhead()
+      this._updateAllKeyframePositions()
     })
-
-    // Set initial width
-    tracksArea.style.width = `${ruler.width}px`
+    
+    this._tracksArea.style.width = `${this._ruler.width}px`
   }
 
-  _mockData() {
-    const boneList = [
-      "root", "spine", "chest", "neck", "head",
-      "shoulder_l", "arm_upper_l", "arm_lower_l", "hand_l",
-      "shoulder_r", "arm_upper_r", "arm_lower_r", "hand_r",
-      "hip_l", "leg_upper_l", "leg_lower_l", "foot_l",
-      "hip_r", "leg_upper_r", "leg_lower_r", "foot_r"
-    ]
-
-    const trackLabels = this.querySelector('.track-labels')
-    const tracksArea = this.querySelector('.tracks-area')
-
-    const labelsFragment = document.createDocumentFragment()
-    const tracksFragment = document.createDocumentFragment()
-
-    for (const bone of boneList) {
-      // Create label
-      const label = document.createElement('div')
-      label.className = 'track-label'
-      label.textContent = bone
-      labelsFragment.appendChild(label)
-
-      // Create track row
-      const track = document.createElement('div')
-      track.className = 'track-row'
-      track.dataset.track = bone
-      tracksFragment.appendChild(track)
-    }
-
-    trackLabels.appendChild(labelsFragment)
-    tracksArea.appendChild(tracksFragment)
-  }
+  // --- Header Controls (Template Pattern) ---
 
   _mountHeaderControls() {
-    const headerControls = this.querySelector('[slot="header-controls"]')
-    if (headerControls) {
-      this._headerControlsElement = headerControls
-      this.parentElement?.appendChild(headerControls)
+    const viewTag = this.tagName.toLowerCase()
+    const template = document.getElementById(viewTag)
+
+    if (template && this.parentElement) {
+      const content = template.content.cloneNode(true)
+      const headerControls = content.querySelector('[slot="header-controls"]')
+
+      if (headerControls) {
+        this._headerControlsElement = headerControls
+        this.parentElement.appendChild(headerControls)
+        
+        // Setup button handlers
+        const playBtn = this._queryHeaderControl('[data-action="play"]')
+        const stopBtn = this._queryHeaderControl('[data-action="stop"]')
+        const addKeyBtn = this._queryHeaderControl('[data-action="add-key"]')
+        const deleteKeyBtn = this._queryHeaderControl('[data-action="delete-key"]')
+        const loopCheckbox = this._queryHeaderControl('[data-action="loop"]')
+        this._timeDisplay = this._queryHeaderControl('[data-element="time-display"]')
+        
+        if (playBtn) playBtn.addEventListener('click', this._onPlayClick)
+        if (stopBtn) stopBtn.addEventListener('click', this._onStopClick)
+        if (addKeyBtn) addKeyBtn.addEventListener('click', this._onAddKeyClick)
+        if (deleteKeyBtn) deleteKeyBtn.addEventListener('click', this._onDeleteKeyClick)
+        if (loopCheckbox) loopCheckbox.addEventListener('change', this._onLoopChange)
+      }
     }
   }
 
@@ -548,24 +527,676 @@ export class ViewTimeline extends HTMLElement {
     }
   }
 
+  _queryHeaderControl(selector) {
+    return this._headerControlsElement?.querySelector(selector) ?? null
+  }
+
+  // --- Event Listeners ---
+
+  _setupEventListeners() {
+    this._ruler.addEventListener('mousedown', this._onRulerMouseDown)
+    this._tracksArea.addEventListener('mousedown', this._onTracksMouseDown)
+    document.addEventListener('mousemove', this._onMouseMove)
+    document.addEventListener('mouseup', this._onMouseUp)
+    document.addEventListener('keydown', this._onKeyDown)
+  }
+
+  _removeEventListeners() {
+    this._ruler?.removeEventListener('mousedown', this._onRulerMouseDown)
+    this._tracksArea?.removeEventListener('mousedown', this._onTracksMouseDown)
+    document.removeEventListener('mousemove', this._onMouseMove)
+    document.removeEventListener('mouseup', this._onMouseUp)
+    document.removeEventListener('keydown', this._onKeyDown)
+  }
+
+  // --- Header Button Handlers ---
+
+  _onPlayClick() {
+    if (this._playing) {
+      this.pause()
+    } else {
+      this.play()
+    }
+  }
+
+  _onStopClick() {
+    this.stop()
+  }
+
+  _onAddKeyClick() {
+    // Add keyframe at current time for all selected tracks
+    if (this._selectedTracks.size === 0) {
+      console.log('No tracks selected')
+      return
+    }
+    
+    for (const trackId of this._selectedTracks) {
+      const value = this._onKeyframeAdded(trackId, this._currentTime)
+      this.addKeyframe(trackId, this._currentTime, value)
+    }
+  }
+
+  _onDeleteKeyClick() {
+    this._deleteSelectedKeyframes()
+  }
+
+  _onLoopChange(e) {
+    this._loop = e.target.checked
+  }
+
+  // --- Mouse Handlers ---
+
+  _onRulerMouseDown(e) {
+    e.preventDefault()
+    this._isDraggingPlayhead = true
+    this._scrubToPosition(e)
+  }
+
+  _onTracksMouseDown(e) {
+    const target = e.target
+    
+    // Check if clicking on a keyframe
+    if (target.classList.contains('keyframe')) {
+      this._handleKeyframeClick(e, target)
+      return
+    }
+    
+    // Check if clicking on a track row (for playhead scrubbing or marquee)
+    const trackRow = target.closest('.track-row')
+    if (trackRow) {
+      if (e.shiftKey) {
+        // Start marquee selection
+        this._startMarqueeSelection(e)
+      } else {
+        // Scrub playhead
+        this._isDraggingPlayhead = true
+        this._scrubToPosition(e)
+        // Deselect keyframes when clicking empty area
+        this._deselectAllKeyframes()
+      }
+    }
+  }
+
+  _handleKeyframeClick(e, keyframeEl) {
+    e.stopPropagation()
+    const keyframeId = keyframeEl.dataset.keyframeId
+    
+    if (e.shiftKey) {
+      // Add to selection
+      this._toggleKeyframeSelection(keyframeId)
+    } else {
+      // Single select (deselect others)
+      if (!this._selectedKeyframes.has(keyframeId)) {
+        this._deselectAllKeyframes()
+        this._selectKeyframe(keyframeId)
+      }
+      // Start dragging
+      this._startKeyframeDrag(e, keyframeEl)
+    }
+  }
+
+  _onMouseMove(e) {
+    if (this._isDraggingPlayhead) {
+      this._scrubToPosition(e)
+    } else if (this._isDraggingKeyframe) {
+      this._dragKeyframe(e)
+    } else if (this._isMarqueeSelecting) {
+      this._updateMarquee(e)
+    }
+  }
+
+  _onMouseUp(e) {
+    if (this._isDraggingPlayhead) {
+      this._isDraggingPlayhead = false
+    }
+    
+    if (this._isDraggingKeyframe) {
+      this._endKeyframeDrag(e)
+    }
+    
+    if (this._isMarqueeSelecting) {
+      this._endMarqueeSelection(e)
+    }
+  }
+
+  _onKeyDown(e) {
+    // Delete key removes selected keyframes
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (this._selectedKeyframes.size > 0) {
+        e.preventDefault()
+        this._deleteSelectedKeyframes()
+      }
+    }
+    
+    // Escape deselects all
+    if (e.key === 'Escape') {
+      this._deselectAllKeyframes()
+      this._deselectAllTracks()
+    }
+    
+    // Space toggles playback
+    if (e.key === ' ' && e.target === document.body) {
+      e.preventDefault()
+      if (this._playing) {
+        this.pause()
+      } else {
+        this.play()
+      }
+    }
+  }
+
+  // --- Playhead Scrubbing ---
+
+  _scrubToPosition(e) {
+    const rect = this._tracksArea.getBoundingClientRect()
+    const scrollLeft = this._viewport.scrollLeft
+    const x = e.clientX - rect.left + scrollLeft
+    const time = this._ruler.xToTime(x)
+    this.setCurrentTime(Math.max(this._ruler.minValue, Math.min(this._ruler.maxValue, time)))
+  }
+
+  // --- Track Selection ---
+
+  _onTrackLabelClick(e, trackId) {
+    if (e.shiftKey) {
+      this._toggleTrackSelection(trackId)
+    } else {
+      this._deselectAllTracks()
+      this._selectTrack(trackId)
+    }
+  }
+
+  _selectTrack(trackId) {
+    this._selectedTracks.add(trackId)
+    this._updateTrackVisuals(trackId)
+  }
+
+  _deselectTrack(trackId) {
+    this._selectedTracks.delete(trackId)
+    this._updateTrackVisuals(trackId)
+  }
+
+  _toggleTrackSelection(trackId) {
+    if (this._selectedTracks.has(trackId)) {
+      this._deselectTrack(trackId)
+    } else {
+      this._selectTrack(trackId)
+    }
+  }
+
+  _deselectAllTracks() {
+    for (const trackId of this._selectedTracks) {
+      this._selectedTracks.delete(trackId)
+      this._updateTrackVisuals(trackId)
+    }
+  }
+
+  _updateTrackVisuals(trackId) {
+    const label = this._trackLabels.querySelector(`[data-track-id="${trackId}"]`)
+    const row = this._tracksArea.querySelector(`[data-track-id="${trackId}"]`)
+    const isSelected = this._selectedTracks.has(trackId)
+    
+    if (label) label.classList.toggle('selected', isSelected)
+    if (row) row.classList.toggle('selected', isSelected)
+  }
+
+  // --- Keyframe Selection ---
+
+  _selectKeyframe(keyframeId) {
+    this._selectedKeyframes.add(keyframeId)
+    this._updateKeyframeVisual(keyframeId)
+  }
+
+  _deselectKeyframe(keyframeId) {
+    this._selectedKeyframes.delete(keyframeId)
+    this._updateKeyframeVisual(keyframeId)
+  }
+
+  _toggleKeyframeSelection(keyframeId) {
+    if (this._selectedKeyframes.has(keyframeId)) {
+      this._deselectKeyframe(keyframeId)
+    } else {
+      this._selectKeyframe(keyframeId)
+    }
+  }
+
+  _deselectAllKeyframes() {
+    for (const keyframeId of this._selectedKeyframes) {
+      this._selectedKeyframes.delete(keyframeId)
+      this._updateKeyframeVisual(keyframeId)
+    }
+  }
+
+  _updateKeyframeVisual(keyframeId) {
+    const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
+    if (el) {
+      el.classList.toggle('selected', this._selectedKeyframes.has(keyframeId))
+    }
+  }
+
+  // --- Keyframe Dragging ---
+
+  _startKeyframeDrag(e, keyframeEl) {
+    this._isDraggingKeyframe = true
+    this._draggedKeyframe = keyframeEl
+    this._dragStartTime = parseFloat(keyframeEl.dataset.time)
+    keyframeEl.classList.add('dragging')
+  }
+
+  _dragKeyframe(e) {
+    if (!this._draggedKeyframe) return
+    
+    const rect = this._tracksArea.getBoundingClientRect()
+    const scrollLeft = this._viewport.scrollLeft
+    const x = e.clientX - rect.left + scrollLeft
+    let newTime = this._ruler.xToTime(x)
+    
+    // Snap to grid
+    const snapInterval = this._ruler.snapInterval
+    newTime = Math.round(newTime / snapInterval) * snapInterval
+    
+    // Clamp to bounds
+    newTime = Math.max(this._ruler.minValue, Math.min(this._ruler.maxValue, newTime))
+    
+    // Update visual position
+    const newX = this._ruler.timeToX(newTime)
+    this._draggedKeyframe.style.left = `${newX}px`
+    this._draggedKeyframe.dataset.time = newTime
+  }
+
+  _endKeyframeDrag(e) {
+    if (!this._draggedKeyframe) return
+    
+    const keyframeId = this._draggedKeyframe.dataset.keyframeId
+    const newTime = parseFloat(this._draggedKeyframe.dataset.time)
+    
+    this._draggedKeyframe.classList.remove('dragging')
+    
+    if (Math.abs(newTime - this._dragStartTime) > 0.001) {
+      // Update internal state
+      const trackId = this._draggedKeyframe.dataset.trackId
+      const track = this._tracks.get(trackId)
+      if (track) {
+        const keyframe = track.keyframes.get(keyframeId)
+        if (keyframe) {
+          const oldTime = keyframe.time
+          keyframe.time = newTime
+          this._onKeyframeMoved(keyframeId, oldTime, newTime)
+        }
+      }
+    }
+    
+    this._isDraggingKeyframe = false
+    this._draggedKeyframe = null
+  }
+
+  // --- Marquee Selection ---
+
+  _startMarqueeSelection(e) {
+    this._isMarqueeSelecting = true
+    const rect = this._tracksArea.getBoundingClientRect()
+    this._marqueeStart = {
+      x: e.clientX - rect.left + this._viewport.scrollLeft,
+      y: e.clientY - rect.top + this._viewport.scrollTop
+    }
+    this._marqueeCurrent = { ...this._marqueeStart }
+    this._marquee.style.display = 'block'
+    this._updateMarqueeVisual()
+  }
+
+  _updateMarquee(e) {
+    const rect = this._tracksArea.getBoundingClientRect()
+    this._marqueeCurrent = {
+      x: e.clientX - rect.left + this._viewport.scrollLeft,
+      y: e.clientY - rect.top + this._viewport.scrollTop
+    }
+    this._updateMarqueeVisual()
+  }
+
+  _updateMarqueeVisual() {
+    const x1 = Math.min(this._marqueeStart.x, this._marqueeCurrent.x)
+    const y1 = Math.min(this._marqueeStart.y, this._marqueeCurrent.y)
+    const x2 = Math.max(this._marqueeStart.x, this._marqueeCurrent.x)
+    const y2 = Math.max(this._marqueeStart.y, this._marqueeCurrent.y)
+    
+    this._marquee.style.left = `${x1}px`
+    this._marquee.style.top = `${y1}px`
+    this._marquee.style.width = `${x2 - x1}px`
+    this._marquee.style.height = `${y2 - y1}px`
+  }
+
+  _endMarqueeSelection(e) {
+    this._isMarqueeSelecting = false
+    this._marquee.style.display = 'none'
+    
+    // Find keyframes inside marquee
+    const x1 = Math.min(this._marqueeStart.x, this._marqueeCurrent.x)
+    const y1 = Math.min(this._marqueeStart.y, this._marqueeCurrent.y)
+    const x2 = Math.max(this._marqueeStart.x, this._marqueeCurrent.x)
+    const y2 = Math.max(this._marqueeStart.y, this._marqueeCurrent.y)
+    
+    const keyframeEls = this._tracksArea.querySelectorAll('.keyframe')
+    for (const el of keyframeEls) {
+      const elRect = el.getBoundingClientRect()
+      const tracksRect = this._tracksArea.getBoundingClientRect()
+      const elX = elRect.left - tracksRect.left + this._viewport.scrollLeft + elRect.width / 2
+      const elY = elRect.top - tracksRect.top + this._viewport.scrollTop + elRect.height / 2
+      
+      if (elX >= x1 && elX <= x2 && elY >= y1 && elY <= y2) {
+        this._selectKeyframe(el.dataset.keyframeId)
+      }
+    }
+  }
+
+  // --- Keyframe Management ---
+
+  _deleteSelectedKeyframes() {
+    for (const keyframeId of [...this._selectedKeyframes]) {
+      this.removeKeyframe(keyframeId)
+    }
+  }
+
+  // --- Playback ---
+
+  play() {
+    if (this._playing) return
+    this._playing = true
+    this._lastFrameTime = performance.now()
+    this._animationFrameId = requestAnimationFrame(this._playbackLoop)
+    this._updatePlayButton()
+  }
+
+  pause() {
+    this._playing = false
+    if (this._animationFrameId) {
+      cancelAnimationFrame(this._animationFrameId)
+      this._animationFrameId = null
+    }
+    this._updatePlayButton()
+  }
+
+  stop() {
+    this.pause()
+    this.setCurrentTime(this._ruler.minValue)
+  }
+
+  _stopPlayback() {
+    this._playing = false
+    if (this._animationFrameId) {
+      cancelAnimationFrame(this._animationFrameId)
+      this._animationFrameId = null
+    }
+  }
+
+  _playbackLoop(now) {
+    if (!this._playing) return
+    
+    const dt = (now - this._lastFrameTime) / 1000
+    this._lastFrameTime = now
+    
+    let newTime = this._currentTime + dt
+    
+    if (newTime >= this._ruler.maxValue) {
+      if (this._loop) {
+        newTime = this._ruler.minValue
+      } else {
+        newTime = this._ruler.maxValue
+        this.pause()
+      }
+    }
+    
+    this.setCurrentTime(newTime)
+    
+    if (this._playing) {
+      this._animationFrameId = requestAnimationFrame(this._playbackLoop)
+    }
+  }
+
+  _updatePlayButton() {
+    const playBtn = this._queryHeaderControl('[data-action="play"]')
+    if (playBtn) {
+      playBtn.textContent = this._playing ? '⏸ Pause' : '▶ Play'
+      playBtn.classList.toggle('playing', this._playing)
+    }
+  }
+
+  // --- Playhead & Time ---
+
+  setCurrentTime(time) {
+    this._currentTime = time
+    this._updatePlayhead()
+    this._updateTimeDisplay()
+    this._onTimeChanged(time)
+  }
+
+  getCurrentTime() {
+    return this._currentTime
+  }
+
+  _updatePlayhead() {
+    if (!this._playhead || !this._ruler) return
+    const x = this._ruler.timeToX(this._currentTime)
+    this._playhead.style.left = `${x}px`
+  }
+
+  _updateTimeDisplay() {
+    if (this._timeDisplay) {
+      this._timeDisplay.textContent = `${this._currentTime.toFixed(2)}s`
+    }
+  }
+
+  // --- Track API ---
+
+  addTrack(id, name) {
+    if (this._tracks.has(id)) return id
+    
+    this._tracks.set(id, {
+      name,
+      keyframes: new Map()
+    })
+    
+    this._renderTrack(id, name)
+    return id
+  }
+
+  removeTrack(id) {
+    if (!this._tracks.has(id)) return
+    
+    this._tracks.delete(id)
+    this._selectedTracks.delete(id)
+    
+    // Remove DOM elements
+    const label = this._trackLabels.querySelector(`[data-track-id="${id}"]`)
+    const row = this._tracksArea.querySelector(`[data-track-id="${id}"]`)
+    label?.remove()
+    row?.remove()
+  }
+
+  getTrack(id) {
+    return this._tracks.get(id)
+  }
+
+  getTracks() {
+    return this._tracks
+  }
+
+  _renderTrack(id, name) {
+    const index = this._tracks.size - 1
+    
+    // Create label
+    const label = document.createElement('div')
+    label.className = 'track-label'
+    label.dataset.trackId = id
+    label.innerHTML = `<span class="track-index">${index.toString().padStart(2, '0')}</span>${name}`
+    label.addEventListener('click', (e) => this._onTrackLabelClick(e, id))
+    this._trackLabels.appendChild(label)
+    
+    // Create track row (insert before playhead)
+    const row = document.createElement('div')
+    row.className = 'track-row'
+    row.dataset.trackId = id
+    this._tracksArea.insertBefore(row, this._playhead)
+  }
+
+  // --- Keyframe API ---
+
+  addKeyframe(trackId, time, value) {
+    const track = this._tracks.get(trackId)
+    if (!track) return null
+    
+    const keyframeId = `kf_${++this._keyframeIdCounter}`
+    track.keyframes.set(keyframeId, { time, value })
+    
+    this._renderKeyframe(trackId, keyframeId, time, value)
+    return keyframeId
+  }
+
+  removeKeyframe(keyframeId) {
+    // Find and remove from track
+    for (const [trackId, track] of this._tracks) {
+      if (track.keyframes.has(keyframeId)) {
+        track.keyframes.delete(keyframeId)
+        this._selectedKeyframes.delete(keyframeId)
+        
+        // Remove DOM element
+        const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
+        el?.remove()
+        
+        this._onKeyframeDeleted(keyframeId)
+        return
+      }
+    }
+  }
+
+  moveKeyframe(keyframeId, newTime) {
+    for (const [trackId, track] of this._tracks) {
+      const keyframe = track.keyframes.get(keyframeId)
+      if (keyframe) {
+        const oldTime = keyframe.time
+        keyframe.time = newTime
+        
+        // Update DOM
+        const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
+        if (el) {
+          el.style.left = `${this._ruler.timeToX(newTime)}px`
+          el.dataset.time = newTime
+        }
+        
+        this._onKeyframeMoved(keyframeId, oldTime, newTime)
+        return
+      }
+    }
+  }
+
+  getKeyframe(keyframeId) {
+    for (const [trackId, track] of this._tracks) {
+      const keyframe = track.keyframes.get(keyframeId)
+      if (keyframe) {
+        return { trackId, ...keyframe }
+      }
+    }
+    return null
+  }
+
+  _renderKeyframe(trackId, keyframeId, time, value) {
+    const row = this._tracksArea.querySelector(`[data-track-id="${trackId}"]`)
+    if (!row) return
+    
+    const el = document.createElement('div')
+    el.className = 'keyframe'
+    el.dataset.keyframeId = keyframeId
+    el.dataset.trackId = trackId
+    el.dataset.time = time
+    el.style.left = `${this._ruler.timeToX(time)}px`
+    el.title = `t=${time.toFixed(3)}, value=${value}`
+    
+    row.appendChild(el)
+  }
+
+  _updateAllKeyframePositions() {
+    for (const [trackId, track] of this._tracks) {
+      for (const [keyframeId, keyframe] of track.keyframes) {
+        const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
+        if (el) {
+          el.style.left = `${this._ruler.timeToX(keyframe.time)}px`
+        }
+      }
+    }
+  }
+
+  // --- Callbacks (Override these) ---
+
+  /**
+   * Called when a keyframe is about to be added.
+   * Override to provide custom value or perform additional logic.
+   * @param {string} trackId 
+   * @param {number} time 
+   * @returns {*} The value to store for this keyframe
+   */
+  _onKeyframeAdded(trackId, time) {
+    const value = Math.round(Math.random() * 360 - 180)
+    console.log(`Keyframe added: track=${trackId}, time=${time.toFixed(3)}, value=${value}`)
+    return value
+  }
+
+  /**
+   * Called when a keyframe is moved.
+   * @param {string} keyframeId 
+   * @param {number} oldTime 
+   * @param {number} newTime 
+   */
+  _onKeyframeMoved(keyframeId, oldTime, newTime) {
+    console.log(`Keyframe moved: id=${keyframeId}, ${oldTime.toFixed(3)} -> ${newTime.toFixed(3)}`)
+  }
+
+  /**
+   * Called when a keyframe is deleted.
+   * @param {string} keyframeId 
+   */
+  _onKeyframeDeleted(keyframeId) {
+    console.log(`Keyframe deleted: id=${keyframeId}`)
+  }
+
+  /**
+   * Called on each frame during playback and when time is changed.
+   * @param {number} time 
+   */
+  _onTimeChanged(time) {
+    // Override to drive external animations
+  }
+
+  // --- Mock Data ---
+
+  _mockData() {
+    const boneList = [
+      "root", "spine", "chest", "neck", "head",
+      "shoulder_l", "arm_upper_l", "arm_lower_l", "hand_l",
+      "shoulder_r", "arm_upper_r", "arm_lower_r", "hand_r",
+      "hip_l", "leg_upper_l", "leg_lower_l", "foot_l",
+      "hip_r", "leg_upper_r", "leg_lower_r", "foot_r"
+    ]
+
+    for (const bone of boneList) {
+      this.addTrack(bone, bone)
+    }
+  }
+
   // --- Public API ---
 
   get ruler() {
-    return this.querySelector('timeline-ruler')
+    return this._ruler
   }
 
   setTimeRange(min, max) {
-    const ruler = this.ruler
-    if (ruler) {
-      ruler.setAttribute('min-value', min)
-      ruler.setAttribute('max-value', max)
+    if (this._ruler) {
+      this._ruler.setAttribute('min-value', min)
+      this._ruler.setAttribute('max-value', max)
     }
   }
 
   setPixelsPerSecond(pps) {
-    const ruler = this.ruler
-    if (ruler) {
-      ruler.setPixelsPerSecond(pps)
+    if (this._ruler) {
+      this._ruler.setPixelsPerSecond(pps)
     }
   }
 }
