@@ -694,7 +694,7 @@ view-toast .toast-button-primary:hover {
 view-timeline table {
   border-collapse: collapse;
   border: 0;
-  min-width: 200%;
+  /* min-width: 200%; */
 }
 
 view-timeline th,
@@ -738,6 +738,7 @@ view-timeline thead th.pin {
   left: 0;
   z-index: 1001;
   border-left: 0;
+  width: 200px;
 }
 
 view-timeline tbody th {
@@ -764,11 +765,11 @@ view-timeline th.ruler {
   vertical-align: bottom;
 }
 
-view-timeline canvas[data-element="ruler"] {
-  display: block;
-  width: 100%;
-  height: 24px;
-}
+/* view-timeline canvas[data-element="ruler"] { */
+/*   display: block; */
+/*   width: 100%; */
+/*   height: 24px; */
+/* } */
 
 view-timeline thead th,
 view-timeline tbody th {
