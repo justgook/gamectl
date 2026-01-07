@@ -18,7 +18,6 @@
   </head>
 
   <body>
-
     <template id="view-empty">
       <div style="padding: var(--spacing-scale-3);">Empty panel</div>
     </template>
@@ -291,6 +290,7 @@
               <option value="view-tree">Tree View</option>
               <option value="view-tilemap">Tilemap</option>
               <option value="view-skeleton">Skeleton</option>
+              <option value="view-timeline">Timeline</option>
             </optgroup>
             <optgroup label="OPR">
               <option value="view-opr-unit-builder">Unit Builder</option>
@@ -442,7 +442,8 @@
             </view-nodegraph>
           </view-chrome>
           <view-chrome nesw="s" r="400" from="panel_1">
-            <view-tilemap data-key="new_map"></view-tilemap>
+            <!-- <view-tilemap data-key="new_map"></view-tilemap> -->
+            <view-timeline></view-timeline>
           </view-chrome>
           <view-chrome nesw="w" r="200" from="panel_1">
             <view-pipeline></view-pipeline>
