@@ -1,5 +1,84 @@
 /* Reset is now handled by reset.css */
 
+/* ========================================================================== */
+/* FORM INPUT STYLES - Radio & Checkbox */
+/* ========================================================================== */
+
+/* Custom Radio Button */
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-semantic-border-default);
+  border-radius: 50%;
+  background: var(--color-semantic-background-default);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  margin: 0;
+}
+
+input[type="radio"]:hover {
+  border-color: var(--color-semantic-border-interactive);
+}
+
+input[type="radio"]:checked {
+  border-color: var(--color-semantic-border-interactive);
+  background: var(--color-semantic-background-default);
+}
+
+input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-semantic-text-accent);
+}
+
+/* Custom Checkbox */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-semantic-border-default);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-semantic-background-default);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  margin: 0;
+}
+
+input[type="checkbox"]:hover {
+  border-color: var(--color-semantic-border-interactive);
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--color-semantic-border-interactive);
+  background: var(--color-semantic-background-accent-default);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--color-semantic-text-on-accent);
+  font-size: 12px;
+  font-weight: bold;
+}
+
 body {
   width: 100%;
   height: 100%;
@@ -47,6 +126,10 @@ view--chrome .se {
 .panel-content {
   flex: 1 1 auto;
   overflow: auto;
+}
+
+.view-header-controls {
+  display: flex;
 }
 
 .tooltip {
@@ -693,6 +776,7 @@ view-toast .toast-button-primary:hover {
 
 /* Timeline CSS Variables */
 view-timeline {
+  user-select: none;
   --timeline-playhead-color: #ff4757;
   --timeline-keyframe-color: #ffd700;
   --timeline-keyframe-selected: #6c63ff;
