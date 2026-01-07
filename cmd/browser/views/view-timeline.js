@@ -455,6 +455,7 @@ export class ViewTimeline extends HTMLElement {
     this._forwardInitialAttributes()
     this._mountHeaderControls()
     this._setupEventListeners()
+    this._setupResizeObserver()
     this._mockData()
     this._updatePlayhead()
   }
@@ -463,6 +464,10 @@ export class ViewTimeline extends HTMLElement {
     this._unmountHeaderControls()
     this._removeEventListeners()
     this._stopPlayback()
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect()
+      this._resizeObserver = null
+    }
   }
 
   /** Forward initial attributes to ruler after DOM is built */
@@ -512,12 +517,36 @@ export class ViewTimeline extends HTMLElement {
     // Sync width with ruler
     this._ruler.addEventListener('pps-change', (e) => {
       const { width } = e.detail
-      this._tracksArea.style.width = `${width}px`
+      this._updateTracksWidth(width)
       this._updatePlayhead()
       this._updateAllKeyframePositions()
     })
 
-    this._tracksArea.style.width = `${this._ruler.width}px`
+    this._updateTracksWidth(this._ruler.width)
+  }
+
+  /** Update tracks area width - ensures minimum viewport width */
+  _updateTracksWidth(rulerWidth) {
+    if (!this._viewport || !this._tracksArea) return
+    
+    // Get the available width (viewport width minus label column)
+    const viewportWidth = this._viewport.clientWidth
+    const labelWidth = 120 // --timeline-label-width
+    const availableWidth = Math.max(0, viewportWidth - labelWidth)
+    
+    // Use the larger of ruler width or available width
+    const tracksWidth = Math.max(rulerWidth, availableWidth)
+    this._tracksArea.style.width = `${tracksWidth}px`
+  }
+
+  /** Setup resize observer to update tracks width when viewport resizes */
+  _setupResizeObserver() {
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._ruler) {
+        this._updateTracksWidth(this._ruler.width)
+      }
+    })
+    this._resizeObserver.observe(this._viewport)
   }
 
   // --- Header Controls (Template Pattern) ---
