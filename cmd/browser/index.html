@@ -175,6 +175,23 @@
       </div>
     </template>
 
+    <template id="view-timeline">
+      <div slot="header-controls" class="view-header-controls">
+        <button data-action="play" class="button-secondary">▶ Play</button>
+        <button data-action="stop" class="button-secondary">◼ Stop</button>
+        <span class="toolbar-divider"></span>
+        <button data-action="add-key" class="button-secondary">+ Key</button>
+        <button data-action="delete-key" class="button-secondary">Delete</button>
+        <span class="toolbar-divider"></span>
+        <label class="toolbar-checkbox">
+          <input type="checkbox" data-action="loop">
+          Loop
+        </label>
+        <span class="toolbar-divider"></span>
+        <span data-element="time-display" class="time-display">0.00s</span>
+      </div>
+    </template>
+
     <template id="view-opr-unit-builder">
       <div slot="header-controls" class="view-header-controls">
         <button data-action="random-unit" class="button-secondary">🎲 Random Unit</button>
