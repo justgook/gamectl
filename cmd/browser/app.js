@@ -56,9 +56,6 @@ customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
 /// THE PLUGIN MANAGER TESTING!!!
 window.pluginManager = await PluginManagerProxy.create()
 
-// Emit ready event so cache manager can process queued requests
-eventBus.emit('plugin-manager:ready')
-
 const DE = new TextDecoder()
 
 // TESTING SQL PLUGIN WITH DUMP/RESTORE
@@ -289,6 +286,10 @@ async function initOPRDatabase() {
 }
 
 await initOPRDatabase()
+
+// Emit ready event so cache manager can process queued requests
+// This must happen AFTER all database migrations to avoid querying non-existent tables
+eventBus.emit('plugin-manager:ready')
 
 // Initialize keybinding manager
 import { keybindingManager } from "./systems/keybinding-manager.js"
