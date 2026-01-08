@@ -29,7 +29,8 @@ import {
   getCursor,
   startCreateChild,
   EditorMode,
-  SelectionIntent
+  SelectionIntent,
+  ManipulationIntent
 } from "./skeleton/SkeletonEditor.js"
 
 function noop() { }
@@ -62,8 +63,12 @@ export class ViewSkeleton extends ViewCanvasBase {
     // Bind keyboard handler
     this._onKeyDownEditor = this._onKeyDownEditor.bind(this)
 
-    // Selection event listeners (will be populated in connectedCallback)
+    // Event listeners (will be populated in connectedCallback)
     this._selectionUnsubscribers = []
+    this._manipulationUnsubscribers = []
+
+    // Flag to prevent event loops when applying external changes
+    this._applyingExternalChange = false
   }
 
   setupUI() {
@@ -125,6 +130,12 @@ export class ViewSkeleton extends ViewCanvasBase {
       bus.on('skeleton:selection:clear', this._onSelectionClear),
       bus.on('skeleton:selection:all', this._onSelectionAll)
     ]
+
+    // Register manipulation event listeners
+    this._manipulationUnsubscribers = [
+      bus.on('skeleton:bone:rotate', this._onBoneRotate),
+      bus.on('skeleton:translate', this._onSkeletonTranslate)
+    ]
   }
 
   // --- Selection Event Handlers ---
@@ -153,6 +164,42 @@ export class ViewSkeleton extends ViewCanvasBase {
     this.draw()
   }
 
+  // --- Manipulation Event Handlers ---
+
+  _onBoneRotate = ({ boneIndex, angle }) => {
+    if (!this.data || !this.data.bones[boneIndex]) return
+    
+    // Skip if already at this angle (prevent loops)
+    const currentAngle = this.data.bones[boneIndex].a
+    if (Math.abs(currentAngle - angle) < 0.001) return
+
+    // Apply external change
+    this._applyingExternalChange = true
+    const newBones = [...this.data.bones]
+    newBones[boneIndex] = { ...newBones[boneIndex], a: angle }
+    this.data = { ...this.data, bones: newBones }
+    updateTransforms(this.editorState, this.data)
+    this._applyingExternalChange = false
+
+    this.draw()
+  }
+
+  _onSkeletonTranslate = ({ x, y }) => {
+    if (!this.data) return
+    
+    // Skip if already at this position (prevent loops)
+    if (Math.abs(this.data.x - x) < 0.001 && Math.abs(this.data.y - y) < 0.001) return
+
+    // Apply external change
+    this._applyingExternalChange = true
+    this.data = { ...this.data, x, y }
+    updateTransforms(this.editorState, this.data)
+    this.contentBounds = this.calculateContentBounds(this.data)
+    this._applyingExternalChange = false
+
+    this.draw()
+  }
+
   /**
    * Emit bus event based on selection intent returned from editor
    */
@@ -177,6 +224,23 @@ export class ViewSkeleton extends ViewCanvasBase {
     }
   }
 
+  /**
+   * Emit bus event based on manipulation intent returned from editor
+   */
+  _emitManipulationIntent(intent) {
+    if (!intent || this._applyingExternalChange) return
+
+    switch (intent.type) {
+      case ManipulationIntent.ROTATE:
+        bus.emit('skeleton:bone:rotate', { boneIndex: intent.boneIndex, angle: intent.angle })
+        break
+      case ManipulationIntent.TRANSLATE:
+        bus.emit('skeleton:translate', { x: intent.x, y: intent.y })
+        break
+      // ManipulationIntent.NONE - do nothing
+    }
+  }
+
   disconnectedCallback() {
     super.disconnectedCallback()
     this.unsubscribe()
@@ -185,6 +249,10 @@ export class ViewSkeleton extends ViewCanvasBase {
     // Unsubscribe from selection events
     this._selectionUnsubscribers.forEach(unsub => unsub())
     this._selectionUnsubscribers = []
+
+    // Unsubscribe from manipulation events
+    this._manipulationUnsubscribers.forEach(unsub => unsub())
+    this._manipulationUnsubscribers = []
   }
 
   // --- Data Management ---
@@ -375,6 +443,9 @@ export class ViewSkeleton extends ViewCanvasBase {
 
     // Emit selection event based on intent (e.g., selecting newly created bone)
     this._emitSelectionIntent(result.selectionIntent)
+
+    // Emit manipulation event (rotation/translation finished)
+    this._emitManipulationIntent(result.manipulationIntent)
 
     if (result.changed) {
       this.data = result.skeleton

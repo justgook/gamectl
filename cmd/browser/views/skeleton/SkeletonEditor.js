@@ -109,6 +109,15 @@ export const SelectionIntent = {
 }
 
 /**
+ * Manipulation intent types returned by handleMouseUp
+ */
+export const ManipulationIntent = {
+  NONE: 'none',
+  ROTATE: 'rotate',      // Bone rotation finished
+  TRANSLATE: 'translate' // Skeleton translation finished
+}
+
+/**
  * Handle mouse down event
  * 
  * @param {Object} state - Editor state
@@ -310,17 +319,39 @@ export function handleMouseMove(state, skeleton, worldX, worldY) {
  * @param {Object} skeleton - Skeleton data
  * @param {number} worldX - Mouse X in world coordinates
  * @param {number} worldY - Mouse Y in world coordinates
- * @returns {Object} { changed: boolean, skeleton: Object, selectionIntent: Object }
+ * @returns {Object} { changed: boolean, skeleton: Object, selectionIntent: Object, manipulationIntent: Object }
  */
 export function handleMouseUp(state, skeleton, worldX, worldY) {
   if (!skeleton || !state.isDragging) {
     state.isDragging = false
     state.mode = EditorMode.SELECT
-    return { changed: false, skeleton, selectionIntent: { type: SelectionIntent.NONE } }
+    return { 
+      changed: false, 
+      skeleton, 
+      selectionIntent: { type: SelectionIntent.NONE },
+      manipulationIntent: { type: ManipulationIntent.NONE }
+    }
   }
 
   let changed = false
   let selectionIntent = { type: SelectionIntent.NONE }
+  let manipulationIntent = { type: ManipulationIntent.NONE }
+
+  // Capture manipulation intent before resetting state
+  if (state.mode === EditorMode.ROTATE && state.dragBoneIndex !== null) {
+    const bone = skeleton.bones[state.dragBoneIndex]
+    manipulationIntent = { 
+      type: ManipulationIntent.ROTATE, 
+      boneIndex: state.dragBoneIndex,
+      angle: bone.a
+    }
+  } else if (state.mode === EditorMode.TRANSLATE) {
+    manipulationIntent = { 
+      type: ManipulationIntent.TRANSLATE, 
+      x: skeleton.x,
+      y: skeleton.y
+    }
+  }
 
   if (state.mode === EditorMode.CREATE) {
     // Finish creating bone
@@ -398,7 +429,7 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
   state.dragPart = null
   state.createParentIndex = null
 
-  return { changed, skeleton, selectionIntent }
+  return { changed, skeleton, selectionIntent, manipulationIntent }
 }
 
 /**
