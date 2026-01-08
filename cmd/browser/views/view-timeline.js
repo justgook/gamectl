@@ -34,7 +34,7 @@ export class TimelineRuler extends HTMLElement {
     this._scrollInverted = false
     this._canvas = null
     this._ctx = null
-    
+
     // Scroll accumulator for smooth zoom control on high-acceleration trackpads
     this._scrollAccumulator = new ScrollAccumulator({
       threshold: 120,
@@ -191,6 +191,8 @@ export class TimelineRuler extends HTMLElement {
           nearestIndex = i
         }
       }
+
+
       return levels[nearestIndex]
     }
 
@@ -217,6 +219,7 @@ export class TimelineRuler extends HTMLElement {
     // direction: 1 = zoom in (higher PPS), -1 = zoom out (lower PPS)
     const zoomIn = direction > 0
     const newPPS = this._snapToLevel(this._pixelsPerSecond, zoomIn)
+    console.log("newPPS", newPPS)
     if (newPPS !== this._pixelsPerSecond) {
       this._pixelsPerSecond = newPPS
       this._updateWidth()
@@ -456,7 +459,7 @@ export class ViewTimeline extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
-    
+
     // Forward ruler attributes to internal ruler
     if (ViewTimeline.RULER_ATTRIBUTES.includes(name) && this._ruler) {
       if (newValue === null) {
@@ -545,12 +548,12 @@ export class ViewTimeline extends HTMLElement {
   /** Update tracks area width - ensures minimum viewport width */
   _updateTracksWidth(rulerWidth) {
     if (!this._viewport || !this._tracksArea) return
-    
+
     // Get the available width (viewport width minus label column)
     const viewportWidth = this._viewport.clientWidth
     const labelWidth = 120 // --timeline-label-width
     const availableWidth = Math.max(0, viewportWidth - labelWidth)
-    
+
     // Use the larger of ruler width or available width
     const tracksWidth = Math.max(rulerWidth, availableWidth)
     this._tracksArea.style.width = `${tracksWidth}px`
@@ -857,7 +860,7 @@ export class ViewTimeline extends HTMLElement {
     this._isDraggingKeyframe = true
     this._draggedKeyframe = keyframeEl
     this._dragStartTime = parseFloat(keyframeEl.dataset.time)
-    
+
     // Store initial times for all selected keyframes
     this._dragInitialTimes = new Map()
     for (const keyframeId of this._selectedKeyframes) {
@@ -887,10 +890,10 @@ export class ViewTimeline extends HTMLElement {
     // Update all selected keyframes
     for (const [keyframeId, initialTime] of this._dragInitialTimes) {
       let keyframeNewTime = initialTime + timeDelta
-      
+
       // Clamp to bounds
       keyframeNewTime = Math.max(this._ruler.minValue, Math.min(this._ruler.maxValue, keyframeNewTime))
-      
+
       // Update visual position
       const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
       if (el) {
@@ -914,7 +917,7 @@ export class ViewTimeline extends HTMLElement {
       const el = this._tracksArea.querySelector(`[data-keyframe-id="${keyframeId}"]`)
       if (el) {
         el.classList.remove('dragging')
-        
+
         if (hasMoved) {
           const newTime = parseFloat(el.dataset.time)
           // Update internal state

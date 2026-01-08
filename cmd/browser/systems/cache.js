@@ -1,5 +1,6 @@
 import { bus as eventBus } from "./event-bus.js"
 import { parseCSVLines } from "../util/csv.js"
+import { toast } from "./toast.js"
 
 class CacheManager {
   constructor(bus = eventBus) {
@@ -8,6 +9,17 @@ class CacheManager {
     this.DE = new TextDecoder()
     this.bus.subscriptionHook = this.subscriptionHook.bind(this)
     this.bus.unSubscriptionHook = this.unSubscriptionHook.bind(this)
+
+    // Plugin manager ready state
+    this.isPluginManagerReady = false
+    this.requestQueue = []
+    this.QUEUE_TIMEOUT = 10000 // 10 seconds
+
+    // Listen for plugin manager ready event
+    this.bus.on('plugin-manager:ready', () => {
+      this.isPluginManagerReady = true
+      this.processQueue()
+    })
 
     // Listen for save events
     this.bus.on('cache:save', this.saveData.bind(this))
@@ -40,20 +52,58 @@ class CacheManager {
   }
 
   async requestData(sqlQuery, listener) {
-    const result = await window.pluginManager.call('sql', 'query', sqlQuery)
-    const csv = this.DE.decode(result.output)
+    // Queue the request if plugin manager is not ready
+    if (!this.isPluginManagerReady) {
+      const queuedAt = Date.now()
+      this.requestQueue.push({ sqlQuery, listener, queuedAt })
 
-    // Parse CSV to get JSON data
-    const lines = parseCSVLines(csv.trim())
-    if (lines.length < 2 || lines[1].length < 1) {
-      console.warn("cache failed load", sqlQuery)
-      return null
+      // Set timeout to handle cases where plugin manager never initializes
+      setTimeout(() => {
+        if (!this.isPluginManagerReady) {
+          const idx = this.requestQueue.findIndex(req => req.sqlQuery === sqlQuery && req.queuedAt === queuedAt)
+          if (idx !== -1) {
+            this.requestQueue.splice(idx, 1)
+            const errorMsg = `Plugin manager failed to initialize within ${this.QUEUE_TIMEOUT}ms`
+            console.error(errorMsg, sqlQuery)
+
+            // Show toast error
+            toast.error('System initialization failed')
+          }
+        }
+      }, this.QUEUE_TIMEOUT)
+
+      return
     }
 
-    const data = JSON.parse(lines[1][0]) // First column of second row
-    this.caches.set(sqlQuery, data)
+    try {
+      const result = await window.pluginManager.call('sql', 'query', sqlQuery)
+      const csv = this.DE.decode(result.output)
 
-    listener(data)
+      // Parse CSV to get JSON data
+      const lines = parseCSVLines(csv.trim())
+      if (lines.length < 2 || lines[1].length < 1) {
+        toast.error(`cache failed load: ${sqlQuery}`)
+        console.warn("cache failed load", sqlQuery)
+        return null
+      }
+
+      const data = JSON.parse(lines[1][0]) // First column of second row
+      this.caches.set(sqlQuery, data)
+
+      listener(data)
+    } catch (error) {
+      console.error("cache request failed:", sqlQuery, error)
+      toast.error('Failed to load cached data')
+    }
+  }
+
+  processQueue() {
+    const queue = [...this.requestQueue]
+    this.requestQueue = []
+
+    for (const { sqlQuery, listener } of queue) {
+      this.requestData(sqlQuery, listener)
+    }
   }
 
   /**
@@ -64,7 +114,7 @@ class CacheManager {
    */
   async saveData({ selectQuery, insertQueryFn }) {
     const data = this.caches.get(selectQuery)
-    
+
     if (!data) {
       console.error('No cached data found for query:', selectQuery)
       this.bus.emit('cache:save:error', { selectQuery, error: 'No cached data found' })
@@ -87,7 +137,7 @@ class CacheManager {
       // Execute save
       const result = await window.pluginManager.call('sql', 'exec', insertQuery)
       console.log('Cache saved:', this.DE.decode(result.output))
-      
+
       this.bus.emit('cache:save:success', { selectQuery, name })
     } catch (error) {
       console.error('Failed to save cache:', error)
