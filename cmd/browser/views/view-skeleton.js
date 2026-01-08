@@ -25,12 +25,11 @@ import {
   handleMouseMove,
   handleMouseUp,
   deleteSelectedBones,
-  selectAll,
-  deselectAll,
   updateTransforms,
   getCursor,
   startCreateChild,
-  EditorMode
+  EditorMode,
+  SelectionIntent
 } from "./skeleton/SkeletonEditor.js"
 
 function noop() { }
@@ -62,6 +61,9 @@ export class ViewSkeleton extends ViewCanvasBase {
 
     // Bind keyboard handler
     this._onKeyDownEditor = this._onKeyDownEditor.bind(this)
+
+    // Selection event listeners (will be populated in connectedCallback)
+    this._selectionUnsubscribers = []
   }
 
   setupUI() {
@@ -115,12 +117,74 @@ export class ViewSkeleton extends ViewCanvasBase {
 
     // Add keyboard listener for this view
     this.addEventListener('keydown', this._onKeyDownEditor)
+
+    // Register selection event listeners
+    this._selectionUnsubscribers = [
+      bus.on('skeleton:bone:select', this._onBoneSelect),
+      bus.on('skeleton:bone:deselect', this._onBoneDeselect),
+      bus.on('skeleton:selection:clear', this._onSelectionClear),
+      bus.on('skeleton:selection:all', this._onSelectionAll)
+    ]
+  }
+
+  // --- Selection Event Handlers ---
+
+  _onBoneSelect = ({ boneIndex }) => {
+    this.editorState.selectedBones.add(boneIndex)
+    this.draw()
+  }
+
+  _onBoneDeselect = ({ boneIndex }) => {
+    this.editorState.selectedBones.delete(boneIndex)
+    this.draw()
+  }
+
+  _onSelectionClear = () => {
+    this.editorState.selectedBones.clear()
+    this.draw()
+  }
+
+  _onSelectionAll = () => {
+    if (!this.data) return
+    this.editorState.selectedBones.clear()
+    for (let i = 0; i < this.data.bones.length; i++) {
+      this.editorState.selectedBones.add(i)
+    }
+    this.draw()
+  }
+
+  /**
+   * Emit bus event based on selection intent returned from editor
+   */
+  _emitSelectionIntent(intent) {
+    if (!intent) return
+
+    switch (intent.type) {
+      case SelectionIntent.SELECT:
+        bus.emit('skeleton:bone:select', { boneIndex: intent.boneIndex })
+        break
+      case SelectionIntent.DESELECT:
+        bus.emit('skeleton:bone:deselect', { boneIndex: intent.boneIndex })
+        break
+      case SelectionIntent.CLEAR:
+        bus.emit('skeleton:selection:clear', {})
+        // Handle chained intent (e.g., clear then select)
+        if (intent.then) {
+          this._emitSelectionIntent(intent.then)
+        }
+        break
+      // SelectionIntent.NONE - do nothing
+    }
   }
 
   disconnectedCallback() {
     super.disconnectedCallback()
     this.unsubscribe()
     this.removeEventListener('keydown', this._onKeyDownEditor)
+
+    // Unsubscribe from selection events
+    this._selectionUnsubscribers.forEach(unsub => unsub())
+    this._selectionUnsubscribers = []
   }
 
   // --- Data Management ---
@@ -273,6 +337,9 @@ export class ViewSkeleton extends ViewCanvasBase {
 
     const result = handleMouseDown(this.editorState, this.data, worldX, worldY, e.shiftKey)
 
+    // Emit selection event based on intent
+    this._emitSelectionIntent(result.selectionIntent)
+
     if (result.changed) {
       this.data = result.skeleton
       this.canvas.style.cursor = getCursor(this.editorState)
@@ -306,6 +373,9 @@ export class ViewSkeleton extends ViewCanvasBase {
     const { worldX, worldY } = this._screenToWorld(e.clientX, e.clientY)
     const result = handleMouseUp(this.editorState, this.data, worldX, worldY)
 
+    // Emit selection event based on intent (e.g., selecting newly created bone)
+    this._emitSelectionIntent(result.selectionIntent)
+
     if (result.changed) {
       this.data = result.skeleton
       this.contentBounds = this.calculateContentBounds(this.data)
@@ -337,15 +407,13 @@ export class ViewSkeleton extends ViewCanvasBase {
       }
 
       case 'Escape':
-        deselectAll(this.editorState)
-        this.draw()
+        bus.emit('skeleton:selection:clear', {})
         e.preventDefault()
         break
 
       case 'a':
         if (e.ctrlKey || e.metaKey) {
-          selectAll(this.editorState, this.data)
-          this.draw()
+          bus.emit('skeleton:selection:all', {})
           e.preventDefault()
         }
         break
@@ -383,6 +451,8 @@ export class ViewSkeleton extends ViewCanvasBase {
    * Add a new bone at the center of the viewport
    */
   addBoneAtCenter() {
+    let newIndex = null
+
     if (!this.data) {
       // Create new skeleton
       this.data = {
@@ -392,10 +462,11 @@ export class ViewSkeleton extends ViewCanvasBase {
         props: { "0": { name: "root" } },
         bones: [{ parent: null, a: 90, l: 50 }]
       }
+      newIndex = 0
     } else if (this.editorState.selectedBones.size > 0) {
       // Add child to first selected bone
       const parentIndex = Array.from(this.editorState.selectedBones)[0]
-      const newIndex = this.data.bones.length
+      newIndex = this.data.bones.length
 
       const newBones = [...this.data.bones, {
         parent: parentIndex,
@@ -407,15 +478,11 @@ export class ViewSkeleton extends ViewCanvasBase {
       newProps[newIndex] = { name: `bone_${newIndex}` }
 
       this.data = { ...this.data, bones: newBones, props: newProps }
-
-      // Select the new bone
-      this.editorState.selectedBones.clear()
-      this.editorState.selectedBones.add(newIndex)
     } else {
       // Add child to root
       const rootIndex = this.data.bones.findIndex(b => b.parent === null)
       if (rootIndex !== -1) {
-        const newIndex = this.data.bones.length
+        newIndex = this.data.bones.length
 
         const newBones = [...this.data.bones, {
           parent: rootIndex,
@@ -427,15 +494,18 @@ export class ViewSkeleton extends ViewCanvasBase {
         newProps[newIndex] = { name: `bone_${newIndex}` }
 
         this.data = { ...this.data, bones: newBones, props: newProps }
-
-        // Select the new bone
-        this.editorState.selectedBones.clear()
-        this.editorState.selectedBones.add(newIndex)
       }
     }
 
     updateTransforms(this.editorState, this.data)
     this.contentBounds = this.calculateContentBounds(this.data)
+
+    // Select the new bone via event (clear others first)
+    if (newIndex !== null) {
+      bus.emit('skeleton:selection:clear', {})
+      bus.emit('skeleton:bone:select', { boneIndex: newIndex })
+    }
+
     this.draw()
   }
 }
