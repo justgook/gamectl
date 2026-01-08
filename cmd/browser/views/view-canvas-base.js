@@ -31,6 +31,10 @@ export class ViewCanvasBase extends HTMLElement {
 
     this.tileInfo = null; // For hover tooltip
     this.data = null;
+    
+    // Auto-fit configuration
+    this.autoFitOnLoad = true; // Automatically fit content to view on initial load
+    this._hasAutoFitted = false; // Track if auto-fit has been applied
 
     // ResizeObserver watches THIS element's size
     this._resizeObserver = new ResizeObserver((entries) => {
@@ -226,6 +230,9 @@ export class ViewCanvasBase extends HTMLElement {
     this.canvas.width = roundedWidth;
     this.canvas.height = roundedHeight;
     this.draw();
+    
+    // Apply auto-fit if enabled and not yet applied
+    this._tryAutoFit();
   }
 
   _addEventListeners() {
@@ -327,6 +334,9 @@ export class ViewCanvasBase extends HTMLElement {
     this.drawContent(this.ctx, this.data)
 
     this.ctx.restore()
+    
+    // Apply auto-fit if enabled and not yet applied
+    this._tryAutoFit();
   }
 
   _drawPlaceholder(width, height) {
@@ -457,6 +467,16 @@ export class ViewCanvasBase extends HTMLElement {
 
     this._constrainPosition();
     this.draw()
+  }
+
+  /**
+   * Try to apply auto-fit if enabled and conditions are met
+   */
+  _tryAutoFit() {
+    if (this.autoFitOnLoad && !this._hasAutoFitted && this.data && this.canvas && this.canvas.width > 0 && this.canvas.height > 0) {
+      this._hasAutoFitted = true;
+      this.fitToContent();
+    }
   }
 
   resetView() {
