@@ -99,6 +99,16 @@ export function updateHover(state, skeleton, worldX, worldY) {
 }
 
 /**
+ * Selection intent types returned by handleMouseDown
+ */
+export const SelectionIntent = {
+  NONE: 'none',
+  SELECT: 'select',      // Select bone (add to selection)
+  DESELECT: 'deselect',  // Deselect bone (remove from selection)
+  CLEAR: 'clear'         // Clear all selections
+}
+
+/**
  * Handle mouse down event
  * 
  * @param {Object} state - Editor state
@@ -106,10 +116,10 @@ export function updateHover(state, skeleton, worldX, worldY) {
  * @param {number} worldX - Mouse X in world coordinates
  * @param {number} worldY - Mouse Y in world coordinates
  * @param {boolean} shiftKey - Whether shift is held
- * @returns {Object} { changed: boolean, skeleton: Object }
+ * @returns {Object} { changed: boolean, skeleton: Object, selectionIntent: Object }
  */
 export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
-  if (!skeleton) return { changed: false, skeleton }
+  if (!skeleton) return { changed: false, skeleton, selectionIntent: { type: SelectionIntent.NONE } }
 
   const hit = findBoneAtPoint(worldX, worldY, state.transforms)
 
@@ -134,19 +144,21 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
       }
     }
 
-    // Handle selection
+    // Determine selection intent (no longer modify state.selectedBones directly)
+    let selectionIntent
     if (shiftKey) {
-      // Toggle selection
+      // Multi-select: select or deselect based on current state
       if (state.selectedBones.has(selectIndex)) {
-        state.selectedBones.delete(selectIndex)
+        selectionIntent = { type: SelectionIntent.DESELECT, boneIndex: selectIndex }
       } else {
-        state.selectedBones.add(selectIndex)
+        selectionIntent = { type: SelectionIntent.SELECT, boneIndex: selectIndex }
       }
     } else {
-      // Single select (unless already selected for drag)
+      // Single select: clear others first, then select (unless already selected for drag)
       if (!state.selectedBones.has(selectIndex)) {
-        state.selectedBones.clear()
-        state.selectedBones.add(selectIndex)
+        selectionIntent = { type: SelectionIntent.CLEAR, then: { type: SelectionIntent.SELECT, boneIndex: selectIndex } }
+      } else {
+        selectionIntent = { type: SelectionIntent.NONE }
       }
     }
 
@@ -194,12 +206,12 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
       state.isDragging = false
     }
 
-    return { changed: true, skeleton }
+    return { changed: true, skeleton, selectionIntent }
   } else {
     // Clicked on empty space
-    if (!shiftKey) {
-      state.selectedBones.clear()
-    }
+    const selectionIntent = shiftKey 
+      ? { type: SelectionIntent.NONE }
+      : { type: SelectionIntent.CLEAR }
 
     // Start creating a new root bone
     state.mode = EditorMode.CREATE
@@ -210,7 +222,7 @@ export function handleMouseDown(state, skeleton, worldX, worldY, shiftKey) {
     state.createEndX = worldX
     state.createEndY = worldY
 
-    return { changed: true, skeleton }
+    return { changed: true, skeleton, selectionIntent }
   }
 }
 
@@ -298,16 +310,17 @@ export function handleMouseMove(state, skeleton, worldX, worldY) {
  * @param {Object} skeleton - Skeleton data
  * @param {number} worldX - Mouse X in world coordinates
  * @param {number} worldY - Mouse Y in world coordinates
- * @returns {Object} { changed: boolean, skeleton: Object }
+ * @returns {Object} { changed: boolean, skeleton: Object, selectionIntent: Object }
  */
 export function handleMouseUp(state, skeleton, worldX, worldY) {
   if (!skeleton || !state.isDragging) {
     state.isDragging = false
     state.mode = EditorMode.SELECT
-    return { changed: false, skeleton }
+    return { changed: false, skeleton, selectionIntent: { type: SelectionIntent.NONE } }
   }
 
   let changed = false
+  let selectionIntent = { type: SelectionIntent.NONE }
 
   if (state.mode === EditorMode.CREATE) {
     // Finish creating bone
@@ -367,9 +380,8 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
 
         skeleton = { ...skeleton, bones: newBones, props: newProps }
 
-        // Select the new bone
-        state.selectedBones.clear()
-        state.selectedBones.add(newIndex)
+        // Return selection intent for the new bone (clear others, select new)
+        selectionIntent = { type: SelectionIntent.CLEAR, then: { type: SelectionIntent.SELECT, boneIndex: newIndex } }
 
         changed = true
       }
@@ -386,7 +398,7 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
   state.dragPart = null
   state.createParentIndex = null
 
-  return { changed, skeleton }
+  return { changed, skeleton, selectionIntent }
 }
 
 /**
