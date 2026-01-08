@@ -113,8 +113,9 @@ export const SelectionIntent = {
  */
 export const ManipulationIntent = {
   NONE: 'none',
-  ROTATE: 'rotate',      // Bone rotation finished
-  TRANSLATE: 'translate' // Skeleton translation finished
+  ROTATE: 'rotate',       // Bone rotation finished
+  TRANSLATE: 'translate', // Skeleton translation finished
+  CREATE: 'create'        // New bone created
 }
 
 /**
@@ -411,7 +412,15 @@ export function handleMouseUp(state, skeleton, worldX, worldY) {
 
         skeleton = { ...skeleton, bones: newBones, props: newProps }
 
-        // Return selection intent for the new bone (clear others, select new)
+        // Return manipulation intent for bone creation (includes selection)
+        manipulationIntent = { 
+          type: ManipulationIntent.CREATE, 
+          boneIndex: newIndex,
+          bone: newBone,
+          props: newProps[newIndex]
+        }
+
+        // Selection will happen after create event is processed
         selectionIntent = { type: SelectionIntent.CLEAR, then: { type: SelectionIntent.SELECT, boneIndex: newIndex } }
 
         changed = true

@@ -134,7 +134,8 @@ export class ViewSkeleton extends ViewCanvasBase {
     // Register manipulation event listeners
     this._manipulationUnsubscribers = [
       bus.on('skeleton:bone:rotate', this._onBoneRotate),
-      bus.on('skeleton:translate', this._onSkeletonTranslate)
+      bus.on('skeleton:translate', this._onSkeletonTranslate),
+      bus.on('skeleton:bone:create', this._onBoneCreate)
     ]
   }
 
@@ -200,6 +201,24 @@ export class ViewSkeleton extends ViewCanvasBase {
     this.draw()
   }
 
+  _onBoneCreate = ({ boneIndex, bone, props }) => {
+    if (!this.data) return
+
+    // Skip if bone already exists at this index (prevent loops)
+    if (this.data.bones[boneIndex]) return
+
+    // Apply external change
+    this._applyingExternalChange = true
+    const newBones = [...this.data.bones, bone]
+    const newProps = { ...this.data.props, [boneIndex]: props }
+    this.data = { ...this.data, bones: newBones, props: newProps }
+    updateTransforms(this.editorState, this.data)
+    this.contentBounds = this.calculateContentBounds(this.data)
+    this._applyingExternalChange = false
+
+    this.draw()
+  }
+
   /**
    * Emit bus event based on selection intent returned from editor
    */
@@ -236,6 +255,9 @@ export class ViewSkeleton extends ViewCanvasBase {
         break
       case ManipulationIntent.TRANSLATE:
         bus.emit('skeleton:translate', { x: intent.x, y: intent.y })
+        break
+      case ManipulationIntent.CREATE:
+        bus.emit('skeleton:bone:create', { boneIndex: intent.boneIndex, bone: intent.bone, props: intent.props })
         break
       // ManipulationIntent.NONE - do nothing
     }
@@ -441,16 +463,18 @@ export class ViewSkeleton extends ViewCanvasBase {
     const { worldX, worldY } = this._screenToWorld(e.clientX, e.clientY)
     const result = handleMouseUp(this.editorState, this.data, worldX, worldY)
 
-    // Emit selection event based on intent (e.g., selecting newly created bone)
-    this._emitSelectionIntent(result.selectionIntent)
-
-    // Emit manipulation event (rotation/translation finished)
-    this._emitManipulationIntent(result.manipulationIntent)
-
+    // Update local data first
     if (result.changed) {
       this.data = result.skeleton
       this.contentBounds = this.calculateContentBounds(this.data)
     }
+
+    // Emit manipulation event FIRST (create/rotate/translate)
+    // This ensures other views have the bone before selection fires
+    this._emitManipulationIntent(result.manipulationIntent)
+
+    // Emit selection event after (e.g., selecting newly created bone)
+    this._emitSelectionIntent(result.selectionIntent)
 
     this.canvas.style.cursor = getCursor(this.editorState)
     this.draw()
@@ -523,15 +547,19 @@ export class ViewSkeleton extends ViewCanvasBase {
    */
   addBoneAtCenter() {
     let newIndex = null
+    let newBone = null
+    let newBoneProps = null
 
     if (!this.data) {
       // Create new skeleton
+      newBone = { parent: null, a: 90, l: 50 }
+      newBoneProps = { name: "root" }
       this.data = {
         name: this.skeletonKey,
         x: 0,
         y: 0,
-        props: { "0": { name: "root" } },
-        bones: [{ parent: null, a: 90, l: 50 }]
+        props: { "0": newBoneProps },
+        bones: [newBone]
       }
       newIndex = 0
     } else if (this.editorState.selectedBones.size > 0) {
@@ -539,14 +567,12 @@ export class ViewSkeleton extends ViewCanvasBase {
       const parentIndex = Array.from(this.editorState.selectedBones)[0]
       newIndex = this.data.bones.length
 
-      const newBones = [...this.data.bones, {
-        parent: parentIndex,
-        a: 0,
-        l: 50
-      }]
+      newBone = { parent: parentIndex, a: 0, l: 50 }
+      newBoneProps = { name: `bone_${newIndex}` }
 
+      const newBones = [...this.data.bones, newBone]
       const newProps = { ...this.data.props }
-      newProps[newIndex] = { name: `bone_${newIndex}` }
+      newProps[newIndex] = newBoneProps
 
       this.data = { ...this.data, bones: newBones, props: newProps }
     } else {
@@ -555,14 +581,12 @@ export class ViewSkeleton extends ViewCanvasBase {
       if (rootIndex !== -1) {
         newIndex = this.data.bones.length
 
-        const newBones = [...this.data.bones, {
-          parent: rootIndex,
-          a: 0,
-          l: 50
-        }]
+        newBone = { parent: rootIndex, a: 0, l: 50 }
+        newBoneProps = { name: `bone_${newIndex}` }
 
+        const newBones = [...this.data.bones, newBone]
         const newProps = { ...this.data.props }
-        newProps[newIndex] = { name: `bone_${newIndex}` }
+        newProps[newIndex] = newBoneProps
 
         this.data = { ...this.data, bones: newBones, props: newProps }
       }
@@ -571,8 +595,10 @@ export class ViewSkeleton extends ViewCanvasBase {
     updateTransforms(this.editorState, this.data)
     this.contentBounds = this.calculateContentBounds(this.data)
 
-    // Select the new bone via event (clear others first)
-    if (newIndex !== null) {
+    // Emit create event FIRST so other views have the bone
+    if (newIndex !== null && newBone !== null) {
+      bus.emit('skeleton:bone:create', { boneIndex: newIndex, bone: newBone, props: newBoneProps })
+      // Then select the new bone
       bus.emit('skeleton:selection:clear', {})
       bus.emit('skeleton:bone:select', { boneIndex: newIndex })
     }
