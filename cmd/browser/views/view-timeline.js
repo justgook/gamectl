@@ -1,3 +1,5 @@
+import { ScrollAccumulator } from '../systems/scroll-accumulator.js'
+
 /**
  * Timeline Ruler Component
  * 
@@ -32,6 +34,13 @@ export class TimelineRuler extends HTMLElement {
     this._scrollInverted = false
     this._canvas = null
     this._ctx = null
+    
+    // Scroll accumulator for smooth zoom control on high-acceleration trackpads
+    this._scrollAccumulator = new ScrollAccumulator({
+      threshold: 120,
+      resetDelay: 400,
+      onTick: (direction) => this._handleZoomTick(direction)
+    })
   }
 
   // --- Getters/Setters ---
@@ -112,6 +121,9 @@ export class TimelineRuler extends HTMLElement {
   disconnectedCallback() {
     if (this._canvas) {
       this._canvas.removeEventListener('wheel', this._boundWheel)
+    }
+    if (this._scrollAccumulator) {
+      this._scrollAccumulator.dispose()
     }
   }
 
@@ -196,9 +208,14 @@ export class TimelineRuler extends HTMLElement {
     e.preventDefault()
     e.stopPropagation()
 
+    // Invert: positive delta = zoom in (scroll up / pinch out)
     const delta = this._scrollInverted ? e.deltaY : -e.deltaY
-    const zoomIn = delta > 0
+    this._scrollAccumulator.add(delta)
+  }
 
+  _handleZoomTick(direction) {
+    // direction: 1 = zoom in (higher PPS), -1 = zoom out (lower PPS)
+    const zoomIn = direction > 0
     const newPPS = this._snapToLevel(this._pixelsPerSecond, zoomIn)
     if (newPPS !== this._pixelsPerSecond) {
       this._pixelsPerSecond = newPPS
