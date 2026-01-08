@@ -29,8 +29,8 @@ export class ScrollAccumulator {
   constructor(options = {}) {
     this._threshold = options.threshold ?? 120
     this._resetDelay = options.resetDelay ?? 400
-    this._onTick = options.onTick ?? (() => {})
-    
+    this._onTick = options.onTick ?? (() => { })
+
     this._accumulator = 0
     this._resetTimeout = null
   }
@@ -44,7 +44,7 @@ export class ScrollAccumulator {
    */
   add(delta) {
     this._accumulator += delta
-    
+
     // Reset decay timer
     if (this._resetTimeout !== null) {
       clearTimeout(this._resetTimeout)
@@ -53,7 +53,7 @@ export class ScrollAccumulator {
       this._accumulator = 0
       this._resetTimeout = null
     }, this._resetDelay)
-    
+
     // Check if threshold reached (only trigger one tick per call)
     if (this._accumulator >= this._threshold) {
       this._accumulator -= this._threshold
@@ -106,6 +106,6 @@ export class ScrollAccumulator {
    */
   dispose() {
     this.reset()
-    this._onTick = () => {}
+    this._onTick = () => { }
   }
 }

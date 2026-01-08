@@ -1,6 +1,7 @@
 
 // Initialize event bus first
 import "./systems/event-bus.js"
+import { bus as eventBus } from "./systems/event-bus.js"
 import { toast } from './systems/toast.js'
 
 import "./systems/cache.js"
@@ -54,6 +55,9 @@ customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
 
 /// THE PLUGIN MANAGER TESTING!!!
 window.pluginManager = await PluginManagerProxy.create()
+
+// Emit ready event so cache manager can process queued requests
+eventBus.emit('plugin-manager:ready')
 
 const DE = new TextDecoder()
 
