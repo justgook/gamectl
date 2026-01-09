@@ -1,4 +1,5 @@
 import { ScrollAccumulator } from '../systems/scroll-accumulator.js'
+import { bus } from '../systems/event-bus.js'
 
 /**
  * Timeline Ruler Component
@@ -409,23 +410,35 @@ customElements.define('timeline-ruler', TimelineRuler)
  * - onKeyframeDeleted(keyframeId)
  * - onTimeChanged(time)
  */
+function noop() { }
+
 export class ViewTimeline extends HTMLElement {
   // Forward these attributes to the internal timeline-ruler
   static RULER_ATTRIBUTES = ['min-value', 'max-value', 'pixels-per-second', 'snap-levels', 'scroll-inverted']
 
   static get observedAttributes() {
-    return ViewTimeline.RULER_ATTRIBUTES
+    return ['data-key', ...ViewTimeline.RULER_ATTRIBUTES]
   }
 
   constructor() {
     super()
     this._headerControlsElement = null
 
+    // Skeleton key for data loading
+    this.skeletonKey = 'humanoid'
+    this.unsubscribe = noop
+
     // State
     this._tracks = new Map()  // trackId -> { name, keyframes: Map<keyframeId, { time, value }> }
     this._selectedTracks = new Set()
     this._selectedKeyframes = new Set()
     this._keyframeIdCounter = 0
+
+    // Flag to prevent event loops when applying external changes
+    this._applyingExternalChange = false
+
+    // Event unsubscribers
+    this._selectionUnsubscribers = []
 
     // Playback
     this._currentTime = 0
@@ -460,6 +473,14 @@ export class ViewTimeline extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
 
+    // Handle data-key attribute changes
+    if (name === 'data-key' && oldValue !== newValue) {
+      this.skeletonKey = newValue || 'humanoid'
+      this.unsubscribe()
+      this.unsubscribe = bus.on(`cache:changed:${this.getSelectQuery()}`, this.dataChanged)
+      return
+    }
+
     // Forward ruler attributes to internal ruler
     if (ViewTimeline.RULER_ATTRIBUTES.includes(name) && this._ruler) {
       if (newValue === null) {
@@ -476,7 +497,13 @@ export class ViewTimeline extends HTMLElement {
     this._mountHeaderControls()
     this._setupEventListeners()
     this._setupResizeObserver()
-    this._mockData()
+    
+    // Subscribe to skeleton data changes
+    this.unsubscribe = bus.on(`cache:changed:${this.getSelectQuery()}`, this.dataChanged)
+    
+    // Load skeleton data
+    this.fetchData()
+    
     this._updatePlayhead()
   }
 
@@ -484,6 +511,12 @@ export class ViewTimeline extends HTMLElement {
     this._unmountHeaderControls()
     this._removeEventListeners()
     this._stopPlayback()
+    this.unsubscribe()
+    
+    // Unsubscribe from selection events
+    this._selectionUnsubscribers.forEach(unsub => unsub())
+    this._selectionUnsubscribers = []
+    
     if (this._resizeObserver) {
       this._resizeObserver.disconnect()
       this._resizeObserver = null
@@ -497,6 +530,22 @@ export class ViewTimeline extends HTMLElement {
         this._ruler.setAttribute(attr, this.getAttribute(attr))
       }
     }
+  }
+
+  // --- Data Management ---
+
+  dataChanged = (data) => {
+    this.data = data
+    this._populateTracksFromSkeleton(data)
+  }
+
+  async fetchData() {
+    bus.emit(`cache:load:${this.getSelectQuery()}`)
+    return this.data
+  }
+
+  getSelectQuery() {
+    return `SELECT data FROM skeleton_storage WHERE name = '${this.skeletonKey}'`
   }
 
   // --- DOM Construction ---
@@ -619,6 +668,14 @@ export class ViewTimeline extends HTMLElement {
     document.addEventListener('mousemove', this._onMouseMove)
     document.addEventListener('mouseup', this._onMouseUp)
     document.addEventListener('keydown', this._onKeyDown)
+    
+    // Register selection event listeners from skeleton
+    this._selectionUnsubscribers = [
+      bus.on('skeleton:bone:select', this._onBoneSelect),
+      bus.on('skeleton:bone:deselect', this._onBoneDeselect),
+      bus.on('skeleton:selection:clear', this._onSelectionClear),
+      bus.on('skeleton:selection:all', this._onSelectionAll)
+    ]
   }
 
   _removeEventListeners() {
@@ -789,11 +846,21 @@ export class ViewTimeline extends HTMLElement {
   _selectTrack(trackId) {
     this._selectedTracks.add(trackId)
     this._updateTrackVisuals(trackId)
+    
+    // Emit event to sync with skeleton (only if not applying external change)
+    if (!this._applyingExternalChange) {
+      bus.emit('skeleton:bone:select', { boneIndex: trackId })
+    }
   }
 
   _deselectTrack(trackId) {
     this._selectedTracks.delete(trackId)
     this._updateTrackVisuals(trackId)
+    
+    // Emit event to sync with skeleton (only if not applying external change)
+    if (!this._applyingExternalChange) {
+      bus.emit('skeleton:bone:deselect', { boneIndex: trackId })
+    }
   }
 
   _toggleTrackSelection(trackId) {
@@ -805,9 +872,16 @@ export class ViewTimeline extends HTMLElement {
   }
 
   _deselectAllTracks() {
+    const hadSelection = this._selectedTracks.size > 0
+    
     for (const trackId of this._selectedTracks) {
       this._selectedTracks.delete(trackId)
       this._updateTrackVisuals(trackId)
+    }
+    
+    // Emit event to sync with skeleton (only if not applying external change)
+    if (!this._applyingExternalChange && hadSelection) {
+      bus.emit('skeleton:selection:clear', {})
     }
   }
 
@@ -818,6 +892,41 @@ export class ViewTimeline extends HTMLElement {
 
     if (label) label.classList.toggle('selected', isSelected)
     if (row) row.classList.toggle('selected', isSelected)
+  }
+
+  // --- Selection Event Handlers (from Skeleton) ---
+
+  _onBoneSelect = ({ boneIndex }) => {
+    // Check if track exists for this bone
+    if (!this._tracks.has(boneIndex)) return
+    
+    this._applyingExternalChange = true
+    this._selectTrack(boneIndex)
+    this._applyingExternalChange = false
+  }
+
+  _onBoneDeselect = ({ boneIndex }) => {
+    // Check if track exists for this bone
+    if (!this._tracks.has(boneIndex)) return
+    
+    this._applyingExternalChange = true
+    this._deselectTrack(boneIndex)
+    this._applyingExternalChange = false
+  }
+
+  _onSelectionClear = () => {
+    this._applyingExternalChange = true
+    this._deselectAllTracks()
+    this._applyingExternalChange = false
+  }
+
+  _onSelectionAll = () => {
+    this._applyingExternalChange = true
+    // Select all tracks
+    for (const trackId of this._tracks.keys()) {
+      this._selectTrack(trackId)
+    }
+    this._applyingExternalChange = false
   }
 
   // --- Keyframe Selection ---
@@ -1279,20 +1388,40 @@ export class ViewTimeline extends HTMLElement {
     // Override to drive external animations
   }
 
-  // --- Mock Data ---
+  // --- Skeleton Data Integration ---
 
-  _mockData() {
-    const boneList = [
-      "root", "spine", "chest", "neck", "head",
-      "shoulder_l", "arm_upper_l", "arm_lower_l", "hand_l",
-      "shoulder_r", "arm_upper_r", "arm_lower_r", "hand_r",
-      "hip_l", "leg_upper_l", "leg_lower_l", "foot_l",
-      "hip_r", "leg_upper_r", "leg_lower_r", "foot_r"
-    ]
-
-    for (const bone of boneList) {
-      this.addTrack(bone, bone)
+  _populateTracksFromSkeleton(skeletonData) {
+    if (!skeletonData || !skeletonData.bones) {
+      // Clear tracks if no skeleton data
+      this._clearAllTracks()
+      return
     }
+
+    // Clear existing tracks
+    this._clearAllTracks()
+
+    // Create tracks for each bone using bone index as track ID
+    for (let boneIndex = 0; boneIndex < skeletonData.bones.length; boneIndex++) {
+      const boneName = skeletonData.props?.[boneIndex]?.name || `bone_${boneIndex}`
+      this.addTrack(boneIndex, boneName)
+    }
+  }
+
+  _clearAllTracks() {
+    // Remove all track DOM elements
+    if (this._trackLabels) {
+      this._trackLabels.innerHTML = ''
+    }
+    if (this._tracksArea) {
+      // Keep playhead, remove track rows
+      const trackRows = this._tracksArea.querySelectorAll('.track-row')
+      trackRows.forEach(row => row.remove())
+    }
+    
+    // Clear state
+    this._tracks.clear()
+    this._selectedTracks.clear()
+    this._selectedKeyframes.clear()
   }
 
   // --- Public API ---
