@@ -40,7 +40,7 @@ class CacheManager {
 
     this.bus.onSkipHook(`cache:changed:${sqlQuery}`, (data) => {
       if (this.caches.get(sqlQuery) === data) { return }
-      console.log(data)
+      // console.log(data)
       this.caches.set(sqlQuery, data)
     })
   }

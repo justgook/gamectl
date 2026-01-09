@@ -29,8 +29,7 @@ import {
   getCursor,
   startCreateChild,
   EditorMode,
-  SelectionIntent,
-  ManipulationIntent
+  SelectionIntent
 } from "./skeleton/SkeletonEditor.js"
 
 function noop() { }
@@ -65,10 +64,6 @@ export class ViewSkeleton extends ViewCanvasBase {
 
     // Event listeners (will be populated in connectedCallback)
     this._selectionUnsubscribers = []
-    this._manipulationUnsubscribers = []
-
-    // Flag to prevent event loops when applying external changes
-    this._applyingExternalChange = false
   }
 
   setupUI() {
@@ -130,13 +125,6 @@ export class ViewSkeleton extends ViewCanvasBase {
       bus.on('skeleton:selection:clear', this._onSelectionClear),
       bus.on('skeleton:selection:all', this._onSelectionAll)
     ]
-
-    // Register manipulation event listeners
-    this._manipulationUnsubscribers = [
-      bus.on('skeleton:bone:rotate', this._onBoneRotate),
-      bus.on('skeleton:translate', this._onSkeletonTranslate),
-      bus.on('skeleton:bone:create', this._onBoneCreate)
-    ]
   }
 
   // --- Selection Event Handlers ---
@@ -165,60 +153,6 @@ export class ViewSkeleton extends ViewCanvasBase {
     this.draw()
   }
 
-  // --- Manipulation Event Handlers ---
-
-  _onBoneRotate = ({ boneIndex, angle }) => {
-    if (!this.data || !this.data.bones[boneIndex]) return
-    
-    // Skip if already at this angle (prevent loops)
-    const currentAngle = this.data.bones[boneIndex].a
-    if (Math.abs(currentAngle - angle) < 0.001) return
-
-    // Apply external change
-    this._applyingExternalChange = true
-    const newBones = [...this.data.bones]
-    newBones[boneIndex] = { ...newBones[boneIndex], a: angle }
-    this.data = { ...this.data, bones: newBones }
-    updateTransforms(this.editorState, this.data)
-    this._applyingExternalChange = false
-
-    this.draw()
-  }
-
-  _onSkeletonTranslate = ({ x, y }) => {
-    if (!this.data) return
-    
-    // Skip if already at this position (prevent loops)
-    if (Math.abs(this.data.x - x) < 0.001 && Math.abs(this.data.y - y) < 0.001) return
-
-    // Apply external change
-    this._applyingExternalChange = true
-    this.data = { ...this.data, x, y }
-    updateTransforms(this.editorState, this.data)
-    this.contentBounds = this.calculateContentBounds(this.data)
-    this._applyingExternalChange = false
-
-    this.draw()
-  }
-
-  _onBoneCreate = ({ boneIndex, bone, props }) => {
-    if (!this.data) return
-
-    // Skip if bone already exists at this index (prevent loops)
-    if (this.data.bones[boneIndex]) return
-
-    // Apply external change
-    this._applyingExternalChange = true
-    const newBones = [...this.data.bones, bone]
-    const newProps = { ...this.data.props, [boneIndex]: props }
-    this.data = { ...this.data, bones: newBones, props: newProps }
-    updateTransforms(this.editorState, this.data)
-    this.contentBounds = this.calculateContentBounds(this.data)
-    this._applyingExternalChange = false
-
-    this.draw()
-  }
-
   /**
    * Emit bus event based on selection intent returned from editor
    */
@@ -243,25 +177,7 @@ export class ViewSkeleton extends ViewCanvasBase {
     }
   }
 
-  /**
-   * Emit bus event based on manipulation intent returned from editor
-   */
-  _emitManipulationIntent(intent) {
-    if (!intent || this._applyingExternalChange) return
 
-    switch (intent.type) {
-      case ManipulationIntent.ROTATE:
-        bus.emit('skeleton:bone:rotate', { boneIndex: intent.boneIndex, angle: intent.angle })
-        break
-      case ManipulationIntent.TRANSLATE:
-        bus.emit('skeleton:translate', { x: intent.x, y: intent.y })
-        break
-      case ManipulationIntent.CREATE:
-        bus.emit('skeleton:bone:create', { boneIndex: intent.boneIndex, bone: intent.bone, props: intent.props })
-        break
-      // ManipulationIntent.NONE - do nothing
-    }
-  }
 
   disconnectedCallback() {
     super.disconnectedCallback()
@@ -271,10 +187,6 @@ export class ViewSkeleton extends ViewCanvasBase {
     // Unsubscribe from selection events
     this._selectionUnsubscribers.forEach(unsub => unsub())
     this._selectionUnsubscribers = []
-
-    // Unsubscribe from manipulation events
-    this._manipulationUnsubscribers.forEach(unsub => unsub())
-    this._manipulationUnsubscribers = []
   }
 
   // --- Data Management ---
@@ -432,6 +344,7 @@ export class ViewSkeleton extends ViewCanvasBase {
 
     if (result.changed) {
       this.data = result.skeleton
+      bus.emit(`cache:changed:${this.getSelectQuery()}`, this.data)
       this.canvas.style.cursor = getCursor(this.editorState)
       this.draw()
     }
@@ -445,6 +358,7 @@ export class ViewSkeleton extends ViewCanvasBase {
 
       if (result.changed) {
         this.data = result.skeleton
+        bus.emit(`cache:changed:${this.getSelectQuery()}`, this.data)
         this.draw()
       }
     } else {
@@ -466,14 +380,11 @@ export class ViewSkeleton extends ViewCanvasBase {
     // Update local data first
     if (result.changed) {
       this.data = result.skeleton
+      bus.emit(`cache:changed:${this.getSelectQuery()}`, this.data)
       this.contentBounds = this.calculateContentBounds(this.data)
     }
 
-    // Emit manipulation event FIRST (create/rotate/translate)
-    // This ensures other views have the bone before selection fires
-    this._emitManipulationIntent(result.manipulationIntent)
-
-    // Emit selection event after (e.g., selecting newly created bone)
+    // Emit selection event (e.g., selecting newly created bone)
     this._emitSelectionIntent(result.selectionIntent)
 
     this.canvas.style.cursor = getCursor(this.editorState)
@@ -494,6 +405,7 @@ export class ViewSkeleton extends ViewCanvasBase {
         const result = deleteSelectedBones(this.editorState, this.data)
         if (result.changed) {
           this.data = result.skeleton
+          bus.emit(`cache:changed:${this.getSelectQuery()}`, this.data)
           this.contentBounds = this.calculateContentBounds(this.data)
           this.draw()
         }
@@ -594,11 +506,12 @@ export class ViewSkeleton extends ViewCanvasBase {
 
     updateTransforms(this.editorState, this.data)
     this.contentBounds = this.calculateContentBounds(this.data)
+    
+    // Update cache with new data
+    bus.emit(`cache:changed:${this.getSelectQuery()}`, this.data)
 
-    // Emit create event FIRST so other views have the bone
-    if (newIndex !== null && newBone !== null) {
-      bus.emit('skeleton:bone:create', { boneIndex: newIndex, bone: newBone, props: newBoneProps })
-      // Then select the new bone
+    // Select the new bone
+    if (newIndex !== null) {
       bus.emit('skeleton:selection:clear', {})
       bus.emit('skeleton:bone:select', { boneIndex: newIndex })
     }
