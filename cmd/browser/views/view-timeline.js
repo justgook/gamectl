@@ -1397,13 +1397,41 @@ export class ViewTimeline extends HTMLElement {
       return
     }
 
-    // Clear existing tracks
+    // Check if structure changed (bone count or names)
+    const newBoneCount = skeletonData.bones.length
+    const currentBoneCount = this._tracks.size
+
+    // If same count, check if names match (quick structural check)
+    if (newBoneCount === currentBoneCount) {
+      let structureMatch = true
+      for (let i = 0; i < newBoneCount; i++) {
+        const newName = skeletonData.props?.[i]?.name || `bone_${i}`
+        const existingTrack = this._tracks.get(i)
+        if (!existingTrack || existingTrack.name !== newName) {
+          structureMatch = false
+          break
+        }
+      }
+      if (structureMatch) {
+        // Structure unchanged - preserve selection state, skip rebuild
+        return
+      }
+    }
+
+    // Structure changed - rebuild tracks (preserving selection where possible)
+    const previousSelection = new Set(this._selectedTracks)
     this._clearAllTracks()
 
     // Create tracks for each bone using bone index as track ID
     for (let boneIndex = 0; boneIndex < skeletonData.bones.length; boneIndex++) {
       const boneName = skeletonData.props?.[boneIndex]?.name || `bone_${boneIndex}`
       this.addTrack(boneIndex, boneName)
+
+      // Restore selection if bone index still exists
+      if (previousSelection.has(boneIndex)) {
+        this._selectedTracks.add(boneIndex)
+        this._updateTrackVisuals(boneIndex)
+      }
     }
   }
 
