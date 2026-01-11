@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS skeleton_storage (
 -- Coordinate system: Y increases upward, origin at root bone position
 -- Bones store: parent (index or null), a (angle in degrees), l (length in pixels)
 -- Props store optional metadata like names, keyed by bone index
+-- Poses store named poses as deltas from the bind pose (bones array)
+--   Each pose has: x, y (root offset), angles (sparse map of boneIndex -> angle)
 INSERT INTO skeleton_storage (name, data) VALUES
 (
   'humanoid',
@@ -61,6 +63,13 @@ INSERT INTO skeleton_storage (name, data) VALUES
       {"parent": 17, "a": 20, "l": 45},
       {"parent": 18, "a": 0, "l": 40},
       {"parent": 19, "a": -70, "l": 20}
-    ]
+    ],
+    "poses": {
+      "default": {
+        "x": 0,
+        "y": 0,
+        "angles": {}
+      }
+    }
   }'
 );

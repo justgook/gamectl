@@ -165,13 +165,21 @@
 
     <template id="view-skeleton">
       <div slot="header-controls" class="view-header-controls">
+        <select data-action="pose-select" class="toolbar-select" title="Select Pose">
+          <option value="default">default</option>
+        </select>
+        <button data-action="pose-save" class="button-secondary" title="Save Pose">Save Pose</button>
+        <button data-action="pose-new" class="button-secondary" title="Save as New Pose">+ Pose</button>
+        <button data-action="pose-reset" class="button-secondary" title="Reset to Saved Pose">Reset</button>
+        <span class="toolbar-divider"></span>
         <button data-action="add-bone" class="button-secondary">+ Bone</button>
         <button data-action="toggle-labels" class="button-secondary">Labels</button>
-        <button data-action="save" class="button-primary">💾 Save</button>
-        <button data-action="reload" class="button-secondary">🔄 Reload</button>
+        <span class="toolbar-divider"></span>
+        <button data-action="save" class="button-primary" title="Save Skeleton">Save</button>
+        <button data-action="reload" class="button-secondary">Reload</button>
         <button data-action="zoom-in" class="button-secondary">+</button>
-        <button data-action="zoom-out" class="button-secondary">−</button>
-        <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
+        <button data-action="zoom-out" class="button-secondary">-</button>
+        <button data-action="zoom-fit" class="button-secondary">Fit</button>
       </div>
     </template>
 
