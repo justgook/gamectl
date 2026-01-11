@@ -1015,3 +1015,23 @@ view-timeline .selection-marquee {
   min-width: 70px;
   text-align: center;
 }
+
+.toolbar-select {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  color: var(--color-semantic-text-primary, #ffffff);
+  cursor: pointer;
+  min-width: 80px;
+}
+
+.toolbar-select:hover {
+  border-color: var(--color-semantic-border-hover, #5a5a7c);
+}
+
+.toolbar-select:focus {
+  outline: none;
+  border-color: var(--color-semantic-accent-primary, #7c7cff);
+}

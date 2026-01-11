@@ -1,5 +1,6 @@
 import { ScrollAccumulator } from '../systems/scroll-accumulator.js'
 import { bus } from '../systems/event-bus.js'
+import { createEmptyPose, interpolatePoses, clonePose } from './skeleton/Pose.js'
 
 /**
  * Timeline Ruler Component
@@ -456,6 +457,10 @@ export class ViewTimeline extends HTMLElement {
     this._marqueeStart = { x: 0, y: 0 }
     this._marqueeCurrent = { x: 0, y: 0 }
 
+    // Pose/animation state
+    this._currentWorkingPose = null      // Last known working pose from skeleton
+    this._bindSkeleton = null            // Bind pose skeleton for reference
+
     // Bind methods
     this._onPlayClick = this._onPlayClick.bind(this)
     this._onStopClick = this._onStopClick.bind(this)
@@ -536,6 +541,7 @@ export class ViewTimeline extends HTMLElement {
 
   dataChanged = (data) => {
     this.data = data
+    this._bindSkeleton = data  // Store as bind skeleton reference
     this._populateTracksFromSkeleton(data)
   }
 
@@ -674,7 +680,8 @@ export class ViewTimeline extends HTMLElement {
       bus.on('skeleton:bone:select', this._onBoneSelect),
       bus.on('skeleton:bone:deselect', this._onBoneDeselect),
       bus.on('skeleton:selection:clear', this._onSelectionClear),
-      bus.on('skeleton:selection:all', this._onSelectionAll)
+      bus.on('skeleton:selection:all', this._onSelectionAll),
+      bus.on('skeleton:workingpose:changed', this._onWorkingPoseChanged)
     ]
   }
 
@@ -707,9 +714,32 @@ export class ViewTimeline extends HTMLElement {
       return
     }
 
+    // Use current working pose if available
+    const pose = this._currentWorkingPose
+    if (!pose) {
+      console.log('No working pose available')
+      return
+    }
+
     for (const trackId of this._selectedTracks) {
-      const value = this._onKeyframeAdded(trackId, this._currentTime)
-      this.addKeyframe(trackId, this._currentTime, value)
+      // Get angle from working pose for this bone
+      const angle = pose.angles[trackId]
+      
+      // Only add keyframe if this bone has a value in the pose
+      // (i.e., it was actually modified from bind pose)
+      if (angle !== undefined) {
+        const value = { angle }
+        this.addKeyframe(trackId, this._currentTime, value)
+        console.log(`Keyframe added: track=${trackId}, time=${this._currentTime.toFixed(3)}, angle=${angle.toFixed(1)}`)
+      } else {
+        // Bone wasn't modified, get bind pose angle if available
+        const bindAngle = this._bindSkeleton?.bones?.[trackId]?.a
+        if (bindAngle !== undefined) {
+          const value = { angle: bindAngle }
+          this.addKeyframe(trackId, this._currentTime, value)
+          console.log(`Keyframe added (bind): track=${trackId}, time=${this._currentTime.toFixed(3)}, angle=${bindAngle.toFixed(1)}`)
+        }
+      }
     }
   }
 
@@ -929,6 +959,14 @@ export class ViewTimeline extends HTMLElement {
     this._applyingExternalChange = false
   }
 
+  /**
+   * Handle working pose updates from skeleton view
+   */
+  _onWorkingPoseChanged = ({ pose, skeletonKey }) => {
+    if (skeletonKey !== this.skeletonKey) return
+    this._currentWorkingPose = pose
+  }
+
   // --- Keyframe Selection ---
 
   _selectKeyframe(keyframeId) {
@@ -1136,6 +1174,9 @@ export class ViewTimeline extends HTMLElement {
       this._animationFrameId = null
     }
     this._updatePlayButton()
+    
+    // Stop preview mode in skeleton view
+    bus.emit('skeleton:pose:preview:stop', {})
   }
 
   stop() {
@@ -1331,7 +1372,12 @@ export class ViewTimeline extends HTMLElement {
     el.dataset.trackId = trackId
     el.dataset.time = time
     el.style.left = `${this._ruler.timeToX(time)}px`
-    el.title = `t=${time.toFixed(3)}, value=${value}`
+    
+    // Format value for tooltip
+    const displayValue = value?.angle !== undefined 
+      ? `${value.angle.toFixed(1)}°` 
+      : (typeof value === 'number' ? `${value.toFixed(1)}°` : JSON.stringify(value))
+    el.title = `t=${time.toFixed(3)}s, ${displayValue}`
 
     row.appendChild(el)
   }
@@ -1347,20 +1393,7 @@ export class ViewTimeline extends HTMLElement {
     }
   }
 
-  // --- Callbacks (Override these) ---
-
-  /**
-   * Called when a keyframe is about to be added.
-   * Override to provide custom value or perform additional logic.
-   * @param {string} trackId 
-   * @param {number} time 
-   * @returns {*} The value to store for this keyframe
-   */
-  _onKeyframeAdded(trackId, time) {
-    const value = Math.round(Math.random() * 360 - 180)
-    console.log(`Keyframe added: track=${trackId}, time=${time.toFixed(3)}, value=${value}`)
-    return value
-  }
+  // --- Callbacks ---
 
   /**
    * Called when a keyframe is moved.
@@ -1382,10 +1415,83 @@ export class ViewTimeline extends HTMLElement {
 
   /**
    * Called on each frame during playback and when time is changed.
+   * Computes interpolated pose and emits preview event.
    * @param {number} time 
    */
   _onTimeChanged(time) {
-    // Override to drive external animations
+    // Only emit preview during playback
+    if (this._playing) {
+      const pose = this._interpolatePoseAtTime(time)
+      if (pose) {
+        bus.emit('skeleton:pose:preview', { pose })
+      }
+    }
+  }
+
+  /**
+   * Interpolate pose from keyframes at a given time
+   * @param {number} time - Current time
+   * @returns {Object|null} Interpolated pose or null
+   */
+  _interpolatePoseAtTime(time) {
+    if (!this._bindSkeleton) return null
+
+    const pose = createEmptyPose()
+
+    // For each track with keyframes, interpolate
+    for (const [trackId, track] of this._tracks) {
+      if (track.keyframes.size === 0) continue
+
+      // Get sorted keyframes
+      const keyframes = Array.from(track.keyframes.values())
+        .sort((a, b) => a.time - b.time)
+
+      if (keyframes.length === 0) continue
+
+      // Find surrounding keyframes
+      let prevKf = null
+      let nextKf = null
+
+      for (const kf of keyframes) {
+        if (kf.time <= time) {
+          prevKf = kf
+        }
+        if (kf.time >= time && !nextKf) {
+          nextKf = kf
+        }
+      }
+
+      // Determine interpolated angle
+      let angle
+      if (prevKf && nextKf && prevKf !== nextKf) {
+        // Interpolate between two keyframes
+        const t = (time - prevKf.time) / (nextKf.time - prevKf.time)
+        const prevAngle = prevKf.value?.angle ?? prevKf.value
+        const nextAngle = nextKf.value?.angle ?? nextKf.value
+        angle = this._interpolateAngle(prevAngle, nextAngle, t)
+      } else if (prevKf) {
+        // Use previous keyframe
+        angle = prevKf.value?.angle ?? prevKf.value
+      } else if (nextKf) {
+        // Use next keyframe
+        angle = nextKf.value?.angle ?? nextKf.value
+      }
+
+      if (angle !== undefined) {
+        pose.angles[trackId] = angle
+      }
+    }
+
+    return pose
+  }
+
+  /**
+   * Interpolate between two angles, taking shortest path
+   */
+  _interpolateAngle(a, b, t) {
+    let diff = ((b - a + 180) % 360) - 180
+    if (diff < -180) diff += 360
+    return a + diff * t
   }
 
   // --- Skeleton Data Integration ---
