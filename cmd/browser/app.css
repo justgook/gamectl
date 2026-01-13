@@ -1,6 +1,23 @@
 /* Reset is now handled by reset.css */
 
 /* ========================================================================== */
+/* Z-INDEX HIERARCHY */
+/* ========================================================================== */
+/*
+ * Global z-index scale to prevent layering conflicts:
+ * 
+ * 0      - Layout container (layout-parent) - base layer
+ * 1      - Panel chrome elements (view-chrome)
+ * 5-30   - Timeline internal elements (keyframes, playhead, etc)
+ * 100    - Tooltips (appear above panels but below overlays)
+ * 9998   - Popup backdrop
+ * 9999   - Popup containers (view-popup)
+ * 10000  - Toast notifications (always on top)
+ * 
+ * IMPORTANT: When adding new overlay elements, reference this scale.
+ */
+
+/* ========================================================================== */
 /* FORM INPUT STYLES - Radio & Checkbox */
 /* ========================================================================== */
 
@@ -94,6 +111,8 @@ layout-parent {
   height: 100vh;
   background: var(--color-semantic-background-panel-default);
   overflow: hidden;
+  /* Ensure layout doesn't create stacking context above popups */
+  z-index: 0;
 }
 
 view--chrome,
@@ -108,6 +127,12 @@ view--chrome .ne,
 view--chrome .sw,
 view--chrome .se {
   pointer-events: auto;
+}
+
+/* Ensure chrome elements stay below popups */
+view-chrome {
+  position: absolute;
+  z-index: 1;
 }
 
 .panel {
@@ -142,7 +167,7 @@ view--chrome .se {
   line-height: 1.4;
   max-width: 250px;
   word-wrap: break-word;
-  z-index: 1000;
+  z-index: 100;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s;
@@ -203,7 +228,7 @@ popup-manager[has-popups]::before {
   position: fixed;
   inset: 0;
   background: var(--popup-backdrop-background, rgba(0, 0, 0, 0.7));
-  z-index: var(--popup-backdrop-z-index, 999);
+  z-index: var(--popup-backdrop-z-index, 9998);
   animation: popup-backdrop-in var(--popup-animation-duration, 200ms) var(--popup-animation-easing, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
@@ -226,7 +251,7 @@ popup-manager view-popup:not(:last-of-type) {
 view-popup {
   position: fixed;
   inset: 0;
-  z-index: var(--popup-container-z-index, 1000);
+  z-index: var(--popup-container-z-index, 9999);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -237,7 +262,7 @@ view-popup {
   position: fixed;
   inset: 0;
   background: var(--popup-backdrop-background, rgba(0, 0, 0, 0.7));
-  z-index: var(--popup-backdrop-z-index, 999);
+  z-index: var(--popup-backdrop-z-index, 9998);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -613,7 +638,7 @@ toast-manager {
 /* Base toast styles */
 view-toast {
   position: fixed;
-  z-index: var(--toast-z-index, 1100);
+  z-index: var(--toast-z-index, 10000);
   pointer-events: auto;
 }
 
