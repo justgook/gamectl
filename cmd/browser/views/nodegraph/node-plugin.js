@@ -1,4 +1,5 @@
 import { NodeBase } from './node-base.js'
+import { toast } from "../../systems/toast.js"
 
 /**
  * Plugin Node - Executes a WASM plugin function
@@ -26,6 +27,7 @@ export class NodePlugin extends NodeBase {
     super()
     this.plugin = ''
     this.functionName = ''
+    this.DE = new TextDecoder()
   }
 
   connectedCallback() {
@@ -191,6 +193,13 @@ export class NodePlugin extends NodeBase {
       this.state = 'success'
       this.error = null
 
+      console.log("11111", result.returnCode, this.DE.decode(result.output))
+      showResult(result)
+      // if (result.hasOwnProperty("returnCode")) {
+      //
+      //   toast(this.DE.decode(result.output), { type: result.returnCode ? 'error' : 'success' })
+      // }
+
       console.log(`✓ ${this.plugin}.${this.functionName} completed`, result)
 
     } catch (error) {
@@ -209,3 +218,13 @@ export class NodePlugin extends NodeBase {
 }
 
 customElements.define('node-plugin', NodePlugin)
+
+function showResult(result) {
+  if (!result.hasOwnProperty("returnCode")) return
+
+  const decoder = new TextDecoder()
+  const output = JSON.parse(decoder.decode(result.output))
+
+  toast(output.error, { type: result.returnCode ? 'error' : 'success' })
+
+}

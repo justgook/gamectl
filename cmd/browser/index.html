@@ -396,76 +396,72 @@
     </template>
 
 
-
-
-
-
     <toast-manager>
       <popup-manager>
         <layout-parent handle-width="12" handle-height="12" id="scene">
           <view-chrome panel="panel_1">
-            <view-skeleton></view-skeleton>
-            <!-- <view-nodegraph> -->
-            <!---->
-            <!--   <node-popup title="Text" label="THE TEXT" outputs="text" id="init_1" x="12" y="114" -->
-            <!--     values="text:rules"><template> -->
-            <!--       <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..." -->
-            <!--           style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div> -->
-            <!--     </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="init_2" x="15" -->
-            <!--     y="207" values="text:new_map"><template> -->
-            <!--       <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..." -->
-            <!--           style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div> -->
-            <!--     </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="init_4" x="11" -->
-            <!--     y="300" values="text:automap_result"><template> -->
-            <!--       <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..." -->
-            <!--           style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div> -->
-            <!--     </template></node-popup><node-popup inputs="mapId:init_2.text" outputs="mapId" -->
-            <!--     data-input-target="mapId:view-tilemap@data-key" id="init_6" x="242" y="204" -->
-            <!--     title=""><template><view-tilemap data-key="new_map"></view-tilemap></template></node-popup><node-popup -->
-            <!--     inputs="mapId:init_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key" id="init_7" -->
-            <!--     x="244" y="102" title=""><template><view-tilemap -->
-            <!--         data-key="new_map"></view-tilemap></template></node-popup><node-plugin title="AutoMap" x="489" -->
-            <!--     y="184" plugin="automap" function="automap" -->
-            <!--     inputs="rulesMapId:init_1.text,inputMapId:init_2.text,outputMapId:init_4.text" outputs="result" -->
-            <!--     id="init_3"></node-plugin><node-popup inputs="mapId:init_4.text" outputs="mapId" -->
-            <!--     data-input-target="mapId:view-tilemap@data-key" id="init_8" x="243" y="297" -->
-            <!--     title=""><template><view-tilemap data-key="new_map"></view-tilemap></template></node-popup> -->
-            <!---->
-            <!--   <node-plugin title="Tilemap Scaler" plugin="scaler" function="scale" -->
-            <!--     inputs="inputMapId:init_2.text,outputMapId:init_2.text,scaleFactor:init_10.value" outputs="result" -->
-            <!--     id="init_9" x="483" y="32" focused="true"></node-plugin> -->
-            <!--   <node-popup outputs="value" id="init_10" x="12" y="12" title="" values="value:10"><template> -->
-            <!--       <div style="padding:12px" data-numpad=""><input type="number" data-output="value" value="0" -->
-            <!--           style="font-size:16px;padding:8px;width:100%;text-align:center;margin-bottom:10px"> -->
-            <!--         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px"><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `7`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">7</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `8`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">8</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `9`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">9</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `4`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">4</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `5`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">5</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `6`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">6</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `1`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">1</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `2`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">2</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `3`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">3</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `0`; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px">0</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value=i.value.slice(0,-1); i.focus()" -->
-            <!--             style="padding:8px;font-size:14px;background:#ff6b6b;color:white">⌫</button><button -->
-            <!--             onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value=``; i.focus()" -->
-            <!--             style="padding:8px;font-size:14px;background:#ff6b6b;color:white">Clear</button></div> -->
-            <!--       </div> -->
-            <!--     </template></node-popup> -->
-            <!---->
-            <!-- </view-nodegraph> -->
+            <!-- <view-skeleton></view-skeleton> -->
+            <view-nodegraph>
+
+              <node-popup title="Text" label="THE TEXT" outputs="text" id="init_1" x="12" y="114"
+                values="text:rules"><template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="init_2" x="15"
+                y="207" values="text:new_map"><template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="init_4" x="11"
+                y="300" values="text:automap_result"><template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template></node-popup><node-popup title="Tilemap preview" inputs="mapId:init_2.text" outputs="mapId"
+                data-input-target="mapId:view-tilemap@data-key" id="init_6" x="242" y="204"
+                title=""><template><view-tilemap data-key="new_map"></view-tilemap></template></node-popup><node-popup
+                inputs="mapId:init_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key" id="init_7"
+                x="244" y="102" title=""><template><view-tilemap
+                    data-key="new_map"></view-tilemap></template></node-popup><node-plugin title="AutoMap" x="489"
+                y="184" plugin="automap" function="automap"
+                inputs="rulesMapId:init_1.text,inputMapId:init_2.text,outputMapId:init_4.text" outputs="result"
+                id="init_3"></node-plugin><node-popup inputs="mapId:init_4.text" outputs="mapId"
+                data-input-target="mapId:view-tilemap@data-key" id="init_8" x="243" y="297"
+                title=""><template><view-tilemap data-key="new_map"></view-tilemap></template></node-popup>
+
+              <node-plugin title="Tilemap Scaler" plugin="scaler" function="scale"
+                inputs="inputMapId:init_2.text,outputMapId:init_2.text,scaleFactor:init_10.value" outputs="result"
+                id="init_9" x="483" y="32" focused="true"></node-plugin>
+              <node-popup outputs="value" id="init_10" x="12" y="12" title="" values="value:10"><template>
+                  <div style="padding:12px" data-numpad=""><input type="number" data-output="value" value="0"
+                      style="font-size:16px;padding:8px;width:100%;text-align:center;margin-bottom:10px">
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px"><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `7`; i.focus()"
+                        style="padding:8px;font-size:14px">7</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `8`; i.focus()"
+                        style="padding:8px;font-size:14px">8</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `9`; i.focus()"
+                        style="padding:8px;font-size:14px">9</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `4`; i.focus()"
+                        style="padding:8px;font-size:14px">4</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `5`; i.focus()"
+                        style="padding:8px;font-size:14px">5</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `6`; i.focus()"
+                        style="padding:8px;font-size:14px">6</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `1`; i.focus()"
+                        style="padding:8px;font-size:14px">1</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `2`; i.focus()"
+                        style="padding:8px;font-size:14px">2</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `3`; i.focus()"
+                        style="padding:8px;font-size:14px">3</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `0`; i.focus()"
+                        style="padding:8px;font-size:14px">0</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value=i.value.slice(0,-1); i.focus()"
+                        style="padding:8px;font-size:14px;background:#ff6b6b;color:white">⌫</button><button
+                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value=``; i.focus()"
+                        style="padding:8px;font-size:14px;background:#ff6b6b;color:white">Clear</button></div>
+                  </div>
+                </template></node-popup>
+
+            </view-nodegraph>
           </view-chrome>
           <view-chrome nesw="s" r="400" from="panel_1">
             <!-- <view-tilemap data-key="new_map"></view-tilemap> -->
