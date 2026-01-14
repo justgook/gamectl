@@ -9,6 +9,7 @@ type RoomInfo struct {
 	ID     int        // Room ID (from rooms layer)
 	Bounds Rect       // Bounding box of the room
 	Tiles  []Point    // All tiles belonging to this room
+	Shape  *RoomShape // Actual shape for non-rectangular rooms
 	Exits  []ExitInfo // All exits (doors) for this room
 }
 
@@ -81,6 +82,11 @@ func ExtractRooms(tm *tilemap.TileMap) (map[int]*RoomInfo, error) {
 				room.Bounds.Height = y - room.Bounds.Y + 1
 			}
 		}
+	}
+
+	// Build room shapes from tile sets
+	for _, room := range rooms {
+		room.Shape = NewRoomShape(room.Tiles)
 	}
 
 	// Extract door information if doors layer exists
@@ -251,6 +257,12 @@ func CreateExitNodes(room *RoomInfo) []NavNode {
 			center.X-- // Move left into room
 		case DoorWest:
 			center.X++ // Move right into room
+		}
+
+		// Ensure the position is actually inside the room tiles
+		// This handles non-rectangular rooms
+		if room.Shape != nil && !room.Shape.Contains(center) {
+			center = room.Shape.FindNearestInside(center)
 		}
 
 		nodes[i] = NavNode{

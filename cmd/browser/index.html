@@ -460,7 +460,19 @@
                         style="padding:8px;font-size:14px;background:#ff6b6b;color:white">Clear</button></div>
                   </div>
                 </template></node-popup>
-
+              <node-popup title="Room Gen Name" label="Room Gen Name" outputs="text" id="outputRoom" x="21" y="409"
+                values="text:the_room_gen"><template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template></node-popup>
+              <node-input type="number" value="3" label="JumpHeight" id="jump_height" x="45" y="553" title=""
+                focused="true"></node-input>
+              <node-plugin title="Tilemap Scaler" plugin="roomgen" function="gen"
+                inputs="inputMapId:init_2.text,outputMapId:outputRoom.text,jumpHeight:jump_height.output,jumpDistance:jump_height.output"
+                outputs="result" id="room_gen_1" x="353" y="468"></node-plugin>
+              <node-popup inputs="mapId:outputRoom.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
+                id="room_gen_2" x="359" y="638" title="" focused="true"><template><view-tilemap data-key="new_map"
+                    style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></template></node-popup>
             </view-nodegraph>
           </view-chrome>
           <view-chrome nesw="s" r="400" from="panel_1">
