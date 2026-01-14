@@ -287,14 +287,24 @@ func GetVarietyConfig(level VarietyLevel) VarietyConfig {
 	}
 }
 
-// TileIDConfig maps segment types to tile IDs in the output
+// TileIDConfig maps segment types to tile IDs in the output geometry layer.
+//
+// TILE ID MEANINGS (for geometry layer):
+//
+//	1 = Platform       - Solid walkable surface
+//	2 = OnewayPlatform - Can stand on top, can drop through from above
+//	3 = Ladder         - Vertical climbable surface
+//	4 = WallJumpLeft   - Left wall surface for wall jumping
+//	5 = WallJumpRight  - Right wall surface for wall jumping
+//	6 = GrapplePoint   - Grapple hook attachment point
+//	0 = Empty          - No geometry (air)
 type TileIDConfig struct {
-	Platform       uint32 // Solid platform
-	OnewayPlatform uint32 // One-way platform
-	Ladder         uint32 // Ladder
-	WallJumpLeft   uint32 // Left wall jump surface
-	WallJumpRight  uint32 // Right wall jump surface
-	GrapplePoint   uint32 // Grapple hook point
+	Platform       uint32 // Solid platform (default: 1)
+	OnewayPlatform uint32 // One-way platform (default: 2)
+	Ladder         uint32 // Ladder (default: 3)
+	WallJumpLeft   uint32 // Left wall jump surface (default: 4)
+	WallJumpRight  uint32 // Right wall jump surface (default: 5)
+	GrapplePoint   uint32 // Grapple hook point (default: 6)
 }
 
 // DefaultTileIDs returns default tile ID mappings
@@ -309,6 +319,96 @@ func DefaultTileIDs() TileIDConfig {
 	}
 }
 
+// RoomShape represents the actual shape of a room (not just bounding box)
+// This is used for non-rectangular rooms to ensure geometry stays within valid tiles
+type RoomShape struct {
+	Tiles  map[Point]bool // Set of tiles that belong to this room
+	Bounds Rect           // Bounding box (for quick rejection)
+}
+
+// NewRoomShape creates a RoomShape from a list of tiles
+func NewRoomShape(tiles []Point) *RoomShape {
+	shape := &RoomShape{
+		Tiles: make(map[Point]bool, len(tiles)),
+	}
+
+	if len(tiles) == 0 {
+		return shape
+	}
+
+	// Build tile set and calculate bounds
+	minX, minY := tiles[0].X, tiles[0].Y
+	maxX, maxY := tiles[0].X, tiles[0].Y
+
+	for _, t := range tiles {
+		shape.Tiles[t] = true
+		if t.X < minX {
+			minX = t.X
+		}
+		if t.Y < minY {
+			minY = t.Y
+		}
+		if t.X > maxX {
+			maxX = t.X
+		}
+		if t.Y > maxY {
+			maxY = t.Y
+		}
+	}
+
+	shape.Bounds = Rect{
+		X:      minX,
+		Y:      minY,
+		Width:  maxX - minX + 1,
+		Height: maxY - minY + 1,
+	}
+
+	return shape
+}
+
+// Contains checks if a point is within the room shape
+func (s *RoomShape) Contains(p Point) bool {
+	if s == nil || s.Tiles == nil {
+		return false
+	}
+	return s.Tiles[p]
+}
+
+// ContainsAll checks if all points are within the room shape
+func (s *RoomShape) ContainsAll(points []Point) bool {
+	for _, p := range points {
+		if !s.Contains(p) {
+			return false
+		}
+	}
+	return true
+}
+
+// FindNearestInside finds the nearest point inside the room from a given point
+func (s *RoomShape) FindNearestInside(p Point) Point {
+	if s.Contains(p) {
+		return p
+	}
+
+	// Search in expanding rings
+	for radius := 1; radius < 20; radius++ {
+		for dy := -radius; dy <= radius; dy++ {
+			for dx := -radius; dx <= radius; dx++ {
+				if dx*dx+dy*dy > radius*radius {
+					continue
+				}
+				candidate := Point{p.X + dx, p.Y + dy}
+				if s.Contains(candidate) {
+					return candidate
+				}
+			}
+		}
+	}
+
+	// Fallback: return center of bounds
+	return s.Bounds.Center()
+}
+
 // NavigationGraph represents the complete navigation structure
 type NavigationGraph struct {
 	Nodes []NavNode
@@ -319,4 +419,52 @@ type NavigationGraph struct {
 type Random interface {
 	Intn(n int) int
 	Float64() float64
+}
+
+// MovementTier classifies player abilities into tiers
+type MovementTier int
+
+const (
+	// TierBasic includes walk, jump, ladder - guaranteed reachable paths
+	TierBasic MovementTier = iota
+	// TierIntermediate adds wall jump, double jump
+	TierIntermediate
+	// TierAdvanced adds grapple and other special abilities
+	TierAdvanced
+)
+
+// GetTier returns the movement tier based on player abilities
+func (a PlayerAbilities) GetTier() MovementTier {
+	if a.CanGrapple {
+		return TierAdvanced
+	}
+	if a.CanWallJump || a.CanDoubleJump {
+		return TierIntermediate
+	}
+	return TierBasic
+}
+
+// EffectiveJumpHeight returns the maximum height achievable with current abilities
+func (a PlayerAbilities) EffectiveJumpHeight() int {
+	height := a.JumpHeight
+	if a.CanDoubleJump {
+		height += a.DoubleJumpHeight
+	}
+	return height
+}
+
+// EffectiveVerticalReach returns max vertical reach considering all abilities
+func (a PlayerAbilities) EffectiveVerticalReach() int {
+	if a.CanUseLadders {
+		return 100 // Ladders can reach any height within room
+	}
+	reach := a.EffectiveJumpHeight()
+	if a.CanWallJump {
+		// Wall jumps can extend reach significantly
+		reach += a.WallJumpHeight * 3
+	}
+	if a.CanGrapple {
+		reach += a.GrappleRange
+	}
+	return reach
 }

@@ -67,6 +67,7 @@ async function handleInit(id, maybeDir) {
     'math',
     'sql',
     'scaler',
+    'roomgen'
   ];
 
   const dir = maybeDir ?? await navigator.storage.getDirectory()

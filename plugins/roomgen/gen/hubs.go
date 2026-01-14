@@ -16,6 +16,9 @@ const (
 	HubStrategyMultiple
 )
 
+// MinHubSpacing is the minimum distance between hubs
+const MinHubSpacing = 3
+
 // SelectHubStrategy chooses appropriate strategy based on exit configuration
 func SelectHubStrategy(exits []NavNode, bounds Rect) HubStrategy {
 	numExits := len(exits)
@@ -281,4 +284,86 @@ func clampToRect(p Point, bounds Rect, margin int) Point {
 	}
 
 	return result
+}
+
+// clampToWalkableSurface adjusts hub position to be on a valid walkable Y coordinate
+// This ensures hubs are placed where platforms can be built
+func clampToWalkableSurface(p Point, bounds Rect, margin int) Point {
+	result := clampToRect(p, bounds, margin)
+
+	// Ensure there's room for a platform below the hub position
+	maxY := bounds.Y + bounds.Height - 2 - margin
+	if result.Y > maxY {
+		result.Y = maxY
+	}
+
+	return result
+}
+
+// enforceHubSpacing adjusts hub positions to maintain minimum spacing
+func enforceHubSpacing(hubs []NavNode, minSpacing int) []NavNode {
+	if len(hubs) <= 1 {
+		return hubs
+	}
+
+	result := make([]NavNode, len(hubs))
+	copy(result, hubs)
+
+	// Simple greedy spacing adjustment
+	for i := 1; i < len(result); i++ {
+		for j := 0; j < i; j++ {
+			dx := result[i].Position.X - result[j].Position.X
+			dy := result[i].Position.Y - result[j].Position.Y
+
+			if dx < 0 {
+				dx = -dx
+			}
+			if dy < 0 {
+				dy = -dy
+			}
+
+			// Manhattan distance
+			dist := dx + dy
+			if dist < minSpacing {
+				// Move hub i away from hub j
+				if dx < dy {
+					// Move horizontally
+					if result[i].Position.X >= result[j].Position.X {
+						result[i].Position.X = result[j].Position.X + minSpacing
+					} else {
+						result[i].Position.X = result[j].Position.X - minSpacing
+					}
+				} else {
+					// Move vertically
+					if result[i].Position.Y >= result[j].Position.Y {
+						result[i].Position.Y = result[j].Position.Y + minSpacing
+					} else {
+						result[i].Position.Y = result[j].Position.Y - minSpacing
+					}
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// PlaceHubsValidated places hubs with walkable surface clamping and spacing
+func PlaceHubsValidated(exits []NavNode, bounds Rect, rng Random, variety VarietyConfig) []NavNode {
+	hubs := PlaceHubs(exits, bounds, rng, variety)
+
+	// Apply walkable surface clamping
+	for i := range hubs {
+		hubs[i].Position = clampToWalkableSurface(hubs[i].Position, bounds, 1)
+	}
+
+	// Enforce minimum spacing
+	hubs = enforceHubSpacing(hubs, MinHubSpacing)
+
+	// Re-clamp after spacing adjustment
+	for i := range hubs {
+		hubs[i].Position = clampToRect(hubs[i].Position, bounds, 1)
+	}
+
+	return hubs
 }
