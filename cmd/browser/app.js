@@ -14,6 +14,7 @@ import { LayoutParent } from "./views/layout.js"
 import { ViewTree } from "./views/view-tree.js"
 import { ViewConsole } from "./views/view-console.js"
 import { ViewSqlConsole } from "./views/view-sql-console.js"
+import { ViewSqlTable } from "./views/view-sql-table.js"
 import { ViewTilemap } from "./views/view-tilemap.js"
 import { ViewTesting } from "./views/view-testing.js"
 import { ViewPipeline } from "./views/view-pipeline.js"
@@ -50,6 +51,7 @@ customElements.define('view-tilemap', ViewTilemap)
 customElements.define('view-tree', ViewTree)
 customElements.define('view-console', ViewConsole)
 customElements.define('view-sql-console', ViewSqlConsole)
+customElements.define('view-sql-table', ViewSqlTable)
 customElements.define('view-pipeline', ViewPipeline)
 customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
 // customElements.define('view-skeleton', ViewSkeleton) //already registered in file
@@ -100,6 +102,24 @@ async function initKeysLock() {
   console.log('keys loaded:', DE.decode(verifyResult.output))
 }
 await initKeysLock()
+
+// Initialize Items Database (for view-sql-table demo)
+async function initItems() {
+  const response = await fetch('/data/items.sql')
+  if (!response.ok) {
+    console.error('Failed to load items.sql:', response.statusText)
+    return
+  }
+
+  const migrationSql = await response.text()
+  const result = await window.pluginManager.call('sql', 'restore', migrationSql)
+  const verifyResult = await window.pluginManager.call('sql', 'query',
+    'SELECT COUNT(*) as count FROM items'
+  )
+
+  console.log('items loaded:', DE.decode(verifyResult.output))
+}
+await initItems()
 
 // Initialize Node Templates Database
 async function initNodeTemplates() {

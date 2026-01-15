@@ -141,6 +141,18 @@
       </div>
     </template>
 
+    <template id="view-sql-table">
+      <div data-element="toolbar" class="sql-table-toolbar">
+        <button data-action="refresh" class="button-secondary" title="Refresh (Ctrl+R)">Refresh</button>
+        <button data-action="insert" class="button-secondary" title="Insert Row (Insert)">+ Row</button>
+      </div>
+      <div data-element="table-container" class="sql-table-container"></div>
+      <div class="sql-table-footer">
+        <div data-element="pagination" class="sql-table-pagination"></div>
+        <div data-element="status" class="sql-table-status"></div>
+      </div>
+    </template>
+
     <!-- Canvas views (nodegraph, tilemap, tree) create their content programmatically -->
     <template id="view-tilemap">
       <div slot="header-controls" class="view-header-controls">
@@ -332,6 +344,10 @@
             </optgroup>
             <optgroup label="OPR">
               <option value="view-opr-unit-builder">Unit Builder</option>
+            </optgroup>
+            <optgroup label="Data">
+              <option value="view-sql-table" data-config="items">Items Table</option>
+              <option value="view-sql-table" data-config="biomes">Biomes Table</option>
             </optgroup>
             <optgroup label="Utilities">
               <option value="view-console">Console</option>

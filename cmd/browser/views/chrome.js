@@ -74,12 +74,38 @@ export class ViewChrome extends HTMLElement {
   /**
    * Switch to a different view type
    * @param {string} viewTag - Tag name of new view (e.g., 'view-nodegraph')
+   * @param {string} [config] - Optional config name for views that need it (e.g., 'items' for view-sql-table)
    */
-  switchView(viewTag) {
+  switchView(viewTag, config) {
     const currentView = this.shadowRoot.querySelector('slot:not([name])').assignedElements()[0] || null
 
     // Create new view
     const newView = document.createElement(viewTag)
+
+    // Apply config for view-sql-table
+    if (viewTag === 'view-sql-table' && config) {
+      const configs = {
+        items: {
+          'data-query': 'SELECT * FROM items LIMIT :limit OFFSET :offset',
+          'data-count-query': 'SELECT COUNT(*) FROM items',
+          'data-table': 'items',
+          'data-page-size': '20',
+          'data-column-types': JSON.stringify({ icon: 'image-base64', stackable: 'boolean' })
+        },
+        biomes: {
+          'data-query': 'SELECT * FROM biomes LIMIT :limit OFFSET :offset',
+          'data-count-query': 'SELECT COUNT(*) FROM biomes',
+          'data-table': 'biomes',
+          'data-page-size': '20'
+        }
+      }
+      const cfg = configs[config]
+      if (cfg) {
+        Object.entries(cfg).forEach(([attr, value]) => {
+          newView.setAttribute(attr, value)
+        })
+      }
+    }
 
     // Replace in DOM
     if (currentView) {
@@ -158,7 +184,9 @@ export class ViewChrome extends HTMLElement {
     }
 
     select.addEventListener("change", (event) => {
-      this.switchView(event.target.value);
+      const selectedOption = event.target.selectedOptions[0]
+      const config = selectedOption?.dataset?.config
+      this.switchView(event.target.value, config);
     });
   }
 
