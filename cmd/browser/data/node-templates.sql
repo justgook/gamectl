@@ -147,3 +147,12 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   'Preview tree with custom onopen handler',
   '<node-popup inputs="storeKey" outputs="storeKey" onopen="const tree = content.querySelector(''view-tree''); if (inputs.storeKey) tree.setAttribute(''data-store-key'', inputs.storeKey);"><template><view-tree data-store-key="progression" style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tree></template></node-popup>'
 );
+
+INSERT INTO node_templates (name, category, description, html_template) VALUES (
+  'Code Transform',
+  'transform',
+  'Custom JavaScript transformation with $in/$out',
+  '<node-code title="Code" inputs="input" outputs="output">
+$out.output = $in.input;
+</node-code>'
+);
