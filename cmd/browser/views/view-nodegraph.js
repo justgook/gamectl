@@ -34,7 +34,12 @@ const COLORS = {
   portConnected: '#3b82f6',
   text: '#ffffff',
   textSecondary: '#94a3b8',
-  selection: '#3b82f6'
+  selection: '#3b82f6',
+  // Value display colors for better readability
+  valueBg: 'rgba(0, 0, 0, 0.6)',
+  valueText: '#ffffff',
+  typeBadge: '#64748b',
+  typeBadgeText: '#e2e8f0'
 }
 
 /**
@@ -344,7 +349,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // Draw edit button for template nodes
     if (info.type === 'template') {
       this.drawEditButton(ctx, x, y, info, node)
-      this.drawTemplateValues(ctx, x, y, info, node)
+      // Note: values are shown in port labels, not in node body anymore
     }
 
     // Draw delete button for focused nodes
@@ -425,24 +430,86 @@ export class ViewNodeGraph extends ViewCanvasBase {
       }
 
       // Draw port label
-      ctx.fillStyle = COLORS.textSecondary
       ctx.font = '11px sans-serif'
       ctx.textAlign = isInput ? 'left' : 'right'
       ctx.textBaseline = 'middle'
       const labelX = isInput ? portX + 10 : portX - 10
 
-      let labelText = port.label || port.name
+      // Check if node is in a colored state that needs better contrast for text
+      const needsHighContrast = node.state === 'success' || node.state === 'running' || node.state === 'error'
 
-      // For template nodes, show output values
-      if (node.constructor.name === 'NodeTemplate' && !isInput && port.hasValue) {
-        const value = port.value
+      // For output ports with values, show value with type badge
+      if (!isInput && port.hasValue) {
+        const value = String(port.value)
         const truncatedValue = value.length > 8 ? value.substring(0, 8) + '...' : value
-        labelText = `${port.name}: ${truncatedValue}`
-        ctx.fillStyle = COLORS.text // Make value text more visible
+        const typeTag = this.getTypeTag(port.value)
+        
+        // Draw value with background for better readability
+        const fullText = `${port.name}: ${truncatedValue}`
+        const textWidth = ctx.measureText(fullText).width
+        const badgeText = `[${typeTag}]`
+        const badgeWidth = ctx.measureText(badgeText).width
+        const totalWidth = textWidth + 4 + badgeWidth
+        const bgX = isInput ? labelX - 2 : labelX - totalWidth - 2
+        const bgHeight = 16
+        const bgY = portY - bgHeight / 2
+        
+        // Draw dark background for value text
+        ctx.fillStyle = COLORS.valueBg
+        ctx.fillRect(bgX, bgY, totalWidth + 4, bgHeight)
+        
+        // Draw value text
+        ctx.fillStyle = COLORS.valueText
+        ctx.fillText(fullText, labelX, portY)
+        
+        // Draw type badge
+        const badgeX = isInput ? labelX + textWidth + 4 : labelX - textWidth - 4
+        ctx.fillStyle = COLORS.typeBadge
+        ctx.textAlign = isInput ? 'left' : 'right'
+        ctx.fillText(badgeText, badgeX, portY)
+      } else {
+        // Regular port label - add background on success state for readability
+        const labelText = port.label || port.name
+        
+        if (needsHighContrast) {
+          const textWidth = ctx.measureText(labelText).width
+          const bgHeight = 16
+          const bgY = portY - bgHeight / 2
+          const bgX = isInput ? labelX - 2 : labelX - textWidth - 2
+          
+          // Draw dark background
+          ctx.fillStyle = COLORS.valueBg
+          ctx.fillRect(bgX, bgY, textWidth + 4, bgHeight)
+          
+          // Draw text in white for contrast
+          ctx.fillStyle = COLORS.valueText
+        } else {
+          ctx.fillStyle = COLORS.textSecondary
+        }
+        ctx.fillText(labelText, labelX, portY)
       }
-
-      ctx.fillText(labelText, labelX, portY)
     })
+  }
+
+  /**
+   * Get a short type tag for a value
+   * @param {any} value - The value to get type for
+   * @returns {string} Short type tag like 'num', 'str', 'bool', 'obj', 'arr', 'nil'
+   */
+  getTypeTag(value) {
+    if (value === null || value === undefined) return 'nil'
+    if (typeof value === 'number') return 'num'
+    if (typeof value === 'boolean') return 'bool'
+    if (typeof value === 'string') {
+      // Check if it looks like a number string
+      if (!isNaN(value) && value.trim() !== '') return 'num'
+      // Check if it looks like a boolean string
+      if (value === 'true' || value === 'false') return 'bool'
+      return 'str'
+    }
+    if (Array.isArray(value)) return 'arr'
+    if (typeof value === 'object') return 'obj'
+    return '?'
   }
 
   drawConnection(ctx, conn) {
@@ -623,34 +690,50 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     const valuesY = nodeY + NODE_HEADER_HEIGHT + 8
     const maxWidth = info.width - 20
+    const lineHeight = 18
+    const padding = 4
 
-    ctx.fillStyle = COLORS.textSecondary
     ctx.font = '10px sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
 
     let currentY = valuesY
-    const lineHeight = 14
 
     // Display up to 3 values to avoid cluttering
     let count = 0
     for (const [key, value] of info.values) {
       if (count >= 3) break
 
-      const displayValue = String(value).length > 15 ? String(value).substring(0, 15) + '...' : String(value)
+      const displayValue = String(value).length > 12 ? String(value).substring(0, 12) + '...' : String(value)
+      const typeTag = this.getTypeTag(value)
       const text = `${key}: ${displayValue}`
+      const badgeText = `[${typeTag}]`
 
-      // Measure text and truncate if needed
+      // Measure text for background
       const textWidth = ctx.measureText(text).width
+      const badgeWidth = ctx.measureText(badgeText).width
+      const totalWidth = Math.min(textWidth + 4 + badgeWidth, maxWidth)
+
+      // Draw dark background for better readability on success (green) state
+      ctx.fillStyle = COLORS.valueBg
+      ctx.fillRect(nodeX + 10 - padding, currentY - 2, totalWidth + padding * 2, lineHeight)
+
+      // Draw value text
+      ctx.fillStyle = COLORS.valueText
       let finalText = text
-      if (textWidth > maxWidth) {
+      if (textWidth > maxWidth - badgeWidth - 8) {
         // Truncate text to fit
-        const ratio = maxWidth / textWidth
+        const ratio = (maxWidth - badgeWidth - 8) / textWidth
         const truncateIndex = Math.floor(text.length * ratio) - 3
         finalText = text.substring(0, Math.max(0, truncateIndex)) + '...'
       }
-
       ctx.fillText(finalText, nodeX + 10, currentY)
+
+      // Draw type badge
+      const finalTextWidth = ctx.measureText(finalText).width
+      ctx.fillStyle = COLORS.typeBadge
+      ctx.fillText(badgeText, nodeX + 10 + finalTextWidth + 4, currentY)
+
       currentY += lineHeight
       count++
     }
