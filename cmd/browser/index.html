@@ -128,6 +128,19 @@
       </pre>
     </template>
 
+    <template id="view-sql-console">
+      <div data-element="output"
+        style="flex: 1; overflow: auto; padding: var(--spacing-scale-3); background: var(--color-semantic-bg-primary);">
+      </div>
+      <div
+        style="display: flex; align-items: flex-start; padding: var(--spacing-scale-2); border-top: 1px solid var(--color-semantic-border-default); background: var(--color-semantic-bg-secondary);">
+        <span
+          style="color: var(--color-semantic-text-accent); font-family: 'Roboto Mono', monospace; font-size: var(--font-size-sm); padding: 8px 4px 8px 8px;">></span>
+        <textarea data-element="input" placeholder="SELECT * FROM sqlite_schema;" rows="1"
+          style="flex: 1; background: transparent; border: none; outline: none; color: var(--color-semantic-text-primary); font-family: 'Roboto Mono', monospace; font-size: var(--font-size-sm); resize: none; padding: 8px; line-height: 1.4; min-height: 24px; field-sizing: content;"></textarea>
+      </div>
+    </template>
+
     <!-- Canvas views (nodegraph, tilemap, tree) create their content programmatically -->
     <template id="view-tilemap">
       <div slot="header-controls" class="view-header-controls">
@@ -322,6 +335,7 @@
             </optgroup>
             <optgroup label="Utilities">
               <option value="view-console">Console</option>
+              <option value="view-sql-console">SQL Console</option>
               <option value="view-empty">Empty</option>
               <option value="view-testing">Testing</option>
               <option value="view-pipeline">Pipeline</option>
@@ -477,7 +491,8 @@
           </view-chrome>
           <view-chrome nesw="s" r="400" from="panel_1">
             <!-- <view-tilemap data-key="new_map"></view-tilemap> -->
-            <view-timeline max-value="3"></view-timeline>
+            <!-- <view-timeline max-value="3"></view-timeline> -->
+            <view-sql-console></view-sql-console>
           </view-chrome>
           <view-chrome nesw="w" r="200" from="panel_1">
             <view-pipeline></view-pipeline>

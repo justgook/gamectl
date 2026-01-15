@@ -13,6 +13,7 @@ import { ViewSplitter } from "./views/view-splitter.js"
 import { LayoutParent } from "./views/layout.js"
 import { ViewTree } from "./views/view-tree.js"
 import { ViewConsole } from "./views/view-console.js"
+import { ViewSqlConsole } from "./views/view-sql-console.js"
 import { ViewTilemap } from "./views/view-tilemap.js"
 import { ViewTesting } from "./views/view-testing.js"
 import { ViewPipeline } from "./views/view-pipeline.js"
@@ -48,6 +49,7 @@ customElements.define('view-splitter', ViewSplitter)
 customElements.define('view-tilemap', ViewTilemap)
 customElements.define('view-tree', ViewTree)
 customElements.define('view-console', ViewConsole)
+customElements.define('view-sql-console', ViewSqlConsole)
 customElements.define('view-pipeline', ViewPipeline)
 customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
 // customElements.define('view-skeleton', ViewSkeleton) //already registered in file
