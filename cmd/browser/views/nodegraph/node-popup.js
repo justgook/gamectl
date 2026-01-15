@@ -174,12 +174,18 @@ export class NodePopup extends NodeBase {
     this.requestRedraw()
 
     try {
-      // Wait a brief moment to show running state
-      // await new Promise(resolve => setTimeout(resolve, 50))
-
-      // Resolve each output with its stored value
+      // Resolve each output with stored value, or passthrough from matching input
       for (const outputName of this._parsedOutputs) {
-        const value = this.storedValues.get(outputName)
+        let value = this.storedValues.get(outputName)
+
+        // Passthrough: if no stored value and input exists with same name, use input value
+        if ((value === null || value === undefined) && this._parsedInputs.has(outputName)) {
+          try {
+            value = await this.getInputValue(outputName)
+          } catch (e) {
+            // Input not connected or failed, value stays undefined
+          }
+        }
 
         if (resolvers.has(outputName)) {
           // Convert stored string values to appropriate types
