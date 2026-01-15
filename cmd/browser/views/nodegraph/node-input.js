@@ -117,7 +117,7 @@ export class NodeInput extends NodeBase {
       height: 100,
       inputs: [], // No inputs
       outputs: [
-        { name: 'output', type: this.inputType, label: 'Value' }
+        { name: 'output', type: this.inputType, label: 'Value', hasValue: true, value: this.value }
       ]
     }
   }
