@@ -333,7 +333,7 @@ export class ViewSqlTable extends HTMLElement {
   }
 
   renderCell(td, value, column) {
-    const colType = this.columnTypes[column] || this.detectColumnType(value)
+    const colType = this.columnTypes[column] || this.detectColumnType(column, value)
 
     td.className = `sql-table-cell sql-table-cell-${colType}`
 
@@ -392,30 +392,52 @@ export class ViewSqlTable extends HTMLElement {
     }
   }
 
-  detectColumnType(value) {
-    if (value === null || value === undefined || value === '') {
-      return 'text'
-    }
-
-    // Check if it looks like base64 image
+  /**
+   * Detect column type based on column name conventions.
+   * Boolean columns: starts with "is", "has", "can", "should", "was", "will"
+   *                  or matches reserved words: enabled, disabled, stackable, active, visible, hidden, locked, deleted, archived
+   * Image columns: detected by value content (base64 signatures)
+   * Number/text: fallback based on value
+   */
+  detectColumnType(column, value) {
+    // Check if it looks like base64 image (must check value for this)
     if (typeof value === 'string' && value.length > 100) {
       // Common base64 image signatures
       if (value.startsWith('iVBOR') || // PNG
-          value.startsWith('/9j/') || // JPEG
-          value.startsWith('R0lGOD') || // GIF
-          value.startsWith('UklGR')) { // WebP
+        value.startsWith('/9j/') || // JPEG
+        value.startsWith('R0lGOD') || // GIF
+        value.startsWith('UklGR')) { // WebP
         return 'image-base64'
       }
     }
 
-    // Check for boolean-ish
-    if (value === '0' || value === '1' || value === 'true' || value === 'false') {
-      return 'boolean'
+    // Boolean detection by column name
+    const lowerCol = column.toLowerCase()
+    const booleanPrefixes = ['is', 'has', 'can', 'should', 'was', 'will']
+    const booleanWords = [
+      'enabled', 'disabled', 'stackable', 'active', 'visible', 'hidden',
+      'locked', 'deleted', 'archived', 'published', 'featured', 'verified',
+      'approved', 'completed', 'required', 'optional', 'default'
+    ]
+
+    // Check prefixes (e.g., isEnabled, hasItems, canEdit)
+    for (const prefix of booleanPrefixes) {
+      if (lowerCol.startsWith(prefix) && lowerCol.length > prefix.length) {
+        // Ensure it's not just a word starting with these letters (e.g., "island", "hash")
+        const nextChar = lowerCol[prefix.length]
+        if (nextChar === '_' || nextChar === nextChar.toUpperCase()) {
+          return 'boolean'
+        }
+        // Also check for snake_case: is_enabled
+        if (column.toLowerCase().startsWith(prefix + '_')) {
+          return 'boolean'
+        }
+      }
     }
 
-    // Check for number
-    if (!isNaN(parseFloat(value)) && isFinite(value)) {
-      return 'number'
+    // Check exact boolean words
+    if (booleanWords.includes(lowerCol)) {
+      return 'boolean'
     }
 
     return 'text'
@@ -433,9 +455,9 @@ export class ViewSqlTable extends HTMLElement {
       <button data-action="next" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}>&rsaquo;</button>
       <button data-action="last" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}>&raquo;</button>
       <select data-action="page-size">
-        ${[10, 20, 50, 100].map(size => 
-          `<option value="${size}" ${size === this.pageSize ? 'selected' : ''}>${size} rows</option>`
-        ).join('')}
+        ${[10, 20, 50, 100].map(size =>
+      `<option value="${size}" ${size === this.pageSize ? 'selected' : ''}>${size} rows</option>`
+    ).join('')}
       </select>
     `
 
@@ -494,7 +516,7 @@ export class ViewSqlTable extends HTMLElement {
     // Cancel any existing edit
     this.cancelEdit()
 
-    const colType = this.columnTypes[column] || this.detectColumnType(currentValue)
+    const colType = this.columnTypes[column] || this.detectColumnType(column, currentValue)
 
     this.editingCell = {
       td,
@@ -614,7 +636,7 @@ export class ViewSqlTable extends HTMLElement {
   }
 
   async updateRow(table, pkColumn, pkValue, column, value) {
-    const escapedValue = typeof value === 'string' 
+    const escapedValue = typeof value === 'string'
       ? `'${value.replace(/'/g, "''")}'`
       : value === null || value === '' ? 'NULL' : value
 
