@@ -425,6 +425,22 @@
       </div>
     </template>
 
+    <!-- Node Code Editor Popup Template -->
+    <template id="popup-node-code">
+      <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);">
+        <div style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary); padding: var(--spacing-scale-2); background: var(--color-semantic-bg-secondary); border-radius: var(--border-radius-sm);">
+          <strong>Inputs ($in):</strong> <span data-element="inputs-info">none</span><br>
+          <strong>Outputs ($out):</strong> <span data-element="outputs-info">none</span>
+        </div>
+        <textarea data-element="code-editor" spellcheck="false" placeholder="// Write your code here&#10;// Access inputs via $in.name&#10;// Set outputs via $out.name = value"
+          style="width: 100%; min-height: 300px; font-family: monospace; font-size: 14px; padding: var(--spacing-scale-2); border: 1px solid var(--color-semantic-border-default); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-primary); color: var(--color-semantic-text-primary); resize: vertical; tab-size: 2;"></textarea>
+        <div data-element="error-display" style="color: var(--color-semantic-text-error, #ef4444); font-size: var(--font-size-sm); display: none; padding: var(--spacing-scale-2); background: rgba(239, 68, 68, 0.1); border-radius: var(--border-radius-sm);"></div>
+        <div style="display: flex; gap: var(--spacing-scale-2); justify-content: flex-end; margin-top: var(--spacing-scale-2);">
+          <button class="button-secondary" data-action="cancel">Cancel</button>
+          <button class="button-primary" data-action="save">Save</button>
+        </div>
+      </div>
+    </template>
 
     <toast-manager>
       <popup-manager>

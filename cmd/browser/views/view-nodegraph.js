@@ -26,7 +26,8 @@ const COLORS = {
     input: '#6366f1',
     plugin: '#8b5cf6',
     output: '#ec4899',
-    template: '#10b981'  // Green for template nodes
+    template: '#10b981',  // Green for template nodes
+    code: '#06b6d4'       // Cyan/Teal for code nodes
   },
   connection: '#64748b',
   connectionActive: '#3b82f6',
@@ -346,8 +347,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
       this.drawRunButton(ctx, x, y, info, node)
     }
 
-    // Draw edit button for template nodes
-    if (info.type === 'template') {
+    // Draw edit button for template and code nodes
+    if (info.type === 'template' || info.type === 'code') {
       this.drawEditButton(ctx, x, y, info, node)
       // Note: values are shown in port labels, not in node body anymore
     }
@@ -1641,12 +1642,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
    * Handle edit button click
    */
   async onEditButtonClick(node) {
-    if (node.constructor.name !== 'NodePopup') {
-      console.error('Edit button clicked on non-template node:', node)
+    if (node.constructor.name !== 'NodePopup' && node.constructor.name !== 'NodeCode') {
+      console.error('Edit button clicked on non-editable node:', node)
       return
     }
 
-    // console.log(`Opening edit popup for template node: ${node.id}`)
+    // console.log(`Opening edit popup for node: ${node.id}`)
 
     try {
       await node.openEditPopup()
