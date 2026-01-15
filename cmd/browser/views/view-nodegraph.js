@@ -1767,27 +1767,30 @@ export class ViewNodeGraph extends ViewCanvasBase {
   highlightMatches(text, positions) {
     const fragment = document.createDocumentFragment()
     const posSet = new Set(positions)
-    let currentSpan = null
-    let isHighlighted = false
     
-    for (let i = 0; i < text.length; i++) {
-      const shouldHighlight = posSet.has(i)
+    let i = 0
+    while (i < text.length) {
+      const isMatch = posSet.has(i)
       
-      if (shouldHighlight !== isHighlighted || !currentSpan) {
-        currentSpan = document.createElement('span')
-        if (shouldHighlight) {
-          currentSpan.style.cssText = `
-            background: var(--color-semantic-accent-primary);
-            color: var(--color-semantic-text-on-accent);
-            border-radius: 2px;
-            padding: 0 1px;
-          `
-        }
-        fragment.appendChild(currentSpan)
-        isHighlighted = shouldHighlight
+      // Collect consecutive chars of same type
+      let chunk = ''
+      while (i < text.length && posSet.has(i) === isMatch) {
+        chunk += text[i]
+        i++
       }
       
-      currentSpan.textContent += text[i]
+      if (isMatch) {
+        // Create inverted highlight: background = currentColor, text = inverted
+        const wrapper = document.createElement('span')
+        wrapper.style.background = 'currentColor'
+        const inner = document.createElement('span')
+        inner.style.filter = 'invert(1)'
+        inner.textContent = chunk
+        wrapper.appendChild(inner)
+        fragment.appendChild(wrapper)
+      } else {
+        fragment.appendChild(document.createTextNode(chunk))
+      }
     }
     
     return fragment
