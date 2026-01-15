@@ -76,7 +76,7 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   'Room Gen',
   'plugin',
   'Generate room path',
-  '<node-plugin title="Tilemap Scaler" plugin="roomgen" function="gen" inputs="inputMapId,outputMapId,jumpHeight,jumpDistance" outputs="result"></node-plugin>'
+  '<node-plugin title="Room Generator" plugin="roomgen" function="gen" inputs="inputMapId,outputMapId,jumpHeight,jumpDistance" outputs="result"></node-plugin>'
 ),
 (
   'Logger',

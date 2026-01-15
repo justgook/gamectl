@@ -497,7 +497,7 @@
                 </template></node-popup>
               <node-input type="number" value="3" label="JumpHeight" id="jump_height" x="45" y="553" title=""
                 focused="true"></node-input>
-              <node-plugin title="Tilemap Scaler" plugin="roomgen" function="gen"
+              <node-plugin title="Room Generator" plugin="roomgen" function="gen"
                 inputs="inputMapId:init_2.text,outputMapId:outputRoom.text,jumpHeight:jump_height.output,jumpDistance:jump_height.output"
                 outputs="result" id="room_gen_1" x="353" y="468"></node-plugin>
               <node-popup inputs="mapId:outputRoom.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
