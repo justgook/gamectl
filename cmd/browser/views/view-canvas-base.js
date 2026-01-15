@@ -31,7 +31,7 @@ export class ViewCanvasBase extends HTMLElement {
 
     this.tileInfo = null; // For hover tooltip
     this.data = null;
-    
+
     // Auto-fit configuration
     this.autoFitOnLoad = true; // Automatically fit content to view on initial load
     this._hasAutoFitted = false; // Track if auto-fit has been applied
@@ -230,7 +230,7 @@ export class ViewCanvasBase extends HTMLElement {
     this.canvas.width = roundedWidth;
     this.canvas.height = roundedHeight;
     this.draw();
-    
+
     // Apply auto-fit if enabled and not yet applied
     this._tryAutoFit();
   }
@@ -334,7 +334,7 @@ export class ViewCanvasBase extends HTMLElement {
     this.drawContent(this.ctx, this.data)
 
     this.ctx.restore()
-    
+
     // Apply auto-fit if enabled and not yet applied
     this._tryAutoFit();
   }
@@ -596,6 +596,16 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   _onKeyUp(e) {
+    const el = e.target;
+    if (
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      el instanceof HTMLSelectElement ||
+      el.isContentEditable
+    ) {
+      return;
+    }
+
     if (e.code === 'Space') {
       this.spacePressed = false;
       // Clear dragging state when space is released to prevent jump on next space press

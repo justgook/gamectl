@@ -163,6 +163,16 @@ class KeybindingManager {
    */
   handleKeyDown(event) {
     if (!this.enabled) return
+    const el = event.target;
+
+    if (
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      el instanceof HTMLSelectElement ||
+      el.isContentEditable
+    ) {
+      return;
+    }
 
     // TODO: Skip if typing in input field (for future enhancement)
     // For now, let all key events through
