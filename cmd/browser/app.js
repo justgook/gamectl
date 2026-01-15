@@ -42,6 +42,8 @@ import "./views/nodegraph/node-fromjson.js"
 import "./views/nodegraph/node-fields.js"
 import "./views/nodegraph/node-popup.js"
 import "./views/nodegraph/node-code.js"
+import "./views/nodegraph/node-fsread.js"
+import "./views/nodegraph/node-fswrite.js"
 
 //current stuff
 customElements.define('layout-parent', LayoutParent)
