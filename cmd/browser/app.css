@@ -1060,3 +1060,212 @@ view-timeline .selection-marquee {
   outline: none;
   border-color: var(--color-semantic-accent-primary, #7c7cff);
 }
+
+/* =====================================================
+   SQL TABLE VIEW - CastleDB-style data table
+   ===================================================== */
+
+view-sql-table {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-semantic-bg-primary, #1a1a2e);
+}
+
+/* Toolbar */
+.sql-table-toolbar {
+  display: flex;
+  gap: var(--spacing-scale-2, 8px);
+  padding: var(--spacing-scale-2, 8px);
+  border-bottom: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  background: var(--color-semantic-bg-secondary, #252540);
+}
+
+/* Table Container */
+.sql-table-container {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.sql-table-empty {
+  padding: var(--spacing-scale-4, 16px);
+  color: var(--color-semantic-text-tertiary, #666680);
+  font-style: italic;
+  text-align: center;
+}
+
+/* Table Styles */
+.sql-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm, 13px);
+  font-family: 'Roboto Mono', Monaco, 'Courier New', monospace;
+}
+
+.sql-table th,
+.sql-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.sql-table th {
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  color: var(--color-semantic-text-secondary, #8888aa);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sql-table tbody tr {
+  background: var(--color-semantic-bg-primary, #1a1a2e);
+  transition: background-color 0.1s ease;
+}
+
+.sql-table tbody tr:nth-child(even) {
+  background: var(--color-semantic-bg-secondary, #252540);
+}
+
+.sql-table tbody tr:hover {
+  background: var(--color-semantic-bg-hover, #2a2a4a);
+}
+
+.sql-table tbody tr.selected {
+  background: var(--color-semantic-accent-subtle, #3a3a6a) !important;
+}
+
+/* Row number column */
+.sql-table-row-num {
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  text-align: center !important;
+  color: var(--color-semantic-text-tertiary, #666680);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sql-table-row-num:hover {
+  background: var(--color-semantic-bg-hover, #2a2a4a);
+}
+
+/* Cell types */
+.sql-table-cell-number {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.sql-table-cell-boolean {
+  text-align: center !important;
+}
+
+.sql-table-cell-empty {
+  color: var(--color-semantic-text-tertiary, #666680);
+  font-style: italic;
+}
+
+/* Images */
+.sql-table-image {
+  max-width: 64px;
+  max-height: 64px;
+  object-fit: contain;
+  vertical-align: middle;
+  border-radius: 2px;
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+}
+
+/* Editing */
+.sql-table td.editing {
+  padding: 2px;
+  background: var(--color-semantic-bg-input, #0f0f1a);
+}
+
+.sql-table-edit-input,
+.sql-table-edit-textarea {
+  width: 100%;
+  min-width: 100px;
+  padding: 4px 8px;
+  border: 2px solid var(--color-semantic-accent-primary, #7c7cff);
+  border-radius: 2px;
+  background: var(--color-semantic-bg-input, #0f0f1a);
+  color: var(--color-semantic-text-primary, #ffffff);
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
+
+.sql-table-edit-textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+/* Footer */
+.sql-table-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-scale-2, 8px);
+  border-top: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  background: var(--color-semantic-bg-secondary, #252540);
+}
+
+/* Pagination */
+.sql-table-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-scale-2, 8px);
+}
+
+.sql-table-pagination button {
+  min-width: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  border-radius: 4px;
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  color: var(--color-semantic-text-primary, #ffffff);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.sql-table-pagination button:hover:not(:disabled) {
+  background: var(--color-semantic-bg-hover, #2a2a4a);
+  border-color: var(--color-semantic-border-hover, #5a5a7c);
+}
+
+.sql-table-pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sql-table-page-info {
+  font-size: 12px;
+  color: var(--color-semantic-text-secondary, #8888aa);
+  min-width: 100px;
+  text-align: center;
+}
+
+.sql-table-pagination select {
+  padding: 4px 8px;
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  border-radius: 4px;
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  color: var(--color-semantic-text-primary, #ffffff);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Status */
+.sql-table-status {
+  font-size: 12px;
+  color: var(--color-semantic-text-tertiary, #666680);
+}
