@@ -171,3 +171,36 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES (
 $out.output = $in.input;
 </node-code>'
 );
+
+-- SQL Database Nodes (use raw input mode for direct SQL strings)
+INSERT INTO node_templates (name, category, description, html_template) VALUES
+(
+  'SQL Query',
+  'database',
+  'Execute SELECT query and return results (CSV format)',
+  '<node-plugin title="SQL Query" plugin="sql" function="query" inputs="raw" outputs="result"></node-plugin>'
+),
+(
+  'SQL Exec',
+  'database',
+  'Execute SQL statement (INSERT/UPDATE/DELETE/CREATE)',
+  '<node-plugin title="SQL Exec" plugin="sql" function="exec" inputs="raw" outputs="result"></node-plugin>'
+),
+(
+  'SQL Dump',
+  'database',
+  'Export entire database as SQL statements',
+  '<node-plugin title="SQL Dump" plugin="sql" function="dump" inputs="raw" outputs="result"></node-plugin>'
+),
+(
+  'SQL Restore',
+  'database',
+  'Restore database from SQL dump',
+  '<node-plugin title="SQL Restore" plugin="sql" function="restore" inputs="raw" outputs="result"></node-plugin>'
+),
+(
+  'SQL Table Preview',
+  'database',
+  'Interactive table view for SQL query results with editing',
+  '<node-popup inputs="query" outputs="query" data-input-target="query:view-sql-table@data-query"><template><view-sql-table data-query="SELECT 1" data-page-size="20" style="width:900px;height:500px;border:1px solid #ccc;border-radius:4px"></view-sql-table></template></node-popup>'
+);

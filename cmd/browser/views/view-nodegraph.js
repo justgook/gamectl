@@ -342,8 +342,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.textBaseline = 'middle'
     ctx.fillText(info.title, x + 10, y + NODE_HEADER_HEIGHT / 2)
 
-    // Draw run button for plugin nodes
-    if (info.type === 'plugin') {
+    // Draw run button for executable nodes (plugin, fsread, fswrite)
+    if (info.type === 'plugin' || info.type === 'fsread' || info.type === 'fswrite') {
       this.drawRunButton(ctx, x, y, info, node)
     }
 
