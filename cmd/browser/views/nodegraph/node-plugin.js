@@ -173,11 +173,22 @@ export class NodePlugin extends NodeBase {
 
       console.log(`Executing ${this.plugin}.${this.functionName} with inputs:`, inputs)
 
+      // Determine plugin input format:
+      // - Raw mode: single input named 'raw' passes value directly as string
+      // - Standard mode: JSON stringify all inputs
+      let pluginInput
+      if (inputPorts.length === 1 && inputPorts[0].name === 'raw') {
+        const rawValue = inputs['raw']
+        pluginInput = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '')
+      } else {
+        pluginInput = JSON.stringify(inputs)
+      }
+
       // Call the plugin
       const result = await window.pluginManager.call(
         this.plugin,
         this.functionName,
-        JSON.stringify(inputs)
+        pluginInput
       )
 
       // Simple: resolve all outputs with the raw result
@@ -193,14 +204,7 @@ export class NodePlugin extends NodeBase {
       this.state = 'success'
       this.error = null
 
-      console.log("11111", result.returnCode, this.DE.decode(result.output))
-      showResult(result)
-      // if (result.hasOwnProperty("returnCode")) {
-      //
-      //   toast(this.DE.decode(result.output), { type: result.returnCode ? 'error' : 'success' })
-      // }
-
-      console.log(`✓ ${this.plugin}.${this.functionName} completed`, result)
+      showResult(result, `${this.plugin}.${this.functionName}`)
 
     } catch (error) {
       this.state = 'error'
@@ -219,12 +223,20 @@ export class NodePlugin extends NodeBase {
 
 customElements.define('node-plugin', NodePlugin)
 
-function showResult(result) {
+function showResult(result, pluginName) {
   if (!result.hasOwnProperty("returnCode")) return
 
   const decoder = new TextDecoder()
-  const output = JSON.parse(decoder.decode(result.output))
+  const outputString = decoder.decode(result.output)
+  let outputMsg = `${pluginName} Done`
+  try {
+    const output = JSON.parse(outputString)
+    outputMsg = output.error || outputMsg
+  }
+  catch (e) {
 
-  toast(output.error, { type: result.returnCode ? 'error' : 'success' })
+  }
+
+  toast(outputMsg, { type: result.returnCode ? 'error' : 'success' })
 
 }
