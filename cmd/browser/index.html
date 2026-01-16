@@ -153,6 +153,41 @@
       </div>
     </template>
 
+    <template id="view-files">
+      <div data-element="toolbar" class="files-toolbar">
+        <button data-action="refresh" class="button-secondary" title="Refresh">Refresh</button>
+        <button data-action="new-file" class="button-secondary" title="New File">+ File</button>
+        <button data-action="new-folder" class="button-secondary" title="New Folder">+ Folder</button>
+        <button data-action="delete" class="button-secondary" title="Delete">Delete</button>
+        <span class="files-path" data-element="path-display">/</span>
+      </div>
+      <div data-element="tree-container" class="files-tree-container">
+        <table class="files-tree">
+          <thead>
+            <tr>
+              <th class="files-col-name">Name</th>
+              <th class="files-col-modified">Date Modified</th>
+              <th class="files-col-size">Size</th>
+              <th class="files-col-kind">Kind</th>
+            </tr>
+          </thead>
+          <tbody data-element="tree-body"></tbody>
+        </table>
+      </div>
+      <div data-element="status" class="files-status"></div>
+      <div data-element="modal" class="files-modal" style="display: none;">
+        <div class="files-modal-backdrop"></div>
+        <div class="files-modal-content">
+          <div class="files-modal-header">
+            <span class="files-modal-title" data-element="modal-title">File</span>
+            <button class="files-modal-close" data-action="modal-close">&times;</button>
+          </div>
+          <div class="files-modal-body" data-element="modal-body"></div>
+          <div class="files-modal-footer" data-element="modal-footer"></div>
+        </div>
+      </div>
+    </template>
+
     <!-- Canvas views (nodegraph, tilemap, tree) create their content programmatically -->
     <template id="view-tilemap">
       <div slot="header-controls" class="view-header-controls">
@@ -352,6 +387,7 @@
             <optgroup label="Utilities">
               <option value="view-console">Console</option>
               <option value="view-sql-console">SQL Console</option>
+              <option value="view-files">File Browser</option>
               <option value="view-empty">Empty</option>
               <option value="view-testing">Testing</option>
               <option value="view-pipeline">Pipeline</option>
