@@ -71,6 +71,8 @@ export class ViewFiles extends HTMLElement {
           <button data-action="new-file" class="button-secondary" title="New File">+ File</button>
           <button data-action="new-folder" class="button-secondary" title="New Folder">+ Folder</button>
           <button data-action="delete" class="button-secondary" title="Delete">Delete</button>
+          <button data-action="upload" class="button-secondary" title="Upload File">Upload</button>
+          <button data-action="download" class="button-secondary" title="Download File">Download</button>
           <span class="files-path" data-element="path-display">/</span>
         </div>
         <div data-element="tree-container" class="files-tree-container">
@@ -142,6 +144,8 @@ export class ViewFiles extends HTMLElement {
     this.toolbar?.querySelector('[data-action="new-file"]')?.addEventListener('click', () => this.createFile())
     this.toolbar?.querySelector('[data-action="new-folder"]')?.addEventListener('click', () => this.createFolder())
     this.toolbar?.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelected())
+    this.toolbar?.querySelector('[data-action="upload"]')?.addEventListener('click', () => this.uploadFile())
+    this.toolbar?.querySelector('[data-action="download"]')?.addEventListener('click', () => this.downloadSelected())
 
     // Tree clicks delegated
     this.treeBody?.addEventListener('click', (e) => this.handleTreeClick(e))
@@ -647,6 +651,108 @@ export class ViewFiles extends HTMLElement {
       await this.fsCall('rmdir', path)
     } else {
       await this.fsCall('delete', path)
+    }
+  }
+
+  // --- Upload ---
+
+  async uploadFile() {
+    // Create hidden file input
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.style.display = 'none'
+
+    // Determine destination directory
+    let destDir = this.rootPath
+    if (this.selectedPath) {
+      const item = this.findItem(this.selectedPath)
+      if (item?.type === 'directory') {
+        destDir = this.selectedPath
+      } else if (item) {
+        // If a file is selected, use its parent directory
+        destDir = this.selectedPath.substring(0, this.selectedPath.lastIndexOf('/')) || '/'
+      }
+    }
+
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0]
+      if (!file) return
+
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        const content = new Uint8Array(arrayBuffer)
+
+        const filePath = destDir === '/' ? `/${file.name}` : `${destDir}/${file.name}`
+
+        const payload = createWriteInput(filePath, content)
+        const result = await this.fsCall('write', payload)
+        if (result.returnCode !== 0) {
+          throw new Error(this.decoder.decode(result.output))
+        }
+
+        toast.success(`Uploaded ${file.name}`)
+
+        // Expand destination if not root
+        if (destDir !== this.rootPath) {
+          this.expandedPaths.add(destDir)
+        }
+        await this.refresh()
+        this.selectPath(filePath)
+      } catch (error) {
+        toast.error(error.message)
+        console.error('Upload error:', error)
+      } finally {
+        input.remove()
+      }
+    })
+
+    document.body.appendChild(input)
+    input.click()
+  }
+
+  // --- Download ---
+
+  async downloadSelected() {
+    if (!this.selectedPath) {
+      toast.warning('Nothing selected')
+      return
+    }
+
+    const item = this.findItem(this.selectedPath)
+    if (!item) return
+
+    if (item.type === 'directory') {
+      toast.warning('Cannot download folders')
+      return
+    }
+
+    try {
+      const result = await this.fsCall('read', this.selectedPath)
+      if (result.returnCode !== 0) {
+        throw new Error(this.decoder.decode(result.output))
+      }
+
+      // Create blob from the file content
+      const blob = new Blob([result.output])
+      const url = URL.createObjectURL(blob)
+
+      // Create temporary download link and click it
+      const a = document.createElement('a')
+      a.href = url
+      a.download = item.name
+      document.body.appendChild(a)
+      a.click()
+
+      // Cleanup
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+        a.remove()
+      }, 100)
+
+      toast.success(`Downloaded ${item.name}`)
+    } catch (error) {
+      toast.error(error.message)
+      console.error('Download error:', error)
     }
   }
 
