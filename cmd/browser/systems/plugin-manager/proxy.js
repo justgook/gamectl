@@ -33,18 +33,17 @@ export class PluginManagerProxy {
    * Initialize the worker and plugin manager
    */
   async init() {
-    // Create worker
-    this.worker = new Worker(new URL("worker.js", import.meta.url))
+    // Create worker as ES module
+    this.worker = new Worker(new URL("worker.js", import.meta.url), { type: 'module' })
 
     // Set up message handler
     this.worker.onmessage = (e) => this.handleMessage(e)
     this.worker.onerror = (error) => this.handleError(error)
 
 
-    console.warn("FS temporary disabled")
-    const dir = window.showDirectoryPicker111 ? await getDirectoryHandle() : null
-
-    return this.sendMessage('init', dir)
+    // Use OPFS by default (pass null to let worker use navigator.storage.getDirectory())
+    // Can also pass a directory handle from getDirectoryHandle() for user-selected directories
+    return this.sendMessage('init', null)
 
   }
 

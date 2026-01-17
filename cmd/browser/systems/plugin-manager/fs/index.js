@@ -1,12 +1,24 @@
-import { FsaNodeFs, FsaNodeSyncAdapterWorker, } from 'memfs/lib/fsa-to-node'
+/**
+ * Filesystem Plugin API
+ * 
+ * Provides synchronous filesystem operations for WASM plugins
+ * using OPFS (Origin Private File System) as the backend.
+ * 
+ * All functions return: { returnCode: number, output: Uint8Array }
+ * - returnCode 0 = success
+ * - returnCode 1 = error (output contains error message)
+ */
 
+import { FsAdapter } from './FsAdapter.js'
 
 let fs = null
-let adapter = null
+
+const encoder = new TextEncoder()
+const decoder = new TextDecoder()
 
 // Helper to encode string to Uint8Array
 function encodeOutput(str) {
-  return new TextEncoder().encode(str)
+  return encoder.encode(str)
 }
 
 // Helper to decode input (handles both string and Uint8Array)
@@ -14,7 +26,7 @@ function decodeInput(input) {
   if (typeof input === 'string') {
     return input
   }
-  return new TextDecoder().decode(input)
+  return decoder.decode(input)
 }
 
 // Helper to create success response
@@ -28,12 +40,21 @@ function error(message) {
   return { returnCode: 1, output: encodeOutput(message) }
 }
 
+/**
+ * Initialize the filesystem
+ * @param {FileSystemDirectoryHandle} dir - OPFS root or custom directory handle
+ * @returns {Promise<FsAdapter>}
+ */
 export async function create(dir) {
-  if (!adapter) {
-    adapter = await FsaNodeSyncAdapterWorker.start('/plugins/fs/worker.js', dir)
+  if (!dir) {
+    // Use OPFS root if no directory provided
+    if (!navigator.storage || !navigator.storage.getDirectory) {
+      throw new Error('OPFS not available in this browser')
+    }
+    dir = await navigator.storage.getDirectory()
   }
-  fs = new FsaNodeFs(dir, adapter)
-
+  
+  fs = await FsAdapter.start(dir)
   return fs
 }
 
@@ -46,9 +67,7 @@ export function read(path) {
   try {
     const filePath = decodeInput(path)
     const data = fs.readFileSync(filePath)
-    // readFileSync returns Buffer, convert to Uint8Array
-    const output = data instanceof Uint8Array ? data : new Uint8Array(data)
-    return success(output)
+    return success(data)
   } catch (e) {
     return error(e.message)
   }
@@ -84,23 +103,14 @@ export function write(input) {
 
     // Extract path (before null byte)
     const pathBytes = bytes.slice(0, nullIndex)
-    const path = new TextDecoder().decode(pathBytes)
+    const path = decoder.decode(pathBytes)
 
     // Extract data (after null byte)
     const data = bytes.slice(nullIndex + 1)
 
-    console.log("fs(1)")
-    console.time('doSomething')
-
-    fs.writeFileSync(path, "hello world")
-
-    console.timeEnd('doSomething')
-    console.log("fs(2)")
-
+    fs.writeFileSync(path, data)
     return success('OK')
   } catch (e) {
-    console.log("fs(3)", e)
-
     return error(e.message)
   }
 }
@@ -197,4 +207,17 @@ export function stat(path) {
   } catch (e) {
     return error(e.message)
   }
+}
+
+// Export all functions as default for convenient importing
+export default {
+  create,
+  read,
+  write,
+  remove,
+  exists,
+  list,
+  mkdir,
+  rmdir,
+  stat
 }

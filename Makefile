@@ -35,22 +35,17 @@ BUILD_DIR ?= build.nosync
 PLUGIN_DIR ?= plugins
 DESIGN_DIR ?= design
 
-# Detect all plugin subdirectories
-PLUGIN_DIRS := $(wildcard $(PLUGIN_DIR)/*)
+# Detect all plugin subdirectories (exclude fs which is now built-in to plugin-manager)
+PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
 PLUGINS := $(notdir $(PLUGIN_DIRS))
-PLUGIN_TARGETS := $(BUILD_DIR)/plugins/fs/index.js $(BUILD_DIR)/fs/worker.js $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
+PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
 
 SYS_GOOS := $(shell go env GOOS)
 SYS_GOARCH := $(shell go env GOARCH)
 GO_MODULE_NAME ?= $(shell go list -m)
 
 
-$(BUILD_DIR)/plugins/fs/index.js $(BUILD_DIR)/fs/worker.js: $(BUILD_DIR) $(wildcard $(PLUGIN_DIR)/fs/*.js)
-	$(Q)echo "💡 Building fs plugin bundle..."
-	$(Q)cd $(BUILD_DIR) && \
-	  bun install esbuild memfs esbuild-plugins-node-modules-polyfill --no-save && \
-	  cp -R ../plugins/fs . && \
-	  bun run ./fs/esbuild.config.js
+
 
 .PHONY: all
 all: browser

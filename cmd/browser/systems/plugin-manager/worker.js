@@ -7,9 +7,9 @@
  * Uses transferable objects for efficient data transfer between worker and main thread.
  */
 
-// Import the PluginManager class
-importScripts('./plugin-manager.js')
-importScripts("/plugins/fs/index.js")
+// Import as ES modules
+import { PluginManager } from './plugin-manager.js'
+import * as PluginFileSystem from './fs/index.js'
 
 let manager = null
 
