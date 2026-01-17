@@ -38,6 +38,7 @@ export class ViewFiles extends HTMLElement {
     this.expandedPaths = new Set()
     this.selectedPath = null
     this.editingPath = null
+    this.draggedPath = null
 
     // File tree data: Map<path, {name, type, size, children: []}>
     this.fileTree = new Map()
@@ -150,6 +151,18 @@ export class ViewFiles extends HTMLElement {
     // Tree clicks delegated
     this.treeBody?.addEventListener('click', (e) => this.handleTreeClick(e))
     this.treeBody?.addEventListener('dblclick', (e) => this.handleTreeDoubleClick(e))
+
+    // Drag and drop for internal file moving
+    this.treeBody?.addEventListener('dragstart', (e) => this.handleDragStart(e))
+    this.treeBody?.addEventListener('dragover', (e) => this.handleDragOver(e))
+    this.treeBody?.addEventListener('dragleave', (e) => this.handleDragLeave(e))
+    this.treeBody?.addEventListener('drop', (e) => this.handleDrop(e))
+    this.treeBody?.addEventListener('dragend', (e) => this.handleDragEnd(e))
+
+    // External file drop (from desktop)
+    this.treeContainer?.addEventListener('dragover', (e) => this.handleExternalDragOver(e))
+    this.treeContainer?.addEventListener('dragleave', (e) => this.handleExternalDragLeave(e))
+    this.treeContainer?.addEventListener('drop', (e) => this.handleExternalDrop(e))
   }
 
   handleKeyDown(e) {
@@ -345,6 +358,7 @@ export class ViewFiles extends HTMLElement {
     tr.className = 'files-row'
     tr.dataset.path = item.path
     tr.dataset.type = item.type
+    tr.draggable = true
 
     if (item.path === this.selectedPath) {
       tr.classList.add('selected')
@@ -753,6 +767,246 @@ export class ViewFiles extends HTMLElement {
     } catch (error) {
       toast.error(error.message)
       console.error('Download error:', error)
+    }
+  }
+
+  // --- Drag and Drop (Internal - Move Files) ---
+
+  handleDragStart(e) {
+    const row = e.target.closest('.files-row')
+    if (!row) return
+
+    this.draggedPath = row.dataset.path
+    row.classList.add('dragging')
+
+    // Set drag data
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', row.dataset.path)
+  }
+
+  handleDragOver(e) {
+    // Only handle if we're dragging an internal file
+    if (!this.draggedPath) return
+
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+
+    const row = e.target.closest('.files-row')
+    if (!row) return
+
+    // Only allow dropping on directories
+    if (row.dataset.type !== 'directory') return
+
+    // Don't allow dropping on self or into a child of self
+    if (row.dataset.path === this.draggedPath) return
+    if (row.dataset.path.startsWith(this.draggedPath + '/')) return
+
+    // Clear previous drop target
+    this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
+    row.classList.add('drop-target')
+  }
+
+  handleDragLeave(e) {
+    const row = e.target.closest('.files-row')
+    if (row && !row.contains(e.relatedTarget)) {
+      row.classList.remove('drop-target')
+    }
+  }
+
+  handleDragEnd(e) {
+    // Clean up drag state
+    this.draggedPath = null
+    this.treeBody?.querySelectorAll('.dragging, .drop-target').forEach(el => {
+      el.classList.remove('dragging', 'drop-target')
+    })
+    this.treeContainer?.classList.remove('drop-zone-active')
+  }
+
+  async handleDrop(e) {
+    e.preventDefault()
+
+    const row = e.target.closest('.files-row')
+    if (!row || !this.draggedPath) return
+
+    // Only allow dropping on directories
+    if (row.dataset.type !== 'directory') return
+
+    const targetPath = row.dataset.path
+    const sourcePath = this.draggedPath
+
+    // Don't allow dropping on self or into a child
+    if (targetPath === sourcePath) return
+    if (targetPath.startsWith(sourcePath + '/')) return
+
+    // Clean up UI
+    row.classList.remove('drop-target')
+    this.draggedPath = null
+
+    await this.moveFile(sourcePath, targetPath)
+  }
+
+  // --- Drag and Drop (External - Upload from Desktop) ---
+
+  handleExternalDragOver(e) {
+    // Check if this is an external file drag (not internal)
+    if (this.draggedPath) return
+
+    // Check for files in the drag
+    if (!e.dataTransfer.types.includes('Files')) return
+
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    this.treeContainer?.classList.add('drop-zone-active')
+
+    // Highlight specific folder if hovering over one
+    const row = e.target.closest('.files-row')
+    if (row?.dataset.type === 'directory') {
+      this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
+      row.classList.add('drop-target')
+    }
+  }
+
+  handleExternalDragLeave(e) {
+    // Only remove if leaving the container entirely
+    if (!this.treeContainer?.contains(e.relatedTarget)) {
+      this.treeContainer?.classList.remove('drop-zone-active')
+      this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
+    }
+  }
+
+  async handleExternalDrop(e) {
+    // Check if this is an external file drag
+    if (this.draggedPath) return
+    if (!e.dataTransfer.files.length) return
+
+    e.preventDefault()
+    this.treeContainer?.classList.remove('drop-zone-active')
+    this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
+
+    // Determine destination directory
+    let destDir = this.rootPath
+    const row = e.target.closest('.files-row')
+    if (row?.dataset.type === 'directory') {
+      destDir = row.dataset.path
+    } else if (this.selectedPath) {
+      const item = this.findItem(this.selectedPath)
+      if (item?.type === 'directory') {
+        destDir = this.selectedPath
+      }
+    }
+
+    // Upload all dropped files
+    const files = Array.from(e.dataTransfer.files)
+    let successCount = 0
+
+    for (const file of files) {
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        const content = new Uint8Array(arrayBuffer)
+
+        const filePath = destDir === '/' ? `/${file.name}` : `${destDir}/${file.name}`
+
+        const payload = createWriteInput(filePath, content)
+        const result = await this.fsCall('write', payload)
+        if (result.returnCode !== 0) {
+          throw new Error(this.decoder.decode(result.output))
+        }
+        successCount++
+      } catch (error) {
+        toast.error(`Failed to upload ${file.name}: ${error.message}`)
+        console.error('Upload error:', error)
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`Uploaded ${successCount} file${successCount > 1 ? 's' : ''}`)
+      if (destDir !== this.rootPath) {
+        this.expandedPaths.add(destDir)
+      }
+      await this.refresh()
+    }
+  }
+
+  // --- Move File ---
+
+  async moveFile(sourcePath, targetDir) {
+    const item = this.findItem(sourcePath)
+    if (!item) return
+
+    const fileName = item.name
+    const newPath = targetDir === '/' ? `/${fileName}` : `${targetDir}/${fileName}`
+
+    // Check if destination already exists
+    const existsResult = await this.fsCall('exists', newPath)
+    if (existsResult.returnCode === 0) {
+      const exists = this.decoder.decode(existsResult.output) === 'true'
+      if (exists) {
+        const confirmed = await toast.confirm(`"${fileName}" already exists in destination. Replace it?`)
+        if (!confirmed) return
+      }
+    }
+
+    try {
+      if (item.type === 'file') {
+        // Read source file
+        const readResult = await this.fsCall('read', sourcePath)
+        if (readResult.returnCode !== 0) {
+          throw new Error(this.decoder.decode(readResult.output))
+        }
+
+        // Write to new location
+        const payload = createWriteInput(newPath, readResult.output)
+        const writeResult = await this.fsCall('write', payload)
+        if (writeResult.returnCode !== 0) {
+          throw new Error(this.decoder.decode(writeResult.output))
+        }
+
+        // Delete original
+        await this.fsCall('delete', sourcePath)
+      } else {
+        // For directories, create new and move contents recursively
+        await this.fsCall('mkdir', newPath)
+        await this.moveDirectoryContents(sourcePath, newPath)
+        await this.fsCall('rmdir', sourcePath)
+      }
+
+      toast.success(`Moved ${fileName}`)
+      this.expandedPaths.add(targetDir)
+      await this.refresh()
+      this.selectPath(newPath)
+    } catch (error) {
+      toast.error(error.message)
+      console.error('Move error:', error)
+    }
+  }
+
+  async moveDirectoryContents(sourceDir, targetDir) {
+    const listResult = await this.fsCall('list', sourceDir)
+    if (listResult.returnCode !== 0) return
+
+    const entries = JSON.parse(this.decoder.decode(listResult.output))
+
+    for (const name of entries) {
+      const sourcePath = `${sourceDir}/${name}`
+      const targetPath = `${targetDir}/${name}`
+
+      const statResult = await this.fsCall('stat', sourcePath)
+      if (statResult.returnCode !== 0) continue
+
+      const stat = JSON.parse(this.decoder.decode(statResult.output))
+
+      if (stat.type === 'directory') {
+        await this.fsCall('mkdir', targetPath)
+        await this.moveDirectoryContents(sourcePath, targetPath)
+        await this.fsCall('rmdir', sourcePath)
+      } else {
+        const readResult = await this.fsCall('read', sourcePath)
+        if (readResult.returnCode === 0) {
+          const payload = createWriteInput(targetPath, readResult.output)
+          await this.fsCall('write', payload)
+          await this.fsCall('delete', sourcePath)
+        }
+      }
     }
   }
 
