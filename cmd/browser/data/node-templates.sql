@@ -100,19 +100,19 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   '<node-tostring inputs="input"></node-tostring>'
 );
 
--- Filesystem Nodes
+-- Filesystem Nodes (using fs host module)
 INSERT INTO node_templates (name, category, description, html_template) VALUES
 (
   'File Read',
   'filesystem',
-  'Read file contents (text or binary)',
-  '<node-fsread title="File Read" inputs="filename" outputs="content"></node-fsread>'
+  'Read file contents (path as raw input)',
+  '<node-plugin title="File Read" plugin="fs" function="read" inputs="raw" outputs="result"></node-plugin>'
 ),
 (
   'File Write',
   'filesystem',
-  'Write data to file (auto-detects text/JSON/binary)',
-  '<node-fswrite title="File Write" inputs="filename,data" outputs="success"></node-fswrite>'
+  'Write data to file (path and content as JSON)',
+  '<node-plugin title="File Write" plugin="fs" function="writeJson" inputs="path,content" outputs="result"></node-plugin>'
 );
 
 -- Interactive Template Nodes (content wrapped in <template>)

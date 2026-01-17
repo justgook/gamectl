@@ -10,6 +10,7 @@
 // Import as ES modules
 import { PluginManager } from './plugin-manager.js'
 import * as PluginFileSystem from './fs/index.js'
+import { createWriteInput } from '../../util/fs.js'
 
 let manager = null
 
@@ -22,11 +23,7 @@ self.onmessage = async (e) => {
   try {
     switch (type) {
       case 'init':
-        await handleInit(id, payload)
-        break
-
-      case 'setDir':
-        await handleSetDir(id, payload)
+        await handleInit(id)
         break
 
       case 'call':
@@ -53,7 +50,7 @@ self.onmessage = async (e) => {
   }
 }
 
-async function handleInit(id, maybeDir) {
+async function handleInit(id) {
 
   const pluginNames = [
     'random',
@@ -70,9 +67,8 @@ async function handleInit(id, maybeDir) {
     'roomgen'
   ];
 
-  const dir = maybeDir ?? await navigator.storage.getDirectory()
-
-  await PluginFileSystem.create(dir)
+  // Initialize OPFS-based filesystem (worker obtains root internally)
+  await PluginFileSystem.create()
 
   const workerOptions = {
     modules: pluginNames.map(name => ({
@@ -91,6 +87,19 @@ async function handleInit(id, maybeDir) {
       },
       { module: 'fs', function: 'read', handler: PluginFileSystem.read },
       { module: 'fs', function: 'write', handler: PluginFileSystem.write },
+      {
+        module: 'fs',
+        function: 'writeJson',
+        handler: (input) => {
+          try {
+            const json = JSON.parse(new TextDecoder().decode(input))
+            const binaryInput = createWriteInput(json.path, json.content)
+            return PluginFileSystem.write(binaryInput)
+          } catch (e) {
+            return { returnCode: 1, output: new TextEncoder().encode(e.message) }
+          }
+        }
+      },
       { module: 'fs', function: 'delete', handler: PluginFileSystem.remove },
       { module: 'fs', function: 'exists', handler: PluginFileSystem.exists },
       { module: 'fs', function: 'list', handler: PluginFileSystem.list },
@@ -106,14 +115,6 @@ async function handleInit(id, maybeDir) {
   self.postMessage({
     id,
     type: 'init-success'
-  })
-}
-
-async function handleSetDir(id, payload) {
-  await PluginFileSystem.create(payload)
-  self.postMessage({
-    id,
-    type: 'setdir-success'
   })
 }
 

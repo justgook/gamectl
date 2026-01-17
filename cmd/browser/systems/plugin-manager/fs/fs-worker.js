@@ -206,9 +206,10 @@ self.onmessage = async (e) => {
   const msg = e.data
   
   if (Array.isArray(msg) && msg[0] === 'init') {
-    const [, sab, rootHandle] = msg
+    const [, sab] = msg
     
-    root = rootHandle
+    // Get OPFS root directly in the worker (avoids cloning issues in Safari)
+    root = await navigator.storage.getDirectory()
     messenger = new SyncMessenger(sab)
     
     // Signal ready
