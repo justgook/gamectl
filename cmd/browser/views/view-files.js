@@ -845,13 +845,28 @@ export class ViewFiles extends HTMLElement {
     await this.moveFile(sourcePath, targetPath)
   }
 
-  // --- Drag and Drop (External - Upload from Desktop) ---
+  // --- Drag and Drop (Container - Root drop zone for internal + external) ---
 
   handleExternalDragOver(e) {
-    // Check if this is an external file drag (not internal)
-    if (this.draggedPath) return
+    const row = e.target.closest('.files-row')
 
-    // Check for files in the drag
+    // Internal drag - allow dropping on empty area (root) or folders
+    if (this.draggedPath) {
+      // If over a folder row, let the row handler deal with it
+      if (row?.dataset.type === 'directory') return
+
+      // If over a file row, don't allow drop
+      if (row) return
+
+      // Dropping on empty area = move to root
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      this.treeContainer?.classList.add('drop-zone-active')
+      this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
+      return
+    }
+
+    // External file drag
     if (!e.dataTransfer.types.includes('Files')) return
 
     e.preventDefault()
@@ -859,7 +874,6 @@ export class ViewFiles extends HTMLElement {
     this.treeContainer?.classList.add('drop-zone-active')
 
     // Highlight specific folder if hovering over one
-    const row = e.target.closest('.files-row')
     if (row?.dataset.type === 'directory') {
       this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
       row.classList.add('drop-target')
@@ -875,24 +889,44 @@ export class ViewFiles extends HTMLElement {
   }
 
   async handleExternalDrop(e) {
-    // Check if this is an external file drag
-    if (this.draggedPath) return
-    if (!e.dataTransfer.files.length) return
-
     e.preventDefault()
     this.treeContainer?.classList.remove('drop-zone-active')
     this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
 
+    const row = e.target.closest('.files-row')
+
+    // Internal drag - move to root
+    if (this.draggedPath) {
+      // If dropped on a folder row, let the row handler deal with it (already handled)
+      if (row?.dataset.type === 'directory') return
+
+      // If dropped on a file row, ignore
+      if (row) {
+        this.draggedPath = null
+        return
+      }
+
+      // Move to root
+      const sourcePath = this.draggedPath
+      this.draggedPath = null
+
+      // Don't move if already in root
+      const parentPath = sourcePath.substring(0, sourcePath.lastIndexOf('/')) || '/'
+      if (parentPath === this.rootPath) {
+        return
+      }
+
+      await this.moveFile(sourcePath, this.rootPath)
+      return
+    }
+
+    // External file drag
+    if (!e.dataTransfer.files.length) return
+
     // Determine destination directory
     let destDir = this.rootPath
-    const row = e.target.closest('.files-row')
     if (row?.dataset.type === 'directory') {
       destDir = row.dataset.path
-    } else if (this.selectedPath) {
-      const item = this.findItem(this.selectedPath)
-      if (item?.type === 'directory') {
-        destDir = this.selectedPath
-      }
     }
 
     // Upload all dropped files
