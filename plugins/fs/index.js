@@ -89,9 +89,18 @@ export function write(input) {
     // Extract data (after null byte)
     const data = bytes.slice(nullIndex + 1)
 
-    fs.writeFileSync(path, data)
+    console.log("fs(1)")
+    console.time('doSomething')
+
+    fs.writeFileSync(path, "hello world")
+
+    console.timeEnd('doSomething')
+    console.log("fs(2)")
+
     return success('OK')
   } catch (e) {
+    console.log("fs(3)", e)
+
     return error(e.message)
   }
 }

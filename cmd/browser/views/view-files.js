@@ -1,4 +1,6 @@
 import { bus } from "../systems/event-bus.js"
+import { toast } from "../systems/toast.js"
+import { createWriteInput } from "../util/fs.js"
 import { getHandler, getAllHandlers } from './files/file-handlers.js'
 
 // Import handlers to register them (must be after file-handlers.js)
@@ -29,23 +31,22 @@ export class ViewFiles extends HTMLElement {
 
   constructor() {
     super()
-    
+
     // State
     this.rootPath = '/'
     this.showHidden = false
     this.expandedPaths = new Set()
     this.selectedPath = null
     this.editingPath = null
-    
+
     // File tree data: Map<path, {name, type, size, children: []}>
     this.fileTree = new Map()
-    
+
     // Containers
     this.toolbar = null
     this.treeContainer = null
     this.statusBar = null
-    this.modal = null
-    
+
     // Decoder for fs plugin responses
     this.decoder = new TextDecoder()
   }
@@ -86,17 +87,6 @@ export class ViewFiles extends HTMLElement {
           </table>
         </div>
         <div data-element="status" class="files-status"></div>
-        <div data-element="modal" class="files-modal" style="display: none;">
-          <div class="files-modal-backdrop"></div>
-          <div class="files-modal-content">
-            <div class="files-modal-header">
-              <span class="files-modal-title" data-element="modal-title">File</span>
-              <button class="files-modal-close" data-action="modal-close">&times;</button>
-            </div>
-            <div class="files-modal-body" data-element="modal-body"></div>
-            <div class="files-modal-footer" data-element="modal-footer"></div>
-          </div>
-        </div>
       `
     }
 
@@ -106,10 +96,6 @@ export class ViewFiles extends HTMLElement {
     this.treeBody = this.querySelector('[data-element="tree-body"]')
     this.statusBar = this.querySelector('[data-element="status"]')
     this.pathDisplay = this.querySelector('[data-element="path-display"]')
-    this.modal = this.querySelector('[data-element="modal"]')
-    this.modalTitle = this.querySelector('[data-element="modal-title"]')
-    this.modalBody = this.querySelector('[data-element="modal-body"]')
-    this.modalFooter = this.querySelector('[data-element="modal-footer"]')
 
     // Parse attributes
     this.rootPath = this.getAttribute('data-root') || '/'
@@ -156,10 +142,6 @@ export class ViewFiles extends HTMLElement {
     this.toolbar?.querySelector('[data-action="new-file"]')?.addEventListener('click', () => this.createFile())
     this.toolbar?.querySelector('[data-action="new-folder"]')?.addEventListener('click', () => this.createFolder())
     this.toolbar?.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelected())
-
-    // Modal close
-    this.modal?.querySelector('[data-action="modal-close"]')?.addEventListener('click', () => this.closeModal())
-    this.modal?.querySelector('.files-modal-backdrop')?.addEventListener('click', () => this.closeModal())
 
     // Tree clicks delegated
     this.treeBody?.addEventListener('click', (e) => this.handleTreeClick(e))
@@ -219,12 +201,6 @@ export class ViewFiles extends HTMLElement {
         this.selectPrevious()
         e.preventDefault()
         break
-      case 'Escape':
-        if (this.modal?.style.display !== 'none') {
-          this.closeModal()
-          e.preventDefault()
-        }
-        break
     }
   }
 
@@ -248,7 +224,7 @@ export class ViewFiles extends HTMLElement {
       this.updatePathDisplay()
       this.updateStatus()
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`)
+      toast.error(error.message)
       console.error('ViewFiles refresh error:', error)
     }
   }
@@ -268,7 +244,7 @@ export class ViewFiles extends HTMLElement {
 
       const fullPath = dirPath === '/' ? `/${name}` : `${dirPath}/${name}`
       const statResult = await this.fsCall('stat', fullPath)
-      
+
       let info = { name, path: fullPath, type: 'file', size: 0 }
       if (statResult.returnCode === 0) {
         const stat = JSON.parse(this.decoder.decode(statResult.output))
@@ -314,7 +290,7 @@ export class ViewFiles extends HTMLElement {
 
       const fullPath = `${dirPath}/${name}`
       const statResult = await this.fsCall('stat', fullPath)
-      
+
       let info = { name, path: fullPath, type: 'file', size: 0 }
       if (statResult.returnCode === 0) {
         const stat = JSON.parse(this.decoder.decode(statResult.output))
@@ -352,7 +328,7 @@ export class ViewFiles extends HTMLElement {
   renderItems(items, depth) {
     for (const item of items) {
       this.renderRow(item, depth)
-      
+
       // Render children if expanded
       if (item.type === 'directory' && this.expandedPaths.has(item.path) && item.children) {
         this.renderItems(item.children, depth + 1)
@@ -376,7 +352,7 @@ export class ViewFiles extends HTMLElement {
     // Name column with indent, chevron, and icon
     const tdName = document.createElement('td')
     tdName.className = 'files-col-name'
-    
+
     const indent = document.createElement('span')
     indent.className = 'files-indent'
     indent.style.width = `${depth * 20}px`
@@ -472,7 +448,7 @@ export class ViewFiles extends HTMLElement {
 
   selectPath(path) {
     this.selectedPath = path
-    
+
     // Update UI
     this.treeBody?.querySelectorAll('.files-row').forEach(row => {
       row.classList.toggle('selected', row.dataset.path === path)
@@ -554,7 +530,7 @@ export class ViewFiles extends HTMLElement {
   // --- File Operations ---
 
   async createFile() {
-    const name = prompt('Enter file name:')
+    const name = await this.promptForName('New File', 'Enter file name')
     if (!name) return
 
     const parentPath = this.selectedPath && this.findItem(this.selectedPath)?.type === 'directory'
@@ -564,19 +540,15 @@ export class ViewFiles extends HTMLElement {
     const filePath = parentPath === '/' ? `/${name}` : `${parentPath}/${name}`
 
     try {
-      // Create empty file using write with path + null byte + empty content
-      const pathBytes = new TextEncoder().encode(filePath)
-      const payload = new Uint8Array(pathBytes.length + 1) // +1 for null byte
-      payload.set(pathBytes, 0)
-      payload[pathBytes.length] = 0 // null byte, no content after
-
+      // Create empty file
+      const payload = createWriteInput(filePath, '')
       const result = await this.fsCall('write', payload)
       if (result.returnCode !== 0) {
         throw new Error(this.decoder.decode(result.output))
       }
 
-      this.setStatus(`Created ${name}`)
-      
+      toast.success(`Created ${name}`)
+
       // Expand parent and refresh
       if (parentPath !== this.rootPath) {
         this.expandedPaths.add(parentPath)
@@ -584,13 +556,13 @@ export class ViewFiles extends HTMLElement {
       await this.refresh()
       this.selectPath(filePath)
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`)
+      toast.error(error.message)
       console.error('Create file error:', error)
     }
   }
 
   async createFolder() {
-    const name = prompt('Enter folder name:')
+    const name = await this.promptForName('New Folder', 'Enter folder name')
     if (!name) return
 
     const parentPath = this.selectedPath && this.findItem(this.selectedPath)?.type === 'directory'
@@ -605,8 +577,8 @@ export class ViewFiles extends HTMLElement {
         throw new Error(this.decoder.decode(result.output))
       }
 
-      this.setStatus(`Created folder ${name}`)
-      
+      toast.success(`Created folder ${name}`)
+
       // Expand parent and refresh
       if (parentPath !== this.rootPath) {
         this.expandedPaths.add(parentPath)
@@ -614,14 +586,14 @@ export class ViewFiles extends HTMLElement {
       await this.refresh()
       this.selectPath(folderPath)
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`)
+      toast.error(error.message)
       console.error('Create folder error:', error)
     }
   }
 
   async deleteSelected() {
     if (!this.selectedPath) {
-      this.setStatus('Nothing selected')
+      toast.warning('Nothing selected')
       return
     }
 
@@ -629,11 +601,12 @@ export class ViewFiles extends HTMLElement {
     if (!item) return
 
     const isFolder = item.type === 'directory'
-    const confirmMsg = isFolder 
+    const confirmMsg = isFolder
       ? `Delete folder "${item.name}" and all its contents?`
       : `Delete file "${item.name}"?`
 
-    if (!confirm(confirmMsg)) return
+    const confirmed = await toast.confirm(confirmMsg)
+    if (!confirmed) return
 
     try {
       if (isFolder) {
@@ -646,11 +619,11 @@ export class ViewFiles extends HTMLElement {
         }
       }
 
-      this.setStatus(`Deleted ${item.name}`)
+      toast.success(`Deleted ${item.name}`)
       this.selectedPath = null
       await this.refresh()
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`)
+      toast.error(error.message)
       console.error('Delete error:', error)
     }
   }
@@ -660,7 +633,7 @@ export class ViewFiles extends HTMLElement {
     if (statResult.returnCode !== 0) return
 
     const stat = JSON.parse(this.decoder.decode(statResult.output))
-    
+
     if (stat.type === 'directory') {
       // List and delete children first
       const listResult = await this.fsCall('list', path)
@@ -694,7 +667,7 @@ export class ViewFiles extends HTMLElement {
     input.type = 'text'
     input.className = 'files-rename-input'
     input.value = item.name
-    
+
     nameSpan.textContent = ''
     nameSpan.appendChild(input)
     input.focus()
@@ -754,12 +727,7 @@ export class ViewFiles extends HTMLElement {
         }
 
         // Write to new path
-        const pathBytes = new TextEncoder().encode(newPath)
-        const payload = new Uint8Array(pathBytes.length + 1 + readResult.output.length)
-        payload.set(pathBytes, 0)
-        payload[pathBytes.length] = 0
-        payload.set(readResult.output, pathBytes.length + 1)
-
+        const payload = createWriteInput(newPath, readResult.output)
         const writeResult = await this.fsCall('write', payload)
         if (writeResult.returnCode !== 0) {
           throw new Error(this.decoder.decode(writeResult.output))
@@ -775,12 +743,12 @@ export class ViewFiles extends HTMLElement {
         await this.fsCall('rmdir', this.editingPath)
       }
 
-      this.setStatus(`Renamed to ${newName}`)
+      toast.success(`Renamed to ${newName}`)
       this.editingPath = null
       await this.refresh()
       this.selectPath(newPath)
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`)
+      toast.error(error.message)
       console.error('Rename error:', error)
       this.cancelRename()
     }
@@ -794,7 +762,7 @@ export class ViewFiles extends HTMLElement {
 
     const handler = getHandler(item.name)
     if (!handler.canPreview && !handler.canEdit) {
-      this.setStatus(`No preview available for ${item.name}`)
+      toast(`No preview available for ${item.name}`)
       return
     }
 
@@ -808,14 +776,14 @@ export class ViewFiles extends HTMLElement {
       const content = result.output
       this.showModal(item, content, handler)
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`)
+      toast.error(error.message)
       console.error('Open file error:', error)
     }
   }
 
   openSelected() {
     if (!this.selectedPath) return
-    
+
     const item = this.findItem(this.selectedPath)
     if (!item) return
 
@@ -826,20 +794,61 @@ export class ViewFiles extends HTMLElement {
     }
   }
 
-  // --- Modal ---
+  // --- Modal (using view-popup) ---
 
   showModal(fileInfo, content, handler) {
-    if (!this.modal) return
+    const popupManager = document.querySelector('popup-manager')
+    if (!popupManager) {
+      toast.error('Popup manager not found')
+      return
+    }
 
-    this.modalTitle.textContent = fileInfo.name
-    this.modalBody.innerHTML = ''
-    this.modalFooter.innerHTML = ''
+    const popup = document.createElement('view-popup')
+    popup.setAttribute('size', 'large')
 
-    // Let handler render content
+    // Title
+    const titleEl = document.createElement('h2')
+    titleEl.slot = 'title'
+    titleEl.className = 'popup-title'
+    titleEl.textContent = fileInfo.name
+    popup.appendChild(titleEl)
+
+    // Content container
+    const contentContainer = document.createElement('div')
+    contentContainer.className = 'file-modal-content'
+
     if (handler.canEdit) {
-      const saveCallback = handler.edit(content, this.modalBody, fileInfo)
-      
-      // Add save button
+      const saveCallback = handler.edit(content, contentContainer, fileInfo)
+
+      // Handle Ctrl+S from text-handler
+      contentContainer.addEventListener('save-requested', async () => {
+        try {
+          const newContent = saveCallback()
+          await this.saveFile(fileInfo.path, newContent)
+          toast.success(`Saved ${fileInfo.name}`)
+          popup.close()
+          await this.refresh()
+        } catch (error) {
+          toast.error(error.message)
+        }
+      })
+
+      // Button container
+      const buttonContainer = document.createElement('div')
+      buttonContainer.style.cssText = `
+        display: flex;
+        gap: var(--spacing-scale-2);
+        justify-content: flex-end;
+        margin-top: var(--spacing-scale-3);
+        padding-top: var(--spacing-scale-3);
+        border-top: 1px solid var(--color-semantic-border-default);
+      `
+
+      const cancelBtn = document.createElement('button')
+      cancelBtn.className = 'button-secondary'
+      cancelBtn.textContent = 'Cancel'
+      cancelBtn.onclick = () => popup.close()
+
       const saveBtn = document.createElement('button')
       saveBtn.className = 'button-primary'
       saveBtn.textContent = 'Save'
@@ -847,56 +856,122 @@ export class ViewFiles extends HTMLElement {
         try {
           const newContent = saveCallback()
           await this.saveFile(fileInfo.path, newContent)
-          this.setStatus(`Saved ${fileInfo.name}`)
-          this.closeModal()
+          toast.success(`Saved ${fileInfo.name}`)
+          popup.close()
           await this.refresh()
         } catch (error) {
-          this.setStatus(`Error: ${error.message}`)
+          toast.error(error.message)
         }
       }
-      this.modalFooter.appendChild(saveBtn)
 
-      const cancelBtn = document.createElement('button')
-      cancelBtn.className = 'button-secondary'
-      cancelBtn.textContent = 'Cancel'
-      cancelBtn.onclick = () => this.closeModal()
-      this.modalFooter.appendChild(cancelBtn)
+      buttonContainer.appendChild(cancelBtn)
+      buttonContainer.appendChild(saveBtn)
+
+      popup.appendChild(contentContainer)
+      popup.appendChild(buttonContainer)
     } else if (handler.canPreview) {
-      handler.preview(content, this.modalBody, fileInfo)
-      
+      handler.preview(content, contentContainer, fileInfo)
+
+      const buttonContainer = document.createElement('div')
+      buttonContainer.style.cssText = `
+        display: flex;
+        justify-content: flex-end;
+        margin-top: var(--spacing-scale-3);
+      `
+
       const closeBtn = document.createElement('button')
       closeBtn.className = 'button-secondary'
       closeBtn.textContent = 'Close'
-      closeBtn.onclick = () => this.closeModal()
-      this.modalFooter.appendChild(closeBtn)
+      closeBtn.onclick = () => popup.close()
+
+      buttonContainer.appendChild(closeBtn)
+      popup.appendChild(contentContainer)
+      popup.appendChild(buttonContainer)
     }
 
-    this.modal.style.display = 'flex'
-  }
-
-  closeModal() {
-    if (this.modal) {
-      this.modal.style.display = 'none'
-      this.modalBody.innerHTML = ''
-      this.modalFooter.innerHTML = ''
-    }
+    popupManager.appendChild(popup)
   }
 
   async saveFile(path, content) {
-    const pathBytes = new TextEncoder().encode(path)
-    const contentBytes = typeof content === 'string' 
-      ? new TextEncoder().encode(content)
-      : content
-
-    const payload = new Uint8Array(pathBytes.length + 1 + contentBytes.length)
-    payload.set(pathBytes, 0)
-    payload[pathBytes.length] = 0
-    payload.set(contentBytes, pathBytes.length + 1)
-
+    const payload = createWriteInput(path, content)
     const result = await this.fsCall('write', payload)
     if (result.returnCode !== 0) {
       throw new Error(this.decoder.decode(result.output))
     }
+  }
+
+  /**
+   * Show a popup dialog to get a name from the user
+   * @param {string} title - Dialog title
+   * @param {string} placeholder - Input placeholder text
+   * @returns {Promise<string|null>} The entered name or null if cancelled
+   */
+  async promptForName(title, placeholder = '') {
+    return new Promise((resolve) => {
+      const popupManager = document.querySelector('popup-manager')
+      if (!popupManager) {
+        toast.error('Popup manager not found')
+        resolve(null)
+        return
+      }
+
+      const popup = document.createElement('view-popup')
+      popup.setAttribute('size', 'small')
+
+      // Title
+      const titleEl = document.createElement('h3')
+      titleEl.slot = 'title'
+      titleEl.textContent = title
+      popup.appendChild(titleEl)
+
+      // Input container
+      const container = document.createElement('div')
+      container.style.cssText = 'display: flex; flex-direction: column; gap: var(--spacing-scale-3);'
+
+      const input = document.createElement('input')
+      input.type = 'text'
+      input.placeholder = placeholder
+      input.className = 'input'
+      input.style.width = '100%'
+      container.appendChild(input)
+
+      // Buttons
+      const buttonContainer = document.createElement('div')
+      buttonContainer.style.cssText = 'display: flex; gap: var(--spacing-scale-2); justify-content: flex-end;'
+
+      const cancelBtn = document.createElement('button')
+      cancelBtn.className = 'button-secondary'
+      cancelBtn.textContent = 'Cancel'
+      cancelBtn.onclick = () => { popup.close(); resolve(null) }
+
+      const createBtn = document.createElement('button')
+      createBtn.className = 'button-primary'
+      createBtn.textContent = 'Create'
+      createBtn.onclick = () => {
+        const value = input.value.trim()
+        popup.close()
+        resolve(value || null)
+      }
+
+      // Enter key submits, Escape cancels
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          createBtn.click()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          cancelBtn.click()
+        }
+      })
+
+      buttonContainer.appendChild(cancelBtn)
+      buttonContainer.appendChild(createBtn)
+      container.appendChild(buttonContainer)
+      popup.appendChild(container)
+      popupManager.appendChild(popup)
+
+      setTimeout(() => input.focus(), 100)
+    })
   }
 
   // --- UI Helpers ---
@@ -910,9 +985,9 @@ export class ViewFiles extends HTMLElement {
   updateStatus() {
     const rootChildren = this.fileTree.get(this.rootPath) || []
     const totalItems = this.countItems(rootChildren)
-    
+
     let statusText = `${totalItems} item${totalItems !== 1 ? 's' : ''}`
-    
+
     if (this.selectedPath) {
       const item = this.findItem(this.selectedPath)
       if (item && item.type !== 'directory') {
