@@ -794,12 +794,24 @@ export class ViewFiles extends HTMLElement {
     const row = e.target.closest('.files-row')
     if (!row) return
 
-    // Only allow dropping on directories
-    if (row.dataset.type !== 'directory') return
-
-    // Don't allow dropping on self or into a child of self
+    // Don't allow dropping on self
     if (row.dataset.path === this.draggedPath) return
-    if (row.dataset.path.startsWith(this.draggedPath + '/')) return
+
+    // Determine target folder: the row itself if it's a folder, or the parent folder if it's a file
+    let targetDir
+    if (row.dataset.type === 'directory') {
+      targetDir = row.dataset.path
+    } else {
+      // Get parent folder of the file
+      targetDir = row.dataset.path.substring(0, row.dataset.path.lastIndexOf('/')) || '/'
+    }
+
+    // Don't allow dropping into a child of self (for folders)
+    if (targetDir.startsWith(this.draggedPath + '/')) return
+
+    // Don't highlight if already in the same folder
+    const sourceParent = this.draggedPath.substring(0, this.draggedPath.lastIndexOf('/')) || '/'
+    if (targetDir === sourceParent) return
 
     // Clear previous drop target
     this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
@@ -828,21 +840,42 @@ export class ViewFiles extends HTMLElement {
     const row = e.target.closest('.files-row')
     if (!row || !this.draggedPath) return
 
-    // Only allow dropping on directories
-    if (row.dataset.type !== 'directory') return
+    // Don't allow dropping on self
+    if (row.dataset.path === this.draggedPath) {
+      this.draggedPath = null
+      return
+    }
 
-    const targetPath = row.dataset.path
+    // Determine target folder: the row itself if it's a folder, or the parent folder if it's a file
+    let targetDir
+    if (row.dataset.type === 'directory') {
+      targetDir = row.dataset.path
+    } else {
+      // Get parent folder of the file
+      targetDir = row.dataset.path.substring(0, row.dataset.path.lastIndexOf('/')) || '/'
+    }
+
     const sourcePath = this.draggedPath
 
-    // Don't allow dropping on self or into a child
-    if (targetPath === sourcePath) return
-    if (targetPath.startsWith(sourcePath + '/')) return
+    // Don't allow dropping into a child of self
+    if (targetDir.startsWith(sourcePath + '/')) {
+      this.draggedPath = null
+      return
+    }
+
+    // Don't move if already in the same folder
+    const sourceParent = sourcePath.substring(0, sourcePath.lastIndexOf('/')) || '/'
+    if (targetDir === sourceParent) {
+      this.draggedPath = null
+      row.classList.remove('drop-target')
+      return
+    }
 
     // Clean up UI
     row.classList.remove('drop-target')
     this.draggedPath = null
 
-    await this.moveFile(sourcePath, targetPath)
+    await this.moveFile(sourcePath, targetDir)
   }
 
   // --- Drag and Drop (Container - Root drop zone for internal + external) ---
@@ -850,15 +883,16 @@ export class ViewFiles extends HTMLElement {
   handleExternalDragOver(e) {
     const row = e.target.closest('.files-row')
 
-    // Internal drag - allow dropping on empty area (root) or folders
+    // Internal drag - allow dropping on empty area (root)
     if (this.draggedPath) {
-      // If over a folder row, let the row handler deal with it
-      if (row?.dataset.type === 'directory') return
-
-      // If over a file row, don't allow drop
+      // If over any row, let the row handler deal with it
       if (row) return
 
       // Dropping on empty area = move to root
+      // But only if not already in root
+      const sourceParent = this.draggedPath.substring(0, this.draggedPath.lastIndexOf('/')) || '/'
+      if (sourceParent === this.rootPath) return
+
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
       this.treeContainer?.classList.add('drop-zone-active')
@@ -873,8 +907,8 @@ export class ViewFiles extends HTMLElement {
     e.dataTransfer.dropEffect = 'copy'
     this.treeContainer?.classList.add('drop-zone-active')
 
-    // Highlight specific folder if hovering over one
-    if (row?.dataset.type === 'directory') {
+    // Highlight row if hovering over one (will upload to that folder, or file's parent folder)
+    if (row) {
       this.treeBody?.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'))
       row.classList.add('drop-target')
     }
@@ -895,16 +929,10 @@ export class ViewFiles extends HTMLElement {
 
     const row = e.target.closest('.files-row')
 
-    // Internal drag - move to root
+    // Internal drag - move to root (only when dropped on empty area)
     if (this.draggedPath) {
-      // If dropped on a folder row, let the row handler deal with it (already handled)
-      if (row?.dataset.type === 'directory') return
-
-      // If dropped on a file row, ignore
-      if (row) {
-        this.draggedPath = null
-        return
-      }
+      // If dropped on any row, let the row handler deal with it
+      if (row) return
 
       // Move to root
       const sourcePath = this.draggedPath
@@ -924,9 +952,16 @@ export class ViewFiles extends HTMLElement {
     if (!e.dataTransfer.files.length) return
 
     // Determine destination directory
+    // If dropped on a folder, use that folder
+    // If dropped on a file, use that file's parent folder
+    // Otherwise use root
     let destDir = this.rootPath
-    if (row?.dataset.type === 'directory') {
-      destDir = row.dataset.path
+    if (row) {
+      if (row.dataset.type === 'directory') {
+        destDir = row.dataset.path
+      } else {
+        destDir = row.dataset.path.substring(0, row.dataset.path.lastIndexOf('/')) || '/'
+      }
     }
 
     // Upload all dropped files
