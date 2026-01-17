@@ -20,10 +20,10 @@ export class FsAdapter {
 
   /**
    * Start the filesystem adapter
-   * @param {FileSystemDirectoryHandle} rootHandle - OPFS root or custom directory
+   * Uses OPFS (Origin Private File System) - the worker obtains the root handle internally
    * @returns {Promise<FsAdapter>}
    */
-  static async start(rootHandle) {
+  static async start() {
     // Check for SharedArrayBuffer support
     if (typeof SharedArrayBuffer === 'undefined') {
       throw new Error('SharedArrayBuffer not available. Ensure COOP/COEP headers are set.')
@@ -52,8 +52,8 @@ export class FsAdapter {
         reject(err)
       }
 
-      // Send init message with SAB and root handle
-      worker.postMessage(['init', sab, rootHandle])
+      // Send init message with SAB only (worker gets OPFS root internally)
+      worker.postMessage(['init', sab])
     })
 
     return new FsAdapter(messenger)

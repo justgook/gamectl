@@ -42,19 +42,12 @@ function error(message) {
 
 /**
  * Initialize the filesystem
- * @param {FileSystemDirectoryHandle} dir - OPFS root or custom directory handle
+ * Uses OPFS (Origin Private File System) as the storage backend
  * @returns {Promise<FsAdapter>}
  */
-export async function create(dir) {
-  if (!dir) {
-    // Use OPFS root if no directory provided
-    if (!navigator.storage || !navigator.storage.getDirectory) {
-      throw new Error('OPFS not available in this browser')
-    }
-    dir = await navigator.storage.getDirectory()
-  }
-  
-  fs = await FsAdapter.start(dir)
+export async function create() {
+  // Worker will obtain OPFS root internally to avoid handle cloning issues (Safari)
+  fs = await FsAdapter.start()
   return fs
 }
 
