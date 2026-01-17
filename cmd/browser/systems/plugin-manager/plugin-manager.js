@@ -664,4 +664,9 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = { PluginManager };
 } else if (typeof window !== 'undefined') {
   window.PluginManager = PluginManager;
+} else if (typeof self !== 'undefined') {
+  self.PluginManager = PluginManager;
 }
+
+// ES module export
+export { PluginManager }
