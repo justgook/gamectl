@@ -1440,6 +1440,23 @@ view-files {
   color: var(--color-semantic-text-tertiary, #666680);
 }
 
+/* Drag and drop states */
+.files-row.dragging {
+  opacity: 0.5;
+}
+
+.files-row.drop-target {
+  background: var(--color-semantic-bg-accent, #3a3a8c) !important;
+  outline: 2px dashed var(--color-semantic-border-accent, #6b6bff);
+  outline-offset: -2px;
+}
+
+.files-tree-container.drop-zone-active {
+  background: var(--color-semantic-bg-tertiary, #1a1a2e);
+  outline: 2px dashed var(--color-semantic-border-accent, #6b6bff);
+  outline-offset: -4px;
+}
+
 /* ========================================================================== */
 /* FILE PREVIEW/EDIT STYLES */
 /* ========================================================================== */
