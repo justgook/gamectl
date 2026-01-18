@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Decode a QOI file given as an ArrayBuffer.
  *
@@ -147,4 +145,4 @@ function decode (arrayBuffer, byteOffset, byteLength, outputChannels) {
     };
 }
 
-module.exports = decode;
+export default decode;

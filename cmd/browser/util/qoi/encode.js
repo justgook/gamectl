@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Encode a QOI file.
  *
@@ -177,4 +175,4 @@ function encode (colorData, description) {
     return result.buffer.slice(0, p);
 }
 
-module.exports = encode;
+export default encode;
