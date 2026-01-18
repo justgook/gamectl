@@ -7,6 +7,7 @@ import { getHandler, getAllHandlers } from './files/file-handlers.js'
 import './files/handlers/default-handler.js'
 import './files/handlers/text-handler.js'
 import './files/handlers/image-handler.js'
+import './files/handlers/qoi-handler.js'
 
 /**
  * ViewFiles - macOS Finder-style file browser with tree view
