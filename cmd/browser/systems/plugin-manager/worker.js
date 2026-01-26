@@ -68,7 +68,8 @@ async function handleInit(id) {
     // sprite tools
     'image-process',
     'sprite-detect',
-    'sprite-pack'
+    'sprite-pack',
+    'tile-detect'
   ];
 
   // Initialize OPFS-based filesystem (worker obtains root internally)
