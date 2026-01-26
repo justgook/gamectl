@@ -115,8 +115,7 @@ export class ViewTileExtractor extends ViewCanvasBase {
           Output Directory:
           <input type="text" id="outputDir" value="${this.outputDir || '/tiles'}" style="width: 100%">
         </label>
-        <button id="saveBtn" class="primary full-width" disabled>Save Tilebank</button>
-        <button id="saveTilesetBtn" class="full-width" disabled>Save Tileset</button>
+        <button id="saveTilesetBtn" class="primary full-width" disabled>Save Tileset</button>
         <button id="saveTilemapBtn" class="full-width" disabled>Save Tilemap JSON</button>
         <button id="saveToStorageBtn" class="full-width" disabled>Save to Tilemap Storage</button>
       </div>
@@ -315,10 +314,6 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
     this.sidePanel.querySelector('#outputDir').addEventListener('change', (e) => {
       this.outputDir = e.target.value
-    })
-
-    this.sidePanel.querySelector('#saveBtn').addEventListener('click', () => {
-      this.saveTilebank()
     })
 
     this.sidePanel.querySelector('#saveTilesetBtn').addEventListener('click', () => {
@@ -537,7 +532,6 @@ export class ViewTileExtractor extends ViewCanvasBase {
         path: this.sourcePath,
         tileW: this.tileW,
         tileH: this.tileH,
-        outputDir: '/tmp/tiles',
         tolerance: this.tolerance,
         skipNthPixel: 1
       })
@@ -560,7 +554,6 @@ export class ViewTileExtractor extends ViewCanvasBase {
       this.draw()
 
       // Enable save buttons
-      this.sidePanel.querySelector('#saveBtn').disabled = false
       this.sidePanel.querySelector('#saveTilesetBtn').disabled = false
       this.sidePanel.querySelector('#saveTilemapBtn').disabled = false
       this.sidePanel.querySelector('#saveToStorageBtn').disabled = false
@@ -599,35 +592,38 @@ export class ViewTileExtractor extends ViewCanvasBase {
     }
   }
 
-  async updateTilebankPreview() {
+  updateTilebankPreview() {
     const grid = this.sidePanel.querySelector('.tilebank-grid')
     grid.innerHTML = ''
+
+    if (!this.sourceImage || !this.tilemap) return
+
+    // Create an offscreen canvas to extract tiles from source image
+    const sourceCanvas = new OffscreenCanvas(this.sourceWidth, this.sourceHeight)
+    const sourceCtx = sourceCanvas.getContext('2d')
+    sourceCtx.drawImage(this.sourceImage, 0, 0)
+
+    const cols = this.tilemap.width
 
     for (const tile of this.tilebank) {
       const item = document.createElement('div')
       item.className = 'tilebank-item'
 
-      // Load tile image
-      try {
-        const result = await window.pluginManager.call('fs', 'read', tile.path)
-        if (result.returnCode === 0) {
-          const decoded = decodeQOI(result.output.buffer)
-          const imageData = new ImageData(
-            new Uint8ClampedArray(decoded.data.buffer),
-            decoded.width,
-            decoded.height
-          )
+      // Calculate tile position from sourceIndex
+      const tileX = tile.sourceIndex % cols
+      const tileY = Math.floor(tile.sourceIndex / cols)
+      const srcX = tileX * this.tileW
+      const srcY = tileY * this.tileH
 
-          const canvas = document.createElement('canvas')
-          canvas.width = decoded.width
-          canvas.height = decoded.height
-          canvas.getContext('2d').putImageData(imageData, 0, 0)
+      // Extract tile from source image
+      const tileData = sourceCtx.getImageData(srcX, srcY, this.tileW, this.tileH)
 
-          item.appendChild(canvas)
-        }
-      } catch (e) {
-        // Ignore
-      }
+      const canvas = document.createElement('canvas')
+      canvas.width = this.tileW
+      canvas.height = this.tileH
+      canvas.getContext('2d').putImageData(tileData, 0, 0)
+
+      item.appendChild(canvas)
 
       const idLabel = document.createElement('span')
       idLabel.className = 'tile-id'
@@ -643,39 +639,6 @@ export class ViewTileExtractor extends ViewCanvasBase {
     }
   }
 
-  async saveTilebank() {
-    if (!this.tilebank.length) return
-
-    try {
-      // Create output directory
-      await window.pluginManager.call('fs', 'mkdir', this.outputDir)
-
-      // Copy tiles to output directory
-      for (const tile of this.tilebank) {
-        const readResult = await window.pluginManager.call('fs', 'read', tile.path)
-        if (readResult.returnCode === 0) {
-          const outPath = `${this.outputDir}/tile_${String(tile.id).padStart(3, '0')}.qoi`
-          const pathBytes = new TextEncoder().encode(outPath)
-          const writeInput = new Uint8Array(pathBytes.length + 1 + readResult.output.length)
-          writeInput.set(pathBytes)
-          writeInput[pathBytes.length] = 0
-          writeInput.set(readResult.output, pathBytes.length + 1)
-
-          await window.pluginManager.call('fs', 'write', writeInput)
-        }
-      }
-
-      bus.emit('toast:show', {
-        message: `Saved ${this.tilebank.length} tiles to ${this.outputDir}`,
-        type: 'success'
-      })
-
-    } catch (err) {
-      console.error('[tile-extractor] Save failed:', err)
-      bus.emit('toast:show', { message: `Save failed: ${err.message}`, type: 'error' })
-    }
-  }
-
   async saveTileset() {
     if (!this.tilebank.length || !this.tilemap) return
 
@@ -686,6 +649,8 @@ export class ViewTileExtractor extends ViewCanvasBase {
       const tilesetPath = `${this.outputDir}/tileset.qoi`
       const input = JSON.stringify({
         tilebank: this.tilebank,
+        sourcePath: this.sourcePath,
+        sourceCols: this.tilemap.width,
         tileW: this.tilemap.tileW,
         tileH: this.tilemap.tileH,
         outputPath: tilesetPath
