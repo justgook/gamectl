@@ -24,6 +24,10 @@ import { ViewOPRUnitBuilder } from "./views/view-opr-unit-builder.js"
 import { ViewSkeleton } from "./views/view-skeleton.js"
 import "./views/view-timeline.js"
 
+// Sprite tools
+import "./views/sprite-extractor/view-sprite-extractor.js" // Self-registers
+import "./views/sprite-packer/view-sprite-packer.js" // Self-registers
+
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
 import { PluginManagerProxy } from "./systems/plugin-manager/proxy.js"

@@ -7,17 +7,17 @@ Implementation plan for sprite and image processing tools, inspired by [ShoeBox]
 ## Progress Tracker
 
 ### Phase 1: Foundation (P0)
-- [ ] 1.1 QOI codec in Go for WASM plugins
-- [ ] 1.2 `image-process` plugin - core image manipulation
-- [ ] 1.3 FS integration for image storage in plugins
+- [x] 1.1 QOI codec in Go for WASM plugins (existing: `pkg/qoi/`)
+- [x] 1.2 `image-process` plugin - core image manipulation
+- [x] 1.3 FS integration for image storage in plugins (existing: `fs` host functions)
 
 ### Phase 2: Sprite Detection (P1)
-- [ ] 2.1 `sprite-detect` plugin - blob detection algorithm
-- [ ] 2.2 `view-sprite-extractor` - interactive extraction UI
+- [x] 2.1 `sprite-detect` plugin - blob detection algorithm
+- [x] 2.2 `view-sprite-extractor` - interactive extraction UI
 - [ ] 2.3 File handler for viewing extracted sprites
 
 ### Phase 3: Atlas Packing (P1)
-- [ ] 3.1 `sprite-pack` plugin - bin packing algorithm
+- [x] 3.1 `sprite-pack` plugin - bin packing algorithm
 - [ ] 3.2 `view-sprite-packer` - atlas creation UI
 - [ ] 3.3 Atlas metadata format and export
 
