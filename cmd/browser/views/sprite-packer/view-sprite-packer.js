@@ -1,6 +1,7 @@
 import { ViewCanvasBase } from "../view-canvas-base.js"
 import { bus } from "../../systems/event-bus.js"
 import { decode as decodeQOI } from "../../util/qoi/decode.js"
+import { ViewFiles } from "../view-files.js"
 
 /**
  * Sprite Packer View
@@ -69,10 +70,6 @@ export class ViewSpritePacker extends ViewCanvasBase {
       <div class="panel-section">
         <h4>Input Sprites</h4>
         <div class="sprite-input-list"></div>
-        <div class="button-row">
-          <button id="addSpritesBtn">+ Add Sprites</button>
-          <button id="clearSpritesBtn">Clear</button>
-        </div>
         <div id="spriteInputCount">0 sprites</div>
       </div>
       
@@ -298,19 +295,6 @@ export class ViewSpritePacker extends ViewCanvasBase {
       this.options.cropAlpha = e.target.checked
     })
     
-    // Add sprites button (file picker simulation)
-    this.sidePanel.querySelector('#addSpritesBtn').addEventListener('click', async () => {
-      const path = prompt('Enter sprite path or directory:')
-      if (path) {
-        await this.addSpritePath(path)
-      }
-    })
-    
-    // Clear button
-    this.sidePanel.querySelector('#clearSpritesBtn').addEventListener('click', () => {
-      this.clearSprites()
-    })
-    
     // Pack button
     this.sidePanel.querySelector('#packBtn').addEventListener('click', () => {
       this.packAtlas()
@@ -338,9 +322,68 @@ export class ViewSpritePacker extends ViewCanvasBase {
     // Adjust canvas width
     this.canvas.style.width = 'calc(100% - 240px)'
     
+    // Bind header control buttons
+    this.bindHeaderControls()
+    
     // Load sprites from attribute
     if (this.hasAttribute('data-sprites')) {
       this.loadSpritesFromAttribute(this.getAttribute('data-sprites'))
+    }
+  }
+
+  /**
+   * Bind header control buttons from template
+   */
+  bindHeaderControls() {
+    // Add sprites button - opens file chooser with multi-select
+    const addSpritesBtn = this.queryHeaderControl('[data-action="add-sprites"]')
+    if (addSpritesBtn) {
+      addSpritesBtn.addEventListener('click', () => this.openSpriteChooser())
+    }
+
+    // Clear button
+    const clearBtn = this.queryHeaderControl('[data-action="clear"]')
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => this.clearSprites())
+    }
+
+    // Zoom controls
+    const zoomInBtn = this.queryHeaderControl('[data-action="zoom-in"]')
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => this.zoomIn())
+    }
+
+    const zoomOutBtn = this.queryHeaderControl('[data-action="zoom-out"]')
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', () => this.zoomOut())
+    }
+
+    const zoomFitBtn = this.queryHeaderControl('[data-action="zoom-fit"]')
+    if (zoomFitBtn) {
+      zoomFitBtn.addEventListener('click', () => this.fitToContent())
+    }
+  }
+
+  /**
+   * Open file chooser to select sprite files (multi-select)
+   */
+  async openSpriteChooser() {
+    const result = await ViewFiles.choose({
+      title: 'Select Sprites',
+      filter: '*.png,*.qoi',
+      multiSelect: true,
+      selectFolders: true,
+      root: '/'
+    })
+
+    if (result && result.length > 0) {
+      for (const item of result) {
+        await this.addSpritePath(item.path)
+      }
+      bus.emit('toast:show', { 
+        message: `Added ${result.length} item${result.length > 1 ? 's' : ''}`, 
+        type: 'success' 
+      })
     }
   }
 
