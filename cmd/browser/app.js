@@ -8,7 +8,6 @@ import "./systems/cache.js"
 
 // current
 import { ViewChrome } from "./views/chrome.js"
-import { ViewEmpty } from "./views/view-empty.js"
 import { ViewSplitter } from "./views/view-splitter.js"
 import { LayoutParent } from "./views/layout.js"
 import { ViewTree } from "./views/view-tree.js"
@@ -17,7 +16,6 @@ import { ViewSqlConsole } from "./views/view-sql-console.js"
 import { ViewSqlTable } from "./views/view-sql-table.js"
 import "./views/view-files.js" // Self-registers
 import { ViewTilemap } from "./views/view-tilemap.js"
-import { ViewTesting } from "./views/view-testing.js"
 import { ViewPipeline } from "./views/view-pipeline.js"
 import { ViewNodeGraph } from "./views/view-nodegraph.js"
 import { ViewOPRUnitBuilder } from "./views/view-opr-unit-builder.js"
@@ -53,8 +51,6 @@ import "./views/nodegraph/node-code.js"
 
 //current stuff
 customElements.define('layout-parent', LayoutParent)
-customElements.define('view-empty', ViewEmpty)
-customElements.define('view-testing', ViewTesting)
 customElements.define('view-splitter', ViewSplitter)
 customElements.define('view-tilemap', ViewTilemap)
 customElements.define('view-tree', ViewTree)

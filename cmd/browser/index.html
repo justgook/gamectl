@@ -18,27 +18,6 @@
   </head>
 
   <body>
-    <template id="view-empty">
-      <div style="padding: var(--spacing-scale-3);">Empty panel</div>
-    </template>
-    <template id="view-testing">
-      <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-2); padding: var(--spacing-scale-3);">
-        <button type="button" onclick="console.log('[Plugin] hello world')">Call log</button>
-        <button class="button-secondary" type="button"
-          onclick="this.closest('view-testing').generateWorldgraph()">Create
-          world tree</button>
-        <button class="button-secondary" type="button" onclick="this.closest('view-testing').assignBiomeNames()">Set
-          biome
-          names</button>
-        <button class="button-secondary" type="button" onclick="this.closest('view-testing').getTree()">Get world
-          tree</button>
-        <button class="button-secondary" type="button" onclick="this.closest('view-testing').createMinimap()">Create
-          minimap</button>
-        <button class="button-secondary" type="button" onclick="this.closest('view-testing').getMinimap()">Get
-          minimap</button>
-      </div>
-    </template>
-
     <template id="view-pipeline">
       <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
         <details>
@@ -410,8 +389,6 @@
               <option value="view-console">Console</option>
               <option value="view-sql-console">SQL Console</option>
               <option value="view-files">File Browser</option>
-              <option value="view-empty">Empty</option>
-              <option value="view-testing">Testing</option>
               <option value="view-pipeline">Pipeline</option>
             </optgroup>
             <optgroup label="Sprites">
