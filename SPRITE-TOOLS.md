@@ -18,13 +18,13 @@ Implementation plan for sprite and image processing tools, inspired by [ShoeBox]
 
 ### Phase 3: Atlas Packing (P1)
 - [x] 3.1 `sprite-pack` plugin - bin packing algorithm
-- [ ] 3.2 `view-sprite-packer` - atlas creation UI
-- [ ] 3.3 Atlas metadata format and export
+- [x] 3.2 `view-sprite-packer` - atlas creation UI
+- [x] 3.3 Atlas metadata format and export (JSON in view-sprite-packer)
 
 ### Phase 4: Tile Tools (P2)
-- [ ] 4.1 `tile-detect` plugin - tile detection/deduplication
-- [ ] 4.2 `view-tile-extractor` - tilemap extraction UI
-- [ ] 4.3 Integration with existing tilemap system
+- [x] 4.1 `tile-detect` plugin - tile detection/deduplication
+- [x] 4.2 `view-tile-extractor` - tilemap extraction UI
+- [x] 4.3 Integration with existing tilemap system (via `toTilemap` function + SQL storage)
 
 ### Phase 5: Pivot Editor (P3)
 - [ ] 5.1 `view-pivot-editor` - sprite pivot editing UI
