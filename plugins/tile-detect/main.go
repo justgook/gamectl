@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"math"
 	"sort"
 
 	"github.com/justgook/gamectl/pkg/qoi"
@@ -64,6 +65,24 @@ type TilemapData struct {
 	TileW  int      `json:"tileW"`  // Tile width in pixels
 	TileH  int      `json:"tileH"`  // Tile height in pixels
 	Data   []uint32 `json:"data"`   // Tile indices (row-major)
+}
+
+// ExportTilesetInput for combining tiles into a single tileset image
+type ExportTilesetInput struct {
+	Tilebank   []TileBankEntry `json:"tilebank"`   // Tilebank from extract output
+	TileW      int             `json:"tileW"`      // Tile width in pixels
+	TileH      int             `json:"tileH"`      // Tile height in pixels
+	OutputPath string          `json:"outputPath"` // Output path for tileset image
+}
+
+// ExportTilesetOutput returns tileset generation result
+type ExportTilesetOutput struct {
+	Success bool   `json:"success"`
+	Path    string `json:"path"`   // Path to generated tileset
+	Width   int    `json:"width"`  // Tileset image width in pixels
+	Height  int    `json:"height"` // Tileset image height in pixels
+	Cols    int    `json:"cols"`   // Number of columns in grid
+	Rows    int    `json:"rows"`   // Number of rows in grid
 }
 
 // =============================================================================
@@ -570,6 +589,95 @@ func ToTilemap() int32 {
 	}
 
 	result, _ := json.Marshal(tm)
+	pdk.Output(result)
+	return 0
+}
+
+//go:wasmexport exportTileset
+func ExportTileset() int32 {
+	input := pdk.Input()
+	var params ExportTilesetInput
+	if err := json.Unmarshal(input, &params); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+
+	if len(params.Tilebank) == 0 {
+		pdk.Output(util.ErrorResponse("tilebank is empty"))
+		return 1
+	}
+	if params.TileW <= 0 || params.TileH <= 0 {
+		pdk.Output(util.ErrorResponse("tileW and tileH must be positive"))
+		return 1
+	}
+	if params.OutputPath == "" {
+		params.OutputPath = "/tiles/tileset.qoi"
+	}
+
+	numTiles := len(params.Tilebank)
+
+	// Calculate square-ish grid layout
+	cols := int(math.Ceil(math.Sqrt(float64(numTiles))))
+	rows := int(math.Ceil(float64(numTiles) / float64(cols)))
+
+	// Create tileset image
+	tilesetW := cols * params.TileW
+	tilesetH := rows * params.TileH
+	tileset := image.NewNRGBA(image.Rect(0, 0, tilesetW, tilesetH))
+
+	logMsg(fmt.Sprintf("[tile-detect] Creating tileset %dx%d (%d cols x %d rows) for %d tiles",
+		tilesetW, tilesetH, cols, rows, numTiles))
+
+	// Sort tilebank by ID to ensure correct order
+	sortedTilebank := make([]TileBankEntry, len(params.Tilebank))
+	copy(sortedTilebank, params.Tilebank)
+	sort.Slice(sortedTilebank, func(i, j int) bool {
+		return sortedTilebank[i].ID < sortedTilebank[j].ID
+	})
+
+	// Load and composite each tile
+	for _, tile := range sortedTilebank {
+		// Load tile image
+		tileImg, err := loadImage(tile.Path)
+		if err != nil {
+			pdk.Output(util.ErrorResponse(fmt.Sprintf("failed to load tile %d: %s", tile.ID, err.Error())))
+			return 1
+		}
+
+		// Calculate position in tileset grid (0-based index from 1-based ID)
+		tileIndex := tile.ID - 1
+		destX := (tileIndex % cols) * params.TileW
+		destY := (tileIndex / cols) * params.TileH
+
+		// Copy tile pixels to tileset
+		tileBounds := tileImg.Bounds()
+		for y := 0; y < tileBounds.Dy() && y < params.TileH; y++ {
+			for x := 0; x < tileBounds.Dx() && x < params.TileW; x++ {
+				srcIdx := (y*tileBounds.Dx() + x) * 4
+				dstIdx := ((destY+y)*tilesetW + (destX + x)) * 4
+				copy(tileset.Pix[dstIdx:dstIdx+4], tileImg.Pix[srcIdx:srcIdx+4])
+			}
+		}
+	}
+
+	// Save tileset
+	if err := saveImage(params.OutputPath, tileset); err != nil {
+		pdk.Output(util.ErrorResponse("failed to save tileset: " + err.Error()))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[tile-detect] Saved tileset to %s", params.OutputPath))
+
+	output := ExportTilesetOutput{
+		Success: true,
+		Path:    params.OutputPath,
+		Width:   tilesetW,
+		Height:  tilesetH,
+		Cols:    cols,
+		Rows:    rows,
+	}
+
+	result, _ := json.Marshal(output)
 	pdk.Output(result)
 	return 0
 }

@@ -116,6 +116,7 @@ export class ViewTileExtractor extends ViewCanvasBase {
           <input type="text" id="outputDir" value="${this.outputDir || '/tiles'}" style="width: 100%">
         </label>
         <button id="saveBtn" class="primary full-width" disabled>Save Tilebank</button>
+        <button id="saveTilesetBtn" class="full-width" disabled>Save Tileset</button>
         <button id="saveTilemapBtn" class="full-width" disabled>Save Tilemap JSON</button>
         <button id="saveToStorageBtn" class="full-width" disabled>Save to Tilemap Storage</button>
       </div>
@@ -318,6 +319,10 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
     this.sidePanel.querySelector('#saveBtn').addEventListener('click', () => {
       this.saveTilebank()
+    })
+
+    this.sidePanel.querySelector('#saveTilesetBtn').addEventListener('click', () => {
+      this.saveTileset()
     })
 
     this.sidePanel.querySelector('#saveTilemapBtn').addEventListener('click', () => {
@@ -556,6 +561,7 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
       // Enable save buttons
       this.sidePanel.querySelector('#saveBtn').disabled = false
+      this.sidePanel.querySelector('#saveTilesetBtn').disabled = false
       this.sidePanel.querySelector('#saveTilemapBtn').disabled = false
       this.sidePanel.querySelector('#saveToStorageBtn').disabled = false
 
@@ -670,12 +676,54 @@ export class ViewTileExtractor extends ViewCanvasBase {
     }
   }
 
+  async saveTileset() {
+    if (!this.tilebank.length || !this.tilemap) return
+
+    try {
+      // Create output directory
+      await window.pluginManager.call('fs', 'mkdir', this.outputDir)
+
+      const tilesetPath = `${this.outputDir}/tileset.qoi`
+      const input = JSON.stringify({
+        tilebank: this.tilebank,
+        tileW: this.tilemap.tileW,
+        tileH: this.tilemap.tileH,
+        outputPath: tilesetPath
+      })
+
+      const result = await window.pluginManager.call('tile-detect', 'exportTileset', input)
+      const output = JSON.parse(new TextDecoder().decode(result.output))
+
+      if (!output.success) {
+        throw new Error(output.error || 'Failed to generate tileset')
+      }
+
+      // Store tileset info for later use
+      this.tilesetInfo = {
+        path: output.path,
+        width: output.width,
+        height: output.height,
+        cols: output.cols,
+        rows: output.rows
+      }
+
+      bus.emit('toast:show', {
+        message: `Saved tileset to ${output.path} (${output.cols}x${output.rows} grid)`,
+        type: 'success'
+      })
+
+    } catch (err) {
+      console.error('[tile-extractor] Save tileset failed:', err)
+      bus.emit('toast:show', { message: `Save tileset failed: ${err.message}`, type: 'error' })
+    }
+  }
+
   async saveTilemapJson() {
     if (!this.tilemap) return
 
     try {
       const jsonPath = `${this.outputDir}/tilemap.json`
-      const jsonData = JSON.stringify({
+      const tilemapData = {
         width: this.tilemap.width,
         height: this.tilemap.height,
         tileW: this.tilemap.tileW,
@@ -685,7 +733,15 @@ export class ViewTileExtractor extends ViewCanvasBase {
           id: t.id,
           path: `tile_${String(t.id).padStart(3, '0')}.qoi`
         }))
-      }, null, 2)
+      }
+
+      // Include tileset reference if available
+      if (this.tilesetInfo) {
+        tilemapData.tileset = 'tileset.qoi'
+        tilemapData.tilesetCols = this.tilesetInfo.cols
+      }
+
+      const jsonData = JSON.stringify(tilemapData, null, 2)
 
       const pathBytes = new TextEncoder().encode(jsonPath)
       const dataBytes = new TextEncoder().encode(jsonData)
@@ -716,7 +772,17 @@ export class ViewTileExtractor extends ViewCanvasBase {
       })
 
       const result = await window.pluginManager.call('tile-detect', 'toTilemap', input)
-      const tilemapJson = new TextDecoder().decode(result.output)
+      const tilemapData = JSON.parse(new TextDecoder().decode(result.output))
+
+      // Add tileset reference to layer props if tileset was generated
+      if (this.tilesetInfo && tilemapData.layers && tilemapData.layers.length > 0) {
+        tilemapData.layers[0].props = tilemapData.layers[0].props || {}
+        tilemapData.layers[0].props.tileset = this.tilesetInfo.path
+        tilemapData.layers[0].props.tw = String(this.tilemap.tileW)
+        tilemapData.layers[0].props.th = String(this.tilemap.tileH)
+      }
+
+      const tilemapJson = JSON.stringify(tilemapData)
 
       // Prompt for tilemap name
       const mapName = prompt('Enter tilemap name:', 'extracted_map')
