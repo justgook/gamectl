@@ -345,6 +345,24 @@ export class ViewTileExtractor extends ViewCanvasBase {
   }
 
   /**
+   * Override to account for side panel width when sizing canvas bitmap
+   */
+  _onResized(width, height) {
+    // Account for the side panel width (240px)
+    const panelWidth = 240
+    const canvasWidth = Math.max(1, Math.round(width - panelWidth))
+    const canvasHeight = Math.round(height)
+
+    if (!this.canvas || (this.canvas.width === canvasWidth && this.canvas.height === canvasHeight)) return
+
+    this.canvas.width = canvasWidth
+    this.canvas.height = canvasHeight
+    this.draw()
+
+    this._tryAutoFit()
+  }
+
+  /**
    * Bind header control buttons from template
    */
   bindHeaderControls() {

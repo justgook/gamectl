@@ -1,6 +1,7 @@
 import { ViewCanvasBase } from "../view-canvas-base.js"
 import { bus } from "../../systems/event-bus.js"
 import { decode as decodeQOI } from "../../util/qoi/decode.js"
+import { ViewFiles } from "../view-files.js"
 
 /**
  * Sprite Extractor View
@@ -274,11 +275,96 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
     // Adjust canvas width to account for side panel
     this.canvas.style.width = 'calc(100% - 220px)'
 
+    // Bind header control buttons
+    this.bindHeaderControls()
+
     // Load source if attribute is set
     if (this.hasAttribute('data-source')) {
       this.sourcePath = this.getAttribute('data-source')
       this.loadSourceImage(this.sourcePath)
     }
+  }
+
+  /**
+   * Override to account for side panel width when sizing canvas bitmap
+   */
+  _onResized(width, height) {
+    // Account for the side panel width (220px)
+    const panelWidth = 220
+    const canvasWidth = Math.max(1, Math.round(width - panelWidth))
+    const canvasHeight = Math.round(height)
+
+    if (!this.canvas || (this.canvas.width === canvasWidth && this.canvas.height === canvasHeight)) return
+
+    this.canvas.width = canvasWidth
+    this.canvas.height = canvasHeight
+    this.draw()
+
+    this._tryAutoFit()
+  }
+
+  /**
+   * Bind header control buttons from template
+   */
+  bindHeaderControls() {
+    // Load button - opens file chooser
+    const loadBtn = this.queryHeaderControl('[data-action="load"]')
+    if (loadBtn) {
+      loadBtn.addEventListener('click', () => this.openFileChooser())
+    }
+
+    // Reload button - reloads current source
+    const reloadBtn = this.queryHeaderControl('[data-action="reload"]')
+    if (reloadBtn) {
+      reloadBtn.addEventListener('click', () => this.reloadSource())
+    }
+
+    // Zoom controls
+    const zoomInBtn = this.queryHeaderControl('[data-action="zoom-in"]')
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => this.zoomIn())
+    }
+
+    const zoomOutBtn = this.queryHeaderControl('[data-action="zoom-out"]')
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', () => this.zoomOut())
+    }
+
+    const zoomFitBtn = this.queryHeaderControl('[data-action="zoom-fit"]')
+    if (zoomFitBtn) {
+      zoomFitBtn.addEventListener('click', () => this.fitToContent())
+    }
+  }
+
+  /**
+   * Open file chooser to select an image file
+   */
+  async openFileChooser() {
+    const result = await ViewFiles.choose({
+      title: 'Select Image',
+      filter: '*.png,*.qoi,*.jpg,*.jpeg,*.gif,*.bmp',
+      root: '/'
+    })
+
+    if (result && result.path) {
+      this.sourcePath = result.path
+      this.setAttribute('data-source', result.path)
+      await this.loadSourceImage(result.path)
+      bus.emit('toast:show', { message: `Loaded: ${result.name}`, type: 'success' })
+    }
+  }
+
+  /**
+   * Reload the current source image
+   */
+  async reloadSource() {
+    if (!this.sourcePath) {
+      bus.emit('toast:show', { message: 'No source loaded', type: 'warning' })
+      return
+    }
+
+    await this.loadSourceImage(this.sourcePath)
+    bus.emit('toast:show', { message: 'Reloaded source image', type: 'success' })
   }
 
   async loadSourceImage(path) {
