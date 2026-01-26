@@ -39,16 +39,15 @@ type ExtractInput struct {
 	Path         string `json:"path"`         // Source image path
 	TileW        int    `json:"tileW"`        // Tile width
 	TileH        int    `json:"tileH"`        // Tile height
-	OutputDir    string `json:"outputDir"`    // Directory for tilebank images
 	Tolerance    int    `json:"tolerance"`    // Color difference tolerance (0-255, default: 0)
 	SkipNthPixel int    `json:"skipNthPixel"` // Sample every nth pixel for comparison (default: 1)
 }
 
 // TileBankEntry represents a unique tile
 type TileBankEntry struct {
-	ID   int    `json:"id"`   // Tile ID (1-based, 0 = empty)
-	Path string `json:"path"` // Path to tile image
-	Hash uint64 `json:"hash"` // Hash for identification
+	ID          int    `json:"id"`          // Tile ID (1-based, 0 = empty)
+	SourceIndex int    `json:"sourceIndex"` // Linear index in source image tile grid
+	Hash        uint64 `json:"hash"`        // Hash for identification
 }
 
 // ExtractOutput returns extraction result
@@ -70,6 +69,8 @@ type TilemapData struct {
 // ExportTilesetInput for combining tiles into a single tileset image
 type ExportTilesetInput struct {
 	Tilebank   []TileBankEntry `json:"tilebank"`   // Tilebank from extract output
+	SourcePath string          `json:"sourcePath"` // Path to original source image
+	SourceCols int             `json:"sourceCols"` // Number of tile columns in source image
 	TileW      int             `json:"tileW"`      // Tile width in pixels
 	TileH      int             `json:"tileH"`      // Tile height in pixels
 	OutputPath string          `json:"outputPath"` // Output path for tileset image
@@ -112,17 +113,6 @@ func fsWrite(path string, data []byte) error {
 	}
 	if status != 0 {
 		return fmt.Errorf("fs write failed: %s", string(output))
-	}
-	return nil
-}
-
-func fsMkdir(path string) error {
-	status, output, err := pdk.Call("fs", "mkdir", []byte(path))
-	if err != nil {
-		return fmt.Errorf("fs mkdir error: %w", err)
-	}
-	if status != 0 {
-		return fmt.Errorf("fs mkdir failed: %s", string(output))
 	}
 	return nil
 }
@@ -434,9 +424,6 @@ func Extract() int32 {
 		pdk.Output(util.ErrorResponse("tileW and tileH must be positive"))
 		return 1
 	}
-	if params.OutputDir == "" {
-		params.OutputDir = "/tiles"
-	}
 
 	tolerance := params.Tolerance
 	if tolerance < 0 {
@@ -460,12 +447,6 @@ func Extract() int32 {
 	rows := imgH / params.TileH
 
 	logMsg(fmt.Sprintf("[tile-detect] Extracting %dx%d tiles from %dx%d image", cols, rows, imgW, imgH))
-
-	// Create output directory
-	if err := fsMkdir(params.OutputDir); err != nil {
-		// Directory might already exist, continue
-		logMsg(fmt.Sprintf("[tile-detect] mkdir warning: %s", err.Error()))
-	}
 
 	// Track unique tiles by hash
 	type uniqueTile struct {
@@ -527,21 +508,14 @@ func Extract() int32 {
 
 	logMsg(fmt.Sprintf("[tile-detect] Found %d unique tiles", len(uniqueTiles)))
 
-	// Save unique tiles and build tilebank
+	// Build tilebank with source indexes (no file creation)
 	var tilebank []TileBankEntry
 	for _, ut := range uniqueTiles {
-		tileImg := extractTileImage(img, ut.tileX, ut.tileY, params.TileW, params.TileH, imgW)
-		tilePath := fmt.Sprintf("%s/tile_%03d.qoi", params.OutputDir, ut.id)
-
-		if err := saveImage(tilePath, tileImg); err != nil {
-			pdk.Output(util.ErrorResponse(fmt.Sprintf("failed to save tile %d: %s", ut.id, err.Error())))
-			return 1
-		}
-
+		sourceIndex := ut.tileY*cols + ut.tileX
 		tilebank = append(tilebank, TileBankEntry{
-			ID:   ut.id,
-			Path: tilePath,
-			Hash: ut.hash,
+			ID:          ut.id,
+			SourceIndex: sourceIndex,
+			Hash:        ut.hash,
 		})
 	}
 
@@ -606,6 +580,14 @@ func ExportTileset() int32 {
 		pdk.Output(util.ErrorResponse("tilebank is empty"))
 		return 1
 	}
+	if params.SourcePath == "" {
+		pdk.Output(util.ErrorResponse("sourcePath is required"))
+		return 1
+	}
+	if params.SourceCols <= 0 {
+		pdk.Output(util.ErrorResponse("sourceCols must be positive"))
+		return 1
+	}
 	if params.TileW <= 0 || params.TileH <= 0 {
 		pdk.Output(util.ErrorResponse("tileW and tileH must be positive"))
 		return 1
@@ -613,6 +595,14 @@ func ExportTileset() int32 {
 	if params.OutputPath == "" {
 		params.OutputPath = "/tiles/tileset.qoi"
 	}
+
+	// Load source image
+	sourceImg, err := loadImage(params.SourcePath)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to load source image: " + err.Error()))
+		return 1
+	}
+	sourceW := sourceImg.Bounds().Dx()
 
 	numTiles := len(params.Tilebank)
 
@@ -635,27 +625,25 @@ func ExportTileset() int32 {
 		return sortedTilebank[i].ID < sortedTilebank[j].ID
 	})
 
-	// Load and composite each tile
+	// Extract and composite each tile from source image
 	for _, tile := range sortedTilebank {
-		// Load tile image
-		tileImg, err := loadImage(tile.Path)
-		if err != nil {
-			pdk.Output(util.ErrorResponse(fmt.Sprintf("failed to load tile %d: %s", tile.ID, err.Error())))
-			return 1
-		}
+		// Calculate source tile position from SourceIndex
+		srcTileX := tile.SourceIndex % params.SourceCols
+		srcTileY := tile.SourceIndex / params.SourceCols
+		srcStartX := srcTileX * params.TileW
+		srcStartY := srcTileY * params.TileH
 
 		// Calculate position in tileset grid (0-based index from 1-based ID)
 		tileIndex := tile.ID - 1
 		destX := (tileIndex % cols) * params.TileW
 		destY := (tileIndex / cols) * params.TileH
 
-		// Copy tile pixels to tileset
-		tileBounds := tileImg.Bounds()
-		for y := 0; y < tileBounds.Dy() && y < params.TileH; y++ {
-			for x := 0; x < tileBounds.Dx() && x < params.TileW; x++ {
-				srcIdx := (y*tileBounds.Dx() + x) * 4
+		// Copy tile pixels from source to tileset
+		for y := 0; y < params.TileH; y++ {
+			for x := 0; x < params.TileW; x++ {
+				srcIdx := ((srcStartY+y)*sourceW + (srcStartX + x)) * 4
 				dstIdx := ((destY+y)*tilesetW + (destX + x)) * 4
-				copy(tileset.Pix[dstIdx:dstIdx+4], tileImg.Pix[srcIdx:srcIdx+4])
+				copy(tileset.Pix[dstIdx:dstIdx+4], sourceImg.Pix[srcIdx:srcIdx+4])
 			}
 		}
 	}
