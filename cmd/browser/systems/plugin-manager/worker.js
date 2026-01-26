@@ -64,7 +64,11 @@ async function handleInit(id) {
     'math',
     'sql',
     'scaler',
-    'roomgen'
+    'roomgen',
+    // sprite tools
+    'image-process',
+    'sprite-detect',
+    'sprite-pack'
   ];
 
   // Initialize OPFS-based filesystem (worker obtains root internally)

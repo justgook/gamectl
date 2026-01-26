@@ -1,0 +1,644 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"image"
+	"image/png"
+	"sort"
+
+	"github.com/justgook/gamectl/pkg/qoi"
+	"github.com/justgook/gamectl/pkg/util"
+	"github.com/justgook/wpm/pdk"
+)
+
+// =============================================================================
+// Input/Output Types
+// =============================================================================
+
+// SpriteInput defines a sprite to pack
+type SpriteInput struct {
+	Path string `json:"path"` // Path to sprite image
+	Name string `json:"name"` // Sprite name (for metadata)
+}
+
+// PackOptions defines packing configuration
+type PackOptions struct {
+	Padding    int  `json:"padding"`    // Padding between sprites (default: 0)
+	Extrude    int  `json:"extrude"`    // Edge extrusion pixels (default: 0)
+	PowerOfTwo bool `json:"powerOfTwo"` // Constrain to power of 2 dimensions
+	MaxSize    int  `json:"maxSize"`    // Maximum atlas dimension (default: 4096)
+	CropAlpha  bool `json:"cropAlpha"`  // Crop sprites to alpha bounds before packing
+}
+
+// PackInput for packing sprites
+type PackInput struct {
+	Sprites    []SpriteInput `json:"sprites"`    // Sprites to pack
+	Options    PackOptions   `json:"options"`    // Packing options
+	OutputPath string        `json:"outputPath"` // Output atlas image path
+}
+
+// Placement describes where a sprite is placed in the atlas
+type Placement struct {
+	Name   string `json:"name"`   // Sprite name
+	X      int    `json:"x"`      // X position in atlas
+	Y      int    `json:"y"`      // Y position in atlas
+	Width  int    `json:"width"`  // Width in atlas (after crop)
+	Height int    `json:"height"` // Height in atlas (after crop)
+	// Original frame info (for reconstruction)
+	FrameX int `json:"frameX"` // Offset X from original
+	FrameY int `json:"frameY"` // Offset Y from original
+	FrameW int `json:"frameW"` // Original width
+	FrameH int `json:"frameH"` // Original height
+}
+
+// PackOutput returns packing result
+type PackOutput struct {
+	Success    bool        `json:"success"`
+	Placements []Placement `json:"placements"`
+	AtlasW     int         `json:"atlasW"`
+	AtlasH     int         `json:"atlasH"`
+}
+
+// =============================================================================
+// Host Functions
+// =============================================================================
+
+func fsRead(path string) ([]byte, error) {
+	status, data, err := pdk.Call("fs", "read", []byte(path))
+	if err != nil {
+		return nil, fmt.Errorf("fs read error: %w", err)
+	}
+	if status != 0 {
+		return nil, fmt.Errorf("fs read failed: %s", string(data))
+	}
+	return data, nil
+}
+
+func fsWrite(path string, data []byte) error {
+	input := make([]byte, len(path)+1+len(data))
+	copy(input, path)
+	input[len(path)] = 0
+	copy(input[len(path)+1:], data)
+
+	status, output, err := pdk.Call("fs", "write", input)
+	if err != nil {
+		return fmt.Errorf("fs write error: %w", err)
+	}
+	if status != 0 {
+		return fmt.Errorf("fs write failed: %s", string(output))
+	}
+	return nil
+}
+
+func logMsg(msg string) {
+	pdk.Call("host", "log", []byte(msg))
+}
+
+// =============================================================================
+// Image handling
+// =============================================================================
+
+func loadImage(path string) (*image.NRGBA, error) {
+	data, err := fsRead(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var img image.Image
+
+	if len(data) >= 4 && string(data[:4]) == "qoif" {
+		img, err = qoi.Decode(bytes.NewReader(data))
+	} else {
+		img, err = png.Decode(bytes.NewReader(data))
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if nrgba, ok := img.(*image.NRGBA); ok {
+		return nrgba, nil
+	}
+
+	bounds := img.Bounds()
+	nrgba := image.NewNRGBA(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			nrgba.Set(x, y, img.At(x, y))
+		}
+	}
+	return nrgba, nil
+}
+
+func saveImage(path string, img *image.NRGBA) error {
+	var buf bytes.Buffer
+	if err := qoi.Encode(&buf, img); err != nil {
+		return err
+	}
+	return fsWrite(path, buf.Bytes())
+}
+
+// =============================================================================
+// Alpha cropping
+// =============================================================================
+
+type croppedSprite struct {
+	name  string
+	img   *image.NRGBA
+	cropX int // Offset from original left
+	cropY int // Offset from original top
+	origW int // Original width
+	origH int // Original height
+}
+
+func cropToAlpha(img *image.NRGBA) (cropped *image.NRGBA, offsetX, offsetY int) {
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+
+	minX, minY := w, h
+	maxX, maxY := 0, 0
+
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			if img.Pix[(y*w+x)*4+3] > 0 {
+				if x < minX {
+					minX = x
+				}
+				if x > maxX {
+					maxX = x
+				}
+				if y < minY {
+					minY = y
+				}
+				if y > maxY {
+					maxY = y
+				}
+			}
+		}
+	}
+
+	// Fully transparent
+	if minX > maxX || minY > maxY {
+		result := image.NewNRGBA(image.Rect(0, 0, 1, 1))
+		return result, 0, 0
+	}
+
+	cropW := maxX - minX + 1
+	cropH := maxY - minY + 1
+	result := image.NewNRGBA(image.Rect(0, 0, cropW, cropH))
+
+	for y := 0; y < cropH; y++ {
+		for x := 0; x < cropW; x++ {
+			srcIdx := ((minY+y)*w + (minX + x)) * 4
+			dstIdx := (y*cropW + x) * 4
+			copy(result.Pix[dstIdx:dstIdx+4], img.Pix[srcIdx:srcIdx+4])
+		}
+	}
+
+	return result, minX, minY
+}
+
+// =============================================================================
+// MaxRects Bin Packing Algorithm
+// =============================================================================
+
+type rect struct {
+	x, y, w, h int
+}
+
+type maxRectsPacker struct {
+	width, height int
+	freeRects     []rect
+}
+
+func newMaxRectsPacker(w, h int) *maxRectsPacker {
+	return &maxRectsPacker{
+		width:     w,
+		height:    h,
+		freeRects: []rect{{0, 0, w, h}},
+	}
+}
+
+// findBestPosition finds the best position for a rect of given size
+// Returns position and score (lower is better), or -1,-1 if not found
+func (p *maxRectsPacker) findBestPosition(w, h int) (bestX, bestY, bestScore int) {
+	bestX, bestY = -1, -1
+	bestScore = p.width*p.height + 1 // Impossibly high
+
+	for _, r := range p.freeRects {
+		if w <= r.w && h <= r.h {
+			// Best Short Side Fit (BSSF)
+			leftoverH := r.h - h
+			leftoverW := r.w - w
+			shortSide := leftoverH
+			if leftoverW < leftoverH {
+				shortSide = leftoverW
+			}
+
+			if shortSide < bestScore {
+				bestX = r.x
+				bestY = r.y
+				bestScore = shortSide
+			}
+		}
+	}
+
+	return bestX, bestY, bestScore
+}
+
+// placeRect places a rectangle and splits free rects
+func (p *maxRectsPacker) placeRect(x, y, w, h int) {
+	placed := rect{x, y, w, h}
+
+	// Split overlapping free rects
+	var newFreeRects []rect
+	for _, free := range p.freeRects {
+		if !rectsIntersect(placed, free) {
+			newFreeRects = append(newFreeRects, free)
+			continue
+		}
+
+		// Generate new free rects from the split
+		// Left
+		if placed.x > free.x {
+			newFreeRects = append(newFreeRects, rect{
+				x: free.x,
+				y: free.y,
+				w: placed.x - free.x,
+				h: free.h,
+			})
+		}
+		// Right
+		if placed.x+placed.w < free.x+free.w {
+			newFreeRects = append(newFreeRects, rect{
+				x: placed.x + placed.w,
+				y: free.y,
+				w: free.x + free.w - (placed.x + placed.w),
+				h: free.h,
+			})
+		}
+		// Top
+		if placed.y > free.y {
+			newFreeRects = append(newFreeRects, rect{
+				x: free.x,
+				y: free.y,
+				w: free.w,
+				h: placed.y - free.y,
+			})
+		}
+		// Bottom
+		if placed.y+placed.h < free.y+free.h {
+			newFreeRects = append(newFreeRects, rect{
+				x: free.x,
+				y: placed.y + placed.h,
+				w: free.w,
+				h: free.y + free.h - (placed.y + placed.h),
+			})
+		}
+	}
+
+	// Remove redundant free rects (contained within others)
+	p.freeRects = pruneContained(newFreeRects)
+}
+
+func rectsIntersect(a, b rect) bool {
+	return !(a.x >= b.x+b.w || a.x+a.w <= b.x ||
+		a.y >= b.y+b.h || a.y+a.h <= b.y)
+}
+
+func rectContains(outer, inner rect) bool {
+	return inner.x >= outer.x && inner.y >= outer.y &&
+		inner.x+inner.w <= outer.x+outer.w &&
+		inner.y+inner.h <= outer.y+outer.h
+}
+
+func pruneContained(rects []rect) []rect {
+	var result []rect
+	for i, r := range rects {
+		contained := false
+		for j, other := range rects {
+			if i != j && rectContains(other, r) {
+				contained = true
+				break
+			}
+		}
+		if !contained {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+// =============================================================================
+// Pack sprites
+// =============================================================================
+
+func nextPowerOfTwo(n int) int {
+	if n <= 0 {
+		return 1
+	}
+	n--
+	n |= n >> 1
+	n |= n >> 2
+	n |= n >> 4
+	n |= n >> 8
+	n |= n >> 16
+	return n + 1
+}
+
+func packSprites(sprites []croppedSprite, opts PackOptions) ([]Placement, int, int, error) {
+	if len(sprites) == 0 {
+		return nil, 0, 0, fmt.Errorf("no sprites to pack")
+	}
+
+	maxSize := opts.MaxSize
+	if maxSize <= 0 {
+		maxSize = 4096
+	}
+
+	padding := opts.Padding
+	extrude := opts.Extrude
+
+	// Calculate padded dimensions for each sprite
+	type paddedSprite struct {
+		sprite    croppedSprite
+		paddedW   int
+		paddedH   int
+		area      int
+		placement Placement
+	}
+
+	padded := make([]paddedSprite, len(sprites))
+	for i, s := range sprites {
+		bounds := s.img.Bounds()
+		w := bounds.Dx() + padding*2 + extrude*2
+		h := bounds.Dy() + padding*2 + extrude*2
+		padded[i] = paddedSprite{
+			sprite:  s,
+			paddedW: w,
+			paddedH: h,
+			area:    w * h,
+		}
+	}
+
+	// Sort by area (largest first)
+	sort.Slice(padded, func(i, j int) bool {
+		return padded[i].area > padded[j].area
+	})
+
+	// Try progressively larger atlas sizes
+	startSize := 64
+	for size := startSize; size <= maxSize; size *= 2 {
+		atlasW, atlasH := size, size
+
+		if opts.PowerOfTwo {
+			atlasW = nextPowerOfTwo(atlasW)
+			atlasH = nextPowerOfTwo(atlasH)
+		}
+
+		packer := newMaxRectsPacker(atlasW, atlasH)
+		success := true
+
+		for i := range padded {
+			x, y, _ := packer.findBestPosition(padded[i].paddedW, padded[i].paddedH)
+			if x < 0 {
+				success = false
+				break
+			}
+
+			packer.placeRect(x, y, padded[i].paddedW, padded[i].paddedH)
+
+			// Store placement (accounting for padding/extrude offset)
+			imgBounds := padded[i].sprite.img.Bounds()
+			padded[i].placement = Placement{
+				Name:   padded[i].sprite.name,
+				X:      x + padding + extrude,
+				Y:      y + padding + extrude,
+				Width:  imgBounds.Dx(),
+				Height: imgBounds.Dy(),
+				FrameX: padded[i].sprite.cropX,
+				FrameY: padded[i].sprite.cropY,
+				FrameW: padded[i].sprite.origW,
+				FrameH: padded[i].sprite.origH,
+			}
+		}
+
+		if success {
+			// Calculate actual used size
+			maxX, maxY := 0, 0
+			for _, p := range padded {
+				endX := p.placement.X + p.placement.Width + padding + extrude
+				endY := p.placement.Y + p.placement.Height + padding + extrude
+				if endX > maxX {
+					maxX = endX
+				}
+				if endY > maxY {
+					maxY = endY
+				}
+			}
+
+			finalW, finalH := maxX, maxY
+			if opts.PowerOfTwo {
+				finalW = nextPowerOfTwo(maxX)
+				finalH = nextPowerOfTwo(maxY)
+			}
+
+			placements := make([]Placement, len(padded))
+			for i, p := range padded {
+				placements[i] = p.placement
+			}
+
+			return placements, finalW, finalH, nil
+		}
+	}
+
+	return nil, 0, 0, fmt.Errorf("sprites don't fit in %dx%d atlas", maxSize, maxSize)
+}
+
+// =============================================================================
+// Extrude edges
+// =============================================================================
+
+func extrudeEdges(atlas *image.NRGBA, p Placement, extrude int) {
+	if extrude <= 0 {
+		return
+	}
+
+	atlasW := atlas.Bounds().Dx()
+
+	// Get pixel helper
+	getPixel := func(x, y int) [4]byte {
+		idx := (y*atlasW + x) * 4
+		return [4]byte{atlas.Pix[idx], atlas.Pix[idx+1], atlas.Pix[idx+2], atlas.Pix[idx+3]}
+	}
+	setPixel := func(x, y int, c [4]byte) {
+		idx := (y*atlasW + x) * 4
+		copy(atlas.Pix[idx:idx+4], c[:])
+	}
+
+	// Extrude left edge
+	for e := 1; e <= extrude; e++ {
+		for y := p.Y; y < p.Y+p.Height; y++ {
+			c := getPixel(p.X, y)
+			setPixel(p.X-e, y, c)
+		}
+	}
+
+	// Extrude right edge
+	for e := 1; e <= extrude; e++ {
+		for y := p.Y; y < p.Y+p.Height; y++ {
+			c := getPixel(p.X+p.Width-1, y)
+			setPixel(p.X+p.Width-1+e, y, c)
+		}
+	}
+
+	// Extrude top edge
+	for e := 1; e <= extrude; e++ {
+		for x := p.X; x < p.X+p.Width; x++ {
+			c := getPixel(x, p.Y)
+			setPixel(x, p.Y-e, c)
+		}
+	}
+
+	// Extrude bottom edge
+	for e := 1; e <= extrude; e++ {
+		for x := p.X; x < p.X+p.Width; x++ {
+			c := getPixel(x, p.Y+p.Height-1)
+			setPixel(x, p.Y+p.Height-1+e, c)
+		}
+	}
+
+	// Extrude corners
+	for ey := 1; ey <= extrude; ey++ {
+		for ex := 1; ex <= extrude; ex++ {
+			// Top-left
+			c := getPixel(p.X, p.Y)
+			setPixel(p.X-ex, p.Y-ey, c)
+			// Top-right
+			c = getPixel(p.X+p.Width-1, p.Y)
+			setPixel(p.X+p.Width-1+ex, p.Y-ey, c)
+			// Bottom-left
+			c = getPixel(p.X, p.Y+p.Height-1)
+			setPixel(p.X-ex, p.Y+p.Height-1+ey, c)
+			// Bottom-right
+			c = getPixel(p.X+p.Width-1, p.Y+p.Height-1)
+			setPixel(p.X+p.Width-1+ex, p.Y+p.Height-1+ey, c)
+		}
+	}
+}
+
+// =============================================================================
+// Exported Functions
+// =============================================================================
+
+//go:wasmexport pack
+func Pack() int32 {
+	input := pdk.Input()
+	var params PackInput
+	if err := json.Unmarshal(input, &params); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+
+	if params.OutputPath == "" {
+		pdk.Output(util.ErrorResponse("outputPath is required"))
+		return 1
+	}
+	if len(params.Sprites) == 0 {
+		pdk.Output(util.ErrorResponse("at least one sprite is required"))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[sprite-pack] Packing %d sprites", len(params.Sprites)))
+
+	// Load and optionally crop sprites
+	var sprites []croppedSprite
+	for i, s := range params.Sprites {
+		if s.Path == "" {
+			pdk.Output(util.ErrorResponse(fmt.Sprintf("sprite %d: path is required", i)))
+			return 1
+		}
+
+		img, err := loadImage(s.Path)
+		if err != nil {
+			pdk.Output(util.ErrorResponse(fmt.Sprintf("sprite %d: %s", i, err.Error())))
+			return 1
+		}
+
+		name := s.Name
+		if name == "" {
+			name = fmt.Sprintf("sprite_%d", i)
+		}
+
+		bounds := img.Bounds()
+		origW, origH := bounds.Dx(), bounds.Dy()
+
+		var cropX, cropY int
+		if params.Options.CropAlpha {
+			img, cropX, cropY = cropToAlpha(img)
+		}
+
+		sprites = append(sprites, croppedSprite{
+			name:  name,
+			img:   img,
+			cropX: cropX,
+			cropY: cropY,
+			origW: origW,
+			origH: origH,
+		})
+	}
+
+	// Pack sprites
+	placements, atlasW, atlasH, err := packSprites(sprites, params.Options)
+	if err != nil {
+		pdk.Output(util.ErrorResponse(err.Error()))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[sprite-pack] Packed into %dx%d atlas", atlasW, atlasH))
+
+	// Create atlas image
+	atlas := image.NewNRGBA(image.Rect(0, 0, atlasW, atlasH))
+
+	// Composite sprites into atlas
+	for i, p := range placements {
+		sprite := sprites[i].img
+		srcBounds := sprite.Bounds()
+		srcW := srcBounds.Dx()
+
+		// Copy sprite pixels to atlas
+		for y := 0; y < p.Height; y++ {
+			for x := 0; x < p.Width; x++ {
+				srcIdx := (y*srcW + x) * 4
+				dstIdx := ((p.Y+y)*atlasW + (p.X + x)) * 4
+				copy(atlas.Pix[dstIdx:dstIdx+4], sprite.Pix[srcIdx:srcIdx+4])
+			}
+		}
+
+		// Extrude edges if needed
+		if params.Options.Extrude > 0 {
+			extrudeEdges(atlas, p, params.Options.Extrude)
+		}
+	}
+
+	// Save atlas
+	if err := saveImage(params.OutputPath, atlas); err != nil {
+		pdk.Output(util.ErrorResponse("failed to save atlas: " + err.Error()))
+		return 1
+	}
+
+	output := PackOutput{
+		Success:    true,
+		Placements: placements,
+		AtlasW:     atlasW,
+		AtlasH:     atlasH,
+	}
+
+	result, _ := json.Marshal(output)
+	pdk.Output(result)
+	return 0
+}
+
+// Required main function for WASM
+func main() {}
