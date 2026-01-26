@@ -199,10 +199,12 @@ export class ViewSpritePacker extends ViewCanvasBase {
       
       .sprite-packer-panel button.primary {
         background: var(--color-semantic-background-accent-default, #0066cc);
+        color: var(--color-semantic-text-on-accent, #000);
       }
       
       .sprite-packer-panel button.primary:hover {
         background: var(--color-semantic-background-accent-hover, #0077dd);
+        color: var(--color-semantic-text-on-accent, #000);
       }
       
       .sprite-packer-panel button:disabled {

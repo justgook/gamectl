@@ -214,10 +214,12 @@ export class ViewTileExtractor extends ViewCanvasBase {
       
       .tile-extractor-panel button.primary {
         background: var(--color-semantic-background-accent-default, #0066cc);
+        color: var(--color-semantic-text-on-accent, #000);
       }
       
       .tile-extractor-panel button.primary:hover {
         background: var(--color-semantic-background-accent-hover, #0077dd);
+        color: var(--color-semantic-text-on-accent, #000);
       }
       
       .tile-extractor-panel button:disabled {
@@ -600,7 +602,7 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
     // Create an offscreen canvas to extract tiles from source image
     const sourceCanvas = new OffscreenCanvas(this.sourceWidth, this.sourceHeight)
-    const sourceCtx = sourceCanvas.getContext('2d')
+    const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true })
     sourceCtx.drawImage(this.sourceImage, 0, 0)
 
     const cols = this.tilemap.width
