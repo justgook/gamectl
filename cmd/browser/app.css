@@ -1458,6 +1458,73 @@ view-files {
 }
 
 /* ========================================================================== */
+/* FILE CHOOSER MODE STYLES */
+/* ========================================================================== */
+
+/* File chooser container in popup */
+.file-chooser-container {
+  display: flex;
+  flex-direction: column;
+  height: 450px;
+  min-height: 300px;
+}
+
+.file-chooser-container view-files {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Chooser action bar at bottom */
+.files-chooser-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-scale-3, 12px);
+  border-top: 1px solid var(--color-semantic-border-default, #333);
+  background: var(--color-semantic-bg-secondary, #1e1e1e);
+  gap: var(--spacing-scale-3, 12px);
+}
+
+.files-chooser-actions .chooser-selection-info {
+  color: var(--color-semantic-text-secondary, #8888aa);
+  font-size: 12px;
+  flex: 1;
+}
+
+.files-chooser-actions .chooser-buttons {
+  display: flex;
+  gap: var(--spacing-scale-2, 8px);
+}
+
+/* Disabled/greyed out rows for non-matching filter */
+.files-row.chooser-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Allow expand/collapse on disabled folders */
+.files-row.chooser-disabled .files-chevron {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* Multi-select checkbox */
+.files-checkbox {
+  margin-right: 6px;
+  cursor: pointer;
+  accent-color: var(--color-semantic-accent-primary, #6b6bff);
+}
+
+/* Chooser selected state (multi-select) */
+.files-row.chooser-selected {
+  background: var(--color-semantic-bg-accent-subtle, rgba(107, 107, 255, 0.15));
+}
+
+.files-row.chooser-selected:hover {
+  background: var(--color-semantic-bg-accent-subtle-hover, rgba(107, 107, 255, 0.25));
+}
+
+/* ========================================================================== */
 /* FILE PREVIEW/EDIT STYLES */
 /* ========================================================================== */
 

@@ -28,7 +28,7 @@ import './files/handlers/qoi-handler.js'
  * - Pluggable file type handlers for preview/edit
  */
 export class ViewFiles extends HTMLElement {
-  static observedAttributes = ['data-root', 'data-show-hidden']
+  static observedAttributes = ['data-root', 'data-show-hidden', 'data-mode', 'data-filter', 'data-select-folders', 'data-multi-select']
 
   constructor() {
     super()
@@ -41,6 +41,13 @@ export class ViewFiles extends HTMLElement {
     this.editingPath = null
     this.draggedPath = null
 
+    // Chooser mode state
+    this.mode = 'browser' // 'browser' | 'chooser'
+    this.filter = null // e.g., "*.png,*.qoi,*.jpg"
+    this.selectFolders = false
+    this.multiSelect = false
+    this.chooserSelection = new Set() // For multi-select mode
+
     // File tree data: Map<path, {name, type, size, children: []}>
     this.fileTree = new Map()
 
@@ -48,6 +55,7 @@ export class ViewFiles extends HTMLElement {
     this.toolbar = null
     this.treeContainer = null
     this.statusBar = null
+    this.chooserActions = null
 
     // Decoder for fs plugin responses
     this.decoder = new TextDecoder()
@@ -104,6 +112,15 @@ export class ViewFiles extends HTMLElement {
     // Parse attributes
     this.rootPath = this.getAttribute('data-root') || '/'
     this.showHidden = this.getAttribute('data-show-hidden') === 'true'
+    this.mode = this.getAttribute('data-mode') || 'browser'
+    this.filter = this.getAttribute('data-filter') || null
+    this.selectFolders = this.getAttribute('data-select-folders') === 'true'
+    this.multiSelect = this.getAttribute('data-multi-select') === 'true'
+
+    // Apply chooser mode if set
+    if (this.mode === 'chooser') {
+      this.setupChooserMode()
+    }
 
     // Setup event handlers
     this.setupEventHandlers()
@@ -136,8 +153,157 @@ export class ViewFiles extends HTMLElement {
       } else if (name === 'data-show-hidden') {
         this.showHidden = newValue === 'true'
         this.refresh()
+      } else if (name === 'data-mode') {
+        this.mode = newValue || 'browser'
+        if (this.mode === 'chooser') {
+          this.setupChooserMode()
+        }
+      } else if (name === 'data-filter') {
+        this.filter = newValue || null
+        this.render()
+      } else if (name === 'data-select-folders') {
+        this.selectFolders = newValue === 'true'
+      } else if (name === 'data-multi-select') {
+        this.multiSelect = newValue === 'true'
+        this.chooserSelection.clear()
+        this.render()
       }
     }
+  }
+
+  /**
+   * Setup chooser mode UI modifications
+   */
+  setupChooserMode() {
+    // Hide file operation buttons in chooser mode
+    const hideActions = ['new-file', 'new-folder', 'delete', 'upload', 'download']
+    hideActions.forEach(action => {
+      const btn = this.toolbar?.querySelector(`[data-action="${action}"]`)
+      if (btn) btn.style.display = 'none'
+    })
+
+    // Add chooser action bar if not already present
+    if (!this.chooserActions) {
+      this.chooserActions = document.createElement('div')
+      this.chooserActions.className = 'files-chooser-actions'
+      this.chooserActions.innerHTML = `
+        <span class="chooser-selection-info"></span>
+        <div class="chooser-buttons">
+          <button data-action="cancel" class="button-secondary">Cancel</button>
+          <button data-action="select" class="button-primary" disabled>Select</button>
+        </div>
+      `
+      this.appendChild(this.chooserActions)
+
+      // Bind chooser action buttons
+      this.chooserActions.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('chooser-cancel', { bubbles: true }))
+      })
+
+      this.chooserActions.querySelector('[data-action="select"]')?.addEventListener('click', () => {
+        const selection = this.getSelection()
+        this.dispatchEvent(new CustomEvent('chooser-select', {
+          bubbles: true,
+          detail: { selection }
+        }))
+      })
+    }
+
+    this.updateChooserUI()
+  }
+
+  /**
+   * Update chooser UI state (selection info, button state)
+   */
+  updateChooserUI() {
+    if (!this.chooserActions) return
+
+    const selectBtn = this.chooserActions.querySelector('[data-action="select"]')
+    const selectionInfo = this.chooserActions.querySelector('.chooser-selection-info')
+
+    if (this.multiSelect) {
+      const count = this.chooserSelection.size
+      selectionInfo.textContent = count > 0 ? `${count} item${count > 1 ? 's' : ''} selected` : ''
+      selectBtn.disabled = count === 0
+    } else {
+      selectionInfo.textContent = this.selectedPath ? this.findItem(this.selectedPath)?.name || '' : ''
+      const canSelect = this.selectedPath && this.isSelectable(this.selectedPath)
+      selectBtn.disabled = !canSelect
+    }
+
+    // Emit selection-changed event
+    this.dispatchEvent(new CustomEvent('selection-changed', {
+      bubbles: true,
+      detail: { selection: this.getSelection() }
+    }))
+  }
+
+  /**
+   * Check if a path is selectable based on current filter and settings
+   */
+  isSelectable(path) {
+    const item = this.findItem(path)
+    if (!item) return false
+
+    // Check folder selection
+    if (item.type === 'directory') {
+      return this.selectFolders
+    }
+
+    // Check file filter
+    return this.matchesFilter(item.name)
+  }
+
+  /**
+   * Check if filename matches the current filter
+   */
+  matchesFilter(filename) {
+    if (!this.filter) return true
+
+    const patterns = this.filter.split(',').map(p => p.trim().toLowerCase())
+    const filenameLower = filename.toLowerCase()
+
+    return patterns.some(pattern => {
+      // Convert glob pattern to regex: *.png -> \.png$
+      const regexStr = pattern
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '.*')
+      const regex = new RegExp(regexStr + '$', 'i')
+      return regex.test(filenameLower)
+    })
+  }
+
+  /**
+   * Get current selection (single item or array for multi-select)
+   */
+  getSelection() {
+    if (this.multiSelect) {
+      return Array.from(this.chooserSelection).map(path => {
+        const item = this.findItem(path)
+        return item ? { path: item.path, name: item.name, type: item.type } : null
+      }).filter(Boolean)
+    } else {
+      const item = this.findItem(this.selectedPath)
+      if (item && this.isSelectable(this.selectedPath)) {
+        return { path: item.path, name: item.name, type: item.type }
+      }
+      return null
+    }
+  }
+
+  /**
+   * Toggle selection for multi-select mode
+   */
+  toggleChooserSelection(path) {
+    if (!this.isSelectable(path)) return
+
+    if (this.chooserSelection.has(path)) {
+      this.chooserSelection.delete(path)
+    } else {
+      this.chooserSelection.add(path)
+    }
+    this.render()
+    this.updateChooserUI()
   }
 
   setupEventHandlers() {
@@ -359,10 +525,22 @@ export class ViewFiles extends HTMLElement {
     tr.className = 'files-row'
     tr.dataset.path = item.path
     tr.dataset.type = item.type
-    tr.draggable = true
+    tr.draggable = this.mode !== 'chooser' // Disable drag in chooser mode
+
+    // Check if selectable in chooser mode
+    const isSelectable = this.mode === 'chooser' ? this.isSelectable(item.path) : true
+    const isChooserSelected = this.multiSelect && this.chooserSelection.has(item.path)
 
     if (item.path === this.selectedPath) {
       tr.classList.add('selected')
+    }
+
+    if (isChooserSelected) {
+      tr.classList.add('chooser-selected')
+    }
+
+    if (this.mode === 'chooser' && !isSelectable) {
+      tr.classList.add('chooser-disabled')
     }
 
     const isExpanded = this.expandedPaths.has(item.path)
@@ -376,6 +554,19 @@ export class ViewFiles extends HTMLElement {
     indent.className = 'files-indent'
     indent.style.width = `${depth * 20}px`
     tdName.appendChild(indent)
+
+    // Multi-select checkbox
+    if (this.mode === 'chooser' && this.multiSelect && isSelectable) {
+      const checkbox = document.createElement('input')
+      checkbox.type = 'checkbox'
+      checkbox.className = 'files-checkbox'
+      checkbox.checked = isChooserSelected
+      checkbox.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.toggleChooserSelection(item.path)
+      })
+      tdName.appendChild(checkbox)
+    }
 
     if (item.type === 'directory') {
       const chevron = document.createElement('span')
@@ -438,7 +629,25 @@ export class ViewFiles extends HTMLElement {
       return
     }
 
-    // Select the row
+    // Chooser mode: handle selection differently
+    if (this.mode === 'chooser') {
+      if (this.multiSelect) {
+        // Multi-select: toggle selection on click
+        if (this.isSelectable(path)) {
+          this.toggleChooserSelection(path)
+        } else if (type === 'directory') {
+          // Allow expanding non-selectable folders
+          this.toggleExpand(path)
+        }
+      } else {
+        // Single select: just select the item
+        this.selectPath(path)
+        this.updateChooserUI()
+      }
+      return
+    }
+
+    // Browser mode: Select the row
     this.selectPath(path)
   }
 
@@ -449,7 +658,23 @@ export class ViewFiles extends HTMLElement {
     const path = row.dataset.path
     const type = row.dataset.type
 
-    // Check if clicking on name (for rename)
+    // Chooser mode: double-click confirms selection (single mode) or expands folders
+    if (this.mode === 'chooser') {
+      if (type === 'directory') {
+        this.toggleExpand(path)
+      } else if (this.isSelectable(path) && !this.multiSelect) {
+        // Confirm single selection on double-click
+        this.selectPath(path)
+        const selection = this.getSelection()
+        this.dispatchEvent(new CustomEvent('chooser-select', {
+          bubbles: true,
+          detail: { selection }
+        }))
+      }
+      return
+    }
+
+    // Browser mode: Check if clicking on name (for rename)
     if (e.target.classList.contains('files-name')) {
       this.startRename(path)
       return
@@ -1452,6 +1677,80 @@ export class ViewFiles extends HTMLElement {
     const i = Math.floor(Math.log(bytes) / Math.log(1024))
     const size = bytes / Math.pow(1024, i)
     return `${size.toFixed(i > 0 ? 1 : 0)} ${units[i]}`
+  }
+
+  // --- Static API for File Chooser ---
+
+  /**
+   * Open file chooser in a popup
+   * @param {Object} options
+   * @param {string} options.root - Starting directory (default: "/")
+   * @param {string} options.filter - File filter pattern (e.g., "*.png,*.qoi")
+   * @param {boolean} options.selectFolders - Allow folder selection (default: false)
+   * @param {boolean} options.multiSelect - Allow multiple selection (default: false)
+   * @param {string} options.title - Popup title (default: "Select File")
+   * @returns {Promise<{path, name, type}|Array|null>} Selected file(s) or null if cancelled
+   */
+  static async choose(options = {}) {
+    return new Promise((resolve) => {
+      const popupManager = document.querySelector('popup-manager')
+      if (!popupManager) {
+        console.error('ViewFiles.choose: popup-manager not found')
+        resolve(null)
+        return
+      }
+
+      const popup = document.createElement('view-popup')
+      popup.setAttribute('size', 'large')
+
+      // Title
+      const title = document.createElement('h2')
+      title.slot = 'title'
+      title.className = 'popup-title'
+      title.textContent = options.title || 'Select File'
+      popup.appendChild(title)
+
+      // Container for file browser
+      const container = document.createElement('div')
+      container.className = 'file-chooser-container'
+
+      // File browser in chooser mode
+      const files = document.createElement('view-files')
+      files.setAttribute('data-mode', 'chooser')
+      files.setAttribute('data-root', options.root || '/')
+      if (options.filter) files.setAttribute('data-filter', options.filter)
+      if (options.selectFolders) files.setAttribute('data-select-folders', 'true')
+      if (options.multiSelect) files.setAttribute('data-multi-select', 'true')
+
+      container.appendChild(files)
+      popup.appendChild(container)
+      popupManager.appendChild(popup)
+
+      let resolved = false
+
+      // Handle selection
+      files.addEventListener('chooser-select', (e) => {
+        if (resolved) return
+        resolved = true
+        popup.close()
+        resolve(e.detail.selection)
+      })
+
+      // Handle cancel
+      files.addEventListener('chooser-cancel', () => {
+        if (resolved) return
+        resolved = true
+        popup.close()
+        resolve(null)
+      })
+
+      // Handle popup close (via X button or Escape)
+      popup.addEventListener('popup-closing', () => {
+        if (resolved) return
+        resolved = true
+        resolve(null)
+      })
+    })
   }
 }
 
