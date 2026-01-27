@@ -261,6 +261,21 @@
       </div>
     </template>
 
+    <template id="view-animation-editor">
+      <div slot="header-controls" class="view-header-controls">
+        <button data-action="load-spritesheet" class="button-secondary">Load Sheet</button>
+        <span class="toolbar-divider"></span>
+        <label class="toolbar-inline">
+          <span>Tile:</span>
+          <input type="number" data-element="tile-width" value="16" min="1" class="input-small" title="Tile Width">
+          <span>x</span>
+          <input type="number" data-element="tile-height" value="16" min="1" class="input-small" title="Tile Height">
+        </label>
+        <span class="toolbar-divider"></span>
+        <button data-action="save" class="button-primary">Save</button>
+      </div>
+    </template>
+
     <template id="view-opr-unit-builder">
       <div slot="header-controls" class="view-header-controls">
         <button data-action="random-unit" class="button-secondary">🎲 Random Unit</button>
@@ -397,6 +412,9 @@
             </optgroup>
             <optgroup label="Tiles">
               <option value="view-tile-extractor">Tile Extractor</option>
+            </optgroup>
+            <optgroup label="Animation">
+              <option value="view-animation-editor">Animation Editor</option>
             </optgroup>
           </select>
           <div class="panel-header-controls">

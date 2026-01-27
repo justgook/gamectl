@@ -77,3 +77,12 @@ INSERT INTO keybindings (mode, keys, event_name, description) VALUES
 INSERT INTO keybindings (mode, keys, event_name, description) VALUES
 ('console', '<C-l>', 'console:clear', 'Clear console'),
 ('console', '<C-k>', 'console:clear', 'Clear console (alternate)');
+
+-- Animation editor mode shortcuts
+INSERT INTO keybindings (mode, keys, event_name, description) VALUES
+('animation-editor', '<Space>', 'animation:playback:toggle', 'Play/pause animation'),
+('animation-editor', '<Del>', 'animation:frame:delete', 'Delete selected frames'),
+('animation-editor', '<BS>', 'animation:frame:delete', 'Delete selected frames (backspace)'),
+('animation-editor', '<C-a>', 'animation:frame:select-all', 'Select all frames'),
+('animation-editor', '<C-s>', 'animation:save', 'Save animation'),
+('animation-editor', '<Esc>', 'animation:selection:clear', 'Clear selection');
