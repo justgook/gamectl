@@ -43,6 +43,16 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
     // Color palette for visualizing unique tiles
     this.tileColors = []
+
+    // Spritesheet export settings
+    this.outputTileW = 32
+    this.outputTileH = 32
+    this.suggestedSize = { width: 0, height: 0 }
+    this.tileBounds = new Map()  // Map<tileId, {minX, minY, maxX, maxY, width, height}>
+    this.pivots = new Map()      // Map<tileId, {x, y}>
+    this.defaultPivot = { x: 0.5, y: 0.5 }  // Center
+    this.pivotEditMode = false
+    this.selectedTileForPivot = null
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
@@ -118,6 +128,44 @@ export class ViewTileExtractor extends ViewCanvasBase {
         <button id="saveTilesetBtn" class="primary full-width" disabled>Save Tileset</button>
         <button id="saveTilemapBtn" class="full-width" disabled>Save Tilemap JSON</button>
         <button id="saveToStorageBtn" class="full-width" disabled>Save to Tilemap Storage</button>
+      </div>
+      
+      <div class="panel-section">
+        <h4>Spritesheet Export</h4>
+        <div class="size-inputs">
+          <label>
+            Cell W:
+            <input type="number" id="outputTileW" value="${this.outputTileW}" min="8" max="256">
+          </label>
+          <label>
+            Cell H:
+            <input type="number" id="outputTileH" value="${this.outputTileH}" min="8" max="256">
+          </label>
+        </div>
+        <button id="suggestSizeBtn" disabled>Suggest Size</button>
+        <div id="suggestedSizeInfo"></div>
+        
+        <label style="margin-top: 8px;">
+          Default Pivot:
+          <select id="defaultPivotSelect">
+            <option value="center" selected>Center</option>
+            <option value="top">Top Center</option>
+            <option value="bottom">Bottom Center</option>
+            <option value="left">Left Center</option>
+            <option value="right">Right Center</option>
+            <option value="top-left">Top Left</option>
+            <option value="top-right">Top Right</option>
+            <option value="bottom-left">Bottom Left</option>
+            <option value="bottom-right">Bottom Right</option>
+          </select>
+        </label>
+        
+        <button id="editPivotsBtn" disabled>Edit Pivots</button>
+        <div id="pivotEditInfo" style="display: none; margin-top: 8px; font-size: 11px; color: var(--color-semantic-text-secondary);">
+          Click on tiles in preview to set custom pivot points. Click again to reset to default.
+        </div>
+        
+        <button id="saveSpritesheetBtn" class="primary full-width" style="margin-top: 8px;" disabled>Save Spritesheet</button>
       </div>
       
       <div class="panel-section" id="tilebankPreview">
@@ -277,6 +325,65 @@ export class ViewTileExtractor extends ViewCanvasBase {
         padding: 1px 3px;
         border-radius: 2px;
       }
+      
+      .tilebank-item.pivot-edit-mode {
+        cursor: crosshair;
+      }
+      
+      .tilebank-item.has-custom-pivot {
+        border-color: var(--color-semantic-border-accent, #ff9900);
+      }
+      
+      .tilebank-item.selected-for-pivot {
+        border-color: var(--color-semantic-border-focus, #00ff00);
+        border-width: 2px;
+      }
+      
+      .pivot-marker {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        pointer-events: none;
+      }
+      
+      .pivot-marker::before,
+      .pivot-marker::after {
+        content: '';
+        position: absolute;
+        background: #ff0000;
+      }
+      
+      .pivot-marker::before {
+        left: 3px;
+        top: 0;
+        width: 2px;
+        height: 8px;
+      }
+      
+      .pivot-marker::after {
+        left: 0;
+        top: 3px;
+        width: 8px;
+        height: 2px;
+      }
+      
+      .pivot-marker.default-pivot::before,
+      .pivot-marker.default-pivot::after {
+        background: #00aaff;
+      }
+      
+      #suggestedSizeInfo {
+        padding: 4px 8px;
+        background: var(--color-semantic-background-primary, #1a1a1a);
+        border-radius: 4px;
+        margin-top: 4px;
+        font-size: 11px;
+      }
+      
+      #editPivotsBtn.active {
+        background: var(--color-semantic-background-accent-default, #0066cc);
+        color: var(--color-semantic-text-on-accent, #000);
+      }
     `
     this.appendChild(style)
   }
@@ -328,6 +435,33 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
     this.sidePanel.querySelector('#saveToStorageBtn').addEventListener('click', () => {
       this.saveToStorage()
+    })
+
+    // Spritesheet export controls
+    this.sidePanel.querySelector('#outputTileW').addEventListener('change', (e) => {
+      this.outputTileW = parseInt(e.target.value) || 32
+    })
+
+    this.sidePanel.querySelector('#outputTileH').addEventListener('change', (e) => {
+      this.outputTileH = parseInt(e.target.value) || 32
+    })
+
+    this.sidePanel.querySelector('#suggestSizeBtn').addEventListener('click', () => {
+      this.suggestOutputSize()
+    })
+
+    this.sidePanel.querySelector('#defaultPivotSelect').addEventListener('change', (e) => {
+      this.setDefaultPivot(e.target.value)
+      this.draw()
+      this.updateTilebankPreview()
+    })
+
+    this.sidePanel.querySelector('#editPivotsBtn').addEventListener('click', () => {
+      this.togglePivotEditMode()
+    })
+
+    this.sidePanel.querySelector('#saveSpritesheetBtn').addEventListener('click', () => {
+      this.saveSpritesheet()
     })
   }
 
@@ -559,6 +693,17 @@ export class ViewTileExtractor extends ViewCanvasBase {
       this.sidePanel.querySelector('#saveTilesetBtn').disabled = false
       this.sidePanel.querySelector('#saveTilemapBtn').disabled = false
       this.sidePanel.querySelector('#saveToStorageBtn').disabled = false
+      
+      // Enable spritesheet export buttons
+      this.sidePanel.querySelector('#suggestSizeBtn').disabled = false
+      this.sidePanel.querySelector('#editPivotsBtn').disabled = false
+      this.sidePanel.querySelector('#saveSpritesheetBtn').disabled = false
+      
+      // Reset spritesheet settings
+      this.pivots.clear()
+      this.tileBounds.clear()
+      this.pivotEditMode = false
+      this.selectedTileForPivot = null
 
       bus.emit('toast:show', {
         message: `Extracted ${this.tilebank.length} unique tiles from ${this.tilemap.width}x${this.tilemap.height} grid`,
@@ -610,6 +755,17 @@ export class ViewTileExtractor extends ViewCanvasBase {
     for (const tile of this.tilebank) {
       const item = document.createElement('div')
       item.className = 'tilebank-item'
+      
+      // Add mode-specific classes
+      if (this.pivotEditMode) {
+        item.classList.add('pivot-edit-mode')
+      }
+      if (this.pivots.has(tile.id)) {
+        item.classList.add('has-custom-pivot')
+      }
+      if (this.selectedTileForPivot === tile.id) {
+        item.classList.add('selected-for-pivot')
+      }
 
       // Calculate tile position from sourceIndex
       const tileX = tile.sourceIndex % cols
@@ -627,14 +783,86 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
       item.appendChild(canvas)
 
+      // Add pivot marker
+      const pivot = this.getPivotForTile(tile.id)
+      const bounds = this.tileBounds.get(tile.id)
+      
+      const marker = document.createElement('div')
+      marker.className = 'pivot-marker'
+      if (!this.pivots.has(tile.id)) {
+        marker.classList.add('default-pivot')
+      }
+      
+      // Calculate pivot position in pixels
+      let pivotX, pivotY
+      if (bounds) {
+        // Use actual content bounds
+        pivotX = bounds.minX + pivot.x * bounds.width
+        pivotY = bounds.minY + pivot.y * bounds.height
+      } else {
+        // Fall back to full tile
+        pivotX = pivot.x * this.tileW
+        pivotY = pivot.y * this.tileH
+      }
+      
+      // Position marker (center it on the pivot point)
+      // Account for canvas scaling in the item
+      const itemSize = 48 // Approximate size of tilebank-item
+      const scale = Math.min(itemSize / this.tileW, itemSize / this.tileH)
+      marker.style.left = `${(pivotX * scale) + (itemSize - this.tileW * scale) / 2 - 4}px`
+      marker.style.top = `${(pivotY * scale) + (itemSize - this.tileH * scale) / 2 - 4}px`
+      
+      item.appendChild(marker)
+
       const idLabel = document.createElement('span')
       idLabel.className = 'tile-id'
       idLabel.textContent = tile.id
       item.appendChild(idLabel)
 
-      item.addEventListener('click', () => {
-        this.highlightTileId = this.highlightTileId === tile.id ? null : tile.id
-        this.draw()
+      item.addEventListener('click', (e) => {
+        if (this.pivotEditMode) {
+          // In pivot edit mode, handle pivot click on the canvas
+          const rect = canvas.getBoundingClientRect()
+          const clickX = e.clientX - rect.left
+          const clickY = e.clientY - rect.top
+          
+          // Get bounds for this tile
+          const tileBounds = this.tileBounds.get(tile.id)
+          
+          if (tileBounds && tileBounds.width > 0 && tileBounds.height > 0) {
+            // Calculate relative position within content bounds
+            const canvasScale = canvas.offsetWidth / this.tileW
+            const localX = clickX / canvasScale
+            const localY = clickY / canvasScale
+            
+            // Convert to pivot coordinates (0-1 relative to content bounds)
+            const pivotX = Math.max(0, Math.min(1, (localX - tileBounds.minX) / tileBounds.width))
+            const pivotY = Math.max(0, Math.min(1, (localY - tileBounds.minY) / tileBounds.height))
+            
+            this.setPivotForTile(tile.id, pivotX, pivotY)
+          } else {
+            // No bounds info, use full tile
+            const canvasScale = canvas.offsetWidth / this.tileW
+            const pivotX = (clickX / canvasScale) / this.tileW
+            const pivotY = (clickY / canvasScale) / this.tileH
+            
+            this.setPivotForTile(tile.id, Math.max(0, Math.min(1, pivotX)), Math.max(0, Math.min(1, pivotY)))
+          }
+        } else {
+          // Normal mode: highlight tile
+          this.highlightTileId = this.highlightTileId === tile.id ? null : tile.id
+          this.draw()
+        }
+      })
+      
+      // Right-click to reset to default pivot
+      item.addEventListener('contextmenu', (e) => {
+        if (this.pivotEditMode && this.pivots.has(tile.id)) {
+          e.preventDefault()
+          this.pivots.delete(tile.id)
+          this.updateTilebankPreview()
+          this.draw()
+        }
       })
 
       grid.appendChild(item)
@@ -771,6 +999,177 @@ export class ViewTileExtractor extends ViewCanvasBase {
     }
   }
 
+  /**
+   * Set default pivot from preset name
+   */
+  setDefaultPivot(preset) {
+    const presets = {
+      'center': { x: 0.5, y: 0.5 },
+      'top': { x: 0.5, y: 0 },
+      'bottom': { x: 0.5, y: 1 },
+      'left': { x: 0, y: 0.5 },
+      'right': { x: 1, y: 0.5 },
+      'top-left': { x: 0, y: 0 },
+      'top-right': { x: 1, y: 0 },
+      'bottom-left': { x: 0, y: 1 },
+      'bottom-right': { x: 1, y: 1 }
+    }
+    this.defaultPivot = presets[preset] || { x: 0.5, y: 0.5 }
+  }
+
+  /**
+   * Analyze tile bounds and suggest output size based on largest sprite
+   */
+  async suggestOutputSize() {
+    if (!this.tilebank.length || !this.tilemap) {
+      bus.emit('toast:show', { message: 'No tiles extracted', type: 'warning' })
+      return
+    }
+
+    try {
+      const input = JSON.stringify({
+        tilebank: this.tilebank,
+        sourcePath: this.sourcePath,
+        sourceCols: this.tilemap.width,
+        tileW: this.tilemap.tileW,
+        tileH: this.tilemap.tileH
+      })
+
+      const result = await window.pluginManager.call('tile-detect', 'analyzeBounds', input)
+      const output = JSON.parse(new TextDecoder().decode(result.output))
+
+      if (!output.success) {
+        throw new Error(output.error || 'Analysis failed')
+      }
+
+      // Store bounds for visualization
+      this.tileBounds.clear()
+      for (const [idStr, bounds] of Object.entries(output.bounds)) {
+        this.tileBounds.set(parseInt(idStr), bounds)
+      }
+
+      this.suggestedSize = output.suggestedSize
+      this.outputTileW = output.suggestedSize.width
+      this.outputTileH = output.suggestedSize.height
+
+      // Update UI
+      this.sidePanel.querySelector('#outputTileW').value = this.outputTileW
+      this.sidePanel.querySelector('#outputTileH').value = this.outputTileH
+      
+      const info = this.sidePanel.querySelector('#suggestedSizeInfo')
+      info.innerHTML = `Suggested: ${this.outputTileW}x${this.outputTileH}<br>(based on largest sprite content)`
+
+      this.draw()
+      this.updateTilebankPreview()
+
+      bus.emit('toast:show', {
+        message: `Suggested size: ${this.outputTileW}x${this.outputTileH}`,
+        type: 'success'
+      })
+
+    } catch (err) {
+      console.error('[tile-extractor] Suggest size failed:', err)
+      bus.emit('toast:show', { message: `Suggest size failed: ${err.message}`, type: 'error' })
+    }
+  }
+
+  /**
+   * Toggle pivot editing mode
+   */
+  togglePivotEditMode() {
+    this.pivotEditMode = !this.pivotEditMode
+    this.selectedTileForPivot = null
+
+    const btn = this.sidePanel.querySelector('#editPivotsBtn')
+    const info = this.sidePanel.querySelector('#pivotEditInfo')
+    
+    if (this.pivotEditMode) {
+      btn.textContent = 'Done Editing'
+      btn.classList.add('active')
+      info.style.display = 'block'
+    } else {
+      btn.textContent = 'Edit Pivots'
+      btn.classList.remove('active')
+      info.style.display = 'none'
+    }
+
+    this.draw()
+    this.updateTilebankPreview()
+  }
+
+  /**
+   * Set custom pivot for a specific tile
+   */
+  setPivotForTile(tileId, x, y) {
+    if (x === this.defaultPivot.x && y === this.defaultPivot.y) {
+      // Remove custom pivot if same as default
+      this.pivots.delete(tileId)
+    } else {
+      this.pivots.set(tileId, { x, y })
+    }
+    this.draw()
+    this.updateTilebankPreview()
+  }
+
+  /**
+   * Get pivot for a tile (custom or default)
+   */
+  getPivotForTile(tileId) {
+    return this.pivots.get(tileId) || this.defaultPivot
+  }
+
+  /**
+   * Save spritesheet with uniform cell sizes and pivot-based positioning
+   */
+  async saveSpritesheet() {
+    if (!this.tilebank.length || !this.tilemap) {
+      bus.emit('toast:show', { message: 'No tiles extracted', type: 'warning' })
+      return
+    }
+
+    try {
+      // Create output directory
+      await window.pluginManager.call('fs', 'mkdir', this.outputDir)
+
+      const spritesheetPath = `${this.outputDir}/spritesheet.qoi`
+      
+      // Convert pivots Map to object with string keys
+      const pivotsObj = {}
+      for (const [id, pivot] of this.pivots) {
+        pivotsObj[String(id)] = pivot
+      }
+
+      const input = JSON.stringify({
+        tilebank: this.tilebank,
+        sourcePath: this.sourcePath,
+        sourceCols: this.tilemap.width,
+        sourceTileW: this.tilemap.tileW,
+        sourceTileH: this.tilemap.tileH,
+        outputTileW: this.outputTileW,
+        outputTileH: this.outputTileH,
+        pivots: pivotsObj,
+        defaultPivot: this.defaultPivot,
+        outputPath: spritesheetPath
+      })
+
+      const result = await window.pluginManager.call('tile-detect', 'exportSpritesheet', input)
+      const output = JSON.parse(new TextDecoder().decode(result.output))
+
+      if (!output.success) {
+        throw new Error(output.error || 'Failed to generate spritesheet')
+      }
+
+      bus.emit('toast:show', {
+        message: `Saved spritesheet to ${output.path} (${output.cols}x${output.rows} grid, ${this.outputTileW}x${this.outputTileH} cells)`,
+        type: 'success'
+      })
+
+    } catch (err) {
+      console.error('[tile-extractor] Save spritesheet failed:', err)
+      bus.emit('toast:show', { message: `Save spritesheet failed: ${err.message}`, type: 'error' })
+    }
+  }
+
   _onMouseMove(e) {
     super._onMouseMove(e)
 
@@ -863,6 +1262,51 @@ export class ViewTileExtractor extends ViewCanvasBase {
         this.tileW,
         this.tileH
       )
+    }
+
+    // Draw pivot markers in pivot edit mode
+    if (this.pivotEditMode && this.tilemap) {
+      const crossSize = 6 / this.scale
+
+      for (let y = 0; y < this.tilemap.height; y++) {
+        for (let x = 0; x < this.tilemap.width; x++) {
+          const idx = y * this.tilemap.width + x
+          const tileId = this.tilemap.data[idx]
+
+          if (tileId > 0) {
+            const pivot = this.getPivotForTile(tileId)
+            const bounds = this.tileBounds.get(tileId)
+            const hasCustom = this.pivots.has(tileId)
+
+            // Calculate pivot position in world coordinates
+            const tileStartX = x * this.tileW
+            const tileStartY = y * this.tileH
+            
+            let pivotX, pivotY
+            if (bounds) {
+              pivotX = tileStartX + bounds.minX + pivot.x * bounds.width
+              pivotY = tileStartY + bounds.minY + pivot.y * bounds.height
+            } else {
+              pivotX = tileStartX + pivot.x * this.tileW
+              pivotY = tileStartY + pivot.y * this.tileH
+            }
+
+            // Draw crosshair
+            ctx.strokeStyle = hasCustom ? 'rgba(255, 0, 0, 0.9)' : 'rgba(0, 170, 255, 0.7)'
+            ctx.lineWidth = 2 / this.scale
+
+            ctx.beginPath()
+            ctx.moveTo(pivotX - crossSize, pivotY)
+            ctx.lineTo(pivotX + crossSize, pivotY)
+            ctx.stroke()
+
+            ctx.beginPath()
+            ctx.moveTo(pivotX, pivotY - crossSize)
+            ctx.lineTo(pivotX, pivotY + crossSize)
+            ctx.stroke()
+          }
+        }
+      }
     }
   }
 }
