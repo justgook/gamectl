@@ -48,6 +48,14 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       hovered: 'rgba(100, 100, 255, 0.4)',
       hoveredBorder: 'rgba(100, 100, 255, 1)'
     }
+
+    // Spritesheet export settings
+    this.outputCellW = 32
+    this.outputCellH = 32
+    this.suggestedSize = { width: 0, height: 0 }
+    this.pivots = new Map()      // Map<spriteIndex, {x, y}>
+    this.defaultPivot = { x: 0.5, y: 0.5 }  // Center
+    this.pivotEditMode = false
   }
 
   attributeChangedCallback(name, oldVal, newVal) {
@@ -99,8 +107,46 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       </div>
       
       <div class="panel-section">
-        <h4>Export</h4>
+        <h4>Export Individual</h4>
         <button id="exportBtn" class="primary" disabled>Export Selected</button>
+      </div>
+      
+      <div class="panel-section">
+        <h4>Spritesheet Export</h4>
+        <div class="size-inputs">
+          <label>
+            Cell W:
+            <input type="number" id="outputCellW" value="${this.outputCellW}" min="8" max="512">
+          </label>
+          <label>
+            Cell H:
+            <input type="number" id="outputCellH" value="${this.outputCellH}" min="8" max="512">
+          </label>
+        </div>
+        <button id="suggestSizeBtn" disabled>Suggest Size</button>
+        <div id="suggestedSizeInfo"></div>
+        
+        <label style="margin-top: 8px;">
+          Default Pivot:
+          <select id="defaultPivotSelect">
+            <option value="center" selected>Center</option>
+            <option value="top">Top Center</option>
+            <option value="bottom">Bottom Center</option>
+            <option value="left">Left Center</option>
+            <option value="right">Right Center</option>
+            <option value="top-left">Top Left</option>
+            <option value="top-right">Top Right</option>
+            <option value="bottom-left">Bottom Left</option>
+            <option value="bottom-right">Bottom Right</option>
+          </select>
+        </label>
+        
+        <button id="editPivotsBtn" disabled>Edit Pivots</button>
+        <div id="pivotEditInfo" style="display: none; margin-top: 8px; font-size: 11px; color: var(--color-semantic-text-secondary);">
+          Click on sprites to set custom pivot points. Right-click to reset to default.
+        </div>
+        
+        <button id="saveSpritesheetBtn" class="primary" style="margin-top: 8px;" disabled>Save Spritesheet</button>
       </div>
       
       <div class="panel-section" id="spriteList">
@@ -233,6 +279,49 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
         color: var(--color-semantic-text-secondary, #888);
         font-size: 10px;
       }
+      
+      .sprite-extractor-panel .size-inputs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      
+      .sprite-extractor-panel .size-inputs label {
+        flex: 1;
+      }
+      
+      .sprite-extractor-panel select {
+        width: 100%;
+        padding: 4px;
+        margin-top: 4px;
+        background: var(--color-semantic-background-primary, #1a1a1a);
+        border: 1px solid var(--color-semantic-border-default, #444);
+        color: var(--color-semantic-text-primary, #fff);
+        border-radius: 4px;
+      }
+      
+      #suggestedSizeInfo {
+        padding: 4px 8px;
+        background: var(--color-semantic-background-primary, #1a1a1a);
+        border-radius: 4px;
+        margin-top: 4px;
+        font-size: 11px;
+        min-height: 1em;
+      }
+      
+      #editPivotsBtn.active {
+        background: var(--color-semantic-background-accent-default, #0066cc);
+        color: var(--color-semantic-text-on-accent, #000);
+      }
+      
+      .sprite-list-item.has-custom-pivot::after {
+        content: '';
+        width: 6px;
+        height: 6px;
+        background: #ff9900;
+        border-radius: 50%;
+        margin-left: 4px;
+      }
     `
     this.appendChild(style)
   }
@@ -268,6 +357,32 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
     // Export button
     this.sidePanel.querySelector('#exportBtn').addEventListener('click', () => {
       this.exportSelected()
+    })
+
+    // Spritesheet export controls
+    this.sidePanel.querySelector('#outputCellW').addEventListener('change', (e) => {
+      this.outputCellW = parseInt(e.target.value) || 32
+    })
+
+    this.sidePanel.querySelector('#outputCellH').addEventListener('change', (e) => {
+      this.outputCellH = parseInt(e.target.value) || 32
+    })
+
+    this.sidePanel.querySelector('#suggestSizeBtn').addEventListener('click', () => {
+      this.suggestOutputSize()
+    })
+
+    this.sidePanel.querySelector('#defaultPivotSelect').addEventListener('change', (e) => {
+      this.setDefaultPivot(e.target.value)
+      this.draw()
+    })
+
+    this.sidePanel.querySelector('#editPivotsBtn').addEventListener('click', () => {
+      this.togglePivotEditMode()
+    })
+
+    this.sidePanel.querySelector('#saveSpritesheetBtn').addEventListener('click', () => {
+      this.saveSpritesheet()
     })
   }
 
@@ -457,6 +572,19 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       // Select all by default
       this.selectAll()
 
+      // Reset spritesheet settings
+      this.pivots.clear()
+      this.pivotEditMode = false
+      const editBtn = this.sidePanel.querySelector('#editPivotsBtn')
+      editBtn.textContent = 'Edit Pivots'
+      editBtn.classList.remove('active')
+      this.sidePanel.querySelector('#pivotEditInfo').style.display = 'none'
+
+      // Enable spritesheet export buttons
+      this.sidePanel.querySelector('#suggestSizeBtn').disabled = false
+      this.sidePanel.querySelector('#editPivotsBtn').disabled = false
+      this.sidePanel.querySelector('#saveSpritesheetBtn').disabled = false
+
       // Update UI
       this.updateSpriteList()
       this.updateSpriteCount()
@@ -519,7 +647,10 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
 
     this.sprites.forEach((sprite, i) => {
       const item = document.createElement('div')
-      item.className = 'sprite-list-item' + (this.selectedSprites.has(i) ? ' selected' : '')
+      item.className = 'sprite-list-item'
+      if (this.selectedSprites.has(i)) item.classList.add('selected')
+      if (this.pivots.has(i)) item.classList.add('has-custom-pivot')
+
       item.innerHTML = `
         <input type="checkbox" ${this.selectedSprites.has(i) ? 'checked' : ''}>
         <span>sprite_${String(i).padStart(3, '0')}</span>
@@ -598,6 +729,169 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
     }
   }
 
+  /**
+   * Set default pivot from preset name
+   */
+  setDefaultPivot(preset) {
+    const presets = {
+      'center': { x: 0.5, y: 0.5 },
+      'top': { x: 0.5, y: 0 },
+      'bottom': { x: 0.5, y: 1 },
+      'left': { x: 0, y: 0.5 },
+      'right': { x: 1, y: 0.5 },
+      'top-left': { x: 0, y: 0 },
+      'top-right': { x: 1, y: 0 },
+      'bottom-left': { x: 0, y: 1 },
+      'bottom-right': { x: 1, y: 1 }
+    }
+    this.defaultPivot = presets[preset] || { x: 0.5, y: 0.5 }
+  }
+
+  /**
+   * Get pivot for a sprite (custom or default)
+   */
+  getPivotForSprite(index) {
+    return this.pivots.get(index) || this.defaultPivot
+  }
+
+  /**
+   * Suggest output cell size based on largest sprite
+   */
+  suggestOutputSize() {
+    if (this.sprites.length === 0) {
+      bus.emit('toast:show', { message: 'No sprites detected', type: 'warning' })
+      return
+    }
+
+    // Find the largest sprite dimensions
+    let maxWidth = 0
+    let maxHeight = 0
+    for (const sprite of this.sprites) {
+      if (sprite.width > maxWidth) maxWidth = sprite.width
+      if (sprite.height > maxHeight) maxHeight = sprite.height
+    }
+
+    this.suggestedSize = { width: maxWidth, height: maxHeight }
+    this.outputCellW = maxWidth
+    this.outputCellH = maxHeight
+
+    // Update UI
+    this.sidePanel.querySelector('#outputCellW').value = this.outputCellW
+    this.sidePanel.querySelector('#outputCellH').value = this.outputCellH
+
+    const info = this.sidePanel.querySelector('#suggestedSizeInfo')
+    info.innerHTML = `Suggested: ${maxWidth}x${maxHeight}<br>(based on largest sprite)`
+
+    bus.emit('toast:show', {
+      message: `Suggested size: ${maxWidth}x${maxHeight}`,
+      type: 'success'
+    })
+  }
+
+  /**
+   * Toggle pivot editing mode
+   */
+  togglePivotEditMode() {
+    this.pivotEditMode = !this.pivotEditMode
+
+    const btn = this.sidePanel.querySelector('#editPivotsBtn')
+    const info = this.sidePanel.querySelector('#pivotEditInfo')
+
+    if (this.pivotEditMode) {
+      btn.textContent = 'Done Editing'
+      btn.classList.add('active')
+      info.style.display = 'block'
+    } else {
+      btn.textContent = 'Edit Pivots'
+      btn.classList.remove('active')
+      info.style.display = 'none'
+    }
+
+    this.updateSpriteList()
+    this.draw()
+  }
+
+  /**
+   * Set custom pivot for a specific sprite
+   */
+  setPivotForSprite(index, x, y) {
+    // Clamp values
+    x = Math.max(0, Math.min(1, x))
+    y = Math.max(0, Math.min(1, y))
+
+    if (Math.abs(x - this.defaultPivot.x) < 0.01 && Math.abs(y - this.defaultPivot.y) < 0.01) {
+      // Remove custom pivot if same as default
+      this.pivots.delete(index)
+    } else {
+      this.pivots.set(index, { x, y })
+    }
+    this.updateSpriteList()
+    this.draw()
+  }
+
+  /**
+   * Save spritesheet with uniform cell sizes and pivot-based positioning
+   */
+  async saveSpritesheet() {
+    if (this.sprites.length === 0) {
+      bus.emit('toast:show', { message: 'No sprites detected', type: 'warning' })
+      return
+    }
+
+    // Use selected sprites only
+    const selectedIndices = Array.from(this.selectedSprites).sort((a, b) => a - b)
+    if (selectedIndices.length === 0) {
+      bus.emit('toast:show', { message: 'No sprites selected', type: 'warning' })
+      return
+    }
+
+    const outputDir = this.outputDir || '/sprites'
+
+    try {
+      // Ensure output directory exists
+      await window.pluginManager.call('fs', 'mkdir', outputDir)
+
+      const spritesheetPath = `${outputDir}/spritesheet.qoi`
+
+      // Build sprite list and pivots for selected sprites
+      const spritesToExport = selectedIndices.map(i => this.sprites[i])
+
+      // Convert pivots Map to object with string keys, remapping indices
+      const pivotsObj = {}
+      selectedIndices.forEach((originalIdx, newIdx) => {
+        if (this.pivots.has(originalIdx)) {
+          pivotsObj[String(newIdx)] = this.pivots.get(originalIdx)
+        }
+      })
+
+      const input = JSON.stringify({
+        sourcePath: this.sourcePath,
+        sprites: spritesToExport,
+        pivots: pivotsObj,
+        defaultPivot: this.defaultPivot,
+        cellW: this.outputCellW,
+        cellH: this.outputCellH,
+        outputPath: spritesheetPath
+      })
+
+      const result = await window.pluginManager.call('sprite-detect', 'exportSpritesheet', input)
+      const output = JSON.parse(new TextDecoder().decode(result.output))
+
+      if (!output.success) {
+        throw new Error(output.error || 'Failed to generate spritesheet')
+      }
+
+      bus.emit('toast:show', {
+        message: `Saved spritesheet to ${output.path} (${output.cols}x${output.rows} grid, ${this.outputCellW}x${this.outputCellH} cells)`,
+        type: 'success'
+      })
+
+    } catch (err) {
+      console.error('[sprite-extractor] Save spritesheet failed:', err)
+      bus.emit('toast:show', { message: `Save spritesheet failed: ${err.message}`, type: 'error' })
+    }
+  }
+
   // Override mouse handling for sprite selection
   _onMouseMove(e) {
     super._onMouseMove(e)
@@ -642,18 +936,55 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
 
   _onClick(e) {
     if (this.hoveredSprite >= 0) {
-      this.toggleSprite(this.hoveredSprite)
+      if (this.pivotEditMode) {
+        // In pivot edit mode, set pivot at click location
+        const rect = this.canvas.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
+
+        // Convert to world coordinates
+        const worldX = (mouseX - this.offsetX) / this.scale
+        const worldY = (mouseY - this.offsetY) / this.scale
+
+        const sprite = this.sprites[this.hoveredSprite]
+
+        // Calculate pivot relative to sprite bounds (0-1)
+        const pivotX = (worldX - sprite.x) / sprite.width
+        const pivotY = (worldY - sprite.y) / sprite.height
+
+        this.setPivotForSprite(this.hoveredSprite, pivotX, pivotY)
+      } else {
+        this.toggleSprite(this.hoveredSprite)
+      }
+    }
+  }
+
+  _onContextMenu(e) {
+    if (this.pivotEditMode && this.hoveredSprite >= 0) {
+      e.preventDefault()
+      // Reset pivot to default
+      this.pivots.delete(this.hoveredSprite)
+      this.updateSpriteList()
+      this.draw()
     }
   }
 
   _addEventListeners() {
     super._addEventListeners()
-    this.canvas.addEventListener('click', this._onClick.bind(this))
+    this._boundOnClick = this._onClick.bind(this)
+    this._boundOnContextMenu = this._onContextMenu.bind(this)
+    this.canvas.addEventListener('click', this._boundOnClick)
+    this.canvas.addEventListener('contextmenu', this._boundOnContextMenu)
   }
 
   _removeEventListeners() {
     super._removeEventListeners()
-    // Note: click handler will be removed when canvas is removed
+    if (this._boundOnClick) {
+      this.canvas.removeEventListener('click', this._boundOnClick)
+    }
+    if (this._boundOnContextMenu) {
+      this.canvas.removeEventListener('contextmenu', this._boundOnContextMenu)
+    }
   }
 
   // Drawing
@@ -691,6 +1022,38 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
         ctx.lineWidth = 1 / this.scale
       }
       ctx.strokeRect(sprite.x, sprite.y, sprite.width, sprite.height)
+
+      // Draw pivot marker in pivot edit mode
+      if (this.pivotEditMode) {
+        const pivot = this.getPivotForSprite(i)
+        const hasCustom = this.pivots.has(i)
+
+        // Calculate pivot position in world coordinates
+        const pivotX = sprite.x + pivot.x * sprite.width
+        const pivotY = sprite.y + pivot.y * sprite.height
+
+        const crossSize = 6 / this.scale
+
+        // Draw crosshair
+        ctx.strokeStyle = hasCustom ? 'rgba(255, 0, 0, 0.9)' : 'rgba(0, 170, 255, 0.7)'
+        ctx.lineWidth = 2 / this.scale
+
+        ctx.beginPath()
+        ctx.moveTo(pivotX - crossSize, pivotY)
+        ctx.lineTo(pivotX + crossSize, pivotY)
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.moveTo(pivotX, pivotY - crossSize)
+        ctx.lineTo(pivotX, pivotY + crossSize)
+        ctx.stroke()
+
+        // Draw small circle at center
+        ctx.beginPath()
+        ctx.arc(pivotX, pivotY, 2 / this.scale, 0, Math.PI * 2)
+        ctx.fillStyle = hasCustom ? 'rgba(255, 0, 0, 0.9)' : 'rgba(0, 170, 255, 0.9)'
+        ctx.fill()
+      }
     }
   }
 }

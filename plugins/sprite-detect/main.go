@@ -71,6 +71,33 @@ type DetectGridOutput struct {
 	ImageH  int        `json:"imageH"`  // Source image height
 }
 
+// PivotPoint represents a pivot position as relative coordinates (0.0-1.0)
+type PivotPoint struct {
+	X float64 `json:"x"` // 0.0 = left, 0.5 = center, 1.0 = right
+	Y float64 `json:"y"` // 0.0 = top, 0.5 = center, 1.0 = bottom
+}
+
+// ExportSpritesheetInput for creating uniform-sized spritesheet with pivot points
+type ExportSpritesheetInput struct {
+	SourcePath   string                `json:"sourcePath"`   // Path to source image
+	Sprites      []Sprite              `json:"sprites"`      // Sprites to include
+	Pivots       map[string]PivotPoint `json:"pivots"`       // Sprite index (string) -> pivot
+	DefaultPivot PivotPoint            `json:"defaultPivot"` // Default pivot for sprites without custom
+	CellW        int                   `json:"cellW"`        // Output cell width
+	CellH        int                   `json:"cellH"`        // Output cell height
+	OutputPath   string                `json:"outputPath"`   // Output file path
+}
+
+// ExportSpritesheetOutput returns spritesheet generation result
+type ExportSpritesheetOutput struct {
+	Success bool   `json:"success"`
+	Path    string `json:"path"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	Cols    int    `json:"cols"`
+	Rows    int    `json:"rows"`
+}
+
 // =============================================================================
 // Host Functions
 // =============================================================================
@@ -84,6 +111,22 @@ func fsRead(path string) ([]byte, error) {
 		return nil, fmt.Errorf("fs read failed: %s", string(data))
 	}
 	return data, nil
+}
+
+func fsWrite(path string, data []byte) error {
+	input := make([]byte, len(path)+1+len(data))
+	copy(input, path)
+	input[len(path)] = 0
+	copy(input[len(path)+1:], data)
+
+	status, output, err := pdk.Call("fs", "write", input)
+	if err != nil {
+		return fmt.Errorf("fs write error: %w", err)
+	}
+	if status != 0 {
+		return fmt.Errorf("fs write failed: %s", string(output))
+	}
+	return nil
 }
 
 func logMsg(msg string) {
@@ -499,6 +542,138 @@ func DetectGrid() int32 {
 		CellH:   params.CellH,
 		ImageW:  imgW,
 		ImageH:  imgH,
+	}
+
+	result, _ := json.Marshal(output)
+	pdk.Output(result)
+	return 0
+}
+
+func saveImage(path string, img *image.NRGBA) error {
+	var buf bytes.Buffer
+	if err := qoi.Encode(&buf, img); err != nil {
+		return err
+	}
+	return fsWrite(path, buf.Bytes())
+}
+
+//go:wasmexport exportSpritesheet
+func ExportSpritesheet() int32 {
+	input := pdk.Input()
+	var params ExportSpritesheetInput
+	if err := json.Unmarshal(input, &params); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+
+	if params.SourcePath == "" {
+		pdk.Output(util.ErrorResponse("sourcePath is required"))
+		return 1
+	}
+	if len(params.Sprites) == 0 {
+		pdk.Output(util.ErrorResponse("sprites list is empty"))
+		return 1
+	}
+	if params.CellW <= 0 || params.CellH <= 0 {
+		pdk.Output(util.ErrorResponse("cellW and cellH must be positive"))
+		return 1
+	}
+	if params.OutputPath == "" {
+		params.OutputPath = "/sprites/spritesheet.qoi"
+	}
+
+	// Default pivot to center if not specified
+	if params.DefaultPivot.X == 0 && params.DefaultPivot.Y == 0 {
+		params.DefaultPivot = PivotPoint{X: 0.5, Y: 0.5}
+	}
+
+	// Load source image
+	sourceImg, err := loadImage(params.SourcePath)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to load source image: " + err.Error()))
+		return 1
+	}
+	sourceW := sourceImg.Bounds().Dx()
+
+	numSprites := len(params.Sprites)
+
+	// Calculate square-ish grid layout
+	cols := 1
+	for cols*cols < numSprites {
+		cols++
+	}
+	rows := (numSprites + cols - 1) / cols
+
+	// Create spritesheet image (filled with transparent pixels by default)
+	sheetW := cols * params.CellW
+	sheetH := rows * params.CellH
+	spritesheet := image.NewNRGBA(image.Rect(0, 0, sheetW, sheetH))
+
+	logMsg(fmt.Sprintf("[sprite-detect] Creating spritesheet %dx%d (%d cols x %d rows) with %dx%d cells for %d sprites",
+		sheetW, sheetH, cols, rows, params.CellW, params.CellH, numSprites))
+
+	// Process each sprite
+	for i, sprite := range params.Sprites {
+		// Get pivot for this sprite (custom or default)
+		pivot := params.DefaultPivot
+		spriteIdxStr := fmt.Sprintf("%d", i)
+		if customPivot, exists := params.Pivots[spriteIdxStr]; exists {
+			pivot = customPivot
+		}
+
+		// Calculate where the pivot point is in the source sprite
+		// Pivot is relative to sprite bounds (0,0 = top-left of sprite, 1,1 = bottom-right)
+		spritePivotX := pivot.X * float64(sprite.Width)
+		spritePivotY := pivot.Y * float64(sprite.Height)
+
+		// Calculate position in output grid
+		destCellX := (i % cols) * params.CellW
+		destCellY := (i / cols) * params.CellH
+
+		// Calculate the center of the output cell
+		outputCenterX := float64(params.CellW) / 2.0
+		outputCenterY := float64(params.CellH) / 2.0
+
+		// Calculate offset to place sprite so its pivot aligns with output center
+		offsetX := int(outputCenterX - spritePivotX)
+		offsetY := int(outputCenterY - spritePivotY)
+
+		// Copy sprite pixels from source to spritesheet with offset
+		for y := 0; y < sprite.Height; y++ {
+			for x := 0; x < sprite.Width; x++ {
+				destX := destCellX + offsetX + x
+				destY := destCellY + offsetY + y
+
+				// Skip if outside output cell bounds
+				if destX < destCellX || destX >= destCellX+params.CellW ||
+					destY < destCellY || destY >= destCellY+params.CellH {
+					continue
+				}
+
+				srcX := sprite.X + x
+				srcY := sprite.Y + y
+				srcIdx := (srcY*sourceW + srcX) * 4
+				dstIdx := (destY*sheetW + destX) * 4
+				copy(spritesheet.Pix[dstIdx:dstIdx+4], sourceImg.Pix[srcIdx:srcIdx+4])
+			}
+		}
+	}
+
+	// Save spritesheet
+	if err := saveImage(params.OutputPath, spritesheet); err != nil {
+		pdk.Output(util.ErrorResponse("failed to save spritesheet: " + err.Error()))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[sprite-detect] Saved spritesheet to %s", params.OutputPath))
+
+	output := ExportSpritesheetOutput{
+		Success: true,
+		Path:    params.OutputPath,
+		Width:   sheetW,
+		Height:  sheetH,
+		Cols:    cols,
+		Rows:    rows,
 	}
 
 	result, _ := json.Marshal(output)
