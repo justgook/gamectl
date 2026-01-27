@@ -27,6 +27,9 @@ import "./views/sprite-extractor/view-sprite-extractor.js" // Self-registers
 import "./views/sprite-packer/view-sprite-packer.js" // Self-registers
 import "./views/tile-extractor/view-tile-extractor.js" // Self-registers
 
+// Animation editor
+import "./views/view-animation-editor.js" // Self-registers
+
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
 import { PluginManagerProxy } from "./systems/plugin-manager/proxy.js"
@@ -238,6 +241,34 @@ async function initSkeletonStorage() {
 }
 
 await initSkeletonStorage()
+
+// Initialize Animation Storage Database
+async function initAnimationStorage() {
+  try {
+    // Fetch migration file
+    const response = await fetch('/data/animation-storage.sql')
+    if (!response.ok) {
+      console.error('Failed to load animation-storage.sql:', response.statusText)
+      return
+    }
+
+    const migrationSql = await response.text()
+
+    // Execute migration (uses restore since it's a SQL script)
+    const result = await window.pluginManager.call('sql', 'restore', migrationSql)
+    console.log('Animation storage initialized:', DE.decode(result.output))
+
+    // Verify table created
+    const verifyResult = await window.pluginManager.call('sql', 'query',
+      'SELECT name FROM sqlite_schema WHERE type="table" AND name="animation_storage"'
+    )
+    console.log('Animation storage table check:', DE.decode(verifyResult.output))
+  } catch (error) {
+    console.error('Error initializing animation storage:', error)
+  }
+}
+
+await initAnimationStorage()
 
 // Initialize Keybindings System
 async function initKeybindings() {
