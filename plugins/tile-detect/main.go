@@ -86,6 +86,65 @@ type ExportTilesetOutput struct {
 	Rows    int    `json:"rows"`   // Number of rows in grid
 }
 
+// PivotPoint represents a pivot position as relative coordinates (0.0-1.0)
+type PivotPoint struct {
+	X float64 `json:"x"` // 0.0 = left, 0.5 = center, 1.0 = right
+	Y float64 `json:"y"` // 0.0 = top, 0.5 = center, 1.0 = bottom
+}
+
+// TileBounds represents the actual content bounds within a tile
+type TileBounds struct {
+	MinX   int `json:"minX"`   // Left edge of content
+	MinY   int `json:"minY"`   // Top edge of content
+	MaxX   int `json:"maxX"`   // Right edge of content (exclusive)
+	MaxY   int `json:"maxY"`   // Bottom edge of content (exclusive)
+	Width  int `json:"width"`  // Content width
+	Height int `json:"height"` // Content height
+}
+
+// AnalyzeBoundsInput for analyzing tile content bounds
+type AnalyzeBoundsInput struct {
+	Tilebank   []TileBankEntry `json:"tilebank"`   // Tilebank from extract output
+	SourcePath string          `json:"sourcePath"` // Path to original source image
+	SourceCols int             `json:"sourceCols"` // Number of tile columns in source
+	TileW      int             `json:"tileW"`      // Tile width in pixels
+	TileH      int             `json:"tileH"`      // Tile height in pixels
+}
+
+// AnalyzeBoundsOutput returns bounds analysis result
+type AnalyzeBoundsOutput struct {
+	Success       bool               `json:"success"`
+	Bounds        map[int]TileBounds `json:"bounds"` // Tile ID -> bounds
+	SuggestedSize struct {
+		Width  int `json:"width"`
+		Height int `json:"height"`
+	} `json:"suggestedSize"` // Maximum content dimensions
+}
+
+// ExportSpritesheetInput for creating uniform-sized spritesheet with pivot points
+type ExportSpritesheetInput struct {
+	Tilebank     []TileBankEntry       `json:"tilebank"`
+	SourcePath   string                `json:"sourcePath"`
+	SourceCols   int                   `json:"sourceCols"`
+	SourceTileW  int                   `json:"sourceTileW"` // Original tile size
+	SourceTileH  int                   `json:"sourceTileH"`
+	OutputTileW  int                   `json:"outputTileW"` // Uniform output tile size
+	OutputTileH  int                   `json:"outputTileH"`
+	Pivots       map[string]PivotPoint `json:"pivots"`       // Per-tile pivots (tile ID string -> pivot)
+	DefaultPivot PivotPoint            `json:"defaultPivot"` // Default pivot for tiles without custom
+	OutputPath   string                `json:"outputPath"`
+}
+
+// ExportSpritesheetOutput returns spritesheet generation result
+type ExportSpritesheetOutput struct {
+	Success bool   `json:"success"`
+	Path    string `json:"path"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	Cols    int    `json:"cols"`
+	Rows    int    `json:"rows"`
+}
+
 // =============================================================================
 // Host Functions
 // =============================================================================
@@ -286,6 +345,51 @@ func extractTileImage(img *image.NRGBA, tileX, tileY, tileW, tileH, imgW int) *i
 	}
 
 	return tile
+}
+
+// getTileBounds finds the bounding box of non-transparent pixels in a tile
+func getTileBounds(img *image.NRGBA, tileX, tileY, tileW, tileH, imgW int) TileBounds {
+	startX := tileX * tileW
+	startY := tileY * tileH
+
+	minX, minY := tileW, tileH
+	maxX, maxY := 0, 0
+	hasContent := false
+
+	for y := 0; y < tileH; y++ {
+		for x := 0; x < tileW; x++ {
+			idx := ((startY+y)*imgW + (startX + x)) * 4
+			alpha := img.Pix[idx+3]
+			if alpha > 0 {
+				hasContent = true
+				if x < minX {
+					minX = x
+				}
+				if x >= maxX {
+					maxX = x + 1
+				}
+				if y < minY {
+					minY = y
+				}
+				if y >= maxY {
+					maxY = y + 1
+				}
+			}
+		}
+	}
+
+	if !hasContent {
+		return TileBounds{0, 0, tileW, tileH, tileW, tileH}
+	}
+
+	return TileBounds{
+		MinX:   minX,
+		MinY:   minY,
+		MaxX:   maxX,
+		MaxY:   maxY,
+		Width:  maxX - minX,
+		Height: maxY - minY,
+	}
 }
 
 // =============================================================================
@@ -661,6 +765,218 @@ func ExportTileset() int32 {
 		Path:    params.OutputPath,
 		Width:   tilesetW,
 		Height:  tilesetH,
+		Cols:    cols,
+		Rows:    rows,
+	}
+
+	result, _ := json.Marshal(output)
+	pdk.Output(result)
+	return 0
+}
+
+//go:wasmexport analyzeBounds
+func AnalyzeBounds() int32 {
+	input := pdk.Input()
+	var params AnalyzeBoundsInput
+	if err := json.Unmarshal(input, &params); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+
+	if len(params.Tilebank) == 0 {
+		pdk.Output(util.ErrorResponse("tilebank is empty"))
+		return 1
+	}
+	if params.SourcePath == "" {
+		pdk.Output(util.ErrorResponse("sourcePath is required"))
+		return 1
+	}
+	if params.SourceCols <= 0 {
+		pdk.Output(util.ErrorResponse("sourceCols must be positive"))
+		return 1
+	}
+	if params.TileW <= 0 || params.TileH <= 0 {
+		pdk.Output(util.ErrorResponse("tileW and tileH must be positive"))
+		return 1
+	}
+
+	// Load source image
+	sourceImg, err := loadImage(params.SourcePath)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to load source image: " + err.Error()))
+		return 1
+	}
+	sourceW := sourceImg.Bounds().Dx()
+
+	// Analyze bounds for each tile
+	bounds := make(map[int]TileBounds)
+	maxWidth, maxHeight := 0, 0
+
+	for _, tile := range params.Tilebank {
+		srcTileX := tile.SourceIndex % params.SourceCols
+		srcTileY := tile.SourceIndex / params.SourceCols
+
+		tileBounds := getTileBounds(sourceImg, srcTileX, srcTileY, params.TileW, params.TileH, sourceW)
+		bounds[tile.ID] = tileBounds
+
+		if tileBounds.Width > maxWidth {
+			maxWidth = tileBounds.Width
+		}
+		if tileBounds.Height > maxHeight {
+			maxHeight = tileBounds.Height
+		}
+	}
+
+	logMsg(fmt.Sprintf("[tile-detect] Analyzed bounds for %d tiles, max content size: %dx%d",
+		len(params.Tilebank), maxWidth, maxHeight))
+
+	output := AnalyzeBoundsOutput{
+		Success: true,
+		Bounds:  bounds,
+	}
+	output.SuggestedSize.Width = maxWidth
+	output.SuggestedSize.Height = maxHeight
+
+	result, _ := json.Marshal(output)
+	pdk.Output(result)
+	return 0
+}
+
+//go:wasmexport exportSpritesheet
+func ExportSpritesheet() int32 {
+	input := pdk.Input()
+	var params ExportSpritesheetInput
+	if err := json.Unmarshal(input, &params); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+
+	if len(params.Tilebank) == 0 {
+		pdk.Output(util.ErrorResponse("tilebank is empty"))
+		return 1
+	}
+	if params.SourcePath == "" {
+		pdk.Output(util.ErrorResponse("sourcePath is required"))
+		return 1
+	}
+	if params.SourceCols <= 0 {
+		pdk.Output(util.ErrorResponse("sourceCols must be positive"))
+		return 1
+	}
+	if params.SourceTileW <= 0 || params.SourceTileH <= 0 {
+		pdk.Output(util.ErrorResponse("sourceTileW and sourceTileH must be positive"))
+		return 1
+	}
+	if params.OutputTileW <= 0 || params.OutputTileH <= 0 {
+		pdk.Output(util.ErrorResponse("outputTileW and outputTileH must be positive"))
+		return 1
+	}
+	if params.OutputPath == "" {
+		params.OutputPath = "/tiles/spritesheet.qoi"
+	}
+
+	// Default pivot to center if not specified
+	if params.DefaultPivot.X == 0 && params.DefaultPivot.Y == 0 {
+		params.DefaultPivot = PivotPoint{X: 0.5, Y: 0.5}
+	}
+
+	// Load source image
+	sourceImg, err := loadImage(params.SourcePath)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to load source image: " + err.Error()))
+		return 1
+	}
+	sourceW := sourceImg.Bounds().Dx()
+
+	numTiles := len(params.Tilebank)
+
+	// Calculate square-ish grid layout
+	cols := int(math.Ceil(math.Sqrt(float64(numTiles))))
+	rows := int(math.Ceil(float64(numTiles) / float64(cols)))
+
+	// Create spritesheet image (filled with transparent pixels by default)
+	sheetW := cols * params.OutputTileW
+	sheetH := rows * params.OutputTileH
+	spritesheet := image.NewNRGBA(image.Rect(0, 0, sheetW, sheetH))
+
+	logMsg(fmt.Sprintf("[tile-detect] Creating spritesheet %dx%d (%d cols x %d rows) with %dx%d cells for %d tiles",
+		sheetW, sheetH, cols, rows, params.OutputTileW, params.OutputTileH, numTiles))
+
+	// Sort tilebank by ID to ensure correct order
+	sortedTilebank := make([]TileBankEntry, len(params.Tilebank))
+	copy(sortedTilebank, params.Tilebank)
+	sort.Slice(sortedTilebank, func(i, j int) bool {
+		return sortedTilebank[i].ID < sortedTilebank[j].ID
+	})
+
+	// Process each tile
+	for _, tile := range sortedTilebank {
+		// Calculate source tile position from SourceIndex
+		srcTileX := tile.SourceIndex % params.SourceCols
+		srcTileY := tile.SourceIndex / params.SourceCols
+		srcStartX := srcTileX * params.SourceTileW
+		srcStartY := srcTileY * params.SourceTileH
+
+		// Get content bounds for this tile
+		tileBounds := getTileBounds(sourceImg, srcTileX, srcTileY, params.SourceTileW, params.SourceTileH, sourceW)
+
+		// Get pivot for this tile (custom or default)
+		pivot := params.DefaultPivot
+		tileIDStr := fmt.Sprintf("%d", tile.ID)
+		if customPivot, exists := params.Pivots[tileIDStr]; exists {
+			pivot = customPivot
+		}
+
+		// Calculate where the pivot point is in the source tile's content
+		// Pivot is relative to content bounds (0,0 = top-left of content, 1,1 = bottom-right)
+		contentPivotX := float64(tileBounds.MinX) + pivot.X*float64(tileBounds.Width)
+		contentPivotY := float64(tileBounds.MinY) + pivot.Y*float64(tileBounds.Height)
+
+		// Calculate position in output grid (0-based index from 1-based ID)
+		tileIndex := tile.ID - 1
+		destCellX := (tileIndex % cols) * params.OutputTileW
+		destCellY := (tileIndex / cols) * params.OutputTileH
+
+		// Calculate the center of the output cell
+		outputCenterX := float64(params.OutputTileW) / 2.0
+		outputCenterY := float64(params.OutputTileH) / 2.0
+
+		// Calculate offset to place sprite so its pivot aligns with output center
+		offsetX := int(outputCenterX - contentPivotX)
+		offsetY := int(outputCenterY - contentPivotY)
+
+		// Copy tile pixels from source to spritesheet with offset
+		for y := 0; y < params.SourceTileH; y++ {
+			for x := 0; x < params.SourceTileW; x++ {
+				destX := destCellX + offsetX + x
+				destY := destCellY + offsetY + y
+
+				// Skip if outside output cell bounds
+				if destX < destCellX || destX >= destCellX+params.OutputTileW ||
+					destY < destCellY || destY >= destCellY+params.OutputTileH {
+					continue
+				}
+
+				srcIdx := ((srcStartY+y)*sourceW + (srcStartX + x)) * 4
+				dstIdx := (destY*sheetW + destX) * 4
+				copy(spritesheet.Pix[dstIdx:dstIdx+4], sourceImg.Pix[srcIdx:srcIdx+4])
+			}
+		}
+	}
+
+	// Save spritesheet
+	if err := saveImage(params.OutputPath, spritesheet); err != nil {
+		pdk.Output(util.ErrorResponse("failed to save spritesheet: " + err.Error()))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[tile-detect] Saved spritesheet to %s", params.OutputPath))
+
+	output := ExportSpritesheetOutput{
+		Success: true,
+		Path:    params.OutputPath,
+		Width:   sheetW,
+		Height:  sheetH,
 		Cols:    cols,
 		Rows:    rows,
 	}
