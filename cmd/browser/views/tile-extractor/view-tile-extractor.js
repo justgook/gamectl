@@ -111,10 +111,6 @@ export class ViewTileExtractor extends ViewCanvasBase {
       
       <div class="panel-section">
         <h4>Export</h4>
-        <label>
-          Output Directory:
-          <input type="text" id="outputDir" value="${this.outputDir || '/tiles'}" style="width: 100%">
-        </label>
         <button id="saveTilesetBtn" class="primary full-width" disabled>Save Tileset</button>
         <button id="saveTilemapBtn" class="full-width" disabled>Save Tilemap JSON</button>
         <button id="saveToStorageBtn" class="full-width" disabled>Save to Tilemap Storage</button>
@@ -312,10 +308,6 @@ export class ViewTileExtractor extends ViewCanvasBase {
 
     this.sidePanel.querySelector('#extractBtn').addEventListener('click', () => {
       this.extractTiles()
-    })
-
-    this.sidePanel.querySelector('#outputDir').addEventListener('change', (e) => {
-      this.outputDir = e.target.value
     })
 
     this.sidePanel.querySelector('#saveTilesetBtn').addEventListener('click', () => {
@@ -644,11 +636,25 @@ export class ViewTileExtractor extends ViewCanvasBase {
   async saveTileset() {
     if (!this.tilebank.length || !this.tilemap) return
 
-    try {
-      // Create output directory
-      await window.pluginManager.call('fs', 'mkdir', this.outputDir)
+    // Open save dialog
+    const saveResult = await ViewFiles.save({
+      title: 'Save Tileset',
+      root: this.outputDir || '/',
+      defaultName: 'tileset.qoi'
+    })
 
-      const tilesetPath = `${this.outputDir}/tileset.qoi`
+    if (!saveResult) {
+      // User cancelled
+      return
+    }
+
+    const tilesetPath = saveResult.path
+    const outputDir = saveResult.directory
+
+    try {
+      // Ensure output directory exists
+      await window.pluginManager.call('fs', 'mkdir', outputDir)
+
       const input = JSON.stringify({
         tilebank: this.tilebank,
         sourcePath: this.sourcePath,
@@ -664,6 +670,9 @@ export class ViewTileExtractor extends ViewCanvasBase {
       if (!output.success) {
         throw new Error(output.error || 'Failed to generate tileset')
       }
+
+      // Update output directory for future saves
+      this.outputDir = outputDir
 
       // Store tileset info for later use
       this.tilesetInfo = {
@@ -688,8 +697,25 @@ export class ViewTileExtractor extends ViewCanvasBase {
   async saveTilemapJson() {
     if (!this.tilemap) return
 
+    // Open save dialog
+    const saveResult = await ViewFiles.save({
+      title: 'Save Tilemap JSON',
+      root: this.outputDir || '/',
+      defaultName: 'tilemap.json'
+    })
+
+    if (!saveResult) {
+      // User cancelled
+      return
+    }
+
+    const jsonPath = saveResult.path
+    const outputDir = saveResult.directory
+
     try {
-      const jsonPath = `${this.outputDir}/tilemap.json`
+      // Ensure output directory exists
+      await window.pluginManager.call('fs', 'mkdir', outputDir)
+
       const tilemapData = {
         width: this.tilemap.width,
         height: this.tilemap.height,
@@ -718,6 +744,9 @@ export class ViewTileExtractor extends ViewCanvasBase {
       writeInput.set(dataBytes, pathBytes.length + 1)
 
       await window.pluginManager.call('fs', 'write', writeInput)
+
+      // Update output directory for future saves
+      this.outputDir = outputDir
 
       bus.emit('toast:show', { message: `Saved tilemap to ${jsonPath}`, type: 'success' })
 
