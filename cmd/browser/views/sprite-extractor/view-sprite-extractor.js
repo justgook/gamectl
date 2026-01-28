@@ -684,7 +684,18 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
   async exportSelected() {
     if (this.selectedSprites.size === 0) return
 
-    const outputDir = this.outputDir || '/sprites'
+    // Open folder selection dialog
+    const folder = await ViewFiles.selectFolder({
+      title: 'Export Sprites To',
+      root: this.outputDir || '/'
+    })
+
+    if (!folder) {
+      // User cancelled
+      return
+    }
+
+    const outputDir = folder.path
 
     try {
       // Build regions for split operation
@@ -717,6 +728,9 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       if (!output.success) {
         throw new Error(output.error || 'Export failed')
       }
+
+      // Update output directory for future exports
+      this.outputDir = outputDir
 
       bus.emit('toast:show', {
         message: `Exported ${regions.length} sprites to ${outputDir}`,
@@ -861,13 +875,24 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       return
     }
 
-    const outputDir = this.outputDir || '/sprites'
+    // Open save dialog
+    const saveResult = await ViewFiles.save({
+      title: 'Save Spritesheet',
+      root: this.outputDir || '/',
+      defaultName: 'spritesheet.qoi'
+    })
+
+    if (!saveResult) {
+      // User cancelled
+      return
+    }
+
+    const spritesheetPath = saveResult.path
+    const outputDir = saveResult.directory
 
     try {
       // Ensure output directory exists
       await window.pluginManager.call('fs', 'mkdir', outputDir)
-
-      const spritesheetPath = `${outputDir}/spritesheet.qoi`
 
       // Build sprite list and pivots for selected sprites
       const spritesToExport = selectedIndices.map(i => this.sprites[i])
@@ -896,6 +921,9 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       if (!output.success) {
         throw new Error(output.error || 'Failed to generate spritesheet')
       }
+
+      // Update output directory for future exports
+      this.outputDir = outputDir
 
       bus.emit('toast:show', {
         message: `Saved spritesheet to ${output.path} (${output.cols}x${output.rows} grid, ${this.outputCellW}x${this.outputCellH} cells)`,
