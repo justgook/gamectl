@@ -755,7 +755,8 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
   }
 
   /**
-   * Suggest output cell size based on largest sprite
+   * Suggest output cell size based on largest sprite and pivot positions.
+   * When pivot is off-center, the sprite needs more space to stay centered on the pivot.
    */
   suggestOutputSize() {
     if (this.sprites.length === 0) {
@@ -763,27 +764,42 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       return
     }
 
-    // Find the largest sprite dimensions
-    let maxWidth = 0
-    let maxHeight = 0
-    for (const sprite of this.sprites) {
-      if (sprite.width > maxWidth) maxWidth = sprite.width
-      if (sprite.height > maxHeight) maxHeight = sprite.height
+    // Calculate required cell size for each sprite considering its pivot
+    // When pivot.x = 0.5, sprite is centered, needs width
+    // When pivot.x = 0 or 1, sprite is at edge, needs width * 2 to center on pivot
+    // Formula: requiredSize = size * 2 * max(pivot, 1 - pivot)
+    let maxRequiredWidth = 0
+    let maxRequiredHeight = 0
+
+    for (let i = 0; i < this.sprites.length; i++) {
+      const sprite = this.sprites[i]
+      const pivot = this.getPivotForSprite(i)
+
+      // Calculate how much space is needed on each side of the pivot
+      // to keep the sprite centered on the pivot point
+      const pivotOffsetX = Math.max(pivot.x, 1 - pivot.x)
+      const pivotOffsetY = Math.max(pivot.y, 1 - pivot.y)
+
+      const requiredWidth = Math.ceil(sprite.width * 2 * pivotOffsetX)
+      const requiredHeight = Math.ceil(sprite.height * 2 * pivotOffsetY)
+
+      if (requiredWidth > maxRequiredWidth) maxRequiredWidth = requiredWidth
+      if (requiredHeight > maxRequiredHeight) maxRequiredHeight = requiredHeight
     }
 
-    this.suggestedSize = { width: maxWidth, height: maxHeight }
-    this.outputCellW = maxWidth
-    this.outputCellH = maxHeight
+    this.suggestedSize = { width: maxRequiredWidth, height: maxRequiredHeight }
+    this.outputCellW = maxRequiredWidth
+    this.outputCellH = maxRequiredHeight
 
     // Update UI
     this.sidePanel.querySelector('#outputCellW').value = this.outputCellW
     this.sidePanel.querySelector('#outputCellH').value = this.outputCellH
 
     const info = this.sidePanel.querySelector('#suggestedSizeInfo')
-    info.innerHTML = `Suggested: ${maxWidth}x${maxHeight}<br>(based on largest sprite)`
+    info.innerHTML = `Suggested: ${maxRequiredWidth}x${maxRequiredHeight}<br>(accounts for pivot positions)`
 
     bus.emit('toast:show', {
-      message: `Suggested size: ${maxWidth}x${maxHeight}`,
+      message: `Suggested size: ${maxRequiredWidth}x${maxRequiredHeight}`,
       type: 'success'
     })
   }
