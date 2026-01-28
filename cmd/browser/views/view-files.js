@@ -28,7 +28,7 @@ import './files/handlers/qoi-handler.js'
  * - Pluggable file type handlers for preview/edit
  */
 export class ViewFiles extends HTMLElement {
-  static observedAttributes = ['data-root', 'data-show-hidden', 'data-mode', 'data-filter', 'data-select-folders', 'data-multi-select']
+  static observedAttributes = ['data-root', 'data-show-hidden', 'data-mode', 'data-filter', 'data-select-folders', 'data-multi-select', 'data-default-name']
 
   constructor() {
     super()
@@ -42,11 +42,16 @@ export class ViewFiles extends HTMLElement {
     this.draggedPath = null
 
     // Chooser mode state
-    this.mode = 'browser' // 'browser' | 'chooser'
+    this.mode = 'browser' // 'browser' | 'chooser' | 'saver' | 'folder-select'
     this.filter = null // e.g., "*.png,*.qoi,*.jpg"
     this.selectFolders = false
     this.multiSelect = false
     this.chooserSelection = new Set() // For multi-select mode
+
+    // Saver mode state
+    this.defaultName = '' // Default filename for saver mode
+    this.currentDirectory = '/' // Currently selected directory for saving
+    this.filenameInput = null // Reference to filename input element
 
     // File tree data: Map<path, {name, type, size, children: []}>
     this.fileTree = new Map()
@@ -120,6 +125,10 @@ export class ViewFiles extends HTMLElement {
     // Apply chooser mode if set
     if (this.mode === 'chooser') {
       this.setupChooserMode()
+    } else if (this.mode === 'saver') {
+      this.setupSaverMode()
+    } else if (this.mode === 'folder-select') {
+      this.setupFolderSelectMode()
     }
 
     // Setup event handlers
@@ -167,6 +176,11 @@ export class ViewFiles extends HTMLElement {
         this.multiSelect = newValue === 'true'
         this.chooserSelection.clear()
         this.render()
+      } else if (name === 'data-default-name') {
+        this.defaultName = newValue || ''
+        if (this.filenameInput) {
+          this.filenameInput.value = this.defaultName
+        }
       }
     }
   }
@@ -210,6 +224,185 @@ export class ViewFiles extends HTMLElement {
     }
 
     this.updateChooserUI()
+  }
+
+  /**
+   * Setup saver mode UI modifications
+   * Saver mode allows navigating folders, creating new folders, and entering a filename
+   */
+  setupSaverMode() {
+    // Hide file operation buttons except new-folder
+    const hideActions = ['new-file', 'delete', 'upload', 'download']
+    hideActions.forEach(action => {
+      const btn = this.toolbar?.querySelector(`[data-action="${action}"]`)
+      if (btn) btn.style.display = 'none'
+    })
+
+    // Set initial directory
+    this.currentDirectory = this.rootPath
+
+    // Add saver action bar if not already present
+    if (!this.chooserActions) {
+      this.chooserActions = document.createElement('div')
+      this.chooserActions.className = 'files-saver-actions'
+      this.chooserActions.innerHTML = `
+        <div class="saver-path-row">
+          <span class="saver-label">Save to:</span>
+          <span class="saver-path" data-element="saver-path">${this.currentDirectory}</span>
+        </div>
+        <div class="saver-filename-row">
+          <span class="saver-label">Filename:</span>
+          <input type="text" class="saver-filename-input" data-element="filename-input" placeholder="Enter filename..." value="${this.defaultName || ''}">
+        </div>
+        <div class="chooser-buttons">
+          <button data-action="cancel" class="button-secondary">Cancel</button>
+          <button data-action="save" class="button-primary" ${!this.defaultName ? 'disabled' : ''}>Save</button>
+        </div>
+      `
+      this.appendChild(this.chooserActions)
+
+      // Cache filename input reference
+      this.filenameInput = this.chooserActions.querySelector('[data-element="filename-input"]')
+      this.saverPathDisplay = this.chooserActions.querySelector('[data-element="saver-path"]')
+
+      // Bind events
+      this.chooserActions.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('saver-cancel', { bubbles: true }))
+      })
+
+      this.chooserActions.querySelector('[data-action="save"]')?.addEventListener('click', () => {
+        this.confirmSave()
+      })
+
+      // Update save button state on filename change
+      this.filenameInput?.addEventListener('input', () => {
+        this.updateSaverUI()
+      })
+
+      // Enter key confirms save
+      this.filenameInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          this.confirmSave()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          this.dispatchEvent(new CustomEvent('saver-cancel', { bubbles: true }))
+        }
+      })
+    }
+
+    this.updateSaverUI()
+  }
+
+  /**
+   * Setup folder-select mode UI modifications
+   * Similar to chooser but only folders are selectable
+   */
+  setupFolderSelectMode() {
+    // Hide all file operation buttons except new-folder
+    const hideActions = ['new-file', 'delete', 'upload', 'download']
+    hideActions.forEach(action => {
+      const btn = this.toolbar?.querySelector(`[data-action="${action}"]`)
+      if (btn) btn.style.display = 'none'
+    })
+
+    this.selectFolders = true
+    this.currentDirectory = this.rootPath
+
+    // Add folder select action bar if not already present
+    if (!this.chooserActions) {
+      this.chooserActions = document.createElement('div')
+      this.chooserActions.className = 'files-chooser-actions'
+      this.chooserActions.innerHTML = `
+        <div class="saver-path-row">
+          <span class="saver-label">Selected folder:</span>
+          <span class="saver-path" data-element="saver-path">${this.currentDirectory}</span>
+        </div>
+        <div class="chooser-buttons">
+          <button data-action="cancel" class="button-secondary">Cancel</button>
+          <button data-action="select" class="button-primary">Select Folder</button>
+        </div>
+      `
+      this.appendChild(this.chooserActions)
+
+      this.saverPathDisplay = this.chooserActions.querySelector('[data-element="saver-path"]')
+
+      // Bind folder select action buttons
+      this.chooserActions.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('chooser-cancel', { bubbles: true }))
+      })
+
+      this.chooserActions.querySelector('[data-action="select"]')?.addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('chooser-select', {
+          bubbles: true,
+          detail: { selection: { path: this.currentDirectory, name: this.getPathName(this.currentDirectory), type: 'directory' } }
+        }))
+      })
+    }
+
+    this.updateFolderSelectUI()
+  }
+
+  /**
+   * Get the name portion of a path
+   */
+  getPathName(path) {
+    if (path === '/') return '/'
+    const parts = path.split('/')
+    return parts[parts.length - 1] || '/'
+  }
+
+  /**
+   * Update saver UI state
+   */
+  updateSaverUI() {
+    if (!this.chooserActions) return
+
+    const saveBtn = this.chooserActions.querySelector('[data-action="save"]')
+    const filename = this.filenameInput?.value?.trim() || ''
+
+    // Update path display
+    if (this.saverPathDisplay) {
+      this.saverPathDisplay.textContent = this.currentDirectory
+    }
+
+    // Enable save button only if filename is provided
+    if (saveBtn) {
+      saveBtn.disabled = !filename
+    }
+  }
+
+  /**
+   * Update folder select UI state
+   */
+  updateFolderSelectUI() {
+    if (!this.chooserActions) return
+
+    // Update path display
+    if (this.saverPathDisplay) {
+      this.saverPathDisplay.textContent = this.currentDirectory
+    }
+  }
+
+  /**
+   * Confirm save action in saver mode
+   */
+  confirmSave() {
+    const filename = this.filenameInput?.value?.trim()
+    if (!filename) return
+
+    const fullPath = this.currentDirectory === '/'
+      ? `/${filename}`
+      : `${this.currentDirectory}/${filename}`
+
+    this.dispatchEvent(new CustomEvent('saver-save', {
+      bubbles: true,
+      detail: {
+        path: fullPath,
+        name: filename,
+        directory: this.currentDirectory
+      }
+    }))
   }
 
   /**
@@ -629,6 +822,34 @@ export class ViewFiles extends HTMLElement {
       return
     }
 
+    // Saver mode: clicking on folder sets it as target, clicking on file pre-fills filename
+    if (this.mode === 'saver') {
+      if (type === 'directory') {
+        this.currentDirectory = path
+        this.updateSaverUI()
+        this.selectPath(path)
+      } else {
+        // Clicking on a file pre-fills the filename
+        const item = this.findItem(path)
+        if (item && this.filenameInput) {
+          this.filenameInput.value = item.name
+          this.updateSaverUI()
+        }
+        this.selectPath(path)
+      }
+      return
+    }
+
+    // Folder-select mode: clicking on folder sets it as target
+    if (this.mode === 'folder-select') {
+      if (type === 'directory') {
+        this.currentDirectory = path
+        this.updateFolderSelectUI()
+        this.selectPath(path)
+      }
+      return
+    }
+
     // Chooser mode: handle selection differently
     if (this.mode === 'chooser') {
       if (this.multiSelect) {
@@ -657,6 +878,44 @@ export class ViewFiles extends HTMLElement {
 
     const path = row.dataset.path
     const type = row.dataset.type
+
+    // Saver mode: double-click expands folders, double-click on file confirms save with that name
+    if (this.mode === 'saver') {
+      if (type === 'directory') {
+        this.toggleExpand(path)
+        this.currentDirectory = path
+        this.updateSaverUI()
+      } else {
+        // Double-click on file: use its name and confirm save
+        const item = this.findItem(path)
+        if (item && this.filenameInput) {
+          this.filenameInput.value = item.name
+          this.currentDirectory = path.substring(0, path.lastIndexOf('/')) || '/'
+          this.updateSaverUI()
+          this.confirmSave()
+        }
+      }
+      return
+    }
+
+    // Folder-select mode: double-click expands/collapses or confirms selection
+    if (this.mode === 'folder-select') {
+      if (type === 'directory') {
+        // If already selected, confirm selection
+        if (this.currentDirectory === path) {
+          this.dispatchEvent(new CustomEvent('chooser-select', {
+            bubbles: true,
+            detail: { selection: { path: this.currentDirectory, name: this.getPathName(this.currentDirectory), type: 'directory' } }
+          }))
+        } else {
+          // Otherwise expand and select
+          this.toggleExpand(path)
+          this.currentDirectory = path
+          this.updateFolderSelectUI()
+        }
+      }
+      return
+    }
 
     // Chooser mode: double-click confirms selection (single mode) or expands folders
     if (this.mode === 'chooser') {
@@ -1721,6 +1980,149 @@ export class ViewFiles extends HTMLElement {
       if (options.filter) files.setAttribute('data-filter', options.filter)
       if (options.selectFolders) files.setAttribute('data-select-folders', 'true')
       if (options.multiSelect) files.setAttribute('data-multi-select', 'true')
+
+      container.appendChild(files)
+      popup.appendChild(container)
+      popupManager.appendChild(popup)
+
+      let resolved = false
+
+      // Handle selection
+      files.addEventListener('chooser-select', (e) => {
+        if (resolved) return
+        resolved = true
+        popup.close()
+        resolve(e.detail.selection)
+      })
+
+      // Handle cancel
+      files.addEventListener('chooser-cancel', () => {
+        if (resolved) return
+        resolved = true
+        popup.close()
+        resolve(null)
+      })
+
+      // Handle popup close (via X button or Escape)
+      popup.addEventListener('popup-closing', () => {
+        if (resolved) return
+        resolved = true
+        resolve(null)
+      })
+    })
+  }
+
+  /**
+   * Open save dialog in a popup
+   * @param {Object} options
+   * @param {string} options.root - Starting directory (default: "/")
+   * @param {string} options.defaultName - Default filename to pre-fill
+   * @param {string} options.title - Popup title (default: "Save File")
+   * @returns {Promise<{path, name, directory}|null>} Save destination or null if cancelled
+   */
+  static async save(options = {}) {
+    return new Promise((resolve) => {
+      const popupManager = document.querySelector('popup-manager')
+      if (!popupManager) {
+        console.error('ViewFiles.save: popup-manager not found')
+        resolve(null)
+        return
+      }
+
+      const popup = document.createElement('view-popup')
+      popup.setAttribute('size', 'large')
+
+      // Title
+      const title = document.createElement('h2')
+      title.slot = 'title'
+      title.className = 'popup-title'
+      title.textContent = options.title || 'Save File'
+      popup.appendChild(title)
+
+      // Container for file browser
+      const container = document.createElement('div')
+      container.className = 'file-chooser-container'
+
+      // File browser in saver mode
+      const files = document.createElement('view-files')
+      files.setAttribute('data-mode', 'saver')
+      files.setAttribute('data-root', options.root || '/')
+      if (options.defaultName) files.setAttribute('data-default-name', options.defaultName)
+
+      container.appendChild(files)
+      popup.appendChild(container)
+      popupManager.appendChild(popup)
+
+      let resolved = false
+
+      // Handle save
+      files.addEventListener('saver-save', (e) => {
+        if (resolved) return
+        resolved = true
+        popup.close()
+        resolve(e.detail)
+      })
+
+      // Handle cancel
+      files.addEventListener('saver-cancel', () => {
+        if (resolved) return
+        resolved = true
+        popup.close()
+        resolve(null)
+      })
+
+      // Handle popup close (via X button or Escape)
+      popup.addEventListener('popup-closing', () => {
+        if (resolved) return
+        resolved = true
+        resolve(null)
+      })
+
+      // Focus filename input after a short delay
+      setTimeout(() => {
+        const input = files.querySelector('[data-element="filename-input"]')
+        if (input) {
+          input.focus()
+          input.select()
+        }
+      }, 100)
+    })
+  }
+
+  /**
+   * Open folder selection dialog in a popup
+   * @param {Object} options
+   * @param {string} options.root - Starting directory (default: "/")
+   * @param {string} options.title - Popup title (default: "Select Folder")
+   * @returns {Promise<{path, name, type}|null>} Selected folder or null if cancelled
+   */
+  static async selectFolder(options = {}) {
+    return new Promise((resolve) => {
+      const popupManager = document.querySelector('popup-manager')
+      if (!popupManager) {
+        console.error('ViewFiles.selectFolder: popup-manager not found')
+        resolve(null)
+        return
+      }
+
+      const popup = document.createElement('view-popup')
+      popup.setAttribute('size', 'large')
+
+      // Title
+      const title = document.createElement('h2')
+      title.slot = 'title'
+      title.className = 'popup-title'
+      title.textContent = options.title || 'Select Folder'
+      popup.appendChild(title)
+
+      // Container for file browser
+      const container = document.createElement('div')
+      container.className = 'file-chooser-container'
+
+      // File browser in folder-select mode
+      const files = document.createElement('view-files')
+      files.setAttribute('data-mode', 'folder-select')
+      files.setAttribute('data-root', options.root || '/')
 
       container.appendChild(files)
       popup.appendChild(container)

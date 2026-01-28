@@ -1525,6 +1525,77 @@ view-files {
 }
 
 /* ========================================================================== */
+/* FILE SAVER MODE STYLES */
+/* ========================================================================== */
+
+/* Saver action bar */
+.files-saver-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-scale-2, 8px);
+  padding: var(--spacing-scale-3, 12px);
+  border-top: 1px solid var(--color-semantic-border-default, #333);
+  background: var(--color-semantic-bg-secondary, #1e1e1e);
+}
+
+/* Path and filename rows */
+.saver-path-row,
+.saver-filename-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-scale-2, 8px);
+}
+
+.saver-label {
+  font-size: 12px;
+  color: var(--color-semantic-text-secondary, #8888aa);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.saver-path {
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-semantic-text-primary, #ffffff);
+  font-family: 'Roboto Mono', Monaco, monospace;
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm, 4px);
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saver-filename-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: 'Roboto Mono', Monaco, monospace;
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  border-radius: var(--border-radius-sm, 4px);
+  color: var(--color-semantic-text-primary, #ffffff);
+  outline: none;
+}
+
+.saver-filename-input:focus {
+  border-color: var(--color-semantic-accent-primary, #7c7cff);
+}
+
+.saver-filename-input::placeholder {
+  color: var(--color-semantic-text-tertiary, #666680);
+}
+
+/* Buttons row in saver */
+.files-saver-actions .chooser-buttons {
+  display: flex;
+  gap: var(--spacing-scale-2, 8px);
+  justify-content: flex-end;
+  margin-top: var(--spacing-scale-1, 4px);
+}
+
+/* ========================================================================== */
 /* FILE PREVIEW/EDIT STYLES */
 /* ========================================================================== */
 
