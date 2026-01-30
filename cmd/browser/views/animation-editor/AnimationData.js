@@ -3,7 +3,6 @@
  * 
  * Structure:
  * {
- *   name: string,           // Animation name
  *   spritesheet: string,    // Path or URL to spritesheet image
  *   tileWidth: number,      // Tile width in pixels
  *   tileHeight: number,     // Tile height in pixels
@@ -12,16 +11,17 @@
  *   ],
  *   loop: boolean           // Whether animation loops
  * }
+ * 
+ * Note: Animation identity is determined by (spritesheet, frames[0].tileId)
+ * The starting frame serves as the unique identifier within a spritesheet.
  */
 
 /**
  * Create a new empty animation
- * @param {string} name - Animation name
  * @returns {Object} Empty animation object
  */
-export function createAnimation(name = 'untitled') {
+export function createAnimation() {
   return {
-    name,
     spritesheet: '',
     tileWidth: 16,
     tileHeight: 16,
@@ -172,10 +172,6 @@ export function getFrameAtTime(animation, timeMs) {
 export function validateAnimation(animation) {
   const errors = []
   
-  if (!animation.name || typeof animation.name !== 'string') {
-    errors.push('Animation must have a name')
-  }
-  
   if (!animation.spritesheet) {
     errors.push('Animation must have a spritesheet')
   }
@@ -190,6 +186,8 @@ export function validateAnimation(animation) {
   
   if (!Array.isArray(animation.frames)) {
     errors.push('Frames must be an array')
+  } else if (animation.frames.length === 0) {
+    errors.push('Animation must have at least one frame')
   } else {
     for (let i = 0; i < animation.frames.length; i++) {
       const f = animation.frames[i]
@@ -203,4 +201,16 @@ export function validateAnimation(animation) {
   }
   
   return { valid: errors.length === 0, errors }
+}
+
+/**
+ * Get the starting frame tileId (used as animation identity)
+ * @param {Object} animation - Animation object
+ * @returns {number|null} The tileId of the first frame, or null if no frames
+ */
+export function getStartFrame(animation) {
+  if (!animation.frames || animation.frames.length === 0) {
+    return null
+  }
+  return animation.frames[0].tileId
 }

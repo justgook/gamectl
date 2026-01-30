@@ -827,11 +827,191 @@ __attribute__((export_name("restore"))) uint32_t sql_restore(void) {
   return 0;
 }
 
+// Save database as binary file to filesystem
+// Input: file path (e.g., "/databases/game.sqlite")
+// Uses sqlite3_serialize() to get binary database and fs.write to save
+__attribute__((export_name("save_binary"))) uint32_t sql_save_binary(void) {
+  if (!db) {
+    const char error_msg[] = "Database not opened. Call 'open' first.";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Get path from input
+  uint32_t input_len;
+  const uint8_t *input = pdk_input(&input_len);
+
+  if (!input || input_len == 0) {
+    const char error_msg[] = "No file path provided";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Serialize the database to binary format
+  sqlite3_int64 db_size = 0;
+  unsigned char *db_data = sqlite3_serialize(db, "main", &db_size, 0);
+  
+  if (!db_data) {
+    const char error_msg[] = "Failed to serialize database";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  if (db_size == 0) {
+    sqlite3_free(db_data);
+    const char error_msg[] = "Database is empty";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Prepare fs.write input: path + null byte + binary data
+  // Format: [path bytes][0x00][database binary bytes]
+  uint32_t write_input_len = input_len + 1 + (uint32_t)db_size;
+  uint8_t *write_input = (uint8_t *)pdk_alloc(write_input_len);
+  if (!write_input) {
+    sqlite3_free(db_data);
+    const char error_msg[] = "Memory allocation failed for write buffer";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Copy path
+  pdk_memcpy(write_input, input, input_len);
+  // Add null byte separator
+  write_input[input_len] = 0;
+  // Copy database binary data
+  pdk_memcpy(write_input + input_len + 1, db_data, (uint32_t)db_size);
+
+  // Free the serialized data from SQLite
+  sqlite3_free(db_data);
+
+  // Call fs.write
+  pdk_call_result_t result = pdk_call_plugin_str("fs", "write", write_input, write_input_len);
+  pdk_free((uint32_t)write_input);
+
+  if (result.error != 0 || result.return_code != 0) {
+    // Check if there's an error message in the output
+    if (result.output_len > 0) {
+      pdk_output(result.output, result.output_len);
+    } else {
+      const char error_msg[] = "Failed to write database file";
+      pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    }
+    return 1;
+  }
+
+  const char success_msg[] = "OK";
+  pdk_output((const uint8_t *)success_msg, sizeof(success_msg) - 1);
+  return 0;
+}
+
+// Load database from binary file in filesystem
+// Input: file path (e.g., "/databases/game.sqlite")
+// Uses fs.read to get binary data and sqlite3_deserialize() to load
+__attribute__((export_name("load_binary"))) uint32_t sql_load_binary(void) {
+  // Get path from input
+  uint32_t input_len;
+  const uint8_t *input = pdk_input(&input_len);
+
+  if (!input || input_len == 0) {
+    const char error_msg[] = "No file path provided";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Call fs.read to get the binary database file
+  pdk_call_result_t result = pdk_call_plugin_str("fs", "read", input, input_len);
+
+  if (result.error != 0 || result.return_code != 0) {
+    // Check if there's an error message in the output
+    if (result.output_len > 0) {
+      pdk_output(result.output, result.output_len);
+    } else {
+      const char error_msg[] = "Failed to read database file";
+      pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    }
+    return 1;
+  }
+
+  if (result.output_len == 0) {
+    const char error_msg[] = "Database file is empty";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+
+  // Close existing database if open
+  if (db) {
+    sqlite3_close(db);
+    db = NULL;
+  }
+
+  // Allocate heap for SQLite mem3 if not already allocated
+  if (!g_sqlite_heap) {
+    uint32_t heap_ptr = pdk_alloc((uint64_t)INITIAL_HEAP_SIZE);
+    if (heap_ptr == 0) {
+      const char error_msg[] = "Failed to allocate heap for SQLite";
+      pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+      return 1;
+    }
+    g_sqlite_heap = (void *)(uintptr_t)heap_ptr;
+    g_heap_size = INITIAL_HEAP_SIZE;
+
+    // Configure SQLite3 to use mem3 with our heap
+    int rc = sqlite3_config(SQLITE_CONFIG_HEAP, g_sqlite_heap, (int)g_heap_size, 32);
+    if (rc != SQLITE_OK) {
+      const char error_msg[] = "Failed to configure SQLite mem3 allocator";
+      pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+      return 1;
+    }
+  }
+
+  // Open a new in-memory database
+  int rc = sqlite3_open(":memory:", &db);
+  if (rc != SQLITE_OK) {
+    const char *err = sqlite3_errmsg(db);
+    uint32_t err_len = pdk_strlen(err);
+    pdk_output((const uint8_t *)err, err_len);
+    sqlite3_close(db);
+    db = NULL;
+    return 1;
+  }
+
+  // Copy the data to SQLite-managed memory (required by deserialize with SQLITE_DESERIALIZE_FREEONCLOSE)
+  unsigned char *db_data = sqlite3_malloc64(result.output_len);
+  if (!db_data) {
+    sqlite3_close(db);
+    db = NULL;
+    const char error_msg[] = "Failed to allocate memory for database data";
+    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+    return 1;
+  }
+  pdk_memcpy(db_data, result.output, result.output_len);
+
+  // Deserialize the binary data into the database
+  // Flags: SQLITE_DESERIALIZE_FREEONCLOSE - SQLite will free db_data when done
+  //        SQLITE_DESERIALIZE_RESIZEABLE - Allow database to grow
+  rc = sqlite3_deserialize(db, "main", db_data, result.output_len, result.output_len,
+                           SQLITE_DESERIALIZE_FREEONCLOSE | SQLITE_DESERIALIZE_RESIZEABLE);
+  
+  if (rc != SQLITE_OK) {
+    const char *err = sqlite3_errmsg(db);
+    uint32_t err_len = pdk_strlen(err);
+    pdk_output((const uint8_t *)err, err_len);
+    sqlite3_close(db);
+    db = NULL;
+    return 1;
+  }
+
+  const char success_msg[] = "OK";
+  pdk_output((const uint8_t *)success_msg, sizeof(success_msg) - 1);
+  return 0;
+}
+
 // Get plugin info
 __attribute__((export_name("info"))) uint32_t info(void) {
   const char info_msg[] =
-      "SQL plugin v2.0 - SQLite3 with mem3 allocator - provides open, "
-      "exec, query, close, dump, restore, backup, load, mem_stats functions";
+      "SQL plugin v2.1 - SQLite3 with mem3 allocator - provides open, "
+      "exec, query, close, dump, restore, backup, load, save_binary, load_binary, mem_stats functions";
   pdk_output((const uint8_t *)info_msg, sizeof(info_msg) - 1);
   return 0;
 }

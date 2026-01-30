@@ -42,6 +42,9 @@ export class SpritesheetPanel {
     this.selectedTiles = new Set()
     this.hoveredTile = -1
     
+    // Animation markers - tiles that have saved animations starting from them
+    this.animationMarkers = new Set()
+    
     // Bind methods
     this._onWheel = this._onWheel.bind(this)
     this._onMouseDown = this._onMouseDown.bind(this)
@@ -258,6 +261,11 @@ export class SpritesheetPanel {
       this._drawTileHighlight(ctx, tileId, 'rgba(0, 200, 255, 0.5)')
     }
     
+    // Draw animation markers (small dot in top-right corner)
+    for (const tileId of this.animationMarkers) {
+      this._drawAnimationMarker(ctx, tileId)
+    }
+    
     ctx.restore()
   }
   
@@ -310,6 +318,30 @@ export class SpritesheetPanel {
     ctx.strokeStyle = color.replace('0.3', '0.8').replace('0.5', '1')
     ctx.lineWidth = 2 / this.scale
     ctx.strokeRect(x, y, this.tileWidth, this.tileHeight)
+  }
+  
+  _drawAnimationMarker(ctx, tileId) {
+    const col = tileId % this.cols
+    const row = Math.floor(tileId / this.cols)
+    const x = col * this.tileWidth
+    const y = row * this.tileHeight
+    
+    // Draw a small colored dot in the top-right corner
+    const dotRadius = Math.max(3, Math.min(this.tileWidth, this.tileHeight) / 6)
+    const dotX = x + this.tileWidth - dotRadius - 2
+    const dotY = y + dotRadius + 2
+    
+    // Outer glow/border
+    ctx.beginPath()
+    ctx.arc(dotX, dotY, dotRadius + 1, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)'
+    ctx.fill()
+    
+    // Inner dot (cyan/teal color)
+    ctx.beginPath()
+    ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2)
+    ctx.fillStyle = '#00e5cc'
+    ctx.fill()
   }
   
   // --- Viewport ---
@@ -397,6 +429,13 @@ export class SpritesheetPanel {
       // Selection mode
       const tileId = this._getTileAtPosition(e.clientX, e.clientY)
       if (tileId >= 0) {
+        // Check if clicking on a tile with an animation marker (and not shift-selecting)
+        if (!e.shiftKey && this.animationMarkers.has(tileId)) {
+          // Emit marker click event to load the animation
+          bus.emit('animation:marker:click', { tileId })
+          return
+        }
+        
         if (e.shiftKey) {
           // Toggle selection
           if (this.selectedTiles.has(tileId)) {
@@ -530,5 +569,49 @@ export class SpritesheetPanel {
       width: this.tileWidth,
       height: this.tileHeight
     }
+  }
+  
+  /**
+   * Set which tiles have saved animations starting from them
+   * @param {number[]} tileIds - Array of tileIds that have animations
+   */
+  setAnimationMarkers(tileIds) {
+    this.animationMarkers = new Set(tileIds)
+    this.draw()
+  }
+  
+  /**
+   * Add a single animation marker
+   * @param {number} tileId - The tileId to mark
+   */
+  addAnimationMarker(tileId) {
+    this.animationMarkers.add(tileId)
+    this.draw()
+  }
+  
+  /**
+   * Remove a single animation marker
+   * @param {number} tileId - The tileId to unmark
+   */
+  removeAnimationMarker(tileId) {
+    this.animationMarkers.delete(tileId)
+    this.draw()
+  }
+  
+  /**
+   * Clear all animation markers
+   */
+  clearAnimationMarkers() {
+    this.animationMarkers.clear()
+    this.draw()
+  }
+  
+  /**
+   * Check if a tile has an animation marker
+   * @param {number} tileId - The tileId to check
+   * @returns {boolean}
+   */
+  hasAnimationMarker(tileId) {
+    return this.animationMarkers.has(tileId)
   }
 }
