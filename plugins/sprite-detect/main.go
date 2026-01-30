@@ -394,12 +394,62 @@ func mergeOverlappingSprites(sprites []Sprite) []Sprite {
 // =============================================================================
 
 func sortSprites(sprites []Sprite) {
+	if len(sprites) == 0 {
+		return
+	}
+
+	// Calculate row tolerance based on average sprite height
+	totalHeight := 0
+	for _, s := range sprites {
+		totalHeight += s.Height
+	}
+	avgHeight := totalHeight / len(sprites)
+	// Use half of average height as row tolerance
+	rowTolerance := avgHeight / 2
+	if rowTolerance < 4 {
+		rowTolerance = 4 // minimum tolerance
+	}
+
+	// First, sort by Y to prepare for row clustering
 	sort.Slice(sprites, func(i, j int) bool {
-		if sprites[i].Y != sprites[j].Y {
-			return sprites[i].Y < sprites[j].Y
-		}
-		return sprites[i].X < sprites[j].X
+		return sprites[i].Y < sprites[j].Y
 	})
+
+	// Assign row indices by clustering sprites with similar Y values
+	rowIndices := make([]int, len(sprites))
+	currentRow := 0
+	rowStartY := sprites[0].Y
+
+	for i := range sprites {
+		// If this sprite's Y is too far from row start, begin a new row
+		if sprites[i].Y-rowStartY > rowTolerance {
+			currentRow++
+			rowStartY = sprites[i].Y
+		}
+		rowIndices[i] = currentRow
+	}
+
+	// Now sort by row index first, then by X within each row
+	// Create index array for indirect sorting
+	indices := make([]int, len(sprites))
+	for i := range indices {
+		indices[i] = i
+	}
+
+	sort.Slice(indices, func(i, j int) bool {
+		ii, jj := indices[i], indices[j]
+		if rowIndices[ii] != rowIndices[jj] {
+			return rowIndices[ii] < rowIndices[jj]
+		}
+		return sprites[ii].X < sprites[jj].X
+	})
+
+	// Reorder sprites according to sorted indices
+	sorted := make([]Sprite, len(sprites))
+	for i, idx := range indices {
+		sorted[i] = sprites[idx]
+	}
+	copy(sprites, sorted)
 }
 
 // =============================================================================
