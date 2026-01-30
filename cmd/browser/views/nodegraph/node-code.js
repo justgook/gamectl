@@ -1,4 +1,5 @@
 import { NodeBase } from './node-base.js'
+import { bytes } from "../../util/dataview.js"
 
 /**
  * NodeCode - Custom JavaScript transformation node
@@ -59,8 +60,8 @@ export class NodeCode extends NodeBase {
 
       // Use AsyncFunction for await support
       const AsyncFunction = Object.getPrototypeOf(async function() { }).constructor
-      const fn = new AsyncFunction('$in', wrappedCode)
-      const $out = await fn($in)
+      const fn = new AsyncFunction('$in', "bytes", wrappedCode)
+      const $out = await fn($in, bytes)
 
       // Resolve outputs
       for (const outputName of this._parsedOutputs) {
@@ -151,7 +152,7 @@ export class NodeCode extends NodeBase {
 
         // Syntax validation
         try {
-          new Function('$in', '$out', code)
+          new Function('$in', "bytes", '$out', code)
           if (errorDiv) {
             errorDiv.style.display = 'none'
           }
