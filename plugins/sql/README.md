@@ -85,6 +85,22 @@ Restore database from a SQL dump created by the `dump` function.
 - **Output**: `"Database restored successfully"` on success, error message on failure
 - **Note**: Executes the entire dump as a transaction
 
+### `save_binary`
+Save the database as a binary SQLite file to the filesystem (OPFS).
+- **Input**: File path (e.g., `/databases/game.sqlite`)
+- **Output**: `"OK"` on success, error message on failure
+- **Note**: Uses `sqlite3_serialize()` to create an exact binary copy of the database
+- **Use Case**: Persistent storage, file downloads, database sharing
+- **Example Input**: `/saves/world-001.sqlite`
+
+### `load_binary`
+Load a database from a binary SQLite file in the filesystem (OPFS).
+- **Input**: File path (e.g., `/databases/game.sqlite`)
+- **Output**: `"OK"` on success, error message on failure
+- **Note**: Uses `sqlite3_deserialize()` to load the exact binary database. Automatically closes any existing database before loading.
+- **Use Case**: Restore from persistent storage, load shared databases
+- **Example Input**: `/saves/world-001.sqlite`
+
 ### `close`
 Close the database connection and free resources.
 - **Input**: None
@@ -217,7 +233,7 @@ async function restoreFromSqlDump(sqlDump) {
 }
 ```
 
-#### **Binary Backup/Load** (Fast, IDE state persistence)
+#### **Binary Backup/Load** (SQL text format, IDE state persistence)
 
 ```javascript
 // Create binary backup for fast state saving
@@ -250,6 +266,57 @@ window.addEventListener('beforeunload', async () => {
 window.addEventListener('load', async () => {
   await loadBinaryBackup()
 })
+```
+
+#### **Binary File Save/Load** (True SQLite binary files in OPFS)
+
+```javascript
+// Save database as a binary SQLite file to OPFS
+async function saveDatabaseToFile(filePath) {
+  const result = await manager.call('sql', 'save_binary', filePath)
+  const output = new TextDecoder().decode(result.output)
+  
+  if (result.returnCode !== 0) {
+    console.error('Failed to save database:', output)
+    return false
+  }
+  
+  console.log('Database saved to:', filePath)
+  return true
+}
+
+// Load database from a binary SQLite file in OPFS
+async function loadDatabaseFromFile(filePath) {
+  const result = await manager.call('sql', 'load_binary', filePath)
+  const output = new TextDecoder().decode(result.output)
+  
+  if (result.returnCode !== 0) {
+    console.error('Failed to load database:', output)
+    return false
+  }
+  
+  console.log('Database loaded from:', filePath)
+  return true
+}
+
+// Example: Save game state to multiple slots
+async function saveGameSlot(slotNumber) {
+  const filePath = `/saves/game-slot-${slotNumber}.sqlite`
+  await saveDatabaseToFile(filePath)
+}
+
+// Example: Load game state from a slot
+async function loadGameSlot(slotNumber) {
+  const filePath = `/saves/game-slot-${slotNumber}.sqlite`
+  await loadDatabaseFromFile(filePath)
+}
+
+// Example: List all save files
+async function listSaveFiles() {
+  const result = await manager.call('fs', 'list', '/saves')
+  const files = JSON.parse(new TextDecoder().decode(result.output))
+  return files.filter(f => f.endsWith('.sqlite'))
+}
 ```
 
 #### **Utility Functions**
@@ -353,23 +420,22 @@ manager.call('sql', 'query', `
 
 ## Limitations
 
-1. **In-Memory Only**: Database is ephemeral by default (but can be backed up with `dump`/`restore`)
-2. **No Direct File I/O**: Cannot save to disk directly (use `dump` + localStorage/server instead)
-3. **Size**: Large WASM file (~4.2MB) due to full SQLite3 engine
-4. **WASI Required**: Host must support WASI runtime
-5. **Dump Size**: Large databases may exceed output buffer limits (32KB currently)
+1. **Size**: Large WASM file (~4.2MB) due to full SQLite3 engine
+2. **WASI Required**: Host must support WASI runtime
+3. **Dump Size**: Large databases may exceed output buffer limits (2MB currently)
+4. **Binary File Size**: Binary save/load limited by OPFS buffer size (~10MB)
 
 ## Future Enhancements
 
 - [x] **Database dump/restore functionality** (✅ IMPLEMENTED)
+- [x] **Binary database save/load to filesystem** (✅ IMPLEMENTED via `save_binary`/`load_binary`)
 - [ ] Larger dump buffer sizes for big databases
 - [ ] Incremental/differential backups
 - [ ] JSON output format option for dumps
 - [ ] Prepared statement caching
 - [ ] Advanced transaction support
 - [ ] Custom SQL functions via PDK callbacks
-- [ ] Binary database serialization (smaller than SQL dumps)
-- [ ] Compression for dumps
+- [ ] Compression for dumps/binary files
 
 ## Technical Notes
 

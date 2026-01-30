@@ -2,8 +2,9 @@ import { bus } from '../systems/event-bus.js'
 import { SpritesheetPanel } from './animation-editor/SpritesheetPanel.js'
 import { FrameListPanel } from './animation-editor/FrameListPanel.js'
 import { AnimationPreview } from './animation-editor/AnimationPreview.js'
-import { createAnimation, cloneAnimation } from './animation-editor/AnimationData.js'
+import { createAnimation, getStartFrame, validateAnimation } from './animation-editor/AnimationData.js'
 import { ViewFiles } from './view-files.js'
+import { parseCSVLines } from '../util/csv.js'
 
 /**
  * Animation Editor View
@@ -13,20 +14,26 @@ import { ViewFiles } from './view-files.js'
  * - Left: Spritesheet grid for tile selection
  * - Right: Frame list + preview
  * 
+ * Animation identity is based on (source_file, start_frame) composite key.
+ * The first frame's tileId serves as the animation identifier within a spritesheet.
+ * 
  * Attributes:
- * - data-key: Animation name to load (default: 'untitled')
  * - data-spritesheet: Path to spritesheet image
+ * - data-start-frame: Starting frame tileId to load (optional)
  */
 export class ViewAnimationEditor extends HTMLElement {
   static get observedAttributes() {
-    return ['data-key', 'data-spritesheet']
+    return ['data-spritesheet', 'data-start-frame']
   }
   
   constructor() {
     super()
     
-    this.animationKey = 'untitled'
-    this.animation = createAnimation('untitled')
+    this.animation = createAnimation()
+    
+    // Track the original start frame when editing an existing animation
+    // This allows changing the first frame without losing the original identity
+    this._originalStartFrame = null
     
     // Panel references
     this.spritesheetPanel = null
@@ -39,10 +46,14 @@ export class ViewAnimationEditor extends HTMLElement {
     // Event unsubscribers
     this._unsubscribers = []
     
+    // Text decoder for SQL results
+    this._decoder = new TextDecoder()
+    
     // Bind methods
     this._onTileAdd = this._onTileAdd.bind(this)
     this._onFramesChanged = this._onFramesChanged.bind(this)
     this._onFrameSelect = this._onFrameSelect.bind(this)
+    this._onMarkerClick = this._onMarkerClick.bind(this)
   }
   
   connectedCallback() {
@@ -51,15 +62,19 @@ export class ViewAnimationEditor extends HTMLElement {
     this._setupEventListeners()
     this._setupBusListeners()
     
-    // Load initial data if key is set
-    if (this.hasAttribute('data-key')) {
-      this.animationKey = this.getAttribute('data-key')
-      this.fetchData()
-    }
-    
-    // Load spritesheet if set
+    // Load spritesheet if set (this will also load animation markers)
     if (this.hasAttribute('data-spritesheet')) {
-      this._loadSpritesheet(this.getAttribute('data-spritesheet'))
+      const spritesheet = this.getAttribute('data-spritesheet')
+      const startFrame = this.hasAttribute('data-start-frame') 
+        ? parseInt(this.getAttribute('data-start-frame'), 10) 
+        : null
+      
+      this._loadSpritesheet(spritesheet).then(() => {
+        // If a specific start frame is requested, load that animation
+        if (startFrame !== null) {
+          this._loadAnimationByStartFrame(startFrame)
+        }
+      })
     }
   }
   
@@ -77,12 +92,13 @@ export class ViewAnimationEditor extends HTMLElement {
     if (oldValue === newValue) return
     
     switch (name) {
-      case 'data-key':
-        this.animationKey = newValue || 'untitled'
-        this.fetchData()
-        break
       case 'data-spritesheet':
         if (newValue) this._loadSpritesheet(newValue)
+        break
+      case 'data-start-frame':
+        if (newValue && this.animation.spritesheet) {
+          this._loadAnimationByStartFrame(parseInt(newValue, 10))
+        }
         break
     }
   }
@@ -297,6 +313,11 @@ export class ViewAnimationEditor extends HTMLElement {
     this._unsubscribers.push(
       bus.on('animation:frame:select', this._onFrameSelect)
     )
+    
+    // Listen for animation marker clicks (to load existing animations)
+    this._unsubscribers.push(
+      bus.on('animation:marker:click', this._onMarkerClick)
+    )
   }
   
   _onTileAdd({ tileIds }) {
@@ -313,6 +334,11 @@ export class ViewAnimationEditor extends HTMLElement {
   
   _onFrameSelect({ indices }) {
     // Could highlight frames in preview or show selection info
+  }
+  
+  _onMarkerClick({ tileId }) {
+    // Load the animation that starts with this tileId
+    this._loadAnimationByStartFrame(tileId)
   }
   
   // --- Spritesheet ---
@@ -348,6 +374,15 @@ export class ViewAnimationEditor extends HTMLElement {
         this.animation.tileHeight
       )
     }
+    
+    // Load animation markers for this spritesheet
+    await this._loadAnimationMarkers(source)
+    
+    // Reset animation state for new spritesheet
+    this._originalStartFrame = null
+    this.animation.frames = []
+    this.frameListPanel.setFrames([])
+    this._updatePreview()
   }
   
   _updateTileSize() {
@@ -375,30 +410,78 @@ export class ViewAnimationEditor extends HTMLElement {
   
   // --- Data Persistence ---
   
-  getSelectQuery() {
-    return `SELECT data FROM animation_storage WHERE name = '${this.animationKey}'`
-  }
-  
-  getInsertQueryFn() {
-    return (name, escapedJsonData) => 
-      `INSERT OR REPLACE INTO animation_storage (name, data) VALUES ('${name}', '${escapedJsonData}')`
-  }
-  
-  async fetchData() {
+  /**
+   * Load all animation markers for the current spritesheet
+   * @param {string} sourceFile - The spritesheet file path
+   */
+  async _loadAnimationMarkers(sourceFile) {
     try {
-      const query = this.getSelectQuery()
-      bus.emit(`cache:load:${query}`)
+      const escapedPath = sourceFile.replace(/'/g, "''")
+      const query = `SELECT start_frame FROM animation_storage WHERE source_file = '${escapedPath}'`
       
-      // Subscribe to cache updates
-      const unsub = bus.on(`cache:changed:${query}`, (data) => {
-        if (data) {
-          this.animation = cloneAnimation(data)
-          this._applyAnimationData()
+      const result = await window.pluginManager.call('sql', 'query', query)
+      const csv = this._decoder.decode(result.output)
+      const lines = parseCSVLines(csv.trim())
+      
+      // Skip header row, collect start_frame values
+      const markers = []
+      for (let i = 1; i < lines.length; i++) {
+        if (lines[i].length > 0) {
+          markers.push(parseInt(lines[i][0], 10))
         }
-      })
-      this._unsubscribers.push(unsub)
+      }
+      
+      this.spritesheetPanel.setAnimationMarkers(markers)
     } catch (err) {
-      console.error('Failed to fetch animation:', err)
+      console.error('Failed to load animation markers:', err)
+      this.spritesheetPanel.setAnimationMarkers([])
+    }
+  }
+  
+  /**
+   * Load an animation by its starting frame
+   * @param {number} startFrame - The tileId of the first frame
+   */
+  async _loadAnimationByStartFrame(startFrame) {
+    if (!this.animation.spritesheet) {
+      bus.emit('toast:show', { message: 'No spritesheet loaded', type: 'error' })
+      return
+    }
+    
+    try {
+      const escapedPath = this.animation.spritesheet.replace(/'/g, "''")
+      const query = `SELECT tile_width, tile_height, data FROM animation_storage WHERE source_file = '${escapedPath}' AND start_frame = ${startFrame}`
+      
+      const result = await window.pluginManager.call('sql', 'query', query)
+      const csv = this._decoder.decode(result.output)
+      const lines = parseCSVLines(csv.trim())
+      
+      if (lines.length < 2 || lines[1].length < 3) {
+        bus.emit('toast:show', { message: 'Animation not found', type: 'error' })
+        return
+      }
+      
+      const tileWidth = parseInt(lines[1][0], 10)
+      const tileHeight = parseInt(lines[1][1], 10)
+      const data = JSON.parse(lines[1][2])
+      
+      // Reconstruct full animation object
+      this.animation = {
+        spritesheet: this.animation.spritesheet,
+        tileWidth,
+        tileHeight,
+        frames: data.frames || [],
+        loop: data.loop !== undefined ? data.loop : true
+      }
+      
+      // Track original start frame for potential updates
+      this._originalStartFrame = startFrame
+      
+      this._applyAnimationData()
+      bus.emit('toast:show', { message: `Loaded animation (frame ${startFrame})`, type: 'success' })
+    } catch (err) {
+      console.error('Failed to load animation:', err)
+      bus.emit('toast:show', { message: 'Failed to load animation', type: 'error' })
     }
   }
   
@@ -406,30 +489,68 @@ export class ViewAnimationEditor extends HTMLElement {
     try {
       // Update animation with current frames
       this.animation.frames = this.frameListPanel.getFrames()
-      this.animation.name = this.animationKey
       
-      const selectQuery = this.getSelectQuery()
-      const insertQueryFn = this.getInsertQueryFn()
+      // Validate animation
+      const validation = validateAnimation(this.animation)
+      if (!validation.valid) {
+        bus.emit('toast:show', { message: validation.errors[0], type: 'error' })
+        return
+      }
       
-      bus.emit('cache:save', { 
-        selectQuery, 
-        insertQueryFn,
-        // Override data since we want to save current state
-        data: this.animation
+      const sourceFile = this.animation.spritesheet
+      const startFrame = getStartFrame(this.animation)
+      const escapedPath = sourceFile.replace(/'/g, "''")
+      
+      // Prepare data JSON (only frames and loop, since other fields are columns)
+      const dataJson = JSON.stringify({
+        frames: this.animation.frames,
+        loop: this.animation.loop
       })
+      const escapedData = dataJson.replace(/'/g, "''")
       
-      bus.emit('toast:show', { message: `Animation "${this.animationKey}" saved`, type: 'success' })
+      // If we're editing an existing animation and the start frame changed,
+      // delete the old record first
+      if (this._originalStartFrame !== null && this._originalStartFrame !== startFrame) {
+        const deleteQuery = `DELETE FROM animation_storage WHERE source_file = '${escapedPath}' AND start_frame = ${this._originalStartFrame}`
+        await window.pluginManager.call('sql', 'exec', deleteQuery)
+        
+        // Remove old marker
+        this.spritesheetPanel.removeAnimationMarker(this._originalStartFrame)
+      }
+      
+      // Insert or replace the animation
+      const insertQuery = `INSERT OR REPLACE INTO animation_storage (source_file, start_frame, tile_width, tile_height, data) VALUES ('${escapedPath}', ${startFrame}, ${this.animation.tileWidth}, ${this.animation.tileHeight}, '${escapedData}')`
+      
+      await window.pluginManager.call('sql', 'exec', insertQuery)
+      
+      // Update tracked start frame
+      this._originalStartFrame = startFrame
+      
+      // Add marker for the new start frame
+      this.spritesheetPanel.addAnimationMarker(startFrame)
+      
+      bus.emit('toast:show', { message: `Animation saved (frame ${startFrame})`, type: 'success' })
     } catch (err) {
       console.error('Failed to save animation:', err)
       bus.emit('toast:show', { message: 'Failed to save animation', type: 'error' })
     }
   }
   
+  /**
+   * Clear the current animation and start fresh
+   */
+  clearAnimation() {
+    this._originalStartFrame = null
+    this.animation.frames = []
+    this.frameListPanel.setFrames([])
+    this._updatePreview()
+  }
+  
   _applyAnimationData() {
     // Update header controls
     const widthInput = this._queryHeaderControl('[data-element="tile-width"]')
     const heightInput = this._queryHeaderControl('[data-element="tile-height"]')
-    const loopCheckbox = this._queryHeaderControl('[data-action="loop"]')
+    const loopCheckbox = this.querySelector('[data-action="loop"]')
     
     if (widthInput) widthInput.value = this.animation.tileWidth
     if (heightInput) heightInput.value = this.animation.tileHeight
@@ -441,17 +562,24 @@ export class ViewAnimationEditor extends HTMLElement {
       this.animation.tileHeight
     )
     
-    // Load spritesheet if specified
-    if (this.animation.spritesheet) {
-      this._loadSpritesheet(this.animation.spritesheet).then(() => {
-        // After spritesheet loads, set frames
-        this.frameListPanel.setFrames(this.animation.frames)
-        this._updatePreview()
-      })
-    } else {
-      this.frameListPanel.setFrames(this.animation.frames)
-      this._updatePreview()
+    // Update other panels with new tile size
+    const image = this.spritesheetPanel.getImage()
+    if (image) {
+      this.frameListPanel.setSpritesheet(
+        image,
+        this.animation.tileWidth,
+        this.animation.tileHeight
+      )
+      this.animationPreview.setSpritesheet(
+        image,
+        this.animation.tileWidth,
+        this.animation.tileHeight
+      )
     }
+    
+    // Set frames
+    this.frameListPanel.setFrames(this.animation.frames)
+    this._updatePreview()
   }
   
   // --- View Mode ---
