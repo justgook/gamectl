@@ -113,7 +113,6 @@ async function handleInit(id) {
           try {
             const json = JSON.parse(new TextDecoder().decode(input))
             const binaryInput = createWriteInput(json.path, base64ToUint8Array(json.content))
-            console.log("AAAAAAAA", json.content)
 
             return PluginFileSystem.write(binaryInput)
           } catch (e) {
