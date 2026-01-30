@@ -11,6 +11,7 @@
 import { PluginManager } from './plugin-manager.js'
 import * as PluginFileSystem from './fs/index.js'
 import { createWriteInput } from '../../util/fs.js'
+import { toast } from '../toast.js'
 
 let manager = null
 
@@ -105,6 +106,21 @@ async function handleInit(id) {
           }
         }
       },
+      {
+        module: 'fs',
+        function: 'writeBin',
+        handler: (input) => {
+          try {
+            const json = JSON.parse(new TextDecoder().decode(input))
+            const binaryInput = createWriteInput(json.path, base64ToUint8Array(json.content))
+            console.log("AAAAAAAA", json.content)
+
+            return PluginFileSystem.write(binaryInput)
+          } catch (e) {
+            return { returnCode: 1, output: new TextEncoder().encode(e.message) }
+          }
+        }
+      },
       { module: 'fs', function: 'delete', handler: PluginFileSystem.remove },
       { module: 'fs', function: 'exists', handler: PluginFileSystem.exists },
       { module: 'fs', function: 'list', handler: PluginFileSystem.list },
@@ -169,3 +185,16 @@ async function handleRawCall(id, payload) {
     result
   })
 }
+
+function base64ToUint8Array(base64) {
+  const binary = atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+

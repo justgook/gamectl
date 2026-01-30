@@ -1,4 +1,5 @@
 export function createWriteInput(path, data) {
+  console.log("createWriteInput", data, data instanceof Uint8Array)
   const pathBytes = new TextEncoder().encode(path)
   const dataBytes = data instanceof Uint8Array ? data : new TextEncoder().encode(data)
 
@@ -10,3 +11,4 @@ export function createWriteInput(path, data) {
 
   return input
 }
+

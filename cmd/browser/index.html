@@ -584,6 +584,25 @@
               <node-popup inputs="mapId:outputRoom.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
                 id="room_gen_2" x="359" y="638" title="" focused="true"><template><view-tilemap data-key="new_map"
                     style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></template></node-popup>
+
+              <node-plugin title="File Write(bin)" plugin="fs" function="writeBin"
+                inputs="path:code_to_file_1.text,content:code_1.output" outputs="result" id="fs_write1" x="354"
+                y="747"></node-plugin>
+
+              <node-code title="Code" inputs="input" outputs="output" id="code_1" x="47" y="798">
+                const aa = bytes()
+                aa.setUint8(11)
+                aa.setUint8(11)
+                aa.setUint8(11)
+                const bbb = new
+                Uint8Array(aa.commit())
+                $out.output = bbb.toBase64()
+              </node-code>
+              <node-popup values="text:aa.txt" title="Text" label="THE TEXT" outputs="text" id="code_to_file_1" x="45"
+                y="698"><template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template></node-popup>
             </view-nodegraph>
           </view-chrome>
           <view-chrome nesw="s" r="400" from="panel_1">

@@ -109,10 +109,16 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES
   '<node-plugin title="File Read" plugin="fs" function="read" inputs="raw" outputs="result"></node-plugin>'
 ),
 (
-  'File Write',
+  'File Write JSON',
   'filesystem',
   'Write data to file (path and content as JSON)',
-  '<node-plugin title="File Write" plugin="fs" function="writeJson" inputs="path,content" outputs="result"></node-plugin>'
+  '<node-plugin title="File Write(json)" plugin="fs" function="writeJson" inputs="path,content" outputs="result"></node-plugin>'
+),
+(
+  'File Write Bin',
+  'filesystem',
+  'Write data to file (path and content as Binary)',
+  '<node-plugin title="File Write(bin)" plugin="fs" function="writeBin" inputs="path,content" outputs="result"></node-plugin>'
 );
 
 -- Interactive Template Nodes (content wrapped in <template>)
