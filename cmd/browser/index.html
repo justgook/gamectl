@@ -485,6 +485,109 @@
       </div>
     </template>
 
+    <!-- ========================================== -->
+    <!-- Node Popup External Templates              -->
+    <!-- These templates are referenced by node-popup via template="id" attribute -->
+    <!-- ========================================== -->
+
+    <!-- Text Input Template -->
+    <template id="node-popup-text">
+      <div style="padding: 16px;">
+        <input type="text" data-output="text" value="" placeholder="Enter text..."
+          style="font-size: 16px; padding: 8px; border: 2px solid #ddd; border-radius: 4px; width: 100%;">
+      </div>
+    </template>
+
+    <!-- Number Input with Numpad Template -->
+    <template id="node-popup-numpad">
+      <div style="padding: 12px;" data-numpad>
+        <input type="number" data-output="value" value="0"
+          style="font-size: 16px; padding: 8px; width: 100%; text-align: center; margin-bottom: 10px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '7'; i.focus()"
+            style="padding: 8px; font-size: 14px;">7</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '8'; i.focus()"
+            style="padding: 8px; font-size: 14px;">8</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '9'; i.focus()"
+            style="padding: 8px; font-size: 14px;">9</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '4'; i.focus()"
+            style="padding: 8px; font-size: 14px;">4</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '5'; i.focus()"
+            style="padding: 8px; font-size: 14px;">5</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '6'; i.focus()"
+            style="padding: 8px; font-size: 14px;">6</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '1'; i.focus()"
+            style="padding: 8px; font-size: 14px;">1</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '2'; i.focus()"
+            style="padding: 8px; font-size: 14px;">2</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '3'; i.focus()"
+            style="padding: 8px; font-size: 14px;">3</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '0'; i.focus()"
+            style="padding: 8px; font-size: 14px;">0</button>
+          <button
+            onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = i.value.slice(0, -1); i.focus()"
+            style="padding: 8px; font-size: 14px; background: #ff6b6b; color: white;">&#9003;</button>
+          <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = ''; i.focus()"
+            style="padding: 8px; font-size: 14px; background: #ff6b6b; color: white;">Clear</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Simple Numpad Test Template -->
+    <template id="node-popup-simple-numpad">
+      <input data-output="value" value="0">
+      <button onclick="this.parentNode.querySelector('input').value += '1'">1</button>
+      <button onclick="this.parentNode.querySelector('input').value += '2'">2</button>
+      <button onclick="this.parentNode.querySelector('input').value = ''">C</button>
+    </template>
+
+    <!-- Input Processor Template -->
+    <template id="node-popup-input-processor">
+      <div style="padding: 16px;">
+        <label>From connected node:</label>
+        <input type="number" data-input="baseValue" readonly
+          style="background: #f5f5f5; padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 8px;">
+        <label>Manual value:</label>
+        <input type="number" data-output="result" value="10"
+          style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 8px;">
+        <button type="button"
+          onclick="let b=this.closest('div').querySelector('[data-input=baseValue]'); let r=this.closest('div').querySelector('[data-output=result]'); if(b.value) r.value = b.value;"
+          style="padding: 8px; background: #007bff; color: white; border: none; border-radius: 4px;">
+          Copy Base Value
+        </button>
+      </div>
+    </template>
+
+    <!-- Tilemap Preview Template -->
+    <template id="node-popup-tilemap-preview">
+      <view-tilemap data-key="new_map" style="width: 800px; height: 600px; border: 1px solid #ccc; border-radius: 4px;">
+      </view-tilemap>
+    </template>
+
+    <!-- Tree Preview Template -->
+    <template id="node-popup-tree-preview">
+      <view-tree data-store-key="progression"
+        style="width: 800px; height: 600px; border: 1px solid #ccc; border-radius: 4px;">
+      </view-tree>
+    </template>
+
+    <!-- SQL Table Preview Template -->
+    <template id="node-popup-sql-table-preview">
+      <view-sql-table data-query="SELECT 1" data-page-size="20"
+        style="width: 900px; height: 500px; border: 1px solid #ccc; border-radius: 4px;">
+      </view-sql-table>
+    </template>
+
     <!-- Node Code Editor Popup Template -->
     <template id="popup-node-code">
       <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-2);">
@@ -514,76 +617,38 @@
             <!-- <view-skeleton></view-skeleton> -->
             <view-nodegraph>
 
-              <node-popup title="Text" label="THE TEXT" outputs="text" id="init_1" x="12" y="114"
-                values="text:rules"><template>
-                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
-                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="init_2" x="15"
-                y="207" values="text:new_map"><template>
-                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
-                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup><node-popup title="Text" label="THE TEXT" outputs="text" id="init_4" x="11"
-                y="300" values="text:automap_result"><template>
-                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
-                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup><node-popup title="Tilemap preview" inputs="mapId:init_2.text" outputs="mapId"
+              <node-popup title="Text" label="THE TEXT" outputs="text" id="init_1" x="12" y="114" values="text:rules"
+                template="node-popup-text"></node-popup>
+              <node-popup title="Text" label="THE TEXT" outputs="text" id="init_2" x="15" y="207" values="text:new_map"
+                template="node-popup-text"></node-popup>
+              <node-popup title="Text" label="THE TEXT" outputs="text" id="init_4" x="11" y="300"
+                values="text:automap_result" template="node-popup-text"></node-popup>
+              <node-popup title="Tilemap preview" inputs="mapId:init_2.text" outputs="mapId"
                 data-input-target="mapId:view-tilemap@data-key" id="init_6" x="242" y="204"
-                title=""><template><view-tilemap data-key="new_map"></view-tilemap></template></node-popup><node-popup
-                inputs="mapId:init_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key" id="init_7"
-                x="244" y="102" title=""><template><view-tilemap
-                    data-key="new_map"></view-tilemap></template></node-popup><node-plugin title="AutoMap" x="489"
-                y="184" plugin="automap" function="automap"
+                template="node-popup-tilemap-preview"></node-popup>
+              <node-popup inputs="mapId:init_1.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
+                id="init_7" x="244" y="102" template="node-popup-tilemap-preview"></node-popup>
+              <node-plugin title="AutoMap" x="489" y="184" plugin="automap" function="automap"
                 inputs="rulesMapId:init_1.text,inputMapId:init_2.text,outputMapId:init_4.text" outputs="result"
-                id="init_3"></node-plugin><node-popup inputs="mapId:init_4.text" outputs="mapId"
-                data-input-target="mapId:view-tilemap@data-key" id="init_8" x="243" y="297"
-                title=""><template><view-tilemap data-key="new_map"></view-tilemap></template></node-popup>
+                id="init_3"></node-plugin>
+              <node-popup inputs="mapId:init_4.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
+                id="init_8" x="243" y="297" template="node-popup-tilemap-preview"></node-popup>
 
               <node-plugin title="Tilemap Scaler" plugin="scaler" function="scale"
                 inputs="inputMapId:init_2.text,outputMapId:init_2.text,scaleFactor:init_10.value" outputs="result"
                 id="init_9" x="483" y="32" focused="true"></node-plugin>
-              <node-popup outputs="value" id="init_10" x="12" y="12" title="" values="value:10"><template>
-                  <div style="padding:12px" data-numpad=""><input type="number" data-output="value" value="0"
-                      style="font-size:16px;padding:8px;width:100%;text-align:center;margin-bottom:10px">
-                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px"><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `7`; i.focus()"
-                        style="padding:8px;font-size:14px">7</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `8`; i.focus()"
-                        style="padding:8px;font-size:14px">8</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `9`; i.focus()"
-                        style="padding:8px;font-size:14px">9</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `4`; i.focus()"
-                        style="padding:8px;font-size:14px">4</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `5`; i.focus()"
-                        style="padding:8px;font-size:14px">5</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `6`; i.focus()"
-                        style="padding:8px;font-size:14px">6</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `1`; i.focus()"
-                        style="padding:8px;font-size:14px">1</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `2`; i.focus()"
-                        style="padding:8px;font-size:14px">2</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `3`; i.focus()"
-                        style="padding:8px;font-size:14px">3</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value = String(i.value||``) + `0`; i.focus()"
-                        style="padding:8px;font-size:14px">0</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value=i.value.slice(0,-1); i.focus()"
-                        style="padding:8px;font-size:14px;background:#ff6b6b;color:white">⌫</button><button
-                        onclick="let i=this.closest(`[data-numpad]`).querySelector(`input`); i.value=``; i.focus()"
-                        style="padding:8px;font-size:14px;background:#ff6b6b;color:white">Clear</button></div>
-                  </div>
-                </template></node-popup>
+              <node-popup outputs="value" id="init_10" x="12" y="12" title="" values="value:10"
+                template="node-popup-numpad"></node-popup>
               <node-popup title="Room Gen Name" label="Room Gen Name" outputs="text" id="outputRoom" x="21" y="409"
-                values="text:the_room_gen"><template>
-                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
-                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup>
+                values="text:the_room_gen" template="node-popup-text"></node-popup>
               <node-input type="number" value="3" label="JumpHeight" id="jump_height" x="45" y="553" title=""
                 focused="true"></node-input>
               <node-plugin title="Room Generator" plugin="roomgen" function="gen"
                 inputs="inputMapId:init_2.text,outputMapId:outputRoom.text,jumpHeight:jump_height.output,jumpDistance:jump_height.output"
                 outputs="result" id="room_gen_1" x="353" y="468"></node-plugin>
               <node-popup inputs="mapId:outputRoom.text" outputs="mapId" data-input-target="mapId:view-tilemap@data-key"
-                id="room_gen_2" x="359" y="638" title="" focused="true"><template><view-tilemap data-key="new_map"
-                    style="width:800px;height:600px;border:1px solid #ccc;border-radius:4px"></view-tilemap></template></node-popup>
+                id="room_gen_2" x="359" y="638" title="" focused="true"
+                template="node-popup-tilemap-preview"></node-popup>
 
               <node-plugin title="File Write(bin)" plugin="fs" function="writeBin"
                 inputs="path:code_to_file_1.text,content:code_1.output" outputs="result" id="fs_write1" x="354"
@@ -599,10 +664,7 @@
                 $out.output = bbb.toBase64()
               </node-code>
               <node-popup values="text:aa.txt" title="Text" label="THE TEXT" outputs="text" id="code_to_file_1" x="45"
-                y="698"><template>
-                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
-                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template></node-popup>
+                y="698" template="node-popup-text"></node-popup>
 
               <!-- ============================================== -->
               <!-- Atlas Building Example Nodes                   -->
@@ -656,12 +718,7 @@
 
               <!-- Atlas output path -->
               <node-popup title="Atlas Path" outputs="text" id="atlas_path" x="700" y="340"
-                values="text:/output/atlas.qoi">
-                <template>
-                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Output path..."
-                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template>
-              </node-popup>
+                values="text:/output/atlas.qoi" template="node-popup-text"></node-popup>
 
               <!-- Pack options -->
               <node-code title="Pack Options" inputs="" outputs="output" id="atlas_options" x="700" y="440">
@@ -716,12 +773,7 @@
 
               <!-- UV binary output path -->
               <node-popup title="UV Binary Path" outputs="text" id="atlas_bin_path" x="1150" y="340"
-                values="text:/output/atlas.bin">
-                <template>
-                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Output path..."
-                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
-                </template>
-              </node-popup>
+                values="text:/output/atlas.bin" template="node-popup-text"></node-popup>
 
               <!-- Output for viewing metadata -->
               <node-output label="Atlas Metadata" format="json" inputs="value:atlas_uv.metadata" id="atlas_output"
