@@ -1,0 +1,63 @@
+-- +goose Up
+-- Migration: biomes
+-- Biomes storage table for world generation
+
+CREATE TABLE IF NOT EXISTS biomes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT
+);
+
+-- Insert biomes (migrated from biomes.json)
+INSERT INTO biomes (name, description) VALUES
+('Rust Canyons', 'Deep gorges carved through mountains of oxidized metal, where the walls weep orange tears and ancient machinery juts from the stone'),
+('Neon Wastes', 'Cracked asphalt stretches endlessly under flickering holographic billboards that advertise products for a civilization long dead'),
+('Chrome Gardens', 'Twisted metal sculptures and rusted vehicles overgrown with bioluminescent fungi that pulse in rhythm with unknown signals'),
+('Static Fields', 'Plains of crystallized sand where electromagnetic storms rage eternally, creating aurora-like displays across a toxic sky'),
+('Acid Rain Valleys', 'Corroded valleys where the air shimmers with chemical haze and the ground is scarred by decades of toxic precipitation'),
+('Data Graveyards', 'Endless fields of broken servers and dead screens, where digital ghosts flicker across corrupted displays'),
+('Smog Districts', 'Urban mazes of collapsed skyscrapers wrapped in perpetual fog, where visibility extends only a few meters ahead'),
+('Solar Flare Badlands', 'Barren expanse of glass-smooth rock formed when solar radiation melted the earth''s surface into a mirror-like plain'),
+('Scrap Jungles', 'Towering heaps of discarded technology and machinery that have become vertical ecosystems for mutated life'),
+('Dead Channels', 'Dried riverbeds lined with abandoned transmission towers that still broadcast white noise to empty frequencies'),
+('Concrete Seas', 'Vast parking lots and abandoned highways that stretch to the horizon, cracked and split by decades of neglect'),
+('Virus Zones', 'Quarantined sectors where digital plagues have somehow manifested in physical space, causing reality to glitch and stutter'),
+('Dust Bowl Suburbs', 'Abandoned residential areas half-buried in sand, with empty swimming pools that collect rainwater and bones'),
+('Cybernetic Graveyards', 'Massive dumps where discarded augmentations and artificial limbs pile up like technological coral reefs'),
+('Ozone Holes', 'Exposed areas where the atmosphere has thinned, creating shimmering heat distortions and dangerous radiation zones'),
+('Ghost Networks', 'Regions where abandoned fiber optic cables snake across the landscape like luminous veins, still carrying fragments of lost data'),
+('Turbine Graveyards', 'Fields of massive, motionless wind turbines that stand like the bones of mechanical giants against a blood-red sky'),
+('Memory Palace Ruins', 'Collapsed server farms where quantum storage units leak digital memories into the physical world as holographic fragments'),
+('Signal Dead Zones', 'Areas of complete electromagnetic silence where no technology functions and even thoughts seem muffled'),
+('Chrome Deserts', 'Endless expanses of metallic sand that reflect the sun in blinding patterns, hiding the remains of a chrome-obsessed civilization'),
+('Verdant Sanctuaries', 'Protected groves where nature has reclaimed industrial sites, creating twisted gardens of metal trees and concrete flowers'),
+('Haven Settlements', 'Fortified communities built within massive shopping centers, where survivors trade solar panels and canned goods'),
+('Underground Railways', 'Vast subway networks that have become cities in their own right, lit by jury-rigged neon and heated by burning refuse'),
+('Sewer Kingdoms', 'Complex tunnel systems beneath ruined cities where outcasts have built throne rooms from pipes and electrical conduits'),
+('Flooded Districts', 'Partially submerged city blocks where buildings rise from murky water like concrete islands connected by makeshift bridges'),
+('Mutant Groves', 'Forests of genetically altered trees with bark that pulses like heartbeats and leaves that glow with stored radiation'),
+('Toxic Swamplands', 'Chemical marshes where the water burns with rainbow colors and the air shimmers with volatile compounds'),
+('Corporate Vaults', 'Sealed underground complexes where automated systems still maintain sterile environments and preserved executive offices'),
+('Robot Assembly Lines', 'Abandoned factories where mechanical workers continue their tasks endlessly, building products for customers who no longer exist'),
+('Bandit Camps', 'Ramshackle settlements built around highway interchanges, decorated with the skulls of travelers and warning signs'),
+('Farming Communes', 'Carefully maintained agricultural areas protected by solar-powered defensive systems and worked by extended families'),
+('Mining Caverns', 'Deep excavations where human and robot miners extract rare earth minerals under harsh artificial lighting'),
+('Maintenance Tunnels', 'Service passages that snake beneath and between structures, filled with humming machinery and pools of lubricant'),
+('Archive Chambers', 'Climate-controlled underground libraries where servers preserve fragments of human knowledge in crystalline storage'),
+('Greenhouse Domes', 'Massive glass structures where hydroponic gardens provide fresh food under the protection of force field generators'),
+('Scavenger Markets', 'Bustling trading posts built in stadium ruins where merchants hawk everything from pre-war electronics to synthetic meat'),
+('Power Plant Cores', 'Still-active energy facilities where fusion reactors hum behind radiation shielding and automated safety systems'),
+('Nomad Highways', 'Long stretches of intact road where traveling communities move in armored convoys between scattered settlements'),
+('Bunker Cities', 'Underground metropolises carved from bedrock, where families live in converted missile silos and fallout shelters'),
+('Tech Graveyards', 'Massive landfills of obsolete technology where scavengers search for functioning components among mountains of circuit boards'),
+('Purification Plants', 'Water treatment facilities that still function partially, creating oases of clean water surrounded by toxic wasteland'),
+('Radio Towers', 'Towering communication arrays that broadcast automated messages and serve as landmarks for wanderers across the wasteland'),
+('Laboratory Complexes', 'Research facilities where experiments continue autonomously, creating new horrors and wonders behind sealed blast doors'),
+('Vehicle Graveyards', 'Endless fields of rusted cars and trucks stacked like metal pyramids, hiding secret passages and valuable salvage'),
+('Garden Towers', 'Skyscrapers converted into vertical farms where each floor grows different crops under artificial suns and filtered air'),
+('Trade Routes', 'Well-traveled paths between settlements marked by fuel stations and defended checkpoints run by merchant guilds'),
+('Crystal Caves', 'Natural caverns filled with mineral formations that store and amplify electromagnetic signals from the surface world'),
+('Diplomatic Zones', 'Neutral territories where different factions meet to negotiate, built in the shells of old government buildings'),
+('Quarantine Sectors', 'Walled districts where dangerous experiments are contained, patrolled by automated security drones and warning systems'),
+('Salvage Yards', 'Organized collections of useful debris run by families who know exactly where to find any component or material needed'),
+('Refinery Districts', 'Industrial zones where crude materials are processed into usable resources by a combination of human workers and automated systems');
