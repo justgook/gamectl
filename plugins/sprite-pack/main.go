@@ -188,13 +188,15 @@ type croppedSprite struct {
 func cropToAlpha(img *image.NRGBA) (cropped *image.NRGBA, offsetX, offsetY int) {
 	bounds := img.Bounds()
 	w, h := bounds.Dx(), bounds.Dy()
+	stride := img.Stride
 
 	minX, minY := w, h
 	maxX, maxY := 0, 0
 
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			if img.Pix[(y*w+x)*4+3] > 0 {
+			// Use Stride for correct row access
+			if img.Pix[y*stride+x*4+3] > 0 {
 				if x < minX {
 					minX = x
 				}
@@ -223,8 +225,9 @@ func cropToAlpha(img *image.NRGBA) (cropped *image.NRGBA, offsetX, offsetY int) 
 
 	for y := 0; y < cropH; y++ {
 		for x := 0; x < cropW; x++ {
-			srcIdx := ((minY+y)*w + (minX + x)) * 4
-			dstIdx := (y*cropW + x) * 4
+			// Use Stride for source row access
+			srcIdx := (minY+y)*stride + (minX+x)*4
+			dstIdx := y*result.Stride + x*4
 			copy(result.Pix[dstIdx:dstIdx+4], img.Pix[srcIdx:srcIdx+4])
 		}
 	}
@@ -395,11 +398,12 @@ func packSprites(sprites []croppedSprite, opts PackOptions) ([]Placement, int, i
 
 	// Calculate padded dimensions for each sprite
 	type paddedSprite struct {
-		sprite    croppedSprite
-		paddedW   int
-		paddedH   int
-		area      int
-		placement Placement
+		sprite      croppedSprite
+		paddedW     int
+		paddedH     int
+		area        int
+		placement   Placement
+		originalIdx int // Track original index before sorting
 	}
 
 	padded := make([]paddedSprite, len(sprites))
@@ -408,10 +412,11 @@ func packSprites(sprites []croppedSprite, opts PackOptions) ([]Placement, int, i
 		w := bounds.Dx() + padding*2 + extrude*2
 		h := bounds.Dy() + padding*2 + extrude*2
 		padded[i] = paddedSprite{
-			sprite:  s,
-			paddedW: w,
-			paddedH: h,
-			area:    w * h,
+			sprite:      s,
+			paddedW:     w,
+			paddedH:     h,
+			area:        w * h,
+			originalIdx: i,
 		}
 	}
 
@@ -477,9 +482,11 @@ func packSprites(sprites []croppedSprite, opts PackOptions) ([]Placement, int, i
 				finalH = nextPowerOfTwo(maxY)
 			}
 
+			// Return placements in ORIGINAL order (not sorted order)
+			// so that placements[i] corresponds to sprites[i]
 			placements := make([]Placement, len(padded))
-			for i, p := range padded {
-				placements[i] = p.placement
+			for _, p := range padded {
+				placements[p.originalIdx] = p.placement
 			}
 
 			return placements, finalW, finalH, nil
@@ -498,15 +505,15 @@ func extrudeEdges(atlas *image.NRGBA, p Placement, extrude int) {
 		return
 	}
 
-	atlasW := atlas.Bounds().Dx()
+	stride := atlas.Stride
 
-	// Get pixel helper
+	// Get pixel helper using Stride for correct row access
 	getPixel := func(x, y int) [4]byte {
-		idx := (y*atlasW + x) * 4
+		idx := y*stride + x*4
 		return [4]byte{atlas.Pix[idx], atlas.Pix[idx+1], atlas.Pix[idx+2], atlas.Pix[idx+3]}
 	}
 	setPixel := func(x, y int, c [4]byte) {
-		idx := (y*atlasW + x) * 4
+		idx := y*stride + x*4
 		copy(atlas.Pix[idx:idx+4], c[:])
 	}
 
@@ -637,14 +644,12 @@ func Pack() int32 {
 	// Composite sprites into atlas
 	for i, p := range placements {
 		sprite := sprites[i].img
-		srcBounds := sprite.Bounds()
-		srcW := srcBounds.Dx()
 
-		// Copy sprite pixels to atlas
+		// Copy sprite pixels to atlas using Stride for correct row access
 		for y := 0; y < p.Height; y++ {
 			for x := 0; x < p.Width; x++ {
-				srcIdx := (y*srcW + x) * 4
-				dstIdx := ((p.Y+y)*atlasW + (p.X + x)) * 4
+				srcIdx := y*sprite.Stride + x*4
+				dstIdx := (p.Y+y)*atlas.Stride + (p.X+x)*4
 				copy(atlas.Pix[dstIdx:dstIdx+4], sprite.Pix[srcIdx:srcIdx+4])
 			}
 		}
@@ -753,7 +758,9 @@ func PackTiles() int32 {
 
 		// Calculate tile position from tileId
 		srcBounds := srcImg.Bounds()
-		cols := srcBounds.Dx() / tile.TileW
+		srcW := srcBounds.Dx()
+		srcH := srcBounds.Dy()
+		cols := srcW / tile.TileW
 		if cols <= 0 {
 			cols = 1
 		}
@@ -762,18 +769,19 @@ func PackTiles() int32 {
 		tileY := (tile.TileId / cols) * tile.TileH
 
 		// Bounds check
-		if tileX+tile.TileW > srcBounds.Dx() || tileY+tile.TileH > srcBounds.Dy() {
-			pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: tileId %d out of bounds", i, tile.TileId)))
+		if tileX+tile.TileW > srcW || tileY+tile.TileH > srcH {
+			pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: tileId %d out of bounds (tile at %d,%d size %dx%d, image %dx%d)",
+				i, tile.TileId, tileX, tileY, tile.TileW, tile.TileH, srcW, srcH)))
 			return 1
 		}
 
-		// Extract tile region
+		// Extract tile region using image.NRGBA's Stride for correct row access
 		tileImg := image.NewNRGBA(image.Rect(0, 0, tile.TileW, tile.TileH))
-		srcW := srcBounds.Dx()
 		for y := 0; y < tile.TileH; y++ {
 			for x := 0; x < tile.TileW; x++ {
-				srcIdx := ((tileY+y)*srcW + (tileX + x)) * 4
-				dstIdx := (y*tile.TileW + x) * 4
+				// Use Stride for source row calculation (handles images with non-zero origin)
+				srcIdx := (tileY+y)*srcImg.Stride + (tileX+x)*4
+				dstIdx := y*tileImg.Stride + x*4
 				copy(tileImg.Pix[dstIdx:dstIdx+4], srcImg.Pix[srcIdx:srcIdx+4])
 			}
 		}
@@ -858,14 +866,12 @@ func PackTiles() int32 {
 	// Composite unique sprites into atlas
 	for packedIdx, p := range placements {
 		sprite := uniqueSprites[packedIdx].img
-		srcBounds := sprite.Bounds()
-		srcW := srcBounds.Dx()
 
-		// Copy sprite pixels to atlas
+		// Copy sprite pixels to atlas using Stride for correct row access
 		for y := 0; y < p.Height; y++ {
 			for x := 0; x < p.Width; x++ {
-				srcIdx := (y*srcW + x) * 4
-				dstIdx := ((p.Y+y)*atlasW + (p.X + x)) * 4
+				srcIdx := y*sprite.Stride + x*4
+				dstIdx := (p.Y+y)*atlas.Stride + (p.X+x)*4
 				copy(atlas.Pix[dstIdx:dstIdx+4], sprite.Pix[srcIdx:srcIdx+4])
 			}
 		}
