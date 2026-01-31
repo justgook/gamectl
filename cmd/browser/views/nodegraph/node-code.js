@@ -1,5 +1,6 @@
 import { NodeBase } from './node-base.js'
 import { bytes } from "../../util/dataview.js"
+import { parseCSVWithHeaders } from '../../util/csv.js'
 
 /**
  * NodeCode - Custom JavaScript transformation node
@@ -60,8 +61,8 @@ export class NodeCode extends NodeBase {
 
       // Use AsyncFunction for await support
       const AsyncFunction = Object.getPrototypeOf(async function() { }).constructor
-      const fn = new AsyncFunction('$in', "bytes", wrappedCode)
-      const $out = await fn($in, bytes)
+      const fn = new AsyncFunction('$in', "bytes", "fromCSV", wrappedCode)
+      const $out = await fn($in, bytes, parseCSVWithHeaders)
 
       // Resolve outputs
       for (const outputName of this._parsedOutputs) {
@@ -152,7 +153,8 @@ export class NodeCode extends NodeBase {
 
         // Syntax validation
         try {
-          new Function('$in', "bytes", '$out', code)
+          const AsyncFunction = Object.getPrototypeOf(async function() { }).constructor
+          new AsyncFunction('$in', "bytes", "fromCSV", '$out', code)
           if (errorDiv) {
             errorDiv.style.display = 'none'
           }

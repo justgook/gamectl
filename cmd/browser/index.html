@@ -603,6 +603,130 @@
                   <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Enter text..."
                       style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
                 </template></node-popup>
+
+              <!-- ============================================== -->
+              <!-- Atlas Building Example Nodes                   -->
+              <!-- ============================================== -->
+
+              <!-- 1. SQL Query to get animations from database -->
+              <node-code title="SQL: Get Animations" inputs="" outputs="data" id="atlas_sql" x="700" y="100">
+                // Query animation data from database
+                const sql = `SELECT source_file, start_frame, tile_width, tile_height, data FROM animation_storage`
+                const result = await window.pluginManager.call("sql", "query", sql)
+                const DE = new TextDecoder()
+                $out.data = fromCSV(DE.decode(result.output))
+              </node-code>
+
+              <!-- 2. Extract tiles from animation data -->
+              <node-code title="Extract Tiles" inputs="data:atlas_sql.data" outputs="tiles" id="atlas_extract" x="700"
+                y="220">
+                // Extract unique tiles from animation data
+                const rows = $in.data || []
+                const tiles = []
+                const seen = new Set()
+
+                for (const row of rows) {
+                const animData = JSON.parse(row.data)
+                const sourceFile = row.source_file
+                const tileW = +row.tile_width
+                const tileH = +row.tile_height
+
+                for (const frame of animData.frames) {
+                const key = `${sourceFile}:${frame.tileId}:${tileW}:${tileH}`
+                if (!seen.has(key)) {
+                seen.add(key)
+                tiles.push({
+                path: sourceFile,
+                name: key,
+                tileId: +frame.tileId,
+                tileW: tileW,
+                tileH: tileH
+                })
+                }
+                }
+                }
+
+                $out.tiles = tiles
+              </node-code>
+
+              <!-- 3. Pack tiles using sprite-pack plugin -->
+              <node-plugin title="Pack Tiles" plugin="sprite-pack" function="packTiles"
+                inputs="tiles:atlas_extract.tiles,options:atlas_options.output,outputPath:atlas_path.text"
+                outputs="result" id="atlas_pack" x="950" y="220"></node-plugin>
+
+              <!-- Atlas output path -->
+              <node-popup title="Atlas Path" outputs="text" id="atlas_path" x="700" y="340"
+                values="text:/output/atlas.qoi">
+                <template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Output path..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template>
+              </node-popup>
+
+              <!-- Pack options -->
+              <node-code title="Pack Options" inputs="" outputs="output" id="atlas_options" x="700" y="440">
+                $out.output = {
+                padding: 1,
+                extrude: 1,
+                powerOfTwo: true,
+                cropAlpha: true,
+                deduplicate: true
+                }
+              </node-code>
+
+              <!-- 4. Build UV binary from pack result -->
+              <node-code title="Build UV Binary" inputs="result:atlas_pack.result" outputs="binary,metadata"
+                id="atlas_uv" x="1150" y="220">
+                // Parse pack result
+                const decoder = new TextDecoder()
+                const resultStr = decoder.decode($in.result.output)
+                const result = JSON.parse(resultStr)
+                const { placements, atlasW, atlasH } = result
+
+                // Build binary UV data
+                const b = bytes()
+
+                // Header (16 bytes)
+                b.setUint32(0x41544C53) // "ATLS" magic
+                b.setUint16(1) // version
+                b.setUint16(0) // flags
+                b.setUint32(placements.length) // sprite count
+                b.setUint16(atlasW)
+                b.setUint16(atlasH)
+
+                // UV data (16 bytes each)
+                for (const p of placements) {
+                // If duplicate, use canonical sprite position
+                const src = p.duplicateOf >= 0 ? placements[p.duplicateOf] : p
+                b.setFloat32(src.x / atlasW) // min_u
+                b.setFloat32(src.y / atlasH) // min_v
+                b.setFloat32((src.x + src.width) / atlasW) // max_u
+                b.setFloat32((src.y + src.height) / atlasH) // max_v
+                }
+
+                const buffer = b.commit()
+                $out.binary = new Uint8Array(buffer).toBase64()
+                $out.metadata = result // Pass through for debugging
+              </node-code>
+
+              <!-- 5. Save UV binary to file -->
+              <node-plugin title="Save UV Binary" plugin="fs" function="writeBin"
+                inputs="path:atlas_bin_path.text,content:atlas_uv.binary" outputs="result" id="atlas_save" x="1400"
+                y="220"></node-plugin>
+
+              <!-- UV binary output path -->
+              <node-popup title="UV Binary Path" outputs="text" id="atlas_bin_path" x="1150" y="340"
+                values="text:/output/atlas.bin">
+                <template>
+                  <div style="padding:16px"><input type="text" data-output="text" value="" placeholder="Output path..."
+                      style="font-size:16px;padding:8px;border:2px solid #ddd;border-radius:4px;width:100%"></div>
+                </template>
+              </node-popup>
+
+              <!-- Output for viewing metadata -->
+              <node-output label="Atlas Metadata" format="json" inputs="value:atlas_uv.metadata" id="atlas_output"
+                x="1400" y="340"></node-output>
+
             </view-nodegraph>
           </view-chrome>
           <view-chrome nesw="s" r="400" from="panel_1">

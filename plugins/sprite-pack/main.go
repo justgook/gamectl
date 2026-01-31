@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"image"
 	"image/png"
 	"sort"
@@ -25,11 +26,12 @@ type SpriteInput struct {
 
 // PackOptions defines packing configuration
 type PackOptions struct {
-	Padding    int  `json:"padding"`    // Padding between sprites (default: 0)
-	Extrude    int  `json:"extrude"`    // Edge extrusion pixels (default: 0)
-	PowerOfTwo bool `json:"powerOfTwo"` // Constrain to power of 2 dimensions
-	MaxSize    int  `json:"maxSize"`    // Maximum atlas dimension (default: 4096)
-	CropAlpha  bool `json:"cropAlpha"`  // Crop sprites to alpha bounds before packing
+	Padding     int  `json:"padding"`     // Padding between sprites (default: 0)
+	Extrude     int  `json:"extrude"`     // Edge extrusion pixels (default: 0)
+	PowerOfTwo  bool `json:"powerOfTwo"`  // Constrain to power of 2 dimensions
+	MaxSize     int  `json:"maxSize"`     // Maximum atlas dimension (default: 4096)
+	CropAlpha   bool `json:"cropAlpha"`   // Crop sprites to alpha bounds before packing
+	Deduplicate bool `json:"deduplicate"` // Deduplicate identical sprites
 }
 
 // PackInput for packing sprites
@@ -51,6 +53,37 @@ type Placement struct {
 	FrameY int `json:"frameY"` // Offset Y from original
 	FrameW int `json:"frameW"` // Original width
 	FrameH int `json:"frameH"` // Original height
+	// Deduplication and ordering info
+	OriginalIndex int `json:"originalIndex"`         // Index in input array (for mapping back)
+	DuplicateOf   int `json:"duplicateOf,omitempty"` // Index of canonical sprite (-1 if unique)
+}
+
+// =============================================================================
+// PackTiles Types - for packing tiles from spritesheets
+// =============================================================================
+
+// TileInput defines a tile region to extract from a spritesheet
+type TileInput struct {
+	Path   string `json:"path"`   // Source spritesheet path
+	Name   string `json:"name"`   // Identifier for this tile
+	TileId int    `json:"tileId"` // Tile index in grid (row-major)
+	TileW  int    `json:"tileW"`  // Tile width in pixels
+	TileH  int    `json:"tileH"`  // Tile height in pixels
+}
+
+// PackTilesInput for packing tiles from spritesheets
+type PackTilesInput struct {
+	Tiles      []TileInput `json:"tiles"`
+	Options    PackOptions `json:"options"`
+	OutputPath string      `json:"outputPath"`
+}
+
+// PackTilesOutput returns packing result with original index mapping
+type PackTilesOutput struct {
+	Success    bool        `json:"success"`
+	Placements []Placement `json:"placements"`
+	AtlasW     int         `json:"atlasW"`
+	AtlasH     int         `json:"atlasH"`
 }
 
 // PackOutput returns packing result
@@ -631,6 +664,256 @@ func Pack() int32 {
 	output := PackOutput{
 		Success:    true,
 		Placements: placements,
+		AtlasW:     atlasW,
+		AtlasH:     atlasH,
+	}
+
+	result, _ := json.Marshal(output)
+	pdk.Output(result)
+	return 0
+}
+
+// =============================================================================
+// Hash function for deduplication
+// =============================================================================
+
+func hashImage(img *image.NRGBA) uint64 {
+	h := fnv.New64a()
+	bounds := img.Bounds()
+	w, hh := bounds.Dx(), bounds.Dy()
+	// Write dimensions to hash
+	h.Write([]byte{byte(w >> 8), byte(w), byte(hh >> 8), byte(hh)})
+	// Write pixel data
+	h.Write(img.Pix)
+	return h.Sum64()
+}
+
+// =============================================================================
+// PackTiles - Pack tiles from spritesheets with deduplication
+// =============================================================================
+
+//go:wasmexport packTiles
+func PackTiles() int32 {
+	input := pdk.Input()
+	var params PackTilesInput
+	if err := json.Unmarshal(input, &params); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+
+	if params.OutputPath == "" {
+		pdk.Output(util.ErrorResponse("outputPath is required"))
+		return 1
+	}
+	if len(params.Tiles) == 0 {
+		pdk.Output(util.ErrorResponse("at least one tile is required"))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[sprite-pack] Packing %d tiles", len(params.Tiles)))
+
+	// Image cache to avoid reloading the same spritesheet
+	imageCache := make(map[string]*image.NRGBA)
+
+	// Extended sprite info with original index
+	type indexedSprite struct {
+		sprite        croppedSprite
+		originalIndex int
+		hash          uint64
+		duplicateOf   int // -1 if unique, otherwise index of canonical sprite
+	}
+
+	var allSprites []indexedSprite
+
+	// Hash to first occurrence index (for deduplication)
+	hashToIndex := make(map[uint64]int)
+
+	// Process each tile
+	for i, tile := range params.Tiles {
+		if tile.Path == "" {
+			pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: path is required", i)))
+			return 1
+		}
+		if tile.TileW <= 0 || tile.TileH <= 0 {
+			pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: tileW and tileH must be positive", i)))
+			return 1
+		}
+
+		// Load image from cache or file
+		srcImg, ok := imageCache[tile.Path]
+		if !ok {
+			var err error
+			srcImg, err = loadImage(tile.Path)
+			if err != nil {
+				pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: %s", i, err.Error())))
+				return 1
+			}
+			imageCache[tile.Path] = srcImg
+		}
+
+		// Calculate tile position from tileId
+		srcBounds := srcImg.Bounds()
+		cols := srcBounds.Dx() / tile.TileW
+		if cols <= 0 {
+			cols = 1
+		}
+
+		tileX := (tile.TileId % cols) * tile.TileW
+		tileY := (tile.TileId / cols) * tile.TileH
+
+		// Bounds check
+		if tileX+tile.TileW > srcBounds.Dx() || tileY+tile.TileH > srcBounds.Dy() {
+			pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: tileId %d out of bounds", i, tile.TileId)))
+			return 1
+		}
+
+		// Extract tile region
+		tileImg := image.NewNRGBA(image.Rect(0, 0, tile.TileW, tile.TileH))
+		srcW := srcBounds.Dx()
+		for y := 0; y < tile.TileH; y++ {
+			for x := 0; x < tile.TileW; x++ {
+				srcIdx := ((tileY+y)*srcW + (tileX + x)) * 4
+				dstIdx := (y*tile.TileW + x) * 4
+				copy(tileImg.Pix[dstIdx:dstIdx+4], srcImg.Pix[srcIdx:srcIdx+4])
+			}
+		}
+
+		// Apply alpha cropping if enabled
+		var cropX, cropY int
+		origW, origH := tile.TileW, tile.TileH
+		if params.Options.CropAlpha {
+			tileImg, cropX, cropY = cropToAlpha(tileImg)
+		}
+
+		name := tile.Name
+		if name == "" {
+			name = fmt.Sprintf("tile_%d", i)
+		}
+
+		sprite := croppedSprite{
+			name:  name,
+			img:   tileImg,
+			cropX: cropX,
+			cropY: cropY,
+			origW: origW,
+			origH: origH,
+		}
+
+		// Compute hash for deduplication
+		spriteHash := hashImage(tileImg)
+
+		// Check for duplicate
+		duplicateOf := -1
+		if params.Options.Deduplicate {
+			if existingIdx, exists := hashToIndex[spriteHash]; exists {
+				duplicateOf = existingIdx
+			} else {
+				hashToIndex[spriteHash] = i
+			}
+		}
+
+		allSprites = append(allSprites, indexedSprite{
+			sprite:        sprite,
+			originalIndex: i,
+			hash:          spriteHash,
+			duplicateOf:   duplicateOf,
+		})
+	}
+
+	// Collect unique sprites for packing
+	var uniqueSprites []croppedSprite
+	var uniqueIndices []int // Maps packed index -> original index
+	for _, s := range allSprites {
+		if s.duplicateOf == -1 {
+			uniqueSprites = append(uniqueSprites, s.sprite)
+			uniqueIndices = append(uniqueIndices, s.originalIndex)
+		}
+	}
+
+	if len(uniqueSprites) == 0 {
+		pdk.Output(util.ErrorResponse("no unique sprites to pack"))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[sprite-pack] %d unique sprites after deduplication", len(uniqueSprites)))
+
+	// Pack unique sprites
+	placements, atlasW, atlasH, err := packSprites(uniqueSprites, params.Options)
+	if err != nil {
+		pdk.Output(util.ErrorResponse(err.Error()))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[sprite-pack] Packed into %dx%d atlas", atlasW, atlasH))
+
+	// Create atlas image
+	atlas := image.NewNRGBA(image.Rect(0, 0, atlasW, atlasH))
+
+	// Build a map from original index to placement index for unique sprites
+	originalToPackedIdx := make(map[int]int)
+	for packedIdx, origIdx := range uniqueIndices {
+		originalToPackedIdx[origIdx] = packedIdx
+	}
+
+	// Composite unique sprites into atlas
+	for packedIdx, p := range placements {
+		sprite := uniqueSprites[packedIdx].img
+		srcBounds := sprite.Bounds()
+		srcW := srcBounds.Dx()
+
+		// Copy sprite pixels to atlas
+		for y := 0; y < p.Height; y++ {
+			for x := 0; x < p.Width; x++ {
+				srcIdx := (y*srcW + x) * 4
+				dstIdx := ((p.Y+y)*atlasW + (p.X + x)) * 4
+				copy(atlas.Pix[dstIdx:dstIdx+4], sprite.Pix[srcIdx:srcIdx+4])
+			}
+		}
+
+		// Extrude edges if needed
+		if params.Options.Extrude > 0 {
+			extrudeEdges(atlas, p, params.Options.Extrude)
+		}
+	}
+
+	// Save atlas
+	if err := saveImage(params.OutputPath, atlas); err != nil {
+		pdk.Output(util.ErrorResponse("failed to save atlas: " + err.Error()))
+		return 1
+	}
+
+	// Build final placements array (in original input order)
+	finalPlacements := make([]Placement, len(allSprites))
+	for i, s := range allSprites {
+		var p Placement
+		if s.duplicateOf == -1 {
+			// Unique sprite - get placement from packed results
+			packedIdx := originalToPackedIdx[s.originalIndex]
+			p = placements[packedIdx]
+		} else {
+			// Duplicate sprite - copy placement from canonical sprite
+			canonicalPackedIdx := originalToPackedIdx[s.duplicateOf]
+			p = placements[canonicalPackedIdx]
+		}
+
+		finalPlacements[i] = Placement{
+			Name:          s.sprite.name,
+			X:             p.X,
+			Y:             p.Y,
+			Width:         p.Width,
+			Height:        p.Height,
+			FrameX:        s.sprite.cropX,
+			FrameY:        s.sprite.cropY,
+			FrameW:        s.sprite.origW,
+			FrameH:        s.sprite.origH,
+			OriginalIndex: s.originalIndex,
+			DuplicateOf:   s.duplicateOf,
+		}
+	}
+
+	output := PackTilesOutput{
+		Success:    true,
+		Placements: finalPlacements,
 		AtlasW:     atlasW,
 		AtlasH:     atlasH,
 	}
