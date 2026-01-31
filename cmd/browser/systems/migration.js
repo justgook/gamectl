@@ -19,7 +19,7 @@ import { bus } from './event-bus.js'
 import { toast } from './toast.js'
 
 // Constants
-const DATABASE_PATH = '/database.bin'
+const DATABASE_PATH = '/database.sqlite'
 const MIGRATIONS_PATH = '/data/migrations'
 
 // Text decoder for SQL plugin output
@@ -55,7 +55,7 @@ class MigrationManager {
     if (exists) {
       console.log('[Migration] Found existing database, loading from binary...')
       const loaded = await this.loadDatabase()
-      
+
       if (loaded) {
         // Get current version from loaded database
         this.currentVersion = await this.getSchemaVersion()
@@ -121,7 +121,7 @@ class MigrationManager {
       console.log('[Migration] Saving database to binary...')
       const result = await window.pluginManager.call('sql', 'save_binary', DATABASE_PATH)
       const output = decoder.decode(result.output)
-      
+
       if (output.includes('OK')) {
         console.log('[Migration] Database saved successfully')
         toast.success('Database saved')
@@ -166,7 +166,7 @@ class MigrationManager {
         "SELECT name FROM sqlite_schema WHERE type='table' AND name='schema_version'"
       )
       const tableOutput = decoder.decode(tableCheck.output)
-      
+
       if (!tableOutput.includes('schema_version')) {
         return 0
       }
@@ -175,7 +175,7 @@ class MigrationManager {
         'SELECT COALESCE(MAX(version), 0) as version FROM schema_version'
       )
       const output = decoder.decode(result.output)
-      
+
       // Parse CSV output (header + data row)
       const lines = output.trim().split('\n')
       if (lines.length >= 2) {
@@ -215,7 +215,7 @@ class MigrationManager {
 
       const index = await response.json()
       this.migrations = index.migrations || []
-      
+
       console.log(`[Migration] Found ${this.migrations.length} migrations`)
     } catch (error) {
       console.error('[Migration] Error loading migrations:', error)
@@ -228,7 +228,7 @@ class MigrationManager {
    */
   async runPendingMigrations() {
     const pending = this.migrations.filter(m => m.version > this.currentVersion)
-    
+
     if (pending.length === 0) {
       console.log('[Migration] No pending migrations')
       return
