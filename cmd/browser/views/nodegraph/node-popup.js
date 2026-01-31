@@ -29,7 +29,7 @@ import { NodeBase } from './node-base.js'
  */
 export class NodePopup extends NodeBase {
   static get observedAttributes() {
-    return [...super.observedAttributes, 'values', 'data-input-target', 'onopen']
+    return [...super.observedAttributes, 'values', 'data-input-target', 'onopen', 'template']
   }
 
   constructor() {
@@ -40,8 +40,10 @@ export class NodePopup extends NodeBase {
   connectedCallback() {
     super.connectedCallback()
 
-    // Validate that content is wrapped in <template>
-    this._validateTemplateStructure()
+    // Validate template structure only if no external template is specified
+    if (!this.getAttribute('template')) {
+      this._validateTemplateStructure()
+    }
 
     // Parse values attribute
     const valuesAttr = this.getAttribute('values')
@@ -148,6 +150,36 @@ export class NodePopup extends NodeBase {
     return targets
   }
 
+  /**
+   * Get template content from external template or inline template
+   * Priority: external template (via template attribute) > inline <template> child
+   * @private
+   * @returns {DocumentFragment} Cloned template content
+   */
+  _getTemplateContent() {
+    const templateId = this.getAttribute('template')
+    
+    // First try external template by ID
+    if (templateId) {
+      const externalTemplate = document.getElementById(templateId)
+      if (!externalTemplate) {
+        throw new Error(`External template "${templateId}" not found for node-popup (${this.id})`)
+      }
+      if (externalTemplate.tagName !== 'TEMPLATE') {
+        throw new Error(`Element "${templateId}" is not a <template> element`)
+      }
+      return externalTemplate.content.cloneNode(true)
+    }
+    
+    // Fall back to inline <template> child
+    const inlineTemplate = this.querySelector('template')
+    if (inlineTemplate) {
+      return inlineTemplate.content.cloneNode(true)
+    }
+    
+    throw new Error(`node-popup (${this.id}) has no template - specify template attribute or add inline <template> child`)
+  }
+
   getDisplayInfo() {
     const base = super.getDisplayInfo()
     const outputs = base.outputs
@@ -250,15 +282,14 @@ export class NodePopup extends NodeBase {
     titleElement.textContent = `Edit ${this.title}(${this.id})`
     popup.appendChild(titleElement)
 
-    // Extract content from <template> element
-    const templateElement = this.querySelector('template')
-    if (!templateElement) {
-      console.error(`node-popup (${this.id}) has no <template> child`)
+    // Get template content (external or inline)
+    let content
+    try {
+      content = this._getTemplateContent()
+    } catch (error) {
+      console.error(error.message)
       return
     }
-
-    // Clone template content for editing
-    const content = templateElement.content.cloneNode(true)
 
     // Apply current input values from connected nodes
     await this.applyInputsToPopup(content)
