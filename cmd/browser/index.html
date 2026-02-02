@@ -135,6 +135,7 @@
     <template id="view-sql-tables">
       <div data-element="toolbar" class="sql-tables-toolbar">
         <button data-action="refresh" class="button-secondary" title="Refresh">Refresh</button>
+        <button data-action="new-table" class="button-secondary" title="Create New Table">+ New Table</button>
       </div>
       <div data-element="list-container" class="sql-tables-list"></div>
       <div data-element="status" class="sql-tables-status"></div>
@@ -279,6 +280,8 @@
           <span>x</span>
           <input type="number" data-element="tile-height" value="16" min="1" class="input-small" title="Tile Height">
         </label>
+        <span class="toolbar-divider"></span>
+        <button data-action="new" class="button-primary">New</button>
         <span class="toolbar-divider"></span>
         <button data-action="save" class="button-primary">Save</button>
       </div>
