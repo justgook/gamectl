@@ -132,6 +132,14 @@
       </div>
     </template>
 
+    <template id="view-sql-tables">
+      <div data-element="toolbar" class="sql-tables-toolbar">
+        <button data-action="refresh" class="button-secondary" title="Refresh">Refresh</button>
+      </div>
+      <div data-element="list-container" class="sql-tables-list"></div>
+      <div data-element="status" class="sql-tables-status"></div>
+    </template>
+
     <template id="view-files">
       <div data-element="toolbar" class="files-toolbar">
         <button data-action="refresh" class="button-secondary" title="Refresh">Refresh</button>
@@ -397,6 +405,7 @@
               <option value="view-opr-unit-builder">Unit Builder</option>
             </optgroup>
             <optgroup label="Data">
+              <option value="view-sql-tables">Tables</option>
               <option value="view-sql-table" data-config="items">Items Table</option>
               <option value="view-sql-table" data-config="biomes">Biomes Table</option>
             </optgroup>
