@@ -170,9 +170,7 @@ INSERT INTO node_templates (name, category, description, html_template) VALUES (
   'Code Transform',
   'transform',
   'Custom JavaScript transformation with $in/$out',
-  '<node-code title="Code" inputs="input" outputs="output">
-$out.output = $in.input;
-</node-code>'
+  '<node-code title="Code" inputs="input" outputs="output">$out.output = $in.input;</node-code>'
 );
 
 -- SQL Database Nodes (use raw input mode for direct SQL strings)

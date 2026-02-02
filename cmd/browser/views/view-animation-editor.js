@@ -251,6 +251,12 @@ export class ViewAnimationEditor extends HTMLElement {
       tileHeightInput.onchange = () => this._updateTileSize()
     }
     
+    // New button
+    const newBtn = this._queryHeaderControl('[data-action="new"]')
+    if (newBtn) {
+      newBtn.onclick = () => this.clearAnimation()
+    }
+    
     // Save button
     const saveBtn = this._queryHeaderControl('[data-action="save"]')
     if (saveBtn) {
