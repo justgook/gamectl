@@ -14,6 +14,7 @@ import { ViewTree } from "./views/view-tree.js"
 import { ViewConsole } from "./views/view-console.js"
 import { ViewSqlConsole } from "./views/view-sql-console.js"
 import { ViewSqlTable } from "./views/view-sql-table.js"
+import { ViewSqlTables } from "./views/view-sql-tables.js"
 import "./views/view-files.js" // Self-registers
 import { ViewTilemap } from "./views/view-tilemap.js"
 import { ViewPipeline } from "./views/view-pipeline.js"
@@ -60,6 +61,7 @@ customElements.define('view-tree', ViewTree)
 customElements.define('view-console', ViewConsole)
 customElements.define('view-sql-console', ViewSqlConsole)
 customElements.define('view-sql-table', ViewSqlTable)
+customElements.define('view-sql-tables', ViewSqlTables)
 // view-files self-registers on import
 customElements.define('view-pipeline', ViewPipeline)
 customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)

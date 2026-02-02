@@ -34,6 +34,7 @@ export class ViewSqlTable extends HTMLElement {
     this.tableContainer = null
     this.paginationContainer = null
     this.statusContainer = null
+    this._unsubscribeTableSelect = null
   }
 
   connectedCallback() {
@@ -74,12 +75,21 @@ export class ViewSqlTable extends HTMLElement {
       toolbar.querySelector('[data-action="insert"]')?.addEventListener('click', () => this.insertRow())
     }
 
+    // Listen for table selection events from view-sql-tables
+    this._unsubscribeTableSelect = bus.on('sql-table:select', (payload) => {
+      this.handleTableSelect(payload.table)
+    })
+
     // Initial data load
     this.refresh()
   }
 
   disconnectedCallback() {
-    // Cleanup if needed
+    // Cleanup event listener
+    if (this._unsubscribeTableSelect) {
+      this._unsubscribeTableSelect()
+      this._unsubscribeTableSelect = null
+    }
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -102,6 +112,23 @@ export class ViewSqlTable extends HTMLElement {
         this.columnTypes = {}
       }
     }
+  }
+
+  /**
+   * Handle table selection from view-sql-tables component.
+   * Updates query attributes and refreshes the view to show the selected table.
+   */
+  handleTableSelect(tableName) {
+    if (!tableName) return
+
+    // Update attributes to show the selected table
+    this.setAttribute('data-query', `SELECT * FROM "${tableName}" LIMIT :limit OFFSET :offset`)
+    this.setAttribute('data-count-query', `SELECT COUNT(*) FROM "${tableName}"`)
+    this.setAttribute('data-table', tableName)
+
+    // Reset pagination and refresh
+    this.currentPage = 0
+    this.refresh()
   }
 
   handleKeyDown(e) {

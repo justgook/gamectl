@@ -1270,6 +1270,84 @@ view-sql-table {
   color: var(--color-semantic-text-tertiary, #666680);
 }
 
+/* =====================================================
+   SQL TABLES VIEW - Database table list
+   ===================================================== */
+
+view-sql-tables {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-semantic-bg-primary, #1a1a2e);
+}
+
+/* Toolbar */
+.sql-tables-toolbar {
+  display: flex;
+  gap: var(--spacing-scale-2, 8px);
+  padding: var(--spacing-scale-2, 8px);
+  border-bottom: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  background: var(--color-semantic-bg-secondary, #252540);
+}
+
+/* List Container */
+.sql-tables-list {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+
+.sql-tables-empty {
+  padding: var(--spacing-scale-4, 16px);
+  color: var(--color-semantic-text-tertiary, #666680);
+  font-style: italic;
+  text-align: center;
+}
+
+/* Table Item */
+.sql-tables-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.sql-tables-item:hover {
+  background: var(--color-semantic-bg-hover, #2a2a4a);
+}
+
+.sql-tables-item.selected {
+  background: var(--color-semantic-accent-subtle, #3a3a6a);
+  border-left: 3px solid var(--color-semantic-accent-primary, #7c7cff);
+}
+
+.sql-tables-item-name {
+  font-size: var(--font-size-sm, 13px);
+  font-family: 'Roboto Mono', Monaco, 'Courier New', monospace;
+  color: var(--color-semantic-text-primary, #ffffff);
+  font-weight: 500;
+}
+
+.sql-tables-item-count {
+  font-size: 11px;
+  color: var(--color-semantic-text-tertiary, #666680);
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Status */
+.sql-tables-status {
+  padding: var(--spacing-scale-2, 8px);
+  font-size: 12px;
+  color: var(--color-semantic-text-tertiary, #666680);
+  border-top: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  background: var(--color-semantic-bg-secondary, #252540);
+}
+
 /* ========================================================================== */
 /* VIEW-FILES - File Browser Styles */
 /* ========================================================================== */
