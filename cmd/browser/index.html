@@ -684,8 +684,8 @@
 
               <!-- 1. SQL Query to get animations from database -->
               <node-code title="SQL: Get Animations" inputs="" outputs="data" id="atlas_sql" x="700" y="100">
-                // Query animation data from database
-                const sql = `SELECT source_file, start_frame, tile_width, tile_height, data FROM animation_storage`
+                // Query animation data from database (ordered for deterministic output)
+                const sql = `SELECT source_file, start_frame, tile_width, tile_height, data FROM animation_storage ORDER BY source_file, start_frame`
                 const result = await window.pluginManager.call("sql", "query", sql)
                 const DE = new TextDecoder()
                 $out.data = fromCSV(DE.decode(result.output))
@@ -739,7 +739,8 @@
                 extrude: 1,
                 powerOfTwo: true,
                 cropAlpha: true,
-                deduplicate: true
+                deduplicate: true,
+                flipY: true,
                 }
               </node-code>
 
@@ -756,12 +757,8 @@
                 const b = bytes()
 
                 // Header (16 bytes)
-                b.setUint32(0x41544C53) // "ATLS" magic
-                b.setUint16(1) // version
-                b.setUint16(0) // flags
+                b.setUint16(1) // atlas magic
                 b.setUint32(placements.length) // sprite count
-                b.setUint16(atlasW)
-                b.setUint16(atlasH)
 
                 // UV data (16 bytes each)
                 for (const p of placements) {
@@ -790,6 +787,137 @@
               <!-- Output for viewing metadata -->
               <node-output label="Atlas Metadata" format="json" inputs="value:atlas_uv.metadata" id="atlas_output"
                 x="1400" y="340"></node-output>
+
+              <!-- ============================================== -->
+              <!-- Animation Binary Encoder                       -->
+              <!-- ============================================== -->
+
+              <!-- 6. Build Animation Binary from SQL data + atlas placements -->
+              <node-code title="Build Anim Binary" inputs="data:atlas_sql.data,packResult:atlas_uv.metadata" outputs="binary,metadata"
+                id="anim_binary" x="1150" y="440">
+                // Build animation binary matching Odin AnimationAtlas format
+                // Binary format:
+                //   Header: Uint16(magic=2), Uint32(def_count), Uint32(frame_count)
+                //   Data:   [AnimDef × def_count], [AnimFrame × frame_count]
+                //
+                // AnimDef (12 bytes): Int32 frame_start, Int32 frame_count, Uint8 looping, Uint8[3] padding
+                // AnimFrame (20 bytes): Int32 uv_index, Int32 offset[0], Int32 offset[1], Float32 duration, Uint8 flip, Uint8[3] padding
+
+                const animations = $in.data || []
+                const packResult = $in.packResult
+
+                // Build tileId → uvIndex mapping from atlas placements
+                const uvMap = new Map()
+                if (packResult?.placements) {
+                for (let i = 0; i &lt; packResult.placements.length; i++) {
+                const p = packResult.placements[i]
+                uvMap.set(p.name, i) // name is "sourceFile:tileId:tileW:tileH"
+                }
+                }
+
+                // Collect all AnimDefs and AnimFrames
+                const defs = []
+                const frames = []
+
+                for (const anim of animations) {
+                const animData = JSON.parse(anim.data)
+                const sourceFile = anim.source_file
+                const tileW = +anim.tile_width
+                const tileH = +anim.tile_height
+
+                const def = {
+                frame_start: frames.length,
+                frame_count: animData.frames.length,
+                looping: animData.loop !== false
+                }
+                defs.push(def)
+
+                for (const frame of animData.frames) {
+                const key = `${sourceFile}:${frame.tileId}:${tileW}:${tileH}`
+                const uvIndex = uvMap.get(key) ?? -1
+
+                frames.push({
+                uv_index: uvIndex,
+                offset: [0, 0], // TODO: Calculate from trim data in stage 2
+                duration: frame.duration / 1000, // ms → seconds
+                flip: 0 // TODO: Add flip support to editor
+                })
+                }
+                }
+
+                // Build binary
+                const b = bytes()
+
+                // Header (10 bytes)
+                b.setUint16(2) // magic: animations
+                b.setUint32(defs.length)
+                b.setUint32(frames.length)
+
+                // AnimDefs (12 bytes each)
+                for (const def of defs) {
+                b.setInt32(def.frame_start)
+                b.setInt32(def.frame_count)
+                b.setUint8(def.looping ? 1 : 0)
+                b.setUint8(0) // padding
+                b.setUint8(0)
+                b.setUint8(0)
+                }
+
+                // AnimFrames (20 bytes each)
+                for (const frame of frames) {
+                b.setInt32(frame.uv_index)
+                b.setInt32(frame.offset[0])
+                b.setInt32(frame.offset[1])
+                b.setFloat32(frame.duration)
+                b.setUint8(frame.flip)
+                b.setUint8(0) // padding
+                b.setUint8(0)
+                b.setUint8(0)
+                }
+
+                const buffer = b.commit()
+                $out.binary = new Uint8Array(buffer).toBase64()
+                $out.metadata = { defCount: defs.length, frameCount: frames.length, defs, frames }
+              </node-code>
+
+              <!-- 7. Combine Atlas + Animation binaries -->
+              <node-code title="Combine Binary" inputs="atlasBinary:atlas_uv.binary,animBinary:anim_binary.binary" outputs="binary,metadata"
+                id="combined_binary" x="1400" y="440">
+                // Combine atlas UVs (magic 1) and animations (magic 2) into single file
+                // Each section starts with its magic number, so decoder can parse sequentially
+
+                const atlasBytes = Uint8Array.fromBase64($in.atlasBinary)
+                const animBytes = Uint8Array.fromBase64($in.animBinary)
+
+                // Concatenate: [atlas section][animation section]
+                const combined = new Uint8Array(atlasBytes.length + animBytes.length)
+                combined.set(atlasBytes, 0)
+                combined.set(animBytes, atlasBytes.length)
+
+                $out.binary = combined.toBase64()
+                $out.metadata = {
+                atlasSize: atlasBytes.length,
+                animSize: animBytes.length,
+                totalSize: combined.length
+                }
+              </node-code>
+
+              <!-- 8. Save combined binary to file -->
+              <node-plugin title="Save Combined" plugin="fs" function="writeBin"
+                inputs="path:combined_bin_path.text,content:combined_binary.binary" outputs="result" id="combined_save" x="1650"
+                y="440"></node-plugin>
+
+              <!-- Combined binary output path -->
+              <node-popup title="Combined Path" outputs="text" id="combined_bin_path" x="1400" y="560"
+                values="text:/output/game.bin" template="node-popup-text"></node-popup>
+
+              <!-- Output for viewing combined metadata -->
+              <node-output label="Combined Info" format="json" inputs="value:combined_binary.metadata" id="combined_output"
+                x="1650" y="560"></node-output>
+
+              <!-- Animation metadata output -->
+              <node-output label="Anim Info" format="json" inputs="value:anim_binary.metadata" id="anim_output"
+                x="1150" y="560"></node-output>
 
             </view-nodegraph>
           </view-chrome>

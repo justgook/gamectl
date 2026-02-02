@@ -32,6 +32,7 @@ type PackOptions struct {
 	MaxSize     int  `json:"maxSize"`     // Maximum atlas dimension (default: 4096)
 	CropAlpha   bool `json:"cropAlpha"`   // Crop sprites to alpha bounds before packing
 	Deduplicate bool `json:"deduplicate"` // Deduplicate identical sprites
+	FlipY       bool `json:"flipY"`       // Vertically flip sprites
 }
 
 // PackInput for packing sprites
@@ -233,6 +234,23 @@ func cropToAlpha(img *image.NRGBA) (cropped *image.NRGBA, offsetX, offsetY int) 
 	}
 
 	return result, minX, minY
+}
+
+// flipImageY vertically flips an image (mirrors along horizontal axis)
+func flipImageY(img *image.NRGBA) *image.NRGBA {
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	flipped := image.NewNRGBA(image.Rect(0, 0, w, h))
+
+	for y := 0; y < h; y++ {
+		srcY := h - 1 - y // Flip Y coordinate
+		for x := 0; x < w; x++ {
+			srcIdx := srcY*img.Stride + x*4
+			dstIdx := y*flipped.Stride + x*4
+			copy(flipped.Pix[dstIdx:dstIdx+4], img.Pix[srcIdx:srcIdx+4])
+		}
+	}
+	return flipped
 }
 
 // =============================================================================
@@ -619,6 +637,10 @@ func Pack() int32 {
 			img, cropX, cropY = cropToAlpha(img)
 		}
 
+		if params.Options.FlipY {
+			img = flipImageY(img)
+		}
+
 		sprites = append(sprites, croppedSprite{
 			name:  name,
 			img:   img,
@@ -791,6 +813,10 @@ func PackTiles() int32 {
 		origW, origH := tile.TileW, tile.TileH
 		if params.Options.CropAlpha {
 			tileImg, cropX, cropY = cropToAlpha(tileImg)
+		}
+
+		if params.Options.FlipY {
+			tileImg = flipImageY(tileImg)
 		}
 
 		name := tile.Name
