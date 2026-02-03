@@ -113,6 +113,16 @@ export class ViewNodeGraph extends ViewCanvasBase {
       runBtn.onclick = () => this.executeGraph()
     }
     
+    const saveBtn = this.queryHeaderControl('[data-action="save"]')
+    if (saveBtn) {
+      saveBtn.onclick = () => this.showSavePopup()
+    }
+
+    const loadBtn = this.queryHeaderControl('[data-action="load"]')
+    if (loadBtn) {
+      loadBtn.onclick = () => this.showLoadPopup()
+    }
+
     const reloadBtn = this.queryHeaderControl('[data-action="reload"]')
     if (reloadBtn) {
       reloadBtn.onclick = () => this.fetchData()
@@ -2119,13 +2129,443 @@ export class ViewNodeGraph extends ViewCanvasBase {
     return Array.from(this.nodes.keys())
   }
 
-  // Save functionality not implemented for NodeGraph (data is stored in DOM)
-  getSelectQuery() {
-    throw new Error("NodeGraph does not support cache-based save (data is stored in DOM)")
+  // --- Save/Load Pipeline Functionality ---
+
+  /**
+   * Serialize all node-* elements to HTML string
+   * Only captures node-* elements, ignoring canvas and other UI elements
+   * @returns {string} HTML string of all nodes
+   */
+  serializeGraph() {
+    const nodeElements = []
+    for (const child of this.children) {
+      // Only serialize node-* elements (e.g., node-plugin, node-popup, node-code, etc.)
+      if (child.tagName && child.tagName.toLowerCase().startsWith('node-')) {
+        // Remove 'focused' attribute before serializing (it's a transient UI state)
+        const clone = child.cloneNode(true)
+        clone.removeAttribute('focused')
+        nodeElements.push(clone.outerHTML)
+      }
+    }
+    return nodeElements.join('\n')
   }
 
-  getInsertQueryFn() {
-    throw new Error("NodeGraph does not support cache-based save (data is stored in DOM)")
+  /**
+   * Count node-* elements in the graph
+   * @returns {number}
+   */
+  countNodes() {
+    let count = 0
+    for (const child of this.children) {
+      if (child.tagName && child.tagName.toLowerCase().startsWith('node-')) {
+        count++
+      }
+    }
+    return count
+  }
+
+  /**
+   * Show save pipeline popup with name input
+   */
+  showSavePopup() {
+    const popupManager = this.closest('popup-manager')
+    if (!popupManager) {
+      console.error('popup-manager not found')
+      return
+    }
+
+    const nodeCount = this.countNodes()
+    if (nodeCount === 0) {
+      console.warn('No nodes to save')
+      return
+    }
+
+    // Create content container
+    const content = document.createElement('div')
+    content.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-scale-3);
+      padding: var(--spacing-scale-2);
+    `
+
+    // Info text
+    const info = document.createElement('p')
+    info.style.cssText = `
+      margin: 0;
+      color: var(--color-semantic-text-secondary);
+    `
+    info.textContent = `Save ${nodeCount} node${nodeCount !== 1 ? 's' : ''} as a pipeline`
+    content.appendChild(info)
+
+    // Name input
+    const inputContainer = document.createElement('div')
+    inputContainer.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-scale-1);
+    `
+
+    const label = document.createElement('label')
+    label.textContent = 'Pipeline Name'
+    label.style.cssText = `
+      font-weight: 500;
+      color: var(--color-semantic-text-primary);
+    `
+
+    const nameInput = document.createElement('input')
+    nameInput.type = 'text'
+    nameInput.placeholder = 'Enter pipeline name...'
+    nameInput.style.cssText = `
+      padding: var(--spacing-scale-2);
+      border: 1px solid var(--color-semantic-border-default);
+      border-radius: var(--border-radius-sm);
+      background: var(--color-semantic-bg-secondary);
+      color: var(--color-semantic-text-primary);
+      font-size: var(--font-size-base);
+    `
+
+    inputContainer.appendChild(label)
+    inputContainer.appendChild(nameInput)
+    content.appendChild(inputContainer)
+
+    // Button container
+    const buttonContainer = document.createElement('div')
+    buttonContainer.style.cssText = `
+      display: flex;
+      gap: var(--spacing-scale-2);
+      justify-content: flex-end;
+      margin-top: var(--spacing-scale-2);
+    `
+
+    const cancelBtn = document.createElement('button')
+    cancelBtn.className = 'button-secondary'
+    cancelBtn.textContent = 'Cancel'
+
+    const saveBtn = document.createElement('button')
+    saveBtn.className = 'button-primary'
+    saveBtn.textContent = 'Save'
+    saveBtn.disabled = true
+
+    buttonContainer.appendChild(cancelBtn)
+    buttonContainer.appendChild(saveBtn)
+    content.appendChild(buttonContainer)
+
+    // Create popup
+    const popup = document.createElement('view-popup')
+    popup.setAttribute('size', 'small')
+
+    const titleElement = document.createElement('h2')
+    titleElement.slot = 'title'
+    titleElement.className = 'popup-title'
+    titleElement.textContent = 'Save Pipeline'
+    popup.appendChild(titleElement)
+    popup.appendChild(content)
+    popupManager.appendChild(popup)
+
+    // Event handlers
+    nameInput.addEventListener('input', () => {
+      saveBtn.disabled = !nameInput.value.trim()
+    })
+
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && nameInput.value.trim()) {
+        this.savePipeline(nameInput.value.trim(), popup)
+      }
+    })
+
+    cancelBtn.onclick = () => popup.close()
+
+    saveBtn.onclick = () => {
+      const name = nameInput.value.trim()
+      if (name) {
+        this.savePipeline(name, popup)
+      }
+    }
+
+    // Focus input
+    requestAnimationFrame(() => nameInput.focus())
+  }
+
+  /**
+   * Save pipeline to database
+   * @param {string} name - Pipeline name
+   * @param {HTMLElement} popup - Popup to close on success
+   */
+  async savePipeline(name, popup) {
+    try {
+      const htmlContent = this.serializeGraph()
+      const nodeCount = this.countNodes()
+
+      // Escape single quotes for SQL
+      const escapedName = name.replace(/'/g, "''")
+      const escapedHtml = htmlContent.replace(/'/g, "''")
+
+      // Use INSERT OR REPLACE to handle both new and existing pipelines
+      const sql = `INSERT OR REPLACE INTO pipeline_storage (name, node_count, html_content, created_at) VALUES ('${escapedName}', ${nodeCount}, '${escapedHtml}', datetime('now'))`
+
+      await window.pluginManager.call('sql', 'exec', sql)
+
+      console.log(`Pipeline "${name}" saved with ${nodeCount} nodes`)
+      popup.close()
+    } catch (error) {
+      console.error('Failed to save pipeline:', error)
+    }
+  }
+
+  /**
+   * Show load pipeline popup with list of saved pipelines
+   */
+  async showLoadPopup() {
+    const popupManager = this.closest('popup-manager')
+    if (!popupManager) {
+      console.error('popup-manager not found')
+      return
+    }
+
+    // Load pipeline list from database
+    let pipelines = []
+    try {
+      const result = await window.pluginManager.call('sql', 'query',
+        'SELECT name, node_count FROM pipeline_storage ORDER BY name'
+      )
+      const csv = new TextDecoder().decode(result.output)
+      pipelines = this.parsePipelineListCSV(csv)
+    } catch (error) {
+      console.error('Failed to load pipeline list:', error)
+    }
+
+    // Create content container
+    const content = document.createElement('div')
+    content.style.cssText = `
+      max-height: 60vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-scale-2);
+    `
+
+    // Store for search filtering
+    let currentQuery = ''
+
+    /**
+     * Render pipeline list (filtered by query)
+     */
+    const renderPipelineList = (query = '') => {
+      content.innerHTML = ''
+      const queryLower = query.toLowerCase().trim()
+
+      // Filter pipelines
+      const filtered = pipelines.filter(p => {
+        if (!queryLower) return true
+        return p.name.toLowerCase().includes(queryLower)
+      })
+
+      if (filtered.length === 0) {
+        const noResults = document.createElement('div')
+        noResults.style.cssText = `
+          padding: var(--spacing-scale-3);
+          text-align: center;
+          color: var(--color-semantic-text-secondary);
+        `
+        noResults.textContent = pipelines.length === 0 
+          ? 'No saved pipelines yet' 
+          : `No pipelines matching "${query}"`
+        content.appendChild(noResults)
+        return
+      }
+
+      // Render each pipeline
+      for (const pipeline of filtered) {
+        const itemButton = document.createElement('button')
+        itemButton.className = 'button-secondary'
+        itemButton.style.cssText = `
+          width: 100%;
+          text-align: left;
+          padding: var(--spacing-scale-2);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        `
+
+        const nameSpan = document.createElement('strong')
+        nameSpan.textContent = pipeline.name
+        itemButton.appendChild(nameSpan)
+
+        const countSpan = document.createElement('span')
+        countSpan.style.cssText = `
+          color: var(--color-semantic-text-secondary);
+          font-size: var(--font-size-sm);
+        `
+        countSpan.textContent = `${pipeline.nodeCount} node${pipeline.nodeCount !== 1 ? 's' : ''}`
+        itemButton.appendChild(countSpan)
+
+        itemButton.onclick = () => {
+          this.loadPipeline(pipeline.name)
+          popup.close()
+        }
+
+        content.appendChild(itemButton)
+      }
+    }
+
+    // Initial render
+    renderPipelineList()
+
+    // Create popup
+    const popup = document.createElement('view-popup')
+    popup.setAttribute('size', 'large')
+
+    const titleElement = document.createElement('h2')
+    titleElement.slot = 'title'
+    titleElement.className = 'popup-title'
+    titleElement.textContent = 'Load Pipeline'
+    popup.appendChild(titleElement)
+
+    // Create search input for header-controls slot
+    const headerControls = document.createElement('div')
+    headerControls.slot = 'header-controls'
+    headerControls.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-scale-2);
+    `
+
+    const searchInput = document.createElement('input')
+    searchInput.type = 'text'
+    searchInput.placeholder = 'Search pipelines...'
+    searchInput.style.cssText = `
+      padding: var(--spacing-scale-1) var(--spacing-scale-2);
+      border: 1px solid var(--color-semantic-border-default);
+      border-radius: var(--border-radius-sm);
+      background: var(--color-semantic-bg-secondary);
+      color: var(--color-semantic-text-primary);
+      font-size: var(--font-size-sm);
+      min-width: 200px;
+    `
+
+    // Debounced search
+    let searchTimeout = null
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout)
+      searchTimeout = setTimeout(() => {
+        currentQuery = e.target.value
+        renderPipelineList(currentQuery)
+      }, 100)
+    })
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && searchInput.value) {
+        e.stopPropagation()
+        searchInput.value = ''
+        currentQuery = ''
+        renderPipelineList('')
+      }
+    })
+
+    headerControls.appendChild(searchInput)
+    popup.appendChild(headerControls)
+    popup.appendChild(content)
+    popupManager.appendChild(popup)
+
+    // Auto-focus search input
+    requestAnimationFrame(() => searchInput.focus())
+  }
+
+  /**
+   * Parse pipeline list CSV from SQL query result
+   * @param {string} csv - CSV string
+   * @returns {Array<{name: string, nodeCount: number}>}
+   */
+  parsePipelineListCSV(csv) {
+    const lines = parseCSVLines(csv.trim())
+    if (lines.length < 2) return []
+
+    const pipelines = []
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i]
+      if (values.length < 2) continue
+      pipelines.push({
+        name: values[0] || '',
+        nodeCount: parseInt(values[1], 10) || 0
+      })
+    }
+    return pipelines
+  }
+
+  /**
+   * Load a pipeline from database by name
+   * @param {string} name - Pipeline name
+   */
+  async loadPipeline(name) {
+    try {
+      // Escape single quotes for SQL
+      const escapedName = name.replace(/'/g, "''")
+      const result = await window.pluginManager.call('sql', 'query',
+        `SELECT html_content FROM pipeline_storage WHERE name = '${escapedName}'`
+      )
+
+      const csv = new TextDecoder().decode(result.output)
+      const lines = parseCSVLines(csv.trim())
+
+      if (lines.length < 2 || !lines[1][0]) {
+        console.error(`Pipeline "${name}" not found`)
+        return
+      }
+
+      const htmlContent = lines[1][0]
+
+      // Clear existing nodes
+      this.clearGraph()
+
+      // Parse and insert new nodes
+      const tempContainer = document.createElement('div')
+      tempContainer.innerHTML = htmlContent
+
+      // Find max node ID to update counter
+      let maxId = 0
+
+      for (const child of tempContainer.children) {
+        if (child.tagName && child.tagName.toLowerCase().startsWith('node-')) {
+          // Extract numeric ID if present
+          const idMatch = child.id?.match(/node_(\d+)/)
+          if (idMatch) {
+            maxId = Math.max(maxId, parseInt(idMatch[1], 10))
+          }
+          this.appendChild(child)
+        }
+      }
+
+      // Update node ID counter to avoid conflicts
+      this.nodeIdCounter = maxId + 1
+
+      console.log(`Pipeline "${name}" loaded`)
+
+      // Fit to content after loading
+      requestAnimationFrame(() => {
+        this.fitToContent()
+      })
+    } catch (error) {
+      console.error('Failed to load pipeline:', error)
+    }
+  }
+
+  /**
+   * Clear all nodes from the graph
+   */
+  clearGraph() {
+    const nodesToRemove = []
+    for (const child of this.children) {
+      if (child.tagName && child.tagName.toLowerCase().startsWith('node-')) {
+        nodesToRemove.push(child)
+      }
+    }
+    for (const node of nodesToRemove) {
+      node.remove()
+    }
+    this.nodes.clear()
+    this.connectionIndex = []
+    this.nodeIdCounter = 1
   }
 }
 
