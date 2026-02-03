@@ -7,14 +7,38 @@
  *   tileWidth: number,      // Tile width in pixels
  *   tileHeight: number,     // Tile height in pixels
  *   frames: [
- *     { tileId: number, duration: number },  // duration in ms
+ *     { tileId: number, duration: number, flip: number },  // duration in ms, flip 0-7
  *   ],
  *   loop: boolean           // Whether animation loops
  * }
  * 
+ * Flip flags (matches Tiled TMX format and Odin game engine):
+ * Bit 0 = Horizontal flip, Bit 1 = Vertical flip, Bit 2 = Anti-diagonal flip
+ *   FLIP_NONE = 0  - No transformation
+ *   FLIP_H    = 1  - Horizontal flip
+ *   FLIP_V    = 2  - Vertical flip
+ *   FLIP_HV   = 3  - Horizontal + Vertical (180° rotation)
+ *   FLIP_D    = 4  - Anti-diagonal flip (transpose)
+ *   FLIP_DH   = 5  - Anti-diagonal + Horizontal (90° CW)
+ *   FLIP_DV   = 6  - Anti-diagonal + Vertical (90° CCW)
+ *   FLIP_DHV  = 7  - Anti-diagonal + H + V
+ * 
  * Note: Animation identity is determined by (spritesheet, frames[0].tileId)
  * The starting frame serves as the unique identifier within a spritesheet.
  */
+
+// Flip constants
+export const FLIP_NONE = 0
+export const FLIP_H = 1
+export const FLIP_V = 2
+export const FLIP_HV = 3
+export const FLIP_D = 4
+export const FLIP_DH = 5
+export const FLIP_DV = 6
+export const FLIP_DHV = 7
+
+// Flip labels for UI display
+export const FLIP_LABELS = ['None', 'H', 'V', 'HV', 'D', 'DH', 'DV', 'DHV']
 
 /**
  * Create a new empty animation
@@ -47,11 +71,12 @@ export function cloneAnimation(animation) {
  * @param {Object} animation - Animation object
  * @param {number} tileId - Tile ID from spritesheet
  * @param {number} duration - Frame duration in ms
+ * @param {number} [flip] - Flip flags (0-7)
  * @param {number} [index] - Insert position (default: end)
  * @returns {Object} Updated animation
  */
-export function addFrame(animation, tileId, duration = 100, index = -1) {
-  const frame = { tileId, duration }
+export function addFrame(animation, tileId, duration = 100, flip = 0, index = -1) {
+  const frame = { tileId, duration, flip }
   const frames = [...animation.frames]
   
   if (index < 0 || index >= frames.length) {
@@ -109,6 +134,48 @@ export function updateFrameDuration(animation, index, duration) {
 export function updateFramesDuration(animation, indices, duration) {
   const frames = animation.frames.map((f, i) => 
     indices.has(i) ? { ...f, duration } : f
+  )
+  return { ...animation, frames }
+}
+
+/**
+ * Update flip for a single frame
+ * @param {Object} animation - Animation object
+ * @param {number} index - Frame index
+ * @param {number} flip - New flip value (0-7)
+ * @returns {Object} Updated animation
+ */
+export function updateFrameFlip(animation, index, flip) {
+  const frames = animation.frames.map((f, i) => 
+    i === index ? { ...f, flip: flip & 7 } : f
+  )
+  return { ...animation, frames }
+}
+
+/**
+ * Update flip for multiple frames
+ * @param {Object} animation - Animation object
+ * @param {Set<number>} indices - Set of frame indices
+ * @param {number} flip - New flip value (0-7)
+ * @returns {Object} Updated animation
+ */
+export function updateFramesFlip(animation, indices, flip) {
+  const frames = animation.frames.map((f, i) => 
+    indices.has(i) ? { ...f, flip: flip & 7 } : f
+  )
+  return { ...animation, frames }
+}
+
+/**
+ * Toggle a flip bit for multiple frames
+ * @param {Object} animation - Animation object
+ * @param {Set<number>} indices - Set of frame indices
+ * @param {number} bit - Bit to toggle (1=H, 2=V, 4=D)
+ * @returns {Object} Updated animation
+ */
+export function toggleFramesFlipBit(animation, indices, bit) {
+  const frames = animation.frames.map((f, i) => 
+    indices.has(i) ? { ...f, flip: ((f.flip || 0) ^ bit) & 7 } : f
   )
   return { ...animation, frames }
 }
@@ -196,6 +263,9 @@ export function validateAnimation(animation) {
       }
       if (typeof f.duration !== 'number' || f.duration < 1) {
         errors.push(`Frame ${i}: duration must be at least 1ms`)
+      }
+      if (f.flip !== undefined && (typeof f.flip !== 'number' || f.flip < 0 || f.flip > 7)) {
+        errors.push(`Frame ${i}: flip must be 0-7`)
       }
     }
   }

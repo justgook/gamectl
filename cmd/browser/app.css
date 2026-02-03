@@ -2126,6 +2126,25 @@ view-animation-editor {
   background: rgba(255, 100, 100, 0.2);
 }
 
+/* Flip buttons */
+.btn-flip {
+  min-width: 24px;
+  font-weight: 600;
+}
+
+.btn-flip:hover {
+  background: var(--color-semantic-bg-tertiary, #2a2a4a);
+  border-color: var(--color-semantic-border-interactive, #4a4a8a);
+}
+
+/* Toolbar separator */
+.toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--color-semantic-border-default, #3a3a5c);
+  margin: 0 4px;
+}
+
 /* Animation Preview */
 .animation-preview {
   display: flex;
@@ -2285,6 +2304,32 @@ view-animation-editor {
 .frame-duration-unit {
   font-size: var(--font-size-xs, 11px);
   color: var(--color-semantic-text-tertiary, #666680);
+}
+
+/* Frame flip button */
+.frame-flip-btn {
+  padding: 2px 6px;
+  font-size: var(--font-size-xs, 11px);
+  font-weight: 600;
+  background: var(--color-semantic-bg-primary, #1a1a2e);
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  border-radius: 2px;
+  color: var(--color-semantic-text-tertiary, #666680);
+  cursor: pointer;
+  min-width: 22px;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.frame-flip-btn:hover {
+  background: var(--color-semantic-bg-tertiary, #2a2a4a);
+  border-color: var(--color-semantic-border-interactive, #4a4a8a);
+}
+
+.frame-flip-btn.flip-active {
+  background: rgba(0, 200, 200, 0.15);
+  border-color: var(--color-semantic-text-accent, #00c8ff);
+  color: var(--color-semantic-text-accent, #00c8ff);
 }
 
 /* Frame index */

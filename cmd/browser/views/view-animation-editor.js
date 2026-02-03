@@ -2,7 +2,7 @@ import { bus } from '../systems/event-bus.js'
 import { SpritesheetPanel } from './animation-editor/SpritesheetPanel.js'
 import { FrameListPanel } from './animation-editor/FrameListPanel.js'
 import { AnimationPreview } from './animation-editor/AnimationPreview.js'
-import { createAnimation, getStartFrame, validateAnimation } from './animation-editor/AnimationData.js'
+import { createAnimation, getStartFrame, validateAnimation, FLIP_H, FLIP_V, FLIP_D } from './animation-editor/AnimationData.js'
 import { ViewFiles } from './view-files.js'
 import { parseCSVLines } from '../util/csv.js'
 
@@ -131,6 +131,11 @@ export class ViewAnimationEditor extends HTMLElement {
               <input type="number" data-element="frame-duration" value="100" min="1" class="input-duration" title="Frame Duration (ms)">
               <span class="duration-label">ms</span>
               <button data-action="apply-duration" class="btn-small">Apply</button>
+              <span class="toolbar-separator"></span>
+              <button data-action="flip-h" class="btn-small btn-flip" title="Toggle Horizontal Flip (H)">H</button>
+              <button data-action="flip-v" class="btn-small btn-flip" title="Toggle Vertical Flip (V)">V</button>
+              <button data-action="flip-d" class="btn-small btn-flip" title="Toggle Diagonal Flip (D)">D</button>
+              <span class="toolbar-separator"></span>
               <button data-action="delete-frames" class="btn-small btn-danger" title="Delete Selected">Delete</button>
             </div>
             <div class="frames-container"></div>
@@ -192,6 +197,11 @@ export class ViewAnimationEditor extends HTMLElement {
     const applyDurationBtn = this.querySelector('[data-action="apply-duration"]')
     const deleteBtn = this.querySelector('[data-action="delete-frames"]')
     
+    // Wire up duration input to frame list panel for new frame defaults
+    if (durationInput) {
+      this.frameListPanel.setDurationInputRef(durationInput)
+    }
+    
     if (applyDurationBtn && durationInput) {
       applyDurationBtn.onclick = () => {
         const duration = parseInt(durationInput.value, 10) || 100
@@ -201,6 +211,21 @@ export class ViewAnimationEditor extends HTMLElement {
     
     if (deleteBtn) {
       deleteBtn.onclick = () => this.frameListPanel.removeSelected()
+    }
+    
+    // Flip toggle buttons
+    const flipHBtn = this.querySelector('[data-action="flip-h"]')
+    const flipVBtn = this.querySelector('[data-action="flip-v"]')
+    const flipDBtn = this.querySelector('[data-action="flip-d"]')
+    
+    if (flipHBtn) {
+      flipHBtn.onclick = () => this.frameListPanel.toggleSelectedFlipBit(FLIP_H)
+    }
+    if (flipVBtn) {
+      flipVBtn.onclick = () => this.frameListPanel.toggleSelectedFlipBit(FLIP_V)
+    }
+    if (flipDBtn) {
+      flipDBtn.onclick = () => this.frameListPanel.toggleSelectedFlipBit(FLIP_D)
     }
   }
   
