@@ -1,5 +1,5 @@
 import { bus } from '../../systems/event-bus.js'
-import { getFrameAtTime, getTotalDuration } from './AnimationData.js'
+import { getFrameAtTime, getTotalDuration, FLIP_H, FLIP_V, FLIP_D } from './AnimationData.js'
 
 /**
  * Animation Preview
@@ -258,15 +258,43 @@ export class AnimationPreview {
     
     const { frame } = result
     const tileId = frame.tileId
+    const flip = frame.flip || 0
     
     const srcX = (tileId % this.cols) * this.tileWidth
     const srcY = Math.floor(tileId / this.cols) * this.tileHeight
+    
+    // Apply flip transforms
+    ctx.save()
+    ctx.translate(width / 2, height / 2)
+    this._applyFlipTransform(ctx, flip)
+    ctx.translate(-width / 2, -height / 2)
     
     ctx.drawImage(
       this.spritesheet,
       srcX, srcY, this.tileWidth, this.tileHeight,
       0, 0, width, height
     )
+    
+    ctx.restore()
+  }
+  
+  /**
+   * Apply flip transform to canvas context
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} flip - Flip flags (0-7)
+   */
+  _applyFlipTransform(ctx, flip) {
+    const h = (flip & FLIP_H) !== 0  // Horizontal flip
+    const v = (flip & FLIP_V) !== 0  // Vertical flip
+    const d = (flip & FLIP_D) !== 0  // Diagonal (anti-diagonal) flip
+    
+    if (d) {
+      // Anti-diagonal flip: transpose (swap x and y), then apply h/v
+      ctx.transform(0, 1, 1, 0, 0, 0)  // Transpose
+      ctx.scale(h ? -1 : 1, v ? -1 : 1)
+    } else {
+      ctx.scale(h ? -1 : 1, v ? -1 : 1)
+    }
   }
   
   _drawCheckerboard(ctx, width, height) {

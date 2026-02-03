@@ -73,6 +73,7 @@ export class ViewSqlTable extends HTMLElement {
     if (toolbar) {
       toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh())
       toolbar.querySelector('[data-action="insert"]')?.addEventListener('click', () => this.insertRow())
+      toolbar.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelectedRow())
     }
 
     // Listen for table selection events from view-sql-tables
@@ -157,7 +158,7 @@ export class ViewSqlTable extends HTMLElement {
     if (e.key === 'Insert' || (e.key === 'n' && e.ctrlKey)) {
       this.insertRow()
       e.preventDefault()
-    } else if (e.key === 'Delete' && e.ctrlKey) {
+    } else if ((e.key === 'Delete' && e.ctrlKey) || (e.key === 'Backspace' && e.metaKey)) {
       const selectedRow = this.querySelector('tr.selected')
       if (selectedRow) {
         const rowIndex = parseInt(selectedRow.dataset.rowIndex, 10)
@@ -712,6 +713,16 @@ export class ViewSqlTable extends HTMLElement {
     } catch (error) {
       this.setStatus(`Insert error: ${error.message}`)
       console.error('Insert failed:', error)
+    }
+  }
+
+  deleteSelectedRow() {
+    const selectedRow = this.querySelector('tr.selected')
+    if (selectedRow) {
+      const rowIndex = parseInt(selectedRow.dataset.rowIndex, 10)
+      this.deleteRow(rowIndex)
+    } else {
+      this.setStatus('No row selected')
     }
   }
 

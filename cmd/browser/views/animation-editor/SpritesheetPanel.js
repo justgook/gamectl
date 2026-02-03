@@ -344,6 +344,41 @@ export class SpritesheetPanel {
     ctx.fill()
   }
   
+  /**
+   * Check if a click position is on the marker dot for a tile
+   * @param {number} clientX - Mouse client X
+   * @param {number} clientY - Mouse client Y
+   * @param {number} tileId - The tile to check
+   * @returns {boolean} True if click is on the marker dot
+   */
+  _isClickOnMarkerDot(clientX, clientY, tileId) {
+    const rect = this.canvas.getBoundingClientRect()
+    const canvasX = clientX - rect.left
+    const canvasY = clientY - rect.top
+    
+    // Transform to world coordinates
+    const worldX = (canvasX - this.offsetX) / this.scale
+    const worldY = (canvasY - this.offsetY) / this.scale
+    
+    // Calculate marker dot position (same as _drawAnimationMarker)
+    const col = tileId % this.cols
+    const row = Math.floor(tileId / this.cols)
+    const tileX = col * this.tileWidth
+    const tileY = row * this.tileHeight
+    
+    const dotRadius = Math.max(3, Math.min(this.tileWidth, this.tileHeight) / 6)
+    const dotX = tileX + this.tileWidth - dotRadius - 2
+    const dotY = tileY + dotRadius + 2
+    
+    // Add some padding for easier clicking (hitbox slightly larger than visual)
+    const hitRadius = dotRadius + 2
+    
+    // Check if click is within the dot's hitbox
+    const dx = worldX - dotX
+    const dy = worldY - dotY
+    return (dx * dx + dy * dy) <= (hitRadius * hitRadius)
+  }
+  
   // --- Viewport ---
   
   fitToContent() {
@@ -429,8 +464,8 @@ export class SpritesheetPanel {
       // Selection mode
       const tileId = this._getTileAtPosition(e.clientX, e.clientY)
       if (tileId >= 0) {
-        // Check if clicking on a tile with an animation marker (and not shift-selecting)
-        if (!e.shiftKey && this.animationMarkers.has(tileId)) {
+        // Check if clicking on the marker dot itself (not just the tile)
+        if (this.animationMarkers.has(tileId) && this._isClickOnMarkerDot(e.clientX, e.clientY, tileId)) {
           // Emit marker click event to load the animation
           bus.emit('animation:marker:click', { tileId })
           return

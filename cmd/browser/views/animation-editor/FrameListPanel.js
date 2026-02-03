@@ -1,4 +1,5 @@
 import { bus } from '../../systems/event-bus.js'
+import { FLIP_LABELS, FLIP_H, FLIP_V, FLIP_D } from './AnimationData.js'
 
 /**
  * Frame List Panel
@@ -9,6 +10,7 @@ import { bus } from '../../systems/event-bus.js'
  * - Drop from spritesheet panel
  * - Multi-select (shift+click)
  * - Inline duration editing
+ * - Per-frame flip control (cycles 0-7)
  * - Delete selected frames
  * 
  * Events emitted:
@@ -23,15 +25,36 @@ export class FrameListPanel {
     this.tileHeight = 16
     this.cols = 0
     
-    this.frames = []  // Array of { tileId, duration }
+    this.frames = []  // Array of { tileId, duration, flip }
     this.selectedIndices = new Set()
     this.defaultDuration = options.defaultDuration || 100
+    this.defaultFlip = 0
+    
+    // Reference to duration input element (set from outside)
+    this._durationInputRef = null
     
     // Drag state
     this._dragSourceIndex = -1
     this._dragOverIndex = -1
     
     this._setup()
+  }
+  
+  /**
+   * Set reference to the duration input element for inheriting values
+   */
+  setDurationInputRef(inputElement) {
+    this._durationInputRef = inputElement
+  }
+  
+  /**
+   * Get current default duration (from input or fallback)
+   */
+  getCurrentDuration() {
+    if (this._durationInputRef) {
+      return parseInt(this._durationInputRef.value, 10) || this.defaultDuration
+    }
+    return this.defaultDuration
   }
   
   _setup() {
@@ -69,7 +92,8 @@ export class FrameListPanel {
    * Set frames data
    */
   setFrames(frames) {
-    this.frames = frames.map(f => ({ ...f }))
+    // Ensure all frames have flip property (backward compatibility)
+    this.frames = frames.map(f => ({ tileId: f.tileId, duration: f.duration, flip: f.flip || 0 }))
     this.selectedIndices.clear()
     this._renderAll()
   }
@@ -78,14 +102,17 @@ export class FrameListPanel {
    * Get current frames
    */
   getFrames() {
-    return this.frames.map(f => ({ ...f }))
+    return this.frames.map(f => ({ tileId: f.tileId, duration: f.duration, flip: f.flip || 0 }))
   }
   
   /**
    * Add frames at end or at specific index
+   * Uses current duration from toolbar input if available
    */
-  addFrames(tileIds, duration = this.defaultDuration, insertIndex = -1) {
-    const newFrames = tileIds.map(tileId => ({ tileId, duration }))
+  addFrames(tileIds, duration = null, insertIndex = -1) {
+    // Use provided duration, or get from input, or use default
+    const actualDuration = duration !== null ? duration : this.getCurrentDuration()
+    const newFrames = tileIds.map(tileId => ({ tileId, duration: actualDuration, flip: this.defaultFlip }))
     
     if (insertIndex < 0 || insertIndex >= this.frames.length) {
       this.frames.push(...newFrames)
@@ -135,6 +162,51 @@ export class FrameListPanel {
   updateSelectedDuration(duration) {
     if (this.selectedIndices.size === 0) return
     this.updateDuration([...this.selectedIndices], duration)
+  }
+  
+  /**
+   * Update flip for frames at indices
+   */
+  updateFlip(indices, flip) {
+    for (const i of indices) {
+      if (this.frames[i]) {
+        this.frames[i].flip = flip & 7
+      }
+    }
+    this._renderAll()
+    this._emitFramesChanged()
+  }
+  
+  /**
+   * Update flip for selected frames
+   */
+  updateSelectedFlip(flip) {
+    if (this.selectedIndices.size === 0) return
+    this.updateFlip([...this.selectedIndices], flip)
+  }
+  
+  /**
+   * Toggle a flip bit for frames at indices
+   * @param {number[]} indices - Frame indices
+   * @param {number} bit - Bit to toggle (1=H, 2=V, 4=D)
+   */
+  toggleFlipBit(indices, bit) {
+    for (const i of indices) {
+      if (this.frames[i]) {
+        this.frames[i].flip = ((this.frames[i].flip || 0) ^ bit) & 7
+      }
+    }
+    this._renderAll()
+    this._emitFramesChanged()
+  }
+  
+  /**
+   * Toggle a flip bit for selected frames
+   * @param {number} bit - Bit to toggle (1=H, 2=V, 4=D)
+   */
+  toggleSelectedFlipBit(bit) {
+    if (this.selectedIndices.size === 0) return
+    this.toggleFlipBit([...this.selectedIndices], bit)
   }
   
   /**
@@ -194,12 +266,12 @@ export class FrameListPanel {
       el.classList.add('selected')
     }
     
-    // Thumbnail canvas
+    // Thumbnail canvas (with flip applied)
     const thumbnail = document.createElement('canvas')
     thumbnail.className = 'frame-thumbnail'
     thumbnail.width = 32
     thumbnail.height = 32
-    this._drawThumbnail(thumbnail, frame.tileId)
+    this._drawThumbnail(thumbnail, frame.tileId, frame.flip || 0)
     el.appendChild(thumbnail)
     
     // Info container
@@ -236,6 +308,24 @@ export class FrameListPanel {
     durationContainer.appendChild(msLabel)
     info.appendChild(durationContainer)
     
+    // Flip control (combined icon + value button)
+    const flipBtn = document.createElement('button')
+    flipBtn.className = 'frame-flip-btn'
+    flipBtn.title = 'Click to cycle flip (0-7)'
+    flipBtn.dataset.flip = frame.flip || 0
+    this._updateFlipButton(flipBtn, frame.flip || 0)
+    flipBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const currentFlip = this.frames[index].flip || 0
+      const nextFlip = (currentFlip + 1) % 8
+      this.frames[index].flip = nextFlip
+      this._updateFlipButton(flipBtn, nextFlip)
+      // Update thumbnail to show new flip
+      this._drawThumbnail(thumbnail, frame.tileId, nextFlip)
+      this._emitFramesChanged()
+    })
+    info.appendChild(flipBtn)
+    
     el.appendChild(info)
     
     // Frame index indicator
@@ -253,7 +343,21 @@ export class FrameListPanel {
     return el
   }
   
-  _drawThumbnail(canvas, tileId) {
+  /**
+   * Update flip button appearance
+   */
+  _updateFlipButton(btn, flip) {
+    const label = FLIP_LABELS[flip] || 'None'
+    // Use rotation icon that changes based on flip state
+    const icons = ['', 'H', 'V', 'HV', 'D', 'DH', 'DV', 'DHV']
+    btn.textContent = flip === 0 ? '0' : `${flip}`
+    btn.dataset.flip = flip
+    btn.title = `Flip: ${label} (click to cycle)`
+    // Add class for styling based on flip state
+    btn.className = 'frame-flip-btn' + (flip !== 0 ? ' flip-active' : '')
+  }
+  
+  _drawThumbnail(canvas, tileId, flip = 0) {
     const ctx = canvas.getContext('2d')
     ctx.imageSmoothingEnabled = false
     
@@ -278,11 +382,40 @@ export class FrameListPanel {
     const destX = (32 - destW) / 2
     const destY = (32 - destH) / 2
     
+    // Apply flip transforms
+    ctx.save()
+    ctx.translate(16, 16) // Move to center
+    this._applyFlipTransform(ctx, flip)
+    ctx.translate(-16, -16) // Move back
+    
     ctx.drawImage(
       this.spritesheet,
       srcX, srcY, this.tileWidth, this.tileHeight,
       destX, destY, destW, destH
     )
+    
+    ctx.restore()
+  }
+  
+  /**
+   * Apply flip transform to canvas context
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} flip - Flip flags (0-7)
+   */
+  _applyFlipTransform(ctx, flip) {
+    const h = (flip & FLIP_H) !== 0  // Horizontal flip
+    const v = (flip & FLIP_V) !== 0  // Vertical flip
+    const d = (flip & FLIP_D) !== 0  // Diagonal (anti-diagonal) flip
+    
+    if (d) {
+      // Anti-diagonal flip: transpose (swap x and y), then apply h/v
+      // This is equivalent to rotating 90° CW then flipping horizontally
+      // Matrix: rotate 90° CW = [0, 1, -1, 0], then scale
+      ctx.transform(0, 1, 1, 0, 0, 0)  // Transpose
+      ctx.scale(h ? -1 : 1, v ? -1 : 1)
+    } else {
+      ctx.scale(h ? -1 : 1, v ? -1 : 1)
+    }
   }
   
   _updateSelectionVisuals() {

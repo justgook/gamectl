@@ -124,6 +124,7 @@
       <div data-element="toolbar" class="sql-table-toolbar">
         <button data-action="refresh" class="button-secondary" title="Refresh (Ctrl+R)">Refresh</button>
         <button data-action="insert" class="button-secondary" title="Insert Row (Insert)">+ Row</button>
+        <button data-action="delete" class="button-secondary" title="Delete Row (Ctrl+Del / Cmd+Backspace)">- Row</button>
       </div>
       <div data-element="table-container" class="sql-table-container"></div>
       <div class="sql-table-footer">
@@ -842,7 +843,7 @@
                 uv_index: uvIndex,
                 offset: [0, 0], // TODO: Calculate from trim data in stage 2
                 duration: frame.duration / 1000, // ms → seconds
-                flip: 0 // TODO: Add flip support to editor
+                flip: frame.flip || 0 // Flip flags from animation editor (0-7)
                 })
                 }
                 }
