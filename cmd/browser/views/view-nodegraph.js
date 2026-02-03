@@ -89,7 +89,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // Node ID counter for simple incrementing IDs
     this.nodeIdCounter = 1
   }
-  
+
   setupUI() {
     // Create tooltip
     this.tileInfo = document.createElement('div')
@@ -112,7 +112,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     if (runBtn) {
       runBtn.onclick = () => this.executeGraph()
     }
-    
+
     const saveBtn = this.queryHeaderControl('[data-action="save"]')
     if (saveBtn) {
       saveBtn.onclick = () => this.showSavePopup()
@@ -127,17 +127,17 @@ export class ViewNodeGraph extends ViewCanvasBase {
     if (reloadBtn) {
       reloadBtn.onclick = () => this.fetchData()
     }
-    
+
     const zoomInBtn = this.queryHeaderControl('[data-action="zoom-in"]')
     if (zoomInBtn) {
       zoomInBtn.onclick = () => this.zoomIn()
     }
-    
+
     const zoomOutBtn = this.queryHeaderControl('[data-action="zoom-out"]')
     if (zoomOutBtn) {
       zoomOutBtn.onclick = () => this.zoomOut()
     }
-    
+
     const zoomFitBtn = this.queryHeaderControl('[data-action="zoom-fit"]')
     if (zoomFitBtn) {
       zoomFitBtn.onclick = () => this.fitToContent()
@@ -454,7 +454,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
         const value = String(port.value)
         const truncatedValue = value.length > 8 ? value.substring(0, 8) + '...' : value
         const typeTag = this.getTypeTag(port.value)
-        
+
         // Draw value with background for better readability
         const fullText = `${port.name}: ${truncatedValue}`
         const textWidth = ctx.measureText(fullText).width
@@ -464,15 +464,15 @@ export class ViewNodeGraph extends ViewCanvasBase {
         const bgX = isInput ? labelX - 2 : labelX - totalWidth - 2
         const bgHeight = 16
         const bgY = portY - bgHeight / 2
-        
+
         // Draw dark background for value text
         ctx.fillStyle = COLORS.valueBg
         ctx.fillRect(bgX, bgY, totalWidth + 4, bgHeight)
-        
+
         // Draw value text
         ctx.fillStyle = COLORS.valueText
         ctx.fillText(fullText, labelX, portY)
-        
+
         // Draw type badge
         const badgeX = isInput ? labelX + textWidth + 4 : labelX - textWidth - 4
         ctx.fillStyle = COLORS.typeBadge
@@ -481,17 +481,17 @@ export class ViewNodeGraph extends ViewCanvasBase {
       } else {
         // Regular port label - add background on success state for readability
         const labelText = port.label || port.name
-        
+
         if (needsHighContrast) {
           const textWidth = ctx.measureText(labelText).width
           const bgHeight = 16
           const bgY = portY - bgHeight / 2
           const bgX = isInput ? labelX - 2 : labelX - textWidth - 2
-          
+
           // Draw dark background
           ctx.fillStyle = COLORS.valueBg
           ctx.fillRect(bgX, bgY, textWidth + 4, bgHeight)
-          
+
           // Draw text in white for contrast
           ctx.fillStyle = COLORS.valueText
         } else {
@@ -1732,39 +1732,39 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   fuzzyMatch(query, text) {
     if (!query) return { matches: true, score: 0, positions: [] }
-    
+
     const textLower = text.toLowerCase()
     const positions = []
     let queryIndex = 0
     let score = 0
     let lastMatchIndex = -1
-    
+
     for (let i = 0; i < textLower.length && queryIndex < query.length; i++) {
       if (textLower[i] === query[queryIndex]) {
         positions.push(i)
-        
+
         // Consecutive matches score higher
         if (lastMatchIndex === i - 1) {
           score += 2
         } else {
           score += 1
         }
-        
+
         // Matches at start of word score higher
         if (i === 0 || text[i - 1] === ' ' || text[i - 1] === '-' || text[i - 1] === '_') {
           score += 3
         }
-        
+
         lastMatchIndex = i
         queryIndex++
       }
     }
-    
+
     // All query characters must match
     if (queryIndex !== query.length) {
       return null
     }
-    
+
     return { matches: true, score, positions }
   }
 
@@ -1777,18 +1777,18 @@ export class ViewNodeGraph extends ViewCanvasBase {
   highlightMatches(text, positions) {
     const fragment = document.createDocumentFragment()
     const posSet = new Set(positions)
-    
+
     let i = 0
     while (i < text.length) {
       const isMatch = posSet.has(i)
-      
+
       // Collect consecutive chars of same type
       let chunk = ''
       while (i < text.length && posSet.has(i) === isMatch) {
         chunk += text[i]
         i++
       }
-      
+
       if (isMatch) {
         // Create inverted highlight: background = currentColor, text = inverted
         const wrapper = document.createElement('span')
@@ -1802,7 +1802,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
         fragment.appendChild(document.createTextNode(chunk))
       }
     }
-    
+
     return fragment
   }
 
@@ -1845,7 +1845,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
           // Use best match
           let bestMatch = null
           let matchField = null
-          
+
           if (nameMatch && (!bestMatch || nameMatch.score > bestMatch.score)) {
             bestMatch = nameMatch
             matchField = 'name'
@@ -2297,6 +2297,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       const htmlContent = this.serializeGraph()
       const nodeCount = this.countNodes()
 
+      console.log("savePipeline", htmlContent)
       // Escape single quotes for SQL
       const escapedName = name.replace(/'/g, "''")
       const escapedHtml = htmlContent.replace(/'/g, "''")
@@ -2368,8 +2369,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
           text-align: center;
           color: var(--color-semantic-text-secondary);
         `
-        noResults.textContent = pipelines.length === 0 
-          ? 'No saved pipelines yet' 
+        noResults.textContent = pipelines.length === 0
+          ? 'No saved pipelines yet'
           : `No pipelines matching "${query}"`
         content.appendChild(noResults)
         return
@@ -2525,7 +2526,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       // Find max node ID to update counter
       let maxId = 0
 
-      for (const child of tempContainer.children) {
+      for (const child of Array.from(tempContainer.children)) {
         if (child.tagName && child.tagName.toLowerCase().startsWith('node-')) {
           // Extract numeric ID if present
           const idMatch = child.id?.match(/node_(\d+)/)
