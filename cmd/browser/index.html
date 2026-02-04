@@ -925,6 +925,321 @@
               <node-output label="Anim Info" format="json" inputs="value:anim_binary.metadata" id="anim_output" x="1150"
                 y="560"></node-output>
 
+              <!-- ============================================== -->
+              <!-- Tilemap LUT Encoding Pipeline                  -->
+              <!-- ============================================== -->
+
+              <!-- 1. SQL Query to get tilemaps from database -->
+              <node-code title="SQL: Get Tilemaps" inputs="" outputs="tilemaps" id="tilemap_sql" x="700" y="700">
+                // Query tilemap data from database
+                // Filter can be adjusted - for now get specific maps
+                const sql = `SELECT name, data FROM tilemap_storage WHERE name IN ('new_map', 'rules') ORDER BY name`
+                const result = await window.pluginManager.call("sql", "query", sql)
+                const DE = new TextDecoder()
+                const rows = fromCSV(DE.decode(result.output))
+                
+                // Parse JSON data for each tilemap
+                $out.tilemaps = rows.map(row => ({
+                  name: row.name,
+                  ...JSON.parse(row.data)
+                }))
+              </node-code>
+
+              <!-- 2. Extract and deduplicate tiles from all tilemaps -->
+              <node-code title="Extract Map Tiles" inputs="tilemaps:tilemap_sql.tilemaps" outputs="extractedData" id="tilemap_extract" x="700" y="820">
+                // Extract unique tiles from all tilemaps, grouped by tile size
+                // Track original tile ID → new sequential ID mapping
+                const tilemaps = $in.tilemaps || []
+                
+                // Group tiles by size: Map&lt;"WxH", Map&lt;dedupeKey, tileInfo&gt;&gt;
+                const tilesBySize = new Map()
+                const nextIdBySize = new Map()
+                
+                // Process all tilemaps and build deduplicated tile sets
+                const processedMaps = []
+                
+                for (const tilemap of tilemaps) {
+                  const processedLayers = []
+                  
+                  for (const layer of tilemap.layers || []) {
+                    const tw = parseFloat(layer.props?.tw) || 16
+                    const th = parseFloat(layer.props?.th) || 16
+                    const sizeKey = `${tw}x${th}`
+                    const tilesetPath = layer.props?.tileset || ''
+                    
+                    // Initialize size group if needed
+                    if (!tilesBySize.has(sizeKey)) {
+                      tilesBySize.set(sizeKey, new Map())
+                      nextIdBySize.set(sizeKey, 1) // Start from 1 (0 = empty)
+                    }
+                    
+                    const tilesForSize = tilesBySize.get(sizeKey)
+                    const newData = []
+                    
+                    // Process each tile in the layer
+                    for (let i = 0; i &lt; layer.data.length; i++) {
+                      const originalId = layer.data[i]
+                      
+                      // Empty tile stays 0
+                      if (originalId === 0) {
+                        newData.push(0)
+                        continue
+                      }
+                      
+                      // Deduplication key: tileset + original tile ID
+                      const dedupeKey = `${tilesetPath}:${originalId}:${tw}:${th}`
+                      
+                      // Check if we've seen this tile before
+                      let tileInfo = tilesForSize.get(dedupeKey)
+                      
+                      if (!tileInfo) {
+                        // New tile - assign next sequential ID
+                        const newId = nextIdBySize.get(sizeKey)
+                        nextIdBySize.set(sizeKey, newId + 1)
+                        
+                        tileInfo = {
+                          originalId,
+                          newId,
+                          tilesetPath,
+                          tileW: tw,
+                          tileH: th,
+                          dedupeKey
+                        }
+                        tilesForSize.set(dedupeKey, tileInfo)
+                      }
+                      
+                      newData.push(tileInfo.newId)
+                    }
+                    
+                    processedLayers.push({
+                      ...layer,
+                      originalData: layer.data,
+                      data: newData,
+                      sizeKey
+                    })
+                  }
+                  
+                  processedMaps.push({
+                    name: tilemap.name,
+                    layers: processedLayers
+                  })
+                }
+                
+                // Convert Maps to arrays for output
+                const tilesBySizeArray = []
+                for (const [sizeKey, tiles] of tilesBySize) {
+                  tilesBySizeArray.push({
+                    sizeKey,
+                    tiles: Array.from(tiles.values())
+                  })
+                }
+                
+                $out.extractedData = {
+                  tilesBySize: tilesBySizeArray,
+                  tilemaps: processedMaps
+                }
+              </node-code>
+
+              <!-- 3. Build reduced tileset images for each size group -->
+              <node-code title="Build Tilesets" inputs="extractedData:tilemap_extract.extractedData" outputs="tilesetImages,tilesBySize,tilemaps" id="tilemap_tilesets" x="700" y="940">
+                // Build reduced tileset images from extracted tiles
+                // Each size group becomes one tileset image
+                const { tilesBySize, tilemaps } = $in.extractedData || { tilesBySize: [], tilemaps: [] }
+                const tilesetImages = []
+                
+                for (const { sizeKey, tiles } of tilesBySize) {
+                  if (tiles.length === 0) continue
+                  
+                  const [tw, th] = sizeKey.split('x').map(Number)
+                  
+                  // Calculate grid dimensions for reduced tileset
+                  const cols = Math.ceil(Math.sqrt(tiles.length))
+                  const rows = Math.ceil(tiles.length / cols)
+                  const imageW = cols * tw
+                  const imageH = rows * th
+                  
+                  // Group tiles by tileset path for efficient loading
+                  const tilesByTileset = new Map()
+                  for (const tile of tiles) {
+                    if (!tilesByTileset.has(tile.tilesetPath)) {
+                      tilesByTileset.set(tile.tilesetPath, [])
+                    }
+                    tilesByTileset.get(tile.tilesetPath).push(tile)
+                  }
+                  
+                  tilesetImages.push({
+                    name: `tileset_${sizeKey}`,
+                    sizeKey,
+                    tileW: tw,
+                    tileH: th,
+                    cols,
+                    rows,
+                    imageW,
+                    imageH,
+                    tiles,
+                    tilesByTileset: Array.from(tilesByTileset.entries()).map(([path, t]) => ({ path, tiles: t }))
+                  })
+                }
+                
+                $out.tilesetImages = tilesetImages
+                $out.tilesBySize = tilesBySize
+                $out.tilemaps = tilemaps
+              </node-code>
+
+              <!-- 4. Build LUT images for each tilemap layer (before packing) -->
+              <node-code title="Build LUTs" inputs="tilemaps:tilemap_tilesets.tilemaps" outputs="lutImages" id="tilemap_luts" x="950" y="940">
+                // Build LUT images for each tilemap layer
+                // Each pixel encodes a tile ID as 32-bit RGBA
+                const tilemaps = $in.tilemaps || []
+                const lutImages = []
+                
+                for (const tilemap of tilemaps) {
+                  for (let layerIdx = 0; layerIdx &lt; tilemap.layers.length; layerIdx++) {
+                    const layer = tilemap.layers[layerIdx]
+                    const width = layer.width
+                    const height = Math.ceil(layer.data.length / width)
+                    
+                    // Create RGBA buffer for LUT
+                    const pixels = new Uint8Array(width * height * 4)
+                    
+                    for (let i = 0; i &lt; layer.data.length; i++) {
+                      const tileId = layer.data[i]
+                      const offset = i * 4
+                      
+                      // Encode tile ID as 32-bit RGBA (big-endian for readability)
+                      // Red = high byte, Alpha = low byte
+                      pixels[offset + 0] = (tileId >> 24) &amp; 0xFF  // R
+                      pixels[offset + 1] = (tileId >> 16) &amp; 0xFF  // G
+                      pixels[offset + 2] = (tileId >> 8) &amp; 0xFF   // B
+                      pixels[offset + 3] = tileId &amp; 0xFF          // A
+                    }
+                    
+                    lutImages.push({
+                      name: `lut_${tilemap.name}_layer${layerIdx}`,
+                      mapName: tilemap.name,
+                      layerIndex: layerIdx,
+                      width,
+                      height,
+                      sizeKey: layer.sizeKey,
+                      pixels: pixels.toBase64()
+                    })
+                  }
+                }
+                
+                $out.lutImages = lutImages
+              </node-code>
+
+              <!-- 5. Pack tilesets AND LUTs using sprite-pack plugin -->
+              <node-plugin title="Pack All" plugin="sprite-pack" function="packTilesets"
+                inputs="tilesets:tilemap_tilesets.tilesetImages,luts:tilemap_luts.lutImages,options:tilemap_pack_options.output,outputPath:tilemap_atlas_path.text"
+                outputs="result" id="tilemap_pack" x="1150" y="940"></node-plugin>
+
+              <!-- Tilemap atlas output path -->
+              <node-popup title="Tilemap Atlas Path" outputs="text" id="tilemap_atlas_path" x="950" y="1060"
+                values="text:/output/tilemap_atlas.qoi" template="node-popup-text"></node-popup>
+
+              <!-- Pack options for tilesets -->
+              <node-code title="Tileset Pack Options" inputs="" outputs="output" id="tilemap_pack_options" x="950" y="1160">
+                $out.output = {
+                  padding: 0,
+                  extrude: 0,
+                  powerOfTwo: true,
+                  cropAlpha: false,
+                  deduplicate: false,
+                  flipY: true
+                }
+              </node-code>
+
+              <!-- 7. Build tilemap binary (opcode 3) -->
+              <node-code title="Build Tilemap Binary" 
+                inputs="tilemaps:tilemap_tilesets.tilemaps,packResult:tilemap_pack.result,lutImages:tilemap_luts.lutImages"
+                outputs="binary,metadata" id="tilemap_binary" x="1400" y="940">
+                // Build tilemap binary for opcode 3
+                // Format per layer:
+                // [opcode: u16 = 3]
+                // [position_x: f32] [position_y: f32]
+                // [tile_size_x: f32] [tile_size_y: f32]
+                // [tileset_uv_index: u32] [lut_uv_index: u32]
+                // [map_width: u32] [map_height: u32]
+                
+                const tilemaps = $in.tilemaps || []
+                const lutImages = $in.lutImages || []
+                
+                // Parse pack result to get UV indices
+                let packResult = null
+                if ($in.packResult?.output) {
+                  const decoder = new TextDecoder()
+                  packResult = JSON.parse(decoder.decode($in.packResult.output))
+                }
+                
+                // Build name → UV index mapping from placements
+                const uvIndexMap = new Map()
+                if (packResult?.placements) {
+                  for (let i = 0; i &lt; packResult.placements.length; i++) {
+                    uvIndexMap.set(packResult.placements[i].name, i)
+                  }
+                }
+                
+                const b = bytes()
+                const layerRecords = []
+                
+                for (const tilemap of tilemaps) {
+                  for (let layerIdx = 0; layerIdx &lt; tilemap.layers.length; layerIdx++) {
+                    const layer = tilemap.layers[layerIdx]
+                    const [tw, th] = (layer.sizeKey || '16x16').split('x').map(Number)
+                    const width = layer.width
+                    const height = Math.ceil(layer.data.length / width)
+                    
+                    // Find UV indices
+                    const tilesetName = `tileset_${layer.sizeKey}`
+                    const lutName = `lut_${tilemap.name}_layer${layerIdx}`
+                    const tilesetUvIndex = uvIndexMap.get(tilesetName) ?? 0
+                    const lutUvIndex = uvIndexMap.get(lutName) ?? 0
+                    
+                    // Position (default to 0,0 - can be extended later)
+                    const posX = 0
+                    const posY = 0
+                    
+                    // Write opcode 3 record
+                    b.setUint16(3) // opcode
+                    b.setFloat32(posX)
+                    b.setFloat32(posY)
+                    b.setFloat32(tw)
+                    b.setFloat32(th)
+                    b.setUint32(tilesetUvIndex)
+                    b.setUint32(lutUvIndex)
+                    b.setUint32(width)
+                    b.setUint32(height)
+                    
+                    layerRecords.push({
+                      mapName: tilemap.name,
+                      layerIndex: layerIdx,
+                      position: [posX, posY],
+                      tileSize: [tw, th],
+                      tilesetUvIndex,
+                      lutUvIndex,
+                      dimensions: [width, height]
+                    })
+                  }
+                }
+                
+                const buffer = b.commit()
+                $out.binary = new Uint8Array(buffer).toBase64()
+                $out.metadata = {
+                  layerCount: layerRecords.length,
+                  layers: layerRecords,
+                  packResult
+                }
+              </node-code>
+
+              <!-- Output for tilemap metadata -->
+              <node-output label="Tilemap Info" format="json" inputs="value:tilemap_binary.metadata" id="tilemap_output"
+                x="1400" y="940"></node-output>
+
+              <!-- Output for extracted tile info -->
+              <node-output label="Extracted Tiles" format="json" inputs="value:tilemap_extract.extractedData" id="tilemap_extract_output"
+                x="950" y="820"></node-output>
+
             </view-nodegraph>
           </view-chrome>
           <view-chrome nesw="s" r="400" from="panel_1">

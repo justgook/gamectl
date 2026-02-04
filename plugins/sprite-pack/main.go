@@ -955,5 +955,340 @@ func PackTiles() int32 {
 	return 0
 }
 
+// =============================================================================
+// PackTilesets - Pack tileset and LUT images from tilemap data
+// =============================================================================
+
+// TilesetInput defines a tileset image to be built and packed
+type TilesetInput struct {
+	Name           string          `json:"name"`           // Tileset identifier (e.g., "tileset_16x16")
+	SizeKey        string          `json:"sizeKey"`        // Size key (e.g., "16x16")
+	TileW          int             `json:"tileW"`          // Tile width
+	TileH          int             `json:"tileH"`          // Tile height
+	Cols           int             `json:"cols"`           // Number of columns in output tileset
+	Rows           int             `json:"rows"`           // Number of rows in output tileset
+	ImageW         int             `json:"imageW"`         // Total image width
+	ImageH         int             `json:"imageH"`         // Total image height
+	Tiles          []TileInfo      `json:"tiles"`          // Tiles to include
+	TilesByTileset []TilesetSource `json:"tilesByTileset"` // Tiles grouped by source tileset
+}
+
+// TileInfo describes a single tile in the tileset
+type TileInfo struct {
+	OriginalId  int    `json:"originalId"`  // Original tile ID in source tileset
+	NewId       int    `json:"newId"`       // New sequential ID (1-based)
+	TilesetPath string `json:"tilesetPath"` // Path to source tileset image
+	TileW       int    `json:"tileW"`       // Tile width
+	TileH       int    `json:"tileH"`       // Tile height
+	DedupeKey   string `json:"dedupeKey"`   // Deduplication key
+}
+
+// TilesetSource groups tiles by their source tileset path
+type TilesetSource struct {
+	Path  string     `json:"path"`
+	Tiles []TileInfo `json:"tiles"`
+}
+
+// LUTInput defines a LUT image (lookup table for tilemap)
+type LUTInput struct {
+	Name       string `json:"name"`       // LUT identifier (e.g., "lut_map1_layer0")
+	MapName    string `json:"mapName"`    // Source tilemap name
+	LayerIndex int    `json:"layerIndex"` // Layer index in tilemap
+	Width      int    `json:"width"`      // Width in tiles
+	Height     int    `json:"height"`     // Height in tiles
+	SizeKey    string `json:"sizeKey"`    // Tile size key (e.g., "16x16")
+	Pixels     string `json:"pixels"`     // Base64-encoded RGBA pixel data
+}
+
+// PackTilesetsInput for packing tilesets and LUTs
+type PackTilesetsInput struct {
+	Tilesets   []TilesetInput `json:"tilesets"`
+	LUTs       []LUTInput     `json:"luts"`
+	Options    PackOptions    `json:"options"`
+	OutputPath string         `json:"outputPath"`
+}
+
+// PackTilesetsOutput returns packing result
+type PackTilesetsOutput struct {
+	Success    bool        `json:"success"`
+	Placements []Placement `json:"placements"`
+	AtlasW     int         `json:"atlasW"`
+	AtlasH     int         `json:"atlasH"`
+}
+
+//go:wasmexport packTilesets
+func PackTilesets() int32 {
+	input := pdk.Input()
+	var params PackTilesetsInput
+	if err := json.Unmarshal(input, &params); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+
+	if params.OutputPath == "" {
+		pdk.Output(util.ErrorResponse("outputPath is required"))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[sprite-pack] Packing %d tilesets and %d LUTs", len(params.Tilesets), len(params.LUTs)))
+
+	// Image cache for source tilesets
+	imageCache := make(map[string]*image.NRGBA)
+
+	var allSprites []croppedSprite
+
+	// Build tileset images
+	for _, tileset := range params.Tilesets {
+		if tileset.ImageW <= 0 || tileset.ImageH <= 0 {
+			continue
+		}
+
+		// Create tileset image
+		tilesetImg := image.NewNRGBA(image.Rect(0, 0, tileset.ImageW, tileset.ImageH))
+
+		// Fill with transparent pixels
+		for i := range tilesetImg.Pix {
+			tilesetImg.Pix[i] = 0
+		}
+
+		// Load and place tiles from each source tileset
+		for _, source := range tileset.TilesByTileset {
+			if source.Path == "" {
+				continue
+			}
+
+			// Load source tileset image
+			srcImg, ok := imageCache[source.Path]
+			if !ok {
+				var err error
+				srcImg, err = loadImage(source.Path)
+				if err != nil {
+					logMsg(fmt.Sprintf("[sprite-pack] Warning: failed to load tileset %s: %s", source.Path, err.Error()))
+					continue
+				}
+				imageCache[source.Path] = srcImg
+			}
+
+			srcBounds := srcImg.Bounds()
+			srcW := srcBounds.Dx()
+
+			// Calculate source tileset columns
+			srcCols := srcW / tileset.TileW
+			if srcCols <= 0 {
+				srcCols = 1
+			}
+
+			// Place each tile in the output tileset
+			for _, tile := range source.Tiles {
+				// Source position (based on original tile ID)
+				srcTileX := (tile.OriginalId % srcCols) * tile.TileW
+				srcTileY := (tile.OriginalId / srcCols) * tile.TileH
+
+				// Destination position (based on new ID, which is 1-based)
+				dstIndex := tile.NewId - 1
+				dstTileX := (dstIndex % tileset.Cols) * tile.TileW
+				dstTileY := (dstIndex / tileset.Cols) * tile.TileH
+
+				// Copy tile pixels
+				for y := 0; y < tile.TileH; y++ {
+					for x := 0; x < tile.TileW; x++ {
+						srcIdx := (srcTileY+y)*srcImg.Stride + (srcTileX+x)*4
+						dstIdx := (dstTileY+y)*tilesetImg.Stride + (dstTileX+x)*4
+
+						// Bounds check for source
+						if srcTileX+x < srcW && srcTileY+y < srcBounds.Dy() {
+							copy(tilesetImg.Pix[dstIdx:dstIdx+4], srcImg.Pix[srcIdx:srcIdx+4])
+						}
+					}
+				}
+			}
+		}
+
+		// Apply Y-flip if requested
+		if params.Options.FlipY {
+			tilesetImg = flipImageY(tilesetImg)
+		}
+
+		allSprites = append(allSprites, croppedSprite{
+			name:  tileset.Name,
+			img:   tilesetImg,
+			cropX: 0,
+			cropY: 0,
+			origW: tileset.ImageW,
+			origH: tileset.ImageH,
+		})
+
+		logMsg(fmt.Sprintf("[sprite-pack] Built tileset %s (%dx%d)", tileset.Name, tileset.ImageW, tileset.ImageH))
+	}
+
+	// Build LUT images from base64 pixel data
+	for _, lut := range params.LUTs {
+		if lut.Width <= 0 || lut.Height <= 0 || lut.Pixels == "" {
+			continue
+		}
+
+		// Decode base64 pixels
+		pixels, err := decodeBase64(lut.Pixels)
+		if err != nil {
+			logMsg(fmt.Sprintf("[sprite-pack] Warning: failed to decode LUT pixels for %s: %s", lut.Name, err.Error()))
+			continue
+		}
+
+		expectedSize := lut.Width * lut.Height * 4
+		if len(pixels) < expectedSize {
+			logMsg(fmt.Sprintf("[sprite-pack] Warning: LUT %s has insufficient pixel data (%d < %d)", lut.Name, len(pixels), expectedSize))
+			continue
+		}
+
+		// Create LUT image
+		lutImg := image.NewNRGBA(image.Rect(0, 0, lut.Width, lut.Height))
+		copy(lutImg.Pix, pixels[:expectedSize])
+
+		// Apply Y-flip if requested
+		if params.Options.FlipY {
+			lutImg = flipImageY(lutImg)
+		}
+
+		allSprites = append(allSprites, croppedSprite{
+			name:  lut.Name,
+			img:   lutImg,
+			cropX: 0,
+			cropY: 0,
+			origW: lut.Width,
+			origH: lut.Height,
+		})
+
+		logMsg(fmt.Sprintf("[sprite-pack] Built LUT %s (%dx%d)", lut.Name, lut.Width, lut.Height))
+	}
+
+	if len(allSprites) == 0 {
+		pdk.Output(util.ErrorResponse("no images to pack"))
+		return 1
+	}
+
+	// Pack all images
+	placements, atlasW, atlasH, err := packSprites(allSprites, params.Options)
+	if err != nil {
+		pdk.Output(util.ErrorResponse(err.Error()))
+		return 1
+	}
+
+	logMsg(fmt.Sprintf("[sprite-pack] Packed into %dx%d atlas", atlasW, atlasH))
+
+	// Create atlas image
+	atlas := image.NewNRGBA(image.Rect(0, 0, atlasW, atlasH))
+
+	// Composite all sprites into atlas
+	for i, p := range placements {
+		sprite := allSprites[i].img
+
+		for y := 0; y < p.Height; y++ {
+			for x := 0; x < p.Width; x++ {
+				srcIdx := y*sprite.Stride + x*4
+				dstIdx := (p.Y+y)*atlas.Stride + (p.X+x)*4
+				copy(atlas.Pix[dstIdx:dstIdx+4], sprite.Pix[srcIdx:srcIdx+4])
+			}
+		}
+
+		// Extrude edges if needed
+		if params.Options.Extrude > 0 {
+			extrudeEdges(atlas, p, params.Options.Extrude)
+		}
+	}
+
+	// Save atlas
+	if err := saveImage(params.OutputPath, atlas); err != nil {
+		pdk.Output(util.ErrorResponse("failed to save atlas: " + err.Error()))
+		return 1
+	}
+
+	// Build final placements with proper names
+	finalPlacements := make([]Placement, len(placements))
+	for i, p := range placements {
+		finalPlacements[i] = Placement{
+			Name:          allSprites[i].name,
+			X:             p.X,
+			Y:             p.Y,
+			Width:         p.Width,
+			Height:        p.Height,
+			FrameX:        0,
+			FrameY:        0,
+			FrameW:        allSprites[i].origW,
+			FrameH:        allSprites[i].origH,
+			OriginalIndex: i,
+			DuplicateOf:   -1,
+		}
+	}
+
+	output := PackTilesetsOutput{
+		Success:    true,
+		Placements: finalPlacements,
+		AtlasW:     atlasW,
+		AtlasH:     atlasH,
+	}
+
+	result, _ := json.Marshal(output)
+	pdk.Output(result)
+	return 0
+}
+
+// decodeBase64 decodes a base64 string to bytes
+func decodeBase64(s string) ([]byte, error) {
+	// Standard base64 decoding
+	const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+	// Build decode map
+	decodeMap := make(map[byte]int)
+	for i, c := range base64Chars {
+		decodeMap[byte(c)] = i
+	}
+
+	// Remove padding and calculate output length
+	s = trimBase64Padding(s)
+	outputLen := len(s) * 3 / 4
+
+	output := make([]byte, outputLen)
+	outIdx := 0
+
+	for i := 0; i < len(s); i += 4 {
+		var n uint32
+		chars := 0
+
+		for j := 0; j < 4 && i+j < len(s); j++ {
+			c := s[i+j]
+			if val, ok := decodeMap[c]; ok {
+				n = (n << 6) | uint32(val)
+				chars++
+			}
+		}
+
+		// Pad with zeros for incomplete groups
+		n <<= (4 - chars) * 6
+
+		// Extract bytes
+		if chars >= 2 && outIdx < len(output) {
+			output[outIdx] = byte(n >> 16)
+			outIdx++
+		}
+		if chars >= 3 && outIdx < len(output) {
+			output[outIdx] = byte(n >> 8)
+			outIdx++
+		}
+		if chars >= 4 && outIdx < len(output) {
+			output[outIdx] = byte(n)
+			outIdx++
+		}
+	}
+
+	return output[:outIdx], nil
+}
+
+func trimBase64Padding(s string) string {
+	for len(s) > 0 && s[len(s)-1] == '=' {
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
 // Required main function for WASM
 func main() {}
