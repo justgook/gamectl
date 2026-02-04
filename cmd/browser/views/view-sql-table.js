@@ -254,35 +254,52 @@ export class ViewSqlTable extends HTMLElement {
   }
 
   parseCSV(csv) {
-    const lines = csv.trim().split('\n')
-    return lines.map(line => this.parseCSVLine(line))
-  }
-
-  parseCSVLine(line) {
-    const result = []
-    let current = ''
+    const rows = []
+    let currentRow = []
+    let currentField = ''
     let inQuotes = false
+    const text = csv.trim()
 
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i]
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
 
       if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"'
+        if (inQuotes && text[i + 1] === '"') {
+          // Escaped quote inside quoted field
+          currentField += '"'
           i++
         } else {
+          // Toggle quote state
           inQuotes = !inQuotes
         }
       } else if (char === ',' && !inQuotes) {
-        result.push(current)
-        current = ''
+        // End of field
+        currentRow.push(currentField)
+        currentField = ''
+      } else if (char === '\n' && !inQuotes) {
+        // End of row (only when not inside quotes)
+        currentRow.push(currentField)
+        currentField = ''
+        if (currentRow.length > 0) {
+          rows.push(currentRow)
+        }
+        currentRow = []
+      } else if (char === '\r' && !inQuotes) {
+        // Skip carriage return when not in quotes
+        continue
       } else {
-        current += char
+        // Regular character (including newlines inside quoted fields)
+        currentField += char
       }
     }
-    result.push(current)
 
-    return result
+    // Don't forget the last field and row
+    currentRow.push(currentField)
+    if (currentRow.length > 0 && currentRow.some(f => f !== '')) {
+      rows.push(currentRow)
+    }
+
+    return rows
   }
 
   render() {
