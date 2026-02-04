@@ -143,6 +143,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
       zoomFitBtn.onclick = () => this.fitToContent()
     }
 
+    const editBtn = this.queryHeaderControl('[data-action="edit"]')
+    if (editBtn) {
+      editBtn.onclick = () => this.showEditNodePopup()
+    }
+
     // Setup keybinding event listeners
     this.setupKeybindings()
   }
@@ -2162,6 +2167,359 @@ export class ViewNodeGraph extends ViewCanvasBase {
       }
     }
     return count
+  }
+
+  // ========================================
+  // Node Attribute Editor
+  // ========================================
+
+  /**
+   * Show popup to edit the focused node's attributes
+   */
+  showEditNodePopup() {
+    const focusedNodes = this.getFocusedNodes()
+
+    if (focusedNodes.length === 0) {
+      console.warn('No node selected to edit')
+      return
+    }
+
+    if (focusedNodes.length > 1) {
+      console.warn('Select only one node to edit')
+      return
+    }
+
+    const node = focusedNodes[0]
+    const popupManager = this.closest('popup-manager')
+    if (!popupManager) {
+      console.error('popup-manager not found')
+      return
+    }
+
+    // Get current attributes (exclude internal/managed ones)
+    const excludedAttrs = new Set(['focused', 'state', 'class', 'style'])
+    const currentAttrs = {}
+    for (const attr of node.attributes) {
+      if (!excludedAttrs.has(attr.name)) {
+        currentAttrs[attr.name] = attr.value
+      }
+    }
+
+    // Build popup content
+    const content = document.createElement('div')
+    content.className = 'edit-node-form'
+    content.innerHTML = `
+      <div class="edit-node-section">
+        <div class="edit-node-section-header">
+          <label class="edit-node-label">Core</label>
+        </div>
+        <div class="edit-node-core-fields">
+          <div class="edit-node-field">
+            <label>id</label>
+            <input type="text" data-attr="id" value="${currentAttrs.id || ''}" placeholder="node_id">
+          </div>
+          <div class="edit-node-field">
+            <label>title</label>
+            <input type="text" data-attr="title" value="${currentAttrs.title || ''}" placeholder="Node Title">
+          </div>
+          <div class="edit-node-field edit-node-field-half">
+            <label>x</label>
+            <input type="number" data-attr="x" value="${currentAttrs.x || '0'}" step="1">
+          </div>
+          <div class="edit-node-field edit-node-field-half">
+            <label>y</label>
+            <input type="number" data-attr="y" value="${currentAttrs.y || '0'}" step="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="edit-node-section">
+        <div class="edit-node-section-header">
+          <label class="edit-node-label">Inputs</label>
+          <button type="button" class="button-secondary edit-node-add-btn" data-action="add-input">+ Add</button>
+        </div>
+        <div class="edit-node-list" data-element="inputs-list">
+          <!-- Input rows will be added here -->
+        </div>
+      </div>
+
+      <div class="edit-node-section">
+        <div class="edit-node-section-header">
+          <label class="edit-node-label">Outputs</label>
+          <button type="button" class="button-secondary edit-node-add-btn" data-action="add-output">+ Add</button>
+        </div>
+        <div class="edit-node-list" data-element="outputs-list">
+          <!-- Output rows will be added here -->
+        </div>
+      </div>
+
+      <div class="edit-node-section">
+        <div class="edit-node-section-header">
+          <label class="edit-node-label">Other Attributes</label>
+          <button type="button" class="button-secondary edit-node-add-btn" data-action="add-attr">+ Add</button>
+        </div>
+        <div class="edit-node-list" data-element="attrs-list">
+          <!-- Attribute rows will be added here -->
+        </div>
+      </div>
+
+      <div class="edit-node-actions">
+        <button type="button" class="button-secondary" data-action="cancel">Cancel</button>
+        <button type="button" class="button-primary" data-action="save">Save</button>
+      </div>
+    `
+
+    // Parse inputs attribute and populate
+    const inputsList = content.querySelector('[data-element="inputs-list"]')
+    const inputsValue = currentAttrs.inputs || ''
+    if (inputsValue) {
+      const inputPairs = inputsValue.split(',').map(s => s.trim()).filter(Boolean)
+      for (const pair of inputPairs) {
+        const colonIdx = pair.indexOf(':')
+        if (colonIdx > 0) {
+          const portName = pair.substring(0, colonIdx)
+          const source = pair.substring(colonIdx + 1)
+          this._addInputRow(inputsList, portName, source)
+        } else {
+          // Disconnected port (no source)
+          this._addInputRow(inputsList, pair, '')
+        }
+      }
+    }
+
+    // Parse outputs attribute and populate
+    const outputsList = content.querySelector('[data-element="outputs-list"]')
+    const outputsValue = currentAttrs.outputs || ''
+    if (outputsValue) {
+      const outputNames = outputsValue.split(',').map(s => s.trim()).filter(Boolean)
+      for (const name of outputNames) {
+        this._addOutputRow(outputsList, name)
+      }
+    }
+
+    // Parse other attributes and populate
+    const attrsList = content.querySelector('[data-element="attrs-list"]')
+    const coreAttrs = new Set(['id', 'title', 'x', 'y', 'inputs', 'outputs'])
+    for (const [key, value] of Object.entries(currentAttrs)) {
+      if (!coreAttrs.has(key)) {
+        this._addAttrRow(attrsList, key, value)
+      }
+    }
+
+    // Event handlers for add buttons
+    content.querySelector('[data-action="add-input"]').addEventListener('click', () => {
+      this._addInputRow(inputsList, '', '')
+    })
+
+    content.querySelector('[data-action="add-output"]').addEventListener('click', () => {
+      this._addOutputRow(outputsList, '')
+    })
+
+    content.querySelector('[data-action="add-attr"]').addEventListener('click', () => {
+      this._addAttrRow(attrsList, '', '')
+    })
+
+    // Create popup
+    const popup = popupManager.showPopup({
+      title: `Edit Node: ${node.id}`,
+      content: content,
+      size: 'medium'
+    })
+
+    // Cancel/Save handlers
+    content.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+      popup.close()
+    })
+
+    content.querySelector('[data-action="save"]').addEventListener('click', () => {
+      this._saveNodeEdits(node, content, popup)
+    })
+
+    // Focus first editable field
+    setTimeout(() => {
+      content.querySelector('[data-attr="id"]').focus()
+    }, 100)
+  }
+
+  /**
+   * Add an input row to the inputs list
+   */
+  _addInputRow(container, portName = '', source = '') {
+    const row = document.createElement('div')
+    row.className = 'edit-node-row edit-node-input-row'
+    row.innerHTML = `
+      <input type="text" class="edit-node-input edit-node-port-name" placeholder="port name" value="${this._escapeHtml(portName)}">
+      <span class="edit-node-separator">:</span>
+      <input type="text" class="edit-node-input edit-node-source" placeholder="nodeId.output (optional)" value="${this._escapeHtml(source)}">
+      <button type="button" class="edit-node-remove-btn" data-action="remove">&times;</button>
+    `
+    row.querySelector('[data-action="remove"]').addEventListener('click', () => row.remove())
+    container.appendChild(row)
+  }
+
+  /**
+   * Add an output row to the outputs list
+   */
+  _addOutputRow(container, name = '') {
+    const row = document.createElement('div')
+    row.className = 'edit-node-row edit-node-output-row'
+    row.innerHTML = `
+      <input type="text" class="edit-node-input edit-node-port-name" placeholder="output name" value="${this._escapeHtml(name)}">
+      <button type="button" class="edit-node-remove-btn" data-action="remove">&times;</button>
+    `
+    row.querySelector('[data-action="remove"]').addEventListener('click', () => row.remove())
+    container.appendChild(row)
+  }
+
+  /**
+   * Add an attribute row to the attributes list
+   */
+  _addAttrRow(container, key = '', value = '') {
+    const row = document.createElement('div')
+    row.className = 'edit-node-row edit-node-attr-row'
+    row.innerHTML = `
+      <input type="text" class="edit-node-input edit-node-attr-key" placeholder="attribute" value="${this._escapeHtml(key)}">
+      <span class="edit-node-separator">=</span>
+      <input type="text" class="edit-node-input edit-node-attr-value" placeholder="value" value="${this._escapeHtml(value)}">
+      <button type="button" class="edit-node-remove-btn" data-action="remove">&times;</button>
+    `
+    row.querySelector('[data-action="remove"]').addEventListener('click', () => row.remove())
+    container.appendChild(row)
+  }
+
+  /**
+   * Escape HTML special characters for safe insertion into attribute values
+   */
+  _escapeHtml(str) {
+    if (!str) return ''
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  }
+
+  /**
+   * Save edited node attributes
+   */
+  _saveNodeEdits(node, content, popup) {
+    const oldId = node.id
+
+    // Collect core attributes
+    const newId = content.querySelector('[data-attr="id"]').value.trim()
+    const newTitle = content.querySelector('[data-attr="title"]').value.trim()
+    const newX = content.querySelector('[data-attr="x"]').value.trim()
+    const newY = content.querySelector('[data-attr="y"]').value.trim()
+
+    // Validate id
+    if (!newId) {
+      console.error('Node id cannot be empty')
+      content.querySelector('[data-attr="id"]').focus()
+      return
+    }
+
+    // Check if id changed and new id already exists (but allow same id)
+    if (newId !== oldId && this.nodes.has(newId)) {
+      console.error(`Node with id "${newId}" already exists`)
+      content.querySelector('[data-attr="id"]').focus()
+      return
+    }
+
+    // Collect inputs
+    const inputRows = content.querySelectorAll('.edit-node-input-row')
+    const inputs = []
+    for (const row of inputRows) {
+      const portName = row.querySelector('.edit-node-port-name').value.trim()
+      const source = row.querySelector('.edit-node-source').value.trim()
+      if (portName) {
+        if (source) {
+          inputs.push(`${portName}:${source}`)
+        } else {
+          inputs.push(portName)
+        }
+      }
+    }
+
+    // Collect outputs
+    const outputRows = content.querySelectorAll('.edit-node-output-row')
+    const outputs = []
+    for (const row of outputRows) {
+      const name = row.querySelector('.edit-node-port-name').value.trim()
+      if (name) {
+        outputs.push(name)
+      }
+    }
+
+    // Collect other attributes
+    const attrRows = content.querySelectorAll('.edit-node-attr-row')
+    const otherAttrs = new Map()
+    for (const row of attrRows) {
+      const key = row.querySelector('.edit-node-attr-key').value.trim()
+      const value = row.querySelector('.edit-node-attr-value').value
+      if (key) {
+        otherAttrs.set(key, value)
+      }
+    }
+
+    // If id changed, update the nodes registry
+    if (newId !== oldId) {
+      // Remove old entry from nodes map
+      this.nodes.delete(oldId)
+      // Update the id attribute (this will NOT automatically re-register)
+      node.id = newId
+      // Re-add to nodes map with new id
+      this.nodes.set(newId, node)
+      console.log(`Node id changed: ${oldId} -> ${newId}`)
+    }
+
+    // Apply core attributes
+    if (newTitle !== node.getAttribute('title')) {
+      node.setAttribute('title', newTitle)
+    }
+    if (newX !== node.getAttribute('x')) {
+      node.setAttribute('x', newX)
+    }
+    if (newY !== node.getAttribute('y')) {
+      node.setAttribute('y', newY)
+    }
+
+    // Apply inputs
+    const newInputs = inputs.join(',')
+    if (newInputs !== node.getAttribute('inputs')) {
+      node.setAttribute('inputs', newInputs)
+    }
+
+    // Apply outputs
+    const newOutputs = outputs.join(',')
+    if (newOutputs !== node.getAttribute('outputs')) {
+      node.setAttribute('outputs', newOutputs)
+    }
+
+    // Remove old attributes that are no longer present
+    const coreAttrs = new Set(['id', 'title', 'x', 'y', 'inputs', 'outputs', 'focused', 'state', 'class', 'style'])
+    const attrsToRemove = []
+    for (const attr of node.attributes) {
+      if (!coreAttrs.has(attr.name) && !otherAttrs.has(attr.name)) {
+        attrsToRemove.push(attr.name)
+      }
+    }
+    for (const attrName of attrsToRemove) {
+      node.removeAttribute(attrName)
+    }
+
+    // Apply new/updated attributes
+    for (const [key, value] of otherAttrs) {
+      if (node.getAttribute(key) !== value) {
+        node.setAttribute(key, value)
+      }
+    }
+
+    // Rebuild connection index and redraw
+    this.rebuildConnectionIndex()
+    this.draw("saveNodeEdits")
+
+    popup.close()
+    console.log(`Node ${newId} updated`)
   }
 
   /**
