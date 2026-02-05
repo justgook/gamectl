@@ -116,4 +116,14 @@ export class FsAdapter {
       isFile: () => data.type === 'file'
     }
   }
+
+  /**
+   * Read file from remote HTTP/HTTPS URL synchronously
+   * @param {string} url - The URL to fetch
+   * @returns {Uint8Array}
+   */
+  readHttpSync(url) {
+    const data = this._call('readHttp', { url })
+    return new Uint8Array(data)
+  }
 }

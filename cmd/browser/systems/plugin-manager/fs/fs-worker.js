@@ -176,6 +176,22 @@ const handlers = {
         throw new Error(`Path not found: ${path}`)
       }
     }
+  },
+
+  /**
+   * Read file from remote HTTP/HTTPS URL
+   * @param {string} url - The URL to fetch
+   * @returns {Promise<{ok: boolean, data?: number[], error?: string}>}
+   */
+  async readHttp(url) {
+    const response = await fetch(url)
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    
+    const buffer = await response.arrayBuffer()
+    return { ok: true, data: Array.from(new Uint8Array(buffer)) }
   }
 }
 

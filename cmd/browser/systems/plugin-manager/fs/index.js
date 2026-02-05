@@ -4,6 +4,11 @@
  * Provides synchronous filesystem operations for WASM plugins
  * using OPFS (Origin Private File System) as the backend.
  * 
+ * Supports multiple read sources:
+ * - OPFS paths: "/path/to/file" (default)
+ * - Base64 data: "base64:SGVsbG8gV29ybGQ="
+ * - HTTP URLs: "http://..." or "https://..."
+ * 
  * All functions return: { returnCode: number, output: Uint8Array }
  * - returnCode 0 = success
  * - returnCode 1 = error (output contains error message)
@@ -52,14 +57,69 @@ export async function create() {
 }
 
 /**
- * Read file contents
- * @param {string|Uint8Array} path - absolute path to file
+ * Decode base64 string to Uint8Array
+ * @param {string} base64 - base64 encoded string
+ * @returns {Uint8Array}
+ */
+function base64ToUint8Array(base64) {
+  const binary = atob(base64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+/**
+ * Read file contents from various sources
+ * 
+ * Supported schemes:
+ * - OPFS path (default): "/path/to/file"
+ * - Base64 data: "base64:SGVsbG8gV29ybGQ="
+ * - Data URI: "data:image/png;base64,iVBORw0KGgo..."
+ * - HTTP URL: "http://example.com/file" or "https://example.com/file"
+ * 
+ * @param {string|Uint8Array} path - path, URL, or base64 data
  * @returns {{returnCode: number, output: Uint8Array}} - file contents as bytes
  */
 export function read(path) {
   try {
-    const filePath = decodeInput(path)
-    const data = fs.readFileSync(filePath)
+    const input = decodeInput(path)
+    
+    // Base64 data: "base64:..."
+    if (input.startsWith('base64:')) {
+      const base64Data = input.slice(7) // Remove "base64:" prefix
+      const data = base64ToUint8Array(base64Data)
+      return success(data)
+    }
+    
+    // Data URI: "data:[<mediatype>][;base64],<data>"
+    if (input.startsWith('data:')) {
+      const commaIndex = input.indexOf(',')
+      if (commaIndex === -1) {
+        return error('Invalid data URI: missing comma separator')
+      }
+      const meta = input.slice(5, commaIndex) // Between "data:" and ","
+      const data = input.slice(commaIndex + 1)
+      
+      if (meta.endsWith(';base64')) {
+        // Base64 encoded data URI
+        return success(base64ToUint8Array(data))
+      } else {
+        // URL-encoded data (plain text)
+        return success(encoder.encode(decodeURIComponent(data)))
+      }
+    }
+    
+    // HTTP/HTTPS URL
+    if (input.startsWith('http://') || input.startsWith('https://')) {
+      const data = fs.readHttpSync(input)
+      return success(data)
+    }
+    
+    // Default: OPFS path
+    const data = fs.readFileSync(input)
     return success(data)
   } catch (e) {
     return error(e.message)
