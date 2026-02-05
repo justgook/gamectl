@@ -2146,10 +2146,15 @@ export class ViewNodeGraph extends ViewCanvasBase {
     for (const child of this.children) {
       // Only serialize node-* elements (e.g., node-plugin, node-popup, node-code, etc.)
       if (child.tagName && child.tagName.toLowerCase().startsWith('node-')) {
-        // Remove 'focused' attribute before serializing (it's a transient UI state)
-        const clone = child.cloneNode(true)
-        clone.removeAttribute('focused')
-        nodeElements.push(clone.outerHTML)
+        // Use node's serialize() method if available, otherwise fallback to default
+        if (typeof child.serialize === 'function') {
+          nodeElements.push(child.serialize())
+        } else {
+          // Fallback for nodes without serialize method
+          const clone = child.cloneNode(true)
+          clone.removeAttribute('focused')
+          nodeElements.push(clone.outerHTML)
+        }
       }
     }
     return nodeElements.join('\n')

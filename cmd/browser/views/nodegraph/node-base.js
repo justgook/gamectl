@@ -420,6 +420,18 @@ export class NodeBase extends HTMLElement {
       label: name
     }))
   }
+
+  /**
+   * Serialize the node to HTML string for persistence
+   * Override in subclasses for custom serialization behavior
+   * @returns {string} HTML string representation of the node
+   */
+  serialize() {
+    const clone = this.cloneNode(true)
+    // Remove transient UI state attributes
+    clone.removeAttribute('focused')
+    return clone.outerHTML
+  }
 }
 
 customElements.define('node-base', NodeBase)
