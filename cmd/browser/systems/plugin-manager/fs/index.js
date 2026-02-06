@@ -87,14 +87,14 @@ function base64ToUint8Array(base64) {
 export function read(path) {
   try {
     const input = decodeInput(path)
-    
+
     // Base64 data: "base64:..."
     if (input.startsWith('base64:')) {
       const base64Data = input.slice(7) // Remove "base64:" prefix
       const data = base64ToUint8Array(base64Data)
       return success(data)
     }
-    
+
     // Data URI: "data:[<mediatype>][;base64],<data>"
     if (input.startsWith('data:')) {
       const commaIndex = input.indexOf(',')
@@ -103,7 +103,7 @@ export function read(path) {
       }
       const meta = input.slice(5, commaIndex) // Between "data:" and ","
       const data = input.slice(commaIndex + 1)
-      
+
       if (meta.endsWith(';base64')) {
         // Base64 encoded data URI
         return success(base64ToUint8Array(data))
@@ -112,20 +112,20 @@ export function read(path) {
         return success(encoder.encode(decodeURIComponent(data)))
       }
     }
-    
+
     // Local web (same origin): "local:/path"
     if (input.startsWith('local:')) {
       const url = new URL(input.slice(6), location.origin).href
       const data = fs.readHttpSync(url)
       return success(data)
     }
-    
+
     // HTTP/HTTPS URL
     if (input.startsWith('http://') || input.startsWith('https://')) {
       const data = fs.readHttpSync(input)
       return success(data)
     }
-    
+
     // Default: OPFS path
     const data = fs.readFileSync(input)
     return success(data)
