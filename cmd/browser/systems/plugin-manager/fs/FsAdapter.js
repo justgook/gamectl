@@ -119,11 +119,11 @@ export class FsAdapter {
 
   /**
    * Read file from remote HTTP/HTTPS URL synchronously
-   * @param {string} url - The URL to fetch
+   * @param {string} path  - The URL to fetch
    * @returns {Uint8Array}
    */
-  readHttpSync(url) {
-    const data = this._call('readHttp', { url })
+  readHttpSync(path) {
+    const data = this._call('readHttp', { path })
     return new Uint8Array(data)
   }
 }

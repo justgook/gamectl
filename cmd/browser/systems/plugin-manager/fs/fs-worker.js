@@ -26,11 +26,11 @@ function parsePath(pathStr) {
   // Normalize path
   const normalized = pathStr.replace(/\\/g, '/').replace(/\/+/g, '/')
   const parts = normalized.split('/').filter(p => p.length > 0)
-  
+
   if (parts.length === 0) {
     return { dirs: [], name: '' }
   }
-  
+
   return {
     dirs: parts.slice(0, -1),
     name: parts[parts.length - 1]
@@ -54,7 +54,7 @@ async function getDir(pathParts, create = false) {
 async function getFile(pathStr, create = false) {
   const { dirs, name } = parsePath(pathStr)
   if (!name) throw new Error('Invalid file path')
-  
+
   const dir = await getDir(dirs, create)
   return await dir.getFileHandle(name, { create })
 }
@@ -76,7 +76,7 @@ const handlers = {
     if (dirs.length > 0) {
       await getDir(dirs, true)
     }
-    
+
     const fileHandle = await getFile(path, true)
     const writable = await fileHandle.createWritable()
     await writable.write(new Uint8Array(data))
@@ -95,12 +95,12 @@ const handlers = {
     try {
       const { dirs, name } = parsePath(path)
       const parentDir = dirs.length > 0 ? await getDir(dirs, false) : root
-      
+
       if (!name) {
         // Checking if directory exists
         return { ok: true, data: true }
       }
-      
+
       // Try file first
       try {
         await parentDir.getFileHandle(name)
@@ -122,7 +122,7 @@ const handlers = {
   async readdir(path) {
     const { dirs, name } = parsePath(path)
     let targetDir
-    
+
     if (name) {
       // Path includes a final component, treat it as directory name
       targetDir = await getDir([...dirs, name], false)
@@ -131,7 +131,7 @@ const handlers = {
     } else {
       targetDir = root
     }
-    
+
     const entries = []
     for await (const entry of targetDir.values()) {
       entries.push(entry.name)
@@ -156,12 +156,12 @@ const handlers = {
   async stat(path) {
     const { dirs, name } = parsePath(path)
     const parentDir = dirs.length > 0 ? await getDir(dirs, false) : root
-    
+
     if (!name) {
       // Root or directory path without name
       return { ok: true, data: { type: 'directory', size: 0 } }
     }
-    
+
     // Try as file first
     try {
       const fileHandle = await parentDir.getFileHandle(name)
@@ -185,11 +185,11 @@ const handlers = {
    */
   async readHttp(url) {
     const response = await fetch(url)
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
-    
+
     const buffer = await response.arrayBuffer()
     return { ok: true, data: Array.from(new Uint8Array(buffer)) }
   }
@@ -202,12 +202,12 @@ async function handleRequest(requestBytes) {
   try {
     const request = JSON.parse(decoder.decode(requestBytes))
     const { op, ...params } = request
-    
+
     const handler = handlers[op]
     if (!handler) {
       return encoder.encode(JSON.stringify({ ok: false, error: `Unknown operation: ${op}` }))
     }
-    
+
     const result = await handler(params.path, params.data)
     return encoder.encode(JSON.stringify(result))
   } catch (err) {
@@ -220,17 +220,17 @@ async function handleRequest(requestBytes) {
  */
 self.onmessage = async (e) => {
   const msg = e.data
-  
+
   if (Array.isArray(msg) && msg[0] === 'init') {
     const [, sab] = msg
-    
+
     // Get OPFS root directly in the worker (avoids cloning issues in Safari)
     root = await navigator.storage.getDirectory()
     messenger = new SyncMessenger(sab)
-    
+
     // Signal ready
     self.postMessage(['ready'])
-    
+
     // Start serving requests
     messenger.serveAsync(handleRequest)
   }
