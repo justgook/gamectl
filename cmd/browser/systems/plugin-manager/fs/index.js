@@ -79,6 +79,7 @@ function base64ToUint8Array(base64) {
  * - Base64 data: "base64:SGVsbG8gV29ybGQ="
  * - Data URI: "data:image/png;base64,iVBORw0KGgo..."
  * - HTTP URL: "http://example.com/file" or "https://example.com/file"
+ * - Local web: "local:/path" (fetches from current origin)
  * 
  * @param {string|Uint8Array} path - path, URL, or base64 data
  * @returns {{returnCode: number, output: Uint8Array}} - file contents as bytes
@@ -110,6 +111,13 @@ export function read(path) {
         // URL-encoded data (plain text)
         return success(encoder.encode(decodeURIComponent(data)))
       }
+    }
+    
+    // Local web (same origin): "local:/path"
+    if (input.startsWith('local:')) {
+      const url = new URL(input.slice(6), location.origin).href
+      const data = fs.readHttpSync(url)
+      return success(data)
     }
     
     // HTTP/HTTPS URL
