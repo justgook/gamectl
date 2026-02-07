@@ -89,3 +89,27 @@ await keybindingManager.init()
 window.keybindingManager = keybindingManager // Expose for debugging
 
 toast.success("App is ready")
+
+// Enable splash screen Enter button now that app is fully loaded
+const splashScreen = document.getElementById('splash-screen')
+if (splashScreen) {
+  splashScreen.setAttribute('data-ready', '')
+
+  const dismissSplash = () => {
+    splashScreen.classList.add('splash-hidden')
+    splashScreen.addEventListener('transitionend', () => {
+      splashScreen.remove()
+    }, { once: true })
+  }
+
+  const enterBtn = splashScreen.querySelector('.splash-enter')
+  if (enterBtn) {
+    enterBtn.disabled = false
+    enterBtn.addEventListener('click', dismissSplash)
+  }
+
+  // Click on backdrop (outside panel) also dismisses
+  splashScreen.addEventListener('click', (e) => {
+    if (e.target === splashScreen) dismissSplash()
+  })
+}
