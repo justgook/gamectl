@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200" width="600" height="200">
+  <defs>
+    <!-- Metallic gradient for main title -->
+    <linearGradient id="metallic" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8f4f8"/>
+      <stop offset="25%" stop-color="#b8d8e8"/>
+      <stop offset="50%" stop-color="#8ab8d0"/>
+      <stop offset="52%" stop-color="#6a9ab8"/>
+      <stop offset="75%" stop-color="#4a7a98"/>
+      <stop offset="100%" stop-color="#3a6a88"/>
+    </linearGradient>
+    <!-- Highlight edge gradient -->
+    <linearGradient id="metallic-edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.3"/>
+    </linearGradient>
+    <!-- Subtle glow filter -->
+    <filter id="title-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feFlood flood-color="#00e5ff" flood-opacity="0.15" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Drop shadow for depth -->
+    <filter id="title-shadow" x="-5%" y="-5%" width="110%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- GAMS Title - bold wide letterforms -->
+  <g filter="url(#title-shadow)">
+    <g filter="url(#title-glow)">
+      <!-- G -->
+      <path d="M 48,40 L 148,40 L 148,56 L 68,56 L 68,104 L 118,104 L 118,82 L 98,82 L 98,68 L 148,68 L 148,120 L 48,120 Z"
+        fill="url(#metallic)" stroke="url(#metallic-edge)" stroke-width="0.5"/>
+      <!-- A -->
+      <path d="M 162,40 L 262,40 L 262,120 L 242,120 L 242,88 L 182,88 L 182,120 L 162,120 Z M 182,56 L 182,74 L 242,74 L 242,56 Z"
+        fill="url(#metallic)" stroke="url(#metallic-edge)" stroke-width="0.5"/>
+      <!-- M -->
+      <path d="M 276,40 L 312,40 L 338,72 L 364,40 L 400,40 L 400,120 L 380,120 L 380,62 L 348,96 L 328,96 L 296,62 L 296,120 L 276,120 Z"
+        fill="url(#metallic)" stroke="url(#metallic-edge)" stroke-width="0.5"/>
+      <!-- S -->
+      <path d="M 414,40 L 534,40 L 534,56 L 434,56 L 434,72 L 514,72 L 514,120 L 414,120 L 414,104 L 494,104 L 494,88 L 414,88 Z"
+        fill="url(#metallic)" stroke="url(#metallic-edge)" stroke-width="0.5"/>
+    </g>
+  </g>
+
+  <!-- Horizontal accent line -->
+  <rect x="48" y="135" width="486" height="1" fill="#00e5ff" opacity="0.4"/>
+
+  <!-- Subtitle: GAME ASSET MANAGEMENT SYSTEM -->
+  <text x="300" y="160" text-anchor="middle"
+    font-family="'Orbitron', 'Arial', sans-serif"
+    font-size="14" font-weight="400"
+    letter-spacing="6" fill="#6a9ab8">
+    GAME ASSET MANAGEMENT SYSTEM
+  </text>
+</svg>

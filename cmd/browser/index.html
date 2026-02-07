@@ -626,6 +626,26 @@
       </div>
     </template>
 
+    <!-- Splash Screen - renders immediately before any JS loads -->
+    <div id="splash-screen" class="splash-overlay">
+      <div class="splash-panel">
+        <div class="splash-background">
+          <img src="/splash/background.svg" alt="" aria-hidden="true">
+        </div>
+        <div class="splash-content">
+          <img src="/splash/title.svg" class="splash-title" alt="GAMS - Game Asset Management System" width="600" height="200">
+          <div class="splash-loader">
+            <div class="splash-loader-track">
+              <div class="splash-loader-bar"></div>
+            </div>
+            <span class="splash-loader-text">Loading...</span>
+          </div>
+          <button class="splash-enter" disabled>Enter</button>
+          <span class="splash-version">v0.1.0</span>
+        </div>
+      </div>
+    </div>
+
     <toast-manager>
       <popup-manager>
         <layout-parent handle-width="12" handle-height="12" id="scene">

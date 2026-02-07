@@ -14,8 +14,173 @@
  * 9999   - Popup containers (view-popup)
  * 10000  - Toast notifications (always on top)
  * 
+ * 10001  - Splash screen (above everything during load)
+ * 
  * IMPORTANT: When adding new overlay elements, reference this scale.
  */
+
+/* ========================================================================== */
+/* SPLASH SCREEN                                                              */
+/* ========================================================================== */
+
+/* Splash backdrop - semi-transparent overlay so app is visible underneath */
+.splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 8, 10, 0.75);
+  transition: opacity 0.3s ease-out;
+}
+
+.splash-overlay.splash-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Splash panel - floating card in the center */
+.splash-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-global-grey-700, #2d3741);
+  border-radius: var(--border-radius-sm, 3px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 1px rgba(0, 229, 255, 0.15);
+}
+
+/* Background SVG - fills the panel */
+.splash-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.splash-background img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Content container - centered column */
+.splash-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-scale-6, 24px);
+  padding: var(--spacing-scale-8, 48px) var(--spacing-scale-8, 48px) var(--spacing-scale-6, 24px);
+}
+
+/* Title SVG */
+.splash-title {
+  max-width: 480px;
+  width: 100%;
+  height: auto;
+}
+
+/* Loading bar container */
+.splash-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-scale-2, 8px);
+  width: 320px;
+}
+
+/* Loading bar track */
+.splash-loader-track {
+  width: 100%;
+  height: 6px;
+  background: var(--color-global-grey-800, #1a2026);
+  border: 1px solid var(--color-global-grey-700, #2d3741);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* Animated loading bar - indeterminate shimmer */
+.splash-loader-bar {
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-global-cyan-500, #00e5ff) 50%,
+    transparent 100%
+  );
+  border-radius: 3px;
+  animation: splash-loader-slide 1.5s ease-in-out infinite;
+}
+
+@keyframes splash-loader-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+/* Loading complete state - full bar, no animation */
+.splash-overlay[data-ready] .splash-loader-bar {
+  width: 100%;
+  background: var(--color-global-cyan-500, #00e5ff);
+  animation: none;
+  box-shadow: 0 0 8px var(--color-global-cyan-500, #00e5ff);
+  transition: width 0.4s ease-out, box-shadow 0.4s ease-out;
+}
+
+/* Loading text */
+.splash-loader-text {
+  font-family: var(--font-family-display, 'Orbitron', sans-serif);
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-global-grey-700, #2d3741);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.splash-overlay[data-ready] .splash-loader-text {
+  color: var(--color-global-cyan-500, #00e5ff);
+}
+
+/* Enter button - use #id for specificity over components.css button:not([class*="button-"]) */
+#splash-screen .splash-enter {
+  font-family: var(--font-family-display, 'Orbitron', sans-serif);
+  font-size: var(--font-size-md, 14px);
+  font-weight: var(--font-weight-bold, 700);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--color-global-grey-700, #2d3741);
+  background-color: transparent;
+  border: 1px solid var(--color-global-grey-700, #2d3741);
+  border-radius: var(--border-radius-sm, 3px);
+  padding: var(--spacing-scale-3, 12px) var(--spacing-scale-7, 32px);
+  cursor: not-allowed;
+  transition: color 0.3s, border-color 0.3s, box-shadow 0.3s, background-color 0.3s;
+}
+
+/* Enter button - ready/enabled state */
+#splash-screen .splash-enter:not(:disabled) {
+  color: var(--color-global-cyan-500, #00e5ff);
+  border-color: var(--color-global-cyan-500, #00e5ff);
+  background-color: transparent;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.15);
+}
+
+#splash-screen .splash-enter:not(:disabled):hover {
+  background-color: rgba(0, 229, 255, 0.08);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.25);
+}
+
+#splash-screen .splash-enter:not(:disabled):active {
+  background-color: rgba(0, 229, 255, 0.15);
+}
+
+/* Version text */
+.splash-version {
+  font-family: var(--font-family-ui, 'Roboto', sans-serif);
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-global-grey-700, #2d3741);
+  letter-spacing: 1px;
+}
 
 /* ========================================================================== */
 /* FORM INPUT STYLES - Radio & Checkbox */
