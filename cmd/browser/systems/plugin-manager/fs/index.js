@@ -2,12 +2,16 @@
  * Filesystem Plugin API
  * 
  * Provides synchronous filesystem operations for WASM plugins
- * using OPFS (Origin Private File System) as the backend.
+ * using a pluggable storage backend (OPFS, WebDAV, etc.).
  * 
  * Supports multiple read sources:
- * - OPFS paths: "/path/to/file" (default)
+ * - Storage paths: "/path/to/file" (default, routed to active backend)
  * - Base64 data: "base64:SGVsbG8gV29ybGQ="
  * - HTTP URLs: "http://..." or "https://..."
+ * 
+ * Backend selection is determined by the fsConfig passed to create():
+ *   { type: 'opfs', options: {} }           — Origin Private File System (default)
+ *   { type: 'webdav', options: { url } }    — WebDAV server
  * 
  * All functions return: { returnCode: number, output: Uint8Array }
  * - returnCode 0 = success
@@ -46,13 +50,16 @@ function error(message) {
 }
 
 /**
- * Initialize the filesystem
- * Uses OPFS (Origin Private File System) as the storage backend
+ * Initialize the filesystem with the specified backend
+ * 
+ * @param {Object} [fsConfig] - Backend configuration
+ * @param {string} [fsConfig.type='opfs'] - Backend type: 'opfs', 'webdav', etc.
+ * @param {Object} [fsConfig.options={}] - Backend-specific options
  * @returns {Promise<FsAdapter>}
  */
-export async function create() {
-  // Worker will obtain OPFS root internally to avoid handle cloning issues (Safari)
-  fs = await FsAdapter.start()
+export async function create(fsConfig) {
+  const config = fsConfig || { type: 'opfs', options: {} }
+  fs = await FsAdapter.start(config.type, config.options)
   return fs
 }
 
@@ -126,7 +133,7 @@ export function read(path) {
       return success(data)
     }
 
-    // Default: OPFS path
+    // Default: storage path (routed to active backend)
     const data = fs.readFileSync(input)
     return success(data)
   } catch (e) {

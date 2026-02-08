@@ -1,12 +1,15 @@
-import { getDirectoryHandle } from "./getdir.js"
 /**
  * Plugin Manager Proxy (Main Thread)
  * 
  * Provides the same async API as PluginManager but executes calls in a Web Worker
  * to avoid blocking the main thread during WASM execution.
  * 
+ * Detects the filesystem backend from localStorage:
+ *   - If 'fs.webdav.url' is set, uses WebDAV backend
+ *   - Otherwise, falls back to OPFS (Origin Private File System)
+ * 
  * Usage:
- *   const manager = await PluginManagerProxy.create({ modules: [...] })
+ *   const manager = await PluginManagerProxy.create()
  *   const result = await manager.call('plugin', 'function', input)
  */
 
@@ -40,11 +43,32 @@ export class PluginManagerProxy {
     this.worker.onmessage = (e) => this.handleMessage(e)
     this.worker.onerror = (error) => this.handleError(error)
 
+    // Detect filesystem backend from localStorage and pass config to worker
+    const fsConfig = this.detectBackend()
+    return this.sendMessage('init', { fsConfig })
+  }
 
-    // Use OPFS by default (pass null to let worker use navigator.storage.getDirectory())
-    // Can also pass a directory handle from getDirectoryHandle() for user-selected directories
-    return this.sendMessage('init', null)
+  /**
+   * Detect the filesystem backend from localStorage
+   * 
+   * Checks for known backend configuration keys:
+   *   - 'fs.webdav.url' → WebDAV backend
+   *   - (future backends can be added here)
+   *   - Default → OPFS
+   * 
+   * @returns {{type: string, options: Object}}
+   */
+  detectBackend() {
+    // WebDAV: check for server URL
+    const webdavUrl = localStorage.getItem('fs.webdav.url')
+    if (webdavUrl) {
+      console.log('[FS] Using WebDAV backend:', webdavUrl)
+      return { type: 'webdav', options: { url: webdavUrl } }
+    }
 
+    // Default: OPFS
+    console.log('[FS] Using OPFS backend')
+    return { type: 'opfs', options: {} }
   }
 
   /**

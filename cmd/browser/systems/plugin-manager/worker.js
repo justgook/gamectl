@@ -24,7 +24,7 @@ self.onmessage = async (e) => {
   try {
     switch (type) {
       case 'init':
-        await handleInit(id)
+        await handleInit(id, payload)
         break
 
       case 'call':
@@ -51,7 +51,8 @@ self.onmessage = async (e) => {
   }
 }
 
-async function handleInit(id) {
+async function handleInit(id, payload) {
+  const fsConfig = payload?.fsConfig
 
   const pluginNames = [
     'random',
@@ -73,8 +74,8 @@ async function handleInit(id) {
     'tile-detect'
   ];
 
-  // Initialize OPFS-based filesystem (worker obtains root internally)
-  await PluginFileSystem.create()
+  // Initialize filesystem with the configured backend (OPFS, WebDAV, etc.)
+  await PluginFileSystem.create(fsConfig)
 
   const workerOptions = {
     modules: pluginNames.map(name => ({

@@ -1,8 +1,11 @@
 /**
  * FsAdapter - Main thread adapter for sync filesystem operations
  * 
- * Creates a worker to handle async OPFS operations and provides
+ * Creates a worker to handle async filesystem operations and provides
  * a synchronous API via SharedArrayBuffer/Atomics.
+ * 
+ * The worker loads a pluggable backend (OPFS, WebDAV, etc.) based on
+ * the backendType parameter passed to start().
  */
 
 import { SyncMessenger } from './SyncMessenger.js'
@@ -20,10 +23,15 @@ export class FsAdapter {
 
   /**
    * Start the filesystem adapter
-   * Uses OPFS (Origin Private File System) - the worker obtains the root handle internally
+   * 
+   * Initializes the FS worker with the specified backend.
+   * The worker dynamically loads the appropriate backend module.
+   * 
+   * @param {string} [backendType='opfs'] - Backend type: 'opfs', 'webdav', etc.
+   * @param {Object} [backendConfig={}] - Backend-specific configuration
    * @returns {Promise<FsAdapter>}
    */
-  static async start() {
+  static async start(backendType = 'opfs', backendConfig = {}) {
     // Check for SharedArrayBuffer support
     if (typeof SharedArrayBuffer === 'undefined') {
       throw new Error('SharedArrayBuffer not available. Ensure COOP/COEP headers are set.')
@@ -52,8 +60,8 @@ export class FsAdapter {
         reject(err)
       }
 
-      // Send init message with SAB only (worker gets OPFS root internally)
-      worker.postMessage(['init', sab])
+      // Send init message with SAB, backend type, and backend config
+      worker.postMessage(['init', sab, backendType, backendConfig])
     })
 
     return new FsAdapter(messenger)
