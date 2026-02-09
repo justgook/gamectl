@@ -14,6 +14,8 @@ import { ViewFiles } from "../view-files.js"
  * - data-output: Output atlas path
  */
 export class ViewSpritePacker extends ViewCanvasBase {
+  static get viewMeta() { return { displayName: 'Packer', category: 'Sprites' } }
+
   static get observedAttributes() {
     return ['data-sprites', 'data-output']
   }
@@ -738,4 +740,4 @@ export class ViewSpritePacker extends ViewCanvasBase {
   }
 }
 
-customElements.define('view-sprite-packer', ViewSpritePacker)
+export default ViewSpritePacker

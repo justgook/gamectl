@@ -15,6 +15,8 @@ const DEFAULT_TILE_HEIGHT = 16
 function noop() { }
 
 export class ViewTilemap extends ViewCanvasBase {
+  static get viewMeta() { return { displayName: 'Tilemap', category: 'Canvas' } }
+
   static get observedAttributes() {
     return ['data-key'];
   }
@@ -258,5 +260,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.lastPaintedTile = null
   }
 }
+
+export default ViewTilemap
 
 

@@ -19,6 +19,7 @@
     { "version": 16, "name": "pipeline_storage", "file": "016_pipeline_storage.sql" },
     { "version": 17, "name": "example_pipelines", "file": "017_example_pipelines.sql" },
     { "version": 18, "name": "settings", "file": "018_settings.sql" },
-    { "version": 19, "name": "plugins", "file": "019_plugins.sql" }
+    { "version": 19, "name": "plugins", "file": "019_plugins.sql" },
+    { "version": 20, "name": "views", "file": "020_views.sql" }
   ]
 }

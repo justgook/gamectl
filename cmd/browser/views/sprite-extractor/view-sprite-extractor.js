@@ -14,6 +14,8 @@ import { ViewFiles } from "../view-files.js"
  * - data-output-dir: Output directory for extracted sprites
  */
 export class ViewSpriteExtractor extends ViewCanvasBase {
+  static get viewMeta() { return { displayName: 'Extractor', category: 'Sprites' } }
+
   static get observedAttributes() {
     return ['data-source', 'data-output-dir']
   }
@@ -1132,4 +1134,4 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
   }
 }
 
-customElements.define('view-sprite-extractor', ViewSpriteExtractor)
+export default ViewSpriteExtractor

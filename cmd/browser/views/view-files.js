@@ -28,6 +28,8 @@ import './files/handlers/qoi-handler.js'
  * - Pluggable file type handlers for preview/edit
  */
 export class ViewFiles extends HTMLElement {
+  static get viewMeta() { return { displayName: 'File Browser', category: 'Utilities' } }
+
   static observedAttributes = ['data-root', 'data-show-hidden', 'data-mode', 'data-filter', 'data-select-folders', 'data-multi-select', 'data-default-name']
 
   constructor() {
@@ -2156,4 +2158,4 @@ export class ViewFiles extends HTMLElement {
   }
 }
 
-customElements.define('view-files', ViewFiles)
+export default ViewFiles

@@ -2,6 +2,8 @@ import { bus } from "../systems/event-bus.js"
 import { toast } from "../systems/toast.js"
 
 export class ViewPipeline extends HTMLElement {
+  static get viewMeta() { return { displayName: 'Pipeline', category: 'Utilities' } }
+
   constructor() {
     super()
     this.DE = new TextDecoder()
@@ -333,3 +335,5 @@ export class ViewPipeline extends HTMLElement {
     }
   }
 }
+
+export default ViewPipeline

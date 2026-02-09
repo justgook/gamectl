@@ -401,40 +401,7 @@
         <div class="panel-header">
 
           <select name="view" data-action="select-view" class="view-selector">
-            <optgroup label="Canvas">
-              <option value="view-nodegraph">Node Graph</option>
-              <option value="view-tree">Tree View</option>
-              <option value="view-tilemap">Tilemap</option>
-              <option value="view-skeleton">Skeleton</option>
-              <option value="view-timeline">Timeline</option>
-            </optgroup>
-            <optgroup label="OPR">
-              <option value="view-opr-unit-builder">Unit Builder</option>
-            </optgroup>
-            <optgroup label="Data">
-              <option value="view-sql-tables">Tables</option>
-              <option value="view-sql-table" data-config="items">Items Table</option>
-              <option value="view-sql-table" data-config="biomes">Biomes Table</option>
-            </optgroup>
-            <optgroup label="Utilities">
-              <option value="view-console">Console</option>
-              <option value="view-sql-console">SQL Console</option>
-              <option value="view-files">File Browser</option>
-              <option value="view-pipeline">Pipeline</option>
-            </optgroup>
-            <optgroup label="Sprites">
-              <option value="view-sprite-extractor">Extractor</option>
-              <option value="view-sprite-packer">Packer</option>
-            </optgroup>
-            <optgroup label="Tiles">
-              <option value="view-tile-extractor">Tile Extractor</option>
-            </optgroup>
-            <optgroup label="Animation">
-              <option value="view-animation-editor">Animation Editor</option>
-            </optgroup>
-            <optgroup label="System">
-              <option value="view-settings">Settings</option>
-            </optgroup>
+            <!-- Populated dynamically from view registry by chrome.js -->
           </select>
           <div class="panel-header-controls">
             <slot name="header-controls"></slot>

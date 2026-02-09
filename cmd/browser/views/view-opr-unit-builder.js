@@ -94,6 +94,8 @@ const CUSTOM_INPUT_STYLES = `
 `
 
 export class ViewOPRUnitBuilder extends HTMLElement {
+  static get viewMeta() { return { displayName: 'Unit Builder', category: 'OPR' } }
+
   constructor() {
     super()
     this.state = {
@@ -1425,3 +1427,5 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     })
   }
 }
+
+export default ViewOPRUnitBuilder

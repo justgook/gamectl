@@ -14,6 +14,8 @@ import { ViewFiles } from "../view-files.js"
  * - data-output-dir: Output directory for tiles and tilemap
  */
 export class ViewTileExtractor extends ViewCanvasBase {
+  static get viewMeta() { return { displayName: 'Tile Extractor', category: 'Tiles' } }
+
   static get observedAttributes() {
     return ['data-source', 'data-output-dir']
   }
@@ -896,4 +898,4 @@ export class ViewTileExtractor extends ViewCanvasBase {
   }
 }
 
-customElements.define('view-tile-extractor', ViewTileExtractor)
+export default ViewTileExtractor

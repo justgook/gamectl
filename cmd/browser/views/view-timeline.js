@@ -414,6 +414,8 @@ customElements.define('timeline-ruler', TimelineRuler)
 function noop() { }
 
 export class ViewTimeline extends HTMLElement {
+  static get viewMeta() { return { displayName: 'Timeline', category: 'Canvas' } }
+
   // Forward these attributes to the internal timeline-ruler
   static RULER_ATTRIBUTES = ['min-value', 'max-value', 'pixels-per-second', 'snap-levels', 'scroll-inverted']
 
@@ -1578,4 +1580,4 @@ export class ViewTimeline extends HTMLElement {
   }
 }
 
-customElements.define('view-timeline', ViewTimeline)
+export default ViewTimeline

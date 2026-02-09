@@ -19,6 +19,8 @@ import { bus } from "../systems/event-bus.js"
  * - Reference columns with lookups
  */
 export class ViewSqlTable extends HTMLElement {
+  static get viewMeta() { return { displayName: 'SQL Table', category: 'Data' } }
+
   static observedAttributes = ['data-query', 'data-count-query', 'data-table', 'data-page-size', 'data-column-types']
 
   constructor() {
@@ -774,3 +776,5 @@ export class ViewSqlTable extends HTMLElement {
     }
   }
 }
+
+export default ViewSqlTable
