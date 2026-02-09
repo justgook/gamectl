@@ -3321,3 +3321,135 @@ settings-tab-general {
   border-radius: var(--border-radius-sm, 4px);
   border: 1px dashed var(--color-semantic-border-default, #3a3a5c);
 }
+
+/* Restart banner */
+.settings-plugins-restart-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(247, 164, 29, 0.1);
+  border: 1px solid rgba(247, 164, 29, 0.3);
+  border-radius: var(--border-radius-sm, 4px);
+  color: #F7A41D;
+  font-size: var(--font-size-sm, 13px);
+  font-weight: 500;
+}
+
+.settings-plugins-restart-banner .button-primary {
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+/* Add plugin form */
+.settings-plugins-add-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings-plugins-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  border-radius: var(--border-radius-sm, 4px);
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  color: var(--color-semantic-text-primary, #ffffff);
+  font-family: 'Roboto Mono', monospace;
+  font-size: var(--font-size-sm, 13px);
+  outline: none;
+}
+
+.settings-plugins-input:focus {
+  border-color: var(--color-semantic-text-accent, #00e5ff);
+}
+
+.settings-plugins-input::placeholder {
+  color: var(--color-semantic-text-tertiary, #666680);
+}
+
+/* URL cell - truncate long URLs */
+.settings-plugins-url {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 11px;
+  color: var(--color-semantic-text-secondary, #b3b3cc);
+}
+
+/* Type badges */
+.settings-plugins-badge-base {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8B5CF6;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.settings-plugins-badge-builtin {
+  background: rgba(0, 173, 216, 0.15);
+  color: #00ADD8;
+  border: 1px solid rgba(0, 173, 216, 0.3);
+}
+
+.settings-plugins-badge-user {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* FS note row */
+.settings-plugins-fs-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: var(--font-size-sm, 13px);
+  color: var(--color-semantic-text-secondary, #b3b3cc);
+  border-bottom: 1px solid rgba(58, 58, 92, 0.3);
+}
+
+/* Action buttons */
+.settings-plugins-actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.settings-plugins-toggle {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--color-semantic-border-default, #3a3a5c);
+  background: var(--color-semantic-bg-tertiary, #0f0f1a);
+  color: var(--color-semantic-text-primary, #ffffff);
+}
+
+.settings-plugins-toggle:hover {
+  border-color: var(--color-semantic-text-accent, #00e5ff);
+  color: var(--color-semantic-text-accent, #00e5ff);
+}
+
+.settings-plugins-delete {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.settings-plugins-delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+}
+
+.settings-plugins-lock {
+  font-size: 11px;
+  color: var(--color-semantic-text-tertiary, #666680);
+  font-style: italic;
+}
