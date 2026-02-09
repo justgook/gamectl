@@ -72,19 +72,59 @@ customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
 // customElements.define('view-nodegraph', ViewNodeGraph) //already registered in file
 customElements.define('view-settings', ViewSettings)
 
-/// THE PLUGIN MANAGER TESTING!!!
+// === Two-phase plugin boot ===
+
+// Phase 1: Initialize FS (host functions) + SQL (base WASM plugin)
 window.pluginManager = await PluginManagerProxy.create()
 
 // Initialize database using migration system
-// - Loads from /database.bin if exists
+// - Loads from /database.sqlite if exists in FS
 // - Otherwise runs all migrations from /data/migrations/
 // - Listens for file:save event to persist database
 import { migrationManager } from "./systems/migration.js"
 await migrationManager.init()
 window.migrationManager = migrationManager // Expose for debugging
 
+// Phase 2: Query plugin registry from DB, load enabled plugins via FS
+const decoder = new TextDecoder()
+try {
+  const result = await window.pluginManager.call('sql', 'query',
+    "SELECT name, url FROM plugins WHERE enabled = 1 AND type != 'base' ORDER BY rowid"
+  )
+  const csv = decoder.decode(result.output).trim()
+  const lines = csv.split('\n')
+
+  // Parse CSV (first line is header: name,url)
+  const plugins = []
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+    // CSV: name,url - split on first comma only (url may not contain commas but be safe)
+    const commaIdx = line.indexOf(',')
+    if (commaIdx === -1) continue
+    const name = line.slice(0, commaIdx)
+    const url = line.slice(commaIdx + 1)
+    plugins.push({ name, url })
+  }
+
+  console.log(`[App] Phase 2: loading ${plugins.length} plugins from registry`)
+  const loadResult = await window.pluginManager.loadPlugins(plugins)
+
+  if (loadResult.failed?.length > 0) {
+    console.warn('[App] Some plugins failed to load:', loadResult.failed)
+    for (const f of loadResult.failed) {
+      toast.error(`Plugin '${f.name}' failed: ${f.error}`)
+    }
+  }
+
+  console.log(`[App] Phase 2 complete: ${loadResult.loaded?.length || 0} plugins loaded`)
+} catch (error) {
+  console.error('[App] Phase 2 plugin loading failed:', error)
+  toast.error('Failed to load plugins from registry')
+}
+
 // Emit ready event so cache manager can process queued requests
-// This must happen AFTER all database migrations to avoid querying non-existent tables
+// This must happen AFTER all plugins are loaded to avoid calling non-existent plugins
 eventBus.emit('plugin-manager:ready')
 
 // Initialize keybinding manager

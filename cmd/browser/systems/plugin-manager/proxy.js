@@ -100,6 +100,17 @@ export class PluginManagerProxy {
   }
 
   /**
+   * Phase 2: Load additional plugins from DB registry
+   * Called after migrations have run and the plugins table is available.
+   * 
+   * @param {Array<{name: string, url: string}>} plugins - Plugin entries from DB
+   * @returns {Promise<{loaded: string[], failed: Array<{name: string, error: string}>}>}
+   */
+  async loadPlugins(plugins) {
+    return this.sendMessage('loadPlugins', { plugins })
+  }
+
+  /**
    * Call a plugin function directly (without PDK wrapper)
    * @param {string} moduleName
    * @param {string} functionName
@@ -148,6 +159,15 @@ export class PluginManagerProxy {
       const pending = this.pending.get(id)
       if (pending) {
         pending.resolve()
+        this.pending.delete(id)
+      }
+      return
+    }
+
+    if (type === 'loadPlugins-success') {
+      const pending = this.pending.get(id)
+      if (pending) {
+        pending.resolve(result)
         this.pending.delete(id)
       }
       return

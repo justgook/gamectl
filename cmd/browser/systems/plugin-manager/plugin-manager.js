@@ -649,6 +649,26 @@ class PluginManager {
   }
 
   /**
+   * Load additional WASM modules after initial creation
+   * Used by the two-phase boot: phase 2 loads plugins from the DB registry
+   * 
+   * @param {Array<{name: string, url?: string, data?: ArrayBuffer}>} modules
+   */
+  async loadAdditionalModules(modules) {
+    for (const module of modules) {
+      await this.loadWasmModule(module);
+    }
+  }
+
+  /**
+   * Get list of currently loaded module names
+   * @returns {string[]}
+   */
+  getLoadedModules() {
+    return [...this.wasmModules.keys()];
+  }
+
+  /**
    * Close and cleanup
    */
   close() {

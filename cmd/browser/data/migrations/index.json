@@ -18,6 +18,7 @@
     { "version": 15, "name": "opr_gf_alien_hives", "file": "015_opr_gf_alien_hives.sql" },
     { "version": 16, "name": "pipeline_storage", "file": "016_pipeline_storage.sql" },
     { "version": 17, "name": "example_pipelines", "file": "017_example_pipelines.sql" },
-    { "version": 18, "name": "settings", "file": "018_settings.sql" }
+    { "version": 18, "name": "settings", "file": "018_settings.sql" },
+    { "version": 19, "name": "plugins", "file": "019_plugins.sql" }
   ]
 }
