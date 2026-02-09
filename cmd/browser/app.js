@@ -31,6 +31,9 @@ import "./views/tile-extractor/view-tile-extractor.js" // Self-registers
 // Animation editor
 import "./views/view-animation-editor.js" // Self-registers
 
+// Settings
+import { ViewSettings } from "./views/view-settings.js"
+
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
 import { PluginManagerProxy } from "./systems/plugin-manager/proxy.js"
@@ -67,6 +70,7 @@ customElements.define('view-pipeline', ViewPipeline)
 customElements.define('view-opr-unit-builder', ViewOPRUnitBuilder)
 // customElements.define('view-skeleton', ViewSkeleton) //already registered in file
 // customElements.define('view-nodegraph', ViewNodeGraph) //already registered in file
+customElements.define('view-settings', ViewSettings)
 
 /// THE PLUGIN MANAGER TESTING!!!
 window.pluginManager = await PluginManagerProxy.create()
@@ -87,6 +91,24 @@ eventBus.emit('plugin-manager:ready')
 import { keybindingManager } from "./systems/keybinding-manager.js"
 await keybindingManager.init()
 window.keybindingManager = keybindingManager // Expose for debugging
+
+// Wire app:settings keybinding (Ctrl+,) to open settings view
+eventBus.on('app:settings', () => {
+  // Find the focused chrome panel, or fall back to the first one
+  const chromes = document.querySelectorAll('view-chrome')
+  let target = chromes[0]
+  for (const chrome of chromes) {
+    const slot = chrome.shadowRoot?.querySelector('slot:not([name])')
+    const assigned = slot?.assignedElements?.()[0]
+    if (assigned && document.activeElement && chrome.contains(document.activeElement)) {
+      target = chrome
+      break
+    }
+  }
+  if (target) {
+    target.switchView('view-settings')
+  }
+})
 
 toast.success("App is ready")
 

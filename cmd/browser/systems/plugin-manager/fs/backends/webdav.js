@@ -8,10 +8,10 @@
  *   writeFile → PUT (auto-creates parent dirs via MKCOL)
  *   remove    → DELETE
  *   exists    → HEAD (200 = true, 404 = false)
- *   readdir   → PROPFIND depth 1 (parse multistatus XML)
+ *   readdir   → PROPFIND (client-side depth-1 filtering of multistatus XML)
  *   mkdir     → MKCOL
  *   rmdir     → DELETE
- *   stat      → PROPFIND depth 0
+ *   stat      → PROPFIND (client-side depth-0 filtering for self-entry)
  *   readHttp  → GET (any URL, passthrough)
  * 
  * Config: { url: 'https://webdav.example.com/files' }
@@ -95,14 +95,57 @@ async function mkdirRecursive(dirPath) {
 }
 
 /**
- * Parse a WebDAV multistatus XML response to extract entries
+ * Extract the path portion from an href, stripping the baseUrl prefix.
+ * Handles both relative paths ("/files/foo/") and full URLs ("https://server/files/foo/").
+ * @param {string} href - The href from a WebDAV response
+ * @returns {string} - Normalized path segments string (no leading/trailing slashes)
+ */
+function extractPath(href) {
+  let path = href
+  // Strip full URL prefix if present (href may be absolute)
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    try { path = new URL(path).pathname } catch { /* use as-is */ }
+  }
+  // Strip the baseUrl path prefix so we get a repo-relative path
+  const baseUrlPath = baseUrl.startsWith('http')
+    ? new URL(baseUrl).pathname.replace(/\/+$/, '')
+    : baseUrl.replace(/\/+$/, '')
+  if (baseUrlPath && path.startsWith(baseUrlPath)) {
+    path = path.slice(baseUrlPath.length)
+  }
+  // Normalize: strip leading/trailing slashes, collapse multiples
+  return path.replace(/^\/+|\/+$/g, '')
+}
+
+/**
+ * Count how many path segments a normalized path has.
+ * "" => 0, "foo" => 1, "foo/bar" => 2
+ * @param {string} normalizedPath
+ * @returns {number}
+ */
+function pathDepth(normalizedPath) {
+  if (!normalizedPath) return 0
+  return normalizedPath.split('/').filter(s => s.length > 0).length
+}
+
+/**
+ * Parse a WebDAV multistatus XML response to extract entries.
+ *
+ * Because some servers (e.g. rclone) ignore the Depth HTTP header,
+ * depth filtering is done client-side:
+ *   depth 0  — return only the self-entry (the resource at basePath)
+ *   depth 1  — return only direct children (exclude self-entry)
+ *   Infinity — return all descendants (exclude self-entry)
+ *
  * @param {string} xml - The XML response body
- * @param {string} basePath - The requested directory path (to filter self-entry)
+ * @param {string} basePath - The requested path
+ * @param {number} [depth=Infinity] - 0, 1, or Infinity
  * @returns {Array<{name: string, isDirectory: boolean, size: number}>}
  */
-function parseMultistatus(xml, basePath) {
+function parseMultistatus(xml, basePath, depth = Infinity) {
   const entries = []
-  const normalizedBase = ensureTrailingSlash(basePath)
+  const baseNorm = extractPath(basePath)
+  const baseDepth = pathDepth(baseNorm)
 
   // Match each <D:response> or <d:response> block
   const responseRegex = /<(?:D|d):response>([\s\S]*?)<\/(?:D|d):response>/g
@@ -116,18 +159,28 @@ function parseMultistatus(xml, basePath) {
     if (!hrefMatch) continue
 
     const href = decodeURIComponent(hrefMatch[1])
+    const entryNorm = extractPath(href)
+    const entryDepth = pathDepth(entryNorm)
+    const isSelf = entryNorm === baseNorm
 
-    // Skip the directory itself (self-entry)
-    // The self-entry's href ends with the basePath or is exactly the basePath
-    if (href === normalizedBase || href === normalizedBase.replace(/\/$/, '')) continue
-
-    // Also check against the full URL form
-    const fullBase = buildUrl(normalizedBase)
-    const fullBaseNoSlash = fullBase.replace(/\/$/, '')
-    if (href === fullBase || href === fullBaseNoSlash) continue
+    // Depth filtering
+    if (depth === 0) {
+      // Only want the self-entry
+      if (!isSelf) continue
+    } else if (depth === 1) {
+      // Only want direct children (exactly 1 level deeper, skip self)
+      if (isSelf) continue
+      if (entryDepth !== baseDepth + 1) continue
+      // Verify it's actually under basePath, not a sibling with same depth
+      if (baseNorm && !entryNorm.startsWith(baseNorm + '/')) continue
+    } else {
+      // Infinity — skip self, keep all descendants
+      if (isSelf) continue
+    }
 
     // Determine if it's a directory (has <D:collection/> in resourcetype)
-    const isDirectory = /<(?:D|d):collection\s*\/?>/.test(block)
+    // The element may carry attributes (e.g. xmlns:D="DAV:"), so match any chars before />|>
+    const isDirectory = /<(?:D|d):collection[\s\S]*?\/?>/.test(block)
 
     // Extract name from href — last path segment
     const cleanHref = href.replace(/\/+$/, '')
@@ -213,7 +266,7 @@ export const handlers = {
     const response = await fetch(url, {
       method: 'PROPFIND',
       headers: {
-        'Depth': '1',
+        'Depth': '1', //TODO: Enable when rclone serve webdav will allow this header
         'Content-Type': 'application/xml; charset=utf-8'
       },
       body: '<?xml version="1.0" encoding="utf-8"?>' +
@@ -227,7 +280,7 @@ export const handlers = {
     }
 
     const xml = await response.text()
-    const entries = parseMultistatus(xml, dirPath)
+    const entries = parseMultistatus(xml, dirPath, 1)
     return { ok: true, data: entries.map(e => e.name) }
   },
 
@@ -254,7 +307,7 @@ export const handlers = {
     const response = await fetch(url, {
       method: 'PROPFIND',
       headers: {
-        'Depth': '0',
+        'Depth': '0', //TODO: Enable when rclone serve webdav will allow this header
         'Content-Type': 'application/xml; charset=utf-8'
       },
       body: '<?xml version="1.0" encoding="utf-8"?>' +
@@ -269,9 +322,26 @@ export const handlers = {
 
     const xml = await response.text()
 
-    // Check if it's a collection (directory)
-    const isDirectory = /<(?:D|d):collection\s*\/?>/.test(xml)
-    const sizeMatch = xml.match(/<(?:D|d):getcontentlength>(\d+)<\/(?:D|d):getcontentlength>/)
+    // Use depth-0 parsing to extract only the self-entry
+    const entries = parseMultistatus(xml, path, 0)
+
+    if (entries.length > 0) {
+      const self = entries[0]
+      return {
+        ok: true,
+        data: {
+          type: self.isDirectory ? 'directory' : 'file',
+          size: self.size
+        }
+      }
+    }
+
+    // Fallback: if self-entry wasn't found (e.g. server omits href for root),
+    // scan the first <D:response> block directly
+    const firstBlock = xml.match(/<(?:D|d):response>([\s\S]*?)<\/(?:D|d):response>/)
+    const block = firstBlock ? firstBlock[1] : xml
+    const isDirectory = /<(?:D|d):collection[\s\S]*?\/?>/.test(block)
+    const sizeMatch = block.match(/<(?:D|d):getcontentlength>(\d+)<\/(?:D|d):getcontentlength>/)
     const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0
 
     return {
