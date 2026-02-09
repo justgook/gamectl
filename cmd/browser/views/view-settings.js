@@ -13,6 +13,8 @@ import './settings/tab-plugins.js'
  *   - Plugins: Read-only listing of built-in plugins and views
  */
 export class ViewSettings extends HTMLElement {
+  static get viewMeta() { return { displayName: 'Settings', category: 'System' } }
+
   constructor() {
     super()
     this.activeTab = 'general'
@@ -87,3 +89,5 @@ export class ViewSettings extends HTMLElement {
     this.render()
   }
 }
+
+export default ViewSettings

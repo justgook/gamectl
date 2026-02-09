@@ -33,6 +33,8 @@ const TREE_COLORS = {
  * Supports configurable store key via data-key attribute.
  */
 export class ViewTree extends ViewCanvasBase {
+  static get viewMeta() { return { displayName: 'Tree View', category: 'Canvas' } }
+
   static get observedAttributes() {
     return ['data-key']
   }
@@ -517,3 +519,5 @@ export class ViewTree extends ViewCanvasBase {
     return false;
   }
 }
+
+export default ViewTree

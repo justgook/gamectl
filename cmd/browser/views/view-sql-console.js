@@ -1,6 +1,8 @@
 import { bus } from "../systems/event-bus.js"
 
 export class ViewSqlConsole extends HTMLElement {
+  static get viewMeta() { return { displayName: 'SQL Console', category: 'Utilities' } }
+
   constructor() {
     super()
     this.history = []
@@ -229,3 +231,5 @@ export class ViewSqlConsole extends HTMLElement {
     this.appendOutput('info', 'Console cleared.')
   }
 }
+
+export default ViewSqlConsole

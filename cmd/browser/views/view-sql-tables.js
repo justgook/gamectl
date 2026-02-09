@@ -12,6 +12,8 @@ import { bus } from "../systems/event-bus.js"
  * All view-sql-table components will listen for this event and update accordingly.
  */
 export class ViewSqlTables extends HTMLElement {
+  static get viewMeta() { return { displayName: 'Tables', category: 'Data' } }
+
   constructor() {
     super()
     this.tables = []
@@ -330,3 +332,5 @@ export class ViewSqlTables extends HTMLElement {
     }
   }
 }
+
+export default ViewSqlTables

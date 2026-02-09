@@ -22,6 +22,8 @@ import { parseCSVLines } from '../util/csv.js'
  * - data-start-frame: Starting frame tileId to load (optional)
  */
 export class ViewAnimationEditor extends HTMLElement {
+  static get viewMeta() { return { displayName: 'Animation Editor', category: 'Animation' } }
+
   static get observedAttributes() {
     return ['data-spritesheet', 'data-start-frame']
   }
@@ -620,4 +622,4 @@ export class ViewAnimationEditor extends HTMLElement {
   }
 }
 
-customElements.define('view-animation-editor', ViewAnimationEditor)
+export default ViewAnimationEditor

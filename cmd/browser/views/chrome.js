@@ -1,4 +1,6 @@
 import { panelJoin } from "../systems/split-layout-join.js"
+import { bus } from "../systems/event-bus.js"
+import { viewLoader } from "../systems/view-loader.js"
 
 export class ViewChrome extends HTMLElement {
   static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel'] }
@@ -74,38 +76,12 @@ export class ViewChrome extends HTMLElement {
   /**
    * Switch to a different view type
    * @param {string} viewTag - Tag name of new view (e.g., 'view-nodegraph')
-   * @param {string} [config] - Optional config name for views that need it (e.g., 'items' for view-sql-table)
    */
-  switchView(viewTag, config) {
+  switchView(viewTag) {
     const currentView = this.shadowRoot.querySelector('slot:not([name])').assignedElements()[0] || null
 
     // Create new view
     const newView = document.createElement(viewTag)
-
-    // Apply config for view-sql-table
-    if (viewTag === 'view-sql-table' && config) {
-      const configs = {
-        items: {
-          'data-query': 'SELECT * FROM items LIMIT :limit OFFSET :offset',
-          'data-count-query': 'SELECT COUNT(*) FROM items',
-          'data-table': 'items',
-          'data-page-size': '20',
-          'data-column-types': JSON.stringify({ icon: 'image-base64', stackable: 'boolean' })
-        },
-        biomes: {
-          'data-query': 'SELECT * FROM biomes LIMIT :limit OFFSET :offset',
-          'data-count-query': 'SELECT COUNT(*) FROM biomes',
-          'data-table': 'biomes',
-          'data-page-size': '20'
-        }
-      }
-      const cfg = configs[config]
-      if (cfg) {
-        Object.entries(cfg).forEach(([attr, value]) => {
-          newView.setAttribute(attr, value)
-        })
-      }
-    }
 
     // Replace in DOM
     if (currentView) {
@@ -176,18 +152,68 @@ export class ViewChrome extends HTMLElement {
 
 
   _setupViewSelector(content) {
-    const currentView = this.shadowRoot.querySelector('slot:not([name]').assignedElements()[0] || null
     const select = content.querySelector('[data-action="select-view"]');
 
-    if (currentView) {
-      select.value = currentView.tagName.toLowerCase();
+    // Populate from view registry if ready, otherwise wait for the event
+    if (viewLoader.registry.size > 0) {
+      this._populateViewSelector(select)
     }
 
+    bus.on('views:registry-ready', () => {
+      this._populateViewSelector(select)
+    })
+
     select.addEventListener("change", (event) => {
-      const selectedOption = event.target.selectedOptions[0]
-      const config = selectedOption?.dataset?.config
-      this.switchView(event.target.value, config);
+      this.switchView(event.target.value);
     });
+  }
+
+  /**
+   * Populate the view selector dropdown from the ViewLoader registry
+   * Groups views by category into optgroup elements
+   */
+  _populateViewSelector(select) {
+    const currentView = this.shadowRoot.querySelector('slot:not([name]').assignedElements()[0] || null
+    const currentTag = currentView ? currentView.tagName.toLowerCase() : null
+
+    // Clear existing options
+    select.innerHTML = ''
+
+    // Get grouped views from the registry
+    const groups = viewLoader.getGroupedViews()
+
+    // Define a preferred category order
+    const categoryOrder = ['Canvas', 'OPR', 'Data', 'Utilities', 'Sprites', 'Tiles', 'Animation', 'System']
+
+    // Sort groups: known categories first in order, then any others alphabetically
+    const sortedCategories = [...groups.keys()].sort((a, b) => {
+      const ia = categoryOrder.indexOf(a)
+      const ib = categoryOrder.indexOf(b)
+      if (ia !== -1 && ib !== -1) return ia - ib
+      if (ia !== -1) return -1
+      if (ib !== -1) return 1
+      return a.localeCompare(b)
+    })
+
+    for (const category of sortedCategories) {
+      const views = groups.get(category)
+      const optgroup = document.createElement('optgroup')
+      optgroup.label = category
+
+      for (const view of views) {
+        const option = document.createElement('option')
+        option.value = view.tag
+        option.textContent = view.displayName
+        optgroup.appendChild(option)
+      }
+
+      select.appendChild(optgroup)
+    }
+
+    // Restore current selection
+    if (currentTag) {
+      select.value = currentTag
+    }
   }
 
   // --- Drag & Drop for Panel Merging ---

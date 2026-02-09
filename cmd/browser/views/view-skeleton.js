@@ -51,6 +51,8 @@ import {
 function noop() { }
 
 export class ViewSkeleton extends ViewCanvasBase {
+  static get viewMeta() { return { displayName: 'Skeleton', category: 'Canvas' } }
+
   static get observedAttributes() {
     return ['data-key']
   }
@@ -906,4 +908,4 @@ export class ViewSkeleton extends ViewCanvasBase {
   }
 }
 
-customElements.define('view-skeleton', ViewSkeleton)
+export default ViewSkeleton

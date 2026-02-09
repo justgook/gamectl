@@ -1,6 +1,8 @@
 import { bus } from "../systems/event-bus.js"
 
 export class ViewConsole extends HTMLElement {
+  static get viewMeta() { return { displayName: 'Console', category: 'Utilities' } }
+
   constructor() {
     super()
     this.logOutput = null
@@ -62,3 +64,5 @@ export class ViewConsole extends HTMLElement {
     }
   }
 }
+
+export default ViewConsole

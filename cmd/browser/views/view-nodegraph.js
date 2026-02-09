@@ -58,6 +58,8 @@ const COLORS = {
  * - Pipeline execution
  */
 export class ViewNodeGraph extends ViewCanvasBase {
+  static get viewMeta() { return { displayName: 'Node Graph', category: 'Canvas' } }
+
   constructor() {
     super()
 
@@ -2933,4 +2935,4 @@ export class ViewNodeGraph extends ViewCanvasBase {
   }
 }
 
-customElements.define('view-nodegraph', ViewNodeGraph)
+export default ViewNodeGraph
