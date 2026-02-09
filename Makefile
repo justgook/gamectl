@@ -139,8 +139,7 @@ web: $(DESIGN_TOKEN_FILES) $(PLUGIN_TARGETS)
 	$(Q)mkdir -p $(BUILD_DIR)/web/tokens $(BUILD_DIR)/web/plugins
 	$(Q)echo "  Copying browser files..."
 	$(Q)pwd
-	$(Q)cp cmd/browser/*.html cmd/browser/*.css cmd/browser/*.js $(BUILD_DIR)/web/
-	$(Q)cp -r cmd/browser/data cmd/browser/systems cmd/browser/util cmd/browser/views $(BUILD_DIR)/web/
+	$(Q)cp -r cmd/browser/. $(BUILD_DIR)/web/
 	$(Q)echo "  Copying design tokens..."
 	$(Q)cp -r $(BUILD_DIR)/tokens/* $(BUILD_DIR)/web/tokens/
 	$(Q)echo "  Copying plugins..."
