@@ -75,16 +75,24 @@ class SettingsTabPlugins extends HTMLElement {
   parseViewsCsv(csv) {
     const lines = csv.trim().split('\n')
     const result = []
+    // CSV columns: name,url,enabled,type
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim()
       if (!line) continue
-      const parts = line.split(',')
-      if (parts.length < 4) continue
+      // Split from the right: type is last, enabled is second-to-last
+      // URL is between first comma and second-to-last comma
+      const lastComma = line.lastIndexOf(',')
+      if (lastComma === -1) continue
+      const secondLastComma = line.lastIndexOf(',', lastComma - 1)
+      if (secondLastComma === -1) continue
+      const firstComma = line.indexOf(',')
+      if (firstComma === -1) continue
+
       result.push({
-        name: parts[0],
-        url: parts.slice(1, parts.length - 2).join(','), // url may contain commas in theory
-        enabled: parts[parts.length - 2] === '1',
-        type: parts[parts.length - 1]
+        name: line.slice(0, firstComma),
+        url: line.slice(firstComma + 1, secondLastComma),
+        enabled: line.slice(secondLastComma + 1, lastComma) === '1',
+        type: line.slice(lastComma + 1)
       })
     }
     return result
