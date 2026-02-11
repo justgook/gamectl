@@ -201,7 +201,7 @@ export default class ViewStbEditor extends HTMLElement {
         config: {
           mapWidth: 16,
           mapHeight: 16,
-          numLayers: 2,
+          numLayers: 20,
           displayWidth: w,
           displayHeight: h
         }
@@ -486,10 +486,10 @@ export default class ViewStbEditor extends HTMLElement {
         case 'i': action = 4; break  // eyedropper
         case 'l': action = 5; break  // link tool
         case 'g': action = 6; break  // toggle grid
-        case 'ArrowLeft':  action = 13; break // scroll left
+        case 'ArrowLeft': action = 13; break // scroll left
         case 'ArrowRight': action = 14; break // scroll right
-        case 'ArrowUp':    action = 15; break // scroll up
-        case 'ArrowDown':  action = 16; break // scroll down
+        case 'ArrowUp': action = 15; break // scroll up
+        case 'ArrowDown': action = 16; break // scroll down
       }
     }
 

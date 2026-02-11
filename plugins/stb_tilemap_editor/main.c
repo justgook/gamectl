@@ -16,8 +16,8 @@
  * ==========================================================================
  */
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 /* ==========================================================================
  * 1. FREESTANDING LIBC STUBS
@@ -44,9 +44,7 @@ void *malloc(size_t size) {
   return ptr;
 }
 
-void free(void *ptr) {
-  (void)ptr; /* no-op: stb never frees */
-}
+void free(void *ptr) { (void)ptr; /* no-op: stb never frees */ }
 
 /* ---- String utilities ---- */
 
@@ -246,9 +244,10 @@ static int sprintf(char *buf, const char *fmt, ...) {
 #define CMD_END 0
 
 /* Command buffer: array of uint32_t values.
- * CMD_RECT: [CMD_RECT, x0, y0, x1, y1, color]         = 6 words
- * CMD_TILE: [CMD_TILE, x0, y0, tile_id, highlight]     = 5 words
- * CMD_END:  [CMD_END]                                   = 1 word (sentinel)
+ * CMD_RECT: [CMD_RECT, x0|y0<<16, x1|y1<<16, color]   = 4 words (packed coords)
+ * CMD_TILE: [CMD_TILE, x0|y0<<16, tile_id, highlight]  = 4 words (packed
+ * coords) CMD_END:  [CMD_END]                                   = 1 word
+ * (sentinel)
  */
 
 #define CMD_BUF_WORDS (64 * 1024) /* 256 KB per buffer */
@@ -283,18 +282,39 @@ static void cmd_push_rect(int x0, int y0, int x1, int y1, unsigned int color) {
   *count = i + 4;
 }
 
+/* Tile ID fixup table: maps palette slot -> real tile ID.
+ * Populated after stb_tilemap_editor.h is included and tiles are defined.
+ * Used to convert imgui hit-test IDs to real tile IDs in DRAW_TILE. */
+#define MAX_TILE_SLOTS 256
+static uint16_t tile_slot_to_id[MAX_TILE_SLOTS];
+static int tile_slot_count = 0;
+
 static void cmd_push_tile(int x0, int y0, unsigned short id, int highlight,
                           float *data) {
   uint32_t *count = cmd_current_count();
   uint32_t *buf = cmd_current_buf();
   if (*count + 5 >= CMD_BUF_WORDS)
     return; /* overflow protection */
+
+  /* stb_tilemap_editor passes imgui hit-test IDs for palette tiles instead
+   * of the real tile ID. The palette ID has the form: STBTE__palette + (slot <<
+   * 7) where STBTE__palette = 7. We detect this and convert to the real tile
+   * ID. */
+  uint32_t real_id = (uint32_t)id;
+  if (data == NULL && (id & 0x7F) == 7) {
+    /* Palette tile: decode slot and look up real tile ID */
+    int slot = (id - 7) >> 7;
+    if (slot >= 0 && slot < tile_slot_count) {
+      real_id = (uint32_t)tile_slot_to_id[slot];
+    }
+  }
+
   uint32_t i = *count;
   buf[i + 0] = CMD_TILE;
   buf[i + 1] = (uint32_t)(x0 & 0xFFFF) | ((uint32_t)(y0 & 0xFFFF) << 16);
-  buf[i + 2] = (uint32_t)id;
+  buf[i + 2] = real_id;
   buf[i + 3] = (uint32_t)(highlight + 1); /* shift: -1->0, 0->1, 1->2 */
-  (void)data; /* TODO phase 2: pass property data */
+  (void)data;                             /* TODO phase 2: pass property data */
   *count = i + 4;
 }
 
@@ -309,8 +329,8 @@ static void cmd_push_tile(int x0, int y0, unsigned short id, int highlight,
 #define EVT_MOUSE_MOVE 1   /* x, y, shifted, scrollkey */
 #define EVT_MOUSE_BUTTON 2 /* x, y, right, down, shifted, scrollkey */
 #define EVT_MOUSE_WHEEL 3  /* x, y, vscroll */
-#define EVT_ACTION 4        /* action_id */
-#define EVT_RESIZE 5        /* x0, y0, x1, y1 */
+#define EVT_ACTION 4       /* action_id */
+#define EVT_RESIZE 5       /* x0, y0, x1, y1 */
 
 #define EVT_BUF_WORDS (4 * 1024) /* 16 KB ring buffer */
 static uint32_t evt_buf[EVT_BUF_WORDS];
@@ -327,8 +347,8 @@ typedef struct {
   volatile uint32_t active_read_buf; /* 0: read A, 1: read B */
   volatile uint32_t cmd_count_a;
   volatile uint32_t cmd_count_b;
-  volatile uint32_t evt_head; /* mirror of evt_head for Atomics */
-  volatile uint32_t evt_tail; /* mirror of evt_tail for Atomics */
+  volatile uint32_t evt_head;      /* mirror of evt_head for Atomics */
+  volatile uint32_t evt_tail;      /* mirror of evt_tail for Atomics */
   volatile uint32_t frame_ready;   /* 1 when a new frame is available */
   volatile uint32_t editor_width;  /* current display width */
   volatile uint32_t editor_height; /* current display height */
@@ -375,7 +395,8 @@ static control_block_t control_block;
 #endif
 
 /* Wire draw callbacks to our command buffer */
-#define STBTE_DRAW_RECT(x0, y0, x1, y1, color) cmd_push_rect(x0, y0, x1, y1, color)
+#define STBTE_DRAW_RECT(x0, y0, x1, y1, color)                                 \
+  cmd_push_rect(x0, y0, x1, y1, color)
 #define STBTE_DRAW_TILE(x0, y0, id, highlight, data)                           \
   cmd_push_tile(x0, y0, id, highlight, data)
 
@@ -416,40 +437,58 @@ static void process_events(void) {
 
     switch (type) {
     case EVT_MOUSE_MOVE: {
-      int x = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int y = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int shifted = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int scrollkey = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
+      int x = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int y = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int shifted = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int scrollkey = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
       stbte_mouse_move(tilemap, x, y, shifted, scrollkey);
       break;
     }
     case EVT_MOUSE_BUTTON: {
-      int x = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int y = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int right = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int down = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int shifted = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int scrollkey = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
+      int x = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int y = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int right = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int down = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int shifted = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int scrollkey = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
       stbte_mouse_button(tilemap, x, y, right, down, shifted, scrollkey);
       break;
     }
     case EVT_MOUSE_WHEEL: {
-      int x = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int y = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int vscroll = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
+      int x = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int y = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int vscroll = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
       stbte_mouse_wheel(tilemap, x, y, vscroll);
       break;
     }
     case EVT_ACTION: {
-      int action = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
+      int action = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
       stbte_action(tilemap, (enum stbte_action)action);
       break;
     }
     case EVT_RESIZE: {
-      int x0 = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int y0 = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int x1 = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
-      int y1 = (int)evt_buf[tail % EVT_BUF_WORDS]; tail++;
+      int x0 = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int y0 = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int x1 = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
+      int y1 = (int)evt_buf[tail % EVT_BUF_WORDS];
+      tail++;
       stbte_set_display(x0, y0, x1, y1);
       control_block.editor_width = (uint32_t)(x1 - x0);
       control_block.editor_height = (uint32_t)(y1 - y0);
@@ -470,28 +509,33 @@ static void process_events(void) {
 /* Initialize the editor with a new tilemap.
  * Call after loading WASM but before frame().
  * Parameters are read from the control block (set by host before calling). */
-__attribute__((export_name("init")))
-uint32_t init(void) {
+__attribute__((export_name("init"))) uint32_t init(void) {
   /* Read configuration from control block, use defaults if 0 */
   uint32_t map_x = control_block.map_width;
   uint32_t map_y = control_block.map_height;
   uint32_t layers = control_block.num_layers;
 
-  if (map_x == 0) map_x = 16;
-  if (map_y == 0) map_y = 16;
-  if (layers == 0) layers = 2;
+  if (map_x == 0)
+    map_x = 16;
+  if (map_y == 0)
+    map_y = 16;
+  if (layers == 0)
+    layers = 2;
 
-  if (map_x > STBTE_MAX_TILEMAP_X) map_x = STBTE_MAX_TILEMAP_X;
-  if (map_y > STBTE_MAX_TILEMAP_Y) map_y = STBTE_MAX_TILEMAP_Y;
-  if (layers > STBTE_MAX_LAYERS) layers = STBTE_MAX_LAYERS;
+  if (map_x > STBTE_MAX_TILEMAP_X)
+    map_x = STBTE_MAX_TILEMAP_X;
+  if (map_y > STBTE_MAX_TILEMAP_Y)
+    map_y = STBTE_MAX_TILEMAP_Y;
+  if (layers > STBTE_MAX_LAYERS)
+    layers = STBTE_MAX_LAYERS;
 
   /* Default tile spacing (16x16 pixels) */
   int spacing_x = 16;
   int spacing_y = 16;
   int max_tiles = 256;
 
-  tilemap = stbte_create_map((int)map_x, (int)map_y, (int)layers,
-                              spacing_x, spacing_y, max_tiles);
+  tilemap = stbte_create_map((int)map_x, (int)map_y, (int)layers, spacing_x,
+                             spacing_y, max_tiles);
   if (tilemap == NULL) {
     return 1; /* allocation failed */
   }
@@ -509,6 +553,12 @@ uint32_t init(void) {
   stbte_define_tile(tilemap, 4, 0xFF, "terrain");
   stbte_define_tile(tilemap, 5, 0xFF, "objects");
 
+  /* Populate tile slot -> real ID lookup table */
+  tile_slot_count = tilemap->num_tiles;
+  for (int i = 0; i < tile_slot_count && i < MAX_TILE_SLOTS; i++) {
+    tile_slot_to_id[i] = tilemap->tiles[i].id;
+  }
+
   /* Set tile 0 as background */
   stbte_set_background_tile(tilemap, 0);
 
@@ -522,8 +572,7 @@ uint32_t init(void) {
 
 /* Run one frame: process events, tick, draw.
  * Called repeatedly by the worker's setInterval. */
-__attribute__((export_name("frame")))
-uint32_t frame(void) {
+__attribute__((export_name("frame"))) uint32_t frame(void) {
   if (tilemap == NULL || !display_set)
     return 1;
 
@@ -558,8 +607,7 @@ uint32_t frame(void) {
 /* Define a new tile type.
  * Host writes tile info to a staging area, then calls this.
  * For simplicity, we use the PDK input mechanism. */
-__attribute__((export_name("define_tile")))
-uint32_t define_tile_export(void) {
+__attribute__((export_name("define_tile"))) uint32_t define_tile_export(void) {
   /* Input format: 4 bytes id (uint16) + 4 bytes layermask (uint32) +
    * null-terminated category string */
   /* For now, tiles are defined in init(). This will be expanded in Phase 2. */
@@ -567,49 +615,49 @@ uint32_t define_tile_export(void) {
 }
 
 /* Get pointer to command buffer A (for SharedArrayBuffer mapping) */
-__attribute__((export_name("get_cmd_buf_a_ptr")))
-uint32_t get_cmd_buf_a_ptr(void) {
+__attribute__((export_name("get_cmd_buf_a_ptr"))) uint32_t
+get_cmd_buf_a_ptr(void) {
   return (uint32_t)(uintptr_t)cmd_buf_a;
 }
 
 /* Get pointer to command buffer B */
-__attribute__((export_name("get_cmd_buf_b_ptr")))
-uint32_t get_cmd_buf_b_ptr(void) {
+__attribute__((export_name("get_cmd_buf_b_ptr"))) uint32_t
+get_cmd_buf_b_ptr(void) {
   return (uint32_t)(uintptr_t)cmd_buf_b;
 }
 
 /* Get pointer to event ring buffer */
-__attribute__((export_name("get_event_buf_ptr")))
-uint32_t get_event_buf_ptr(void) {
+__attribute__((export_name("get_event_buf_ptr"))) uint32_t
+get_event_buf_ptr(void) {
   return (uint32_t)(uintptr_t)evt_buf;
 }
 
 /* Get pointer to control block */
-__attribute__((export_name("get_control_block_ptr")))
-uint32_t get_control_block_ptr(void) {
+__attribute__((export_name("get_control_block_ptr"))) uint32_t
+get_control_block_ptr(void) {
   return (uint32_t)(uintptr_t)&control_block;
 }
 
 /* Get pointer to event head (for host Atomics.store) */
-__attribute__((export_name("get_evt_head_ptr")))
-uint32_t get_evt_head_ptr(void) {
+__attribute__((export_name("get_evt_head_ptr"))) uint32_t
+get_evt_head_ptr(void) {
   return (uint32_t)(uintptr_t)&control_block.evt_head;
 }
 
 /* Get size of command buffer in uint32 words */
-__attribute__((export_name("get_cmd_buf_size")))
-uint32_t get_cmd_buf_size(void) {
+__attribute__((export_name("get_cmd_buf_size"))) uint32_t
+get_cmd_buf_size(void) {
   return CMD_BUF_WORDS;
 }
 
 /* Get size of event buffer in uint32 words */
-__attribute__((export_name("get_evt_buf_size")))
-uint32_t get_evt_buf_size(void) {
+__attribute__((export_name("get_evt_buf_size"))) uint32_t
+get_evt_buf_size(void) {
   return EVT_BUF_WORDS;
 }
 
 /* Get size of control block in bytes */
-__attribute__((export_name("get_control_block_size")))
-uint32_t get_control_block_size(void) {
+__attribute__((export_name("get_control_block_size"))) uint32_t
+get_control_block_size(void) {
   return (uint32_t)sizeof(control_block_t);
 }
