@@ -38,3 +38,4 @@
 11. sbt_* plugins - [stb_herringbone_wang_tile.h](https://github.com/nothings/stb/blob/master/stb_herringbone_wang_tile.h) Stb_perlin / Stb_rect_pack / Stb_image / Stb_image_resize / stb_truetype.h / stb_voxel_render.h???
 12. [constrain solewer](https://github.com/starwing/amoeba?tab=readme-ov-file) - to generate rooms / items in rooms
 13. add support for bulletML parser, editor and renderer
+14. add [BMFont](https://angelcode.com/products/bmfont/) xml/txt/binary formats to preview and edit

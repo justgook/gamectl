@@ -92,6 +92,23 @@ $(BUILD_DIR)/plugins/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/vendor
 		-DSQLITE_TEMP_STORE=3 \
 		-femit-bin=$@
 
+# Special rule for stb_tilemap_editor with shared memory support
+# Needs --import-memory and --shared-memory so the main thread can read
+# draw command buffers from WASM linear memory via SharedArrayBuffer.
+$(BUILD_DIR)/plugins/stb_tilemap_editor.wasm: $(PLUGIN_DIR)/stb_tilemap_editor/main.c $(wildcard $(PLUGIN_DIR)/stb_tilemap_editor/*.h) | $(BUILD_DIR)/plugins
+	$(Q)echo "Building stb_tilemap_editor plugin (shared memory)..."
+	$(Q)zig build-exe $< \
+		-target wasm32-freestanding \
+		-mcpu generic+atomics+bulk_memory \
+		-fno-entry \
+		-rdynamic \
+		-O ReleaseFast \
+		--import-memory \
+		--shared-memory \
+		--initial-memory=10354688 \
+		--max-memory=33554432 \
+		-femit-bin=$@
+
 # Rule to build C plugins using Zig (bare WASM)
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building C plugin $*..."

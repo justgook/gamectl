@@ -31,4 +31,5 @@ INSERT OR IGNORE INTO views (name, url, type, enabled) VALUES
     ('sprite-extractor', 'local:/views/sprite-extractor/view-sprite-extractor.js', 'builtin', 1),
     ('sprite-packer',    'local:/views/sprite-packer/view-sprite-packer.js', 'builtin', 1),
     ('tile-extractor',   'local:/views/tile-extractor/view-tile-extractor.js', 'builtin', 1),
-    ('animation-editor', 'local:/views/view-animation-editor.js', 'builtin', 1);
+    ('animation-editor', 'local:/views/view-animation-editor.js', 'builtin', 1),
+    ('stb-editor',       'local:/views/view-stb-editor.js', 'builtin', 1);
