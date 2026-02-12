@@ -36,6 +36,7 @@
 9. maybe add add plugin of [neural network](https://github.com/codeplea/genann) / https://github.com/attractivechaos/kann
 10. investigate what good in https://github.com/MichaelMackus/libroguelike 
 11. sbt_* plugins - [stb_herringbone_wang_tile.h](https://github.com/nothings/stb/blob/master/stb_herringbone_wang_tile.h) Stb_perlin / Stb_rect_pack / Stb_image / Stb_image_resize / stb_truetype.h / stb_voxel_render.h???
-12. [constrain solewer](https://github.com/starwing/amoeba?tab=readme-ov-file) - to generate rooms / items in rooms
-13. add support for bulletML parser, editor and renderer
-14. add [BMFont](https://angelcode.com/products/bmfont/) xml/txt/binary formats to preview and edit
+12. [WFC](https://github.com/krychu/wfc)
+13. [constrain solewer](https://github.com/starwing/amoeba?tab=readme-ov-file) - to generate rooms / items in rooms
+14. add support for bulletML parser, editor and renderer
+15. add [BMFont](https://angelcode.com/products/bmfont/) xml/txt/binary formats to preview and edit
