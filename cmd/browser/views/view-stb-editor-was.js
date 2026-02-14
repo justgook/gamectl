@@ -7,19 +7,18 @@
  * Mouse/keyboard events are forwarded to the editor via a shared event ring buffer.
  *
  * Architecture:
- *   Main Thread (this)       SharedArrayBuffer (WASM memory)            Worker
- *   ┌─────────────┐             ┌──────────────────────┐             ┌──────────┐
+ *   Main Thread (this)           SharedArrayBuffer (WASM memory)        Worker
+ *   ┌─────────────┐             ┌──────────────────────┐              ┌──────────┐
  *   │ Canvas2D    │◄── reads ── │ Command Buffer A/B   │ ◄── writes ─│ stb WASM │
- *   │ rAF loop    │             │ Event Ring Buffer    │ ── reads ──►│ frame()  │
- *   │ mouse evts  │── writes ──►│ Control Block        │             │ tick()   │
- *   └─────────────┘             └──────────────────────┘             │ draw()   │
- *                                                                    └──────────┘
+ *   │ rAF loop    │             │ Event Ring Buffer     │ ── reads ──►│ frame()  │
+ *   │ mouse evts  │── writes ──►│ Control Block         │             │ tick()   │
+ *   └─────────────┘             └──────────────────────┘              │ draw()   │
+ *                                                                      └──────────┘
  */
 
 // Command types (must match main.c)
 const CMD_RECT = 1
 const CMD_TILE = 2
-const DEBU_TILE_NR = false
 
 // Event types (must match main.c)
 const EVT_MOUSE_MOVE = 1
@@ -74,19 +73,6 @@ export default class ViewStbEditor extends HTMLElement {
     /** @type {number|null} */
     this.animFrameId = null
 
-    /** @type {number} */
-    this._requestId = 0
-
-    /** @type {Map<number, {resolve: Function, reject: Function}>} */
-    this._pending = new Map()
-
-    /** @type {Map<number, {image: HTMLImageElement, sx: number, sy: number, sw: number, sh: number}>} */
-    this.tileImages = new Map()
-    /** @type {number} */
-    this.tileSpacingX = 16
-    /** @type {number} */
-    this.tileSpacingY = 16
-
     // Bind methods
     this._renderLoop = this._renderLoop.bind(this)
     this._onMouseMove = this._onMouseMove.bind(this)
@@ -104,21 +90,6 @@ export default class ViewStbEditor extends HTMLElement {
         }
       }
     })
-  }
-
-  /**
-   * Send a message to the worker and return a promise for the response.
-   * @param {string} type - Message type
-   * @param {Object} payload - Message payload
-   * @returns {Promise<Object>}
-   */
-  async _workerCall(type, payload = {}) {
-    const id = ++this._requestId
-    const promise = new Promise((resolve, reject) => {
-      this._pending.set(id, { resolve, reject })
-    })
-    this.worker.postMessage({ type, id, ...payload })
-    return promise
   }
 
   connectedCallback() {
@@ -140,6 +111,9 @@ export default class ViewStbEditor extends HTMLElement {
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0')
     }
+
+    // Header controls from template
+    this._mountHeaderControls()
 
     // Start observing size
     this._resizeObserver.observe(this)
@@ -173,18 +147,33 @@ export default class ViewStbEditor extends HTMLElement {
     this.removeEventListener('keydown', this._onKeyDown)
 
     if (this.worker) {
-      // Reject all pending promises
-      for (const [id, pending] of this._pending) {
-        pending.reject(new Error('Worker terminated'))
-      }
-      this._pending.clear()
-
-      // Send stop (ignore response since we terminate immediately)
-      this.worker.postMessage({ type: 'stop', id: 0 })
+      this.worker.postMessage({ type: 'stop' })
       this.worker.terminate()
       this.worker = null
     }
 
+    this._unmountHeaderControls()
+  }
+
+  // ── Header controls (template-based) ────────────────────────────────
+
+  _mountHeaderControls() {
+    const template = document.getElementById('view-stb-editor')
+    if (template && this.parentElement) {
+      const content = template.content.cloneNode(true)
+      const headerControls = content.querySelector('[slot="header-controls"]')
+      if (headerControls) {
+        this._headerControlsElement = headerControls
+        this.parentElement.appendChild(headerControls)
+      }
+    }
+  }
+
+  _unmountHeaderControls() {
+    if (this._headerControlsElement?.parentElement) {
+      this._headerControlsElement.remove()
+      this._headerControlsElement = null
+    }
   }
 
   // ── Worker initialization ───────────────────────────────────────────
@@ -192,7 +181,7 @@ export default class ViewStbEditor extends HTMLElement {
   async _initWorker() {
     try {
       this.worker = new Worker(
-        new URL('../systems/wasm-worker.js', import.meta.url),
+        new URL('../systems/stb-editor/worker.js', import.meta.url),
         { type: 'module' }
       )
 
@@ -205,140 +194,52 @@ export default class ViewStbEditor extends HTMLElement {
       const w = this.clientWidth || 800
       const h = this.clientHeight || 600
 
-      // 1. Initialize WASM module
-      const initResult = await this._workerCall('init', {
-        wasmUrl: new URL('../plugins/stb_tilemap_editor.wasm', import.meta.url).toString(),
-        memoryConfig: {
-          initial: 158,   // ~10MB (matches stb_tilemap_editor)
-          maximum: 512,   // ~32MB
-          shared: true
+      // Initialize the WASM module
+      this.worker.postMessage({
+        type: 'init',
+        wasmUrl: '/plugins/stb_tilemap_editor.wasm',
+        config: {
+          mapWidth: 16,
+          mapHeight: 16,
+          numLayers: 20,
+          displayWidth: w,
+          displayHeight: h
         }
       })
-      this.wasmMemory = initResult.memory
-
-      // 2. Fetch buffer pointers
-      const pointerCalls = [
-        ['get_cmd_buf_a_ptr'],
-        ['get_cmd_buf_b_ptr'],
-        ['get_event_buf_ptr'],
-        ['get_control_block_ptr'],
-        ['get_evt_head_ptr'],
-        ['get_cmd_buf_size'],
-        ['get_evt_buf_size'],
-        ['get_control_block_size']
-      ]
-      const pointerResults = await this._workerCall('call', { calls: pointerCalls })
-      const [
-        cmdBufAPtr,
-        cmdBufBPtr,
-        evtBufPtr,
-        controlBlockPtr,
-        evtHeadPtr,
-        cmdBufSize,
-        evtBufSize,
-        controlBlockSize
-      ] = pointerResults.results
-
-      this.pointers = {
-        cmdBufA: cmdBufAPtr,
-        cmdBufB: cmdBufBPtr,
-        evtBuf: evtBufPtr,
-        controlBlock: controlBlockPtr,
-        evtHead: evtHeadPtr,
-        cmdBufSize,
-        evtBufSize,
-        controlBlockSize
-      }
-
-      // 3. Write map configuration to control block (must be before init)
-      const controlView = new Int32Array(this.wasmMemory.buffer, controlBlockPtr, controlBlockSize / 4)
-      // Control block layout (uint32 offsets):
-      //  9: map_width, 10: map_height, 11: num_layers, 12: spacing_x, 13: spacing_y
-      Atomics.store(controlView, 9, 16)   // mapWidth
-      Atomics.store(controlView, 10, 16)  // mapHeight
-      Atomics.store(controlView, 11, 20)  // numLayers
-      Atomics.store(controlView, 12, 16)  // spacing_x
-      Atomics.store(controlView, 13, 16)  // spacing_y
-      this.tileSpacingX = 16
-      this.tileSpacingY = 16
-
-      // 4. Initialize editor
-      const initCall = await this._workerCall('call', {
-        calls: [['init']]
-      })
-      if (initCall.results[0] !== 0) {
-        throw new Error(`WASM init() failed with code ${initCall.results[0]}`)
-      }
-
-      // 5. Load tile images and define tiles
-      await this._loadTileSets()
-
-      // 6. Write initial resize event to event buffer
-      const evtView = new Int32Array(this.wasmMemory.buffer, evtBufPtr, evtBufSize)
-
-      // Write resize event
-      evtView[0] = 5 // EVT_RESIZE
-      evtView[1] = 0 // x0
-      evtView[2] = 0 // y0
-      evtView[3] = w
-      evtView[4] = h
-      // Update event head
-      Atomics.store(controlView, 3, 5) // evt_head = 5 words
-
-      // 5. Run one frame to generate initial draw commands
-      await this._workerCall('call', { calls: [['frame']] })
-
-      // 6. Start periodic frame loop (~60fps)
-      await this._workerCall('start', { func: 'frame', interval: 16 })
-
-      // 7. Start our render loop
-      this.running = true
-      this.animFrameId = requestAnimationFrame(this._renderLoop)
-
-      // 8. Send initial resize (in case dimensions changed during load)
-      this._handleResize(this.clientWidth, this.clientHeight)
-
     } catch (err) {
-      console.error('Failed to initialize stb-editor:', err)
-      this.running = false
-      if (this.worker) {
-        this.worker.terminate()
-        this.worker = null
-      }
+      console.error('Failed to create stb-editor worker:', err)
     }
   }
 
   _onWorkerMessage(e) {
-    const { type, id, ...data } = e.data
+    const { type, ...data } = e.data
 
-    // Handle request/response messages
-    if (id !== undefined) {
-      const pending = this._pending.get(id)
-      if (pending) {
-        this._pending.delete(id)
-        if (type === 'success') {
-          pending.resolve(data)
-        } else if (type === 'error') {
-          pending.reject(new Error(data.error?.message || String(data.error)))
-        } else {
-          console.warn('stb-editor: unknown response type:', type, data)
-        }
-        return
-      }
-    }
-
-    // Handle unsolicited messages
     switch (type) {
-      case 'memory-grown':
-        // Memory buffer changed, update our reference
-        if (this.wasmMemory && data.buffer) {
-          // The buffer property is the same SharedArrayBuffer
-          // We need to update ArrayBuffer views in render loop
-        }
+      case 'init-success':
+        this.wasmMemory = data.memory
+        this.pointers = data.pointers
+        this.running = true
+
+        // Start the worker's frame loop
+        this.worker.postMessage({ type: 'start' })
+
+        // Send initial resize
+        this._handleResize(this.clientWidth, this.clientHeight)
+
+        // Start our render loop
+        this.animFrameId = requestAnimationFrame(this._renderLoop)
+        break
+
+      case 'error':
+        console.error('stb-editor worker error:', data.error)
+        break
+
+      case 'started':
+      case 'stopped':
         break
 
       default:
-        console.warn('stb-editor: unknown worker message:', type, data)
+        console.warn('stb-editor: unknown worker message:', type)
     }
   }
 
@@ -427,54 +328,29 @@ export default class ViewStbEditor extends HTMLElement {
           const x0 = (xy0 & 0xFFFF) << 16 >> 16
           const y0 = (xy0 >> 16) << 16 >> 16
 
-          // Look up tile image
-          const tileData = this.tileImages.get(tileId)
-          if (tileData) {
-            // Apply highlight mode
-            if (highlight === 0) {
-              ctx.globalAlpha = 0.4 // deemphasize
-            } else if (highlight === 2) {
-              ctx.globalAlpha = 1.0 // emphasize (brighter)
-            } else {
-              ctx.globalAlpha = 0.8 // normal
-            }
-            // Draw image tile
-            ctx.drawImage(
-              tileData.image,
-              tileData.sx, tileData.sy, tileData.sw, tileData.sh,
-              x0, y0, this.tileSpacingX, this.tileSpacingY
-            )
-            // Draw tile ID text (for debugging)
-            if (DEBU_TILE_NR) {
-              ctx.globalAlpha = 1.0
-              ctx.fillStyle = '#ffffff'
-              ctx.font = '8px monospace'
-              ctx.textAlign = 'center'
-              ctx.textBaseline = 'middle'
-              ctx.fillText(String(tileId), x0 + this.tileSpacingX / 2, y0 + this.tileSpacingY / 2)
-            }
-          } else {
-            // Fallback: colored rectangle with tile ID
-            const colorIdx = tileId % TILE_COLORS.length
-            ctx.fillStyle = TILE_COLORS[colorIdx]
-            // Apply highlight mode
-            if (highlight === 0) {
-              ctx.globalAlpha = 0.4
-            } else if (highlight === 2) {
-              ctx.globalAlpha = 1.0
-            } else {
-              ctx.globalAlpha = 0.8
-            }
-            ctx.fillRect(x0, y0, this.tileSpacingX, this.tileSpacingY)
-            // Draw tile ID text
+          // Phase 1: Draw colored rectangle with tile ID
+          const colorIdx = tileId % TILE_COLORS.length
+          ctx.fillStyle = TILE_COLORS[colorIdx]
 
-            ctx.globalAlpha = 1.0
-            ctx.fillStyle = '#ffffff'
-            ctx.font = '8px monospace'
-            ctx.textAlign = 'center'
-            ctx.textBaseline = 'middle'
-            ctx.fillText(String(tileId), x0 + this.tileSpacingX / 2, y0 + this.tileSpacingY / 2)
+          // Apply highlight mode
+          if (highlight === 0) {
+            ctx.globalAlpha = 0.4 // deemphasize
+          } else if (highlight === 2) {
+            ctx.globalAlpha = 1.0 // emphasize (brighter)
+          } else {
+            ctx.globalAlpha = 0.8 // normal
           }
+
+          // Default tile size from stb spacing (16x16)
+          ctx.fillRect(x0, y0, 16, 16)
+
+          // Draw tile ID text
+          ctx.globalAlpha = 1.0
+          ctx.fillStyle = '#ffffff'
+          ctx.font = '8px monospace'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(String(tileId), x0 + 8, y0 + 8)
 
           i += 4
           break
@@ -621,55 +497,5 @@ export default class ViewStbEditor extends HTMLElement {
       e.preventDefault()
       this._pushEvent(EVT_ACTION, [action])
     }
-  }
-
-  async _loadTileSets() {
-    const tileSize = this.tileSpacingX
-    const categories = [
-      { name: 'floor', file: 'floor-16x16.png', categoryIndex: 3 },
-      { name: 'walls_low', file: 'walls_low-16x16.png', categoryIndex: 4 },
-      { name: 'walls_high', file: 'walls_high-16x32.png', categoryIndex: 5 }
-    ]
-    let nextTileId = 1
-
-    for (const cat of categories) {
-      const url = new URL(`../example/${cat.file}`, import.meta.url).toString()
-      const img = await this._loadImage(url)
-      const cols = Math.floor(img.width / tileSize)
-      const rows = Math.floor(img.height / tileSize)
-      const tileCount = cols * rows
-      console.log(`Loading ${cat.name}: ${img.width}x${img.height}, ${cols}x${rows} = ${tileCount} tiles`)
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const tileId = nextTileId++
-          const result = await this._workerCall('call', {
-            calls: [['define_tile', tileId, 0xFF, cat.categoryIndex]]
-          })
-          if (result.results[0] !== 0) {
-            console.error(`Failed to define tile ${tileId} for ${cat.name}: error ${result.results[0]}`)
-          }
-          this.tileImages.set(tileId, {
-            image: img,
-            sx: x * tileSize,
-            sy: y * tileSize,
-            sw: tileSize,
-            sh: tileSize
-          })
-        }
-      }
-    }
-    console.log('Loaded', this.tileImages.size, 'tiles (tile IDs 1..' + (nextTileId - 1) + ')')
-  }
-
-  _loadImage(url) {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => resolve(img)
-      img.onerror = (e) => {
-        console.error('Failed to load tile image:', url, e)
-        reject(new Error(`Failed to load image: ${url}`))
-      }
-      img.src = url
-    })
   }
 }
