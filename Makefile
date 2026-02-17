@@ -33,7 +33,6 @@ ASSETS_DIR ?= example/assets
 
 BUILD_DIR ?= build.nosync
 PLUGIN_DIR ?= plugins
-DESIGN_DIR ?= design
 
 # Detect all plugin subdirectories (exclude fs which is now built-in to plugin-manager)
 PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
@@ -129,26 +128,8 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*
 	$(Q)echo "Building C plugin $*..."
 	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
 
-# Design token files
-DESIGN_TOKEN_FILES := $(BUILD_DIR)/tokens/css/components.css $(BUILD_DIR)/tokens/css/variables.css $(BUILD_DIR)/tokens/css/atomic.css $(BUILD_DIR)/tokens/js/tokens.js
-
-.PHONY: design-tokens
-design-tokens: $(DESIGN_TOKEN_FILES)
-
-# Rule to build design tokens
-$(DESIGN_TOKEN_FILES): $(wildcard $(DESIGN_DIR)/tokens/**/*.json) $(DESIGN_DIR)/node_modules
-	$(Q)echo "Building design tokens..."
-	$(Q)mkdir -p $(BUILD_DIR)/tokens/css $(BUILD_DIR)/tokens/js
-	$(Q)cd $(DESIGN_DIR) && DESIGN_BUILD_DIR="$(shell pwd)/$(BUILD_DIR)/tokens" bun run build --verbose
-
-# Auto-install design dependencies when needed
-$(DESIGN_DIR)/node_modules: $(DESIGN_DIR)/package.json $(DESIGN_DIR)/bun.lock
-	$(Q)echo "Installing design dependencies..."
-	$(Q)cd $(DESIGN_DIR) && bun install
-	# $(Q)touch $@ 
-
 .PHONY: browser
-browser: design-tokens $(PLUGIN_TARGETS)
+browser: $(PLUGIN_TARGETS)
 	$(Q)go build -o $(BUILD_DIR)/browser-server ./cmd/browser/server.go
 
 .PHONY: browser-run
@@ -165,15 +146,13 @@ $(BUILD_DIR)/plugins:
 
 # Production web deployment target
 .PHONY: web
-web: $(DESIGN_TOKEN_FILES) $(PLUGIN_TARGETS)
+web: $(PLUGIN_TARGETS)
 	$(Q)rm -rf $(BUILD_DIR)/web
 	$(Q)echo "Creating production web build in $(BUILD_DIR)/web/..."
-	$(Q)mkdir -p $(BUILD_DIR)/web/tokens $(BUILD_DIR)/web/plugins
+	$(Q)mkdir -p $(BUILD_DIR)/web/plugins
 	$(Q)echo "  Copying browser files..."
 	$(Q)pwd
 	$(Q)cp -r cmd/browser/. $(BUILD_DIR)/web/
-	$(Q)echo "  Copying design tokens..."
-	$(Q)cp -r $(BUILD_DIR)/tokens/* $(BUILD_DIR)/web/tokens/
 	$(Q)echo "  Copying plugins..."
 	$(Q)cp -r $(BUILD_DIR)/plugins/* $(BUILD_DIR)/web/plugins/
 	$(Q)echo "✓ Production build ready at $(BUILD_DIR)/web/"

@@ -6,12 +6,12 @@ import { parseCSVLines } from '../../util/csv.js'
  * SettingsTabAppearance
  * 
  * Appearance settings:
- * - Theme selector (select box, only "Dark" for now)
+ * - Theme selector (Current, Obsidian, Neon)
  * - Font family selector
  * - Font size selector
  * 
  * Stores settings in SQLite `settings` table.
- * Font family and size are applied live to :root CSS variables.
+ * Theme, font family, and size are applied live.
  */
 class SettingsTabAppearance extends HTMLElement {
   constructor() {
@@ -25,6 +25,10 @@ class SettingsTabAppearance extends HTMLElement {
     this.style.overflow = 'auto'
 
     await this.loadSettings()
+    this.settings['appearance.theme'] = this.normalizeTheme(this.settings['appearance.theme'])
+    this.applyTheme(this.settings['appearance.theme'])
+    this.applyFontFamily(this.settings['appearance.font-family'] || 'Roboto Mono, monospace')
+    this.applyFontSize(this.settings['appearance.font-size'] || '14')
     this.render()
   }
 
@@ -48,7 +52,7 @@ class SettingsTabAppearance extends HTMLElement {
       console.error('[SettingsTabAppearance] Failed to load settings:', err)
       // Use defaults
       this.settings = {
-        'appearance.theme': 'dark',
+        'appearance.theme': 'current',
         'appearance.font-family': 'Roboto Mono, monospace',
         'appearance.font-size': '14',
       }
@@ -66,29 +70,26 @@ class SettingsTabAppearance extends HTMLElement {
       const select = document.createElement('select')
       select.className = 'settings-appearance-select'
       const themes = [
-        { value: 'dark', label: 'Dark (Default)' },
+        { value: 'current', label: 'Current' },
+        { value: 'obsidian', label: 'Obsidian Terminal' },
+        { value: 'neon', label: 'Neon Brutalist' },
       ]
+      const activeTheme = this.normalizeTheme(this.settings['appearance.theme'] || 'current')
       themes.forEach(t => {
         const opt = document.createElement('option')
         opt.value = t.value
         opt.textContent = t.label
-        if (t.value === (this.settings['appearance.theme'] || 'dark')) {
+        if (t.value === activeTheme) {
           opt.selected = true
         }
         select.appendChild(opt)
       })
       select.addEventListener('change', (e) => {
-        this.settings['appearance.theme'] = e.target.value
+        const nextTheme = this.normalizeTheme(e.target.value)
+        this.settings['appearance.theme'] = nextTheme
+        this.applyTheme(nextTheme)
       })
-
-      const hint = document.createElement('span')
-      hint.className = 'settings-appearance-hint'
-      hint.textContent = 'More themes coming after theme refactoring'
-
-      const wrapper = document.createDocumentFragment()
-      wrapper.appendChild(select)
-      wrapper.appendChild(hint)
-      return wrapper
+      return select
     }))
 
     // Font family selector
@@ -152,13 +153,13 @@ class SettingsTabAppearance extends HTMLElement {
     footer.className = 'settings-appearance-footer'
 
     const saveBtn = document.createElement('button')
-    saveBtn.className = 'button-primary'
+    saveBtn.className = 'primary'
     saveBtn.textContent = 'Save'
     saveBtn.addEventListener('click', () => this.save())
     footer.appendChild(saveBtn)
 
     const resetBtn = document.createElement('button')
-    resetBtn.className = 'button-secondary'
+    resetBtn.className = 'secondary'
     resetBtn.textContent = 'Reset to Default'
     resetBtn.addEventListener('click', () => this.resetDefaults())
     footer.appendChild(resetBtn)
@@ -188,6 +189,16 @@ class SettingsTabAppearance extends HTMLElement {
     document.body.style.fontFamily = value
   }
 
+  normalizeTheme(value) {
+    if (!value || value === 'dark') return 'current'
+    if (value === 'current' || value === 'obsidian' || value === 'neon') return value
+    return 'current'
+  }
+
+  applyTheme(value) {
+    document.documentElement.dataset.theme = this.normalizeTheme(value)
+  }
+
   applyFontSize(value) {
     document.documentElement.style.setProperty('--font-size-md', `${value}px`)
   }
@@ -202,6 +213,7 @@ class SettingsTabAppearance extends HTMLElement {
       }
 
       // Apply current settings
+      this.applyTheme(this.settings['appearance.theme'] || 'current')
       this.applyFontFamily(this.settings['appearance.font-family'] || 'Roboto Mono, monospace')
       this.applyFontSize(this.settings['appearance.font-size'] || '14')
 
@@ -214,10 +226,11 @@ class SettingsTabAppearance extends HTMLElement {
 
   async resetDefaults() {
     this.settings = {
-      'appearance.theme': 'dark',
+      'appearance.theme': 'current',
       'appearance.font-family': 'Roboto Mono, monospace',
       'appearance.font-size': '14',
     }
+    this.applyTheme('current')
     this.applyFontFamily('Roboto Mono, monospace')
     this.applyFontSize('14')
     this.render()

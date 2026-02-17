@@ -169,7 +169,7 @@ class SettingsTabGeneral extends HTMLElement {
     footer.className = 'settings-general-footer'
 
     const applyBtn = document.createElement('button')
-    applyBtn.className = 'button-primary'
+    applyBtn.className = 'primary'
     applyBtn.textContent = 'Apply & Reload'
     applyBtn.addEventListener('click', () => this.apply())
     footer.appendChild(applyBtn)

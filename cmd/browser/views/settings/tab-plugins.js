@@ -148,7 +148,7 @@ class SettingsTabPlugins extends HTMLElement {
     text.textContent = 'Changes require a restart to take effect'
 
     const btn = document.createElement('button')
-    btn.className = 'button-primary'
+    btn.className = 'primary'
     btn.textContent = 'Restart Now'
     btn.addEventListener('click', async () => {
       bus.emit('file:save')
@@ -200,7 +200,7 @@ class SettingsTabPlugins extends HTMLElement {
     }
 
     const addBtn = document.createElement('button')
-    addBtn.className = 'button-primary'
+    addBtn.className = 'primary'
     addBtn.textContent = 'Add'
     addBtn.addEventListener('click', () => this.addEntry(table, nameInput, urlInput, scopeInput))
 

@@ -1,4 +1,4 @@
-// Import design tokens for handle sizes
+// Shared layout defaults for handle sizes
 const HANDLE_TOKENS = {
   resize: {
     interaction: 12, // from ResizeHandleSizeInteraction: "12px"

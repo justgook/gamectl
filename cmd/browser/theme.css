@@ -1,0 +1,339 @@
+/* Base reset + semantic theme variables */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+
+:root {
+  color-scheme: dark;
+
+  --ui-font-body: "Roboto", "Segoe UI", sans-serif;
+  --ui-font-mono: "Roboto Mono", "JetBrains Mono", monospace;
+  --ui-font-display: "Orbitron", "Space Grotesk", sans-serif;
+
+  --ui-size-xs: 11px;
+  --ui-size-sm: 12px;
+  --ui-size-md: 14px;
+  --ui-size-lg: 16px;
+  --ui-size-xl: 20px;
+
+  --ui-space-1: 2px;
+  --ui-space-2: 4px;
+  --ui-space-3: 8px;
+  --ui-space-4: 12px;
+  --ui-space-5: 16px;
+  --ui-space-6: 24px;
+  --ui-space-7: 32px;
+  --ui-space-8: 48px;
+
+  --ui-radius-sm: 4px;
+  --ui-radius-md: 8px;
+  --ui-border-1: 1px;
+
+  --ui-bg-0: #0a0f14;
+  --ui-bg-1: #131a22;
+  --ui-bg-2: #1a2430;
+  --ui-bg-3: #223042;
+  --ui-bg-hover: #27384f;
+
+  --ui-text-1: #d8e9ff;
+  --ui-text-2: #8fb4d4;
+  --ui-text-3: #5f7c96;
+
+  --ui-border: #2e4358;
+  --ui-border-focus: #4dd8ff;
+  --ui-accent: #4dd8ff;
+  --ui-accent-hover: #7ee5ff;
+  --ui-accent-ink: #04131a;
+
+  --ui-success: #39d98a;
+  --ui-warning: #ffb84d;
+  --ui-danger: #ff6b6b;
+  --ui-info: #6aa9ff;
+
+  --ui-glow: 0 0 10px rgba(77, 216, 255, 0.25);
+  --ui-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+
+  /* semantic variables consumed by existing views */
+  --color-semantic-background-default: var(--ui-bg-0);
+  --color-semantic-background-panel-default: var(--ui-bg-1);
+  --color-semantic-background-panel: var(--ui-bg-1);
+  --color-semantic-background-panel-header: var(--ui-bg-2);
+  --color-semantic-background-interactive: var(--ui-bg-2);
+  --color-semantic-background-interactive-hover: var(--ui-bg-hover);
+  --color-semantic-background-interactive-active: var(--ui-bg-3);
+  --color-semantic-background-hover: var(--ui-bg-hover);
+  --color-semantic-background-primary: var(--ui-bg-0);
+  --color-semantic-background-secondary: var(--ui-bg-1);
+  --color-semantic-background-tertiary: var(--ui-bg-2);
+  --color-semantic-background-accent-default: var(--ui-accent);
+  --color-semantic-background-accent-hover: var(--ui-accent-hover);
+
+  --color-semantic-text-primary: var(--ui-text-1);
+  --color-semantic-text-secondary: var(--ui-text-2);
+  --color-semantic-text-tertiary: var(--ui-text-3);
+  --color-semantic-text-accent: var(--ui-accent);
+  --color-semantic-text-on-accent: var(--ui-accent-ink);
+  --color-semantic-text-error: var(--ui-danger);
+  --color-semantic-text-warning: var(--ui-warning);
+  --color-semantic-text-inverse: #ffffff;
+  --color-semantic-warning: var(--ui-warning);
+
+  --color-semantic-border-default: var(--ui-border);
+  --color-semantic-border-subtle: color-mix(in oklab, var(--ui-border) 45%, transparent);
+  --color-semantic-border-hover: color-mix(in oklab, var(--ui-border) 80%, var(--ui-accent));
+  --color-semantic-border-interactive: var(--ui-border-focus);
+  --color-semantic-border-focus: var(--ui-border-focus);
+  --color-semantic-border-accent: var(--ui-accent);
+  --color-semantic-border-error: var(--ui-danger);
+
+  --color-semantic-bg-primary: var(--color-semantic-background-primary);
+  --color-semantic-bg-secondary: var(--color-semantic-background-secondary);
+  --color-semantic-bg-tertiary: var(--color-semantic-background-tertiary);
+  --color-semantic-bg-hover: var(--color-semantic-background-hover);
+  --color-semantic-bg-input: var(--color-semantic-background-tertiary);
+  --color-semantic-bg-accent: var(--ui-accent);
+  --color-semantic-bg-accent-subtle: color-mix(in oklab, var(--ui-accent) 18%, transparent);
+  --color-semantic-bg-accent-subtle-hover: color-mix(in oklab, var(--ui-accent) 26%, transparent);
+  --color-semantic-accent-primary: var(--ui-accent);
+  --color-semantic-accent-subtle: var(--color-semantic-bg-accent-subtle);
+
+  --border-color: var(--color-semantic-border-default);
+
+  --font-family-ui: var(--ui-font-body);
+  --font-family-display: var(--ui-font-display);
+  --font-size-xs: var(--ui-size-xs);
+  --font-size-sm: var(--ui-size-sm);
+  --font-size-md: var(--ui-size-md);
+  --font-size-base: var(--ui-size-md);
+  --font-size-lg: var(--ui-size-lg);
+  --font-size-xl: var(--ui-size-xl);
+
+  --spacing-scale-1: var(--ui-space-1);
+  --spacing-scale-2: var(--ui-space-2);
+  --spacing-scale-3: var(--ui-space-3);
+  --spacing-scale-4: var(--ui-space-4);
+  --spacing-scale-5: var(--ui-space-5);
+  --spacing-scale-6: var(--ui-space-6);
+  --spacing-scale-7: var(--ui-space-7);
+  --spacing-scale-8: var(--ui-space-8);
+
+  --border-radius-sm: var(--ui-radius-sm);
+  --border-radius-md: var(--ui-radius-md);
+  --border-width-default: var(--ui-border-1);
+  --shadow-panel: var(--ui-shadow);
+}
+
+:root[data-theme="dark"] {
+  /* compatibility alias for old stored value */
+  --ui-bg-0: #0a0f14;
+}
+
+:root[data-theme="obsidian"] {
+  --ui-font-body: "JetBrains Mono", monospace;
+  --ui-font-display: "Space Grotesk", sans-serif;
+
+  --ui-bg-0: #0a0a0b;
+  --ui-bg-1: #111113;
+  --ui-bg-2: #18181b;
+  --ui-bg-3: #222229;
+  --ui-bg-hover: #2a2a2e;
+
+  --ui-text-1: #e4e4e7;
+  --ui-text-2: #a1a1aa;
+  --ui-text-3: #71717a;
+
+  --ui-border: #2a2a2e;
+  --ui-border-focus: #f59e0b;
+  --ui-accent: #f59e0b;
+  --ui-accent-hover: #f7b84a;
+  --ui-accent-ink: #111113;
+
+  --ui-success: #22c55e;
+  --ui-warning: #eab308;
+  --ui-danger: #ef4444;
+  --ui-info: #3b82f6;
+  --ui-glow: 0 0 10px rgba(245, 158, 11, 0.35);
+}
+
+:root[data-theme="neon"] {
+  --ui-font-body: "IBM Plex Mono", monospace;
+  --ui-font-display: "Bebas Neue", sans-serif;
+
+  --ui-bg-0: #0d0118;
+  --ui-bg-1: #140822;
+  --ui-bg-2: #1a0a2e;
+  --ui-bg-3: #2a1242;
+  --ui-bg-hover: #31184e;
+
+  --ui-text-1: #f0e6ff;
+  --ui-text-2: #c5abed;
+  --ui-text-3: #8f6eb9;
+
+  --ui-border: #3d1a5c;
+  --ui-border-focus: #00ffff;
+  --ui-accent: #ff00ff;
+  --ui-accent-hover: #ff66ff;
+  --ui-accent-ink: #0d0118;
+
+  --ui-success: #00ff88;
+  --ui-warning: #ffaa00;
+  --ui-danger: #ff3366;
+  --ui-info: #00aaff;
+  --ui-glow: 0 0 18px rgba(255, 0, 255, 0.35);
+}
+
+body {
+  background: var(--color-semantic-background-default);
+  color: var(--color-semantic-text-primary);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-md);
+  line-height: 1.45;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-semantic-border-focus);
+  outline-offset: 1px;
+}
+
+button,
+input,
+select,
+textarea,
+a {
+  font: inherit;
+  color: inherit;
+}
+
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+a.button {
+  border: 1px solid var(--color-semantic-border-default);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-semantic-background-interactive);
+  color: var(--color-semantic-text-primary);
+  padding: var(--spacing-scale-2) var(--spacing-scale-4);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+button:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover,
+input[type="reset"]:hover,
+a.button:hover {
+  background: var(--color-semantic-background-interactive-hover);
+  border-color: var(--color-semantic-border-hover);
+}
+
+button.primary,
+a.primary,
+input.primary,
+.button-primary {
+  background: var(--color-semantic-background-accent-default);
+  border-color: var(--color-semantic-background-accent-default);
+  color: var(--color-semantic-text-on-accent);
+}
+
+button.primary:hover,
+a.primary:hover,
+input.primary:hover,
+.button-primary:hover {
+  background: var(--color-semantic-background-accent-hover);
+  border-color: var(--color-semantic-background-accent-hover);
+  color: var(--color-semantic-text-on-accent);
+}
+
+button.secondary,
+a.secondary,
+input.secondary,
+.button-secondary {
+  background: color-mix(in oklab, var(--color-semantic-background-interactive) 80%, transparent);
+  color: var(--color-semantic-text-secondary);
+  border-color: var(--color-semantic-border-default);
+}
+
+button.secondary:hover,
+a.secondary:hover,
+input.secondary:hover,
+.button-secondary:hover {
+  color: var(--color-semantic-text-primary);
+}
+
+button.success,
+a.success,
+input.success,
+.button-success {
+  background: var(--ui-success);
+  border-color: var(--ui-success);
+  color: #07140d;
+}
+
+button.error,
+a.error,
+input.error,
+.button-error {
+  background: var(--ui-danger);
+  border-color: var(--ui-danger);
+  color: #1f090b;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="url"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+  border: 1px solid var(--color-semantic-border-default);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-semantic-background-tertiary);
+  color: var(--color-semantic-text-primary);
+  padding: var(--spacing-scale-2) var(--spacing-scale-3);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-semantic-text-tertiary);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-semantic-border-focus);
+  box-shadow: var(--ui-glow);
+}
+
+.panel {
+  background: var(--color-semantic-background-panel);
+  border-color: var(--color-semantic-border-default);
+}
+
+.panel-header {
+  background: var(--color-semantic-background-panel-header);
+  color: var(--color-semantic-text-accent);
+}
+
+.panel-content {
+  color: var(--color-semantic-text-primary);
+}
+
+.settings-tab-bar .button-tab {
+  color: var(--color-semantic-text-secondary);
+}
+
+.settings-tab-bar .button-tab.active {
+  color: var(--color-semantic-text-primary);
+  border-bottom-color: var(--color-semantic-text-accent);
+}
