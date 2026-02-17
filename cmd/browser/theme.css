@@ -17,6 +17,7 @@ body {
   --ui-font-body: "Roboto", "Segoe UI", sans-serif;
   --ui-font-mono: "Roboto Mono", "JetBrains Mono", monospace;
   --ui-font-display: "Orbitron", "Space Grotesk", sans-serif;
+  --ui-font-ui: var(--ui-font-body);
 
   --ui-size-xs: 11px;
   --ui-size-sm: 12px;
@@ -60,6 +61,7 @@ body {
 
   --ui-glow: 0 0 10px rgba(77, 216, 255, 0.25);
   --ui-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  --ui-shape-cut: 0px;
 
   /* semantic variables consumed by existing views */
   --color-semantic-background-default: var(--ui-bg-0);
@@ -129,6 +131,58 @@ body {
   --border-radius-md: var(--ui-radius-md);
   --border-width-default: var(--ui-border-1);
   --shadow-panel: var(--ui-shadow);
+
+  --resize-handle-size-visual: 2px;
+  --resize-handle-background: color-mix(in oklab, var(--ui-border) 85%, transparent);
+  --resize-handle-box-shadow: none;
+  --resize-handle-hover-background: var(--ui-accent);
+  --resize-handle-hover-box-shadow: var(--ui-glow);
+  --resize-handle-active-background: var(--ui-accent-hover);
+  --resize-handle-active-box-shadow: 0 0 12px color-mix(in oklab, var(--ui-accent) 70%, transparent);
+  --resize-handle-vertical-cursor: ew-resize;
+  --resize-handle-horizontal-cursor: ns-resize;
+
+  --corner-handle-width: 18px;
+  --corner-handle-height: 18px;
+  --corner-handle-border-radius: 6px;
+  --corner-handle-border-width: 1px;
+  --corner-handle-position-offset: 3px;
+  --corner-handle-opacity: 0.1;
+  --corner-handle-nw-cursor: nw-resize;
+  --corner-handle-ne-cursor: ne-resize;
+  --corner-handle-sw-cursor: sw-resize;
+  --corner-handle-se-cursor: se-resize;
+
+  --popup-backdrop-background: rgba(2, 4, 8, 0.7);
+  --popup-backdrop-z-index: 9998;
+  --popup-container-z-index: 9999;
+  --popup-container-max-width: 90vw;
+  --popup-container-max-height: 90vh;
+  --popup-container-min-width: 320px;
+  --popup-container-background: var(--color-semantic-background-panel);
+  --popup-container-border: var(--color-semantic-border-default);
+  --popup-container-border-width: 1px;
+  --popup-container-border-radius: var(--border-radius-sm);
+  --popup-container-shadow: var(--shadow-panel);
+  --popup-content-overflow: auto;
+  --popup-header-background: var(--color-semantic-background-panel-header);
+  --popup-header-padding: var(--spacing-scale-3);
+  --popup-header-font: 600 var(--font-size-sm)/1.2 var(--ui-font-display);
+  --popup-header-text: var(--color-semantic-text-accent);
+  --popup-header-border-bottom: var(--color-semantic-border-default);
+  --popup-close-button-size: 24px;
+  --popup-close-button-background: transparent;
+  --popup-close-button-background-hover: var(--color-semantic-background-interactive-hover);
+  --popup-close-button-color: var(--color-semantic-text-secondary);
+  --popup-close-button-color-hover: var(--color-semantic-text-primary);
+
+  --toast-background: var(--color-semantic-background-panel);
+  --toast-border: var(--color-semantic-border-default);
+  --toast-z-index: 10000;
+  --toast-animation-duration: 200ms;
+  --toast-animation-easing: ease-out;
+
+  --font-semantic-heading-default: 600 var(--font-size-sm)/1.2 var(--ui-font-display);
 }
 
 :root[data-theme="dark"] {
@@ -138,6 +192,7 @@ body {
 
 :root[data-theme="obsidian"] {
   --ui-font-body: "JetBrains Mono", monospace;
+  --ui-font-ui: "JetBrains Mono", monospace;
   --ui-font-display: "Space Grotesk", sans-serif;
 
   --ui-bg-0: #0a0a0b;
@@ -165,6 +220,7 @@ body {
 
 :root[data-theme="neon"] {
   --ui-font-body: "IBM Plex Mono", monospace;
+  --ui-font-ui: "Bebas Neue", sans-serif;
   --ui-font-display: "Bebas Neue", sans-serif;
 
   --ui-bg-0: #0d0118;
@@ -188,14 +244,62 @@ body {
   --ui-danger: #ff3366;
   --ui-info: #00aaff;
   --ui-glow: 0 0 18px rgba(255, 0, 255, 0.35);
+  --ui-shape-cut: 10px;
+
+  --ui-radius-sm: 0px;
+  --ui-radius-md: 0px;
+  --border-width-default: 2px;
+
+  --resize-handle-size-visual: 3px;
+  --resize-handle-background: #5a2a86;
+  --resize-handle-hover-background: #ff00ff;
+  --resize-handle-hover-box-shadow: 0 0 16px rgba(255, 0, 255, 0.45);
+  --resize-handle-active-background: #00ffff;
+  --resize-handle-active-box-shadow: 0 0 18px rgba(0, 255, 255, 0.5);
+
+  --corner-handle-width: 22px;
+  --corner-handle-height: 22px;
+  --corner-handle-border-radius: 0px;
+  --corner-handle-border-width: 2px;
+  --corner-handle-position-offset: 4px;
+  --corner-handle-opacity: 0.3;
+
+  --popup-backdrop-background: rgba(13, 1, 24, 0.88);
+  --popup-container-border-width: 3px;
+  --popup-container-border: #ff00ff;
+  --popup-container-shadow: 0 0 20px rgba(255, 0, 255, 0.45), 0 0 60px rgba(255, 0, 255, 0.2);
+  --toast-background: #140822;
+  --toast-border: #5a2a86;
 }
 
 body {
   background: var(--color-semantic-background-default);
   color: var(--color-semantic-text-primary);
-  font-family: var(--font-family-ui);
+  font-family: var(--ui-font-body-override, var(--font-family-ui));
   font-size: var(--font-size-md);
   line-height: 1.45;
+}
+
+pre,
+code,
+kbd,
+samp,
+.sql-table,
+.files-tree,
+.settings-plugins-name,
+.settings-plugins-url,
+.settings-kb-col-event {
+  font-family: var(--ui-font-mono);
+}
+
+.panel-header,
+.popup-title,
+.settings-general-section-header,
+.settings-kb-section-header,
+.settings-plugins-section-header,
+.settings-appearance-label,
+.settings-tab-bar .button-tab {
+  font-family: var(--ui-font-ui);
 }
 
 :focus-visible {
@@ -225,6 +329,20 @@ a.button {
   cursor: pointer;
   text-decoration: none;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+:root[data-theme="neon"] body {
+  background:
+    linear-gradient(180deg, var(--ui-bg-0) 0%, #1a0830 100%);
+}
+
+:root[data-theme="neon"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10000;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
 }
 
 button:hover,
@@ -336,4 +454,89 @@ textarea:focus {
 .settings-tab-bar .button-tab.active {
   color: var(--color-semantic-text-primary);
   border-bottom-color: var(--color-semantic-text-accent);
+}
+
+:root[data-theme="neon"] button,
+:root[data-theme="neon"] input[type="button"],
+:root[data-theme="neon"] input[type="submit"],
+:root[data-theme="neon"] input[type="reset"],
+:root[data-theme="neon"] a.button,
+:root[data-theme="neon"] .toast-button {
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-width: 2px;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="neon"] button.primary,
+:root[data-theme="neon"] a.primary,
+:root[data-theme="neon"] input.primary,
+:root[data-theme="neon"] .button-primary,
+:root[data-theme="neon"] .toast-button-primary {
+  box-shadow: 0 0 12px rgba(255, 0, 255, 0.35);
+}
+
+:root[data-theme="neon"] .panel,
+:root[data-theme="neon"] view-popup .popup-container,
+:root[data-theme="neon"] .popup-container,
+:root[data-theme="neon"] view-toast .toast-container {
+  position: relative;
+  border-width: 2px;
+  clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut)) 0, 100% var(--ui-shape-cut), 100% 100%, var(--ui-shape-cut) 100%, 0 calc(100% - var(--ui-shape-cut)));
+}
+
+:root[data-theme="neon"] .panel::before,
+:root[data-theme="neon"] view-popup .popup-container::before,
+:root[data-theme="neon"] .popup-container::before,
+:root[data-theme="neon"] view-toast .toast-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) top right,
+    linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) bottom left;
+  background-size: var(--ui-shape-cut) var(--ui-shape-cut);
+  background-repeat: no-repeat;
+}
+
+:root[data-theme="neon"] view-popup .popup-container,
+:root[data-theme="neon"] .popup-container {
+  border-width: var(--popup-container-border-width);
+}
+
+:root[data-theme="neon"] .panel-header,
+:root[data-theme="neon"] .popup-header,
+:root[data-theme="neon"] .settings-tab-bar {
+  border-bottom-width: 2px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+:root[data-theme="neon"] .panel-header {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+:root[data-theme="neon"] .panel-content {
+  padding: 10px;
+}
+
+:root[data-theme="neon"] .settings-tab-bar .button-tab {
+  font-size: 14px;
+  border-bottom-width: 2px;
+  padding: 10px 14px;
+}
+
+:root[data-theme="neon"] .settings-tab-bar .button-tab.active {
+  text-shadow: 0 0 12px rgba(255, 0, 255, 0.45);
+}
+
+:root[data-theme="neon"] view-popup .popup-content {
+  padding: var(--spacing-scale-4);
+}
+
+:root[data-theme="neon"] view-toast .toast-container {
+  padding: 12px 14px;
 }

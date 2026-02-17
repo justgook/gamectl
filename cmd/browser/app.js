@@ -48,8 +48,22 @@ function splashStatus(message) {
 // === Three-phase boot ===
 
 const decoder = new TextDecoder()
+const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
+
+function readAppearanceFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch (error) {
+    console.warn('[App] Failed to parse local appearance settings:', error)
+    return null
+  }
+}
 
 async function applyAppearanceSettings() {
+  const localSettings = readAppearanceFromLocalStorage() || {}
+
   try {
     const result = await window.pluginManager.call(
       'sql',
@@ -67,17 +81,44 @@ async function applyAppearanceSettings() {
       if (row.length >= 2) settings[row[0]] = row[1]
     }
 
+    settings['appearance.theme'] = localSettings['appearance.theme'] || settings['appearance.theme']
+    settings['appearance.font-family'] = localSettings['appearance.font-family'] || settings['appearance.font-family']
+    settings['appearance.font-size'] = localSettings['appearance.font-size'] || settings['appearance.font-size']
+
     const theme = settings['appearance.theme']
     const normalizedTheme = !theme || theme === 'dark' ? 'current' : theme
     document.documentElement.dataset.theme = normalizedTheme
 
     const fontFamily = settings['appearance.font-family']
-    if (fontFamily) document.body.style.fontFamily = fontFamily
+    if (!fontFamily || fontFamily === 'default') {
+      document.documentElement.style.removeProperty('--ui-font-body-override')
+      document.documentElement.style.removeProperty('--ui-font-body')
+    } else {
+      document.documentElement.style.setProperty('--ui-font-body-override', fontFamily)
+      document.documentElement.style.setProperty('--ui-font-body', fontFamily)
+    }
 
     const fontSize = settings['appearance.font-size']
     if (fontSize) document.documentElement.style.setProperty('--font-size-md', `${fontSize}px`)
   } catch (error) {
     console.warn('[App] Failed to apply appearance settings:', error)
+
+    // Fallback to localStorage only
+    const theme = localSettings['appearance.theme']
+    const normalizedTheme = !theme || theme === 'dark' ? 'current' : theme
+    document.documentElement.dataset.theme = normalizedTheme
+
+    const fontFamily = localSettings['appearance.font-family']
+    if (!fontFamily || fontFamily === 'default') {
+      document.documentElement.style.removeProperty('--ui-font-body-override')
+      document.documentElement.style.removeProperty('--ui-font-body')
+    } else {
+      document.documentElement.style.setProperty('--ui-font-body-override', fontFamily)
+      document.documentElement.style.setProperty('--ui-font-body', fontFamily)
+    }
+
+    const fontSize = localSettings['appearance.font-size']
+    if (fontSize) document.documentElement.style.setProperty('--font-size-md', `${fontSize}px`)
   }
 }
 
