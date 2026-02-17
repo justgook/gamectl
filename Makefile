@@ -109,6 +109,21 @@ $(BUILD_DIR)/plugins/stb_tilemap_editor.wasm: $(PLUGIN_DIR)/stb_tilemap_editor/m
 		--max-memory=33554432 \
 		-femit-bin=$@
 
+$(BUILD_DIR)/plugins/stbte.wasm: $(PLUGIN_DIR)/stbte/main.c $(wildcard $(PLUGIN_DIR)/stbte/*.h) | $(BUILD_DIR)/plugins
+	$(Q)echo "Building stbte plugin (shared memory)..."
+	$(Q)zig build-exe $< \
+		-target wasm32-freestanding \
+		-mcpu generic+atomics+bulk_memory \
+		-fno-entry \
+		-rdynamic \
+		-O ReleaseSmall \
+		-fstrip \
+		--import-memory \
+		--shared-memory \
+		--initial-memory=18874368 \
+		--max-memory=33554432 \
+		-femit-bin=$@
+
 # Rule to build C plugins using Zig (bare WASM)
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building C plugin $*..."

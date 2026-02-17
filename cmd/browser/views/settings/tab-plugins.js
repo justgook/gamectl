@@ -22,6 +22,7 @@ class SettingsTabPlugins extends HTMLElement {
     this.plugins = []
     this.views = []
     this.pendingChanges = false
+    this.pluginsHasScope = false
   }
 
   connectedCallback() {
@@ -34,16 +35,20 @@ class SettingsTabPlugins extends HTMLElement {
 
   async loadData() {
     try {
+      this.pluginsHasScope = await this.detectPluginScopeColumn()
+
+      const pluginQuery = this.pluginsHasScope
+        ? 'SELECT name, url, version, enabled, type, scope FROM plugins ORDER BY type, rowid'
+        : 'SELECT name, url, version, enabled, type FROM plugins ORDER BY type, rowid'
+
       const [pluginsResult, viewsResult] = await Promise.all([
-        window.pluginManager.call('sql', 'query',
-          'SELECT name, url, version, enabled, type FROM plugins ORDER BY type, rowid'
-        ),
+        window.pluginManager.call('sql', 'query', pluginQuery),
         window.pluginManager.call('sql', 'query',
           'SELECT name, url, enabled, type FROM views ORDER BY type, rowid'
         )
       ])
 
-      this.plugins = this.parsePluginsCsv(decoder.decode(pluginsResult.output))
+      this.plugins = this.parsePluginsCsv(decoder.decode(pluginsResult.output), this.pluginsHasScope)
       this.views = this.parseViewsCsv(decoder.decode(viewsResult.output))
 
       this.render()
@@ -53,21 +58,62 @@ class SettingsTabPlugins extends HTMLElement {
     }
   }
 
-  parsePluginsCsv(csv) {
+  async detectPluginScopeColumn() {
+    const result = await window.pluginManager.call('sql', 'query', 'PRAGMA table_info(plugins)')
+    const csv = decoder.decode(result.output).trim()
+    const lines = csv.split('\n')
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line) continue
+      const parts = line.split(',')
+      if (parts[1] === 'scope') {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  parsePluginsCsv(csv, hasScope) {
     const lines = csv.trim().split('\n')
     const result = []
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim()
       if (!line) continue
-      const parts = line.split(',')
-      if (parts.length < 5) continue
-      result.push({
-        name: parts[0],
-        url: parts[1],
-        version: parts[2],
-        enabled: parts[3] === '1',
-        type: parts[4]
-      })
+
+      const firstComma = line.indexOf(',')
+      const lastComma = line.lastIndexOf(',')
+      if (firstComma === -1 || lastComma === -1) continue
+
+      if (hasScope) {
+        const secondLastComma = line.lastIndexOf(',', lastComma - 1)
+        const thirdLastComma = line.lastIndexOf(',', secondLastComma - 1)
+        const fourthLastComma = line.lastIndexOf(',', thirdLastComma - 1)
+        if (secondLastComma === -1 || thirdLastComma === -1 || fourthLastComma === -1) continue
+
+        result.push({
+          name: line.slice(0, firstComma),
+          url: line.slice(firstComma + 1, fourthLastComma),
+          version: line.slice(fourthLastComma + 1, thirdLastComma),
+          enabled: line.slice(thirdLastComma + 1, secondLastComma) === '1',
+          type: line.slice(secondLastComma + 1, lastComma),
+          scope: line.slice(lastComma + 1)
+        })
+      } else {
+        const secondLastComma = line.lastIndexOf(',', lastComma - 1)
+        const thirdLastComma = line.lastIndexOf(',', secondLastComma - 1)
+        if (secondLastComma === -1 || thirdLastComma === -1) continue
+
+        result.push({
+          name: line.slice(0, firstComma),
+          url: line.slice(firstComma + 1, thirdLastComma),
+          version: line.slice(thirdLastComma + 1, secondLastComma),
+          enabled: line.slice(secondLastComma + 1, lastComma) === '1',
+          type: line.slice(lastComma + 1),
+          scope: 'global'
+        })
+      }
     }
     return result
   }
@@ -112,7 +158,8 @@ class SettingsTabPlugins extends HTMLElement {
     // Add plugin form
     container.appendChild(this.renderAddSection('Plugin', 'plugins',
       'Plugin name (e.g. my-plugin)',
-      'URL (e.g. http://example.com/plugin.wasm, local:/plugins/x.wasm)'
+      'URL (e.g. http://example.com/plugin.wasm, local:/plugins/x.wasm)',
+      { includeScope: this.pluginsHasScope }
     ))
 
     // Plugin registry table
@@ -150,7 +197,7 @@ class SettingsTabPlugins extends HTMLElement {
     return banner
   }
 
-  renderAddSection(label, table, namePlaceholder, urlPlaceholder) {
+  renderAddSection(label, table, namePlaceholder, urlPlaceholder, options = {}) {
     const section = document.createElement('div')
     section.className = 'settings-plugins-section'
 
@@ -172,20 +219,40 @@ class SettingsTabPlugins extends HTMLElement {
     urlInput.className = 'settings-plugins-input'
     urlInput.placeholder = urlPlaceholder
 
+    let scopeInput = null
+    if (table === 'plugins' && options.includeScope) {
+      scopeInput = document.createElement('select')
+      scopeInput.className = 'settings-plugins-input'
+
+      const globalOption = document.createElement('option')
+      globalOption.value = 'global'
+      globalOption.textContent = 'Global'
+
+      const viewOption = document.createElement('option')
+      viewOption.value = 'view'
+      viewOption.textContent = 'View'
+
+      scopeInput.appendChild(globalOption)
+      scopeInput.appendChild(viewOption)
+    }
+
     const addBtn = document.createElement('button')
     addBtn.className = 'button-primary'
     addBtn.textContent = 'Add'
-    addBtn.addEventListener('click', () => this.addEntry(table, nameInput, urlInput))
+    addBtn.addEventListener('click', () => this.addEntry(table, nameInput, urlInput, scopeInput))
 
     form.appendChild(nameInput)
     form.appendChild(urlInput)
+    if (scopeInput) {
+      form.appendChild(scopeInput)
+    }
     form.appendChild(addBtn)
     section.appendChild(form)
 
     return section
   }
 
-  async addEntry(table, nameInput, urlInput) {
+  async addEntry(table, nameInput, urlInput, scopeInput) {
     const name = nameInput.value.trim()
     const url = urlInput.value.trim()
 
@@ -207,9 +274,16 @@ class SettingsTabPlugins extends HTMLElement {
     try {
       const escapedName = name.replace(/'/g, "''")
       const escapedUrl = url.replace(/'/g, "''")
-      await window.pluginManager.call('sql', 'exec',
-        `INSERT INTO ${table} (name, url, type, enabled) VALUES ('${escapedName}', '${escapedUrl}', 'user', 1)`
-      )
+      if (table === 'plugins' && this.pluginsHasScope) {
+        const scope = (scopeInput?.value || 'global').replace(/'/g, "''")
+        await window.pluginManager.call('sql', 'exec',
+          `INSERT INTO plugins (name, url, type, enabled, scope) VALUES ('${escapedName}', '${escapedUrl}', 'user', 1, '${scope}')`
+        )
+      } else {
+        await window.pluginManager.call('sql', 'exec',
+          `INSERT INTO ${table} (name, url, type, enabled) VALUES ('${escapedName}', '${escapedUrl}', 'user', 1)`
+        )
+      }
 
       nameInput.value = ''
       urlInput.value = ''
@@ -249,6 +323,7 @@ class SettingsTabPlugins extends HTMLElement {
       <th>Name</th>
       <th>URL</th>
       <th>Type</th>
+      ${table === 'plugins' ? '<th>Scope</th>' : ''}
       <th>Status</th>
       <th>Actions</th>
     </tr>`
@@ -287,6 +362,12 @@ class SettingsTabPlugins extends HTMLElement {
     typeBadge.textContent = entry.type
     typeCell.appendChild(typeBadge)
     tr.appendChild(typeCell)
+
+    if (table === 'plugins') {
+      const scopeCell = document.createElement('td')
+      scopeCell.textContent = entry.scope || 'global'
+      tr.appendChild(scopeCell)
+    }
 
     // Status
     const statusCell = document.createElement('td')
