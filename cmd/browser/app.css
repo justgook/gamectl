@@ -622,8 +622,7 @@ view--handle[data-dragging="true"] .handle {
   border: var(--corner-handle-border-width) solid transparent;
   background: transparent;
   transition: all 0.15s ease-out;
-  /* Invisible by default */
-  opacity: 0;
+  opacity: var(--corner-handle-opacity, 0.08);
   pointer-events: auto;
 }
 
@@ -672,9 +671,20 @@ view--handle[data-dragging="true"] .handle {
 .sw:hover,
 .se:hover {
   opacity: 1;
-  background: rgba(0, 229, 255, 0.3);
-  border-color: rgba(0, 229, 255, 0.5);
-  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+  background: var(--resize-handle-hover-background);
+  border-color: var(--color-semantic-border-focus, var(--resize-handle-hover-background));
+  box-shadow: var(--resize-handle-hover-box-shadow);
+}
+
+:host([data-split-direction]) .corner-handle,
+:host([data-split-direction]) .nw,
+:host([data-split-direction]) .ne,
+:host([data-split-direction]) .sw,
+:host([data-split-direction]) .se {
+  opacity: 1;
+  background: var(--resize-handle-active-background);
+  border-color: var(--color-semantic-border-focus, var(--resize-handle-active-background));
+  box-shadow: var(--resize-handle-active-box-shadow);
 }
 
 /* Simple Tree */

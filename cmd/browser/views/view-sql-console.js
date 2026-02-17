@@ -16,6 +16,7 @@ export class ViewSqlConsole extends HTMLElement {
     this.style.flexDirection = 'column'
     this.style.width = '100%'
     this.style.height = '100%'
+    this.style.minHeight = '0'
     this.setAttribute('tabindex', '0')
 
     const template = document.getElementById('view-sql-console')

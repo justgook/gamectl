@@ -2,16 +2,18 @@ import { bus } from '../../systems/event-bus.js'
 import { toast } from '../../systems/toast.js'
 import { parseCSVLines } from '../../util/csv.js'
 
+const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
+
 /**
  * SettingsTabAppearance
  * 
  * Appearance settings:
  * - Theme selector (Current, Obsidian, Neon)
- * - Font family selector
+ * - Font family selector (base UI font override)
  * - Font size selector
  * 
  * Stores settings in SQLite `settings` table.
- * Theme, font family, and size are applied live.
+ * Theme, base font family, and size are applied live.
  */
 class SettingsTabAppearance extends HTMLElement {
   constructor() {
@@ -27,12 +29,29 @@ class SettingsTabAppearance extends HTMLElement {
     await this.loadSettings()
     this.settings['appearance.theme'] = this.normalizeTheme(this.settings['appearance.theme'])
     this.applyTheme(this.settings['appearance.theme'])
-    this.applyFontFamily(this.settings['appearance.font-family'] || 'Roboto Mono, monospace')
+    this.applyFontFamily(this.settings['appearance.font-family'] || 'default')
     this.applyFontSize(this.settings['appearance.font-size'] || '14')
     this.render()
   }
 
   async loadSettings() {
+    const defaults = {
+      'appearance.theme': 'current',
+      'appearance.font-family': 'default',
+      'appearance.font-size': '14',
+    }
+
+    try {
+      const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        this.settings = { ...defaults, ...parsed }
+        return
+      }
+    } catch (err) {
+      console.warn('[SettingsTabAppearance] Failed to read localStorage appearance settings:', err)
+    }
+
     try {
       const result = await window.pluginManager.call(
         'sql', 'query',
@@ -41,7 +60,7 @@ class SettingsTabAppearance extends HTMLElement {
       const csv = new TextDecoder().decode(result.output)
       const lines = parseCSVLines(csv.trim())
 
-      this.settings = {}
+      this.settings = { ...defaults }
       for (let i = 1; i < lines.length; i++) {
         const row = lines[i]
         if (row.length >= 2) {
@@ -50,12 +69,7 @@ class SettingsTabAppearance extends HTMLElement {
       }
     } catch (err) {
       console.error('[SettingsTabAppearance] Failed to load settings:', err)
-      // Use defaults
-      this.settings = {
-        'appearance.theme': 'current',
-        'appearance.font-family': 'Roboto Mono, monospace',
-        'appearance.font-size': '14',
-      }
+      this.settings = defaults
     }
   }
 
@@ -92,23 +106,26 @@ class SettingsTabAppearance extends HTMLElement {
       return select
     }))
 
-    // Font family selector
-    container.appendChild(this.createSection('Font Family', () => {
+    // Base font family selector
+    container.appendChild(this.createSection('Base Font Family', () => {
       const select = document.createElement('select')
       select.className = 'settings-appearance-select'
       const fonts = [
-        { value: 'Roboto Mono, monospace', label: 'Roboto Mono' },
+        { value: 'default', label: 'Theme Default' },
         { value: 'Roboto, sans-serif', label: 'Roboto' },
-        { value: 'Orbitron, sans-serif', label: 'Orbitron' },
-        { value: 'monospace', label: 'System Monospace' },
-        { value: 'sans-serif', label: 'System Sans-serif' },
+        { value: 'JetBrains Mono, monospace', label: 'JetBrains Mono' },
+        { value: 'IBM Plex Mono, monospace', label: 'IBM Plex Mono' },
+        { value: 'sans-serif', label: 'System Sans' },
+        { value: 'monospace', label: 'System Mono' },
       ]
       fonts.forEach(f => {
         const opt = document.createElement('option')
         opt.value = f.value
         opt.textContent = f.label
-        opt.style.fontFamily = f.value
-        if (f.value === (this.settings['appearance.font-family'] || 'Roboto Mono, monospace')) {
+        if (f.value !== 'default') {
+          opt.style.fontFamily = f.value
+        }
+        if (f.value === (this.settings['appearance.font-family'] || 'default')) {
           opt.selected = true
         }
         select.appendChild(opt)
@@ -186,7 +203,14 @@ class SettingsTabAppearance extends HTMLElement {
   }
 
   applyFontFamily(value) {
-    document.body.style.fontFamily = value
+    if (!value || value === 'default') {
+      document.documentElement.style.removeProperty('--ui-font-body-override')
+      document.documentElement.style.removeProperty('--ui-font-body')
+      return
+    }
+
+    document.documentElement.style.setProperty('--ui-font-body-override', value)
+    document.documentElement.style.setProperty('--ui-font-body', value)
   }
 
   normalizeTheme(value) {
@@ -205,19 +229,14 @@ class SettingsTabAppearance extends HTMLElement {
 
   async save() {
     try {
-      for (const [key, value] of Object.entries(this.settings)) {
-        const escapedValue = value.replace(/'/g, "''")
-        const escapedKey = key.replace(/'/g, "''")
-        await window.pluginManager.call('sql', 'exec',
-          `INSERT OR REPLACE INTO settings (key, value, category) VALUES ('${escapedKey}', '${escapedValue}', 'appearance')`)
-      }
+      localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(this.settings))
 
       // Apply current settings
       this.applyTheme(this.settings['appearance.theme'] || 'current')
-      this.applyFontFamily(this.settings['appearance.font-family'] || 'Roboto Mono, monospace')
+      this.applyFontFamily(this.settings['appearance.font-family'] || 'default')
       this.applyFontSize(this.settings['appearance.font-size'] || '14')
 
-      toast.success('Appearance settings saved')
+      toast.success('Appearance settings saved locally')
     } catch (err) {
       console.error('[SettingsTabAppearance] Save failed:', err)
       toast.error('Failed to save appearance settings')
@@ -227,11 +246,11 @@ class SettingsTabAppearance extends HTMLElement {
   async resetDefaults() {
     this.settings = {
       'appearance.theme': 'current',
-      'appearance.font-family': 'Roboto Mono, monospace',
+      'appearance.font-family': 'default',
       'appearance.font-size': '14',
     }
     this.applyTheme('current')
-    this.applyFontFamily('Roboto Mono, monospace')
+    this.applyFontFamily('default')
     this.applyFontSize('14')
     this.render()
   }

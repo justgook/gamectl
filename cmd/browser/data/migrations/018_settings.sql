@@ -11,5 +11,5 @@ CREATE TABLE IF NOT EXISTS settings (
 -- Default appearance settings
 INSERT OR IGNORE INTO settings (key, value, category) VALUES
     ('appearance.theme', 'current', 'appearance'),
-    ('appearance.font-family', 'Roboto Mono, monospace', 'appearance'),
+    ('appearance.font-family', 'default', 'appearance'),
     ('appearance.font-size', '14', 'appearance');
