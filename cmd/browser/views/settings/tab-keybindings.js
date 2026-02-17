@@ -89,7 +89,7 @@ class SettingsTabKeybindings extends HTMLElement {
     toolbar.appendChild(searchInput)
 
     const saveBtn = document.createElement('button')
-    saveBtn.className = 'button-primary'
+    saveBtn.className = 'primary'
     saveBtn.textContent = 'Save'
     saveBtn.addEventListener('click', () => this.save())
     toolbar.appendChild(saveBtn)

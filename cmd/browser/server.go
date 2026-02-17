@@ -28,7 +28,7 @@ func main() {
 	// Serve cmd/browser directory
 	browserDir := filepath.Join(cwd, "cmd", "browser")
 
-	// Serve build directory for WASM plugins and design tokens
+	// Serve build directory for WASM plugins
 	buildDir := filepath.Join(cwd, buildDirName)
 
 	fmt.Printf("🚀 GameCtl Browser IDE Server\n")
@@ -39,9 +39,6 @@ func main() {
 
 	// Create a file server for the browser directory
 	http.Handle("/", http.FileServer(http.Dir(browserDir)))
-
-	// Serve design tokens from build directory
-	http.Handle("/tokens/", http.StripPrefix("/tokens/", http.FileServer(http.Dir(filepath.Join(buildDir, "tokens")))))
 
 	// Serve plugins from build directory
 	http.Handle("/plugins/", http.StripPrefix("/plugins/", http.FileServer(http.Dir(filepath.Join(buildDir, "plugins")))))

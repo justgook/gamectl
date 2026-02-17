@@ -3,6 +3,7 @@
 import "./systems/event-bus.js"
 import { bus as eventBus } from "./systems/event-bus.js"
 import { toast } from './systems/toast.js'
+import { parseCSVLines } from './util/csv.js'
 
 import "./systems/cache.js"
 
@@ -48,6 +49,38 @@ function splashStatus(message) {
 
 const decoder = new TextDecoder()
 
+async function applyAppearanceSettings() {
+  try {
+    const result = await window.pluginManager.call(
+      'sql',
+      'query',
+      "SELECT key, value FROM settings WHERE category='appearance'"
+    )
+
+    const csv = decoder.decode(result.output).trim()
+    if (!csv) return
+
+    const lines = parseCSVLines(csv)
+    const settings = {}
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i]
+      if (row.length >= 2) settings[row[0]] = row[1]
+    }
+
+    const theme = settings['appearance.theme']
+    const normalizedTheme = !theme || theme === 'dark' ? 'current' : theme
+    document.documentElement.dataset.theme = normalizedTheme
+
+    const fontFamily = settings['appearance.font-family']
+    if (fontFamily) document.body.style.fontFamily = fontFamily
+
+    const fontSize = settings['appearance.font-size']
+    if (fontSize) document.documentElement.style.setProperty('--font-size-md', `${fontSize}px`)
+  } catch (error) {
+    console.warn('[App] Failed to apply appearance settings:', error)
+  }
+}
+
 // Phase 1: Initialize FS (host functions) + SQL (base WASM plugin)
 splashStatus('Initializing filesystem...')
 window.pluginManager = await PluginManagerProxy.create()
@@ -60,6 +93,7 @@ splashStatus('Loading database...')
 import { migrationManager } from "./systems/migration.js"
 await migrationManager.init()
 window.migrationManager = migrationManager // Expose for debugging
+await applyAppearanceSettings()
 
 // Phase 2: Query plugin registry from DB, load enabled plugins via FS
 splashStatus('Loading plugins...')
