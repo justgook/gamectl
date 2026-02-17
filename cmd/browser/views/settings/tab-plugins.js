@@ -22,7 +22,6 @@ class SettingsTabPlugins extends HTMLElement {
     this.plugins = []
     this.views = []
     this.pendingChanges = false
-    this.pluginsHasScope = false
   }
 
   connectedCallback() {
@@ -35,20 +34,16 @@ class SettingsTabPlugins extends HTMLElement {
 
   async loadData() {
     try {
-      this.pluginsHasScope = await this.detectPluginScopeColumn()
-
-      const pluginQuery = this.pluginsHasScope
-        ? 'SELECT name, url, version, enabled, type, scope FROM plugins ORDER BY type, rowid'
-        : 'SELECT name, url, version, enabled, type FROM plugins ORDER BY type, rowid'
-
       const [pluginsResult, viewsResult] = await Promise.all([
-        window.pluginManager.call('sql', 'query', pluginQuery),
+        window.pluginManager.call('sql', 'query',
+          'SELECT name, url, version, enabled, type, scope FROM plugins ORDER BY type, rowid'
+        ),
         window.pluginManager.call('sql', 'query',
           'SELECT name, url, enabled, type FROM views ORDER BY type, rowid'
         )
       ])
 
-      this.plugins = this.parsePluginsCsv(decoder.decode(pluginsResult.output), this.pluginsHasScope)
+      this.plugins = this.parsePluginsCsv(decoder.decode(pluginsResult.output))
       this.views = this.parseViewsCsv(decoder.decode(viewsResult.output))
 
       this.render()
@@ -58,24 +53,7 @@ class SettingsTabPlugins extends HTMLElement {
     }
   }
 
-  async detectPluginScopeColumn() {
-    const result = await window.pluginManager.call('sql', 'query', 'PRAGMA table_info(plugins)')
-    const csv = decoder.decode(result.output).trim()
-    const lines = csv.split('\n')
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim()
-      if (!line) continue
-      const parts = line.split(',')
-      if (parts[1] === 'scope') {
-        return true
-      }
-    }
-
-    return false
-  }
-
-  parsePluginsCsv(csv, hasScope) {
+  parsePluginsCsv(csv) {
     const lines = csv.trim().split('\n')
     const result = []
     for (let i = 1; i < lines.length; i++) {
@@ -86,34 +64,19 @@ class SettingsTabPlugins extends HTMLElement {
       const lastComma = line.lastIndexOf(',')
       if (firstComma === -1 || lastComma === -1) continue
 
-      if (hasScope) {
-        const secondLastComma = line.lastIndexOf(',', lastComma - 1)
-        const thirdLastComma = line.lastIndexOf(',', secondLastComma - 1)
-        const fourthLastComma = line.lastIndexOf(',', thirdLastComma - 1)
-        if (secondLastComma === -1 || thirdLastComma === -1 || fourthLastComma === -1) continue
+      const secondLastComma = line.lastIndexOf(',', lastComma - 1)
+      const thirdLastComma = line.lastIndexOf(',', secondLastComma - 1)
+      const fourthLastComma = line.lastIndexOf(',', thirdLastComma - 1)
+      if (secondLastComma === -1 || thirdLastComma === -1 || fourthLastComma === -1) continue
 
-        result.push({
-          name: line.slice(0, firstComma),
-          url: line.slice(firstComma + 1, fourthLastComma),
-          version: line.slice(fourthLastComma + 1, thirdLastComma),
-          enabled: line.slice(thirdLastComma + 1, secondLastComma) === '1',
-          type: line.slice(secondLastComma + 1, lastComma),
-          scope: line.slice(lastComma + 1)
-        })
-      } else {
-        const secondLastComma = line.lastIndexOf(',', lastComma - 1)
-        const thirdLastComma = line.lastIndexOf(',', secondLastComma - 1)
-        if (secondLastComma === -1 || thirdLastComma === -1) continue
-
-        result.push({
-          name: line.slice(0, firstComma),
-          url: line.slice(firstComma + 1, thirdLastComma),
-          version: line.slice(thirdLastComma + 1, secondLastComma),
-          enabled: line.slice(secondLastComma + 1, lastComma) === '1',
-          type: line.slice(lastComma + 1),
-          scope: 'global'
-        })
-      }
+      result.push({
+        name: line.slice(0, firstComma),
+        url: line.slice(firstComma + 1, fourthLastComma),
+        version: line.slice(fourthLastComma + 1, thirdLastComma),
+        enabled: line.slice(thirdLastComma + 1, secondLastComma) === '1',
+        type: line.slice(secondLastComma + 1, lastComma),
+        scope: line.slice(lastComma + 1)
+      })
     }
     return result
   }
@@ -159,7 +122,7 @@ class SettingsTabPlugins extends HTMLElement {
     container.appendChild(this.renderAddSection('Plugin', 'plugins',
       'Plugin name (e.g. my-plugin)',
       'URL (e.g. http://example.com/plugin.wasm, local:/plugins/x.wasm)',
-      { includeScope: this.pluginsHasScope }
+      { includeScope: true }
     ))
 
     // Plugin registry table
@@ -274,7 +237,7 @@ class SettingsTabPlugins extends HTMLElement {
     try {
       const escapedName = name.replace(/'/g, "''")
       const escapedUrl = url.replace(/'/g, "''")
-      if (table === 'plugins' && this.pluginsHasScope) {
+      if (table === 'plugins') {
         const scope = (scopeInput?.value || 'global').replace(/'/g, "''")
         await window.pluginManager.call('sql', 'exec',
           `INSERT INTO plugins (name, url, type, enabled, scope) VALUES ('${escapedName}', '${escapedUrl}', 'user', 1, '${scope}')`

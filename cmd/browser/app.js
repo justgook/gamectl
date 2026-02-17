@@ -48,23 +48,6 @@ function splashStatus(message) {
 
 const decoder = new TextDecoder()
 
-async function hasPluginScopeColumn() {
-  const result = await window.pluginManager.call('sql', 'query', "PRAGMA table_info(plugins)")
-  const csv = decoder.decode(result.output).trim()
-  const lines = csv.split('\n')
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-    const parts = line.split(',')
-    if (parts[1] === 'scope') {
-      return true
-    }
-  }
-
-  return false
-}
-
 // Phase 1: Initialize FS (host functions) + SQL (base WASM plugin)
 splashStatus('Initializing filesystem...')
 window.pluginManager = await PluginManagerProxy.create()
@@ -81,13 +64,8 @@ window.migrationManager = migrationManager // Expose for debugging
 // Phase 2: Query plugin registry from DB, load enabled plugins via FS
 splashStatus('Loading plugins...')
 try {
-  const hasScope = await hasPluginScopeColumn()
-  const pluginQuery = hasScope
-    ? "SELECT name, url FROM plugins WHERE enabled = 1 AND type != 'base' AND scope = 'global' ORDER BY rowid"
-    : "SELECT name, url FROM plugins WHERE enabled = 1 AND type != 'base' ORDER BY rowid"
-
   const result = await window.pluginManager.call('sql', 'query',
-    pluginQuery
+    "SELECT name, url FROM plugins WHERE enabled = 1 AND type != 'base' AND scope = 'global' ORDER BY rowid"
   )
   const csv = decoder.decode(result.output).trim()
   const lines = csv.split('\n')

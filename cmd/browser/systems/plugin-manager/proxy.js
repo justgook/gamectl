@@ -21,7 +21,6 @@ export class PluginManagerProxy {
     this.viewPluginInstances = new Map()
     this.nextViewPluginInstanceId = 1
     this.decoder = new TextDecoder()
-    this.pluginsHasScope = null
   }
 
   /**
@@ -274,77 +273,34 @@ export class PluginManagerProxy {
     this.pending.clear()
   }
 
-  async pluginScopeSupported() {
-    if (this.pluginsHasScope !== null) {
-      return this.pluginsHasScope
-    }
-
-    const result = await this.call('sql', 'query', 'PRAGMA table_info(plugins)')
-    const csv = this.decoder.decode(result.output).trim()
-    const lines = csv.split('\n')
-    this.pluginsHasScope = false
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim()
-      if (!line) continue
-      const parts = line.split(',')
-      if (parts[1] === 'scope') {
-        this.pluginsHasScope = true
-        break
-      }
-    }
-
-    return this.pluginsHasScope
-  }
-
-  parsePluginRow(line, hasScope) {
+  parsePluginRow(line) {
     const firstComma = line.indexOf(',')
     if (firstComma === -1) return null
 
     const lastComma = line.lastIndexOf(',')
     if (lastComma === -1) return null
 
-    if (hasScope) {
-      const secondLastComma = line.lastIndexOf(',', lastComma - 1)
-      const thirdLastComma = line.lastIndexOf(',', secondLastComma - 1)
-      if (secondLastComma === -1 || thirdLastComma === -1) {
-        return null
-      }
-
-      return {
-        name: line.slice(0, firstComma),
-        url: line.slice(firstComma + 1, thirdLastComma),
-        enabled: line.slice(thirdLastComma + 1, secondLastComma) === '1',
-        type: line.slice(secondLastComma + 1, lastComma),
-        scope: line.slice(lastComma + 1)
-      }
-    }
-
     const secondLastComma = line.lastIndexOf(',', lastComma - 1)
-    if (secondLastComma === -1) {
+    const thirdLastComma = line.lastIndexOf(',', secondLastComma - 1)
+    if (secondLastComma === -1 || thirdLastComma === -1) {
       return null
     }
 
     return {
       name: line.slice(0, firstComma),
-      url: line.slice(firstComma + 1, secondLastComma),
-      enabled: line.slice(secondLastComma + 1, lastComma) === '1',
-      type: line.slice(lastComma + 1),
-      scope: 'global'
+      url: line.slice(firstComma + 1, thirdLastComma),
+      enabled: line.slice(thirdLastComma + 1, secondLastComma) === '1',
+      type: line.slice(secondLastComma + 1, lastComma),
+      scope: line.slice(lastComma + 1)
     }
   }
 
   async resolvePlugin(name) {
     const escapedName = name.replace(/'/g, "''")
-    const hasScope = await this.pluginScopeSupported()
-    const columns = hasScope
-      ? 'name, url, enabled, type, scope'
-      : 'name, url, enabled, type'
-
     const result = await this.call(
       'sql',
       'query',
-      `SELECT ${columns} FROM plugins WHERE name = '${escapedName}' LIMIT 1`
+      `SELECT name, url, enabled, type, scope FROM plugins WHERE name = '${escapedName}' LIMIT 1`
     )
 
     const csv = this.decoder.decode(result.output).trim()
@@ -353,7 +309,7 @@ export class PluginManagerProxy {
       throw new Error(`Plugin '${name}' not found in registry`)
     }
 
-    const parsed = this.parsePluginRow(lines[1].trim(), hasScope)
+    const parsed = this.parsePluginRow(lines[1].trim())
     if (!parsed) {
       throw new Error(`Failed to parse plugin '${name}' registry row`)
     }
