@@ -1,51 +1,3 @@
-/**
- * view-stb-editor.js
- *
- * Browser view component for the stb_tilemap_editor WASM plugin.
- * Runs the stb editor in a dedicated Web Worker with SharedArrayBuffer,
- * reads draw commands from shared WASM memory, and renders to Canvas2D.
- * Mouse/keyboard events are forwarded to the editor via a shared event ring buffer.
- *
- * Architecture:
- *   Main Thread (this)       SharedArrayBuffer (WASM memory)            Worker
- *   ┌─────────────┐             ┌──────────────────────┐             ┌──────────┐
- *   │ Canvas2D    │◄── reads ── │ Command Buffer A/B   │ ◄── writes ─│ stb WASM │
- *   │ rAF loop    │             │ Event Ring Buffer    │ ── reads ──►│ frame()  │
- *   │ mouse evts  │── writes ──►│ Control Block        │             │ tick()   │
- *   └─────────────┘             └──────────────────────┘             │ draw()   │
- *                                                                    └──────────┘
- */
-
-// Command types (must match main.c)
-const CMD_RECT = 1
-const CMD_TILE = 2
-const DEBU_TILE_NR = false
-
-// Event types (must match main.c)
-const EVT_MOUSE_MOVE = 1
-const EVT_MOUSE_BUTTON = 2
-const EVT_MOUSE_WHEEL = 3
-const EVT_ACTION = 4
-const EVT_RESIZE = 5
-
-// Control block field offsets (uint32 indices)
-const CB_ACTIVE_READ_BUF = 0
-const CB_CMD_COUNT_A = 1
-const CB_CMD_COUNT_B = 2
-const CB_EVT_HEAD = 3
-const CB_EVT_TAIL = 4
-const CB_FRAME_READY = 5
-const CB_EDITOR_WIDTH = 6
-const CB_EDITOR_HEIGHT = 7
-const CB_INITIALIZED = 8
-
-// Tile colors for placeholder rendering (Phase 1)
-const TILE_COLORS = [
-  '#4a6741', '#6b8c42', '#8fbc3e', '#3d5c3a', '#557a3e', '#2e4a30',
-  '#7a5c3a', '#5a4030', '#8b7355', '#6b5a4a', '#9c8060', '#4a3828',
-  '#3a5a8c', '#4a7ab0', '#2a4a6c', '#5a8ab0', '#3a6a9c', '#2a3a5c',
-]
-
 export default class ViewStbEditor extends HTMLElement {
   static get viewMeta() {
     return { displayName: 'STB Tilemap Editor', category: 'Tiles' }
@@ -54,622 +6,1084 @@ export default class ViewStbEditor extends HTMLElement {
   constructor() {
     super()
 
-    /** @type {HTMLCanvasElement} */
-    this.canvas = document.createElement('canvas')
-    this.ctx = this.canvas.getContext('2d')
-    this.ctx.imageSmoothingEnabled = false
+    this.plugin = null
+    this.wasm = null
+    this.memory = null
+    this.exports = null
+    this.tilemap = 0
+    this.uiPtr = 0
 
-    /** @type {Worker|null} */
-    this.worker = null
+    this.tileSize = 32
+    this.sourceTileSize = 16
+    this.mapWidth = 20
+    this.mapHeight = 15
+    this.layers = 3
+    this.currentTool = 1
+    this.selectedLayer = -1
+    this.selectedCategory = -1
+    this.showGrid = true
+    this.hoverX = -1
+    this.hoverY = -1
 
-    /** @type {WebAssembly.Memory|null} */
-    this.wasmMemory = null
+    this.offsets = {}
+    this.tileSprites = new Map()
+    this.categoryNames = ['Floor', 'Walls']
+    this.layerNames = ['Ground', 'Mid', 'Top']
+    this.tileSets = [
+      { file: 'floor-16x16.png', categoryId: 1 },
+      { file: 'walls_low-16x16.png', categoryId: 2 }
+    ]
 
-    /** @type {Object} Buffer pointers into WASM memory */
-    this.pointers = null
+    this.dragStartX = -1
+    this.dragStartY = -1
+    this.dragEndX = -1
+    this.dragEndY = -1
+    this.showDragPreview = false
 
-    /** @type {boolean} */
-    this.running = false
+    this.view = {
+      scale: 1,
+      dragX: 0,
+      dragY: 0,
+      minScale: 0.35,
+      maxScale: 5
+    }
 
-    /** @type {number|null} */
-    this.animFrameId = null
+    this.boundHandleWindowResize = this.handleWindowResize.bind(this)
+    this.boundCanvasMouseUp = null
 
-    /** @type {number} */
-    this._requestId = 0
-
-    /** @type {Map<number, {resolve: Function, reject: Function}>} */
-    this._pending = new Map()
-
-    /** @type {Map<number, {image: HTMLImageElement, sx: number, sy: number, sw: number, sh: number}>} */
-    this.tileImages = new Map()
-    /** @type {number} */
-    this.tileSpacingX = 16
-    /** @type {number} */
-    this.tileSpacingY = 16
-
-    // Bind methods
-    this._renderLoop = this._renderLoop.bind(this)
-    this._onMouseMove = this._onMouseMove.bind(this)
-    this._onMouseDown = this._onMouseDown.bind(this)
-    this._onMouseUp = this._onMouseUp.bind(this)
-    this._onWheel = this._onWheel.bind(this)
-    this._onContextMenu = this._onContextMenu.bind(this)
-    this._onKeyDown = this._onKeyDown.bind(this)
-
-    // Resize observer
-    this._resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === this) {
-          this._handleResize(this.clientWidth, this.clientHeight)
-        }
-      }
-    })
-  }
-
-  /**
-   * Send a message to the worker and return a promise for the response.
-   * @param {string} type - Message type
-   * @param {Object} payload - Message payload
-   * @returns {Promise<Object>}
-   */
-  async _workerCall(type, payload = {}) {
-    const id = ++this._requestId
-    const promise = new Promise((resolve, reject) => {
-      this._pending.set(id, { resolve, reject })
-    })
-    this.worker.postMessage({ type, id, ...payload })
-    return promise
+    this.attachShadow({ mode: 'open' })
   }
 
   connectedCallback() {
-    // Layout
-    this.style.display = 'block'
-    this.style.position = 'relative'
-    this.style.width = '100%'
-    this.style.height = '100%'
-    this.style.overflow = 'hidden'
-    this.style.backgroundColor = '#1a1a2e'
-
-    // Canvas fills container
-    this.canvas.style.display = 'block'
-    this.canvas.style.width = '100%'
-    this.canvas.style.height = '100%'
-    this.appendChild(this.canvas)
-
-    // Focus support
-    if (!this.hasAttribute('tabindex')) {
-      this.setAttribute('tabindex', '0')
-    }
-
-    // Start observing size
-    this._resizeObserver.observe(this)
-
-    // Event listeners on canvas
-    this.canvas.addEventListener('mousemove', this._onMouseMove)
-    this.canvas.addEventListener('mousedown', this._onMouseDown)
-    this.canvas.addEventListener('mouseup', this._onMouseUp)
-    this.canvas.addEventListener('wheel', this._onWheel, { passive: false })
-    this.canvas.addEventListener('contextmenu', this._onContextMenu)
-    this.addEventListener('keydown', this._onKeyDown)
-
-    // Initialize the worker
-    this._initWorker()
+    this.renderLayout()
+    this.init().catch((err) => {
+      this.log(`Initialization failed: ${err.message}`)
+      console.error(err)
+    })
   }
 
   disconnectedCallback() {
-    this.running = false
-    if (this.animFrameId !== null) {
-      cancelAnimationFrame(this.animFrameId)
-      this.animFrameId = null
-    }
-
-    this._resizeObserver.disconnect()
-
-    this.canvas.removeEventListener('mousemove', this._onMouseMove)
-    this.canvas.removeEventListener('mousedown', this._onMouseDown)
-    this.canvas.removeEventListener('mouseup', this._onMouseUp)
-    this.canvas.removeEventListener('wheel', this._onWheel)
-    this.canvas.removeEventListener('contextmenu', this._onContextMenu)
-    this.removeEventListener('keydown', this._onKeyDown)
-
-    if (this.worker) {
-      // Reject all pending promises
-      for (const [id, pending] of this._pending) {
-        pending.reject(new Error('Worker terminated'))
-      }
-      this._pending.clear()
-
-      // Send stop (ignore response since we terminate immediately)
-      this.worker.postMessage({ type: 'stop', id: 0 })
-      this.worker.terminate()
-      this.worker = null
-    }
-
+    this.cleanup()
   }
 
-  // ── Worker initialization ───────────────────────────────────────────
-
-  async _initWorker() {
+  async init() {
     try {
-      this.worker = new Worker(
-        new URL('../systems/wasm-worker.js', import.meta.url),
-        { type: 'module' }
+      this.log('Initializing editor...')
+
+      const memory = new WebAssembly.Memory({
+        initial: 288,
+        maximum: 512,
+        shared: true
+      })
+
+      this.plugin = await window.pluginManager.load({
+        name: 'stbte',
+        importObject: { env: { memory } }
+      })
+
+      this.wasm = this.plugin.instance
+      this.memory = memory
+      this.exports = this.plugin.exports
+
+      this.loadOffsets()
+
+      this.tilemap = this.exports.stbte_create(
+        this.mapWidth,
+        this.mapHeight,
+        this.layers,
+        this.tileSize,
+        this.tileSize,
+        1024
       )
 
-      this.worker.onmessage = (e) => this._onWorkerMessage(e)
-      this.worker.onerror = (err) => {
-        console.error('stb-editor worker error:', err)
+      if (!this.tilemap) {
+        throw new Error('stbte_create returned null pointer')
       }
 
-      // Get initial dimensions
-      const w = this.clientWidth || 800
-      const h = this.clientHeight || 600
+      await this.defineTilesFromAtlases()
 
-      // 1. Initialize WASM module
-      const initResult = await this._workerCall('init', {
-        wasmUrl: new URL('../plugins/stb_tilemap_editor.wasm', import.meta.url).toString(),
-        memoryConfig: {
-          initial: 158,   // ~10MB (matches stb_tilemap_editor)
-          maximum: 512,   // ~32MB
-          shared: true
-        }
-      })
-      this.wasmMemory = initResult.memory
+      this.setupUI()
+      this.setupLayers()
+      this.setupCategories()
+      this.setupTiles()
+      this.updateMetadata()
+      this.setupViewportControls()
+      this.renderMap()
+      this.resetViewToFit()
 
-      // 2. Fetch buffer pointers
-      const pointerCalls = [
-        ['get_cmd_buf_a_ptr'],
-        ['get_cmd_buf_b_ptr'],
-        ['get_event_buf_ptr'],
-        ['get_control_block_ptr'],
-        ['get_evt_head_ptr'],
-        ['get_cmd_buf_size'],
-        ['get_evt_buf_size'],
-        ['get_control_block_size']
-      ]
-      const pointerResults = await this._workerCall('call', { calls: pointerCalls })
-      const [
-        cmdBufAPtr,
-        cmdBufBPtr,
-        evtBufPtr,
-        controlBlockPtr,
-        evtHeadPtr,
-        cmdBufSize,
-        evtBufSize,
-        controlBlockSize
-      ] = pointerResults.results
-
-      this.pointers = {
-        cmdBufA: cmdBufAPtr,
-        cmdBufB: cmdBufBPtr,
-        evtBuf: evtBufPtr,
-        controlBlock: controlBlockPtr,
-        evtHead: evtHeadPtr,
-        cmdBufSize,
-        evtBufSize,
-        controlBlockSize
-      }
-
-      // 3. Write map configuration to control block (must be before init)
-      const controlView = new Int32Array(this.wasmMemory.buffer, controlBlockPtr, controlBlockSize / 4)
-      // Control block layout (uint32 offsets):
-      //  9: map_width, 10: map_height, 11: num_layers, 12: spacing_x, 13: spacing_y
-      Atomics.store(controlView, 9, 16)   // mapWidth
-      Atomics.store(controlView, 10, 16)  // mapHeight
-      Atomics.store(controlView, 11, 20)  // numLayers
-      Atomics.store(controlView, 12, 16)  // spacing_x
-      Atomics.store(controlView, 13, 16)  // spacing_y
-      this.tileSpacingX = 16
-      this.tileSpacingY = 16
-
-      // 4. Initialize editor
-      const initCall = await this._workerCall('call', {
-        calls: [['init']]
-      })
-      if (initCall.results[0] !== 0) {
-        throw new Error(`WASM init() failed with code ${initCall.results[0]}`)
-      }
-
-      // 5. Load tile images and define tiles
-      await this._loadTileSets()
-
-      // 6. Write initial resize event to event buffer
-      const evtView = new Int32Array(this.wasmMemory.buffer, evtBufPtr, evtBufSize)
-
-      // Write resize event
-      evtView[0] = 5 // EVT_RESIZE
-      evtView[1] = 0 // x0
-      evtView[2] = 0 // y0
-      evtView[3] = w
-      evtView[4] = h
-      // Update event head
-      Atomics.store(controlView, 3, 5) // evt_head = 5 words
-
-      // 5. Run one frame to generate initial draw commands
-      await this._workerCall('call', { calls: [['frame']] })
-
-      // 6. Start periodic frame loop (~60fps)
-      await this._workerCall('start', { func: 'frame', interval: 16 })
-
-      // 7. Start our render loop
-      this.running = true
-      this.animFrameId = requestAnimationFrame(this._renderLoop)
-
-      // 8. Send initial resize (in case dimensions changed during load)
-      this._handleResize(this.clientWidth, this.clientHeight)
-
+      this.log(`Ready. ${this.tileSprites.size} tile sprites loaded.`)
     } catch (err) {
-      console.error('Failed to initialize stb-editor:', err)
-      this.running = false
-      if (this.worker) {
-        this.worker.terminate()
-        this.worker = null
+      this.log(`Error: ${err.message}`)
+      throw err
+    }
+  }
+
+  cleanup() {
+    if (this.boundCanvasMouseUp) {
+      window.removeEventListener('mouseup', this.boundCanvasMouseUp)
+      this.boundCanvasMouseUp = null
+    }
+
+    window.removeEventListener('resize', this.boundHandleWindowResize)
+
+    try {
+      if (this.exports && this.tilemap) {
+        this.exports.stbte_destroy(this.tilemap)
       }
+    } catch (err) {
+      console.warn('[stb-editor] destroy failed:', err)
+    }
+
+    this.tilemap = 0
+    this.uiPtr = 0
+    this.exports = null
+    this.memory = null
+    this.wasm = null
+
+    if (this.plugin) {
+      window.pluginManager.unload(this.plugin)
+      this.plugin = null
     }
   }
 
-  _onWorkerMessage(e) {
-    const { type, id, ...data } = e.data
-
-    // Handle request/response messages
-    if (id !== undefined) {
-      const pending = this._pending.get(id)
-      if (pending) {
-        this._pending.delete(id)
-        if (type === 'success') {
-          pending.resolve(data)
-        } else if (type === 'error') {
-          pending.reject(new Error(data.error?.message || String(data.error)))
-        } else {
-          console.warn('stb-editor: unknown response type:', type, data)
-        }
-        return
-      }
-    }
-
-    // Handle unsolicited messages
-    switch (type) {
-      case 'memory-grown':
-        // Memory buffer changed, update our reference
-        if (this.wasmMemory && data.buffer) {
-          // The buffer property is the same SharedArrayBuffer
-          // We need to update ArrayBuffer views in render loop
-        }
-        break
-
-      default:
-        console.warn('stb-editor: unknown worker message:', type, data)
-    }
-  }
-
-  // ── Render loop ─────────────────────────────────────────────────────
-
-  _renderLoop() {
-    if (!this.running) return
-
-    this._renderFrame()
-    this.animFrameId = requestAnimationFrame(this._renderLoop)
-  }
-
-  _renderFrame() {
-    if (!this.wasmMemory || !this.pointers) return
-
-    const { controlBlock, cmdBufA, cmdBufB, cmdBufSize } = this.pointers
-
-    // Read control block via Atomics (shared memory)
-    const controlView = new Int32Array(this.wasmMemory.buffer, controlBlock, 16)
-
-    const frameReady = Atomics.load(controlView, CB_FRAME_READY)
-    if (!frameReady) return
-
-    // Read which buffer to render from
-    const readBuf = Atomics.load(controlView, CB_ACTIVE_READ_BUF)
-    const cmdCount = Atomics.load(controlView, readBuf === 0 ? CB_CMD_COUNT_A : CB_CMD_COUNT_B)
-
-    // Get the command buffer view
-    const bufPtr = readBuf === 0 ? cmdBufA : cmdBufB
-    const cmdView = new Uint32Array(this.wasmMemory.buffer, bufPtr, cmdBufSize)
-
-    // Clear and render
-    const ctx = this.ctx
-    const dpr = window.devicePixelRatio || 1
-    ctx.save()
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    // No DPR scaling for stb editor - it works in pixel coordinates
-    ctx.restore()
-
-    // Interpret command buffer
-    this._executeCommands(ctx, cmdView, cmdCount)
-
-    // Signal we consumed the frame
-    Atomics.store(controlView, CB_FRAME_READY, 0)
-  }
-
-  /**
-   * Interpret the draw command buffer and render to Canvas2D.
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {Uint32Array} buf - Command buffer
-   * @param {number} count - Number of uint32 words used
-   */
-  _executeCommands(ctx, buf, count) {
-    let i = 0
-    while (i < count) {
-      const type = buf[i]
-
-      switch (type) {
-        case CMD_RECT: {
-          // Packed format: [CMD_RECT, x0|y0<<16, x1|y1<<16, color]
-          const xy0 = buf[i + 1]
-          const xy1 = buf[i + 2]
-          const color = buf[i + 3]
-
-          const x0 = (xy0 & 0xFFFF) << 16 >> 16 // sign-extend 16-bit
-          const y0 = (xy0 >> 16) << 16 >> 16
-          const x1 = (xy1 & 0xFFFF) << 16 >> 16
-          const y1 = (xy1 >> 16) << 16 >> 16
-
-          const r = (color >> 16) & 0xFF
-          const g = (color >> 8) & 0xFF
-          const b = color & 0xFF
-          ctx.fillStyle = `rgb(${r},${g},${b})`
-          ctx.fillRect(x0, y0, x1 - x0, y1 - y0)
-          i += 4
-          break
+  renderLayout() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          --stb-bg: #0d1117;
+          --stb-panel: #161b22;
+          --stb-panel-2: #1f2630;
+          --stb-line: #30363d;
+          --stb-text: #c9d1d9;
+          --stb-muted: #8b949e;
+          --stb-accent: #2f81f7;
+          --stb-accent-soft: #1f6feb;
+          display: block;
+          width: 100%;
+          height: 100%;
+          color: var(--stb-text);
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          background: radial-gradient(circle at top left, #132236, var(--stb-bg) 50%);
         }
 
-        case CMD_TILE: {
-          // [CMD_TILE, x0|y0<<16, tile_id, highlight_shifted]
-          const xy0 = buf[i + 1]
-          const tileId = buf[i + 2]
-          const highlight = buf[i + 3] // 0=deemphasize, 1=normal, 2=emphasize
+        * { box-sizing: border-box; }
 
-          const x0 = (xy0 & 0xFFFF) << 16 >> 16
-          const y0 = (xy0 >> 16) << 16 >> 16
+        .app {
+          height: 100%;
+          display: grid;
+          grid-template-columns: 1fr 340px;
+          gap: 12px;
+          padding: 10px;
+        }
 
-          // Look up tile image
-          const tileData = this.tileImages.get(tileId)
-          if (tileData) {
-            // Apply highlight mode
-            if (highlight === 0) {
-              ctx.globalAlpha = 0.4 // deemphasize
-            } else if (highlight === 2) {
-              ctx.globalAlpha = 1.0 // emphasize (brighter)
-            } else {
-              ctx.globalAlpha = 0.8 // normal
-            }
-            // Draw image tile
-            ctx.drawImage(
-              tileData.image,
-              tileData.sx, tileData.sy, tileData.sw, tileData.sh,
-              x0, y0, this.tileSpacingX, this.tileSpacingY
-            )
-            // Draw tile ID text (for debugging)
-            if (DEBU_TILE_NR) {
-              ctx.globalAlpha = 1.0
-              ctx.fillStyle = '#ffffff'
-              ctx.font = '8px monospace'
-              ctx.textAlign = 'center'
-              ctx.textBaseline = 'middle'
-              ctx.fillText(String(tileId), x0 + this.tileSpacingX / 2, y0 + this.tileSpacingY / 2)
-            }
-          } else {
-            // Fallback: colored rectangle with tile ID
-            const colorIdx = tileId % TILE_COLORS.length
-            ctx.fillStyle = TILE_COLORS[colorIdx]
-            // Apply highlight mode
-            if (highlight === 0) {
-              ctx.globalAlpha = 0.4
-            } else if (highlight === 2) {
-              ctx.globalAlpha = 1.0
-            } else {
-              ctx.globalAlpha = 0.8
-            }
-            ctx.fillRect(x0, y0, this.tileSpacingX, this.tileSpacingY)
-            // Draw tile ID text
+        .workspace {
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
 
-            ctx.globalAlpha = 1.0
-            ctx.fillStyle = '#ffffff'
-            ctx.font = '8px monospace'
-            ctx.textAlign = 'center'
-            ctx.textBaseline = 'middle'
-            ctx.fillText(String(tileId), x0 + this.tileSpacingX / 2, y0 + this.tileSpacingY / 2)
+        .header,
+        .panel {
+          border: 1px solid var(--stb-line);
+          border-radius: 10px;
+          background: #10161f;
+        }
+
+        .header {
+          padding: 10px 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .title {
+          font-size: 14px;
+          color: #f0f6fc;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+        }
+
+        .subtle {
+          font-size: 11px;
+          color: var(--stb-muted);
+        }
+
+        .canvas-shell {
+          flex: 1;
+          min-height: 0;
+          border: 1px solid var(--stb-line);
+          border-radius: 10px;
+          background: linear-gradient(180deg, #0e131b, #0a0f16);
+          padding: 10px;
+        }
+
+        .map-viewport {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          border: 1px solid #263243;
+          border-radius: 8px;
+          background: #080d14;
+          overflow: hidden;
+        }
+
+        .tilemap {
+          position: absolute;
+          left: 0;
+          top: 0;
+          border: 1px solid #34404f;
+          background: #06090f;
+          image-rendering: pixelated;
+          cursor: crosshair;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+          transform-origin: 0 0;
+        }
+
+        .sidebar {
+          background: linear-gradient(180deg, var(--stb-panel), var(--stb-panel-2));
+          border: 1px solid var(--stb-line);
+          border-radius: 12px;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
+
+        .panel {
+          padding: 10px;
+        }
+
+        .panel h2 {
+          margin: 0 0 8px;
+          font-size: 12px;
+          color: #f0f6fc;
+          letter-spacing: 0.02em;
+        }
+
+        button {
+          background: #21262d;
+          color: var(--stb-text);
+          border: 1px solid var(--stb-line);
+          border-radius: 7px;
+          padding: 6px 10px;
+          cursor: pointer;
+          font: inherit;
+          font-size: 12px;
+        }
+
+        button:hover {
+          background: #2b3340;
+          border-color: #3b4552;
+        }
+
+        button.active {
+          background: linear-gradient(180deg, var(--stb-accent), var(--stb-accent-soft));
+          color: #fff;
+          border-color: #2569c8;
+        }
+
+        button:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+
+        .tool-row,
+        .edit-row {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 6px;
+        }
+
+        .tool-btn,
+        .edit-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 32px;
+        }
+
+        .layers {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .layer-row {
+          display: grid;
+          grid-template-columns: 1fr auto auto auto;
+          gap: 6px;
+          align-items: center;
+          background: #151c25;
+          border: 1px solid #232d39;
+          border-radius: 8px;
+          padding: 6px;
+        }
+
+        .layer-row.is-selected {
+          border-color: #376fb9;
+          box-shadow: inset 0 0 0 1px #214a82;
+        }
+
+        .layer-name {
+          font-size: 12px;
+          cursor: pointer;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .tog {
+          min-width: 28px;
+          padding: 4px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .tog.is-on {
+          background: #1f3d25;
+          color: #9be9a8;
+          border-color: #2f6b3d;
+        }
+
+        .categories {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .tile-grid {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr));
+          gap: 6px;
+          max-height: 210px;
+          overflow: auto;
+          padding-right: 2px;
+        }
+
+        .tile-btn {
+          position: relative;
+          border: 1px solid #2c3643;
+          border-radius: 6px;
+          width: 42px;
+          height: 42px;
+          padding: 0;
+          background: #0f1520;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .tile-btn canvas {
+          width: 36px;
+          height: 36px;
+          image-rendering: pixelated;
+        }
+
+        .tile-btn.active {
+          border-color: #58a6ff;
+          box-shadow: inset 0 0 0 1px #2f81f7;
+        }
+
+        .tile-id {
+          position: absolute;
+          right: 2px;
+          bottom: 1px;
+          font-size: 9px;
+          color: #f0f6fc;
+          background: rgba(0, 0, 0, 0.55);
+          border-radius: 4px;
+          padding: 0 3px;
+          line-height: 1.3;
+          pointer-events: none;
+        }
+
+        .meta {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          gap: 4px 10px;
+          font-size: 12px;
+          align-items: baseline;
+        }
+
+        .meta dt { color: var(--stb-muted); }
+        .meta dd { margin: 0; color: #f0f6fc; }
+
+        .output {
+          margin: 0;
+          font-size: 11px;
+          color: #93a1b1;
+          background: #0b1017;
+          border: 1px solid #202b3a;
+          border-radius: 8px;
+          padding: 8px;
+          max-height: 120px;
+          overflow: auto;
+          white-space: pre-wrap;
+        }
+
+        @media (max-width: 1080px) and (orientation: portrait) {
+          .app {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr auto;
           }
-
-          i += 4
-          break
         }
+      </style>
 
-        default:
-          // Unknown command or CMD_END - stop processing
-          return
-      }
-    }
+      <div class="app">
+        <main class="workspace">
+          <div class="header">
+            <div>
+              <div class="title">STB Tilemap Editor</div>
+              <div class="subtle">Map on the left, controls on the right.</div>
+            </div>
+            <div>
+              <button class="edit-btn" data-id="fit-btn" title="Fit map to viewport">Fit</button>
+              <span class="subtle">Shift + drag for area apply with brush/erase</span>
+            </div>
+          </div>
+          <div class="canvas-shell">
+            <div class="map-viewport" data-id="map-viewport">
+              <canvas class="tilemap" data-id="tilemap" width="640" height="480"></canvas>
+            </div>
+          </div>
+        </main>
+
+        <aside class="sidebar">
+          <section class="panel">
+            <h2>Metadata</h2>
+            <dl class="meta" data-id="meta"></dl>
+          </section>
+
+          <section class="panel">
+            <h2>Tools</h2>
+            <div class="tool-row">
+              <button class="tool-btn" data-tool="0">Select</button>
+              <button class="tool-btn active" data-tool="1">Brush</button>
+              <button class="tool-btn" data-tool="2">Erase</button>
+              <button class="tool-btn" data-tool="3">Eyedrop</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Edit</h2>
+            <div class="edit-row">
+              <button class="edit-btn" data-id="undo-btn">Undo</button>
+              <button class="edit-btn" data-id="redo-btn">Redo</button>
+              <button class="edit-btn" data-id="cut-btn">Cut</button>
+              <button class="edit-btn" data-id="copy-btn">Copy</button>
+              <button class="edit-btn" data-id="paste-btn">Paste</button>
+              <button class="edit-btn" data-id="clear-btn">Clear</button>
+              <button class="edit-btn" data-id="grid-btn">Grid</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Layers</h2>
+            <div class="layers" data-id="layers"></div>
+          </section>
+
+          <section class="panel">
+            <h2>Categories</h2>
+            <div class="categories" data-id="categories"></div>
+          </section>
+
+          <section class="panel">
+            <h2>Tiles</h2>
+            <div class="tile-grid" data-id="tiles"></div>
+          </section>
+
+          <section class="panel">
+            <h2>Output</h2>
+            <pre class="output" data-id="output">Loading WASM...</pre>
+          </section>
+        </aside>
+      </div>
+    `
   }
 
-  // ── Canvas resize ───────────────────────────────────────────────────
-
-  _handleResize(width, height) {
-    if (width === 0 || height === 0) return
-
-    // Set canvas bitmap size (1:1 with CSS pixels for now)
-    this.canvas.width = width
-    this.canvas.height = height
-
-    // Send resize event to stb editor
-    this._pushEvent(EVT_RESIZE, [0, 0, width, height])
+  el(id) {
+    return this.shadowRoot.querySelector(`[data-id="${id}"]`)
   }
 
-  // ── Event forwarding ────────────────────────────────────────────────
-
-  /**
-   * Push an event to the shared ring buffer for the WASM editor to consume.
-   * @param {number} evtType
-   * @param {number[]} fields
-   */
-  _pushEvent(evtType, fields) {
-    if (!this.wasmMemory || !this.pointers) return
-
-    const { evtBuf, controlBlock, evtBufSize } = this.pointers
-    const controlView = new Int32Array(this.wasmMemory.buffer, controlBlock, 16)
-    const evtView = new Int32Array(this.wasmMemory.buffer, evtBuf, evtBufSize)
-
-    const totalWords = 1 + fields.length // type + fields
-    const head = Atomics.load(controlView, CB_EVT_HEAD)
-    const tail = Atomics.load(controlView, CB_EVT_TAIL)
-
-    // Check if there's space (leave 1 word gap to distinguish full from empty)
-    const used = (head - tail + evtBufSize) % evtBufSize
-    if (used + totalWords >= evtBufSize - 1) {
-      return // buffer full, drop event
-    }
-
-    // Write event
-    let pos = head
-    evtView[pos % evtBufSize] = evtType
-    pos++
-    for (const field of fields) {
-      evtView[pos % evtBufSize] = field
-      pos++
-    }
-
-    // Update head atomically
-    Atomics.store(controlView, CB_EVT_HEAD, pos)
+  log(message) {
+    const output = this.el('output')
+    output.textContent += `${message}\n`
+    output.scrollTop = output.scrollHeight
   }
 
-  /**
-   * Convert mouse event to stb editor coordinates.
-   * stb_tilemap_editor uses pixel coordinates starting at (0,0) top-left.
-   */
-  _mouseCoords(e) {
-    const rect = this.canvas.getBoundingClientRect()
-    return {
-      x: Math.round(e.clientX - rect.left),
-      y: Math.round(e.clientY - rect.top)
-    }
-  }
-
-  _onMouseMove(e) {
-    const { x, y } = this._mouseCoords(e)
-    const shifted = e.shiftKey ? 1 : 0
-    const scrollkey = (e.ctrlKey || e.metaKey) ? 1 : 0
-    this._pushEvent(EVT_MOUSE_MOVE, [x, y, shifted, scrollkey])
-  }
-
-  _onMouseDown(e) {
-    this.focus() // grab keyboard focus
-    const { x, y } = this._mouseCoords(e)
-    const right = e.button === 2 ? 1 : 0
-    const shifted = e.shiftKey ? 1 : 0
-    const scrollkey = (e.ctrlKey || e.metaKey) ? 1 : 0
-    this._pushEvent(EVT_MOUSE_BUTTON, [x, y, right, 1, shifted, scrollkey])
-  }
-
-  _onMouseUp(e) {
-    const { x, y } = this._mouseCoords(e)
-    const right = e.button === 2 ? 1 : 0
-    const shifted = e.shiftKey ? 1 : 0
-    const scrollkey = (e.ctrlKey || e.metaKey) ? 1 : 0
-    this._pushEvent(EVT_MOUSE_BUTTON, [x, y, right, 0, shifted, scrollkey])
-  }
-
-  _onWheel(e) {
-    e.preventDefault()
-    const { x, y } = this._mouseCoords(e)
-    // stb expects positive vscroll = scroll up
-    const vscroll = -Math.sign(e.deltaY)
-    this._pushEvent(EVT_MOUSE_WHEEL, [x, y, vscroll])
-  }
-
-  _onContextMenu(e) {
-    e.preventDefault() // stb uses right-click for erasing
-  }
-
-  _onKeyDown(e) {
-    // Map common keyboard shortcuts to stb actions
-    // stbte_action enum values from the header:
-    //  0=select, 1=brush, 2=erase, 3=rectangle, 4=eyedropper, 5=link
-    //  6=toggle_grid, 7=toggle_links, 8=undo, 9=redo
-    // 10=cut, 11=copy, 12=paste, 13-16=scroll
-
-    let action = -1
-    if (e.ctrlKey || e.metaKey) {
-      switch (e.key) {
-        case 'z': action = 8; break  // undo
-        case 'y': action = 9; break  // redo
-        case 'x': action = 10; break // cut
-        case 'c': action = 11; break // copy
-        case 'v': action = 12; break // paste
-      }
-    } else {
-      switch (e.key) {
-        case 's': action = 0; break  // select tool
-        case 'b': action = 1; break  // brush tool
-        case 'e': action = 2; break  // erase tool
-        case 'r': action = 3; break  // rectangle tool
-        case 'i': action = 4; break  // eyedropper
-        case 'l': action = 5; break  // link tool
-        case 'g': action = 6; break  // toggle grid
-        case 'ArrowLeft': action = 13; break // scroll left
-        case 'ArrowRight': action = 14; break // scroll right
-        case 'ArrowUp': action = 15; break // scroll up
-        case 'ArrowDown': action = 16; break // scroll down
-      }
-    }
-
-    if (action >= 0) {
-      e.preventDefault()
-      this._pushEvent(EVT_ACTION, [action])
-    }
-  }
-
-  async _loadTileSets() {
-    const tileSize = this.tileSpacingX
-    const categories = [
-      { name: 'floor', file: 'floor-16x16.png', categoryIndex: 3 },
-      { name: 'walls_low', file: 'walls_low-16x16.png', categoryIndex: 4 },
-      { name: 'walls_high', file: 'walls_high-16x32.png', categoryIndex: 5 }
+  loadOffsets() {
+    const names = [
+      'stbte_offset_tilemap_max_x', 'stbte_offset_tilemap_max_y',
+      'stbte_offset_tilemap_num_layers', 'stbte_offset_tilemap_num_tiles',
+      'stbte_offset_tilemap_cur_tile', 'stbte_offset_tilemap_cur_layer',
+      'stbte_offset_tilemap_solo_layer', 'stbte_offset_tilemap_cur_category',
+      'stbte_offset_tilemap_background_tile', 'stbte_offset_tilemap_num_categories',
+      'stbte_offset_tilemap_data', 'stbte_offset_tilemap_tiles',
+      'stbte_offset_tilemap_layerinfo', 'stbte_offset_tilemap_undo_available',
+      'stbte_offset_tilemap_redo_available', 'stbte_offset_layer_hidden',
+      'stbte_offset_layer_locked', 'stbte_offset_tileinfo_id',
+      'stbte_offset_tileinfo_layermask', 'stbte_offset_tileinfo_category_id',
+      'stbte_offset_ui_tool', 'stbte_offset_ui_has_selection',
+      'stbte_offset_ui_has_copy'
     ]
-    let nextTileId = 1
 
-    for (const cat of categories) {
-      const url = new URL(`../example/${cat.file}`, import.meta.url).toString()
-      const img = await this._loadImage(url)
-      const cols = Math.floor(img.width / tileSize)
-      const rows = Math.floor(img.height / tileSize)
-      const tileCount = cols * rows
-      console.log(`Loading ${cat.name}: ${img.width}x${img.height}, ${cols}x${rows} = ${tileCount} tiles`)
+    names.forEach((name) => {
+      this.offsets[name.replace('stbte_offset_', '').replace('tilemap_', 'tm_')] = this.exports[name]()
+    })
+
+    this.offsets.sizeof_layer = this.exports.stbte_sizeof_layer()
+    this.offsets.sizeof_tileinfo = this.exports.stbte_sizeof_tileinfo()
+    this.offsets.max_map_x = this.exports.stbte_max_map_x()
+    this.offsets.max_layers = this.exports.stbte_max_layers()
+    this.uiPtr = this.exports.stbte_ui_ptr()
+  }
+
+  async defineTilesFromAtlases() {
+    let nextTileId = 1
+    let firstFloorTile = -1
+
+    for (const tileSet of this.tileSets) {
+      const image = await this.loadImage(new URL(`../example/${tileSet.file}`, import.meta.url).toString())
+      const cols = Math.floor(image.width / this.sourceTileSize)
+      const rows = Math.floor(image.height / this.sourceTileSize)
       for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
           const tileId = nextTileId++
-          const result = await this._workerCall('call', {
-            calls: [['define_tile', tileId, 0xFF, cat.categoryIndex]]
+          this.exports.stbte_define_tile(this.tilemap, tileId, 0xFF, tileSet.categoryId)
+          this.tileSprites.set(tileId, {
+            image,
+            sx: x * this.sourceTileSize,
+            sy: y * this.sourceTileSize,
+            sw: this.sourceTileSize,
+            sh: this.sourceTileSize
           })
-          if (result.results[0] !== 0) {
-            console.error(`Failed to define tile ${tileId} for ${cat.name}: error ${result.results[0]}`)
+          if (tileSet.categoryId === 1 && firstFloorTile === -1) {
+            firstFloorTile = tileId
           }
-          this.tileImages.set(tileId, {
-            image: img,
-            sx: x * tileSize,
-            sy: y * tileSize,
-            sw: tileSize,
-            sh: tileSize
-          })
         }
       }
+      this.log(`Loaded ${tileSet.file} (${cols * rows} tiles)`)
     }
-    console.log('Loaded', this.tileImages.size, 'tiles (tile IDs 1..' + (nextTileId - 1) + ')')
+
+    if (firstFloorTile !== -1) {
+      this.exports.stbte_set_background_tile(this.tilemap, firstFloorTile)
+    }
+
+    this.exports.stbte_set_active_tile(this.tilemap, 0)
   }
 
-  _loadImage(url) {
+  loadImage(src) {
     return new Promise((resolve, reject) => {
       const img = new Image()
       img.onload = () => resolve(img)
-      img.onerror = (e) => {
-        console.error('Failed to load tile image:', url, e)
-        reject(new Error(`Failed to load image: ${url}`))
-      }
-      img.src = url
+      img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+      img.src = src
     })
+  }
+
+  readTilemap(offset, type = 'i32') {
+    const view = new DataView(this.memory.buffer, this.tilemap + offset)
+    if (type === 'i8') return view.getInt8(0)
+    if (type === 'i16') return view.getInt16(0, true)
+    return view.getInt32(0, true)
+  }
+
+  readUI(offset, type = 'i32') {
+    const view = new DataView(this.memory.buffer, this.uiPtr + offset)
+    if (type === 'i8') return view.getInt8(0)
+    if (type === 'i16') return view.getInt16(0, true)
+    return view.getInt32(0, true)
+  }
+
+  getNumTiles() { return this.readTilemap(this.offsets.tm_num_tiles, 'i32') }
+  getNumCategories() { return this.readTilemap(this.offsets.tm_num_categories, 'i32') }
+  getCurrentCategory() { return this.readTilemap(this.offsets.tm_cur_category, 'i32') }
+  getCurrentTile() { return this.readTilemap(this.offsets.tm_cur_tile, 'i32') }
+  canUndo() { return this.readTilemap(this.offsets.tm_undo_available, 'i8') !== 0 }
+  canRedo() { return this.readTilemap(this.offsets.tm_redo_available, 'i8') !== 0 }
+
+  setupUI() {
+    this.shadowRoot.querySelectorAll('.tool-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.shadowRoot.querySelectorAll('.tool-btn').forEach((b) => b.classList.remove('active'))
+        btn.classList.add('active')
+        this.currentTool = parseInt(btn.dataset.tool, 10)
+        this.exports.stbte_set_tool(this.tilemap, this.currentTool)
+        this.updateMetadata()
+      })
+    })
+
+    this.el('undo-btn').addEventListener('click', () => {
+      this.exports.stbte_undo(this.tilemap)
+      this.postAction()
+    })
+
+    this.el('redo-btn').addEventListener('click', () => {
+      this.exports.stbte_redo(this.tilemap)
+      this.postAction()
+    })
+
+    this.el('cut-btn').addEventListener('click', () => {
+      this.exports.stbte_cut(this.tilemap)
+      this.postAction()
+    })
+
+    this.el('copy-btn').addEventListener('click', () => {
+      this.exports.stbte_copy(this.tilemap)
+      this.updateMetadata()
+      this.log('Copied selection')
+    })
+
+    this.el('paste-btn').addEventListener('click', () => {
+      const cx = Math.floor(this.mapWidth / 2)
+      const cy = Math.floor(this.mapHeight / 2)
+      this.exports.stbte_paste(this.tilemap, cx, cy)
+      this.postAction()
+    })
+
+    this.el('clear-btn').addEventListener('click', () => {
+      this.exports.stbte_clear(this.tilemap)
+      this.postAction()
+    })
+
+    this.el('grid-btn').addEventListener('click', () => {
+      this.showGrid = !this.showGrid
+      this.renderMap()
+      this.updateMetadata()
+    })
+
+    this.el('fit-btn').addEventListener('click', () => {
+      this.resetViewToFit()
+    })
+
+    this.setupCanvasInput()
+  }
+
+  setupViewportControls() {
+    const viewport = this.el('map-viewport')
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      const rect = viewport.getBoundingClientRect()
+      const layerX = e.clientX - rect.left
+      const layerY = e.clientY - rect.top
+
+      if (e.ctrlKey || e.metaKey) {
+        const prevScale = this.view.scale
+        const zoomAmount = -e.deltaY * 0.0015
+        const nextScale = this.clamp(prevScale * (1 + zoomAmount), this.view.minScale, this.view.maxScale)
+        const relX = (layerX - this.view.dragX) / prevScale
+        const relY = (layerY - this.view.dragY) / prevScale
+        this.view.scale = nextScale
+        this.view.dragX = layerX - relX * nextScale
+        this.view.dragY = layerY - relY * nextScale
+      } else {
+        this.view.dragX -= e.deltaX
+        this.view.dragY -= e.deltaY
+      }
+
+      this.applyViewTransform()
+      this.updateMetadata()
+    }, { passive: false })
+
+    window.addEventListener('resize', this.boundHandleWindowResize)
+  }
+
+  handleWindowResize() {
+    this.applyViewTransform()
+  }
+
+  applyViewTransform() {
+    const canvas = this.el('tilemap')
+    const s = this.view.scale
+    canvas.style.transform = `matrix(${s}, 0, 0, ${s}, ${this.view.dragX}, ${this.view.dragY})`
+  }
+
+  resetViewToFit() {
+    const viewport = this.el('map-viewport')
+    const mapW = this.mapWidth * this.tileSize
+    const mapH = this.mapHeight * this.tileSize
+    const fitScaleX = viewport.clientWidth / mapW
+    const fitScaleY = viewport.clientHeight / mapH
+    const fitScale = this.clamp(Math.min(fitScaleX, fitScaleY), this.view.minScale, this.view.maxScale)
+    this.view.scale = fitScale
+    this.view.dragX = Math.round((viewport.clientWidth - mapW * fitScale) / 2)
+    this.view.dragY = Math.round((viewport.clientHeight - mapH * fitScale) / 2)
+    this.applyViewTransform()
+    this.updateMetadata()
+  }
+
+  postAction() {
+    this.renderMap()
+    this.updateMetadata()
+    this.setupLayers()
+    this.el('undo-btn').disabled = !this.canUndo()
+    this.el('redo-btn').disabled = !this.canRedo()
+  }
+
+  setupCanvasInput() {
+    const canvas = this.el('tilemap')
+    let isDragging = false
+    let areaDrag = false
+
+    const isAreaDrag = (e) => this.currentTool === 0 || (e.shiftKey && (this.currentTool === 1 || this.currentTool === 2))
+
+    const eventToCell = (e) => {
+      const viewportRect = this.el('map-viewport').getBoundingClientRect()
+      const localX = e.clientX - viewportRect.left
+      const localY = e.clientY - viewportRect.top
+      const worldX = (localX - this.view.dragX) / this.view.scale
+      const worldY = (localY - this.view.dragY) / this.view.scale
+      return {
+        x: Math.floor(worldX / this.tileSize),
+        y: Math.floor(worldY / this.tileSize)
+      }
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      const { x, y } = eventToCell(e)
+      if (!this.isInsideMap(x, y)) return
+      isDragging = true
+      this.dragStartX = x
+      this.dragStartY = y
+
+      if (isAreaDrag(e)) {
+        areaDrag = true
+        this.dragEndX = x
+        this.dragEndY = y
+        this.showDragPreview = true
+        this.renderMap()
+        return
+      }
+
+      areaDrag = false
+      this.showDragPreview = false
+      this.exports.stbte_apply(this.tilemap, x, y, x, y)
+      this.postAction()
+    })
+
+    canvas.addEventListener('mousemove', (e) => {
+      const { x, y } = eventToCell(e)
+      this.hoverX = x
+      this.hoverY = y
+      this.updateMetadata()
+
+      if (!isDragging || !this.isInsideMap(x, y)) return
+
+      if (areaDrag) {
+        this.dragEndX = x
+        this.dragEndY = y
+        this.renderMap()
+        return
+      }
+
+      if (this.currentTool === 1 || this.currentTool === 2) {
+        this.exports.stbte_apply(this.tilemap, x, y, x, y)
+        this.renderMap()
+        this.updateMetadata()
+      }
+    })
+
+    canvas.addEventListener('mouseleave', () => {
+      this.hoverX = -1
+      this.hoverY = -1
+      this.updateMetadata()
+    })
+
+    const onMouseUp = (e) => {
+      if (isDragging && areaDrag) {
+        const { x, y } = eventToCell(e)
+        const ex = this.clamp(x, 0, this.mapWidth - 1)
+        const ey = this.clamp(y, 0, this.mapHeight - 1)
+        this.exports.stbte_apply(this.tilemap, this.dragStartX, this.dragStartY, ex, ey)
+        this.showDragPreview = false
+        this.postAction()
+      }
+      isDragging = false
+      areaDrag = false
+    }
+
+    this.boundCanvasMouseUp = onMouseUp
+    window.addEventListener('mouseup', onMouseUp)
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault())
+  }
+
+  isInsideMap(x, y) {
+    return x >= 0 && x < this.mapWidth && y >= 0 && y < this.mapHeight
+  }
+
+  clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v))
+  }
+
+  setupLayers() {
+    const container = this.el('layers')
+    container.innerHTML = ''
+
+    for (let i = this.layers - 1; i >= 0; i--) {
+      const layerOffset = this.tilemap + this.offsets.tm_layerinfo + (i * this.offsets.sizeof_layer)
+      const hidden = new DataView(this.memory.buffer, layerOffset + this.offsets.layer_hidden, 4).getInt32(0, true) !== 0
+      const locked = new DataView(this.memory.buffer, layerOffset + this.offsets.layer_locked, 4).getInt32(0, true) !== 0
+      const soloLayer = this.readTilemap(this.offsets.tm_solo_layer, 'i32')
+      const isSolo = soloLayer === i
+
+      const row = document.createElement('div')
+      row.className = `layer-row${this.selectedLayer === i ? ' is-selected' : ''}`
+
+      const name = document.createElement('div')
+      name.className = 'layer-name'
+      name.textContent = this.layerNames[i] || `Layer ${i + 1}`
+      name.addEventListener('click', () => {
+        this.selectedLayer = this.selectedLayer === i ? -1 : i
+        this.exports.stbte_set_active_layer(this.tilemap, this.selectedLayer)
+        this.setupLayers()
+        this.updateMetadata()
+      })
+      row.appendChild(name)
+
+      const hBtn = this.makeLayerToggle('H', hidden, () => {
+        this.exports.stbte_set_layer_hidden(this.tilemap, i, hidden ? 0 : 1)
+        this.setupLayers()
+        this.renderMap()
+      })
+      const lBtn = this.makeLayerToggle('L', locked, () => {
+        this.exports.stbte_set_layer_locked(this.tilemap, i, locked ? 0 : 1)
+        this.setupLayers()
+        this.renderMap()
+      })
+      const sBtn = this.makeLayerToggle('S', isSolo, () => {
+        this.exports.stbte_set_solo_layer(this.tilemap, isSolo ? -1 : i)
+        this.setupLayers()
+        this.renderMap()
+      })
+
+      row.appendChild(hBtn)
+      row.appendChild(lBtn)
+      row.appendChild(sBtn)
+      container.appendChild(row)
+    }
+  }
+
+  makeLayerToggle(label, on, click) {
+    const btn = document.createElement('button')
+    btn.className = `tog${on ? ' is-on' : ''}`
+    btn.title = label
+    btn.textContent = label
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      click()
+    })
+    return btn
+  }
+
+  setupCategories() {
+    const container = this.el('categories')
+    container.innerHTML = ''
+
+    this.exports.stbte_set_active_category(this.tilemap, this.selectedCategory)
+    const categoryCount = this.getNumCategories()
+
+    const allBtn = document.createElement('button')
+    allBtn.className = this.selectedCategory === -1 ? 'active' : ''
+    allBtn.textContent = 'All'
+    allBtn.addEventListener('click', () => {
+      this.selectedCategory = -1
+      this.exports.stbte_set_active_category(this.tilemap, -1)
+      this.setupCategories()
+      this.setupTiles()
+      this.updateMetadata()
+    })
+    container.appendChild(allBtn)
+
+    for (let i = 0; i < categoryCount; i++) {
+      const btn = document.createElement('button')
+      btn.className = this.selectedCategory === i ? 'active' : ''
+      btn.textContent = this.categoryNames[i] || `Category ${i + 1}`
+      btn.addEventListener('click', () => {
+        this.selectedCategory = i
+        this.exports.stbte_set_active_category(this.tilemap, i)
+        this.setupCategories()
+        this.setupTiles()
+        this.updateMetadata()
+      })
+      container.appendChild(btn)
+    }
+  }
+
+  setupTiles() {
+    const container = this.el('tiles')
+    container.innerHTML = ''
+
+    const tileCount = this.getNumTiles()
+    const activeCategory = this.getCurrentCategory()
+    const tilesPtr = this.readTilemap(this.offsets.tm_tiles, 'i32')
+    const currentTileIdx = this.getCurrentTile()
+
+    for (let i = 0; i < tileCount; i++) {
+      const tileBase = tilesPtr + (i * this.offsets.sizeof_tileinfo)
+      const tileId = new DataView(this.memory.buffer, tileBase + this.offsets.tileinfo_id, 2).getUint16(0, true)
+      const tileCategory = new DataView(this.memory.buffer, tileBase + this.offsets.tileinfo_category_id, 2).getUint16(0, true)
+
+      if (activeCategory !== -1 && tileCategory !== activeCategory) continue
+
+      const btn = document.createElement('button')
+      btn.className = `tile-btn${i === currentTileIdx ? ' active' : ''}`
+      btn.title = `Tile ${tileId}`
+
+      const preview = this.makeTilePreview(tileId)
+      btn.appendChild(preview)
+
+      const idTag = document.createElement('span')
+      idTag.className = 'tile-id'
+      idTag.textContent = tileId
+      btn.appendChild(idTag)
+
+      btn.addEventListener('click', () => {
+        this.exports.stbte_set_active_tile(this.tilemap, i)
+        this.setupTiles()
+        this.updateMetadata()
+      })
+
+      container.appendChild(btn)
+    }
+  }
+
+  makeTilePreview(tileId) {
+    const canvas = document.createElement('canvas')
+    canvas.width = this.sourceTileSize
+    canvas.height = this.sourceTileSize
+    const ctx = canvas.getContext('2d')
+    ctx.imageSmoothingEnabled = false
+    const sprite = this.tileSprites.get(tileId)
+
+    if (sprite) {
+      ctx.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh, 0, 0, this.sourceTileSize, this.sourceTileSize)
+    } else {
+      ctx.fillStyle = '#243042'
+      ctx.fillRect(0, 0, this.sourceTileSize, this.sourceTileSize)
+      ctx.fillStyle = '#f0f6fc'
+      ctx.font = '9px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(String(tileId), this.sourceTileSize / 2, this.sourceTileSize / 2)
+    }
+
+    return canvas
+  }
+
+  updateMetadata() {
+    const toolNames = ['Select', 'Brush', 'Erase', 'Eyedropper']
+    const meta = {
+      map: `${this.mapWidth} x ${this.mapHeight}`,
+      layers: String(this.layers),
+      tool: toolNames[this.currentTool] || String(this.currentTool),
+      tileIndex: String(this.getCurrentTile()),
+      tilesLoaded: String(this.getNumTiles()),
+      category: this.selectedCategory === -1 ? 'All' : (this.categoryNames[this.selectedCategory] || `Category ${this.selectedCategory + 1}`),
+      activeLayer: this.selectedLayer === -1 ? 'All editable' : (this.layerNames[this.selectedLayer] || `Layer ${this.selectedLayer + 1}`),
+      hover: this.isInsideMap(this.hoverX, this.hoverY) ? `${this.hoverX}, ${this.hoverY}` : '-',
+      undo: this.canUndo() ? 'yes' : 'no',
+      redo: this.canRedo() ? 'yes' : 'no',
+      grid: this.showGrid ? 'on' : 'off',
+      selection: this.readUI(this.offsets.ui_has_selection, 'i32') ? 'yes' : 'no',
+      zoom: `${Math.round(this.view.scale * 100)}%`,
+      drag: `${Math.round(this.view.dragX)}, ${Math.round(this.view.dragY)}`
+    }
+
+    const root = this.el('meta')
+    root.innerHTML = ''
+    for (const [key, value] of Object.entries(meta)) {
+      const dt = document.createElement('dt')
+      dt.textContent = key
+      const dd = document.createElement('dd')
+      dd.textContent = value
+      root.appendChild(dt)
+      root.appendChild(dd)
+    }
+
+    this.el('undo-btn').disabled = !this.canUndo()
+    this.el('redo-btn').disabled = !this.canRedo()
+  }
+
+  renderMap() {
+    const canvas = this.el('tilemap')
+    const ctx = canvas.getContext('2d')
+    ctx.imageSmoothingEnabled = false
+
+    ctx.fillStyle = '#070d14'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    const dataOffset = this.tilemap + this.offsets.tm_data
+    const maxX = this.offsets.max_map_x
+    const maxLayers = this.offsets.max_layers
+    const soloLayer = this.readTilemap(this.offsets.tm_solo_layer, 'i32')
+
+    for (let y = 0; y < this.mapHeight; y++) {
+      for (let x = 0; x < this.mapWidth; x++) {
+        const px = x * this.tileSize
+        const py = y * this.tileSize
+
+        ctx.fillStyle = ((x + y) % 2 === 0) ? '#0d1320' : '#0a101a'
+        ctx.fillRect(px, py, this.tileSize, this.tileSize)
+
+        for (let layer = 0; layer < this.layers; layer++) {
+          const layerOffset = this.tilemap + this.offsets.tm_layerinfo + (layer * this.offsets.sizeof_layer)
+          const hidden = new DataView(this.memory.buffer, layerOffset + this.offsets.layer_hidden, 4).getInt32(0, true) !== 0
+          if (hidden) continue
+          if (soloLayer >= 0 && layer !== soloLayer) continue
+
+          const idx = (y * maxX + x) * maxLayers + layer
+          const tileId = new Int16Array(this.memory.buffer, dataOffset + idx * 2, 1)[0]
+          if (tileId < 0) continue
+
+          const sprite = this.tileSprites.get(tileId)
+          if (sprite) {
+            ctx.drawImage(
+              sprite.image,
+              sprite.sx,
+              sprite.sy,
+              sprite.sw,
+              sprite.sh,
+              px,
+              py,
+              this.tileSize,
+              this.tileSize
+            )
+          } else {
+            ctx.fillStyle = '#385574'
+            ctx.fillRect(px + 2, py + 2, this.tileSize - 4, this.tileSize - 4)
+          }
+        }
+
+        if (this.showGrid) {
+          ctx.strokeStyle = '#1f2a38'
+          ctx.strokeRect(px, py, this.tileSize, this.tileSize)
+        }
+      }
+    }
+
+    if (this.showDragPreview) {
+      const ax0 = Math.min(this.dragStartX, this.dragEndX)
+      const ay0 = Math.min(this.dragStartY, this.dragEndY)
+      const ax1 = Math.max(this.dragStartX, this.dragEndX)
+      const ay1 = Math.max(this.dragStartY, this.dragEndY)
+      const px = ax0 * this.tileSize
+      const py = ay0 * this.tileSize
+      const pw = (ax1 - ax0 + 1) * this.tileSize
+      const ph = (ay1 - ay0 + 1) * this.tileSize
+      ctx.fillStyle = 'rgba(88, 166, 255, 0.16)'
+      ctx.fillRect(px, py, pw, ph)
+      ctx.strokeStyle = 'rgba(88, 166, 255, 0.95)'
+      ctx.lineWidth = 2
+      ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2)
+      ctx.lineWidth = 1
+    }
   }
 }
