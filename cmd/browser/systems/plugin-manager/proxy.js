@@ -18,6 +18,10 @@ export class PluginManagerProxy {
     this.worker = null
     this.messageId = 0
     this.pending = new Map()
+    this.viewPluginInstances = new Map()
+    this.nextViewPluginInstanceId = 1
+    this.decoder = new TextDecoder()
+    this.pluginsHasScope = null
   }
 
   /**
@@ -108,6 +112,59 @@ export class PluginManagerProxy {
    */
   async loadPlugins(plugins) {
     return this.sendMessage('loadPlugins', { plugins })
+  }
+
+  /**
+   * Load a plugin runtime instance from the plugin registry.
+   *
+   * Supports:
+   * - load('stbte')
+   * - load({ name: 'stbte', importObject })
+   *
+   * Only enabled plugins can be loaded.
+   * Returns an instance handle that can be unloaded via unload().
+   */
+  async load(plugin) {
+    const opts = typeof plugin === 'string' ? { name: plugin } : (plugin || {})
+    if (!opts.name) {
+      throw new Error('load() requires a plugin name')
+    }
+
+    const resolved = await this.resolvePlugin(opts.name)
+    const wasmBytes = await this.readPluginWasmBytes(resolved.url)
+    const importObject = opts.importObject || {}
+
+    const { instance } = await WebAssembly.instantiate(wasmBytes, importObject)
+
+    if (typeof instance.exports?._initialize === 'function') {
+      instance.exports._initialize()
+    }
+
+    const id = this.nextViewPluginInstanceId++
+    const handle = {
+      id,
+      name: resolved.name,
+      url: resolved.url,
+      scope: resolved.scope,
+      instance,
+      exports: instance.exports,
+      memory: instance.exports?.memory || importObject?.env?.memory || null
+    }
+
+    this.viewPluginInstances.set(id, handle)
+    return handle
+  }
+
+  /**
+   * Unload a previously loaded plugin runtime instance.
+   * Accepts either the handle returned by load() or the numeric instance id.
+   */
+  unload(handleOrId) {
+    const id = typeof handleOrId === 'number' ? handleOrId : handleOrId?.id
+    if (typeof id !== 'number') {
+      return false
+    }
+    return this.viewPluginInstances.delete(id)
   }
 
   /**
@@ -208,11 +265,131 @@ export class PluginManagerProxy {
    * Close the worker
    */
   close() {
+    this.viewPluginInstances.clear()
+
     if (this.worker) {
       this.worker.terminate()
       this.worker = null
     }
     this.pending.clear()
   }
-}
 
+  async pluginScopeSupported() {
+    if (this.pluginsHasScope !== null) {
+      return this.pluginsHasScope
+    }
+
+    const result = await this.call('sql', 'query', 'PRAGMA table_info(plugins)')
+    const csv = this.decoder.decode(result.output).trim()
+    const lines = csv.split('\n')
+    this.pluginsHasScope = false
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line) continue
+      const parts = line.split(',')
+      if (parts[1] === 'scope') {
+        this.pluginsHasScope = true
+        break
+      }
+    }
+
+    return this.pluginsHasScope
+  }
+
+  parsePluginRow(line, hasScope) {
+    const firstComma = line.indexOf(',')
+    if (firstComma === -1) return null
+
+    const lastComma = line.lastIndexOf(',')
+    if (lastComma === -1) return null
+
+    if (hasScope) {
+      const secondLastComma = line.lastIndexOf(',', lastComma - 1)
+      const thirdLastComma = line.lastIndexOf(',', secondLastComma - 1)
+      if (secondLastComma === -1 || thirdLastComma === -1) {
+        return null
+      }
+
+      return {
+        name: line.slice(0, firstComma),
+        url: line.slice(firstComma + 1, thirdLastComma),
+        enabled: line.slice(thirdLastComma + 1, secondLastComma) === '1',
+        type: line.slice(secondLastComma + 1, lastComma),
+        scope: line.slice(lastComma + 1)
+      }
+    }
+
+    const secondLastComma = line.lastIndexOf(',', lastComma - 1)
+    if (secondLastComma === -1) {
+      return null
+    }
+
+    return {
+      name: line.slice(0, firstComma),
+      url: line.slice(firstComma + 1, secondLastComma),
+      enabled: line.slice(secondLastComma + 1, lastComma) === '1',
+      type: line.slice(lastComma + 1),
+      scope: 'global'
+    }
+  }
+
+  async resolvePlugin(name) {
+    const escapedName = name.replace(/'/g, "''")
+    const hasScope = await this.pluginScopeSupported()
+    const columns = hasScope
+      ? 'name, url, enabled, type, scope'
+      : 'name, url, enabled, type'
+
+    const result = await this.call(
+      'sql',
+      'query',
+      `SELECT ${columns} FROM plugins WHERE name = '${escapedName}' LIMIT 1`
+    )
+
+    const csv = this.decoder.decode(result.output).trim()
+    const lines = csv.split('\n')
+    if (lines.length < 2 || !lines[1].trim()) {
+      throw new Error(`Plugin '${name}' not found in registry`)
+    }
+
+    const parsed = this.parsePluginRow(lines[1].trim(), hasScope)
+    if (!parsed) {
+      throw new Error(`Failed to parse plugin '${name}' registry row`)
+    }
+
+    if (!parsed.enabled) {
+      throw new Error(`Plugin '${name}' is disabled in settings`)
+    }
+
+    return parsed
+  }
+
+  async readPluginWasmBytes(url) {
+    if (url.startsWith('local:')) {
+      const localUrl = new URL(url.slice(6), location.origin).href
+      const response = await fetch(localUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch plugin from ${url}: ${response.status} ${response.statusText}`)
+      }
+      return response.arrayBuffer()
+    }
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch plugin from ${url}: ${response.status} ${response.statusText}`)
+      }
+      return response.arrayBuffer()
+    }
+
+    const result = await this.call('fs', 'read', url)
+    if (result.returnCode !== 0) {
+      const errorMessage = this.decoder.decode(result.output)
+      throw new Error(`Failed to read plugin from ${url}: ${errorMessage}`)
+    }
+
+    const bytes = result.output
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  }
+}
