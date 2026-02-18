@@ -119,8 +119,8 @@ export class ViewAnimationEditor extends HTMLElement {
             <div class="panel-header">Preview</div>
             <div class="preview-container"></div>
             <div class="preview-controls">
-              <button data-action="play" class="btn-icon" title="Play/Pause"><span class="icon button-icon" aria-hidden="true">play_arrow</span><span class="button-label">Play</span></button>
-              <button data-action="stop" class="btn-icon" title="Stop"><span class="icon button-icon" aria-hidden="true">stop</span><span class="button-label">Stop</span></button>
+              <button data-action="play" class="btn-icon button-has-icon" title="Play/Pause"><span class="icon button-icon" aria-hidden="true">play_arrow</span><span class="button-label">Play</span></button>
+              <button data-action="stop" class="btn-icon button-has-icon" title="Stop"><span class="icon button-icon" aria-hidden="true">stop</span><span class="button-label">Stop</span></button>
               <label class="control-checkbox">
                 <input type="checkbox" data-action="loop" checked>
                 <span>Loop</span>

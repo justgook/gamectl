@@ -1,7 +1,5 @@
 @layer reset, base, layout, theme;
 
-
-
 @layer layout {
 
   /* Reset is now handled by reset.css */
@@ -44,6 +42,26 @@
 
   .button-label {
     display: inline;
+  }
+
+  .button-has-icon {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .view-header-controls {
+    container-name: view-header;
+    container-type: inline-size;
+  }
+
+  @container view-header (max-width: 520px) {
+    .button-has-icon .button-label {
+      display: none;
+    }
+
+    .button-has-icon .button-icon {
+      margin-right: 0;
+    }
   }
 
   .icon-inline {
@@ -369,6 +387,10 @@
     justify-content: space-between;
   }
 
+  .panel-header-controls {
+    flex: 1;
+  }
+
   .panel-content {
     flex: 1 1 auto;
     overflow: auto;
@@ -376,6 +398,7 @@
 
   .view-header-controls {
     display: flex;
+    justify-content: flex-end;
   }
 
   .tooltip {
