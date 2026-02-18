@@ -65,6 +65,20 @@ function normalizeThemeName(theme) {
 function applyThemeStylesheet(theme) {
   const normalizedTheme = normalizeThemeName(theme)
   const themeHref = THEME_FILES[normalizedTheme] || THEME_FILES.current
+  const syncRoot = (root) => {
+    const link = root?.querySelector?.('[data-theme-stylesheet]')
+    if (link && link.getAttribute('href') !== themeHref) {
+      link.setAttribute('href', themeHref)
+    }
+  }
+
+  syncRoot(document)
+  document.querySelectorAll('view-chrome, view-popup').forEach(el => syncRoot(el.shadowRoot))
+
+  window.__currentTheme = normalizedTheme
+  window.__currentThemeStylesheetHref = themeHref
+  window.__syncThemeStylesheetToRoot = syncRoot
+
   const link = document.getElementById(THEME_STYLESHEET_ID)
   if (link && link.getAttribute('href') !== themeHref) {
     link.setAttribute('href', themeHref)

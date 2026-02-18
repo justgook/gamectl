@@ -28,6 +28,9 @@ export class ViewChrome extends HTMLElement {
 
   connectedCallback() {
     const content = this.shadowRoot
+    if (typeof window.__syncThemeStylesheetToRoot === 'function') {
+      window.__syncThemeStylesheetToRoot(this.shadowRoot)
+    }
     this._setupCornerHandles(content)
     this._setupViewSelector(content)
 

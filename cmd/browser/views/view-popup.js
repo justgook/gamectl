@@ -45,6 +45,10 @@ export class ViewPopup extends HTMLElement {
   }
 
   connectedCallback() {
+    if (typeof window.__syncThemeStylesheetToRoot === 'function') {
+      window.__syncThemeStylesheetToRoot(this.shadowRoot)
+    }
+
     // Add base popup class
     if (!this.classList.contains('popup')) {
       this.classList.add('popup')
