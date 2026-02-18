@@ -276,10 +276,8 @@ body {
 layout-parent {
   position: relative;
   display: block;
-  left: var(--theme-layout-left, 0);
-  top: var(--theme-layout-top, 0);
-  width: var(--theme-layout-width, 100vw);
-  height: var(--theme-layout-height, 100vh);
+  width: 100vw;
+  height: 100vh;
   background: var(--color-semantic-background-panel-default);
   overflow: hidden;
   /* Ensure layout doesn't create stacking context above popups */
@@ -571,7 +569,7 @@ view-popup>view-canvas-base {
 .handle::before {
   content: '';
   position: absolute;
-  background: var(--theme-handle-background, var(--resize-handle-background));
+  background: var(--resize-handle-background);
   box-shadow: var(--resize-handle-box-shadow);
   transition: all 0.2s ease;
 }

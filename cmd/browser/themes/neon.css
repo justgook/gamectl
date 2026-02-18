@@ -53,39 +53,89 @@
     --popup-container-shadow: 0 0 20px rgba(255, 0, 255, 0.45), 0 0 60px rgba(255, 0, 255, 0.2);
     --toast-background: #140822;
     --toast-border: #5a2a86;
+  }
 
-    --theme-body-background: linear-gradient(180deg, var(--ui-bg-0) 0%, #1a0830 100%);
-    --theme-body-overlay-content: "";
-    --theme-body-overlay-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-    --theme-body-overlay-opacity: 1;
+  body {
+    background: linear-gradient(180deg, var(--ui-bg-0) 0%, #1a0830 100%);
+  }
 
-    --theme-button-text-transform: uppercase;
-    --theme-button-letter-spacing: 0.8px;
-    --theme-button-border-width: 2px;
-    --theme-button-clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
-    --theme-button-inset-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10000;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  }
 
-    --theme-panel-header-border-bottom: 2px solid var(--color-semantic-border-default);
-    --theme-panel-header-padding: 0 12px;
-    --theme-view-select-font-family: "Bebas Neue", sans-serif;
-    --theme-view-select-font-size: 16px;
-    --theme-view-select-letter-spacing: 2px;
-    --theme-view-select-color: var(--resize-handle-active-background);
-    --theme-view-select-text-transform: uppercase;
-    --theme-view-select-focus-shadow: none;
+  button,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  a.button,
+  .toast-button {
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-width: 2px;
+    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
 
-    --theme-panel-border: 2px solid var(--color-semantic-border-default);
-    --theme-panel-clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-    --theme-panel-overlay-content: "";
-    --theme-panel-overlay-size: 12px;
-    --theme-panel-overlay-border-width: 2px;
-    --theme-panel-overlay-color: var(--color-semantic-border-default);
+  layout-parent {
+    left: calc(0.5 * var(--resize-handle-width));
+    top: calc(0.5 * var(--resize-handle-height));
+    width: calc(100vw - var(--resize-handle-width));
+    height: calc(100vh - var(--resize-handle-height));
+  }
 
-    --theme-layout-left: calc(0.5 * var(--resize-handle-width));
-    --theme-layout-top: calc(0.5 * var(--resize-handle-height));
-    --theme-layout-width: calc(100vw - var(--resize-handle-width));
-    --theme-layout-height: calc(100vh - var(--resize-handle-height));
+  .panel .panel-header {
+    border-bottom: 2px solid var(--color-semantic-border-default);
+    padding: 0 12px;
+  }
 
-    --theme-handle-background: transparent;
+  .panel .panel-header select[name="view"] {
+    appearance: none;
+    border: none;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: var(--resize-handle-active-background);
+    text-transform: uppercase;
+  }
+
+  .panel .panel-header select[name="view"]:focus-visible {
+    outline: none;
+  }
+
+  .panel .panel-header select[name="view"]:focus {
+    box-shadow: none;
+  }
+
+  .panel {
+    --border: var(--color-semantic-border-default);
+    border: 2px solid var(--color-semantic-border-default);
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+
+  .panel::before {
+    pointer-events: none;
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    --cut: 12px;
+    --b: 2px;
+    --c: var(--border);
+    background: linear-gradient(45deg, transparent calc(50% - var(--b) + 2px), var(--c) 0, var(--c) calc(50% + var(--b) + 2px), transparent 0) top right, linear-gradient(45deg, transparent calc(50% - var(--b) - 2px), var(--c) 0, var(--c) calc(50% + var(--b) - 2px), transparent 0) bottom left;
+    background-size: var(--cut) var(--cut);
+    background-repeat: no-repeat;
+  }
+
+  .handle::before {
+    background: transparent;
+  }
+
+  .handle:hover::before {
+    background: var(--resize-handle-active-background);
   }
 }

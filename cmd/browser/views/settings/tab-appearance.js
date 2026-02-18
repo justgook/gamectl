@@ -226,15 +226,19 @@ class SettingsTabAppearance extends HTMLElement {
       return
     }
 
-    const link = document.getElementById('theme-stylesheet')
-    if (!link) return
-
     const hrefByTheme = {
       current: 'themes/current.css',
       obsidian: 'themes/obsidian.css',
       neon: 'themes/neon.css',
     }
-    link.setAttribute('href', hrefByTheme[theme] || hrefByTheme.current)
+    const href = hrefByTheme[theme] || hrefByTheme.current
+    document.querySelectorAll('[data-theme-stylesheet]').forEach(link => {
+      link.setAttribute('href', href)
+    })
+    document.querySelectorAll('view-chrome, view-popup').forEach(el => {
+      const link = el.shadowRoot?.querySelector('[data-theme-stylesheet]')
+      if (link) link.setAttribute('href', href)
+    })
   }
 
   applyFontSize(value) {
