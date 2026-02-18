@@ -1,3 +1,7 @@
+@layer reset, base, layout, theme;
+
+@layer layout {
+
 /* Reset is now handled by reset.css */
 
 /* ========================================================================== */
@@ -272,8 +276,10 @@ body {
 layout-parent {
   position: relative;
   display: block;
-  width: 100vw;
-  height: 100vh;
+  left: var(--theme-layout-left, 0);
+  top: var(--theme-layout-top, 0);
+  width: var(--theme-layout-width, 100vw);
+  height: var(--theme-layout-height, 100vh);
   background: var(--color-semantic-background-panel-default);
   overflow: hidden;
   /* Ensure layout doesn't create stacking context above popups */
@@ -565,7 +571,7 @@ view-popup>view-canvas-base {
 .handle::before {
   content: '';
   position: absolute;
-  background: var(--resize-handle-background);
+  background: var(--theme-handle-background, var(--resize-handle-background));
   box-shadow: var(--resize-handle-box-shadow);
   transition: all 0.2s ease;
 }
@@ -3462,4 +3468,6 @@ settings-tab-general {
   font-size: 11px;
   color: var(--color-semantic-text-tertiary, #666680);
   font-style: italic;
+}
+
 }

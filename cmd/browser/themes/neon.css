@@ -1,0 +1,91 @@
+@layer theme {
+  :root {
+    --ui-font-body: "IBM Plex Mono", monospace;
+    --ui-font-ui: "Bebas Neue", sans-serif;
+    --ui-font-display: "Bebas Neue", sans-serif;
+
+    --ui-bg-0: #0d0118;
+    --ui-bg-1: #140822;
+    --ui-bg-2: #1a0a2e;
+    --ui-bg-3: #2a1242;
+    --ui-bg-hover: #31184e;
+
+    --ui-text-1: #f0e6ff;
+    --ui-text-2: #c5abed;
+    --ui-text-3: #8f6eb9;
+
+    --ui-border: #3d1a5c;
+    --ui-border-focus: #00ffff;
+    --ui-accent: #ff00ff;
+    --ui-accent-hover: #ff66ff;
+    --ui-accent-ink: #0d0118;
+
+    --ui-success: #00ff88;
+    --ui-warning: #ffaa00;
+    --ui-danger: #ff3366;
+    --ui-info: #00aaff;
+    --ui-glow: 0 0 18px rgba(255, 0, 255, 0.35);
+
+    --ui-shape-cut: 10px;
+    --ui-shape-cut-panel: 12px;
+    --ui-border-bright: #6b2fa0;
+    --ui-radius-sm: 0px;
+    --ui-radius-md: 0px;
+    --border-width-default: 2px;
+
+    --resize-handle-size-visual: 3px;
+    --resize-handle-background: #5a2a86;
+    --resize-handle-hover-background: #ff00ff;
+    --resize-handle-hover-box-shadow: 0 0 16px rgba(255, 0, 255, 0.45);
+    --resize-handle-active-background: #00ffff;
+    --resize-handle-active-box-shadow: 0 0 18px rgba(0, 255, 255, 0.5);
+
+    --corner-handle-width: 22px;
+    --corner-handle-height: 22px;
+    --corner-handle-border-radius: 0px;
+    --corner-handle-border-width: 2px;
+    --corner-handle-position-offset: 4px;
+    --corner-handle-opacity: 0.3;
+
+    --popup-backdrop-background: rgba(13, 1, 24, 0.88);
+    --popup-container-border-width: 3px;
+    --popup-container-border: #ff00ff;
+    --popup-container-shadow: 0 0 20px rgba(255, 0, 255, 0.45), 0 0 60px rgba(255, 0, 255, 0.2);
+    --toast-background: #140822;
+    --toast-border: #5a2a86;
+
+    --theme-body-background: linear-gradient(180deg, var(--ui-bg-0) 0%, #1a0830 100%);
+    --theme-body-overlay-content: "";
+    --theme-body-overlay-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    --theme-body-overlay-opacity: 1;
+
+    --theme-button-text-transform: uppercase;
+    --theme-button-letter-spacing: 0.8px;
+    --theme-button-border-width: 2px;
+    --theme-button-clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    --theme-button-inset-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+
+    --theme-panel-header-border-bottom: 2px solid var(--color-semantic-border-default);
+    --theme-panel-header-padding: 0 12px;
+    --theme-view-select-font-family: "Bebas Neue", sans-serif;
+    --theme-view-select-font-size: 16px;
+    --theme-view-select-letter-spacing: 2px;
+    --theme-view-select-color: var(--resize-handle-active-background);
+    --theme-view-select-text-transform: uppercase;
+    --theme-view-select-focus-shadow: none;
+
+    --theme-panel-border: 2px solid var(--color-semantic-border-default);
+    --theme-panel-clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+    --theme-panel-overlay-content: "";
+    --theme-panel-overlay-size: 12px;
+    --theme-panel-overlay-border-width: 2px;
+    --theme-panel-overlay-color: var(--color-semantic-border-default);
+
+    --theme-layout-left: calc(0.5 * var(--resize-handle-width));
+    --theme-layout-top: calc(0.5 * var(--resize-handle-height));
+    --theme-layout-width: calc(100vw - var(--resize-handle-width));
+    --theme-layout-height: calc(100vh - var(--resize-handle-height));
+
+    --theme-handle-background: transparent;
+  }
+}

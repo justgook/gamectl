@@ -49,15 +49,29 @@ function splashStatus(message) {
 
 const decoder = new TextDecoder()
 const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
-
-function applyThemeToShadowHosts(theme) {
-  const effectiveTheme = theme || 'current'
-  document.querySelectorAll('view-chrome, view-popup').forEach(el => {
-    el.setAttribute('data-theme', effectiveTheme)
-  })
+const THEME_STYLESHEET_ID = 'theme-stylesheet'
+const THEME_FILES = {
+  current: 'themes/current.css',
+  obsidian: 'themes/obsidian.css',
+  neon: 'themes/neon.css',
 }
 
-window.__applyThemeToShadowHosts = applyThemeToShadowHosts
+function normalizeThemeName(theme) {
+  if (!theme || theme === 'dark') return 'current'
+  if (theme === 'current' || theme === 'obsidian' || theme === 'neon') return theme
+  return 'current'
+}
+
+function applyThemeStylesheet(theme) {
+  const normalizedTheme = normalizeThemeName(theme)
+  const themeHref = THEME_FILES[normalizedTheme] || THEME_FILES.current
+  const link = document.getElementById(THEME_STYLESHEET_ID)
+  if (link && link.getAttribute('href') !== themeHref) {
+    link.setAttribute('href', themeHref)
+  }
+}
+
+window.__applyThemeStylesheet = applyThemeStylesheet
 
 function readAppearanceFromLocalStorage() {
   try {
@@ -95,9 +109,8 @@ async function applyAppearanceSettings() {
     settings['appearance.font-size'] = localSettings['appearance.font-size'] || settings['appearance.font-size']
 
     const theme = settings['appearance.theme']
-    const normalizedTheme = !theme || theme === 'dark' ? 'current' : theme
-    document.documentElement.dataset.theme = normalizedTheme
-    applyThemeToShadowHosts(normalizedTheme)
+    const normalizedTheme = normalizeThemeName(theme)
+    applyThemeStylesheet(normalizedTheme)
 
     const fontFamily = settings['appearance.font-family']
     if (!fontFamily || fontFamily === 'default') {
@@ -115,9 +128,8 @@ async function applyAppearanceSettings() {
 
     // Fallback to localStorage only
     const theme = localSettings['appearance.theme']
-    const normalizedTheme = !theme || theme === 'dark' ? 'current' : theme
-    document.documentElement.dataset.theme = normalizedTheme
-    applyThemeToShadowHosts(normalizedTheme)
+    const normalizedTheme = normalizeThemeName(theme)
+    applyThemeStylesheet(normalizedTheme)
 
     const fontFamily = localSettings['appearance.font-family']
     if (!fontFamily || fontFamily === 'default') {
