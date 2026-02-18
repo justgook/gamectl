@@ -5,9 +5,8 @@
     <meta charset="UTF-8" />
 
     <title>Nested Web Components Example</title>
-    <link rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
-    <!-- <link rel="stylesheet" href="reset.css"> -->
+    <link rel="icon" href="/favicon.svg">
+    <link rel="stylesheet" href="reset.css">
     <link rel="stylesheet" href="app.css">
     <link rel="stylesheet" href="theme.css">
     <link id="theme-stylesheet" data-theme-stylesheet rel="stylesheet" href="themes/current.css">
@@ -173,8 +172,10 @@
       <div slot="header-controls" class="view-header-controls">
         <input type="number" data-action="tile-value" value="1" min="0"
           style="width: 32px; height: 32px; text-align: center; padding: 0; border: 2px solid var(--color-semantic-border-interactive); border-radius: var(--border-radius-sm); background: var(--color-semantic-bg-secondary); color: var(--color-semantic-text-primary);">
-        <button data-action="save" class="button-primary">💾 Save</button>
-        <button data-action="reload" class="button-secondary">🔄 Reload</button>
+        <button data-action="save" class="button-primary"><span class="icon button-icon"
+            aria-hidden="true">save</span><span class="button-label">Save</span></button>
+        <button data-action="reload" class="button-secondary"><span class="icon button-icon"
+            aria-hidden="true">refresh</span><span class="button-label">Reload</span></button>
         <button data-action="zoom-in" class="button-secondary">+</button>
         <button data-action="zoom-out" class="button-secondary">−</button>
         <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
@@ -184,11 +185,15 @@
     <template id="view-nodegraph">
       <div slot="header-controls" class="view-header-controls">
         <button data-action="add-node">+ Node</button>
-        <button data-action="run" class="button-success">▶ Run</button>
-        <button data-action="save" class="button-primary">💾 Save</button>
-        <button data-action="load" class="button-secondary">📂 Load</button>
+        <button data-action="run" class="button-success"><span class="icon button-icon"
+            aria-hidden="true">play_arrow</span><span class="button-label">Run</span></button>
+        <button data-action="save" class="button-primary"><span class="icon button-icon"
+            aria-hidden="true">save</span><span class="button-label">Save</span></button>
+        <button data-action="load" class="button-secondary"><span class="icon button-icon"
+            aria-hidden="true">folder_open</span><span class="button-label">Load</span></button>
         <button data-action="edit" class="button-secondary">Edit</button>
-        <button data-action="reload" class="button-secondary">🔄 Reload</button>
+        <button data-action="reload" class="button-secondary"><span class="icon button-icon"
+            aria-hidden="true">refresh</span><span class="button-label">Reload</span></button>
         <button data-action="zoom-in" class="button-secondary">+</button>
         <button data-action="zoom-out" class="button-secondary">−</button>
         <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
@@ -197,8 +202,10 @@
 
     <template id="view-tree">
       <div slot="header-controls" class="view-header-controls">
-        <button data-action="save" class="button-primary">💾 Save</button>
-        <button data-action="reload" class="button-secondary">🔄 Reload</button>
+        <button data-action="save" class="button-primary"><span class="icon button-icon"
+            aria-hidden="true">save</span><span class="button-label">Save</span></button>
+        <button data-action="reload" class="button-secondary"><span class="icon button-icon"
+            aria-hidden="true">refresh</span><span class="button-label">Reload</span></button>
         <button data-action="zoom-in" class="button-secondary">+</button>
         <button data-action="zoom-out" class="button-secondary">−</button>
         <button data-action="zoom-fit" class="button-secondary">⊡ Fit</button>
@@ -258,8 +265,10 @@
 
     <template id="view-timeline">
       <div slot="header-controls" class="view-header-controls">
-        <button data-action="play" class="button-secondary">▶ Play</button>
-        <button data-action="stop" class="button-secondary">◼ Stop</button>
+        <button data-action="play" class="button-secondary"><span class="icon button-icon"
+            aria-hidden="true">play_arrow</span><span class="button-label">Play</span></button>
+        <button data-action="stop" class="button-secondary"><span class="icon button-icon"
+            aria-hidden="true">stop</span><span class="button-label">Stop</span></button>
         <span class="toolbar-divider"></span>
         <button data-action="add-key" class="button-secondary">+ Key</button>
         <button data-action="delete-key" class="button-secondary">Delete</button>
@@ -297,8 +306,10 @@
 
     <template id="view-opr-unit-builder">
       <div slot="header-controls" class="view-header-controls">
-        <button data-action="random-unit" class="button-secondary">🎲 Random Unit</button>
-        <button data-action="export-json" class="button-primary">📋 Export JSON</button>
+        <button data-action="random-unit" class="button-secondary"><span class="icon button-icon"
+            aria-hidden="true">shuffle</span><span class="button-label">Random Unit</span></button>
+        <button data-action="export-json" class="button-primary"><span class="icon button-icon"
+            aria-hidden="true">ios_share</span><span class="button-label">Export JSON</span></button>
       </div>
       <div
         style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3); height: 100%; overflow: auto;">

@@ -1221,7 +1221,8 @@ export class ViewTimeline extends HTMLElement {
   _updatePlayButton() {
     const playBtn = this._queryHeaderControl('[data-action="play"]')
     if (playBtn) {
-      playBtn.textContent = this._playing ? '⏸ Pause' : '▶ Play'
+      const iconName = this._playing ? 'pause' : 'play_arrow'
+      playBtn.innerHTML = `<span class="icon button-icon" aria-hidden="true">${iconName}</span><span class="button-label">${this._playing ? 'Pause' : 'Play'}</span>`
       playBtn.classList.toggle('playing', this._playing)
     }
   }

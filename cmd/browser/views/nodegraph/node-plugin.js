@@ -137,7 +137,7 @@ export class NodePlugin extends NodeBase {
 
     // For testing: simulate plugin execution if pluginManager not available
     if (typeof window.pluginManager === 'undefined') {
-      console.log(`🔧 Simulating plugin execution: ${this.plugin}.${this.functionName}`)
+      console.log(`[plugin] Simulating execution: ${this.plugin}.${this.functionName}`)
 
       // Simulate async work
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -154,7 +154,7 @@ export class NodePlugin extends NodeBase {
       }
 
       this.state = 'success'
-      console.log(`✓ Mock ${this.plugin}.${this.functionName} completed`)
+      console.log(`[plugin] Mock ${this.plugin}.${this.functionName} completed`)
       this.requestRedraw()
       return
     }
@@ -209,7 +209,7 @@ export class NodePlugin extends NodeBase {
     } catch (error) {
       this.state = 'error'
       this.error = error.message
-      console.error(`✗ ${this.plugin}.${this.functionName} failed:`, error)
+      console.error(`[plugin] ${this.plugin}.${this.functionName} failed:`, error)
 
       // Reject all outputs
       for (const [, { reject }] of resolvers) {

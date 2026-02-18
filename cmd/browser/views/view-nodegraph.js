@@ -613,25 +613,24 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Determine button color based on node state
     let buttonColor = COLORS.port
-    let iconColor = COLORS.text
-    let icon = '▶'
+    let iconType = 'play'
 
     switch (node.state) {
       case 'running':
         buttonColor = COLORS.node.running
-        icon = '⏸'
+        iconType = 'pause'
         break
       case 'success':
         buttonColor = COLORS.node.success
-        icon = '↻'  // Rerun icon for completed nodes
+        iconType = 'refresh'
         break
       case 'error':
         buttonColor = COLORS.node.error
-        icon = '↻'  // Rerun icon for failed nodes
+        iconType = 'refresh'
         break
       default:
         buttonColor = COLORS.port
-        icon = '▶'  // Play icon for idle nodes
+        iconType = 'play'
     }
 
     // Draw button background
@@ -647,12 +646,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Draw icon
-    ctx.fillStyle = iconColor
-    ctx.font = '10px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(icon, buttonX + buttonSize / 2, buttonY + buttonSize / 2)
+    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize)
 
     // Store button bounds for click detection
     node._runButtonBounds = {
@@ -670,8 +664,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Edit button color - blue for template nodes
     const buttonColor = COLORS.nodeHeader.input // Blue color
-    const iconColor = COLORS.text
-    const icon = '📝' // Edit icon
+    const iconType = 'edit'
 
     // Draw button background
     ctx.fillStyle = buttonColor
@@ -686,12 +679,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Draw icon
-    ctx.fillStyle = iconColor
-    ctx.font = '10px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(icon, buttonX + buttonSize / 2, buttonY + buttonSize / 2)
+    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize)
 
     // Store button bounds for click detection
     node._editButtonBounds = {
@@ -769,8 +757,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Delete button color - red for danger
     const buttonColor = COLORS.node.error // Red color
-    const iconColor = COLORS.text
-    const icon = '✕' // Delete/close icon
+    const iconType = 'close'
 
     // Draw button background
     ctx.fillStyle = buttonColor
@@ -785,12 +772,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
     ctx.stroke()
 
-    // Draw icon
-    ctx.fillStyle = iconColor
-    ctx.font = '10px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(icon, buttonX + buttonSize / 2, buttonY + buttonSize / 2)
+    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize)
 
     // Store button bounds for click detection
     node._deleteButtonBounds = {
@@ -799,6 +781,78 @@ export class ViewNodeGraph extends ViewCanvasBase {
       width: buttonSize,
       height: buttonSize
     }
+  }
+
+  drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize) {
+    ctx.save()
+    ctx.strokeStyle = COLORS.text
+    ctx.fillStyle = COLORS.text
+    ctx.lineWidth = 1.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    const cx = buttonX + buttonSize / 2
+    const cy = buttonY + buttonSize / 2
+    const half = buttonSize / 2
+
+    if (iconType === 'play') {
+      ctx.beginPath()
+      ctx.moveTo(cx - half * 0.35, cy - half * 0.55)
+      ctx.lineTo(cx + half * 0.55, cy)
+      ctx.lineTo(cx - half * 0.35, cy + half * 0.55)
+      ctx.closePath()
+      ctx.fill()
+      ctx.restore()
+      return
+    }
+
+    if (iconType === 'pause') {
+      const bar = half * 0.3
+      const h = half * 1.1
+      ctx.fillRect(cx - bar - 1, cy - h / 2, bar, h)
+      ctx.fillRect(cx + 1, cy - h / 2, bar, h)
+      ctx.restore()
+      return
+    }
+
+    if (iconType === 'refresh') {
+      ctx.beginPath()
+      ctx.arc(cx, cy, half * 0.55, Math.PI * 0.1, Math.PI * 1.65)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(cx + half * 0.4, cy - half * 0.55)
+      ctx.lineTo(cx + half * 0.7, cy - half * 0.55)
+      ctx.lineTo(cx + half * 0.68, cy - half * 0.25)
+      ctx.fill()
+      ctx.restore()
+      return
+    }
+
+    if (iconType === 'edit') {
+      ctx.beginPath()
+      ctx.moveTo(cx - half * 0.45, cy + half * 0.35)
+      ctx.lineTo(cx - half * 0.1, cy + half * 0.05)
+      ctx.lineTo(cx + half * 0.4, cy - half * 0.45)
+      ctx.lineTo(cx + half * 0.15, cy - half * 0.7)
+      ctx.lineTo(cx - half * 0.35, cy - half * 0.2)
+      ctx.closePath()
+      ctx.stroke()
+      ctx.restore()
+      return
+    }
+
+    if (iconType === 'close') {
+      ctx.beginPath()
+      ctx.moveTo(cx - half * 0.45, cy - half * 0.45)
+      ctx.lineTo(cx + half * 0.45, cy + half * 0.45)
+      ctx.moveTo(cx + half * 0.45, cy - half * 0.45)
+      ctx.lineTo(cx - half * 0.45, cy + half * 0.45)
+      ctx.stroke()
+      ctx.restore()
+      return
+    }
+
+    ctx.restore()
   }
 
   // --- Connection Index ---

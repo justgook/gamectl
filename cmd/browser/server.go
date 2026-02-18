@@ -31,7 +31,7 @@ func main() {
 	// Serve build directory for WASM plugins
 	buildDir := filepath.Join(cwd, buildDirName)
 
-	fmt.Printf("🚀 GameCtl Browser IDE Server\n")
+	fmt.Printf("GameCtl Browser IDE Server\n")
 	fmt.Printf("   Current Working Directory: %s\n", cwd)
 	fmt.Printf("   Browser files: %s\n", browserDir)
 	fmt.Printf("   Build files:   %s (via /build/)\n", buildDir)

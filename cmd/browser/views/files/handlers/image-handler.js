@@ -20,7 +20,7 @@ const imageExtensions = {
 
 const imageHandler = {
   extensions: Object.keys(imageExtensions),
-  icon: '🖼️',
+  icon: 'image',
   kind: 'Image',
   canPreview: true,
   canEdit: false,
@@ -68,7 +68,7 @@ const imageHandler = {
     img.onerror = () => {
       wrapper.innerHTML = `
         <div class="file-preview-error">
-          <span style="font-size: 48px;">🖼️</span>
+          <span class="icon file-preview-icon" aria-hidden="true">image</span>
           <p>Failed to load image</p>
         </div>
       `
@@ -110,7 +110,7 @@ function formatSize(bytes) {
 for (const [ext, info] of Object.entries(imageExtensions)) {
   registerHandler({
     extensions: [ext],
-    icon: '🖼️',
+    icon: 'image',
     kind: info.kind,
     canPreview: imageHandler.canPreview,
     canEdit: imageHandler.canEdit,

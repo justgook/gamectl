@@ -778,7 +778,8 @@ export class ViewFiles extends HTMLElement {
 
     const icon = document.createElement('span')
     icon.className = 'files-icon'
-    icon.textContent = item.type === 'directory' ? '📁' : handler.icon
+    icon.textContent = item.type === 'directory' ? 'folder' : handler.icon
+    icon.classList.add('icon')
     tdName.appendChild(icon)
 
     const nameSpan = document.createElement('span')

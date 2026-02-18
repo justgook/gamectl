@@ -7,7 +7,7 @@
  * Handler interface:
  * {
  *   extensions: string[],      // File extensions this handler supports
- *   icon: string,              // Icon/emoji for file tree
+ *   icon: string,              // Icon key for file tree
  *   kind: string,              // Display name for file type
  *   canPreview: boolean,       // Can this handler show a preview?
  *   canEdit: boolean,          // Can this handler edit files?
@@ -94,7 +94,7 @@ function getExtension(filename) {
 function createFallbackHandler() {
   return {
     extensions: ['*'],
-    icon: '📄',
+    icon: 'description',
     kind: 'File',
     canPreview: false,
     canEdit: false,

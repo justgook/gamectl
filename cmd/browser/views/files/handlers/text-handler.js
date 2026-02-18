@@ -21,94 +21,94 @@ import { registerHandler } from '../file-handlers.js'
 // Extension to language/kind mapping
 const extensionInfo = {
   // Plain text
-  txt: { icon: '📝', kind: 'Text', language: 'text' },
-  log: { icon: '📋', kind: 'Log', language: 'text' },
+  txt: { icon: 'description', kind: 'Text', language: 'text' },
+  log: { icon: 'description', kind: 'Log', language: 'text' },
   
   // Markdown
-  md: { icon: '📖', kind: 'Markdown', language: 'markdown' },
-  markdown: { icon: '📖', kind: 'Markdown', language: 'markdown' },
+  md: { icon: 'menu_book', kind: 'Markdown', language: 'markdown' },
+  markdown: { icon: 'menu_book', kind: 'Markdown', language: 'markdown' },
   
   // JSON
-  json: { icon: '{ }', kind: 'JSON', language: 'json' },
+  json: { icon: 'code', kind: 'JSON', language: 'json' },
   
   // JavaScript/TypeScript
-  js: { icon: '🟨', kind: 'JavaScript', language: 'javascript' },
-  mjs: { icon: '🟨', kind: 'JavaScript Module', language: 'javascript' },
-  ts: { icon: '🟦', kind: 'TypeScript', language: 'typescript' },
-  tsx: { icon: '🟦', kind: 'TypeScript React', language: 'typescript' },
-  jsx: { icon: '🟨', kind: 'JavaScript React', language: 'javascript' },
+  js: { icon: 'code', kind: 'JavaScript', language: 'javascript' },
+  mjs: { icon: 'code', kind: 'JavaScript Module', language: 'javascript' },
+  ts: { icon: 'code', kind: 'TypeScript', language: 'typescript' },
+  tsx: { icon: 'code', kind: 'TypeScript React', language: 'typescript' },
+  jsx: { icon: 'code', kind: 'JavaScript React', language: 'javascript' },
   
   // Go
-  go: { icon: '🐹', kind: 'Go', language: 'go' },
-  mod: { icon: '🐹', kind: 'Go Module', language: 'go' },
-  sum: { icon: '🐹', kind: 'Go Sum', language: 'text' },
+  go: { icon: 'code', kind: 'Go', language: 'go' },
+  mod: { icon: 'code', kind: 'Go Module', language: 'go' },
+  sum: { icon: 'code', kind: 'Go Sum', language: 'text' },
   
   // Zig
-  zig: { icon: '⚡', kind: 'Zig', language: 'zig' },
+  zig: { icon: 'code', kind: 'Zig', language: 'zig' },
   
   // Web
-  html: { icon: '🌐', kind: 'HTML', language: 'html' },
-  htm: { icon: '🌐', kind: 'HTML', language: 'html' },
-  css: { icon: '🎨', kind: 'CSS', language: 'css' },
-  scss: { icon: '🎨', kind: 'SCSS', language: 'scss' },
-  less: { icon: '🎨', kind: 'LESS', language: 'less' },
+  html: { icon: 'code', kind: 'HTML', language: 'html' },
+  htm: { icon: 'code', kind: 'HTML', language: 'html' },
+  css: { icon: 'code', kind: 'CSS', language: 'css' },
+  scss: { icon: 'code', kind: 'SCSS', language: 'scss' },
+  less: { icon: 'code', kind: 'LESS', language: 'less' },
   
   // Config
-  yaml: { icon: '⚙️', kind: 'YAML', language: 'yaml' },
-  yml: { icon: '⚙️', kind: 'YAML', language: 'yaml' },
-  toml: { icon: '⚙️', kind: 'TOML', language: 'toml' },
-  ini: { icon: '⚙️', kind: 'INI', language: 'ini' },
-  cfg: { icon: '⚙️', kind: 'Config', language: 'ini' },
-  conf: { icon: '⚙️', kind: 'Config', language: 'ini' },
-  env: { icon: '⚙️', kind: 'Environment', language: 'text' },
+  yaml: { icon: 'settings', kind: 'YAML', language: 'yaml' },
+  yml: { icon: 'settings', kind: 'YAML', language: 'yaml' },
+  toml: { icon: 'settings', kind: 'TOML', language: 'toml' },
+  ini: { icon: 'settings', kind: 'INI', language: 'ini' },
+  cfg: { icon: 'settings', kind: 'Config', language: 'ini' },
+  conf: { icon: 'settings', kind: 'Config', language: 'ini' },
+  env: { icon: 'settings', kind: 'Environment', language: 'text' },
   
   // XML
-  xml: { icon: '📰', kind: 'XML', language: 'xml' },
-  svg: { icon: '🖼️', kind: 'SVG', language: 'xml' },
+  xml: { icon: 'description', kind: 'XML', language: 'xml' },
+  svg: { icon: 'image', kind: 'SVG', language: 'xml' },
   
   // Shell
-  sh: { icon: '🐚', kind: 'Shell Script', language: 'shell' },
-  bash: { icon: '🐚', kind: 'Bash Script', language: 'shell' },
-  zsh: { icon: '🐚', kind: 'Zsh Script', language: 'shell' },
-  fish: { icon: '🐚', kind: 'Fish Script', language: 'shell' },
+  sh: { icon: 'terminal', kind: 'Shell Script', language: 'shell' },
+  bash: { icon: 'terminal', kind: 'Bash Script', language: 'shell' },
+  zsh: { icon: 'terminal', kind: 'Zsh Script', language: 'shell' },
+  fish: { icon: 'terminal', kind: 'Fish Script', language: 'shell' },
   
   // Other languages
-  py: { icon: '🐍', kind: 'Python', language: 'python' },
-  rb: { icon: '💎', kind: 'Ruby', language: 'ruby' },
-  rs: { icon: '🦀', kind: 'Rust', language: 'rust' },
-  c: { icon: '🔧', kind: 'C', language: 'c' },
-  h: { icon: '🔧', kind: 'C Header', language: 'c' },
-  cpp: { icon: '🔧', kind: 'C++', language: 'cpp' },
-  hpp: { icon: '🔧', kind: 'C++ Header', language: 'cpp' },
-  java: { icon: '☕', kind: 'Java', language: 'java' },
+  py: { icon: 'code', kind: 'Python', language: 'python' },
+  rb: { icon: 'code', kind: 'Ruby', language: 'ruby' },
+  rs: { icon: 'code', kind: 'Rust', language: 'rust' },
+  c: { icon: 'code', kind: 'C', language: 'c' },
+  h: { icon: 'code', kind: 'C Header', language: 'c' },
+  cpp: { icon: 'code', kind: 'C++', language: 'cpp' },
+  hpp: { icon: 'code', kind: 'C++ Header', language: 'cpp' },
+  java: { icon: 'code', kind: 'Java', language: 'java' },
   
   // Data
-  csv: { icon: '📊', kind: 'CSV', language: 'csv' },
-  sql: { icon: '🗃️', kind: 'SQL', language: 'sql' },
+  csv: { icon: 'table_chart', kind: 'CSV', language: 'csv' },
+  sql: { icon: 'storage', kind: 'SQL', language: 'sql' },
   
   // Make/Build
-  makefile: { icon: '🔨', kind: 'Makefile', language: 'makefile' },
-  dockerfile: { icon: '🐳', kind: 'Dockerfile', language: 'dockerfile' },
+  makefile: { icon: 'build', kind: 'Makefile', language: 'makefile' },
+  dockerfile: { icon: 'description', kind: 'Dockerfile', language: 'dockerfile' },
   
   // Git
-  gitignore: { icon: '🚫', kind: 'Git Ignore', language: 'text' },
-  gitattributes: { icon: '📋', kind: 'Git Attributes', language: 'text' },
+  gitignore: { icon: 'settings', kind: 'Git Ignore', language: 'text' },
+  gitattributes: { icon: 'description', kind: 'Git Attributes', language: 'text' },
 }
 
 // Special filenames (without extensions)
 const specialFiles = {
-  'makefile': { icon: '🔨', kind: 'Makefile', language: 'makefile' },
-  'dockerfile': { icon: '🐳', kind: 'Dockerfile', language: 'dockerfile' },
-  'readme': { icon: '📖', kind: 'Readme', language: 'markdown' },
-  'license': { icon: '📜', kind: 'License', language: 'text' },
-  'changelog': { icon: '📋', kind: 'Changelog', language: 'markdown' },
+  'makefile': { icon: 'build', kind: 'Makefile', language: 'makefile' },
+  'dockerfile': { icon: 'description', kind: 'Dockerfile', language: 'dockerfile' },
+  'readme': { icon: 'menu_book', kind: 'Readme', language: 'markdown' },
+  'license': { icon: 'description', kind: 'License', language: 'text' },
+  'changelog': { icon: 'description', kind: 'Changelog', language: 'markdown' },
 }
 
 const decoder = new TextDecoder()
 
 const textHandler = {
   extensions: Object.keys(extensionInfo),
-  icon: '📝',
+  icon: 'description',
   kind: 'Text',
   canPreview: true,
   canEdit: true,
@@ -201,7 +201,7 @@ function getFileInfo(filename) {
     return extensionInfo[ext]
   }
   
-  return { icon: '📝', kind: 'Text', language: 'text' }
+  return { icon: 'description', kind: 'Text', language: 'text' }
 }
 
 // Update handler icon and kind based on extension lookup
@@ -210,7 +210,7 @@ const handlerWithLookup = {
   
   // These will be called per-file, so we need getters
   get icon() {
-    return '📝' // Default, actual icon resolved per-file
+    return 'description' // Default, actual icon resolved per-file
   },
   
   get kind() {
@@ -220,7 +220,7 @@ const handlerWithLookup = {
 
 // Create a handler factory that returns file-specific info
 function createTextHandlerForExtension(ext) {
-  const info = extensionInfo[ext] || { icon: '📝', kind: 'Text', language: 'text' }
+  const info = extensionInfo[ext] || { icon: 'description', kind: 'Text', language: 'text' }
   return {
     ...textHandler,
     icon: info.icon,

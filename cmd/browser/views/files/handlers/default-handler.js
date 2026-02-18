@@ -9,7 +9,7 @@ import { registerDefaultHandler } from '../file-handlers.js'
 
 const defaultHandler = {
   extensions: ['*'],
-  icon: '📄',
+  icon: 'description',
   kind: 'File',
   canPreview: true,
   canEdit: false,
@@ -21,7 +21,7 @@ const defaultHandler = {
     const info = document.createElement('div')
     info.className = 'file-preview-info'
     info.innerHTML = `
-      <div class="file-preview-icon" style="font-size: 48px; text-align: center; margin-bottom: 16px;">📄</div>
+      <div class="file-preview-icon" style="text-align: center; margin-bottom: 16px;"><span class="icon" aria-hidden="true">description</span></div>
       <table class="file-preview-table">
         <tr><th>Name:</th><td>${escapeHtml(fileInfo.name)}</td></tr>
         <tr><th>Path:</th><td>${escapeHtml(fileInfo.path)}</td></tr>

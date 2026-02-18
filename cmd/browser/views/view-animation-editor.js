@@ -119,8 +119,8 @@ export class ViewAnimationEditor extends HTMLElement {
             <div class="panel-header">Preview</div>
             <div class="preview-container"></div>
             <div class="preview-controls">
-              <button data-action="play" class="btn-icon" title="Play/Pause">▶</button>
-              <button data-action="stop" class="btn-icon" title="Stop">◼</button>
+              <button data-action="play" class="btn-icon" title="Play/Pause"><span class="icon button-icon" aria-hidden="true">play_arrow</span><span class="button-label">Play</span></button>
+              <button data-action="stop" class="btn-icon" title="Stop"><span class="icon button-icon" aria-hidden="true">stop</span><span class="button-label">Stop</span></button>
               <label class="control-checkbox">
                 <input type="checkbox" data-action="loop" checked>
                 <span>Loop</span>
@@ -171,10 +171,10 @@ export class ViewAnimationEditor extends HTMLElement {
       playBtn.onclick = () => {
         if (this.animationPreview.isPlaying()) {
           this.animationPreview.pause()
-          playBtn.textContent = '▶'
+          this.setPlayButtonState(playBtn, false)
         } else {
           this.animationPreview.play()
-          playBtn.textContent = '⏸'
+          this.setPlayButtonState(playBtn, true)
         }
       }
     }
@@ -182,7 +182,7 @@ export class ViewAnimationEditor extends HTMLElement {
     if (stopBtn) {
       stopBtn.onclick = () => {
         this.animationPreview.stop()
-        if (playBtn) playBtn.textContent = '▶'
+        if (playBtn) this.setPlayButtonState(playBtn, false)
       }
     }
     
@@ -229,6 +229,12 @@ export class ViewAnimationEditor extends HTMLElement {
     if (flipDBtn) {
       flipDBtn.onclick = () => this.frameListPanel.toggleSelectedFlipBit(FLIP_D)
     }
+  }
+
+  setPlayButtonState(playBtn, isPlaying) {
+    const iconSlot = playBtn.querySelector('.button-icon')
+    if (!iconSlot) return
+    iconSlot.textContent = isPlaying ? 'pause' : 'play_arrow'
   }
   
   _mountHeaderControls() {
@@ -298,15 +304,15 @@ export class ViewAnimationEditor extends HTMLElement {
     this._unsubscribers.push(
       bus.on('animation:playback:start', () => {
         const playBtn = this.querySelector('[data-action="play"]')
-        if (playBtn) playBtn.textContent = '⏸'
+        if (playBtn) this.setPlayButtonState(playBtn, true)
       }),
       bus.on('animation:playback:pause', () => {
         const playBtn = this.querySelector('[data-action="play"]')
-        if (playBtn) playBtn.textContent = '▶'
+        if (playBtn) this.setPlayButtonState(playBtn, false)
       }),
       bus.on('animation:playback:stop', () => {
         const playBtn = this.querySelector('[data-action="play"]')
-        if (playBtn) playBtn.textContent = '▶'
+        if (playBtn) this.setPlayButtonState(playBtn, false)
       })
     )
     
