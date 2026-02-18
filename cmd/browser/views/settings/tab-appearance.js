@@ -221,15 +221,20 @@ class SettingsTabAppearance extends HTMLElement {
 
   applyTheme(value) {
     const theme = this.normalizeTheme(value)
-    document.documentElement.dataset.theme = theme
-
-    if (typeof window.__applyThemeToShadowHosts === 'function') {
-      window.__applyThemeToShadowHosts(theme)
-    } else {
-      document.querySelectorAll('view-chrome, view-popup').forEach(el => {
-        el.setAttribute('data-theme', theme)
-      })
+    if (typeof window.__applyThemeStylesheet === 'function') {
+      window.__applyThemeStylesheet(theme)
+      return
     }
+
+    const link = document.getElementById('theme-stylesheet')
+    if (!link) return
+
+    const hrefByTheme = {
+      current: 'themes/current.css',
+      obsidian: 'themes/obsidian.css',
+      neon: 'themes/neon.css',
+    }
+    link.setAttribute('href', hrefByTheme[theme] || hrefByTheme.current)
   }
 
   applyFontSize(value) {

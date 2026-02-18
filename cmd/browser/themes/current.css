@@ -1,0 +1,88 @@
+@layer theme {
+  :root {
+    --ui-font-body: "Roboto", "Segoe UI", sans-serif;
+    --ui-font-ui: var(--ui-font-body);
+    --ui-font-display: "Orbitron", "Space Grotesk", sans-serif;
+
+    --ui-bg-0: #0a0f14;
+    --ui-bg-1: #131a22;
+    --ui-bg-2: #1a2430;
+    --ui-bg-3: #223042;
+    --ui-bg-hover: #27384f;
+
+    --ui-text-1: #d8e9ff;
+    --ui-text-2: #8fb4d4;
+    --ui-text-3: #5f7c96;
+
+    --ui-border: #2e4358;
+    --ui-border-focus: #4dd8ff;
+    --ui-accent: #4dd8ff;
+    --ui-accent-hover: #7ee5ff;
+    --ui-accent-ink: #04131a;
+
+    --ui-success: #39d98a;
+    --ui-warning: #ffb84d;
+    --ui-danger: #ff6b6b;
+    --ui-info: #6aa9ff;
+    --ui-glow: 0 0 10px rgba(77, 216, 255, 0.25);
+
+    --ui-radius-sm: 4px;
+    --ui-radius-md: 8px;
+    --border-width-default: 1px;
+
+    --resize-handle-size-visual: 2px;
+    --resize-handle-background: color-mix(in oklab, var(--ui-border) 85%, transparent);
+    --resize-handle-hover-background: var(--ui-accent);
+    --resize-handle-hover-box-shadow: var(--ui-glow);
+    --resize-handle-active-background: var(--ui-accent-hover);
+    --resize-handle-active-box-shadow: 0 0 12px color-mix(in oklab, var(--ui-accent) 70%, transparent);
+
+    --corner-handle-width: 18px;
+    --corner-handle-height: 18px;
+    --corner-handle-border-radius: 6px;
+    --corner-handle-border-width: 1px;
+    --corner-handle-position-offset: 3px;
+    --corner-handle-opacity: 0.1;
+
+    --popup-backdrop-background: rgba(2, 4, 8, 0.7);
+    --popup-container-border-width: 1px;
+    --popup-container-border: var(--color-semantic-border-default);
+    --popup-container-shadow: var(--shadow-panel);
+    --toast-background: var(--color-semantic-background-panel);
+    --toast-border: var(--color-semantic-border-default);
+
+    --theme-body-background: var(--color-semantic-background-default);
+    --theme-body-overlay-content: none;
+    --theme-body-overlay-image: none;
+    --theme-body-overlay-opacity: 0;
+
+    --theme-button-text-transform: none;
+    --theme-button-letter-spacing: normal;
+    --theme-button-border-width: 1px;
+    --theme-button-clip-path: none;
+    --theme-button-inset-shadow: none;
+
+    --theme-panel-header-border-bottom: none;
+    --theme-panel-header-padding: 0;
+    --theme-view-select-font-family: inherit;
+    --theme-view-select-font-size: inherit;
+    --theme-view-select-letter-spacing: normal;
+    --theme-view-select-color: inherit;
+    --theme-view-select-text-transform: none;
+    --theme-view-select-focus-shadow: initial;
+
+    --theme-panel-border: none;
+    --theme-panel-clip-path: none;
+    --theme-panel-overlay-content: none;
+    --theme-panel-overlay-size: 0;
+    --theme-panel-overlay-border-width: 0;
+    --theme-panel-overlay-color: transparent;
+
+    --theme-layout-left: 0;
+    --theme-layout-top: 0;
+    --theme-layout-width: 100vw;
+    --theme-layout-height: 100vh;
+
+    --theme-handle-background: var(--resize-handle-background);
+  }
+}

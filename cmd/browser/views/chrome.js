@@ -27,8 +27,6 @@ export class ViewChrome extends HTMLElement {
   }
 
   connectedCallback() {
-    this.setAttribute('data-theme', document.documentElement.dataset.theme || 'current')
-
     const content = this.shadowRoot
     this._setupCornerHandles(content)
     this._setupViewSelector(content)
