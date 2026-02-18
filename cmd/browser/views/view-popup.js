@@ -45,6 +45,8 @@ export class ViewPopup extends HTMLElement {
   }
 
   connectedCallback() {
+    this.setAttribute('data-theme', document.documentElement.dataset.theme || 'current')
+
     // Add base popup class
     if (!this.classList.contains('popup')) {
       this.classList.add('popup')

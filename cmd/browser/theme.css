@@ -245,6 +245,8 @@ body {
   --ui-info: #00aaff;
   --ui-glow: 0 0 18px rgba(255, 0, 255, 0.35);
   --ui-shape-cut: 10px;
+  --ui-shape-cut-panel: 12px;
+  --ui-border-bright: #6b2fa0;
 
   --ui-radius-sm: 0px;
   --ui-radius-md: 0px;
@@ -486,6 +488,12 @@ textarea:focus {
   clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut)) 0, 100% var(--ui-shape-cut), 100% 100%, var(--ui-shape-cut) 100%, 0 calc(100% - var(--ui-shape-cut)));
 }
 
+:root[data-theme="neon"] .panel {
+  background: var(--ui-bg-1);
+  border: 2px solid var(--ui-border);
+  clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut-panel)) 0, 100% var(--ui-shape-cut-panel), 100% 100%, var(--ui-shape-cut-panel) 100%, 0 calc(100% - var(--ui-shape-cut-panel)));
+}
+
 :root[data-theme="neon"] .panel::before,
 :root[data-theme="neon"] view-popup .popup-container::before,
 :root[data-theme="neon"] .popup-container::before,
@@ -498,6 +506,15 @@ textarea:focus {
     linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) top right,
     linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) bottom left;
   background-size: var(--ui-shape-cut) var(--ui-shape-cut);
+  background-repeat: no-repeat;
+}
+
+:root[data-theme="neon"] .panel::before {
+  z-index: 2;
+  background:
+    linear-gradient(45deg, transparent calc(50% - 2px), var(--ui-border) 0, var(--ui-border) calc(50% + 2px), transparent 0) top right,
+    linear-gradient(45deg, transparent calc(50% - 2px), var(--ui-border) 0, var(--ui-border) calc(50% + 2px), transparent 0) bottom left;
+  background-size: var(--ui-shape-cut-panel) var(--ui-shape-cut-panel);
   background-repeat: no-repeat;
 }
 
@@ -517,10 +534,148 @@ textarea:focus {
 :root[data-theme="neon"] .panel-header {
   min-height: 36px;
   padding: 0 12px;
+  background: var(--ui-bg-2);
+  border-bottom: 2px solid var(--ui-border);
+  gap: 10px;
 }
 
-:root[data-theme="neon"] .panel-content {
-  padding: 10px;
+:root[data-theme="neon"] .panel-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:root[data-theme="neon"] .panel-content::-webkit-scrollbar-track {
+  background: var(--ui-bg-0);
+}
+
+:root[data-theme="neon"] .panel-content::-webkit-scrollbar-thumb {
+  background: var(--ui-border-bright);
+}
+
+:root[data-theme="neon"] .panel-content::-webkit-scrollbar-thumb:hover {
+  background: var(--ui-accent);
+}
+
+:root[data-theme="neon"] .panel-header .view-selector {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ui-border-focus);
+  font-family: var(--ui-font-ui);
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 0;
+  min-width: 0;
+  max-width: 70%;
+}
+
+:root[data-theme="neon"] .panel-header .view-selector:hover {
+  color: var(--ui-accent);
+  text-shadow: 0 0 12px rgba(255, 0, 255, 0.45);
+}
+
+:root[data-theme="neon"] .panel-header .panel-header-controls {
+  margin-left: auto;
+}
+
+/* Shadow DOM equivalents for neon panel/popup styling */
+:host([data-theme="neon"]) .panel {
+  position: relative;
+  background: var(--ui-bg-1);
+  border: 2px solid var(--ui-border);
+  clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut-panel)) 0, 100% var(--ui-shape-cut-panel), 100% 100%, var(--ui-shape-cut-panel) 100%, 0 calc(100% - var(--ui-shape-cut-panel)));
+}
+
+:host([data-theme="neon"]) .panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    linear-gradient(45deg, transparent calc(50% - 2px), var(--ui-border) 0, var(--ui-border) calc(50% + 2px), transparent 0) top right,
+    linear-gradient(45deg, transparent calc(50% - 2px), var(--ui-border) 0, var(--ui-border) calc(50% + 2px), transparent 0) bottom left;
+  background-size: var(--ui-shape-cut-panel) var(--ui-shape-cut-panel);
+  background-repeat: no-repeat;
+}
+
+:host([data-theme="neon"]) .panel-header {
+  min-height: 36px;
+  padding: 0 12px;
+  background: var(--ui-bg-2);
+  border-bottom: 2px solid var(--ui-border);
+  gap: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+:host([data-theme="neon"]) .panel-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:host([data-theme="neon"]) .panel-content::-webkit-scrollbar-track {
+  background: var(--ui-bg-0);
+}
+
+:host([data-theme="neon"]) .panel-content::-webkit-scrollbar-thumb {
+  background: var(--ui-border-bright);
+}
+
+:host([data-theme="neon"]) .panel-content::-webkit-scrollbar-thumb:hover {
+  background: var(--ui-accent);
+}
+
+:host([data-theme="neon"]) .panel-header .view-selector {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ui-border-focus);
+  font-family: var(--ui-font-ui);
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 0;
+  min-width: 0;
+  max-width: 70%;
+}
+
+:host([data-theme="neon"]) .panel-header .view-selector:hover {
+  color: var(--ui-accent);
+  text-shadow: 0 0 12px rgba(255, 0, 255, 0.45);
+}
+
+:host([data-theme="neon"]) .panel-header .panel-header-controls {
+  margin-left: auto;
+}
+
+:host([data-theme="neon"]) .popup-container {
+  position: relative;
+  border-width: var(--popup-container-border-width);
+  clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut)) 0, 100% var(--ui-shape-cut), 100% 100%, var(--ui-shape-cut) 100%, 0 calc(100% - var(--ui-shape-cut)));
+}
+
+:host([data-theme="neon"]) .popup-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) top right,
+    linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) bottom left;
+  background-size: var(--ui-shape-cut) var(--ui-shape-cut);
+  background-repeat: no-repeat;
+}
+
+:host([data-theme="neon"]) .popup-header {
+  border-bottom-width: 2px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+:host([data-theme="neon"]) .popup-content {
+  padding: var(--spacing-scale-4);
 }
 
 :root[data-theme="neon"] .settings-tab-bar .button-tab {
