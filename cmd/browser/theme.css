@@ -1,6 +1,8 @@
 /* Base reset + semantic theme variables */
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -13,7 +15,8 @@ body {
 
 :root {
   color-scheme: dark;
-
+  --resize-handle-width: 12px;
+  --resize-handle-height: 12px;
   --ui-font-body: "Roboto", "Segoe UI", sans-serif;
   --ui-font-mono: "Roboto Mono", "JetBrains Mono", monospace;
   --ui-font-display: "Orbitron", "Space Grotesk", sans-serif;
@@ -471,227 +474,61 @@ textarea:focus {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
-:root[data-theme="neon"] button.primary,
-:root[data-theme="neon"] a.primary,
-:root[data-theme="neon"] input.primary,
-:root[data-theme="neon"] .button-primary,
-:root[data-theme="neon"] .toast-button-primary {
-  box-shadow: 0 0 12px rgba(255, 0, 255, 0.35);
+
+:root[data-theme="neon"] layout-parent {
+  left: calc(0.5 * var(--resize-handle-width));
+  top: calc(0.5 * var(--resize-handle-height));
+  width: calc(100vw - var(--resize-handle-width));
+  height: calc(100vh - var(--resize-handle-height));
 }
 
-:root[data-theme="neon"] .panel,
-:root[data-theme="neon"] view-popup .popup-container,
-:root[data-theme="neon"] .popup-container,
-:root[data-theme="neon"] view-toast .toast-container {
-  position: relative;
-  border-width: 2px;
-  clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut)) 0, 100% var(--ui-shape-cut), 100% 100%, var(--ui-shape-cut) 100%, 0 calc(100% - var(--ui-shape-cut)));
-}
-
-:root[data-theme="neon"] .panel {
-  background: var(--ui-bg-1);
-  border: 2px solid var(--ui-border);
-  clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut-panel)) 0, 100% var(--ui-shape-cut-panel), 100% 100%, var(--ui-shape-cut-panel) 100%, 0 calc(100% - var(--ui-shape-cut-panel)));
-}
-
-:root[data-theme="neon"] .panel::before,
-:root[data-theme="neon"] view-popup .popup-container::before,
-:root[data-theme="neon"] .popup-container::before,
-:root[data-theme="neon"] view-toast .toast-container::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) top right,
-    linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) bottom left;
-  background-size: var(--ui-shape-cut) var(--ui-shape-cut);
-  background-repeat: no-repeat;
-}
-
-:root[data-theme="neon"] .panel::before {
-  z-index: 2;
-  background:
-    linear-gradient(45deg, transparent calc(50% - 2px), var(--ui-border) 0, var(--ui-border) calc(50% + 2px), transparent 0) top right,
-    linear-gradient(45deg, transparent calc(50% - 2px), var(--ui-border) 0, var(--ui-border) calc(50% + 2px), transparent 0) bottom left;
-  background-size: var(--ui-shape-cut-panel) var(--ui-shape-cut-panel);
-  background-repeat: no-repeat;
-}
-
-:root[data-theme="neon"] view-popup .popup-container,
-:root[data-theme="neon"] .popup-container {
-  border-width: var(--popup-container-border-width);
-}
-
-:root[data-theme="neon"] .panel-header,
-:root[data-theme="neon"] .popup-header,
-:root[data-theme="neon"] .settings-tab-bar {
-  border-bottom-width: 2px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-:root[data-theme="neon"] .panel-header {
-  min-height: 36px;
+:host([data-theme="neon"]) .panel .panel-header {
+  border-bottom: 2px solid var(--border);
   padding: 0 12px;
-  background: var(--ui-bg-2);
-  border-bottom: 2px solid var(--ui-border);
-  gap: 10px;
 }
 
-:root[data-theme="neon"] .panel-content::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-:root[data-theme="neon"] .panel-content::-webkit-scrollbar-track {
-  background: var(--ui-bg-0);
-}
-
-:root[data-theme="neon"] .panel-content::-webkit-scrollbar-thumb {
-  background: var(--ui-border-bright);
-}
-
-:root[data-theme="neon"] .panel-content::-webkit-scrollbar-thumb:hover {
-  background: var(--ui-accent);
-}
-
-:root[data-theme="neon"] .panel-header .view-selector {
+:host([data-theme="neon"]) .panel .panel-header select[name="view"] {
   appearance: none;
   border: none;
-  background: transparent;
-  color: var(--ui-border-focus);
-  font-family: var(--ui-font-ui);
+  font-family: 'Bebas Neue', sans-serif;
   font-size: 16px;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
+  color: var(--resize-handle-active-background);
   text-transform: uppercase;
-  padding: 0;
-  min-width: 0;
-  max-width: 70%;
 }
 
-:root[data-theme="neon"] .panel-header .view-selector:hover {
-  color: var(--ui-accent);
-  text-shadow: 0 0 12px rgba(255, 0, 255, 0.45);
+:host([data-theme="neon"]) .panel .panel-header select[name="view"]:focus-visible {
+  outline: none;
 }
 
-:root[data-theme="neon"] .panel-header .panel-header-controls {
-  margin-left: auto;
+:host([data-theme="neon"]) .panel .panel-header select[name="view"]:focus {
+  box-shadow: none;
 }
 
-/* Shadow DOM equivalents for neon panel/popup styling */
 :host([data-theme="neon"]) .panel {
-  position: relative;
-  background: var(--ui-bg-1);
-  border: 2px solid var(--ui-border);
-  clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut-panel)) 0, 100% var(--ui-shape-cut-panel), 100% 100%, var(--ui-shape-cut-panel) 100%, 0 calc(100% - var(--ui-shape-cut-panel)));
+  --border: var(--color-semantic-border-default);
+  border: 2px solid var(--color-semantic-border-default);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
 :host([data-theme="neon"]) .panel::before {
+  pointer-events: none;
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background:
-    linear-gradient(45deg, transparent calc(50% - 2px), var(--ui-border) 0, var(--ui-border) calc(50% + 2px), transparent 0) top right,
-    linear-gradient(45deg, transparent calc(50% - 2px), var(--ui-border) 0, var(--ui-border) calc(50% + 2px), transparent 0) bottom left;
-  background-size: var(--ui-shape-cut-panel) var(--ui-shape-cut-panel);
+  z-index: 10;
+  --cut: 12px;
+  --b: 2px;
+  --c: var(--border);
+  background: linear-gradient(45deg, transparent calc(50% - var(--b) + 2px), var(--c) 0, var(--c) calc(50% + var(--b) + 2px), transparent 0) top right, linear-gradient(45deg, transparent calc(50% - var(--b) - 2px), var(--c) 0, var(--c) calc(50% + var(--b) - 2px), transparent 0) bottom left;
+  background-size: var(--cut) var(--cut);
   background-repeat: no-repeat;
 }
 
-:host([data-theme="neon"]) .panel-header {
-  min-height: 36px;
-  padding: 0 12px;
-  background: var(--ui-bg-2);
-  border-bottom: 2px solid var(--ui-border);
-  gap: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-:host([data-theme="neon"]) .panel-content::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-:host([data-theme="neon"]) .panel-content::-webkit-scrollbar-track {
-  background: var(--ui-bg-0);
-}
-
-:host([data-theme="neon"]) .panel-content::-webkit-scrollbar-thumb {
-  background: var(--ui-border-bright);
-}
-
-:host([data-theme="neon"]) .panel-content::-webkit-scrollbar-thumb:hover {
-  background: var(--ui-accent);
-}
-
-:host([data-theme="neon"]) .panel-header .view-selector {
-  appearance: none;
-  border: none;
+:root[data-theme="neon"] .handle::before {
   background: transparent;
-  color: var(--ui-border-focus);
-  font-family: var(--ui-font-ui);
-  font-size: 16px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  padding: 0;
-  min-width: 0;
-  max-width: 70%;
 }
 
-:host([data-theme="neon"]) .panel-header .view-selector:hover {
-  color: var(--ui-accent);
-  text-shadow: 0 0 12px rgba(255, 0, 255, 0.45);
-}
-
-:host([data-theme="neon"]) .panel-header .panel-header-controls {
-  margin-left: auto;
-}
-
-:host([data-theme="neon"]) .popup-container {
-  position: relative;
-  border-width: var(--popup-container-border-width);
-  clip-path: polygon(0 0, calc(100% - var(--ui-shape-cut)) 0, 100% var(--ui-shape-cut), 100% 100%, var(--ui-shape-cut) 100%, 0 calc(100% - var(--ui-shape-cut)));
-}
-
-:host([data-theme="neon"]) .popup-container::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) top right,
-    linear-gradient(45deg, transparent 45%, var(--color-semantic-border-default) 46%, var(--color-semantic-border-default) 54%, transparent 55%) bottom left;
-  background-size: var(--ui-shape-cut) var(--ui-shape-cut);
-  background-repeat: no-repeat;
-}
-
-:host([data-theme="neon"]) .popup-header {
-  border-bottom-width: 2px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-:host([data-theme="neon"]) .popup-content {
-  padding: var(--spacing-scale-4);
-}
-
-:root[data-theme="neon"] .settings-tab-bar .button-tab {
-  font-size: 14px;
-  border-bottom-width: 2px;
-  padding: 10px 14px;
-}
-
-:root[data-theme="neon"] .settings-tab-bar .button-tab.active {
-  text-shadow: 0 0 12px rgba(255, 0, 255, 0.45);
-}
-
-:root[data-theme="neon"] view-popup .popup-content {
-  padding: var(--spacing-scale-4);
-}
-
-:root[data-theme="neon"] view-toast .toast-container {
-  padding: 12px 14px;
+:root[data-theme="neon"] .handle:hover::before {
+  background: var(--resize-handle-active-background);
 }
