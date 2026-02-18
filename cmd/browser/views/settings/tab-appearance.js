@@ -220,7 +220,16 @@ class SettingsTabAppearance extends HTMLElement {
   }
 
   applyTheme(value) {
-    document.documentElement.dataset.theme = this.normalizeTheme(value)
+    const theme = this.normalizeTheme(value)
+    document.documentElement.dataset.theme = theme
+
+    if (typeof window.__applyThemeToShadowHosts === 'function') {
+      window.__applyThemeToShadowHosts(theme)
+    } else {
+      document.querySelectorAll('view-chrome, view-popup').forEach(el => {
+        el.setAttribute('data-theme', theme)
+      })
+    }
   }
 
   applyFontSize(value) {

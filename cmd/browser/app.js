@@ -50,6 +50,15 @@ function splashStatus(message) {
 const decoder = new TextDecoder()
 const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
 
+function applyThemeToShadowHosts(theme) {
+  const effectiveTheme = theme || 'current'
+  document.querySelectorAll('view-chrome, view-popup').forEach(el => {
+    el.setAttribute('data-theme', effectiveTheme)
+  })
+}
+
+window.__applyThemeToShadowHosts = applyThemeToShadowHosts
+
 function readAppearanceFromLocalStorage() {
   try {
     const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY)
@@ -88,6 +97,7 @@ async function applyAppearanceSettings() {
     const theme = settings['appearance.theme']
     const normalizedTheme = !theme || theme === 'dark' ? 'current' : theme
     document.documentElement.dataset.theme = normalizedTheme
+    applyThemeToShadowHosts(normalizedTheme)
 
     const fontFamily = settings['appearance.font-family']
     if (!fontFamily || fontFamily === 'default') {
@@ -107,6 +117,7 @@ async function applyAppearanceSettings() {
     const theme = localSettings['appearance.theme']
     const normalizedTheme = !theme || theme === 'dark' ? 'current' : theme
     document.documentElement.dataset.theme = normalizedTheme
+    applyThemeToShadowHosts(normalizedTheme)
 
     const fontFamily = localSettings['appearance.font-family']
     if (!fontFamily || fontFamily === 'default') {
