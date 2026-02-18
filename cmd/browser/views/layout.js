@@ -1,12 +1,16 @@
 import { SplitLayout } from "../systems/split-layout.js"
 
+const HANDLE_WIDTH_VAR = "--resize-handle-width"
+const HANDLE_HEIGHT_VAR = "--resize-handle-height"
+const DEFAULT_HANDLE_SIZE = 12
+
 export class LayoutParent extends HTMLElement {
   constructor() {
     super()
     this.layout = new SplitLayout(
       100, 100,
-      parseFloat(this.getAttribute('handle-width')),
-      parseFloat(this.getAttribute('handle-height')),
+      this._readHandleSize(HANDLE_WIDTH_VAR, "handle-width", DEFAULT_HANDLE_SIZE),
+      this._readHandleSize(HANDLE_HEIGHT_VAR, "handle-height", DEFAULT_HANDLE_SIZE),
     )
 
     this._observer = new MutationObserver((mutations) => {
@@ -27,16 +31,87 @@ export class LayoutParent extends HTMLElement {
         }
       }
     })
+
+    this._themeObserver = new MutationObserver(() => {
+      this._scheduleHandleSizeSync()
+    })
+
+    this._syncQueued = false
   }
 
   connectedCallback() {
     this._observer.observe(this, { childList: true })
     this._resizeObserver.observe(this)
+
+    this._themeObserver.observe(this, {
+      attributes: true,
+      attributeFilter: ["class", "style"]
+    })
+
+    if (document.documentElement) {
+      this._themeObserver.observe(document.documentElement, {
+        attributes: true
+      })
+    }
+
+    if (document.body) {
+      this._themeObserver.observe(document.body, {
+        attributes: true
+      })
+    }
+
+    this._syncHandleSizeFromCSS()
   }
 
   disconnectedCallback() {
     this._observer.disconnect()
     this._resizeObserver.disconnect()
+    this._themeObserver.disconnect()
+  }
+
+  _readHandleSize(cssVarName, attrName, fallback) {
+    const cssValue = parseFloat(getComputedStyle(this).getPropertyValue(cssVarName))
+    if (Number.isFinite(cssValue)) {
+      return cssValue
+    }
+
+    const attrValue = parseFloat(this.getAttribute(attrName))
+    if (Number.isFinite(attrValue)) {
+      return attrValue
+    }
+
+    return fallback
+  }
+
+  _scheduleHandleSizeSync() {
+    if (this._syncQueued) {
+      return
+    }
+
+    this._syncQueued = true
+    queueMicrotask(() => {
+      this._syncQueued = false
+      if (!this.isConnected) {
+        return
+      }
+
+      if (this._syncHandleSizeFromCSS()) {
+        this.reset()
+      }
+    })
+  }
+
+  _syncHandleSizeFromCSS() {
+    const nextHandleW = this._readHandleSize(HANDLE_WIDTH_VAR, "handle-width", this.layout.handleW)
+    const nextHandleH = this._readHandleSize(HANDLE_HEIGHT_VAR, "handle-height", this.layout.handleH)
+
+    if (this.layout.handleW === nextHandleW && this.layout.handleH === nextHandleH) {
+      return false
+    }
+
+    this.layout.handleW = nextHandleW
+    this.layout.handleH = nextHandleH
+    return true
   }
 
   reset() {
@@ -254,4 +329,3 @@ class Handle extends HTMLElement {
 }
 
 customElements.define('view--handle', Handle)
-
