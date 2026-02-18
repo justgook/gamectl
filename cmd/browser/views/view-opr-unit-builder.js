@@ -897,7 +897,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       const requirementStyle = !isEnabled 
         ? 'color: var(--color-semantic-text-warning); font-weight: 500;' 
         : 'color: var(--color-semantic-text-secondary);'
-      const requirementIcon = !isEnabled ? '🔒 ' : ''
+      const requirementIcon = !isEnabled ? '<span class="icon icon-inline" aria-hidden="true">lock</span> ' : ''
       replacesInfo = `<div style="font-size: var(--font-size-sm); ${requirementStyle} font-style: italic;">${requirementIcon}${!isEnabled ? 'Requires' : 'Replaces'}: ${replacesNames}</div>`
     }
 
@@ -975,7 +975,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     // Base size override badge
     let baseSizeBadge = ''
     if (overridesBaseSize && overridesBaseSize !== 'NULL' && newBaseShape && newBaseDimensions) {
-      baseSizeBadge = ` <span style="display: inline-block; padding: 2px 6px; background: var(--color-semantic-bg-accent); color: var(--color-semantic-text-on-accent); font-size: var(--font-size-xs); border-radius: var(--border-radius-sm);">⭘ ${newBaseDimensions} ${newBaseShape}</span>`
+      baseSizeBadge = ` <span style="display: inline-block; padding: 2px 6px; background: var(--color-semantic-bg-accent); color: var(--color-semantic-text-on-accent); font-size: var(--font-size-xs); border-radius: var(--border-radius-sm);"><span class="icon icon-inline" aria-hidden="true">description</span> ${newBaseDimensions} ${newBaseShape}</span>`
     }
 
     // Cost display

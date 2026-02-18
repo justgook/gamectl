@@ -10,7 +10,7 @@ import decode from '../../../util/qoi/decode.js'
 
 const qoiHandler = {
   extensions: ['qoi'],
-  icon: '🖼️',
+  icon: 'image',
   kind: 'QOI Image',
   canPreview: true,
   canEdit: false,
@@ -71,7 +71,7 @@ const qoiHandler = {
     } catch (error) {
       wrapper.innerHTML = `
         <div class="file-preview-error">
-          <span style="font-size: 48px;">🖼️</span>
+          <span class="icon file-preview-icon" aria-hidden="true">image</span>
           <p>Failed to decode QOI image</p>
           <p style="font-size: 12px; opacity: 0.7;">${error.message}</p>
         </div>

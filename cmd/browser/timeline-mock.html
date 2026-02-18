@@ -290,8 +290,8 @@
 
   <div id="toolbar">
     <div class="toolbar-group">
-      <button id="play">▶ Play</button>
-      <button id="stop">◼ Stop</button>
+      <button id="play">Play</button>
+      <button id="stop">Stop</button>
     </div>
     <div class="toolbar-divider"></div>
     <div class="toolbar-group">
@@ -506,14 +506,14 @@
     ------------------------------ */
     document.getElementById("play").onclick = () => {
       playing = !playing;
-      document.getElementById("play").textContent = playing ? "⏸ Pause" : "▶ Play";
+      document.getElementById("play").textContent = playing ? "Pause" : "Play";
       document.getElementById("play").classList.toggle("playing", playing);
     };
 
     document.getElementById("stop").onclick = () => {
       playing = false;
       time = 0;
-      document.getElementById("play").textContent = "▶ Play";
+      document.getElementById("play").textContent = "Play";
       document.getElementById("play").classList.remove("playing");
       updatePlayhead();
     };

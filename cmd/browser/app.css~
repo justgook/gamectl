@@ -1,6 +1,14 @@
 @layer reset, base, layout, theme;
 
+button {
+  container: button / inline-size;
+}
 
+@container button (width < 100px) {
+  .icon {
+    color: red;
+  }
+}
 
 @layer layout {
 
