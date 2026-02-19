@@ -301,6 +301,44 @@
 
     <template id="view-stb-editor">
       <div slot="header-controls" class="view-header-controls">
+        <button class="button-primary button-has-icon tool-btn" data-tool="1" title="Brush tool">
+          <span class="icon button-icon" aria-hidden="true">brush</span><span class="button-label">Brush</span>
+        </button>
+        <button class="button-secondary button-has-icon tool-btn" data-tool="0" title="Select tool">
+          <span class="icon button-icon" aria-hidden="true">select</span><span class="button-label">Select</span>
+        </button>
+        <button class="button-secondary button-has-icon tool-btn" data-tool="2" title="Erase tool">
+          <span class="icon button-icon" aria-hidden="true">ink_eraser</span><span class="button-label">Erase</span>
+        </button>
+        <button class="button-secondary button-has-icon tool-btn" data-tool="3" title="Eyedropper tool">
+          <span class="icon button-icon" aria-hidden="true">colorize</span><span class="button-label">Eyedrop</span>
+        </button>
+        <span class="toolbar-divider"></span>
+        <button class="button-secondary button-has-icon" data-id="undo-btn" title="Undo">
+          <span class="icon button-icon" aria-hidden="true">undo</span><span class="button-label">Undo</span>
+        </button>
+        <button class="button-secondary button-has-icon" data-id="redo-btn" title="Redo">
+          <span class="icon button-icon" aria-hidden="true">redo</span><span class="button-label">Redo</span>
+        </button>
+        <button class="button-secondary button-has-icon" data-id="cut-btn" title="Cut">
+          <span class="icon button-icon" aria-hidden="true">content_cut</span><span class="button-label">Cut</span>
+        </button>
+        <button class="button-secondary button-has-icon" data-id="copy-btn" title="Copy">
+          <span class="icon button-icon" aria-hidden="true">content_copy</span><span class="button-label">Copy</span>
+        </button>
+        <button class="button-secondary button-has-icon" data-id="paste-btn" title="Paste">
+          <span class="icon button-icon" aria-hidden="true">content_paste</span><span class="button-label">Paste</span>
+        </button>
+        <button class="button-secondary button-has-icon" data-id="clear-btn" title="Clear map">
+          <span class="icon button-icon" aria-hidden="true">delete_sweep</span><span class="button-label">Clear</span>
+        </button>
+        <span class="toolbar-divider"></span>
+        <button class="button-primary button-has-icon" data-id="grid-btn" title="Toggle grid">
+          <span class="icon button-icon" aria-hidden="true">grid_on</span><span class="button-label">Grid</span>
+        </button>
+        <button class="button-secondary button-has-icon" data-id="fit-btn" title="Fit map to viewport">
+          <span class="icon button-icon" aria-hidden="true">fit_screen</span><span class="button-label">Fit</span>
+        </button>
       </div>
     </template>
 

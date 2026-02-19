@@ -50,12 +50,14 @@ export default class ViewStbEditor extends HTMLElement {
 
     this.boundHandleWindowResize = this.handleWindowResize.bind(this)
     this.boundCanvasMouseUp = null
+    this._headerControlsElement = null
 
     this.attachShadow({ mode: 'open' })
   }
 
   connectedCallback() {
     this.renderLayout()
+    this._mountHeaderControls()
     this.init().catch((err) => {
       this.log(`Initialization failed: ${err.message}`)
       console.error(err)
@@ -64,6 +66,38 @@ export default class ViewStbEditor extends HTMLElement {
 
   disconnectedCallback() {
     this.cleanup()
+    this._unmountHeaderControls()
+  }
+
+  _mountHeaderControls() {
+    const viewTag = this.tagName.toLowerCase()
+    const template = document.getElementById(viewTag)
+
+    if (template && this.parentElement) {
+      const content = template.content.cloneNode(true)
+      const headerControls = content.querySelector('[slot="header-controls"]')
+
+      if (headerControls) {
+        this._headerControlsElement = headerControls
+        this.parentElement.appendChild(headerControls)
+      }
+    }
+  }
+
+  _unmountHeaderControls() {
+    if (this._headerControlsElement?.parentElement) {
+      this._headerControlsElement.remove()
+      this._headerControlsElement = null
+    }
+  }
+
+  headerControl(id) {
+    return this._headerControlsElement?.querySelector(`[data-id="${id}"]`) || null
+  }
+
+  headerControlButtons(selector) {
+    if (!this._headerControlsElement) return []
+    return [...this._headerControlsElement.querySelectorAll(selector)]
   }
 
   async init() {
@@ -183,32 +217,10 @@ export default class ViewStbEditor extends HTMLElement {
           gap: 10px;
         }
 
-        .header,
         .panel {
           border: 1px solid var(--stb-line);
           border-radius: 10px;
           background: #10161f;
-        }
-
-        .header {
-          padding: 10px 12px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .title {
-          font-size: 14px;
-          color: #f0f6fc;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-        }
-
-        .subtle {
-          font-size: 11px;
-          color: var(--stb-muted);
         }
 
         .canvas-shell {
@@ -291,21 +303,6 @@ export default class ViewStbEditor extends HTMLElement {
         button:disabled {
           opacity: 0.55;
           cursor: not-allowed;
-        }
-
-        .tool-row,
-        .edit-row {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 6px;
-        }
-
-        .tool-btn,
-        .edit-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 32px;
         }
 
         .layers {
@@ -438,16 +435,6 @@ export default class ViewStbEditor extends HTMLElement {
 
       <div class="app">
         <main class="workspace">
-          <div class="header">
-            <div>
-              <div class="title">STB Tilemap Editor</div>
-              <div class="subtle">Map on the left, controls on the right.</div>
-            </div>
-            <div>
-              <button class="edit-btn" data-id="fit-btn" title="Fit map to viewport">Fit</button>
-              <span class="subtle">Shift + drag for area apply with brush/erase</span>
-            </div>
-          </div>
           <div class="canvas-shell">
             <div class="map-viewport" data-id="map-viewport">
               <canvas class="tilemap" data-id="tilemap" width="640" height="480"></canvas>
@@ -459,29 +446,6 @@ export default class ViewStbEditor extends HTMLElement {
           <section class="panel">
             <h2>Metadata</h2>
             <dl class="meta" data-id="meta"></dl>
-          </section>
-
-          <section class="panel">
-            <h2>Tools</h2>
-            <div class="tool-row">
-              <button class="tool-btn" data-tool="0">Select</button>
-              <button class="tool-btn active" data-tool="1">Brush</button>
-              <button class="tool-btn" data-tool="2">Erase</button>
-              <button class="tool-btn" data-tool="3">Eyedrop</button>
-            </div>
-          </section>
-
-          <section class="panel">
-            <h2>Edit</h2>
-            <div class="edit-row">
-              <button class="edit-btn" data-id="undo-btn">Undo</button>
-              <button class="edit-btn" data-id="redo-btn">Redo</button>
-              <button class="edit-btn" data-id="cut-btn">Cut</button>
-              <button class="edit-btn" data-id="copy-btn">Copy</button>
-              <button class="edit-btn" data-id="paste-btn">Paste</button>
-              <button class="edit-btn" data-id="clear-btn">Clear</button>
-              <button class="edit-btn" data-id="grid-btn">Grid</button>
-            </div>
           </section>
 
           <section class="panel">
@@ -610,60 +574,77 @@ export default class ViewStbEditor extends HTMLElement {
   canRedo() { return this.readTilemap(this.offsets.tm_redo_available, 'i8') !== 0 }
 
   setupUI() {
-    this.shadowRoot.querySelectorAll('.tool-btn').forEach((btn) => {
+    this.headerControlButtons('.tool-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.shadowRoot.querySelectorAll('.tool-btn').forEach((b) => b.classList.remove('active'))
-        btn.classList.add('active')
         this.currentTool = parseInt(btn.dataset.tool, 10)
         this.exports.stbte_set_tool(this.tilemap, this.currentTool)
+        this.updateControlStates()
         this.updateMetadata()
       })
     })
 
-    this.el('undo-btn').addEventListener('click', () => {
+    this.headerControl('undo-btn')?.addEventListener('click', () => {
       this.exports.stbte_undo(this.tilemap)
       this.postAction()
     })
 
-    this.el('redo-btn').addEventListener('click', () => {
+    this.headerControl('redo-btn')?.addEventListener('click', () => {
       this.exports.stbte_redo(this.tilemap)
       this.postAction()
     })
 
-    this.el('cut-btn').addEventListener('click', () => {
+    this.headerControl('cut-btn')?.addEventListener('click', () => {
       this.exports.stbte_cut(this.tilemap)
       this.postAction()
     })
 
-    this.el('copy-btn').addEventListener('click', () => {
+    this.headerControl('copy-btn')?.addEventListener('click', () => {
       this.exports.stbte_copy(this.tilemap)
       this.updateMetadata()
       this.log('Copied selection')
     })
 
-    this.el('paste-btn').addEventListener('click', () => {
+    this.headerControl('paste-btn')?.addEventListener('click', () => {
       const cx = Math.floor(this.mapWidth / 2)
       const cy = Math.floor(this.mapHeight / 2)
       this.exports.stbte_paste(this.tilemap, cx, cy)
       this.postAction()
     })
 
-    this.el('clear-btn').addEventListener('click', () => {
+    this.headerControl('clear-btn')?.addEventListener('click', () => {
       this.exports.stbte_clear(this.tilemap)
       this.postAction()
     })
 
-    this.el('grid-btn').addEventListener('click', () => {
+    this.headerControl('grid-btn')?.addEventListener('click', () => {
       this.showGrid = !this.showGrid
       this.renderMap()
+      this.updateControlStates()
       this.updateMetadata()
     })
 
-    this.el('fit-btn').addEventListener('click', () => {
+    this.headerControl('fit-btn')?.addEventListener('click', () => {
       this.resetViewToFit()
     })
 
+    this.updateControlStates()
     this.setupCanvasInput()
+  }
+
+  updateControlStates() {
+    this.headerControlButtons('.tool-btn').forEach((btn) => {
+      const isActive = parseInt(btn.dataset.tool, 10) === this.currentTool
+      btn.classList.toggle('button-primary', isActive)
+      btn.classList.toggle('button-secondary', !isActive)
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false')
+    })
+
+    const gridBtn = this.headerControl('grid-btn')
+    if (gridBtn) {
+      gridBtn.classList.toggle('button-primary', this.showGrid)
+      gridBtn.classList.toggle('button-secondary', !this.showGrid)
+      gridBtn.setAttribute('aria-pressed', this.showGrid ? 'true' : 'false')
+    }
   }
 
   setupViewportControls() {
@@ -723,8 +704,10 @@ export default class ViewStbEditor extends HTMLElement {
     this.renderMap()
     this.updateMetadata()
     this.setupLayers()
-    this.el('undo-btn').disabled = !this.canUndo()
-    this.el('redo-btn').disabled = !this.canRedo()
+    const undoBtn = this.headerControl('undo-btn')
+    const redoBtn = this.headerControl('redo-btn')
+    if (undoBtn) undoBtn.disabled = !this.canUndo()
+    if (redoBtn) redoBtn.disabled = !this.canRedo()
   }
 
   setupCanvasInput() {
@@ -1008,8 +991,12 @@ export default class ViewStbEditor extends HTMLElement {
       root.appendChild(dd)
     }
 
-    this.el('undo-btn').disabled = !this.canUndo()
-    this.el('redo-btn').disabled = !this.canRedo()
+    this.updateControlStates()
+
+    const undoBtn = this.headerControl('undo-btn')
+    const redoBtn = this.headerControl('redo-btn')
+    if (undoBtn) undoBtn.disabled = !this.canUndo()
+    if (redoBtn) redoBtn.disabled = !this.canRedo()
   }
 
   renderMap() {
