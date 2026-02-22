@@ -10,7 +10,7 @@ import "./systems/cache.js"
 // Infrastructure components (always static - not views)
 import { ViewChrome } from "./views/chrome.js"
 import { ViewSplitter } from "./views/view-splitter.js"
-import { LayoutParent } from "./views/layout.js"
+import { LayoutManager } from "./views/layout.js"
 
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
@@ -36,7 +36,7 @@ import "./views/nodegraph/node-code.js"
 import { viewLoader } from "./systems/view-loader.js"
 
 // Register infrastructure custom elements
-customElements.define('layout-parent', LayoutParent)
+customElements.define('layout-manager', LayoutManager)
 customElements.define('view-splitter', ViewSplitter)
 
 // === Splash screen status helper ===

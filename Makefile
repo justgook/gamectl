@@ -108,6 +108,21 @@ $(BUILD_DIR)/plugins/stb_tilemap_editor.wasm: $(PLUGIN_DIR)/stb_tilemap_editor/m
 		--max-memory=33554432 \
 		-femit-bin=$@
 
+$(BUILD_DIR)/plugins/layout.wasm: $(PLUGIN_DIR)/layout/main.c $(wildcard $(PLUGIN_DIR)/layout/*.h) | $(BUILD_DIR)/plugins
+	$(Q)echo "Building Layout headless WASM (imported memory)..."
+	$(Q)zig build-exe $< \
+		-target wasm32-freestanding \
+		-mcpu generic+atomics+bulk_memory \
+		-fno-entry \
+		-rdynamic \
+		-O ReleaseSmall \
+		-fstrip \
+		--import-memory \
+		--shared-memory \
+		--initial-memory=18874368 \
+		--max-memory=33554432 \
+		-femit-bin=$@
+
 $(BUILD_DIR)/plugins/stbte.wasm: $(PLUGIN_DIR)/stbte/main.c $(wildcard $(PLUGIN_DIR)/stbte/*.h) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building stbte plugin (shared memory)..."
 	$(Q)zig build-exe $< \
