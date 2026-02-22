@@ -5,6 +5,8 @@ const ABI = {
   AREA_I32: 5,
   HANDLE_I32: 5,
   MAX_PANELS: 16,
+  MAX_HANDLES: 15,
+  TRY_I32: 5,
 }
 
 const ERR = {
@@ -26,17 +28,32 @@ const HANDLE_SIZE_VAR = "--resize-handle-size"
 export class LayoutManager extends HTMLElement {
   constructor() {
     super()
-    this.handleSize = 20
+    this.handleSize = 12
     this.minPanelSize = 200
     this.content = new Map()
     this.contenCounter = 0
     this.handles = []
+    this.width = 0
+    this.height = 0
+    this.tryRectEl = null
+    this.cornerDrag = {
+      active: false,
+      areaIndex: -1,
+      cornerIndex: -1,
+      x: 0,
+      y: 0,
+      lastX: Number.NaN,
+      lastY: Number.NaN,
+      raf: 0,
+    }
 
     this._resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target === this) {
           const { width, height } = entry.contentRect
-          this._onResized(width, height)
+          this.width = width
+          this.height = height
+          this._onResized()
         }
       }
     })
@@ -67,12 +84,13 @@ export class LayoutManager extends HTMLElement {
   disconnectedCallback() {
     this._resizeObserver.disconnect()
     this._themeObserver.disconnect()
+    this._stopCornerPreview()
   }
 
 
-  _onResized = (w, h) => {
+  _onResized = () => {
     if (!this.api) return
-    this.api.resize_screen(w, h, this.handleSize)
+    this.api.resize_screen(this.width, this.height, this.handleSize)
     this.render()
   }
 
@@ -84,13 +102,20 @@ export class LayoutManager extends HTMLElement {
     this._syncQueued = true
     queueMicrotask(() => {
       this._syncQueued = false
-      this.handleSize = parseFloat(getComputedStyle(this).getPropertyValue(HANDLE_SIZE_VAR) || 12)
+
+      const newSize = parseFloat(getComputedStyle(this).getPropertyValue(HANDLE_SIZE_VAR)) || 12
+      if (newSize !== this.handleSize) {
+        this.handleSize = newSize
+        this.api.resize_screen(this.width, this.height, this.handleSize)
+      }
+
       this.render()
     })
   }
 
   render = () => {
     const h = header(this.i32)
+    const tr = this.tryRect()
     const dupe = new Set()
     const wasContent = new Set(this.content.keys())
 
@@ -127,10 +152,37 @@ export class LayoutManager extends HTMLElement {
 
     for (let i = h.handleCount; i < this.handles.length; i++) { this.handles[i]?.remove() }
     this.handles.length = h.handleCount
+
+    if (this.cornerDrag.active && tr.valid) {
+      this._ensureTryRect()
+      this.tryRectEl.style.display = "block"
+      this.tryRectEl.style.left = `${tr.x0}px`
+      this.tryRectEl.style.top = `${tr.y0}px`
+      this.tryRectEl.style.width = `${Math.max(1, tr.x1 - tr.x0)}px`
+      this.tryRectEl.style.height = `${Math.max(1, tr.y1 - tr.y0)}px`
+    } else if (this.tryRectEl) {
+      this.tryRectEl.style.display = "none"
+    }
+  }
+
+  tryRect() {
+    const base = ABI.HEADER_I32 + ABI.MAX_PANELS * ABI.AREA_I32 + ABI.MAX_HANDLES * ABI.HANDLE_I32
+    const v = this.i32
+    return {
+      valid: v[base + 0],
+      x0: v[base + 1],
+      y0: v[base + 2],
+      x1: v[base + 3],
+      y1: v[base + 4],
+    }
   }
 
   spawnHandle = () => {
     const node = document.createElement("view--handle")
+    makeHandleDraggable(this, node, (x, y) => {
+      this.api.move_handle(node.panel, x, y)
+      this.render()
+    })
     this.handles.push(node)
     this.appendChild(node)
 
@@ -209,11 +261,84 @@ export class LayoutManager extends HTMLElement {
       const s = document.createElement("span")
       s.setAttribute("slot", c)
       makeCornerDraggable(this, s, (x, y) => {
-        this.api.move_corner(areaID, cornerId, x, y)
+        const panel = Number.isFinite(node.panel) ? node.panel : areaID
+        this.api.move_corner(panel, cornerId, x, y)
+        this._stopCornerPreview()
         this.render()
+      }, {
+        onStart: (x, y) => {
+          const panel = Number.isFinite(node.panel) ? node.panel : areaID
+          this._startCornerPreview(panel, cornerId, x, y)
+        },
+        onMove: (x, y) => {
+          this._updateCornerPreview(x, y)
+        },
+        onCancel: () => {
+          this._stopCornerPreview()
+          this.render()
+        },
       })
       node.appendChild(s)
     })
+  }
+
+  _ensureTryRect = () => {
+    if (this.tryRectEl) return
+    this.tryRectEl = document.createElement("div")
+    this.tryRectEl.className = "layout-try-rect"
+    this.tryRectEl.style.display = "none"
+    this.appendChild(this.tryRectEl)
+  }
+
+  _startCornerPreview = (areaIndex, cornerIndex, x, y) => {
+    this.cornerDrag.active = true
+    this.cornerDrag.areaIndex = areaIndex
+    this.cornerDrag.cornerIndex = cornerIndex
+    this.cornerDrag.x = x
+    this.cornerDrag.y = y
+    this.cornerDrag.lastX = Number.NaN
+    this.cornerDrag.lastY = Number.NaN
+    this._ensureTryRect()
+    this._scheduleCornerTry()
+  }
+
+  _updateCornerPreview = (x, y) => {
+    if (!this.cornerDrag.active) return
+    this.cornerDrag.x = x
+    this.cornerDrag.y = y
+    this._scheduleCornerTry()
+  }
+
+  _scheduleCornerTry = () => {
+    if (this.cornerDrag.raf !== 0) return
+    this.cornerDrag.raf = requestAnimationFrame(() => {
+      this.cornerDrag.raf = 0
+      if (!this.cornerDrag.active) return
+      if (this.cornerDrag.x === this.cornerDrag.lastX && this.cornerDrag.y === this.cornerDrag.lastY) {
+        return
+      }
+
+      this.api.try_corner(
+        this.cornerDrag.areaIndex,
+        this.cornerDrag.cornerIndex,
+        this.cornerDrag.x,
+        this.cornerDrag.y,
+      )
+      this.cornerDrag.lastX = this.cornerDrag.x
+      this.cornerDrag.lastY = this.cornerDrag.y
+      this.render()
+    })
+  }
+
+  _stopCornerPreview = () => {
+    this.cornerDrag.active = false
+    if (this.cornerDrag.raf !== 0) {
+      cancelAnimationFrame(this.cornerDrag.raf)
+      this.cornerDrag.raf = 0
+    }
+    if (this.tryRectEl) {
+      this.tryRectEl.style.display = "none"
+    }
   }
 
 }
@@ -269,10 +394,7 @@ class Handle extends HTMLElement {
 }
 customElements.define('view--handle', Handle)
 
-
-
-function makeCornerDraggable(host, handleEl, callback) {
-  // console.log("BBBBBB", corner, content_id)
+function makeCornerDraggable(host, handleEl, callback, options = {}) {
   handleEl.style.touchAction = "none";
   handleEl.style.userSelect = "none";
 
@@ -287,13 +409,13 @@ function makeCornerDraggable(host, handleEl, callback) {
 
   const toHostLocal = (clientX, clientY) => {
     const r = host.getBoundingClientRect();
-    return { x: clientX - r.left, y: clientY - r.top };
+    return { x: Math.floor(clientX - r.left), y: Math.floor(clientY - r.top) };
   };
 
   const cleanup = () => {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
-    window.removeEventListener("pointercancel", onUp);
+    window.removeEventListener("pointercancel", onCancel);
   };
 
   const onMove = (e) => {
@@ -303,6 +425,10 @@ function makeCornerDraggable(host, handleEl, callback) {
     const cur = toHostLocal(e.clientX, e.clientY);
     const dx = cur.x - startLocalX;
     const dy = cur.y - startLocalY;
+
+    if (typeof options.onMove === "function") {
+      options.onMove(cur.x, cur.y)
+    }
 
     handleEl.style.transform = `translate(${dx}px, ${dy}px)`;
   };
@@ -322,6 +448,19 @@ function makeCornerDraggable(host, handleEl, callback) {
     handleEl.style.transform = "translate(0px, 0px)";
   };
 
+  const onCancel = (e) => {
+    if (!dragging || e.pointerId !== pointerId) return;
+
+    dragging = false;
+    try { handleEl.releasePointerCapture(pointerId); } catch { }
+    cleanup();
+    handleEl.style.transform = "translate(0px, 0px)";
+
+    if (typeof options.onCancel === "function") {
+      options.onCancel()
+    }
+  }
+
   handleEl.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
@@ -333,13 +472,69 @@ function makeCornerDraggable(host, handleEl, callback) {
     startLocalX = start.x;
     startLocalY = start.y;
 
+    if (typeof options.onStart === "function") {
+      options.onStart(start.x, start.y)
+    }
+
     handleEl.setPointerCapture(pointerId);
 
     window.addEventListener("pointermove", onMove, { passive: false });
     window.addEventListener("pointerup", onUp, { passive: false });
-    window.addEventListener("pointercancel", onUp, { passive: false });
+    window.addEventListener("pointercancel", onCancel, { passive: false });
   });
 }
+
+function makeHandleDraggable(host, handleEl, callback) {
+  handleEl.style.touchAction = "none"
+  handleEl.style.userSelect = "none"
+
+  let dragging = false
+  let pointerId = null
+
+  const toHostLocal = (clientX, clientY) => {
+    const r = host.getBoundingClientRect()
+    return { x: clientX - r.left, y: clientY - r.top }
+  }
+
+  const cleanup = () => {
+    window.removeEventListener("pointermove", onMove)
+    window.removeEventListener("pointerup", onUp)
+    window.removeEventListener("pointercancel", onUp)
+  }
+
+  const onMove = (e) => {
+    if (!dragging || e.pointerId !== pointerId) return
+
+    const local = toHostLocal(e.clientX, e.clientY)
+    callback(local.x, local.y)
+  }
+
+  const onUp = (e) => {
+    if (!dragging || e.pointerId !== pointerId) return
+
+    dragging = false
+    try { handleEl.releasePointerCapture(pointerId) } catch { }
+    cleanup()
+
+    const local = toHostLocal(e.clientX, e.clientY)
+    callback(local.x, local.y)
+  }
+
+  handleEl.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return
+
+    e.preventDefault()
+
+    dragging = true
+    pointerId = e.pointerId
+    handleEl.setPointerCapture(pointerId)
+
+    window.addEventListener("pointermove", onMove, { passive: false })
+    window.addEventListener("pointerup", onUp, { passive: false })
+    window.addEventListener("pointercancel", onUp, { passive: false })
+  })
+}
+
 
 function header(v) {
   return {
@@ -360,4 +555,3 @@ function header(v) {
     minPanelSize: v[14],
   }
 }
-
