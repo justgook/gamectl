@@ -39,7 +39,8 @@
   /*move inside components*/
   toast-manager,
   popup-manager,
-  layout-parent {
+  layout-parent,
+  layout-manager {
     isolation: isolate;
   }
 
@@ -48,7 +49,8 @@
     display: contents;
   }
 
-  layout-parent {
+  layout-parent,
+  layout-manager {
     position: relative;
     display: block;
     width: 100vw;

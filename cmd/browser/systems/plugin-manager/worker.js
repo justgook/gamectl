@@ -125,7 +125,7 @@ async function handleInit(id, payload) {
 
   // Phase 1: only load the base plugin (sql) - fs is already available as host functions
   const baseModules = [
-    { name: 'sql', url: `/plugins/sql.wasm?t=${Date.now()}` }
+    { name: 'sql', url: `/plugins/sql.wasm?t=${Date.now()}` },
   ]
 
   const workerOptions = {

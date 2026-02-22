@@ -451,10 +451,10 @@
         </header>
         <slot></slot>
         <!-- Corner handles -->
-        <div class="ne corner-handle corner-handle-ne" data-action="ne" draggable="true"></div>
-        <div class="se corner-handle corner-handle-se" data-action="se" draggable="true"></div>
-        <div class="sw corner-handle corner-handle-sw" data-action="sw" draggable="true"></div>
-        <div class="nw corner-handle corner-handle-nw" data-action="nw" draggable="true"></div>
+        <slot name="ne"></slot>
+        <slot name="se"></slot>
+        <slot name="sw"></slot>
+        <slot name="nw"></slot>
       </section>
     </template>
 
@@ -650,21 +650,11 @@
 
     <toast-manager>
       <popup-manager>
-        <layout-parent handle-width="12" handle-height="12" id="scene">
-          <view-chrome panel="panel_1">
-            <!-- <view-skeleton></view-skeleton> -->
-            <view-nodegraph>
-            </view-nodegraph>
-          </view-chrome>
-          <view-chrome nesw="s" r="400" from="panel_1">
-            <!-- <view-tilemap data-key="new_map"></view-tilemap> -->
-            <!-- <view-timeline max-value="3"></view-timeline> -->
-            <view-sql-console></view-sql-console>
-          </view-chrome>
-          <view-chrome nesw="w" r="200" from="panel_1">
-            <view-pipeline></view-pipeline>
-          </view-chrome>
-        </layout-parent>
+        <layout-manager>
+          <view-chrome panel="0"><view-nodegraph></view-nodegraph></view-chrome>
+          <view-chrome nesw="s" r="400" from="0"><view-sql-console></view-sql-console></view-chrome>
+          <view-chrome nesw="w" r="200" from="0"><view-pipeline></view-pipeline></view-chrome>
+        </layout-manager>
       </popup-manager>
     </toast-manager>
     <script src="coi-serviceworker.js"></script>
