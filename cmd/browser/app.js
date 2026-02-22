@@ -58,7 +58,6 @@ const THEME_FILES = {
 }
 
 function normalizeThemeName(theme) {
-  console.log(theme)
   if (!theme) return 'current'
   if (theme === 'empty' || theme === 'current' || theme === 'obsidian' || theme === 'neon') return theme
   return 'current'
