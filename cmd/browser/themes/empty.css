@@ -45,4 +45,8 @@
   .area ::slotted([slot="sw"]) {
     left: 0;
   }
+
+  view--handle {
+    border: 1px solid saddlebrown;
+  }
 }
