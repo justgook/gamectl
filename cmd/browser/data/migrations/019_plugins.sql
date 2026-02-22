@@ -17,6 +17,7 @@ INSERT OR IGNORE INTO plugins (name, url, type) VALUES
 
 -- Built-in plugins (enabled by default, can be disabled by user)
 INSERT OR IGNORE INTO plugins (name, url, type, enabled, scope) VALUES
+    ('layout', 'local:/plugins/layout.wasm', 'base', 1, 'view'),
     ('random', 'local:/plugins/random.wasm', 'builtin', 1, 'global'),
     ('treegen', 'local:/plugins/treegen.wasm', 'builtin', 1, 'global'),
     ('biomes', 'local:/plugins/biomes.wasm', 'builtin', 1, 'global'),
