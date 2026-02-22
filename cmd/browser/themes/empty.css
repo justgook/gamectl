@@ -1,0 +1,18 @@
+@layer theme {
+  .area {
+    border: 1px solid red;
+    overflow: auto;
+  }
+
+  .area> ::slotted(*) {
+    background: #CCC;
+  }
+
+  view-toast {
+    background: blue;
+  }
+
+  view-popup {
+    background: yellow;
+  }
+}

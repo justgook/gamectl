@@ -51,14 +51,16 @@ const decoder = new TextDecoder()
 const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
 const THEME_STYLESHEET_ID = 'theme-stylesheet'
 const THEME_FILES = {
+  empty: 'themes/empty.css',
   current: 'themes/current.css',
   obsidian: 'themes/obsidian.css',
   neon: 'themes/neon.css',
 }
 
 function normalizeThemeName(theme) {
-  if (!theme || theme === 'dark') return 'current'
-  if (theme === 'current' || theme === 'obsidian' || theme === 'neon') return theme
+  console.log(theme)
+  if (!theme) return 'current'
+  if (theme === 'empty' || theme === 'current' || theme === 'obsidian' || theme === 'neon') return theme
   return 'current'
 }
 
