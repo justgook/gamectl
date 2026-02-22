@@ -35,6 +35,10 @@
     --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
   }
 
+  :root {
+    --resize-handle-size: 24px;
+  }
+
 
   /*move inside components*/
   toast-manager,

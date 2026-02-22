@@ -71,10 +71,19 @@ static LayoutInfo g_info;
  *
  *   Updated whenever a vertical boundary moves (move_handle on a
  *   AXIS_VERTICAL handle).
+ *
+ * g_handle_row_y0 / g_handle_row_y1:
+ *   For VERTICAL handles only.  The top and bottom y-coordinates of
+ *   the horizontal boundaries that bound this handle's row.
+ *
+ *   Updated whenever a horizontal boundary moves (move_handle on a
+ *   AXIS_HORIZONTAL handle).
  */
 static layout_i32 g_handle_axis[MAX_HANDLES];
 static layout_i32 g_handle_col_x0[MAX_HANDLES];
 static layout_i32 g_handle_col_x1[MAX_HANDLES];
+static layout_i32 g_handle_row_y0[MAX_HANDLES];
+static layout_i32 g_handle_row_y1[MAX_HANDLES];
 
 /* ── Forward declarations ──────────────────────────────────────────── */
 
@@ -89,6 +98,22 @@ static void set_error(layout_i32 code) {
 
 static void bump_generation(void) {
     g_info.generation += 1;
+}
+
+static void set_try_preview(layout_i32 valid, layout_i32 x0, layout_i32 y0,
+                            layout_i32 x1, layout_i32 y1) {
+    g_info.try_valid = valid;
+    g_info.try_x0 = x0;
+    g_info.try_y0 = y0;
+    g_info.try_x1 = x1;
+    g_info.try_y1 = y1;
+}
+
+static void set_try_preview_from_area(layout_i32 area_index) {
+    if (!g_info.initialized) return;
+    if (area_index < 0 || area_index >= g_info.area_count) return;
+    LayoutArea *a = &g_info.areas[area_index];
+    set_try_preview(1, a->x0, a->y0, a->x1, a->y1);
 }
 
 /* ── Initialization ────────────────────────────────────────────────── */
@@ -111,6 +136,8 @@ layout_i32 init_screen(layout_i32 w, layout_i32 h, layout_i32 handle_size,
         g_handle_axis[i]    = 0;
         g_handle_col_x0[i]  = 0;
         g_handle_col_x1[i]  = 0;
+        g_handle_row_y0[i]  = 0;
+        g_handle_row_y1[i]  = 0;
     }
 
     g_info.initialized      = 1;
@@ -160,12 +187,38 @@ layout_i32 resize_screen(layout_i32 w, layout_i32 h, layout_i32 handle_size) {
         g_info.areas[i].y1 = scale_i32(g_info.areas[i].y1, h, old_h);
     }
 
-    /* Scale all handle coordinates. */
+    /*
+     * Scale handle logical boundary positions.
+     *
+     * For vertical handles, the logical boundary is midpoint x.
+     * For horizontal handles, the logical boundary is midpoint y and
+     * the column walls are g_handle_col_x0/x1.
+     *
+     * Scaling raw rect endpoints directly can shift midpoint by 1px due
+     * to integer truncation. That breaks boundary matching against area
+     * edges (a->x0/x1 or a->y0/y1), causing invalid/inverted handle spans.
+     */
     for (layout_i32 i = 0; i < g_info.handle_count; i++) {
-        g_info.handles[i].x0 = scale_i32(g_info.handles[i].x0, w, old_w);
-        g_info.handles[i].y0 = scale_i32(g_info.handles[i].y0, h, old_h);
-        g_info.handles[i].x1 = scale_i32(g_info.handles[i].x1, w, old_w);
-        g_info.handles[i].y1 = scale_i32(g_info.handles[i].y1, h, old_h);
+        LayoutHandle *hnd = &g_info.handles[i];
+        if (g_handle_axis[i] == AXIS_VERTICAL) {
+            layout_i32 old_bx = (hnd->x0 + hnd->x1) / 2;
+            layout_i32 new_bx = scale_i32(old_bx, w, old_w);
+            hnd->x0 = new_bx;
+            hnd->x1 = new_bx;
+            hnd->y0 = scale_i32(hnd->y0, h, old_h);
+            hnd->y1 = scale_i32(hnd->y1, h, old_h);
+            g_handle_row_y0[i] = scale_i32(g_handle_row_y0[i], h, old_h);
+            g_handle_row_y1[i] = scale_i32(g_handle_row_y1[i], h, old_h);
+        } else {
+            layout_i32 old_by = (hnd->y0 + hnd->y1) / 2;
+            layout_i32 new_by = scale_i32(old_by, h, old_h);
+            hnd->y0 = new_by;
+            hnd->y1 = new_by;
+            hnd->x0 = scale_i32(hnd->x0, w, old_w);
+            hnd->x1 = scale_i32(hnd->x1, w, old_w);
+            g_handle_col_x0[i] = scale_i32(g_handle_col_x0[i], w, old_w);
+            g_handle_col_x1[i] = scale_i32(g_handle_col_x1[i], w, old_w);
+        }
     }
 
     g_info.screen_w         = w;
@@ -240,14 +293,13 @@ static void recompute_handle_rect(layout_i32 idx) {
 }
 
 /*
- * Recompute handle rect for a vertical handle, but only considering
- * areas that are bounded by a specific x-range [col_x0, col_x1].
- * This prevents a horizontal handle from "leaking" across a vertical
- * boundary when two horizontal handles happen to share the same y.
+ * Recompute handle rect using per-handle scope metadata.
  *
- * For vertical handles we use the full-height span (no column filter).
- * For horizontal handles we restrict to areas whose x-range is
- * contained within the column the handle was created in.
+ * Vertical handles are restricted to their row [row_y0, row_y1].
+ * Horizontal handles are restricted to their column [col_x0, col_x1].
+ *
+ * This prevents independent handles from "sticking" together when they
+ * align on the same boundary coordinate in different rows/columns.
  */
 static void recompute_handle_rect_scoped(layout_i32 idx) {
     LayoutHandle *hnd = &g_info.handles[idx];
@@ -256,14 +308,34 @@ static void recompute_handle_rect_scoped(layout_i32 idx) {
 
     if (axis == AXIS_VERTICAL) {
         layout_i32 bx = (hnd->x0 + hnd->x1) / 2;
-        layout_i32 span_y0 = g_info.screen_h;
-        layout_i32 span_y1 = 0;
+        layout_i32 row_y0 = g_handle_row_y0[idx];
+        layout_i32 row_y1 = g_handle_row_y1[idx];
+        layout_i32 span_y0;
+        layout_i32 span_y1;
+        layout_i32 matched = 0;
+
+        if (row_y0 > row_y1) {
+            layout_i32 tmp = row_y0;
+            row_y0 = row_y1;
+            row_y1 = tmp;
+        }
+        if (row_y0 < 0) row_y0 = 0;
+        if (row_y1 > g_info.screen_h) row_y1 = g_info.screen_h;
+
+        span_y0 = row_y1;
+        span_y1 = row_y0;
         for (layout_i32 i = 0; i < g_info.area_count; i++) {
             LayoutArea *a = &g_info.areas[i];
+            if (a->y0 < row_y0 || a->y1 > row_y1) continue;
             if (a->x0 == bx || a->x1 == bx) {
+                matched = 1;
                 if (a->y0 < span_y0) span_y0 = a->y0;
                 if (a->y1 > span_y1) span_y1 = a->y1;
             }
+        }
+        if (!matched || span_y0 > span_y1) {
+            span_y0 = row_y0;
+            span_y1 = row_y1;
         }
         hnd->x0 = bx - hs;
         hnd->x1 = bx + hs;
@@ -284,6 +356,14 @@ static void recompute_handle_rect_scoped(layout_i32 idx) {
          */
         layout_i32 col_x0 = g_handle_col_x0[idx];
         layout_i32 col_x1 = g_handle_col_x1[idx];
+        layout_i32 matched = 0;
+        if (col_x0 > col_x1) {
+            layout_i32 tmp = col_x0;
+            col_x0 = col_x1;
+            col_x1 = tmp;
+        }
+        if (col_x0 < 0) col_x0 = 0;
+        if (col_x1 > g_info.screen_w) col_x1 = g_info.screen_w;
         layout_i32 by     = (hnd->y0 + hnd->y1) / 2;
 
         layout_i32 span_x0 = col_x1; /* start at far end, narrow inward */
@@ -293,9 +373,14 @@ static void recompute_handle_rect_scoped(layout_i32 idx) {
             /* Area must be within the column and touch the boundary. */
             if (a->x0 >= col_x0 && a->x1 <= col_x1 &&
                 (a->y0 == by || a->y1 == by)) {
+                matched = 1;
                 if (a->x0 < span_x0) span_x0 = a->x0;
                 if (a->x1 > span_x1) span_x1 = a->x1;
             }
+        }
+        if (!matched || span_x0 > span_x1) {
+            span_x0 = col_x0;
+            span_x1 = col_x1;
         }
         hnd->y0 = by - hs;
         hnd->y1 = by + hs;
@@ -330,6 +415,16 @@ layout_i32 move_handle(layout_i32 handle_index, layout_i32 x, layout_i32 y) {
          */
         layout_i32 old_bx = (g_info.handles[handle_index].x0 +
                               g_info.handles[handle_index].x1) / 2;
+        layout_i32 row_y0 = g_handle_row_y0[handle_index];
+        layout_i32 row_y1 = g_handle_row_y1[handle_index];
+
+        if (row_y0 > row_y1) {
+            layout_i32 tmp = row_y0;
+            row_y0 = row_y1;
+            row_y1 = tmp;
+        }
+        if (row_y0 < 0) row_y0 = 0;
+        if (row_y1 > g_info.screen_h) row_y1 = g_info.screen_h;
 
         /* Clamp: all left areas must remain >= min wide,
          *        all right areas must remain >= min wide. */
@@ -337,6 +432,7 @@ layout_i32 move_handle(layout_i32 handle_index, layout_i32 x, layout_i32 y) {
         layout_i32 clamp_hi = g_info.screen_w;
         for (layout_i32 i = 0; i < g_info.area_count; i++) {
             LayoutArea *a = &g_info.areas[i];
+            if (a->y0 < row_y0 || a->y1 > row_y1) continue;
             if (a->x1 == old_bx) {
                 /* Left area: new x1 = x, must be >= a->x0 + min */
                 layout_i32 lo = a->x0 + min;
@@ -354,6 +450,7 @@ layout_i32 move_handle(layout_i32 handle_index, layout_i32 x, layout_i32 y) {
         /* Apply to all areas touching old_bx. */
         for (layout_i32 i = 0; i < g_info.area_count; i++) {
             LayoutArea *a = &g_info.areas[i];
+            if (a->y0 < row_y0 || a->y1 > row_y1) continue;
             if (a->x1 == old_bx) a->x1 = x;
             if (a->x0 == old_bx) a->x0 = x;
         }
@@ -364,7 +461,10 @@ layout_i32 move_handle(layout_i32 handle_index, layout_i32 x, layout_i32 y) {
          * in sync so recompute_handle_rect_scoped can filter correctly.
          */
         for (layout_i32 i = 0; i < g_info.handle_count; i++) {
+            layout_i32 by;
             if (g_handle_axis[i] != AXIS_HORIZONTAL) continue;
+            by = (g_info.handles[i].y0 + g_info.handles[i].y1) / 2;
+            if (by < row_y0 || by > row_y1) continue;
             if (g_handle_col_x0[i] == old_bx) g_handle_col_x0[i] = x;
             if (g_handle_col_x1[i] == old_bx) g_handle_col_x1[i] = x;
         }
@@ -381,6 +481,13 @@ layout_i32 move_handle(layout_i32 handle_index, layout_i32 x, layout_i32 y) {
         /* Column bounds for this handle — use explicit metadata, not the rect. */
         layout_i32 col_x0 = g_handle_col_x0[handle_index];
         layout_i32 col_x1 = g_handle_col_x1[handle_index];
+        if (col_x0 > col_x1) {
+            layout_i32 tmp = col_x0;
+            col_x0 = col_x1;
+            col_x1 = tmp;
+        }
+        if (col_x0 < 0) col_x0 = 0;
+        if (col_x1 > g_info.screen_w) col_x1 = g_info.screen_w;
 
         layout_i32 clamp_lo = 0;
         layout_i32 clamp_hi = g_info.screen_h;
@@ -405,6 +512,19 @@ layout_i32 move_handle(layout_i32 handle_index, layout_i32 x, layout_i32 y) {
             if (a->x0 < col_x0 || a->x1 > col_x1) continue;
             if (a->y1 == old_by) a->y1 = y;
             if (a->y0 == old_by) a->y0 = y;
+        }
+
+        /*
+         * Update row bounds for any vertical handle whose top or bottom
+         * wall was this horizontal boundary in this column range.
+         */
+        for (layout_i32 i = 0; i < g_info.handle_count; i++) {
+            layout_i32 bx;
+            if (g_handle_axis[i] != AXIS_VERTICAL) continue;
+            bx = (g_info.handles[i].x0 + g_info.handles[i].x1) / 2;
+            if (bx < col_x0 || bx > col_x1) continue;
+            if (g_handle_row_y0[i] == old_by) g_handle_row_y0[i] = y;
+            if (g_handle_row_y1[i] == old_by) g_handle_row_y1[i] = y;
         }
 
         /* Update this handle's rect. */
@@ -460,6 +580,8 @@ static void remove_handle(layout_i32 dead) {
         g_handle_axis[i]       = g_handle_axis[i + 1];
         g_handle_col_x0[i]     = g_handle_col_x0[i + 1];
         g_handle_col_x1[i]     = g_handle_col_x1[i + 1];
+        g_handle_row_y0[i]     = g_handle_row_y0[i + 1];
+        g_handle_row_y1[i]     = g_handle_row_y1[i + 1];
     }
     g_info.handle_count--;
 }
@@ -608,6 +730,193 @@ static layout_i32 try_simple_merge(layout_i32 src_idx, layout_i32 tgt_idx) {
     return LAYOUT_OK;
 }
 
+static layout_i32 try_simple_merge_preview(layout_i32 src_idx, layout_i32 tgt_idx,
+                                           layout_i32 *out_x0, layout_i32 *out_y0,
+                                           layout_i32 *out_x1, layout_i32 *out_y1) {
+    LayoutArea *src = &g_info.areas[src_idx];
+    LayoutArea *tgt = &g_info.areas[tgt_idx];
+
+    layout_i32 boundary_axis = -1;
+    layout_i32 boundary_val  = -1;
+    layout_i32 left_idx = -1, right_idx = -1;
+    layout_i32 top_idx  = -1, bot_idx   = -1;
+
+    if (src->x1 == tgt->x0 && src->y0 == tgt->y0 && src->y1 == tgt->y1) {
+        boundary_axis = AXIS_VERTICAL;
+        boundary_val  = src->x1;
+        left_idx = src_idx; right_idx = tgt_idx;
+    } else if (tgt->x1 == src->x0 && tgt->y0 == src->y0 && tgt->y1 == src->y1) {
+        boundary_axis = AXIS_VERTICAL;
+        boundary_val  = tgt->x1;
+        left_idx = tgt_idx; right_idx = src_idx;
+    } else if (src->y1 == tgt->y0 && src->x0 == tgt->x0 && src->x1 == tgt->x1) {
+        boundary_axis = AXIS_HORIZONTAL;
+        boundary_val  = src->y1;
+        top_idx = src_idx; bot_idx = tgt_idx;
+    } else if (tgt->y1 == src->y0 && tgt->x0 == src->x0 && tgt->x1 == src->x1) {
+        boundary_axis = AXIS_HORIZONTAL;
+        boundary_val  = tgt->y1;
+        top_idx = tgt_idx; bot_idx = src_idx;
+    }
+
+    if (boundary_axis == -1) {
+        return LAYOUT_ERR_NOT_IMPLEMENTED;
+    }
+
+    layout_i32 hnd_idx = -1;
+    for (layout_i32 i = 0; i < g_info.handle_count; i++) {
+        if (g_handle_axis[i] == boundary_axis) {
+            if (boundary_axis == AXIS_VERTICAL) {
+                layout_i32 bx = (g_info.handles[i].x0 + g_info.handles[i].x1) / 2;
+                if (bx == boundary_val) { hnd_idx = i; break; }
+            } else {
+                layout_i32 by = (g_info.handles[i].y0 + g_info.handles[i].y1) / 2;
+                if (by == boundary_val) { hnd_idx = i; break; }
+            }
+        }
+    }
+    if (hnd_idx == -1) {
+        return LAYOUT_ERR_NOT_IMPLEMENTED;
+    }
+
+    if (boundary_axis == AXIS_VERTICAL) {
+        layout_i32 shared_y0 = g_info.areas[left_idx].y0;
+        layout_i32 shared_y1 = g_info.areas[left_idx].y1;
+        if (g_info.handles[hnd_idx].y0 != shared_y0 ||
+            g_info.handles[hnd_idx].y1 != shared_y1) {
+            return LAYOUT_ERR_NOT_IMPLEMENTED;
+        }
+        *out_x0 = g_info.areas[left_idx].x0;
+        *out_y0 = g_info.areas[left_idx].y0;
+        *out_x1 = g_info.areas[right_idx].x1;
+        *out_y1 = g_info.areas[right_idx].y1;
+    } else {
+        layout_i32 shared_x0 = g_info.areas[top_idx].x0;
+        layout_i32 shared_x1 = g_info.areas[top_idx].x1;
+        if (g_info.handles[hnd_idx].x0 != shared_x0 ||
+            g_info.handles[hnd_idx].x1 != shared_x1) {
+            return LAYOUT_ERR_NOT_IMPLEMENTED;
+        }
+        *out_x0 = g_info.areas[top_idx].x0;
+        *out_y0 = g_info.areas[top_idx].y0;
+        *out_x1 = g_info.areas[bot_idx].x1;
+        *out_y1 = g_info.areas[bot_idx].y1;
+    }
+
+    return LAYOUT_OK;
+}
+
+LAYOUT_EXPORT("try_corner")
+layout_i32 try_corner(layout_i32 area_index, layout_i32 corner_index,
+                      layout_i32 x, layout_i32 y) {
+    if (!g_info.initialized) {
+        set_error(LAYOUT_ERR_NOT_INITIALIZED);
+        return LAYOUT_ERR_NOT_INITIALIZED;
+    }
+    if (area_index < 0 || area_index >= g_info.area_count) {
+        set_error(LAYOUT_ERR_INVALID_AREA);
+        return LAYOUT_ERR_INVALID_AREA;
+    }
+    if (corner_index < 0 || corner_index > 3) {
+        set_try_preview_from_area(area_index);
+        set_error(LAYOUT_ERR_INVALID_CORNER);
+        return LAYOUT_ERR_INVALID_CORNER;
+    }
+    if (x < 0 || x >= g_info.screen_w || y < 0 || y >= g_info.screen_h) {
+        set_try_preview_from_area(area_index);
+        set_error(LAYOUT_ERR_OUT_OF_BOUNDS);
+        return LAYOUT_ERR_OUT_OF_BOUNDS;
+    }
+
+    LayoutArea *src = &g_info.areas[area_index];
+
+    if (!point_in_area(area_index, x, y)) {
+        layout_i32 tgt_idx = -1;
+        for (layout_i32 i = 0; i < g_info.area_count; i++) {
+            if (i == area_index) continue;
+            if (point_in_area(i, x, y)) { tgt_idx = i; break; }
+        }
+        if (tgt_idx == -1) {
+            set_try_preview_from_area(area_index);
+            set_error(LAYOUT_ERR_OUT_OF_BOUNDS);
+            return LAYOUT_ERR_OUT_OF_BOUNDS;
+        }
+
+        layout_i32 px0, py0, px1, py1;
+        layout_i32 err = try_simple_merge_preview(area_index, tgt_idx, &px0, &py0, &px1, &py1);
+        if (err == LAYOUT_OK) {
+            set_try_preview(1, px0, py0, px1, py1);
+        } else {
+            set_try_preview_from_area(area_index);
+        }
+        set_error(err);
+        return err;
+    }
+
+    if (g_info.area_count >= MAX_PANELS) {
+        set_try_preview_from_area(area_index);
+        set_error(LAYOUT_ERR_CAPACITY);
+        return LAYOUT_ERR_CAPACITY;
+    }
+    if (g_info.handle_count >= MAX_HANDLES) {
+        set_try_preview_from_area(area_index);
+        set_error(LAYOUT_ERR_CAPACITY);
+        return LAYOUT_ERR_CAPACITY;
+    }
+
+    layout_i32 cx, cy;
+    switch (corner_index) {
+        case 0: cx = src->x0; cy = src->y0; break;
+        case 1: cx = src->x1; cy = src->y0; break;
+        case 2: cx = src->x1; cy = src->y1; break;
+        case 3: cx = src->x0; cy = src->y1; break;
+        default: cx = 0; cy = 0; break;
+    }
+
+    layout_i32 dx = abs_i32(x - cx);
+    layout_i32 dy = abs_i32(y - cy);
+    layout_i32 axis = (dy > dx) ? AXIS_HORIZONTAL : AXIS_VERTICAL;
+    layout_i32 min = g_info.min_panel_size;
+
+    layout_i32 sx0 = src->x0, sy0 = src->y0;
+    layout_i32 sx1 = src->x1, sy1 = src->y1;
+
+    if (axis == AXIS_VERTICAL) {
+        layout_i32 split_x = x;
+        if (split_x - sx0 < min) split_x = sx0 + min;
+        if (sx1 - split_x < min) split_x = sx1 - min;
+        if (split_x <= sx0 || split_x >= sx1) {
+            set_try_preview_from_area(area_index);
+            set_error(LAYOUT_ERR_MIN_SIZE);
+            return LAYOUT_ERR_MIN_SIZE;
+        }
+
+        if (corner_index == 0 || corner_index == 3) {
+            set_try_preview(1, sx0, sy0, split_x, sy1);
+        } else {
+            set_try_preview(1, split_x, sy0, sx1, sy1);
+        }
+    } else {
+        layout_i32 split_y = y;
+        if (split_y - sy0 < min) split_y = sy0 + min;
+        if (sy1 - split_y < min) split_y = sy1 - min;
+        if (split_y <= sy0 || split_y >= sy1) {
+            set_try_preview_from_area(area_index);
+            set_error(LAYOUT_ERR_MIN_SIZE);
+            return LAYOUT_ERR_MIN_SIZE;
+        }
+
+        if (corner_index == 0 || corner_index == 1) {
+            set_try_preview(1, sx0, sy0, sx1, split_y);
+        } else {
+            set_try_preview(1, sx0, split_y, sx1, sy1);
+        }
+    }
+
+    set_error(LAYOUT_OK);
+    return LAYOUT_OK;
+}
+
 LAYOUT_EXPORT("move_corner")
 layout_i32 move_corner(layout_i32 area_index, layout_i32 corner_index,
                         layout_i32 x, layout_i32 y) {
@@ -728,6 +1037,10 @@ layout_i32 move_corner(layout_i32 area_index, layout_i32 corner_index,
         g_info.handles[hnd_idx].y1 = sy1;
         g_info.handles[hnd_idx].content_id = 0;
         g_handle_axis[hnd_idx] = AXIS_VERTICAL;
+        g_handle_col_x0[hnd_idx] = split_x;
+        g_handle_col_x1[hnd_idx] = split_x;
+        g_handle_row_y0[hnd_idx] = sy0;
+        g_handle_row_y1[hnd_idx] = sy1;
         g_info.handle_count++;
 
         /*
@@ -769,6 +1082,8 @@ layout_i32 move_corner(layout_i32 area_index, layout_i32 corner_index,
         g_handle_axis[hnd_idx]   = AXIS_HORIZONTAL;
         g_handle_col_x0[hnd_idx] = sx0;  /* left wall of the column at split time */
         g_handle_col_x1[hnd_idx] = sx1;  /* right wall of the column at split time */
+        g_handle_row_y0[hnd_idx] = split_y;
+        g_handle_row_y1[hnd_idx] = split_y;
         g_info.handle_count++;
 
         recompute_handle_rect_scoped(hnd_idx);
