@@ -184,19 +184,19 @@
     --toast-background: var(--color-semantic-background-panel);
     --toast-border: var(--color-semantic-border-default);
     --toast-z-index: 10000;
-  --toast-animation-duration: 200ms;
-  --toast-animation-easing: ease-out;
+    --toast-animation-duration: 200ms;
+    --toast-animation-easing: ease-out;
 
-  --font-semantic-heading-default: 600 var(--font-size-sm)/1.2 var(--ui-font-display);
-}
+    --font-semantic-heading-default: 600 var(--font-size-sm)/1.2 var(--ui-font-display);
+  }
 
-body {
-  background: var(--color-semantic-background-default);
-  color: var(--color-semantic-text-primary);
-  font-family: var(--ui-font-body-override, var(--font-family-ui));
-  font-size: var(--font-size-md);
-  line-height: 1.45;
-}
+  body {
+    background: var(--color-semantic-background-default);
+    color: var(--color-semantic-text-primary);
+    font-family: var(--ui-font-body-override, var(--font-family-ui));
+    font-size: var(--font-size-md);
+    line-height: 1.45;
+  }
 
   pre,
   code,
@@ -234,20 +234,20 @@ body {
     color: inherit;
   }
 
-button,
-input[type="button"],
-input[type="submit"],
-input[type="reset"],
-a.button {
-  border: 1px solid var(--color-semantic-border-default);
-  border-radius: var(--border-radius-sm);
-  background: var(--color-semantic-background-interactive);
-  color: var(--color-semantic-text-primary);
-  padding: var(--spacing-scale-2) var(--spacing-scale-4);
-  cursor: pointer;
-  text-decoration: none;
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
-}
+  button,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  a.button {
+    border: 1px solid var(--color-semantic-border-default);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-semantic-background-interactive);
+    color: var(--color-semantic-text-primary);
+    padding: var(--spacing-scale-2) var(--spacing-scale-4);
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  }
 
   button:hover,
   input[type="button"]:hover,
@@ -342,14 +342,14 @@ a.button {
     border-color: var(--color-semantic-border-default);
   }
 
-.panel-header {
-  background: var(--color-semantic-background-panel-header);
-  color: var(--color-semantic-text-accent);
-}
+  .panel-header {
+    background: var(--color-semantic-background-panel-header);
+    color: var(--color-semantic-text-accent);
+  }
 
-.panel-content {
-  color: var(--color-semantic-text-primary);
-}
+  .panel-content {
+    color: var(--color-semantic-text-primary);
+  }
 
   .settings-tab-bar .button-tab {
     color: var(--color-semantic-text-secondary);

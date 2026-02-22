@@ -84,6 +84,7 @@ class SettingsTabAppearance extends HTMLElement {
       const select = document.createElement('select')
       select.className = 'settings-appearance-select'
       const themes = [
+        { value: 'empty', label: 'Empty' },
         { value: 'current', label: 'Current' },
         { value: 'obsidian', label: 'Obsidian Terminal' },
         { value: 'neon', label: 'Neon Brutalist' },
@@ -215,7 +216,7 @@ class SettingsTabAppearance extends HTMLElement {
 
   normalizeTheme(value) {
     if (!value || value === 'dark') return 'current'
-    if (value === 'current' || value === 'obsidian' || value === 'neon') return value
+    if (value === 'empty' || value === 'current' || value === 'obsidian' || value === 'neon') return value
     return 'current'
   }
 
@@ -227,6 +228,7 @@ class SettingsTabAppearance extends HTMLElement {
     }
 
     const hrefByTheme = {
+      empty: 'themes/empty.css',
       current: 'themes/current.css',
       obsidian: 'themes/obsidian.css',
       neon: 'themes/neon.css',
