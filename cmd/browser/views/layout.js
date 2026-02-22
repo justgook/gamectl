@@ -20,23 +20,17 @@ const ERR = {
   9: "capacity",
 }
 
+const HANDLE_SIZE_VAR = "--resize-handle-size"
+
+
 export class LayoutManager extends HTMLElement {
   constructor() {
     super()
     this.handleSize = 20
     this.minPanelSize = 200
     this.content = new Map()
-    this.counter = 0
-
-    this._observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          if (node.tagName === 'VIEW-CHROME') {
-            this._onChildAdded(node)
-          }
-        }
-      }
-    })
+    this.contenCounter = 0
+    this.handles = []
 
     this._resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -47,25 +41,34 @@ export class LayoutManager extends HTMLElement {
       }
     })
 
-    this._themeObserver = new MutationObserver(() => {
-      this._scheduleHandleSizeSync()
+    this._themeObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'href') {
+          this._scheduleHandleSizeSync()
+        }
+      }
     })
-
   }
 
   connectedCallback() {
-    this._observer.observe(this, { childList: true })
     this._resizeObserver.observe(this)
+
+    const link = document.querySelector('link[data-theme-stylesheet]')
+    this._themeObserver.observe(link, { attributes: true, attributeFilter: ['href'] })
+
+
     bus.on('plugin-manager:ready', () => {
-      this._setup().then(this.render).catch((error) => {
+      this._setup().then(this._scheduleHandleSizeSync).catch((error) => {
         console.error("[layout] boot failed:", error)
       })
     })
   }
 
-  _onChildAdded() {
-    console.log("_onChildAdded")
+  disconnectedCallback() {
+    this._resizeObserver.disconnect()
+    this._themeObserver.disconnect()
   }
+
 
   _onResized = (w, h) => {
     if (!this.api) return
@@ -73,15 +76,24 @@ export class LayoutManager extends HTMLElement {
     this.render()
   }
 
-  _scheduleHandleSizeSync() {
-    console.log("_scheduleHandleSizeSync")
+  _scheduleHandleSizeSync = () => {
+    if (this._syncQueued) {
+      return
+    }
+
+    this._syncQueued = true
+    queueMicrotask(() => {
+      this._syncQueued = false
+      this.handleSize = parseFloat(getComputedStyle(this).getPropertyValue(HANDLE_SIZE_VAR) || 12)
+      this.render()
+    })
   }
 
   render = () => {
     const h = header(this.i32)
-    for (let i = 0; i < h.handleCount; i += 1) { console.log("[layout] render handle") }
     const dupe = new Set()
     const wasContent = new Set(this.content.keys())
+
     for (let areaId = 0; areaId < h.areaCount; areaId += 1) {
       const area = this.areaAt(areaId);
       let node = this.content.get(area.content)
@@ -92,17 +104,40 @@ export class LayoutManager extends HTMLElement {
       node.y = area.y0
       node.w = area.x1 - area.x0
       node.h = area.y1 - area.y0
+      node.panel = areaId
     }
+
     wasContent.forEach(c => {
       this.removeChild(this.content.get(c))
       this.content.delete(c)
     })
-    console.log("WAS CONTENT", wasContent, h)
 
+    // HANDLES
+    while (this.handles.length < h.handleCount) { this.spawnHandle() }
+    for (let id = 0; id < h.handleCount; id++) {
+      const area = this.handleAt(id);
+      const node = this.handles[id]; // guaranteed to exist
+
+      node.x = area.x0;
+      node.y = area.y0;
+      node.w = area.x1 - area.x0;
+      node.h = area.y1 - area.y0;
+      node.panel = id;
+    }
+
+    for (let i = h.handleCount; i < this.handles.length; i++) { this.handles[i]?.remove() }
+    this.handles.length = h.handleCount
   }
 
+  spawnHandle = () => {
+    const node = document.createElement("view--handle")
+    this.handles.push(node)
+    this.appendChild(node)
+
+    return node
+  }
   spawnChrome = (node, areaId) => {
-    const contentId = ++this.counter
+    const contentId = ++this.contenCounter
     this.api.set_area_content(areaId, contentId)
     const currentView = node.shadowRoot?.querySelector("slot:not([name])")?.assignedElements?.()[0] || null
     const viewTag = currentView ? currentView.tagName.toLowerCase() : "view-empty"
@@ -111,8 +146,7 @@ export class LayoutManager extends HTMLElement {
     this.content.set(contentId, chrome)
     this._addCorners(chrome, areaId)
     this.appendChild(chrome)
-    // chrome.setAttribute("panel", areaId)
-    chrome.panel = areaId
+
     return chrome
   }
 
@@ -166,7 +200,6 @@ export class LayoutManager extends HTMLElement {
     for (const [i, node] of this.querySelectorAll("view-chrome").entries()) {
       this.content.set(i, node)
       this._addCorners(node, i)
-      console.log(node.querySelectorAll("ne"))
       console.warn("[layout] add parsing initial node", node)
     }
   }
@@ -184,6 +217,58 @@ export class LayoutManager extends HTMLElement {
   }
 
 }
+
+class Handle extends HTMLElement {
+  static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel']; }
+  constructor() {
+    super();
+    this._x = 0;
+    this._y = 0;
+    this._w = 0;
+    this._h = 0;
+    this._panel = 0;
+  }
+
+  connectedCallback() {
+    this.style.position = "absolute"
+    this._updatePosition()
+  }
+
+  disconnectedCallback() {
+  }
+
+  attributeChangedCallback(name, _oldVal, newVal) {
+    if (name === 'x') this._x = parseFloat(newVal)
+    if (name === 'y') this._y = parseFloat(newVal)
+    if (name === 'w') this._w = parseFloat(newVal)
+    if (name === 'h') this._h = parseFloat(newVal)
+    if (name === 'panel') this._panel = parseFloat(newVal)
+
+
+    this._updatePosition();
+  }
+
+  set x(v) { this.setAttribute('x', v); }
+  set y(v) { this.setAttribute('y', v); }
+  set w(v) { this.setAttribute('w', v); }
+  set h(v) { this.setAttribute('h', v); }
+  set panel(v) { this.setAttribute('panel', v); }
+
+  get x() { return this._x; }
+  get y() { return this._y; }
+  get w() { return this._w; }
+  get h() { return this._h; }
+  get panel() { return this._panel; }
+
+  _updatePosition() {
+    this.style.left = this._x + 'px';
+    this.style.top = this._y + 'px';
+    this.style.width = this._w + 'px';
+    this.style.height = this._h + 'px';
+  }
+}
+customElements.define('view--handle', Handle)
+
 
 
 function makeCornerDraggable(host, handleEl, callback) {
