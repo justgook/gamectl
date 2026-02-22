@@ -1,0 +1,156 @@
+@layer reset, base, theme;
+
+@layer base {
+  :root {
+    --accent: #7aa2ff;
+    --success: #3ddc97;
+    --warning: #ffcc66;
+    --danger: #ff5c7a;
+    --info: #5bd6ff;
+
+    --bg: #0b0c10;
+    --surface: #11131a;
+    --surface-elevated: #171a23;
+    --border: #262a36;
+    --text: #e8eaf0;
+    --text-muted: #a8afc3;
+  }
+
+  :root {
+    /* Default “intent” points at accent unless overridden */
+    --intent: var(--accent);
+
+    /* Filled control (buttons, filled chips, slider fill, etc.) */
+    --intent-bg: var(--intent);
+    --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
+    --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
+
+    /* Text/icon on intent bg: pick a dark ink that works with your bright palette */
+    --intent-fg: #0b0c10;
+
+    /* Border for filled controls (optional, subtle) */
+    --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
+
+    /* Focus ring: typically intent itself with alpha */
+    --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
+  }
+
+
+  /*move inside components*/
+  toast-manager,
+  popup-manager,
+  layout-parent {
+    isolation: isolate;
+  }
+
+  toast-manager,
+  popup-manager {
+    display: contents;
+  }
+
+  layout-parent {
+    position: relative;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  /*********************************************************************************/
+  /*                              POPUP                                            */
+  /*********************************************************************************/
+  popup-manager view-popup:not(:last-of-type) {
+    display: none;
+  }
+
+  view-popup {
+    position: fixed;
+    inset: 0;
+    z-index: var(--popup-container-z-index, 9999);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /*********************************************************************************/
+  /*                              TOAST                                            */
+  /*********************************************************************************/
+
+  view-toast {
+    --spacing: 4px;
+    position: fixed;
+    z-index: var(--toast-z-index, 10000);
+    pointer-events: auto;
+  }
+
+  /* Hidden state for limited positions */
+  view-toast[hidden] {
+    display: none !important;
+  }
+
+  /* Position: top-right (default) */
+  view-toast[position="top-right"] {
+    right: var(--spacing);
+    /* Stack offset using top position - avoids conflicts with animation transforms */
+    --toast-stack-offset: 60px;
+    top: calc(var(--spacing) + var(--toast-stack-index, 0) * var(--toast-stack-offset));
+  }
+
+  /* Position: bottom-center */
+  view-toast[position="bottom-center"] {
+    bottom: var(--spacing);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* Position: center (for alert/confirm) */
+  view-toast[position="center"] {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+
+  /*********************************************************************************/
+  /*                              MOVE THAT OUTSIDE                                */
+  /*********************************************************************************/
+
+  /*Weird splsh screen */
+  .splash-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease-out;
+  }
+
+  .splash-overlay.splash-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .splash-panel {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .splash-background {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .splash-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Enter button - ready/enabled state */
+  #splash-screen .splash-enter {
+    color: var(--color-global-cyan-500, #00e5ff);
+    border-color: var(--color-global-cyan-500, #00e5ff);
+  }
+}

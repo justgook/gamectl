@@ -7,9 +7,9 @@
     <title>Nested Web Components Example</title>
     <link rel="icon" href="/favicon.svg">
     <link rel="stylesheet" href="reset.css">
-    <link rel="stylesheet" href="app.css">
-    <link rel="stylesheet" href="theme.css">
-    <link id="theme-stylesheet" data-theme-stylesheet rel="stylesheet" href="themes/current.css">
+    <link rel="stylesheet" href="base.css">
+    <!-- <link rel="stylesheet" href="app.css"> -->
+    <link id="theme-stylesheet" data-theme-stylesheet rel="stylesheet" href="themes/empty.css">
     <link
       href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;700&family=Roboto:wght@400;500;700&family=Space+Grotesk:wght@400;500;600&display=swap"
       rel="stylesheet">
@@ -439,56 +439,38 @@
       </div>
     </template>
 
-    <template id="view-handle">
-      <div data-action="resize" class="handle"></div>
-    </template>
-
     <template id="chrome-template">
-      <link rel="stylesheet" href="app.css">
-      <link rel="stylesheet" href="theme.css">
+      <link rel="stylesheet" href="reset.css">
+      <link rel="stylesheet" href="base.css">
       <link data-theme-stylesheet rel="stylesheet" href="themes/current.css">
 
-      <div class="panel">
-        <div class="panel-header">
-
-          <select name="view" data-action="select-view" class="view-selector">
-            <!-- Populated dynamically from view registry by chrome.js -->
-          </select>
-          <div class="panel-header-controls">
-            <slot name="header-controls"></slot>
-          </div>
-        </div>
-        <div class="panel-content" data-element="content">
-          <slot></slot>
-        </div>
+      <section class="area" style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <header>
+          <select name="view" data-action="select-view" class="view-selector"></select>
+          <slot name="header-controls"></slot>
+        </header>
+        <slot></slot>
         <!-- Corner handles -->
         <div class="ne corner-handle corner-handle-ne" data-action="ne" draggable="true"></div>
         <div class="se corner-handle corner-handle-se" data-action="se" draggable="true"></div>
         <div class="sw corner-handle corner-handle-sw" data-action="sw" draggable="true"></div>
         <div class="nw corner-handle corner-handle-nw" data-action="nw" draggable="true"></div>
-      </div>
+      </section>
     </template>
 
     <!-- Popup System Templates -->
     <template id="popup-template">
-      <link rel="stylesheet" href="app.css">
-      <link rel="stylesheet" href="theme.css">
+      <link rel="stylesheet" href="reset.css">
+      <link rel="stylesheet" href="base.css">
       <link data-theme-stylesheet rel="stylesheet" href="themes/current.css">
-
-      <div class="popup-backdrop">
-        <div class="popup-container">
-          <div class="popup-header">
-            <slot name="title"></slot>
-            <div class="popup-header-controls">
-              <slot name="header-controls"></slot>
-            </div>
-            <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
-          </div>
-          <div class="popup-content">
-            <slot></slot>
-          </div>
+      <header>
+        <slot name="title"></slot>
+        <div class="popup-header-controls">
+          <slot name="header-controls"></slot>
         </div>
-      </div>
+        <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
+      </header>
+      <slot></slot>
     </template>
 
     <!-- Toast System Templates -->

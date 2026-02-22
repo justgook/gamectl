@@ -239,6 +239,8 @@ class Handle extends HTMLElement {
     this._w = 0
     this._h = 0
     this.style.position = "absolute"
+    this.style.touchAction = "none";  // touch-action: none;
+    this.style.userSelect = "none";  // user-select: none;
 
     // Determine handle orientation for cursor styling and CSS classes
     const handleData = this.layout.layout.getHandle(panel.id)
@@ -249,17 +251,11 @@ class Handle extends HTMLElement {
   }
 
   connectedCallback() {
-    const template = document.getElementById("view-handle")
-    const content = template.content.cloneNode(true)
-    const elm = content.querySelector(`[data-action="resize"]`)
+    // const template = document.getElementById("view-handle")
+    // const content = template.content.cloneNode(true)
 
-    // Remove draggable attribute - we're using pointer events instead
-    elm.removeAttribute('draggable')
-
-    // Use pointer events for smooth, reliable dragging (like Blender)
-    elm.addEventListener("pointerdown", this._onPointerDown)
-
-    this.appendChild(content)
+    this.addEventListener("pointerdown", this._onPointerDown)
+    // this.appendChild(content)
   }
   attributeChangedCallback(name, _oldVal, newVal) {
     if (name === 'x') this._x = parseFloat(newVal);
