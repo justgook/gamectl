@@ -324,8 +324,8 @@ export class ViewCanvasBase extends HTMLElement {
     this.ctx.clearRect(0, 0, width, height)
 
     // Apply background
-    this.ctx.fillStyle = '#1e1e1e'; // Dark background
-    this.ctx.fillRect(0, 0, width, height)
+    // this.ctx.fillStyle = '#1e1e1e'; // Dark background
+    // this.ctx.fillRect(0, 0, width, height)
 
     // Apply transform
     this.ctx.translate(this.offsetX, this.offsetY)
