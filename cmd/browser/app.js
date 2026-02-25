@@ -6,11 +6,7 @@ import { toast } from './systems/toast.js'
 import { parseCSVLines } from './util/csv.js'
 
 import "./systems/cache.js"
-
-// Infrastructure components (always static - not views)
-import { ViewChrome } from "./views/chrome.js"
-import { ViewSplitter } from "./views/view-splitter.js"
-import { LayoutManager } from "./views/layout.js"
+import { LayoutManager } from "./views/view-layout.js"
 
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
@@ -34,10 +30,10 @@ import "./views/nodegraph/node-code.js"
 
 // View loader system
 import { viewLoader } from "./systems/view-loader.js"
+window.viewLoader = viewLoader // Expose for debugging
 
 // Register infrastructure custom elements
 customElements.define('layout-manager', LayoutManager)
-customElements.define('view-splitter', ViewSplitter)
 
 // === Splash screen status helper ===
 function splashStatus(message) {
@@ -256,7 +252,6 @@ try {
   toast.error('Failed to load views from registry')
 }
 
-window.viewLoader = viewLoader // Expose for debugging
 
 // Emit ready event so cache manager can process queued requests
 // This must happen AFTER all plugins and views are loaded

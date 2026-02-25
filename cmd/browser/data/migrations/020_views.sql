@@ -24,7 +24,6 @@ INSERT OR IGNORE INTO views (name, url, type, enabled) VALUES
     ('opr-unit-builder', 'local:/views/view-opr-unit-builder.js', 'builtin', 1),
     ('sql-tables',       'local:/views/view-sql-tables.js', 'builtin', 1),
     ('sql-table',        'local:/views/view-sql-table.js', 'builtin', 1),
-    ('console',          'local:/views/view-console.js', 'builtin', 1),
     ('sql-console',      'local:/views/view-sql-console.js', 'builtin', 1),
     ('files',            'local:/views/view-files.js', 'builtin', 1),
     ('pipeline',         'local:/views/view-pipeline.js', 'builtin', 1),

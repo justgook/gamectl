@@ -15,7 +15,7 @@
       rel="stylesheet">
   </head>
 
-  <body>
+  <body style="background: #000">
     <template id="view-pipeline">
       <div style="display: flex; flex-direction: column; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
         <details>
@@ -90,19 +90,6 @@
           </form>
         </details>
       </div>
-    </template>
-
-    <template id="view-splitter">
-      <div style="display: flex; gap: var(--spacing-scale-3); padding: var(--spacing-scale-3);">
-        <button type="button" data-action="split-vertical">Vertical</button>
-        <button class="button-secondary" type="button" data-action="split-horizontal">Horizontal</button>
-      </div>
-    </template>
-
-    <template id="view-console">
-      <pre data-element="log-output"
-        style="white-space: pre-wrap; font-family: 'Roboto Mono', monospace; font-size: var(--font-size-sm); line-height: 1.4; padding: var(--spacing-scale-3); margin: 0; width: 100%; height: 100%; overflow: auto;">
-      </pre>
     </template>
 
     <template id="view-sql-console">
@@ -439,24 +426,6 @@
       </div>
     </template>
 
-    <template id="chrome-template">
-      <link rel="stylesheet" href="reset.css">
-      <link rel="stylesheet" href="base.css">
-      <link data-theme-stylesheet rel="stylesheet" href="themes/current.css">
-
-      <section class="area" style="position: absolute; inset: 0; display: flex; flex-direction: column;">
-        <header>
-          <select name="view" data-action="select-view" class="view-selector"></select>
-          <slot name="header-controls"></slot>
-        </header>
-        <slot></slot>
-        <!-- Corner handles -->
-        <slot name="ne"></slot>
-        <slot name="se"></slot>
-        <slot name="sw"></slot>
-        <slot name="nw"></slot>
-      </section>
-    </template>
 
     <!-- Popup System Templates -->
     <template id="popup-template">
@@ -652,8 +621,6 @@
       <popup-manager>
         <layout-manager>
           <view-chrome panel="0"><view-nodegraph></view-nodegraph></view-chrome>
-          <view-chrome nesw="s" r="400" from="0"><view-sql-console></view-sql-console></view-chrome>
-          <view-chrome nesw="w" r="200" from="0"><view-pipeline></view-pipeline></view-chrome>
         </layout-manager>
       </popup-manager>
     </toast-manager>
