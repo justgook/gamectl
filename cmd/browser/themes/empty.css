@@ -8,6 +8,10 @@
     background: #CCC;
   }
 
+  .area>header {
+    background: aquamarine;
+  }
+
   view-toast {
     background: blue;
   }
@@ -16,40 +20,15 @@
     background: yellow;
   }
 
-  .area ::slotted([slot="nw"]),
-  .area ::slotted([slot="ne"]),
-  .area ::slotted([slot="se"]),
-  .area ::slotted([slot="sw"]) {
+  view--corner {
     background: aqua;
     width: 30px;
     height: 30px;
-    position: absolute;
-  }
-
-  .area ::slotted([slot="nw"]),
-  .area ::slotted([slot="ne"]) {
-    top: 0;
-  }
-
-  .area ::slotted([slot="se"]),
-  .area ::slotted([slot="sw"]) {
-    bottom: 0;
-  }
-
-  .area ::slotted([slot="ne"]),
-  .area ::slotted([slot="se"]) {
-    right: 0;
-  }
-
-  .area ::slotted([slot="nw"]),
-  .area ::slotted([slot="sw"]) {
-    left: 0;
   }
 
   view--handle {
     border: 1px solid saddlebrown;
     background: rgba(255, 255, 0, 0.7);
-    z-index: 2;
   }
 
   layout-manager .layout-try-rect {
