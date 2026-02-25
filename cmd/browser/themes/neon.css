@@ -73,6 +73,91 @@
   }
 
   /**/
+
+  :has(> *:nth-child(0)) {
+    --childs: 0;
+  }
+
+  :has(> *:nth-child(1)) {
+    --childs: 1;
+  }
+
+  :has(> *:nth-child(2)) {
+    --childs: 2;
+  }
+
+  :has(> *:nth-child(3)) {
+    --childs: 3;
+  }
+
+  :has(> *:nth-child(4)) {
+    --childs: 4;
+  }
+
+  :has(> *:nth-child(5)) {
+    --childs: 5;
+  }
+
+  :has(> *:nth-child(6)) {
+    --childs: 6;
+  }
+
+  :has(> *:nth-child(7)) {
+    --childs: 7;
+  }
+
+  :has(> *:nth-child(8)) {
+    --childs: 8;
+  }
+
+  :has(> *:nth-child(9)) {
+    --childs: 9;
+  }
+
+  :has(> *:nth-child(10)) {
+    --childs: 10;
+  }
+
+  :has(> *:nth-child(11)) {
+    --childs: 11;
+  }
+
+  :has(> *:nth-child(12)) {
+    --childs: 12;
+  }
+
+  :has(> *:nth-child(13)) {
+    --childs: 13;
+  }
+
+  :has(> *:nth-child(14)) {
+    --childs: 14;
+  }
+
+  :has(> *:nth-child(15)) {
+    --childs: 15;
+  }
+
+  :has(> *:nth-child(16)) {
+    --childs: 16;
+  }
+
+  :has(> *:nth-child(17)) {
+    --childs: 17;
+  }
+
+  :has(> *:nth-child(18)) {
+    --childs: 18;
+  }
+
+  :has(> *:nth-child(19)) {
+    --childs: 19;
+  }
+
+  :has(> *:nth-child(20)) {
+    --childs: 20;
+  }
+
   body {
     background: linear-gradient(180deg, #0d0118 0%, #1a0830 100%);
     color: var(--text);
@@ -119,6 +204,10 @@
     color: #00ffff;
     text-transform: uppercase;
   }
+
+
+
+
 
   view--corner {
     background: blue;
@@ -199,5 +288,35 @@
     pointer-events: none;
     z-index: 20;
     display: none;
+  }
+
+  /* magic */
+  [slot="header-controls"] {
+    flex: 1;
+    container-name: view-header;
+    container-type: inline-size;
+  }
+
+  [slot="header-controls"] {
+    background: red;
+  }
+
+  [slot="header-controls"]::before {
+    counter-reset: variable var(--childs);
+    content: "childs(" counter(variable)")";
+  }
+
+  @container view-header style(--childs: 9) and (width < 400px) {
+    button {
+      background: yellowgreen;
+    }
+
+    .button-has-icon .button-label {
+      display: none;
+    }
+
+    .button-has-icon .button-icon {
+      margin-right: 0;
+    }
   }
 }
