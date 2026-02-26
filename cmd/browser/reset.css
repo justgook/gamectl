@@ -16,6 +16,10 @@
     margin: 0;
   }
 
+  :focus {
+    outline: none;
+  }
+
   /* 3. Enable keyword animations */
   @media (prefers-reduced-motion: no-preference) {
     html {

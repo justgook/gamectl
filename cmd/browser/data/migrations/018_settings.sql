@@ -10,6 +10,6 @@ CREATE TABLE IF NOT EXISTS settings (
 
 -- Default appearance settings
 INSERT OR IGNORE INTO settings (key, value, category) VALUES
-    ('appearance.theme', 'empty', 'appearance'),
+    ('appearance.theme', 'the98', 'appearance'),
     ('appearance.font-family', 'default', 'appearance'),
     ('appearance.font-size', '14', 'appearance');

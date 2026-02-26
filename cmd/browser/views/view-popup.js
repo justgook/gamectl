@@ -15,9 +15,18 @@ export class ViewPopup extends HTMLElement {
     this.isClosing = false
 
     // Create shadow DOM
-    const template = document.getElementById('popup-template')
     const shadowRoot = this.attachShadow({ mode: 'open' })
-    shadowRoot.appendChild(document.importNode(template.content, true))
+    shadowRoot.innerHTML = `
+      <link rel="stylesheet" href="reset.css">
+      <link rel="stylesheet" href="base.css">
+      <link data-theme-stylesheet rel="stylesheet" href="themes/98.css">
+        <header part="header">
+          <slot name="title"></slot>
+          <slot name="header-controls"></slot>
+          <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
+        </header>
+        <slot></slot>
+      `
 
     // Setup close button
     const closeBtn = this.shadowRoot.querySelector('[data-action="close"]')

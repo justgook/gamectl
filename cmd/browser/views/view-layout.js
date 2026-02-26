@@ -73,12 +73,9 @@ export class LayoutManager extends HTMLElement {
     const link = document.querySelector('link[data-theme-stylesheet]')
     this._themeObserver.observe(link, { attributes: true, attributeFilter: ['href'] })
 
-
-    bus.on('plugin-manager:ready', () => {
-      console.log("AAAA")
-      this._setup().then(this._scheduleHandleSizeSync).catch((error) => {
-        console.error("[layout] boot failed:", error)
-      })
+    bus.on('plugin-manager:ready', async () => {
+      await this._setup()
+      this._scheduleHandleSizeSync()
     })
   }
 
@@ -96,7 +93,7 @@ export class LayoutManager extends HTMLElement {
   }
 
   _scheduleHandleSizeSync = () => {
-    if (this._syncQueued) {
+    if (this._syncQueued || !this.api) {
       return
     }
 
@@ -194,7 +191,7 @@ export class LayoutManager extends HTMLElement {
     this.api.set_area_content(areaId, contentId)
     const currentView = node.shadowRoot?.querySelector("slot:not([name])")?.assignedElements?.()[0] || null
     const viewTag = currentView ? currentView.tagName.toLowerCase() : "view-empty"
-    const chrome = document.createElement("view-chrome")
+    const chrome = document.createElement("view-area")
     chrome.appendChild(document.createElement(viewTag))
     this.content.set(contentId, chrome)
     this._addCorners(chrome, areaId)
@@ -250,7 +247,7 @@ export class LayoutManager extends HTMLElement {
     if (err !== 0) {
       throw new Error(`init_screen failed: ${ERR[err] || err}`)
     }
-    for (const [i, node] of this.querySelectorAll("view-chrome").entries()) {
+    for (const [i, node] of this.querySelectorAll("view-area").entries()) {
       this.content.set(i, node)
       this._addCorners(node, i)
       console.warn("[layout] add parsing initial node", node)
@@ -259,6 +256,7 @@ export class LayoutManager extends HTMLElement {
 
   _addCorners = (node, areaID) => {
     ["nw", "ne", "se", "sw"].forEach((c, cornerId) => {
+      // const node = this
       const s = document.createElement("view--corner")
       s.classList.add(c)
       // s.setAttribute("slot", c)
@@ -571,14 +569,12 @@ export class ViewChrome extends HTMLElement {
     const shadowRoot = this.attachShadow({ mode: "open" })
     shadowRoot.innerHTML = `<link rel="stylesheet" href="reset.css">
       <link rel="stylesheet" href="base.css">
-      <link data-theme-stylesheet rel="stylesheet" href="themes/current.css">
-      <section class="area" style="position: absolute; inset: 0; display: flex; flex-direction: column;">
-        <header>
-          <select name="view" data-action="select-view" class="view-selector"></select>
+      <link data-theme-stylesheet rel="stylesheet" href="themes/the98.css">
+        <header part="header">
+          <select part="view-select" name="view" data-action="select-view" class="view-selector"></select>
           <slot name="header-controls"></slot>
         </header>
-        <slot></slot>
-      </section>`
+        <slot></slot>`
   }
 
   connectedCallback() {
@@ -711,5 +707,5 @@ export class ViewChrome extends HTMLElement {
 
 }
 
-customElements.define('view-chrome', ViewChrome);
+customElements.define('view-area', ViewChrome);
 

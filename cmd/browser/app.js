@@ -46,22 +46,13 @@ function splashStatus(message) {
 const decoder = new TextDecoder()
 const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
 const THEME_STYLESHEET_ID = 'theme-stylesheet'
-const THEME_FILES = {
-  empty: 'themes/empty.css',
-  current: 'themes/current.css',
-  obsidian: 'themes/obsidian.css',
-  neon: 'themes/neon.css',
-}
-
-function normalizeThemeName(theme) {
-  if (!theme) return 'current'
-  if (theme === 'empty' || theme === 'current' || theme === 'obsidian' || theme === 'neon') return theme
-  return 'current'
-}
+const themeManifest = await fetch('themes/themes.json').then(response => response.json())
 
 function applyThemeStylesheet(theme) {
-  const normalizedTheme = normalizeThemeName(theme)
-  const themeHref = THEME_FILES[normalizedTheme] || THEME_FILES.current
+  const themeKey = themeManifest.themes[theme] ? theme : themeManifest.defaultTheme
+  const themeHref = themeManifest.themes[themeKey]?.href
+  if (!themeHref) return
+
   const syncRoot = (root) => {
     const link = root?.querySelector?.('[data-theme-stylesheet]')
     if (link && link.getAttribute('href') !== themeHref) {
@@ -70,9 +61,9 @@ function applyThemeStylesheet(theme) {
   }
 
   syncRoot(document)
-  document.querySelectorAll('view-chrome, view-popup').forEach(el => syncRoot(el.shadowRoot))
+  document.querySelectorAll('view-area, view-popup').forEach(el => syncRoot(el.shadowRoot))
 
-  window.__currentTheme = normalizedTheme
+  window.__currentTheme = themeKey
   window.__currentThemeStylesheetHref = themeHref
   window.__syncThemeStylesheetToRoot = syncRoot
 
@@ -120,8 +111,7 @@ async function applyAppearanceSettings() {
     settings['appearance.font-size'] = localSettings['appearance.font-size'] || settings['appearance.font-size']
 
     const theme = settings['appearance.theme']
-    const normalizedTheme = normalizeThemeName(theme)
-    applyThemeStylesheet(normalizedTheme)
+    applyThemeStylesheet(theme)
 
     const fontFamily = settings['appearance.font-family']
     if (!fontFamily || fontFamily === 'default') {
@@ -139,8 +129,7 @@ async function applyAppearanceSettings() {
 
     // Fallback to localStorage only
     const theme = localSettings['appearance.theme']
-    const normalizedTheme = normalizeThemeName(theme)
-    applyThemeStylesheet(normalizedTheme)
+    applyThemeStylesheet(theme)
 
     const fontFamily = localSettings['appearance.font-family']
     if (!fontFamily || fontFamily === 'default') {
@@ -266,7 +255,7 @@ window.keybindingManager = keybindingManager // Expose for debugging
 // Wire app:settings keybinding (Ctrl+,) to open settings view
 eventBus.on('app:settings', () => {
   // Find the focused chrome panel, or fall back to the first one
-  const chromes = document.querySelectorAll('view-chrome')
+  const chromes = document.querySelectorAll('view-area')
   let target = chromes[0]
   for (const chrome of chromes) {
     const slot = chrome.shadowRoot?.querySelector('slot:not([name])')

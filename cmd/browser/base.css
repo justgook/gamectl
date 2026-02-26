@@ -104,11 +104,21 @@
 
   view-popup {
     position: fixed;
+    flex-direction: column;
     inset: 0;
     z-index: var(--popup-container-z-index, 9999);
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  view-popup::part(header) {
+    background: rebeccapurple;
+    display: flex;
+  }
+
+  view-popup::after {
+    display: block;
   }
 
   /*********************************************************************************/
@@ -157,7 +167,8 @@
     src: url('./MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2') format('woff2');
   }
 
-  .icon {
+  .icon,
+  i {
     font-family: 'Material Symbols Rounded';
     font-weight: 400;
     font-style: normal;
