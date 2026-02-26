@@ -187,7 +187,41 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   }
 
-  .area header {
+
+
+  /*********************************************************************************/
+  /*                               AREA                                            */
+  /*********************************************************************************/
+  view-area {
+    --border: var(--default-border);
+    padding: calc(0.5 * var(--resize-handle-size));
+  }
+
+  view-area::before,
+  view-area::after {
+    box-sizing: border-box;
+    pointer-events: none;
+    content: "";
+    position: absolute;
+    inset: calc(0.5 * var(--resize-handle-size));
+    z-index: 10;
+    --cut: 12px;
+    --b: 2px;
+    --c: var(--border);
+  }
+
+  view-area::before {
+    border: 2px solid var(--border);
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+
+  view-area::after {
+    background: linear-gradient(45deg, transparent calc(50% - var(--b) + 2px), var(--c) 0, var(--c) calc(50% + var(--b) + 2px), transparent 0) top right, linear-gradient(45deg, transparent calc(50% - var(--b) - 2px), var(--c) 0, var(--c) calc(50% + var(--b) - 2px), transparent 0) bottom left;
+    background-size: var(--cut) var(--cut);
+    background-repeat: no-repeat;
+  }
+
+  view-area::part(header) {
     display: flex;
     flex-direction: row;
     border-bottom: 2px solid var(--border);
@@ -195,7 +229,7 @@
     padding: 0 12px;
   }
 
-  .area select[name="view"] {
+  view-area::part(view-select) {
     appearance: none;
     border: none;
     font-family: "Bebas Neue", sans-serif;
@@ -205,49 +239,39 @@
     text-transform: uppercase;
   }
 
-
-
-
-
   view--corner {
     background: blue;
-    width: 20px;
-    height: 20px;
+    /* width: calc(-0.5 * var(--resize-handle-size)); */
+    width: 6px;
+    /* height: calc(-0.5 * var(--resize-handle-size)); */
+    height: 6px;
+  }
+
+  view--corner::before,
+  view--corner::after {
+    content: "";
+    background: inherit;
+    position: absolute;
+    top: inherit;
+    right: inherit;
+    bottom: inherit;
+    left: inherit;
+    width: 100%;
+    height: 100%;
+  }
+
+  view--corner::after {
+    width: 30px;
+  }
+
+  view--corner::before {
+    height: 30px;
   }
 
   button {
     color: inherit;
   }
 
-
-  .area {
-    --border: var(--default-border);
-    margin: calc(0.5 * var(--resize-handle-size));
-  }
-
-  .area::before,
-  .area::after {
-    box-sizing: border-box;
-    pointer-events: none;
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 10;
-    --cut: 12px;
-    --b: 2px;
-    --c: var(--border);
-  }
-
-  .area::before {
-    border: 2px solid var(--border);
-    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-  }
-
-  .area::after {
-    background: linear-gradient(45deg, transparent calc(50% - var(--b) + 2px), var(--c) 0, var(--c) calc(50% + var(--b) + 2px), transparent 0) top right, linear-gradient(45deg, transparent calc(50% - var(--b) - 2px), var(--c) 0, var(--c) calc(50% + var(--b) - 2px), transparent 0) bottom left;
-    background-size: var(--cut) var(--cut);
-    background-repeat: no-repeat;
-  }
 
 
   view--handle {
