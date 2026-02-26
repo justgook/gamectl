@@ -1,0 +1,25 @@
+{
+  "defaultTheme": "the98",
+  "themes": {
+    "the98": {
+      "label": "The 98",
+      "href": "themes/the98.css"
+    },
+    "empty": {
+      "label": "Empty",
+      "href": "themes/empty.css"
+    },
+    "current": {
+      "label": "Current",
+      "href": "themes/current.css"
+    },
+    "obsidian": {
+      "label": "Obsidian Terminal",
+      "href": "themes/obsidian.css"
+    },
+    "neon": {
+      "label": "Neon Brutalist",
+      "href": "themes/neon.css"
+    }
+  }
+}
