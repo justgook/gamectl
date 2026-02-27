@@ -32,4 +32,5 @@ INSERT OR IGNORE INTO plugins (name, url, type, enabled, scope) VALUES
     ('sprite-detect', 'local:/plugins/sprite-detect.wasm', 'builtin', 1, 'global'),
     ('sprite-pack', 'local:/plugins/sprite-pack.wasm', 'builtin', 1, 'global'),
     ('tile-detect', 'local:/plugins/tile-detect.wasm', 'builtin', 1, 'global'),
-    ('stbte', 'local:/plugins/stbte.wasm', 'builtin', 1, 'view');
+    ('stbte', 'local:/plugins/stbte.wasm', 'builtin', 1, 'view'),
+    ('respack', 'local:/plugins/respack.wasm', 'builtin', 1, 'global');
