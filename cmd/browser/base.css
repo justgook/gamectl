@@ -1,47 +1,476 @@
 @layer reset, base, theme;
 
 @layer base {
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     PALETTE
+     ═══════════════════════════════════════════════════════════════════════════ */
+
   :root {
     --accent: #7aa2ff;
     --success: #3ddc97;
     --warning: #ffcc66;
     --danger: #ff5c7a;
     --info: #5bd6ff;
+  }
 
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SURFACES
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  :root {
     --bg: #0b0c10;
     --surface: #11131a;
     --surface-elevated: #171a23;
-    --border: #262a36;
-    --text: #e8eaf0;
-    --text-muted: #a8afc3;
+    --surface-hover: color-mix(in oklab, var(--surface), white 5%);
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BORDERS
+     ═══════════════════════════════════════════════════════════════════════════ */
+
   :root {
-    /* Default “intent” points at accent unless overridden */
+    --border: #262a36;
+    --border-hover: color-mix(in oklab, var(--border), var(--text) 18%);
+    --border-focus: var(--accent);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TEXT
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --text: #e8eaf0;
+    --text-muted: #a8afc3;
+    --text-faint: color-mix(in oklab, var(--text-muted), transparent 40%);
+    --ink: #0b0c10;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     EFFECTS
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --glow: 0 0 10px color-mix(in oklab, var(--accent), transparent 75%);
+    --shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SIZING / SPACING
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --radius-sm: 4px;
+    --radius-md: 8px;
+
+    --space-1: 2px;
+    --space-2: 4px;
+    --space-3: 8px;
+    --space-4: 12px;
+    --space-5: 16px;
+    --space-6: 24px;
+    --space-7: 32px;
+    --space-8: 48px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TYPOGRAPHY
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --font-body: "Roboto", "Segoe UI", sans-serif;
+    --font-mono: "Roboto Mono", "JetBrains Mono", monospace;
+    --font-display: "Orbitron", "Space Grotesk", sans-serif;
+
+    --font-xs: 11px;
+    --font-sm: 12px;
+    --font-md: 14px;
+    --font-lg: 16px;
+    --font-xl: 20px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INTENT BUNDLE
+
+     Default intent = accent. Override --intent via .accent/.success/.danger/etc
+     to recolor any component that consumes these tokens.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  :root {
     --intent: var(--accent);
 
-    /* Filled control (buttons, filled chips, slider fill, etc.) */
+    /* filled (buttons, chips, slider fills, toggles) */
     --intent-bg: var(--intent);
     --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
     --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
-
-    /* Text/icon on intent bg: pick a dark ink that works with your bright palette */
-    --intent-fg: #0b0c10;
-
-    /* Border for filled controls (optional, subtle) */
+    --intent-fg: var(--ink);
     --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
-
-    /* Focus ring: typically intent itself with alpha */
     --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
+
+    /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
+    --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
+    --intent-soft-border: color-mix(in oklab, var(--intent), var(--border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--intent), var(--text) 30%);
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INTENT CLASSES
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  .accent  { --intent: var(--accent); }
+  .success { --intent: var(--success); }
+  .warning { --intent: var(--warning); }
+  .danger  { --intent: var(--danger); }
+  .info    { --intent: var(--info); }
+
+  .elevated {
+    background: var(--surface-elevated);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     COMPONENT TOKENS
+
+     Customisation points for structural components. Themes override these.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
   :root {
-    /* Layout constants */
+    /* popup */
+    --popup-backdrop: rgba(2, 4, 8, 0.7);
+    --popup-bg: var(--surface);
+    --popup-border: var(--border);
+    --popup-shadow: var(--shadow);
+    --popup-header-bg: var(--surface-elevated);
+    --popup-header-color: var(--accent);
+
+    /* toast */
+    --toast-bg: var(--surface);
+    --toast-border: var(--border);
+
+    /* resize handles */
     --resize-handle-size: 24px;
+    --resize-handle-bg: color-mix(in oklab, var(--border) 85%, transparent);
+    --resize-handle-hover-bg: var(--accent);
+    --resize-handle-active-bg: color-mix(in oklab, var(--accent), white 15%);
+    --resize-handle-hover-shadow: var(--glow);
+
+    /* z-index scale */
     --z-index-handle: 1;
     --z-index-corner: 2;
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BODY
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body-override, var(--font-body));
+    font-size: var(--font-md);
+    line-height: 1.45;
+    color-scheme: dark;
+  }
+
+  pre, code, kbd, samp {
+    font-family: var(--font-mono);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     ICONS  —  bare <i> = Material Symbols Rounded
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  @font-face {
+    font-family: 'Material Symbols Rounded';
+    font-style: normal;
+    font-weight: 100 700;
+    src: url('./MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2') format('woff2');
+  }
+
+  i {
+    font-family: 'Material Symbols Rounded';
+    font-weight: 400;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    vertical-align: -0.125em;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BUTTONS
+
+     Default = neutral surface button.
+     Add intent class for colored:  <button class="danger">Delete</button>
+     Icon-only:  <button class="accent" aria-label="Save"><i>save</i></button>
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  button,
+  [type="button"],
+  [type="submit"],
+  [type="reset"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms, color 120ms;
+  }
+
+  button:hover,
+  [type="button"]:hover,
+  [type="submit"]:hover,
+  [type="reset"]:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
+  }
+
+  button:focus-visible,
+  [type="button"]:focus-visible,
+  [type="submit"]:focus-visible,
+  [type="reset"]:focus-visible {
+    outline: 3px solid var(--intent-ring);
+    outline-offset: 2px;
+  }
+
+  /* intent-filled buttons */
+  button.accent,
+  button.success,
+  button.warning,
+  button.danger,
+  button.info {
+    background: var(--intent-bg);
+    border-color: var(--intent-border);
+    color: var(--intent-fg);
+  }
+
+  button.accent:hover,
+  button.success:hover,
+  button.warning:hover,
+  button.danger:hover,
+  button.info:hover {
+    background: var(--intent-hover-bg);
+  }
+
+  button.accent:active,
+  button.success:active,
+  button.warning:active,
+  button.danger:active,
+  button.info:active {
+    background: var(--intent-active-bg);
+  }
+
+  /* icon sizing inside buttons */
+  button > i {
+    font-size: 18px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INPUTS
+
+     Neutral surface, intent-colored focus ring.
+     Validation:  <input class="danger">  or  <div class="danger"><input></div>
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  input[type="text"],
+  input[type="number"],
+  input[type="url"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    transition: border-color 120ms, box-shadow 120ms;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--text-faint);
+  }
+
+  input[type="text"]:hover,
+  input[type="number"]:hover,
+  input[type="url"]:hover,
+  input[type="search"]:hover,
+  input[type="email"]:hover,
+  input[type="password"]:hover,
+  select:hover,
+  textarea:hover {
+    border-color: var(--border-hover);
+  }
+
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  input[type="url"]:focus,
+  input[type="search"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  select:focus,
+  textarea:focus {
+    border-color: color-mix(in oklab, var(--intent), var(--surface) 40%);
+    outline: 3px solid var(--intent-ring);
+    outline-offset: 2px;
+  }
+
+  /* intent on inputs = validation state (direct or cascaded from parent) */
+  input.accent,  .accent  > input,  .accent  > select,  .accent  > textarea,
+  input.success, .success > input, .success > select, .success > textarea,
+  input.warning, .warning > input, .warning > select, .warning > textarea,
+  input.danger,  .danger  > input,  .danger  > select,  .danger  > textarea,
+  input.info,    .info    > input,  .info    > select,  .info    > textarea,
+  select.accent, select.success, select.warning, select.danger, select.info,
+  textarea.accent, textarea.success, textarea.warning, textarea.danger, textarea.info {
+    border-color: var(--intent-soft-border);
+  }
+
+  /* custom checkbox */
+  input[type="checkbox"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 150ms ease;
+    margin: 0;
+  }
+
+  input[type="checkbox"]:hover {
+    border-color: var(--border-focus);
+  }
+
+  input[type="checkbox"]:checked {
+    border-color: var(--border-focus);
+    background: var(--accent);
+  }
+
+  input[type="checkbox"]:checked::after {
+    content: '\2713';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  /* custom radio */
+  input[type="radio"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    background: var(--bg);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 150ms ease;
+    margin: 0;
+  }
+
+  input[type="radio"]:hover {
+    border-color: var(--border-focus);
+  }
+
+  input[type="radio"]:checked {
+    border-color: var(--border-focus);
+  }
+
+  input[type="radio"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     PANELS
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  .panel {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-color: var(--border);
+  }
+
+  .panel-header {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    background: var(--surface-elevated);
+    color: var(--accent);
+  }
+
+  .panel-header-controls {
+    flex: 1;
+  }
+
+  .panel-content {
+    flex: 1 1 auto;
+    overflow: auto;
+    color: var(--text);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INFRASTRUCTURE ELEMENTS
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* layout */
+  toast-manager,
+  popup-manager,
+  layout-parent,
+  layout-manager {
+    isolation: isolate;
+  }
+
+  toast-manager,
+  popup-manager {
+    display: contents;
+  }
+
+  layout-parent,
+  layout-manager {
+    position: relative;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    z-index: 0;
+  }
+
+  /* corners */
   view--corner {
     z-index: var(--z-index-corner);
     position: absolute;
@@ -67,37 +496,12 @@
     left: 0;
   }
 
+  /* handles */
   view--handle {
     z-index: var(--z-index-handle);
   }
 
-
-  /*move inside components*/
-  toast-manager,
-  popup-manager,
-  layout-parent,
-  layout-manager {
-    isolation: isolate;
-  }
-
-  toast-manager,
-  popup-manager {
-    display: contents;
-  }
-
-  layout-parent,
-  layout-manager {
-    position: relative;
-    display: block;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    z-index: 0;
-  }
-
-  /*********************************************************************************/
-  /*                              POPUP                                            */
-  /*********************************************************************************/
+  /* popup */
   popup-manager view-popup:not(:last-of-type) {
     display: none;
   }
@@ -106,125 +510,39 @@
     position: fixed;
     flex-direction: column;
     inset: 0;
-    z-index: var(--popup-container-z-index, 9999);
+    z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
-  view-popup::part(header) {
-    background: rebeccapurple;
-    display: flex;
-  }
-
-  view-popup::after {
-    display: block;
-  }
-
-  /*********************************************************************************/
-  /*                              TOAST                                            */
-  /*********************************************************************************/
-
+  /* toast */
   view-toast {
     --spacing: 4px;
     position: fixed;
-    z-index: var(--toast-z-index, 10000);
+    z-index: 10000;
     pointer-events: auto;
   }
 
-  /* Hidden state for limited positions */
   view-toast[hidden] {
     display: none !important;
   }
 
-  /* Position: top-right (default) */
   view-toast[position="top-right"] {
     right: var(--spacing);
-    /* Stack offset using top position - avoids conflicts with animation transforms */
     --toast-stack-offset: 60px;
     top: calc(var(--spacing) + var(--toast-stack-index, 0) * var(--toast-stack-offset));
   }
 
-  /* Position: bottom-center */
   view-toast[position="bottom-center"] {
     bottom: var(--spacing);
     left: 50%;
     transform: translateX(-50%);
   }
 
-  /* Position: center (for alert/confirm) */
   view-toast[position="center"] {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-  }
-
-
-  @font-face {
-    font-family: 'Material Symbols Rounded';
-    font-style: normal;
-    font-weight: 100 700;
-    src: url('./MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2') format('woff2');
-  }
-
-  .icon,
-  i {
-    font-family: 'Material Symbols Rounded';
-    font-weight: 400;
-    font-style: normal;
-    font-size: 24px;
-    line-height: 1;
-    letter-spacing: normal;
-    text-transform: none;
-    display: inline-block;
-    white-space: nowrap;
-    word-wrap: normal;
-    direction: ltr;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-    font-feature-settings: 'liga';
-    -webkit-font-smoothing: antialiased;
-    vertical-align: -0.125em;
-  }
-
-  /*********************************************************************************/
-  /*                              MOVE THAT OUTSIDE                                */
-  /*********************************************************************************/
-
-  /*Weird splsh screen */
-  .splash-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 10001;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.3s ease-out;
-  }
-
-  .splash-overlay.splash-hidden {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .splash-panel {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .splash-background {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-  }
-
-  .splash-content {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Enter button - ready/enabled state */
-  #splash-screen .splash-enter {
-    color: var(--color-global-cyan-500, #00e5ff);
-    border-color: var(--color-global-cyan-500, #00e5ff);
   }
 }

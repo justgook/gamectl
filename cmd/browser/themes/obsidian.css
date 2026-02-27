@@ -1,29 +1,23 @@
 @layer theme {
   :root {
-    --ui-font-body: "JetBrains Mono", monospace;
-    --ui-font-ui: "JetBrains Mono", monospace;
-    --ui-font-display: "Space Grotesk", sans-serif;
+    --accent: #f59e0b;
+    --success: #22c55e;
+    --warning: #eab308;
+    --danger: #ef4444;
+    --info: #3b82f6;
 
-    --ui-bg-0: #0a0a0b;
-    --ui-bg-1: #111113;
-    --ui-bg-2: #18181b;
-    --ui-bg-3: #222229;
-    --ui-bg-hover: #2a2a2e;
+    --bg: #0a0a0b;
+    --surface: #111113;
+    --surface-elevated: #18181b;
+    --border: #2a2a2e;
 
-    --ui-text-1: #e4e4e7;
-    --ui-text-2: #a1a1aa;
-    --ui-text-3: #71717a;
+    --text: #e4e4e7;
+    --text-muted: #a1a1aa;
+    --ink: #111113;
 
-    --ui-border: #2a2a2e;
-    --ui-border-focus: #f59e0b;
-    --ui-accent: #f59e0b;
-    --ui-accent-hover: #f7b84a;
-    --ui-accent-ink: #111113;
+    --glow: 0 0 10px rgba(245, 158, 11, 0.35);
 
-    --ui-success: #22c55e;
-    --ui-warning: #eab308;
-    --ui-danger: #ef4444;
-    --ui-info: #3b82f6;
-    --ui-glow: 0 0 10px rgba(245, 158, 11, 0.35);
+    --font-body: "JetBrains Mono", monospace;
+    --font-display: "Space Grotesk", sans-serif;
   }
 }
