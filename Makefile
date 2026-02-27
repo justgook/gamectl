@@ -39,6 +39,84 @@ PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
 PLUGINS := $(notdir $(PLUGIN_DIRS))
 PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
 
+# --- Odin plugin build settings ---
+ODIN ?= odin
+# Good default for “plugin-style” WASM (no JS glue required):
+ODIN_WASM_TARGET ?= freestanding_wasm32
+# Common choices: speed | size | none
+ODIN_OPT ?= speed
+# If you need linker tweaks (import memory, stack size, etc), set this:
+ODIN_EXTRA_LINKER_FLAGS ?=
+
+# ------------------------------------------------------------
+# Per-plugin manifest support
+# Each plugin may define: plugins/<name>/plugin.mk
+#
+# The manifest can set variables like:
+#   ODIN_WASM_TARGET, ODIN_OPT, ODIN_EXTRA_LINKER_FLAGS
+#   ZIG_WASM_TARGET, ZIG_MCPU, ZIG_OPT, ZIG_EXTRA_FLAGS
+#   (and anything else you want)
+#
+# These are applied as *target-specific variables* only for that plugin's .wasm target.
+# ------------------------------------------------------------
+
+# Initialize manifest locals so --warn-undefined-variables doesn't fire
+PLUGIN_ODIN_WASM_TARGET :=
+PLUGIN_ODIN_OPT :=
+PLUGIN_ODIN_EXTRA_LINKER_FLAGS :=
+PLUGIN_ZIG_WASM_TARGET :=
+PLUGIN_ZIG_MCPU :=
+PLUGIN_ZIG_OPT :=
+PLUGIN_ZIG_EXTRA_FLAGS :=
+
+# Helper macro: attach manifest-defined variables to that plugin's wasm target
+#
+# How it works:
+#   1. Set per-plugin namespaced vars to global defaults
+#   2. -include the plugin's plugin.mk (which may set PLUGIN_ZIG_* etc.)
+#   3. Override namespaced vars with any PLUGIN_* values that were set
+#   4. Attach namespaced vars as target-specific variables
+#   5. Clear PLUGIN_* locals so they don't leak to the next plugin
+#
+# NOTE: ifneq inside $(eval $(call ...)) doesn't work — Make expands
+# conditionals at parse time, not eval time. Instead we use $(or ...)
+# to pick the manifest value when non-empty, falling back to the default.
+define APPLY_PLUGIN_MANIFEST
+  # Load manifest if present (sets PLUGIN_ZIG_*, PLUGIN_ODIN_*, etc.)
+  -include $(PLUGIN_DIR)/$(1)/plugin.mk
+
+  # Resolve per-plugin values: manifest override or global default
+  ODIN_WASM_TARGET_$(1) := $$(or $$(PLUGIN_ODIN_WASM_TARGET),$(ODIN_WASM_TARGET))
+  ODIN_OPT_$(1)         := $$(or $$(PLUGIN_ODIN_OPT),$(ODIN_OPT))
+  ODIN_EXTRA_LINKER_FLAGS_$(1) := $$(or $$(PLUGIN_ODIN_EXTRA_LINKER_FLAGS),$(ODIN_EXTRA_LINKER_FLAGS))
+
+  ZIG_WASM_TARGET_$(1)  := $$(or $$(PLUGIN_ZIG_WASM_TARGET),wasm32-freestanding)
+  ZIG_MCPU_$(1)         := $$(PLUGIN_ZIG_MCPU)
+  ZIG_OPT_$(1)          := $$(or $$(PLUGIN_ZIG_OPT),ReleaseFast)
+  ZIG_EXTRA_FLAGS_$(1)  := $$(PLUGIN_ZIG_EXTRA_FLAGS)
+
+  # Apply as target-specific vars for this plugin's .wasm output
+  $(BUILD_DIR)/plugins/$(1).wasm: ODIN_WASM_TARGET := $$(ODIN_WASM_TARGET_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ODIN_OPT := $$(ODIN_OPT_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ODIN_EXTRA_LINKER_FLAGS := $$(ODIN_EXTRA_LINKER_FLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_WASM_TARGET := $$(ZIG_WASM_TARGET_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_MCPU := $$(ZIG_MCPU_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_OPT := $$(ZIG_OPT_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_EXTRA_FLAGS := $$(ZIG_EXTRA_FLAGS_$(1))
+
+  # Cleanup manifest locals so they don't leak into next plugin
+  PLUGIN_ODIN_WASM_TARGET :=
+  PLUGIN_ODIN_OPT :=
+  PLUGIN_ODIN_EXTRA_LINKER_FLAGS :=
+  PLUGIN_ZIG_WASM_TARGET :=
+  PLUGIN_ZIG_MCPU :=
+  PLUGIN_ZIG_OPT :=
+  PLUGIN_ZIG_EXTRA_FLAGS :=
+endef
+
+$(foreach p,$(PLUGINS),$(eval $(call APPLY_PLUGIN_MANIFEST,$(p))))
+
+
 SYS_GOOS := $(shell go env GOOS)
 SYS_GOARCH := $(shell go env GOARCH)
 GO_MODULE_NAME ?= $(shell go list -m)
@@ -60,21 +138,21 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/
 # Rule to build Zig plugins
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Zig plugin $*..."
-	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
+	$(Q)zig build-exe $< \
+		-target $(ZIG_WASM_TARGET) \
+		$(if $(strip $(ZIG_MCPU)),-mcpu $(ZIG_MCPU),) \
+		-fno-entry \
+		-rdynamic \
+		-O $(ZIG_OPT) \
+		$(ZIG_EXTRA_FLAGS) \
+		-femit-bin=$@
 
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
 	$(Q)echo "nothing to do $*..."
 	$(Q)touch $@
 
 
-# --- Odin plugin build settings ---
-ODIN ?= odin
-# Good default for “plugin-style” WASM (no JS glue required):
-ODIN_WASM_TARGET ?= freestanding_wasm32
-# Common choices: speed | size | none
-ODIN_OPT ?= speed
-# If you need linker tweaks (import memory, stack size, etc), set this:
-ODIN_EXTRA_LINKER_FLAGS ?=
+
 
 # Rule to build Odin plugins
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/%/*.odin) | $(BUILD_DIR)/plugins
@@ -111,57 +189,17 @@ $(BUILD_DIR)/plugins/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/vendor
 		-DSQLITE_TEMP_STORE=3 \
 		-femit-bin=$@
 
-# Special rule for stb_tilemap_editor with shared memory support
-# Needs --import-memory and --shared-memory so the main thread can read
-# draw command buffers from WASM linear memory via SharedArrayBuffer.
-$(BUILD_DIR)/plugins/stb_tilemap_editor.wasm: $(PLUGIN_DIR)/stb_tilemap_editor/main.c $(wildcard $(PLUGIN_DIR)/stb_tilemap_editor/*.h) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building stb_tilemap_editor plugin (shared memory)..."
-	$(Q)zig build-exe $< \
-		-target wasm32-freestanding \
-		-mcpu generic+atomics+bulk_memory \
-		-fno-entry \
-		-rdynamic \
-		-O ReleaseFast \
-		--import-memory \
-		--shared-memory \
-		--initial-memory=10354688 \
-		--max-memory=33554432 \
-		-femit-bin=$@
-
-$(BUILD_DIR)/plugins/layout.wasm: $(PLUGIN_DIR)/layout/main.c $(wildcard $(PLUGIN_DIR)/layout/*.h) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building Layout headless WASM (imported memory)..."
-	$(Q)zig build-exe $< \
-		-target wasm32-freestanding \
-		-mcpu generic+atomics+bulk_memory \
-		-fno-entry \
-		-rdynamic \
-		-O ReleaseSmall \
-		-fstrip \
-		--import-memory \
-		--shared-memory \
-		--initial-memory=18874368 \
-		--max-memory=33554432 \
-		-femit-bin=$@
-
-$(BUILD_DIR)/plugins/stbte.wasm: $(PLUGIN_DIR)/stbte/main.c $(wildcard $(PLUGIN_DIR)/stbte/*.h) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building stbte plugin (shared memory)..."
-	$(Q)zig build-exe $< \
-		-target wasm32-freestanding \
-		-mcpu generic+atomics+bulk_memory \
-		-fno-entry \
-		-rdynamic \
-		-O ReleaseSmall \
-		-fstrip \
-		--import-memory \
-		--shared-memory \
-		--initial-memory=18874368 \
-		--max-memory=33554432 \
-		-femit-bin=$@
-
 # Rule to build C plugins using Zig (bare WASM)
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building C plugin $*..."
-	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
+	$(Q)zig build-exe $< \
+		-target $(ZIG_WASM_TARGET) \
+		$(if $(strip $(ZIG_MCPU)),-mcpu $(ZIG_MCPU),) \
+		-fno-entry \
+		-rdynamic \
+		-O $(ZIG_OPT) \
+		$(ZIG_EXTRA_FLAGS) \
+		-femit-bin=$@
 
 .PHONY: browser
 browser: $(PLUGIN_TARGETS)
