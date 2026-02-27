@@ -66,6 +66,26 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%
 	$(Q)echo "nothing to do $*..."
 	$(Q)touch $@
 
+
+# --- Odin plugin build settings ---
+ODIN ?= odin
+# Good default for “plugin-style” WASM (no JS glue required):
+ODIN_WASM_TARGET ?= freestanding_wasm32
+# Common choices: speed | size | none
+ODIN_OPT ?= speed
+# If you need linker tweaks (import memory, stack size, etc), set this:
+ODIN_EXTRA_LINKER_FLAGS ?=
+
+# Rule to build Odin plugins
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/%/*.odin) | $(BUILD_DIR)/plugins
+	$(Q)echo "Building Odin plugin $*..."
+	$(Q)$(ODIN) build ./$(PLUGIN_DIR)/$* \
+		-target:$(ODIN_WASM_TARGET) \
+		-o:$(ODIN_OPT) \
+		--no-entry-point \
+		-out:$@ \
+		$(if $(ODIN_EXTRA_LINKER_FLAGS),-extra-linker-flags:"$(ODIN_EXTRA_LINKER_FLAGS)",)
+
 # Special rule for SQL plugin with SQLite3
 # Note: Uses wasm32-wasi target (not freestanding) because SQLite3 needs libc
 $(BUILD_DIR)/plugins/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/vendor/sqlite3.c $(wildcard $(PLUGIN_DIR)/sql/vendor/*.h) | $(BUILD_DIR)/plugins
