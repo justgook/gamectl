@@ -68,6 +68,8 @@ PLUGIN_ZIG_WASM_TARGET :=
 PLUGIN_ZIG_MCPU :=
 PLUGIN_ZIG_OPT :=
 PLUGIN_ZIG_EXTRA_FLAGS :=
+PLUGIN_C_SOURCES :=
+PLUGIN_EXTRA_DEPS :=
 
 # Helper macro: attach manifest-defined variables to that plugin's wasm target
 #
@@ -94,6 +96,8 @@ define APPLY_PLUGIN_MANIFEST
   ZIG_MCPU_$(1)         := $$(PLUGIN_ZIG_MCPU)
   ZIG_OPT_$(1)          := $$(or $$(PLUGIN_ZIG_OPT),ReleaseFast)
   ZIG_EXTRA_FLAGS_$(1)  := $$(PLUGIN_ZIG_EXTRA_FLAGS)
+  ZIG_C_SOURCES_$(1)    := $$(if $$(strip $$(PLUGIN_C_SOURCES)),$$(PLUGIN_C_SOURCES),$(wildcard $(PLUGIN_DIR)/$(1)/main.c))
+  ZIG_EXTRA_DEPS_$(1)   := $$(if $$(strip $$(PLUGIN_EXTRA_DEPS)),$$(PLUGIN_EXTRA_DEPS),$(wildcard $(PLUGIN_DIR)/$(1)/*.h))
 
   # Apply as target-specific vars for this plugin's .wasm output
   $(BUILD_DIR)/plugins/$(1).wasm: ODIN_WASM_TARGET := $$(ODIN_WASM_TARGET_$(1))
@@ -103,6 +107,9 @@ define APPLY_PLUGIN_MANIFEST
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_MCPU := $$(ZIG_MCPU_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_OPT := $$(ZIG_OPT_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_EXTRA_FLAGS := $$(ZIG_EXTRA_FLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_C_SOURCES := $$(ZIG_C_SOURCES_$(1))
+  $$(if $$(strip $$(ZIG_C_SOURCES_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_C_SOURCES_$(1)))
+  $$(if $$(strip $$(ZIG_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_EXTRA_DEPS_$(1)))
 
   # Cleanup manifest locals so they don't leak into next plugin
   PLUGIN_ODIN_WASM_TARGET :=
@@ -112,6 +119,8 @@ define APPLY_PLUGIN_MANIFEST
   PLUGIN_ZIG_MCPU :=
   PLUGIN_ZIG_OPT :=
   PLUGIN_ZIG_EXTRA_FLAGS :=
+  PLUGIN_C_SOURCES :=
+  PLUGIN_EXTRA_DEPS :=
 endef
 
 $(foreach p,$(PLUGINS),$(eval $(call APPLY_PLUGIN_MANIFEST,$(p))))
@@ -152,8 +161,6 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%
 	$(Q)touch $@
 
 
-
-
 # Rule to build Odin plugins
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/%/*.odin) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Odin plugin $*..."
@@ -164,35 +171,10 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/
 		-out:$@ \
 		$(if $(ODIN_EXTRA_LINKER_FLAGS),-extra-linker-flags:"$(ODIN_EXTRA_LINKER_FLAGS)",)
 
-# Special rule for SQL plugin with SQLite3
-# Note: Uses wasm32-wasi target (not freestanding) because SQLite3 needs libc
-$(BUILD_DIR)/plugins/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/vendor/sqlite3.c $(wildcard $(PLUGIN_DIR)/sql/vendor/*.h) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building SQL plugin with SQLite3 mem3..."
-	$(Q)zig build-exe $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/vendor/sqlite3.c \
-		-target wasm32-wasi \
-		-lc \
-		-rdynamic \
-		-O ReleaseFast \
-		-DSQLITE_ENABLE_MEMSYS3 \
-		-DSQLITE_OMIT_LOAD_EXTENSION \
-		-DSQLITE_THREADSAFE=0 \
-		-DSQLITE_OMIT_WAL \
-		-DSQLITE_DEFAULT_MEMSTATUS=0 \
-		-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1 \
-		-DSQLITE_LIKE_DOESNT_MATCH_BLOBS \
-		-DSQLITE_MAX_EXPR_DEPTH=0 \
-		-DSQLITE_OMIT_DECLTYPE \
-		-DSQLITE_OMIT_DEPRECATED \
-		-DSQLITE_OMIT_PROGRESS_CALLBACK \
-		-DSQLITE_OMIT_SHARED_CACHE \
-		-DSQLITE_USE_ALLOCA \
-		-DSQLITE_TEMP_STORE=3 \
-		-femit-bin=$@
-
 # Rule to build C plugins using Zig (bare WASM)
-$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)/plugins
+$(BUILD_DIR)/plugins/%.wasm: | $(BUILD_DIR)/plugins
 	$(Q)echo "Building C plugin $*..."
-	$(Q)zig build-exe $< \
+	$(Q)zig build-exe $(if $(strip $(ZIG_C_SOURCES)),$(ZIG_C_SOURCES),$<) \
 		-target $(ZIG_WASM_TARGET) \
 		$(if $(strip $(ZIG_MCPU)),-mcpu $(ZIG_MCPU),) \
 		-fno-entry \
