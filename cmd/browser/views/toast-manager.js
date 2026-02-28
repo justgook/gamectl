@@ -6,9 +6,9 @@
  * Listens to event bus for toast:show, toast:alert, toast:confirm, toast:close-all.
  * 
  * Position stacking rules:
- * - top-right: unlimited, all visible, stacked vertically
- * - bottom-center: limit 1, only last visible
- * - center: limit 1, only last visible
+ * - primary:   unlimited, all visible, stacked vertically (top-right)
+ * - secondary: limit 1, only last visible (bottom-center)
+ * - modal:     limit 1, only last visible (center, for alert/confirm)
  */
 import { bus } from '../systems/event-bus.js'
 
@@ -59,34 +59,34 @@ export class ToastManager extends HTMLElement {
 
   /**
    * Update visibility of toasts based on position rules
-   * - top-right: all visible
-   * - bottom-center/center: only last of that position visible
+   * - primary: all visible
+   * - secondary/modal: only last of that position visible
    */
   updateVisibility() {
     const toasts = Array.from(this.querySelectorAll('view-toast'))
 
     // Group toasts by position
     const byPosition = {
-      'top-right': [],
-      'bottom-center': [],
-      'center': []
+      'primary': [],
+      'secondary': [],
+      'modal': []
     }
 
     toasts.forEach(toast => {
-      const pos = toast.getAttribute('position') || 'top-right'
+      const pos = toast.getAttribute('position') || 'primary'
       if (byPosition[pos]) {
         byPosition[pos].push(toast)
       }
     })
 
-    // top-right: all visible, update offset for stacking
-    byPosition['top-right'].forEach((toast, index) => {
+    // primary: all visible, update offset for stacking
+    byPosition['primary'].forEach((toast, index) => {
       toast.removeAttribute('hidden')
       toast.style.setProperty('--toast-stack-index', index)
     })
 
-    // bottom-center: only last visible
-    byPosition['bottom-center'].forEach((toast, index, arr) => {
+    // secondary: only last visible
+    byPosition['secondary'].forEach((toast, index, arr) => {
       if (index === arr.length - 1) {
         toast.removeAttribute('hidden')
       } else {
@@ -94,8 +94,8 @@ export class ToastManager extends HTMLElement {
       }
     })
 
-    // center: only last visible
-    byPosition['center'].forEach((toast, index, arr) => {
+    // modal: only last visible
+    byPosition['modal'].forEach((toast, index, arr) => {
       if (index === arr.length - 1) {
         toast.removeAttribute('hidden')
       } else {
@@ -110,10 +110,10 @@ export class ToastManager extends HTMLElement {
    * @param {string} options.message - Toast message
    * @param {string} options.type - 'info' | 'success' | 'warning' | 'error'
    * @param {number} options.duration - Auto-dismiss in ms (0 = no auto-dismiss)
-   * @param {string} options.position - 'top-right' | 'bottom-center' | 'center'
+   * @param {string} options.position - 'primary' | 'secondary' | 'modal'
    * @returns {HTMLElement} The created toast element
    */
-  show({ message = '', type = 'info', duration = 3000, position = 'top-right' } = {}) {
+  show({ message = '', type = 'info', duration = 3000, position = 'primary' } = {}) {
     const toast = document.createElement('view-toast')
 
     toast.setAttribute('type', type)
@@ -140,7 +140,7 @@ export class ToastManager extends HTMLElement {
     const toast = document.createElement('view-toast')
 
     toast.setAttribute('type', type)
-    toast.setAttribute('position', 'center')
+    toast.setAttribute('position', 'modal')
     toast.setAttribute('duration', '0')
     toast.setAttribute('mode', 'alert')
     toast.setAttribute('confirm-text', buttonText)
@@ -172,7 +172,7 @@ export class ToastManager extends HTMLElement {
     const toast = document.createElement('view-toast')
 
     toast.setAttribute('type', type)
-    toast.setAttribute('position', 'center')
+    toast.setAttribute('position', 'modal')
     toast.setAttribute('duration', '0')
     toast.setAttribute('mode', 'confirm')
     toast.setAttribute('confirm-text', confirmText)
