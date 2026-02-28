@@ -74,6 +74,7 @@
     --space-8: 48px;
 
     --control-height: 30px;
+    --aside-width: 220px;
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -304,13 +305,7 @@
     background: var(--surface);
   }
 
-  button:focus-visible,
-  [type="button"]:focus-visible,
-  [type="submit"]:focus-visible,
-  [type="reset"]:focus-visible {
-    outline: 3px solid var(--intent-ring);
-    outline-offset: 2px;
-  }
+
 
   button:has(small) {
     flex-direction: column;
@@ -412,8 +407,6 @@
   select:focus,
   textarea:focus {
     border-color: color-mix(in oklab, var(--intent), var(--surface) 40%);
-    outline: 3px solid var(--intent-ring);
-    outline-offset: 2px;
   }
 
   /* intent on inputs = validation state (direct or cascaded from parent) */
@@ -863,7 +856,17 @@ section {
 }
 
 aside {
-  width: 220px;
+  width: var(--aside-width);
   display: flex;
   flex-direction: column;
+}
+
+fieldset {
+  /*TODO replace with real styles */
+  background: blue;
+}
+
+legend {
+  /*TODO replace with real styles */
+  background: violet;
 }
