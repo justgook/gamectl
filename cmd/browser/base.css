@@ -199,10 +199,8 @@
     --popup-shadow: var(--shadow);
     --popup-header-bg: var(--surface-elevated);
     --popup-header-color: var(--accent);
-
-    /* toast */
-    --toast-bg: var(--surface);
-    --toast-border: var(--border);
+    --popup-animation-duration: 200ms;
+    --popup-animation-easing: ease-out;
 
     /* resize handles */
     --resize-handle-size: 24px;
@@ -575,6 +573,10 @@
     z-index: 0;
   }
 
+  view-area {
+    overflow: auto;
+  }
+
   /* corners */
   view--corner {
     z-index: var(--z-index-corner);
@@ -606,19 +608,92 @@
     z-index: var(--z-index-handle);
   }
 
-  /* popup */
+  /* ═══════════════════════════════════════════════════════════════════════════
+     POPUPS
+
+     view-popup is a fixed overlay (backdrop + centering container).
+     Its Shadow DOM holds <header> + <slot> which form the popup card.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* only the topmost popup is visible */
   popup-manager view-popup:not(:last-of-type) {
     display: none;
   }
 
+  /* backdrop + centering layer */
   view-popup {
     position: fixed;
-    flex-direction: column;
     inset: 0;
     z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: var(--popup-backdrop);
+  }
+
+  /* sizes — applied as light-DOM classes by view-popup.js */
+  view-popup.popup-size-small {
+    --popup-width: 360px;
+  }
+
+  view-popup.popup-size-medium {
+    --popup-width: 560px;
+  }
+
+  view-popup.popup-size-large {
+    --popup-width: 800px;
+  }
+
+  /* popup card (Shadow DOM parts) */
+  view-popup::part(container) {
+    width: min(var(--popup-width, 800px), calc(100vw - 2 * var(--space-6)));
+    max-height: calc(100vh - 2 * var(--space-6));
+    display: flex;
+    flex-direction: column;
+    background: var(--popup-bg);
+    border: 1px solid var(--popup-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--popup-shadow);
+    overflow: hidden;
+    color: var(--text);
+    pointer-events: auto;
+  }
+
+  view-popup::part(header) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--control-height);
+    padding: var(--space-2) var(--space-4);
+    background: var(--popup-header-bg);
+    border-bottom: 1px solid var(--popup-border);
+    color: var(--popup-header-color);
+  }
+
+  .popup-body {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: var(--space-4);
+  }
+
+  .popup-close {
+    margin-left: auto;
+    width: var(--control-height);
+    min-width: var(--control-height);
+    padding: 0;
+  }
+
+  ::slotted([slot="title"]) {
+    margin: 0;
+    font-size: var(--font-lg);
+    font-weight: 600;
+    color: inherit;
+  }
+
+  ::slotted([slot="header-controls"]) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
