@@ -19,7 +19,8 @@
   }
 
   view-popup {
-    background: yellow;
+    background: var(--popup-bg);
+    border-color: var(--popup-border);
   }
 
   view--corner {

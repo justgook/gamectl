@@ -19,13 +19,17 @@ export class ViewPopup extends HTMLElement {
     shadowRoot.innerHTML = `
       <link rel="stylesheet" href="reset.css">
       <link rel="stylesheet" href="base.css">
-      <link data-theme-stylesheet rel="stylesheet" href="themes/98.css">
-        <header part="header">
-          <slot name="title"></slot>
-          <slot name="header-controls"></slot>
-          <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
-        </header>
-        <slot></slot>
+      <link data-theme-stylesheet rel="stylesheet" href="themes/the98.css">
+        <section class="popup-container" part="container">
+          <header part="header">
+            <slot name="title"></slot>
+            <slot name="header-controls"></slot>
+            <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
+          </header>
+          <div class="popup-body" part="body">
+            <slot></slot>
+          </div>
+        </section>
       `
 
     // Setup close button
@@ -34,21 +38,12 @@ export class ViewPopup extends HTMLElement {
       closeBtn.addEventListener('click', () => this.close())
     }
 
-    // Setup backdrop click handler
-    const backdrop = this.shadowRoot.querySelector('.popup-backdrop')
-    if (backdrop) {
-      backdrop.addEventListener('click', (e) => {
-        if (e.target === backdrop) {
-          this.close()
-        }
-      })
-    }
-
-    // Prevent clicks inside container from closing
     const container = this.shadowRoot.querySelector('.popup-container')
     if (container) {
-      container.addEventListener('click', (e) => {
-        e.stopPropagation()
+      this.addEventListener('click', (e) => {
+        if (!e.composedPath().includes(container)) {
+          this.close()
+        }
       })
     }
   }
@@ -56,11 +51,6 @@ export class ViewPopup extends HTMLElement {
   connectedCallback() {
     if (typeof window.__syncThemeStylesheetToRoot === 'function') {
       window.__syncThemeStylesheetToRoot(this.shadowRoot)
-    }
-
-    // Add base popup class
-    if (!this.classList.contains('popup')) {
-      this.classList.add('popup')
     }
 
     // Add size class
