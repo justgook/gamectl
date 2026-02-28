@@ -536,26 +536,8 @@
       </div>
     </template>
 
-    <!-- Splash Screen - renders immediately before any JS loads -->
-    <div id="splash-screen" class="splash-overlay" style="position: fixed;inset: 0; display:flex;z-index: 100;">
-      <div class="splash-panel">
-        <div class="splash-background">
-          <img src="/splash/background.svg" alt="" aria-hidden="true">
-        </div>
-        <div class="splash-content" style="position:fixed; inset: 0;">
-          <img src="/splash/title.svg" class="splash-title" alt="GAMS - Game Asset Management System" width="600"
-            height="200">
-          <div class="splash-loader">
-            <div class="splash-loader-track">
-              <div class="splash-loader-bar"></div>
-            </div>
-            <span class="splash-loader-text">Loading...</span>
-          </div>
-          <button class="splash-enter" disabled>Enter</button>
-          <span class="splash-version">v0.1.0</span>
-        </div>
-      </div>
-    </div>
+    <!-- Splash Screen - renders immediately before app boot completes -->
+    <splash-screen id="splash-screen"></splash-screen>
 
     <toast-manager>
       <popup-manager>
@@ -565,6 +547,7 @@
       </popup-manager>
     </toast-manager>
     <script src="coi-serviceworker.js"></script>
+    <script type="module" src="/splash-screen.js"></script>
     <script type="module" src="/app.js"></script>
   </body>
 
