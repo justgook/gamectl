@@ -1,5 +1,67 @@
 import { NodeBase } from './node-base.js'
 
+const POPUP_TEMPLATE_HTML = {
+  'node-popup-text': `
+    <div style="padding: 16px;">
+      <input type="text" data-output="text" value="" placeholder="Enter text..."
+        style="font-size: 16px; padding: 8px; border: 2px solid #ddd; border-radius: 4px; width: 100%;">
+    </div>
+  `,
+  'node-popup-numpad': `
+    <div style="padding: 12px;" data-numpad>
+      <input type="number" data-output="value" value="0"
+        style="font-size: 16px; padding: 8px; width: 100%; text-align: center; margin-bottom: 10px;">
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '7'; i.focus()" style="padding: 8px; font-size: 14px;">7</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '8'; i.focus()" style="padding: 8px; font-size: 14px;">8</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '9'; i.focus()" style="padding: 8px; font-size: 14px;">9</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '4'; i.focus()" style="padding: 8px; font-size: 14px;">4</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '5'; i.focus()" style="padding: 8px; font-size: 14px;">5</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '6'; i.focus()" style="padding: 8px; font-size: 14px;">6</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '1'; i.focus()" style="padding: 8px; font-size: 14px;">1</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '2'; i.focus()" style="padding: 8px; font-size: 14px;">2</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '3'; i.focus()" style="padding: 8px; font-size: 14px;">3</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = String(i.value||'') + '0'; i.focus()" style="padding: 8px; font-size: 14px;">0</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = i.value.slice(0, -1); i.focus()" style="padding: 8px; font-size: 14px; background: #ff6b6b; color: white;">&#9003;</button>
+        <button onclick="let i=this.closest('[data-numpad]').querySelector('input'); i.value = ''; i.focus()" style="padding: 8px; font-size: 14px; background: #ff6b6b; color: white;">Clear</button>
+      </div>
+    </div>
+  `,
+  'node-popup-simple-numpad': `
+    <input data-output="value" value="0">
+    <button onclick="this.parentNode.querySelector('input').value += '1'">1</button>
+    <button onclick="this.parentNode.querySelector('input').value += '2'">2</button>
+    <button onclick="this.parentNode.querySelector('input').value = ''">C</button>
+  `,
+  'node-popup-input-processor': `
+    <div style="padding: 16px;">
+      <label>From connected node:</label>
+      <input type="number" data-input="baseValue" readonly
+        style="background: #f5f5f5; padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 8px;">
+      <label>Manual value:</label>
+      <input type="number" data-output="result" value="10"
+        style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 8px;">
+      <button type="button"
+        onclick="let b=this.closest('div').querySelector('[data-input=baseValue]'); let r=this.closest('div').querySelector('[data-output=result]'); if(b.value) r.value = b.value;"
+        style="padding: 8px; background: #007bff; color: white; border: none; border-radius: 4px;">
+        Copy Base Value
+      </button>
+    </div>
+  `,
+  'node-popup-tilemap-preview': `
+    <view-tilemap data-key="new_map" style="width: 800px; height: 600px; border: 1px solid #ccc; border-radius: 4px;">
+    </view-tilemap>
+  `,
+  'node-popup-tree-preview': `
+    <view-tree data-store-key="progression" style="width: 800px; height: 600px; border: 1px solid #ccc; border-radius: 4px;">
+    </view-tree>
+  `,
+  'node-popup-sql-table-preview': `
+    <view-sql-table data-query="SELECT 1" data-page-size="20" style="width: 900px; height: 500px; border: 1px solid #ccc; border-radius: 4px;">
+    </view-sql-table>
+  `,
+}
+
 /**
  * Popup Node - Interactive input/output node with custom popup UI
  * 
@@ -40,7 +102,7 @@ export class NodePopup extends NodeBase {
   connectedCallback() {
     super.connectedCallback()
 
-    // Validate template structure only if no external template is specified
+    // Validate template structure only if no named template is specified
     if (!this.getAttribute('template')) {
       this._validateTemplateStructure()
     }
@@ -151,24 +213,25 @@ export class NodePopup extends NodeBase {
   }
 
   /**
-   * Get template content from external template or inline template
-   * Priority: external template (via template attribute) > inline <template> child
+   * Get template content from named in-module template or inline template
+   * Priority: named template (via template attribute) > inline <template> child
    * @private
    * @returns {DocumentFragment} Cloned template content
    */
   _getTemplateContent() {
     const templateId = this.getAttribute('template')
 
-    // First try external template by ID
+    // First try static in-module templates by ID
     if (templateId) {
-      const externalTemplate = document.getElementById(templateId)
-      if (!externalTemplate) {
-        throw new Error(`External template "${templateId}" not found for node-popup (${this.id})`)
+      const templateHtml = POPUP_TEMPLATE_HTML[templateId]
+      if (!templateHtml) {
+        const knownTemplates = Object.keys(POPUP_TEMPLATE_HTML).join(', ')
+        throw new Error(`Template "${templateId}" not found for node-popup (${this.id}). Known templates: ${knownTemplates}`)
       }
-      if (externalTemplate.tagName !== 'TEMPLATE') {
-        throw new Error(`Element "${templateId}" is not a <template> element`)
-      }
-      return externalTemplate.content.cloneNode(true)
+
+      const template = document.createElement('template')
+      template.innerHTML = templateHtml.trim()
+      return template.content.cloneNode(true)
     }
 
     // Fall back to inline <template> child

@@ -19,9 +19,13 @@ export class ViewSqlConsole extends HTMLElement {
     this.style.minHeight = '0'
     this.setAttribute('tabindex', '0')
 
-    const template = document.getElementById('view-sql-console')
-    const content = template.content.cloneNode(true)
-    this.appendChild(content)
+    this.innerHTML = `
+      <div data-element="output" style="flex: 1; min-height: 0; overflow: auto; padding: var(--space-3); background: var(--bg);"></div>
+      <div style="display: flex; align-items: flex-start; padding: var(--space-2); border-top: 1px solid var(--border); background: var(--surface);">
+        <span style="color: var(--accent); font-family: var(--font-mono); font-size: var(--font-sm); padding: 8px 4px 8px 8px;">></span>
+        <textarea data-element="input" placeholder="SELECT * FROM sqlite_schema;" rows="1" style="flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: var(--font-mono); font-size: var(--font-sm); resize: none; padding: 8px; line-height: 1.4; min-height: 24px; field-sizing: content;"></textarea>
+      </div>
+    `
 
     this.outputArea = this.querySelector('[data-element="output"]')
     this.inputArea = this.querySelector('[data-element="input"]')

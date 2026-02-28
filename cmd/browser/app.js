@@ -4,6 +4,7 @@ import "./systems/event-bus.js"
 import { bus as eventBus } from "./systems/event-bus.js"
 import { toast } from './systems/toast.js'
 import { parseCSVLines } from './util/csv.js'
+import { ensureThemeStylesheetLink } from './systems/theme-stylesheet.js'
 
 import "./systems/cache.js"
 import { LayoutManager } from "./views/view-layout.js"
@@ -54,7 +55,7 @@ function applyThemeStylesheet(theme) {
   if (!themeHref) return
 
   const syncRoot = (root) => {
-    const link = root?.querySelector?.('[data-theme-stylesheet]')
+    const link = ensureThemeStylesheetLink(root)
     if (link && link.getAttribute('href') !== themeHref) {
       link.setAttribute('href', themeHref)
     }

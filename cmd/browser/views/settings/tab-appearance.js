@@ -1,5 +1,6 @@
 import { bus } from '../../systems/event-bus.js'
 import { toast } from '../../systems/toast.js'
+import { ensureThemeStylesheetLink } from '../../systems/theme-stylesheet.js'
 import { parseCSVLines } from '../../util/csv.js'
 
 const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
@@ -221,11 +222,13 @@ class SettingsTabAppearance extends HTMLElement {
     const href = this.themeManifest.themes[themeKey]?.href
     if (!href) return
 
-    document.querySelectorAll('[data-theme-stylesheet]').forEach(link => {
-      link.setAttribute('href', href)
-    })
+    const documentLink = ensureThemeStylesheetLink(document)
+    if (documentLink) {
+      documentLink.setAttribute('href', href)
+    }
+
     document.querySelectorAll('view-area, view-popup').forEach(el => {
-      const link = el.shadowRoot?.querySelector('[data-theme-stylesheet]')
+      const link = ensureThemeStylesheetLink(el.shadowRoot)
       if (link) link.setAttribute('href', href)
     })
   }

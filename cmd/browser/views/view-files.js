@@ -60,6 +60,7 @@ export class ViewFiles extends HTMLElement {
 
     // Containers
     this.toolbar = null
+    this._headerControlsElement = null
     this.treeContainer = null
     this.statusBar = null
     this.chooserActions = null
@@ -74,46 +75,32 @@ export class ViewFiles extends HTMLElement {
     this.style.flex = '1'
     this.setAttribute('tabindex', '0')
 
-    // Get template
-    const template = document.getElementById('view-files')
-    if (template) {
-      const content = template.content.cloneNode(true)
-      this.appendChild(content)
-    } else {
-      // Fallback inline structure
-      this.innerHTML = `
-        <div data-element="toolbar">
-          <button data-action="refresh" title="Refresh">Refresh</button>
-          <button data-action="new-file" title="New File">+ File</button>
-          <button data-action="new-folder" title="New Folder">+ Folder</button>
-          <button data-action="delete" title="Delete">Delete</button>
-          <button data-action="upload" title="Upload File">Upload</button>
-          <button data-action="download" title="Download File">Download</button>
-          <span data-element="path-display">/</span>
-        </div>
-        <div data-element="tree-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Date Modified</th>
-                <th>Size</th>
-                <th>Kind</th>
-              </tr>
-            </thead>
-            <tbody data-element="tree-body"></tbody>
-          </table>
-        </div>
-        <div data-element="status"></div>
-      `
-    }
+    this.innerHTML = `
+      <div data-element="tree-container" class="files-tree-container">
+        <table class="files-tree">
+          <thead>
+            <tr>
+              <th class="files-col-name">Name</th>
+              <th class="files-col-modified">Date Modified</th>
+              <th class="files-col-size">Size</th>
+              <th class="files-col-kind">Kind</th>
+            </tr>
+          </thead>
+          <tbody data-element="tree-body"></tbody>
+        </table>
+      </div>
+      <div data-element="status" class="files-status"></div>
+    `
+
+    // Mount header controls into parent chrome element
+    this._mountHeaderControls()
 
     // Cache element references
-    this.toolbar = this.querySelector('[data-element="toolbar"]')
+    this.toolbar = this._headerControlsElement
     this.treeContainer = this.querySelector('[data-element="tree-container"]')
     this.treeBody = this.querySelector('[data-element="tree-body"]')
     this.statusBar = this.querySelector('[data-element="status"]')
-    this.pathDisplay = this.querySelector('[data-element="path-display"]')
+    this.pathDisplay = this.toolbar?.querySelector('[data-element="path-display"]')
 
     // Parse attributes
     this.rootPath = this.getAttribute('data-root') || '/'
@@ -151,7 +138,42 @@ export class ViewFiles extends HTMLElement {
   }
 
   disconnectedCallback() {
-    // Cleanup if needed
+    this._unmountHeaderControls()
+  }
+
+  createHeaderControlsElement() {
+    const toolbar = document.createElement('div')
+    toolbar.dataset.element = 'toolbar'
+    toolbar.setAttribute('slot', 'header-controls')
+    toolbar.innerHTML = `
+      <button data-action="refresh" aria-label="Refresh" title="Refresh"><i aria-hidden="true">refresh</i></button>
+      <button data-action="new-file" aria-label="New File" title="New File"><i aria-hidden="true">note_add</i></button>
+      <button data-action="new-folder" aria-label="New Folder" title="New Folder"><i aria-hidden="true">create_new_folder</i></button>
+      <button data-action="delete" aria-label="Delete" title="Delete"><i aria-hidden="true">delete</i></button>
+      <button data-action="upload" aria-label="Upload File" title="Upload File"><i aria-hidden="true">upload</i></button>
+      <button data-action="download" aria-label="Download File" title="Download File"><i aria-hidden="true">download</i></button>
+      <span class="files-path" data-element="path-display">/</span>
+    `
+    return toolbar
+  }
+
+  _mountHeaderControls() {
+    if (!this.parentElement || this._headerControlsElement) return
+
+    const headerControls = this.createHeaderControlsElement()
+    if (headerControls) {
+      this._headerControlsElement = headerControls
+      this.parentElement.appendChild(headerControls)
+    }
+  }
+
+  _unmountHeaderControls() {
+    if (this._headerControlsElement && this._headerControlsElement.parentElement) {
+      this._headerControlsElement.remove()
+      this._headerControlsElement = null
+      this.toolbar = null
+      this.pathDisplay = null
+    }
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
