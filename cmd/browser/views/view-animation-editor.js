@@ -238,20 +238,30 @@ export class ViewAnimationEditor extends HTMLElement {
   }
   
   _mountHeaderControls() {
-    const viewTag = this.tagName.toLowerCase()
-    const template = document.getElementById(viewTag)
-    
-    if (template && this.parentElement) {
-      const content = template.content.cloneNode(true)
-      const headerControls = content.querySelector('[slot="header-controls"]')
-      
-      if (headerControls) {
-        this._headerControlsElement = headerControls
-        this.parentElement.appendChild(headerControls)
-        this._setupHeaderControls()
-      }
+    if (!this.parentElement) return
+
+    const headerControls = document.createElement('div')
+    headerControls.setAttribute('slot', 'header-controls')
+    headerControls.innerHTML = `
+      <button data-action="load-spritesheet" aria-label="Load Sheet" title="Load Sheet"><i aria-hidden="true">folder_open</i></button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <label style="display: inline-flex; align-items: center; gap: var(--space-2);">
+        <span>Tile:</span>
+        <input type="number" data-element="tile-width" value="16" min="1" title="Tile Width" style="width: 64px;">
+        <span>x</span>
+        <input type="number" data-element="tile-height" value="16" min="1" title="Tile Height" style="width: 64px;">
+      </label>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <button data-action="new" class="accent" aria-label="New" title="New"><i aria-hidden="true">add</i></button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
+    `
+
+    this._headerControlsElement = headerControls
+    this.parentElement.appendChild(headerControls)
+    this._setupHeaderControls()
     }
-  }
+  
   
   _unmountHeaderControls() {
     if (this._headerControlsElement?.parentElement) {

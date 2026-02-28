@@ -100,22 +100,24 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   /**
-   * Mount header controls from template into parent chrome element
+   * Create header controls for the current view.
+   * Subclasses can override to provide their own controls.
+   */
+  createHeaderControlsElement() {
+    return null;
+  }
+
+  /**
+   * Mount header controls into parent chrome element
    */
   _mountHeaderControls() {
-    const viewTag = this.tagName.toLowerCase();
-    const template = document.getElementById(viewTag);
+    if (!this.parentElement) return;
 
-    if (template && this.parentElement) {
-      const content = template.content.cloneNode(true);
-      const headerControls = content.querySelector('[slot="header-controls"]');
-
-      if (headerControls) {
-        // Store reference for cleanup
-        this._headerControlsElement = headerControls;
-        // Append to parent (chrome element) so it becomes a sibling
-        this.parentElement.appendChild(headerControls);
-      }
+    const headerControls = this.createHeaderControlsElement();
+    if (headerControls) {
+      headerControls.setAttribute('slot', 'header-controls');
+      this._headerControlsElement = headerControls;
+      this.parentElement.appendChild(headerControls);
     }
   }
 

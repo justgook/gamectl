@@ -70,18 +70,53 @@ export default class ViewStbEditor extends HTMLElement {
   }
 
   _mountHeaderControls() {
-    const viewTag = this.tagName.toLowerCase()
-    const template = document.getElementById(viewTag)
+    if (!this.parentElement) return
 
-    if (template && this.parentElement) {
-      const content = template.content.cloneNode(true)
-      const headerControls = content.querySelector('[slot="header-controls"]')
+    const headerControls = document.createElement('div')
+    headerControls.setAttribute('slot', 'header-controls')
+    headerControls.innerHTML = `
+      <button class="accent tool-btn" data-tool="1" title="Brush tool" aria-label="Brush tool">
+        <i aria-hidden="true">brush</i>
+      </button>
+      <button data-tool="0" title="Select tool" aria-label="Select tool">
+        <i aria-hidden="true">select</i>
+      </button>
+      <button data-tool="2" title="Erase tool" aria-label="Erase tool">
+        <i aria-hidden="true">ink_eraser</i>
+      </button>
+      <button data-tool="3" title="Eyedropper tool" aria-label="Eyedropper tool">
+        <i aria-hidden="true">colorize</i>
+      </button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <button data-id="undo-btn" title="Undo" aria-label="Undo">
+        <i aria-hidden="true">undo</i>
+      </button>
+      <button data-id="redo-btn" title="Redo" aria-label="Redo">
+        <i aria-hidden="true">redo</i>
+      </button>
+      <button data-id="cut-btn" title="Cut" aria-label="Cut">
+        <i aria-hidden="true">content_cut</i>
+      </button>
+      <button data-id="copy-btn" title="Copy" aria-label="Copy">
+        <i aria-hidden="true">content_copy</i>
+      </button>
+      <button data-id="paste-btn" title="Paste" aria-label="Paste">
+        <i aria-hidden="true">content_paste</i>
+      </button>
+      <button data-id="clear-btn" title="Clear map" aria-label="Clear map">
+        <i aria-hidden="true">delete_sweep</i>
+      </button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <button class="accent" data-id="grid-btn" title="Toggle grid" aria-label="Toggle grid">
+        <i aria-hidden="true">grid_on</i>
+      </button>
+      <button data-id="fit-btn" title="Fit map to viewport" aria-label="Fit map to viewport">
+        <i aria-hidden="true">fit_screen</i>
+      </button>
+    `
 
-      if (headerControls) {
-        this._headerControlsElement = headerControls
-        this.parentElement.appendChild(headerControls)
-      }
-    }
+    this._headerControlsElement = headerControls
+    this.parentElement.appendChild(headerControls)
   }
 
   _unmountHeaderControls() {

@@ -98,6 +98,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   constructor() {
     super()
+    this._headerControlsElement = null
     this.state = {
       selectedUniverse: null,
       selectedArmy: null,
@@ -121,10 +122,71 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     this.style.width = '100%'
     this.style.height = '100%'
 
-    // Load template
-    const template = document.getElementById('view-opr-unit-builder')
-    const content = template.content.cloneNode(true)
-    this.appendChild(content)
+    this._mountHeaderControls()
+
+    this.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); height: 100%; overflow: auto;">
+        <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+          <label style="display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-width: 150px;">
+            <span style="font-weight: 500; color: var(--text-muted);">Universe</span>
+            <select data-select="universe" style="padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: var(--font-md);">
+              <option value="">-- Select Universe --</option>
+            </select>
+          </label>
+          <label style="display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-width: 150px;">
+            <span style="font-weight: 500; color: var(--text-muted);">Army</span>
+            <select data-select="army" disabled style="padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: var(--font-md);">
+              <option value="">-- Select Army --</option>
+            </select>
+          </label>
+          <label style="display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-width: 150px;">
+            <span style="font-weight: 500; color: var(--text-muted);">Unit</span>
+            <select data-select="unit" disabled style="padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: var(--font-md);">
+              <option value="">-- Select Unit --</option>
+            </select>
+          </label>
+        </div>
+
+        <div data-element="unit-display" style="display: none; flex-direction: column; gap: var(--space-3);">
+          <div style="background: var(--surface-elevated); padding: var(--space-3); border-radius: var(--radius-md); border-left: 4px solid var(--accent);">
+            <h2 data-element="unit-name" style="margin: 0 0 var(--space-2) 0; font-size: var(--font-xl); color: var(--text);"></h2>
+            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; font-size: var(--font-sm); color: var(--text-muted);">
+              <div><strong>Size:</strong> <span data-element="unit-size"></span></div>
+              <div><strong>Cost:</strong> <span data-element="unit-cost"></span>pts</div>
+              <div><strong>Quality:</strong> <span data-element="unit-quality"></span>+</div>
+              <div><strong>Defense:</strong> <span data-element="unit-defense"></span>+</div>
+              <div><strong>Type:</strong> <span data-element="unit-type"></span></div>
+            </div>
+          </div>
+
+          <div data-element="special-rules-container" style="display: none;">
+            <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--font-lg); color: var(--text);">Special Rules</h3>
+            <div data-element="special-rules" style="display: flex; gap: var(--space-2);"></div>
+          </div>
+
+          <div data-element="weapons-container" style="display: none;">
+            <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--font-lg); color: var(--text);">Weapons</h3>
+            <div data-element="weapons" style="display: flex; flex-direction: column; gap: var(--space-2);"></div>
+          </div>
+
+          <div data-element="upgrades-container" style="display: none;">
+            <h3 style="margin: 0 0 var(--space-2) 0; font-size: var(--font-lg); color: var(--text);">Available Upgrades</h3>
+            <div data-element="upgrades" style="display: flex; flex-direction: column; gap: var(--space-2);"></div>
+          </div>
+
+          <div style="background: var(--surface-elevated); padding: var(--space-3); border-radius: var(--radius-md); margin-top: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <strong style="font-size: var(--font-lg);">Total Cost:</strong>
+              <strong data-element="total-cost" style="font-size: var(--font-xl); color: var(--accent);">0pts</strong>
+            </div>
+          </div>
+        </div>
+
+        <div data-element="empty-state" style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: var(--font-lg);">
+          Select a universe, army, and unit to begin
+        </div>
+      </div>
+    `
     
     // Inject custom input styles
     const tempDiv = document.createElement('div')
@@ -161,8 +223,8 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       totalCost: this.querySelector('[data-element="total-cost"]'),
 
       // Header controls
-      randomBtn: this.querySelector('[data-action="random-unit"]'),
-      exportBtn: this.querySelector('[data-action="export-json"]')
+      randomBtn: this._headerControlsElement?.querySelector('[data-action="random-unit"]') ?? null,
+      exportBtn: this._headerControlsElement?.querySelector('[data-action="export-json"]') ?? null
     }
 
     // Attach event listeners
@@ -174,6 +236,31 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
     // Initial load
     this.loadUniverses()
+  }
+
+  disconnectedCallback() {
+    this._unmountHeaderControls()
+  }
+
+  _mountHeaderControls() {
+    if (!this.parentElement) return
+
+    const controls = document.createElement('div')
+    controls.setAttribute('slot', 'header-controls')
+    controls.innerHTML = `
+      <button data-action="random-unit" aria-label="Random Unit" title="Random Unit"><i aria-hidden="true">shuffle</i></button>
+      <button data-action="export-json" class="accent" aria-label="Export JSON" title="Export JSON"><i aria-hidden="true">ios_share</i></button>
+    `
+
+    this._headerControlsElement = controls
+    this.parentElement.appendChild(controls)
+  }
+
+  _unmountHeaderControls() {
+    if (this._headerControlsElement?.parentElement) {
+      this._headerControlsElement.remove()
+      this._headerControlsElement = null
+    }
   }
 
   async cacheSpecialRules(armyId) {

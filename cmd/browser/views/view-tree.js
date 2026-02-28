@@ -50,6 +50,18 @@ export class ViewTree extends ViewCanvasBase {
     this.unsubscribe = noop
   }
 
+  createHeaderControlsElement() {
+    const controls = document.createElement('div')
+    controls.innerHTML = `
+      <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
+      <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+      <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+      <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+    `
+    return controls
+  }
+
   attributeChangedCallback(name, oldVal, newVal) {
     if (name === 'data-key' && oldVal !== newVal) {
       this.treeKey = newVal

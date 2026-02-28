@@ -1,3 +1,5 @@
+import { ensureThemeStylesheetLink } from '../systems/theme-stylesheet.js'
+
 /**
  * Popup Component with Shadow DOM
  * 
@@ -19,7 +21,6 @@ export class ViewPopup extends HTMLElement {
     shadowRoot.innerHTML = `
       <link rel="stylesheet" href="reset.css">
       <link rel="stylesheet" href="base.css">
-      <link data-theme-stylesheet rel="stylesheet" href="themes/the98.css">
         <section class="popup-container" part="container">
           <header part="header">
             <slot name="title"></slot>
@@ -49,6 +50,7 @@ export class ViewPopup extends HTMLElement {
   }
 
   connectedCallback() {
+    ensureThemeStylesheetLink(this.shadowRoot)
     if (typeof window.__syncThemeStylesheetToRoot === 'function') {
       window.__syncThemeStylesheetToRoot(this.shadowRoot)
     }

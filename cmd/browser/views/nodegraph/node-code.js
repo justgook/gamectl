@@ -2,6 +2,32 @@ import { NodeBase } from './node-base.js'
 import { bytes } from "../../util/dataview.js"
 import { parseCSVWithHeaders } from '../../util/csv.js'
 
+const CODE_EDITOR_POPUP_HTML = `
+  <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+    <div style="font-size: var(--font-sm); color: var(--text-muted); padding: var(--space-2); background: var(--surface); border-radius: var(--radius-sm);">
+      <strong>Inputs ($in):</strong> <span data-element="inputs-info">none</span><br>
+      <strong>Outputs ($out):</strong> <span data-element="outputs-info">none</span>
+    </div>
+    <textarea data-element="code-editor" spellcheck="false"
+      placeholder="// Write your code here&#10;// Access inputs via $in.name&#10;// Set outputs via $out.name = value"
+      style="width: 100%; min-width: 700px; min-height: 300px; font-family: monospace; font-size: 14px; padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); resize: vertical; tab-size: 2;"></textarea>
+    <div data-element="error-display"
+      style="color: var(--danger); font-size: var(--font-sm); display: none; padding: var(--space-2); background: color-mix(in oklab, var(--danger), transparent 85%); border-radius: var(--radius-sm);">
+    </div>
+    <div data-element="button-container"
+      style="display: flex; gap: var(--space-2); justify-content: flex-end; align-items: center; margin-top: var(--space-2);">
+      <button data-action="cancel">Cancel</button>
+      <button class="accent" data-action="save">Save</button>
+    </div>
+  </div>
+`
+
+function createCodeEditorPopupContent() {
+  const template = document.createElement('template')
+  template.innerHTML = CODE_EDITOR_POPUP_HTML.trim()
+  return template.content.cloneNode(true)
+}
+
 /**
  * NodeCode - Custom JavaScript transformation node
  * 
@@ -190,20 +216,13 @@ export class NodeCode extends NodeBase {
   }
 
   /**
-   * Open code editor popup using template from index.html
+   * Open code editor popup
    */
   async openEditPopup() {
     const popupManager = this.closest('popup-manager') ||
       document.querySelector('popup-manager')
     if (!popupManager) {
       console.error('popup-manager not found')
-      return
-    }
-
-    // Get the template from the document
-    const template = document.getElementById('popup-node-code')
-    if (!template) {
-      console.error('popup-node-code template not found in document')
       return
     }
 
@@ -228,8 +247,8 @@ export class NodeCode extends NodeBase {
     titleElement.textContent = `Edit Code: ${this.title || this.id}`
     popup.appendChild(titleElement)
 
-    // Clone template content
-    const content = template.content.cloneNode(true)
+    // Create popup content from in-module template
+    const content = createCodeEditorPopupContent()
 
     // Populate the info section
     const inputsInfo = content.querySelector('[data-element="inputs-info"]')

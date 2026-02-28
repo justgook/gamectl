@@ -91,6 +91,28 @@ export class ViewSkeleton extends ViewCanvasBase {
     this._selectionUnsubscribers = []
   }
 
+  createHeaderControlsElement() {
+    const controls = document.createElement('div')
+    controls.innerHTML = `
+      <select data-action="pose-select" title="Select Pose">
+        <option value="default">default</option>
+      </select>
+      <button data-action="pose-save" aria-label="Save Pose" title="Save Pose"><i aria-hidden="true">save</i></button>
+      <button data-action="pose-new" aria-label="Save as New Pose" title="Save as New Pose"><i aria-hidden="true">add</i></button>
+      <button data-action="pose-reset" aria-label="Reset to Saved Pose" title="Reset to Saved Pose"><i aria-hidden="true">replay</i></button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <button data-action="add-bone" aria-label="Add Bone" title="Add Bone"><i aria-hidden="true">device_hub</i></button>
+      <button data-action="toggle-labels" aria-label="Toggle Labels" title="Toggle Labels"><i aria-hidden="true">label</i></button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <button data-action="save" class="accent" aria-label="Save Skeleton" title="Save Skeleton"><i aria-hidden="true">save</i></button>
+      <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+      <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+      <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+    `
+    return controls
+  }
+
   setupUI() {
     // Create tooltip
     this.tileInfo = document.createElement('div')

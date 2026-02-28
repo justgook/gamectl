@@ -48,6 +48,19 @@ export class ViewSpritePacker extends ViewCanvasBase {
     this.hoveredSprite = -1
   }
 
+  createHeaderControlsElement() {
+    const controls = document.createElement('div')
+    controls.innerHTML = `
+      <button data-action="add-sprites" aria-label="Add Sprites" title="Add Sprites"><i aria-hidden="true">add_photo_alternate</i></button>
+      <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">delete_sweep</i></button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+      <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+      <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+    `
+    return controls
+  }
+
   attributeChangedCallback(name, oldVal, newVal) {
     if (name === 'data-sprites' && oldVal !== newVal) {
       this.loadSpritesFromAttribute(newVal)

@@ -48,6 +48,20 @@ export class ViewTilemap extends ViewCanvasBase {
     this.currentTileValue = 1
   }
 
+  createHeaderControlsElement() {
+    const controls = document.createElement('div')
+    controls.innerHTML = `
+      <input type="number" data-action="tile-value" value="1" min="0"
+        style="width: 32px; height: 32px; text-align: center; padding: 0; border: 2px solid var(--border-focus); border-radius: var(--radius-sm); background: var(--surface); color: var(--text);">
+      <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
+      <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+      <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+      <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+    `
+    return controls
+  }
+
   setupUI() {
     // Add menu
     this.appendChild(this.menu)
@@ -262,5 +276,4 @@ export class ViewTilemap extends ViewCanvasBase {
 }
 
 export default ViewTilemap
-
 
