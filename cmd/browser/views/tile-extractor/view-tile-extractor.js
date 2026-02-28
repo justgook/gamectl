@@ -78,217 +78,65 @@ export class ViewTileExtractor extends ViewCanvasBase {
     this.appendChild(this.tileInfo)
 
     // Create side panel
-    this.sidePanel = document.createElement('div')
-    this.sidePanel.className = 'tile-extractor-panel'
+    this.sidePanel = document.createElement('aside')
     this.sidePanel.innerHTML = `
-      <div class="panel-section">
-        <h4>Tile Size</h4>
-        <div class="size-inputs">
-          <label>
-            Width:
+      <fieldset>
+        <legend>Tile Size</legend>
+        <div class="split-row">
+          <label class="stacked-label" for="tileW">
+            <span>Width</span>
             <input type="number" id="tileW" value="${this.tileW}" min="4" max="128">
           </label>
-          <label>
-            Height:
+          <label class="stacked-label" for="tileH">
+            <span>Height</span>
             <input type="number" id="tileH" value="${this.tileH}" min="4" max="128">
           </label>
         </div>
         <button id="autoDetectBtn">Auto Detect Size</button>
-        <div id="sizeInfo"></div>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Options</h4>
-        <label>
-          Tolerance (0-255):
+        <output id="sizeInfo" class="info-block"></output>
+      </fieldset>
+
+      <fieldset>
+        <legend>Options</legend>
+        <label class="stacked-label" for="tolerance">
+          <span>Tolerance (0-255)</span>
           <input type="number" id="tolerance" value="${this.tolerance}" min="0" max="255">
         </label>
-        <label>
+        <label class="inline-label" for="showGrid">
           <input type="checkbox" id="showGrid" ${this.showGrid ? 'checked' : ''}>
-          Show Grid
+          <span>Show Grid</span>
         </label>
-        <label>
+        <label class="inline-label" for="highlightDuplicates">
           <input type="checkbox" id="highlightDuplicates" ${this.highlightDuplicates ? 'checked' : ''}>
-          Highlight Duplicates
+          <span>Highlight Duplicates</span>
         </label>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Actions</h4>
-        <button id="extractBtn" class="primary full-width">Extract Tiles</button>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Result</h4>
-        <div id="resultInfo">No extraction performed</div>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Export</h4>
-        <button id="saveTilesetBtn" class="primary full-width" disabled>Save Tileset</button>
-        <button id="saveTilemapBtn" class="full-width" disabled>Save Tilemap JSON</button>
-        <button id="saveToStorageBtn" class="full-width" disabled>Save to Tilemap Storage</button>
-      </div>
-      
-      <div class="panel-section" id="tilebankPreview">
-        <h4>Unique Tiles</h4>
+      </fieldset>
+
+      <fieldset>
+        <legend>Actions</legend>
+        <button id="extractBtn" class="accent">Extract Tiles</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Result</legend>
+        <output id="resultInfo" class="info-block">No extraction performed</output>
+      </fieldset>
+
+      <fieldset>
+        <legend>Export</legend>
+        <button id="saveTilesetBtn" class="accent" disabled>Save Tileset</button>
+        <button id="saveTilemapBtn" disabled>Save Tilemap JSON</button>
+        <button id="saveToStorageBtn" disabled>Save to Tilemap Storage</button>
+      </fieldset>
+
+      <fieldset id="tilebankPreview">
+        <legend>Unique Tiles</legend>
         <div class="tilebank-grid"></div>
-      </div>
+      </fieldset>
     `
     this.appendChild(this.sidePanel)
 
-    this.addStyles()
     this.bindControls()
-  }
-
-  addStyles() {
-    const style = document.createElement('style')
-    style.textContent = `
-      .tile-extractor-panel {
-        position: absolute;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 240px;
-        background: var(--color-semantic-background-secondary, #2a2a2a);
-        border-left: 1px solid var(--color-semantic-border-default, #444);
-        padding: 12px;
-        overflow-y: auto;
-        font-size: 12px;
-        z-index: 10;
-      }
-      
-      .tile-extractor-panel .panel-section {
-        margin-bottom: 16px;
-      }
-      
-      .tile-extractor-panel h4 {
-        margin: 0 0 8px 0;
-        font-size: 11px;
-        text-transform: uppercase;
-        color: var(--color-semantic-text-secondary, #888);
-      }
-      
-      .tile-extractor-panel label {
-        display: block;
-        margin-bottom: 8px;
-      }
-      
-      .tile-extractor-panel .size-inputs {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-      
-      .tile-extractor-panel .size-inputs label {
-        flex: 1;
-      }
-      
-      .tile-extractor-panel input[type="number"],
-      .tile-extractor-panel input[type="text"],
-      .tile-extractor-panel select {
-        width: 60px;
-        padding: 4px;
-        margin-left: 8px;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border: 1px solid var(--color-semantic-border-default, #444);
-        color: var(--color-semantic-text-primary, #fff);
-        border-radius: 4px;
-      }
-      
-      .tile-extractor-panel input[type="text"] {
-        width: calc(100% - 8px);
-        margin-left: 0;
-        margin-top: 4px;
-      }
-      
-      .tile-extractor-panel input[type="checkbox"] {
-        margin-right: 8px;
-      }
-      
-      .tile-extractor-panel button {
-        padding: 6px 12px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        background: var(--color-semantic-background-tertiary, #333);
-        color: var(--color-semantic-text-primary, #fff);
-        width: 100%;
-        margin-bottom: 8px;
-      }
-      
-      .tile-extractor-panel button:hover {
-        background: var(--color-semantic-background-hover, #444);
-      }
-      
-      .tile-extractor-panel button.primary {
-        background: var(--color-semantic-background-accent-default, #0066cc);
-        color: var(--color-semantic-text-on-accent, #000);
-      }
-      
-      .tile-extractor-panel button.primary:hover {
-        background: var(--color-semantic-background-accent-hover, #0077dd);
-        color: var(--color-semantic-text-on-accent, #000);
-      }
-      
-      .tile-extractor-panel button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      
-      .tile-extractor-panel button.full-width {
-        width: 100%;
-      }
-      
-      #resultInfo, #sizeInfo {
-        padding: 8px;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border-radius: 4px;
-        margin-top: 8px;
-      }
-      
-      .tilebank-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 4px;
-        max-height: 200px;
-        overflow-y: auto;
-      }
-      
-      .tilebank-item {
-        aspect-ratio: 1;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border: 1px solid var(--color-semantic-border-default, #444);
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        position: relative;
-      }
-      
-      .tilebank-item:hover {
-        border-color: var(--color-semantic-border-focus, #0066cc);
-      }
-      
-      .tilebank-item canvas {
-        max-width: 100%;
-        max-height: 100%;
-        image-rendering: pixelated;
-      }
-      
-      .tilebank-item .tile-id {
-        position: absolute;
-        bottom: 2px;
-        right: 2px;
-        font-size: 8px;
-        background: rgba(0,0,0,0.7);
-        padding: 1px 3px;
-        border-radius: 2px;
-      }
-    `
-    this.appendChild(style)
   }
 
   bindControls() {
@@ -340,7 +188,7 @@ export class ViewTileExtractor extends ViewCanvasBase {
   connectedCallback() {
     super.connectedCallback()
 
-    this.canvas.style.width = 'calc(100% - 240px)'
+    this.canvas.style.width = 'calc(100% - var(--aside-width))'
     this.outputDir = this.getAttribute('data-output-dir') || '/tiles'
 
     // Bind header control buttons
@@ -356,8 +204,7 @@ export class ViewTileExtractor extends ViewCanvasBase {
    * Override to account for side panel width when sizing canvas bitmap
    */
   _onResized(width, height) {
-    // Account for the side panel width (240px)
-    const panelWidth = 240
+    const panelWidth = this.sidePanel?.offsetWidth || 220
     const canvasWidth = Math.max(1, Math.round(width - panelWidth))
     const canvasHeight = Math.round(height)
 
@@ -831,18 +678,18 @@ export class ViewTileExtractor extends ViewCanvasBase {
       if (tileX !== this.hoveredTile.x || tileY !== this.hoveredTile.y) {
         this.hoveredTile = { x: tileX, y: tileY }
         this.draw()
+      }
 
-        if (this.tilemap && tileX >= 0 && tileX < this.tilemap.width &&
-          tileY >= 0 && tileY < this.tilemap.height) {
-          const idx = tileY * this.tilemap.width + tileX
-          const tileId = this.tilemap.data[idx]
-          this.tileInfo.textContent = `Tile (${tileX}, ${tileY}): ID ${tileId}`
-          this.tileInfo.style.display = 'block'
-          this.tileInfo.style.left = `${e.clientX - rect.left + 10}px`
-          this.tileInfo.style.top = `${e.clientY - rect.top + 10}px`
-        } else {
-          this.tileInfo.style.display = 'none'
-        }
+      if (this.tilemap && tileX >= 0 && tileX < this.tilemap.width &&
+        tileY >= 0 && tileY < this.tilemap.height) {
+        const idx = tileY * this.tilemap.width + tileX
+        const tileId = this.tilemap.data[idx]
+        this.tileInfo.textContent = `Tile (${tileX}, ${tileY}): ID ${tileId}`
+        this.tileInfo.style.display = 'block'
+        this.tileInfo.style.left = `${e.clientX - rect.left + 10}px`
+        this.tileInfo.style.top = `${e.clientY - rect.top + 10}px`
+      } else {
+        this.tileInfo.style.display = 'none'
       }
     }
   }

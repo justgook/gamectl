@@ -92,56 +92,55 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
 
     // Create side panel for controls
     this.sidePanel = document.createElement('aside')
-    this.sidePanel.className = 'sprite-extractor-panel'
     this.sidePanel.innerHTML = `
-      <div class="panel-section">
-        <h4>Detection Parameters</h4>
-        <label>
-          Min Size (px):
+      <fieldset>
+        <legend>Detection</legend>
+        <label class="stacked-label" for="minSize">
+          <span>Min Size (px)</span>
           <input type="number" id="minSize" value="${this.minSize}" min="1" max="100">
         </label>
-        <label>
+        <label class="inline-label" for="mergeOverlapping">
           <input type="checkbox" id="mergeOverlapping" ${this.mergeOverlapping ? 'checked' : ''}>
-          Merge Overlapping
+          <span>Merge Overlapping</span>
         </label>
-        <label>
-          Alpha Threshold:
+        <label class="stacked-label" for="alphaThreshold">
+          <span>Alpha Threshold</span>
           <input type="number" id="alphaThreshold" value="${this.alphaThreshold}" min="1" max="255">
         </label>
-        <button id="detectBtn" class="primary">Detect Sprites</button>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Selection</h4>
-        <div class="button-row">
+        <button id="detectBtn" class="accent">Detect Sprites</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Selection</legend>
+        <div class="button-row split-row">
           <button id="selectAllBtn">Select All</button>
           <button id="selectNoneBtn">Select None</button>
         </div>
-        <div id="spriteCount">No sprites detected</div>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Export Individual</h4>
-        <button id="exportBtn" class="primary" disabled>Export Selected</button>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Spritesheet Export</h4>
-        <div class="size-inputs">
-          <label>
-            Cell W:
+        <output id="spriteCount">No sprites detected</output>
+      </fieldset>
+
+      <fieldset>
+        <legend>Export Individual</legend>
+        <button id="exportBtn" class="accent" disabled>Export Selected</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Spritesheet Export</legend>
+        <div class="split-row">
+          <label class="stacked-label" for="outputCellW">
+            <span>Cell W</span>
             <input type="number" id="outputCellW" value="${this.outputCellW}" min="8" max="512">
           </label>
-          <label>
-            Cell H:
+          <label class="stacked-label" for="outputCellH">
+            <span>Cell H</span>
             <input type="number" id="outputCellH" value="${this.outputCellH}" min="8" max="512">
           </label>
         </div>
         <button id="suggestSizeBtn" disabled>Suggest Size</button>
-        <div id="suggestedSizeInfo"></div>
-        
-        <label style="margin-top: 8px;">
-          Default Pivot:
+        <output id="suggestedSizeInfo"></output>
+
+        <label class="stacked-label" for="defaultPivotSelect">
+          <span>Default Pivot</span>
           <select id="defaultPivotSelect">
             <option value="center" selected>Center</option>
             <option value="top">Top Center</option>
@@ -154,190 +153,24 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
             <option value="bottom-right">Bottom Right</option>
           </select>
         </label>
-        
+
         <button id="editPivotsBtn" disabled>Edit Pivots</button>
-        <div id="pivotEditInfo" style="display: none; margin-top: 8px; font-size: 11px; color: var(--color-semantic-text-secondary);">
+        <p id="pivotEditInfo" class="form-hint" hidden>
           Click on sprites to set custom pivot points. Right-click to reset to default.
-        </div>
-        
-        <button id="saveSpritesheetBtn" class="primary" style="margin-top: 8px;" disabled>Save Spritesheet</button>
-      </div>
-      
-      <div class="panel-section" id="spriteList">
-        <h4>Sprites</h4>
+        </p>
+
+        <button id="saveSpritesheetBtn" class="accent" disabled>Save Spritesheet</button>
+      </fieldset>
+
+      <fieldset id="spriteList">
+        <legend>Sprites</legend>
         <div class="sprite-list-container"></div>
-      </div>
+      </fieldset>
     `
     this.appendChild(this.sidePanel)
 
-    // Add panel styles
-    this.addStyles()
-
     // Bind control events
     this.bindControls()
-  }
-
-  addStyles() {
-    const style = document.createElement('style')
-    style.textContent = `
-      .sprite-extractor-panel {
-        position: absolute;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 220px;
-        background: var(--color-semantic-background-secondary, #2a2a2a);
-        border-left: 1px solid var(--color-semantic-border-default, #444);
-        padding: 12px;
-        overflow-y: auto;
-        font-size: 12px;
-        z-index: 10;
-      }
-      
-      .sprite-extractor-panel .panel-section {
-        margin-bottom: 16px;
-      }
-      
-      .sprite-extractor-panel h4 {
-        margin: 0 0 8px 0;
-        font-size: 11px;
-        text-transform: uppercase;
-        color: var(--color-semantic-text-secondary, #888);
-      }
-      
-      .sprite-extractor-panel label {
-        display: block;
-        margin-bottom: 8px;
-      }
-      
-      .sprite-extractor-panel input[type="number"] {
-        width: 60px;
-        padding: 4px;
-        margin-left: 8px;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border: 1px solid var(--color-semantic-border-default, #444);
-        color: var(--color-semantic-text-primary, #fff);
-        border-radius: 4px;
-      }
-      
-      .sprite-extractor-panel input[type="checkbox"] {
-        margin-right: 8px;
-      }
-      
-      .sprite-extractor-panel button {
-        padding: 6px 12px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        background: var(--color-semantic-background-tertiary, #333);
-        color: var(--color-semantic-text-primary, #fff);
-      }
-      
-      .sprite-extractor-panel button:hover {
-        background: var(--color-semantic-background-hover, #444);
-      }
-      
-      .sprite-extractor-panel button.primary {
-        background: var(--color-semantic-background-accent-default, #0066cc);
-        color: var(--color-semantic-text-on-accent, #000);
-      }
-      
-      .sprite-extractor-panel button.primary:hover {
-        background: var(--color-semantic-background-accent-hover, #0077dd);
-        color: var(--color-semantic-text-on-accent, #000);
-      }
-      
-      .sprite-extractor-panel button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      
-      .sprite-extractor-panel .button-row {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-      
-      .sprite-extractor-panel .button-row button {
-        flex: 1;
-      }
-      
-      .sprite-list-container {
-        max-height: 300px;
-        overflow-y: auto;
-      }
-      
-      .sprite-list-item {
-        display: flex;
-        align-items: center;
-        padding: 4px 8px;
-        cursor: pointer;
-        border-radius: 4px;
-      }
-      
-      .sprite-list-item:hover {
-        background: var(--color-semantic-background-hover, #333);
-      }
-      
-      .sprite-list-item.selected {
-        background: var(--color-semantic-background-accent-default, #0066cc);
-      }
-      
-      .sprite-list-item input[type="checkbox"] {
-        margin-right: 8px;
-      }
-      
-      .sprite-list-item .sprite-dims {
-        margin-left: auto;
-        color: var(--color-semantic-text-secondary, #888);
-        font-size: 10px;
-      }
-      
-      .sprite-extractor-panel .size-inputs {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-      
-      .sprite-extractor-panel .size-inputs label {
-        flex: 1;
-      }
-      
-      .sprite-extractor-panel select {
-        width: 100%;
-        padding: 4px;
-        margin-top: 4px;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border: 1px solid var(--color-semantic-border-default, #444);
-        color: var(--color-semantic-text-primary, #fff);
-        border-radius: 4px;
-      }
-      
-      #suggestedSizeInfo {
-        padding: 4px 8px;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border-radius: 4px;
-        margin-top: 4px;
-        font-size: 11px;
-        min-height: 1em;
-      }
-      
-      #editPivotsBtn.active {
-        background: var(--color-semantic-background-accent-default, #0066cc);
-        color: var(--color-semantic-text-on-accent, #000);
-      }
-      
-      .sprite-list-item.has-custom-pivot::after {
-        content: '';
-        width: 6px;
-        height: 6px;
-        background: #ff9900;
-        border-radius: 50%;
-        margin-left: 4px;
-      }
-    `
-    this.appendChild(style)
   }
 
   bindControls() {
@@ -404,7 +237,7 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
     super.connectedCallback()
 
     // Adjust canvas width to account for side panel
-    this.canvas.style.width = 'calc(100% - 220px)'
+    this.canvas.style.width = 'calc(100% - var(--aside-width))'
 
     // Bind header control buttons
     this.bindHeaderControls()
@@ -420,8 +253,7 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
    * Override to account for side panel width when sizing canvas bitmap
    */
   _onResized(width, height) {
-    // Account for the side panel width (220px)
-    const panelWidth = 220
+    const panelWidth = this.sidePanel?.offsetWidth || 220
     const canvasWidth = Math.max(1, Math.round(width - panelWidth))
     const canvasHeight = Math.round(height)
 
@@ -591,8 +423,8 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       this.pivotEditMode = false
       const editBtn = this.sidePanel.querySelector('#editPivotsBtn')
       editBtn.textContent = 'Edit Pivots'
-      editBtn.classList.remove('active')
-      this.sidePanel.querySelector('#pivotEditInfo').style.display = 'none'
+      editBtn.classList.remove('accent')
+      this.sidePanel.querySelector('#pivotEditInfo').hidden = true
 
       // Enable spritesheet export buttons
       this.sidePanel.querySelector('#suggestSizeBtn').disabled = false
@@ -843,12 +675,12 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
 
     if (this.pivotEditMode) {
       btn.textContent = 'Done Editing'
-      btn.classList.add('active')
-      info.style.display = 'block'
+      btn.classList.add('accent')
+      info.hidden = false
     } else {
       btn.textContent = 'Edit Pivots'
-      btn.classList.remove('active')
-      info.style.display = 'none'
+      btn.classList.remove('accent')
+      info.hidden = true
     }
 
     this.updateSpriteList()

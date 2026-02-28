@@ -1983,9 +1983,6 @@ export class ViewFiles extends HTMLElement {
       title.textContent = options.title || 'Select File'
       popup.appendChild(title)
 
-      // Container for file browser
-      const container = document.createElement('div')
-
       // File browser in chooser mode
       const files = document.createElement('view-files')
       files.setAttribute('data-mode', 'chooser')
@@ -1994,8 +1991,7 @@ export class ViewFiles extends HTMLElement {
       if (options.selectFolders) files.setAttribute('data-select-folders', 'true')
       if (options.multiSelect) files.setAttribute('data-multi-select', 'true')
 
-      container.appendChild(files)
-      popup.appendChild(container)
+      popup.appendChild(files)
       popupManager.appendChild(popup)
 
       let resolved = false
