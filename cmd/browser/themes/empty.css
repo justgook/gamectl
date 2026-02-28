@@ -13,7 +13,9 @@
   }
 
   view-toast {
-    background: blue;
+    background: var(--intent-soft-bg);
+    border-color: var(--intent-soft-border);
+    color: var(--intent-soft-fg);
   }
 
   view-popup {

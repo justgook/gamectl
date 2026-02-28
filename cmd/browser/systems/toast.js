@@ -22,7 +22,7 @@ import { bus } from './event-bus.js'
  * @param {Object} options - Optional configuration
  * @param {string} options.type - 'info' | 'success' | 'warning' | 'error'
  * @param {number} options.duration - Auto-dismiss in ms (default: 3000, 0 = persistent)
- * @param {string} options.position - 'top-right' | 'bottom-center' | 'center'
+ * @param {string} options.position - 'primary' | 'secondary' | 'modal'
  */
 export function toast(message, options = {}) {
   bus.emit('toast:show', { message, ...options })

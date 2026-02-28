@@ -6,10 +6,18 @@
  * 
  * Attributes:
  * - type: 'info' | 'success' | 'warning' | 'error' (default: 'info')
- * - position: 'top-right' | 'bottom-center' | 'center' (default: 'top-right')
+ * - position: 'primary' | 'secondary' | 'modal' (default: 'primary')
  * - duration: number in ms (default: 3000, 0 = no auto-dismiss)
  * - mode: 'toast' | 'alert' | 'confirm' (default: 'toast')
  */
+
+const TYPE_TO_INTENT = {
+  info: 'info',
+  success: 'success',
+  warning: 'warning',
+  error: 'danger',
+}
+
 export class ViewToast extends HTMLElement {
   constructor() {
     super()
@@ -63,7 +71,7 @@ export class ViewToast extends HTMLElement {
    * Get position from attribute
    */
   get position() {
-    return this.getAttribute('position') || 'top-right'
+    return this.getAttribute('position') || 'primary'
   }
 
   /**
@@ -89,12 +97,13 @@ export class ViewToast extends HTMLElement {
     // Clear current content
     this.innerHTML = ''
 
-    // Add CSS classes
-    this.classList.add('toast', `toast-type-${this.type}`)
+    // Apply intent class from type (info→.info, success→.success, error→.danger)
+    const intentClass = TYPE_TO_INTENT[this.type] || 'info'
+    this.classList.add(intentClass)
 
     // Set position attribute for CSS
     if (!this.hasAttribute('position')) {
-      this.setAttribute('position', 'top-right')
+      this.setAttribute('position', 'primary')
     }
 
     // Get appropriate template based on mode
@@ -158,29 +167,26 @@ export class ViewToast extends HTMLElement {
     }
 
     // Close button
-    const closeButton = this.querySelector('[data-action="close"]')
-    if (closeButton) {
-      closeButton.addEventListener('click', (e) => {
+    this.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action="close"]')) {
         e.stopPropagation()
-        this.close(false)
-      })
-    }
+        this.close(true)
+      }
+    })
 
     // Confirm button
-    const confirmButton = this.querySelector('[data-action="confirm"]')
-    if (confirmButton) {
-      confirmButton.addEventListener('click', () => {
+    this.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action="confirm"]')) {
         this.close(true)
-      })
-    }
+      }
+    })
 
     // Cancel button
-    const cancelButton = this.querySelector('[data-action="cancel"]')
-    if (cancelButton) {
-      cancelButton.addEventListener('click', () => {
+    this.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action="cancel"]')) {
         this.close(false)
-      })
-    }
+      }
+    })
 
     // Hover pause/resume (only for timed toasts)
     if (this.duration > 0) {
@@ -198,11 +204,11 @@ export class ViewToast extends HTMLElement {
     // Set initial state based on position
     this.style.opacity = '0'
 
-    if (position === 'top-right') {
+    if (position === 'primary') {
       this.style.transform = 'translateX(100%)'
-    } else if (position === 'bottom-center') {
+    } else if (position === 'secondary') {
       this.style.transform = 'translateX(-50%) translateY(100%)'
-    } else if (position === 'center') {
+    } else if (position === 'modal') {
       this.style.transform = 'translate(-50%, -50%) scale(0.95)'
     }
 
@@ -215,11 +221,11 @@ export class ViewToast extends HTMLElement {
     this.style.transition = 'opacity var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out), transform var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out)'
     this.style.opacity = '1'
 
-    if (position === 'top-right') {
+    if (position === 'primary') {
       this.style.transform = 'translateX(0)'
-    } else if (position === 'bottom-center') {
+    } else if (position === 'secondary') {
       this.style.transform = 'translateX(-50%) translateY(0)'
-    } else if (position === 'center') {
+    } else if (position === 'modal') {
       this.style.transform = 'translate(-50%, -50%) scale(1)'
     }
 
@@ -317,11 +323,11 @@ export class ViewToast extends HTMLElement {
     this.style.transition = 'opacity var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out), transform var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out)'
     this.style.opacity = '0'
 
-    if (position === 'top-right') {
+    if (position === 'primary') {
       this.style.transform = 'translateX(100%)'
-    } else if (position === 'bottom-center') {
+    } else if (position === 'secondary') {
       this.style.transform = 'translateX(-50%) translateY(100%)'
-    } else if (position === 'center') {
+    } else if (position === 'modal') {
       this.style.transform = 'translate(-50%, -50%) scale(0.95)'
     }
 
