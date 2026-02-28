@@ -21,10 +21,67 @@ export class ViewPipeline extends HTMLElement {
     this.style.display = 'block'
     this.style.width = '100%'
     this.style.height = '100%'
-
-    const template = document.getElementById('view-pipeline')
-    const content = template.content.cloneNode(true)
-    this.appendChild(content)
+    this.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3);">
+        <details>
+          <summary>1. Create World Tree</summary>
+          <form name="tree" style="display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);">
+            <label>Node Count: <span>10</span> <input type="range" name="nodeCount" min="5" max="100" value="10" oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Max Depth: <span>0</span> <input type="range" name="maxDepth" min="0" max="10" value="0" oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Max Branching: <span>0</span> <input type="range" name="maxBranching" min="0" max="10" value="0" oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Root Branches: <span>0</span> <input type="range" name="rootBranches" min="0" max="20" value="0" oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Output Name: <input type="text" name="treeId" value="progression"></label>
+            <button type="submit">Generate Tree</button>
+          </form>
+        </details>
+        <details>
+          <summary>2. Assign Biomes</summary>
+          <form name="biomes" style="display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);">
+            <label>Tree ID: <input type="text" name="treeId" value="progression"></label>
+            <label>Biomes Query: <input type="text" name="biomesQuery" value="SELECT name FROM biomes ORDER BY RANDOM()" style="width: 100%;"></label>
+            <button type="submit">Assign Biomes</button>
+          </form>
+        </details>
+        <details>
+          <summary>3. Assign Keys & Locks</summary>
+          <form name="keylock" style="display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);">
+            <label>Tree ID: <input type="text" name="treeId" value="progression"></label>
+            <label>Keys Query: <input type="text" name="keysQuery" value="SELECT name FROM keys ORDER BY RANDOM() LIMIT 15" style="width: 100%;"></label>
+            <label>Key Chance: <span>0.5</span> <input type="range" name="keyChance" min="0" max="1" step="0.1" value="0.5" oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Lock Chance: <span>0.7</span> <input type="range" name="lockChance" min="0" max="1" step="0.1" value="0.7" oninput="this.previousElementSibling.textContent=this.value"></label>
+            <label>Max Keys Per Lock: <span>2</span> <input type="range" name="maxKeysPerLock" min="1" max="5" value="2" oninput="this.previousElementSibling.textContent=this.value"></label>
+            <button type="submit">Assign Keys & Locks</button>
+          </form>
+        </details>
+        <details open>
+          <summary>4. Create Minimap</summary>
+          <form name="minimap" style="display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);">
+            <label>Input Tree: <input type="text" name="inputTreeId" value="progression"></label>
+            <label>Output Map: <input type="text" name="mapId" value="new_map"></label>
+            <label>Layout Direction:
+              <select name="direction">
+                <option value="radial" selected>Radial</option>
+                <option value="topDown">Top Down</option>
+                <option value="bottomUp">Bottom Up</option>
+                <option value="leftToRight">Left to Right</option>
+                <option value="rightToLeft">Right to Left</option>
+                <option value="directional">Directional</option>
+              </select>
+            </label>
+            <button type="submit">Generate Minimap</button>
+          </form>
+        </details>
+        <details>
+          <summary>5. Apply Automap Rules</summary>
+          <form name="automap" style="display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);">
+            <label>Rules Map: <input type="text" name="rulesMapId" value="rules"></label>
+            <label>Input Map: <input type="text" name="inputMapId" value="new_map"></label>
+            <label>Output Map: <input type="text" name="outputMapId" value="automap_result"></label>
+            <button type="submit">Apply Automap</button>
+          </form>
+        </details>
+      </div>
+    `
 
     this.querySelector('form[name="tree"]')
       ?.addEventListener('submit', (e) => this.generateWorldTree(e))

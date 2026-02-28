@@ -47,6 +47,18 @@ export class ViewTileExtractor extends ViewCanvasBase {
     this.tileColors = []
   }
 
+  createHeaderControlsElement() {
+    const controls = document.createElement('div')
+    controls.innerHTML = `
+      <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
+      <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+      <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+      <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+    `
+    return controls
+  }
+
   attributeChangedCallback(name, oldVal, newVal) {
     if (name === 'data-source' && oldVal !== newVal) {
       this.sourcePath = newVal

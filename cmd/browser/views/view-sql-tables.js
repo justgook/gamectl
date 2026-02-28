@@ -18,6 +18,7 @@ export class ViewSqlTables extends HTMLElement {
     super()
     this.tables = []
     this.selectedTable = null
+    this._headerControlsElement = null
     this.listContainer = null
     this.statusContainer = null
   }
@@ -27,16 +28,22 @@ export class ViewSqlTables extends HTMLElement {
     this.style.flexDirection = 'column'
     this.style.width = '100%'
     this.style.height = '100%'
+    this.style.minHeight = '0'
 
-    const template = document.getElementById('view-sql-tables')
-    const content = template.content.cloneNode(true)
-    this.appendChild(content)
+    this.innerHTML = `
+      <section style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+        <main data-element="list-container" style="flex: 1; min-height: 0; overflow: auto;"></main>
+        <footer data-element="status" style="padding: var(--space-2) var(--space-3); border-top: 1px solid var(--border); color: var(--text-muted);"></footer>
+      </section>
+    `
+
+    this._mountHeaderControls()
 
     this.listContainer = this.querySelector('[data-element="list-container"]')
     this.statusContainer = this.querySelector('[data-element="status"]')
 
     // Toolbar buttons
-    const toolbar = this.querySelector('[data-element="toolbar"]')
+    const toolbar = this._headerControlsElement
     if (toolbar) {
       toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh())
       toolbar.querySelector('[data-action="new-table"]')?.addEventListener('click', () => this.showCreateTablePopup())
@@ -47,7 +54,35 @@ export class ViewSqlTables extends HTMLElement {
   }
 
   disconnectedCallback() {
-    // Cleanup if needed
+    this._unmountHeaderControls()
+  }
+
+  createHeaderControlsElement() {
+    const toolbar = document.createElement('div')
+    toolbar.dataset.element = 'toolbar'
+    toolbar.setAttribute('slot', 'header-controls')
+    toolbar.innerHTML = `
+      <button data-action="refresh" aria-label="Refresh" title="Refresh"><i aria-hidden="true">refresh</i></button>
+      <button data-action="new-table" aria-label="Create New Table" title="Create New Table"><i aria-hidden="true">post_add</i></button>
+    `
+    return toolbar
+  }
+
+  _mountHeaderControls() {
+    if (!this.parentElement || this._headerControlsElement) return
+
+    const headerControls = this.createHeaderControlsElement()
+    if (headerControls) {
+      this._headerControlsElement = headerControls
+      this.parentElement.appendChild(headerControls)
+    }
+  }
+
+  _unmountHeaderControls() {
+    if (this._headerControlsElement && this._headerControlsElement.parentElement) {
+      this._headerControlsElement.remove()
+      this._headerControlsElement = null
+    }
   }
 
   async refresh() {
@@ -57,7 +92,7 @@ export class ViewSqlTables extends HTMLElement {
       this.render()
       this.setStatus(`${this.tables.length} tables`)
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`)
+      this.setStatus(`Error: ${error.message}`, 'danger')
       console.error('ViewSqlTables error:', error)
     }
   }
@@ -100,48 +135,63 @@ export class ViewSqlTables extends HTMLElement {
     if (!this.listContainer) return
 
     if (this.tables.length === 0) {
-      this.listContainer.innerHTML = '<div class="sql-tables-empty">No tables found in database.</div>'
+      this.listContainer.innerHTML = '<p style="padding: var(--space-3); color: var(--text-muted);">No tables found in database.</p>'
       return
     }
 
     this.listContainer.innerHTML = ''
 
-    for (const table of this.tables) {
-      const item = document.createElement('div')
-      item.className = 'sql-tables-item'
-      if (table.name === this.selectedTable) {
-        item.classList.add('selected')
-      }
+    const tableElement = document.createElement('table')
+    tableElement.style.width = '100%'
+    tableElement.style.tableLayout = 'fixed'
 
-      const nameSpan = document.createElement('span')
-      nameSpan.className = 'sql-tables-item-name'
-      nameSpan.textContent = table.name
+    const caption = document.createElement('caption')
+    caption.textContent = 'Database tables'
+    tableElement.appendChild(caption)
 
-      const countSpan = document.createElement('span')
-      countSpan.className = 'sql-tables-item-count'
-      countSpan.textContent = table.rowCount >= 0 ? `${table.rowCount} rows` : '?'
+    const head = document.createElement('thead')
+    head.innerHTML = '<tr><th>Name</th><th style="width: 120px; text-align: right;">Rows</th></tr>'
+    tableElement.appendChild(head)
 
-      item.appendChild(nameSpan)
-      item.appendChild(countSpan)
+    const body = document.createElement('tbody')
+    tableElement.appendChild(body)
 
-      item.addEventListener('click', () => this.selectTable(table.name))
+    for (const tableInfo of this.tables) {
+      const row = document.createElement('tr')
+      row.dataset.element = 'table-row'
+      row.dataset.table = tableInfo.name
+      row.setAttribute('role', 'button')
+      row.setAttribute('tabindex', '0')
+      row.style.cursor = 'pointer'
 
-      this.listContainer.appendChild(item)
+      const nameCell = document.createElement('td')
+      nameCell.textContent = tableInfo.name
+
+      const countCell = document.createElement('td')
+      countCell.style.textAlign = 'right'
+      countCell.textContent = tableInfo.rowCount >= 0 ? String(tableInfo.rowCount) : '?'
+
+      row.appendChild(nameCell)
+      row.appendChild(countCell)
+
+      row.addEventListener('click', () => this.selectTable(tableInfo.name))
+      row.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          this.selectTable(tableInfo.name)
+        }
+      })
+
+      body.appendChild(row)
     }
+
+    this.listContainer.appendChild(tableElement)
+    this.updateSelectionUI()
   }
 
   selectTable(tableName) {
     this.selectedTable = tableName
-
-    // Update visual selection
-    this.querySelectorAll('.sql-tables-item').forEach(item => {
-      const nameSpan = item.querySelector('.sql-tables-item-name')
-      if (nameSpan && nameSpan.textContent === tableName) {
-        item.classList.add('selected')
-      } else {
-        item.classList.remove('selected')
-      }
-    })
+    this.updateSelectionUI()
 
     // Emit event for all view-sql-table components
     bus.emit('sql-table:select', { table: tableName })
@@ -149,9 +199,30 @@ export class ViewSqlTables extends HTMLElement {
     this.setStatus(`Selected: ${tableName}`)
   }
 
-  setStatus(text) {
+  updateSelectionUI() {
+    this.querySelectorAll('[data-element="table-row"]').forEach((row) => {
+      const isSelected = row.dataset.table === this.selectedTable
+      row.setAttribute('aria-selected', isSelected ? 'true' : 'false')
+      row.style.background = isSelected ? 'var(--surface-hover)' : ''
+      row.style.outline = isSelected ? '1px solid var(--border-focus)' : ''
+      row.style.outlineOffset = '-1px'
+    })
+  }
+
+  setStatus(text, tone = null) {
     if (this.statusContainer) {
       this.statusContainer.textContent = text
+      this.statusContainer.classList.remove('accent', 'success', 'warning', 'danger', 'info')
+      this.statusContainer.style.background = ''
+      this.statusContainer.style.borderTopColor = 'var(--border)'
+      this.statusContainer.style.color = 'var(--text-muted)'
+
+      if (tone) {
+        this.statusContainer.classList.add(tone)
+        this.statusContainer.style.background = 'var(--intent-soft-bg)'
+        this.statusContainer.style.borderTopColor = 'var(--intent-soft-border)'
+        this.statusContainer.style.color = 'var(--intent-soft-fg)'
+      }
     }
   }
 
@@ -166,26 +237,41 @@ export class ViewSqlTables extends HTMLElement {
     }
 
     // Build popup content
-    const content = document.createElement('div')
-    content.className = 'create-table-form'
+    const content = document.createElement('form')
+    content.setAttribute('novalidate', '')
+    content.style.display = 'flex'
+    content.style.flexDirection = 'column'
+    content.style.gap = 'var(--space-4)'
     content.innerHTML = `
-      <div class="create-table-field">
-        <label class="create-table-label">Table Name</label>
-        <input type="text" class="create-table-input" data-field="table-name" placeholder="my_table" autocomplete="off">
+      <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+        <label for="new-table-name">Table name</label>
+        <input id="new-table-name" type="text" data-field="table-name" placeholder="my_table" autocomplete="off">
       </div>
-      <div class="create-table-section">
-        <div class="create-table-section-header">
-          <label class="create-table-label">Columns</label>
-          <button type="button" class="button-secondary create-table-add-column" data-action="add-column">+ Add Column</button>
+
+      <section style="display: flex; flex-direction: column; gap: var(--space-2);">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);">
+          <strong>Columns</strong>
+          <button type="button" data-action="add-column">Add column</button>
         </div>
-        <div class="create-table-columns" data-element="columns">
-          <!-- Column rows will be added here -->
-        </div>
-      </div>
-      <div class="create-table-actions">
-        <button type="button" class="button-secondary" data-action="cancel">Cancel</button>
-        <button type="button" class="button-primary" data-action="create">Create Table</button>
-      </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th style="width: 56px; text-align: center;">PK</th>
+              <th style="width: 56px; text-align: center;">AI</th>
+              <th style="width: 56px; text-align: center;">NN</th>
+              <th style="width: 56px;"></th>
+            </tr>
+          </thead>
+          <tbody data-element="columns"></tbody>
+        </table>
+      </section>
+
+      <footer style="display: flex; justify-content: flex-end; gap: var(--space-2);">
+        <button type="button" data-action="cancel">Cancel</button>
+        <button type="submit" data-action="create" class="accent">Create table</button>
+      </footer>
     `
 
     const popup = popupManager.showPopup({
@@ -208,7 +294,8 @@ export class ViewSqlTables extends HTMLElement {
       popup.close()
     })
 
-    content.querySelector('[data-action="create"]').addEventListener('click', async () => {
+    content.addEventListener('submit', async (event) => {
+      event.preventDefault()
       await this._handleCreateTable(content, popup)
     })
 
@@ -222,34 +309,76 @@ export class ViewSqlTables extends HTMLElement {
    * Add a column row to the columns container
    */
   _addColumnRow(container, name = '', type = 'TEXT', isPrimaryKey = false, isAutoIncrement = false) {
-    const row = document.createElement('div')
-    row.className = 'create-table-column-row'
-    row.innerHTML = `
-      <input type="text" class="create-table-input create-table-column-name" data-field="column-name" placeholder="column_name" value="${name}" autocomplete="off">
-      <select class="create-table-select" data-field="column-type">
-        <option value="TEXT" ${type === 'TEXT' ? 'selected' : ''}>TEXT</option>
-        <option value="INTEGER" ${type === 'INTEGER' ? 'selected' : ''}>INTEGER</option>
-        <option value="REAL" ${type === 'REAL' ? 'selected' : ''}>REAL</option>
-        <option value="BLOB" ${type === 'BLOB' ? 'selected' : ''}>BLOB</option>
-        <option value="NUMERIC" ${type === 'NUMERIC' ? 'selected' : ''}>NUMERIC</option>
-      </select>
-      <label class="create-table-checkbox-label" title="Primary Key">
-        <input type="checkbox" data-field="primary-key" ${isPrimaryKey ? 'checked' : ''}>
-        <span>PK</span>
-      </label>
-      <label class="create-table-checkbox-label" title="Auto Increment (INTEGER only)">
-        <input type="checkbox" data-field="auto-increment" ${isAutoIncrement ? 'checked' : ''}>
-        <span>AI</span>
-      </label>
-      <label class="create-table-checkbox-label" title="Not Null">
-        <input type="checkbox" data-field="not-null">
-        <span>NN</span>
-      </label>
-      <button type="button" class="create-table-remove-column" data-action="remove-column" title="Remove Column">&times;</button>
-    `
+    const row = document.createElement('tr')
+    row.dataset.element = 'column-row'
+
+    const nameCell = document.createElement('td')
+    const nameInput = document.createElement('input')
+    nameInput.type = 'text'
+    nameInput.dataset.field = 'column-name'
+    nameInput.placeholder = 'column_name'
+    nameInput.value = name
+    nameInput.autocomplete = 'off'
+    nameInput.style.width = '100%'
+    nameCell.appendChild(nameInput)
+
+    const typeCell = document.createElement('td')
+    const typeSelect = document.createElement('select')
+    typeSelect.dataset.field = 'column-type'
+    for (const optionType of ['TEXT', 'INTEGER', 'REAL', 'BLOB', 'NUMERIC']) {
+      const option = document.createElement('option')
+      option.value = optionType
+      option.textContent = optionType
+      option.selected = optionType === type
+      typeSelect.appendChild(option)
+    }
+    typeSelect.style.width = '100%'
+    typeCell.appendChild(typeSelect)
+
+    const primaryCell = document.createElement('td')
+    primaryCell.style.textAlign = 'center'
+    const primaryInput = document.createElement('input')
+    primaryInput.type = 'checkbox'
+    primaryInput.dataset.field = 'primary-key'
+    primaryInput.checked = isPrimaryKey
+    primaryInput.title = 'Primary Key'
+    primaryCell.appendChild(primaryInput)
+
+    const autoCell = document.createElement('td')
+    autoCell.style.textAlign = 'center'
+    const autoInput = document.createElement('input')
+    autoInput.type = 'checkbox'
+    autoInput.dataset.field = 'auto-increment'
+    autoInput.checked = isAutoIncrement
+    autoInput.title = 'Auto Increment (INTEGER only)'
+    autoCell.appendChild(autoInput)
+
+    const notNullCell = document.createElement('td')
+    notNullCell.style.textAlign = 'center'
+    const notNullInput = document.createElement('input')
+    notNullInput.type = 'checkbox'
+    notNullInput.dataset.field = 'not-null'
+    notNullInput.title = 'Not Null'
+    notNullCell.appendChild(notNullInput)
+
+    const removeCell = document.createElement('td')
+    removeCell.style.textAlign = 'center'
+    const removeButton = document.createElement('button')
+    removeButton.type = 'button'
+    removeButton.dataset.action = 'remove-column'
+    removeButton.title = 'Remove Column'
+    removeButton.textContent = 'Remove'
+    removeCell.appendChild(removeButton)
+
+    row.appendChild(nameCell)
+    row.appendChild(typeCell)
+    row.appendChild(primaryCell)
+    row.appendChild(autoCell)
+    row.appendChild(notNullCell)
+    row.appendChild(removeCell)
 
     // Remove column handler
-    row.querySelector('[data-action="remove-column"]').addEventListener('click', () => {
+    removeButton.addEventListener('click', () => {
       row.remove()
     })
 
@@ -264,22 +393,22 @@ export class ViewSqlTables extends HTMLElement {
     const tableName = tableNameInput.value.trim()
 
     if (!tableName) {
-      tableNameInput.classList.add('error')
+      tableNameInput.classList.add('danger')
       tableNameInput.focus()
       return
     }
 
     // Validate table name (alphanumeric and underscore only)
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
-      tableNameInput.classList.add('error')
-      this.setStatus('Error: Invalid table name')
+      tableNameInput.classList.add('danger')
+      this.setStatus('Error: Invalid table name', 'danger')
       return
     }
 
-    tableNameInput.classList.remove('error')
+    tableNameInput.classList.remove('danger')
 
     // Collect columns
-    const columnRows = content.querySelectorAll('.create-table-column-row')
+    const columnRows = content.querySelectorAll('[data-element="column-row"]')
     const columns = []
 
     for (const row of columnRows) {
@@ -301,7 +430,7 @@ export class ViewSqlTables extends HTMLElement {
     }
 
     if (columns.length === 0) {
-      this.setStatus('Error: At least one column required')
+      this.setStatus('Error: At least one column required', 'danger')
       return
     }
 
@@ -318,7 +447,7 @@ export class ViewSqlTables extends HTMLElement {
 
     try {
       await window.pluginManager.call('sql', 'exec', sql)
-      this.setStatus(`Created table: ${tableName}`)
+      this.setStatus(`Created table: ${tableName}`, 'success')
       popup.close()
       
       // Refresh the table list
@@ -327,7 +456,7 @@ export class ViewSqlTables extends HTMLElement {
       // Select the newly created table
       this.selectTable(tableName)
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`)
+      this.setStatus(`Error: ${error.message}`, 'danger')
       console.error('Create table failed:', error)
     }
   }

@@ -626,35 +626,43 @@ export class ViewTimeline extends HTMLElement {
     this._resizeObserver.observe(this._viewport)
   }
 
-  // --- Header Controls (Template Pattern) ---
+  // --- Header Controls ---
 
   _mountHeaderControls() {
-    const viewTag = this.tagName.toLowerCase()
-    const template = document.getElementById(viewTag)
+    if (!this.parentElement) return
 
-    if (template && this.parentElement) {
-      const content = template.content.cloneNode(true)
-      const headerControls = content.querySelector('[slot="header-controls"]')
+    const headerControls = document.createElement('div')
+    headerControls.setAttribute('slot', 'header-controls')
+    headerControls.innerHTML = `
+      <button data-action="play" aria-label="Play" title="Play"><i aria-hidden="true">play_arrow</i></button>
+      <button data-action="stop" aria-label="Stop" title="Stop"><i aria-hidden="true">stop</i></button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <button data-action="add-key" aria-label="Add Key" title="Add Key"><i aria-hidden="true">add</i></button>
+      <button data-action="delete-key" aria-label="Delete Key" title="Delete Key"><i aria-hidden="true">delete</i></button>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <label>
+        <input type="checkbox" data-action="loop">
+        Loop
+      </label>
+      <span style="width: 1px; height: 20px; background: var(--border);"></span>
+      <span data-element="time-display">0.00s</span>
+    `
 
-      if (headerControls) {
-        this._headerControlsElement = headerControls
-        this.parentElement.appendChild(headerControls)
+    this._headerControlsElement = headerControls
+    this.parentElement.appendChild(headerControls)
 
-        // Setup button handlers
-        const playBtn = this._queryHeaderControl('[data-action="play"]')
-        const stopBtn = this._queryHeaderControl('[data-action="stop"]')
-        const addKeyBtn = this._queryHeaderControl('[data-action="add-key"]')
-        const deleteKeyBtn = this._queryHeaderControl('[data-action="delete-key"]')
-        const loopCheckbox = this._queryHeaderControl('[data-action="loop"]')
-        this._timeDisplay = this._queryHeaderControl('[data-element="time-display"]')
+    const playBtn = this._queryHeaderControl('[data-action="play"]')
+    const stopBtn = this._queryHeaderControl('[data-action="stop"]')
+    const addKeyBtn = this._queryHeaderControl('[data-action="add-key"]')
+    const deleteKeyBtn = this._queryHeaderControl('[data-action="delete-key"]')
+    const loopCheckbox = this._queryHeaderControl('[data-action="loop"]')
+    this._timeDisplay = this._queryHeaderControl('[data-element="time-display"]')
 
-        if (playBtn) playBtn.addEventListener('click', this._onPlayClick)
-        if (stopBtn) stopBtn.addEventListener('click', this._onStopClick)
-        if (addKeyBtn) addKeyBtn.addEventListener('click', this._onAddKeyClick)
-        if (deleteKeyBtn) deleteKeyBtn.addEventListener('click', this._onDeleteKeyClick)
-        if (loopCheckbox) loopCheckbox.addEventListener('change', this._onLoopChange)
-      }
-    }
+    if (playBtn) playBtn.addEventListener('click', this._onPlayClick)
+    if (stopBtn) stopBtn.addEventListener('click', this._onStopClick)
+    if (addKeyBtn) addKeyBtn.addEventListener('click', this._onAddKeyClick)
+    if (deleteKeyBtn) deleteKeyBtn.addEventListener('click', this._onDeleteKeyClick)
+    if (loopCheckbox) loopCheckbox.addEventListener('change', this._onLoopChange)
   }
 
   _unmountHeaderControls() {

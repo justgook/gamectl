@@ -36,6 +36,7 @@ export class ViewSqlTable extends HTMLElement {
     this.tableContainer = null
     this.paginationContainer = null
     this.statusContainer = null
+    this._headerControlsElement = null
     this._unsubscribeTableSelect = null
   }
 
@@ -46,9 +47,15 @@ export class ViewSqlTable extends HTMLElement {
     this.style.height = '100%'
     this.setAttribute('tabindex', '0')
 
-    const template = document.getElementById('view-sql-table')
-    const content = template.content.cloneNode(true)
-    this.appendChild(content)
+    this.innerHTML = `
+      <div data-element="table-container" class="sql-table-container"></div>
+      <div class="sql-table-footer">
+        <div data-element="pagination" class="sql-table-pagination"></div>
+        <div data-element="status" class="sql-table-status"></div>
+      </div>
+    `
+
+    this._mountHeaderControls()
 
     this.tableContainer = this.querySelector('[data-element="table-container"]')
     this.paginationContainer = this.querySelector('[data-element="pagination"]')
@@ -71,7 +78,7 @@ export class ViewSqlTable extends HTMLElement {
     this.addEventListener('keydown', (e) => this.handleKeyDown(e))
 
     // Toolbar buttons
-    const toolbar = this.querySelector('[data-element="toolbar"]')
+    const toolbar = this._headerControlsElement
     if (toolbar) {
       toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh())
       toolbar.querySelector('[data-action="insert"]')?.addEventListener('click', () => this.insertRow())
@@ -92,6 +99,38 @@ export class ViewSqlTable extends HTMLElement {
     if (this._unsubscribeTableSelect) {
       this._unsubscribeTableSelect()
       this._unsubscribeTableSelect = null
+    }
+
+    this._unmountHeaderControls()
+  }
+
+  createHeaderControlsElement() {
+    const toolbar = document.createElement('div')
+    toolbar.dataset.element = 'toolbar'
+    toolbar.className = 'sql-table-toolbar'
+    toolbar.setAttribute('slot', 'header-controls')
+    toolbar.innerHTML = `
+      <button data-action="refresh" aria-label="Refresh" title="Refresh (Ctrl+R)"><i aria-hidden="true">refresh</i></button>
+      <button data-action="insert" aria-label="Insert Row" title="Insert Row (Insert)"><i aria-hidden="true">add</i></button>
+      <button data-action="delete" aria-label="Delete Row" title="Delete Row (Ctrl+Del / Cmd+Backspace)"><i aria-hidden="true">remove</i></button>
+    `
+    return toolbar
+  }
+
+  _mountHeaderControls() {
+    if (!this.parentElement || this._headerControlsElement) return
+
+    const headerControls = this.createHeaderControlsElement()
+    if (headerControls) {
+      this._headerControlsElement = headerControls
+      this.parentElement.appendChild(headerControls)
+    }
+  }
+
+  _unmountHeaderControls() {
+    if (this._headerControlsElement && this._headerControlsElement.parentElement) {
+      this._headerControlsElement.remove()
+      this._headerControlsElement = null
     }
   }
 

@@ -1,4 +1,5 @@
 import { bus } from "../systems/event-bus.js"
+import { ensureThemeStylesheetLink, getThemeStylesheetSource } from "../systems/theme-stylesheet.js"
 
 const ABI = {
   HEADER_I32: 15,
@@ -70,8 +71,10 @@ export class LayoutManager extends HTMLElement {
   connectedCallback() {
     this._resizeObserver.observe(this)
 
-    const link = document.querySelector('link[data-theme-stylesheet]')
-    this._themeObserver.observe(link, { attributes: true, attributeFilter: ['href'] })
+    const link = getThemeStylesheetSource()
+    if (link) {
+      this._themeObserver.observe(link, { attributes: true, attributeFilter: ['href'] })
+    }
 
     bus.on('plugin-manager:ready', async () => {
       await this._setup()
@@ -569,7 +572,6 @@ export class ViewChrome extends HTMLElement {
     const shadowRoot = this.attachShadow({ mode: "open" })
     shadowRoot.innerHTML = `<link rel="stylesheet" href="reset.css">
       <link rel="stylesheet" href="base.css">
-      <link data-theme-stylesheet rel="stylesheet" href="themes/the98.css">
         <header part="header">
           <select part="view-select" name="view" data-action="select-view" class="view-selector"></select>
           <slot name="header-controls"></slot>
@@ -579,6 +581,7 @@ export class ViewChrome extends HTMLElement {
 
   connectedCallback() {
     const content = this.shadowRoot
+    ensureThemeStylesheetLink(this.shadowRoot)
     if (typeof window.__syncThemeStylesheetToRoot === 'function') {
       window.__syncThemeStylesheetToRoot(this.shadowRoot)
     }
@@ -708,4 +711,3 @@ export class ViewChrome extends HTMLElement {
 }
 
 customElements.define('view-area', ViewChrome);
-
