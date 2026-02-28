@@ -79,7 +79,7 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
     this.appendChild(this.tileInfo)
 
     // Create side panel for controls
-    this.sidePanel = document.createElement('div')
+    this.sidePanel = document.createElement('aside')
     this.sidePanel.className = 'sprite-extractor-panel'
     this.sidePanel.innerHTML = `
       <div class="panel-section">
@@ -1105,27 +1105,27 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
       const label = String(i)
       const fontSize = Math.max(10, Math.min(14, 12 / this.scale))
       ctx.font = `bold ${fontSize}px monospace`
-      
+
       const textMetrics = ctx.measureText(label)
       const textWidth = textMetrics.width
       const textHeight = fontSize
       const padding = 2 / this.scale
       const badgeWidth = textWidth + padding * 2
       const badgeHeight = textHeight + padding * 2
-      
+
       // Position badge at top-left corner of sprite
       const badgeX = sprite.x
       const badgeY = sprite.y
-      
+
       // Draw badge background
       ctx.fillStyle = 'rgba(0, 0, 0, 0.75)'
       ctx.fillRect(badgeX, badgeY, badgeWidth, badgeHeight)
-      
+
       // Draw badge border
       ctx.strokeStyle = isSelected ? 'rgba(100, 255, 100, 0.9)' : 'rgba(255, 255, 255, 0.5)'
       ctx.lineWidth = 1 / this.scale
       ctx.strokeRect(badgeX, badgeY, badgeWidth, badgeHeight)
-      
+
       // Draw number text
       ctx.fillStyle = isSelected ? '#90ff90' : '#ffffff'
       ctx.textBaseline = 'top'

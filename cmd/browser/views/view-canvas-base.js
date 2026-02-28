@@ -67,19 +67,8 @@ export class ViewCanvasBase extends HTMLElement {
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0');
     }
-
-    // Make this element fill its container - CSS controls all sizing
-    this.style.display = 'block';
-    this.style.position = 'relative';
-    this.style.width = '100%';
-    this.style.height = '100%';
-
-    // Add canvas - it will match our size via CSS
-    this.canvas.style.display = 'block';
-    this.canvas.style.width = '100%';
-    this.canvas.style.height = '100%';
+    this.style.cssText = `display:flex;flex-direction:column;flex:1`
     this.appendChild(this.canvas);
-
     // Setup UI elements (subclasses should override setupUI())
     this.setupUI();
 
