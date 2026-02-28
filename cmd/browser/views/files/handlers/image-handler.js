@@ -33,7 +33,6 @@ const imageHandler = {
     const info = imageExtensions[ext] || { kind: 'Image', mime: 'image/png' }
 
     const wrapper = document.createElement('div')
-    wrapper.className = 'file-preview-image'
 
     // Create blob URL from content
     const blob = new Blob([content], { type: info.mime })
@@ -42,12 +41,10 @@ const imageHandler = {
     const img = document.createElement('img')
     img.src = url
     img.alt = fileInfo.name
-    img.className = 'file-preview-img'
     
     // Show dimensions once loaded
     img.onload = () => {
       const dims = document.createElement('div')
-      dims.className = 'file-preview-dims'
       dims.textContent = `${img.naturalWidth} x ${img.naturalHeight} px`
       wrapper.appendChild(dims)
       
@@ -66,12 +63,14 @@ const imageHandler = {
     }
 
     img.onerror = () => {
-      wrapper.innerHTML = `
-        <div class="file-preview-error">
-          <span class="icon file-preview-icon" aria-hidden="true">image</span>
-          <p>Failed to load image</p>
-        </div>
-      `
+      wrapper.innerHTML = ''
+      const icon = document.createElement('i')
+      icon.setAttribute('aria-hidden', 'true')
+      icon.textContent = 'image'
+      const message = document.createElement('p')
+      message.textContent = 'Failed to load image'
+      wrapper.appendChild(icon)
+      wrapper.appendChild(message)
       URL.revokeObjectURL(url)
     }
 
@@ -79,7 +78,6 @@ const imageHandler = {
     
     // File info
     const infoDiv = document.createElement('div')
-    infoDiv.className = 'file-preview-info-bar'
     infoDiv.innerHTML = `
       <span>${info.kind}</span>
       <span>${formatSize(content.byteLength || content.length)}</span>

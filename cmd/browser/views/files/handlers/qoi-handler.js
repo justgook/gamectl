@@ -20,7 +20,6 @@ const qoiHandler = {
    */
   preview(content, container, fileInfo) {
     const wrapper = document.createElement('div')
-    wrapper.className = 'file-preview-image'
 
     try {
       // Decode QOI data
@@ -31,9 +30,6 @@ const qoiHandler = {
       const canvas = document.createElement('canvas')
       canvas.width = decoded.width
       canvas.height = decoded.height
-      canvas.className = 'file-preview-img'
-      canvas.style.maxWidth = '100%'
-      canvas.style.height = 'auto'
       
       const ctx = canvas.getContext('2d')
       const imageData = ctx.createImageData(decoded.width, decoded.height)
@@ -56,26 +52,27 @@ const qoiHandler = {
       
       // Show dimensions
       const dims = document.createElement('div')
-      dims.className = 'file-preview-dims'
       dims.textContent = `${decoded.width} x ${decoded.height} px`
       wrapper.appendChild(dims)
       
       // File info
       const infoDiv = document.createElement('div')
-      infoDiv.className = 'file-preview-info-bar'
       infoDiv.innerHTML = `
         <span>QOI Image (${decoded.channels}ch)</span>
         <span>${formatSize(content.byteLength || content.length)}</span>
       `
       wrapper.appendChild(infoDiv)
     } catch (error) {
-      wrapper.innerHTML = `
-        <div class="file-preview-error">
-          <span class="icon file-preview-icon" aria-hidden="true">image</span>
-          <p>Failed to decode QOI image</p>
-          <p style="font-size: 12px; opacity: 0.7;">${error.message}</p>
-        </div>
-      `
+      const icon = document.createElement('i')
+      icon.setAttribute('aria-hidden', 'true')
+      icon.textContent = 'image'
+      const message = document.createElement('p')
+      message.textContent = 'Failed to decode QOI image'
+      const details = document.createElement('p')
+      details.textContent = error.message
+      wrapper.appendChild(icon)
+      wrapper.appendChild(message)
+      wrapper.appendChild(details)
     }
 
     container.appendChild(wrapper)

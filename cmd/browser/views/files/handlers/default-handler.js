@@ -19,19 +19,37 @@ const defaultHandler = {
    */
   preview(content, container, fileInfo) {
     const info = document.createElement('div')
-    info.className = 'file-preview-info'
-    info.innerHTML = `
-      <div class="file-preview-icon" style="text-align: center; margin-bottom: 16px;"><span class="icon" aria-hidden="true">description</span></div>
-      <table class="file-preview-table">
-        <tr><th>Name:</th><td>${escapeHtml(fileInfo.name)}</td></tr>
-        <tr><th>Path:</th><td>${escapeHtml(fileInfo.path)}</td></tr>
-        <tr><th>Size:</th><td>${formatSize(content.length || content.byteLength || 0)}</td></tr>
-        <tr><th>Type:</th><td>${getFileType(fileInfo.name)}</td></tr>
-      </table>
-      <p style="margin-top: 16px; color: var(--color-semantic-text-secondary); text-align: center;">
-        No preview available for this file type.
-      </p>
-    `
+
+    const icon = document.createElement('i')
+    icon.setAttribute('aria-hidden', 'true')
+    icon.textContent = 'description'
+    info.appendChild(icon)
+
+    const table = document.createElement('table')
+    const rows = [
+      ['Name:', fileInfo.name],
+      ['Path:', fileInfo.path],
+      ['Size:', formatSize(content.length || content.byteLength || 0)],
+      ['Type:', getFileType(fileInfo.name)],
+    ]
+
+    for (const [label, value] of rows) {
+      const tr = document.createElement('tr')
+      const th = document.createElement('th')
+      th.textContent = label
+      const td = document.createElement('td')
+      td.textContent = value
+      tr.appendChild(th)
+      tr.appendChild(td)
+      table.appendChild(tr)
+    }
+
+    info.appendChild(table)
+
+    const message = document.createElement('p')
+    message.textContent = 'No preview available for this file type.'
+    info.appendChild(message)
+
     container.appendChild(info)
   },
 
@@ -42,12 +60,6 @@ const defaultHandler = {
     this.preview(content, container, fileInfo)
     return () => content
   }
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div')
-  div.textContent = str
-  return div.innerHTML
 }
 
 function formatSize(bytes) {
