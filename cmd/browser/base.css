@@ -1158,7 +1158,16 @@ view-stb-editor {
   overflow: hidden;
 }
 
-view-stb-editor>canvas[data-id="tilemap"] {
+view-stb-editor>[data-id="map-viewport"] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: var(--aside-width);
+  bottom: 0;
+  overflow: hidden;
+}
+
+view-stb-editor>[data-id="map-viewport"]>canvas[data-id="tilemap"] {
   position: absolute;
   left: 0;
   top: 0;
