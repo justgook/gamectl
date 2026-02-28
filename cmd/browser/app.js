@@ -37,8 +37,8 @@ customElements.define('layout-manager', LayoutManager)
 
 // === Splash screen status helper ===
 function splashStatus(message) {
-  const el = document.querySelector('.splash-loader-text')
-  if (el) el.textContent = message
+  const splash = document.getElementById('splash-screen')
+  if (splash?.setStatus) splash.setStatus(message)
 }
 
 // === Three-phase boot ===
@@ -273,26 +273,6 @@ eventBus.on('app:settings', () => {
 splashStatus('Ready')
 toast.success("App is ready")
 
-// Enable splash screen Enter button now that app is fully loaded
+// Mark splash as ready now that app is fully loaded
 const splashScreen = document.getElementById('splash-screen')
-if (splashScreen) {
-  splashScreen.setAttribute('data-ready', '')
-
-  const dismissSplash = () => {
-    splashScreen.classList.add('splash-hidden')
-    splashScreen.addEventListener('transitionend', () => {
-      splashScreen.remove()
-    }, { once: true })
-  }
-
-  const enterBtn = splashScreen.querySelector('.splash-enter')
-  if (enterBtn) {
-    enterBtn.disabled = false
-    enterBtn.addEventListener('click', dismissSplash)
-  }
-
-  // Click on backdrop (outside panel) also dismisses
-  splashScreen.addEventListener('click', (e) => {
-    if (e.target === splashScreen) dismissSplash()
-  })
-}
+if (splashScreen?.markReady) splashScreen.markReady()
