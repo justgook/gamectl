@@ -158,7 +158,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     const zoomFitBtn = this.queryHeaderControl('[data-action="zoom-fit"]')
     if (zoomFitBtn) {
-      zoomFitBtn.onclick = () => this.fitToContent()
+      zoomFitBtn.onclick = () => this.fitGraphToContent()
     }
 
     const editBtn = this.queryHeaderControl('[data-action="edit"]')
@@ -187,8 +187,38 @@ export class ViewNodeGraph extends ViewCanvasBase {
       bus.on('node:run', () => this.executeGraph()),
       bus.on('view:zoom-in', () => this.zoomIn()),
       bus.on('view:zoom-out', () => this.zoomOut()),
-      bus.on('view:zoom-fit', () => this.fitToContent()),
+      bus.on('view:zoom-fit', () => this.fitGraphToContent()),
     ]
+  }
+
+  fitGraphToContent() {
+    this.contentBounds = this.calculateContentBounds(this.data)
+    return this.fitToContent()
+  }
+
+  normalizeNodePositionsToTopLeft() {
+    const graphNodes = Array.from(this.children).filter((child) => child.getDisplayInfo)
+    if (graphNodes.length === 0) return
+
+    let minX = Infinity
+    let minY = Infinity
+
+    for (const node of graphNodes) {
+      const x = parseFloat(node.getAttribute('x')) || 0
+      const y = parseFloat(node.getAttribute('y')) || 0
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+    }
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) return
+    if (minX === 0 && minY === 0) return
+
+    for (const node of graphNodes) {
+      const x = parseFloat(node.getAttribute('x')) || 0
+      const y = parseFloat(node.getAttribute('y')) || 0
+      node.setAttribute('x', (x - minX).toString())
+      node.setAttribute('y', (y - minY).toString())
+    }
   }
 
   // --- Node Registry ---
@@ -2192,20 +2222,57 @@ export class ViewNodeGraph extends ViewCanvasBase {
    * Only captures node-* elements, ignoring canvas and other UI elements
    * @returns {string} HTML string of all nodes
    */
-  serializeGraph() {
+  serializeGraph(options = {}) {
+    const normalizePositions = options.normalizePositions === true
+
+    let offsetX = 0
+    let offsetY = 0
+    if (normalizePositions) {
+      const graphNodes = Array.from(this.children).filter((child) => child.tagName && child.tagName.toLowerCase().startsWith('node-'))
+      if (graphNodes.length > 0) {
+        offsetX = Infinity
+        offsetY = Infinity
+        for (const node of graphNodes) {
+          const x = parseFloat(node.getAttribute('x')) || 0
+          const y = parseFloat(node.getAttribute('y')) || 0
+          offsetX = Math.min(offsetX, x)
+          offsetY = Math.min(offsetY, y)
+        }
+        if (!Number.isFinite(offsetX)) offsetX = 0
+        if (!Number.isFinite(offsetY)) offsetY = 0
+      }
+    }
+
     const nodeElements = []
     for (const child of this.children) {
       // Only serialize node-* elements (e.g., node-plugin, node-popup, node-code, etc.)
       if (child.tagName && child.tagName.toLowerCase().startsWith('node-')) {
         // Use node's serialize() method if available, otherwise fallback to default
+        let serializedNodeHtml = ''
         if (typeof child.serialize === 'function') {
-          nodeElements.push(child.serialize())
+          serializedNodeHtml = child.serialize()
         } else {
           // Fallback for nodes without serialize method
           const clone = child.cloneNode(true)
           clone.removeAttribute('focused')
-          nodeElements.push(clone.outerHTML)
+          serializedNodeHtml = clone.outerHTML
         }
+
+        if (normalizePositions) {
+          const temp = document.createElement('div')
+          temp.innerHTML = serializedNodeHtml.trim()
+          const serializedNode = temp.firstElementChild
+          if (serializedNode) {
+            const x = parseFloat(serializedNode.getAttribute('x')) || 0
+            const y = parseFloat(serializedNode.getAttribute('y')) || 0
+            serializedNode.setAttribute('x', (x - offsetX).toString())
+            serializedNode.setAttribute('y', (y - offsetY).toString())
+            serializedNode.removeAttribute('focused')
+            serializedNodeHtml = serializedNode.outerHTML
+          }
+        }
+
+        nodeElements.push(serializedNodeHtml)
       }
     }
     return nodeElements.join('\n')
@@ -2631,7 +2698,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   async savePipeline(name, popup) {
     try {
-      const htmlContent = this.serializeGraph()
+      const htmlContent = this.serializeGraph({ normalizePositions: true })
       const nodeCount = this.countNodes()
 
       console.log("savePipeline", htmlContent)
@@ -2837,11 +2904,15 @@ export class ViewNodeGraph extends ViewCanvasBase {
       // Update node ID counter to avoid conflicts
       this.nodeIdCounter = maxId + 1
 
+      // Normalize loaded node coordinates so graph starts from top-left node,
+      // not from arbitrary saved canvas offsets.
+      this.normalizeNodePositionsToTopLeft()
+
       console.log(`Pipeline "${name}" loaded`)
 
       // Fit to content after loading
       requestAnimationFrame(() => {
-        this.fitToContent()
+        this.fitGraphToContent()
       })
     } catch (error) {
       console.error('Failed to load pipeline:', error)

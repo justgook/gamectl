@@ -193,7 +193,7 @@ export default class ViewStbEditor extends HTMLElement {
     }
 
     if (this.boundViewportWheel) {
-      this.el('tilemap')?.removeEventListener('wheel', this.boundViewportWheel)
+      this.el('map-viewport')?.removeEventListener('wheel', this.boundViewportWheel)
       this.boundViewportWheel = null
     }
 
@@ -221,7 +221,9 @@ export default class ViewStbEditor extends HTMLElement {
 
   renderLayout() {
     this.innerHTML = `
-      <canvas data-id="tilemap" width="640" height="480"></canvas>
+      <section data-id="map-viewport">
+        <canvas data-id="tilemap" width="640" height="480"></canvas>
+      </section>
 
       <aside data-id="sidepanel">
           <fieldset>
@@ -426,10 +428,10 @@ export default class ViewStbEditor extends HTMLElement {
   }
 
   setupViewportControls() {
-    const canvas = this.el('tilemap')
+    const viewport = this.el('map-viewport')
     this.boundViewportWheel = (e) => {
       e.preventDefault()
-      const rect = this.getBoundingClientRect()
+      const rect = viewport.getBoundingClientRect()
       const layerX = e.clientX - rect.left
       const layerY = e.clientY - rect.top
 
@@ -450,7 +452,7 @@ export default class ViewStbEditor extends HTMLElement {
       this.applyViewTransform()
       this.updateMetadata()
     }
-    canvas.addEventListener('wheel', this.boundViewportWheel, { passive: false })
+    viewport.addEventListener('wheel', this.boundViewportWheel, { passive: false })
 
     window.addEventListener('resize', this.boundHandleWindowResize)
   }
@@ -466,9 +468,9 @@ export default class ViewStbEditor extends HTMLElement {
   }
 
   resetViewToFit() {
-    const sidepanel = this.el('sidepanel')
-    const viewportWidth = Math.max(1, this.clientWidth - (sidepanel?.offsetWidth || 0))
-    const viewportHeight = Math.max(1, this.clientHeight)
+    const viewport = this.el('map-viewport')
+    const viewportWidth = Math.max(1, viewport.clientWidth)
+    const viewportHeight = Math.max(1, viewport.clientHeight)
     const mapW = this.mapWidth * this.tileSize
     const mapH = this.mapHeight * this.tileSize
     const fitScaleX = viewportWidth / mapW
@@ -499,7 +501,7 @@ export default class ViewStbEditor extends HTMLElement {
     const isAreaDrag = (e) => this.currentTool === 0 || (e.shiftKey && (this.currentTool === 1 || this.currentTool === 2))
 
     const eventToCell = (e) => {
-      const viewportRect = this.getBoundingClientRect()
+      const viewportRect = this.el('map-viewport').getBoundingClientRect()
       const localX = e.clientX - viewportRect.left
       const localY = e.clientY - viewportRect.top
       const worldX = (localX - this.view.dragX) / this.view.scale
