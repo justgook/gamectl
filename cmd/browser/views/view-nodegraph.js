@@ -1957,17 +1957,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
       Object.keys(grouped).sort().forEach(category => {
         // Create category section
         const categorySection = document.createElement('div')
-        categorySection.style.marginBottom = 'var(--spacing-scale-3)'
 
         // Category title
         const categoryTitle = document.createElement('h3')
         categoryTitle.textContent = category.toUpperCase()
-        categoryTitle.style.cssText = `
-          margin: 0 0 var(--spacing-scale-2) 0;
-          font-size: var(--font-size-sm);
-          color: var(--color-semantic-text-secondary);
-          text-transform: uppercase;
-        `
         categorySection.appendChild(categoryTitle)
 
         // Category items container
@@ -1975,21 +1968,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
         categoryItems.style.cssText = `
           display: flex;
           flex-direction: column;
-          gap: var(--spacing-scale-1);
         `
 
         // Add each template item
         grouped[category].forEach(({ template, namePositions, descPositions }) => {
           const itemButton = document.createElement('button')
-          itemButton.className = 'button-secondary'
-          itemButton.style.cssText = `
-            width: 100%;
-            text-align: left;
-            padding: var(--spacing-scale-2);
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-          `
+
 
           const itemName = document.createElement('strong')
           if (queryLower && namePositions.length > 0) {
@@ -2001,10 +1985,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
           if (template.description) {
             const itemDescription = document.createElement('small')
-            itemDescription.style.cssText = `
-              color: var(--color-semantic-text-secondary);
-              margin-top: var(--spacing-scale-1);
-            `
             if (queryLower && descPositions.length > 0) {
               itemDescription.appendChild(this.highlightMatches(template.description, descPositions))
             } else {
@@ -2041,7 +2021,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // Create title element for slot
     const titleElement = document.createElement('h2')
     titleElement.slot = 'title'
-    titleElement.className = 'popup-title'
     titleElement.textContent = 'Select Node Template'
     popup.appendChild(titleElement)
 
@@ -2268,66 +2247,25 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Build popup content
     const content = document.createElement('div')
-    content.className = 'edit-node-form'
     content.innerHTML = `
-      <div class="edit-node-section">
-        <div class="edit-node-section-header">
-          <label class="edit-node-label">Core</label>
-        </div>
-        <div class="edit-node-core-fields">
-          <div class="edit-node-field">
-            <label>id</label>
-            <input type="text" data-attr="id" value="${currentAttrs.id || ''}" placeholder="node_id">
-          </div>
-          <div class="edit-node-field">
-            <label>title</label>
-            <input type="text" data-attr="title" value="${currentAttrs.title || ''}" placeholder="Node Title">
-          </div>
-          <div class="edit-node-field edit-node-field-half">
-            <label>x</label>
-            <input type="number" data-attr="x" value="${currentAttrs.x || '0'}" step="1">
-          </div>
-          <div class="edit-node-field edit-node-field-half">
-            <label>y</label>
-            <input type="number" data-attr="y" value="${currentAttrs.y || '0'}" step="1">
-          </div>
-        </div>
-      </div>
+      <section style="display:flex; flex-direction:column">
+        <h3>Core</h3>
+        <label>id <input type="text" data-attr="id" value="${currentAttrs.id || ''}" placeholder="node_id"></label>
+        <label>title <input type="text" data-attr="title" value="${currentAttrs.title || ''}" placeholder="Node Title"></label>
+        <label>x <input type="number" data-attr="x" value="${currentAttrs.x || '0'}" step="1"></label>
+        <label>y <input type="number" data-attr="y" value="${currentAttrs.y || '0'}" step="1"></label>
+      </section>
+      <label>Inputs <button type="button" data-action="add-input">+ Add</button></label>
+      <div data-element="inputs-list"></div>
 
-      <div class="edit-node-section">
-        <div class="edit-node-section-header">
-          <label class="edit-node-label">Inputs</label>
-          <button type="button" class="button-secondary edit-node-add-btn" data-action="add-input">+ Add</button>
-        </div>
-        <div class="edit-node-list" data-element="inputs-list">
-          <!-- Input rows will be added here -->
-        </div>
-      </div>
+      <label >Outputs <button type="button" data-action="add-output">+ Add</button></label>
+      <div data-element="outputs-list"></div>
 
-      <div class="edit-node-section">
-        <div class="edit-node-section-header">
-          <label class="edit-node-label">Outputs</label>
-          <button type="button" class="button-secondary edit-node-add-btn" data-action="add-output">+ Add</button>
-        </div>
-        <div class="edit-node-list" data-element="outputs-list">
-          <!-- Output rows will be added here -->
-        </div>
-      </div>
+      <label >Other Attributes <button type="button" data-action="add-attr">+ Add</button></label>
+      <div data-element="attrs-list"></div>
 
-      <div class="edit-node-section">
-        <div class="edit-node-section-header">
-          <label class="edit-node-label">Other Attributes</label>
-          <button type="button" class="button-secondary edit-node-add-btn" data-action="add-attr">+ Add</button>
-        </div>
-        <div class="edit-node-list" data-element="attrs-list">
-          <!-- Attribute rows will be added here -->
-        </div>
-      </div>
-
-      <div class="edit-node-actions">
-        <button type="button" class="button-secondary" data-action="cancel">Cancel</button>
-        <button type="button" class="button-primary" data-action="save">Save</button>
-      </div>
+      <button type="button" data-action="cancel">Cancel</button>
+      <button type="button" class="success" data-action="save">Save</button>
     `
 
     // Parse inputs attribute and populate
@@ -2407,12 +2345,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   _addInputRow(container, portName = '', source = '') {
     const row = document.createElement('div')
-    row.className = 'edit-node-row edit-node-input-row'
+    row.setAttribute('data-row', 'input')
     row.innerHTML = `
-      <input type="text" class="edit-node-input edit-node-port-name" placeholder="port name" value="${this._escapeHtml(portName)}">
-      <span class="edit-node-separator">:</span>
-      <input type="text" class="edit-node-input edit-node-source" placeholder="nodeId.output (optional)" value="${this._escapeHtml(source)}">
-      <button type="button" class="edit-node-remove-btn" data-action="remove">&times;</button>
+      <input type="text" data-field="port-name" placeholder="port name" value="${this._escapeHtml(portName)}">
+      :
+      <input type="text" data-field="source" placeholder="nodeId.output (optional)" value="${this._escapeHtml(source)}">
+      <button type="button" data-action="remove">&times;</button>
     `
     row.querySelector('[data-action="remove"]').addEventListener('click', () => row.remove())
     container.appendChild(row)
@@ -2423,10 +2361,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   _addOutputRow(container, name = '') {
     const row = document.createElement('div')
-    row.className = 'edit-node-row edit-node-output-row'
+    row.setAttribute('data-row', 'output')
     row.innerHTML = `
-      <input type="text" class="edit-node-input edit-node-port-name" placeholder="output name" value="${this._escapeHtml(name)}">
-      <button type="button" class="edit-node-remove-btn" data-action="remove">&times;</button>
+      <input type="text" data-field="port-name" placeholder="output name" value="${this._escapeHtml(name)}">
+      <button type="button" data-action="remove">&times;</button>
     `
     row.querySelector('[data-action="remove"]').addEventListener('click', () => row.remove())
     container.appendChild(row)
@@ -2437,12 +2375,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
    */
   _addAttrRow(container, key = '', value = '') {
     const row = document.createElement('div')
-    row.className = 'edit-node-row edit-node-attr-row'
+    row.setAttribute('data-row', 'attr')
     row.innerHTML = `
-      <input type="text" class="edit-node-input edit-node-attr-key" placeholder="attribute" value="${this._escapeHtml(key)}">
-      <span class="edit-node-separator">=</span>
-      <input type="text" class="edit-node-input edit-node-attr-value" placeholder="value" value="${this._escapeHtml(value)}">
-      <button type="button" class="edit-node-remove-btn" data-action="remove">&times;</button>
+      <input type="text" data-field="key" placeholder="attribute" value="${this._escapeHtml(key)}">
+      =
+      <input type="text" data-field="value" placeholder="value" value="${this._escapeHtml(value)}">
+      <button type="button" data-action="remove">&times;</button>
     `
     row.querySelector('[data-action="remove"]').addEventListener('click', () => row.remove())
     container.appendChild(row)
@@ -2487,11 +2425,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
 
     // Collect inputs
-    const inputRows = content.querySelectorAll('.edit-node-input-row')
+    const inputRows = content.querySelectorAll('[data-row="input"]')
     const inputs = []
     for (const row of inputRows) {
-      const portName = row.querySelector('.edit-node-port-name').value.trim()
-      const source = row.querySelector('.edit-node-source').value.trim()
+      const portName = row.querySelector('[data-field="port-name"]').value.trim()
+      const source = row.querySelector('[data-field="source"]').value.trim()
       if (portName) {
         if (source) {
           inputs.push(`${portName}:${source}`)
@@ -2502,21 +2440,21 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
 
     // Collect outputs
-    const outputRows = content.querySelectorAll('.edit-node-output-row')
+    const outputRows = content.querySelectorAll('[data-row="output"]')
     const outputs = []
     for (const row of outputRows) {
-      const name = row.querySelector('.edit-node-port-name').value.trim()
+      const name = row.querySelector('[data-field="port-name"]').value.trim()
       if (name) {
         outputs.push(name)
       }
     }
 
     // Collect other attributes
-    const attrRows = content.querySelectorAll('.edit-node-attr-row')
+    const attrRows = content.querySelectorAll('[data-row="attr"]')
     const otherAttrs = new Map()
     for (const row of attrRows) {
-      const key = row.querySelector('.edit-node-attr-key').value.trim()
-      const value = row.querySelector('.edit-node-attr-value').value
+      const key = row.querySelector('[data-field="key"]').value.trim()
+      const value = row.querySelector('[data-field="value"]').value
       if (key) {
         otherAttrs.set(key, value)
       }
@@ -2601,48 +2539,20 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Create content container
     const content = document.createElement('div')
-    content.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-scale-3);
-      padding: var(--spacing-scale-2);
-    `
 
     // Info text
     const info = document.createElement('p')
-    info.style.cssText = `
-      margin: 0;
-      color: var(--color-semantic-text-secondary);
-    `
     info.textContent = `Save ${nodeCount} node${nodeCount !== 1 ? 's' : ''} as a pipeline`
     content.appendChild(info)
 
     // Name input
     const inputContainer = document.createElement('div')
-    inputContainer.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-scale-1);
-    `
-
     const label = document.createElement('label')
     label.textContent = 'Pipeline Name'
-    label.style.cssText = `
-      font-weight: 500;
-      color: var(--color-semantic-text-primary);
-    `
 
     const nameInput = document.createElement('input')
     nameInput.type = 'text'
     nameInput.placeholder = 'Enter pipeline name...'
-    nameInput.style.cssText = `
-      padding: var(--spacing-scale-2);
-      border: 1px solid var(--color-semantic-border-default);
-      border-radius: var(--border-radius-sm);
-      background: var(--color-semantic-bg-secondary);
-      color: var(--color-semantic-text-primary);
-      font-size: var(--font-size-base);
-    `
 
     inputContainer.appendChild(label)
     inputContainer.appendChild(nameInput)
@@ -2650,19 +2560,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Button container
     const buttonContainer = document.createElement('div')
-    buttonContainer.style.cssText = `
-      display: flex;
-      gap: var(--spacing-scale-2);
-      justify-content: flex-end;
-      margin-top: var(--spacing-scale-2);
-    `
 
     const cancelBtn = document.createElement('button')
-    cancelBtn.className = 'button-secondary'
     cancelBtn.textContent = 'Cancel'
 
     const saveBtn = document.createElement('button')
-    saveBtn.className = 'button-primary'
     saveBtn.textContent = 'Save'
     saveBtn.disabled = true
 
@@ -2757,14 +2659,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Create content container
     const content = document.createElement('div')
-    content.style.cssText = `
-      max-height: 60vh;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-scale-2);
-    `
-
     // Store for search filtering
     let currentQuery = ''
 
@@ -2783,11 +2677,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
       if (filtered.length === 0) {
         const noResults = document.createElement('div')
-        noResults.style.cssText = `
-          padding: var(--spacing-scale-3);
-          text-align: center;
-          color: var(--color-semantic-text-secondary);
-        `
         noResults.textContent = pipelines.length === 0
           ? 'No saved pipelines yet'
           : `No pipelines matching "${query}"`
@@ -2798,25 +2687,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
       // Render each pipeline
       for (const pipeline of filtered) {
         const itemButton = document.createElement('button')
-        itemButton.className = 'button-secondary'
-        itemButton.style.cssText = `
-          width: 100%;
-          text-align: left;
-          padding: var(--spacing-scale-2);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        `
-
         const nameSpan = document.createElement('strong')
         nameSpan.textContent = pipeline.name
         itemButton.appendChild(nameSpan)
 
         const countSpan = document.createElement('span')
-        countSpan.style.cssText = `
-          color: var(--color-semantic-text-secondary);
-          font-size: var(--font-size-sm);
-        `
         countSpan.textContent = `${pipeline.nodeCount} node${pipeline.nodeCount !== 1 ? 's' : ''}`
         itemButton.appendChild(countSpan)
 
@@ -2845,24 +2720,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
     // Create search input for header-controls slot
     const headerControls = document.createElement('div')
     headerControls.slot = 'header-controls'
-    headerControls.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-scale-2);
-    `
 
     const searchInput = document.createElement('input')
     searchInput.type = 'text'
     searchInput.placeholder = 'Search pipelines...'
-    searchInput.style.cssText = `
-      padding: var(--spacing-scale-1) var(--spacing-scale-2);
-      border: 1px solid var(--color-semantic-border-default);
-      border-radius: var(--border-radius-sm);
-      background: var(--color-semantic-bg-secondary);
-      color: var(--color-semantic-text-primary);
-      font-size: var(--font-size-sm);
-      min-width: 200px;
-    `
+    searchInput.style.cssText = `min-width: 200px;`
 
     // Debounced search
     let searchTimeout = null

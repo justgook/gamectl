@@ -158,7 +158,7 @@ export class NodePopup extends NodeBase {
    */
   _getTemplateContent() {
     const templateId = this.getAttribute('template')
-    
+
     // First try external template by ID
     if (templateId) {
       const externalTemplate = document.getElementById(templateId)
@@ -170,13 +170,13 @@ export class NodePopup extends NodeBase {
       }
       return externalTemplate.content.cloneNode(true)
     }
-    
+
     // Fall back to inline <template> child
     const inlineTemplate = this.querySelector('template')
     if (inlineTemplate) {
       return inlineTemplate.content.cloneNode(true)
     }
-    
+
     throw new Error(`node-popup (${this.id}) has no template - specify template attribute or add inline <template> child`)
   }
 
@@ -325,11 +325,7 @@ export class NodePopup extends NodeBase {
     const buttonContainer = document.createElement('div')
     buttonContainer.style.cssText = `
       display: flex; 
-      gap: var(--spacing-scale-2); 
       justify-content: flex-end; 
-      margin-top: var(--spacing-scale-3);
-      padding-top: var(--spacing-scale-3);
-      border-top: 1px solid var(--color-semantic-border-default);
     `
 
     const saveBtn = document.createElement('button')
