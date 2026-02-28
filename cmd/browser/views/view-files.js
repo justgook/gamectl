@@ -82,7 +82,7 @@ export class ViewFiles extends HTMLElement {
     } else {
       // Fallback inline structure
       this.innerHTML = `
-        <div data-element="toolbar" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <div data-element="toolbar">
           <button data-action="refresh" title="Refresh">Refresh</button>
           <button data-action="new-file" title="New File">+ File</button>
           <button data-action="new-folder" title="New Folder">+ Folder</button>
@@ -91,14 +91,14 @@ export class ViewFiles extends HTMLElement {
           <button data-action="download" title="Download File">Download</button>
           <span data-element="path-display">/</span>
         </div>
-        <div data-element="tree-container" style="flex: 1; overflow: auto;">
-          <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+        <div data-element="tree-container">
+          <table>
             <thead>
               <tr>
-                <th style="text-align: left;">Name</th>
-                <th style="text-align: left; width: 180px;">Date Modified</th>
-                <th style="text-align: left; width: 100px;">Size</th>
-                <th style="text-align: left; width: 140px;">Kind</th>
+                <th>Name</th>
+                <th>Date Modified</th>
+                <th>Size</th>
+                <th>Kind</th>
               </tr>
             </thead>
             <tbody data-element="tree-body"></tbody>
@@ -106,10 +106,6 @@ export class ViewFiles extends HTMLElement {
         </div>
         <div data-element="status"></div>
       `
-
-      this.querySelector('[data-element="toolbar"]')?.querySelectorAll('button').forEach(btn => {
-        btn.style.cssText = 'padding: 4px 10px; border: 1px solid var(--color-semantic-border-default); border-radius: 6px; background: var(--color-semantic-surface-secondary); color: inherit; cursor: pointer;'
-      })
     }
 
     // Cache element references
@@ -198,22 +194,20 @@ export class ViewFiles extends HTMLElement {
     const hideActions = ['new-file', 'new-folder', 'delete', 'upload', 'download']
     hideActions.forEach(action => {
       const btn = this.toolbar?.querySelector(`[data-action="${action}"]`)
-      if (btn) btn.style.display = 'none'
+      if (btn) btn.hidden = true
     })
 
     // Add chooser action bar if not already present
     if (!this.chooserActions) {
       this.chooserActions = document.createElement('div')
-      this.chooserActions.style.cssText = 'display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px; border-top: 1px solid var(--color-semantic-border-default);'
       this.chooserActions.innerHTML = `
         <span data-element="chooser-selection-info" ></span>
-        <div style="display: flex; gap: 8px;">
+        <div>
           <button data-action="cancel">Cancel</button>
           <button data-action="select" disabled>Select</button>
         </div>
       `
       this.appendChild(this.chooserActions)
-      this.styleActionButtons(this.chooserActions)
 
       // Bind chooser action buttons
       this.chooserActions.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
@@ -241,7 +235,7 @@ export class ViewFiles extends HTMLElement {
     const hideActions = ['new-file', 'delete', 'upload', 'download']
     hideActions.forEach(action => {
       const btn = this.toolbar?.querySelector(`[data-action="${action}"]`)
-      if (btn) btn.style.display = 'none'
+      if (btn) btn.hidden = true
     })
 
     // Set initial directory
@@ -250,23 +244,21 @@ export class ViewFiles extends HTMLElement {
     // Add saver action bar if not already present
     if (!this.chooserActions) {
       this.chooserActions = document.createElement('div')
-      this.chooserActions.style.cssText = 'display: flex; flex-direction: column; gap: 10px; padding: 10px; border-top: 1px solid var(--color-semantic-border-default);'
       this.chooserActions.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="min-width: 72px; color: var(--color-semantic-text-secondary);">Save to:</span>
-          <span data-element="saver-path" style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.currentDirectory}</span>
+        <div>
+          <span>Save to:</span>
+          <span data-element="saver-path">${this.currentDirectory}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="min-width: 72px; color: var(--color-semantic-text-secondary);">Filename:</span>
-          <input type="text" data-element="filename-input" placeholder="Enter filename..." value="${this.defaultName || ''}" style="flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--color-semantic-border-default); border-radius: 6px;">
+        <div>
+          <span>Filename:</span>
+          <input type="text" data-element="filename-input" placeholder="Enter filename..." value="${this.defaultName || ''}">
         </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <div>
           <button data-action="cancel">Cancel</button>
           <button data-action="save" ${!this.defaultName ? 'disabled' : ''}>Save</button>
         </div>
       `
       this.appendChild(this.chooserActions)
-      this.styleActionButtons(this.chooserActions)
 
       // Cache filename input reference
       this.filenameInput = this.chooserActions.querySelector('[data-element="filename-input"]')
@@ -310,7 +302,7 @@ export class ViewFiles extends HTMLElement {
     const hideActions = ['new-file', 'delete', 'upload', 'download']
     hideActions.forEach(action => {
       const btn = this.toolbar?.querySelector(`[data-action="${action}"]`)
-      if (btn) btn.style.display = 'none'
+      if (btn) btn.hidden = true
     })
 
     this.selectFolders = true
@@ -319,19 +311,17 @@ export class ViewFiles extends HTMLElement {
     // Add folder select action bar if not already present
     if (!this.chooserActions) {
       this.chooserActions = document.createElement('div')
-      this.chooserActions.style.cssText = 'display: flex; flex-direction: column; gap: 10px; padding: 10px; border-top: 1px solid var(--color-semantic-border-default);'
       this.chooserActions.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="min-width: 110px; color: var(--color-semantic-text-secondary);">Selected folder:</span>
-          <span data-element="saver-path" style="font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.currentDirectory}</span>
+        <div>
+          <span>Selected folder:</span>
+          <span data-element="saver-path">${this.currentDirectory}</span>
         </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <div>
           <button data-action="cancel">Cancel</button>
           <button data-action="select">Select Folder</button>
         </div>
       `
       this.appendChild(this.chooserActions)
-      this.styleActionButtons(this.chooserActions)
 
       this.saverPathDisplay = this.chooserActions.querySelector('[data-element="saver-path"]')
 
@@ -727,7 +717,6 @@ export class ViewFiles extends HTMLElement {
     tr.dataset.path = item.path
     tr.dataset.type = item.type
     tr.draggable = this.mode !== 'chooser' // Disable drag in chooser mode
-    tr.style.cursor = 'default'
 
     // Check if selectable in chooser mode
     const isSelectable = this.mode === 'chooser' ? this.isSelectable(item.path) : true
@@ -744,7 +733,6 @@ export class ViewFiles extends HTMLElement {
 
     // Name column with indent, chevron, and icon
     const tdName = document.createElement('td')
-    tdName.style.cssText = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'
 
     const indent = document.createElement('span')
     indent.style.display = 'inline-block'
@@ -755,7 +743,6 @@ export class ViewFiles extends HTMLElement {
     if (this.mode === 'chooser' && this.multiSelect && isSelectable) {
       const checkbox = document.createElement('input')
       checkbox.type = 'checkbox'
-      checkbox.style.marginRight = '8px'
       checkbox.checked = isChooserSelected
       checkbox.addEventListener('click', (e) => {
         e.stopPropagation()
@@ -767,19 +754,17 @@ export class ViewFiles extends HTMLElement {
     if (item.type === 'directory') {
       const chevron = this.createIconElement(isExpanded ? 'expand_more' : 'chevron_right')
       chevron.dataset.action = 'toggle'
-      chevron.style.cssText += 'font-size: 16px; margin-right: 2px; vertical-align: text-bottom; cursor: pointer; color: var(--color-semantic-text-secondary);'
       tdName.appendChild(chevron)
     } else {
       // Spacer for files
       const spacer = document.createElement('span')
-      spacer.style.cssText = 'display: inline-block; width: 18px; margin-right: 2px;'
+      spacer.textContent = ' '
       tdName.appendChild(spacer)
     }
 
     const icon = this.createIconElement(item.type === 'directory' ? 'folder' : handler.icon)
-    icon.style.cssText += 'font-size: 18px; margin-right: 6px; vertical-align: text-bottom;'
-    icon.textContent = item.type === 'directory' ? 'folder' : handler.icon
     tdName.appendChild(icon)
+    tdName.appendChild(document.createTextNode(' '))
 
     const nameSpan = document.createElement('span')
     nameSpan.dataset.element = 'file-name'
@@ -790,19 +775,16 @@ export class ViewFiles extends HTMLElement {
 
     // Date Modified column (placeholder - fs doesn't provide mtime)
     const tdModified = document.createElement('td')
-    tdModified.style.color = 'var(--color-semantic-text-secondary)'
     tdModified.textContent = '--'
     tr.appendChild(tdModified)
 
     // Size column
     const tdSize = document.createElement('td')
-    tdSize.style.color = 'var(--color-semantic-text-secondary)'
     tdSize.textContent = item.type === 'directory' ? '--' : this.formatSize(item.size)
     tr.appendChild(tdSize)
 
     // Kind column
     const tdKind = document.createElement('td')
-    tdKind.style.color = 'var(--color-semantic-text-secondary)'
     tdKind.textContent = item.type === 'directory' ? 'Folder' : handler.kind
     tr.appendChild(tdKind)
 
@@ -816,26 +798,9 @@ export class ViewFiles extends HTMLElement {
   }
 
   applyRowStateStyle(row, state = {}) {
-    row.style.opacity = state.chooserDisabled ? '0.55' : '1'
-    row.style.background = 'transparent'
-
-    if (state.chooserSelected) {
-      row.style.background = 'color-mix(in srgb, var(--color-semantic-accent-default) 16%, transparent)'
-    }
-
-    if (state.selected) {
-      row.style.background = 'color-mix(in srgb, var(--color-semantic-accent-default) 24%, transparent)'
-    }
-
     row.dataset.selected = state.selected ? 'true' : 'false'
     row.dataset.chooserSelected = state.chooserSelected ? 'true' : 'false'
     row.dataset.chooserDisabled = state.chooserDisabled ? 'true' : 'false'
-  }
-
-  styleActionButtons(container) {
-    container.querySelectorAll('button').forEach(btn => {
-      btn.style.cssText = 'padding: 6px 10px; border: 1px solid var(--color-semantic-border-default); border-radius: 6px; background: var(--color-semantic-surface-secondary); color: inherit; cursor: pointer;'
-    })
   }
 
   // --- Event Handlers ---
@@ -1194,7 +1159,7 @@ export class ViewFiles extends HTMLElement {
     // Create hidden file input
     const input = document.createElement('input')
     input.type = 'file'
-    input.style.display = 'none'
+    input.hidden = true
 
     // Determine destination directory
     let destDir = this.rootPath
@@ -1298,7 +1263,6 @@ export class ViewFiles extends HTMLElement {
 
     this.draggedPath = row.dataset.path
     row.dataset.dragging = 'true'
-    row.style.opacity = '0.6'
 
     // Set drag data
     e.dataTransfer.effectAllowed = 'move'
@@ -1337,17 +1301,14 @@ export class ViewFiles extends HTMLElement {
     // Clear previous drop target
     this.treeBody?.querySelectorAll('[data-drop-target="true"]').forEach(el => {
       el.dataset.dropTarget = 'false'
-      el.style.outline = ''
     })
     row.dataset.dropTarget = 'true'
-    row.style.outline = '1px dashed var(--color-semantic-accent-default)'
   }
 
   handleDragLeave(e) {
     const row = e.target.closest('[data-element="file-row"]')
     if (row && !row.contains(e.relatedTarget)) {
       row.dataset.dropTarget = 'false'
-      row.style.outline = ''
     }
   }
 
@@ -1357,13 +1318,7 @@ export class ViewFiles extends HTMLElement {
     this.treeBody?.querySelectorAll('[data-element="file-row"]').forEach(el => {
       el.dataset.dragging = 'false'
       el.dataset.dropTarget = 'false'
-      el.style.opacity = '1'
-      el.style.outline = ''
     })
-    if (this.treeContainer) {
-      this.treeContainer.style.outline = ''
-      this.treeContainer.style.outlineOffset = ''
-    }
   }
 
   async handleDrop(e) {
@@ -1400,13 +1355,11 @@ export class ViewFiles extends HTMLElement {
     if (targetDir === sourceParent) {
       this.draggedPath = null
       row.dataset.dropTarget = 'false'
-      row.style.outline = ''
       return
     }
 
     // Clean up UI
     row.dataset.dropTarget = 'false'
-    row.style.outline = ''
     this.draggedPath = null
 
     await this.moveFile(sourcePath, targetDir)
@@ -1429,13 +1382,8 @@ export class ViewFiles extends HTMLElement {
 
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
-      if (this.treeContainer) {
-        this.treeContainer.style.outline = '1px dashed var(--color-semantic-accent-default)'
-        this.treeContainer.style.outlineOffset = '-2px'
-      }
       this.treeBody?.querySelectorAll('[data-drop-target="true"]').forEach(el => {
         el.dataset.dropTarget = 'false'
-        el.style.outline = ''
       })
       return
     }
@@ -1445,45 +1393,29 @@ export class ViewFiles extends HTMLElement {
 
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
-    if (this.treeContainer) {
-      this.treeContainer.style.outline = '1px dashed var(--color-semantic-accent-default)'
-      this.treeContainer.style.outlineOffset = '-2px'
-    }
 
     // Highlight row if hovering over one (will upload to that folder, or file's parent folder)
     if (row) {
       this.treeBody?.querySelectorAll('[data-drop-target="true"]').forEach(el => {
         el.dataset.dropTarget = 'false'
-        el.style.outline = ''
       })
       row.dataset.dropTarget = 'true'
-      row.style.outline = '1px dashed var(--color-semantic-accent-default)'
     }
   }
 
   handleExternalDragLeave(e) {
     // Only remove if leaving the container entirely
     if (!this.treeContainer?.contains(e.relatedTarget)) {
-      if (this.treeContainer) {
-        this.treeContainer.style.outline = ''
-        this.treeContainer.style.outlineOffset = ''
-      }
       this.treeBody?.querySelectorAll('[data-drop-target="true"]').forEach(el => {
         el.dataset.dropTarget = 'false'
-        el.style.outline = ''
       })
     }
   }
 
   async handleExternalDrop(e) {
     e.preventDefault()
-    if (this.treeContainer) {
-      this.treeContainer.style.outline = ''
-      this.treeContainer.style.outlineOffset = ''
-    }
     this.treeBody?.querySelectorAll('[data-drop-target="true"]').forEach(el => {
       el.dataset.dropTarget = 'false'
-      el.style.outline = ''
     })
 
     const row = e.target.closest('[data-element="file-row"]')
@@ -1651,10 +1583,20 @@ export class ViewFiles extends HTMLElement {
     const nameSpan = row.querySelector('[data-element="file-name"]')
     if (!nameSpan) return
 
+    const nameCell = nameSpan.closest('td')
+    const cellRect = nameCell?.getBoundingClientRect()
+    const nameRect = nameSpan.getBoundingClientRect()
+    const availableWidth = cellRect
+      ? Math.max(80, Math.floor(cellRect.right - nameRect.left - 8))
+      : 160
+
     const input = document.createElement('input')
     input.type = 'text'
     input.dataset.element = 'rename-input'
-    input.style.cssText = 'padding: 2px 6px; border: 1px solid var(--color-semantic-border-default); border-radius: 4px;'
+    input.style.width = `${availableWidth}px`
+    input.style.maxWidth = '100%'
+    input.style.minWidth = '0'
+    input.style.boxSizing = 'border-box'
     input.value = item.name
 
     nameSpan.textContent = ''
@@ -1798,13 +1740,11 @@ export class ViewFiles extends HTMLElement {
     // Title
     const titleEl = document.createElement('h2')
     titleEl.slot = 'title'
-    titleEl.style.margin = '0'
     titleEl.textContent = fileInfo.name
     popup.appendChild(titleEl)
 
     // Content container
     const contentContainer = document.createElement('div')
-    contentContainer.style.cssText = 'display: flex; flex-direction: column; min-height: 300px;'
 
     if (handler.canEdit) {
       const saveCallback = handler.edit(content, contentContainer, fileInfo)
@@ -1824,22 +1764,12 @@ export class ViewFiles extends HTMLElement {
 
       // Button container
       const buttonContainer = document.createElement('div')
-      buttonContainer.style.cssText = `
-        display: flex;
-        gap: var(--spacing-scale-2);
-        justify-content: flex-end;
-        margin-top: var(--spacing-scale-3);
-        padding-top: var(--spacing-scale-3);
-        border-top: 1px solid var(--color-semantic-border-default);
-      `
 
       const cancelBtn = document.createElement('button')
-      cancelBtn.style.cssText = 'padding: 6px 10px; border: 1px solid var(--color-semantic-border-default); border-radius: 6px; background: var(--color-semantic-surface-secondary); color: inherit; cursor: pointer;'
       cancelBtn.textContent = 'Cancel'
       cancelBtn.onclick = () => popup.close()
 
       const saveBtn = document.createElement('button')
-      saveBtn.style.cssText = 'padding: 6px 10px; border: 1px solid var(--color-semantic-border-default); border-radius: 6px; background: var(--color-semantic-surface-secondary); color: inherit; cursor: pointer;'
       saveBtn.textContent = 'Save'
       saveBtn.onclick = async () => {
         try {
@@ -1917,7 +1847,6 @@ export class ViewFiles extends HTMLElement {
 
       // Buttons
       const buttonContainer = document.createElement('div')
-      buttonContainer.style.cssText = 'display: flex; gap: var(--spacing-scale-2); justify-content: flex-end;'
 
       const cancelBtn = document.createElement('button')
       cancelBtn.textContent = 'Cancel'
