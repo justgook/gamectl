@@ -106,10 +106,9 @@
 
     <template id="view-sql-table">
       <div data-element="toolbar" class="sql-table-toolbar">
-        <button data-action="refresh" title="Refresh (Ctrl+R)">Refresh</button>
-        <button data-action="insert" title="Insert Row (Insert)">+ Row</button>
-        <button data-action="delete" title="Delete Row (Ctrl+Del / Cmd+Backspace)">-
-          Row</button>
+        <button data-action="refresh" aria-label="Refresh" title="Refresh (Ctrl+R)"><i aria-hidden="true">refresh</i></button>
+        <button data-action="insert" aria-label="Insert Row" title="Insert Row (Insert)"><i aria-hidden="true">add</i></button>
+        <button data-action="delete" aria-label="Delete Row" title="Delete Row (Ctrl+Del / Cmd+Backspace)"><i aria-hidden="true">remove</i></button>
       </div>
       <div data-element="table-container" class="sql-table-container"></div>
       <div class="sql-table-footer">
@@ -120,8 +119,8 @@
 
     <template id="view-sql-tables">
       <div data-element="toolbar" class="sql-tables-toolbar">
-        <button data-action="refresh" title="Refresh">Refresh</button>
-        <button data-action="new-table" title="Create New Table">+ New Table</button>
+        <button data-action="refresh" aria-label="Refresh" title="Refresh"><i aria-hidden="true">refresh</i></button>
+        <button data-action="new-table" aria-label="Create New Table" title="Create New Table"><i aria-hidden="true">post_add</i></button>
       </div>
       <div data-element="list-container" class="sql-tables-list"></div>
       <div data-element="status" class="sql-tables-status"></div>
@@ -129,12 +128,12 @@
 
     <template id="view-files">
       <div data-element="toolbar" class="files-toolbar">
-        <button data-action="refresh" title="Refresh">Refresh</button>
-        <button data-action="new-file" title="New File">+ File</button>
-        <button data-action="new-folder" title="New Folder">+ Folder</button>
-        <button data-action="delete" title="Delete">Delete</button>
-        <button data-action="upload" title="Upload File">Upload</button>
-        <button data-action="download" title="Download File">Download</button>
+        <button data-action="refresh" aria-label="Refresh" title="Refresh"><i aria-hidden="true">refresh</i></button>
+        <button data-action="new-file" aria-label="New File" title="New File"><i aria-hidden="true">note_add</i></button>
+        <button data-action="new-folder" aria-label="New Folder" title="New Folder"><i aria-hidden="true">create_new_folder</i></button>
+        <button data-action="delete" aria-label="Delete" title="Delete"><i aria-hidden="true">delete</i></button>
+        <button data-action="upload" aria-label="Upload File" title="Upload File"><i aria-hidden="true">upload</i></button>
+        <button data-action="download" aria-label="Download File" title="Download File"><i aria-hidden="true">download</i></button>
         <span class="files-path" data-element="path-display">/</span>
       </div>
       <div data-element="tree-container" class="files-tree-container">
@@ -160,24 +159,24 @@
           style="width: 32px; height: 32px; text-align: center; padding: 0; border: 2px solid var(--border-focus); border-radius: var(--radius-sm); background: var(--surface); color: var(--text);">
         <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
         <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
-        <button data-action="zoom-in">+</button>
-        <button data-action="zoom-out">−</button>
-        <button data-action="zoom-fit">⊡ Fit</button>
+        <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
     </template>
 
     <template id="view-nodegraph">
       <div slot="header-controls">
-        <button data-action="add-node">+ Node</button>
+        <button data-action="add-node" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
         <button data-action="run" class="success" aria-label="Run" title="Run"><i
             aria-hidden="true">play_arrow</i></button>
         <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
         <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
-        <button data-action="edit">Edit</button>
+        <button data-action="edit" aria-label="Edit Node" title="Edit Node"><i aria-hidden="true">edit</i></button>
         <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
-        <button data-action="zoom-in">+</button>
-        <button data-action="zoom-out">−</button>
-        <button data-action="zoom-fit">⊡ Fit</button>
+        <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
     </template>
 
@@ -185,40 +184,40 @@
       <div slot="header-controls">
         <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
         <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
-        <button data-action="zoom-in">+</button>
-        <button data-action="zoom-out">−</button>
-        <button data-action="zoom-fit">⊡ Fit</button>
+        <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
     </template>
 
     <template id="view-tile-extractor">
       <div slot="header-controls">
-        <button data-action="load">Load</button>
-        <button data-action="reload">Reload</button>
-        <button data-action="zoom-in">+</button>
-        <button data-action="zoom-out">-</button>
-        <button data-action="zoom-fit">Fit</button>
+        <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
+        <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+        <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
     </template>
 
     <template id="view-sprite-extractor">
       <div slot="header-controls">
-        <button data-action="load">Load</button>
-        <button data-action="reload">Reload</button>
-        <button data-action="zoom-in">+</button>
-        <button data-action="zoom-out">-</button>
-        <button data-action="zoom-fit">Fit</button>
+        <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
+        <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+        <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
     </template>
 
     <template id="view-sprite-packer">
       <div slot="header-controls">
-        <button data-action="add-sprites">+ Add Sprites</button>
-        <button data-action="clear">Clear</button>
+        <button data-action="add-sprites" aria-label="Add Sprites" title="Add Sprites"><i aria-hidden="true">add_photo_alternate</i></button>
+        <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">delete_sweep</i></button>
         <span style="width: 1px; height: 20px; background: var(--border);"></span>
-        <button data-action="zoom-in">+</button>
-        <button data-action="zoom-out">-</button>
-        <button data-action="zoom-fit">Fit</button>
+        <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
     </template>
 
@@ -227,18 +226,18 @@
         <select data-action="pose-select" title="Select Pose">
           <option value="default">default</option>
         </select>
-        <button data-action="pose-save" title="Save Pose">Save Pose</button>
-        <button data-action="pose-new" title="Save as New Pose">+ Pose</button>
-        <button data-action="pose-reset" title="Reset to Saved Pose">Reset</button>
+        <button data-action="pose-save" aria-label="Save Pose" title="Save Pose"><i aria-hidden="true">save</i></button>
+        <button data-action="pose-new" aria-label="Save as New Pose" title="Save as New Pose"><i aria-hidden="true">add</i></button>
+        <button data-action="pose-reset" aria-label="Reset to Saved Pose" title="Reset to Saved Pose"><i aria-hidden="true">replay</i></button>
         <span style="width: 1px; height: 20px; background: var(--border);"></span>
-        <button data-action="add-bone">+ Bone</button>
-        <button data-action="toggle-labels">Labels</button>
+        <button data-action="add-bone" aria-label="Add Bone" title="Add Bone"><i aria-hidden="true">device_hub</i></button>
+        <button data-action="toggle-labels" aria-label="Toggle Labels" title="Toggle Labels"><i aria-hidden="true">label</i></button>
         <span style="width: 1px; height: 20px; background: var(--border);"></span>
-        <button data-action="save" class="accent" title="Save Skeleton">Save</button>
-        <button data-action="reload">Reload</button>
-        <button data-action="zoom-in">+</button>
-        <button data-action="zoom-out">-</button>
-        <button data-action="zoom-fit">Fit</button>
+        <button data-action="save" class="accent" aria-label="Save Skeleton" title="Save Skeleton"><i aria-hidden="true">save</i></button>
+        <button data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+        <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
     </template>
 
@@ -247,8 +246,8 @@
         <button data-action="play" aria-label="Play" title="Play"><i aria-hidden="true">play_arrow</i></button>
         <button data-action="stop" aria-label="Stop" title="Stop"><i aria-hidden="true">stop</i></button>
         <span style="width: 1px; height: 20px; background: var(--border);"></span>
-        <button data-action="add-key">+ Key</button>
-        <button data-action="delete-key">Delete</button>
+        <button data-action="add-key" aria-label="Add Key" title="Add Key"><i aria-hidden="true">add</i></button>
+        <button data-action="delete-key" aria-label="Delete Key" title="Delete Key"><i aria-hidden="true">delete</i></button>
         <span style="width: 1px; height: 20px; background: var(--border);"></span>
         <label>
           <input type="checkbox" data-action="loop">
@@ -261,7 +260,7 @@
 
     <template id="view-animation-editor">
       <div slot="header-controls">
-        <button data-action="load-spritesheet">Load Sheet</button>
+        <button data-action="load-spritesheet" aria-label="Load Sheet" title="Load Sheet"><i aria-hidden="true">folder_open</i></button>
         <span style="width: 1px; height: 20px; background: var(--border);"></span>
         <label style="display: inline-flex; align-items: center; gap: var(--space-2);">
           <span>Tile:</span>
@@ -270,9 +269,9 @@
           <input type="number" data-element="tile-height" value="16" min="1" title="Tile Height" style="width: 64px;">
         </label>
         <span style="width: 1px; height: 20px; background: var(--border);"></span>
-        <button data-action="new" class="accent">New</button>
+        <button data-action="new" class="accent" aria-label="New" title="New"><i aria-hidden="true">add</i></button>
         <span style="width: 1px; height: 20px; background: var(--border);"></span>
-        <button data-action="save" class="accent">Save</button>
+        <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
       </div>
     </template>
 
