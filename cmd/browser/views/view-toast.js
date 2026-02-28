@@ -18,6 +18,41 @@ const TYPE_TO_INTENT = {
   error: 'danger',
 }
 
+const TOAST_TEMPLATE_HTML = {
+  toast: `
+    <span data-element="message"></span>
+    <button class="toast-close" data-action="close" aria-label="Close">&times;</button>
+  `,
+  alert: `
+    <div class="toast-container">
+      <span data-element="message"></span>
+      <div class="toast-actions">
+        <button class="accent" data-action="confirm" data-element="confirm-button">OK</button>
+      </div>
+    </div>
+  `,
+  confirm: `
+    <div class="toast-container">
+      <span data-element="message"></span>
+      <div class="toast-actions">
+        <button data-action="cancel" data-element="cancel-button">Cancel</button>
+        <button class="accent" data-action="confirm" data-element="confirm-button">Confirm</button>
+      </div>
+    </div>
+  `,
+}
+
+const TOAST_TEMPLATES = Object.fromEntries(Object.entries(TOAST_TEMPLATE_HTML).map(([mode, html]) => {
+  const template = document.createElement('template')
+  template.innerHTML = html
+  return [mode, template]
+}))
+
+function cloneTemplateForMode(mode) {
+  const template = TOAST_TEMPLATES[mode] || TOAST_TEMPLATES.toast
+  return template.content.cloneNode(true)
+}
+
 export class ViewToast extends HTMLElement {
   constructor() {
     super()
@@ -106,22 +141,8 @@ export class ViewToast extends HTMLElement {
       this.setAttribute('position', 'primary')
     }
 
-    // Get appropriate template based on mode
-    const templateId = this.mode === 'confirm'
-      ? 'toast-container-confirm'
-      : this.mode === 'alert'
-        ? 'toast-container-alert'
-        : 'toast-container'
-
-    const template = document.getElementById(templateId)
-
-    if (!template) {
-      console.error(`Toast template "${templateId}" not found`)
-      return
-    }
-
-    // Clone template content
-    const templateContent = template.content.cloneNode(true)
+    // Clone mode template from local JS constants
+    const templateContent = cloneTemplateForMode(this.mode)
 
     // Set message
     const messageElement = templateContent.querySelector('[data-element="message"]')
