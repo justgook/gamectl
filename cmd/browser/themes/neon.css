@@ -206,12 +206,6 @@
     flex: 1;
     container-name: view-header;
     container-type: inline-size;
-    background: red;
-  }
-
-  [slot="header-controls"]::before {
-    counter-reset: variable var(--childs);
-    content: "childs(" counter(variable)")";
   }
 
   @container view-header style(--childs: 9) and (width < 400px) {

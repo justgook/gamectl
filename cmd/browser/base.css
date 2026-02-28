@@ -72,6 +72,8 @@
     --space-6: 24px;
     --space-7: 32px;
     --space-8: 48px;
+
+    --control-height: 30px;
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -118,11 +120,25 @@
      INTENT CLASSES
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  .accent  { --intent: var(--accent); }
-  .success { --intent: var(--success); }
-  .warning { --intent: var(--warning); }
-  .danger  { --intent: var(--danger); }
-  .info    { --intent: var(--info); }
+  .accent {
+    --intent: var(--accent);
+  }
+
+  .success {
+    --intent: var(--success);
+  }
+
+  .warning {
+    --intent: var(--warning);
+  }
+
+  .danger {
+    --intent: var(--danger);
+  }
+
+  .info {
+    --intent: var(--info);
+  }
 
   .elevated {
     background: var(--surface-elevated);
@@ -173,7 +189,10 @@
     color-scheme: dark;
   }
 
-  pre, code, kbd, samp {
+  pre,
+  code,
+  kbd,
+  samp {
     font-family: var(--font-mono);
   }
 
@@ -192,18 +211,17 @@
     font-family: 'Material Symbols Rounded';
     font-weight: 400;
     font-style: normal;
-    font-size: 24px;
-    line-height: 1;
+    font-size: inherit;
+    line-height: inherit;
     letter-spacing: normal;
     text-transform: none;
     display: inline-block;
     white-space: nowrap;
     word-wrap: normal;
     direction: ltr;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 14;
     font-feature-settings: 'liga';
     -webkit-font-smoothing: antialiased;
-    vertical-align: -0.125em;
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -218,14 +236,16 @@
   [type="button"],
   [type="submit"],
   [type="reset"] {
+    user-select: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
+    height: var(--control-height);
     background: var(--surface-elevated);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: var(--space-2) var(--space-4);
+    padding: 0 var(--space-3);
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: background 120ms, border-color 120ms, color 120ms;
@@ -237,6 +257,13 @@
   [type="reset"]:hover {
     background: var(--surface-hover);
     border-color: var(--border-hover);
+  }
+
+  button:active,
+  [type="button"]:active,
+  [type="submit"]:active,
+  [type="reset"]:active {
+    background: var(--surface);
   }
 
   button:focus-visible,
@@ -274,9 +301,11 @@
     background: var(--intent-active-bg);
   }
 
-  /* icon sizing inside buttons */
-  button > i {
-    font-size: 18px;
+  /* icon sizing inside buttons — larger than text but contained by --control-height */
+  button>i {
+    font-size: 20px;
+    line-height: 1;
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -292,7 +321,16 @@
   input[type="search"],
   input[type="email"],
   input[type="password"],
-  select,
+  select {
+    height: var(--control-height);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-sm);
+    transition: border-color 120ms, box-shadow 120ms;
+  }
+
   textarea {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -332,13 +370,36 @@
   }
 
   /* intent on inputs = validation state (direct or cascaded from parent) */
-  input.accent,  .accent  > input,  .accent  > select,  .accent  > textarea,
-  input.success, .success > input, .success > select, .success > textarea,
-  input.warning, .warning > input, .warning > select, .warning > textarea,
-  input.danger,  .danger  > input,  .danger  > select,  .danger  > textarea,
-  input.info,    .info    > input,  .info    > select,  .info    > textarea,
-  select.accent, select.success, select.warning, select.danger, select.info,
-  textarea.accent, textarea.success, textarea.warning, textarea.danger, textarea.info {
+  input.accent,
+  .accent>input,
+  .accent>select,
+  .accent>textarea,
+  input.success,
+  .success>input,
+  .success>select,
+  .success>textarea,
+  input.warning,
+  .warning>input,
+  .warning>select,
+  .warning>textarea,
+  input.danger,
+  .danger>input,
+  .danger>select,
+  .danger>textarea,
+  input.info,
+  .info>input,
+  .info>select,
+  .info>textarea,
+  select.accent,
+  select.success,
+  select.warning,
+  select.danger,
+  select.info,
+  textarea.accent,
+  textarea.success,
+  textarea.warning,
+  textarea.danger,
+  textarea.info {
     border-color: var(--intent-soft-border);
   }
 
@@ -437,6 +498,12 @@
     flex: 1;
   }
 
+  [slot="header-controls"] {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
   .panel-content {
     flex: 1 1 auto;
     overflow: auto;
@@ -450,7 +517,6 @@
   /* layout */
   toast-manager,
   popup-manager,
-  layout-parent,
   layout-manager {
     isolation: isolate;
   }
@@ -460,7 +526,6 @@
     display: contents;
   }
 
-  layout-parent,
   layout-manager {
     position: relative;
     display: block;
