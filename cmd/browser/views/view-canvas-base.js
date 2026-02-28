@@ -67,7 +67,7 @@ export class ViewCanvasBase extends HTMLElement {
     if (!this.hasAttribute('tabindex')) {
       this.setAttribute('tabindex', '0');
     }
-    this.style.cssText = `display:flex;flex-direction:column;flex:1`
+    this.style.cssText = `display:flex;flex-direction:column;flex:1;position:relative;min-height:0;overflow:hidden`
     this.appendChild(this.canvas);
     // Setup UI elements (subclasses should override setupUI())
     this.setupUI();
@@ -374,7 +374,7 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   _constrainPosition() {
-    if (!this.data) return;
+    if (!this.canvas || !this._hasValidContentBounds()) return;
 
     const wrapperWidth = this.canvas.width;
     const wrapperHeight = this.canvas.height;
@@ -428,7 +428,13 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   fitToContent() {
-    if (!this.data) return;
+    if (!this.canvas || this.canvas.width <= 0 || this.canvas.height <= 0) return false;
+
+    if (!this._hasValidContentBounds()) {
+      this._recalculateContentBounds();
+    }
+
+    if (!this._hasValidContentBounds()) return false;
 
     const wrapperWidth = this.canvas.width;
     const wrapperHeight = this.canvas.height;
@@ -436,13 +442,14 @@ export class ViewCanvasBase extends HTMLElement {
 
     const contentWidth = maxX - minX;
     const contentHeight = maxY - minY;
+    if (contentWidth <= 0 || contentHeight <= 0) return false;
 
     const padding = 40; // Add some padding around the content
-    const targetWidth = contentWidth + padding / this.scale;
-    const targetHeight = contentHeight + padding / this.scale;
+    const targetWidth = Math.max(1, wrapperWidth - padding * 2);
+    const targetHeight = Math.max(1, wrapperHeight - padding * 2);
 
-    const scaleX = wrapperWidth / targetWidth;
-    const scaleY = wrapperHeight / targetHeight;
+    const scaleX = targetWidth / contentWidth;
+    const scaleY = targetHeight / contentHeight;
     let newScale = Math.min(scaleX, scaleY);
 
     newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
@@ -458,15 +465,41 @@ export class ViewCanvasBase extends HTMLElement {
 
     this._constrainPosition();
     this.draw()
+    return true;
   }
 
   /**
    * Try to apply auto-fit if enabled and conditions are met
    */
   _tryAutoFit() {
-    if (this.autoFitOnLoad && !this._hasAutoFitted && this.data && this.canvas && this.canvas.width > 0 && this.canvas.height > 0) {
+    if (this.autoFitOnLoad && !this._hasAutoFitted && this.canvas && this.canvas.width > 0 && this.canvas.height > 0) {
       this._hasAutoFitted = true;
-      this.fitToContent();
+      if (!this.fitToContent()) {
+        this._hasAutoFitted = false;
+      }
+    }
+  }
+
+  _hasValidContentBounds() {
+    const { minX, maxX, minY, maxY } = this.contentBounds || {};
+    return Number.isFinite(minX) &&
+      Number.isFinite(maxX) &&
+      Number.isFinite(minY) &&
+      Number.isFinite(maxY) &&
+      maxX > minX &&
+      maxY > minY;
+  }
+
+  _recalculateContentBounds() {
+    if (typeof this.calculateContentBounds !== 'function') return;
+
+    try {
+      const nextBounds = this.calculateContentBounds(this.data);
+      if (nextBounds) {
+        this.contentBounds = nextBounds;
+      }
+    } catch (_error) {
+      // Ignore recalculation errors; bounds may not be available yet.
     }
   }
 

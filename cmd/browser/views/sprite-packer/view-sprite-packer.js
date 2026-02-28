@@ -79,27 +79,26 @@ export class ViewSpritePacker extends ViewCanvasBase {
     this.appendChild(this.tileInfo)
     
     // Create side panel
-    this.sidePanel = document.createElement('div')
-    this.sidePanel.className = 'sprite-packer-panel'
+    this.sidePanel = document.createElement('aside')
     this.sidePanel.innerHTML = `
-      <div class="panel-section">
-        <h4>Input Sprites</h4>
-        <div class="sprite-input-list"></div>
-        <div id="spriteInputCount">0 sprites</div>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Packing Options</h4>
-        <label>
-          Padding:
+      <fieldset>
+        <legend>Input Sprites</legend>
+        <div class="sprite-list-container sprite-input-list"></div>
+        <output id="spriteInputCount">0 sprites</output>
+      </fieldset>
+
+      <fieldset>
+        <legend>Packing Options</legend>
+        <label class="stacked-label" for="padding">
+          <span>Padding</span>
           <input type="number" id="padding" value="${this.options.padding}" min="0" max="16">
         </label>
-        <label>
-          Extrude:
+        <label class="stacked-label" for="extrude">
+          <span>Extrude</span>
           <input type="number" id="extrude" value="${this.options.extrude}" min="0" max="8">
         </label>
-        <label>
-          Max Size:
+        <label class="stacked-label" for="maxSize">
+          <span>Max Size</span>
           <select id="maxSize">
             <option value="512">512</option>
             <option value="1024">1024</option>
@@ -108,186 +107,36 @@ export class ViewSpritePacker extends ViewCanvasBase {
             <option value="8192">8192</option>
           </select>
         </label>
-        <label>
+        <label class="inline-label" for="powerOfTwo">
           <input type="checkbox" id="powerOfTwo" ${this.options.powerOfTwo ? 'checked' : ''}>
-          Power of 2
+          <span>Power of 2</span>
         </label>
-        <label>
+        <label class="inline-label" for="cropAlpha">
           <input type="checkbox" id="cropAlpha" ${this.options.cropAlpha ? 'checked' : ''}>
-          Crop Alpha
+          <span>Crop Alpha</span>
         </label>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Actions</h4>
-        <button id="packBtn" class="primary full-width">Pack Atlas</button>
-      </div>
-      
-      <div class="panel-section">
-        <h4>Result</h4>
-        <div id="resultInfo">No atlas generated</div>
-        <label>
-          Output Path:
-          <input type="text" id="outputPath" value="${this.outputPath}" style="width: 100%">
+      </fieldset>
+
+      <fieldset>
+        <legend>Actions</legend>
+        <button id="packBtn" class="accent">Pack Atlas</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>Result</legend>
+        <output id="resultInfo" class="info-block">No atlas generated</output>
+        <label class="stacked-label" for="outputPath">
+          <span>Output Path</span>
+          <input type="text" id="outputPath" value="${this.outputPath}">
         </label>
-        <button id="saveBtn" class="primary full-width" disabled>Save Atlas</button>
-        <button id="saveMetaBtn" class="full-width" disabled>Save Metadata</button>
-      </div>
+        <button id="saveBtn" class="accent" disabled>Save Atlas</button>
+        <button id="saveMetaBtn" disabled>Save Metadata</button>
+      </fieldset>
     `
     this.appendChild(this.sidePanel)
-    
-    // Add styles
-    this.addStyles()
-    
+
     // Bind events
     this.bindControls()
-  }
-
-  addStyles() {
-    const style = document.createElement('style')
-    style.textContent = `
-      .sprite-packer-panel {
-        position: absolute;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 240px;
-        background: var(--color-semantic-background-secondary, #2a2a2a);
-        border-left: 1px solid var(--color-semantic-border-default, #444);
-        padding: 12px;
-        overflow-y: auto;
-        font-size: 12px;
-        z-index: 10;
-      }
-      
-      .sprite-packer-panel .panel-section {
-        margin-bottom: 16px;
-      }
-      
-      .sprite-packer-panel h4 {
-        margin: 0 0 8px 0;
-        font-size: 11px;
-        text-transform: uppercase;
-        color: var(--color-semantic-text-secondary, #888);
-      }
-      
-      .sprite-packer-panel label {
-        display: block;
-        margin-bottom: 8px;
-      }
-      
-      .sprite-packer-panel input[type="number"],
-      .sprite-packer-panel input[type="text"],
-      .sprite-packer-panel select {
-        width: 70px;
-        padding: 4px;
-        margin-left: 8px;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border: 1px solid var(--color-semantic-border-default, #444);
-        color: var(--color-semantic-text-primary, #fff);
-        border-radius: 4px;
-      }
-      
-      .sprite-packer-panel input[type="text"] {
-        width: calc(100% - 8px);
-        margin-left: 0;
-        margin-top: 4px;
-      }
-      
-      .sprite-packer-panel input[type="checkbox"] {
-        margin-right: 8px;
-      }
-      
-      .sprite-packer-panel button {
-        padding: 6px 12px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-        background: var(--color-semantic-background-tertiary, #333);
-        color: var(--color-semantic-text-primary, #fff);
-      }
-      
-      .sprite-packer-panel button:hover {
-        background: var(--color-semantic-background-hover, #444);
-      }
-      
-      .sprite-packer-panel button.primary {
-        background: var(--color-semantic-background-accent-default, #0066cc);
-        color: var(--color-semantic-text-on-accent, #000);
-      }
-      
-      .sprite-packer-panel button.primary:hover {
-        background: var(--color-semantic-background-accent-hover, #0077dd);
-        color: var(--color-semantic-text-on-accent, #000);
-      }
-      
-      .sprite-packer-panel button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      
-      .sprite-packer-panel button.full-width {
-        width: 100%;
-        margin-bottom: 8px;
-      }
-      
-      .sprite-packer-panel .button-row {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-      
-      .sprite-packer-panel .button-row button {
-        flex: 1;
-      }
-      
-      .sprite-input-list {
-        max-height: 150px;
-        overflow-y: auto;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border-radius: 4px;
-        margin-bottom: 8px;
-      }
-      
-      .sprite-input-item {
-        display: flex;
-        align-items: center;
-        padding: 4px 8px;
-        border-bottom: 1px solid var(--color-semantic-border-default, #333);
-      }
-      
-      .sprite-input-item:last-child {
-        border-bottom: none;
-      }
-      
-      .sprite-input-item .sprite-name {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      
-      .sprite-input-item .sprite-dims {
-        color: var(--color-semantic-text-secondary, #888);
-        font-size: 10px;
-        margin-left: 8px;
-      }
-      
-      .sprite-input-item .remove-btn {
-        padding: 2px 6px;
-        margin-left: 4px;
-        font-size: 10px;
-      }
-      
-      #resultInfo {
-        padding: 8px;
-        background: var(--color-semantic-background-primary, #1a1a1a);
-        border-radius: 4px;
-        margin-bottom: 8px;
-      }
-    `
-    this.appendChild(style)
   }
 
   bindControls() {
@@ -337,7 +186,7 @@ export class ViewSpritePacker extends ViewCanvasBase {
     super.connectedCallback()
     
     // Adjust canvas width
-    this.canvas.style.width = 'calc(100% - 240px)'
+    this.canvas.style.width = 'calc(100% - var(--aside-width))'
     
     // Bind header control buttons
     this.bindHeaderControls()
@@ -346,6 +195,23 @@ export class ViewSpritePacker extends ViewCanvasBase {
     if (this.hasAttribute('data-sprites')) {
       this.loadSpritesFromAttribute(this.getAttribute('data-sprites'))
     }
+  }
+
+  /**
+   * Override to account for side panel width when sizing canvas bitmap
+   */
+  _onResized(width, height) {
+    const panelWidth = this.sidePanel?.offsetWidth || 220
+    const canvasWidth = Math.max(1, Math.round(width - panelWidth))
+    const canvasHeight = Math.round(height)
+
+    if (!this.canvas || (this.canvas.width === canvasWidth && this.canvas.height === canvasHeight)) return
+
+    this.canvas.width = canvasWidth
+    this.canvas.height = canvasHeight
+    this.draw()
+
+    this._tryAutoFit()
   }
 
   /**
@@ -508,14 +374,14 @@ export class ViewSpritePacker extends ViewCanvasBase {
     
     this.sprites.forEach((sprite, i) => {
       const item = document.createElement('div')
-      item.className = 'sprite-input-item'
+      item.className = 'sprite-list-item'
       item.innerHTML = `
         <span class="sprite-name" title="${sprite.path}">${sprite.name}</span>
         <span class="sprite-dims">${sprite.width}x${sprite.height}</span>
-        <button class="remove-btn">x</button>
+        <button class="row-action danger" aria-label="Remove ${sprite.name}" title="Remove ${sprite.name}"><i aria-hidden="true">close</i></button>
       `
       
-      item.querySelector('.remove-btn').addEventListener('click', () => {
+      item.querySelector('.row-action').addEventListener('click', () => {
         this.removeSprite(i)
       })
       

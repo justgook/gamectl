@@ -855,18 +855,376 @@ section {
   flex-direction: column;
 }
 
-aside {
-  width: var(--aside-width);
+.tooltip {
+  position: absolute;
+  z-index: 50;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface-elevated), black 12%);
+  color: var(--text);
+  font-size: var(--font-xs);
+  line-height: 1.35;
+  pointer-events: none;
+  box-shadow: var(--shadow-elevated);
+  white-space: nowrap;
+}
+
+view-animation-editor {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+view-animation-editor .animation-editor-container {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(360px, 440px);
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-3);
+  box-sizing: border-box;
+}
+
+view-animation-editor .animation-editor-left,
+view-animation-editor .animation-editor-right,
+view-animation-editor .animation-editor-preview-section,
+view-animation-editor .animation-editor-frames-section {
+  min-height: 0;
+}
+
+view-animation-editor .animation-editor-left,
+view-animation-editor .animation-editor-right {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+}
+
+view-animation-editor .animation-editor-left,
+view-animation-editor .animation-editor-preview-section,
+view-animation-editor .animation-editor-frames-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+view-animation-editor .spritesheet-container,
+view-animation-editor .preview-container,
+view-animation-editor .frames-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+view-animation-editor .frames-container {
+  overflow: auto;
+}
+
+view-animation-editor .preview-controls,
+view-animation-editor .frames-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  background: var(--surface-elevated);
+}
+
+view-animation-editor .preview-controls {
+  flex-wrap: wrap;
+}
+
+view-animation-editor .frames-toolbar {
+  flex-wrap: wrap;
+}
+
+view-animation-editor .toolbar-separator {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+aside {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  width: var(--aside-width);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--surface-elevated);
+  border-left: 1px solid var(--border);
+  font-size: var(--font-sm);
+  box-sizing: border-box;
 }
 
 fieldset {
-  /*TODO replace with real styles */
-  background: blue;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface-elevated), transparent 35%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
 }
 
 legend {
-  /*TODO replace with real styles */
-  background: violet;
+  padding: 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+aside label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+aside .stacked-label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+aside .stacked-label>span,
+aside .inline-label>span {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+aside .inline-label {
+  justify-content: flex-start;
+}
+
+aside .stacked-label input,
+aside .stacked-label select,
+aside .stacked-label textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+aside fieldset>button {
+  width: 100%;
+}
+
+aside .split-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+aside .split-row>* {
+  flex: 1;
+  min-width: 0;
+}
+
+aside output {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+aside .form-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+aside .info-block {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+aside .sprite-list-container {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+aside .sprite-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+aside .sprite-list-item:hover {
+  background: var(--surface-hover);
+}
+
+aside .sprite-list-item.selected {
+  border-color: var(--intent-soft-border);
+  background: var(--intent-soft-bg);
+}
+
+aside .sprite-list-item .sprite-dims {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+aside .sprite-list-item.has-custom-pivot::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+aside .sprite-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+aside .row-action {
+  min-height: 24px;
+  min-width: 24px;
+  width: 24px;
+  padding: 0;
+}
+
+aside .tilebank-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+aside .tilebank-item {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  background: var(--surface);
+}
+
+aside .tilebank-item:hover {
+  border-color: var(--border-focus);
+}
+
+aside .tilebank-item canvas {
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: pixelated;
+}
+
+aside .tilebank-item .tile-id {
+  position: absolute;
+  right: var(--space-1);
+  bottom: var(--space-1);
+  font-size: 10px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--bg), transparent 25%);
+}
+
+[slot="header-controls"]>span[role="separator"] {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+
+view-stb-editor {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+view-stb-editor>canvas[data-id="tilemap"] {
+  position: absolute;
+  left: 0;
+  top: 0;
+  image-rendering: pixelated;
+  transform-origin: 0 0;
+  cursor: crosshair;
+}
+
+view-stb-editor aside[data-id="sidepanel"] [data-id="layers"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+view-stb-editor aside[data-id="sidepanel"] [data-id="categories"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-2);
+  max-height: 240px;
+  overflow: auto;
+}
+
+view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"]>button {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  justify-self: center;
+}
+
+view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] canvas {
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated;
+}
+
+view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] span {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  font-size: 9px;
+  line-height: 1.2;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: color-mix(in oklab, var(--bg), transparent 20%);
+}
+
+view-stb-editor aside[data-id="sidepanel"] dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-3);
+}
+
+view-stb-editor aside[data-id="sidepanel"] dt {
+  color: var(--text-muted);
+}
+
+view-stb-editor aside[data-id="sidepanel"] dd {
+  margin: 0;
 }
