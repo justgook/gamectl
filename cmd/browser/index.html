@@ -417,12 +417,12 @@
     <!-- Toast System Templates -->
     <template id="toast-container">
       <span data-element="message"></span>
-      <button class="toast-close" data-action="close" aria-label="Close">×</button>
+      <button class="toast-close" data-action="close" aria-label="Close">&times;</button>
     </template>
 
     <template id="toast-container-alert">
-      <div class="toast-container toast-container-alert">
-        <span class="toast-message" data-element="message"></span>
+      <div class="toast-container">
+        <span data-element="message"></span>
         <div class="toast-actions">
           <button class="accent" data-action="confirm" data-element="confirm-button">OK</button>
         </div>
@@ -430,8 +430,8 @@
     </template>
 
     <template id="toast-container-confirm">
-      <div class="toast-container toast-container-confirm">
-        <span class="toast-message" data-element="message"></span>
+      <div class="toast-container">
+        <span data-element="message"></span>
         <div class="toast-actions">
           <button data-action="cancel" data-element="cancel-button">Cancel</button>
           <button class="accent" data-action="confirm" data-element="confirm-button">Confirm</button>

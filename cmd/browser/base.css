@@ -122,22 +122,62 @@
 
   .accent {
     --intent: var(--accent);
+    --intent-bg: var(--accent);
+    --intent-hover-bg: color-mix(in oklab, var(--accent), white 12%);
+    --intent-active-bg: color-mix(in oklab, var(--accent), white 22%);
+    --intent-border: color-mix(in oklab, var(--accent), black 20%);
+    --intent-ring: color-mix(in oklab, var(--accent), transparent 65%);
+    --intent-soft-bg: color-mix(in oklab, var(--accent), var(--surface) 85%);
+    --intent-soft-border: color-mix(in oklab, var(--accent), var(--border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--accent), var(--text) 30%);
   }
 
   .success {
     --intent: var(--success);
+    --intent-bg: var(--success);
+    --intent-hover-bg: color-mix(in oklab, var(--success), white 12%);
+    --intent-active-bg: color-mix(in oklab, var(--success), white 22%);
+    --intent-border: color-mix(in oklab, var(--success), black 20%);
+    --intent-ring: color-mix(in oklab, var(--success), transparent 65%);
+    --intent-soft-bg: color-mix(in oklab, var(--success), var(--surface) 85%);
+    --intent-soft-border: color-mix(in oklab, var(--success), var(--border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--success), var(--text) 30%);
   }
 
   .warning {
     --intent: var(--warning);
+    --intent-bg: var(--warning);
+    --intent-hover-bg: color-mix(in oklab, var(--warning), white 12%);
+    --intent-active-bg: color-mix(in oklab, var(--warning), white 22%);
+    --intent-border: color-mix(in oklab, var(--warning), black 20%);
+    --intent-ring: color-mix(in oklab, var(--warning), transparent 65%);
+    --intent-soft-bg: color-mix(in oklab, var(--warning), var(--surface) 85%);
+    --intent-soft-border: color-mix(in oklab, var(--warning), var(--border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--warning), var(--text) 30%);
   }
 
   .danger {
     --intent: var(--danger);
+    --intent-bg: var(--danger);
+    --intent-hover-bg: color-mix(in oklab, var(--danger), white 12%);
+    --intent-active-bg: color-mix(in oklab, var(--danger), white 22%);
+    --intent-border: color-mix(in oklab, var(--danger), black 20%);
+    --intent-ring: color-mix(in oklab, var(--danger), transparent 65%);
+    --intent-soft-bg: color-mix(in oklab, var(--danger), var(--surface) 85%);
+    --intent-soft-border: color-mix(in oklab, var(--danger), var(--border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--danger), var(--text) 30%);
   }
 
   .info {
     --intent: var(--info);
+    --intent-bg: var(--info);
+    --intent-hover-bg: color-mix(in oklab, var(--info), white 12%);
+    --intent-active-bg: color-mix(in oklab, var(--info), white 22%);
+    --intent-border: color-mix(in oklab, var(--info), black 20%);
+    --intent-ring: color-mix(in oklab, var(--info), transparent 65%);
+    --intent-soft-bg: color-mix(in oklab, var(--info), var(--surface) 85%);
+    --intent-soft-border: color-mix(in oklab, var(--info), var(--border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--info), var(--text) 30%);
   }
 
   .elevated {
@@ -581,31 +621,87 @@
     justify-content: center;
   }
 
-  /* toast */
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TOASTS
+
+     Positions (semantic):
+       primary   – top-right stack, all visible
+       secondary – bottom-center, only last visible
+       modal     – dead-center, only last visible (alert / confirm)
+
+     Type → intent class mapping (set by view-toast.js):
+       info → .info,  success → .success,  warning → .warning,  error → .danger
+     ═══════════════════════════════════════════════════════════════════════════ */
+
   view-toast {
-    --spacing: 4px;
+    --spacing: var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
     position: fixed;
     z-index: 10000;
     pointer-events: auto;
+    max-width: calc(100vw - 2 * var(--spacing));
+    box-sizing: border-box;
+
+    /* default appearance — soft intent surface */
+    background: var(--intent-soft-bg);
+    border: 1px solid var(--intent-soft-border);
+    color: var(--intent-soft-fg);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-elevated);
   }
 
   view-toast[hidden] {
     display: none !important;
   }
 
-  view-toast[position="top-right"] {
+  /* close button */
+  view-toast .toast-close {
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.6;
+    padding: 0 var(--space-2);
+    height: auto;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  view-toast .toast-close:hover {
+    opacity: 1;
+  }
+
+  /* alert / confirm inner layout */
+  view-toast .toast-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  view-toast .toast-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+
+  /* ── position: primary (top-right stack) ── */
+  view-toast[position="primary"] {
     right: var(--spacing);
     --toast-stack-offset: 60px;
     top: calc(var(--spacing) + var(--toast-stack-index, 0) * var(--toast-stack-offset));
   }
 
-  view-toast[position="bottom-center"] {
+  /* ── position: secondary (bottom-center, last only) ── */
+  view-toast[position="secondary"] {
     bottom: var(--spacing);
     left: 50%;
     transform: translateX(-50%);
   }
 
-  view-toast[position="center"] {
+  /* ── position: modal (center, last only — alert/confirm) ── */
+  view-toast[position="modal"] {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
