@@ -1,6 +1,7 @@
 import { bus } from '../systems/event-bus.js'
 import { decode as decodeQOI } from '../util/qoi/decode.js'
 import { ViewFiles } from './view-files.js'
+import { ViewCanvasBase } from './view-canvas-base.js'
 import { parseCSVLines } from '../util/csv.js'
 
 const FLIP_H = 1
@@ -92,83 +93,75 @@ function applyFlipTransform(ctx, flip) {
   ctx.scale(h ? -1 : 1, v ? -1 : 1)
 }
 
-class SpritesheetPanel {
-  constructor(container) {
-    this.container = container
-    this.canvas = document.createElement('canvas')
-    this.ctx = this.canvas.getContext('2d')
-    this.ctx.imageSmoothingEnabled = false
+class AnimationEditorCanvas extends ViewCanvasBase {
+  constructor() {
+    super()
 
+    this.autoFitOnLoad = false
     this.image = null
     this.tileWidth = 16
     this.tileHeight = 16
     this.cols = 0
     this.rows = 0
 
-    this.scale = 1
-    this.offsetX = 0
-    this.offsetY = 0
-    this.isDragging = false
-    this.dragStartX = 0
-    this.dragStartY = 0
-    this.spacePressed = false
-
     this.selectedTiles = new Set()
     this.hoveredTile = -1
     this.animationMarkers = new Set()
 
-    this._onWheel = this._onWheel.bind(this)
-    this._onMouseDown = this._onMouseDown.bind(this)
-    this._onMouseMove = this._onMouseMove.bind(this)
-    this._onMouseUp = this._onMouseUp.bind(this)
-    this._onMouseLeave = this._onMouseLeave.bind(this)
     this._onDblClick = this._onDblClick.bind(this)
-    this._onKeyDown = this._onKeyDown.bind(this)
-    this._onKeyUp = this._onKeyUp.bind(this)
     this._onDragStart = this._onDragStart.bind(this)
-
-    this._setup()
   }
 
-  _setup() {
-    this.canvas.style.display = 'block'
-    this.canvas.style.width = '100%'
+  connectedCallback() {
+    super.connectedCallback()
+    this.style.width = '100%'
+    this.style.height = '100%'
+    this.style.position = 'relative'
+    this.canvas.style.width = 'calc(100% - var(--aside-width))'
     this.canvas.style.height = '100%'
     this.canvas.style.cursor = 'crosshair'
-    this.canvas.setAttribute('draggable', 'true')
-    this.container.appendChild(this.canvas)
-
-    this.canvas.addEventListener('wheel', this._onWheel, { passive: false })
-    this.canvas.addEventListener('mousedown', this._onMouseDown)
-    this.canvas.addEventListener('mousemove', this._onMouseMove)
-    this.canvas.addEventListener('mouseup', this._onMouseUp)
-    this.canvas.addEventListener('mouseleave', this._onMouseLeave)
-    this.canvas.addEventListener('dblclick', this._onDblClick)
-    this.canvas.addEventListener('dragstart', this._onDragStart)
-    window.addEventListener('keydown', this._onKeyDown)
-    window.addEventListener('keyup', this._onKeyUp)
-
-    this._resizeObserver = new ResizeObserver(() => this._onResize())
-    this._resizeObserver.observe(this.container)
-    this._onResize()
   }
 
-  dispose() {
-    this.canvas.removeEventListener('wheel', this._onWheel)
-    this.canvas.removeEventListener('mousedown', this._onMouseDown)
-    this.canvas.removeEventListener('mousemove', this._onMouseMove)
-    this.canvas.removeEventListener('mouseup', this._onMouseUp)
-    this.canvas.removeEventListener('mouseleave', this._onMouseLeave)
+  setupUI() {
+    this.canvas.setAttribute('draggable', 'true')
+    this.canvas.style.width = 'calc(100% - var(--aside-width))'
+    this.canvas.style.height = '100%'
+    this.canvas.style.cursor = 'crosshair'
+  }
+
+  getViewMode() {
+    return null
+  }
+
+  _onResized() {
+    const width = Math.round(this.canvas.clientWidth)
+    const height = Math.round(this.canvas.clientHeight)
+
+    if (!this.canvas || width <= 0 || height <= 0) return
+    if (this.canvas.width === width && this.canvas.height === height) return
+
+    this.canvas.width = width
+    this.canvas.height = height
+    this.draw()
+    this._tryAutoFit()
+  }
+
+  _addEventListeners() {
+    super._addEventListeners()
+    this.canvas.addEventListener('dblclick', this._onDblClick)
+    this.canvas.addEventListener('dragstart', this._onDragStart)
+  }
+
+  _removeEventListeners() {
+    super._removeEventListeners()
     this.canvas.removeEventListener('dblclick', this._onDblClick)
     this.canvas.removeEventListener('dragstart', this._onDragStart)
-    window.removeEventListener('keydown', this._onKeyDown)
-    window.removeEventListener('keyup', this._onKeyUp)
-    this._resizeObserver.disconnect()
   }
 
   async loadSpritesheet(source) {
     if (!source) {
       this.image = null
+      this.data = null
       this._updateGrid()
       this.draw()
       return
@@ -181,7 +174,9 @@ class SpritesheetPanel {
         this.image = await this._loadImageFromUrl(source)
       }
 
+      this.data = this.image
       this._updateGrid()
+      this.contentBounds = this.calculateContentBounds(this.data)
       this.fitToContent()
       this.draw()
 
@@ -195,6 +190,7 @@ class SpritesheetPanel {
     } catch (err) {
       console.error('Failed to load spritesheet:', err)
       this.image = null
+      this.data = null
       this._updateGrid()
       this.draw()
     }
@@ -231,6 +227,7 @@ class SpritesheetPanel {
     this.tileWidth = width
     this.tileHeight = height
     this._updateGrid()
+    this.contentBounds = this.calculateContentBounds(this.data)
     this.draw()
   }
 
@@ -242,42 +239,52 @@ class SpritesheetPanel {
       this.cols = 0
       this.rows = 0
     }
+
     this.selectedTiles.clear()
+    this.hoveredTile = -1
   }
 
-  _onResize() {
-    const rect = this.container.getBoundingClientRect()
-    const width = Math.round(rect.width)
-    const height = Math.round(rect.height)
+  calculateContentBounds(data) {
+    if (!data) {
+      return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
+    }
 
-    if (this.canvas.width !== width || this.canvas.height !== height) {
-      this.canvas.width = width
-      this.canvas.height = height
-      this.draw()
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: data.width,
+      maxY: data.height,
     }
   }
 
   draw() {
+    if (!this.canvas) return
+
     const { width, height } = this.canvas
-    const ctx = this.ctx
+    this.ctx.save()
+    this.ctx.clearRect(0, 0, width, height)
+    this.ctx.fillStyle = '#1a1a2e'
+    this.ctx.fillRect(0, 0, width, height)
 
-    ctx.save()
-    ctx.clearRect(0, 0, width, height)
-    ctx.fillStyle = '#1a1a2e'
-    ctx.fillRect(0, 0, width, height)
+    this.ctx.translate(this.offsetX, this.offsetY)
+    this.ctx.scale(this.scale, this.scale)
+    this.drawContent(this.ctx, this.data)
+    this.ctx.restore()
+  }
 
+  drawContent(ctx) {
     if (!this.image) {
+      ctx.save()
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.fillStyle = '#4a4a6a'
       ctx.font = '14px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('No spritesheet loaded', width / 2, height / 2)
+      ctx.fillText('No spritesheet loaded', this.canvas.width / 2, this.canvas.height / 2)
       ctx.restore()
       return
     }
 
-    ctx.translate(this.offsetX, this.offsetY)
-    ctx.scale(this.scale, this.scale)
     this._drawCheckerboard(ctx)
     ctx.drawImage(this.image, 0, 0)
     this._drawGrid(ctx)
@@ -285,14 +292,14 @@ class SpritesheetPanel {
     if (this.hoveredTile >= 0) {
       this._drawTileHighlight(ctx, this.hoveredTile, 'rgba(255, 255, 255, 0.3)')
     }
+
     for (const tileId of this.selectedTiles) {
       this._drawTileHighlight(ctx, tileId, 'rgba(0, 200, 255, 0.5)')
     }
+
     for (const tileId of this.animationMarkers) {
       this._drawAnimationMarker(ctx, tileId)
     }
-
-    ctx.restore()
   }
 
   _drawCheckerboard(ctx) {
@@ -362,13 +369,7 @@ class SpritesheetPanel {
     ctx.fill()
   }
 
-  _isClickOnMarkerDot(clientX, clientY, tileId) {
-    const rect = this.canvas.getBoundingClientRect()
-    const canvasX = clientX - rect.left
-    const canvasY = clientY - rect.top
-    const worldX = (canvasX - this.offsetX) / this.scale
-    const worldY = (canvasY - this.offsetY) / this.scale
-
+  _isClickOnMarkerDot(worldX, worldY, tileId) {
     const col = tileId % this.cols
     const row = Math.floor(tileId / this.cols)
     const tileX = col * this.tileWidth
@@ -385,7 +386,7 @@ class SpritesheetPanel {
   }
 
   fitToContent() {
-    if (!this.image) return
+    if (!this.image) return false
 
     const padding = 20
     const availWidth = this.canvas.width - padding * 2
@@ -399,6 +400,7 @@ class SpritesheetPanel {
     this.offsetX = (this.canvas.width - this.image.width * this.scale) / 2
     this.offsetY = (this.canvas.height - this.image.height * this.scale) / 2
     this.draw()
+    return true
   }
 
   zoom(x, y, factor) {
@@ -414,13 +416,15 @@ class SpritesheetPanel {
     this.draw()
   }
 
-  _getTileAtPosition(clientX, clientY) {
+  _getWorldPosition(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect()
-    const canvasX = clientX - rect.left
-    const canvasY = clientY - rect.top
-    const worldX = (canvasX - this.offsetX) / this.scale
-    const worldY = (canvasY - this.offsetY) / this.scale
+    return {
+      x: (clientX - rect.left - this.offsetX) / this.scale,
+      y: (clientY - rect.top - this.offsetY) / this.scale,
+    }
+  }
 
+  _getTileAtWorldPosition(worldX, worldY) {
     if (worldX < 0 || worldY < 0 || worldX >= this.cols * this.tileWidth || worldY >= this.rows * this.tileHeight) {
       return -1
     }
@@ -430,35 +434,12 @@ class SpritesheetPanel {
     return row * this.cols + col
   }
 
-  _onWheel(e) {
-    e.preventDefault()
-    const rect = this.canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-
-    if (e.ctrlKey || e.metaKey) {
-      this.zoom(x, y, e.deltaY < 0 ? 1.1 : 0.9)
-      return
-    }
-
-    this.offsetX -= e.deltaX
-    this.offsetY -= e.deltaY
-    this.draw()
-  }
-
-  _onMouseDown(e) {
-    if (this.spacePressed) {
-      this.isDragging = true
-      this.dragStartX = e.clientX - this.offsetX
-      this.dragStartY = e.clientY - this.offsetY
-      this.canvas.style.cursor = 'grabbing'
-      return
-    }
-
-    const tileId = this._getTileAtPosition(e.clientX, e.clientY)
+  onCanvasMouseDown(e) {
+    const { x, y } = this._getWorldPosition(e.clientX, e.clientY)
+    const tileId = this._getTileAtWorldPosition(x, y)
     if (tileId < 0) return
 
-    if (this.animationMarkers.has(tileId) && this._isClickOnMarkerDot(e.clientX, e.clientY, tileId)) {
+    if (this.animationMarkers.has(tileId) && this._isClickOnMarkerDot(x, y, tileId)) {
       bus.emit('animation:marker:click', { tileId })
       return
     }
@@ -478,36 +459,32 @@ class SpritesheetPanel {
     this.draw()
   }
 
-  _onMouseMove(e) {
-    if (this.isDragging && this.spacePressed) {
-      this.offsetX = e.clientX - this.dragStartX
-      this.offsetY = e.clientY - this.dragStartY
-      this.draw()
-      return
-    }
-
-    const tileId = this._getTileAtPosition(e.clientX, e.clientY)
+  onCanvasMouseMove(e) {
+    const { x, y } = this._getWorldPosition(e.clientX, e.clientY)
+    const tileId = this._getTileAtWorldPosition(x, y)
     if (tileId !== this.hoveredTile) {
       this.hoveredTile = tileId
       this.draw()
     }
   }
 
-  _onMouseUp() {
-    if (!this.isDragging) return
-    this.isDragging = false
-    this.canvas.style.cursor = this.spacePressed ? 'grab' : 'crosshair'
+  _onMouseUp(e) {
+    super._onMouseUp(e)
+    if (!this.spacePressed) {
+      this.canvas.style.cursor = 'crosshair'
+    }
   }
 
   _onMouseLeave() {
-    this.isDragging = false
+    super._onMouseLeave()
     this.hoveredTile = -1
     this.canvas.style.cursor = 'crosshair'
     this.draw()
   }
 
   _onDblClick(e) {
-    const tileId = this._getTileAtPosition(e.clientX, e.clientY)
+    const { x, y } = this._getWorldPosition(e.clientX, e.clientY)
+    const tileId = this._getTileAtWorldPosition(x, y)
     if (tileId < 0) return
 
     const tileIds = this.selectedTiles.size > 0 ? [...this.selectedTiles] : [tileId]
@@ -539,17 +516,9 @@ class SpritesheetPanel {
     e.dataTransfer.setDragImage(preview, preview.width / 2, preview.height / 2)
   }
 
-  _onKeyDown(e) {
-    if (e.code !== 'Space' || this.spacePressed) return
-    this.spacePressed = true
-    this.canvas.style.cursor = 'grab'
-    e.preventDefault()
-  }
-
   _onKeyUp(e) {
+    super._onKeyUp(e)
     if (e.code !== 'Space') return
-    this.spacePressed = false
-    this.isDragging = false
     this.canvas.style.cursor = 'crosshair'
   }
 
@@ -1207,7 +1176,7 @@ class AnimationPreview {
 /**
  * Animation Editor View
  */
-export class ViewAnimationEditor extends HTMLElement {
+export class ViewAnimationEditor extends AnimationEditorCanvas {
   static get viewMeta() { return { displayName: 'Animation Editor', category: 'Animation' } }
 
   static get observedAttributes() {
@@ -1220,11 +1189,9 @@ export class ViewAnimationEditor extends HTMLElement {
     this.animation = createAnimation()
     this._originalStartFrame = null
 
-    this.spritesheetPanel = null
     this.frameListPanel = null
     this.animationPreview = null
 
-    this._headerControlsElement = null
     this._unsubscribers = []
     this._decoder = new TextDecoder()
 
@@ -1236,7 +1203,8 @@ export class ViewAnimationEditor extends HTMLElement {
 
   connectedCallback() {
     this._buildDOM()
-    this._mountHeaderControls()
+    super.connectedCallback()
+    this._setupHeaderControls()
     this._setupEventListeners()
     this._setupBusListeners()
 
@@ -1255,13 +1223,13 @@ export class ViewAnimationEditor extends HTMLElement {
   }
 
   disconnectedCallback() {
-    this._unmountHeaderControls()
     this._unsubscribers.forEach(unsub => unsub())
     this._unsubscribers = []
 
-    if (this.spritesheetPanel) this.spritesheetPanel.dispose()
     if (this.frameListPanel) this.frameListPanel.dispose()
     if (this.animationPreview) this.animationPreview.dispose()
+
+    super.disconnectedCallback()
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -1285,9 +1253,6 @@ export class ViewAnimationEditor extends HTMLElement {
       position: relative;
     `
     this.innerHTML = `
-      <main>
-        <div data-part="spritesheet"></div>
-      </main>
       <aside>
         <fieldset>
           <legend>Preview</legend>
@@ -1320,15 +1285,32 @@ export class ViewAnimationEditor extends HTMLElement {
       </aside>
     `
 
-    const spritesheetContainer = this.querySelector('[data-part="spritesheet"]')
     const framesContainer = this.querySelector('[data-part="frames"]')
     const previewContainer = this.querySelector('[data-part="preview"]')
 
-    this.spritesheetPanel = new SpritesheetPanel(spritesheetContainer)
     this.frameListPanel = new FrameListPanel(framesContainer, { defaultDuration: 100 })
     this.animationPreview = new AnimationPreview(previewContainer)
 
     this._setupRightPanelControls()
+  }
+
+  createHeaderControlsElement() {
+    const controls = document.createElement('div')
+    controls.dataset.view = 'animation-editor'
+    controls.innerHTML = `
+      <button data-action="load-spritesheet" aria-label="Load Sheet" title="Load Sheet"><i aria-hidden="true">folder_open</i></button>
+      <button data-action="new" class="accent" aria-label="New" title="New"><i aria-hidden="true">docs</i></button>
+      <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
+      <span data-sep></span>
+      <label data-tile-size>
+        <span>Tile</span>
+        <input type="number" data-element="tile-width" value="16" min="1" title="Tile Width">
+        <span>x</span>
+        <input type="number" data-element="tile-height" value="16" min="1" title="Tile Height">
+      </label>
+    `
+
+    return controls
   }
 
   _setupRightPanelControls() {
@@ -1395,47 +1377,12 @@ export class ViewAnimationEditor extends HTMLElement {
     icon.textContent = isPlaying ? 'pause' : 'play_arrow'
   }
 
-  _mountHeaderControls() {
-    if (!this.parentElement) return
-
-    const headerControls = document.createElement('div')
-    headerControls.setAttribute('slot', 'header-controls')
-    headerControls.dataset.view = 'animation-editor'
-    headerControls.innerHTML = `
-      <button data-action="load-spritesheet" aria-label="Load Sheet" title="Load Sheet"><i aria-hidden="true">folder_open</i></button>
-      <button data-action="new" class="accent" aria-label="New" title="New"><i aria-hidden="true">docs</i></button>
-      <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
-      <span data-sep></span>
-      <label data-tile-size>
-        <span>Tile</span>
-        <input type="number" data-element="tile-width" value="16" min="1" title="Tile Width">
-        <span>x</span>
-        <input type="number" data-element="tile-height" value="16" min="1" title="Tile Height">
-      </label>
-    `
-
-    this._headerControlsElement = headerControls
-    this.parentElement.appendChild(headerControls)
-    this._setupHeaderControls()
-  }
-
-  _unmountHeaderControls() {
-    if (this._headerControlsElement?.parentElement) {
-      this._headerControlsElement.remove()
-      this._headerControlsElement = null
-    }
-  }
-
-  _queryHeaderControl(selector) {
-    return this._headerControlsElement?.querySelector(selector) ?? null
-  }
-
   _setupHeaderControls() {
-    const loadBtn = this._queryHeaderControl('[data-action="load-spritesheet"]')
+    const loadBtn = this.queryHeaderControl('[data-action="load-spritesheet"]')
     if (loadBtn) loadBtn.onclick = () => this._promptLoadSpritesheet()
 
-    const tileWidthInput = this._queryHeaderControl('[data-element="tile-width"]')
-    const tileHeightInput = this._queryHeaderControl('[data-element="tile-height"]')
+    const tileWidthInput = this.queryHeaderControl('[data-element="tile-width"]')
+    const tileHeightInput = this.queryHeaderControl('[data-element="tile-height"]')
 
     if (tileWidthInput) {
       tileWidthInput.value = this.animation.tileWidth
@@ -1446,11 +1393,8 @@ export class ViewAnimationEditor extends HTMLElement {
       tileHeightInput.onchange = () => this._updateTileSize()
     }
 
-    const newBtn = this._queryHeaderControl('[data-action="new"]')
+    const newBtn = this.queryHeaderControl('[data-action="new"]')
     if (newBtn) newBtn.onclick = () => this.clearAnimation()
-
-    const saveBtn = this._queryHeaderControl('[data-action="save"]')
-    if (saveBtn) saveBtn.onclick = () => this.saveData()
   }
 
   _setupEventListeners() {
@@ -1481,7 +1425,7 @@ export class ViewAnimationEditor extends HTMLElement {
       }),
       bus.on('animation:selection:clear', () => {
         this.frameListPanel.clearSelection()
-        this.spritesheetPanel.clearSelection()
+        this.clearSelection()
       }),
       bus.on('animation:save', () => {
         this.saveData()
@@ -1528,9 +1472,9 @@ export class ViewAnimationEditor extends HTMLElement {
 
   async _loadSpritesheet(source) {
     this.animation.spritesheet = source
-    await this.spritesheetPanel.loadSpritesheet(source)
+    await this.loadSpritesheet(source)
 
-    const image = this.spritesheetPanel.getImage()
+    const image = this.getImage()
     if (image) {
       this.frameListPanel.setSpritesheet(image, this.animation.tileWidth, this.animation.tileHeight)
       this.animationPreview.setSpritesheet(image, this.animation.tileWidth, this.animation.tileHeight)
@@ -1545,17 +1489,17 @@ export class ViewAnimationEditor extends HTMLElement {
   }
 
   _updateTileSize() {
-    const widthInput = this._queryHeaderControl('[data-element="tile-width"]')
-    const heightInput = this._queryHeaderControl('[data-element="tile-height"]')
+    const widthInput = this.queryHeaderControl('[data-element="tile-width"]')
+    const heightInput = this.queryHeaderControl('[data-element="tile-height"]')
 
     const width = parseInt(widthInput?.value, 10) || 16
     const height = parseInt(heightInput?.value, 10) || 16
 
     this.animation.tileWidth = width
     this.animation.tileHeight = height
-    this.spritesheetPanel.setTileSize(width, height)
+    this.setTileSize(width, height)
 
-    const image = this.spritesheetPanel.getImage()
+    const image = this.getImage()
     if (image) {
       this.frameListPanel.setSpritesheet(image, width, height)
       this.animationPreview.setSpritesheet(image, width, height)
@@ -1580,10 +1524,10 @@ export class ViewAnimationEditor extends HTMLElement {
         if (lines[i].length > 0) markers.push(parseInt(lines[i][0], 10))
       }
 
-      this.spritesheetPanel.setAnimationMarkers(markers)
+      this.setAnimationMarkers(markers)
     } catch (err) {
       console.error('Failed to load animation markers:', err)
-      this.spritesheetPanel.setAnimationMarkers([])
+      this.setAnimationMarkers([])
     }
   }
 
@@ -1646,14 +1590,14 @@ export class ViewAnimationEditor extends HTMLElement {
       if (this._originalStartFrame !== null && this._originalStartFrame !== startFrame) {
         const deleteQuery = `DELETE FROM animation_storage WHERE source_file = '${escapedPath}' AND start_frame = ${this._originalStartFrame}`
         await window.pluginManager.call('sql', 'exec', deleteQuery)
-        this.spritesheetPanel.removeAnimationMarker(this._originalStartFrame)
+        this.removeAnimationMarker(this._originalStartFrame)
       }
 
       const insertQuery = `INSERT OR REPLACE INTO animation_storage (source_file, start_frame, tile_width, tile_height, data) VALUES ('${escapedPath}', ${startFrame}, ${this.animation.tileWidth}, ${this.animation.tileHeight}, '${escapedData}')`
       await window.pluginManager.call('sql', 'exec', insertQuery)
 
       this._originalStartFrame = startFrame
-      this.spritesheetPanel.addAnimationMarker(startFrame)
+      this.addAnimationMarker(startFrame)
 
       bus.emit('toast:show', { message: `Animation saved (frame ${startFrame})`, type: 'success' })
     } catch (err) {
@@ -1670,17 +1614,17 @@ export class ViewAnimationEditor extends HTMLElement {
   }
 
   _applyAnimationData() {
-    const widthInput = this._queryHeaderControl('[data-element="tile-width"]')
-    const heightInput = this._queryHeaderControl('[data-element="tile-height"]')
+    const widthInput = this.queryHeaderControl('[data-element="tile-width"]')
+    const heightInput = this.queryHeaderControl('[data-element="tile-height"]')
     const loopCheckbox = this.querySelector('[data-action="loop"]')
 
     if (widthInput) widthInput.value = this.animation.tileWidth
     if (heightInput) heightInput.value = this.animation.tileHeight
     if (loopCheckbox) loopCheckbox.checked = this.animation.loop
 
-    this.spritesheetPanel.setTileSize(this.animation.tileWidth, this.animation.tileHeight)
+    this.setTileSize(this.animation.tileWidth, this.animation.tileHeight)
 
-    const image = this.spritesheetPanel.getImage()
+    const image = this.getImage()
     if (image) {
       this.frameListPanel.setSpritesheet(image, this.animation.tileWidth, this.animation.tileHeight)
       this.animationPreview.setSpritesheet(image, this.animation.tileWidth, this.animation.tileHeight)

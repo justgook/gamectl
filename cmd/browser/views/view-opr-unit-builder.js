@@ -107,7 +107,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       baseCost: 0,
       baseSize: null, // Track current base size
       specialRulesCache: new Map(), // Cache special rule descriptions by ID
-      
+
       // Incremental upgrade dependencies
       currentEquipment: new Set(), // Set of equipment IDs currently owned
       baseEquipment: new Set(), // Set of base equipment IDs (never changes)
@@ -128,20 +128,20 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       <div style="display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); height: 100%; overflow: auto;">
         <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
           <label style="display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-width: 150px;">
-            <span style="font-weight: 500; color: var(--text-muted);">Universe</span>
-            <select data-select="universe" style="padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: var(--font-md);">
+            <span>Universe</span>
+            <select data-select="universe">
               <option value="">-- Select Universe --</option>
             </select>
           </label>
           <label style="display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-width: 150px;">
-            <span style="font-weight: 500; color: var(--text-muted);">Army</span>
-            <select data-select="army" disabled style="padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: var(--font-md);">
+            <span >Army</span>
+            <select data-select="army" disabled >
               <option value="">-- Select Army --</option>
             </select>
           </label>
           <label style="display: flex; flex-direction: column; gap: var(--space-1); flex: 1; min-width: 150px;">
-            <span style="font-weight: 500; color: var(--text-muted);">Unit</span>
-            <select data-select="unit" disabled style="padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: var(--font-md);">
+            <span >Unit</span>
+            <select data-select="unit" disabled >
               <option value="">-- Select Unit --</option>
             </select>
           </label>
@@ -187,7 +187,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
         </div>
       </div>
     `
-    
+
     // Inject custom input styles
     const tempDiv = document.createElement('div')
     tempDiv.innerHTML = CUSTOM_INPUT_STYLES
@@ -401,8 +401,8 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
       const [id, name, size, cost, quality, defense, unitType, baseShape, baseDimensions] = unitLines[0]
       this.state.baseCost = parseInt(cost)
-      this.state.baseSize = baseShape && baseDimensions && baseShape !== 'NULL' 
-        ? `${baseDimensions} ${baseShape}` 
+      this.state.baseSize = baseShape && baseDimensions && baseShape !== 'NULL'
+        ? `${baseDimensions} ${baseShape}`
         : null
 
       // Update unit header
@@ -487,7 +487,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     try {
       // Get current equipment IDs (base + upgrades - replacements)
       const currentEquipmentIds = Array.from(this.state.currentEquipment)
-      
+
       if (currentEquipmentIds.length === 0) {
         this.elements.weaponsContainer.style.display = 'none'
         return
@@ -495,7 +495,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
       // Build IN clause for SQL query
       const equipmentIdsStr = currentEquipmentIds.map(id => `'${id}'`).join(',')
-      
+
       // Get equipment details with special rules
       const result = await window.pluginManager.call('sql', 'query',
         `SELECT 
@@ -548,7 +548,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       lines.forEach(line => {
         const [equipId, name, type, range, attacks, count, specialRulesStr] = line
         const equipData = { equipId, name, type, range, attacks, count, specialRulesStr }
-        
+
         if (type === 'weapon' || (!type || type === 'NULL')) {
           weapons.push(equipData)
         } else if (type === 'item') {
@@ -589,14 +589,14 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     try {
       // Get current equipment IDs
       const currentEquipmentIds = Array.from(this.state.currentEquipment)
-      
+
       if (currentEquipmentIds.length === 0) {
         return
       }
 
       // Build IN clause for SQL query
       const equipmentIdsStr = currentEquipmentIds.map(id => `'${id}'`).join(',')
-      
+
       // Get equipment that grants other equipment (e.g., Combat Shield grants Bash)
       const result = await window.pluginManager.call('sql', 'query',
         `SELECT 
@@ -661,9 +661,9 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           const ruleElements = rules.map(ruleText => {
             const match = ruleText.match(/^(.+?)(?:\((\d+)\))?$/)
             if (!match) return ruleText
-            
+
             const [_, ruleName, rating] = match
-            
+
             let ruleData = null
             for (const [key, value] of this.state.specialRulesCache.entries()) {
               if (value.name === ruleName) {
@@ -671,13 +671,13 @@ export class ViewOPRUnitBuilder extends HTMLElement {
                 break
               }
             }
-            
+
             if (ruleData) {
               return `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dashed; text-underline-offset: 4px; cursor: help;">${ruleText}</abbr>`
             }
             return ruleText
           })
-          
+
           specialRulesHTML = ruleElements.join(', ')
         }
 
@@ -732,7 +732,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
     equipmentList.forEach(equip => {
       const { name, range, attacks, count, specialRulesStr } = equip
-      
+
       const hasRange = range && range !== '' && range !== 'NULL' && range !== '0'
       const rangeText = hasRange ? `${range}"` : '-'
       const attacksText = attacks && attacks !== '' && attacks !== 'NULL' && attacks !== '0' ? `A${attacks}` : '-'
@@ -745,9 +745,9 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           // Parse "RuleName" or "RuleName(X)"
           const match = ruleText.match(/^(.+?)(?:\((\d+)\))?$/)
           if (!match) return ruleText
-          
+
           const [_, ruleName, rating] = match
-          
+
           // Find in cache by name
           let ruleData = null
           for (const [key, value] of this.state.specialRulesCache.entries()) {
@@ -756,13 +756,13 @@ export class ViewOPRUnitBuilder extends HTMLElement {
               break
             }
           }
-          
+
           if (ruleData) {
             return `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dashed; text-underline-offset: 4px; cursor: help;">${ruleText}</abbr>`
           }
           return ruleText
         })
-        
+
         specialRulesHTML = ruleElements.join(', ')
       }
 
@@ -833,7 +833,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
         const [groupId, label, selectMin, selectMax, affects, affectsCount, sortOrder, replacesNames, replacesIds] = groupLine
 
         // Parse replacement equipment IDs
-        const replacesEquipmentIds = replacesIds && replacesIds !== 'NULL' 
+        const replacesEquipmentIds = replacesIds && replacesIds !== 'NULL'
           ? replacesIds.split('|').filter(id => id && id !== 'NULL')
           : []
 
@@ -884,12 +884,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
             replacesEquipmentIds,
             options
           }
-          
+
           this.state.upgradeGroups.push(groupData)
           this.state.upgradeGroupsMap.set(groupId, groupData)
         }
       }
-      
+
       // Render all groups with initial enabled/disabled state
       this.renderAllUpgradeGroups()
     } catch (error) {
@@ -905,10 +905,10 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       )
       const csv = DE.decode(result.output)
       const lines = this.parseCSV(csv)
-      
+
       this.state.baseEquipment.clear()
       this.state.currentEquipment.clear()
-      
+
       lines.forEach(line => {
         const [equipmentId] = line
         this.state.baseEquipment.add(equipmentId)
@@ -921,13 +921,13 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
   renderAllUpgradeGroups() {
     this.elements.upgrades.innerHTML = ''
-    
+
     for (const groupData of this.state.upgradeGroups) {
       const { groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, replacesEquipmentIds, options } = groupData
-      
+
       // Check if this group is enabled
       const isEnabled = this.isGroupEnabled(groupId, replacesEquipmentIds)
-      
+
       this.renderUpgradeGroup(groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, replacesEquipmentIds, options, isEnabled)
     }
   }
@@ -937,7 +937,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     if (!replacesEquipmentIds || replacesEquipmentIds.length === 0) {
       return true
     }
-    
+
     // Group is enabled if user currently has ANY of the equipment it replaces
     return replacesEquipmentIds.some(eqId => this.state.currentEquipment.has(eqId))
   }
@@ -945,7 +945,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
   renderUpgradeGroup(groupId, label, selectMin, selectMax, affects, affectsCount, replacesNames, replacesEquipmentIds, options, isEnabled) {
     const groupDiv = document.createElement('div')
     groupDiv.dataset.groupId = groupId
-    
+
     // Apply disabled styling if not enabled
     const disabledStyle = !isEnabled ? 'opacity: 0.5; pointer-events: none;' : ''
     groupDiv.style.cssText = `margin-bottom: var(--spacing-scale-4); padding: var(--spacing-scale-3); background: var(--color-semantic-bg-primary); border-radius: var(--border-radius-md); border: 1px solid var(--color-semantic-border-subtle); ${disabledStyle}`
@@ -981,8 +981,8 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     // Replaces info with requirement indicator
     let replacesInfo = ''
     if (replacesNames && replacesNames !== 'NULL') {
-      const requirementStyle = !isEnabled 
-        ? 'color: var(--color-semantic-text-warning); font-weight: 500;' 
+      const requirementStyle = !isEnabled
+        ? 'color: var(--color-semantic-text-warning); font-weight: 500;'
         : 'color: var(--color-semantic-text-secondary);'
       const requirementIcon = !isEnabled ? '<span class="icon icon-inline" aria-hidden="true">lock</span> ' : ''
       replacesInfo = `<div style="font-size: var(--font-size-sm); ${requirementStyle} font-style: italic;">${requirementIcon}${!isEnabled ? 'Requires' : 'Replaces'}: ${replacesNames}</div>`
@@ -1025,7 +1025,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
     // Build equipment display with stats
     let equipmentDisplay = `<span style="font-weight: 500; color: var(--color-semantic-text-primary);">${name}</span>`
-    
+
     // Add weapon stats if applicable
     if ((type === 'weapon' || !type || type === 'NULL') && (range || attacks)) {
       const rangeText = range && range !== 'NULL' && range !== '0' ? `${range}"` : 'Melee'
@@ -1039,9 +1039,9 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       const ruleElements = rules.map(ruleText => {
         const match = ruleText.match(/^(.+?)(?:\((\d+)\))?$/)
         if (!match) return ruleText
-        
+
         const [_, ruleName, rating] = match
-        
+
         let ruleData = null
         for (const [key, value] of this.state.specialRulesCache.entries()) {
           if (value.name === ruleName) {
@@ -1049,13 +1049,13 @@ export class ViewOPRUnitBuilder extends HTMLElement {
             break
           }
         }
-        
+
         if (ruleData) {
           return `<abbr data-tooltip="${ruleData.description.replace(/"/g, '&quot;')}" style="text-decoration: underline dashed; text-underline-offset: 4px; cursor: help;">${ruleText}</abbr>`
         }
         return ruleText
       })
-      
+
       equipmentDisplay += ` <span style="font-size: var(--font-size-sm); color: var(--color-semantic-text-secondary);">${ruleElements.join(', ')}</span>`
     }
 
@@ -1087,7 +1087,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           </div>
         </label>
       `
-      
+
       const input = optionDiv.querySelector('input')
       input.addEventListener('change', () => {
         if (input.checked) {
@@ -1108,7 +1108,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           </div>
         </label>
       `
-      
+
       const input = optionDiv.querySelector('input')
       input.addEventListener('change', () => {
         this.handleUpgradeSelection(groupId, optionId, equipmentId, parseInt(cost), input.checked ? 1 : 0, 'checkbox')
@@ -1129,11 +1129,11 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           </div>
         </div>
       `
-      
+
       const decrementBtn = optionDiv.querySelector('[data-action="decrement"]')
       const incrementBtn = optionDiv.querySelector('[data-action="increment"]')
       const countSpan = optionDiv.querySelector('[data-element="count"]')
-      
+
       decrementBtn.addEventListener('click', () => {
         const currentCount = parseInt(countSpan.textContent)
         if (currentCount > 0) {
@@ -1142,7 +1142,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           this.handleUpgradeSelection(groupId, optionId, equipmentId, parseInt(cost), newCount, 'counter', maxCount)
         }
       })
-      
+
       incrementBtn.addEventListener('click', () => {
         const currentCount = parseInt(countSpan.textContent)
         const groupTotal = this.getGroupTotal(groupId)
@@ -1183,7 +1183,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
           this.state.selectedUpgrades.delete(key)
         }
       }
-      
+
       // Add this selection
       if (count > 0) {
         this.state.selectedUpgrades.set(optionId, {
@@ -1212,12 +1212,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       const currentSelection = this.state.selectedUpgrades.get(optionId)
       const currentCount = currentSelection ? currentSelection.count : 0
       const newTotal = groupTotal - currentCount + count
-      
+
       if (newTotal > parseInt(maxCount)) {
         toast.error(`Cannot exceed ${maxCount} total selections in this group`, { duration: 3000 })
         return
       }
-      
+
       if (count > 0) {
         this.state.selectedUpgrades.set(optionId, {
           optionId,
@@ -1233,16 +1233,16 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
     // Update current equipment state and cascade changes
     this.updateCurrentEquipment()
-    
+
     // Clear dependent selections if this change breaks their requirements
     this.clearInvalidDependentSelections(groupId)
-    
+
     // Re-render all upgrade groups to update enabled/disabled states
     this.renderAllUpgradeGroups()
-    
+
     // Update total cost
     this.updateTotalCost()
-    
+
     // Update equipment and special rules display
     this.updateEquipmentDisplay()
   }
@@ -1250,15 +1250,15 @@ export class ViewOPRUnitBuilder extends HTMLElement {
   updateCurrentEquipment() {
     // Start with base equipment
     this.state.currentEquipment = new Set(this.state.baseEquipment)
-    
+
     // Process each upgrade group in order
     for (const groupData of this.state.upgradeGroups) {
       const { groupId, replacesEquipmentIds } = groupData
-      
+
       // Check if this group has any selections
       const groupSelections = Array.from(this.state.selectedUpgrades.values())
         .filter(sel => sel.groupId === groupId)
-      
+
       if (groupSelections.length > 0) {
         // Remove replaced equipment
         if (replacesEquipmentIds && replacesEquipmentIds.length > 0) {
@@ -1266,7 +1266,7 @@ export class ViewOPRUnitBuilder extends HTMLElement {
             this.state.currentEquipment.delete(eqId)
           })
         }
-        
+
         // Add granted equipment
         groupSelections.forEach(sel => {
           this.state.currentEquipment.add(sel.equipmentId)
@@ -1279,37 +1279,37 @@ export class ViewOPRUnitBuilder extends HTMLElement {
     // Find the sort order of the changed group
     const changedGroup = this.state.upgradeGroupsMap.get(changedGroupId)
     if (!changedGroup) return
-    
+
     const changedSortOrder = parseInt(changedGroup.sortOrder)
-    
+
     // Clear selections from groups that come after this one and are now invalid
     const selectionsToRemove = []
-    
+
     for (const [optionId, selection] of this.state.selectedUpgrades.entries()) {
       const selectionGroup = this.state.upgradeGroupsMap.get(selection.groupId)
       if (!selectionGroup) continue
-      
+
       const selectionSortOrder = parseInt(selectionGroup.sortOrder)
-      
+
       // Only check groups that come after the changed group
       if (selectionSortOrder > changedSortOrder) {
         // Check if this group is still enabled with current equipment
         const isStillEnabled = this.isGroupEnabled(
-          selection.groupId, 
+          selection.groupId,
           selectionGroup.replacesEquipmentIds
         )
-        
+
         if (!isStillEnabled) {
           selectionsToRemove.push(optionId)
         }
       }
     }
-    
+
     // Remove invalid selections
     selectionsToRemove.forEach(optionId => {
       this.state.selectedUpgrades.delete(optionId)
     })
-    
+
     if (selectionsToRemove.length > 0) {
       console.log(`Cleared ${selectionsToRemove.length} dependent selections`)
     }
@@ -1340,10 +1340,10 @@ export class ViewOPRUnitBuilder extends HTMLElement {
       // Get special rules from current equipment
       const currentEquipmentIds = Array.from(this.state.currentEquipment)
       let equipmentRulesLines = []
-      
+
       if (currentEquipmentIds.length > 0) {
         const equipmentIdsStr = currentEquipmentIds.map(id => `'${id}'`).join(',')
-        
+
         const equipRulesResult = await window.pluginManager.call('sql', 'query',
           `SELECT DISTINCT sr.id, sr.name, sr.description, esr.rating
            FROM opr_equipment_special_rules esr
@@ -1357,12 +1357,12 @@ export class ViewOPRUnitBuilder extends HTMLElement {
 
       // Combine and deduplicate rules (unit rules take precedence for rating)
       const rulesMap = new Map()
-      
+
       unitRulesLines.forEach(line => {
         const [id, name, description, rating] = line
         rulesMap.set(name, { id, name, description, rating, source: 'unit' })
       })
-      
+
       equipmentRulesLines.forEach(line => {
         const [id, name, description, rating] = line
         if (!rulesMap.has(name)) {
