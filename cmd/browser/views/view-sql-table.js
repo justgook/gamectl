@@ -48,11 +48,11 @@ export class ViewSqlTable extends HTMLElement {
     this.setAttribute('tabindex', '0')
 
     this.innerHTML = `
-      <div data-element="table-container" class="sql-table-container"></div>
-      <div class="sql-table-footer">
-        <div data-element="pagination" class="sql-table-pagination"></div>
-        <div data-element="status" class="sql-table-status"></div>
-      </div>
+      <div data-element="table-container"></div>
+      <footer>
+        <div data-element="pagination" part="pagination"></div>
+        <div data-element="status"></div>
+      </footer>
     `
 
     this._mountHeaderControls()
@@ -535,11 +535,11 @@ export class ViewSqlTable extends HTMLElement {
     const totalPages = Math.ceil(this.totalCount / this.pageSize) || 1
 
     this.paginationContainer.innerHTML = `
-      <button data-action="first" ${this.currentPage === 0 ? 'disabled' : ''}>&laquo;</button>
-      <button data-action="prev" ${this.currentPage === 0 ? 'disabled' : ''}>&lsaquo;</button>
+      <button data-action="first" aria-label="First page" title="First page" ${this.currentPage === 0 ? 'disabled' : ''}><i aria-hidden="true">first_page</i></button>
+      <button data-action="prev" aria-label="Previous page" title="Previous page" ${this.currentPage === 0 ? 'disabled' : ''}><i aria-hidden="true">chevron_left</i></button>
       <span class="sql-table-page-info">Page ${this.currentPage + 1} of ${totalPages}</span>
-      <button data-action="next" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}>&rsaquo;</button>
-      <button data-action="last" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}>&raquo;</button>
+      <button data-action="next" aria-label="Next page" title="Next page" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}><i aria-hidden="true">chevron_right</i></button>
+      <button data-action="last" aria-label="Last page" title="Last page" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}><i aria-hidden="true">last_page</i></button>
       <select data-action="page-size">
         ${[10, 20, 50, 100].map(size =>
       `<option value="${size}" ${size === this.pageSize ? 'selected' : ''}>${size} rows</option>`

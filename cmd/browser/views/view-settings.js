@@ -192,15 +192,10 @@ export class ViewSettings extends HTMLElement {
     this.loadGeneralFromLocalStorage()
 
     const wrap = document.createElement('div')
-    wrap.style.display = 'flex'
-    wrap.style.flexDirection = 'column'
-    wrap.style.gap = '12px'
-    wrap.style.maxWidth = '760px'
+    wrap.className = 'settings-general'
 
     const section = document.createElement('fieldset')
-    section.style.display = 'flex'
-    section.style.flexDirection = 'column'
-    section.style.gap = '12px'
+    section.className = 'settings-general-fieldset'
 
     const legend = document.createElement('legend')
     legend.textContent = 'File Storage'
@@ -224,19 +219,11 @@ export class ViewSettings extends HTMLElement {
     ]
 
     const radioGroup = document.createElement('div')
-    radioGroup.style.display = 'flex'
-    radioGroup.style.flexDirection = 'column'
-    radioGroup.style.gap = '8px'
+    radioGroup.className = 'settings-storage-options'
 
     for (const backend of backends) {
       const item = document.createElement('label')
-      item.style.display = 'grid'
-      item.style.gridTemplateColumns = '18px 1fr'
-      item.style.alignItems = 'start'
-      item.style.gap = '8px'
-      item.style.padding = '8px'
-      item.style.border = '1px solid var(--border)'
-      item.style.borderRadius = '4px'
+      item.className = 'settings-storage-option'
 
       const radio = document.createElement('input')
       radio.type = 'radio'
@@ -250,13 +237,11 @@ export class ViewSettings extends HTMLElement {
 
       const title = document.createElement('span')
       title.textContent = backend.label
-      title.style.fontWeight = '600'
+      title.className = 'settings-storage-option-title'
 
       const text = document.createElement('small')
       text.textContent = backend.desc
-      text.style.display = 'block'
-      text.style.marginTop = '2px'
-      text.style.opacity = '0.85'
+      text.className = 'settings-storage-option-desc'
 
       const textWrap = document.createElement('span')
       textWrap.appendChild(title)
@@ -270,18 +255,14 @@ export class ViewSettings extends HTMLElement {
 
     const webdavConfig = document.createElement('div')
     webdavConfig.hidden = this.general.backend !== 'webdav'
-    webdavConfig.style.display = 'flex'
-    webdavConfig.style.flexDirection = 'column'
-    webdavConfig.style.gap = '6px'
+    webdavConfig.className = 'settings-webdav-config'
 
     const urlLabel = document.createElement('label')
-    urlLabel.style.display = 'flex'
-    urlLabel.style.flexDirection = 'column'
-    urlLabel.style.gap = '6px'
+    urlLabel.className = 'settings-webdav-label'
 
     const urlTitle = document.createElement('span')
     urlTitle.textContent = 'WebDAV URL'
-    urlTitle.style.fontWeight = '600'
+    urlTitle.className = 'settings-field-title'
 
     const urlInput = document.createElement('input')
     urlInput.type = 'url'
@@ -305,16 +286,12 @@ export class ViewSettings extends HTMLElement {
     status.textContent = currentUrl
       ? `Active: WebDAV (${currentUrl})`
       : 'Active: OPFS (Browser Storage)'
-    status.style.margin = '0'
-    status.style.padding = '8px 10px'
-    status.style.border = '1px solid var(--border)'
-    status.style.borderRadius = '4px'
-    status.style.background = 'var(--surface)'
+    status.className = 'settings-storage-status'
     section.appendChild(status)
 
     const applyBtn = document.createElement('button')
     applyBtn.textContent = 'Apply & Reload'
-    applyBtn.style.alignSelf = 'flex-start'
+    applyBtn.className = 'settings-general-apply'
     applyBtn.addEventListener('click', () => this.applyGeneral())
     section.appendChild(applyBtn)
 
@@ -431,7 +408,7 @@ export class ViewSettings extends HTMLElement {
 
       const table = document.createElement('table')
       const thead = document.createElement('thead')
-      thead.innerHTML = '<tr><th>On</th><th>Event</th><th>Description</th><th>Key</th><th></th></tr>'
+      thead.innerHTML = '<tr><th>On</th><th>Event</th><th>Description</th><th>Key</th></tr>'
       table.appendChild(thead)
 
       const tbody = document.createElement('tbody')
@@ -476,20 +453,25 @@ export class ViewSettings extends HTMLElement {
     keysBtn.textContent = currentKeys || '-'
     keysBtn.title = 'Click to rebind'
     keysBtn.addEventListener('click', () => this.startCapture(binding, keysBtn, listContainer))
-    keysCell.appendChild(keysBtn)
-    tr.appendChild(keysCell)
-
-    const actionsCell = document.createElement('td')
     const clearBtn = document.createElement('button')
-    clearBtn.textContent = 'x'
     clearBtn.title = 'Clear key assignment'
+    clearBtn.setAttribute('aria-label', 'Clear key assignment')
+    const clearIcon = document.createElement('i')
+    clearIcon.setAttribute('aria-hidden', 'true')
+    clearIcon.textContent = 'delete'
+    clearBtn.appendChild(clearIcon)
     clearBtn.addEventListener('click', () => {
       if (!this.keybindings.pendingChanges.has(binding.id)) this.keybindings.pendingChanges.set(binding.id, {})
       this.keybindings.pendingChanges.get(binding.id).keys = ''
       this.renderKeybindingsList(listContainer)
     })
-    actionsCell.appendChild(clearBtn)
-    tr.appendChild(actionsCell)
+
+    const keyButtons = document.createElement('div')
+    keyButtons.setAttribute('role', 'buttongroup')
+    keyButtons.appendChild(keysBtn)
+    keyButtons.appendChild(clearBtn)
+    keysCell.appendChild(keyButtons)
+    tr.appendChild(keysCell)
 
     return tr
   }

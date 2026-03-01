@@ -414,13 +414,13 @@ export default class ViewStbEditor extends HTMLElement {
   updateControlStates() {
     this.headerControlButtons('[data-tool]').forEach((btn) => {
       const isActive = parseInt(btn.dataset.tool, 10) === this.currentTool
-      btn.classList.toggle('accent', isActive)
+      btn.classList.toggle('active', isActive)
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false')
     })
 
     const gridBtn = this.headerControl('grid-btn')
     if (gridBtn) {
-      gridBtn.classList.toggle('accent', this.showGrid)
+      gridBtn.classList.toggle('active', this.showGrid)
       gridBtn.setAttribute('aria-pressed', this.showGrid ? 'true' : 'false')
     }
   }
@@ -605,7 +605,7 @@ export default class ViewStbEditor extends HTMLElement {
       row.style.width = '100%'
 
       const name = document.createElement('button')
-      if (this.selectedLayer === i) name.classList.add('accent')
+      if (this.selectedLayer === i) name.classList.add('active')
       name.textContent = this.layerNames[i] || `Layer ${i + 1}`
       name.style.flex = '1'
       name.style.justifyContent = 'flex-start'
@@ -617,17 +617,17 @@ export default class ViewStbEditor extends HTMLElement {
       })
       row.appendChild(name)
 
-      const hBtn = this.makeLayerToggle('H', hidden, () => {
+      const hBtn = this.makeLayerToggle('visibility_off', hidden, () => {
         this.exports.stbte_set_layer_hidden(this.tilemap, i, hidden ? 0 : 1)
         this.setupLayers()
         this.renderMap()
       })
-      const lBtn = this.makeLayerToggle('L', locked, () => {
+      const lBtn = this.makeLayerToggle('lock', locked, () => {
         this.exports.stbte_set_layer_locked(this.tilemap, i, locked ? 0 : 1)
         this.setupLayers()
         this.renderMap()
       })
-      const sBtn = this.makeLayerToggle('S', isSolo, () => {
+      const sBtn = this.makeLayerToggle('visibility', isSolo, () => {
         this.exports.stbte_set_solo_layer(this.tilemap, isSolo ? -1 : i)
         this.setupLayers()
         this.renderMap()
@@ -642,9 +642,9 @@ export default class ViewStbEditor extends HTMLElement {
 
   makeLayerToggle(label, on, click) {
     const btn = document.createElement('button')
-    if (on) btn.classList.add('accent')
+    if (on) btn.classList.add('active')
     btn.title = label
-    btn.textContent = label
+    btn.innerHTML = `<i>${label}</i>`
     btn.addEventListener('click', (e) => {
       e.stopPropagation()
       click()
@@ -709,7 +709,7 @@ export default class ViewStbEditor extends HTMLElement {
       if (activeCategory !== -1 && tileCategory !== activeCategory) continue
 
       const btn = document.createElement('button')
-      if (i === currentTileIdx) btn.classList.add('accent')
+      if (i === currentTileIdx) btn.classList.add('active')
       btn.title = `Tile ${tileId}`
 
       const preview = this.makeTilePreview(tileId)
