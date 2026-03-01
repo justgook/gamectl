@@ -619,7 +619,7 @@ class FrameListPanel {
     this.listEl.addEventListener('drop', this._onDrop.bind(this))
   }
 
-  dispose() {}
+  dispose() { }
 
   setSpritesheet(image, tileWidth, tileHeight) {
     this.spritesheet = image
@@ -1280,6 +1280,10 @@ export class ViewAnimationEditor extends HTMLElement {
   }
 
   _buildDOM() {
+    this.style.cssText = `
+      flex:1;
+      position: relative;
+    `
     this.innerHTML = `
       <main>
         <div data-part="spritesheet"></div>
@@ -1503,7 +1507,7 @@ export class ViewAnimationEditor extends HTMLElement {
     this._updatePreview()
   }
 
-  _onFrameSelect() {}
+  _onFrameSelect() { }
 
   _onMarkerClick({ tileId }) {
     this._loadAnimationByStartFrame(tileId)

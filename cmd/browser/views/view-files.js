@@ -820,6 +820,7 @@ export class ViewFiles extends HTMLElement {
   }
 
   applyRowStateStyle(row, state = {}) {
+    row.setAttribute('aria-selected', state.selected ? 'true' : 'false')
     row.dataset.selected = state.selected ? 'true' : 'false'
     row.dataset.chooserSelected = state.chooserSelected ? 'true' : 'false'
     row.dataset.chooserDisabled = state.chooserDisabled ? 'true' : 'false'
@@ -1982,6 +1983,7 @@ export class ViewFiles extends HTMLElement {
       title.slot = 'title'
       title.textContent = options.title || 'Select File'
       popup.appendChild(title)
+
 
       // File browser in chooser mode
       const files = document.createElement('view-files')
