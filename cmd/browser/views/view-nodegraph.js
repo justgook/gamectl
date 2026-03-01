@@ -95,7 +95,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
   createHeaderControlsElement() {
     const controls = document.createElement('div')
     controls.innerHTML = `
-      <button data-action="add-node" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
+      <button data-action="add-node" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add_ad</i></button>
       <button data-action="run" class="success" aria-label="Run" title="Run"><i aria-hidden="true">play_arrow</i></button>
       <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
       <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>

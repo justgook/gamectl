@@ -74,18 +74,20 @@ export default class ViewStbEditor extends HTMLElement {
     const headerControls = document.createElement('div')
     headerControls.setAttribute('slot', 'header-controls')
     headerControls.innerHTML = `
-      <button data-tool="1" title="Brush tool" aria-label="Brush tool">
-        <i aria-hidden="true">brush</i>
-      </button>
-      <button data-tool="0" title="Select tool" aria-label="Select tool">
-        <i aria-hidden="true">select</i>
-      </button>
-      <button data-tool="2" title="Erase tool" aria-label="Erase tool">
-        <i aria-hidden="true">ink_eraser</i>
-      </button>
-      <button data-tool="3" title="Eyedropper tool" aria-label="Eyedropper tool">
-        <i aria-hidden="true">colorize</i>
-      </button>
+      <div role="buttongroup" aria-label="Editing tools">
+        <button data-tool="1" title="Brush tool" aria-label="Brush tool">
+          <i aria-hidden="true">brush</i>
+        </button>
+        <button data-tool="0" title="Select tool" aria-label="Select tool">
+          <i aria-hidden="true">select</i>
+        </button>
+        <button data-tool="2" title="Erase tool" aria-label="Erase tool">
+          <i aria-hidden="true">ink_eraser</i>
+        </button>
+        <button data-tool="3" title="Eyedropper tool" aria-label="Eyedropper tool">
+          <i aria-hidden="true">colorize</i>
+        </button>
+      </div>
       <span role="separator" aria-hidden="true"></span>
       <button data-id="undo-btn" title="Undo" aria-label="Undo">
         <i aria-hidden="true">undo</i>
@@ -237,13 +239,9 @@ export default class ViewStbEditor extends HTMLElement {
           </fieldset>
 
           <fieldset>
-            <legend>Categories</legend>
-            <div data-id="categories"></div>
-          </fieldset>
-
-          <fieldset>
             <legend>Tiles</legend>
-            <div data-id="tiles"></div>
+            <div data-id="tile-categories" role="tablist" aria-label="Tile categories"></div>
+            <div data-id="tiles" role="tabpanel" id="stb-tiles-panel"></div>
           </fieldset>
 
           <fieldset>
@@ -601,11 +599,16 @@ export default class ViewStbEditor extends HTMLElement {
       const isSolo = soloLayer === i
 
       const row = document.createElement('div')
-      row.className = 'split-row'
+      row.setAttribute('role', 'buttongroup')
+      row.setAttribute('aria-label', `${this.layerNames[i] || `Layer ${i + 1}`} controls`)
+      row.style.display = 'flex'
+      row.style.width = '100%'
 
       const name = document.createElement('button')
       if (this.selectedLayer === i) name.classList.add('accent')
       name.textContent = this.layerNames[i] || `Layer ${i + 1}`
+      name.style.flex = '1'
+      name.style.justifyContent = 'flex-start'
       name.addEventListener('click', () => {
         this.selectedLayer = this.selectedLayer === i ? -1 : i
         this.exports.stbte_set_active_layer(this.tilemap, this.selectedLayer)
@@ -650,15 +653,18 @@ export default class ViewStbEditor extends HTMLElement {
   }
 
   setupCategories() {
-    const container = this.el('categories')
+    const container = this.el('tile-categories')
     container.innerHTML = ''
 
     this.exports.stbte_set_active_category(this.tilemap, this.selectedCategory)
     const categoryCount = this.getNumCategories()
 
     const allBtn = document.createElement('button')
-    allBtn.className = this.selectedCategory === -1 ? 'accent' : ''
     allBtn.textContent = 'All'
+    allBtn.setAttribute('role', 'tab')
+    allBtn.setAttribute('aria-controls', 'stb-tiles-panel')
+    allBtn.setAttribute('aria-selected', this.selectedCategory === -1 ? 'true' : 'false')
+    allBtn.setAttribute('tabindex', this.selectedCategory === -1 ? '0' : '-1')
     allBtn.addEventListener('click', () => {
       this.selectedCategory = -1
       this.exports.stbte_set_active_category(this.tilemap, -1)
@@ -670,8 +676,11 @@ export default class ViewStbEditor extends HTMLElement {
 
     for (let i = 0; i < categoryCount; i++) {
       const btn = document.createElement('button')
-      btn.className = this.selectedCategory === i ? 'accent' : ''
       btn.textContent = this.categoryNames[i] || `Category ${i + 1}`
+      btn.setAttribute('role', 'tab')
+      btn.setAttribute('aria-controls', 'stb-tiles-panel')
+      btn.setAttribute('aria-selected', this.selectedCategory === i ? 'true' : 'false')
+      btn.setAttribute('tabindex', this.selectedCategory === i ? '0' : '-1')
       btn.addEventListener('click', () => {
         this.selectedCategory = i
         this.exports.stbte_set_active_category(this.tilemap, i)
