@@ -22,6 +22,7 @@ export class ViewSettings extends HTMLElement {
     this.activeTab = 'general'
     this._headerControlsElement = null
     this._renderToken = 0
+    this._tabIdPrefix = `settings-${Math.random().toString(36).slice(2, 10)}`
 
     this.general = {
       backend: 'opfs',
@@ -79,12 +80,21 @@ export class ViewSettings extends HTMLElement {
     ]
   }
 
+  _tabButtonId(tabId) {
+    return `${this._tabIdPrefix}-tab-${tabId}`
+  }
+
+  _tabPanelId(tabId) {
+    return `${this._tabIdPrefix}-panel-${tabId}`
+  }
+
   _mountHeaderControls() {
     if (!this.parentElement) return
 
     if (!this._headerControlsElement) {
       this._headerControlsElement = document.createElement('div')
       this._headerControlsElement.setAttribute('slot', 'header-controls')
+      this._headerControlsElement.setAttribute('role', 'tablist')
       this._headerControlsElement.setAttribute('aria-label', 'Settings tabs')
       this.parentElement.appendChild(this._headerControlsElement)
     }
@@ -100,8 +110,11 @@ export class ViewSettings extends HTMLElement {
       const btn = document.createElement('button')
       btn.textContent = tab.label
       btn.dataset.tab = tab.id
-      btn.setAttribute('aria-pressed', tab.id === this.activeTab ? 'true' : 'false')
-      btn.disabled = tab.id === this.activeTab
+      btn.id = this._tabButtonId(tab.id)
+      btn.setAttribute('role', 'tab')
+      btn.setAttribute('aria-controls', this._tabPanelId(tab.id))
+      btn.setAttribute('aria-selected', tab.id === this.activeTab ? 'true' : 'false')
+      btn.setAttribute('tabindex', tab.id === this.activeTab ? '0' : '-1')
       btn.addEventListener('click', () => this.switchTab(tab.id))
       this._headerControlsElement.appendChild(btn)
     })
@@ -119,6 +132,9 @@ export class ViewSettings extends HTMLElement {
     this.innerHTML = ''
 
     const content = document.createElement('section')
+    content.id = this._tabPanelId(this.activeTab)
+    content.setAttribute('role', 'tabpanel')
+    content.setAttribute('aria-labelledby', this._tabButtonId(this.activeTab))
     this.appendChild(content)
 
     this.renderTabContent(content, token)

@@ -350,6 +350,38 @@
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
   }
 
+  /* button groups */
+  [role="buttongroup"] {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  [role="buttongroup"]>button {
+    border-radius: 0;
+    position: relative;
+  }
+
+  [role="buttongroup"]>button+button {
+    margin-left: -1px;
+  }
+
+  [role="buttongroup"]>button:first-child {
+    border-top-left-radius: var(--radius-sm);
+    border-bottom-left-radius: var(--radius-sm);
+  }
+
+  [role="buttongroup"]>button:last-child {
+    border-top-right-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
+  }
+
+  [role="buttongroup"]>button:hover,
+  [role="buttongroup"]>button:focus-visible,
+  [role="buttongroup"]>button[aria-pressed="true"] {
+    z-index: 1;
+  }
+
   /* ═══════════════════════════════════════════════════════════════════════════
      INPUTS
 
@@ -844,32 +876,135 @@
     left: 50%;
     transform: translate(-50%, -50%);
   }
-}
 
-/* ═══════════════════════════════════════════════════════════════════════════
+  /* ═══════════════════════════════════════════════════════════════════════════
      Views helpers
+   ═══════════════════════════════════════════════════════════════════════════ */
+  section {
+    display: flex;
+    flex-direction: column;
+  }
 
+  article {
+    display: flex;
+    overflow: auto;
+    flex: 1;
+    isolation: isolate;
+  }
+
+  aside {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    width: var(--aside-width);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: var(--surface-elevated);
+    border-left: 1px solid var(--border);
+    font-size: var(--font-sm);
+    box-sizing: border-box;
+  }
+
+  fieldset {
+    margin: 0;
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--surface-elevated), transparent 35%);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-inline-size: 0;
+  }
+
+  legend {
+    padding: 0 var(--space-2);
+    color: var(--text-muted);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  [slot="header-controls"]>span[role="separator"] {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+  }
+
+
+  .tooltip {
+    position: absolute;
+    z-index: 50;
+    max-width: min(360px, calc(100vw - 32px));
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--surface-elevated), black 12%);
+    color: var(--text);
+    font-size: var(--font-xs);
+    line-height: 1.35;
+    pointer-events: none;
+    box-shadow: var(--shadow-elevated);
+    white-space: nowrap;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TABS
      ═══════════════════════════════════════════════════════════════════════════ */
-section {
-  display: flex;
-  flex-direction: column;
+
+  [role="tablist"] {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    padding: var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--surface-elevated), transparent 20%);
+  }
+
+  [role="tablist"]>button {
+    min-height: var(--control-height);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+  }
+
+  [role="tablist"]>button[aria-selected="true"],
+  [role="tablist"]>button[aria-pressed="true"],
+  [role="tablist"]>button:disabled {
+    background: var(--intent-soft-bg);
+    border-color: var(--intent-soft-border);
+    color: var(--intent-soft-fg);
+  }
+
+  [role="tablist"]>button[aria-selected="false"],
+  [role="tablist"]>button[aria-pressed="false"] {
+    opacity: 0.92;
+  }
+
+  [role="tablist"]>button:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 1px;
+  }
+
+  [role="tabpanel"] {
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
+  [role="tabpanel"][hidden] {
+    display: none !important;
+  }
 }
 
-.tooltip {
-  position: absolute;
-  z-index: 50;
-  max-width: min(360px, calc(100vw - 32px));
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--surface-elevated), black 12%);
-  color: var(--text);
-  font-size: var(--font-xs);
-  line-height: 1.35;
-  pointer-events: none;
-  box-shadow: var(--shadow-elevated);
-  white-space: nowrap;
-}
+
+/* TODO remove all below that is legcy stuff */
 
 view-animation-editor {
   display: block;
@@ -879,21 +1014,21 @@ view-animation-editor {
   overflow: hidden;
 }
 
-view-animation-editor > main {
+view-animation-editor>main {
   position: absolute;
   inset: 0 var(--aside-width) 0 0;
   min-width: 0;
   min-height: 0;
 }
 
-view-animation-editor > main [data-part="spritesheet"] {
+view-animation-editor>main [data-part="spritesheet"] {
   position: absolute;
   inset: 0;
   min-width: 0;
   min-height: 0;
 }
 
-view-animation-editor > aside {
+view-animation-editor>aside {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -1051,44 +1186,6 @@ view-animation-editor [data-frame-list][data-drag-target="true"] {
   width: 64px;
 }
 
-aside {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 10;
-  width: var(--aside-width);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  background: var(--surface-elevated);
-  border-left: 1px solid var(--border);
-  font-size: var(--font-sm);
-  box-sizing: border-box;
-}
-
-fieldset {
-  margin: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--surface-elevated), transparent 35%);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-inline-size: 0;
-}
-
-legend {
-  padding: 0 var(--space-2);
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
 
 aside label {
   display: flex;
@@ -1249,11 +1346,7 @@ aside .tilebank-item .tile-id {
   background: color-mix(in oklab, var(--bg), transparent 25%);
 }
 
-[slot="header-controls"]>span[role="separator"] {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-}
+
 
 view-stb-editor {
   position: relative;
@@ -1287,16 +1380,15 @@ view-stb-editor aside[data-id="sidepanel"] [data-id="layers"] {
   gap: var(--space-2);
 }
 
-view-stb-editor aside[data-id="sidepanel"] [data-id="categories"] {
-  display: flex;
+view-stb-editor aside[data-id="sidepanel"] [data-id="tile-categories"] {
   flex-wrap: wrap;
-  gap: var(--space-2);
 }
 
 view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-2);
+  margin-top: var(--space-3);
   max-height: 240px;
   overflow: auto;
 }
