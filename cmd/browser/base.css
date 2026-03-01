@@ -875,75 +875,180 @@ view-animation-editor {
   display: block;
   height: 100%;
   min-height: 0;
+  position: relative;
+  overflow: hidden;
 }
 
-view-animation-editor .animation-editor-container {
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(360px, 440px);
-  gap: var(--space-3);
-  height: 100%;
-  min-height: 0;
-  padding: var(--space-3);
-  box-sizing: border-box;
-}
-
-view-animation-editor .animation-editor-left,
-view-animation-editor .animation-editor-right,
-view-animation-editor .animation-editor-preview-section,
-view-animation-editor .animation-editor-frames-section {
+view-animation-editor > main {
+  position: absolute;
+  inset: 0 var(--aside-width) 0 0;
+  min-width: 0;
   min-height: 0;
 }
 
-view-animation-editor .animation-editor-left,
-view-animation-editor .animation-editor-right {
+view-animation-editor > main [data-part="spritesheet"] {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+view-animation-editor > aside {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
-view-animation-editor .animation-editor-left,
-view-animation-editor .animation-editor-preview-section,
-view-animation-editor .animation-editor-frames-section {
-  background: var(--surface);
+view-animation-editor aside [data-part="preview"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
+view-animation-editor [data-preview-stage] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  overflow: hidden;
+  background: color-mix(in oklab, var(--surface), black 8%);
 }
 
-view-animation-editor .spritesheet-container,
-view-animation-editor .preview-container,
-view-animation-editor .frames-container {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
+view-animation-editor [data-preview-canvas] {
+  image-rendering: pixelated;
 }
 
-view-animation-editor .frames-container {
-  overflow: auto;
+view-animation-editor [data-preview-info] {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
 }
 
-view-animation-editor .preview-controls,
-view-animation-editor .frames-toolbar {
+view-animation-editor aside [data-controls] {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+view-animation-editor aside [data-controls="frames"] label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+view-animation-editor aside [data-controls="frames"] label input {
+  width: 84px;
+}
+
+view-animation-editor aside fieldset[data-section="frames"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+view-animation-editor [data-part="frames"] {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface), black 8%);
+}
+
+view-animation-editor [data-frame-list] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border);
-  background: var(--surface-elevated);
 }
 
-view-animation-editor .preview-controls {
-  flex-wrap: wrap;
+view-animation-editor [data-placeholder] {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
 }
 
-view-animation-editor .frames-toolbar {
-  flex-wrap: wrap;
+view-animation-editor [data-frame-item] {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface), transparent 20%);
 }
 
-view-animation-editor .toolbar-separator {
+view-animation-editor [data-frame-item][data-selected="true"] {
+  border-color: color-mix(in oklab, var(--accent), black 20%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent), transparent 70%);
+}
+
+view-animation-editor [data-frame-item][data-dragging="true"] {
+  opacity: 0.55;
+}
+
+view-animation-editor [data-frame-item][data-drag-over="top"] {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+view-animation-editor [data-frame-item][data-drag-over="bottom"] {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+view-animation-editor [data-frame-item] [data-thumbnail] {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+view-animation-editor [data-frame-item] [data-body] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+view-animation-editor [data-frame-item] [data-controls] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+view-animation-editor [data-frame-item] [data-duration] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+view-animation-editor [data-frame-item] [data-duration] input {
+  width: 72px;
+}
+
+view-animation-editor [data-frame-list][data-drag-target="true"] {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+[slot="header-controls"][data-view="animation-editor"] [data-sep] {
   width: 1px;
-  height: 16px;
+  height: 20px;
   background: var(--border);
+}
+
+[slot="header-controls"][data-view="animation-editor"] [data-tile-size] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+[slot="header-controls"][data-view="animation-editor"] [data-tile-size] input {
+  width: 64px;
 }
 
 aside {
