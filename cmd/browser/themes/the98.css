@@ -990,7 +990,11 @@
     font-weight: bold;
     color: white;
     letter-spacing: 0;
-    background: linear-gradient(90deg, var(--dialog-blue), var(--dialog-blue-light));
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--intent, var(--dialog-blue)), black 45%),
+      var(--intent, var(--dialog-blue-light))
+    );
     padding: 3px 2px 3px 3px;
     display: flex;
     justify-content: space-between;
