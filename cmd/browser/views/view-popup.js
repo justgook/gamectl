@@ -21,13 +21,14 @@ export class ViewPopup extends HTMLElement {
     shadowRoot.innerHTML = `
       <link rel="stylesheet" href="reset.css">
       <link rel="stylesheet" href="base.css">
-        <section class="popup-container" part="container">
+        <section part="container">
           <header part="header">
             <slot name="title"></slot>
             <slot name="header-controls"></slot>
-            <button class="popup-close" type="button" data-action="close" aria-label="Close popup">×</button>
+            <button part="close" type="button" data-action="close" aria-label="Close popup"><i style="font-size: inherit;">close</i></button>
+
           </header>
-          <div class="popup-body" part="body">
+          <div part="body">
             <slot></slot>
           </div>
         </section>

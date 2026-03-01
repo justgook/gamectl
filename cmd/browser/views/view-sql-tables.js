@@ -33,7 +33,7 @@ export class ViewSqlTables extends HTMLElement {
     this.innerHTML = `
       <section style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
         <main data-element="list-container" style="flex: 1; min-height: 0; overflow: auto;"></main>
-        <footer data-element="status" style="padding: var(--space-2) var(--space-3); border-top: 1px solid var(--border); color: var(--text-muted);"></footer>
+        <footer data-element="status"></footer>
       </section>
     `
 
@@ -203,9 +203,6 @@ export class ViewSqlTables extends HTMLElement {
     this.querySelectorAll('[data-element="table-row"]').forEach((row) => {
       const isSelected = row.dataset.table === this.selectedTable
       row.setAttribute('aria-selected', isSelected ? 'true' : 'false')
-      row.style.background = isSelected ? 'var(--surface-hover)' : ''
-      row.style.outline = isSelected ? '1px solid var(--border-focus)' : ''
-      row.style.outlineOffset = '-1px'
     })
   }
 
@@ -213,15 +210,8 @@ export class ViewSqlTables extends HTMLElement {
     if (this.statusContainer) {
       this.statusContainer.textContent = text
       this.statusContainer.classList.remove('accent', 'success', 'warning', 'danger', 'info')
-      this.statusContainer.style.background = ''
-      this.statusContainer.style.borderTopColor = 'var(--border)'
-      this.statusContainer.style.color = 'var(--text-muted)'
-
       if (tone) {
         this.statusContainer.classList.add(tone)
-        this.statusContainer.style.background = 'var(--intent-soft-bg)'
-        this.statusContainer.style.borderTopColor = 'var(--intent-soft-border)'
-        this.statusContainer.style.color = 'var(--intent-soft-fg)'
       }
     }
   }
@@ -449,10 +439,10 @@ export class ViewSqlTables extends HTMLElement {
       await window.pluginManager.call('sql', 'exec', sql)
       this.setStatus(`Created table: ${tableName}`, 'success')
       popup.close()
-      
+
       // Refresh the table list
       await this.refresh()
-      
+
       // Select the newly created table
       this.selectTable(tableName)
     } catch (error) {

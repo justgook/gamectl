@@ -2082,15 +2082,6 @@ export class ViewNodeGraph extends ViewCanvasBase {
     const searchInput = document.createElement('input')
     searchInput.type = 'text'
     searchInput.placeholder = 'Search nodes...'
-    searchInput.style.cssText = `
-      padding: var(--spacing-scale-1) var(--spacing-scale-2);
-      border: 1px solid var(--color-semantic-border-default);
-      border-radius: var(--border-radius-sm);
-      background: var(--color-semantic-bg-secondary);
-      color: var(--color-semantic-text-primary);
-      font-size: var(--font-size-sm);
-      min-width: 200px;
-    `
 
     // Debounced search
     let searchTimeout = null
