@@ -938,6 +938,96 @@
     image-rendering: pixelated;
   }
 
+  /* Node Graph theme contract (canvas-rendered; consumed from CSS vars) */
+  view-nodegraph {
+    --ng-bg: color-mix(in oklab, var(--bg), black 10%);
+    --ng-grid-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj4KICA8cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiLz4KICA8cGF0aCBkPSJNMzEuNSAwdjMyIE0wIDMxLjVoMzIiIHN0cm9rZT0iIzJhMmEyYSIgc3Ryb2tlLXdpZHRoPSIxIiBvcGFjaXR5PSIwLjkiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPgogIDxwYXRoIGQ9Ik0wIDAuNWgzMiBNMC41IDB2MzIiIHN0cm9rZT0iIzQwNDA0MCIgc3Ryb2tlLXdpZHRoPSIxIiBvcGFjaXR5PSIwLjMiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPgo8L3N2Zz4=");
+
+    --ng-conn-color: color-mix(in oklab, var(--text-muted), transparent 15%);
+    --ng-conn-active-color: var(--accent);
+    --ng-conn-width: 2;
+
+    --ng-selection-color: var(--accent);
+    --ng-selection-width: 3;
+
+    --ng-port-color: var(--text-muted);
+    --ng-port-connected-color: var(--accent);
+
+    --ng-text: var(--text);
+    --ng-text-muted: var(--text-muted);
+    --ng-value-bg: color-mix(in oklab, black, transparent 42%);
+    --ng-value-text: var(--text);
+    --ng-type-badge-bg: color-mix(in oklab, var(--border), var(--text-muted) 20%);
+    --ng-type-badge-text: var(--text);
+
+    --ng-font-title: var(--font-body);
+    --ng-font-port: var(--font-body);
+    --ng-font-size-title: 14;
+    --ng-font-size-port: 11;
+
+    --ng-node-skin-example: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzYTQyNTYiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMjMyOTM5Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9InVybCgjZykiLz4KICA8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9IjIzIiBoZWlnaHQ9IjIzIiBmaWxsPSJub25lIiBzdHJva2U9IiM3ZjhmYWYiIHN0cm9rZS13aWR0aD0iMSIvPgogIDxyZWN0IHg9IjEuNSIgeT0iMS41IiB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzE1MWEyNCIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgPHBhdGggZD0iTTIgMmgyMHY0SDJ6IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMTApIi8+Cjwvc3ZnPg==");
+  }
+
+  view-nodegraph > * {
+    --ng-node-body-bg: color-mix(in oklab, var(--surface-elevated), white 6%);
+    --ng-node-header-bg: color-mix(in oklab, var(--surface-elevated), white 12%);
+    --ng-node-skin-slice: 8 8 8 8;
+    --ng-node-header-skin-slice: 8 8 8 8;
+  }
+
+  view-nodegraph > node-input {
+    --ng-node-header-bg: #6366f1;
+  }
+
+  view-nodegraph > node-plugin {
+    --ng-node-header-bg: #8b5cf6;
+  }
+
+  view-nodegraph > node-output {
+    --ng-node-header-bg: #ec4899;
+  }
+
+  view-nodegraph > node-popup,
+  view-nodegraph > node-fields,
+  view-nodegraph > node-fromjson,
+  view-nodegraph > node-tostring {
+    --ng-node-header-bg: #10b981;
+  }
+
+  view-nodegraph > node-code {
+    --ng-node-header-bg: #06b6d4;
+  }
+
+  view-nodegraph > *[state="idle"] {
+    --ng-node-body-bg: color-mix(in oklab, var(--surface), white 6%);
+  }
+
+  view-nodegraph > *[state="ready"] {
+    --ng-node-body-bg: color-mix(in oklab, var(--accent), var(--surface) 80%);
+  }
+
+  view-nodegraph > *[state="running"] {
+    --ng-node-body-bg: color-mix(in oklab, var(--warning), var(--surface) 78%);
+  }
+
+  view-nodegraph > *[state="success"] {
+    --ng-node-body-bg: color-mix(in oklab, var(--success), var(--surface) 78%);
+  }
+
+  view-nodegraph > *[state="error"] {
+    --ng-node-body-bg: color-mix(in oklab, var(--danger), var(--surface) 78%);
+  }
+
+  /* Example switch: add class="theme--nine-slice" on <view-nodegraph> */
+  view-nodegraph.theme--nine-slice > * {
+    --ng-node-skin-src: var(--ng-node-skin-example);
+  }
+
+  view-nodegraph.theme--nine-slice > node-code,
+  view-nodegraph.theme--nine-slice > node-popup {
+    --ng-node-header-skin-src: var(--ng-node-skin-example);
+  }
+
 }
 
 

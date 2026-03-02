@@ -11,36 +11,40 @@ const PORT_SPACING = 24
 const PORT_HIT_RADIUS = 20 // Larger hit area for easier clicking
 const CONNECTION_HIT_RADIUS = 10 // How close to click on connection line
 
-// Colors (TODO: integrate with design tokens)
-const COLORS = {
+const DEFAULT_THEME = {
   background: '#1e1e1e',
-  grid: '#2a2a2a',
-  node: {
+  gridImageSrc: null,
+  connectionColor: '#64748b',
+  connectionActiveColor: '#3b82f6',
+  connectionWidth: 2,
+  selectionColor: '#3b82f6',
+  selectionWidth: 3,
+  portColor: '#94a3b8',
+  portConnectedColor: '#3b82f6',
+  textColor: '#ffffff',
+  textSecondaryColor: '#94a3b8',
+  valueBgColor: 'rgba(0, 0, 0, 0.6)',
+  valueTextColor: '#ffffff',
+  typeBadgeColor: '#64748b',
+  typeBadgeTextColor: '#e2e8f0',
+  titleFontFamily: 'sans-serif',
+  portFontFamily: 'sans-serif',
+  titleFontSize: 14,
+  portFontSize: 11,
+  nodeStateColors: {
     idle: '#3a3a3a',
     ready: '#2563eb',
     running: '#f59e0b',
     success: '#10b981',
     error: '#ef4444'
   },
-  nodeHeader: {
+  nodeHeaderColors: {
     input: '#6366f1',
     plugin: '#8b5cf6',
     output: '#ec4899',
-    template: '#10b981',  // Green for template nodes
-    code: '#06b6d4'       // Cyan/Teal for code nodes
-  },
-  connection: '#64748b',
-  connectionActive: '#3b82f6',
-  port: '#94a3b8',
-  portConnected: '#3b82f6',
-  text: '#ffffff',
-  textSecondary: '#94a3b8',
-  selection: '#3b82f6',
-  // Value display colors for better readability
-  valueBg: 'rgba(0, 0, 0, 0.6)',
-  valueText: '#ffffff',
-  typeBadge: '#64748b',
-  typeBadgeText: '#e2e8f0'
+    template: '#10b981',
+    code: '#06b6d4'
+  }
 }
 
 /**
@@ -90,6 +94,159 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
     // Node ID counter for simple incrementing IDs
     this.nodeIdCounter = 1
+
+    // Cache for external node skin assets used by 9-slice rendering
+    this.nodeSkinCache = new Map()
+  }
+
+  getCssValue(style, name, fallback) {
+    const value = style.getPropertyValue(name).trim()
+    return value || fallback
+  }
+
+  getCssNumber(style, name, fallback) {
+    const raw = this.getCssValue(style, name, '')
+    const parsed = parseFloat(raw)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  getCssUrl(style, name) {
+    const raw = this.getCssValue(style, name, '')
+    if (!raw || raw === 'none') return null
+    const match = raw.match(/^url\((.*)\)$/i)
+    if (!match) return null
+    return match[1].trim().replace(/^['"]|['"]$/g, '') || null
+  }
+
+  getSliceInsets(style, name, fallback = { top: 8, right: 8, bottom: 8, left: 8 }) {
+    const raw = this.getCssValue(style, name, '')
+    if (!raw) return fallback
+
+    const values = raw
+      .split(/[\s,]+/)
+      .map((part) => parseFloat(part))
+      .filter((num) => Number.isFinite(num))
+
+    if (values.length === 0) return fallback
+    if (values.length === 1) {
+      return { top: values[0], right: values[0], bottom: values[0], left: values[0] }
+    }
+    if (values.length === 2) {
+      return { top: values[0], right: values[1], bottom: values[0], left: values[1] }
+    }
+    if (values.length === 3) {
+      return { top: values[0], right: values[1], bottom: values[2], left: values[1] }
+    }
+    return { top: values[0], right: values[1], bottom: values[2], left: values[3] }
+  }
+
+  getGraphTheme() {
+    const style = getComputedStyle(this)
+    return {
+      background: this.getCssValue(style, '--ng-bg', DEFAULT_THEME.background),
+      gridImageSrc: this.getCssUrl(style, '--ng-grid-image') || DEFAULT_THEME.gridImageSrc,
+      connectionColor: this.getCssValue(style, '--ng-conn-color', DEFAULT_THEME.connectionColor),
+      connectionActiveColor: this.getCssValue(style, '--ng-conn-active-color', DEFAULT_THEME.connectionActiveColor),
+      connectionWidth: this.getCssNumber(style, '--ng-conn-width', DEFAULT_THEME.connectionWidth),
+      selectionColor: this.getCssValue(style, '--ng-selection-color', DEFAULT_THEME.selectionColor),
+      selectionWidth: this.getCssNumber(style, '--ng-selection-width', DEFAULT_THEME.selectionWidth),
+      portColor: this.getCssValue(style, '--ng-port-color', DEFAULT_THEME.portColor),
+      portConnectedColor: this.getCssValue(style, '--ng-port-connected-color', DEFAULT_THEME.portConnectedColor),
+      textColor: this.getCssValue(style, '--ng-text', DEFAULT_THEME.textColor),
+      textSecondaryColor: this.getCssValue(style, '--ng-text-muted', DEFAULT_THEME.textSecondaryColor),
+      valueBgColor: this.getCssValue(style, '--ng-value-bg', DEFAULT_THEME.valueBgColor),
+      valueTextColor: this.getCssValue(style, '--ng-value-text', DEFAULT_THEME.valueTextColor),
+      typeBadgeColor: this.getCssValue(style, '--ng-type-badge-bg', DEFAULT_THEME.typeBadgeColor),
+      typeBadgeTextColor: this.getCssValue(style, '--ng-type-badge-text', DEFAULT_THEME.typeBadgeTextColor),
+      titleFontFamily: this.getCssValue(style, '--ng-font-title', DEFAULT_THEME.titleFontFamily),
+      portFontFamily: this.getCssValue(style, '--ng-font-port', DEFAULT_THEME.portFontFamily),
+      titleFontSize: this.getCssNumber(style, '--ng-font-size-title', DEFAULT_THEME.titleFontSize),
+      portFontSize: this.getCssNumber(style, '--ng-font-size-port', DEFAULT_THEME.portFontSize)
+    }
+  }
+
+  getNodeTheme(node, graphTheme, info) {
+    const style = getComputedStyle(node)
+    const fallbackBody = DEFAULT_THEME.nodeStateColors[node.state] || DEFAULT_THEME.nodeStateColors.idle
+    const fallbackHeader = DEFAULT_THEME.nodeHeaderColors[info.type] || DEFAULT_THEME.nodeHeaderColors.plugin
+
+    const bodySkinSrc = this.getCssUrl(style, '--ng-node-skin-src')
+    const headerSkinSrc = this.getCssUrl(style, '--ng-node-header-skin-src')
+
+    return {
+      bodyColor: this.getCssValue(style, '--ng-node-body-bg', fallbackBody),
+      headerColor: this.getCssValue(style, '--ng-node-header-bg', fallbackHeader),
+      selectionColor: this.getCssValue(style, '--ng-selection-color', graphTheme.selectionColor),
+      bodySkinSrc,
+      bodySkinSlice: this.getSliceInsets(style, '--ng-node-skin-slice'),
+      headerSkinSrc,
+      headerSkinSlice: this.getSliceInsets(style, '--ng-node-header-skin-slice')
+    }
+  }
+
+  getOrLoadNodeSkin(src) {
+    if (!src) return null
+
+    const cached = this.nodeSkinCache.get(src)
+    if (cached) return cached.ready ? cached.image : null
+
+    const image = new Image()
+    const entry = { image, ready: false, failed: false }
+
+    image.onload = () => {
+      entry.ready = true
+      this.draw('skinLoaded')
+    }
+
+    image.onerror = () => {
+      entry.failed = true
+      this.draw('skinLoadError')
+    }
+
+    image.src = src
+    this.nodeSkinCache.set(src, entry)
+
+    return null
+  }
+
+  drawNineSlice(ctx, image, x, y, width, height, slice) {
+    if (!image || width <= 0 || height <= 0) return
+
+    const sourceWidth = image.naturalWidth || image.width
+    const sourceHeight = image.naturalHeight || image.height
+    if (!sourceWidth || !sourceHeight) return
+
+    const left = Math.max(0, Math.min(slice.left, sourceWidth / 2))
+    const right = Math.max(0, Math.min(slice.right, sourceWidth / 2))
+    const top = Math.max(0, Math.min(slice.top, sourceHeight / 2))
+    const bottom = Math.max(0, Math.min(slice.bottom, sourceHeight / 2))
+
+    const destLeft = Math.max(0, Math.min(left, width / 2))
+    const destRight = Math.max(0, Math.min(right, width - destLeft))
+    const destTop = Math.max(0, Math.min(top, height / 2))
+    const destBottom = Math.max(0, Math.min(bottom, height - destTop))
+
+    const sourceCenterWidth = Math.max(0, sourceWidth - left - right)
+    const sourceCenterHeight = Math.max(0, sourceHeight - top - bottom)
+    const destCenterWidth = Math.max(0, width - destLeft - destRight)
+    const destCenterHeight = Math.max(0, height - destTop - destBottom)
+
+    const drawPart = (sx, sy, sw, sh, dx, dy, dw, dh) => {
+      if (sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return
+      ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh)
+    }
+
+    drawPart(0, 0, left, top, x, y, destLeft, destTop)
+    drawPart(left, 0, sourceCenterWidth, top, x + destLeft, y, destCenterWidth, destTop)
+    drawPart(sourceWidth - right, 0, right, top, x + width - destRight, y, destRight, destTop)
+
+    drawPart(0, top, left, sourceCenterHeight, x, y + destTop, destLeft, destCenterHeight)
+    drawPart(left, top, sourceCenterWidth, sourceCenterHeight, x + destLeft, y + destTop, destCenterWidth, destCenterHeight)
+    drawPart(sourceWidth - right, top, right, sourceCenterHeight, x + width - destRight, y + destTop, destRight, destCenterHeight)
+
+    drawPart(0, sourceHeight - bottom, left, bottom, x, y + height - destBottom, destLeft, destBottom)
+    drawPart(left, sourceHeight - bottom, sourceCenterWidth, bottom, x + destLeft, y + height - destBottom, destCenterWidth, destBottom)
+    drawPart(sourceWidth - right, sourceHeight - bottom, right, bottom, x + width - destRight, y + height - destBottom, destRight, destBottom)
   }
 
   createHeaderControlsElement() {
@@ -300,8 +457,15 @@ export class ViewNodeGraph extends ViewCanvasBase {
   }
 
   drawContent(ctx, data) {
-    // 1. Draw grid
-    this.drawGrid(ctx)
+    const graphTheme = this.getGraphTheme()
+
+    if (this.contentBounds) {
+      const { minX, maxX, minY, maxY } = this.contentBounds
+      ctx.fillStyle = graphTheme.background
+      ctx.fillRect(minX, minY, maxX - minX, maxY - minY)
+    }
+
+    // 1. Grid rendering disabled for performance
 
     // 2. Draw connections
     for (const conn of this.connectionIndex) {
@@ -315,19 +479,19 @@ export class ViewNodeGraph extends ViewCanvasBase {
           continue // Skip this connection during drag
         }
       }
-      this.drawConnection(ctx, conn)
+      this.drawConnection(ctx, conn, graphTheme)
     }
 
     // 3. Draw active connection being created/reconnected
     if (this.connectionDragState) {
-      this.drawActiveConnection(ctx)
+      this.drawActiveConnection(ctx, graphTheme)
     }
 
     // 4. Draw nodes in DOM order (first child = back layer, last child = front layer)
     for (const node of this.children) {
       // Only draw actual node elements (skip other possible child elements)
       if (node.getDisplayInfo) {
-        this.drawNode(ctx, node)
+        this.drawNode(ctx, node, graphTheme)
       }
     }
   }
@@ -349,86 +513,94 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
   // --- Drawing Methods ---
 
-  drawGrid(ctx) {
-    const gridSize = 50
-    const { minX, maxX, minY, maxY } = this.contentBounds
+  drawGrid(ctx, theme) {
+    if (!theme.gridImageSrc || !this.canvas) return
 
-    ctx.strokeStyle = COLORS.grid
-    ctx.lineWidth = 1
+    const gridImage = this.getOrLoadNodeSkin(theme.gridImageSrc)
+    if (!gridImage) return
 
-    // Vertical lines
-    for (let x = Math.floor(minX / gridSize) * gridSize; x < maxX; x += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(x, minY)
-      ctx.lineTo(x, maxY)
-      ctx.stroke()
-    }
+    const tileWidth = gridImage.naturalWidth || gridImage.width
+    const tileHeight = gridImage.naturalHeight || gridImage.height
+    if (!tileWidth || !tileHeight) return
 
-    // Horizontal lines
-    for (let y = Math.floor(minY / gridSize) * gridSize; y < maxY; y += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(minX, y)
-      ctx.lineTo(maxX, y)
-      ctx.stroke()
+    const worldMinX = (-this.offsetX) / this.scale
+    const worldMinY = (-this.offsetY) / this.scale
+    const worldMaxX = worldMinX + this.canvas.width / this.scale
+    const worldMaxY = worldMinY + this.canvas.height / this.scale
+
+    const startX = Math.floor(worldMinX / tileWidth) * tileWidth
+    const startY = Math.floor(worldMinY / tileHeight) * tileHeight
+
+    for (let x = startX; x < worldMaxX + tileWidth; x += tileWidth) {
+      for (let y = startY; y < worldMaxY + tileHeight; y += tileHeight) {
+        ctx.drawImage(gridImage, x, y, tileWidth, tileHeight)
+      }
     }
   }
 
-  drawNode(ctx, node) {
+  drawNode(ctx, node, graphTheme) {
     const x = parseFloat(node.getAttribute('x')) || 0
     const y = parseFloat(node.getAttribute('y')) || 0
     const focused = this.isNodeFocused(node)
     const info = node.getDisplayInfo()
-
-    // Determine colors
-    const nodeColor = COLORS.node[node.state] || COLORS.node.idle
-    const headerColor = COLORS.nodeHeader[info.type] || COLORS.nodeHeader.plugin
+    const nodeTheme = this.getNodeTheme(node, graphTheme, info)
 
     // Draw focus highlight
     if (focused) {
-      ctx.strokeStyle = COLORS.selection
-      ctx.lineWidth = 3
+      ctx.strokeStyle = nodeTheme.selectionColor
+      ctx.lineWidth = graphTheme.selectionWidth
       ctx.strokeRect(x - 2, y - 2, info.width + 4, info.height + 4)
     }
 
     // Draw node body
-    ctx.fillStyle = nodeColor
-    ctx.fillRect(x, y, info.width, info.height)
+    const bodySkinImage = this.getOrLoadNodeSkin(nodeTheme.bodySkinSrc)
+    if (bodySkinImage) {
+      this.drawNineSlice(ctx, bodySkinImage, x, y, info.width, info.height, nodeTheme.bodySkinSlice)
+    } else {
+      ctx.fillStyle = nodeTheme.bodyColor
+      ctx.fillRect(x, y, info.width, info.height)
+    }
 
     // Draw node header
-    ctx.fillStyle = headerColor
-    ctx.fillRect(x, y, info.width, NODE_HEADER_HEIGHT)
+    const headerSkinImage = this.getOrLoadNodeSkin(nodeTheme.headerSkinSrc)
+    if (headerSkinImage) {
+      this.drawNineSlice(ctx, headerSkinImage, x, y, info.width, NODE_HEADER_HEIGHT, nodeTheme.headerSkinSlice)
+    } else {
+      ctx.fillStyle = nodeTheme.headerColor
+      ctx.fillRect(x, y, info.width, NODE_HEADER_HEIGHT)
+    }
 
     // Draw title
-    ctx.fillStyle = COLORS.text
-    ctx.font = '14px sans-serif'
+    ctx.fillStyle = graphTheme.textColor
+    ctx.font = `${graphTheme.titleFontSize}px ${graphTheme.titleFontFamily}`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.fillText(info.title, x + 10, y + NODE_HEADER_HEIGHT / 2)
 
     // Draw run button for executable nodes (plugin, fsread, fswrite)
     if (info.type === 'plugin' || info.type === 'fsread' || info.type === 'fswrite') {
-      this.drawRunButton(ctx, x, y, info, node)
+      this.drawRunButton(ctx, x, y, info, node, graphTheme)
     }
 
     // Draw edit button for template and code nodes
     if (info.type === 'template' || info.type === 'code') {
-      this.drawEditButton(ctx, x, y, info, node)
+      this.drawEditButton(ctx, x, y, info, node, graphTheme, nodeTheme)
       // Note: values are shown in port labels, not in node body anymore
     }
 
     // Draw delete button for focused nodes
     if (focused) {
-      this.drawDeleteButton(ctx, x, y, info, node)
+      this.drawDeleteButton(ctx, x, y, info, node, graphTheme)
     }
 
     // Draw input ports
-    this.drawPorts(ctx, x, y + NODE_HEADER_HEIGHT, info.inputs, 'input', node)
+    this.drawPorts(ctx, x, y + NODE_HEADER_HEIGHT, info.inputs, 'input', node, graphTheme)
 
     // Draw output ports
-    this.drawPorts(ctx, x, y + NODE_HEADER_HEIGHT, info.outputs, 'output', node)
+    this.drawPorts(ctx, x, y + NODE_HEADER_HEIGHT, info.outputs, 'output', node, graphTheme)
   }
 
-  drawPorts(ctx, nodeX, startY, ports, type, node) {
+  drawPorts(ctx, nodeX, startY, ports, type, node, graphTheme) {
     const isInput = type === 'input'
     const portX = isInput ? nodeX : nodeX + NODE_WIDTH
 
@@ -471,11 +643,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
       }
 
       // Determine port color
-      let portColor = COLORS.port // Default: gray
+      let portColor = graphTheme.portColor
       if (isHoverTarget) {
-        portColor = COLORS.portConnected // Hover target: blue
+        portColor = graphTheme.portConnectedColor
       } else if (isConnected) {
-        portColor = COLORS.portConnected // Connected: blue
+        portColor = graphTheme.portConnectedColor
       }
 
       // Draw port circle
@@ -486,7 +658,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
       // Draw hover highlight ring
       if (isHoverTarget) {
-        ctx.strokeStyle = COLORS.portConnected
+        ctx.strokeStyle = graphTheme.portConnectedColor
         ctx.lineWidth = 2
         ctx.beginPath()
         ctx.arc(portX, portY, PORT_SIZE / 2 + 3, 0, Math.PI * 2)
@@ -494,7 +666,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
       }
 
       // Draw port label
-      ctx.font = '11px sans-serif'
+      ctx.font = `${graphTheme.portFontSize}px ${graphTheme.portFontFamily}`
       ctx.textAlign = isInput ? 'left' : 'right'
       ctx.textBaseline = 'middle'
       const labelX = isInput ? portX + 10 : portX - 10
@@ -519,16 +691,16 @@ export class ViewNodeGraph extends ViewCanvasBase {
         const bgY = portY - bgHeight / 2
 
         // Draw dark background for value text
-        ctx.fillStyle = COLORS.valueBg
+        ctx.fillStyle = graphTheme.valueBgColor
         ctx.fillRect(bgX, bgY, totalWidth + 4, bgHeight)
 
         // Draw value text
-        ctx.fillStyle = COLORS.valueText
+        ctx.fillStyle = graphTheme.valueTextColor
         ctx.fillText(fullText, labelX, portY)
 
         // Draw type badge
         const badgeX = isInput ? labelX + textWidth + 4 : labelX - textWidth - 4
-        ctx.fillStyle = COLORS.typeBadge
+        ctx.fillStyle = graphTheme.typeBadgeColor
         ctx.textAlign = isInput ? 'left' : 'right'
         ctx.fillText(badgeText, badgeX, portY)
       } else {
@@ -542,13 +714,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
           const bgX = isInput ? labelX - 2 : labelX - textWidth - 2
 
           // Draw dark background
-          ctx.fillStyle = COLORS.valueBg
+          ctx.fillStyle = graphTheme.valueBgColor
           ctx.fillRect(bgX, bgY, textWidth + 4, bgHeight)
 
           // Draw text in white for contrast
-          ctx.fillStyle = COLORS.valueText
+          ctx.fillStyle = graphTheme.valueTextColor
         } else {
-          ctx.fillStyle = COLORS.textSecondary
+          ctx.fillStyle = graphTheme.textSecondaryColor
         }
         ctx.fillText(labelText, labelX, portY)
       }
@@ -576,7 +748,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     return '?'
   }
 
-  drawConnection(ctx, conn) {
+  drawConnection(ctx, conn, graphTheme) {
     const fromNode = this.nodes.get(conn.fromNodeId)
     const toNode = this.nodes.get(conn.toNodeId)
 
@@ -607,11 +779,12 @@ export class ViewNodeGraph extends ViewCanvasBase {
       ctx,
       fromX + fromInfo.width, fromPortY,
       toX, toPortY,
-      COLORS.connection
+      graphTheme.connectionColor,
+      graphTheme.connectionWidth
     )
   }
 
-  drawActiveConnection(ctx) {
+  drawActiveConnection(ctx, graphTheme) {
     const { fixedEnd, movingEnd } = this.connectionDragState
 
     // Determine connection direction based on port type
@@ -622,7 +795,8 @@ export class ViewNodeGraph extends ViewCanvasBase {
         ctx,
         fixedEnd.x, fixedEnd.y,
         movingEnd.x, movingEnd.y,
-        COLORS.connectionActive
+        graphTheme.connectionActiveColor,
+        graphTheme.connectionWidth
       )
     } else {
       // Fixed end is input (left side), moving end will be output (right side)
@@ -631,17 +805,18 @@ export class ViewNodeGraph extends ViewCanvasBase {
         ctx,
         movingEnd.x, movingEnd.y,
         fixedEnd.x, fixedEnd.y,
-        COLORS.connectionActive
+        graphTheme.connectionActiveColor,
+        graphTheme.connectionWidth
       )
     }
   }
 
-  drawBezierConnection(ctx, x1, y1, x2, y2, color) {
+  drawBezierConnection(ctx, x1, y1, x2, y2, color, lineWidth = 2) {
     const dx = Math.abs(x2 - x1)
     const cpOffset = Math.min(dx * 0.5, 100)
 
     ctx.strokeStyle = color
-    ctx.lineWidth = 2
+    ctx.lineWidth = lineWidth
     ctx.beginPath()
     ctx.moveTo(x1, y1)
     ctx.bezierCurveTo(
@@ -652,30 +827,30 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.stroke()
   }
 
-  drawRunButton(ctx, nodeX, nodeY, info, node) {
+  drawRunButton(ctx, nodeX, nodeY, info, node, graphTheme) {
     const buttonSize = 16
     const buttonX = nodeX + info.width - buttonSize - 6
     const buttonY = nodeY + (NODE_HEADER_HEIGHT - buttonSize) / 2
 
     // Determine button color based on node state
-    let buttonColor = COLORS.port
+    let buttonColor = graphTheme.portColor
     let iconType = 'play'
 
     switch (node.state) {
       case 'running':
-        buttonColor = COLORS.node.running
+        buttonColor = DEFAULT_THEME.nodeStateColors.running
         iconType = 'pause'
         break
       case 'success':
-        buttonColor = COLORS.node.success
+        buttonColor = DEFAULT_THEME.nodeStateColors.success
         iconType = 'refresh'
         break
       case 'error':
-        buttonColor = COLORS.node.error
+        buttonColor = DEFAULT_THEME.nodeStateColors.error
         iconType = 'refresh'
         break
       default:
-        buttonColor = COLORS.port
+        buttonColor = graphTheme.portColor
         iconType = 'play'
     }
 
@@ -686,13 +861,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.fill()
 
     // Draw button border
-    ctx.strokeStyle = COLORS.text
+    ctx.strokeStyle = graphTheme.textColor
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
     ctx.stroke()
 
-    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize)
+    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize, graphTheme.textColor)
 
     // Store button bounds for click detection
     node._runButtonBounds = {
@@ -703,13 +878,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
   }
 
-  drawEditButton(ctx, nodeX, nodeY, info, node) {
+  drawEditButton(ctx, nodeX, nodeY, info, node, graphTheme, nodeTheme) {
     const buttonSize = 16
     const buttonX = nodeX + info.width - buttonSize - 6
     const buttonY = nodeY + (NODE_HEADER_HEIGHT - buttonSize) / 2
 
     // Edit button color - blue for template nodes
-    const buttonColor = COLORS.nodeHeader.input // Blue color
+    const buttonColor = nodeTheme.headerColor
     const iconType = 'edit'
 
     // Draw button background
@@ -719,13 +894,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.fill()
 
     // Draw button border
-    ctx.strokeStyle = COLORS.text
+    ctx.strokeStyle = graphTheme.textColor
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
     ctx.stroke()
 
-    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize)
+    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize, graphTheme.textColor)
 
     // Store button bounds for click detection
     node._editButtonBounds = {
@@ -736,7 +911,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
   }
 
-  drawTemplateValues(ctx, nodeX, nodeY, info, node) {
+  drawTemplateValues(ctx, nodeX, nodeY, info, node, graphTheme) {
     // Show current output values in the node body
     if (!info.values || info.values.size === 0) return
 
@@ -767,11 +942,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
       const totalWidth = Math.min(textWidth + 4 + badgeWidth, maxWidth)
 
       // Draw dark background for better readability on success (green) state
-      ctx.fillStyle = COLORS.valueBg
+      ctx.fillStyle = graphTheme.valueBgColor
       ctx.fillRect(nodeX + 10 - padding, currentY - 2, totalWidth + padding * 2, lineHeight)
 
       // Draw value text
-      ctx.fillStyle = COLORS.valueText
+      ctx.fillStyle = graphTheme.valueTextColor
       let finalText = text
       if (textWidth > maxWidth - badgeWidth - 8) {
         // Truncate text to fit
@@ -783,7 +958,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
 
       // Draw type badge
       const finalTextWidth = ctx.measureText(finalText).width
-      ctx.fillStyle = COLORS.typeBadge
+      ctx.fillStyle = graphTheme.typeBadgeColor
       ctx.fillText(badgeText, nodeX + 10 + finalTextWidth + 4, currentY)
 
       currentY += lineHeight
@@ -796,13 +971,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
   }
 
-  drawDeleteButton(ctx, nodeX, nodeY, info, node) {
+  drawDeleteButton(ctx, nodeX, nodeY, info, node, graphTheme) {
     const buttonSize = 14
     const buttonX = nodeX + 4 // Position in top-left corner of node
     const buttonY = nodeY + 4
 
     // Delete button color - red for danger
-    const buttonColor = COLORS.node.error // Red color
+    const buttonColor = DEFAULT_THEME.nodeStateColors.error
     const iconType = 'close'
 
     // Draw button background
@@ -812,13 +987,13 @@ export class ViewNodeGraph extends ViewCanvasBase {
     ctx.fill()
 
     // Draw button border
-    ctx.strokeStyle = COLORS.text
+    ctx.strokeStyle = graphTheme.textColor
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.arc(buttonX + buttonSize / 2, buttonY + buttonSize / 2, buttonSize / 2, 0, Math.PI * 2)
     ctx.stroke()
 
-    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize)
+    this.drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize, graphTheme.textColor)
 
     // Store button bounds for click detection
     node._deleteButtonBounds = {
@@ -829,10 +1004,10 @@ export class ViewNodeGraph extends ViewCanvasBase {
     }
   }
 
-  drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize) {
+  drawNodeButtonIcon(ctx, iconType, buttonX, buttonY, buttonSize, color) {
     ctx.save()
-    ctx.strokeStyle = COLORS.text
-    ctx.fillStyle = COLORS.text
+    ctx.strokeStyle = color
+    ctx.fillStyle = color
     ctx.lineWidth = 1.5
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
