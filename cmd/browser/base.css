@@ -463,7 +463,6 @@
   input[type="email"],
   input[type="password"],
   select {
-    /* min-height: var(--control-height); */
     background: var(--surface);
     border: 1px solid var(--border);
     color: inherit;
@@ -475,7 +474,7 @@
   textarea {
     background: var(--surface);
     border: 1px solid var(--border);
-    color: var(--text);
+    color: inherit;
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-sm);
     transition: border-color 120ms, box-shadow 120ms;
