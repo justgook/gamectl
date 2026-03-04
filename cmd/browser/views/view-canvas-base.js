@@ -14,8 +14,7 @@ export class ViewCanvasBase extends HTMLElement {
 
     // Create canvas
     this.canvas = document.createElement('canvas');
-    this.ctx = this.canvas.getContext('2d');
-    this.ctx.imageSmoothingEnabled = false;
+    this.initCtx()
 
     // Viewport state
     this.scale = 1;
@@ -60,6 +59,11 @@ export class ViewCanvasBase extends HTMLElement {
     // Focus handlers
     this._handleFocusIn = this._handleFocusIn.bind(this);
     this._handleFocusOut = this._handleFocusOut.bind(this);
+  }
+
+  initCtx() {
+    this.ctx = this.canvas.getContext('2d');
+    this.ctx.imageSmoothingEnabled = false;
   }
 
   connectedCallback() {
