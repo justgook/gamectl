@@ -67,7 +67,10 @@ PLUGIN_ODIN_EXTRA_LINKER_FLAGS :=
 PLUGIN_ZIG_WASM_TARGET :=
 PLUGIN_ZIG_MCPU :=
 PLUGIN_ZIG_OPT :=
+PLUGIN_ZIG_C_COMPILER :=
 PLUGIN_ZIG_EXTRA_FLAGS :=
+PLUGIN_CFLAGS :=
+PLUGIN_LDFLAGS :=
 PLUGIN_C_SOURCES :=
 PLUGIN_EXTRA_DEPS :=
 
@@ -95,7 +98,10 @@ define APPLY_PLUGIN_MANIFEST
   ZIG_WASM_TARGET_$(1)  := $$(or $$(PLUGIN_ZIG_WASM_TARGET),wasm32-freestanding)
   ZIG_MCPU_$(1)         := $$(PLUGIN_ZIG_MCPU)
   ZIG_OPT_$(1)          := $$(or $$(PLUGIN_ZIG_OPT),ReleaseFast)
+  ZIG_C_COMPILER_$(1)   := $$(or $$(PLUGIN_ZIG_C_COMPILER),build-exe)
   ZIG_EXTRA_FLAGS_$(1)  := $$(PLUGIN_ZIG_EXTRA_FLAGS)
+  ZIG_CFLAGS_$(1)       := $$(PLUGIN_CFLAGS)
+  ZIG_LDFLAGS_$(1)      := $$(PLUGIN_LDFLAGS)
   ZIG_C_SOURCES_$(1)    := $$(if $$(strip $$(PLUGIN_C_SOURCES)),$$(PLUGIN_C_SOURCES),$(wildcard $(PLUGIN_DIR)/$(1)/main.c))
   ZIG_EXTRA_DEPS_$(1)   := $$(if $$(strip $$(PLUGIN_EXTRA_DEPS)),$$(PLUGIN_EXTRA_DEPS),$(wildcard $(PLUGIN_DIR)/$(1)/*.h))
 
@@ -106,7 +112,10 @@ define APPLY_PLUGIN_MANIFEST
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_WASM_TARGET := $$(ZIG_WASM_TARGET_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_MCPU := $$(ZIG_MCPU_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_OPT := $$(ZIG_OPT_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_C_COMPILER := $$(ZIG_C_COMPILER_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_EXTRA_FLAGS := $$(ZIG_EXTRA_FLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_CFLAGS := $$(ZIG_CFLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_LDFLAGS := $$(ZIG_LDFLAGS_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_C_SOURCES := $$(ZIG_C_SOURCES_$(1))
   $$(if $$(strip $$(ZIG_C_SOURCES_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_C_SOURCES_$(1)))
   $$(if $$(strip $$(ZIG_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_EXTRA_DEPS_$(1)))
@@ -118,7 +127,10 @@ define APPLY_PLUGIN_MANIFEST
   PLUGIN_ZIG_WASM_TARGET :=
   PLUGIN_ZIG_MCPU :=
   PLUGIN_ZIG_OPT :=
+  PLUGIN_ZIG_C_COMPILER :=
   PLUGIN_ZIG_EXTRA_FLAGS :=
+  PLUGIN_CFLAGS :=
+  PLUGIN_LDFLAGS :=
   PLUGIN_C_SOURCES :=
   PLUGIN_EXTRA_DEPS :=
 endef
@@ -174,14 +186,26 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/
 # Rule to build C plugins using Zig (bare WASM)
 $(BUILD_DIR)/plugins/%.wasm: | $(BUILD_DIR)/plugins
 	$(Q)echo "Building C plugin $*..."
-	$(Q)zig build-exe $(if $(strip $(ZIG_C_SOURCES)),$(ZIG_C_SOURCES),$<) \
-		-target $(ZIG_WASM_TARGET) \
-		$(if $(strip $(ZIG_MCPU)),-mcpu $(ZIG_MCPU),) \
-		-fno-entry \
-		-rdynamic \
-		-O $(ZIG_OPT) \
-		$(ZIG_EXTRA_FLAGS) \
-		-femit-bin=$@
+	$(Q)if [ "$(ZIG_C_COMPILER)" = "cc" ]; then \
+		zig cc $(if $(strip $(ZIG_C_SOURCES)),$(ZIG_C_SOURCES),$(PLUGIN_DIR)/$*/main.c) \
+			-target $(ZIG_WASM_TARGET) \
+			$(if $(strip $(ZIG_MCPU)),-mcpu=$(ZIG_MCPU),) \
+			$(ZIG_CFLAGS) \
+			$(ZIG_LDFLAGS) \
+			$(ZIG_EXTRA_FLAGS) \
+			-o $@; \
+	else \
+		zig build-exe $(if $(strip $(ZIG_C_SOURCES)),$(ZIG_C_SOURCES),$(PLUGIN_DIR)/$*/main.c) \
+			-target $(ZIG_WASM_TARGET) \
+			$(if $(strip $(ZIG_MCPU)),-mcpu $(ZIG_MCPU),) \
+			-fno-entry \
+			-rdynamic \
+			-O $(ZIG_OPT) \
+			$(ZIG_CFLAGS) \
+			$(ZIG_LDFLAGS) \
+			$(ZIG_EXTRA_FLAGS) \
+			-femit-bin=$@; \
+	fi
 
 .PHONY: browser
 browser: $(PLUGIN_TARGETS)
