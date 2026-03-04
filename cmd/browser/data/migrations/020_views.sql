@@ -17,6 +17,7 @@ INSERT OR IGNORE INTO views (name, url, type) VALUES
 -- Built-in views (enabled by default, can be disabled by user)
 INSERT OR IGNORE INTO views (name, url, type, enabled) VALUES
     ('nodegraph',        'local:/views/view-nodegraph.js', 'builtin', 1),
+    ('nodegraph2',       'local:/views/view-nodegraph2.js', 'builtin', 1),
     ('tree',             'local:/views/view-tree.js', 'builtin', 1),
     ('tilemap',          'local:/views/view-tilemap.js', 'builtin', 1),
     ('skeleton',         'local:/views/view-skeleton.js', 'builtin', 1),
