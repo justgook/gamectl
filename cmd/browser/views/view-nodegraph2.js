@@ -1,3 +1,15 @@
+import { toast } from '../systems/toast.js'
+import { ViewCanvasBase } from "./view-canvas-base.js";
+import { createWasiPreview1Imports } from "../util/wasi.js";
+
+function escapeAttribute(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 const NG = {
   MAX_NODES: 1024,
   MAX_INPUTS: 32,
@@ -137,6 +149,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.skinTexture = null;
     this.portTextures = null;
     this.portLabels = new Map();
+    this.nodeNames = new Map();
     this.lastGraph = null;
     this.lastPosById = new Map();
     this.hoverPick = null;
@@ -172,6 +185,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       <button data-action="run" class="success" aria-label="Run" title="Run"><i aria-hidden="true">play_arrow</i></button>
       <button data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">replay</i></button>
       <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">clear_all</i></button>
+      <button data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
       <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
       <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
       <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
@@ -206,6 +220,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         }
       };
     }
+
+    const editBtn = this.queryHeaderControl('[data-action="edit"]');
+    if (editBtn) editBtn.onclick = () => this.showEditNodePopup();
 
     const zoomInBtn = this.queryHeaderControl('[data-action="zoom-in"]');
     if (zoomInBtn) zoomInBtn.onclick = () => this.zoomIn();
@@ -248,8 +265,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         this._loadPortTexturesFromAssets(),
       ])
         .then(() => this.requestRenderIfGenerationChanged(true))
-        .catch((err) => {
-          console.error("graph asset load failed", err);
+        .catch(() => {
+          toast.error("Failed to load Node Graph 2 render assets.");
         });
     }
   }
@@ -483,6 +500,361 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       this.api.ng_run_all_goals();
     }
     this.requestRenderIfGenerationChanged(true);
+  }
+
+  showEditNodePopup(forcedNodeId = null) {
+    const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
+    if (!popupManager) {
+      toast.error("Popup manager is not available.");
+      return;
+    }
+
+    const selected = this.getSelectedNodeIds();
+    const nodeId = forcedNodeId ?? (selected.length ? Number(selected[0]) : null);
+    if (!nodeId) {
+      toast.warning("Select a node first, then click Edit.");
+      return;
+    }
+
+    const snapshot = this.getGraphSnapshot();
+    const node = snapshot.nodes.find((item) => item.id === nodeId);
+    if (!node) {
+      toast.error(`Node #${nodeId} is no longer available.`);
+      return;
+    }
+
+    const kindName = this._getNodeKindLabel(node.kind);
+    const nameValue = this.nodeNames.get(nodeId) || "";
+    const nodeTitle = `${kindName} #${nodeId}`;
+
+    const form = document.createElement("form");
+    const renderForm = (currentNode, currentName, newInputName = "", newOutputName = "") => {
+      form.innerHTML = `
+      <p>Edit node settings.</p>
+      <p>Type: <strong>${this._getNodeKindLabel(currentNode.kind)}</strong></p>
+      <label>
+        Node name
+        <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
+      </label>
+      ${this._nodeSupportsInputs(currentNode.kind) ? `
+      <fieldset>
+        <legend>Inputs</legend>
+        <label>
+          New input name
+          <input type="text" name="new-input-name" value="${escapeAttribute(newInputName)}" placeholder="Input name">
+        </label>
+        <button type="submit" name="intent" value="add-input" aria-label="Add input" title="Add input" ${String(newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
+        <ul>
+          ${currentNode.inputs.map((port, index) => `
+          <li>
+            <input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}">
+            <label>
+              Input name
+              <input type="text" name="input-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "input", Number(port.inputId || index + 1), index))}" placeholder="Input ${index + 1}">
+            </label>
+            <button type="submit" name="remove-input-id" value="${Number(port.inputId || index + 1)}" aria-label="Delete input ${index + 1}" title="Delete input"><i aria-hidden="true">delete</i></button>
+          </li>`).join("")}
+        </ul>
+      </fieldset>` : ""}
+      ${this._nodeSupportsOutputs(currentNode.kind) ? `
+      <fieldset>
+        <legend>Outputs</legend>
+        <label>
+          New output name
+          <input type="text" name="new-output-name" value="${escapeAttribute(newOutputName)}" placeholder="Output name">
+        </label>
+        <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output" ${String(newOutputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
+        <ul>
+          ${currentNode.outputs.map((port, index) => `
+          <li>
+            <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
+            <label>
+              Output name
+              <input type="text" name="output-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "output", Number(port.outputId || index + 1), index))}" placeholder="Output ${index + 1}">
+            </label>
+            <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
+          </li>`).join("")}
+        </ul>
+      </fieldset>` : ""}
+      <footer>
+        <button type="submit" name="intent" value="save-name" class="accent">Save</button>
+      </footer>
+    `;
+
+      const newInput = form.querySelector('[name="new-input-name"]');
+      const addInput = form.querySelector('[name="intent"][value="add-input"]');
+      if (newInput && addInput) {
+        const sync = () => {
+          addInput.disabled = !String(newInput.value || "").trim();
+        };
+        sync();
+        newInput.addEventListener("input", sync);
+      }
+
+      const newOutput = form.querySelector('[name="new-output-name"]');
+      const addOutput = form.querySelector('[name="intent"][value="add-output"]');
+      if (newOutput && addOutput) {
+        const sync = () => {
+          addOutput.disabled = !String(newOutput.value || "").trim();
+        };
+        sync();
+        newOutput.addEventListener("input", sync);
+      }
+    };
+
+    renderForm(node, nameValue);
+
+    const popup = popupManager.showPopup({
+      title: nodeTitle,
+      content: form,
+      size: "medium",
+    });
+
+    form.onsubmit = (event) => {
+      event.preventDefault();
+
+      const form = event.target;
+      const formData = new FormData(form, event.submitter);
+      const intent = formData.has("remove-input-id")
+        ? `remove-input:${String(formData.get("remove-input-id") || "")}`
+        : formData.has("remove-output-id")
+          ? `remove-output:${String(formData.get("remove-output-id") || "")}`
+          : String(formData.get("intent") || "save-name");
+
+      const current = this.getGraphSnapshot().nodes.find((item) => item.id === nodeId);
+      if (!current) {
+        toast.error(`Node #${nodeId} is no longer available.`);
+        popup.close();
+        return;
+      }
+
+      if (intent === "save-name") {
+        const rawName = formData.get("name");
+        this.nodeNames.set(nodeId, String(rawName || "").trim());
+        this._savePortNamesFromForm(nodeId, formData);
+        this.requestRenderIfGenerationChanged(true);
+        toast.success(`Saved settings for ${nodeTitle}.`);
+        popup.close();
+        return;
+      }
+
+      this._savePortNamesFromForm(nodeId, formData);
+      const changed = this._applyPortEditIntent(current, intent, {
+        newInputName: String(formData.get("new-input-name") || "").trim(),
+        newOutputName: String(formData.get("new-output-name") || "").trim(),
+      });
+      if (changed) {
+        this.requestRenderIfGenerationChanged(true);
+        const refreshed = this.getGraphSnapshot().nodes.find((item) => item.id === nodeId);
+        if (!refreshed) {
+          popup.close();
+          return;
+        }
+        renderForm(
+          refreshed,
+          String(formData.get("name") || this.nodeNames.get(nodeId) || "").trim(),
+          intent === "add-input" ? "" : String(formData.get("new-input-name") || ""),
+          intent === "add-output" ? "" : String(formData.get("new-output-name") || "")
+        );
+      }
+    };
+  }
+
+  _getNodeKindLabel(kind) {
+    if (kind === NG.NODE_CODE) return "node-code";
+    if (kind === NG.NODE_GOAL) return "node-goal";
+    if (kind === NG.NODE_VALUE) return "node-value"
+    return "node";
+  }
+
+  _nodeSupportsInputs(kind) {
+    return kind === NG.NODE_CODE || kind === NG.NODE_GOAL;
+  }
+
+  _nodeSupportsOutputs(kind) {
+    return kind === NG.NODE_CODE || kind === NG.NODE_VALUE;
+  }
+
+  _getPortEditorDefaultLabel(nodeId, direction, portId, index) {
+    const stored = this._getStoredPortLabel(nodeId, direction, portId);
+    if (stored) return stored;
+    return `${direction === "input" ? "input" : "output"} ${index + 1}`;
+  }
+
+  _nextInputId(node) {
+    let maxId = 0;
+    for (const port of node.inputs || []) {
+      maxId = Math.max(maxId, Number(port.inputId || 0));
+    }
+    return maxId + 1;
+  }
+
+  _nextOutputId(node) {
+    let maxId = 0;
+    for (const port of node.outputs || []) {
+      maxId = Math.max(maxId, Number(port.outputId || 0));
+    }
+    return maxId + 1;
+  }
+
+  _applyPortEditIntent(node, intent, options = {}) {
+    if (!this.api) return false;
+
+    if (intent === "add-input") {
+      if (!this._nodeSupportsInputs(node.kind)) {
+        toast.warning("This node type cannot have inputs.");
+        return false;
+      }
+      const inputName = String(options.newInputName || "").trim();
+      if (!inputName) {
+        toast.warning("Enter a name before adding an input.");
+        return false;
+      }
+      const inputId = this._nextInputId(node);
+      const err = this.api.ng_input_add(node.id, inputId);
+      if (err !== 0) {
+        toast.error(`Failed to add input on node #${node.id} (code ${err}).`);
+        return false;
+      }
+      this._setStoredPortLabel(node.id, "input", inputId, inputName);
+      toast.success(`Added input ${inputId} to node #${node.id}.`);
+      return true;
+    }
+
+    if (intent.startsWith("remove-input:")) {
+      if (!this._nodeSupportsInputs(node.kind)) {
+        toast.warning("This node type cannot have inputs.");
+        return false;
+      }
+      if (!node.inputCount) {
+        toast.info("This node has no inputs to remove.");
+        return false;
+      }
+      const rawId = intent.split(":")[1];
+      const inputId = Number(rawId);
+      if (!Number.isFinite(inputId)) {
+        toast.error("Invalid input id.");
+        return false;
+      }
+      this._applyInputDisconnect(node.id, inputId);
+      const err = this.api.ng_input_remove(node.id, inputId);
+      if (err !== 0) {
+        toast.error(`Failed to remove input ${inputId} from node #${node.id} (code ${err}).`);
+        return false;
+      }
+      this._deleteStoredPortLabel(node.id, "input", inputId);
+      toast.success(`Removed input ${inputId} from node #${node.id}.`);
+      return true;
+    }
+
+    if (intent === "add-output") {
+      if (!this._nodeSupportsOutputs(node.kind)) {
+        toast.warning("This node type cannot have outputs.");
+        return false;
+      }
+      const outputName = String(options.newOutputName || "").trim();
+      if (!outputName) {
+        toast.warning("Enter a name before adding an output.");
+        return false;
+      }
+      const outputId = this._nextOutputId(node);
+      const err = this.api.ng_output_add(node.id, outputId);
+      if (err !== 0) {
+        toast.error(`Failed to add output on node #${node.id} (code ${err}).`);
+        return false;
+      }
+      this._setStoredPortLabel(node.id, "output", outputId, outputName);
+      toast.success(`Added output ${outputId} to node #${node.id}.`);
+      return true;
+    }
+
+    if (intent.startsWith("remove-output:")) {
+      if (!this._nodeSupportsOutputs(node.kind)) {
+        toast.warning("This node type cannot have outputs.");
+        return false;
+      }
+      if (!node.outputCount) {
+        toast.info("This node has no outputs to remove.");
+        return false;
+      }
+      const rawId = intent.split(":")[1];
+      const outputId = Number(rawId);
+      if (!Number.isFinite(outputId)) {
+        toast.error("Invalid output id.");
+        return false;
+      }
+      const err = this.api.ng_output_remove(node.id, outputId);
+      if (err !== 0) {
+        toast.error(`Failed to remove output ${outputId} from node #${node.id} (code ${err}).`);
+        return false;
+      }
+      this._deleteStoredPortLabel(node.id, "output", outputId);
+      toast.success(`Removed output ${outputId} from node #${node.id}.`);
+      return true;
+    }
+
+    return false;
+  }
+
+  _getStoredPortLabel(nodeId, direction, portId) {
+    const labels = this._getNodePortLabels(nodeId);
+    const dict = labels ? labels[direction === "input" ? "inputs" : "outputs"] : null;
+    const key = String(portId);
+    if (dict && typeof dict === "object") {
+      if (dict[key] !== undefined) return String(dict[key]);
+      if (dict[portId] !== undefined) return String(dict[portId]);
+    }
+    return "";
+  }
+
+  _setStoredPortLabel(nodeId, direction, portId, label) {
+    if (!(this.portLabels instanceof Map)) {
+      this.portLabels = new Map();
+    }
+
+    const existing = this.portLabels.get(nodeId) || { inputs: {}, outputs: {} };
+    const key = direction === "input" ? "inputs" : "outputs";
+    existing[key][String(portId)] = String(label || "").trim();
+    this.portLabels.set(nodeId, existing);
+  }
+
+  _deleteStoredPortLabel(nodeId, direction, portId) {
+    if (!(this.portLabels instanceof Map)) return;
+    const existing = this.portLabels.get(nodeId);
+    if (!existing) return;
+    const key = direction === "input" ? "inputs" : "outputs";
+    if (existing[key]) {
+      delete existing[key][String(portId)];
+    }
+    this.portLabels.set(nodeId, existing);
+  }
+
+  _savePortNamesFromForm(nodeId, formData) {
+    const inputIds = formData.getAll("input-port-id");
+    const inputNames = formData.getAll("input-port-name");
+    const outputIds = formData.getAll("output-port-id");
+    const outputNames = formData.getAll("output-port-name");
+
+    const labels = { inputs: {}, outputs: {} };
+
+    for (let i = 0; i < inputIds.length; i++) {
+      const id = Number(inputIds[i]);
+      const name = String(inputNames[i] || "").trim();
+      if (!Number.isFinite(id) || !name) continue;
+      labels.inputs[String(id)] = name;
+    }
+
+    for (let i = 0; i < outputIds.length; i++) {
+      const id = Number(outputIds[i]);
+      const name = String(outputNames[i] || "").trim();
+      if (!Number.isFinite(id) || !name) continue;
+      labels.outputs[String(id)] = name;
+    }
+
+    if (!(this.portLabels instanceof Map)) {
+      this.portLabels = new Map();
+    }
+    this.portLabels.set(nodeId, labels);
   }
 
   async fetchData() {
@@ -868,7 +1240,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     if (!this.api?.ng_input_disconnect) return;
     const err = this.api.ng_input_disconnect(nodeId, inputId);
     if (err !== 0) {
-      console.warn(`ng_input_disconnect failed node=${nodeId} input=${inputId} err=${err}`);
+      toast.warning(`Could not disconnect input ${inputId} on node #${nodeId} (code ${err}).`);
     }
   }
 
@@ -876,9 +1248,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     if (!this.api?.ng_input_connect) return;
     const err = this.api.ng_input_connect(toNodeId, toInputId, fromNodeId, fromOutputId);
     if (err !== 0) {
-      console.warn(
-        `ng_input_connect failed to=${toNodeId}.${toInputId} from=${fromNodeId}.${fromOutputId} err=${err}`
-      );
+      toast.warning(`Could not connect ${fromNodeId}.${fromOutputId} -> ${toNodeId}.${toInputId} (code ${err}).`);
     }
   }
 
@@ -2129,7 +2499,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           : node.kind === NG.NODE_VALUE
             ? "value"
             : "node";
-      const labelA = `${kindLabel} #${node.id}`;
+      const customName = (this.nodeNames.get(node.id) || "").trim();
+      const labelA = customName ? `${customName} (#${node.id})` : `${kindLabel} #${node.id}`;
       const labelState = `state ${node.execState}`;
       const x = pos.x + padX;
       const yA = pos.y + titlePx + 2;
@@ -2172,10 +2543,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     }));
   }
 }
-
-export default ViewNodeGraph2;
-import { ViewCanvasBase } from "./view-canvas-base.js";
-import { createWasiPreview1Imports } from "../util/wasi.js";
 
 function getNodeGraphRenderAssets() {
   return {
@@ -2248,3 +2615,5 @@ function getNodeGraphRenderAssets() {
     },
   };
 }
+
+export default ViewNodeGraph2;
