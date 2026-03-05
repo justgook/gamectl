@@ -1089,7 +1089,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return this.data;
   }
 
-  calculateContentBounds(data) {
+  calculateContentBounds(data, posById = null) {
     const nodes = data?.nodes || [];
     if (!nodes.length) return { minX: 0, minY: 0, maxX: 1200, maxY: 800 };
 
@@ -1097,8 +1097,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    for (const node of nodes) {
-      const pos = this.nodeLayout.get(node.id) || this._computeDefaultNodePosition(node.id);
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const pos = posById?.get(node.id) || this.nodeLayout.get(node.id) || this._ensureLayout(node.id, i);
       const size = this._getNodeSize(node);
       minX = Math.min(minX, pos.x);
       minY = Math.min(minY, pos.y);
@@ -1108,6 +1109,45 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     const pad = 120;
     return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
+  }
+
+  fitToContent() {
+    if (!this.canvas || this.canvas.width <= 0 || this.canvas.height <= 0) return false;
+    if (!this.api || !this.memory || !this.assets) return false;
+    if (!this._ensureDataView()) return false;
+
+    this._resizeCanvas();
+    const graph = this._readGraph();
+    if (!graph.nodes.length) return false;
+
+    const posById = new Map();
+    graph.nodes.forEach((node, i) => {
+      posById.set(node.id, this._ensureLayout(node.id, i));
+    });
+
+    const bounds = this.calculateContentBounds(graph, posById);
+    const contentWidth = bounds.maxX - bounds.minX;
+    const contentHeight = bounds.maxY - bounds.minY;
+    if (contentWidth <= 0 || contentHeight <= 0) return false;
+
+    const padding = 40;
+    const targetWidth = Math.max(1, this.canvas.width - padding * 2);
+    const targetHeight = Math.max(1, this.canvas.height - padding * 2);
+    const scaleX = targetWidth / contentWidth;
+    const scaleY = targetHeight / contentHeight;
+    this.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(scaleX, scaleY)));
+
+    const contentCenterX = (bounds.minX + bounds.maxX) * 0.5;
+    const contentCenterY = (bounds.minY + bounds.maxY) * 0.5;
+    this.offsetX = this.canvas.width * 0.5 - contentCenterX * this.scale;
+    this.offsetY = this.canvas.height * 0.5 - contentCenterY * this.scale;
+
+    this.contentBounds = bounds;
+    if (typeof this._constrainPosition === "function") {
+      this._constrainPosition();
+    }
+    this.requestRenderIfGenerationChanged(true);
+    return true;
   }
 
   drawContent() {
@@ -1998,6 +2038,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     graph.nodes.forEach((node, i) => {
       posById.set(node.id, this._ensureLayout(node.id, i));
     });
+    this.contentBounds = this.calculateContentBounds(graph, posById);
     this.lastGraph = graph;
     this.lastPosById = posById;
 
