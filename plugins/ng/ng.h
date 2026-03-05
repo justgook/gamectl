@@ -271,6 +271,10 @@ void ng_on_node_changed(ng_u32 node_id, ng_u32 change_mask);
 NG_IMPORT("ng_on_run_event")
 void ng_on_run_event(ng_u32 node_id, ng_u32 event_kind, ng_i32 error_code);
 
+NG_IMPORT("ng_on_goal_reached")
+void ng_on_goal_reached(ng_u32 goal_node_id, ng_i32 payload_ptr,
+                        ng_i32 payload_len);
+
 /* lazy resolver for code/call/value data
  * - req_ptr/req_len is an opaque byte request (format defined by resolve_kind)
  * - out_ptr/out_cap receives opaque bytes to be interpreted by node runtime

@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,6 +12,7 @@ static NgInfo g_info;
 static lua_State *g_lua = NULL;
 static char g_code_buf[NG_IO_BUFFER_CAP];
 static char g_resp_buf[NG_IO_BUFFER_CAP];
+static char g_goal_buf[2048];
 static NgValueSlot g_output_slots[NG_MAX_NODES][NG_MAX_OUTPUTS];
 static char g_value_buf[NG_IO_BUFFER_CAP];
 static ng_i32 g_value_len = 0;
@@ -30,6 +32,10 @@ typedef struct {
 } NgRunCtx;
 
 static NgRunCtx g_run;
+
+static int64_t join_i64(ng_i32 a, ng_i32 b);
+static double join_f64(ng_i32 a, ng_i32 b);
+static NgValueSlot *find_output_slot(ng_u32 node_id, ng_u32 output_id);
 
 static void clear_value_store(void) {
   g_value_len = 0;
@@ -59,6 +65,128 @@ static void notify_node_changed(ng_u32 node_id, ng_u32 change_mask) {
 static void notify_run_event(ng_u32 node_id, ng_u32 event_kind,
                              ng_i32 error_code) {
   ng_on_run_event(node_id, event_kind, error_code);
+}
+
+static void notify_goal_reached(ng_u32 goal_node_id, ng_i32 payload_ptr,
+                                ng_i32 payload_len) {
+  ng_on_goal_reached(goal_node_id, payload_ptr, payload_len);
+}
+
+static ng_i32 goal_buf_len(void) {
+  ng_i32 len = (ng_i32)strlen(g_goal_buf);
+  if (len < 0)
+    return 0;
+  return len;
+}
+
+static void goal_buf_reset(void) { g_goal_buf[0] = '\0'; }
+
+static void goal_buf_appendf(const char *fmt, ...) {
+  va_list args;
+  ng_i32 len = goal_buf_len();
+  int n;
+  if (len >= (ng_i32)(sizeof(g_goal_buf) - 1))
+    return;
+  va_start(args, fmt);
+  n = vsnprintf(g_goal_buf + len, sizeof(g_goal_buf) - (size_t)len, fmt, args);
+  va_end(args);
+  if (n < 0)
+    return;
+  if ((size_t)n >= sizeof(g_goal_buf) - (size_t)len) {
+    size_t cap = sizeof(g_goal_buf);
+    if (cap >= 5) {
+      g_goal_buf[cap - 5] = '.';
+      g_goal_buf[cap - 4] = '.';
+      g_goal_buf[cap - 3] = '.';
+      g_goal_buf[cap - 2] = '\0';
+    }
+  }
+}
+
+static void goal_buf_append_escaped(const char *src, ng_i32 len) {
+  ng_i32 i;
+  ng_i32 limit;
+  if (src == NULL || len <= 0) {
+    goal_buf_appendf("\"\"");
+    return;
+  }
+  limit = len > 120 ? 120 : len;
+  goal_buf_appendf("\"");
+  for (i = 0; i < limit; i++) {
+    unsigned char c = (unsigned char)src[i];
+    if (c == '"') {
+      goal_buf_appendf("\\\"");
+    } else if (c == '\\') {
+      goal_buf_appendf("\\\\");
+    } else if (c == '\n') {
+      goal_buf_appendf("\\n");
+    } else if (c == '\r') {
+      goal_buf_appendf("\\r");
+    } else if (c == '\t') {
+      goal_buf_appendf("\\t");
+    } else if (c < 32 || c > 126) {
+      goal_buf_appendf("\\x%02X", (unsigned)c);
+    } else {
+      goal_buf_appendf("%c", (int)c);
+    }
+  }
+  if (len > limit)
+    goal_buf_appendf("...");
+  goal_buf_appendf("\"");
+}
+
+static void goal_buf_append_slot_preview(const NgValueSlot *slot) {
+  int64_t i64;
+  double f64;
+  if (slot == NULL || slot->type == NG_VAL_EMPTY) {
+    goal_buf_appendf("nil");
+    return;
+  }
+  if (slot->type == NG_VAL_BOOL) {
+    goal_buf_appendf(slot->a ? "true" : "false");
+    return;
+  }
+  if (slot->type == NG_VAL_I64) {
+    i64 = join_i64(slot->a, slot->b);
+    goal_buf_appendf("%lld", (long long)i64);
+    return;
+  }
+  if (slot->type == NG_VAL_F64) {
+    f64 = join_f64(slot->a, slot->b);
+    goal_buf_appendf("%.17g", f64);
+    return;
+  }
+  if ((slot->type == NG_VAL_STRING_REF || slot->type == NG_VAL_BYTES_REF) &&
+      slot->a >= 0 && slot->b >= 0 && slot->a + slot->b <= g_value_len) {
+    goal_buf_append_escaped(g_value_buf + slot->a, slot->b);
+    return;
+  }
+  goal_buf_appendf("nil");
+}
+
+static void emit_goal_reached(NgNode *goal_node) {
+  ng_u32 i;
+  if (goal_node == NULL || goal_node->kind != NG_NODE_GOAL)
+    return;
+  goal_buf_reset();
+  goal_buf_appendf("goal #%u reached", goal_node->id);
+  if (goal_node->input_count == 0) {
+    goal_buf_appendf(" (no inputs)");
+  } else {
+    goal_buf_appendf(": ");
+    for (i = 0; i < goal_node->input_count; i++) {
+      NgInputPort *in = &goal_node->inputs[i];
+      NgValueSlot *slot = NULL;
+      if (i > 0)
+        goal_buf_appendf("; ");
+      goal_buf_appendf("%u=", in->id);
+      if (in->src_node_id != 0) {
+        slot = find_output_slot(in->src_node_id, in->src_output_id);
+      }
+      goal_buf_append_slot_preview(slot);
+    }
+  }
+  notify_goal_reached(goal_node->id, (ng_i32)(intptr_t)g_goal_buf, goal_buf_len());
 }
 
 static void set_run_status(ng_u32 status) { g_info.run_status = status; }
@@ -617,6 +745,10 @@ static ng_i32 execute_node(ng_u32 node_id, ng_u8 *visit) {
       }
       g_output_slots[idx][oi] = slot;
     }
+  }
+
+  if (node->kind == NG_NODE_GOAL) {
+    emit_goal_reached(node);
   }
 
   node->exec_state = NG_EXEC_SUCCESS;
