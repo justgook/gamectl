@@ -34,4 +34,5 @@ INSERT OR IGNORE INTO plugins (name, url, type, enabled, scope) VALUES
     ('tile-detect', 'local:/plugins/tile-detect.wasm', 'builtin', 1, 'global'),
     ('stbte', 'local:/plugins/stbte.wasm', 'builtin', 1, 'view'),
     ('respack', 'local:/plugins/respack.wasm', 'builtin', 1, 'global'),
-    ('ng', 'local:/plugins/ng.wasm', 'builtin', 1, 'view');
+    ('ng', 'local:/plugins/ng.wasm', 'builtin', 1, 'view'),
+    ('game', 'local:/plugins/game.wasm', 'builtin', 1, 'view');
