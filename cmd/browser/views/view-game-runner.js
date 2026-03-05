@@ -44,8 +44,7 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
     this._headerControls = null
-    this._pauseBtn = null
-    this._resumeBtn = null
+    this._playPauseBtn = null
     this._reloadBtn = null
 
     this._resizeObserver = new ResizeObserver(() => {
@@ -205,39 +204,33 @@ export default class ViewGameRunner extends HTMLElement {
     controls.style.gap = '6px'
     controls.style.alignItems = 'center'
 
-    const pauseBtn = document.createElement('button')
-    pauseBtn.type = 'button'
-    pauseBtn.textContent = 'Pause'
-    pauseBtn.addEventListener('click', () => {
-      this.isPaused = true
-      this._syncControlState()
-    })
-
-    const resumeBtn = document.createElement('button')
-    resumeBtn.type = 'button'
-    resumeBtn.textContent = 'Resume'
-    resumeBtn.addEventListener('click', () => {
-      this.isPaused = false
+    const playPauseBtn = document.createElement('button')
+    playPauseBtn.type = 'button'
+    playPauseBtn.setAttribute('aria-label', 'Pause')
+    playPauseBtn.setAttribute('title', 'Pause')
+    playPauseBtn.innerHTML = '<i aria-hidden="true">pause</i>'
+    playPauseBtn.addEventListener('click', () => {
+      this.isPaused = !this.isPaused
       this._syncControlState()
     })
 
     const reloadBtn = document.createElement('button')
     reloadBtn.type = 'button'
-    reloadBtn.textContent = 'Reload'
+    reloadBtn.setAttribute('aria-label', 'Reload')
+    reloadBtn.setAttribute('title', 'Reload')
+    reloadBtn.innerHTML = '<i aria-hidden="true">refresh</i>'
     reloadBtn.addEventListener('click', () => {
       this._reloadPlugin().catch((error) => {
         console.error('[game-runner] reload failed:', error)
       })
     })
 
-    controls.appendChild(pauseBtn)
-    controls.appendChild(resumeBtn)
+    controls.appendChild(playPauseBtn)
     controls.appendChild(reloadBtn)
     this.parentElement.appendChild(controls)
 
     this._headerControls = controls
-    this._pauseBtn = pauseBtn
-    this._resumeBtn = resumeBtn
+    this._playPauseBtn = playPauseBtn
     this._reloadBtn = reloadBtn
     this._syncControlState()
   }
@@ -247,14 +240,19 @@ export default class ViewGameRunner extends HTMLElement {
       this._headerControls.remove()
     }
     this._headerControls = null
-    this._pauseBtn = null
-    this._resumeBtn = null
+    this._playPauseBtn = null
     this._reloadBtn = null
   }
 
   _syncControlState() {
-    if (this._pauseBtn) this._pauseBtn.disabled = this.isPaused
-    if (this._resumeBtn) this._resumeBtn.disabled = !this.isPaused
+    if (this._playPauseBtn) {
+      const isPaused = this.isPaused
+      this._playPauseBtn.setAttribute('aria-label', isPaused ? 'Resume' : 'Pause')
+      this._playPauseBtn.setAttribute('title', isPaused ? 'Resume' : 'Pause')
+      this._playPauseBtn.innerHTML = isPaused
+        ? '<i aria-hidden="true">play_arrow</i>'
+        : '<i aria-hidden="true">pause</i>'
+    }
   }
 
   setupInputHandlers() {
