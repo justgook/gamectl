@@ -456,6 +456,11 @@
      Validation:  <input class="danger">  or  <div class="danger"><input></div>
      ═══════════════════════════════════════════════════════════════════════════ */
 
+  form {
+    display: flex;
+    flex-direction: column;
+  }
+
   input[type="text"],
   input[type="number"],
   input[type="url"],
@@ -598,6 +603,13 @@
   /* tbody tr:hover { */
   /*   background: var(--surface-hover); */
   /* } */
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Lists
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  li {
+    display: flex;
+  }
 
   /* ═══════════════════════════════════════════════════════════════════════════
      PANELS
