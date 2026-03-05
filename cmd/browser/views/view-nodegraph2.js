@@ -185,9 +185,11 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const controls = document.createElement("div");
     controls.innerHTML = `
       <button data-action="run" class="success" aria-label="Run" title="Run"><i aria-hidden="true">play_arrow</i></button>
+      <button data-action="add" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
       <button data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">replay</i></button>
       <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">clear_all</i></button>
       <button data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
+      <button data-action="delete" aria-label="Delete Selected" title="Delete Selected"><i aria-hidden="true">delete</i></button>
       <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
       <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
       <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
@@ -210,6 +212,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const runBtn = this.queryHeaderControl('[data-action="run"]');
     if (runBtn) runBtn.onclick = () => this.runGraph();
 
+    const addBtn = this.queryHeaderControl('[data-action="add"]');
+    if (addBtn) addBtn.onclick = () => this.showAddNodePopup();
+
     const resetBtn = this.queryHeaderControl('[data-action="reset"]');
     if (resetBtn) resetBtn.onclick = () => this.setupGraph();
 
@@ -226,6 +231,11 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     const editBtn = this.queryHeaderControl('[data-action="edit"]');
     if (editBtn) editBtn.onclick = () => this.showEditNodePopup();
+
+    const deleteBtn = this.queryHeaderControl('[data-action="delete"]');
+    if (deleteBtn) deleteBtn.onclick = () => this.deleteSelectedNodes();
+
+    this._syncSelectionActionButtons();
 
     const zoomInBtn = this.queryHeaderControl('[data-action="zoom-in"]');
     if (zoomInBtn) zoomInBtn.onclick = () => this.zoomIn();
@@ -564,6 +574,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   setupGraph() {
     if (!this.api) return;
+    if (this.selectedNodeIds.size > 0) {
+      this.selectedNodeIds.clear();
+      this._emitSelectionChanged();
+    } else {
+      this._syncSelectionActionButtons();
+    }
     this.goalRunQueue = [];
     this.ioToastOffset = 0;
     let err = this.api.ng_init();
@@ -640,6 +656,399 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.requestRenderIfGenerationChanged(true);
   }
 
+  deleteSelectedNodes() {
+    if (!this.api || typeof this.api.ng_node_delete !== "function") return;
+
+    const selectedIds = this.getSelectedNodeIds()
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    if (!selectedIds.length) {
+      return;
+    }
+
+    let deletedCount = 0;
+    let failedCount = 0;
+    let selectionChanged = false;
+
+    for (const nodeId of selectedIds) {
+      const err = this.api.ng_node_delete(nodeId);
+      if (err !== 0) {
+        failedCount += 1;
+        toast.error(`Failed to delete node #${nodeId} (code ${err}).`);
+        continue;
+      }
+
+      deletedCount += 1;
+      if (this.selectedNodeIds.delete(nodeId)) {
+        selectionChanged = true;
+      }
+      this.nodeLayout.delete(nodeId);
+      this.nodeNames.delete(nodeId);
+      if (this.portLabels instanceof Map) this.portLabels.delete(nodeId);
+      if (this.valueByNode instanceof Map) this.valueByNode.delete(nodeId);
+    }
+
+    if (selectionChanged) {
+      this._emitSelectionChanged();
+    }
+
+    if (deletedCount > 0 && failedCount === 0) {
+      toast.success(`Deleted ${deletedCount} node${deletedCount === 1 ? "" : "s"}.`);
+    } else if (deletedCount > 0) {
+      toast.warning(`Deleted ${deletedCount} node${deletedCount === 1 ? "" : "s"}; ${failedCount} failed.`);
+    }
+
+    this.requestRenderIfGenerationChanged(true);
+  }
+
+  _kindToFormValue(kind) {
+    if (kind === NG.NODE_VALUE) return "value";
+    if (kind === NG.NODE_GOAL) return "goal";
+    return "code";
+  }
+
+  _kindFromFormValue(value, fallback = NG.NODE_CODE) {
+    if (value === "value") return NG.NODE_VALUE;
+    if (value === "goal") return NG.NODE_GOAL;
+    if (value === "code") return NG.NODE_CODE;
+    return fallback;
+  }
+
+  _renderNodeTypeOptions(selectedKind) {
+    const selected = this._kindToFormValue(selectedKind);
+    return `
+      <optgroup label="Base">
+        <option value="value" ${selected === "value" ? "selected" : ""}>value</option>
+        <option value="code" ${selected === "code" ? "selected" : ""}>code</option>
+        <option value="goal" ${selected === "goal" ? "selected" : ""}>goal</option>
+      </optgroup>
+      <optgroup label="Presets">
+        <option value="preset-empty" disabled>empty</option>
+      </optgroup>
+    `;
+  }
+
+  _createNodeDraft(kind = NG.NODE_CODE) {
+    return {
+      kind,
+      name: "",
+      code: "",
+      newInputName: "",
+      newOutputName: "",
+      newOutputValue: "",
+      inputs: [],
+      outputs: [],
+    };
+  }
+
+  _captureNodeDraftFromForm(draft, form) {
+    if (!draft || !form) return;
+    const formData = new FormData(form);
+    draft.name = String(formData.get("name") || "").trim();
+    draft.code = String(formData.get("code") || "");
+    draft.newInputName = String(formData.get("new-input-name") || "");
+    draft.newOutputName = String(formData.get("new-output-name") || "");
+    draft.newOutputValue = String(formData.get("new-output-value") || "");
+
+    const nextInputs = [];
+    const inputIds = formData.getAll("input-port-id");
+    const inputNames = formData.getAll("input-port-name");
+    for (let i = 0; i < inputIds.length; i++) {
+      const inputId = Number(inputIds[i]);
+      if (!Number.isFinite(inputId)) continue;
+      nextInputs.push({
+        inputId,
+        name: String(inputNames[i] || "").trim(),
+      });
+    }
+
+    const nextOutputs = [];
+    const outputIds = formData.getAll("output-port-id");
+    const outputNames = formData.getAll("output-port-name");
+    const outputValues = formData.getAll("output-port-value");
+    for (let i = 0; i < outputIds.length; i++) {
+      const outputId = Number(outputIds[i]);
+      if (!Number.isFinite(outputId)) continue;
+      nextOutputs.push({
+        outputId,
+        name: String(outputNames[i] || "").trim(),
+        value: String(outputValues[i] || ""),
+      });
+    }
+
+    draft.inputs = nextInputs;
+    draft.outputs = nextOutputs;
+  }
+
+  _nextAvailableNodeId() {
+    const used = new Set(this.getGraphSnapshot().nodes.map((node) => Number(node.id)));
+    for (let id = 1; id < 0x7fffffff; id++) {
+      if (!used.has(id)) return id;
+    }
+    return 0;
+  }
+
+  _viewportCenterWorld() {
+    this._resizeCanvas();
+    return {
+      x: (this.canvas.width * 0.5 - this.offsetX) / Math.max(0.0001, this.scale),
+      y: (this.canvas.height * 0.5 - this.offsetY) / Math.max(0.0001, this.scale),
+    };
+  }
+
+  showAddNodePopup() {
+    const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
+    if (!popupManager) {
+      toast.error("Popup manager is not available.");
+      return;
+    }
+    if (!this.api || typeof this.api.ng_node_create !== "function") return;
+
+    const form = document.createElement("form");
+    const draft = this._createNodeDraft(NG.NODE_CODE);
+
+    const renderForm = () => {
+      const isCodeNode = draft.kind === NG.NODE_CODE;
+      const isValueNode = draft.kind === NG.NODE_VALUE;
+      form.innerHTML = `
+       <p>Add a new node.</p>
+       <label>
+         Type
+         <select name="node-kind">
+           ${this._renderNodeTypeOptions(draft.kind)}
+         </select>
+       </label>
+       <label>
+         Node name
+         <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(draft.name)}">
+       </label>
+       ${isCodeNode ? `
+       <label>
+         Code
+         <textarea name="code" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(draft.code)}</textarea>
+       </label>
+       <p><small>Node-code runs as Lua. Your code can use <code>inputs</code>, set <code>outputs</code>, and call <code>host.awaitCall(service, method, payloadJson?)</code>.</small></p>
+       ` : ""}
+       ${this._nodeSupportsInputs(draft.kind) ? `
+       <fieldset>
+         <legend>Inputs</legend>
+         <ul>
+           <li>
+             <input type="text" name="new-input-name" value="${escapeAttribute(draft.newInputName)}" placeholder="Input name">
+             <button type="submit" name="intent" value="add-input" aria-label="Add input" title="Add input" ${String(draft.newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
+           </li>
+           ${draft.inputs.map((port, index) => `
+           <li>
+             <input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}">
+             <input type="text" name="input-port-name" value="${escapeAttribute(port.name || "")}" placeholder="Input ${index + 1}">
+             <button type="submit" name="remove-input-id" value="${Number(port.inputId || index + 1)}" aria-label="Delete input ${index + 1}" title="Delete input"><i aria-hidden="true">delete</i></button>
+           </li>`).join("")}
+         </ul>
+       </fieldset>` : ""}
+       ${this._nodeSupportsOutputs(draft.kind) ? `
+       <fieldset>
+         <legend>Outputs</legend>
+         <ul>
+           <li>
+             ${isValueNode
+               ? `<input type="text" name="new-output-value" value="${escapeAttribute(draft.newOutputValue)}" placeholder="Value">`
+               : `<input type="text" name="new-output-name" value="${escapeAttribute(draft.newOutputName)}" placeholder="Output name">`}
+             <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output" ${!isValueNode && !String(draft.newOutputName).trim() ? "disabled" : ""}><i aria-hidden="true">add</i></button>
+           </li>
+           ${draft.outputs.map((port, index) => `
+           <li>
+             <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
+             ${isValueNode
+               ? `<input type="text" name="output-port-value" value="${escapeAttribute(port.value || "")}" placeholder="Value ${index + 1}">`
+               : `<input type="text" name="output-port-name" value="${escapeAttribute(port.name || "")}" placeholder="Output ${index + 1}">`}
+             <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
+           </li>`).join("")}
+         </ul>
+       </fieldset>` : ""}
+       <footer>
+         <button type="submit" name="intent" value="create-node" class="accent">Create</button>
+       </footer>
+      `;
+
+      const kindSelect = form.querySelector('[name="node-kind"]');
+      if (kindSelect) {
+        kindSelect.onchange = () => {
+          this._captureNodeDraftFromForm(draft, form);
+          const previousKind = draft.kind;
+          draft.kind = this._kindFromFormValue(String(kindSelect.value || ""), draft.kind);
+          if (draft.kind !== previousKind) {
+            if (!this._nodeSupportsInputs(draft.kind)) {
+              draft.inputs = [];
+              draft.newInputName = "";
+            }
+            if (!this._nodeSupportsOutputs(draft.kind)) {
+              draft.outputs = [];
+              draft.newOutputName = "";
+              draft.newOutputValue = "";
+            }
+          }
+          renderForm();
+        };
+      }
+
+      const newInput = form.querySelector('[name="new-input-name"]');
+      const addInput = form.querySelector('[name="intent"][value="add-input"]');
+      if (newInput && addInput) {
+        newInput.addEventListener("input", () => {
+          addInput.disabled = !String(newInput.value || "").trim();
+        });
+      }
+
+      const newOutput = form.querySelector('[name="new-output-name"]');
+      const addOutput = form.querySelector('[name="intent"][value="add-output"]');
+      if (newOutput && addOutput && !isValueNode) {
+        newOutput.addEventListener("input", () => {
+          addOutput.disabled = !String(newOutput.value || "").trim();
+        });
+      }
+    };
+
+    const popup = popupManager.showPopup({
+      title: "Add node",
+      content: form,
+      size: "medium",
+    });
+
+    form.onsubmit = (event) => {
+      event.preventDefault();
+      this._captureNodeDraftFromForm(draft, form);
+
+      const submitter = event.submitter;
+      const formData = new FormData(form, submitter || undefined);
+      const intent = formData.has("remove-input-id")
+        ? `remove-input:${String(formData.get("remove-input-id") || "")}`
+        : formData.has("remove-output-id")
+          ? `remove-output:${String(formData.get("remove-output-id") || "")}`
+          : String(formData.get("intent") || "create-node");
+
+      if (intent === "add-input") {
+        const inputName = String(formData.get("new-input-name") || "").trim();
+        if (inputName) {
+          const nextId = draft.inputs.reduce((max, port) => Math.max(max, Number(port.inputId || 0)), 0) + 1;
+          draft.inputs.push({ inputId: nextId, name: inputName });
+          draft.newInputName = "";
+        }
+        renderForm();
+        return;
+      }
+
+      if (intent.startsWith("remove-input:")) {
+        const inputId = Number(intent.split(":")[1]);
+        draft.inputs = draft.inputs.filter((port) => Number(port.inputId) !== inputId);
+        renderForm();
+        return;
+      }
+
+      if (intent === "add-output") {
+        const outputName = String(formData.get("new-output-name") || "").trim();
+        const outputValue = String(formData.get("new-output-value") || "");
+        if (draft.kind === NG.NODE_VALUE || outputName) {
+          const nextId = draft.outputs.reduce((max, port) => Math.max(max, Number(port.outputId || 0)), 0) + 1;
+          draft.outputs.push({ outputId: nextId, name: outputName, value: outputValue });
+          draft.newOutputName = "";
+          draft.newOutputValue = "";
+        }
+        renderForm();
+        return;
+      }
+
+      if (intent.startsWith("remove-output:")) {
+        const outputId = Number(intent.split(":")[1]);
+        draft.outputs = draft.outputs.filter((port) => Number(port.outputId) !== outputId);
+        renderForm();
+        return;
+      }
+
+      const nodeId = this._nextAvailableNodeId();
+      if (nodeId <= 0) {
+        toast.error("Could not allocate a node id.");
+        return;
+      }
+
+      const createErr = this.api.ng_node_create(nodeId, draft.kind);
+      if (createErr !== 0) {
+        toast.error(`Failed to create node (code ${createErr}).`);
+        return;
+      }
+
+      for (const port of draft.inputs) {
+        const err = this.api.ng_input_add(nodeId, Number(port.inputId));
+        if (err !== 0) {
+          toast.error(`Failed to add input ${port.inputId} (code ${err}).`);
+          popup.close();
+          this.requestRenderIfGenerationChanged(true);
+          return;
+        }
+      }
+
+      for (const port of draft.outputs) {
+        const err = this.api.ng_output_add(nodeId, Number(port.outputId));
+        if (err !== 0) {
+          toast.error(`Failed to add output ${port.outputId} (code ${err}).`);
+          popup.close();
+          this.requestRenderIfGenerationChanged(true);
+          return;
+        }
+      }
+
+      const labels = { inputs: {}, outputs: {} };
+      for (const port of draft.inputs) {
+        const name = String(port.name || "").trim();
+        if (!name) continue;
+        labels.inputs[String(port.inputId)] = name;
+      }
+      for (const port of draft.outputs) {
+        if (draft.kind === NG.NODE_VALUE) continue;
+        const name = String(port.name || "").trim();
+        if (!name) continue;
+        labels.outputs[String(port.outputId)] = name;
+      }
+      if (!(this.portLabels instanceof Map)) this.portLabels = new Map();
+      this.portLabels.set(nodeId, labels);
+
+      if (draft.kind === NG.NODE_VALUE) {
+        const bucket = new Map();
+        for (const port of draft.outputs) {
+          bucket.set(Number(port.outputId), String(port.value || ""));
+        }
+        if (!(this.valueByNode instanceof Map)) this.valueByNode = new Map();
+        this.valueByNode.set(nodeId, bucket);
+      }
+
+      if (draft.kind === NG.NODE_CODE) {
+        this.sourceByNode.set(nodeId, String(draft.code || ""));
+      }
+
+      this.nodeNames.set(nodeId, String(draft.name || "").trim());
+      const tempNode = {
+        kind: draft.kind,
+        inputCount: draft.inputs.length,
+        outputCount: draft.outputs.length,
+      };
+      const nodeSize = this._getNodeSize(tempNode);
+      const center = this._viewportCenterWorld();
+      this.nodeLayout.set(nodeId, {
+        x: Math.round(center.x - nodeSize.width * 0.5),
+        y: Math.round(center.y - nodeSize.height * 0.5),
+      });
+
+      this.selectedNodeIds.clear();
+      this.selectedNodeIds.add(nodeId);
+      this._emitSelectionChanged();
+      this.requestRenderIfGenerationChanged(true);
+      toast.success(`Added ${this._getNodeKindLabel(draft.kind)} #${nodeId}.`);
+      popup.close();
+    };
+
+    renderForm();
+  }
+
   showEditNodePopup(forcedNodeId = null) {
     const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
     if (!popupManager) {
@@ -650,7 +1059,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const selected = this.getSelectedNodeIds();
     const nodeId = forcedNodeId ?? (selected.length ? Number(selected[0]) : null);
     if (!nodeId) {
-      toast.warning("Select a node first, then click Edit.");
       return;
     }
 
@@ -680,7 +1088,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       const isValueNode = currentNode.kind === NG.NODE_VALUE;
       form.innerHTML = `
        <p>Edit node settings.</p>
-       <p>Type: <strong>${this._getNodeKindLabel(currentNode.kind)}</strong></p>
+       <label>
+         Type
+         <select name="node-kind" disabled>
+           ${this._renderNodeTypeOptions(currentNode.kind)}
+         </select>
+       </label>
        <label>
          Node name
          <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
@@ -2805,11 +3218,20 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   }
 
   _emitSelectionChanged() {
+    this._syncSelectionActionButtons();
     this.dispatchEvent(new CustomEvent("ng-selection-change", {
       bubbles: true,
       composed: true,
       detail: { selectedNodeIds: this.getSelectedNodeIds() },
     }));
+  }
+
+  _syncSelectionActionButtons() {
+    const hasSelection = this.selectedNodeIds?.size > 0;
+    const editBtn = this.queryHeaderControl('[data-action="edit"]');
+    if (editBtn) editBtn.disabled = !hasSelection;
+    const deleteBtn = this.queryHeaderControl('[data-action="delete"]');
+    if (deleteBtn) deleteBtn.disabled = !hasSelection;
   }
 }
 
