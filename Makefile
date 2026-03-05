@@ -172,7 +172,6 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%
 	$(Q)echo "nothing to do $*..."
 	$(Q)touch $@
 
-
 # Rule to build Odin plugins
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/%/*.odin) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Odin plugin $*..."
