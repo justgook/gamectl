@@ -528,58 +528,76 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const nodeTitle = `${kindName} #${nodeId}`;
 
     const form = document.createElement("form");
-    const renderForm = (currentNode, currentName, newInputName = "", newOutputName = "") => {
+    const renderForm = (
+      currentNode,
+      currentName,
+      {
+        newInputName = "",
+        newOutputName = "",
+        code = null,
+      } = {}
+    ) => {
+      const isCodeNode = currentNode.kind === NG.NODE_CODE;
       form.innerHTML = `
-      <p>Edit node settings.</p>
-      <p>Type: <strong>${this._getNodeKindLabel(currentNode.kind)}</strong></p>
-      <label>
-        Node name
-        <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
-      </label>
-      ${this._nodeSupportsInputs(currentNode.kind) ? `
-      <fieldset>
-        <legend>Inputs</legend>
-        <label>
-          New input name
-          <input type="text" name="new-input-name" value="${escapeAttribute(newInputName)}" placeholder="Input name">
-        </label>
-        <button type="submit" name="intent" value="add-input" aria-label="Add input" title="Add input" ${String(newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
-        <ul>
-          ${currentNode.inputs.map((port, index) => `
-          <li>
-            <input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}">
-            <label>
-              Input name
-              <input type="text" name="input-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "input", Number(port.inputId || index + 1), index))}" placeholder="Input ${index + 1}">
-            </label>
-            <button type="submit" name="remove-input-id" value="${Number(port.inputId || index + 1)}" aria-label="Delete input ${index + 1}" title="Delete input"><i aria-hidden="true">delete</i></button>
-          </li>`).join("")}
-        </ul>
-      </fieldset>` : ""}
-      ${this._nodeSupportsOutputs(currentNode.kind) ? `
-      <fieldset>
-        <legend>Outputs</legend>
-        <label>
-          New output name
-          <input type="text" name="new-output-name" value="${escapeAttribute(newOutputName)}" placeholder="Output name">
-        </label>
-        <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output" ${String(newOutputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
-        <ul>
-          ${currentNode.outputs.map((port, index) => `
-          <li>
-            <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
-            <label>
-              Output name
-              <input type="text" name="output-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "output", Number(port.outputId || index + 1), index))}" placeholder="Output ${index + 1}">
-            </label>
-            <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
-          </li>`).join("")}
-        </ul>
-      </fieldset>` : ""}
-      <footer>
-        <button type="submit" name="intent" value="save-name" class="accent">Save</button>
-      </footer>
-    `;
+       <p>Edit node settings.</p>
+       <p>Type: <strong>${this._getNodeKindLabel(currentNode.kind)}</strong></p>
+       <label>
+         Node name
+         <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
+       </label>
+       ${isCodeNode ? `
+       <label>
+         Code
+         <textarea name="code" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>]."></textarea>
+       </label>
+       <p><small>Node-code runs as Lua. Your code can use <code>inputs</code>, set <code>outputs</code>, and call <code>host.awaitCall(service, method, payloadJson?)</code>.</small></p>
+       ` : ""}
+       ${this._nodeSupportsInputs(currentNode.kind) ? `
+       <fieldset>
+         <legend>Inputs</legend>
+         <ul>
+           <li>
+               <input type="text" name="new-input-name" value="${escapeAttribute(newInputName)}" placeholder="Input name">
+             <button type="submit" name="intent" value="add-input" aria-label="Add input" title="Add input" ${String(newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
+           </li>
+           ${currentNode.inputs.map((port, index) => `
+           <li>
+             <input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}">
+             <input type="text" name="input-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "input", Number(port.inputId || index + 1), index))}" placeholder="Input ${index + 1}">
+             <button type="submit" name="remove-input-id" value="${Number(port.inputId || index + 1)}" aria-label="Delete input ${index + 1}" title="Delete input"><i aria-hidden="true">delete</i></button>
+           </li>`).join("")}
+         </ul>
+       </fieldset>` : ""}
+       ${this._nodeSupportsOutputs(currentNode.kind) ? `
+       <fieldset>
+         <legend>Outputs</legend>
+         <ul>
+           <li> 
+             <input type="text" name="new-output-name" value="${escapeAttribute(newOutputName)}" placeholder="Output name">
+             <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output" ${String(newOutputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
+           </li>
+           ${currentNode.outputs.map((port, index) => `
+           <li>
+             <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
+             <input type="text" name="output-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "output", Number(port.outputId || index + 1), index))}" placeholder="Output ${index + 1}">
+             <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
+           </li>`).join("")}
+         </ul>
+       </fieldset>` : ""}
+       <footer>
+         <button type="submit" name="intent" value="save-name" class="accent">Save</button>
+       </footer>
+     `;
+
+      if (isCodeNode) {
+        const textarea = form.querySelector('[name="code"]');
+        if (textarea) {
+          const next = code === null || code === undefined
+            ? (this.sourceByNode.get(currentNode.id) || "")
+            : String(code);
+          textarea.value = next;
+        }
+      }
 
       const newInput = form.querySelector('[name="new-input-name"]');
       const addInput = form.querySelector('[name="intent"][value="add-input"]');
@@ -628,10 +646,18 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         return;
       }
 
+      const pendingCode = current.kind === NG.NODE_CODE ? String(formData.get("code") || "") : null;
+
       if (intent === "save-name") {
         const rawName = formData.get("name");
         this.nodeNames.set(nodeId, String(rawName || "").trim());
         this._savePortNamesFromForm(nodeId, formData);
+        if (current.kind === NG.NODE_CODE) {
+          this.sourceByNode.set(nodeId, pendingCode ?? "");
+          if (this.api?.ng_exec_clear) {
+            this.api.ng_exec_clear(nodeId, 1);
+          }
+        }
         this.requestRenderIfGenerationChanged(true);
         toast.success(`Saved settings for ${nodeTitle}.`);
         popup.close();
@@ -650,12 +676,11 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           popup.close();
           return;
         }
-        renderForm(
-          refreshed,
-          String(formData.get("name") || this.nodeNames.get(nodeId) || "").trim(),
-          intent === "add-input" ? "" : String(formData.get("new-input-name") || ""),
-          intent === "add-output" ? "" : String(formData.get("new-output-name") || "")
-        );
+        renderForm(refreshed, String(formData.get("name") || this.nodeNames.get(nodeId) || "").trim(), {
+          newInputName: intent === "add-input" ? "" : String(formData.get("new-input-name") || ""),
+          newOutputName: intent === "add-output" ? "" : String(formData.get("new-output-name") || ""),
+          code: pendingCode,
+        });
       }
     };
   }
