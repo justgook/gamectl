@@ -51,6 +51,7 @@ export default class ViewGameRunner extends HTMLElement {
     this.style.display = 'block'
     this.style.position = 'relative'
     this.style.overflow = 'hidden'
+    this.style.flex = 1
 
     if (!this.canvas.isConnected) {
       this.appendChild(this.canvas)
