@@ -1,6 +1,7 @@
 import { toast } from '../systems/toast.js'
 import { ViewCanvasBase } from "./view-canvas-base.js";
 import { createWasiPreview1Imports } from "../util/wasi.js";
+import { parseCSVLines } from "../util/csv.js";
 
 function escapeAttribute(value) {
   return String(value ?? "")
@@ -186,6 +187,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     controls.innerHTML = `
       <button data-action="run" class="success" aria-label="Run" title="Run"><i aria-hidden="true">play_arrow</i></button>
       <button data-action="add" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
+      <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
+      <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
       <button data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">replay</i></button>
       <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">clear_all</i></button>
       <button data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
@@ -214,6 +217,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     const addBtn = this.queryHeaderControl('[data-action="add"]');
     if (addBtn) addBtn.onclick = () => this.showAddNodePopup();
+
+    const saveBtn = this.queryHeaderControl('[data-action="save"]');
+    if (saveBtn) saveBtn.onclick = () => this.showSaveGraphPopup();
+
+    const loadBtn = this.queryHeaderControl('[data-action="load"]');
+    if (loadBtn) loadBtn.onclick = () => this.showLoadGraphPopup();
 
     const resetBtn = this.queryHeaderControl('[data-action="reset"]');
     if (resetBtn) resetBtn.onclick = () => this.setupGraph();
@@ -1047,6 +1056,260 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     };
 
     renderForm();
+  }
+
+  _serializeGraphNodes() {
+    const snapshot = this.getGraphSnapshot();
+    const nodes = snapshot.nodes || [];
+    return nodes.map((node, index) => {
+      const pos = this.nodeLayout.get(node.id) || this._ensureLayout(node.id, index);
+      const name = String(this.nodeNames.get(node.id) || "").trim();
+      const serialized = {
+        id: Number(node.id),
+        kind: Number(node.kind),
+        x: Math.round(Number(pos?.x || 0)),
+        y: Math.round(Number(pos?.y || 0)),
+        name,
+        code: node.kind === NG.NODE_CODE ? String(this.sourceByNode.get(node.id) || "") : "",
+        inputs: (node.inputs || []).map((input, i) => ({
+          id: Number(input?.inputId || i + 1),
+          name: this._getStoredPortLabel(node.id, "input", Number(input?.inputId || i + 1)),
+          srcNodeId: Number(input?.srcNodeId || 0),
+          srcOutputId: Number(input?.srcOutputId || 0),
+        })),
+        outputs: (node.outputs || []).map((output, i) => ({
+          id: Number(output?.outputId || i + 1),
+          name: this._getStoredPortLabel(node.id, "output", Number(output?.outputId || i + 1)),
+          value: node.kind === NG.NODE_VALUE
+            ? this._getStoredNodeValue(node.id, Number(output?.outputId || i + 1))
+            : "",
+        })),
+      };
+      return serialized;
+    });
+  }
+
+  _applySerializedGraph(nodes) {
+    if (!this.api || !Array.isArray(nodes)) return 1;
+
+    let err = this.api.ng_clear_graph();
+    if (err !== 0) return err;
+
+    this.goalRunQueue = [];
+    this.ioToastOffset = 0;
+    this.connectionDrag = null;
+    this.hoverPick = null;
+
+    this.selectedNodeIds.clear();
+    this.nodeLayout = new Map();
+    this.nodeNames = new Map();
+    this.portLabels = new Map();
+    this.sourceByNode = new Map();
+    this.valueByNode = new Map();
+    this._emitSelectionChanged();
+
+    const sorted = [...nodes].sort((a, b) => Number(a?.id || 0) - Number(b?.id || 0));
+    const availableIds = new Set(sorted.map((node) => Number(node?.id || 0)));
+
+    for (const raw of sorted) {
+      const nodeId = Number(raw?.id || 0);
+      const kind = Number(raw?.kind || 0);
+      if (!Number.isFinite(nodeId) || nodeId <= 0) continue;
+      if (kind !== NG.NODE_CODE && kind !== NG.NODE_GOAL && kind !== NG.NODE_VALUE) continue;
+
+      err = this.api.ng_node_create(nodeId, kind);
+      if (err !== 0) return err;
+
+      const inputs = Array.isArray(raw?.inputs) ? raw.inputs : [];
+      const outputs = Array.isArray(raw?.outputs) ? raw.outputs : [];
+
+      for (const input of inputs) {
+        const inputId = Number(input?.id || 0);
+        if (!Number.isFinite(inputId) || inputId <= 0) continue;
+        err = this.api.ng_input_add(nodeId, inputId);
+        if (err !== 0) return err;
+      }
+
+      for (const output of outputs) {
+        const outputId = Number(output?.id || 0);
+        if (!Number.isFinite(outputId) || outputId <= 0) continue;
+        err = this.api.ng_output_add(nodeId, outputId);
+        if (err !== 0) return err;
+      }
+
+      const labels = { inputs: {}, outputs: {} };
+      for (const input of inputs) {
+        const inputId = Number(input?.id || 0);
+        const label = String(input?.name || "").trim();
+        if (inputId > 0 && label) labels.inputs[String(inputId)] = label;
+      }
+      for (const output of outputs) {
+        const outputId = Number(output?.id || 0);
+        const label = String(output?.name || "").trim();
+        if (outputId > 0 && label) labels.outputs[String(outputId)] = label;
+      }
+      this.portLabels.set(nodeId, labels);
+
+      const nodeName = String(raw?.name || "").trim();
+      if (nodeName) this.nodeNames.set(nodeId, nodeName);
+
+      if (kind === NG.NODE_CODE) {
+        this.sourceByNode.set(nodeId, String(raw?.code || ""));
+      }
+
+      if (kind === NG.NODE_VALUE) {
+        const bucket = new Map();
+        for (const output of outputs) {
+          const outputId = Number(output?.id || 0);
+          if (!Number.isFinite(outputId) || outputId <= 0) continue;
+          bucket.set(outputId, String(output?.value || ""));
+        }
+        this.valueByNode.set(nodeId, bucket);
+      }
+
+      this.nodeLayout.set(nodeId, {
+        x: Math.round(Number(raw?.x || 0)),
+        y: Math.round(Number(raw?.y || 0)),
+      });
+    }
+
+    for (const raw of sorted) {
+      const nodeId = Number(raw?.id || 0);
+      if (!Number.isFinite(nodeId) || nodeId <= 0 || !availableIds.has(nodeId)) continue;
+      const inputs = Array.isArray(raw?.inputs) ? raw.inputs : [];
+      for (const input of inputs) {
+        const inputId = Number(input?.id || 0);
+        const srcNodeId = Number(input?.srcNodeId || 0);
+        const srcOutputId = Number(input?.srcOutputId || 0);
+        if (inputId <= 0 || srcNodeId <= 0 || srcOutputId <= 0) continue;
+        if (!availableIds.has(srcNodeId)) continue;
+        err = this.api.ng_input_connect(nodeId, inputId, srcNodeId, srcOutputId);
+        if (err !== 0) return err;
+      }
+    }
+
+    this._emitSelectionChanged();
+    this.requestRenderIfGenerationChanged(true);
+    this.fitToContent();
+    return 0;
+  }
+
+  async saveGraphByName(name) {
+    const cleanName = String(name || "").trim();
+    if (!cleanName) return 1;
+    const payload = this._serializeGraphNodes();
+    const json = JSON.stringify(payload);
+    const escapedName = cleanName.replace(/'/g, "''");
+    const escapedJson = json.replace(/'/g, "''");
+    const sql = `INSERT OR REPLACE INTO nodegraph2_storage (name, data, node_count, updated_at) VALUES ('${escapedName}', '${escapedJson}', ${payload.length}, datetime('now'))`;
+    await window.pluginManager.call("sql", "exec", sql);
+    return 0;
+  }
+
+  async loadGraphByName(name) {
+    const cleanName = String(name || "").trim();
+    if (!cleanName) return 1;
+    const escapedName = cleanName.replace(/'/g, "''");
+    const result = await window.pluginManager.call("sql", "query", `SELECT data FROM nodegraph2_storage WHERE name = '${escapedName}'`);
+    const csv = this.td.decode(result.output || new Uint8Array());
+    const rows = parseCSVLines(csv.trim());
+    if (rows.length < 2 || rows[1].length < 1) return 1;
+    const parsed = JSON.parse(rows[1][0]);
+    if (!Array.isArray(parsed)) return 1;
+    return this._applySerializedGraph(parsed);
+  }
+
+  showSaveGraphPopup() {
+    const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
+    if (!popupManager) return;
+
+    const form = document.createElement("form");
+    form.innerHTML = `
+      <p>Save current node graph.</p>
+      <label>
+        Graph name
+        <input type="text" name="graph-name" placeholder="Enter graph name" required>
+      </label>
+      <footer>
+        <button type="submit" class="accent">Save</button>
+      </footer>
+    `;
+
+    const popup = popupManager.showPopup({
+      title: "Save node graph",
+      content: form,
+      size: "small",
+    });
+
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      const name = String(formData.get("graph-name") || "").trim();
+      if (!name) return;
+      try {
+        await this.saveGraphByName(name);
+        toast.success(`Saved graph \"${name}\".`);
+        popup.close();
+      } catch (error) {
+        toast.error(`Failed to save graph: ${String(error?.message || error)}`);
+      }
+    };
+  }
+
+  async showLoadGraphPopup() {
+    const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
+    if (!popupManager) return;
+
+    let entries = [];
+    try {
+      const result = await window.pluginManager.call("sql", "query", "SELECT name, node_count FROM nodegraph2_storage ORDER BY name");
+      const csv = this.td.decode(result.output || new Uint8Array());
+      const rows = parseCSVLines(csv.trim());
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i] || [];
+        if (!row[0]) continue;
+        entries.push({ name: row[0], nodeCount: Number(row[1] || 0) });
+      }
+    } catch (error) {
+      toast.error(`Failed to load saved graph list: ${String(error?.message || error)}`);
+      return;
+    }
+
+    const content = document.createElement("div");
+    if (!entries.length) {
+      content.innerHTML = `<p>No saved node graphs yet.</p>`;
+    } else {
+      content.innerHTML = entries.map((entry) => `
+        <button type="button" data-name="${escapeAttribute(entry.name)}">
+          <strong>${escapeAttribute(entry.name)}</strong>
+          <span>${entry.nodeCount} node${entry.nodeCount === 1 ? "" : "s"}</span>
+        </button>
+      `).join("");
+    }
+
+    const popup = popupManager.showPopup({
+      title: "Load node graph",
+      content,
+      size: "medium",
+    });
+
+    content.querySelectorAll("button[data-name]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const name = String(btn.getAttribute("data-name") || "");
+        if (!name) return;
+        try {
+          const err = await this.loadGraphByName(name);
+          if (err !== 0) {
+            toast.error(`Failed to load graph \"${name}\" (code ${err}).`);
+            return;
+          }
+          toast.success(`Loaded graph \"${name}\".`);
+          popup.close();
+        } catch (error) {
+          toast.error(`Failed to load graph: ${String(error?.message || error)}`);
+        }
+      });
+    });
   }
 
   showEditNodePopup(forcedNodeId = null) {
