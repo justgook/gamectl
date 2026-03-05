@@ -307,10 +307,16 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       importObject: {
         wasi_snapshot_preview1: createWasiPreview1Imports(() => this.memory),
          env: {
-           ng_on_node_changed: (_nodeId, _changeMask) => {
-             this.requestRenderIfGenerationChanged(true);
-           },
-            ng_on_run_event: (_nodeId, eventKind, _errorCode) => {
+            ng_on_node_changed: (_nodeId, _changeMask) => {
+              this.requestRenderIfGenerationChanged(true);
+            },
+            ng_on_goal_reached: (goalNodeId, payloadPtr, payloadLen) => {
+              const raw = this.readUtf8(payloadPtr, payloadLen).trim();
+              const msg = raw || `Goal #${goalNodeId} reached.`;
+              const short = msg.length > 240 ? `${msg.slice(0, 239)}…` : msg;
+              toast.info(short);
+            },
+             ng_on_run_event: (_nodeId, eventKind, _errorCode) => {
               const eventName = this.RUN_EVENT[eventKind] || `event_${eventKind}`;
               if (eventName === "run_started") {
                 this.ioToastOffset = this._getRuntimeIoLength();
