@@ -160,9 +160,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.te = new TextEncoder();
     this.sourceByNode = new Map([[1, 'print("hello from node-code")']]);
     this.valueByNode = new Map([
-      [7, "https://example.com/a"],
-      [8, "https://example.com/b"],
-      [9, "https://example.com/c"],
+      [7, new Map([[1, "https://example.com/a"]])],
+      [8, new Map([[1, "https://example.com/b"]])],
+      [9, new Map([[1, "https://example.com/c"]])],
     ]);
     this.RUN_EVENT = {
       1: "run_started",
@@ -371,7 +371,11 @@ class ViewNodeGraph2 extends ViewCanvasBase {
               const raw = p1 >= 0 ? req.slice(p1 + 1) : "{}";
               payload = this._resolveHostSync(service, method, raw);
             } else if (resolveKind === 3) {
-              payload = this.valueByNode.get(nodeId) || "";
+              let outputId = 1;
+              if (reqPtr > 0 && reqLen >= 4 && this.memory) {
+                outputId = new DataView(this.memory.buffer).getUint32(reqPtr, true);
+              }
+              payload = this._getStoredNodeValue(nodeId, outputId);
             } else {
               return 7;
             }
@@ -668,10 +672,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       {
         newInputName = "",
         newOutputName = "",
+        newOutputValue = "",
         code = null,
       } = {}
     ) => {
       const isCodeNode = currentNode.kind === NG.NODE_CODE;
+      const isValueNode = currentNode.kind === NG.NODE_VALUE;
       form.innerHTML = `
        <p>Edit node settings.</p>
        <p>Type: <strong>${this._getNodeKindLabel(currentNode.kind)}</strong></p>
@@ -704,20 +710,24 @@ class ViewNodeGraph2 extends ViewCanvasBase {
        </fieldset>` : ""}
        ${this._nodeSupportsOutputs(currentNode.kind) ? `
        <fieldset>
-         <legend>Outputs</legend>
-         <ul>
-           <li> 
-             <input type="text" name="new-output-name" value="${escapeAttribute(newOutputName)}" placeholder="Output name">
-             <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output" ${String(newOutputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
-           </li>
-           ${currentNode.outputs.map((port, index) => `
-           <li>
-             <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
-             <input type="text" name="output-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "output", Number(port.outputId || index + 1), index))}" placeholder="Output ${index + 1}">
-             <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
-           </li>`).join("")}
-         </ul>
-       </fieldset>` : ""}
+          <legend>Outputs</legend>
+          <ul>
+            <li> 
+              ${isValueNode
+                ? `<input type="text" name="new-output-value" value="${escapeAttribute(newOutputValue)}" placeholder="Value">`
+                : `<input type="text" name="new-output-name" value="${escapeAttribute(newOutputName)}" placeholder="Output name">`}
+              <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output"><i aria-hidden="true">add</i></button>
+            </li>
+            ${currentNode.outputs.map((port, index) => `
+            <li>
+              <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
+              ${isValueNode
+                ? `<input type="text" name="output-port-value" value="${escapeAttribute(this._getStoredNodeValue(currentNode.id, Number(port.outputId || index + 1)))}" placeholder="Value ${index + 1}">`
+                : `<input type="text" name="output-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "output", Number(port.outputId || index + 1), index))}" placeholder="Output ${index + 1}">`}
+              <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
+            </li>`).join("")}
+          </ul>
+        </fieldset>` : ""}
        <footer>
          <button type="submit" name="intent" value="save-name" class="accent">Save</button>
        </footer>
@@ -743,15 +753,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         newInput.addEventListener("input", sync);
       }
 
-      const newOutput = form.querySelector('[name="new-output-name"]');
       const addOutput = form.querySelector('[name="intent"][value="add-output"]');
-      if (newOutput && addOutput) {
-        const sync = () => {
-          addOutput.disabled = !String(newOutput.value || "").trim();
-        };
-        sync();
-        newOutput.addEventListener("input", sync);
-      }
+      if (addOutput) addOutput.disabled = false;
     };
 
     renderForm(node, nameValue);
@@ -785,7 +788,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       if (intent === "save-name") {
         const rawName = formData.get("name");
         this.nodeNames.set(nodeId, String(rawName || "").trim());
-        this._savePortNamesFromForm(nodeId, formData);
+        this._savePortNamesFromForm(nodeId, formData, current.kind);
+        if (current.kind === NG.NODE_VALUE) {
+          this._saveOutputValuesFromForm(nodeId, formData);
+        }
         if (current.kind === NG.NODE_CODE) {
           this.sourceByNode.set(nodeId, pendingCode ?? "");
           if (this.api?.ng_exec_clear) {
@@ -798,10 +804,14 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         return;
       }
 
-      this._savePortNamesFromForm(nodeId, formData);
+      this._savePortNamesFromForm(nodeId, formData, current.kind);
+      if (current.kind === NG.NODE_VALUE) {
+        this._saveOutputValuesFromForm(nodeId, formData);
+      }
       const changed = this._applyPortEditIntent(current, intent, {
         newInputName: String(formData.get("new-input-name") || "").trim(),
         newOutputName: String(formData.get("new-output-name") || "").trim(),
+        newOutputValue: String(formData.get("new-output-value") || ""),
       });
       if (changed) {
         this.requestRenderIfGenerationChanged(true);
@@ -813,6 +823,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         renderForm(refreshed, String(formData.get("name") || this.nodeNames.get(nodeId) || "").trim(), {
           newInputName: intent === "add-input" ? "" : String(formData.get("new-input-name") || ""),
           newOutputName: intent === "add-output" ? "" : String(formData.get("new-output-name") || ""),
+          newOutputValue: intent === "add-output" ? "" : String(formData.get("new-output-value") || ""),
           code: pendingCode,
         });
       }
@@ -912,7 +923,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         return false;
       }
       const outputName = String(options.newOutputName || "").trim();
-      if (!outputName) {
+      if (node.kind !== NG.NODE_VALUE && !outputName) {
         toast.warning("Enter a name before adding an output.");
         return false;
       }
@@ -922,7 +933,11 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         toast.error(`Failed to add output on node #${node.id} (code ${err}).`);
         return false;
       }
-      this._setStoredPortLabel(node.id, "output", outputId, outputName);
+      if (node.kind === NG.NODE_VALUE) {
+        this._setStoredNodeValue(node.id, outputId, String(options.newOutputValue || ""));
+      } else {
+        this._setStoredPortLabel(node.id, "output", outputId, outputName);
+      }
       toast.success(`Added output ${outputId} to node #${node.id}.`);
       return true;
     }
@@ -948,6 +963,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         return false;
       }
       this._deleteStoredPortLabel(node.id, "output", outputId);
+      if (node.kind === NG.NODE_VALUE) {
+        this._deleteStoredNodeValue(node.id, outputId);
+      }
       toast.success(`Removed output ${outputId} from node #${node.id}.`);
       return true;
     }
@@ -988,7 +1006,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.portLabels.set(nodeId, existing);
   }
 
-  _savePortNamesFromForm(nodeId, formData) {
+  _savePortNamesFromForm(nodeId, formData, nodeKind = null) {
     const inputIds = formData.getAll("input-port-id");
     const inputNames = formData.getAll("input-port-name");
     const outputIds = formData.getAll("output-port-id");
@@ -1003,17 +1021,66 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       labels.inputs[String(id)] = name;
     }
 
-    for (let i = 0; i < outputIds.length; i++) {
-      const id = Number(outputIds[i]);
-      const name = String(outputNames[i] || "").trim();
-      if (!Number.isFinite(id) || !name) continue;
-      labels.outputs[String(id)] = name;
+    if (nodeKind !== NG.NODE_VALUE) {
+      for (let i = 0; i < outputIds.length; i++) {
+        const id = Number(outputIds[i]);
+        const name = String(outputNames[i] || "").trim();
+        if (!Number.isFinite(id) || !name) continue;
+        labels.outputs[String(id)] = name;
+      }
     }
 
     if (!(this.portLabels instanceof Map)) {
       this.portLabels = new Map();
     }
     this.portLabels.set(nodeId, labels);
+  }
+
+  _getNodeValueBucket(nodeId) {
+    if (!(this.valueByNode instanceof Map)) {
+      this.valueByNode = new Map();
+    }
+    let bucket = this.valueByNode.get(nodeId);
+    if (!(bucket instanceof Map)) {
+      bucket = new Map();
+      this.valueByNode.set(nodeId, bucket);
+    }
+    return bucket;
+  }
+
+  _getStoredNodeValue(nodeId, outputId) {
+    if (!(this.valueByNode instanceof Map)) return "";
+    const bucket = this.valueByNode.get(nodeId);
+    if (!(bucket instanceof Map)) return "";
+    const val = bucket.get(Number(outputId));
+    return val === undefined || val === null ? "" : String(val);
+  }
+
+  _setStoredNodeValue(nodeId, outputId, value) {
+    const bucket = this._getNodeValueBucket(nodeId);
+    bucket.set(Number(outputId), String(value ?? ""));
+  }
+
+  _deleteStoredNodeValue(nodeId, outputId) {
+    if (!(this.valueByNode instanceof Map)) return;
+    const bucket = this.valueByNode.get(nodeId);
+    if (!(bucket instanceof Map)) return;
+    bucket.delete(Number(outputId));
+  }
+
+  _saveOutputValuesFromForm(nodeId, formData) {
+    const outputIds = formData.getAll("output-port-id");
+    const outputValues = formData.getAll("output-port-value");
+    const bucket = new Map();
+    for (let i = 0; i < outputIds.length; i++) {
+      const outputId = Number(outputIds[i]);
+      if (!Number.isFinite(outputId)) continue;
+      bucket.set(outputId, String(outputValues[i] || ""));
+    }
+    if (!(this.valueByNode instanceof Map)) {
+      this.valueByNode = new Map();
+    }
+    this.valueByNode.set(nodeId, bucket);
   }
 
   async fetchData() {
@@ -2683,7 +2750,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
       for (let i = 0; i < node.outputCount; i++) {
         const outputId = node.outputs[i]?.outputId ?? i + 1;
-        const label = this._getPortLabel(node.id, "output", outputId, i);
+        const label = node.kind === NG.NODE_VALUE
+          ? (this._getStoredNodeValue(node.id, outputId) || "value")
+          : this._getPortLabel(node.id, "output", outputId, i);
         const p = this._getPortCenter(node, pos, false, i);
         const baselineY = p.y + portPx * 0.35;
         const labelWidth = measureTextWidth(label, portScale);
