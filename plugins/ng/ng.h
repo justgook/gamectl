@@ -256,6 +256,9 @@ ng_i32 ng_get_io_ptr(void);
 NG_EXPORT("ng_get_io_len")
 ng_i32 ng_get_io_len(void);
 
+NG_EXPORT("ng_io_clear")
+ng_i32 ng_io_clear(void);
+
 NG_EXPORT("ng_get_node_exec_state")
 ng_i32 ng_get_node_exec_state(ng_u32 node_id);
 
