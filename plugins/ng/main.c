@@ -1123,6 +1123,11 @@ ng_i32 ng_get_io_ptr(void) { return (ng_i32)(intptr_t)g_info.io_buf; }
 
 ng_i32 ng_get_io_len(void) { return g_info.io_len; }
 
+ng_i32 ng_io_clear(void) {
+  clear_io();
+  return NG_OK;
+}
+
 ng_i32 ng_get_node_exec_state(ng_u32 node_id) {
   NgNode *node = find_node(node_id);
   if (node == NULL)

@@ -171,6 +171,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       4: "node_failed",
       5: "run_finished",
     };
+    this.ioToastOffset = 0;
+    this.goalRunQueue = [];
     this._raf = 0;
   }
 
@@ -216,6 +218,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       clearBtn.onclick = () => {
         if (this.api?.ng_exec_clear_all) {
           this.api.ng_exec_clear_all();
+          this._clearRuntimeIo();
           this.requestRenderIfGenerationChanged(true);
         }
       };
@@ -303,16 +306,51 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       name: "ng",
       importObject: {
         wasi_snapshot_preview1: createWasiPreview1Imports(() => this.memory),
-        env: {
-          ng_on_node_changed: (_nodeId, _changeMask) => {
-            this.requestRenderIfGenerationChanged(true);
-          },
-          ng_on_run_event: (_nodeId, eventKind, _errorCode) => {
-            const eventName = this.RUN_EVENT[eventKind] || `event_${eventKind}`;
-            if (eventName === "run_finished") {
-              this.requestRenderIfGenerationChanged(true);
-            }
-          },
+         env: {
+           ng_on_node_changed: (_nodeId, _changeMask) => {
+             this.requestRenderIfGenerationChanged(true);
+           },
+            ng_on_run_event: (_nodeId, eventKind, _errorCode) => {
+              const eventName = this.RUN_EVENT[eventKind] || `event_${eventKind}`;
+              if (eventName === "run_started") {
+                this.ioToastOffset = this._getRuntimeIoLength();
+              }
+
+              if (eventName === "node_succeeded" || (eventName === "run_finished" && !_errorCode)) {
+                this._emitRuntimePrintToasts();
+              }
+
+              // Only toast on failures; keep callback fast.
+              if (eventName === "node_failed") {
+                const msg = this._readRuntimeIoMessage(240);
+                toast.error(
+                  msg
+                   ? `Node #${_nodeId} failed (code ${_errorCode}): ${msg}`
+                   : `Node #${_nodeId} failed (code ${_errorCode}).`
+               );
+              } else if (eventName === "run_finished" && _errorCode) {
+                const msg = this._readRuntimeIoMessage(240);
+                toast.error(
+                  msg
+                    ? `Run failed (code ${_errorCode}): ${msg}`
+                    : `Run failed (code ${_errorCode}).`
+                );
+                this.goalRunQueue = [];
+              } else if (eventName === "run_finished") {
+                this._clearRuntimeIo();
+                if (this.goalRunQueue.length > 0) {
+                  const nextGoalId = this.goalRunQueue.shift();
+                  const err = this._startRun(nextGoalId);
+                  if (err !== 0) {
+                    toast.error(`Failed to run goal #${nextGoalId} (code ${err}).`);
+                    this.goalRunQueue = [];
+                  }
+                }
+              }
+              if (eventName === "run_finished") {
+                this.requestRenderIfGenerationChanged(true);
+              }
+            },
           ng_host_resolve: (nodeId, resolveKind, reqPtr, reqLen, outPtr, outCap, outLenPtr) => {
             if (!this.memory) return 7;
             let payload = "";
@@ -429,6 +467,83 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return this.td.decode(new Uint8Array(this.memory.buffer, ptr, len));
   }
 
+  _readRuntimeIoMessage(maxLen = 240) {
+    if (!this.api || !this.memory) return "";
+    if (typeof this.api.ng_get_io_ptr !== "function" || typeof this.api.ng_get_io_len !== "function") return "";
+    const ptr = Number(this.api.ng_get_io_ptr());
+    const len = Number(this.api.ng_get_io_len());
+    if (!Number.isFinite(ptr) || !Number.isFinite(len) || ptr <= 0 || len <= 0) return "";
+    const clipped = Math.min(len, 8192);
+    let text = this.td.decode(new Uint8Array(this.memory.buffer, ptr, clipped));
+    text = String(text || "").replace(/\s+/g, " ").trim();
+    if (!text) return "";
+    if (text.length > maxLen) text = text.slice(0, Math.max(0, maxLen - 1)).trimEnd() + "…";
+    return text;
+  }
+
+  _emitRuntimePrintToasts() {
+    if (!this.api || !this.memory) return;
+    if (typeof this.api.ng_get_io_ptr !== "function" || typeof this.api.ng_get_io_len !== "function") return;
+    const ptr = Number(this.api.ng_get_io_ptr());
+    const len = Number(this.api.ng_get_io_len());
+    if (!Number.isFinite(ptr) || !Number.isFinite(len) || ptr <= 0 || len <= 0) return;
+
+    const start = Math.max(0, Math.min(this.ioToastOffset, len));
+    if (len <= start) return;
+
+    const text = this.td.decode(new Uint8Array(this.memory.buffer, ptr + start, len - start));
+    this.ioToastOffset = len;
+
+    const lines = String(text || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      const short = line.length > 220 ? `${line.slice(0, 219)}…` : line;
+      toast.info(short);
+    }
+  }
+
+  _getRuntimeIoLength() {
+    if (!this.api || typeof this.api.ng_get_io_len !== "function") return 0;
+    const len = Number(this.api.ng_get_io_len());
+    if (!Number.isFinite(len) || len < 0) return 0;
+    return len;
+  }
+
+  _clearRuntimeIo() {
+    if (this.api && typeof this.api.ng_io_clear === "function") {
+      this.api.ng_io_clear();
+      this.ioToastOffset = 0;
+      return;
+    }
+    this.ioToastOffset = this._getRuntimeIoLength();
+  }
+
+  _getSelectedGoalNodeIds() {
+    const selectedIds = new Set(this.getSelectedNodeIds().map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0));
+    if (!selectedIds.size) return [];
+    const snapshot = this.getGraphSnapshot();
+    return snapshot.nodes
+      .filter((node) => node.kind === NG.NODE_GOAL && selectedIds.has(node.id))
+      .map((node) => node.id);
+  }
+
+  _startRun(goalNodeId = 0) {
+    if (!this.api) return 1;
+    if (typeof this.api.ng_run_start === "function") {
+      return this.api.ng_run_start(goalNodeId);
+    }
+    if (goalNodeId !== 0 && typeof this.api.ng_run_goal === "function") {
+      return this.api.ng_run_goal(goalNodeId);
+    }
+    if (typeof this.api.ng_run_all_goals === "function") {
+      return this.api.ng_run_all_goals();
+    }
+    return 1;
+  }
+
   _startWatch() {
     const tick = () => {
       this.requestRenderIfGenerationChanged();
@@ -439,6 +554,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   setupGraph() {
     if (!this.api) return;
+    this.goalRunQueue = [];
+    this.ioToastOffset = 0;
     let err = this.api.ng_init();
     if (err !== 0) return;
     err = this.api.ng_clear_graph();
@@ -493,11 +610,22 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   runGraph() {
     if (!this.api) return;
-    this.api.ng_exec_clear_all();
-    if (typeof this.api.ng_run_start === "function") {
-      this.api.ng_run_start(0);
-    } else if (typeof this.api.ng_run_all_goals === "function") {
-      this.api.ng_run_all_goals();
+    const selectedGoals = this._getSelectedGoalNodeIds();
+    this.goalRunQueue = [];
+
+    if (selectedGoals.length > 0) {
+      const [firstGoal, ...restGoals] = selectedGoals;
+      this.goalRunQueue = restGoals;
+      const err = this._startRun(firstGoal);
+      if (err !== 0) {
+        this.goalRunQueue = [];
+        toast.error(`Failed to run goal #${firstGoal} (code ${err}).`);
+      }
+    } else {
+      const err = this._startRun(0);
+      if (err !== 0) {
+        toast.error(`Failed to run goals (code ${err}).`);
+      }
     }
     this.requestRenderIfGenerationChanged(true);
   }
