@@ -67,10 +67,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     return [
       { id: 'create-node', eventName: 'node:create', description: 'Create new node', defaultKeys: '<C-n>' },
       { id: 'delete-node', eventName: 'node:delete', description: 'Delete selected nodes', defaultKeys: '<Del>' },
-      { id: 'run-graph', eventName: 'node:run', description: 'Run node graph', defaultKeys: '<C-CR>' },
-      { id: 'zoom-in', eventName: 'view:zoom-in', description: 'Zoom in', defaultKeys: '<C-=>'},
-      { id: 'zoom-out', eventName: 'view:zoom-out', description: 'Zoom out', defaultKeys: '<C-->' },
-      { id: 'zoom-fit', eventName: 'view:zoom-fit', description: 'Fit view to content', defaultKeys: '<C-0>' }
+      { id: 'run-graph', eventName: 'node:run', description: 'Run node graph', defaultKeys: '<C-CR>' }
     ]
   }
 
@@ -350,17 +347,11 @@ export class ViewNodeGraph extends ViewCanvasBase {
       case 'node:run':
         this.executeGraph()
         return true
-      case 'view:zoom-in':
-        this.zoomIn()
-        return true
-      case 'view:zoom-out':
-        this.zoomOut()
-        return true
       case 'view:zoom-fit':
         this.fitGraphToContent()
         return true
       default:
-        return false
+        return super.handleKeybinding(eventName)
     }
   }
 
