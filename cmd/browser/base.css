@@ -496,6 +496,72 @@
     transition: border-color 120ms, box-shadow 120ms;
   }
 
+  code-editor {
+    position: relative;
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-family: var(--font-mono);
+    font-size: var(--font-sm);
+    line-height: 1.45;
+    overflow: hidden;
+  }
+
+  code-editor:focus-within {
+    border-color: color-mix(in oklab, var(--intent), var(--surface) 40%);
+  }
+
+  code-editor>pre,
+  code-editor>textarea {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: 0;
+    width: 100%;
+    min-height: 220px;
+    box-sizing: border-box;
+    font: inherit;
+    line-height: inherit;
+    tab-size: 2;
+    white-space: pre;
+    overflow: auto;
+  }
+
+  code-editor>pre {
+    pointer-events: none;
+    color: var(--text);
+  }
+
+  code-editor>textarea {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--text);
+    resize: vertical;
+  }
+
+  code-editor>textarea::placeholder {
+    color: var(--text-faint);
+  }
+
+  code-editor[lang="lua"] .comment {
+    color: #7f9f5f;
+  }
+
+  code-editor[lang="lua"] .string {
+    color: #d4b06a;
+  }
+
+  code-editor[lang="lua"] .number {
+    color: #8ab4f8;
+  }
+
+  code-editor[lang="lua"] .keyword {
+    color: #f07a9a;
+  }
+
   input::placeholder,
   textarea::placeholder {
     color: var(--text-faint);
