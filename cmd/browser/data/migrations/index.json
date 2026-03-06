@@ -23,6 +23,7 @@
     { "version": 20, "name": "views", "file": "020_views.sql" },
     { "version": 21, "name": "nodegraph2_storage", "file": "021_nodegraph2_storage.sql" },
     { "version": 22, "name": "nodegraph2_node_templates", "file": "022_nodegraph2_node_templates.sql" },
-    { "version": 23, "name": "keybinding_overrides", "file": "023_keybinding_overrides.sql" }
+    { "version": 23, "name": "keybinding_overrides", "file": "023_keybinding_overrides.sql" },
+    { "version": 24, "name": "game_runner_asset_sources", "file": "024_game_runner_asset_sources.sql" }
   ]
 }

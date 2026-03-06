@@ -461,6 +461,11 @@
     flex-direction: column;
   }
 
+  form>footer {
+    display: flex;
+  }
+
+
   code {
     display: flex;
     flex: 1;
