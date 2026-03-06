@@ -124,7 +124,7 @@ class KeybindingManager {
       source.displayName = viewMeta.displayName
     }
 
-    const defs = Array.isArray(ViewClass.keybindings) ? ViewClass.keybindings : []
+    const defs = this.collectKeybindingDefinitions(ViewClass)
     return defs
       .filter(def => def && def.eventName)
       .map((def, index) => {
@@ -143,6 +143,40 @@ class KeybindingManager {
           enabled: true
         }
       })
+  }
+
+  collectKeybindingDefinitions(ViewClass) {
+    const inheritanceChain = []
+    let current = ViewClass
+    while (current && current !== Function.prototype) {
+      inheritanceChain.unshift(current)
+      current = Object.getPrototypeOf(current)
+    }
+
+    const merged = new Map()
+    const anonymous = []
+
+    for (const clazz of inheritanceChain) {
+      if (!Object.prototype.hasOwnProperty.call(clazz, 'keybindings')) {
+        continue
+      }
+
+      const defs = clazz.keybindings
+      if (!Array.isArray(defs)) {
+        continue
+      }
+
+      for (const def of defs) {
+        if (!def || typeof def !== 'object') continue
+        if (def.id) {
+          merged.set(def.id, def)
+        } else {
+          anonymous.push(def)
+        }
+      }
+    }
+
+    return [...merged.values(), ...anonymous]
   }
 
   async importModule(url) {
