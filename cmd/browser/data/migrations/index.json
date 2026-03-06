@@ -21,6 +21,7 @@
     { "version": 18, "name": "settings", "file": "018_settings.sql" },
     { "version": 19, "name": "plugins", "file": "019_plugins.sql" },
     { "version": 20, "name": "views", "file": "020_views.sql" },
-    { "version": 21, "name": "nodegraph2_storage", "file": "021_nodegraph2_storage.sql" }
+    { "version": 21, "name": "nodegraph2_storage", "file": "021_nodegraph2_storage.sql" },
+    { "version": 22, "name": "nodegraph2_node_templates", "file": "022_nodegraph2_node_templates.sql" }
   ]
 }

@@ -325,57 +325,57 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       name: "ng",
       importObject: {
         wasi_snapshot_preview1: createWasiPreview1Imports(() => this.memory),
-         env: {
-            ng_on_node_changed: (_nodeId, _changeMask) => {
-              this.requestRenderIfGenerationChanged(true);
-            },
-            ng_on_goal_reached: (goalNodeId, payloadPtr, payloadLen) => {
-              const raw = this.readUtf8(payloadPtr, payloadLen).trim();
-              const msg = raw || `Goal #${goalNodeId} reached.`;
-              const short = msg.length > 240 ? `${msg.slice(0, 239)}…` : msg;
-              toast.info(short);
-            },
-             ng_on_run_event: (_nodeId, eventKind, _errorCode) => {
-              const eventName = this.RUN_EVENT[eventKind] || `event_${eventKind}`;
-              if (eventName === "run_started") {
-                this.ioToastOffset = this._getRuntimeIoLength();
-              }
+        env: {
+          ng_on_node_changed: (_nodeId, _changeMask) => {
+            this.requestRenderIfGenerationChanged(true);
+          },
+          ng_on_goal_reached: (goalNodeId, payloadPtr, payloadLen) => {
+            const raw = this.readUtf8(payloadPtr, payloadLen).trim();
+            const msg = raw || `Goal #${goalNodeId} reached.`;
+            const short = msg.length > 240 ? `${msg.slice(0, 239)}…` : msg;
+            toast.info(short);
+          },
+          ng_on_run_event: (_nodeId, eventKind, _errorCode) => {
+            const eventName = this.RUN_EVENT[eventKind] || `event_${eventKind}`;
+            if (eventName === "run_started") {
+              this.ioToastOffset = this._getRuntimeIoLength();
+            }
 
-              if (eventName === "node_succeeded" || (eventName === "run_finished" && !_errorCode)) {
-                this._emitRuntimePrintToasts();
-              }
+            if (eventName === "node_succeeded" || (eventName === "run_finished" && !_errorCode)) {
+              this._emitRuntimePrintToasts();
+            }
 
-              // Only toast on failures; keep callback fast.
-              if (eventName === "node_failed") {
-                const msg = this._readRuntimeIoMessage(240);
-                toast.error(
-                  msg
-                   ? `Node #${_nodeId} failed (code ${_errorCode}): ${msg}`
-                   : `Node #${_nodeId} failed (code ${_errorCode}).`
-               );
-              } else if (eventName === "run_finished" && _errorCode) {
-                const msg = this._readRuntimeIoMessage(240);
-                toast.error(
-                  msg
-                    ? `Run failed (code ${_errorCode}): ${msg}`
-                    : `Run failed (code ${_errorCode}).`
-                );
-                this.goalRunQueue = [];
-              } else if (eventName === "run_finished") {
-                this._clearRuntimeIo();
-                if (this.goalRunQueue.length > 0) {
-                  const nextGoalId = this.goalRunQueue.shift();
-                  const err = this._startRun(nextGoalId);
-                  if (err !== 0) {
-                    toast.error(`Failed to run goal #${nextGoalId} (code ${err}).`);
-                    this.goalRunQueue = [];
-                  }
+            // Only toast on failures; keep callback fast.
+            if (eventName === "node_failed") {
+              const msg = this._readRuntimeIoMessage(240);
+              toast.error(
+                msg
+                  ? `Node #${_nodeId} failed (code ${_errorCode}): ${msg}`
+                  : `Node #${_nodeId} failed (code ${_errorCode}).`
+              );
+            } else if (eventName === "run_finished" && _errorCode) {
+              const msg = this._readRuntimeIoMessage(240);
+              toast.error(
+                msg
+                  ? `Run failed (code ${_errorCode}): ${msg}`
+                  : `Run failed (code ${_errorCode}).`
+              );
+              this.goalRunQueue = [];
+            } else if (eventName === "run_finished") {
+              this._clearRuntimeIo();
+              if (this.goalRunQueue.length > 0) {
+                const nextGoalId = this.goalRunQueue.shift();
+                const err = this._startRun(nextGoalId);
+                if (err !== 0) {
+                  toast.error(`Failed to run goal #${nextGoalId} (code ${err}).`);
+                  this.goalRunQueue = [];
                 }
               }
-              if (eventName === "run_finished") {
-                this.requestRenderIfGenerationChanged(true);
-              }
-            },
+            }
+            if (eventName === "run_finished") {
+              this.requestRenderIfGenerationChanged(true);
+            }
+          },
           ng_host_resolve: (nodeId, resolveKind, reqPtr, reqLen, outPtr, outCap, outLenPtr) => {
             if (!this.memory) return 7;
             let payload = "";
@@ -724,8 +724,19 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return fallback;
   }
 
-  _renderNodeTypeOptions(selectedKind) {
-    const selected = this._kindToFormValue(selectedKind);
+  _renderNodeTypeOptions(selectedKind, templates = [], selectedTemplateName = "") {
+    const selected = selectedTemplateName
+      ? `template:${selectedTemplateName}`
+      : this._kindToFormValue(selectedKind);
+    const templateOptions = Array.isArray(templates) && templates.length
+      ? templates.map((entry) => {
+        const templateName = String(entry?.name || "").trim();
+        if (!templateName) return "";
+        const value = `template:${templateName}`;
+        const kindLabel = this._getNodeKindLabel(Number(entry?.kind || NG.NODE_CODE));
+        return `<option value="${escapeAttribute(value)}" ${selected === value ? "selected" : ""}>${escapeAttribute(templateName)} (${escapeAttribute(kindLabel)})</option>`;
+      }).join("")
+      : `<option value="template-empty" disabled>empty</option>`;
     return `
       <optgroup label="Base">
         <option value="value" ${selected === "value" ? "selected" : ""}>value</option>
@@ -733,7 +744,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         <option value="goal" ${selected === "goal" ? "selected" : ""}>goal</option>
       </optgroup>
       <optgroup label="Presets">
-        <option value="preset-empty" disabled>empty</option>
+        ${templateOptions}
       </optgroup>
     `;
   }
@@ -741,6 +752,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   _createNodeDraft(kind = NG.NODE_CODE) {
     return {
       kind,
+      templateName: "",
       name: "",
       code: "",
       newInputName: "",
@@ -790,6 +802,68 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     draft.outputs = nextOutputs;
   }
 
+  _normalizeNodeTemplatePayload(payload, fallbackKind = NG.NODE_CODE) {
+    const rawKind = Number(payload?.kind || fallbackKind);
+    const kind = rawKind === NG.NODE_VALUE || rawKind === NG.NODE_GOAL || rawKind === NG.NODE_CODE
+      ? rawKind
+      : fallbackKind;
+    const normalized = this._createNodeDraft(kind);
+    normalized.name = String(payload?.name || "").trim();
+    normalized.code = String(payload?.code || "");
+
+    const inputList = Array.isArray(payload?.inputs) ? payload.inputs : [];
+    const outputList = Array.isArray(payload?.outputs) ? payload.outputs : [];
+
+    normalized.inputs = inputList.map((input, index) => {
+      const inputId = Number(input?.inputId || input?.id || index + 1);
+      return {
+        inputId: Number.isFinite(inputId) && inputId > 0 ? inputId : index + 1,
+        name: String(input?.name || "").trim(),
+      };
+    });
+
+    normalized.outputs = outputList.map((output, index) => {
+      const outputId = Number(output?.outputId || output?.id || index + 1);
+      return {
+        outputId: Number.isFinite(outputId) && outputId > 0 ? outputId : index + 1,
+        name: String(output?.name || "").trim(),
+        value: String(output?.value || ""),
+      };
+    });
+
+    return normalized;
+  }
+
+  _applyNodeTemplateToDraft(draft, templateEntry) {
+    const payload = this._normalizeNodeTemplatePayload(templateEntry?.data, Number(templateEntry?.kind || NG.NODE_CODE));
+    draft.kind = payload.kind;
+    draft.templateName = String(templateEntry?.name || "").trim();
+    draft.name = payload.name;
+    draft.code = payload.code;
+    draft.newInputName = "";
+    draft.newOutputName = "";
+    draft.newOutputValue = "";
+    draft.inputs = payload.inputs;
+    draft.outputs = payload.outputs;
+  }
+
+  _serializeNodeTemplateDraft(draft) {
+    return {
+      kind: Number(draft?.kind || NG.NODE_CODE),
+      name: String(draft?.name || "").trim(),
+      code: String(draft?.code || ""),
+      inputs: (draft?.inputs || []).map((port, index) => ({
+        inputId: Number(port?.inputId || index + 1),
+        name: String(port?.name || "").trim(),
+      })),
+      outputs: (draft?.outputs || []).map((port, index) => ({
+        outputId: Number(port?.outputId || index + 1),
+        name: String(port?.name || "").trim(),
+        value: String(port?.value || ""),
+      })),
+    };
+  }
+
   _nextAvailableNodeId() {
     const used = new Set(this.getGraphSnapshot().nodes.map((node) => Number(node.id)));
     for (let id = 1; id < 0x7fffffff; id++) {
@@ -806,13 +880,20 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     };
   }
 
-  showAddNodePopup() {
+  async showAddNodePopup() {
     const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
     if (!popupManager) {
       toast.error("Popup manager is not available.");
       return;
     }
     if (!this.api || typeof this.api.ng_node_create !== "function") return;
+
+    let templates = [];
+    try {
+      templates = await this.listNodeTemplates();
+    } catch (error) {
+      toast.error(`Failed to load templates: ${String(error?.message || error)}`);
+    }
 
     const form = document.createElement("form");
     const draft = this._createNodeDraft(NG.NODE_CODE);
@@ -822,21 +903,20 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       const isValueNode = draft.kind === NG.NODE_VALUE;
       form.innerHTML = `
        <p>Add a new node.</p>
-       <label>
+        <label>
          Type
-         <select name="node-kind">
-           ${this._renderNodeTypeOptions(draft.kind)}
-         </select>
-       </label>
+          <select name="node-kind">
+            ${this._renderNodeTypeOptions(draft.kind, templates, draft.templateName)}
+          </select>
+        </label>
        <label>
          Node name
          <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(draft.name)}">
        </label>
        ${isCodeNode ? `
-       <label>
-         Code
+       <code>
          <textarea name="code" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(draft.code)}</textarea>
-       </label>
+       </code>
        <p><small>Node-code runs as Lua. Your code can use <code>inputs</code>, set <code>outputs</code>, and call <code>host.awaitCall(service, method, payloadJson?)</code>.</small></p>
        ` : ""}
        ${this._nodeSupportsInputs(draft.kind) ? `
@@ -861,16 +941,16 @@ class ViewNodeGraph2 extends ViewCanvasBase {
          <ul>
            <li>
              ${isValueNode
-               ? `<input type="text" name="new-output-value" value="${escapeAttribute(draft.newOutputValue)}" placeholder="Value">`
-               : `<input type="text" name="new-output-name" value="${escapeAttribute(draft.newOutputName)}" placeholder="Output name">`}
+            ? `<input type="text" name="new-output-value" value="${escapeAttribute(draft.newOutputValue)}" placeholder="Value">`
+            : `<input type="text" name="new-output-name" value="${escapeAttribute(draft.newOutputName)}" placeholder="Output name">`}
              <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output" ${!isValueNode && !String(draft.newOutputName).trim() ? "disabled" : ""}><i aria-hidden="true">add</i></button>
            </li>
            ${draft.outputs.map((port, index) => `
            <li>
              <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
              ${isValueNode
-               ? `<input type="text" name="output-port-value" value="${escapeAttribute(port.value || "")}" placeholder="Value ${index + 1}">`
-               : `<input type="text" name="output-port-name" value="${escapeAttribute(port.name || "")}" placeholder="Output ${index + 1}">`}
+                ? `<input type="text" name="output-port-value" value="${escapeAttribute(port.value || "")}" placeholder="Value ${index + 1}">`
+                : `<input type="text" name="output-port-name" value="${escapeAttribute(port.name || "")}" placeholder="Output ${index + 1}">`}
              <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
            </li>`).join("")}
          </ul>
@@ -884,8 +964,22 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       if (kindSelect) {
         kindSelect.onchange = () => {
           this._captureNodeDraftFromForm(draft, form);
+          const selectedValue = String(kindSelect.value || "");
+          if (selectedValue.startsWith("template:")) {
+            const templateName = selectedValue.slice("template:".length).trim();
+            const templateEntry = templates.find((entry) => String(entry?.name || "") === templateName);
+            if (!templateEntry) {
+              toast.warning(`Template "${templateName}" was not found.`);
+              return;
+            }
+            this._applyNodeTemplateToDraft(draft, templateEntry);
+            renderForm();
+            return;
+          }
+
           const previousKind = draft.kind;
-          draft.kind = this._kindFromFormValue(String(kindSelect.value || ""), draft.kind);
+          draft.kind = this._kindFromFormValue(selectedValue, draft.kind);
+          draft.templateName = "";
           if (draft.kind !== previousKind) {
             if (!this._nodeSupportsInputs(draft.kind)) {
               draft.inputs = [];
@@ -1219,6 +1313,89 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return this._applySerializedGraph(parsed);
   }
 
+  async saveNodeTemplateByName(name, draftLike) {
+    const cleanName = String(name || "").trim();
+    if (!cleanName) return 1;
+    const payload = this._serializeNodeTemplateDraft(
+      this._normalizeNodeTemplatePayload(draftLike, Number(draftLike?.kind || NG.NODE_CODE))
+    );
+    const json = JSON.stringify(payload);
+    const escapedName = cleanName.replace(/'/g, "''");
+    const escapedJson = json.replace(/'/g, "''");
+    const sql = `INSERT OR REPLACE INTO nodegraph2_node_templates (name, kind, data, updated_at) VALUES ('${escapedName}', ${Number(payload.kind || NG.NODE_CODE)}, '${escapedJson}', datetime('now'))`;
+    await window.pluginManager.call("sql", "exec", sql);
+    return 0;
+  }
+
+  async listNodeTemplates() {
+    const result = await window.pluginManager.call("sql", "query", "SELECT name, kind, data FROM nodegraph2_node_templates ORDER BY name");
+    const csv = this.td.decode(result.output || new Uint8Array());
+    const rows = parseCSVLines(csv.trim());
+    const entries = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i] || [];
+      const name = String(row[0] || "").trim();
+      if (!name) continue;
+      const kind = Number(row[1] || NG.NODE_CODE);
+      let parsedData = {};
+      try {
+        parsedData = row[2] ? JSON.parse(String(row[2])) : {};
+      } catch {
+        parsedData = {};
+      }
+      const data = this._serializeNodeTemplateDraft(this._normalizeNodeTemplatePayload(parsedData, kind));
+      entries.push({ name, kind: Number(data.kind || kind || NG.NODE_CODE), data });
+    }
+    return entries;
+  }
+
+  showSaveNodeTemplatePopup({ draft, initialName = "" } = {}) {
+    const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
+    if (!popupManager) {
+      toast.error("Popup manager is not available.");
+      return Promise.resolve({ saved: false });
+    }
+
+    const normalized = this._serializeNodeTemplateDraft(
+      this._normalizeNodeTemplatePayload(draft, Number(draft?.kind || NG.NODE_CODE))
+    );
+    const suggestedName = String(initialName || normalized.name || "").trim();
+
+    const form = document.createElement("form");
+    form.innerHTML = `
+      <p>Save this node setup as a reusable template.</p>
+      <label>
+        Template name
+        <input type="text" name="template-name" placeholder="Enter template name" value="${escapeAttribute(suggestedName)}" required>
+      </label>
+      <footer>
+        <button type="submit" class="accent">Save template</button>
+      </footer>
+    `;
+
+    const popup = popupManager.showPopup({
+      title: "Save node template",
+      content: form,
+      size: "small",
+    });
+
+    return new Promise((resolve) => {
+      form.onsubmit = async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const name = String(formData.get("template-name") || "").trim();
+        if (!name) return;
+        try {
+          await this.saveNodeTemplateByName(name, normalized);
+          popup.close();
+          resolve({ saved: true, name });
+        } catch (error) {
+          toast.error(`Failed to save template: ${String(error?.message || error)}`);
+        }
+      };
+    });
+  }
+
   showSaveGraphPopup() {
     const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
     if (!popupManager) return;
@@ -1362,10 +1539,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
          <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
        </label>
        ${isCodeNode ? `
-       <label>
-         Code
+       <code>
          <textarea name="code" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>]."></textarea>
-       </label>
+       </code>
        <p><small>Node-code runs as Lua. Your code can use <code>inputs</code>, set <code>outputs</code>, and call <code>host.awaitCall(service, method, payloadJson?)</code>.</small></p>
        ` : ""}
        ${this._nodeSupportsInputs(currentNode.kind) ? `
@@ -1390,8 +1566,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           <ul>
             <li> 
               ${isValueNode
-                ? `<input type="text" name="new-output-value" value="${escapeAttribute(newOutputValue)}" placeholder="Value">`
-                : `<input type="text" name="new-output-name" value="${escapeAttribute(newOutputName)}" placeholder="Output name">`}
+            ? `<input type="text" name="new-output-value" value="${escapeAttribute(newOutputValue)}" placeholder="Value">`
+            : `<input type="text" name="new-output-name" value="${escapeAttribute(newOutputName)}" placeholder="Output name">`}
               <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output"><i aria-hidden="true">add</i></button>
             </li>
             ${currentNode.outputs.map((port, index) => `
@@ -1406,7 +1582,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         </fieldset>` : ""}
        <footer>
          <button type="submit" name="intent" value="save-name" class="accent">Save</button>
-       </footer>
+         <button type="submit" name="intent" value="save-template">Save as template</button>
+        </footer>
      `;
 
       if (isCodeNode) {
@@ -1441,7 +1618,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       size: "medium",
     });
 
-    form.onsubmit = (event) => {
+    form.onsubmit = async (event) => {
       event.preventDefault();
 
       const form = event.target;
@@ -1460,6 +1637,25 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       }
 
       const pendingCode = current.kind === NG.NODE_CODE ? String(formData.get("code") || "") : null;
+
+      if (intent === "save-template") {
+        const draft = this._createNodeDraft(current.kind);
+        this._captureNodeDraftFromForm(draft, form);
+        draft.kind = current.kind;
+        draft.code = pendingCode ?? "";
+        try {
+          const result = await this.showSaveNodeTemplatePopup({
+            draft,
+            initialName: draft.name || `${this._getNodeKindLabel(current.kind)}-${nodeId}`,
+          });
+          if (result?.saved && result?.name) {
+            toast.success(`Saved template "${result.name}".`);
+          }
+        } catch (error) {
+          toast.error(`Failed to save template: ${String(error?.message || error)}`);
+        }
+        return;
+      }
 
       if (intent === "save-name") {
         const rawName = formData.get("name");
@@ -1783,8 +1979,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       maxY = Math.max(maxY, pos.y + size.height);
     }
 
-    const pad = 120;
-    return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
+    return { minX, minY, maxX, maxY }
   }
 
   fitToContent() {
@@ -1806,9 +2001,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const contentHeight = bounds.maxY - bounds.minY;
     if (contentWidth <= 0 || contentHeight <= 0) return false;
 
-    const padding = 40;
-    const targetWidth = Math.max(1, this.canvas.width - padding * 2);
-    const targetHeight = Math.max(1, this.canvas.height - padding * 2);
+    const targetWidth = Math.max(1, this.canvas.width);
+    const targetHeight = Math.max(1, this.canvas.height);
     const scaleX = targetWidth / contentWidth;
     const scaleY = targetHeight / contentHeight;
     this.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(scaleX, scaleY)));
