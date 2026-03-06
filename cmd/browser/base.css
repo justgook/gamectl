@@ -461,6 +461,17 @@
     flex-direction: column;
   }
 
+  code {
+    display: flex;
+    flex: 1;
+  }
+
+  code>textarea {
+    flex: 1;
+  }
+
+
+
   input[type="text"],
   input[type="number"],
   input[type="url"],
