@@ -1,3 +1,5 @@
+import { toast } from "../systems/toast.js"
+import { parseCSVLines } from "../util/csv.js"
 import { GLBridge } from "../util/gl-bridge.js"
 
 const FALLBACK_EVENT_OFFSETS = {
@@ -11,8 +13,22 @@ const FALLBACK_EVENT_OFFSETS = {
 
 const EVENT_TYPE_RESIZED = 14
 
-const GAME_ASSET_SOURCES = {
+const DEFAULT_GAME_ASSET_SOURCES = {
   '/game/clear-color.rgb': 'local:/example/floor-16x16.png'
+}
+
+const GAME_RUNNER_ASSET_SOURCES_TABLE = 'game_runner_asset_sources'
+
+function escapeAttribute(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function escapeSqlString(value) {
+  return String(value ?? '').replace(/'/g, "''")
 }
 
 function writeU64(view, offset, value) {
@@ -48,8 +64,10 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
     this._assetCache = new Map()
+    this._assetSources = new Map(Object.entries(DEFAULT_GAME_ASSET_SOURCES))
     this._textDecoder = new TextDecoder()
     this._headerControls = null
+    this._assetBtn = null
     this._playPauseBtn = null
     this._reloadBtn = null
 
@@ -77,7 +95,7 @@ export default class ViewGameRunner extends HTMLElement {
     this._mountHeaderControls()
     this.setupInputHandlers()
     this._resizeObserver.observe(this)
-    this._boot().catch((error) => {
+    this._initialize().catch((error) => {
       console.error('[game-runner] boot failed:', error)
     })
   }
@@ -89,6 +107,11 @@ export default class ViewGameRunner extends HTMLElement {
 
     this._stopLoop()
     this._teardownPlugin()
+  }
+
+  async _initialize() {
+    await this._loadAssetSourcesFromStorage()
+    await this._boot()
   }
 
   async _boot() {
@@ -236,11 +259,22 @@ export default class ViewGameRunner extends HTMLElement {
       })
     })
 
+    const assetsBtn = document.createElement('button')
+    assetsBtn.type = 'button'
+    assetsBtn.setAttribute('aria-label', 'Asset Sources')
+    assetsBtn.setAttribute('title', 'Asset Sources')
+    assetsBtn.innerHTML = '<i aria-hidden="true">inventory_2</i>'
+    assetsBtn.addEventListener('click', () => {
+      this.showAssetSourcesPopup()
+    })
+
     controls.appendChild(playPauseBtn)
     controls.appendChild(reloadBtn)
+    controls.appendChild(assetsBtn)
     this.parentElement.appendChild(controls)
 
     this._headerControls = controls
+    this._assetBtn = assetsBtn
     this._playPauseBtn = playPauseBtn
     this._reloadBtn = reloadBtn
     this._syncControlState()
@@ -251,8 +285,168 @@ export default class ViewGameRunner extends HTMLElement {
       this._headerControls.remove()
     }
     this._headerControls = null
+    this._assetBtn = null
     this._playPauseBtn = null
     this._reloadBtn = null
+  }
+
+  _getAssetSourceEntries() {
+    return Array.from(this._assetSources.entries()).map(([assetPath, source]) => ({ assetPath, source }))
+  }
+
+  async _loadAssetSourcesFromStorage() {
+    if (!window.pluginManager) {
+      this._assetSources = new Map(Object.entries(DEFAULT_GAME_ASSET_SOURCES))
+      return
+    }
+
+    try {
+      const result = await window.pluginManager.call(
+        'sql',
+        'query',
+        `SELECT asset_path, source FROM ${GAME_RUNNER_ASSET_SOURCES_TABLE} ORDER BY asset_path`
+      )
+      const csv = this._textDecoder.decode(result.output || new Uint8Array())
+      const rows = parseCSVLines(csv.trim())
+      const entries = []
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i] || []
+        const assetPath = String(row[0] || '').trim()
+        const source = String(row[1] || '').trim()
+        if (!assetPath || !source) continue
+        entries.push([assetPath, source])
+      }
+
+      this._assetSources = new Map(entries)
+    } catch (error) {
+      console.warn('[game-runner] failed to load asset sources from storage:', error)
+      this._assetSources = new Map(Object.entries(DEFAULT_GAME_ASSET_SOURCES))
+    }
+  }
+
+  async _saveAssetSourcesToStorage(entries) {
+    const statements = ['BEGIN TRANSACTION', `DELETE FROM ${GAME_RUNNER_ASSET_SOURCES_TABLE}`]
+    for (const entry of entries) {
+      const assetPath = escapeSqlString(entry.assetPath)
+      const source = escapeSqlString(entry.source)
+      statements.push(
+        `INSERT INTO ${GAME_RUNNER_ASSET_SOURCES_TABLE} (asset_path, source, updated_at) VALUES ('${assetPath}', '${source}', datetime('now'))`
+      )
+    }
+    statements.push('COMMIT')
+    await window.pluginManager.call('sql', 'exec', statements.join(';\n'))
+  }
+
+  showAssetSourcesPopup() {
+    const popupManager = this.closest('popup-manager') || document.querySelector('popup-manager')
+    if (!popupManager) {
+      toast.error('Popup manager is not available.')
+      return
+    }
+
+    const form = document.createElement('form')
+    const draft = this._getAssetSourceEntries()
+    if (draft.length === 0) {
+      draft.push({ assetPath: '', source: '' })
+    }
+
+    const syncDraftFromForm = () => {
+      const formData = new FormData(form)
+      const assetPaths = formData.getAll('asset-path')
+      const sources = formData.getAll('asset-source')
+      draft.length = 0
+      for (let i = 0; i < Math.max(assetPaths.length, sources.length); i++) {
+        draft.push({
+          assetPath: String(assetPaths[i] || ''),
+          source: String(sources[i] || ''),
+        })
+      }
+    }
+
+    const renderForm = () => {
+      form.innerHTML = `
+        <p>Map game asset paths to local sources.</p>
+        <fieldset>
+          <legend>Asset sources</legend>
+          <ul>
+            ${draft.map((entry, index) => `
+              <li>
+                <input type="text" name="asset-path" value="${escapeAttribute(entry.assetPath)}" placeholder="/game/example.bin">
+                <input type="text" name="asset-source" value="${escapeAttribute(entry.source)}" placeholder="local:/example/file.bin">
+                <button type="submit" name="remove-entry-index" value="${index}" aria-label="Delete mapping ${index + 1}" title="Delete mapping"><i aria-hidden="true">delete</i></button>
+              </li>
+            `).join('')}
+          </ul>
+        </fieldset>
+        <footer>
+          <button type="submit" name="intent" value="add-entry"><i aria-hidden="true">add</i> Add mapping</button>
+          <button type="submit" name="intent" value="save" class="accent">Save</button>
+        </footer>
+      `
+    }
+
+    const popup = popupManager.showPopup({
+      title: 'Asset Sources',
+      content: form,
+      size: 'medium',
+    })
+
+    form.onsubmit = async (event) => {
+      event.preventDefault()
+      syncDraftFromForm()
+
+      const submitter = event.submitter
+      const formData = new FormData(form, submitter || undefined)
+      const intent = formData.has('remove-entry-index')
+        ? `remove-entry:${String(formData.get('remove-entry-index') || '')}`
+        : String(formData.get('intent') || 'save')
+
+      if (intent === 'add-entry') {
+        draft.push({ assetPath: '', source: '' })
+        renderForm()
+        return
+      }
+
+      if (intent.startsWith('remove-entry:')) {
+        const index = Number(intent.split(':')[1])
+        draft.splice(index, 1)
+        if (draft.length === 0) {
+          draft.push({ assetPath: '', source: '' })
+        }
+        renderForm()
+        return
+      }
+
+      const normalizedEntries = []
+      const seenAssetPaths = new Set()
+      for (const entry of draft) {
+        const assetPath = String(entry.assetPath || '').trim()
+        const source = String(entry.source || '').trim()
+        if (!assetPath && !source) continue
+        if (!assetPath || !source) {
+          toast.error('Each asset mapping needs both a key and a value.')
+          return
+        }
+        if (seenAssetPaths.has(assetPath)) {
+          toast.error(`Duplicate asset path: ${assetPath}`)
+          return
+        }
+        seenAssetPaths.add(assetPath)
+        normalizedEntries.push({ assetPath, source })
+      }
+
+      try {
+        await this._saveAssetSourcesToStorage(normalizedEntries)
+        this._assetSources = new Map(normalizedEntries.map(({ assetPath, source }) => [assetPath, source]))
+        await this._reloadPlugin()
+        toast.success('Saved asset sources.')
+        popup.close()
+      } catch (error) {
+        toast.error(`Failed to save asset sources: ${String(error?.message || error)}`)
+      }
+    }
+
+    renderForm()
   }
 
   _syncControlState() {
@@ -310,7 +504,7 @@ export default class ViewGameRunner extends HTMLElement {
   async _preloadAssets() {
     this._assetCache.clear()
 
-    const entries = Object.entries(GAME_ASSET_SOURCES)
+    const entries = Array.from(this._assetSources.entries())
     if (entries.length === 0) {
       return
     }
