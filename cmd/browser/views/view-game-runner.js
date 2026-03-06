@@ -11,6 +11,10 @@ const FALLBACK_EVENT_OFFSETS = {
 
 const EVENT_TYPE_RESIZED = 14
 
+const GAME_ASSET_SOURCES = {
+  '/game/clear-color.rgb': 'local:/example/floor-16x16.png'
+}
+
 function writeU64(view, offset, value) {
   const lo = value >>> 0
   const hi = Math.floor(value / 0x100000000) >>> 0
@@ -43,6 +47,8 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventOffsets = { ...FALLBACK_EVENT_OFFSETS }
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
+    this._assetCache = new Map()
+    this._textDecoder = new TextDecoder()
     this._headerControls = null
     this._playPauseBtn = null
     this._reloadBtn = null
@@ -91,6 +97,8 @@ export default class ViewGameRunner extends HTMLElement {
       throw new Error('pluginManager is not available')
     }
 
+    await this._preloadAssets()
+
     const gl = this.canvas.getContext('webgl2', {
       alpha: false,
       depth: true,
@@ -112,12 +120,14 @@ export default class ViewGameRunner extends HTMLElement {
 
     this.glBridge = new GLBridge(gl, null)
     const glImports = this.glBridge.createImportObject()
+    const assetImports = this._createAssetImports()
 
     const importObject = {
       env: {
         js_canvas_width: () => this.canvas.width,
         js_canvas_height: () => this.canvas.height,
         js_webgl_framebuffer: () => 0,
+        ...assetImports,
         ...glImports,
       },
     }
@@ -183,6 +193,7 @@ export default class ViewGameRunner extends HTMLElement {
 
     this.exports = null
     this.memory = null
+    this._assetCache.clear()
     this.glBridge = null
     this.gl = null
   }
@@ -294,6 +305,81 @@ export default class ViewGameRunner extends HTMLElement {
     if (this.canvas.height !== fbH) this.canvas.height = fbH
 
     return { cssW, cssH, fbW, fbH, dpr }
+  }
+
+  async _preloadAssets() {
+    this._assetCache.clear()
+
+    const entries = Object.entries(GAME_ASSET_SOURCES)
+    if (entries.length === 0) {
+      return
+    }
+
+    await Promise.all(entries.map(async ([assetPath, source]) => {
+      try {
+        const result = await window.pluginManager.call('fs', 'read', source)
+        if (result.returnCode !== 0) {
+          const message = this._textDecoder.decode(result.output || new Uint8Array())
+          console.warn(`[game-runner] failed to preload ${assetPath} from ${source}: ${message}`)
+          return
+        }
+
+        const bytes = result.output instanceof Uint8Array
+          ? result.output
+          : new Uint8Array(result.output)
+        this._assetCache.set(assetPath, bytes)
+      } catch (error) {
+        console.warn(`[game-runner] failed to preload ${assetPath} from ${source}:`, error)
+      }
+    }))
+  }
+
+  _readWasmUtf8(ptr, len) {
+    if (!this.memory) return ''
+
+    const start = Number(ptr) >>> 0
+    const size = Number(len) >>> 0
+    if (size === 0) return ''
+
+    const end = start + size
+    if (end > this.memory.buffer.byteLength) {
+      return ''
+    }
+
+    return this._textDecoder.decode(new Uint8Array(this.memory.buffer, start, size))
+  }
+
+  _createAssetImports() {
+    return {
+      game_asset_size: (pathPtr, pathLen) => {
+        const path = this._readWasmUtf8(pathPtr, pathLen)
+        if (!path) return -1
+
+        const bytes = this._assetCache.get(path)
+        if (!bytes) return -1
+        return bytes.byteLength
+      },
+
+      game_asset_read: (pathPtr, pathLen, dstPtr, dstCap) => {
+        if (!this.memory) return -1
+
+        const path = this._readWasmUtf8(pathPtr, pathLen)
+        if (!path) return -1
+
+        const bytes = this._assetCache.get(path)
+        if (!bytes) return -1
+
+        const dst = Number(dstPtr) >>> 0
+        const cap = Number(dstCap) >>> 0
+        if (cap < bytes.byteLength) return -2
+
+        const end = dst + bytes.byteLength
+        if (end > this.memory.buffer.byteLength) return -3
+
+        new Uint8Array(this.memory.buffer, dst, bytes.byteLength).set(bytes)
+        return bytes.byteLength
+      },
+    }
   }
 
   _resolveEventOffsets() {
