@@ -63,6 +63,16 @@ const DEFAULT_THEME = {
  */
 export class ViewNodeGraph extends ViewCanvasBase {
   static get viewMeta() { return { displayName: 'Node Graph', category: 'Canvas' } }
+  static get keybindings() {
+    return [
+      { id: 'create-node', eventName: 'node:create', description: 'Create new node', defaultKeys: '<C-n>' },
+      { id: 'delete-node', eventName: 'node:delete', description: 'Delete selected nodes', defaultKeys: '<Del>' },
+      { id: 'run-graph', eventName: 'node:run', description: 'Run node graph', defaultKeys: '<C-CR>' },
+      { id: 'zoom-in', eventName: 'view:zoom-in', description: 'Zoom in', defaultKeys: '<C-=>'},
+      { id: 'zoom-out', eventName: 'view:zoom-out', description: 'Zoom out', defaultKeys: '<C-->' },
+      { id: 'zoom-fit', eventName: 'view:zoom-fit', description: 'Fit view to content', defaultKeys: '<C-0>' }
+    ]
+  }
 
   constructor() {
     super()
@@ -323,29 +333,35 @@ export class ViewNodeGraph extends ViewCanvasBase {
       editBtn.onclick = () => this.showEditNodePopup()
     }
 
-    // Setup keybinding event listeners
-    this.setupKeybindings()
   }
 
   disconnectedCallback() {
     super.disconnectedCallback()
-    // Clean up keybinding listeners
-    if (this.keybindingUnsubscribers) {
-      this.keybindingUnsubscribers.forEach(unsub => unsub())
-      this.keybindingUnsubscribers = []
-    }
   }
 
-  setupKeybindings() {
-    // Store unsubscribe functions for cleanup
-    this.keybindingUnsubscribers = [
-      bus.on('node:create', () => this.addNodeMenu()),
-      bus.on('node:delete', () => this.deleteFocusedNodes()),
-      bus.on('node:run', () => this.executeGraph()),
-      bus.on('view:zoom-in', () => this.zoomIn()),
-      bus.on('view:zoom-out', () => this.zoomOut()),
-      bus.on('view:zoom-fit', () => this.fitGraphToContent()),
-    ]
+  handleKeybinding(eventName) {
+    switch (eventName) {
+      case 'node:create':
+        this.addNodeMenu()
+        return true
+      case 'node:delete':
+        this.deleteFocusedNodes()
+        return true
+      case 'node:run':
+        this.executeGraph()
+        return true
+      case 'view:zoom-in':
+        this.zoomIn()
+        return true
+      case 'view:zoom-out':
+        this.zoomOut()
+        return true
+      case 'view:zoom-fit':
+        this.fitGraphToContent()
+        return true
+      default:
+        return false
+    }
   }
 
   fitGraphToContent() {

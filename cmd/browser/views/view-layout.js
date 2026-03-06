@@ -27,6 +27,15 @@ const HANDLE_SIZE_VAR = "--resize-handle-size"
 
 
 export class LayoutManager extends HTMLElement {
+  static get keybindings() {
+    return [
+      { id: 'open-settings', eventName: 'app:settings', description: 'Open settings', defaultKeys: '<C-,>' },
+      { id: 'save', eventName: 'file:save', description: 'Save current work', defaultKeys: '<C-s>' },
+      { id: 'reload', eventName: 'app:reload', description: 'Reload application', defaultKeys: '<C-r>' },
+      { id: 'close-popup', eventName: 'popup:close', description: 'Close top popup', defaultKeys: '<Esc>' }
+    ]
+  }
+
   constructor() {
     super()
     this.handleSize = 12
@@ -341,6 +350,44 @@ export class LayoutManager extends HTMLElement {
     }
     if (this.tryRectEl) {
       this.tryRectEl.style.display = "none"
+    }
+  }
+
+  handleKeybinding(eventName) {
+    switch (eventName) {
+      case 'app:settings': {
+        const chromes = document.querySelectorAll('view-area')
+        let target = chromes[0] || null
+        const active = document.activeElement
+
+        for (const chrome of chromes) {
+          if (active && chrome.contains(active)) {
+            target = chrome
+            break
+          }
+        }
+
+        if (target) {
+          target.switchView('view-settings')
+        }
+        return true
+      }
+      case 'file:save':
+        bus.emit('file:save')
+        return true
+      case 'app:reload':
+        window.location.reload()
+        return true
+      case 'popup:close': {
+        const popupManager = document.querySelector('popup-manager')
+        if (popupManager && typeof popupManager.closeTopPopup === 'function') {
+          popupManager.closeTopPopup()
+          return true
+        }
+        return false
+      }
+      default:
+        return false
     }
   }
 

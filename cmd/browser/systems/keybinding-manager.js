@@ -1,286 +1,510 @@
-import { bus } from './event-bus.js'
 import { parseCSVLines } from '../util/csv.js'
+import { LayoutManager } from '../views/view-layout.js'
 
-// Configuration
-const SEQUENCE_TIMEOUT = 1000 // milliseconds to wait for next key in sequence
-const DEBUG = true // Enable debug logging for development
+const SEQUENCE_TIMEOUT = 1000
+const DEBUG = true
+const decoder = new TextDecoder()
 
-/**
- * KeybindingManager
- * 
- * Manages keyboard shortcuts using Vim-style key notation.
- * Loads keybindings from SQL database and emits events via event bus.
- * 
- * Features:
- * - Vim-style key notation (<C-s>, <M-j>, gg, etc.)
- * - Mode-based contexts (global, nodegraph, tilemap, etc.)
- * - Multi-key sequences support
- * - Event bus integration for mode switching and event emission
- */
+const BUILTIN_SOURCES = new Map([
+  ['layout', {
+    name: 'layout',
+    url: 'internal:layout',
+    enabled: true,
+    displayName: 'Layout',
+    tag: 'layout-manager'
+  }]
+])
+
 class KeybindingManager {
   constructor() {
-    this.currentMode = 'global'
+    this.enabled = true
     this.keySequence = []
     this.sequenceTimeout = null
-    this.bindings = new Map() // mode -> Map(keys -> binding)
-    this.enabled = true
+    this.sequenceSource = null
+    this.catalog = []
+    this.bindingsById = new Map()
+    this.bindingsBySource = new Map()
+    this.sources = new Map(BUILTIN_SOURCES)
 
-    // Bind methods for event listeners
     this.handleKeyDown = this.handleKeyDown.bind(this)
-    this.handleViewFocus = this.handleViewFocus.bind(this)
   }
 
-  /**
-   * Initialize the keybinding manager
-   * Loads bindings from SQL and sets up event listeners
-   */
   async init() {
     await this.loadBindings()
-
-    // Listen to global keyboard events
     document.addEventListener('keydown', this.handleKeyDown)
 
-    // Listen to view focus changes
-    bus.on('view:focus', this.handleViewFocus)
-
     if (DEBUG) {
-      console.log('[KeybindingManager] Initialized with modes:', Array.from(this.bindings.keys()))
+      console.log('[KeybindingManager] Initialized with sources:', Array.from(this.bindingsBySource.keys()))
     }
   }
 
-  /**
-   * Load keybindings from SQL database
-   */
+  async reloadBindings() {
+    await this.loadBindings()
+  }
+
   async loadBindings() {
+    try {
+      const viewSources = await this.loadViewSources()
+      const defaultBindings = await this.loadDefaultBindings(viewSources)
+      const overrides = await this.loadOverrides()
+      this.buildEffectiveBindings(defaultBindings, overrides, viewSources)
+    } catch (error) {
+      console.error('[KeybindingManager] Failed to load bindings:', error)
+      this.catalog = []
+      this.bindingsById.clear()
+      this.bindingsBySource.clear()
+    }
+  }
+
+  async loadViewSources() {
+    const sources = new Map(BUILTIN_SOURCES)
+
     try {
       const result = await window.pluginManager.call(
         'sql',
         'query',
-        'SELECT id, mode, keys, event_name, event_data, description FROM keybindings WHERE enabled=1'
+        'SELECT name, url, enabled FROM views ORDER BY rowid'
       )
 
-      const decoder = new TextDecoder()
-      const csv = decoder.decode(result.output)
-
-      // Parse CSV (SQL plugin returns CSV format)
-      const lines = parseCSVLines(csv.trim())
-
-      if (lines.length < 2) {
-        if (DEBUG) {
-          console.log('[KeybindingManager] No keybindings found')
-        }
-        return
-      }
-
-      // First line is headers: id,mode,keys,event_name,event_data,description
-      const headers = lines[0]
-
-      // Clear existing bindings
-      this.bindings.clear()
-
-      // Parse data rows
+      const lines = parseCSVLines(decoder.decode(result.output).trim())
       for (let i = 1; i < lines.length; i++) {
         const row = lines[i]
-        if (row.length < 4) continue // Need at least id, mode, keys, event_name
+        if (row.length < 3) continue
 
-        // Parse event_data if it exists and is not NULL
-        let eventData = null
-        if (row[4] && row[4] !== 'NULL' && row[4].trim() !== '') {
-          try {
-            eventData = JSON.parse(row[4])
-          } catch (e) {
-            console.warn(`[KeybindingManager] Failed to parse event_data for binding ${row[0]}:`, e)
-          }
-        }
+        const name = row[0]
+        const url = row[1]
+        const enabled = row[2] === '1'
+        const tag = `view-${name}`
 
-        const binding = {
-          id: row[0],
-          mode: row[1],
-          keys: row[2],
-          eventName: row[3],
-          eventData: eventData,
-          description: row[5] || ''
-        }
-
-        if (!this.bindings.has(binding.mode)) {
-          this.bindings.set(binding.mode, new Map())
-        }
-
-        this.bindings.get(binding.mode).set(binding.keys, binding)
-      }
-
-      if (DEBUG) {
-        console.log('[KeybindingManager] Loaded bindings:', this.bindings)
+        sources.set(name, {
+          name,
+          url,
+          enabled,
+          tag,
+          displayName: name
+        })
       }
     } catch (error) {
-      console.error('[KeybindingManager] Failed to load bindings:', error)
+      console.error('[KeybindingManager] Failed to read views registry:', error)
     }
+
+    this.sources = sources
+    return sources
   }
 
-  /**
-   * Reload bindings from database (useful for runtime updates)
-   */
-  async reloadBindings() {
-    if (DEBUG) {
-      console.log('[KeybindingManager] Reloading bindings...')
-    }
-    await this.loadBindings()
-  }
+  async loadDefaultBindings(sources) {
+    const bindings = []
 
-  /**
-   * Handle view focus changes from event bus
-   */
-  handleViewFocus(data) {
-    if (data && data.mode) {
-      this.setMode(data.mode)
-    }
-  }
-
-  /**
-   * Set current mode (context)
-   */
-  setMode(mode) {
-    if (this.currentMode !== mode) {
-      this.currentMode = mode
-      // Clear any pending sequences when switching modes
-      this.clearSequence()
-
-      if (DEBUG) {
-        console.log(`[KeybindingManager] Mode changed to: ${mode}`)
+    for (const source of sources.values()) {
+      try {
+        const entryBindings = await this.loadBindingsFromSource(source)
+        bindings.push(...entryBindings)
+      } catch (error) {
+        console.error(`[KeybindingManager] Failed loading source '${source.name}':`, error)
       }
     }
+
+    return bindings
   }
 
-  /**
-   * Get current mode
-   */
-  getMode() {
-    return this.currentMode
+  async loadBindingsFromSource(source) {
+    let ViewClass = null
+
+    if (source.name === 'layout') {
+      ViewClass = LayoutManager
+    } else {
+      const mod = await this.importModule(source.url)
+      ViewClass = mod?.default || null
+    }
+
+    if (!ViewClass) return []
+
+    const viewMeta = ViewClass.viewMeta || {}
+    if (viewMeta.displayName) {
+      source.displayName = viewMeta.displayName
+    }
+
+    const defs = Array.isArray(ViewClass.keybindings) ? ViewClass.keybindings : []
+    return defs
+      .filter(def => def && def.eventName)
+      .map((def, index) => {
+        const localId = String(def.id || def.eventName || `binding-${index}`)
+        return {
+          bindingId: `${source.name}.${localId}`,
+          localId,
+          source: source.name,
+          sourceTag: source.tag,
+          sourceDisplayName: source.displayName,
+          sourceEnabled: source.enabled,
+          eventName: def.eventName,
+          description: def.description || '',
+          defaultKeys: def.defaultKeys || '',
+          keys: def.defaultKeys || '',
+          enabled: true
+        }
+      })
   }
 
-  /**
-   * Handle keyboard events
-   */
+  async importModule(url) {
+    if (!url) throw new Error('Missing module URL')
+
+    if (url.startsWith('local:')) {
+      const path = url.slice(6)
+      return import(path)
+    }
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return import(url)
+    }
+
+    const result = await window.pluginManager.call('fs', 'read', url)
+    if (result.returnCode !== 0) {
+      const errMsg = decoder.decode(result.output)
+      throw new Error(`FS read failed: ${errMsg}`)
+    }
+
+    const blob = new Blob([result.output], { type: 'application/javascript' })
+    const blobUrl = URL.createObjectURL(blob)
+    try {
+      return await import(blobUrl)
+    } finally {
+      URL.revokeObjectURL(blobUrl)
+    }
+  }
+
+  async loadOverrides() {
+    const overrides = new Map()
+
+    try {
+      const result = await window.pluginManager.call(
+        'sql',
+        'query',
+        'SELECT binding_id, keys, enabled FROM keybinding_overrides'
+      )
+
+      const lines = parseCSVLines(decoder.decode(result.output).trim())
+      for (let i = 1; i < lines.length; i++) {
+        const row = lines[i]
+        if (row.length < 3) continue
+
+        const rawKeys = row[1]
+        const rawEnabled = row[2]
+        overrides.set(row[0], {
+          keys: rawKeys === 'NULL' ? undefined : rawKeys,
+          enabled: rawEnabled === '1' ? true : (rawEnabled === '0' ? false : undefined)
+        })
+      }
+    } catch (error) {
+      console.warn('[KeybindingManager] Could not load keybinding overrides:', error)
+    }
+
+    return overrides
+  }
+
+  buildEffectiveBindings(defaultBindings, overrides, sources) {
+    this.catalog = []
+    this.bindingsById.clear()
+    this.bindingsBySource.clear()
+
+    for (const base of defaultBindings) {
+      const source = sources.get(base.source)
+      const override = overrides.get(base.bindingId)
+      const effective = {
+        ...base,
+        sourceEnabled: source ? source.enabled : true,
+        keys: override && override.keys !== undefined ? override.keys : base.defaultKeys,
+        enabled: override && override.enabled !== undefined ? override.enabled : true
+      }
+
+      this.catalog.push(effective)
+      this.bindingsById.set(effective.bindingId, effective)
+
+      if (!effective.sourceEnabled || !effective.enabled || !effective.keys) {
+        continue
+      }
+
+      if (!this.bindingsBySource.has(effective.source)) {
+        this.bindingsBySource.set(effective.source, new Map())
+      }
+
+      this.bindingsBySource.get(effective.source).set(effective.keys, effective)
+    }
+
+    this.catalog.sort((a, b) => {
+      if (a.source === b.source) {
+        return a.eventName.localeCompare(b.eventName)
+      }
+      return a.source.localeCompare(b.source)
+    })
+  }
+
+  getKeybindingCatalog() {
+    return this.catalog.map(binding => ({ ...binding }))
+  }
+
+  getSourceStates() {
+    return Array.from(this.sources.values()).map(source => ({
+      name: source.name,
+      tag: source.tag,
+      enabled: source.enabled,
+      displayName: source.displayName || source.name
+    }))
+  }
+
+  async saveOverrides(changes) {
+    const entries = Array.isArray(changes)
+      ? changes
+      : Array.from(changes || []).map(([bindingId, value]) => ({ bindingId, ...value }))
+
+    for (const entry of entries) {
+      if (!entry?.bindingId) continue
+
+      const bindingId = entry.bindingId.replace(/'/g, "''")
+      const keys = entry.keys !== undefined
+        ? `'${String(entry.keys).replace(/'/g, "''")}'`
+        : 'NULL'
+      const enabled = entry.enabled === undefined
+        ? 'NULL'
+        : (entry.enabled ? '1' : '0')
+
+      await window.pluginManager.call(
+        'sql',
+        'exec',
+        `INSERT INTO keybinding_overrides (binding_id, keys, enabled)
+         VALUES ('${bindingId}', ${keys}, ${enabled})
+         ON CONFLICT(binding_id) DO UPDATE SET
+           keys = COALESCE(excluded.keys, keybinding_overrides.keys),
+           enabled = COALESCE(excluded.enabled, keybinding_overrides.enabled)`
+      )
+    }
+
+    await this.reloadBindings()
+  }
+
   handleKeyDown(event) {
     if (!this.enabled) return
-    const el = event.target;
 
+    const el = event.target
     if (
       el instanceof HTMLInputElement ||
       el instanceof HTMLTextAreaElement ||
       el instanceof HTMLSelectElement ||
-      el.isContentEditable
+      el?.isContentEditable
     ) {
-      return;
+      return
     }
 
-    // TODO: Skip if typing in input field (for future enhancement)
-    // For now, let all key events through
-
-    // Normalize the key event to Vim notation
     const key = this.normalizeKey(event)
     if (!key) return
 
-    if (DEBUG) {
-      console.log(`[KeybindingManager] Key pressed: ${key} (mode: ${this.currentMode})`)
+    const focused = this.resolveFocusedSource(event)
+    const primarySource = focused?.source || 'layout'
+
+    if (this.sequenceSource && this.sequenceSource !== primarySource) {
+      this.clearSequence()
     }
 
-    // Add to sequence
+    this.sequenceSource = primarySource
     this.keySequence.push(key)
 
-    // Clear existing timeout
     if (this.sequenceTimeout) {
       clearTimeout(this.sequenceTimeout)
+      this.sequenceTimeout = null
     }
 
-    // Build current sequence string
     const sequenceStr = this.keySequence.join('')
+    const fallbackSource = primarySource === 'layout' ? null : 'layout'
 
-    // Try to match binding in current mode
-    let matched = this.matchBinding(this.currentMode, sequenceStr)
+    let matched = this.matchBinding(primarySource, sequenceStr)
+    let executionTarget = focused?.element || this.getSourceElement(primarySource)
 
-    // If no match in current mode, try global
-    if (!matched && this.currentMode !== 'global') {
-      matched = this.matchBinding('global', sequenceStr)
+    if (!matched && fallbackSource) {
+      matched = this.matchBinding(fallbackSource, sequenceStr)
+      if (matched) {
+        executionTarget = this.getSourceElement(fallbackSource)
+      }
     }
 
     if (matched) {
-      // Found exact match - execute it
-      event.preventDefault()
-      this.executeBinding(matched)
-      this.clearSequence()
-    } else {
-      // Check if this could be the start of a sequence
-      const isPotentialSequence = this.isPotentialSequence(sequenceStr)
-
-      if (isPotentialSequence) {
-        // Wait for next key
+      const handled = this.executeBinding(matched, executionTarget, event)
+      if (handled) {
         event.preventDefault()
-        this.sequenceTimeout = setTimeout(() => {
-          if (DEBUG) {
-            console.log(`[KeybindingManager] Sequence timeout: ${sequenceStr}`)
-          }
-          this.clearSequence()
-        }, SEQUENCE_TIMEOUT)
-      } else {
-        // Not a valid sequence, clear it
-        this.clearSequence()
       }
+      this.clearSequence()
+      return
+    }
+
+    const isPotential = this.isPotentialSequence(sequenceStr, primarySource, fallbackSource)
+    if (isPotential) {
+      event.preventDefault()
+      this.sequenceTimeout = setTimeout(() => {
+        this.clearSequence()
+      }, SEQUENCE_TIMEOUT)
+      return
+    }
+
+    this.clearSequence()
+  }
+
+  resolveFocusedSource(event) {
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : []
+
+    for (const node of path) {
+      const element = this.findViewElement(node)
+      if (!element) continue
+      const source = this.getSourceFromElement(element)
+      if (source) {
+        return { source, element }
+      }
+    }
+
+    const active = this.getDeepActiveElement(document)
+    const fallbackElement = this.findViewElement(active)
+    if (fallbackElement) {
+      const source = this.getSourceFromElement(fallbackElement)
+      if (source) {
+        return { source, element: fallbackElement }
+      }
+    }
+
+    return null
+  }
+
+  getDeepActiveElement(root) {
+    let current = root?.activeElement || null
+    while (current?.shadowRoot?.activeElement) {
+      current = current.shadowRoot.activeElement
+    }
+    return current
+  }
+
+  findViewElement(node) {
+    let current = node instanceof Node ? node : null
+    while (current) {
+      if (current instanceof HTMLElement) {
+        const tag = current.tagName.toLowerCase()
+        if (tag === 'layout-manager') return current
+        if (this.isViewTag(tag)) return current
+      }
+      current = current.parentNode || current.host || null
+    }
+    return null
+  }
+
+  isViewTag(tag) {
+    return tag.startsWith('view-') &&
+      tag !== 'view-area' &&
+      tag !== 'view-popup' &&
+      tag !== 'view--corner' &&
+      tag !== 'view--handle'
+  }
+
+  getSourceFromElement(element) {
+    const tag = element.tagName.toLowerCase()
+    if (tag === 'layout-manager') return 'layout'
+    if (this.isViewTag(tag)) return tag.slice(5)
+    return null
+  }
+
+  getSourceElement(source) {
+    if (source === 'layout') {
+      return document.querySelector('layout-manager')
+    }
+
+    const active = this.getDeepActiveElement(document)
+    const focused = this.findViewElement(active)
+    if (focused && this.getSourceFromElement(focused) === source) {
+      return focused
+    }
+
+    const tag = `view-${source}`
+    return document.querySelector(tag)
+  }
+
+  matchBinding(source, keys) {
+    const sourceBindings = this.bindingsBySource.get(source)
+    if (!sourceBindings) return null
+    return sourceBindings.get(keys) || null
+  }
+
+  isPotentialSequence(sequenceStr, primarySource, fallbackSource) {
+    const candidates = [primarySource]
+    if (fallbackSource) candidates.push(fallbackSource)
+
+    for (const source of candidates) {
+      const sourceBindings = this.bindingsBySource.get(source)
+      if (!sourceBindings) continue
+      for (const [keys] of sourceBindings) {
+        if (keys.startsWith(sequenceStr) && keys !== sequenceStr) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  executeBinding(binding, target, domEvent) {
+    if (!target || typeof target.handleKeybinding !== 'function') {
+      if (DEBUG) {
+        console.warn(`[KeybindingManager] No keybinding handler for ${binding.source}.${binding.eventName}`)
+      }
+      return false
+    }
+
+    if (DEBUG) {
+      console.log(`[KeybindingManager] Executing ${binding.keys} -> ${binding.source}.${binding.eventName}`)
+    }
+
+    try {
+      return target.handleKeybinding(binding.eventName, {
+        binding,
+        domEvent
+      }) !== false
+    } catch (error) {
+      console.error(`[KeybindingManager] Handler failed for ${binding.bindingId}:`, error)
+      return false
     }
   }
 
-  /**
-   * Normalize keyboard event to Vim-style key notation
-   */
   normalizeKey(event) {
     let key = ''
-
-    // Handle modifiers (order: Ctrl, Alt, Shift, Meta)
     const hasCmd = event.metaKey
     const hasAlt = event.altKey
     const hasShift = event.shiftKey
     const hasCtrl = event.ctrlKey
 
-    // For special keys
     const specialKeys = {
-      'Enter': '<CR>',
-      'Escape': '<Esc>',
+      Enter: '<CR>',
+      Escape: '<Esc>',
       ' ': '<Space>',
-      'Tab': '<Tab>',
-      'Backspace': '<BS>',
-      'Delete': '<Del>',
-      'ArrowUp': '<Up>',
-      'ArrowDown': '<Down>',
-      'ArrowLeft': '<Left>',
-      'ArrowRight': '<Right>',
+      Tab: '<Tab>',
+      Backspace: '<BS>',
+      Delete: '<Del>',
+      ArrowUp: '<Up>',
+      ArrowDown: '<Down>',
+      ArrowLeft: '<Left>',
+      ArrowRight: '<Right>'
     }
 
-    // Add F-keys
     for (let i = 1; i <= 12; i++) {
       specialKeys[`F${i}`] = `<F${i}>`
     }
 
-    // Check if it's a special key
     if (specialKeys[event.key]) {
       const baseKey = specialKeys[event.key]
-
-      // Build modifier prefix
       if (hasCmd || hasAlt || hasShift || hasCtrl) {
         key = '<'
         if (hasCmd) key += 'C-'
         if (hasAlt) key += 'M-'
         if (hasShift) key += 'S-'
         if (hasCtrl) key += 'D-'
-        // Remove the angle brackets from special key and add to modifiers
         key += baseKey.slice(1)
       } else {
         key = baseKey
       }
     } else if (hasCmd || hasAlt || hasCtrl) {
-      // It's a regular key with modifiers
       let baseKey = event.key
-
-      // Normalize letter keys to lowercase
       if (baseKey.length === 1 && baseKey >= 'A' && baseKey <= 'Z') {
         baseKey = baseKey.toLowerCase()
       }
@@ -290,12 +514,9 @@ class KeybindingManager {
       if (hasAlt) key += 'M-'
       if (hasShift) key += 'S-'
       if (hasCtrl) key += 'D-'
-      key += baseKey + '>'
+      key += `${baseKey}>`
     } else {
-      // Plain key (for sequences like 'gg', 'G')
       key = event.key
-
-      // Ignore modifier keys by themselves
       if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
         return null
       }
@@ -304,106 +525,28 @@ class KeybindingManager {
     return key
   }
 
-  /**
-   * Match binding for given mode and key sequence
-   */
-  matchBinding(mode, keys) {
-    const modeBindings = this.bindings.get(mode)
-    if (!modeBindings) return null
-
-    return modeBindings.get(keys) || null
-  }
-
-  /**
-   * Check if current sequence could potentially match a binding
-   */
-  isPotentialSequence(sequenceStr) {
-    // Check current mode
-    const modeBindings = this.bindings.get(this.currentMode)
-    if (modeBindings) {
-      for (const [keys] of modeBindings) {
-        if (keys.startsWith(sequenceStr) && keys !== sequenceStr) {
-          return true
-        }
-      }
-    }
-
-    // Check global mode if not already in it
-    if (this.currentMode !== 'global') {
-      const globalBindings = this.bindings.get('global')
-      if (globalBindings) {
-        for (const [keys] of globalBindings) {
-          if (keys.startsWith(sequenceStr) && keys !== sequenceStr) {
-            return true
-          }
-        }
-      }
-    }
-
-    return false
-  }
-
-  /**
-   * Execute a binding by emitting its event
-   */
-  executeBinding(binding) {
-    if (DEBUG) {
-      console.log(`[KeybindingManager] Executing: ${binding.keys} -> ${binding.eventName}`, binding.eventData)
-    }
-
-    // Emit event via event bus
-    bus.emit(binding.eventName, binding.eventData)
-  }
-
-  /**
-   * Clear key sequence
-   */
   clearSequence() {
     this.keySequence = []
+    this.sequenceSource = null
     if (this.sequenceTimeout) {
       clearTimeout(this.sequenceTimeout)
       this.sequenceTimeout = null
     }
   }
 
-  /**
-   * Enable keybinding manager
-   */
   enable() {
     this.enabled = true
   }
 
-  /**
-   * Disable keybinding manager
-   */
   disable() {
     this.enabled = false
     this.clearSequence()
   }
 
-  /**
-   * Get all bindings for a specific mode
-   */
-  getBindingsForMode(mode) {
-    return this.bindings.get(mode) || new Map()
-  }
-
-  /**
-   * Get all bindings
-   */
-  getAllBindings() {
-    return this.bindings
-  }
-
-  /**
-   * Cleanup
-   */
   destroy() {
     document.removeEventListener('keydown', this.handleKeyDown)
-    bus.off('view:focus', this.handleViewFocus)
     this.clearSequence()
   }
 }
 
-// Create and export singleton instance
 export const keybindingManager = new KeybindingManager()
