@@ -2,6 +2,7 @@ import { toast } from '../systems/toast.js'
 import { ViewCanvasBase } from "./view-canvas-base.js";
 import { createWasiPreview1Imports } from "../util/wasi.js";
 import { parseCSVLines } from "../util/csv.js";
+import "./code-editor.js";
 
 function escapeAttribute(value) {
   return String(value ?? "")
@@ -914,10 +915,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
          <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(draft.name)}">
        </label>
        ${isCodeNode ? `
-       <code>
-         <textarea name="code" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(draft.code)}</textarea>
-       </code>
-       <p><small>Node-code runs as Lua. Your code can use <code>inputs</code>, set <code>outputs</code>, and call <code>host.awaitCall(service, method, payloadJson?)</code>.</small></p>
+       <code-editor name="code" lang="lua" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(draft.code)}</code-editor>
        ` : ""}
        ${this._nodeSupportsInputs(draft.kind) ? `
        <fieldset>
@@ -1539,10 +1537,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
          <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
        </label>
        ${isCodeNode ? `
-       <code>
-         <textarea name="code" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>]."></textarea>
-       </code>
-       <p><small>Node-code runs as Lua. Your code can use <code>inputs</code>, set <code>outputs</code>, and call <code>host.awaitCall(service, method, payloadJson?)</code>.</small></p>
+       <code-editor name="code" lang="lua" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>]."></code-editor>
        ` : ""}
        ${this._nodeSupportsInputs(currentNode.kind) ? `
        <fieldset>
@@ -1587,12 +1582,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
      `;
 
       if (isCodeNode) {
-        const textarea = form.querySelector('[name="code"]');
-        if (textarea) {
+        const editor = form.querySelector('code-editor[name="code"]');
+        if (editor) {
           const next = code === null || code === undefined
             ? (this.sourceByNode.get(currentNode.id) || "")
             : String(code);
-          textarea.value = next;
+          editor.value = next;
         }
       }
 

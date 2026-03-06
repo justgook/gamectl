@@ -1,15 +1,25 @@
-# GameCtl
+# GAMS - Game Asset Management System
 
-GameCtl is a browser-based game tooling workbench powered by WebAssembly plugins.
-It combines a modular UI (views), a runtime plugin system, and SQLite-backed state so you can prototype pipelines for tilemaps, sprites, procedural generation, and data workflows in one place.
+GAMS (Game Asset Management System) is a browser-based tooling workbench for game assets, similar in spirit to a CMS but focused on game development workflows.
+It combines a modular UI (views), a runtime WebAssembly plugin system, SQLite-backed state, and integrated file access so you can manage, transform, and test assets without leaving the tool.
 
 ## What It Includes
 
 - Browser IDE shell served from `cmd/browser/`
 - Dynamic WASM plugin loading (Go, C, Zig, Odin)
 - SQL-first runtime state and configuration via the `sql` plugin
+- Built-in game runner view to test assets directly in-game from inside GAMS
+- File system abstraction with OPFS and WebDAV backends
 - Built-in views for node graphs, files, tilemap/sprite tooling, SQL tables/console, settings, and game runner
 - Pipeline-oriented workflow with seeded example pipelines
+
+## Key Capabilities
+
+- **Integrated game runner**: test assets directly in a running game context without switching tools.
+- **SQLite support**: structured local data storage for settings, registries, pipelines, and asset metadata.
+- **Flexible filesystem layer**:
+  - **OPFS (Origin Private File System)**: browser-native persistent storage scoped to your app origin; fast and local-first.
+  - **WebDAV**: network filesystem protocol over HTTP; useful for working with remote/shared storage from the same UI.
 
 ## Architecture At A Glance
 
