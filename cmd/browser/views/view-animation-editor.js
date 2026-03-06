@@ -1662,7 +1662,7 @@ export class ViewAnimationEditor extends AnimationEditorCanvas {
         this.saveData()
         return true
       default:
-        return false
+        return super.handleKeybinding(eventName)
     }
   }
 

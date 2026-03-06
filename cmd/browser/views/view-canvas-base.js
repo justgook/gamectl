@@ -9,6 +9,15 @@ const MAX_SCALE = 3;
  * Uses ResizeObserver on itself to detect size changes from CSS/parent.
  */
 export class ViewCanvasBase extends HTMLElement {
+  static get keybindings() {
+    return [
+      { id: 'save', eventName: 'file:save', description: 'Save current view data', defaultKeys: '<C-s>' },
+      { id: 'zoom-in', eventName: 'view:zoom-in', description: 'Zoom in', defaultKeys: '<C-=>'},
+      { id: 'zoom-out', eventName: 'view:zoom-out', description: 'Zoom out', defaultKeys: '<C-->' },
+      { id: 'zoom-fit', eventName: 'view:zoom-fit', description: 'Fit view to content', defaultKeys: '<C-0>' }
+    ]
+  }
+
   constructor() {
     super();
 
@@ -641,6 +650,25 @@ export class ViewCanvasBase extends HTMLElement {
       if (this.canvas) {
         this.canvas.style.cursor = 'default';
       }
+    }
+  }
+
+  handleKeybinding(eventName) {
+    switch (eventName) {
+      case 'file:save':
+        this.saveData().catch(() => {})
+        return true
+      case 'view:zoom-in':
+        this.zoomIn()
+        return true
+      case 'view:zoom-out':
+        this.zoomOut()
+        return true
+      case 'view:zoom-fit':
+        this.fitToContent()
+        return true
+      default:
+        return false
     }
   }
 }
