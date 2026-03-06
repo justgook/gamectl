@@ -2,6 +2,7 @@
 #include "vendor/sokol_gfx.h"
 #include "vendor/sokol_log.h"
 
+#include "asset_io.h"
 #include "triangle-sapp.glsl.h"
 
 sg_swapchain get_sokol_swapchain(void); // sglue_swapchain or web variant
@@ -14,6 +15,9 @@ static struct {
 } state;
 
 void init(void) {
+  uint8_t *asset_data = NULL;
+  size_t asset_size = 0;
+
   float vertices[] = {0.0f,  0.5f,  0.5f, 1.0f, 0.0f, 0.0f, 1.0f,
                       0.5f,  -0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f,
                       -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 1.0f};
@@ -32,6 +36,14 @@ void init(void) {
   state.pass_action =
       (sg_pass_action){.colors[0] = {.load_action = SG_LOADACTION_CLEAR,
                                      .clear_value = {0.0f, 0.0f, 0.0f, 1.0f}}};
+
+  if (game_asset_read_all("/game/clear-color.rgb", &asset_data, &asset_size) &&
+      asset_size >= 3) {
+    state.pass_action.colors[0].clear_value.r = asset_data[0] / 255.0f;
+    state.pass_action.colors[0].clear_value.g = asset_data[1] / 255.0f;
+    state.pass_action.colors[0].clear_value.b = asset_data[2] / 255.0f;
+  }
+  game_asset_free(asset_data);
 
   state.mouse_y = 0.0f;
   state.window_height = 480;

@@ -38,7 +38,7 @@ all: build
 build: triangle-sapp.glsl.h | $(BUILD_DIR)
 	$(Q)echo "Building native app"
 	$(Q)zig build-exe \
-		osx/sokol_impl.m osx/main.c main.c \
+		osx/sokol_impl.m osx/main.c osx/asset_io_osx.c main.c \
 		-framework Metal -framework MetalKit \
 		-framework Cocoa -framework QuartzCore -framework Foundation \
 		-femit-bin=$(BUILD_DIR)/triangle
@@ -49,7 +49,7 @@ web: $(BUILD_DIR)/web/triangle.wasm $(BUILD_DIR)/web/index.html $(BUILD_DIR)/web
 $(BUILD_DIR)/web/triangle.wasm: triangle-sapp.glsl.h web/main.c main.c | $(BUILD_DIR)/web
 	$(Q)echo "Building web wasm"
 	$(Q)zig build-exe \
-		web/main.c main.c \
+		web/main.c web/asset_io_web.c main.c \
 		-target wasm32-freestanding \
 		-fno-entry \
 		-rdynamic \
