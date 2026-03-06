@@ -386,11 +386,7 @@ export class ViewSettings extends HTMLElement {
       return
     }
 
-    const commonMap = this.collectCommonBindings(filtered)
-    const commonBindings = []
-    commonMap.forEach(arr => {
-      commonBindings.push(...arr)
-    })
+    const commonBindings = this.collectCommonBindings(filtered)
 
     if (commonBindings.length > 0) {
       const commonSection = document.createElement('details')
@@ -402,12 +398,12 @@ export class ViewSettings extends HTMLElement {
 
       const commonTable = document.createElement('table')
       const commonHead = document.createElement('thead')
-      commonHead.innerHTML = '<tr><th>On</th><th>Event</th><th>Description</th><th>Key</th><th>View</th></tr>'
+      commonHead.innerHTML = '<tr><th>On</th><th>Event</th><th>Description</th><th>Key</th></tr>'
       commonTable.appendChild(commonHead)
 
       const commonBody = document.createElement('tbody')
       for (const binding of commonBindings) {
-        commonBody.appendChild(this.createKeybindingRow(binding, listContainer, true))
+        commonBody.appendChild(this.createKeybindingRow(binding, listContainer))
       }
       commonTable.appendChild(commonBody)
 
@@ -463,21 +459,93 @@ export class ViewSettings extends HTMLElement {
       byEvent.get(binding.eventName).push(binding)
     }
 
-    const common = new Map()
+    const common = []
     for (const [eventName, rows] of byEvent) {
       const sourceSet = new Set(rows.map(r => r.source))
       if (sourceSet.size > 1) {
-        common.set(eventName, rows)
+        common.push(this.createCommonBindingRow(eventName, rows))
       }
     }
 
     return common
   }
 
-  createKeybindingRow(binding, listContainer, includeSource = false) {
+  createCommonBindingRow(eventName, rows) {
+    const reference = rows[0]
+    const currentKeys = this.pickRepresentativeValue(rows, (binding) => this.getBindingCurrentKeys(binding))
+    const currentDescription = this.pickRepresentativeValue(rows, (binding) => binding.description)
+    const enabledStates = rows.map((binding) => this.getBindingCurrentEnabled(binding))
+
+    return {
+      id: `common:${eventName}`,
+      eventName,
+      description: currentDescription || reference.description,
+      keys: currentKeys,
+      defaultKeys: reference.defaultKeys,
+      enabled: enabledStates.some(Boolean),
+      sourceEnabled: rows.every((binding) => binding.sourceEnabled),
+      bindings: rows
+    }
+  }
+
+  pickRepresentativeValue(bindings, getter) {
+    let fallback = ''
+    const counts = new Map()
+    for (const binding of bindings) {
+      const value = getter(binding) ?? ''
+      if (!fallback) fallback = value ?? ''
+      counts.set(value, (counts.get(value) || 0) + 1)
+    }
+
+    let winner = fallback
+    let winnerCount = -1
+    for (const [value, count] of counts) {
+      if (!value) continue
+      if (count > winnerCount) {
+        winner = value
+        winnerCount = count
+      }
+    }
+
+    if (winnerCount >= 0) return winner
+    return fallback
+  }
+
+  getBindingCurrentKeys(binding) {
     const changes = this.keybindings.pendingChanges.get(binding.id) || {}
-    const currentKeys = changes.keys ?? binding.keys
-    const currentEnabled = changes.enabled ?? binding.enabled
+    return changes.keys ?? binding.keys
+  }
+
+  getBindingCurrentEnabled(binding) {
+    const changes = this.keybindings.pendingChanges.get(binding.id) || {}
+    return changes.enabled ?? binding.enabled
+  }
+
+  ensurePendingChange(bindingId) {
+    if (!this.keybindings.pendingChanges.has(bindingId)) {
+      this.keybindings.pendingChanges.set(bindingId, {})
+    }
+    return this.keybindings.pendingChanges.get(bindingId)
+  }
+
+  getBindingTargets(binding) {
+    return Array.isArray(binding.bindings) && binding.bindings.length > 0
+      ? binding.bindings
+      : [binding]
+  }
+
+  createKeybindingRow(binding, listContainer) {
+    const targets = this.getBindingTargets(binding)
+    const currentKeys = Array.isArray(binding.bindings)
+      ? this.pickRepresentativeValue(targets, (target) => this.getBindingCurrentKeys(target))
+      : this.getBindingCurrentKeys(binding)
+    const currentEnabled = Array.isArray(binding.bindings)
+      ? targets.some((target) => this.getBindingCurrentEnabled(target))
+      : this.getBindingCurrentEnabled(binding)
+    const enabledMixed = Array.isArray(binding.bindings)
+      ? targets.some((target) => this.getBindingCurrentEnabled(target)) && targets.some((target) => !this.getBindingCurrentEnabled(target))
+      : false
+    const sourceEnabled = targets.every((target) => target.sourceEnabled)
 
     const tr = document.createElement('tr')
 
@@ -485,10 +553,12 @@ export class ViewSettings extends HTMLElement {
     const checkbox = document.createElement('input')
     checkbox.type = 'checkbox'
     checkbox.checked = currentEnabled
-    checkbox.disabled = !binding.sourceEnabled
+    checkbox.indeterminate = enabledMixed
+    checkbox.disabled = !sourceEnabled
     checkbox.addEventListener('change', () => {
-      if (!this.keybindings.pendingChanges.has(binding.id)) this.keybindings.pendingChanges.set(binding.id, {})
-      this.keybindings.pendingChanges.get(binding.id).enabled = checkbox.checked
+      for (const target of targets) {
+        this.ensurePendingChange(target.id).enabled = checkbox.checked
+      }
     })
     enabledCell.appendChild(checkbox)
     tr.appendChild(enabledCell)
@@ -505,19 +575,20 @@ export class ViewSettings extends HTMLElement {
     const keysBtn = document.createElement('button')
     keysBtn.textContent = currentKeys || '-'
     keysBtn.title = 'Click to rebind'
-    keysBtn.disabled = !binding.sourceEnabled
+    keysBtn.disabled = !sourceEnabled
     keysBtn.addEventListener('click', () => this.startCapture(binding, keysBtn, listContainer))
     const clearBtn = document.createElement('button')
     clearBtn.title = 'Clear key assignment'
     clearBtn.setAttribute('aria-label', 'Clear key assignment')
-    clearBtn.disabled = !binding.sourceEnabled
+    clearBtn.disabled = !sourceEnabled
     const clearIcon = document.createElement('i')
     clearIcon.setAttribute('aria-hidden', 'true')
     clearIcon.textContent = 'delete'
     clearBtn.appendChild(clearIcon)
     clearBtn.addEventListener('click', () => {
-      if (!this.keybindings.pendingChanges.has(binding.id)) this.keybindings.pendingChanges.set(binding.id, {})
-      this.keybindings.pendingChanges.get(binding.id).keys = ''
+      for (const target of targets) {
+        this.ensurePendingChange(target.id).keys = ''
+      }
       this.renderKeybindingsList(listContainer)
     })
 
@@ -527,12 +598,6 @@ export class ViewSettings extends HTMLElement {
     keyButtons.appendChild(clearBtn)
     keysCell.appendChild(keyButtons)
     tr.appendChild(keysCell)
-
-    if (includeSource) {
-      const sourceCell = document.createElement('td')
-      sourceCell.textContent = binding.sourceDisplayName
-      tr.appendChild(sourceCell)
-    }
 
     return tr
   }
@@ -551,8 +616,9 @@ export class ViewSettings extends HTMLElement {
       const key = this.normalizeKey(e)
       if (!key) return
 
-      if (!this.keybindings.pendingChanges.has(binding.id)) this.keybindings.pendingChanges.set(binding.id, {})
-      this.keybindings.pendingChanges.get(binding.id).keys = key
+      for (const target of this.getBindingTargets(binding)) {
+        this.ensurePendingChange(target.id).keys = key
+      }
 
       this.stopCapture()
       this.renderKeybindingsList(listContainer)
