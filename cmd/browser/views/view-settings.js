@@ -315,37 +315,23 @@ export class ViewSettings extends HTMLElement {
   }
 
   async loadKeybindings() {
-    try {
-      const result = await window.pluginManager.call(
-        'sql', 'query',
-        'SELECT id, mode, keys, event_name, event_data, description, enabled FROM keybindings ORDER BY mode, keys'
-      )
-      const csv = decoder.decode(result.output)
-      const lines = parseCSVLines(csv.trim())
-
-      if (lines.length < 2) {
-        this.keybindings.bindings = []
-        return
-      }
-
+    const manager = window.keybindingManager
+    if (!manager || typeof manager.getKeybindingCatalog !== 'function') {
       this.keybindings.bindings = []
-      for (let i = 1; i < lines.length; i++) {
-        const row = lines[i]
-        if (row.length < 7) continue
-        this.keybindings.bindings.push({
-          id: parseInt(row[0]),
-          mode: row[1],
-          keys: row[2],
-          eventName: row[3],
-          eventData: row[4] || '',
-          description: row[5] || '',
-          enabled: row[6] === '1'
-        })
-      }
-    } catch (err) {
-      console.error('[ViewSettings] Failed to load keybindings:', err)
-      this.keybindings.bindings = []
+      return
     }
+
+    this.keybindings.bindings = manager.getKeybindingCatalog().map(binding => ({
+      id: binding.bindingId,
+      source: binding.source,
+      sourceDisplayName: binding.sourceDisplayName,
+      sourceEnabled: binding.sourceEnabled,
+      eventName: binding.eventName,
+      keys: binding.keys,
+      defaultKeys: binding.defaultKeys,
+      description: binding.description,
+      enabled: binding.enabled
+    }))
   }
 
   renderKeybindings(content) {
@@ -380,30 +366,76 @@ export class ViewSettings extends HTMLElement {
   renderKeybindingsList(listContainer) {
     listContainer.innerHTML = ''
 
-    const groups = new Map()
-    for (const b of this.keybindings.bindings) {
-      if (this.keybindings.filterText) {
-        const haystack = `${b.mode} ${b.keys} ${b.eventName} ${b.description}`.toLowerCase()
-        if (!haystack.includes(this.keybindings.filterText)) continue
+    const filtered = []
+    for (const binding of this.keybindings.bindings) {
+      if (!this.keybindings.filterText) {
+        filtered.push(binding)
+        continue
       }
 
-      if (!groups.has(b.mode)) groups.set(b.mode, [])
-      groups.get(b.mode).push(b)
+      const haystack = `${binding.sourceDisplayName} ${binding.source} ${binding.keys} ${binding.eventName} ${binding.description}`.toLowerCase()
+      if (haystack.includes(this.keybindings.filterText)) {
+        filtered.push(binding)
+      }
     }
 
-    if (groups.size === 0) {
+    if (filtered.length === 0) {
       const empty = document.createElement('div')
       empty.textContent = this.keybindings.filterText ? 'No matching keybindings' : 'No keybindings defined'
       listContainer.appendChild(empty)
       return
     }
 
-    for (const [mode, bindings] of groups) {
+    const commonMap = this.collectCommonBindings(filtered)
+    const commonBindings = []
+    commonMap.forEach(arr => {
+      commonBindings.push(...arr)
+    })
+
+    if (commonBindings.length > 0) {
+      const commonSection = document.createElement('details')
+      commonSection.open = true
+
+      const commonSummary = document.createElement('summary')
+      commonSummary.textContent = 'Common'
+      commonSection.appendChild(commonSummary)
+
+      const commonTable = document.createElement('table')
+      const commonHead = document.createElement('thead')
+      commonHead.innerHTML = '<tr><th>On</th><th>Event</th><th>Description</th><th>Key</th><th>View</th></tr>'
+      commonTable.appendChild(commonHead)
+
+      const commonBody = document.createElement('tbody')
+      for (const binding of commonBindings) {
+        commonBody.appendChild(this.createKeybindingRow(binding, listContainer, true))
+      }
+      commonTable.appendChild(commonBody)
+
+      commonSection.appendChild(commonTable)
+      listContainer.appendChild(commonSection)
+    }
+
+    const groups = new Map()
+    for (const binding of filtered) {
+      if (!groups.has(binding.source)) {
+        groups.set(binding.source, {
+          source: binding.source,
+          sourceDisplayName: binding.sourceDisplayName,
+          sourceEnabled: binding.sourceEnabled,
+          bindings: []
+        })
+      }
+      groups.get(binding.source).bindings.push(binding)
+    }
+
+    for (const group of groups.values()) {
       const section = document.createElement('details')
       section.open = true
 
       const summary = document.createElement('summary')
-      summary.textContent = mode
+      summary.textContent = group.sourceEnabled
+        ? group.sourceDisplayName
+        : `${group.sourceDisplayName} (disabled)`
       section.appendChild(summary)
 
       const table = document.createElement('table')
@@ -412,7 +444,7 @@ export class ViewSettings extends HTMLElement {
       table.appendChild(thead)
 
       const tbody = document.createElement('tbody')
-      for (const binding of bindings) {
+      for (const binding of group.bindings) {
         tbody.appendChild(this.createKeybindingRow(binding, listContainer))
       }
       table.appendChild(tbody)
@@ -422,7 +454,27 @@ export class ViewSettings extends HTMLElement {
     }
   }
 
-  createKeybindingRow(binding, listContainer) {
+  collectCommonBindings(bindings) {
+    const byEvent = new Map()
+    for (const binding of bindings) {
+      if (!byEvent.has(binding.eventName)) {
+        byEvent.set(binding.eventName, [])
+      }
+      byEvent.get(binding.eventName).push(binding)
+    }
+
+    const common = new Map()
+    for (const [eventName, rows] of byEvent) {
+      const sourceSet = new Set(rows.map(r => r.source))
+      if (sourceSet.size > 1) {
+        common.set(eventName, rows)
+      }
+    }
+
+    return common
+  }
+
+  createKeybindingRow(binding, listContainer, includeSource = false) {
     const changes = this.keybindings.pendingChanges.get(binding.id) || {}
     const currentKeys = changes.keys ?? binding.keys
     const currentEnabled = changes.enabled ?? binding.enabled
@@ -433,6 +485,7 @@ export class ViewSettings extends HTMLElement {
     const checkbox = document.createElement('input')
     checkbox.type = 'checkbox'
     checkbox.checked = currentEnabled
+    checkbox.disabled = !binding.sourceEnabled
     checkbox.addEventListener('change', () => {
       if (!this.keybindings.pendingChanges.has(binding.id)) this.keybindings.pendingChanges.set(binding.id, {})
       this.keybindings.pendingChanges.get(binding.id).enabled = checkbox.checked
@@ -452,10 +505,12 @@ export class ViewSettings extends HTMLElement {
     const keysBtn = document.createElement('button')
     keysBtn.textContent = currentKeys || '-'
     keysBtn.title = 'Click to rebind'
+    keysBtn.disabled = !binding.sourceEnabled
     keysBtn.addEventListener('click', () => this.startCapture(binding, keysBtn, listContainer))
     const clearBtn = document.createElement('button')
     clearBtn.title = 'Clear key assignment'
     clearBtn.setAttribute('aria-label', 'Clear key assignment')
+    clearBtn.disabled = !binding.sourceEnabled
     const clearIcon = document.createElement('i')
     clearIcon.setAttribute('aria-hidden', 'true')
     clearIcon.textContent = 'delete'
@@ -472,6 +527,12 @@ export class ViewSettings extends HTMLElement {
     keyButtons.appendChild(clearBtn)
     keysCell.appendChild(keyButtons)
     tr.appendChild(keysCell)
+
+    if (includeSource) {
+      const sourceCell = document.createElement('td')
+      sourceCell.textContent = binding.sourceDisplayName
+      tr.appendChild(sourceCell)
+    }
 
     return tr
   }
@@ -567,21 +628,24 @@ export class ViewSettings extends HTMLElement {
   }
 
   async saveKeybindings() {
+    const manager = window.keybindingManager
+    if (!manager || typeof manager.saveOverrides !== 'function') {
+      toast.error('Keybinding manager unavailable')
+      return
+    }
+
     try {
-      for (const [id, changes] of this.keybindings.pendingChanges) {
-        const parts = []
-        if (changes.keys !== undefined) parts.push(`keys='${changes.keys.replace(/'/g, "''")}'`)
-        if (changes.enabled !== undefined) parts.push(`enabled=${changes.enabled ? 1 : 0}`)
-        if (parts.length > 0) {
-          await window.pluginManager.call('sql', 'exec', `UPDATE keybindings SET ${parts.join(', ')} WHERE id=${id}`)
-        }
+      const changes = []
+      for (const [bindingId, change] of this.keybindings.pendingChanges) {
+        changes.push({ bindingId, ...change })
       }
+
+      await manager.saveOverrides(changes)
 
       this.keybindings.pendingChanges.clear()
       await this.loadKeybindings()
       this.render()
 
-      if (window.keybindingManager) await window.keybindingManager.reloadBindings()
       toast.success('Keybindings saved')
     } catch (err) {
       console.error('[ViewSettings] Keybindings save failed:', err)

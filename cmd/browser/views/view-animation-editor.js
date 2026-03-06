@@ -1178,6 +1178,15 @@ class AnimationPreview {
  */
 export class ViewAnimationEditor extends AnimationEditorCanvas {
   static get viewMeta() { return { displayName: 'Animation Editor', category: 'Animation' } }
+  static get keybindings() {
+    return [
+      { id: 'playback-toggle', eventName: 'animation:playback:toggle', description: 'Play/pause animation', defaultKeys: '<Space>' },
+      { id: 'frame-delete', eventName: 'animation:frame:delete', description: 'Delete selected frames', defaultKeys: '<Del>' },
+      { id: 'frame-select-all', eventName: 'animation:frame:select-all', description: 'Select all frames', defaultKeys: '<C-a>' },
+      { id: 'save-animation', eventName: 'animation:save', description: 'Save animation', defaultKeys: '<C-s>' },
+      { id: 'selection-clear', eventName: 'animation:selection:clear', description: 'Clear selection', defaultKeys: '<Esc>' }
+    ]
+  }
 
   static get observedAttributes() {
     return ['data-spritesheet', 'data-start-frame']
@@ -1632,6 +1641,29 @@ export class ViewAnimationEditor extends AnimationEditorCanvas {
 
     this.frameListPanel.setFrames(this.animation.frames)
     this._updatePreview()
+  }
+
+  handleKeybinding(eventName) {
+    switch (eventName) {
+      case 'animation:playback:toggle':
+        this.animationPreview.toggle()
+        return true
+      case 'animation:frame:delete':
+        this.frameListPanel.removeSelected()
+        return true
+      case 'animation:frame:select-all':
+        this.frameListPanel.selectAll()
+        return true
+      case 'animation:selection:clear':
+        this.frameListPanel.clearSelection()
+        this.clearSelection()
+        return true
+      case 'animation:save':
+        this.saveData()
+        return true
+      default:
+        return false
+    }
   }
 
   getViewMode() {

@@ -253,24 +253,6 @@ import { keybindingManager } from "./systems/keybinding-manager.js"
 await keybindingManager.init()
 window.keybindingManager = keybindingManager // Expose for debugging
 
-// Wire app:settings keybinding (Ctrl+,) to open settings view
-eventBus.on('app:settings', () => {
-  // Find the focused chrome panel, or fall back to the first one
-  const chromes = document.querySelectorAll('view-area')
-  let target = chromes[0]
-  for (const chrome of chromes) {
-    const slot = chrome.shadowRoot?.querySelector('slot:not([name])')
-    const assigned = slot?.assignedElements?.()[0]
-    if (assigned && document.activeElement && chrome.contains(document.activeElement)) {
-      target = chrome
-      break
-    }
-  }
-  if (target) {
-    target.switchView('view-settings')
-  }
-})
-
 splashStatus('Ready')
 toast.success("App is ready")
 
