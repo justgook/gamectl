@@ -151,8 +151,10 @@ all: browser
 .PHONY: plugins-release
 plugins-release: $(PLUGIN_TARGETS)
 
+GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
+
 # Rule to build Go plugins
-$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/*.go) | $(BUILD_DIR)/plugins
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/*.go) $(GO_PLUGIN_SHARED_DEPS) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Go plugin $*..."
 	$(Q)GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o $@ ./$(PLUGIN_DIR)/$*/
 

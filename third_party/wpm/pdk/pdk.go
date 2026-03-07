@@ -1,0 +1,121 @@
+package pdk
+
+import (
+	"fmt"
+	"unsafe"
+)
+
+//go:wasmimport env alloc
+func alloc(size uint64) uint32
+
+//go:wasmimport env free
+func free(ptr uint32)
+
+//go:wasmimport env input_ptr
+func inputPtr() uint32
+
+//go:wasmimport env input_len
+func inputLen() uint32
+
+//go:wasmimport env set_output
+func setOutput(ptr uint32, len uint32)
+
+//go:wasmimport env plugin_call
+func pluginCall(modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen uint32) uint32
+
+//go:wasmimport env plugin_call_return
+func pluginCallReturn() int32
+
+//go:wasmimport env plugin_call_output_ptr
+func pluginCallOutputPtr() uint32
+
+//go:wasmimport env plugin_call_output_len
+func pluginCallOutputLen() uint32
+
+func Alloc(size uint64) uint32 { return alloc(size) }
+
+func Free(ptr uint32) { free(ptr) }
+
+func InputPtr() uint32 { return inputPtr() }
+
+func InputLen() uint32 { return inputLen() }
+
+func SetOutput(ptr uint32, len uint32) { setOutput(ptr, len) }
+
+func InputInfo() (ptr uint32, len uint32) {
+	return inputPtr(), inputLen()
+}
+
+func Input() []byte {
+	ptr, len := InputInfo()
+	return ptrToBytes(ptr, len)
+}
+
+func Output(data []byte) {
+	outPtr := Alloc(uint64(len(data)))
+	if len(data) > 0 {
+		outBuf := ptrToBytes(outPtr, uint32(len(data)))
+		copy(outBuf, data)
+	}
+	SetOutput(outPtr, uint32(len(data)))
+}
+
+func Call(moduleName, functionName string, input []byte) (int32, []byte, error) {
+	modulePtr := Alloc(uint64(len(moduleName)))
+	moduleBuf := ptrToBytes(modulePtr, uint32(len(moduleName)))
+	copy(moduleBuf, moduleName)
+
+	funcPtr := Alloc(uint64(len(functionName)))
+	funcBuf := ptrToBytes(funcPtr, uint32(len(functionName)))
+	copy(funcBuf, functionName)
+
+	var inPtr uint32
+	if len(input) > 0 {
+		inPtr = Alloc(uint64(len(input)))
+		inBuf := ptrToBytes(inPtr, uint32(len(input)))
+		copy(inBuf, input)
+	}
+
+	result := pluginCall(
+		modulePtr, uint32(len(moduleName)),
+		funcPtr, uint32(len(functionName)),
+		inPtr, uint32(len(input)),
+	)
+
+	Free(modulePtr)
+	Free(funcPtr)
+	if inPtr != 0 {
+		Free(inPtr)
+	}
+
+	if result != 0 {
+		return 0, nil, fmt.Errorf("plugin call failed with code %d", result)
+	}
+
+	returnValue := pluginCallReturn()
+	outputPtr := pluginCallOutputPtr()
+	outputLen := pluginCallOutputLen()
+
+	var output []byte
+	if outputLen > 0 {
+		output = make([]byte, outputLen)
+		copy(output, ptrToBytes(outputPtr, outputLen))
+	}
+
+	return returnValue, output, nil
+}
+
+func CallPlugin(pluginName, functionName string, input []byte) (int32, []byte, error) {
+	return Call(pluginName, functionName, input)
+}
+
+func CallHost(functionName string, input []byte) (int32, []byte, error) {
+	return Call("host", functionName, input)
+}
+
+func ptrToBytes(ptr uint32, length uint32) []byte {
+	if ptr == 0 || length == 0 {
+		return nil
+	}
+	return unsafe.Slice((*byte)(unsafe.Pointer(uintptr(ptr))), int(length))
+}

@@ -65,15 +65,15 @@ static size_t strlen(const char *s) {
 
 // Reduced sizes for smaller WASM - adjust as needed
 #ifndef STBTE_MAX_TILEMAP_X
-#define STBTE_MAX_TILEMAP_X 64
+#define STBTE_MAX_TILEMAP_X 256
 #endif
 
 #ifndef STBTE_MAX_TILEMAP_Y
-#define STBTE_MAX_TILEMAP_Y 64
+#define STBTE_MAX_TILEMAP_Y 256
 #endif
 
 #ifndef STBTE_MAX_LAYERS
-#define STBTE_MAX_LAYERS 4
+#define STBTE_MAX_LAYERS 8
 #endif
 
 #ifndef STBTE_MAX_CATEGORIES

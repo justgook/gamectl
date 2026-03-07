@@ -1,13 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"image"
+	"image/png"
 	"math"
 	"sort"
 
-	"github.com/justgook/gamectl/pkg/pluginimg"
+	"github.com/justgook/gamectl/pkg/qoi"
 	"github.com/justgook/gamectl/pkg/tilemap"
 	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/wpm/pdk"
@@ -120,11 +122,42 @@ func logMsg(msg string) {
 }
 
 func loadImage(path string) (*image.NRGBA, error) {
-	return pluginimg.LoadNRGBA(path)
+	data, err := fsRead(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var img image.Image
+
+	if len(data) >= 4 && string(data[:4]) == "qoif" {
+		img, err = qoi.Decode(bytes.NewReader(data))
+	} else {
+		img, err = png.Decode(bytes.NewReader(data))
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if nrgba, ok := img.(*image.NRGBA); ok {
+		return nrgba, nil
+	}
+
+	bounds := img.Bounds()
+	nrgba := image.NewNRGBA(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			nrgba.Set(x, y, img.At(x, y))
+		}
+	}
+	return nrgba, nil
 }
 
 func saveImage(path string, img *image.NRGBA) error {
-	return pluginimg.SaveNRGBA(path, img, "qoi")
+	var buf bytes.Buffer
+	if err := qoi.Encode(&buf, img); err != nil {
+		return err
+	}
+	return fsWrite(path, buf.Bytes())
 }
 
 // =============================================================================

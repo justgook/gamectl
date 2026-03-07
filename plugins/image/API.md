@@ -418,7 +418,26 @@ Response:
 Notes:
 
 - v1 returns pixel bytes inline as base64 in `data`
-- if needed later, a `read_pixels_bin` export can return raw bytes directly
+
+### `read_pixels_bin`
+
+Read raw pixel bytes from a handle as direct binary output.
+
+Request:
+
+```json
+{"src":1}
+```
+
+Response:
+
+- raw `rgba8` bytes only
+- response length is `width * height * 4`
+
+Notes:
+
+- intended for plugin-to-plugin communication where JSON base64 overhead is too high
+- callers should obtain dimensions from `open` or `info`
 
 ### `write_pixels`
 
