@@ -107,6 +107,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
         <button data-tool="3" title="Eyedropper tool" aria-label="Eyedropper tool">
           <i aria-hidden="true">colorize</i>
         </button>
+        <button data-tool="4" title="Paste tool" aria-label="Paste tool">
+          <i aria-hidden="true">content_paste</i>
+        </button>
       </div>
       <span role="separator" aria-hidden="true"></span>
       <button data-id="undo-btn" title="Undo" aria-label="Undo">
@@ -120,9 +123,6 @@ export default class ViewStbEditor extends ViewCanvasBase {
       </button>
       <button data-id="copy-btn" title="Copy" aria-label="Copy">
         <i aria-hidden="true">content_copy</i>
-      </button>
-      <button data-id="paste-btn" title="Paste" aria-label="Paste">
-        <i aria-hidden="true">content_paste</i>
       </button>
       <button data-id="clear-btn" title="Clear map" aria-label="Clear map">
         <i aria-hidden="true">delete_sweep</i>
@@ -337,6 +337,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
     if (this.showDragPreview) {
       this.drawDragPreview(ctx)
     }
+
+    this.drawSelectionOverlay(ctx)
   }
 
   zoom(x, y, factor) {
@@ -363,6 +365,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
       'stbte_offset_layer_locked', 'stbte_offset_tileinfo_id',
       'stbte_offset_tileinfo_layermask', 'stbte_offset_tileinfo_category_id',
       'stbte_offset_ui_tool', 'stbte_offset_ui_has_selection',
+      'stbte_offset_ui_select_x0', 'stbte_offset_ui_select_y0',
+      'stbte_offset_ui_select_x1', 'stbte_offset_ui_select_y1',
       'stbte_offset_ui_has_copy'
     ]
 
@@ -627,6 +631,24 @@ export default class ViewStbEditor extends ViewCanvasBase {
   getCurrentTile() { return this.readTilemap(this.offsets.tm_cur_tile, 'i32') }
   canUndo() { return this.readTilemap(this.offsets.tm_undo_available, 'i8') !== 0 }
   canRedo() { return this.readTilemap(this.offsets.tm_redo_available, 'i8') !== 0 }
+  hasSelection() { return this.exports && this.uiPtr ? this.readUI(this.offsets.ui_has_selection, 'i32') !== 0 : false }
+
+  getSelectionRect() {
+    if (!this.hasSelection()) return null
+
+    const x0 = this.readUI(this.offsets.ui_select_x0, 'i32')
+    const y0 = this.readUI(this.offsets.ui_select_y0, 'i32')
+    const x1 = this.readUI(this.offsets.ui_select_x1, 'i32')
+    const y1 = this.readUI(this.offsets.ui_select_y1, 'i32')
+    if (![x0, y0, x1, y1].every(Number.isFinite)) return null
+
+    return {
+      x0: this.clamp(Math.min(x0, x1), 0, this.mapWidth - 1),
+      y0: this.clamp(Math.min(y0, y1), 0, this.mapHeight - 1),
+      x1: this.clamp(Math.max(x0, x1), 0, this.mapWidth - 1),
+      y1: this.clamp(Math.max(y0, y1), 0, this.mapHeight - 1)
+    }
+  }
 
   bindEditorControls() {
     this.headerControlButtons('[data-tool]').forEach((btn) => {
@@ -634,6 +656,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
         if (!this.exports || !this.tilemap) return
         this.currentTool = parseInt(btn.dataset.tool, 10)
         this.exports.stbte_set_tool(this.tilemap, this.currentTool)
+        this.draw()
         this.updateControlStates()
         this.updateMetadata()
       }
@@ -662,14 +685,6 @@ export default class ViewStbEditor extends ViewCanvasBase {
       this.exports.stbte_copy(this.tilemap)
       this.updateMetadata()
       this.log('Copied selection')
-    }
-
-    this.headerControl('paste-btn').onclick = () => {
-      if (!this.exports || !this.tilemap) return
-      const cx = Math.floor(this.mapWidth / 2)
-      const cy = Math.floor(this.mapHeight / 2)
-      this.exports.stbte_paste(this.tilemap, cx, cy)
-      this.postAction()
     }
 
     this.headerControl('clear-btn').onclick = () => {
@@ -809,7 +824,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       return
     }
 
-    if (this.currentTool === 1 || this.currentTool === 2) {
+    if (this.currentTool === 1 || this.currentTool === 2 || this.currentTool === 4) {
       this.exports.stbte_apply(this.tilemap, x, y, x, y)
       this.renderMap()
       this.draw()
@@ -1045,7 +1060,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   updateMetadata() {
-    const toolNames = ['Select', 'Brush', 'Erase', 'Eyedropper']
+    const toolNames = ['Select', 'Brush', 'Erase', 'Eyedropper', 'Paste']
     const meta = {
       map: `${this.mapWidth} x ${this.mapHeight}`,
       layers: String(this.layers),
@@ -1165,6 +1180,35 @@ export default class ViewStbEditor extends ViewCanvasBase {
     ctx.lineWidth = 2 / Math.max(this.scale, 0.0001)
     ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2)
     ctx.lineWidth = 1 / Math.max(this.scale, 0.0001)
+  }
+
+  drawSelectionOverlay(ctx) {
+    if (this.showDragPreview) return
+
+    const selection = this.getSelectionRect()
+    if (!selection) return
+
+    const px = selection.x0 * this.tileSize
+    const py = selection.y0 * this.tileSize
+    const pw = (selection.x1 - selection.x0 + 1) * this.tileSize
+    const ph = (selection.y1 - selection.y0 + 1) * this.tileSize
+    const dashUnit = 1 / Math.max(this.scale, 0.0001)
+
+    ctx.fillStyle = 'rgba(255, 210, 64, 0.14)'
+    ctx.fillRect(px, py, pw, ph)
+
+    ctx.save()
+    ctx.strokeStyle = 'rgba(255, 210, 64, 0.95)'
+    ctx.lineWidth = 2 * dashUnit
+    ctx.setLineDash([4 * dashUnit, 3 * dashUnit])
+    ctx.strokeRect(px + dashUnit, py + dashUnit, Math.max(0, pw - 2 * dashUnit), Math.max(0, ph - 2 * dashUnit))
+    ctx.restore()
+
+    if (pw > 6 * dashUnit && ph > 6 * dashUnit) {
+      ctx.strokeStyle = 'rgba(255, 246, 200, 0.75)'
+      ctx.lineWidth = dashUnit
+      ctx.strokeRect(px + 3 * dashUnit, py + 3 * dashUnit, pw - 6 * dashUnit, ph - 6 * dashUnit)
+    }
   }
 
   encodeTopLevelProps() {

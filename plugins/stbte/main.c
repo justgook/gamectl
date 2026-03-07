@@ -108,6 +108,9 @@ static size_t strlen(const char *s) {
 #define STBTE_TOOL_BRUSH 1
 #define STBTE_TOOL_ERASE 2
 #define STBTE_TOOL_EYEDROPPER 3
+#define STBTE_TOOL_PASTE 4
+
+#define STBTE__tool_paste STBTE__num_tool
 
 /* ==========================================================================
  * LIFECYCLE
@@ -150,6 +153,11 @@ stbte_set_dims(stbte_tilemap *tm, int max_x, int max_y) {
 
 __attribute__((export_name("stbte_set_tool"))) void
 stbte_set_current_tool(stbte_tilemap *tm, int tool) {
+  if (tool != STBTE_TOOL_SELECT) {
+    (void)tm;
+    stbte__ui.has_selection = 0;
+  }
+
   (void)tm;
   switch (tool) {
   case STBTE_TOOL_SELECT:
@@ -163,6 +171,9 @@ stbte_set_current_tool(stbte_tilemap *tm, int tool) {
     break;
   case STBTE_TOOL_EYEDROPPER:
     stbte__ui.tool = STBTE__tool_eyedrop;
+    break;
+  case STBTE_TOOL_PASTE:
+    stbte__ui.tool = STBTE__tool_paste;
     break;
   }
 }
@@ -267,6 +278,7 @@ stbte_copy_selection(stbte_tilemap *tm) {
 __attribute__((export_name("stbte_cut"))) void
 stbte_cut_selection(stbte_tilemap *tm) {
   stbte__copy_cut(tm, 1);
+  stbte__ui.has_selection = 0;
   stbte__recompute_undo_available(tm);
 }
 
@@ -332,6 +344,10 @@ stbte_apply(stbte_tilemap *tm, int x0, int y0, int x1, int y1) {
   case STBTE__tool_eyedrop:
     stbte__eyedrop(tm, x0, y0);
     break;
+
+  case STBTE__tool_paste:
+    stbte__paste(tm, x0, y0);
+    break;
   }
 
   stbte__recompute_undo_available(tm);
@@ -370,6 +386,8 @@ stbte_get_current_tool(void) {
     return STBTE_TOOL_ERASE;
   case STBTE__tool_eyedrop:
     return STBTE_TOOL_EYEDROPPER;
+  case STBTE__tool_paste:
+    return STBTE_TOOL_PASTE;
   default:
     return -1;
   }
