@@ -1483,6 +1483,84 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.restoreEditorState(editorState)
   }
 
+  async applyLayerMutation(nextLayers, remapLayerIndex = (index) => index) {
+    const editorState = this.captureEditorState()
+    const snapshot = this.exportTilemapData()
+    snapshot.layers = nextLayers.map((layer, index) => ({
+      width: Math.max(1, Number(layer?.width) || this.mapWidth),
+      data: Array.isArray(layer?.data) ? [...layer.data] : new Array(this.mapWidth * this.mapHeight).fill(0),
+      props: {
+        name: String(layer?.props?.name || `layer ${index + 1}`)
+      }
+    }))
+
+    const loadedMapName = this.loadedMapName
+    await this.applyLoadedTilemap(snapshot)
+    this.loadedMapName = loadedMapName
+    editorState.selectedLayer = remapLayerIndex(editorState.selectedLayer)
+    editorState.soloLayer = remapLayerIndex(editorState.soloLayer)
+    this.restoreEditorState(editorState)
+  }
+
+  async moveLayer(fromIndex, direction) {
+    const toIndex = fromIndex + direction
+    if (fromIndex < 0 || fromIndex >= this.layers) return
+    if (toIndex < 0 || toIndex >= this.layers) return
+
+    const snapshot = this.exportTilemapData()
+    const nextLayers = [...snapshot.layers]
+    const [movedLayer] = nextLayers.splice(fromIndex, 1)
+    nextLayers.splice(toIndex, 0, movedLayer)
+
+    const remapLayerIndex = (layerIndex) => {
+      if (layerIndex < 0) return layerIndex
+      if (layerIndex === fromIndex) return toIndex
+      if (fromIndex < toIndex && layerIndex > fromIndex && layerIndex <= toIndex) return layerIndex - 1
+      if (toIndex < fromIndex && layerIndex >= toIndex && layerIndex < fromIndex) return layerIndex + 1
+      return layerIndex
+    }
+
+    await this.applyLayerMutation(nextLayers, remapLayerIndex)
+  }
+
+  async addLayer() {
+    const snapshot = this.exportTilemapData()
+    const width = snapshot.layers[0]?.width || this.mapWidth
+    const height = this.mapHeight
+    const nextLayers = [
+      ...snapshot.layers,
+      {
+        width,
+        data: new Array(width * height).fill(0),
+        props: {
+          name: `layer ${snapshot.layers.length + 1}`
+        }
+      }
+    ]
+    const remapLayerIndex = (layerIndex) => layerIndex
+    await this.applyLayerMutation(nextLayers, remapLayerIndex)
+    this.selectedLayer = nextLayers.length - 1
+    this.exports.stbte_set_active_layer(this.tilemap, this.selectedLayer)
+    this.setupLayers()
+    this.updateMetadata()
+  }
+
+  async deleteLayer(index) {
+    if (this.layers <= 1) return
+    if (index < 0 || index >= this.layers) return
+
+    const snapshot = this.exportTilemapData()
+    const nextLayers = snapshot.layers.filter((_, layerIndex) => layerIndex !== index)
+    const remapLayerIndex = (layerIndex) => {
+      if (layerIndex < 0) return layerIndex
+      if (layerIndex === index) return Math.min(index, nextLayers.length - 1)
+      if (layerIndex > index) return layerIndex - 1
+      return layerIndex
+    }
+
+    await this.applyLayerMutation(nextLayers, remapLayerIndex)
+  }
+
   async moveTileset(fromIndex, direction) {
     const toIndex = fromIndex + direction
     if (fromIndex < 0 || fromIndex >= this.tileSets.length) return
@@ -1819,6 +1897,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     }
 
     const form = document.createElement('form')
+    const layerList = document.createElement('div')
     form.innerHTML = `
       <label>
         Tile size
@@ -1832,16 +1911,90 @@ export default class ViewStbEditor extends ViewCanvasBase {
         Level height
         <input type="number" name="map-height" min="1" step="1" value="${escapeAttribute(String(this.mapHeight))}" required>
       </label>
+      <section>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+          <h4 style="margin:0;">Layers</h4>
+          <button type="button" name="add-layer"><i aria-hidden="true">add</i> Add layer</button>
+        </div>
+      </section>
       <footer>
         <button type="submit" class="accent"><i aria-hidden="true">save</i> Apply</button>
       </footer>
     `
+    const layerSection = form.querySelector('section')
+    layerSection?.appendChild(layerList)
 
     const popup = this._trackStoragePopup(popupManager.showPopup({
       title: 'Map settings',
       content: form,
       size: 'small'
     }))
+
+    const syncDraftLayerNames = () => {
+      const nextLayerNames = [...this.layerNames]
+      layerList.querySelectorAll('input[data-layer-name]').forEach((input) => {
+        const index = Number(input.getAttribute('data-layer-index'))
+        if (!Number.isInteger(index)) return
+        nextLayerNames[index] = String(input.value || '').trim() || `layer ${index + 1}`
+      })
+      this.layerNames = nextLayerNames
+    }
+
+    const renderLayerList = () => {
+      if (!layerList) return
+      const entries = this.layerNames.map((name, index) => ({ name, index })).reverse()
+      layerList.innerHTML = entries.map(({ name, index }) => `
+        <div data-layer-index="${index}" style="display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; gap:8px; align-items:center; margin-bottom:8px;">
+          <input type="text" data-layer-name data-layer-index="${index}" value="${escapeAttribute(name || `layer ${index + 1}`)}" placeholder="Layer name" style="min-width:0;">
+          <button type="button" data-action="move-up" title="Move up" aria-label="Move up" ${index === this.layerNames.length - 1 ? 'disabled' : ''}><i aria-hidden="true">arrow_upward</i></button>
+          <button type="button" data-action="move-down" title="Move down" aria-label="Move down" ${index === 0 ? 'disabled' : ''}><i aria-hidden="true">arrow_downward</i></button>
+          <button type="button" data-action="delete" title="Delete layer" aria-label="Delete layer" ${this.layerNames.length <= 1 ? 'disabled' : ''}><i aria-hidden="true">delete</i></button>
+        </div>
+      `).join('')
+
+      layerList.querySelectorAll('input[data-layer-name]').forEach((input) => {
+        input.addEventListener('change', () => {
+          syncDraftLayerNames()
+          this.setupLayers()
+          this.updateMetadata()
+        })
+      })
+
+      layerList.querySelectorAll('button[data-action]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const row = button.closest('[data-layer-index]')
+          const index = Number(row?.getAttribute('data-layer-index'))
+          if (!Number.isInteger(index)) return
+
+          try {
+            syncDraftLayerNames()
+            if (button.dataset.action === 'move-up') {
+              await this.moveLayer(index, 1)
+            } else if (button.dataset.action === 'move-down') {
+              await this.moveLayer(index, -1)
+            } else if (button.dataset.action === 'delete') {
+              await this.deleteLayer(index)
+            }
+            renderLayerList()
+          } catch (error) {
+            toast.error(`Failed to update layers: ${String(error?.message || error)}`)
+          }
+        })
+      })
+    }
+
+    const addLayerBtn = form.querySelector('button[name="add-layer"]')
+    addLayerBtn?.addEventListener('click', async () => {
+      try {
+        syncDraftLayerNames()
+        await this.addLayer()
+        renderLayerList()
+      } catch (error) {
+        toast.error(`Failed to add layer: ${String(error?.message || error)}`)
+      }
+    })
+
+    renderLayerList()
 
     form.onsubmit = async (event) => {
       event.preventDefault()
@@ -1851,8 +2004,12 @@ export default class ViewStbEditor extends ViewCanvasBase {
       const mapHeight = Math.max(1, Number(formData.get('map-height')) || this.mapHeight)
 
       try {
+        const previousLayerNames = [...this.layerNames]
+        syncDraftLayerNames()
+        const namesChanged = this.layerNames.some((name, index) => name !== previousLayerNames[index]) || this.layerNames.length !== previousLayerNames.length
+        if (namesChanged) this.setupLayers()
         const changed = await this.applyMapSettings({ tileSize, mapWidth, mapHeight })
-        if (changed) {
+        if (changed || namesChanged) {
           toast.success(`Updated map settings to ${mapWidth}x${mapHeight} at ${tileSize}px.`)
         }
         popup.close()
