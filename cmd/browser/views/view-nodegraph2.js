@@ -1529,9 +1529,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
          Node name
          <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
        </label>
-       ${isCodeNode ? `
-       <code-editor name="code" lang="lua" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>]."></code-editor>
-       ` : ""}
+        ${isCodeNode ? `
+        <code-editor name="code" lang="lua" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(code === null || code === undefined ? (this.sourceByNode.get(currentNode.id) || "") : String(code))}</code-editor>
+        ` : ""}
        ${this._nodeSupportsInputs(currentNode.kind) ? `
        <fieldset>
          <legend>Inputs</legend>
@@ -1573,16 +1573,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
          <button type="submit" name="intent" value="save-template">Save as template</button>
         </footer>
      `;
-
-      if (isCodeNode) {
-        const editor = form.querySelector('code-editor[name="code"]');
-        if (editor) {
-          const next = code === null || code === undefined
-            ? (this.sourceByNode.get(currentNode.id) || "")
-            : String(code);
-          editor.value = next;
-        }
-      }
 
       const newInput = form.querySelector('[name="new-input-name"]');
       const addInput = form.querySelector('[name="intent"][value="add-input"]');

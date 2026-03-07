@@ -87,6 +87,7 @@ export class CodeEditor extends HTMLElement {
     super();
     this._pre = null;
     this._textarea = null;
+    this._value = "";
     this._onInput = this._onInput.bind(this);
     this._onScroll = this._onScroll.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
@@ -95,7 +96,7 @@ export class CodeEditor extends HTMLElement {
   connectedCallback() {
     if (this._textarea) return;
 
-    const initialValue = this.textContent || "";
+    const initialValue = this._value || this.textContent || "";
     this.textContent = "";
 
     const pre = document.createElement("pre");
@@ -132,12 +133,13 @@ export class CodeEditor extends HTMLElement {
   }
 
   get value() {
-    return this._textarea ? this._textarea.value : "";
+    return this._textarea ? this._textarea.value : this._value;
   }
 
   set value(next) {
+    this._value = String(next ?? "");
     if (!this._textarea) return;
-    this._textarea.value = String(next ?? "");
+    this._textarea.value = this._value;
     this._renderHighlight();
   }
 
@@ -168,6 +170,7 @@ export class CodeEditor extends HTMLElement {
   }
 
   _onInput() {
+    if (this._textarea) this._value = this._textarea.value;
     this._renderHighlight();
   }
 
