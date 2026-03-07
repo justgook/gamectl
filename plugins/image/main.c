@@ -1727,6 +1727,38 @@ static pdk_u32 image_handle_read_pixels(void) {
   return parse_rc;
 }
 
+static pdk_u32 image_handle_read_pixels_bin(void) {
+  image_json_doc_t doc;
+  pdk_u32 src_id = 0;
+  image_handle_t *src_handle;
+  pdk_u32 total_bytes;
+  pdk_u32 parse_rc;
+
+  parse_rc = image_require_json(&doc);
+  if (parse_rc != 0) {
+    return parse_rc;
+  }
+
+  if (!image_json_get_u32(&doc, "src", &src_id)) {
+    return image_respond_error(IMAGE_ERR_BAD_INPUT, "src is required");
+  }
+
+  src_handle = image_find_handle(src_id);
+  if (src_handle == NULL) {
+    return image_respond_error(IMAGE_ERR_INVALID_HANDLE,
+                               "image handle was not found");
+  }
+
+  if (!image_validate_dimensions(src_handle->width, src_handle->height,
+                                 &total_bytes)) {
+    return image_respond_error(IMAGE_ERR_BAD_INPUT,
+                               "source image size is invalid");
+  }
+
+  image_write_response((const char *)src_handle->pixels, total_bytes);
+  return 0;
+}
+
 static pdk_u32 image_handle_encode(void) {
   image_json_doc_t doc;
   pdk_u32 src_id = 0;
@@ -2027,6 +2059,10 @@ __attribute__((export_name("blit"))) pdk_u32 image_blit(void) {
 
 __attribute__((export_name("read_pixels"))) pdk_u32 image_read_pixels(void) {
   return image_handle_read_pixels();
+}
+
+__attribute__((export_name("read_pixels_bin"))) pdk_u32 image_read_pixels_bin(void) {
+  return image_handle_read_pixels_bin();
 }
 
 __attribute__((export_name("write_pixels"))) pdk_u32 image_write_pixels(void) {
