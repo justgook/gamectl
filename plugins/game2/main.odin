@@ -2,12 +2,16 @@ package game2
 
 import "core:c"
 import sg "sokol/gfx"
+import sprite "render/sprite"
+import qoi "third_party/qoi"
 
 EVENT_TYPE_MOUSE_DOWN :: 4
 EVENT_TYPE_MOUSE_UP :: 5
 EVENT_TYPE_MOUSE_SCROLL :: 6
 EVENT_TYPE_MOUSE_MOVE :: 7
 EVENT_TYPE_RESIZED :: 14
+ATLAS_ASSET_PATH :: "/game/the_atlas.qoi"
+ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 
 EVENT_OFFSET_FRAME_COUNT :: 0
 EVENT_OFFSET_TYPE :: 8
@@ -21,11 +25,16 @@ EVENT_OFFSET_FRAMEBUFFER_HEIGHT :: 268
 ASSET_SCRATCH_CAPACITY :: 2 * 1024 * 1024
 
 State :: struct {
-	pip: sg.Pipeline,
-	bind: sg.Bindings,
+	atlas: sg.Image,
+	sprite_renderer: sprite.Renderer,
 	pass_action: sg.Pass_Action,
 	mouse_y: f32,
 	window_height: i32,
+	framebuffer_width: i32,
+	framebuffer_height: i32,
+	atlas_width: i32,
+	atlas_height: i32,
+	atlas_loaded: bool,
 }
 
 Host_Event :: struct {
@@ -44,6 +53,8 @@ Host_Event :: struct {
 
 state: State
 event_buffer: Host_Event
+atlas_pixels: [ATLAS_RGBA_CAPACITY]u8
+init_stage: u32
 
 range_from_slice :: proc(data: []$T) -> sg.Range {
 	ptr: rawptr = nil
@@ -58,54 +69,75 @@ range_from_value :: proc(value: ^$T) -> sg.Range {
 }
 
 core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
-	vertices := [21]f32 {
-		0.0, 0.5, 0.5, 1.0, 0.0, 0.0, 1.0,
-		0.5, -0.5, 0.5, 0.0, 1.0, 0.0, 1.0,
-		-0.5, -0.5, 0.5, 0.0, 0.0, 1.0, 1.0,
-	}
-
-	buffer_desc := sg.Buffer_Desc{data = range_from_slice(vertices[:])}
-	state.bind.vertex_buffers[0] = sg.make_buffer(buffer_desc)
-
-	shader_desc := triangle_shader_desc(sg.query_backend())
-	pipeline_desc := sg.Pipeline_Desc{shader = sg.make_shader(shader_desc)}
-	pipeline_desc.layout.attrs[ATTR_triangle_position].format = .FLOAT3
-	pipeline_desc.layout.attrs[ATTR_triangle_color0].format = .FLOAT4
-	state.pip = sg.make_pipeline(pipeline_desc)
-
+	init_stage = 1
 	state.pass_action = {
-		colors = {0 = {load_action = .CLEAR, clear_value = {0.0, 0.0, 0.0, 1.0}}},
+		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 	}
 
-	asset_data, ok := asset_reader("/game/clear-color.rgb")
-	if ok && len(asset_data) >= 3 {
-		state.pass_action.colors[0].clear_value.r = f32(asset_data[0]) / 255.0
-		state.pass_action.colors[0].clear_value.g = f32(asset_data[1]) / 255.0
-		state.pass_action.colors[0].clear_value.b = f32(asset_data[2]) / 255.0
+	asset_data, ok := asset_reader(ATLAS_ASSET_PATH)
+	init_stage = 2
+	if ok {
+		img_w, img_h, img_pixels, img_ok := qoi.decode_to_buffer(asset_data, atlas_pixels[:])
+		init_stage = 3
+		if img_ok {
+			state.atlas_loaded = true
+			state.atlas_width = i32(img_w)
+			state.atlas_height = i32(img_h)
+			desc := sg.Image_Desc{
+				width = i32(img_w),
+				height = i32(img_h),
+				pixel_format = .RGBA8,
+			}
+			desc.data.mip_levels[0] = {
+				ptr = raw_data(img_pixels),
+				size = c.size_t(img_w * img_h * 4),
+			}
+			state.atlas = sg.make_image(desc)
+			init_stage = 4
+			state.sprite_renderer = sprite.init(state.atlas)
+			init_stage = 5
+		}
 	}
 
 	state.mouse_y = 0.0
 	state.window_height = 480
+	state.framebuffer_width = 640
+	state.framebuffer_height = 480
+	init_stage = 6
 }
 
 core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
+	pass := sg.Pass{action = state.pass_action, swapchain = swapchain_reader()}
 	window_height := state.window_height
 	if window_height <= 0 {
 		window_height = 1
 	}
-
 	normalized_y := 1.0 - (state.mouse_y / f32(window_height))
-	angle := normalized_y * 2.0 * 3.14159
-	vs_params := Vs_Params{angle = angle}
-	pass := sg.Pass{action = state.pass_action, swapchain = swapchain_reader()}
+	bob := (normalized_y - 0.5) * 80.0
 
 	sg.begin_pass(pass)
-	sg.apply_pipeline(state.pip)
-	sg.apply_bindings(state.bind)
-	sg.apply_uniforms(UB_vs_params, range_from_value(&vs_params))
-	sg.draw(0, 3, 1)
+	sprite.reset(&state.sprite_renderer)
+	if state.atlas.id != 0 {
+		base_x := f32(state.framebuffer_width) * 0.5 - 260.0
+		base_y := f32(state.framebuffer_height) * 0.5 - 120.0 + bob
+		size := [2]f32{160, 160}
+		atlas_w := int(state.atlas_width)
+		atlas_h := int(state.atlas_height)
+		sprite.push(&state.sprite_renderer, {base_x, base_y}, size, sprite.uv_from_pixels(0, 0, 64, 64, atlas_w, atlas_h))
+		sprite.push(&state.sprite_renderer, {base_x + 180, base_y + 12}, size, sprite.uv_from_pixels(128, 0, 64, 64, atlas_w, atlas_h))
+		sprite.push(&state.sprite_renderer, {base_x + 360, base_y - 8}, size, sprite.uv_from_pixels(320, 320, 64, 64, atlas_w, atlas_h))
+		sprite.draw(&state.sprite_renderer, state.framebuffer_width, state.framebuffer_height)
+	}
 	sg.end_pass()
 	sg.commit()
+}
+
+core_cleanup :: proc() {
+	sprite.shutdown(&state.sprite_renderer)
+	if state.atlas.id != 0 {
+		sg.destroy_image(state.atlas)
+		state.atlas = {}
+	}
 }
 
 core_handle_mouse_move :: proc(mouse_y: f32) {
@@ -115,6 +147,15 @@ core_handle_mouse_move :: proc(mouse_y: f32) {
 core_handle_resize :: proc(window_height: i32) {
 	if window_height > 0 {
 		state.window_height = window_height
+	}
+}
+
+core_handle_framebuffer_resize :: proc(width, height: i32) {
+	if width > 0 {
+		state.framebuffer_width = width
+	}
+	if height > 0 {
+		state.framebuffer_height = height
 	}
 }
 
@@ -128,6 +169,7 @@ core_handle_host_event :: proc(event_ptr: u32) {
 		core_handle_mouse_move(input.mouse_y)
 	case EVENT_TYPE_RESIZED:
 		core_handle_resize(input.window_height)
+		core_handle_framebuffer_resize(input.framebuffer_width, input.framebuffer_height)
 	case:
 	}
 }

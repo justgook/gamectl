@@ -56,9 +56,7 @@
     }
 
     const EVENT_TYPE_RESIZED = 14
-    const DEFAULT_ASSETS = new Map([
-      ['/game/clear-color.rgb', new Uint8Array([24, 56, 96])],
-    ])
+    const DEFAULT_ASSETS = new Map()
 
     const canvas = document.getElementById('canvas')
     const pauseBtn = document.getElementById('pause')
@@ -164,6 +162,11 @@
 
       resize()
 
+      if (!assetCache.has('/game/the_atlas.qoi')) {
+        const atlasBytes = await fetch('./the_atlas.qoi').then((r) => r.arrayBuffer())
+        assetCache.set('/game/the_atlas.qoi', new Uint8Array(atlasBytes))
+      }
+
       bridge = new GLBridge(gl, null)
       const wasmBytes = await fetch('./game2.wasm').then((r) => r.arrayBuffer())
       const importObject = {
@@ -197,6 +200,7 @@
 
       const wasm = await WebAssembly.instantiate(wasmBytes, importObject)
       instance = wasm.instance
+      window.__game2 = { instance }
       bridge.memory = instance.exports.memory
       resolveEventOffsets()
       eventBufferPtr = 0

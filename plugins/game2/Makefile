@@ -33,6 +33,9 @@ NATIVE_BIN ?= $(NATIVE_DIR)/game2
 ROOT_BUILD_DIR ?= ../../build.nosync
 PLUGIN_WASM ?= $(ROOT_BUILD_DIR)/plugins/game2.wasm
 SOKOL_NATIVE_PROFILE ?= debug
+ATLAS_ASSET ?= ../../example/the_atlas.qoi
+
+SHADER_SOURCES := $(shell $(PYTHON3) -c 'from pathlib import Path; print(" ".join(str(p) for p in sorted(Path(".").rglob("*.glsl"))))')
 
 SOKOL_ODIN_URL ?= https://github.com/floooh/sokol-odin/archive/refs/heads/master.tar.gz
 SOKOL_TOOLS_URL ?= https://github.com/floooh/sokol-tools-bin/archive/refs/heads/master.tar.gz
@@ -77,7 +80,7 @@ help:
 	  '  native-run      Build and run native game2 executable' \
 	  '  web             Build standalone freestanding web bundle' \
 	  '  serve           Serve standalone web bundle on :8812' \
-	  '  shaders         Regenerate Odin shader bindings' \
+	  '  shaders         Regenerate Odin shader bindings recursively' \
 	  '  clean           Remove local build output'
 
 .PHONY: deps
@@ -122,10 +125,9 @@ $(SOKOL_SHDC_BIN): | $(TMP_DIR)
 	$(RM_RF) "$$tmp_root" "$$archive"
 
 .PHONY: shaders
-shaders: $(SOKOL_SHDC_BIN) triangle-sapp.glsl
+shaders: $(SOKOL_SHDC_BIN) $(SHADER_SOURCES)
 	$(Q)echo "Generating Odin shader bindings"
-	$(Q)"$(SOKOL_SHDC_BIN)" -i triangle-sapp.glsl -o triangle-sapp.glsl.odin -l glsl300es:metal_macos -f sokol_odin
-	$(Q)$(PYTHON3) -c 'from pathlib import Path; path = Path("triangle-sapp.glsl.odin"); text = path.read_text(); lines = text.splitlines(); lines[0] = "package game2"; path.write_text("\n".join(lines) + "\n")'
+	$(Q)$(PYTHON3) scripts/generate_shaders.py "$(SOKOL_SHDC_BIN)"
 
 $(TMP_DIR):
 	$(Q)$(MKDIR_P) "$(TMP_DIR)"
@@ -165,6 +167,7 @@ native-release:
 web: plugin | $(WEB_DIR)
 	$(Q)echo "Building standalone web bundle"
 	$(Q)$(CP) "$(PLUGIN_WASM)" "$(WEB_DIR)/game2.wasm"
+	$(Q)$(CP) "$(ATLAS_ASSET)" "$(WEB_DIR)/the_atlas.qoi"
 	$(Q)$(CP) web/index.html "$(WEB_DIR)/index.html"
 	$(Q)$(CP) ../../cmd/browser/util/gl-bridge.js "$(WEB_DIR)/gl-bridge.js"
 
