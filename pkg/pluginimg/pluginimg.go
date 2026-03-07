@@ -163,6 +163,23 @@ func ReadPixels(src int) (readPixelsOutput, error) {
 	return out, err
 }
 
+func ReadPixelsBin(src int) ([]byte, error) {
+	payload, err := json.Marshal(map[string]any{"src": src})
+	if err != nil {
+		return nil, err
+	}
+	status, data, err := pdk.Call("image", "read_pixels_bin", payload)
+	if err != nil {
+		return nil, err
+	}
+	if status != 0 {
+		return nil, fmt.Errorf("image.read_pixels_bin failed: %s", string(data))
+	}
+	copyData := make([]byte, len(data))
+	copy(copyData, data)
+	return copyData, nil
+}
+
 func WritePixels(src, width, height int, dataBase64 string) (HandleImage, error) {
 	var out writePixelsOutput
 	err := call("write_pixels", map[string]any{
@@ -186,12 +203,7 @@ func LoadNRGBA(path string) (*image.NRGBA, error) {
 	}
 	defer Close(opened.Handle)
 
-	pixels, err := ReadPixels(opened.Handle)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := base64.StdEncoding.DecodeString(pixels.Data)
+	raw, err := ReadPixelsBin(opened.Handle)
 	if err != nil {
 		return nil, err
 	}
@@ -245,12 +257,7 @@ func TransformNRGBA(img *image.NRGBA, flip int) (*image.NRGBA, error) {
 	}
 	defer Close(transformed.Handle)
 
-	pixels, err := ReadPixels(transformed.Handle)
-	if err != nil {
-		return nil, err
-	}
-
-	raw, err := base64.StdEncoding.DecodeString(pixels.Data)
+	raw, err := ReadPixelsBin(transformed.Handle)
 	if err != nil {
 		return nil, err
 	}

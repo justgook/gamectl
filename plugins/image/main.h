@@ -55,6 +55,7 @@
 #define IMAGE_FN_RESIZE "resize"
 #define IMAGE_FN_BLIT "blit"
 #define IMAGE_FN_READ_PIXELS "read_pixels"
+#define IMAGE_FN_READ_PIXELS_BIN "read_pixels_bin"
 #define IMAGE_FN_WRITE_PIXELS "write_pixels"
 #define IMAGE_FN_ENCODE "encode"
 #define IMAGE_FN_CLOSE "close"
@@ -155,6 +156,10 @@
  *   response: {"ok":true,"api":"image/v1","width":32,"height":48,
  *              "pixelFormat":"rgba8","byteLength":6144,
  *              "encoding":"base64","data":"..."}
+ *
+ * read_pixels_bin
+ *   request:  {"src":1}
+ *   response: raw rgba8 bytes only; use open/info for width and height metadata
  *
  * write_pixels
  *   request:  {"src":1,"width":32,"height":48,"pixelFormat":"rgba8",
