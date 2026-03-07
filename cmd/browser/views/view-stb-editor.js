@@ -1,6 +1,7 @@
 import { toast } from '../systems/toast.js'
 import { parseCSVLines } from '../util/csv.js'
 import { decode as decodeQOI } from '../util/qoi/decode.js'
+import { ViewFiles } from './view-files.js'
 import { ViewCanvasBase } from './view-canvas-base.js'
 
 function escapeAttribute(value) {
@@ -35,7 +36,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.layers = 3
     this.currentTool = 1
     this.selectedLayer = -1
-    this.selectedTilesetFilter = -1
+    this.selectedTilesetFilter = null
     this.showGrid = true
     this.hoverX = -1
     this.hoverY = -1
@@ -45,6 +46,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.layerNames = []
     this.tileSets = []
     this.fallbackTileCount = 64
+    this.paletteTileCount = 64
 
     this.dragStartX = -1
     this.dragStartY = -1
@@ -198,6 +200,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
         throw new Error('stbte_create returned null pointer')
       }
 
+      await this.ensureTilesetCounts()
       await this.defineTilesFromAtlases()
       if (!this.isInitActive(initToken)) throw new Error('Editor detached during initialization')
 
@@ -374,34 +377,34 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   async defineTilesFromAtlases() {
-    let nextTileId = 0
-    const tileSets = this.tileSets.length > 0 ? this.tileSets : [{ name: 'generated' }]
+    this.tileSprites = new Map()
 
-    for (let tileSetIndex = 0; tileSetIndex < tileSets.length; tileSetIndex++) {
-      const tileSet = tileSets[tileSetIndex]
+    const tileSetRanges = this.getTilesetRanges()
+    let nextTileId = 0
+
+    for (let tileSetIndex = 0; tileSetIndex < tileSetRanges.length; tileSetIndex++) {
+      const entry = tileSetRanges[tileSetIndex]
+      const tileSet = entry.tileSet
       let image
       let cols
       let rows
-
-      const isGeneratedOnly = !tileSet?.file
 
       try {
         image = await this.loadTilesetImage(tileSet.file)
         cols = Math.max(1, Math.floor(image.width / this.sourceTileSize))
         rows = Math.max(1, Math.floor(image.height / this.sourceTileSize))
       } catch (err) {
-        const generated = this.generateFallbackTileset(tileSetIndex, nextTileId, this.getFallbackTilesetCount(tileSet, tileSets.length))
+        const generated = this.generateFallbackTileset(tileSetIndex, entry.startTileId, entry.count)
         image = generated.image
         cols = generated.cols
         rows = generated.rows
         this.log(`Generated fallback tileset for ${this.deriveTilesetName(tileSet)}`)
-        if (!isGeneratedOnly) console.warn('[stb-editor] tileset fallback:', err)
+        console.warn('[stb-editor] tileset fallback:', err)
       }
 
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
+      for (let y = 0; y < rows && nextTileId < entry.endTileId; y++) {
+        for (let x = 0; x < cols && nextTileId < entry.endTileId; x++) {
           const tileId = nextTileId++
-          this.exports.stbte_define_tile(this.tilemap, tileId, 0xFF, tileSetIndex + 1)
           this.tileSprites.set(tileId, {
             image,
             sx: x * this.sourceTileSize,
@@ -412,17 +415,111 @@ export default class ViewStbEditor extends ViewCanvasBase {
           })
         }
       }
-      this.log(`Loaded ${tileSet.file || this.deriveTilesetName(tileSet)} (${cols * rows} tiles)`)
+
+      this.log(`Loaded ${tileSet.file || this.deriveTilesetName(tileSet)} (${entry.count} tiles)`)
     }
 
+    const restRange = this.getRestRange()
+    if (restRange) {
+      const generated = this.generateFallbackTileset(this.tileSets.length, restRange.startTileId, restRange.count)
+      let tileId = restRange.startTileId
+      for (let y = 0; y < generated.rows && tileId < restRange.endTileId; y++) {
+        for (let x = 0; x < generated.cols && tileId < restRange.endTileId; x++) {
+          this.tileSprites.set(tileId, {
+            image: generated.image,
+            sx: x * this.sourceTileSize,
+            sy: y * this.sourceTileSize,
+            sw: this.sourceTileSize,
+            sh: this.sourceTileSize,
+            tilesetIndex: -1
+          })
+          tileId += 1
+        }
+      }
+      if (this.tileSets.length === 0) {
+        this.log(`Generated fallback tileset (${restRange.count} tiles)`)
+      } else {
+        this.log(`Generated rest tiles (${restRange.count} tiles)`)
+      }
+    }
+
+    this.defineFlatWasmTilePalette()
     this.exports.stbte_set_active_tile(this.tilemap, 0)
   }
 
-  getFallbackTilesetCount(tileSet, totalTileSets) {
-    const explicit = Math.max(0, Number(tileSet?.count) || 0)
-    if (explicit > 0) return explicit
-    if (totalTileSets === 1) return Math.max(1, this.fallbackTileCount)
-    return Math.max(1, Math.ceil(this.fallbackTileCount / totalTileSets))
+  defineFlatWasmTilePalette() {
+    const paletteCount = Math.max(1, this.getPaletteTileCount())
+    const layerMask = this.layers >= 31 ? 0x7FFFFFFF : ((1 << this.layers) - 1)
+    for (let tileId = 0; tileId < paletteCount; tileId++) {
+      this.exports.stbte_define_tile(this.tilemap, tileId, layerMask, 0)
+    }
+  }
+
+  getPaletteTileCount() {
+    const coveredCount = this.getTilesetCoverageCount()
+    return Math.max(1, this.paletteTileCount, this.fallbackTileCount, coveredCount)
+  }
+
+  getTilesetCoverageCount() {
+    return this.tileSets.reduce((sum, tileSet) => sum + Math.max(0, Number(tileSet?.count) || 0), 0)
+  }
+
+  getTilesetRanges() {
+    let nextTileId = 0
+    return this.tileSets.map((tileSet, index) => {
+      const count = Math.max(0, Number(tileSet?.count) || 0)
+      const entry = {
+        key: `tileset:${index}`,
+        kind: 'tileset',
+        index,
+        tileSet,
+        label: this.deriveTilesetName(tileSet),
+        startTileId: nextTileId,
+        endTileId: nextTileId + count,
+        count
+      }
+      nextTileId += count
+      return entry
+    }).filter((entry) => entry.count > 0)
+  }
+
+  getRestRange() {
+    const coveredCount = this.getTilesetCoverageCount()
+    const paletteCount = this.getPaletteTileCount()
+    if (paletteCount <= coveredCount) return null
+    return {
+      key: 'rest',
+      kind: 'rest',
+      label: this.tileSets.length > 0 ? 'rest' : 'tiles',
+      startTileId: coveredCount,
+      endTileId: paletteCount,
+      count: paletteCount - coveredCount
+    }
+  }
+
+  getTilePaletteTabs() {
+    const tabs = this.getTilesetRanges()
+    const restRange = this.getRestRange()
+    if (restRange && this.tileSets.length > 0) tabs.push(restRange)
+    return tabs
+  }
+
+  getSelectedTileTab() {
+    const tabs = this.getTilePaletteTabs()
+    if (tabs.length === 0) return null
+    return tabs.find((entry) => entry.key === this.selectedTilesetFilter) || tabs[0]
+  }
+
+  async ensureTilesetCounts() {
+    for (const tileSet of this.tileSets) {
+      if ((Number(tileSet?.count) || 0) > 0) continue
+      try {
+        tileSet.count = await this.inferTilesetCount(tileSet.file)
+      } catch (_err) {
+        tileSet.count = 1
+      }
+    }
+    this.paletteTileCount = Math.max(this.paletteTileCount, this.getTilesetCoverageCount(), this.fallbackTileCount)
   }
 
   generateFallbackTileset(tileSetIndex, startTileId, tileCount) {
@@ -625,6 +722,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.draw()
     this.updateMetadata()
     this.setupLayers()
+    this.setupTilesetTabs()
+    this.setupTiles()
     const undoBtn = this.headerControl('undo-btn')
     const redoBtn = this.headerControl('redo-btn')
     if (undoBtn) undoBtn.disabled = !this.canUndo()
@@ -819,40 +918,26 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const container = this.el('tiles')
     container.innerHTML = ''
 
-    const tileCount = this.getNumTiles()
-    const tilesPtr = this.readTilemap(this.offsets.tm_tiles, 'i32')
+    const tileCount = this.getPaletteTileCount()
     const currentTileIdx = this.getCurrentTile()
-    const groups = new Map()
-    const showGroups = this.tileSets.length > 1 && this.selectedTilesetFilter === -1
+    const selectedTab = this.getSelectedTileTab()
+    const grid = document.createElement('div')
+    grid.style.cssText = 'display:grid; grid-template-columns:auto auto auto auto'
+    container.appendChild(grid)
 
-    for (let i = 0; i < tileCount; i++) {
-      const tileBase = tilesPtr + (i * this.offsets.sizeof_tileinfo)
-      const tileId = new DataView(this.memory.buffer, tileBase + this.offsets.tileinfo_id, 2).getUint16(0, true)
-      const tileCategory = new DataView(this.memory.buffer, tileBase + this.offsets.tileinfo_category_id, 2).getUint16(0, true)
+    let startTileId = 0
+    let endTileId = tileCount
+    if (selectedTab) {
+      startTileId = selectedTab.startTileId
+      endTileId = selectedTab.endTileId
+    }
 
-      if (this.selectedTilesetFilter !== -1 && tileCategory !== this.selectedTilesetFilter) continue
-
-      if (!groups.has(tileCategory)) {
-        const grid = document.createElement('div')
-        grid.style.cssText = `display:grid; grid-template-columns:auto auto auto auto`
-
-        if (showGroups) {
-          const tileset = this.tileSets[tileCategory - 1]
-          const section = document.createElement('section')
-          const title = document.createElement('h4')
-          title.textContent = this.deriveTilesetName(tileset)
-          section.appendChild(title)
-          section.appendChild(grid)
-          container.appendChild(section)
-        } else {
-          container.appendChild(grid)
-        }
-        groups.set(tileCategory, grid)
-      }
+    for (let tileId = startTileId; tileId < endTileId; tileId++) {
+      const tileIndex = tileId
 
       const btn = document.createElement('button')
       btn.style.cssText = "aspect-ratio:1"
-      if (i === currentTileIdx) btn.classList.add('active')
+      if (tileIndex === currentTileIdx) btn.classList.add('active')
       btn.title = `Tile ${tileId}`
 
       const preview = this.makeTilePreview(tileId)
@@ -863,12 +948,12 @@ export default class ViewStbEditor extends ViewCanvasBase {
       btn.appendChild(idTag)
 
       btn.addEventListener('click', () => {
-        this.exports.stbte_set_active_tile(this.tilemap, i)
+        this.exports.stbte_set_active_tile(this.tilemap, tileIndex)
         this.setupTiles()
         this.updateMetadata()
       })
 
-      groups.get(tileCategory).appendChild(btn)
+      grid.appendChild(btn)
     }
   }
 
@@ -876,21 +961,19 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const container = this.el('tile-tabs')
     container.innerHTML = ''
 
-    if (this.tileSets.length <= 1) {
-      container.style.display = 'none'
-      this.selectedTilesetFilter = -1
-      return
-    }
-
     container.style.display = 'flex'
     container.style.gap = '6px'
     container.style.marginBottom = '8px'
     container.style.overflow = 'hidden'
+    container.style.alignItems = 'center'
 
-    const entries = [
-      { id: -1, label: 'all' },
-      ...this.tileSets.map((tileSet, index) => ({ id: index + 1, label: this.deriveTilesetName(tileSet) }))
-    ]
+    const entries = this.getTilePaletteTabs()
+    if (entries.length === 0) {
+      this.selectedTilesetFilter = null
+    }
+    if (entries.length > 0 && !entries.some((entry) => entry.key === this.selectedTilesetFilter)) {
+      this.selectedTilesetFilter = entries[0].key
+    }
 
     for (const entry of entries) {
       const btn = document.createElement('button')
@@ -899,19 +982,31 @@ export default class ViewStbEditor extends ViewCanvasBase {
       btn.title = entry.label
       btn.setAttribute('role', 'tab')
       btn.setAttribute('aria-controls', 'stb-tiles-panel')
-      btn.setAttribute('aria-selected', this.selectedTilesetFilter === entry.id ? 'true' : 'false')
+      btn.setAttribute('aria-selected', this.selectedTilesetFilter === entry.key ? 'true' : 'false')
       btn.style.maxWidth = '110px'
       btn.style.whiteSpace = 'nowrap'
       btn.style.overflow = 'hidden'
       btn.style.textOverflow = 'ellipsis'
-      if (this.selectedTilesetFilter === entry.id) btn.classList.add('active')
+      if (this.selectedTilesetFilter === entry.key) btn.classList.add('active')
       btn.onclick = () => {
-        this.selectedTilesetFilter = entry.id
+        this.selectedTilesetFilter = entry.key
         this.setupTilesetTabs()
         this.setupTiles()
       }
       container.appendChild(btn)
     }
+
+    const addBtn = document.createElement('button')
+    addBtn.type = 'button'
+    addBtn.title = 'Add tileset'
+    addBtn.setAttribute('aria-label', 'Add tileset')
+    addBtn.innerHTML = '<i aria-hidden="true">add</i>'
+    addBtn.onclick = () => {
+      this.showAddTilesetPopup().catch((err) => {
+        toast.error(`Failed to add tileset: ${String(err?.message || err)}`)
+      })
+    }
+    container.appendChild(addBtn)
   }
 
   makeTilePreview(tileId) {
@@ -1135,16 +1230,18 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     const props = tilemap?.props || {}
     const parsedTileSets = this.parseJsonProp(props, 'tilesets', [])
-    const isLegacyFormat = parsedTileSets.length === 0
+    const hasModernSizing = props.tileSize != null || props.sourceTileSize != null
+    const isLegacyFormat = !hasModernSizing
     return {
       mapWidth,
       mapHeight,
       layers: layers.length,
       tileSize: isLegacyFormat ? this.defaultTileSize : Math.max(1, Number(props.tileSize) || this.defaultTileSize),
       sourceTileSize: isLegacyFormat ? this.defaultSourceTileSize : Math.max(1, Number(props.sourceTileSize) || this.defaultSourceTileSize),
-      tileSets: parsedTileSets.length > 0 ? parsedTileSets : [{ name: 'generated' }],
+      tileSets: parsedTileSets,
       layerNames: layers.map((layer, index) => isLegacyFormat ? `layer ${index + 1}` : String(layer?.props?.name || `layer ${index + 1}`)),
-      fallbackTileCount: Math.max(1, maxTileId || this.fallbackTileCount)
+      fallbackTileCount: Math.max(1, maxTileId || this.fallbackTileCount),
+      paletteTileCount: Math.max(1, maxTileId || this.fallbackTileCount, parsedTileSets.reduce((sum, tileSet) => sum + Math.max(0, Number(tileSet?.count) || 0), 0))
     }
   }
 
@@ -1160,9 +1257,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.tileSets = config.tileSets
     this.layerNames = config.layerNames
     this.fallbackTileCount = config.fallbackTileCount
+    this.paletteTileCount = config.paletteTileCount
     this.tileSprites = new Map()
     this.selectedLayer = -1
-    this.selectedTilesetFilter = -1
+    this.selectedTilesetFilter = null
     this.currentTool = 1
     this.hoverX = -1
     this.hoverY = -1
@@ -1188,6 +1286,98 @@ export default class ViewStbEditor extends ViewCanvasBase {
     })
 
     this.postAction()
+  }
+
+  async rebuildEditorFromCurrentState() {
+    const editorState = this.captureEditorState()
+    const snapshot = this.exportTilemapData()
+    const loadedMapName = this.loadedMapName
+    await this.applyLoadedTilemap(snapshot)
+    this.loadedMapName = loadedMapName
+    this.restoreEditorState(editorState)
+  }
+
+  captureEditorState() {
+    const layers = []
+    if (this.exports && this.tilemap && this.memory) {
+      for (let i = 0; i < this.layers; i++) {
+        const layerOffset = this.tilemap + this.offsets.tm_layerinfo + (i * this.offsets.sizeof_layer)
+        layers.push({
+          hidden: new DataView(this.memory.buffer, layerOffset + this.offsets.layer_hidden, 4).getInt32(0, true) !== 0,
+          locked: new DataView(this.memory.buffer, layerOffset + this.offsets.layer_locked, 4).getInt32(0, true) !== 0
+        })
+      }
+    }
+
+    return {
+      currentTool: this.currentTool,
+      currentTile: this.exports ? this.getCurrentTile() : 0,
+      selectedLayer: this.selectedLayer,
+      selectedTilesetFilter: this.selectedTilesetFilter,
+      soloLayer: this.exports ? this.readTilemap(this.offsets.tm_solo_layer, 'i32') : -1,
+      scale: this.scale,
+      offsetX: this.offsetX,
+      offsetY: this.offsetY,
+      showGrid: this.showGrid,
+      layers
+    }
+  }
+
+  restoreEditorState(state) {
+    if (!state || !this.exports || !this.tilemap) return
+
+    this.currentTool = state.currentTool
+    this.showGrid = state.showGrid
+    this.selectedLayer = state.selectedLayer
+    this.selectedTilesetFilter = state.selectedTilesetFilter
+    this.exports.stbte_set_tool(this.tilemap, this.currentTool)
+    this.exports.stbte_set_active_layer(this.tilemap, this.selectedLayer)
+
+    state.layers.forEach((layer, index) => {
+      if (index >= this.layers) return
+      this.exports.stbte_set_layer_hidden(this.tilemap, index, layer.hidden ? 1 : 0)
+      this.exports.stbte_set_layer_locked(this.tilemap, index, layer.locked ? 1 : 0)
+    })
+    this.exports.stbte_set_solo_layer(this.tilemap, state.soloLayer)
+
+    const maxTileIndex = Math.max(0, this.getPaletteTileCount() - 1)
+    const currentTile = this.clamp(state.currentTile, 0, maxTileIndex)
+    this.exports.stbte_set_active_tile(this.tilemap, currentTile)
+
+    this.scale = state.scale
+    this.offsetX = state.offsetX
+    this.offsetY = state.offsetY
+
+    this.renderMap()
+    this.setupLayers()
+    this.setupTilesetTabs()
+    this.setupTiles()
+    this.draw()
+    this.updateMetadata()
+  }
+
+  async inferTilesetCount(file) {
+    const image = await this.loadTilesetImage(file)
+    const cols = Math.max(1, Math.floor(image.width / this.sourceTileSize))
+    const rows = Math.max(1, Math.floor(image.height / this.sourceTileSize))
+    return cols * rows
+  }
+
+  async addTileset(tileSet) {
+    const normalizedFile = String(tileSet?.file || '').trim()
+    if (!normalizedFile) throw new Error('Tileset file is required')
+
+    const count = Math.max(1, Number(tileSet?.count) || await this.inferTilesetCount(normalizedFile))
+    const nextTileSet = {
+      name: String(tileSet?.name || '').trim(),
+      file: normalizedFile,
+      count
+    }
+
+    this.tileSets.push(nextTileSet)
+    this.paletteTileCount = Math.max(this.paletteTileCount, this.getTilesetCoverageCount(), this.fallbackTileCount)
+    this.selectedTilesetFilter = `tileset:${this.tileSets.length - 1}`
+    await this.rebuildEditorFromCurrentState()
   }
 
   async saveTilemap(name) {
@@ -1336,5 +1526,69 @@ export default class ViewStbEditor extends ViewCanvasBase {
         }
       })
     })
+  }
+
+  async showAddTilesetPopup() {
+    const popupManager = this.closest('popup-manager') || document.querySelector('popup-manager')
+    if (!popupManager) {
+      toast.error('Popup manager is not available.')
+      return
+    }
+
+    const form = document.createElement('form')
+    form.innerHTML = `
+      <label>
+        Tileset file
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="text" name="tileset-file" placeholder="/path/to/tileset.qoi or URL/data URI" required style="flex:1;">
+          <button type="button" name="choose-tileset-file">Browse</button>
+        </div>
+      </label>
+      <label>
+        Name
+        <input type="text" name="tileset-name" placeholder="Optional display name">
+      </label>
+      <footer>
+        <button type="submit" class="accent"><i aria-hidden="true">add</i> Add tileset</button>
+      </footer>
+    `
+
+    const popup = this._trackStoragePopup(popupManager.showPopup({
+      title: 'Add tileset',
+      content: form,
+      size: 'small'
+    }))
+
+    const fileInput = form.querySelector('input[name="tileset-file"]')
+    const chooseBtn = form.querySelector('button[name="choose-tileset-file"]')
+    chooseBtn?.addEventListener('click', async () => {
+      try {
+        const result = await ViewFiles.choose({
+          title: 'Select Tileset',
+          filter: '*.png,*.qoi,*.jpg,*.jpeg,*.gif,*.bmp',
+          root: '/'
+        })
+        if (!result?.path) return
+        fileInput.value = result.path
+      } catch (error) {
+        toast.error(`Failed to choose tileset: ${String(error?.message || error)}`)
+      }
+    })
+
+    form.onsubmit = async (event) => {
+      event.preventDefault()
+      const formData = new FormData(form)
+      const file = String(formData.get('tileset-file') || '').trim()
+      const name = String(formData.get('tileset-name') || '').trim()
+      if (!file) return
+
+      try {
+        await this.addTileset({ file, name })
+        toast.success(`Added tileset "${name || file}".`)
+        popup.close()
+      } catch (error) {
+        toast.error(`Failed to add tileset: ${String(error?.message || error)}`)
+      }
+    }
   }
 }
