@@ -2,6 +2,7 @@
 
   :root {
     /* Color */
+    --text: #222;
     --text-color: #222222;
     --surface: #c0c0c0;
     --button-highlight: #ffffff;
