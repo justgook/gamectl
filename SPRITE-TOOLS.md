@@ -8,7 +8,7 @@ Implementation plan for sprite and image processing tools, inspired by [ShoeBox]
 
 ### Phase 1: Foundation (P0)
 - [x] 1.1 QOI codec in Go for WASM plugins (existing: `pkg/qoi/`)
-- [x] 1.2 `image-process` plugin - core image manipulation
+- [x] 1.2 `image` plugin - core image manipulation
 - [x] 1.3 FS integration for image storage in plugins (existing: `fs` host functions)
 
 ### Phase 2: Sprite Detection (P1)
@@ -58,8 +58,7 @@ Implementation plan for sprite and image processing tools, inspired by [ShoeBox]
 │         └───────────────┴───────────────┘                   │
 │                         │                                   │
 │                  ┌──────┴──────┐                           │
-│                  │   image-    │                           │
-│                  │   process   │                           │
+│                  │    image    │                           │
 │                  └──────┬──────┘                           │
 └─────────────────────────┼───────────────────────────────────┘
                           │
@@ -79,38 +78,39 @@ Implementation plan for sprite and image processing tools, inspired by [ShoeBox]
 
 ## WASM Plugins
 
-### 1. `image-process` (P0 - Foundation)
+### 1. `image` (P0 - Foundation)
 
 Core image manipulation utilities used by all other plugins.
 
-**Location:** `plugins/image-process/`
+**Location:** `plugins/image/`
 
 **Exported Functions:**
 
 | Function | Input | Output | Description |
 |----------|-------|--------|-------------|
-| `decode` | `{path}` | `{data, w, h, channels}` | Decode PNG/QOI from FS |
-| `encode` | `{data, w, h, path, format}` | `{success}` | Encode to QOI and save to FS |
-| `combine` | `{images: [{path, x, y}], output: {w, h, path}}` | `{success}` | Combine multiple images into one |
-| `split` | `{path, regions: [{x, y, w, h, outputPath}]}` | `{success}` | Split image into multiple files |
-| `crop` | `{path, rect: {x, y, w, h}, outputPath}` | `{success}` | Crop image to bounds |
-| `cropAlpha` | `{path, outputPath}` | `{x, y, w, h}` | Crop to non-transparent bounds, return offset |
-| `pad` | `{path, padding, outputPath}` | `{success}` | Add padding around image |
-| `extrude` | `{path, size, outputPath}` | `{success}` | Extrude edge pixels |
+| `open` | `{path}` | `{handle, width, height}` | Decode PNG/QOI from FS into an image handle |
+| `info` | `{path}` or `{src}` | `{width, height, sourceFormat}` | Read image metadata |
+| `create` | `{width, height, fill}` | `{handle}` | Create a blank RGBA image |
+| `transform` | `{src, flip}` | `{handle, width, height, flip}` | Apply Tiled-style flip/rotate bits |
+| `crop` | `{src, x0, y0, x1, y1}` | `{handle}` | Crop image region with optional mirrored edges |
+| `resize` | `{src, width, height, filter}` | `{handle}` | Resize image |
+| `blit` | `{dst, src, x, y}` | `{handle}` | Composite one image into another |
+| `read_pixels` | `{src}` | `{data, width, height}` | Read RGBA pixels as base64 |
+| `write_pixels` | `{src, width, height, pixelFormat, encoding, data}` | `{handle}` | Create image from raw RGBA pixels |
+| `encode` | `{src, path, format}` | `{path, bytesWritten}` | Encode image to QOI/PNG and save to FS |
+| `close` | `{src}` | `{closed}` | Release handle |
 
 **Go Package Structure:**
 ```
-plugins/image-process/
-├── main.go                 # WASM exports
-├── imageprocess/           # Core logic (testable)
-│   ├── decode.go          # PNG decoding
-│   ├── encode.go          # QOI encoding
-│   ├── combine.go         # Image composition
-│   ├── crop.go            # Cropping operations
-│   └── transform.go       # Pad, extrude, etc.
-└── qoi/                    # QOI codec
-    ├── decode.go
-    └── encode.go
+plugins/image/
+├── main.c                  # WASM exports
+├── main.h                  # API documentation header
+├── pdk.h                   # plugin ABI helpers
+├── jsmn.h                  # JSON parsing
+├── stb_image.h             # PNG decode
+├── stb_image_resize2.h     # Resize
+├── stb_image_write.h       # PNG encode
+└── qoi.h                   # QOI decode/encode
 ```
 
 ---
@@ -129,7 +129,7 @@ Blob detection and connected component analysis.
 | `detectGrid` | `{path, cellW, cellH, skipEmpty}` | `{cells: [{x, y, w, h, isEmpty}]}` | Grid-based sprite detection |
 
 **Algorithm (detect):**
-1. Load image via `image-process.decode`
+1. Load image via `image.open`
 2. Create visited bitmap
 3. Scan left-to-right, top-to-bottom for non-transparent pixels
 4. Flood-fill each unvisited non-transparent pixel
@@ -189,7 +189,7 @@ Bin packing algorithm for texture atlases.
    - Split free rectangle
    - Remove overlapping free rectangles
 5. Grow atlas if needed (within maxSize)
-6. Composite final image using `image-process.combine`
+6. Composite final image using `image.blit` + `image.encode`
 
 ---
 
@@ -352,7 +352,7 @@ User drops PNG on view-sprite-extractor
 │ 2. Call sprite-detect.detect(path, opts)    │
 │ 3. Render overlay with bounding boxes       │
 │ 4. User selects/renames sprites             │
-│ 5. On Export: call image-process.split()    │
+│ 5. On Export: call image.open/crop/encode   │
 └─────────────────────────────────────────────┘
            │
            ▼
@@ -500,7 +500,7 @@ For large images (4096x4096 = 64MB RGBA):
 ## Next Steps
 
 1. **Start with Phase 1.1:** Implement QOI codec in Go
-2. **Phase 1.2:** Create `image-process` plugin with basic decode/encode
+2. **Phase 1.2:** Create `image` plugin with basic decode/encode
 3. **Phase 1.3:** Verify FS host function integration
 4. **Then Phase 2:** Build sprite detection and extraction UI
 
