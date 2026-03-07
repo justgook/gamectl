@@ -65,7 +65,6 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   connectedCallback() {
-    this.renderLayout()
     super.connectedCallback()
     this.bindEditorControls()
     const initToken = ++this._initToken
@@ -248,11 +247,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
     }
   }
 
-  renderLayout() {
-    this.innerHTML = `
-      <section data-id="map-viewport"></section>
+  setupUI() {
+    this.sidePanel = document.createElement('aside')
 
-      <aside data-id="sidepanel">
+    this.sidePanel.innerHTML = `
           <fieldset>
             <legend>Layers</legend>
             <div data-id="layers"></div>
@@ -268,35 +266,21 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
           <fieldset>
             <legend>Metadata</legend>
-            <dl data-id="meta"></dl>
+            <dl data-id="meta" style="display: grid; grid-template-columns: auto auto;"></dl>
           </fieldset>
 
           <fieldset>
             <legend>Output</legend>
-            <pre class="info-block" data-id="output">Loading WASM...</pre>
+            <pre style="overflow:auto" data-id="output">Loading WASM...</pre>
           </fieldset>
-      </aside>
     `
+    this.appendChild(this.sidePanel)
   }
 
   el(id) {
     return this.querySelector(`[data-id="${id}"]`)
   }
 
-  setupUI() {
-    this.style.cssText = 'display:flex;flex-direction:row;flex:1;min-height:0;overflow:hidden'
-
-    const viewport = this.el('map-viewport')
-    if (viewport && this.canvas.parentElement !== viewport) {
-      viewport.appendChild(this.canvas)
-    }
-
-    if (viewport) {
-      viewport.style.cssText = 'position:relative;flex:1;min-width:0;min-height:0;overflow:hidden'
-    }
-
-    this.canvas.style.cssText = 'display:block;width:100%;height:100%;cursor:default'
-  }
 
   log(message) {
     const output = this.el('output')
@@ -317,11 +301,11 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   _onResized() {
-    const viewport = this.el('map-viewport')
-    if (!viewport || !this.canvas) return
+    if (!this.canvas) return
 
-    const width = Math.round(viewport.clientWidth)
-    const height = Math.round(viewport.clientHeight)
+    const sidepanelWidth = Math.round(this.sidePanel.getBoundingClientRect().width)
+    const width = Math.max(0, Math.round(this.clientWidth) - sidepanelWidth)
+    const height = Math.round(this.clientHeight)
     if (width <= 0 || height <= 0) return
     if (this.canvas.width === width && this.canvas.height === height) return
 
@@ -850,6 +834,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
       if (!groups.has(tileCategory)) {
         const grid = document.createElement('div')
+        grid.style.cssText = `display:grid; grid-template-columns:auto auto auto auto`
+
         if (showGroups) {
           const tileset = this.tileSets[tileCategory - 1]
           const section = document.createElement('section')
@@ -865,6 +851,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       }
 
       const btn = document.createElement('button')
+      btn.style.cssText = "aspect-ratio:1"
       if (i === currentTileIdx) btn.classList.add('active')
       btn.title = `Tile ${tileId}`
 
