@@ -50,6 +50,7 @@
 #define IMAGE_FN_CREATE "create"
 #define IMAGE_FN_INFO "info"
 #define IMAGE_FN_CLONE "clone"
+#define IMAGE_FN_TRANSFORM "transform"
 #define IMAGE_FN_CROP "crop"
 #define IMAGE_FN_RESIZE "resize"
 #define IMAGE_FN_BLIT "blit"
@@ -79,6 +80,7 @@
 #define IMAGE_FIELD_Y0 "y0"
 #define IMAGE_FIELD_X1 "x1"
 #define IMAGE_FIELD_Y1 "y1"
+#define IMAGE_FIELD_FLIP "flip"
 #define IMAGE_FIELD_FLIP_X "flipX"
 #define IMAGE_FIELD_FLIP_Y "flipY"
 #define IMAGE_FIELD_FILL "fill"
@@ -123,6 +125,12 @@
  *   request:  {"src":1}
  *   response: {"ok":true,"api":"image/v1","handle":3,"width":32,
  *              "height":48,"pixelFormat":"rgba8"}
+ *
+ * transform
+ *   request:  {"src":1,"flip":6}
+ *   response: {"ok":true,"api":"image/v1","handle":4,"width":48,
+ *              "height":32,"pixelFormat":"rgba8","flip":6}
+ *   notes:    flip uses Tiled-style bits: 1=H, 2=V, 4=D
  *
  * crop
  *   request:  {"src":1,"x0":4,"y0":8,"x1":20,"y1":24}

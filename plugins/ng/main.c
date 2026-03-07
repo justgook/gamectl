@@ -480,44 +480,51 @@ static int lua_host_await_call(lua_State *L) {
   size_t service_len = 0;
   size_t method_len = 0;
   size_t payload_len = 0;
+  ng_u32 request_id;
   const char *service;
   const char *method;
-  const char *payload = "{}";
-  ng_i32 req_len;
-  ng_i32 out_len;
+  const char *payload = "";
   ng_i32 err;
 
   if (!lua_isstring(L, 1) || !lua_isstring(L, 2))
-    return luaL_error(L, "host.awaitCall(service, method, payloadJson?)");
+    return luaL_error(L, "host.awaitCall(moduleName, functionName, input?)");
 
   service = lua_tolstring(L, 1, &service_len);
   method = lua_tolstring(L, 2, &method_len);
   if (lua_gettop(L) >= 3 && lua_isstring(L, 3))
     payload = lua_tolstring(L, 3, &payload_len);
   else
-    payload_len = 2;
+    payload_len = 0;
 
   if (!g_run.active)
     return luaL_error(L, "awaitCall outside active run");
 
-  if (service_len + method_len + payload_len + 2 >= NG_IO_BUFFER_CAP)
+  if (service_len <= 0 || method_len <= 0)
+    return luaL_error(L, "awaitCall requires moduleName and functionName");
+
+  if (service_len >= NG_IO_BUFFER_CAP || method_len >= NG_IO_BUFFER_CAP ||
+      payload_len >= NG_IO_BUFFER_CAP)
     return luaL_error(L, "awaitCall request too large");
 
-  memcpy(g_code_buf, service, service_len);
-  g_code_buf[service_len] = '|';
-  memcpy(g_code_buf + service_len + 1, method, method_len);
-  g_code_buf[service_len + 1 + method_len] = '|';
-  memcpy(g_code_buf + service_len + 2 + method_len, payload, payload_len);
-  req_len = (ng_i32)(service_len + method_len + payload_len + 2);
+  request_id = g_run.next_request_id + 1u;
+  if (request_id == 0)
+    request_id = 1u;
+  g_run.next_request_id = request_id;
+  g_run.pending_request_id = request_id;
+  g_run.has_response = 0;
+  g_run.response_len = 0;
+  set_waiting(request_id, g_run.pending_node_id);
 
-  out_len = 0;
-  err = ng_host_resolve(g_run.pending_node_id, NG_RESOLVE_CALL, g_code_buf,
-                        req_len, g_resp_buf, NG_IO_BUFFER_CAP, &out_len);
-  if (err != NG_OK || out_len < 0)
-    return luaL_error(L, "host awaitCall resolve failed");
+  err = ng_host_request(g_run.pending_node_id, request_id, service,
+                        (ng_i32)service_len, method, (ng_i32)method_len,
+                        payload, (ng_i32)payload_len);
+  if (err != NG_OK) {
+    g_run.pending_request_id = 0;
+    clear_waiting();
+    return luaL_error(L, "host awaitCall request failed");
+  }
 
-  lua_pushlstring(L, g_resp_buf, (size_t)out_len);
-  return 1;
+  return lua_yield(L, 0);
 }
 
 static ng_i32 load_wrapped_code(lua_State *L, const char *src, size_t len) {
