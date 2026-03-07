@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"image"
 	"sort"
 
+	"github.com/justgook/gamectl/pkg/pluginimg"
 	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
@@ -128,93 +128,12 @@ func logMsg(msg string) {
 	pdk.Call("host", "log", []byte(msg))
 }
 
-// =============================================================================
-// Image handling via image plugin
-// =============================================================================
-
-type imageOpenOutput struct {
-	OK     bool `json:"ok"`
-	Handle int  `json:"handle"`
-	Width  int  `json:"width"`
-	Height int  `json:"height"`
-}
-
-type imageReadPixelsOutput struct {
-	OK   bool   `json:"ok"`
-	Data string `json:"data"`
-}
-
-type imageCreateOutput struct {
-	OK     bool `json:"ok"`
-	Handle int  `json:"handle"`
-}
-
-type imageWritePixelsOutput struct {
-	OK     bool `json:"ok"`
-	Handle int  `json:"handle"`
-}
-
-func imageCall(function string, input any, output any) error {
-	payload, err := json.Marshal(input)
-	if err != nil {
-		return err
-	}
-	status, data, err := pdk.Call("image", function, payload)
-	if err != nil {
-		return err
-	}
-	if status != 0 {
-		return fmt.Errorf("image.%s failed: %s", function, string(data))
-	}
-	if output != nil {
-		return json.Unmarshal(data, output)
-	}
-	return nil
-}
-
-func imageClose(handle int) {
-	_, _, _ = pdk.Call("image", "close", []byte(fmt.Sprintf(`{"src":%d}`, handle)))
-}
-
 func loadImage(path string) (*image.NRGBA, error) {
-	var opened imageOpenOutput
-	if err := imageCall("open", map[string]any{"path": path}, &opened); err != nil {
-		return nil, err
-	}
-	defer imageClose(opened.Handle)
-
-	var pixels imageReadPixelsOutput
-	if err := imageCall("read_pixels", map[string]any{"src": opened.Handle}, &pixels); err != nil {
-		return nil, err
-	}
-	raw, err := base64.StdEncoding.DecodeString(pixels.Data)
-	if err != nil {
-		return nil, err
-	}
-	return &image.NRGBA{Pix: raw, Stride: opened.Width * 4, Rect: image.Rect(0, 0, opened.Width, opened.Height)}, nil
+	return pluginimg.LoadNRGBA(path)
 }
 
 func saveImage(path string, img *image.NRGBA) error {
-	var created imageCreateOutput
-	if err := imageCall("create", map[string]any{"width": img.Bounds().Dx(), "height": img.Bounds().Dy()}, &created); err != nil {
-		return err
-	}
-	defer imageClose(created.Handle)
-
-	var written imageWritePixelsOutput
-	if err := imageCall("write_pixels", map[string]any{
-		"src":         created.Handle,
-		"width":       img.Bounds().Dx(),
-		"height":      img.Bounds().Dy(),
-		"pixelFormat": "rgba8",
-		"encoding":    "base64",
-		"data":        base64.StdEncoding.EncodeToString(img.Pix),
-	}, &written); err != nil {
-		return err
-	}
-	defer imageClose(written.Handle)
-
-	return imageCall("encode", map[string]any{"src": written.Handle, "path": path, "format": "qoi"}, nil)
+	return pluginimg.SaveNRGBA(path, img, "qoi")
 }
 
 // =============================================================================
@@ -278,23 +197,6 @@ func cropToAlpha(img *image.NRGBA) (cropped *image.NRGBA, offsetX, offsetY int) 
 	}
 
 	return result, minX, minY
-}
-
-// flipImageY vertically flips an image (mirrors along horizontal axis)
-func flipImageY(img *image.NRGBA) *image.NRGBA {
-	bounds := img.Bounds()
-	w, h := bounds.Dx(), bounds.Dy()
-	flipped := image.NewNRGBA(image.Rect(0, 0, w, h))
-
-	for y := 0; y < h; y++ {
-		srcY := h - 1 - y // Flip Y coordinate
-		for x := 0; x < w; x++ {
-			srcIdx := srcY*img.Stride + x*4
-			dstIdx := y*flipped.Stride + x*4
-			copy(flipped.Pix[dstIdx:dstIdx+4], img.Pix[srcIdx:srcIdx+4])
-		}
-	}
-	return flipped
 }
 
 // =============================================================================
@@ -682,7 +584,11 @@ func Pack() int32 {
 		}
 
 		if params.Options.FlipY {
-			img = flipImageY(img)
+			img, err = pluginimg.TransformNRGBA(img, 2)
+			if err != nil {
+				pdk.Output(util.ErrorResponse(fmt.Sprintf("sprite %d: failed to flip image: %s", i, err.Error())))
+				return 1
+			}
 		}
 
 		sprites = append(sprites, croppedSprite{
@@ -860,7 +766,12 @@ func PackTiles() int32 {
 		}
 
 		if params.Options.FlipY {
-			tileImg = flipImageY(tileImg)
+			flipped, err := pluginimg.TransformNRGBA(tileImg, 2)
+			if err != nil {
+				pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: failed to flip image: %s", i, err.Error())))
+				return 1
+			}
+			tileImg = flipped
 		}
 
 		name := tile.Name
@@ -1150,7 +1061,12 @@ func PackTilesets() int32 {
 
 		// Apply Y-flip if requested
 		if params.Options.FlipY {
-			tilesetImg = flipImageY(tilesetImg)
+			flipped, err := pluginimg.TransformNRGBA(tilesetImg, 2)
+			if err != nil {
+				pdk.Output(util.ErrorResponse("failed to flip tileset image: " + err.Error()))
+				return 1
+			}
+			tilesetImg = flipped
 		}
 
 		allSprites = append(allSprites, croppedSprite{
@@ -1190,7 +1106,12 @@ func PackTilesets() int32 {
 
 		// Apply Y-flip if requested
 		if params.Options.FlipY {
-			lutImg = flipImageY(lutImg)
+			flipped, err := pluginimg.TransformNRGBA(lutImg, 2)
+			if err != nil {
+				pdk.Output(util.ErrorResponse("failed to flip LUT image: " + err.Error()))
+				return 1
+			}
+			lutImg = flipped
 		}
 
 		allSprites = append(allSprites, croppedSprite{
