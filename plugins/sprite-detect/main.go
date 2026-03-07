@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
-	"image/png"
 	"sort"
 
-	"github.com/justgook/gamectl/pkg/qoi"
 	"github.com/justgook/gamectl/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
@@ -134,44 +132,88 @@ func logMsg(msg string) {
 }
 
 // =============================================================================
-// Image loading
+// Image loading/saving via image plugin
 // =============================================================================
 
-func loadImage(path string) (*image.NRGBA, error) {
-	data, err := fsRead(path)
+type imageOpenOutput struct {
+	OK     bool   `json:"ok"`
+	Handle int    `json:"handle"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Code   string `json:"code"`
+	Msg    string `json:"message"`
+}
+
+type imageReadPixelsOutput struct {
+	OK         bool   `json:"ok"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
+	ByteLength int    `json:"byteLength"`
+	Encoding   string `json:"encoding"`
+	Data       string `json:"data"`
+	Code       string `json:"code"`
+	Msg        string `json:"message"`
+}
+
+type imageCreateOutput struct {
+	OK     bool   `json:"ok"`
+	Handle int    `json:"handle"`
+	Code   string `json:"code"`
+	Msg    string `json:"message"`
+}
+
+type imageWritePixelsOutput struct {
+	OK     bool   `json:"ok"`
+	Handle int    `json:"handle"`
+	Code   string `json:"code"`
+	Msg    string `json:"message"`
+}
+
+func imageCall(function string, input any, output any) error {
+	payload, err := json.Marshal(input)
 	if err != nil {
+		return err
+	}
+	status, data, err := pdk.Call("image", function, payload)
+	if err != nil {
+		return err
+	}
+	if status != 0 {
+		return fmt.Errorf("image.%s failed: %s", function, string(data))
+	}
+	if output != nil {
+		if err := json.Unmarshal(data, output); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func imageClose(handle int) {
+	_, _, _ = pdk.Call("image", "close", []byte(fmt.Sprintf(`{"src":%d}`, handle)))
+}
+
+func loadImage(path string) (*image.NRGBA, error) {
+	var opened imageOpenOutput
+	if err := imageCall("open", map[string]any{"path": path}, &opened); err != nil {
+		return nil, err
+	}
+	defer imageClose(opened.Handle)
+
+	var pixels imageReadPixelsOutput
+	if err := imageCall("read_pixels", map[string]any{"src": opened.Handle}, &pixels); err != nil {
 		return nil, err
 	}
 
-	var img image.Image
-
-	// Try QOI first
-	if len(data) >= 4 && string(data[:4]) == "qoif" {
-		img, err = qoi.Decode(bytes.NewReader(data))
-		if err != nil {
-			return nil, fmt.Errorf("qoi decode error: %w", err)
-		}
-	} else {
-		// Try PNG
-		img, err = png.Decode(bytes.NewReader(data))
-		if err != nil {
-			return nil, fmt.Errorf("png decode error: %w", err)
-		}
+	raw, err := base64.StdEncoding.DecodeString(pixels.Data)
+	if err != nil {
+		return nil, err
 	}
-
-	// Convert to NRGBA
-	if nrgba, ok := img.(*image.NRGBA); ok {
-		return nrgba, nil
-	}
-
-	bounds := img.Bounds()
-	nrgba := image.NewNRGBA(bounds)
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			nrgba.Set(x, y, img.At(x, y))
-		}
-	}
-	return nrgba, nil
+	return &image.NRGBA{
+		Pix:    raw,
+		Stride: opened.Width * 4,
+		Rect:   image.Rect(0, 0, opened.Width, opened.Height),
+	}, nil
 }
 
 // =============================================================================
@@ -600,11 +642,33 @@ func DetectGrid() int32 {
 }
 
 func saveImage(path string, img *image.NRGBA) error {
-	var buf bytes.Buffer
-	if err := qoi.Encode(&buf, img); err != nil {
+	var created imageCreateOutput
+	if err := imageCall("create", map[string]any{
+		"width":  img.Bounds().Dx(),
+		"height": img.Bounds().Dy(),
+	}, &created); err != nil {
 		return err
 	}
-	return fsWrite(path, buf.Bytes())
+	defer imageClose(created.Handle)
+
+	var written imageWritePixelsOutput
+	if err := imageCall("write_pixels", map[string]any{
+		"src":         created.Handle,
+		"width":       img.Bounds().Dx(),
+		"height":      img.Bounds().Dy(),
+		"pixelFormat": "rgba8",
+		"encoding":    "base64",
+		"data":        base64.StdEncoding.EncodeToString(img.Pix),
+	}, &written); err != nil {
+		return err
+	}
+	defer imageClose(written.Handle)
+
+	return imageCall("encode", map[string]any{
+		"src":    written.Handle,
+		"path":   path,
+		"format": "qoi",
+	}, nil)
 }
 
 //go:wasmexport exportSpritesheet

@@ -544,42 +544,53 @@ export class ViewSpriteExtractor extends ViewCanvasBase {
     const outputDir = folder.path
 
     try {
-      // Build regions for split operation
-      const regions = []
       const indices = Array.from(this.selectedSprites).sort((a, b) => a - b)
-
-      for (const i of indices) {
-        const sprite = this.sprites[i]
-        regions.push({
-          x: sprite.x,
-          y: sprite.y,
-          width: sprite.width,
-          height: sprite.height,
-          outputPath: `${outputDir}/sprite_${String(i).padStart(3, '0')}.qoi`
-        })
-      }
 
       // Ensure output directory exists
       await window.pluginManager.call('fs', 'mkdir', outputDir)
 
-      // Use image-process plugin to split
-      const input = JSON.stringify({
-        inputPath: this.sourcePath,
-        regions: regions
-      })
+      const decode = new TextDecoder()
+      const callImage = async (fn, payload) => {
+        const result = await window.pluginManager.call('image', fn, JSON.stringify(payload))
+        const text = decode.decode(result.output)
+        if (result.returnCode !== 0) {
+          throw new Error(text || `image.${fn} failed`)
+        }
+        return JSON.parse(text)
+      }
 
-      const result = await window.pluginManager.call('image-process', 'split', input)
-      const output = JSON.parse(new TextDecoder().decode(result.output))
+      const opened = await callImage('open', { path: this.sourcePath })
 
-      if (!output.success) {
-        throw new Error(output.error || 'Export failed')
+      try {
+        for (const i of indices) {
+          const sprite = this.sprites[i]
+          const cropped = await callImage('crop', {
+            src: opened.handle,
+            x0: sprite.x,
+            y0: sprite.y,
+            x1: sprite.x + sprite.width,
+            y1: sprite.y + sprite.height
+          })
+
+          try {
+            await callImage('encode', {
+              src: cropped.handle,
+              path: `${outputDir}/sprite_${String(i).padStart(3, '0')}.qoi`,
+              format: 'qoi'
+            })
+          } finally {
+            await callImage('close', { src: cropped.handle })
+          }
+        }
+      } finally {
+        await callImage('close', { src: opened.handle })
       }
 
       // Update output directory for future exports
       this.outputDir = outputDir
 
       bus.emit('toast:show', {
-        message: `Exported ${regions.length} sprites to ${outputDir}`,
+        message: `Exported ${indices.length} sprites to ${outputDir}`,
         type: 'success'
       })
 
