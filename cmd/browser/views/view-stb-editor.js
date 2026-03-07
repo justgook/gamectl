@@ -1,6 +1,7 @@
 import { toast } from '../systems/toast.js'
 import { parseCSVLines } from '../util/csv.js'
 import { decode as decodeQOI } from '../util/qoi/decode.js'
+import { ViewCanvasBase } from './view-canvas-base.js'
 
 function escapeAttribute(value) {
   return String(value ?? '')
@@ -10,7 +11,7 @@ function escapeAttribute(value) {
     .replace(/>/g, '&gt;')
 }
 
-export default class ViewStbEditor extends HTMLElement {
+export default class ViewStbEditor extends ViewCanvasBase {
   static get viewMeta() {
     return { displayName: 'STB Tilemap Editor', category: 'Tiles' }
   }
@@ -51,35 +52,31 @@ export default class ViewStbEditor extends HTMLElement {
     this.dragEndY = -1
     this.showDragPreview = false
 
-    this.view = {
-      scale: 1,
-      dragX: 0,
-      dragY: 0,
-      minScale: 0.35,
-      maxScale: 5
-    }
-
-    this.boundHandleWindowResize = this.handleWindowResize.bind(this)
-    this.boundViewportWheel = null
-    this.boundCanvasMouseDown = null
-    this.boundCanvasMouseMove = null
-    this.boundCanvasMouseLeave = null
-    this.boundCanvasMouseUp = null
-    this.boundCanvasContextMenu = null
-    this.boundCanvasElement = null
-    this._headerControlsElement = null
+    this.autoFitOnLoad = false
+    this.mapCanvas = null
+    this.mapCtx = null
+    this.isToolDragging = false
+    this.isAreaDragging = false
+    this.boundWindowMouseUp = this.handleWindowMouseUp.bind(this)
+    this.boundCanvasContextMenu = this.handleCanvasContextMenu.bind(this)
+    this._initToken = 0
     this._storagePopup = null
     this.loadedMapName = ''
   }
 
   connectedCallback() {
     this.renderLayout()
-    this._mountHeaderControls()
-    this.init().then(() => {
+    super.connectedCallback()
+    this.bindEditorControls()
+    const initToken = ++this._initToken
+    this.init(initToken).then(() => {
+      if (!this.isInitActive(initToken)) return
       this.loadDefaultDemoMap().catch((err) => {
+        if (!this.isInitActive(initToken)) return
         console.warn('[stb-editor] default map load skipped:', err)
       })
     }).catch((err) => {
+      if (!this.isInitActive(initToken)) return
       this.log(`Initialization failed: ${err.message}`)
       console.error(err)
     })
@@ -90,16 +87,14 @@ export default class ViewStbEditor extends HTMLElement {
       this._storagePopup.close()
       this._storagePopup = null
     }
+    this._initToken += 1
     this.cleanup()
-    this._unmountHeaderControls()
+    super.disconnectedCallback()
   }
 
-  _mountHeaderControls() {
-    if (!this.parentElement) return
-
-    const headerControls = document.createElement('div')
-    headerControls.setAttribute('slot', 'header-controls')
-    headerControls.innerHTML = `
+  createHeaderControlsElement() {
+    const controls = document.createElement('div')
+    controls.innerHTML = `
       <div role="buttongroup" aria-label="Editing tools">
         <button data-tool="1" title="Brush tool" aria-label="Brush tool">
           <i aria-hidden="true">brush</i>
@@ -147,30 +142,31 @@ export default class ViewStbEditor extends HTMLElement {
         <i aria-hidden="true">fit_screen</i>
       </button>
     `
-
-    this._headerControlsElement = headerControls
-    this.parentElement.appendChild(headerControls)
-  }
-
-  _unmountHeaderControls() {
-    if (this._headerControlsElement?.parentElement) {
-      this._headerControlsElement.remove()
-      this._headerControlsElement = null
-    }
+    return controls
   }
 
   headerControl(id) {
-    return this._headerControlsElement?.querySelector(`[data-id="${id}"]`) || null
+    return this.queryHeaderControl(`[data-id="${id}"]`)
   }
 
   headerControlButtons(selector) {
-    if (!this._headerControlsElement) return []
-    return [...this._headerControlsElement.querySelectorAll(selector)]
+    const root = this._headerControlsElement
+    if (!root) return []
+    return [...root.querySelectorAll(selector)]
   }
 
-  async init() {
+  isInitActive(initToken) {
+    return this.isConnected && initToken === this._initToken
+  }
+
+  async init(initToken = this._initToken) {
     try {
       this.log('Initializing editor...')
+      this.ensureMapCanvas()
+      this.canvas.removeEventListener('contextmenu', this.boundCanvasContextMenu)
+      this.canvas.addEventListener('contextmenu', this.boundCanvasContextMenu)
+      window.removeEventListener('mouseup', this.boundWindowMouseUp)
+      window.addEventListener('mouseup', this.boundWindowMouseUp)
 
       const memory = new WebAssembly.Memory({
         initial: 288,
@@ -182,6 +178,7 @@ export default class ViewStbEditor extends HTMLElement {
         name: 'stbte',
         importObject: { env: { memory } }
       })
+      if (!this.isInitActive(initToken)) throw new Error('Editor detached during initialization')
 
       this.wasm = this.plugin.instance
       this.memory = memory
@@ -203,56 +200,29 @@ export default class ViewStbEditor extends HTMLElement {
       }
 
       await this.defineTilesFromAtlases()
+      if (!this.isInitActive(initToken)) throw new Error('Editor detached during initialization')
 
-      this.setupUI()
       this.setupLayers()
       this.setupTilesetTabs()
       this.setupTiles()
       this.updateMetadata()
-      this.setupViewportControls()
-      this.resizeCanvasToMap()
+      this.contentBounds = this.calculateContentBounds()
       this.renderMap()
-      this.resetViewToFit()
+      this.fitToContent()
 
       this.log(`Ready. ${this.tileSprites.size} tile sprites loaded.`)
     } catch (err) {
+      this.cleanup()
       this.log(`Error: ${err.message}`)
       throw err
     }
   }
 
   cleanup() {
-    if (this.boundCanvasMouseUp) {
-      window.removeEventListener('mouseup', this.boundCanvasMouseUp)
-      this.boundCanvasMouseUp = null
+    if (this.canvas) {
+      this.canvas.removeEventListener('contextmenu', this.boundCanvasContextMenu)
     }
-
-    if (this.boundCanvasElement) {
-      if (this.boundCanvasMouseDown) {
-        this.boundCanvasElement.removeEventListener('mousedown', this.boundCanvasMouseDown)
-        this.boundCanvasMouseDown = null
-      }
-      if (this.boundCanvasMouseMove) {
-        this.boundCanvasElement.removeEventListener('mousemove', this.boundCanvasMouseMove)
-        this.boundCanvasMouseMove = null
-      }
-      if (this.boundCanvasMouseLeave) {
-        this.boundCanvasElement.removeEventListener('mouseleave', this.boundCanvasMouseLeave)
-        this.boundCanvasMouseLeave = null
-      }
-      if (this.boundCanvasContextMenu) {
-        this.boundCanvasElement.removeEventListener('contextmenu', this.boundCanvasContextMenu)
-        this.boundCanvasContextMenu = null
-      }
-      this.boundCanvasElement = null
-    }
-
-    if (this.boundViewportWheel) {
-      this.el('map-viewport')?.removeEventListener('wheel', this.boundViewportWheel)
-      this.boundViewportWheel = null
-    }
-
-    window.removeEventListener('resize', this.boundHandleWindowResize)
+    window.removeEventListener('mouseup', this.boundWindowMouseUp)
 
     try {
       if (this.exports && this.tilemap) {
@@ -267,6 +237,10 @@ export default class ViewStbEditor extends HTMLElement {
     this.exports = null
     this.memory = null
     this.wasm = null
+    this.mapCtx = null
+    this.mapCanvas = null
+    this.isToolDragging = false
+    this.isAreaDragging = false
 
     if (this.plugin) {
       window.pluginManager.unload(this.plugin)
@@ -276,9 +250,7 @@ export default class ViewStbEditor extends HTMLElement {
 
   renderLayout() {
     this.innerHTML = `
-      <section data-id="map-viewport">
-        <canvas data-id="tilemap" width="640" height="480" style="transform-origin: 0 0;"></canvas>
-      </section>
+      <section data-id="map-viewport"></section>
 
       <aside data-id="sidepanel">
           <fieldset>
@@ -311,10 +283,83 @@ export default class ViewStbEditor extends HTMLElement {
     return this.querySelector(`[data-id="${id}"]`)
   }
 
+  setupUI() {
+    this.style.cssText = 'display:flex;flex-direction:row;flex:1;min-height:0;overflow:hidden'
+
+    const viewport = this.el('map-viewport')
+    if (viewport && this.canvas.parentElement !== viewport) {
+      viewport.appendChild(this.canvas)
+    }
+
+    if (viewport) {
+      viewport.style.cssText = 'position:relative;flex:1;min-width:0;min-height:0;overflow:hidden'
+    }
+
+    this.canvas.style.cssText = 'display:block;width:100%;height:100%;cursor:default'
+  }
+
   log(message) {
     const output = this.el('output')
     output.textContent += `${message}\n`
     output.scrollTop = output.scrollHeight
+  }
+
+  ensureMapCanvas() {
+    if (this.mapCanvas && this.mapCtx) return
+    if (typeof OffscreenCanvas !== 'function') {
+      toast.error('OffscreenCanvas is required for the STB editor.')
+      throw new Error('OffscreenCanvas is not available')
+    }
+
+    this.mapCanvas = new OffscreenCanvas(1, 1)
+    this.mapCtx = this.mapCanvas.getContext('2d')
+    this.mapCtx.imageSmoothingEnabled = false
+  }
+
+  _onResized() {
+    const viewport = this.el('map-viewport')
+    if (!viewport || !this.canvas) return
+
+    const width = Math.round(viewport.clientWidth)
+    const height = Math.round(viewport.clientHeight)
+    if (width <= 0 || height <= 0) return
+    if (this.canvas.width === width && this.canvas.height === height) return
+
+    this.canvas.width = width
+    this.canvas.height = height
+    this.draw()
+    this._tryAutoFit()
+  }
+
+  calculateContentBounds() {
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: Math.max(1, this.mapWidth * this.tileSize),
+      maxY: Math.max(1, this.mapHeight * this.tileSize)
+    }
+  }
+
+  drawContent(ctx) {
+    if (!this.mapCanvas) return
+
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(this.mapCanvas, 0, 0)
+
+    if (this.showDragPreview) {
+      this.drawDragPreview(ctx)
+    }
+  }
+
+  zoom(x, y, factor) {
+    super.zoom(x, y, factor)
+    this.updateMetadata()
+  }
+
+  fitToContent() {
+    const didFit = super.fitToContent()
+    this.updateMetadata()
+    return didFit
   }
 
   loadOffsets() {
@@ -497,9 +542,10 @@ export default class ViewStbEditor extends HTMLElement {
   canUndo() { return this.readTilemap(this.offsets.tm_undo_available, 'i8') !== 0 }
   canRedo() { return this.readTilemap(this.offsets.tm_redo_available, 'i8') !== 0 }
 
-  setupUI() {
+  bindEditorControls() {
     this.headerControlButtons('[data-tool]').forEach((btn) => {
       btn.onclick = () => {
+        if (!this.exports || !this.tilemap) return
         this.currentTool = parseInt(btn.dataset.tool, 10)
         this.exports.stbte_set_tool(this.tilemap, this.currentTool)
         this.updateControlStates()
@@ -508,27 +554,32 @@ export default class ViewStbEditor extends HTMLElement {
     })
 
     this.headerControl('undo-btn').onclick = () => {
+      if (!this.exports || !this.tilemap) return
       this.exports.stbte_undo(this.tilemap)
       this.postAction()
     }
 
     this.headerControl('redo-btn').onclick = () => {
+      if (!this.exports || !this.tilemap) return
       this.exports.stbte_redo(this.tilemap)
       this.postAction()
     }
 
     this.headerControl('cut-btn').onclick = () => {
+      if (!this.exports || !this.tilemap) return
       this.exports.stbte_cut(this.tilemap)
       this.postAction()
     }
 
     this.headerControl('copy-btn').onclick = () => {
+      if (!this.exports || !this.tilemap) return
       this.exports.stbte_copy(this.tilemap)
       this.updateMetadata()
       this.log('Copied selection')
     }
 
     this.headerControl('paste-btn').onclick = () => {
+      if (!this.exports || !this.tilemap) return
       const cx = Math.floor(this.mapWidth / 2)
       const cy = Math.floor(this.mapHeight / 2)
       this.exports.stbte_paste(this.tilemap, cx, cy)
@@ -536,6 +587,7 @@ export default class ViewStbEditor extends HTMLElement {
     }
 
     this.headerControl('clear-btn').onclick = () => {
+      if (!this.exports || !this.tilemap) return
       this.exports.stbte_clear(this.tilemap)
       this.postAction()
     }
@@ -557,16 +609,17 @@ export default class ViewStbEditor extends HTMLElement {
     this.headerControl('grid-btn').onclick = () => {
       this.showGrid = !this.showGrid
       this.renderMap()
+      this.draw()
       this.updateControlStates()
       this.updateMetadata()
     }
 
     this.headerControl('fit-btn').onclick = () => {
-      this.resetViewToFit()
+      this.fitToContent()
+      this.updateMetadata()
     }
 
     this.updateControlStates()
-    this.setupCanvasInput()
   }
 
   updateControlStates() {
@@ -583,75 +636,9 @@ export default class ViewStbEditor extends HTMLElement {
     }
   }
 
-  setupViewportControls() {
-    const viewport = this.el('map-viewport')
-    this.boundViewportWheel = (e) => {
-      e.preventDefault()
-      const rect = viewport.getBoundingClientRect()
-      const layerX = e.clientX - rect.left
-      const layerY = e.clientY - rect.top
-
-      if (e.ctrlKey || e.metaKey) {
-        const prevScale = this.view.scale
-        const zoomAmount = -e.deltaY * 0.0015
-        const nextScale = this.clamp(prevScale * (1 + zoomAmount), this.view.minScale, this.view.maxScale)
-        const relX = (layerX - this.view.dragX) / prevScale
-        const relY = (layerY - this.view.dragY) / prevScale
-        this.view.scale = nextScale
-        this.view.dragX = layerX - relX * nextScale
-        this.view.dragY = layerY - relY * nextScale
-      } else {
-        this.view.dragX -= e.deltaX
-        this.view.dragY -= e.deltaY
-      }
-
-      this.applyViewTransform()
-      this.updateMetadata()
-    }
-    viewport.addEventListener('wheel', this.boundViewportWheel, { passive: false })
-
-    window.addEventListener('resize', this.boundHandleWindowResize)
-  }
-
-  handleWindowResize() {
-    this.applyViewTransform()
-  }
-
-  applyViewTransform() {
-    const canvas = this.el('tilemap')
-    const s = this.view.scale
-    canvas.style.transform = `matrix(${s}, 0, 0, ${s}, ${this.view.dragX}, ${this.view.dragY})`
-  }
-
-  resizeCanvasToMap() {
-    const canvas = this.el('tilemap')
-    if (!canvas) return
-    const width = Math.max(1, this.mapWidth * this.tileSize)
-    const height = Math.max(1, this.mapHeight * this.tileSize)
-    canvas.width = width
-    canvas.height = height
-    canvas.style.width = `${width}px`
-    canvas.style.height = `${height}px`
-  }
-
-  resetViewToFit() {
-    const viewport = this.el('map-viewport')
-    const viewportWidth = Math.max(1, viewport.clientWidth)
-    const viewportHeight = Math.max(1, viewport.clientHeight)
-    const mapW = this.mapWidth * this.tileSize
-    const mapH = this.mapHeight * this.tileSize
-    const fitScaleX = viewportWidth / mapW
-    const fitScaleY = viewportHeight / mapH
-    const fitScale = this.clamp(Math.min(fitScaleX, fitScaleY), this.view.minScale, this.view.maxScale)
-    this.view.scale = fitScale
-    this.view.dragX = Math.round((viewportWidth - mapW * fitScale) / 2)
-    this.view.dragY = Math.round((viewportHeight - mapH * fitScale) / 2)
-    this.applyViewTransform()
-    this.updateMetadata()
-  }
-
   postAction() {
     this.renderMap()
+    this.draw()
     this.updateMetadata()
     this.setupLayers()
     const undoBtn = this.headerControl('undo-btn')
@@ -660,95 +647,112 @@ export default class ViewStbEditor extends HTMLElement {
     if (redoBtn) redoBtn.disabled = !this.canRedo()
   }
 
-  setupCanvasInput() {
-    const canvas = this.el('tilemap')
-    this.boundCanvasElement = canvas
-    let isDragging = false
-    let areaDrag = false
+  saveData() {
+    return this.showSaveTilemapPopup()
+  }
 
-    const isAreaDrag = (e) => this.currentTool === 0 || (e.shiftKey && (this.currentTool === 1 || this.currentTool === 2))
+  isAreaDragEvent(e) {
+    return this.currentTool === 0 || (e.shiftKey && (this.currentTool === 1 || this.currentTool === 2))
+  }
 
-    const eventToCell = (e) => {
-      const canvasRect = canvas.getBoundingClientRect()
-      const pixelX = (e.clientX - canvasRect.left) * (canvas.width / Math.max(1, canvasRect.width))
-      const pixelY = (e.clientY - canvasRect.top) * (canvas.height / Math.max(1, canvasRect.height))
-      return {
-        x: Math.floor(pixelX / this.tileSize),
-        y: Math.floor(pixelY / this.tileSize)
-      }
+  getWorldPosition(e) {
+    const rect = this.canvas.getBoundingClientRect()
+    const bitmapX = (e.clientX - rect.left) * (this.canvas.width / Math.max(1, rect.width))
+    const bitmapY = (e.clientY - rect.top) * (this.canvas.height / Math.max(1, rect.height))
+    return {
+      x: (bitmapX - this.offsetX) / this.scale,
+      y: (bitmapY - this.offsetY) / this.scale
+    }
+  }
+
+  eventToCell(e) {
+    const { x, y } = this.getWorldPosition(e)
+    return {
+      x: Math.floor(x / this.tileSize),
+      y: Math.floor(y / this.tileSize)
+    }
+  }
+
+  onCanvasMouseDown(e) {
+    if (e.button !== 0) return
+    if (!this.exports || !this.tilemap) return
+
+    const { x, y } = this.eventToCell(e)
+    if (!this.isInsideMap(x, y)) return
+
+    this.isToolDragging = true
+    this.dragStartX = x
+    this.dragStartY = y
+
+    if (this.isAreaDragEvent(e)) {
+      this.isAreaDragging = true
+      this.dragEndX = x
+      this.dragEndY = y
+      this.showDragPreview = true
+      this.draw()
+      return
     }
 
-    this.boundCanvasMouseDown = (e) => {
-      const { x, y } = eventToCell(e)
-      if (!this.isInsideMap(x, y)) return
-      isDragging = true
-      this.dragStartX = x
-      this.dragStartY = y
+    this.isAreaDragging = false
+    this.showDragPreview = false
+    this.exports.stbte_apply(this.tilemap, x, y, x, y)
+    this.postAction()
+  }
 
-      if (isAreaDrag(e)) {
-        areaDrag = true
-        this.dragEndX = x
-        this.dragEndY = y
-        this.showDragPreview = true
-        this.renderMap()
-        return
-      }
+  onCanvasMouseMove(e) {
+    const { x, y } = this.eventToCell(e)
+    this.hoverX = x
+    this.hoverY = y
+    this.updateMetadata()
 
-      areaDrag = false
-      this.showDragPreview = false
+    if (!this.isToolDragging || !this.isInsideMap(x, y) || !this.exports || !this.tilemap) return
+
+    if (this.isAreaDragging) {
+      this.dragEndX = x
+      this.dragEndY = y
+      this.draw()
+      return
+    }
+
+    if (this.currentTool === 1 || this.currentTool === 2) {
       this.exports.stbte_apply(this.tilemap, x, y, x, y)
+      this.renderMap()
+      this.draw()
+      this.updateMetadata()
+    }
+  }
+
+  onCanvasMouseUp(e) {
+    this.finishCanvasDrag(e)
+  }
+
+  handleWindowMouseUp(e) {
+    this.finishCanvasDrag(e)
+  }
+
+  finishCanvasDrag(e) {
+    if (this.isToolDragging && this.isAreaDragging && this.exports && this.tilemap) {
+      const { x, y } = this.eventToCell(e)
+      const ex = this.clamp(x, 0, this.mapWidth - 1)
+      const ey = this.clamp(y, 0, this.mapHeight - 1)
+      this.exports.stbte_apply(this.tilemap, this.dragStartX, this.dragStartY, ex, ey)
+      this.showDragPreview = false
       this.postAction()
     }
-    canvas.addEventListener('mousedown', this.boundCanvasMouseDown)
 
-    this.boundCanvasMouseMove = (e) => {
-      const { x, y } = eventToCell(e)
-      this.hoverX = x
-      this.hoverY = y
-      this.updateMetadata()
+    this.isToolDragging = false
+    this.isAreaDragging = false
+  }
 
-      if (!isDragging || !this.isInsideMap(x, y)) return
+  _onMouseLeave() {
+    super._onMouseLeave()
+    this.hoverX = -1
+    this.hoverY = -1
+    this.updateMetadata()
+  }
 
-      if (areaDrag) {
-        this.dragEndX = x
-        this.dragEndY = y
-        this.renderMap()
-        return
-      }
-
-      if (this.currentTool === 1 || this.currentTool === 2) {
-        this.exports.stbte_apply(this.tilemap, x, y, x, y)
-        this.renderMap()
-        this.updateMetadata()
-      }
-    }
-    canvas.addEventListener('mousemove', this.boundCanvasMouseMove)
-
-    this.boundCanvasMouseLeave = () => {
-      this.hoverX = -1
-      this.hoverY = -1
-      this.updateMetadata()
-    }
-    canvas.addEventListener('mouseleave', this.boundCanvasMouseLeave)
-
-    const onMouseUp = (e) => {
-      if (isDragging && areaDrag) {
-        const { x, y } = eventToCell(e)
-        const ex = this.clamp(x, 0, this.mapWidth - 1)
-        const ey = this.clamp(y, 0, this.mapHeight - 1)
-        this.exports.stbte_apply(this.tilemap, this.dragStartX, this.dragStartY, ex, ey)
-        this.showDragPreview = false
-        this.postAction()
-      }
-      isDragging = false
-      areaDrag = false
-    }
-
-    this.boundCanvasMouseUp = onMouseUp
-    window.addEventListener('mouseup', onMouseUp)
-
-    this.boundCanvasContextMenu = (e) => e.preventDefault()
-    canvas.addEventListener('contextmenu', this.boundCanvasContextMenu)
+  handleCanvasContextMenu(e) {
+    e.preventDefault()
   }
 
   isInsideMap(x, y) {
@@ -793,16 +797,19 @@ export default class ViewStbEditor extends HTMLElement {
         this.exports.stbte_set_layer_hidden(this.tilemap, i, hidden ? 0 : 1)
         this.setupLayers()
         this.renderMap()
+        this.draw()
       })
       const lBtn = this.makeLayerToggle('lock', locked, () => {
         this.exports.stbte_set_layer_locked(this.tilemap, i, locked ? 0 : 1)
         this.setupLayers()
         this.renderMap()
+        this.draw()
       })
       const sBtn = this.makeLayerToggle('visibility', isSolo, () => {
         this.exports.stbte_set_solo_layer(this.tilemap, isSolo ? -1 : i)
         this.setupLayers()
         this.renderMap()
+        this.draw()
       })
 
       row.appendChild(hBtn)
@@ -949,17 +956,17 @@ export default class ViewStbEditor extends HTMLElement {
       map: `${this.mapWidth} x ${this.mapHeight}`,
       layers: String(this.layers),
       tool: toolNames[this.currentTool] || String(this.currentTool),
-      tileIndex: String(this.getCurrentTile()),
-      tilesLoaded: String(this.getNumTiles()),
+      tileIndex: this.exports ? String(this.getCurrentTile()) : '-',
+      tilesLoaded: this.exports ? String(this.getNumTiles()) : '0',
       tilesets: String(this.tileSets.length),
       activeLayer: this.selectedLayer === -1 ? 'All editable' : (this.layerNames[this.selectedLayer] || `Layer ${this.selectedLayer + 1}`),
       hover: this.isInsideMap(this.hoverX, this.hoverY) ? `${this.hoverX}, ${this.hoverY}` : '-',
-      undo: this.canUndo() ? 'yes' : 'no',
-      redo: this.canRedo() ? 'yes' : 'no',
+      undo: this.exports && this.canUndo() ? 'yes' : 'no',
+      redo: this.exports && this.canRedo() ? 'yes' : 'no',
       grid: this.showGrid ? 'on' : 'off',
-      selection: this.readUI(this.offsets.ui_has_selection, 'i32') ? 'yes' : 'no',
-      zoom: `${Math.round(this.view.scale * 100)}%`,
-      drag: `${Math.round(this.view.dragX)}, ${Math.round(this.view.dragY)}`
+      selection: this.exports && this.uiPtr ? (this.readUI(this.offsets.ui_has_selection, 'i32') ? 'yes' : 'no') : 'no',
+      zoom: `${Math.round(this.scale * 100)}%`,
+      drag: `${Math.round(this.offsetX)}, ${Math.round(this.offsetY)}`
     }
 
     const root = this.el('meta')
@@ -977,17 +984,27 @@ export default class ViewStbEditor extends HTMLElement {
 
     const undoBtn = this.headerControl('undo-btn')
     const redoBtn = this.headerControl('redo-btn')
-    if (undoBtn) undoBtn.disabled = !this.canUndo()
-    if (redoBtn) redoBtn.disabled = !this.canRedo()
+    if (undoBtn) undoBtn.disabled = !(this.exports && this.canUndo())
+    if (redoBtn) redoBtn.disabled = !(this.exports && this.canRedo())
   }
 
   renderMap() {
-    const canvas = this.el('tilemap')
-    const ctx = canvas.getContext('2d')
+    if (!this.mapCanvas || !this.mapCtx || !this.tilemap || !this.memory) return
+
+    const width = Math.max(1, this.mapWidth * this.tileSize)
+    const height = Math.max(1, this.mapHeight * this.tileSize)
+    if (this.mapCanvas.width !== width || this.mapCanvas.height !== height) {
+      this.mapCanvas.width = width
+      this.mapCanvas.height = height
+      this.mapCtx = this.mapCanvas.getContext('2d')
+      this.mapCtx.imageSmoothingEnabled = false
+    }
+
+    const ctx = this.mapCtx
     ctx.imageSmoothingEnabled = false
 
     ctx.fillStyle = '#070d14'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillRect(0, 0, this.mapCanvas.width, this.mapCanvas.height)
 
     const dataOffset = this.tilemap + this.offsets.tm_data
     const maxX = this.offsets.max_map_x
@@ -1037,23 +1054,23 @@ export default class ViewStbEditor extends HTMLElement {
         }
       }
     }
+  }
 
-    if (this.showDragPreview) {
-      const ax0 = Math.min(this.dragStartX, this.dragEndX)
-      const ay0 = Math.min(this.dragStartY, this.dragEndY)
-      const ax1 = Math.max(this.dragStartX, this.dragEndX)
-      const ay1 = Math.max(this.dragStartY, this.dragEndY)
-      const px = ax0 * this.tileSize
-      const py = ay0 * this.tileSize
-      const pw = (ax1 - ax0 + 1) * this.tileSize
-      const ph = (ay1 - ay0 + 1) * this.tileSize
-      ctx.fillStyle = 'rgba(88, 166, 255, 0.16)'
-      ctx.fillRect(px, py, pw, ph)
-      ctx.strokeStyle = 'rgba(88, 166, 255, 0.95)'
-      ctx.lineWidth = 2
-      ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2)
-      ctx.lineWidth = 1
-    }
+  drawDragPreview(ctx) {
+    const ax0 = Math.min(this.dragStartX, this.dragEndX)
+    const ay0 = Math.min(this.dragStartY, this.dragEndY)
+    const ax1 = Math.max(this.dragStartX, this.dragEndX)
+    const ay1 = Math.max(this.dragStartY, this.dragEndY)
+    const px = ax0 * this.tileSize
+    const py = ay0 * this.tileSize
+    const pw = (ax1 - ax0 + 1) * this.tileSize
+    const ph = (ay1 - ay0 + 1) * this.tileSize
+    ctx.fillStyle = 'rgba(88, 166, 255, 0.16)'
+    ctx.fillRect(px, py, pw, ph)
+    ctx.strokeStyle = 'rgba(88, 166, 255, 0.95)'
+    ctx.lineWidth = 2 / Math.max(this.scale, 0.0001)
+    ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2)
+    ctx.lineWidth = 1 / Math.max(this.scale, 0.0001)
   }
 
   encodeTopLevelProps() {
