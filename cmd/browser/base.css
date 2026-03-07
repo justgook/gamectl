@@ -1029,7 +1029,12 @@
   }
 
   canvas {
+    flex: 1;
     image-rendering: pixelated;
+  }
+
+  canvas:has(+ aside) {
+    width: calc(100% - var(--aside-width));
   }
 
   view-stb-editor {
