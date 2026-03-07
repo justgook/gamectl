@@ -28,9 +28,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.uiPtr = 0
 
     this.defaultTileSize = 16
-    this.defaultSourceTileSize = 16
     this.tileSize = 16
-    this.sourceTileSize = 16
     this.mapWidth = 20
     this.mapHeight = 15
     this.layers = 3
@@ -141,6 +139,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
       </button>
       <button data-id="fit-btn" title="Fit map to viewport" aria-label="Fit map to viewport">
         <i aria-hidden="true">fit_screen</i>
+      </button>
+      <button data-id="settings-btn" title="Map settings" aria-label="Map settings">
+        <i aria-hidden="true">settings</i>
       </button>
     `
     return controls
@@ -391,8 +392,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
       try {
         image = await this.loadTilesetImage(tileSet.file)
-        cols = Math.max(1, Math.floor(image.width / this.sourceTileSize))
-        rows = Math.max(1, Math.floor(image.height / this.sourceTileSize))
+        cols = Math.max(1, Math.floor(image.width / this.tileSize))
+        rows = Math.max(1, Math.floor(image.height / this.tileSize))
       } catch (err) {
         const generated = this.generateFallbackTileset(tileSetIndex, entry.startTileId, entry.count)
         image = generated.image
@@ -407,10 +408,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
           const tileId = nextTileId++
           this.tileSprites.set(tileId, {
             image,
-            sx: x * this.sourceTileSize,
-            sy: y * this.sourceTileSize,
-            sw: this.sourceTileSize,
-            sh: this.sourceTileSize,
+            sx: x * this.tileSize,
+            sy: y * this.tileSize,
+            sw: this.tileSize,
+            sh: this.tileSize,
             tilesetIndex: tileSetIndex
           })
         }
@@ -427,10 +428,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
         for (let x = 0; x < generated.cols && tileId < restRange.endTileId; x++) {
           this.tileSprites.set(tileId, {
             image: generated.image,
-            sx: x * this.sourceTileSize,
-            sy: y * this.sourceTileSize,
-            sw: this.sourceTileSize,
-            sh: this.sourceTileSize,
+            sx: x * this.tileSize,
+            sy: y * this.tileSize,
+            sw: this.tileSize,
+            sh: this.tileSize,
             tilesetIndex: -1
           })
           tileId += 1
@@ -514,11 +515,11 @@ export default class ViewStbEditor extends ViewCanvasBase {
     return tabs.find((entry) => entry.key === this.selectedTilesetFilter) || tabs[0]
   }
 
-  async ensureTilesetCounts() {
+  async ensureTilesetCounts(forceRecompute = false, tileSize = this.tileSize) {
     for (const tileSet of this.tileSets) {
-      if ((Number(tileSet?.count) || 0) > 0) continue
+      if (!forceRecompute && (Number(tileSet?.count) || 0) > 0) continue
       try {
-        tileSet.count = await this.inferTilesetCount(tileSet.file)
+        tileSet.count = await this.inferTilesetCount(tileSet.file, tileSize)
       } catch (_err) {
         tileSet.count = 1
       }
@@ -531,28 +532,28 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const cols = Math.max(1, Math.ceil(Math.sqrt(count)))
     const rows = Math.max(1, Math.ceil(count / cols))
     const canvas = document.createElement('canvas')
-    canvas.width = cols * this.sourceTileSize
-    canvas.height = rows * this.sourceTileSize
+    canvas.width = cols * this.tileSize
+    canvas.height = rows * this.tileSize
     const ctx = canvas.getContext('2d')
 
     ctx.imageSmoothingEnabled = false
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.font = `${Math.max(8, Math.floor(this.sourceTileSize * 0.42))}px monospace`
+    ctx.font = `${Math.max(8, Math.floor(this.tileSize * 0.42))}px monospace`
 
     for (let i = 0; i < count; i++) {
-      const x = (i % cols) * this.sourceTileSize
-      const y = Math.floor(i / cols) * this.sourceTileSize
+      const x = (i % cols) * this.tileSize
+      const y = Math.floor(i / cols) * this.tileSize
       const hue = (tileSetIndex * 61 + i * 37) % 360
 
       ctx.fillStyle = `hsl(${hue} 55% 48%)`
-      ctx.fillRect(x, y, this.sourceTileSize, this.sourceTileSize)
+      ctx.fillRect(x, y, this.tileSize, this.tileSize)
       ctx.fillStyle = `hsl(${(hue + 22) % 360} 65% 30%)`
-      ctx.fillRect(x + 1, y + 1, this.sourceTileSize - 2, this.sourceTileSize - 2)
+      ctx.fillRect(x + 1, y + 1, this.tileSize - 2, this.tileSize - 2)
       ctx.strokeStyle = 'rgba(255,255,255,0.25)'
-      ctx.strokeRect(x + 0.5, y + 0.5, this.sourceTileSize - 1, this.sourceTileSize - 1)
+      ctx.strokeRect(x + 0.5, y + 0.5, this.tileSize - 1, this.tileSize - 1)
       ctx.fillStyle = '#ffffff'
-      ctx.fillText(String(startTileId + i + 1), x + this.sourceTileSize / 2, y + this.sourceTileSize / 2)
+      ctx.fillText(String(startTileId + i + 1), x + this.tileSize / 2, y + this.tileSize / 2)
     }
 
     return { image: canvas, cols, rows }
@@ -702,6 +703,13 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.headerControl('fit-btn').onclick = () => {
       this.fitToContent()
       this.updateMetadata()
+    }
+
+    this.headerControl('settings-btn').onclick = () => {
+      this.showMapSettingsPopup().catch((err) => {
+        this.log(`Settings update failed: ${err.message}`)
+        console.error('[stb-editor] settings failed:', err)
+      })
     }
 
     this.updateControlStates()
@@ -1015,22 +1023,22 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
   makeTilePreview(tileId) {
     const canvas = document.createElement('canvas')
-    canvas.width = this.sourceTileSize
-    canvas.height = this.sourceTileSize
+    canvas.width = this.tileSize
+    canvas.height = this.tileSize
     const ctx = canvas.getContext('2d')
     ctx.imageSmoothingEnabled = false
     const sprite = this.tileSprites.get(tileId)
 
     if (sprite) {
-      ctx.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh, 0, 0, this.sourceTileSize, this.sourceTileSize)
+      ctx.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh, 0, 0, this.tileSize, this.tileSize)
     } else {
       ctx.fillStyle = '#243042'
-      ctx.fillRect(0, 0, this.sourceTileSize, this.sourceTileSize)
+      ctx.fillRect(0, 0, this.tileSize, this.tileSize)
       ctx.fillStyle = '#f0f6fc'
       ctx.font = '9px monospace'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(String(tileId), this.sourceTileSize / 2, this.sourceTileSize / 2)
+      ctx.fillText(String(tileId), this.tileSize / 2, this.tileSize / 2)
     }
 
     return canvas
@@ -1164,7 +1172,6 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     if (this.tileSets.length > 0) props.tilesets = JSON.stringify(this.tileSets)
     props.tileSize = String(this.tileSize)
-    props.sourceTileSize = String(this.sourceTileSize)
 
     return props
   }
@@ -1234,14 +1241,13 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     const props = tilemap?.props || {}
     const parsedTileSets = this.parseJsonProp(props, 'tilesets', [])
-    const hasModernSizing = props.tileSize != null || props.sourceTileSize != null
+    const hasModernSizing = props.tileSize != null
     const isLegacyFormat = !hasModernSizing
     return {
       mapWidth,
       mapHeight,
       layers: layers.length,
       tileSize: isLegacyFormat ? this.defaultTileSize : Math.max(1, Number(props.tileSize) || this.defaultTileSize),
-      sourceTileSize: isLegacyFormat ? this.defaultSourceTileSize : Math.max(1, Number(props.sourceTileSize) || this.defaultSourceTileSize),
       tileSets: parsedTileSets,
       layerNames: layers.map((layer, index) => isLegacyFormat ? `layer ${index + 1}` : String(layer?.props?.name || `layer ${index + 1}`)),
       fallbackTileCount: Math.max(1, maxTileId || this.fallbackTileCount),
@@ -1257,7 +1263,6 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.mapHeight = config.mapHeight
     this.layers = config.layers
     this.tileSize = config.tileSize
-    this.sourceTileSize = config.sourceTileSize
     this.tileSets = config.tileSets
     this.layerNames = config.layerNames
     this.fallbackTileCount = config.fallbackTileCount
@@ -1360,10 +1365,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.updateMetadata()
   }
 
-  async inferTilesetCount(file) {
+  async inferTilesetCount(file, tileSize = this.tileSize) {
     const image = await this.loadTilesetImage(file)
-    const cols = Math.max(1, Math.floor(image.width / this.sourceTileSize))
-    const rows = Math.max(1, Math.floor(image.height / this.sourceTileSize))
+    const cols = Math.max(1, Math.floor(image.width / tileSize))
+    const rows = Math.max(1, Math.floor(image.height / tileSize))
     return cols * rows
   }
 
@@ -1398,6 +1403,67 @@ export default class ViewStbEditor extends ViewCanvasBase {
       })),
       props: tilemap?.props ? { ...tilemap.props } : tilemap?.props
     }
+  }
+
+  resizeExportedTilemap(tilemap, nextWidth, nextHeight) {
+    const width = Math.max(1, Number(nextWidth) || 1)
+    const height = Math.max(1, Number(nextHeight) || 1)
+
+    return {
+      ...tilemap,
+      layers: (tilemap.layers || []).map((layer) => {
+        const previousWidth = Math.max(1, Number(layer?.width) || width)
+        const previousData = Array.isArray(layer?.data) ? layer.data : []
+        const nextData = new Array(width * height).fill(0)
+        const previousHeight = Math.max(0, Math.ceil(previousData.length / previousWidth))
+        const copyWidth = Math.min(previousWidth, width)
+        const copyHeight = Math.min(previousHeight, height)
+
+        for (let y = 0; y < copyHeight; y++) {
+          for (let x = 0; x < copyWidth; x++) {
+            nextData[y * width + x] = Number(previousData[y * previousWidth + x]) || 0
+          }
+        }
+
+        return {
+          ...layer,
+          props: layer?.props ? { ...layer.props } : layer?.props,
+          width,
+          data: nextData
+        }
+      }),
+      props: tilemap?.props ? { ...tilemap.props } : tilemap?.props
+    }
+  }
+
+  async applyMapSettings({ tileSize, mapWidth, mapHeight }) {
+    const nextTileSize = Math.max(1, Number(tileSize) || this.tileSize)
+    const nextMapWidth = Math.max(1, Number(mapWidth) || this.mapWidth)
+    const nextMapHeight = Math.max(1, Number(mapHeight) || this.mapHeight)
+    const isSame = nextTileSize === this.tileSize && nextMapWidth === this.mapWidth && nextMapHeight === this.mapHeight
+    if (isSame) return false
+
+    const editorState = this.captureEditorState()
+    const nextTileSets = this.tileSets.map((tileSet) => ({ ...tileSet }))
+    const previousTileSets = this.tileSets
+    this.tileSets = nextTileSets
+    await this.ensureTilesetCounts(true, nextTileSize)
+    let snapshot = this.exportTilemapData()
+    snapshot = this.resizeExportedTilemap(snapshot, nextMapWidth, nextMapHeight)
+    snapshot.props = snapshot.props || {}
+    snapshot.props.tileSize = String(nextTileSize)
+    if (nextTileSets.length > 0) {
+      snapshot.props.tilesets = JSON.stringify(nextTileSets)
+    } else {
+      delete snapshot.props.tilesets
+    }
+
+    const loadedMapName = this.loadedMapName
+    this.tileSets = previousTileSets
+    await this.applyLoadedTilemap(snapshot)
+    this.loadedMapName = loadedMapName
+    this.restoreEditorState(editorState)
+    return true
   }
 
   async applyTilesetMutation(nextTileSets, transformTileId, nextSelectedFilter = null) {
@@ -1741,6 +1807,57 @@ export default class ViewStbEditor extends ViewCanvasBase {
         toast.success(`Added tileset "${name || file}".`)
       } catch (error) {
         toast.error(`Failed to add tileset: ${String(error?.message || error)}`)
+      }
+    }
+  }
+
+  async showMapSettingsPopup() {
+    const popupManager = this.closest('popup-manager') || document.querySelector('popup-manager')
+    if (!popupManager) {
+      toast.error('Popup manager is not available.')
+      return
+    }
+
+    const form = document.createElement('form')
+    form.innerHTML = `
+      <label>
+        Tile size
+        <input type="number" name="tile-size" min="1" step="1" value="${escapeAttribute(String(this.tileSize))}" required>
+      </label>
+      <label>
+        Level width
+        <input type="number" name="map-width" min="1" step="1" value="${escapeAttribute(String(this.mapWidth))}" required>
+      </label>
+      <label>
+        Level height
+        <input type="number" name="map-height" min="1" step="1" value="${escapeAttribute(String(this.mapHeight))}" required>
+      </label>
+      <footer>
+        <button type="submit" class="accent"><i aria-hidden="true">save</i> Apply</button>
+      </footer>
+    `
+
+    const popup = this._trackStoragePopup(popupManager.showPopup({
+      title: 'Map settings',
+      content: form,
+      size: 'small'
+    }))
+
+    form.onsubmit = async (event) => {
+      event.preventDefault()
+      const formData = new FormData(form)
+      const tileSize = Math.max(1, Number(formData.get('tile-size')) || this.tileSize)
+      const mapWidth = Math.max(1, Number(formData.get('map-width')) || this.mapWidth)
+      const mapHeight = Math.max(1, Number(formData.get('map-height')) || this.mapHeight)
+
+      try {
+        const changed = await this.applyMapSettings({ tileSize, mapWidth, mapHeight })
+        if (changed) {
+          toast.success(`Updated map settings to ${mapWidth}x${mapHeight} at ${tileSize}px.`)
+        }
+        popup.close()
+      } catch (error) {
+        toast.error(`Failed to update map settings: ${String(error?.message || error)}`)
       }
     }
   }
