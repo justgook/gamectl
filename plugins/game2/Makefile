@@ -17,6 +17,8 @@ CP ?= cp -f
 CURL ?= curl -L
 TAR ?= tar
 PYTHON3 ?= python3
+ODIN ?= odin
+ODIN_BUILD_FLAGS ?=
 
 .DEFAULT_GOAL := help
 
@@ -26,8 +28,11 @@ TMP_DIR ?= $(BUILD_DIR)/tmp
 SOKOL_DIR ?= sokol
 SOKOL_SHDC_DIR ?= $(TOOLS_DIR)/sokol-shdc
 WEB_DIR ?= $(BUILD_DIR)/web
+NATIVE_DIR ?= $(BUILD_DIR)/native
+NATIVE_BIN ?= $(NATIVE_DIR)/game2
 ROOT_BUILD_DIR ?= ../../build.nosync
 PLUGIN_WASM ?= $(ROOT_BUILD_DIR)/plugins/game2.wasm
+SOKOL_NATIVE_PROFILE ?= debug
 
 SOKOL_ODIN_URL ?= https://github.com/floooh/sokol-odin/archive/refs/heads/master.tar.gz
 SOKOL_TOOLS_URL ?= https://github.com/floooh/sokol-tools-bin/archive/refs/heads/master.tar.gz
@@ -38,8 +43,10 @@ UNAME_M := $(shell uname -m)
 ifeq ($(UNAME_S),Darwin)
   ifeq ($(UNAME_M),arm64)
     SOKOL_SHDC_BIN := $(SOKOL_SHDC_DIR)/osx_arm64/sokol-shdc
+    SOKOL_NATIVE_ARCH := arm64
   else
     SOKOL_SHDC_BIN := $(SOKOL_SHDC_DIR)/osx/sokol-shdc
+    SOKOL_NATIVE_ARCH := x64
   endif
 else ifeq ($(UNAME_S),Linux)
   ifeq ($(UNAME_M),aarch64)
@@ -51,6 +58,12 @@ else
   $(error Unsupported platform $(UNAME_S)/$(UNAME_M) for sokol-shdc download)
 endif
 
+SOKOL_NATIVE_LIBS := \
+	$(SOKOL_DIR)/log/sokol_log_macos_$(SOKOL_NATIVE_ARCH)_metal_$(SOKOL_NATIVE_PROFILE).a \
+	$(SOKOL_DIR)/gfx/sokol_gfx_macos_$(SOKOL_NATIVE_ARCH)_metal_$(SOKOL_NATIVE_PROFILE).a \
+	$(SOKOL_DIR)/app/sokol_app_macos_$(SOKOL_NATIVE_ARCH)_metal_$(SOKOL_NATIVE_PROFILE).a \
+	$(SOKOL_DIR)/glue/sokol_glue_macos_$(SOKOL_NATIVE_ARCH)_metal_$(SOKOL_NATIVE_PROFILE).a
+
 .PHONY: help
 help:
 	$(Q)printf '%s\n' \
@@ -59,6 +72,9 @@ help:
 	  '  sokol-bindings  Download/update local sokol-odin bindings' \
 	  '  sokol-tools     Download/update local sokol-shdc binaries' \
 	  '  plugin          Build embeddable freestanding game2.wasm via root Makefile' \
+	  '  native          Build native game2 executable' \
+	  '  native-release  Build optimized native game2 executable' \
+	  '  native-run      Build and run native game2 executable' \
 	  '  web             Build standalone freestanding web bundle' \
 	  '  serve           Serve standalone web bundle on :8812' \
 	  '  shaders         Regenerate Odin shader bindings' \
@@ -108,7 +124,8 @@ $(SOKOL_SHDC_BIN): | $(TMP_DIR)
 .PHONY: shaders
 shaders: $(SOKOL_SHDC_BIN) triangle-sapp.glsl
 	$(Q)echo "Generating Odin shader bindings"
-	$(Q)"$(SOKOL_SHDC_BIN)" -i triangle-sapp.glsl -o triangle-sapp.glsl.odin -l glsl300es:metal_macos -f sokol_odin 
+	$(Q)"$(SOKOL_SHDC_BIN)" -i triangle-sapp.glsl -o triangle-sapp.glsl.odin -l glsl300es:metal_macos -f sokol_odin
+	$(Q)$(PYTHON3) -c 'from pathlib import Path; path = Path("triangle-sapp.glsl.odin"); text = path.read_text(); lines = text.splitlines(); lines[0] = "package game2"; path.write_text("\n".join(lines) + "\n")'
 
 $(TMP_DIR):
 	$(Q)$(MKDIR_P) "$(TMP_DIR)"
@@ -116,9 +133,33 @@ $(TMP_DIR):
 $(WEB_DIR):
 	$(Q)$(MKDIR_P) "$(WEB_DIR)"
 
+$(NATIVE_DIR):
+	$(Q)$(MKDIR_P) "$(NATIVE_DIR)"
+
 .PHONY: plugin
 plugin:
 	$(Q)$(MAKE) -C ../.. build.nosync/plugins/game2.wasm
+
+.PHONY: native-libs
+native-libs: $(SOKOL_NATIVE_LIBS)
+
+$(SOKOL_NATIVE_LIBS): $(SOKOL_DIR)/build_clibs_macos.sh $(SOKOL_DIR)/c/sokol.c
+	$(Q)echo "Building native sokol libraries"
+	$(Q)chmod +x "$(SOKOL_DIR)/build_clibs_macos.sh"
+	$(Q)cd "$(SOKOL_DIR)" && ./build_clibs_macos.sh
+
+.PHONY: native
+native: sokol-bindings shaders native-libs | $(NATIVE_DIR)
+	$(Q)echo "Building native game2"
+	$(Q)$(ODIN) build ./native $(ODIN_BUILD_FLAGS) -out:"$(NATIVE_BIN)"
+
+.PHONY: native-run
+native-run: native
+	$(Q)"$(NATIVE_BIN)"
+
+.PHONY: native-release
+native-release:
+	$(Q)$(MAKE) native SOKOL_NATIVE_PROFILE=release NATIVE_BIN="$(NATIVE_DIR)/game2-release" ODIN_BUILD_FLAGS="-o:speed"
 
 .PHONY: web
 web: plugin | $(WEB_DIR)
