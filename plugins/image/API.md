@@ -256,6 +256,40 @@ Response:
 }
 ```
 
+### `transform`
+
+Create a new image by applying Tiled-style transform bits to the whole source
+image.
+
+Request:
+
+```json
+{"src":1,"flip":6}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "api": "image/v1",
+  "handle": 4,
+  "width": 48,
+  "height": 32,
+  "pixelFormat": "rgba8",
+  "flip": 6
+}
+```
+
+Notes:
+
+- `flip` uses the same 3-bit layout as Tiled and the animation editor
+- bit `1` = horizontal flip
+- bit `2` = vertical flip
+- bit `4` = diagonal flip
+- valid values are `0..7`
+- when diagonal flip is set, output dimensions become `height x width`
+
 ### `crop`
 
 Create a new image from a rectangular region of the source image.
