@@ -282,19 +282,21 @@ export default class ViewStbEditor extends HTMLElement {
 
       <aside data-id="sidepanel">
           <fieldset>
-            <legend>Metadata</legend>
-            <dl data-id="meta"></dl>
-          </fieldset>
-
-          <fieldset>
             <legend>Layers</legend>
             <div data-id="layers"></div>
           </fieldset>
 
           <fieldset>
             <legend>Tiles</legend>
-            <div data-id="tile-tabs" role="tablist" aria-label="Tilesets"></div>
+            <div data-id="tile-tabs" role="tablist" aria-label="Tilesets">
+            <button>new</button>
+          </div>
             <div data-id="tiles" role="tabpanel" id="stb-tiles-panel"></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Metadata</legend>
+            <dl data-id="meta"></dl>
           </fieldset>
 
           <fieldset>
@@ -381,7 +383,7 @@ export default class ViewStbEditor extends HTMLElement {
           })
         }
       }
-      this.log(`Loaded ${tileSet.file || this.deriveTilesetName(tileSet)} (${cols * rows} tiles)`) 
+      this.log(`Loaded ${tileSet.file || this.deriveTilesetName(tileSet)} (${cols * rows} tiles)`)
     }
 
     this.exports.stbte_set_active_tile(this.tilemap, 0)

@@ -945,6 +945,7 @@
   section {
     display: flex;
     flex-direction: column;
+    flex: 1;
   }
 
   article {
@@ -1030,6 +1031,11 @@
 
   canvas {
     image-rendering: pixelated;
+  }
+
+  view-stb-editor {
+    display: flex;
+    flex: 1;
   }
 
   /* Node Graph theme contract (canvas-rendered; consumed from CSS vars) */
@@ -1404,89 +1410,90 @@ aside .tilebank-item .tile-id {
   background: color-mix(in oklab, var(--bg), transparent 25%);
 }
 
+/* view-stb-editor */
 
 
-view-stb-editor {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-view-stb-editor>[data-id="map-viewport"] {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: var(--aside-width);
-  bottom: 0;
-  overflow: hidden;
-}
-
-view-stb-editor>[data-id="map-viewport"]>canvas[data-id="tilemap"] {
-  position: absolute;
-  left: 0;
-  top: 0;
-  image-rendering: pixelated;
-  transform-origin: 0 0;
-  cursor: crosshair;
-}
-
-view-stb-editor aside[data-id="sidepanel"] [data-id="layers"] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-view-stb-editor aside[data-id="sidepanel"] [data-id="tile-categories"] {
-  flex-wrap: wrap;
-}
-
-view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  max-height: 240px;
-  overflow: auto;
-}
-
-view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"]>button {
-  position: relative;
-  width: 42px;
-  height: 42px;
-  min-height: 42px;
-  padding: 0;
-  justify-self: center;
-}
-
-view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] canvas {
-  width: 36px;
-  height: 36px;
-  image-rendering: pixelated;
-}
-
-view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] span {
-  position: absolute;
-  right: 1px;
-  bottom: 1px;
-  font-size: 9px;
-  line-height: 1.2;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  background: color-mix(in oklab, var(--bg), transparent 20%);
-}
-
-view-stb-editor aside[data-id="sidepanel"] dl {
-  margin: 0;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-2) var(--space-3);
-}
-
-
-
-view-stb-editor aside[data-id="sidepanel"] dd {
-  margin: 0;
-}
+/* view-stb-editor { */
+/*   position: relative; */
+/*   display: block; */
+/*   width: 100%; */
+/*   height: 100%; */
+/*   overflow: hidden; */
+/* } */
+/**/
+/* view-stb-editor>[data-id="map-viewport"] { */
+/*   position: absolute; */
+/*   left: 0; */
+/*   top: 0; */
+/*   right: var(--aside-width); */
+/*   bottom: 0; */
+/*   overflow: hidden; */
+/* } */
+/**/
+/* view-stb-editor>[data-id="map-viewport"]>canvas[data-id="tilemap"] { */
+/*   position: absolute; */
+/*   left: 0; */
+/*   top: 0; */
+/*   image-rendering: pixelated; */
+/*   transform-origin: 0 0; */
+/*   cursor: crosshair; */
+/* } */
+/**/
+/* view-stb-editor aside[data-id="sidepanel"] [data-id="layers"] { */
+/*   display: flex; */
+/*   flex-direction: column; */
+/*   gap: var(--space-2); */
+/* } */
+/**/
+/* view-stb-editor aside[data-id="sidepanel"] [data-id="tile-categories"] { */
+/*   flex-wrap: wrap; */
+/* } */
+/**/
+/* view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] { */
+/*   display: grid; */
+/*   grid-template-columns: repeat(5, 1fr); */
+/*   gap: var(--space-2); */
+/*   margin-top: var(--space-3); */
+/*   max-height: 240px; */
+/*   overflow: auto; */
+/* } */
+/**/
+/* view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"]>button { */
+/*   position: relative; */
+/*   width: 42px; */
+/*   height: 42px; */
+/*   min-height: 42px; */
+/*   padding: 0; */
+/*   justify-self: center; */
+/* } */
+/**/
+/* view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] canvas { */
+/*   width: 36px; */
+/*   height: 36px; */
+/*   image-rendering: pixelated; */
+/* } */
+/**/
+/* view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] span { */
+/*   position: absolute; */
+/*   right: 1px; */
+/*   bottom: 1px; */
+/*   font-size: 9px; */
+/*   line-height: 1.2; */
+/*   padding: 0 var(--space-1); */
+/*   border-radius: var(--radius-sm); */
+/*   color: var(--text); */
+/*   background: color-mix(in oklab, var(--bg), transparent 20%); */
+/* } */
+/**/
+/* view-stb-editor aside[data-id="sidepanel"] dl { */
+/*   margin: 0; */
+/*   display: grid; */
+/*   grid-template-columns: auto 1fr; */
+/*   gap: var(--space-2) var(--space-3); */
+/* } */
+/**/
+/**/
+/**/
+/* view-stb-editor aside[data-id="sidepanel"] dd { */
+/*   margin: 0; */
+/* } */

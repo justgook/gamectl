@@ -3,8 +3,8 @@ PLUGIN_ODIN_OPT := speed
 
 PLUGIN_EXTRA_DEPS := \
 	$(PLUGIN_DIR)/game2/env.o \
-	$(PLUGIN_DIR)/game2/triangle-sapp.glsl.odin \
-	$(wildcard $(PLUGIN_DIR)/game2/sokol/*/*.odin)
+	$(shell python3 -c 'from pathlib import Path; files = [str(p) for p in sorted(Path("plugins/game2").rglob("*.odin")) if p.name != "env.o"]; print(" ".join(files))') \
+	$(shell python3 -c 'from pathlib import Path; print(" ".join(str(p) for p in sorted(Path("plugins/game2").rglob("*.glsl"))))')
 
 $(PLUGIN_DIR)/game2/env.o: \
 	$(PLUGIN_DIR)/game2/env.c \

@@ -30,6 +30,8 @@ export class GLBridge {
     this.currentProgram = null;
     this.boundBuffers = new Map();
     this.boundTextures = new Map();
+    this.lastGeneratedTexture = null;
+    this.lastGeneratedTextureId = 0;
 
     // Error state
     this.lastError = 0;
@@ -153,6 +155,9 @@ export class GLBridge {
 
   glBindTexture(target, texture) {
     const tex = this.getObject(texture, this.textures);
+    if (texture !== 0 && !tex) {
+      console.warn('glBindTexture: missing texture object', { target, texture, known: Array.from(this.textures.keys()).slice(0, 8) });
+    }
     this.gl.bindTexture(target, tex);
     this.boundTextures.set(target, texture);
   }
@@ -502,6 +507,8 @@ export class GLBridge {
     for (let i = 0; i < n; i++) {
       const tex = this.gl.createTexture();
       const id = this.getId(tex, this.textures);
+      this.lastGeneratedTexture = tex;
+      this.lastGeneratedTextureId = id;
       view.setUint32(textures + i * 4, id, true);
     }
   }
@@ -917,6 +924,14 @@ export class GLBridge {
   }
 
   glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels) {
+    if (!this.gl.getParameter(this.gl.TEXTURE_BINDING_2D) && target === this.gl.TEXTURE_2D) {
+      if (this.lastGeneratedTexture) {
+        this.gl.bindTexture(target, this.lastGeneratedTexture);
+        this.boundTextures.set(target, this.lastGeneratedTextureId);
+      } else {
+        console.warn('glTexImage2D: no texture bound', { target, level, width, height, bound: this.boundTextures.get(target) ?? null });
+      }
+    }
     if (pixels === 0) {
       this.gl.texImage2D(target, level, internalformat, width, height, border, format, type, null);
     } else {
@@ -942,6 +957,14 @@ export class GLBridge {
   }
 
   glTexParameteri(target, pname, param) {
+    if (!this.gl.getParameter(this.gl.TEXTURE_BINDING_2D) && target === this.gl.TEXTURE_2D) {
+      if (this.lastGeneratedTexture) {
+        this.gl.bindTexture(target, this.lastGeneratedTexture);
+        this.boundTextures.set(target, this.lastGeneratedTextureId);
+      } else {
+        console.warn('glTexParameteri: no texture bound', { target, pname, param, bound: this.boundTextures.get(target) ?? null });
+      }
+    }
     this.gl.texParameteri(target, pname, param);
   }
 
