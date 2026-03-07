@@ -466,22 +466,15 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   async _handleHostAwaitRequest(_nodeId, requestId, service, method, payloadJson) {
     if (!this.api || !this.memory || typeof this.api.ng_run_response !== "function") return;
-    let response = JSON.stringify({ ok: false, error: `unsupported service: ${service}` });
-    if (service === "http") {
-      try {
-        const parsed = payloadJson ? JSON.parse(payloadJson) : {};
-        const url = String(parsed.url || "");
-        const reqInit = {
-          method: String(parsed.method || method || "GET").toUpperCase(),
-          headers: parsed.headers && typeof parsed.headers === "object" ? parsed.headers : undefined,
-          body: typeof parsed.body === "string" ? parsed.body : undefined,
-        };
-        const resp = await fetch(url, reqInit);
-        const body = await resp.text();
-        response = JSON.stringify({ ok: resp.ok, status: resp.status, statusText: resp.statusText, body });
-      } catch (error) {
-        response = JSON.stringify({ ok: false, error: String(error?.message || error) });
-      }
+    let response = "";
+    try {
+      const result = await window.pluginManager.call(service, method, payloadJson || "");
+      const output = result?.output instanceof Uint8Array
+        ? result.output
+        : new Uint8Array(result?.output || []);
+      response = this.td.decode(output);
+    } catch (error) {
+      response = JSON.stringify({ ok: false, error: String(error?.message || error) });
     }
 
     const ptr = this.api.ng_get_io_ptr();

@@ -284,7 +284,7 @@ ng_i32 ng_host_resolve(ng_u32 node_id, ng_u32 resolve_kind, const char *req_ptr,
                        ng_i32 req_len, char *out_ptr, ng_i32 out_cap,
                        ng_i32 *out_len);
 
-/* async host call request from Lua host.awaitCall(service, method, payload_json) */
+/* async host call request from Lua host.awaitCall(module_name, function_name, input) */
 NG_IMPORT("ng_host_request")
 ng_i32 ng_host_request(ng_u32 node_id, ng_u32 request_id, const char *service_ptr,
                        ng_i32 service_len, const char *method_ptr,

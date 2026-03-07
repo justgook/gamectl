@@ -340,6 +340,27 @@ static pdk_u32 image_respond_crop_meta(pdk_u32 handle, pdk_u32 width,
   return 0;
 }
 
+static pdk_u32 image_respond_transform_meta(pdk_u32 handle, pdk_u32 width,
+                                            pdk_u32 height, pdk_u32 flip) {
+  char buf[IMAGE_RESPONSE_CAP];
+  pdk_u32 pos = 0;
+
+  pos = image_append_raw(buf, pos, sizeof(buf),
+                         "{\"ok\":true,\"api\":\"image/v1\",\"handle\":");
+  pos = image_append_u32(buf, pos, sizeof(buf), handle);
+  pos = image_append_raw(buf, pos, sizeof(buf), ",\"width\":");
+  pos = image_append_u32(buf, pos, sizeof(buf), width);
+  pos = image_append_raw(buf, pos, sizeof(buf), ",\"height\":");
+  pos = image_append_u32(buf, pos, sizeof(buf), height);
+  pos = image_append_raw(buf, pos, sizeof(buf),
+                         ",\"pixelFormat\":\"rgba8\",\"flip\":");
+  pos = image_append_u32(buf, pos, sizeof(buf), flip);
+  pos = image_append_raw(buf, pos, sizeof(buf), "}");
+
+  image_write_response(buf, pos);
+  return 0;
+}
+
 static pdk_u32 image_respond_pixels(pdk_u32 width, pdk_u32 height,
                                     pdk_u32 byte_length,
                                     const char *data_base64) {
@@ -1097,6 +1118,40 @@ static int image_copy_region_rgba(pdk_u8 *dst, pdk_u32 dst_width,
   return 1;
 }
 
+static void image_apply_transform_rgba(pdk_u8 *dst, const image_handle_t *src,
+                                       pdk_u32 flip) {
+  pdk_u32 src_w = (pdk_u32)src->width;
+  pdk_u32 src_h = (pdk_u32)src->height;
+  pdk_u32 out_w = (flip & 4u) ? src_h : src_w;
+  pdk_u32 out_h = (flip & 4u) ? src_w : src_h;
+  pdk_u32 sx;
+  pdk_u32 sy;
+
+  for (sy = 0; sy < src_h; sy++) {
+    for (sx = 0; sx < src_w; sx++) {
+      pdk_u32 dx = sx;
+      pdk_u32 dy = sy;
+      pdk_u32 src_index;
+      pdk_u32 dst_index;
+
+      if ((flip & 4u) != 0) {
+        dx = sy;
+        dy = sx;
+      }
+      if ((flip & 1u) != 0) {
+        dx = out_w - 1u - dx;
+      }
+      if ((flip & 2u) != 0) {
+        dy = out_h - 1u - dy;
+      }
+
+      src_index = ((sy * src_w) + sx) * 4u;
+      dst_index = ((dy * out_w) + dx) * 4u;
+      pdk_memcpy(dst + dst_index, src->pixels + src_index, 4u);
+    }
+  }
+}
+
 static pdk_u8 *image_decode_blob(const image_blob_t *blob, int *out_width,
                                  int *out_height, int *out_source_format) {
   if (image_is_qoi_bytes(blob->bytes, blob->len)) {
@@ -1417,6 +1472,65 @@ static pdk_u32 image_handle_clone(void) {
 
   return image_respond_handle_meta(dst_handle->id, (pdk_u32)dst_handle->width,
                                    (pdk_u32)dst_handle->height, NULL);
+}
+
+static pdk_u32 image_handle_transform(void) {
+  image_json_doc_t doc;
+  pdk_u32 src_id = 0;
+  pdk_u32 flip = 0;
+  image_handle_t *src_handle;
+  image_handle_t *dst_handle;
+  pdk_u32 out_width;
+  pdk_u32 out_height;
+  pdk_u32 total_bytes;
+  pdk_u8 *pixels;
+  pdk_u32 parse_rc;
+
+  parse_rc = image_require_json(&doc);
+  if (parse_rc != 0) {
+    return parse_rc;
+  }
+
+  if (!image_json_get_u32(&doc, "src", &src_id) ||
+      !image_json_get_u32(&doc, "flip", &flip)) {
+    return image_respond_error(IMAGE_ERR_BAD_INPUT, "src and flip are required");
+  }
+  if (flip > 7u) {
+    return image_respond_error(IMAGE_ERR_BAD_INPUT, "flip must be 0..7");
+  }
+
+  src_handle = image_find_handle(src_id);
+  if (src_handle == NULL) {
+    return image_respond_error(IMAGE_ERR_INVALID_HANDLE,
+                               "image handle was not found");
+  }
+
+  out_width = (flip & 4u) ? (pdk_u32)src_handle->height : (pdk_u32)src_handle->width;
+  out_height = (flip & 4u) ? (pdk_u32)src_handle->width : (pdk_u32)src_handle->height;
+  if (!image_validate_dimensions((int)out_width, (int)out_height, &total_bytes)) {
+    return image_respond_error(IMAGE_ERR_BAD_INPUT,
+                               "transform size is invalid");
+  }
+
+  pixels = (pdk_u8 *)image_malloc(total_bytes);
+  if (pixels == NULL) {
+    return image_respond_error(IMAGE_ERR_OUT_OF_MEMORY,
+                               "failed to allocate image pixels");
+  }
+
+  image_apply_transform_rgba(pixels, src_handle, flip);
+
+  dst_handle = image_create_handle_from_pixels(pixels, (int)out_width,
+                                               (int)out_height,
+                                               src_handle->source_format);
+  if (dst_handle == NULL) {
+    image_free(pixels);
+    return image_respond_error(IMAGE_ERR_OUT_OF_MEMORY,
+                               "no image handle slots available");
+  }
+
+  return image_respond_transform_meta(dst_handle->id, out_width, out_height,
+                                      flip);
 }
 
 static pdk_u32 image_handle_crop(void) {
@@ -1893,6 +2007,10 @@ __attribute__((export_name("info"))) pdk_u32 image_info(void) {
 
 __attribute__((export_name("clone"))) pdk_u32 image_clone(void) {
   return image_handle_clone();
+}
+
+__attribute__((export_name("transform"))) pdk_u32 image_transform(void) {
+  return image_handle_transform();
 }
 
 __attribute__((export_name("crop"))) pdk_u32 image_crop(void) {
