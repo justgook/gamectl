@@ -465,8 +465,12 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   getTilesetRanges() {
+    return this.getTilesetRangesFor(this.tileSets)
+  }
+
+  getTilesetRangesFor(tileSets) {
     let nextTileId = 0
-    return this.tileSets.map((tileSet, index) => {
+    return tileSets.map((tileSet, index) => {
       const count = Math.max(0, Number(tileSet?.count) || 0)
       const entry = {
         key: `tileset:${index}`,
@@ -1380,6 +1384,104 @@ export default class ViewStbEditor extends ViewCanvasBase {
     await this.rebuildEditorFromCurrentState()
   }
 
+  transformTilemapTileIds(tilemap, transformTileId) {
+    return {
+      ...tilemap,
+      layers: (tilemap.layers || []).map((layer) => ({
+        ...layer,
+        props: layer?.props ? { ...layer.props } : layer?.props,
+        data: (layer?.data || []).map((value) => {
+          const encoded = Number(value) || 0
+          if (encoded <= 0) return 0
+          return transformTileId(encoded - 1) + 1
+        })
+      })),
+      props: tilemap?.props ? { ...tilemap.props } : tilemap?.props
+    }
+  }
+
+  async applyTilesetMutation(nextTileSets, transformTileId, nextSelectedFilter = null) {
+    const editorState = this.captureEditorState()
+    const snapshot = this.transformTilemapTileIds(this.exportTilemapData(), transformTileId)
+    snapshot.props = snapshot.props || {}
+    if (nextTileSets.length > 0) {
+      snapshot.props.tilesets = JSON.stringify(nextTileSets)
+    } else {
+      delete snapshot.props.tilesets
+    }
+    const loadedMapName = this.loadedMapName
+    this.tileSets = nextTileSets
+    await this.applyLoadedTilemap(snapshot)
+    this.loadedMapName = loadedMapName
+    editorState.selectedTilesetFilter = nextSelectedFilter
+    this.restoreEditorState(editorState)
+  }
+
+  async moveTileset(fromIndex, direction) {
+    const toIndex = fromIndex + direction
+    if (fromIndex < 0 || fromIndex >= this.tileSets.length) return
+    if (toIndex < 0 || toIndex >= this.tileSets.length) return
+
+    const nextTileSets = [...this.tileSets]
+    const [movedTileSet] = nextTileSets.splice(fromIndex, 1)
+    nextTileSets.splice(toIndex, 0, movedTileSet)
+
+    const oldRanges = this.getTilesetRangesFor(this.tileSets)
+    const newRanges = this.getTilesetRangesFor(nextTileSets)
+    const oldCoverage = oldRanges.reduce((sum, entry) => sum + entry.count, 0)
+
+    const transformTileId = (tileId) => {
+      if (tileId >= oldCoverage) return tileId
+      for (const newEntry of newRanges) {
+        const oldEntry = oldRanges.find((entry) => entry.tileSet === newEntry.tileSet)
+        if (!oldEntry) continue
+        if (tileId >= oldEntry.startTileId && tileId < oldEntry.endTileId) {
+          return newEntry.startTileId + (tileId - oldEntry.startTileId)
+        }
+      }
+      return tileId
+    }
+
+    await this.applyTilesetMutation(nextTileSets, transformTileId, `tileset:${toIndex}`)
+  }
+
+  async deleteTileset(index) {
+    if (index < 0 || index >= this.tileSets.length) return
+
+    const nextTileSets = this.tileSets.filter((_, tileSetIndex) => tileSetIndex !== index)
+    const oldRanges = this.getTilesetRangesFor(this.tileSets)
+    const newRanges = this.getTilesetRangesFor(nextTileSets)
+    const oldCoverage = oldRanges.reduce((sum, entry) => sum + entry.count, 0)
+    const newCoverage = newRanges.reduce((sum, entry) => sum + entry.count, 0)
+    const removedEntry = oldRanges[index]
+
+    const transformTileId = (tileId) => {
+      for (const newEntry of newRanges) {
+        const oldEntry = oldRanges.find((entry) => entry.tileSet === newEntry.tileSet)
+        if (!oldEntry) continue
+        if (tileId >= oldEntry.startTileId && tileId < oldEntry.endTileId) {
+          return newEntry.startTileId + (tileId - oldEntry.startTileId)
+        }
+      }
+
+      if (removedEntry && tileId >= removedEntry.startTileId && tileId < removedEntry.endTileId) {
+        return newCoverage + (tileId - removedEntry.startTileId)
+      }
+
+      if (tileId >= oldCoverage) {
+        return newCoverage + (removedEntry?.count || 0) + (tileId - oldCoverage)
+      }
+
+      return tileId
+    }
+
+    const nextSelectedFilter = nextTileSets.length > 0
+      ? `tileset:${Math.max(0, Math.min(index, nextTileSets.length - 1))}`
+      : null
+
+    await this.applyTilesetMutation(nextTileSets, transformTileId, nextSelectedFilter)
+  }
+
   async saveTilemap(name) {
     const cleanName = String(name || '').trim()
     if (!cleanName) return
@@ -1536,6 +1638,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     }
 
     const form = document.createElement('form')
+    const list = document.createElement('div')
     form.innerHTML = `
       <label>
         Tileset file
@@ -1548,10 +1651,15 @@ export default class ViewStbEditor extends ViewCanvasBase {
         Name
         <input type="text" name="tileset-name" placeholder="Optional display name">
       </label>
+      <section>
+        <h4 style="margin:0 0 8px 0;">Tilesets</h4>
+      </section>
       <footer>
         <button type="submit" class="accent"><i aria-hidden="true">add</i> Add tileset</button>
       </footer>
     `
+    const listSection = form.querySelector('section')
+    listSection?.appendChild(list)
 
     const popup = this._trackStoragePopup(popupManager.showPopup({
       title: 'Add tileset',
@@ -1561,6 +1669,47 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     const fileInput = form.querySelector('input[name="tileset-file"]')
     const chooseBtn = form.querySelector('button[name="choose-tileset-file"]')
+    const renderTilesetList = () => {
+      if (!list) return
+      if (this.tileSets.length === 0) {
+        list.innerHTML = '<p style="margin:0; opacity:0.7;">No tilesets yet. Add one to replace the leading part of the fallback palette.</p>'
+        return
+      }
+
+      list.innerHTML = this.tileSets.map((tileSet, index) => `
+        <div data-tileset-index="${index}" style="display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; gap:8px; align-items:center; margin-bottom:8px;">
+          <div style="min-width:0;">
+            <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeAttribute(this.deriveTilesetName(tileSet))}</strong>
+            <small style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:0.7;">${escapeAttribute(String(tileSet.file || ''))}</small>
+          </div>
+          <button type="button" data-action="move-up" title="Move up" aria-label="Move up" ${index === 0 ? 'disabled' : ''}><i aria-hidden="true">arrow_upward</i></button>
+          <button type="button" data-action="move-down" title="Move down" aria-label="Move down" ${index === this.tileSets.length - 1 ? 'disabled' : ''}><i aria-hidden="true">arrow_downward</i></button>
+          <button type="button" data-action="delete" title="Delete tileset" aria-label="Delete tileset"><i aria-hidden="true">delete</i></button>
+        </div>
+      `).join('')
+
+      list.querySelectorAll('button[data-action]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const row = button.closest('[data-tileset-index]')
+          const index = Number(row?.getAttribute('data-tileset-index'))
+          if (!Number.isInteger(index)) return
+
+          try {
+            if (button.dataset.action === 'move-up') {
+              await this.moveTileset(index, -1)
+            } else if (button.dataset.action === 'move-down') {
+              await this.moveTileset(index, 1)
+            } else if (button.dataset.action === 'delete') {
+              await this.deleteTileset(index)
+            }
+            renderTilesetList()
+          } catch (error) {
+            toast.error(`Failed to update tilesets: ${String(error?.message || error)}`)
+          }
+        })
+      })
+    }
+
     chooseBtn?.addEventListener('click', async () => {
       try {
         const result = await ViewFiles.choose({
@@ -1574,6 +1723,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
         toast.error(`Failed to choose tileset: ${String(error?.message || error)}`)
       }
     })
+    renderTilesetList()
 
     form.onsubmit = async (event) => {
       event.preventDefault()
@@ -1584,8 +1734,11 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
       try {
         await this.addTileset({ file, name })
+        fileInput.value = ''
+        const nameInput = form.querySelector('input[name="tileset-name"]')
+        if (nameInput) nameInput.value = ''
+        renderTilesetList()
         toast.success(`Added tileset "${name || file}".`)
-        popup.close()
       } catch (error) {
         toast.error(`Failed to add tileset: ${String(error?.message || error)}`)
       }
