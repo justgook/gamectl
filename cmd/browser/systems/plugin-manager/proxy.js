@@ -300,7 +300,7 @@ export class PluginManagerProxy {
     const result = await this.call(
       'sql',
       'query',
-      `SELECT name, url, enabled, type, scope FROM plugins WHERE name = '${escapedName}' LIMIT 1`
+      `SELECT name, url, enabled, type, scope FROM plugins WHERE name = '${escapedName}' ORDER BY enabled DESC, rowid LIMIT 1`
     )
 
     const csv = this.decoder.decode(result.output).trim()

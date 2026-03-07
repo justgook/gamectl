@@ -749,25 +749,23 @@ export class GLBridge {
     const error = gl.getError();
 
     if (error === gl.INVALID_ENUM) {
-      // Return empty string for unsupported enums (e.g., GL_EXTENSIONS)
       console.warn(`glGetString: Unsupported name 0x${name.toString(16)}`);
       return 0;
     }
 
     if (!str) return 0;
 
-    // Allocate string in WASM memory (simplified - should use malloc)
-    const bytes = this.textEncoder.encode(str + '\0');
-    return bytes; // This is simplified - real implementation needs proper allocation
+    // We do not currently expose a WASM-side allocator here, so returning a
+    // JS object would violate the import ABI. Return 0 until this bridge can
+    // write strings into module memory and hand back a real pointer.
+    return 0;
   }
 
   glGetStringi(name, index) {
     const extensions = this.gl.getSupportedExtensions();
     if (!extensions || index >= extensions.length) return 0;
 
-    const str = extensions[index];
-    const bytes = this.textEncoder.encode(str + '\0');
-    return bytes; // Simplified - needs proper allocation
+    return 0;
   }
 
   glGetUniformBlockIndex(program, uniformBlockName) {
