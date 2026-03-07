@@ -3,12 +3,13 @@
 -- Plugin registry for dynamic plugin loading via fs
 
 CREATE TABLE IF NOT EXISTS plugins (
-    name TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
     url TEXT NOT NULL,
     version TEXT DEFAULT '0.0.0',
     enabled INTEGER DEFAULT 1,
     type TEXT DEFAULT 'user',
-    scope TEXT DEFAULT 'global'
+    scope TEXT DEFAULT 'global',
+    PRIMARY KEY (name, url)
 );
 
 -- Base plugins (cannot be disabled)
@@ -35,4 +36,5 @@ INSERT OR IGNORE INTO plugins (name, url, type, enabled, scope) VALUES
     ('stbte', 'local:/plugins/stbte.wasm', 'builtin', 1, 'view'),
     ('respack', 'local:/plugins/respack.wasm', 'builtin', 1, 'global'),
     ('ng', 'local:/plugins/ng.wasm', 'builtin', 1, 'view'),
-    ('game', 'local:/plugins/game.wasm', 'builtin', 1, 'view');
+    ('game', 'local:/plugins/game2.wasm', 'builtin', 1, 'view');
+    -- ('game', 'local:/plugins/game.wasm', 'builtin', 1, 'view');

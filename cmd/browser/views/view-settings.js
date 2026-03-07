@@ -1129,7 +1129,11 @@ export class ViewSettings extends HTMLElement {
     if (!url) return toast.error('URL is required')
 
     const list = table === 'plugins' ? this.plugins.plugins : this.plugins.views
-    if (list.find(e => e.name === name)) return toast.error(`'${name}' already exists`)
+    if (table === 'plugins') {
+      if (list.find(e => e.name === name && e.url === url)) return toast.error(`'${name}' already exists for '${url}'`)
+    } else if (list.find(e => e.name === name)) {
+      return toast.error(`'${name}' already exists`)
+    }
 
     try {
       const escapedName = name.replace(/'/g, "''")
@@ -1160,11 +1164,26 @@ export class ViewSettings extends HTMLElement {
   async toggleEntry(table, entry) {
     const newEnabled = entry.enabled ? 0 : 1
     const escapedName = entry.name.replace(/'/g, "''")
+    const escapedUrl = entry.url.replace(/'/g, "''")
 
     try {
-      await window.pluginManager.call('sql', 'exec',
-        `UPDATE ${table} SET enabled = ${newEnabled} WHERE name = '${escapedName}'`
-      )
+      if (table === 'plugins') {
+        const statements = [
+          `UPDATE plugins SET enabled = ${newEnabled} WHERE name = '${escapedName}' AND url = '${escapedUrl}'`
+        ]
+
+        if (newEnabled) {
+          statements.push(
+            `UPDATE plugins SET enabled = 0 WHERE name = '${escapedName}' AND url != '${escapedUrl}'`
+          )
+        }
+
+        await window.pluginManager.call('sql', 'exec', statements.join('; '))
+      } else {
+        await window.pluginManager.call('sql', 'exec',
+          `UPDATE ${table} SET enabled = ${newEnabled} WHERE name = '${escapedName}'`
+        )
+      }
 
       this.plugins.pendingChanges = true
       toast.success(`'${entry.name}' ${newEnabled ? 'enabled' : 'disabled'}`)
@@ -1183,11 +1202,18 @@ export class ViewSettings extends HTMLElement {
     }
 
     const escapedName = entry.name.replace(/'/g, "''")
+    const escapedUrl = entry.url.replace(/'/g, "''")
 
     try {
-      await window.pluginManager.call('sql', 'exec',
-        `DELETE FROM ${table} WHERE name = '${escapedName}' AND type = 'user'`
-      )
+      if (table === 'plugins') {
+        await window.pluginManager.call('sql', 'exec',
+          `DELETE FROM plugins WHERE name = '${escapedName}' AND url = '${escapedUrl}' AND type = 'user'`
+        )
+      } else {
+        await window.pluginManager.call('sql', 'exec',
+          `DELETE FROM ${table} WHERE name = '${escapedName}' AND type = 'user'`
+        )
+      }
 
       this.plugins.pendingChanges = true
       toast.success(`'${entry.name}' removed`)
