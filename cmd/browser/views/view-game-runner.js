@@ -13,9 +13,9 @@ const FALLBACK_EVENT_OFFSETS = {
 
 const EVENT_TYPE_RESIZED = 14
 
-const DEFAULT_GAME_ASSET_SOURCES = {
-  '/game/clear-color.rgb': 'local:/example/floor-16x16.png'
-}
+const DEFAULT_GAME_ASSET_SOURCES = [
+  ['/game/the_atlas.qoi', 'local:/assets/game/the_atlas.qoi'],
+]
 
 const GAME_RUNNER_ASSET_SOURCES_TABLE = 'game_runner_asset_sources'
 
@@ -36,6 +36,10 @@ function writeU64(view, offset, value) {
   const hi = Math.floor(value / 0x100000000) >>> 0
   view.setUint32(offset, lo, true)
   view.setUint32(offset + 4, hi, true)
+}
+
+function createAssetSources(entries = []) {
+  return new Map([...DEFAULT_GAME_ASSET_SOURCES, ...entries])
 }
 
 export default class ViewGameRunner extends HTMLElement {
@@ -64,7 +68,7 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
     this._assetCache = new Map()
-    this._assetSources = new Map(Object.entries(DEFAULT_GAME_ASSET_SOURCES))
+    this._assetSources = createAssetSources()
     this._textDecoder = new TextDecoder()
     this._headerControls = null
     this._assetBtn = null
@@ -296,7 +300,7 @@ export default class ViewGameRunner extends HTMLElement {
 
   async _loadAssetSourcesFromStorage() {
     if (!window.pluginManager) {
-      this._assetSources = new Map(Object.entries(DEFAULT_GAME_ASSET_SOURCES))
+      this._assetSources = createAssetSources()
       return
     }
 
@@ -317,10 +321,10 @@ export default class ViewGameRunner extends HTMLElement {
         entries.push([assetPath, source])
       }
 
-      this._assetSources = new Map(entries)
+      this._assetSources = createAssetSources(entries)
     } catch (error) {
       console.warn('[game-runner] failed to load asset sources from storage:', error)
-      this._assetSources = new Map(Object.entries(DEFAULT_GAME_ASSET_SOURCES))
+      this._assetSources = createAssetSources()
     }
   }
 
@@ -437,7 +441,7 @@ export default class ViewGameRunner extends HTMLElement {
 
       try {
         await this._saveAssetSourcesToStorage(normalizedEntries)
-        this._assetSources = new Map(normalizedEntries.map(({ assetPath, source }) => [assetPath, source]))
+        this._assetSources = createAssetSources(normalizedEntries.map(({ assetPath, source }) => [assetPath, source]))
         await this._reloadPlugin()
         toast.success('Saved asset sources.')
         popup.close()

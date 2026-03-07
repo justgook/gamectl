@@ -1,0 +1,6 @@
+#ifndef GAMECTL_IMAGE_FREESTANDING_ASSERT_H
+#define GAMECTL_IMAGE_FREESTANDING_ASSERT_H
+
+#define assert(x) ((void)0)
+
+#endif
