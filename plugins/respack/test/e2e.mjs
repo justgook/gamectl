@@ -102,13 +102,33 @@ main :: proc() {
   pkg, ok_pkg := open_respack(data)
   assert(ok_pkg)
 
-  entity, ok_entity := read_slot_0_entity(pkg)
-  assert(ok_entity)
-  assert(entity.id == 7)
-  assert(entity.name == "")
-  assert(entity.pos.x == f32(3.5))
-  assert(entity.pos.y == f32(-2.0))
-  assert(entity.enabled)
+  bundle, ok_bundle := read_slot_0_bundle(pkg)
+  assert(ok_bundle)
+
+  assert(len(bundle.points) == 2)
+  assert(bundle.points[0].x == f32(3.5))
+  assert(bundle.points[0].y == f32(-2.0))
+  assert(bundle.points[1].x == f32(10.25))
+  assert(bundle.points[1].y == f32(8.75))
+
+  assert(len(bundle.blob) == 6)
+  assert(bundle.blob[0] == 0)
+  assert(bundle.blob[1] == 17)
+  assert(bundle.blob[2] == 34)
+  assert(bundle.blob[3] == 51)
+  assert(bundle.blob[4] == 200)
+  assert(bundle.blob[5] == 255)
+
+  assert(len(bundle.palette) == 3)
+  assert(bundle.palette[0][0] == 255)
+  assert(bundle.palette[0][1] == 0)
+  assert(bundle.palette[0][2] == 128)
+  assert(bundle.palette[1][0] == 12)
+  assert(bundle.palette[1][1] == 34)
+  assert(bundle.palette[1][2] == 56)
+  assert(bundle.palette[2][0] == 1)
+  assert(bundle.palette[2][1] == 2)
+  assert(bundle.palette[2][2] == 3)
 }
 `)
 }
@@ -126,9 +146,16 @@ async function main() {
   await call(runtime, 'write', JSON.stringify({
     slot: 0,
     payload: {
-      id: 7,
-      pos: { x: 3.5, y: -2.0 },
-      enabled: true
+      points: [
+        { x: 3.5, y: -2.0 },
+        { x: 10.25, y: 8.75 }
+      ],
+      blob: [0, 17, 34, 51, 200, 255],
+      palette: [
+        [255, 0, 128],
+        [12, 34, 56],
+        [1, 2, 3]
+      ]
     }
   }))
 

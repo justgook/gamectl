@@ -143,7 +143,7 @@ emit_type_declaration :: proc(type_idx: int) {
 	case .String, .Bytes, .Array, .Vector:
 		emit(sanitized_name)
 		emit(" :: ")
-		emit(type_expr(type_idx))
+		emit(type_expr_expanded(type_idx))
 		emit("\n\n")
 	case:
 	}
@@ -304,10 +304,10 @@ emit_decode_assign :: proc(type_idx: int, target: string, _label: string) {
 		emit(target)
 		emit(") { return false }\n")
 	case .Array:
-		emit("\tfor i in 0..<")
+		emit("\tfor j in 0..<")
 		emit_int(type_def.fixed_len)
 		emit(" {\n")
-			emit_decode_assign(type_def.target_type, join2(target, "[i]"), "")
+			emit_decode_assign(type_def.target_type, join2(target, "[j]"), "")
 		emit("\t}\n")
 	case .Vector:
 		emit("\tcount, ok := read_u32_reader(r)\n\tif !ok { return false }\n\t")
@@ -352,8 +352,19 @@ emit_alias_decode_assign :: proc(type_idx: int, target: string) {
 
 type_expr :: proc(type_idx: int) -> string {
 	type_def := types[type_idx]
+	if type_idx < len(builtin_names) && builtin_names[type_idx] != "" && types[type_idx].name_start == -1 {
+		return builtin_type_expr(type_def.kind)
+	}
 	if type_def.has_name {
 		return sanitize_identifier(type_name_string(type_idx))
+	}
+	return type_expr_expanded(type_idx)
+}
+
+type_expr_expanded :: proc(type_idx: int) -> string {
+	type_def := types[type_idx]
+	if type_idx < len(builtin_names) && builtin_names[type_idx] != "" && types[type_idx].name_start == -1 {
+		return builtin_type_expr(type_def.kind)
 	}
 	#partial switch type_def.kind {
 	case .Array:
@@ -366,6 +377,39 @@ type_expr :: proc(type_idx: int) -> string {
 		return "[]u8"
 	case:
 		return sanitize_identifier(type_name_string(type_idx))
+	}
+}
+
+builtin_type_expr :: proc(kind: TypeKind) -> string {
+	#partial switch kind {
+	case .Bool:
+		return "bool"
+	case .U8:
+		return "u8"
+	case .U16:
+		return "u16"
+	case .U32:
+		return "u32"
+	case .U64:
+		return "u64"
+	case .I8:
+		return "i8"
+	case .I16:
+		return "i16"
+	case .I32:
+		return "i32"
+	case .I64:
+		return "i64"
+	case .F32:
+		return "f32"
+	case .F64:
+		return "f64"
+	case .String:
+		return "string"
+	case .Bytes:
+		return "[]u8"
+	case:
+		return "invalid_type"
 	}
 }
 
