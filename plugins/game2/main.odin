@@ -10,6 +10,15 @@ EVENT_TYPE_MOUSE_UP :: 5
 EVENT_TYPE_MOUSE_SCROLL :: 6
 EVENT_TYPE_MOUSE_MOVE :: 7
 EVENT_TYPE_RESIZED :: 14
+EVENT_TYPE_ACTION_DOWN :: 100
+EVENT_TYPE_ACTION_UP :: 101
+
+ACTION_LEFT :: u32(1)
+ACTION_RIGHT :: u32(2)
+ACTION_UP :: u32(3)
+ACTION_DOWN :: u32(4)
+ACTION_1 :: u32(5)
+ACTION_2 :: u32(6)
 ATLAS_ASSET_PATH :: "/game/the_atlas.qoi"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 
@@ -18,6 +27,7 @@ EVENT_OFFSET_TYPE :: 8
 EVENT_OFFSET_MOUSE_BUTTON :: 28
 EVENT_OFFSET_MOUSE_X :: 32
 EVENT_OFFSET_MOUSE_Y :: 36
+EVENT_OFFSET_ACTION_CODE :: 40
 EVENT_OFFSET_WINDOW_WIDTH :: 256
 EVENT_OFFSET_WINDOW_HEIGHT :: 260
 EVENT_OFFSET_FRAMEBUFFER_WIDTH :: 264
@@ -35,6 +45,7 @@ State :: struct {
 	atlas_width: i32,
 	atlas_height: i32,
 	atlas_loaded: bool,
+	actions_down: [7]bool,
 }
 
 Host_Event :: struct {
@@ -44,7 +55,8 @@ Host_Event :: struct {
 	mouse_button: i32,
 	mouse_x: f32,
 	mouse_y: f32,
-	reserved1: [216]u8,
+	action_code: u32,
+	reserved1: [212]u8,
 	window_width: i32,
 	window_height: i32,
 	framebuffer_width: i32,
@@ -103,6 +115,9 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 	state.window_height = 480
 	state.framebuffer_width = 640
 	state.framebuffer_height = 480
+	for i in 0..<len(state.actions_down) {
+		state.actions_down[i] = false
+	}
 	init_stage = 6
 }
 
@@ -114,18 +129,46 @@ core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
 	}
 	normalized_y := 1.0 - (state.mouse_y / f32(window_height))
 	bob := (normalized_y - 0.5) * 80.0
+	move_x: f32 = 0
+	move_y: f32 = 0
+	if state.actions_down[int(ACTION_LEFT)] {
+		move_x -= 1
+	}
+	if state.actions_down[int(ACTION_RIGHT)] {
+		move_x += 1
+	}
+	if state.actions_down[int(ACTION_UP)] {
+		move_y -= 1
+	}
+	if state.actions_down[int(ACTION_DOWN)] {
+		move_y += 1
+	}
+	action_boost := f32(1.0)
+	if state.actions_down[int(ACTION_1)] {
+		action_boost += 0.25
+	}
+	if state.actions_down[int(ACTION_2)] {
+		action_boost += 0.25
+	}
 
 	sg.begin_pass(pass)
 	sprite.reset(&state.sprite_renderer)
 	if state.atlas.id != 0 {
-		base_x := f32(state.framebuffer_width) * 0.5 - 260.0
-		base_y := f32(state.framebuffer_height) * 0.5 - 120.0 + bob
+		base_x := f32(state.framebuffer_width) * 0.5 - 260.0 + move_x * 96.0
+		base_y := f32(state.framebuffer_height) * 0.5 - 120.0 + bob + move_y * 96.0
 		size := [2]f32{160, 160}
+		if state.actions_down[int(ACTION_1)] {
+			size[0] *= action_boost
+			size[1] *= action_boost
+		}
 		atlas_w := int(state.atlas_width)
 		atlas_h := int(state.atlas_height)
 		sprite.push(&state.sprite_renderer, {base_x, base_y}, size, sprite.uv_from_pixels(0, 0, 64, 64, atlas_w, atlas_h))
 		sprite.push(&state.sprite_renderer, {base_x + 180, base_y + 12}, size, sprite.uv_from_pixels(128, 0, 64, 64, atlas_w, atlas_h))
 		sprite.push(&state.sprite_renderer, {base_x + 360, base_y - 8}, size, sprite.uv_from_pixels(320, 320, 64, 64, atlas_w, atlas_h))
+		if state.actions_down[int(ACTION_2)] {
+			sprite.push(&state.sprite_renderer, {base_x + 220, base_y - 140}, [2]f32{96, 96}, sprite.uv_from_pixels(256, 64, 64, 64, atlas_w, atlas_h))
+		}
 		sprite.draw(&state.sprite_renderer, state.framebuffer_width, state.framebuffer_height)
 	}
 	sg.end_pass()
@@ -159,6 +202,20 @@ core_handle_framebuffer_resize :: proc(width, height: i32) {
 	}
 }
 
+core_handle_action_down :: proc(action_code: u32) {
+	if int(action_code) >= len(state.actions_down) {
+		return
+	}
+	state.actions_down[int(action_code)] = true
+}
+
+core_handle_action_up :: proc(action_code: u32) {
+	if int(action_code) >= len(state.actions_down) {
+		return
+	}
+	state.actions_down[int(action_code)] = false
+}
+
 core_handle_host_event :: proc(event_ptr: u32) {
 	if event_ptr == 0 {
 		return
@@ -170,6 +227,10 @@ core_handle_host_event :: proc(event_ptr: u32) {
 	case EVENT_TYPE_RESIZED:
 		core_handle_resize(input.window_height)
 		core_handle_framebuffer_resize(input.framebuffer_width, input.framebuffer_height)
+	case EVENT_TYPE_ACTION_DOWN:
+		core_handle_action_down(input.action_code)
+	case EVENT_TYPE_ACTION_UP:
+		core_handle_action_up(input.action_code)
 	case:
 	}
 }

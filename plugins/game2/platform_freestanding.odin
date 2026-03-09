@@ -99,6 +99,11 @@ event_offset_mouse_y :: proc "c" () -> u32 {
 }
 
 @(export)
+event_offset_action_code :: proc "c" () -> u32 {
+	return EVENT_OFFSET_ACTION_CODE
+}
+
+@(export)
 event_offset_window_width :: proc "c" () -> u32 {
 	return EVENT_OFFSET_WINDOW_WIDTH
 }
