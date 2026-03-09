@@ -2,11 +2,14 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "./vendor/lua/lauxlib.h"
 #include "./vendor/lua/lualib.h"
 #include "ng.h"
+#include "../image/jsmn.h"
 
 static NgInfo g_info;
 static lua_State *g_lua = NULL;
@@ -33,9 +36,697 @@ typedef struct {
 
 static NgRunCtx g_run;
 
+typedef struct {
+  char *buf;
+  size_t len;
+  size_t cap;
+} NgStrBuf;
+
+typedef struct {
+  const char *json;
+  jsmntok_t *tokens;
+  int count;
+} NgJsonDoc;
+
+#define NG_JSON_RECURSION_LIMIT 128
+
 static int64_t join_i64(ng_i32 a, ng_i32 b);
 static double join_f64(ng_i32 a, ng_i32 b);
 static NgValueSlot *find_output_slot(ng_u32 node_id, ng_u32 output_id);
+
+static void ng_sb_init(NgStrBuf *sb) {
+  sb->buf = NULL;
+  sb->len = 0;
+  sb->cap = 0;
+}
+
+static void ng_sb_free(NgStrBuf *sb) {
+  if (sb->buf != NULL) {
+    free(sb->buf);
+    sb->buf = NULL;
+  }
+  sb->len = 0;
+  sb->cap = 0;
+}
+
+static int ng_sb_reserve(NgStrBuf *sb, size_t add_len) {
+  size_t need;
+  size_t next_cap;
+  char *next_buf;
+  if (add_len > (size_t)-1 - sb->len - 1u) {
+    return 0;
+  }
+  need = sb->len + add_len + 1u;
+  if (need <= sb->cap) {
+    return 1;
+  }
+  next_cap = sb->cap == 0 ? 128u : sb->cap;
+  while (next_cap < need) {
+    if (next_cap > ((size_t)-1 / 2u)) {
+      next_cap = need;
+      break;
+    }
+    next_cap *= 2u;
+  }
+  next_buf = (char *)realloc(sb->buf, next_cap);
+  if (next_buf == NULL) {
+    return 0;
+  }
+  sb->buf = next_buf;
+  sb->cap = next_cap;
+  return 1;
+}
+
+static int ng_sb_append_len(NgStrBuf *sb, const char *src, size_t len) {
+  if (len == 0) {
+    return 1;
+  }
+  if (!ng_sb_reserve(sb, len)) {
+    return 0;
+  }
+  memcpy(sb->buf + sb->len, src, len);
+  sb->len += len;
+  sb->buf[sb->len] = '\0';
+  return 1;
+}
+
+static int ng_sb_append_c(NgStrBuf *sb, char c) {
+  if (!ng_sb_reserve(sb, 1u)) {
+    return 0;
+  }
+  sb->buf[sb->len++] = c;
+  sb->buf[sb->len] = '\0';
+  return 1;
+}
+
+static int ng_json_hex_val(char c) {
+  if (c >= '0' && c <= '9') {
+    return (int)(c - '0');
+  }
+  if (c >= 'a' && c <= 'f') {
+    return 10 + (int)(c - 'a');
+  }
+  if (c >= 'A' && c <= 'F') {
+    return 10 + (int)(c - 'A');
+  }
+  return -1;
+}
+
+static int ng_json_parse_u16(const char *s, unsigned *out_cp) {
+  int i;
+  unsigned cp = 0;
+  for (i = 0; i < 4; i++) {
+    int h = ng_json_hex_val(s[i]);
+    if (h < 0) {
+      return 0;
+    }
+    cp = (cp << 4) | (unsigned)h;
+  }
+  *out_cp = cp;
+  return 1;
+}
+
+static int ng_lua_add_utf8(luaL_Buffer *b, unsigned cp) {
+  if (cp <= 0x7Fu) {
+    luaL_addchar(b, (char)cp);
+    return 1;
+  }
+  if (cp <= 0x7FFu) {
+    luaL_addchar(b, (char)(0xC0u | ((cp >> 6) & 0x1Fu)));
+    luaL_addchar(b, (char)(0x80u | (cp & 0x3Fu)));
+    return 1;
+  }
+  if (cp <= 0xFFFFu) {
+    luaL_addchar(b, (char)(0xE0u | ((cp >> 12) & 0x0Fu)));
+    luaL_addchar(b, (char)(0x80u | ((cp >> 6) & 0x3Fu)));
+    luaL_addchar(b, (char)(0x80u | (cp & 0x3Fu)));
+    return 1;
+  }
+  if (cp <= 0x10FFFFu) {
+    luaL_addchar(b, (char)(0xF0u | ((cp >> 18) & 0x07u)));
+    luaL_addchar(b, (char)(0x80u | ((cp >> 12) & 0x3Fu)));
+    luaL_addchar(b, (char)(0x80u | ((cp >> 6) & 0x3Fu)));
+    luaL_addchar(b, (char)(0x80u | (cp & 0x3Fu)));
+    return 1;
+  }
+  return 0;
+}
+
+static int ng_lua_push_json_string_unescaped(lua_State *L, const char *s,
+                                             size_t len) {
+  luaL_Buffer b;
+  size_t i = 0;
+  luaL_buffinit(L, &b);
+  while (i < len) {
+    char c = s[i++];
+    if (c != '\\') {
+      luaL_addchar(&b, c);
+      continue;
+    }
+    if (i >= len) {
+      return luaL_error(L, "json.decode: invalid escape sequence");
+    }
+    c = s[i++];
+    if (c == '"' || c == '\\' || c == '/') {
+      luaL_addchar(&b, c);
+    } else if (c == 'b') {
+      luaL_addchar(&b, '\b');
+    } else if (c == 'f') {
+      luaL_addchar(&b, '\f');
+    } else if (c == 'n') {
+      luaL_addchar(&b, '\n');
+    } else if (c == 'r') {
+      luaL_addchar(&b, '\r');
+    } else if (c == 't') {
+      luaL_addchar(&b, '\t');
+    } else if (c == 'u') {
+      unsigned cp = 0;
+      if (i + 4 > len || !ng_json_parse_u16(s + i, &cp)) {
+        return luaL_error(L, "json.decode: invalid unicode escape");
+      }
+      i += 4;
+      if (cp >= 0xD800u && cp <= 0xDBFFu) {
+        unsigned cp2 = 0;
+        if (i + 6 <= len && s[i] == '\\' && s[i + 1] == 'u' &&
+            ng_json_parse_u16(s + i + 2, &cp2) && cp2 >= 0xDC00u &&
+            cp2 <= 0xDFFFu) {
+          cp = 0x10000u + ((cp - 0xD800u) << 10) + (cp2 - 0xDC00u);
+          i += 6;
+        }
+      }
+      if (!ng_lua_add_utf8(&b, cp)) {
+        return luaL_error(L, "json.decode: invalid unicode codepoint");
+      }
+    } else {
+      return luaL_error(L, "json.decode: unsupported escape sequence");
+    }
+  }
+  luaL_pushresult(&b);
+  return 1;
+}
+
+static int ng_lua_json_decode_value(lua_State *L, const NgJsonDoc *doc,
+                                    int tok_idx, int depth, int *next_idx) {
+  jsmntok_t tok;
+  int i;
+  int cur;
+  if (depth > NG_JSON_RECURSION_LIMIT) {
+    return luaL_error(L, "json.decode: recursion limit exceeded");
+  }
+  if (tok_idx < 0 || tok_idx >= doc->count) {
+    return luaL_error(L, "json.decode: token index out of range");
+  }
+
+  tok = doc->tokens[tok_idx];
+  if (tok.type == JSMN_OBJECT) {
+    lua_createtable(L, 0, tok.size);
+    cur = tok_idx + 1;
+    for (i = 0; i < tok.size; i++) {
+      jsmntok_t key_tok;
+      if (cur >= doc->count) {
+        return luaL_error(L, "json.decode: unexpected end of object");
+      }
+      key_tok = doc->tokens[cur++];
+      if (key_tok.type != JSMN_STRING || key_tok.start < 0 ||
+          key_tok.end < key_tok.start) {
+        return luaL_error(L, "json.decode: object key must be string");
+      }
+      ng_lua_push_json_string_unescaped(
+          L, doc->json + key_tok.start, (size_t)(key_tok.end - key_tok.start));
+      ng_lua_json_decode_value(L, doc, cur, depth + 1, &cur);
+      lua_settable(L, -3);
+    }
+    *next_idx = cur;
+    return 1;
+  }
+
+  if (tok.type == JSMN_ARRAY) {
+    lua_createtable(L, tok.size, 0);
+    cur = tok_idx + 1;
+    for (i = 0; i < tok.size; i++) {
+      ng_lua_json_decode_value(L, doc, cur, depth + 1, &cur);
+      lua_seti(L, -2, (lua_Integer)i + 1);
+    }
+    *next_idx = cur;
+    return 1;
+  }
+
+  if (tok.type == JSMN_STRING) {
+    if (tok.start < 0 || tok.end < tok.start) {
+      return luaL_error(L, "json.decode: invalid string token");
+    }
+    ng_lua_push_json_string_unescaped(
+        L, doc->json + tok.start, (size_t)(tok.end - tok.start));
+    *next_idx = tok_idx + 1;
+    return 1;
+  }
+
+  if (tok.type == JSMN_PRIMITIVE) {
+    size_t len;
+    const char *p;
+    if (tok.start < 0 || tok.end < tok.start) {
+      return luaL_error(L, "json.decode: invalid primitive token");
+    }
+    len = (size_t)(tok.end - tok.start);
+    p = doc->json + tok.start;
+    if (len == 4 && memcmp(p, "true", 4u) == 0) {
+      lua_pushboolean(L, 1);
+    } else if (len == 5 && memcmp(p, "false", 5u) == 0) {
+      lua_pushboolean(L, 0);
+    } else if (len == 4 && memcmp(p, "null", 4u) == 0) {
+      lua_pushnil(L);
+    } else {
+      char small[128];
+      char *tmp = small;
+      size_t parsed;
+      if (len + 1u > sizeof(small)) {
+        tmp = (char *)malloc(len + 1u);
+        if (tmp == NULL) {
+          return luaL_error(L, "json.decode: out of memory");
+        }
+      }
+      memcpy(tmp, p, len);
+      tmp[len] = '\0';
+      parsed = lua_stringtonumber(L, tmp);
+      if (tmp != small) {
+        free(tmp);
+      }
+      if (parsed == 0 || parsed != len + 1u) {
+        return luaL_error(L, "json.decode: invalid numeric token");
+      }
+    }
+    *next_idx = tok_idx + 1;
+    return 1;
+  }
+
+  return luaL_error(L, "json.decode: unsupported token type");
+}
+
+static int lua_json_decode(lua_State *L) {
+  size_t len = 0;
+  const char *json = luaL_checklstring(L, 1, &len);
+  NgJsonDoc doc;
+  jsmn_parser parser;
+  int rc;
+  int next_idx = 0;
+
+  doc.json = json;
+  doc.tokens = NULL;
+  doc.count = 0;
+
+  jsmn_init(&parser);
+  rc = jsmn_parse(&parser, json, len, NULL, 0);
+  if (rc <= 0) {
+    return luaL_error(L, "json.decode: invalid json input");
+  }
+  doc.count = rc;
+  doc.tokens = (jsmntok_t *)malloc((size_t)doc.count * sizeof(jsmntok_t));
+  if (doc.tokens == NULL) {
+    return luaL_error(L, "json.decode: out of memory");
+  }
+
+  jsmn_init(&parser);
+  rc = jsmn_parse(&parser, json, len, doc.tokens, (unsigned int)doc.count);
+  if (rc < 1 || doc.tokens[0].type == JSMN_UNDEFINED) {
+    free(doc.tokens);
+    return luaL_error(L, "json.decode: invalid json input");
+  }
+  doc.count = rc;
+
+  ng_lua_json_decode_value(L, &doc, 0, 0, &next_idx);
+  if (next_idx != doc.count) {
+    free(doc.tokens);
+    return luaL_error(L, "json.decode: trailing tokens detected");
+  }
+
+  free(doc.tokens);
+  return 1;
+}
+
+static int ng_json_encode_value(lua_State *L, int idx, NgStrBuf *out,
+                                const void **seen, int seen_count, int depth);
+
+static int ng_json_encode_string(NgStrBuf *out, const char *s, size_t len) {
+  static const char hex[] = "0123456789abcdef";
+  size_t i;
+  if (!ng_sb_append_c(out, '"')) {
+    return 0;
+  }
+  for (i = 0; i < len; i++) {
+    unsigned char c = (unsigned char)s[i];
+    if (c == '"') {
+      if (!ng_sb_append_len(out, "\\\"", 2u)) return 0;
+    } else if (c == '\\') {
+      if (!ng_sb_append_len(out, "\\\\", 2u)) return 0;
+    } else if (c == '\b') {
+      if (!ng_sb_append_len(out, "\\b", 2u)) return 0;
+    } else if (c == '\f') {
+      if (!ng_sb_append_len(out, "\\f", 2u)) return 0;
+    } else if (c == '\n') {
+      if (!ng_sb_append_len(out, "\\n", 2u)) return 0;
+    } else if (c == '\r') {
+      if (!ng_sb_append_len(out, "\\r", 2u)) return 0;
+    } else if (c == '\t') {
+      if (!ng_sb_append_len(out, "\\t", 2u)) return 0;
+    } else if (c < 0x20u) {
+      char esc[6];
+      esc[0] = '\\';
+      esc[1] = 'u';
+      esc[2] = '0';
+      esc[3] = '0';
+      esc[4] = hex[(c >> 4) & 0x0Fu];
+      esc[5] = hex[c & 0x0Fu];
+      if (!ng_sb_append_len(out, esc, sizeof(esc))) return 0;
+    } else {
+      if (!ng_sb_append_c(out, (char)c)) return 0;
+    }
+  }
+  return ng_sb_append_c(out, '"');
+}
+
+static int ng_json_table_shape(lua_State *L, int idx, lua_Integer *out_max,
+                               int *out_is_array) {
+  lua_Integer max_idx = 0;
+  lua_Integer int_count = 0;
+  int has_other = 0;
+  idx = lua_absindex(L, idx);
+  lua_pushnil(L);
+  while (lua_next(L, idx) != 0) {
+    if (lua_type(L, -2) == LUA_TNUMBER && lua_isinteger(L, -2)) {
+      lua_Integer k = lua_tointeger(L, -2);
+      if (k >= 1) {
+        int_count++;
+        if (k > max_idx) {
+          max_idx = k;
+        }
+      } else {
+        has_other = 1;
+      }
+    } else {
+      has_other = 1;
+    }
+    lua_pop(L, 1);
+  }
+  *out_max = max_idx;
+  *out_is_array = (!has_other && int_count == max_idx) ? 1 : 0;
+  return 1;
+}
+
+static int ng_json_encode_table(lua_State *L, int idx, NgStrBuf *out,
+                                const void **seen, int seen_count, int depth) {
+  const void *ptr;
+  lua_Integer max_idx = 0;
+  int is_array = 0;
+  int i;
+  idx = lua_absindex(L, idx);
+
+  if (depth > NG_JSON_RECURSION_LIMIT) {
+    luaL_error(L, "json.encode: recursion limit exceeded");
+    return 0;
+  }
+  ptr = lua_topointer(L, idx);
+  for (i = 0; i < seen_count; i++) {
+    if (seen[i] == ptr) {
+      luaL_error(L, "json.encode: circular table reference");
+      return 0;
+    }
+  }
+  if (seen_count + 1 >= NG_JSON_RECURSION_LIMIT) {
+    luaL_error(L, "json.encode: nesting too deep");
+    return 0;
+  }
+  seen[seen_count] = ptr;
+  seen_count += 1;
+
+  ng_json_table_shape(L, idx, &max_idx, &is_array);
+  if (is_array) {
+    lua_Integer k;
+    if (!ng_sb_append_c(out, '[')) return 0;
+    for (k = 1; k <= max_idx; k++) {
+      if (k > 1 && !ng_sb_append_c(out, ',')) return 0;
+      lua_geti(L, idx, k);
+      if (!ng_json_encode_value(L, -1, out, seen, seen_count, depth + 1)) {
+        lua_pop(L, 1);
+        return 0;
+      }
+      lua_pop(L, 1);
+    }
+    if (!ng_sb_append_c(out, ']')) return 0;
+    return 1;
+  }
+
+  if (!ng_sb_append_c(out, '{')) return 0;
+  i = 0;
+  lua_pushnil(L);
+  while (lua_next(L, idx) != 0) {
+    size_t klen = 0;
+    const char *k = lua_tolstring(L, -2, &klen);
+    if (k == NULL) {
+      lua_pop(L, 2);
+      luaL_error(L, "json.encode: object keys must be strings");
+      return 0;
+    }
+    if (i++ > 0 && !ng_sb_append_c(out, ',')) {
+      lua_pop(L, 1);
+      return 0;
+    }
+    if (!ng_json_encode_string(out, k, klen) || !ng_sb_append_c(out, ':')) {
+      lua_pop(L, 1);
+      return 0;
+    }
+    if (!ng_json_encode_value(L, -1, out, seen, seen_count, depth + 1)) {
+      lua_pop(L, 1);
+      return 0;
+    }
+    lua_pop(L, 1);
+  }
+  return ng_sb_append_c(out, '}');
+}
+
+static int ng_json_encode_value(lua_State *L, int idx, NgStrBuf *out,
+                                const void **seen, int seen_count,
+                                int depth) {
+  int t = lua_type(L, idx);
+  if (t == LUA_TNIL) {
+    return ng_sb_append_len(out, "null", 4u);
+  }
+  if (t == LUA_TBOOLEAN) {
+    return lua_toboolean(L, idx)
+               ? ng_sb_append_len(out, "true", 4u)
+               : ng_sb_append_len(out, "false", 5u);
+  }
+  if (t == LUA_TNUMBER) {
+    char num[64];
+    int n;
+    if (lua_isinteger(L, idx)) {
+      lua_Integer v = lua_tointeger(L, idx);
+      n = snprintf(num, sizeof(num), "%lld", (long long)v);
+    } else {
+      lua_Number d = lua_tonumber(L, idx);
+      if (!isfinite((double)d)) {
+        luaL_error(L, "json.encode: non-finite numbers are not supported");
+        return 0;
+      }
+      n = snprintf(num, sizeof(num), "%.17g", (double)d);
+    }
+    if (n <= 0 || (size_t)n >= sizeof(num)) {
+      luaL_error(L, "json.encode: failed to format number");
+      return 0;
+    }
+    return ng_sb_append_len(out, num, (size_t)n);
+  }
+  if (t == LUA_TSTRING) {
+    size_t len = 0;
+    const char *s = lua_tolstring(L, idx, &len);
+    return ng_json_encode_string(out, s, len);
+  }
+  if (t == LUA_TTABLE) {
+    return ng_json_encode_table(L, idx, out, seen, seen_count, depth);
+  }
+  luaL_error(L, "json.encode: unsupported lua type: %s", lua_typename(L, t));
+  return 0;
+}
+
+static int lua_json_encode(lua_State *L) {
+  NgStrBuf out;
+  const void *seen[NG_JSON_RECURSION_LIMIT];
+  ng_sb_init(&out);
+  if (!ng_json_encode_value(L, 1, &out, seen, 0, 0)) {
+    ng_sb_free(&out);
+    return luaL_error(L, "json.encode: out of memory");
+  }
+  lua_pushlstring(L, out.buf != NULL ? out.buf : "", out.len);
+  ng_sb_free(&out);
+  return 1;
+}
+
+static int lua_csv_parse(lua_State *L) {
+  size_t len = 0;
+  const char *text = luaL_checklstring(L, 1, &len);
+  int with_headers = 1;
+  size_t i = 0;
+  int row_count = 0;
+  int field_count = 0;
+  int in_quotes = 0;
+  NgStrBuf field;
+  int lines_idx;
+  int row_idx;
+
+  if (lua_gettop(L) >= 2) {
+    if (lua_isboolean(L, 2)) {
+      with_headers = lua_toboolean(L, 2) ? 1 : 0;
+    } else if (lua_istable(L, 2)) {
+      lua_getfield(L, 2, "headers");
+      if (!lua_isnil(L, -1)) {
+        with_headers = lua_toboolean(L, -1) ? 1 : 0;
+      }
+      lua_pop(L, 1);
+    }
+  }
+
+  lua_newtable(L);
+  lines_idx = lua_gettop(L);
+  lua_newtable(L);
+  row_idx = lua_gettop(L);
+  ng_sb_init(&field);
+
+#define NG_CSV_FLUSH_FIELD()                                                   \
+  do {                                                                         \
+    lua_pushlstring(L, field.buf != NULL ? field.buf : "", field.len);       \
+    lua_seti(L, row_idx, (lua_Integer)(++field_count));                        \
+    field.len = 0;                                                              \
+    if (field.buf != NULL) {                                                    \
+      field.buf[0] = '\0';                                                     \
+    }                                                                           \
+  } while (0)
+
+#define NG_CSV_FLUSH_ROW()                                                     \
+  do {                                                                         \
+    if (field.len > 0 || field_count > 0) {                                    \
+      NG_CSV_FLUSH_FIELD();                                                     \
+      lua_pushvalue(L, row_idx);                                                \
+      lua_seti(L, lines_idx, (lua_Integer)(++row_count));                      \
+      lua_newtable(L);                                                          \
+      lua_replace(L, row_idx);                                                  \
+      field_count = 0;                                                          \
+    }                                                                           \
+  } while (0)
+
+  while (i < len) {
+    char c = text[i];
+    char next = (i + 1 < len) ? text[i + 1] : '\0';
+    if (in_quotes) {
+      if (c == '"') {
+        if (next == '"') {
+          if (!ng_sb_append_c(&field, '"')) {
+            ng_sb_free(&field);
+            return luaL_error(L, "csv.parse: out of memory");
+          }
+          i += 2;
+          continue;
+        }
+        in_quotes = 0;
+        i += 1;
+        continue;
+      }
+      if (!ng_sb_append_c(&field, c)) {
+        ng_sb_free(&field);
+        return luaL_error(L, "csv.parse: out of memory");
+      }
+      i += 1;
+      continue;
+    }
+
+    if (c == '"') {
+      in_quotes = 1;
+    } else if (c == ',') {
+      NG_CSV_FLUSH_FIELD();
+    } else if (c == '\n' || c == '\r') {
+      NG_CSV_FLUSH_ROW();
+      if (c == '\r' && next == '\n') {
+        i += 1;
+      }
+    } else {
+      if (!ng_sb_append_c(&field, c)) {
+        ng_sb_free(&field);
+        return luaL_error(L, "csv.parse: out of memory");
+      }
+    }
+    i += 1;
+  }
+
+  NG_CSV_FLUSH_ROW();
+  ng_sb_free(&field);
+  lua_pop(L, 1);
+
+  if (!with_headers || row_count == 0) {
+    return 1;
+  }
+
+  lua_newtable(L);
+  {
+    int out_idx = lua_gettop(L);
+    lua_Integer out_row = 0;
+    lua_Integer r;
+
+    lua_geti(L, lines_idx, 1);
+    if (!lua_istable(L, -1)) {
+      lua_pop(L, 1);
+      return 1;
+    }
+
+    for (r = 2; r <= (lua_Integer)row_count; r++) {
+      lua_Integer c;
+      lua_Integer header_len;
+      lua_geti(L, lines_idx, r);
+      if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        continue;
+      }
+      lua_newtable(L);
+      header_len = (lua_Integer)lua_rawlen(L, -3);
+      for (c = 1; c <= header_len; c++) {
+        size_t klen = 0;
+        const char *k;
+        lua_geti(L, -3, c);
+        k = lua_tolstring(L, -1, &klen);
+        lua_pop(L, 1);
+        if (k == NULL || klen == 0) {
+          continue;
+        }
+        lua_geti(L, -2, c);
+        if (lua_isnil(L, -1)) {
+          lua_pop(L, 1);
+          lua_pushliteral(L, "");
+        }
+        lua_setfield(L, -2, k);
+      }
+      lua_seti(L, out_idx, ++out_row);
+      lua_pop(L, 1);
+    }
+
+    lua_pop(L, 1);
+    lua_replace(L, lines_idx);
+  }
+  return 1;
+}
+
+#undef NG_CSV_FLUSH_FIELD
+#undef NG_CSV_FLUSH_ROW
+
+static void register_json_csv_libs(lua_State *L) {
+  lua_newtable(L);
+  lua_pushcfunction(L, lua_json_decode);
+  lua_setfield(L, -2, "decode");
+  lua_pushcfunction(L, lua_json_encode);
+  lua_setfield(L, -2, "encode");
+  lua_setglobal(L, "json");
+
+  lua_newtable(L);
+  lua_pushcfunction(L, lua_csv_parse);
+  lua_setfield(L, -2, "parse");
+  lua_setglobal(L, "csv");
+}
 
 static void clear_value_store(void) {
   g_value_len = 0;
@@ -243,6 +934,7 @@ static void open_safe_libs(lua_State *L) {
   lua_pop(L, 1);
   luaL_requiref(L, LUA_UTF8LIBNAME, luaopen_utf8, 1);
   lua_pop(L, 1);
+  register_json_csv_libs(L);
 }
 
 static ng_i32 init_lua(void) {
@@ -670,6 +1362,10 @@ static ng_i32 execute_node(ng_u32 node_id, ng_u8 *visit) {
   }
 
   err = execute_dependencies(node, visit);
+  if (err == NG_ERR_HOST) {
+    visit[idx] = 2;
+    return NG_ERR_HOST;
+  }
   if (err != NG_OK) {
     node->exec_state = NG_EXEC_ERROR;
     node->last_error = err;

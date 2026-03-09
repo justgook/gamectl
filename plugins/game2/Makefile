@@ -33,7 +33,8 @@ NATIVE_BIN ?= $(NATIVE_DIR)/game2
 ROOT_BUILD_DIR ?= ../../build.nosync
 PLUGIN_WASM ?= $(ROOT_BUILD_DIR)/plugins/game2.wasm
 SOKOL_NATIVE_PROFILE ?= debug
-ATLAS_ASSET ?= ../../example/the_atlas.qoi
+ATLAS_ASSET ?= ../../cmd/browser/assets/game/the_atlas.qoi
+LUT_ASSET ?= ../../cmd/browser/assets/game/lut.qoi
 
 SHADER_SOURCES := $(shell $(PYTHON3) -c 'from pathlib import Path; print(" ".join(str(p) for p in sorted(Path(".").rglob("*.glsl"))))')
 
@@ -168,6 +169,7 @@ web: plugin | $(WEB_DIR)
 	$(Q)echo "Building standalone web bundle"
 	$(Q)$(CP) "$(PLUGIN_WASM)" "$(WEB_DIR)/game2.wasm"
 	$(Q)$(CP) "$(ATLAS_ASSET)" "$(WEB_DIR)/the_atlas.qoi"
+	$(Q)$(CP) "$(LUT_ASSET)" "$(WEB_DIR)/lut.qoi"
 	$(Q)$(CP) web/index.html "$(WEB_DIR)/index.html"
 	$(Q)$(CP) ../../cmd/browser/util/gl-bridge.js "$(WEB_DIR)/gl-bridge.js"
 

@@ -858,6 +858,56 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     };
   }
 
+  _getBuiltinNodeTemplates() {
+    const luaDemo = String.raw`-- Demo: query tilemaps via SQL, parse CSV, decode tilemap JSON.
+-- Requires ng runtime helpers: csv.parse, json.decode, json.encode.
+
+local sql = "SELECT name, data FROM tilemap_storage ORDER BY name LIMIT 8"
+local csvText = host.awaitCall("sql", "query", sql)
+local rows = csv.parse(csvText, { headers = true })
+
+local items = {}
+for i, row in ipairs(rows) do
+  local name = row.name or ("row_" .. i)
+  local ok, tilemap = pcall(json.decode, row.data or "{}")
+  if ok and type(tilemap) == "table" then
+    local layers = tilemap.layers or {}
+    items[#items + 1] = {
+      name = name,
+      layerCount = #layers,
+      width = (layers[1] and layers[1].width) or 0,
+      tileCount = (layers[1] and #(layers[1].data or {})) or 0,
+    }
+  else
+    items[#items + 1] = {
+      name = name,
+      error = "invalid tilemap json",
+    }
+  end
+end
+
+outputs[1] = json.encode(items)
+outputs[2] = json.encode({ count = #items })
+`;
+
+    return [
+      {
+        name: "tilemap sql parse demo",
+        kind: NG.NODE_CODE,
+        data: {
+          kind: NG.NODE_CODE,
+          name: "tilemap sql parse demo",
+          code: luaDemo,
+          inputs: [],
+          outputs: [
+            { outputId: 1, name: "items" },
+            { outputId: 2, name: "stats" },
+          ],
+        },
+      },
+    ];
+  }
+
   _nextAvailableNodeId() {
     const used = new Set(this.getGraphSnapshot().nodes.map((node) => Number(node.id)));
     for (let id = 1; id < 0x7fffffff; id++) {
@@ -1319,10 +1369,23 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   }
 
   async listNodeTemplates() {
+    const builtins = this._getBuiltinNodeTemplates();
     const result = await window.pluginManager.call("sql", "query", "SELECT name, kind, data FROM nodegraph2_node_templates ORDER BY name");
     const csv = this.td.decode(result.output || new Uint8Array());
     const rows = parseCSVLines(csv.trim());
     const entries = [];
+    const byName = new Map();
+
+    for (const entry of builtins) {
+      const name = String(entry?.name || "").trim();
+      if (!name) continue;
+      const kind = Number(entry?.kind || NG.NODE_CODE);
+      const data = this._serializeNodeTemplateDraft(this._normalizeNodeTemplatePayload(entry?.data || {}, kind));
+      const normalized = { name, kind: Number(data.kind || kind || NG.NODE_CODE), data };
+      byName.set(name, normalized);
+      entries.push(normalized);
+    }
+
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i] || [];
       const name = String(row[0] || "").trim();
@@ -1335,7 +1398,14 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         parsedData = {};
       }
       const data = this._serializeNodeTemplateDraft(this._normalizeNodeTemplatePayload(parsedData, kind));
-      entries.push({ name, kind: Number(data.kind || kind || NG.NODE_CODE), data });
+      const normalized = { name, kind: Number(data.kind || kind || NG.NODE_CODE), data };
+      if (byName.has(name)) {
+        const idx = entries.findIndex((entry) => entry.name === name);
+        if (idx >= 0) entries[idx] = normalized;
+      } else {
+        entries.push(normalized);
+      }
+      byName.set(name, normalized);
     }
     return entries;
   }
