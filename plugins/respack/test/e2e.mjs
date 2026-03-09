@@ -119,6 +119,26 @@ main :: proc() {
   assert(bundle.blob[4] == 200)
   assert(bundle.blob[5] == 255)
 
+  assert(len(bundle.label) == 6)
+  assert(bundle.label[0] == 'l')
+  assert(bundle.label[1] == 'i')
+  assert(bundle.label[2] == 'n')
+  assert(bundle.label[3] == 'e')
+  assert(bundle.label[4] == '\\n')
+  assert(bundle.label[5] == '2')
+
+  assert(len(bundle.text_blob) == 6)
+  assert(bundle.text_blob[0] == 'l')
+  assert(bundle.text_blob[1] == 'i')
+  assert(bundle.text_blob[2] == 'n')
+  assert(bundle.text_blob[3] == 'e')
+  assert(bundle.text_blob[4] == '\\n')
+  assert(bundle.text_blob[5] == '2')
+
+  assert(bundle.shape.kind == shape_Kind.rect_shape)
+  assert(bundle.shape.rect_shape.size.x == f32(6.0))
+  assert(bundle.shape.rect_shape.size.y == f32(9.5))
+
   assert(len(bundle.palette) == 3)
   assert(bundle.palette[0][0] == 255)
   assert(bundle.palette[0][1] == 0)
@@ -151,6 +171,13 @@ async function main() {
         { x: 10.25, y: 8.75 }
       ],
       blob: [0, 17, 34, 51, 200, 255],
+      label: "line\n2",
+      text_blob: "line\n2",
+      shape: {
+        rect: {
+          size: { x: 6.0, y: 9.5 }
+        }
+      },
       palette: [
         [255, 0, 128],
         [12, 34, 56],

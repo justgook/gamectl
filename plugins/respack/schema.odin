@@ -300,6 +300,9 @@ compile_named_type_from_top_level_value :: proc(input: []u8, value_slice: []u8, 
 	if slice_matches_string(type_name, "vector") {
 		return compile_vector_type_from_slice(trimmed, type_idx)
 	}
+	if slice_matches_string(type_name, "oneof") {
+		return compile_oneof_type_from_slice(trimmed, type_idx)
+	}
 	if slice_matches_string(type_name, "struct") {
 		return compile_struct_type_from_slice(trimmed, value_abs_start, type_idx)
 	}
@@ -378,7 +381,7 @@ compile_field_from_slice :: proc(fields_slice: []u8, fields_abs_start: int, memb
 	if len(type_name) >= 2 && type_name[0] == '"' && type_name[len(type_name)-1] == '"' {
 		type_name = type_name[1:len(type_name)-1]
 	}
-	if slice_matches_string(type_name, "vector") || slice_matches_string(type_name, "array") || slice_matches_string(type_name, "bytes") || slice_matches_string(type_name, "string") {
+	if slice_matches_string(type_name, "vector") || slice_matches_string(type_name, "array") || slice_matches_string(type_name, "bytes") || slice_matches_string(type_name, "string") || slice_matches_string(type_name, "oneof") {
 		anon_idx, err := new_anonymous_type()
 		if err != "" {
 			return FieldDef{}, err
@@ -387,6 +390,8 @@ compile_field_from_slice :: proc(fields_slice: []u8, fields_abs_start: int, memb
 			err = compile_vector_type_from_slice(value_slice, anon_idx)
 		} else if slice_matches_string(type_name, "array") {
 			err = compile_array_type_from_slice(value_slice, anon_idx)
+		} else if slice_matches_string(type_name, "oneof") {
+			err = compile_oneof_type_from_slice(value_slice, anon_idx)
 		} else if slice_matches_string(type_name, "bytes") {
 			types[anon_idx].kind = .Bytes
 			types[anon_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
@@ -755,6 +760,9 @@ compile_named_type_from_key_bounds :: proc(input: []u8, key_start, key_end, type
 	if slice_matches_string(type_name, "vector") {
 		return compile_vector_type_from_slice(value_slice, type_idx)
 	}
+	if slice_matches_string(type_name, "oneof") {
+		return compile_oneof_type_from_slice(value_slice, type_idx)
+	}
 	if slice_matches_string(type_name, "bytes") {
 		types[type_idx].kind = .Bytes
 		types[type_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
@@ -928,6 +936,39 @@ compile_oneof_type :: proc(input: []u8, obj_idx: int, type_idx: int) -> string {
 		}
 		oneof_options[oneof_option_count] = option_type
 		oneof_option_count += 1
+	}
+	types[type_idx].kind = .Oneof
+	types[type_idx].option_start = start
+	types[type_idx].option_count = oneof_option_count - start
+	return ""
+}
+
+compile_oneof_type_from_slice :: proc(obj_slice: []u8, type_idx: int) -> string {
+	value_start, value_end, has_value := find_top_level_value_bounds(obj_slice, "value")
+	if !has_value {
+		return "oneof requires value"
+	}
+	value_slice := trim_bytes_space(obj_slice[value_start:value_end])
+	if len(value_slice) == 0 || value_slice[0] != '[' {
+		return "oneof value must be array"
+	}
+	start := oneof_option_count
+	cursor := 1
+	for {
+		element, next_cursor, found := next_array_element(value_slice, cursor)
+		if !found {
+			break
+		}
+		if oneof_option_count >= MAX_ONEOF_OPTIONS {
+			return "oneof option limit exceeded"
+		}
+		option_type, err := resolve_type_from_value_slice(element)
+		if err != "" {
+			return err
+		}
+		oneof_options[oneof_option_count] = option_type
+		oneof_option_count += 1
+		cursor = next_cursor
 	}
 	types[type_idx].kind = .Oneof
 	types[type_idx].option_start = start

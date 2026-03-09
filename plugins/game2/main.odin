@@ -3,6 +3,7 @@ package game2
 import "core:c"
 import sg "sokol/gfx"
 import sprite "render/sprite"
+import tilemap "render/tilemap"
 import qoi "third_party/qoi"
 
 EVENT_TYPE_MOUSE_DOWN :: 4
@@ -20,7 +21,9 @@ ACTION_DOWN :: u32(4)
 ACTION_1 :: u32(5)
 ACTION_2 :: u32(6)
 ATLAS_ASSET_PATH :: "/game/the_atlas.qoi"
+LUT_ASSET_PATH :: "/game/lut.qoi"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
+LUT_RGBA_CAPACITY :: 512 * 512 * 4
 
 EVENT_OFFSET_FRAME_COUNT :: 0
 EVENT_OFFSET_TYPE :: 8
@@ -36,7 +39,9 @@ ASSET_SCRATCH_CAPACITY :: 2 * 1024 * 1024
 
 State :: struct {
 	atlas: sg.Image,
+	lut: sg.Image,
 	sprite_renderer: sprite.Renderer,
+	tilemap_renderer: tilemap.Renderer,
 	pass_action: sg.Pass_Action,
 	mouse_y: f32,
 	window_height: i32,
@@ -45,6 +50,9 @@ State :: struct {
 	atlas_width: i32,
 	atlas_height: i32,
 	atlas_loaded: bool,
+	lut_width: i32,
+	lut_height: i32,
+	lut_loaded: bool,
 	actions_down: [7]bool,
 }
 
@@ -66,6 +74,7 @@ Host_Event :: struct {
 state: State
 event_buffer: Host_Event
 atlas_pixels: [ATLAS_RGBA_CAPACITY]u8
+lut_pixels: [LUT_RGBA_CAPACITY]u8
 init_stage: u32
 
 range_from_slice :: proc(data: []$T) -> sg.Range {
@@ -111,6 +120,38 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 		}
 	}
 
+	lut_asset_data, lut_ok := asset_reader(LUT_ASSET_PATH)
+	if lut_ok {
+		lut_w, lut_h, lut_img_pixels, lut_img_ok := qoi.decode_to_buffer(lut_asset_data, lut_pixels[:])
+		if lut_img_ok {
+			state.lut_loaded = true
+			state.lut_width = i32(lut_w)
+			state.lut_height = i32(lut_h)
+			lut_desc := sg.Image_Desc{
+				width = i32(lut_w),
+				height = i32(lut_h),
+				pixel_format = .RGBA8,
+			}
+			lut_desc.data.mip_levels[0] = {
+				ptr = raw_data(lut_img_pixels),
+				size = c.size_t(lut_w * lut_h * 4),
+			}
+			state.lut = sg.make_image(lut_desc)
+		}
+	}
+
+	if state.atlas.id != 0 {
+		lut_tex := state.lut
+		lut_w := state.lut_width
+		lut_h := state.lut_height
+		if lut_tex.id == 0 {
+			lut_tex = state.atlas
+			lut_w = state.atlas_width
+			lut_h = state.atlas_height
+		}
+		state.tilemap_renderer = tilemap.init(state.atlas, lut_tex, state.atlas_width, state.atlas_height, lut_w, lut_h)
+	}
+
 	state.mouse_y = 0.0
 	state.window_height = 480
 	state.framebuffer_width = 640
@@ -152,8 +193,18 @@ core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
 	}
 
 	sg.begin_pass(pass)
+	tilemap.reset(&state.tilemap_renderer)
 	sprite.reset(&state.sprite_renderer)
 	if state.atlas.id != 0 {
+		tilemap.push(
+			&state.tilemap_renderer,
+			{0, 0},
+			[2]f32{64, 64},
+			[4]f32{0, 0, 1, 1},
+			[4]f32{0, 0, 1, 1},
+		)
+		tilemap.draw(&state.tilemap_renderer, state.framebuffer_width, state.framebuffer_height)
+
 		base_x := f32(state.framebuffer_width) * 0.5 - 260.0 + move_x * 96.0
 		base_y := f32(state.framebuffer_height) * 0.5 - 120.0 + bob + move_y * 96.0
 		size := [2]f32{160, 160}
@@ -176,7 +227,12 @@ core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
 }
 
 core_cleanup :: proc() {
+	tilemap.shutdown(&state.tilemap_renderer)
 	sprite.shutdown(&state.sprite_renderer)
+	if state.lut.id != 0 {
+		sg.destroy_image(state.lut)
+		state.lut = {}
+	}
 	if state.atlas.id != 0 {
 		sg.destroy_image(state.atlas)
 		state.atlas = {}

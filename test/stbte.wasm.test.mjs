@@ -362,4 +362,237 @@ test('stbte wasm headless functional coverage', async (t) => {
     assert.equal(tileAt(runtime, 4, 4, 1), -1)
     assert.equal(runtime.exports.stbte_resize_map(runtime.tilemap, 0, 5), 0)
   })
+
+  await t.test('chunk export header and body serialize current tilemap', async () => {
+    const runtime = await createRuntime({ width: 4, height: 3, layers: 2 })
+
+    paint(runtime, 0, runtime.indices.ground, 0, 0)
+    paint(runtime, 1, runtime.indices.layer1Only, 2, 1)
+
+    const chunkSize = 4
+    const chunkCount = 3
+    const required = runtime.exports.stbte_chunk_export_required_bytes(
+      runtime.tilemap,
+      10,
+      6,
+      chunkSize,
+      chunkCount
+    )
+    const headerSize = runtime.exports.stbte_chunk_export_header_size()
+    const bytesPerChunk = runtime.exports.stbte_chunk_export_bytes_per_chunk(runtime.tilemap, chunkSize)
+    const headerPtr = runtime.memory.buffer.byteLength
+    runtime.memory.grow(Math.ceil(required / 65536) || 1)
+
+    assert.equal(runtime.exports.stbte_chunk_export_version(), 1)
+    assert.equal(required, headerSize + (bytesPerChunk * chunkCount))
+    assert.equal(
+      runtime.exports.stbte_chunk_export_write_header(runtime.tilemap, headerPtr, required, 10, 6, chunkSize, chunkCount),
+      1
+    )
+    assert.equal(
+      runtime.exports.stbte_chunk_export_write_current_chunk(runtime.tilemap, headerPtr, required, chunkSize, 1),
+      1
+    )
+    assert.equal(
+      runtime.exports.stbte_chunk_export_write_current_chunk(runtime.tilemap, headerPtr, required, chunkSize, chunkCount),
+      0
+    )
+
+    const header = new DataView(runtime.memory.buffer, headerPtr, headerSize)
+    assert.equal(header.getUint32(0, true), 1)
+    assert.equal(header.getUint32(4, true), 10)
+    assert.equal(header.getUint32(8, true), 6)
+    assert.equal(header.getUint32(12, true), 2)
+    assert.equal(header.getUint32(16, true), 4)
+    assert.equal(header.getUint32(20, true), 3)
+    const bodyPtr = header.getUint32(24, true)
+    assert.equal(bodyPtr, headerPtr + headerSize)
+
+    const body = new Uint16Array(runtime.memory.buffer, bodyPtr, (required - headerSize) / 2)
+    const chunkOffset = bytesPerChunk / 2
+    const perLayer = chunkSize * chunkSize
+    assert.equal(body[chunkOffset + 0], TILE_GROUND + 1)
+    assert.equal(body[chunkOffset + perLayer + (1 * chunkSize) + 2], TILE_LAYER1 + 1)
+    assert.equal(body[chunkOffset + perLayer + (3 * chunkSize) + 3], 0)
+  })
+
+  await t.test('chunk import payload loads padded chunk data into scratch tilemap', async () => {
+    const runtime = await createRuntime({ width: 4, height: 4, layers: 2 })
+    const chunkSize = 4
+    const payload = new Uint16Array(chunkSize * chunkSize * 2)
+    payload[0] = TILE_GROUND + 1
+    payload[(1 * chunkSize) + 2] = TILE_GROUND + 1
+    payload[(chunkSize * chunkSize) + (2 * chunkSize) + 1] = TILE_LAYER1 + 1
+
+    const payloadPtr = runtime.memory.buffer.byteLength
+    runtime.memory.grow(1)
+    new Uint16Array(runtime.memory.buffer, payloadPtr, payload.length).set(payload)
+
+    assert.equal(
+      runtime.exports.stbte_chunk_import_payload(runtime.tilemap, payloadPtr, payload.byteLength, chunkSize, 3, 3),
+      1
+    )
+    assert.equal(tilemapState(runtime).width, 3)
+    assert.equal(tilemapState(runtime).height, 3)
+    assert.equal(tileAt(runtime, 0, 0, 0), TILE_GROUND)
+    assert.equal(tileAt(runtime, 2, 1, 0), TILE_GROUND)
+    assert.equal(tileAt(runtime, 1, 2, 1), TILE_LAYER1)
+    assert.equal(tileAt(runtime, 3, 3, 0), -1)
+    assert.equal(
+      runtime.exports.stbte_chunk_import_payload(runtime.tilemap, payloadPtr, payload.byteLength, chunkSize, 5, 5),
+      0
+    )
+  })
+
+  await t.test('chunk import from flat logical payload slices the requested chunk', async () => {
+    const runtime = await createRuntime({ width: 4, height: 4, layers: 2 })
+    const mapWidth = 6
+    const mapHeight = 5
+    const chunkSize = 4
+    const layerStride = mapWidth * mapHeight
+    const payload = new Uint16Array(layerStride * 2)
+
+    payload[(0 * layerStride) + 2 + (0 * mapWidth)] = TILE_GROUND + 1
+    payload[(0 * layerStride) + 4 + (3 * mapWidth)] = TILE_GROUND + 1
+    payload[(0 * layerStride) + 5 + (3 * mapWidth)] = TILE_GROUND + 1
+    payload[(1 * layerStride) + 5 + (4 * mapWidth)] = TILE_LAYER1 + 1
+
+    const payloadPtr = runtime.memory.buffer.byteLength
+    runtime.memory.grow(1)
+    new Uint16Array(runtime.memory.buffer, payloadPtr, payload.length).set(payload)
+
+    assert.equal(
+      runtime.exports.stbte_chunk_import_from_flat_payload(
+        runtime.tilemap,
+        payloadPtr,
+        payload.byteLength,
+        mapWidth,
+        mapHeight,
+        chunkSize,
+        1,
+        0
+      ),
+      1
+    )
+    assert.equal(tilemapState(runtime).width, 2)
+    assert.equal(tilemapState(runtime).height, 4)
+    assert.equal(tileAt(runtime, 0, 3, 0), TILE_GROUND)
+    assert.equal(tileAt(runtime, 1, 3, 0), TILE_GROUND)
+    assert.equal(tileAt(runtime, 1, 0, 1), -1)
+
+    assert.equal(
+      runtime.exports.stbte_chunk_import_from_flat_payload(
+        runtime.tilemap,
+        payloadPtr,
+        payload.byteLength,
+        mapWidth,
+        mapHeight,
+        chunkSize,
+        1,
+        1
+      ),
+      1
+    )
+    assert.equal(tilemapState(runtime).width, 2)
+    assert.equal(tilemapState(runtime).height, 1)
+    assert.equal(tileAt(runtime, 1, 0, 1), TILE_LAYER1)
+    assert.equal(
+      runtime.exports.stbte_chunk_import_from_flat_payload(
+        runtime.tilemap,
+        payloadPtr,
+        payload.byteLength,
+        mapWidth,
+        mapHeight,
+        chunkSize,
+        2,
+        0
+      ),
+      0
+    )
+  })
+
+  await t.test('logical store loads, writes chunks, and exports directly', async () => {
+    const runtime = await createRuntime({ width: 4, height: 4, layers: 2 })
+    const mapWidth = 6
+    const mapHeight = 5
+    const chunkSize = 4
+    const layerStride = mapWidth * mapHeight
+    const payload = new Uint16Array(layerStride * 2)
+    payload[0] = TILE_GROUND + 1
+    payload[layerStride + (4 * mapWidth) + 5] = TILE_LAYER1 + 1
+
+    const store = runtime.exports.stbte_logical_create(mapWidth, mapHeight, 2)
+    assert.notEqual(store, 0)
+    const dataPtr = runtime.exports.stbte_logical_data_ptr(store)
+    new Uint16Array(runtime.memory.buffer, dataPtr, payload.length).set(payload)
+    assert.equal(runtime.exports.stbte_logical_set_all(store, dataPtr, payload.byteLength), 1)
+
+    assert.equal(
+      runtime.exports.stbte_logical_load_chunk_into_tilemap(store, runtime.tilemap, chunkSize, 1, 1),
+      1
+    )
+    assert.equal(tilemapState(runtime).width, 2)
+    assert.equal(tilemapState(runtime).height, 1)
+    assert.equal(tileAt(runtime, 1, 0, 1), TILE_LAYER1)
+
+    runtime.exports.stbte_set_tile(runtime.tilemap, 0, 0, 0, TILE_GROUND)
+    assert.equal(
+      runtime.exports.stbte_logical_write_chunk_from_tilemap(store, runtime.tilemap, chunkSize, 1, 1),
+      1
+    )
+    const storeData = new Uint16Array(runtime.memory.buffer, dataPtr, payload.length)
+    assert.equal(storeData[(4 * mapWidth) + 4], TILE_GROUND + 1)
+
+    const chunkCount = 4
+    const headerSize = runtime.exports.stbte_chunk_export_header_size()
+    const bytesPerChunk = chunkSize * chunkSize * 2 * 2
+    const required = headerSize + (bytesPerChunk * chunkCount)
+    const headerPtr = runtime.memory.buffer.byteLength
+    runtime.memory.grow(Math.ceil(required / 65536) || 1)
+    assert.equal(runtime.exports.stbte_logical_export_write_header(store, headerPtr, required, chunkSize), 1)
+    assert.equal(runtime.exports.stbte_logical_export_write_chunk(store, headerPtr, required, chunkSize, 3), 1)
+    const header = new DataView(runtime.memory.buffer, headerPtr, headerSize)
+    assert.equal(header.getUint32(4, true), mapWidth)
+    assert.equal(header.getUint32(8, true), mapHeight)
+    assert.equal(header.getUint32(20, true), chunkCount)
+    const body = new Uint16Array(runtime.memory.buffer, header.getUint32(24, true), (required - headerSize) / 2)
+    const chunkOffset = (3 * bytesPerChunk) / 2
+    const perLayer = chunkSize * chunkSize
+    assert.equal(body[chunkOffset + 0], TILE_GROUND + 1)
+    assert.equal(body[chunkOffset + perLayer + 1], TILE_LAYER1 + 1)
+  })
+
+  await t.test('logical store structural operations preserve payload order', async () => {
+    const runtime = await createRuntime({ width: 4, height: 4, layers: 2 })
+    const store = runtime.exports.stbte_logical_create(3, 2, 2)
+    assert.notEqual(store, 0)
+    let dataPtr = runtime.exports.stbte_logical_data_ptr(store)
+    const source = new Uint16Array(runtime.memory.buffer, dataPtr, 12)
+
+    source[0] = TILE_GROUND + 1
+    source[6 + 1] = TILE_LAYER1 + 1
+
+    assert.equal(runtime.exports.stbte_logical_insert_layer(store, 1), 1)
+    dataPtr = runtime.exports.stbte_logical_data_ptr(store)
+    let data = new Uint16Array(runtime.memory.buffer, dataPtr, 18)
+    assert.equal(data[0], TILE_GROUND + 1)
+    assert.equal(data[(2 * 6) + 1], TILE_LAYER1 + 1)
+
+    assert.equal(runtime.exports.stbte_logical_move_layer(store, 2, 0), 1)
+    dataPtr = runtime.exports.stbte_logical_data_ptr(store)
+    data = new Uint16Array(runtime.memory.buffer, dataPtr, 18)
+    assert.equal(data[1], TILE_LAYER1 + 1)
+    assert.equal(data[(1 * 6) + 0], TILE_GROUND + 1)
+
+    assert.equal(runtime.exports.stbte_logical_delete_layer(store, 1), 1)
+    dataPtr = runtime.exports.stbte_logical_data_ptr(store)
+    data = new Uint16Array(runtime.memory.buffer, dataPtr, 12)
+    assert.equal(data[1], TILE_LAYER1 + 1)
+
+    assert.equal(runtime.exports.stbte_logical_resize(store, 4, 3, 2), 1)
+    dataPtr = runtime.exports.stbte_logical_data_ptr(store)
+    data = new Uint16Array(runtime.memory.buffer, dataPtr, 24)
+    assert.equal(data[1], TILE_LAYER1 + 1)
+    assert.equal(data[12 + 0], 0)
+  })
 })
