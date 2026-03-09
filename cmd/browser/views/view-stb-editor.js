@@ -3,6 +3,19 @@ import { parseCSVLines } from '../util/csv.js'
 import { decode as decodeQOI } from '../util/qoi/decode.js'
 import { ViewFiles } from './view-files.js'
 import { ViewCanvasBase } from './view-canvas-base.js'
+import {
+  STB_EDITOR_CHUNK_SIZE,
+  applyChunkTilemapSnapshot,
+  buildChunkTilemapSnapshot,
+  cloneTilemap,
+  createLogicalTilemap,
+  deleteLogicalLayer,
+  getChunkBounds,
+  getChunkGrid,
+  insertLogicalLayer,
+  moveLogicalLayer,
+  resizeLogicalTilemap
+} from './stb-editor-chunks.js'
 
 function escapeAttribute(value) {
   return String(value ?? '')
@@ -31,7 +44,13 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.tileSize = 16
     this.mapWidth = 20
     this.mapHeight = 15
+    this.logicalMapWidth = 20
+    this.logicalMapHeight = 15
     this.layers = 3
+    this.chunkSize = STB_EDITOR_CHUNK_SIZE
+    this.activeChunkX = 0
+    this.activeChunkY = 0
+    this.logicalTilemap = null
     this.currentTool = 1
     this.selectedLayer = -1
     this.selectedTilesetFilter = null
@@ -140,6 +159,16 @@ export default class ViewStbEditor extends ViewCanvasBase {
       <button data-id="fit-btn" title="Fit map to viewport" aria-label="Fit map to viewport">
         <i aria-hidden="true">fit_screen</i>
       </button>
+      <span role="separator" aria-hidden="true"></span>
+      <button data-id="chunk-prev-btn" title="Previous chunk" aria-label="Previous chunk">
+        <i aria-hidden="true">chevron_left</i>
+      </button>
+      <button data-id="chunk-indicator" title="Current chunk" aria-label="Current chunk" disabled>
+        1/1
+      </button>
+      <button data-id="chunk-next-btn" title="Next chunk" aria-label="Next chunk">
+        <i aria-hidden="true">chevron_right</i>
+      </button>
       <button data-id="settings-btn" title="Map settings" aria-label="Map settings">
         <i aria-hidden="true">settings</i>
       </button>
@@ -210,6 +239,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       this.setupTilesetTabs()
       this.setupTiles()
       this.updateMetadata()
+      this.updateChunkControls()
       this.contentBounds = this.calculateContentBounds()
       this.renderMap()
       this.fitToContent()
@@ -397,6 +427,53 @@ export default class ViewStbEditor extends ViewCanvasBase {
     if (layers > maxLayers) {
       throw new Error(`Layer count exceeds STB limit (${maxLayers})`)
     }
+  }
+
+  validateLogicalDimensions(mapWidth = this.logicalMapWidth, mapHeight = this.logicalMapHeight, layers = this.layers) {
+    if (mapWidth < 1 || mapHeight < 1 || layers < 1) {
+      throw new Error('Map width, height, and layers must be at least 1')
+    }
+    this.validateEditorDimensions(Math.min(this.chunkSize, mapWidth), Math.min(this.chunkSize, mapHeight), layers)
+  }
+
+  getChunkGrid() {
+    return getChunkGrid(this.logicalMapWidth, this.logicalMapHeight, this.chunkSize)
+  }
+
+  getActiveChunkBounds() {
+    return getChunkBounds(this.logicalMapWidth, this.logicalMapHeight, this.activeChunkX, this.activeChunkY, this.chunkSize)
+  }
+
+  getChunkSummary() {
+    const { cols, rows, count } = this.getChunkGrid()
+    const index = (this.activeChunkY * cols) + this.activeChunkX + 1
+    return `${index}/${count} (${this.activeChunkX + 1}, ${this.activeChunkY + 1} of ${cols}x${rows})`
+  }
+
+  ensureLogicalTilemap() {
+    if (this.logicalTilemap) return
+    this.logicalTilemap = createLogicalTilemap(
+      this.logicalMapWidth,
+      this.logicalMapHeight,
+      this.layers,
+      this.layerNames,
+      this.encodeTopLevelProps()
+    )
+  }
+
+  syncLogicalProps() {
+    this.ensureLogicalTilemap()
+    this.logicalTilemap.props = {
+      ...(this.logicalTilemap.props || {}),
+      ...this.encodeTopLevelProps()
+    }
+    this.logicalTilemap.layers = (this.logicalTilemap.layers || []).map((layer, index) => ({
+      ...layer,
+      props: {
+        ...(layer?.props || {}),
+        name: this.layerNames[index] || `layer ${index + 1}`
+      }
+    }))
   }
 
   async defineTilesFromAtlases() {
@@ -738,6 +815,18 @@ export default class ViewStbEditor extends ViewCanvasBase {
       this.updateMetadata()
     }
 
+    this.headerControl('chunk-prev-btn').onclick = () => {
+      this.navigateChunk(-1).catch((err) => {
+        toast.error(`Chunk switch failed: ${String(err?.message || err)}`)
+      })
+    }
+
+    this.headerControl('chunk-next-btn').onclick = () => {
+      this.navigateChunk(1).catch((err) => {
+        toast.error(`Chunk switch failed: ${String(err?.message || err)}`)
+      })
+    }
+
     this.headerControl('settings-btn').onclick = () => {
       this.showMapSettingsPopup().catch((err) => {
         this.log(`Settings update failed: ${err.message}`)
@@ -760,6 +849,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
       gridBtn.classList.toggle('active', this.showGrid)
       gridBtn.setAttribute('aria-pressed', this.showGrid ? 'true' : 'false')
     }
+
+    this.updateChunkControls()
   }
 
   postAction() {
@@ -1080,7 +1171,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
   updateMetadata() {
     const toolNames = ['Select', 'Brush', 'Erase', 'Eyedropper', 'Paste']
     const meta = {
-      map: `${this.mapWidth} x ${this.mapHeight}`,
+      map: `${this.logicalMapWidth} x ${this.logicalMapHeight}`,
+      chunk: this.getChunkSummary(),
       layers: String(this.layers),
       tool: toolNames[this.currentTool] || String(this.currentTool),
       tileIndex: this.exports ? String(this.getCurrentTile()) : '-',
@@ -1239,30 +1331,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   exportTilemapData() {
-    const layers = []
-
-    for (let layer = 0; layer < this.layers; layer++) {
-      const data = []
-      for (let y = 0; y < this.mapHeight; y++) {
-        for (let x = 0; x < this.mapWidth; x++) {
-          const tileId = this.exports.stbte_get_tile_id(this.tilemap, x, y, layer)
-          data.push(tileId < 0 ? 0 : tileId + 1)
-        }
-      }
-
-      layers.push({
-        width: this.mapWidth,
-        data,
-        props: {
-          name: this.layerNames[layer] || `layer ${layer + 1}`
-        }
-      })
-    }
-
-    return {
-      layers,
-      props: this.encodeTopLevelProps()
-    }
+    this.ensureLogicalTilemap()
+    this.flushActiveChunkToLogicalMap()
+    this.syncLogicalProps()
+    return cloneTilemap(this.logicalTilemap)
   }
 
   parseJsonProp(props, key, fallback) {
@@ -1321,8 +1393,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const config = this.buildLoadConfig(tilemap)
 
     this.cleanup()
-    this.mapWidth = config.mapWidth
-    this.mapHeight = config.mapHeight
+    this.logicalMapWidth = config.mapWidth
+    this.logicalMapHeight = config.mapHeight
     this.layers = config.layers
     this.tileSize = config.tileSize
     this.tileSets = config.tileSets
@@ -1336,27 +1408,11 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.hoverX = -1
     this.hoverY = -1
     this.showDragPreview = false
-
-    await this.init()
-    this.exports.stbte_clear(this.tilemap)
-
-    tilemap.layers.forEach((layer, layerIndex) => {
-      const width = Number(layer?.width) || 0
-      const data = Array.isArray(layer?.data) ? layer.data : []
-      if (width <= 0) return
-
-      data.forEach((value, index) => {
-        const x = index % width
-        const y = Math.floor(index / width)
-        if (!this.isInsideMap(x, y)) return
-
-        const encoded = Number(value) || 0
-        const tileId = encoded <= 0 ? -1 : encoded - 1
-        this.exports.stbte_set_tile(this.tilemap, x, y, layerIndex, tileId)
-      })
-    })
-
-    this.postAction()
+    this.activeChunkX = 0
+    this.activeChunkY = 0
+    this.logicalTilemap = cloneTilemap(tilemap)
+    this.syncLogicalProps()
+    await this.loadChunkIntoEditor(0, 0)
   }
 
   async rebuildEditorFromCurrentState() {
@@ -1467,76 +1523,42 @@ export default class ViewStbEditor extends ViewCanvasBase {
     }
   }
 
-  resizeExportedTilemap(tilemap, nextWidth, nextHeight) {
-    const width = Math.max(1, Number(nextWidth) || 1)
-    const height = Math.max(1, Number(nextHeight) || 1)
-
-    return {
-      ...tilemap,
-      layers: (tilemap.layers || []).map((layer) => {
-        const previousWidth = Math.max(1, Number(layer?.width) || width)
-        const previousData = Array.isArray(layer?.data) ? layer.data : []
-        const nextData = new Array(width * height).fill(0)
-        const previousHeight = Math.max(0, Math.ceil(previousData.length / previousWidth))
-        const copyWidth = Math.min(previousWidth, width)
-        const copyHeight = Math.min(previousHeight, height)
-
-        for (let y = 0; y < copyHeight; y++) {
-          for (let x = 0; x < copyWidth; x++) {
-            nextData[y * width + x] = Number(previousData[y * previousWidth + x]) || 0
-          }
-        }
-
-        return {
-          ...layer,
-          props: layer?.props ? { ...layer.props } : layer?.props,
-          width,
-          data: nextData
-        }
-      }),
-      props: tilemap?.props ? { ...tilemap.props } : tilemap?.props
-    }
-  }
-
   async applyMapSettings({ tileSize, mapWidth, mapHeight }) {
     const nextTileSize = Math.max(1, Number(tileSize) || this.tileSize)
-    const nextMapWidth = Math.max(1, Number(mapWidth) || this.mapWidth)
-    const nextMapHeight = Math.max(1, Number(mapHeight) || this.mapHeight)
-    this.validateEditorDimensions(nextMapWidth, nextMapHeight, this.layers)
-    const isSame = nextTileSize === this.tileSize && nextMapWidth === this.mapWidth && nextMapHeight === this.mapHeight
+    const nextMapWidth = Math.max(1, Number(mapWidth) || this.logicalMapWidth)
+    const nextMapHeight = Math.max(1, Number(mapHeight) || this.logicalMapHeight)
+    this.validateLogicalDimensions(nextMapWidth, nextMapHeight, this.layers)
+    const isSame = nextTileSize === this.tileSize && nextMapWidth === this.logicalMapWidth && nextMapHeight === this.logicalMapHeight
     if (isSame) return false
 
-    const dimensionsChanged = nextMapWidth !== this.mapWidth || nextMapHeight !== this.mapHeight
-    if (nextTileSize === this.tileSize && dimensionsChanged) {
-      this.assertStructuralMutation(
-        this.exports.stbte_resize_map(this.tilemap, nextMapWidth, nextMapHeight),
-        'Map resize'
-      )
-      this.mapWidth = nextMapWidth
-      this.mapHeight = nextMapHeight
-      this.finalizeStructuralMutation({ updateContentBounds: true })
-      return true
-    }
-
     const editorState = this.captureEditorState()
-    const nextTileSets = this.tileSets.map((tileSet) => ({ ...tileSet }))
-    const previousTileSets = this.tileSets
-    this.tileSets = nextTileSets
-    await this.ensureTilesetCounts(true, nextTileSize)
-    let snapshot = this.exportTilemapData()
-    snapshot = this.resizeExportedTilemap(snapshot, nextMapWidth, nextMapHeight)
-    snapshot.props = snapshot.props || {}
-    snapshot.props.tileSize = String(nextTileSize)
-    if (nextTileSets.length > 0) {
-      snapshot.props.tilesets = JSON.stringify(nextTileSets)
+    this.flushActiveChunkToLogicalMap()
+    this.logicalTilemap = resizeLogicalTilemap(this.logicalTilemap, nextMapWidth, nextMapHeight)
+    this.logicalMapWidth = nextMapWidth
+    this.logicalMapHeight = nextMapHeight
+
+    if (nextTileSize !== this.tileSize) {
+      const nextTileSets = this.tileSets.map((tileSet) => ({ ...tileSet }))
+      const previousTileSets = this.tileSets
+      this.tileSets = nextTileSets
+      await this.ensureTilesetCounts(true, nextTileSize)
+      this.logicalTilemap.props = this.logicalTilemap.props || {}
+      this.logicalTilemap.props.tileSize = String(nextTileSize)
+      if (nextTileSets.length > 0) {
+        this.logicalTilemap.props.tilesets = JSON.stringify(nextTileSets)
+      } else {
+        delete this.logicalTilemap.props.tilesets
+      }
+      this.tileSize = nextTileSize
+      this.tileSets = previousTileSets
     } else {
-      delete snapshot.props.tilesets
+      this.syncLogicalProps()
     }
 
-    const loadedMapName = this.loadedMapName
-    this.tileSets = previousTileSets
-    await this.applyLoadedTilemap(snapshot)
-    this.loadedMapName = loadedMapName
+    const { cols, rows } = this.getChunkGrid()
+    this.activeChunkX = this.clamp(this.activeChunkX, 0, cols - 1)
+    this.activeChunkY = this.clamp(this.activeChunkY, 0, rows - 1)
+    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY)
     this.restoreEditorState(editorState)
     return true
   }
@@ -1558,25 +1580,133 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.restoreEditorState(editorState)
   }
 
-  finalizeStructuralMutation({ updateContentBounds = false } = {}) {
-    if (updateContentBounds) {
-      this.contentBounds = this.calculateContentBounds()
+  updateChunkControls() {
+    const { count } = this.getChunkGrid()
+    const indicator = this.headerControl('chunk-indicator')
+    const prevBtn = this.headerControl('chunk-prev-btn')
+    const nextBtn = this.headerControl('chunk-next-btn')
+    if (indicator) indicator.textContent = this.getChunkSummary()
+    if (prevBtn) prevBtn.disabled = count <= 1 || (this.activeChunkX === 0 && this.activeChunkY === 0)
+    if (nextBtn) {
+      const { cols, rows } = this.getChunkGrid()
+      nextBtn.disabled = count <= 1 || (this.activeChunkX === cols - 1 && this.activeChunkY === rows - 1)
     }
-    this.showDragPreview = false
-    this.hoverX = -1
-    this.hoverY = -1
-    this.renderMap()
-    this.draw()
-    this.updateMetadata()
-    this.setupLayers()
-    this.setupTilesetTabs()
-    this.setupTiles()
   }
 
-  assertStructuralMutation(result, operation) {
-    if (!result) {
-      throw new Error(`${operation} failed in stbte backend`)
+  async navigateChunk(delta) {
+    const { cols, count } = this.getChunkGrid()
+    if (count <= 1 || !Number.isInteger(delta) || delta === 0) return
+    const currentIndex = (this.activeChunkY * cols) + this.activeChunkX
+    const nextIndex = this.clamp(currentIndex + delta, 0, count - 1)
+    const chunkX = nextIndex % cols
+    const chunkY = Math.floor(nextIndex / cols)
+    if (chunkX === this.activeChunkX && chunkY === this.activeChunkY) return
+    await this.loadChunkIntoEditor(chunkX, chunkY)
+  }
+
+  flushActiveChunkToLogicalMap() {
+    if (!this.exports || !this.tilemap) return
+    this.ensureLogicalTilemap()
+    const snapshot = this.exportCurrentChunkData()
+    this.logicalTilemap = applyChunkTilemapSnapshot(
+      this.logicalTilemap,
+      this.logicalMapWidth,
+      this.logicalMapHeight,
+      this.activeChunkX,
+      this.activeChunkY,
+      snapshot,
+      this.chunkSize
+    )
+    this.syncLogicalProps()
+  }
+
+  exportCurrentChunkData() {
+    const layers = []
+    for (let layer = 0; layer < this.layers; layer++) {
+      const data = []
+      for (let y = 0; y < this.mapHeight; y++) {
+        for (let x = 0; x < this.mapWidth; x++) {
+          const tileId = this.exports.stbte_get_tile_id(this.tilemap, x, y, layer)
+          data.push(tileId < 0 ? 0 : tileId + 1)
+        }
+      }
+      layers.push({
+        width: this.mapWidth,
+        data,
+        props: {
+          name: this.layerNames[layer] || `layer ${layer + 1}`
+        }
+      })
     }
+    return { layers, props: this.encodeTopLevelProps() }
+  }
+
+  async applyEditorSnapshot(tilemap, state = null) {
+    const config = this.buildLoadConfig(tilemap)
+
+    this.cleanup()
+    this.mapWidth = config.mapWidth
+    this.mapHeight = config.mapHeight
+    this.layers = config.layers
+    this.tileSize = config.tileSize
+    this.tileSets = config.tileSets
+    this.layerNames = config.layerNames
+    this.fallbackTileCount = config.fallbackTileCount
+    this.paletteTileCount = config.paletteTileCount
+    this.tileSprites = new Map()
+    this.selectedLayer = state?.selectedLayer ?? -1
+    this.selectedTilesetFilter = state?.selectedTilesetFilter ?? null
+    this.currentTool = state?.currentTool ?? 1
+    this.hoverX = -1
+    this.hoverY = -1
+    this.showDragPreview = false
+
+    await this.init()
+    this.exports.stbte_clear(this.tilemap)
+
+    tilemap.layers.forEach((layer, layerIndex) => {
+      const width = Number(layer?.width) || 0
+      const data = Array.isArray(layer?.data) ? layer.data : []
+      if (width <= 0) return
+
+      data.forEach((value, index) => {
+        const x = index % width
+        const y = Math.floor(index / width)
+        if (!this.isInsideMap(x, y)) return
+
+        const encoded = Number(value) || 0
+        const tileId = encoded <= 0 ? -1 : encoded - 1
+        this.exports.stbte_set_tile(this.tilemap, x, y, layerIndex, tileId)
+      })
+    })
+
+    if (state) {
+      this.restoreEditorState(state)
+    } else {
+      this.postAction()
+    }
+  }
+
+  async loadChunkIntoEditor(chunkX, chunkY) {
+    const state = this.exports && this.tilemap ? this.captureEditorState() : null
+    if (this.exports && this.tilemap) {
+      this.flushActiveChunkToLogicalMap()
+    }
+    this.ensureLogicalTilemap()
+    const { chunkX: nextChunkX, chunkY: nextChunkY } = getChunkBounds(this.logicalMapWidth, this.logicalMapHeight, chunkX, chunkY, this.chunkSize)
+    this.activeChunkX = nextChunkX
+    this.activeChunkY = nextChunkY
+    const snapshot = buildChunkTilemapSnapshot(
+      this.logicalTilemap,
+      this.logicalMapWidth,
+      this.logicalMapHeight,
+      this.activeChunkX,
+      this.activeChunkY,
+      this.chunkSize
+    )
+    await this.applyEditorSnapshot(snapshot, state)
+    this.contentBounds = this.calculateContentBounds()
+    this.updateChunkControls()
   }
 
   async moveLayer(fromIndex, direction) {
@@ -1584,15 +1714,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
     if (fromIndex < 0 || fromIndex >= this.layers) return
     if (toIndex < 0 || toIndex >= this.layers) return
 
-    this.assertStructuralMutation(
-      this.exports.stbte_move_layer(this.tilemap, fromIndex, toIndex),
-      'Layer reorder'
-    )
-
-    const nextLayerNames = [...this.layerNames]
-    const [movedLayerName] = nextLayerNames.splice(fromIndex, 1)
-    nextLayerNames.splice(toIndex, 0, movedLayerName)
-    this.layerNames = nextLayerNames
+    this.flushActiveChunkToLogicalMap()
+    this.logicalTilemap = moveLogicalLayer(this.logicalTilemap, fromIndex, toIndex)
+    this.layerNames = this.logicalTilemap.layers.map((layer, index) => String(layer?.props?.name || `layer ${index + 1}`))
 
     const remapLayerIndex = (layerIndex) => {
       if (layerIndex < 0) return layerIndex
@@ -1602,23 +1726,23 @@ export default class ViewStbEditor extends ViewCanvasBase {
       return layerIndex
     }
 
-    this.selectedLayer = remapLayerIndex(this.selectedLayer)
-    this.finalizeStructuralMutation()
+    const editorState = this.captureEditorState()
+    editorState.selectedLayer = remapLayerIndex(editorState.selectedLayer)
+    editorState.soloLayer = remapLayerIndex(editorState.soloLayer)
+    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY)
+    this.restoreEditorState(editorState)
   }
 
   async addLayer() {
-    this.validateEditorDimensions(this.mapWidth, this.mapHeight, this.layers + 1)
-
-    this.assertStructuralMutation(
-      this.exports.stbte_insert_layer(this.tilemap, this.layers),
-      'Add layer'
-    )
-
-    this.layerNames = [...this.layerNames, `layer ${this.layers + 1}`]
-    this.layers += 1
+    this.validateLogicalDimensions(this.logicalMapWidth, this.logicalMapHeight, this.layers + 1)
+    this.flushActiveChunkToLogicalMap()
+    this.logicalTilemap = insertLogicalLayer(this.logicalTilemap, this.layers, `layer ${this.layers + 1}`)
+    this.layers = this.logicalTilemap.layers.length
+    this.layerNames = this.logicalTilemap.layers.map((layer, index) => String(layer?.props?.name || `layer ${index + 1}`))
     this.selectedLayer = this.layers - 1
+    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY)
     this.exports.stbte_set_active_layer(this.tilemap, this.selectedLayer)
-    this.finalizeStructuralMutation()
+    this.updateMetadata()
   }
 
   async deleteLayer(index) {
@@ -1632,15 +1756,15 @@ export default class ViewStbEditor extends ViewCanvasBase {
       return layerIndex
     }
 
-    this.assertStructuralMutation(
-      this.exports.stbte_delete_layer(this.tilemap, index),
-      'Delete layer'
-    )
-
-    this.layerNames = this.layerNames.filter((_, layerIndex) => layerIndex !== index)
-    this.layers -= 1
-    this.selectedLayer = remapLayerIndex(this.selectedLayer)
-    this.finalizeStructuralMutation()
+    this.flushActiveChunkToLogicalMap()
+    this.logicalTilemap = deleteLogicalLayer(this.logicalTilemap, index)
+    this.layers = this.logicalTilemap.layers.length
+    this.layerNames = this.logicalTilemap.layers.map((layer, layerIndex) => String(layer?.props?.name || `layer ${layerIndex + 1}`))
+    const editorState = this.captureEditorState()
+    editorState.selectedLayer = remapLayerIndex(editorState.selectedLayer)
+    editorState.soloLayer = remapLayerIndex(editorState.soloLayer)
+    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY)
+    this.restoreEditorState(editorState)
   }
 
   async moveTileset(fromIndex, direction) {
@@ -1987,11 +2111,11 @@ export default class ViewStbEditor extends ViewCanvasBase {
       </label>
       <label>
         Level width
-        <input type="number" name="map-width" min="1" step="1" value="${escapeAttribute(String(this.mapWidth))}" required>
+        <input type="number" name="map-width" min="1" step="1" value="${escapeAttribute(String(this.logicalMapWidth))}" required>
       </label>
       <label>
         Level height
-        <input type="number" name="map-height" min="1" step="1" value="${escapeAttribute(String(this.mapHeight))}" required>
+        <input type="number" name="map-height" min="1" step="1" value="${escapeAttribute(String(this.logicalMapHeight))}" required>
       </label>
       <section>
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
@@ -2082,8 +2206,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
       event.preventDefault()
       const formData = new FormData(form)
       const tileSize = Math.max(1, Number(formData.get('tile-size')) || this.tileSize)
-      const mapWidth = Math.max(1, Number(formData.get('map-width')) || this.mapWidth)
-      const mapHeight = Math.max(1, Number(formData.get('map-height')) || this.mapHeight)
+      const mapWidth = Math.max(1, Number(formData.get('map-width')) || this.logicalMapWidth)
+      const mapHeight = Math.max(1, Number(formData.get('map-height')) || this.logicalMapHeight)
 
       try {
         const previousLayerNames = [...this.layerNames]

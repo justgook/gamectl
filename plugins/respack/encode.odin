@@ -92,18 +92,7 @@ encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, fiel
 		}
 		return true, ""
 	case .Bytes:
-		if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
-			return false, "bytes currently expect string"
-		}
-		bytes := input[1:len(input)-1]
-		max_len := effective_type_max_len(type_idx, field)
-		if max_len >= 0 && len(bytes) > max_len {
-			return false, "bytes exceeds max_len"
-		}
-		if !writer_u32(w, u32(len(bytes))) || !writer_write(w, bytes) {
-			return false, "payload too large"
-		}
-		return true, ""
+		return encode_bytes_value(w, input, type_idx, field)
 	case .Enum:
 		return encode_enum_bytes(w, input, type_idx)
 	case .Struct:
@@ -277,6 +266,46 @@ encode_enum_bytes :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (bool
 	}
 	if !writer_u32(w, u32(value)) {
 		return false, "payload too large"
+	}
+	return true, ""
+}
+
+encode_bytes_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int, field: FieldDef) -> (bool, string) {
+	max_len := effective_type_max_len(type_idx, field)
+	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
+		bytes := input[1:len(input)-1]
+		if max_len >= 0 && len(bytes) > max_len {
+			return false, "bytes exceeds max_len"
+		}
+		if !writer_u32(w, u32(len(bytes))) || !writer_write(w, bytes) {
+			return false, "payload too large"
+		}
+		return true, ""
+	}
+	if len(input) == 0 || input[0] != '[' {
+		return false, "bytes must be string or array"
+	}
+	count := count_array_elements(input)
+	if max_len >= 0 && count > max_len {
+		return false, "bytes exceeds max_len"
+	}
+	if !writer_u32(w, u32(count)) {
+		return false, "payload too large"
+	}
+	cursor := 1
+	for {
+		element, next_cursor, found := next_array_element(input, cursor)
+		if !found {
+			break
+		}
+		value, ok := parse_i64_bytes(trim_space_slice(element))
+		if !ok || value < 0 || value > 255 {
+			return false, "bytes array values must be u8"
+		}
+		if !writer_u8(w, u8(value)) {
+			return false, "payload too large"
+		}
+		cursor = next_cursor
 	}
 	return true, ""
 }

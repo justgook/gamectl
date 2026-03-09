@@ -6,6 +6,7 @@ MAX_TYPES :: 256
 MAX_FIELDS :: 1024
 MAX_ENUM_VALUES :: 1024
 MAX_ONEOF_OPTIONS :: 1024
+TYPE_NAME_MAX :: 96
 
 TypeKind :: enum int {
 	Invalid,
@@ -77,6 +78,10 @@ oneof_options: [MAX_ONEOF_OPTIONS]int
 oneof_option_count: int
 data_slots: [MAX_SLOTS]int
 data_slot_count: int
+named_type_indices: [MAX_TYPES]int
+named_type_count: int
+named_type_name_lens: [MAX_TYPES]int
+named_type_name_bytes: [MAX_TYPES][TYPE_NAME_MAX]u8
 schema_package_start: int
 schema_package_end: int
 
@@ -87,6 +92,10 @@ reset_schema_state :: proc() {
 	enum_value_count = 0
 	oneof_option_count = 0
 	data_slot_count = 0
+	named_type_count = 0
+	for i in 0..<MAX_TYPES {
+		named_type_name_lens[i] = 0
+	}
 	schema_package_start = 0
 	schema_package_end = 0
 	add_builtin_types()
@@ -116,6 +125,7 @@ compile_schema :: proc(input: []u8) -> (bool, string) {
 	if types_idx < 0 || schema_tokens[types_idx].type != jsmn.JsmnType.Object {
 		return false, "schema types must be object"
 	}
+	types_slice := input[types_start:types_end]
 	data_start, data_end, has_data := find_top_level_value_bounds(input, "data")
 	if !has_data {
 		return false, "schema missing data array"
@@ -124,31 +134,37 @@ compile_schema :: proc(input: []u8) -> (bool, string) {
 		return false, "schema data is not array"
 	}
 
-	for i in 0..<(schema_token_count - 1) {
-		key := schema_tokens[i]
-		if key.parent != types_idx || key.type != jsmn.JsmnType.String {
-			continue
+	cursor := 1
+	for {
+		member, next_cursor, found := next_object_member(types_slice, cursor)
+		if !found {
+			break
 		}
-		_, err := declare_named_type(key)
+		key_tok := jsmn.Token{type = jsmn.JsmnType.String, start = types_start + member.key_start, end = types_start + member.key_end}
+		_, err := declare_named_type(key_tok)
 		if err != "" {
 			return false, err
 		}
+		cursor = next_cursor
 	}
 
-	for i in 0..<(schema_token_count - 1) {
-		key := schema_tokens[i]
-		if key.parent != types_idx || key.type != jsmn.JsmnType.String {
-			continue
-		}
-		value_idx := i + 1
-		type_idx, found := lookup_named_type(input, key)
+	cursor = 1
+	for {
+		member, next_cursor, found := next_object_member(types_slice, cursor)
 		if !found {
+			break
+		}
+		key_tok := jsmn.Token{type = jsmn.JsmnType.String, start = types_start + member.key_start, end = types_start + member.key_end}
+		type_idx, found_type := lookup_named_type(input, key_tok)
+		if !found_type {
 			return false, "type declaration lookup failed"
 		}
-		err := compile_named_type(input, value_idx, type_idx)
+		value_slice := types_slice[member.value_start:member.value_end]
+		err := compile_named_type_from_top_level_value(input, value_slice, types_start + member.value_start, type_idx)
 		if err != "" {
 			return false, err
 		}
+		cursor = next_cursor
 	}
 
 	data_parser: jsmn.Parser
@@ -174,7 +190,8 @@ compile_schema :: proc(input: []u8) -> (bool, string) {
 		if data_tokens[i].type != jsmn.JsmnType.String {
 			return false, "schema data entries must be strings"
 		}
-		type_idx, resolve_ok := resolve_named_type_bytes(data_slice, data_tokens[i])
+		entry_slice := data_slice[data_tokens[i].start:data_tokens[i].end]
+		type_idx, resolve_ok := resolve_type_from_value_slice(entry_slice)
 		if resolve_ok != "" {
 			return false, resolve_ok
 		}
@@ -183,6 +200,208 @@ compile_schema :: proc(input: []u8) -> (bool, string) {
 	}
 	data_slot_count = slot_idx
 	return true, ""
+}
+
+ObjectMember :: struct {
+	key_start: int,
+	key_end: int,
+	value_start: int,
+	value_end: int,
+}
+
+next_object_member :: proc(data: []u8, cursor: int) -> (ObjectMember, int, bool) {
+	i := cursor
+	for i < len(data) && is_space(data[i]) {
+		i += 1
+	}
+	if i >= len(data) || data[i] == '}' {
+		return ObjectMember{}, i, false
+	}
+	if data[i] != '"' {
+		return ObjectMember{}, i, false
+	}
+	key_start := i + 1
+	i += 1
+	escaped := false
+	for i < len(data) {
+		if escaped {
+			escaped = false
+			i += 1
+			continue
+		}
+		if data[i] == '\\' {
+			escaped = true
+			i += 1
+			continue
+		}
+		if data[i] == '"' {
+			break
+		}
+		i += 1
+	}
+	if i >= len(data) {
+		return ObjectMember{}, i, false
+	}
+	key_end := i
+	i += 1
+	for i < len(data) && is_space(data[i]) {
+		i += 1
+	}
+	if i >= len(data) || data[i] != ':' {
+		return ObjectMember{}, i, false
+	}
+	i += 1
+	for i < len(data) && is_space(data[i]) {
+		i += 1
+	}
+	value_start := i
+	value_end, ok := scan_json_value_end(data, value_start)
+	if !ok {
+		return ObjectMember{}, i, false
+	}
+	next_cursor := value_end
+	for next_cursor < len(data) && is_space(data[next_cursor]) {
+		next_cursor += 1
+	}
+	if next_cursor < len(data) && data[next_cursor] == ',' {
+		next_cursor += 1
+	}
+	return ObjectMember{key_start = key_start, key_end = key_end, value_start = value_start, value_end = value_end}, next_cursor, true
+}
+
+compile_named_type_from_top_level_value :: proc(input: []u8, value_slice: []u8, value_abs_start: int, type_idx: int) -> string {
+	trimmed := trim_bytes_space(value_slice)
+	if len(trimmed) == 0 {
+		return "type definition missing value"
+	}
+	if trimmed[0] == '"' {
+		target_idx, err := resolve_type_from_value_slice(trimmed)
+		if err != "" {
+			return err
+		}
+		types[type_idx].kind = .Alias
+		types[type_idx].target_type = target_idx
+		return ""
+	}
+	if trimmed[0] != '{' {
+		return "type definition must be string or object"
+	}
+	type_start, type_end, has_type := find_top_level_value_bounds(trimmed, "type")
+	if !has_type {
+		return "type definition missing type field"
+	}
+	type_name := trim_bytes_space(trimmed[type_start:type_end])
+	if len(type_name) >= 2 && type_name[0] == '"' && type_name[len(type_name)-1] == '"' {
+		type_name = type_name[1:len(type_name)-1]
+	}
+	if slice_matches_string(type_name, "array") {
+		return compile_array_type_from_slice(trimmed, type_idx)
+	}
+	if slice_matches_string(type_name, "vector") {
+		return compile_vector_type_from_slice(trimmed, type_idx)
+	}
+	if slice_matches_string(type_name, "struct") {
+		return compile_struct_type_from_slice(trimmed, value_abs_start, type_idx)
+	}
+	if slice_matches_string(type_name, "bytes") {
+		types[type_idx].kind = .Bytes
+		types[type_idx].max_len = read_optional_int_from_slice(trimmed, "max_len")
+		return ""
+	}
+	if slice_matches_string(type_name, "string") {
+		types[type_idx].kind = .String
+		types[type_idx].max_len = read_optional_int_from_slice(trimmed, "max_len")
+		return ""
+	}
+	value_token_idx := find_token_by_start(schema_tokens[:schema_token_count], value_abs_start, jsmn.JsmnType.Object)
+	if value_token_idx < 0 {
+		return "type token lookup failed"
+	}
+	return compile_named_type(input, value_token_idx, type_idx)
+}
+
+compile_struct_type_from_slice :: proc(obj_slice: []u8, abs_start: int, type_idx: int) -> string {
+	fields_start, fields_end, has_fields := find_top_level_value_bounds(obj_slice, "fields")
+	if !has_fields {
+		return "struct missing fields object"
+	}
+	fields_slice := obj_slice[fields_start:fields_end]
+	if len(fields_slice) == 0 || fields_slice[0] != '{' {
+		return "struct fields must be object"
+	}
+	start := field_count
+	cursor := 1
+	for {
+		member, next_cursor, found := next_object_member(fields_slice, cursor)
+		if !found {
+			break
+		}
+		if field_count >= MAX_FIELDS {
+			return "field limit exceeded"
+		}
+		field, err := compile_field_from_slice(fields_slice, abs_start + fields_start, member)
+		if err != "" {
+			return err
+		}
+		fields[field_count] = field
+		field_count += 1
+		cursor = next_cursor
+	}
+	types[type_idx].kind = .Struct
+	types[type_idx].field_start = start
+	types[type_idx].field_count = field_count - start
+	return ""
+}
+
+compile_field_from_slice :: proc(fields_slice: []u8, fields_abs_start: int, member: ObjectMember) -> (FieldDef, string) {
+	field := FieldDef{name_start = fields_abs_start + member.key_start, name_end = fields_abs_start + member.key_end, default_token = -1, max_len = -1}
+	value_slice := trim_bytes_space(fields_slice[member.value_start:member.value_end])
+	if len(value_slice) == 0 {
+		return FieldDef{}, "field definition missing value"
+	}
+	if value_slice[0] == '"' {
+		type_idx, err := resolve_type_from_value_slice(value_slice)
+		if err != "" {
+			return FieldDef{}, err
+		}
+		field.type_index = type_idx
+		return field, ""
+	}
+	if value_slice[0] != '{' {
+		return FieldDef{}, "field definition must be string or object"
+	}
+	type_start, type_end, has_type := find_top_level_value_bounds(value_slice, "type")
+	if !has_type {
+		return FieldDef{}, "field definition missing type"
+	}
+	type_name := trim_bytes_space(value_slice[type_start:type_end])
+	if len(type_name) >= 2 && type_name[0] == '"' && type_name[len(type_name)-1] == '"' {
+		type_name = type_name[1:len(type_name)-1]
+	}
+	if slice_matches_string(type_name, "vector") || slice_matches_string(type_name, "array") || slice_matches_string(type_name, "bytes") || slice_matches_string(type_name, "string") {
+		anon_idx, err := new_anonymous_type()
+		if err != "" {
+			return FieldDef{}, err
+		}
+		if slice_matches_string(type_name, "vector") {
+			err = compile_vector_type_from_slice(value_slice, anon_idx)
+		} else if slice_matches_string(type_name, "array") {
+			err = compile_array_type_from_slice(value_slice, anon_idx)
+		} else if slice_matches_string(type_name, "bytes") {
+			types[anon_idx].kind = .Bytes
+			types[anon_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
+		} else if slice_matches_string(type_name, "string") {
+			types[anon_idx].kind = .String
+			types[anon_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
+		}
+		if err != "" {
+			return FieldDef{}, err
+		}
+		field.type_index = anon_idx
+		field.max_len = read_optional_int_from_slice(value_slice, "max_len")
+		return field, ""
+	}
+	return FieldDef{}, "unsupported top-level field object"
 }
 
 find_token_by_bounds :: proc(tokens: []jsmn.Token, start, end: int, kind: jsmn.JsmnType) -> int {
@@ -381,6 +600,9 @@ declare_named_type :: proc(tok: jsmn.Token) -> (int, string) {
 	if type_count >= MAX_TYPES {
 		return -1, "type limit exceeded"
 	}
+	if tok.end - tok.start > TYPE_NAME_MAX {
+		return -1, "type name too long"
+	}
 	if _, found := lookup_named_type(schema_buffer[:schema_len], tok); found {
 		return -1, "duplicate type name"
 	}
@@ -395,6 +617,10 @@ declare_named_type :: proc(tok: jsmn.Token) -> (int, string) {
 		fixed_len = -1,
 	}
 	type_count += 1
+	named_type_indices[named_type_count] = idx
+	named_type_name_lens[idx] = tok.end - tok.start
+	copy(named_type_name_bytes[idx][:named_type_name_lens[idx]], schema_buffer[tok.start:tok.end])
+	named_type_count += 1
 	return idx, ""
 }
 
@@ -452,6 +678,9 @@ compile_named_type :: proc(input: []u8, token_idx: int, type_idx: int) -> string
 	if tok.type != jsmn.JsmnType.Object {
 		return "type definition must be string or object"
 	}
+	if tok.end <= tok.start {
+		return compile_named_type_from_key_bounds(input, types[type_idx].name_start, types[type_idx].name_end, type_idx)
+	}
 	type_field := find_object_value(input, schema_tokens[:schema_token_count], token_idx, "type")
 	if type_field < 0 {
 		return "type definition missing type field"
@@ -492,6 +721,51 @@ compile_named_type :: proc(input: []u8, token_idx: int, type_idx: int) -> string
 	types[type_idx].kind = .Alias
 	types[type_idx].target_type = target_idx
 	return ""
+}
+
+compile_named_type_from_key_bounds :: proc(input: []u8, key_start, key_end, type_idx: int) -> string {
+	value_start, value_end, ok := find_value_bounds_after_key(input, key_end)
+	if !ok {
+		return "type definition missing value"
+	}
+	value_slice := trim_bytes_space(input[value_start:value_end])
+	if len(value_slice) >= 2 && value_slice[0] == '"' && value_slice[len(value_slice)-1] == '"' {
+		target_idx, err := resolve_type_from_value_slice(value_slice)
+		if err != "" {
+			return err
+		}
+		types[type_idx].kind = .Alias
+		types[type_idx].target_type = target_idx
+		return ""
+	}
+	if len(value_slice) == 0 || value_slice[0] != '{' {
+		return "type definition must be string or object"
+	}
+	type_start, type_end, has_type := find_top_level_value_bounds(value_slice, "type")
+	if !has_type {
+		return "type definition missing type field"
+	}
+	type_name := trim_bytes_space(value_slice[type_start:type_end])
+	if len(type_name) >= 2 && type_name[0] == '"' && type_name[len(type_name)-1] == '"' {
+		type_name = type_name[1:len(type_name)-1]
+	}
+	if slice_matches_string(type_name, "array") {
+		return compile_array_type_from_slice(value_slice, type_idx)
+	}
+	if slice_matches_string(type_name, "vector") {
+		return compile_vector_type_from_slice(value_slice, type_idx)
+	}
+	if slice_matches_string(type_name, "bytes") {
+		types[type_idx].kind = .Bytes
+		types[type_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
+		return ""
+	}
+	if slice_matches_string(type_name, "string") {
+		types[type_idx].kind = .String
+		types[type_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
+		return ""
+	}
+	return "type object token invalid"
 }
 
 compile_enum_type :: proc(input: []u8, obj_idx: int, type_idx: int) -> string {
@@ -575,16 +849,31 @@ compile_struct_type :: proc(input: []u8, obj_idx: int, type_idx: int) -> string 
 }
 
 compile_array_type :: proc(input: []u8, obj_idx: int, type_idx: int) -> string {
-	len_idx := find_object_value(input, schema_tokens[:schema_token_count], obj_idx, "len")
-	value_idx := find_object_value(input, schema_tokens[:schema_token_count], obj_idx, "value")
-	if len_idx < 0 || value_idx < 0 {
+	obj_tok := schema_tokens[obj_idx]
+	if obj_tok.start < 0 {
+		return "array token start invalid"
+	}
+	if obj_tok.end <= obj_tok.start {
+		return "array token end invalid"
+	}
+	if obj_tok.end > len(input) {
+		return "array token range invalid"
+	}
+	obj_slice := input[obj_tok.start:obj_tok.end]
+	return compile_array_type_from_slice(obj_slice, type_idx)
+}
+
+compile_array_type_from_slice :: proc(obj_slice: []u8, type_idx: int) -> string {
+	len_start, len_end, has_len := find_top_level_value_bounds(obj_slice, "len")
+	value_start, value_end, has_value := find_top_level_value_bounds(obj_slice, "value")
+	if !has_len || !has_value {
 		return "array requires len and value"
 	}
-	length, ok := parse_i64_bytes(input[schema_tokens[len_idx].start:schema_tokens[len_idx].end])
+	length, ok := parse_i64_bytes(obj_slice[len_start:len_end])
 	if !ok || length < 0 {
 		return "array len must be non-negative integer"
 	}
-	value_type, err := resolve_type_from_token(input, value_idx)
+	value_type, err := resolve_type_from_value_slice(obj_slice[value_start:value_end])
 	if err != "" {
 		return err
 	}
@@ -595,11 +884,20 @@ compile_array_type :: proc(input: []u8, obj_idx: int, type_idx: int) -> string {
 }
 
 compile_vector_type :: proc(input: []u8, obj_idx: int, type_idx: int) -> string {
-	value_idx := find_object_value(input, schema_tokens[:schema_token_count], obj_idx, "value")
-	if value_idx < 0 {
+	obj_tok := schema_tokens[obj_idx]
+	if obj_tok.start < 0 || obj_tok.end <= obj_tok.start || obj_tok.end > len(input) {
+		return "vector token bounds invalid"
+	}
+	obj_slice := input[obj_tok.start:obj_tok.end]
+	return compile_vector_type_from_slice(obj_slice, type_idx)
+}
+
+compile_vector_type_from_slice :: proc(obj_slice: []u8, type_idx: int) -> string {
+	value_start, value_end, has_value := find_top_level_value_bounds(obj_slice, "value")
+	if !has_value {
 		return "vector requires value"
 	}
-	value_type, err := resolve_type_from_token(input, value_idx)
+	value_type, err := resolve_type_from_value_slice(obj_slice[value_start:value_end])
 	if err != "" {
 		return err
 	}
@@ -706,10 +1004,65 @@ resolve_type_from_token :: proc(input: []u8, token_idx: int) -> (int, string) {
 	if tok.type != jsmn.JsmnType.String {
 		return -1, "type reference must be string"
 	}
-	if type_idx, found := lookup_named_type(input, tok); found {
-		return type_idx, ""
+	return resolve_type_from_value_slice(input[tok.start:tok.end])
+}
+
+resolve_type_from_value_slice :: proc(data: []u8) -> (int, string) {
+	trimmed := trim_bytes_space(data)
+	if len(trimmed) >= 2 && trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"' {
+		trimmed = trimmed[1:len(trimmed)-1]
+	}
+	for i in 0..<len(builtin_names) {
+		if type_name_matches_slice(i, trimmed) {
+			return i, ""
+		}
+	}
+	for i in 0..<named_type_count {
+		type_idx := named_type_indices[i]
+		if type_name_matches_slice(type_idx, trimmed) {
+			return type_idx, ""
+		}
 	}
 	return -1, "unknown type reference"
+}
+
+type_name_matches_slice :: proc(type_idx: int, data: []u8) -> bool {
+	if type_idx < len(builtin_names) && builtin_names[type_idx] != "" && types[type_idx].name_start == -1 {
+		return slice_matches_string(data, builtin_names[type_idx])
+	}
+	if !types[type_idx].has_name || len(data) != named_type_name_lens[type_idx] {
+		return false
+	}
+	for i in 0..<len(data) {
+		if data[i] != named_type_name_bytes[type_idx][i] {
+			return false
+		}
+	}
+	return true
+}
+
+trim_bytes_space :: proc(data: []u8) -> []u8 {
+	start := 0
+	end := len(data)
+	for start < end && is_space(data[start]) {
+		start += 1
+	}
+	for end > start && is_space(data[end - 1]) {
+		end -= 1
+	}
+	return data[start:end]
+}
+
+slice_matches_string :: proc(data: []u8, text: string) -> bool {
+	if len(data) != len(text) {
+		return false
+	}
+	for i in 0..<len(text) {
+		if data[i] != text[i] {
+			return false
+		}
+	}
+	return true
 }
 
 read_optional_int :: proc(input: []u8, obj_idx: int, key: string) -> int {
@@ -722,6 +1075,37 @@ read_optional_int :: proc(input: []u8, obj_idx: int, key: string) -> int {
 		return -1
 	}
 	return int(v)
+}
+
+read_optional_int_from_slice :: proc(data: []u8, key: string) -> int {
+	start, end, ok := find_top_level_value_bounds(data, key)
+	if !ok {
+		return -1
+	}
+	v, parsed := parse_i64_bytes(trim_bytes_space(data[start:end]))
+	if !parsed {
+		return -1
+	}
+	return int(v)
+}
+
+find_value_bounds_after_key :: proc(input: []u8, key_end: int) -> (int, int, bool) {
+	i := key_end + 1
+	for i < len(input) && input[i] != ':' {
+		i += 1
+	}
+	if i >= len(input) {
+		return -1, -1, false
+	}
+	i += 1
+	for i < len(input) && is_space(input[i]) {
+		i += 1
+	}
+	end, ok := scan_json_value_end(input, i)
+	if !ok {
+		return -1, -1, false
+	}
+	return i, end, true
 }
 
 find_object_value :: proc(input: []u8, tokens: []jsmn.Token, object_idx: int, key: string) -> int {
@@ -763,7 +1147,7 @@ type_name_string :: proc(type_idx: int) -> string {
 	if type_idx < len(builtin_names) && builtin_names[type_idx] != "" && types[type_idx].name_start == -1 {
 		return builtin_names[type_idx]
 	}
-	return string(schema_buffer[types[type_idx].name_start:types[type_idx].name_end])
+	return string(named_type_name_bytes[type_idx][:named_type_name_lens[type_idx]])
 }
 
 field_name_string :: proc(field_idx: int) -> string {
