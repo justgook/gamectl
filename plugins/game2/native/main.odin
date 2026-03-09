@@ -6,27 +6,51 @@ package main
 
 import runtime "base:runtime"
 import game2 ".."
+import "core:fmt"
 import "core:os"
+import "core:strings"
 import sapp "../sokol/app"
 import sg "../sokol/gfx"
 import sglue "../sokol/glue"
 import slog "../sokol/log"
 
-native_asset_candidates :: []string {
-	"../../example/the_atlas.qoi",
-	"example/the_atlas.qoi",
-	"the_atlas.qoi",
+GAME_ASSET_PREFIX :: "/game/"
+
+native_asset_name_from_path :: proc(path: string) -> (string, bool) {
+	if !strings.has_prefix(path, GAME_ASSET_PREFIX) {
+		return "", false
+	}
+	name := path[len(GAME_ASSET_PREFIX):]
+	if len(name) == 0 {
+		return "", false
+	}
+	if strings.contains(name, "..") {
+		return "", false
+	}
+	if strings.contains(name, "/") {
+		return "", false
+	}
+	return name, true
 }
 
 native_asset_read_all :: proc(path: string) -> ([]u8, bool) {
-	if path != game2.ATLAS_ASSET_PATH {
+	name, ok := native_asset_name_from_path(path)
+	if !ok {
+		assert(false, fmt.tprintf("native asset read rejected invalid path: %s", path))
 		return nil, false
 	}
-	for candidate in native_asset_candidates {
+	candidates := [4]string{
+		fmt.tprintf("../../cmd/browser/assets/game/%s", name),
+		fmt.tprintf("../../example/%s", name),
+		fmt.tprintf("example/%s", name),
+		name,
+	}
+	for candidate in candidates {
 		if data, ok := os.read_entire_file(candidate, context.allocator); ok {
 			return data, true
 		}
 	}
+	assert(false, fmt.tprintf("native asset not found: %s (tried: %s, %s, %s, %s)", path, candidates[0], candidates[1], candidates[2], candidates[3]))
 	return nil, false
 }
 

@@ -8,6 +8,8 @@ RSPK_MAGIC_2 :: u8('P')
 RSPK_MAGIC_3 :: u8('K')
 RSPK_VERSION :: u16(1)
 
+string_decode_buffer: [PAYLOAD_CAPACITY]u8
+
 encode_payload_for_slot :: proc(slot_index: int, payload: []u8) -> (bool, string) {
 	writer := BinaryWriter{}
 	type_idx := data_slots[slot_index]
@@ -79,10 +81,10 @@ encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, fiel
 	case .F32, .F64:
 		return encode_float_bytes(w, input, type_def.kind, field)
 	case .String:
-		if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
+		bytes, ok := decode_json_string_bytes(input)
+		if !ok {
 			return false, "expected string"
 		}
-		bytes := input[1:len(input)-1]
 		max_len := effective_type_max_len(type_idx, field)
 		if max_len >= 0 && len(bytes) > max_len {
 			return false, "string exceeds max_len"
@@ -160,7 +162,7 @@ encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, fiel
 		}
 		return true, ""
 	case .Oneof:
-		return false, "oneof encoding not implemented yet"
+		return encode_oneof_value(w, input, type_idx)
 	case:
 		return false, "unsupported type"
 	}
@@ -273,7 +275,10 @@ encode_enum_bytes :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (bool
 encode_bytes_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int, field: FieldDef) -> (bool, string) {
 	max_len := effective_type_max_len(type_idx, field)
 	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
-		bytes := input[1:len(input)-1]
+		bytes, ok := decode_json_string_bytes(input)
+		if !ok {
+			return false, "bytes must be string or array"
+		}
 		if max_len >= 0 && len(bytes) > max_len {
 			return false, "bytes exceeds max_len"
 		}
@@ -308,6 +313,219 @@ encode_bytes_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int, field: 
 		cursor = next_cursor
 	}
 	return true, ""
+}
+
+decode_json_string_bytes :: proc(input: []u8) -> ([]u8, bool) {
+	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
+		return nil, false
+	}
+	decoded_len, ok := decoded_json_string_len(input)
+	if !ok {
+		return nil, false
+	}
+	if decoded_len > len(string_decode_buffer) {
+		return nil, false
+	}
+	write_idx := 0
+	i := 1
+	for i < len(input) - 1 {
+		c := input[i]
+		if c != '\\' {
+			string_decode_buffer[write_idx] = c
+			write_idx += 1
+			i += 1
+			continue
+		}
+		i += 1
+		if i >= len(input) - 1 {
+			return nil, false
+		}
+		esc := input[i]
+		switch esc {
+		case '"', '\\', '/':
+			string_decode_buffer[write_idx] = esc
+			write_idx += 1
+		case 'b':
+			string_decode_buffer[write_idx] = 8
+			write_idx += 1
+		case 'f':
+			string_decode_buffer[write_idx] = 12
+			write_idx += 1
+		case 'n':
+			string_decode_buffer[write_idx] = '\n'
+			write_idx += 1
+		case 'r':
+			string_decode_buffer[write_idx] = '\r'
+			write_idx += 1
+		case 't':
+			string_decode_buffer[write_idx] = '\t'
+			write_idx += 1
+		case 'u':
+			if i + 4 >= len(input) {
+				return nil, false
+			}
+			codepoint, parsed := parse_hex_u16(input[i+1:i+5])
+			if !parsed {
+				return nil, false
+			}
+			written, encoded := encode_utf8_into_decoded_buffer(write_idx, rune(codepoint))
+			if !encoded {
+				return nil, false
+			}
+			write_idx += written
+			i += 4
+		case:
+			return nil, false
+		}
+		i += 1
+	}
+	return string_decode_buffer[:write_idx], true
+}
+
+decoded_json_string_len :: proc(input: []u8) -> (int, bool) {
+	count := 0
+	i := 1
+	for i < len(input) - 1 {
+		if input[i] != '\\' {
+			count += 1
+			i += 1
+			continue
+		}
+		i += 1
+		if i >= len(input) - 1 {
+			return 0, false
+		}
+		esc := input[i]
+		switch esc {
+		case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+			count += 1
+		case 'u':
+			if i + 4 >= len(input) {
+				return 0, false
+			}
+			codepoint, ok := parse_hex_u16(input[i+1:i+5])
+			if !ok {
+				return 0, false
+			}
+			count += utf8_encoded_len(rune(codepoint))
+			i += 4
+		case:
+			return 0, false
+		}
+		i += 1
+	}
+	return count, true
+}
+
+parse_hex_u16 :: proc(data: []u8) -> (u16, bool) {
+	if len(data) != 4 {
+		return 0, false
+	}
+	value: u16 = 0
+	for i in 0..<4 {
+		c := data[i]
+		digit: u16 = 0
+		switch {
+		case c >= '0' && c <= '9':
+			digit = u16(c - '0')
+		case c >= 'a' && c <= 'f':
+			digit = u16(c - 'a' + 10)
+		case c >= 'A' && c <= 'F':
+			digit = u16(c - 'A' + 10)
+		case:
+			return 0, false
+		}
+		value = value * 16 + digit
+	}
+	return value, true
+}
+
+utf8_encoded_len :: proc(codepoint: rune) -> int {
+	switch {
+	case codepoint <= 0x7f:
+		return 1
+	case codepoint <= 0x7ff:
+		return 2
+	case codepoint <= 0xffff:
+		return 3
+	case:
+		return 4
+	}
+}
+
+encode_utf8_into_decoded_buffer :: proc(offset: int, codepoint: rune) -> (int, bool) {
+	switch {
+	case codepoint <= 0x7f:
+		string_decode_buffer[offset] = u8(codepoint)
+		return 1, true
+	case codepoint <= 0x7ff:
+		string_decode_buffer[offset] = 0xc0 | u8(codepoint >> 6)
+		string_decode_buffer[offset + 1] = 0x80 | u8(codepoint & 0x3f)
+		return 2, true
+	case codepoint <= 0xffff:
+		string_decode_buffer[offset] = 0xe0 | u8(codepoint >> 12)
+		string_decode_buffer[offset + 1] = 0x80 | u8((codepoint >> 6) & 0x3f)
+		string_decode_buffer[offset + 2] = 0x80 | u8(codepoint & 0x3f)
+		return 3, true
+	case codepoint <= 0x10ffff:
+		string_decode_buffer[offset] = 0xf0 | u8(codepoint >> 18)
+		string_decode_buffer[offset + 1] = 0x80 | u8((codepoint >> 12) & 0x3f)
+		string_decode_buffer[offset + 2] = 0x80 | u8((codepoint >> 6) & 0x3f)
+		string_decode_buffer[offset + 3] = 0x80 | u8(codepoint & 0x3f)
+		return 4, true
+	case:
+		return 0, false
+	}
+}
+
+encode_oneof_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (bool, string) {
+	trimmed := trim_space_slice(input)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return false, "expected object for oneof"
+	}
+	member, next_cursor, found := next_object_member(trimmed, 1)
+	if !found {
+		return false, "oneof requires exactly one field"
+	}
+	_, _, extra_found := next_object_member(trimmed, next_cursor)
+	if extra_found {
+		return false, "oneof requires exactly one field"
+	}
+	variant_idx := oneof_variant_index_from_name(trimmed[member.key_start:member.key_end], type_idx)
+	if variant_idx < 0 {
+		return false, "unknown oneof variant"
+	}
+	if !writer_u16(w, u16(variant_idx + 1)) {
+		return false, "payload too large"
+	}
+	variant_type := oneof_options[types[type_idx].option_start + variant_idx]
+	return encode_json_value(w, trimmed[member.value_start:member.value_end], variant_type, FieldDef{type_index = variant_type, default_token = -1, max_len = -1})
+}
+
+oneof_variant_index_from_name :: proc(name: []u8, type_idx: int) -> int {
+	for i in 0..<types[type_idx].option_count {
+		option_type := oneof_options[types[type_idx].option_start + i]
+		if oneof_name_matches_slice(name, option_type) {
+			return i
+		}
+	}
+	return -1
+}
+
+oneof_name_matches_slice :: proc(name: []u8, option_type: int) -> bool {
+	full := type_name_string(option_type)
+	if bytes_equal_string(name, full) {
+		return true
+	}
+	lower := sanitize_identifier(full)
+	if bytes_equal_string(name, lower) {
+		return true
+	}
+	trimmed := trim_variant_suffix(lower)
+	if trimmed != lower && bytes_equal_string(name, trimmed) {
+		return true
+	}
+	return false
 }
 
 trim_space_slice :: proc(data: []u8) -> []u8 {

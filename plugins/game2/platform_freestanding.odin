@@ -4,6 +4,7 @@ package game2
 
 import runtime "base:runtime"
 import "core:c"
+import "core:fmt"
 import sg "sokol/gfx"
 
 foreign import env "env"
@@ -28,18 +29,21 @@ wasm_asset_read_all :: proc(path: string) -> ([]u8, bool) {
 
 	size := game_asset_size(path_ptr, u32(len(path_bytes)))
 	if size < 0 {
+		assert(false, fmt.tprintf("wasm asset not found: %s", path))
 		return nil, false
 	}
 	if size == 0 {
 		return []u8{}, true
 	}
 	if size > ASSET_SCRATCH_CAPACITY {
+		assert(false, fmt.tprintf("wasm asset too large for scratch buffer: %s (%d > %d)", path, size, ASSET_SCRATCH_CAPACITY))
 		return nil, false
 	}
 
 	buf := asset_scratch[:size]
 	bytes_read := game_asset_read(path_ptr, u32(len(path_bytes)), u32(uintptr(&buf[0])), u32(len(buf)))
 	if bytes_read != size {
+		assert(false, fmt.tprintf("wasm asset read failed: %s (expected %d bytes, got %d)", path, size, bytes_read))
 		return nil, false
 	}
 	return buf, true

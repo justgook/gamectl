@@ -7,6 +7,7 @@ import { TilemapSelector } from './tilemap/TilemapSelector.js'
 import { TilemapMenu } from './tilemap/menu.js'
 import { bus } from "../systems/event-bus.js"
 import { TilemapEditor } from "../systems/tilemap-editor.js"
+import { materializeChunkedProjectionToTilemap } from './stb-editor-chunks.js'
 
 // Default tile dimensions when not specified in layer.props
 const DEFAULT_TILE_WIDTH = 16
@@ -114,13 +115,21 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   dataChanged = (data) => {
-    this.data = data
-    this._prepareRenders(data)
+    const normalizedData = this.normalizeTilemapData(data)
+    this.data = normalizedData
+    this._prepareRenders(normalizedData)
     this.menu.title = this.tilemapKey
-    this.menu.data = data
+    this.menu.data = normalizedData
 
     this.contentBounds = this.calculateContentBounds(this.data)
     this.draw()
+  }
+
+  normalizeTilemapData(data) {
+    if (data && !Array.isArray(data.layers) && Array.isArray(data.chunks) && Number(data.layerCount) > 0) {
+      return materializeChunkedProjectionToTilemap(data)
+    }
+    return data
   }
 
   async fetchData() {
@@ -276,4 +285,3 @@ export class ViewTilemap extends ViewCanvasBase {
 }
 
 export default ViewTilemap
-

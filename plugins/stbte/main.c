@@ -115,6 +115,172 @@ static size_t strlen(const char *s) {
 #define STBTE_STATUS_OK 1
 #define STBTE_STATUS_ERR 0
 
+#define STBTE_CHUNK_EXPORT_VERSION 1u
+
+typedef struct stbte_chunk_export_header {
+  uint32_t version;
+  uint32_t map_width;
+  uint32_t map_height;
+  uint32_t layer_count;
+  uint32_t chunk_size;
+  uint32_t chunk_count;
+  uint32_t chunk_data_ptr;
+} stbte_chunk_export_header;
+
+typedef struct stbte_logical_store {
+  uint32_t map_width;
+  uint32_t map_height;
+  uint32_t layer_count;
+  uint32_t capacity_bytes;
+  uint16_t *data;
+} stbte_logical_store;
+
+static uint64_t stbte_logical_store_required_bytes(uint32_t map_width,
+                                                   uint32_t map_height,
+                                                   uint32_t layer_count) {
+  return (uint64_t)map_width * (uint64_t)map_height * (uint64_t)layer_count *
+         (uint64_t)sizeof(uint16_t);
+}
+
+static uint32_t stbte_chunk_count_for_map(uint32_t map_width,
+                                          uint32_t map_height,
+                                          uint32_t chunk_size) {
+  uint32_t chunk_cols;
+  uint32_t chunk_rows;
+
+  if (map_width == 0 || map_height == 0 || chunk_size == 0)
+    return 0;
+
+  chunk_cols = (map_width + chunk_size - 1) / chunk_size;
+  chunk_rows = (map_height + chunk_size - 1) / chunk_size;
+  return chunk_cols * chunk_rows;
+}
+
+static uint16_t *stbte_logical_layer_base(stbte_logical_store *store,
+                                          uint32_t layer) {
+  uint64_t layer_stride;
+  if (store == NULL || store->data == NULL || layer >= store->layer_count)
+    return (uint16_t *)0;
+  layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
+  return store->data + (layer * layer_stride);
+}
+
+static int stbte_logical_reallocate(stbte_logical_store *store,
+                                    uint32_t map_width,
+                                    uint32_t map_height,
+                                    uint32_t layer_count,
+                                    int inserted_layer,
+                                    int deleted_layer,
+                                    int moved_from,
+                                    int moved_to) {
+  uint64_t required;
+  uint64_t old_layer_stride;
+  uint64_t new_layer_stride;
+  uint16_t *next_data;
+  uint32_t old_layer;
+
+  if (store == NULL || map_width == 0 || map_height == 0 || layer_count == 0)
+    return STBTE_STATUS_ERR;
+
+  required = stbte_logical_store_required_bytes(map_width, map_height,
+                                                layer_count);
+  if (required == 0 || required > 0xffffffffu)
+    return STBTE_STATUS_ERR;
+
+  next_data = (uint16_t *)malloc_internal((size_t)required);
+  if (next_data == NULL)
+    return STBTE_STATUS_ERR;
+  memset(next_data, 0, (size_t)required);
+
+  old_layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
+  new_layer_stride = (uint64_t)map_width * (uint64_t)map_height;
+
+  for (old_layer = 0; old_layer < store->layer_count; ++old_layer) {
+    uint32_t new_layer = old_layer;
+    uint32_t copy_width;
+    uint32_t copy_height;
+    uint32_t y;
+
+    if (inserted_layer >= 0) {
+      if ((int)old_layer >= inserted_layer)
+        new_layer = old_layer + 1;
+    }
+    if (deleted_layer >= 0) {
+      if ((int)old_layer == deleted_layer)
+        continue;
+      if ((int)old_layer > deleted_layer)
+        new_layer = old_layer - 1;
+    }
+    if (moved_from >= 0 && moved_to >= 0) {
+      if ((int)old_layer == moved_from) {
+        new_layer = (uint32_t)moved_to;
+      } else if (moved_from < moved_to && (int)old_layer > moved_from &&
+                 (int)old_layer <= moved_to) {
+        new_layer = old_layer - 1;
+      } else if (moved_to < moved_from && (int)old_layer >= moved_to &&
+                 (int)old_layer < moved_from) {
+        new_layer = old_layer + 1;
+      }
+    }
+
+    if (new_layer >= layer_count)
+      continue;
+
+    copy_width = store->map_width < map_width ? store->map_width : map_width;
+    copy_height = store->map_height < map_height ? store->map_height : map_height;
+    for (y = 0; y < copy_height; ++y) {
+      memcpy(next_data + ((uint64_t)new_layer * new_layer_stride) +
+                 ((uint64_t)y * map_width),
+             store->data + ((uint64_t)old_layer * old_layer_stride) +
+                 ((uint64_t)y * store->map_width),
+             (size_t)(copy_width * sizeof(uint16_t)));
+    }
+  }
+
+  store->map_width = map_width;
+  store->map_height = map_height;
+  store->layer_count = layer_count;
+  store->capacity_bytes = (uint32_t)required;
+  store->data = next_data;
+  return STBTE_STATUS_OK;
+}
+
+static uint32_t stbte_chunk_export_header_size_impl(void) {
+  return (uint32_t)sizeof(stbte_chunk_export_header);
+}
+
+static uint32_t stbte_chunk_export_bytes_per_chunk_impl(stbte_tilemap *tm,
+                                                        uint32_t chunk_size) {
+  uint64_t tiles_per_layer;
+  uint64_t total;
+
+  if (tm == NULL || chunk_size == 0)
+    return 0;
+
+  tiles_per_layer = (uint64_t)chunk_size * (uint64_t)chunk_size;
+  total = tiles_per_layer * (uint64_t)tm->num_layers * (uint64_t)sizeof(uint16_t);
+  if (total > 0xffffffffu)
+    return 0;
+  return (uint32_t)total;
+}
+
+static uint32_t stbte_chunk_export_required_bytes_impl(stbte_tilemap *tm,
+                                                       uint32_t chunk_count,
+                                                       uint32_t chunk_size) {
+  uint64_t per_chunk;
+  uint64_t total;
+
+  per_chunk = stbte_chunk_export_bytes_per_chunk_impl(tm, chunk_size);
+  if (per_chunk == 0)
+    return 0;
+
+  total = (uint64_t)stbte_chunk_export_header_size_impl() +
+          ((uint64_t)chunk_count * per_chunk);
+  if (total > 0xffffffffu)
+    return 0;
+  return (uint32_t)total;
+}
+
 static void stbte_reset_structural_state(stbte_tilemap *tm) {
   int next_active_layer;
 
@@ -713,6 +879,507 @@ stbte_get_tile_at(stbte_tilemap *tm, int x, int y, int layer) {
   if (layer < 0 || layer >= tm->num_layers)
     return -1;
   return tm->data[y][x][layer];
+}
+
+/* ==========================================================================
+ * LOGICAL TILE STORAGE
+ * ========================================================================== */
+
+__attribute__((export_name("stbte_logical_create"))) stbte_logical_store *
+stbte_logical_create(uint32_t map_width, uint32_t map_height,
+                     uint32_t layer_count) {
+  stbte_logical_store *store;
+  uint64_t required;
+
+  if (map_width == 0 || map_height == 0 || layer_count == 0)
+    return (stbte_logical_store *)0;
+
+  required = stbte_logical_store_required_bytes(map_width, map_height,
+                                                layer_count);
+  if (required == 0 || required > 0xffffffffu)
+    return (stbte_logical_store *)0;
+
+  store = (stbte_logical_store *)malloc_internal(sizeof(stbte_logical_store));
+  if (store == NULL)
+    return (stbte_logical_store *)0;
+
+  store->data = (uint16_t *)malloc_internal((size_t)required);
+  if (store->data == NULL)
+    return (stbte_logical_store *)0;
+
+  store->map_width = map_width;
+  store->map_height = map_height;
+  store->layer_count = layer_count;
+  store->capacity_bytes = (uint32_t)required;
+  memset(store->data, 0, (size_t)required);
+  return store;
+}
+
+__attribute__((export_name("stbte_logical_destroy"))) void
+stbte_logical_destroy(stbte_logical_store *store) {
+  (void)store;
+}
+
+__attribute__((export_name("stbte_logical_resize"))) int
+stbte_logical_resize(stbte_logical_store *store, uint32_t map_width,
+                     uint32_t map_height, uint32_t layer_count) {
+  if (store == NULL || map_width == 0 || map_height == 0 || layer_count == 0)
+    return STBTE_STATUS_ERR;
+  if (store->map_width == map_width && store->map_height == map_height &&
+      store->layer_count == layer_count)
+    return STBTE_STATUS_OK;
+  return stbte_logical_reallocate(store, map_width, map_height, layer_count, -1,
+                                  -1, -1, -1);
+}
+
+__attribute__((export_name("stbte_logical_insert_layer"))) int
+stbte_logical_insert_layer(stbte_logical_store *store, uint32_t index) {
+  if (store == NULL || index > store->layer_count)
+    return STBTE_STATUS_ERR;
+  return stbte_logical_reallocate(store, store->map_width, store->map_height,
+                                  store->layer_count + 1, (int)index, -1, -1,
+                                  -1);
+}
+
+__attribute__((export_name("stbte_logical_delete_layer"))) int
+stbte_logical_delete_layer(stbte_logical_store *store, uint32_t index) {
+  if (store == NULL || store->layer_count <= 1 || index >= store->layer_count)
+    return STBTE_STATUS_ERR;
+  return stbte_logical_reallocate(store, store->map_width, store->map_height,
+                                  store->layer_count - 1, -1, (int)index, -1,
+                                  -1);
+}
+
+__attribute__((export_name("stbte_logical_move_layer"))) int
+stbte_logical_move_layer(stbte_logical_store *store, uint32_t from_index,
+                         uint32_t to_index) {
+  if (store == NULL || from_index >= store->layer_count ||
+      to_index >= store->layer_count)
+    return STBTE_STATUS_ERR;
+  if (from_index == to_index)
+    return STBTE_STATUS_OK;
+  return stbte_logical_reallocate(store, store->map_width, store->map_height,
+                                  store->layer_count, -1, -1, (int)from_index,
+                                  (int)to_index);
+}
+
+__attribute__((export_name("stbte_logical_data_ptr"))) uint32_t
+stbte_logical_data_ptr(stbte_logical_store *store) {
+  if (store == NULL || store->data == NULL)
+    return 0;
+  return (uint32_t)(uintptr_t)store->data;
+}
+
+__attribute__((export_name("stbte_logical_data_capacity_bytes"))) uint32_t
+stbte_logical_data_capacity_bytes(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->capacity_bytes;
+}
+
+__attribute__((export_name("stbte_logical_set_all"))) int
+stbte_logical_set_all(stbte_logical_store *store, uint32_t src_ptr,
+                      uint32_t src_bytes) {
+  if (store == NULL || store->data == NULL)
+    return STBTE_STATUS_ERR;
+  if (src_bytes < store->capacity_bytes)
+    return STBTE_STATUS_ERR;
+  memcpy(store->data, (const void *)(uintptr_t)src_ptr, store->capacity_bytes);
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_load_chunk_into_tilemap"))) int
+stbte_logical_load_chunk_into_tilemap(stbte_logical_store *store,
+                                      stbte_tilemap *tm, uint32_t chunk_size,
+                                      uint32_t chunk_x, uint32_t chunk_y) {
+  uint32_t chunk_origin_x;
+  uint32_t chunk_origin_y;
+  uint32_t chunk_width;
+  uint32_t chunk_height;
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+
+  if (store == NULL || tm == NULL || chunk_size == 0)
+    return STBTE_STATUS_ERR;
+  if (store->layer_count != (uint32_t)tm->num_layers)
+    return STBTE_STATUS_ERR;
+
+  chunk_origin_x = chunk_x * chunk_size;
+  chunk_origin_y = chunk_y * chunk_size;
+  if (chunk_origin_x >= store->map_width || chunk_origin_y >= store->map_height)
+    return STBTE_STATUS_ERR;
+
+  chunk_width = store->map_width - chunk_origin_x;
+  if (chunk_width > chunk_size)
+    chunk_width = chunk_size;
+  chunk_height = store->map_height - chunk_origin_y;
+  if (chunk_height > chunk_size)
+    chunk_height = chunk_size;
+
+  if (!stbte_resize_map(tm, (int)chunk_width, (int)chunk_height))
+    return STBTE_STATUS_ERR;
+  stbte_clear(tm);
+
+  for (layer = 0; layer < store->layer_count; ++layer) {
+    uint16_t *src_layer = stbte_logical_layer_base(store, layer);
+    for (y = 0; y < chunk_height; ++y) {
+      uint16_t *row = src_layer + ((uint64_t)(chunk_origin_y + y) * store->map_width) + chunk_origin_x;
+      for (x = 0; x < chunk_width; ++x) {
+        uint16_t encoded = row[x];
+        tm->data[y][x][layer] = encoded == 0 ? STBTE__NO_TILE : (short)(encoded - 1);
+      }
+    }
+  }
+
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_write_chunk_from_tilemap"))) int
+stbte_logical_write_chunk_from_tilemap(stbte_logical_store *store,
+                                       stbte_tilemap *tm, uint32_t chunk_size,
+                                       uint32_t chunk_x, uint32_t chunk_y) {
+  uint32_t chunk_origin_x;
+  uint32_t chunk_origin_y;
+  uint32_t chunk_width;
+  uint32_t chunk_height;
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+
+  if (store == NULL || tm == NULL || chunk_size == 0)
+    return STBTE_STATUS_ERR;
+  if (store->layer_count != (uint32_t)tm->num_layers)
+    return STBTE_STATUS_ERR;
+
+  chunk_origin_x = chunk_x * chunk_size;
+  chunk_origin_y = chunk_y * chunk_size;
+  if (chunk_origin_x >= store->map_width || chunk_origin_y >= store->map_height)
+    return STBTE_STATUS_ERR;
+
+  chunk_width = store->map_width - chunk_origin_x;
+  if (chunk_width > chunk_size)
+    chunk_width = chunk_size;
+  chunk_height = store->map_height - chunk_origin_y;
+  if (chunk_height > chunk_size)
+    chunk_height = chunk_size;
+  if (tm->max_x < (int)chunk_width || tm->max_y < (int)chunk_height)
+    return STBTE_STATUS_ERR;
+
+  for (layer = 0; layer < store->layer_count; ++layer) {
+    uint16_t *dst_layer = stbte_logical_layer_base(store, layer);
+    for (y = 0; y < chunk_height; ++y) {
+      uint16_t *row = dst_layer + ((uint64_t)(chunk_origin_y + y) * store->map_width) + chunk_origin_x;
+      for (x = 0; x < chunk_width; ++x) {
+        short tile_id = tm->data[y][x][layer];
+        row[x] = tile_id < 0 ? 0 : (uint16_t)(tile_id + 1);
+      }
+    }
+  }
+
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_export_write_header"))) int
+stbte_logical_export_write_header(stbte_logical_store *store, uint32_t dst_ptr,
+                                  uint32_t dst_capacity,
+                                  uint32_t chunk_size) {
+  stbte_chunk_export_header header;
+  uint32_t chunk_count;
+  uint64_t per_chunk;
+  uint64_t total_needed;
+
+  if (store == NULL || chunk_size == 0)
+    return STBTE_STATUS_ERR;
+
+  chunk_count = stbte_chunk_count_for_map(store->map_width, store->map_height,
+                                          chunk_size);
+  per_chunk = (uint64_t)chunk_size * (uint64_t)chunk_size *
+              (uint64_t)store->layer_count * (uint64_t)sizeof(uint16_t);
+  total_needed = (uint64_t)stbte_chunk_export_header_size_impl() +
+                 ((uint64_t)chunk_count * per_chunk);
+  if (total_needed > dst_capacity)
+    return STBTE_STATUS_ERR;
+
+  header.version = STBTE_CHUNK_EXPORT_VERSION;
+  header.map_width = store->map_width;
+  header.map_height = store->map_height;
+  header.layer_count = store->layer_count;
+  header.chunk_size = chunk_size;
+  header.chunk_count = chunk_count;
+  header.chunk_data_ptr = dst_ptr + stbte_chunk_export_header_size_impl();
+  memcpy((void *)(uintptr_t)dst_ptr, &header, sizeof(header));
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_export_write_chunk"))) int
+stbte_logical_export_write_chunk(stbte_logical_store *store, uint32_t dst_ptr,
+                                 uint32_t dst_capacity, uint32_t chunk_size,
+                                 uint32_t chunk_index) {
+  stbte_chunk_export_header *header;
+  uint64_t per_chunk;
+  uint64_t offset_bytes;
+  uint64_t total_needed;
+  uint16_t *out;
+  uint32_t chunk_cols;
+  uint32_t chunk_x;
+  uint32_t chunk_y;
+  uint32_t origin_x;
+  uint32_t origin_y;
+  uint32_t chunk_width;
+  uint32_t chunk_height;
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+
+  if (store == NULL || chunk_size == 0)
+    return STBTE_STATUS_ERR;
+
+  header = (stbte_chunk_export_header *)(uintptr_t)dst_ptr;
+  if (header->version != STBTE_CHUNK_EXPORT_VERSION ||
+      chunk_index >= header->chunk_count)
+    return STBTE_STATUS_ERR;
+
+  per_chunk = (uint64_t)chunk_size * (uint64_t)chunk_size *
+              (uint64_t)store->layer_count * (uint64_t)sizeof(uint16_t);
+  offset_bytes = stbte_chunk_export_header_size_impl() +
+                 ((uint64_t)chunk_index * per_chunk);
+  total_needed = offset_bytes + per_chunk;
+  if (total_needed > dst_capacity)
+    return STBTE_STATUS_ERR;
+
+  chunk_cols = (store->map_width + chunk_size - 1) / chunk_size;
+  chunk_x = chunk_index % chunk_cols;
+  chunk_y = chunk_index / chunk_cols;
+  origin_x = chunk_x * chunk_size;
+  origin_y = chunk_y * chunk_size;
+  if (origin_x >= store->map_width || origin_y >= store->map_height)
+    return STBTE_STATUS_ERR;
+  chunk_width = store->map_width - origin_x;
+  if (chunk_width > chunk_size)
+    chunk_width = chunk_size;
+  chunk_height = store->map_height - origin_y;
+  if (chunk_height > chunk_size)
+    chunk_height = chunk_size;
+
+  out = (uint16_t *)((uint8_t *)(uintptr_t)dst_ptr + offset_bytes);
+  for (layer = 0; layer < store->layer_count; ++layer) {
+    uint16_t *src_layer = stbte_logical_layer_base(store, layer);
+    for (y = 0; y < chunk_size; ++y) {
+      for (x = 0; x < chunk_size; ++x) {
+        uint16_t encoded = 0;
+        if (x < chunk_width && y < chunk_height) {
+          encoded = src_layer[((uint64_t)(origin_y + y) * store->map_width) + origin_x + x];
+        }
+        *out++ = encoded;
+      }
+    }
+  }
+  return STBTE_STATUS_OK;
+}
+
+/* ==========================================================================
+ * CHUNK EXPORT
+ * ========================================================================== */
+
+__attribute__((export_name("stbte_chunk_export_version"))) uint32_t
+stbte_chunk_export_version(void) {
+  return STBTE_CHUNK_EXPORT_VERSION;
+}
+
+__attribute__((export_name("stbte_chunk_export_header_size"))) uint32_t
+stbte_chunk_export_header_size(void) {
+  return stbte_chunk_export_header_size_impl();
+}
+
+__attribute__((export_name("stbte_chunk_export_bytes_per_chunk"))) uint32_t
+stbte_chunk_export_bytes_per_chunk(stbte_tilemap *tm, uint32_t chunk_size) {
+  return stbte_chunk_export_bytes_per_chunk_impl(tm, chunk_size);
+}
+
+__attribute__((export_name("stbte_chunk_export_required_bytes"))) uint32_t
+stbte_chunk_export_required_bytes(stbte_tilemap *tm, uint32_t map_width,
+                                  uint32_t map_height, uint32_t chunk_size,
+                                  uint32_t chunk_count) {
+  (void)map_width;
+  (void)map_height;
+  return stbte_chunk_export_required_bytes_impl(tm, chunk_count, chunk_size);
+}
+
+__attribute__((export_name("stbte_chunk_export_write_header"))) int
+stbte_chunk_export_write_header(stbte_tilemap *tm, uint32_t dst_ptr,
+                                uint32_t dst_capacity, uint32_t map_width,
+                                uint32_t map_height, uint32_t chunk_size,
+                                uint32_t chunk_count) {
+  stbte_chunk_export_header header;
+  uint32_t required;
+
+  if (tm == NULL)
+    return STBTE_STATUS_ERR;
+
+  required = stbte_chunk_export_required_bytes_impl(tm, chunk_count, chunk_size);
+  if (required == 0 || dst_capacity < required)
+    return STBTE_STATUS_ERR;
+
+  header.version = STBTE_CHUNK_EXPORT_VERSION;
+  header.map_width = map_width;
+  header.map_height = map_height;
+  header.layer_count = (uint32_t)tm->num_layers;
+  header.chunk_size = chunk_size;
+  header.chunk_count = chunk_count;
+  header.chunk_data_ptr = dst_ptr + stbte_chunk_export_header_size_impl();
+  memcpy((void *)(uintptr_t)dst_ptr, &header, sizeof(header));
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_chunk_export_write_current_chunk"))) int
+stbte_chunk_export_write_current_chunk(stbte_tilemap *tm, uint32_t dst_ptr,
+                                       uint32_t dst_capacity,
+                                       uint32_t chunk_size,
+                                       uint32_t chunk_index) {
+  stbte_chunk_export_header *header;
+  uint32_t per_chunk_bytes;
+  uint32_t header_size;
+  uint32_t offset_bytes;
+  uint32_t total_needed;
+  uint16_t *out;
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+
+  if (tm == NULL || chunk_size == 0)
+    return STBTE_STATUS_ERR;
+
+  per_chunk_bytes = stbte_chunk_export_bytes_per_chunk_impl(tm, chunk_size);
+  header_size = stbte_chunk_export_header_size_impl();
+  if (per_chunk_bytes == 0)
+    return STBTE_STATUS_ERR;
+
+  header = (stbte_chunk_export_header *)(uintptr_t)dst_ptr;
+  if (header->version != STBTE_CHUNK_EXPORT_VERSION ||
+      chunk_index >= header->chunk_count)
+    return STBTE_STATUS_ERR;
+
+  offset_bytes = header_size + (chunk_index * per_chunk_bytes);
+  total_needed = offset_bytes + per_chunk_bytes;
+  if (dst_capacity < total_needed)
+    return STBTE_STATUS_ERR;
+
+  out = (uint16_t *)((uint8_t *)(uintptr_t)dst_ptr + offset_bytes);
+  for (layer = 0; layer < (uint32_t)tm->num_layers; ++layer) {
+    for (y = 0; y < chunk_size; ++y) {
+      for (x = 0; x < chunk_size; ++x) {
+        uint16_t encoded = 0;
+        if ((int)x < tm->max_x && (int)y < tm->max_y) {
+          short tile_id = tm->data[y][x][layer];
+          if (tile_id >= 0)
+            encoded = (uint16_t)(tile_id + 1);
+        }
+        *out++ = encoded;
+      }
+    }
+  }
+
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_chunk_import_payload"))) int
+stbte_chunk_import_payload(stbte_tilemap *tm, uint32_t src_ptr,
+                           uint32_t src_capacity, uint32_t chunk_size,
+                           uint32_t chunk_width, uint32_t chunk_height) {
+  const uint16_t *src;
+  uint32_t required;
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+
+  if (tm == NULL || chunk_size == 0)
+    return STBTE_STATUS_ERR;
+  if (chunk_width == 0 || chunk_height == 0 || chunk_width > chunk_size ||
+      chunk_height > chunk_size)
+    return STBTE_STATUS_ERR;
+  if (chunk_width > STBTE_MAX_TILEMAP_X || chunk_height > STBTE_MAX_TILEMAP_Y)
+    return STBTE_STATUS_ERR;
+
+  required = stbte_chunk_export_bytes_per_chunk_impl(tm, chunk_size);
+  if (required == 0 || src_capacity < required)
+    return STBTE_STATUS_ERR;
+
+  src = (const uint16_t *)(uintptr_t)src_ptr;
+  if (!stbte_resize_map(tm, (int)chunk_width, (int)chunk_height))
+    return STBTE_STATUS_ERR;
+  stbte_clear(tm);
+
+  for (layer = 0; layer < (uint32_t)tm->num_layers; ++layer) {
+    for (y = 0; y < chunk_size; ++y) {
+      for (x = 0; x < chunk_size; ++x) {
+        uint16_t encoded = *src++;
+        if (x >= chunk_width || y >= chunk_height)
+          continue;
+        tm->data[y][x][layer] = encoded == 0 ? STBTE__NO_TILE : (short)(encoded - 1);
+      }
+    }
+  }
+
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_chunk_import_from_flat_payload"))) int
+stbte_chunk_import_from_flat_payload(stbte_tilemap *tm, uint32_t src_ptr,
+                                     uint32_t src_capacity,
+                                     uint32_t map_width,
+                                     uint32_t map_height,
+                                     uint32_t chunk_size,
+                                     uint32_t chunk_x,
+                                     uint32_t chunk_y) {
+  const uint16_t *src;
+  uint64_t layer_stride;
+  uint64_t required;
+  uint32_t chunk_origin_x;
+  uint32_t chunk_origin_y;
+  uint32_t chunk_width;
+  uint32_t chunk_height;
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+
+  if (tm == NULL || map_width == 0 || map_height == 0 || chunk_size == 0)
+    return STBTE_STATUS_ERR;
+
+  layer_stride = (uint64_t)map_width * (uint64_t)map_height;
+  required = layer_stride * (uint64_t)tm->num_layers * (uint64_t)sizeof(uint16_t);
+  if (required == 0 || required > (uint64_t)src_capacity)
+    return STBTE_STATUS_ERR;
+
+  chunk_origin_x = chunk_x * chunk_size;
+  chunk_origin_y = chunk_y * chunk_size;
+  if (chunk_origin_x >= map_width || chunk_origin_y >= map_height)
+    return STBTE_STATUS_ERR;
+
+  chunk_width = map_width - chunk_origin_x;
+  if (chunk_width > chunk_size)
+    chunk_width = chunk_size;
+  chunk_height = map_height - chunk_origin_y;
+  if (chunk_height > chunk_size)
+    chunk_height = chunk_size;
+
+  if (!stbte_resize_map(tm, (int)chunk_width, (int)chunk_height))
+    return STBTE_STATUS_ERR;
+  stbte_clear(tm);
+
+  src = (const uint16_t *)(uintptr_t)src_ptr;
+  for (layer = 0; layer < (uint32_t)tm->num_layers; ++layer) {
+    const uint16_t *layer_base = src + (layer * layer_stride);
+    for (y = 0; y < chunk_height; ++y) {
+      const uint16_t *row = layer_base + ((chunk_origin_y + y) * map_width) + chunk_origin_x;
+      for (x = 0; x < chunk_width; ++x) {
+        uint16_t encoded = row[x];
+        tm->data[y][x][layer] = encoded == 0 ? STBTE__NO_TILE : (short)(encoded - 1);
+      }
+    }
+  }
+
+  return STBTE_STATUS_OK;
 }
 
 /* ==========================================================================

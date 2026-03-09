@@ -65,7 +65,10 @@
     const ACTION_DOWN = 4
     const ACTION_1 = 5
     const ACTION_2 = 6
-    const DEFAULT_ASSETS = new Map()
+    const DEFAULT_ASSETS = new Map([
+      ['/game/the_atlas.qoi', './the_atlas.qoi'],
+      ['/game/lut.qoi', './lut.qoi'],
+    ])
 
     const canvas = document.getElementById('canvas')
     const pauseBtn = document.getElementById('pause')
@@ -79,7 +82,7 @@
     let eventOffsets = { ...FALLBACK_EVENT_OFFSETS }
     let eventBufferPtr = 0
     let eventFrameCount = 0
-    const assetCache = new Map(DEFAULT_ASSETS)
+    const assetCache = new Map()
     const pressedActions = new Set()
 
     const KEY_TO_ACTION = new Map([
@@ -195,6 +198,18 @@
       }
     }
 
+    async function preloadAssets() {
+      for (const [assetPath, assetUrl] of DEFAULT_ASSETS.entries()) {
+        if (assetCache.has(assetPath)) continue
+        const response = await fetch(assetUrl)
+        if (!response.ok) {
+          throw new Error(`Failed to load asset ${assetPath} from ${assetUrl} (${response.status})`)
+        }
+        const bytes = await response.arrayBuffer()
+        assetCache.set(assetPath, new Uint8Array(bytes))
+      }
+    }
+
     async function boot() {
       gl = canvas.getContext('webgl2', {
         alpha: false,
@@ -207,11 +222,7 @@
       if (!gl) throw new Error('WebGL2 not supported')
 
       resize()
-
-      if (!assetCache.has('/game/the_atlas.qoi')) {
-        const atlasBytes = await fetch('./the_atlas.qoi').then((r) => r.arrayBuffer())
-        assetCache.set('/game/the_atlas.qoi', new Uint8Array(atlasBytes))
-      }
+      await preloadAssets()
 
       bridge = new GLBridge(gl, null)
       const wasmBytes = await fetch('./game2.wasm').then((r) => r.arrayBuffer())

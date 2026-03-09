@@ -8,6 +8,25 @@
         "y": "f32"
       }
     },
+    "CircleShape": {
+      "type": "struct",
+      "fields": {
+        "radius": "f32"
+      }
+    },
+    "RectShape": {
+      "type": "struct",
+      "fields": {
+        "size": "Vec2"
+      }
+    },
+    "Shape": {
+      "type": "oneof",
+      "value": [
+        "CircleShape",
+        "RectShape"
+      ]
+    },
     "ColorRGB": {
       "type": "array",
       "len": 3,
@@ -24,6 +43,14 @@
           "type": "bytes",
           "max_len": 64
         },
+        "label": {
+          "type": "string"
+        },
+        "text_blob": {
+          "type": "bytes",
+          "max_len": 16
+        },
+        "shape": "Shape",
         "palette": {
           "type": "vector",
           "value": "ColorRGB"
