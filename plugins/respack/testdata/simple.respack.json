@@ -1,0 +1,31 @@
+{
+  "package": "respacktest",
+  "types": {
+    "Id": "u32",
+    "Vec2": {
+      "type": "struct",
+      "fields": {
+        "x": "f32",
+        "y": "f32"
+      }
+    },
+    "Entity": {
+      "type": "struct",
+      "fields": {
+        "id": "Id",
+        "name": {
+          "type": "string",
+          "default": ""
+        },
+        "pos": "Vec2",
+        "enabled": {
+          "type": "bool",
+          "default": true
+        }
+      }
+    }
+  },
+  "data": [
+    "Entity"
+  ]
+}

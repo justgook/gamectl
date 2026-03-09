@@ -151,6 +151,10 @@ all: browser
 .PHONY: plugins-release
 plugins-release: $(PLUGIN_TARGETS)
 
+.PHONY: respack-test
+respack-test: $(BUILD_DIR)/plugins/respack.wasm
+	$(Q)node ./plugins/respack/test/e2e.mjs
+
 GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
 
 # Rule to build Go plugins

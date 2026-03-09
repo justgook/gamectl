@@ -1506,6 +1506,18 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const isSame = nextTileSize === this.tileSize && nextMapWidth === this.mapWidth && nextMapHeight === this.mapHeight
     if (isSame) return false
 
+    const dimensionsChanged = nextMapWidth !== this.mapWidth || nextMapHeight !== this.mapHeight
+    if (nextTileSize === this.tileSize && dimensionsChanged) {
+      this.assertStructuralMutation(
+        this.exports.stbte_resize_map(this.tilemap, nextMapWidth, nextMapHeight),
+        'Map resize'
+      )
+      this.mapWidth = nextMapWidth
+      this.mapHeight = nextMapHeight
+      this.finalizeStructuralMutation({ updateContentBounds: true })
+      return true
+    }
+
     const editorState = this.captureEditorState()
     const nextTileSets = this.tileSets.map((tileSet) => ({ ...tileSet }))
     const previousTileSets = this.tileSets
@@ -1546,23 +1558,25 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.restoreEditorState(editorState)
   }
 
-  async applyLayerMutation(nextLayers, remapLayerIndex = (index) => index) {
-    const editorState = this.captureEditorState()
-    const snapshot = this.exportTilemapData()
-    snapshot.layers = nextLayers.map((layer, index) => ({
-      width: Math.max(1, Number(layer?.width) || this.mapWidth),
-      data: Array.isArray(layer?.data) ? [...layer.data] : new Array(this.mapWidth * this.mapHeight).fill(0),
-      props: {
-        name: String(layer?.props?.name || `layer ${index + 1}`)
-      }
-    }))
+  finalizeStructuralMutation({ updateContentBounds = false } = {}) {
+    if (updateContentBounds) {
+      this.contentBounds = this.calculateContentBounds()
+    }
+    this.showDragPreview = false
+    this.hoverX = -1
+    this.hoverY = -1
+    this.renderMap()
+    this.draw()
+    this.updateMetadata()
+    this.setupLayers()
+    this.setupTilesetTabs()
+    this.setupTiles()
+  }
 
-    const loadedMapName = this.loadedMapName
-    await this.applyLoadedTilemap(snapshot)
-    this.loadedMapName = loadedMapName
-    editorState.selectedLayer = remapLayerIndex(editorState.selectedLayer)
-    editorState.soloLayer = remapLayerIndex(editorState.soloLayer)
-    this.restoreEditorState(editorState)
+  assertStructuralMutation(result, operation) {
+    if (!result) {
+      throw new Error(`${operation} failed in stbte backend`)
+    }
   }
 
   async moveLayer(fromIndex, direction) {
@@ -1570,10 +1584,15 @@ export default class ViewStbEditor extends ViewCanvasBase {
     if (fromIndex < 0 || fromIndex >= this.layers) return
     if (toIndex < 0 || toIndex >= this.layers) return
 
-    const snapshot = this.exportTilemapData()
-    const nextLayers = [...snapshot.layers]
-    const [movedLayer] = nextLayers.splice(fromIndex, 1)
-    nextLayers.splice(toIndex, 0, movedLayer)
+    this.assertStructuralMutation(
+      this.exports.stbte_move_layer(this.tilemap, fromIndex, toIndex),
+      'Layer reorder'
+    )
+
+    const nextLayerNames = [...this.layerNames]
+    const [movedLayerName] = nextLayerNames.splice(fromIndex, 1)
+    nextLayerNames.splice(toIndex, 0, movedLayerName)
+    this.layerNames = nextLayerNames
 
     const remapLayerIndex = (layerIndex) => {
       if (layerIndex < 0) return layerIndex
@@ -1583,46 +1602,45 @@ export default class ViewStbEditor extends ViewCanvasBase {
       return layerIndex
     }
 
-    await this.applyLayerMutation(nextLayers, remapLayerIndex)
+    this.selectedLayer = remapLayerIndex(this.selectedLayer)
+    this.finalizeStructuralMutation()
   }
 
   async addLayer() {
     this.validateEditorDimensions(this.mapWidth, this.mapHeight, this.layers + 1)
-    const snapshot = this.exportTilemapData()
-    const width = snapshot.layers[0]?.width || this.mapWidth
-    const height = this.mapHeight
-    const nextLayers = [
-      ...snapshot.layers,
-      {
-        width,
-        data: new Array(width * height).fill(0),
-        props: {
-          name: `layer ${snapshot.layers.length + 1}`
-        }
-      }
-    ]
-    const remapLayerIndex = (layerIndex) => layerIndex
-    await this.applyLayerMutation(nextLayers, remapLayerIndex)
-    this.selectedLayer = nextLayers.length - 1
+
+    this.assertStructuralMutation(
+      this.exports.stbte_insert_layer(this.tilemap, this.layers),
+      'Add layer'
+    )
+
+    this.layerNames = [...this.layerNames, `layer ${this.layers + 1}`]
+    this.layers += 1
+    this.selectedLayer = this.layers - 1
     this.exports.stbte_set_active_layer(this.tilemap, this.selectedLayer)
-    this.setupLayers()
-    this.updateMetadata()
+    this.finalizeStructuralMutation()
   }
 
   async deleteLayer(index) {
     if (this.layers <= 1) return
     if (index < 0 || index >= this.layers) return
 
-    const snapshot = this.exportTilemapData()
-    const nextLayers = snapshot.layers.filter((_, layerIndex) => layerIndex !== index)
     const remapLayerIndex = (layerIndex) => {
       if (layerIndex < 0) return layerIndex
-      if (layerIndex === index) return Math.min(index, nextLayers.length - 1)
+      if (layerIndex === index) return Math.min(index, this.layers - 2)
       if (layerIndex > index) return layerIndex - 1
       return layerIndex
     }
 
-    await this.applyLayerMutation(nextLayers, remapLayerIndex)
+    this.assertStructuralMutation(
+      this.exports.stbte_delete_layer(this.tilemap, index),
+      'Delete layer'
+    )
+
+    this.layerNames = this.layerNames.filter((_, layerIndex) => layerIndex !== index)
+    this.layers -= 1
+    this.selectedLayer = remapLayerIndex(this.selectedLayer)
+    this.finalizeStructuralMutation()
   }
 
   async moveTileset(fromIndex, direction) {

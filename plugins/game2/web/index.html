@@ -49,6 +49,7 @@
     const FALLBACK_EVENT_OFFSETS = {
       frame_count: 0,
       type: 8,
+      action_code: 40,
       window_width: 256,
       window_height: 260,
       framebuffer_width: 264,
@@ -56,6 +57,14 @@
     }
 
     const EVENT_TYPE_RESIZED = 14
+    const EVENT_TYPE_ACTION_DOWN = 100
+    const EVENT_TYPE_ACTION_UP = 101
+    const ACTION_LEFT = 1
+    const ACTION_RIGHT = 2
+    const ACTION_UP = 3
+    const ACTION_DOWN = 4
+    const ACTION_1 = 5
+    const ACTION_2 = 6
     const DEFAULT_ASSETS = new Map()
 
     const canvas = document.getElementById('canvas')
@@ -71,6 +80,20 @@
     let eventBufferPtr = 0
     let eventFrameCount = 0
     const assetCache = new Map(DEFAULT_ASSETS)
+    const pressedActions = new Set()
+
+    const KEY_TO_ACTION = new Map([
+      ['KeyA', ACTION_LEFT],
+      ['ArrowLeft', ACTION_LEFT],
+      ['KeyD', ACTION_RIGHT],
+      ['ArrowRight', ACTION_RIGHT],
+      ['KeyW', ACTION_UP],
+      ['ArrowUp', ACTION_UP],
+      ['KeyS', ACTION_DOWN],
+      ['ArrowDown', ACTION_DOWN],
+      ['KeyJ', ACTION_1],
+      ['KeyK', ACTION_2],
+    ])
 
     function writeU64(view, offset, value) {
       const lo = value >>> 0
@@ -99,6 +122,9 @@
       if (typeof ex.event_offset_window_width === 'function') {
         eventOffsets.window_width = Number(ex.event_offset_window_width())
       }
+      if (typeof ex.event_offset_action_code === 'function') {
+        eventOffsets.action_code = Number(ex.event_offset_action_code())
+      }
       if (typeof ex.event_offset_window_height === 'function') {
         eventOffsets.window_height = Number(ex.event_offset_window_height())
       }
@@ -122,6 +148,26 @@
       view.setInt32(ptr + eventOffsets.window_height, canvas.clientHeight | 0, true)
       view.setInt32(ptr + eventOffsets.framebuffer_width, canvas.width, true)
       view.setInt32(ptr + eventOffsets.framebuffer_height, canvas.height, true)
+      instance.exports.event(ptr)
+    }
+
+    function dispatchAction(actionCode, isDown) {
+      if (!instance?.exports?.memory || typeof instance?.exports?.event !== 'function') return
+      const ptr = getEventBufferPtr()
+      if (!ptr) return
+
+      if (isDown) {
+        if (pressedActions.has(actionCode)) return
+        pressedActions.add(actionCode)
+      } else {
+        if (!pressedActions.has(actionCode)) return
+        pressedActions.delete(actionCode)
+      }
+
+      const view = new DataView(instance.exports.memory.buffer)
+      writeU64(view, ptr + eventOffsets.frame_count, eventFrameCount++)
+      view.setUint32(ptr + eventOffsets.type, isDown ? EVENT_TYPE_ACTION_DOWN : EVENT_TYPE_ACTION_UP, true)
+      view.setUint32(ptr + eventOffsets.action_code, actionCode, true)
       instance.exports.event(ptr)
     }
 
@@ -217,6 +263,7 @@
       instance = null
       eventBufferPtr = 0
       eventFrameCount = 0
+      pressedActions.clear()
       await boot()
     }
 
@@ -225,6 +272,23 @@
       pauseBtn.textContent = paused ? 'Resume' : 'Pause'
     })
     reloadBtn.addEventListener('click', () => { reload().catch(console.error) })
+
+    window.addEventListener('keydown', (event) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement || event.target?.isContentEditable) {
+        return
+      }
+      const action = KEY_TO_ACTION.get(event.code)
+      if (!action) return
+      event.preventDefault()
+      dispatchAction(action, true)
+    })
+
+    window.addEventListener('keyup', (event) => {
+      const action = KEY_TO_ACTION.get(event.code)
+      if (!action) return
+      event.preventDefault()
+      dispatchAction(action, false)
+    })
 
     new ResizeObserver(() => {
       resize()

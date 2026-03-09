@@ -1,10 +1,12 @@
 import { toast } from "../systems/toast.js"
+import { bus } from "../systems/event-bus.js"
 import { parseCSVLines } from "../util/csv.js"
 import { GLBridge } from "../util/gl-bridge.js"
 
 const FALLBACK_EVENT_OFFSETS = {
   frame_count: 0,
   type: 8,
+  action_code: 40,
   window_width: 256,
   window_height: 260,
   framebuffer_width: 264,
@@ -12,6 +14,24 @@ const FALLBACK_EVENT_OFFSETS = {
 }
 
 const EVENT_TYPE_RESIZED = 14
+const EVENT_TYPE_ACTION_DOWN = 100
+const EVENT_TYPE_ACTION_UP = 101
+
+const ACTION_LEFT = 1
+const ACTION_RIGHT = 2
+const ACTION_UP = 3
+const ACTION_DOWN = 4
+const ACTION_1 = 5
+const ACTION_2 = 6
+
+const ACTION_BY_EVENT_NAME = new Map([
+  ['game:action:left', ACTION_LEFT],
+  ['game:action:right', ACTION_RIGHT],
+  ['game:action:up', ACTION_UP],
+  ['game:action:down', ACTION_DOWN],
+  ['game:action:action1', ACTION_1],
+  ['game:action:action2', ACTION_2],
+])
 
 const DEFAULT_GAME_ASSET_SOURCES = [
   ['/game/the_atlas.qoi', 'local:/assets/game/the_atlas.qoi'],
@@ -47,6 +67,17 @@ export default class ViewGameRunner extends HTMLElement {
     return { displayName: 'Game Runner', category: 'Canvas' }
   }
 
+  static get keybindings() {
+    return [
+      { id: 'action-left', eventName: 'game:action:left', description: 'Move left', defaultKeys: 'a' },
+      { id: 'action-right', eventName: 'game:action:right', description: 'Move right', defaultKeys: 'd' },
+      { id: 'action-up', eventName: 'game:action:up', description: 'Move up', defaultKeys: 'w' },
+      { id: 'action-down', eventName: 'game:action:down', description: 'Move down', defaultKeys: 's' },
+      { id: 'action-1', eventName: 'game:action:action1', description: 'Primary action', defaultKeys: 'j' },
+      { id: 'action-2', eventName: 'game:action:action2', description: 'Secondary action', defaultKeys: 'k' },
+    ]
+  }
+
   constructor() {
     super()
     this.canvas = document.createElement('canvas')
@@ -67,6 +98,9 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventOffsets = { ...FALLBACK_EVENT_OFFSETS }
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
+    this._pressedActions = new Set()
+    this._actionByKey = new Map()
+    this._unbindKeybindingChanged = null
     this._assetCache = new Map()
     this._assetSources = createAssetSources()
     this._textDecoder = new TextDecoder()
@@ -85,6 +119,8 @@ export default class ViewGameRunner extends HTMLElement {
     this._boundWheel = (e) => this.onWheel(e)
     this._boundKeyDown = (e) => this.onKeyDown(e)
     this._boundKeyUp = (e) => this.onKeyUp(e)
+    this._boundBlur = () => this._releaseAllActions()
+    this._boundKeybindingsChanged = () => this._refreshActionBindings()
   }
 
   connectedCallback() {
@@ -98,6 +134,8 @@ export default class ViewGameRunner extends HTMLElement {
     }
     this._mountHeaderControls()
     this.setupInputHandlers()
+    this._refreshActionBindings()
+    this._unbindKeybindingChanged = bus.on('keybindings:changed', this._boundKeybindingsChanged)
     this._resizeObserver.observe(this)
     this._initialize().catch((error) => {
       console.error('[game-runner] boot failed:', error)
@@ -106,6 +144,9 @@ export default class ViewGameRunner extends HTMLElement {
 
   disconnectedCallback() {
     this._resizeObserver.disconnect()
+    this._unbindKeybindingChanged?.()
+    this._unbindKeybindingChanged = null
+    this._releaseAllActions()
     this.teardownInputHandlers()
     this._unmountHeaderControls()
 
@@ -171,6 +212,7 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventOffsets = this._resolveEventOffsets()
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
+    this._pressedActions.clear()
 
     if (typeof this.exports?.init !== 'function' || typeof this.exports?.frame !== 'function') {
       throw new Error('plugin exports must include init() and frame()')
@@ -472,6 +514,7 @@ export default class ViewGameRunner extends HTMLElement {
     this.canvas.addEventListener('wheel', this._boundWheel, { passive: true })
     this.canvas.addEventListener('keydown', this._boundKeyDown)
     this.canvas.addEventListener('keyup', this._boundKeyUp)
+    this.canvas.addEventListener('blur', this._boundBlur)
   }
 
   teardownInputHandlers() {
@@ -481,6 +524,7 @@ export default class ViewGameRunner extends HTMLElement {
     this.canvas.removeEventListener('wheel', this._boundWheel)
     this.canvas.removeEventListener('keydown', this._boundKeyDown)
     this.canvas.removeEventListener('keyup', this._boundKeyUp)
+    this.canvas.removeEventListener('blur', this._boundBlur)
   }
 
   _onResize() {
@@ -588,6 +632,9 @@ export default class ViewGameRunner extends HTMLElement {
     if (typeof ex.event_offset_window_width === 'function') {
       offsets.window_width = Number(ex.event_offset_window_width())
     }
+    if (typeof ex.event_offset_action_code === 'function') {
+      offsets.action_code = Number(ex.event_offset_action_code())
+    }
     if (typeof ex.event_offset_window_height === 'function') {
       offsets.window_height = Number(ex.event_offset_window_height())
     }
@@ -662,19 +709,93 @@ export default class ViewGameRunner extends HTMLElement {
   }
 
   onKeyDown(e) {
-    this._sendHostEventExample(1, (view, ptr) => {
-      view.setUint32(ptr + 12, e.keyCode || 0, true)
-      view.setUint32(ptr + 16, e.key?.codePointAt?.(0) || 0, true)
-      view.setUint32(ptr + 20, e.repeat ? 1 : 0, true)
-    })
+    if (window.keybindingManager?.enabled) {
+      return
+    }
+
+    const actionCode = this._actionByKey.get(this._normalizeKeyForBinding(e))
+    if (!actionCode) return
+    e.preventDefault()
+    this._dispatchActionEvent(actionCode, true)
   }
 
   onKeyUp(e) {
-    this._sendHostEventExample(2, (view, ptr) => {
-      view.setUint32(ptr + 12, e.keyCode || 0, true)
-      view.setUint32(ptr + 16, e.key?.codePointAt?.(0) || 0, true)
-      view.setUint32(ptr + 20, e.repeat ? 1 : 0, true)
-    })
+    const actionCode = this._actionByKey.get(this._normalizeKeyForBinding(e))
+    if (!actionCode) return
+    e.preventDefault()
+    this._dispatchActionEvent(actionCode, false)
+  }
+
+  _normalizeKeyForBinding(event) {
+    const manager = window.keybindingManager
+    if (manager && typeof manager.normalizeKey === 'function') {
+      return manager.normalizeKey(event)
+    }
+    return event.key || null
+  }
+
+  _refreshActionBindings() {
+    this._actionByKey.clear()
+
+    const manager = window.keybindingManager
+    if (!manager || typeof manager.getKeybindingCatalog !== 'function') {
+      for (const binding of this.constructor.keybindings || []) {
+        const actionCode = ACTION_BY_EVENT_NAME.get(binding.eventName)
+        if (!actionCode || !binding.defaultKeys) continue
+        this._actionByKey.set(binding.defaultKeys, actionCode)
+      }
+      return
+    }
+
+    const catalog = manager.getKeybindingCatalog()
+    for (const binding of catalog) {
+      if (binding.source !== 'game-runner') continue
+      if (!binding.sourceEnabled || !binding.enabled || !binding.keys) continue
+      const actionCode = ACTION_BY_EVENT_NAME.get(binding.eventName)
+      if (!actionCode) continue
+      this._actionByKey.set(binding.keys, actionCode)
+    }
+  }
+
+  _dispatchActionEvent(actionCode, isDown) {
+    if (!this.memory || !this.exports || typeof this.exports.event !== 'function') {
+      return
+    }
+    if (typeof this.exports.get_event_buffer !== 'function') {
+      return
+    }
+
+    if (isDown) {
+      if (this._pressedActions.has(actionCode)) return
+      this._pressedActions.add(actionCode)
+    } else {
+      if (!this._pressedActions.has(actionCode)) return
+      this._pressedActions.delete(actionCode)
+    }
+
+    const eventPtr = this._getEventBufferPtr()
+    if (!eventPtr) return
+
+    const view = new DataView(this.memory.buffer)
+    const o = this._eventOffsets || FALLBACK_EVENT_OFFSETS
+    writeU64(view, eventPtr + o.frame_count, this._eventFrameCount++)
+    view.setUint32(eventPtr + o.type, isDown ? EVENT_TYPE_ACTION_DOWN : EVENT_TYPE_ACTION_UP, true)
+    view.setUint32(eventPtr + o.action_code, actionCode, true)
+    this.exports.event(eventPtr)
+  }
+
+  _releaseAllActions() {
+    if (this._pressedActions.size === 0) return
+    for (const actionCode of Array.from(this._pressedActions)) {
+      this._dispatchActionEvent(actionCode, false)
+    }
+  }
+
+  handleKeybinding(eventName) {
+    const actionCode = ACTION_BY_EVENT_NAME.get(eventName)
+    if (!actionCode) return false
+    this._dispatchActionEvent(actionCode, true)
+    return true
   }
 
   _sendHostEventExample(eventType, writeFields) {

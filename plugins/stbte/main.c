@@ -112,6 +112,177 @@ static size_t strlen(const char *s) {
 
 #define STBTE__tool_paste STBTE__num_tool
 
+#define STBTE_STATUS_OK 1
+#define STBTE_STATUS_ERR 0
+
+static void stbte_reset_structural_state(stbte_tilemap *tm) {
+  int next_active_layer;
+
+  if (tm->num_layers <= 0) {
+    tm->cur_layer = -1;
+    tm->solo_layer = -1;
+  } else {
+    next_active_layer = tm->num_layers - 1;
+    if (tm->cur_layer >= tm->num_layers)
+      tm->cur_layer = next_active_layer;
+    if (tm->solo_layer >= tm->num_layers)
+      tm->solo_layer = -1;
+  }
+
+  stbte__ui.has_selection = 0;
+  stbte__ui.select_x0 = 0;
+  stbte__ui.select_y0 = 0;
+  stbte__ui.select_x1 = 0;
+  stbte__ui.select_y1 = 0;
+  stbte__ui.has_copy = 0;
+  stbte__ui.copy_width = 0;
+  stbte__ui.copy_height = 0;
+  stbte__ui.copy_has_props = 0;
+  stbte__ui.copy_src = (stbte_tilemap *)0;
+  stbte__ui.copy_src_x = 0;
+  stbte__ui.copy_src_y = 0;
+
+  tm->undo_len = 0;
+  tm->redo_len = 0;
+  tm->undo_pos = 0;
+  tm->undo_available_valid = 0;
+  stbte__recompute_undo_available(tm);
+}
+
+static unsigned int stbte_insert_layer_bit(unsigned int mask, int index) {
+  unsigned int lower_mask;
+  unsigned int lower_bits;
+  unsigned int upper_bits;
+
+  if (index <= 0)
+    return mask << 1;
+
+  lower_mask = (1u << index) - 1u;
+  lower_bits = mask & lower_mask;
+  upper_bits = mask & ~lower_mask;
+  return lower_bits | (upper_bits << 1);
+}
+
+static unsigned int stbte_delete_layer_bit(unsigned int mask, int index) {
+  unsigned int lower_mask;
+  unsigned int lower_bits;
+  unsigned int upper_bits;
+
+  if (index <= 0) {
+    return mask >> 1;
+  }
+
+  lower_mask = (1u << index) - 1u;
+  lower_bits = mask & lower_mask;
+  upper_bits = (mask >> 1) & ~lower_mask;
+  return lower_bits | upper_bits;
+}
+
+static unsigned int stbte_move_layer_bit(unsigned int mask, int from_index,
+                                         int to_index) {
+  unsigned int bit;
+  unsigned int lower_bits;
+  unsigned int middle_bits;
+  unsigned int upper_bits;
+  unsigned int middle_mask;
+
+  if (from_index == to_index)
+    return mask;
+
+  bit = (mask >> from_index) & 1u;
+  if (from_index < to_index) {
+    lower_bits = from_index > 0 ? mask & ((1u << from_index) - 1u) : 0u;
+    middle_mask = (1u << (to_index - from_index)) - 1u;
+    middle_bits = (mask >> (from_index + 1)) & middle_mask;
+    upper_bits = mask & ~((1u << (to_index + 1)) - 1u);
+    return lower_bits | (middle_bits << from_index) | (bit << to_index) |
+           upper_bits;
+  }
+
+  lower_bits = to_index > 0 ? mask & ((1u << to_index) - 1u) : 0u;
+  middle_mask = (1u << (from_index - to_index)) - 1u;
+  middle_bits = (mask >> to_index) & middle_mask;
+  upper_bits = mask & ~((1u << (from_index + 1)) - 1u);
+  return lower_bits | (bit << to_index) | (middle_bits << (to_index + 1)) |
+         upper_bits;
+}
+
+static void stbte_rewrite_tile_layermasks(stbte_tilemap *tm,
+                                          unsigned int (*rewrite)(unsigned int,
+                                                                  int),
+                                          int index) {
+  int i;
+  for (i = 0; i < tm->num_tiles; ++i)
+    tm->tiles[i].layermask = rewrite(tm->tiles[i].layermask, index);
+  tm->tileinfo_dirty = 1;
+}
+
+static unsigned int stbte_move_layer_bit_wrapper(unsigned int mask, int packed) {
+  int from_index = packed >> 8;
+  int to_index = packed & 0xff;
+  return stbte_move_layer_bit(mask, from_index, to_index);
+}
+
+static short stbte_blank_value_for_layer(stbte_tilemap *tm, int layer) {
+  return layer == 0 ? tm->background_tile : STBTE__NO_TILE;
+}
+
+static void stbte_clear_cell_after_resize(stbte_tilemap *tm, int x, int y) {
+  int layer;
+  int prop;
+
+  for (layer = 0; layer < STBTE_MAX_LAYERS; ++layer)
+    tm->data[y][x][layer] = stbte_blank_value_for_layer(tm, layer);
+
+  for (prop = 0; prop < STBTE_MAX_PROPERTIES; ++prop)
+    tm->props[y][x][prop] = 0;
+}
+
+static int stbte_remap_deleted_layer_index(int index, int deleted_layer,
+                                           int next_num_layers) {
+  if (index < 0)
+    return index;
+  if (index == deleted_layer)
+    return deleted_layer < next_num_layers ? deleted_layer : next_num_layers - 1;
+  if (index > deleted_layer)
+    return index - 1;
+  return index;
+}
+
+static int stbte_remap_moved_layer_index(int index, int from_index,
+                                         int to_index) {
+  if (index < 0)
+    return index;
+  if (index == from_index)
+    return to_index;
+  if (from_index < to_index && index > from_index && index <= to_index)
+    return index - 1;
+  if (to_index < from_index && index >= to_index && index < from_index)
+    return index + 1;
+  return index;
+}
+
+static void stbte_swap_layers(stbte_tilemap *tm, int layer_a, int layer_b) {
+  int x, y;
+  short tmp;
+  stbte__layer layer_info;
+
+  if (layer_a == layer_b)
+    return;
+
+  for (y = 0; y < tm->max_y; ++y) {
+    for (x = 0; x < tm->max_x; ++x) {
+      tmp = tm->data[y][x][layer_a];
+      tm->data[y][x][layer_a] = tm->data[y][x][layer_b];
+      tm->data[y][x][layer_b] = tmp;
+    }
+  }
+
+  layer_info = tm->layerinfo[layer_a];
+  tm->layerinfo[layer_a] = tm->layerinfo[layer_b];
+  tm->layerinfo[layer_b] = layer_info;
+}
+
 /* ==========================================================================
  * LIFECYCLE
  * ========================================================================== */
@@ -145,6 +316,148 @@ stbte_clear(stbte_tilemap *tm) {
 __attribute__((export_name("stbte_set_dimensions"))) void
 stbte_set_dims(stbte_tilemap *tm, int max_x, int max_y) {
   stbte_set_dimensions(tm, max_x, max_y);
+}
+
+__attribute__((export_name("stbte_resize_map"))) int
+stbte_resize_map(stbte_tilemap *tm, int max_x, int max_y) {
+  int old_max_x;
+  int old_max_y;
+  int x;
+  int y;
+
+  if (tm == NULL)
+    return STBTE_STATUS_ERR;
+  if (max_x < 1 || max_y < 1 || max_x > STBTE_MAX_TILEMAP_X ||
+      max_y > STBTE_MAX_TILEMAP_Y)
+    return STBTE_STATUS_ERR;
+
+  old_max_x = tm->max_x;
+  old_max_y = tm->max_y;
+  if (old_max_x == max_x && old_max_y == max_y)
+    return STBTE_STATUS_OK;
+
+  for (y = 0; y < STBTE_MAX_TILEMAP_Y; ++y) {
+    for (x = 0; x < STBTE_MAX_TILEMAP_X; ++x) {
+      if (x < max_x && y < max_y && x < old_max_x && y < old_max_y)
+        continue;
+      stbte_clear_cell_after_resize(tm, x, y);
+    }
+  }
+
+  tm->max_x = max_x;
+  tm->max_y = max_y;
+  stbte_reset_structural_state(tm);
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_insert_layer"))) int
+stbte_insert_layer(stbte_tilemap *tm, int index) {
+  int x;
+  int y;
+  int layer;
+
+  if (tm == NULL)
+    return STBTE_STATUS_ERR;
+  if (tm->num_layers >= STBTE_MAX_LAYERS)
+    return STBTE_STATUS_ERR;
+  if (index < 0 || index > tm->num_layers)
+    return STBTE_STATUS_ERR;
+
+  for (y = 0; y < tm->max_y; ++y) {
+    for (x = 0; x < tm->max_x; ++x) {
+      for (layer = tm->num_layers; layer > index; --layer)
+        tm->data[y][x][layer] = tm->data[y][x][layer - 1];
+      tm->data[y][x][index] = stbte_blank_value_for_layer(tm, index);
+    }
+  }
+
+  for (layer = tm->num_layers; layer > index; --layer)
+    tm->layerinfo[layer] = tm->layerinfo[layer - 1];
+  tm->layerinfo[index].hidden = 0;
+  tm->layerinfo[index].locked = STBTE__unlocked;
+
+  tm->num_layers += 1;
+  if (tm->cur_layer >= index)
+    tm->cur_layer += 1;
+  if (tm->solo_layer >= index)
+    tm->solo_layer += 1;
+
+  stbte_rewrite_tile_layermasks(tm, stbte_insert_layer_bit, index);
+  stbte_reset_structural_state(tm);
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_delete_layer"))) int
+stbte_delete_layer(stbte_tilemap *tm, int index) {
+  int x;
+  int y;
+  int layer;
+  int next_num_layers;
+
+  if (tm == NULL)
+    return STBTE_STATUS_ERR;
+  if (tm->num_layers <= 1)
+    return STBTE_STATUS_ERR;
+  if (index < 0 || index >= tm->num_layers)
+    return STBTE_STATUS_ERR;
+
+  next_num_layers = tm->num_layers - 1;
+
+  for (y = 0; y < tm->max_y; ++y) {
+    for (x = 0; x < tm->max_x; ++x) {
+      for (layer = index; layer < next_num_layers; ++layer)
+        tm->data[y][x][layer] = tm->data[y][x][layer + 1];
+      tm->data[y][x][next_num_layers] =
+          stbte_blank_value_for_layer(tm, next_num_layers);
+    }
+  }
+
+  for (layer = index; layer < next_num_layers; ++layer)
+    tm->layerinfo[layer] = tm->layerinfo[layer + 1];
+  tm->layerinfo[next_num_layers].hidden = 0;
+  tm->layerinfo[next_num_layers].locked = STBTE__unlocked;
+
+  tm->cur_layer =
+      stbte_remap_deleted_layer_index(tm->cur_layer, index, next_num_layers);
+  tm->solo_layer =
+      stbte_remap_deleted_layer_index(tm->solo_layer, index, next_num_layers);
+  tm->num_layers = next_num_layers;
+
+  stbte_rewrite_tile_layermasks(tm, stbte_delete_layer_bit, index);
+  stbte_reset_structural_state(tm);
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_move_layer"))) int
+stbte_move_layer(stbte_tilemap *tm, int from_index, int to_index) {
+  int step;
+
+  if (tm == NULL)
+    return STBTE_STATUS_ERR;
+  if (from_index < 0 || from_index >= tm->num_layers)
+    return STBTE_STATUS_ERR;
+  if (to_index < 0 || to_index >= tm->num_layers)
+    return STBTE_STATUS_ERR;
+  if (from_index == to_index)
+    return STBTE_STATUS_OK;
+
+  if (from_index < to_index) {
+    for (step = from_index; step < to_index; ++step)
+      stbte_swap_layers(tm, step, step + 1);
+  } else {
+    for (step = from_index; step > to_index; --step)
+      stbte_swap_layers(tm, step, step - 1);
+  }
+
+  tm->cur_layer = stbte_remap_moved_layer_index(tm->cur_layer, from_index,
+                                                 to_index);
+  tm->solo_layer = stbte_remap_moved_layer_index(tm->solo_layer, from_index,
+                                                 to_index);
+
+  stbte_rewrite_tile_layermasks(
+      tm, stbte_move_layer_bit_wrapper, (from_index << 8) | to_index);
+  stbte_reset_structural_state(tm);
+  return STBTE_STATUS_OK;
 }
 
 /* ==========================================================================
