@@ -1,7 +1,6 @@
 {
   "package": "respacktest",
   "types": {
-    "Id": "u32",
     "Vec2": {
       "type": "struct",
       "fields": {
@@ -9,23 +8,30 @@
         "y": "f32"
       }
     },
-    "Entity": {
+    "ColorRGB": {
+      "type": "array",
+      "len": 3,
+      "value": "u8"
+    },
+    "Bundle": {
       "type": "struct",
       "fields": {
-        "id": "Id",
-        "name": {
-          "type": "string",
-          "default": ""
+        "points": {
+          "type": "vector",
+          "value": "Vec2"
         },
-        "pos": "Vec2",
-        "enabled": {
-          "type": "bool",
-          "default": true
+        "blob": {
+          "type": "bytes",
+          "max_len": 64
+        },
+        "palette": {
+          "type": "vector",
+          "value": "ColorRGB"
         }
       }
     }
   },
   "data": [
-    "Entity"
+    "Bundle"
   ]
 }
