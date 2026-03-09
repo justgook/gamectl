@@ -187,6 +187,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       this.exports = this.plugin.exports
 
       this.loadOffsets()
+      this.validateEditorDimensions(this.mapWidth, this.mapHeight, this.layers)
 
       this.tilemap = this.exports.stbte_create(
         this.mapWidth,
@@ -377,8 +378,25 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.offsets.sizeof_layer = this.exports.stbte_sizeof_layer()
     this.offsets.sizeof_tileinfo = this.exports.stbte_sizeof_tileinfo()
     this.offsets.max_map_x = this.exports.stbte_max_map_x()
+    this.offsets.max_map_y = this.exports.stbte_max_map_y()
     this.offsets.max_layers = this.exports.stbte_max_layers()
     this.uiPtr = this.exports.stbte_ui_ptr()
+  }
+
+  validateEditorDimensions(mapWidth = this.mapWidth, mapHeight = this.mapHeight, layers = this.layers) {
+    const maxWidth = Math.max(1, Number(this.offsets.max_map_x) || 0)
+    const maxHeight = Math.max(1, Number(this.offsets.max_map_y) || 0)
+    const maxLayers = Math.max(1, Number(this.offsets.max_layers) || 0)
+
+    if (mapWidth < 1 || mapHeight < 1 || layers < 1) {
+      throw new Error('Map width, height, and layers must be at least 1')
+    }
+    if (mapWidth > maxWidth || mapHeight > maxHeight) {
+      throw new Error(`Map size exceeds STB limits (${maxWidth}x${maxHeight})`)
+    }
+    if (layers > maxLayers) {
+      throw new Error(`Layer count exceeds STB limit (${maxLayers})`)
+    }
   }
 
   async defineTilesFromAtlases() {
@@ -1484,6 +1502,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const nextTileSize = Math.max(1, Number(tileSize) || this.tileSize)
     const nextMapWidth = Math.max(1, Number(mapWidth) || this.mapWidth)
     const nextMapHeight = Math.max(1, Number(mapHeight) || this.mapHeight)
+    this.validateEditorDimensions(nextMapWidth, nextMapHeight, this.layers)
     const isSame = nextTileSize === this.tileSize && nextMapWidth === this.mapWidth && nextMapHeight === this.mapHeight
     if (isSame) return false
 
@@ -1568,6 +1587,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   async addLayer() {
+    this.validateEditorDimensions(this.mapWidth, this.mapHeight, this.layers + 1)
     const snapshot = this.exportTilemapData()
     const width = snapshot.layers[0]?.width || this.mapWidth
     const height = this.mapHeight
