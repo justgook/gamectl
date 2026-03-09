@@ -34,6 +34,25 @@ native_swapchain :: proc() -> sg.Swapchain {
 	return sglue.swapchain()
 }
 
+native_map_action :: proc(key: sapp.Keycode) -> (u32, bool) {
+	#partial switch key {
+	case .A, .LEFT:
+		return game2.ACTION_LEFT, true
+	case .D, .RIGHT:
+		return game2.ACTION_RIGHT, true
+	case .W, .UP:
+		return game2.ACTION_UP, true
+	case .S, .DOWN:
+		return game2.ACTION_DOWN, true
+	case .J:
+		return game2.ACTION_1, true
+	case .K:
+		return game2.ACTION_2, true
+	case:
+		return 0, false
+	}
+}
+
 native_init :: proc "c" () {
 	context = runtime.default_context()
 	sg.setup({environment = sglue.environment(), logger = {func = slog.func}})
@@ -61,6 +80,14 @@ native_event :: proc "c" (e: ^sapp.Event) {
 	case .RESIZED:
 		game2.core_handle_resize(i32(e.window_height))
 		game2.core_handle_framebuffer_resize(i32(e.framebuffer_width), i32(e.framebuffer_height))
+	case .KEY_DOWN:
+		if action, ok := native_map_action(e.key_code); ok {
+			game2.core_handle_action_down(action)
+		}
+	case .KEY_UP:
+		if action, ok := native_map_action(e.key_code); ok {
+			game2.core_handle_action_up(action)
+		}
 	case:
 	}
 }

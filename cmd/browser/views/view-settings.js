@@ -710,6 +710,7 @@ export class ViewSettings extends HTMLElement {
 
       this.keybindings.pendingChanges.clear()
       await this.loadKeybindings()
+      bus.emit('keybindings:changed')
       this.render()
 
       toast.success('Keybindings saved')
