@@ -20,7 +20,8 @@ Renderer :: struct {
 	bind:             sg.Bindings,
 	tileset_view:     sg.View,
 	lut_view:         sg.View,
-	sampler:          sg.Sampler,
+	tileset_sampler:  sg.Sampler,
+	lut_sampler:      sg.Sampler,
 	count:            int,
 	instances:        [MAX_TILEMAPS]Instance,
 	tileset_tex_size: [2]f32,
@@ -30,12 +31,14 @@ Renderer :: struct {
 
 init :: proc(tileset_tex, lut_tex: sg.Image, tileset_width, tileset_height, lut_width, lut_height: i32) -> Renderer {
 	renderer: Renderer
-	renderer.sampler = sg.make_sampler({})
+	renderer.tileset_sampler = sg.make_sampler({})
+	renderer.lut_sampler = sg.make_sampler({})
 	renderer.tileset_view = sg.make_view({texture = {image = tileset_tex}})
 	renderer.lut_view = sg.make_view({texture = {image = lut_tex}})
 	renderer.bind.views[VIEW_tileset_tex] = renderer.tileset_view
 	renderer.bind.views[VIEW_lut_tex] = renderer.lut_view
-	renderer.bind.samplers[SMP_smp] = renderer.sampler
+	renderer.bind.samplers[SMP_tileset_smp] = renderer.tileset_sampler
+	renderer.bind.samplers[SMP_lut_smp] = renderer.lut_sampler
 	renderer.tileset_tex_size = {f32(tileset_width), f32(tileset_height)}
 	renderer.lut_tex_size = {f32(lut_width), f32(lut_height)}
 
@@ -89,7 +92,8 @@ shutdown :: proc(renderer: ^Renderer) {
 	sg.destroy_buffer(renderer.bind.vertex_buffers[0])
 	sg.destroy_buffer(renderer.bind.vertex_buffers[1])
 	sg.destroy_buffer(renderer.bind.index_buffer)
-	sg.destroy_sampler(renderer.sampler)
+	sg.destroy_sampler(renderer.tileset_sampler)
+	sg.destroy_sampler(renderer.lut_sampler)
 	sg.destroy_view(renderer.tileset_view)
 	sg.destroy_view(renderer.lut_view)
 	renderer^ = {}

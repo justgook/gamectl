@@ -30,8 +30,10 @@ export class GLBridge {
     this.currentProgram = null;
     this.boundBuffers = new Map();
     this.boundTextures = new Map();
+    this.activeTextureUnit = gl.TEXTURE0;
     this.lastGeneratedTexture = null;
     this.lastGeneratedTextureId = 0;
+    this.pendingTextureInitId = 0;
 
     // Error state
     this.lastError = 0;
@@ -86,6 +88,14 @@ export class GLBridge {
     return id;
   }
 
+  findId(obj, map) {
+    if (!obj) return 0;
+    for (const [id, o] of map) {
+      if (o === obj) return id;
+    }
+    return 0;
+  }
+
   // Helper: Get object by ID
   getObject(id, map) {
     if (id === 0) return null;
@@ -106,6 +116,7 @@ export class GLBridge {
   // GL Functions
 
   glActiveTexture(texture) {
+    this.activeTextureUnit = texture;
     this.gl.activeTexture(texture);
   }
 
@@ -159,7 +170,10 @@ export class GLBridge {
       console.warn('glBindTexture: missing texture object', { target, texture, known: Array.from(this.textures.keys()).slice(0, 8) });
     }
     this.gl.bindTexture(target, tex);
-    this.boundTextures.set(target, texture);
+    this.boundTextures.set(`${this.activeTextureUnit}:${target}`, texture);
+    if (texture === this.pendingTextureInitId) {
+      this.pendingTextureInitId = 0;
+    }
   }
 
   glBindVertexArray(array) {
@@ -509,8 +523,19 @@ export class GLBridge {
       const id = this.getId(tex, this.textures);
       this.lastGeneratedTexture = tex;
       this.lastGeneratedTextureId = id;
+      this.pendingTextureInitId = id;
       view.setUint32(textures + i * 4, id, true);
     }
+  }
+
+  ensurePendingTextureBinding(target) {
+    if (target !== this.gl.TEXTURE_2D) return;
+    if (!this.pendingTextureInitId) return;
+    const tex = this.getObject(this.pendingTextureInitId, this.textures);
+    if (!tex) return;
+    this.gl.bindTexture(target, tex);
+    this.boundTextures.set(`${this.activeTextureUnit}:${target}`, this.pendingTextureInitId);
+    this.pendingTextureInitId = 0;
   }
 
   glGenVertexArrays(n, arrays) {
@@ -634,7 +659,6 @@ export class GLBridge {
       0x919F: 256,  // GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT
       0x8DF4: 0,    // GL_NUM_EXTENSIONS
       0x8B4C: 0,    // GL_MAX_COLOR_ATTACHMENTS
-      0x8B4D: 0,    // GL_MAX_SAMPLES
       0x8824: 8,    // GL_MAX_DRAW_BUFFERS (WebGL2 supports at least 8)
       0x8B4B: 0,    // GL_MAX_DUAL_SOURCE_DRAW_BUFFERS
       0x8B4E: 1,    // GL_MAX_COLOR_TEXTURE_SAMPLES
@@ -651,16 +675,47 @@ export class GLBridge {
       return;
     }
 
+    switch (pname) {
+      case gl.CURRENT_PROGRAM:
+        view.setInt32(data, this.findId(gl.getParameter(pname), this.programs), true);
+        return;
+      case gl.ARRAY_BUFFER_BINDING:
+      case gl.ELEMENT_ARRAY_BUFFER_BINDING:
+        view.setInt32(data, this.findId(gl.getParameter(pname), this.buffers), true);
+        return;
+      case gl.VERTEX_ARRAY_BINDING:
+        view.setInt32(data, this.findId(gl.getParameter(pname), this.vertexArrays), true);
+        return;
+      case gl.TEXTURE_BINDING_2D:
+      case gl.TEXTURE_BINDING_CUBE_MAP:
+      case gl.TEXTURE_BINDING_3D:
+      case gl.TEXTURE_BINDING_2D_ARRAY:
+        view.setInt32(data, this.findId(gl.getParameter(pname), this.textures), true);
+        return;
+      case gl.SAMPLER_BINDING:
+        view.setInt32(data, this.findId(gl.getParameter(pname), this.samplers), true);
+        return;
+      case gl.RENDERBUFFER_BINDING:
+        view.setInt32(data, this.findId(gl.getParameter(pname), this.renderbuffers), true);
+        return;
+      case gl.DRAW_FRAMEBUFFER_BINDING:
+      case gl.READ_FRAMEBUFFER_BINDING:
+        view.setInt32(data, this.findId(gl.getParameter(pname), this.framebuffers), true);
+        return;
+    }
+
     // Wrap in try-catch to catch any remaining unsupported enums
     try {
       const value = gl.getParameter(pname);
 
-      if (Array.isArray(value) || value instanceof Int32Array) {
+      if (Array.isArray(value) || ArrayBuffer.isView(value)) {
         for (let i = 0; i < value.length; i++) {
-          view.setInt32(data + i * 4, value[i], true);
+          view.setInt32(data + i * 4, Number(value[i]) || 0, true);
         }
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        view.setInt32(data, Number(value) || 0, true);
       } else {
-        view.setInt32(data, value || 0, true);
+        view.setInt32(data, 0, true);
       }
     } catch (e) {
       console.warn(`glGetIntegerv: Unknown unsupported parameter 0x${pname.toString(16)} - add to unsupportedDefaults`);
@@ -924,14 +979,7 @@ export class GLBridge {
   }
 
   glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels) {
-    if (!this.gl.getParameter(this.gl.TEXTURE_BINDING_2D) && target === this.gl.TEXTURE_2D) {
-      if (this.lastGeneratedTexture) {
-        this.gl.bindTexture(target, this.lastGeneratedTexture);
-        this.boundTextures.set(target, this.lastGeneratedTextureId);
-      } else {
-        console.warn('glTexImage2D: no texture bound', { target, level, width, height, bound: this.boundTextures.get(target) ?? null });
-      }
-    }
+    this.ensurePendingTextureBinding(target);
     if (pixels === 0) {
       this.gl.texImage2D(target, level, internalformat, width, height, border, format, type, null);
     } else {
@@ -957,18 +1005,12 @@ export class GLBridge {
   }
 
   glTexParameteri(target, pname, param) {
-    if (!this.gl.getParameter(this.gl.TEXTURE_BINDING_2D) && target === this.gl.TEXTURE_2D) {
-      if (this.lastGeneratedTexture) {
-        this.gl.bindTexture(target, this.lastGeneratedTexture);
-        this.boundTextures.set(target, this.lastGeneratedTextureId);
-      } else {
-        console.warn('glTexParameteri: no texture bound', { target, pname, param, bound: this.boundTextures.get(target) ?? null });
-      }
-    }
+    this.ensurePendingTextureBinding(target);
     this.gl.texParameteri(target, pname, param);
   }
 
   glTexStorage2D(target, levels, internalformat, width, height) {
+    this.ensurePendingTextureBinding(target);
     this.gl.texStorage2D(target, levels, internalformat, width, height);
   }
 
@@ -977,6 +1019,7 @@ export class GLBridge {
   }
 
   glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels) {
+    this.ensurePendingTextureBinding(target);
     const size = width * height * 4; // Simplified
     const data = new Uint8Array(this.memory.buffer, pixels, size);
     this.gl.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, data);
