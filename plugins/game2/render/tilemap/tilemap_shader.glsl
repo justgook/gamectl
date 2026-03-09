@@ -43,7 +43,8 @@ void main() {
 @fs fs_tilemap
 layout(binding=0) uniform texture2D tileset_tex;
 layout(binding=1) uniform texture2D lut_tex;
-layout(binding=0) uniform sampler smp;
+layout(binding=0) uniform sampler tileset_smp;
+layout(binding=1) uniform sampler lut_smp;
 
 in vec2 frag_uv;
 in vec2 frag_tile_size;
@@ -56,11 +57,16 @@ in vec2 frag_lut_tex_size;
 
 out vec4 frag_color;
 
+float decode_tile_index(vec4 color) {
+    vec4 bytes = floor(color * 255.0 + 0.5);
+    return bytes.r + bytes.g * 256.0 + bytes.b * 65536.0 + bytes.a * 16777216.0;
+}
+
 void main() {
     vec2 map_pixel = frag_uv * frag_lut_size_px;
     vec2 lut_uv = frag_lut_uv.xy + (floor(map_pixel) + 0.5) / frag_lut_tex_size;
-    vec4 lut_color = texture(sampler2D(lut_tex, smp), lut_uv);
-    float index = floor(lut_color.r * 255.0 + 0.5);
+    vec4 lut_color = texture(sampler2D(lut_tex, lut_smp), lut_uv);
+    float index = decode_tile_index(lut_color);
 
     if (index <= 0.0) {
         discard;
@@ -74,7 +80,7 @@ void main() {
 
     vec2 tile_offset = floor(fract(map_pixel) * frag_tile_size);
     vec2 tileset_uv = frag_tileset_uv.xy + (floor(tile_coord * frag_tile_size + tile_offset) + 0.5) / frag_tileset_tex_size;
-    frag_color = texture(sampler2D(tileset_tex, smp), tileset_uv);
+    frag_color = texture(sampler2D(tileset_tex, tileset_smp), tileset_uv);
 }
 @end
 
