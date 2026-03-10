@@ -1,4 +1,5 @@
 build.nosync/
 tools/
-sokol/
+# sokol/
+*.a
 /env.o
