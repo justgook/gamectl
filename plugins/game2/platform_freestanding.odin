@@ -1,6 +1,6 @@
 #+build freestanding
 
-package game2
+package main
 
 import runtime "base:runtime"
 import "core:c"
@@ -36,14 +36,35 @@ wasm_asset_read_all :: proc(path: string) -> ([]u8, bool) {
 		return []u8{}, true
 	}
 	if size > ASSET_SCRATCH_CAPACITY {
-		assert(false, fmt.tprintf("wasm asset too large for scratch buffer: %s (%d > %d)", path, size, ASSET_SCRATCH_CAPACITY))
+		assert(
+			false,
+			fmt.tprintf(
+				"wasm asset too large for scratch buffer: %s (%d > %d)",
+				path,
+				size,
+				ASSET_SCRATCH_CAPACITY,
+			),
+		)
 		return nil, false
 	}
 
 	buf := asset_scratch[:size]
-	bytes_read := game_asset_read(path_ptr, u32(len(path_bytes)), u32(uintptr(&buf[0])), u32(len(buf)))
+	bytes_read := game_asset_read(
+		path_ptr,
+		u32(len(path_bytes)),
+		u32(uintptr(&buf[0])),
+		u32(len(buf)),
+	)
 	if bytes_read != size {
-		assert(false, fmt.tprintf("wasm asset read failed: %s (expected %d bytes, got %d)", path, size, bytes_read))
+		assert(
+			false,
+			fmt.tprintf(
+				"wasm asset read failed: %s (expected %d bytes, got %d)",
+				path,
+				size,
+				bytes_read,
+			),
+		)
 		return nil, false
 	}
 	return buf, true
