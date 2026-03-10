@@ -890,6 +890,110 @@ outputs[1] = json.encode(items)
 outputs[2] = json.encode({ count = #items })
 `;
 
+    const respackDemo = String.raw`-- Demo: initialize respack, write a payload, and generate an Odin decoder.
+-- Text-only on purpose: respack.dump returns binary bytes, while this demo keeps
+-- everything JSON/string based for the current nodegraph host bridge.
+
+local schema = [[
+{
+  "package": "respacktest",
+  "types": {
+    "Vec2": {
+      "type": "struct",
+      "fields": {
+        "x": "f32",
+        "y": "f32"
+      }
+    },
+    "CircleShape": {
+      "type": "struct",
+      "fields": {
+        "radius": "f32"
+      }
+    },
+    "RectShape": {
+      "type": "struct",
+      "fields": {
+        "size": "Vec2"
+      }
+    },
+    "Shape": {
+      "type": "oneof",
+      "value": ["CircleShape", "RectShape"]
+    },
+    "ColorRGB": {
+      "type": "array",
+      "len": 3,
+      "value": "u8"
+    },
+    "Bundle": {
+      "type": "struct",
+      "fields": {
+        "points": {
+          "type": "vector",
+          "value": "Vec2"
+        },
+        "blob": {
+          "type": "bytes",
+          "max_len": 64
+        },
+        "label": {
+          "type": "string"
+        },
+        "text_blob": {
+          "type": "bytes",
+          "max_len": 16
+        },
+        "shape": "Shape",
+        "palette": {
+          "type": "vector",
+          "value": "ColorRGB"
+        }
+      }
+    }
+  },
+  "data": ["Bundle"]
+}
+]]
+
+local payload = {
+  points = {
+    { x = 3.5, y = -2.0 },
+    { x = 10.25, y = 8.75 },
+  },
+  blob = { 0, 17, 34, 51, 200, 255 },
+  label = "line\\n2",
+  text_blob = "line\\n2",
+  shape = {
+    rect = {
+      size = { x = 6.0, y = 9.5 }
+    }
+  },
+  palette = {
+    { 255, 0, 128 },
+    { 12, 34, 56 },
+    { 1, 2, 3 },
+  }
+}
+
+local initResult = host.awaitCall("respack", "init", schema)
+local writeResult = host.awaitCall("respack", "write", json.encode({
+  slot = 0,
+  payload = payload,
+}))
+local odinSource = host.awaitCall("respack", "generate_odin", "main")
+
+outputs[1] = odinSource
+outputs[2] = json.encode({
+  init = initResult,
+  write = writeResult,
+  package = "main",
+  slot = 0,
+  schema = "Bundle",
+  generated_bytes = #odinSource,
+})
+`;
+
     return [
       {
         name: "tilemap sql parse demo",
@@ -902,6 +1006,20 @@ outputs[2] = json.encode({ count = #items })
           outputs: [
             { outputId: 1, name: "items" },
             { outputId: 2, name: "stats" },
+          ],
+        },
+      },
+      {
+        name: "respack text demo",
+        kind: NG.NODE_CODE,
+        data: {
+          kind: NG.NODE_CODE,
+          name: "respack text demo",
+          code: respackDemo,
+          inputs: [],
+          outputs: [
+            { outputId: 1, name: "odin_source" },
+            { outputId: 2, name: "status" },
           ],
         },
       },

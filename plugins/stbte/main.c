@@ -132,8 +132,264 @@ typedef struct stbte_logical_store {
   uint32_t map_height;
   uint32_t layer_count;
   uint32_t capacity_bytes;
+  uint32_t has_selection;
+  uint32_t select_x0;
+  uint32_t select_y0;
+  uint32_t select_x1;
+  uint32_t select_y1;
+  uint32_t clipboard_width;
+  uint32_t clipboard_height;
+  uint32_t clipboard_capacity_bytes;
+  uint32_t has_clipboard;
+  uint32_t undo_origin_x;
+  uint32_t undo_origin_y;
+  uint32_t undo_width;
+  uint32_t undo_height;
+  uint32_t undo_capacity_bytes;
+  uint32_t has_undo;
+  uint32_t redo_origin_x;
+  uint32_t redo_origin_y;
+  uint32_t redo_width;
+  uint32_t redo_height;
+  uint32_t redo_capacity_bytes;
+  uint32_t has_redo;
   uint16_t *data;
+  uint16_t *clipboard_data;
+  uint16_t *undo_data;
+  uint16_t *redo_data;
 } stbte_logical_store;
+
+static uint64_t stbte_logical_clipboard_required_bytes(uint32_t width,
+                                                       uint32_t height,
+                                                       uint32_t layer_count) {
+  return (uint64_t)width * (uint64_t)height * (uint64_t)layer_count *
+         (uint64_t)sizeof(uint16_t);
+}
+
+static int stbte_logical_ensure_clipboard_capacity(stbte_logical_store *store,
+                                                    uint32_t width,
+                                                    uint32_t height) {
+  uint64_t required;
+  uint16_t *next_data;
+
+  if (store == NULL || width == 0 || height == 0 || store->layer_count == 0)
+    return STBTE_STATUS_ERR;
+
+  required =
+      stbte_logical_clipboard_required_bytes(width, height, store->layer_count);
+  if (required == 0 || required > 0xffffffffu)
+    return STBTE_STATUS_ERR;
+  if (store->clipboard_data != NULL && store->clipboard_capacity_bytes >= required)
+    return STBTE_STATUS_OK;
+
+  next_data = (uint16_t *)malloc_internal((size_t)required);
+  if (next_data == NULL)
+    return STBTE_STATUS_ERR;
+  store->clipboard_data = next_data;
+  store->clipboard_capacity_bytes = (uint32_t)required;
+  return STBTE_STATUS_OK;
+}
+
+static int stbte_logical_ensure_region_capacity(uint16_t **buffer,
+                                                uint32_t *capacity_bytes,
+                                                uint32_t width,
+                                                uint32_t height,
+                                                uint32_t layer_count) {
+  uint64_t required;
+  uint16_t *next_data;
+
+  if (buffer == NULL || capacity_bytes == NULL || width == 0 || height == 0 ||
+      layer_count == 0)
+    return STBTE_STATUS_ERR;
+
+  required =
+      stbte_logical_clipboard_required_bytes(width, height, layer_count);
+  if (required == 0 || required > 0xffffffffu)
+    return STBTE_STATUS_ERR;
+  if (*buffer != NULL && *capacity_bytes >= required)
+    return STBTE_STATUS_OK;
+
+  next_data = (uint16_t *)malloc_internal((size_t)required);
+  if (next_data == NULL)
+    return STBTE_STATUS_ERR;
+  *buffer = next_data;
+  *capacity_bytes = (uint32_t)required;
+  return STBTE_STATUS_OK;
+}
+
+static void stbte_logical_clamp_selection(stbte_logical_store *store) {
+  uint32_t max_x;
+  uint32_t max_y;
+
+  if (store == NULL || !store->has_selection)
+    return;
+  if (store->map_width == 0 || store->map_height == 0) {
+    store->has_selection = 0;
+    return;
+  }
+
+  max_x = store->map_width - 1;
+  max_y = store->map_height - 1;
+  if (store->select_x0 > max_x)
+    store->select_x0 = max_x;
+  if (store->select_x1 > max_x)
+    store->select_x1 = max_x;
+  if (store->select_y0 > max_y)
+    store->select_y0 = max_y;
+  if (store->select_y1 > max_y)
+    store->select_y1 = max_y;
+  if (store->select_x0 > store->select_x1) {
+    uint32_t swap = store->select_x0;
+    store->select_x0 = store->select_x1;
+    store->select_x1 = swap;
+  }
+  if (store->select_y0 > store->select_y1) {
+    uint32_t swap = store->select_y0;
+    store->select_y0 = store->select_y1;
+    store->select_y1 = swap;
+  }
+}
+
+static void stbte_logical_clear_clipboard(stbte_logical_store *store) {
+  if (store == NULL)
+    return;
+  store->clipboard_width = 0;
+  store->clipboard_height = 0;
+  store->has_clipboard = 0;
+}
+
+static void stbte_logical_clear_history(stbte_logical_store *store) {
+  if (store == NULL)
+    return;
+  store->undo_origin_x = 0;
+  store->undo_origin_y = 0;
+  store->undo_width = 0;
+  store->undo_height = 0;
+  store->has_undo = 0;
+  store->redo_origin_x = 0;
+  store->redo_origin_y = 0;
+  store->redo_width = 0;
+  store->redo_height = 0;
+  store->has_redo = 0;
+}
+
+static void stbte_logical_clear_redo(stbte_logical_store *store) {
+  if (store == NULL)
+    return;
+  store->redo_origin_x = 0;
+  store->redo_origin_y = 0;
+  store->redo_width = 0;
+  store->redo_height = 0;
+  store->has_redo = 0;
+}
+
+static int stbte_logical_copy_region_from_store(stbte_logical_store *store,
+                                                uint32_t origin_x,
+                                                uint32_t origin_y,
+                                                uint32_t width,
+                                                uint32_t height,
+                                                uint16_t *dst) {
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+  uint64_t layer_stride;
+  uint64_t region_stride;
+
+  if (store == NULL || store->data == NULL || dst == NULL || width == 0 ||
+      height == 0)
+    return STBTE_STATUS_ERR;
+
+  layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
+  region_stride = (uint64_t)width * (uint64_t)height;
+  for (layer = 0; layer < store->layer_count; ++layer) {
+    uint16_t *src_layer = store->data + (layer * layer_stride);
+    uint16_t *dst_layer = dst + (layer * region_stride);
+    for (y = 0; y < height; ++y) {
+      for (x = 0; x < width; ++x) {
+        dst_layer[(y * width) + x] =
+            src_layer[((uint64_t)(origin_y + y) * store->map_width) +
+                      origin_x + x];
+      }
+    }
+  }
+  return STBTE_STATUS_OK;
+}
+
+static int stbte_logical_copy_region_to_store(stbte_logical_store *store,
+                                              uint32_t origin_x,
+                                              uint32_t origin_y,
+                                              uint32_t width,
+                                              uint32_t height,
+                                              const uint16_t *src) {
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+  uint64_t layer_stride;
+  uint64_t region_stride;
+
+  if (store == NULL || store->data == NULL || src == NULL || width == 0 ||
+      height == 0)
+    return STBTE_STATUS_ERR;
+
+  layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
+  region_stride = (uint64_t)width * (uint64_t)height;
+  for (layer = 0; layer < store->layer_count; ++layer) {
+    uint16_t *dst_layer = store->data + (layer * layer_stride);
+    const uint16_t *src_layer = src + (layer * region_stride);
+    for (y = 0; y < height; ++y) {
+      for (x = 0; x < width; ++x) {
+        dst_layer[((uint64_t)(origin_y + y) * store->map_width) + origin_x + x] =
+            src_layer[(y * width) + x];
+      }
+    }
+  }
+  return STBTE_STATUS_OK;
+}
+
+static int stbte_logical_record_undo_state(stbte_logical_store *store,
+                                           uint32_t origin_x,
+                                           uint32_t origin_y,
+                                           uint32_t width,
+                                           uint32_t height) {
+  if (store == NULL || width == 0 || height == 0)
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_ensure_region_capacity(&store->undo_data,
+                                            &store->undo_capacity_bytes, width,
+                                            height, store->layer_count))
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_copy_region_from_store(store, origin_x, origin_y, width,
+                                            height, store->undo_data))
+    return STBTE_STATUS_ERR;
+  store->undo_origin_x = origin_x;
+  store->undo_origin_y = origin_y;
+  store->undo_width = width;
+  store->undo_height = height;
+  store->has_undo = 1;
+  store->has_redo = 0;
+  return STBTE_STATUS_OK;
+}
+
+static int stbte_logical_capture_redo_state(stbte_logical_store *store,
+                                            uint32_t origin_x,
+                                            uint32_t origin_y,
+                                            uint32_t width,
+                                            uint32_t height) {
+  if (store == NULL || width == 0 || height == 0)
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_ensure_region_capacity(&store->redo_data,
+                                            &store->redo_capacity_bytes, width,
+                                            height, store->layer_count))
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_copy_region_from_store(store, origin_x, origin_y, width,
+                                            height, store->redo_data))
+    return STBTE_STATUS_ERR;
+  store->redo_origin_x = origin_x;
+  store->redo_origin_y = origin_y;
+  store->redo_width = width;
+  store->redo_height = height;
+  store->has_redo = 1;
+  return STBTE_STATUS_OK;
+}
 
 static uint64_t stbte_logical_store_required_bytes(uint32_t map_width,
                                                    uint32_t map_height,
@@ -239,6 +495,12 @@ static int stbte_logical_reallocate(stbte_logical_store *store,
   store->map_height = map_height;
   store->layer_count = layer_count;
   store->capacity_bytes = (uint32_t)required;
+  if (store->has_selection)
+    stbte_logical_clamp_selection(store);
+  if (store->layer_count != layer_count || inserted_layer >= 0 ||
+      deleted_layer >= 0 || moved_from >= 0 || moved_to >= 0)
+    stbte_logical_clear_clipboard(store);
+  stbte_logical_clear_history(store);
   store->data = next_data;
   return STBTE_STATUS_OK;
 }
@@ -910,7 +1172,31 @@ stbte_logical_create(uint32_t map_width, uint32_t map_height,
   store->map_height = map_height;
   store->layer_count = layer_count;
   store->capacity_bytes = (uint32_t)required;
+  store->has_selection = 0;
+  store->select_x0 = 0;
+  store->select_y0 = 0;
+  store->select_x1 = 0;
+  store->select_y1 = 0;
+  store->clipboard_width = 0;
+  store->clipboard_height = 0;
+  store->clipboard_capacity_bytes = 0;
+  store->has_clipboard = 0;
+  store->undo_origin_x = 0;
+  store->undo_origin_y = 0;
+  store->undo_width = 0;
+  store->undo_height = 0;
+  store->undo_capacity_bytes = 0;
+  store->has_undo = 0;
+  store->redo_origin_x = 0;
+  store->redo_origin_y = 0;
+  store->redo_width = 0;
+  store->redo_height = 0;
+  store->redo_capacity_bytes = 0;
+  store->has_redo = 0;
   memset(store->data, 0, (size_t)required);
+  store->clipboard_data = (uint16_t *)0;
+  store->undo_data = (uint16_t *)0;
+  store->redo_data = (uint16_t *)0;
   return store;
 }
 
@@ -987,6 +1273,360 @@ stbte_logical_set_all(stbte_logical_store *store, uint32_t src_ptr,
   return STBTE_STATUS_OK;
 }
 
+__attribute__((export_name("stbte_logical_set_selection"))) int
+stbte_logical_set_selection(stbte_logical_store *store, uint32_t x0,
+                            uint32_t y0, uint32_t x1, uint32_t y1) {
+  uint32_t min_x;
+  uint32_t min_y;
+  uint32_t max_x;
+  uint32_t max_y;
+
+  if (store == NULL || store->map_width == 0 || store->map_height == 0)
+    return STBTE_STATUS_ERR;
+
+  min_x = x0 < x1 ? x0 : x1;
+  max_x = x0 < x1 ? x1 : x0;
+  min_y = y0 < y1 ? y0 : y1;
+  max_y = y0 < y1 ? y1 : y0;
+
+  if (min_x >= store->map_width)
+    min_x = store->map_width - 1;
+  if (max_x >= store->map_width)
+    max_x = store->map_width - 1;
+  if (min_y >= store->map_height)
+    min_y = store->map_height - 1;
+  if (max_y >= store->map_height)
+    max_y = store->map_height - 1;
+
+  store->has_selection = 1;
+  store->select_x0 = min_x;
+  store->select_y0 = min_y;
+  store->select_x1 = max_x;
+  store->select_y1 = max_y;
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_clear_selection"))) void
+stbte_logical_clear_selection(stbte_logical_store *store) {
+  if (store == NULL)
+    return;
+  store->has_selection = 0;
+  store->select_x0 = 0;
+  store->select_y0 = 0;
+  store->select_x1 = 0;
+  store->select_y1 = 0;
+}
+
+__attribute__((export_name("stbte_logical_has_selection"))) uint32_t
+stbte_logical_has_selection(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->has_selection;
+}
+
+__attribute__((export_name("stbte_logical_selection_x0"))) uint32_t
+stbte_logical_selection_x0(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->select_x0;
+}
+
+__attribute__((export_name("stbte_logical_selection_y0"))) uint32_t
+stbte_logical_selection_y0(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->select_y0;
+}
+
+__attribute__((export_name("stbte_logical_selection_x1"))) uint32_t
+stbte_logical_selection_x1(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->select_x1;
+}
+
+__attribute__((export_name("stbte_logical_selection_y1"))) uint32_t
+stbte_logical_selection_y1(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->select_y1;
+}
+
+__attribute__((export_name("stbte_logical_copy_selection"))) int
+stbte_logical_copy_selection(stbte_logical_store *store) {
+  uint32_t width;
+  uint32_t height;
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+  uint64_t layer_stride;
+  uint64_t clip_stride;
+
+  if (store == NULL || store->data == NULL || !store->has_selection)
+    return STBTE_STATUS_ERR;
+
+  stbte_logical_clamp_selection(store);
+  width = store->select_x1 - store->select_x0 + 1;
+  height = store->select_y1 - store->select_y0 + 1;
+  if (!stbte_logical_ensure_clipboard_capacity(store, width, height))
+    return STBTE_STATUS_ERR;
+
+  layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
+  clip_stride = (uint64_t)width * (uint64_t)height;
+  for (layer = 0; layer < store->layer_count; ++layer) {
+    uint16_t *src_layer = store->data + (layer * layer_stride);
+    uint16_t *dst_layer = store->clipboard_data + (layer * clip_stride);
+    for (y = 0; y < height; ++y) {
+      for (x = 0; x < width; ++x) {
+        dst_layer[(y * width) + x] =
+            src_layer[((uint64_t)(store->select_y0 + y) * store->map_width) +
+                      store->select_x0 + x];
+      }
+    }
+  }
+
+  store->clipboard_width = width;
+  store->clipboard_height = height;
+  store->has_clipboard = 1;
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_cut_selection"))) int
+stbte_logical_cut_selection(stbte_logical_store *store) {
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+  uint64_t layer_stride;
+
+  if (!stbte_logical_copy_selection(store))
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_record_undo_state(
+          store, store->select_x0, store->select_y0,
+          store->select_x1 - store->select_x0 + 1,
+          store->select_y1 - store->select_y0 + 1))
+    return STBTE_STATUS_ERR;
+
+  layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
+  for (layer = 0; layer < store->layer_count; ++layer) {
+    uint16_t *dst_layer = store->data + (layer * layer_stride);
+    for (y = store->select_y0; y <= store->select_y1; ++y) {
+      for (x = store->select_x0; x <= store->select_x1; ++x)
+        dst_layer[((uint64_t)y * store->map_width) + x] = 0;
+    }
+  }
+
+  store->has_selection = 0;
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_has_clipboard"))) uint32_t
+stbte_logical_has_clipboard(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->has_clipboard;
+}
+
+__attribute__((export_name("stbte_logical_has_undo"))) uint32_t
+stbte_logical_has_undo(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->has_undo;
+}
+
+__attribute__((export_name("stbte_logical_has_redo"))) uint32_t
+stbte_logical_has_redo(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->has_redo;
+}
+
+__attribute__((export_name("stbte_logical_clear_redo"))) void
+stbte_logical_clear_redo_export(stbte_logical_store *store) {
+  stbte_logical_clear_redo(store);
+}
+
+__attribute__((export_name("stbte_logical_clear_clipboard"))) void
+stbte_logical_clear_clipboard_export(stbte_logical_store *store) {
+  stbte_logical_clear_clipboard(store);
+}
+
+__attribute__((export_name("stbte_logical_clipboard_width"))) uint32_t
+stbte_logical_clipboard_width(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->clipboard_width;
+}
+
+__attribute__((export_name("stbte_logical_clipboard_height"))) uint32_t
+stbte_logical_clipboard_height(stbte_logical_store *store) {
+  if (store == NULL)
+    return 0;
+  return store->clipboard_height;
+}
+
+__attribute__((export_name("stbte_logical_clipboard_data_ptr"))) uint32_t
+stbte_logical_clipboard_data_ptr(stbte_logical_store *store) {
+  if (store == NULL || store->clipboard_data == NULL)
+    return 0;
+  return (uint32_t)(uintptr_t)store->clipboard_data;
+}
+
+__attribute__((export_name("stbte_logical_set_clipboard"))) int
+stbte_logical_set_clipboard(stbte_logical_store *store, uint32_t src_ptr,
+                            uint32_t src_bytes, uint32_t width,
+                            uint32_t height) {
+  uint64_t required;
+
+  if (store == NULL || width == 0 || height == 0 || store->layer_count == 0)
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_ensure_clipboard_capacity(store, width, height))
+    return STBTE_STATUS_ERR;
+
+  required =
+      stbte_logical_clipboard_required_bytes(width, height, store->layer_count);
+  if (src_bytes < required)
+    return STBTE_STATUS_ERR;
+
+  memcpy(store->clipboard_data, (const void *)(uintptr_t)src_ptr,
+         (size_t)required);
+  store->clipboard_width = width;
+  store->clipboard_height = height;
+  store->has_clipboard = 1;
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_record_undo_region"))) int
+stbte_logical_record_undo_region(stbte_logical_store *store, uint32_t x0,
+                                 uint32_t y0, uint32_t x1, uint32_t y1) {
+  uint32_t min_x;
+  uint32_t min_y;
+  uint32_t max_x;
+  uint32_t max_y;
+
+  if (store == NULL || store->data == NULL || store->map_width == 0 ||
+      store->map_height == 0)
+    return STBTE_STATUS_ERR;
+
+  min_x = x0 < x1 ? x0 : x1;
+  max_x = x0 < x1 ? x1 : x0;
+  min_y = y0 < y1 ? y0 : y1;
+  max_y = y0 < y1 ? y1 : y0;
+  if (min_x >= store->map_width)
+    min_x = store->map_width - 1;
+  if (max_x >= store->map_width)
+    max_x = store->map_width - 1;
+  if (min_y >= store->map_height)
+    min_y = store->map_height - 1;
+  if (max_y >= store->map_height)
+    max_y = store->map_height - 1;
+
+  return stbte_logical_record_undo_state(store, min_x, min_y,
+                                         max_x - min_x + 1,
+                                         max_y - min_y + 1);
+}
+
+__attribute__((export_name("stbte_logical_paste"))) int
+stbte_logical_paste(stbte_logical_store *store, uint32_t origin_x,
+                    uint32_t origin_y) {
+  uint32_t layer;
+  uint32_t y;
+  uint32_t x;
+  uint64_t layer_stride;
+  uint64_t clip_stride;
+
+  if (store == NULL || store->data == NULL || !store->has_clipboard)
+    return STBTE_STATUS_ERR;
+  if (origin_x >= store->map_width || origin_y >= store->map_height)
+    return STBTE_STATUS_ERR;
+
+  {
+    uint32_t width = store->clipboard_width;
+    uint32_t height = store->clipboard_height;
+    if (origin_x + width > store->map_width)
+      width = store->map_width - origin_x;
+    if (origin_y + height > store->map_height)
+      height = store->map_height - origin_y;
+    if (!stbte_logical_record_undo_state(store, origin_x, origin_y, width,
+                                         height))
+      return STBTE_STATUS_ERR;
+  }
+
+  layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
+  clip_stride = (uint64_t)store->clipboard_width *
+                (uint64_t)store->clipboard_height;
+  for (layer = 0; layer < store->layer_count; ++layer) {
+    uint16_t *dst_layer = store->data + (layer * layer_stride);
+    uint16_t *src_layer = store->clipboard_data + (layer * clip_stride);
+    for (y = 0; y < store->clipboard_height; ++y) {
+      uint32_t target_y = origin_y + y;
+      if (target_y >= store->map_height)
+        break;
+      for (x = 0; x < store->clipboard_width; ++x) {
+        uint32_t target_x = origin_x + x;
+        if (target_x >= store->map_width)
+          break;
+        dst_layer[((uint64_t)target_y * store->map_width) + target_x] =
+            src_layer[(y * store->clipboard_width) + x];
+      }
+    }
+  }
+
+  store->has_selection = 0;
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_clear_all"))) int
+stbte_logical_clear_all(stbte_logical_store *store) {
+  if (store == NULL || store->data == NULL)
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_record_undo_state(store, 0, 0, store->map_width,
+                                       store->map_height))
+    return STBTE_STATUS_ERR;
+  memset(store->data, 0, (size_t)store->capacity_bytes);
+  store->has_selection = 0;
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_undo"))) int
+stbte_logical_undo(stbte_logical_store *store) {
+  if (store == NULL || !store->has_undo || store->undo_data == NULL)
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_capture_redo_state(store, store->undo_origin_x,
+                                        store->undo_origin_y,
+                                        store->undo_width,
+                                        store->undo_height))
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_copy_region_to_store(store, store->undo_origin_x,
+                                          store->undo_origin_y,
+                                          store->undo_width,
+                                          store->undo_height,
+                                          store->undo_data))
+    return STBTE_STATUS_ERR;
+  store->has_undo = 0;
+  store->has_selection = 0;
+  return STBTE_STATUS_OK;
+}
+
+__attribute__((export_name("stbte_logical_redo"))) int
+stbte_logical_redo(stbte_logical_store *store) {
+  if (store == NULL || !store->has_redo || store->redo_data == NULL)
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_record_undo_state(store, store->redo_origin_x,
+                                       store->redo_origin_y,
+                                       store->redo_width,
+                                       store->redo_height))
+    return STBTE_STATUS_ERR;
+  if (!stbte_logical_copy_region_to_store(store, store->redo_origin_x,
+                                          store->redo_origin_y,
+                                          store->redo_width,
+                                          store->redo_height,
+                                          store->redo_data))
+    return STBTE_STATUS_ERR;
+  store->has_redo = 0;
+  store->has_selection = 0;
+  return STBTE_STATUS_OK;
+}
+
 __attribute__((export_name("stbte_logical_load_chunk_into_tilemap"))) int
 stbte_logical_load_chunk_into_tilemap(stbte_logical_store *store,
                                       stbte_tilemap *tm, uint32_t chunk_size,
@@ -1019,6 +1659,7 @@ stbte_logical_load_chunk_into_tilemap(stbte_logical_store *store,
   if (!stbte_resize_map(tm, (int)chunk_width, (int)chunk_height))
     return STBTE_STATUS_ERR;
   stbte_clear(tm);
+  stbte__ui.has_selection = 0;
 
   for (layer = 0; layer < store->layer_count; ++layer) {
     uint16_t *src_layer = stbte_logical_layer_base(store, layer);
