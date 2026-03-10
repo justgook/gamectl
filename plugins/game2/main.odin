@@ -1,6 +1,7 @@
 package main
 
 import "core:c"
+import "host"
 import sprite "render/sprite"
 import tilemap "render/tilemap"
 import sg "sokol/gfx"
@@ -178,7 +179,7 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 }
 
 core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
-	world.frame(&state.world)
+	world.frame(&state.world, host.frame_duration())
 	pass := sg.Pass {
 		action    = state.pass_action,
 		swapchain = swapchain_reader(),
