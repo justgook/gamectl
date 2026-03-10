@@ -1,6 +1,6 @@
 package shape
 
-move_segment :: proc(s: ^[4]int,  p: [2]int){
+move_segment :: proc(s: ^[4]int, p: [2]int) {
 	s.x += p.x
 	s.y += p.y
 	s.z += p.x
@@ -12,6 +12,7 @@ move_segment :: proc(s: ^[4]int,  p: [2]int){
 make_segment :: proc(x1, y1, x2, y2: int) -> [4]int {
 	return [4]int{x1, y1, x2, y2}
 }
+
 // Main intersection test combining all the above
 @(require_results)
 segment_segment_solve :: proc(s1, s2: ^[4]int) -> (point: [2]int, ok: bool) {
@@ -38,10 +39,7 @@ segment_point_test :: proc(segment: ^[4]int, point: ^[2]int) -> bool {
 	px, py := point.x, point.y
 
 	// Check if point is within bounding box of segment
-	if px < min(x1, x2) ||
-	   px > max(x1, x2) ||
-	   py < min(y1, y2) ||
-	   py > max(y1, y2) {
+	if px < min(x1, x2) || px > max(x1, x2) || py < min(y1, y2) || py > max(y1, y2) {
 		return false
 	}
 
@@ -70,22 +68,15 @@ segment_segment_test :: proc(s1, s2: ^[4]int) -> bool {
 	x4, y4 := s2[2], s2[3] // End of second segment
 
 	return(
-		(ccw(x1, y1, x2, y2, x3, y3) * ccw(x1, y1, x2, y2, x4, y4) <=
-			0) &&
-		(ccw(x3, y3, x4, y4, x1, y1) * ccw(x3, y3, x4, y4, x2, y2) <=
-				0) \
+		(ccw(x1, y1, x2, y2, x3, y3) * ccw(x1, y1, x2, y2, x4, y4) <= 0) &&
+		(ccw(x3, y3, x4, y4, x1, y1) * ccw(x3, y3, x4, y4, x2, y2) <= 0) \
 	)
 }
 
 
 // Calculate actual intersection point if segments are not parallel
 @(private = "file")
-line_intersection_point :: proc(
-	s1, s2: ^[4]int,
-) -> (
-	point: [2]int,
-	is_parallel: bool,
-) {
+line_intersection_point :: proc(s1, s2: ^[4]int) -> (point: [2]int, is_parallel: bool) {
 	x1, y1 := int(s1[0]), int(s1[1])
 	x2, y2 := int(s1[2]), int(s1[3])
 	x3, y3 := int(s2[0]), int(s2[1])
