@@ -1,0 +1,30 @@
+package world
+
+
+// GAME_DATA :: #config(GAME_DATA, "../../build.nosync/game.bin")
+// GAME_ATLAS :: #config(GAME_DATA, "../../build.nosync/atlas.qoi")
+
+// Constants for subpixel precision
+SUBPIXEL_BITS :: 6 // 64 subpixels per pixel
+UNIT :: 1 << SUBPIXEL_BITS
+
+@(require_results)
+to_pixel :: proc(subpixel: int) -> int {
+	return subpixel >> SUBPIXEL_BITS
+}
+
+@(require_results)
+to_pixelf :: proc {
+	to_pixelf_int,
+	to_pixelf_int2,
+}
+
+@(require_results)
+to_pixelf_int :: proc(subpixel: int) -> f32 {
+	return f32(subpixel >> SUBPIXEL_BITS)
+}
+
+@(require_results)
+to_pixelf_int2 :: proc(subpixel: [2]int) -> [2]f32 {
+	return [2]f32{f32(subpixel.x >> SUBPIXEL_BITS), f32(subpixel.y >> SUBPIXEL_BITS)}
+}
