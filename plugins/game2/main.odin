@@ -5,6 +5,7 @@ import sprite "render/sprite"
 import tilemap "render/tilemap"
 import sg "sokol/gfx"
 import qoi "third_party/qoi"
+import "world"
 
 EVENT_TYPE_MOUSE_DOWN :: 4
 EVENT_TYPE_MOUSE_UP :: 5
@@ -38,6 +39,9 @@ EVENT_OFFSET_FRAMEBUFFER_HEIGHT :: 268
 ASSET_SCRATCH_CAPACITY :: 2 * 1024 * 1024
 
 State :: struct {
+	//new stuff
+	world:              world.World,
+	//old stuff
 	atlas:              sg.Image,
 	lut:                sg.Image,
 	sprite_renderer:    sprite.Renderer,
@@ -90,6 +94,7 @@ range_from_value :: proc(value: ^$T) -> sg.Range {
 }
 
 core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
+	world.init(&state.world)
 	init_stage = 1
 	state.pass_action = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
@@ -173,6 +178,7 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 }
 
 core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
+	world.frame(&state.world)
 	pass := sg.Pass {
 		action    = state.pass_action,
 		swapchain = swapchain_reader(),
