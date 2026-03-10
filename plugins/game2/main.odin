@@ -1,9 +1,9 @@
-package game2
+package main
 
 import "core:c"
-import sg "sokol/gfx"
 import sprite "render/sprite"
 import tilemap "render/tilemap"
+import sg "sokol/gfx"
 import qoi "third_party/qoi"
 
 EVENT_TYPE_MOUSE_DOWN :: 4
@@ -38,36 +38,36 @@ EVENT_OFFSET_FRAMEBUFFER_HEIGHT :: 268
 ASSET_SCRATCH_CAPACITY :: 2 * 1024 * 1024
 
 State :: struct {
-	atlas: sg.Image,
-	lut: sg.Image,
-	sprite_renderer: sprite.Renderer,
-	tilemap_renderer: tilemap.Renderer,
-	pass_action: sg.Pass_Action,
-	mouse_y: f32,
-	window_height: i32,
-	framebuffer_width: i32,
+	atlas:              sg.Image,
+	lut:                sg.Image,
+	sprite_renderer:    sprite.Renderer,
+	tilemap_renderer:   tilemap.Renderer,
+	pass_action:        sg.Pass_Action,
+	mouse_y:            f32,
+	window_height:      i32,
+	framebuffer_width:  i32,
 	framebuffer_height: i32,
-	atlas_width: i32,
-	atlas_height: i32,
-	atlas_loaded: bool,
-	lut_width: i32,
-	lut_height: i32,
-	lut_loaded: bool,
-	actions_down: [7]bool,
+	atlas_width:        i32,
+	atlas_height:       i32,
+	atlas_loaded:       bool,
+	lut_width:          i32,
+	lut_height:         i32,
+	lut_loaded:         bool,
+	actions_down:       [7]bool,
 }
 
 Host_Event :: struct {
-	frame_count: u64,
-	kind: u32,
-	reserved0: [16]u8,
-	mouse_button: i32,
-	mouse_x: f32,
-	mouse_y: f32,
-	action_code: u32,
-	reserved1: [212]u8,
-	window_width: i32,
-	window_height: i32,
-	framebuffer_width: i32,
+	frame_count:        u64,
+	kind:               u32,
+	reserved0:          [16]u8,
+	mouse_button:       i32,
+	mouse_x:            f32,
+	mouse_y:            f32,
+	action_code:        u32,
+	reserved1:          [212]u8,
+	window_width:       i32,
+	window_height:      i32,
+	framebuffer_width:  i32,
 	framebuffer_height: i32,
 }
 
@@ -104,13 +104,13 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 			state.atlas_loaded = true
 			state.atlas_width = i32(img_w)
 			state.atlas_height = i32(img_h)
-			desc := sg.Image_Desc{
-				width = i32(img_w),
-				height = i32(img_h),
+			desc := sg.Image_Desc {
+				width        = i32(img_w),
+				height       = i32(img_h),
 				pixel_format = .RGBA8,
 			}
 			desc.data.mip_levels[0] = {
-				ptr = raw_data(img_pixels),
+				ptr  = raw_data(img_pixels),
 				size = c.size_t(img_w * img_h * 4),
 			}
 			state.atlas = sg.make_image(desc)
@@ -122,18 +122,21 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 
 	lut_asset_data, lut_ok := asset_reader(LUT_ASSET_PATH)
 	if lut_ok {
-		lut_w, lut_h, lut_img_pixels, lut_img_ok := qoi.decode_to_buffer(lut_asset_data, lut_pixels[:])
+		lut_w, lut_h, lut_img_pixels, lut_img_ok := qoi.decode_to_buffer(
+			lut_asset_data,
+			lut_pixels[:],
+		)
 		if lut_img_ok {
 			state.lut_loaded = true
 			state.lut_width = i32(lut_w)
 			state.lut_height = i32(lut_h)
-			lut_desc := sg.Image_Desc{
-				width = i32(lut_w),
-				height = i32(lut_h),
+			lut_desc := sg.Image_Desc {
+				width        = i32(lut_w),
+				height       = i32(lut_h),
 				pixel_format = .RGBA8,
 			}
 			lut_desc.data.mip_levels[0] = {
-				ptr = raw_data(lut_img_pixels),
+				ptr  = raw_data(lut_img_pixels),
 				size = c.size_t(lut_w * lut_h * 4),
 			}
 			state.lut = sg.make_image(lut_desc)
@@ -149,21 +152,31 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 			lut_w = state.atlas_width
 			lut_h = state.atlas_height
 		}
-		state.tilemap_renderer = tilemap.init(state.atlas, lut_tex, state.atlas_width, state.atlas_height, lut_w, lut_h)
+		state.tilemap_renderer = tilemap.init(
+			state.atlas,
+			lut_tex,
+			state.atlas_width,
+			state.atlas_height,
+			lut_w,
+			lut_h,
+		)
 	}
 
 	state.mouse_y = 0.0
 	state.window_height = 480
 	state.framebuffer_width = 640
 	state.framebuffer_height = 480
-	for i in 0..<len(state.actions_down) {
+	for i in 0 ..< len(state.actions_down) {
 		state.actions_down[i] = false
 	}
 	init_stage = 6
 }
 
 core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
-	pass := sg.Pass{action = state.pass_action, swapchain = swapchain_reader()}
+	pass := sg.Pass {
+		action    = state.pass_action,
+		swapchain = swapchain_reader(),
+	}
 	window_height := state.window_height
 	if window_height <= 0 {
 		window_height = 1
@@ -214,11 +227,31 @@ core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
 		}
 		atlas_w := int(state.atlas_width)
 		atlas_h := int(state.atlas_height)
-		sprite.push(&state.sprite_renderer, {base_x, base_y}, size, sprite.uv_from_pixels(0, 0, 64, 64, atlas_w, atlas_h))
-		sprite.push(&state.sprite_renderer, {base_x + 180, base_y + 12}, size, sprite.uv_from_pixels(128, 0, 64, 64, atlas_w, atlas_h))
-		sprite.push(&state.sprite_renderer, {base_x + 360, base_y - 8}, size, sprite.uv_from_pixels(320, 320, 64, 64, atlas_w, atlas_h))
+		sprite.push(
+			&state.sprite_renderer,
+			{base_x, base_y},
+			size,
+			sprite.uv_from_pixels(0, 0, 64, 64, atlas_w, atlas_h),
+		)
+		sprite.push(
+			&state.sprite_renderer,
+			{base_x + 180, base_y + 12},
+			size,
+			sprite.uv_from_pixels(128, 0, 64, 64, atlas_w, atlas_h),
+		)
+		sprite.push(
+			&state.sprite_renderer,
+			{base_x + 360, base_y - 8},
+			size,
+			sprite.uv_from_pixels(320, 320, 64, 64, atlas_w, atlas_h),
+		)
 		if state.actions_down[int(ACTION_2)] {
-			sprite.push(&state.sprite_renderer, {base_x + 220, base_y - 140}, [2]f32{96, 96}, sprite.uv_from_pixels(256, 64, 64, 64, atlas_w, atlas_h))
+			sprite.push(
+				&state.sprite_renderer,
+				{base_x + 220, base_y - 140},
+				[2]f32{96, 96},
+				sprite.uv_from_pixels(256, 64, 64, 64, atlas_w, atlas_h),
+			)
 		}
 		sprite.draw(&state.sprite_renderer, state.framebuffer_width, state.framebuffer_height)
 	}
