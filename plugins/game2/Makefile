@@ -36,7 +36,7 @@ SOKOL_NATIVE_PROFILE ?= debug
 ATLAS_ASSET ?= ../../cmd/browser/assets/game/the_atlas.qoi
 LUT_ASSET ?= ../../cmd/browser/assets/game/lut.qoi
 
-SHADER_SOURCES := $(shell $(PYTHON3) -c 'from pathlib import Path; print(" ".join(str(p) for p in sorted(Path(".").rglob("*.glsl"))))')
+SHADER_SOURCES := $(shell find . -name '*.glsl' -print | LC_ALL=C sort | sed 's#^\./##' | tr '\n' ' ')
 
 SOKOL_ODIN_URL ?= https://github.com/floooh/sokol-odin/archive/refs/heads/master.tar.gz
 SOKOL_TOOLS_URL ?= https://github.com/floooh/sokol-tools-bin/archive/refs/heads/master.tar.gz
@@ -102,7 +102,9 @@ $(SOKOL_DIR)/gfx/gfx.odin $(SOKOL_DIR)/app/app.odin $(SOKOL_DIR)/glue/glue.odin 
 	root_dir="$$1"; \
 	$(MKDIR_P) "$(SOKOL_DIR)"; \
 	cp -R "$$root_dir/sokol/." "$(SOKOL_DIR)/"; \
-	$(PYTHON3) -c 'from pathlib import Path; [p.write_text(p.read_text().replace("\"env.o\"", "\"../../env.o\"")) for p in Path("$(SOKOL_DIR)").glob("*/*.odin") if "\"env.o\"" in p.read_text()]'; \
+	find "$(SOKOL_DIR)" -name '*.odin' -print | while IFS= read -r file; do \
+		perl -0pi -e 's/"env\.o"/"..\/..\/env.o"/g' "$$file"; \
+	done; \
 	$(RM_RF) "$$tmp_root" "$$archive"
 
 .PHONY: sokol-tools
@@ -128,7 +130,20 @@ $(SOKOL_SHDC_BIN): | $(TMP_DIR)
 .PHONY: shaders
 shaders: $(SOKOL_SHDC_BIN) $(SHADER_SOURCES)
 	$(Q)echo "Generating Odin shader bindings"
-	$(Q)$(PYTHON3) scripts/generate_shaders.py "$(SOKOL_SHDC_BIN)"
+	$(Q)for src in $(SHADER_SOURCES); do \
+		case "$$src" in \
+			*/*) \
+				dir=$${src%/*}; \
+				file=$${src##*/}; \
+				base=$${file%.glsl}; \
+				out="$$dir/gen__$$base.odin"; \
+				;; \
+			*) \
+				out="$$src.odin"; \
+				;; \
+		esac; \
+		"$(SOKOL_SHDC_BIN)" -i "$$src" -o "$$out" -l glsl300es:metal_macos -f sokol_odin; \
+	done
 
 $(TMP_DIR):
 	$(Q)$(MKDIR_P) "$(TMP_DIR)"
@@ -154,7 +169,7 @@ $(SOKOL_NATIVE_LIBS): $(SOKOL_DIR)/build_clibs_macos.sh $(SOKOL_DIR)/c/sokol.c
 .PHONY: native
 native: sokol-bindings shaders native-libs | $(NATIVE_DIR)
 	$(Q)echo "Building native game2"
-	$(Q)$(ODIN) build ./native $(ODIN_BUILD_FLAGS) -out:"$(NATIVE_BIN)"
+	$(Q)$(ODIN) build . $(ODIN_BUILD_FLAGS) -out:"$(NATIVE_BIN)"
 
 .PHONY: native-run
 native-run: native
@@ -175,7 +190,7 @@ web: plugin | $(WEB_DIR)
 
 .PHONY: serve
 serve: web
-	$(Q)python3 -m http.server 8812 --directory "$(WEB_DIR)"
+	$(Q)$(PYTHON3) -m http.server 8812 --directory "$(WEB_DIR)"
 
 .PHONY: clean
 clean:
