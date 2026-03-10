@@ -56,6 +56,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.showGrid = true
     this.hoverX = -1
     this.hoverY = -1
+    this.globalSelection = null
+    this.globalClipboard = null
 
     this.offsets = {}
     this.tileSprites = new Map()
@@ -78,8 +80,12 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.boundWindowMouseUp = this.handleWindowMouseUp.bind(this)
     this.boundCanvasContextMenu = this.handleCanvasContextMenu.bind(this)
     this._initToken = 0
+    this._dragSessionId = 0
     this._storagePopup = null
     this.loadedMapName = ''
+    this.logicalStoreWidth = 0
+    this.logicalStoreHeight = 0
+    this.logicalStoreLayers = 0
   }
 
   connectedCallback() {
@@ -272,6 +278,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.tilemap = 0
     if (!preserveLogicalStore) {
       this.logicalStore = 0
+      this.logicalStoreWidth = 0
+      this.logicalStoreHeight = 0
+      this.logicalStoreLayers = 0
     }
     this.uiPtr = 0
     this.exports = null
@@ -360,8 +369,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
     return {
       minX: 0,
       minY: 0,
-      maxX: Math.max(1, this.mapWidth * this.tileSize),
-      maxY: Math.max(1, this.mapHeight * this.tileSize)
+      maxX: Math.max(1, this.logicalMapWidth * this.tileSize),
+      maxY: Math.max(1, this.logicalMapHeight * this.tileSize)
     }
   }
 
@@ -554,6 +563,103 @@ export default class ViewStbEditor extends ViewCanvasBase {
     return `${index}/${count} (${this.activeChunkX + 1}, ${this.activeChunkY + 1} of ${cols}x${rows})`
   }
 
+  getChunkPositionForCell(x, y) {
+    const cellX = this.clamp(Number(x) || 0, 0, this.logicalMapWidth - 1)
+    const cellY = this.clamp(Number(y) || 0, 0, this.logicalMapHeight - 1)
+    return {
+      chunkX: Math.floor(cellX / this.chunkSize),
+      chunkY: Math.floor(cellY / this.chunkSize)
+    }
+  }
+
+  getActiveChunkOrigin() {
+    const bounds = this.getActiveChunkBounds()
+    return { x: bounds.worldX, y: bounds.worldY }
+  }
+
+  toActiveChunkCell(x, y) {
+    const origin = this.getActiveChunkOrigin()
+    return {
+      x: x - origin.x,
+      y: y - origin.y
+    }
+  }
+
+  getLayerRenderState() {
+    const states = []
+    const soloLayer = this.exports && this.tilemap ? this.readTilemap(this.offsets.tm_solo_layer, 'i32') : -1
+
+    for (let layer = 0; layer < this.layers; layer++) {
+      let hidden = false
+      if (this.exports && this.tilemap && this.memory) {
+        const layerOffset = this.tilemap + this.offsets.tm_layerinfo + (layer * this.offsets.sizeof_layer)
+        hidden = new DataView(this.memory.buffer, layerOffset + this.offsets.layer_hidden, 4).getInt32(0, true) !== 0
+      }
+      states.push({ hidden, visible: !hidden && (soloLayer < 0 || layer === soloLayer) })
+    }
+
+    return states
+  }
+
+  getLogicalStoreView() {
+    if (!this.exports || !this.memory) return null
+    const store = this.ensureLogicalStore()
+    const dataPtr = this.exports.stbte_logical_data_ptr(store)
+    if (!dataPtr) return null
+    return new Uint16Array(this.memory.buffer, dataPtr, this.logicalMapWidth * this.logicalMapHeight * this.layers)
+  }
+
+  getRenderedEncodedTile(logicalView, logicalX, logicalY, layer) {
+    const layerStride = this.logicalMapWidth * this.logicalMapHeight
+    const bounds = this.getActiveChunkBounds()
+    const isInActiveChunk = this.tilemap && logicalX >= bounds.worldX && logicalX < bounds.worldX + this.mapWidth && logicalY >= bounds.worldY && logicalY < bounds.worldY + this.mapHeight
+
+    if (isInActiveChunk && this.memory) {
+      const localX = logicalX - bounds.worldX
+      const localY = logicalY - bounds.worldY
+      const dataOffset = this.tilemap + this.offsets.tm_data
+      const idx = (localY * this.offsets.max_map_x + localX) * this.offsets.max_layers + layer
+      const tileId = new Int16Array(this.memory.buffer, dataOffset + idx * 2, 1)[0]
+      return tileId < 0 ? 0 : tileId + 1
+    }
+
+    if (!logicalView) return 0
+    return logicalView[(layer * layerStride) + (logicalY * this.logicalMapWidth) + logicalX] || 0
+  }
+
+  async ensureChunkLoadedForCell(x, y, options = {}) {
+    const { chunkX, chunkY } = this.getChunkPositionForCell(x, y)
+    if (chunkX === this.activeChunkX && chunkY === this.activeChunkY && this.tilemap) return false
+    await this.loadChunkIntoEditor(chunkX, chunkY, options)
+    return true
+  }
+
+  async applyGlobalRect(x0, y0, x1, y1, sessionId = this._dragSessionId) {
+    const minX = this.clamp(Math.min(x0, x1), 0, this.logicalMapWidth - 1)
+    const minY = this.clamp(Math.min(y0, y1), 0, this.logicalMapHeight - 1)
+    const maxX = this.clamp(Math.max(x0, x1), 0, this.logicalMapWidth - 1)
+    const maxY = this.clamp(Math.max(y0, y1), 0, this.logicalMapHeight - 1)
+    const startChunk = this.getChunkPositionForCell(minX, minY)
+    const endChunk = this.getChunkPositionForCell(maxX, maxY)
+
+    for (let chunkY = startChunk.chunkY; chunkY <= endChunk.chunkY; chunkY++) {
+      for (let chunkX = startChunk.chunkX; chunkX <= endChunk.chunkX; chunkX++) {
+        if (sessionId !== this._dragSessionId) return false
+        await this.loadChunkIntoEditor(chunkX, chunkY)
+        if (sessionId !== this._dragSessionId) return false
+        const bounds = this.getActiveChunkBounds()
+        const localX0 = Math.max(0, minX - bounds.worldX)
+        const localY0 = Math.max(0, minY - bounds.worldY)
+        const localX1 = Math.min(bounds.width - 1, maxX - bounds.worldX)
+        const localY1 = Math.min(bounds.height - 1, maxY - bounds.worldY)
+        if (localX0 > localX1 || localY0 > localY1) continue
+        this.exports.stbte_apply(this.tilemap, localX0, localY0, localX1, localY1)
+      }
+    }
+
+    return true
+  }
+
   ensureLogicalTilemap() {
     if (this.logicalTilemap) return
     this.logicalTilemap = createLogicalTilemap(
@@ -578,7 +684,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
       if (!this.logicalStore) {
         throw new Error('Failed to create logical tile store')
       }
-    } else {
+      this.logicalStoreWidth = this.logicalMapWidth
+      this.logicalStoreHeight = this.logicalMapHeight
+      this.logicalStoreLayers = this.layers
+    } else if (this.logicalStoreWidth !== this.logicalMapWidth || this.logicalStoreHeight !== this.logicalMapHeight || this.logicalStoreLayers !== this.layers) {
       this.assertStructuralMutation(
         this.exports.stbte_logical_resize(
           this.logicalStore,
@@ -588,6 +697,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
         ),
         'Logical store resize'
       )
+      this.logicalStoreWidth = this.logicalMapWidth
+      this.logicalStoreHeight = this.logicalMapHeight
+      this.logicalStoreLayers = this.layers
     }
     return this.logicalStore
   }
@@ -919,10 +1031,146 @@ export default class ViewStbEditor extends ViewCanvasBase {
   getCurrentTile() { return this.readTilemap(this.offsets.tm_cur_tile, 'i32') }
   canUndo() { return this.readTilemap(this.offsets.tm_undo_available, 'i8') !== 0 }
   canRedo() { return this.readTilemap(this.offsets.tm_redo_available, 'i8') !== 0 }
-  hasSelection() { return this.exports && this.uiPtr ? this.readUI(this.offsets.ui_has_selection, 'i32') !== 0 : false }
+  hasBackendSelection() { return this.exports && this.uiPtr ? this.readUI(this.offsets.ui_has_selection, 'i32') !== 0 : false }
+  hasSelection() { return !!this.globalSelection || this.hasBackendSelection() }
+
+  clearBackendSelection() {
+    if (this.exports && this.tilemap && this.exports.stbte_clear_selection) {
+      this.exports.stbte_clear_selection(this.tilemap)
+    }
+  }
+
+  clearSelection() {
+    this.globalSelection = null
+    this.clearBackendSelection()
+  }
+
+  setGlobalSelection(x0, y0, x1, y1) {
+    this.globalSelection = {
+      x0: this.clamp(Math.min(x0, x1), 0, this.logicalMapWidth - 1),
+      y0: this.clamp(Math.min(y0, y1), 0, this.logicalMapHeight - 1),
+      x1: this.clamp(Math.max(x0, x1), 0, this.logicalMapWidth - 1),
+      y1: this.clamp(Math.max(y0, y1), 0, this.logicalMapHeight - 1)
+    }
+    this.clearBackendSelection()
+  }
+
+  getLogicalStoreMutableView() {
+    const logicalView = this.getLogicalStoreView()
+    if (!logicalView) {
+      throw new Error('Logical tile storage is not available')
+    }
+    return logicalView
+  }
+
+  getBlankEncodedTileForLayer(_layer) {
+    return 0
+  }
+
+  async copySelection() {
+    const selection = this.getSelectionRect()
+    if (!selection) return false
+
+    this.flushActiveChunkToLogicalMap()
+    const logicalView = this.getLogicalStoreMutableView()
+    const width = selection.x1 - selection.x0 + 1
+    const height = selection.y1 - selection.y0 + 1
+    const layerStride = this.logicalMapWidth * this.logicalMapHeight
+    const layers = Array.from({ length: this.layers }, () => new Uint16Array(width * height))
+
+    for (let layer = 0; layer < this.layers; layer++) {
+      const sourceOffset = layer * layerStride
+      const target = layers[layer]
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const sourceIndex = sourceOffset + ((selection.y0 + y) * this.logicalMapWidth) + selection.x0 + x
+          target[(y * width) + x] = logicalView[sourceIndex] || 0
+        }
+      }
+    }
+
+    this.globalClipboard = { width, height, layers }
+    this.updateMetadata()
+    this.log(`Copied selection ${width}x${height}`)
+    return true
+  }
+
+  async cutSelection() {
+    const selection = this.getSelectionRect()
+    if (!selection) return false
+    await this.copySelection()
+
+    const logicalView = this.getLogicalStoreMutableView()
+    const layerStride = this.logicalMapWidth * this.logicalMapHeight
+    for (let layer = 0; layer < this.layers; layer++) {
+      const baseOffset = layer * layerStride
+      const blank = this.getBlankEncodedTileForLayer(layer)
+      for (let y = selection.y0; y <= selection.y1; y++) {
+        for (let x = selection.x0; x <= selection.x1; x++) {
+          logicalView[baseOffset + (y * this.logicalMapWidth) + x] = blank
+        }
+      }
+    }
+
+    this.syncLogicalTilemapFromStore()
+    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY, { skipFlush: true })
+    this.clearSelection()
+    this.postAction()
+    return true
+  }
+
+  async pasteClipboardAt(x, y) {
+    const clipboard = this.globalClipboard
+    if (!clipboard) return false
+
+    this.flushActiveChunkToLogicalMap()
+    const logicalView = this.getLogicalStoreMutableView()
+    const layerStride = this.logicalMapWidth * this.logicalMapHeight
+    const originX = this.clamp(x, 0, this.logicalMapWidth - 1)
+    const originY = this.clamp(y, 0, this.logicalMapHeight - 1)
+
+    for (let layer = 0; layer < Math.min(this.layers, clipboard.layers.length); layer++) {
+      const source = clipboard.layers[layer]
+      const baseOffset = layer * layerStride
+      for (let py = 0; py < clipboard.height; py++) {
+        const targetY = originY + py
+        if (targetY >= this.logicalMapHeight) break
+        for (let px = 0; px < clipboard.width; px++) {
+          const targetX = originX + px
+          if (targetX >= this.logicalMapWidth) break
+          logicalView[baseOffset + (targetY * this.logicalMapWidth) + targetX] = source[(py * clipboard.width) + px] || 0
+        }
+      }
+    }
+
+    this.syncLogicalTilemapFromStore()
+    this.clearSelection()
+    await this.ensureChunkLoadedForCell(originX, originY, { skipFlush: true })
+    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY, { skipFlush: true })
+    this.postAction()
+    return true
+  }
+
+  async clearLogicalMap() {
+    this.flushActiveChunkToLogicalMap()
+    const logicalView = this.getLogicalStoreMutableView()
+    logicalView.fill(0)
+    this.syncLogicalTilemapFromStore()
+    this.clearSelection()
+    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY, { skipFlush: true })
+    this.postAction()
+  }
 
   getSelectionRect() {
-    if (!this.hasSelection()) return null
+    if (this.globalSelection) {
+      const x0 = this.clamp(this.globalSelection.x0, 0, this.logicalMapWidth - 1)
+      const y0 = this.clamp(this.globalSelection.y0, 0, this.logicalMapHeight - 1)
+      const x1 = this.clamp(this.globalSelection.x1, 0, this.logicalMapWidth - 1)
+      const y1 = this.clamp(this.globalSelection.y1, 0, this.logicalMapHeight - 1)
+      if (x0 > x1 || y0 > y1) return null
+      return { x0, y0, x1, y1 }
+    }
+    if (!this.hasBackendSelection()) return null
 
     const x0 = this.readUI(this.offsets.ui_select_x0, 'i32')
     const y0 = this.readUI(this.offsets.ui_select_y0, 'i32')
@@ -930,11 +1178,12 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const y1 = this.readUI(this.offsets.ui_select_y1, 'i32')
     if (![x0, y0, x1, y1].every(Number.isFinite)) return null
 
+    const origin = this.getActiveChunkOrigin()
     return {
-      x0: this.clamp(Math.min(x0, x1), 0, this.mapWidth - 1),
-      y0: this.clamp(Math.min(y0, y1), 0, this.mapHeight - 1),
-      x1: this.clamp(Math.max(x0, x1), 0, this.mapWidth - 1),
-      y1: this.clamp(Math.max(y0, y1), 0, this.mapHeight - 1)
+      x0: this.clamp(origin.x + Math.min(x0, x1), 0, this.logicalMapWidth - 1),
+      y0: this.clamp(origin.y + Math.min(y0, y1), 0, this.logicalMapHeight - 1),
+      x1: this.clamp(origin.x + Math.max(x0, x1), 0, this.logicalMapWidth - 1),
+      y1: this.clamp(origin.y + Math.max(y0, y1), 0, this.logicalMapHeight - 1)
     }
   }
 
@@ -944,6 +1193,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
         if (!this.exports || !this.tilemap) return
         this.currentTool = parseInt(btn.dataset.tool, 10)
         this.exports.stbte_set_tool(this.tilemap, this.currentTool)
+        if (this.currentTool !== 0) {
+          this.clearSelection()
+        }
         this.draw()
         this.updateControlStates()
         this.updateMetadata()
@@ -964,21 +1216,23 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     this.headerControl('cut-btn').onclick = () => {
       if (!this.exports || !this.tilemap) return
-      this.exports.stbte_cut(this.tilemap)
-      this.postAction()
+      this.cutSelection().catch((err) => {
+        toast.error(`Cut failed: ${String(err?.message || err)}`)
+      })
     }
 
     this.headerControl('copy-btn').onclick = () => {
       if (!this.exports || !this.tilemap) return
-      this.exports.stbte_copy(this.tilemap)
-      this.updateMetadata()
-      this.log('Copied selection')
+      this.copySelection().catch((err) => {
+        toast.error(`Copy failed: ${String(err?.message || err)}`)
+      })
     }
 
     this.headerControl('clear-btn').onclick = () => {
       if (!this.exports || !this.tilemap) return
-      this.exports.stbte_clear(this.tilemap)
-      this.postAction()
+      this.clearLogicalMap().catch((err) => {
+        toast.error(`Clear failed: ${String(err?.message || err)}`)
+      })
     }
 
     this.headerControl('save-btn').onclick = () => {
@@ -1043,6 +1297,16 @@ export default class ViewStbEditor extends ViewCanvasBase {
       gridBtn.setAttribute('aria-pressed', this.showGrid ? 'true' : 'false')
     }
 
+    const hasSelection = !!this.getSelectionRect()
+    const hasClipboard = !!this.globalClipboard
+    const copyBtn = this.headerControl('copy-btn')
+    const cutBtn = this.headerControl('cut-btn')
+    if (copyBtn) copyBtn.disabled = !hasSelection
+    if (cutBtn) cutBtn.disabled = !hasSelection
+    this.headerControlButtons('[data-tool="4"]').forEach((btn) => {
+      btn.disabled = !hasClipboard
+    })
+
     this.updateChunkControls()
   }
 
@@ -1085,18 +1349,27 @@ export default class ViewStbEditor extends ViewCanvasBase {
     }
   }
 
-  onCanvasMouseDown(e) {
+  async onCanvasMouseDown(e) {
     if (e.button !== 0) return
     if (!this.exports || !this.tilemap) return
 
     const { x, y } = this.eventToCell(e)
     if (!this.isInsideMap(x, y)) return
 
+    const dragSessionId = this._dragSessionId + 1
+    this._dragSessionId = dragSessionId
+    await this.ensureChunkLoadedForCell(x, y)
+    if (dragSessionId !== this._dragSessionId) return
+    const localStart = this.toActiveChunkCell(x, y)
+
     this.isToolDragging = true
     this.dragStartX = x
     this.dragStartY = y
 
     if (this.isAreaDragEvent(e)) {
+      if (this.currentTool === 0) {
+        this.clearSelection()
+      }
       this.isAreaDragging = true
       this.dragEndX = x
       this.dragEndY = y
@@ -1107,11 +1380,15 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     this.isAreaDragging = false
     this.showDragPreview = false
-    this.exports.stbte_apply(this.tilemap, x, y, x, y)
+    if (this.currentTool === 4) {
+      await this.pasteClipboardAt(x, y)
+      return
+    }
+    this.exports.stbte_apply(this.tilemap, localStart.x, localStart.y, localStart.x, localStart.y)
     this.postAction()
   }
 
-  onCanvasMouseMove(e) {
+  async onCanvasMouseMove(e) {
     const { x, y } = this.eventToCell(e)
     this.hoverX = x
     this.hoverY = y
@@ -1126,11 +1403,17 @@ export default class ViewStbEditor extends ViewCanvasBase {
       return
     }
 
-    if (this.currentTool === 1 || this.currentTool === 2 || this.currentTool === 4) {
-      this.exports.stbte_apply(this.tilemap, x, y, x, y)
+    if (this.currentTool === 1 || this.currentTool === 2) {
+      const dragSessionId = this._dragSessionId
+      await this.ensureChunkLoadedForCell(x, y)
+      if (dragSessionId === 0 || dragSessionId !== this._dragSessionId || !this.isToolDragging || this.isAreaDragging) return
+      const local = this.toActiveChunkCell(x, y)
+      this.exports.stbte_apply(this.tilemap, local.x, local.y, local.x, local.y)
       this.renderMap()
       this.draw()
       this.updateMetadata()
+    } else if (this.currentTool === 4 && this.isToolDragging) {
+      await this.pasteClipboardAt(x, y)
     }
   }
 
@@ -1142,18 +1425,42 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.finishCanvasDrag(e)
   }
 
-  finishCanvasDrag(e) {
+  async finishCanvasDrag(e) {
+    const dragSessionId = this._dragSessionId
     if (this.isToolDragging && this.isAreaDragging && this.exports && this.tilemap) {
       const { x, y } = this.eventToCell(e)
-      const ex = this.clamp(x, 0, this.mapWidth - 1)
-      const ey = this.clamp(y, 0, this.mapHeight - 1)
-      this.exports.stbte_apply(this.tilemap, this.dragStartX, this.dragStartY, ex, ey)
+      const ex = this.clamp(x, 0, this.logicalMapWidth - 1)
+      const ey = this.clamp(y, 0, this.logicalMapHeight - 1)
+      if (this.currentTool === 0) {
+        this.setGlobalSelection(this.dragStartX, this.dragStartY, ex, ey)
+      } else if (this.currentTool === 1 || this.currentTool === 2) {
+        const applied = await this.applyGlobalRect(this.dragStartX, this.dragStartY, ex, ey, dragSessionId)
+        if (!applied) return
+      } else if (dragSessionId === this._dragSessionId) {
+        await this.ensureChunkLoadedForCell(this.dragStartX, this.dragStartY)
+        if (dragSessionId !== this._dragSessionId) return
+        const bounds = this.getActiveChunkBounds()
+        const localStart = this.toActiveChunkCell(this.dragStartX, this.dragStartY)
+        const endChunk = this.getChunkPositionForCell(ex, ey)
+        if (endChunk.chunkX !== this.activeChunkX || endChunk.chunkY !== this.activeChunkY) {
+          this.log('Selection across chunks is not supported yet; keeping selection in the active chunk.')
+        }
+        const localEnd = {
+          x: this.clamp(ex - bounds.worldX, 0, bounds.width - 1),
+          y: this.clamp(ey - bounds.worldY, 0, bounds.height - 1)
+        }
+        this.exports.stbte_apply(this.tilemap, localStart.x, localStart.y, localEnd.x, localEnd.y)
+      }
+      if (dragSessionId !== this._dragSessionId) return
       this.showDragPreview = false
       this.postAction()
     }
 
     this.isToolDragging = false
     this.isAreaDragging = false
+    if (dragSessionId === this._dragSessionId) {
+      this._dragSessionId = 0
+    }
   }
 
   _onMouseLeave() {
@@ -1168,7 +1475,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   isInsideMap(x, y) {
-    return x >= 0 && x < this.mapWidth && y >= 0 && y < this.mapHeight
+    return x >= 0 && x < this.logicalMapWidth && y >= 0 && y < this.logicalMapHeight
   }
 
   clamp(v, min, max) {
@@ -1363,6 +1670,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
   updateMetadata() {
     const toolNames = ['Select', 'Brush', 'Erase', 'Eyedropper', 'Paste']
+    const selection = this.getSelectionRect()
+    const clipboard = this.globalClipboard
     const meta = {
       map: `${this.logicalMapWidth} x ${this.logicalMapHeight}`,
       chunk: this.getChunkSummary(),
@@ -1373,10 +1682,12 @@ export default class ViewStbEditor extends ViewCanvasBase {
       tilesets: String(this.tileSets.length),
       activeLayer: this.selectedLayer === -1 ? 'All editable' : (this.layerNames[this.selectedLayer] || `Layer ${this.selectedLayer + 1}`),
       hover: this.isInsideMap(this.hoverX, this.hoverY) ? `${this.hoverX}, ${this.hoverY}` : '-',
+      editorChunk: `${this.mapWidth} x ${this.mapHeight}`,
       undo: this.exports && this.canUndo() ? 'yes' : 'no',
       redo: this.exports && this.canRedo() ? 'yes' : 'no',
       grid: this.showGrid ? 'on' : 'off',
-      selection: this.exports && this.uiPtr ? (this.readUI(this.offsets.ui_has_selection, 'i32') ? 'yes' : 'no') : 'no',
+      selection: selection ? `${selection.x1 - selection.x0 + 1} x ${selection.y1 - selection.y0 + 1}` : 'no',
+      clipboard: clipboard ? `${clipboard.width} x ${clipboard.height}` : 'empty',
       zoom: `${Math.round(this.scale * 100)}%`,
       drag: `${Math.round(this.offsetX)}, ${Math.round(this.offsetY)}`
     }
@@ -1403,8 +1714,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
   renderMap() {
     if (!this.mapCanvas || !this.mapCtx || !this.tilemap || !this.memory) return
 
-    const width = Math.max(1, this.mapWidth * this.tileSize)
-    const height = Math.max(1, this.mapHeight * this.tileSize)
+    const width = Math.max(1, this.logicalMapWidth * this.tileSize)
+    const height = Math.max(1, this.logicalMapHeight * this.tileSize)
     if (this.mapCanvas.width !== width || this.mapCanvas.height !== height) {
       this.mapCanvas.width = width
       this.mapCanvas.height = height
@@ -1414,17 +1725,14 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     const ctx = this.mapCtx
     ctx.imageSmoothingEnabled = false
+    const logicalView = this.getLogicalStoreView()
+    const layerStates = this.getLayerRenderState()
 
     ctx.fillStyle = '#070d14'
     ctx.fillRect(0, 0, this.mapCanvas.width, this.mapCanvas.height)
 
-    const dataOffset = this.tilemap + this.offsets.tm_data
-    const maxX = this.offsets.max_map_x
-    const maxLayers = this.offsets.max_layers
-    const soloLayer = this.readTilemap(this.offsets.tm_solo_layer, 'i32')
-
-    for (let y = 0; y < this.mapHeight; y++) {
-      for (let x = 0; x < this.mapWidth; x++) {
+    for (let y = 0; y < this.logicalMapHeight; y++) {
+      for (let x = 0; x < this.logicalMapWidth; x++) {
         const px = x * this.tileSize
         const py = y * this.tileSize
 
@@ -1432,14 +1740,11 @@ export default class ViewStbEditor extends ViewCanvasBase {
         ctx.fillRect(px, py, this.tileSize, this.tileSize)
 
         for (let layer = 0; layer < this.layers; layer++) {
-          const layerOffset = this.tilemap + this.offsets.tm_layerinfo + (layer * this.offsets.sizeof_layer)
-          const hidden = new DataView(this.memory.buffer, layerOffset + this.offsets.layer_hidden, 4).getInt32(0, true) !== 0
-          if (hidden) continue
-          if (soloLayer >= 0 && layer !== soloLayer) continue
+          if (!layerStates[layer]?.visible) continue
 
-          const idx = (y * maxX + x) * maxLayers + layer
-          const tileId = new Int16Array(this.memory.buffer, dataOffset + idx * 2, 1)[0]
-          if (tileId < 0) continue
+          const encoded = this.getRenderedEncodedTile(logicalView, x, y, layer)
+          const tileId = encoded - 1
+          if (encoded <= 0) continue
 
           const sprite = this.tileSprites.get(tileId)
           if (sprite) {
@@ -1600,6 +1905,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.currentTool = 1
     this.hoverX = -1
     this.hoverY = -1
+    this.globalSelection = null
+    this.globalClipboard = null
     this.showDragPreview = false
     this.activeChunkX = 0
     this.activeChunkY = 0
@@ -1654,6 +1961,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       offsetX: this.offsetX,
       offsetY: this.offsetY,
       showGrid: this.showGrid,
+      globalSelection: this.globalSelection ? { ...this.globalSelection } : null,
       layers
     }
   }
@@ -1665,6 +1973,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.showGrid = state.showGrid
     this.selectedLayer = state.selectedLayer
     this.selectedTilesetFilter = state.selectedTilesetFilter
+    this.globalSelection = state.globalSelection ? { ...state.globalSelection } : null
     this.exports.stbte_set_tool(this.tilemap, this.currentTool)
     this.exports.stbte_set_active_layer(this.tilemap, this.selectedLayer)
 
