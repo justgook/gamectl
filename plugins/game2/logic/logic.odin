@@ -123,7 +123,10 @@ make_view1 :: proc(storage_a: ^Component_Storage($A)) -> View1(A) {
 }
 
 @(require_results)
-make_view2 :: proc(storage_a: ^Component_Storage($A), storage_b: ^Component_Storage($B)) -> View2(A, B) {
+make_view2 :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage($B),
+) -> View2(A, B) {
 	return View2(A, B){storage_a = storage_a, storage_b = storage_b, current_index = 0}
 }
 
@@ -133,7 +136,12 @@ make_view3 :: proc(
 	storage_b: ^Component_Storage($B),
 	storage_c: ^Component_Storage($C),
 ) -> View3(A, B, C) {
-	return View3(A, B, C){storage_a = storage_a, storage_b = storage_b, storage_c = storage_c, current_index = 0}
+	return View3(A, B, C) {
+		storage_a = storage_a,
+		storage_b = storage_b,
+		storage_c = storage_c,
+		current_index = 0,
+	}
 }
 
 
@@ -213,7 +221,16 @@ each_view3 :: proc(view: ^View3($A, $B, $C)) -> (id: int, a: ^A, b: ^B, c: ^C, o
 }
 
 
-each_view4 :: proc(view: ^View4($A, $B, $C, $D)) -> (id: int, a: ^A, b: ^B, c: ^C, d: ^D, ok: bool) {
+each_view4 :: proc(
+	view: ^View4($A, $B, $C, $D),
+) -> (
+	id: int,
+	a: ^A,
+	b: ^B,
+	c: ^C,
+	d: ^D,
+	ok: bool,
+) {
 	for view.current_index < len(view.storage_a.entity_ids) {
 		id = view.storage_a.entity_ids[view.current_index]
 		ok1 := has_component(view.storage_b, id)

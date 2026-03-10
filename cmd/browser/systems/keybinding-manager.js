@@ -2,7 +2,7 @@ import { parseCSVLines } from '../util/csv.js'
 import { LayoutManager } from '../views/view-layout.js'
 
 const SEQUENCE_TIMEOUT = 1000
-const DEBUG = true
+const DEBUG = false
 const decoder = new TextDecoder()
 
 const BUILTIN_SOURCES = new Map([
