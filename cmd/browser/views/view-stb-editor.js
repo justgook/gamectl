@@ -215,6 +215,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       this.exports = this.plugin.exports
 
       this.loadOffsets()
+      this.syncRuntimeLimitsFromBackend()
       this.validateEditorDimensions(this.mapWidth, this.mapHeight, this.layers)
 
       this.tilemap = this.exports.stbte_create(
@@ -416,6 +417,16 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.offsets.max_map_y = this.exports.stbte_max_map_y()
     this.offsets.max_layers = this.exports.stbte_max_layers()
     this.uiPtr = this.exports.stbte_ui_ptr()
+  }
+
+  syncRuntimeLimitsFromBackend() {
+    const maxWidth = Math.max(1, Number(this.offsets.max_map_x) || 0)
+    const maxHeight = Math.max(1, Number(this.offsets.max_map_y) || 0)
+    this.chunkSize = Math.max(1, Math.min(maxWidth, maxHeight))
+
+    const bounds = this.getActiveChunkBounds()
+    this.mapWidth = bounds.width
+    this.mapHeight = bounds.height
   }
 
   ensureChunkExportCapacity(requiredBytes) {
