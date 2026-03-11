@@ -502,6 +502,7 @@
   }
 
   code-editor {
+    max-height: 400px;
     position: relative;
     display: block;
     border: 1px solid var(--border);

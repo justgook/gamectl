@@ -57,6 +57,26 @@ dump :: proc() -> u32 {
 }
 
 @(export)
+dump_to_file :: proc() -> u32 {
+	if !writer_initialized {
+		return respond_error("writer not initialized")
+	}
+	path := string(pdk.input_bytes())
+	if path == "" {
+		return respond_error("path empty")
+	}
+	output, err := build_dump_bytes()
+	if err != "" {
+		return respond_error(err)
+	}
+	ok, write_err := pdk.fs_write(path, output)
+	if !ok {
+		return respond_error(write_err)
+	}
+	return respond_ok("ok")
+}
+
+@(export)
 generate_odin :: proc() -> u32 {
 	if !writer_initialized {
 		return respond_error("writer not initialized")

@@ -890,9 +890,8 @@ outputs[1] = json.encode(items)
 outputs[2] = json.encode({ count = #items })
 `;
 
-    const respackDemo = String.raw`-- Demo: initialize respack, write a payload, and generate an Odin decoder.
--- Text-only on purpose: respack.dump returns binary bytes, while this demo keeps
--- everything JSON/string based for the current nodegraph host bridge.
+    const respackDemo = String.raw`-- Demo: initialize respack, write a payload, save the dump to disk,
+-- and generate an Odin decoder.
 
 local schema = [[
 {
@@ -981,12 +980,16 @@ local writeResult = host.awaitCall("respack", "write", json.encode({
   slot = 0,
   payload = payload,
 }))
+local dumpPath = "/tmp/nodegraph2-demo.rspk"
+local saveResult = host.awaitCall("respack", "dump_to_file", dumpPath)
 local odinSource = host.awaitCall("respack", "generate_odin", "main")
 
 outputs[1] = odinSource
 outputs[2] = json.encode({
   init = initResult,
   write = writeResult,
+  save = saveResult,
+  dump_path = dumpPath,
   package = "main",
   slot = 0,
   schema = "Bundle",
@@ -1082,36 +1085,36 @@ outputs[2] = json.encode({
        <fieldset>
          <legend>Inputs</legend>
          <ul>
-           <li>
-             <input type="text" name="new-input-name" value="${escapeAttribute(draft.newInputName)}" placeholder="Input name">
-             <button type="submit" name="intent" value="add-input" aria-label="Add input" title="Add input" ${String(draft.newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
-           </li>
            ${draft.inputs.map((port, index) => `
            <li>
              <input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}">
              <input type="text" name="input-port-name" value="${escapeAttribute(port.name || "")}" placeholder="Input ${index + 1}">
              <button type="submit" name="remove-input-id" value="${Number(port.inputId || index + 1)}" aria-label="Delete input ${index + 1}" title="Delete input"><i aria-hidden="true">delete</i></button>
            </li>`).join("")}
+                   <li>
+             <input type="text" name="new-input-name" value="${escapeAttribute(draft.newInputName)}" placeholder="Input name">
+             <button type="submit" name="intent" value="add-input" aria-label="Add input" title="Add input" ${String(draft.newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
+           </li>
          </ul>
        </fieldset>` : ""}
        ${this._nodeSupportsOutputs(draft.kind) ? `
        <fieldset>
          <legend>Outputs</legend>
          <ul>
+           ${draft.outputs.map((port, index) => `
+           <li>
+             <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
+             ${isValueNode
+          ? `<input type="text" name="output-port-value" value="${escapeAttribute(port.value || "")}" placeholder="Value ${index + 1}">`
+          : `<input type="text" name="output-port-name" value="${escapeAttribute(port.name || "")}" placeholder="Output ${index + 1}">`}
+             <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
+           </li>`).join("")}
            <li>
              ${isValueNode
             ? `<input type="text" name="new-output-value" value="${escapeAttribute(draft.newOutputValue)}" placeholder="Value">`
             : `<input type="text" name="new-output-name" value="${escapeAttribute(draft.newOutputName)}" placeholder="Output name">`}
              <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output" ${!isValueNode && !String(draft.newOutputName).trim() ? "disabled" : ""}><i aria-hidden="true">add</i></button>
            </li>
-           ${draft.outputs.map((port, index) => `
-           <li>
-             <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
-             ${isValueNode
-                ? `<input type="text" name="output-port-value" value="${escapeAttribute(port.value || "")}" placeholder="Value ${index + 1}">`
-                : `<input type="text" name="output-port-name" value="${escapeAttribute(port.name || "")}" placeholder="Output ${index + 1}">`}
-             <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
-           </li>`).join("")}
          </ul>
        </fieldset>` : ""}
        <footer>
@@ -1724,36 +1727,37 @@ outputs[2] = json.encode({
        <fieldset>
          <legend>Inputs</legend>
          <ul>
-           <li>
-               <input type="text" name="new-input-name" value="${escapeAttribute(newInputName)}" placeholder="Input name">
-             <button type="submit" name="intent" value="add-input" aria-label="Add input" title="Add input" ${String(newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
-           </li>
            ${currentNode.inputs.map((port, index) => `
            <li>
              <input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}">
              <input type="text" name="input-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "input", Number(port.inputId || index + 1), index))}" placeholder="Input ${index + 1}">
              <button type="submit" name="remove-input-id" value="${Number(port.inputId || index + 1)}" aria-label="Delete input ${index + 1}" title="Delete input"><i aria-hidden="true">delete</i></button>
            </li>`).join("")}
+           <li>
+               <input type="text" name="new-input-name" value="${escapeAttribute(newInputName)}" placeholder="Input name">
+             <button type="submit" name="intent" value="add-input" aria-label="Add input" title="Add input" ${String(newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button>
+           </li>
          </ul>
        </fieldset>` : ""}
        ${this._nodeSupportsOutputs(currentNode.kind) ? `
        <fieldset>
           <legend>Outputs</legend>
           <ul>
+
+            ${currentNode.outputs.map((port, index) => `
+            <li>
+              <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
+              ${isValueNode
+          ? `<input type="text" name="output-port-value" value="${escapeAttribute(this._getStoredNodeValue(currentNode.id, Number(port.outputId || index + 1)))}" placeholder="Value ${index + 1}">`
+          : `<input type="text" name="output-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "output", Number(port.outputId || index + 1), index))}" placeholder="Output ${index + 1}">`}
+              <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
+            </li>`).join("")}
             <li> 
               ${isValueNode
             ? `<input type="text" name="new-output-value" value="${escapeAttribute(newOutputValue)}" placeholder="Value">`
             : `<input type="text" name="new-output-name" value="${escapeAttribute(newOutputName)}" placeholder="Output name">`}
               <button type="submit" name="intent" value="add-output" aria-label="Add output" title="Add output"><i aria-hidden="true">add</i></button>
             </li>
-            ${currentNode.outputs.map((port, index) => `
-            <li>
-              <input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}">
-              ${isValueNode
-                ? `<input type="text" name="output-port-value" value="${escapeAttribute(this._getStoredNodeValue(currentNode.id, Number(port.outputId || index + 1)))}" placeholder="Value ${index + 1}">`
-                : `<input type="text" name="output-port-name" value="${escapeAttribute(this._getPortEditorDefaultLabel(currentNode.id, "output", Number(port.outputId || index + 1), index))}" placeholder="Output ${index + 1}">`}
-              <button type="submit" name="remove-output-id" value="${Number(port.outputId || index + 1)}" aria-label="Delete output ${index + 1}" title="Delete output"><i aria-hidden="true">delete</i></button>
-            </li>`).join("")}
           </ul>
         </fieldset>` : ""}
        <footer>
