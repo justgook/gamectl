@@ -2,7 +2,6 @@ package world
 
 import "../host"
 import "camera"
-import "core:fmt"
 import "grid"
 import "logic"
 
@@ -28,6 +27,7 @@ frame :: proc(w: ^World, dt: f64) {
 		sys_brain(w)
 	}
 
+	sys_camera(w)
 }
 
 
@@ -38,7 +38,20 @@ init :: proc(w: ^World) {
 	// fmt.println("WORLD init")
 }
 
-entity_delete :: proc(w: ^World, entity_id: int) {}
+entity_delete :: proc(w: ^World, entity_id: int) {
+	logic.delete_component(&w.position, entity_id)
+	logic.delete_component(&w.velocity, entity_id)
+	logic.delete_component(&w.sprite, entity_id)
+	logic.delete_component(&w.brain, entity_id)
+	logic.delete_component(&w.input, entity_id)
+	logic.delete_component(&w.timer, entity_id)
+}
 
 cleanup :: proc(w: ^World) {
+	logic.destroy_storage(&w.position)
+	logic.destroy_storage(&w.velocity)
+	logic.destroy_storage(&w.sprite)
+	logic.destroy_storage(&w.brain)
+	logic.destroy_storage(&w.input)
+	logic.destroy_storage(&w.timer)
 }
