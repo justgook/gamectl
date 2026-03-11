@@ -1,19 +1,24 @@
 package world
 
 import "../host"
+import sg "../sokol/gfx"
 import "camera"
 import "grid"
 import "logic"
+
 
 World :: struct {
 	next_entity_id:   int,
 	sim_frame_length: f64,
 	accumulator:      f64,
+	atlas:            sg.Image,
+	lut:              sg.Image,
 	grid:             grid.Grid,
 	cam:              camera.Camera,
 	position:         logic.Component_Storage(Position),
 	velocity:         logic.Component_Storage(Velocity),
-	sprite:           logic.Component_Storage(Sprite), // make it real from render
+	sprite_pipe:      ^Sprite_Pipe,
+	sprite:           logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX), // make it real from render
 	brain:            logic.Component_Storage(Brain),
 	input:            logic.Component_Storage(Input),
 	timer:            logic.Component_Storage(Timer),
@@ -28,14 +33,34 @@ frame :: proc(w: ^World, dt: f64) {
 	}
 
 	sys_camera(w)
+	ortho := camera.camera_get_matrix(&w.cam, {640, 360})
+	sys_sprite(w, &ortho)
 }
 
 
 init :: proc(w: ^World) {
 	w.sim_frame_length = 1.0 / 60.0
 	w.cam = camera.camera_init({host.widthf() / 2, host.heightf() / 2}, 1.0)
+	// TODO:  SIMPLIFY
+	w.sprite_pipe = sprites_init()
+	sprites_set_texture(w.atlas, w.sprite_pipe)
+	// THE FIRST TEST DATA
 
-	// fmt.println("WORLD init")
+	player := create_entity(w)
+	logic.add_component(&w.velocity, player, Velocity{})
+	logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
+	logic.add_component(
+		&w.sprite,
+		player,
+		Sprite{pos = {1, 1}, opacity = 1, uv = {0, 0, 1, 1}, size = {128, 128}},
+	)
+}
+
+create_entity :: proc(w: ^World) -> int {
+	id := w.next_entity_id
+	w.next_entity_id += 1
+
+	return id
 }
 
 entity_delete :: proc(w: ^World, entity_id: int) {
@@ -50,6 +75,7 @@ entity_delete :: proc(w: ^World, entity_id: int) {
 cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.velocity)
+	sprites_cleanup(w.sprite_pipe)
 	logic.destroy_storage(&w.sprite)
 	logic.destroy_storage(&w.brain)
 	logic.destroy_storage(&w.input)

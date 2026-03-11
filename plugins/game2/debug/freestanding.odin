@@ -13,9 +13,7 @@ foreign env {
 }
 
 logger :: proc "contextless" () -> Logger {
-	return Logger {
-		func = sokol_logger_proc,
-	}
+	return Logger{func = sokol_logger_proc}
 }
 
 write :: proc(level: Level, tag, message: string) {
