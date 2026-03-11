@@ -4,14 +4,14 @@
 
 package host
 
-import runtime "base:runtime"
-import "core:fmt"
-import "core:os"
-import "core:strings"
 import debug "../debug"
 import sapp "../sokol/app"
 import sg "../sokol/gfx"
 import sglue "../sokol/glue"
+import runtime "base:runtime"
+import "core:fmt"
+import "core:os"
+import "core:strings"
 
 GAME_ASSET_PREFIX :: "/game/"
 
@@ -92,9 +92,9 @@ shutdown_graphics :: proc() {
 
 initial_event :: proc() -> Event {
 	return Event {
-		kind               = .Resized,
-		window_height      = i32(sapp.height()),
-		framebuffer_width  = i32(sapp.width()),
+		kind = .Resized,
+		window_height = i32(sapp.height()),
+		framebuffer_width = i32(sapp.width()),
 		framebuffer_height = i32(sapp.height()),
 	}
 }
@@ -121,21 +121,22 @@ map_action :: proc(key: sapp.Keycode) -> (u32, bool) {
 translate_event :: proc(e: ^sapp.Event) -> (Event, bool) {
 	#partial switch e.type {
 	case .MOUSE_MOVE, .MOUSE_DOWN, .MOUSE_UP:
-		return Event {kind = .Mouse_Move, mouse_y = e.mouse_y}, true
+		return Event{kind = .Mouse_Move, mouse_y = e.mouse_y}, true
 	case .RESIZED:
 		return Event {
-			kind               = .Resized,
-			window_height      = i32(e.window_height),
-			framebuffer_width  = i32(e.framebuffer_width),
-			framebuffer_height = i32(e.framebuffer_height),
-		}, true
+				kind = .Resized,
+				window_height = i32(e.window_height),
+				framebuffer_width = i32(e.framebuffer_width),
+				framebuffer_height = i32(e.framebuffer_height),
+			},
+			true
 	case .KEY_DOWN:
 		if action, ok := map_action(e.key_code); ok {
-			return Event {kind = .Action_Down, action_code = action}, true
+			return Event{kind = .Action_Down, action_code = action}, true
 		}
 	case .KEY_UP:
 		if action, ok := map_action(e.key_code); ok {
-			return Event {kind = .Action_Up, action_code = action}, true
+			return Event{kind = .Action_Up, action_code = action}, true
 		}
 	case:
 	}

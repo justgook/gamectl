@@ -8,9 +8,7 @@ import runtime "base:runtime"
 import "core:log"
 
 logger :: proc "contextless" () -> Logger {
-	return Logger {
-		func = sokol_logger_proc,
-	}
+	return Logger{func = sokol_logger_proc}
 }
 
 write :: proc(level: Level, tag, message: string) {
@@ -52,7 +50,7 @@ sokol_logger_proc :: proc "c" (
 	file_text := cstring_or_empty(filename)
 	loc := runtime.Source_Code_Location {
 		file_path = file_text,
-		line = i32(line_nr),
+		line      = i32(line_nr),
 	}
 
 	switch log_level {
