@@ -287,7 +287,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         this._loadTextAtlasFromAssets(),
         this._loadPortTexturesFromAssets(),
       ])
-        .then(() => this.requestRenderIfGenerationChanged(true))
+        .then(() => {
+          this._refreshAllNodeFrames();
+          this.requestRenderIfGenerationChanged(true);
+        })
         .catch(() => {
           toast.error("Failed to load Node Graph 2 render assets.");
         });
@@ -297,6 +300,139 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   setNodeLayoutMap(map) {
     this.nodeLayout = map;
     this.requestRenderIfGenerationChanged(true);
+  }
+
+  _measureTextWidth(text, scale = 1) {
+    const value = String(text || "");
+    if (!value) return 0;
+
+    const atlasSize = Math.max(1, this.textAtlas?.atlasSize || this.assets?.text?.fontPx || 14);
+    const glyphs = this.textAtlas?.glyphs;
+    if (!glyphs) {
+      return value.length * atlasSize * 0.58 * scale;
+    }
+
+    let widthPx = 0;
+    for (const ch of value) {
+      const g = glyphs.get(ch.codePointAt(0));
+      if (!g) {
+        widthPx += atlasSize * 0.3 * scale;
+        continue;
+      }
+      widthPx += g.advancePx * scale;
+    }
+    return widthPx;
+  }
+
+  _getNodeTitleLabel(node) {
+    const kindLabel = node.kind === NG.NODE_CODE
+      ? "code"
+      : node.kind === NG.NODE_GOAL
+        ? "goal"
+        : node.kind === NG.NODE_VALUE
+          ? "value"
+          : "node";
+    const customName = String(this.nodeNames.get(node.id) || "").trim();
+    return customName ? `${customName} (#${node.id})` : `${kindLabel} #${node.id}`;
+  }
+
+  _getNodeStateLabel(node) {
+    return `state ${node.execState}`;
+  }
+
+  _measureNodeSize(node) {
+    const nodeCfg = this.assets?.node || {};
+    const layout = this.assets?.layout || {};
+    const ports = this.assets?.ports || {};
+    const text = this.assets?.text || {};
+
+    const minWidth = Number(nodeCfg.width || 146);
+    const maxWidth = Number.isFinite(Number(nodeCfg.maxWidth)) && Number(nodeCfg.maxWidth) > 0
+      ? Number(nodeCfg.maxWidth)
+      : Infinity;
+    const minHeight = Number(nodeCfg.minHeight || nodeCfg.height || 62);
+    const padX = Number(layout.nodePaddingX || 10);
+    const nodePaddingY = Number(layout.nodePaddingY || 8);
+    const rowStartY = Number(ports.rowStartY || ((layout.nodeHeaderHeight || 28) + 2));
+    const spacingY = Number(ports.spacingY || 18);
+    const iconSizePx = Number(ports.iconSizePx || 12);
+    const labelOffset = Number(ports.labelOffsetX || 10);
+    const inputInsetX = Number(ports.inputInsetX || 0);
+    const outputInsetX = Number(ports.outputInsetX || 0);
+    const titlePx = Number(text.fontPx || 14);
+    const portPx = Number(ports.labelFontPx || 11);
+    const atlasSize = Math.max(1, this.textAtlas?.atlasSize || titlePx);
+    const titleScale = titlePx / atlasSize;
+    const portScale = portPx / atlasSize;
+    const iconHalf = iconSizePx * 0.5;
+
+    const titleWidth = this._measureTextWidth(this._getNodeTitleLabel(node), titleScale);
+    const stateWidth = this._measureTextWidth(this._getNodeStateLabel(node), portScale);
+    const headerGap = 12;
+    const headerWidth = padX * 2 + titleWidth + stateWidth + headerGap;
+
+    let leftLabelWidth = 0;
+    for (let i = 0; i < (node.inputCount || 0); i++) {
+      const inputId = node.inputs?.[i]?.inputId ?? i + 1;
+      const label = this._getPortLabel(node.id, "input", inputId, i);
+      leftLabelWidth = Math.max(leftLabelWidth, this._measureTextWidth(label, portScale));
+    }
+
+    let rightLabelWidth = 0;
+    for (let i = 0; i < (node.outputCount || 0); i++) {
+      const outputId = node.outputs?.[i]?.outputId ?? i + 1;
+      const label = node.kind === NG.NODE_VALUE
+        ? (this._getStoredNodeValue(node.id, outputId) || "value")
+        : this._getPortLabel(node.id, "output", outputId, i);
+      rightLabelWidth = Math.max(rightLabelWidth, this._measureTextWidth(label, portScale));
+    }
+
+    const bodyWidth =
+      inputInsetX + iconHalf + labelOffset + leftLabelWidth +
+      padX * 2 +
+      rightLabelWidth + labelOffset + iconHalf + outputInsetX;
+
+    const width = Math.max(minWidth, Math.min(maxWidth, Math.ceil(Math.max(headerWidth, bodyWidth))));
+
+    const rowCount = Math.max(node.inputCount || 0, node.outputCount || 0);
+    if (rowCount <= 0) return { width, height: minHeight };
+
+    const lastPortCenterY = rowStartY + (rowCount - 1) * spacingY;
+    const requiredHeight = lastPortCenterY + iconSizePx * 0.5 + nodePaddingY;
+    return { width, height: Math.max(minHeight, Math.ceil(requiredHeight)) };
+  }
+
+  _updateNodeFrame(nodeId, node, index = 0) {
+    if (!Number.isFinite(Number(nodeId)) || !node) return null;
+    const existing = this.nodeLayout.get(nodeId);
+    const layout = this.assets.layout;
+    const col = index % layout.gridColumns;
+    const row = Math.floor(index / layout.gridColumns);
+    const size = this._measureNodeSize(node);
+    const frame = {
+      x: existing?.x ?? (layout.gridOriginX + col * layout.gridStepX),
+      y: existing?.y ?? (layout.gridOriginY + row * layout.gridStepY),
+      width: size.width,
+      height: size.height,
+    };
+    this.nodeLayout.set(nodeId, frame);
+    return frame;
+  }
+
+  _refreshNodeFrame(nodeId) {
+    const numericId = Number(nodeId);
+    if (!Number.isFinite(numericId) || numericId <= 0) return null;
+    const snapshot = this.getGraphSnapshot();
+    const index = snapshot.nodes.findIndex((node) => node.id === numericId);
+    if (index < 0) return null;
+    return this._updateNodeFrame(numericId, snapshot.nodes[index], index);
+  }
+
+  _refreshAllNodeFrames(nodes = null) {
+    const list = Array.isArray(nodes) ? nodes : this.getGraphSnapshot().nodes;
+    list.forEach((node, index) => {
+      this._updateNodeFrame(node.id, node, index);
+    });
   }
 
   setPortLabelMap(map) {
@@ -1292,15 +1428,21 @@ outputs[2] = json.encode({
 
       this.nodeNames.set(nodeId, String(draft.name || "").trim());
       const tempNode = {
+        id: nodeId,
         kind: draft.kind,
+        execState: 0,
         inputCount: draft.inputs.length,
         outputCount: draft.outputs.length,
+        inputs: draft.inputs.map((port) => ({ inputId: Number(port.inputId) })),
+        outputs: draft.outputs.map((port) => ({ outputId: Number(port.outputId) })),
       };
-      const nodeSize = this._getNodeSize(tempNode);
       const center = this._viewportCenterWorld();
+      const nodeSize = this._measureNodeSize(tempNode);
       this.nodeLayout.set(nodeId, {
         x: Math.round(center.x - nodeSize.width * 0.5),
         y: Math.round(center.y - nodeSize.height * 0.5),
+        width: nodeSize.width,
+        height: nodeSize.height,
       });
 
       this.selectedNodeIds.clear();
@@ -1427,6 +1569,15 @@ outputs[2] = json.encode({
         x: Math.round(Number(raw?.x || 0)),
         y: Math.round(Number(raw?.y || 0)),
       });
+      this._updateNodeFrame(nodeId, {
+        id: nodeId,
+        kind,
+        execState: 0,
+        inputCount: inputs.length,
+        outputCount: outputs.length,
+        inputs: inputs.map((input, index) => ({ inputId: Number(input?.id || index + 1) })),
+        outputs: outputs.map((output, index) => ({ outputId: Number(output?.id || index + 1) })),
+      }, sorted.findIndex((entry) => Number(entry?.id || 0) === nodeId));
     }
 
     for (const raw of sorted) {
@@ -1840,6 +1991,7 @@ outputs[2] = json.encode({
             this.api.ng_exec_clear(nodeId, 1);
           }
         }
+        this._refreshNodeFrame(nodeId);
         this.requestRenderIfGenerationChanged(true);
         toast.success(`Saved settings for ${nodeTitle}.`);
         popup.close();
@@ -1856,6 +2008,7 @@ outputs[2] = json.encode({
         newOutputValue: String(formData.get("new-output-value") || ""),
       });
       if (changed) {
+        this._refreshNodeFrame(nodeId);
         this.requestRenderIfGenerationChanged(true);
         const refreshed = this.getGraphSnapshot().nodes.find((item) => item.id === nodeId);
         if (!refreshed) {
@@ -2233,6 +2386,9 @@ outputs[2] = json.encode({
     const generation = this.dv.getUint32(this.api.ng_get_info_ptr() + INFO.GENERATION, true);
     const sizeKey = this._resizeCanvas();
     if (!force && generation === this.lastGeneration && sizeKey === this.lastSizeKey) return;
+    if (force || generation !== this.lastGeneration) {
+      this._refreshAllNodeFrames();
+    }
     this.lastGeneration = generation;
     this.lastSizeKey = sizeKey;
     this._render();
@@ -3009,15 +3165,22 @@ outputs[2] = json.encode({
 
   _ensureLayout(nodeId, index) {
     if (this.nodeLayout.has(nodeId)) return this.nodeLayout.get(nodeId);
+    const snapshot = this.getGraphSnapshot();
+    const node = snapshot.nodes.find((entry) => entry.id === nodeId);
+    if (node) {
+      return this._updateNodeFrame(nodeId, node, index);
+    }
     const layout = this.assets.layout;
     const col = index % layout.gridColumns;
     const row = Math.floor(index / layout.gridColumns);
-    const pos = {
+    const frame = {
       x: layout.gridOriginX + col * layout.gridStepX,
       y: layout.gridOriginY + row * layout.gridStepY,
+      width: Number(this.assets.node?.width || 146),
+      height: Number(this.assets.node?.minHeight || this.assets.node?.height || 62),
     };
-    this.nodeLayout.set(nodeId, pos);
-    return pos;
+    this.nodeLayout.set(nodeId, frame);
+    return frame;
   }
 
   _readGraph() {
@@ -3291,21 +3454,11 @@ outputs[2] = json.encode({
   }
 
   _getNodeSize(node) {
-    const nodeCfg = this.assets.node;
-    const layout = this.assets.layout || {};
-    const ports = this.assets.ports;
-    const width = Number(nodeCfg.width || 146);
-    const minHeight = Number(nodeCfg.minHeight || nodeCfg.height || 62);
-    const rowCount = Math.max(node.inputCount || 0, node.outputCount || 0);
-    if (rowCount <= 0) return { width, height: minHeight };
-
-    const rowStartY = Number(ports.rowStartY || ((layout.nodeHeaderHeight || 28) + 2));
-    const spacingY = Number(ports.spacingY || 18);
-    const iconSizePx = Number(ports.iconSizePx || 12);
-    const nodePaddingY = Number(layout.nodePaddingY || 8);
-    const lastPortCenterY = rowStartY + (rowCount - 1) * spacingY;
-    const requiredHeight = lastPortCenterY + iconSizePx * 0.5 + nodePaddingY;
-    return { width, height: Math.max(minHeight, Math.ceil(requiredHeight)) };
+    const cached = node?.id ? this.nodeLayout.get(node.id) : null;
+    if (cached?.width && cached?.height) {
+      return { width: cached.width, height: cached.height };
+    }
+    return this._measureNodeSize(node);
   }
 
   _getPortCenter(node, pos, isInput, portIndex) {
@@ -3755,19 +3908,6 @@ outputs[2] = json.encode({
     const titleScale = titlePx / atlasSize;
     const portScale = portPx / atlasSize;
 
-    const measureTextWidth = (text, scale) => {
-      let widthPx = 0;
-      for (const ch of text) {
-        const g = glyphs.get(ch.codePointAt(0));
-        if (!g) {
-          widthPx += atlasSize * 0.3 * scale;
-          continue;
-        }
-        widthPx += g.advancePx * scale;
-      }
-      return widthPx;
-    };
-
     const drawText = (text, startX, baselineY, scale) => {
       let x = startX;
       for (const ch of text) {
@@ -3799,23 +3939,15 @@ outputs[2] = json.encode({
     for (const node of nodes) {
       const pos = posById.get(node.id);
       const nodeSize = this._getNodeSize(node);
-      const kindLabel = node.kind === NG.NODE_CODE
-        ? "code"
-        : node.kind === NG.NODE_GOAL
-          ? "goal"
-          : node.kind === NG.NODE_VALUE
-            ? "value"
-            : "node";
-      const customName = (this.nodeNames.get(node.id) || "").trim();
-      const labelA = customName ? `${customName} (#${node.id})` : `${kindLabel} #${node.id}`;
-      const labelState = `state ${node.execState}`;
+      const labelA = this._getNodeTitleLabel(node);
+      const labelState = this._getNodeStateLabel(node);
       const x = pos.x + padX;
       const yA = pos.y + titlePx + 2;
 
       gl.uniform4f(colorLoc, c[0], c[1], c[2], c[3]);
       drawText(labelA, x, yA, titleScale);
 
-      const stateWidth = measureTextWidth(labelState, portScale);
+      const stateWidth = this._measureTextWidth(labelState, portScale);
       const stateX = Math.max(x + 56, pos.x + nodeSize.width - padX - stateWidth);
       gl.uniform4f(colorLoc, cMuted[0], cMuted[1], cMuted[2], cMuted[3]);
       drawText(labelState, stateX, yA, portScale);
@@ -3836,7 +3968,7 @@ outputs[2] = json.encode({
           : this._getPortLabel(node.id, "output", outputId, i);
         const p = this._getPortCenter(node, pos, false, i);
         const baselineY = p.y + portPx * 0.35;
-        const labelWidth = measureTextWidth(label, portScale);
+        const labelWidth = this._measureTextWidth(label, portScale);
         const endX = p.x - iconHalf - labelOffset;
         drawText(label, endX - labelWidth, baselineY, portScale);
       }
