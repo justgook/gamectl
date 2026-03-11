@@ -259,7 +259,10 @@ app_frame :: proc "c" () {
 
 app_cleanup :: proc "c" () {
 	context = runtime.default_context()
+
+	world.cleanup(&state.world)
 	debug.info("app", "cleanup")
+
 	tilemap.shutdown(&state.tilemap_renderer)
 	sprite.shutdown(&state.sprite_renderer)
 	if state.lut.id != 0 {
