@@ -3,109 +3,26 @@
 package main
 
 import runtime "base:runtime"
-import "core:c"
-import "core:fmt"
-import sg "sokol/gfx"
-
-foreign import env "env"
-
-@(default_calling_convention = "c")
-foreign env {
-	js_canvas_width :: proc() -> c.int ---
-	js_canvas_height :: proc() -> c.int ---
-	js_webgl_framebuffer :: proc() -> u32 ---
-	game_asset_size :: proc(path_ptr: u32, path_len: u32) -> i32 ---
-	game_asset_read :: proc(path_ptr: u32, path_len: u32, dst_ptr: u32, dst_cap: u32) -> i32 ---
-}
-
-asset_scratch: [ASSET_SCRATCH_CAPACITY]u8
-
-wasm_asset_read_all :: proc(path: string) -> ([]u8, bool) {
-	path_bytes := transmute([]u8)path
-	path_ptr: u32 = 0
-	if len(path_bytes) > 0 {
-		path_ptr = u32(uintptr(&path_bytes[0]))
-	}
-
-	size := game_asset_size(path_ptr, u32(len(path_bytes)))
-	if size < 0 {
-		assert(false, fmt.tprintf("wasm asset not found: %s", path))
-		return nil, false
-	}
-	if size == 0 {
-		return []u8{}, true
-	}
-	if size > ASSET_SCRATCH_CAPACITY {
-		assert(
-			false,
-			fmt.tprintf(
-				"wasm asset too large for scratch buffer: %s (%d > %d)",
-				path,
-				size,
-				ASSET_SCRATCH_CAPACITY,
-			),
-		)
-		return nil, false
-	}
-
-	buf := asset_scratch[:size]
-	bytes_read := game_asset_read(
-		path_ptr,
-		u32(len(path_bytes)),
-		u32(uintptr(&buf[0])),
-		u32(len(buf)),
-	)
-	if bytes_read != size {
-		assert(
-			false,
-			fmt.tprintf(
-				"wasm asset read failed: %s (expected %d bytes, got %d)",
-				path,
-				size,
-				bytes_read,
-			),
-		)
-		return nil, false
-	}
-	return buf, true
-}
-
-wasm_swapchain :: proc() -> sg.Swapchain {
-	sc: sg.Swapchain
-	sc.width = js_canvas_width()
-	sc.height = js_canvas_height()
-	sc.sample_count = 1
-	sc.color_format = .RGBA8
-	sc.depth_format = .DEPTH_STENCIL
-	sc.gl.framebuffer = js_webgl_framebuffer()
-	return sc
-}
 
 @(export)
 init :: proc "c" () {
-	context = runtime.default_context()
-	desc: sg.Desc
-	sg.setup(desc)
-	core_init(wasm_asset_read_all)
+	app_init()
 }
 
 @(export)
 frame :: proc "c" () {
-	context = runtime.default_context()
-	core_frame(wasm_swapchain)
+	app_frame()
 }
 
 @(export)
 cleanup :: proc "c" () {
-	context = runtime.default_context()
-	core_cleanup()
-	sg.shutdown()
+	app_cleanup()
 }
 
 @(export)
 event :: proc "c" (event_ptr: u32) {
 	context = runtime.default_context()
-	core_handle_host_event(event_ptr)
+	app_event(host_event_from_buffer(event_ptr))
 }
 
 @(export)

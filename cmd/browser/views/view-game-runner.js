@@ -594,6 +594,21 @@ export default class ViewGameRunner extends HTMLElement {
 
   _createAssetImports() {
     return {
+      js_log: (level, tagPtr, tagLen, messagePtr, messageLen) => {
+        const tag = this._readWasmUtf8(tagPtr, tagLen)
+        const message = this._readWasmUtf8(messagePtr, messageLen)
+        const prefix = tag ? `[${tag}]` : '[game2]'
+        if ((level >>> 0) >= 3) {
+          console.error(prefix, message)
+        } else if ((level >>> 0) === 2) {
+          console.warn(prefix, message)
+        } else if ((level >>> 0) === 0) {
+          console.debug(prefix, message)
+        } else {
+          console.info(prefix, message)
+        }
+      },
+
       game_asset_size: (pathPtr, pathLen) => {
         const path = this._readWasmUtf8(pathPtr, pathLen)
         if (!path) return -1
