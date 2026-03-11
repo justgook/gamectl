@@ -507,7 +507,8 @@
     display: block;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    background: var(--surface);
+    /* background: var(--surface); */
+    background: #2d2d2d;
     font-family: var(--font-mono);
     font-size: var(--font-sm);
     line-height: 1.45;
@@ -536,7 +537,7 @@
 
   code-editor>pre {
     pointer-events: none;
-    color: var(--text);
+    color: #ccc;
   }
 
   code-editor>textarea {
@@ -553,19 +554,25 @@
   }
 
   code-editor[lang="lua"] .comment {
-    color: #7f9f5f;
+    color: #999;
   }
 
   code-editor[lang="lua"] .string {
-    color: #d4b06a;
+    color: #7ec699;
+    font-weight: 400;
   }
 
   code-editor[lang="lua"] .number {
-    color: #8ab4f8;
+    color: #f08d49;
   }
 
   code-editor[lang="lua"] .keyword {
-    color: #f07a9a;
+    color: #cc99cd;
+    font-weight: bold;
+  }
+
+  code-editor[lang="lua"] .operator {
+    color: #67cdcc;
   }
 
   input::placeholder,
@@ -1131,6 +1138,12 @@
   view-nodegraph.theme--nine-slice>node-code,
   view-nodegraph.theme--nine-slice>node-popup {
     --ng-node-header-skin-src: var(--ng-node-skin-example);
+  }
+}
+
+@layer theme {
+  code-editor>pre {
+    color: #ccc;
   }
 }
 
