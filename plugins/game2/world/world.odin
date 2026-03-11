@@ -24,8 +24,10 @@ frame :: proc(w: ^World, dt: f64) {
 	w.accumulator += dt //
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
-		// fmt.printfln("wrold run %f", w.accumulator)
+		sys_velocity(w)
+		sys_brain(w)
 	}
+
 }
 
 
