@@ -5,10 +5,16 @@ import "logic"
 import "shape"
 
 Brain :: i8
-
-Input :: struct {
-	x: i8, // -1, 0, 1 for left/none/right
+InputSet :: enum {
+	North,
+	East,
+	South,
+	West,
+	Action1,
+	Action2,
 }
+
+Input :: bit_set[InputSet;u8]
 
 sys_brain :: proc(w: ^World) {
 	view := logic.view(&w.brain, &w.position, &w.input)
@@ -19,16 +25,30 @@ sys_brain :: proc(w: ^World) {
 			continue
 		}
 
+		inputX := 0
+		if .East in input {
+			inputX = 1
+		}
+		if .West in input {
+			inputX = -1
+		}
 		test := [4]int{}
 		test.xy = pos^
-		test.z = test.x + int(input.x) * 10 * UNIT
+		test.z = test.x + inputX * 10 * UNIT
 		test.w = test.y
 		found := grid.query_segment(&w.grid, &test)
 		defer delete(found)
 
 		for wall in found {
 			shape.segment_segment_test(wall, &test) or_continue
-			input.x *= -1
+			if .East in input {
+				input^ -= {.East}
+				input^ += {.West}
+			} else {
+				input^ -= {.East}
+				input^ += {.West}
+			}
+
 			break
 		}
 	}
