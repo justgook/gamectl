@@ -30,7 +30,7 @@ function escapeHtml(value) {
 }
 
 function highlightLua(source) {
-  const tokenPattern = /(--\[\[[\s\S]*?\]\]|--[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\[(?:=*)\[[\s\S]*?\](?:=*)\]|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b|\b[_A-Za-z][_A-Za-z0-9]*\b)/g;
+  const tokenPattern = /(--\[\[[\s\S]*?\]\]|--[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\[(?:=*)\[[\s\S]*?\](?:=*)\]|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b|\b[_A-Za-z][_A-Za-z0-9]*\b|\.\.\.|==|~=|<=|>=|\.\.|[+\-*/%^#=<>.,:;(){}\[\]])/g;
   let out = "";
   let last = 0;
   let match = tokenPattern.exec(source);
@@ -51,6 +51,8 @@ function highlightLua(source) {
       klass = "number";
     } else if (LUA_KEYWORDS.has(token)) {
       klass = "keyword";
+    } else if (/^(?:\.\.\.|==|~=|<=|>=|\.\.|[+\-*/%^#=<>.,:;(){}\[\]])$/.test(token)) {
+      klass = "operator";
     }
 
     if (klass) {
@@ -80,7 +82,7 @@ function ensureTrailingNewline(text) {
 
 export class CodeEditor extends HTMLElement {
   static get observedAttributes() {
-    return ["lang", "name", "placeholder", "rows", "spellcheck"];
+    return ["lang", "name", "placeholder", "spellcheck"];
   }
 
   constructor() {
@@ -110,6 +112,8 @@ export class CodeEditor extends HTMLElement {
 
     this._pre = pre;
     this._textarea = textarea;
+    this.style.cssText = `overflow:auto`
+    this._textarea.style.cssText = `resize:none;`
 
     this._syncAttrs();
     this.value = initialValue;
@@ -150,8 +154,8 @@ export class CodeEditor extends HTMLElement {
   _syncAttrs() {
     if (!this._textarea) return;
 
-    const rows = Number(this.getAttribute("rows") || 12);
-    this._textarea.rows = Number.isFinite(rows) && rows > 0 ? rows : 12;
+    // const rows = Number(this.getAttribute("rows") || 12);
+    // this._textarea.rows = Number.isFinite(rows) && rows > 0 ? rows : 12;
 
     const name = this.getAttribute("name");
     if (name) this._textarea.name = name;
@@ -199,6 +203,7 @@ export class CodeEditor extends HTMLElement {
 
   _renderHighlight() {
     if (!this._pre || !this._textarea) return;
+    autoResize(this._textarea)
 
     const source = this._textarea.value;
     const lang = String(this.getAttribute("lang") || "").toLowerCase();
@@ -209,4 +214,10 @@ export class CodeEditor extends HTMLElement {
 
 if (!customElements.get("code-editor")) {
   customElements.define("code-editor", CodeEditor);
+}
+
+
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
 }
