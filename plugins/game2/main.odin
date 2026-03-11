@@ -1,20 +1,14 @@
 package main
 
+import runtime "base:runtime"
 import "core:c"
+import "debug"
 import "host"
 import sprite "render/sprite"
 import tilemap "render/tilemap"
 import sg "sokol/gfx"
 import qoi "third_party/qoi"
 import "world"
-
-EVENT_TYPE_MOUSE_DOWN :: 4
-EVENT_TYPE_MOUSE_UP :: 5
-EVENT_TYPE_MOUSE_SCROLL :: 6
-EVENT_TYPE_MOUSE_MOVE :: 7
-EVENT_TYPE_RESIZED :: 14
-EVENT_TYPE_ACTION_DOWN :: 100
-EVENT_TYPE_ACTION_UP :: 101
 
 ACTION_LEFT :: u32(1)
 ACTION_RIGHT :: u32(2)
@@ -27,9 +21,6 @@ LUT_ASSET_PATH :: "/game/lut.qoi"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
 
-EVENT_OFFSET_FRAME_COUNT :: 0
-EVENT_OFFSET_TYPE :: 8
-EVENT_OFFSET_MOUSE_BUTTON :: 28
 EVENT_OFFSET_MOUSE_X :: 32
 EVENT_OFFSET_MOUSE_Y :: 36
 EVENT_OFFSET_ACTION_CODE :: 40
@@ -37,12 +28,8 @@ EVENT_OFFSET_WINDOW_WIDTH :: 256
 EVENT_OFFSET_WINDOW_HEIGHT :: 260
 EVENT_OFFSET_FRAMEBUFFER_WIDTH :: 264
 EVENT_OFFSET_FRAMEBUFFER_HEIGHT :: 268
-ASSET_SCRATCH_CAPACITY :: 2 * 1024 * 1024
-
 State :: struct {
-	//new stuff
 	world:              world.World,
-	//old stuff
 	atlas:              sg.Image,
 	lut:                sg.Image,
 	sprite_renderer:    sprite.Renderer,
@@ -94,14 +81,17 @@ range_from_value :: proc(value: ^$T) -> sg.Range {
 	return sg.Range{ptr = cast(rawptr)value, size = c.size_t(size_of(T))}
 }
 
-core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
+app_init :: proc "c" () {
+	context = runtime.default_context()
+	host.setup_graphics()
+	debug.info("app", "init")
 	world.init(&state.world)
 	init_stage = 1
 	state.pass_action = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 	}
 
-	asset_data, ok := asset_reader(ATLAS_ASSET_PATH)
+	asset_data, ok := host.asset_read_all(ATLAS_ASSET_PATH)
 	init_stage = 2
 	if ok {
 		img_w, img_h, img_pixels, img_ok := qoi.decode_to_buffer(asset_data, atlas_pixels[:])
@@ -126,7 +116,7 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 		}
 	}
 
-	lut_asset_data, lut_ok := asset_reader(LUT_ASSET_PATH)
+	lut_asset_data, lut_ok := host.asset_read_all(LUT_ASSET_PATH)
 	if lut_ok {
 		lut_w, lut_h, lut_img_pixels, lut_img_ok := qoi.decode_to_buffer(
 			lut_asset_data,
@@ -169,20 +159,21 @@ core_init :: proc(asset_reader: proc(path: string) -> ([]u8, bool)) {
 	}
 
 	state.mouse_y = 0.0
-	state.window_height = 480
-	state.framebuffer_width = 640
-	state.framebuffer_height = 480
+	state.window_height = max(1, i32(host.heightf()))
+	state.framebuffer_width = max(1, i32(host.widthf()))
+	state.framebuffer_height = max(1, i32(host.heightf()))
 	for i in 0 ..< len(state.actions_down) {
 		state.actions_down[i] = false
 	}
 	init_stage = 6
 }
 
-core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
+app_frame :: proc "c" () {
+	context = runtime.default_context()
 	world.frame(&state.world, host.frame_duration())
 	pass := sg.Pass {
 		action    = state.pass_action,
-		swapchain = swapchain_reader(),
+		swapchain = host.swapchain(),
 	}
 	window_height := state.window_height
 	if window_height <= 0 {
@@ -266,7 +257,9 @@ core_frame :: proc(swapchain_reader: proc() -> sg.Swapchain) {
 	sg.commit()
 }
 
-core_cleanup :: proc() {
+app_cleanup :: proc "c" () {
+	context = runtime.default_context()
+	debug.info("app", "cleanup")
 	tilemap.shutdown(&state.tilemap_renderer)
 	sprite.shutdown(&state.sprite_renderer)
 	if state.lut.id != 0 {
@@ -277,6 +270,7 @@ core_cleanup :: proc() {
 		sg.destroy_image(state.atlas)
 		state.atlas = {}
 	}
+	host.shutdown_graphics()
 }
 
 core_handle_mouse_move :: proc(mouse_y: f32) {
@@ -312,21 +306,45 @@ core_handle_action_up :: proc(action_code: u32) {
 	state.actions_down[int(action_code)] = false
 }
 
-core_handle_host_event :: proc(event_ptr: u32) {
-	if event_ptr == 0 {
-		return
-	}
-	input := cast(^Host_Event)uintptr(event_ptr)
-	switch input.kind {
-	case EVENT_TYPE_MOUSE_DOWN, EVENT_TYPE_MOUSE_UP, EVENT_TYPE_MOUSE_MOVE:
-		core_handle_mouse_move(input.mouse_y)
-	case EVENT_TYPE_RESIZED:
-		core_handle_resize(input.window_height)
-		core_handle_framebuffer_resize(input.framebuffer_width, input.framebuffer_height)
-	case EVENT_TYPE_ACTION_DOWN:
-		core_handle_action_down(input.action_code)
-	case EVENT_TYPE_ACTION_UP:
-		core_handle_action_up(input.action_code)
+app_event :: proc "c" (event: host.Event) {
+	context = runtime.default_context()
+	#partial switch event.kind {
+	case .Mouse_Move:
+		core_handle_mouse_move(event.mouse_y)
+	case .Resized:
+		core_handle_resize(event.window_height)
+		core_handle_framebuffer_resize(event.framebuffer_width, event.framebuffer_height)
+	case .Action_Down:
+		core_handle_action_down(event.action_code)
+	case .Action_Up:
+		core_handle_action_up(event.action_code)
 	case:
 	}
+}
+
+host_event_from_buffer :: proc(event_ptr: u32) -> host.Event {
+	if event_ptr == 0 {
+		return {}
+	}
+	input := cast(^Host_Event)uintptr(event_ptr)
+	event := host.Event {
+		mouse_y            = input.mouse_y,
+		action_code        = input.action_code,
+		window_height      = input.window_height,
+		framebuffer_width  = input.framebuffer_width,
+		framebuffer_height = input.framebuffer_height,
+	}
+	switch input.kind {
+	case 4, 5, 7:
+		event.kind = .Mouse_Move
+	case 14:
+		event.kind = .Resized
+	case 100:
+		event.kind = .Action_Down
+	case 101:
+		event.kind = .Action_Up
+	case:
+		event.kind = .None
+	}
+	return event
 }
