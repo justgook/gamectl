@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import fsSync from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
@@ -23,6 +24,9 @@ class RespackRuntime {
     this.inputPtr = 0
     this.inputLen = 0
     this.output = new Uint8Array()
+    this.lastCallReturn = 0
+    this.lastCallOutputPtr = 0
+    this.lastCallOutputLen = 0
   }
 
   static async create(wasmBytes) {
@@ -34,10 +38,11 @@ class RespackRuntime {
         input_ptr: () => runtime.inputPtr,
         input_len: () => runtime.inputLen,
         set_output: (ptr, len) => runtime.setOutput(Number(ptr), Number(len)),
-        plugin_call: () => 1,
-        plugin_call_return: () => 1,
-        plugin_call_output_ptr: () => 0,
-        plugin_call_output_len: () => 0,
+        plugin_call: (modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen) =>
+          runtime.pluginCall(Number(modulePtr), Number(moduleLen), Number(funcPtr), Number(funcLen), Number(inputPtr), Number(inputLen)),
+        plugin_call_return: () => runtime.lastCallReturn,
+        plugin_call_output_ptr: () => runtime.lastCallOutputPtr,
+        plugin_call_output_len: () => runtime.lastCallOutputLen,
       }
     }
 
@@ -59,6 +64,67 @@ class RespackRuntime {
 
   setOutput(ptr, len) {
     this.output = new Uint8Array(this.memory.buffer.slice(ptr, ptr + len))
+  }
+
+  pluginCall(modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen) {
+    const memory = new Uint8Array(this.memory.buffer)
+    const decoder = new TextDecoder()
+    const encoder = new TextEncoder()
+    const moduleName = decoder.decode(memory.slice(modulePtr, modulePtr + moduleLen))
+    const functionName = decoder.decode(memory.slice(funcPtr, funcPtr + funcLen))
+    const input = memory.slice(inputPtr, inputPtr + inputLen)
+
+    this.lastCallReturn = 0
+    this.lastCallOutputPtr = 0
+    this.lastCallOutputLen = 0
+
+    if (moduleName === 'fs' && functionName === 'write') {
+      let nullIndex = -1
+      for (let i = 0; i < input.length; i++) {
+        if (input[i] === 0) {
+          nullIndex = i
+          break
+        }
+      }
+      if (nullIndex === -1) {
+        const output = encoder.encode('Invalid format: missing null byte separator between path and data')
+        const ptr = this.alloc(output.length)
+        new Uint8Array(this.memory.buffer, ptr, output.length).set(output)
+        this.lastCallReturn = 1
+        this.lastCallOutputPtr = ptr
+        this.lastCallOutputLen = output.length
+        return 0
+      }
+
+      const filePath = decoder.decode(input.slice(0, nullIndex))
+      const data = input.slice(nullIndex + 1)
+      try {
+        fsSync.writeFileSync(filePath, data)
+        const output = encoder.encode('OK')
+        const ptr = this.alloc(output.length)
+        new Uint8Array(this.memory.buffer, ptr, output.length).set(output)
+        this.lastCallReturn = 0
+        this.lastCallOutputPtr = ptr
+        this.lastCallOutputLen = output.length
+        return 0
+      } catch (error) {
+        const output = encoder.encode(error.message)
+        const ptr = this.alloc(output.length)
+        new Uint8Array(this.memory.buffer, ptr, output.length).set(output)
+        this.lastCallReturn = 1
+        this.lastCallOutputPtr = ptr
+        this.lastCallOutputLen = output.length
+        return 0
+      }
+    }
+
+    const output = encoder.encode(`unsupported host call ${moduleName}.${functionName}`)
+    const ptr = this.alloc(output.length)
+    new Uint8Array(this.memory.buffer, ptr, output.length).set(output)
+    this.lastCallReturn = 1
+    this.lastCallOutputPtr = ptr
+    this.lastCallOutputLen = output.length
+    return 0
   }
 
   call(functionName, input = '') {
@@ -96,8 +162,8 @@ async function writeHarnessFiles(source, payloadBytes) {
 import "core:os"
 
 main :: proc() {
-  data, ok_data := os.read_entire_file("payload.bin", context.allocator)
-  assert(ok_data)
+  data, err_data := os.read_entire_file("payload.bin", context.allocator)
+  assert(err_data == nil)
 
   pkg, ok_pkg := open_respack(data)
   assert(ok_pkg)
@@ -187,8 +253,16 @@ async function main() {
   }))
 
   const dumpBytes = await call(runtime, 'dump')
+  await fs.mkdir(tempDir, { recursive: true })
+  const savedDumpPath = path.join(tempDir, 'saved_payload.bin')
+  await call(runtime, 'dump_to_file', savedDumpPath)
   const sourceBytes = await call(runtime, 'generate_odin', 'main')
   const source = new TextDecoder().decode(sourceBytes)
+  const savedDumpBytes = await fs.readFile(savedDumpPath)
+
+  if (Buffer.compare(Buffer.from(dumpBytes), savedDumpBytes) !== 0) {
+    throw new Error('dump_to_file output mismatch')
+  }
 
   await writeHarnessFiles(source, dumpBytes)
 
