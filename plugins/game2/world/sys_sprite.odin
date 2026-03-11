@@ -1,9 +1,11 @@
 package world
 
-import "../host"
-import "../render/sprite"
+import "../debug"
+import sg "../sokol/gfx"
+import "core:c"
+import "core:fmt"
+import "core:math/linalg"
 import "logic"
-
 // Flip flags for sprite rendering (matches Tiled TMX format)
 // Bit 0 = Horizontal flip, Bit 1 = Vertical flip, Bit 2 = Anti-diagonal flip
 Flip :: distinct u8
@@ -16,49 +18,133 @@ FLIP_DH :: Flip(5) // Anti-diagonal + Horizontal (90° CW)
 FLIP_DV :: Flip(6) // Anti-diagonal + Vertical (90° CCW)
 FLIP_DHV :: Flip(7) // Anti-diagonal + H + V
 
-Sprite :: struct {
-	uv:     [4]f32,
-	offset: [2]int,
-	flip:   Flip, // Flip flags (FLIP_X, FLIP_Y, or FLIP_XY)
+
+sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
+	view: logic.View2(Position, Sprite) = logic.view(&w.position, &w.sprite)
+	for id, pos, s in logic.each(&view) {
+		s.pos = to_pixelf(pos^)
+	}
+
+	manager := w.sprite_pipe
+	the_count := w.sprite.count
+
+	debug.info("sys_sprite", fmt.tprint(the_count))
+	if the_count < 1 {
+		return
+	}
+
+	vs_params := Vs_Params {
+		ortho = ortho^,
+	}
+
+
+	// update instance data
+	sg.update_buffer(
+		manager.bind.vertex_buffers[1],
+		{ptr = &w.sprite, size = c.size_t(the_count * size_of(Sprite))},
+	)
+
+	sg.apply_pipeline(manager.pip)
+	sg.apply_bindings(manager.bind)
+	sg.apply_uniforms(UB_vs_params, {ptr = &vs_params, size = size_of(vs_params)})
+	sg.draw(0, 6, the_count)
 }
 
-render_sprite :: proc(w: ^World, r: ^sprite.Renderer) {
-	// Get current time for shake animation
-	// Using frame time accumulator for consistent animation
-	@(static) frame_time: f32 = 0
-	frame_time += f32(host.frame_duration())
 
-	view := logic.view(&w.position, &w.sprite)
-	for id, pos, s in logic.each(&view) {
-		target := &r.instances[r.count]
-		r.count += 1
-		target.uv = s.uv
-		target.pos = to_pixelf(pos^ + s.offset)
-		// target.opacity = 1
-		// target.flip = u8(s.flip)
+/// THE OLD STUFF
+SPRITE_RENDER_MAX :: 8192
+BASE_VERTICES := [?][2]f32{{-.5, -.5}, {-.5, .5}, {.5, -.5}, {.5, .5}}
+BASE_INDICES := [?]u16{0, 1, 2, 2, 1, 3}
 
-		// Apply sprite shake offset if component exists
-		// if shake, ok := logic.get_component(&w.sprite_shake, id); ok {
-		// 	offset := sprite_shake_get_offset(shake, frame_time)
-		// 	target.pos += offset
-		// }
+Sprite :: struct {
+	pos:       [2]f32,
+	z:         f32,
+	opacity:   f32,
+	flip:      u8,
+	size:      [2]f32,
+	uv:        [4]f32,
+	color_add: [4]f32, // RGB + intensity for blink/flash effects
+}
 
-		// Calculate sprite size from UV and atlas dimensions
-		// atlas_size := r.atlas_size
-		// base_size := [2]f32{(s.uv[2] - s.uv[0]) * atlas_size.x, (s.uv[3] - s.uv[1]) * atlas_size.y}
+Sprite_Pipe :: struct {
+	pip:        sg.Pipeline,
+	bind:       sg.Bindings,
+	atlas_size: [2]f32,
+}
 
-		// Apply squash/stretch if component exists
-		// if squash, ok := logic.get_component(&w.squash, id); ok {
-		// 	target.size = squash_apply_to_size(squash, base_size)
-		// } else {
-		// target.size = base_size
-		// }
+sprites_cleanup :: proc(manager: ^Sprite_Pipe) {
+	sg.destroy_pipeline(manager.pip)
+	free(manager)
+}
 
-		// Apply blink color if component exists
-		// if blink, ok := logic.get_component(&w.blink, id); ok {
-		// 	target.color_add = blink_get_color_add(blink)
-		// } else {
-		// target.color_add = {0, 0, 0, 0}
-		// }
+sprites_set_texture :: proc(tex0: sg.Image, manager: ^Sprite_Pipe) {
+	manager.bind.views[VIEW_tex0] = sg.make_view({texture = {image = tex0}})
+}
+
+sprites_set_atlas_size :: proc(manager: ^Sprite_Pipe, width, height: f32) {
+	manager.atlas_size = {width, height}
+}
+
+sprites_init :: proc() -> ^Sprite_Pipe {
+	manager := new(Sprite_Pipe)
+	manager.bind.samplers[SMP_default_sampler] = sg.make_sampler({})
+
+	manager.bind.vertex_buffers[0] = sg.make_buffer(
+		{
+			usage = sg.Buffer_Usage{vertex_buffer = true, immutable = true},
+			data = {ptr = &BASE_VERTICES, size = size_of(BASE_VERTICES)},
+		},
+	)
+
+	manager.bind.index_buffer = sg.make_buffer(
+		{
+			usage = sg.Buffer_Usage{index_buffer = true, immutable = true},
+			data = {ptr = &BASE_INDICES, size = size_of(BASE_INDICES)},
+		},
+	)
+
+	manager.bind.vertex_buffers[1] = sg.make_buffer(
+		{
+			usage = sg.Buffer_Usage{vertex_buffer = true, stream_update = true},
+			size = SPRITE_RENDER_MAX * size_of(Sprite),
+		},
+	)
+
+	pipeline_desc: sg.Pipeline_Desc = {
+		shader = sg.make_shader(sprite_shader_desc(sg.query_backend())),
+		cull_mode = .BACK,
+		depth = {compare = .LESS_EQUAL, write_enabled = true},
+		index_type = .UINT16,
+		layout = {
+			buffers = {1 = {step_func = .PER_INSTANCE}},
+			attrs = {
+				ATTR_sprite_pos = {format = .FLOAT2, buffer_index = 0},
+				ATTR_sprite_inst_pos = {format = .FLOAT2, buffer_index = 1},
+				ATTR_sprite_inst_z = {format = .FLOAT, buffer_index = 1},
+				ATTR_sprite_inst_opacity = {format = .FLOAT, buffer_index = 1},
+				ATTR_sprite_inst_flip_flags = {format = .UBYTE4, buffer_index = 1},
+				ATTR_sprite_inst_size = {format = .FLOAT2, buffer_index = 1},
+				ATTR_sprite_inst_uv = {format = .FLOAT4, buffer_index = 1},
+				ATTR_sprite_inst_color_add = {format = .FLOAT4, buffer_index = 1},
+			},
+		},
 	}
+
+	blend_state: sg.Blend_State = {
+		enabled          = true,
+		src_factor_rgb   = .SRC_ALPHA,
+		dst_factor_rgb   = .ONE_MINUS_SRC_ALPHA,
+		op_rgb           = .ADD,
+		src_factor_alpha = .ONE,
+		dst_factor_alpha = .ONE_MINUS_SRC_ALPHA,
+		op_alpha         = .ADD,
+	}
+
+	pipeline_desc.colors[0] = {
+		blend = blend_state,
+	}
+
+	manager.pip = sg.make_pipeline(pipeline_desc)
+
+	return manager
 }

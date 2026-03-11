@@ -8,7 +8,7 @@ Level :: enum u32 {
 }
 
 Logger :: struct {
-	func: proc "c" (
+	func:      proc "c" (
 		tag: cstring,
 		log_level: u32,
 		log_item: u32,
