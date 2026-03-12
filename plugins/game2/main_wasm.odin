@@ -6,16 +6,19 @@ import runtime "base:runtime"
 
 @(export)
 init :: proc "c" () {
+	context = runtime.default_context()
 	app_init()
 }
 
 @(export)
 frame :: proc "c" () {
+	context = runtime.default_context()
 	app_frame()
 }
 
 @(export)
 cleanup :: proc "c" () {
+	context = runtime.default_context()
 	app_cleanup()
 }
 
