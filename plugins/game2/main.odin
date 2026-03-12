@@ -1,6 +1,5 @@
 package main
 
-import runtime "base:runtime"
 import "core:c"
 import "debug"
 import "host"
@@ -82,8 +81,7 @@ range_from_value :: proc(value: ^$T) -> sg.Range {
 	return sg.Range{ptr = cast(rawptr)value, size = c.size_t(size_of(T))}
 }
 
-app_init :: proc "c" () {
-	context = runtime.default_context()
+app_init :: proc() {
 	host.setup_graphics()
 	debug.info("app", "init")
 	init_stage = 1
@@ -171,8 +169,7 @@ app_init :: proc "c" () {
 	world.init(&state.world)
 }
 
-app_frame :: proc "c" () {
-	context = runtime.default_context()
+app_frame :: proc() {
 	pass := sg.Pass {
 		action    = state.pass_action,
 		swapchain = host.swapchain(),
@@ -212,9 +209,7 @@ app_frame :: proc "c" () {
 	sg.commit()
 }
 
-app_cleanup :: proc "c" () {
-	context = runtime.default_context()
-
+app_cleanup :: proc() {
 	world.cleanup(&state.world)
 	debug.info("app", "cleanup")
 
@@ -264,8 +259,7 @@ core_handle_action_up :: proc(action_code: u32) {
 	state.actions_down[int(action_code)] = false
 }
 
-app_event :: proc "c" (event: host.Event) {
-	context = runtime.default_context()
+app_event :: proc(event: host.Event) {
 	#partial switch event.kind {
 	case .Mouse_Move:
 		core_handle_mouse_move(event.mouse_y)

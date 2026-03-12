@@ -15,10 +15,13 @@ native_init :: proc "c" () {
 }
 
 native_frame :: proc "c" () {
+	context = runtime.default_context()
+
 	app_frame()
 }
 
 native_cleanup :: proc "c" () {
+	context = runtime.default_context()
 	app_cleanup()
 }
 
@@ -30,5 +33,5 @@ native_event :: proc "c" (e: ^sapp.Event) {
 }
 
 main :: proc() {
-	host.run({init = native_init, frame = native_frame, cleanup = native_cleanup, event = app_event}, native_event)
+	host.run({init = native_init, frame = native_frame, cleanup = native_cleanup}, native_event)
 }
