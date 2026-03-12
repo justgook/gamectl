@@ -1120,6 +1120,16 @@ local dumpPath = "/tmp/nodegraph2-demo.rspk"
 local saveResult = host.awaitCall("respack", "dump_to_file", dumpPath)
 local odinSource = host.awaitCall("respack", "generate_odin", "main")
 
+local function escape_string(str)
+    str = str:gsub("\\", "\\\\") -- escape backslashes first
+    str = str:gsub('"', '\\"')
+    str = str:gsub('	', '\\t')
+    str = str:gsub("\n", "\\n")
+    return str
+end
+
+host.awaitCall( "fs", "writeJson", '{"path":"delme.txt", "content":"'.. escape_string(odinSource) ..'"}')
+
 outputs[1] = odinSource
 outputs[2] = json.encode({
   init = initResult,

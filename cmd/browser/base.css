@@ -1145,6 +1145,11 @@
   code-editor>pre {
     color: #ccc;
   }
+
+  code-editor>textarea {
+    caret-color: #ccc;
+  }
+
 }
 
 

@@ -60,7 +60,7 @@ function writeU64(view, offset, value) {
 }
 
 function createAssetSources(entries = []) {
-  return new Map([...entries, ...DEFAULT_GAME_ASSET_SOURCES])
+  return new Map([...DEFAULT_GAME_ASSET_SOURCES, ...entries])
 }
 
 export default class ViewGameRunner extends HTMLElement {

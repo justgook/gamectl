@@ -44,6 +44,7 @@ function getHostFunctions() {
           const binaryInput = createWriteInput(json.path, json.content)
           return PluginFileSystem.write(binaryInput)
         } catch (e) {
+          console.error(e.message)
           return { returnCode: 1, output: new TextEncoder().encode(e.message) }
         }
       }

@@ -254,7 +254,7 @@ export class PluginManagerProxy {
   handleError(error) {
     console.error('Worker error:', error)
     // Reject all pending promises
-    for (const [id, pending] of this.pending) {
+    for (const [_id, pending] of this.pending) {
       pending.reject(error)
     }
     this.pending.clear()
