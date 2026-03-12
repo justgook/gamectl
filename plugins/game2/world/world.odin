@@ -28,13 +28,14 @@ frame :: proc(w: ^World, dt: f64) {
 	w.accumulator += dt
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
-		sys_velocity(w)
 		sys_brain(w)
 		sys_move(w)
+		sys_velocity(w)
 	}
 
 	sys_camera(w, dt)
 	sys_sprite(w, &w.cam.ortho)
+	host.info("frame", "", w.sprite.count, len(w.position.components))
 }
 
 
@@ -52,13 +53,23 @@ init :: proc(w: ^World) {
 
 	player := create_entity(w)
 	logic.add_component(&w.brain, player, Brain{})
-	logic.add_component(&w.input, player, Input{})
-	logic.add_component(&w.velocity, player, Velocity{})
+	// logic.add_component(&w.input, player, Input{})
+	// w.player1, _ = logic.get_component(&w.input, player)
+	logic.add_component(&w.velocity, player, Velocity{-100, 0})
 	logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
 	logic.add_component(
 		&w.sprite,
 		player,
 		Sprite{pos = {00, 00}, opacity = 1, uv = {0, 0, 1, 1}, size = {128, 128}},
+	)
+
+
+	background := create_entity(w)
+	logic.add_component(&w.position, background, Position{0 * UNIT, 128 * UNIT})
+	logic.add_component(
+		&w.sprite,
+		background,
+		Sprite{opacity = 1, uv = {0, 0, 1, 1}, size = {256, 256}},
 	)
 }
 

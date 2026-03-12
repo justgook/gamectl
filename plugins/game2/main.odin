@@ -1,7 +1,6 @@
 package main
 
 import "core:c"
-import "core:fmt"
 import "host"
 import sprite "render/sprite"
 import tilemap "render/tilemap"
@@ -41,6 +40,7 @@ app_init :: proc() {
 	init_stage = 1
 	state.pass_action = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
+		depth = {load_action = .CLEAR, clear_value = 1.0},
 	}
 	host.info("app", "2")
 
@@ -115,10 +115,16 @@ app_event :: proc(event: host.Event) {
 	case .Resized:
 		state.world.cam.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
 	case .Action_Down:
-		state.world.player1^ += {world.InputSet(event.action_code - 1)}
-		host.info("key_down", "THE KEY?")
+		if state.world.player1 != nil {
+			state.world.player1^ += {world.InputSet(event.action_code - 1)}
+		}
+		host.info("key_down", "THE KEY?", .North in state.world.player1^)
 	case .Action_Up:
-		state.world.player1^ -= {world.InputSet(event.action_code - 1)}
+		if state.world.player1 != nil {
+			state.world.player1^ -= {world.InputSet(event.action_code - 1)}
+		}
+		host.info("key_down", "THE down?", .North in state.world.player1^)
+
 	case:
 	}
 }
