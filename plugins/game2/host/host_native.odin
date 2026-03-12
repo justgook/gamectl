@@ -29,8 +29,26 @@ logger_host :: proc() -> Logger {
 	return Logger{func = sokol_logger_proc}
 }
 
-write :: proc(level: Level, tag, message: string) {
-	log.logf(map_level(level), "[%s] %s", tag, message)
+write :: proc(level: Level, tag, message: string, args: ..any) {
+	formatted_message := format_message(message, ..args)
+	log.logf(map_level(level), "[%s] %s", tag, formatted_message)
+}
+
+format_message :: proc(message: string, args: ..any) -> string {
+	if len(args) == 0 {
+		return message
+	}
+	if strings.contains(message, "%") {
+		return fmt.tprintf(message, ..args)
+	}
+	builder: strings.Builder
+	strings.builder_init(&builder, context.temp_allocator)
+	strings.write_string(&builder, message)
+	for arg in args {
+		strings.write_byte(&builder, ' ')
+		fmt.sbprint(&builder, arg)
+	}
+	return strings.to_string(builder)
 }
 
 map_level :: proc(level: Level) -> log.Level {
