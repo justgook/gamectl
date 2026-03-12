@@ -171,7 +171,7 @@ when ODIN_OS == .Windows {
     }
 } else when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
     // Feed sokol_log_wasm_gl_debug.a or sokol_log_wasm_gl_release.a into emscripten compiler.
-    foreign import sokol_log_clib { "../../env.o" }
+    foreign import sokol_log_clib { "../../../../build.nosync/plugins/game2-env.o" }
 } else {
     #panic("This OS is currently not supported")
 }
@@ -190,4 +190,3 @@ foreign sokol_log_clib {
     */
     func :: proc(tag: cstring, log_level: u32, log_item: u32, message: cstring, line_nr: u32, filename: cstring, user_data: rawptr)  ---
 }
-

@@ -430,7 +430,7 @@ when ODIN_OS == .Windows {
     }
 } else when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
     // Feed sokol_shape_wasm_gl_debug.a or sokol_shape_wasm_gl_release.a into emscripten compiler.
-    foreign import sokol_shape_clib { "../../env.o" }
+    foreign import sokol_shape_clib { "../../../../build.nosync/plugins/game2-env.o" }
 } else {
     #panic("This OS is currently not supported")
 }
@@ -578,4 +578,3 @@ Torus :: struct {
     merge : bool,
     transform : Mat4,
 }
-
