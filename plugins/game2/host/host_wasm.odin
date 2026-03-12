@@ -21,7 +21,10 @@ foreign env {
 }
 
 default_context_host :: proc() -> runtime.Context {
-	return runtime.default_context()
+	wasm_context := runtime.default_context()
+	wasm_context.allocator = runtime.default_wasm_allocator()
+
+	return wasm_context
 }
 
 logger_host :: proc() -> Logger {
