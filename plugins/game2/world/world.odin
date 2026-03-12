@@ -35,7 +35,6 @@ frame :: proc(w: ^World, dt: f64) {
 
 	sys_camera(w, dt)
 	sys_sprite(w, &w.cam.ortho)
-	host.info("frame", "", w.sprite.count, len(w.position.components))
 }
 
 
@@ -53,9 +52,9 @@ init :: proc(w: ^World) {
 
 	player := create_entity(w)
 	logic.add_component(&w.brain, player, Brain{})
-	// logic.add_component(&w.input, player, Input{})
-	// w.player1, _ = logic.get_component(&w.input, player)
-	logic.add_component(&w.velocity, player, Velocity{-100, 0})
+	logic.add_component(&w.input, player, Input{})
+	w.player1, _ = logic.get_component(&w.input, player)
+	logic.add_component(&w.velocity, player, Velocity{})
 	logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
 	logic.add_component(
 		&w.sprite,
