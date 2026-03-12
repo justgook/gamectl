@@ -115,16 +115,9 @@ app_event :: proc(event: host.Event) {
 	case .Resized:
 		state.world.cam.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
 	case .Action_Down:
-		if state.world.player1 != nil {
-			state.world.player1^ += {world.InputSet(event.action_code - 1)}
-		}
-		host.info("key_down", "THE KEY?", .North in state.world.player1^)
+		state.world.player1^ += {world.InputSet(event.action_code - 1)}
 	case .Action_Up:
-		if state.world.player1 != nil {
-			state.world.player1^ -= {world.InputSet(event.action_code - 1)}
-		}
-		host.info("key_down", "THE down?", .North in state.world.player1^)
-
+		state.world.player1^ -= {world.InputSet(event.action_code - 1)}
 	case:
 	}
 }
