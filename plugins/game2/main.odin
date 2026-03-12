@@ -1,7 +1,6 @@
 package main
 
 import "core:c"
-import "debug"
 import "host"
 import sprite "render/sprite"
 import tilemap "render/tilemap"
@@ -20,13 +19,6 @@ LUT_ASSET_PATH :: "/game/lut.qoi"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
 
-EVENT_OFFSET_MOUSE_X :: 32
-EVENT_OFFSET_MOUSE_Y :: 36
-EVENT_OFFSET_ACTION_CODE :: 40
-EVENT_OFFSET_WINDOW_WIDTH :: 256
-EVENT_OFFSET_WINDOW_HEIGHT :: 260
-EVENT_OFFSET_FRAMEBUFFER_WIDTH :: 264
-EVENT_OFFSET_FRAMEBUFFER_HEIGHT :: 268
 State :: struct {
 	world:              world.World,
 	atlas:              sg.Image,
@@ -47,24 +39,7 @@ State :: struct {
 	actions_down:       [7]bool,
 }
 
-
-Host_Event :: struct {
-	frame_count:        u64,
-	kind:               u32,
-	reserved0:          [16]u8,
-	mouse_button:       i32,
-	mouse_x:            f32,
-	mouse_y:            f32,
-	action_code:        u32,
-	reserved1:          [212]u8,
-	window_width:       i32,
-	window_height:      i32,
-	framebuffer_width:  i32,
-	framebuffer_height: i32,
-}
-
 state: State
-event_buffer: Host_Event
 atlas_pixels: [ATLAS_RGBA_CAPACITY]u8
 lut_pixels: [LUT_RGBA_CAPACITY]u8
 init_stage: u32
@@ -83,14 +58,17 @@ range_from_value :: proc(value: ^$T) -> sg.Range {
 
 app_init :: proc() {
 	host.setup_graphics()
-	debug.info("app", "init")
+	host.info("app", "init")
 	init_stage = 1
 	state.pass_action = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 	}
+	host.info("app", "2")
 
 	asset_data, ok := host.asset_read_all(ATLAS_ASSET_PATH)
 	init_stage = 2
+	host.info("app", "3")
+
 	if ok {
 		img_w, img_h, img_pixels, img_ok := qoi.decode_to_buffer(asset_data, atlas_pixels[:])
 		init_stage = 3
@@ -114,6 +92,7 @@ app_init :: proc() {
 		}
 	}
 
+	host.info("app", "4")
 	lut_asset_data, lut_ok := host.asset_read_all(LUT_ASSET_PATH)
 	if lut_ok {
 		lut_w, lut_h, lut_img_pixels, lut_img_ok := qoi.decode_to_buffer(
@@ -211,7 +190,7 @@ app_frame :: proc() {
 
 app_cleanup :: proc() {
 	world.cleanup(&state.world)
-	debug.info("app", "cleanup")
+	host.info("app", "cleanup")
 
 	tilemap.shutdown(&state.tilemap_renderer)
 	sprite.shutdown(&state.sprite_renderer)
@@ -272,31 +251,4 @@ app_event :: proc(event: host.Event) {
 		core_handle_action_up(event.action_code)
 	case:
 	}
-}
-
-host_event_from_buffer :: proc(event_ptr: u32) -> host.Event {
-	if event_ptr == 0 {
-		return {}
-	}
-	input := cast(^Host_Event)uintptr(event_ptr)
-	event := host.Event {
-		mouse_y            = input.mouse_y,
-		action_code        = input.action_code,
-		window_height      = input.window_height,
-		framebuffer_width  = input.framebuffer_width,
-		framebuffer_height = input.framebuffer_height,
-	}
-	switch input.kind {
-	case 4, 5, 7:
-		event.kind = .Mouse_Move
-	case 14:
-		event.kind = .Resized
-	case 100:
-		event.kind = .Action_Down
-	case 101:
-		event.kind = .Action_Up
-	case:
-		event.kind = .None
-	}
-	return event
 }
