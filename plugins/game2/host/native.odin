@@ -144,7 +144,6 @@ translate_event :: proc(e: ^sapp.Event) -> (Event, bool) {
 }
 
 run :: proc(callbacks: Callbacks, event_cb: proc "c" (e: ^sapp.Event)) {
-	context = runtime.default_context()
 	logger := transmute(sapp.Logger)debug.logger()
 	app_desc := sapp.Desc {
 		width = 960,

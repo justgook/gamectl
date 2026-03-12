@@ -2,11 +2,10 @@
 
 package host
 
-import "core:c"
-import "core:fmt"
-import runtime "base:runtime"
 import debug "../debug"
 import sg "../sokol/gfx"
+import "core:c"
+import "core:fmt"
 
 foreign import env "env"
 
@@ -97,13 +96,13 @@ heightf :: proc() -> f32 {
 }
 
 setup_graphics :: proc() {
-	context = runtime.default_context()
 	logger := transmute(sg.Logger)debug.logger()
-	desc := sg.Desc {logger = logger}
+	desc := sg.Desc {
+		logger = logger,
+	}
 	sg.setup(desc)
 }
 
 shutdown_graphics :: proc() {
-	context = runtime.default_context()
 	sg.shutdown()
 }

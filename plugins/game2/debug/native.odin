@@ -7,12 +7,24 @@ package debug
 import runtime "base:runtime"
 import "core:log"
 
+native_logger: log.Logger
+
+ensure_context_with_logger :: proc() -> runtime.Context {
+	ctx := runtime.default_context()
+	if native_logger.procedure == nil {
+		context = ctx
+		native_logger = log.create_console_logger()
+	}
+	ctx.logger = native_logger
+	return ctx
+}
+
 logger :: proc "contextless" () -> Logger {
 	return Logger{func = sokol_logger_proc}
 }
 
 write :: proc(level: Level, tag, message: string) {
-	context = runtime.default_context()
+	context = ensure_context_with_logger()
 	log.logf(map_level(level), "[%s] %s", tag, message)
 }
 
@@ -43,7 +55,7 @@ sokol_logger_proc :: proc "c" (
 	filename: cstring,
 	_: rawptr,
 ) {
-	context = runtime.default_context()
+	context = ensure_context_with_logger()
 
 	tag_text := cstring_or_empty(tag)
 	message_text := cstring_or_empty(message)
