@@ -5,7 +5,7 @@ import "core:math/linalg"
 // import "logic"
 
 sys_camera :: proc(w: ^World, dt: f64) {
-	w.cam.ortho = camera_get_matrix(&w.cam, {640, 360})
+	w.cam.ortho = camera_get_matrix(&w.cam, w.cam.viewport)
 
 	// Get target position if we're tracking an entity
 	// target_pos: Maybe([2]f32)

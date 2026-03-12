@@ -6,8 +6,14 @@ import sg "../sokol/gfx"
 import runtime "base:runtime"
 import "core:c"
 import "core:fmt"
+import "core:strings"
 
 foreign import env "env"
+
+LOG_MESSAGE_CAPACITY :: 1024
+
+@(private)
+log_message_buf: [LOG_MESSAGE_CAPACITY]u8
 
 @(default_calling_convention = "c")
 foreign env {
@@ -22,11 +28,27 @@ logger_host :: proc() -> Logger {
 	return Logger{func = sokol_logger_proc}
 }
 
-write :: proc(level: Level, tag, message: string) {
-	// context = default_context_host()
+write :: proc(level: Level, tag, message: string, args: ..any) {
+	formatted_message := format_message(message, ..args)
 	tag_ptr, tag_len := string_ptr_and_len(tag)
-	message_ptr, message_len := string_ptr_and_len(message)
+	message_ptr, message_len := string_ptr_and_len(formatted_message)
 	js_log(u32(level), tag_ptr, tag_len, message_ptr, message_len)
+}
+
+format_message :: proc(message: string, args: ..any) -> string {
+	if len(args) == 0 {
+		return message
+	}
+	if strings.contains(message, "%") {
+		return fmt.bprintf(log_message_buf[:], message, ..args)
+	}
+	builder := strings.builder_from_bytes(log_message_buf[:])
+	strings.write_string(&builder, message)
+	for arg in args {
+		strings.write_byte(&builder, ' ')
+		fmt.sbprint(&builder, arg)
+	}
+	return strings.to_string(builder)
 }
 
 string_ptr_and_len :: proc(value: string) -> (u32, u32) {

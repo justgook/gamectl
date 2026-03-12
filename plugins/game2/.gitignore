@@ -1,4 +1,5 @@
 build.nosync/
+.playwright-cli
 tools/
 # sokol/
 *.a
