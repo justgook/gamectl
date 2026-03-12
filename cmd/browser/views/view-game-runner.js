@@ -17,10 +17,10 @@ const EVENT_TYPE_RESIZED = 14
 const EVENT_TYPE_ACTION_DOWN = 100
 const EVENT_TYPE_ACTION_UP = 101
 
-const ACTION_LEFT = 1
+const ACTION_UP = 1
 const ACTION_RIGHT = 2
-const ACTION_UP = 3
-const ACTION_DOWN = 4
+const ACTION_DOWN = 3
+const ACTION_LEFT = 4
 const ACTION_1 = 5
 const ACTION_2 = 6
 

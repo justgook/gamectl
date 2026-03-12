@@ -14,6 +14,7 @@ World :: struct {
 	lut:              sg.Image,
 	grid:             grid.Grid,
 	cam:              Camera,
+	player1:          ^Input,
 	position:         logic.Component_Storage(Position),
 	velocity:         logic.Component_Storage(Velocity),
 	sprite_pipe:      ^Sprite_Pipe,
@@ -29,6 +30,7 @@ frame :: proc(w: ^World, dt: f64) {
 		w.accumulator -= w.sim_frame_length
 		sys_velocity(w)
 		sys_brain(w)
+		sys_move(w)
 	}
 
 	sys_camera(w, dt)
@@ -49,6 +51,8 @@ init :: proc(w: ^World) {
 	// THE FIRST TEST DATA
 
 	player := create_entity(w)
+	logic.add_component(&w.brain, player, Brain{})
+	logic.add_component(&w.input, player, Input{})
 	logic.add_component(&w.velocity, player, Velocity{})
 	logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
 	logic.add_component(
