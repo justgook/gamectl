@@ -21,7 +21,7 @@ FLIP_DHV :: Flip(7) // Anti-diagonal + H + V
 sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	view: logic.View2(Position, Sprite) = logic.view(&w.position, &w.sprite)
 	for id, pos, s in logic.each(&view) {
-		// s.pos = to_pixelf(pos^)
+		s.pos = to_pixelf(pos^)
 		// fmt.println("a", s.pos)
 	}
 

@@ -1,6 +1,7 @@
 package main
 
 import "core:c"
+import "core:fmt"
 import "host"
 import sprite "render/sprite"
 import tilemap "render/tilemap"
@@ -20,41 +21,19 @@ ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
 
 State :: struct {
-	world:              world.World,
-	atlas:              sg.Image,
-	lut:                sg.Image,
-	sprite_renderer:    sprite.Renderer,
-	tilemap_renderer:   tilemap.Renderer,
-	pass_action:        sg.Pass_Action,
-	mouse_y:            f32,
-	window_height:      i32,
-	framebuffer_width:  i32,
-	framebuffer_height: i32,
-	atlas_width:        i32,
-	atlas_height:       i32,
-	atlas_loaded:       bool,
-	lut_width:          i32,
-	lut_height:         i32,
-	lut_loaded:         bool,
-	actions_down:       [7]bool,
+	world:            world.World,
+	atlas:            sg.Image,
+	lut:              sg.Image,
+	sprite_renderer:  sprite.Renderer,
+	tilemap_renderer: tilemap.Renderer,
+	pass_action:      sg.Pass_Action,
+	mouse_y:          f32,
 }
 
 state: State
 atlas_pixels: [ATLAS_RGBA_CAPACITY]u8
 lut_pixels: [LUT_RGBA_CAPACITY]u8
 init_stage: u32
-
-range_from_slice :: proc(data: []$T) -> sg.Range {
-	ptr: rawptr = nil
-	if len(data) > 0 {
-		ptr = cast(rawptr)&data[0]
-	}
-	return sg.Range{ptr = ptr, size = c.size_t(len(data) * size_of(T))}
-}
-
-range_from_value :: proc(value: ^$T) -> sg.Range {
-	return sg.Range{ptr = cast(rawptr)value, size = c.size_t(size_of(T))}
-}
 
 app_init :: proc() {
 	host.setup_graphics()
@@ -73,9 +52,6 @@ app_init :: proc() {
 		img_w, img_h, img_pixels, img_ok := qoi.decode_to_buffer(asset_data, atlas_pixels[:])
 		init_stage = 3
 		if img_ok {
-			state.atlas_loaded = true
-			state.atlas_width = i32(img_w)
-			state.atlas_height = i32(img_h)
 			desc := sg.Image_Desc {
 				width        = i32(img_w),
 				height       = i32(img_h),
@@ -100,9 +76,6 @@ app_init :: proc() {
 			lut_pixels[:],
 		)
 		if lut_img_ok {
-			state.lut_loaded = true
-			state.lut_width = i32(lut_w)
-			state.lut_height = i32(lut_h)
 			lut_desc := sg.Image_Desc {
 				width        = i32(lut_w),
 				height       = i32(lut_h),
@@ -116,33 +89,7 @@ app_init :: proc() {
 		}
 	}
 
-	if state.atlas.id != 0 {
-		lut_tex := state.lut
-		lut_w := state.lut_width
-		lut_h := state.lut_height
-		if lut_tex.id == 0 {
-			lut_tex = state.atlas
-			lut_w = state.atlas_width
-			lut_h = state.atlas_height
-		}
-		state.tilemap_renderer = tilemap.init(
-			state.atlas,
-			lut_tex,
-			state.atlas_width,
-			state.atlas_height,
-			lut_w,
-			lut_h,
-		)
-	}
 
-	state.mouse_y = 0.0
-	state.window_height = max(1, i32(host.heightf()))
-	state.framebuffer_width = max(1, i32(host.widthf()))
-	state.framebuffer_height = max(1, i32(host.heightf()))
-	for i in 0 ..< len(state.actions_down) {
-		state.actions_down[i] = false
-	}
-	init_stage = 6
 	// THE REAL STUFF
 	state.world.atlas = state.atlas
 	world.init(&state.world)
@@ -154,39 +101,28 @@ app_frame :: proc() {
 		swapchain = host.swapchain(),
 	}
 
-	window_height := state.window_height
-	if window_height <= 0 {
-		window_height = 1
-	}
-	normalized_y := 1.0 - (state.mouse_y / f32(window_height))
-	bob := (normalized_y - 0.5) * 80.0
-	move_x: f32 = 0
-	move_y: f32 = 0
-	if state.actions_down[int(ACTION_LEFT)] {
-		move_x -= 1
-	}
-	if state.actions_down[int(ACTION_RIGHT)] {
-		move_x += 1
-	}
-	if state.actions_down[int(ACTION_UP)] {
-		move_y -= 1
-	}
-	if state.actions_down[int(ACTION_DOWN)] {
-		move_y += 1
-	}
-	action_boost := f32(1.0)
-	if state.actions_down[int(ACTION_1)] {
-		action_boost += 0.25
-	}
-	if state.actions_down[int(ACTION_2)] {
-		action_boost += 0.25
-	}
-
 	sg.begin_pass(pass)
 	world.frame(&state.world, host.frame_duration())
 	sg.end_pass()
 	sg.commit()
 }
+
+
+app_event :: proc(event: host.Event) {
+	#partial switch event.kind {
+	case .Mouse_Move:
+		core_handle_mouse_move(event.mouse_y)
+	case .Resized:
+		state.world.cam.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
+	case .Action_Down:
+		state.world.player1^ += {world.InputSet(event.action_code - 1)}
+		host.info("key_down", "THE KEY?")
+	case .Action_Up:
+		state.world.player1^ -= {world.InputSet(event.action_code - 1)}
+	case:
+	}
+}
+
 
 app_cleanup :: proc() {
 	world.cleanup(&state.world)
@@ -207,48 +143,4 @@ app_cleanup :: proc() {
 
 core_handle_mouse_move :: proc(mouse_y: f32) {
 	state.mouse_y = mouse_y
-}
-
-core_handle_resize :: proc(window_height: i32) {
-	if window_height > 0 {
-		state.window_height = window_height
-	}
-}
-
-core_handle_framebuffer_resize :: proc(width, height: i32) {
-	if width > 0 {
-		state.framebuffer_width = width
-	}
-	if height > 0 {
-		state.framebuffer_height = height
-	}
-}
-
-core_handle_action_down :: proc(action_code: u32) {
-	if int(action_code) >= len(state.actions_down) {
-		return
-	}
-	state.actions_down[int(action_code)] = true
-}
-
-core_handle_action_up :: proc(action_code: u32) {
-	if int(action_code) >= len(state.actions_down) {
-		return
-	}
-	state.actions_down[int(action_code)] = false
-}
-
-app_event :: proc(event: host.Event) {
-	#partial switch event.kind {
-	case .Mouse_Move:
-		core_handle_mouse_move(event.mouse_y)
-	case .Resized:
-		core_handle_resize(event.window_height)
-		core_handle_framebuffer_resize(event.framebuffer_width, event.framebuffer_height)
-	case .Action_Down:
-		core_handle_action_down(event.action_code)
-	case .Action_Up:
-		core_handle_action_up(event.action_code)
-	case:
-	}
 }

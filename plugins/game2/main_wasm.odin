@@ -54,6 +54,7 @@ host_event_from_buffer :: proc(event_ptr: u32) -> host.Event {
 	case:
 		event.kind = .None
 	}
+
 	return event
 }
 
@@ -119,19 +120,4 @@ event_offset_framebuffer_width :: proc "c" () -> u32 {
 @(export)
 event_offset_framebuffer_height :: proc "c" () -> u32 {
 	return EVENT_OFFSET_FRAMEBUFFER_HEIGHT
-}
-
-@(export)
-debug_atlas_loaded :: proc "c" () -> u32 {
-	return 1 if state.atlas_loaded else 0
-}
-
-@(export)
-debug_atlas_id :: proc "c" () -> u32 {
-	return state.atlas.id
-}
-
-@(export)
-debug_init_stage :: proc "c" () -> u32 {
-	return init_stage
 }

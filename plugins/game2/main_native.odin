@@ -43,13 +43,13 @@ initial_event :: proc() -> host.Event {
 
 map_action :: proc(key: sapp.Keycode) -> (u32, bool) {
 	#partial switch key {
-	case .A, .LEFT:
+	case .W, .UP:
 		return 1, true
 	case .D, .RIGHT:
 		return 2, true
-	case .W, .UP:
-		return 3, true
 	case .S, .DOWN:
+		return 3, true
+	case .A, .LEFT:
 		return 4, true
 	case .J:
 		return 5, true
