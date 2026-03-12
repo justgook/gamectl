@@ -3,3 +3,4 @@ tools/
 # sokol/
 *.a
 /env.o
+game2

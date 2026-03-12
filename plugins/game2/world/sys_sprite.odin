@@ -1,11 +1,10 @@
 package world
 
-import "../debug"
 import sg "../sokol/gfx"
 import "core:c"
-import "core:fmt"
 import "core:math/linalg"
 import "logic"
+
 // Flip flags for sprite rendering (matches Tiled TMX format)
 // Bit 0 = Horizontal flip, Bit 1 = Vertical flip, Bit 2 = Anti-diagonal flip
 Flip :: distinct u8
@@ -29,7 +28,6 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	manager := w.sprite_pipe
 	the_count := w.sprite.count
 
-	debug.info("sys_sprite", fmt.tprint(the_count))
 	if the_count < 1 {
 		return
 	}
