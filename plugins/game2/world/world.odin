@@ -2,7 +2,6 @@ package world
 
 import "../host"
 import sg "../sokol/gfx"
-import "camera"
 import "grid"
 import "logic"
 
@@ -14,7 +13,7 @@ World :: struct {
 	atlas:            sg.Image,
 	lut:              sg.Image,
 	grid:             grid.Grid,
-	cam:              camera.Camera,
+	cam:              Camera,
 	position:         logic.Component_Storage(Position),
 	velocity:         logic.Component_Storage(Velocity),
 	sprite_pipe:      ^Sprite_Pipe,
@@ -25,22 +24,25 @@ World :: struct {
 }
 
 frame :: proc(w: ^World, dt: f64) {
-	w.accumulator += dt //
+	w.accumulator += dt
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
 		sys_velocity(w)
 		sys_brain(w)
 	}
 
-	sys_camera(w)
-	ortho := camera.camera_get_matrix(&w.cam, {640, 360})
-	sys_sprite(w, &ortho)
+	sys_camera(w, dt)
+	sys_sprite(w, &w.cam.ortho)
 }
 
 
 init :: proc(w: ^World) {
 	w.sim_frame_length = 1.0 / 60.0
-	w.cam = camera.camera_init({host.widthf() / 2, host.heightf() / 2}, 1.0)
+	w.cam = camera_init(
+		{host.widthf(), host.heightf()},
+		{host.widthf() / 2, host.heightf() / 2},
+		1.0,
+	)
 	// TODO:  SIMPLIFY
 	w.sprite_pipe = sprites_init()
 	sprites_set_texture(w.atlas, w.sprite_pipe)
@@ -52,7 +54,7 @@ init :: proc(w: ^World) {
 	logic.add_component(
 		&w.sprite,
 		player,
-		Sprite{pos = {1, 1}, opacity = 1, uv = {0, 0, 1, 1}, size = {128, 128}},
+		Sprite{pos = {00, 00}, opacity = 1, uv = {0, 0, 1, 1}, size = {128, 128}},
 	)
 }
 

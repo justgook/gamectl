@@ -1,4 +1,5 @@
 package world
+import sg "../sokol/gfx"
 
 
 // GAME_DATA :: #config(GAME_DATA, "../../build.nosync/game.bin")

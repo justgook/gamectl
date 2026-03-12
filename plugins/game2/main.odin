@@ -48,6 +48,7 @@ State :: struct {
 	actions_down:       [7]bool,
 }
 
+
 Host_Event :: struct {
 	frame_count:        u64,
 	kind:               u32,
@@ -176,6 +177,7 @@ app_frame :: proc "c" () {
 		action    = state.pass_action,
 		swapchain = host.swapchain(),
 	}
+
 	window_height := state.window_height
 	if window_height <= 0 {
 		window_height = 1
@@ -206,56 +208,6 @@ app_frame :: proc "c" () {
 
 	sg.begin_pass(pass)
 	world.frame(&state.world, host.frame_duration())
-
-	// tilemap.reset(&state.tilemap_renderer)
-	// sprite.reset(&state.sprite_renderer)
-	// if state.atlas.id != 0 {
-	// 	tilemap.push(
-	// 		&state.tilemap_renderer,
-	// 		{0, 0},
-	// 		[2]f32{64, 64},
-	// 		[4]f32{0, 0, 1, 1},
-	// 		[4]f32{0, 0, 1, 1},
-	// 	)
-	// 	tilemap.draw(&state.tilemap_renderer, state.framebuffer_width, state.framebuffer_height)
-	//
-	// 	base_x := f32(state.framebuffer_width) * 0.5 - 260.0 + move_x * 96.0
-	// 	base_y := f32(state.framebuffer_height) * 0.5 - 120.0 + bob + move_y * 96.0
-	// 	size := [2]f32{160, 160}
-	// 	if state.actions_down[int(ACTION_1)] {
-	// 		size[0] *= action_boost
-	// 		size[1] *= action_boost
-	// 	}
-	// 	atlas_w := int(state.atlas_width)
-	// 	atlas_h := int(state.atlas_height)
-	// 	sprite.push(
-	// 		&state.sprite_renderer,
-	// 		{base_x, base_y},
-	// 		size,
-	// 		sprite.uv_from_pixels(0, 0, 64, 64, atlas_w, atlas_h),
-	// 	)
-	// 	sprite.push(
-	// 		&state.sprite_renderer,
-	// 		{base_x + 180, base_y + 12},
-	// 		size,
-	// 		sprite.uv_from_pixels(128, 0, 64, 64, atlas_w, atlas_h),
-	// 	)
-	// 	sprite.push(
-	// 		&state.sprite_renderer,
-	// 		{base_x + 360, base_y - 8},
-	// 		size,
-	// 		sprite.uv_from_pixels(320, 320, 64, 64, atlas_w, atlas_h),
-	// 	)
-	// 	if state.actions_down[int(ACTION_2)] {
-	// 		sprite.push(
-	// 			&state.sprite_renderer,
-	// 			{base_x + 220, base_y - 140},
-	// 			[2]f32{96, 96},
-	// 			sprite.uv_from_pixels(256, 64, 64, 64, atlas_w, atlas_h),
-	// 		)
-	// 	}
-	// 	sprite.draw(&state.sprite_renderer, state.framebuffer_width, state.framebuffer_height)
-	// }
 	sg.end_pass()
 	sg.commit()
 }

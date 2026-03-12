@@ -2022,7 +2022,7 @@ when ODIN_OS == .Windows {
     }
 } else when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
     // Feed sokol_gfx_wasm_gl_debug.a or sokol_gfx_wasm_gl_release.a into emscripten compiler.
-    foreign import sokol_gfx_clib { "../../env.o" }
+    foreign import sokol_gfx_clib { "../../../../build.nosync/plugins/game2-env.o" }
 } else {
     #panic("This OS is currently not supported")
 }
@@ -5283,4 +5283,3 @@ Gl_View_Info :: struct {
     msaa_render_buffer : u32,
     msaa_resolve_frame_buffer : u32,
 }
-

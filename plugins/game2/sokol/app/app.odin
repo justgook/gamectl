@@ -1405,7 +1405,7 @@ when ODIN_OS == .Windows {
     }
 } else when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
     // Feed sokol_app_wasm_gl_debug.a or sokol_app_wasm_gl_release.a into emscripten compiler.
-    foreign import sokol_app_clib { "../../env.o" }
+    foreign import sokol_app_clib { "../../../../build.nosync/plugins/game2-env.o" }
 } else {
     #panic("This OS is currently not supported")
 }
@@ -2246,4 +2246,3 @@ Mouse_Cursor :: enum i32 {
     CUSTOM_14,
     CUSTOM_15,
 }
-
