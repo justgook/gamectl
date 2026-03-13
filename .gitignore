@@ -24,6 +24,8 @@
 /build/
 /build.nosync/
 *.wasm
+/tools/opr-import/opr-import
+/game2-*.png
 #OS and IDE file
 .DS_Store
 .DS_Store?
