@@ -2,10 +2,12 @@
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "gamectl-native",
   "outputfilename": "gamectl-native",
+  "build:dir": "../../build.nosync/native",
   "frontend:dir": ".",
   "frontend:install": "go version",
   "frontend:build": "go version",
   "reloaddirs": "../browser,../../build.nosync/plugins",
+  "wailsjsdir": "../../build.nosync/native/wailsjs",
   "info": {
     "productName": "GameCtl",
     "comments": "Desktop wrapper for the browser workbench"
