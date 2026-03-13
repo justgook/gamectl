@@ -63,6 +63,12 @@ make browser
 # Run local browser IDE server
 make browser-run
 
+# Run the Wails desktop wrapper
+make native-dev
+
+# Build the Wails desktop wrapper
+make native-build
+
 # Create production-ready web folder in build.nosync/web
 make web
 
@@ -73,11 +79,33 @@ make clean
 ## Repository Layout
 
 - `cmd/browser/` - browser application, views, systems, migrations, static assets
+- `cmd/native/` - Wails desktop wrapper around the browser application
 - `plugins/` - WASM plugins in mixed languages (Go/C/Zig/Odin)
 - `pkg/` - shared Go packages (tilemap, tree, utilities, qoi)
 - `tools/` - standalone helper tools (for example `opr-import`)
 - `example/` - sample resources and test assets
 - `NOTES.md` - personal/experimental notes backlog
+
+## Native Wrapper
+
+The desktop app lives in `cmd/native/` and embeds the existing browser shell from `cmd/browser/` together with the built WASM plugins from `build.nosync/plugins/`.
+
+Use:
+
+```bash
+make native-dev
+make native-dev-inspector
+make native-build
+make native-build-debug
+```
+
+Both targets build plugins first. The Wails app keeps the current browser storage model, so OPFS and WebDAV continue to work unchanged inside the desktop webview.
+
+On macOS, the native targets explicitly use the Xcode toolchain via `xcrun` for `clang`, `clang++`, and `SDKROOT`, which avoids linker issues when the shell default compiler comes from another toolchain manager.
+
+The desktop wrapper also serves the app from a fixed loopback origin instead of Wails' custom `wails://` origin, because the plugin runtime needs `SharedArrayBuffer` and cross-origin isolation. If that port is already in use, override it with `GAMECTL_NATIVE_ADDR`, for example `GAMECTL_NATIVE_ADDR=127.0.0.1:39473 make native-dev`.
+
+If the desktop app gets stuck during boot, use `make native-dev-inspector` to start it with the Web Inspector open on launch, or `make native-build-debug` for a packaged debug build. The app menu now includes `View -> Reload` on `Cmd+R` and `View -> Open Inspector` on `Cmd+Option+I`, so you can refresh the app and reopen the inspector after closing it. Boot-time JS errors also surface on the splash screen in a small diagnostics panel.
 
 ## Notes
 

@@ -197,6 +197,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
       <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
       <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+      <button data-action="auto-arrange" aria-label="Auto Arrange" title="Auto Arrange"><i aria-hidden="true">account_tree</i></button>
     `;
     return controls;
   }
@@ -255,6 +256,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     const zoomFitBtn = this.queryHeaderControl('[data-action="zoom-fit"]');
     if (zoomFitBtn) zoomFitBtn.onclick = () => this.fitToContent();
+
+    const autoArrangeBtn = this.queryHeaderControl('[data-action="auto-arrange"]');
+    if (autoArrangeBtn) autoArrangeBtn.onclick = () => autoArrangeNodeGraphView(this);
 
     if (!this.gl) {
       this.textContent = "WebGL2 not supported";
@@ -4074,6 +4078,225 @@ function getNodeGraphRenderAssets() {
       bottom: 8,
     },
   };
+}
+
+function autoArrangeNodeGraphView(view) {
+  if (!view?.api || !view?.memory || !view?.assets || typeof view._readGraph !== "function") return false;
+
+  const graph = view._readGraph();
+  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
+  const edges = Array.isArray(graph?.edges) ? graph.edges : [];
+  if (!nodes.length) return false;
+
+  const layoutCfg = view.assets?.layout || {};
+  const baseX = Number(layoutCfg.gridOriginX || 80);
+  const baseY = Number(layoutCfg.gridOriginY || 58);
+  const layerGapX = Math.max(120, Number(layoutCfg.gridStepX || 186));
+  const nodeGapY = Math.max(36, Math.round(Number(layoutCfg.gridStepY || 112) * 0.36));
+  const componentGapX = Math.max(160, Math.round(layerGapX * 1.25));
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const sizeById = new Map(nodes.map((node) => [node.id, view._getNodeSize(node)]));
+  const incoming = new Map(nodes.map((node) => [node.id, new Set()]));
+  const outgoing = new Map(nodes.map((node) => [node.id, new Set()]));
+  const undirected = new Map(nodes.map((node) => [node.id, new Set()]));
+
+  for (const edge of edges) {
+    if (!nodeById.has(edge.from) || !nodeById.has(edge.to) || edge.from === edge.to) continue;
+    incoming.get(edge.to).add(edge.from);
+    outgoing.get(edge.from).add(edge.to);
+    undirected.get(edge.from).add(edge.to);
+    undirected.get(edge.to).add(edge.from);
+  }
+
+  const components = [];
+  const seen = new Set();
+  for (const node of nodes) {
+    if (seen.has(node.id)) continue;
+    const stack = [node.id];
+    const component = [];
+    seen.add(node.id);
+    while (stack.length) {
+      const nodeId = stack.pop();
+      component.push(nodeId);
+      for (const nextId of undirected.get(nodeId) || []) {
+        if (seen.has(nextId)) continue;
+        seen.add(nextId);
+        stack.push(nextId);
+      }
+    }
+    components.push(component);
+  }
+
+  const placements = new Map();
+  let cursorX = baseX;
+
+  for (const component of components) {
+    const componentSet = new Set(component);
+    const localIncomingCount = new Map(component.map((nodeId) => {
+      let count = 0;
+      for (const srcId of incoming.get(nodeId) || []) {
+        if (componentSet.has(srcId)) count += 1;
+      }
+      return [nodeId, count];
+    }));
+    const localLayers = new Map();
+    const queue = component
+      .filter((nodeId) => (localIncomingCount.get(nodeId) || 0) === 0)
+      .sort((a, b) => compareNodesForArrange(nodeById.get(a), nodeById.get(b), incoming, outgoing));
+
+    while (queue.length) {
+      const nodeId = queue.shift();
+      const outIds = Array.from(outgoing.get(nodeId) || []).filter((nextId) => componentSet.has(nextId));
+      for (const nextId of outIds) {
+        const nextLayer = (localLayers.get(nodeId) || 0) + 1;
+        localLayers.set(nextId, Math.max(localLayers.get(nextId) || 0, nextLayer));
+        const remaining = (localIncomingCount.get(nextId) || 0) - 1;
+        localIncomingCount.set(nextId, remaining);
+        if (remaining === 0) queue.push(nextId);
+      }
+      queue.sort((a, b) => compareNodesForArrange(nodeById.get(a), nodeById.get(b), incoming, outgoing));
+    }
+
+    for (const nodeId of component) {
+      if (localLayers.has(nodeId)) continue;
+      const parentLayers = Array.from(incoming.get(nodeId) || [])
+        .filter((srcId) => componentSet.has(srcId))
+        .map((srcId) => localLayers.get(srcId))
+        .filter((value) => Number.isFinite(value));
+      if (parentLayers.length) {
+        localLayers.set(nodeId, Math.max(...parentLayers) + 1);
+        continue;
+      }
+      const childLayers = Array.from(outgoing.get(nodeId) || [])
+        .filter((dstId) => componentSet.has(dstId))
+        .map((dstId) => localLayers.get(dstId))
+        .filter((value) => Number.isFinite(value));
+      localLayers.set(nodeId, childLayers.length ? Math.max(0, Math.min(...childLayers) - 1) : 0);
+    }
+
+    const layers = new Map();
+    for (const nodeId of component) {
+      const layerIndex = Math.max(0, Number(localLayers.get(nodeId) || 0));
+      if (!layers.has(layerIndex)) layers.set(layerIndex, []);
+      layers.get(layerIndex).push(nodeId);
+    }
+
+    const sortedLayerIndexes = Array.from(layers.keys()).sort((a, b) => a - b);
+    let previousOrder = null;
+    for (const layerIndex of sortedLayerIndexes) {
+      const ids = layers.get(layerIndex);
+      ids.sort((a, b) => {
+        const aScore = neighborBarycenter(a, previousOrder, incoming, componentSet);
+        const bScore = neighborBarycenter(b, previousOrder, incoming, componentSet);
+        if (aScore !== bScore) return aScore - bScore;
+        return compareNodesForArrange(nodeById.get(a), nodeById.get(b), incoming, outgoing);
+      });
+      previousOrder = new Map(ids.map((nodeId, index) => [nodeId, index]));
+    }
+
+    let nextOrder = null;
+    for (let i = sortedLayerIndexes.length - 1; i >= 0; i--) {
+      const layerIndex = sortedLayerIndexes[i];
+      const ids = layers.get(layerIndex);
+      ids.sort((a, b) => {
+        const aScore = neighborBarycenter(a, nextOrder, outgoing, componentSet);
+        const bScore = neighborBarycenter(b, nextOrder, outgoing, componentSet);
+        if (aScore !== bScore) return aScore - bScore;
+        return compareNodesForArrange(nodeById.get(a), nodeById.get(b), incoming, outgoing);
+      });
+      nextOrder = new Map(ids.map((nodeId, index) => [nodeId, index]));
+    }
+
+    const layerWidths = new Map();
+    const layerHeights = new Map();
+    for (const layerIndex of sortedLayerIndexes) {
+      const ids = layers.get(layerIndex);
+      let maxWidth = 0;
+      let totalHeight = 0;
+      ids.forEach((nodeId, index) => {
+        const size = sizeById.get(nodeId) || { width: 146, height: 62 };
+        maxWidth = Math.max(maxWidth, Number(size.width || 146));
+        totalHeight += Number(size.height || 62);
+        if (index > 0) totalHeight += nodeGapY;
+      });
+      layerWidths.set(layerIndex, maxWidth);
+      layerHeights.set(layerIndex, totalHeight);
+    }
+
+    const componentHeight = sortedLayerIndexes.reduce(
+      (maxHeight, layerIndex) => Math.max(maxHeight, Number(layerHeights.get(layerIndex) || 0)),
+      0,
+    );
+
+    let layerX = cursorX;
+    for (const layerIndex of sortedLayerIndexes) {
+      const ids = layers.get(layerIndex);
+      const layerHeight = Number(layerHeights.get(layerIndex) || 0);
+      let cursorY = baseY + Math.max(0, (componentHeight - layerHeight) * 0.5);
+      for (const nodeId of ids) {
+        const size = sizeById.get(nodeId) || { width: 146, height: 62 };
+        placements.set(nodeId, {
+          x: Math.round(layerX),
+          y: Math.round(cursorY),
+          width: Number(size.width || 146),
+          height: Number(size.height || 62),
+        });
+        cursorY += Number(size.height || 62) + nodeGapY;
+      }
+      layerX += Number(layerWidths.get(layerIndex) || 146) + layerGapX;
+    }
+
+    cursorX = layerX + componentGapX;
+  }
+
+  for (const node of nodes) {
+    const placement = placements.get(node.id);
+    if (!placement) continue;
+    view.nodeLayout.set(node.id, placement);
+  }
+
+  view.requestRenderIfGenerationChanged(true);
+  view.fitToContent();
+  return true;
+}
+
+function compareNodesForArrange(a, b, incoming, outgoing) {
+  const aKindRank = getNodeArrangeKindRank(a);
+  const bKindRank = getNodeArrangeKindRank(b);
+  if (aKindRank !== bKindRank) return aKindRank - bKindRank;
+
+  const aIncoming = incoming.get(a?.id)?.size || 0;
+  const bIncoming = incoming.get(b?.id)?.size || 0;
+  if (aIncoming !== bIncoming) return aIncoming - bIncoming;
+
+  const aOutgoing = outgoing.get(a?.id)?.size || 0;
+  const bOutgoing = outgoing.get(b?.id)?.size || 0;
+  if (aOutgoing !== bOutgoing) return bOutgoing - aOutgoing;
+
+  return Number(a?.id || 0) - Number(b?.id || 0);
+}
+
+function getNodeArrangeKindRank(node) {
+  if (!node) return 99;
+  if (node.kind === NG.NODE_VALUE) return 0;
+  if (node.kind === NG.NODE_CODE) return 1;
+  if (node.kind === NG.NODE_GOAL) return 2;
+  return 3;
+}
+
+function neighborBarycenter(nodeId, orderMap, adjacency, componentSet) {
+  if (!(orderMap instanceof Map) || orderMap.size === 0) return Number.POSITIVE_INFINITY;
+  const neighbors = Array.from(adjacency.get(nodeId) || []).filter((neighborId) => componentSet.has(neighborId));
+  let total = 0;
+  let count = 0;
+  for (const neighborId of neighbors) {
+    const order = orderMap.get(neighborId);
+    if (!Number.isFinite(order)) continue;
+    total += order;
+    count += 1;
+  }
+  return count > 0 ? total / count : Number.POSITIVE_INFINITY;
 }
 
 export default ViewNodeGraph2;
