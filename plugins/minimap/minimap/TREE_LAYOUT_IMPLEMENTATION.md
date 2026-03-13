@@ -151,7 +151,7 @@ For each level L:
 package minimap
 
 import (
-    "github.com/justgook/gamectl/pkg/tree"
+    "github.com/justgook/gams/pkg/tree"
 )
 
 // NodePosition tracks position and metadata for tree nodes
@@ -305,7 +305,7 @@ func GetNodesAtLevel(t *tree.Tree, root *tree.Node, targetLevel int) []*tree.Nod
 package minimap
 
 import (
-    "github.com/justgook/gamectl/pkg/tree"
+    "github.com/justgook/gams/pkg/tree"
 )
 
 func Stage1(rng Random, treeInput *tree.Tree, getRoomShape GetRoomShapeFunc, grid *Grid) {
@@ -478,7 +478,7 @@ package minimap
 
 import (
     "math"
-    "github.com/justgook/gamectl/pkg/tree"
+    "github.com/justgook/gams/pkg/tree"
 )
 
 type AngularAllocation struct {
@@ -724,7 +724,7 @@ package minimap
 
 import (
     "math"
-    "github.com/justgook/gamectl/pkg/tree"
+    "github.com/justgook/gams/pkg/tree"
 )
 
 // Simple pathfinding using straight lines for now
@@ -1002,7 +1002,7 @@ package minimap
 
 import (
     "math"
-    "github.com/justgook/gamectl/pkg/tree"
+    "github.com/justgook/gams/pkg/tree"
 )
 
 type Force struct {
@@ -1268,8 +1268,8 @@ func AnalyzeLayoutQuality(results []LayoutMetrics)
 package minimap
 
 import (
-    "github.com/justgook/gamectl/pkg/tilemap"
-    "github.com/justgook/gamectl/pkg/tree"
+    "github.com/justgook/gams/pkg/tilemap"
+    "github.com/justgook/gams/pkg/tree"
 )
 
 func GenerateMinimap(

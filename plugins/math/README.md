@@ -94,7 +94,7 @@ This format is parsed manually without external dependencies to keep the WASM si
 
 ## Testing
 
-You can test the plugin functions using the GameCtl browser interface or programmatically through the WPM SDK.
+You can test the plugin functions using the GAMS browser interface or programmatically through the WPM SDK.
 
 Example calls:
 ```javascript

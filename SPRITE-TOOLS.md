@@ -1,6 +1,6 @@
 # Sprite Tools Implementation Plan
 
-Implementation plan for sprite and image processing tools, inspired by [ShoeBox](http://renderhjs.net/shoebox/) but designed for gamectl's plugin-based architecture.
+Implementation plan for sprite and image processing tools, inspired by [ShoeBox](http://renderhjs.net/shoebox/) but designed for GAMS' plugin-based architecture.
 
 ---
 

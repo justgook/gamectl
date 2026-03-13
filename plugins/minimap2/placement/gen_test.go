@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 // MockRandom provides deterministic random for testing

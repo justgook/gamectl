@@ -3,8 +3,22 @@ import { toast } from '../systems/toast.js'
 import { ensureThemeStylesheetLink } from '../systems/theme-stylesheet.js'
 import { parseCSVLines } from '../util/csv.js'
 
-const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
+const APPEARANCE_STORAGE_KEY = 'gams.appearance'
+const LEGACY_APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
 const decoder = new TextDecoder()
+
+function readAppearanceStorage() {
+  const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY) || localStorage.getItem(LEGACY_APPEARANCE_STORAGE_KEY)
+  if (!raw) return null
+
+  const parsed = JSON.parse(raw)
+  localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(parsed))
+  if (localStorage.getItem(LEGACY_APPEARANCE_STORAGE_KEY) !== null) {
+    localStorage.removeItem(LEGACY_APPEARANCE_STORAGE_KEY)
+  }
+
+  return parsed
+}
 
 /**
  * ViewSettings - Settings panel with tabbed interface
@@ -733,10 +747,9 @@ export class ViewSettings extends HTMLElement {
     }
 
     try {
-      const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        this.appearance.settings = { ...defaults, ...parsed }
+      const storedAppearance = readAppearanceStorage()
+      if (storedAppearance) {
+        this.appearance.settings = { ...defaults, ...storedAppearance }
       } else {
         const result = await window.pluginManager.call('sql', 'query', "SELECT key, value FROM settings WHERE category='appearance'")
         const csv = decoder.decode(result.output)
@@ -884,6 +897,7 @@ export class ViewSettings extends HTMLElement {
   saveAppearance() {
     try {
       localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(this.appearance.settings))
+      localStorage.removeItem(LEGACY_APPEARANCE_STORAGE_KEY)
       this.applyTheme(this.appearance.settings['appearance.theme'])
       this.applyFontFamily(this.appearance.settings['appearance.font-family'] || 'default')
       this.applyFontSize(this.appearance.settings['appearance.font-size'] || '14')

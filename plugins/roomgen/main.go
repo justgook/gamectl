@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gamectl/pkg/tilemap"
-	"github.com/justgook/gamectl/pkg/util"
-	"github.com/justgook/gamectl/plugins/roomgen/gen"
+	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/plugins/roomgen/gen"
 	"github.com/justgook/wpm/pdk"
 )
 

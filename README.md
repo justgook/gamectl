@@ -103,7 +103,7 @@ Both targets build plugins first. The Wails app keeps the current browser storag
 
 On macOS, the native targets explicitly use the Xcode toolchain via `xcrun` for `clang`, `clang++`, and `SDKROOT`, which avoids linker issues when the shell default compiler comes from another toolchain manager.
 
-The desktop wrapper also serves the app from a fixed loopback origin instead of Wails' custom `wails://` origin, because the plugin runtime needs `SharedArrayBuffer` and cross-origin isolation. If that port is already in use, override it with `GAMECTL_NATIVE_ADDR`, for example `GAMECTL_NATIVE_ADDR=127.0.0.1:39473 make native-dev`.
+The desktop wrapper also serves the app from a fixed loopback origin instead of Wails' custom `wails://` origin, because the plugin runtime needs `SharedArrayBuffer` and cross-origin isolation. If that port is already in use, override it with `GAMS_NATIVE_ADDR`, for example `GAMS_NATIVE_ADDR=127.0.0.1:39473 make native-dev`.
 
 If the desktop app gets stuck during boot, use `make native-dev-inspector` to start it with the Web Inspector open on launch, or `make native-build-debug` for a packaged debug build. The app menu now includes `View -> Reload` on `Cmd+R` and `View -> Open Inspector` on `Cmd+Option+I`, so you can refresh the app and reopen the inspector after closing it. Boot-time JS errors also surface on the splash screen in a small diagnostics panel.
 

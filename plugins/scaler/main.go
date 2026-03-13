@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gamectl/pkg/tilemap"
-	"github.com/justgook/gamectl/pkg/util"
+	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
 

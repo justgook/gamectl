@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gamectl/pkg/util"
-	"github.com/justgook/gamectl/plugins/treegen/treegen"
+	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/plugins/treegen/treegen"
 	"github.com/justgook/wpm/pdk"
 )
 

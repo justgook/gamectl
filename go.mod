@@ -1,4 +1,4 @@
-module github.com/justgook/gamectl
+module github.com/justgook/gams
 
 go 1.25
 

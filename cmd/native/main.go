@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	desktopassets "github.com/justgook/gamectl"
+	desktopassets "github.com/justgook/gams"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
@@ -23,9 +23,9 @@ import (
 )
 
 func main() {
-	inspectorEnabled := os.Getenv("GAMECTL_OPEN_INSPECTOR") == "1"
-	debugLoggingEnabled := os.Getenv("GAMECTL_DEBUG") == "1"
-	serverAddr := os.Getenv("GAMECTL_NATIVE_ADDR")
+	inspectorEnabled := envEnabled("GAMS_OPEN_INSPECTOR", "GAMECTL_OPEN_INSPECTOR")
+	debugLoggingEnabled := envEnabled("GAMS_DEBUG", "GAMECTL_DEBUG")
+	serverAddr := firstEnv("GAMS_NATIVE_ADDR", "GAMECTL_NATIVE_ADDR")
 	if serverAddr == "" {
 		serverAddr = "127.0.0.1:38473"
 	}
@@ -47,7 +47,7 @@ func main() {
 	}
 
 	err = wails.Run(&options.App{
-		Title:                    "GameCtl",
+		Title:                    "GAMS",
 		Width:                    1440,
 		Height:                   960,
 		MinWidth:                 960,
@@ -81,6 +81,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func envEnabled(names ...string) bool {
+	return firstEnv(names...) == "1"
+}
+
+func firstEnv(names ...string) string {
+	for _, name := range names {
+		if value := os.Getenv(name); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func buildApplicationMenu(reload func(), openInspector func()) *menu.Menu {
@@ -173,7 +186,7 @@ func bootstrapHandler(targetURL string) http.Handler {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>GameCtl</title>
+    <title>GAMS</title>
     <style>
       body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0c10; color: #e8eaf0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
       .card { padding: 20px 24px; border: 1px solid #262a36; background: #11131a; max-width: 520px; }

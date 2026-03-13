@@ -3,7 +3,7 @@ package minimap
 import (
 	"testing"
 
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 // Helper to check if two rooms share an edge (are orthogonally adjacent)
