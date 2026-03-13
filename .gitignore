@@ -22,10 +22,21 @@
 /tmp/
 #/aseprite/
 /build/
-/build.nosync/
+!/build.nosync/
+/build.nosync/*
+!/build.nosync/native/
+/build.nosync/native/*
+!/build.nosync/native/appicon.png
+!/build.nosync/native/darwin/
+/build.nosync/native/darwin/*
+!/build.nosync/native/darwin/Info.plist
+!/build.nosync/native/darwin/Info.dev.plist
 *.wasm
 /tools/opr-import/opr-import
 /game2-*.png
+/cmd/native/build/
+/cmd/native/wailsjs/
+/cmd/native/native
 #OS and IDE file
 .DS_Store
 .DS_Store?
