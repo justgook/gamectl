@@ -22,15 +22,7 @@
 /tmp/
 #/aseprite/
 /build/
-!/build.nosync/
-/build.nosync/*
-!/build.nosync/native/
-/build.nosync/native/*
-!/build.nosync/native/appicon.png
-!/build.nosync/native/darwin/
-/build.nosync/native/darwin/*
-!/build.nosync/native/darwin/Info.plist
-!/build.nosync/native/darwin/Info.dev.plist
+/build.nosync/
 *.wasm
 /tools/opr-import/opr-import
 /game2-*.png

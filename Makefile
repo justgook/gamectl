@@ -32,7 +32,13 @@ APP_DIR ?= ./example/cmd/game
 ASSETS_DIR ?= example/assets
 
 BUILD_DIR ?= build.nosync
-NATIVE_BUILD_DIR ?= $(BUILD_DIR)/native
+NATIVE_DIR ?= cmd/native
+NATIVE_ASSETS_DIR ?= $(NATIVE_DIR)/assets
+NATIVE_OUTPUT_DIR ?= $(BUILD_DIR)/macos
+NATIVE_OUTPUT_ASSETS := \
+	$(NATIVE_OUTPUT_DIR)/appicon.png \
+	$(NATIVE_OUTPUT_DIR)/darwin/Info.plist \
+	$(NATIVE_OUTPUT_DIR)/darwin/Info.dev.plist
 PLUGIN_DIR ?= plugins
 WAILS_RUN ?= go run github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 WAILS_CC ?= $(shell xcrun -f clang)
@@ -227,27 +233,39 @@ browser-run: browser $(PLUGIN_TARGETS)
 	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
 
 .PHONY: native-dev
-native-dev: plugins-release | $(NATIVE_BUILD_DIR)
-	$(Q)cd cmd/native && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev
+native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)
+	$(Q)(cd $(NATIVE_DIR) && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev)
 
 .PHONY: native-dev-inspector
-native-dev-inspector: plugins-release | $(NATIVE_BUILD_DIR)
-	$(Q)cd cmd/native && GAMECTL_OPEN_INSPECTOR=1 GAMECTL_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev
+native-dev-inspector: plugins-release $(NATIVE_OUTPUT_ASSETS)
+	$(Q)(cd $(NATIVE_DIR) && GAMECTL_OPEN_INSPECTOR=1 GAMECTL_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev)
 
 .PHONY: native-build
-native-build: plugins-release | $(NATIVE_BUILD_DIR)
-	$(Q)cd cmd/native && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build
+native-build: plugins-release $(NATIVE_OUTPUT_ASSETS)
+	$(Q)(cd $(NATIVE_DIR) && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build)
 
 .PHONY: native-build-debug
-native-build-debug: plugins-release | $(NATIVE_BUILD_DIR)
-	$(Q)cd cmd/native && GAMECTL_OPEN_INSPECTOR=1 GAMECTL_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build -debug -devtools
+native-build-debug: plugins-release $(NATIVE_OUTPUT_ASSETS)
+	$(Q)(cd $(NATIVE_DIR) && GAMECTL_OPEN_INSPECTOR=1 GAMECTL_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build -debug -devtools)
 
 # Ensure build directories exist
 $(BUILD_DIR):
 	$(Q)mkdir -p $@
 
-$(NATIVE_BUILD_DIR):
+$(NATIVE_OUTPUT_DIR):
 	$(Q)mkdir -p $@
+
+$(NATIVE_OUTPUT_DIR)/darwin:
+	$(Q)mkdir -p $@
+
+$(NATIVE_OUTPUT_DIR)/appicon.png: $(NATIVE_ASSETS_DIR)/appicon.png | $(NATIVE_OUTPUT_DIR)
+	$(Q)cp "$<" "$@"
+
+$(NATIVE_OUTPUT_DIR)/darwin/Info.plist: $(NATIVE_ASSETS_DIR)/darwin/Info.plist | $(NATIVE_OUTPUT_DIR)/darwin
+	$(Q)cp "$<" "$@"
+
+$(NATIVE_OUTPUT_DIR)/darwin/Info.dev.plist: $(NATIVE_ASSETS_DIR)/darwin/Info.dev.plist | $(NATIVE_OUTPUT_DIR)/darwin
+	$(Q)cp "$<" "$@"
 
 $(BUILD_DIR)/plugins:
 	$(Q)mkdir -p $@
