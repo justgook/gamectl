@@ -3,7 +3,7 @@ package placement
 import (
 	"testing"
 
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 func TestDebugSeed3(t *testing.T) {

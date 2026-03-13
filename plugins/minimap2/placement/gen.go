@@ -3,8 +3,8 @@ package placement
 import (
 	"fmt"
 
-	"github.com/justgook/gamectl/pkg/tilemap"
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 // Random interface for pluggable random number generation

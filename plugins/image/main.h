@@ -1,8 +1,8 @@
-#ifndef GAMECTL_IMAGE_MAIN_H
-#define GAMECTL_IMAGE_MAIN_H
+#ifndef GAMS_IMAGE_MAIN_H
+#define GAMS_IMAGE_MAIN_H
 
 /*
- * GameCtl image plugin public API
+ * GAMS image plugin public API
  *
  * Module name: image
  * API version: image/v1
@@ -13,7 +13,7 @@
  * - output: UTF-8 JSON bytes
  * - success: returnCode == 0
  * - failure: returnCode != 0 with JSON error payload
- * - calls use the standard GameCtl plugin ABI through pdk.h
+ * - calls use the standard GAMS plugin ABI through pdk.h
  *
  * PDK-backed dependencies used by this plugin
  * -------------------------------------------

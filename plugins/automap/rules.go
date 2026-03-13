@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/justgook/gamectl/pkg/tilemap"
+	"github.com/justgook/gams/pkg/tilemap"
 )
 
 // rulePropsToExclude lists all rule-specific properties

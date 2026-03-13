@@ -1,7 +1,7 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "gamectl-native",
-  "outputfilename": "gamectl-native",
+  "name": "gams",
+  "outputfilename": "GAMS",
   "build:dir": "../../build.nosync/macos",
   "frontend:dir": ".",
   "frontend:install": "go version",
@@ -9,7 +9,7 @@
   "reloaddirs": "../browser,../../build.nosync/plugins",
   "wailsjsdir": "../../build.nosync/macos/wailsjs",
   "info": {
-    "productName": "GameCtl",
-    "comments": "Desktop wrapper for the browser workbench"
+    "productName": "GAMS",
+    "comments": "Desktop wrapper for the GAMS browser workbench"
   }
 }

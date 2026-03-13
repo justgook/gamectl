@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gamectl/pkg/tree"
-	"github.com/justgook/gamectl/pkg/util"
-	"github.com/justgook/gamectl/plugins/minimap/minimap"
+	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/plugins/minimap/minimap"
 	"github.com/justgook/wpm/pdk"
 )
 

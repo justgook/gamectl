@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gamectl/pkg/tree"
-	"github.com/justgook/gamectl/pkg/util"
-	"github.com/justgook/gamectl/plugins/biomes/biomes"
+	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/plugins/biomes/biomes"
 	"github.com/justgook/wpm/pdk"
 )
 

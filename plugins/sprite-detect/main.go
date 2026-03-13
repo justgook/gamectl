@@ -6,8 +6,8 @@ import (
 	"image"
 	"sort"
 
-	"github.com/justgook/gamectl/pkg/pluginimg"
-	"github.com/justgook/gamectl/pkg/util"
+	"github.com/justgook/gams/pkg/pluginimg"
+	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
 

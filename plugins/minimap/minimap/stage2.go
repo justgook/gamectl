@@ -1,7 +1,7 @@
 package minimap
 
 import (
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 // Stage2Result contains the output of the grow-from-parent algorithm

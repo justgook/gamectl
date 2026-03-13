@@ -99,7 +99,8 @@ window.addEventListener('unhandledrejection', event => {
 // === Three-phase boot ===
 
 const decoder = new TextDecoder()
-const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
+const APPEARANCE_STORAGE_KEY = 'gams.appearance'
+const LEGACY_APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
 const THEME_STYLESHEET_ID = 'theme-stylesheet'
 bootDiagnostics.info(`origin=${location.origin || '(none)'} protocol=${location.protocol}`)
 bootDiagnostics.info(`crossOriginIsolated=${String(window.crossOriginIsolated)} sharedArrayBuffer=${String(typeof SharedArrayBuffer !== 'undefined')}`)
@@ -134,9 +135,14 @@ window.__applyThemeStylesheet = applyThemeStylesheet
 
 function readAppearanceFromLocalStorage() {
   try {
-    const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY)
+    const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY) || localStorage.getItem(LEGACY_APPEARANCE_STORAGE_KEY)
     if (!raw) return null
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(parsed))
+    if (localStorage.getItem(LEGACY_APPEARANCE_STORAGE_KEY) !== null) {
+      localStorage.removeItem(LEGACY_APPEARANCE_STORAGE_KEY)
+    }
+    return parsed
   } catch (error) {
     console.warn('[App] Failed to parse local appearance settings:', error)
     return null

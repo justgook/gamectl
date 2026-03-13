@@ -35,6 +35,8 @@ BUILD_DIR ?= build.nosync
 NATIVE_DIR ?= cmd/native
 NATIVE_ASSETS_DIR ?= $(NATIVE_DIR)/assets
 NATIVE_OUTPUT_DIR ?= $(BUILD_DIR)/macos
+NATIVE_APP_BUNDLE ?= $(NATIVE_OUTPUT_DIR)/bin/gams.app
+NATIVE_APP_BUNDLE_DISPLAY ?= $(NATIVE_OUTPUT_DIR)/bin/GAMS.app
 NATIVE_OUTPUT_ASSETS := \
 	$(NATIVE_OUTPUT_DIR)/appicon.png \
 	$(NATIVE_OUTPUT_DIR)/darwin/Info.plist \
@@ -229,7 +231,7 @@ browser: $(PLUGIN_TARGETS)
 
 .PHONY: browser-run
 browser-run: browser $(PLUGIN_TARGETS)
-	$(Q)echo "Starting GameCtl Browser IDE..."
+	$(Q)echo "Starting GAMS Browser IDE..."
 	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
 
 .PHONY: native-dev
@@ -238,15 +240,17 @@ native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)
 
 .PHONY: native-dev-inspector
 native-dev-inspector: plugins-release $(NATIVE_OUTPUT_ASSETS)
-	$(Q)(cd $(NATIVE_DIR) && GAMECTL_OPEN_INSPECTOR=1 GAMECTL_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev)
+	$(Q)(cd $(NATIVE_DIR) && GAMS_OPEN_INSPECTOR=1 GAMS_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev)
 
 .PHONY: native-build
 native-build: plugins-release $(NATIVE_OUTPUT_ASSETS)
 	$(Q)(cd $(NATIVE_DIR) && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build)
+	$(Q)if [ -d "$(NATIVE_APP_BUNDLE)" ]; then rm -rf "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE)" "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" "$(NATIVE_APP_BUNDLE_DISPLAY)"; fi
 
 .PHONY: native-build-debug
 native-build-debug: plugins-release $(NATIVE_OUTPUT_ASSETS)
-	$(Q)(cd $(NATIVE_DIR) && GAMECTL_OPEN_INSPECTOR=1 GAMECTL_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build -debug -devtools)
+	$(Q)(cd $(NATIVE_DIR) && GAMS_OPEN_INSPECTOR=1 GAMS_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build -debug -devtools)
+	$(Q)if [ -d "$(NATIVE_APP_BUNDLE)" ]; then rm -rf "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE)" "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" "$(NATIVE_APP_BUNDLE_DISPLAY)"; fi
 
 # Ensure build directories exist
 $(BUILD_DIR):

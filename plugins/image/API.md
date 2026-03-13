@@ -8,7 +8,7 @@ API version: `image/v1`
 
 This document defines the public API for the global image plugin that replaces
 `image-process`. The design follows the existing plugin ABI already used by
-GameCtl plugins through `pdk.h`:
+GAMS plugins through `pdk.h`:
 
 - input: UTF-8 JSON bytes
 - output: UTF-8 JSON bytes

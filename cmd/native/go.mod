@@ -1,9 +1,9 @@
-module github.com/justgook/gamectl/cmd/native
+module github.com/justgook/gams/cmd/native
 
 go 1.25
 
 require (
-	github.com/justgook/gamectl v0.0.0
+	github.com/justgook/gams v0.0.0
 	github.com/wailsapp/wails/v2 v2.11.0
 )
 
@@ -37,4 +37,4 @@ require (
 	golang.org/x/text v0.22.0 // indirect
 )
 
-replace github.com/justgook/gamectl => ../..
+replace github.com/justgook/gams => ../..

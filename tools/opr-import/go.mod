@@ -1,3 +1,3 @@
-module github.com/gook/gamectl/tools/opr-import
+module github.com/justgook/gams/tools/opr-import
 
 go 1.21
