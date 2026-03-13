@@ -42,11 +42,67 @@ function splashStatus(message) {
   if (splash?.setStatus) splash.setStatus(message)
 }
 
+function createBootDiagnostics() {
+  const panel = document.createElement('pre')
+  panel.id = 'boot-diagnostics'
+  panel.hidden = true
+  panel.style.position = 'fixed'
+  panel.style.left = '16px'
+  panel.style.right = '16px'
+  panel.style.bottom = '16px'
+  panel.style.zIndex = '1000'
+  panel.style.maxHeight = '40vh'
+  panel.style.overflow = 'auto'
+  panel.style.margin = '0'
+  panel.style.padding = '12px 14px'
+  panel.style.border = '1px solid rgba(255,255,255,0.24)'
+  panel.style.background = 'rgba(0,0,0,0.82)'
+  panel.style.color = '#ffb4b4'
+  panel.style.font = '12px/1.5 "Roboto Mono", "JetBrains Mono", monospace'
+  panel.style.whiteSpace = 'pre-wrap'
+  panel.style.pointerEvents = 'auto'
+  panel.style.userSelect = 'text'
+  document.body.appendChild(panel)
+
+  const lines = []
+  const write = (level, message) => {
+    const text = typeof message === 'string' ? message : String(message)
+    lines.push(`[${level}] ${text}`)
+    if (lines.length > 20) lines.shift()
+    panel.textContent = lines.join('\n')
+  }
+
+  return {
+    info(message) {
+      write('info', message)
+    },
+    fail(error, context = 'Boot failed') {
+      const detail = error?.stack || error?.message || String(error)
+      splashStatus(`${context}. Open the inspector for details.`)
+      panel.hidden = false
+      write('error', `${context}: ${detail}`)
+      console.error(`[Boot] ${context}:`, error)
+    }
+  }
+}
+
+const bootDiagnostics = createBootDiagnostics()
+
+window.addEventListener('error', event => {
+  bootDiagnostics.fail(event.error || event.message, 'Unhandled error')
+})
+
+window.addEventListener('unhandledrejection', event => {
+  bootDiagnostics.fail(event.reason, 'Unhandled promise rejection')
+})
+
 // === Three-phase boot ===
 
 const decoder = new TextDecoder()
 const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
 const THEME_STYLESHEET_ID = 'theme-stylesheet'
+bootDiagnostics.info(`origin=${location.origin || '(none)'} protocol=${location.protocol}`)
+bootDiagnostics.info(`crossOriginIsolated=${String(window.crossOriginIsolated)} sharedArrayBuffer=${String(typeof SharedArrayBuffer !== 'undefined')}`)
 const themeManifest = await fetch('themes/themes.json').then(response => response.json())
 
 function applyThemeStylesheet(theme) {
@@ -148,7 +204,16 @@ async function applyAppearanceSettings() {
 
 // Phase 1: Initialize FS (host functions) + SQL (base WASM plugin)
 splashStatus('Initializing filesystem...')
-window.pluginManager = await PluginManagerProxy.create()
+if (typeof SharedArrayBuffer === 'undefined') {
+  throw new Error('SharedArrayBuffer is unavailable. The desktop webview is not cross-origin isolated.')
+}
+
+try {
+  window.pluginManager = await PluginManagerProxy.create()
+} catch (error) {
+  bootDiagnostics.fail(error, 'Filesystem initialization failed')
+  throw error
+}
 
 // Initialize database using migration system
 // - Loads from /database.sqlite if exists in FS
@@ -156,7 +221,12 @@ window.pluginManager = await PluginManagerProxy.create()
 // - Listens for file:save event to persist database
 splashStatus('Loading database...')
 import { migrationManager } from "./systems/migration.js"
-await migrationManager.init()
+try {
+  await migrationManager.init()
+} catch (error) {
+  bootDiagnostics.fail(error, 'Database initialization failed')
+  throw error
+}
 window.migrationManager = migrationManager // Expose for debugging
 await applyAppearanceSettings()
 

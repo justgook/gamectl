@@ -33,6 +33,10 @@ ASSETS_DIR ?= example/assets
 
 BUILD_DIR ?= build.nosync
 PLUGIN_DIR ?= plugins
+WAILS_RUN ?= go run github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+WAILS_CC ?= $(shell xcrun -f clang)
+WAILS_CXX ?= $(shell xcrun -f clang++)
+WAILS_SDKROOT ?= $(shell xcrun --show-sdk-path)
 
 # Detect all plugin subdirectories (exclude fs which is now built-in to plugin-manager)
 PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
@@ -220,6 +224,22 @@ browser: $(PLUGIN_TARGETS)
 browser-run: browser $(PLUGIN_TARGETS)
 	$(Q)echo "Starting GameCtl Browser IDE..."
 	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
+
+.PHONY: native-dev
+native-dev: plugins-release
+	$(Q)cd cmd/native && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev
+
+.PHONY: native-dev-inspector
+native-dev-inspector: plugins-release
+	$(Q)cd cmd/native && GAMECTL_OPEN_INSPECTOR=1 GAMECTL_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev
+
+.PHONY: native-build
+native-build: plugins-release
+	$(Q)cd cmd/native && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build
+
+.PHONY: native-build-debug
+native-build-debug: plugins-release
+	$(Q)cd cmd/native && GAMECTL_OPEN_INSPECTOR=1 GAMECTL_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build -debug -devtools
 
 # Ensure build directories exist
 $(BUILD_DIR):
