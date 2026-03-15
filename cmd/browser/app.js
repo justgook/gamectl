@@ -8,6 +8,7 @@ import { ensureThemeStylesheetLink } from './systems/theme-stylesheet.js'
 
 import "./systems/cache.js"
 import { LayoutManager } from "./views/view-layout.js"
+import "./views/view-header.js"
 
 // Popup system
 import { PopupManager } from "./views/popup-manager.js"
@@ -35,6 +36,15 @@ window.viewLoader = viewLoader // Expose for debugging
 
 // Register infrastructure custom elements
 customElements.define('layout-manager', LayoutManager)
+
+const hasNativeBridge = Boolean(window.WailsInvoke || window.chrome?.webview || window.webkit?.messageHandlers?.external)
+console.log
+if (hasNativeBridge && !document.querySelector('view-header')) {
+  const header = document.createElement('view-header')
+  header.style.cssText = `--wails-draggable:drag`
+  document.body.insertBefore(header, document.body.firstChild)
+  console.log("ADDING HEADER")
+}
 
 // === Splash screen status helper ===
 function splashStatus(message) {
