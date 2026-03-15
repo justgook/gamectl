@@ -606,21 +606,19 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   async _handleHostAwaitRequest(_nodeId, requestId, service, method, payloadJson) {
     if (!this.api || !this.memory || typeof this.api.ng_run_response !== "function") return;
-    let response = "";
+    let response = new Uint8Array();
     try {
       const result = await window.pluginManager.call(service, method, payloadJson || "");
-      const output = result?.output instanceof Uint8Array
+      response = result?.output instanceof Uint8Array
         ? result.output
         : new Uint8Array(result?.output || []);
-      response = this.td.decode(output);
     } catch (error) {
-      response = JSON.stringify({ ok: false, error: String(error?.message || error) });
+      response = this.te.encode(JSON.stringify({ ok: false, error: String(error?.message || error) }));
     }
 
     const ptr = this.api.ng_get_io_ptr();
-    const bytes = this.te.encode(response);
-    const len = Math.min(bytes.length, 65535);
-    new Uint8Array(this.memory.buffer, ptr, len).set(bytes.subarray(0, len));
+    const len = Math.min(response.length, 65535);
+    new Uint8Array(this.memory.buffer, ptr, len).set(response.subarray(0, len));
     this.api.ng_run_response(requestId, ptr, len);
     this.requestRenderIfGenerationChanged(true);
   }
@@ -1032,95 +1030,31 @@ outputs[2] = json.encode({ count = #items })
 
     const respackDemo = String.raw`-- Demo: initialize respack, write a payload, save the dump to disk,
 -- and generate an Odin decoder.
-
-local schema = [[
-{
-  "package": "respacktest",
-  "types": {
-    "Vec2": {
-      "type": "struct",
-      "fields": {
-        "x": "f32",
-        "y": "f32"
-      }
-    },
-    "CircleShape": {
-      "type": "struct",
-      "fields": {
-        "radius": "f32"
-      }
-    },
-    "RectShape": {
-      "type": "struct",
-      "fields": {
-        "size": "Vec2"
-      }
-    },
-    "Shape": {
-      "type": "oneof",
-      "value": ["CircleShape", "RectShape"]
-    },
-    "ColorRGB": {
-      "type": "array",
-      "len": 3,
-      "value": "u8"
-    },
-    "Bundle": {
-      "type": "struct",
-      "fields": {
-        "points": {
-          "type": "vector",
-          "value": "Vec2"
-        },
-        "blob": {
-          "type": "bytes",
-          "max_len": 64
-        },
-        "label": {
-          "type": "string"
-        },
-        "text_blob": {
-          "type": "bytes",
-          "max_len": 16
-        },
-        "shape": "Shape",
-        "palette": {
-          "type": "vector",
-          "value": "ColorRGB"
-        }
-      }
-    }
+local schema2 = host.awaitCall("fs", "read", "local:/assets/respack/game2.rspk.json")
+local positions = {
+  entity_ids = {33, 45},
+  components = {
+    {22, 11},
+    {7, -3},
   },
-  "data": ["Bundle"]
-}
-]]
-
-local payload = {
-  points = {
-    { x = 3.5, y = -2.0 },
-    { x = 10.25, y = 8.75 },
-  },
-  blob = { 0, 17, 34, 51, 200, 255 },
-  label = "line\\n2",
-  text_blob = "line\\n2",
-  shape = {
-    rect = {
-      size = { x = 6.0, y = 9.5 }
-    }
-  },
-  palette = {
-    { 255, 0, 128 },
-    { 12, 34, 56 },
-    { 1, 2, 3 },
-  }
 }
 
-local initResult = host.awaitCall("respack", "init", schema)
-local writeResult = host.awaitCall("respack", "write", json.encode({
-  slot = 0,
-  payload = payload,
-}))
-local dumpPath = "/tmp/nodegraph2-demo.rspk"
+local function string_to_u8_array(value)
+  local out = {}
+  for i = 1, #value do
+    out[i] = string.byte(value, i)
+  end
+  return out
+end
+
+local atlas = host.awaitCall( "fs", "read", "local:/assets/game/the_atlas.qoi")
+local atlas_bytes = string_to_u8_array(atlas)
+
+local initResult = host.awaitCall("respack", "init", schema2)
+local writePositionsResult = host.awaitCall("respack", "write", json.encode({ slot = 0, payload = positions }))
+local writeAtlasResult = host.awaitCall("respack", "write", json.encode({ slot = 1, payload = atlas_bytes }))
+
+local dumpPath = "/the_data/game.rspk"
 local saveResult = host.awaitCall("respack", "dump_to_file", dumpPath)
 local odinSource = host.awaitCall("respack", "generate_odin", "main")
 
@@ -1132,17 +1066,19 @@ local function escape_string(str)
     return str
 end
 
-host.awaitCall( "fs", "writeJson", '{"path":"delme.txt", "content":"'.. escape_string(odinSource) ..'"}')
+local odinOutFile = "/the_data/decoder.txt"
+host.awaitCall( "fs", "writeJson", '{"path": "'..odinOutFile..'", "content":"'.. escape_string(odinSource) ..'"}')
 
 outputs[1] = odinSource
 outputs[2] = json.encode({
   init = initResult,
-  write = writeResult,
+  write_positions = writePositionsResult,
+  write_atlas = writeAtlasResult,
   save = saveResult,
   dump_path = dumpPath,
   package = "main",
   slot = 0,
-  schema = "Bundle",
+  schema = "JUST DATA",
   generated_bytes = #odinSource,
 })
 `;

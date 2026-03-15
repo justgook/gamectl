@@ -1,0 +1,31 @@
+{
+  "package": "game2",
+  "data": [
+    "Positions",
+    "Atlas"
+  ],
+  "types": {
+    "Vec2": {
+      "type": "array",
+      "len": 2,
+      "value": "i32"
+    },
+    "EntityIds": {
+      "type": "vector",
+      "value": "u32"
+    },
+    "Positions": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "Vec2"
+        }
+      }
+    },
+    "Atlas": {
+      "type": "bytes"
+    }
+  }
+}
