@@ -19,6 +19,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	macoptions "github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -65,6 +66,9 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 18, G: 22, B: 27, A: 1},
 		Debug: options.Debug{
 			OpenInspectorOnStartup: inspectorEnabled,
+		},
+		Mac: &macoptions.Options{
+			TitleBar: macoptions.TitleBarHiddenInset(),
 		},
 		OnStartup: func(ctx context.Context) {
 			appCtx = ctx
@@ -158,7 +162,8 @@ func startLoopbackServer(addr string, browserFS fs.FS, pluginFS fs.FS) (*http.Se
 	}()
 
 	targetURL := (&url.URL{Scheme: "http", Host: addr, Path: "/"}).String()
-	if err := waitForServer(targetURL+"__native__/health", 2*time.Second); err != nil {
+	healthURL := (&url.URL{Scheme: "http", Host: addr, Path: "/__native__/health"}).String()
+	if err := waitForServer(healthURL, 2*time.Second); err != nil {
 		return nil, "", err
 	}
 
