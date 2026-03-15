@@ -48,7 +48,7 @@ init :: proc(w: ^World) {
 	// TODO:  SIMPLIFY
 	w.sprite_pipe = sprites_init()
 	sprites_set_texture(w.atlas, w.sprite_pipe)
-	// THE FIRST TEST DATA
+	// THE FIRST MOCK DATA
 
 	player := create_entity(w)
 	logic.add_component(&w.brain, player, Brain{})

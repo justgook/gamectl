@@ -16,6 +16,7 @@ ACTION_1 :: u32(5)
 ACTION_2 :: u32(6)
 ATLAS_ASSET_PATH :: "/game/the_atlas.qoi"
 LUT_ASSET_PATH :: "/game/lut.qoi"
+GAME_ASSET_PATH :: "/game/data.rspk"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
 
@@ -43,32 +44,6 @@ app_init :: proc() {
 		depth = {load_action = .CLEAR, clear_value = 1.0},
 	}
 	host.info("app", "2")
-
-	asset_data, ok := host.asset_read_all(ATLAS_ASSET_PATH)
-	init_stage = 2
-	host.info("app", "3")
-
-	if ok {
-		img_w, img_h, img_pixels, img_ok := qoi.decode_to_buffer(asset_data, atlas_pixels[:])
-		init_stage = 3
-		if img_ok {
-			desc := sg.Image_Desc {
-				width        = i32(img_w),
-				height       = i32(img_h),
-				pixel_format = .RGBA8,
-			}
-			desc.data.mip_levels[0] = {
-				ptr  = raw_data(img_pixels),
-				size = c.size_t(img_w * img_h * 4),
-			}
-			state.atlas = sg.make_image(desc)
-			init_stage = 4
-			state.sprite_renderer = sprite.init(state.atlas)
-			init_stage = 5
-		}
-	}
-
-	host.info("app", "4")
 	lut_asset_data, lut_ok := host.asset_read_all(LUT_ASSET_PATH)
 	if lut_ok {
 		lut_w, lut_h, lut_img_pixels, lut_img_ok := qoi.decode_to_buffer(
@@ -92,7 +67,10 @@ app_init :: proc() {
 
 	// THE REAL STUFF
 	state.world.atlas = state.atlas
+	load_ok := load_game_assets(GAME_ASSET_PATH, &state.world)
 	world.init(&state.world)
+	assert(load_ok)
+
 }
 
 app_frame :: proc() {
@@ -142,4 +120,38 @@ app_cleanup :: proc() {
 
 core_handle_mouse_move :: proc(mouse_y: f32) {
 	state.mouse_y = mouse_y
+}
+
+
+@(private = "file")
+load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
+	asset_data := host.asset_read_all(filepath) or_return
+	game_data := open_respack(asset_data) or_return
+
+	the_out := read_slot_0_positions(game_data) or_return
+	atlas_bytes := read_slot_1_atlas(game_data) or_return
+
+	atlas_texture := create_image(atlas_bytes, atlas_pixels[:]) or_return
+	w.atlas = atlas_texture
+
+	host.info("assets", "game loaded", the_out, w.atlas)
+
+	return true
+}
+
+@(private = "file")
+create_image :: proc(data: []u8, pixels: []u8) -> (img: sg.Image, ok: bool) {
+	img_w, img_h, img_pixels := qoi.decode_to_buffer(data, pixels) or_return
+	desc := sg.Image_Desc {
+		width        = i32(img_w),
+		height       = i32(img_h),
+		pixel_format = .RGBA8,
+	}
+
+	desc.data.mip_levels[0] = {
+		ptr  = raw_data(img_pixels),
+		size = c.size_t(img_w * img_h * 4),
+	}
+
+	return sg.make_image(desc), true
 }
