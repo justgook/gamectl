@@ -50,6 +50,10 @@ const NODE = {
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 3.0;
+const AUTO_ARRANGE_LAYER_GAP_X = 1.0;
+const AUTO_ARRANGE_NODE_GAP_Y = 0.36;
+const AUTO_ARRANGE_COMPONENT_GAP_Y = 0.9;
+const AUTO_ARRANGE_LANE_GAP_Y = 1.15;
 
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
@@ -4027,9 +4031,12 @@ function autoArrangeNodeGraphView(view) {
   const layoutCfg = view.assets?.layout || {};
   const baseX = Number(layoutCfg.gridOriginX || 80);
   const baseY = Number(layoutCfg.gridOriginY || 58);
-  const layerGapX = Math.max(120, Number(layoutCfg.gridStepX || 186));
-  const nodeGapY = Math.max(36, Math.round(Number(layoutCfg.gridStepY || 112) * 0.36));
-  const componentGapX = Math.max(160, Math.round(layerGapX * 1.25));
+  const layoutStepX = Number(layoutCfg.gridStepX || 186);
+  const layoutStepY = Number(layoutCfg.gridStepY || 112);
+  const layerGapX = Math.max(120, Math.round(layoutStepX * AUTO_ARRANGE_LAYER_GAP_X));
+  const nodeGapY = Math.max(36, Math.round(layoutStepY * AUTO_ARRANGE_NODE_GAP_Y));
+  const componentGapY = Math.max(84, Math.round(layoutStepY * AUTO_ARRANGE_COMPONENT_GAP_Y));
+  const laneGapY = Math.max(28, Math.round(nodeGapY * AUTO_ARRANGE_LANE_GAP_Y));
 
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const sizeById = new Map(nodes.map((node) => [node.id, view._getNodeSize(node)]));
@@ -4064,8 +4071,10 @@ function autoArrangeNodeGraphView(view) {
     components.push(component);
   }
 
+  components.sort((a, b) => compareArrangeComponents(a, b, view, nodeById, incoming, outgoing));
+
   const placements = new Map();
-  let cursorX = baseX;
+  let componentTopY = baseY;
 
   for (const component of components) {
     const componentSet = new Set(component);
@@ -4119,10 +4128,16 @@ function autoArrangeNodeGraphView(view) {
     }
 
     const sortedLayerIndexes = Array.from(layers.keys()).sort((a, b) => a - b);
+    const rootIds = getArrangeComponentRoots(component, localIncomingCount)
+      .sort((a, b) => compareArrangeRoots(a, b, view, nodeById, incoming, outgoing));
+    const laneById = assignArrangeLanes(component, sortedLayerIndexes, layers, rootIds, incoming, outgoing, componentSet);
+
     let previousOrder = null;
     for (const layerIndex of sortedLayerIndexes) {
       const ids = layers.get(layerIndex);
       ids.sort((a, b) => {
+        const laneDelta = compareArrangeNodeLanes(a, b, laneById);
+        if (laneDelta !== 0) return laneDelta;
         const aScore = neighborBarycenter(a, previousOrder, incoming, componentSet);
         const bScore = neighborBarycenter(b, previousOrder, incoming, componentSet);
         if (aScore !== bScore) return aScore - bScore;
@@ -4136,6 +4151,8 @@ function autoArrangeNodeGraphView(view) {
       const layerIndex = sortedLayerIndexes[i];
       const ids = layers.get(layerIndex);
       ids.sort((a, b) => {
+        const laneDelta = compareArrangeNodeLanes(a, b, laneById);
+        if (laneDelta !== 0) return laneDelta;
         const aScore = neighborBarycenter(a, nextOrder, outgoing, componentSet);
         const bScore = neighborBarycenter(b, nextOrder, outgoing, componentSet);
         if (aScore !== bScore) return aScore - bScore;
@@ -4154,7 +4171,11 @@ function autoArrangeNodeGraphView(view) {
         const size = sizeById.get(nodeId) || { width: 146, height: 62 };
         maxWidth = Math.max(maxWidth, Number(size.width || 146));
         totalHeight += Number(size.height || 62);
-        if (index > 0) totalHeight += nodeGapY;
+        if (index > 0) {
+          const prevNodeId = ids[index - 1];
+          const gap = compareArrangeNodeLanes(prevNodeId, nodeId, laneById) === 0 ? nodeGapY : nodeGapY + laneGapY;
+          totalHeight += gap;
+        }
       });
       layerWidths.set(layerIndex, maxWidth);
       layerHeights.set(layerIndex, totalHeight);
@@ -4165,11 +4186,12 @@ function autoArrangeNodeGraphView(view) {
       0,
     );
 
-    let layerX = cursorX;
+    let layerX = baseX;
+    let componentBottomY = componentTopY;
     for (const layerIndex of sortedLayerIndexes) {
       const ids = layers.get(layerIndex);
       const layerHeight = Number(layerHeights.get(layerIndex) || 0);
-      let cursorY = baseY + Math.max(0, (componentHeight - layerHeight) * 0.5);
+      let cursorY = componentTopY + Math.max(0, (componentHeight - layerHeight) * 0.5);
       for (const nodeId of ids) {
         const size = sizeById.get(nodeId) || { width: 146, height: 62 };
         placements.set(nodeId, {
@@ -4178,12 +4200,18 @@ function autoArrangeNodeGraphView(view) {
           width: Number(size.width || 146),
           height: Number(size.height || 62),
         });
-        cursorY += Number(size.height || 62) + nodeGapY;
+        componentBottomY = Math.max(componentBottomY, cursorY + Number(size.height || 62));
+        const currentIndex = ids.indexOf(nodeId);
+        if (currentIndex < ids.length - 1) {
+          const nextNodeId = ids[currentIndex + 1];
+          const gap = compareArrangeNodeLanes(nodeId, nextNodeId, laneById) === 0 ? nodeGapY : nodeGapY + laneGapY;
+          cursorY += Number(size.height || 62) + gap;
+        }
       }
       layerX += Number(layerWidths.get(layerIndex) || 146) + layerGapX;
     }
 
-    cursorX = layerX + componentGapX;
+    componentTopY = componentBottomY + componentGapY;
   }
 
   for (const node of nodes) {
@@ -4211,6 +4239,135 @@ function compareNodesForArrange(a, b, incoming, outgoing) {
   if (aOutgoing !== bOutgoing) return bOutgoing - aOutgoing;
 
   return Number(a?.id || 0) - Number(b?.id || 0);
+}
+
+function compareArrangeComponents(a, b, view, nodeById, incoming, outgoing) {
+  const aY = getArrangeComponentAnchorY(a, view);
+  const bY = getArrangeComponentAnchorY(b, view);
+  if (aY !== bY) return aY - bY;
+
+  const aRoots = getArrangeComponentRoots(a, incoming);
+  const bRoots = getArrangeComponentRoots(b, incoming);
+
+  const aRootRank = getArrangeRootGroupRank(aRoots, nodeById);
+  const bRootRank = getArrangeRootGroupRank(bRoots, nodeById);
+  if (aRootRank !== bRootRank) return aRootRank - bRootRank;
+
+  if (aRoots.length !== bRoots.length) return aRoots.length - bRoots.length;
+  if (a.length !== b.length) return b.length - a.length;
+
+  const aOutputWeight = getArrangeComponentOutputWeight(a, outgoing);
+  const bOutputWeight = getArrangeComponentOutputWeight(b, outgoing);
+  if (aOutputWeight !== bOutputWeight) return bOutputWeight - aOutputWeight;
+
+  const aMinId = Math.min(...a);
+  const bMinId = Math.min(...b);
+  return aMinId - bMinId;
+}
+
+function compareArrangeRoots(aNodeId, bNodeId, view, nodeById, incoming, outgoing) {
+  const aY = getArrangeNodeCurrentY(aNodeId, view);
+  const bY = getArrangeNodeCurrentY(bNodeId, view);
+  if (aY !== bY) return aY - bY;
+  return compareNodesForArrange(nodeById.get(aNodeId), nodeById.get(bNodeId), incoming, outgoing);
+}
+
+function getArrangeComponentAnchorY(component, view) {
+  let bestY = Number.POSITIVE_INFINITY;
+  for (const nodeId of component) {
+    bestY = Math.min(bestY, getArrangeNodeCurrentY(nodeId, view));
+  }
+  return Number.isFinite(bestY) ? bestY : Number.POSITIVE_INFINITY;
+}
+
+function getArrangeNodeCurrentY(nodeId, view) {
+  const pos = view?.nodeLayout?.get(nodeId);
+  const y = Number(pos?.y);
+  if (Number.isFinite(y)) return y;
+  return Number(nodeId) || 0;
+}
+
+function getArrangeComponentRoots(component, incoming) {
+  const roots = component.filter((nodeId) => (incoming.get(nodeId)?.size || 0) === 0);
+  return roots.length ? roots : [...component];
+}
+
+function assignArrangeLanes(component, sortedLayerIndexes, layers, rootIds, incoming, outgoing, componentSet) {
+  const laneById = new Map();
+  rootIds.forEach((nodeId, index) => {
+    laneById.set(nodeId, index);
+  });
+
+  for (const layerIndex of sortedLayerIndexes) {
+    for (const nodeId of layers.get(layerIndex) || []) {
+      if (laneById.has(nodeId)) continue;
+      const parentLanes = Array.from(incoming.get(nodeId) || [])
+        .filter((srcId) => componentSet.has(srcId) && laneById.has(srcId))
+        .map((srcId) => laneById.get(srcId));
+      if (parentLanes.length) {
+        laneById.set(nodeId, selectArrangeLane(parentLanes));
+      }
+    }
+  }
+
+  for (let i = sortedLayerIndexes.length - 1; i >= 0; i--) {
+    for (const nodeId of layers.get(sortedLayerIndexes[i]) || []) {
+      if (laneById.has(nodeId)) continue;
+      const childLanes = Array.from(outgoing.get(nodeId) || [])
+        .filter((dstId) => componentSet.has(dstId) && laneById.has(dstId))
+        .map((dstId) => laneById.get(dstId));
+      if (childLanes.length) {
+        laneById.set(nodeId, selectArrangeLane(childLanes));
+      }
+    }
+  }
+
+  const fallbackLane = rootIds.length > 0 ? 0 : Math.max(0, Math.floor(component.length * 0.5));
+  for (const nodeId of component) {
+    if (!laneById.has(nodeId)) laneById.set(nodeId, fallbackLane);
+  }
+  return laneById;
+}
+
+function selectArrangeLane(lanes) {
+  const counts = new Map();
+  for (const lane of lanes) {
+    const numericLane = Number(lane);
+    if (!Number.isFinite(numericLane)) continue;
+    counts.set(numericLane, (counts.get(numericLane) || 0) + 1);
+  }
+  let bestLane = 0;
+  let bestCount = -1;
+  for (const [lane, count] of counts) {
+    if (count > bestCount || (count === bestCount && lane < bestLane)) {
+      bestLane = lane;
+      bestCount = count;
+    }
+  }
+  return bestLane;
+}
+
+function compareArrangeNodeLanes(aNodeId, bNodeId, laneById) {
+  const aLane = Number(laneById.get(aNodeId) || 0);
+  const bLane = Number(laneById.get(bNodeId) || 0);
+  if (aLane !== bLane) return aLane - bLane;
+  return 0;
+}
+
+function getArrangeRootGroupRank(rootIds, nodeById) {
+  let rank = Number.POSITIVE_INFINITY;
+  for (const nodeId of rootIds) {
+    rank = Math.min(rank, getNodeArrangeKindRank(nodeById.get(nodeId)));
+  }
+  return Number.isFinite(rank) ? rank : 99;
+}
+
+function getArrangeComponentOutputWeight(component, outgoing) {
+  let total = 0;
+  for (const nodeId of component) {
+    total += outgoing.get(nodeId)?.size || 0;
+  }
+  return total;
 }
 
 function getNodeArrangeKindRank(node) {
