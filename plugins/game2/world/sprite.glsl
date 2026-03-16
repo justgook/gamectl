@@ -1,3 +1,4 @@
+@module sprite
 @header package world
 @header import sg "../sokol/gfx"
 
@@ -17,6 +18,7 @@ in uint inst_flip_flags;
 in vec2 inst_size;
 in vec4 inst_uv;
 in vec4 inst_color_add;  // Additive color for blink/flash effects (RGB + intensity)
+in ivec2 inst_offset;
 
 
 out vec2 fragTexCoord;
@@ -38,7 +40,7 @@ const mat2 FLIP_MATRICES[8] = mat2[](
 
 
 void main() {
-    vec2 pos_in_px = pos * inst_size + inst_pos;
+    vec2 pos_in_px = pos * inst_size + inst_pos + vec2(inst_offset);
     gl_Position = ortho * vec4(pos_in_px, inst_z, 1.0);
     // gl_Position = vec4(pos, inst_z, 1.0);
     opacity = inst_opacity;

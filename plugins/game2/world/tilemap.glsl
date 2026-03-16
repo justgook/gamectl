@@ -85,4 +85,4 @@ void main() {
 }
 @end
 
-@program shd vs fs
+@program tilemap vs fs

@@ -33,11 +33,6 @@ const ACTION_BY_EVENT_NAME = new Map([
   ['game:action:action2', ACTION_2],
 ])
 
-const DEFAULT_GAME_ASSET_SOURCES = [
-  ['/game/the_atlas.qoi', 'local:/assets/game/the_atlas.qoi'],
-  ['/game/lut.qoi', 'local:/assets/game/lut.qoi'],
-]
-
 const GAME_RUNNER_ASSET_SOURCES_TABLE = 'game_runner_asset_sources'
 
 function escapeAttribute(value) {
@@ -60,7 +55,7 @@ function writeU64(view, offset, value) {
 }
 
 function createAssetSources(entries = []) {
-  return new Map([...DEFAULT_GAME_ASSET_SOURCES, ...entries])
+  return new Map([...entries])
 }
 
 export default class ViewGameRunner extends HTMLElement {
