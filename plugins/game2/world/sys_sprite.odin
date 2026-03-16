@@ -5,24 +5,27 @@ import "core:c"
 import "core:math/linalg"
 import "logic"
 
+Sprite_Atlas :: struct {
+	uvs: []UV,
+}
+
 // Flip flags for sprite rendering (matches Tiled TMX format)
 // Bit 0 = Horizontal flip, Bit 1 = Vertical flip, Bit 2 = Anti-diagonal flip
-Flip :: distinct u8
-FLIP_NONE :: Flip(0) // No transformation
-FLIP_H :: Flip(1) // Horizontal flip
-FLIP_V :: Flip(2) // Vertical flip
-FLIP_HV :: Flip(3) // Horizontal + Vertical (180° rotation)
-FLIP_D :: Flip(4) // Anti-diagonal flip (transpose)
-FLIP_DH :: Flip(5) // Anti-diagonal + Horizontal (90° CW)
-FLIP_DV :: Flip(6) // Anti-diagonal + Vertical (90° CCW)
-FLIP_DHV :: Flip(7) // Anti-diagonal + H + V
-
+// Flip :: distinct u8
+// FLIP_NONE :: Flip(0) // No transformation
+// FLIP_H :: Flip(1) // Horizontal flip
+// FLIP_V :: Flip(2) // Vertical flip
+// FLIP_HV :: Flip(3) // Horizontal + Vertical (180° rotation)
+// FLIP_D :: Flip(4) // Anti-diagonal flip (transpose)
+// FLIP_DH :: Flip(5) // Anti-diagonal + Horizontal (90° CW)
+// FLIP_DV :: Flip(6) // Anti-diagonal + Vertical (90° CCW)
+// FLIP_DHV :: Flip(7) // Anti-diagonal + H + V
+//
 
 sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	view: logic.View2(Position, Sprite) = logic.view(&w.position, &w.sprite)
 	for id, pos, s in logic.each(&view) {
 		s.pos = to_pixelf(pos^)
-		// fmt.println("a", s.pos)
 	}
 
 	manager := w.sprite_pipe
@@ -32,7 +35,7 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		return
 	}
 
-	vs_params := Vs_Params {
+	vs_params := Sprite_Vs_Params {
 		ortho = ortho^,
 	}
 
@@ -45,7 +48,7 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 
 	sg.apply_pipeline(manager.pip)
 	sg.apply_bindings(manager.bind)
-	sg.apply_uniforms(UB_vs_params, {ptr = &vs_params, size = size_of(vs_params)})
+	sg.apply_uniforms(UB_sprite_vs_params, {ptr = &vs_params, size = size_of(vs_params)})
 	sg.draw(0, 6, the_count)
 }
 
@@ -63,12 +66,13 @@ Sprite :: struct {
 	size:      [2]f32,
 	uv:        [4]f32,
 	color_add: [4]f32, // RGB + intensity for blink/flash effects
+	offset:    [2]i32, // TODO implement in shader
 }
 
 Sprite_Pipe :: struct {
-	pip:        sg.Pipeline,
-	bind:       sg.Bindings,
-	atlas_size: [2]f32,
+	pip:  sg.Pipeline,
+	bind: sg.Bindings,
+	// atlas_size: [2]f32,
 }
 
 sprites_cleanup :: proc(manager: ^Sprite_Pipe) {
@@ -77,16 +81,16 @@ sprites_cleanup :: proc(manager: ^Sprite_Pipe) {
 }
 
 sprites_set_texture :: proc(tex0: sg.Image, manager: ^Sprite_Pipe) {
-	manager.bind.views[VIEW_tex0] = sg.make_view({texture = {image = tex0}})
+	manager.bind.views[VIEW_sprite_tex0] = sg.make_view({texture = {image = tex0}})
 }
 
-sprites_set_atlas_size :: proc(manager: ^Sprite_Pipe, width, height: f32) {
-	manager.atlas_size = {width, height}
-}
+// sprites_set_atlas_size :: proc(manager: ^Sprite_Pipe, width, height: f32) {
+// 	manager.atlas_size = {width, height}
+// }
 
 sprites_init :: proc() -> ^Sprite_Pipe {
 	manager := new(Sprite_Pipe)
-	manager.bind.samplers[SMP_default_sampler] = sg.make_sampler({})
+	manager.bind.samplers[SMP_sprite_default_sampler] = sg.make_sampler({})
 
 	manager.bind.vertex_buffers[0] = sg.make_buffer(
 		{
@@ -117,14 +121,15 @@ sprites_init :: proc() -> ^Sprite_Pipe {
 		layout = {
 			buffers = {1 = {step_func = .PER_INSTANCE}},
 			attrs = {
-				ATTR_sprite_pos = {format = .FLOAT2, buffer_index = 0},
-				ATTR_sprite_inst_pos = {format = .FLOAT2, buffer_index = 1},
-				ATTR_sprite_inst_z = {format = .FLOAT, buffer_index = 1},
-				ATTR_sprite_inst_opacity = {format = .FLOAT, buffer_index = 1},
-				ATTR_sprite_inst_flip_flags = {format = .UBYTE4, buffer_index = 1},
-				ATTR_sprite_inst_size = {format = .FLOAT2, buffer_index = 1},
-				ATTR_sprite_inst_uv = {format = .FLOAT4, buffer_index = 1},
-				ATTR_sprite_inst_color_add = {format = .FLOAT4, buffer_index = 1},
+				ATTR_sprite_sprite_pos = {format = .FLOAT2, buffer_index = 0},
+				ATTR_sprite_sprite_inst_pos = {format = .FLOAT2, buffer_index = 1},
+				ATTR_sprite_sprite_inst_z = {format = .FLOAT, buffer_index = 1},
+				ATTR_sprite_sprite_inst_opacity = {format = .FLOAT, buffer_index = 1},
+				ATTR_sprite_sprite_inst_flip_flags = {format = .UBYTE4, buffer_index = 1},
+				ATTR_sprite_sprite_inst_size = {format = .FLOAT2, buffer_index = 1},
+				ATTR_sprite_sprite_inst_uv = {format = .FLOAT4, buffer_index = 1},
+				ATTR_sprite_sprite_inst_color_add = {format = .FLOAT4, buffer_index = 1},
+				ATTR_sprite_sprite_inst_offset = {format = .INT2, buffer_index = 1},
 			},
 		},
 	}

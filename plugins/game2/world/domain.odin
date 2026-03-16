@@ -1,7 +1,7 @@
 package world
-import sg "../sokol/gfx"
 
 
+UV :: [4]f32
 // GAME_DATA :: #config(GAME_DATA, "../../build.nosync/game.bin")
 // GAME_ATLAS :: #config(GAME_DATA, "../../build.nosync/atlas.qoi")
 

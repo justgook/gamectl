@@ -22,6 +22,10 @@ World :: struct {
 	brain:            logic.Component_Storage(Brain),
 	input:            logic.Component_Storage(Input),
 	timer:            logic.Component_Storage(Timer),
+	// animations
+	sprite_atlas:     Sprite_Atlas,
+	animation_atlas:  Animation_Atlas,
+	animation:        logic.Component_Storage(Animation),
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -34,6 +38,7 @@ frame :: proc(w: ^World, dt: f64) {
 	}
 
 	sys_camera(w, dt)
+	sys_animation(w, dt)
 	sys_sprite(w, &w.cam.ortho)
 }
 
