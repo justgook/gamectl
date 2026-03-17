@@ -1147,6 +1147,7 @@ outputs[2] = json.encode({ count = #items })
     const respackDemo = String.raw`-- Demo: initialize respack, write a payload, save the dump to disk,
 -- and generate an Odin decoder.
 local schema2 = host.awaitCall("fs", "read", "local:/assets/respack/game2.rspk.json")
+local initResult = host.awaitCall("respack", "init", schema2)
 local positions = {
   entity_ids = {33, 45},
   components = {
@@ -1154,6 +1155,7 @@ local positions = {
     {7, -3},
   },
 }
+local writePositionsResult = host.awaitCall("respack", "write", json.encode({ slot = 0, payload = positions }))
 
 local function string_to_u8_array(value)
   local out = {}
@@ -1162,13 +1164,12 @@ local function string_to_u8_array(value)
   end
   return out
 end
-
 local atlas = host.awaitCall( "fs", "read", "local:/assets/game/the_atlas.qoi")
 local atlas_bytes = string_to_u8_array(atlas)
-
-local initResult = host.awaitCall("respack", "init", schema2)
-local writePositionsResult = host.awaitCall("respack", "write", json.encode({ slot = 0, payload = positions }))
 local writeAtlasResult = host.awaitCall("respack", "write", json.encode({ slot = 1, payload = atlas_bytes }))
+
+local uvs = {{0,0, 16/512, 16/512}}
+local writeAtlasResult = host.awaitCall("respack", "write", json.encode({ slot = 2, payload = uvs }))
 
 local dumpPath = "/the_data/game.rspk"
 local saveResult = host.awaitCall("respack", "dump_to_file", dumpPath)

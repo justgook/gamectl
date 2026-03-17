@@ -64,7 +64,7 @@ init :: proc(w: ^World) {
 	logic.add_component(
 		&w.sprite,
 		player,
-		Sprite{pos = {00, 00}, opacity = 1, uv = {0, 0, 1, 1}, size = {128, 128}},
+		Sprite{pos = {00, 00}, opacity = 1, uv = w.sprite_atlas.uvs[0], size = {128, 128}},
 	)
 
 
