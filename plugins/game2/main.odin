@@ -130,11 +130,15 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 
 	the_out := read_slot_0_positions(game_data) or_return
 	atlas_bytes := read_slot_1_atlas(game_data) or_return
+	sprites_uv := read_slot_2_sprites(game_data) or_return
+	w.sprite_atlas.uvs = sprites_uv
+	w.sprite_atlas.uvs = sprites_uv
+
 
 	atlas_texture := create_image(atlas_bytes, atlas_pixels[:]) or_return
 	w.atlas = atlas_texture
 
-	host.info("assets", "game loaded", the_out, w.atlas)
+	host.info("assets", "game loaded", the_out, w.atlas, sprites_uv)
 
 	return true
 }

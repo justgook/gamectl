@@ -2,7 +2,8 @@
   "package": "game2",
   "data": [
     "Positions",
-    "Atlas"
+    "Atlas",
+    "Sprites"
   ],
   "types": {
     "Vec2": {
@@ -26,6 +27,15 @@
     },
     "Atlas": {
       "type": "bytes"
+    },
+    "UV": {
+      "type": "array",
+      "len": 4,
+      "value": "f32"
+    },
+    "Sprites": {
+      "type": "vector",
+      "value": "UV"
     }
   }
 }
