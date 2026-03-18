@@ -1168,7 +1168,17 @@ local atlas = host.awaitCall( "fs", "read", "local:/assets/game/the_atlas.qoi")
 local atlas_bytes = string_to_u8_array(atlas)
 local writeAtlasResult = host.awaitCall("respack", "write", json.encode({ slot = 1, payload = atlas_bytes }))
 
-local uvs = {{0,0, 16/512, 16/512}}
+local uvs = {}
+for i = 0, 32*32 - 1 do
+    local x = i % 32
+    local y = math.floor(i / 32)
+    uvs[#uvs + 1] = {
+        x * 16 / 512,
+        y * 16 / 512,
+        (x + 1) * 16 / 512,
+        (y + 1) * 16 / 512
+    }
+end
 local writeAtlasResult = host.awaitCall("respack", "write", json.encode({ slot = 2, payload = uvs }))
 
 local dumpPath = "/the_data/game.rspk"
