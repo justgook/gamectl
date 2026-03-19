@@ -8,7 +8,7 @@ import "./code-editor.js";
 
 const BUILTIN_CODE_FILES = {
   initialGraph: "local:/assets/ng/nodegraph2/initial-node-code.lua",
-  tilemapSqlParse: "loacl:/assets/ng/nodegraph2/tilemap-sql-parse-demo.lua",
+  tilemapSqlParse: "local:/assets/ng/nodegraph2/tilemap-sql-parse-demo.lua",
   respackText: "local:/assets/ng/nodegraph2/respack-text-demo.lua",
   lutGenerator: "local:/assets/ng/nodegraph2/lut-generator-demo.lua",
 };
