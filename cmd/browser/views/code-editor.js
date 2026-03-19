@@ -82,17 +82,21 @@ function ensureTrailingNewline(text) {
 
 export class CodeEditor extends HTMLElement {
   static get observedAttributes() {
-    return ["lang", "name", "placeholder", "spellcheck"];
+    return ["lang", "name", "placeholder", "rows", "spellcheck"];
   }
 
   constructor() {
     super();
     this._pre = null;
+    this._code = null;
     this._textarea = null;
+    this._scroller = null;
+    this._resizeObserver = null;
     this._value = "";
     this._onInput = this._onInput.bind(this);
     this._onScroll = this._onScroll.bind(this);
     this._onKeyDown = this._onKeyDown.bind(this);
+    this._syncViewport = this._syncViewport.bind(this);
   }
 
   connectedCallback() {
@@ -101,19 +105,24 @@ export class CodeEditor extends HTMLElement {
     const initialValue = this._value || this.textContent || "";
     this.textContent = "";
 
+    const scroller = document.createElement("div");
     const pre = document.createElement("pre");
+    const code = document.createElement("code");
     const textarea = document.createElement("textarea");
 
     pre.setAttribute("aria-hidden", "true");
     textarea.spellcheck = false;
+    scroller.className = "code-editor-scroller";
 
-    this.appendChild(pre);
-    this.appendChild(textarea);
+    pre.appendChild(code);
+    scroller.appendChild(pre);
+    scroller.appendChild(textarea);
+    this.appendChild(scroller);
 
+    this._scroller = scroller;
     this._pre = pre;
+    this._code = code;
     this._textarea = textarea;
-    this.style.cssText = `overflow:auto`
-    this._textarea.style.cssText = `resize:none;`
 
     this._syncAttrs();
     this.value = initialValue;
@@ -121,6 +130,13 @@ export class CodeEditor extends HTMLElement {
     this._textarea.addEventListener("input", this._onInput);
     this._textarea.addEventListener("scroll", this._onScroll);
     this._textarea.addEventListener("keydown", this._onKeyDown);
+
+    if (typeof ResizeObserver === "function") {
+      this._resizeObserver = new ResizeObserver(() => this._syncViewport());
+      this._resizeObserver.observe(this._textarea);
+    }
+
+    this._syncViewport();
   }
 
   disconnectedCallback() {
@@ -128,6 +144,10 @@ export class CodeEditor extends HTMLElement {
     this._textarea.removeEventListener("input", this._onInput);
     this._textarea.removeEventListener("scroll", this._onScroll);
     this._textarea.removeEventListener("keydown", this._onKeyDown);
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
   }
 
   attributeChangedCallback() {
@@ -154,8 +174,10 @@ export class CodeEditor extends HTMLElement {
   _syncAttrs() {
     if (!this._textarea) return;
 
-    // const rows = Number(this.getAttribute("rows") || 12);
-    // this._textarea.rows = Number.isFinite(rows) && rows > 0 ? rows : 12;
+    const rows = Number(this.getAttribute("rows") || 12);
+    const normalizedRows = Number.isFinite(rows) && rows > 0 ? rows : 12;
+    this.style.setProperty("--code-editor-rows", String(normalizedRows));
+    this._textarea.rows = normalizedRows;
 
     const name = this.getAttribute("name");
     if (name) this._textarea.name = name;
@@ -179,9 +201,9 @@ export class CodeEditor extends HTMLElement {
   }
 
   _onScroll() {
-    if (!this._pre || !this._textarea) return;
-    this._pre.scrollTop = this._textarea.scrollTop;
-    this._pre.scrollLeft = this._textarea.scrollLeft;
+    if (!this._code || !this._textarea) return;
+    this._code.style.transform = `translate(${-this._textarea.scrollLeft}px, ${-this._textarea.scrollTop}px)`;
+    this._syncViewport();
   }
 
   _onKeyDown(event) {
@@ -202,22 +224,25 @@ export class CodeEditor extends HTMLElement {
   }
 
   _renderHighlight() {
-    if (!this._pre || !this._textarea) return;
-    autoResize(this._textarea)
+    if (!this._code || !this._textarea) return;
 
     const source = this._textarea.value;
     const lang = String(this.getAttribute("lang") || "").toLowerCase();
     const html = lang === "lua" ? highlightLua(source) : highlightPlain(source);
-    this._pre.innerHTML = ensureTrailingNewline(html);
+    this._code.innerHTML = ensureTrailingNewline(html);
+    this._syncViewport();
+    this._onScroll();
+  }
+
+  _syncViewport() {
+    if (!this._textarea) return;
+    const scrollbarX = Math.max(0, this._textarea.offsetHeight - this._textarea.clientHeight);
+    const scrollbarY = Math.max(0, this._textarea.offsetWidth - this._textarea.clientWidth);
+    this.style.setProperty("--code-editor-scrollbar-x", `${scrollbarX}px`);
+    this.style.setProperty("--code-editor-scrollbar-y", `${scrollbarY}px`);
   }
 }
 
 if (!customElements.get("code-editor")) {
   customElements.define("code-editor", CodeEditor);
-}
-
-
-function autoResize(el) {
-  el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
 }
