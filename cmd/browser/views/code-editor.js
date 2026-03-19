@@ -82,7 +82,7 @@ function ensureTrailingNewline(text) {
 
 export class CodeEditor extends HTMLElement {
   static get observedAttributes() {
-    return ["lang", "name", "placeholder", "rows", "spellcheck"];
+    return ["lang", "name", "placeholder", "rows", "spellcheck", "readonly", "disabled"];
   }
 
   constructor() {
@@ -193,6 +193,9 @@ export class CodeEditor extends HTMLElement {
     } else {
       this._textarea.spellcheck = spellcheck === "true";
     }
+
+    this._textarea.readOnly = this.hasAttribute("readonly");
+    this._textarea.disabled = this.hasAttribute("disabled");
   }
 
   _onInput() {
