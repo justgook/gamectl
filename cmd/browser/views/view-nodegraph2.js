@@ -2,117 +2,16 @@ import { toast } from '../systems/toast.js'
 import { ViewCanvasBase } from "./view-canvas-base.js";
 import { createWasiPreview1Imports } from "../util/wasi.js";
 import { parseCSVLines } from "../util/csv.js";
+import { createWriteInput } from "../util/fs.js";
+import { ViewFiles } from "./view-files.js";
 import "./code-editor.js";
 
-const lutDemo = String.raw`-- LUT Generator Demo: query tilemap, encode tile IDs as RGBA8 LUT image.
--- Requires ng runtime helpers: csv.parse, json.decode.
--- Uses image plugin to create and write pixel data.
-
-local sql = "SELECT name, data FROM tilemap_storage ORDER BY name LIMIT 1"
-local csvText = host.awaitCall("sql", "query", sql)
-local rows = csv.parse(csvText, { headers = true })
-
-if #rows == 0 then
-  outputs[1] = json.encode({ error = "No tilemaps found" })
-  return
-end
-
-local tilemapJson = json.decode(rows[1].data or "{}")
-local layers = tilemapJson.layers or {}
-if #layers == 0 then
-  outputs[1] = json.encode({ error = "Tilemap has no layers" })
-  return
-end
-
-local layer = layers[1]
-local width = layer.width or 0
-local height = math.floor(#layer.data / width)
-if width == 0 or height == 0 then
-  outputs[1] = json.encode({ error = "Invalid layer dimensions" })
-  return
-end
-
--- Generate RGBA8 bytes (little-endian tile ID)
-local byteCount = width * height * 4
-local bytes = {}
-for i = 1, #layer.data do
-  local tileId = layer.data[i]
-  local offset = (i - 1) * 4
-  bytes[offset + 1] = tileId & 0xFF           -- R = LSB
-  bytes[offset + 2] = (tileId >> 8) & 0xFF    -- G
-  bytes[offset + 3] = (tileId >> 16) & 0xFF   -- B
-  bytes[offset + 4] = 255                     -- A = opaque
-end
-
--- Convert bytes to string (chunked to avoid stack overflow)
-local chunkSize = 8192
-local pixelString = ""
-for i = 1, #bytes, chunkSize do
-  local chunk = {}
-  local endIdx = math.min(i + chunkSize - 1, #bytes)
-  for j = i, endIdx do
-    chunk[#chunk + 1] = bytes[j]
-  end
-  pixelString = pixelString .. string.char(table.unpack(chunk))
-end
-
--- Base64 encode (simple implementation)
-local base64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-local base64 = ""
-for i = 1, #pixelString, 3 do
-  local a, b, c = string.byte(pixelString, i, i + 2)
-  local n = (a or 0) * 0x10000 + (b or 0) * 0x100 + (c or 0)
-  base64 = base64 .. string.sub(base64chars, (n >> 18) & 0x3F + 1, (n >> 18) & 0x3F + 1)
-               .. string.sub(base64chars, (n >> 12) & 0x3F + 1, (n >> 12) & 0x3F + 1)
-               .. string.sub(base64chars, (n >> 6) & 0x3F + 1, (n >> 6) & 0x3F + 1)
-               .. string.sub(base64chars, n & 0x3F + 1, n & 0x3F + 1)
-end
-
--- Padding
-local padding = #pixelString % 3
-if padding == 1 then
-  base64 = string.sub(base64, 1, -3) .. "=="
-elseif padding == 2 then
-  base64 = string.sub(base64, 1, -2) .. "="
-end
-
--- Create image via plugin
-local createResult = host.awaitCall("image", "create", json.encode({
-  width = width,
-  height = height,
-  fill = {0, 0, 0, 0}
-}))
-local createJson = json.decode(createResult)
-if not createJson.ok or not createJson.handle then
-  outputs[1] = json.encode({ error = "Failed to create image handle" })
-  return
-end
-
-local handle = createJson.handle
-
--- Write pixels
-local writeResult = host.awaitCall("image", "write_pixels", json.encode({
-  src = handle,
-  width = width,
-  height = height,
-  pixelFormat = "rgba8",
-  encoding = "base64",
-  data = base64
-}))
-local writeJson = json.decode(writeResult)
-if not writeJson.ok then
-  outputs[1] = json.encode({ error = "Failed to write pixel data" })
-  return
-end
-
-outputs[1] = json.encode({
-  handle = tostring(handle),
-  width = width,
-  height = height,
-  tileCount = #layer.data,
-  tilemap = rows[1].name
-})
-`;
+const BUILTIN_CODE_FILES = {
+  initialGraph: "local:/assets/ng/nodegraph2/initial-node-code.lua",
+  tilemapSqlParse: "loacl:/assets/ng/nodegraph2/tilemap-sql-parse-demo.lua",
+  respackText: "local:/assets/ng/nodegraph2/respack-text-demo.lua",
+  lutGenerator: "local:/assets/ng/nodegraph2/lut-generator-demo.lua",
+};
 
 
 
@@ -285,7 +184,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     this.td = new TextDecoder();
     this.te = new TextEncoder();
-    this.sourceByNode = new Map([[1, 'print("hello from node-code")']]);
+    this.sourceByNode = new Map();
+    this.codePathByNode = new Map([[1, BUILTIN_CODE_FILES.initialGraph]]);
+    this.codeReadOnlyByNode = new Map([[1, false]]);
+    this.codeStatusByNode = new Map();
     this.valueByNode = new Map([
       [7, new Map([[1, "https://example.com/a"]])],
       [8, new Map([[1, "https://example.com/b"]])],
@@ -867,6 +769,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     }
     this.goalRunQueue = [];
     this.ioToastOffset = 0;
+    this.sourceByNode = new Map();
+    this.codePathByNode = new Map([[1, BUILTIN_CODE_FILES.initialGraph]]);
+    this.codeReadOnlyByNode = new Map([[1, false]]);
+    this.codeStatusByNode = new Map();
     let err = this.api.ng_init();
     if (err !== 0) return;
     err = this.api.ng_clear_graph();
@@ -919,8 +825,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.requestRenderIfGenerationChanged(true);
   }
 
-  runGraph() {
+  async runGraph() {
     if (!this.api) return;
+    const hydrated = await this._hydrateCodeNodesForRun();
+    if (!hydrated) return;
     const selectedGoals = this._getSelectedGoalNodeIds();
     this.goalRunQueue = [];
 
@@ -971,6 +879,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       this.nodeLayout.delete(nodeId);
       this.nodeNames.delete(nodeId);
       if (this.portLabels instanceof Map) this.portLabels.delete(nodeId);
+      if (this.codePathByNode instanceof Map) this.codePathByNode.delete(nodeId);
+      if (this.codeReadOnlyByNode instanceof Map) this.codeReadOnlyByNode.delete(nodeId);
+      if (this.codeStatusByNode instanceof Map) this.codeStatusByNode.delete(nodeId);
+      if (this.sourceByNode instanceof Map) this.sourceByNode.delete(nodeId);
       if (this.valueByNode instanceof Map) this.valueByNode.delete(nodeId);
     }
 
@@ -1030,7 +942,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       kind,
       templateName: "",
       name: "",
+      codePath: "",
       code: "",
+      codeReadOnly: kind === NG.NODE_CODE,
+      codeStatus: kind === NG.NODE_CODE ? "Choose a code file to enable editing." : "",
       newInputName: "",
       newOutputName: "",
       newOutputValue: "",
@@ -1043,6 +958,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     if (!draft || !form) return;
     const formData = new FormData(form);
     draft.name = String(formData.get("name") || "").trim();
+    draft.codePath = String(formData.get("code-path") || "").trim();
     draft.code = String(formData.get("code") || "");
     draft.newInputName = String(formData.get("new-input-name") || "");
     draft.newOutputName = String(formData.get("new-output-name") || "");
@@ -1085,7 +1001,16 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       : fallbackKind;
     const normalized = this._createNodeDraft(kind);
     normalized.name = String(payload?.name || "").trim();
+    normalized.codePath = String(payload?.codePath || "").trim();
     normalized.code = String(payload?.code || "");
+    normalized.codeReadOnly = kind === NG.NODE_CODE && (!normalized.codePath || Boolean(normalized.code));
+    normalized.codeStatus = normalized.codePath
+      ? ""
+      : normalized.code
+        ? "Legacy inline code detected. Use Save as to migrate it to a file."
+        : kind === NG.NODE_CODE
+          ? "Choose a code file to enable editing."
+          : "";
 
     const inputList = Array.isArray(payload?.inputs) ? payload.inputs : [];
     const outputList = Array.isArray(payload?.outputs) ? payload.outputs : [];
@@ -1115,7 +1040,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     draft.kind = payload.kind;
     draft.templateName = String(templateEntry?.name || "").trim();
     draft.name = payload.name;
+    draft.codePath = payload.codePath;
     draft.code = payload.code;
+    draft.codeReadOnly = payload.codeReadOnly;
+    draft.codeStatus = payload.codeStatus;
     draft.newInputName = "";
     draft.newOutputName = "";
     draft.newOutputValue = "";
@@ -1127,7 +1055,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return {
       kind: Number(draft?.kind || NG.NODE_CODE),
       name: String(draft?.name || "").trim(),
-      code: String(draft?.code || ""),
+      codePath: String(draft?.codePath || "").trim(),
       inputs: (draft?.inputs || []).map((port, index) => ({
         inputId: Number(port?.inputId || index + 1),
         name: String(port?.name || "").trim(),
@@ -1141,103 +1069,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   }
 
   _getBuiltinNodeTemplates() {
-    const luaDemo = String.raw`-- Demo: query tilemaps via SQL, parse CSV, decode tilemap JSON.
--- Requires ng runtime helpers: csv.parse, json.decode, json.encode.
-
-local sql = "SELECT name, data FROM tilemap_storage ORDER BY name LIMIT 8"
-local csvText = host.awaitCall("sql", "query", sql)
-local rows = csv.parse(csvText, { headers = true })
-
-local items = {}
-for i, row in ipairs(rows) do
-  local name = row.name or ("row_" .. i)
-  local ok, tilemap = pcall(json.decode, row.data or "{}")
-  if ok and type(tilemap) == "table" then
-    local layers = tilemap.layers or {}
-    items[#items + 1] = {
-      name = name,
-      layerCount = #layers,
-      width = (layers[1] and layers[1].width) or 0,
-      tileCount = (layers[1] and #(layers[1].data or {})) or 0,
-    }
-  else
-    items[#items + 1] = {
-      name = name,
-      error = "invalid tilemap json",
-    }
-  end
-end
-
-outputs[1] = json.encode(items)
-outputs[2] = json.encode({ count = #items })
-`;
-
-    const respackDemo = String.raw`-- Demo: initialize respack, write a payload, save the dump to disk,
--- and generate an Odin decoder.
-local schema2 = host.awaitCall("fs", "read", "local:/assets/respack/game2.rspk.json")
-local initResult = host.awaitCall("respack", "init", schema2)
-local positions = {
-  entity_ids = {33, 45},
-  components = {
-    {22, 11},
-    {7, -3},
-  },
-}
-local writePositionsResult = host.awaitCall("respack", "write", json.encode({ slot = 0, payload = positions }))
-
-local function string_to_u8_array(value)
-  local out = {}
-  for i = 1, #value do
-    out[i] = string.byte(value, i)
-  end
-  return out
-end
-local atlas = host.awaitCall( "fs", "read", "local:/assets/game/the_atlas.qoi")
-local atlas_bytes = string_to_u8_array(atlas)
-local writeAtlasResult = host.awaitCall("respack", "write", json.encode({ slot = 1, payload = atlas_bytes }))
-
-local uvs = {}
-for i = 0, 32*32 - 1 do
-    local x = i % 32
-    local y = math.floor(i / 32)
-    uvs[#uvs + 1] = {
-        x * 16 / 512,
-        y * 16 / 512,
-        (x + 1) * 16 / 512,
-        (y + 1) * 16 / 512
-    }
-end
-local writeAtlasResult = host.awaitCall("respack", "write", json.encode({ slot = 2, payload = uvs }))
-
-local dumpPath = "/the_data/game.rspk"
-local saveResult = host.awaitCall("respack", "dump_to_file", dumpPath)
-local odinSource = host.awaitCall("respack", "generate_odin", "main")
-
-local function escape_string(str)
-    str = str:gsub("\\", "\\\\") -- escape backslashes first
-    str = str:gsub('"', '\\"')
-    str = str:gsub('	', '\\t')
-    str = str:gsub("\n", "\\n")
-    return str
-end
-
-local odinOutFile = "/the_data/decoder.txt"
-host.awaitCall( "fs", "writeJson", '{"path": "'..odinOutFile..'", "content":"'.. escape_string(odinSource) ..'"}')
-
-outputs[1] = odinSource
-outputs[2] = json.encode({
-  init = initResult,
-  write_positions = writePositionsResult,
-  write_atlas = writeAtlasResult,
-  save = saveResult,
-  dump_path = dumpPath,
-  package = "main",
-  slot = 0,
-  schema = "JUST DATA",
-  generated_bytes = #odinSource,
-})
-`;
-
     return [
       {
         name: "tilemap sql parse demo",
@@ -1245,7 +1076,7 @@ outputs[2] = json.encode({
         data: {
           kind: NG.NODE_CODE,
           name: "tilemap sql parse demo",
-          code: luaDemo,
+          codePath: BUILTIN_CODE_FILES.tilemapSqlParse,
           inputs: [],
           outputs: [
             { outputId: 1, name: "items" },
@@ -1259,7 +1090,7 @@ outputs[2] = json.encode({
         data: {
           kind: NG.NODE_CODE,
           name: "respack text demo",
-          code: respackDemo,
+          codePath: BUILTIN_CODE_FILES.respackText,
           inputs: [],
           outputs: [
             { outputId: 1, name: "odin_source" },
@@ -1273,7 +1104,7 @@ outputs[2] = json.encode({
         data: {
           kind: NG.NODE_CODE,
           name: "LUT generator demo",
-          code: lutDemo,
+          codePath: BUILTIN_CODE_FILES.lutGenerator,
           inputs: [],
           outputs: [
             { outputId: 1, name: "result" },
@@ -1297,6 +1128,149 @@ outputs[2] = json.encode({
       x: (this.canvas.width * 0.5 - this.offsetX) / Math.max(0.0001, this.scale),
       y: (this.canvas.height * 0.5 - this.offsetY) / Math.max(0.0001, this.scale),
     };
+  }
+
+  _getCodePath(nodeId) {
+    if (!(this.codePathByNode instanceof Map)) return "";
+    return String(this.codePathByNode.get(Number(nodeId)) || "").trim();
+  }
+
+  _setCodePath(nodeId, codePath) {
+    if (!(this.codePathByNode instanceof Map)) this.codePathByNode = new Map();
+    const normalized = String(codePath || "").trim();
+    if (normalized) this.codePathByNode.set(Number(nodeId), normalized);
+    else this.codePathByNode.delete(Number(nodeId));
+  }
+
+  _setCodeReadOnly(nodeId, readOnly) {
+    if (!(this.codeReadOnlyByNode instanceof Map)) this.codeReadOnlyByNode = new Map();
+    this.codeReadOnlyByNode.set(Number(nodeId), Boolean(readOnly));
+  }
+
+  _getCodeReadOnly(nodeId) {
+    if (!(this.codeReadOnlyByNode instanceof Map)) return false;
+    return Boolean(this.codeReadOnlyByNode.get(Number(nodeId)));
+  }
+
+  _setCodeStatus(nodeId, message = "") {
+    if (!(this.codeStatusByNode instanceof Map)) this.codeStatusByNode = new Map();
+    const text = String(message || "").trim();
+    if (text) this.codeStatusByNode.set(Number(nodeId), text);
+    else this.codeStatusByNode.delete(Number(nodeId));
+  }
+
+  _getCodeStatus(nodeId) {
+    if (!(this.codeStatusByNode instanceof Map)) return "";
+    return String(this.codeStatusByNode.get(Number(nodeId)) || "");
+  }
+
+  _getDefaultCodeFilename(name = "") {
+    const base = String(name || "node-code")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "node-code";
+    return `${base}.lua`;
+  }
+
+  _decodePluginText(result) {
+    return this.td.decode(result?.output || new Uint8Array());
+  }
+
+  async _readCodeFile(codePath) {
+    const path = String(codePath || "").trim();
+    if (!path) throw new Error("Code file path is required.");
+    const result = await window.pluginManager.call("fs", "read", path);
+    if (result.returnCode !== 0) {
+      throw new Error(this._decodePluginText(result) || `Failed to read ${path}.`);
+    }
+    return this._decodePluginText(result);
+  }
+
+  async _writeCodeFile(codePath, content) {
+    const path = String(codePath || "").trim();
+    if (!path) throw new Error("Code file path is required.");
+    const payload = createWriteInput(path, String(content ?? ""));
+    const result = await window.pluginManager.call("fs", "write", payload);
+    if (result.returnCode !== 0) {
+      throw new Error(this._decodePluginText(result) || `Failed to write ${path}.`);
+    }
+  }
+
+  async _hydrateCodeNode(nodeId, { allowEmptyOnReadFailure = false } = {}) {
+    const path = this._getCodePath(nodeId);
+    if (!path) {
+      if (!this.sourceByNode.has(Number(nodeId))) {
+        this.sourceByNode.set(Number(nodeId), "");
+        this._setCodeStatus(nodeId, "Choose a code file to enable editing.");
+      }
+      this._setCodeReadOnly(nodeId, true);
+      return { ok: false, error: "Code file path is not set." };
+    }
+    try {
+      const source = await this._readCodeFile(path);
+      this.sourceByNode.set(Number(nodeId), source);
+      this._setCodeReadOnly(nodeId, false);
+      this._setCodeStatus(nodeId, "");
+      return { ok: true, source, path };
+    } catch (error) {
+      if (allowEmptyOnReadFailure && !this.sourceByNode.has(Number(nodeId))) {
+        this.sourceByNode.set(Number(nodeId), "");
+      }
+      this._setCodeStatus(nodeId, String(error?.message || error));
+      return { ok: false, error: String(error?.message || error), path };
+    }
+  }
+
+  async _hydrateCodeNodesForRun() {
+    const snapshot = this.getGraphSnapshot();
+    const codeNodes = snapshot.nodes.filter((node) => node.kind === NG.NODE_CODE);
+    for (const node of codeNodes) {
+      const result = await this._hydrateCodeNode(node.id);
+      if (!result.ok) {
+        const path = this._getCodePath(node.id);
+        toast.error(path
+          ? `Node #${node.id} cannot load ${path}: ${result.error}`
+          : `Node #${node.id} has no code file.`);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async _chooseCodeFile({ title = "Choose code file" } = {}) {
+    const selection = await ViewFiles.choose({ title, root: "/" });
+    return selection?.path ? String(selection.path) : "";
+  }
+
+  async _chooseCodeSavePath(defaultName = "node-code.lua") {
+    const selection = await ViewFiles.save({
+      title: "Choose code save location",
+      root: "/",
+      defaultName,
+    });
+    return selection?.path ? String(selection.path) : "";
+  }
+
+  _renderCodeSourceFields({ codePath = "", code = "", readOnly = false, status = "" } = {}) {
+    const hasPath = Boolean(String(codePath || "").trim());
+    const message = String(status || "").trim();
+    return `
+      <fieldset>
+        <legend>Code file</legend>
+        <input type="hidden" name="code-path" value="${escapeAttribute(codePath)}">
+        <label>
+          Path
+          <input type="text" value="${escapeAttribute(codePath)}" readonly placeholder="Choose or create a Lua file">
+        </label>
+        <div>
+          <button type="submit" name="intent" value="choose-code-file">Choose file</button>
+          <button type="submit" name="intent" value="save-code-file">Save as</button>
+          ${hasPath ? `<button type="submit" name="intent" value="reload-code-file">Reload</button>` : ""}
+        </div>
+        ${message ? `<p>${escapeAttribute(message)}</p>` : ""}
+        <code-editor name="code" lang="lua" rows="12" spellcheck="false" ${readOnly ? "readonly" : ""} placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(code)}</code-editor>
+      </fieldset>
+    `;
   }
 
   async showAddNodePopup() {
@@ -1328,13 +1302,16 @@ outputs[2] = json.encode({
             ${this._renderNodeTypeOptions(draft.kind, templates, draft.templateName)}
           </select>
         </label>
-       <label>
-         Node name
-         <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(draft.name)}">
-       </label>
-       ${isCodeNode ? `
-       <code-editor name="code" lang="lua" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(draft.code)}</code-editor>
-       ` : ""}
+        <label>
+          Node name
+          <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(draft.name)}">
+        </label>
+        ${isCodeNode ? this._renderCodeSourceFields({
+        codePath: draft.codePath,
+        code: draft.code,
+        readOnly: draft.codeReadOnly,
+        status: draft.codeStatus,
+      }) : ""}
        ${this._nodeSupportsInputs(draft.kind) ? `
        <fieldset>
          <legend>Inputs</legend>
@@ -1378,7 +1355,7 @@ outputs[2] = json.encode({
 
       const kindSelect = form.querySelector('[name="node-kind"]');
       if (kindSelect) {
-        kindSelect.onchange = () => {
+        kindSelect.onchange = async () => {
           this._captureNodeDraftFromForm(draft, form);
           const selectedValue = String(kindSelect.value || "");
           if (selectedValue.startsWith("template:")) {
@@ -1389,6 +1366,17 @@ outputs[2] = json.encode({
               return;
             }
             this._applyNodeTemplateToDraft(draft, templateEntry);
+            if (draft.kind === NG.NODE_CODE && draft.codePath) {
+              try {
+                draft.code = await this._readCodeFile(draft.codePath);
+                draft.codeReadOnly = false;
+                draft.codeStatus = "";
+              } catch (error) {
+                draft.codePath = "";
+                draft.codeReadOnly = true;
+                draft.codeStatus = String(error?.message || error);
+              }
+            }
             renderForm();
             return;
           }
@@ -1397,6 +1385,10 @@ outputs[2] = json.encode({
           draft.kind = this._kindFromFormValue(selectedValue, draft.kind);
           draft.templateName = "";
           if (draft.kind !== previousKind) {
+            if (draft.kind === NG.NODE_CODE && !draft.codePath) {
+              draft.codeReadOnly = true;
+              draft.codeStatus = "Choose a code file to enable editing.";
+            }
             if (!this._nodeSupportsInputs(draft.kind)) {
               draft.inputs = [];
               draft.newInputName = "";
@@ -1434,7 +1426,7 @@ outputs[2] = json.encode({
       size: "medium",
     });
 
-    form.onsubmit = (event) => {
+    form.onsubmit = async (event) => {
       event.preventDefault();
       this._captureNodeDraftFromForm(draft, form);
 
@@ -1484,10 +1476,81 @@ outputs[2] = json.encode({
         return;
       }
 
+      if (intent === "choose-code-file") {
+        const selectedPath = await this._chooseCodeFile({ title: "Choose Lua code file" });
+        if (selectedPath) {
+          try {
+            draft.code = await this._readCodeFile(selectedPath);
+            draft.codePath = selectedPath;
+            draft.codeReadOnly = false;
+            draft.codeStatus = "";
+          } catch (error) {
+            draft.codePath = "";
+            draft.codeReadOnly = true;
+            draft.codeStatus = String(error?.message || error);
+          }
+        }
+        renderForm();
+        return;
+      }
+
+      if (intent === "save-code-file") {
+        const savePath = await this._chooseCodeSavePath(this._getDefaultCodeFilename(draft.name));
+        if (savePath) {
+          draft.codePath = savePath;
+          try {
+            await this._writeCodeFile(savePath, draft.code);
+            draft.codeReadOnly = false;
+            draft.codeStatus = "";
+          } catch (error) {
+            draft.codeReadOnly = true;
+            draft.codeStatus = String(error?.message || error);
+          }
+        }
+        renderForm();
+        return;
+      }
+
+      if (intent === "reload-code-file") {
+        if (!draft.codePath) {
+          draft.codeStatus = "Choose a code file first.";
+        } else {
+          try {
+            draft.code = await this._readCodeFile(draft.codePath);
+            draft.codeStatus = "";
+          } catch (error) {
+            draft.codeStatus = String(error?.message || error);
+          }
+        }
+        renderForm();
+        return;
+      }
+
       const nodeId = this._nextAvailableNodeId();
       if (nodeId <= 0) {
         toast.error("Could not allocate a node id.");
         return;
+      }
+
+      if (draft.kind === NG.NODE_CODE) {
+        if (!draft.codePath) {
+          toast.warning("Choose or create a code file for this node.");
+          draft.codeReadOnly = true;
+          draft.codeStatus = "Choose a code file to enable editing.";
+          renderForm();
+          return;
+        }
+        try {
+          await this._writeCodeFile(draft.codePath, draft.code);
+          draft.codeReadOnly = false;
+          draft.codeStatus = "";
+        } catch (error) {
+          draft.codeReadOnly = true;
+          draft.codeStatus = String(error?.message || error);
+          toast.error(`Failed to save code file: ${draft.codeStatus}`);
+          renderForm();
+          return;
+        }
       }
 
       const createErr = this.api.ng_node_create(nodeId, draft.kind);
@@ -1541,7 +1604,10 @@ outputs[2] = json.encode({
       }
 
       if (draft.kind === NG.NODE_CODE) {
+        this._setCodePath(nodeId, draft.codePath);
         this.sourceByNode.set(nodeId, String(draft.code || ""));
+        this._setCodeReadOnly(nodeId, false);
+        this._setCodeStatus(nodeId, "");
       }
 
       this.nodeNames.set(nodeId, String(draft.name || "").trim());
@@ -1586,7 +1652,7 @@ outputs[2] = json.encode({
         x: Math.round(Number(pos?.x || 0)),
         y: Math.round(Number(pos?.y || 0)),
         name,
-        code: node.kind === NG.NODE_CODE ? String(this.sourceByNode.get(node.id) || "") : "",
+        codePath: node.kind === NG.NODE_CODE ? this._getCodePath(node.id) : "",
         inputs: (node.inputs || []).map((input, i) => ({
           id: Number(input?.inputId || i + 1),
           name: this._getStoredPortLabel(node.id, "input", Number(input?.inputId || i + 1)),
@@ -1621,6 +1687,9 @@ outputs[2] = json.encode({
     this.nodeNames = new Map();
     this.portLabels = new Map();
     this.sourceByNode = new Map();
+    this.codePathByNode = new Map();
+    this.codeReadOnlyByNode = new Map();
+    this.codeStatusByNode = new Map();
     this.valueByNode = new Map();
     this._emitSelectionChanged();
 
@@ -1670,7 +1739,19 @@ outputs[2] = json.encode({
       if (nodeName) this.nodeNames.set(nodeId, nodeName);
 
       if (kind === NG.NODE_CODE) {
-        this.sourceByNode.set(nodeId, String(raw?.code || ""));
+        const codePath = String(raw?.codePath || "").trim();
+        const legacyCode = String(raw?.code || "");
+        this._setCodePath(nodeId, codePath);
+        if (codePath) {
+          this._setCodeReadOnly(nodeId, false);
+        } else if (legacyCode) {
+          this.sourceByNode.set(nodeId, legacyCode);
+          this._setCodeReadOnly(nodeId, true);
+          this._setCodeStatus(nodeId, "Legacy inline code detected. Use Save as to migrate it to a file.");
+        } else {
+          this._setCodeReadOnly(nodeId, true);
+          this._setCodeStatus(nodeId, "Choose a code file to enable editing.");
+        }
       }
 
       if (kind === NG.NODE_VALUE) {
@@ -1741,12 +1822,24 @@ outputs[2] = json.encode({
     if (rows.length < 2 || rows[1].length < 1) return 1;
     const parsed = JSON.parse(rows[1][0]);
     if (!Array.isArray(parsed)) return 1;
-    return this._applySerializedGraph(parsed);
+    const err = this._applySerializedGraph(parsed);
+    if (err !== 0) return err;
+    const snapshot = this.getGraphSnapshot();
+    const codeNodes = snapshot.nodes.filter((node) => node.kind === NG.NODE_CODE);
+    const hydrated = await Promise.all(codeNodes.map((node) => this._hydrateCodeNode(node.id, { allowEmptyOnReadFailure: true })));
+    const failed = hydrated.filter((entry) => !entry.ok);
+    if (failed.length > 0) {
+      toast.warning(`Loaded graph with ${failed.length} code file issue${failed.length === 1 ? "" : "s"}. Open the affected nodes to review.`);
+    }
+    return 0;
   }
 
   async saveNodeTemplateByName(name, draftLike) {
     const cleanName = String(name || "").trim();
     if (!cleanName) return 1;
+    if (Number(draftLike?.kind || NG.NODE_CODE) === NG.NODE_CODE && !String(draftLike?.codePath || "").trim()) {
+      throw new Error("Code templates require a code file path.");
+    }
     const payload = this._serializeNodeTemplateDraft(
       this._normalizeNodeTemplatePayload(draftLike, Number(draftLike?.kind || NG.NODE_CODE))
     );
@@ -1940,7 +2033,7 @@ outputs[2] = json.encode({
     });
   }
 
-  showEditNodePopup(forcedNodeId = null) {
+  async showEditNodePopup(forcedNodeId = null) {
     const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
     if (!popupManager) {
       toast.error("Popup manager is not available.");
@@ -1964,6 +2057,15 @@ outputs[2] = json.encode({
     const nameValue = this.nodeNames.get(nodeId) || "";
     const nodeTitle = `${kindName} #${nodeId}`;
 
+    if (node.kind === NG.NODE_CODE) {
+      await this._hydrateCodeNode(nodeId, { allowEmptyOnReadFailure: true });
+    }
+
+    let codePathValue = this._getCodePath(nodeId);
+    let codeValue = String(this.sourceByNode.get(nodeId) || "");
+    let codeReadOnly = !codePathValue || this._getCodeReadOnly(nodeId);
+    let codeStatus = this._getCodeStatus(nodeId);
+
     const form = document.createElement("form");
     const renderForm = (
       currentNode,
@@ -1973,6 +2075,9 @@ outputs[2] = json.encode({
         newOutputName = "",
         newOutputValue = "",
         code = null,
+        codePath = codePathValue,
+        codeEditorReadOnly = codeReadOnly,
+        codeMessage = codeStatus,
       } = {}
     ) => {
       const isCodeNode = currentNode.kind === NG.NODE_CODE;
@@ -1985,13 +2090,16 @@ outputs[2] = json.encode({
            ${this._renderNodeTypeOptions(currentNode.kind)}
          </select>
        </label>
-       <label>
-         Node name
-         <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
-       </label>
-        ${isCodeNode ? `
-        <code-editor name="code" lang="lua" rows="12" spellcheck="false" placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(code === null || code === undefined ? (this.sourceByNode.get(currentNode.id) || "") : String(code))}</code-editor>
-        ` : ""}
+        <label>
+          Node name
+          <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
+        </label>
+         ${isCodeNode ? this._renderCodeSourceFields({
+        codePath,
+        code: code === null || code === undefined ? codeValue : String(code),
+        readOnly: codeEditorReadOnly,
+        status: codeMessage,
+      }) : ""}
        ${this._nodeSupportsInputs(currentNode.kind) ? `
        <fieldset>
          <legend>Inputs</legend>
@@ -2076,12 +2184,92 @@ outputs[2] = json.encode({
       }
 
       const pendingCode = current.kind === NG.NODE_CODE ? String(formData.get("code") || "") : null;
+      const pendingCodePath = current.kind === NG.NODE_CODE ? String(formData.get("code-path") || "").trim() : "";
+
+      if (intent === "choose-code-file") {
+        const selectedPath = await this._chooseCodeFile({ title: `Choose code file for ${nodeTitle}` });
+        if (selectedPath) {
+          try {
+            codeValue = await this._readCodeFile(selectedPath);
+            codePathValue = selectedPath;
+            codeReadOnly = false;
+            codeStatus = "";
+          } catch (error) {
+            codePathValue = pendingCodePath || this._getCodePath(nodeId);
+            codeReadOnly = !codePathValue || this._getCodeReadOnly(nodeId);
+            codeStatus = String(error?.message || error);
+          }
+        }
+        renderForm(current, String(formData.get("name") || ""), {
+          newInputName: String(formData.get("new-input-name") || "").trim(),
+          newOutputName: String(formData.get("new-output-name") || "").trim(),
+          newOutputValue: String(formData.get("new-output-value") || ""),
+          code: codeValue,
+          codePath: codePathValue,
+          codeEditorReadOnly: codeReadOnly,
+          codeMessage: codeStatus,
+        });
+        return;
+      }
+
+      if (intent === "save-code-file") {
+        const savePath = await this._chooseCodeSavePath(this._getDefaultCodeFilename(String(formData.get("name") || nodeTitle)));
+        if (savePath) {
+          codePathValue = savePath;
+          codeValue = pendingCode ?? codeValue;
+          try {
+            await this._writeCodeFile(savePath, codeValue);
+            codeReadOnly = false;
+            codeStatus = "";
+          } catch (error) {
+            codeReadOnly = true;
+            codeStatus = String(error?.message || error);
+          }
+        }
+        renderForm(current, String(formData.get("name") || ""), {
+          newInputName: String(formData.get("new-input-name") || "").trim(),
+          newOutputName: String(formData.get("new-output-name") || "").trim(),
+          newOutputValue: String(formData.get("new-output-value") || ""),
+          code: codeValue,
+          codePath: codePathValue,
+          codeEditorReadOnly: codeReadOnly,
+          codeMessage: codeStatus,
+        });
+        return;
+      }
+
+      if (intent === "reload-code-file") {
+        codePathValue = pendingCodePath || codePathValue;
+        if (!codePathValue) {
+          codeStatus = "Choose a code file first.";
+        } else {
+          try {
+            codeValue = await this._readCodeFile(codePathValue);
+            codeStatus = "";
+          } catch (error) {
+            codeStatus = String(error?.message || error);
+          }
+        }
+        renderForm(current, String(formData.get("name") || ""), {
+          newInputName: String(formData.get("new-input-name") || "").trim(),
+          newOutputName: String(formData.get("new-output-name") || "").trim(),
+          newOutputValue: String(formData.get("new-output-value") || ""),
+          code: codeValue,
+          codePath: codePathValue,
+          codeEditorReadOnly: codeReadOnly,
+          codeMessage: codeStatus,
+        });
+        return;
+      }
 
       if (intent === "save-template") {
         const draft = this._createNodeDraft(current.kind);
         this._captureNodeDraftFromForm(draft, form);
         draft.kind = current.kind;
-        draft.code = pendingCode ?? "";
+        draft.codePath = pendingCodePath || codePathValue;
+        draft.code = pendingCode ?? codeValue;
+        draft.codeReadOnly = codeReadOnly;
+        draft.codeStatus = codeStatus;
         try {
           const result = await this.showSaveNodeTemplatePopup({
             draft,
@@ -2104,7 +2292,48 @@ outputs[2] = json.encode({
           this._saveOutputValuesFromForm(nodeId, formData);
         }
         if (current.kind === NG.NODE_CODE) {
-          this.sourceByNode.set(nodeId, pendingCode ?? "");
+          codeValue = pendingCode ?? codeValue;
+          codePathValue = pendingCodePath || codePathValue;
+          if (!codePathValue) {
+            codeReadOnly = true;
+            codeStatus = "Choose a code file to enable editing.";
+            toast.error("Code node requires a code file.");
+            renderForm(current, String(rawName || ""), {
+              newInputName: String(formData.get("new-input-name") || "").trim(),
+              newOutputName: String(formData.get("new-output-name") || "").trim(),
+              newOutputValue: String(formData.get("new-output-value") || ""),
+              code: codeValue,
+              codePath: codePathValue,
+              codeEditorReadOnly: codeReadOnly,
+              codeMessage: codeStatus,
+            });
+            return;
+          }
+          try {
+            await this._writeCodeFile(codePathValue, codeValue);
+            this._setCodePath(nodeId, codePathValue);
+            this._setCodeReadOnly(nodeId, false);
+            this._setCodeStatus(nodeId, "");
+            codeReadOnly = false;
+            codeStatus = "";
+          } catch (error) {
+            codeReadOnly = true;
+            codeStatus = String(error?.message || error);
+            this._setCodeReadOnly(nodeId, true);
+            this._setCodeStatus(nodeId, codeStatus);
+            toast.error(`Failed to save code file: ${codeStatus}`);
+            renderForm(current, String(rawName || ""), {
+              newInputName: String(formData.get("new-input-name") || "").trim(),
+              newOutputName: String(formData.get("new-output-name") || "").trim(),
+              newOutputValue: String(formData.get("new-output-value") || ""),
+              code: codeValue,
+              codePath: codePathValue,
+              codeEditorReadOnly: codeReadOnly,
+              codeMessage: codeStatus,
+            });
+            return;
+          }
+          this.sourceByNode.set(nodeId, codeValue);
           if (this.api?.ng_exec_clear) {
             this.api.ng_exec_clear(nodeId, 1);
           }
@@ -2138,6 +2367,9 @@ outputs[2] = json.encode({
           newOutputName: intent === "add-output" ? "" : String(formData.get("new-output-name") || ""),
           newOutputValue: intent === "add-output" ? "" : String(formData.get("new-output-value") || ""),
           code: pendingCode,
+          codePath: pendingCodePath || codePathValue,
+          codeEditorReadOnly: codeReadOnly,
+          codeMessage: codeStatus,
         });
       }
     };
