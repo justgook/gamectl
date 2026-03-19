@@ -239,6 +239,15 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return { displayName: "Node Graph 2", category: "Canvas" };
   }
 
+  static get keybindings() {
+    return [
+      { id: "create-node", eventName: "node:create", description: "Create new node", defaultKeys: "<C-n>" },
+      { id: "delete-node", eventName: "node:delete", description: "Delete selected nodes", defaultKeys: "<BS>" },
+      { id: "edit-node", eventName: "node:edit", description: "Edit selected node", defaultKeys: "<C-e>" },
+      { id: "run-graph", eventName: "node:run", description: "Run node graph", defaultKeys: "<C-CR>" },
+    ];
+  }
+
   constructor() {
     super();
 
@@ -292,6 +301,25 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.ioToastOffset = 0;
     this.goalRunQueue = [];
     this._raf = 0;
+  }
+
+  handleKeybinding(eventName) {
+    switch (eventName) {
+      case "node:create":
+        this.showAddNodePopup();
+        return true;
+      case "node:delete":
+        this.deleteSelectedNodes();
+        return true;
+      case "node:edit":
+        this.showEditNodePopup();
+        return true;
+      case "node:run":
+        this.runGraph();
+        return true;
+      default:
+        return super.handleKeybinding(eventName);
+    }
   }
 
   initCtx() {
