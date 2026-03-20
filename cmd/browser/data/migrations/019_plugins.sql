@@ -30,6 +30,7 @@ INSERT OR IGNORE INTO plugins (name, url, type, enabled, scope) VALUES
     ('scaler', 'local:/plugins/scaler.wasm', 'builtin', 1, 'global'),
     ('roomgen', 'local:/plugins/roomgen.wasm', 'builtin', 1, 'global'),
     ('image', 'local:/plugins/image.wasm', 'builtin', 1, 'global'),
+    ('pack', 'local:/plugins/pack.wasm', 'builtin', 1, 'global'),
     ('sprite-detect', 'local:/plugins/sprite-detect.wasm', 'builtin', 1, 'global'),
     ('sprite-pack', 'local:/plugins/sprite-pack.wasm', 'builtin', 1, 'global'),
     ('tile-detect', 'local:/plugins/tile-detect.wasm', 'builtin', 1, 'global'),
