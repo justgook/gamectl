@@ -11,6 +11,7 @@ const BUILTIN_CODE_FILES = {
   tilemapSqlParse: "local:/assets/ng/nodegraph2/tilemap-sql-parse-demo.lua",
   respackText: "local:/assets/ng/nodegraph2/respack-text-demo.lua",
   lutGenerator: "local:/assets/ng/nodegraph2/lut-generator-demo.lua",
+  packDemo: "local:/assets/ng/nodegraph2/pack-demo.lua",
 };
 
 
@@ -1108,6 +1109,20 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           inputs: [],
           outputs: [
             { outputId: 1, name: "result" },
+          ],
+        },
+      },
+      {
+        name: "pack demo",
+        kind: NG.NODE_CODE,
+        data: {
+          kind: NG.NODE_CODE,
+          name: "pack demo",
+          codePath: BUILTIN_CODE_FILES.packDemo,
+          inputs: [],
+          outputs: [
+            { outputId: 1, name: "result" },
+            { outputId: 2, name: "summary" },
           ],
         },
       },

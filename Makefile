@@ -168,6 +168,10 @@ plugins-release: $(PLUGIN_TARGETS)
 respack-test: $(BUILD_DIR)/plugins/respack.wasm
 	$(Q)node ./plugins/respack/test/e2e.mjs
 
+.PHONY: pack-test
+pack-test: $(BUILD_DIR)/plugins/pack.wasm
+	$(Q)node ./plugins/pack/test/e2e.mjs
+
 GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
 
 # Rule to build Go plugins
