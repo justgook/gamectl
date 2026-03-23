@@ -6,13 +6,7 @@ import { createWriteInput } from "../util/fs.js";
 import { ViewFiles } from "./view-files.js";
 import "./code-editor.js";
 
-const BUILTIN_CODE_FILES = {
-  initialGraph: "local:/assets/ng/nodegraph2/initial-node-code.lua",
-  tilemapSqlParse: "local:/assets/ng/nodegraph2/tilemap-sql-parse-demo.lua",
-  respackText: "local:/assets/ng/nodegraph2/respack-text-demo.lua",
-  lutGenerator: "local:/assets/ng/nodegraph2/lut-generator-demo.lua",
-  packDemo: "local:/assets/ng/nodegraph2/pack-demo.lua",
-};
+const DEFAULT_GRAPH_NAME = "default";
 
 
 
@@ -186,14 +180,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.td = new TextDecoder();
     this.te = new TextEncoder();
     this.sourceByNode = new Map();
-    this.codePathByNode = new Map([[1, BUILTIN_CODE_FILES.initialGraph]]);
-    this.codeReadOnlyByNode = new Map([[1, false]]);
+    this.codePathByNode = new Map();
+    this.codeReadOnlyByNode = new Map();
     this.codeStatusByNode = new Map();
-    this.valueByNode = new Map([
-      [7, new Map([[1, "https://example.com/a"]])],
-      [8, new Map([[1, "https://example.com/b"]])],
-      [9, new Map([[1, "https://example.com/c"]])],
-    ]);
+    this.valueByNode = new Map();
     this.RUN_EVENT = {
       1: "run_started",
       2: "node_started",
@@ -274,7 +264,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     if (loadBtn) loadBtn.onclick = () => this.showLoadGraphPopup();
 
     const resetBtn = this.queryHeaderControl('[data-action="reset"]');
-    if (resetBtn) resetBtn.onclick = () => this.setupGraph();
+    if (resetBtn) resetBtn.onclick = async () => this.resetGraph();
 
     const clearBtn = this.queryHeaderControl('[data-action="clear"]');
     if (clearBtn) {
@@ -606,7 +596,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     });
 
     this.attachRuntime({ api: this.pluginHandle.exports, memory: this.pluginHandle.memory });
-    this.setupGraph();
+    await this.resetGraph();
   }
 
   _resolveHostSync(service, method, raw) {
@@ -760,70 +750,17 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this._raf = requestAnimationFrame(tick);
   }
 
-  setupGraph() {
+  async resetGraph() {
     if (!this.api) return;
-    if (this.selectedNodeIds.size > 0) {
-      this.selectedNodeIds.clear();
-      this._emitSelectionChanged();
-    } else {
-      this._syncSelectionActionButtons();
+    const initErr = this.api.ng_init();
+    if (initErr !== 0) {
+      toast.error(`Failed to initialize graph runtime (code ${initErr}).`);
+      return;
     }
-    this.goalRunQueue = [];
-    this.ioToastOffset = 0;
-    this.sourceByNode = new Map();
-    this.codePathByNode = new Map([[1, BUILTIN_CODE_FILES.initialGraph]]);
-    this.codeReadOnlyByNode = new Map([[1, false]]);
-    this.codeStatusByNode = new Map();
-    let err = this.api.ng_init();
-    if (err !== 0) return;
-    err = this.api.ng_clear_graph();
-    if (err !== 0) return;
-
-    const ops = [
-      () => this.api.ng_node_create(1, 2),
-      () => this.api.ng_output_add(1, 1),
-      () => this.api.ng_output_add(1, 2),
-      () => this.api.ng_node_create(2, 1),
-      () => this.api.ng_input_add(2, 1),
-      () => this.api.ng_input_add(2, 2),
-      () => this.api.ng_input_connect(2, 1, 1, 1),
-      () => this.api.ng_node_create(3, 2),
-      () => this.api.ng_input_add(3, 1),
-      () => this.api.ng_input_add(3, 2),
-      () => this.api.ng_output_add(3, 1),
-      () => this.api.ng_output_add(3, 2),
-      () => this.api.ng_output_add(3, 3),
-      () => this.api.ng_input_connect(3, 1, 1, 2),
-      () => this.api.ng_node_create(4, 1),
-      () => this.api.ng_input_add(4, 1),
-      () => this.api.ng_input_connect(4, 1, 3, 2),
-      () => this.api.ng_node_create(5, 2),
-      () => this.api.ng_output_add(5, 1),
-      () => this.api.ng_node_create(6, 1),
-      () => this.api.ng_input_add(6, 1),
-      () => this.api.ng_input_add(6, 2),
-      () => this.api.ng_input_connect(6, 1, 3, 1),
-      () => this.api.ng_input_connect(6, 2, 5, 1),
-      () => this.api.ng_node_create(7, 4),
-      () => this.api.ng_output_add(7, 1),
-      () => this.api.ng_node_create(8, 4),
-      () => this.api.ng_output_add(8, 1),
-      () => this.api.ng_node_create(9, 4),
-      () => this.api.ng_output_add(9, 1),
-      () => this.api.ng_node_create(10, 1),
-      () => this.api.ng_input_add(10, 1),
-      () => this.api.ng_input_add(10, 2),
-      () => this.api.ng_input_add(10, 3),
-      () => this.api.ng_input_connect(10, 1, 7, 1),
-      () => this.api.ng_input_connect(10, 2, 8, 1),
-      () => this.api.ng_input_connect(10, 3, 9, 1),
-    ];
-
-    for (const op of ops) {
-      err = op();
-      if (err !== 0) break;
+    const err = await this.loadGraphByName(DEFAULT_GRAPH_NAME, { quietCodeIssues: true });
+    if (err !== 0) {
+      toast.error(`Failed to load default graph "${DEFAULT_GRAPH_NAME}" (code ${err}).`);
     }
-    this.requestRenderIfGenerationChanged(true);
   }
 
   async runGraph() {
@@ -1067,66 +1004,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         value: String(port?.value || ""),
       })),
     };
-  }
-
-  _getBuiltinNodeTemplates() {
-    return [
-      {
-        name: "tilemap sql parse demo",
-        kind: NG.NODE_CODE,
-        data: {
-          kind: NG.NODE_CODE,
-          name: "tilemap sql parse demo",
-          codePath: BUILTIN_CODE_FILES.tilemapSqlParse,
-          inputs: [],
-          outputs: [
-            { outputId: 1, name: "items" },
-            { outputId: 2, name: "stats" },
-          ],
-        },
-      },
-      {
-        name: "respack text demo",
-        kind: NG.NODE_CODE,
-        data: {
-          kind: NG.NODE_CODE,
-          name: "respack text demo",
-          codePath: BUILTIN_CODE_FILES.respackText,
-          inputs: [],
-          outputs: [
-            { outputId: 1, name: "odin_source" },
-            { outputId: 2, name: "status" },
-          ],
-        },
-      },
-      {
-        name: "LUT generator demo",
-        kind: NG.NODE_CODE,
-        data: {
-          kind: NG.NODE_CODE,
-          name: "LUT generator demo",
-          codePath: BUILTIN_CODE_FILES.lutGenerator,
-          inputs: [],
-          outputs: [
-            { outputId: 1, name: "result" },
-          ],
-        },
-      },
-      {
-        name: "pack demo",
-        kind: NG.NODE_CODE,
-        data: {
-          kind: NG.NODE_CODE,
-          name: "pack demo",
-          codePath: BUILTIN_CODE_FILES.packDemo,
-          inputs: [],
-          outputs: [
-            { outputId: 1, name: "result" },
-            { outputId: 2, name: "summary" },
-          ],
-        },
-      },
-    ];
   }
 
   _nextAvailableNodeId() {
@@ -1827,7 +1704,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return 0;
   }
 
-  async loadGraphByName(name) {
+  async loadGraphByName(name, { quietCodeIssues = false } = {}) {
     const cleanName = String(name || "").trim();
     if (!cleanName) return 1;
     const escapedName = cleanName.replace(/'/g, "''");
@@ -1843,7 +1720,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const codeNodes = snapshot.nodes.filter((node) => node.kind === NG.NODE_CODE);
     const hydrated = await Promise.all(codeNodes.map((node) => this._hydrateCodeNode(node.id, { allowEmptyOnReadFailure: true })));
     const failed = hydrated.filter((entry) => !entry.ok);
-    if (failed.length > 0) {
+    if (!quietCodeIssues && failed.length > 0) {
       toast.warning(`Loaded graph with ${failed.length} code file issue${failed.length === 1 ? "" : "s"}. Open the affected nodes to review.`);
     }
     return 0;
@@ -1867,22 +1744,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   }
 
   async listNodeTemplates() {
-    const builtins = this._getBuiltinNodeTemplates();
     const result = await window.pluginManager.call("sql", "query", "SELECT name, kind, data FROM nodegraph2_node_templates ORDER BY name");
     const csv = this.td.decode(result.output || new Uint8Array());
     const rows = parseCSVLines(csv.trim());
     const entries = [];
-    const byName = new Map();
-
-    for (const entry of builtins) {
-      const name = String(entry?.name || "").trim();
-      if (!name) continue;
-      const kind = Number(entry?.kind || NG.NODE_CODE);
-      const data = this._serializeNodeTemplateDraft(this._normalizeNodeTemplatePayload(entry?.data || {}, kind));
-      const normalized = { name, kind: Number(data.kind || kind || NG.NODE_CODE), data };
-      byName.set(name, normalized);
-      entries.push(normalized);
-    }
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i] || [];
@@ -1897,13 +1762,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       }
       const data = this._serializeNodeTemplateDraft(this._normalizeNodeTemplatePayload(parsedData, kind));
       const normalized = { name, kind: Number(data.kind || kind || NG.NODE_CODE), data };
-      if (byName.has(name)) {
-        const idx = entries.findIndex((entry) => entry.name === name);
-        if (idx >= 0) entries[idx] = normalized;
-      } else {
-        entries.push(normalized);
-      }
-      byName.set(name, normalized);
+      entries.push(normalized);
     }
     return entries;
   }
