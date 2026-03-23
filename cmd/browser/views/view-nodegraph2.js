@@ -25,7 +25,17 @@ const NG = {
   MAX_ARGS: 32,
   NODE_GOAL: 1,
   NODE_CODE: 2,
+  NODE_CALL: 3,
   NODE_VALUE: 4,
+};
+
+const NG_VALUE = {
+  EMPTY: 0,
+  I64: 1,
+};
+
+const NG_IMPORT_ARG = {
+  GRAPH_ID: 0,
 };
 
 const ABI = {
@@ -133,6 +143,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return { displayName: "Node Graph 2", category: "Canvas" };
   }
 
+  static get observedAttributes() {
+    return ["graph-name"];
+  }
+
   static get keybindings() {
     return [
       { id: "create-node", eventName: "node:create", description: "Create new node", defaultKeys: "<C-n>" },
@@ -183,6 +197,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.codePathByNode = new Map();
     this.codeReadOnlyByNode = new Map();
     this.codeStatusByNode = new Map();
+    this.graphIdByNode = new Map();
+    this.graphNameByNode = new Map();
+    this.importDefaultsByNode = new Map();
     this.valueByNode = new Map();
     this.RUN_EVENT = {
       1: "run_started",
@@ -194,6 +211,14 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.ioToastOffset = 0;
     this.goalRunQueue = [];
     this._raf = 0;
+    this.currentGraphId = 0;
+    this.graphSnapshotById = new Map();
+    this.graphName = DEFAULT_GRAPH_NAME;
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name !== "graph-name" || oldValue === newValue) return;
+    this.setGraphName(newValue, { reload: false });
   }
 
   handleKeybinding(eventName) {
@@ -227,6 +252,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       <button data-action="add" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
       <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
       <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
+      <button data-action="popout" aria-label="Open Graph Editor" title="Open Graph Editor"><i aria-hidden="true">open_in_new</i></button>
       <button data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">replay</i></button>
       <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">clear_all</i></button>
       <button data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
@@ -246,6 +272,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   async connectedCallback() {
     super.connectedCallback();
 
+    this.graphName = String(this.getAttribute("graph-name") || this.graphName || DEFAULT_GRAPH_NAME).trim() || DEFAULT_GRAPH_NAME;
+
     // Re-acquire context after canvas is attached to DOM.
     if (!this.gl) {
       this.initCtx();
@@ -262,6 +290,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     const loadBtn = this.queryHeaderControl('[data-action="load"]');
     if (loadBtn) loadBtn.onclick = () => this.showLoadGraphPopup();
+
+    const popoutBtn = this.queryHeaderControl('[data-action="popout"]');
+    if (popoutBtn) popoutBtn.onclick = () => this.showGraphEditorPopup(this.graphName);
 
     const resetBtn = this.queryHeaderControl('[data-action="reset"]');
     if (resetBtn) resetBtn.onclick = async () => this.resetGraph();
@@ -343,6 +374,19 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.requestRenderIfGenerationChanged(true);
   }
 
+  setGraphName(name, { reload = false } = {}) {
+    const nextName = String(name || DEFAULT_GRAPH_NAME).trim() || DEFAULT_GRAPH_NAME;
+    const changed = nextName !== this.graphName;
+    this.graphName = nextName;
+    if (reload && this.api) {
+      this.resetGraph();
+      return;
+    }
+    if (changed) {
+      this.requestRenderIfGenerationChanged(true);
+    }
+  }
+
   _measureTextWidth(text, scale = 1) {
     const value = String(text || "");
     if (!value) return 0;
@@ -372,7 +416,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         ? "goal"
         : node.kind === NG.NODE_VALUE
           ? "value"
-          : "node";
+          : node.kind === NG.NODE_CALL
+            ? (this._getGraphNameForNode(node.id) || "import")
+            : "node";
     const customName = String(this.nodeNames.get(node.id) || "").trim();
     return customName ? `${customName} (#${node.id})` : `${kindLabel} #${node.id}`;
   }
@@ -573,6 +619,13 @@ class ViewNodeGraph2 extends ViewCanvasBase {
                 outputId = new DataView(this.memory.buffer).getUint32(reqPtr, true);
               }
               payload = this._getStoredNodeValue(nodeId, outputId);
+            } else if (resolveKind === 4) {
+              let graphId = 0;
+              if (reqPtr > 0 && reqLen >= 4 && this.memory) {
+                graphId = new DataView(this.memory.buffer).getUint32(reqPtr, true);
+              }
+              const graph = this.graphSnapshotById instanceof Map ? this.graphSnapshotById.get(Number(graphId || 0)) : null;
+              payload = JSON.stringify(graph?.nodes || []);
             } else {
               return 7;
             }
@@ -757,9 +810,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       toast.error(`Failed to initialize graph runtime (code ${initErr}).`);
       return;
     }
-    const err = await this.loadGraphByName(DEFAULT_GRAPH_NAME, { quietCodeIssues: true });
+    const err = await this.loadGraphByName(this.graphName || DEFAULT_GRAPH_NAME, { quietCodeIssues: true, setCurrentGraph: false });
     if (err !== 0) {
-      toast.error(`Failed to load default graph "${DEFAULT_GRAPH_NAME}" (code ${err}).`);
+      toast.error(`Failed to load graph "${this.graphName || DEFAULT_GRAPH_NAME}" (code ${err}).`);
     }
   }
 
@@ -767,24 +820,30 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     if (!this.api) return;
     const hydrated = await this._hydrateCodeNodesForRun();
     if (!hydrated) return;
+    const snapshot = this.getGraphSnapshot();
+    await this._primeImportGraphCache(snapshot.nodes);
     const selectedGoals = this._getSelectedGoalNodeIds();
     this.goalRunQueue = [];
 
-    if (selectedGoals.length > 0) {
-      const [firstGoal, ...restGoals] = selectedGoals;
-      this.goalRunQueue = restGoals;
-      const err = this._startRun(firstGoal);
-      if (err !== 0) {
-        this.goalRunQueue = [];
-        toast.error(`Failed to run goal #${firstGoal} (code ${err}).`);
+    try {
+      if (selectedGoals.length > 0) {
+        const [firstGoal, ...restGoals] = selectedGoals;
+        this.goalRunQueue = restGoals;
+        const err = this._startRun(firstGoal);
+        if (err !== 0) {
+          this.goalRunQueue = [];
+          toast.error(`Failed to run goal #${firstGoal} (code ${err}).`);
+        }
+      } else {
+        const err = this._startRun(0);
+        if (err !== 0) {
+          toast.error(`Failed to run goals (code ${err}).`);
+        }
       }
-    } else {
-      const err = this._startRun(0);
-      if (err !== 0) {
-        toast.error(`Failed to run goals (code ${err}).`);
-      }
+      this.requestRenderIfGenerationChanged(true);
+    } catch (error) {
+      toast.error(`Failed to run graph: ${String(error?.message || error)}`);
     }
-    this.requestRenderIfGenerationChanged(true);
   }
 
   deleteSelectedNodes() {
@@ -820,6 +879,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       if (this.codePathByNode instanceof Map) this.codePathByNode.delete(nodeId);
       if (this.codeReadOnlyByNode instanceof Map) this.codeReadOnlyByNode.delete(nodeId);
       if (this.codeStatusByNode instanceof Map) this.codeStatusByNode.delete(nodeId);
+      if (this.graphIdByNode instanceof Map) this.graphIdByNode.delete(nodeId);
+      if (this.graphNameByNode instanceof Map) this.graphNameByNode.delete(nodeId);
+      if (this.importDefaultsByNode instanceof Map) this.importDefaultsByNode.delete(nodeId);
       if (this.sourceByNode instanceof Map) this.sourceByNode.delete(nodeId);
       if (this.valueByNode instanceof Map) this.valueByNode.delete(nodeId);
     }
@@ -840,12 +902,14 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   _kindToFormValue(kind) {
     if (kind === NG.NODE_VALUE) return "value";
     if (kind === NG.NODE_GOAL) return "goal";
+    if (kind === NG.NODE_CALL) return "import";
     return "code";
   }
 
   _kindFromFormValue(value, fallback = NG.NODE_CODE) {
     if (value === "value") return NG.NODE_VALUE;
     if (value === "goal") return NG.NODE_GOAL;
+    if (value === "import") return NG.NODE_CALL;
     if (value === "code") return NG.NODE_CODE;
     return fallback;
   }
@@ -868,6 +932,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         <option value="value" ${selected === "value" ? "selected" : ""}>value</option>
         <option value="code" ${selected === "code" ? "selected" : ""}>code</option>
         <option value="goal" ${selected === "goal" ? "selected" : ""}>goal</option>
+        <option value="import" ${selected === "import" ? "selected" : ""}>import</option>
       </optgroup>
       <optgroup label="Presets">
         ${templateOptions}
@@ -887,6 +952,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       newInputName: "",
       newOutputName: "",
       newOutputValue: "",
+      graphName: "",
+      graphId: 0,
+      graphSummary: { inputs: [], outputs: [] },
       inputs: [],
       outputs: [],
     };
@@ -934,13 +1002,15 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   _normalizeNodeTemplatePayload(payload, fallbackKind = NG.NODE_CODE) {
     const rawKind = Number(payload?.kind || fallbackKind);
-    const kind = rawKind === NG.NODE_VALUE || rawKind === NG.NODE_GOAL || rawKind === NG.NODE_CODE
+    const kind = rawKind === NG.NODE_VALUE || rawKind === NG.NODE_GOAL || rawKind === NG.NODE_CODE || rawKind === NG.NODE_CALL
       ? rawKind
       : fallbackKind;
     const normalized = this._createNodeDraft(kind);
     normalized.name = String(payload?.name || "").trim();
     normalized.codePath = String(payload?.codePath || "").trim();
     normalized.code = String(payload?.code || "");
+    normalized.graphName = String(payload?.graphName || "").trim();
+    normalized.graphId = Number(payload?.graphId || 0);
     normalized.codeReadOnly = kind === NG.NODE_CODE && (!normalized.codePath || Boolean(normalized.code));
     normalized.codeStatus = normalized.codePath
       ? ""
@@ -958,6 +1028,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       return {
         inputId: Number.isFinite(inputId) && inputId > 0 ? inputId : index + 1,
         name: String(input?.name || "").trim(),
+        value: String(input?.defaultValue || input?.value || ""),
       };
     });
 
@@ -969,6 +1040,11 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         value: String(output?.value || ""),
       };
     });
+
+    if (kind === NG.NODE_CALL && normalized.graphName) {
+      normalized.codeReadOnly = true;
+      normalized.codeStatus = "Import nodes are edited by selecting a graph.";
+    }
 
     return normalized;
   }
@@ -994,9 +1070,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       kind: Number(draft?.kind || NG.NODE_CODE),
       name: String(draft?.name || "").trim(),
       codePath: String(draft?.codePath || "").trim(),
+      graphName: String(draft?.graphName || "").trim(),
+      graphId: Number(draft?.graphId || 0),
       inputs: (draft?.inputs || []).map((port, index) => ({
         inputId: Number(port?.inputId || index + 1),
         name: String(port?.name || "").trim(),
+        defaultValue: String(port?.value || ""),
       })),
       outputs: (draft?.outputs || []).map((port, index) => ({
         outputId: Number(port?.outputId || index + 1),
@@ -1054,6 +1133,55 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   _getCodeStatus(nodeId) {
     if (!(this.codeStatusByNode instanceof Map)) return "";
     return String(this.codeStatusByNode.get(Number(nodeId)) || "");
+  }
+
+  _setGraphNameForNode(nodeId, graphName) {
+    if (!(this.graphNameByNode instanceof Map)) this.graphNameByNode = new Map();
+    const normalized = String(graphName || "").trim();
+    if (normalized) this.graphNameByNode.set(Number(nodeId), normalized);
+    else this.graphNameByNode.delete(Number(nodeId));
+  }
+
+  _setGraphIdForNode(nodeId, graphId) {
+    if (!(this.graphIdByNode instanceof Map)) this.graphIdByNode = new Map();
+    const normalized = Number(graphId || 0);
+    if (Number.isFinite(normalized) && normalized > 0) this.graphIdByNode.set(Number(nodeId), normalized);
+    else this.graphIdByNode.delete(Number(nodeId));
+  }
+
+  _getGraphIdForNode(nodeId) {
+    if (!(this.graphIdByNode instanceof Map)) return 0;
+    return Number(this.graphIdByNode.get(Number(nodeId)) || 0);
+  }
+
+  _getGraphNameForNode(nodeId) {
+    if (!(this.graphNameByNode instanceof Map)) return "";
+    return String(this.graphNameByNode.get(Number(nodeId)) || "");
+  }
+
+  _setImportGraphArg(nodeId, graphId) {
+    if (!this.api || typeof this.api.ng_node_set_arg !== "function") return 1;
+    const normalized = Number(graphId || 0);
+    return this.api.ng_node_set_arg(
+      Number(nodeId),
+      NG_IMPORT_ARG.GRAPH_ID,
+      NG_VALUE.I64,
+      Number.isFinite(normalized) && normalized > 0 ? normalized : 0,
+      0,
+    );
+  }
+
+  _setImportDefaultsForNode(nodeId, defaults) {
+    if (!(this.importDefaultsByNode instanceof Map)) this.importDefaultsByNode = new Map();
+    const list = Array.isArray(defaults) ? defaults.map((value) => String(value ?? "")) : [];
+    if (list.length) this.importDefaultsByNode.set(Number(nodeId), list);
+    else this.importDefaultsByNode.delete(Number(nodeId));
+  }
+
+  _getImportDefaultsForNode(nodeId) {
+    if (!(this.importDefaultsByNode instanceof Map)) return [];
+    const list = this.importDefaultsByNode.get(Number(nodeId));
+    return Array.isArray(list) ? list : [];
   }
 
   _getDefaultCodeFilename(name = "") {
@@ -1180,12 +1308,24 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       toast.error(`Failed to load templates: ${String(error?.message || error)}`);
     }
 
+    let graphEntries = [];
+    try {
+      graphEntries = await this._listSavedGraphs();
+    } catch (error) {
+      toast.error(`Failed to load graphs: ${String(error?.message || error)}`);
+    }
+
     const form = document.createElement("form");
     const draft = this._createNodeDraft(NG.NODE_CODE);
 
     const renderForm = () => {
       const isCodeNode = draft.kind === NG.NODE_CODE;
       const isValueNode = draft.kind === NG.NODE_VALUE;
+      const isImportNode = draft.kind === NG.NODE_CALL;
+      const graphSummary = draft.graphSummary || { inputs: [], outputs: [] };
+      const graphOptions = graphEntries.length
+        ? graphEntries.map((entry) => `<option value="${Number(entry.id || 0)}" ${Number(entry.id || 0) === Number(draft.graphId || 0) ? "selected" : ""}>${escapeAttribute(entry.name)} (${Number(entry.nodeCount || 0)} node${Number(entry.nodeCount || 0) === 1 ? "" : "s"})</option>`).join("")
+        : `<option value="" disabled selected>no saved graphs</option>`;
       form.innerHTML = `
        <p>Add a new node.</p>
         <label>
@@ -1198,16 +1338,28 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           Node name
           <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(draft.name)}">
         </label>
+        ${isImportNode ? `
+        <fieldset>
+          <legend>Imported graph</legend>
+            <label>
+              Graph
+              <select name="graph-name">
+              <option value="" ${!draft.graphId ? "selected" : ""}>choose graph</option>
+              ${graphOptions}
+              </select>
+            </label>
+          ${this._renderImportBoundarySummary(graphSummary)}
+        </fieldset>` : ""}
         ${isCodeNode ? this._renderCodeSourceFields({
         codePath: draft.codePath,
         code: draft.code,
         readOnly: draft.codeReadOnly,
         status: draft.codeStatus,
       }) : ""}
-       ${this._nodeSupportsInputs(draft.kind) ? `
-       <fieldset>
-         <legend>Inputs</legend>
-         <ul>
+       ${this._nodeSupportsInputs(draft.kind) && !isImportNode ? `
+        <fieldset>
+          <legend>Inputs</legend>
+          <ul>
            ${draft.inputs.map((port, index) => `
            <li>
              <input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}">
@@ -1220,9 +1372,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
            </li>
          </ul>
        </fieldset>` : ""}
-       ${this._nodeSupportsOutputs(draft.kind) ? `
-       <fieldset>
-         <legend>Outputs</legend>
+        ${this._nodeSupportsOutputs(draft.kind) && !isImportNode ? `
+        <fieldset>
+          <legend>Outputs</legend>
          <ul>
            ${draft.outputs.map((port, index) => `
            <li>
@@ -1281,6 +1433,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
               draft.codeReadOnly = true;
               draft.codeStatus = "Choose a code file to enable editing.";
             }
+            if (draft.kind === NG.NODE_CALL) {
+              draft.graphId = draft.graphId || Number(graphEntries[0]?.id || 0);
+              await this._applyImportNodeGraphRef(draft, draft.graphId);
+            }
             if (!this._nodeSupportsInputs(draft.kind)) {
               draft.inputs = [];
               draft.newInputName = "";
@@ -1291,6 +1447,15 @@ class ViewNodeGraph2 extends ViewCanvasBase {
               draft.newOutputValue = "";
             }
           }
+          renderForm();
+        };
+      }
+
+      const graphSelect = form.querySelector('[name="graph-name"]');
+      if (graphSelect && isImportNode) {
+        graphSelect.onchange = async () => {
+          draft.graphId = Number(graphSelect.value || 0);
+          await this._applyImportNodeGraphRef(draft, draft.graphId);
           renderForm();
         };
       }
@@ -1418,6 +1583,15 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         return;
       }
 
+      if (draft.kind === NG.NODE_CALL) {
+        const graphId = Number(formData.get("graph-name") || draft.graphId || 0);
+        if (!Number.isFinite(graphId) || graphId <= 0) {
+          toast.warning("Choose a graph to import.");
+          return;
+        }
+        await this._applyImportNodeGraphRef(draft, graphId);
+      }
+
       const nodeId = this._nextAvailableNodeId();
       if (nodeId <= 0) {
         toast.error("Could not allocate a node id.");
@@ -1445,6 +1619,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         }
       }
 
+      if (draft.kind === NG.NODE_CALL && !draft.graphName) {
+        toast.warning("Choose a graph to import.");
+        renderForm();
+        return;
+      }
+
       const createErr = this.api.ng_node_create(nodeId, draft.kind);
       if (createErr !== 0) {
         toast.error(`Failed to create node (code ${createErr}).`);
@@ -1455,6 +1635,18 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         const err = this.api.ng_input_add(nodeId, Number(port.inputId));
         if (err !== 0) {
           toast.error(`Failed to add input ${port.inputId} (code ${err}).`);
+          popup.close();
+          this.requestRenderIfGenerationChanged(true);
+          return;
+        }
+      }
+
+      if (draft.kind === NG.NODE_CALL) {
+        this._setGraphIdForNode(nodeId, draft.graphId);
+        this._setGraphNameForNode(nodeId, draft.graphName);
+        const argErr = this._setImportGraphArg(nodeId, draft.graphId);
+        if (argErr !== 0) {
+          toast.error(`Failed to set import graph id (code ${argErr}).`);
           popup.close();
           this.requestRenderIfGenerationChanged(true);
           return;
@@ -1485,6 +1677,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       }
       if (!(this.portLabels instanceof Map)) this.portLabels = new Map();
       this.portLabels.set(nodeId, labels);
+
+      if (draft.kind === NG.NODE_CALL) {
+        this._setImportDefaultsForNode(nodeId, draft.inputs.map((port) => String(port.value || "")));
+      }
 
       if (draft.kind === NG.NODE_VALUE) {
         const bucket = new Map();
@@ -1545,11 +1741,14 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         y: Math.round(Number(pos?.y || 0)),
         name,
         codePath: node.kind === NG.NODE_CODE ? this._getCodePath(node.id) : "",
+        graphId: node.kind === NG.NODE_CALL ? this._getGraphIdForNode(node.id) : 0,
+        graphName: node.kind === NG.NODE_CALL ? this._getGraphNameForNode(node.id) : "",
         inputs: (node.inputs || []).map((input, i) => ({
           id: Number(input?.inputId || i + 1),
           name: this._getStoredPortLabel(node.id, "input", Number(input?.inputId || i + 1)),
           srcNodeId: Number(input?.srcNodeId || 0),
           srcOutputId: Number(input?.srcOutputId || 0),
+          defaultValue: node.kind === NG.NODE_CALL ? String(this._getImportDefaultsForNode(node.id)[i] || input?.defaultValue || "") : undefined,
         })),
         outputs: (node.outputs || []).map((output, i) => ({
           id: Number(output?.outputId || i + 1),
@@ -1563,7 +1762,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     });
   }
 
-  _applySerializedGraph(nodes) {
+  async _applySerializedGraph(nodes) {
     if (!this.api || !Array.isArray(nodes)) return 1;
 
     let err = this.api.ng_clear_graph();
@@ -1582,6 +1781,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.codePathByNode = new Map();
     this.codeReadOnlyByNode = new Map();
     this.codeStatusByNode = new Map();
+    this.graphIdByNode = new Map();
+    this.graphNameByNode = new Map();
+    this.importDefaultsByNode = new Map();
     this.valueByNode = new Map();
     this._emitSelectionChanged();
 
@@ -1592,13 +1794,28 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       const nodeId = Number(raw?.id || 0);
       const kind = Number(raw?.kind || 0);
       if (!Number.isFinite(nodeId) || nodeId <= 0) continue;
-      if (kind !== NG.NODE_CODE && kind !== NG.NODE_GOAL && kind !== NG.NODE_VALUE) continue;
+      if (kind !== NG.NODE_CODE && kind !== NG.NODE_GOAL && kind !== NG.NODE_VALUE && kind !== NG.NODE_CALL) continue;
 
       err = this.api.ng_node_create(nodeId, kind);
       if (err !== 0) return err;
 
-      const inputs = Array.isArray(raw?.inputs) ? raw.inputs : [];
-      const outputs = Array.isArray(raw?.outputs) ? raw.outputs : [];
+      const inputs = Array.isArray(raw?.inputs) ? [...raw.inputs] : [];
+      const outputs = Array.isArray(raw?.outputs) ? [...raw.outputs] : [];
+
+      if (kind === NG.NODE_CALL && (inputs.length === 0 || outputs.length === 0)) {
+        const graphId = Number(raw?.graphId || 0);
+        const summary = await this._loadImportNodeBoundarySummary(graphId);
+        if (inputs.length === 0) {
+          (summary.inputs || []).forEach((port, index) => {
+            inputs.push({ id: index + 1, name: port.name, defaultValue: port.value });
+          });
+        }
+        if (outputs.length === 0) {
+          (summary.outputs || []).forEach((port, index) => {
+            outputs.push({ id: index + 1, name: port.name });
+          });
+        }
+      }
 
       for (const input of inputs) {
         const inputId = Number(input?.id || 0);
@@ -1630,6 +1847,14 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       const nodeName = String(raw?.name || "").trim();
       if (nodeName) this.nodeNames.set(nodeId, nodeName);
 
+      if (kind === NG.NODE_CALL) {
+        this._setGraphIdForNode(nodeId, Number(raw?.graphId || 0));
+        this._setGraphNameForNode(nodeId, String(raw?.graphName || "").trim());
+        err = this._setImportGraphArg(nodeId, this._getGraphIdForNode(nodeId));
+        if (err !== 0) return err;
+        this._setImportDefaultsForNode(nodeId, (inputs || []).map((input) => String(input?.defaultValue || "")));
+      }
+
       if (kind === NG.NODE_CODE) {
         const codePath = String(raw?.codePath || "").trim();
         const legacyCode = String(raw?.code || "");
@@ -1655,7 +1880,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         }
         this.valueByNode.set(nodeId, bucket);
       }
-
       this.nodeLayout.set(nodeId, {
         x: Math.round(Number(raw?.x || 0)),
         y: Math.round(Number(raw?.y || 0)),
@@ -1695,27 +1919,51 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   async saveGraphByName(name) {
     const cleanName = String(name || "").trim();
     if (!cleanName) return 1;
+    this.graphName = cleanName;
+    this.currentGraphId = 0;
+    this.setAttribute("graph-name", cleanName);
     const payload = this._serializeGraphNodes();
     const json = JSON.stringify(payload);
     const escapedName = cleanName.replace(/'/g, "''");
     const escapedJson = json.replace(/'/g, "''");
-    const sql = `INSERT OR REPLACE INTO nodegraph2_storage (name, data, node_count, updated_at) VALUES ('${escapedName}', '${escapedJson}', ${payload.length}, datetime('now'))`;
+    const sql = `INSERT INTO nodegraph2_storage (name, data, node_count, updated_at) VALUES ('${escapedName}', '${escapedJson}', ${payload.length}, datetime('now')) ON CONFLICT(name) DO UPDATE SET data = excluded.data, node_count = excluded.node_count, updated_at = excluded.updated_at`;
     await window.pluginManager.call("sql", "exec", sql);
+    try {
+      const result = await window.pluginManager.call("sql", "query", `SELECT rowid FROM nodegraph2_storage WHERE name = '${escapedName}'`);
+      const csv = this.td.decode(result.output || new Uint8Array());
+      const rows = parseCSVLines(csv.trim());
+      this.currentGraphId = Number(rows[1]?.[0] || 0);
+      if (this.currentGraphId > 0) {
+        if (!(this.graphSnapshotById instanceof Map)) this.graphSnapshotById = new Map();
+        this.graphSnapshotById.set(this.currentGraphId, { id: this.currentGraphId, name: cleanName, nodeCount: payload.length, nodes: payload });
+      }
+    } catch {
+      this.currentGraphId = 0;
+    }
     return 0;
   }
 
-  async loadGraphByName(name, { quietCodeIssues = false } = {}) {
+  async loadGraphByName(name, { quietCodeIssues = false, setCurrentGraph = true } = {}) {
     const cleanName = String(name || "").trim();
     if (!cleanName) return 1;
     const escapedName = cleanName.replace(/'/g, "''");
-    const result = await window.pluginManager.call("sql", "query", `SELECT data FROM nodegraph2_storage WHERE name = '${escapedName}'`);
+    const result = await window.pluginManager.call("sql", "query", `SELECT rowid, data FROM nodegraph2_storage WHERE name = '${escapedName}'`);
     const csv = this.td.decode(result.output || new Uint8Array());
     const rows = parseCSVLines(csv.trim());
-    if (rows.length < 2 || rows[1].length < 1) return 1;
-    const parsed = JSON.parse(rows[1][0]);
+    if (rows.length < 2 || rows[1].length < 2) return 1;
+    const parsed = JSON.parse(rows[1][1]);
     if (!Array.isArray(parsed)) return 1;
-    const err = this._applySerializedGraph(parsed);
+    const err = await this._applySerializedGraph(parsed);
     if (err !== 0) return err;
+    this.currentGraphId = Number(rows[1][0] || 0);
+    if (setCurrentGraph) {
+      this.graphName = cleanName;
+      this.setAttribute("graph-name", cleanName);
+    }
+    if (this.currentGraphId > 0) {
+      if (!(this.graphSnapshotById instanceof Map)) this.graphSnapshotById = new Map();
+      this.graphSnapshotById.set(this.currentGraphId, { id: this.currentGraphId, name: cleanName, nodeCount: parsed.length, nodes: parsed });
+    }
     const snapshot = this.getGraphSnapshot();
     const codeNodes = snapshot.nodes.filter((node) => node.kind === NG.NODE_CODE);
     const hydrated = await Promise.all(codeNodes.map((node) => this._hydrateCodeNode(node.id, { allowEmptyOnReadFailure: true })));
@@ -1857,14 +2105,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     let entries = [];
     try {
-      const result = await window.pluginManager.call("sql", "query", "SELECT name, node_count FROM nodegraph2_storage ORDER BY name");
-      const csv = this.td.decode(result.output || new Uint8Array());
-      const rows = parseCSVLines(csv.trim());
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i] || [];
-        if (!row[0]) continue;
-        entries.push({ name: row[0], nodeCount: Number(row[1] || 0) });
-      }
+      entries = await this._listSavedGraphs();
     } catch (error) {
       toast.error(`Failed to load saved graph list: ${String(error?.message || error)}`);
       return;
@@ -1877,7 +2118,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       content.innerHTML = entries.map((entry) => `
         <button type="button" data-name="${escapeAttribute(entry.name)}">
           <strong>${escapeAttribute(entry.name)}</strong>
-          <span>${entry.nodeCount} node${entry.nodeCount === 1 ? "" : "s"}</span>
+          <span>#${Number(entry.id || 0)} · ${entry.nodeCount} node${entry.nodeCount === 1 ? "" : "s"}</span>
         </button>
       `).join("");
     }
@@ -1904,6 +2145,29 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           toast.error(`Failed to load graph: ${String(error?.message || error)}`);
         }
       });
+    });
+  }
+
+  showGraphEditorPopup(graphName = this.graphName || DEFAULT_GRAPH_NAME) {
+    const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
+    if (!popupManager) {
+      toast.error("Popup manager is not available.");
+      return null;
+    }
+
+    const name = String(graphName || DEFAULT_GRAPH_NAME).trim() || DEFAULT_GRAPH_NAME;
+    const editor = document.createElement("view-nodegraph2");
+    editor.setAttribute("graph-name", name);
+    editor.style.display = "block";
+    editor.style.width = "min(1400px, 92vw)";
+    editor.style.height = "min(900px, 82vh)";
+    editor.style.minWidth = "960px";
+    editor.style.minHeight = "640px";
+
+    return popupManager.showPopup({
+      title: `Graph: ${name}`,
+      content: editor,
+      size: "large",
     });
   }
 
@@ -1939,6 +2203,20 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     let codeValue = String(this.sourceByNode.get(nodeId) || "");
     let codeReadOnly = !codePathValue || this._getCodeReadOnly(nodeId);
     let codeStatus = this._getCodeStatus(nodeId);
+    let graphEntries = [];
+    try {
+      graphEntries = await this._listSavedGraphs();
+    } catch (error) {
+      toast.error(`Failed to load graphs: ${String(error?.message || error)}`);
+    }
+    let graphIdValue = this._getGraphIdForNode(nodeId) || Number(node?.graphId || 0);
+    let graphNameValue = this._getGraphNameForNode(nodeId) || String(node?.graphName || "").trim();
+    if (!graphIdValue && graphNameValue) {
+      graphIdValue = await this._resolveGraphIdByName(graphNameValue);
+    }
+    let graphSummary = node.kind === NG.NODE_CALL
+      ? await this._loadImportNodeBoundarySummary(graphIdValue)
+      : { inputs: [], outputs: [] };
 
     const form = document.createElement("form");
     const renderForm = (
@@ -1952,10 +2230,14 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         codePath = codePathValue,
         codeEditorReadOnly = codeReadOnly,
         codeMessage = codeStatus,
+        graphName = graphNameValue,
+        graphId = graphIdValue,
+        graphSummary: summary = graphSummary,
       } = {}
     ) => {
       const isCodeNode = currentNode.kind === NG.NODE_CODE;
       const isValueNode = currentNode.kind === NG.NODE_VALUE;
+      const isImportNode = currentNode.kind === NG.NODE_CALL;
       form.innerHTML = `
        <p>Edit node settings.</p>
        <label>
@@ -1968,15 +2250,27 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           Node name
           <input type="text" name="name" placeholder="Enter node name" value="${escapeAttribute(currentName)}">
         </label>
-         ${isCodeNode ? this._renderCodeSourceFields({
+        ${isImportNode ? `
+        <fieldset>
+          <legend>Imported graph</legend>
+              <label>
+                Graph
+                <select name="graph-name">
+              <option value="" ${!graphId ? "selected" : ""}>choose graph</option>
+              ${(graphEntries.length ? graphEntries : [{ id: graphId || 0, name: graphName || "", nodeCount: 0 }]).map((entry) => `<option value="${Number(entry.id || 0)}" ${Number(entry.id || 0) === Number(graphId || 0) ? "selected" : ""}>${escapeAttribute(entry.name)}${entry.nodeCount ? ` (${Number(entry.nodeCount || 0)} node${Number(entry.nodeCount || 0) === 1 ? "" : "s"})` : ""}</option>`).join("")}
+                </select>
+              </label>
+          ${this._renderImportBoundarySummary(summary)}
+        </fieldset>` : ""}
+          ${isCodeNode ? this._renderCodeSourceFields({
         codePath,
         code: code === null || code === undefined ? codeValue : String(code),
         readOnly: codeEditorReadOnly,
         status: codeMessage,
       }) : ""}
-       ${this._nodeSupportsInputs(currentNode.kind) ? `
-       <fieldset>
-         <legend>Inputs</legend>
+        ${this._nodeSupportsInputs(currentNode.kind) && !isImportNode ? `
+        <fieldset>
+          <legend>Inputs</legend>
          <ul>
            ${currentNode.inputs.map((port, index) => `
            <li>
@@ -1990,8 +2284,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
            </li>
          </ul>
        </fieldset>` : ""}
-       ${this._nodeSupportsOutputs(currentNode.kind) ? `
-       <fieldset>
+        ${this._nodeSupportsOutputs(currentNode.kind) && !isImportNode ? `
+        <fieldset>
           <legend>Outputs</legend>
           <ul>
 
@@ -2029,6 +2323,28 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
       const addOutput = form.querySelector('[name="intent"][value="add-output"]');
       if (addOutput) addOutput.disabled = false;
+
+      const graphSelect = form.querySelector('[name="graph-name"]');
+      if (graphSelect && currentNode.kind === NG.NODE_CALL) {
+        graphSelect.onchange = async () => {
+          graphIdValue = Number(graphSelect.value || 0);
+          const selectedGraph = await this._readSavedGraphById(graphIdValue);
+          graphNameValue = String(selectedGraph?.name || "").trim();
+          graphSummary = this._buildImportBoundarySummary(selectedGraph?.nodes || []);
+          renderForm(currentNode, currentName, {
+            newInputName,
+            newOutputName,
+            newOutputValue,
+            code,
+            codePath,
+            codeEditorReadOnly,
+            codeMessage,
+            graphName: graphNameValue,
+            graphId: graphIdValue,
+            graphSummary,
+          });
+        };
+      }
     };
 
     renderForm(node, nameValue);
@@ -2144,6 +2460,21 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         draft.code = pendingCode ?? codeValue;
         draft.codeReadOnly = codeReadOnly;
         draft.codeStatus = codeStatus;
+        if (current.kind === NG.NODE_CALL) {
+          draft.graphId = Number(formData.get("graph-name") || graphIdValue || 0);
+          const selectedGraph = await this._readSavedGraphById(draft.graphId);
+          draft.graphName = String(selectedGraph?.name || graphNameValue || "").trim();
+          draft.inputs = (graphSummary.inputs || []).map((entry, index) => ({
+            inputId: index + 1,
+            name: String(entry?.name || "").trim(),
+            value: String(entry?.value || ""),
+          }));
+          draft.outputs = (graphSummary.outputs || []).map((entry, index) => ({
+            outputId: index + 1,
+            name: String(entry?.name || "").trim(),
+            value: "",
+          }));
+        }
         try {
           const result = await this.showSaveNodeTemplatePopup({
             draft,
@@ -2161,7 +2492,55 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       if (intent === "save-name") {
         const rawName = formData.get("name");
         this.nodeNames.set(nodeId, String(rawName || "").trim());
-        this._savePortNamesFromForm(nodeId, formData, current.kind);
+        if (current.kind === NG.NODE_CALL) {
+          const selectedGraphId = Number(formData.get("graph-name") || graphIdValue || 0);
+          if (!Number.isFinite(selectedGraphId) || selectedGraphId <= 0) {
+            toast.warning("Choose a graph to import.");
+            renderForm(current, String(rawName || ""), {
+              newInputName: String(formData.get("new-input-name") || "").trim(),
+              newOutputName: String(formData.get("new-output-name") || "").trim(),
+              newOutputValue: String(formData.get("new-output-value") || ""),
+              graphName: graphNameValue,
+              graphId: graphIdValue,
+              graphSummary,
+            });
+            return;
+          }
+          const selectedGraph = await this._readSavedGraphById(selectedGraphId);
+          if (!selectedGraph) {
+            toast.warning("Selected graph is no longer available.");
+            return;
+          }
+          graphIdValue = selectedGraph.id;
+          graphNameValue = selectedGraph.name;
+          graphSummary = this._buildImportBoundarySummary(selectedGraph.nodes || []);
+          const rebuildErr = this._rebuildImportNodePorts(nodeId, graphSummary);
+          if (rebuildErr !== 0) {
+            toast.error(`Failed to rebuild import-node ports (code ${rebuildErr}).`);
+            return;
+          }
+          this._setGraphIdForNode(nodeId, selectedGraph.id);
+          this._setGraphNameForNode(nodeId, selectedGraph.name);
+          const argErr = this._setImportGraphArg(nodeId, selectedGraph.id);
+          if (argErr !== 0) {
+            toast.error(`Failed to set import graph id (code ${argErr}).`);
+            return;
+          }
+          this._setImportDefaultsForNode(nodeId, (graphSummary.inputs || []).map((entry) => String(entry?.value || "")));
+          const labels = { inputs: {}, outputs: {} };
+          (graphSummary.inputs || []).forEach((entry, index) => {
+            const label = String(entry?.name || `input ${index + 1}`).trim();
+            labels.inputs[String(index + 1)] = label;
+          });
+          (graphSummary.outputs || []).forEach((entry, index) => {
+            const label = String(entry?.name || `output ${index + 1}`).trim();
+            labels.outputs[String(index + 1)] = label;
+          });
+          if (!(this.portLabels instanceof Map)) this.portLabels = new Map();
+          this.portLabels.set(nodeId, labels);
+        } else {
+          this._savePortNamesFromForm(nodeId, formData, current.kind);
+        }
         if (current.kind === NG.NODE_VALUE) {
           this._saveOutputValuesFromForm(nodeId, formData);
         }
@@ -2253,15 +2632,16 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     if (kind === NG.NODE_CODE) return "node-code";
     if (kind === NG.NODE_GOAL) return "node-goal";
     if (kind === NG.NODE_VALUE) return "node-value"
+    if (kind === NG.NODE_CALL) return "import-node";
     return "node";
   }
 
   _nodeSupportsInputs(kind) {
-    return kind === NG.NODE_CODE || kind === NG.NODE_GOAL;
+    return kind === NG.NODE_CODE || kind === NG.NODE_GOAL || kind === NG.NODE_CALL;
   }
 
   _nodeSupportsOutputs(kind) {
-    return kind === NG.NODE_CODE || kind === NG.NODE_VALUE;
+    return kind === NG.NODE_CODE || kind === NG.NODE_VALUE || kind === NG.NODE_CALL;
   }
 
   _getPortEditorDefaultLabel(nodeId, direction, portId, index) {
@@ -2288,6 +2668,11 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   _applyPortEditIntent(node, intent, options = {}) {
     if (!this.api) return false;
+
+    if (node.kind === NG.NODE_CALL) {
+      toast.info("Import node ports are read-only and come from the referenced graph.");
+      return false;
+    }
 
     if (intent === "add-input") {
       if (!this._nodeSupportsInputs(node.kind)) {
@@ -4216,6 +4601,202 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const deleteBtn = this.queryHeaderControl('[data-action="delete"]');
     if (deleteBtn) deleteBtn.disabled = !hasSelection;
   }
+
+  async _hydrateSerializedGraphCodeNodes(nodes) {
+    const list = Array.isArray(nodes) ? nodes : [];
+    for (const node of list) {
+      if (Number(node?.kind || 0) !== NG.NODE_CODE) continue;
+      const codePath = String(node?.codePath || "").trim();
+      if (!codePath || node?.code) continue;
+      try {
+        node.code = await this._readCodeFile(codePath);
+      } catch {
+        node.code = "";
+      }
+    }
+    return list;
+  }
+
+  async _readSavedGraphById(graphId, { fresh = false, hydrateCode = false } = {}) {
+    const id = Number(graphId || 0);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    if (!fresh && this.graphSnapshotById instanceof Map && this.graphSnapshotById.has(id)) {
+      return this.graphSnapshotById.get(id);
+    }
+    const result = await window.pluginManager.call("sql", "query", `SELECT rowid, name, data, node_count FROM nodegraph2_storage WHERE rowid = ${id}`);
+    const csv = this.td.decode(result.output || new Uint8Array());
+    const rows = parseCSVLines(csv.trim());
+    if (rows.length < 2 || !rows[1][2]) return null;
+    try {
+      const parsed = JSON.parse(rows[1][2]);
+      if (!Array.isArray(parsed)) return null;
+      if (hydrateCode) {
+        await this._hydrateSerializedGraphCodeNodes(parsed);
+      }
+      const graph = {
+        id,
+        name: String(rows[1][1] || "").trim(),
+        nodeCount: Number(rows[1][3] || parsed.length || 0),
+        nodes: parsed,
+      };
+      if (!(this.graphSnapshotById instanceof Map)) this.graphSnapshotById = new Map();
+      this.graphSnapshotById.set(id, graph);
+      return graph;
+    } catch {
+      return null;
+    }
+  }
+
+  async _listSavedGraphs() {
+    const result = await window.pluginManager.call("sql", "query", "SELECT rowid, name, node_count FROM nodegraph2_storage ORDER BY name");
+    const csv = this.td.decode(result.output || new Uint8Array());
+    const rows = parseCSVLines(csv.trim());
+    const entries = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i] || [];
+      const name = String(row[1] || row[0] || "").trim();
+      if (!name) continue;
+      entries.push({ id: Number(row[0] || 0), name, nodeCount: Number(row[2] || 0) });
+    }
+    return entries;
+  }
+
+  async _resolveGraphIdByName(name) {
+    const cleanName = String(name || "").trim();
+    if (!cleanName) return 0;
+    const graphs = await this._listSavedGraphs();
+    const match = graphs.find((entry) => String(entry.name || "") === cleanName);
+    return Number(match?.id || 0);
+  }
+
+  _buildImportBoundarySummary(nodes) {
+    const inputs = [];
+    const outputs = [];
+    const list = Array.isArray(nodes) ? nodes : [];
+
+    for (const node of list) {
+      const kind = Number(node?.kind || 0);
+      const nodeId = Number(node?.id || 0);
+      const nodeName = String(node?.name || `#${nodeId}`).trim();
+      if (kind === NG.NODE_VALUE) {
+        const bucket = Array.isArray(node?.outputs) ? node.outputs : [];
+        const valueText = bucket.map((port) => String(port?.value || "")).join("\n").trim();
+        inputs.push({
+          nodeId,
+          name: nodeName,
+          value: valueText,
+          outputs: bucket.map((port, index) => ({
+            outputId: Number(port?.id || index + 1),
+            name: String(port?.name || "").trim(),
+            value: String(port?.value || ""),
+          })),
+        });
+      } else if (kind === NG.NODE_GOAL) {
+        const bucket = Array.isArray(node?.inputs) ? node.inputs : [];
+        outputs.push({
+          nodeId,
+          name: nodeName,
+          inputs: bucket.map((port, index) => ({
+            inputId: Number(port?.id || index + 1),
+            name: String(port?.name || "").trim(),
+          })),
+        });
+      }
+    }
+
+    return { inputs, outputs };
+  }
+
+  _renderImportBoundarySummary(summary = {}) {
+    const inputs = Array.isArray(summary.inputs) ? summary.inputs : [];
+    const outputs = Array.isArray(summary.outputs) ? summary.outputs : [];
+    const renderItems = (items, kind) => items.map((item, index) => {
+      const title = String(item?.name || `${kind} ${index + 1}`);
+      const value = kind === "input" ? String(item?.value || "") : "";
+      return `
+        <li>
+          <input type="text" value="${escapeAttribute(title)}" readonly>
+          ${kind === "input" ? `<input type="text" value="${escapeAttribute(value)}" readonly placeholder="Default value">` : ""}
+        </li>`;
+    }).join("");
+
+    return `
+      <fieldset>
+        <legend>Imported inputs</legend>
+        <ul>${renderItems(inputs, "input") || "<li><em>none</em></li>"}</ul>
+      </fieldset>
+      <fieldset>
+        <legend>Imported outputs</legend>
+        <ul>${renderItems(outputs, "output") || "<li><em>none</em></li>"}</ul>
+      </fieldset>
+    `;
+  }
+
+  async _loadImportNodeBoundarySummary(graphId) {
+    const graph = await this._readSavedGraphById(graphId);
+    return this._buildImportBoundarySummary(graph?.nodes || []);
+  }
+
+  async _primeImportGraphCache(nodes, stack = new Set()) {
+    const list = Array.isArray(nodes) ? nodes : [];
+    for (const node of list) {
+      if (Number(node?.kind || 0) !== NG.NODE_CALL) continue;
+      const graphId = Number(node?.graphId || this._getGraphIdForNode(node?.id) || 0);
+      if (!Number.isFinite(graphId) || graphId <= 0 || stack.has(graphId)) continue;
+      stack.add(graphId);
+      const graph = await this._readSavedGraphById(graphId, { fresh: true, hydrateCode: true });
+      if (graph) {
+        await this._primeImportGraphCache(graph.nodes || [], stack);
+      }
+      stack.delete(graphId);
+    }
+  }
+
+  async _applyImportNodeGraphRef(draft, graphRef) {
+    const graphId = Number(graphRef || 0) || 0;
+    const graph = graphId > 0 ? await this._readSavedGraphById(graphId) : null;
+    const cleanName = String(graph?.name || "").trim();
+    const previousGraphName = String(draft?.graphName || "").trim();
+    draft.graphId = graph?.id || graphId;
+    draft.graphName = cleanName;
+    if (!String(draft?.name || "").trim() || String(draft?.name || "").trim() === previousGraphName) {
+      draft.name = cleanName;
+    }
+    draft.inputs = [];
+    draft.outputs = [];
+    if (!cleanName) {
+      draft.graphSummary = { inputs: [], outputs: [] };
+      return;
+    }
+    const summary = this._buildImportBoundarySummary(graph?.nodes || []);
+    draft.graphSummary = summary;
+    draft.inputs = summary.inputs.map((entry, index) => ({
+      inputId: index + 1,
+      name: entry.name,
+      value: entry.value,
+    }));
+    draft.outputs = summary.outputs.map((entry, index) => ({
+      outputId: index + 1,
+      name: entry.name,
+      value: "",
+    }));
+  }
+
+  _rebuildImportNodePorts(nodeId, summary = {}) {
+    if (!this.api || typeof this.api.ng_node_replace !== "function") return 1;
+    let err = this.api.ng_node_replace(nodeId, NG.NODE_CALL);
+    if (err !== 0) return err;
+    for (const [index, entry] of (summary.inputs || []).entries()) {
+      err = this.api.ng_input_add(nodeId, index + 1);
+      if (err !== 0) return err;
+    }
+    for (const [index, entry] of (summary.outputs || []).entries()) {
+      err = this.api.ng_output_add(nodeId, index + 1);
+      if (err !== 0) return err;
+    }
+    return 0;
+  }
+
 }
 
 function getNodeGraphRenderAssets() {
@@ -4286,9 +4867,9 @@ function getNodeGraphRenderAssets() {
       right: 8,
       top: 8,
       bottom: 8,
-    },
-  };
-}
+      },
+    };
+  }
 
 function autoArrangeNodeGraphView(view) {
   if (!view?.api || !view?.memory || !view?.assets || typeof view._readGraph !== "function") return false;

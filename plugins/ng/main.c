@@ -34,7 +34,79 @@ typedef struct {
   ng_i32 pending_co_ref;
 } NgRunCtx;
 
+typedef struct {
+  ng_u32 id;
+  ng_u32 src_node_id;
+  ng_u32 src_output_id;
+  char *default_value;
+} NgSerializedInput;
+
+typedef struct {
+  ng_u32 id;
+  char *value;
+} NgSerializedOutput;
+
+typedef struct {
+  ng_u32 id;
+  ng_u32 kind;
+  ng_u32 graph_id;
+  char *code;
+  char *code_path;
+  ng_u32 input_count;
+  ng_u32 output_count;
+  NgSerializedInput inputs[NG_MAX_INPUTS];
+  NgSerializedOutput outputs[NG_MAX_OUTPUTS];
+} NgSerializedNode;
+
+typedef struct {
+  NgSerializedNode nodes[NG_MAX_NODES];
+  ng_u32 node_count;
+} NgSerializedGraph;
+
+typedef struct {
+  ng_u32 owner_node_id;
+  ng_u32 owner_import_node_id;
+  ng_i32 emit_goal;
+  char *inline_code;
+  char *code_path;
+  char *value_defaults[NG_MAX_OUTPUTS];
+} NgExecNodeMeta;
+
+typedef struct {
+  NgNode nodes[NG_MAX_NODES];
+  NgExecNodeMeta meta[NG_MAX_NODES];
+  NgValueSlot output_slots[NG_MAX_NODES][NG_MAX_OUTPUTS];
+  ng_u32 node_count;
+  ng_u32 next_id;
+  ng_u32 active_import_ids[NG_MAX_NODES];
+  ng_u32 active_import_count;
+} NgExecGraph;
+
+typedef struct {
+  ng_u32 from_node_id;
+  ng_u32 from_output_id;
+  ng_u32 to_node_id;
+  ng_u32 to_output_id;
+} NgSourceOverride;
+
+typedef struct {
+  ng_u32 original_node_id;
+  ng_u32 compiled_node_id;
+} NgNodeIdMap;
+
+typedef struct {
+  ng_u32 output_index;
+  ng_u32 src_node_id;
+  ng_u32 src_output_id;
+} NgGoalExport;
+
+typedef struct {
+  ng_u32 graph_id;
+  ng_u32 import_node_id;
+} NgGraphStackEntry;
+
 static NgRunCtx g_run;
+static NgExecGraph g_exec;
 
 typedef struct {
   char *buf;
@@ -52,7 +124,25 @@ typedef struct {
 
 static int64_t join_i64(ng_i32 a, ng_i32 b);
 static double join_f64(ng_i32 a, ng_i32 b);
+static NgNode *find_node_in(NgNode *nodes, ng_u32 node_id);
+static ng_i32 find_node_index_in(NgNode *nodes, ng_u32 node_id);
+static void clear_node_output_slots_in(NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS],
+                                       ng_i32 node_idx);
+static NgValueSlot *find_output_slot_in(NgNode *nodes,
+                                        NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS],
+                                        ng_u32 node_id, ng_u32 output_id);
 static NgValueSlot *find_output_slot(ng_u32 node_id, ng_u32 output_id);
+static int ng_json_skip_token(const NgJsonDoc *doc, int tok_idx);
+static int ng_json_object_get(const NgJsonDoc *doc, int obj_idx,
+                              const char *key);
+static ng_u32 ng_json_token_u32(const NgJsonDoc *doc, int tok_idx,
+                                ng_u32 fallback);
+static char *ng_strdup(const char *src);
+static char *ng_json_token_dup(const NgJsonDoc *doc, int tok_idx);
+static ng_i32 ng_parse_serialized_graph(const char *json, size_t len,
+                                        NgSerializedGraph *out);
+static void ng_free_serialized_graph(NgSerializedGraph *graph);
+static ng_i32 ng_build_exec_graph(void);
 
 static void ng_sb_init(NgStrBuf *sb) {
   sb->buf = NULL;
@@ -144,6 +234,108 @@ static int ng_json_parse_u16(const char *s, unsigned *out_cp) {
   }
   *out_cp = cp;
   return 1;
+}
+
+static int ng_sb_append_utf8(NgStrBuf *sb, unsigned cp) {
+  char bytes[4];
+  size_t len = 0;
+  if (cp <= 0x7Fu) {
+    bytes[len++] = (char)cp;
+  } else if (cp <= 0x7FFu) {
+    bytes[len++] = (char)(0xC0u | ((cp >> 6) & 0x1Fu));
+    bytes[len++] = (char)(0x80u | (cp & 0x3Fu));
+  } else if (cp <= 0xFFFFu) {
+    bytes[len++] = (char)(0xE0u | ((cp >> 12) & 0x0Fu));
+    bytes[len++] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
+    bytes[len++] = (char)(0x80u | (cp & 0x3Fu));
+  } else if (cp <= 0x10FFFFu) {
+    bytes[len++] = (char)(0xF0u | ((cp >> 18) & 0x07u));
+    bytes[len++] = (char)(0x80u | ((cp >> 12) & 0x3Fu));
+    bytes[len++] = (char)(0x80u | ((cp >> 6) & 0x3Fu));
+    bytes[len++] = (char)(0x80u | (cp & 0x3Fu));
+  } else {
+    return 0;
+  }
+  return ng_sb_append_len(sb, bytes, len);
+}
+
+static char *ng_json_unescape_copy(const char *s, size_t len) {
+  NgStrBuf sb;
+  size_t i = 0;
+  ng_sb_init(&sb);
+  while (i < len) {
+    char c = s[i++];
+    if (c != '\\') {
+      if (!ng_sb_append_c(&sb, c)) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+      continue;
+    }
+    if (i >= len) {
+      ng_sb_free(&sb);
+      return NULL;
+    }
+    c = s[i++];
+    if (c == '"' || c == '\\' || c == '/') {
+      if (!ng_sb_append_c(&sb, c)) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+    } else if (c == 'b') {
+      if (!ng_sb_append_c(&sb, '\b')) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+    } else if (c == 'f') {
+      if (!ng_sb_append_c(&sb, '\f')) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+    } else if (c == 'n') {
+      if (!ng_sb_append_c(&sb, '\n')) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+    } else if (c == 'r') {
+      if (!ng_sb_append_c(&sb, '\r')) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+    } else if (c == 't') {
+      if (!ng_sb_append_c(&sb, '\t')) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+    } else if (c == 'u') {
+      unsigned cp = 0;
+      if (i + 4 > len || !ng_json_parse_u16(s + i, &cp)) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+      i += 4;
+      if (cp >= 0xD800u && cp <= 0xDBFFu) {
+        unsigned cp2 = 0;
+        if (i + 6 <= len && s[i] == '\\' && s[i + 1] == 'u' &&
+            ng_json_parse_u16(s + i + 2, &cp2) && cp2 >= 0xDC00u &&
+            cp2 <= 0xDFFFu) {
+          cp = 0x10000u + ((cp - 0xD800u) << 10) + (cp2 - 0xDC00u);
+          i += 6;
+        }
+      }
+      if (!ng_sb_append_utf8(&sb, cp)) {
+        ng_sb_free(&sb);
+        return NULL;
+      }
+    } else {
+      ng_sb_free(&sb);
+      return NULL;
+    }
+  }
+  if (sb.buf == NULL) {
+    return ng_strdup("");
+  }
+  return sb.buf;
 }
 
 static int ng_lua_add_utf8(luaL_Buffer *b, unsigned cp) {
@@ -728,6 +920,238 @@ static void register_json_csv_libs(lua_State *L) {
   lua_setglobal(L, "csv");
 }
 
+static int ng_json_skip_token(const NgJsonDoc *doc, int tok_idx) {
+  jsmntok_t tok;
+  int i;
+  int cur;
+  if (doc == NULL || tok_idx < 0 || tok_idx >= doc->count) {
+    return tok_idx;
+  }
+  tok = doc->tokens[tok_idx];
+  cur = tok_idx + 1;
+  if (tok.type == JSMN_OBJECT) {
+    for (i = 0; i < tok.size; i++) {
+      cur = ng_json_skip_token(doc, cur);
+      cur = ng_json_skip_token(doc, cur);
+    }
+    return cur;
+  }
+  if (tok.type == JSMN_ARRAY) {
+    for (i = 0; i < tok.size; i++) {
+      cur = ng_json_skip_token(doc, cur);
+    }
+    return cur;
+  }
+  return cur;
+}
+
+static int ng_json_key_equals(const NgJsonDoc *doc, int tok_idx,
+                              const char *key) {
+  size_t len;
+  jsmntok_t tok;
+  if (doc == NULL || key == NULL || tok_idx < 0 || tok_idx >= doc->count) {
+    return 0;
+  }
+  tok = doc->tokens[tok_idx];
+  if (tok.type != JSMN_STRING || tok.start < 0 || tok.end < tok.start) {
+    return 0;
+  }
+  len = strlen(key);
+  if ((size_t)(tok.end - tok.start) != len) {
+    return 0;
+  }
+  return memcmp(doc->json + tok.start, key, len) == 0;
+}
+
+static int ng_json_object_get(const NgJsonDoc *doc, int obj_idx,
+                              const char *key) {
+  jsmntok_t tok;
+  int i;
+  int cur;
+  if (doc == NULL || key == NULL || obj_idx < 0 || obj_idx >= doc->count) {
+    return -1;
+  }
+  tok = doc->tokens[obj_idx];
+  if (tok.type != JSMN_OBJECT) {
+    return -1;
+  }
+  cur = obj_idx + 1;
+  for (i = 0; i < tok.size; i++) {
+    int key_idx = cur;
+    int val_idx = cur + 1;
+    if (ng_json_key_equals(doc, key_idx, key)) {
+      return val_idx;
+    }
+    cur = ng_json_skip_token(doc, val_idx);
+  }
+  return -1;
+}
+
+static ng_u32 ng_json_token_u32(const NgJsonDoc *doc, int tok_idx,
+                                ng_u32 fallback) {
+  char buf[32];
+  jsmntok_t tok;
+  size_t len;
+  unsigned long value;
+  if (doc == NULL || tok_idx < 0 || tok_idx >= doc->count) {
+    return fallback;
+  }
+  tok = doc->tokens[tok_idx];
+  if (tok.start < 0 || tok.end < tok.start) {
+    return fallback;
+  }
+  len = (size_t)(tok.end - tok.start);
+  if (len == 0 || len >= sizeof(buf)) {
+    return fallback;
+  }
+  memcpy(buf, doc->json + tok.start, len);
+  buf[len] = '\0';
+  value = strtoul(buf, NULL, 10);
+  return (ng_u32)value;
+}
+
+static char *ng_json_token_dup(const NgJsonDoc *doc, int tok_idx) {
+  jsmntok_t tok;
+  size_t len;
+  char *copy;
+  if (doc == NULL || tok_idx < 0 || tok_idx >= doc->count) {
+    return NULL;
+  }
+  tok = doc->tokens[tok_idx];
+  if (tok.type == JSMN_PRIMITIVE) {
+    if ((tok.end - tok.start) == 4 &&
+        memcmp(doc->json + tok.start, "null", 4u) == 0) {
+      return NULL;
+    }
+  }
+  if (tok.start < 0 || tok.end < tok.start) {
+    return NULL;
+  }
+  len = (size_t)(tok.end - tok.start);
+  if (tok.type == JSMN_STRING) {
+    return ng_json_unescape_copy(doc->json + tok.start, len);
+  }
+  copy = (char *)malloc(len + 1u);
+  if (copy == NULL) {
+    return NULL;
+  }
+  memcpy(copy, doc->json + tok.start, len);
+  copy[len] = '\0';
+  return copy;
+}
+
+static char *ng_strdup(const char *src) {
+  size_t len;
+  char *copy;
+  if (src == NULL) {
+    return NULL;
+  }
+  len = strlen(src);
+  copy = (char *)malloc(len + 1u);
+  if (copy == NULL) {
+    return NULL;
+  }
+  memcpy(copy, src, len + 1u);
+  return copy;
+}
+
+static void ng_free_serialized_graph(NgSerializedGraph *graph) {
+  ng_u32 i;
+  ng_u32 j;
+  if (graph == NULL) {
+    return;
+  }
+  for (i = 0; i < graph->node_count; i++) {
+    NgSerializedNode *node = &graph->nodes[i];
+    free(node->code);
+    free(node->code_path);
+    for (j = 0; j < node->input_count; j++) {
+      free(node->inputs[j].default_value);
+    }
+    for (j = 0; j < node->output_count; j++) {
+      free(node->outputs[j].value);
+    }
+  }
+  memset(graph, 0, sizeof(*graph));
+}
+
+static ng_i32 ng_parse_serialized_graph(const char *json, size_t len,
+                                        NgSerializedGraph *out) {
+  NgJsonDoc doc;
+  jsmn_parser parser;
+  int rc;
+  int cur;
+  int i;
+  if (json == NULL || out == NULL) {
+    return NG_ERR_INVALID_ARG;
+  }
+  memset(out, 0, sizeof(*out));
+  doc.json = json;
+  doc.tokens = NULL;
+  doc.count = 0;
+  jsmn_init(&parser);
+  rc = jsmn_parse(&parser, json, len, NULL, 0);
+  if (rc <= 0) {
+    return NG_ERR_VALIDATION;
+  }
+  doc.count = rc;
+  doc.tokens = (jsmntok_t *)malloc((size_t)doc.count * sizeof(jsmntok_t));
+  if (doc.tokens == NULL) {
+    return NG_ERR_RUNTIME;
+  }
+  jsmn_init(&parser);
+  rc = jsmn_parse(&parser, json, len, doc.tokens, (unsigned int)doc.count);
+  if (rc < 1 || doc.tokens[0].type != JSMN_ARRAY) {
+    free(doc.tokens);
+    return NG_ERR_VALIDATION;
+  }
+  doc.count = rc;
+  cur = 1;
+  for (i = 0; i < doc.tokens[0].size && out->node_count < NG_MAX_NODES; i++) {
+    int node_idx = cur;
+    int field_idx;
+    int j;
+    NgSerializedNode *node = &out->nodes[out->node_count++];
+    memset(node, 0, sizeof(*node));
+    node->id = ng_json_token_u32(&doc, ng_json_object_get(&doc, node_idx, "id"), 0);
+    node->kind = ng_json_token_u32(&doc, ng_json_object_get(&doc, node_idx, "kind"), 0);
+    node->graph_id = ng_json_token_u32(&doc, ng_json_object_get(&doc, node_idx, "graphId"), 0);
+    node->code = ng_json_token_dup(&doc, ng_json_object_get(&doc, node_idx, "code"));
+    node->code_path = ng_json_token_dup(&doc, ng_json_object_get(&doc, node_idx, "codePath"));
+
+    field_idx = ng_json_object_get(&doc, node_idx, "inputs");
+    if (field_idx >= 0 && doc.tokens[field_idx].type == JSMN_ARRAY) {
+      int item = field_idx + 1;
+      for (j = 0; j < doc.tokens[field_idx].size && j < (int)NG_MAX_INPUTS; j++) {
+        int input_idx = item;
+        NgSerializedInput *input = &node->inputs[node->input_count++];
+        memset(input, 0, sizeof(*input));
+        input->id = ng_json_token_u32(&doc, ng_json_object_get(&doc, input_idx, "id"), (ng_u32)j + 1u);
+        input->src_node_id = ng_json_token_u32(&doc, ng_json_object_get(&doc, input_idx, "srcNodeId"), 0);
+        input->src_output_id = ng_json_token_u32(&doc, ng_json_object_get(&doc, input_idx, "srcOutputId"), 0);
+        input->default_value = ng_json_token_dup(&doc, ng_json_object_get(&doc, input_idx, "defaultValue"));
+        item = ng_json_skip_token(&doc, input_idx);
+      }
+    }
+
+    field_idx = ng_json_object_get(&doc, node_idx, "outputs");
+    if (field_idx >= 0 && doc.tokens[field_idx].type == JSMN_ARRAY) {
+      int item = field_idx + 1;
+      for (j = 0; j < doc.tokens[field_idx].size && j < (int)NG_MAX_OUTPUTS; j++) {
+        int output_idx = item;
+        NgSerializedOutput *output = &node->outputs[node->output_count++];
+        memset(output, 0, sizeof(*output));
+        output->id = ng_json_token_u32(&doc, ng_json_object_get(&doc, output_idx, "id"), (ng_u32)j + 1u);
+        output->value = ng_json_token_dup(&doc, ng_json_object_get(&doc, output_idx, "value"));
+        item = ng_json_skip_token(&doc, output_idx);
+      }
+    }
+    cur = ng_json_skip_token(&doc, node_idx);
+  }
+  free(doc.tokens);
+  return NG_OK;
+}
+
 static void clear_value_store(void) {
   g_value_len = 0;
   memset(g_output_slots, 0, sizeof(g_output_slots));
@@ -872,7 +1296,8 @@ static void emit_goal_reached(NgNode *goal_node) {
         goal_buf_appendf("; ");
       goal_buf_appendf("%u=", in->id);
       if (in->src_node_id != 0) {
-        slot = find_output_slot(in->src_node_id, in->src_output_id);
+        slot = find_output_slot_in(g_exec.nodes, g_exec.output_slots,
+                                   in->src_node_id, in->src_output_id);
       }
       goal_buf_append_slot_preview(slot);
     }
@@ -952,18 +1377,26 @@ static ng_i32 init_lua(void) {
 }
 
 static NgNode *find_node(ng_u32 node_id) {
+  return find_node_in(g_info.nodes, node_id);
+}
+
+static NgNode *find_node_in(NgNode *nodes, ng_u32 node_id) {
   ng_u32 i;
   for (i = 0; i < NG_MAX_NODES; i++) {
-    if (g_info.nodes[i].id == node_id)
-      return &g_info.nodes[i];
+    if (nodes[i].id == node_id)
+      return &nodes[i];
   }
   return NULL;
 }
 
 static ng_i32 find_node_index(ng_u32 node_id) {
+  return find_node_index_in(g_info.nodes, node_id);
+}
+
+static ng_i32 find_node_index_in(NgNode *nodes, ng_u32 node_id) {
   ng_u32 i;
   for (i = 0; i < NG_MAX_NODES; i++) {
-    if (g_info.nodes[i].id == node_id)
+    if (nodes[i].id == node_id)
       return (ng_i32)i;
   }
   return -1;
@@ -1022,22 +1455,33 @@ static double join_f64(ng_i32 a, ng_i32 b) {
 }
 
 static void clear_node_output_slots(ng_i32 node_idx) {
+  clear_node_output_slots_in(g_output_slots, node_idx);
+}
+
+static void clear_node_output_slots_in(NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS],
+                                       ng_i32 node_idx) {
   if (node_idx < 0 || node_idx >= (ng_i32)NG_MAX_NODES)
     return;
-  memset(g_output_slots[node_idx], 0, sizeof(g_output_slots[node_idx]));
+  memset(slots[node_idx], 0, sizeof(slots[node_idx]));
 }
 
 static NgValueSlot *find_output_slot(ng_u32 node_id, ng_u32 output_id) {
-  ng_i32 node_idx = find_node_index(node_id);
+  return find_output_slot_in(g_info.nodes, g_output_slots, node_id, output_id);
+}
+
+static NgValueSlot *find_output_slot_in(NgNode *nodes,
+                                        NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS],
+                                        ng_u32 node_id, ng_u32 output_id) {
+  ng_i32 node_idx = find_node_index_in(nodes, node_id);
   NgNode *node;
   ng_i32 out_idx;
   if (node_idx < 0)
     return NULL;
-  node = &g_info.nodes[node_idx];
+  node = &nodes[node_idx];
   out_idx = find_output_index(node, output_id);
   if (out_idx < 0)
     return NULL;
-  return &g_output_slots[node_idx][out_idx];
+  return &slots[node_idx][out_idx];
 }
 
 static void push_slot_to_lua(lua_State *L, const NgValueSlot *slot) {
@@ -1104,24 +1548,31 @@ static ng_i32 read_lua_to_slot(lua_State *L, int idx, NgValueSlot *slot) {
   }
 }
 
-static void push_node_inputs_table(lua_State *co, NgNode *node) {
+static void push_node_inputs_table_from(lua_State *co, NgNode *nodes,
+                                        NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS],
+                                        NgNode *node) {
   ng_u32 i;
   lua_newtable(co);
   for (i = 0; i < node->input_count; i++) {
     NgInputPort *in = &node->inputs[i];
     NgValueSlot *slot = NULL;
     if (in->src_node_id != 0) {
-      slot = find_output_slot(in->src_node_id, in->src_output_id);
+      slot = find_output_slot_in(nodes, slots, in->src_node_id, in->src_output_id);
     }
     push_slot_to_lua(co, slot);
     lua_seti(co, -2, (lua_Integer)in->id);
   }
 }
 
-static ng_i32 capture_node_outputs(lua_State *co, NgNode *node,
-                                   ng_i32 node_idx) {
+static void push_node_inputs_table(lua_State *co, NgNode *node) {
+  push_node_inputs_table_from(co, g_info.nodes, g_output_slots, node);
+}
+
+static ng_i32 capture_node_outputs_into(lua_State *co, NgNode *node,
+                                        ng_i32 node_idx,
+                                        NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS]) {
   ng_u32 i;
-  clear_node_output_slots(node_idx);
+  clear_node_output_slots_in(slots, node_idx);
   if (lua_gettop(co) < 1 || !lua_istable(co, -1))
     return NG_OK;
   for (i = 0; i < node->output_count; i++) {
@@ -1132,9 +1583,14 @@ static ng_i32 capture_node_outputs(lua_State *co, NgNode *node,
     lua_pop(co, 1);
     if (err != NG_OK)
       return err;
-    g_output_slots[node_idx][i] = slot;
+    slots[node_idx][i] = slot;
   }
   return NG_OK;
+}
+
+static ng_i32 capture_node_outputs(lua_State *co, NgNode *node,
+                                   ng_i32 node_idx) {
+  return capture_node_outputs_into(co, node, node_idx, g_output_slots);
 }
 
 static void mark_stale_downstream(ng_u32 src_node_id) {
@@ -1166,6 +1622,426 @@ static void refresh_active_goal_count(void) {
       continue;
     g_info.active_goal_count += 1;
   }
+}
+
+static ng_u32 ng_node_import_graph_id(const NgNode *node) {
+  if (node == NULL || node->arg_count <= NG_ARG_IMPORT_GRAPH_ID) {
+    return 0;
+  }
+  if (node->args[NG_ARG_IMPORT_GRAPH_ID].type != NG_VAL_I64) {
+    return 0;
+  }
+  return (ng_u32)join_i64(node->args[NG_ARG_IMPORT_GRAPH_ID].a,
+                          node->args[NG_ARG_IMPORT_GRAPH_ID].b);
+}
+
+static void ng_exec_graph_reset(void) {
+  ng_u32 i;
+  ng_u32 j;
+  for (i = 0; i < NG_MAX_NODES; i++) {
+    free(g_exec.meta[i].inline_code);
+    free(g_exec.meta[i].code_path);
+    for (j = 0; j < NG_MAX_OUTPUTS; j++) {
+      free(g_exec.meta[i].value_defaults[j]);
+      g_exec.meta[i].value_defaults[j] = NULL;
+    }
+  }
+  memset(&g_exec, 0, sizeof(g_exec));
+}
+
+static ng_i32 ng_exec_add_node(const NgSerializedNode *src, ng_i32 preserve_ids,
+                               ng_u32 owner_import_node_id, ng_u32 *out_id) {
+  ng_u32 idx;
+  NgNode *node;
+  NgExecNodeMeta *meta;
+  if (g_exec.node_count >= NG_MAX_NODES) {
+    return NG_ERR_CAPACITY;
+  }
+  idx = g_exec.node_count++;
+  node = &g_exec.nodes[idx];
+  meta = &g_exec.meta[idx];
+  memset(node, 0, sizeof(*node));
+  memset(meta, 0, sizeof(*meta));
+  node->id = preserve_ids ? src->id : g_exec.next_id++;
+  node->kind = src->kind;
+  node->exec_state = NG_EXEC_NEVER;
+  node->input_count = src->input_count;
+  node->output_count = src->output_count;
+  if (node->input_count > NG_MAX_INPUTS || node->output_count > NG_MAX_OUTPUTS) {
+    return NG_ERR_CAPACITY;
+  }
+  meta->owner_node_id = owner_import_node_id != 0 ? owner_import_node_id : src->id;
+  meta->owner_import_node_id = owner_import_node_id;
+  meta->emit_goal = owner_import_node_id == 0 && src->kind == NG_NODE_GOAL;
+  if (src->code != NULL) {
+    meta->inline_code = ng_strdup(src->code);
+  }
+  if (src->code_path != NULL) {
+    meta->code_path = ng_strdup(src->code_path);
+  }
+  for (idx = 0; idx < src->output_count; idx++) {
+    if (src->outputs[idx].value != NULL) {
+      meta->value_defaults[idx] = ng_strdup(src->outputs[idx].value);
+    }
+    node->outputs[idx].id = src->outputs[idx].id;
+  }
+  for (idx = 0; idx < src->input_count; idx++) {
+    node->inputs[idx].id = src->inputs[idx].id;
+  }
+  *out_id = node->id;
+  return NG_OK;
+}
+
+static ng_i32 ng_exec_find_node_index(ng_u32 node_id) {
+  return find_node_index_in(g_exec.nodes, node_id);
+}
+
+static ng_u32 ng_map_compiled_id(const NgNodeIdMap *map, ng_u32 count,
+                                 ng_u32 original_id) {
+  ng_u32 i;
+  for (i = 0; i < count; i++) {
+    if (map[i].original_node_id == original_id) {
+      return map[i].compiled_node_id;
+    }
+  }
+  return 0;
+}
+
+static int ng_find_override(const NgSourceOverride *overrides, ng_u32 count,
+                            ng_u32 from_node_id, ng_u32 from_output_id,
+                            ng_u32 *to_node_id, ng_u32 *to_output_id) {
+  ng_u32 i;
+  for (i = 0; i < count; i++) {
+    if (overrides[i].from_node_id != from_node_id) {
+      continue;
+    }
+    if (overrides[i].from_output_id != 0 && overrides[i].from_output_id != from_output_id) {
+      continue;
+    }
+    *to_node_id = overrides[i].to_node_id;
+    *to_output_id = overrides[i].to_output_id;
+    return 1;
+  }
+  return 0;
+}
+
+static void ng_exec_mark_owner_state(ng_u32 owner_node_id, ng_u32 exec_state,
+                                     ng_i32 err) {
+  NgNode *owner = find_node(owner_node_id);
+  if (owner == NULL) {
+    return;
+  }
+  owner->exec_state = exec_state;
+  owner->last_error = err;
+}
+
+static ng_i32 ng_load_graph_by_id(ng_u32 graph_id, NgSerializedGraph *out) {
+  char req[4];
+  ng_i32 out_len = 0;
+  req[0] = (char)(graph_id & 0xffu);
+  req[1] = (char)((graph_id >> 8) & 0xffu);
+  req[2] = (char)((graph_id >> 16) & 0xffu);
+  req[3] = (char)((graph_id >> 24) & 0xffu);
+  if (ng_host_resolve(0, NG_RESOLVE_GRAPH, req, 4, g_code_buf, NG_IO_BUFFER_CAP,
+                      &out_len) != NG_OK || out_len <= 0) {
+    return NG_ERR_HOST;
+  }
+  return ng_parse_serialized_graph(g_code_buf, (size_t)out_len, out);
+}
+
+static ng_i32 ng_top_level_graph_to_serialized(NgSerializedGraph *out) {
+  ng_u32 i;
+  if (out == NULL) {
+    return NG_ERR_INVALID_ARG;
+  }
+  memset(out, 0, sizeof(*out));
+  for (i = 0; i < NG_MAX_NODES; i++) {
+    NgNode *src = &g_info.nodes[i];
+    NgSerializedNode *dst;
+    ng_u32 j;
+    if (src->id == 0) {
+      continue;
+    }
+    dst = &out->nodes[out->node_count++];
+    memset(dst, 0, sizeof(*dst));
+    dst->id = src->id;
+    dst->kind = src->kind;
+    dst->graph_id = ng_node_import_graph_id(src);
+    dst->input_count = src->input_count;
+    dst->output_count = src->output_count;
+    for (j = 0; j < src->input_count; j++) {
+      dst->inputs[j].id = src->inputs[j].id;
+      dst->inputs[j].src_node_id = src->inputs[j].src_node_id;
+      dst->inputs[j].src_output_id = src->inputs[j].src_output_id;
+    }
+    for (j = 0; j < src->output_count; j++) {
+      dst->outputs[j].id = src->outputs[j].id;
+    }
+  }
+  return NG_OK;
+}
+
+static ng_i32 ng_goal_export_for_node(const NgSerializedNode *goal,
+                                      const NgNodeIdMap *local_map,
+                                      ng_u32 local_map_count,
+                                      const NgSourceOverride *overrides,
+                                      ng_u32 override_count,
+                                      ng_u32 *src_node_id,
+                                      ng_u32 *src_output_id) {
+  ng_u32 i;
+  if (goal == NULL || src_node_id == NULL || src_output_id == NULL) {
+    return NG_ERR_INVALID_ARG;
+  }
+  *src_node_id = 0;
+  *src_output_id = 0;
+  for (i = 0; i < goal->input_count; i++) {
+    ng_u32 from_node_id = goal->inputs[i].src_node_id;
+    ng_u32 from_output_id = goal->inputs[i].src_output_id;
+    ng_u32 to_node_id = 0;
+    ng_u32 to_output = 0;
+    if (from_node_id == 0) {
+      continue;
+    }
+    if (ng_find_override(overrides, override_count, from_node_id, from_output_id,
+                         &to_node_id, &to_output)) {
+      *src_node_id = to_node_id;
+      *src_output_id = to_output;
+      return NG_OK;
+    }
+    to_node_id = ng_map_compiled_id(local_map, local_map_count, from_node_id);
+    if (to_node_id != 0) {
+      *src_node_id = to_node_id;
+      *src_output_id = from_output_id;
+      return NG_OK;
+    }
+  }
+  return NG_OK;
+}
+
+static ng_i32 ng_compile_graph_recursive(
+    const NgSerializedGraph *src_graph, ng_i32 preserve_ids,
+    ng_u32 owner_import_node_id, const NgSourceOverride *base_overrides,
+    ng_u32 base_override_count, const NgGraphStackEntry *stack,
+    ng_u32 stack_depth, NgGoalExport *goal_exports, ng_u32 *goal_export_count) {
+  NgNodeIdMap local_map[NG_MAX_NODES];
+  NgSourceOverride overrides[NG_MAX_NODES];
+  ng_u32 local_map_count = 0;
+  ng_u32 override_count = 0;
+  ng_u32 i;
+  if (src_graph == NULL) {
+    return NG_ERR_INVALID_ARG;
+  }
+  if (goal_export_count != NULL) {
+    *goal_export_count = 0;
+  }
+  for (i = 0; i < base_override_count && i < NG_MAX_NODES; i++) {
+    overrides[override_count++] = base_overrides[i];
+  }
+  for (i = 0; i < src_graph->node_count; i++) {
+    const NgSerializedNode *src = &src_graph->nodes[i];
+    ng_u32 compiled_id = 0;
+    ng_u32 j;
+    int overridden_value = 0;
+    if (src->id == 0) {
+      continue;
+    }
+    if (owner_import_node_id != 0 && src->kind == NG_NODE_GOAL) {
+      continue;
+    }
+    if (src->kind == NG_NODE_CALL) {
+      continue;
+    }
+    if (owner_import_node_id != 0 && src->kind == NG_NODE_VALUE) {
+      ng_u32 tmp_node = 0;
+      ng_u32 tmp_output = 0;
+      overridden_value = ng_find_override(overrides, override_count, src->id, 0,
+                                          &tmp_node, &tmp_output);
+    }
+    if (overridden_value) {
+      continue;
+    }
+    if (ng_exec_add_node(src, preserve_ids, owner_import_node_id, &compiled_id) != NG_OK) {
+      return NG_ERR_CAPACITY;
+    }
+    local_map[local_map_count].original_node_id = src->id;
+    local_map[local_map_count].compiled_node_id = compiled_id;
+    local_map_count += 1;
+    for (j = 0; j < src->output_count; j++) {
+      g_exec.nodes[ng_exec_find_node_index(compiled_id)].outputs[j].id = src->outputs[j].id;
+    }
+  }
+  for (i = 0; i < src_graph->node_count; i++) {
+    const NgSerializedNode *src = &src_graph->nodes[i];
+    if (src->kind != NG_NODE_CALL) {
+      continue;
+    }
+    if (src->graph_id != 0) {
+      NgSerializedGraph imported;
+      NgGraphStackEntry next_stack[NG_JSON_RECURSION_LIMIT];
+      NgGoalExport child_exports[NG_MAX_OUTPUTS];
+      NgSourceOverride child_overrides[NG_MAX_NODES];
+      ng_u32 child_export_count = 0;
+      ng_u32 child_override_count = 0;
+      ng_u32 k;
+      for (k = 0; k < stack_depth; k++) {
+        if (stack[k].graph_id == src->graph_id) {
+          return NG_ERR_VALIDATION;
+        }
+        next_stack[k] = stack[k];
+      }
+      next_stack[stack_depth].graph_id = src->graph_id;
+      next_stack[stack_depth].import_node_id = src->id;
+      if (ng_load_graph_by_id(src->graph_id, &imported) != NG_OK) {
+        return NG_ERR_HOST;
+      }
+      {
+        ng_u32 value_index = 0;
+        for (k = 0; k < imported.node_count && child_override_count < NG_MAX_NODES;
+             k++) {
+          ng_u32 src_node_id;
+          ng_u32 src_output_id;
+          ng_u32 mapped_node_id = 0;
+          ng_u32 mapped_output_id = 0;
+          if (imported.nodes[k].kind != NG_NODE_VALUE) {
+            continue;
+          }
+          if (value_index >= src->input_count) {
+            break;
+          }
+          src_node_id = src->inputs[value_index].src_node_id;
+          src_output_id = src->inputs[value_index].src_output_id;
+          value_index += 1u;
+          if (src_node_id == 0) {
+            continue;
+          }
+          if (ng_find_override(overrides, override_count, src_node_id,
+                               src_output_id, &mapped_node_id,
+                               &mapped_output_id)) {
+            src_node_id = mapped_node_id;
+            src_output_id = mapped_output_id;
+          } else {
+            mapped_node_id = ng_map_compiled_id(local_map, local_map_count,
+                                                src_node_id);
+            if (mapped_node_id != 0) {
+              src_node_id = mapped_node_id;
+            }
+          }
+          child_overrides[child_override_count].from_node_id = imported.nodes[k].id;
+          child_overrides[child_override_count].from_output_id = 0;
+          child_overrides[child_override_count].to_node_id = src_node_id;
+          child_overrides[child_override_count].to_output_id = src_output_id;
+          child_override_count += 1u;
+        }
+      }
+      if (ng_compile_graph_recursive(&imported, 0,
+                                     owner_import_node_id != 0 ? owner_import_node_id : src->id,
+                                     child_overrides,
+                                     child_override_count, next_stack,
+                                     stack_depth + 1, child_exports,
+                                     &child_export_count) != NG_OK) {
+        ng_free_serialized_graph(&imported);
+        return NG_ERR_RUNTIME;
+      }
+      if (owner_import_node_id == 0 && g_exec.active_import_count < NG_MAX_NODES) {
+        g_exec.active_import_ids[g_exec.active_import_count++] = src->id;
+      }
+      for (k = 0; k < child_export_count && override_count < NG_MAX_NODES; k++) {
+        overrides[override_count].from_node_id = src->id;
+        overrides[override_count].from_output_id =
+            k < src->output_count ? src->outputs[k].id : child_exports[k].output_index;
+        overrides[override_count].to_node_id = child_exports[k].src_node_id;
+        overrides[override_count].to_output_id = child_exports[k].src_output_id;
+        override_count += 1;
+      }
+      ng_free_serialized_graph(&imported);
+    }
+  }
+  for (i = 0; i < src_graph->node_count; i++) {
+    const NgSerializedNode *src = &src_graph->nodes[i];
+    ng_u32 compiled_id = ng_map_compiled_id(local_map, local_map_count, src->id);
+    ng_i32 exec_idx;
+    ng_u32 j;
+    if (compiled_id == 0) {
+      continue;
+    }
+    exec_idx = ng_exec_find_node_index(compiled_id);
+    if (exec_idx < 0) {
+      continue;
+    }
+    for (j = 0; j < src->input_count; j++) {
+      ng_u32 src_node_id = src->inputs[j].src_node_id;
+      ng_u32 src_output_id = src->inputs[j].src_output_id;
+      ng_u32 mapped_node_id = 0;
+      ng_u32 mapped_output_id = 0;
+      g_exec.nodes[exec_idx].inputs[j].id = src->inputs[j].id;
+      if (src_node_id == 0) {
+        continue;
+      }
+      if (ng_find_override(overrides, override_count, src_node_id, src_output_id,
+                           &mapped_node_id, &mapped_output_id)) {
+        src_node_id = mapped_node_id;
+        src_output_id = mapped_output_id;
+      } else {
+        mapped_node_id = ng_map_compiled_id(local_map, local_map_count, src_node_id);
+        if (mapped_node_id != 0) {
+          src_node_id = mapped_node_id;
+        }
+      }
+      g_exec.nodes[exec_idx].inputs[j].src_node_id = src_node_id;
+      g_exec.nodes[exec_idx].inputs[j].src_output_id = src_output_id;
+    }
+  }
+  if (owner_import_node_id != 0 && goal_exports != NULL && goal_export_count != NULL) {
+    ng_u32 out_idx = 0;
+    for (i = 0; i < src_graph->node_count && out_idx < NG_MAX_OUTPUTS; i++) {
+      const NgSerializedNode *src = &src_graph->nodes[i];
+      ng_u32 src_node_id = 0;
+      ng_u32 src_output_id = 0;
+      if (src->kind != NG_NODE_GOAL) {
+        continue;
+      }
+      if (ng_goal_export_for_node(src, local_map, local_map_count, overrides,
+                                  override_count, &src_node_id,
+                                  &src_output_id) != NG_OK) {
+        return NG_ERR_RUNTIME;
+      }
+      if (src_node_id == 0 || src_output_id == 0) {
+        continue;
+      }
+      goal_exports[out_idx].output_index = out_idx + 1u;
+      goal_exports[out_idx].src_node_id = src_node_id;
+      goal_exports[out_idx].src_output_id = src_output_id;
+      out_idx += 1u;
+    }
+    *goal_export_count = out_idx;
+  }
+  return NG_OK;
+}
+
+static ng_i32 ng_build_exec_graph(void) {
+  NgSerializedGraph root;
+  ng_i32 err;
+  NgGraphStackEntry stack[1];
+  ng_u32 dummy = 0;
+  ng_exec_graph_reset();
+  err = ng_top_level_graph_to_serialized(&root);
+  if (err != NG_OK) {
+    return err;
+  }
+  g_exec.next_id = 1;
+  {
+    ng_u32 i;
+    for (i = 0; i < root.node_count; i++) {
+      if (root.nodes[i].id >= g_exec.next_id) {
+        g_exec.next_id = root.nodes[i].id + 1u;
+      }
+    }
+  }
+  stack[0].graph_id = 0;
+  stack[0].import_node_id = 0;
+  err = ng_compile_graph_recursive(&root, 1, 0, NULL, 0, stack, 0, NULL, &dummy);
+  ng_free_serialized_graph(&root);
+  return err;
 }
 
 static int lua_host_await_call(lua_State *L) {
@@ -1243,9 +2119,10 @@ static ng_i32 load_wrapped_code(lua_State *L, const char *src, size_t len) {
   return NG_OK;
 }
 
-static ng_i32 start_code_coroutine(ng_u32 node_id, NgNode *node,
-                                   ng_i32 node_idx, const char *src,
-                                   size_t len) {
+static ng_i32 start_code_coroutine(ng_u32 node_id, NgNode *nodes,
+                                   NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS],
+                                   NgNode *node, ng_i32 node_idx,
+                                   const char *src, size_t len) {
   int status;
   int nres = 0;
   lua_State *co;
@@ -1265,7 +2142,7 @@ static ng_i32 start_code_coroutine(ng_u32 node_id, NgNode *node,
   g_run.pending_co = co;
   lua_xmove(g_lua, co, 1);
 
-  push_node_inputs_table(co, node);
+  push_node_inputs_table_from(co, nodes, slots, node);
   lua_newtable(co);
   lua_pushcfunction(co, lua_host_await_call);
   lua_setfield(co, -2, "awaitCall");
@@ -1282,12 +2159,13 @@ static ng_i32 start_code_coroutine(ng_u32 node_id, NgNode *node,
     }
     return NG_ERR_RUNTIME;
   }
-  err = capture_node_outputs(co, node, node_idx);
+  err = capture_node_outputs_into(co, node, node_idx, slots);
   lua_settop(co, 0);
   return err;
 }
 
-static ng_i32 resume_code_coroutine(NgNode *node, ng_i32 node_idx) {
+static ng_i32 resume_code_coroutine(NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS],
+                                    NgNode *node, ng_i32 node_idx) {
   int status;
   int nres = 0;
   ng_i32 err = NG_OK;
@@ -1306,7 +2184,7 @@ static ng_i32 resume_code_coroutine(NgNode *node, ng_i32 node_idx) {
     }
     return NG_ERR_RUNTIME;
   }
-  err = capture_node_outputs(co, node, node_idx);
+  err = capture_node_outputs_into(co, node, node_idx, slots);
   lua_settop(co, 0);
   return err;
 }
@@ -1342,10 +2220,13 @@ static ng_i32 execute_dependencies(NgNode *node, ng_u8 *visit) {
 static ng_i32 execute_node(ng_u32 node_id, ng_u8 *visit) {
   ng_i32 idx;
   NgNode *node;
+  NgExecNodeMeta *meta;
   ng_i32 err;
   ng_i32 out_len;
+  ng_u32 owner_node_id;
+  int emit_events;
 
-  idx = find_node_index(node_id);
+  idx = find_node_index_in(g_exec.nodes, node_id);
   if (idx < 0)
     return NG_ERR_NOT_FOUND;
   if (visit[idx] == 1)
@@ -1353,7 +2234,10 @@ static ng_i32 execute_node(ng_u32 node_id, ng_u8 *visit) {
   if (visit[idx] == 2)
     return NG_OK;
 
-  node = &g_info.nodes[idx];
+  node = &g_exec.nodes[idx];
+  meta = &g_exec.meta[idx];
+  owner_node_id = meta->owner_node_id != 0 ? meta->owner_node_id : node->id;
+  emit_events = meta->owner_import_node_id == 0;
   visit[idx] = 1;
 
   if (node->exec_state == NG_EXEC_SUCCESS) {
@@ -1369,33 +2253,55 @@ static ng_i32 execute_node(ng_u32 node_id, ng_u8 *visit) {
   if (err != NG_OK) {
     node->exec_state = NG_EXEC_ERROR;
     node->last_error = err;
-    notify_run_event(node->id, NG_RUN_EVENT_NODE_FAILED, err);
+    ng_exec_mark_owner_state(owner_node_id, NG_EXEC_ERROR, err);
+    if (emit_events) {
+      notify_run_event(owner_node_id, NG_RUN_EVENT_NODE_FAILED, err);
+    }
     visit[idx] = 2;
     return err;
   }
 
-  notify_run_event(node->id, NG_RUN_EVENT_NODE_STARTED, NG_OK);
+  if (emit_events) {
+    notify_run_event(owner_node_id, NG_RUN_EVENT_NODE_STARTED, NG_OK);
+  }
   if (node->kind == NG_NODE_CODE) {
     if (g_run.pending_node_id == node->id && g_run.has_response) {
-      err = resume_code_coroutine(node, idx);
+      err = resume_code_coroutine(g_exec.output_slots, node, idx);
       if (err == NG_ERR_HOST) {
         visit[idx] = 2;
         return NG_ERR_HOST;
       }
       clear_pending_coroutine();
     } else {
-      out_len = 0;
-      err = ng_host_resolve(node->id, NG_RESOLVE_CODE, NULL, 0, g_code_buf,
-                            NG_IO_BUFFER_CAP, &out_len);
+      if (meta->inline_code != NULL) {
+        out_len = (ng_i32)strlen(meta->inline_code);
+        if (out_len >= NG_IO_BUFFER_CAP) {
+          err = NG_ERR_CAPACITY;
+        } else {
+          memcpy(g_code_buf, meta->inline_code, (size_t)out_len);
+          g_code_buf[out_len] = '\0';
+          err = NG_OK;
+        }
+      } else {
+        const char *req_ptr = meta->code_path;
+        ng_i32 req_len = req_ptr != NULL ? (ng_i32)strlen(req_ptr) : 0;
+        out_len = 0;
+        err = ng_host_resolve(node->id, NG_RESOLVE_CODE, req_ptr, req_len,
+                              g_code_buf, NG_IO_BUFFER_CAP, &out_len);
+      }
       if (err != NG_OK || out_len < 0) {
         node->exec_state = NG_EXEC_ERROR;
         node->last_error = NG_ERR_HOST;
-        notify_run_event(node->id, NG_RUN_EVENT_NODE_FAILED, NG_ERR_HOST);
+        ng_exec_mark_owner_state(owner_node_id, NG_EXEC_ERROR, NG_ERR_HOST);
+        if (emit_events) {
+          notify_run_event(owner_node_id, NG_RUN_EVENT_NODE_FAILED,
+                           NG_ERR_HOST);
+        }
         visit[idx] = 2;
         return NG_ERR_HOST;
       }
-      err = start_code_coroutine(node->id, node, idx, g_code_buf,
-                                 (size_t)out_len);
+      err = start_code_coroutine(node->id, g_exec.nodes, g_exec.output_slots,
+                                 node, idx, g_code_buf, (size_t)out_len);
       if (err == NG_ERR_HOST) {
         visit[idx] = 2;
         return NG_ERR_HOST;
@@ -1404,39 +2310,58 @@ static ng_i32 execute_node(ng_u32 node_id, ng_u8 *visit) {
     if (err != NG_OK) {
       node->exec_state = NG_EXEC_ERROR;
       node->last_error = err;
-      notify_run_event(node->id, NG_RUN_EVENT_NODE_FAILED, err);
+      ng_exec_mark_owner_state(owner_node_id, NG_EXEC_ERROR, err);
+      if (emit_events) {
+        notify_run_event(owner_node_id, NG_RUN_EVENT_NODE_FAILED, err);
+      }
       visit[idx] = 2;
       return err;
     }
   } else if (node->kind == NG_NODE_VALUE) {
     ng_u32 oi;
-    clear_node_output_slots(idx);
+    clear_node_output_slots_in(g_exec.output_slots, idx);
     for (oi = 0; oi < node->output_count; oi++) {
       ng_u32 out_id = node->outputs[oi].id;
-      char req[4];
       NgValueSlot slot;
       ng_i32 off;
-      req[0] = (char)(out_id & 0xffu);
-      req[1] = (char)((out_id >> 8) & 0xffu);
-      req[2] = (char)((out_id >> 16) & 0xffu);
-      req[3] = (char)((out_id >> 24) & 0xffu);
-      out_len = 0;
-      err = ng_host_resolve(node->id, NG_RESOLVE_VALUE, req, 4, g_code_buf,
-                            NG_IO_BUFFER_CAP, &out_len);
+      const char *default_value = meta->value_defaults[oi];
+      memset(&slot, 0, sizeof(slot));
+      if (default_value != NULL) {
+        out_len = (ng_i32)strlen(default_value);
+        err = NG_OK;
+        memcpy(g_code_buf, default_value, (size_t)out_len);
+      } else {
+        char req[4];
+        req[0] = (char)(out_id & 0xffu);
+        req[1] = (char)((out_id >> 8) & 0xffu);
+        req[2] = (char)((out_id >> 16) & 0xffu);
+        req[3] = (char)((out_id >> 24) & 0xffu);
+        out_len = 0;
+        err = ng_host_resolve(node->id, NG_RESOLVE_VALUE, req, 4, g_code_buf,
+                              NG_IO_BUFFER_CAP, &out_len);
+      }
       if (err != NG_OK || out_len < 0) {
         node->exec_state = NG_EXEC_ERROR;
         node->last_error = NG_ERR_HOST;
-        notify_run_event(node->id, NG_RUN_EVENT_NODE_FAILED, NG_ERR_HOST);
+        ng_exec_mark_owner_state(owner_node_id, NG_EXEC_ERROR, NG_ERR_HOST);
+        if (emit_events) {
+          notify_run_event(owner_node_id, NG_RUN_EVENT_NODE_FAILED,
+                           NG_ERR_HOST);
+        }
         visit[idx] = 2;
         return NG_ERR_HOST;
       }
-      memset(&slot, 0, sizeof(slot));
       if (out_len > 0) {
         off = value_alloc_and_copy(g_code_buf, out_len);
         if (off < 0) {
           node->exec_state = NG_EXEC_ERROR;
           node->last_error = NG_ERR_CAPACITY;
-          notify_run_event(node->id, NG_RUN_EVENT_NODE_FAILED, NG_ERR_CAPACITY);
+          ng_exec_mark_owner_state(owner_node_id, NG_EXEC_ERROR,
+                                   NG_ERR_CAPACITY);
+          if (emit_events) {
+            notify_run_event(owner_node_id, NG_RUN_EVENT_NODE_FAILED,
+                             NG_ERR_CAPACITY);
+          }
           visit[idx] = 2;
           return NG_ERR_CAPACITY;
         }
@@ -1446,17 +2371,20 @@ static ng_i32 execute_node(ng_u32 node_id, ng_u8 *visit) {
       } else {
         slot.type = NG_VAL_EMPTY;
       }
-      g_output_slots[idx][oi] = slot;
+      g_exec.output_slots[idx][oi] = slot;
     }
   }
 
-  if (node->kind == NG_NODE_GOAL) {
+  if (node->kind == NG_NODE_GOAL && meta->emit_goal) {
     emit_goal_reached(node);
   }
 
   node->exec_state = NG_EXEC_SUCCESS;
   node->last_error = NG_OK;
-  notify_run_event(node->id, NG_RUN_EVENT_NODE_SUCCEEDED, NG_OK);
+  ng_exec_mark_owner_state(owner_node_id, NG_EXEC_SUCCESS, NG_OK);
+  if (emit_events) {
+    notify_run_event(owner_node_id, NG_RUN_EVENT_NODE_SUCCEEDED, NG_OK);
+  }
   visit[idx] = 2;
   return NG_OK;
 }
@@ -1465,6 +2393,7 @@ ng_i32 ng_init(void) {
   memset(&g_info, 0, sizeof(g_info));
   memset(&g_run, 0, sizeof(g_run));
   g_run.pending_co_ref = LUA_NOREF;
+  ng_exec_graph_reset();
   clear_value_store();
   if (init_lua() != NG_OK) {
     g_info.initialized = 0;
@@ -1487,6 +2416,7 @@ ng_i32 ng_clear_graph(void) {
   clear_pending_coroutine();
   memset(&g_run, 0, sizeof(g_run));
   g_run.pending_co_ref = LUA_NOREF;
+  ng_exec_graph_reset();
   clear_value_store();
   clear_io();
   set_run_status(NG_RUN_IDLE);
@@ -1784,6 +2714,10 @@ static ng_i32 continue_active_run(void) {
       set_last_error(err);
       return err;
     }
+    for (i = 0; i < g_exec.active_import_count; i++) {
+      ng_exec_mark_owner_state(g_exec.active_import_ids[i], NG_EXEC_SUCCESS,
+                               NG_OK);
+    }
     set_run_status(NG_RUN_DONE);
     g_run.active = 0;
     g_info.is_running = 0;
@@ -1793,7 +2727,7 @@ static ng_i32 continue_active_run(void) {
   }
 
   for (i = g_run.next_goal_scan; i < NG_MAX_NODES; i++) {
-    NgNode *node = &g_info.nodes[i];
+    NgNode *node = &g_exec.nodes[i];
     if (node->id == 0 || node->kind != NG_NODE_GOAL)
       continue;
     g_run.next_goal_scan = i;
@@ -1813,6 +2747,10 @@ static ng_i32 continue_active_run(void) {
     g_run.next_goal_scan = i + 1;
   }
 
+  for (i = 0; i < g_exec.active_import_count; i++) {
+    ng_exec_mark_owner_state(g_exec.active_import_ids[i], NG_EXEC_SUCCESS,
+                             NG_OK);
+  }
   set_run_status(NG_RUN_DONE);
   g_run.active = 0;
   g_info.is_running = 0;
@@ -1823,6 +2761,8 @@ static ng_i32 continue_active_run(void) {
 
 ng_i32 ng_run_start(ng_u32 goal_node_id) {
   NgNode *goal = NULL;
+  ng_u32 i;
+  ng_i32 err;
   if (!g_info.initialized)
     return NG_ERR_NOT_INITIALIZED;
   if (g_run.active)
@@ -1841,6 +2781,20 @@ ng_i32 ng_run_start(ng_u32 goal_node_id) {
   g_run.next_goal_scan = 0;
   g_run.next_request_id = 0;
   g_run.pending_co_ref = LUA_NOREF;
+  clear_value_store();
+  clear_io();
+  for (i = 0; i < NG_MAX_NODES; i++) {
+    if (g_info.nodes[i].id != 0) {
+      g_info.nodes[i].exec_state = NG_EXEC_NEVER;
+      g_info.nodes[i].last_error = NG_OK;
+    }
+  }
+  err = ng_build_exec_graph();
+  if (err != NG_OK) {
+    g_run.active = 0;
+    set_last_error(err);
+    return err;
+  }
   g_info.is_running = 1;
   set_run_status(NG_RUN_RUNNING);
   clear_waiting();
@@ -1875,6 +2829,7 @@ ng_i32 ng_run_cancel(void) {
     return NG_OK;
   g_run.cancelled = 1;
   clear_pending_coroutine();
+  ng_exec_graph_reset();
   g_run.active = 0;
   g_info.is_running = 0;
   set_run_status(NG_RUN_CANCELLED);
@@ -1935,6 +2890,7 @@ ng_i32 ng_exec_clear(ng_u32 node_id, ng_i32 recursive_downstream) {
 ng_i32 ng_exec_clear_all(void) {
   ng_u32 i;
   clear_pending_coroutine();
+  ng_exec_graph_reset();
   g_run.active = 0;
   g_info.is_running = 0;
   set_run_status(NG_RUN_IDLE);
