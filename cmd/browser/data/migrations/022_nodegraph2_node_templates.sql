@@ -59,4 +59,29 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         'Tilemap Scaler',
         2,
         '{"kind":2,"name":"Tilemap Scaler","codePath":"local:/assets/ng/nodegraph2/pipeline-tilemap-scaler.lua","inputs":[{"inputId":1,"name":"inputMapId","defaultValue":"new_map"},{"inputId":2,"name":"outputMapId","defaultValue":"scaled_map"},{"inputId":3,"name":"scaleFactor","defaultValue":"2"}],"outputs":[{"outputId":1,"name":"outputMapId","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Array',
+        2,
+        '{"kind":2,"name":"Array","codePath":"local:/assets/ng/nodegraph2/array.lua","inputs":[{"inputId":1,"name":"item1","defaultValue":""},{"inputId":2,"name":"item2","defaultValue":""}],"outputs":[{"outputId":1,"name":"array","value":""}]}'
+    ),
+    (
+        'Pack Rects',
+        2,
+        '{"kind":2,"name":"Pack Rects","codePath":"local:/assets/ng/nodegraph2/pack-rects.lua","inputs":[{"inputId":1,"name":"rects","defaultValue":"[]"},{"inputId":2,"name":"width","defaultValue":"1"},{"inputId":3,"name":"height","defaultValue":"1"},{"inputId":4,"name":"padding","defaultValue":"0"},{"inputId":5,"name":"autoSize","defaultValue":"true"}],"outputs":[{"outputId":1,"name":"packedRects","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Image Info',
+        2,
+        '{"kind":2,"name":"Image Info","codePath":"local:/assets/ng/nodegraph2/image-info.lua","inputs":[{"inputId":1,"name":"src","defaultValue":""},{"inputId":2,"name":"id","defaultValue":""}],"outputs":[{"outputId":1,"name":"rect","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Build Atlas',
+        2,
+        '{"kind":2,"name":"Build Atlas","codePath":"local:/assets/ng/nodegraph2/build-atlas.lua","inputs":[{"inputId":1,"name":"packedRects","defaultValue":"[]"},{"inputId":2,"name":"outputPath","defaultValue":"/tmp/atlas.qoi"},{"inputId":3,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"outputPath","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'SQL Query',
+        2,
+        '{"kind":2,"name":"SQL Query","codePath":"local:/assets/ng/nodegraph2/sql-query.lua","inputs":[{"inputId":1,"name":"query","defaultValue":"SELECT 1 AS value"}],"outputs":[{"outputId":1,"name":"rows","value":""},{"outputId":2,"name":"error","value":""}]}'
     );
