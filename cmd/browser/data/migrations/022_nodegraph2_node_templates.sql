@@ -54,4 +54,9 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         'Automap Applicator',
         2,
         '{"kind":2,"name":"Automap Applicator","codePath":"local:/assets/ng/nodegraph2/pipeline-apply-automap.lua","inputs":[{"inputId":1,"name":"rulesMapId","defaultValue":"rules"},{"inputId":2,"name":"inputMapId","defaultValue":"new_map"},{"inputId":3,"name":"outputMapId","defaultValue":"automap_result"}],"outputs":[{"outputId":1,"name":"outputMapId","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Tilemap Scaler',
+        2,
+        '{"kind":2,"name":"Tilemap Scaler","codePath":"local:/assets/ng/nodegraph2/pipeline-tilemap-scaler.lua","inputs":[{"inputId":1,"name":"inputMapId","defaultValue":"new_map"},{"inputId":2,"name":"outputMapId","defaultValue":"scaled_map"},{"inputId":3,"name":"scaleFactor","defaultValue":"2"}],"outputs":[{"outputId":1,"name":"outputMapId","value":""},{"outputId":2,"name":"error","value":""}]}'
     );
