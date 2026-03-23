@@ -665,6 +665,23 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.validateEditorDimensions(Math.min(this.chunkSize, mapWidth), Math.min(this.chunkSize, mapHeight), layers)
   }
 
+  estimateLogicalStoreBytes(mapWidth = this.logicalMapWidth, mapHeight = this.logicalMapHeight, layers = this.layers) {
+    return mapWidth * mapHeight * layers * Uint16Array.BYTES_PER_ELEMENT
+  }
+
+  assertLogicalStoreFitsBackend(mapWidth = this.logicalMapWidth, mapHeight = this.logicalMapHeight, layers = this.layers) {
+    const requiredBytes = this.estimateLogicalStoreBytes(mapWidth, mapHeight, layers)
+    const backendHeapBytes = 16 * 1024 * 1024
+
+    if (requiredBytes > backendHeapBytes) {
+      const requiredMiB = (requiredBytes / (1024 * 1024)).toFixed(1)
+      const backendMiB = (backendHeapBytes / (1024 * 1024)).toFixed(1)
+      throw new Error(
+        `Map ${mapWidth}x${mapHeight} at ${layers} layer${layers === 1 ? '' : 's'} needs ${requiredMiB} MiB, but the stbte backend heap is limited to ${backendMiB} MiB.`
+      )
+    }
+  }
+
   getChunkGrid() {
     return getChunkGrid(this.logicalMapWidth, this.logicalMapHeight, this.chunkSize)
   }
@@ -806,6 +823,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     if (!this.exports) {
       throw new Error('STB exports are not available')
     }
+    this.assertLogicalStoreFitsBackend(this.logicalMapWidth, this.logicalMapHeight, this.layers)
     if (!this.logicalStore) {
       this.logicalStore = this.exports.stbte_logical_create(
         this.logicalMapWidth,
@@ -2265,6 +2283,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const nextMapHeight = Math.max(1, Number(mapHeight) || this.logicalMapHeight)
     const tileSizeChanged = nextTileSize !== this.tileSize
     this.validateLogicalDimensions(nextMapWidth, nextMapHeight, this.layers)
+    this.assertLogicalStoreFitsBackend(nextMapWidth, nextMapHeight, this.layers)
     const isSame = !tileSizeChanged && nextMapWidth === this.logicalMapWidth && nextMapHeight === this.logicalMapHeight
     if (isSame) return false
 

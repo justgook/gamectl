@@ -65,11 +65,11 @@ static size_t strlen(const char *s) {
 
 // Reduced sizes for smaller WASM - adjust as needed
 #ifndef STBTE_MAX_TILEMAP_X
-#define STBTE_MAX_TILEMAP_X 4
+#define STBTE_MAX_TILEMAP_X 256
 #endif
 
 #ifndef STBTE_MAX_TILEMAP_Y
-#define STBTE_MAX_TILEMAP_Y 4
+#define STBTE_MAX_TILEMAP_Y 256
 #endif
 
 #ifndef STBTE_MAX_LAYERS
@@ -167,8 +167,8 @@ static uint64_t stbte_logical_clipboard_required_bytes(uint32_t width,
 }
 
 static int stbte_logical_ensure_clipboard_capacity(stbte_logical_store *store,
-                                                    uint32_t width,
-                                                    uint32_t height) {
+                                                   uint32_t width,
+                                                   uint32_t height) {
   uint64_t required;
   uint16_t *next_data;
 
@@ -179,7 +179,8 @@ static int stbte_logical_ensure_clipboard_capacity(stbte_logical_store *store,
       stbte_logical_clipboard_required_bytes(width, height, store->layer_count);
   if (required == 0 || required > 0xffffffffu)
     return STBTE_STATUS_ERR;
-  if (store->clipboard_data != NULL && store->clipboard_capacity_bytes >= required)
+  if (store->clipboard_data != NULL &&
+      store->clipboard_capacity_bytes >= required)
     return STBTE_STATUS_OK;
 
   next_data = (uint16_t *)malloc_internal((size_t)required);
@@ -192,8 +193,7 @@ static int stbte_logical_ensure_clipboard_capacity(stbte_logical_store *store,
 
 static int stbte_logical_ensure_region_capacity(uint16_t **buffer,
                                                 uint32_t *capacity_bytes,
-                                                uint32_t width,
-                                                uint32_t height,
+                                                uint32_t width, uint32_t height,
                                                 uint32_t layer_count) {
   uint64_t required;
   uint16_t *next_data;
@@ -202,8 +202,7 @@ static int stbte_logical_ensure_region_capacity(uint16_t **buffer,
       layer_count == 0)
     return STBTE_STATUS_ERR;
 
-  required =
-      stbte_logical_clipboard_required_bytes(width, height, layer_count);
+  required = stbte_logical_clipboard_required_bytes(width, height, layer_count);
   if (required == 0 || required > 0xffffffffu)
     return STBTE_STATUS_ERR;
   if (*buffer != NULL && *capacity_bytes >= required)
@@ -286,8 +285,7 @@ static void stbte_logical_clear_redo(stbte_logical_store *store) {
 static int stbte_logical_copy_region_from_store(stbte_logical_store *store,
                                                 uint32_t origin_x,
                                                 uint32_t origin_y,
-                                                uint32_t width,
-                                                uint32_t height,
+                                                uint32_t width, uint32_t height,
                                                 uint16_t *dst) {
   uint32_t layer;
   uint32_t y;
@@ -307,8 +305,8 @@ static int stbte_logical_copy_region_from_store(stbte_logical_store *store,
     for (y = 0; y < height; ++y) {
       for (x = 0; x < width; ++x) {
         dst_layer[(y * width) + x] =
-            src_layer[((uint64_t)(origin_y + y) * store->map_width) +
-                      origin_x + x];
+            src_layer[((uint64_t)(origin_y + y) * store->map_width) + origin_x +
+                      x];
       }
     }
   }
@@ -317,8 +315,7 @@ static int stbte_logical_copy_region_from_store(stbte_logical_store *store,
 
 static int stbte_logical_copy_region_to_store(stbte_logical_store *store,
                                               uint32_t origin_x,
-                                              uint32_t origin_y,
-                                              uint32_t width,
+                                              uint32_t origin_y, uint32_t width,
                                               uint32_t height,
                                               const uint16_t *src) {
   uint32_t layer;
@@ -338,8 +335,8 @@ static int stbte_logical_copy_region_to_store(stbte_logical_store *store,
     const uint16_t *src_layer = src + (layer * region_stride);
     for (y = 0; y < height; ++y) {
       for (x = 0; x < width; ++x) {
-        dst_layer[((uint64_t)(origin_y + y) * store->map_width) + origin_x + x] =
-            src_layer[(y * width) + x];
+        dst_layer[((uint64_t)(origin_y + y) * store->map_width) + origin_x +
+                  x] = src_layer[(y * width) + x];
       }
     }
   }
@@ -347,10 +344,8 @@ static int stbte_logical_copy_region_to_store(stbte_logical_store *store,
 }
 
 static int stbte_logical_record_undo_state(stbte_logical_store *store,
-                                           uint32_t origin_x,
-                                           uint32_t origin_y,
-                                           uint32_t width,
-                                           uint32_t height) {
+                                           uint32_t origin_x, uint32_t origin_y,
+                                           uint32_t width, uint32_t height) {
   if (store == NULL || width == 0 || height == 0)
     return STBTE_STATUS_ERR;
   if (!stbte_logical_ensure_region_capacity(&store->undo_data,
@@ -371,8 +366,7 @@ static int stbte_logical_record_undo_state(stbte_logical_store *store,
 
 static int stbte_logical_capture_redo_state(stbte_logical_store *store,
                                             uint32_t origin_x,
-                                            uint32_t origin_y,
-                                            uint32_t width,
+                                            uint32_t origin_y, uint32_t width,
                                             uint32_t height) {
   if (store == NULL || width == 0 || height == 0)
     return STBTE_STATUS_ERR;
@@ -1400,10 +1394,10 @@ stbte_logical_cut_selection(stbte_logical_store *store) {
 
   if (!stbte_logical_copy_selection(store))
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_record_undo_state(
-          store, store->select_x0, store->select_y0,
-          store->select_x1 - store->select_x0 + 1,
-          store->select_y1 - store->select_y0 + 1))
+  if (!stbte_logical_record_undo_state(store, store->select_x0,
+                                       store->select_y0,
+                                       store->select_x1 - store->select_x0 + 1,
+                                       store->select_y1 - store->select_y0 + 1))
     return STBTE_STATUS_ERR;
 
   layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
@@ -1520,8 +1514,7 @@ stbte_logical_record_undo_region(stbte_logical_store *store, uint32_t x0,
   if (max_y >= store->map_height)
     max_y = store->map_height - 1;
 
-  return stbte_logical_record_undo_state(store, min_x, min_y,
-                                         max_x - min_x + 1,
+  return stbte_logical_record_undo_state(store, min_x, min_y, max_x - min_x + 1,
                                          max_y - min_y + 1);
 }
 
@@ -1552,8 +1545,8 @@ stbte_logical_paste(stbte_logical_store *store, uint32_t origin_x,
   }
 
   layer_stride = (uint64_t)store->map_width * (uint64_t)store->map_height;
-  clip_stride = (uint64_t)store->clipboard_width *
-                (uint64_t)store->clipboard_height;
+  clip_stride =
+      (uint64_t)store->clipboard_width * (uint64_t)store->clipboard_height;
   for (layer = 0; layer < store->layer_count; ++layer) {
     uint16_t *dst_layer = store->data + (layer * layer_stride);
     uint16_t *src_layer = store->clipboard_data + (layer * clip_stride);
@@ -1592,15 +1585,12 @@ stbte_logical_undo(stbte_logical_store *store) {
   if (store == NULL || !store->has_undo || store->undo_data == NULL)
     return STBTE_STATUS_ERR;
   if (!stbte_logical_capture_redo_state(store, store->undo_origin_x,
-                                        store->undo_origin_y,
-                                        store->undo_width,
+                                        store->undo_origin_y, store->undo_width,
                                         store->undo_height))
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_copy_region_to_store(store, store->undo_origin_x,
-                                          store->undo_origin_y,
-                                          store->undo_width,
-                                          store->undo_height,
-                                          store->undo_data))
+  if (!stbte_logical_copy_region_to_store(
+          store, store->undo_origin_x, store->undo_origin_y, store->undo_width,
+          store->undo_height, store->undo_data))
     return STBTE_STATUS_ERR;
   store->has_undo = 0;
   store->has_selection = 0;
@@ -1612,15 +1602,12 @@ stbte_logical_redo(stbte_logical_store *store) {
   if (store == NULL || !store->has_redo || store->redo_data == NULL)
     return STBTE_STATUS_ERR;
   if (!stbte_logical_record_undo_state(store, store->redo_origin_x,
-                                       store->redo_origin_y,
-                                       store->redo_width,
+                                       store->redo_origin_y, store->redo_width,
                                        store->redo_height))
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_copy_region_to_store(store, store->redo_origin_x,
-                                          store->redo_origin_y,
-                                          store->redo_width,
-                                          store->redo_height,
-                                          store->redo_data))
+  if (!stbte_logical_copy_region_to_store(
+          store, store->redo_origin_x, store->redo_origin_y, store->redo_width,
+          store->redo_height, store->redo_data))
     return STBTE_STATUS_ERR;
   store->has_redo = 0;
   store->has_selection = 0;
