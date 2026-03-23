@@ -52,6 +52,13 @@ PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
 PLUGINS := $(notdir $(PLUGIN_DIRS))
 PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
 
+# Detect plugin test entry points.
+# Each plugin can contribute `plugins/<name>/test/e2e.mjs` and `make test`
+# will run all discovered tests after building the matching plugin wasm.
+PLUGIN_TEST_SCRIPTS := $(wildcard $(PLUGIN_DIR)/*/test/e2e.mjs)
+PLUGIN_TEST_PLUGINS := $(sort $(patsubst $(PLUGIN_DIR)/%/test/e2e.mjs,%,$(PLUGIN_TEST_SCRIPTS)))
+PLUGIN_TEST_TARGETS := $(addsuffix -test,$(PLUGIN_TEST_PLUGINS))
+
 # --- Odin plugin build settings ---
 ODIN ?= odin
 # Good default for “plugin-style” WASM (no JS glue required):
@@ -161,16 +168,19 @@ GO_MODULE_NAME ?= $(shell go list -m)
 .PHONY: all
 all: browser
 
+.PHONY: test
+test: $(PLUGIN_TEST_TARGETS)
+
+define DEFINE_PLUGIN_TEST
+.PHONY: $(1)-test
+$(1)-test: $(BUILD_DIR)/plugins/$(1).wasm $(PLUGIN_DIR)/$(1)/test/e2e.mjs
+	$(Q)node ./$(PLUGIN_DIR)/$(1)/test/e2e.mjs
+endef
+
+$(foreach p,$(PLUGIN_TEST_PLUGINS),$(eval $(call DEFINE_PLUGIN_TEST,$(p))))
+
 .PHONY: plugins-release
 plugins-release: $(PLUGIN_TARGETS)
-
-.PHONY: respack-test
-respack-test: $(BUILD_DIR)/plugins/respack.wasm
-	$(Q)node ./plugins/respack/test/e2e.mjs
-
-.PHONY: pack-test
-pack-test: $(BUILD_DIR)/plugins/pack.wasm
-	$(Q)node ./plugins/pack/test/e2e.mjs
 
 GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
 
