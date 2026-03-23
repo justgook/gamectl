@@ -26,6 +26,7 @@ typedef __UINT8_TYPE__ ng_u8;
 #define NG_MAX_OUTPUTS 32
 #define NG_MAX_ARGS 32
 #define NG_IO_BUFFER_CAP (2 * 1024 * 1024)
+#define NG_IMPORT_BOUNDARY_PORT_STRIDE (NG_MAX_OUTPUTS + 1)
 
 /* ---- Error codes ------------------------------------------------------ */
 

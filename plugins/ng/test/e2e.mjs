@@ -36,6 +36,12 @@ const ABI = {
 
 ABI.NODE_SIZE = ABI.NODE_HEADER_SIZE + (32 * ABI.INPUT_PORT_SIZE) + (32 * ABI.OUTPUT_PORT_SIZE) + (32 * ABI.VALUE_SLOT_SIZE)
 
+const IMPORT_BOUNDARY_PORT_STRIDE = 33
+
+function importPortId(nodeId, portId) {
+  return Number(nodeId) * IMPORT_BOUNDARY_PORT_STRIDE + Number(portId)
+}
+
 function toArrayBuffer(buffer) {
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
 }
@@ -86,19 +92,24 @@ class NgRuntime {
                 {
                   id: 11,
                   kind: NG.NODE_VALUE,
-                  outputs: [{ id: 1, value: 'fallback' }],
+                  name: 'input',
+                  outputs: [
+                    { id: 1, name: 'A', value: 'fallback-a' },
+                    { id: 2, name: 'B', value: 'fallback-b' },
+                  ],
                 },
                 {
                   id: 12,
                   kind: NG.NODE_CODE,
-                  code: "local value = tostring(inputs[1] or '')\noutputs[1] = 'sub:' .. value",
-                  inputs: [{ id: 1, srcNodeId: 11, srcOutputId: 1 }],
-                  outputs: [{ id: 1 }],
+                  code: "outputs[1] = 'subA:' .. tostring(inputs[1] or '')\noutputs[2] = 'subB:' .. tostring(inputs[2] or '')",
+                  inputs: [{ id: 1, srcNodeId: 11, srcOutputId: 1 }, { id: 2, srcNodeId: 11, srcOutputId: 2 }],
+                  outputs: [{ id: 1 }, { id: 2 }],
                 },
                 {
                   id: 13,
                   kind: NG.NODE_GOAL,
-                  inputs: [{ id: 1, srcNodeId: 12, srcOutputId: 1 }],
+                  name: 'result',
+                  inputs: [{ id: 1, name: 'A', srcNodeId: 12, srcOutputId: 1 }, { id: 2, name: 'B', srcNodeId: 12, srcOutputId: 2 }],
                 },
               ])
             }
@@ -141,6 +152,14 @@ class NgRuntime {
     }
   }
 
+  nodeById(nodeId) {
+    for (let i = 0; i < 32; i += 1) {
+      const node = this.nodeAt(i)
+      if (node.id === Number(nodeId)) return node
+    }
+    return null
+  }
+
   writeString(ptr, text) {
     const bytes = new TextEncoder().encode(String(text || ''))
     new Uint8Array(this.memory.buffer, ptr, bytes.length).set(bytes)
@@ -176,29 +195,35 @@ async function main() {
   assert(runtime.call('ng_node_create', 3, NG.NODE_CALL) === 0, 'import create failed')
 
   assert(runtime.call('ng_input_add', 1, 1) === 0, 'goal input add failed')
+  assert(runtime.call('ng_input_add', 1, 2) === 0, 'goal second input add failed')
   assert(runtime.call('ng_output_add', 2, 1) === 0, 'value output add failed')
-  assert(runtime.call('ng_input_add', 3, 1) === 0, 'import input add failed')
-  assert(runtime.call('ng_output_add', 3, 7) === 0, 'import output add failed')
+  assert(runtime.call('ng_output_add', 2, 2) === 0, 'value second output add failed')
+  assert(runtime.call('ng_input_add', 3, importPortId(11, 1)) === 0, 'import input A add failed')
+  assert(runtime.call('ng_input_add', 3, importPortId(11, 2)) === 0, 'import input B add failed')
+  assert(runtime.call('ng_output_add', 3, importPortId(13, 1)) === 0, 'import output A add failed')
+  assert(runtime.call('ng_output_add', 3, importPortId(13, 2)) === 0, 'import output B add failed')
   assert(runtime.call('ng_node_set_arg', 3, 0, 1, 99, 0) === 0, 'import graph id set failed')
 
-  assert(runtime.call('ng_input_connect', 3, 1, 2, 1) === 0, 'import/value connect failed')
-  assert(runtime.call('ng_input_connect', 1, 1, 3, 7) === 0, 'goal/import connect failed')
+  assert(runtime.call('ng_input_connect', 3, importPortId(11, 1), 2, 1) === 0, 'import/value A connect failed')
+  assert(runtime.call('ng_input_connect', 1, 1, 3, importPortId(13, 1)) === 0, 'goal/import A connect failed')
+  assert(runtime.call('ng_input_connect', 1, 2, 3, importPortId(13, 2)) === 0, 'goal/import B connect failed')
 
-  const goal = runtime.nodeAt(0)
-  const value = runtime.nodeAt(1)
-  const imp = runtime.nodeAt(2)
+  const goal = runtime.nodeById(1)
+  const value = runtime.nodeById(2)
+  const imp = runtime.nodeById(3)
 
   assert(goal.kind === NG.NODE_GOAL, 'goal kind mismatch')
-  assert(goal.inputCount === 1, 'goal input count mismatch')
+  assert(goal.inputCount === 2, 'goal input count mismatch')
   assert(value.kind === NG.NODE_VALUE, 'value kind mismatch')
-  assert(value.outputCount === 1, 'value output count mismatch')
+  assert(value.outputCount === 2, 'value output count mismatch')
   assert(imp.kind === NG.NODE_CALL, 'import kind mismatch')
-  assert(imp.inputCount === 1 && imp.outputCount === 1, 'import port counts mismatch')
+  assert(imp.inputCount === 2 && imp.outputCount === 2, 'import port counts mismatch')
 
   const rc = runtime.call('ng_run_goal', 1)
   assert(rc === 0, `run goal failed with ${rc}`)
   assert(runtime.goalPayloads.length === 1, 'expected one goal callback')
-  assert(runtime.goalPayloads[0].payload.includes('sub:value:2:1'), 'goal payload should resolve through imported subgraph')
+  assert(runtime.goalPayloads[0].payload.includes('subA:value:2:1'), 'goal payload should resolve imported port A from parent connection')
+  assert(runtime.goalPayloads[0].payload.includes('subB:fallback-b'), 'goal payload should resolve imported port B from default')
 
   const importState = runtime.call('ng_get_node_exec_state', 3)
   assert(importState === 1, 'import node should finish successfully')
@@ -208,14 +233,18 @@ async function main() {
   assert(runtime.call('ng_node_create', 1, NG.NODE_GOAL) === 0, 'second goal create failed')
   assert(runtime.call('ng_node_create', 3, NG.NODE_CALL) === 0, 'second import create failed')
   assert(runtime.call('ng_input_add', 1, 1) === 0, 'second goal input add failed')
-  assert(runtime.call('ng_output_add', 3, 9) === 0, 'second import output add failed')
+  assert(runtime.call('ng_input_add', 1, 2) === 0, 'second goal second input add failed')
+  assert(runtime.call('ng_output_add', 3, importPortId(13, 1)) === 0, 'second import output A add failed')
+  assert(runtime.call('ng_output_add', 3, importPortId(13, 2)) === 0, 'second import output B add failed')
   assert(runtime.call('ng_node_set_arg', 3, 0, 1, 99, 0) === 0, 'second import graph id set failed')
-  assert(runtime.call('ng_input_connect', 1, 1, 3, 9) === 0, 'second goal/import connect failed')
+  assert(runtime.call('ng_input_connect', 1, 1, 3, importPortId(13, 1)) === 0, 'second goal/import A connect failed')
+  assert(runtime.call('ng_input_connect', 1, 2, 3, importPortId(13, 2)) === 0, 'second goal/import B connect failed')
 
   const rcDefault = runtime.call('ng_run_goal', 1)
   assert(rcDefault === 0, `default import run failed with ${rcDefault}`)
   assert(runtime.goalPayloads.length === 1, 'expected one default goal callback')
-  assert(runtime.goalPayloads[0].payload.includes('sub:fallback'), 'goal payload should use imported default value when disconnected')
+  assert(runtime.goalPayloads[0].payload.includes('subA:fallback-a'), 'goal payload should use imported default value for A when disconnected')
+  assert(runtime.goalPayloads[0].payload.includes('subB:fallback-b'), 'goal payload should use imported default value for B when disconnected')
 
   console.log('ng e2e ok')
 }
