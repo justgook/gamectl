@@ -38,6 +38,15 @@ const NG_IMPORT_ARG = {
   GRAPH_ID: 0,
 };
 
+const NG_IMPORT_BOUNDARY_PORT_STRIDE = NG.MAX_OUTPUTS + 1;
+
+function encodeImportBoundaryPortId(nodeId, portId) {
+  const a = Number(nodeId || 0);
+  const b = Number(portId || 0);
+  if (!Number.isFinite(a) || a <= 0 || !Number.isFinite(b) || b <= 0) return 0;
+  return a * NG_IMPORT_BOUNDARY_PORT_STRIDE + b;
+}
+
 const ABI = {
   I32: 4,
   INPUT_PORT_SIZE: 12,
@@ -1173,15 +1182,31 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   _setImportDefaultsForNode(nodeId, defaults) {
     if (!(this.importDefaultsByNode instanceof Map)) this.importDefaultsByNode = new Map();
-    const list = Array.isArray(defaults) ? defaults.map((value) => String(value ?? "")) : [];
-    if (list.length) this.importDefaultsByNode.set(Number(nodeId), list);
+    const bucket = new Map();
+    if (Array.isArray(defaults)) {
+      defaults.forEach((entry, index) => {
+        if (entry && typeof entry === "object") {
+          const portId = Number(entry.portId || entry.inputId || entry.id || 0);
+          if (Number.isFinite(portId) && portId > 0) {
+            bucket.set(portId, String(entry.value ?? entry.defaultValue ?? ""));
+          }
+          return;
+        }
+        bucket.set(index + 1, String(entry ?? ""));
+      });
+    }
+    if (bucket.size) this.importDefaultsByNode.set(Number(nodeId), bucket);
     else this.importDefaultsByNode.delete(Number(nodeId));
   }
 
   _getImportDefaultsForNode(nodeId) {
-    if (!(this.importDefaultsByNode instanceof Map)) return [];
+    if (!(this.importDefaultsByNode instanceof Map)) return new Map();
     const list = this.importDefaultsByNode.get(Number(nodeId));
-    return Array.isArray(list) ? list : [];
+    return list instanceof Map ? list : new Map();
+  }
+
+  _getImportDefaultForPort(nodeId, portId) {
+    return String(this._getImportDefaultsForNode(nodeId).get(Number(portId)) || "");
   }
 
   _getDefaultCodeFilename(name = "") {
@@ -1679,7 +1704,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       this.portLabels.set(nodeId, labels);
 
       if (draft.kind === NG.NODE_CALL) {
-        this._setImportDefaultsForNode(nodeId, draft.inputs.map((port) => String(port.value || "")));
+        this._setImportDefaultsForNode(nodeId, draft.inputs.map((port) => ({ portId: Number(port.inputId), value: String(port.value || "") })));
       }
 
       if (draft.kind === NG.NODE_VALUE) {
@@ -1748,7 +1773,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           name: this._getStoredPortLabel(node.id, "input", Number(input?.inputId || i + 1)),
           srcNodeId: Number(input?.srcNodeId || 0),
           srcOutputId: Number(input?.srcOutputId || 0),
-          defaultValue: node.kind === NG.NODE_CALL ? String(this._getImportDefaultsForNode(node.id)[i] || input?.defaultValue || "") : undefined,
+          defaultValue: node.kind === NG.NODE_CALL ? this._getImportDefaultForPort(node.id, Number(input?.inputId || i + 1)) || String(input?.defaultValue || "") : undefined,
         })),
         outputs: (node.outputs || []).map((output, i) => ({
           id: Number(output?.outputId || i + 1),
@@ -1807,12 +1832,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         const summary = await this._loadImportNodeBoundarySummary(graphId);
         if (inputs.length === 0) {
           (summary.inputs || []).forEach((port, index) => {
-            inputs.push({ id: index + 1, name: port.name, defaultValue: port.value });
+            inputs.push({ id: Number(port.importPortId || index + 1), name: port.name, defaultValue: port.value });
           });
         }
         if (outputs.length === 0) {
           (summary.outputs || []).forEach((port, index) => {
-            outputs.push({ id: index + 1, name: port.name });
+            outputs.push({ id: Number(port.importPortId || index + 1), name: port.name });
           });
         }
       }
@@ -1852,7 +1877,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         this._setGraphNameForNode(nodeId, String(raw?.graphName || "").trim());
         err = this._setImportGraphArg(nodeId, this._getGraphIdForNode(nodeId));
         if (err !== 0) return err;
-        this._setImportDefaultsForNode(nodeId, (inputs || []).map((input) => String(input?.defaultValue || "")));
+        this._setImportDefaultsForNode(nodeId, (inputs || []).map((input) => ({ portId: Number(input?.id || 0), value: String(input?.defaultValue || "") })));
       }
 
       if (kind === NG.NODE_CODE) {
@@ -2465,12 +2490,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
           const selectedGraph = await this._readSavedGraphById(draft.graphId);
           draft.graphName = String(selectedGraph?.name || graphNameValue || "").trim();
           draft.inputs = (graphSummary.inputs || []).map((entry, index) => ({
-            inputId: index + 1,
+            inputId: Number(entry?.importPortId || index + 1),
             name: String(entry?.name || "").trim(),
             value: String(entry?.value || ""),
           }));
           draft.outputs = (graphSummary.outputs || []).map((entry, index) => ({
-            outputId: index + 1,
+            outputId: Number(entry?.importPortId || index + 1),
             name: String(entry?.name || "").trim(),
             value: "",
           }));
@@ -2526,15 +2551,15 @@ class ViewNodeGraph2 extends ViewCanvasBase {
             toast.error(`Failed to set import graph id (code ${argErr}).`);
             return;
           }
-          this._setImportDefaultsForNode(nodeId, (graphSummary.inputs || []).map((entry) => String(entry?.value || "")));
+          this._setImportDefaultsForNode(nodeId, (graphSummary.inputs || []).map((entry) => ({ portId: Number(entry?.importPortId || 0), value: String(entry?.value || "") })));
           const labels = { inputs: {}, outputs: {} };
           (graphSummary.inputs || []).forEach((entry, index) => {
             const label = String(entry?.name || `input ${index + 1}`).trim();
-            labels.inputs[String(index + 1)] = label;
+            labels.inputs[String(Number(entry?.importPortId || index + 1))] = label;
           });
           (graphSummary.outputs || []).forEach((entry, index) => {
             const label = String(entry?.name || `output ${index + 1}`).trim();
-            labels.outputs[String(index + 1)] = label;
+            labels.outputs[String(Number(entry?.importPortId || index + 1))] = label;
           });
           if (!(this.portLabels instanceof Map)) this.portLabels = new Map();
           this.portLabels.set(nodeId, labels);
@@ -4680,26 +4705,32 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       const nodeName = String(node?.name || `#${nodeId}`).trim();
       if (kind === NG.NODE_VALUE) {
         const bucket = Array.isArray(node?.outputs) ? node.outputs : [];
-        const valueText = bucket.map((port) => String(port?.value || "")).join("\n").trim();
-        inputs.push({
-          nodeId,
-          name: nodeName,
-          value: valueText,
-          outputs: bucket.map((port, index) => ({
-            outputId: Number(port?.id || index + 1),
-            name: String(port?.name || "").trim(),
+        bucket.forEach((port, index) => {
+          const outputId = Number(port?.id || index + 1);
+          const portName = String(port?.name || `output ${index + 1}`).trim();
+          inputs.push({
+            nodeId,
+            portId: outputId,
+            importPortId: encodeImportBoundaryPortId(nodeId, outputId),
+            name: bucket.length > 1 ? `${nodeName}.${portName}` : nodeName,
+            nodeName,
+            portName,
             value: String(port?.value || ""),
-          })),
+          });
         });
       } else if (kind === NG.NODE_GOAL) {
         const bucket = Array.isArray(node?.inputs) ? node.inputs : [];
-        outputs.push({
-          nodeId,
-          name: nodeName,
-          inputs: bucket.map((port, index) => ({
-            inputId: Number(port?.id || index + 1),
-            name: String(port?.name || "").trim(),
-          })),
+        bucket.forEach((port, index) => {
+          const inputId = Number(port?.id || index + 1);
+          const portName = String(port?.name || `input ${index + 1}`).trim();
+          outputs.push({
+            nodeId,
+            portId: inputId,
+            importPortId: encodeImportBoundaryPortId(nodeId, inputId),
+            name: bucket.length > 1 ? `${nodeName}.${portName}` : nodeName,
+            nodeName,
+            portName,
+          });
         });
       }
     }
@@ -4771,12 +4802,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const summary = this._buildImportBoundarySummary(graph?.nodes || []);
     draft.graphSummary = summary;
     draft.inputs = summary.inputs.map((entry, index) => ({
-      inputId: index + 1,
+      inputId: Number(entry.importPortId || index + 1),
       name: entry.name,
       value: entry.value,
     }));
     draft.outputs = summary.outputs.map((entry, index) => ({
-      outputId: index + 1,
+      outputId: Number(entry.importPortId || index + 1),
       name: entry.name,
       value: "",
     }));
@@ -4787,11 +4818,11 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     let err = this.api.ng_node_replace(nodeId, NG.NODE_CALL);
     if (err !== 0) return err;
     for (const [index, entry] of (summary.inputs || []).entries()) {
-      err = this.api.ng_input_add(nodeId, index + 1);
+      err = this.api.ng_input_add(nodeId, Number(entry?.importPortId || index + 1));
       if (err !== 0) return err;
     }
     for (const [index, entry] of (summary.outputs || []).entries()) {
-      err = this.api.ng_output_add(nodeId, index + 1);
+      err = this.api.ng_output_add(nodeId, Number(entry?.importPortId || index + 1));
       if (err !== 0) return err;
     }
     return 0;
