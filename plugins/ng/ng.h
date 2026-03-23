@@ -45,7 +45,7 @@ enum ng_error {
 enum ng_node_kind {
   NG_NODE_GOAL = 1,
   NG_NODE_CODE = 2,
-  NG_NODE_CALL = 3,
+  NG_NODE_CALL = 3, /* import-node / subgraph wrapper */
   NG_NODE_VALUE = 4,
 };
 
@@ -64,6 +64,11 @@ enum ng_resolve_kind {
   NG_RESOLVE_CODE = 1,
   NG_RESOLVE_CALL = 2,
   NG_RESOLVE_VALUE = 3,
+  NG_RESOLVE_GRAPH = 4,
+};
+
+enum ng_arg_index {
+  NG_ARG_IMPORT_GRAPH_ID = 0,
 };
 
 /* ---- Host callback enums ---------------------------------------------- */
