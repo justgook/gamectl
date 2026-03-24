@@ -10,6 +10,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '../../..')
 const wasmPath = path.join(repoRoot, 'build.nosync/plugins/respack.wasm')
 const schemaPath = path.join(repoRoot, 'plugins/respack/testdata/simple.respack.json')
+const game2SchemaPath = path.join(repoRoot, 'cmd/browser/assets/respack/game2.rspk.json')
+const atlasPath = path.join(repoRoot, 'cmd/browser/assets/game/the_atlas.qoi')
 const tempDir = path.join(repoRoot, 'build.nosync/respack-e2e')
 
 function toArrayBuffer(buffer) {
@@ -186,6 +188,37 @@ async function expectCallError(runtime, functionName, input, expectedMessage) {
   throw new Error(`Expected respack.${functionName} to fail`)
 }
 
+function readU16LE(bytes, offset) {
+  return bytes[offset] | (bytes[offset + 1] << 8)
+}
+
+function readU32LE(bytes, offset) {
+  return (
+    bytes[offset] |
+    (bytes[offset + 1] << 8) |
+    (bytes[offset + 2] << 16) |
+    (bytes[offset + 3] << 24)
+  ) >>> 0
+}
+
+function inspectDump(bytes) {
+  if (bytes.length < 8) throw new Error('dump too small')
+  if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== 'RSPK') {
+    throw new Error('invalid dump magic')
+  }
+  const version = readU16LE(bytes, 4)
+  const slotCount = readU16LE(bytes, 6)
+  const slots = []
+  for (let i = 0; i < slotCount; i += 1) {
+    const entry = 8 + i * 8
+    slots.push({
+      offset: readU32LE(bytes, entry),
+      length: readU32LE(bytes, entry + 4),
+    })
+  }
+  return { version, slotCount, slots }
+}
+
 async function writeHarnessFiles(source, payloadBytes) {
   await fs.mkdir(tempDir, { recursive: true })
   await fs.writeFile(path.join(tempDir, 'generated_decoder.odin'), source)
@@ -253,9 +286,11 @@ main :: proc() {
 }
 
 async function main() {
-  const [wasmBytes, schemaText] = await Promise.all([
+  const [wasmBytes, schemaText, game2SchemaText, atlasBytes] = await Promise.all([
     fs.readFile(wasmPath),
-    fs.readFile(schemaPath, 'utf8')
+    fs.readFile(schemaPath, 'utf8'),
+    fs.readFile(game2SchemaPath, 'utf8'),
+    fs.readFile(atlasPath),
   ])
 
   const runtime = await RespackRuntime.create(toArrayBuffer(wasmBytes))
@@ -355,6 +390,38 @@ async function main() {
     timeout: 120000,
     env: process.env
   })
+
+  await call(runtime, 'init', game2SchemaText)
+  await call(runtime, 'write', JSON.stringify({
+    slot: 0,
+    payload: {
+      entity_ids: [],
+      components: [],
+    }
+  }))
+  await call(runtime, 'write', JSON.stringify({
+    slot: 1,
+    payload: { _file: atlasPath }
+  }))
+  await call(runtime, 'write', JSON.stringify({
+    slot: 2,
+    payload: []
+  }))
+
+  const game2Dump = await call(runtime, 'dump')
+  const game2Info = inspectDump(game2Dump)
+  if (game2Info.version !== 1) {
+    throw new Error(`unexpected game2 dump version ${game2Info.version}`)
+  }
+  if (game2Info.slotCount !== 3) {
+    throw new Error(`expected 3 slots in game2 dump, got ${game2Info.slotCount}`)
+  }
+  if (game2Info.slots[1].length !== atlasBytes.length + 4) {
+    throw new Error(`expected atlas slot length ${atlasBytes.length + 4}, got ${game2Info.slots[1].length}`)
+  }
+  if (game2Dump.length <= atlasBytes.length) {
+    throw new Error(`expected dump (${game2Dump.length}) to exceed atlas bytes (${atlasBytes.length})`)
+  }
 
   console.log('respack e2e ok')
 }

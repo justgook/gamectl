@@ -1,7 +1,11 @@
 local result = {}
-for _, value in ipairs(inputs) do
+for index, value in ipairs(inputs) do
     if value ~= nil and value ~= "" then
-        result[#result + 1] = value
+        local ok, decoded = pcall(json.decode, value)
+        if not ok then
+            error("Input " .. tostring(index) .. " must be valid JSON")
+        end
+        result[#result + 1] = decoded
     end
 end
 

@@ -35,6 +35,7 @@
 ._*
 .Spotlight-V100
 .Trashes
+.playwright-cli
 ehthumbs.db
 Thumbs.db
 
