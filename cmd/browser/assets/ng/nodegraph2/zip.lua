@@ -1,51 +1,42 @@
-local leftJson = inputs[1]
-if leftJson == nil or leftJson == "" then leftJson = "[]" end
+local arrays = {}
+local count = 0
 
-local rightJson = inputs[2]
-if rightJson == nil or rightJson == "" then rightJson = "[]" end
+for inputIndex, inputValue in ipairs(inputs) do
+    if inputValue ~= nil and inputValue ~= "" then
+        local ok, decoded = pcall(json.decode, inputValue)
+        if not ok or type(decoded) ~= "table" then
+            outputs[1] = ""
+            outputs[2] = "Input " .. tostring(inputIndex) .. " must be a JSON array"
+            return
+        end
 
-local okLeft, leftItems = pcall(json.decode, leftJson)
-if not okLeft or type(leftItems) ~= "table" then
-    outputs[1] = ""
-    outputs[2] = "Invalid left JSON"
-    return
+        arrays[#arrays + 1] = {
+            inputIndex = inputIndex,
+            items = decoded,
+        }
+        if #decoded > count then
+            count = #decoded
+        end
+    end
 end
 
-local okRight, rightItems = pcall(json.decode, rightJson)
-if not okRight or type(rightItems) ~= "table" then
-    outputs[1] = ""
-    outputs[2] = "Invalid right JSON"
-    return
-end
-
-local count = math.max(#leftItems, #rightItems)
 local items = {}
 
 for index = 1, count do
-    local leftItem = leftItems[index]
-    local rightItem = rightItems[index]
-
-    if leftItem ~= nil and type(leftItem) ~= "table" then
-        outputs[1] = ""
-        outputs[2] = "Left item " .. tostring(index) .. " must be an object"
-        return
-    end
-
-    if rightItem ~= nil and type(rightItem) ~= "table" then
-        outputs[1] = ""
-        outputs[2] = "Right item " .. tostring(index) .. " must be an object"
-        return
-    end
-
     local merged = {}
-    if type(leftItem) == "table" then
-        for key, value in pairs(leftItem) do
-            merged[key] = value
-        end
-    end
-    if type(rightItem) == "table" then
-        for key, value in pairs(rightItem) do
-            merged[key] = value
+
+    for _, arrayInfo in ipairs(arrays) do
+        local item = arrayInfo.items[index]
+        if item ~= nil then
+            if type(item) ~= "table" then
+                outputs[1] = ""
+                outputs[2] = "Input " .. tostring(arrayInfo.inputIndex) .. " item " .. tostring(index) .. " must be an object"
+                return
+            end
+
+            for key, value in pairs(item) do
+                merged[key] = value
+            end
         end
     end
 
