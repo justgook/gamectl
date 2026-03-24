@@ -66,6 +66,21 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         '{"kind":2,"name":"Array","codePath":"local:/assets/ng/nodegraph2/array.lua","inputs":[{"inputId":1,"name":"item1","defaultValue":""},{"inputId":2,"name":"item2","defaultValue":""}],"outputs":[{"outputId":1,"name":"array","value":""}]}'
     ),
     (
+        'Pick',
+        2,
+        '{"kind":2,"name":"Pick","codePath":"local:/assets/ng/nodegraph2/pick.lua","inputs":[{"inputId":1,"name":"items","defaultValue":"[]"},{"inputId":2,"name":"fields","defaultValue":""}],"outputs":[{"outputId":1,"name":"items","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Remap',
+        2,
+        '{"kind":2,"name":"Remap","codePath":"local:/assets/ng/nodegraph2/remap.lua","inputs":[{"inputId":1,"name":"items","defaultValue":"[]"},{"inputId":2,"name":"fields","defaultValue":""},{"inputId":3,"name":"srcMin","defaultValue":"0"},{"inputId":4,"name":"srcMax","defaultValue":"1"},{"inputId":5,"name":"dstMin","defaultValue":"0"},{"inputId":6,"name":"dstMax","defaultValue":"1"}],"outputs":[{"outputId":1,"name":"items","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Zip',
+        2,
+        '{"kind":2,"name":"Zip","codePath":"local:/assets/ng/nodegraph2/zip.lua","inputs":[{"inputId":1,"name":"left","defaultValue":"[]"},{"inputId":2,"name":"right","defaultValue":"[]"}],"outputs":[{"outputId":1,"name":"items","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
         'Pack Rects',
         2,
         '{"kind":2,"name":"Pack Rects","codePath":"local:/assets/ng/nodegraph2/pack-rects.lua","inputs":[{"inputId":1,"name":"rects","defaultValue":"[]"},{"inputId":2,"name":"width","defaultValue":"1"},{"inputId":3,"name":"height","defaultValue":"1"},{"inputId":4,"name":"padding","defaultValue":"0"},{"inputId":5,"name":"autoSize","defaultValue":"true"}],"outputs":[{"outputId":1,"name":"packedRects","value":""},{"outputId":2,"name":"error","value":""}]}'
