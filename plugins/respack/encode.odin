@@ -1,6 +1,7 @@
 package respack
 
 import jsmn "jsmn"
+import pdk "pdk"
 
 RSPK_MAGIC_0 :: u8('R')
 RSPK_MAGIC_1 :: u8('S')
@@ -274,10 +275,27 @@ encode_enum_bytes :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (bool
 
 encode_bytes_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int, field: FieldDef) -> (bool, string) {
 	max_len := effective_type_max_len(type_idx, field)
+	file_path, has_file, file_err := decode_bytes_file_marker(input)
+	if file_err != "" {
+		return false, file_err
+	}
+	if has_file {
+		file_bytes, read_err := pdk.fs_read(file_path)
+		if read_err != "" {
+			return false, read_err
+		}
+		if max_len >= 0 && len(file_bytes) > max_len {
+			return false, "bytes exceeds max_len"
+		}
+		if !writer_u32(w, u32(len(file_bytes))) || !writer_write(w, file_bytes) {
+			return false, "payload too large"
+		}
+		return true, ""
+	}
 	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
 		bytes, ok := decode_json_string_bytes(input)
 		if !ok {
-			return false, "bytes must be string or array"
+			return false, "bytes must be string, array, or _file object"
 		}
 		if max_len >= 0 && len(bytes) > max_len {
 			return false, "bytes exceeds max_len"
@@ -288,7 +306,7 @@ encode_bytes_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int, field: 
 		return true, ""
 	}
 	if len(input) == 0 || input[0] != '[' {
-		return false, "bytes must be string or array"
+		return false, "bytes must be string, array, or _file object"
 	}
 	count := count_array_elements(input)
 	if max_len >= 0 && count > max_len {
@@ -313,6 +331,32 @@ encode_bytes_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int, field: 
 		cursor = next_cursor
 	}
 	return true, ""
+}
+
+decode_bytes_file_marker :: proc(input: []u8) -> (string, bool, string) {
+	trimmed := trim_space_slice(input)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return "", false, ""
+	}
+	member, next_cursor, found := next_object_member(trimmed, 1)
+	if !found {
+		return "", false, ""
+	}
+	if !bytes_equal_string(trimmed[member.key_start:member.key_end], "_file") {
+		return "", false, ""
+	}
+	_, _, extra_found := next_object_member(trimmed, next_cursor)
+	if extra_found {
+		return "", false, "bytes file marker must contain only _file"
+	}
+	path_bytes, ok := decode_json_string_bytes(trimmed[member.value_start:member.value_end])
+	if !ok {
+		return "", false, "_file must be a string"
+	}
+	if len(path_bytes) == 0 {
+		return "", false, "_file path empty"
+	}
+	return string(path_bytes), true, ""
 }
 
 decode_json_string_bytes :: proc(input: []u8) -> ([]u8, bool) {
