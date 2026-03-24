@@ -78,7 +78,7 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
     (
         'Zip',
         2,
-        '{"kind":2,"name":"Zip","codePath":"local:/assets/ng/nodegraph2/zip.lua","inputs":[{"inputId":1,"name":"left","defaultValue":"[]"},{"inputId":2,"name":"right","defaultValue":"[]"}],"outputs":[{"outputId":1,"name":"items","value":""},{"outputId":2,"name":"error","value":""}]}'
+        '{"kind":2,"name":"Zip","codePath":"local:/assets/ng/nodegraph2/zip.lua","inputs":[{"inputId":1,"name":"items1","defaultValue":"[]"},{"inputId":2,"name":"items2","defaultValue":"[]"},{"inputId":3,"name":"items3","defaultValue":"[]"}],"outputs":[{"outputId":1,"name":"items","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
         'Pack Rects',
