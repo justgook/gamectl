@@ -84,4 +84,9 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         'SQL Query',
         2,
         '{"kind":2,"name":"SQL Query","codePath":"local:/assets/ng/nodegraph2/sql-query.lua","inputs":[{"inputId":1,"name":"query","defaultValue":"SELECT 1 AS value"}],"outputs":[{"outputId":1,"name":"rows","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Respack Build',
+        2,
+        '{"kind":2,"name":"Respack Build","codePath":"local:/assets/ng/nodegraph2/respack-build.lua","inputs":[{"inputId":1,"name":"schema","defaultValue":""},{"inputId":2,"name":"outputFile","defaultValue":"/tmp/output.rspk"},{"inputId":3,"name":"slots","defaultValue":"[]"}],"outputs":[{"outputId":1,"name":"outputFile","value":""},{"outputId":2,"name":"error","value":""}]}'
     );
