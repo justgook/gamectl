@@ -7,7 +7,9 @@ This Odin module exposes a minimal respack writer surface so we can plug the JS/
 2. `write` — accepts JSON of the form `{"slot": N, "payload": <any JSON value>}`.
    The slot index is validated against the schema `data` array and the payload
    JSON is copied into an internal arena (2 MB capacity). Rewrites reuse the
-   previous slot buffer where possible.
+   previous slot buffer where possible. For fields typed as `bytes`, payloads may
+   also use `{"_file":"/path/to/file"}` to read raw file contents through the
+   host `fs` plugin and encode those bytes directly.
 3. `dump` — emits a compact binary blob with a small header + slot table +
    encoded payload bytes for written slots.
 4. `dump_to_file` — writes the current dump bytes to a file via the host `fs`

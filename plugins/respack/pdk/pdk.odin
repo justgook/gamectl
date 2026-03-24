@@ -46,6 +46,20 @@ output_string :: proc(msg: string) {
 	output_bytes(bytes)
 }
 
+fs_read :: proc(path: string) -> ([]u8, string) {
+	if path == "" {
+		return nil, "path empty"
+	}
+	status, output, err := call("fs", "read", transmute([]u8)path)
+	if err != "" {
+		return nil, err
+	}
+	if status != 0 {
+		return nil, string(output)
+	}
+	return output, ""
+}
+
 call :: proc(module_name, function_name: string, input: []u8) -> (i32, []u8, string) {
 	module_len := len(module_name)
 	func_len := len(function_name)

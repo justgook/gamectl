@@ -78,6 +78,27 @@ class RespackRuntime {
     this.lastCallOutputPtr = 0
     this.lastCallOutputLen = 0
 
+    if (moduleName === 'fs' && functionName === 'read') {
+      const filePath = decoder.decode(input)
+      try {
+        const data = fsSync.readFileSync(filePath)
+        const ptr = this.alloc(data.length)
+        new Uint8Array(this.memory.buffer, ptr, data.length).set(data)
+        this.lastCallReturn = 0
+        this.lastCallOutputPtr = ptr
+        this.lastCallOutputLen = data.length
+        return 0
+      } catch (error) {
+        const output = encoder.encode(error.message)
+        const ptr = this.alloc(output.length)
+        new Uint8Array(this.memory.buffer, ptr, output.length).set(output)
+        this.lastCallReturn = 1
+        this.lastCallOutputPtr = ptr
+        this.lastCallOutputLen = output.length
+        return 0
+      }
+    }
+
     if (moduleName === 'fs' && functionName === 'write') {
       let nullIndex = -1
       for (let i = 0; i < input.length; i++) {
@@ -153,6 +174,18 @@ async function call(runtime, functionName, input = '') {
   }
 }
 
+async function expectCallError(runtime, functionName, input, expectedMessage) {
+  try {
+    await call(runtime, functionName, input)
+  } catch (error) {
+    if (!String(error.message || '').includes(expectedMessage)) {
+      throw new Error(`Expected error to include "${expectedMessage}", got: ${error.message}`)
+    }
+    return
+  }
+  throw new Error(`Expected respack.${functionName} to fail`)
+}
+
 async function writeHarnessFiles(source, payloadBytes) {
   await fs.mkdir(tempDir, { recursive: true })
   await fs.writeFile(path.join(tempDir, 'generated_decoder.odin'), source)
@@ -226,8 +259,60 @@ async function main() {
   ])
 
   const runtime = await RespackRuntime.create(toArrayBuffer(wasmBytes))
+  await fs.mkdir(tempDir, { recursive: true })
+  const blobPath = path.join(tempDir, 'blob.bin')
+  const textBlobPath = path.join(tempDir, 'text_blob.txt')
+  const missingBlobPath = path.join(tempDir, 'missing_blob.bin')
+  await fs.writeFile(blobPath, Buffer.from([0, 17, 34, 51, 200, 255]))
+  await fs.writeFile(textBlobPath, Buffer.from('line\n2', 'utf8'))
 
   await call(runtime, 'init', schemaText)
+
+  await expectCallError(runtime, 'write', JSON.stringify({
+    slot: 0,
+    payload: {
+      points: [
+        { x: 3.5, y: -2.0 },
+        { x: 10.25, y: 8.75 }
+      ],
+      blob: { _file: blobPath, extra: true },
+      label: "line\n2",
+      text_blob: "line\n2",
+      shape: {
+        rect: {
+          size: { x: 6.0, y: 9.5 }
+        }
+      },
+      palette: [
+        [255, 0, 128],
+        [12, 34, 56],
+        [1, 2, 3]
+      ]
+    }
+  }), 'bytes file marker must contain only _file')
+
+  await expectCallError(runtime, 'write', JSON.stringify({
+    slot: 0,
+    payload: {
+      points: [
+        { x: 3.5, y: -2.0 },
+        { x: 10.25, y: 8.75 }
+      ],
+      blob: { _file: missingBlobPath },
+      label: "line\n2",
+      text_blob: "line\n2",
+      shape: {
+        rect: {
+          size: { x: 6.0, y: 9.5 }
+        }
+      },
+      palette: [
+        [255, 0, 128],
+        [12, 34, 56],
+        [1, 2, 3]
+      ]
+    }
+  }), 'ENOENT')
 
   await call(runtime, 'write', JSON.stringify({
     slot: 0,
@@ -236,9 +321,9 @@ async function main() {
         { x: 3.5, y: -2.0 },
         { x: 10.25, y: 8.75 }
       ],
-      blob: [0, 17, 34, 51, 200, 255],
+      blob: { _file: blobPath },
       label: "line\n2",
-      text_blob: "line\n2",
+      text_blob: { _file: textBlobPath },
       shape: {
         rect: {
           size: { x: 6.0, y: 9.5 }
@@ -253,7 +338,6 @@ async function main() {
   }))
 
   const dumpBytes = await call(runtime, 'dump')
-  await fs.mkdir(tempDir, { recursive: true })
   const savedDumpPath = path.join(tempDir, 'saved_payload.bin')
   await call(runtime, 'dump_to_file', savedDumpPath)
   const sourceBytes = await call(runtime, 'generate_odin', 'main')
