@@ -76,10 +76,8 @@ const NODE = {
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 3.0;
-const AUTO_ARRANGE_LAYER_GAP_X = 1.0;
-const AUTO_ARRANGE_NODE_GAP_Y = 0.36;
-const AUTO_ARRANGE_COMPONENT_GAP_Y = 0.9;
-const AUTO_ARRANGE_LANE_GAP_Y = 1.15;
+const AUTO_ARRANGE_MIN_HORIZONTAL_SPACING_PX = 120;
+const AUTO_ARRANGE_MIN_VERTICAL_SPACING_PX = 10;
 
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
@@ -4893,9 +4891,9 @@ function getNodeGraphRenderAssets() {
       right: 8,
       top: 8,
       bottom: 8,
-      },
-    };
-  }
+    },
+  };
+}
 
 function autoArrangeNodeGraphView(view) {
   if (!view?.api || !view?.memory || !view?.assets || typeof view._readGraph !== "function") return false;
@@ -4908,12 +4906,10 @@ function autoArrangeNodeGraphView(view) {
   const layoutCfg = view.assets?.layout || {};
   const baseX = Number(layoutCfg.gridOriginX || 80);
   const baseY = Number(layoutCfg.gridOriginY || 58);
-  const layoutStepX = Number(layoutCfg.gridStepX || 186);
-  const layoutStepY = Number(layoutCfg.gridStepY || 112);
-  const layerGapX = Math.max(120, Math.round(layoutStepX * AUTO_ARRANGE_LAYER_GAP_X));
-  const nodeGapY = Math.max(36, Math.round(layoutStepY * AUTO_ARRANGE_NODE_GAP_Y));
-  const componentGapY = Math.max(84, Math.round(layoutStepY * AUTO_ARRANGE_COMPONENT_GAP_Y));
-  const laneGapY = Math.max(28, Math.round(nodeGapY * AUTO_ARRANGE_LANE_GAP_Y));
+  const layerGapX = Math.max(0, Math.round(AUTO_ARRANGE_MIN_HORIZONTAL_SPACING_PX));
+  const nodeGapY = Math.max(0, Math.round(AUTO_ARRANGE_MIN_VERTICAL_SPACING_PX));
+  const componentGapY = Math.max(0, Math.round(nodeGapY * 2));
+  const laneGapY = Math.max(0, Math.round(nodeGapY * 0.75));
 
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const sizeById = new Map(nodes.map((node) => [node.id, view._getNodeSize(node)]));
