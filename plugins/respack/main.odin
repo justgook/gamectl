@@ -107,12 +107,24 @@ handle_init :: proc(input: []u8) -> (bool, string) {
 	if len(input) == 0 {
 		return false, "schema input empty"
 	}
-	if len(input) > SCHEMA_BUFFER_CAPACITY {
+	schema_input := input
+	file_path, has_file, file_err := decode_schema_file_marker(input)
+	if file_err != "" {
+		return false, file_err
+	}
+	if has_file {
+		file_bytes, read_err := pdk.fs_read(file_path)
+		if read_err != "" {
+			return false, read_err
+		}
+		schema_input = file_bytes
+	}
+	if len(schema_input) > SCHEMA_BUFFER_CAPACITY {
 		return false, "schema too large"
 	}
 	reset_state()
-	copy(schema_buffer[:len(input)], input)
-	schema_len = len(input)
+	copy(schema_buffer[:len(schema_input)], schema_input)
+	schema_len = len(schema_input)
 	ok, err := compile_schema(schema_buffer[:schema_len])
 	if !ok {
 		reset_state()
@@ -178,6 +190,32 @@ parse_write_request :: proc(input: []u8) -> (WriteRequest, string) {
 		return WriteRequest{}, "payload bounds invalid"
 	}
 	return req, ""
+}
+
+decode_schema_file_marker :: proc(input: []u8) -> (string, bool, string) {
+	trimmed := trim_space_slice(input)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return "", false, ""
+	}
+	member, next_cursor, found := next_object_member(trimmed, 1)
+	if !found {
+		return "", false, ""
+	}
+	if !bytes_equal_string(trimmed[member.key_start:member.key_end], "_file") {
+		return "", false, ""
+	}
+	_, _, extra_found := next_object_member(trimmed, next_cursor)
+	if extra_found {
+		return "", false, "schema file marker must contain only _file"
+	}
+	path_bytes, ok := decode_json_string_bytes(trimmed[member.value_start:member.value_end])
+	if !ok {
+		return "", false, "_file must be a string"
+	}
+	if len(path_bytes) == 0 {
+		return "", false, "_file path empty"
+	}
+	return string(path_bytes), true, ""
 }
 
 token_matches :: proc(input: []u8, tok: jsmn.Token, text: string) -> bool {

@@ -298,10 +298,18 @@ async function main() {
   const blobPath = path.join(tempDir, 'blob.bin')
   const textBlobPath = path.join(tempDir, 'text_blob.txt')
   const missingBlobPath = path.join(tempDir, 'missing_blob.bin')
+  const schemaCopyPath = path.join(tempDir, 'simple-schema.respack.json')
+  const missingSchemaPath = path.join(tempDir, 'missing-schema.respack.json')
   await fs.writeFile(blobPath, Buffer.from([0, 17, 34, 51, 200, 255]))
   await fs.writeFile(textBlobPath, Buffer.from('line\n2', 'utf8'))
+  await fs.writeFile(schemaCopyPath, schemaText)
 
   await call(runtime, 'init', schemaText)
+
+  await call(runtime, 'init', JSON.stringify({ _file: schemaCopyPath }))
+
+  await expectCallError(runtime, 'init', JSON.stringify({ _file: schemaCopyPath, extra: true }), 'schema file marker must contain only _file')
+  await expectCallError(runtime, 'init', JSON.stringify({ _file: missingSchemaPath }), 'ENOENT')
 
   await expectCallError(runtime, 'write', JSON.stringify({
     slot: 0,
