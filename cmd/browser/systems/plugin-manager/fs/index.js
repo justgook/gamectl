@@ -21,6 +21,7 @@
 import { FsAdapter } from './FsAdapter.js'
 
 let fs = null
+let pluginCaller = null
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
@@ -63,6 +64,10 @@ export async function create(fsConfig) {
   return fs
 }
 
+export function setPluginCaller(caller) {
+  pluginCaller = typeof caller === 'function' ? caller : null
+}
+
 /**
  * Decode base64 string to Uint8Array
  * @param {string} base64 - base64 encoded string
@@ -78,6 +83,43 @@ function base64ToUint8Array(base64) {
   return bytes
 }
 
+function parseImageProtocol(input) {
+  const match = /^image:(\d+)(?:\?(.*))?$/.exec(input)
+  if (!match) {
+    throw new Error('Invalid image protocol: expected image:<handle>?format=png|qoi')
+  }
+
+  const handle = Number.parseInt(match[1], 10)
+  if (!Number.isSafeInteger(handle) || handle <= 0) {
+    throw new Error('Invalid image protocol: handle must be a positive integer')
+  }
+
+  const params = new URLSearchParams(match[2] || '')
+  const format = params.get('format') || 'qoi'
+  if (format !== 'png' && format !== 'qoi') {
+    throw new Error('Invalid image protocol: format must be png or qoi')
+  }
+
+  return { handle, format }
+}
+
+function readImageProtocol(input) {
+  if (!pluginCaller) {
+    throw new Error('Image protocol unavailable: plugin caller is not configured')
+  }
+
+  const { handle, format } = parseImageProtocol(input)
+  const payload = JSON.stringify({ src: handle, format })
+  const result = pluginCaller('image', 'export', payload)
+
+  if (!result || result.returnCode !== 0) {
+    const message = result?.output ? decoder.decode(result.output) : 'unknown image export failure'
+    throw new Error(`Image protocol failed: ${message}`)
+  }
+
+  return result.output instanceof Uint8Array ? result.output : new Uint8Array(result.output)
+}
+
 /**
  * Read file contents from various sources
  * 
@@ -87,6 +129,7 @@ function base64ToUint8Array(base64) {
  * - Data URI: "data:image/png;base64,iVBORw0KGgo..."
  * - HTTP URL: "http://example.com/file" or "https://example.com/file"
  * - Local web: "local:/path" (fetches from current origin)
+ * - Image handle export: "image:12?format=qoi"
  * 
  * @param {string|Uint8Array} path - path, URL, or base64 data
  * @returns {{returnCode: number, output: Uint8Array}} - file contents as bytes
@@ -124,6 +167,12 @@ export function read(path) {
     if (input.startsWith('local:')) {
       const url = new URL(input.slice(6), location.origin).href
       const data = fs.readHttpSync(url)
+      return success(data)
+    }
+
+    // Image handle export: "image:<handle>?format=qoi|png"
+    if (input.startsWith('image:')) {
+      const data = readImageProtocol(input)
       return success(data)
     }
 

@@ -157,9 +157,9 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   static get keybindings() {
     return [
-      { id: "create-node", eventName: "node:create", description: "Create new node", defaultKeys: "<C-n>" },
+      { id: "create-node", eventName: "node:create", description: "Create new node", defaultKeys: "a" },
       { id: "delete-node", eventName: "node:delete", description: "Delete selected nodes", defaultKeys: "<BS>" },
-      { id: "edit-node", eventName: "node:edit", description: "Edit selected node", defaultKeys: "<C-e>" },
+      { id: "edit-node", eventName: "node:edit", description: "Edit selected node", defaultKeys: "e" },
       { id: "run-graph", eventName: "node:run", description: "Run node graph", defaultKeys: "<C-CR>" },
     ];
   }
