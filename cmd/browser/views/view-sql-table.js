@@ -21,7 +21,7 @@ import { bus } from "../systems/event-bus.js"
 export class ViewSqlTable extends HTMLElement {
   static get viewMeta() { return { displayName: 'SQL Table', category: 'Data' } }
 
-  static observedAttributes = ['data-query', 'data-count-query', 'data-table', 'data-page-size', 'data-column-types', 'data-mode', 'data-confirm-label']
+  static observedAttributes = ['data-query', 'data-count-query', 'data-table', 'data-page-size', 'data-column-types', 'data-column-widths', 'data-mode', 'data-confirm-label']
 
   constructor() {
     super()
@@ -31,6 +31,7 @@ export class ViewSqlTable extends HTMLElement {
     this.rows = []
     this.columns = []
     this.columnTypes = {} // { columnName: 'image-base64' | 'image-url' | 'text' | 'number' | 'boolean' }
+    this.columnWidths = {}
     this.primaryKey = 'id' // Assume 'id' by default, can be detected
     this.editingCell = null
     this.mode = 'browser'
@@ -70,6 +71,7 @@ export class ViewSqlTable extends HTMLElement {
     this.mode = this.getAttribute('data-mode') || 'browser'
     this.confirmLabel = this.getAttribute('data-confirm-label') || 'Select'
     this.parseColumnTypes()
+    this.parseColumnWidths()
 
     // Focus management
     this.addEventListener('focusin', () => {
@@ -149,6 +151,8 @@ export class ViewSqlTable extends HTMLElement {
     if (oldValue !== newValue && this.tableContainer) {
       if (name === 'data-column-types') {
         this.parseColumnTypes()
+      } else if (name === 'data-column-widths') {
+        this.parseColumnWidths()
       } else if (name === 'data-mode') {
         this.mode = newValue || 'browser'
         if (this.mode === 'chooser') {
@@ -298,6 +302,20 @@ export class ViewSqlTable extends HTMLElement {
         this.columnTypes = {}
       }
     }
+  }
+
+  parseColumnWidths() {
+    const widthsAttr = this.getAttribute('data-column-widths')
+    if (widthsAttr) {
+      try {
+        this.columnWidths = JSON.parse(widthsAttr)
+      } catch (e) {
+        console.error('Failed to parse data-column-widths:', e)
+        this.columnWidths = {}
+      }
+      return
+    }
+    this.columnWidths = {}
   }
 
   /**
@@ -516,20 +534,29 @@ export class ViewSqlTable extends HTMLElement {
     const table = document.createElement('table')
     table.className = 'sql-table'
 
+    const colgroup = document.createElement('colgroup')
+    this.columns.forEach(col => {
+      const colEl = document.createElement('col')
+      const width = this.getColumnWidth(col)
+      if (width) {
+        colEl.style.width = width
+      }
+      colgroup.appendChild(colEl)
+    })
+    table.appendChild(colgroup)
+
     // Header
     const thead = document.createElement('thead')
     const headerRow = document.createElement('tr')
-
-    // Row number column
-    const thNum = document.createElement('th')
-    thNum.className = 'sql-table-row-num'
-    thNum.textContent = '#'
-    headerRow.appendChild(thNum)
 
     this.columns.forEach(col => {
       const th = document.createElement('th')
       th.textContent = col
       th.dataset.column = col
+      const width = this.getColumnWidth(col)
+      if (width) {
+        th.style.width = width
+      }
       headerRow.appendChild(th)
     })
 
@@ -546,12 +573,6 @@ export class ViewSqlTable extends HTMLElement {
       tr.addEventListener('click', () => {
         this.selectRow(rowIndex)
       })
-
-      // Row number
-      const tdNum = document.createElement('td')
-      tdNum.className = 'sql-table-row-num'
-      tdNum.textContent = this.currentPage * this.pageSize + rowIndex + 1
-      tr.appendChild(tdNum)
 
       this.columns.forEach((col, colIndex) => {
         const td = document.createElement('td')
@@ -692,7 +713,41 @@ export class ViewSqlTable extends HTMLElement {
       return 'boolean'
     }
 
+    if (typeof value === 'number') {
+      return 'number'
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (trimmed && /^-?\d+(\.\d+)?$/.test(trimmed)) {
+        return 'number'
+      }
+    }
+
     return 'text'
+  }
+
+  getColumnWidth(column) {
+    const explicit = this.columnWidths?.[column]
+    if (typeof explicit === 'string' && explicit.trim()) {
+      return explicit.trim()
+    }
+
+    const sample = this.rows.find((row) => row && row[column] !== undefined && row[column] !== null && String(row[column]).trim() !== '')
+    const sampleValue = sample ? sample[column] : ''
+    const colType = this.columnTypes[column] || this.detectColumnType(column, sampleValue)
+    const lower = String(column || '').toLowerCase()
+
+    if (colType === 'boolean') return '6ch'
+    if (colType === 'number') {
+      if (lower === 'id' || lower.endsWith('_id') || lower === 'rowid') return '7ch'
+      if (lower.includes('count') || lower.startsWith('num_') || lower.startsWith('total_')) return '8ch'
+      return '10ch'
+    }
+    if (lower.endsWith('_at') || lower.includes('date') || lower.includes('time')) return '18ch'
+    if (colType === 'image-base64' || colType === 'image-url') return '96px'
+
+    return ''
   }
 
   renderPagination() {
@@ -1014,6 +1069,7 @@ export class ViewSqlTable extends HTMLElement {
       if (options.pageSize) table.setAttribute('data-page-size', String(options.pageSize))
       if (options.confirmLabel) table.setAttribute('data-confirm-label', String(options.confirmLabel))
       if (options.columnTypes) table.setAttribute('data-column-types', JSON.stringify(options.columnTypes))
+      if (options.columnWidths) table.setAttribute('data-column-widths', JSON.stringify(options.columnWidths))
 
       popup.appendChild(table)
       popupManager.appendChild(popup)
