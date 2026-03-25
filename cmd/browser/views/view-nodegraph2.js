@@ -4,6 +4,7 @@ import { createWasiPreview1Imports } from "../util/wasi.js";
 import { parseCSVLines } from "../util/csv.js";
 import { createWriteInput } from "../util/fs.js";
 import { ViewFiles } from "./view-files.js";
+import { ViewSqlTable } from "./view-sql-table.js";
 import "./code-editor.js";
 
 const DEFAULT_GRAPH_NAME = "default";
@@ -2133,51 +2134,38 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   async showLoadGraphPopup() {
     const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
-    if (!popupManager) return;
-
-    let entries = [];
-    try {
-      entries = await this._listSavedGraphs();
-    } catch (error) {
-      toast.error(`Failed to load saved graph list: ${String(error?.message || error)}`);
+    if (!popupManager) {
+      toast.error("Popup manager is not available.");
       return;
     }
 
-    const content = document.createElement("div");
-    if (!entries.length) {
-      content.innerHTML = `<p>No saved node graphs yet.</p>`;
-    } else {
-      content.innerHTML = entries.map((entry) => `
-        <button type="button" data-name="${escapeAttribute(entry.name)}">
-          <strong>${escapeAttribute(entry.name)}</strong>
-          <span>#${Number(entry.id || 0)} · ${entry.nodeCount} node${entry.nodeCount === 1 ? "" : "s"}</span>
-        </button>
-      `).join("");
-    }
-
-    const popup = popupManager.showPopup({
-      title: "Load node graph",
-      content,
-      size: "medium",
-    });
-
-    content.querySelectorAll("button[data-name]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const name = String(btn.getAttribute("data-name") || "");
-        if (!name) return;
-        try {
-          const err = await this.loadGraphByName(name);
-          if (err !== 0) {
-            toast.error(`Failed to load graph \"${name}\" (code ${err}).`);
-            return;
-          }
-          toast.success(`Loaded graph \"${name}\".`);
-          popup.close();
-        } catch (error) {
-          toast.error(`Failed to load graph: ${String(error?.message || error)}`);
-        }
+    try {
+      const selection = await ViewSqlTable.choose({
+        title: "Load node graph",
+        confirmLabel: "Load",
+        returnColumn: "name",
+        query: "SELECT rowid AS id, name, node_count FROM nodegraph2_storage ORDER BY name LIMIT :limit OFFSET :offset",
+        countQuery: "SELECT COUNT(*) FROM nodegraph2_storage",
+        pageSize: 20,
+        columnTypes: {
+          id: "number",
+          node_count: "number",
+        },
       });
-    });
+
+      const name = String(selection?.value || "").trim();
+      if (!name) return;
+
+      const err = await this.loadGraphByName(name);
+      if (err !== 0) {
+        toast.error(`Failed to load graph \"${name}\" (code ${err}).`);
+        return;
+      }
+
+      toast.success(`Loaded graph \"${name}\".`);
+    } catch (error) {
+      toast.error(`Failed to load graph: ${String(error?.message || error)}`);
+    }
   }
 
   showGraphEditorPopup(graphName = this.graphName || DEFAULT_GRAPH_NAME) {
