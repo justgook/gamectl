@@ -2157,9 +2157,19 @@ static ng_i32 load_wrapped_code(lua_State *L, const char *src, size_t len) {
   int status;
   luaL_Buffer b;
   luaL_buffinit(L, &b);
-  luaL_addstring(&b, "return function(inputs, host)\nlocal outputs = {}\n");
+  luaL_addstring(&b,
+                 "return function(inputs, host)\n"
+                 "local outputs = {}\n"
+                 "local __node_main = function()\n");
   luaL_addlstring(&b, src, len);
-  luaL_addstring(&b, "\nreturn outputs\nend");
+  luaL_addstring(&b,
+                 "\nend\n"
+                 "local __node_result = __node_main()\n"
+                 "if type(__node_result) == 'table' then\n"
+                 "  return __node_result\n"
+                 "end\n"
+                 "return outputs\n"
+                 "end");
   luaL_pushresult(&b);
 
   status = luaL_loadbufferx(L, lua_tostring(L, -1), (size_t)lua_rawlen(L, -1),
