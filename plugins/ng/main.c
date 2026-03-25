@@ -28,6 +28,7 @@ typedef struct {
   ng_u32 pending_node_id;
   ng_u32 next_request_id;
   ng_i32 has_response;
+  ng_i32 response_is_error;
   ng_i32 response_len;
   ng_i32 cancelled;
   lua_State *pending_co;
@@ -146,6 +147,7 @@ static ng_i32 ng_parse_serialized_graph(const char *json, size_t len,
 static void ng_free_serialized_graph(NgSerializedGraph *graph);
 static ng_i32 ng_build_exec_graph(void);
 static ng_u32 ng_import_boundary_port_id(ng_u32 node_id, ng_u32 port_id);
+static int lua_host_await_call_cont(lua_State *L, int status, lua_KContext ctx);
 
 static void ng_sb_init(NgStrBuf *sb) {
   sb->buf = NULL;
@@ -2123,6 +2125,7 @@ static int lua_host_await_call(lua_State *L) {
   g_run.next_request_id = request_id;
   g_run.pending_request_id = request_id;
   g_run.has_response = 0;
+  g_run.response_is_error = 0;
   g_run.response_len = 0;
   set_waiting(request_id, g_run.pending_node_id);
 
@@ -2135,7 +2138,19 @@ static int lua_host_await_call(lua_State *L) {
     return luaL_error(L, "host awaitCall request failed");
   }
 
-  return lua_yield(L, 0);
+  return lua_yieldk(L, 0, 0, lua_host_await_call_cont);
+}
+
+static int lua_host_await_call_cont(lua_State *L, int status,
+                                    lua_KContext ctx) {
+  (void)status;
+  (void)ctx;
+  if (g_run.response_is_error) {
+    lua_pushlstring(L, g_resp_buf, (size_t)g_run.response_len);
+    return lua_error(L);
+  }
+  lua_pushlstring(L, g_resp_buf, (size_t)g_run.response_len);
+  return 1;
 }
 
 static ng_i32 load_wrapped_code(lua_State *L, const char *src, size_t len) {
@@ -2217,8 +2232,7 @@ resume_code_coroutine(NgValueSlot slots[NG_MAX_NODES][NG_MAX_OUTPUTS],
   lua_State *co = g_run.pending_co;
   if (co == NULL)
     return NG_ERR_RUNTIME;
-  lua_pushlstring(co, g_resp_buf, (size_t)g_run.response_len);
-  status = lua_resume(co, NULL, 1, &nres);
+  status = lua_resume(co, NULL, 0, &nres);
   if (status == LUA_YIELD)
     return NG_ERR_HOST;
   if (status != LUA_OK) {
@@ -2243,6 +2257,7 @@ static void clear_pending_coroutine(void) {
   g_run.pending_node_id = 0;
   g_run.pending_request_id = 0;
   g_run.has_response = 0;
+  g_run.response_is_error = 0;
   g_run.response_len = 0;
   clear_waiting();
 }
@@ -2863,6 +2878,31 @@ ng_i32 ng_run_response(ng_u32 request_id, ng_i32 json_ptr, ng_i32 json_len) {
   g_resp_buf[json_len] = '\0';
   g_run.response_len = json_len;
   g_run.has_response = 1;
+  g_run.response_is_error = 0;
+  g_run.pending_request_id = 0;
+  clear_waiting();
+  set_run_status(NG_RUN_RUNNING);
+  return continue_active_run();
+}
+
+ng_i32 ng_run_response_error(ng_u32 request_id, ng_i32 json_ptr,
+                             ng_i32 json_len) {
+  const char *src;
+  if (!g_run.active)
+    return NG_ERR_VALIDATION;
+  if (g_info.run_status != NG_RUN_WAITING)
+    return NG_ERR_VALIDATION;
+  if (request_id == 0 || request_id != g_run.pending_request_id)
+    return NG_ERR_NOT_FOUND;
+  if (json_ptr == 0 || json_len < 0 || json_len >= NG_IO_BUFFER_CAP)
+    return NG_ERR_INVALID_ARG;
+
+  src = (const char *)(intptr_t)json_ptr;
+  memcpy(g_resp_buf, src, (size_t)json_len);
+  g_resp_buf[json_len] = '\0';
+  g_run.response_len = json_len;
+  g_run.has_response = 1;
+  g_run.response_is_error = 1;
   g_run.pending_request_id = 0;
   clear_waiting();
   set_run_status(NG_RUN_RUNNING);

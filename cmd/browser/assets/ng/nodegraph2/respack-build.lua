@@ -23,13 +23,8 @@ if not okSlots or type(slots) ~= "table" then
 end
 
 local function callRespack(method, payload)
-    local ok, result = pcall(host.awaitCall, "respack", method, payload)
-    if not ok then
-        return false, tostring(result)
-    end
-
-    local text = tostring(result or "")
-    return true, text
+    local result = host.awaitCall("respack", method, payload)
+    return true, tostring(result or "")
 end
 
 local okInit, initText = callRespack("init", schemaJson)

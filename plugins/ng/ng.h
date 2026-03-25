@@ -243,6 +243,11 @@ ng_i32 ng_run_start(ng_u32 goal_node_id);
 NG_EXPORT("ng_run_response")
 ng_i32 ng_run_response(ng_u32 request_id, ng_i32 json_ptr, ng_i32 json_len);
 
+/* provide error response for the currently pending host.awaitCall request */
+NG_EXPORT("ng_run_response_error")
+ng_i32 ng_run_response_error(ng_u32 request_id, ng_i32 json_ptr,
+                             ng_i32 json_len);
+
 NG_EXPORT("ng_run_cancel")
 ng_i32 ng_run_cancel(void);
 
