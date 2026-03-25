@@ -137,8 +137,8 @@ function buildGlyphMap(meta) {
       uv: [left / aw, bottom / ah, widthPx / aw, heightPx / ah],
       widthPx,
       heightPx,
-      offsetXPx: widthPx * 0.5 + widthPx * Number(pb.left),
-      baselineOffsetYPx: -(heightPx * 0.5 + heightPx * Number(pb.bottom)),
+      offsetXPx: (Number(pb.left) + Number(pb.right)) * 0.5 * em,
+      baselineOffsetYPx: -((Number(pb.bottom) + Number(pb.top)) * 0.5 * em),
       advancePx,
     });
   }
