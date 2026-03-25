@@ -40,9 +40,6 @@ export class PopupManager extends HTMLElement {
 
     // Initial backdrop state
     this.updateBackdrop()
-
-    // Handle escape key for closing topmost popup
-    this.setupKeyboardHandling()
   }
 
   disconnectedCallback() {
@@ -50,8 +47,6 @@ export class PopupManager extends HTMLElement {
       this.observer.disconnect()
     }
 
-    // Remove global event listeners
-    document.removeEventListener('keydown', this.handleKeydown)
   }
 
   /**
@@ -90,24 +85,6 @@ export class PopupManager extends HTMLElement {
       popup.style.transform = ''
       popup.style.transition = ''
     }, 200) // Match animation duration
-  }
-
-  /**
-   * Set up global keyboard handling
-   */
-  setupKeyboardHandling() {
-    this.handleKeydown = (e) => {
-      if (e.key === 'Escape') {
-        const topPopup = this.querySelector('view-popup:last-of-type')
-        if (topPopup) {
-          e.preventDefault()
-          e.stopPropagation()
-          topPopup.close()
-        }
-      }
-    }
-
-    document.addEventListener('keydown', this.handleKeydown)
   }
 
   /**

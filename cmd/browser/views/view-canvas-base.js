@@ -14,7 +14,8 @@ export class ViewCanvasBase extends HTMLElement {
       { id: 'save', eventName: 'file:save', description: 'Save current view data', defaultKeys: '<C-s>' },
       { id: 'zoom-in', eventName: 'view:zoom-in', description: 'Zoom in', defaultKeys: '<C-=>'},
       { id: 'zoom-out', eventName: 'view:zoom-out', description: 'Zoom out', defaultKeys: '<C-->' },
-      { id: 'zoom-fit', eventName: 'view:zoom-fit', description: 'Fit view to content', defaultKeys: '<C-0>' }
+      { id: 'zoom-fit', eventName: 'view:zoom-fit', description: 'Fit view to content', defaultKeys: '<C-0>' },
+      { id: 'pan-modifier', eventName: 'view:pan-modifier', description: 'Hold to pan canvas', defaultKeys: '<Space>', eventType: 'both' }
     ]
   }
 
@@ -62,9 +63,6 @@ export class ViewCanvasBase extends HTMLElement {
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onMouseUp = this._onMouseUp.bind(this);
     this._onMouseLeave = this._onMouseLeave.bind(this);
-    this._onKeyDown = this._onKeyDown.bind(this);
-    this._onKeyUp = this._onKeyUp.bind(this);
-
     // Focus handlers
     this._handleFocusIn = this._handleFocusIn.bind(this);
     this._handleFocusOut = this._handleFocusOut.bind(this);
@@ -245,8 +243,6 @@ export class ViewCanvasBase extends HTMLElement {
     this.canvas.addEventListener('mousemove', this._onMouseMove);
     this.canvas.addEventListener('mouseup', this._onMouseUp);
     this.canvas.addEventListener('mouseleave', this._onMouseLeave);
-    window.addEventListener('keydown', this._onKeyDown);
-    window.addEventListener('keyup', this._onKeyUp);
   }
 
   _removeEventListeners() {
@@ -256,8 +252,6 @@ export class ViewCanvasBase extends HTMLElement {
     this.canvas.removeEventListener('mousemove', this._onMouseMove);
     this.canvas.removeEventListener('mouseup', this._onMouseUp);
     this.canvas.removeEventListener('mouseleave', this._onMouseLeave);
-    window.removeEventListener('keydown', this._onKeyDown);
-    window.removeEventListener('keyup', this._onKeyUp);
   }
 
   // --- Abstract Methods (Subclasses must implement) ---
@@ -622,50 +616,38 @@ export class ViewCanvasBase extends HTMLElement {
     }
   }
 
-  _onKeyDown(e) {
-    if (e.code === 'Space' && !this.spacePressed) {
-      this.spacePressed = true;
-      if (this.canvas) {
-        this.canvas.style.cursor = 'grab';
-      }
-      e.preventDefault();
-    }
-  }
-
-  _onKeyUp(e) {
-    const el = e.target;
-    if (
-      el instanceof HTMLInputElement ||
-      el instanceof HTMLTextAreaElement ||
-      el instanceof HTMLSelectElement ||
-      el.isContentEditable
-    ) {
-      return;
-    }
-
-    if (e.code === 'Space') {
-      this.spacePressed = false;
-      // Clear dragging state when space is released to prevent jump on next space press
+  _setPanModifierActive(isActive) {
+    this.spacePressed = isActive;
+    if (!isActive) {
       this.isDragging = false;
-      if (this.canvas) {
-        this.canvas.style.cursor = 'default';
-      }
+    }
+    if (this.canvas) {
+      this.canvas.style.cursor = isActive ? 'grab' : 'default';
     }
   }
 
-  handleKeybinding(eventName) {
+  handleKeybinding(eventName, context = {}) {
+    const phase = context.phase || 'down'
+
     switch (eventName) {
       case 'file:save':
+        if (phase !== 'down') return false
         this.saveData().catch(() => {})
         return true
       case 'view:zoom-in':
+        if (phase !== 'down') return false
         this.zoomIn()
         return true
       case 'view:zoom-out':
+        if (phase !== 'down') return false
         this.zoomOut()
         return true
       case 'view:zoom-fit':
+        if (phase !== 'down') return false
         this.fitToContent()
+        return true
+      case 'view:pan-modifier':
+        this._setPanModifierActive(phase === 'down')
         return true
       default:
         return false

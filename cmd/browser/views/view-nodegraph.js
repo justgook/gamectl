@@ -336,7 +336,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
     super.disconnectedCallback()
   }
 
-  handleKeybinding(eventName) {
+  handleKeybinding(eventName, context) {
     switch (eventName) {
       case 'node:create':
         this.addNodeMenu()
@@ -351,7 +351,7 @@ export class ViewNodeGraph extends ViewCanvasBase {
         this.fitGraphToContent()
         return true
       default:
-        return super.handleKeybinding(eventName)
+        return super.handleKeybinding(eventName, context)
     }
   }
 
