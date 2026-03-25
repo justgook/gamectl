@@ -104,4 +104,9 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         'Respack Build',
         2,
         '{"kind":2,"name":"Respack Build","codePath":"local:/assets/ng/nodegraph2/respack-build.lua","inputs":[{"inputId":1,"name":"schema","defaultValue":""},{"inputId":2,"name":"outputFile","defaultValue":"/tmp/output.rspk"},{"inputId":3,"name":"slots","defaultValue":"[]"}],"outputs":[{"outputId":1,"name":"outputFile","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Demo UVs',
+        2,
+        '{"kind":2,"name":"Demo UVs","codePath":"local:/assets/ng/nodegraph2/uvs.lua","outputs":[{"outputId":1,"name":"uvs","value":""}]}'
     );

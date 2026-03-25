@@ -76,8 +76,8 @@ const NODE = {
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 3.0;
-const AUTO_ARRANGE_MIN_HORIZONTAL_SPACING_PX = 120;
-const AUTO_ARRANGE_MIN_VERTICAL_SPACING_PX = 10;
+const AUTO_ARRANGE_MIN_HORIZONTAL_SPACING_PX = 64;
+const AUTO_ARRANGE_MIN_VERTICAL_SPACING_PX = 8;
 
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
@@ -260,7 +260,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       <button data-action="add" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
       <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
       <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
-      <button data-action="popout" aria-label="Open Graph Editor" title="Open Graph Editor"><i aria-hidden="true">open_in_new</i></button>
       <button data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">replay</i></button>
       <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">clear_all</i></button>
       <button data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
@@ -298,9 +297,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     const loadBtn = this.queryHeaderControl('[data-action="load"]');
     if (loadBtn) loadBtn.onclick = () => this.showLoadGraphPopup();
-
-    const popoutBtn = this.queryHeaderControl('[data-action="popout"]');
-    if (popoutBtn) popoutBtn.onclick = () => this.showGraphEditorPopup(this.graphName);
 
     const resetBtn = this.queryHeaderControl('[data-action="reset"]');
     if (resetBtn) resetBtn.onclick = async () => this.resetGraph();
@@ -2164,29 +2160,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     } catch (error) {
       toast.error(`Failed to load graph: ${String(error?.message || error)}`);
     }
-  }
-
-  showGraphEditorPopup(graphName = this.graphName || DEFAULT_GRAPH_NAME) {
-    const popupManager = this.closest("popup-manager") || document.querySelector("popup-manager");
-    if (!popupManager) {
-      toast.error("Popup manager is not available.");
-      return null;
-    }
-
-    const name = String(graphName || DEFAULT_GRAPH_NAME).trim() || DEFAULT_GRAPH_NAME;
-    const editor = document.createElement("view-nodegraph2");
-    editor.setAttribute("graph-name", name);
-    editor.style.display = "block";
-    editor.style.width = "min(1400px, 92vw)";
-    editor.style.height = "min(900px, 82vh)";
-    editor.style.minWidth = "960px";
-    editor.style.minHeight = "640px";
-
-    return popupManager.showPopup({
-      title: `Graph: ${name}`,
-      content: editor,
-      size: "large",
-    });
   }
 
   async showEditNodePopup(forcedNodeId = null) {
