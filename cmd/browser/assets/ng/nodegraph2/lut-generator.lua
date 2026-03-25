@@ -1,0 +1,215 @@
+local mapName = inputs[1]
+if mapName == nil or mapName == "" then
+    outputs[1] = ""
+    outputs[2] = ""
+    outputs[3] = "map name is required"
+    return
+end
+
+local layerSelector = tonumber(inputs[2]) or 1
+if layerSelector < 1 then
+    outputs[1] = ""
+    outputs[2] = ""
+    outputs[3] = "layer index must be 1 or greater"
+    return
+end
+layerSelector = math.floor(layerSelector)
+
+local outputPath = inputs[3]
+if outputPath == nil then outputPath = "" end
+
+local format = inputs[4]
+if format == nil or format == "" then
+    local extension = outputPath:match("%.([^.\\/]+)$")
+    if extension ~= nil and extension ~= "" then
+        format = string.lower(extension)
+    else
+        format = "qoi"
+    end
+else
+    format = string.lower(format)
+end
+
+local function fail(message)
+    outputs[1] = ""
+    outputs[2] = ""
+    outputs[3] = message
+end
+
+local function escapeSqlString(value)
+    return tostring(value):gsub("'", "''")
+end
+
+local function decodeJson(text, label)
+    local ok, value = pcall(json.decode, text)
+    if not ok then
+        return nil, "Failed to parse " .. label
+    end
+    return value, nil
+end
+
+local function callImage(method, payload)
+    local resultText = host.awaitCall("image", method, json.encode(payload))
+    local response, decodeErr = decodeJson(resultText, "image." .. method .. " response")
+    if response == nil then
+        return nil, decodeErr
+    end
+    if not response.ok then
+        return nil, response.message or response.code or ("image." .. method .. " failed")
+    end
+    return response, nil
+end
+
+local function base64Encode(bytes)
+    local binaryChunks = {}
+    local chunkSize = 8192
+    for i = 1, #bytes, chunkSize do
+        local chunk = {}
+        local endIdx = math.min(i + chunkSize - 1, #bytes)
+        for j = i, endIdx do
+            chunk[#chunk + 1] = bytes[j]
+        end
+        binaryChunks[#binaryChunks + 1] = string.char(table.unpack(chunk))
+    end
+
+    local pixelString = table.concat(binaryChunks)
+    local base64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    local encoded = {}
+
+    for i = 1, #pixelString, 3 do
+        local a, b, c = string.byte(pixelString, i, i + 2)
+        local n = (a or 0) * 0x10000 + (b or 0) * 0x100 + (c or 0)
+        encoded[#encoded + 1] = string.sub(base64chars, ((n >> 18) & 0x3F) + 1, ((n >> 18) & 0x3F) + 1)
+        encoded[#encoded + 1] = string.sub(base64chars, ((n >> 12) & 0x3F) + 1, ((n >> 12) & 0x3F) + 1)
+        encoded[#encoded + 1] = string.sub(base64chars, ((n >> 6) & 0x3F) + 1, ((n >> 6) & 0x3F) + 1)
+        encoded[#encoded + 1] = string.sub(base64chars, (n & 0x3F) + 1, (n & 0x3F) + 1)
+    end
+
+    local base64 = table.concat(encoded)
+    local padding = #pixelString % 3
+    if padding == 1 then
+        base64 = string.sub(base64, 1, -3) .. "=="
+    elseif padding == 2 then
+        base64 = string.sub(base64, 1, -2) .. "="
+    end
+
+    return base64
+end
+
+local sql = "SELECT rowid AS id, name, data FROM tilemap_storage WHERE name = '" .. escapeSqlString(mapName) .. "' LIMIT 1"
+local csvText = host.awaitCall("sql", "query", sql)
+local okRows, rows = pcall(csv.parse, csvText, { headers = true })
+if not okRows then
+    fail(csvText ~= "" and csvText or "SQL query failed")
+    return
+end
+
+if #rows == 0 then
+    fail("Tilemap not found: " .. tostring(mapName))
+    return
+end
+
+local row = rows[1]
+local tilemapJson, tilemapErr = decodeJson(row.data or "{}", "tilemap JSON")
+if tilemapJson == nil then
+    fail(tilemapErr)
+    return
+end
+
+local layers = tilemapJson.layers
+if type(layers) ~= "table" or #layers == 0 then
+    fail("Tilemap has no layers")
+    return
+end
+
+local layer = layers[layerSelector]
+if type(layer) ~= "table" then
+    fail("Layer not found at index " .. tostring(layerSelector))
+    return
+end
+
+local width = math.floor(tonumber(layer.width) or 0)
+local data = layer.data
+if type(data) ~= "table" then
+    fail("Layer data is missing")
+    return
+end
+
+if width <= 0 or (#data % width) ~= 0 then
+    fail("Invalid layer dimensions")
+    return
+end
+
+local height = #data / width
+if height <= 0 then
+    fail("Invalid layer dimensions")
+    return
+end
+
+local bytes = {}
+for i = 1, #data do
+    local tileId = math.floor(tonumber(data[i]) or 0)
+    if tileId < 0 then tileId = 0 end
+    local offset = (i - 1) * 4
+    bytes[offset + 1] = tileId & 0xFF
+    bytes[offset + 2] = (tileId >> 8) & 0xFF
+    bytes[offset + 3] = (tileId >> 16) & 0xFF
+    bytes[offset + 4] = 255
+end
+
+local created, createErr = callImage("create", {
+    width = width,
+    height = height,
+    fill = { 0, 0, 0, 0 },
+})
+if created == nil or created.handle == nil then
+    fail(createErr or "Failed to create image handle")
+    return
+end
+
+local written, writeErr = callImage("write_pixels", {
+    src = created.handle,
+    width = width,
+    height = height,
+    pixelFormat = "rgba8",
+    encoding = "base64",
+    data = base64Encode(bytes),
+})
+if written == nil then
+    fail(writeErr or "Failed to write pixel data")
+    return
+end
+
+local handle = written.handle or created.handle
+local encodedPath = ""
+if outputPath ~= "" then
+    local encoded, encodeErr = callImage("encode", {
+        src = handle,
+        path = outputPath,
+        format = format,
+    })
+    if encoded == nil then
+        fail(encodeErr or "Failed to encode LUT image")
+        return
+    end
+    encodedPath = encoded.path or outputPath
+end
+
+local metadata = {
+    handle = tostring(handle),
+    width = width,
+    height = height,
+    tileCount = #data,
+    tilemapId = tonumber(row.id),
+    tilemapName = row.name or mapName,
+    layerIndex = layerSelector,
+    layerName = ((type(layer.props) == "table" and layer.props.name) or ("layer " .. tostring(layerSelector))),
+}
+
+if encodedPath ~= "" then
+    metadata.encodedPath = encodedPath
+end
+
+outputs[1] = json.encode(metadata)
+outputs[2] = encodedPath
+outputs[3] = ""

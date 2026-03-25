@@ -3,7 +3,8 @@
   "data": [
     "Positions",
     "Atlas",
-    "Sprites"
+    "Sprites",
+    "LUT"
   ],
   "types": {
     "Vec2": {
@@ -36,6 +37,9 @@
     "Sprites": {
       "type": "vector",
       "value": "UV"
+    },
+    "LUT": {
+      "type": "bytes"
     }
   }
 }
