@@ -15,15 +15,17 @@ World :: struct {
 	grid:             grid.Grid,
 	cam:              Camera,
 	player1:          ^Input,
+	sprite_pipe:      ^Sprite_Pipe,
+	tilemap_pipe:     ^Tilemap_Pipe,
+	uv:               []UV,
 	position:         logic.Component_Storage(Position),
 	velocity:         logic.Component_Storage(Velocity),
-	sprite_pipe:      ^Sprite_Pipe,
-	sprite:           logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX), // make it real from render
+	sprite:           logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
+	tilemap:          logic.Component_Storage_Fixed(Tilemap, MAX_TILEMAPS),
 	brain:            logic.Component_Storage(Brain),
 	input:            logic.Component_Storage(Input),
 	timer:            logic.Component_Storage(Timer),
 	// animations
-	sprite_atlas:     Sprite_Atlas,
 	animation_atlas:  Animation_Atlas,
 	animation:        logic.Component_Storage(Animation),
 }
@@ -39,6 +41,7 @@ frame :: proc(w: ^World, dt: f64) {
 
 	sys_camera(w, dt)
 	sys_animation(w, dt)
+	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
 }
 
@@ -50,9 +53,8 @@ init :: proc(w: ^World) {
 		{host.widthf() / 2, host.heightf() / 2},
 		1.0,
 	)
-	// TODO:  SIMPLIFY
-	w.sprite_pipe = sprites_init()
-	sprites_set_texture(w.atlas, w.sprite_pipe)
+	w.sprite_pipe = sprites_init(w.atlas)
+	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	// THE FIRST MOCK DATA
 
 	player := create_entity(w)
@@ -64,17 +66,22 @@ init :: proc(w: ^World) {
 	logic.add_component(
 		&w.sprite,
 		player,
-		Sprite{pos = {00, 00}, opacity = 1, uv = w.sprite_atlas.uvs[40], size = {128, 128}},
+		Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[40], size = {128, 128}},
 	)
-
 
 	background := create_entity(w)
 	logic.add_component(&w.position, background, Position{0 * UNIT, 128 * UNIT})
+	// logic.add_component(
+	// 	&w.sprite,
+	// 	background,
+	// 	Sprite{opacity = 1, uv = {0, 0, 1, 1}, size = {256, 256}},
+	// )
 	logic.add_component(
-		&w.sprite,
+		&w.tilemap,
 		background,
-		Sprite{opacity = 1, uv = {0, 0, 1, 1}, size = {256, 256}},
+		Tilemap{tile_size = {16, 16}, tileset_uv = {0, 0, 1, 1}, lut_uv = {0, 0, 1, 1}},
 	)
+
 }
 
 create_entity :: proc(w: ^World) -> int {
@@ -88,6 +95,7 @@ entity_delete :: proc(w: ^World, entity_id: int) {
 	logic.delete_component(&w.position, entity_id)
 	logic.delete_component(&w.velocity, entity_id)
 	logic.delete_component(&w.sprite, entity_id)
+	logic.delete_component(&w.tilemap, entity_id)
 	logic.delete_component(&w.brain, entity_id)
 	logic.delete_component(&w.input, entity_id)
 	logic.delete_component(&w.timer, entity_id)
@@ -98,6 +106,8 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.velocity)
 	sprites_cleanup(w.sprite_pipe)
 	logic.destroy_storage(&w.sprite)
+	tilemap_cleanup(w.tilemap_pipe)
+	logic.destroy_storage(&w.tilemap)
 	logic.destroy_storage(&w.brain)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.timer)

@@ -69,20 +69,20 @@ logger :: proc() -> Logger {
 	return logger_host()
 }
 
-info :: proc(tag, message: string, args: ..any) {
-	write(.Info, tag, message, ..args)
+info :: proc(tag, message: string, args: ..any, location := #caller_location) {
+	write(.Info, tag, message, ..args, location = location)
 }
 
-warn :: proc(tag, message: string, args: ..any) {
-	write(.Warning, tag, message, ..args)
+warn :: proc(tag, message: string, args: ..any, location := #caller_location) {
+	write(.Warning, tag, message, ..args, location = location)
 }
 
-error :: proc(tag, message: string, args: ..any) {
-	write(.Error, tag, message, ..args)
+error :: proc(tag, message: string, args: ..any, location := #caller_location) {
+	write(.Error, tag, message, ..args, location = location)
 }
 
-debug :: proc(tag, message: string, args: ..any) {
+debug :: proc(tag, message: string, args: ..any, location := #caller_location) {
 	when DEBUG_LOG {
-		write(.Debug, tag, message, ..args)
+		write(.Debug, tag, message, ..args, location = location)
 	}
 }

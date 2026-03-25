@@ -9,8 +9,8 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [3]u32,
-	lengths: [3]u32,
+	offsets: [4]u32,
+	lengths: [4]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
@@ -20,12 +20,12 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 	   data[2] != 'P' ||
 	   data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 3 {return Package{}, false}
-	if len(data) < 32 {return Package{}, false}
+	if int(read_u16(data, 6)) != 4 {return Package{}, false}
+	if len(data) < 40 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 3 {
+	for i in 0 ..< 4 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -34,7 +34,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 }
 
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 3 {return Reader{}, false}
+	if slot < 0 || slot >= 4 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -111,6 +111,8 @@ uv :: [4]f32
 
 sprites :: []uv
 
+lut :: []u8
+
 DecodedSlots :: struct {
 	has_slot_0: bool,
 	slot_0:     positions,
@@ -118,6 +120,8 @@ DecodedSlots :: struct {
 	slot_1:     atlas,
 	has_slot_2: bool,
 	slot_2:     sprites,
+	has_slot_3: bool,
+	slot_3:     lut,
 }
 
 decode_bool :: proc(r: ^Reader, out: ^bool) -> bool {
@@ -348,6 +352,19 @@ decode_sprites :: proc(r: ^Reader, out: ^sprites) -> bool {
 	return true
 }
 
+decode_lut :: proc(r: ^Reader, out: ^lut) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		start := r.pos
+		end := start + int(count)
+		if end > len(r.data) {return false}
+		r.pos = end
+		out^ = r.data[start:end]
+	}
+	return true
+}
+
 read_slot_0_positions :: proc(pkg: Package) -> (positions, bool) {
 	r, ok := slot_reader(pkg, 0)
 	if !ok {return positions{}, false}
@@ -369,5 +386,13 @@ read_slot_2_sprites :: proc(pkg: Package) -> (sprites, bool) {
 	if !ok {return nil, false}
 	value: sprites
 	if !decode_sprites(&r, &value) {return nil, false}
+	return value, true
+}
+
+read_slot_3_lut :: proc(pkg: Package) -> (lut, bool) {
+	r, ok := slot_reader(pkg, 3)
+	if !ok {return nil, false}
+	value: lut
+	if !decode_lut(&r, &value) {return nil, false}
 	return value, true
 }

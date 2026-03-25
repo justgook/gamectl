@@ -31,7 +31,7 @@ logger_host :: proc() -> Logger {
 	return Logger{func = sokol_logger_proc}
 }
 
-write :: proc(level: Level, tag, message: string, args: ..any) {
+write :: proc(level: Level, tag, message: string, args: ..any, location: runtime.Source_Code_Location = #caller_location) {
 	formatted_message := format_message(message, ..args)
 	tag_ptr, tag_len := string_ptr_and_len(tag)
 	message_ptr, message_len := string_ptr_and_len(formatted_message)

@@ -5,10 +5,6 @@ import "core:c"
 import "core:math/linalg"
 import "logic"
 
-Sprite_Atlas :: struct {
-	uvs: []UV,
-}
-
 // Flip flags for sprite rendering (matches Tiled TMX format)
 // Bit 0 = Horizontal flip, Bit 1 = Vertical flip, Bit 2 = Anti-diagonal flip
 // Flip :: distinct u8
@@ -28,7 +24,7 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		s.pos = to_pixelf(pos^)
 	}
 
-	manager := w.sprite_pipe
+	pipe := w.sprite_pipe
 	the_count := w.sprite.count
 
 	if the_count < 1 {
@@ -42,12 +38,12 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 
 	// update instance data
 	sg.update_buffer(
-		manager.bind.vertex_buffers[1],
+		pipe.bind.vertex_buffers[1],
 		{ptr = &w.sprite, size = c.size_t(the_count * size_of(Sprite))},
 	)
 
-	sg.apply_pipeline(manager.pip)
-	sg.apply_bindings(manager.bind)
+	sg.apply_pipeline(pipe.pip)
+	sg.apply_bindings(pipe.bind)
 	sg.apply_uniforms(UB_sprite_vs_params, {ptr = &vs_params, size = size_of(vs_params)})
 	sg.draw(0, 6, the_count)
 }
@@ -55,7 +51,11 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 
 /// THE OLD STUFF
 SPRITE_RENDER_MAX :: 8192
+
+@(private = "file")
 BASE_VERTICES := [?][2]f32{{-.5, -.5}, {-.5, .5}, {.5, -.5}, {.5, .5}}
+
+@(private = "file")
 BASE_INDICES := [?]u16{0, 1, 2, 2, 1, 3}
 
 Sprite :: struct {
@@ -75,38 +75,31 @@ Sprite_Pipe :: struct {
 	// atlas_size: [2]f32,
 }
 
-sprites_cleanup :: proc(manager: ^Sprite_Pipe) {
-	sg.destroy_pipeline(manager.pip)
-	free(manager)
+sprites_cleanup :: proc(pipe: ^Sprite_Pipe) {
+	sg.destroy_pipeline(pipe.pip)
+	free(pipe)
 }
 
-sprites_set_texture :: proc(tex0: sg.Image, manager: ^Sprite_Pipe) {
-	manager.bind.views[VIEW_sprite_tex0] = sg.make_view({texture = {image = tex0}})
-}
+sprites_init :: proc(tex0: sg.Image) -> ^Sprite_Pipe {
+	pipe := new(Sprite_Pipe)
+	pipe.bind.samplers[SMP_sprite_default_sampler] = sg.make_sampler({})
+	pipe.bind.views[VIEW_sprite_tex0] = sg.make_view({texture = {image = tex0}})
 
-// sprites_set_atlas_size :: proc(manager: ^Sprite_Pipe, width, height: f32) {
-// 	manager.atlas_size = {width, height}
-// }
-
-sprites_init :: proc() -> ^Sprite_Pipe {
-	manager := new(Sprite_Pipe)
-	manager.bind.samplers[SMP_sprite_default_sampler] = sg.make_sampler({})
-
-	manager.bind.vertex_buffers[0] = sg.make_buffer(
+	pipe.bind.vertex_buffers[0] = sg.make_buffer(
 		{
 			usage = sg.Buffer_Usage{vertex_buffer = true, immutable = true},
 			data = {ptr = &BASE_VERTICES, size = size_of(BASE_VERTICES)},
 		},
 	)
 
-	manager.bind.index_buffer = sg.make_buffer(
+	pipe.bind.index_buffer = sg.make_buffer(
 		{
 			usage = sg.Buffer_Usage{index_buffer = true, immutable = true},
 			data = {ptr = &BASE_INDICES, size = size_of(BASE_INDICES)},
 		},
 	)
 
-	manager.bind.vertex_buffers[1] = sg.make_buffer(
+	pipe.bind.vertex_buffers[1] = sg.make_buffer(
 		{
 			usage = sg.Buffer_Usage{vertex_buffer = true, stream_update = true},
 			size = SPRITE_RENDER_MAX * size_of(Sprite),
@@ -148,7 +141,7 @@ sprites_init :: proc() -> ^Sprite_Pipe {
 		blend = blend_state,
 	}
 
-	manager.pip = sg.make_pipeline(pipeline_desc)
+	pipe.pip = sg.make_pipeline(pipeline_desc)
 
-	return manager
+	return pipe
 }

@@ -67,7 +67,7 @@ sys_animation :: proc(w: ^World, dt: f64) {
 
 		// Update sprite component from current animation frame
 		frame := &frames[anim.frame_index]
-		sprite.uv = w.sprite_atlas.uvs[int(frame.uv_index)] // atlas_get_uv(&w.sprite_atlas, int(frame.uv_index))
+		sprite.uv = w.uv[int(frame.uv_index)] // atlas_get_uv(&w.sprite_atlas, int(frame.uv_index))
 		// sprite.offset = [2]int{int(frame.offset[0]), int(frame.offset[1])}
 		sprite.flip = frame.flip
 	}

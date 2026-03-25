@@ -14,8 +14,6 @@ ACTION_UP :: u32(3)
 ACTION_DOWN :: u32(4)
 ACTION_1 :: u32(5)
 ACTION_2 :: u32(6)
-ATLAS_ASSET_PATH :: "/game/the_atlas.qoi"
-LUT_ASSET_PATH :: "/game/lut.qoi"
 GAME_ASSET_PATH :: "/game/data.rspk"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
@@ -43,27 +41,6 @@ app_init :: proc() {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 		depth = {load_action = .CLEAR, clear_value = 1.0},
 	}
-	host.info("app", "2")
-	lut_asset_data, lut_ok := host.asset_read_all(LUT_ASSET_PATH)
-	if lut_ok {
-		lut_w, lut_h, lut_img_pixels, lut_img_ok := qoi.decode_to_buffer(
-			lut_asset_data,
-			lut_pixels[:],
-		)
-		if lut_img_ok {
-			lut_desc := sg.Image_Desc {
-				width        = i32(lut_w),
-				height       = i32(lut_h),
-				pixel_format = .RGBA8,
-			}
-			lut_desc.data.mip_levels[0] = {
-				ptr  = raw_data(lut_img_pixels),
-				size = c.size_t(lut_w * lut_h * 4),
-			}
-			state.lut = sg.make_image(lut_desc)
-		}
-	}
-
 
 	// THE REAL STUFF
 	state.world.atlas = state.atlas
@@ -130,15 +107,13 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 
 	the_out := read_slot_0_positions(game_data) or_return
 	atlas_bytes := read_slot_1_atlas(game_data) or_return
-	sprites_uv := read_slot_2_sprites(game_data) or_return
-	w.sprite_atlas.uvs = sprites_uv
-	w.sprite_atlas.uvs = sprites_uv
+	w.uv = read_slot_2_sprites(game_data) or_return
+	the_lut := read_slot_3_lut(game_data) or_return
 
+	w.lut = create_image(the_lut, lut_pixels[:]) or_return
+	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
 
-	atlas_texture := create_image(atlas_bytes, atlas_pixels[:]) or_return
-	w.atlas = atlas_texture
-
-	host.info("assets", "game loaded", the_out, w.atlas, sprites_uv)
+	host.info("assets", "game loaded", the_out, w.atlas)
 
 	return true
 }
