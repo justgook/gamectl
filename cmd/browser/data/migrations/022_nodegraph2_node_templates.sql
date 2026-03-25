@@ -21,9 +21,9 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         '{"kind":2,"name":"respack text demo","codePath":"local:/assets/ng/nodegraph2/respack-text-demo.lua","inputs":[],"outputs":[{"outputId":1,"name":"odin_source","value":""},{"outputId":2,"name":"status","value":""}]}'
     ),
     (
-        'LUT generator demo',
+        'LUT Generator',
         2,
-        '{"kind":2,"name":"LUT generator demo","codePath":"local:/assets/ng/nodegraph2/lut-generator-demo.lua","inputs":[],"outputs":[{"outputId":1,"name":"result","value":""}]}'
+        '{"kind":2,"name":"LUT Generator","codePath":"local:/assets/ng/nodegraph2/lut-generator.lua","inputs":[{"inputId":1,"name":"mapName","defaultValue":"new_map"},{"inputId":2,"name":"layerIndex","defaultValue":"1"},{"inputId":3,"name":"outputPath","defaultValue":""},{"inputId":4,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"metadata","value":""},{"outputId":2,"name":"encodedPath","value":""},{"outputId":3,"name":"error","value":""}]}'
     ),
     (
         'pack demo',
