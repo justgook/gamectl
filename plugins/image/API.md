@@ -439,6 +439,28 @@ Notes:
 - intended for plugin-to-plugin communication where JSON base64 overhead is too high
 - callers should obtain dimensions from `open` or `info`
 
+### `export`
+
+Encode a handle and return the encoded bytes directly as binary output.
+
+Request:
+
+```json
+{"src":1,"format":"qoi"}
+```
+
+If `format` is omitted, v1 defaults to `qoi`.
+
+Response:
+
+- raw encoded image bytes only
+
+Notes:
+
+- supported output formats for v1: `png`, `qoi`
+- intended for plugin-to-plugin and host-bridged binary workflows
+- this does not write to the filesystem
+
 ### `write_pixels`
 
 Create a new image from an existing handle with replaced pixel data.

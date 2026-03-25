@@ -135,6 +135,10 @@ async function handleInit(id, payload) {
   }
 
   manager = await PluginManager.create(workerOptions)
+  PluginFileSystem.setPluginCaller((moduleName, functionName, input) => {
+    const inputBytes = typeof input === 'string' ? new TextEncoder().encode(input) : input
+    return manager.callSync(moduleName, functionName, inputBytes)
+  })
 
   console.log('[Worker] Phase 1 complete: fs + sql ready')
 

@@ -1094,6 +1094,53 @@ static int image_parse_encode_format(const char *name, int *out_format) {
   return 0;
 }
 
+static int image_encode_handle_to_memory(const image_handle_t *src_handle,
+                                         int format, pdk_u8 **out_bytes,
+                                         pdk_u32 *out_len) {
+  if (src_handle == NULL || out_bytes == NULL || out_len == NULL) {
+    return 0;
+  }
+
+  *out_bytes = NULL;
+  *out_len = 0;
+
+  if (format == IMAGE_SOURCE_QOI) {
+    qoi_desc desc;
+    int encoded_len = 0;
+    desc.width = (unsigned int)src_handle->width;
+    desc.height = (unsigned int)src_handle->height;
+    desc.channels = 4;
+    desc.colorspace = QOI_SRGB;
+    *out_bytes = (pdk_u8 *)qoi_encode(src_handle->pixels, &desc, &encoded_len);
+    if (*out_bytes == NULL || encoded_len <= 0) {
+      *out_bytes = NULL;
+      return 0;
+    }
+    *out_len = (pdk_u32)encoded_len;
+    return 1;
+  }
+
+  if (format == IMAGE_SOURCE_PNG) {
+    image_buffer_t buffer;
+    image_buffer_init(&buffer);
+    if (!stbi_write_png_to_func(image_stbi_write_func, &buffer, src_handle->width,
+                                src_handle->height, 4, src_handle->pixels,
+                                src_handle->width * 4)) {
+      image_buffer_free(&buffer);
+      return 0;
+    }
+    if (buffer.len == 0xffffffffu || buffer.bytes == NULL || buffer.len == 0) {
+      image_buffer_free(&buffer);
+      return 0;
+    }
+    *out_bytes = buffer.bytes;
+    *out_len = buffer.len;
+    return 1;
+  }
+
+  return 0;
+}
+
 static int image_copy_region_rgba(pdk_u8 *dst, pdk_u32 dst_width,
                                   pdk_u32 dst_height, const image_handle_t *src,
                                   pdk_u32 x0, pdk_u32 y0, pdk_u32 x1,
@@ -1767,7 +1814,6 @@ static pdk_u32 image_handle_encode(void) {
   char format_name[16];
   int format_state;
   int format = IMAGE_SOURCE_QOI;
-  image_buffer_t buffer;
   pdk_u8 *encoded = NULL;
   pdk_u32 encoded_len = 0;
   pdk_u32 parse_rc;
@@ -1799,55 +1845,72 @@ static pdk_u32 image_handle_encode(void) {
                                "format must be png or qoi");
   }
 
-  if (format == IMAGE_SOURCE_QOI) {
-    qoi_desc desc;
-    int out_len = 0;
-    desc.width = (unsigned int)src_handle->width;
-    desc.height = (unsigned int)src_handle->height;
-    desc.channels = 4;
-    desc.colorspace = QOI_SRGB;
-    encoded = (pdk_u8 *)qoi_encode(src_handle->pixels, &desc, &out_len);
-    if (encoded == NULL || out_len <= 0) {
-      return image_respond_error(IMAGE_ERR_ENCODE_FAILED,
-                                 "failed to encode qoi image");
-    }
-    encoded_len = (pdk_u32)out_len;
-  } else {
-    image_buffer_init(&buffer);
-    if (!stbi_write_png_to_func(image_stbi_write_func, &buffer, src_handle->width,
-                                src_handle->height, 4, src_handle->pixels,
-                                src_handle->width * 4)) {
-      image_buffer_free(&buffer);
-      return image_respond_error(IMAGE_ERR_ENCODE_FAILED,
-                                 "failed to encode png image");
-    }
-    if (buffer.len == 0xffffffffu || buffer.bytes == NULL || buffer.len == 0) {
-      image_buffer_free(&buffer);
-      return image_respond_error(IMAGE_ERR_ENCODE_FAILED,
-                                 "failed to encode png image");
-    }
-    encoded = buffer.bytes;
-    encoded_len = buffer.len;
+  if (!image_encode_handle_to_memory(src_handle, format, &encoded, &encoded_len)) {
+    return image_respond_error(IMAGE_ERR_ENCODE_FAILED,
+                               format == IMAGE_SOURCE_PNG
+                                   ? "failed to encode png image"
+                                   : "failed to encode qoi image");
   }
 
   if (!image_fs_write(path, encoded, encoded_len)) {
-    if (format == IMAGE_SOURCE_PNG) {
-      image_buffer_free(&buffer);
-    } else {
-      image_free(encoded);
-    }
+    image_free(encoded);
     return image_respond_error(IMAGE_ERR_IO_FAILED,
                                "failed to write encoded image");
   }
 
-  if (format == IMAGE_SOURCE_PNG) {
-    image_buffer_free(&buffer);
-  } else {
-    image_free(encoded);
-  }
+  image_free(encoded);
 
   return image_respond_encoded(path, format == IMAGE_SOURCE_PNG ? "png" : "qoi",
                                encoded_len);
+}
+
+static pdk_u32 image_handle_export(void) {
+  image_json_doc_t doc;
+  pdk_u32 src_id = 0;
+  image_handle_t *src_handle;
+  char format_name[16];
+  int format_state;
+  int format = IMAGE_SOURCE_QOI;
+  pdk_u8 *encoded = NULL;
+  pdk_u32 encoded_len = 0;
+  pdk_u32 parse_rc;
+
+  parse_rc = image_require_json(&doc);
+  if (parse_rc != 0) {
+    return parse_rc;
+  }
+
+  if (!image_json_get_u32(&doc, "src", &src_id)) {
+    return image_respond_error(IMAGE_ERR_BAD_INPUT, "src is required");
+  }
+
+  src_handle = image_find_handle(src_id);
+  if (src_handle == NULL) {
+    return image_respond_error(IMAGE_ERR_INVALID_HANDLE,
+                               "image handle was not found");
+  }
+
+  format_state = image_json_get_string_optional(&doc, "format", format_name,
+                                                sizeof(format_name));
+  if (format_state == 0) {
+    return image_respond_error(IMAGE_ERR_BAD_INPUT,
+                               "format must be a string");
+  }
+  if (!image_parse_encode_format(format_state > 0 ? format_name : NULL, &format)) {
+    return image_respond_error(IMAGE_ERR_UNSUPPORTED_FORMAT,
+                               "format must be png or qoi");
+  }
+
+  if (!image_encode_handle_to_memory(src_handle, format, &encoded, &encoded_len)) {
+    return image_respond_error(IMAGE_ERR_ENCODE_FAILED,
+                               format == IMAGE_SOURCE_PNG
+                                   ? "failed to encode png image"
+                                   : "failed to encode qoi image");
+  }
+
+  image_write_response((const char *)encoded, encoded_len);
+  image_free(encoded);
+  return 0;
 }
 
 static pdk_u32 image_handle_blit(void) {
@@ -2020,11 +2083,6 @@ static pdk_u32 image_handle_write_pixels(void) {
   return image_respond_handle_meta(result_handle->id, width, height, NULL);
 }
 
-static pdk_u32 image_stub_not_implemented(void) {
-  return image_respond_error(IMAGE_ERR_NOT_IMPLEMENTED,
-                             "image/v1 export is not implemented yet");
-}
-
 __attribute__((export_name("open"))) pdk_u32 image_open(void) {
   return image_handle_open();
 }
@@ -2063,6 +2121,10 @@ __attribute__((export_name("read_pixels"))) pdk_u32 image_read_pixels(void) {
 
 __attribute__((export_name("read_pixels_bin"))) pdk_u32 image_read_pixels_bin(void) {
   return image_handle_read_pixels_bin();
+}
+
+__attribute__((export_name("export"))) pdk_u32 image_export(void) {
+  return image_handle_export();
 }
 
 __attribute__((export_name("write_pixels"))) pdk_u32 image_write_pixels(void) {
