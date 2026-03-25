@@ -25,13 +25,22 @@ class KeybindingManager {
     this.bindingsById = new Map()
     this.bindingsBySource = new Map()
     this.sources = new Map(BUILTIN_SOURCES)
+    this.activePresses = new Map()
 
     this.handleKeyDown = this.handleKeyDown.bind(this)
+    this.handleKeyUp = this.handleKeyUp.bind(this)
+    this.handleWindowBlur = this.handleWindowBlur.bind(this)
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this)
+    this.handleFocusIn = this.handleFocusIn.bind(this)
   }
 
   async init() {
     await this.loadBindings()
     document.addEventListener('keydown', this.handleKeyDown)
+    document.addEventListener('keyup', this.handleKeyUp)
+    document.addEventListener('focusin', this.handleFocusIn)
+    document.addEventListener('visibilitychange', this.handleVisibilityChange)
+    window.addEventListener('blur', this.handleWindowBlur)
 
     if (DEBUG) {
       console.log('[KeybindingManager] Initialized with sources:', Array.from(this.bindingsBySource.keys()))
@@ -39,6 +48,8 @@ class KeybindingManager {
   }
 
   async reloadBindings() {
+    this.releaseActiveBindings()
+    this.clearSequence()
     await this.loadBindings()
   }
 
@@ -138,11 +149,19 @@ class KeybindingManager {
           sourceEnabled: source.enabled,
           eventName: def.eventName,
           description: def.description || '',
+          eventType: this.normalizeEventType(def.eventType),
           defaultKeys: def.defaultKeys || '',
           keys: def.defaultKeys || '',
           enabled: true
         }
       })
+  }
+
+  normalizeEventType(eventType) {
+    if (eventType === 'keyup' || eventType === 'both') {
+      return eventType
+    }
+    return 'keydown'
   }
 
   collectKeybindingDefinitions(ViewClass) {
@@ -261,7 +280,12 @@ class KeybindingManager {
         this.bindingsBySource.set(effective.source, new Map())
       }
 
-      this.bindingsBySource.get(effective.source).set(effective.keys, effective)
+      const sourceBindings = this.bindingsBySource.get(effective.source)
+      if (!sourceBindings.has(effective.eventType)) {
+        sourceBindings.set(effective.eventType, new Map())
+      }
+
+      sourceBindings.get(effective.eventType).set(effective.keys, effective)
     }
 
     this.catalog.sort((a, b) => {
@@ -317,19 +341,18 @@ class KeybindingManager {
 
   handleKeyDown(event) {
     if (!this.enabled) return
-
-    const el = event.target
-    if (
-      el instanceof HTMLInputElement ||
-      el instanceof HTMLTextAreaElement ||
-      el instanceof HTMLSelectElement ||
-      el?.isContentEditable
-    ) {
+    if (this.isEditableEventTarget(event)) {
       return
     }
 
     const key = this.normalizeKey(event)
     if (!key) return
+
+    const pressKey = this.getPressKey(event)
+    if (this.activePresses.has(pressKey)) {
+      event.preventDefault()
+      return
+    }
 
     const focused = this.resolveFocusedSource(event)
     const primarySource = focused?.source || 'layout'
@@ -348,18 +371,24 @@ class KeybindingManager {
 
     const sequenceStr = this.keySequence.join('')
     const fallbackSource = primarySource === 'layout' ? null : 'layout'
+    const popupOpen = this.hasOpenPopup()
 
-    let matched = this.matchBinding(primarySource, sequenceStr)
+    let matched = this.matchBinding(primarySource, sequenceStr, 'keydown')
     let executionTarget = focused?.element || this.getSourceElement(primarySource)
 
     if (!matched && fallbackSource) {
-      matched = this.matchBinding(fallbackSource, sequenceStr)
+      matched = this.matchBinding(fallbackSource, sequenceStr, 'keydown')
       if (matched) {
         executionTarget = this.getSourceElement(fallbackSource)
       }
     }
 
     if (matched) {
+      if (popupOpen && !this.isBindingAllowedWhilePopupOpen(matched)) {
+        this.clearSequence()
+        return
+      }
+
       const handled = this.executeBinding(matched, executionTarget, event)
       if (handled) {
         event.preventDefault()
@@ -377,10 +406,91 @@ class KeybindingManager {
       return
     }
 
+    if (popupOpen) {
+      this.clearSequence()
+      return
+    }
+
+    this.clearSequence()
+  }
+
+  handleKeyUp(event) {
+    if (!this.enabled) return
+
+    const key = this.normalizeKey(event)
+    if (!key) return
+
+    const pressKey = this.getPressKey(event)
+    const activePress = this.activePresses.get(pressKey)
+    if (activePress) {
+      this.activePresses.delete(pressKey)
+      const handled = this.executeBinding(activePress.binding, activePress.target, event, 'up')
+      if (handled) {
+        event.preventDefault()
+      }
+      return
+    }
+
+    if (this.isEditableEventTarget(event)) {
+      return
+    }
+
+    const focused = this.resolveFocusedSource(event)
+    const primarySource = focused?.source || 'layout'
+    const fallbackSource = primarySource === 'layout' ? null : 'layout'
+    const popupOpen = this.hasOpenPopup()
+
+    let matched = this.matchBinding(primarySource, key, 'keyup')
+    let executionTarget = focused?.element || this.getSourceElement(primarySource)
+
+    if (!matched && fallbackSource) {
+      matched = this.matchBinding(fallbackSource, key, 'keyup')
+      if (matched) {
+        executionTarget = this.getSourceElement(fallbackSource)
+      }
+    }
+
+    if (matched) {
+      if (popupOpen && !this.isBindingAllowedWhilePopupOpen(matched)) {
+        return
+      }
+
+      const handled = this.executeBinding(matched, executionTarget, event, 'up')
+      if (handled) {
+        event.preventDefault()
+      }
+    }
+  }
+
+  handleWindowBlur() {
+    this.releaseActiveBindings()
+    this.clearSequence()
+  }
+
+  handleVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      this.releaseActiveBindings()
+      this.clearSequence()
+    }
+  }
+
+  handleFocusIn(event) {
+    if (!this.isEditableEventTarget(event)) {
+      return
+    }
+
+    this.releaseActiveBindings()
     this.clearSequence()
   }
 
   resolveFocusedSource(event) {
+    if (this.hasOpenPopup()) {
+      return {
+        source: 'layout',
+        element: this.getSourceElement('layout')
+      }
+    }
+
     const path = typeof event.composedPath === 'function' ? event.composedPath() : []
 
     for (const node of path) {
@@ -455,10 +565,23 @@ class KeybindingManager {
     return document.querySelector(tag)
   }
 
-  matchBinding(source, keys) {
+  matchBinding(source, keys, eventType = 'keydown') {
     const sourceBindings = this.bindingsBySource.get(source)
     if (!sourceBindings) return null
-    return sourceBindings.get(keys) || null
+
+    const exactBindings = sourceBindings.get(eventType)
+    if (exactBindings?.has(keys)) {
+      return exactBindings.get(keys) || null
+    }
+
+    if (eventType === 'keydown') {
+      const holdBindings = sourceBindings.get('both')
+      if (holdBindings?.has(keys)) {
+        return holdBindings.get(keys) || null
+      }
+    }
+
+    return null
   }
 
   isPotentialSequence(sequenceStr, primarySource, fallbackSource) {
@@ -468,9 +591,13 @@ class KeybindingManager {
     for (const source of candidates) {
       const sourceBindings = this.bindingsBySource.get(source)
       if (!sourceBindings) continue
-      for (const [keys] of sourceBindings) {
-        if (keys.startsWith(sequenceStr) && keys !== sequenceStr) {
-          return true
+      for (const eventType of ['keydown', 'both']) {
+        const bindings = sourceBindings.get(eventType)
+        if (!bindings) continue
+        for (const [keys] of bindings) {
+          if (keys.startsWith(sequenceStr) && keys !== sequenceStr) {
+            return true
+          }
         }
       }
     }
@@ -478,7 +605,11 @@ class KeybindingManager {
     return false
   }
 
-  executeBinding(binding, target, domEvent) {
+  executeBinding(binding, target, domEvent, phase = 'down') {
+    if (phase === 'up' && binding.eventType === 'keydown') {
+      return false
+    }
+
     if (!target || typeof target.handleKeybinding !== 'function') {
       if (DEBUG) {
         console.warn(`[KeybindingManager] No keybinding handler for ${binding.source}.${binding.eventName}`)
@@ -491,10 +622,17 @@ class KeybindingManager {
     }
 
     try {
-      return target.handleKeybinding(binding.eventName, {
+      const handled = target.handleKeybinding(binding.eventName, {
         binding,
+        phase,
         domEvent
       }) !== false
+
+      if (handled && phase === 'down' && binding.eventType === 'both' && domEvent) {
+        this.activePresses.set(this.getPressKey(domEvent), { binding, target })
+      }
+
+      return handled
     } catch (error) {
       console.error(`[KeybindingManager] Handler failed for ${binding.bindingId}:`, error)
       return false
@@ -559,6 +697,57 @@ class KeybindingManager {
     return key
   }
 
+  getPressKey(event) {
+    if (!event) return null
+    return event.code || this.normalizeKey(event)
+  }
+
+  isEditableEventTarget(event) {
+    const path = typeof event?.composedPath === 'function' ? event.composedPath() : []
+
+    for (const node of path) {
+      if (this.isEditableElement(node)) {
+        return true
+      }
+    }
+
+    return this.isEditableElement(this.getDeepActiveElement(document))
+  }
+
+  isEditableElement(node) {
+    if (!(node instanceof HTMLElement)) {
+      return false
+    }
+
+    if (
+      node instanceof HTMLInputElement ||
+      node instanceof HTMLTextAreaElement ||
+      node instanceof HTMLSelectElement ||
+      node.isContentEditable
+    ) {
+      return true
+    }
+
+    return Boolean(node.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]'))
+  }
+
+  releaseActiveBindings() {
+    for (const [pressKey, activePress] of this.activePresses.entries()) {
+      this.activePresses.delete(pressKey)
+      this.executeBinding(activePress.binding, activePress.target, null, 'up')
+    }
+  }
+
+  hasOpenPopup() {
+    const popupManager = document.querySelector('popup-manager')
+    if (!popupManager) return false
+    return popupManager.querySelector('view-popup') !== null
+  }
+
+  isBindingAllowedWhilePopupOpen(binding) {
+    return binding?.eventName === 'popup:close'
+  }
+
   clearSequence() {
     this.keySequence = []
     this.sequenceSource = null
@@ -574,11 +763,17 @@ class KeybindingManager {
 
   disable() {
     this.enabled = false
+    this.releaseActiveBindings()
     this.clearSequence()
   }
 
   destroy() {
     document.removeEventListener('keydown', this.handleKeyDown)
+    document.removeEventListener('keyup', this.handleKeyUp)
+    document.removeEventListener('focusin', this.handleFocusIn)
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+    window.removeEventListener('blur', this.handleWindowBlur)
+    this.releaseActiveBindings()
     this.clearSequence()
   }
 }

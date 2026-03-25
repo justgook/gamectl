@@ -1643,7 +1643,7 @@ export class ViewAnimationEditor extends AnimationEditorCanvas {
     this._updatePreview()
   }
 
-  handleKeybinding(eventName) {
+  handleKeybinding(eventName, context) {
     switch (eventName) {
       case 'animation:playback:toggle':
         this.animationPreview.toggle()
@@ -1662,7 +1662,7 @@ export class ViewAnimationEditor extends AnimationEditorCanvas {
         this.saveData()
         return true
       default:
-        return super.handleKeybinding(eventName)
+        return super.handleKeybinding(eventName, context)
     }
   }
 

@@ -229,7 +229,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.setGraphName(newValue, { reload: false });
   }
 
-  handleKeybinding(eventName) {
+  handleKeybinding(eventName, context) {
     switch (eventName) {
       case "node:create":
         this.showAddNodePopup();
@@ -244,7 +244,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         this.runGraph();
         return true;
       default:
-        return super.handleKeybinding(eventName);
+        return super.handleKeybinding(eventName, context);
     }
   }
 

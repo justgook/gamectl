@@ -1,5 +1,4 @@
 import { toast } from "../systems/toast.js"
-import { bus } from "../systems/event-bus.js"
 import { parseCSVLines } from "../util/csv.js"
 import { GLBridge } from "../util/gl-bridge.js"
 
@@ -65,12 +64,12 @@ export default class ViewGameRunner extends HTMLElement {
 
   static get keybindings() {
     return [
-      { id: 'action-left', eventName: 'game:action:left', description: 'Move left', defaultKeys: 'a' },
-      { id: 'action-right', eventName: 'game:action:right', description: 'Move right', defaultKeys: 'd' },
-      { id: 'action-up', eventName: 'game:action:up', description: 'Move up', defaultKeys: 'w' },
-      { id: 'action-down', eventName: 'game:action:down', description: 'Move down', defaultKeys: 's' },
-      { id: 'action-1', eventName: 'game:action:action1', description: 'Primary action', defaultKeys: 'j' },
-      { id: 'action-2', eventName: 'game:action:action2', description: 'Secondary action', defaultKeys: 'k' },
+      { id: 'action-left', eventName: 'game:action:left', description: 'Move left', defaultKeys: 'a', eventType: 'both' },
+      { id: 'action-right', eventName: 'game:action:right', description: 'Move right', defaultKeys: 'd', eventType: 'both' },
+      { id: 'action-up', eventName: 'game:action:up', description: 'Move up', defaultKeys: 'w', eventType: 'both' },
+      { id: 'action-down', eventName: 'game:action:down', description: 'Move down', defaultKeys: 's', eventType: 'both' },
+      { id: 'action-1', eventName: 'game:action:action1', description: 'Primary action', defaultKeys: 'j', eventType: 'both' },
+      { id: 'action-2', eventName: 'game:action:action2', description: 'Secondary action', defaultKeys: 'k', eventType: 'both' },
     ]
   }
 
@@ -95,8 +94,6 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
     this._pressedActions = new Set()
-    this._actionByKey = new Map()
-    this._unbindKeybindingChanged = null
     this._assetCache = new Map()
     this._assetSources = createAssetSources()
     this._textDecoder = new TextDecoder()
@@ -113,10 +110,6 @@ export default class ViewGameRunner extends HTMLElement {
     this._boundPointerMove = (e) => this.onPointerMove(e)
     this._boundPointerUp = (e) => this.onPointerUp(e)
     this._boundWheel = (e) => this.onWheel(e)
-    this._boundKeyDown = (e) => this.onKeyDown(e)
-    this._boundKeyUp = (e) => this.onKeyUp(e)
-    this._boundBlur = () => this._releaseAllActions()
-    this._boundKeybindingsChanged = () => this._refreshActionBindings()
   }
 
   connectedCallback() {
@@ -130,8 +123,6 @@ export default class ViewGameRunner extends HTMLElement {
     }
     this._mountHeaderControls()
     this.setupInputHandlers()
-    this._refreshActionBindings()
-    this._unbindKeybindingChanged = bus.on('keybindings:changed', this._boundKeybindingsChanged)
     this._resizeObserver.observe(this)
     this._initialize().catch((error) => {
       console.error('[game-runner] boot failed:', error)
@@ -140,8 +131,6 @@ export default class ViewGameRunner extends HTMLElement {
 
   disconnectedCallback() {
     this._resizeObserver.disconnect()
-    this._unbindKeybindingChanged?.()
-    this._unbindKeybindingChanged = null
     this._releaseAllActions()
     this.teardownInputHandlers()
     this._unmountHeaderControls()
@@ -508,9 +497,6 @@ export default class ViewGameRunner extends HTMLElement {
     this.canvas.addEventListener('pointermove', this._boundPointerMove)
     this.canvas.addEventListener('pointerup', this._boundPointerUp)
     this.canvas.addEventListener('wheel', this._boundWheel, { passive: true })
-    this.canvas.addEventListener('keydown', this._boundKeyDown)
-    this.canvas.addEventListener('keyup', this._boundKeyUp)
-    this.canvas.addEventListener('blur', this._boundBlur)
   }
 
   teardownInputHandlers() {
@@ -518,9 +504,6 @@ export default class ViewGameRunner extends HTMLElement {
     this.canvas.removeEventListener('pointermove', this._boundPointerMove)
     this.canvas.removeEventListener('pointerup', this._boundPointerUp)
     this.canvas.removeEventListener('wheel', this._boundWheel)
-    this.canvas.removeEventListener('keydown', this._boundKeyDown)
-    this.canvas.removeEventListener('keyup', this._boundKeyUp)
-    this.canvas.removeEventListener('blur', this._boundBlur)
   }
 
   _onResize() {
@@ -719,55 +702,6 @@ export default class ViewGameRunner extends HTMLElement {
     })
   }
 
-  onKeyDown(e) {
-    if (window.keybindingManager?.enabled) {
-      return
-    }
-
-    const actionCode = this._actionByKey.get(this._normalizeKeyForBinding(e))
-    if (!actionCode) return
-    e.preventDefault()
-    this._dispatchActionEvent(actionCode, true)
-  }
-
-  onKeyUp(e) {
-    const actionCode = this._actionByKey.get(this._normalizeKeyForBinding(e))
-    if (!actionCode) return
-    e.preventDefault()
-    this._dispatchActionEvent(actionCode, false)
-  }
-
-  _normalizeKeyForBinding(event) {
-    const manager = window.keybindingManager
-    if (manager && typeof manager.normalizeKey === 'function') {
-      return manager.normalizeKey(event)
-    }
-    return event.key || null
-  }
-
-  _refreshActionBindings() {
-    this._actionByKey.clear()
-
-    const manager = window.keybindingManager
-    if (!manager || typeof manager.getKeybindingCatalog !== 'function') {
-      for (const binding of this.constructor.keybindings || []) {
-        const actionCode = ACTION_BY_EVENT_NAME.get(binding.eventName)
-        if (!actionCode || !binding.defaultKeys) continue
-        this._actionByKey.set(binding.defaultKeys, actionCode)
-      }
-      return
-    }
-
-    const catalog = manager.getKeybindingCatalog()
-    for (const binding of catalog) {
-      if (binding.source !== 'game-runner') continue
-      if (!binding.sourceEnabled || !binding.enabled || !binding.keys) continue
-      const actionCode = ACTION_BY_EVENT_NAME.get(binding.eventName)
-      if (!actionCode) continue
-      this._actionByKey.set(binding.keys, actionCode)
-    }
-  }
-
   _dispatchActionEvent(actionCode, isDown) {
     if (!this.memory || !this.exports || typeof this.exports.event !== 'function') {
       return
@@ -802,10 +736,13 @@ export default class ViewGameRunner extends HTMLElement {
     }
   }
 
-  handleKeybinding(eventName) {
+  handleKeybinding(eventName, context = {}) {
     const actionCode = ACTION_BY_EVENT_NAME.get(eventName)
     if (!actionCode) return false
-    this._dispatchActionEvent(actionCode, true)
+
+    const phase = context.phase || 'down'
+
+    this._dispatchActionEvent(actionCode, phase === 'down')
     return true
   }
 
