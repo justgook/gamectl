@@ -2,6 +2,7 @@ import { toast } from '../systems/toast.js'
 import { parseCSVLines } from '../util/csv.js'
 import { decode as decodeQOI } from '../util/qoi/decode.js'
 import { ViewFiles } from './view-files.js'
+import { ViewSqlTable } from './view-sql-table.js'
 import { ViewCanvasBase } from './view-canvas-base.js'
 import {
   STB_EDITOR_CHUNK_SIZE,
@@ -2697,45 +2698,27 @@ export default class ViewStbEditor extends ViewCanvasBase {
       return
     }
 
-    let names = []
     try {
-      names = await this.listStoredTilemaps()
-    } catch (error) {
-      toast.error(`Failed to load saved tilemap list: ${String(error?.message || error)}`)
-      return
-    }
-
-    const content = document.createElement('div')
-    if (!names.length) {
-      content.innerHTML = '<p>No saved tilemaps yet.</p>'
-    } else {
-      content.innerHTML = names.map((name) => `
-        <button type="button" data-name="${escapeAttribute(name)}">
-          <strong>${escapeAttribute(name)}</strong>
-        </button>
-      `).join('')
-    }
-
-    const popup = this._trackStoragePopup(popupManager.showPopup({
-      title: 'Load tilemap',
-      content,
-      size: 'medium'
-    }))
-
-    content.querySelectorAll('button[data-name]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const name = String(btn.getAttribute('data-name') || '')
-        if (!name) return
-
-        try {
-          await this.loadTilemap(name)
-          toast.success(`Loaded tilemap "${name}".`)
-          popup.close()
-        } catch (error) {
-          toast.error(`Failed to load tilemap: ${String(error?.message || error)}`)
+      const selection = await ViewSqlTable.choose({
+        title: 'Load tilemap',
+        confirmLabel: 'Load',
+        returnColumn: 'name',
+        query: 'SELECT rowid AS id, name FROM tilemap_storage ORDER BY name LIMIT :limit OFFSET :offset',
+        countQuery: 'SELECT COUNT(*) FROM tilemap_storage',
+        pageSize: 20,
+        columnTypes: {
+          id: 'number'
         }
       })
-    })
+
+      const name = String(selection?.value || '').trim()
+      if (!name) return
+
+      await this.loadTilemap(name)
+      toast.success(`Loaded tilemap "${name}".`)
+    } catch (error) {
+      toast.error(`Failed to load tilemap: ${String(error?.message || error)}`)
+    }
   }
 
   async showAddTilesetPopup() {
