@@ -21,7 +21,7 @@ import { bus } from "../systems/event-bus.js"
 export class ViewSqlTable extends HTMLElement {
   static get viewMeta() { return { displayName: 'SQL Table', category: 'Data' } }
 
-  static observedAttributes = ['data-query', 'data-count-query', 'data-table', 'data-page-size', 'data-column-types']
+  static observedAttributes = ['data-query', 'data-count-query', 'data-table', 'data-page-size', 'data-column-types', 'data-mode', 'data-confirm-label']
 
   constructor() {
     super()
@@ -33,6 +33,10 @@ export class ViewSqlTable extends HTMLElement {
     this.columnTypes = {} // { columnName: 'image-base64' | 'image-url' | 'text' | 'number' | 'boolean' }
     this.primaryKey = 'id' // Assume 'id' by default, can be detected
     this.editingCell = null
+    this.mode = 'browser'
+    this.confirmLabel = 'Select'
+    this.selectedRowIndex = -1
+    this.chooserActions = null
     this.tableContainer = null
     this.paginationContainer = null
     this.statusContainer = null
@@ -63,6 +67,8 @@ export class ViewSqlTable extends HTMLElement {
 
     // Parse attributes
     this.pageSize = parseInt(this.getAttribute('data-page-size') || '20', 10)
+    this.mode = this.getAttribute('data-mode') || 'browser'
+    this.confirmLabel = this.getAttribute('data-confirm-label') || 'Select'
     this.parseColumnTypes()
 
     // Focus management
@@ -90,6 +96,10 @@ export class ViewSqlTable extends HTMLElement {
       this.handleTableSelect(payload.table)
     })
 
+    if (this.mode === 'chooser') {
+      this.setupChooserMode()
+    }
+
     // Initial data load
     this.refresh()
   }
@@ -102,6 +112,7 @@ export class ViewSqlTable extends HTMLElement {
     }
 
     this._unmountHeaderControls()
+    this._removeChooserActions()
   }
 
   createHeaderControlsElement() {
@@ -138,10 +149,143 @@ export class ViewSqlTable extends HTMLElement {
     if (oldValue !== newValue && this.tableContainer) {
       if (name === 'data-column-types') {
         this.parseColumnTypes()
+      } else if (name === 'data-mode') {
+        this.mode = newValue || 'browser'
+        if (this.mode === 'chooser') {
+          this.setupChooserMode()
+        } else {
+          this._removeChooserActions()
+        }
+        this.render()
+        return
+      } else if (name === 'data-confirm-label') {
+        this.confirmLabel = newValue || 'Select'
+        this.updateChooserUI()
+        return
       }
       this.currentPage = 0
+      this.clearSelection()
       this.refresh()
     }
+  }
+
+  setupChooserMode() {
+    const hideActions = ['insert', 'delete']
+    hideActions.forEach(action => {
+      const btn = this._headerControlsElement?.querySelector(`[data-action="${action}"]`)
+      if (btn) btn.hidden = true
+    })
+
+    if (!this.chooserActions) {
+      this.chooserActions = document.createElement('div')
+      this.chooserActions.className = 'sql-table-chooser-actions'
+      this.chooserActions.innerHTML = `
+        <span data-element="chooser-selection-info"></span>
+        <div>
+          <button type="button" data-action="cancel">Cancel</button>
+          <button type="button" data-action="select" disabled>${this.confirmLabel}</button>
+        </div>
+      `
+
+      this.chooserActions.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('chooser-cancel', { bubbles: true }))
+      })
+
+      this.chooserActions.querySelector('[data-action="select"]')?.addEventListener('click', () => {
+        this.confirmSelection()
+      })
+
+      this.appendChild(this.chooserActions)
+    }
+
+    this.updateChooserUI()
+  }
+
+  _removeChooserActions() {
+    if (this.chooserActions?.parentElement) {
+      this.chooserActions.remove()
+    }
+    this.chooserActions = null
+
+    const showActions = ['insert', 'delete']
+    showActions.forEach(action => {
+      const btn = this._headerControlsElement?.querySelector(`[data-action="${action}"]`)
+      if (btn) btn.hidden = false
+    })
+  }
+
+  updateChooserUI() {
+    if (!this.chooserActions) return
+
+    const selectBtn = this.chooserActions.querySelector('[data-action="select"]')
+    const selectionInfo = this.chooserActions.querySelector('[data-element="chooser-selection-info"]')
+    const selection = this.getSelection()
+
+    if (selectionInfo) {
+      selectionInfo.textContent = selection?.row
+        ? `${selection.row.name || selection.primaryKeyValue || '1 row selected'}`
+        : ''
+    }
+
+    if (selectBtn) {
+      selectBtn.textContent = this.confirmLabel
+      selectBtn.disabled = !selection
+    }
+
+    this.dispatchEvent(new CustomEvent('selection-changed', {
+      bubbles: true,
+      detail: { selection }
+    }))
+  }
+
+  getSelection() {
+    const row = this.rows[this.selectedRowIndex]
+    if (!row) return null
+
+    return {
+      row,
+      rowIndex: this.selectedRowIndex,
+      primaryKey: this.primaryKey,
+      primaryKeyValue: row[this.primaryKey] ?? null
+    }
+  }
+
+  static projectSelection(selection, options = {}) {
+    if (!selection) return null
+
+    let value = selection.row
+    if (typeof options.returnColumn === 'string' && options.returnColumn) {
+      value = selection.row?.[options.returnColumn]
+    } else if (Array.isArray(options.returnFields) && options.returnFields.length > 0) {
+      value = {}
+      options.returnFields.forEach((field) => {
+        if (typeof field === 'string' && field) {
+          value[field] = selection.row?.[field]
+        }
+      })
+    }
+
+    return {
+      ...selection,
+      value
+    }
+  }
+
+  confirmSelection() {
+    const selection = this.getSelection()
+    if (!selection) return
+    this.dispatchEvent(new CustomEvent('chooser-select', {
+      bubbles: true,
+      detail: { selection }
+    }))
+  }
+
+  clearSelection() {
+    this.selectedRowIndex = -1
+  }
+
+  applyRowSelectionState(row, selected) {
+    row.setAttribute('aria-selected', selected ? 'true' : 'false')
   }
 
   parseColumnTypes() {
@@ -161,6 +305,7 @@ export class ViewSqlTable extends HTMLElement {
    * Updates query attributes and refreshes the view to show the selected table.
    */
   handleTableSelect(tableName) {
+    if (this.mode === 'chooser') return
     if (!tableName) return
 
     // Update attributes to show the selected table
@@ -196,14 +341,23 @@ export class ViewSqlTable extends HTMLElement {
     }
 
     // Navigation when not editing
+    if (this.mode === 'chooser') {
+      if (e.key === 'Enter') {
+        this.confirmSelection()
+        e.preventDefault()
+      } else if (e.key === 'Escape') {
+        this.dispatchEvent(new CustomEvent('chooser-cancel', { bubbles: true }))
+        e.preventDefault()
+      }
+      return
+    }
+
     if (e.key === 'Insert' || (e.key === 'n' && e.ctrlKey)) {
       this.insertRow()
       e.preventDefault()
     } else if ((e.key === 'Delete' && e.ctrlKey) || (e.key === 'Backspace' && e.metaKey)) {
-      const selectedRow = this.querySelector('tr.selected')
-      if (selectedRow) {
-        const rowIndex = parseInt(selectedRow.dataset.rowIndex, 10)
-        this.deleteRow(rowIndex)
+      if (this.selectedRowIndex >= 0) {
+        this.deleteRow(this.selectedRowIndex)
       }
       e.preventDefault()
     } else if (e.key === 'r' && e.ctrlKey) {
@@ -216,6 +370,9 @@ export class ViewSqlTable extends HTMLElement {
     this.setStatus('Loading...')
     try {
       await Promise.all([this.fetchCount(), this.fetchData()])
+      if (this.mode === 'chooser' || this.selectedRowIndex >= this.rows.length) {
+        this.clearSelection()
+      }
       this.render()
       this.setStatus(`${this.totalCount} rows`)
     } catch (error) {
@@ -385,14 +542,15 @@ export class ViewSqlTable extends HTMLElement {
     this.rows.forEach((row, rowIndex) => {
       const tr = document.createElement('tr')
       tr.dataset.rowIndex = rowIndex
+      this.applyRowSelectionState(tr, rowIndex === this.selectedRowIndex)
+      tr.addEventListener('click', () => {
+        this.selectRow(rowIndex)
+      })
 
       // Row number
       const tdNum = document.createElement('td')
       tdNum.className = 'sql-table-row-num'
       tdNum.textContent = this.currentPage * this.pageSize + rowIndex + 1
-      tdNum.addEventListener('click', (e) => {
-        this.selectRow(tr, e.shiftKey)
-      })
       tr.appendChild(tdNum)
 
       this.columns.forEach((col, colIndex) => {
@@ -404,6 +562,11 @@ export class ViewSqlTable extends HTMLElement {
         this.renderCell(td, row[col], col)
 
         td.addEventListener('dblclick', () => {
+          if (this.mode === 'chooser') {
+            this.selectRow(rowIndex)
+            this.confirmSelection()
+            return
+          }
           this.startEdit(td, rowIndex, colIndex, row[col], col)
         })
 
@@ -416,6 +579,9 @@ export class ViewSqlTable extends HTMLElement {
     table.appendChild(tbody)
     this.tableContainer.innerHTML = ''
     this.tableContainer.appendChild(table)
+    if (this.mode === 'chooser') {
+      this.updateChooserUI()
+    }
   }
 
   renderCell(td, value, column) {
@@ -550,11 +716,13 @@ export class ViewSqlTable extends HTMLElement {
     // Event handlers
     this.paginationContainer.querySelector('[data-action="first"]').addEventListener('click', () => {
       this.currentPage = 0
+      this.clearSelection()
       this.refresh()
     })
     this.paginationContainer.querySelector('[data-action="prev"]').addEventListener('click', () => {
       if (this.currentPage > 0) {
         this.currentPage--
+        this.clearSelection()
         this.refresh()
       }
     })
@@ -562,17 +730,20 @@ export class ViewSqlTable extends HTMLElement {
       const totalPages = Math.ceil(this.totalCount / this.pageSize)
       if (this.currentPage < totalPages - 1) {
         this.currentPage++
+        this.clearSelection()
         this.refresh()
       }
     })
     this.paginationContainer.querySelector('[data-action="last"]').addEventListener('click', () => {
       const totalPages = Math.ceil(this.totalCount / this.pageSize)
       this.currentPage = totalPages - 1
+      this.clearSelection()
       this.refresh()
     })
     this.paginationContainer.querySelector('[data-action="page-size"]').addEventListener('change', (e) => {
       this.pageSize = parseInt(e.target.value, 10)
       this.currentPage = 0
+      this.clearSelection()
       this.refresh()
     })
   }
@@ -583,11 +754,14 @@ export class ViewSqlTable extends HTMLElement {
     }
   }
 
-  selectRow(tr, addToSelection) {
-    if (!addToSelection) {
-      this.querySelectorAll('tr.selected').forEach(row => row.classList.remove('selected'))
+  selectRow(rowIndex) {
+    this.selectedRowIndex = rowIndex
+    this.tableContainer?.querySelectorAll('tbody tr').forEach((row) => {
+      this.applyRowSelectionState(row, parseInt(row.dataset.rowIndex, 10) === rowIndex)
+    })
+    if (this.mode === 'chooser') {
+      this.updateChooserUI()
     }
-    tr.classList.toggle('selected')
   }
 
   // === Editing ===
@@ -775,9 +949,8 @@ export class ViewSqlTable extends HTMLElement {
   }
 
   deleteSelectedRow() {
-    const selectedRow = this.querySelector('tr.selected')
-    if (selectedRow) {
-      const rowIndex = parseInt(selectedRow.dataset.rowIndex, 10)
+    if (this.selectedRowIndex >= 0) {
+      const rowIndex = this.selectedRowIndex
       this.deleteRow(rowIndex)
     } else {
       this.setStatus('No row selected')
@@ -808,11 +981,65 @@ export class ViewSqlTable extends HTMLElement {
     try {
       await window.pluginManager.call('sql', 'exec', sql)
       this.setStatus('Row deleted')
+      this.clearSelection()
       await this.refresh()
     } catch (error) {
       this.setStatus(`Delete error: ${error.message}`)
       console.error('Delete failed:', error)
     }
+  }
+
+  static async choose(options = {}) {
+    return new Promise((resolve) => {
+      const popupManager = document.querySelector('popup-manager')
+      if (!popupManager) {
+        console.error('ViewSqlTable.choose: popup-manager not found')
+        resolve(null)
+        return
+      }
+
+      const popup = document.createElement('view-popup')
+      popup.setAttribute('size', options.size || 'large')
+
+      const title = document.createElement('h2')
+      title.slot = 'title'
+      title.textContent = options.title || 'Select Row'
+      popup.appendChild(title)
+
+      const table = document.createElement('view-sql-table')
+      table.setAttribute('data-mode', 'chooser')
+      table.setAttribute('data-query', options.query || 'SELECT 1')
+      if (options.countQuery) table.setAttribute('data-count-query', options.countQuery)
+      if (options.table) table.setAttribute('data-table', options.table)
+      if (options.pageSize) table.setAttribute('data-page-size', String(options.pageSize))
+      if (options.confirmLabel) table.setAttribute('data-confirm-label', String(options.confirmLabel))
+      if (options.columnTypes) table.setAttribute('data-column-types', JSON.stringify(options.columnTypes))
+
+      popup.appendChild(table)
+      popupManager.appendChild(popup)
+
+      let resolved = false
+
+      table.addEventListener('chooser-select', (e) => {
+        if (resolved) return
+        resolved = true
+        popup.close()
+        resolve(ViewSqlTable.projectSelection(e.detail.selection, options))
+      })
+
+      table.addEventListener('chooser-cancel', () => {
+        if (resolved) return
+        resolved = true
+        popup.close()
+        resolve(null)
+      })
+
+      popup.addEventListener('popup-closing', () => {
+        if (resolved) return
+        resolved = true
+        resolve(null)
+      })
+    })
   }
 }
 
