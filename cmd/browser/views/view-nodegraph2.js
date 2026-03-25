@@ -706,19 +706,26 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   async _handleHostAwaitRequest(_nodeId, requestId, service, method, payloadJson) {
     if (!this.api || !this.memory || typeof this.api.ng_run_response !== "function") return;
     let response = new Uint8Array();
+    let responseFn = this.api.ng_run_response;
     try {
       const result = await window.pluginManager.call(service, method, payloadJson || "");
       response = result?.output instanceof Uint8Array
         ? result.output
         : new Uint8Array(result?.output || []);
+      if (Number(result?.returnCode || 0) !== 0 && typeof this.api.ng_run_response_error === "function") {
+        responseFn = this.api.ng_run_response_error;
+      }
     } catch (error) {
-      response = this.te.encode(JSON.stringify({ ok: false, error: String(error?.message || error) }));
+      response = this.te.encode(String(error?.message || error));
+      if (typeof this.api.ng_run_response_error === "function") {
+        responseFn = this.api.ng_run_response_error;
+      }
     }
 
     const ptr = this.api.ng_get_io_ptr();
     const len = Math.min(response.length, 65535);
     new Uint8Array(this.memory.buffer, ptr, len).set(response.subarray(0, len));
-    this.api.ng_run_response(requestId, ptr, len);
+    responseFn.call(this.api, requestId, ptr, len);
     this.requestRenderIfGenerationChanged(true);
   }
 
