@@ -160,6 +160,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       { id: "create-node", eventName: "node:create", description: "Create new node", defaultKeys: "a" },
       { id: "delete-node", eventName: "node:delete", description: "Delete selected nodes", defaultKeys: "<BS>" },
       { id: "edit-node", eventName: "node:edit", description: "Edit selected node", defaultKeys: "e" },
+      { id: "save-graph", eventName: "node:save", description: "Save current graph", defaultKeys: "s" },
       { id: "run-graph", eventName: "node:run", description: "Run node graph", defaultKeys: "<C-CR>" },
     ];
   }
@@ -231,6 +232,10 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
   handleKeybinding(eventName, context) {
     switch (eventName) {
+      case "file:save":
+      case "node:save":
+        this.showSaveGraphPopup();
+        return true;
       case "node:create":
         this.showAddNodePopup();
         return true;
@@ -2018,6 +2023,13 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     return 0;
   }
 
+  _getSuggestedSaveGraphName() {
+    if (Number(this.currentGraphId || 0) > 0) {
+      return String(this.graphName || "").trim();
+    }
+    return "";
+  }
+
   async listNodeTemplates() {
     const result = await window.pluginManager.call("sql", "query", "SELECT name, kind, data FROM nodegraph2_node_templates ORDER BY name");
     const csv = this.td.decode(result.output || new Uint8Array());
@@ -2094,11 +2106,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     if (!popupManager) return;
 
     const form = document.createElement("form");
+    const suggestedName = this._getSuggestedSaveGraphName();
     form.innerHTML = `
       <p>Save current node graph.</p>
       <label>
         Graph name
-        <input type="text" name="graph-name" placeholder="Enter graph name" required>
+        <input type="text" name="graph-name" placeholder="Enter graph name" value="${escapeAttribute(suggestedName)}" required>
       </label>
       <footer>
         <button type="submit" class="accent">Save</button>
