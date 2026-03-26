@@ -70,7 +70,8 @@ void main() {
     float index = decode_tile_index(lut_color);
 
     if (index <= 0.0) {
-        discard;
+        // discard;
+        frag_color = vec4(1,1,1,1);
     }
 
     vec2 tiles_per_row = floor(frag_tileset_size_px / frag_tile_size);
@@ -82,6 +83,7 @@ void main() {
     vec2 tile_offset = floor(fract(map_pixel) * frag_tile_size);
     vec2 tileset_uv = frag_tileset_uv.xy + (floor(tile_coord * frag_tile_size + tile_offset) + 0.5) / frag_tileset_tex_size;
     frag_color = texture(sampler2D(tileset_tex, tileset_smp), tileset_uv);
+    frag_color = vec4(1,0,0,1);
 }
 @end
 
