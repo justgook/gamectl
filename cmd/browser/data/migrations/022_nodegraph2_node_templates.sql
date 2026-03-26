@@ -110,6 +110,11 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         2,
         '{"kind":2,"name":"Demo UVs","codePath":"local:/assets/ng/nodegraph2/uvs.lua","outputs":[{"outputId":1,"name":"uvs","value":""}]}'
     ),
+   (
+        'Flip Y',
+        2,
+        '{"kind":2,"name":"Flip Y","codePath":"local:/assets/ng/nodegraph2/flip-y.lua","inputs":[{"inputId":1,"name":"handle","defaultValue":""}],"outputs":[{"outputId":1,"name":"handle","value":""},{"outputId":2,"name":"err","value":""}]}'
+    ),
     (
         'Respack Generate Odin',
         2,
