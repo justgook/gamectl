@@ -23,7 +23,7 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
     (
         'LUT Generator',
         2,
-        '{"kind":2,"name":"LUT Generator","codePath":"local:/assets/ng/nodegraph2/lut-generator.lua","inputs":[{"inputId":1,"name":"mapName","defaultValue":"new_map"},{"inputId":2,"name":"layerIndex","defaultValue":"1"},{"inputId":3,"name":"outputPath","defaultValue":""},{"inputId":4,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"metadata","value":""},{"outputId":2,"name":"encodedPath","value":""},{"outputId":3,"name":"error","value":""}]}'
+        '{"kind":2,"name":"LUT Generator","codePath":"local:/assets/ng/nodegraph2/lut-generator.lua","inputs":[{"inputId":1,"name":"mapName","defaultValue":"new_map"},{"inputId":2,"name":"layerIndex","defaultValue":"1"},{"inputId":3,"name":"outputPath","defaultValue":""},{"inputId":4,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"image+","value":""},{"outputId":2,"name":"encodedPath","value":""},{"outputId":3,"name":"error","value":""}]}'
     ),
     (
         'pack demo',
@@ -46,14 +46,14 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         '{"kind":2,"name":"Keys & Locks Assigner","codePath":"local:/assets/ng/nodegraph2/pipeline-assign-keys-locks.lua","inputs":[{"inputId":1,"name":"treeId","defaultValue":"progression"},{"inputId":2,"name":"keysQuery","defaultValue":"SELECT name FROM keys ORDER BY RANDOM() LIMIT 15"},{"inputId":3,"name":"keyChance","defaultValue":"0.5"},{"inputId":4,"name":"lockChance","defaultValue":"0.7"},{"inputId":5,"name":"maxKeysPerLock","defaultValue":"2"}],"outputs":[{"outputId":1,"name":"treeId","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
-        'Minimap Generator',
+        'Tilemap minimap Generator',
         2,
-        '{"kind":2,"name":"Minimap Generator","codePath":"local:/assets/ng/nodegraph2/pipeline-create-minimap.lua","inputs":[{"inputId":1,"name":"inputTreeId","defaultValue":"progression"},{"inputId":2,"name":"mapId","defaultValue":"new_map"},{"inputId":3,"name":"direction","defaultValue":"radial"}],"outputs":[{"outputId":1,"name":"mapId","value":""},{"outputId":2,"name":"error","value":""}]}'
+        '{"kind":2,"name":"Tilemap minimap Generator","codePath":"local:/assets/ng/nodegraph2/pipeline-create-minimap.lua","inputs":[{"inputId":1,"name":"inputTreeId","defaultValue":"progression"},{"inputId":2,"name":"mapId","defaultValue":"new_map"},{"inputId":3,"name":"direction","defaultValue":"radial"}],"outputs":[{"outputId":1,"name":"mapId","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
-        'Automap Applicator',
+        'Tilemap Automap',
         2,
-        '{"kind":2,"name":"Automap Applicator","codePath":"local:/assets/ng/nodegraph2/pipeline-apply-automap.lua","inputs":[{"inputId":1,"name":"rulesMapId","defaultValue":"rules"},{"inputId":2,"name":"inputMapId","defaultValue":"new_map"},{"inputId":3,"name":"outputMapId","defaultValue":"automap_result"}],"outputs":[{"outputId":1,"name":"outputMapId","value":""},{"outputId":2,"name":"error","value":""}]}'
+        '{"kind":2,"name":"Tilemap Automap","codePath":"local:/assets/ng/nodegraph2/pipeline-apply-automap.lua","inputs":[{"inputId":1,"name":"rulesMapId","defaultValue":"rules"},{"inputId":2,"name":"inputMapId","defaultValue":"new_map"},{"inputId":3,"name":"outputMapId","defaultValue":"automap_result"}],"outputs":[{"outputId":1,"name":"outputMapId","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
         'Tilemap Scaler',
@@ -86,9 +86,24 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         '{"kind":2,"name":"Pack Rects","codePath":"local:/assets/ng/nodegraph2/pack-rects.lua","inputs":[{"inputId":1,"name":"rects","defaultValue":"[]"},{"inputId":2,"name":"width","defaultValue":"1"},{"inputId":3,"name":"height","defaultValue":"1"},{"inputId":4,"name":"padding","defaultValue":"0"},{"inputId":5,"name":"autoSize","defaultValue":"true"}],"outputs":[{"outputId":1,"name":"packedRects","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
+        'Image Open',
+        2,
+        '{"kind":2,"name":"Image Open","codePath":"local:/assets/ng/nodegraph2/image-open.lua","inputs":[{"inputId":1,"name":"path","defaultValue":""}],"outputs":[{"outputId":1,"name":"image","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
         'Image Info',
         2,
-        '{"kind":2,"name":"Image Info","codePath":"local:/assets/ng/nodegraph2/image-info.lua","inputs":[{"inputId":1,"name":"src","defaultValue":""},{"inputId":2,"name":"id","defaultValue":""}],"outputs":[{"outputId":1,"name":"rect","value":""},{"outputId":2,"name":"error","value":""}]}'
+        '{"kind":2,"name":"Image Info","codePath":"local:/assets/ng/nodegraph2/image-info.lua","inputs":[{"inputId":1,"name":"path","defaultValue":""},{"inputId":2,"name":"id","defaultValue":""}],"outputs":[{"outputId":1,"name":"info","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Image FlipY',
+        2,
+        '{"kind":2,"name":"Image FlipY","codePath":"local:/assets/ng/nodegraph2/image-flipy.lua","inputs":[{"inputId":1,"name":"image","defaultValue":""}],"outputs":[{"outputId":1,"name":"image","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Image Wrap',
+        2,
+        '{"kind":2,"name":"Image Wrap","codePath":"local:/assets/ng/nodegraph2/image-wrap.lua","inputs":[{"inputId":1,"name":"image","defaultValue":""}],"outputs":[{"outputId":1,"name":"handle","value":""}]}'
     ),
     (
         'Build Atlas',
@@ -109,11 +124,6 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         'Demo UVs',
         2,
         '{"kind":2,"name":"Demo UVs","codePath":"local:/assets/ng/nodegraph2/uvs.lua","outputs":[{"outputId":1,"name":"uvs","value":""}]}'
-    ),
-   (
-        'Flip Y',
-        2,
-        '{"kind":2,"name":"Flip Y","codePath":"local:/assets/ng/nodegraph2/flip-y.lua","inputs":[{"inputId":1,"name":"handle","defaultValue":""}],"outputs":[{"outputId":1,"name":"handle","value":""},{"outputId":2,"name":"err","value":""}]}'
     ),
     (
         'Respack Generate Odin',
