@@ -198,6 +198,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.lastPosById = new Map();
     this.hoverPick = null;
     this.selectedNodeIds = new Set();
+    this.boxSelection = null;
     this.connectionDrag = null;
 
     this.td = new TextDecoder();
@@ -1833,6 +1834,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     this.goalRunQueue = [];
     this.ioToastOffset = 0;
+    this.boxSelection = null;
     this.connectionDrag = null;
     this.hoverPick = null;
 
@@ -3081,6 +3083,15 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     const pick = this._pickFromClientPoint(e.clientX, e.clientY);
     this.hoverPick = pick;
     const multi = e.ctrlKey || e.metaKey;
+    const marquee = e.shiftKey;
+
+    if (marquee && pick?.kind !== "port" && pick?.kind !== "edge") {
+      this._beginBoxSelection(world);
+      if (Number.isFinite(e.pointerId)) this.canvas.setPointerCapture(e.pointerId);
+      this.canvas.style.cursor = "crosshair";
+      this.requestRenderIfGenerationChanged(true);
+      return;
+    }
 
     if (pick?.kind === "port") {
       this._beginConnectionFromPort(pick);
@@ -3171,6 +3182,16 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       return;
     }
 
+    if (this.boxSelection) {
+      const world = this._worldFromClientPoint(e.clientX, e.clientY);
+      this.boxSelection.currentWorld = world;
+      this.hoverPick = null;
+      this._updateBoxSelectionPreview();
+      this.canvas.style.cursor = "crosshair";
+      this.requestRenderIfGenerationChanged(true);
+      return;
+    }
+
     if (this.isDragging && this.isNodeDragging) {
       const world = this._worldFromClientPoint(e.clientX, e.clientY);
       const dx = world.x - this.nodeDragStartWorld.x;
@@ -3205,6 +3226,20 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         this.canvas.releasePointerCapture(e.pointerId);
       }
       this.canvas.style.cursor = "default";
+      this.requestRenderIfGenerationChanged(true);
+      return;
+    }
+
+    if (this.boxSelection) {
+      const world = this._worldFromClientPoint(e.clientX, e.clientY);
+      this.boxSelection.currentWorld = world;
+      this._finishBoxSelection();
+      if (Number.isFinite(e.pointerId) && this.canvas.hasPointerCapture(e.pointerId)) {
+        this.canvas.releasePointerCapture(e.pointerId);
+      }
+      const pick = this._pickFromClientPoint(e.clientX, e.clientY);
+      this.hoverPick = pick;
+      this.canvas.style.cursor = pick ? "crosshair" : "default";
       this.requestRenderIfGenerationChanged(true);
       return;
     }
@@ -3448,6 +3483,58 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     if (edgeHit) return { kind: "edge", ...edgeHit };
 
     return null;
+  }
+
+  _beginBoxSelection(world) {
+    this.isDragging = false;
+    this.isPanning = false;
+    this.isNodeDragging = false;
+    this.nodeDragItems = [];
+    this.hoverPick = null;
+    this.boxSelection = {
+      anchorWorld: { x: world.x, y: world.y },
+      currentWorld: { x: world.x, y: world.y },
+      baseSelection: new Set(this.selectedNodeIds),
+      startSelectionKey: this._getSelectionKey(this.selectedNodeIds),
+    };
+    this._updateBoxSelectionPreview();
+  }
+
+  _finishBoxSelection() {
+    if (!this.boxSelection) return;
+    this._updateBoxSelectionPreview();
+    const selectionChanged = this.boxSelection.startSelectionKey !== this._getSelectionKey(this.selectedNodeIds);
+    this.boxSelection = null;
+    if (selectionChanged) {
+      this._emitSelectionChanged();
+    }
+  }
+
+  _updateBoxSelectionPreview() {
+    if (!this.boxSelection) return;
+    const graph = this.lastGraph || this.getGraphSnapshot();
+    const posById = this.lastPosById?.size ? this.lastPosById : new Map();
+    const rect = this._getNormalizedWorldRect(this.boxSelection.anchorWorld, this.boxSelection.currentWorld);
+    const hitIds = this._collectNodeIdsInWorldRect(rect, graph.nodes || [], posById);
+    this.selectedNodeIds = new Set(this.boxSelection.baseSelection);
+    hitIds.forEach((nodeId) => this.selectedNodeIds.add(nodeId));
+  }
+
+  _getNormalizedWorldRect(a, b) {
+    return {
+      minX: Math.min(a.x, b.x),
+      minY: Math.min(a.y, b.y),
+      maxX: Math.max(a.x, b.x),
+      maxY: Math.max(a.y, b.y),
+    };
+  }
+
+  _getSelectionKey(selection) {
+    return Array.from(selection || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0)
+      .sort((a, b) => a - b)
+      .join(",");
   }
 
   _zoomAt(screenX, screenY, factor) {
@@ -3909,6 +3996,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this._drawActiveConnection(width, height, view);
     this._drawNodes(graph.nodes, posById, width, height, view);
     this._drawSelectionOverlay(graph.nodes, posById, width, height, view);
+    this._drawBoxSelectionOverlay(width, height, view);
     this._drawPorts(graph.nodes, graph.edges, posById, width, height, view);
     this._drawLabels(graph.nodes, posById, width, height, view);
     this._drawPickOverlay(this.hoverPick, graph.nodes, graph.edges, posById, width, height, view);
@@ -4009,6 +4097,24 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       }
     }
     return null;
+  }
+
+  _collectNodeIdsInWorldRect(rect, nodes, posById) {
+    const hitIds = [];
+    for (const node of nodes) {
+      const pos = posById.get(node.id);
+      if (!pos) continue;
+      const size = this._getNodeSize(node);
+      const intersects =
+        rect.minX <= pos.x + size.width &&
+        rect.maxX >= pos.x &&
+        rect.minY <= pos.y + size.height &&
+        rect.maxY >= pos.y;
+      if (intersects) {
+        hitIds.push(node.id);
+      }
+    }
+    return hitIds;
   }
 
   _hitTestPort(worldX, worldY, nodes, posById) {
@@ -4326,6 +4432,93 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       });
     }
     this._drawRectOutline(rects, width, height, view);
+  }
+
+  _drawBoxSelectionOverlay(width, height, view) {
+    if (!this.boxSelection) return;
+    const rect = this._getNormalizedWorldRect(this.boxSelection.anchorWorld, this.boxSelection.currentWorld);
+    const stroke = this.assets.theme.selection || [74 / 255, 199 / 255, 255 / 255, 1];
+    this._drawRectFill([
+      {
+        x: rect.minX,
+        y: rect.minY,
+        width: Math.max(1, rect.maxX - rect.minX),
+        height: Math.max(1, rect.maxY - rect.minY),
+        color: [stroke[0], stroke[1], stroke[2], 0.14],
+      },
+    ], width, height, view);
+    this._drawRectOutline([
+      {
+        x: rect.minX,
+        y: rect.minY,
+        width: Math.max(1, rect.maxX - rect.minX),
+        height: Math.max(1, rect.maxY - rect.minY),
+        color: [stroke[0], stroke[1], stroke[2], 0.9],
+        strokePx: 1.5,
+      },
+    ], width, height, view);
+  }
+
+  _drawRectFill(rects, width, height, view) {
+    if (!rects.length) return;
+    const gl = this.gl;
+    if (!this.rectFillProgram) {
+      this.rectFillProgram = createProgram(
+        gl,
+        `#version 300 es
+        precision highp float;
+        layout(location=0) in vec2 a_uv;
+        layout(location=1) in vec4 a_rect;
+        layout(location=2) in vec4 a_color;
+        uniform mat3 u_view;
+        uniform vec2 u_viewportPx;
+        out vec4 v_color;
+        void main() {
+          vec2 world = a_rect.xy + a_uv * a_rect.zw;
+          vec2 screen = (u_view * vec3(world, 1.0)).xy;
+          v_color = a_color;
+          vec2 ndc = (screen / u_viewportPx) * 2.0 - 1.0;
+          ndc.y = -ndc.y;
+          gl_Position = vec4(ndc, 0.0, 1.0);
+        }`,
+        `#version 300 es
+        precision highp float;
+        in vec4 v_color;
+        out vec4 outColor;
+        void main() {
+          outColor = v_color;
+        }`
+      );
+      this.rectFillBuffer = gl.createBuffer();
+    }
+
+    const data = new Float32Array(rects.length * 8);
+    let o = 0;
+    for (const rect of rects) {
+      data[o++] = rect.x;
+      data[o++] = rect.y;
+      data[o++] = rect.width;
+      data[o++] = rect.height;
+      data[o++] = rect.color[0];
+      data[o++] = rect.color[1];
+      data[o++] = rect.color[2];
+      data[o++] = rect.color[3];
+    }
+
+    gl.useProgram(this.rectFillProgram);
+    gl.bindVertexArray(this.baseVao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.rectFillBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    const stride = 8 * 4;
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, stride, 0);
+    gl.vertexAttribDivisor(1, 1);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 16);
+    gl.vertexAttribDivisor(2, 1);
+    gl.uniformMatrix3fv(gl.getUniformLocation(this.rectFillProgram, "u_view"), false, view);
+    gl.uniform2f(gl.getUniformLocation(this.rectFillProgram, "u_viewportPx"), width, height);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, rects.length);
   }
 
   _drawRectOutline(rects, width, height, view) {

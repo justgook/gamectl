@@ -62,7 +62,8 @@ init :: proc(w: ^World) {
 	logic.add_component(&w.input, player, Input{})
 	w.player1, _ = logic.get_component(&w.input, player)
 	logic.add_component(&w.velocity, player, Velocity{})
-	logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
+	// logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
+	logic.add_component(&w.position, player, Position{})
 	logic.add_component(
 		&w.sprite,
 		player,
@@ -70,7 +71,7 @@ init :: proc(w: ^World) {
 	)
 
 	background := create_entity(w)
-	logic.add_component(&w.position, background, Position{0 * UNIT, 128 * UNIT})
+	logic.add_component(&w.position, background, Position{0 * UNIT, 0 * UNIT})
 	// logic.add_component(
 	// 	&w.sprite,
 	// 	background,
