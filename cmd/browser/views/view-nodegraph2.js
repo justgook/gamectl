@@ -220,9 +220,12 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     this.ioToastOffset = 0;
     this.goalRunQueue = [];
     this._raf = 0;
+    this._pendingInitialFit = true;
+    this._hasSeenInitialResize = false;
     this.currentGraphId = 0;
     this.graphSnapshotById = new Map();
     this.graphName = DEFAULT_GRAPH_NAME;
+    this.autoFitOnLoad = false;
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -371,6 +374,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         .then(() => {
           this._refreshAllNodeFrames();
           this.requestRenderIfGenerationChanged(true);
+          this._queueInitialFit();
         })
         .catch(() => {
           toast.error("Failed to load Node Graph 2 render assets.");
@@ -817,6 +821,33 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       this._raf = requestAnimationFrame(tick);
     };
     this._raf = requestAnimationFrame(tick);
+  }
+
+  _queueInitialFit() {
+    this._pendingInitialFit = true;
+    this._hasAutoFitted = false;
+    this._maybeRunInitialFit();
+  }
+
+  _maybeRunInitialFit() {
+    if (!this._pendingInitialFit || !this._hasSeenInitialResize) return false;
+    if (!this.canvas || this.canvas.width <= 0 || this.canvas.height <= 0) return false;
+    if (!this.api || !this.memory || !this.assets) return false;
+    const graph = this.lastGraph || this.getGraphSnapshot();
+    if (!graph?.nodes?.length) return false;
+    const fitted = this.fitToContent();
+    if (!fitted) return false;
+    this._pendingInitialFit = false;
+    this._hasAutoFitted = true;
+    return true;
+  }
+
+  _onResized(width, height) {
+    super._onResized(width, height);
+    if (width > 0 && height > 0) {
+      this._hasSeenInitialResize = true;
+      this._maybeRunInitialFit();
+    }
   }
 
   async resetGraph() {
@@ -1944,7 +1975,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
 
     this._emitSelectionChanged();
     this.requestRenderIfGenerationChanged(true);
-    this.fitToContent();
+    this._queueInitialFit();
     return 0;
   }
 
@@ -2111,7 +2142,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       <p>Save current node graph.</p>
       <label>
         Graph name
-        <input type="text" name="graph-name" placeholder="Enter graph name" value="${escapeAttribute(suggestedName)}" required>
+        <input type="text" name="graph-name" placeholder="Enter graph name" value="${escapeAttribute(suggestedName)}" required autofocus>
       </label>
       <footer>
         <button type="submit" class="accent">Save</button>
@@ -2123,6 +2154,14 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       content: form,
       size: "small",
     });
+
+    const nameInput = form.querySelector('input[name="graph-name"]');
+    if (nameInput) {
+      requestAnimationFrame(() => {
+        nameInput.focus();
+        nameInput.select();
+      });
+    }
 
     form.onsubmit = async (event) => {
       event.preventDefault();
