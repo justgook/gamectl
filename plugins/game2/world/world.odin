@@ -66,7 +66,7 @@ init :: proc(w: ^World) {
 	logic.add_component(
 		&w.sprite,
 		player,
-		Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[40], size = {128, 128}},
+		Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[968], size = {128, 128}},
 	)
 
 	background := create_entity(w)

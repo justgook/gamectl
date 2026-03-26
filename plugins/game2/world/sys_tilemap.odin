@@ -38,8 +38,6 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 	}
 
 	pipe := w.tilemap_pipe
-	host.info("render tilemap", "1", pipe.tileset_tex_size, pipe.lut_tex_size)
-
 
 	vs_params := Tilemap_Vs_Params {
 		ortho            = ortho^,
@@ -49,7 +47,10 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 
 	sg.update_buffer(
 		pipe.bind.vertex_buffers[1],
-		{ptr = &w.tilemap, size = c.size_t(w.tilemap.count * size_of(Tilemap))},
+		{
+			ptr = raw_data(w.tilemap.components[:]),
+			size = c.size_t(w.tilemap.count * size_of(Tilemap)),
+		},
 	)
 	sg.apply_pipeline(pipe.pip)
 	sg.apply_bindings(pipe.bind)
@@ -61,8 +62,22 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 tilemap_init :: proc(atlas_tex, lut_tex: sg.Image) -> ^Tilemap_Pipe {
 	pipe := new(Tilemap_Pipe)
 
-	pipe.bind.samplers[SMP_tilemap_tileset_smp] = sg.make_sampler({})
-	pipe.bind.samplers[SMP_tilemap_lut_smp] = sg.make_sampler({})
+	pipe.bind.samplers[SMP_tilemap_tileset_smp] = sg.make_sampler(
+		{
+			min_filter = .NEAREST,
+			mag_filter = .NEAREST,
+			wrap_u = .CLAMP_TO_EDGE,
+			wrap_v = .CLAMP_TO_EDGE,
+		},
+	)
+	pipe.bind.samplers[SMP_tilemap_lut_smp] = sg.make_sampler(
+		{
+			min_filter = .NEAREST,
+			mag_filter = .NEAREST,
+			wrap_u = .CLAMP_TO_EDGE,
+			wrap_v = .CLAMP_TO_EDGE,
+		},
+	)
 
 	pipe.bind.views[VIEW_tilemap_tileset_tex] = sg.make_view({texture = {image = atlas_tex}})
 	pipe.bind.views[VIEW_tilemap_lut_tex] = sg.make_view({texture = {image = lut_tex}})
@@ -121,6 +136,10 @@ tilemap_init :: proc(atlas_tex, lut_tex: sg.Image) -> ^Tilemap_Pipe {
 
 tilemap_cleanup :: proc(renderer: ^Tilemap_Pipe) {
 	sg.destroy_pipeline(renderer.pip)
+	sg.destroy_sampler(renderer.bind.samplers[SMP_tilemap_tileset_smp])
+	sg.destroy_sampler(renderer.bind.samplers[SMP_tilemap_lut_smp])
+	sg.destroy_view(renderer.bind.views[VIEW_tilemap_tileset_tex])
+	sg.destroy_view(renderer.bind.views[VIEW_tilemap_lut_tex])
 	sg.destroy_buffer(renderer.bind.vertex_buffers[0])
 	sg.destroy_buffer(renderer.bind.vertex_buffers[1])
 	sg.destroy_buffer(renderer.bind.index_buffer)
