@@ -1225,6 +1225,9 @@
     caret-color: #ccc;
   }
 
+  .sql-table tr {
+    cursor: pointer;
+  }
 }
 
 
@@ -1507,6 +1510,8 @@ aside .tilebank-item .tile-id {
   border-radius: var(--radius-sm);
   background: color-mix(in oklab, var(--bg), transparent 25%);
 }
+
+
 
 /* view-stb-editor */
 

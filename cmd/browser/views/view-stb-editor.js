@@ -313,6 +313,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       this.loadOffsets()
       this.syncRuntimeLimitsFromBackend()
       this.validateEditorDimensions(this.mapWidth, this.mapHeight, this.layers)
+      await this.ensureTilesetCounts()
 
       this.tilemap = this.exports.stbte_create(
         this.mapWidth,
@@ -320,14 +321,13 @@ export default class ViewStbEditor extends ViewCanvasBase {
         this.layers,
         this.tileSize,
         this.tileSize,
-        1024
+        this.getEditorMaxTiles()
       )
 
       if (!this.tilemap) {
         throw new Error('stbte_create returned null pointer')
       }
 
-      await this.ensureTilesetCounts()
       await this.defineTilesFromAtlases()
       if (!this.isInitActive(initToken)) throw new Error('Editor detached during initialization')
 
@@ -521,10 +521,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
           if (!layerStates[layer]?.visible) continue
 
           const encoded = this.getRenderedEncodedTile(logicalView, x, y, layer)
-          const tileId = encoded - 1
           if (encoded <= 0) continue
 
-          const sprite = this.tileSprites.get(tileId)
+          const sprite = this.tileSprites.get(encoded)
           if (sprite) {
             ctx.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh, px, py, this.tileSize, this.tileSize)
           } else {
@@ -651,6 +650,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const bounds = this.getActiveChunkBounds()
     this.mapWidth = bounds.width
     this.mapHeight = bounds.height
+  }
+
+  getEditorMaxTiles() {
+    return Math.max(1024, this.getPaletteTileCount())
   }
 
   ensureChunkExportCapacity(requiredBytes) {
@@ -971,7 +974,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       this.layers,
       this.tileSize,
       this.tileSize,
-      1024
+      this.getEditorMaxTiles()
     )
     if (!this.tilemap) {
       throw new Error('Failed to recreate editor tilemap')
@@ -1035,7 +1038,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.tileSprites = new Map()
 
     const tileSetRanges = this.getTilesetRanges()
-    let nextTileId = 0
+    let nextTileId = 1
 
     for (let tileSetIndex = 0; tileSetIndex < tileSetRanges.length; tileSetIndex++) {
       const entry = tileSetRanges[tileSetIndex]
@@ -1099,14 +1102,14 @@ export default class ViewStbEditor extends ViewCanvasBase {
     }
 
     this.defineFlatWasmTilePalette()
-    this.exports.stbte_set_active_tile(this.tilemap, 0)
+    this.exports.stbte_set_active_tile(this.tilemap, this.getPaletteTileCount() > 0 ? 1 : 0)
     this.editorTileSize = this.tileSize
   }
 
   defineFlatWasmTilePalette(tilemap = this.tilemap, layerCount = this.layers) {
     const paletteCount = Math.max(1, this.getPaletteTileCount())
     const layerMask = layerCount >= 31 ? 0x7FFFFFFF : ((1 << layerCount) - 1)
-    for (let tileId = 0; tileId < paletteCount; tileId++) {
+    for (let tileId = 1; tileId <= paletteCount; tileId++) {
       this.exports.stbte_define_tile(tilemap, tileId, layerMask, 0)
     }
   }
@@ -1125,7 +1128,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   getTilesetRangesFor(tileSets) {
-    let nextTileId = 0
+    let nextTileId = 1
     return tileSets.map((tileSet, index) => {
       const count = Math.max(0, Number(tileSet?.count) || 0)
       const entry = {
@@ -1151,8 +1154,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
       key: 'rest',
       kind: 'rest',
       label: this.tileSets.length > 0 ? 'rest' : 'tiles',
-      startTileId: coveredCount,
-      endTileId: paletteCount,
+      startTileId: coveredCount + 1,
+      endTileId: paletteCount + 1,
       count: paletteCount - coveredCount
     }
   }
@@ -1208,7 +1211,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       ctx.strokeStyle = 'rgba(255,255,255,0.25)'
       ctx.strokeRect(x + 0.5, y + 0.5, this.tileSize - 1, this.tileSize - 1)
       ctx.fillStyle = '#ffffff'
-      ctx.fillText(String(startTileId + i + 1), x + this.tileSize / 2, y + this.tileSize / 2)
+      ctx.fillText(String(startTileId + i), x + this.tileSize / 2, y + this.tileSize / 2)
     }
 
     return { image: canvas, cols, rows }
@@ -1279,7 +1282,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
   getNumTiles() { return this.readTilemap(this.offsets.tm_num_tiles, 'i32') }
   getNumCategories() { return this.readTilemap(this.offsets.tm_num_categories, 'i32') }
   getCurrentCategory() { return this.readTilemap(this.offsets.tm_cur_category, 'i32') }
-  getCurrentTile() { return this.readTilemap(this.offsets.tm_cur_tile, 'i32') }
+  getCurrentTile() { return this.exports?.stbte_get_active_tile_id ? this.exports.stbte_get_active_tile_id(this.tilemap) : 0 }
   hasLogicalUndo() {
     if (!this.exports) return false
     const store = this.logicalStore || this.ensureLogicalStore()
@@ -1908,19 +1911,17 @@ export default class ViewStbEditor extends ViewCanvasBase {
     grid.style.cssText = 'display:grid; grid-template-columns:auto auto auto auto'
     container.appendChild(grid)
 
-    let startTileId = 0
-    let endTileId = tileCount
+    let startTileId = 1
+    let endTileId = tileCount + 1
     if (selectedTab) {
       startTileId = selectedTab.startTileId
       endTileId = selectedTab.endTileId
     }
 
     for (let tileId = startTileId; tileId < endTileId; tileId++) {
-      const tileIndex = tileId
-
       const btn = document.createElement('button')
       btn.style.cssText = "aspect-ratio:1"
-      if (tileIndex === currentTileIdx) btn.classList.add('active')
+      if (tileId === currentTileIdx) btn.classList.add('active')
       btn.title = `Tile ${tileId}`
 
       const preview = this.makeTilePreview(tileId)
@@ -1931,7 +1932,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       btn.appendChild(idTag)
 
       btn.addEventListener('click', () => {
-        this.exports.stbte_set_active_tile(this.tilemap, tileIndex)
+        this.exports.stbte_set_active_tile(this.tilemap, tileId)
         this.setupTiles()
         this.updateMetadata()
       })
@@ -2273,7 +2274,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     return {
       currentTool: this.currentTool,
-      currentTile: this.exports ? this.getCurrentTile() : 0,
+      currentTile: this.exports ? this.getCurrentTile() : 1,
       selectedLayer: this.selectedLayer,
       selectedTilesetFilter: this.selectedTilesetFilter,
       soloLayer: this.exports ? this.readTilemap(this.offsets.tm_solo_layer, 'i32') : -1,
@@ -2315,7 +2316,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     })
     this.exports.stbte_set_solo_layer(this.tilemap, state.soloLayer)
 
-    const maxTileIndex = Math.max(0, this.getPaletteTileCount() - 1)
+    const maxTileIndex = Math.max(0, this.getPaletteTileCount())
     const currentTile = this.clamp(state.currentTile, 0, maxTileIndex)
     this.exports.stbte_set_active_tile(this.tilemap, currentTile)
 
@@ -2365,7 +2366,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
         data: (layer?.data || []).map((value) => {
           const encoded = Number(value) || 0
           if (encoded <= 0) return 0
-          return transformTileId(encoded - 1) + 1
+          return transformTileId(encoded)
         })
       })),
       props: tilemap?.props ? { ...tilemap.props } : tilemap?.props
@@ -2479,7 +2480,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       for (let y = 0; y < this.mapHeight; y++) {
         for (let x = 0; x < this.mapWidth; x++) {
           const tileId = this.exports.stbte_get_tile_id(this.tilemap, x, y, layer)
-          data.push(tileId < 0 ? 0 : tileId + 1)
+          data.push(tileId)
         }
       }
       layers.push({
@@ -2774,7 +2775,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const oldCoverage = oldRanges.reduce((sum, entry) => sum + entry.count, 0)
 
     const transformTileId = (tileId) => {
-      if (tileId >= oldCoverage) return tileId
+      if (tileId > oldCoverage) return tileId
       for (const newEntry of newRanges) {
         const oldEntry = oldRanges.find((entry) => entry.tileSet === newEntry.tileSet)
         if (!oldEntry) continue
@@ -2808,10 +2809,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
       }
 
       if (removedEntry && tileId >= removedEntry.startTileId && tileId < removedEntry.endTileId) {
-        return newCoverage + (tileId - removedEntry.startTileId)
+        return newCoverage + 1 + (tileId - removedEntry.startTileId)
       }
 
-      if (tileId >= oldCoverage) {
+      if (tileId > oldCoverage) {
         return newCoverage + (removedEntry?.count || 0) + (tileId - oldCoverage)
       }
 
