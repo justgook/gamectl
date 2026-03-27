@@ -11,10 +11,10 @@ const MAX_SCALE = 3;
 export class ViewCanvasBase extends HTMLElement {
   static get keybindings() {
     return [
-      { id: 'save', eventName: 'file:save', description: 'Save current view data', defaultKeys: '<C-s>' },
-      { id: 'zoom-in', eventName: 'view:zoom-in', description: 'Zoom in', defaultKeys: '<C-=>'},
-      { id: 'zoom-out', eventName: 'view:zoom-out', description: 'Zoom out', defaultKeys: '<C-->' },
-      { id: 'zoom-fit', eventName: 'view:zoom-fit', description: 'Fit view to content', defaultKeys: '<C-0>' },
+      { id: 'save', eventName: 'file:save', description: 'Save current view data', defaultKeys: 's' },
+      { id: 'zoom-in', eventName: 'view:zoom-in', description: 'Zoom in', defaultKeys: '+' },
+      { id: 'zoom-out', eventName: 'view:zoom-out', description: 'Zoom out', defaultKeys: '-' },
+      { id: 'zoom-fit', eventName: 'view:zoom-fit', description: 'Fit view to content', defaultKeys: 'f' },
       { id: 'pan-modifier', eventName: 'view:pan-modifier', description: 'Hold to pan canvas', defaultKeys: '<Space>', eventType: 'both' }
     ]
   }
