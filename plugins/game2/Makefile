@@ -154,8 +154,9 @@ $(WEB_DIR):
 $(NATIVE_DIR):
 	$(Q)$(MKDIR_P) "$(NATIVE_DIR)"
 
+
 .PHONY: plugin
-plugin:
+plugin: deps shaders
 	$(Q)$(MAKE) -C ../.. build.nosync/plugins/game2.wasm
 
 .PHONY: native-libs
