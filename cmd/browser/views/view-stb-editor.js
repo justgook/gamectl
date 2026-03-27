@@ -26,6 +26,21 @@ export default class ViewStbEditor extends ViewCanvasBase {
     return { displayName: 'STB Tilemap Editor', category: 'Tiles' }
   }
 
+  static get keybindings() {
+    return [
+      { id: 'tool-brush', eventName: 'tilemap:tool:brush', description: 'Brush tool', defaultKeys: '1' },
+      { id: 'tool-select', eventName: 'tilemap:tool:select', description: 'Select tool', defaultKeys: '2' },
+      { id: 'tool-erase', eventName: 'tilemap:tool:erase', description: 'Erase tool', defaultKeys: '3' },
+      { id: 'tool-eyedropper', eventName: 'tilemap:tool:eyedropper', description: 'Eyedropper tool', defaultKeys: '4' },
+      { id: 'tool-paste', eventName: 'tilemap:tool:paste', description: 'Paste tool', defaultKeys: 'p' },
+      { id: 'copy-selection', eventName: 'tilemap:copy', description: 'Copy selection', defaultKeys: 'y' },
+      { id: 'cut-selection', eventName: 'tilemap:cut', description: 'Cut selection', defaultKeys: 'd' },
+      { id: 'cut-selection-alt', eventName: 'tilemap:cut', description: 'Cut selection', defaultKeys: 'x' },
+      { id: 'undo', eventName: 'tilemap:undo', description: 'Undo', defaultKeys: 'u' },
+      { id: 'redo', eventName: 'tilemap:redo', description: 'Redo', defaultKeys: '<C-r>' }
+    ]
+  }
+
   constructor() {
     super()
 
@@ -88,6 +103,88 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.renderChunkCache = new Map()
     this.renderDirtyChunks = null
     this.editorTileSize = this.tileSize
+  }
+
+  getLayerName(index) {
+    const logicalName = String(this.logicalTilemap?.layers?.[index]?.props?.name || '').trim()
+    if (logicalName) return logicalName
+    const cachedName = String(this.layerNames[index] || '').trim()
+    if (cachedName) return cachedName
+    return `layer ${index + 1}`
+  }
+
+  normalizeProps(input) {
+    if (!input || typeof input !== 'object') return {}
+    const entries = Object.entries(input)
+      .filter(([key]) => String(key || '').trim())
+      .map(([key, value]) => [String(key).trim(), String(value ?? '')])
+    return Object.fromEntries(entries)
+  }
+
+  syncLayerNamesFromLogicalTilemap() {
+    const layers = Array.isArray(this.logicalTilemap?.layers) ? this.logicalTilemap.layers : []
+    this.layerNames = layers.map((layer, index) => String(layer?.props?.name || '').trim() || `layer ${index + 1}`)
+  }
+
+  _activateTool(toolId) {
+    if (!this.exports || !this.tilemap) return false
+    this.currentTool = Number(toolId)
+    this.exports.stbte_set_tool(this.tilemap, this.currentTool)
+    if (this.currentTool !== 0) {
+      this.clearSelection()
+    }
+    this.draw()
+    this.updateControlStates()
+    this.updateMetadata()
+    return true
+  }
+
+  handleKeybinding(eventName, context) {
+    const phase = context?.phase || 'down'
+    if (phase !== 'down') {
+      return super.handleKeybinding(eventName, context)
+    }
+
+    switch (eventName) {
+      case 'file:save':
+        this.showSaveTilemapPopup().catch((err) => {
+          this.log(`Save failed: ${err.message}`)
+          console.error('[stb-editor] save failed:', err)
+        })
+        return true
+      case 'tilemap:tool:brush':
+        return this._activateTool(1)
+      case 'tilemap:tool:select':
+        return this._activateTool(0)
+      case 'tilemap:tool:erase':
+        return this._activateTool(2)
+      case 'tilemap:tool:eyedropper':
+        return this._activateTool(3)
+      case 'tilemap:tool:paste':
+        return this.hasClipboard() ? this._activateTool(4) : true
+      case 'tilemap:copy':
+        this.copySelection().catch((err) => {
+          toast.error(`Copy failed: ${String(err?.message || err)}`)
+        })
+        return true
+      case 'tilemap:cut':
+        this.cutSelection().catch((err) => {
+          toast.error(`Cut failed: ${String(err?.message || err)}`)
+        })
+        return true
+      case 'tilemap:undo':
+        this.handleUndo().catch((err) => {
+          toast.error(`Undo failed: ${String(err?.message || err)}`)
+        })
+        return true
+      case 'tilemap:redo':
+        this.handleRedo().catch((err) => {
+          toast.error(`Redo failed: ${String(err?.message || err)}`)
+        })
+        return true
+      default:
+        return super.handleKeybinding(eventName, context)
+    }
   }
 
   connectedCallback() {
@@ -818,6 +915,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       this.layerNames,
       this.encodeTopLevelProps()
     )
+    this.syncLayerNamesFromLogicalTilemap()
   }
 
   ensureLogicalStore() {
@@ -908,27 +1006,28 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.logicalTilemap.layers = Array.from({ length: this.layers }, (_value, layerIndex) => ({
       width: this.logicalMapWidth,
       data: Array.from(source.subarray(layerIndex * layerStride, (layerIndex + 1) * layerStride)),
-      props: {
+      props: this.normalizeProps({
         ...(this.logicalTilemap?.layers?.[layerIndex]?.props || {}),
-        name: this.layerNames[layerIndex] || `layer ${layerIndex + 1}`
-      }
+        name: this.logicalTilemap?.layers?.[layerIndex]?.props?.name || this.layerNames[layerIndex] || `layer ${layerIndex + 1}`
+      })
     }))
     this.syncLogicalProps()
   }
 
   syncLogicalProps() {
     this.ensureLogicalTilemap()
-    this.logicalTilemap.props = {
+    this.logicalTilemap.props = this.normalizeProps({
       ...(this.logicalTilemap.props || {}),
       ...this.encodeTopLevelProps()
-    }
+    })
     this.logicalTilemap.layers = (this.logicalTilemap.layers || []).map((layer, index) => ({
       ...layer,
-      props: {
+      props: this.normalizeProps({
         ...(layer?.props || {}),
-        name: this.layerNames[index] || `layer ${index + 1}`
-      }
+        name: layer?.props?.name || this.layerNames[index] || `layer ${index + 1}`
+      })
     }))
+    this.syncLayerNamesFromLogicalTilemap()
   }
 
   async defineTilesFromAtlases() {
@@ -1381,15 +1480,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
   bindEditorControls() {
     this.headerControlButtons('[data-tool]').forEach((btn) => {
       btn.onclick = () => {
-        if (!this.exports || !this.tilemap) return
-        this.currentTool = parseInt(btn.dataset.tool, 10)
-        this.exports.stbte_set_tool(this.tilemap, this.currentTool)
-        if (this.currentTool !== 0) {
-          this.clearSelection()
-        }
-        this.draw()
-        this.updateControlStates()
-        this.updateMetadata()
+        this._activateTool(parseInt(btn.dataset.tool, 10))
       }
     })
 
@@ -1747,13 +1838,13 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
       const row = document.createElement('div')
       row.setAttribute('role', 'buttongroup')
-      row.setAttribute('aria-label', `${this.layerNames[i] || `Layer ${i + 1}`} controls`)
+      row.setAttribute('aria-label', `${this.getLayerName(i)} controls`)
       row.style.display = 'flex'
       row.style.width = '100%'
 
       const name = document.createElement('button')
       if (this.selectedLayer === i) name.classList.add('active')
-      name.textContent = this.layerNames[i] || `Layer ${i + 1}`
+      name.textContent = this.getLayerName(i)
       name.style.flex = '1'
       name.style.justifyContent = 'flex-start'
       name.addEventListener('click', () => {
@@ -1934,7 +2025,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       tileIndex: this.exports ? String(this.getCurrentTile()) : '-',
       tilesLoaded: this.exports ? String(this.getNumTiles()) : '0',
       tilesets: String(this.tileSets.length),
-      activeLayer: this.selectedLayer === -1 ? 'All editable' : (this.layerNames[this.selectedLayer] || `Layer ${this.selectedLayer + 1}`),
+      activeLayer: this.selectedLayer === -1 ? 'All editable' : this.getLayerName(this.selectedLayer),
       hover: this.isInsideMap(this.hoverX, this.hoverY) ? `${this.hoverX}, ${this.hoverY}` : '-',
       editorChunk: `${this.mapWidth} x ${this.mapHeight}`,
       undo: this.exports && this.canUndo() ? 'yes' : 'no',
@@ -2048,9 +2139,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   encodeTopLevelProps() {
-    const props = {}
+    const props = this.normalizeProps(this.logicalTilemap?.props || {})
 
     if (this.tileSets.length > 0) props.tilesets = JSON.stringify(this.tileSets)
+    else delete props.tilesets
     props.tileSize = String(this.tileSize)
 
     return props
@@ -2138,6 +2230,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.activeChunkY = 0
     this.logicalTilemap = cloneTilemap(tilemap)
     this.syncLogicalProps()
+    this.syncLayerNamesFromLogicalTilemap()
     const bounds = this.getActiveChunkBounds()
     this.mapWidth = bounds.width
     this.mapHeight = bounds.height
@@ -2391,12 +2484,148 @@ export default class ViewStbEditor extends ViewCanvasBase {
       layers.push({
         width: this.mapWidth,
         data,
-        props: {
+        props: this.normalizeProps(this.logicalTilemap?.layers?.[layer]?.props || {
           name: this.layerNames[layer] || `layer ${layer + 1}`
-        }
+        })
       })
     }
     return { layers, props: this.encodeTopLevelProps() }
+  }
+
+  async applyEditedTilemapSnapshot(snapshot) {
+    const editorState = this.captureEditorState()
+    const loadedMapName = this.loadedMapName
+    await this.applyLoadedTilemap(snapshot)
+    this.loadedMapName = loadedMapName
+    this.restoreEditorState(editorState)
+  }
+
+  buildPropsEditorRows(props) {
+    const normalized = this.normalizeProps(props)
+    const entries = Object.entries(normalized)
+    if (entries.length > 0) return entries
+    return [['', '']]
+  }
+
+  collectPropsFromForm(form) {
+    const rows = this.collectPropRowsFromForm(form)
+    const props = {}
+    for (const [keyRaw, valueRaw] of rows) {
+      const key = String(keyRaw || '').trim()
+      if (!key) continue
+      props[key] = String(valueRaw ?? '')
+    }
+    return props
+  }
+
+  collectPropRowsFromForm(form) {
+    return [...form.querySelectorAll('[data-prop-row]')].map((row) => {
+      const keyInput = row.querySelector('input[name="prop-key"]')
+      const valueInput = row.querySelector('input[name="prop-value"]')
+      return [String(keyInput?.value || ''), String(valueInput?.value || '')]
+    })
+  }
+
+  async showPropsPopup({ title, initialProps = {}, onSave }) {
+    const popupManager = this.closest('popup-manager') || document.querySelector('popup-manager')
+    if (!popupManager) {
+      toast.error('Popup manager is not available.')
+      return
+    }
+
+    const form = document.createElement('form')
+    const rows = document.createElement('div')
+    rows.style.display = 'grid'
+    rows.style.gap = '8px'
+
+    const renderRows = (draftRows = this.buildPropsEditorRows(initialProps)) => {
+      const normalizedRows = draftRows.length > 0 ? draftRows : [['', '']]
+      rows.innerHTML = normalizedRows.map(([key, value], index) => `
+        <div data-prop-row="${index}" style="display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:8px; align-items:center;">
+          <input type="text" name="prop-key" value="${escapeAttribute(key)}" placeholder="key" style="min-width:0;">
+          <input type="text" name="prop-value" value="${escapeAttribute(value)}" placeholder="value" style="min-width:0;">
+          <button type="button" data-action="delete-row" title="Delete property" aria-label="Delete property"><i aria-hidden="true">delete</i></button>
+        </div>
+      `).join('')
+
+      rows.querySelectorAll('button[data-action="delete-row"]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const nextRows = this.collectPropRowsFromForm(form)
+          const row = button.closest('[data-prop-row]')
+          const rowIndex = Number(row?.getAttribute('data-prop-row'))
+          if (!Number.isInteger(rowIndex)) return
+          nextRows.splice(rowIndex, 1)
+          renderRows(nextRows)
+        })
+      })
+    }
+
+    form.innerHTML = `
+      <section>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+          <h4 style="margin:0;">Properties</h4>
+          <button type="button" name="add-prop"><i aria-hidden="true">add</i> Add property</button>
+        </div>
+      </section>
+      <footer>
+        <button type="submit" class="accent"><i aria-hidden="true">save</i> Apply</button>
+      </footer>
+    `
+
+    form.querySelector('section')?.appendChild(rows)
+
+    const popup = this._trackStoragePopup(popupManager.showPopup({
+      title,
+      content: form,
+      size: 'small'
+    }))
+
+    const addPropBtn = form.querySelector('button[name="add-prop"]')
+    addPropBtn?.addEventListener('click', () => {
+      const nextRows = this.collectPropRowsFromForm(form)
+      nextRows.push(['', ''])
+      renderRows(nextRows)
+    })
+
+    renderRows()
+
+    form.onsubmit = async (event) => {
+      event.preventDefault()
+      try {
+        await onSave(this.normalizeProps(this.collectPropsFromForm(form)))
+        popup.close()
+      } catch (error) {
+        toast.error(`Failed to update properties: ${String(error?.message || error)}`)
+      }
+    }
+  }
+
+  async showMapPropsPopup() {
+    const snapshot = this.exportTilemapData()
+    await this.showPropsPopup({
+      title: 'Map properties',
+      initialProps: snapshot.props || {},
+      onSave: async (props) => {
+        snapshot.props = this.normalizeProps(props)
+        await this.applyEditedTilemapSnapshot(snapshot)
+        toast.success('Updated map properties.')
+      }
+    })
+  }
+
+  async showLayerPropsPopup(layerIndex) {
+    const snapshot = this.exportTilemapData()
+    const layer = snapshot.layers?.[layerIndex]
+    if (!layer) return
+    await this.showPropsPopup({
+      title: `${this.getLayerName(layerIndex)} properties`,
+      initialProps: layer.props || {},
+      onSave: async (props) => {
+        layer.props = this.normalizeProps(props)
+        await this.applyEditedTilemapSnapshot(snapshot)
+        toast.success(`Updated ${this.getLayerName(layerIndex)} properties.`)
+      }
+    })
   }
 
   async loadChunkIntoEditor(chunkX, chunkY, options = {}) {
@@ -2494,6 +2723,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     )
     this.layers += 1
     this.syncLogicalTilemapFromStore()
+    this.syncLayerNamesFromLogicalTilemap()
     this.selectedLayer = this.layers - 1
     await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY, { skipFlush: true })
     this.exports.stbte_set_active_layer(this.tilemap, this.selectedLayer)
@@ -2519,6 +2749,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     )
     this.layers -= 1
     this.syncLogicalTilemapFromStore()
+    this.syncLayerNamesFromLogicalTilemap()
     const editorState = this.captureEditorState()
     editorState.selectedLayer = remapLayerIndex(editorState.selectedLayer)
     editorState.soloLayer = remapLayerIndex(editorState.soloLayer)
@@ -2873,7 +3104,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
       <section>
         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
           <h4 style="margin:0;">Layers</h4>
-          <button type="button" name="add-layer"><i aria-hidden="true">add</i> Add layer</button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button type="button" name="edit-map-props"><i aria-hidden="true">tune</i> Map props</button>
+            <button type="button" name="add-layer"><i aria-hidden="true">add</i> Add layer</button>
+          </div>
         </div>
       </section>
       <footer>
@@ -2889,35 +3123,21 @@ export default class ViewStbEditor extends ViewCanvasBase {
       size: 'small'
     }))
 
-    const syncDraftLayerNames = () => {
-      const nextLayerNames = [...this.layerNames]
-      layerList.querySelectorAll('input[data-layer-name]').forEach((input) => {
-        const index = Number(input.getAttribute('data-layer-index'))
-        if (!Number.isInteger(index)) return
-        nextLayerNames[index] = String(input.value || '').trim() || `layer ${index + 1}`
-      })
-      this.layerNames = nextLayerNames
-    }
-
     const renderLayerList = () => {
       if (!layerList) return
-      const entries = this.layerNames.map((name, index) => ({ name, index })).reverse()
+      const entries = Array.from({ length: this.layers }, (_value, index) => ({
+        name: this.getLayerName(index),
+        index
+      })).reverse()
       layerList.innerHTML = entries.map(({ name, index }) => `
-        <div data-layer-index="${index}" style="display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; gap:8px; align-items:center; margin-bottom:8px;">
-          <input type="text" data-layer-name data-layer-index="${index}" value="${escapeAttribute(name || `layer ${index + 1}`)}" placeholder="Layer name" style="min-width:0;">
-          <button type="button" data-action="move-up" title="Move up" aria-label="Move up" ${index === this.layerNames.length - 1 ? 'disabled' : ''}><i aria-hidden="true">arrow_upward</i></button>
+        <div data-layer-index="${index}" style="display:grid; grid-template-columns:minmax(0,1fr) auto auto auto auto; gap:8px; align-items:center; margin-bottom:8px;">
+          <div style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeAttribute(name || `layer ${index + 1}`)}</div>
+          <button type="button" data-action="edit-props" title="Edit properties" aria-label="Edit properties"><i aria-hidden="true">tune</i></button>
+          <button type="button" data-action="move-up" title="Move up" aria-label="Move up" ${index === this.layers - 1 ? 'disabled' : ''}><i aria-hidden="true">arrow_upward</i></button>
           <button type="button" data-action="move-down" title="Move down" aria-label="Move down" ${index === 0 ? 'disabled' : ''}><i aria-hidden="true">arrow_downward</i></button>
-          <button type="button" data-action="delete" title="Delete layer" aria-label="Delete layer" ${this.layerNames.length <= 1 ? 'disabled' : ''}><i aria-hidden="true">delete</i></button>
+          <button type="button" data-action="delete" title="Delete layer" aria-label="Delete layer" ${this.layers <= 1 ? 'disabled' : ''}><i aria-hidden="true">delete</i></button>
         </div>
       `).join('')
-
-      layerList.querySelectorAll('input[data-layer-name]').forEach((input) => {
-        input.addEventListener('change', () => {
-          syncDraftLayerNames()
-          this.setupLayers()
-          this.updateMetadata()
-        })
-      })
 
       layerList.querySelectorAll('button[data-action]').forEach((button) => {
         button.addEventListener('click', async () => {
@@ -2926,8 +3146,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
           if (!Number.isInteger(index)) return
 
           try {
-            syncDraftLayerNames()
-            if (button.dataset.action === 'move-up') {
+            if (button.dataset.action === 'edit-props') {
+              await this.showLayerPropsPopup(index)
+            } else if (button.dataset.action === 'move-up') {
               await this.moveLayer(index, 1)
             } else if (button.dataset.action === 'move-down') {
               await this.moveLayer(index, -1)
@@ -2942,10 +3163,25 @@ export default class ViewStbEditor extends ViewCanvasBase {
       })
     }
 
+    const editMapPropsBtn = form.querySelector('button[name="edit-map-props"]')
+    editMapPropsBtn?.addEventListener('click', async () => {
+      try {
+        await this.showMapPropsPopup()
+        const tileSizeInput = form.querySelector('input[name="tile-size"]')
+        const mapWidthInput = form.querySelector('input[name="map-width"]')
+        const mapHeightInput = form.querySelector('input[name="map-height"]')
+        if (tileSizeInput) tileSizeInput.value = String(this.tileSize)
+        if (mapWidthInput) mapWidthInput.value = String(this.logicalMapWidth)
+        if (mapHeightInput) mapHeightInput.value = String(this.logicalMapHeight)
+        renderLayerList()
+      } catch (error) {
+        toast.error(`Failed to update map properties: ${String(error?.message || error)}`)
+      }
+    })
+
     const addLayerBtn = form.querySelector('button[name="add-layer"]')
     addLayerBtn?.addEventListener('click', async () => {
       try {
-        syncDraftLayerNames()
         await this.addLayer()
         renderLayerList()
       } catch (error) {
@@ -2963,12 +3199,8 @@ export default class ViewStbEditor extends ViewCanvasBase {
       const mapHeight = Math.max(1, Number(formData.get('map-height')) || this.logicalMapHeight)
 
       try {
-        const previousLayerNames = [...this.layerNames]
-        syncDraftLayerNames()
-        const namesChanged = this.layerNames.some((name, index) => name !== previousLayerNames[index]) || this.layerNames.length !== previousLayerNames.length
-        if (namesChanged) this.setupLayers()
         const changed = await this.applyMapSettings({ tileSize, mapWidth, mapHeight })
-        if (changed || namesChanged) {
+        if (changed) {
           toast.success(`Updated map settings to ${mapWidth}x${mapHeight} at ${tileSize}px.`)
         }
         popup.close()

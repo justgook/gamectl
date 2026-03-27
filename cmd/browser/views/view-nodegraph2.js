@@ -160,7 +160,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       { id: "create-node", eventName: "node:create", description: "Create new node", defaultKeys: "a" },
       { id: "delete-node", eventName: "node:delete", description: "Delete selected nodes", defaultKeys: "<BS>" },
       { id: "edit-node", eventName: "node:edit", description: "Edit selected node", defaultKeys: "e" },
-      { id: "save-graph", eventName: "node:save", description: "Save current graph", defaultKeys: "s" },
       { id: "run-graph", eventName: "node:run", description: "Run node graph", defaultKeys: "<C-CR>" },
     ];
   }
