@@ -20,6 +20,19 @@ function readAppearanceStorage() {
   return parsed
 }
 
+function sanitizeWebdavDisplayUrl(rawUrl) {
+  if (!rawUrl) return ''
+
+  try {
+    const parsed = new URL(rawUrl)
+    parsed.username = ''
+    parsed.password = ''
+    return parsed.toString()
+  } catch {
+    return rawUrl.replace(/:\/\/[^@/]+@/, '://')
+  }
+}
+
 /**
  * ViewSettings - Settings panel with tabbed interface
  * 
@@ -287,7 +300,7 @@ export class ViewSettings extends HTMLElement {
     })
 
     const urlHint = document.createElement('small')
-    urlHint.textContent = 'e.g. http://localhost:8080 for rclone serve webdav .'
+    urlHint.textContent = 'Supports plain URLs and credentialed URLs like https://user:pass@host/path.'
 
     urlLabel.appendChild(urlTitle)
     urlLabel.appendChild(urlInput)
@@ -298,7 +311,7 @@ export class ViewSettings extends HTMLElement {
     const status = document.createElement('p')
     const currentUrl = localStorage.getItem('fs.webdav.url')
     status.textContent = currentUrl
-      ? `Active: WebDAV (${currentUrl})`
+      ? `Active: WebDAV (${sanitizeWebdavDisplayUrl(currentUrl)})`
       : 'Active: OPFS (Browser Storage)'
     status.className = 'settings-storage-status'
     section.appendChild(status)

@@ -65,8 +65,9 @@ export class PluginManagerProxy {
     // WebDAV: check for server URL
     const webdavUrl = localStorage.getItem('fs.webdav.url')
     if (webdavUrl) {
-      console.log('[FS] Using WebDAV backend:', webdavUrl)
-      return { type: 'webdav', options: { url: webdavUrl } }
+      const { url, authorization, displayUrl } = parseWebdavUrl(webdavUrl)
+      console.log('[FS] Using WebDAV backend:', displayUrl)
+      return { type: 'webdav', options: { url, authorization } }
     }
 
     // Default: OPFS
@@ -347,5 +348,31 @@ export class PluginManagerProxy {
 
     const bytes = result.output
     return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  }
+}
+
+function parseWebdavUrl(rawUrl) {
+  const trimmedUrl = rawUrl.trim()
+
+  try {
+    const parsed = new URL(trimmedUrl)
+    const username = parsed.username
+    const password = parsed.password
+    const hasCredentials = username || password
+
+    if (!hasCredentials) {
+      return { url: parsed.toString(), authorization: '', displayUrl: parsed.toString() }
+    }
+
+    parsed.username = ''
+    parsed.password = ''
+
+    return {
+      url: parsed.toString(),
+      authorization: `Basic ${btoa(`${username}:${password}`)}`,
+      displayUrl: parsed.toString()
+    }
+  } catch {
+    return { url: trimmedUrl, authorization: '', displayUrl: trimmedUrl }
   }
 }

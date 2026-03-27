@@ -20,6 +20,7 @@
  */
 
 let baseUrl = ''
+let authorization = ''
 
 /**
  * Initialize the WebDAV backend
@@ -32,6 +33,15 @@ export async function init(config) {
   }
   // Strip trailing slash for consistent path joining
   baseUrl = config.url.replace(/\/+$/, '')
+  authorization = config.authorization || ''
+}
+
+function withAuthHeaders(headers = {}) {
+  if (!authorization) return headers
+  return {
+    ...headers,
+    Authorization: authorization
+  }
 }
 
 /**
@@ -77,7 +87,7 @@ async function mkdirRecursive(dirPath) {
   const url = buildUrl(normalized)
 
   // Check if it already exists
-  const check = await fetch(url, { method: 'HEAD' })
+  const check = await fetch(url, { method: 'HEAD', headers: withAuthHeaders() })
   if (check.ok) return
 
   // Ensure parent exists first
@@ -87,7 +97,7 @@ async function mkdirRecursive(dirPath) {
   }
 
   // Create this directory
-  const resp = await fetch(url, { method: 'MKCOL' })
+  const resp = await fetch(url, { method: 'MKCOL', headers: withAuthHeaders() })
   // 201 Created, 405 Method Not Allowed (already exists) are both ok
   if (!resp.ok && resp.status !== 405) {
     throw new Error(`MKCOL ${normalized} failed: ${resp.status} ${resp.statusText}`)
@@ -205,7 +215,7 @@ function parseMultistatus(xml, basePath, depth = Infinity) {
 export const handlers = {
   async readFile(path) {
     const url = buildUrl(path)
-    const response = await fetch(url, { method: 'GET' })
+    const response = await fetch(url, { method: 'GET', headers: withAuthHeaders() })
 
     if (!response.ok) {
       throw new Error(`GET ${path} failed: ${response.status} ${response.statusText}`)
@@ -226,9 +236,9 @@ export const handlers = {
     const response = await fetch(url, {
       method: 'PUT',
       body: new Uint8Array(data),
-      headers: {
+      headers: withAuthHeaders({
         'Content-Type': 'application/octet-stream'
-      }
+      })
     })
 
     if (!response.ok) {
@@ -240,7 +250,7 @@ export const handlers = {
 
   async remove(path) {
     const url = buildUrl(path)
-    const response = await fetch(url, { method: 'DELETE' })
+    const response = await fetch(url, { method: 'DELETE', headers: withAuthHeaders() })
 
     if (!response.ok && response.status !== 404) {
       throw new Error(`DELETE ${path} failed: ${response.status} ${response.statusText}`)
@@ -252,7 +262,7 @@ export const handlers = {
   async exists(path) {
     const url = buildUrl(path)
     try {
-      const response = await fetch(url, { method: 'HEAD' })
+      const response = await fetch(url, { method: 'HEAD', headers: withAuthHeaders() })
       return { ok: true, data: response.ok }
     } catch {
       return { ok: true, data: false }
@@ -265,10 +275,10 @@ export const handlers = {
 
     const response = await fetch(url, {
       method: 'PROPFIND',
-      headers: {
+      headers: withAuthHeaders({
         'Depth': '1', //TODO: Enable when rclone serve webdav will allow this header
         'Content-Type': 'application/xml; charset=utf-8'
-      },
+      }),
       body: '<?xml version="1.0" encoding="utf-8"?>' +
         '<D:propfind xmlns:D="DAV:">' +
         '<D:prop><D:resourcetype/><D:getcontentlength/></D:prop>' +
@@ -292,7 +302,7 @@ export const handlers = {
   async rmdir(path) {
     const dirPath = ensureTrailingSlash(path)
     const url = buildUrl(dirPath)
-    const response = await fetch(url, { method: 'DELETE' })
+    const response = await fetch(url, { method: 'DELETE', headers: withAuthHeaders() })
 
     if (!response.ok && response.status !== 404) {
       throw new Error(`DELETE ${dirPath} failed: ${response.status} ${response.statusText}`)
@@ -306,10 +316,10 @@ export const handlers = {
 
     const response = await fetch(url, {
       method: 'PROPFIND',
-      headers: {
+      headers: withAuthHeaders({
         'Depth': '0', //TODO: Enable when rclone serve webdav will allow this header
         'Content-Type': 'application/xml; charset=utf-8'
-      },
+      }),
       body: '<?xml version="1.0" encoding="utf-8"?>' +
         '<D:propfind xmlns:D="DAV:">' +
         '<D:prop><D:resourcetype/><D:getcontentlength/></D:prop>' +
@@ -354,7 +364,7 @@ export const handlers = {
   },
 
   async readHttp(url) {
-    const response = await fetch(url)
+    const response = await fetch(url, { headers: withAuthHeaders() })
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`)
