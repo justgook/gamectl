@@ -2636,6 +2636,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
     await this.loadTilemap('default')
   }
 
+  _getSuggestedSaveTilemapName() {
+    return String(this.loadedMapName || '').trim()
+  }
+
   _trackStoragePopup(popup) {
     if (this._storagePopup && this._storagePopup !== popup) {
       this._storagePopup.close()
@@ -2657,12 +2661,12 @@ export default class ViewStbEditor extends ViewCanvasBase {
       return
     }
 
-    const names = await this.listStoredTilemaps()
     const form = document.createElement('form')
+    const suggestedName = this._getSuggestedSaveTilemapName()
     form.innerHTML = `
       <label>
         Tilemap name
-        <input type="text" name="tilemap-name" placeholder="Enter tilemap name" value="${escapeAttribute(names[0] || 'stb_map')}" required>
+        <input type="text" name="tilemap-name" placeholder="Enter tilemap name" value="${escapeAttribute(suggestedName || 'stb_map')}" required autofocus>
       </label>
       <footer>
         <button type="submit" class="accent">Save</button>
@@ -2674,6 +2678,14 @@ export default class ViewStbEditor extends ViewCanvasBase {
       content: form,
       size: 'small'
     }))
+
+    const nameInput = form.querySelector('input[name="tilemap-name"]')
+    if (nameInput) {
+      requestAnimationFrame(() => {
+        nameInput.focus()
+        nameInput.select()
+      })
+    }
 
     form.onsubmit = async (event) => {
       event.preventDefault()

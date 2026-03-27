@@ -76,8 +76,8 @@ const NODE = {
 
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 3.0;
-const AUTO_ARRANGE_MIN_HORIZONTAL_SPACING_PX = 64;
-const AUTO_ARRANGE_MIN_VERTICAL_SPACING_PX = 8;
+const AUTO_ARRANGE_MIN_HORIZONTAL_SPACING_PX = 128;
+const AUTO_ARRANGE_MIN_VERTICAL_SPACING_PX = 64;
 
 function createShader(gl, type, source) {
   const shader = gl.createShader(type);
