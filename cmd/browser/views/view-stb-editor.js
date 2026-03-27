@@ -95,7 +95,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.boundCanvasContextMenu = this.handleCanvasContextMenu.bind(this)
     this._initToken = 0
     this._dragSessionId = 0
-    this._storagePopup = null
+    this._storagePopups = new Set()
     this.loadedMapName = ''
     this.logicalStoreWidth = 0
     this.logicalStoreHeight = 0
@@ -205,9 +205,10 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   disconnectedCallback() {
-    if (this._storagePopup) {
-      this._storagePopup.close()
-      this._storagePopup = null
+    if (this._storagePopups.size > 0) {
+      const popups = [...this._storagePopups]
+      this._storagePopups.clear()
+      popups.forEach((popup) => popup.close())
     }
     this._initToken += 1
     this.cleanup()
@@ -2598,11 +2599,13 @@ export default class ViewStbEditor extends ViewCanvasBase {
         toast.error(`Failed to update properties: ${String(error?.message || error)}`)
       }
     }
+
+    return popup
   }
 
   async showMapPropsPopup() {
     const snapshot = this.exportTilemapData()
-    await this.showPropsPopup({
+    return this.showPropsPopup({
       title: 'Map properties',
       initialProps: snapshot.props || {},
       onSave: async (props) => {
@@ -2617,7 +2620,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const snapshot = this.exportTilemapData()
     const layer = snapshot.layers?.[layerIndex]
     if (!layer) return
-    await this.showPropsPopup({
+    return this.showPropsPopup({
       title: `${this.getLayerName(layerIndex)} properties`,
       initialProps: layer.props || {},
       onSave: async (props) => {
@@ -2872,15 +2875,9 @@ export default class ViewStbEditor extends ViewCanvasBase {
   }
 
   _trackStoragePopup(popup) {
-    if (this._storagePopup && this._storagePopup !== popup) {
-      this._storagePopup.close()
-    }
-
-    this._storagePopup = popup
+    this._storagePopups.add(popup)
     popup.addEventListener('popup-closing', () => {
-      if (this._storagePopup === popup) {
-        this._storagePopup = null
-      }
+      this._storagePopups.delete(popup)
     }, { once: true })
     return popup
   }
@@ -3147,15 +3144,20 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
           try {
             if (button.dataset.action === 'edit-props') {
-              await this.showLayerPropsPopup(index)
+              const propsPopup = await this.showLayerPropsPopup(index)
+              propsPopup?.addEventListener('popup-closing', () => {
+                renderLayerList()
+              }, { once: true })
             } else if (button.dataset.action === 'move-up') {
               await this.moveLayer(index, 1)
             } else if (button.dataset.action === 'move-down') {
               await this.moveLayer(index, -1)
             } else if (button.dataset.action === 'delete') {
               await this.deleteLayer(index)
+            } else {
+              return
             }
-            renderLayerList()
+            if (button.dataset.action !== 'edit-props') renderLayerList()
           } catch (error) {
             toast.error(`Failed to update layers: ${String(error?.message || error)}`)
           }
@@ -3166,14 +3168,16 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const editMapPropsBtn = form.querySelector('button[name="edit-map-props"]')
     editMapPropsBtn?.addEventListener('click', async () => {
       try {
-        await this.showMapPropsPopup()
-        const tileSizeInput = form.querySelector('input[name="tile-size"]')
-        const mapWidthInput = form.querySelector('input[name="map-width"]')
-        const mapHeightInput = form.querySelector('input[name="map-height"]')
-        if (tileSizeInput) tileSizeInput.value = String(this.tileSize)
-        if (mapWidthInput) mapWidthInput.value = String(this.logicalMapWidth)
-        if (mapHeightInput) mapHeightInput.value = String(this.logicalMapHeight)
-        renderLayerList()
+        const propsPopup = await this.showMapPropsPopup()
+        propsPopup?.addEventListener('popup-closing', () => {
+          const tileSizeInput = form.querySelector('input[name="tile-size"]')
+          const mapWidthInput = form.querySelector('input[name="map-width"]')
+          const mapHeightInput = form.querySelector('input[name="map-height"]')
+          if (tileSizeInput) tileSizeInput.value = String(this.tileSize)
+          if (mapWidthInput) mapWidthInput.value = String(this.logicalMapWidth)
+          if (mapHeightInput) mapHeightInput.value = String(this.logicalMapHeight)
+          renderLayerList()
+        }, { once: true })
       } catch (error) {
         toast.error(`Failed to update map properties: ${String(error?.message || error)}`)
       }
