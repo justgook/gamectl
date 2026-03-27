@@ -918,9 +918,33 @@ stbte_set_current_tool(stbte_tilemap *tm, int tool) {
 
 __attribute__((export_name("stbte_set_active_tile"))) void
 stbte_set_brush_tile(stbte_tilemap *tm, int tile_index) {
-  if (tile_index >= 0 && tile_index < tm->num_tiles) {
-    tm->cur_tile = tile_index;
+  int i;
+  int target_id;
+
+  if (tm == NULL)
+    return;
+
+  if (tile_index <= 0) {
+    tm->cur_tile = -1;
+    return;
   }
+
+  target_id = tile_index - 1;
+  for (i = 0; i < tm->num_tiles; ++i) {
+    if (tm->tiles[i].id == target_id) {
+      tm->cur_tile = i;
+      return;
+    }
+  }
+}
+
+__attribute__((export_name("stbte_get_active_tile_id"))) int
+stbte_get_active_tile_id(stbte_tilemap *tm) {
+  if (tm == NULL)
+    return 0;
+  if (tm->cur_tile < 0 || tm->cur_tile >= tm->num_tiles)
+    return 0;
+  return tm->tiles[tm->cur_tile].id + 1;
 }
 
 /* ==========================================================================
@@ -963,10 +987,15 @@ stbte_set_sololayer(stbte_tilemap *tm, int layer) {
 __attribute__((export_name("stbte_define_tile"))) void
 stbte_add_tile(stbte_tilemap *tm, unsigned short id, unsigned int layermask,
                int category_index) {
+  unsigned short internal_id;
+
+  if (id == 0)
+    return;
 
   if (category_index < 0 || category_index >= STBTE_MAX_CATEGORIES)
     return;
-  stbte_define_tile(tm, id, layermask, category_index);
+  internal_id = (unsigned short)(id - 1);
+  stbte_define_tile(tm, internal_id, layermask, category_index);
 }
 
 /* ==========================================================================
@@ -1129,11 +1158,14 @@ stbte_get_current_tool(void) {
 
 __attribute__((export_name("stbte_get_tile_id"))) int
 stbte_get_tile_at(stbte_tilemap *tm, int x, int y, int layer) {
+  short tile_id;
+
   if (x < 0 || x >= tm->max_x || y < 0 || y >= tm->max_y)
-    return -1;
+    return 0;
   if (layer < 0 || layer >= tm->num_layers)
-    return -1;
-  return tm->data[y][x][layer];
+    return 0;
+  tile_id = tm->data[y][x][layer];
+  return tile_id < 0 ? 0 : tile_id + 1;
 }
 
 /* ==========================================================================
