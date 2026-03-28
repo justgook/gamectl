@@ -116,6 +116,19 @@ static size_t strlen(const char *s) {
 #define STBTE_STATUS_ERR 0
 
 #define STBTE_CHUNK_EXPORT_VERSION 1u
+#define STBTE_LOGICAL_HISTORY_LIMIT 8u
+
+typedef struct stbte_logical_history_entry {
+  uint32_t origin_x;
+  uint32_t origin_y;
+  uint32_t width;
+  uint32_t height;
+  uint32_t before_capacity_bytes;
+  uint32_t after_capacity_bytes;
+  uint32_t has_after;
+  uint16_t *before_data;
+  uint16_t *after_data;
+} stbte_logical_history_entry;
 
 typedef struct stbte_chunk_export_header {
   uint32_t version;
@@ -141,22 +154,11 @@ typedef struct stbte_logical_store {
   uint32_t clipboard_height;
   uint32_t clipboard_capacity_bytes;
   uint32_t has_clipboard;
-  uint32_t undo_origin_x;
-  uint32_t undo_origin_y;
-  uint32_t undo_width;
-  uint32_t undo_height;
-  uint32_t undo_capacity_bytes;
-  uint32_t has_undo;
-  uint32_t redo_origin_x;
-  uint32_t redo_origin_y;
-  uint32_t redo_width;
-  uint32_t redo_height;
-  uint32_t redo_capacity_bytes;
-  uint32_t has_redo;
+  uint32_t history_count;
+  uint32_t history_cursor;
   uint16_t *data;
   uint16_t *clipboard_data;
-  uint16_t *undo_data;
-  uint16_t *redo_data;
+  stbte_logical_history_entry history[STBTE_LOGICAL_HISTORY_LIMIT];
 } stbte_logical_store;
 
 static uint64_t stbte_logical_clipboard_required_bytes(uint32_t width,
@@ -258,28 +260,27 @@ static void stbte_logical_clear_clipboard(stbte_logical_store *store) {
 }
 
 static void stbte_logical_clear_history(stbte_logical_store *store) {
+  uint32_t i;
   if (store == NULL)
     return;
-  store->undo_origin_x = 0;
-  store->undo_origin_y = 0;
-  store->undo_width = 0;
-  store->undo_height = 0;
-  store->has_undo = 0;
-  store->redo_origin_x = 0;
-  store->redo_origin_y = 0;
-  store->redo_width = 0;
-  store->redo_height = 0;
-  store->has_redo = 0;
+  store->history_count = 0;
+  store->history_cursor = 0;
+  for (i = 0; i < STBTE_LOGICAL_HISTORY_LIMIT; ++i) {
+    store->history[i].origin_x = 0;
+    store->history[i].origin_y = 0;
+    store->history[i].width = 0;
+    store->history[i].height = 0;
+    store->history[i].has_after = 0;
+  }
 }
 
 static void stbte_logical_clear_redo(stbte_logical_store *store) {
+  uint32_t i;
   if (store == NULL)
     return;
-  store->redo_origin_x = 0;
-  store->redo_origin_y = 0;
-  store->redo_width = 0;
-  store->redo_height = 0;
-  store->has_redo = 0;
+  for (i = store->history_cursor; i < store->history_count; ++i)
+    store->history[i].has_after = 0;
+  store->history_count = store->history_cursor;
 }
 
 static int stbte_logical_copy_region_from_store(stbte_logical_store *store,
@@ -346,42 +347,60 @@ static int stbte_logical_copy_region_to_store(stbte_logical_store *store,
 static int stbte_logical_record_undo_state(stbte_logical_store *store,
                                            uint32_t origin_x, uint32_t origin_y,
                                            uint32_t width, uint32_t height) {
+  stbte_logical_history_entry entry_value;
+  stbte_logical_history_entry *entry;
+  uint32_t i;
+
   if (store == NULL || width == 0 || height == 0)
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_ensure_region_capacity(&store->undo_data,
-                                            &store->undo_capacity_bytes, width,
-                                            height, store->layer_count))
+
+  if (store->history_cursor < store->history_count)
+    stbte_logical_clear_redo(store);
+
+  if (store->history_count >= STBTE_LOGICAL_HISTORY_LIMIT) {
+    entry_value = store->history[0];
+    for (i = 1; i < store->history_count; ++i)
+      store->history[i - 1] = store->history[i];
+    store->history[store->history_count - 1] = entry_value;
+    if (store->history_cursor > 0)
+      store->history_cursor -= 1;
+    store->history_count -= 1;
+  }
+
+  entry = &store->history[store->history_count];
+  if (!stbte_logical_ensure_region_capacity(&entry->before_data,
+                                            &entry->before_capacity_bytes,
+                                            width, height,
+                                            store->layer_count))
     return STBTE_STATUS_ERR;
   if (!stbte_logical_copy_region_from_store(store, origin_x, origin_y, width,
-                                            height, store->undo_data))
+                                            height, entry->before_data))
     return STBTE_STATUS_ERR;
-  store->undo_origin_x = origin_x;
-  store->undo_origin_y = origin_y;
-  store->undo_width = width;
-  store->undo_height = height;
-  store->has_undo = 1;
-  store->has_redo = 0;
+
+  entry->origin_x = origin_x;
+  entry->origin_y = origin_y;
+  entry->width = width;
+  entry->height = height;
+  entry->has_after = 0;
+  store->history_count += 1;
+  store->history_cursor = store->history_count;
   return STBTE_STATUS_OK;
 }
 
-static int stbte_logical_capture_redo_state(stbte_logical_store *store,
-                                            uint32_t origin_x,
-                                            uint32_t origin_y, uint32_t width,
-                                            uint32_t height) {
-  if (store == NULL || width == 0 || height == 0)
+static int stbte_logical_capture_after_state(stbte_logical_store *store,
+                                             stbte_logical_history_entry *entry) {
+  if (store == NULL || entry == NULL || entry->width == 0 || entry->height == 0)
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_ensure_region_capacity(&store->redo_data,
-                                            &store->redo_capacity_bytes, width,
-                                            height, store->layer_count))
+  if (!stbte_logical_ensure_region_capacity(&entry->after_data,
+                                            &entry->after_capacity_bytes,
+                                            entry->width, entry->height,
+                                            store->layer_count))
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_copy_region_from_store(store, origin_x, origin_y, width,
-                                            height, store->redo_data))
+  if (!stbte_logical_copy_region_from_store(store, entry->origin_x,
+                                            entry->origin_y, entry->width,
+                                            entry->height, entry->after_data))
     return STBTE_STATUS_ERR;
-  store->redo_origin_x = origin_x;
-  store->redo_origin_y = origin_y;
-  store->redo_width = width;
-  store->redo_height = height;
-  store->has_redo = 1;
+  entry->has_after = 1;
   return STBTE_STATUS_OK;
 }
 
@@ -1207,22 +1226,11 @@ stbte_logical_create(uint32_t map_width, uint32_t map_height,
   store->clipboard_height = 0;
   store->clipboard_capacity_bytes = 0;
   store->has_clipboard = 0;
-  store->undo_origin_x = 0;
-  store->undo_origin_y = 0;
-  store->undo_width = 0;
-  store->undo_height = 0;
-  store->undo_capacity_bytes = 0;
-  store->has_undo = 0;
-  store->redo_origin_x = 0;
-  store->redo_origin_y = 0;
-  store->redo_width = 0;
-  store->redo_height = 0;
-  store->redo_capacity_bytes = 0;
-  store->has_redo = 0;
+  store->history_count = 0;
+  store->history_cursor = 0;
   memset(store->data, 0, (size_t)required);
+  memset(store->history, 0, sizeof(store->history));
   store->clipboard_data = (uint16_t *)0;
-  store->undo_data = (uint16_t *)0;
-  store->redo_data = (uint16_t *)0;
   return store;
 }
 
@@ -1456,14 +1464,14 @@ __attribute__((export_name("stbte_logical_has_undo"))) uint32_t
 stbte_logical_has_undo(stbte_logical_store *store) {
   if (store == NULL)
     return 0;
-  return store->has_undo;
+  return store->history_cursor > 0;
 }
 
 __attribute__((export_name("stbte_logical_has_redo"))) uint32_t
 stbte_logical_has_redo(stbte_logical_store *store) {
   if (store == NULL)
     return 0;
-  return store->has_redo;
+  return store->history_cursor < store->history_count;
 }
 
 __attribute__((export_name("stbte_logical_clear_redo"))) void
@@ -1614,34 +1622,38 @@ stbte_logical_clear_all(stbte_logical_store *store) {
 
 __attribute__((export_name("stbte_logical_undo"))) int
 stbte_logical_undo(stbte_logical_store *store) {
-  if (store == NULL || !store->has_undo || store->undo_data == NULL)
+  stbte_logical_history_entry *entry;
+
+  if (store == NULL || store->history_cursor == 0)
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_capture_redo_state(store, store->undo_origin_x,
-                                        store->undo_origin_y, store->undo_width,
-                                        store->undo_height))
+  entry = &store->history[store->history_cursor - 1];
+  if (entry->before_data == NULL)
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_copy_region_to_store(
-          store, store->undo_origin_x, store->undo_origin_y, store->undo_width,
-          store->undo_height, store->undo_data))
+  if (!entry->has_after && !stbte_logical_capture_after_state(store, entry))
     return STBTE_STATUS_ERR;
-  store->has_undo = 0;
+  if (!stbte_logical_copy_region_to_store(store, entry->origin_x,
+                                          entry->origin_y, entry->width,
+                                          entry->height, entry->before_data))
+    return STBTE_STATUS_ERR;
+  store->history_cursor -= 1;
   store->has_selection = 0;
   return STBTE_STATUS_OK;
 }
 
 __attribute__((export_name("stbte_logical_redo"))) int
 stbte_logical_redo(stbte_logical_store *store) {
-  if (store == NULL || !store->has_redo || store->redo_data == NULL)
+  stbte_logical_history_entry *entry;
+
+  if (store == NULL || store->history_cursor >= store->history_count)
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_record_undo_state(store, store->redo_origin_x,
-                                       store->redo_origin_y, store->redo_width,
-                                       store->redo_height))
+  entry = &store->history[store->history_cursor];
+  if (!entry->has_after || entry->after_data == NULL)
     return STBTE_STATUS_ERR;
-  if (!stbte_logical_copy_region_to_store(
-          store, store->redo_origin_x, store->redo_origin_y, store->redo_width,
-          store->redo_height, store->redo_data))
+  if (!stbte_logical_copy_region_to_store(store, entry->origin_x,
+                                          entry->origin_y, entry->width,
+                                          entry->height, entry->after_data))
     return STBTE_STATUS_ERR;
-  store->has_redo = 0;
+  store->history_cursor += 1;
   store->has_selection = 0;
   return STBTE_STATUS_OK;
 }

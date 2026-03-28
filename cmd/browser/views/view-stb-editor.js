@@ -95,6 +95,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
     this.boundCanvasContextMenu = this.handleCanvasContextMenu.bind(this)
     this._initToken = 0
     this._dragSessionId = 0
+    this._logicalUndoChunks = new Set()
     this._storagePopups = new Set()
     this.loadedMapName = ''
     this.logicalStoreWidth = 0
@@ -810,6 +811,31 @@ export default class ViewStbEditor extends ViewCanvasBase {
   getActiveChunkOrigin() {
     const bounds = this.getActiveChunkBounds()
     return { x: bounds.worldX, y: bounds.worldY }
+  }
+
+  getLogicalUndoChunkKey(chunkX, chunkY) {
+    return `${chunkX},${chunkY}`
+  }
+
+  ensureLogicalUndoRecordedForCell(x, y) {
+    if (!this.exports) return false
+    const store = this.logicalStore || this.ensureLogicalStore()
+    const { chunkX, chunkY } = this.getChunkPositionForCell(x, y)
+    const key = this.getLogicalUndoChunkKey(chunkX, chunkY)
+    if (this._logicalUndoChunks.has(key)) return false
+    const bounds = getChunkBounds(this.logicalMapWidth, this.logicalMapHeight, chunkX, chunkY, this.chunkSize)
+    this.assertStructuralMutation(
+      this.exports.stbte_logical_record_undo_region(
+        store,
+        bounds.worldX,
+        bounds.worldY,
+        bounds.worldX + bounds.width - 1,
+        bounds.worldY + bounds.height - 1
+      ),
+      'Logical chunk undo record'
+    )
+    this._logicalUndoChunks.add(key)
+    return true
   }
 
   toActiveChunkCell(x, y) {
@@ -1627,36 +1653,42 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
   async handleUndo() {
     if (!this.exports || !this.tilemap) return false
+    if (this.hasLogicalUndo()) {
+      this.flushActiveChunkToLogicalMap()
+      const store = this.logicalStore || this.ensureLogicalStore()
+      this.assertStructuralMutation(this.exports.stbte_logical_undo(store), 'Logical undo')
+      this.syncLogicalTilemapFromStore()
+      await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY, { skipFlush: true })
+      this.postAction({ dirty: 'all' })
+      return true
+    }
     if (this.readTilemap(this.offsets.tm_undo_available, 'i8') !== 0) {
       this.exports.stbte_undo(this.tilemap)
+      this.flushActiveChunkToLogicalMap()
       this.postAction({ dirty: 'active' })
       return true
     }
-    if (!this.hasLogicalUndo()) return false
-    this.flushActiveChunkToLogicalMap()
-    const store = this.logicalStore || this.ensureLogicalStore()
-    this.assertStructuralMutation(this.exports.stbte_logical_undo(store), 'Logical undo')
-    this.syncLogicalTilemapFromStore()
-    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY, { skipFlush: true })
-    this.postAction({ dirty: 'all' })
-    return true
+    return false
   }
 
   async handleRedo() {
     if (!this.exports || !this.tilemap) return false
+    if (this.hasLogicalRedo()) {
+      this.flushActiveChunkToLogicalMap()
+      const store = this.logicalStore || this.ensureLogicalStore()
+      this.assertStructuralMutation(this.exports.stbte_logical_redo(store), 'Logical redo')
+      this.syncLogicalTilemapFromStore()
+      await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY, { skipFlush: true })
+      this.postAction({ dirty: 'all' })
+      return true
+    }
     if (this.readTilemap(this.offsets.tm_redo_available, 'i8') !== 0) {
       this.exports.stbte_redo(this.tilemap)
+      this.flushActiveChunkToLogicalMap()
       this.postAction({ dirty: 'active' })
       return true
     }
-    if (!this.hasLogicalRedo()) return false
-    this.flushActiveChunkToLogicalMap()
-    const store = this.logicalStore || this.ensureLogicalStore()
-    this.assertStructuralMutation(this.exports.stbte_logical_redo(store), 'Logical redo')
-    this.syncLogicalTilemapFromStore()
-    await this.loadChunkIntoEditor(this.activeChunkX, this.activeChunkY, { skipFlush: true })
-    this.postAction({ dirty: 'all' })
-    return true
+    return false
   }
 
   saveData() {
@@ -1694,6 +1726,11 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     const dragSessionId = this._dragSessionId + 1
     this._dragSessionId = dragSessionId
+    this._logicalUndoChunks.clear()
+    if (!this.isAreaDragEvent(e) && (this.currentTool === 1 || this.currentTool === 2)) {
+      this.discardLogicalRedo()
+      this.ensureLogicalUndoRecordedForCell(x, y)
+    }
     await this.ensureChunkLoadedForCell(x, y)
     if (dragSessionId !== this._dragSessionId) return
     const localStart = this.toActiveChunkCell(x, y)
@@ -1744,6 +1781,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
 
     if (this.currentTool === 1 || this.currentTool === 2) {
       const dragSessionId = this._dragSessionId
+      this.ensureLogicalUndoRecordedForCell(x, y)
       await this.ensureChunkLoadedForCell(x, y)
       if (dragSessionId === 0 || dragSessionId !== this._dragSessionId || !this.isToolDragging || this.isAreaDragging) return
       this.discardLogicalRedo()
@@ -1803,8 +1841,13 @@ export default class ViewStbEditor extends ViewCanvasBase {
       }
     }
 
+    if (this.isToolDragging && !this.isAreaDragging && (this.currentTool === 1 || this.currentTool === 2) && this.exports && this.tilemap) {
+      this.flushActiveChunkToLogicalMap()
+    }
+
     this.isToolDragging = false
     this.isAreaDragging = false
+    this._logicalUndoChunks.clear()
     if (dragSessionId === this._dragSessionId) {
       this._dragSessionId = 0
     }
