@@ -598,7 +598,7 @@ when ODIN_OS == .Windows {
     }
 } else when ODIN_ARCH == .wasm32 || ODIN_ARCH == .wasm64p32 {
     // Feed sokol_audio_wasm_gl_debug.a or sokol_audio_wasm_gl_release.a into emscripten compiler.
-    foreign import sokol_audio_clib { "../../../../build.nosync/plugins/game2-env.o" }
+    foreign import sokol_audio_clib { "../../env.o" }
 } else {
     #panic("This OS is currently not supported")
 }
@@ -712,3 +712,4 @@ Desc :: struct {
     allocator : Allocator,
     logger : Logger,
 }
+

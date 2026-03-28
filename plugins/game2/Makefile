@@ -68,6 +68,22 @@ SOKOL_NATIVE_LIBS := \
 	$(SOKOL_DIR)/app/sokol_app_macos_$(SOKOL_NATIVE_ARCH)_metal_$(SOKOL_NATIVE_PROFILE).a \
 	$(SOKOL_DIR)/glue/sokol_glue_macos_$(SOKOL_NATIVE_ARCH)_metal_$(SOKOL_NATIVE_PROFILE).a
 
+NATIVE_EXTRA_LINKER_FLAGS :=
+ODIN_NATIVE_ENV :=
+
+ifeq ($(UNAME_S),Darwin)
+  ODIN_NATIVE_ENV := PATH="$(dir $(shell xcrun -f clang)):$${PATH}"
+  NATIVE_EXTRA_LINKER_FLAGS += \
+	-framework Cocoa \
+	-framework Foundation \
+	-framework QuartzCore \
+	-framework Metal \
+	-framework AppKit \
+	-framework CoreGraphics \
+	-framework CoreFoundation \
+	-lobjc
+endif
+
 .PHONY: help
 help:
 	$(Q)printf '%s\n' \
@@ -170,7 +186,8 @@ $(SOKOL_NATIVE_LIBS): $(SOKOL_DIR)/build_clibs_macos.sh $(SOKOL_DIR)/c/sokol.c
 .PHONY: native
 native: sokol-bindings shaders native-libs | $(NATIVE_DIR)
 	$(Q)echo "Building native game2"
-	$(Q)$(ODIN) build . $(ODIN_BUILD_FLAGS) -out:"$(NATIVE_BIN)"
+	$(Q)$(ODIN_NATIVE_ENV) $(ODIN) build . $(ODIN_BUILD_FLAGS) -out:"$(NATIVE_BIN)" \
+		$(if $(strip $(NATIVE_EXTRA_LINKER_FLAGS)),-extra-linker-flags:'$(NATIVE_EXTRA_LINKER_FLAGS)',)
 
 .PHONY: native-run
 native-run: native
@@ -196,3 +213,4 @@ serve: web
 .PHONY: clean
 clean:
 	$(Q)$(RM_RF) "$(BUILD_DIR)"
+	$(Q)rm -f env.o
