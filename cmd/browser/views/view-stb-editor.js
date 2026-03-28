@@ -296,7 +296,7 @@ export default class ViewStbEditor extends ViewCanvasBase {
       window.addEventListener('mouseup', this.boundWindowMouseUp)
 
       const memory = new WebAssembly.Memory({
-        initial: 288,
+        initial: 384,
         maximum: 512,
         shared: true
       })
@@ -1406,6 +1406,15 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const ptr = this.exports.stbte_logical_clipboard_data_ptr(store)
     const length = info.width * info.height * this.layers
     if (!ptr || length <= 0) return null
+    const byteLength = length * Uint16Array.BYTES_PER_ELEMENT
+    if (ptr + byteLength > this.memory.buffer.byteLength) {
+      console.warn('[stb-editor] clipboard snapshot out of memory bounds', {
+        ptr,
+        byteLength,
+        bufferByteLength: this.memory.buffer.byteLength
+      })
+      return null
+    }
     return {
       width: info.width,
       height: info.height,
@@ -2739,6 +2748,12 @@ export default class ViewStbEditor extends ViewCanvasBase {
     const [movedLayerName] = nextLayerNames.splice(fromIndex, 1)
     nextLayerNames.splice(toIndex, 0, movedLayerName)
     this.layerNames = nextLayerNames
+    if (Array.isArray(this.logicalTilemap?.layers)) {
+      const nextLogicalLayers = [...this.logicalTilemap.layers]
+      const [movedLogicalLayer] = nextLogicalLayers.splice(fromIndex, 1)
+      nextLogicalLayers.splice(toIndex, 0, movedLogicalLayer)
+      this.logicalTilemap.layers = nextLogicalLayers
+    }
     this.assertStructuralMutation(
       this.exports.stbte_logical_move_layer(this.ensureLogicalStore(), fromIndex, toIndex),
       'Logical store layer move'
