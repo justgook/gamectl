@@ -12,6 +12,28 @@
         "": {
             "scaleInDock": 1
         },
+        "/Users/gook/Repos/gamectl/build/automap-fixtures/new_rules/tiles.tsj": {
+            "scaleInDock": 1
+        },
+        "/Users/gook/Repos/gamectl/build/automap-fixtures/new_rules/working.tmj": {
+            "scale": 1,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 64.5,
+                "y": 41.5
+            }
+        },
+        "/Users/gook/Repos/gamectl/build/automap-fixtures/rules/tiles.tsj": {
+            "scaleInDock": 1
+        },
+        "/Users/gook/Repos/gamectl/build/automap-fixtures/rules/working.tmj": {
+            "scale": 1,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 160.5,
+                "y": 121.5
+            }
+        },
         ":/automap-tiles.tsx": {
             "scaleInEditor": 1
         },
@@ -31,7 +53,7 @@
             "scale": 0.8348,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 309.0560613320556,
+                "x": -129.97125059894586,
                 "y": 361.1643507426929
             }
         },
@@ -47,13 +69,16 @@
     "map.tileWidth": 16,
     "map.width": 32,
     "openFiles": [
+        "/Users/gook/Repos/gamectl/build/automap-fixtures/new_rules/working.tmj",
         "tileset-output.tsj",
         "testground.tmj"
     ],
     "project": "testing.tiled-project",
     "recentFiles": [
+        "/Users/gook/Repos/gamectl/build/automap-fixtures/new_rules/working.tmj",
         "tileset-output.tsj",
         "testground.tmj",
+        "/Users/gook/Repos/gamectl/build/automap-fixtures/rules/working.tmj",
         ":/automap-tiles.tsx",
         "rules1.tmj",
         "rules.tsj"

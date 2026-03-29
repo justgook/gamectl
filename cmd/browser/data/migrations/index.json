@@ -120,6 +120,11 @@
       "version": 24,
       "name": "game_runner_asset_sources",
       "file": "024_game_runner_asset_sources.sql"
+    },
+    {
+      "version": 25,
+      "name": "fix_new_rules_order",
+      "file": "025_fix_new_rules_order.sql"
     }
   ]
 }

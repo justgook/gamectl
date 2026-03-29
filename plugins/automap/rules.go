@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/justgook/gams/pkg/tilemap"
 )
 
 // rulePropsToExclude lists all rule-specific properties
 var rulePropsToExclude = map[string]bool{
+	"name":      true,
 	"rule_role": true, "rule_target_layer": true, "rule_input_index": true,
 	"rule_input_not": true, "rule_layer_IgnoreHorizontalFlip": true,
 	"rule_layer_IgnoreVerticalFlip": true, "rule_layer_IgnoreDiagonalFlip": true,
@@ -28,67 +30,64 @@ func shouldCopyProp(key string) bool {
 // Rule represents one pattern alternative (one input_index)
 // Contains multiple InputLayers that define the matching conditions
 type Rule struct {
-	// All input layers for this rule (grouped by target selector)
-	// Same target = OR across tile variants
-	// Different targets = AND across layers
-	InputLayers []*InputLayer
-
-	// Outputs to apply when rule matches
-	Outputs []*OutputLayer
+	InputGroups []*InputGroup
+	Outputs     *RuleOutputs
 
 	// Rule constraints (inherited from first input or global)
 	ModX, ModY       int
 	OffsetX, OffsetY int
 	Probability      float64
+	OrderX, OrderY   int
 
 	// Configuration for special tiles and matching behavior
 	Config *GlobalConfig
 }
 
 func (r *Rule) Match(inputMap *tilemap.TileMap, index int) bool {
+	if !r.matchesPositionConstraints(inputMap, index) {
+		return false
+	}
+
 	width := inputMap.Layers[0].Width
 	height := inputMap.Layers[0].Height()
 
-	// Loop through all input layers in this rule
-	for _, inputLayer := range r.InputLayers {
-		// Find the target layer using selector
-		targetLayer := tilemap.FindLayer(inputMap, inputLayer.TargetSelector)
-
-		// If target layer doesn't exist, rule cannot be applied
-		if targetLayer == nil {
+	for _, inputGroup := range r.InputGroups {
+		targetLayer := findLayerOrEmpty(inputMap, inputGroup.TargetSelector, width, height)
+		if !inputGroup.Match(targetLayer, index, width, height, r.Config) {
 			return false
-		}
-
-		// Check all tiles in this input layer
-		for _, tile := range inputLayer.Tiles {
-			// Convert relative position to absolute index
-			absIndex := RelativeToAbsoluteIndex(index, width, height, tile.Point.X, tile.Point.Y)
-
-			// Out of bounds = no match
-			if absIndex < 0 {
-				return false
-			}
-
-			// Get the input map tile at this position
-			inputTileValue := targetLayer.Data[absIndex]
-
-			// Compare using special tile logic
-			matched := matchTile(tile.Value, inputTileValue, r.Config, r)
-
-			// Apply negation if needed
-			if inputLayer.IsNegated {
-				matched = !matched
-			}
-
-			// Early exit on first mismatch
-			if !matched {
-				return false
-			}
 		}
 	}
 
-	// All tiles matched!
 	return true
+}
+
+func (r *Rule) matchesPositionConstraints(inputMap *tilemap.TileMap, index int) bool {
+	if len(inputMap.Layers) == 0 {
+		return false
+	}
+
+	width := inputMap.Layers[0].Width
+	x := index % width
+	y := index / width
+
+	modX := max(r.ModX, 1)
+	modY := max(r.ModY, 1)
+
+	if (x-r.OffsetX)%modX != 0 {
+		return false
+	}
+	if (y-r.OffsetY)%modY != 0 {
+		return false
+	}
+
+	if r.Probability <= 0 {
+		return false
+	}
+	if r.Probability >= 1 {
+		return true
+	}
+
+	return randomFloat64() <= r.Probability
 }
 
 // InputLayer represents one input pattern layer
@@ -99,9 +98,66 @@ type InputLayer struct {
 
 	// Which layer to match against in target map
 	TargetSelector string
+	InputIndex     string
 
 	// Matching flags
 	IsNegated bool
+}
+
+type InputMatcher struct {
+	Value     uint32
+	IsNegated bool
+}
+
+type InputCell struct {
+	Point    Point
+	Matchers []InputMatcher
+}
+
+type InputGroup struct {
+	TargetSelector  string
+	InputIndex      string
+	Cells           []InputCell
+	HasEmptyMatcher bool
+}
+
+func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height int, config *GlobalConfig) bool {
+	for _, cell := range g.Cells {
+		absIndex := RelativeToAbsoluteIndex(index, width, height, cell.Point.X, cell.Point.Y)
+		if absIndex < 0 {
+			return false
+		}
+
+		inputTileValue := targetLayer.Data[absIndex]
+		hasNegateTile := false
+		matched := false
+
+		for _, matcher := range cell.Matchers {
+			if matcher.Value == config.SpecialTiles.Negate {
+				hasNegateTile = true
+				continue
+			}
+
+			cellMatched := matchTile(matcher.Value, inputTileValue, config, g)
+			if matcher.IsNegated {
+				cellMatched = !cellMatched
+			}
+
+			if cellMatched {
+				matched = true
+			}
+		}
+
+		if hasNegateTile {
+			matched = !matched
+		}
+
+		if !matched {
+			return false
+		}
+	}
+
+	return true
 }
 
 // OutputLayer represents tiles to place when rule matches
@@ -118,6 +174,17 @@ type OutputLayer struct {
 
 	// Custom properties from the source layer (excluding rule_* properties)
 	Props map[string]string
+}
+
+type OutputVariant struct {
+	Index       string
+	Probability float64
+	Layers      []*OutputLayer
+}
+
+type RuleOutputs struct {
+	Always   []*OutputLayer
+	Variants []*OutputVariant
 }
 
 // ExtractRules converts rules map into Rule objects using single-pass recursive extraction
@@ -150,7 +217,6 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 
 		collectRuleTiles(rulesMap, idx, width, height, used, ruleTiles)
 
-		// Now convert collected tiles into InputLayers and OutputLayers
 		var inputLayers []*InputLayer
 		var outputLayers []*OutputLayer
 
@@ -201,6 +267,7 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 				inputLayers = append(inputLayers, &InputLayer{
 					Tiles:          normalized,
 					TargetSelector: targetLayer,
+					InputIndex:     layer.Props["rule_input_index"],
 					IsNegated:      parseBool(layer.Props["rule_input_not"], false),
 				})
 			} else if role == "output" {
@@ -225,9 +292,15 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 		// Only create rule if has both inputs and outputs
 		if len(inputLayers) > 0 && len(outputLayers) > 0 {
 			rules = append(rules, &Rule{
-				InputLayers: inputLayers,
-				Outputs:     outputLayers,
+				InputGroups: buildInputGroups(inputLayers, config),
+				Outputs:     buildRuleOutputs(outputLayers),
+				ModX:        max(parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_ModX"), config.ModX), 1),
+				ModY:        max(parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_ModY"), config.ModY), 1),
+				OffsetX:     parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_OffsetX"), config.OffsetX),
+				OffsetY:     parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_OffsetY"), config.OffsetY),
 				Probability: config.Probability,
+				OrderX:      globalMinX,
+				OrderY:      globalMinY,
 				Config:      config,
 			})
 		} else {
@@ -235,6 +308,13 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 				idx, len(inputLayers), len(outputLayers))
 		}
 	}
+
+	sort.SliceStable(rules, func(i, j int) bool {
+		if rules[i].OrderY != rules[j].OrderY {
+			return rules[i].OrderY < rules[j].OrderY
+		}
+		return rules[i].OrderX < rules[j].OrderX
+	})
 
 	return rules, nil
 }
@@ -274,22 +354,20 @@ func collectRuleTiles(rulesMap *tilemap.TileMap, idx, width, height int,
 		return
 	}
 
-	// Recurse to 4 neighbors
-	// Up
-	if y > 0 {
-		collectRuleTiles(rulesMap, idx-width, width, height, used, ruleTiles)
-	}
-	// Down
-	if y < height-1 {
-		collectRuleTiles(rulesMap, idx+width, width, height, used, ruleTiles)
-	}
-	// Left
-	if x > 0 {
-		collectRuleTiles(rulesMap, idx-1, width, height, used, ruleTiles)
-	}
-	// Right
-	if x < width-1 {
-		collectRuleTiles(rulesMap, idx+1, width, height, used, ruleTiles)
+	for dy := -1; dy <= 1; dy++ {
+		for dx := -1; dx <= 1; dx++ {
+			if dx == 0 && dy == 0 {
+				continue
+			}
+
+			nx := x + dx
+			ny := y + dy
+			if nx < 0 || nx >= width || ny < 0 || ny >= height {
+				continue
+			}
+
+			collectRuleTiles(rulesMap, ny*width+nx, width, height, used, ruleTiles)
+		}
 	}
 }
 
@@ -305,7 +383,7 @@ func hasAnyTile(rulesMap *tilemap.TileMap, idx int) bool {
 
 // matchTile compares a rule tile value against an input tile value
 // Returns true if they match according to special tile rules
-func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, rule *Rule) bool {
+func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, group *InputGroup) bool {
 	// Special case: Ignore - always matches
 	if ruleTileValue == config.SpecialTiles.Ignore {
 		return true
@@ -323,36 +401,41 @@ func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, rule 
 
 	// Special case: Other - matches tiles NOT used in this rule
 	if ruleTileValue == config.SpecialTiles.Other {
-		return !rule.containsTileValue(inputTileValue)
+		return group.matchesOther(inputTileValue)
 	}
 
 	// Regular match: exact value comparison
 	return ruleTileValue == inputTileValue
 }
 
-// containsTileValue checks if a tile value is used anywhere in this rule's input layers
+// containsTileValue checks if a tile value is used anywhere in this input group
 // Excludes special tiles from the check
-func (r *Rule) containsTileValue(tileValue uint32) bool {
+func (g *InputGroup) containsTileValue(tileValue uint32) bool {
 	// Zero is never "used" for Other matching
 	if tileValue == 0 {
 		return false
 	}
 
-	for _, inputLayer := range r.InputLayers {
-		for _, tile := range inputLayer.Tiles {
-			// Skip special tiles
-			if r.Config.SpecialTiles.IsSpecial(tile.Value) {
+	for _, cell := range g.Cells {
+		for _, matcher := range cell.Matchers {
+			if matcher.Value == 0 {
 				continue
 			}
-
-			// Found a match
-			if tile.Value == tileValue {
+			if matcher.Value == tileValue {
 				return true
 			}
 		}
 	}
 
 	return false
+}
+
+func (g *InputGroup) matchesOther(inputTileValue uint32) bool {
+	if inputTileValue == 0 {
+		return !g.HasEmptyMatcher
+	}
+
+	return !g.containsTileValue(inputTileValue)
 }
 
 // Bounds returns the maximum width and height needed for this rule's input region.
@@ -362,13 +445,13 @@ func (r *Rule) Bounds() (width, height int) {
 	maxX, maxY := 0, 0
 
 	// Check all input layers
-	for _, inputLayer := range r.InputLayers {
-		for _, tile := range inputLayer.Tiles {
-			if tile.Point.X > maxX {
-				maxX = tile.Point.X
+	for _, inputGroup := range r.InputGroups {
+		for _, cell := range inputGroup.Cells {
+			if cell.Point.X > maxX {
+				maxX = cell.Point.X
 			}
-			if tile.Point.Y > maxY {
-				maxY = tile.Point.Y
+			if cell.Point.Y > maxY {
+				maxY = cell.Point.Y
 			}
 		}
 	}
@@ -391,4 +474,113 @@ func CalculateMaxRuleBounds(rules []*Rule) (maxWidth, maxHeight int) {
 		}
 	}
 	return maxWidth, maxHeight
+}
+
+func buildInputGroups(inputLayers []*InputLayer, config *GlobalConfig) []*InputGroup {
+	groupMap := make(map[string]*InputGroup)
+	order := make([]string, 0, len(inputLayers))
+
+	for _, inputLayer := range inputLayers {
+		key := inputLayer.TargetSelector + "\x00" + inputLayer.InputIndex
+		group, ok := groupMap[key]
+		if !ok {
+			group = &InputGroup{
+				TargetSelector: inputLayer.TargetSelector,
+				InputIndex:     inputLayer.InputIndex,
+			}
+			groupMap[key] = group
+			order = append(order, key)
+		}
+
+		cellMap := make(map[Point]int)
+		for idx, cell := range group.Cells {
+			cellMap[cell.Point] = idx
+		}
+
+		for _, tile := range inputLayer.Tiles {
+			cellIdx, exists := cellMap[tile.Point]
+			if !exists {
+				group.Cells = append(group.Cells, InputCell{Point: tile.Point})
+				cellIdx = len(group.Cells) - 1
+				cellMap[tile.Point] = cellIdx
+			}
+
+			group.Cells[cellIdx].Matchers = append(group.Cells[cellIdx].Matchers, InputMatcher{
+				Value:     tile.Value,
+				IsNegated: inputLayer.IsNegated,
+			})
+		}
+	}
+
+	groups := make([]*InputGroup, 0, len(order))
+	for _, key := range order {
+		group := groupMap[key]
+		for _, cell := range group.Cells {
+			for _, matcher := range cell.Matchers {
+				if matcher.Value == config.SpecialTiles.Empty {
+					group.HasEmptyMatcher = true
+				}
+			}
+		}
+		sort.Slice(group.Cells, func(i, j int) bool {
+			if group.Cells[i].Point.Y != group.Cells[j].Point.Y {
+				return group.Cells[i].Point.Y < group.Cells[j].Point.Y
+			}
+			return group.Cells[i].Point.X < group.Cells[j].Point.X
+		})
+		groups = append(groups, group)
+	}
+
+	return groups
+}
+
+func buildRuleOutputs(outputLayers []*OutputLayer) *RuleOutputs {
+	outputs := &RuleOutputs{}
+	variantMap := make(map[string]*OutputVariant)
+	order := make([]string, 0)
+
+	for _, outputLayer := range outputLayers {
+		if outputLayer.OutputIndex == "" {
+			outputs.Always = append(outputs.Always, outputLayer)
+			continue
+		}
+
+		variant, ok := variantMap[outputLayer.OutputIndex]
+		if !ok {
+			variant = &OutputVariant{Index: outputLayer.OutputIndex, Probability: outputLayer.Probability}
+			variantMap[outputLayer.OutputIndex] = variant
+			order = append(order, outputLayer.OutputIndex)
+		}
+
+		variant.Layers = append(variant.Layers, outputLayer)
+		variant.Probability = outputLayer.Probability
+	}
+
+	for _, key := range order {
+		outputs.Variants = append(outputs.Variants, variantMap[key])
+	}
+
+	return outputs
+}
+
+func firstNonEmptyLayerProp(inputLayers []*InputLayer, rulesMap *tilemap.TileMap, key string) string {
+	for _, inputLayer := range inputLayers {
+		for i := range rulesMap.Layers {
+			layer := &rulesMap.Layers[i]
+			if layer.Props["rule_role"] != "input" {
+				continue
+			}
+			if layer.Props["rule_target_layer"] != inputLayer.TargetSelector {
+				continue
+			}
+			if layer.Props["rule_input_index"] != inputLayer.InputIndex {
+				continue
+			}
+			if value := layer.Props[key]; value != "" {
+				return value
+			}
+		}
+	}
+
+	return ""
 }
