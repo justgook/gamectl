@@ -12,7 +12,7 @@ import (
 )
 
 func TestAutomapFixturesMatchTiled(t *testing.T) {
-	for _, caseName := range []string{"rules", "new_rules"} {
+	for _, caseName := range fixtureCases(t) {
 		t.Run(caseName, func(t *testing.T) {
 			inputMap := loadFixtureMap(t, caseName, "input.json")
 			rulesMap := loadFixtureMap(t, caseName, "rules.json")
@@ -212,7 +212,7 @@ func canonicalTileMap(tm *tilemap.TileMap) *tilemap.TileMap {
 }
 
 func TestFixtureOutputsExist(t *testing.T) {
-	for _, caseName := range []string{"rules", "new_rules"} {
+	for _, caseName := range fixtureCases(t) {
 		if _, err := os.Stat(filepath.Join("testdata", caseName, "output.json")); err != nil {
 			t.Fatalf("missing generated output fixture for %s: %v", caseName, err)
 		}
@@ -220,7 +220,7 @@ func TestFixtureOutputsExist(t *testing.T) {
 }
 
 func TestFixtureLayerNamesAreStable(t *testing.T) {
-	for _, caseName := range []string{"rules", "new_rules"} {
+	for _, caseName := range fixtureCases(t) {
 		inputMap := loadFixtureMap(t, caseName, "input.json")
 		for i := range inputMap.Layers {
 			if inputMap.Layers[i].Props["name"] == "" {
@@ -231,7 +231,7 @@ func TestFixtureLayerNamesAreStable(t *testing.T) {
 }
 
 func TestFixtureGoldenShape(t *testing.T) {
-	for _, caseName := range []string{"rules", "new_rules"} {
+	for _, caseName := range fixtureCases(t) {
 		outputMap := loadFixtureMap(t, caseName, "output.json")
 		if len(outputMap.Layers) == 0 {
 			t.Fatalf("fixture %s output has no layers", caseName)
@@ -242,4 +242,20 @@ func TestFixtureGoldenShape(t *testing.T) {
 			}
 		}
 	}
+}
+
+func fixtureCases(t *testing.T) []string {
+	t.Helper()
+
+	content, err := os.ReadFile(filepath.Join("testdata", "cases.json"))
+	if err != nil {
+		t.Fatalf("failed to read fixture case list: %v", err)
+	}
+
+	var cases []string
+	if err := json.Unmarshal(content, &cases); err != nil {
+		t.Fatalf("failed to parse fixture case list: %v", err)
+	}
+
+	return cases
 }
