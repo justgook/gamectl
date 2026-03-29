@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BUILD_DIR="${BUILD_DIR:-$REPO_ROOT/build/automap-fixtures}"
+BUILD_DIR="${BUILD_DIR:-$REPO_ROOT/build.nosync/automap-fixtures}"
 REQUEST_FILE="$BUILD_DIR/request.json"
 STATUS_FILE="$BUILD_DIR/status.json"
 TILED_BIN="/Applications/Tiled.app/Contents/MacOS/Tiled"
