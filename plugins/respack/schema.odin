@@ -7,6 +7,9 @@ MAX_FIELDS :: 1024
 MAX_ENUM_VALUES :: 1024
 MAX_ONEOF_OPTIONS :: 1024
 TYPE_NAME_MAX :: 96
+MAX_ODIN_IMPORTS :: 64
+ODIN_IMPORT_ALIAS_MAX :: 64
+ODIN_IMPORT_PATH_MAX :: 256
 
 TypeKind :: enum int {
 	Invalid,
@@ -84,6 +87,13 @@ named_type_name_lens: [MAX_TYPES]int
 named_type_name_bytes: [MAX_TYPES][TYPE_NAME_MAX]u8
 schema_package_start: int
 schema_package_end: int
+schema_odin_package_len: int
+schema_odin_package_bytes: [TYPE_NAME_MAX]u8
+schema_odin_import_count: int
+schema_odin_import_alias_lens: [MAX_ODIN_IMPORTS]int
+schema_odin_import_alias_bytes: [MAX_ODIN_IMPORTS][ODIN_IMPORT_ALIAS_MAX]u8
+schema_odin_import_path_lens: [MAX_ODIN_IMPORTS]int
+schema_odin_import_path_bytes: [MAX_ODIN_IMPORTS][ODIN_IMPORT_PATH_MAX]u8
 
 reset_schema_state :: proc() {
 	schema_token_count = 0
@@ -98,6 +108,12 @@ reset_schema_state :: proc() {
 	}
 	schema_package_start = 0
 	schema_package_end = 0
+	schema_odin_package_len = 0
+	schema_odin_import_count = 0
+	for i in 0..<MAX_ODIN_IMPORTS {
+		schema_odin_import_alias_lens[i] = 0
+		schema_odin_import_path_lens[i] = 0
+	}
 	add_builtin_types()
 }
 
@@ -116,6 +132,9 @@ compile_schema :: proc(input: []u8) -> (bool, string) {
 	if package_start >= 0 && package_end > package_start {
 		schema_package_start = package_start + 1
 		schema_package_end = package_end - 1
+	}
+	if err := compile_odin_config(input); err != "" {
+		return false, err
 	}
 	types_start, types_end, has_types := find_top_level_value_bounds(input, "types")
 	if !has_types {
@@ -200,6 +219,96 @@ compile_schema :: proc(input: []u8) -> (bool, string) {
 	}
 	data_slot_count = slot_idx
 	return true, ""
+}
+
+compile_odin_config :: proc(input: []u8) -> string {
+	odin_start, odin_end, has_odin := find_top_level_value_bounds(input, "odin")
+	if !has_odin {
+		return ""
+	}
+	odin_slice := trim_bytes_space(input[odin_start:odin_end])
+	if len(odin_slice) == 0 || odin_slice[0] != '{' {
+		return "odin must be object"
+	}
+	package_start, package_end, has_package := find_top_level_value_bounds(odin_slice, "package")
+	if has_package {
+		package_value := trim_bytes_space(odin_slice[package_start:package_end])
+		package_bytes, ok := decode_json_string_literal(package_value)
+		if !ok {
+			return "odin.package must be string"
+		}
+		if len(package_bytes) > len(schema_odin_package_bytes) {
+			return "odin.package too long"
+		}
+		schema_odin_package_len = len(package_bytes)
+		copy(schema_odin_package_bytes[:schema_odin_package_len], package_bytes)
+	}
+	imports_start, imports_end, has_imports := find_top_level_value_bounds(odin_slice, "imports")
+	if has_imports {
+		if err := compile_odin_imports(odin_slice[imports_start:imports_end]); err != "" {
+			return err
+		}
+	}
+	return ""
+}
+
+compile_odin_imports :: proc(data: []u8) -> string {
+	imports_slice := trim_bytes_space(data)
+	if len(imports_slice) == 0 || imports_slice[0] != '{' {
+		return "odin.imports must be object"
+	}
+	cursor := 1
+	for {
+		member, next_cursor, found := next_object_member(imports_slice, cursor)
+		if !found {
+			break
+		}
+		if schema_odin_import_count >= MAX_ODIN_IMPORTS {
+			return "odin import limit exceeded"
+		}
+		alias_len := member.key_end - member.key_start
+		if alias_len <= 0 || alias_len > ODIN_IMPORT_ALIAS_MAX {
+			return "odin import alias too long"
+		}
+		path_bytes, ok := decode_json_string_literal(trim_bytes_space(imports_slice[member.value_start:member.value_end]))
+		if !ok {
+			return "odin import path must be string"
+		}
+		if len(path_bytes) == 0 || len(path_bytes) > ODIN_IMPORT_PATH_MAX {
+			return "odin import path too long"
+		}
+		idx := schema_odin_import_count
+		schema_odin_import_alias_lens[idx] = alias_len
+		copy(schema_odin_import_alias_bytes[idx][:alias_len], imports_slice[member.key_start:member.key_end])
+		schema_odin_import_path_lens[idx] = len(path_bytes)
+		copy(schema_odin_import_path_bytes[idx][:len(path_bytes)], path_bytes)
+		schema_odin_import_count += 1
+		cursor = next_cursor
+	}
+	return ""
+}
+
+decode_json_string_literal :: proc(data: []u8) -> ([]u8, bool) {
+	trimmed := trim_bytes_space(data)
+	if len(trimmed) < 2 || trimmed[0] != '"' || trimmed[len(trimmed)-1] != '"' {
+		return nil, false
+	}
+	return trimmed[1:len(trimmed)-1], true
+}
+
+schema_odin_package :: proc() -> string {
+	if schema_odin_package_len == 0 {
+		return ""
+	}
+	return string(schema_odin_package_bytes[:schema_odin_package_len])
+}
+
+schema_odin_import_alias :: proc(idx: int) -> string {
+	return string(schema_odin_import_alias_bytes[idx][:schema_odin_import_alias_lens[idx]])
+}
+
+schema_odin_import_path :: proc(idx: int) -> string {
+	return string(schema_odin_import_path_bytes[idx][:schema_odin_import_path_lens[idx]])
 }
 
 ObjectMember :: struct {

@@ -21,6 +21,8 @@ Storage_View :: struct($T: typeid) {
 	components: []T,
 	entity_ids: []int,
 	sparse:     map[int]int,
+	// 	entity_ids: []u32,
+	// sparse:     map[u32]u32,
 }
 
 destroy_storage_dynamic :: proc(storage: ^Component_Storage($T)) {

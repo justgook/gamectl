@@ -7,6 +7,7 @@ import tilemap "render/tilemap"
 import sg "sokol/gfx"
 import qoi "third_party/qoi"
 import "world"
+import "world/logic"
 
 ACTION_LEFT :: u32(1)
 ACTION_RIGHT :: u32(2)
@@ -112,6 +113,9 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	host.info("assets", "loading", 2)
 
 	the_pos := read_slot_0_positions(game_data) or_return
+	for &value, index in the_pos.entity_ids {
+		logic.add_component(&w.position, int(value), the_pos.components[index])
+	}
 	atlas_bytes := read_slot_1_atlas(game_data) or_return
 	w.uv = read_slot_2_sprites(game_data) or_return
 	the_lut := read_slot_3_lut(game_data) or_return
@@ -120,7 +124,7 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	w.lut = create_image(the_lut, lut_pixels[:]) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
 
-	host.info("assets", "game loaded", the_pos, w.atlas)
+	host.info("assets", "game loaded", w.position, w.atlas)
 
 	return true
 }

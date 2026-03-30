@@ -13,13 +13,18 @@ temp_string_index: int
 build_odin_decoder :: proc(package_name: string) -> (string, string) {
 	codegen_len = 0
 	temp_string_index = 0
-	resolved_package := sanitize_identifier(package_name)
+	resolved_package := package_name
+	if resolved_package == "" {
+		resolved_package = schema_odin_package()
+	}
+	resolved_package = sanitize_identifier(resolved_package)
 	if resolved_package == "" {
 		resolved_package = "respack_generated"
 	}
 	emit("package ")
 	emit(resolved_package)
 	emit("\n\n")
+	emit_import_declarations()
 	emit("RSPK_VERSION :: u16(1)\n\n")
 	emit_reader_runtime()
 	emit_named_type_declarations()
@@ -27,6 +32,27 @@ build_odin_decoder :: proc(package_name: string) -> (string, string) {
 	emit_named_decoders()
 	emit_slot_readers()
 	return string(codegen_buffer[:codegen_len]), ""
+}
+
+emit_import_declarations :: proc() {
+	for i in 0..<schema_odin_import_count {
+		alias := sanitize_identifier(schema_odin_import_alias(i))
+		path := schema_odin_import_path(i)
+		if alias == "" || alias == "generated" {
+			emit("import \"")
+			emit(path)
+			emit("\"\n")
+			continue
+		}
+		emit("import ")
+		emit(alias)
+		emit(" \"")
+		emit(path)
+		emit("\"\n")
+	}
+	if schema_odin_import_count > 0 {
+		emit("\n")
+	}
 }
 
 emit_reader_runtime :: proc() {
@@ -75,6 +101,9 @@ emit_reader_runtime :: proc() {
 emit_named_type_declarations :: proc() {
 	for i in len(builtin_names)..<type_count {
 		if !types[i].has_name {
+			continue
+		}
+		if is_external_odin_type(type_name_string(i)) {
 			continue
 		}
 		emit_type_declaration(i)
@@ -356,6 +385,9 @@ type_expr :: proc(type_idx: int) -> string {
 		return builtin_type_expr(type_def.kind)
 	}
 	if type_def.has_name {
+		if is_external_odin_type(type_name_string(type_idx)) {
+			return type_name_string(type_idx)
+		}
 		return sanitize_identifier(type_name_string(type_idx))
 	}
 	return type_expr_expanded(type_idx)
@@ -376,6 +408,9 @@ type_expr_expanded :: proc(type_idx: int) -> string {
 	case .Bytes:
 		return "[]u8"
 	case:
+		if is_external_odin_type(type_name_string(type_idx)) {
+			return type_name_string(type_idx)
+		}
 		return sanitize_identifier(type_name_string(type_idx))
 	}
 }
@@ -475,6 +510,15 @@ sanitize_identifier :: proc(text: string) -> string {
 		return join2("_", result)
 	}
 	return result
+}
+
+is_external_odin_type :: proc(text: string) -> bool {
+	for i in 0..<len(text) {
+		if text[i] == '.' {
+			return true
+		}
+	}
+	return false
 }
 
 emit :: proc(text: string) {
