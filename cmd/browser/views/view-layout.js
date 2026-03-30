@@ -45,6 +45,7 @@ export class LayoutManager extends HTMLElement {
     this.handles = []
     this.width = 0
     this.height = 0
+    this._setupPromise = null
     this.tryRectEl = null
     this.cornerDrag = {
       active: false,
@@ -86,7 +87,12 @@ export class LayoutManager extends HTMLElement {
     }
 
     bus.on('plugin-manager:ready', async () => {
-      await this._setup()
+      if (this._setupPromise) {
+        return
+      }
+
+      this._setupPromise = this._setup()
+      await this._setupPromise
       this._scheduleHandleSizeSync()
     })
   }
@@ -237,6 +243,127 @@ export class LayoutManager extends HTMLElement {
     }
   }
 
+  _parseSetup(setup, index) {
+    const parts = String(setup).split(":")
+    if (parts.length !== 3) {
+      throw new Error(`layout child ${index}: invalid setup format '${setup}'`)
+    }
+
+    const [targetText, axis, percentText] = parts
+    const target = Number.parseInt(targetText, 10)
+    const percent = Number.parseInt(percentText, 10)
+
+    if (!Number.isInteger(target) || target < 0) {
+      throw new Error(`layout child ${index}: invalid target '${targetText}'`)
+    }
+
+    if (axis !== "v" && axis !== "h") {
+      throw new Error(`layout child ${index}: invalid axis '${axis}'`)
+    }
+
+    if (!Number.isInteger(percent) || percent <= 0 || percent >= 100) {
+      throw new Error(`layout child ${index}: invalid percent '${percentText}'`)
+    }
+
+    return { target, axis, percent }
+  }
+
+  _createChromeForView(viewNode, areaId) {
+    const contentId = ++this.contenCounter
+    const err = this.api.set_area_content(areaId, contentId)
+    if (err !== 0) {
+      throw new Error(`set_area_content failed: ${ERR[err] || err}`)
+    }
+
+    viewNode.removeAttribute("setup")
+
+    const chrome = document.createElement("view-area")
+    chrome.appendChild(viewNode)
+    this.content.set(contentId, chrome)
+    this._addCorners(chrome, areaId)
+    this.appendChild(chrome)
+    return chrome
+  }
+
+  _splitPointForArea(area, axis, percent) {
+    const width = area.x1 - area.x0
+    const height = area.y1 - area.y0
+    const splitX = area.x0 + Math.floor(width * (percent / 100))
+    const splitY = area.y0 + Math.floor(height * (percent / 100))
+
+    if (axis === "h") {
+      return {
+        corner: 0,
+        x: splitX,
+        y: Math.min(area.y1 - 1, area.y0 + 1),
+      }
+    }
+
+    return {
+      corner: 0,
+      x: Math.min(area.x1 - 1, area.x0 + 1),
+      y: splitY,
+    }
+  }
+
+  _initialLayoutNodes() {
+    return Array.from(this.children).filter((node) => {
+      const tag = node.tagName.toLowerCase()
+      if (!tag.startsWith("view-")) {
+        return false
+      }
+
+      return tag !== "view-area" && tag !== "view--handle" && tag !== "view--corner"
+    })
+  }
+
+  _loadInitialLayout(sourceNodes) {
+    const nodes = [...sourceNodes]
+    if (nodes.length === 0) {
+      nodes.push(document.createElement("view-empty"))
+    }
+
+    if (nodes[0].hasAttribute("setup")) {
+      throw new Error("layout child 0: root view cannot define setup")
+    }
+
+    this.replaceChildren()
+    this.content.clear()
+    this.handles.length = 0
+    this.tryRectEl = null
+    this.contenCounter = 0
+
+    this._createChromeForView(nodes[0], 0)
+
+    for (let i = 1; i < nodes.length; i += 1) {
+      const node = nodes[i]
+      const setup = node.getAttribute("setup")
+      if (!setup) {
+        throw new Error(`layout child ${i}: missing setup`)
+      }
+
+      const { target, axis, percent } = this._parseSetup(setup, i)
+      const areaCount = header(this.i32).areaCount
+      if (target >= areaCount) {
+        throw new Error(`layout child ${i}: target ${target} is out of range`)
+      }
+
+      const area = this.areaAt(target)
+      const newPanel = areaCount
+      const split = this._splitPointForArea(area, axis, percent)
+
+      const err = this.api.move_corner(target, split.corner, split.x, split.y)
+
+      if (err !== 0) {
+        throw new Error(`layout child ${i}: move_corner failed: ${ERR[err] || err}`)
+      }
+
+      this._createChromeForView(node, newPanel)
+    }
+
+    this.render()
+  }
+
   async _setup() {
     this.memory = new WebAssembly.Memory({
       initial: 288,
@@ -259,11 +386,8 @@ export class LayoutManager extends HTMLElement {
     if (err !== 0) {
       throw new Error(`init_screen failed: ${ERR[err] || err}`)
     }
-    for (const [i, node] of this.querySelectorAll("view-area").entries()) {
-      this.content.set(i, node)
-      this._addCorners(node, i)
-      console.warn("[layout] add parsing initial node", node)
-    }
+
+    this._loadInitialLayout(this._initialLayoutNodes())
   }
 
   _addCorners = (node, areaID) => {
