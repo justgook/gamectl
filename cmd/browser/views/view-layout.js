@@ -79,6 +79,10 @@ export class LayoutManager extends HTMLElement {
   }
 
   connectedCallback() {
+    const initialLayout = this.innerHTML
+    this.innerHTML = ""
+
+
     this._resizeObserver.observe(this)
 
     const link = getThemeStylesheetSource()
@@ -91,7 +95,7 @@ export class LayoutManager extends HTMLElement {
         return
       }
 
-      this._setupPromise = this._setup()
+      this._setupPromise = this._setup(initialLayout)
       await this._setupPromise
       this._scheduleHandleSizeSync()
     })
@@ -268,14 +272,54 @@ export class LayoutManager extends HTMLElement {
     return { target, axis, percent }
   }
 
-  _createChromeForView(viewNode, areaId) {
+  _viewSpecFromNode(node, index) {
+    const tag = node.tagName.toLowerCase()
+    if (!tag.startsWith("view-")) {
+      throw new Error(`layout child ${index}: expected a view-* element, got '${tag}'`)
+    }
+
+    const attrs = {}
+    for (const attr of node.attributes) {
+      attrs[attr.name] = attr.value
+    }
+
+    return {
+      tag,
+      attrs,
+      innerHTML: node.innerHTML,
+    }
+  }
+
+  _initialLayoutSpecsFromMarkup(markup) {
+    const template = document.createElement("template")
+    template.innerHTML = markup
+
+    const nodes = Array.from(template.content.children).filter((node) => {
+      const tag = node.tagName.toLowerCase()
+      return tag.startsWith("view-") && tag !== "view-area" && tag !== "view--handle" && tag !== "view--corner"
+    })
+
+    return nodes.map((node, index) => this._viewSpecFromNode(node, index))
+  }
+
+  _instantiateView(spec) {
+    const viewNode = document.createElement(spec.tag)
+    for (const [name, value] of Object.entries(spec.attrs)) {
+      if (name === "setup") continue
+      viewNode.setAttribute(name, value)
+    }
+    // viewNode.innerHTML = spec.innerHTML
+    return viewNode
+  }
+
+  _createChromeForViewSpec(spec, areaId) {
     const contentId = ++this.contenCounter
     const err = this.api.set_area_content(areaId, contentId)
     if (err !== 0) {
       throw new Error(`set_area_content failed: ${ERR[err] || err}`)
     }
 
-    viewNode.removeAttribute("setup")
+    const viewNode = this._instantiateView(spec)
 
     const chrome = document.createElement("view-area")
     chrome.appendChild(viewNode)
@@ -306,38 +350,35 @@ export class LayoutManager extends HTMLElement {
     }
   }
 
-  _initialLayoutNodes() {
-    return Array.from(this.children).filter((node) => {
-      const tag = node.tagName.toLowerCase()
-      if (!tag.startsWith("view-")) {
-        return false
-      }
-
-      return tag !== "view-area" && tag !== "view--handle" && tag !== "view--corner"
-    })
-  }
-
-  _loadInitialLayout(sourceNodes) {
-    const nodes = [...sourceNodes]
-    if (nodes.length === 0) {
-      nodes.push(document.createElement("view-empty"))
+  load(layoutData) {
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(`<layout>${layoutData}</layout>`, "text/xml");
+    const sourceSpecs = xmlDoc.childNodes[0].childNodes
+    const specs = [...sourceSpecs]
+      .filter(n => n.nodeType === 1) // ELEMENT_NODE
+      .map(n => ({
+        tag: n.tagName,
+        attrs: Object.fromEntries(
+          [...n.attributes].map(attr => [attr.name, attr.value])
+        )
+      }))
+    if (specs.length === 0) {
+      throw new Error("root view must be defined")
     }
 
-    if (nodes[0].hasAttribute("setup")) {
+    if (specs[0].attrs.setup) {
       throw new Error("layout child 0: root view cannot define setup")
     }
 
-    this.replaceChildren()
-    this.content.clear()
     this.handles.length = 0
     this.tryRectEl = null
     this.contenCounter = 0
 
-    this._createChromeForView(nodes[0], 0)
+    this._createChromeForViewSpec(specs[0], 0)
 
-    for (let i = 1; i < nodes.length; i += 1) {
-      const node = nodes[i]
-      const setup = node.getAttribute("setup")
+    for (let i = 1; i < specs.length; i += 1) {
+      const spec = specs[i]
+      const { setup } = spec.attrs
       if (!setup) {
         throw new Error(`layout child ${i}: missing setup`)
       }
@@ -358,13 +399,13 @@ export class LayoutManager extends HTMLElement {
         throw new Error(`layout child ${i}: move_corner failed: ${ERR[err] || err}`)
       }
 
-      this._createChromeForView(node, newPanel)
+      this._createChromeForViewSpec(spec, newPanel)
     }
 
     this.render()
   }
 
-  async _setup() {
+  async _setup(initialLayout) {
     this.memory = new WebAssembly.Memory({
       initial: 288,
       maximum: 512,
@@ -387,7 +428,7 @@ export class LayoutManager extends HTMLElement {
       throw new Error(`init_screen failed: ${ERR[err] || err}`)
     }
 
-    this._loadInitialLayout(this._initialLayoutNodes())
+    this.load(initialLayout)
   }
 
   _addCorners = (node, areaID) => {
