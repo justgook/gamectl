@@ -80,8 +80,6 @@ export class LayoutManager extends HTMLElement {
 
   connectedCallback() {
     const initialLayout = this.innerHTML
-    this.innerHTML = ""
-
 
     this._resizeObserver.observe(this)
 
@@ -272,43 +270,14 @@ export class LayoutManager extends HTMLElement {
     return { target, axis, percent }
   }
 
-  _viewSpecFromNode(node, index) {
-    const tag = node.tagName.toLowerCase()
-    if (!tag.startsWith("view-")) {
-      throw new Error(`layout child ${index}: expected a view-* element, got '${tag}'`)
-    }
-
-    const attrs = {}
-    for (const attr of node.attributes) {
-      attrs[attr.name] = attr.value
-    }
-
-    return {
-      tag,
-      attrs,
-      innerHTML: node.innerHTML,
-    }
-  }
-
-  _initialLayoutSpecsFromMarkup(markup) {
-    const template = document.createElement("template")
-    template.innerHTML = markup
-
-    const nodes = Array.from(template.content.children).filter((node) => {
-      const tag = node.tagName.toLowerCase()
-      return tag.startsWith("view-") && tag !== "view-area" && tag !== "view--handle" && tag !== "view--corner"
-    })
-
-    return nodes.map((node, index) => this._viewSpecFromNode(node, index))
-  }
-
   _instantiateView(spec) {
     const viewNode = document.createElement(spec.tag)
     for (const [name, value] of Object.entries(spec.attrs)) {
       if (name === "setup") continue
       viewNode.setAttribute(name, value)
     }
-    // viewNode.innerHTML = spec.innerHTML
+    viewNode.innerHTML = spec.innerHTML || ""
+
     return viewNode
   }
 
@@ -351,8 +320,17 @@ export class LayoutManager extends HTMLElement {
   }
 
   load(layoutData) {
+    if (!this.api) {
+      throw new Error("layout manager is not initialized")
+    }
+
     const parser = new DOMParser()
-    const xmlDoc = parser.parseFromString(`<layout>${layoutData}</layout>`, "text/xml");
+    const xmlDoc = parser.parseFromString(`<layout>${layoutData}</layout>`, "text/xml")
+    const parseError = xmlDoc.querySelector("parsererror")
+    if (parseError) {
+      throw new Error(`invalid layout markup: ${parseError.textContent?.trim() || "parse error"}`)
+    }
+
     const sourceSpecs = xmlDoc.childNodes[0].childNodes
     const specs = [...sourceSpecs]
       .filter(n => n.nodeType === 1) // ELEMENT_NODE
@@ -360,8 +338,10 @@ export class LayoutManager extends HTMLElement {
         tag: n.tagName,
         attrs: Object.fromEntries(
           [...n.attributes].map(attr => [attr.name, attr.value])
-        )
+        ),
+        innerHTML: n.innerHTML || "",
       }))
+
     if (specs.length === 0) {
       throw new Error("root view must be defined")
     }
@@ -370,9 +350,19 @@ export class LayoutManager extends HTMLElement {
       throw new Error("layout child 0: root view cannot define setup")
     }
 
+    this._stopCornerPreview()
+    this.replaceChildren()
+    this.content.clear()
     this.handles.length = 0
     this.tryRectEl = null
     this.contenCounter = 0
+
+    const width = Math.max(64, Math.floor(this.clientWidth || 0))
+    const height = Math.max(64, Math.floor(this.clientHeight || 0))
+    const initErr = this.api.init_screen(width, height, this.handleSize, this.minPanelSize)
+    if (initErr !== 0) {
+      throw new Error(`init_screen failed: ${ERR[initErr] || initErr}`)
+    }
 
     this._createChromeForViewSpec(specs[0], 0)
 
@@ -420,13 +410,6 @@ export class LayoutManager extends HTMLElement {
     this.api = this.plugin.exports
     this.dataPtr = this.api.get_info_ptr()
     this.i32 = new Int32Array(this.memory.buffer, this.dataPtr)
-
-    const width = Math.max(64, Math.floor(this.clientWidth || 0))
-    const height = Math.max(64, Math.floor(this.clientHeight || 0))
-    const err = this.api.init_screen(width, height, this.handleSize, this.minPanelSize)
-    if (err !== 0) {
-      throw new Error(`init_screen failed: ${ERR[err] || err}`)
-    }
 
     this.load(initialLayout)
   }
