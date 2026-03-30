@@ -15,6 +15,15 @@ InputSet :: enum {
 	Action2,
 }
 
+InputSet_Vectors :: [InputSet][2]int {
+	.North   = {0, -1},
+	.East    = {+1, 0},
+	.South   = {0, +1},
+	.West    = {-1, 0},
+	.Action1 = {0, 0},
+	.Action2 = {0, 0},
+}
+
 Input :: bit_set[InputSet;u8]
 
 sys_brain :: proc(w: ^World) {

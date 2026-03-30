@@ -33,19 +33,25 @@ class RespackRuntime {
 
   static async create(wasmBytes) {
     let runtime = null
+    const envBindings = {
+      alloc: (size) => runtime.alloc(Number(size)),
+      free: () => {},
+      input_ptr: () => runtime.inputPtr,
+      input_len: () => runtime.inputLen,
+      set_output: (ptr, len) => runtime.setOutput(Number(ptr), Number(len)),
+      plugin_call: (modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen) =>
+        runtime.pluginCall(Number(modulePtr), Number(moduleLen), Number(funcPtr), Number(funcLen), Number(inputPtr), Number(inputLen)),
+      plugin_call_return: () => runtime.lastCallReturn,
+      plugin_call_output_ptr: () => runtime.lastCallOutputPtr,
+      plugin_call_output_len: () => runtime.lastCallOutputLen,
+    }
+    const odinEnvBindings = {
+      write: () => 0,
+      rand_bytes: () => 0,
+    }
     const importObject = {
-      env: {
-        alloc: (size) => runtime.alloc(Number(size)),
-        free: () => {},
-        input_ptr: () => runtime.inputPtr,
-        input_len: () => runtime.inputLen,
-        set_output: (ptr, len) => runtime.setOutput(Number(ptr), Number(len)),
-        plugin_call: (modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen) =>
-          runtime.pluginCall(Number(modulePtr), Number(moduleLen), Number(funcPtr), Number(funcLen), Number(inputPtr), Number(inputLen)),
-        plugin_call_return: () => runtime.lastCallReturn,
-        plugin_call_output_ptr: () => runtime.lastCallOutputPtr,
-        plugin_call_output_len: () => runtime.lastCallOutputLen,
-      }
+      env: envBindings,
+      odin_env: odinEnvBindings,
     }
 
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject)
@@ -429,6 +435,21 @@ async function main() {
   }
   if (game2Dump.length <= atlasBytes.length) {
     throw new Error(`expected dump (${game2Dump.length}) to exceed atlas bytes (${atlasBytes.length})`)
+  }
+
+  const game2SourceBytes = await call(runtime, 'generate_odin', '')
+  const game2Source = new TextDecoder().decode(game2SourceBytes)
+  if (!game2Source.includes('package main')) {
+    throw new Error('expected generated game2 decoder to use schema odin.package')
+  }
+  if (!game2Source.includes('import world "world"')) {
+    throw new Error('expected generated game2 decoder to emit schema odin.imports')
+  }
+  if (!game2Source.includes('decode_world_position :: proc(r: ^Reader, out: ^world.Position) -> bool')) {
+    throw new Error('expected generated game2 decoder to decode into external world.Position type')
+  }
+  if (game2Source.includes('world_position :: [2]i32')) {
+    throw new Error('expected external world.Position type declaration to be skipped')
   }
 
   console.log('respack e2e ok')

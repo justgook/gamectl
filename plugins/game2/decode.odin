@@ -1,5 +1,7 @@
 package main
 
+import world "world"
+
 RSPK_VERSION :: u16(1)
 
 Reader :: struct {
@@ -100,15 +102,13 @@ vec2 :: [2]f32
 
 vec4 :: [4]f32
 
-i_vec2 :: [2]i32
-
 i_vec4 :: [4]i32
 
 entity_ids :: []u32
 
 positions :: struct {
 	entity_ids: entity_ids,
-	components: []i_vec2,
+	components: []world.Position,
 }
 
 atlas :: []u8
@@ -121,14 +121,7 @@ lut :: []u8
 
 tilemaps :: struct {
 	entity_ids: entity_ids,
-	components: []tilemap,
-}
-
-tilemap :: struct {
-	pos:        vec2,
-	tile_size:  vec2,
-	tileset_uv: vec4,
-	lut_uv:     vec4,
+	components: []world.Tilemap,
 }
 
 DecodedSlots :: struct {
@@ -291,7 +284,7 @@ decode_vec4 :: proc(r: ^Reader, out: ^vec4) -> bool {
 	return true
 }
 
-decode_i_vec2 :: proc(r: ^Reader, out: ^i_vec2) -> bool {
+decode_world_position :: proc(r: ^Reader, out: ^world.Position) -> bool {
 	{
 		for j in 0 ..< 2 {
 			{
@@ -349,7 +342,7 @@ decode_positions :: proc(r: ^Reader, out: ^positions) -> bool {
 	{
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
-		out.components = make([]i_vec2, int(count))
+		out.components = make([]world.Position, int(count))
 		for i in 0 ..< int(count) {
 			{
 				for j in 0 ..< 2 {
@@ -440,17 +433,17 @@ decode_tilemaps :: proc(r: ^Reader, out: ^tilemaps) -> bool {
 	{
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
-		out.components = make([]tilemap, int(count))
+		out.components = make([]world.Tilemap, int(count))
 		for i in 0 ..< int(count) {
 			{
-				if !decode_tilemap(r, &out.components[i]) {return false}
+				if !decode_world_tilemap(r, &out.components[i]) {return false}
 			}
 		}
 	}
 	return true
 }
 
-decode_tilemap :: proc(r: ^Reader, out: ^tilemap) -> bool {
+decode_world_tilemap :: proc(r: ^Reader, out: ^world.Tilemap) -> bool {
 	{
 		for j in 0 ..< 2 {
 			{

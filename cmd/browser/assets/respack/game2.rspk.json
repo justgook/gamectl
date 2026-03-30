@@ -1,5 +1,11 @@
 {
   "package": "main",
+  "odin": {
+    "package": "main",
+    "imports": {
+      "world": "world"
+    }
+  },
   "data": [
     "Positions",
     "Atlas",
@@ -18,7 +24,7 @@
       "len": 4,
       "value": "f32"
     },
-    "iVec2": {
+    "world.Position": {
       "type": "array",
       "len": 2,
       "value": "i32"
@@ -38,7 +44,7 @@
         "entity_ids": "EntityIds",
         "components": {
           "type": "vector",
-          "value": "iVec2"
+          "value": "world.Position"
         }
       }
     },
@@ -63,11 +69,11 @@
         "entity_ids": "EntityIds",
         "components": {
           "type": "vector",
-          "value": "Tilemap"
+          "value": "world.Tilemap"
         }
       }
     },
-    "Tilemap": {
+    "world.Tilemap": {
       "type": "struct",
       "fields": {
         "pos": "Vec2",

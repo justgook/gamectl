@@ -82,9 +82,6 @@ generate_odin :: proc() -> u32 {
 		return respond_error("writer not initialized")
 	}
 	package_name := string(pdk.input_bytes())
-	if package_name == "" {
-		package_name = "respack_generated"
-	}
 	source, err := build_odin_decoder(package_name)
 	if err != "" {
 		return respond_error(err)
