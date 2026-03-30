@@ -21,17 +21,22 @@ foreign env {
 }
 
 default_context_host :: proc() -> runtime.Context {
-	wasm_context := runtime.default_context()
-	wasm_context.allocator = runtime.default_wasm_allocator()
+	ctx := runtime.default_context()
+	ctx.allocator = runtime.default_wasm_allocator()
 
-	return wasm_context
+	return ctx
 }
 
 logger_host :: proc() -> Logger {
 	return Logger{func = sokol_logger_proc}
 }
 
-write :: proc(level: Level, tag, message: string, args: ..any, location: runtime.Source_Code_Location = #caller_location) {
+write :: proc(
+	level: Level,
+	tag, message: string,
+	args: ..any,
+	location: runtime.Source_Code_Location = #caller_location,
+) {
 	formatted_message := format_message(message, ..args)
 	tag_ptr, tag_len := string_ptr_and_len(tag)
 	message_ptr, message_len := string_ptr_and_len(formatted_message)

@@ -1,3 +1,3 @@
 package world
 
-Position :: [2]int
+Position :: [2]i32

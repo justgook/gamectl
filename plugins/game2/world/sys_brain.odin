@@ -46,7 +46,8 @@ brain1 :: proc(w: ^World, input: ^Input, pos: ^Position) {
 		inputX = -1
 	}
 	test := [4]int{}
-	test.xy = pos^
+	test.xy = {int(pos^.x), int(pos^.y)}
+
 	test.z = test.x + inputX * 10 * UNIT
 	test.w = test.y
 	found := grid.query_segment(&w.grid, &test)
