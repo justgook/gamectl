@@ -10,12 +10,24 @@ import sglue "../sokol/glue"
 import runtime "base:runtime"
 import "core:fmt"
 import "core:log"
+import "core:mem"
 import "core:os"
 import "core:strings"
+
+
+when ODIN_DEBUG {
+	track: mem.Tracking_Allocator
+}
 
 native_logger: log.Logger
 default_context_host :: proc() -> runtime.Context {
 	ctx := runtime.default_context()
+
+	when ODIN_DEBUG {
+		mem.tracking_allocator_init(&track, ctx.allocator)
+		ctx.allocator = mem.tracking_allocator(&track)
+	}
+
 	if native_logger.procedure == nil {
 		context = ctx
 		native_logger = log.create_console_logger()
@@ -181,4 +193,17 @@ setup_graphics_host :: proc() {
 
 shutdown_graphics_host :: proc() {
 	sg.shutdown()
+	when ODIN_DEBUG {
+		info("mem", "------------------------------------------------------------")
+		defer info("mem", "------------------------------------------------------------")
+		if len(track.allocation_map) > 0 {
+			info("mem", "=== %v allocations not freed: ===\n", len(track.allocation_map))
+
+			for _, entry in track.allocation_map {
+				info("mem", "- %v bytes @ %v\n", entry.size, entry.location)
+			}
+		}
+
+		mem.tracking_allocator_destroy(&track)
+	}
 }

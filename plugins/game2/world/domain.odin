@@ -17,7 +17,9 @@ to_pixel :: proc(subpixel: int) -> int {
 @(require_results)
 to_pixelf :: proc {
 	to_pixelf_int,
-	to_pixelf_int2,
+	to_pixelf_int_2,
+	to_pixelf_i32,
+	to_pixelf_i32_2,
 }
 
 @(require_results)
@@ -26,6 +28,16 @@ to_pixelf_int :: proc(subpixel: int) -> f32 {
 }
 
 @(require_results)
-to_pixelf_int2 :: proc(subpixel: [2]int) -> [2]f32 {
+to_pixelf_i32 :: proc(subpixel: i32) -> f32 {
+	return f32(subpixel >> SUBPIXEL_BITS)
+}
+
+@(require_results)
+to_pixelf_int_2 :: proc(subpixel: [2]int) -> [2]f32 {
+	return [2]f32{f32(subpixel.x >> SUBPIXEL_BITS), f32(subpixel.y >> SUBPIXEL_BITS)}
+}
+
+@(require_results)
+to_pixelf_i32_2 :: proc(subpixel: [2]i32) -> [2]f32 {
 	return [2]f32{f32(subpixel.x >> SUBPIXEL_BITS), f32(subpixel.y >> SUBPIXEL_BITS)}
 }

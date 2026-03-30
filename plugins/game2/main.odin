@@ -44,9 +44,11 @@ app_init :: proc() {
 
 	// THE REAL STUFF
 	state.world.atlas = state.atlas
+
 	load_ok := load_game_assets(GAME_ASSET_PATH, &state.world)
-	world.init(&state.world)
 	assert(load_ok)
+
+	world.init(&state.world)
 
 }
 
@@ -102,18 +104,23 @@ core_handle_mouse_move :: proc(mouse_y: f32) {
 
 @(private = "file")
 load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
-	asset_data := host.asset_read_all(filepath) or_return
-	game_data := open_respack(asset_data) or_return
+	host.info("assets", "loading")
 
-	the_out := read_slot_0_positions(game_data) or_return
+	asset_data := host.asset_read_all(filepath) or_return
+	host.info("assets", "loading", 1)
+	game_data := open_respack(asset_data) or_return
+	host.info("assets", "loading", 2)
+
+	the_pos := read_slot_0_positions(game_data) or_return
 	atlas_bytes := read_slot_1_atlas(game_data) or_return
 	w.uv = read_slot_2_sprites(game_data) or_return
 	the_lut := read_slot_3_lut(game_data) or_return
+	the_tilemaps := read_slot_4_tilemaps(game_data) or_return
 
 	w.lut = create_image(the_lut, lut_pixels[:]) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
 
-	host.info("assets", "game loaded", the_out, w.atlas)
+	host.info("assets", "game loaded", the_pos, w.atlas)
 
 	return true
 }

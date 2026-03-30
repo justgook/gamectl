@@ -9,8 +9,8 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [4]u32,
-	lengths: [4]u32,
+	offsets: [5]u32,
+	lengths: [5]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
@@ -20,12 +20,12 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 	   data[2] != 'P' ||
 	   data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 4 {return Package{}, false}
-	if len(data) < 40 {return Package{}, false}
+	if int(read_u16(data, 6)) != 5 {return Package{}, false}
+	if len(data) < 48 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 4 {
+	for i in 0 ..< 5 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -34,7 +34,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 }
 
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 4 {return Reader{}, false}
+	if slot < 0 || slot >= 5 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -96,13 +96,19 @@ read_string_reader :: proc(r: ^Reader) -> (string, bool) {
 	return string(r.data[start:end]), true
 }
 
-vec2 :: [2]i32
+vec2 :: [2]f32
+
+vec4 :: [4]f32
+
+i_vec2 :: [2]i32
+
+i_vec4 :: [4]i32
 
 entity_ids :: []u32
 
 positions :: struct {
 	entity_ids: entity_ids,
-	components: []vec2,
+	components: []i_vec2,
 }
 
 atlas :: []u8
@@ -113,6 +119,18 @@ sprites :: []uv
 
 lut :: []u8
 
+tilemaps :: struct {
+	entity_ids: entity_ids,
+	components: []tilemap,
+}
+
+tilemap :: struct {
+	pos:        vec2,
+	tile_size:  vec2,
+	tileset_uv: vec4,
+	lut_uv:     vec4,
+}
+
 DecodedSlots :: struct {
 	has_slot_0: bool,
 	slot_0:     positions,
@@ -122,6 +140,8 @@ DecodedSlots :: struct {
 	slot_2:     sprites,
 	has_slot_3: bool,
 	slot_3:     lut,
+	has_slot_4: bool,
+	slot_4:     tilemaps,
 }
 
 decode_bool :: proc(r: ^Reader, out: ^bool) -> bool {
@@ -251,6 +271,45 @@ decode_vec2 :: proc(r: ^Reader, out: ^vec2) -> bool {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
+				out^[j] = transmute(f32)v
+			}
+		}
+	}
+	return true
+}
+
+decode_vec4 :: proc(r: ^Reader, out: ^vec4) -> bool {
+	{
+		for j in 0 ..< 4 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out^[j] = transmute(f32)v
+			}
+		}
+	}
+	return true
+}
+
+decode_i_vec2 :: proc(r: ^Reader, out: ^i_vec2) -> bool {
+	{
+		for j in 0 ..< 2 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out^[j] = transmute(i32)v
+			}
+		}
+	}
+	return true
+}
+
+decode_i_vec4 :: proc(r: ^Reader, out: ^i_vec4) -> bool {
+	{
+		for j in 0 ..< 4 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
 				out^[j] = transmute(i32)v
 			}
 		}
@@ -290,7 +349,7 @@ decode_positions :: proc(r: ^Reader, out: ^positions) -> bool {
 	{
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
-		out.components = make([]vec2, int(count))
+		out.components = make([]i_vec2, int(count))
 		for i in 0 ..< int(count) {
 			{
 				for j in 0 ..< 2 {
@@ -365,6 +424,72 @@ decode_lut :: proc(r: ^Reader, out: ^lut) -> bool {
 	return true
 }
 
+decode_tilemaps :: proc(r: ^Reader, out: ^tilemaps) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.entity_ids = make(entity_ids, int(count))
+		for i in 0 ..< int(count) {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.entity_ids[i] = v
+			}
+		}
+	}
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.components = make([]tilemap, int(count))
+		for i in 0 ..< int(count) {
+			{
+				if !decode_tilemap(r, &out.components[i]) {return false}
+			}
+		}
+	}
+	return true
+}
+
+decode_tilemap :: proc(r: ^Reader, out: ^tilemap) -> bool {
+	{
+		for j in 0 ..< 2 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.pos[j] = transmute(f32)v
+			}
+		}
+	}
+	{
+		for j in 0 ..< 2 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.tile_size[j] = transmute(f32)v
+			}
+		}
+	}
+	{
+		for j in 0 ..< 4 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.tileset_uv[j] = transmute(f32)v
+			}
+		}
+	}
+	{
+		for j in 0 ..< 4 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.lut_uv[j] = transmute(f32)v
+			}
+		}
+	}
+	return true
+}
+
 read_slot_0_positions :: proc(pkg: Package) -> (positions, bool) {
 	r, ok := slot_reader(pkg, 0)
 	if !ok {return positions{}, false}
@@ -394,5 +519,13 @@ read_slot_3_lut :: proc(pkg: Package) -> (lut, bool) {
 	if !ok {return nil, false}
 	value: lut
 	if !decode_lut(&r, &value) {return nil, false}
+	return value, true
+}
+
+read_slot_4_tilemaps :: proc(pkg: Package) -> (tilemaps, bool) {
+	r, ok := slot_reader(pkg, 4)
+	if !ok {return tilemaps{}, false}
+	value: tilemaps
+	if !decode_tilemaps(&r, &value) {return tilemaps{}, false}
 	return value, true
 }

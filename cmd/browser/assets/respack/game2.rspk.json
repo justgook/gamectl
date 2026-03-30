@@ -1,15 +1,31 @@
 {
-  "package": "game2",
+  "package": "main",
   "data": [
     "Positions",
     "Atlas",
     "Sprites",
-    "LUT"
+    "LUT",
+    "Tilemaps"
   ],
   "types": {
     "Vec2": {
       "type": "array",
       "len": 2,
+      "value": "f32"
+    },
+    "Vec4": {
+      "type": "array",
+      "len": 4,
+      "value": "f32"
+    },
+    "iVec2": {
+      "type": "array",
+      "len": 2,
+      "value": "i32"
+    },
+    "iVec4": {
+      "type": "array",
+      "len": 4,
       "value": "i32"
     },
     "EntityIds": {
@@ -22,7 +38,7 @@
         "entity_ids": "EntityIds",
         "components": {
           "type": "vector",
-          "value": "Vec2"
+          "value": "iVec2"
         }
       }
     },
@@ -40,6 +56,25 @@
     },
     "LUT": {
       "type": "bytes"
+    },
+    "Tilemaps": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "Tilemap"
+        }
+      }
+    },
+    "Tilemap": {
+      "type": "struct",
+      "fields": {
+        "pos": "Vec2",
+        "tile_size": "Vec2",
+        "tileset_uv": "Vec4",
+        "lut_uv": "Vec4"
+      }
     }
   }
 }

@@ -186,7 +186,7 @@ $(SOKOL_NATIVE_LIBS): $(SOKOL_DIR)/build_clibs_macos.sh $(SOKOL_DIR)/c/sokol.c
 .PHONY: native
 native: sokol-bindings shaders native-libs | $(NATIVE_DIR)
 	$(Q)echo "Building native game2"
-	$(Q)$(ODIN_NATIVE_ENV) $(ODIN) build . $(ODIN_BUILD_FLAGS) -out:"$(NATIVE_BIN)" \
+	$(Q)$(ODIN_NATIVE_ENV) $(ODIN) build . $(ODIN_BUILD_FLAGS) -out:"$(NATIVE_BIN)" -debug \
 		$(if $(strip $(NATIVE_EXTRA_LINKER_FLAGS)),-extra-linker-flags:'$(NATIVE_EXTRA_LINKER_FLAGS)',)
 
 .PHONY: native-run
