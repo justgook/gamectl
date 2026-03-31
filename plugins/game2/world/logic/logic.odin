@@ -1,28 +1,51 @@
 package logic
 
+Entity :: u32
+
 // Component storage using dynamic arrays and sparse sets
 Component_Storage :: struct($T: typeid) {
 	// Dense array of components
 	components: [dynamic]T,
 	// Dense array of entity IDs corresponding to components
-	entity_ids: [dynamic]int,
+	entity_ids: [dynamic]Entity,
 	// Sparse array mapping entity IDs to dense array indices
-	sparse:     map[int]int,
+	sparse:     map[Entity]int,
 }
 
 Component_Storage_Fixed :: struct($T: typeid, $N: int) {
 	components: [N]T,
-	entity_ids: [N]int,
-	sparse:     map[int]int,
+	entity_ids: [N]Entity,
+	sparse:     map[Entity]int,
 	count:      int,
 }
 
 Storage_View :: struct($T: typeid) {
 	components: []T,
-	entity_ids: []int,
-	sparse:     map[int]int,
-	// 	entity_ids: []u32,
-	// sparse:     map[u32]u32,
+	entity_ids: []Entity,
+	sparse:     map[Entity]int,
+}
+
+load_storage_dynamic :: proc(
+	storage: ^Component_Storage($T),
+	components: []T,
+	entity_ids: []Entity,
+) {
+	for &value, index in entity_ids {
+		add_component(storage, value, components[index])
+	}
+}
+load_storage_fixed :: proc(
+	storage: ^Component_Storage_Fixed($T, $N),
+	components: []T,
+	entity_ids: []Entity,
+) {
+	for &value, index in entity_ids {
+		add_component(storage, value, components[index])
+	}
+}
+load_storage :: proc {
+	load_storage_dynamic,
+	load_storage_fixed,
 }
 
 destroy_storage_dynamic :: proc(storage: ^Component_Storage($T)) {
@@ -41,33 +64,33 @@ destroy_storage :: proc {
 	destroy_storage_fixed,
 }
 
-add_component_dynamic :: proc(storage: ^Component_Storage($T), entity_id: int, component: T) {
+add_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity, component: T) {
 	if storage.sparse == nil {
-		storage.sparse = make(map[int]int)
+		storage.sparse = make(map[Entity]int)
 	}
 
-	if entity_id in storage.sparse {
-		idx := storage.sparse[entity_id]
+	if entity in storage.sparse {
+		idx := storage.sparse[entity]
 		storage.components[idx] = component
 		return
 	}
 
 	append(&storage.components, component)
-	append(&storage.entity_ids, entity_id)
-	storage.sparse[entity_id] = len(storage.components) - 1
+	append(&storage.entity_ids, entity)
+	storage.sparse[entity] = len(storage.components) - 1
 }
 
 add_component_fixed :: proc(
 	storage: ^Component_Storage_Fixed($T, $N),
-	entity_id: int,
+	entity: Entity,
 	component: T,
 ) {
 	if storage.sparse == nil {
-		storage.sparse = make(map[int]int)
+		storage.sparse = make(map[Entity]int)
 	}
 
-	if entity_id in storage.sparse {
-		idx := storage.sparse[entity_id]
+	if entity in storage.sparse {
+		idx := storage.sparse[entity]
 		storage.components[idx] = component
 		return
 	}
@@ -75,8 +98,8 @@ add_component_fixed :: proc(
 	assert(storage.count < N)
 
 	storage.components[storage.count] = component
-	storage.entity_ids[storage.count] = entity_id
-	storage.sparse[entity_id] = storage.count
+	storage.entity_ids[storage.count] = entity
+	storage.sparse[entity] = storage.count
 	storage.count += 1
 	return
 }
@@ -87,9 +110,9 @@ add_component :: proc {
 }
 
 
-delete_component_dynamic :: proc(storage: ^Component_Storage($T), entity_id: int) -> (ok: bool) {
+delete_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity) -> (ok: bool) {
 	// Get the index from the sparse array
-	dense_idx, exists := storage.sparse[entity_id]
+	dense_idx, exists := storage.sparse[entity]
 	if !exists {
 		return false
 	}
@@ -103,18 +126,18 @@ delete_component_dynamic :: proc(storage: ^Component_Storage($T), entity_id: int
 		storage.sparse[moved_entity_id] = dense_idx
 	}
 
-	delete_key(&storage.sparse, entity_id)
+	delete_key(&storage.sparse, entity)
 
 	return true
 }
 
 delete_component_fixed :: proc(
 	storage: ^Component_Storage_Fixed($T, $N),
-	entity_id: int,
+	entity: Entity,
 ) -> (
 	ok: bool,
 ) {
-	dense_idx, exists := storage.sparse[entity_id]
+	dense_idx, exists := storage.sparse[entity]
 	if !exists {
 		return false
 	}
@@ -129,7 +152,7 @@ delete_component_fixed :: proc(
 	}
 
 	storage.count -= 1
-	delete_key(&storage.sparse, entity_id)
+	delete_key(&storage.sparse, entity)
 
 	return true
 }
@@ -142,12 +165,12 @@ delete_component :: proc {
 @(require_results)
 get_component_dynamic :: proc(
 	storage: ^Component_Storage($T),
-	entity_id: int,
+	entity: Entity,
 ) -> (
 	^T,
 	bool,
 ) #optional_ok {
-	if idx, ok := storage.sparse[entity_id]; ok {
+	if idx, ok := storage.sparse[entity]; ok {
 		return &storage.components[idx], true
 	}
 
@@ -157,12 +180,12 @@ get_component_dynamic :: proc(
 @(require_results)
 get_component_fixed :: proc(
 	storage: ^Component_Storage_Fixed($T, $N),
-	entity_id: int,
+	entity: Entity,
 ) -> (
 	^T,
 	bool,
 ) #optional_ok {
-	if idx, ok := storage.sparse[entity_id]; ok {
+	if idx, ok := storage.sparse[entity]; ok {
 		return &storage.components[idx], true
 	}
 
@@ -176,18 +199,18 @@ get_component :: proc {
 }
 
 @(require_results)
-has_component_dynamic :: proc(storage: ^Component_Storage($T), entity_id: int) -> bool {
-	return entity_id in storage.sparse
+has_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity) -> bool {
+	return entity in storage.sparse
 }
 
 @(require_results)
-has_component_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N), entity_id: int) -> bool {
-	return entity_id in storage.sparse
+has_component_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N), entity: Entity) -> bool {
+	return entity in storage.sparse
 }
 
 @(require_results)
-has_component_view :: proc(storage: Storage_View($T), entity_id: int) -> bool {
-	return entity_id in storage.sparse
+has_component_view :: proc(storage: Storage_View($T), entity: Entity) -> bool {
+	return entity in storage.sparse
 }
 
 @(require_results)
@@ -197,8 +220,8 @@ has_component :: proc {
 	has_component_view,
 }
 
-with_component_dynamic :: proc(storage: ^Component_Storage($T), entity_id: int, fn: proc(c: ^T)) {
-	idx, ok := storage.sparse[entity_id]
+with_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity, fn: proc(c: ^T)) {
+	idx, ok := storage.sparse[entity]
 	if !ok {
 		return
 	}
@@ -208,10 +231,10 @@ with_component_dynamic :: proc(storage: ^Component_Storage($T), entity_id: int, 
 
 with_component_fixed :: proc(
 	storage: ^Component_Storage_Fixed($T, $N),
-	entity_id: int,
+	entity: Entity,
 	fn: proc(c: ^T),
 ) {
-	idx, ok := storage.sparse[entity_id]
+	idx, ok := storage.sparse[entity]
 	if !ok {
 		return
 	}
@@ -766,9 +789,9 @@ each :: proc {
 	each_view4,
 }
 
-each_view1 :: proc(view: ^View1($A)) -> (id: int, a: ^A, ok: bool) {
+each_view1 :: proc(view: ^View1($A)) -> (entity: Entity, a: ^A, ok: bool) {
 	if ok = view.current_index < len(view.storage_a.entity_ids); ok {
-		id = view.storage_a.entity_ids[view.current_index]
+		entity = view.storage_a.entity_ids[view.current_index]
 		a = &view.storage_a.components[view.current_index]
 		view.current_index += 1
 	}
@@ -777,12 +800,12 @@ each_view1 :: proc(view: ^View1($A)) -> (id: int, a: ^A, ok: bool) {
 }
 
 
-each_view2 :: proc(view: ^View2($A, $B)) -> (id: int, a: ^A, b: ^B, ok: bool) {
+each_view2 :: proc(view: ^View2($A, $B)) -> (entity: Entity, a: ^A, b: ^B, ok: bool) {
 	for view.current_index < len(view.storage_a.entity_ids) {
-		id = view.storage_a.entity_ids[view.current_index]
-		if ok = has_component(view.storage_b, id); ok {
+		entity = view.storage_a.entity_ids[view.current_index]
+		if ok = has_component(view.storage_b, entity); ok {
 			a = &view.storage_a.components[view.current_index]
-			b_idx := view.storage_b.sparse[id]
+			b_idx := view.storage_b.sparse[entity]
 			b = &view.storage_b.components[b_idx]
 			view.current_index += 1
 			return
@@ -793,16 +816,16 @@ each_view2 :: proc(view: ^View2($A, $B)) -> (id: int, a: ^A, b: ^B, ok: bool) {
 }
 
 
-each_view3 :: proc(view: ^View3($A, $B, $C)) -> (id: int, a: ^A, b: ^B, c: ^C, ok: bool) {
+each_view3 :: proc(view: ^View3($A, $B, $C)) -> (entity: Entity, a: ^A, b: ^B, c: ^C, ok: bool) {
 	for view.current_index < len(view.storage_a.entity_ids) {
-		id = view.storage_a.entity_ids[view.current_index]
-		ok1 := has_component(view.storage_b, id)
-		ok2 := has_component(view.storage_c, id)
+		entity = view.storage_a.entity_ids[view.current_index]
+		ok1 := has_component(view.storage_b, entity)
+		ok2 := has_component(view.storage_c, entity)
 		if ok = ok1 && ok2; ok {
 			a = &view.storage_a.components[view.current_index]
-			b_idx := view.storage_b.sparse[id]
+			b_idx := view.storage_b.sparse[entity]
 			b = &view.storage_b.components[b_idx]
-			c_idx := view.storage_c.sparse[id]
+			c_idx := view.storage_c.sparse[entity]
 			c = &view.storage_c.components[c_idx]
 			view.current_index += 1
 			return
@@ -816,7 +839,7 @@ each_view3 :: proc(view: ^View3($A, $B, $C)) -> (id: int, a: ^A, b: ^B, c: ^C, o
 each_view4 :: proc(
 	view: ^View4($A, $B, $C, $D),
 ) -> (
-	id: int,
+	entity: Entity,
 	a: ^A,
 	b: ^B,
 	c: ^C,
@@ -824,17 +847,17 @@ each_view4 :: proc(
 	ok: bool,
 ) {
 	for view.current_index < len(view.storage_a.entity_ids) {
-		id = view.storage_a.entity_ids[view.current_index]
-		ok1 := has_component(view.storage_b, id)
-		ok2 := has_component(view.storage_c, id)
-		ok3 := has_component(view.storage_d, id)
+		entity = view.storage_a.entity_ids[view.current_index]
+		ok1 := has_component(view.storage_b, entity)
+		ok2 := has_component(view.storage_c, entity)
+		ok3 := has_component(view.storage_d, entity)
 		if ok = ok1 && ok2 && ok3; ok {
 			a = &view.storage_a.components[view.current_index]
-			b_idx := view.storage_b.sparse[id]
+			b_idx := view.storage_b.sparse[entity]
 			b = &view.storage_b.components[b_idx]
-			c_idx := view.storage_c.sparse[id]
+			c_idx := view.storage_c.sparse[entity]
 			c = &view.storage_c.components[c_idx]
-			d_idx := view.storage_d.sparse[id]
+			d_idx := view.storage_d.sparse[entity]
 			d = &view.storage_d.components[d_idx]
 
 			view.current_index += 1

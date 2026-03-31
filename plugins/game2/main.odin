@@ -113,13 +113,14 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	host.info("assets", "loading", 2)
 
 	the_pos := read_slot_0_positions(game_data) or_return
-	for &value, index in the_pos.entity_ids {
-		logic.add_component(&w.position, int(value), the_pos.components[index])
-	}
+	logic.load_storage(&w.position, the_pos.components, the_pos.entity_ids)
+
 	atlas_bytes := read_slot_1_atlas(game_data) or_return
 	w.uv = read_slot_2_sprites(game_data) or_return
 	the_lut := read_slot_3_lut(game_data) or_return
 	the_tilemaps := read_slot_4_tilemaps(game_data) or_return
+	logic.load_storage(&w.tilemap, the_tilemaps.components, the_tilemaps.entity_ids)
+
 
 	w.lut = create_image(the_lut, lut_pixels[:]) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return

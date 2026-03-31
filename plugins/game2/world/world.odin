@@ -7,7 +7,7 @@ import "logic"
 
 
 World :: struct {
-	next_entity_id:   int,
+	next_entity_id:   logic.Entity,
 	sim_frame_length: f64,
 	accumulator:      f64,
 	atlas:            sg.Image,
@@ -47,6 +47,8 @@ frame :: proc(w: ^World, dt: f64) {
 
 
 init :: proc(w: ^World) {
+	w.next_entity_id = 100
+
 	w.sim_frame_length = 1.0 / 60.0
 	w.cam = camera_init(
 		{host.widthf(), host.heightf()},
@@ -70,29 +72,30 @@ init :: proc(w: ^World) {
 		Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[968], size = {128, 128}},
 	)
 
-	background := create_entity(w)
-	logic.add_component(&w.position, background, Position{0 * UNIT, 0 * UNIT})
+	// background := create_entity(w)
+	// logic.add_component(&w.position, background, Position{0 * UNIT, 0 * UNIT})
+	// // logic.add_component(
+	// // 	&w.sprite,
+	// // 	background,
+	// // 	Sprite{opacity = 1, uv = {0, 0, 1, 1}, size = {256, 256}},
+	// // )
 	// logic.add_component(
-	// 	&w.sprite,
+	// 	&w.tilemap,
 	// 	background,
-	// 	Sprite{opacity = 1, uv = {0, 0, 1, 1}, size = {256, 256}},
+	// 	Tilemap{tile_size = {16, 16}, tileset_uv = {0, 0, 1, 1}, lut_uv = {0, 0, 1, 1}},
 	// )
-	logic.add_component(
-		&w.tilemap,
-		background,
-		Tilemap{tile_size = {16, 16}, tileset_uv = {0, 0, 1, 1}, lut_uv = {0, 0, 1, 1}},
-	)
-
+	//
+	host.info("world", "init", w.tilemap.components[0])
 }
 
-create_entity :: proc(w: ^World) -> int {
+create_entity :: proc(w: ^World) -> logic.Entity {
 	id := w.next_entity_id
 	w.next_entity_id += 1
 
 	return id
 }
 
-entity_delete :: proc(w: ^World, entity_id: int) {
+entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.position, entity_id)
 	logic.delete_component(&w.velocity, entity_id)
 	logic.delete_component(&w.sprite, entity_id)
