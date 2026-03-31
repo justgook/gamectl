@@ -267,7 +267,7 @@ export class LayoutManager extends HTMLElement {
       throw new Error(`layout child ${index}: invalid percent '${percentText}'`)
     }
 
-    return { target, axis, percent }
+    return { target, axis, percent: 100 - percent }
   }
 
   _instantiateView(spec) {
