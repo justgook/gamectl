@@ -697,21 +697,16 @@ static layout_i32 try_simple_merge(layout_i32 src_idx, layout_i32 tgt_idx) {
 
     /*
      * Perform the merge.
-     * Lower index survives; it absorbs the other area's extent.
-     * Surviving area keeps its own content_id (spec: "surviving area keeps its ID").
+     * The drag source area survives so its content_id is preserved.
      */
-    layout_i32 survivor, dead;
+    layout_i32 survivor = src_idx;
+    layout_i32 dead = tgt_idx;
     if (boundary_axis == AXIS_VERTICAL) {
-        survivor = left_idx < right_idx ? left_idx : right_idx;
-        dead     = left_idx < right_idx ? right_idx : left_idx;
-        /* Expand survivor to cover both. */
         g_info.areas[survivor].x0 = g_info.areas[left_idx].x0;
         g_info.areas[survivor].y0 = g_info.areas[left_idx].y0;
         g_info.areas[survivor].x1 = g_info.areas[right_idx].x1;
         g_info.areas[survivor].y1 = g_info.areas[right_idx].y1;
     } else {
-        survivor = top_idx < bot_idx ? top_idx : bot_idx;
-        dead     = top_idx < bot_idx ? bot_idx : top_idx;
         g_info.areas[survivor].x0 = g_info.areas[top_idx].x0;
         g_info.areas[survivor].y0 = g_info.areas[top_idx].y0;
         g_info.areas[survivor].x1 = g_info.areas[bot_idx].x1;
