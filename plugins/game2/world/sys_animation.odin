@@ -128,8 +128,8 @@ Animation :: struct {
 	playing:     bool, // Is animation playing
 	speed:       f32, // Playback speed multiplier (1.0 = normal, 0.5 = half speed)
 	// Callbacks (optional, can be nil)
-	on_loop:     proc(w: ^World, entity: int), // Called when animation loops
-	on_frame:    proc(w: ^World, entity: int, frame: u32), // Called when frame changes
+	on_loop:     proc(w: ^World, entity: logic.Entity), // Called when animation loops
+	on_frame:    proc(w: ^World, entity: logic.Entity, frame: u32), // Called when frame changes
 }
 
 // Animation IDs for registry lookup

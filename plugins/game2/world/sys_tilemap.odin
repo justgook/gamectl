@@ -1,6 +1,5 @@
 package world
 
-import "../host"
 import sg "../sokol/gfx"
 import "core:c"
 import "core:math/linalg"

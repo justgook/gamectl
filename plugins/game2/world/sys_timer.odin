@@ -13,14 +13,14 @@ Timer :: struct {
 	data:               rawptr, // Optional data pointer for callbacks
 	disable_autofree:   bool, // If true, don't free `data` on complete
 	delete_on_complete: bool, //TODO reaneme to delete_self_only - default fals, and if set to false - deletes also component.  original: If true, delete the entity when timer ends (default: true for backwards compat)
-	on_update:          proc(w: ^World, entity: int, data: rawptr), // Called each frame while active
-	on_complete:        proc(w: ^World, entity: int, data: rawptr), // Called when timer reaches 0
+	on_update:          proc(w: ^World, entity: logic.Entity, data: rawptr), // Called each frame while active
+	on_complete:        proc(w: ^World, entity: logic.Entity, data: rawptr), // Called when timer reaches 0
 }
 
 // Create a simple timer that deletes the entity on completion
 timer_create :: proc(
 	frames: int,
-	on_complete: proc(w: ^World, entity: int, data: rawptr) = nil,
+	on_complete: proc(w: ^World, entity: logic.Entity, data: rawptr) = nil,
 ) -> Timer {
 	return Timer{frames = frames, on_complete = on_complete, delete_on_complete = true}
 }
@@ -28,8 +28,8 @@ timer_create :: proc(
 // Create a timer with update callback (useful for effects that change over time)
 timer_create_with_update :: proc(
 	frames: int,
-	on_update: proc(w: ^World, entity: int, data: rawptr),
-	on_complete: proc(w: ^World, entity: int, data: rawptr) = nil,
+	on_update: proc(w: ^World, entity: logic.Entity, data: rawptr),
+	on_complete: proc(w: ^World, entity: logic.Entity, data: rawptr) = nil,
 ) -> Timer {
 	return Timer {
 		frames = frames,
