@@ -16,11 +16,6 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         '{"kind":2,"name":"LUT Generator","codePath":"local:/assets/ng/nodegraph2/lut-generator.lua","inputs":[{"inputId":1,"name":"mapName","defaultValue":"new_map"},{"inputId":2,"name":"layerIndex","defaultValue":"1"},{"inputId":3,"name":"outputPath","defaultValue":""},{"inputId":4,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"image+","value":""},{"outputId":2,"name":"encodedPath","value":""},{"outputId":3,"name":"error","value":""}]}'
     ),
     (
-        'pack demo',
-        2,
-        '{"kind":2,"name":"pack demo","codePath":"local:/assets/ng/nodegraph2/pack-demo.lua","inputs":[],"outputs":[{"outputId":1,"name":"result","value":""},{"outputId":2,"name":"summary","value":""}]}'
-    ),
-    (
         'World Tree Generator',
         2,
         '{"kind":2,"name":"World Tree Generator","codePath":"local:/assets/ng/nodegraph2/pipeline-world-tree.lua","inputs":[{"inputId":1,"name":"nodeCount","defaultValue":"10"},{"inputId":2,"name":"maxDepth","defaultValue":"0"},{"inputId":3,"name":"maxBranching","defaultValue":"0"},{"inputId":4,"name":"rootBranches","defaultValue":"0"},{"inputId":5,"name":"treeId","defaultValue":"progression"}],"outputs":[{"outputId":1,"name":"treeId","value":""},{"outputId":2,"name":"error","value":""}]}'
@@ -96,9 +91,9 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         '{"kind":2,"name":"Image Wrap","codePath":"local:/assets/ng/nodegraph2/image-wrap.lua","inputs":[{"inputId":1,"name":"image","defaultValue":""}],"outputs":[{"outputId":1,"name":"handle","value":""}]}'
     ),
     (
-        'Build Atlas',
+        'Image Atlas',
         2,
-        '{"kind":2,"name":"Build Atlas","codePath":"local:/assets/ng/nodegraph2/build-atlas.lua","inputs":[{"inputId":1,"name":"packedRects","defaultValue":"[]"},{"inputId":2,"name":"outputPath","defaultValue":"/tmp/atlas.qoi"},{"inputId":3,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"outputPath","value":""},{"outputId":2,"name":"error","value":""}]}'
+        '{"kind":2,"name":"Image Atlas","codePath":"local:/assets/ng/nodegraph2/image-atlas.lua","inputs":[{"inputId":1,"name":"packedRects","defaultValue":"[]"},{"inputId":2,"name":"outputPath","defaultValue":"/tmp/atlas.qoi"},{"inputId":3,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"outputPath","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
         'SQL Query',

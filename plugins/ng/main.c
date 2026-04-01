@@ -1,5 +1,4 @@
 #include <math.h>
-#include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,7 +14,6 @@ static NgInfo g_info;
 static lua_State *g_lua = NULL;
 static char g_code_buf[NG_IO_BUFFER_CAP];
 static char g_resp_buf[NG_IO_BUFFER_CAP];
-static char g_goal_buf[2048];
 static NgValueSlot g_output_slots[NG_MAX_NODES][NG_MAX_OUTPUTS];
 static char g_value_buf[NG_IO_BUFFER_CAP];
 static ng_i32 g_value_len = 0;
@@ -212,6 +210,15 @@ static int ng_sb_append_c(NgStrBuf *sb, char c) {
   sb->buf[sb->len++] = c;
   sb->buf[sb->len] = '\0';
   return 1;
+}
+
+static int ng_sb_append_u32(NgStrBuf *sb, ng_u32 v) {
+  char buf[16];
+  int n = snprintf(buf, sizeof(buf), "%u", (unsigned)v);
+  if (n <= 0 || (size_t)n >= sizeof(buf)) {
+    return 0;
+  }
+  return ng_sb_append_len(sb, buf, (size_t)n);
 }
 
 static int ng_json_hex_val(char c) {
@@ -593,6 +600,53 @@ static int ng_json_encode_string(NgStrBuf *out, const char *s, size_t len) {
       if (!ng_sb_append_len(out, "\\t", 2u))
         return 0;
     } else if (c < 0x20u) {
+      char esc[6];
+      esc[0] = '\\';
+      esc[1] = 'u';
+      esc[2] = '0';
+      esc[3] = '0';
+      esc[4] = hex[(c >> 4) & 0x0Fu];
+      esc[5] = hex[c & 0x0Fu];
+      if (!ng_sb_append_len(out, esc, sizeof(esc)))
+        return 0;
+    } else {
+      if (!ng_sb_append_c(out, (char)c))
+        return 0;
+    }
+  }
+  return ng_sb_append_c(out, '"');
+}
+
+static int ng_json_encode_bytes(NgStrBuf *out, const char *s, size_t len) {
+  static const char hex[] = "0123456789abcdef";
+  size_t i;
+  if (!ng_sb_append_c(out, '"')) {
+    return 0;
+  }
+  for (i = 0; i < len; i++) {
+    unsigned char c = (unsigned char)s[i];
+    if (c == '"') {
+      if (!ng_sb_append_len(out, "\\\"", 2u))
+        return 0;
+    } else if (c == '\\') {
+      if (!ng_sb_append_len(out, "\\\\", 2u))
+        return 0;
+    } else if (c == '\b') {
+      if (!ng_sb_append_len(out, "\\b", 2u))
+        return 0;
+    } else if (c == '\f') {
+      if (!ng_sb_append_len(out, "\\f", 2u))
+        return 0;
+    } else if (c == '\n') {
+      if (!ng_sb_append_len(out, "\\n", 2u))
+        return 0;
+    } else if (c == '\r') {
+      if (!ng_sb_append_len(out, "\\r", 2u))
+        return 0;
+    } else if (c == '\t') {
+      if (!ng_sb_append_len(out, "\\t", 2u))
+        return 0;
+    } else if (c < 0x20u || c > 0x7eu) {
       char esc[6];
       esc[0] = '\\';
       esc[1] = 'u';
@@ -1223,123 +1277,85 @@ static void notify_goal_reached(ng_u32 goal_node_id, ng_i32 payload_ptr,
   ng_on_goal_reached(goal_node_id, payload_ptr, payload_len);
 }
 
-static ng_i32 goal_buf_len(void) {
-  ng_i32 len = (ng_i32)strlen(g_goal_buf);
-  if (len < 0)
-    return 0;
-  return len;
-}
-
-static void goal_buf_reset(void) { g_goal_buf[0] = '\0'; }
-
-static void goal_buf_appendf(const char *fmt, ...) {
-  va_list args;
-  ng_i32 len = goal_buf_len();
-  int n;
-  if (len >= (ng_i32)(sizeof(g_goal_buf) - 1))
-    return;
-  va_start(args, fmt);
-  n = vsnprintf(g_goal_buf + len, sizeof(g_goal_buf) - (size_t)len, fmt, args);
-  va_end(args);
-  if (n < 0)
-    return;
-  if ((size_t)n >= sizeof(g_goal_buf) - (size_t)len) {
-    size_t cap = sizeof(g_goal_buf);
-    if (cap >= 5) {
-      g_goal_buf[cap - 5] = '.';
-      g_goal_buf[cap - 4] = '.';
-      g_goal_buf[cap - 3] = '.';
-      g_goal_buf[cap - 2] = '\0';
-    }
-  }
-}
-
-static void goal_buf_append_escaped(const char *src, ng_i32 len) {
-  ng_i32 i;
-  ng_i32 limit;
-  if (src == NULL || len <= 0) {
-    goal_buf_appendf("\"\"");
-    return;
-  }
-  limit = len > 120 ? 120 : len;
-  goal_buf_appendf("\"");
-  for (i = 0; i < limit; i++) {
-    unsigned char c = (unsigned char)src[i];
-    if (c == '"') {
-      goal_buf_appendf("\\\"");
-    } else if (c == '\\') {
-      goal_buf_appendf("\\\\");
-    } else if (c == '\n') {
-      goal_buf_appendf("\\n");
-    } else if (c == '\r') {
-      goal_buf_appendf("\\r");
-    } else if (c == '\t') {
-      goal_buf_appendf("\\t");
-    } else if (c < 32 || c > 126) {
-      goal_buf_appendf("\\x%02X", (unsigned)c);
-    } else {
-      goal_buf_appendf("%c", (int)c);
-    }
-  }
-  if (len > limit)
-    goal_buf_appendf("...");
-  goal_buf_appendf("\"");
-}
-
-static void goal_buf_append_slot_preview(const NgValueSlot *slot) {
+static int ng_json_encode_slot(const NgValueSlot *slot, NgStrBuf *out) {
   int64_t i64;
   double f64;
+  char num[64];
+  int n;
   if (slot == NULL || slot->type == NG_VAL_EMPTY) {
-    goal_buf_appendf("nil");
-    return;
+    return ng_sb_append_len(out, "null", 4u);
   }
   if (slot->type == NG_VAL_BOOL) {
-    goal_buf_appendf(slot->a ? "true" : "false");
-    return;
+    return slot->a ? ng_sb_append_len(out, "true", 4u)
+                   : ng_sb_append_len(out, "false", 5u);
   }
   if (slot->type == NG_VAL_I64) {
     i64 = join_i64(slot->a, slot->b);
-    goal_buf_appendf("%lld", (long long)i64);
-    return;
+    n = snprintf(num, sizeof(num), "%lld", (long long)i64);
+    if (n <= 0 || (size_t)n >= sizeof(num)) {
+      return 0;
+    }
+    return ng_sb_append_len(out, num, (size_t)n);
   }
   if (slot->type == NG_VAL_F64) {
     f64 = join_f64(slot->a, slot->b);
-    goal_buf_appendf("%.17g", f64);
-    return;
+    if (!isfinite(f64)) {
+      return ng_sb_append_len(out, "null", 4u);
+    }
+    n = snprintf(num, sizeof(num), "%.17g", f64);
+    if (n <= 0 || (size_t)n >= sizeof(num)) {
+      return 0;
+    }
+    return ng_sb_append_len(out, num, (size_t)n);
   }
   if ((slot->type == NG_VAL_STRING_REF || slot->type == NG_VAL_BYTES_REF) &&
       slot->a >= 0 && slot->b >= 0 && slot->a + slot->b <= g_value_len) {
-    goal_buf_append_escaped(g_value_buf + slot->a, slot->b);
-    return;
+    if (slot->type == NG_VAL_BYTES_REF) {
+      return ng_json_encode_bytes(out, g_value_buf + slot->a, (size_t)slot->b);
+    }
+    return ng_json_encode_string(out, g_value_buf + slot->a, (size_t)slot->b);
   }
-  goal_buf_appendf("nil");
+  return ng_sb_append_len(out, "null", 4u);
 }
 
 static void emit_goal_reached(NgNode *goal_node) {
   ng_u32 i;
+  NgStrBuf payload;
+  int ok = 1;
   if (goal_node == NULL || goal_node->kind != NG_NODE_GOAL)
     return;
-  goal_buf_reset();
-  goal_buf_appendf("goal #%u reached", goal_node->id);
-  if (goal_node->input_count == 0) {
-    goal_buf_appendf(" (no inputs)");
+  ng_sb_init(&payload);
+  ok = ok && ng_sb_append_len(&payload, "{\"id\":", 6u);
+  ok = ok && ng_sb_append_u32(&payload, goal_node->id);
+  ok = ok && ng_sb_append_len(&payload, ",\"inputs\":{", 11u);
+  for (i = 0; ok && i < goal_node->input_count; i++) {
+    NgInputPort *in = &goal_node->inputs[i];
+    NgValueSlot *slot = NULL;
+    if (i > 0) {
+      ok = ok && ng_sb_append_c(&payload, ',');
+    }
+    ok = ok && ng_sb_append_c(&payload, '"');
+    ok = ok && ng_sb_append_u32(&payload, in->id);
+    ok = ok && ng_sb_append_len(&payload, "\":", 2u);
+    if (in->src_node_id != 0) {
+      slot = find_output_slot_in(g_exec.nodes, g_exec.output_slots,
+                                 in->src_node_id, in->src_output_id);
+    }
+    ok = ok && ng_json_encode_slot(slot, &payload);
+  }
+  ok = ok && ng_sb_append_len(&payload, "}}", 2u);
+  if (ok) {
+    notify_goal_reached(goal_node->id, (ng_i32)(intptr_t)payload.buf,
+                        (ng_i32)payload.len);
   } else {
-    goal_buf_appendf(": ");
-    for (i = 0; i < goal_node->input_count; i++) {
-      NgInputPort *in = &goal_node->inputs[i];
-      NgValueSlot *slot = NULL;
-      if (i > 0)
-        goal_buf_appendf("; ");
-      goal_buf_appendf("%u=", in->id);
-      if (in->src_node_id != 0) {
-        slot = find_output_slot_in(g_exec.nodes, g_exec.output_slots,
-                                   in->src_node_id, in->src_output_id);
-      }
-      goal_buf_append_slot_preview(slot);
+    char fallback[32];
+    int len = snprintf(fallback, sizeof(fallback), "{\"id\":%u,\"inputs\":{}}",
+                       (unsigned)goal_node->id);
+    if (len > 0 && (size_t)len < sizeof(fallback)) {
+      notify_goal_reached(goal_node->id, (ng_i32)(intptr_t)fallback, (ng_i32)len);
     }
   }
-  notify_goal_reached(goal_node->id, (ng_i32)(intptr_t)g_goal_buf,
-                      goal_buf_len());
+  ng_sb_free(&payload);
 }
 
 static void set_run_status(ng_u32 status) { g_info.run_status = status; }
