@@ -1,20 +1,10 @@
-local packedRectsJson = inputs[1]
-if packedRectsJson == nil or packedRectsJson == "" then packedRectsJson = "[]" end
+local imagesJson = inputs[1]
+if imagesJson == nil or imagesJson == "" then imagesJson = "[]" end
 
-local outputPath = inputs[2]
-if outputPath == nil or outputPath == "" then
+local okRects, images = pcall(json.decode, imagesJson)
+if not okRects or type(images) ~= "table" then
     outputs[1] = ""
-    outputs[2] = "outputPath is required"
-    return
-end
-
-local format = inputs[3]
-if format == nil or format == "" then format = "qoi" end
-
-local okRects, packedRects = pcall(json.decode, packedRectsJson)
-if not okRects or type(packedRects) ~= "table" then
-    outputs[1] = ""
-    outputs[2] = "Invalid packed rects JSON"
+    outputs[2] = "Invalid images array JSON"
     return
 end
 
@@ -37,82 +27,77 @@ end
 
 local atlasWidth = 0
 local atlasHeight = 0
-local packedCount = 0
+local imageCount = 0
 
-for _, rect in ipairs(packedRects) do
-    if type(rect) == "table" and rect.packed then
-        local x = tonumber(rect.x) or 0
-        local y = tonumber(rect.y) or 0
-        local width = tonumber(rect.width) or 0
-        local height = tonumber(rect.height) or 0
-        if x + width > atlasWidth then atlasWidth = x + width end
-        if y + height > atlasHeight then atlasHeight = y + height end
-        packedCount = packedCount + 1
+for _, image in ipairs(images) do
+    if type(image) ~= "table" then
+        outputs[1] = ""
+        outputs[2] = "Image item must be an object"
+        return
     end
+
+    local width = tonumber(image.width) or 0
+    local height = tonumber(image.height) or 0
+    if width <= 0 or height <= 0 then
+        outputs[1] = ""
+        outputs[2] = "Image width and height must be positive"
+        return
+    end
+
+    local x = tonumber(image.x) or 0
+    local y = tonumber(image.y) or 0
+    if x + width > atlasWidth then atlasWidth = x + width end
+    if y + height > atlasHeight then atlasHeight = y + height end
+    imageCount = imageCount + 1
 end
 
-if packedCount == 0 then
+if imageCount == 0 then
     outputs[1] = ""
-    outputs[2] = "No packed rects to build atlas from"
+    outputs[2] = "No images to build atlas from"
     return
 end
 
 local created, createError = callImage("create", { width = atlasWidth, height = atlasHeight })
-if created == nil then
+if created == nil or created.handle == nil then
     outputs[1] = ""
-    outputs[2] = createError
+    outputs[2] = createError or "Failed to create atlas image handle"
     return
 end
 
 local atlasHandle = created.handle
 
-for _, rect in ipairs(packedRects) do
-    if type(rect) == "table" and rect.packed then
-        local src = rect.src
-        if src == nil or src == "" then
-            closeHandle(atlasHandle)
-            outputs[1] = ""
-            outputs[2] = "Packed rect is missing src"
-            return
-        end
+for _, image in ipairs(images) do
+    local srcHandle = tonumber(image.handle)
+    if srcHandle == nil or srcHandle == 0 then
+        closeHandle(atlasHandle)
+        outputs[1] = ""
+        outputs[2] = "Image is missing handle"
+        return
+    end
 
-        local opened, openError = callImage("open", { path = src })
-        if opened == nil then
-            closeHandle(atlasHandle)
-            outputs[1] = ""
-            outputs[2] = openError
-            return
-        end
+    local blitted, blitError = callImage("blit", {
+        dst = atlasHandle,
+        src = srcHandle,
+        x = tonumber(image.x) or 0,
+        y = tonumber(image.y) or 0,
+    })
+    if blitted == nil then
+        closeHandle(atlasHandle)
+        outputs[1] = ""
+        outputs[2] = blitError
+        return
+    end
 
-        local blitted, blitError = callImage("blit", {
-            dst = atlasHandle,
-            src = opened.handle,
-            x = tonumber(rect.x) or 0,
-            y = tonumber(rect.y) or 0,
-        })
-        closeHandle(opened.handle)
-
-        if blitted == nil then
-            closeHandle(atlasHandle)
-            outputs[1] = ""
-            outputs[2] = blitError
-            return
-        end
-
-        local previousAtlasHandle = atlasHandle
-        atlasHandle = blitted.handle
-        closeHandle(previousAtlasHandle)
+    local nextAtlasHandle = blitted.handle or atlasHandle
+    if nextAtlasHandle ~= atlasHandle then
+        closeHandle(atlasHandle)
+        atlasHandle = nextAtlasHandle
     end
 end
 
-local encoded, encodeError = callImage("encode", { src = atlasHandle, path = outputPath, format = format })
-closeHandle(atlasHandle)
-
-if encoded == nil then
-    outputs[1] = ""
-    outputs[2] = encodeError
-    return
-end
-
-outputs[1] = encoded.path or outputPath
+outputs[1] = json.encode({
+    handle = atlasHandle,
+    width = atlasWidth,
+    height = atlasHeight,
+})
 outputs[2] = ""

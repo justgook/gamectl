@@ -1,41 +1,21 @@
 local mapName = inputs[1]
 if mapName == nil or mapName == "" then
 	outputs[1] = ""
-	outputs[2] = ""
-	outputs[3] = "map name is required"
+	outputs[2] = "map name is required"
 	return
 end
 
 local layerSelector = tonumber(inputs[2]) or 1
 if layerSelector < 1 then
 	outputs[1] = ""
-	outputs[2] = ""
-	outputs[3] = "layer index must be 1 or greater"
+	outputs[2] = "layer index must be 1 or greater"
 	return
 end
 layerSelector = math.floor(layerSelector)
 
-local outputPath = inputs[3]
-if outputPath == nil then
-	outputPath = ""
-end
-
-local format = inputs[4]
-if format == nil or format == "" then
-	local extension = outputPath:match("%.([^.\\/]+)$")
-	if extension ~= nil and extension ~= "" then
-		format = string.lower(extension)
-	else
-		format = "qoi"
-	end
-else
-	format = string.lower(format)
-end
-
 local function fail(message)
 	outputs[1] = ""
-	outputs[2] = ""
-	outputs[3] = message
+	outputs[2] = message
 end
 
 local function escapeSqlString(value)
@@ -60,6 +40,11 @@ local function callImage(method, payload)
 		return nil, response.message or response.code or ("image." .. method .. " failed")
 	end
 	return response, nil
+end
+
+local function closeHandle(handle)
+	if handle == nil or handle == 0 then return end
+	callImage("close", { src = handle })
 end
 
 local function base64Encode(bytes)
@@ -182,23 +167,14 @@ local written, writeErr = callImage("write_pixels", {
 	data = base64Encode(bytes),
 })
 if written == nil then
+	closeHandle(created.handle)
 	fail(writeErr or "Failed to write pixel data")
 	return
 end
 
 local handle = written.handle or created.handle
-local encodedPath = ""
-if outputPath ~= "" then
-	local encoded, encodeErr = callImage("encode", {
-		src = handle,
-		path = outputPath,
-		format = format,
-	})
-	if encoded == nil then
-		fail(encodeErr or "Failed to encode LUT image")
-		return
-	end
-	encodedPath = encoded.path or outputPath
+if handle ~= created.handle then
+	closeHandle(created.handle)
 end
 
 local metadata = {
@@ -212,10 +188,5 @@ local metadata = {
 	layerName = ((type(layer.props) == "table" and layer.props.name) or ("layer " .. tostring(layerSelector))),
 }
 
-if encodedPath ~= "" then
-	metadata.encodedPath = encodedPath
-end
-
 outputs[1] = json.encode(metadata)
-outputs[2] = encodedPath
-outputs[3] = ""
+outputs[2] = ""

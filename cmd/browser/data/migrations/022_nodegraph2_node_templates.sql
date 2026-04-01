@@ -13,7 +13,7 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
     (
         'LUT Generator',
         2,
-        '{"kind":2,"name":"LUT Generator","codePath":"local:/assets/ng/nodegraph2/lut-generator.lua","inputs":[{"inputId":1,"name":"mapName","defaultValue":"new_map"},{"inputId":2,"name":"layerIndex","defaultValue":"1"},{"inputId":3,"name":"outputPath","defaultValue":""},{"inputId":4,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"image+","value":""},{"outputId":2,"name":"encodedPath","value":""},{"outputId":3,"name":"error","value":""}]}'
+        '{"kind":2,"name":"LUT Generator","codePath":"local:/assets/ng/nodegraph2/lut-generator.lua","inputs":[{"inputId":1,"name":"mapName","defaultValue":"new_map"},{"inputId":2,"name":"layerIndex","defaultValue":"1"}],"outputs":[{"outputId":1,"name":"image+","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
         'World Tree Generator',
@@ -76,11 +76,6 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
         '{"kind":2,"name":"Image Open","codePath":"local:/assets/ng/nodegraph2/image-open.lua","inputs":[{"inputId":1,"name":"path","defaultValue":""}],"outputs":[{"outputId":1,"name":"image","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
-        'Image Info',
-        2,
-        '{"kind":2,"name":"Image Info","codePath":"local:/assets/ng/nodegraph2/image-info.lua","inputs":[{"inputId":1,"name":"path","defaultValue":""},{"inputId":2,"name":"id","defaultValue":""}],"outputs":[{"outputId":1,"name":"info","value":""},{"outputId":2,"name":"error","value":""}]}'
-    ),
-    (
         'Image FlipY',
         2,
         '{"kind":2,"name":"Image FlipY","codePath":"local:/assets/ng/nodegraph2/image-flipy.lua","inputs":[{"inputId":1,"name":"image","defaultValue":""}],"outputs":[{"outputId":1,"name":"image","value":""},{"outputId":2,"name":"error","value":""}]}'
@@ -93,7 +88,12 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
     (
         'Image Atlas',
         2,
-        '{"kind":2,"name":"Image Atlas","codePath":"local:/assets/ng/nodegraph2/image-atlas.lua","inputs":[{"inputId":1,"name":"packedRects","defaultValue":"[]"},{"inputId":2,"name":"outputPath","defaultValue":"/tmp/atlas.qoi"},{"inputId":3,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"outputPath","value":""},{"outputId":2,"name":"error","value":""}]}'
+        '{"kind":2,"name":"Image Atlas","codePath":"local:/assets/ng/nodegraph2/image-atlas.lua","inputs":[{"inputId":1,"name":"images","defaultValue":"[]"}],"outputs":[{"outputId":1,"name":"image","value":""},{"outputId":2,"name":"error","value":""}]}'
+    ),
+    (
+        'Image Write',
+        2,
+        '{"kind":2,"name":"Image Write","codePath":"local:/assets/ng/nodegraph2/image-write.lua","inputs":[{"inputId":1,"name":"image","defaultValue":""},{"inputId":2,"name":"path","defaultValue":"/tmp/image.qoi"},{"inputId":3,"name":"format","defaultValue":""}],"outputs":[{"outputId":1,"name":"path","value":""},{"outputId":2,"name":"error","value":""}]}'
     ),
     (
         'SQL Query',
