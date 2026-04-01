@@ -11,16 +11,6 @@ CREATE TABLE IF NOT EXISTS nodegraph2_node_templates (
 
 INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
     (
-        'tilemap sql parse demo',
-        2,
-        '{"kind":2,"name":"tilemap sql parse demo","codePath":"local:/assets/ng/nodegraph2/tilemap-sql-parse-demo.lua","inputs":[],"outputs":[{"outputId":1,"name":"items","value":""},{"outputId":2,"name":"stats","value":""}]}'
-    ),
-    (
-        'respack text demo',
-        2,
-        '{"kind":2,"name":"respack text demo","codePath":"local:/assets/ng/nodegraph2/respack-text-demo.lua","inputs":[],"outputs":[{"outputId":1,"name":"odin_source","value":""},{"outputId":2,"name":"status","value":""}]}'
-    ),
-    (
         'LUT Generator',
         2,
         '{"kind":2,"name":"LUT Generator","codePath":"local:/assets/ng/nodegraph2/lut-generator.lua","inputs":[{"inputId":1,"name":"mapName","defaultValue":"new_map"},{"inputId":2,"name":"layerIndex","defaultValue":"1"},{"inputId":3,"name":"outputPath","defaultValue":""},{"inputId":4,"name":"format","defaultValue":"qoi"}],"outputs":[{"outputId":1,"name":"image+","value":""},{"outputId":2,"name":"encodedPath","value":""},{"outputId":3,"name":"error","value":""}]}'
@@ -128,5 +118,5 @@ INSERT OR IGNORE INTO nodegraph2_node_templates (name, kind, data) VALUES
     (
         'Respack Generate Odin',
         2,
-        '{"kind":2,"name":"Respack Generate Odin","codePath":"local:/assets/ng/nodegraph2/respack-generate-odin.lua","inputs":[{"inputId":1,"name":"schema","defaultValue":""},{"inputId":2,"name":"packageName","defaultValue":"main"},{"inputId":3,"name":"outputFile","defaultValue":"/tmp/respack-decoder.odin"}],"outputs":[{"outputId":1,"name":"odinSource","value":""},{"outputId":2,"name":"outputFile","value":""},{"outputId":3,"name":"error","value":""}]}'
+        '{"kind":2,"name":"Respack Generate Odin","codePath":"local:/assets/ng/nodegraph2/respack-generate-odin.lua","inputs":[{"inputId":1,"name":"schema","defaultValue":""},{"inputId":2,"name":"outputFile","defaultValue":"/tmp/respack-decoder.odin"}],"outputs":[{"outputId":1,"name":"odinSource","value":""},{"outputId":2,"name":"outputFile","value":""},{"outputId":3,"name":"error","value":""}]}'
     );

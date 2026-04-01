@@ -10,13 +10,10 @@ temp_string_slots: [TEMP_STRING_SLOTS][TEMP_STRING_CAPACITY]u8
 temp_string_lens: [TEMP_STRING_SLOTS]int
 temp_string_index: int
 
-build_odin_decoder :: proc(package_name: string) -> (string, string) {
+build_odin_decoder :: proc() -> (string, string) {
 	codegen_len = 0
 	temp_string_index = 0
-	resolved_package := package_name
-	if resolved_package == "" {
-		resolved_package = schema_odin_package()
-	}
+	resolved_package := schema_odin_package()
 	resolved_package = sanitize_identifier(resolved_package)
 	if resolved_package == "" {
 		resolved_package = "respack_generated"

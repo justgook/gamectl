@@ -389,7 +389,7 @@ async function main() {
   const dumpBytes = await call(runtime, 'dump')
   const savedDumpPath = path.join(tempDir, 'saved_payload.bin')
   await call(runtime, 'dump_to_file', savedDumpPath)
-  const sourceBytes = await call(runtime, 'generate_odin', 'main')
+  const sourceBytes = await call(runtime, 'generate_odin', '')
   const source = new TextDecoder().decode(sourceBytes)
   const savedDumpBytes = await fs.readFile(savedDumpPath)
 
@@ -427,8 +427,8 @@ async function main() {
   if (game2Info.version !== 1) {
     throw new Error(`unexpected game2 dump version ${game2Info.version}`)
   }
-  if (game2Info.slotCount !== 3) {
-    throw new Error(`expected 3 slots in game2 dump, got ${game2Info.slotCount}`)
+  if (game2Info.slotCount !== 5) {
+    throw new Error(`expected 5 slots in game2 dump, got ${game2Info.slotCount}`)
   }
   if (game2Info.slots[1].length !== atlasBytes.length + 4) {
     throw new Error(`expected atlas slot length ${atlasBytes.length + 4}, got ${game2Info.slots[1].length}`)
