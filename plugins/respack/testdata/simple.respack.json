@@ -1,5 +1,8 @@
 {
   "package": "respacktest",
+  "odin": {
+    "package": "main"
+  },
   "types": {
     "Vec2": {
       "type": "struct",

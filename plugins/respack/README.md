@@ -15,8 +15,8 @@ This Odin module exposes a minimal respack writer surface so we can plug the JS/
 4. `dump_to_file` — writes the current dump bytes to a file via the host `fs`
    plugin. Pass the destination path as the input string.
 5. `generate_odin` — emits an Odin decoder source file for the currently loaded
-   schema. If `odin.package` is present in the schema, that package is used by
-   default; passing a non-empty input string overrides it.
+   schema. If `odin.package` is present in the schema, that package is used;
+   otherwise the generated decoder falls back to `respack_generated`.
 
 Example usage from the browser runtime:
 

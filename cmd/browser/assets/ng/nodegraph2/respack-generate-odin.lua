@@ -6,10 +6,7 @@ if schemaJson == nil or schemaJson == "" then
     return
 end
 
-local packageName = inputs[2]
-if packageName == nil or packageName == "" then packageName = "main" end
-
-local outputFile = inputs[3]
+local outputFile = inputs[2]
 if outputFile == nil then outputFile = "" end
 
 local function safeAwait(service, method, payload)
@@ -28,7 +25,7 @@ if not okInit then
     return
 end
 
-local okGenerate, odinSource = safeAwait("respack", "generate_odin", packageName)
+local okGenerate, odinSource = safeAwait("respack", "generate_odin", "")
 if not okGenerate then
     outputs[1] = ""
     outputs[2] = ""
