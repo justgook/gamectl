@@ -2,8 +2,6 @@ package main
 
 import "core:c"
 import "host"
-import sprite "render/sprite"
-import tilemap "render/tilemap"
 import sg "sokol/gfx"
 import qoi "third_party/qoi"
 import "world"
@@ -20,13 +18,11 @@ ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
 
 State :: struct {
-	world:            world.World,
-	atlas:            sg.Image,
-	lut:              sg.Image,
-	sprite_renderer:  sprite.Renderer,
-	tilemap_renderer: tilemap.Renderer,
-	pass_action:      sg.Pass_Action,
-	mouse_y:          f32,
+	world:       world.World,
+	atlas:       sg.Image,
+	lut:         sg.Image,
+	pass_action: sg.Pass_Action,
+	mouse_y:     f32,
 }
 
 state: State
@@ -85,8 +81,6 @@ app_cleanup :: proc() {
 	world.cleanup(&state.world)
 	host.info("app", "cleanup")
 
-	tilemap.shutdown(&state.tilemap_renderer)
-	sprite.shutdown(&state.sprite_renderer)
 	if state.lut.id != 0 {
 		sg.destroy_image(state.lut)
 		state.lut = {}

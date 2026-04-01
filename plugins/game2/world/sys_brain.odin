@@ -28,7 +28,7 @@ Input :: bit_set[InputSet;u8]
 
 sys_brain :: proc(w: ^World) {
 	view := logic.view(&w.brain, &w.position, &w.input)
-	for entity, brain, pos, input in logic.each(&view) {
+	for _, brain, pos, input in logic.each(&view) {
 		if brain^ == 0 {
 			w.player1 = input
 

@@ -19,6 +19,7 @@ TAR ?= tar
 PYTHON3 ?= python3
 ODIN ?= odin
 ODIN_BUILD_FLAGS ?=
+VET_PACKAGES ?= main,host,world,logic,grid,shape,sprite,tilemap,qoi
 
 .DEFAULT_GOAL := help
 
@@ -87,10 +88,14 @@ endif
 .PHONY: help
 help:
 	$(Q)printf '%s\n' \
+	  'Usage: make <target>' \
+	  '' \
 	  'Targets:' \
+	  '  help            Show this help message' \
 	  '  deps            Download/update sokol-odin bindings and sokol-shdc' \
 	  '  sokol-bindings  Download/update local sokol-odin bindings' \
 	  '  sokol-tools     Download/update local sokol-shdc binaries' \
+	  '  lint            Run Odin checks with warnings as errors' \
 	  '  plugin          Build embeddable freestanding game2.wasm via root Makefile' \
 	  '  native          Build native game2 executable' \
 	  '  native-release  Build optimized native game2 executable' \
@@ -209,6 +214,28 @@ web: plugin | $(WEB_DIR)
 .PHONY: serve
 serve: web
 	$(Q)$(PYTHON3) -m http.server 8812 --directory "$(WEB_DIR)"
+
+# fmt.tprintf("-vet-packages:%s", vet_packages),
+# 				-vet-unused-procedures \
+# 		-strict-target-features \
+
+.PHONY: lint
+lint:
+	$(Q)$(ODIN_NATIVE_ENV) $(ODIN) check . \
+		-disallow-do \
+		-strict-style \
+		-vet-cast \
+		-vet-packages:$(VET_PACKAGES) \
+		-vet-semicolon \
+		-vet-shadowing \
+		-vet-style \
+		-vet-unused \
+		-vet-unused-imports \
+		-vet-unused-procedures \
+		-vet-unused-variables \
+		-vet-using-param \
+		-vet-using-stmt \
+		-warnings-as-errors 
 
 .PHONY: clean
 clean:

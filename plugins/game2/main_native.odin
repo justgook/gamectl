@@ -4,7 +4,6 @@
 
 package main
 
-import runtime "base:runtime"
 import "host"
 import sapp "sokol/app"
 
