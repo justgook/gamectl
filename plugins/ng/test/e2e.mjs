@@ -75,7 +75,8 @@ class NgRuntime {
         ng_on_goal_reached: (goalNodeId, payloadPtr, payloadLen) => {
           if (!runtime) return
           const bytes = new Uint8Array(runtime.memory.buffer, Number(payloadPtr), Number(payloadLen))
-          runtime.goalPayloads.push({ goalNodeId: Number(goalNodeId), payload: new TextDecoder().decode(bytes) })
+          const payloadText = new TextDecoder().decode(bytes)
+          runtime.goalPayloads.push({ goalNodeId: Number(goalNodeId), payloadText, payload: payloadText ? JSON.parse(payloadText) : null })
         },
         ng_host_resolve: (nodeId, resolveKind, reqPtr, reqLen, outPtr, outCap, outLenPtr) => {
           if (!runtime) return 7
@@ -196,6 +197,7 @@ async function main() {
 
   assert(runtime.call('ng_input_add', 1, 1) === 0, 'goal input add failed')
   assert(runtime.call('ng_input_add', 1, 2) === 0, 'goal second input add failed')
+  assert(runtime.call('ng_input_add', 1, 3) === 0, 'goal third input add failed')
   assert(runtime.call('ng_output_add', 2, 1) === 0, 'value output add failed')
   assert(runtime.call('ng_output_add', 2, 2) === 0, 'value second output add failed')
   assert(runtime.call('ng_input_add', 3, importPortId(11, 1)) === 0, 'import input A add failed')
@@ -213,7 +215,7 @@ async function main() {
   const imp = runtime.nodeById(3)
 
   assert(goal.kind === NG.NODE_GOAL, 'goal kind mismatch')
-  assert(goal.inputCount === 2, 'goal input count mismatch')
+  assert(goal.inputCount === 3, 'goal input count mismatch')
   assert(value.kind === NG.NODE_VALUE, 'value kind mismatch')
   assert(value.outputCount === 2, 'value output count mismatch')
   assert(imp.kind === NG.NODE_CALL, 'import kind mismatch')
@@ -222,8 +224,11 @@ async function main() {
   const rc = runtime.call('ng_run_goal', 1)
   assert(rc === 0, `run goal failed with ${rc}`)
   assert(runtime.goalPayloads.length === 1, 'expected one goal callback')
-  assert(runtime.goalPayloads[0].payload.includes('subA:value:2:1'), 'goal payload should resolve imported port A from parent connection')
-  assert(runtime.goalPayloads[0].payload.includes('subB:fallback-b'), 'goal payload should resolve imported port B from default')
+  assert(runtime.goalPayloads[0].goalNodeId === 1, 'goal callback should target goal node 1')
+  assert(runtime.goalPayloads[0].payload?.id === 1, 'goal payload should include goal id')
+  assert(runtime.goalPayloads[0].payload?.inputs?.['1'] === 'subA:value:2:1', 'goal payload should resolve imported port A from parent connection')
+  assert(runtime.goalPayloads[0].payload?.inputs?.['2'] === 'subB:fallback-b', 'goal payload should resolve imported port B from default')
+  assert(runtime.goalPayloads[0].payload?.inputs?.['3'] === null, 'goal payload should include null for disconnected inputs')
 
   const importState = runtime.call('ng_get_node_exec_state', 3)
   assert(importState === 1, 'import node should finish successfully')
@@ -234,6 +239,7 @@ async function main() {
   assert(runtime.call('ng_node_create', 3, NG.NODE_CALL) === 0, 'second import create failed')
   assert(runtime.call('ng_input_add', 1, 1) === 0, 'second goal input add failed')
   assert(runtime.call('ng_input_add', 1, 2) === 0, 'second goal second input add failed')
+  assert(runtime.call('ng_input_add', 1, 3) === 0, 'second goal third input add failed')
   assert(runtime.call('ng_output_add', 3, importPortId(13, 1)) === 0, 'second import output A add failed')
   assert(runtime.call('ng_output_add', 3, importPortId(13, 2)) === 0, 'second import output B add failed')
   assert(runtime.call('ng_node_set_arg', 3, 0, 1, 99, 0) === 0, 'second import graph id set failed')
@@ -243,8 +249,11 @@ async function main() {
   const rcDefault = runtime.call('ng_run_goal', 1)
   assert(rcDefault === 0, `default import run failed with ${rcDefault}`)
   assert(runtime.goalPayloads.length === 1, 'expected one default goal callback')
-  assert(runtime.goalPayloads[0].payload.includes('subA:fallback-a'), 'goal payload should use imported default value for A when disconnected')
-  assert(runtime.goalPayloads[0].payload.includes('subB:fallback-b'), 'goal payload should use imported default value for B when disconnected')
+  assert(runtime.goalPayloads[0].goalNodeId === 1, 'default goal callback should target goal node 1')
+  assert(runtime.goalPayloads[0].payload?.id === 1, 'default goal payload should include goal id')
+  assert(runtime.goalPayloads[0].payload?.inputs?.['1'] === 'subA:fallback-a', 'goal payload should use imported default value for A when disconnected')
+  assert(runtime.goalPayloads[0].payload?.inputs?.['2'] === 'subB:fallback-b', 'goal payload should use imported default value for B when disconnected')
+  assert(runtime.goalPayloads[0].payload?.inputs?.['3'] === null, 'default goal payload should include null for disconnected inputs')
 
   console.log('ng e2e ok')
 }

@@ -567,8 +567,8 @@ class ViewNodeGraph2 extends ViewCanvasBase {
             this.requestRenderIfGenerationChanged(true);
           },
           ng_on_goal_reached: (goalNodeId, payloadPtr, payloadLen) => {
-            const raw = this.readUtf8(payloadPtr, payloadLen).trim();
-            const msg = raw || `Goal #${goalNodeId} reached.`;
+            const payload = this.readUtf8(payloadPtr, payloadLen);
+            const msg = this._formatGoalReachedToast(goalNodeId, payload);
             const short = msg.length > 240 ? `${msg.slice(0, 239)}…` : msg;
             toast.info(short);
           },
@@ -736,6 +736,37 @@ class ViewNodeGraph2 extends ViewCanvasBase {
   readUtf8(ptr, len) {
     if (!this.memory || ptr <= 0 || len <= 0) return "";
     return this.td.decode(new Uint8Array(this.memory.buffer, ptr, len));
+  }
+
+  _formatGoalReachedToast(goalNodeId, payloadText) {
+    const fallbackId = Number(goalNodeId) || 0;
+    let payload = null;
+    try {
+      payload = payloadText ? JSON.parse(payloadText) : null;
+    } catch {
+      const raw = String(payloadText || "").trim();
+      return raw || `Goal #${fallbackId} reached.`;
+    }
+    console.log("[ng]", payload)
+
+    const payloadId = Number(payload?.id || 0);
+    const displayId = payloadId > 0 ? payloadId : fallbackId;
+    const inputs = payload && typeof payload.inputs === "object" && payload.inputs ? payload.inputs : {};
+    const parts = Object.keys(inputs)
+      .sort((a, b) => Number(a) - Number(b))
+      .map((portId) => `${portId}=${this._formatGoalReachedValue(inputs[portId])}`);
+    return parts.length ? `Goal #${displayId} reached: ${parts.join("; ")}` : `Goal #${displayId} reached.`;
+  }
+
+  _formatGoalReachedValue(value) {
+    if (value === null || value === undefined) return "null";
+    if (typeof value === "string") return JSON.stringify(value);
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
   }
 
   _readRuntimeIoMessage(maxLen = 240) {
