@@ -32,6 +32,7 @@ APP_DIR ?= ./example/cmd/game
 ASSETS_DIR ?= example/assets
 
 BUILD_DIR ?= build.nosync
+CLI_DIR ?= cmd/cli
 NATIVE_DIR ?= cmd/native
 NATIVE_ASSETS_DIR ?= $(NATIVE_DIR)/assets
 NATIVE_OUTPUT_DIR ?= $(BUILD_DIR)/macos
@@ -247,6 +248,14 @@ browser: $(PLUGIN_TARGETS)
 browser-run: browser $(PLUGIN_TARGETS)
 	$(Q)echo "Starting GAMS Browser IDE..."
 	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
+
+.PHONY: cli
+cli: plugins-release
+	$(Q)(cd $(CLI_DIR) && go build -o ../../$(BUILD_DIR)/gams .)
+
+.PHONY: cli-run
+cli-run: cli
+	$(Q)$(BUILD_DIR)/gams
 
 .PHONY: native-dev
 native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)
