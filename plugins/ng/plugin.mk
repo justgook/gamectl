@@ -1,6 +1,10 @@
 PLUGIN_ZIG_WASM_TARGET := wasm32-wasi
 PLUGIN_ZIG_C_COMPILER := cc
-PLUGIN_ZIG_MCPU := lime1+exception_handling
+PLUGIN_ZIG_MCPU := lime1
+
+NG_BUILD_DIR := $(PLUGIN_DIR)/ng/build
+NG_LUA_MODERN_A := $(NG_BUILD_DIR)/lua54-wasi-modern.a
+NG_LUA_MODERN_O := $(NG_BUILD_DIR)/lua54-wasi-modern.o
 
 NG_LUA_DIR := $(PLUGIN_DIR)/ng/vendor/lua
 NG_LUA_SRCS := \
@@ -33,15 +37,12 @@ NG_LUA_SRCS := \
 
 PLUGIN_C_SOURCES := \
   $(PLUGIN_DIR)/ng/main.c \
-  $(PLUGIN_DIR)/ng/shim/wasm_setjmp_shim.c \
   $(NG_LUA_SRCS)
 
 PLUGIN_CFLAGS := \
   -O2 \
-  -fwasm-exceptions \
-  -mllvm -wasm-enable-sjlj \
   -Dl_signalT=int \
-  -D__WASM_SJLJ__ \
+  -DNG_LUA_NO_UNWIND \
   -I$(NG_LUA_DIR)
 
 PLUGIN_LDFLAGS := \
@@ -68,12 +69,15 @@ PLUGIN_LDFLAGS := \
   -Wl,--export=ng_run_cancel \
   -Wl,--export=ng_exec_clear \
   -Wl,--export=ng_exec_clear_all \
-  -Wl,--export=ng_get_last_error \
-  -Wl,--export=ng_get_io_ptr \
-  -Wl,--export=ng_get_io_len \
-  -Wl,--export=ng_get_node_exec_state
+	-Wl,--export=ng_get_last_error \
+	-Wl,--export=ng_get_io_ptr \
+	-Wl,--export=ng_get_io_len \
+	-Wl,--export=ng_get_node_exec_state \
+	-Wl,--export=run
 
 PLUGIN_EXTRA_DEPS := \
+  $(PLUGIN_DIR)/ng/scripts/build-lua-modern.sh \
   $(PLUGIN_DIR)/ng/ng.h \
+  $(NG_LUA_SRCS) \
   $(wildcard $(PLUGIN_DIR)/ng/shim/*.h) \
   $(wildcard $(NG_LUA_DIR)/*.h)

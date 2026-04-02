@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
@@ -26,10 +29,11 @@ func newRunCommand(a *app) *cobra.Command {
 				return err
 			}
 
-			runtime, err := a.newRuntime()
+			runtime, modules, bootstrap, err := a.prepareRuntimeForRun(pluginName)
 			if err != nil {
 				return err
 			}
+			defer runtime.Close()
 
 			if _, err := runtime.PluginPath(pluginName); err != nil {
 				return err
@@ -39,11 +43,23 @@ func newRunCommand(a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if a.config.Runtime.SaveDatabaseOnExit {
+				if err := a.saveDatabase(runtime); err != nil {
+					return err
+				}
+			}
 
 			return a.printJSON(map[string]any{
 				"plugin":   pluginName,
 				"function": functionName,
-				"result":   result,
+				"modules":  modules,
+				"database": bootstrap,
+				"result": map[string]any{
+					"return_code":   result.ReturnCode,
+					"output_base64": base64.StdEncoding.EncodeToString(result.Output),
+					"output_text":   outputText(result.Output),
+					"output_json":   outputJSON(result.Output),
+				},
 			})
 		}),
 	}
@@ -85,4 +101,25 @@ func resolveInput(input, inputFile string, useStdin bool) ([]byte, error) {
 
 func ioReadAll(file *os.File) ([]byte, error) {
 	return io.ReadAll(file)
+}
+
+func outputText(data []byte) any {
+	if len(data) == 0 {
+		return ""
+	}
+	if !utf8.Valid(data) {
+		return nil
+	}
+	return string(data)
+}
+
+func outputJSON(data []byte) any {
+	if len(data) == 0 || !utf8.Valid(data) {
+		return nil
+	}
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return nil
+	}
+	return value
 }

@@ -310,7 +310,11 @@
 
 #else				/* }{ */
 
+#if defined(__cplusplus)
+#define LUA_API		extern "C"
+#else
 #define LUA_API		extern
+#endif
 
 #endif				/* } */
 
@@ -319,13 +323,30 @@
 ** More often than not the libs go together with the core.
 */
 #define LUALIB_API	LUA_API
-
-#if defined(__cplusplus)
-/* Lua uses the "C name" when calling open functions */
-#define LUAMOD_API	extern "C"
-#else
 #define LUAMOD_API	LUA_API
+
+
+/*
+@@ LUAI_FUNC is a mark for all extern functions that are not to be
+** exported to outside modules.
+@@ LUAI_DDEF and LUAI_DDEC are marks for all extern (const) variables,
+** none of which to be exported to outside modules (LUAI_DDEF for
+** definitions and LUAI_DDEC for declarations).
+*/
+#if defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
+    defined(__ELF__)		/* { */
+#define LUAI_FUNC	__attribute__((visibility("internal"))) extern
+#define LUAI_DDEC(dec)	__attribute__((visibility("internal"))) extern dec
+#define LUAI_DDEF	__attribute__((visibility("internal")))
+#else				/* }{ */
+#if defined(__cplusplus)
+#define LUAI_FUNC	extern "C"
+#else
+#define LUAI_FUNC	extern
 #endif
+#define LUAI_DDEC(dec)	LUAI_FUNC dec
+#define LUAI_DDEF	/* empty */
+#endif				/* } */
 
 /* }================================================================== */
 
@@ -742,4 +763,3 @@
 
 
 #endif
-

@@ -1,0 +1,12 @@
+aliases:
+    query: run sql query --input
+logging:
+    level: info
+paths:
+    database: database.sqlite
+    migrations: cmd/browser/data/migrations
+    plugins: build.nosync/plugins
+    workdir: .
+runtime:
+    load_global_plugins: true
+    save_database_on_exit: true

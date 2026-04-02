@@ -23,6 +23,7 @@
 #/aseprite/
 /build/
 /build.nosync/
+/plugins/ng/build/
 *.wasm
 /tools/opr-import/opr-import
 /game2-*.png

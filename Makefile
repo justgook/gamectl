@@ -240,6 +240,12 @@ $(BUILD_DIR)/plugins/%.wasm: | $(BUILD_DIR)/plugins
 			-femit-bin=$@; \
 	fi
 
+plugins/ng/build/lua54-wasi-modern.a plugins/ng/build/lua54-wasi-modern.o: plugins/ng/scripts/build-lua-modern.sh $(wildcard plugins/ng/vendor/lua/*.c) $(wildcard plugins/ng/vendor/lua/*.h)
+	$(Q)bash ./plugins/ng/scripts/build-lua-modern.sh
+
+.PHONY: ng-lua-modern
+ng-lua-modern: plugins/ng/build/lua54-wasi-modern.a plugins/ng/build/lua54-wasi-modern.o
+
 .PHONY: browser
 browser: $(PLUGIN_TARGETS)
 	$(Q)go build -o $(BUILD_DIR)/browser-server ./cmd/browser/server.go
