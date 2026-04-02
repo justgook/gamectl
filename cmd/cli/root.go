@@ -6,8 +6,9 @@ func newRootCommand() *cobra.Command {
 	a := newApp()
 
 	cmd := &cobra.Command{
-		Use:   "gams",
-		Short: "Headless GAMS runtime",
+		Use:          "gams",
+		Short:        "Headless GAMS runtime",
+		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Name() == "help" {
 				return nil

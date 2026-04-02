@@ -1,8 +1,7 @@
 package main
 
 import (
-	"os"
-
+	"github.com/justgook/gams/pkg/wasmhost"
 	"github.com/spf13/cobra"
 )
 
@@ -14,30 +13,23 @@ func newDBCommand(a *app) *cobra.Command {
 
 	dbCmd.AddCommand(&cobra.Command{
 		Use:   "migrate",
-		Short: "Validate database and migration inputs for CLI bootstrap",
+		Short: "Bootstrap the SQLite database and apply pending migrations",
 		RunE: withAppRun(a, func(cmd *cobra.Command, args []string) error {
-			databaseExists := false
-			if _, err := os.Stat(a.paths.Database); err == nil {
-				databaseExists = true
-			} else if !os.IsNotExist(err) {
+			runtime, err := a.newRuntime(wasmhost.ModuleConfig{Name: "sql", Source: "local:/plugins/sql.wasm"})
+			if err != nil {
 				return err
 			}
+			defer runtime.Close()
 
-			migrationIndex := a.paths.Migrations + string(os.PathSeparator) + "index.json"
-			if _, err := os.Stat(migrationIndex); err != nil {
+			status, err := a.bootstrapDatabase(runtime)
+			if err != nil {
 				return err
 			}
 
 			return a.printJSON(map[string]any{
-				"database": map[string]any{
-					"path":   a.paths.Database,
-					"exists": databaseExists,
-				},
-				"migrations": map[string]any{
-					"path":  a.paths.Migrations,
-					"index": migrationIndex,
-				},
-				"status": "bootstrap validation complete; migration runtime not implemented yet",
+				"database":   status,
+				"migrations": a.paths.Migrations,
+				"saved":      a.config.Runtime.SaveDatabaseOnExit,
 			})
 		}),
 	})

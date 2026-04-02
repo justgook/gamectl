@@ -10,7 +10,9 @@
 #include "lprefix.h"
 
 
+#if !defined(__cplusplus) && !defined(NG_LUA_NO_UNWIND)
 #include <setjmp.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -57,56 +59,58 @@
 ** =======================================================
 */
 
-/* chained list of long jump buffers */
-typedef struct lua_longjmp {
-  struct lua_longjmp *previous;
-  jmp_buf b;
-  volatile TStatus status;  /* error code */
-} lua_longjmp;
-
-
 /*
 ** LUAI_THROW/LUAI_TRY define how Lua does exception handling. By
 ** default, Lua handles errors with exceptions when compiling as
-** C++ code, with _longjmp/_setjmp when available (POSIX), and with
+** C++ code, with _longjmp/_setjmp when asked to use them, and with
 ** longjmp/setjmp otherwise.
 */
 #if !defined(LUAI_THROW)				/* { */
 
-#if defined(__cplusplus) && !defined(LUA_USE_LONGJMP)	/* { */
+#if defined(NG_LUA_NO_UNWIND)
+
+/*
+** Experimental WASM path without setjmp/longjmp support.
+** Successful protected calls still work; any Lua error aborts the module.
+*/
+#define LUAI_THROW(L,c) do { (c)->status = 1; abort(); } while (0)
+#define LUAI_TRY(L,c,a) do { a } while (0)
+#define luai_jmpbuf		int  /* dummy variable */
+
+#elif defined(__cplusplus) && !defined(LUA_USE_LONGJMP)	/* { */
 
 /* C++ exceptions */
 #define LUAI_THROW(L,c)		throw(c)
-
-static void LUAI_TRY (lua_State *L, lua_longjmp *c, Pfunc f, void *ud) {
-  try {
-    f(L, ud);  /* call function protected */
-  }
-  catch (lua_longjmp *c1) { /* Lua error */
-    if (c1 != c)  /* not the correct level? */
-      throw;  /* rethrow to upper level */
-  }
-  catch (...) {  /* non-Lua exception */
-    c->status = -1;  /* create some error code */
-  }
-}
-
+#define LUAI_TRY(L,c,a) \
+	try { a } catch(...) { if ((c)->status == 0) (c)->status = -1; }
+#define luai_jmpbuf		int  /* dummy variable */
 
 #elif defined(LUA_USE_POSIX)				/* }{ */
 
-/* in POSIX, use _longjmp/_setjmp (more efficient) */
+/* in POSIX, try _longjmp/_setjmp (more efficient) */
 #define LUAI_THROW(L,c)		_longjmp((c)->b, 1)
-#define LUAI_TRY(L,c,f,ud)	if (_setjmp((c)->b) == 0) ((f)(L, ud))
+#define LUAI_TRY(L,c,a)		if (_setjmp((c)->b) == 0) { a }
+#define luai_jmpbuf		jmp_buf
 
 #else							/* }{ */
 
 /* ISO C handling with long jumps */
 #define LUAI_THROW(L,c)		longjmp((c)->b, 1)
-#define LUAI_TRY(L,c,f,ud)	if (setjmp((c)->b) == 0) ((f)(L, ud))
+#define LUAI_TRY(L,c,a)		if (setjmp((c)->b) == 0) { a }
+#define luai_jmpbuf		jmp_buf
 
 #endif							/* } */
 
 #endif							/* } */
+
+
+
+/* chain list of long jump buffers */
+typedef struct lua_longjmp {
+  struct lua_longjmp *previous;
+  luai_jmpbuf b;
+  volatile int status;  /* error code */
+} lua_longjmp;
 
 
 void luaD_seterrorobj (lua_State *L, TStatus errcode, StkId oldtop) {
@@ -163,7 +167,9 @@ TStatus luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud) {
   lj.status = LUA_OK;
   lj.previous = L->errorJmp;  /* chain new error handler */
   L->errorJmp = &lj;
-  LUAI_TRY(L, &lj, f, ud);  /* call 'f' catching errors */
+  LUAI_TRY(L, &lj,
+    (*f)(L, ud);
+  );
   L->errorJmp = lj.previous;  /* restore old error handler */
   L->nCcalls = oldnCcalls;
   return lj.status;
@@ -1160,5 +1166,3 @@ TStatus luaD_protectedparser (lua_State *L, ZIO *z, const char *name,
   decnny(L);
   return status;
 }
-
-

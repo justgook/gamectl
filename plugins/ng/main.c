@@ -147,6 +147,19 @@ static ng_i32 ng_build_exec_graph(void);
 static ng_u32 ng_import_boundary_port_id(ng_u32 node_id, ng_u32 port_id);
 static int lua_host_await_call_cont(lua_State *L, int status, lua_KContext ctx);
 
+#if defined(__wasm__)
+extern ng_u32 pdk_input_ptr(void)
+    __attribute__((import_module("env"), import_name("input_ptr")));
+extern ng_u32 pdk_input_len(void)
+    __attribute__((import_module("env"), import_name("input_len")));
+extern void pdk_set_output(ng_u32 ptr, ng_u32 len)
+    __attribute__((import_module("env"), import_name("set_output")));
+#else
+extern ng_u32 pdk_input_ptr(void);
+extern ng_u32 pdk_input_len(void);
+extern void pdk_set_output(ng_u32 ptr, ng_u32 len);
+#endif
+
 static void ng_sb_init(NgStrBuf *sb) {
   sb->buf = NULL;
   sb->len = 0;
@@ -3035,6 +3048,28 @@ ng_i32 ng_get_node_exec_state(ng_u32 node_id) {
   if (node == NULL)
     return -1;
   return (ng_i32)node->exec_state;
+}
+
+ng_i32 run(void) {
+  const char *input = "";
+  ng_u32 input_len = pdk_input_len();
+  ng_u32 input_ptr = pdk_input_ptr();
+  int written;
+  if (input_ptr != 0 && input_len > 0) {
+    input = (const char *)(uintptr_t)input_ptr;
+  }
+  written = snprintf(g_resp_buf, sizeof(g_resp_buf),
+                     "{\"success\":true,\"status\":\"placeholder\",\"graph\":\"%.*s\"}",
+                     (int)input_len, input);
+  if (written < 0) {
+    return NG_ERR_RUNTIME;
+  }
+  if ((size_t)written >= sizeof(g_resp_buf)) {
+    written = (int)sizeof(g_resp_buf) - 1;
+    g_resp_buf[written] = '\0';
+  }
+  pdk_set_output((ng_u32)(uintptr_t)g_resp_buf, (ng_u32)written);
+  return NG_OK;
 }
 
 int main(void) { return 0; }

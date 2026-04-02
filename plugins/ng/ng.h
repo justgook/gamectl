@@ -19,6 +19,10 @@ typedef __UINT8_TYPE__ ng_u8;
 #define NG_IMPORT(name)
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* ---- Capacity constants ---------------------------------------------- */
 
 #define NG_MAX_NODES 1024
@@ -273,6 +277,11 @@ ng_i32 ng_io_clear(void);
 NG_EXPORT("ng_get_node_exec_state")
 ng_i32 ng_get_node_exec_state(ng_u32 node_id);
 
+/* ---- CLI-safe exports ------------------------------------------------- */
+
+NG_EXPORT("run")
+ng_i32 run(void);
+
 /* ---- Host imports (implemented by host) ------------------------------ */
 
 /* compact event callbacks, no JSON */
@@ -304,5 +313,9 @@ ng_i32 ng_host_request(ng_u32 node_id, ng_u32 request_id, const char *service_pt
 
 #undef NG_EXPORT
 #undef NG_IMPORT
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* NG_H */
