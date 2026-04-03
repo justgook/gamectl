@@ -488,6 +488,9 @@ func (m *wasmtimeManager) loadWasmModule(module loadedModule) error {
 	if err != nil {
 		return fmt.Errorf("instantiate module %s: %w", module.Name, err)
 	}
+	if err := m.linker.DefineInstance(m.store, module.Name, instance); err != nil {
+		return fmt.Errorf("define module instance %s: %w", module.Name, err)
+	}
 	m.wasmModules[module.Name] = &wasmtimeModuleState{module: compiled, instance: instance}
 	return nil
 }
