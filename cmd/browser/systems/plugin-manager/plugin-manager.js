@@ -174,7 +174,14 @@ class PluginManager {
         this.pluginCallFunc(moduleName, modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen),
       plugin_call_return: () => this.pluginCallReturnFunc(),
       plugin_call_output_ptr: () => this.pluginCallOutputPtrFunc(),
-      plugin_call_output_len: () => this.pluginCallOutputLenFunc()
+      plugin_call_output_len: () => this.pluginCallOutputLenFunc(),
+
+      // Temporary ng host stubs, matching the CLI/runtime env surface
+      ng_on_node_changed: (_nodeId, _statePtr) => {},
+      ng_on_run_event: (_runId, _eventPtr, _eventLen) => {},
+      ng_on_goal_reached: (_runId, _goalPtr, _goalLen) => {},
+      ng_host_resolve: (_graphPtr, _graphLen, _nodePtr, _nodeLen, _keyPtr, _keyLen, _outPtr) => 7,
+      ng_host_request: (_graphPtr, _graphLen, _nodePtr, _nodeLen, _reqPtr, _reqLen, _outPtr, _outLen) => 7
     };
 
     // Add WASI support (comprehensive polyfill for WASI plugins like SQLite3)

@@ -132,7 +132,7 @@ export class PluginManagerProxy {
 
     const resolved = await this.resolvePlugin(opts.name)
     const wasmBytes = await this.readPluginWasmBytes(resolved.url)
-    const importObject = opts.importObject || {}
+    const importObject = this.createViewPluginImportObject(opts.importObject || {})
 
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject)
 
@@ -153,6 +153,31 @@ export class PluginManagerProxy {
 
     this.viewPluginInstances.set(id, handle)
     return handle
+  }
+
+  createViewPluginImportObject(importObject = {}) {
+    const env = {
+      alloc: () => 0,
+      free: () => {},
+      input_ptr: () => 0,
+      input_len: () => 0,
+      set_output: () => {},
+      plugin_call: () => 5,
+      plugin_call_return: () => 1,
+      plugin_call_output_ptr: () => 0,
+      plugin_call_output_len: () => 0,
+      ng_on_node_changed: () => {},
+      ng_on_run_event: () => {},
+      ng_on_goal_reached: () => {},
+      ng_host_resolve: () => 7,
+      ng_host_request: () => 7,
+      ...(importObject.env || {})
+    }
+
+    return {
+      ...importObject,
+      env
+    }
   }
 
   /**

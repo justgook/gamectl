@@ -1,5 +1,12 @@
 package wasmhost
 
+/*
+#include <stdbool.h>
+typedef struct wasm_config_t wasm_config_t;
+void wasmtime_config_wasm_exceptions_set(wasm_config_t*, bool);
+*/
+import "C"
+
 import (
 	"context"
 	"encoding/base64"
@@ -9,10 +16,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"unsafe"
 
-	"github.com/justgook/wpm/sdk"
+	wasmtime "github.com/bytecodealliance/wasmtime-go/v43"
 )
 
 type Config struct {
@@ -26,10 +35,18 @@ type ModuleConfig struct {
 	Source string
 }
 
+type HostFunction struct {
+	Module   string
+	Function string
+	Handler  ByteHandler
+}
+
+type ByteHandler func(input []byte) (int32, []byte)
+
 type Runtime struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
-	manager    sdk.PluginManager
+	manager    *wasmtimeManager
 	pluginsDir string
 	workdir    string
 	modules    []ModuleConfig
@@ -41,13 +58,18 @@ type CallResult struct {
 	Output     []byte `json:"output"`
 }
 
+type loadedModule struct {
+	Name     string
+	WasmData []byte
+}
+
 func New(cfg Config) (*Runtime, error) {
 	if cfg.PluginsDir == "" {
 		return nil, fmt.Errorf("plugins dir is required")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	runtime := &Runtime{
+	r := &Runtime{
 		ctx:        ctx,
 		cancel:     cancel,
 		pluginsDir: cfg.PluginsDir,
@@ -56,24 +78,19 @@ func New(cfg Config) (*Runtime, error) {
 		pluginPath: map[string]string{},
 	}
 
-	modules, err := runtime.loadModules()
+	modules, err := r.loadModules()
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 
-	manager, err := sdk.New(ctx, sdk.Config{
-		EnableWASI:    true,
-		EnvModuleName: "env",
-		MaxCallDepth:  32,
-	}, modules, runtime.hostFunctions())
+	manager, err := newWasmtimeManager(r, modules)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
-
-	runtime.manager = manager
-	return runtime, nil
+	r.manager = manager
+	return r, nil
 }
 
 func (r *Runtime) Close() error {
@@ -100,25 +117,7 @@ func (r *Runtime) Call(pluginName, functionName string, input []byte) (CallResul
 }
 
 func (r *Runtime) ListPlugins() ([]string, error) {
-	entries, err := os.ReadDir(r.pluginsDir)
-	if err != nil {
-		return nil, err
-	}
-
-	plugins := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if filepath.Ext(name) != ".wasm" {
-			continue
-		}
-		plugins = append(plugins, strings.TrimSuffix(name, ".wasm"))
-	}
-
-	sort.Strings(plugins)
-	return plugins, nil
+	return ListPlugins(r.pluginsDir)
 }
 
 func (r *Runtime) PluginPath(name string) (string, error) {
@@ -143,8 +142,8 @@ func (r *Runtime) pluginLocation(name string) (string, error) {
 	return path, nil
 }
 
-func (r *Runtime) loadModules() ([]sdk.Module, error) {
-	modules := make([]sdk.Module, 0, len(r.modules))
+func (r *Runtime) loadModules() ([]loadedModule, error) {
+	modules := make([]loadedModule, 0, len(r.modules))
 	for _, module := range r.modules {
 		if strings.TrimSpace(module.Name) == "" {
 			return nil, fmt.Errorf("module name is required")
@@ -158,9 +157,8 @@ func (r *Runtime) loadModules() ([]sdk.Module, error) {
 			return nil, fmt.Errorf("read plugin %s: %w", module.Name, err)
 		}
 		r.pluginPath[module.Name] = resolved
-		modules = append(modules, sdk.Module{Name: module.Name, WasmData: data})
+		modules = append(modules, loadedModule{Name: module.Name, WasmData: data})
 	}
-
 	return modules, nil
 }
 
@@ -186,17 +184,17 @@ func ListPlugins(pluginsDir string) ([]string, error) {
 	return plugins, nil
 }
 
-func (r *Runtime) hostFunctions() []sdk.HostFunction {
-	return []sdk.HostFunction{
-		{Module: "host", Function: "log", Handler: sdk.ByteHandler(r.hostLog)},
-		{Module: "fs", Function: "read", Handler: sdk.ByteHandler(r.fsRead)},
-		{Module: "fs", Function: "write", Handler: sdk.ByteHandler(r.fsWrite)},
-		{Module: "fs", Function: "delete", Handler: sdk.ByteHandler(r.fsDelete)},
-		{Module: "fs", Function: "exists", Handler: sdk.ByteHandler(r.fsExists)},
-		{Module: "fs", Function: "list", Handler: sdk.ByteHandler(r.fsList)},
-		{Module: "fs", Function: "mkdir", Handler: sdk.ByteHandler(r.fsMkdir)},
-		{Module: "fs", Function: "rmdir", Handler: sdk.ByteHandler(r.fsRmdir)},
-		{Module: "fs", Function: "stat", Handler: sdk.ByteHandler(r.fsStat)},
+func (r *Runtime) hostFunctions() []HostFunction {
+	return []HostFunction{
+		{Module: "host", Function: "log", Handler: r.hostLog},
+		{Module: "fs", Function: "read", Handler: r.fsRead},
+		{Module: "fs", Function: "write", Handler: r.fsWrite},
+		{Module: "fs", Function: "delete", Handler: r.fsDelete},
+		{Module: "fs", Function: "exists", Handler: r.fsExists},
+		{Module: "fs", Function: "list", Handler: r.fsList},
+		{Module: "fs", Function: "mkdir", Handler: r.fsMkdir},
+		{Module: "fs", Function: "rmdir", Handler: r.fsRmdir},
+		{Module: "fs", Function: "stat", Handler: r.fsStat},
 	}
 }
 
@@ -348,6 +346,418 @@ func (r *Runtime) resolveModuleSource(source string) (string, error) {
 	}
 }
 
+type wasmtimeCallContext struct {
+	moduleName string
+	inputPtr   uint32
+	inputLen   uint32
+	outputPtr  uint32
+	outputLen  uint32
+}
+
+type wasmtimeModuleState struct {
+	module   *wasmtime.Module
+	instance *wasmtime.Instance
+}
+
+type wasmtimeManager struct {
+	engine            *wasmtime.Engine
+	store             *wasmtime.Store
+	linker            *wasmtime.Linker
+	wasmModules       map[string]*wasmtimeModuleState
+	hostFunctionDefs  map[string]map[string]HostFunction
+	memoryOffsets     map[string]uint32
+	currentInputPtr   uint32
+	currentInputLen   uint32
+	currentOutputPtr  uint32
+	currentOutputLen  uint32
+	callStack         []*wasmtimeCallContext
+	lastCallReturn    int32
+	lastCallOutputPtr uint32
+	lastCallOutputLen uint32
+}
+
+func newWasmtimeManager(runtimeHost *Runtime, modules []loadedModule) (*wasmtimeManager, error) {
+	cfg := wasmtime.NewConfig()
+	enableWasmExceptions(cfg)
+	cfg.SetWasmReferenceTypes(true)
+	cfg.SetWasmMultiValue(true)
+	cfg.SetWasmFunctionReferences(true)
+	engine := wasmtime.NewEngineWithConfig(cfg)
+	store := wasmtime.NewStore(engine)
+	store.SetWasi(wasmtime.NewWasiConfig())
+	linker := wasmtime.NewLinker(engine)
+	if err := linker.DefineWasi(); err != nil {
+		return nil, err
+	}
+
+	m := &wasmtimeManager{
+		engine:           engine,
+		store:            store,
+		linker:           linker,
+		wasmModules:      map[string]*wasmtimeModuleState{},
+		hostFunctionDefs: map[string]map[string]HostFunction{},
+		memoryOffsets:    map[string]uint32{},
+	}
+
+	if err := m.setupHostFunctions(runtimeHost.hostFunctions()); err != nil {
+		m.Close()
+		return nil, err
+	}
+	for _, module := range modules {
+		if err := m.loadWasmModule(module); err != nil {
+			m.Close()
+			return nil, err
+		}
+	}
+	return m, nil
+}
+
+func (m *wasmtimeManager) setupHostFunctions(hostFunctions []HostFunction) error {
+	for _, fn := range hostFunctions {
+		if m.hostFunctionDefs[fn.Module] == nil {
+			m.hostFunctionDefs[fn.Module] = map[string]HostFunction{}
+		}
+		m.hostFunctionDefs[fn.Module][fn.Function] = fn
+		handler := fn.Handler
+		if err := m.linker.FuncWrap(fn.Module, fn.Function, func(c *wasmtime.Caller) int32 {
+			input, err := m.readCurrentInput(c)
+			if err != nil {
+				return 1
+			}
+			returnCode, output := handler(input)
+			m.currentOutputPtr = 0
+			m.currentOutputLen = 0
+			if len(output) > 0 {
+				moduleName, err := m.moduleNameForCaller(c)
+				if err != nil {
+					return 1
+				}
+				ptr, err := m.allocateForModule(moduleName, uint32(len(output)))
+				if err != nil {
+					return 1
+				}
+				if err := m.writeModuleMemory(moduleName, ptr, output); err != nil {
+					return 1
+				}
+				m.currentOutputPtr = ptr
+				m.currentOutputLen = uint32(len(output))
+			}
+			return returnCode
+		}); err != nil {
+			return err
+		}
+	}
+
+	defines := []struct {
+		module string
+		name   string
+		fn     interface{}
+	}{
+		{"env", "alloc", func(c *wasmtime.Caller, size int64) int32 { return int32(m.alloc(c, uint32(size))) }},
+		{"env", "free", func(int32) {}},
+		{"env", "input_ptr", func() int32 { return int32(m.currentInputPtr) }},
+		{"env", "input_len", func() int32 { return int32(m.currentInputLen) }},
+		{"env", "set_output", func(ptr int32, length int32) { m.currentOutputPtr = uint32(ptr); m.currentOutputLen = uint32(length) }},
+		{"env", "plugin_call", func(c *wasmtime.Caller, mp, ml, fp, fl, ip, il int32) int32 {
+			return m.pluginCall(c, uint32(mp), uint32(ml), uint32(fp), uint32(fl), uint32(ip), uint32(il))
+		}},
+		{"env", "plugin_call_return", func() int32 { return m.lastCallReturn }},
+		{"env", "plugin_call_output_ptr", func() int32 { return int32(m.lastCallOutputPtr) }},
+		{"env", "plugin_call_output_len", func() int32 { return int32(m.lastCallOutputLen) }},
+		{"env", "ng_on_node_changed", func(int32, int32) {}},
+		{"env", "ng_on_run_event", func(int32, int32, int32) {}},
+		{"env", "ng_on_goal_reached", func(int32, int32, int32) {}},
+		{"env", "ng_host_resolve", func(int32, int32, int32, int32, int32, int32, int32) int32 { return 7 }},
+		{"env", "ng_host_request", func(int32, int32, int32, int32, int32, int32, int32, int32) int32 { return 7 }},
+	}
+	for _, define := range defines {
+		if err := m.linker.FuncWrap(define.module, define.name, define.fn); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *wasmtimeManager) loadWasmModule(module loadedModule) error {
+	compiled, err := wasmtime.NewModule(m.engine, module.WasmData)
+	if err != nil {
+		return fmt.Errorf("compile module %s: %w", module.Name, err)
+	}
+	instance, err := m.linker.Instantiate(m.store, compiled)
+	if err != nil {
+		return fmt.Errorf("instantiate module %s: %w", module.Name, err)
+	}
+	m.wasmModules[module.Name] = &wasmtimeModuleState{module: compiled, instance: instance}
+	return nil
+}
+
+func (m *wasmtimeManager) Call(moduleName, functionName string, input []byte) (int32, []byte, error) {
+	return m.callWithContext(moduleName, functionName, input)
+}
+
+func (m *wasmtimeManager) callWithContext(moduleName, functionName string, input []byte) (int32, []byte, error) {
+	if _, ok := m.wasmModules[moduleName]; ok {
+		return m.callWasmFunction(moduleName, functionName, input)
+	}
+	if _, ok := m.hostFunctionDefs[moduleName]; ok {
+		return m.callHostFunction(moduleName, functionName, input)
+	}
+	return 0, nil, fmt.Errorf("module %s not found", moduleName)
+}
+
+func (m *wasmtimeManager) callWasmFunction(moduleName, functionName string, input []byte) (int32, []byte, error) {
+	state := m.wasmModules[moduleName]
+	if state == nil || state.instance == nil {
+		return 0, nil, fmt.Errorf("module %s not found", moduleName)
+	}
+
+	inputPtr := uint32(0)
+	if len(input) > 0 {
+		ptr, err := m.allocateForModule(moduleName, uint32(len(input)))
+		if err != nil {
+			return 0, nil, err
+		}
+		if err := m.writeModuleMemory(moduleName, ptr, input); err != nil {
+			return 0, nil, err
+		}
+		inputPtr = ptr
+	}
+
+	ctx := &wasmtimeCallContext{
+		moduleName: moduleName,
+		inputPtr:   m.currentInputPtr,
+		inputLen:   m.currentInputLen,
+		outputPtr:  m.currentOutputPtr,
+		outputLen:  m.currentOutputLen,
+	}
+	m.callStack = append(m.callStack, ctx)
+	defer func() {
+		m.callStack = m.callStack[:len(m.callStack)-1]
+		m.currentInputPtr = ctx.inputPtr
+		m.currentInputLen = ctx.inputLen
+		m.currentOutputPtr = ctx.outputPtr
+		m.currentOutputLen = ctx.outputLen
+	}()
+
+	m.currentInputPtr = inputPtr
+	m.currentInputLen = uint32(len(input))
+	m.currentOutputPtr = 0
+	m.currentOutputLen = 0
+
+	fn := state.instance.GetFunc(m.store, functionName)
+	if fn == nil {
+		return 0, nil, fmt.Errorf("function %s not found in module %s", functionName, moduleName)
+	}
+	result, err := fn.Call(m.store)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to call function %s: %w", functionName, err)
+	}
+
+	var returnValue int32
+	if result != nil {
+		switch v := result.(type) {
+		case int32:
+			returnValue = v
+		case int64:
+			returnValue = int32(v)
+		case uint32:
+			returnValue = int32(v)
+		case uint64:
+			returnValue = int32(v)
+		}
+	}
+	if m.currentOutputPtr == 0 || m.currentOutputLen == 0 {
+		return returnValue, []byte{}, nil
+	}
+	output, err := m.readModuleMemory(moduleName, m.currentOutputPtr, m.currentOutputLen)
+	if err != nil {
+		return 0, nil, err
+	}
+	return returnValue, output, nil
+}
+
+func (m *wasmtimeManager) callHostFunction(moduleName, functionName string, input []byte) (int32, []byte, error) {
+	functions, ok := m.hostFunctionDefs[moduleName]
+	if !ok {
+		return 0, nil, fmt.Errorf("host module %s not found", moduleName)
+	}
+	fn, ok := functions[functionName]
+	if !ok {
+		return 0, nil, fmt.Errorf("function %s not found in host module %s", functionName, moduleName)
+	}
+	returnCode, output := fn.Handler(input)
+	return returnCode, output, nil
+}
+
+func (m *wasmtimeManager) Close() error {
+	if m.linker != nil {
+		m.linker.Close()
+	}
+	for _, state := range m.wasmModules {
+		if state.module != nil {
+			state.module.Close()
+		}
+	}
+	if m.engine != nil {
+		m.engine.Close()
+	}
+	return nil
+}
+
+func (m *wasmtimeManager) alloc(c *wasmtime.Caller, size uint32) uint32 {
+	name, err := m.moduleNameForCaller(c)
+	if err != nil {
+		return 0
+	}
+	ptr, err := m.allocateForModule(name, size)
+	if err != nil {
+		return 0
+	}
+	return ptr
+}
+
+func (m *wasmtimeManager) pluginCall(c *wasmtime.Caller, modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen uint32) int32 {
+	callerName, err := m.moduleNameForCaller(c)
+	if err != nil {
+		return 1
+	}
+	moduleName, err := m.readModuleMemory(callerName, modulePtr, moduleLen)
+	if err != nil {
+		return 1
+	}
+	functionName, err := m.readModuleMemory(callerName, funcPtr, funcLen)
+	if err != nil {
+		return 2
+	}
+	var input []byte
+	if inputLen > 0 {
+		input, err = m.readModuleMemory(callerName, inputPtr, inputLen)
+		if err != nil {
+			return 3
+		}
+	}
+	if len(m.callStack) >= 32 {
+		return 4
+	}
+	returnValue, output, err := m.callWithContext(string(moduleName), string(functionName), input)
+	if err != nil {
+		return 5
+	}
+	m.lastCallReturn = returnValue
+	m.lastCallOutputPtr = 0
+	m.lastCallOutputLen = 0
+	if len(output) > 0 {
+		ptr, err := m.allocateForModule(callerName, uint32(len(output)))
+		if err != nil {
+			return 6
+		}
+		if err := m.writeModuleMemory(callerName, ptr, output); err != nil {
+			return 6
+		}
+		m.lastCallOutputPtr = ptr
+		m.lastCallOutputLen = uint32(len(output))
+	}
+	return 0
+}
+
+func (m *wasmtimeManager) readCurrentInput(c *wasmtime.Caller) ([]byte, error) {
+	if m.currentInputLen == 0 {
+		return nil, nil
+	}
+	name, err := m.moduleNameForCaller(c)
+	if err != nil {
+		return nil, err
+	}
+	return m.readModuleMemory(name, m.currentInputPtr, m.currentInputLen)
+}
+
+func (m *wasmtimeManager) moduleNameForCaller(c *wasmtime.Caller) (string, error) {
+	callerMemory := c.GetExport("memory")
+	if callerMemory == nil || callerMemory.Memory() == nil {
+		return "", fmt.Errorf("caller memory not found")
+	}
+	callerPtr := callerMemory.Memory().Data(c)
+	for name, state := range m.wasmModules {
+		instanceMemory := state.instance.GetExport(m.store, "memory")
+		if instanceMemory == nil || instanceMemory.Memory() == nil {
+			continue
+		}
+		if callerPtr == instanceMemory.Memory().Data(m.store) {
+			return name, nil
+		}
+	}
+	return "", fmt.Errorf("caller module not found")
+}
+
+func (m *wasmtimeManager) moduleMemory(moduleName string) (*wasmtime.Memory, error) {
+	state := m.wasmModules[moduleName]
+	if state == nil || state.instance == nil {
+		return nil, fmt.Errorf("module %s not found", moduleName)
+	}
+	extern := state.instance.GetExport(m.store, "memory")
+	if extern == nil || extern.Memory() == nil {
+		return nil, fmt.Errorf("module %s has no exported memory", moduleName)
+	}
+	return extern.Memory(), nil
+}
+
+func (m *wasmtimeManager) allocateForModule(moduleName string, size uint32) (uint32, error) {
+	if size == 0 {
+		size = 1
+	}
+	memory, err := m.moduleMemory(moduleName)
+	if err != nil {
+		return 0, err
+	}
+	offset := m.memoryOffsets[moduleName]
+	currentSize := uint32(memory.DataSize(m.store))
+	if offset == 0 {
+		offset = currentSize
+	}
+	required := uint64(offset) + uint64(size)
+	if required > uint64(currentSize) {
+		deltaPages := uint64((required - uint64(currentSize) + 65535) / 65536)
+		if _, err := memory.Grow(m.store, deltaPages); err != nil {
+			return 0, err
+		}
+	}
+	m.memoryOffsets[moduleName] = offset + size
+	return offset, nil
+}
+
+func (m *wasmtimeManager) writeModuleMemory(moduleName string, ptr uint32, data []byte) error {
+	memory, err := m.moduleMemory(moduleName)
+	if err != nil {
+		return err
+	}
+	buf := memory.UnsafeData(m.store)
+	start := int(ptr)
+	end := start + len(data)
+	if start < 0 || end > len(buf) {
+		return fmt.Errorf("write exceeds memory bounds")
+	}
+	copy(buf[start:end], data)
+	runtime.KeepAlive(memory)
+	return nil
+}
+
+func (m *wasmtimeManager) readModuleMemory(moduleName string, ptr, length uint32) ([]byte, error) {
+	memory, err := m.moduleMemory(moduleName)
+	if err != nil {
+		return nil, err
+	}
+	buf := memory.UnsafeData(m.store)
+	start := int(ptr)
+	end := start + int(length)
+	if start < 0 || end > len(buf) {
+		return nil, fmt.Errorf("read exceeds memory bounds")
+	}
+	cloned := append([]byte(nil), buf[start:end]...)
+	runtime.KeepAlive(memory)
+	return cloned, nil
+}
+
 func splitWriteInput(input []byte) (string, []byte, error) {
 	idx := bytesIndex(input, 0)
 	if idx < 0 {
@@ -412,4 +822,9 @@ func resultBytes(data []byte, err error) (int32, []byte) {
 
 func errorResult(err error) (int32, []byte) {
 	return 1, []byte(err.Error())
+}
+
+func enableWasmExceptions(cfg *wasmtime.Config) {
+	ptr := *(**C.wasm_config_t)(unsafe.Pointer(cfg))
+	C.wasmtime_config_wasm_exceptions_set(ptr, true)
 }
