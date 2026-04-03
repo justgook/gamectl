@@ -564,98 +564,119 @@ class ViewNodeGraph2 extends ViewCanvasBase {
         wasi_snapshot_preview1: createWasiPreview1Imports(() => this.memory),
         env: {
           ng_on_node_changed: (_nodeId, _changeMask) => {
-            this.requestRenderIfGenerationChanged(true);
+            try {
+              this.requestRenderIfGenerationChanged(true);
+            } catch (error) {
+              console.error('[ng] ng_on_node_changed failed:', error);
+            }
           },
           ng_on_goal_reached: (goalNodeId, payloadPtr, payloadLen) => {
-            const payload = this.readUtf8(payloadPtr, payloadLen);
-            const msg = this._formatGoalReachedToast(goalNodeId, payload);
-            const short = msg.length > 240 ? `${msg.slice(0, 239)}…` : msg;
-            toast.info(short);
+            try {
+              const payload = this.readUtf8(payloadPtr, payloadLen);
+              const msg = this._formatGoalReachedToast(goalNodeId, payload);
+              const short = msg.length > 240 ? `${msg.slice(0, 239)}…` : msg;
+              toast.info(short);
+            } catch (error) {
+              console.error('[ng] ng_on_goal_reached failed:', error);
+            }
           },
           ng_on_run_event: (_nodeId, eventKind, _errorCode) => {
-            const eventName = this.RUN_EVENT[eventKind] || `event_${eventKind}`;
-            if (eventName === "run_started") {
-              this.ioToastOffset = this._getRuntimeIoLength();
-            }
+            try {
+              const eventName = this.RUN_EVENT[eventKind] || `event_${eventKind}`;
+              if (eventName === "run_started") {
+                this.ioToastOffset = this._getRuntimeIoLength();
+              }
 
-            if (eventName === "node_succeeded" || (eventName === "run_finished" && !_errorCode)) {
-              this._emitRuntimePrintToasts();
-            }
+              if (eventName === "node_succeeded" || (eventName === "run_finished" && !_errorCode)) {
+                this._emitRuntimePrintToasts();
+              }
 
-            // Only toast on failures; keep callback fast.
-            if (eventName === "node_failed") {
-              const msg = this._readRuntimeIoMessage(240);
-              toast.error(
-                msg
-                  ? `Node #${_nodeId} failed (code ${_errorCode}): ${msg}`
-                  : `Node #${_nodeId} failed (code ${_errorCode}).`
-              );
-            } else if (eventName === "run_finished" && _errorCode) {
-              const msg = this._readRuntimeIoMessage(240);
-              toast.error(
-                msg
-                  ? `Run failed (code ${_errorCode}): ${msg}`
-                  : `Run failed (code ${_errorCode}).`
-              );
-              this.goalRunQueue = [];
-            } else if (eventName === "run_finished") {
-              this._clearRuntimeIo();
-              if (this.goalRunQueue.length > 0) {
-                const nextGoalId = this.goalRunQueue.shift();
-                const err = this._startRun(nextGoalId);
-                if (err !== 0) {
-                  toast.error(`Failed to run goal #${nextGoalId} (code ${err}).`);
-                  this.goalRunQueue = [];
+              if (eventName === "node_failed") {
+                const msg = this._readRuntimeIoMessage(240);
+                toast.error(
+                  msg
+                    ? `Node #${_nodeId} failed (code ${_errorCode}): ${msg}`
+                    : `Node #${_nodeId} failed (code ${_errorCode}).`
+                );
+              } else if (eventName === "run_finished" && _errorCode) {
+                const msg = this._readRuntimeIoMessage(240);
+                toast.error(
+                  msg
+                    ? `Run failed (code ${_errorCode}): ${msg}`
+                    : `Run failed (code ${_errorCode}).`
+                );
+                this.goalRunQueue = [];
+              } else if (eventName === "run_finished") {
+                this._clearRuntimeIo();
+                if (this.goalRunQueue.length > 0) {
+                  const nextGoalId = this.goalRunQueue.shift();
+                  const err = this._startRun(nextGoalId);
+                  if (err !== 0) {
+                    toast.error(`Failed to run goal #${nextGoalId} (code ${err}).`);
+                    this.goalRunQueue = [];
+                  }
                 }
               }
-            }
-            if (eventName === "run_finished") {
-              this.requestRenderIfGenerationChanged(true);
+              if (eventName === "run_finished") {
+                this.requestRenderIfGenerationChanged(true);
+              }
+            } catch (error) {
+              console.error('[ng] ng_on_run_event failed:', error);
             }
           },
           ng_host_resolve: (nodeId, resolveKind, reqPtr, reqLen, outPtr, outCap, outLenPtr) => {
-            if (!this.memory) return 7;
-            let payload = "";
-            if (resolveKind === 1) {
-              payload = this.sourceByNode.get(nodeId) || "";
-            } else if (resolveKind === 2) {
-              const req = this.readUtf8(reqPtr, reqLen);
-              const p0 = req.indexOf("|");
-              const p1 = p0 >= 0 ? req.indexOf("|", p0 + 1) : -1;
-              const service = p0 >= 0 ? req.slice(0, p0) : "";
-              const method = p1 >= 0 ? req.slice(p0 + 1, p1) : "";
-              const raw = p1 >= 0 ? req.slice(p1 + 1) : "{}";
-              payload = this._resolveHostSync(service, method, raw);
-            } else if (resolveKind === 3) {
-              let outputId = 1;
-              if (reqPtr > 0 && reqLen >= 4 && this.memory) {
-                outputId = new DataView(this.memory.buffer).getUint32(reqPtr, true);
+            try {
+              if (!this.memory) return 7;
+              let payload = "";
+              if (resolveKind === 1) {
+                payload = this.sourceByNode.get(nodeId) || "";
+              } else if (resolveKind === 2) {
+                const req = this.readUtf8(reqPtr, reqLen);
+                const p0 = req.indexOf("|");
+                const p1 = p0 >= 0 ? req.indexOf("|", p0 + 1) : -1;
+                const service = p0 >= 0 ? req.slice(0, p0) : "";
+                const method = p1 >= 0 ? req.slice(p0 + 1, p1) : "";
+                const raw = p1 >= 0 ? req.slice(p1 + 1) : "{}";
+                payload = this._resolveHostSync(service, method, raw);
+              } else if (resolveKind === 3) {
+                let outputId = 1;
+                if (reqPtr > 0 && reqLen >= 4 && this.memory) {
+                  outputId = new DataView(this.memory.buffer).getUint32(reqPtr, true);
+                }
+                payload = this._getStoredNodeValue(nodeId, outputId);
+              } else if (resolveKind === 4) {
+                let graphId = 0;
+                if (reqPtr > 0 && reqLen >= 4 && this.memory) {
+                  graphId = new DataView(this.memory.buffer).getUint32(reqPtr, true);
+                }
+                const graph = this.graphSnapshotById instanceof Map ? this.graphSnapshotById.get(Number(graphId || 0)) : null;
+                payload = JSON.stringify(graph?.nodes || []);
+              } else {
+                return 7;
               }
-              payload = this._getStoredNodeValue(nodeId, outputId);
-            } else if (resolveKind === 4) {
-              let graphId = 0;
-              if (reqPtr > 0 && reqLen >= 4 && this.memory) {
-                graphId = new DataView(this.memory.buffer).getUint32(reqPtr, true);
-              }
-              const graph = this.graphSnapshotById instanceof Map ? this.graphSnapshotById.get(Number(graphId || 0)) : null;
-              payload = JSON.stringify(graph?.nodes || []);
-            } else {
+
+              const bytes = this.te.encode(payload);
+              if (bytes.length > outCap) return 4;
+              new Uint8Array(this.memory.buffer, outPtr, bytes.length).set(bytes);
+              new DataView(this.memory.buffer).setInt32(outLenPtr, bytes.length, true);
+              return 0;
+            } catch (error) {
+              console.error('[ng] ng_host_resolve failed:', error);
               return 7;
             }
-
-            const bytes = this.te.encode(payload);
-            if (bytes.length > outCap) return 4;
-            new Uint8Array(this.memory.buffer, outPtr, bytes.length).set(bytes);
-            new DataView(this.memory.buffer).setInt32(outLenPtr, bytes.length, true);
-            return 0;
           },
           ng_host_request: (nodeId, requestId, servicePtr, serviceLen, methodPtr, methodLen, payloadPtr, payloadLen) => {
-            if (!this.memory) return 7;
-            const service = this.readUtf8(servicePtr, serviceLen);
-            const method = this.readUtf8(methodPtr, methodLen);
-            const payload = this.readUtf8(payloadPtr, payloadLen);
-            this._handleHostAwaitRequest(nodeId, requestId, service, method, payload);
-            return 0;
+            try {
+              if (!this.memory) return 7;
+              const service = this.readUtf8(servicePtr, serviceLen);
+              const method = this.readUtf8(methodPtr, methodLen);
+              const payload = this.readUtf8(payloadPtr, payloadLen);
+              this._handleHostAwaitRequest(nodeId, requestId, service, method, payload);
+              return 0;
+            } catch (error) {
+              console.error('[ng] ng_host_request failed:', error);
+              return 7;
+            }
           },
         },
       },
@@ -920,7 +941,25 @@ class ViewNodeGraph2 extends ViewCanvasBase {
       }
       this.requestRenderIfGenerationChanged(true);
     } catch (error) {
-      toast.error(`Failed to run graph: ${String(error?.message || error)}`);
+      const message = String(error?.message || error);
+      const runtimeCode = this.api && typeof this.api.ng_get_last_error === "function"
+        ? Number(this.api.ng_get_last_error())
+        : 0;
+      const runtimeIo = this._readRuntimeIoMessage(240);
+      console.error("[ng] runGraph failed", {
+        error,
+        message,
+        runtimeCode,
+        runtimeIo,
+        snapshot: this.getGraphSnapshot(),
+      });
+      toast.error(
+        runtimeIo
+          ? `Failed to run graph: ${message} (runtime ${runtimeCode}): ${runtimeIo}`
+          : runtimeCode > 0
+            ? `Failed to run graph: ${message} (runtime ${runtimeCode})`
+            : `Failed to run graph: ${message}`
+      );
     }
   }
 

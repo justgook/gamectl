@@ -257,11 +257,11 @@ browser-run: browser $(PLUGIN_TARGETS)
 
 .PHONY: cli
 cli: plugins-release
-	$(Q)(cd $(CLI_DIR) && go build -o ../../$(BUILD_DIR)/gams .)
+	$(Q)(cd $(CLI_DIR) && SDKROOT="$(WAILS_SDKROOT)" CC="$(WAILS_CC)" go build -mod=mod -o ../../$(BUILD_DIR)/gams .)
 
 .PHONY: cli-run
 cli-run: cli
-	$(Q)$(BUILD_DIR)/gams
+	$(Q)$(BUILD_DIR)/gams --workdir .
 
 .PHONY: native-dev
 native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)

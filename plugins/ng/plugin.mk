@@ -7,43 +7,23 @@ NG_LUA_MODERN_A := $(NG_BUILD_DIR)/lua54-wasi-modern.a
 NG_LUA_MODERN_O := $(NG_BUILD_DIR)/lua54-wasi-modern.o
 
 NG_LUA_DIR := $(PLUGIN_DIR)/ng/vendor/lua
-NG_LUA_SRCS := \
-  $(NG_LUA_DIR)/lapi.c \
-  $(NG_LUA_DIR)/lcode.c \
-  $(NG_LUA_DIR)/lctype.c \
-  $(NG_LUA_DIR)/ldebug.c \
-  $(NG_LUA_DIR)/ldo.c \
-  $(NG_LUA_DIR)/ldump.c \
-  $(NG_LUA_DIR)/lfunc.c \
-  $(NG_LUA_DIR)/lgc.c \
-  $(NG_LUA_DIR)/llex.c \
-  $(NG_LUA_DIR)/lmem.c \
-  $(NG_LUA_DIR)/lobject.c \
-  $(NG_LUA_DIR)/lopcodes.c \
-  $(NG_LUA_DIR)/lparser.c \
-  $(NG_LUA_DIR)/lstate.c \
-  $(NG_LUA_DIR)/lstring.c \
-  $(NG_LUA_DIR)/ltable.c \
-  $(NG_LUA_DIR)/ltm.c \
-  $(NG_LUA_DIR)/lundump.c \
-  $(NG_LUA_DIR)/lvm.c \
-  $(NG_LUA_DIR)/lzio.c \
-  $(NG_LUA_DIR)/lauxlib.c \
-  $(NG_LUA_DIR)/lbaselib.c \
-  $(NG_LUA_DIR)/lmathlib.c \
-  $(NG_LUA_DIR)/lstrlib.c \
-  $(NG_LUA_DIR)/ltablib.c \
-  $(NG_LUA_DIR)/lutf8lib.c
 
 PLUGIN_C_SOURCES := \
   $(PLUGIN_DIR)/ng/main.c \
-  $(NG_LUA_SRCS)
+  $(PLUGIN_DIR)/ng/shim/wasm_setjmp_shim.c \
+  $(NG_LUA_MODERN_O)
 
 PLUGIN_CFLAGS := \
   -O2 \
   -Dl_signalT=int \
-  -DNG_LUA_NO_UNWIND \
   -I$(NG_LUA_DIR)
+
+PLUGIN_ZIG_EXTRA_FLAGS := \
+  -mexception-handling \
+  -mmultivalue \
+  -mreference-types \
+  -mllvm -wasm-enable-sjlj \
+  -mllvm -wasm-use-legacy-eh=false
 
 PLUGIN_LDFLAGS := \
   -Wl,--no-entry \
@@ -78,6 +58,8 @@ PLUGIN_LDFLAGS := \
 PLUGIN_EXTRA_DEPS := \
   $(PLUGIN_DIR)/ng/scripts/build-lua-modern.sh \
   $(PLUGIN_DIR)/ng/ng.h \
-  $(NG_LUA_SRCS) \
+  $(PLUGIN_DIR)/ng/shim/wasm_setjmp_shim.c \
+  $(NG_LUA_MODERN_O) \
+  $(NG_LUA_MODERN_A) \
   $(wildcard $(PLUGIN_DIR)/ng/shim/*.h) \
   $(wildcard $(NG_LUA_DIR)/*.h)

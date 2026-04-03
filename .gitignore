@@ -37,6 +37,9 @@
 .Spotlight-V100
 .Trashes
 .playwright-cli
+/.playwright/
+/.claude/
+/.pi/
 ehthumbs.db
 Thumbs.db
 
