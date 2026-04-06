@@ -17,7 +17,7 @@ var rulePropsToExclude = map[string]bool{
 	"rule_output_Probability": true, "rule_ModX": true, "rule_ModY": true,
 	"rule_OffsetX": true, "rule_OffsetY": true, "rule_Probability": true,
 	"rule_Disabled": true, "rule_MatchOutsideMap": true, "rule_OverflowBorder": true,
-	"rule_WrapBorder": true, "rule_NoOverlappingOutput": true, "rule_MatchInOrder": true,
+	"rule_WrapBorder": true, "rule_NoOverlappingOutput": true,
 	"rule_DeleteTiles": true, "rule_Empty": true, "rule_NonEmpty": true,
 	"rule_Other": true, "rule_Ignore": true, "rule_Negate": true,
 }

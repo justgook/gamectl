@@ -12,7 +12,6 @@ type GlobalConfig struct {
 	OverflowBorder      bool
 	WrapBorder          bool
 	NoOverlappingOutput bool
-	MatchInOrder        bool
 	DeleteTiles         bool
 
 	// Default rule constraints (can be overridden per-layer)
@@ -50,7 +49,6 @@ func ParseGlobalConfig(mapMeta map[string]string) (*GlobalConfig, error) {
 	cfg.OverflowBorder = parseBool(mapMeta["rule_OverflowBorder"], false)
 	cfg.WrapBorder = parseBool(mapMeta["rule_WrapBorder"], false)
 	cfg.NoOverlappingOutput = parseBool(mapMeta["rule_NoOverlappingOutput"], false)
-	cfg.MatchInOrder = parseBool(mapMeta["rule_MatchInOrder"], false)
 	cfg.DeleteTiles = parseBool(mapMeta["rule_DeleteTiles"], false)
 
 	// Parse rule constraints
