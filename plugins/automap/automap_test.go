@@ -118,6 +118,113 @@ func TestAutomapApplyMatchesMissingTargetLayerAsEmpty(t *testing.T) {
 	}
 }
 
+func TestAutomapApplyToTargetDoesNotCopyInputIntoNewMap(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+	rulesMap.Props = map[string]string{"rule_NonEmpty": "1027"}
+
+	input := tilemap.NewTileLayer(1, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0"}
+	input.Data[0] = 1027
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#1", "name": "decor"}
+	output.Data[0] = 9
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+
+	inputMap := singleLayerMap(1, 1)
+	inputMap.Layers[0].Data[0] = 7
+	inputMap.Layers[0].Props["name"] = "source"
+
+	targetMap := tilemap.NewTileMap()
+	result, err := AutomapApplyToTarget(rulesMap, inputMap, targetMap)
+	if err != nil {
+		t.Fatalf("AutomapApplyToTarget returned error: %v", err)
+	}
+
+	if len(result.Layers) != 2 {
+		t.Fatalf("expected 2 layers to satisfy #1 output selector, got %d", len(result.Layers))
+	}
+	if got := result.Layers[0].Data[0]; got != 0 {
+		t.Fatalf("expected layer #0 to remain empty, got %d", got)
+	}
+	if got := result.Layers[1].Data[0]; got != 9 {
+		t.Fatalf("expected output layer to receive automap tile, got %d", got)
+	}
+}
+
+func TestAutomapApplyToTargetUpdatesExistingOutputMapOnly(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+	rulesMap.Props = map[string]string{"rule_NonEmpty": "1027"}
+
+	input := tilemap.NewTileLayer(1, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0"}
+	input.Data[0] = 1027
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "[name=\"decor\"]"}
+	output.Data[0] = 9
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+
+	inputMap := singleLayerMap(1, 1)
+	inputMap.Layers[0].Data[0] = 7
+
+	targetMap := tilemap.NewTileMap()
+	base := tilemap.NewTileLayer(1, 1)
+	base.Props["name"] = "base"
+	base.Data[0] = 5
+	decor := tilemap.NewTileLayer(1, 1)
+	decor.Props["name"] = "decor"
+	targetMap.Layers = []tilemap.TileLayer{*base, *decor}
+
+	result, err := AutomapApplyToTarget(rulesMap, inputMap, targetMap)
+	if err != nil {
+		t.Fatalf("AutomapApplyToTarget returned error: %v", err)
+	}
+
+	if got := result.Layers[0].Data[0]; got != 5 {
+		t.Fatalf("expected existing non-target layer to be preserved, got %d", got)
+	}
+	if got := result.Layers[1].Data[0]; got != 9 {
+		t.Fatalf("expected target layer to be updated, got %d", got)
+	}
+}
+
+func TestAutomapApplyToTargetCreatesMissingLayerInExistingMap(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+	rulesMap.Props = map[string]string{"rule_NonEmpty": "1027"}
+
+	input := tilemap.NewTileLayer(1, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0"}
+	input.Data[0] = 1027
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#1"}
+	output.Data[0] = 3
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+
+	inputMap := singleLayerMap(1, 1)
+	inputMap.Layers[0].Data[0] = 4
+
+	targetMap := singleLayerMap(1, 1)
+	result, err := AutomapApplyToTarget(rulesMap, inputMap, targetMap)
+	if err != nil {
+		t.Fatalf("AutomapApplyToTarget returned error: %v", err)
+	}
+
+	if len(result.Layers) != 2 {
+		t.Fatalf("expected missing indexed output layer to be created, got %d layers", len(result.Layers))
+	}
+	if got := result.Layers[0].Data[0]; got != 0 {
+		t.Fatalf("expected original target layer to remain unchanged, got %d", got)
+	}
+	if got := result.Layers[1].Data[0]; got != 3 {
+		t.Fatalf("expected created target layer to receive output, got %d", got)
+	}
+}
+
 func TestPrepareMapForEdgeMatchingTreatsOverflowAsMatchOutsideMap(t *testing.T) {
 	rulesMap := tilemap.NewTileMap()
 	rulesMap.Props = map[string]string{"rule_OverflowBorder": "true"}

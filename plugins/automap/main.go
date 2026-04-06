@@ -66,14 +66,30 @@ func Automap() int32 {
 		return 1
 	}
 
+	// Resolve automap target mode:
+	// - same input/output ID: update in place
+	// - different existing output ID: update existing target map
+	// - different missing output ID: create new empty target map
+	targetMap := inputMap
+	if config.InputMapID != config.OutputMapID {
+		targetMap, err = getTilemap(config.OutputMapID)
+		if err != nil {
+			if !isTilemapNotFound(err) {
+				pdk.Output(errorResponse("failed to load output map: " + err.Error()))
+				return 1
+			}
+			targetMap = tilemap.NewTileMap()
+			targetMap.Props = cloneStringMap(inputMap.Props)
+		}
+	}
+
 	// Apply automapping
-	outputMap, err := AutomapApply(rulesMap, inputMap)
+	outputMap, err := AutomapApplyToTarget(rulesMap, inputMap, targetMap)
 	if err != nil {
 		pdk.Output(errorResponse("automapping failed: " + err.Error()))
 		return 1
 	}
 
-	// TODO: merge output map with existing (if it exists)
 	// Store the output map back
 	if err := storeTilemap(config.OutputMapID, outputMap); err != nil {
 		pdk.Output(errorResponse("failed to store output map: " + err.Error()))
@@ -154,6 +170,10 @@ func errorResponse(msg string) []byte {
 	resp := Response{Success: false, Error: msg}
 	data, _ := json.Marshal(resp)
 	return data
+}
+
+func isTilemapNotFound(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "tilemap not found:")
 }
 
 // Required main function for WASM

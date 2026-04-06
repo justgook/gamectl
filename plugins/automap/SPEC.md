@@ -12,7 +12,6 @@ This specification defines metadata properties for custom tilemap automapping sy
 | `rule_OverflowBorder` | `bool` | Treat out-of-bounds area as repetition of nearest in-bounds tile |
 | `rule_WrapBorder` | `bool` | Treat map as wrapping (toroidal) when matching beyond edges |
 | `rule_NoOverlappingOutput` | `bool` | Disallow outputs from the same rule to overlap each other |
-| `rule_MatchInOrder` | `bool` | Apply each rule immediately when matched (so later rules see earlier outputs) |
 | `rule_DeleteTiles` | `bool` | Erase tiles in input-regions before applying output |
 
 ### Special Matcher Tiles

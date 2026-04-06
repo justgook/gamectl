@@ -10,7 +10,6 @@ var mapBoolProps = {
   rule_OverflowBorder: "OverflowBorder",
   rule_WrapBorder: "WrapBorder",
   rule_NoOverlappingOutput: "NoOverlappingOutput",
-  rule_MatchInOrder: "MatchInOrder",
   rule_DeleteTiles: "DeleteTiles",
 }
 
