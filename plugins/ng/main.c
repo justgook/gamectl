@@ -8,6 +8,7 @@
 #include "../image/jsmn.h"
 #include "./vendor/lua/lauxlib.h"
 #include "./vendor/lua/lualib.h"
+#include "../sql/vendor/pdk.h"
 #include "ng.h"
 
 static NgInfo g_info;
@@ -114,6 +115,15 @@ typedef struct {
 } NgStrBuf;
 
 typedef struct {
+  ng_i32 active;
+  NgSerializedGraph root_graph;
+  NgStrBuf goal_results;
+  ng_u32 goal_count;
+} NgBatchCtx;
+
+static NgBatchCtx g_batch;
+
+typedef struct {
   const char *json;
   jsmntok_t *tokens;
   int count;
@@ -146,19 +156,8 @@ static void ng_free_serialized_graph(NgSerializedGraph *graph);
 static ng_i32 ng_build_exec_graph(void);
 static ng_u32 ng_import_boundary_port_id(ng_u32 node_id, ng_u32 port_id);
 static int lua_host_await_call_cont(lua_State *L, int status, lua_KContext ctx);
-
-#if defined(__wasm__)
-extern ng_u32 pdk_input_ptr(void)
-    __attribute__((import_module("env"), import_name("input_ptr")));
-extern ng_u32 pdk_input_len(void)
-    __attribute__((import_module("env"), import_name("input_len")));
-extern void pdk_set_output(ng_u32 ptr, ng_u32 len)
-    __attribute__((import_module("env"), import_name("set_output")));
-#else
-extern ng_u32 pdk_input_ptr(void);
-extern ng_u32 pdk_input_len(void);
-extern void pdk_set_output(ng_u32 ptr, ng_u32 len);
-#endif
+static void clear_io(void);
+static void append_io(const char *s, size_t len);
 
 static void ng_sb_init(NgStrBuf *sb) {
   sb->buf = NULL;
@@ -232,6 +231,276 @@ static int ng_sb_append_u32(NgStrBuf *sb, ng_u32 v) {
     return 0;
   }
   return ng_sb_append_len(sb, buf, (size_t)n);
+}
+
+static void ng_batch_reset(void) {
+  ng_free_serialized_graph(&g_batch.root_graph);
+  memset(&g_batch.root_graph, 0, sizeof(g_batch.root_graph));
+  ng_sb_free(&g_batch.goal_results);
+  g_batch.active = 0;
+  g_batch.goal_count = 0;
+}
+
+static const NgSerializedNode *ng_batch_find_root_node(ng_u32 node_id) {
+  ng_u32 i;
+  if (!g_batch.active) {
+    return NULL;
+  }
+  for (i = 0; i < g_batch.root_graph.node_count; i++) {
+    if (g_batch.root_graph.nodes[i].id == node_id) {
+      return &g_batch.root_graph.nodes[i];
+    }
+  }
+  return NULL;
+}
+
+static int ng_sql_escape_single_quotes(const char *src, size_t len,
+                                       NgStrBuf *out) {
+  size_t i;
+  for (i = 0; i < len; i++) {
+    if (src[i] == '\'') {
+      if (!ng_sb_append_len(out, "''", 2u)) {
+        return 0;
+      }
+    } else if (!ng_sb_append_c(out, src[i])) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+static int ng_csv_extract_first_data_field(const char *csv, size_t len,
+                                           NgStrBuf *out) {
+  size_t i = 0;
+  int row = 0;
+  int col = 0;
+  int in_quotes = 0;
+  ng_sb_free(out);
+  ng_sb_init(out);
+  while (i <= len) {
+    char ch = i < len ? csv[i] : '\n';
+    char next = (i + 1u) < len ? csv[i + 1u] : '\0';
+    if (in_quotes) {
+      if (ch == '"') {
+        if (next == '"') {
+          if (row == 1 && col == 0 && !ng_sb_append_c(out, '"')) {
+            return 0;
+          }
+          i += 2u;
+          continue;
+        }
+        in_quotes = 0;
+      } else if (row == 1 && col == 0 && !ng_sb_append_c(out, ch)) {
+        return 0;
+      }
+    } else {
+      if (ch == '"') {
+        in_quotes = 1;
+      } else if (ch == ',') {
+        if (row == 1 && col == 0) {
+          return 1;
+        }
+        col += 1;
+      } else if (ch == '\n' || ch == '\r') {
+        if (row == 1 && col == 0) {
+          return 1;
+        }
+        row += 1;
+        col = 0;
+        if (ch == '\r' && next == '\n') {
+          i += 1u;
+        }
+      } else if (row == 1 && col == 0 && !ng_sb_append_c(out, ch)) {
+        return 0;
+      }
+    }
+    i += 1u;
+  }
+  return out->len > 0;
+}
+
+static ng_i32 ng_batch_query_single_field(const char *sql, size_t sql_len,
+                                          NgStrBuf *out) {
+  pdk_call_result_t result =
+      pdk_call_plugin_str("sql", "query", (const uint8_t *)sql, (uint32_t)sql_len);
+  if (result.error != 0) {
+    return NG_ERR_HOST;
+  }
+  if (result.return_code != 0) {
+    clear_io();
+    if (result.output != NULL && result.output_len > 0) {
+      append_io((const char *)result.output, (size_t)result.output_len);
+    }
+    return NG_ERR_HOST;
+  }
+  if (result.output == NULL || result.output_len == 0) {
+    return NG_ERR_NOT_FOUND;
+  }
+  if (!ng_csv_extract_first_data_field((const char *)result.output,
+                                       (size_t)result.output_len, out)) {
+    return NG_ERR_NOT_FOUND;
+  }
+  return NG_OK;
+}
+
+static ng_i32 ng_batch_load_graph_by_name(const char *name,
+                                          NgSerializedGraph *out) {
+  NgStrBuf query;
+  NgStrBuf field;
+  ng_i32 err;
+  size_t name_len = name != NULL ? strlen(name) : 0u;
+  ng_sb_init(&query);
+  ng_sb_init(&field);
+  if (!ng_sb_append_len(&query,
+                        "SELECT data FROM nodegraph2_storage WHERE name = '",
+                        sizeof("SELECT data FROM nodegraph2_storage WHERE name = '") - 1u) ||
+      !ng_sql_escape_single_quotes(name != NULL ? name : "", name_len,
+                                   &query) ||
+      !ng_sb_append_len(&query, "' LIMIT 1", 9u)) {
+    ng_sb_free(&query);
+    ng_sb_free(&field);
+    return NG_ERR_CAPACITY;
+  }
+  err = ng_batch_query_single_field(query.buf != NULL ? query.buf : "",
+                                    query.len, &field);
+  ng_sb_free(&query);
+  if (err != NG_OK) {
+    ng_sb_free(&field);
+    return err;
+  }
+  err = ng_parse_serialized_graph(field.buf != NULL ? field.buf : "", field.len,
+                                  out);
+  ng_sb_free(&field);
+  return err;
+}
+
+static ng_i32 ng_batch_load_graph_by_id(ng_u32 graph_id, NgSerializedGraph *out) {
+  char query[128];
+  NgStrBuf field;
+  int n = snprintf(query, sizeof(query),
+                   "SELECT data FROM nodegraph2_storage WHERE rowid = %u LIMIT 1",
+                   (unsigned)graph_id);
+  ng_i32 err;
+  if (n <= 0 || (size_t)n >= sizeof(query)) {
+    return NG_ERR_CAPACITY;
+  }
+  ng_sb_init(&field);
+  err = ng_batch_query_single_field(query, (size_t)n, &field);
+  if (err != NG_OK) {
+    ng_sb_free(&field);
+    return err;
+  }
+  err = ng_parse_serialized_graph(field.buf != NULL ? field.buf : "", field.len,
+                                  out);
+  ng_sb_free(&field);
+  return err;
+}
+
+static ng_i32 ng_batch_read_file(const char *path, char *out_buf,
+                                 ng_i32 out_cap, ng_i32 *out_len) {
+  size_t path_len = path != NULL ? strlen(path) : 0u;
+  pdk_call_result_t result;
+  if (out_len != NULL) {
+    *out_len = 0;
+  }
+  if (path == NULL || path_len == 0u || out_buf == NULL || out_cap <= 0) {
+    return NG_ERR_INVALID_ARG;
+  }
+  result =
+      pdk_call_plugin_str("fs", "read", (const uint8_t *)path, (uint32_t)path_len);
+  if (result.error != 0) {
+    return NG_ERR_HOST;
+  }
+  if (result.return_code != 0) {
+    clear_io();
+    if (result.output != NULL && result.output_len > 0) {
+      append_io((const char *)result.output, (size_t)result.output_len);
+    }
+    return NG_ERR_HOST;
+  }
+  if ((ng_i32)result.output_len >= out_cap) {
+    return NG_ERR_CAPACITY;
+  }
+  if (result.output_len > 0 && result.output != NULL) {
+    memcpy(out_buf, result.output, (size_t)result.output_len);
+  }
+  out_buf[result.output_len] = '\0';
+  if (out_len != NULL) {
+    *out_len = (ng_i32)result.output_len;
+  }
+  return NG_OK;
+}
+
+static int ng_batch_append_goal_payload(const char *payload, size_t len) {
+  if (!g_batch.active) {
+    return 1;
+  }
+  if (g_batch.goal_count > 0 && !ng_sb_append_c(&g_batch.goal_results, ',')) {
+    return 0;
+  }
+  if (!ng_sb_append_len(&g_batch.goal_results, payload, len)) {
+    return 0;
+  }
+  g_batch.goal_count += 1u;
+  return 1;
+}
+
+static ng_i32 ng_apply_serialized_graph_to_runtime(const NgSerializedGraph *graph) {
+  ng_u32 i;
+  ng_i32 err;
+  if (graph == NULL) {
+    return NG_ERR_INVALID_ARG;
+  }
+  err = ng_clear_graph();
+  if (err != NG_OK) {
+    return err;
+  }
+  for (i = 0; i < graph->node_count; i++) {
+    const NgSerializedNode *node = &graph->nodes[i];
+    ng_u32 j;
+    if (node->id == 0) {
+      continue;
+    }
+    err = ng_node_create(node->id, node->kind);
+    if (err != NG_OK) {
+      return err;
+    }
+    for (j = 0; j < node->input_count; j++) {
+      err = ng_input_add(node->id, node->inputs[j].id);
+      if (err != NG_OK) {
+        return err;
+      }
+    }
+    for (j = 0; j < node->output_count; j++) {
+      err = ng_output_add(node->id, node->outputs[j].id);
+      if (err != NG_OK) {
+        return err;
+      }
+    }
+    if (node->kind == NG_NODE_CALL && node->graph_id != 0) {
+      err = ng_node_set_arg(node->id, NG_ARG_IMPORT_GRAPH_ID, NG_VAL_I64,
+                            (ng_i32)node->graph_id, 0);
+      if (err != NG_OK) {
+        return err;
+      }
+    }
+  }
+  for (i = 0; i < graph->node_count; i++) {
+    const NgSerializedNode *node = &graph->nodes[i];
+    ng_u32 j;
+    for (j = 0; j < node->input_count; j++) {
+      if (node->inputs[j].src_node_id == 0 || node->inputs[j].src_output_id == 0) {
+        continue;
+      }
+      err = ng_input_connect(node->id, node->inputs[j].id,
+                             node->inputs[j].src_node_id,
+                             node->inputs[j].src_output_id);
+      if (err != NG_OK) {
+        return err;
+      }
+    }
+  }
+  return NG_OK;
 }
 
 static int ng_json_hex_val(char c) {
@@ -1358,6 +1627,7 @@ static void emit_goal_reached(NgNode *goal_node) {
   }
   ok = ok && ng_sb_append_len(&payload, "}}", 2u);
   if (ok) {
+    (void)ng_batch_append_goal_payload(payload.buf, payload.len);
     notify_goal_reached(goal_node->id, (ng_i32)(intptr_t)payload.buf,
                         (ng_i32)payload.len);
   } else {
@@ -1365,6 +1635,7 @@ static void emit_goal_reached(NgNode *goal_node) {
     int len = snprintf(fallback, sizeof(fallback), "{\"id\":%u,\"inputs\":{}}",
                        (unsigned)goal_node->id);
     if (len > 0 && (size_t)len < sizeof(fallback)) {
+      (void)ng_batch_append_goal_payload(fallback, (size_t)len);
       notify_goal_reached(goal_node->id, (ng_i32)(intptr_t)fallback, (ng_i32)len);
     }
   }
@@ -1809,18 +2080,23 @@ static void ng_exec_mark_owner_state(ng_u32 owner_node_id, ng_u32 exec_state,
 }
 
 static ng_i32 ng_load_graph_by_id(ng_u32 graph_id, NgSerializedGraph *out) {
-  char req[4];
-  ng_i32 out_len = 0;
-  req[0] = (char)(graph_id & 0xffu);
-  req[1] = (char)((graph_id >> 8) & 0xffu);
-  req[2] = (char)((graph_id >> 16) & 0xffu);
-  req[3] = (char)((graph_id >> 24) & 0xffu);
-  if (ng_host_resolve(0, NG_RESOLVE_GRAPH, req, 4, g_code_buf, NG_IO_BUFFER_CAP,
-                      &out_len) != NG_OK ||
-      out_len <= 0) {
-    return NG_ERR_HOST;
+  if (g_batch.active) {
+    return ng_batch_load_graph_by_id(graph_id, out);
   }
-  return ng_parse_serialized_graph(g_code_buf, (size_t)out_len, out);
+  {
+    char req[4];
+    ng_i32 out_len = 0;
+    req[0] = (char)(graph_id & 0xffu);
+    req[1] = (char)((graph_id >> 8) & 0xffu);
+    req[2] = (char)((graph_id >> 16) & 0xffu);
+    req[3] = (char)((graph_id >> 24) & 0xffu);
+    if (ng_host_resolve(0, NG_RESOLVE_GRAPH, req, 4, g_code_buf,
+                        NG_IO_BUFFER_CAP, &out_len) != NG_OK ||
+        out_len <= 0) {
+      return NG_ERR_HOST;
+    }
+    return ng_parse_serialized_graph(g_code_buf, (size_t)out_len, out);
+  }
 }
 
 static ng_i32 ng_top_level_graph_to_serialized(NgSerializedGraph *out) {
@@ -1836,6 +2112,7 @@ static ng_i32 ng_top_level_graph_to_serialized(NgSerializedGraph *out) {
     if (src->id == 0) {
       continue;
     }
+    const NgSerializedNode *batch_src = ng_batch_find_root_node(src->id);
     dst = &out->nodes[out->node_count++];
     memset(dst, 0, sizeof(*dst));
     dst->id = src->id;
@@ -1843,6 +2120,14 @@ static ng_i32 ng_top_level_graph_to_serialized(NgSerializedGraph *out) {
     dst->graph_id = ng_node_import_graph_id(src);
     dst->input_count = src->input_count;
     dst->output_count = src->output_count;
+    if (batch_src != NULL) {
+      if (batch_src->code != NULL) {
+        dst->code = ng_strdup(batch_src->code);
+      }
+      if (batch_src->code_path != NULL) {
+        dst->code_path = ng_strdup(batch_src->code_path);
+      }
+    }
     for (j = 0; j < src->input_count; j++) {
       dst->inputs[j].id = src->inputs[j].id;
       dst->inputs[j].src_node_id = src->inputs[j].src_node_id;
@@ -1850,6 +2135,10 @@ static ng_i32 ng_top_level_graph_to_serialized(NgSerializedGraph *out) {
     }
     for (j = 0; j < src->output_count; j++) {
       dst->outputs[j].id = src->outputs[j].id;
+      if (batch_src != NULL && j < batch_src->output_count &&
+          batch_src->outputs[j].value != NULL) {
+        dst->outputs[j].value = ng_strdup(batch_src->outputs[j].value);
+      }
     }
   }
   return NG_OK;
@@ -2122,11 +2411,10 @@ static int lua_host_await_call(lua_State *L) {
   size_t service_len = 0;
   size_t method_len = 0;
   size_t payload_len = 0;
-  ng_u32 request_id;
   const char *service;
   const char *method;
   const char *payload = "";
-  ng_i32 err;
+  pdk_call_result_t result;
 
   if (!lua_isstring(L, 1) || !lua_isstring(L, 2))
     return luaL_error(L, "host.awaitCall(moduleName, functionName, input?)");
@@ -2144,30 +2432,21 @@ static int lua_host_await_call(lua_State *L) {
   if (service_len <= 0 || method_len <= 0)
     return luaL_error(L, "awaitCall requires moduleName and functionName");
 
-  if (service_len >= NG_IO_BUFFER_CAP || method_len >= NG_IO_BUFFER_CAP ||
-      payload_len >= NG_IO_BUFFER_CAP)
-    return luaL_error(L, "awaitCall request too large");
-
-  request_id = g_run.next_request_id + 1u;
-  if (request_id == 0)
-    request_id = 1u;
-  g_run.next_request_id = request_id;
-  g_run.pending_request_id = request_id;
-  g_run.has_response = 0;
-  g_run.response_is_error = 0;
-  g_run.response_len = 0;
-  set_waiting(request_id, g_run.pending_node_id);
-
-  err = ng_host_request(g_run.pending_node_id, request_id, service,
-                        (ng_i32)service_len, method, (ng_i32)method_len,
-                        payload, (ng_i32)payload_len);
-  if (err != NG_OK) {
-    g_run.pending_request_id = 0;
-    clear_waiting();
-    return luaL_error(L, "host awaitCall request failed");
+  result = pdk_call(service, (uint32_t)service_len, method,
+                    (uint32_t)method_len, (const uint8_t *)payload,
+                    (uint32_t)payload_len);
+  if (result.error != 0) {
+    return luaL_error(L, "host.call transport failed");
   }
-
-  return lua_yieldk(L, 0, 0, lua_host_await_call_cont);
+  if (result.return_code != 0) {
+    lua_pushlstring(L, (const char *)(result.output != NULL ? result.output : (const uint8_t *)""),
+                    (size_t)result.output_len);
+    return lua_error(L);
+  }
+  lua_pushlstring(L,
+                  (const char *)(result.output != NULL ? result.output : (const uint8_t *)""),
+                  (size_t)result.output_len);
+  return 1;
 }
 
 static int lua_host_await_call_cont(lua_State *L, int status,
@@ -2244,6 +2523,8 @@ start_code_coroutine(ng_u32 node_id, NgNode *nodes,
   lua_newtable(co);
   lua_pushcfunction(co, lua_host_await_call);
   lua_setfield(co, -2, "awaitCall");
+  lua_pushcfunction(co, lua_host_await_call);
+  lua_setfield(co, -2, "call");
 
   g_run.pending_node_id = node_id;
   status = lua_resume(co, NULL, 2, &nres);
@@ -2381,6 +2662,10 @@ static ng_i32 execute_node(ng_u32 node_id, ng_u8 *visit) {
           g_code_buf[out_len] = '\0';
           err = NG_OK;
         }
+      } else if (g_batch.active && meta->code_path != NULL) {
+        out_len = 0;
+        err = ng_batch_read_file(meta->code_path, g_code_buf, NG_IO_BUFFER_CAP,
+                                 &out_len);
       } else {
         const char *req_ptr = meta->code_path;
         ng_i32 req_len = req_ptr != NULL ? (ng_i32)strlen(req_ptr) : 0;
@@ -2901,53 +3186,6 @@ ng_i32 ng_run_start(ng_u32 goal_node_id) {
   return continue_active_run();
 }
 
-ng_i32 ng_run_response(ng_u32 request_id, ng_i32 json_ptr, ng_i32 json_len) {
-  const char *src;
-  if (!g_run.active)
-    return NG_ERR_VALIDATION;
-  if (g_info.run_status != NG_RUN_WAITING)
-    return NG_ERR_VALIDATION;
-  if (request_id == 0 || request_id != g_run.pending_request_id)
-    return NG_ERR_NOT_FOUND;
-  if (json_ptr == 0 || json_len < 0 || json_len >= NG_IO_BUFFER_CAP)
-    return NG_ERR_INVALID_ARG;
-
-  src = (const char *)(intptr_t)json_ptr;
-  memcpy(g_resp_buf, src, (size_t)json_len);
-  g_resp_buf[json_len] = '\0';
-  g_run.response_len = json_len;
-  g_run.has_response = 1;
-  g_run.response_is_error = 0;
-  g_run.pending_request_id = 0;
-  clear_waiting();
-  set_run_status(NG_RUN_RUNNING);
-  return continue_active_run();
-}
-
-ng_i32 ng_run_response_error(ng_u32 request_id, ng_i32 json_ptr,
-                             ng_i32 json_len) {
-  const char *src;
-  if (!g_run.active)
-    return NG_ERR_VALIDATION;
-  if (g_info.run_status != NG_RUN_WAITING)
-    return NG_ERR_VALIDATION;
-  if (request_id == 0 || request_id != g_run.pending_request_id)
-    return NG_ERR_NOT_FOUND;
-  if (json_ptr == 0 || json_len < 0 || json_len >= NG_IO_BUFFER_CAP)
-    return NG_ERR_INVALID_ARG;
-
-  src = (const char *)(intptr_t)json_ptr;
-  memcpy(g_resp_buf, src, (size_t)json_len);
-  g_resp_buf[json_len] = '\0';
-  g_run.response_len = json_len;
-  g_run.has_response = 1;
-  g_run.response_is_error = 1;
-  g_run.pending_request_id = 0;
-  clear_waiting();
-  set_run_status(NG_RUN_RUNNING);
-  return continue_active_run();
-}
-
 ng_i32 ng_run_cancel(void) {
   if (!g_run.active)
     return NG_OK;
@@ -3051,25 +3289,89 @@ ng_i32 ng_get_node_exec_state(ng_u32 node_id) {
 }
 
 ng_i32 run(void) {
-  const char *input = "";
+  const char *input = "default";
   ng_u32 input_len = pdk_input_len();
   ng_u32 input_ptr = pdk_input_ptr();
-  int written;
+  NgSerializedGraph root;
+  NgStrBuf out;
+  ng_i32 err;
+  memset(&root, 0, sizeof(root));
+  ng_sb_init(&out);
+
   if (input_ptr != 0 && input_len > 0) {
     input = (const char *)(uintptr_t)input_ptr;
+  } else {
+    input_len = 7u;
   }
-  written = snprintf(g_resp_buf, sizeof(g_resp_buf),
-                     "{\"success\":true,\"status\":\"placeholder\",\"graph\":\"%.*s\"}",
-                     (int)input_len, input);
-  if (written < 0) {
+
+  if (ng_init() != NG_OK) {
     return NG_ERR_RUNTIME;
   }
-  if ((size_t)written >= sizeof(g_resp_buf)) {
-    written = (int)sizeof(g_resp_buf) - 1;
-    g_resp_buf[written] = '\0';
+
+  ng_batch_reset();
+  clear_io();
+
+  {
+    char graph_name[256];
+    size_t copy_len = (size_t)input_len;
+    if (copy_len >= sizeof(graph_name)) {
+      copy_len = sizeof(graph_name) - 1u;
+    }
+    memcpy(graph_name, input, copy_len);
+    graph_name[copy_len] = '\0';
+
+    err = ng_batch_load_graph_by_name(graph_name, &root);
+    if (err == NG_OK) {
+      g_batch.active = 1;
+      g_batch.root_graph = root;
+      memset(&root, 0, sizeof(root));
+      ng_sb_init(&g_batch.goal_results);
+      err = ng_apply_serialized_graph_to_runtime(&g_batch.root_graph);
+    }
+    if (err == NG_OK) {
+      err = ng_run_all_goals();
+    }
+
+    if (!ng_sb_append_len(&out, "{\"success\":", 11u) ||
+        !ng_sb_append_len(&out, err == NG_OK ? "true" : "false",
+                          err == NG_OK ? 4u : 5u) ||
+        !ng_sb_append_len(&out, ",\"graph\":", 9u) ||
+        !ng_json_encode_string(&out, graph_name, strlen(graph_name)) ||
+        !ng_sb_append_len(&out, ",\"goal_count\":", 14u) ||
+        !ng_sb_append_u32(&out, g_batch.goal_count) ||
+        !ng_sb_append_len(&out, ",\"goals\":[", 10u) ||
+        !ng_sb_append_len(&out,
+                          g_batch.goal_results.buf != NULL ? g_batch.goal_results.buf : "",
+                          g_batch.goal_results.len) ||
+        !ng_sb_append_c(&out, ']')) {
+      ng_batch_reset();
+      ng_sb_free(&out);
+      return NG_ERR_CAPACITY;
+    }
+
+    if (err != NG_OK) {
+      if (!ng_sb_append_len(&out, ",\"error_code\":", 14u) ||
+          !ng_sb_append_u32(&out, (ng_u32)err) ||
+          !ng_sb_append_len(&out, ",\"io\":", 6u) ||
+          !ng_json_encode_string(&out, g_info.io_buf, (size_t)g_info.io_len)) {
+        ng_batch_reset();
+        ng_sb_free(&out);
+        return NG_ERR_CAPACITY;
+      }
+    }
+
+    if (!ng_sb_append_c(&out, '}')) {
+      ng_batch_reset();
+      ng_sb_free(&out);
+      return NG_ERR_CAPACITY;
+    }
   }
-  pdk_set_output((ng_u32)(uintptr_t)g_resp_buf, (ng_u32)written);
-  return NG_OK;
+
+  pdk_output((const uint8_t *)(out.buf != NULL ? out.buf : ""),
+             (uint32_t)out.len);
+  ng_batch_reset();
+  ng_sb_free(&out);
+  return err;
 }
 
 int main(void) { return 0; }

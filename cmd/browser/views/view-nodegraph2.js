@@ -665,19 +665,7 @@ class ViewNodeGraph2 extends ViewCanvasBase {
               return 7;
             }
           },
-          ng_host_request: (nodeId, requestId, servicePtr, serviceLen, methodPtr, methodLen, payloadPtr, payloadLen) => {
-            try {
-              if (!this.memory) return 7;
-              const service = this.readUtf8(servicePtr, serviceLen);
-              const method = this.readUtf8(methodPtr, methodLen);
-              const payload = this.readUtf8(payloadPtr, payloadLen);
-              this._handleHostAwaitRequest(nodeId, requestId, service, method, payload);
-              return 0;
-            } catch (error) {
-              console.error('[ng] ng_host_request failed:', error);
-              return 7;
-            }
-          },
+          ng_host_request: () => 7,
         },
       },
     });
@@ -726,32 +714,6 @@ class ViewNodeGraph2 extends ViewCanvasBase {
     } catch (error) {
       return JSON.stringify({ ok: false, method: reqMethod, url, error: String(error?.message || error) });
     }
-  }
-
-  async _handleHostAwaitRequest(_nodeId, requestId, service, method, payloadJson) {
-    if (!this.api || !this.memory || typeof this.api.ng_run_response !== "function") return;
-    let response = new Uint8Array();
-    let responseFn = this.api.ng_run_response;
-    try {
-      const result = await window.pluginManager.call(service, method, payloadJson || "");
-      response = result?.output instanceof Uint8Array
-        ? result.output
-        : new Uint8Array(result?.output || []);
-      if (Number(result?.returnCode || 0) !== 0 && typeof this.api.ng_run_response_error === "function") {
-        responseFn = this.api.ng_run_response_error;
-      }
-    } catch (error) {
-      response = this.te.encode(String(error?.message || error));
-      if (typeof this.api.ng_run_response_error === "function") {
-        responseFn = this.api.ng_run_response_error;
-      }
-    }
-
-    const ptr = this.api.ng_get_io_ptr();
-    const len = Math.min(response.length, 65535);
-    new Uint8Array(this.memory.buffer, ptr, len).set(response.subarray(0, len));
-    responseFn.call(this.api, requestId, ptr, len);
-    this.requestRenderIfGenerationChanged(true);
   }
 
   readUtf8(ptr, len) {
@@ -961,6 +923,23 @@ class ViewNodeGraph2 extends ViewCanvasBase {
             : `Failed to run graph: ${message}`
       );
     }
+  }
+
+  async runSavedGraphBatch(graphName = this.graphName || DEFAULT_GRAPH_NAME) {
+    const name = String(graphName || "").trim() || DEFAULT_GRAPH_NAME;
+    const result = await window.pluginManager.call("ng", "run", name);
+    const text = this.td.decode(result.output || new Uint8Array());
+    let json = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+    return {
+      returnCode: Number(result?.returnCode || 0),
+      text,
+      json,
+    };
   }
 
   deleteSelectedNodes() {

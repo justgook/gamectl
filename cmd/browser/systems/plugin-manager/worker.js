@@ -18,6 +18,35 @@ import { createWriteInput } from '../../util/fs.js'
 import { toast } from '../toast.js'
 
 let manager = null
+let syncPort = null
+
+function handleAttachSyncPort(payload) {
+  const port = payload?.port
+  if (!port) return
+  syncPort = port
+  syncPort.onmessage = (event) => {
+    const data = event.data || {}
+    if (data.type !== 'sync-dispatch') return
+    try {
+      const result = manager.callSync(data.moduleName, data.functionName, data.input instanceof Uint8Array ? data.input : new Uint8Array(data.input || []))
+      syncPort.postMessage({
+        type: 'sync-dispatch-result',
+        requestId: data.requestId,
+        returnCode: Number(result?.returnCode || 0),
+        output: result?.output || new Uint8Array(),
+      }, result?.output ? [result.output.buffer] : [])
+    } catch (error) {
+      const output = new TextEncoder().encode(String(error?.message || error))
+      syncPort.postMessage({
+        type: 'sync-dispatch-result',
+        requestId: data.requestId,
+        returnCode: 1,
+        output,
+      }, [output.buffer])
+    }
+  }
+  syncPort.start?.()
+}
 
 /**
  * Host functions shared between phase 1 and phase 2
@@ -90,6 +119,10 @@ self.onmessage = async (e) => {
 
       case 'call':
         await handleCall(id, payload)
+        break
+
+      case 'attach-sync-port':
+        handleAttachSyncPort(payload)
         break
 
       case 'rawCall':

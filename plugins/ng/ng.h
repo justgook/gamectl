@@ -243,15 +243,6 @@ ng_i32 ng_run_goal(ng_u32 goal_node_id);
 NG_EXPORT("ng_run_start")
 ng_i32 ng_run_start(ng_u32 goal_node_id);
 
-/* provide JSON response for the currently pending host.awaitCall request */
-NG_EXPORT("ng_run_response")
-ng_i32 ng_run_response(ng_u32 request_id, ng_i32 json_ptr, ng_i32 json_len);
-
-/* provide error response for the currently pending host.awaitCall request */
-NG_EXPORT("ng_run_response_error")
-ng_i32 ng_run_response_error(ng_u32 request_id, ng_i32 json_ptr,
-                             ng_i32 json_len);
-
 NG_EXPORT("ng_run_cancel")
 ng_i32 ng_run_cancel(void);
 
@@ -304,12 +295,6 @@ ng_i32 ng_host_resolve(ng_u32 node_id, ng_u32 resolve_kind, const char *req_ptr,
                        ng_i32 req_len, char *out_ptr, ng_i32 out_cap,
                        ng_i32 *out_len);
 
-/* async host call request from Lua host.awaitCall(module_name, function_name, input) */
-NG_IMPORT("ng_host_request")
-ng_i32 ng_host_request(ng_u32 node_id, ng_u32 request_id, const char *service_ptr,
-                       ng_i32 service_len, const char *method_ptr,
-                       ng_i32 method_len, const char *payload_ptr,
-                       ng_i32 payload_len);
 
 #undef NG_EXPORT
 #undef NG_IMPORT
