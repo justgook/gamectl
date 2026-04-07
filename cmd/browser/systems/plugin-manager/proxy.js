@@ -13,14 +13,67 @@
  *   const result = await manager.call('plugin', 'function', input)
  */
 
+const SYNC_HEADER_SIZE = 16
+
+function encodeSyncCallRequest(moduleName, functionName, input) {
+  const encoder = new TextEncoder()
+  const moduleBytes = encoder.encode(String(moduleName || ''))
+  const funcBytes = encoder.encode(String(functionName || ''))
+  const inputBytes = input instanceof Uint8Array ? input : new Uint8Array(input || [])
+  const total = 12 + moduleBytes.length + funcBytes.length + inputBytes.length
+  const bytes = new Uint8Array(total)
+  const view = new DataView(bytes.buffer)
+  view.setUint32(0, moduleBytes.length, true)
+  view.setUint32(4, funcBytes.length, true)
+  view.setUint32(8, inputBytes.length, true)
+  bytes.set(moduleBytes, 12)
+  bytes.set(funcBytes, 12 + moduleBytes.length)
+  bytes.set(inputBytes, 12 + moduleBytes.length + funcBytes.length)
+  return bytes
+}
+
+function decodeSyncCallResponse(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const returnCode = view.getInt32(0, true)
+  const outputLen = view.getUint32(4, true)
+  const output = bytes.slice(8, 8 + outputLen)
+  return { returnCode, output }
+}
+
+function sleepUntil(condition, timeoutMs = 30000) {
+  const start = Date.now()
+  while (!condition()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('Sync plugin_call timeout')
+    }
+  }
+}
+
+async function waitForWorkerReady(worker, timeoutMs = 5000) {
+  return await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Sync bridge init timeout')), timeoutMs)
+    const onMessage = (e) => {
+      if (e.data?.type !== 'ready') return
+      clearTimeout(timeout)
+      worker.removeEventListener('message', onMessage)
+      resolve()
+    }
+    worker.addEventListener('message', onMessage)
+  })
+}
+
 export class PluginManagerProxy {
   constructor() {
     this.worker = null
+    this.syncBridgeWorker = null
     this.messageId = 0
     this.pending = new Map()
     this.viewPluginInstances = new Map()
     this.nextViewPluginInstanceId = 1
     this.decoder = new TextDecoder()
+    this.syncCallSab = null
+    this.syncCallInt32 = null
+    this.syncCallUint8 = null
   }
 
   /**
@@ -45,6 +98,19 @@ export class PluginManagerProxy {
     // Set up message handler
     this.worker.onmessage = (e) => this.handleMessage(e)
     this.worker.onerror = (error) => this.handleError(error)
+
+    const syncCallSab = new SharedArrayBuffer(8 * 1024 * 1024)
+    this.syncCallSab = syncCallSab
+    this.syncCallInt32 = new Int32Array(syncCallSab)
+    this.syncCallUint8 = new Uint8Array(syncCallSab)
+
+    this.syncBridgeWorker = new Worker(new URL('./sync-bridge-worker.js', import.meta.url), { type: 'module' })
+    this.syncBridgeWorker.onerror = (error) => {
+      console.error('[SyncBridgeWorker] failed:', error)
+    }
+    const channel = new MessageChannel()
+    this.worker.postMessage({ type: 'attach-sync-port', payload: { port: channel.port1 } }, [channel.port1])
+    this.syncBridgeWorker.postMessage({ type: 'init', sab: syncCallSab, port: channel.port2 }, [channel.port2])
 
     // Detect filesystem backend from localStorage and pass config to worker
     const fsConfig = this.detectBackend()
@@ -132,7 +198,14 @@ export class PluginManagerProxy {
 
     const resolved = await this.resolvePlugin(opts.name)
     const wasmBytes = await this.readPluginWasmBytes(resolved.url)
-    const importObject = this.createViewPluginImportObject(opts.importObject || {})
+    const runtimeState = {
+      moduleName: resolved.name,
+      memory: null,
+      lastCallReturn: 0,
+      lastCallOutputPtr: 0,
+      lastCallOutputLen: 0,
+    }
+    const importObject = this.createViewPluginImportObject(resolved.name, runtimeState, opts.importObject || {})
 
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject)
 
@@ -148,24 +221,79 @@ export class PluginManagerProxy {
       scope: resolved.scope,
       instance,
       exports: instance.exports,
-      memory: instance.exports?.memory || importObject?.env?.memory || null
+      memory: instance.exports?.memory || importObject?.env?.memory || null,
+      runtimeState,
     }
+
+    runtimeState.memory = handle.memory
 
     this.viewPluginInstances.set(id, handle)
     return handle
   }
 
-  createViewPluginImportObject(importObject = {}) {
+  createViewPluginImportObject(moduleName, runtimeState, importObject = {}) {
+    const alloc = (size) => {
+      const memory = runtimeState?.memory
+      if (!memory) return 0
+      const requestSize = Math.max(1, Number(size) || 0)
+      const pagesNeeded = Math.ceil(requestSize / 65536) || 1
+      const oldPages = memory.grow(pagesNeeded)
+      const ptr = oldPages * 65536
+      new Uint8Array(memory.buffer, ptr, requestSize).fill(0)
+      return ptr
+    }
+
+    const pluginCall = (modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen) => {
+      try {
+        const memory = runtimeState?.memory
+        if (!memory || !this.syncCallSab) return 5
+        const bytes = new Uint8Array(memory.buffer)
+        const decoder = new TextDecoder()
+        const targetModule = decoder.decode(bytes.slice(Number(modulePtr), Number(modulePtr) + Number(moduleLen)))
+        const targetFunction = decoder.decode(bytes.slice(Number(funcPtr), Number(funcPtr) + Number(funcLen)))
+        const input = Number(inputLen) > 0
+          ? bytes.slice(Number(inputPtr), Number(inputPtr) + Number(inputLen))
+          : new Uint8Array(0)
+        const request = encodeSyncCallRequest(targetModule, targetFunction, input)
+        const int32 = this.syncCallInt32
+        const uint8 = this.syncCallUint8
+        if (!int32 || !uint8 || request.length > (this.syncCallSab.byteLength - SYNC_HEADER_SIZE)) return 5
+        int32[1] = 0
+        int32[2] = request.length
+        uint8.set(request, SYNC_HEADER_SIZE)
+        Atomics.notify(int32, 0)
+        sleepUntil(() => int32[1] === 1)
+        const responseLength = int32[2]
+        const response = decodeSyncCallResponse(uint8.slice(SYNC_HEADER_SIZE, SYNC_HEADER_SIZE + responseLength))
+
+        runtimeState.lastCallReturn = Number(response.returnCode || 0)
+        if (response.output?.length > 0) {
+          const outputPtr = alloc(response.output.length)
+          new Uint8Array(memory.buffer, outputPtr, response.output.length).set(response.output)
+          runtimeState.lastCallOutputPtr = outputPtr
+          runtimeState.lastCallOutputLen = response.output.length
+        } else {
+          runtimeState.lastCallOutputPtr = 0
+          runtimeState.lastCallOutputLen = 0
+        }
+        return 0
+      } catch (error) {
+        console.error(`[ViewPlugin:${moduleName}] plugin_call failed:`, error)
+        return 5
+      }
+    }
+
     const env = {
-      alloc: () => 0,
+      alloc,
       free: () => {},
       input_ptr: () => 0,
       input_len: () => 0,
       set_output: () => {},
-      plugin_call: () => 5,
-      plugin_call_return: () => 1,
-      plugin_call_output_ptr: () => 0,
-      plugin_call_output_len: () => 0,
+      plugin_call: (modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen) =>
+        pluginCall(modulePtr, moduleLen, funcPtr, funcLen, inputPtr, inputLen),
+      plugin_call_return: () => Number(runtimeState?.lastCallReturn || 0),
+      plugin_call_output_ptr: () => Number(runtimeState?.lastCallOutputPtr || 0),
+      plugin_call_output_len: () => Number(runtimeState?.lastCallOutputLen || 0),
       ng_on_node_changed: () => {},
       ng_on_run_event: () => {},
       ng_on_goal_reached: () => {},

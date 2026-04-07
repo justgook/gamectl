@@ -45,13 +45,13 @@ PLUGIN_LDFLAGS := \
   -Wl,--export=ng_run_all_goals \
   -Wl,--export=ng_run_goal \
   -Wl,--export=ng_run_start \
-  -Wl,--export=ng_run_response \
   -Wl,--export=ng_run_cancel \
   -Wl,--export=ng_exec_clear \
   -Wl,--export=ng_exec_clear_all \
 	-Wl,--export=ng_get_last_error \
 	-Wl,--export=ng_get_io_ptr \
 	-Wl,--export=ng_get_io_len \
+	-Wl,--export=ng_io_clear \
 	-Wl,--export=ng_get_node_exec_state \
 	-Wl,--export=run
 
