@@ -3086,7 +3086,7 @@ static ng_i32 continue_active_run(void) {
 
   if (g_run.target_goal_id != 0) {
     err = execute_goal_with_fresh_visit(g_run.target_goal_id);
-    if (err == NG_ERR_HOST) {
+    if (err == NG_ERR_HOST && g_run.pending_request_id != 0) {
       set_run_status(NG_RUN_WAITING);
       return NG_OK;
     }
@@ -3116,7 +3116,7 @@ static ng_i32 continue_active_run(void) {
       continue;
     g_run.next_goal_scan = i;
     err = execute_goal_with_fresh_visit(node->id);
-    if (err == NG_ERR_HOST) {
+    if (err == NG_ERR_HOST && g_run.pending_request_id != 0) {
       set_run_status(NG_RUN_WAITING);
       return NG_OK;
     }
@@ -3295,6 +3295,7 @@ ng_i32 run(void) {
   NgSerializedGraph root;
   NgStrBuf out;
   ng_i32 err;
+  ng_u32 i = 0;
   memset(&root, 0, sizeof(root));
   ng_sb_init(&out);
 
