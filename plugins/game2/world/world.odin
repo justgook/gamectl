@@ -4,6 +4,7 @@ import "../host"
 import sg "../sokol/gfx"
 import "grid"
 import "logic"
+import "core:math/linalg"
 
 
 World :: struct {
@@ -17,11 +18,13 @@ World :: struct {
 	player1:          ^Input,
 	sprite_pipe:      ^Sprite_Pipe,
 	tilemap_pipe:     ^Tilemap_Pipe,
+	nine_patch_pipe:  ^Nine_Patch_Pipe,
 	uv:               []UV,
 	position:         logic.Component_Storage(Position),
 	velocity:         logic.Component_Storage(Velocity),
 	sprite:           logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
 	tilemap:          logic.Component_Storage_Fixed(Tilemap, MAX_TILEMAPS),
+	nine_patch:       logic.Component_Storage_Fixed(Nine_Patch, NINE_PATCH_RENDER_MAX),
 	brain:            logic.Component_Storage(Brain),
 	input:            logic.Component_Storage(Input),
 	timer:            logic.Component_Storage(Timer),
@@ -43,6 +46,13 @@ frame :: proc(w: ^World, dt: f64) {
 	sys_animation(w, dt)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
+
+	half_w := host.widthf() * 0.5
+	half_h := host.heightf() * 0.5
+	screen_ortho :=
+		linalg.matrix_ortho3d_f32(-half_w, half_w, -half_h, half_h, -1, 1) *
+		linalg.matrix4_translate_f32({-half_w, -half_h, 0})
+	sys_nine_patch(w, &screen_ortho)
 }
 
 
@@ -57,6 +67,7 @@ init :: proc(w: ^World) {
 	)
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
+	w.nine_patch_pipe = nine_patch_init(w.atlas)
 	// THE FIRST MOCK DATA
 
 	player := create_entity(w)
@@ -100,6 +111,7 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.velocity, entity_id)
 	logic.delete_component(&w.sprite, entity_id)
 	logic.delete_component(&w.tilemap, entity_id)
+	logic.delete_component(&w.nine_patch, entity_id)
 	logic.delete_component(&w.brain, entity_id)
 	logic.delete_component(&w.input, entity_id)
 	logic.delete_component(&w.timer, entity_id)
@@ -112,6 +124,8 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.sprite)
 	tilemap_cleanup(w.tilemap_pipe)
 	logic.destroy_storage(&w.tilemap)
+	nine_patch_cleanup(w.nine_patch_pipe)
+	logic.destroy_storage(&w.nine_patch)
 	logic.destroy_storage(&w.brain)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.timer)
