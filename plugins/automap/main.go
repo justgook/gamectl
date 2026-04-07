@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/justgook/gams/pkg/tilemap"
@@ -21,7 +22,7 @@ type Response struct {
 	Error   string `json:"error,omitempty"`
 }
 
-//go:wasmexport automap
+//export automap
 func Automap() int32 {
 	input := pdk.Input()
 	var config AutomapConfig
@@ -109,13 +110,13 @@ func Automap() int32 {
 
 func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	// Store tilemap in SQL storage
-	tilemapJSON, err := json.Marshal(tm)
+	tilemapJSON, err := encodeTileMapJSON(tm)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tilemap: %w", err)
 	}
 
 	// Escape SQL string and insert
-	escapedData := strings.ReplaceAll(string(tilemapJSON), "'", "''")
+	escapedData := strings.ReplaceAll(tilemapJSON, "'", "''")
 	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
 		mapID, escapedData)
 
@@ -129,6 +130,55 @@ func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	}
 
 	return nil
+}
+
+func encodeJSONString(value string) string {
+	return strconv.Quote(value)
+}
+
+func encodeStringMapJSON(m map[string]string) string {
+	if len(m) == 0 {
+		return "{}"
+	}
+	parts := make([]string, 0, len(m))
+	for k, v := range m {
+		parts = append(parts, encodeJSONString(k)+":"+encodeJSONString(v))
+	}
+	return "{" + strings.Join(parts, ",") + "}"
+}
+
+func encodeUint32SliceJSON(values []uint32) string {
+	if len(values) == 0 {
+		return "[]"
+	}
+	parts := make([]string, len(values))
+	for i, v := range values {
+		parts[i] = strconv.FormatUint(uint64(v), 10)
+	}
+	return "[" + strings.Join(parts, ",") + "]"
+}
+
+func encodeTileMapJSON(tm *tilemap.TileMap) (string, error) {
+	if tm == nil {
+		return "", fmt.Errorf("tilemap is nil")
+	}
+	layerParts := make([]string, len(tm.Layers))
+	for i, layer := range tm.Layers {
+		layerParts[i] = "{" +
+			"\"width\":" + strconv.Itoa(layer.Width) + "," +
+			"\"data\":" + encodeUint32SliceJSON(layer.Data)
+		if len(layer.Props) > 0 {
+			layerParts[i] += ",\"props\":" + encodeStringMapJSON(layer.Props)
+		}
+		layerParts[i] += "}"
+	}
+	result := "{" +
+		"\"layers\":[" + strings.Join(layerParts, ",") + "]"
+	if len(tm.Props) > 0 {
+		result += ",\"props\":" + encodeStringMapJSON(tm.Props)
+	}
+	result += "}"
+	return result, nil
 }
 
 func getTilemap(mapID string) (*tilemap.TileMap, error) {

@@ -14,10 +14,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"unsafe"
 
@@ -189,6 +191,8 @@ func (r *Runtime) hostFunctions() []HostFunction {
 		{Module: "host", Function: "log", Handler: r.hostLog},
 		{Module: "fs", Function: "read", Handler: r.fsRead},
 		{Module: "fs", Function: "write", Handler: r.fsWrite},
+		{Module: "fs", Function: "writeJson", Handler: r.fsWriteJSON},
+		{Module: "fs", Function: "writeBin", Handler: r.fsWriteBin},
 		{Module: "fs", Function: "delete", Handler: r.fsDelete},
 		{Module: "fs", Function: "exists", Handler: r.fsExists},
 		{Module: "fs", Function: "list", Handler: r.fsList},
@@ -217,6 +221,9 @@ func (r *Runtime) fsRead(input []byte) (int32, []byte) {
 		resolved := r.resolveLocal(strings.TrimPrefix(path, "local:"))
 		data, err := os.ReadFile(resolved)
 		return resultBytes(data, err)
+	case strings.HasPrefix(path, "image:"):
+		data, err := r.readImageProtocol(path)
+		return resultBytes(data, err)
 	default:
 		resolved := r.resolvePath(path)
 		data, err := os.ReadFile(resolved)
@@ -237,6 +244,36 @@ func (r *Runtime) fsWrite(input []byte) (int32, []byte) {
 		return errorResult(err)
 	}
 	return 0, []byte("OK")
+}
+
+func (r *Runtime) fsWriteJSON(input []byte) (int32, []byte) {
+	var payload struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(input, &payload); err != nil {
+		return errorResult(err)
+	}
+	encoded := append([]byte(payload.Path), 0)
+	encoded = append(encoded, []byte(payload.Content)...)
+	return r.fsWrite(encoded)
+}
+
+func (r *Runtime) fsWriteBin(input []byte) (int32, []byte) {
+	var payload struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(input, &payload); err != nil {
+		return errorResult(err)
+	}
+	data, err := base64.StdEncoding.DecodeString(payload.Content)
+	if err != nil {
+		return errorResult(err)
+	}
+	encoded := append([]byte(payload.Path), 0)
+	encoded = append(encoded, data...)
+	return r.fsWrite(encoded)
 }
 
 func (r *Runtime) fsDelete(input []byte) (int32, []byte) {
@@ -311,18 +348,26 @@ func (r *Runtime) resolveLocal(path string) string {
 	if base == "" {
 		base, _ = os.Getwd()
 	}
+	if trimmed == "assets" || strings.HasPrefix(trimmed, "assets/") {
+		return filepath.Clean(filepath.Join(base, "cmd", "browser", trimmed))
+	}
 	return filepath.Clean(filepath.Join(base, trimmed))
 }
 
 func (r *Runtime) resolvePath(path string) string {
-	if filepath.IsAbs(path) {
-		return filepath.Clean(path)
-	}
 	base := r.workdir
 	if base == "" {
 		base, _ = os.Getwd()
 	}
-	return filepath.Clean(filepath.Join(base, path))
+	cleanBase := filepath.Clean(base)
+	cleanPath := filepath.Clean(path)
+	if filepath.IsAbs(cleanPath) {
+		if cleanPath == cleanBase || strings.HasPrefix(cleanPath, cleanBase+string(os.PathSeparator)) {
+			return cleanPath
+		}
+		return filepath.Clean(filepath.Join(cleanBase, strings.TrimPrefix(cleanPath, string(os.PathSeparator))))
+	}
+	return filepath.Clean(filepath.Join(cleanBase, cleanPath))
 }
 
 func (r *Runtime) resolveModuleSource(source string) (string, error) {
@@ -552,7 +597,21 @@ func (m *wasmtimeManager) callWasmFunction(moduleName, functionName string, inpu
 	if fn == nil {
 		return 0, nil, fmt.Errorf("function %s not found in module %s", functionName, moduleName)
 	}
-	result, err := fn.Call(m.store)
+	ft := fn.Type(m.store)
+	params := ft.Params()
+	var result any
+	var err error
+	switch len(params) {
+	case 0:
+		result, err = fn.Call(m.store)
+	case 1:
+		if params[0].Kind() != wasmtime.KindI32 {
+			return 0, nil, fmt.Errorf("function %s in module %s has unsupported parameter type", functionName, moduleName)
+		}
+		result, err = fn.Call(m.store, int32(0))
+	default:
+		return 0, nil, fmt.Errorf("function %s in module %s has unsupported arity %d", functionName, moduleName, len(params))
+	}
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to call function %s: %w", functionName, err)
 	}
@@ -645,7 +704,20 @@ func (m *wasmtimeManager) pluginCall(c *wasmtime.Caller, modulePtr, moduleLen, f
 	}
 	returnValue, output, err := m.callWithContext(string(moduleName), string(functionName), input)
 	if err != nil {
-		return 5
+		msg := []byte(err.Error())
+		m.lastCallReturn = 1
+		m.lastCallOutputPtr = 0
+		m.lastCallOutputLen = 0
+		if len(msg) > 0 {
+			ptr, allocErr := m.allocateForModule(callerName, uint32(len(msg)))
+			if allocErr == nil {
+				if writeErr := m.writeModuleMemory(callerName, ptr, msg); writeErr == nil {
+					m.lastCallOutputPtr = ptr
+					m.lastCallOutputLen = uint32(len(msg))
+				}
+			}
+		}
+		return 0
 	}
 	m.lastCallReturn = returnValue
 	m.lastCallOutputPtr = 0
@@ -713,20 +785,15 @@ func (m *wasmtimeManager) allocateForModule(moduleName string, size uint32) (uin
 	if err != nil {
 		return 0, err
 	}
-	offset := m.memoryOffsets[moduleName]
-	currentSize := uint32(memory.DataSize(m.store))
-	if offset == 0 {
-		offset = currentSize
+	pagesNeeded := uint64((size + 65535) / 65536)
+	if pagesNeeded == 0 {
+		pagesNeeded = 1
 	}
-	required := uint64(offset) + uint64(size)
-	if required > uint64(currentSize) {
-		deltaPages := uint64((required - uint64(currentSize) + 65535) / 65536)
-		if _, err := memory.Grow(m.store, deltaPages); err != nil {
-			return 0, err
-		}
+	oldPages, err := memory.Grow(m.store, pagesNeeded)
+	if err != nil {
+		return 0, err
 	}
-	m.memoryOffsets[moduleName] = offset + size
-	return offset, nil
+	return uint32(oldPages) * 65536, nil
 }
 
 func (m *wasmtimeManager) writeModuleMemory(moduleName string, ptr uint32, data []byte) error {
@@ -776,6 +843,41 @@ func bytesIndex(data []byte, target byte) int {
 		}
 	}
 	return -1
+}
+
+func (r *Runtime) readImageProtocol(input string) ([]byte, error) {
+	trimmed := strings.TrimPrefix(input, "image:")
+	handleText := trimmed
+	format := "qoi"
+	if idx := strings.IndexByte(trimmed, '?'); idx >= 0 {
+		handleText = trimmed[:idx]
+		params, err := url.ParseQuery(trimmed[idx+1:])
+		if err != nil {
+			return nil, err
+		}
+		if v := params.Get("format"); v != "" {
+			format = v
+		}
+	}
+	handle, err := strconv.Atoi(handleText)
+	if err != nil || handle <= 0 {
+		return nil, fmt.Errorf("invalid image protocol handle: %q", handleText)
+	}
+	if format != "qoi" && format != "png" {
+		return nil, fmt.Errorf("invalid image protocol format: %q", format)
+	}
+	payload, err := json.Marshal(map[string]any{"src": handle, "format": format})
+	if err != nil {
+		return nil, err
+	}
+	result, err := r.Call("image", "export", payload)
+	if err != nil {
+		return nil, err
+	}
+	if result.ReturnCode != 0 {
+		return nil, fmt.Errorf("image protocol failed: %s", string(result.Output))
+	}
+	return result.Output, nil
 }
 
 func readHTTP(url string) ([]byte, error) {

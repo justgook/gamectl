@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/justgook/gams/pkg/tilemap"
@@ -26,15 +27,20 @@ type DoorSizesConfig struct {
 
 // Input represents the plugin input structure
 type Input struct {
-	InputMapID  string           `json:"inputMapId"`          // Required: source tilemap ID to scale
-	OutputMapID string           `json:"outputMapId"`         // Required: destination tilemap ID
-	ScaleFactor int              `json:"scaleFactor"`         // Required: integer multiplier (2, 3, 4, etc.)
-	DoorSizes   *DoorSizesConfig `json:"doorSizes,omitempty"` // Optional: door sizes per direction
+	InputMapID  string          `json:"inputMapId"`          // Required: source tilemap ID to scale
+	OutputMapID string          `json:"outputMapId"`         // Required: destination tilemap ID
+	ScaleFactor int             `json:"scaleFactor"`         // Required: integer multiplier (2, 3, 4, etc.)
+	DoorSizes   json.RawMessage `json:"doorSizes,omitempty"` // Optional raw JSON to avoid TinyGo pointer decode issues
 }
 
-//go:wasmexport scale
+//export scale
 func Scale() int32 {
 	input := pdk.Input()
+	if len(input) == 0 {
+		pdk.Output(util.ErrorResponse("input is required"))
+		return 1
+	}
+
 	var params Input
 	if err := json.Unmarshal(input, &params); err != nil {
 		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
@@ -57,8 +63,13 @@ func Scale() int32 {
 
 	// Set default door sizes if not provided
 	doorSizes := getDefaultDoorSizes()
-	if params.DoorSizes != nil {
-		doorSizes = *params.DoorSizes
+	if len(params.DoorSizes) > 0 && string(params.DoorSizes) != "null" {
+		var decoded DoorSizesConfig
+		if err := json.Unmarshal(params.DoorSizes, &decoded); err != nil {
+			pdk.Output(util.ErrorResponse("invalid doorSizes: " + err.Error()))
+			return 1
+		}
+		doorSizes = decoded
 	}
 
 	// Load input tilemap from storage
@@ -200,16 +211,12 @@ func getTilemap(mapID string) (*tilemap.TileMap, error) {
 }
 
 func storeTilemap(mapID string, tm *tilemap.TileMap) error {
-	// Marshal tilemap to JSON
-	tilemapJSON, err := json.Marshal(tm)
+	jsonStr, err := encodeTileMapJSON(tm)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tilemap: %w", err)
 	}
 
-	jsonStr := string(tilemapJSON)
-
 	// Build SQL INSERT using proper escaping
-	// We need to escape both the mapID and the JSON data for SQL
 	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
 	escapedData := strings.ReplaceAll(jsonStr, "'", "''")
 
@@ -226,6 +233,55 @@ func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	}
 
 	return nil
+}
+
+func encodeJSONString(value string) string {
+	return strconv.Quote(value)
+}
+
+func encodeStringMapJSON(m map[string]string) string {
+	if len(m) == 0 {
+		return "{}"
+	}
+	parts := make([]string, 0, len(m))
+	for k, v := range m {
+		parts = append(parts, encodeJSONString(k)+":"+encodeJSONString(v))
+	}
+	return "{" + strings.Join(parts, ",") + "}"
+}
+
+func encodeUint32SliceJSON(values []uint32) string {
+	if len(values) == 0 {
+		return "[]"
+	}
+	parts := make([]string, len(values))
+	for i, v := range values {
+		parts[i] = strconv.FormatUint(uint64(v), 10)
+	}
+	return "[" + strings.Join(parts, ",") + "]"
+}
+
+func encodeTileMapJSON(tm *tilemap.TileMap) (string, error) {
+	if tm == nil {
+		return "", fmt.Errorf("tilemap is nil")
+	}
+	layerParts := make([]string, len(tm.Layers))
+	for i, layer := range tm.Layers {
+		layerParts[i] = "{" +
+			"\"width\":" + strconv.Itoa(layer.Width) + "," +
+			"\"data\":" + encodeUint32SliceJSON(layer.Data)
+		if len(layer.Props) > 0 {
+			layerParts[i] += ",\"props\":" + encodeStringMapJSON(layer.Props)
+		}
+		layerParts[i] += "}"
+	}
+	result := "{" +
+		"\"layers\":[" + strings.Join(layerParts, ",") + "]"
+	if len(tm.Props) > 0 {
+		result += ",\"props\":" + encodeStringMapJSON(tm.Props)
+	}
+	result += "}"
+	return result, nil
 }
 
 func logToConsole(msg string) {

@@ -20,6 +20,7 @@
 
 # Build artifacts and tools
 /tmp/
+tmp/
 #/aseprite/
 /build/
 /build.nosync/
@@ -47,3 +48,4 @@ Thumbs.db
 *.iml
 
 assets/**/backups/
+database.sqlite
