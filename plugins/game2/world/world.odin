@@ -2,9 +2,9 @@ package world
 
 import "../host"
 import sg "../sokol/gfx"
+import "core:math/linalg"
 import "grid"
 import "logic"
-import "core:math/linalg"
 
 
 World :: struct {
@@ -60,11 +60,7 @@ init :: proc(w: ^World) {
 	w.next_entity_id = 100
 
 	w.sim_frame_length = 1.0 / 60.0
-	w.cam = camera_init(
-		{host.widthf(), host.heightf()},
-		{host.widthf() / 2, host.heightf() / 2},
-		1.0,
-	)
+	w.cam = camera_init({host.widthf(), host.heightf()}, {host.widthf() / 2, host.heightf() / 2}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
@@ -77,13 +73,15 @@ init :: proc(w: ^World) {
 	logic.add_component(&w.velocity, player, Velocity{})
 	// logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
 	logic.add_component(&w.position, player, Position{})
+	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[968], size = {128, 128}})
+
+	ui := create_entity(w)
 	logic.add_component(
-		&w.sprite,
-		player,
-		Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[968], size = {128, 128}},
+		&w.nine_patch,
+		ui,
+		Nine_Patch{bounds = {20, 20, 420, 120}, slices = {6, 7, 11, 10}, size = {16, 16}, uv = w.uv[418]},
 	)
 
-	// background := create_entity(w)
 	// logic.add_component(&w.position, background, Position{0 * UNIT, 0 * UNIT})
 	// // logic.add_component(
 	// // 	&w.sprite,
