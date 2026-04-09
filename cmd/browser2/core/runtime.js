@@ -1,13 +1,7 @@
 const MAIN_SYNC_HEADER_SIZE = 8
 const MAIN_SYNC_BUFFER_SIZE = 1024 * 1024
 
-function readBootstrapConfig() {
-  return {
-    fs: localStorage.getItem('browser.fs') || 'fs.opfs',
-    sql: localStorage.getItem('browser.sql') || 'sql.default',
-    webdavUrl: localStorage.getItem('browser.fs.webdav.url') || '',
-  }
-}
+
 
 function serializeBridgeResult(result, error = '') {
   const normalized = result || { returnCode: 0, output: new Uint8Array() }
@@ -38,9 +32,8 @@ class RuntimeProxy {
     this.worker.addEventListener('message', (event) => this.handleMessage(event))
   }
 
-  static async create() {
-    const worker = new Worker(new URL('./worker-runtime.js', import.meta.url), { type: 'module' })
-    const bootstrap = readBootstrapConfig()
+  static async create(bootstrap) {
+    const worker = new Worker(new URL('./runtime-worker.js', import.meta.url), { type: 'module' })
     const mainSyncSab = new SharedArrayBuffer(MAIN_SYNC_BUFFER_SIZE)
     const setupResult = await new Promise((resolve, reject) => {
       const onMessage = (event) => {
@@ -178,11 +171,11 @@ class RuntimeProxy {
 let runtimeProxy = null
 export const setupResult = {}
 
-export async function init() {
+export async function init(bootstrap) {
   if (runtimeProxy) {
     throw new Error('runtime.init() may only be called once')
   }
-  runtimeProxy = await RuntimeProxy.create()
+  runtimeProxy = await RuntimeProxy.create(bootstrap)
   Object.assign(setupResult, runtimeProxy.setupResult || {})
   return { register, call }
 }
