@@ -11,6 +11,19 @@ This host is intentionally a fresh start:
 
 ## Base Plugins
 
+### `echo`
+WASM debug plugin used to validate the bridge pipeline.
+
+Current API:
+- `call(json)` where `json` is shaped like:
+  - `{"plugin":"view.echo","method":"hello","input":"world"}`
+
+Notes:
+- Intended to exercise the path main thread → worker runtime → WASM plugin → main-thread endpoint.
+- Uses the worker runtime host bridge via `runtime.call` semantics from inside the plugin.
+- The same `runtime.call` host module can also be invoked directly from the browser console through `window.runtime.call('runtime', 'call', JSON.stringify(...))` to emulate plugin-side calls.
+
+
 ### `fs.opfs`
 JS filesystem plugin backed by OPFS.
 
@@ -56,7 +69,8 @@ Current phase-1 bootstrap flow:
 4. the selected `fs.*` plugin is loaded first inside the worker runtime
 5. setup uses the `fs` capability to decide the next bootstrap steps
 6. the worker runtime now loads `sql.default` after `fs` and calls `sql.open()`
-7. migrations and DB restore/load are the next planned step
+7. `core/setup-view.js` registers main-thread view endpoints like `view.echo`
+8. migrations and DB restore/load are the next planned step
 
 ## Call Semantics
 
@@ -68,6 +82,6 @@ The target architecture is synchronous plugin-to-plugin calls inside the worker 
 Current worker runtime now has a `callSync(...)` path for worker-local plugins and WASM host-function dispatch, and `fs` is wired so `sql` can call it through the worker-side plugin runtime.
 
 ### Worker runtime → main-thread plugins/views
-Main-thread plugins/views are registered as endpoints on the runtime proxy.
+Main-thread plugins/views are registered as endpoints on the runtime proxy, currently through `core/setup-view.js`.
 The worker can call them through the bridge by plugin id.
-This bridge is asynchronous in transport right now, and is the place where later Atomics-backed synchronization will be added for worker/plugin-side sync semantics.
+Browser2 now includes the first Atomics-backed synchronous bridge path for worker/plugin-side calls into main-thread endpoints, while the main-thread public `runtime.call(...)` API remains asynchronous.
