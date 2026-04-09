@@ -3,6 +3,11 @@
 ## Purpose
 `cmd/browser2` is the clean browser-host entrypoint for the new plugin architecture.
 
+It should be treated as a fresh-start host:
+- breaking changes are acceptable
+- backwards compatibility with `cmd/browser` internals is not required
+- legacy compatibility shims should not be copied forward by default
+
 It should be used to prove the target model incrementally:
 - WASM plugins and JS plugins are both first-class
 - plugins call each other through one routed PDK-style contract
@@ -16,6 +21,7 @@ It is a controlled migration host where we can bring features across in the righ
 
 ## Non-Goals For The First Stage
 At the beginning, `browser2` does **not** need:
+- backwards compatibility layers for old browser bootstrap/config behavior
 - full visual parity with `cmd/browser`
 - all existing views
 - all existing browser shell features
@@ -69,12 +75,13 @@ Responsibilities:
 - render minimal placeholder/status UI
 
 #### `core/setup.js`
-Bootstrap setup resolver.
+Worker-side bootstrap setup resolver.
 Responsibilities:
+- run inside the worker runtime
 - return base setup before `fs` is available
 - decide which `fs` provider to load first
 - after `fs` is enabled, resolve where `sql` should come from
-- remain deterministic and override-friendly via localStorage/config
+- remain deterministic and override-friendly via bootstrap config passed from main thread
 
 #### `core/bootstrap.js`
 Ordered boot sequencing.
@@ -84,20 +91,20 @@ Responsibilities:
 - avoid leaking bootstrap flow into `app.js` or `runtime.js`
 
 #### `core/runtime.js`
-Main browser2 runtime singleton.
+Main-thread runtime proxy.
 Responsibilities:
-- manage plugin definitions and loaded instances
-- load/unload JS and WASM plugins
-- route calls uniformly
-- manage capabilities/provider resolution
-- coordinate worker-backed runtimes
+- create the worker runtime
+- expose async `runtime.call(...)` from main thread to worker
+- register main-thread plugin/view endpoints callable from the worker
+- coordinate the bridge between main thread and worker runtime
 
 #### `core/worker-runtime.js`
-Worker-backed runtime transport for WASM execution.
+Actual worker-side plugin runtime.
 Responsibilities:
-- create workers used by WASM plugin execution
-- manage messaging/channel setup
-- execute worker-side calls without owning bootstrap policy
+- own worker-side plugin loading and calling
+- run `setup.js`
+- host core/base plugins like `fs` and later `sql`
+- bridge worker calls to registered main-thread plugin/view endpoints
 
 #### `builtin/fs-opfs/` and `builtin/fs-webdav/`
 Swappable built-in filesystem providers.
@@ -134,8 +141,25 @@ That is the first meaningful checkpoint.
 
 ## Bootstrap Order
 
+## Asymmetric Runtime Mechanism
+
+Browser2 should use an asymmetric runtime bridge:
+
+- `runtime.call(pluginId, method, input)` from the main thread is async
+- worker-side setup and plugin loading happen inside `core/worker-runtime.js`
+- worker-side plugins should eventually see sync plugin-call semantics
+- calls from worker-side plugins to main-thread views/services cross an async bridge, but are planned to use Atomics-backed synchronization for plugin-side sync behavior
+
+This means:
+- `setup.js` belongs on the worker side
+- `fs` belongs on the worker side
+- `sql` belongs on the worker side
+- view/main-thread plugins should be registered as endpoints on the runtime proxy
+- a future `setup-view.js` can configure view-side/bootstrap-side main-thread plugins separately
+
+
 ### Stage 0 — host boot
-The browser host starts and creates the base runtime/router.
+The browser host starts the runtime proxy, which creates the worker runtime/router.
 
 Needed pieces:
 - plugin registry abstraction
@@ -149,7 +173,7 @@ Output of this stage:
 - a host that can register/call plugins, even if only a tiny built-in set exists at first
 
 ### Stage 1 — filesystem (`fs`) first
-Filesystem should be the first mandatory capability in `browser2`.
+Filesystem should be the first mandatory capability in the worker runtime.
 
 Reason:
 - later bootstrap depends on reading/writing persistent state
@@ -162,15 +186,16 @@ Expected shape:
 - plugin callers see it as a normal plugin contract
 
 Questions to settle:
-- whether `fs` is implemented as a JS plugin, a host-backed built-in capability, or both
-- whether the host should expose it directly first and later formalize it as a JS plugin
+- how worker-side JS plugins are normalized relative to WASM plugins
 - what the minimal contract is for bootstrap (`exists`, `read`, `write`, maybe `readdir`, `mkdir`)
+- how worker-side sync call semantics will be finalized across JS and WASM plugins
 
 Recommendation for first implementation:
-- keep `fs` as the first built-in/mandatory routed capability
+- keep `fs` as the first built-in/mandatory routed capability in the worker runtime
 - make it callable through the same plugin call path as normal plugins
 - define provider selection in `core/setup.js`
-- allow provider choice to come from localStorage/config even in phase 1
+- pass bootstrap config from main thread to worker setup
+- avoid legacy fallback keys or compatibility behavior in the new host
 
 ### Stage 2 — `sql` second
 After `fs`, load `sql` as the first mandatory WASM plugin.
@@ -436,11 +461,36 @@ or whether callable functions are enough for the first stage.
 
 ---
 
+## Current Minimal Implementation
+
+Implemented first scaffolding in `cmd/browser2/`:
+- `app.js` creates the main-thread runtime proxy
+- `core/runtime.js` bridges async main-thread calls into the worker runtime and allows registration of main-thread plugin/view endpoints
+- `core/worker-runtime.js` owns the actual worker-side runtime and runs `setup.js`
+- `core/setup.js` now runs in the worker and owns the first staged setup flow:
+  - resolve initial `fs` provider from bootstrap config
+  - load selected `fs` plugin in the worker runtime
+  - query post-`fs` next-step info
+- `builtin/fs-opfs/index.js` exists as the first real JS plugin provider with copied sync worker/Atomics-backed filesystem behavior
+- `builtin/fs-webdav/index.js` exists as a second filesystem provider using the same API shape and worker pattern
+- `core/bootstrap.js` and `core/worker-runtime.js` exist as phase-1 scaffolding
+
+Current phase-1 behavior:
+- `browser.fs` in localStorage can select `fs.opfs` or `fs.webdav`
+- browser2 is intentionally using fresh config keys and fresh bootstrap behavior rather than compatibility shims
+- main thread passes bootstrap config into the worker runtime
+- worker-side setup loads `fs` first and exposes it through capability alias `fs`
+- `fs` already follows the copied browser filesystem API shape (`read`, `write`, `remove`, `exists`, `list`, `mkdir`, `rmdir`, `stat`)
+- provider implementations use `SharedArrayBuffer` + `Atomics` + dedicated workers for sync semantics
+- runtime can now register mock main-thread plugin/view endpoints for worker-side calls
+- post-`fs` setup already computes the next SQL target id, but does not load SQL yet
+
 ## Recommended Immediate Next Tasks
 - [x] define browser2 bootstrap file structure
-- [ ] define minimal JS plugin interface for browser2
-- [ ] define minimal built-in `fs` contract for bootstrap
-- [ ] wire mandatory `sql` load after `fs`
+- [x] create first minimal JS plugin runtime scaffold
+- [x] create first staged `setup.js` flow for `fs`
+- [x] define minimal built-in `fs` contract for bootstrap
+- [ ] wire mandatory `sql` load after `fs` in the worker runtime
 - [ ] adapt or reimplement migration bootstrap on top of `fs` + `sql`
 - [ ] prove one JS service plugin load/call path
 - [ ] document first end-to-end migration recipe

@@ -86,6 +86,20 @@ Important constraint:
 ## Host Responsibilities
 Hosts should do only the following:
 
+## Runtime Call Model
+
+The browser host should use an asymmetric call model:
+
+- main thread → runtime worker calls are **asynchronous**
+- worker-side plugin → plugin calls are intended to be **synchronous** inside the runtime
+- worker-side plugin → main-thread view/service calls cross an async bridge, but should present sync semantics to plugins via Atomics-backed coordination
+
+This implies:
+- setup/bootstrap for base plugins should live on the worker side
+- core/base plugins such as `fs` and `sql` should be initialized in the worker runtime
+- main-thread views/services should be registered as callable endpoints on the runtime bridge rather than treated as the canonical plugin host
+
+
 1. discover and register plugins
 2. load WASM and JS plugin implementations
 3. place plugins in the right runtime
@@ -104,6 +118,16 @@ Hosts should do only the following:
 Hosts should not keep accumulating feature-specific logic for graph execution, layout semantics, notifications, dialogs, or view-specific runtime ownership.
 
 ## Migration Principles
+
+### 0. Fresh start for the new browser host
+`cmd/browser2` should be treated as a fresh-start host.
+
+That means:
+- breaking changes are acceptable during early browser2 work
+- backwards compatibility with the old browser host is **not** a goal inside browser2
+- do not carry legacy naming, compatibility shims, or fallback behavior forward unless they are explicitly chosen as part of the new architecture
+- prefer clean contracts and deterministic bootstrap over transitional glue
+
 
 ### 1. Stop spreading view-owned runtimes
 New work should avoid direct `pluginManager.load(...)` from browser views as the canonical ownership model for runtime state.
