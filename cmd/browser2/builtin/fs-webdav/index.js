@@ -1,7 +1,7 @@
 import { FsAdapter } from './FsAdapter.js'
 
 let fs = null
-let pluginCaller = null
+let pluginCallerSync = null
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
@@ -69,13 +69,13 @@ function parseImageProtocol(input) {
   return { handle, format }
 }
 
-async function readImageProtocol(input) {
-  if (!pluginCaller) {
+function readImageProtocol(input) {
+  if (!pluginCallerSync) {
     throw new Error('Image protocol unavailable: plugin caller is not configured')
   }
   const { handle, format } = parseImageProtocol(input)
   const payload = JSON.stringify({ src: handle, format })
-  const result = await pluginCaller('image', 'export', payload)
+  const result = pluginCallerSync('image', 'export', payload)
   if (!result || result.returnCode !== 0) {
     const message = result?.output ? decoder.decode(result.output) : 'unknown image export failure'
     throw new Error(`Image protocol failed: ${message}`)
@@ -90,11 +90,11 @@ const plugin = {
     const raw = localStorage.getItem('browser.fs.webdav.url') || ''
     const { url, authorization } = parseWebdavUrl(raw)
     fs = await FsAdapter.start({ url, authorization })
-    pluginCaller = ctx?.call ? (moduleName, functionName, input) => ctx.call(moduleName, functionName, input) : null
+    pluginCallerSync = ctx?.callSync ? (moduleName, functionName, input) => ctx.callSync(moduleName, functionName, input) : null
   },
 
   methods: {
-    async read(path) {
+    read(path) {
       try {
         const input = decodeInput(path)
         if (input.startsWith('base64:')) return success(base64ToUint8Array(input.slice(7)))
@@ -109,7 +109,7 @@ const plugin = {
           const url = new URL(input.slice(6), location.origin).href
           return success(fs.readHttpSync(url))
         }
-        if (input.startsWith('image:')) return success(await readImageProtocol(input))
+        if (input.startsWith('image:')) return success(readImageProtocol(input))
         if (input.startsWith('http://') || input.startsWith('https://')) return success(fs.readHttpSync(input))
         return success(fs.readFileSync(input))
       } catch (e) {
@@ -117,7 +117,7 @@ const plugin = {
       }
     },
 
-    async write(input) {
+    write(input) {
       try {
         const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
         let nullIndex = -1
@@ -137,7 +137,7 @@ const plugin = {
       }
     },
 
-    async remove(path) {
+    remove(path) {
       try {
         fs.unlinkSync(decodeInput(path))
         return success('OK')
@@ -146,7 +146,7 @@ const plugin = {
       }
     },
 
-    async exists(path) {
+    exists(path) {
       try {
         const result = fs.existsSync(decodeInput(path))
         return success(result ? 'true' : 'false')
@@ -155,7 +155,7 @@ const plugin = {
       }
     },
 
-    async list(path) {
+    list(path) {
       try {
         const dirPath = path ? decodeInput(path) : '/'
         return success(JSON.stringify(fs.readdirSync(dirPath)))
@@ -164,7 +164,7 @@ const plugin = {
       }
     },
 
-    async mkdir(path) {
+    mkdir(path) {
       try {
         fs.mkdirSync(decodeInput(path))
         return success('OK')
@@ -173,7 +173,7 @@ const plugin = {
       }
     },
 
-    async rmdir(path) {
+    rmdir(path) {
       try {
         fs.rmdirSync(decodeInput(path))
         return success('OK')
@@ -182,7 +182,7 @@ const plugin = {
       }
     },
 
-    async stat(path) {
+    stat(path) {
       try {
         const stats = fs.statSync(decodeInput(path))
         return success(JSON.stringify({ size: stats.size, type: stats.isDirectory() ? 'directory' : 'file' }))

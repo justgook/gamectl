@@ -483,14 +483,15 @@ Current phase-1 behavior:
 - `fs` already follows the copied browser filesystem API shape (`read`, `write`, `remove`, `exists`, `list`, `mkdir`, `rmdir`, `stat`)
 - provider implementations use `SharedArrayBuffer` + `Atomics` + dedicated workers for sync semantics
 - runtime can now register mock main-thread plugin/view endpoints for worker-side calls
-- post-`fs` setup already computes the next SQL target id, but does not load SQL yet
+- worker-side setup now loads `sql.default`, exposes it through capability alias `sql`, and calls `sql.open()`
+- migrations and DB restore/load are the next step after SQL bootstrap
 
 ## Recommended Immediate Next Tasks
 - [x] define browser2 bootstrap file structure
 - [x] create first minimal JS plugin runtime scaffold
 - [x] create first staged `setup.js` flow for `fs`
 - [x] define minimal built-in `fs` contract for bootstrap
-- [ ] wire mandatory `sql` load after `fs` in the worker runtime
+- [x] wire mandatory `sql` load after `fs` in the worker runtime
 - [ ] adapt or reimplement migration bootstrap on top of `fs` + `sql`
 - [ ] prove one JS service plugin load/call path
 - [ ] document first end-to-end migration recipe

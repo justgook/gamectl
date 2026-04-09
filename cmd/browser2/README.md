@@ -55,7 +55,8 @@ Current phase-1 bootstrap flow:
 3. `core/setup.js` runs in the worker and selects the filesystem provider
 4. the selected `fs.*` plugin is loaded first inside the worker runtime
 5. setup uses the `fs` capability to decide the next bootstrap steps
-6. SQL bootstrap is the next planned step
+6. the worker runtime now loads `sql.default` after `fs` and calls `sql.open()`
+7. migrations and DB restore/load are the next planned step
 
 ## Call Semantics
 
@@ -64,9 +65,9 @@ Current phase-1 bootstrap flow:
 
 ### Plugin → plugin inside worker runtime
 The target architecture is synchronous plugin-to-plugin calls inside the worker runtime.
-Current scaffolding still uses async JS handlers, but browser2 should evolve toward sync plugin semantics inside the worker.
+Current worker runtime now has a `callSync(...)` path for worker-local plugins and WASM host-function dispatch, and `fs` is wired so `sql` can call it through the worker-side plugin runtime.
 
 ### Worker runtime → main-thread plugins/views
 Main-thread plugins/views are registered as endpoints on the runtime proxy.
 The worker can call them through the bridge by plugin id.
-This bridge is asynchronous in transport, and is the place where later Atomics-backed synchronization will be added for worker/plugin-side sync semantics.
+This bridge is asynchronous in transport right now, and is the place where later Atomics-backed synchronization will be added for worker/plugin-side sync semantics.
