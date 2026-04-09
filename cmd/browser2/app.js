@@ -1,12 +1,20 @@
 import { init, setupResult } from './core/runtime.js'
 import { applySetupView } from './core/setup-view.js'
 
+function readBootstrapConfig() {
+  return {
+    fs: localStorage.getItem('browser.fs') || 'fs.opfs',
+    sql: localStorage.getItem('browser.sql') || 'sql.default',
+    webdavUrl: localStorage.getItem('browser.fs.webdav.url') || '',
+  }
+}
+
 async function main() {
   const root = document.body
   root.innerHTML = '<main style="font-family: sans-serif; padding: 24px; color: #e7ebf3; background:#111318; min-height:100vh">Starting browser...</main>'
 
   try {
-    const runtime = await init()
+    const runtime = await init(readBootstrapConfig())
     const viewSetupResult = await applySetupView(runtime)
     window.runtime = runtime
     window.runtimeSetupResult = setupResult
