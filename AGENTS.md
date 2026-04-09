@@ -41,10 +41,13 @@ This repository is moving toward a unified `pluginManager` architecture.
 - `ng` runtime / `view-nodegraph2`
 - `layout`
 - `sql`
+- `cmd/browser2` worker-side runtime/bootstrap
 - legacy `pluginManager.load(...)` view runtimes
 
 ## Guidance For AI Agents
 - Read `PLAN/PLAN.md` before proposing architecture changes.
 - When discussing a plugin, check whether it already has a file under `PLAN/`.
 - Prefer updating planning docs with clear migration targets instead of assuming unfinished details.
+- Treat `cmd/browser2` as a fresh-start host: breaking changes are acceptable there and backwards-compatibility shims should not be introduced unless explicitly planned.
+- For browser2 planning/work, prefer worker-side setup/bootstrap for base plugins and document any main-thread bridge assumptions explicitly.
 - If a plugin’s target shape is unclear, mark it as **requires clarification** instead of over-specifying.

@@ -26,7 +26,7 @@ func main() {
 	browserDir := filepath.Join(cwd, "cmd", "browser2")
 	buildDir := filepath.Join(cwd, buildDirName)
 
-	fmt.Printf("GAMS Browser2 IDE Server\n")
+	fmt.Printf("GAMS Browser IDE Server (next host)\n")
 	fmt.Printf("   Current Working Directory: %s\n", cwd)
 	fmt.Printf("   Browser files: %s\n", browserDir)
 	fmt.Printf("   Build files:   %s (via /build/)\n", buildDir)
