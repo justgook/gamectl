@@ -609,13 +609,18 @@ class PluginManager {
       throw new Error(`Host module ${moduleName} not found`);
     }
 
-    const funcDef = functionMap.get(functionName);
-    if (!funcDef) {
-      throw new Error(`Function ${functionName} not found in host module ${moduleName}`);
-    }
+    let funcDef = functionMap.get(functionName);
+    let result;
 
-    // Call the handler
-    const result = funcDef.handler(input);
+    if (!funcDef) {
+      funcDef = functionMap.get('*');
+      if (!funcDef) {
+        throw new Error(`Function ${functionName} not found in host module ${moduleName}`);
+      }
+      result = funcDef.handler(functionName, input);
+    } else {
+      result = funcDef.handler(input);
+    }
 
     return {
       returnCode: result.returnCode || 0,

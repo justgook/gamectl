@@ -488,7 +488,7 @@ Current phase-1 behavior:
 - provider implementations use `SharedArrayBuffer` + `Atomics` + dedicated workers for sync semantics
 - `setup-view.js` now registers mock main-thread plugin/view endpoints for worker-side calls
 - the first Atomics-backed worker → main-thread synchronous bridge path now exists for plugin-side calls into registered main-thread endpoints
-- the same `runtime.call` host-module shape can now be invoked directly from main thread for bridge emulation/testing
+- registered main-thread endpoints are now represented in the worker runtime as remote host plugins callable directly by plugin id
 - worker-side setup now loads `sql.default`, exposes it through capability alias `sql`, and calls `sql.open()`
 - a debug `echo` WASM plugin is available to exercise main → worker → WASM → main flow
 - migrations and DB restore/load are the next step after SQL bootstrap

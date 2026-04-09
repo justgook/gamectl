@@ -20,8 +20,7 @@ Current API:
 
 Notes:
 - Intended to exercise the path main thread → worker runtime → WASM plugin → main-thread endpoint.
-- Uses the worker runtime host bridge via `runtime.call` semantics from inside the plugin.
-- The same `runtime.call` host module can also be invoked directly from the browser console through `window.runtime.call('runtime', 'call', JSON.stringify(...))` to emulate plugin-side calls.
+- The WASM plugin calls the target endpoint directly by plugin id, and the worker runtime resolves registered main-thread endpoints as remote host plugins.
 
 
 ### `fs.opfs`
@@ -90,4 +89,4 @@ Current worker runtime now has a `callSync(...)` path for worker-local plugins a
 ### Worker runtime → main-thread plugins/views
 Main-thread plugins/views are registered through `runtime.register(...)`, currently from `core/setup-view.js`.
 The worker can call them through the bridge by plugin id.
-Browser2 now includes the first Atomics-backed synchronous bridge path for worker/plugin-side calls into main-thread endpoints, while the main-thread public `runtime.call(...)` API remains asynchronous.
+Browser2 now includes the first Atomics-backed synchronous bridge path for worker/plugin-side calls into main-thread endpoints, while the main-thread public `runtime.call(...)` API remains asynchronous. Main-thread endpoints are registered into the worker runtime as remote host plugins, so WASM plugins can call them directly by plugin id.
