@@ -168,15 +168,37 @@ class RuntimeProxy {
     return await this.send('call', { pluginId, method, input })
   }
 
-  registerMainPlugin(plugin) {
+  register(plugin) {
     if (!plugin?.id) throw new Error('main-thread plugin requires id')
     this.mainPlugins.set(plugin.id, plugin)
     this.worker.postMessage({ type: 'register-main-plugin', pluginId: plugin.id })
   }
 }
 
-export async function createRuntime() {
-  return await RuntimeProxy.create()
+let runtimeProxy = null
+export const setupResult = {}
+
+export async function init() {
+  if (runtimeProxy) {
+    throw new Error('runtime.init() may only be called once')
+  }
+  runtimeProxy = await RuntimeProxy.create()
+  Object.assign(setupResult, runtimeProxy.setupResult || {})
+  return { register, call }
+}
+
+export function register(plugin) {
+  if (!runtimeProxy) {
+    throw new Error('runtime.init() must be called before runtime.register()')
+  }
+  return runtimeProxy.register(plugin)
+}
+
+export async function call(pluginId, method, input) {
+  if (!runtimeProxy) {
+    throw new Error('runtime.init() must be called before runtime.call()')
+  }
+  return await runtimeProxy.call(pluginId, method, input)
 }
 
 export { RuntimeProxy }

@@ -1,4 +1,4 @@
-import { createRuntime } from './core/runtime.js'
+import { init, setupResult } from './core/runtime.js'
 import { applySetupView } from './core/setup-view.js'
 
 async function main() {
@@ -6,9 +6,10 @@ async function main() {
   root.innerHTML = '<main style="font-family: sans-serif; padding: 24px; color: #e7ebf3; background:#111318; min-height:100vh">Starting browser...</main>'
 
   try {
-    const runtime = await createRuntime()
+    const runtime = await init()
     const viewSetupResult = await applySetupView(runtime)
     window.runtime = runtime
+    window.runtimeSetupResult = setupResult
     window.viewSetupResult = viewSetupResult
 
     root.innerHTML = `
@@ -16,7 +17,7 @@ async function main() {
         <h1>GAMS Browser</h1>
         <p>Worker-side setup bootstrap is online.</p>
         <h2>Worker Setup</h2>
-        <pre style="white-space: pre-wrap; background:#171b23; padding:16px; border-radius:12px; border:1px solid #2a3140;">${escapeHtml(JSON.stringify(runtime.setupResult, null, 2))}</pre>
+        <pre style="white-space: pre-wrap; background:#171b23; padding:16px; border-radius:12px; border:1px solid #2a3140;">${escapeHtml(JSON.stringify(setupResult, null, 2))}</pre>
         <h2>Main-thread View Setup</h2>
         <pre style="white-space: pre-wrap; background:#171b23; padding:16px; border-radius:12px; border:1px solid #2a3140;">${escapeHtml(JSON.stringify(viewSetupResult, null, 2))}</pre>
       </main>

@@ -63,7 +63,7 @@ Notes:
 ## Bootstrap Notes
 
 Current phase-1 bootstrap flow:
-1. `app.js` creates the main-thread runtime proxy
+1. `app.js` calls `runtime.init()`
 2. `core/worker-runtime.js` owns the actual plugin runtime in the worker
 3. `core/setup.js` runs in the worker and selects the filesystem provider
 4. the selected `fs.*` plugin is loaded first inside the worker runtime
@@ -75,6 +75,12 @@ Current phase-1 bootstrap flow:
 ## Call Semantics
 
 ### Main thread → runtime
+The public runtime API on the main thread is intentionally small:
+- `runtime.init()`
+- `runtime.register(...)`
+- `runtime.call(pluginId, method, input)`
+- `setupResult` exported from the runtime module
+
 `runtime.call(pluginId, method, input)` is asynchronous on the main thread because it bridges to the worker.
 
 ### Plugin → plugin inside worker runtime
@@ -82,6 +88,6 @@ The target architecture is synchronous plugin-to-plugin calls inside the worker 
 Current worker runtime now has a `callSync(...)` path for worker-local plugins and WASM host-function dispatch, and `fs` is wired so `sql` can call it through the worker-side plugin runtime.
 
 ### Worker runtime → main-thread plugins/views
-Main-thread plugins/views are registered as endpoints on the runtime proxy, currently through `core/setup-view.js`.
+Main-thread plugins/views are registered through `runtime.register(...)`, currently from `core/setup-view.js`.
 The worker can call them through the bridge by plugin id.
 Browser2 now includes the first Atomics-backed synchronous bridge path for worker/plugin-side calls into main-thread endpoints, while the main-thread public `runtime.call(...)` API remains asynchronous.

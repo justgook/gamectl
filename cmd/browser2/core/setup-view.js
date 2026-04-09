@@ -1,7 +1,7 @@
 export async function applySetupView(runtime) {
   const steps = []
 
-  runtime.registerMainPlugin({
+  runtime.register({
     id: 'view.debug',
     methods: {
       async ping(input) {
@@ -11,7 +11,7 @@ export async function applySetupView(runtime) {
   })
   steps.push({ phase: 'register-main-plugin', plugin: 'view.debug' })
 
-  runtime.registerMainPlugin({
+  runtime.register({
     id: 'view.echo',
     methods: {
       async hello(input) {
