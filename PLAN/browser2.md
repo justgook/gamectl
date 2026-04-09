@@ -91,10 +91,12 @@ Responsibilities:
 - avoid leaking bootstrap flow into `app.js` or `runtime.js`
 
 #### `core/runtime.js`
-Main-thread runtime proxy.
+Main-thread runtime facade + proxy.
 Responsibilities:
+- own the singleton runtime instance
+- expose the small public API: `init`, `register`, `call`
+- export `setupResult` after initialization
 - create the worker runtime
-- expose async `runtime.call(...)` from main thread to worker
 - register main-thread plugin/view endpoints callable from the worker
 - coordinate the bridge between main thread and worker runtime
 
@@ -145,7 +147,9 @@ That is the first meaningful checkpoint.
 
 Browser2 should use an asymmetric runtime bridge:
 
+- `runtime.init()` is called once on the main thread
 - `runtime.call(pluginId, method, input)` from the main thread is async
+- `runtime.register(...)` registers main-thread endpoints
 - worker-side setup and plugin loading happen inside `core/worker-runtime.js`
 - worker-side plugins should eventually see sync plugin-call semantics
 - calls from worker-side plugins to main-thread views/services cross an async bridge, but are planned to use Atomics-backed synchronization for plugin-side sync behavior
@@ -154,7 +158,7 @@ This means:
 - `setup.js` belongs on the worker side
 - `fs` belongs on the worker side
 - `sql` belongs on the worker side
-- view/main-thread plugins should be registered as endpoints on the runtime proxy
+- view/main-thread plugins should be registered as endpoints through `runtime.register(...)`
 - `setup-view.js` should configure view-side/bootstrap-side main-thread plugins separately
 
 
@@ -464,7 +468,7 @@ or whether callable functions are enough for the first stage.
 ## Current Minimal Implementation
 
 Implemented first scaffolding in `cmd/browser2/`:
-- `app.js` creates the main-thread runtime proxy
+- `app.js` calls the singleton runtime `init()` and then uses the public runtime facade
 - `core/runtime.js` bridges async main-thread calls into the worker runtime and allows registration of main-thread plugin/view endpoints
 - `core/worker-runtime.js` owns the actual worker-side runtime and runs `setup.js`
 - `core/setup.js` now runs in the worker and owns the first staged setup flow:
