@@ -1,5 +1,6 @@
 # Binaries for programs and plugins
 /browser
+/browser2
 *.exe
 *.exe~
 *.dll

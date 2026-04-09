@@ -5,13 +5,18 @@
 - source: `cmd/browser/views/view-layout.js`
 
 ## Description
-Legacy instance-style layout runtime loaded from a browser view. This is a strong candidate for replacement by a browser service plugin and/or first-class `view` plugin integration.
+Legacy instance-style layout runtime loaded from browser shell code. This is a strong candidate for replacement by a browser service plugin and/or first-class routed `view` integration.
+
+## Current Observations
+- `LayoutManager` loads `layout.wasm` directly with shared memory and keeps direct access to its snapshot structure.
+- The runtime itself is headless and geometry-oriented, while DOM panel/view management stays in JS.
+- `view-layout.js` currently behaves more like shell infrastructure than a normal entry in the user-facing view registry.
 
 ## Migration Target
 Likely replacement shape:
 
 - browser-facing layout behavior exposed as `view` plugin and/or browser service plugin
-- avoid direct `pluginManager.load(...)` instance boot in the view
+- avoid direct `pluginManager.load(...)` instance boot in the view/shell code
 - make layout callable through normal plugin routing where useful
 
 ## Notes
