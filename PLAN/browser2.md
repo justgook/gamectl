@@ -155,7 +155,7 @@ This means:
 - `fs` belongs on the worker side
 - `sql` belongs on the worker side
 - view/main-thread plugins should be registered as endpoints on the runtime proxy
-- a future `setup-view.js` can configure view-side/bootstrap-side main-thread plugins separately
+- `setup-view.js` should configure view-side/bootstrap-side main-thread plugins separately
 
 
 ### Stage 0 — host boot
@@ -482,8 +482,11 @@ Current phase-1 behavior:
 - worker-side setup loads `fs` first and exposes it through capability alias `fs`
 - `fs` already follows the copied browser filesystem API shape (`read`, `write`, `remove`, `exists`, `list`, `mkdir`, `rmdir`, `stat`)
 - provider implementations use `SharedArrayBuffer` + `Atomics` + dedicated workers for sync semantics
-- runtime can now register mock main-thread plugin/view endpoints for worker-side calls
+- `setup-view.js` now registers mock main-thread plugin/view endpoints for worker-side calls
+- the first Atomics-backed worker → main-thread synchronous bridge path now exists for plugin-side calls into registered main-thread endpoints
+- the same `runtime.call` host-module shape can now be invoked directly from main thread for bridge emulation/testing
 - worker-side setup now loads `sql.default`, exposes it through capability alias `sql`, and calls `sql.open()`
+- a debug `echo` WASM plugin is available to exercise main → worker → WASM → main flow
 - migrations and DB restore/load are the next step after SQL bootstrap
 
 ## Recommended Immediate Next Tasks
@@ -493,7 +496,7 @@ Current phase-1 behavior:
 - [x] define minimal built-in `fs` contract for bootstrap
 - [x] wire mandatory `sql` load after `fs` in the worker runtime
 - [ ] adapt or reimplement migration bootstrap on top of `fs` + `sql`
-- [ ] prove one JS service plugin load/call path
+- [x] prove one JS service/plugin endpoint call path
 - [ ] document first end-to-end migration recipe
 
 ---

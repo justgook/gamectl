@@ -1,3 +1,6 @@
+const MAIN_SYNC_HEADER_SIZE = 8
+const MAIN_SYNC_BUFFER_SIZE = 1024 * 1024
+
 function readBootstrapConfig() {
   return {
     fs: localStorage.getItem('browser.fs') || 'fs.opfs',
@@ -6,19 +9,39 @@ function readBootstrapConfig() {
   }
 }
 
+function serializeBridgeResult(result, error = '') {
+  const normalized = result || { returnCode: 0, output: new Uint8Array() }
+  const output = normalized.output instanceof Uint8Array
+    ? Array.from(normalized.output)
+    : Array.isArray(normalized.output)
+      ? normalized.output
+      : []
+  return new TextEncoder().encode(JSON.stringify({
+    error: error || '',
+    result: {
+      returnCode: Number(normalized.returnCode || 0),
+      output,
+    },
+  }))
+}
+
 class RuntimeProxy {
-  constructor(worker, setupResult) {
+  constructor(worker, setupResult, mainSyncSab) {
     this.worker = worker
     this.setupResult = setupResult
     this.pending = new Map()
     this.nextRequestId = 1
     this.mainPlugins = new Map()
+    this.mainSyncSab = mainSyncSab
+    this.mainSyncInt32 = new Int32Array(mainSyncSab)
+    this.mainSyncUint8 = new Uint8Array(mainSyncSab)
     this.worker.addEventListener('message', (event) => this.handleMessage(event))
   }
 
   static async create() {
     const worker = new Worker(new URL('./worker-runtime.js', import.meta.url), { type: 'module' })
     const bootstrap = readBootstrapConfig()
+    const mainSyncSab = new SharedArrayBuffer(MAIN_SYNC_BUFFER_SIZE)
     const setupResult = await new Promise((resolve, reject) => {
       const onMessage = (event) => {
         const msg = event.data || {}
@@ -40,10 +63,10 @@ class RuntimeProxy {
       }
       worker.addEventListener('message', onMessage)
       worker.addEventListener('error', onError)
-      worker.postMessage({ type: 'init', bootstrap })
+      worker.postMessage({ type: 'init', bootstrap, mainSyncSab })
     })
 
-    return new RuntimeProxy(worker, setupResult)
+    return new RuntimeProxy(worker, setupResult, mainSyncSab)
   }
 
   handleMessage(event) {
@@ -62,32 +85,17 @@ class RuntimeProxy {
 
     if (msg.type === 'main-call') {
       this.dispatchMainCall(msg)
+      return
+    }
+
+    if (msg.type === 'main-call-sync') {
+      this.dispatchMainCallSync(msg)
     }
   }
 
   async dispatchMainCall(msg) {
-    const plugin = this.mainPlugins.get(msg.pluginId)
-    if (!plugin) {
-      this.worker.postMessage({
-        type: 'main-call-result',
-        requestId: msg.requestId,
-        error: `Unknown main-thread plugin '${msg.pluginId}'`,
-      })
-      return
-    }
-
     try {
-      let result
-      if (typeof plugin.call === 'function') {
-        result = await plugin.call(msg.method, msg.input, this.createMainContext(plugin.id))
-      } else {
-        const fn = plugin.methods?.[msg.method]
-        if (typeof fn !== 'function') {
-          throw new Error(`Main-thread plugin '${plugin.id}' does not implement method '${msg.method}'`)
-        }
-        result = await fn(msg.input, this.createMainContext(plugin.id))
-      }
-
+      const result = await this.invokeMainPlugin(msg.pluginId, msg.method, msg.input)
       this.worker.postMessage({
         type: 'main-call-result',
         requestId: msg.requestId,
@@ -100,6 +108,44 @@ class RuntimeProxy {
         error: String(error?.message || error),
       })
     }
+  }
+
+  async dispatchMainCallSync(msg) {
+    try {
+      const result = await this.invokeMainPlugin(msg.pluginId, msg.method, msg.input)
+      const bytes = serializeBridgeResult(result)
+      if (bytes.length > (this.mainSyncSab.byteLength - MAIN_SYNC_HEADER_SIZE)) {
+        throw new Error('main-call-sync response too large')
+      }
+      this.mainSyncInt32[1] = bytes.length
+      this.mainSyncUint8.set(bytes, MAIN_SYNC_HEADER_SIZE)
+      Atomics.store(this.mainSyncInt32, 0, 1)
+      Atomics.notify(this.mainSyncInt32, 0)
+    } catch (error) {
+      const bytes = serializeBridgeResult(null, String(error?.message || error))
+      this.mainSyncInt32[1] = bytes.length
+      this.mainSyncUint8.set(bytes, MAIN_SYNC_HEADER_SIZE)
+      Atomics.store(this.mainSyncInt32, 0, 1)
+      Atomics.notify(this.mainSyncInt32, 0)
+    }
+  }
+
+  async invokeMainPlugin(pluginId, method, input) {
+    const plugin = this.mainPlugins.get(pluginId)
+    if (!plugin) {
+      throw new Error(`Unknown main-thread plugin '${pluginId}'`)
+    }
+
+    if (typeof plugin.call === 'function') {
+      return await plugin.call(method, input, this.createMainContext(plugin.id))
+    }
+
+    const fn = plugin.methods?.[method]
+    if (typeof fn !== 'function') {
+      throw new Error(`Main-thread plugin '${plugin.id}' does not implement method '${method}'`)
+    }
+
+    return await fn(input, this.createMainContext(plugin.id))
   }
 
   createMainContext(callerId) {

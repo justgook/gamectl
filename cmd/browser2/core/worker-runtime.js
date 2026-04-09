@@ -1,10 +1,12 @@
 import { PluginManager } from './vendor/plugin-manager.js'
 import fsOpfsPlugin from '../builtin/fs-opfs/index.js'
+
+const MAIN_SYNC_HEADER_SIZE = 8
 import fsWebdavPlugin from '../builtin/fs-webdav/index.js'
 import { applySetup } from './setup.js'
 
 class WorkerRuntime {
-  constructor(bootstrap = {}) {
+  constructor(bootstrap = {}, mainSyncSab = null) {
     this.bootstrap = bootstrap
     this.definitions = new Map()
     this.instances = new Map()
@@ -13,6 +15,9 @@ class WorkerRuntime {
     this.pendingMainCalls = new Map()
     this.nextMainCallId = 1
     this.pluginManager = null
+    this.mainSyncSab = mainSyncSab
+    this.mainSyncInt32 = mainSyncSab ? new Int32Array(mainSyncSab) : null
+    this.mainSyncUint8 = mainSyncSab ? new Uint8Array(mainSyncSab) : null
   }
 
   registerBuiltin(definition) {
@@ -44,6 +49,11 @@ class WorkerRuntime {
 
   getHostFunctions() {
     return [
+      {
+        module: 'runtime',
+        function: 'call',
+        handler: (input) => this.handleRuntimeBridgeSync(input),
+      },
       {
         module: 'fs',
         function: 'read',
@@ -87,6 +97,27 @@ class WorkerRuntime {
     ]
   }
 
+  handleRuntimeBridgeSync(input) {
+    try {
+      const text = typeof input === 'string'
+        ? input
+        : new TextDecoder().decode(input instanceof Uint8Array ? input : new Uint8Array(input || []))
+      const payload = text ? JSON.parse(text) : {}
+      const pluginId = String(payload.plugin || '').trim()
+      const method = String(payload.method || '').trim()
+      const callInput = typeof payload.input === 'string' ? payload.input : JSON.stringify(payload.input ?? '')
+      if (!pluginId || !method) {
+        throw new Error('runtime.call expects JSON with plugin and method')
+      }
+      return this.callSync(pluginId, method, callInput)
+    } catch (error) {
+      return {
+        returnCode: 1,
+        output: new TextEncoder().encode(String(error?.message || error)),
+      }
+    }
+  }
+
   async load(id) {
     if (this.instances.has(id)) return this.instances.get(id)
     const definition = this.definitions.get(id)
@@ -116,8 +147,12 @@ class WorkerRuntime {
   callSync(nameOrId, method, input) {
     const id = this.resolveTarget(nameOrId)
 
+    if (id === 'runtime' && method === 'call') {
+      return this.handleRuntimeBridgeSync(input)
+    }
+
     if (this.mainPlugins.has(id) && !this.definitions.has(id)) {
-      throw new Error(`Sync calls to main-thread plugin '${id}' are not implemented yet`)
+      return this.callMainThreadSync(id, method, input)
     }
 
     if (this.instances.has(id)) {
@@ -158,6 +193,10 @@ class WorkerRuntime {
   async call(nameOrId, method, input) {
     const id = this.resolveTarget(nameOrId)
 
+    if (id === 'runtime' && method === 'call') {
+      return this.handleRuntimeBridgeSync(input)
+    }
+
     if (this.mainPlugins.has(id) && !this.definitions.has(id)) {
       return await this.callMainThread(id, method, input)
     }
@@ -180,6 +219,30 @@ class WorkerRuntime {
       bootstrap: this.bootstrap,
       call: (target, method, input) => this.call(target, method, input),
       callSync: (target, method, input) => this.callSync(target, method, input),
+    }
+  }
+
+  callMainThreadSync(pluginId, method, input) {
+    if (!this.mainSyncSab || !this.mainSyncInt32 || !this.mainSyncUint8) {
+      throw new Error('Main-thread sync bridge not initialized')
+    }
+    Atomics.store(this.mainSyncInt32, 0, 0)
+    this.mainSyncInt32[1] = 0
+    self.postMessage({ type: 'main-call-sync', pluginId, method, input })
+    const waitResult = Atomics.wait(this.mainSyncInt32, 0, 0, 30000)
+    if (waitResult === 'timed-out') {
+      throw new Error(`Timed out waiting for main-thread plugin '${pluginId}'`)
+    }
+    const len = this.mainSyncInt32[1]
+    const bytes = this.mainSyncUint8.slice(MAIN_SYNC_HEADER_SIZE, MAIN_SYNC_HEADER_SIZE + len)
+    Atomics.store(this.mainSyncInt32, 0, 0)
+    const payload = JSON.parse(new TextDecoder().decode(bytes) || '{}')
+    if (payload.error) {
+      throw new Error(payload.error)
+    }
+    return {
+      returnCode: Number(payload.result?.returnCode || 0),
+      output: new Uint8Array(payload.result?.output || []),
     }
   }
 
@@ -223,6 +286,13 @@ function registerBuiltins(targetRuntime) {
     role: 'service',
     url: `/plugins/sql.wasm?t=${Date.now()}`,
   })
+
+  targetRuntime.registerBuiltin({
+    id: 'echo',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/echo.wasm?t=${Date.now()}`,
+  })
 }
 
 self.onmessage = async (event) => {
@@ -230,7 +300,7 @@ self.onmessage = async (event) => {
 
   try {
     if (msg.type === 'init') {
-      runtime = new WorkerRuntime(msg.bootstrap || {})
+      runtime = new WorkerRuntime(msg.bootstrap || {}, msg.mainSyncSab || null)
       registerBuiltins(runtime)
       const result = await applySetup(runtime, msg.bootstrap || {})
       self.postMessage({ type: 'init-result', result })
