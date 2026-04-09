@@ -8,12 +8,20 @@ export async function applySetup(runtime, bootstrap = {}) {
   runtime.setCapability('fs', initial.fs)
   steps.push({ phase: 'fs-ready', provider: initial.fs })
 
+  const sql = resolveSqlSetup(bootstrap)
+  await runtime.load(sql.id)
+  runtime.setCapability('sql', sql.id)
+  const openResult = await runtime.call('sql', 'open', '')
+  const openText = decodeOutput(openResult)
+  steps.push({ phase: 'sql-ready', sql, openResult: { returnCode: openResult?.returnCode || 0, output: openText } })
+
   const postFs = await resolvePostFsSetup(runtime, bootstrap)
   steps.push({ phase: 'post-fs', postFs })
 
   return {
     ok: true,
     fs: initial.fs,
+    sql: sql.id,
     next: postFs,
     steps,
   }
@@ -24,13 +32,22 @@ function resolveInitialSetup(bootstrap) {
   return { fs }
 }
 
+function resolveSqlSetup(bootstrap) {
+  return {
+    id: bootstrap?.sql || 'sql.default',
+  }
+}
+
 async function resolvePostFsSetup(runtime, bootstrap) {
-  const decoder = new TextDecoder()
   const existsResult = await runtime.call('fs', 'exists', '/browser.config.json')
-  const existsText = existsResult?.output ? decoder.decode(existsResult.output).trim() : ''
+  const existsText = decodeOutput(existsResult)
   return {
     sql: bootstrap?.sql || 'sql.default',
     configExists: existsResult?.returnCode === 0 && existsText === 'true',
-    note: 'SQL bootstrap and migrations move here next.',
+    note: 'Migrations move here next.',
   }
+}
+
+function decodeOutput(result) {
+  return result?.output ? new TextDecoder().decode(result.output).trim() : ''
 }
