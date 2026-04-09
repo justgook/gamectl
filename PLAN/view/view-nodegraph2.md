@@ -7,11 +7,23 @@
 ## Description
 High-priority browser view for migration. Today it contains custom runtime handling and directly loads `ng` as an instance-style plugin. The target direction is to make this a first-class `view` plugin managed through `pluginManager`.
 
+## Current Observations
+- The browser view itself is already in the dynamic `views` registry as `nodegraph2`.
+- The class exposes normal view metadata (`displayName`, category, keybindings), so it already looks like a view-level unit from the browser side.
+- It directly loads `ng` and keeps direct WASM memory/API access for graph editing and rendering.
+- It also talks to routed services such as `sql` and `fs`, including persistence for saved graphs/templates.
+- `ng_host_resolve` currently mixes concerns: source lookup, service resolution, stored node values, and graph lookup.
+
 ## Migration Target
 - browser rendering/editor behavior stays in a `view` plugin
 - heavy runtime work moves away from direct main-thread instance loading
 - cross-plugin communication uses routed plugin calls / notifications
 - shared state can be added where it improves responsiveness without special-case host APIs
+
+## Clarifications
+- The browser view boundary is relatively clear: canvas/editor UX, selection, editing gestures, popups, and keybindings should stay view-local.
+- The less clear boundary is runtime/document ownership: what state should stay in the view for responsiveness versus move into a routed `ng` service.
+- `ng_host_resolve` should be decomposed into named contracts where possible instead of one broad host callback.
 
 ## Notes
 - This file tracks the **browser view side** of the migration.

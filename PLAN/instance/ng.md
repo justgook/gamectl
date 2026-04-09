@@ -7,6 +7,11 @@
 ## Description
 Current legacy instance-style runtime loaded by `view-nodegraph2` through `pluginManager.load(...)`. This is the main known example of a browser view directly instantiating a WASM runtime on the main thread.
 
+## Current Observations
+- `view-nodegraph2` owns the runtime boot sequence and passes browser-only host imports into the WASM module.
+- The view keeps direct references to WASM memory/API for rendering, graph mutation, run status, and host resolution.
+- The same feature area already mixes direct instance access with routed plugin usage (`sql`, `fs`, and a routed `ng run` path for saved graph batches).
+
 ## Migration Target
 Move away from direct instance-style loading. The most likely target is:
 

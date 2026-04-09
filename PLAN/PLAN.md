@@ -1,69 +1,143 @@
 # Plugin Migration Plan
 
 ## Goal
-Unify runtime architecture around `pluginManager` with explicit plugin kinds and a shared vocabulary. The preferred long-term direction is to keep host apps thin and move behavior into plugins that can be swapped per project.
+Move GAMS toward a unified plugin architecture where hosts stay thin and application behavior lives behind explicit plugin contracts.
 
-The main design rule for the target architecture is:
+The target direction is:
 
-- prefer **plugin-to-plugin** calls over special host callbacks
-- keep **browser / CLI / native** hosts as thin as possible
-- allow **built-in and project-defined** plugins/views to be registered through the same model
-- move as much logic as possible toward `singleton` plugins
+- plugins call other plugins by name through a shared PDK-style contract
+- callers should not need to know whether the target plugin is implemented in WASM or JS
+- browser / CLI / native hosts are responsible for loading, placement, routing, and environment bindings
+- browser UI concerns should migrate out of special host glue and into JS plugins
+- runtime logic should migrate out of view-owned instances and into routed plugins
 
-## Plugin Kinds
+## Target Architecture
 
-### 1. `singleton`
-A plugin with one logical process/runtime per host environment.
+### Two first-class plugin runtimes
 
-- Examples: `sql`, `image`, `treegen`, `random`
-- Preferred default for new development
-- Should be the target shape for most runtime logic
-- Can live in worker/browser/native/cli hosts as long as the contract stays stable
+#### 1. `wasm` plugins
+Run in:
+- browser worker, when the host is browser
+- WASM runtime in CLI/native hosts
 
-### 2. `instance`
-A plugin instance created by another plugin or by a browser view.
+Best suited for:
+- core logic
+- portable runtime behavior
+- processing pipelines
+- storage/query engines
+- execution services
 
-- Current example pattern: `pluginManager.load(...)` returning a dedicated WASM instance
-- Treat as legacy / transitional
-- Existing usages can remain while migrating, but new work should avoid expanding this pattern
-- Long-term goal is to replace these with `singleton` or `view` plugins plus routed calls/shared state where needed
+Examples today:
+- `sql`
+- `ng`
+- `layout` runtime
+- image/tile/sprite/data plugins
 
-### 3. `view`
-A plugin rendered in the browser UI and managed through `pluginManager` rather than special-case view boot logic.
+#### 2. `js` plugins
+Run in:
+- browser host runtime, typically main thread
 
-- Browser-facing
-- May expose callable functions to other plugins via the same plugin routing model
-- May publish shared state / notifications where needed
-- Should migrate from current custom handling to first-class plugin registration
+Best suited for:
+- views/editors
+- DOM/UI behavior
+- browser-only integrations
+- browser-side services like notifications, dialogs, layout shell, focus, clipboard, etc.
 
-## Strategy
+Examples of likely target shapes:
+- `view.ng`
+- `view.sql-console`
+- `service.toast`
+- `service.dialog`
+- `service.layout-shell`
 
-1. Prefer `singleton` plugins for new capabilities.
-2. Freeze the spread of new `instance` plugins.
-3. Migrate browser-rendered views into `view` plugins registered in `pluginManager`.
-4. Replace ad-hoc host bridges with explicit plugin-to-plugin contracts.
-5. Allow project-defined plugins/views to override built-in ones through the same registry model.
-6. Treat browser-side services such as layout, notifications, and view-facing APIs as first-class plugins instead of special host functions.
+## Core Rule
+A plugin should call another plugin by plugin name/id and function name only.
 
-## Vocabulary
+At PDK level, the caller should not care whether the target is:
+- WASM or JS
+- worker-side or main-thread-side
+- built-in or project-defined
+- different across hosts or even different per runtime configuration
 
-### plugin routing
-A call path where the caller addresses another plugin by name and function, without needing to know whether the target runs in worker, main thread, CLI, or native host.
+That choice belongs to the host/runtime registry and routing layer.
 
-### browser service plugin
-A plugin registered on the browser main thread that can be called through the same plugin manager routing model as worker-side plugins.
+## One-Sentence Vision
+GAMS should support two first-class plugin runtimes — WASM and JS — both addressable through the same PDK-style call model, with the host responsible only for loading, placement, and routing, while plugins implement application behavior by calling each other through explicit contracts.
 
-### migration target
-The intended final shape for a capability, even if the current implementation still uses a legacy path.
-
-### transitional duplicate entries
-The same logical capability may appear in more than one plan folder while migrating.
+## Contract Model
+The default interaction model should be request/response plugin calls.
 
 Example:
-- `PLAN/instance/ng.md` = current legacy instance usage
-- `PLAN/singleton/ng.md` = desired long-term singleton target
+- `sql.query(...)`
+- `layout.split(...)`
+- `ng.run(...)`
 
-This duplication is intentional while the migration is still being discussed and staged.
+Calls may also be used for notification-like behavior when the target is a JS/browser plugin.
+
+Example:
+- `ng.run({ graph: "x", notifier: "view.ng" })`
+- runtime-side code can call the configured notifier plugin during execution
+- toast/dialog behavior can also move behind plugin calls instead of special host helpers
+
+Important constraint:
+- core runtime behavior must still work when browser-only JS plugins are absent
+- JS notifier/view integration is additive, not a hard dependency for core WASM logic
+
+## Host Responsibilities
+Hosts should do only the following:
+
+1. discover and register plugins
+2. load WASM and JS plugin implementations
+3. place plugins in the right runtime
+   - WASM -> worker/runtime
+   - JS -> browser host runtime
+4. route calls between plugins
+   - JS -> JS
+   - JS -> WASM
+   - WASM -> JS
+   - WASM -> WASM
+5. provide environment bindings
+   - DOM/browser APIs only to JS plugins
+   - WASI/PDK/runtime APIs to WASM plugins
+6. provide configuration, lifecycle boot, and optional capability lookup
+
+Hosts should not keep accumulating feature-specific logic for graph execution, layout semantics, notifications, dialogs, or view-specific runtime ownership.
+
+## Migration Principles
+
+### 1. Stop spreading view-owned runtimes
+New work should avoid direct `pluginManager.load(...)` from browser views as the canonical ownership model for runtime state.
+
+### 2. Prefer explicit plugin contracts over host callbacks
+If a plugin needs another capability, it should call that capability through the routing layer instead of depending on an ad-hoc host bridge.
+
+### 3. Treat JS views as plugins, not special cases
+A browser-rendered view should be a JS plugin with an explicit identity and callable surface where needed.
+
+### 4. Browser services can also be JS plugins
+Not everything browser-side is a view. Toasts, dialogs, layout shell logic, and similar concerns can live as JS service plugins.
+
+### 5. Keep runtime logic portable where possible
+WASM plugins should keep their core behavior independent from browser-only JS plugins.
+
+### 6. Migrate in layers
+For each priority area:
+- define target contract
+- add routed path
+- adapt current caller/view
+- remove legacy direct instance path
+
+## Current Migration Vocabulary
+The current plan folders still use migration vocabulary:
+
+- `PLAN/singleton/*.md`
+- `PLAN/instance/*.md`
+- `PLAN/view/*.md`
+
+This remains useful while refactoring, even though the long-term runtime vocabulary is moving toward:
+- implementation runtime: `wasm` / `js`
+- role: `service` / `view`
+- lifecycle: shared service / document-scoped / legacy instance
 
 ## Status Vocabulary
 
@@ -72,27 +146,63 @@ This duplication is intentional while the migration is still being discussed and
 - `legacy` — supported temporarily, but should shrink over time
 - `requires-clarification` — needs discussion before planning concrete migration steps
 
-## Checklist Conventions
+## Priority Architecture Targets
 
-- `[ ]` not started
-- `[x]` done
-- Keep todos short and discussion-friendly
-- If details are missing, add `requires clarification`
+### `sql`
+Target:
+- routed WASM service plugin
+- shared contract across browser and CLI
 
-## Priority Discussion Targets
+### `ng`
+Target:
+- routed WASM runtime/service plugin
+- browser editor as JS plugin
+- optional notifier target, e.g. `ng.run({ graph: "x", notifier: "view.ng" })`
 
-| Area | Current plan file | Why it matters now |
-| --- | --- | --- |
-| Node graph runtime | `PLAN/instance/ng.md` | Main-thread freeze and legacy instance-style runtime |
-| Node graph browser view | `PLAN/view/view-nodegraph2.md` | High-value browser view migration target |
-| Layout service | `PLAN/instance/layout.md`, `PLAN/view/view-layout.md`, `PLAN/singleton/layout.md` | Likely browser service plugin and core routing example |
-| SQL | `PLAN/singleton/sql.md` | Important singleton baseline and likely long-term core service |
-| Legacy runtime-loaded views | `PLAN/instance/stbte.md`, `PLAN/instance/game.md` | Existing examples of direct `pluginManager.load(...)` usage |
+### `layout`
+Target:
+- routed service contract for layout state/operations
+- browser shell / DOM handling moved behind JS plugin boundaries
 
-## Current Structure
+### notifications / dialogs
+Target:
+- browser-only concerns exposed through JS service plugins instead of special host globals
 
-- `PLAN/singleton/*.md` — singleton plugins and singleton migration targets
-- `PLAN/instance/*.md` — legacy instance plugins / current instance-style usages
-- `PLAN/view/*.md` — browser view plugins and view migration targets
+## Staged Refactor Plan
 
-This plan is intentionally lightweight. Each plugin file is a discussion anchor and can be expanded later with architecture notes, API contracts, and migration steps.
+### Phase 0 — align target architecture
+- [ ] clean up `PLAN/` around WASM + JS plugin model
+- [ ] document host responsibilities vs plugin responsibilities
+- [ ] define first migration rules for notifier/service calls
+
+### Phase 1 — create fresh browser host entrypoint
+- [ ] add `cmd/browser2` as a clean migration host
+- [ ] keep server/bootstrap shape aligned with `cmd/browser`
+- [ ] start with minimal placeholder UI
+- [ ] migrate plugins/views incrementally instead of rewriting everything in-place
+
+### Phase 2 — define common plugin calling shape
+- [ ] define how JS plugins are registered and called through the same routing model
+- [ ] define how WASM plugins call JS plugins
+- [ ] define optional target/config patterns like notifier plugin ids
+
+### Phase 3 — migrate priority services
+- [ ] `sql` contract/lifecycle cleanup
+- [ ] `ng` service + JS view split
+- [ ] `layout` service + JS shell split
+- [ ] toast/dialog services as JS plugins
+
+### Phase 4 — migrate views off legacy runtime ownership
+- [ ] migrate `view-nodegraph2`
+- [ ] migrate layout shell integration
+- [ ] migrate `stbte` and `game-runner`
+- [ ] remove legacy `pluginManager.load(...)` ownership where replaced
+
+## Current Observations Worth Keeping In Mind
+
+- `sql` is already close to the intended routed-service model.
+- `ng` and `layout` already look like important architecture test cases because current code mixes runtime logic with browser ownership.
+- Browser views already have a registry, but browser shell/runtime wiring is still inconsistent.
+- `cmd/browser2` is a good place to prove the new model incrementally without requiring an all-at-once rewrite of `cmd/browser`.
+
+This plan is intentionally lightweight, but the target direction should now be read as: unify around explicit plugin contracts, with WASM and JS as first-class runtime types and host-specific routing hidden behind the plugin system.
