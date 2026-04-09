@@ -27,6 +27,7 @@ class WorkerRuntime {
 
   registerMainPlugin(pluginId) {
     this.mainPlugins.add(pluginId)
+    this.registerRemoteHostPlugin(pluginId)
   }
 
   setCapability(name, pluginId) {
@@ -44,16 +45,14 @@ class WorkerRuntime {
       hostFunctions: this.getHostFunctions(),
     })
     this.pluginManager = manager
+    for (const pluginId of this.mainPlugins) {
+      this.registerRemoteHostPlugin(pluginId)
+    }
     return manager
   }
 
   getHostFunctions() {
     return [
-      {
-        module: 'runtime',
-        function: 'call',
-        handler: (input) => this.handleRuntimeBridgeSync(input),
-      },
       {
         module: 'fs',
         function: 'read',
@@ -97,25 +96,19 @@ class WorkerRuntime {
     ]
   }
 
-  handleRuntimeBridgeSync(input) {
-    try {
-      const text = typeof input === 'string'
-        ? input
-        : new TextDecoder().decode(input instanceof Uint8Array ? input : new Uint8Array(input || []))
-      const payload = text ? JSON.parse(text) : {}
-      const pluginId = String(payload.plugin || '').trim()
-      const method = String(payload.method || '').trim()
-      const callInput = typeof payload.input === 'string' ? payload.input : JSON.stringify(payload.input ?? '')
-      if (!pluginId || !method) {
-        throw new Error('runtime.call expects JSON with plugin and method')
-      }
-      return this.callSync(pluginId, method, callInput)
-    } catch (error) {
-      return {
-        returnCode: 1,
-        output: new TextEncoder().encode(String(error?.message || error)),
-      }
+  registerRemoteHostPlugin(pluginId) {
+    if (!this.pluginManager) return
+    if (!this.pluginManager.hostModules.has(pluginId)) {
+      this.pluginManager.hostModules.set(pluginId, { name: pluginId, functions: [] })
     }
+    if (!this.pluginManager.hostFunctionDefs.has(pluginId)) {
+      this.pluginManager.hostFunctionDefs.set(pluginId, new Map())
+    }
+    this.pluginManager.hostFunctionDefs.get(pluginId).set('*', {
+      module: pluginId,
+      function: '*',
+      handler: (functionName, input) => this.callMainThreadSync(pluginId, functionName, input),
+    })
   }
 
   async load(id) {
@@ -146,10 +139,6 @@ class WorkerRuntime {
 
   callSync(nameOrId, method, input) {
     const id = this.resolveTarget(nameOrId)
-
-    if (id === 'runtime' && method === 'call') {
-      return this.handleRuntimeBridgeSync(input)
-    }
 
     if (this.mainPlugins.has(id) && !this.definitions.has(id)) {
       return this.callMainThreadSync(id, method, input)
@@ -192,10 +181,6 @@ class WorkerRuntime {
 
   async call(nameOrId, method, input) {
     const id = this.resolveTarget(nameOrId)
-
-    if (id === 'runtime' && method === 'call') {
-      return this.handleRuntimeBridgeSync(input)
-    }
 
     if (this.mainPlugins.has(id) && !this.definitions.has(id)) {
       return await this.callMainThread(id, method, input)

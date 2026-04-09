@@ -77,22 +77,9 @@ __attribute__((export_name("call"))) uint32_t echo_call(void) {
   if (payload_src) copy_json_string(payload, sizeof(payload), payload_src);
   else payload[0] = '\0';
 
-  char request[1600];
-  uint32_t req_len = 0;
-  const char prefix1[] = "{\"plugin\":\"";
-  const char prefix2[] = "\",\"method\":\"";
-  const char prefix3[] = "\",\"input\":\"";
-  const char suffix[] = "\"}";
-
-  pdk_memcpy(request + req_len, prefix1, sizeof(prefix1) - 1); req_len += (uint32_t)(sizeof(prefix1) - 1);
-  pdk_memcpy(request + req_len, plugin, pdk_strlen(plugin)); req_len += pdk_strlen(plugin);
-  pdk_memcpy(request + req_len, prefix2, sizeof(prefix2) - 1); req_len += (uint32_t)(sizeof(prefix2) - 1);
-  pdk_memcpy(request + req_len, method, pdk_strlen(method)); req_len += pdk_strlen(method);
-  pdk_memcpy(request + req_len, prefix3, sizeof(prefix3) - 1); req_len += (uint32_t)(sizeof(prefix3) - 1);
-  pdk_memcpy(request + req_len, payload, pdk_strlen(payload)); req_len += pdk_strlen(payload);
-  pdk_memcpy(request + req_len, suffix, sizeof(suffix) - 1); req_len += (uint32_t)(sizeof(suffix) - 1);
-
-  pdk_call_result_t result = pdk_call("runtime", 7, "call", 4, (const uint8_t *)request, req_len);
+  pdk_call_result_t result = pdk_call_plugin_str(plugin, method,
+                                                 (const uint8_t *)payload,
+                                                 pdk_strlen(payload));
 
   if (result.error != 0 || result.return_code != 0) {
     if (result.output && result.output_len > 0) {
