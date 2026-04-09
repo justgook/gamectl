@@ -125,8 +125,10 @@ class PluginManager {
       throw new Error(`Module ${module.name} must have either url or data`);
     }
 
+    const providedMemory = this.createModuleMemory(module);
+
     // Create import object with env functions
-    const importObject = this.createImportObject(module.name);
+    const importObject = this.createImportObject(module.name, module, providedMemory);
 
     // Instantiate the WASM module
     const wasmModule = await WebAssembly.instantiate(wasmBytes, importObject);
@@ -139,7 +141,8 @@ class PluginManager {
     this.wasmModules.set(module.name, {
       name: module.name,
       instance: wasmModule.instance,
-      memory: wasmModule.instance.exports.memory
+      memory: providedMemory || wasmModule.instance.exports.memory,
+      memoryConfig: module.memory || null,
     });
 
     // Pre-allocate a small amount of memory to ensure the memory system is initialized
@@ -158,11 +161,24 @@ class PluginManager {
   /**
    * Create import object for WASM instantiation
    */
-  createImportObject(moduleName) {
+  createModuleMemory(module) {
+    const config = module?.memory;
+    if (!config?.import) return null;
+    if (config.memory) return config.memory;
+
+    const initial = Number(config.initialPages || 256);
+    const maximum = Number(config.maximumPages || initial);
+    const shared = config.shared !== false;
+
+    return new WebAssembly.Memory({ initial, maximum, shared });
+  }
+
+  createImportObject(moduleName, moduleConfig = {}, providedMemory = null) {
     const importObject = {};
 
     // Add env module (always present)
     importObject[this.config.envModuleName] = {
+      ...(providedMemory ? { memory: providedMemory } : {}),
       alloc: (size) => this.allocFunc(moduleName, Number(size)),
       free: (ptr) => this.freeFunc(moduleName, ptr),
       input_ptr: () => this.inputPtrFunc(),
@@ -678,6 +694,10 @@ class PluginManager {
    */
   getLoadedModules() {
     return [...this.wasmModules.keys()];
+  }
+
+  memory(moduleName) {
+    return this.wasmModules.get(moduleName)?.memory || null;
   }
 
   /**

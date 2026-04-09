@@ -196,7 +196,7 @@ const TYPE_TO_INTENT = {
 const TOAST_TEMPLATE_HTML = {
   toast: `
     <span data-element="message"></span>
-    <button part="close" type="button" data-action="close" aria-label="Close">×</button>
+    <button part="close" type="button" data-action="close" aria-label="Close"><i style="font-size: inherit;">close</i></button>
   `,
   alert: `
     <div class="toast-container">

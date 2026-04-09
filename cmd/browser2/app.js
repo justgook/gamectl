@@ -1,6 +1,7 @@
 import { init, setupResult } from './core/runtime.js'
 import { applySetupView } from './core/setup-view.js'
 import './ui-plugins/toast.js'
+import './ui-plugins/layout.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
@@ -37,11 +38,20 @@ async function main() {
     const toast = document.createElement('toast-manager')
     document.body.appendChild(toast)
     runtime.register({ id: 'ui.toast', methods: toast.api })
+
+    const layout = document.createElement('ui-layout')
+    document.body.appendChild(layout)
+    runtime.register({ id: 'ui.layout', methods: layout.api })
+
+    await runtime.call('layout', 'init_screen', '800,480,12,120')
+    await layout.bindRuntime(runtime)
+
     const viewSetupResult = await applySetupView(runtime)
     window.runtime = runtime
     window.runtimeSetupResult = setupResult
     window.viewSetupResult = viewSetupResult
     window.uiToast = toast
+    window.uiLayout = layout
 
     renderShell(`
       <h1>GAMS Browser</h1>
@@ -50,6 +60,7 @@ async function main() {
       <pre style="white-space: pre-wrap; background:var(--surface); padding:16px; border-radius:12px; border:1px solid var(--border);">${escapeHtml(JSON.stringify(setupResult, null, 2))}</pre>
       <h2>Main-thread View Setup</h2>
       <pre style="white-space: pre-wrap; background:var(--surface); padding:16px; border-radius:12px; border:1px solid var(--border);">${escapeHtml(JSON.stringify(viewSetupResult, null, 2))}</pre>
+      <p style="margin-top:12px; color:var(--text-muted);"><code>ui.layout</code> is mounted below and reading <code>layout</code> shared wasm memory directly.</p>
     `)
   } catch (error) {
     console.error('[browser] boot failed', error)

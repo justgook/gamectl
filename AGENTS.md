@@ -50,4 +50,6 @@ This repository is moving toward a unified `pluginManager` architecture.
 - Prefer updating planning docs with clear migration targets instead of assuming unfinished details.
 - Treat `cmd/browser2` as a fresh-start host: breaking changes are acceptable there and backwards-compatibility shims should not be introduced unless explicitly planned.
 - For browser2 planning/work, prefer worker-side setup/bootstrap for base plugins and document any main-thread bridge assumptions explicitly.
+- For browser2 internal plugin↔ui shared-memory designs, prefer direct ownership by the participating plugin/view pair over runtime-managed mirrored state when possible. In particular, if a WASM plugin already has a suitable in-memory state layout, prefer sharing that linear memory directly with the UI instead of adding runtime-owned copy layers, headers, or protocol versioning unless there is a concrete need.
+- Do not add API/protocol versioning or compatibility structure to internal first-party browser2 communication unless there is a real migration/interoperability requirement; browser2 is a fresh-start host owned as one codebase and can evolve in lockstep.
 - If a plugin’s target shape is unclear, mark it as **requires clarification** instead of over-specifying.
