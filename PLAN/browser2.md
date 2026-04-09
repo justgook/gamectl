@@ -220,19 +220,22 @@ Minimum success condition:
 - run migrations
 - query seeded registry tables
 
-### Stage 3 — migrations / database initialization
+### Stage 3 — database/bootstrap initialization
 Once `fs` + `sql` are live:
 - open database
 - load binary DB if present
-- otherwise run migrations
-- ensure schema/version tracking exists
+- initialize plugin-owned SQL/filesystem state when needed
 - save DB when needed
 
-At this stage, the current migration system can be reused conceptually, even if implementation moves.
+Fresh-start browser2 direction:
+- do not introduce browser2-specific migration-file orchestration as the long-term model
+- instead, each wasm/ui plugin should be able to self-populate SQL/filesystem state on first app init
+- planned convention: optional plugin hooks such as `__fs_init` and `__sql_init`
+- whether those hooks need to run should be detected by runtime/bootstrap state, most likely via SQL records
 
 Important design point:
-- migration logic itself does not need to be host-specific app glue forever
-- but for the first `browser2` milestone it is acceptable to keep migration orchestration in browser bootstrap code
+- initialization data should move toward plugin-owned bootstrap hooks rather than centralized host migration files
+- first browser2 milestones may still use temporary bootstrap code, but the target direction is plugin self-initialization
 
 ### Stage 4 — plugin registry loading
 After SQL is ready:
@@ -489,6 +492,7 @@ Current phase-1 behavior:
 - `setup-view.js` now registers mock main-thread plugin/view endpoints for worker-side calls
 - the first Atomics-backed worker → main-thread synchronous bridge path now exists for plugin-side calls into registered main-thread endpoints
 - registered main-thread endpoints are now represented in the worker runtime as remote host plugins callable directly by plugin id
+- browser2 vendored `plugin-manager` now supports per-module imported/shared memory provisioning and `getMemory(moduleName)` for direct plugin↔ui shared-memory access patterns such as layout
 - worker-side setup now loads `sql.default`, exposes it through capability alias `sql`, and calls `sql.open()`
 - a debug `echo` WASM plugin is available to exercise main → worker → WASM → main flow
 - migrations and DB restore/load are the next step after SQL bootstrap

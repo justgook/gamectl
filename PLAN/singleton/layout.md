@@ -30,8 +30,15 @@ Potential long-term routed layout service. The current WASM plugin is already a 
 - What is the minimal stable contract other plugins need: open panel, split panel, replace view, focus panel, read snapshot?
 - How much state should be queryable through routing versus observed through shared state/events?
 
+## Current browser2 migration note
+- a fresh-start `plugins/layout2` PDK-style wrapper now exists as an initial singleton migration step
+- it copies the current `plugins/layout` geometry engine and exposes PDK-callable methods with the same core operation names
+- current wrapper methods: `init_screen`, `resize_screen`, `move_handle`, `move_corner`, `try_corner`, `set_area_content`, `set_handle_content`, `get_info_ptr`, `snapshot`, `get_info_size`, `info`
+- this is an incremental migration step, not yet the final browser2 layout contract
+
 ## Todo
 - [ ] decide whether layout should expose a singleton service contract
 - [ ] define the boundary between layout service responsibilities and browser view responsibilities
-- [ ] document current API surface, if any, that should survive migration
-- [ ] requires clarification
+- [ ] document which `layout2` wrapper methods survive unchanged versus which become higher-level commands
+- [ ] connect `layout2` into browser2 worker runtime
+- [ ] move legacy instance-only browser layout usage off direct wasm loading

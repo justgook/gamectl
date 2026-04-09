@@ -128,7 +128,7 @@ class WorkerRuntime {
 
     if (definition.runtime === 'wasm') {
       const manager = await this.ensurePluginManager()
-      await manager.loadAdditionalModules([{ name: id, url: definition.url }])
+      await manager.loadAdditionalModules([{ name: id, url: definition.url, memory: definition.memory }])
       const instance = { id, definition, module: null, kind: 'wasm' }
       this.instances.set(id, instance)
       return instance
@@ -197,6 +197,20 @@ class WorkerRuntime {
     return this.callSync(id, method, input)
   }
 
+  async memory(nameOrId) {
+    const id = this.resolveTarget(nameOrId)
+    await this.load(id)
+    const instance = this.instances.get(id)
+    if (instance?.kind !== 'wasm') {
+      throw new Error(`Shared memory is only available for wasm plugin '${id}'`)
+    }
+    const memory = this.pluginManager?.memory(id)
+    if (!memory) {
+      throw new Error(`No memory available for wasm plugin '${id}'`)
+    }
+    return memory.buffer
+  }
+
   createContext(callerId) {
     return {
       runtime: this,
@@ -204,6 +218,7 @@ class WorkerRuntime {
       bootstrap: this.bootstrap,
       call: (target, method, input) => this.call(target, method, input),
       callSync: (target, method, input) => this.callSync(target, method, input),
+      memory: (target) => this.memory(target),
     }
   }
 
@@ -278,6 +293,19 @@ function registerBuiltins(targetRuntime) {
     role: 'service',
     url: `/plugins/echo.wasm?t=${Date.now()}`,
   })
+
+  targetRuntime.registerBuiltin({
+    id: 'layout',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/layout2.wasm?t=${Date.now()}`,
+    memory: {
+      import: true,
+      shared: true,
+      initialPages: 288,
+      maximumPages: 512,
+    },
+  })
 }
 
 self.onmessage = async (event) => {
@@ -297,6 +325,12 @@ self.onmessage = async (event) => {
     if (msg.type === 'call') {
       const result = await runtime.call(msg.pluginId, msg.method, msg.input)
       self.postMessage({ type: 'call-result', requestId: msg.requestId, result })
+      return
+    }
+
+    if (msg.type === 'memory') {
+      const buffer = await runtime.memory(msg.pluginId)
+      self.postMessage({ type: 'memory-result', requestId: msg.requestId, buffer })
       return
     }
 

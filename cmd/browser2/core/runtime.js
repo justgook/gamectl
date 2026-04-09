@@ -64,14 +64,14 @@ class RuntimeProxy {
 
   handleMessage(event) {
     const msg = event.data || {}
-    if (msg.type === 'call-result' || msg.type === 'main-call-result') {
+    if (msg.type === 'call-result' || msg.type === 'main-call-result' || msg.type === 'memory-result') {
       const pending = this.pending.get(msg.requestId)
       if (!pending) return
       this.pending.delete(msg.requestId)
       if (msg.error) {
         pending.reject(new Error(msg.error))
       } else {
-        pending.resolve(msg.result)
+        pending.resolve(msg.type === 'memory-result' ? msg.buffer : msg.result)
       }
       return
     }
@@ -161,6 +161,10 @@ class RuntimeProxy {
     return await this.send('call', { pluginId, method, input })
   }
 
+  async memory(pluginId) {
+    return await this.send('memory', { pluginId })
+  }
+
   register(plugin) {
     if (!plugin?.id) throw new Error('main-thread plugin requires id')
     this.mainPlugins.set(plugin.id, plugin)
@@ -177,7 +181,7 @@ export async function init(bootstrap) {
   }
   runtimeProxy = await RuntimeProxy.create(bootstrap)
   Object.assign(setupResult, runtimeProxy.setupResult || {})
-  return { register, call }
+  return { register, call, memory }
 }
 
 export function register(plugin) {
@@ -192,6 +196,13 @@ export async function call(pluginId, method, input) {
     throw new Error('runtime.init() must be called before runtime.call()')
   }
   return await runtimeProxy.call(pluginId, method, input)
+}
+
+export async function memory(pluginId) {
+  if (!runtimeProxy) {
+    throw new Error('runtime.init() must be called before runtime.memory()')
+  }
+  return await runtimeProxy.memory(pluginId)
 }
 
 export { RuntimeProxy }
