@@ -138,11 +138,17 @@ class PluginManager {
       wasmModule.instance.exports._initialize();
     }
 
+    const moduleMemory = providedMemory || wasmModule.instance.exports.memory;
+    const scratchBase = moduleMemory.buffer.byteLength;
     this.wasmModules.set(module.name, {
       name: module.name,
       instance: wasmModule.instance,
-      memory: providedMemory || wasmModule.instance.exports.memory,
+      memory: moduleMemory,
       memoryConfig: module.memory || null,
+      scratchBase,
+      allocPtr: scratchBase,
+      allocLimit: scratchBase,
+      allocFrames: [],
     });
 
     // Pre-allocate a small amount of memory to ensure the memory system is initialized
@@ -382,42 +388,57 @@ class PluginManager {
   }
 
   /**
-   * Allocate memory in a module's linear memory
-   * Strategy: Always allocate at the END of current memory and grow if needed
-   * This avoids conflicts with TinyGo's heap which grows upward from data segments
+   * Allocate temporary memory in a module-owned scratch arena.
+   *
+   * The scratch arena starts at the end of the module's initial linear memory.
+   * We grow memory only when the arena runs out, then reuse that grown space
+   * across later calls by resetting allocPtr when callWasmFunction() unwinds.
+   * This avoids both heap corruption and one-page-per-small-allocation growth.
    */
   allocFunc(moduleName, size) {
     const module = this.wasmModules.get(moduleName);
     if (!module) return 0;
 
-    // Ensure minimum size for allocation
     if (size === 0) size = 1;
+    const alignedSize = (Number(size) + 7) & ~7;
 
-    // Calculate how many pages we need to add for this allocation
-    // We'll add extra pages to reduce frequency of grows
-    const pagesNeeded = Math.ceil(size / 65536) || 1;
-
-    // Grow memory with proper error handling and initialization
-    try {
-      const oldPages = module.memory.grow(pagesNeeded);
-      const allocPtr = oldPages * 65536;
-
-      // Initialize the allocated memory to zeros to avoid garbage data issues
-      const memory = new Uint8Array(module.memory.buffer);
-      for (let i = allocPtr; i < allocPtr + size; i++) {
-        memory[i] = 0;
-      }
-
-      return allocPtr;
-    } catch (e) {
-      console.error(`Failed to grow memory for ${moduleName}: tried to add ${pagesNeeded} pages (${size} bytes requested)`, e);
-      throw new Error(`Out of memory in ${moduleName}`);
+    if (!Number.isFinite(module.scratchBase)) {
+      module.scratchBase = module.memory.buffer.byteLength;
     }
+    if (!Number.isFinite(module.allocPtr) || module.allocPtr < module.scratchBase) {
+      module.allocPtr = module.scratchBase;
+    }
+    if (!Number.isFinite(module.allocLimit) || module.allocLimit < module.allocPtr) {
+      module.allocLimit = module.memory.buffer.byteLength;
+    }
+
+    let nextPtr = module.allocPtr;
+    let nextEnd = nextPtr + alignedSize;
+
+    if (nextEnd > module.allocLimit) {
+      const bytesNeeded = nextEnd - module.allocLimit;
+      const pagesNeeded = Math.max(1, Math.ceil(bytesNeeded / 65536));
+      try {
+        module.memory.grow(pagesNeeded);
+        module.allocLimit = module.memory.buffer.byteLength;
+      } catch (e) {
+        console.error(`Failed to grow memory for ${moduleName}: tried to add ${pagesNeeded} pages (${size} bytes requested)`, e);
+        throw new Error(`Out of memory in ${moduleName}`);
+      }
+      nextEnd = nextPtr + alignedSize;
+    }
+
+    module.allocPtr = nextEnd;
+
+    const memory = new Uint8Array(module.memory.buffer, nextPtr, alignedSize);
+    memory.fill(0);
+
+    return nextPtr;
   }
 
   freeFunc(moduleName, ptr) {
-    // No-op - we can't shrink WASM memory
-    // The memory will be reused after the WASM instance is recreated 
+    // No-op for now. Allocations are reclaimed by resetting allocPtr when the
+    // enclosing exported wasm call returns.
   }
 
   inputPtrFunc() {
@@ -580,6 +601,9 @@ class PluginManager {
       throw new Error(`WASM module ${moduleName} not found`);
     }
 
+    const allocFramePtr = Number.isFinite(module.allocPtr) ? module.allocPtr : module.memory.buffer.byteLength;
+    module.allocFrames.push(allocFramePtr);
+
     try {
       // Write input to memory
       const inputPtr = this.allocFunc(moduleName, input.length);
@@ -612,7 +636,8 @@ class PluginManager {
         output: output
       };
     } finally {
-      // No cleanup needed - memory grows but data in TinyGo's heap is preserved
+      const restorePtr = module.allocFrames.pop();
+      module.allocPtr = Number.isFinite(restorePtr) ? restorePtr : module.scratchBase;
     }
   }
 
