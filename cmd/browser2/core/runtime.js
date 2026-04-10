@@ -1,8 +1,6 @@
 const MAIN_SYNC_HEADER_SIZE = 8
 const MAIN_SYNC_BUFFER_SIZE = 1024 * 1024
 
-
-
 function serializeBridgeResult(result, error = '') {
   const normalized = result || { returnCode: 0, output: new Uint8Array() }
   const output = normalized.output instanceof Uint8Array
@@ -10,6 +8,7 @@ function serializeBridgeResult(result, error = '') {
     : Array.isArray(normalized.output)
       ? normalized.output
       : []
+
   return new TextEncoder().encode(JSON.stringify({
     error: error || '',
     result: {
@@ -20,9 +19,8 @@ function serializeBridgeResult(result, error = '') {
 }
 
 class RuntimeProxy {
-  constructor(worker, setupResult, mainSyncSab) {
+  constructor(worker, mainSyncSab) {
     this.worker = worker
-    this.setupResult = setupResult
     this.pending = new Map()
     this.nextRequestId = 1
     this.mainPlugins = new Map()
@@ -30,36 +28,6 @@ class RuntimeProxy {
     this.mainSyncInt32 = new Int32Array(mainSyncSab)
     this.mainSyncUint8 = new Uint8Array(mainSyncSab)
     this.worker.addEventListener('message', (event) => this.handleMessage(event))
-  }
-
-  static async create(bootstrap) {
-    const worker = new Worker(new URL('./runtime-worker.js', import.meta.url), { type: 'module' })
-    const mainSyncSab = new SharedArrayBuffer(MAIN_SYNC_BUFFER_SIZE)
-    const setupResult = await new Promise((resolve, reject) => {
-      const onMessage = (event) => {
-        const msg = event.data || {}
-        if (msg.type === 'init-result') {
-          cleanup()
-          resolve(msg.result)
-        } else if (msg.type === 'init-error') {
-          cleanup()
-          reject(new Error(msg.error || 'worker init failed'))
-        }
-      }
-      const onError = (error) => {
-        cleanup()
-        reject(error)
-      }
-      const cleanup = () => {
-        worker.removeEventListener('message', onMessage)
-        worker.removeEventListener('error', onError)
-      }
-      worker.addEventListener('message', onMessage)
-      worker.addEventListener('error', onError)
-      worker.postMessage({ type: 'init', bootstrap, mainSyncSab })
-    })
-
-    return new RuntimeProxy(worker, setupResult, mainSyncSab)
   }
 
   handleMessage(event) {
@@ -173,35 +141,53 @@ class RuntimeProxy {
 }
 
 let runtimeProxy = null
-export const setupResult = {}
 
 export async function init(bootstrap) {
   if (runtimeProxy) {
     throw new Error('runtime.init() may only be called once')
   }
-  runtimeProxy = await RuntimeProxy.create(bootstrap)
-  Object.assign(setupResult, runtimeProxy.setupResult || {})
+
+  const worker = new Worker(new URL('./runtime-worker.js', import.meta.url), { type: 'module' })
+  const mainSyncSab = new SharedArrayBuffer(MAIN_SYNC_BUFFER_SIZE)
+  await new Promise((resolve, reject) => {
+    const onMessage = (event) => {
+      const msg = event.data || {}
+      if (msg.type === 'init-result') {
+        cleanup()
+        resolve(msg.result)
+      } else if (msg.type === 'init-error') {
+        cleanup()
+        reject(new Error(msg.error || 'worker init failed'))
+      }
+    }
+
+    const onError = (error) => {
+      cleanup()
+      reject(error)
+    }
+    const cleanup = () => {
+      worker.removeEventListener('message', onMessage)
+      worker.removeEventListener('error', onError)
+    }
+    worker.addEventListener('message', onMessage)
+    worker.addEventListener('error', onError)
+    worker.postMessage({ type: 'init', bootstrap, mainSyncSab })
+  })
+
+  runtimeProxy = new RuntimeProxy(worker, mainSyncSab)
+
   return { register, call, memory }
 }
 
 export function register(plugin) {
-  if (!runtimeProxy) {
-    throw new Error('runtime.init() must be called before runtime.register()')
-  }
   return runtimeProxy.register(plugin)
 }
 
 export async function call(pluginId, method, input) {
-  if (!runtimeProxy) {
-    throw new Error('runtime.init() must be called before runtime.call()')
-  }
   return await runtimeProxy.call(pluginId, method, input)
 }
 
 export async function memory(pluginId) {
-  if (!runtimeProxy) {
-    throw new Error('runtime.init() must be called before runtime.memory()')
-  }
   return await runtimeProxy.memory(pluginId)
 }
 
@@ -212,4 +198,3 @@ export const runtime = {
   memory,
 }
 
-export { RuntimeProxy }

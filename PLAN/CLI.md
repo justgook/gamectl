@@ -18,8 +18,8 @@ This is preferred over a generic `__init__` for now because it keeps resource ow
 
 ## Intended behavior
 
-- the host detects whether the hook exists
-- the host calls it
+- plugin load checks whether `__fs_init` or `__sql_init` exists
+- if the hook exists, plugin load calls it
 - the plugin decides what to create/populate
 - hooks should be idempotent
 - centralized host migration files should shrink over time as plugins take ownership of their own bootstrap state

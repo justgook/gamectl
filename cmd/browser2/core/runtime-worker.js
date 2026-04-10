@@ -1,12 +1,70 @@
 import { PluginManager } from './vendor/plugin-manager.js'
 import fsOpfsPlugin from '../builtin/fs-opfs/index.js'
-
-const MAIN_SYNC_HEADER_SIZE = 8
 import fsWebdavPlugin from '../builtin/fs-webdav/index.js'
 import { applySetup } from './setup.js'
 
-class WorkerRuntime {
-  constructor(bootstrap = {}, mainSyncSab = null) {
+const MAIN_SYNC_HEADER_SIZE = 8
+
+function registerBuiltins(runtimeWorker) {
+  runtimeWorker.registerBuiltin({
+    id: 'fs.opfs',
+    runtime: 'js',
+    role: 'service',
+    module: fsOpfsPlugin,
+  })
+
+  runtimeWorker.registerBuiltin({
+    id: 'fs.webdav',
+    runtime: 'js',
+    role: 'service',
+    module: fsWebdavPlugin,
+  })
+
+  runtimeWorker.registerBuiltin({
+    id: 'sql',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/sql.wasm?t=${Date.now()}`,
+  })
+
+  runtimeWorker.registerBuiltin({
+    id: 'random',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/random.wasm?t=${Date.now()}`,
+  })
+
+  runtimeWorker.registerBuiltin({
+    id: 'treegen',
+    runtime: 'wasm',
+    role: 'service',
+    deps: ['random'],
+    url: `/plugins/treegen.wasm?t=${Date.now()}`,
+  })
+
+  runtimeWorker.registerBuiltin({
+    id: 'echo',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/echo.wasm?t=${Date.now()}`,
+  })
+
+  runtimeWorker.registerBuiltin({
+    id: 'layout',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/layout2.wasm?t=${Date.now()}`,
+    memory: {
+      import: true,
+      shared: true,
+      initialPages: 288,
+      maximumPages: 512,
+    },
+  })
+}
+
+class RuntimeWorker {
+  constructor(bootstrap = {}, mainSyncSab) {
     this.bootstrap = bootstrap
     this.definitions = new Map()
     this.instances = new Map()
@@ -16,8 +74,8 @@ class WorkerRuntime {
     this.nextMainCallId = 1
     this.pluginManager = null
     this.mainSyncSab = mainSyncSab
-    this.mainSyncInt32 = mainSyncSab ? new Int32Array(mainSyncSab) : null
-    this.mainSyncUint8 = mainSyncSab ? new Uint8Array(mainSyncSab) : null
+    this.mainSyncInt32 = new Int32Array(mainSyncSab)
+    this.mainSyncUint8 = new Uint8Array(mainSyncSab)
   }
 
   registerBuiltin(definition) {
@@ -30,8 +88,14 @@ class WorkerRuntime {
     this.registerRemoteHostPlugin(pluginId)
   }
 
-  getDefinitions() {
-    return [...this.definitions.values()]
+  async initializePluginHooks(id) {
+    for (const hook of ['__fs_init', '__sql_init']) {
+      if (!(await this.hasMethod(id, hook))) continue
+      const result = await this.call(id, hook, '')
+      if (result.returnCode != 0) {
+        throw Error(new TextDecoder().decode(result.output).trim())
+      }
+    }
   }
 
   setCapability(name, pluginId) {
@@ -131,6 +195,7 @@ class WorkerRuntime {
         await module.init(this.createContext(id))
       }
       this.instances.set(id, instance)
+      await this.initializePluginHooks(id, instance)
       return instance
     }
 
@@ -139,6 +204,7 @@ class WorkerRuntime {
       await manager.loadAdditionalModules([{ name: id, url: definition.url, memory: definition.memory }])
       const instance = { id, definition, module: null, kind: 'wasm' }
       this.instances.set(id, instance)
+      await this.initializePluginHooks(id)
       return instance
     }
 
@@ -293,70 +359,12 @@ class WorkerRuntime {
 
 let runtime = null
 
-function registerBuiltins(targetRuntime) {
-  targetRuntime.registerBuiltin({
-    id: 'fs.opfs',
-    runtime: 'js',
-    role: 'service',
-    module: fsOpfsPlugin,
-  })
-
-  targetRuntime.registerBuiltin({
-    id: 'fs.webdav',
-    runtime: 'js',
-    role: 'service',
-    module: fsWebdavPlugin,
-  })
-
-  targetRuntime.registerBuiltin({
-    id: 'sql',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/sql.wasm?t=${Date.now()}`,
-  })
-
-  targetRuntime.registerBuiltin({
-    id: 'random',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/random.wasm?t=${Date.now()}`,
-  })
-
-  targetRuntime.registerBuiltin({
-    id: 'treegen',
-    runtime: 'wasm',
-    role: 'service',
-    deps: ['random'],
-    url: `/plugins/treegen.wasm?t=${Date.now()}`,
-  })
-
-  targetRuntime.registerBuiltin({
-    id: 'echo',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/echo.wasm?t=${Date.now()}`,
-  })
-
-  targetRuntime.registerBuiltin({
-    id: 'layout',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/layout2.wasm?t=${Date.now()}`,
-    memory: {
-      import: true,
-      shared: true,
-      initialPages: 288,
-      maximumPages: 512,
-    },
-  })
-}
-
 self.onmessage = async (event) => {
   const msg = event.data || {}
 
   try {
     if (msg.type === 'init') {
-      runtime = new WorkerRuntime(msg.bootstrap || {}, msg.mainSyncSab || null)
+      runtime = new RuntimeWorker(msg.bootstrap || {}, msg.mainSyncSab || null)
       registerBuiltins(runtime)
       const result = await applySetup(runtime, msg.bootstrap || {})
       self.postMessage({ type: 'init-result', result })

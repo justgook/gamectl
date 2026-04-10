@@ -68,7 +68,7 @@ Current phase-1 bootstrap flow:
 4. the selected `fs.*` plugin is loaded first inside the worker runtime
 5. setup uses the `fs` capability to decide the next bootstrap steps
 6. the worker runtime now loads `sql` after `fs` and calls `sql.open()`
-7. after `fs` + `sql` are ready, worker bootstrap checks loaded plugins for optional init hooks such as `__fs_init` and `__sql_init` and calls the hooks that exist
+7. plugin init hooks such as `__fs_init` and `__sql_init` are now part of plugin load; when a plugin is loaded, those hooks are called if they exist
 8. `core/setup-view.js` registers main-thread view endpoints like `view.echo`
 9. DB restore/load and broader plugin registry bootstrap are the next planned step
 
