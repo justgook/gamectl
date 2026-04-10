@@ -8,7 +8,7 @@ function decodeOutput(result) {
 }
 
 function quoteIdent(name) {
-  return `"${String(name).replace(/"/g, '""')}"`
+  return String(name).replace(/"/g, '""')
 }
 
 export class ViewSql extends HTMLElement {
@@ -39,7 +39,7 @@ export class ViewSql extends HTMLElement {
     this.style.minHeight = '0'
 
     this.innerHTML = `
-      <section data-element="sql-layout" style="display:grid; grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr); width:100%; height:100%; min-height:0;">
+      <section data-element="sql-layout" style="display:grid; grid-template-columns: minmax(0,10rem) minmax(0, 1fr); width:100%; height:100%; min-height:0;">
         <section data-element="tables-pane" style="display:flex; flex-direction:column; min-height:0; border-right: var(--border, 1px solid var(--fg-separator));">
           <main data-element="list-container" style="flex:1; min-height:0; overflow:auto;"></main>
           <footer data-element="tables-status"></footer>
@@ -138,7 +138,7 @@ export class ViewSql extends HTMLElement {
     this.renderTable()
     this.renderPagination()
     this.setTablesStatus(`${this.tables.length} tables`)
-    this.setTableStatus(`${this.totalCount} rows`)    
+    this.setTableStatus(`${this.totalCount} rows`)
   }
 
   renderTables() {
