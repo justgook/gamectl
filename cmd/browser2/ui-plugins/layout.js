@@ -85,17 +85,17 @@ function header(v) {
 
 export class ViewEmpty extends HTMLElement {
   connectedCallback() {
-    if (this.dataset.ready) return
-    this.dataset.ready = '1'
     this.style.display = 'grid'
     this.style.placeItems = 'center'
     this.style.minHeight = '100%'
     this.style.padding = '16px'
     this.style.color = 'var(--text-muted)'
+    const label = this.getAttribute('data-view-label') || 'Empty'
+    const tag = this.getAttribute('data-view-tag') || 'view-empty'
     this.innerHTML = `
       <div style="text-align:center; display:grid; gap:8px;">
-        <strong style="color:var(--text);">view-empty</strong>
-        <span>placeholder content</span>
+        <strong style="color:var(--text);">${label}</strong>
+        <span>${tag}</span>
       </div>
     `
   }
@@ -158,6 +158,19 @@ export class ViewArea extends HTMLElement {
     return this.shadowRoot.querySelector('slot:not([name])')?.assignedElements?.()[0] || this.firstElementChild || null
   }
 
+  getCurrentViewTag() {
+    const currentView = this.getCurrentView()
+    if (!currentView) return 'view-empty'
+    return currentView.getAttribute('data-view-tag') || currentView.tagName.toLowerCase()
+  }
+
+  requireOwner() {
+    if (!this.owner) {
+      throw new Error('view-area owner is not set')
+    }
+    return this.owner
+  }
+
   setView(viewNode) {
     const currentView = this.getCurrentView()
     if (currentView) this.replaceChild(viewNode, currentView)
@@ -166,7 +179,8 @@ export class ViewArea extends HTMLElement {
   }
 
   switchView(viewTag) {
-    const newView = document.createElement(viewTag)
+    const owner = this.requireOwner()
+    const newView = owner.createView(viewTag)
     this.setView(newView)
   }
 
@@ -183,16 +197,14 @@ export class ViewArea extends HTMLElement {
     const select = this.shadowRoot.querySelector('[data-action="select-view"]')
     if (!select) return
 
-    const currentView = this.getCurrentView()
-    const currentTag = currentView ? currentView.tagName.toLowerCase() : 'view-empty'
+    const currentTag = this.getCurrentViewTag()
     const options = new Map()
     options.set('view-empty', 'view-empty')
     options.set(currentTag, currentTag)
 
-    if (window.viewLoader?.registry?.size > 0 && typeof window.viewLoader.getGroupedViews === 'function') {
-      for (const views of window.viewLoader.getGroupedViews().values()) {
-        for (const view of views) options.set(view.tag, view.displayName || view.tag)
-      }
+    const owner = this.requireOwner()
+    for (const view of owner.listViews()) {
+      options.set(view.tag, view.label || view.tag)
     }
 
     select.innerHTML = ''
@@ -265,6 +277,7 @@ export class UiLayout extends HTMLElement {
   constructor() {
     super()
     this.runtime = null
+    this.viewRegistry = new Map()
     this.buffer = null
     this.ptr = 0
     this.size = 0
@@ -415,8 +428,44 @@ export class UiLayout extends HTMLElement {
     return { valid: v[base], x0: v[base + 1], y0: v[base + 2], x1: v[base + 3], y1: v[base + 4] }
   }
 
+  normalizeViewRegistry(registry) {
+    if (registry instanceof Map) return new Map(registry)
+    return new Map(Object.entries(registry || {}))
+  }
+
+  setViewRegistry(registry) {
+    this.viewRegistry = this.normalizeViewRegistry(registry)
+    for (const chrome of this.content.values()) {
+      chrome.refreshViewSelector?.()
+    }
+  }
+
+  getViewEntry(tag) {
+    return this.viewRegistry.get(tag) || null
+  }
+
+  listViews() {
+    return [...this.viewRegistry.entries()].map(([tag, entry]) => ({
+      tag,
+      label: entry?.label || tag,
+    }))
+  }
+
+  createView(tag, attrs = {}, innerHTML = '') {
+    const entry = this.getViewEntry(tag)
+    const viewNode = typeof entry?.create === 'function'
+      ? entry.create({ tag, attrs, innerHTML, layout: this })
+      : document.createElement(tag)
+    for (const [name, value] of Object.entries(attrs || {})) {
+      if (name === 'setup') continue
+      if (!viewNode.hasAttribute?.(name)) viewNode.setAttribute?.(name, value)
+    }
+    if (innerHTML && !viewNode.innerHTML) viewNode.innerHTML = innerHTML
+    return viewNode
+  }
+
   instantiateView(spec) {
-    const viewNode = document.createElement(spec.tag)
+    const viewNode = this.createView(spec.tag, spec.attrs || {}, spec.innerHTML || '')
     for (const [name, value] of Object.entries(spec.attrs || {})) {
       if (name === 'setup') continue
       viewNode.setAttribute(name, value)
@@ -426,7 +475,7 @@ export class UiLayout extends HTMLElement {
   }
 
   cloneViewNode(node) {
-    const clone = document.createElement(node.tagName.toLowerCase())
+    const clone = this.createView(node.tagName.toLowerCase())
     for (const attr of Array.from(node.attributes || [])) {
       clone.setAttribute(attr.name, attr.value)
     }
@@ -436,6 +485,7 @@ export class UiLayout extends HTMLElement {
 
   createChromeForViewNode(viewNode, areaId, contentId) {
     const chrome = document.createElement('view-area')
+    chrome.owner = this
     chrome.panel = areaId
     chrome.appendChild(viewNode)
     chrome.refreshViewSelector()
@@ -549,7 +599,7 @@ export class UiLayout extends HTMLElement {
   ensureChrome(areaId, contentId) {
     let chrome = this.content.get(contentId)
     if (chrome) return chrome
-    chrome = this.createChromeForViewNode(document.createElement('view-empty'), areaId, contentId)
+    chrome = this.createChromeForViewNode(this.createView('view-empty'), areaId, contentId)
     return chrome
   }
 
