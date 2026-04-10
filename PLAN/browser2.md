@@ -95,7 +95,6 @@ Main-thread runtime facade + proxy.
 Responsibilities:
 - own the singleton runtime instance
 - expose the small public API: `init`, `register`, `call`
-- export `setupResult` after initialization
 - create the worker runtime
 - register main-thread plugin/view endpoints callable from the worker
 - coordinate the bridge between main thread and worker runtime
@@ -231,7 +230,7 @@ Fresh-start browser2 direction:
 - do not introduce browser2-specific migration-file orchestration as the long-term model
 - instead, each wasm/ui plugin should be able to self-populate SQL/filesystem state on first app init
 - implemented browser2 convention: optional plugin hooks such as `__fs_init` and `__sql_init`
-- current browser2 bootstrap checks loaded plugins for those hooks and calls the ones that exist; plugins own their own initialization behavior and should keep it idempotent
+- current browser2 runtime calls those hooks as part of plugin load when they exist; plugins own their own initialization behavior and should keep it idempotent
 - whether those hooks need to run should eventually be detected by runtime/bootstrap state, most likely via SQL records, rather than always calling every available hook forever
 
 Important design point:

@@ -1,4 +1,4 @@
-import { init, setupResult } from './core/runtime.js'
+import { init } from './core/runtime.js'
 import { applySetupView } from './core/setup-view.js'
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
@@ -75,12 +75,6 @@ async function main() {
 
     const viewSetupResult = await applySetupView(runtime)
     window.runtime = runtime
-    window.runtimeSetupResult = setupResult
-    window.viewSetupResult = viewSetupResult
-    window.uiToast = toast
-    window.uiLayout = layout
-    window.defaultLayout = DEFAULT_LAYOUT
-    window.viewRegistry = viewRegistry
 
   } catch (error) {
     console.error('[browser] boot failed', error)
