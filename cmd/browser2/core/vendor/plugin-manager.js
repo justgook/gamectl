@@ -745,6 +745,12 @@ class PluginManager {
     return fn(input)
   }
 
+  hasMethod(moduleName, functionName) {
+    const module = this.wasmModules.get(moduleName)
+    if (!module) return false
+    return typeof module.instance.exports?.[functionName] === 'function'
+  }
+
   /**
    * Load additional WASM modules after initial creation
    * Used by the two-phase boot: phase 2 loads plugins from the DB registry

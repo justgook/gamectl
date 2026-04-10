@@ -30,6 +30,10 @@ class WorkerRuntime {
     this.registerRemoteHostPlugin(pluginId)
   }
 
+  getDefinitions() {
+    return [...this.definitions.values()]
+  }
+
   setCapability(name, pluginId) {
     this.capabilities.set(name, pluginId)
   }
@@ -116,6 +120,10 @@ class WorkerRuntime {
     const definition = this.definitions.get(id)
     if (!definition) throw new Error(`Unknown plugin '${id}'`)
 
+    for (const depId of definition.deps || []) {
+      await this.load(depId)
+    }
+
     if (definition.runtime === 'js') {
       const module = definition.module
       const instance = { id, definition, module }
@@ -195,6 +203,26 @@ class WorkerRuntime {
     }
 
     return this.callSync(id, method, input)
+  }
+
+  async hasMethod(nameOrId, method) {
+    const id = this.resolveTarget(nameOrId)
+    const definition = this.definitions.get(id)
+    if (!definition) return false
+
+    await this.load(id)
+    const instance = this.instances.get(id)
+    if (!instance) return false
+
+    if (instance.kind === 'wasm') {
+      return !!this.pluginManager?.hasMethod(id, method)
+    }
+
+    if (typeof instance.module?.hasMethod === 'function') {
+      return !!instance.module.hasMethod(method, this.createContext(id))
+    }
+
+    return typeof instance.module?.methods?.[method] === 'function'
   }
 
   async memory(nameOrId) {
@@ -281,10 +309,25 @@ function registerBuiltins(targetRuntime) {
   })
 
   targetRuntime.registerBuiltin({
-    id: 'sql.default',
+    id: 'sql',
     runtime: 'wasm',
     role: 'service',
     url: `/plugins/sql.wasm?t=${Date.now()}`,
+  })
+
+  targetRuntime.registerBuiltin({
+    id: 'random',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/random.wasm?t=${Date.now()}`,
+  })
+
+  targetRuntime.registerBuiltin({
+    id: 'treegen',
+    runtime: 'wasm',
+    role: 'service',
+    deps: ['random'],
+    url: `/plugins/treegen.wasm?t=${Date.now()}`,
   })
 
   targetRuntime.registerBuiltin({

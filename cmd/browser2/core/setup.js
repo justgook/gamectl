@@ -15,6 +15,9 @@ export async function applySetup(runtime, bootstrap = {}) {
   const openText = decodeOutput(openResult)
   steps.push({ phase: 'sql-ready', sql, openResult: { returnCode: openResult?.returnCode || 0, output: openText } })
 
+  const initHooks = await runPluginInitHooks(runtime)
+  steps.push({ phase: 'plugin-init-hooks', initHooks })
+
   const postFs = await resolvePostFsSetup(runtime, bootstrap)
   steps.push({ phase: 'post-fs', postFs })
 
@@ -34,15 +37,33 @@ function resolveInitialSetup(bootstrap) {
 
 function resolveSqlSetup(bootstrap) {
   return {
-    id: bootstrap?.sql || 'sql.default',
+    id: bootstrap?.sql || 'sql',
   }
+}
+
+async function runPluginInitHooks(runtime) {
+  const results = []
+  for (const definition of runtime.getDefinitions()) {
+    if (definition.runtime !== 'wasm') continue
+    for (const hook of ['__fs_init', '__sql_init']) {
+      if (!await runtime.hasMethod(definition.id, hook)) continue
+      const result = await runtime.call(definition.id, hook, '')
+      results.push({
+        plugin: definition.id,
+        hook,
+        returnCode: result?.returnCode || 0,
+        output: decodeOutput(result),
+      })
+    }
+  }
+  return results
 }
 
 async function resolvePostFsSetup(runtime, bootstrap) {
   const existsResult = await runtime.call('fs', 'exists', '/browser.config.json')
   const existsText = decodeOutput(existsResult)
   return {
-    sql: bootstrap?.sql || 'sql.default',
+    sql: bootstrap?.sql || 'sql',
     configExists: existsResult?.returnCode === 0 && existsText === 'true',
     note: 'Migrations move here next.',
   }

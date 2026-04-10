@@ -38,7 +38,7 @@ const viewRegistry = new Map([
 function readBootstrapConfig() {
   return {
     fs: localStorage.getItem('browser.fs') || 'fs.opfs',
-    sql: localStorage.getItem('browser.sql') || 'sql.default',
+    sql: localStorage.getItem('browser.sql') || 'sql',
     webdavUrl: localStorage.getItem('browser.fs.webdav.url') || '',
   }
 }
