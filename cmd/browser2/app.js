@@ -23,28 +23,24 @@ function applyThemeStylesheet() {
   window.__currentThemeStylesheetHref = themeHref
 }
 
-function renderShell(content) {
-  const shell = document.getElementById('app-shell')
-  shell.innerHTML = content
-}
-
 async function main() {
   const root = document.body
   applyThemeStylesheet()
-  root.innerHTML = '<main id="app-shell" style="width:min(960px,calc(100vw - 48px));margin:24px auto;padding:24px;border:1px solid var(--border);border-radius:12px;background:var(--surface-elevated);box-shadow:var(--shadow)">Starting browser...</main>'
+  root.innerHTML = '<div style="padding:24px; color:var(--text);">Booting...</div>'
 
   try {
     const runtime = await init(readBootstrapConfig())
-    const toast = document.createElement('toast-manager')
-    document.body.appendChild(toast)
-    runtime.register({ id: 'ui.toast', methods: toast.api })
+
+    document.body.innerHTML = ''
 
     const layout = document.createElement('ui-layout')
     document.body.appendChild(layout)
     runtime.register({ id: 'ui.layout', methods: layout.api })
-
-    await runtime.call('layout', 'init_screen', '800,480,12,120')
     await layout.bindRuntime(runtime)
+
+    const toast = document.createElement('toast-manager')
+    document.body.appendChild(toast)
+    runtime.register({ id: 'ui.toast', methods: toast.api })
 
     const viewSetupResult = await applySetupView(runtime)
     window.runtime = runtime
@@ -53,22 +49,15 @@ async function main() {
     window.uiToast = toast
     window.uiLayout = layout
 
-    renderShell(`
-      <h1>GAMS Browser</h1>
-      <p>Worker-side setup bootstrap is online.</p>
-      <h2>Worker Setup</h2>
-      <pre style="white-space: pre-wrap; background:var(--surface); padding:16px; border-radius:12px; border:1px solid var(--border);">${escapeHtml(JSON.stringify(setupResult, null, 2))}</pre>
-      <h2>Main-thread View Setup</h2>
-      <pre style="white-space: pre-wrap; background:var(--surface); padding:16px; border-radius:12px; border:1px solid var(--border);">${escapeHtml(JSON.stringify(viewSetupResult, null, 2))}</pre>
-      <p style="margin-top:12px; color:var(--text-muted);"><code>ui.layout</code> is mounted below and reading <code>layout</code> shared wasm memory directly.</p>
-    `)
   } catch (error) {
     console.error('[browser] boot failed', error)
-    renderShell(`
-      <h1>GAMS Browser</h1>
-      <p>Bootstrap failed.</p>
-      <pre style="white-space: pre-wrap; background:var(--surface); padding:16px; border-radius:12px; border:1px solid var(--border);">${escapeHtml(String(error?.stack || error?.message || error))}</pre>
-    `)
+    root.innerHTML = `
+      <main style="width:min(960px,calc(100vw - 48px));margin:24px auto;padding:24px;border:1px solid var(--danger, var(--border));border-radius:12px;background:var(--surface-elevated);box-shadow:var(--shadow)">
+        <h1>GAMS Browser</h1>
+        <p>Bootstrap failed.</p>
+        <pre style="white-space: pre-wrap; background:var(--surface); padding:16px; border-radius:12px; border:1px solid var(--border);">${escapeHtml(String(error?.stack || error?.message || error))}</pre>
+      </main>
+    `
   }
 }
 
