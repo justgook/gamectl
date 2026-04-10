@@ -6,9 +6,30 @@ import './ui-plugins/layout.js'
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
 const DEFAULT_LAYOUT = `
-  <view-nodegraph2 />
-  <view-nodegraph2 setup="0:v:50" />
+  <view-empty />
+  <view-empty setup="0:v:50" />
 `
+
+function placeholderView(tag, label) {
+  return {
+    label,
+    create: () => {
+      const el = document.createElement('view-empty')
+      el.setAttribute('data-view-tag', tag)
+      el.setAttribute('data-view-label', label)
+      return el
+    },
+  }
+}
+
+const viewRegistry = new Map([
+  ['view-empty', placeholderView('view-empty', 'Empty')],
+  ['view-nodegraph2', placeholderView('view-nodegraph2', 'Nodegraph 2')],
+  ['view-settings', placeholderView('view-settings', 'Settings')],
+  ['view-sql', placeholderView('view-sql', 'SQL')],
+  ['view-assets', placeholderView('view-assets', 'Assets')],
+  ['view-debug', placeholderView('view-debug', 'Debug')],
+])
 
 function readBootstrapConfig() {
   return {
@@ -38,10 +59,11 @@ async function main() {
     document.body.innerHTML = ''
 
     const layout = document.createElement('ui-layout')
+    layout.setViewRegistry(viewRegistry)
     document.body.appendChild(layout)
     runtime.register({ id: 'ui.layout', methods: layout.api })
     await layout.bindRuntime(runtime)
-    await runtime.call('ui.layout', 'load', DEFAULT_LAYOUT)
+    await layout.load(DEFAULT_LAYOUT)
 
     const toast = document.createElement('toast-manager')
     document.body.appendChild(toast)
@@ -54,6 +76,7 @@ async function main() {
     window.uiToast = toast
     window.uiLayout = layout
     window.defaultLayout = DEFAULT_LAYOUT
+    window.viewRegistry = viewRegistry
 
   } catch (error) {
     console.error('[browser] boot failed', error)
