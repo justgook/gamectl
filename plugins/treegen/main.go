@@ -33,6 +33,32 @@ func (rng *MyRandom) Intn(n int) int {
 	return int(rndIntn(uint32(n)))
 }
 
+func execSQL(sqlQuery string) error {
+	_, output, callErr := pdk.Call("sql", "exec", []byte(sqlQuery))
+	if callErr != nil {
+		return callErr
+	}
+	if len(output) > 0 && string(output) != "OK" {
+		return fmt.Errorf(string(output))
+	}
+	return nil
+}
+
+//export __sql_init
+func SqlInit() uint32 {
+	err := execSQL(`CREATE TABLE IF NOT EXISTS tree_storage (
+		name TEXT PRIMARY KEY,
+		data TEXT NOT NULL
+	)`)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to initialize treegen SQL state: " + err.Error()))
+		return 1
+	}
+
+	pdk.Output(util.SuccessResponse())
+	return 0
+}
+
 //export gen
 func Gen() uint32 {
 	input := pdk.Input()
@@ -60,15 +86,8 @@ func Gen() uint32 {
 	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tree_storage (name, data) VALUES ('%s', '%s')",
 		params.Name, escapedData)
 
-	_, output, callErr := pdk.Call("sql", "exec", []byte(sqlQuery))
-	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to store tree: " + callErr.Error()))
-		return 1
-	}
-
-	// Check if SQL execution was successful
-	if len(output) > 0 && string(output) != "OK" {
-		pdk.Output(util.ErrorResponse("SQL execution failed: " + string(output)))
+	if err := execSQL(sqlQuery); err != nil {
+		pdk.Output(util.ErrorResponse("failed to store tree: " + err.Error()))
 		return 1
 	}
 
