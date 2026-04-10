@@ -205,4 +205,11 @@ export async function memory(pluginId) {
   return await runtimeProxy.memory(pluginId)
 }
 
+export const runtime = {
+  init,
+  register,
+  call,
+  memory,
+}
+
 export { RuntimeProxy }

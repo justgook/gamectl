@@ -139,29 +139,18 @@ class PluginManager {
     }
 
     const moduleMemory = providedMemory || wasmModule.instance.exports.memory;
-    const scratchBase = moduleMemory.buffer.byteLength;
+    const heapBase = moduleMemory.buffer.byteLength;
     this.wasmModules.set(module.name, {
       name: module.name,
       instance: wasmModule.instance,
       memory: moduleMemory,
       memoryConfig: module.memory || null,
-      scratchBase,
-      allocPtr: scratchBase,
-      allocLimit: scratchBase,
-      allocFrames: [],
+      heapBase,
+      heapEnd: heapBase,
+      allocations: new Map(),
+      freeList: [],
+      callFrames: [],
     });
-
-    // Pre-allocate a small amount of memory to ensure the memory system is initialized
-    // This prevents issues with the first cross-plugin call
-    try {
-      const initPtr = this.allocFunc(module.name, 64); // Allocate 64 bytes for initialization
-      if (initPtr > 0) {
-        // Successfully initialized memory allocation system
-        // console.log(`Memory system initialized for plugin: ${module.name}`);
-      }
-    } catch (e) {
-      console.warn(`Failed to pre-initialize memory for ${module.name}:`, e);
-    }
   }
 
   /**
@@ -387,14 +376,6 @@ class PluginManager {
     return importObject;
   }
 
-  /**
-   * Allocate temporary memory in a module-owned scratch arena.
-   *
-   * The scratch arena starts at the end of the module's initial linear memory.
-   * We grow memory only when the arena runs out, then reuse that grown space
-   * across later calls by resetting allocPtr when callWasmFunction() unwinds.
-   * This avoids both heap corruption and one-page-per-small-allocation growth.
-   */
   allocFunc(moduleName, size) {
     const module = this.wasmModules.get(moduleName);
     if (!module) return 0;
@@ -402,43 +383,78 @@ class PluginManager {
     if (size === 0) size = 1;
     const alignedSize = (Number(size) + 7) & ~7;
 
-    if (!Number.isFinite(module.scratchBase)) {
-      module.scratchBase = module.memory.buffer.byteLength;
-    }
-    if (!Number.isFinite(module.allocPtr) || module.allocPtr < module.scratchBase) {
-      module.allocPtr = module.scratchBase;
-    }
-    if (!Number.isFinite(module.allocLimit) || module.allocLimit < module.allocPtr) {
-      module.allocLimit = module.memory.buffer.byteLength;
-    }
-
-    let nextPtr = module.allocPtr;
-    let nextEnd = nextPtr + alignedSize;
-
-    if (nextEnd > module.allocLimit) {
-      const bytesNeeded = nextEnd - module.allocLimit;
-      const pagesNeeded = Math.max(1, Math.ceil(bytesNeeded / 65536));
-      try {
-        module.memory.grow(pagesNeeded);
-        module.allocLimit = module.memory.buffer.byteLength;
-      } catch (e) {
-        console.error(`Failed to grow memory for ${moduleName}: tried to add ${pagesNeeded} pages (${size} bytes requested)`, e);
-        throw new Error(`Out of memory in ${moduleName}`);
+    let ptr = 0;
+    const freeIndex = module.freeList.findIndex((block) => block.size >= alignedSize);
+    if (freeIndex >= 0) {
+      const block = module.freeList[freeIndex];
+      ptr = block.ptr;
+      if (block.size === alignedSize) {
+        module.freeList.splice(freeIndex, 1);
+      } else {
+        block.ptr += alignedSize;
+        block.size -= alignedSize;
       }
-      nextEnd = nextPtr + alignedSize;
+    } else {
+      ptr = module.heapEnd;
+      const nextEnd = ptr + alignedSize;
+      if (nextEnd > module.memory.buffer.byteLength) {
+        const bytesNeeded = nextEnd - module.memory.buffer.byteLength;
+        const pagesNeeded = Math.max(1, Math.ceil(bytesNeeded / 65536));
+        try {
+          module.memory.grow(pagesNeeded);
+        } catch (e) {
+          console.error(`Failed to grow memory for ${moduleName}: tried to add ${pagesNeeded} pages (${size} bytes requested)`, e);
+          throw new Error(`Out of memory in ${moduleName}`);
+        }
+      }
+      module.heapEnd = nextEnd;
     }
 
-    module.allocPtr = nextEnd;
-
-    const memory = new Uint8Array(module.memory.buffer, nextPtr, alignedSize);
-    memory.fill(0);
-
-    return nextPtr;
+    module.allocations.set(ptr, alignedSize);
+    new Uint8Array(module.memory.buffer, ptr, alignedSize).fill(0);
+    return ptr;
   }
 
   freeFunc(moduleName, ptr) {
-    // No-op for now. Allocations are reclaimed by resetting allocPtr when the
-    // enclosing exported wasm call returns.
+    const module = this.wasmModules.get(moduleName);
+    if (!module || !ptr) return;
+
+    const size = module.allocations.get(ptr);
+    if (!size) return;
+    module.allocations.delete(ptr);
+    module.freeList.push({ ptr, size });
+    module.freeList.sort((a, b) => a.ptr - b.ptr);
+
+    const merged = [];
+    for (const block of module.freeList) {
+      const last = merged[merged.length - 1];
+      if (last && last.ptr + last.size === block.ptr) {
+        last.size += block.size;
+      } else {
+        merged.push({ ptr: block.ptr, size: block.size });
+      }
+    }
+    module.freeList = merged;
+  }
+
+  currentCallFrame(moduleName) {
+    const module = this.wasmModules.get(moduleName);
+    if (!module) return null;
+    return module.callFrames[module.callFrames.length - 1] || null;
+  }
+
+  trackTempAlloc(moduleName, ptr) {
+    const frame = this.currentCallFrame(moduleName);
+    if (!frame || !ptr) return;
+    frame.tempPtrs.push(ptr);
+  }
+
+  releaseTempAllocs(moduleName, frame) {
+    if (!frame) return;
+    for (let i = frame.tempPtrs.length - 1; i >= 0; i--) {
+      this.freeFunc(moduleName, frame.tempPtrs[i]);
+    }
+    frame.tempPtrs.length = 0;
   }
 
   inputPtrFunc() {
@@ -511,6 +527,7 @@ class PluginManager {
         const outputPtr = this.allocFunc(callerModuleName, result.output.length);
         const callerMemory = new Uint8Array(callerModule.memory.buffer);
         callerMemory.set(result.output, outputPtr);
+        this.trackTempAlloc(callerModuleName, outputPtr);
 
         this.lastCallOutputPtr = outputPtr;
         this.lastCallOutputLen = result.output.length;
@@ -564,6 +581,7 @@ class PluginManager {
         const outputPtr = this.allocFunc(callerModuleName, output.length);
         const memory = new Uint8Array(callerModule.memory.buffer);
         memory.set(output, outputPtr);
+        this.trackTempAlloc(callerModuleName, outputPtr);
         this.currentOutputPtr = outputPtr;
         this.currentOutputLen = output.length;
       }
@@ -601,22 +619,20 @@ class PluginManager {
       throw new Error(`WASM module ${moduleName} not found`);
     }
 
-    const allocFramePtr = Number.isFinite(module.allocPtr) ? module.allocPtr : module.memory.buffer.byteLength;
-    module.allocFrames.push(allocFramePtr);
+    const frame = { tempPtrs: [] };
+    module.callFrames.push(frame);
 
     try {
-      // Write input to memory
       const inputPtr = this.allocFunc(moduleName, input.length);
-      const currentMemory = new Uint8Array(module.memory.buffer); // Refresh in case memory grew
+      this.trackTempAlloc(moduleName, inputPtr);
+      const currentMemory = new Uint8Array(module.memory.buffer);
       currentMemory.set(input, inputPtr);
       this.currentInputPtr = inputPtr;
       this.currentInputLen = input.length;
 
-      // Reset output
       this.currentOutputPtr = 0;
       this.currentOutputLen = 0;
 
-      // Call the function
       const fn = module.instance.exports[functionName];
       if (!fn) {
         throw new Error(`Function ${functionName} not found in module ${moduleName}`);
@@ -624,11 +640,11 @@ class PluginManager {
 
       const returnValue = fn() || 0;
 
-      // Read output
       let output = new Uint8Array(0);
       if (this.currentOutputPtr !== 0 && this.currentOutputLen > 0) {
         const updatedMemory = new Uint8Array(module.memory.buffer);
         output = updatedMemory.slice(this.currentOutputPtr, this.currentOutputPtr + this.currentOutputLen);
+        this.trackTempAlloc(moduleName, this.currentOutputPtr);
       }
 
       return {
@@ -636,8 +652,8 @@ class PluginManager {
         output: output
       };
     } finally {
-      const restorePtr = module.allocFrames.pop();
-      module.allocPtr = Number.isFinite(restorePtr) ? restorePtr : module.scratchBase;
+      module.callFrames.pop();
+      this.releaseTempAllocs(moduleName, frame);
     }
   }
 
