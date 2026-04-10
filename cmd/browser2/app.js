@@ -5,6 +5,10 @@ import './ui-plugins/layout.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
+const DEFAULT_LAYOUT = `
+  <view-nodegraph2 />
+  <view-nodegraph2 setup="0:v:50" />
+`
 
 function readBootstrapConfig() {
   return {
@@ -37,6 +41,7 @@ async function main() {
     document.body.appendChild(layout)
     runtime.register({ id: 'ui.layout', methods: layout.api })
     await layout.bindRuntime(runtime)
+    await runtime.call('ui.layout', 'load', DEFAULT_LAYOUT)
 
     const toast = document.createElement('toast-manager')
     document.body.appendChild(toast)
@@ -48,6 +53,7 @@ async function main() {
     window.viewSetupResult = viewSetupResult
     window.uiToast = toast
     window.uiLayout = layout
+    window.defaultLayout = DEFAULT_LAYOUT
 
   } catch (error) {
     console.error('[browser] boot failed', error)

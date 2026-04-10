@@ -247,7 +247,11 @@ class Handle extends HTMLElement {
   set h(v) { this.setAttribute('h', v) }
   set panel(v) { this.setAttribute('panel', v) }
 
-  get panel() { return this._panel }
+  get x() { return this._x; }
+  get y() { return this._y; }
+  get w() { return this._w; }
+  get h() { return this._h; }
+  get panel() { return this._panel; }
 
   _updatePosition() {
     this.style.left = `${this._x}px`
