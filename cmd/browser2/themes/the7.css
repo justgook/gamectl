@@ -92,7 +92,8 @@ view-toast {
   color: var(--w7-el-c, #000);
 }
 
-layout-manager .layout-try-rect {
+layout-manager .layout-try-rect,
+ui-layout .layout-try-rect {
   position: absolute;
   border: 2px solid rgba(29, 106, 162, 0.95);
   background: rgba(29, 106, 162, 0.2);

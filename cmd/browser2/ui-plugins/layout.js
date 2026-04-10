@@ -1,3 +1,4 @@
+import { ensureThemeStylesheetLink } from "../core/theme-stylesheet.js"
 const ABI = {
   HEADER_I32: 15,
   AREA_I32: 5,
@@ -5,6 +6,19 @@ const ABI = {
   MAX_PANELS: 16,
   MAX_HANDLES: 15,
   TRY_I32: 5,
+}
+
+const ERR = {
+  0: 'ok',
+  1: 'not_initialized',
+  2: 'invalid_arg',
+  3: 'invalid_handle',
+  4: 'invalid_area',
+  5: 'invalid_corner',
+  6: 'out_of_bounds',
+  7: 'min_size',
+  8: 'not_implemented',
+  9: 'capacity',
 }
 
 function encodeResult(value) {
@@ -16,6 +30,33 @@ function encodeResult(value) {
 
 function decodeBytes(bytes) {
   return new TextDecoder().decode(bytes)
+}
+
+function decodeInput(input) {
+  if (typeof input === 'string') return input
+  if (input instanceof Uint8Array) return new TextDecoder().decode(input)
+  if (ArrayBuffer.isView(input)) {
+    return new TextDecoder().decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
+  }
+  return String(input ?? '')
+}
+
+function parseLayoutInput(input) {
+  if (typeof input === 'string') return input
+  if (input == null) return ''
+  if (typeof input === 'object' && !(input instanceof Uint8Array) && !ArrayBuffer.isView(input)) {
+    if (typeof input.layout === 'string') return input.layout
+    return String(input.layoutMarkup || '')
+  }
+  const text = decodeInput(input)
+  if (!text) return ''
+  try {
+    const parsed = JSON.parse(text)
+    if (typeof parsed === 'string') return parsed
+    if (parsed && typeof parsed.layout === 'string') return parsed.layout
+    if (parsed && typeof parsed.layoutMarkup === 'string') return parsed.layoutMarkup
+  } catch { }
+  return text
 }
 
 function readI32String(result) {
@@ -70,22 +111,26 @@ export class ViewArea extends HTMLElement {
     this._w = 0
     this._h = 0
     this._panel = 0
+    this._selectorReady = false
+
+    const shadowRoot = this.attachShadow({ mode: 'open' })
+    shadowRoot.innerHTML = `<link rel="stylesheet" href="reset.css">
+      <link rel="stylesheet" href="base.css">
+      <header part="header">
+        <select part="view-select" name="view" data-action="select-view" class="view-selector"></select>
+        <slot name="header-controls"></slot>
+      </header>
+      <article><slot></slot></article>`
   }
 
   connectedCallback() {
-    if (!this.dataset.ready) {
-      this.dataset.ready = '1'
-      this.style.position = 'absolute'
-      this.innerHTML = `
-        <header style="display:flex; align-items:center; justify-content:space-between; min-height:32px; padding:6px 10px; border-bottom:1px solid var(--border); color:var(--text-muted);">
-          <strong data-role="title" style="font-size:12px;">view-empty</strong>
-        </header>
-        <article data-role="body" style="position:absolute; inset:33px 0 0 0; overflow:hidden;"></article>
-      `
-      this.ensureContent()
-    }
-    this.updateTitle()
+    this.setupViewSelector()
     this._updatePosition()
+    this.refreshViewSelector()
+    ensureThemeStylesheetLink(this.shadowRoot)
+
+    // Set position style
+    this.style.position = "absolute"
   }
 
   attributeChangedCallback(name, _oldVal, newVal) {
@@ -95,20 +140,69 @@ export class ViewArea extends HTMLElement {
     if (name === 'h') this._h = parseFloat(newVal)
     if (name === 'panel') this._panel = parseFloat(newVal)
     this._updatePosition()
-    this.updateTitle()
   }
 
-  ensureContent() {
-    const body = this.querySelector('[data-role="body"]')
-    if (!body) return
-    if (!body.firstElementChild) {
-      body.appendChild(document.createElement('view-empty'))
+  set x(v) { this.setAttribute('x', v) }
+  set y(v) { this.setAttribute('y', v) }
+  set w(v) { this.setAttribute('w', v) }
+  set h(v) { this.setAttribute('h', v) }
+  set panel(v) { this.setAttribute('panel', v) }
+
+  get x() { return this._x; }
+  get y() { return this._y; }
+  get w() { return this._w; }
+  get h() { return this._h; }
+  get panel() { return this._panel; }
+
+  getCurrentView() {
+    return this.shadowRoot.querySelector('slot:not([name])')?.assignedElements?.()[0] || this.firstElementChild || null
+  }
+
+  setView(viewNode) {
+    const currentView = this.getCurrentView()
+    if (currentView) this.replaceChild(viewNode, currentView)
+    else this.appendChild(viewNode)
+    this.refreshViewSelector()
+  }
+
+  switchView(viewTag) {
+    const newView = document.createElement(viewTag)
+    this.setView(newView)
+  }
+
+  setupViewSelector() {
+    if (this._selectorReady) return
+    this._selectorReady = true
+    const select = this.shadowRoot.querySelector('[data-action="select-view"]')
+    select.addEventListener('change', (event) => {
+      if (event.target.value) this.switchView(event.target.value)
+    })
+  }
+
+  refreshViewSelector() {
+    const select = this.shadowRoot.querySelector('[data-action="select-view"]')
+    if (!select) return
+
+    const currentView = this.getCurrentView()
+    const currentTag = currentView ? currentView.tagName.toLowerCase() : 'view-empty'
+    const options = new Map()
+    options.set('view-empty', 'view-empty')
+    options.set(currentTag, currentTag)
+
+    if (window.viewLoader?.registry?.size > 0 && typeof window.viewLoader.getGroupedViews === 'function') {
+      for (const views of window.viewLoader.getGroupedViews().values()) {
+        for (const view of views) options.set(view.tag, view.displayName || view.tag)
+      }
     }
-  }
 
-  updateTitle() {
-    const title = this.querySelector('[data-role="title"]')
-    if (title) title.textContent = `panel ${this._panel}`
+    select.innerHTML = ''
+    for (const [tag, label] of options.entries()) {
+      const option = document.createElement('option')
+      option.value = tag
+      option.textContent = label
+      select.appendChild(option)
+    }
+    select.value = currentTag
   }
 
   _updatePosition() {
@@ -117,15 +211,10 @@ export class ViewArea extends HTMLElement {
     this.style.width = `${this._w}px`
     this.style.height = `${this._h}px`
   }
-
-  set x(v) { this.setAttribute('x', v) }
-  set y(v) { this.setAttribute('y', v) }
-  set w(v) { this.setAttribute('w', v) }
-  set h(v) { this.setAttribute('h', v) }
-  set panel(v) { this.setAttribute('panel', v) }
 }
 
-class Corner extends HTMLElement {}
+class Corner extends HTMLElement { }
+
 class Handle extends HTMLElement {
   static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel'] }
 
@@ -152,18 +241,20 @@ class Handle extends HTMLElement {
     this._updatePosition()
   }
 
+  set x(v) { this.setAttribute('x', v) }
+  set y(v) { this.setAttribute('y', v) }
+  set w(v) { this.setAttribute('w', v) }
+  set h(v) { this.setAttribute('h', v) }
+  set panel(v) { this.setAttribute('panel', v) }
+
+  get panel() { return this._panel }
+
   _updatePosition() {
     this.style.left = `${this._x}px`
     this.style.top = `${this._y}px`
     this.style.width = `${this._w}px`
     this.style.height = `${this._h}px`
   }
-
-  set x(v) { this.setAttribute('x', v) }
-  set y(v) { this.setAttribute('y', v) }
-  set w(v) { this.setAttribute('w', v) }
-  set h(v) { this.setAttribute('h', v) }
-  set panel(v) { this.setAttribute('panel', v) }
 }
 
 export class UiLayout extends HTMLElement {
@@ -197,6 +288,10 @@ export class UiLayout extends HTMLElement {
         return encodeResult({ ok: true, generation: this.lastGeneration })
       },
       ping: async () => encodeResult({ ok: true, generation: this.lastGeneration }),
+      load: async (input) => {
+        await this.load(parseLayoutInput(input))
+        return encodeResult({ ok: true, generation: this.lastGeneration })
+      },
     }
     this.resizeObserver = new ResizeObserver(async (entries) => {
       if (!this.runtime) return
@@ -206,7 +301,7 @@ export class UiLayout extends HTMLElement {
         const height = Math.max(64, Math.floor(entry.contentRect.height || 0))
         if (!width || !height) continue
         if (!this.i32 || !header(this.i32).initialized) continue
-        await this.runtime.call('layout', 'resize_screen', `${width},${height},${this.handleSize}`)
+        await this.resizeScreen(width, height, this.handleSize)
         await this.refresh()
       }
     })
@@ -236,11 +331,65 @@ export class UiLayout extends HTMLElement {
     const width = Math.max(64, Math.floor(this.clientWidth || window.innerWidth || 0))
     const height = Math.max(64, Math.floor(this.clientHeight || window.innerHeight || 0))
     if (!header(this.i32).initialized) {
-      await this.runtime.call('layout', 'init_screen', `${width},${height},${this.handleSize},${this.minPanelSize}`)
+      await this.initScreen(width, height, this.handleSize, this.minPanelSize)
       this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
     }
     await this.ensureAreaContentIds()
     this.render()
+  }
+
+  async callLayout(method, input = '') {
+    if (!this.runtime) throw new Error('ui.layout is not bound to runtime')
+    return await this.runtime.call('layout', method, input)
+  }
+
+  async callLayoutCode(method, input = '') {
+    const result = await this.callLayout(method, input)
+    const code = Number(result?.returnCode || 0)
+    if (code !== 0) {
+      throw new Error(`${method} failed: ${ERR[code] || code}`)
+    }
+    return result
+  }
+
+  async initScreen(width, height, handleSize, minPanelSize) {
+    await this.callLayoutCode('init_screen', `${width},${height},${handleSize},${minPanelSize}`)
+  }
+
+  async resizeScreen(width, height, handleSize) {
+    await this.callLayoutCode('resize_screen', `${width},${height},${handleSize}`)
+  }
+
+  clampPoint(x, y, inclusiveMax = false) {
+    if (!this.i32) {
+      return { x: Math.floor(x), y: Math.floor(y) }
+    }
+    const h = header(this.i32)
+    const maxX = inclusiveMax ? h.screenW : Math.max(0, h.screenW - 1)
+    const maxY = inclusiveMax ? h.screenH : Math.max(0, h.screenH - 1)
+    return {
+      x: Math.max(0, Math.min(maxX, Math.floor(x))),
+      y: Math.max(0, Math.min(maxY, Math.floor(y))),
+    }
+  }
+
+  async moveHandle(handleIndex, x, y) {
+    const p = this.clampPoint(x, y, true)
+    await this.callLayoutCode('move_handle', `${handleIndex},${p.x},${p.y}`)
+  }
+
+  async moveCorner(areaIndex, cornerIndex, x, y) {
+    const p = this.clampPoint(x, y, false)
+    await this.callLayoutCode('move_corner', `${areaIndex},${cornerIndex},${p.x},${p.y}`)
+  }
+
+  async tryCorner(areaIndex, cornerIndex, x, y) {
+    const p = this.clampPoint(x, y, false)
+    await this.callLayout('try_corner', `${areaIndex},${cornerIndex},${p.x},${p.y}`)
+  }
+
+  async setAreaContent(areaIndex, contentId) {
+    await this.callLayoutCode('set_area_content', `${areaIndex},${contentId}`)
   }
 
   areaAt(index) {
@@ -262,15 +411,75 @@ export class UiLayout extends HTMLElement {
     return { valid: v[base], x0: v[base + 1], y0: v[base + 2], x1: v[base + 3], y1: v[base + 4] }
   }
 
+  instantiateView(spec) {
+    const viewNode = document.createElement(spec.tag)
+    for (const [name, value] of Object.entries(spec.attrs || {})) {
+      if (name === 'setup') continue
+      viewNode.setAttribute(name, value)
+    }
+    viewNode.innerHTML = spec.innerHTML || ''
+    return viewNode
+  }
+
+  cloneViewNode(node) {
+    const clone = document.createElement(node.tagName.toLowerCase())
+    for (const attr of Array.from(node.attributes || [])) {
+      clone.setAttribute(attr.name, attr.value)
+    }
+    clone.innerHTML = node.innerHTML || ''
+    return clone
+  }
+
+  createChromeForViewNode(viewNode, areaId, contentId) {
+    const chrome = document.createElement('view-area')
+    chrome.panel = areaId
+    chrome.appendChild(viewNode)
+    chrome.refreshViewSelector()
+    this.addCorners(chrome, areaId)
+    this.content.set(contentId, chrome)
+    this.appendChild(chrome)
+    return chrome
+  }
+
+  async createChromeForViewSpec(spec, areaId) {
+    const contentId = ++this.contentCounter
+    await this.setAreaContent(areaId, contentId)
+    const viewNode = this.instantiateView(spec)
+    return this.createChromeForViewNode(viewNode, areaId, contentId)
+  }
+
   async ensureAreaContentIds() {
     const h = header(this.i32)
+    const seen = new Set()
+    const pendingClones = []
+
     for (let areaId = 0; areaId < h.areaCount; areaId += 1) {
       const area = this.areaAt(areaId)
-      if (area.content !== 0) continue
-      const contentId = ++this.contentCounter
-      await this.runtime.call('layout', 'set_area_content', `${areaId},${contentId}`)
+      const duplicate = area.content !== 0 && seen.has(area.content)
+      if (area.content === 0 || duplicate) {
+        const nextContentId = ++this.contentCounter
+        await this.setAreaContent(areaId, nextContentId)
+        if (duplicate) {
+          pendingClones.push({
+            oldContentId: area.content,
+            newContentId: nextContentId,
+            areaId,
+          })
+        }
+      } else {
+        seen.add(area.content)
+        if (area.content > this.contentCounter) this.contentCounter = area.content
+      }
     }
+
     this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+
+    for (const cloneInfo of pendingClones) {
+      const sourceChrome = this.content.get(cloneInfo.oldContentId)
+      const sourceView = sourceChrome?.getCurrentView?.() || sourceChrome?.firstElementChild || null
+      const cloneView = sourceView ? this.cloneViewNode(sourceView) : document.createElement('view-empty')
+      this.createChromeForViewNode(cloneView, cloneInfo.areaId, cloneInfo.newContentId)
+    }
   }
 
   ensureTryRect() {
@@ -306,7 +515,7 @@ export class UiLayout extends HTMLElement {
       this.cornerDrag.raf = 0
       if (!this.cornerDrag.active) return
       if (this.cornerDrag.x === this.cornerDrag.lastX && this.cornerDrag.y === this.cornerDrag.lastY) return
-      await this.runtime.call('layout', 'try_corner', `${this.cornerDrag.areaIndex},${this.cornerDrag.cornerIndex},${this.cornerDrag.x},${this.cornerDrag.y}`)
+      await this.tryCorner(this.cornerDrag.areaIndex, this.cornerDrag.cornerIndex, this.cornerDrag.x, this.cornerDrag.y)
       this.cornerDrag.lastX = this.cornerDrag.x
       this.cornerDrag.lastY = this.cornerDrag.y
       this.render()
@@ -325,7 +534,7 @@ export class UiLayout extends HTMLElement {
   spawnHandle() {
     const node = document.createElement('view--handle')
     makeHandleDraggable(this, node, async (x, y) => {
-      await this.runtime.call('layout', 'move_handle', `${node.getAttribute('panel')},${Math.floor(x)},${Math.floor(y)}`)
+      await this.moveHandle(node.panel, x, y)
       await this.refresh()
     })
     this.handles.push(node)
@@ -336,37 +545,134 @@ export class UiLayout extends HTMLElement {
   ensureChrome(areaId, contentId) {
     let chrome = this.content.get(contentId)
     if (chrome) return chrome
-    chrome = document.createElement('view-area')
-    chrome.panel = areaId
-    this.addCorners(chrome, areaId)
-    this.content.set(contentId, chrome)
-    this.appendChild(chrome)
+    chrome = this.createChromeForViewNode(document.createElement('view-empty'), areaId, contentId)
     return chrome
   }
 
   addCorners(node, areaId) {
-    ;['nw', 'ne', 'se', 'sw'].forEach((c, cornerId) => {
-      const s = document.createElement('view--corner')
-      s.classList.add(c)
-      makeCornerDraggable(this, s, async (x, y) => {
-        const panel = Number.isFinite(Number(node.getAttribute('panel'))) ? Number(node.getAttribute('panel')) : areaId
-        await this.runtime.call('layout', 'move_corner', `${panel},${cornerId},${Math.floor(x)},${Math.floor(y)}`)
-        await this.ensureAreaContentIds()
-        this.stopCornerPreview()
-        await this.refresh()
-      }, {
-        onStart: (x, y) => {
+    if (node.dataset.cornersReady) return
+    node.dataset.cornersReady = '1'
+      ;['nw', 'ne', 'se', 'sw'].forEach((c, cornerId) => {
+        const s = document.createElement('view--corner')
+        s.classList.add(c)
+        makeCornerDraggable(this, s, async (x, y) => {
           const panel = Number.isFinite(Number(node.getAttribute('panel'))) ? Number(node.getAttribute('panel')) : areaId
-          this.startCornerPreview(panel, cornerId, x, y)
-        },
-        onMove: (x, y) => this.updateCornerPreview(x, y),
-        onCancel: () => {
+          await this.moveCorner(panel, cornerId, x, y)
+          await this.ensureAreaContentIds()
           this.stopCornerPreview()
-          this.render()
-        },
+          await this.refresh()
+        }, {
+          onStart: (x, y) => {
+            const panel = Number.isFinite(Number(node.getAttribute('panel'))) ? Number(node.getAttribute('panel')) : areaId
+            this.startCornerPreview(panel, cornerId, x, y)
+          },
+          onMove: (x, y) => this.updateCornerPreview(x, y),
+          onCancel: () => {
+            this.stopCornerPreview()
+            this.render()
+          },
+        })
+        node.appendChild(s)
       })
-      node.appendChild(s)
-    })
+  }
+
+  parseSetup(setup, index) {
+    const parts = String(setup).split(':')
+    if (parts.length !== 3) throw new Error(`layout child ${index}: invalid setup format '${setup}'`)
+
+    const [targetText, axis, percentText] = parts
+    const target = Number.parseInt(targetText, 10)
+    const percent = Number.parseInt(percentText, 10)
+
+    if (!Number.isInteger(target) || target < 0) throw new Error(`layout child ${index}: invalid target '${targetText}'`)
+    if (axis !== 'v' && axis !== 'h') throw new Error(`layout child ${index}: invalid axis '${axis}'`)
+    if (!Number.isInteger(percent) || percent <= 0 || percent >= 100) {
+      throw new Error(`layout child ${index}: invalid percent '${percentText}'`)
+    }
+
+    return { target, axis, percent: 100 - percent }
+  }
+
+  splitPointForArea(area, axis, percent) {
+    const width = area.x1 - area.x0
+    const height = area.y1 - area.y0
+    const splitX = area.x0 + Math.floor(width * (percent / 100))
+    const splitY = area.y0 + Math.floor(height * (percent / 100))
+
+    if (axis === 'h') {
+      return {
+        corner: 0,
+        x: splitX,
+        y: Math.min(area.y1 - 1, area.y0 + 1),
+      }
+    }
+
+    return {
+      corner: 0,
+      x: Math.min(area.x1 - 1, area.x0 + 1),
+      y: splitY,
+    }
+  }
+
+  async load(layoutData) {
+    if (!this.runtime) throw new Error('layout manager is not initialized')
+    const markup = String(layoutData || '').trim()
+    if (!markup) throw new Error('layout markup is required')
+
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(`<layout>${markup}</layout>`, 'text/xml')
+    const parseError = xmlDoc.querySelector('parsererror')
+    if (parseError) {
+      throw new Error(`invalid layout markup: ${parseError.textContent?.trim() || 'parse error'}`)
+    }
+
+    const sourceSpecs = xmlDoc.childNodes[0].childNodes
+    const specs = [...sourceSpecs]
+      .filter((n) => n.nodeType === 1)
+      .map((n) => ({
+        tag: n.tagName,
+        attrs: Object.fromEntries([...n.attributes].map((attr) => [attr.name, attr.value])),
+        innerHTML: n.innerHTML || '',
+      }))
+
+    if (specs.length === 0) throw new Error('root view must be defined')
+    if (specs[0].attrs.setup) throw new Error('layout child 0: root view cannot define setup')
+
+    this.stopCornerPreview()
+    this.replaceChildren()
+    this.content.clear()
+    this.handles.length = 0
+    this.tryRectEl = null
+    this.contentCounter = 0
+
+    const width = Math.max(64, Math.floor(this.clientWidth || window.innerWidth || 0))
+    const height = Math.max(64, Math.floor(this.clientHeight || window.innerHeight || 0))
+    await this.initScreen(width, height, this.handleSize, this.minPanelSize)
+    this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+
+    await this.createChromeForViewSpec(specs[0], 0)
+    this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+
+    for (let i = 1; i < specs.length; i += 1) {
+      const spec = specs[i]
+      const { setup } = spec.attrs
+      if (!setup) throw new Error(`layout child ${i}: missing setup`)
+
+      const { target, axis, percent } = this.parseSetup(setup, i)
+      const areaCount = header(this.i32).areaCount
+      if (target >= areaCount) throw new Error(`layout child ${i}: target ${target} is out of range`)
+
+      const area = this.areaAt(target)
+      const newPanel = areaCount
+      const split = this.splitPointForArea(area, axis, percent)
+
+      await this.moveCorner(target, split.corner, split.x, split.y)
+      this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+      await this.createChromeForViewSpec(spec, newPanel)
+      this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+    }
+
+    this.render()
   }
 
   render() {
@@ -385,6 +691,7 @@ export class UiLayout extends HTMLElement {
       node.w = area.x1 - area.x0
       node.h = area.y1 - area.y0
       node.panel = areaId
+      node.refreshViewSelector?.()
     }
 
     for (const [contentId, node] of [...this.content.entries()]) {
@@ -422,11 +729,11 @@ export class UiLayout extends HTMLElement {
 
   async refresh() {
     if (!this.runtime) throw new Error('ui.layout is not bound to runtime')
-    const nextPtr = readI32String(await this.runtime.call('layout', 'get_info_ptr', ''))
+    const nextPtr = readI32String(await this.callLayout('get_info_ptr', ''))
     if (nextPtr !== this.ptr || !this.i32) {
       this.ptr = nextPtr
-      this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
     }
+    this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
     this.render()
   }
 }
@@ -457,7 +764,7 @@ function makeCornerDraggable(host, handleEl, callback, options = {}) {
   const onUp = (e) => {
     if (!dragging || e.pointerId !== pointerId) return
     dragging = false
-    try { handleEl.releasePointerCapture(pointerId) } catch {}
+    try { handleEl.releasePointerCapture(pointerId) } catch { }
     cleanup()
     const local = toHostLocal(e.clientX, e.clientY)
     callback(local.x, local.y)
@@ -466,7 +773,7 @@ function makeCornerDraggable(host, handleEl, callback, options = {}) {
   const onCancel = (e) => {
     if (!dragging || e.pointerId !== pointerId) return
     dragging = false
-    try { handleEl.releasePointerCapture(pointerId) } catch {}
+    try { handleEl.releasePointerCapture(pointerId) } catch { }
     cleanup()
     if (typeof options.onCancel === 'function') options.onCancel()
   }
@@ -511,7 +818,7 @@ function makeHandleDraggable(host, handleEl, callback) {
   const onUp = (e) => {
     if (!dragging || e.pointerId !== pointerId) return
     dragging = false
-    try { handleEl.releasePointerCapture(pointerId) } catch {}
+    try { handleEl.releasePointerCapture(pointerId) } catch { }
     cleanup()
     const local = toHostLocal(e.clientX, e.clientY)
     callback(local.x, local.y)
