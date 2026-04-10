@@ -376,6 +376,18 @@ class PluginManager {
     return importObject;
   }
 
+  /**
+   * Allocate host-managed linear memory for a module.
+   *
+   * Important: PDK alloc/free must behave like a real allocator, not a
+   * per-call scratch arena. Plugins such as sql keep pointers returned from
+   * pdk_alloc across calls (for example SQLite's long-lived heap configured in
+   * sql.open()).
+   *
+   * We still track temporary call-scoped allocations separately via callFrames
+   * so buffers created only for a single host/plugin exchange can be released
+   * automatically when the exported wasm call returns.
+   */
   allocFunc(moduleName, size) {
     const module = this.wasmModules.get(moduleName);
     if (!module) return 0;
@@ -415,6 +427,13 @@ class PluginManager {
     return ptr;
   }
 
+  /**
+   * Free a persistent host-managed allocation.
+   *
+   * Freed regions are merged and reused for later allocations so browser2 wasm
+   * plugins can mix long-lived heaps with transient PDK buffers without
+   * unbounded linear-memory growth.
+   */
   freeFunc(moduleName, ptr) {
     const module = this.wasmModules.get(moduleName);
     if (!module || !ptr) return;
@@ -437,6 +456,9 @@ class PluginManager {
     module.freeList = merged;
   }
 
+  // Call frames track temporary allocations that are safe to release once the
+  // current exported wasm call unwinds. This must never include persistent
+  // plugin-owned allocations unless the plugin explicitly called free().
   currentCallFrame(moduleName) {
     const module = this.wasmModules.get(moduleName);
     if (!module) return null;
@@ -612,6 +634,12 @@ class PluginManager {
 
   /**
    * Call a WASM function
+   */
+  /**
+   * Call an exported wasm function.
+   *
+   * Only transient transport buffers are auto-released at the end of the call.
+   * Persistent allocations remain live until the plugin frees them.
    */
   callWasmFunction(moduleName, functionName, input) {
     const module = this.wasmModules.get(moduleName);
