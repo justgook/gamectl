@@ -2,6 +2,7 @@ import { init, setupResult } from './core/runtime.js'
 import { applySetupView } from './core/setup-view.js'
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
+import './views/view-sql.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
@@ -26,7 +27,10 @@ const viewRegistry = new Map([
   ['view-empty', placeholderView('view-empty', 'Empty')],
   ['view-nodegraph2', placeholderView('view-nodegraph2', 'Nodegraph 2')],
   ['view-settings', placeholderView('view-settings', 'Settings')],
-  ['view-sql', placeholderView('view-sql', 'SQL')],
+  ['view-sql', {
+    label: 'SQL',
+    create: () => document.createElement('view-sql'),
+  }],
   ['view-assets', placeholderView('view-assets', 'Assets')],
   ['view-debug', placeholderView('view-debug', 'Debug')],
 ])
