@@ -1,6 +1,7 @@
 import { init } from './core/runtime.js'
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
+import './ui-plugins/popup.js'
 import './views/view-sql.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
@@ -124,6 +125,10 @@ async function main() {
     const toast = document.createElement('toast-manager')
     document.body.appendChild(toast)
     runtime.register({ id: 'ui.toast', methods: toast.api })
+
+    const popup = document.createElement('popup-manager')
+    document.body.appendChild(popup)
+    runtime.register({ id: 'ui.popup', methods: popup.api })
 
     window.runtime = runtime
 
