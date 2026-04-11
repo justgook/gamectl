@@ -1,5 +1,4 @@
 import { init } from './core/runtime.js'
-import { applySetupView } from './core/setup-view.js'
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
 import './views/view-sql.js'
@@ -35,13 +34,64 @@ const viewRegistry = new Map([
   ['view-debug', placeholderView('view-debug', 'Debug')],
 ])
 
-function readBootstrapConfig() {
-  return {
-    fs: localStorage.getItem('browser.fs') || 'fs.opfs',
-    sql: localStorage.getItem('browser.sql') || 'sql',
-    webdavUrl: localStorage.getItem('browser.fs.webdav.url') || '',
+
+const buildinPlugins = [
+  {
+    id: 'fs',
+    runtime: 'js',
+    role: 'service',
+    url: 'local:../builtin/fs-opfs/index.js',
+  },
+  {
+    id: 'fs.opfs',
+    runtime: 'js',
+    role: 'service',
+    url: 'local:../builtin/fs-opfs/index.js',
+  },
+  {
+    id: 'fs.webdav',
+    runtime: 'js',
+    role: 'service',
+    url: 'local:../builtin/fs-webdav/index.js',
+  },
+  {
+    id: 'sql',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/sql.wasm?t=${Date.now()}`,
+  },
+  {
+    id: 'random',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/random.wasm?t=${Date.now()}`,
+  },
+  {
+    id: 'treegen',
+    runtime: 'wasm',
+    role: 'service',
+    deps: ['random'],
+    url: `/plugins/treegen.wasm?t=${Date.now()}`,
+  },
+  {
+    id: 'echo',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/echo.wasm?t=${Date.now()}`,
+  },
+  {
+    id: 'layout',
+    runtime: 'wasm',
+    role: 'service',
+    url: `/plugins/layout2.wasm?t=${Date.now()}`,
+    memory: {
+      import: true,
+      shared: true,
+      initialPages: 288,
+      maximumPages: 512,
+    },
   }
-}
+]
 
 function applyThemeStylesheet() {
   const theme = localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME
@@ -58,7 +108,9 @@ async function main() {
   root.innerHTML = '<div style="padding:24px; color:var(--text);">Booting...</div>'
 
   try {
-    const runtime = await init(readBootstrapConfig())
+    const runtime = await init()
+    runtime.add(buildinPlugins)
+    runtime.call("sql", "open") // TODO move init of sql to plugin it self
 
     document.body.innerHTML = ''
 
@@ -73,7 +125,6 @@ async function main() {
     document.body.appendChild(toast)
     runtime.register({ id: 'ui.toast', methods: toast.api })
 
-    const viewSetupResult = await applySetupView(runtime)
     window.runtime = runtime
 
   } catch (error) {
