@@ -27,6 +27,7 @@ export class ViewSql extends HTMLElement {
     this.paginationContainer = null
     this.tableStatusContainer = null
     this.queryContainer = null
+    this._headerControlsElement = null
   }
 
   connectedCallback() {
@@ -60,7 +61,53 @@ export class ViewSql extends HTMLElement {
     this.paginationContainer = this.querySelector('[data-element="pagination"]')
     this.tableStatusContainer = this.querySelector('[data-element="status"]')
 
+    this._mountHeaderControls()
+
+    const toolbar = this._headerControlsElement
+    if (toolbar) {
+      toolbar.querySelector('[data-action="refresh-tables"]')?.addEventListener('click', () => this.refreshTables())
+      toolbar.querySelector('[data-action="refresh-selected-table"]')?.addEventListener('click', () => this.refreshSelectedTable())
+    }
+
     this.refresh()
+  }
+
+  disconnectedCallback() {
+    this._unmountHeaderControls()
+  }
+
+  createHeaderControlsElement() {
+    const toolbar = document.createElement('div')
+    toolbar.dataset.element = 'toolbar'
+    toolbar.setAttribute('slot', 'header-controls')
+    toolbar.innerHTML = `
+      <button data-action="refresh-tables" aria-label="Reload table list" title="Reload table list"><i aria-hidden="true">refresh</i></button>
+      <button data-action="refresh-selected-table" aria-label="Reload selected table" title="Reload selected table"><i aria-hidden="true">table_rows</i></button>
+    `
+    return toolbar
+  }
+
+  _mountHeaderControls() {
+    if (!this.parentElement || this._headerControlsElement) return
+
+    const headerControls = this.createHeaderControlsElement()
+    this._headerControlsElement = headerControls
+    this.parentElement.appendChild(headerControls)
+    this.updateHeaderControlsUI()
+  }
+
+  _unmountHeaderControls() {
+    if (this._headerControlsElement?.parentElement) {
+      this._headerControlsElement.remove()
+    }
+    this._headerControlsElement = null
+  }
+
+  updateHeaderControlsUI() {
+    const refreshSelected = this._headerControlsElement?.querySelector('[data-action="refresh-selected-table"]')
+    if (refreshSelected) {
+      refreshSelected.disabled = !this.selectedTable
+    }
   }
 
   async callSql(sql) {
@@ -86,7 +133,25 @@ export class ViewSql extends HTMLElement {
       this.renderPagination()
       this.setTablesStatus(`${this.tables.length} tables`)
       this.setTableStatus('No table selected')
+      this.updateHeaderControlsUI()
     }
+  }
+
+  async refreshTables() {
+    this.setTablesStatus('Loading...')
+    await this.fetchTables()
+    this.renderTables()
+    this.setTablesStatus(`${this.tables.length} tables`)
+    this.updateHeaderControlsUI()
+  }
+
+  async refreshSelectedTable() {
+    if (!this.selectedTable) return
+    this.setTableStatus(`Loading ${this.selectedTable}...`)
+    await this.refreshSelectedTableCount()
+    this.renderTables()
+    await this.fetchTableData()
+    this.updateHeaderControlsUI()
   }
 
   async fetchTables() {
@@ -141,6 +206,17 @@ export class ViewSql extends HTMLElement {
     this.setTableStatus(`${this.totalCount} rows`)
   }
 
+  async refreshSelectedTableCount() {
+    if (!this.selectedTable) return
+
+    const selectedEntry = this.tables.find((table) => table.name === this.selectedTable)
+    if (!selectedEntry) return
+
+    const countCsv = await this.callSql(`SELECT COUNT(*) as count FROM ${quoteIdent(this.selectedTable)}`)
+    const countLines = parseCSVLines(countCsv.trim())
+    selectedEntry.rowCount = parseInt(countLines[1][0], 10) || 0
+  }
+
   renderTables() {
     if (this.tables.length === 0) {
       this.tablesContainer.innerHTML = '<p>No tables found in database.</p>'
@@ -192,6 +268,7 @@ export class ViewSql extends HTMLElement {
 
     this.tablesContainer.appendChild(tableElement)
     this.updateSelectionUI()
+    this.updateHeaderControlsUI()
   }
 
   async selectTable(tableName) {
@@ -199,6 +276,7 @@ export class ViewSql extends HTMLElement {
     this.selectedTable = tableName
     this.currentPage = 0
     this.updateSelectionUI()
+    this.updateHeaderControlsUI()
     this.setTableStatus(`Loading ${tableName}...`)
     await this.fetchTableData()
   }
