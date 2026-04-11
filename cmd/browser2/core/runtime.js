@@ -138,11 +138,15 @@ class RuntimeProxy {
     this.mainPlugins.set(plugin.id, plugin)
     this.worker.postMessage({ type: 'register-main-plugin', pluginId: plugin.id })
   }
+
+  add(plugins) {
+    this.worker.postMessage({ type: 'add-plugins', plugins })
+  }
 }
 
 let runtimeProxy = null
 
-export async function init(bootstrap) {
+export async function init() {
   if (runtimeProxy) {
     throw new Error('runtime.init() may only be called once')
   }
@@ -171,12 +175,12 @@ export async function init(bootstrap) {
     }
     worker.addEventListener('message', onMessage)
     worker.addEventListener('error', onError)
-    worker.postMessage({ type: 'init', bootstrap, mainSyncSab })
+    worker.postMessage({ type: 'init', mainSyncSab })
   })
 
   runtimeProxy = new RuntimeProxy(worker, mainSyncSab)
 
-  return { register, call, memory }
+  return { register, call, memory, add }
 }
 
 export function register(plugin) {
@@ -191,10 +195,15 @@ export async function memory(pluginId) {
   return await runtimeProxy.memory(pluginId)
 }
 
+export async function add(plugins) {
+  return await runtimeProxy.add(plugins)
+}
+
 export const runtime = {
   init,
   register,
   call,
   memory,
+  add,
 }
 

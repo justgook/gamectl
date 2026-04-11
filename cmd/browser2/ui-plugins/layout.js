@@ -1,4 +1,3 @@
-import { ensureThemeStylesheetLink } from "../core/theme-stylesheet.js"
 const ABI = {
   HEADER_I32: 15,
   AREA_I32: 5,
@@ -890,8 +889,55 @@ function makeHandleDraggable(host, handleEl, callback) {
   })
 }
 
+
+const THEME_SELECTOR = 'link[data-theme-stylesheet]'
+
+export function getThemeStylesheetSource() {
+  return document.getElementById('theme-stylesheet')
+    || document.querySelector(`head ${THEME_SELECTOR}`)
+    || document.querySelector(THEME_SELECTOR)
+}
+
+export function ensureThemeStylesheetLink(root, { insertAfter = 'link[href="base.css"]' } = {}) {
+  if (!root?.querySelector) return null
+
+  const source = getThemeStylesheetSource()
+  if (!source) return null
+
+  let target = root.querySelector(THEME_SELECTOR)
+  const sourceHref = source.getAttribute('href')
+
+  if (target) {
+    if (sourceHref && target.getAttribute('href') !== sourceHref) {
+      target.setAttribute('href', sourceHref)
+    }
+    return target
+  }
+
+  target = source.cloneNode(false)
+  target.removeAttribute('id')
+  target.setAttribute('data-theme-stylesheet', '')
+
+  const anchor = root.querySelector(insertAfter)
+  if (anchor?.parentNode) {
+    anchor.parentNode.insertBefore(target, anchor.nextSibling)
+    return target
+  }
+
+  if (typeof root.prepend === 'function') {
+    root.prepend(target)
+  }
+
+  return target
+}
+
+
 if (!customElements.get('view-empty')) customElements.define('view-empty', ViewEmpty)
 if (!customElements.get('view-area')) customElements.define('view-area', ViewArea)
 if (!customElements.get('view--corner')) customElements.define('view--corner', Corner)
 if (!customElements.get('view--handle')) customElements.define('view--handle', Handle)
 if (!customElements.get('ui-layout')) customElements.define('ui-layout', UiLayout)
+
+
+
+

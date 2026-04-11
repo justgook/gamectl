@@ -1,68 +1,11 @@
 import { PluginManager } from './vendor/plugin-manager.js'
-import fsOpfsPlugin from '../builtin/fs-opfs/index.js'
-import fsWebdavPlugin from '../builtin/fs-webdav/index.js'
-import { applySetup } from './setup.js'
 
 const MAIN_SYNC_HEADER_SIZE = 8
 
-const buildinPlugins = [
-  {
-    id: 'fs.opfs',
-    runtime: 'js',
-    role: 'service',
-    module: fsOpfsPlugin,
-  },
-  {
-    id: 'fs.webdav',
-    runtime: 'js',
-    role: 'service',
-    module: fsWebdavPlugin,
-  },
-  {
-    id: 'sql',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/sql.wasm?t=${Date.now()}`,
-  },
-  {
-    id: 'random',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/random.wasm?t=${Date.now()}`,
-  },
-  {
-    id: 'treegen',
-    runtime: 'wasm',
-    role: 'service',
-    deps: ['random'],
-    url: `/plugins/treegen.wasm?t=${Date.now()}`,
-  },
-  {
-    id: 'echo',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/echo.wasm?t=${Date.now()}`,
-  },
-  {
-    id: 'layout',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/layout2.wasm?t=${Date.now()}`,
-    memory: {
-      import: true,
-      shared: true,
-      initialPages: 288,
-      maximumPages: 512,
-    },
-  }
-]
-
 class RuntimeWorker {
-  constructor(bootstrap = {}, mainSyncSab) {
-    this.bootstrap = bootstrap
+  constructor(mainSyncSab) {
     this.definitions = new Map()
     this.instances = new Map()
-    this.capabilities = new Map()
     this.mainPlugins = new Set()
     this.pendingMainCalls = new Map()
     this.nextMainCallId = 1
@@ -87,14 +30,6 @@ class RuntimeWorker {
     }
   }
 
-  setCapability(name, pluginId) {
-    this.capabilities.set(name, pluginId)
-  }
-
-  resolveTarget(nameOrId) {
-    return this.capabilities.get(nameOrId) || nameOrId
-  }
-
   async ensurePluginManager() {
     if (this.pluginManager) return this.pluginManager
     const manager = await PluginManager.create({
@@ -105,6 +40,7 @@ class RuntimeWorker {
     for (const pluginId of this.mainPlugins) {
       this.registerRemoteHostPlugin(pluginId)
     }
+
     return manager
   }
 
@@ -178,31 +114,45 @@ class RuntimeWorker {
     }
 
     if (definition.runtime === 'js') {
-      const module = definition.module
-      const instance = { id, definition, module }
+      let module = {}
+
+      if (definition.url.startsWith("local:")) {
+        module = (await import(definition.url.slice("local:".length))).default
+      } else {
+        if (definition.id === "fs") {
+          throw Error("fs cannot load it self")
+        }
+        const data = (await this.call("fs", "read", definition.url)).output
+        module = (await importJsFromBytes(data)).default
+      }
+
       if (typeof module?.init === 'function') {
         await module.init(this.createContext(id))
       }
+
+      const instance = { id, definition, module }
       this.instances.set(id, instance)
       await this.initializePluginHooks(id, instance)
+
       return instance
     }
 
     if (definition.runtime === 'wasm') {
       const manager = await this.ensurePluginManager()
+      console.log("[TODO]: add fs wasm plugin loader")
+      // const data = (await this.call("fs", "read", definition.url)).output
       await manager.loadAdditionalModules([{ name: id, url: definition.url, memory: definition.memory }])
       const instance = { id, definition, module: null, kind: 'wasm' }
       this.instances.set(id, instance)
       await this.initializePluginHooks(id)
+
       return instance
     }
 
     throw new Error(`Runtime '${definition.runtime}' not implemented yet for '${id}'`)
   }
 
-  callSync(nameOrId, method, input) {
-    const id = this.resolveTarget(nameOrId)
-
+  callSync(id, method, input) {
     if (this.mainPlugins.has(id) && !this.definitions.has(id)) {
       return this.callMainThreadSync(id, method, input)
     }
@@ -212,6 +162,7 @@ class RuntimeWorker {
       if (existing?.kind === 'wasm') {
         if (!this.pluginManager) throw new Error(`WASM plugin manager not initialized for '${id}'`)
         const inputBytes = typeof input === 'string' ? new TextEncoder().encode(input) : (input instanceof Uint8Array ? input : new Uint8Array(input || []))
+
         return this.pluginManager.callSync(id, method, inputBytes)
       }
     }
@@ -239,18 +190,16 @@ class RuntimeWorker {
     if (result && typeof result.then === 'function') {
       throw new Error(`Plugin '${id}' method '${method}' returned a Promise during sync call`)
     }
+
     return result
   }
 
-  async call(nameOrId, method, input) {
-    const id = this.resolveTarget(nameOrId)
-
+  async call(id, method, input) {
     if (this.mainPlugins.has(id) && !this.definitions.has(id)) {
       return await this.callMainThread(id, method, input)
     }
 
     await this.load(id)
-
     if (this.instances.get(id)?.kind === 'wasm') {
       const manager = await this.ensurePluginManager()
       const inputBytes = typeof input === 'string' ? new TextEncoder().encode(input) : (input instanceof Uint8Array ? input : new Uint8Array(input || []))
@@ -260,8 +209,7 @@ class RuntimeWorker {
     return this.callSync(id, method, input)
   }
 
-  async hasMethod(nameOrId, method) {
-    const id = this.resolveTarget(nameOrId)
+  async hasMethod(id, method) {
     const definition = this.definitions.get(id)
     if (!definition) return false
 
@@ -280,8 +228,7 @@ class RuntimeWorker {
     return typeof instance.module?.methods?.[method] === 'function'
   }
 
-  async memory(nameOrId) {
-    const id = this.resolveTarget(nameOrId)
+  async memory(id) {
     await this.load(id)
     const instance = this.instances.get(id)
     if (instance?.kind !== 'wasm') {
@@ -298,7 +245,6 @@ class RuntimeWorker {
     return {
       runtime: this,
       callerId,
-      bootstrap: this.bootstrap,
       call: (target, method, input) => this.call(target, method, input),
       callSync: (target, method, input) => this.callSync(target, method, input),
       memory: (target) => this.memory(target),
@@ -309,6 +255,7 @@ class RuntimeWorker {
     if (!this.mainSyncSab || !this.mainSyncInt32 || !this.mainSyncUint8) {
       throw new Error('Main-thread sync bridge not initialized')
     }
+
     Atomics.store(this.mainSyncInt32, 0, 0)
     this.mainSyncInt32[1] = 0
     self.postMessage({ type: 'main-call-sync', pluginId, method, input })
@@ -350,16 +297,22 @@ let runtime = null
 
 self.onmessage = async (event) => {
   const msg = event.data || {}
-
   try {
     if (msg.type === 'init') {
-      runtime = new RuntimeWorker(msg.bootstrap || {}, msg.mainSyncSab || null)
-      for (const definition of buildinPlugins) {
+      runtime = new RuntimeWorker(msg.mainSyncSab || null)
+      self.postMessage({ type: 'init-result', ok: true })
+
+      return
+    }
+
+    if (msg.type === 'add-plugins') {
+      for (const definition of msg.plugins) {
+        runtime.instances.delete(definition.id)
         runtime.definitions.set(definition.id, definition)
       }
 
-      const result = await applySetup(runtime, msg.bootstrap || {})
-      self.postMessage({ type: 'init-result', result })
+      self.postMessage({ type: 'add-plugins-result', ok: true })
+
       return
     }
 
@@ -399,3 +352,16 @@ self.onmessage = async (event) => {
     }
   }
 }
+
+async function importJsFromBytes(bytes) {
+  const blob = new Blob([bytes], {
+    type: 'text/javascript'
+  })
+  const url = URL.createObjectURL(blob)
+  try {
+    return await import(url)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
