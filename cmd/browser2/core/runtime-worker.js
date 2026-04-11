@@ -5,51 +5,45 @@ import { applySetup } from './setup.js'
 
 const MAIN_SYNC_HEADER_SIZE = 8
 
-function registerBuiltins(runtimeWorker) {
-  runtimeWorker.registerBuiltin({
+const buildinPlugins = [
+  {
     id: 'fs.opfs',
     runtime: 'js',
     role: 'service',
     module: fsOpfsPlugin,
-  })
-
-  runtimeWorker.registerBuiltin({
+  },
+  {
     id: 'fs.webdav',
     runtime: 'js',
     role: 'service',
     module: fsWebdavPlugin,
-  })
-
-  runtimeWorker.registerBuiltin({
+  },
+  {
     id: 'sql',
     runtime: 'wasm',
     role: 'service',
     url: `/plugins/sql.wasm?t=${Date.now()}`,
-  })
-
-  runtimeWorker.registerBuiltin({
+  },
+  {
     id: 'random',
     runtime: 'wasm',
     role: 'service',
     url: `/plugins/random.wasm?t=${Date.now()}`,
-  })
-
-  runtimeWorker.registerBuiltin({
+  },
+  {
     id: 'treegen',
     runtime: 'wasm',
     role: 'service',
     deps: ['random'],
     url: `/plugins/treegen.wasm?t=${Date.now()}`,
-  })
-
-  runtimeWorker.registerBuiltin({
+  },
+  {
     id: 'echo',
     runtime: 'wasm',
     role: 'service',
     url: `/plugins/echo.wasm?t=${Date.now()}`,
-  })
-
-  runtimeWorker.registerBuiltin({
+  },
+  {
     id: 'layout',
     runtime: 'wasm',
     role: 'service',
@@ -60,8 +54,8 @@ function registerBuiltins(runtimeWorker) {
       initialPages: 288,
       maximumPages: 512,
     },
-  })
-}
+  }
+]
 
 class RuntimeWorker {
   constructor(bootstrap = {}, mainSyncSab) {
@@ -76,11 +70,6 @@ class RuntimeWorker {
     this.mainSyncSab = mainSyncSab
     this.mainSyncInt32 = new Int32Array(mainSyncSab)
     this.mainSyncUint8 = new Uint8Array(mainSyncSab)
-  }
-
-  registerBuiltin(definition) {
-    if (!definition?.id) throw new Error('builtin definition requires id')
-    this.definitions.set(definition.id, definition)
   }
 
   registerMainPlugin(pluginId) {
@@ -365,7 +354,10 @@ self.onmessage = async (event) => {
   try {
     if (msg.type === 'init') {
       runtime = new RuntimeWorker(msg.bootstrap || {}, msg.mainSyncSab || null)
-      registerBuiltins(runtime)
+      for (const definition of buildinPlugins) {
+        runtime.definitions.set(definition.id, definition)
+      }
+
       const result = await applySetup(runtime, msg.bootstrap || {})
       self.postMessage({ type: 'init-result', result })
       return
