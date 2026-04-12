@@ -65,8 +65,8 @@ export class ViewSql extends HTMLElement {
 
     const toolbar = this._headerControlsElement
     if (toolbar) {
-      toolbar.querySelector('[data-action="refresh-tables"]')?.addEventListener('click', () => this.refreshTables())
-      toolbar.querySelector('[data-action="refresh-selected-table"]')?.addEventListener('click', () => this.refreshSelectedTable())
+      toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh(null))
+      toolbar.querySelector('[data-action="create-table"]')?.addEventListener('click', () => this.openCreateTablePopup())
     }
 
     this.refresh()
@@ -81,8 +81,8 @@ export class ViewSql extends HTMLElement {
     toolbar.dataset.element = 'toolbar'
     toolbar.setAttribute('slot', 'header-controls')
     toolbar.innerHTML = `
-      <button data-action="refresh-tables" aria-label="Reload table list" title="Reload table list"><i aria-hidden="true">refresh</i></button>
-      <button data-action="refresh-selected-table" aria-label="Reload selected table" title="Reload selected table"><i aria-hidden="true">table_rows</i></button>
+      <button data-action="refresh" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      <button data-action="create-table" aria-label="Create table" title="Create table"><i aria-hidden="true">post_add</i></button>
     `
     return toolbar
   }
@@ -104,10 +104,6 @@ export class ViewSql extends HTMLElement {
   }
 
   updateHeaderControlsUI() {
-    const refreshSelected = this._headerControlsElement?.querySelector('[data-action="refresh-selected-table"]')
-    if (refreshSelected) {
-      refreshSelected.disabled = !this.selectedTable
-    }
   }
 
   async callSql(sql) {
@@ -118,7 +114,12 @@ export class ViewSql extends HTMLElement {
     return decodeOutput(result)
   }
 
-  async refresh() {
+  async refresh(tableToSelect = null) {
+    if (tableToSelect !== null) {
+      this.selectedTable = tableToSelect
+      this.currentPage = 0
+    }
+
     this.setTablesStatus('Loading...')
     this.setTableStatus('Loading...')
     await this.fetchTables()
@@ -135,23 +136,6 @@ export class ViewSql extends HTMLElement {
       this.setTableStatus('No table selected')
       this.updateHeaderControlsUI()
     }
-  }
-
-  async refreshTables() {
-    this.setTablesStatus('Loading...')
-    await this.fetchTables()
-    this.renderTables()
-    this.setTablesStatus(`${this.tables.length} tables`)
-    this.updateHeaderControlsUI()
-  }
-
-  async refreshSelectedTable() {
-    if (!this.selectedTable) return
-    this.setTableStatus(`Loading ${this.selectedTable}...`)
-    await this.refreshSelectedTableCount()
-    this.renderTables()
-    await this.fetchTableData()
-    this.updateHeaderControlsUI()
   }
 
   async fetchTables() {
@@ -206,15 +190,18 @@ export class ViewSql extends HTMLElement {
     this.setTableStatus(`${this.totalCount} rows`)
   }
 
-  async refreshSelectedTableCount() {
-    if (!this.selectedTable) return
+  async openCreateTablePopup() {
+    const result = await runtime.call('ui.popup', 'open', {
+      title: 'Create New Table',
+      size: 'medium',
+      tag: 'sql-table-editor',
+      props: { mode: 'create' },
+    })
 
-    const selectedEntry = this.tables.find((table) => table.name === this.selectedTable)
-    if (!selectedEntry) return
-
-    const countCsv = await this.callSql(`SELECT COUNT(*) as count FROM ${quoteIdent(this.selectedTable)}`)
-    const countLines = parseCSVLines(countCsv.trim())
-    selectedEntry.rowCount = parseInt(countLines[1][0], 10) || 0
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (payload?.reload) {
+      await this.refresh(payload.tableName ?? null)
+    }
   }
 
   renderTables() {

@@ -3,12 +3,14 @@ import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
 import './ui-plugins/popup.js'
 import './views/view-sql.js'
+import './views/sql-table-editor.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
 const DEFAULT_LAYOUT = `
   <view-empty />
-  <view-empty setup="0:v:50" />
+  <sql-table-editor setup="0:h:50"/>
+  <view-sql setup="0:v:50" />
 `
 
 function placeholderView(tag, label) {
@@ -110,8 +112,8 @@ async function main() {
 
   try {
     const runtime = await init()
-    runtime.add(buildinPlugins)
-    runtime.call("sql", "open") // TODO move init of sql to plugin it self
+    await runtime.add(buildinPlugins)
+    await runtime.call("sql", "open") // TODO move init of sql to plugin it self
 
     document.body.innerHTML = ''
 
@@ -130,6 +132,7 @@ async function main() {
     document.body.appendChild(popup)
     runtime.register({ id: 'ui.popup', methods: popup.api })
 
+    // DO NOT USE IT - it is exposed just for debuging, use `import {call} from "./coder/runtime.js"`
     window.runtime = runtime
 
   } catch (error) {
