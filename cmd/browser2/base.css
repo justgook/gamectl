@@ -223,25 +223,6 @@
     overflow: hidden;
   }
 
-  view-header {
-    display: contents;
-  }
-
-  view-header>header {
-    height: 52px;
-    --wails-draggable: drag;
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    padding: 0 var(--space-5) 0 max(80px, var(--space-8));
-    border-bottom: 1px solid color-mix(in oklab, var(--border), white 8%);
-    background:
-      linear-gradient(180deg, color-mix(in oklab, var(--surface-elevated), white 8%) 0%, color-mix(in oklab, var(--surface), black 4%) 100%);
-    color: var(--text);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 24px rgba(0, 0, 0, 0.16);
-    box-sizing: border-box;
-  }
-
   pre,
   code,
   kbd,
@@ -322,8 +303,6 @@
   [type="reset"].active {
     background: var(--surface);
   }
-
-
 
   button:has(small) {
     flex-direction: column;
@@ -408,66 +387,6 @@
   [data-element="pagination"] {
     display: flex;
     align-items: center;
-  }
-
-  /* Settings: General tab file storage */
-  .settings-general {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-width: 760px;
-  }
-
-  .settings-general-fieldset {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .settings-storage-options {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .settings-storage-option {
-    display: grid;
-    grid-template-columns: 18px 1fr;
-    align-items: start;
-    gap: 8px;
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-  }
-
-  .settings-storage-option-title,
-  .settings-field-title {
-    font-weight: 600;
-  }
-
-  .settings-storage-option-desc {
-    display: block;
-    margin-top: 2px;
-    opacity: 0.85;
-  }
-
-  .settings-webdav-config,
-  .settings-webdav-label {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .settings-storage-status {
-    margin: 0;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--surface);
-  }
-
-  .settings-general-apply {
-    align-self: flex-start;
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -688,6 +607,104 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
+     Lists
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INFRASTRUCTURE ELEMENTS
+     ═══════════════════════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════════════════════
+     POPUPS
+
+     view-popup is a fixed overlay (backdrop + centering container).
+     Its Shadow DOM holds <header> + <slot> which form the popup card.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* only the topmost popup is visible */
+  popup-manager view-popup:not(:last-of-type) {
+    display: none;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Views helpers (build block)
+   ═══════════════════════════════════════════════════════════════════════════ */
+  main {
+    height: 100%;
+    display: grid;
+
+    /* 2 columns: main + aside */
+    grid-template-columns: 1fr auto;
+
+    /* 2 rows: content + footer */
+    grid-template-rows: 1fr auto;
+
+    grid-template-areas:
+      "main aside"
+      "footer footer";
+  }
+
+  article,
+  canvas,
+  table {
+    grid-area: main;
+    min-width: 0;
+  }
+
+  aside {
+    grid-area: aside;
+    width: var(--aside-width);
+  }
+
+  /* Footer (optional) */
+  footer {
+    grid-area: footer;
+  }
+
+  tbody {
+    height: auto;
+  }
+
+  tr {
+    height: auto;
+  }
+
+  section {
+    display: flex;
+    flex-direction: column;
+  }
+
+
+  fieldset {
+    margin: 0;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  legend {
+    color: inherit;
+    font-size: var(--font-xs);
+  }
+
+  .tooltip {
+    position: absolute;
+    z-index: 50;
+    max-width: min(360px, calc(100vw - 32px));
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in oklab, var(--surface-elevated), black 12%);
+    color: var(--text);
+    font-size: var(--font-xs);
+    line-height: 1.35;
+    pointer-events: none;
+    box-shadow: var(--shadow-elevated);
+    white-space: nowrap;
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════════════
      TABLES
      ═══════════════════════════════════════════════════════════════════════════ */
   table {
@@ -695,144 +712,55 @@
     table-layout: fixed;
     border-collapse: collapse;
     border-spacing: 0;
-    /* background: var(--surface); */
     color: inherit;
-    /* font-size: var(--font-sm); */
   }
 
   th,
   td {
-    /* padding: var(--space-2) var(--space-3); */
     text-align: left;
     vertical-align: middle;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    /* border-right: 1px solid var(--border); */
   }
 
   caption {
-    /* padding: var(--space-2) var(--space-3); */
     text-align: left;
-    /* color: var(--text-muted); */
-    /* background: var(--surface-elevated); */
-    /* border: 1px solid var(--border); */
     border-bottom: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  /* tr>*:last-child { */
-  /*   border-right: 0; */
-  /* } */
-
-  /* thead th { */
-  /*   background: var(--surface-elevated); */
-  /*   font-weight: 500; */
-  /*   border-bottom: 1px solid var(--border); */
-  /* } */
-  /**/
-  /* tbody td { */
-  /*   border-bottom: 1px solid var(--border); */
-  /* } */
-
-  /* tbody tr:nth-child(even) { */
-  /*   background: color-mix(in oklab, var(--surface), var(--text) 4%); */
-  /* } */
-
-  /* tbody tr:hover { */
-  /*   background: var(--surface-hover); */
-  /* } */
   /* ═══════════════════════════════════════════════════════════════════════════
-     Lists
+     TABS
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  li {
-    display: flex;
+  [role="tabpanel"] {
+    min-inline-size: 0;
+    min-block-size: 0;
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
-     PANELS
-     ═══════════════════════════════════════════════════════════════════════════ */
-
-  .panel {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    background: var(--surface);
-    border-color: var(--border);
+  [role="tabpanel"][hidden] {
+    display: none !important;
   }
 
-  .panel-header {
-    flex: 0 0 auto;
-    display: flex;
-    justify-content: space-between;
-    background: var(--surface-elevated);
-    color: var(--accent);
+
+}
+
+@layer theme {
+  [slot="header-controls"]>span[role="separator"] {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
   }
 
-  .panel-header-controls {
-    flex: 1;
+  code-editor .code-editor-scroller>pre {
+    color: #ccc;
   }
 
-  [slot="header-controls"] {
-    display: flex;
-    align-items: center;
-  }
-
-  .panel-content {
-    flex: 1 1 auto;
-    overflow: auto;
-    color: var(--text);
-  }
-
-  /* ═══════════════════════════════════════════════════════════════════════════
-     INFRASTRUCTURE ELEMENTS
-     ═══════════════════════════════════════════════════════════════════════════ */
-
-  /* layout */
-  toast-manager,
-  popup-manager,
-  layout-manager {
-    isolation: isolate;
-  }
-
-  toast-manager,
-  popup-manager {
-    display: contents;
-  }
-
-  body[data-shell="native"] toast-manager {
-    position: relative;
-    display: block;
-    height: calc(100vh - 52px);
-  }
-
-  body[data-shell="native"] popup-manager {
-    display: block;
-    height: 100%;
-  }
-
-  layout-manager {
-    position: relative;
-    display: block;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    z-index: 0;
-  }
-
-  body[data-shell="native"] layout-manager {
-    width: 100%;
-    height: 100%;
-  }
-
-  view-area {
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+  code-editor .code-editor-scroller>textarea {
+    caret-color: #ccc;
   }
 
   /* corners */
@@ -866,17 +794,7 @@
     z-index: var(--z-index-handle);
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
-     POPUPS
 
-     view-popup is a fixed overlay (backdrop + centering container).
-     Its Shadow DOM holds <header> + <slot> which form the popup card.
-     ═══════════════════════════════════════════════════════════════════════════ */
-
-  /* only the topmost popup is visible */
-  popup-manager view-popup:not(:last-of-type) {
-    display: none;
-  }
 
   /* backdrop + centering layer */
   view-popup {
@@ -909,10 +827,6 @@
     flex-direction: column;
     overflow: hidden;
     pointer-events: auto;
-  }
-
-  body[data-shell="native"] view-popup::part(container) {
-    max-height: calc(100vh - 52px - 2 * var(--space-6));
   }
 
   view-popup::part(header) {
@@ -1004,10 +918,6 @@
     top: calc(var(--spacing) + var(--toast-stack-index, 0) * var(--toast-stack-offset));
   }
 
-  body[data-shell="native"] view-toast[position="primary"] {
-    top: calc(52px + var(--spacing) + var(--toast-stack-index, 0) * var(--toast-stack-offset));
-  }
-
   /* ── position: secondary (bottom-center, last only) ── */
   view-toast[position="secondary"] {
     bottom: var(--spacing);
@@ -1021,582 +931,4 @@
     left: 50%;
     transform: translate(-50%, -50%);
   }
-
-  /* ═══════════════════════════════════════════════════════════════════════════
-     Views helpers
-   ═══════════════════════════════════════════════════════════════════════════ */
-  section {
-    display: flex;
-    flex-direction: column;
-  }
-
-  article {
-    display: flex;
-    overflow: auto;
-    flex: 1;
-  }
-
-  aside {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 10;
-    width: var(--aside-width);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    /* gap: var(--space-4); */
-    /* padding: var(--space-4); */
-    /* background: var(--surface-elevated); */
-    /* border-left: 1px solid var(--border); */
-    /* font-size: var(--font-sm); */
-    box-sizing: border-box;
-  }
-
-  fieldset {
-    margin: 0;
-    /* padding: var(--space-3); */
-    border: 1px solid var(--border);
-    /* border-radius: var(--radius-sm); */
-    /* background: color-mix(in oklab, var(--surface-elevated), transparent 35%); */
-    display: flex;
-    flex-direction: column;
-    /* gap: var(--space-3); */
-    min-inline-size: 0;
-  }
-
-  legend {
-    /* padding: 0 var(--space-2); */
-    color: inherit;
-    font-size: var(--font-xs);
-    /* font-weight: 600; */
-    /* letter-spacing: 0.04em; */
-    /* text-transform: uppercase; */
-  }
-
-  [slot="header-controls"]>span[role="separator"] {
-    width: 1px;
-    height: 20px;
-    background: var(--border);
-  }
-
-
-  .tooltip {
-    position: absolute;
-    z-index: 50;
-    max-width: min(360px, calc(100vw - 32px));
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: color-mix(in oklab, var(--surface-elevated), black 12%);
-    color: var(--text);
-    font-size: var(--font-xs);
-    line-height: 1.35;
-    pointer-events: none;
-    box-shadow: var(--shadow-elevated);
-    white-space: nowrap;
-  }
-
-  /* ═══════════════════════════════════════════════════════════════════════════
-     TABS
-     ═══════════════════════════════════════════════════════════════════════════ */
-
-  [role="tabpanel"] {
-    min-inline-size: 0;
-    min-block-size: 0;
-  }
-
-  [role="tabpanel"][hidden] {
-    display: none !important;
-  }
-
-  canvas {
-    flex: 1;
-    image-rendering: pixelated;
-  }
-
-  canvas:has(+ aside) {
-    width: calc(100% - var(--aside-width));
-  }
-
-  view-stb-editor {
-    display: flex;
-    flex: 1;
-  }
-
-  /* Node Graph theme contract (canvas-rendered; consumed from CSS vars) */
-  view-nodegraph {
-    --ng-bg: color-mix(in oklab, var(--bg), black 10%);
-    --ng-grid-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj4KICA8cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiLz4KICA8cGF0aCBkPSJNMzEuNSAwdjMyIE0wIDMxLjVoMzIiIHN0cm9rZT0iIzJhMmEyYSIgc3Ryb2tlLXdpZHRoPSIxIiBvcGFjaXR5PSIwLjkiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPgogIDxwYXRoIGQ9Ik0wIDAuNWgzMiBNMC41IDB2MzIiIHN0cm9rZT0iIzQwNDA0MCIgc3Ryb2tlLXdpZHRoPSIxIiBvcGFjaXR5PSIwLjMiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyIvPgo8L3N2Zz4=");
-
-    --ng-conn-color: color-mix(in oklab, var(--text-muted), transparent 15%);
-    --ng-conn-active-color: var(--accent);
-    --ng-conn-width: 2;
-
-    --ng-selection-color: var(--accent);
-    --ng-selection-width: 3;
-
-    --ng-port-color: var(--text-muted);
-    --ng-port-connected-color: var(--accent);
-
-    --ng-text: var(--text);
-    --ng-text-muted: var(--text-muted);
-    --ng-value-bg: color-mix(in oklab, black, transparent 42%);
-    --ng-value-text: var(--text);
-    --ng-type-badge-bg: color-mix(in oklab, var(--border), var(--text-muted) 20%);
-    --ng-type-badge-text: var(--text);
-
-    --ng-font-title: var(--font-body);
-    --ng-font-port: var(--font-body);
-    --ng-font-size-title: 14;
-    --ng-font-size-port: 11;
-
-    --ng-node-skin-example: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzYTQyNTYiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMjMyOTM5Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9InVybCgjZykiLz4KICA8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9IjIzIiBoZWlnaHQ9IjIzIiBmaWxsPSJub25lIiBzdHJva2U9IiM3ZjhmYWYiIHN0cm9rZS13aWR0aD0iMSIvPgogIDxyZWN0IHg9IjEuNSIgeT0iMS41IiB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzE1MWEyNCIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgPHBhdGggZD0iTTIgMmgyMHY0SDJ6IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMTApIi8+Cjwvc3ZnPg==");
-  }
-
-  view-nodegraph>* {
-    --ng-node-body-bg: color-mix(in oklab, var(--surface-elevated), white 6%);
-    --ng-node-header-bg: color-mix(in oklab, var(--surface-elevated), white 12%);
-    --ng-node-skin-slice: 8 8 8 8;
-    --ng-node-header-skin-slice: 8 8 8 8;
-  }
-
-  view-nodegraph>node-input {
-    --ng-node-header-bg: #6366f1;
-  }
-
-  view-nodegraph>node-plugin {
-    --ng-node-header-bg: #8b5cf6;
-  }
-
-  view-nodegraph>node-output {
-    --ng-node-header-bg: #ec4899;
-  }
-
-  view-nodegraph>node-popup,
-  view-nodegraph>node-fields,
-  view-nodegraph>node-fromjson,
-  view-nodegraph>node-tostring {
-    --ng-node-header-bg: #10b981;
-  }
-
-  view-nodegraph>node-code {
-    --ng-node-header-bg: #06b6d4;
-  }
-
-  view-nodegraph>*[state="idle"] {
-    --ng-node-body-bg: color-mix(in oklab, var(--surface), white 6%);
-  }
-
-  view-nodegraph>*[state="ready"] {
-    --ng-node-body-bg: color-mix(in oklab, var(--accent), var(--surface) 80%);
-  }
-
-  view-nodegraph>*[state="running"] {
-    --ng-node-body-bg: color-mix(in oklab, var(--warning), var(--surface) 78%);
-  }
-
-  view-nodegraph>*[state="success"] {
-    --ng-node-body-bg: color-mix(in oklab, var(--success), var(--surface) 78%);
-  }
-
-  view-nodegraph>*[state="error"] {
-    --ng-node-body-bg: color-mix(in oklab, var(--danger), var(--surface) 78%);
-  }
-
-  /* Example switch: add class="theme--nine-slice" on <view-nodegraph> */
-  view-nodegraph.theme--nine-slice>* {
-    --ng-node-skin-src: var(--ng-node-skin-example);
-  }
-
-  view-nodegraph.theme--nine-slice>node-code,
-  view-nodegraph.theme--nine-slice>node-popup {
-    --ng-node-header-skin-src: var(--ng-node-skin-example);
-  }
 }
-
-@layer theme {
-  code-editor .code-editor-scroller>pre {
-    color: #ccc;
-  }
-
-  code-editor .code-editor-scroller>textarea {
-    caret-color: #ccc;
-  }
-
-  .sql-table tr {
-    cursor: pointer;
-  }
-}
-
-
-/* TODO remove all below that is legcy stuff */
-
-
-
-view-animation-editor aside [data-part="preview"] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-}
-
-view-animation-editor [data-preview-stage] {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 96px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--surface), black 8%);
-}
-
-view-animation-editor [data-preview-canvas] {
-  image-rendering: pixelated;
-}
-
-
-view-animation-editor aside [data-controls] {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-view-animation-editor aside [data-controls="frames"] label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-view-animation-editor aside [data-controls="frames"] label input {
-  width: 84px;
-}
-
-view-animation-editor aside fieldset[data-section="frames"] {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-view-animation-editor [data-part="frames"] {
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--surface), black 8%);
-}
-
-view-animation-editor [data-frame-list] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-}
-
-view-animation-editor [data-placeholder] {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
-view-animation-editor [data-frame-item] {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--surface), transparent 20%);
-}
-
-view-animation-editor [data-frame-item][data-selected="true"] {
-  border-color: color-mix(in oklab, var(--accent), black 20%);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent), transparent 70%);
-}
-
-view-animation-editor [data-frame-item][data-dragging="true"] {
-  opacity: 0.55;
-}
-
-view-animation-editor [data-frame-item][data-drag-over="top"] {
-  box-shadow: inset 0 2px 0 var(--accent);
-}
-
-view-animation-editor [data-frame-item][data-drag-over="bottom"] {
-  box-shadow: inset 0 -2px 0 var(--accent);
-}
-
-view-animation-editor [data-frame-item] [data-thumbnail] {
-  width: 32px;
-  height: 32px;
-  image-rendering: pixelated;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-}
-
-view-animation-editor [data-frame-item] [data-body] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-view-animation-editor [data-frame-item] [data-controls] {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-view-animation-editor [data-frame-item] [data-duration] {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-view-animation-editor [data-frame-item] [data-duration] input {
-  width: 72px;
-}
-
-view-animation-editor [data-frame-list][data-drag-target="true"] {
-  outline: 1px dashed var(--accent);
-  outline-offset: -1px;
-}
-
-[slot="header-controls"][data-view="animation-editor"] [data-sep] {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-}
-
-[slot="header-controls"][data-view="animation-editor"] [data-tile-size] {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-[slot="header-controls"][data-view="animation-editor"] [data-tile-size] input {
-  width: 64px;
-}
-
-
-aside label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-aside .stacked-label {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-2);
-}
-
-
-aside .inline-label {
-  justify-content: flex-start;
-}
-
-aside .stacked-label input,
-aside .stacked-label select,
-aside .stacked-label textarea {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-aside fieldset>button {
-  width: 100%;
-}
-
-aside .split-row {
-  display: flex;
-  gap: var(--space-2);
-}
-
-aside .split-row>* {
-  flex: 1;
-  min-width: 0;
-}
-
-
-aside .form-hint {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
-
-aside .sprite-list-container {
-  max-height: 300px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-aside .sprite-list-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-
-aside .sprite-list-item.has-custom-pivot::after {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--warning);
-}
-
-aside .sprite-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-aside .row-action {
-  min-height: 24px;
-  min-width: 24px;
-  width: 24px;
-  padding: 0;
-}
-
-aside .tilebank-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-2);
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-aside .tilebank-item {
-  aspect-ratio: 1;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  position: relative;
-  background: var(--surface);
-}
-
-aside .tilebank-item:hover {
-  border-color: var(--border-focus);
-}
-
-aside .tilebank-item canvas {
-  max-width: 100%;
-  max-height: 100%;
-  image-rendering: pixelated;
-}
-
-aside .tilebank-item .tile-id {
-  position: absolute;
-  right: var(--space-1);
-  bottom: var(--space-1);
-  font-size: 10px;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--bg), transparent 25%);
-}
-
-
-
-/* view-stb-editor */
-
-
-/* view-stb-editor { */
-/*   position: relative; */
-/*   display: block; */
-/*   width: 100%; */
-/*   height: 100%; */
-/*   overflow: hidden; */
-/* } */
-/**/
-/* view-stb-editor>[data-id="map-viewport"] { */
-/*   position: absolute; */
-/*   left: 0; */
-/*   top: 0; */
-/*   right: var(--aside-width); */
-/*   bottom: 0; */
-/*   overflow: hidden; */
-/* } */
-/**/
-/* view-stb-editor>[data-id="map-viewport"]>canvas[data-id="tilemap"] { */
-/*   position: absolute; */
-/*   left: 0; */
-/*   top: 0; */
-/*   image-rendering: pixelated; */
-/*   transform-origin: 0 0; */
-/*   cursor: crosshair; */
-/* } */
-/**/
-/* view-stb-editor aside[data-id="sidepanel"] [data-id="layers"] { */
-/*   display: flex; */
-/*   flex-direction: column; */
-/*   gap: var(--space-2); */
-/* } */
-/**/
-/* view-stb-editor aside[data-id="sidepanel"] [data-id="tile-categories"] { */
-/*   flex-wrap: wrap; */
-/* } */
-/**/
-/* view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] { */
-/*   display: grid; */
-/*   grid-template-columns: repeat(5, 1fr); */
-/*   gap: var(--space-2); */
-/*   margin-top: var(--space-3); */
-/*   max-height: 240px; */
-/*   overflow: auto; */
-/* } */
-/**/
-/* view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"]>button { */
-/*   position: relative; */
-/*   width: 42px; */
-/*   height: 42px; */
-/*   min-height: 42px; */
-/*   padding: 0; */
-/*   justify-self: center; */
-/* } */
-/**/
-/* view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] canvas { */
-/*   width: 36px; */
-/*   height: 36px; */
-/*   image-rendering: pixelated; */
-/* } */
-/**/
-/* view-stb-editor aside[data-id="sidepanel"] [data-id="tiles"] span { */
-/*   position: absolute; */
-/*   right: 1px; */
-/*   bottom: 1px; */
-/*   font-size: 9px; */
-/*   line-height: 1.2; */
-/*   padding: 0 var(--space-1); */
-/*   border-radius: var(--radius-sm); */
-/*   color: var(--text); */
-/*   background: color-mix(in oklab, var(--bg), transparent 20%); */
-/* } */
-/**/
-/* view-stb-editor aside[data-id="sidepanel"] dl { */
-/*   margin: 0; */
-/*   display: grid; */
-/*   grid-template-columns: auto 1fr; */
-/*   gap: var(--space-2) var(--space-3); */
-/* } */
-/**/
-/**/
-/**/
-/* view-stb-editor aside[data-id="sidepanel"] dd { */
-/*   margin: 0; */
-/* } */

@@ -65,6 +65,9 @@ export class ToastManager extends HTMLElement {
   }
 
   connectedCallback() {
+    this.style.display = "contents"
+    this.style.isolation = "isolate"
+
     this.observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.type === 'childList') {
