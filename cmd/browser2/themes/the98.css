@@ -705,11 +705,11 @@
     margin: 0;
   }
 
-  output {
-    background: var(--button-highlight);
-    box-shadow: var(--border-field);
-    padding: 12px 8px;
-  }
+  /* output { */
+  /*   background: var(--button-highlight); */
+  /*   box-shadow: var(--border-field); */
+  /*   padding: 12px 8px; */
+  /* } */
 
   code,
   code * {

@@ -24,7 +24,7 @@ export class ViewSql extends HTMLElement {
     this.tablesContainer = null
     this.tablesStatusContainer = null
     this.tableContainer = null
-    this.paginationContainer = null
+    this.paginationElement = null
     this.tableStatusContainer = null
     this.queryContainer = null
     this._headerControlsElement = null
@@ -39,22 +39,28 @@ export class ViewSql extends HTMLElement {
     this.innerHTML = `
       <aside data-element="tables-pane">
         <table data-element="tables-container"></table>
-        <p data-element="tables-status"></p>
+        <output data-element="tables-status"></output>
       </aside>
       <table data-element="table-container"></table>
       <footer>
-        <p data-element="status"></p>
-        <div data-element="pagination" part="pagination"></div>
+        <output data-element="status"></output>
+        <view-pagination data-page="0" data-page-size-options="10,20,50,100"></view-pagination>
       </footer>
     `
 
     this.tablesContainer = this.querySelector('[data-element="tables-container"]')
     this.tablesStatusContainer = this.querySelector('[data-element="tables-status"]')
     this.tableContainer = this.querySelector('[data-element="table-container"]')
-    this.paginationContainer = this.querySelector('[data-element="pagination"]')
+    this.paginationElement = this.querySelector('view-pagination')
     this.tableStatusContainer = this.querySelector('[data-element="status"]')
 
     this._mountHeaderControls()
+
+    this.paginationElement?.addEventListener('change', async (event) => {
+      this.currentPage = event.detail.page
+      this.pageSize = event.detail.pageSize
+      await this.fetchTableData()
+    })
 
     const toolbar = this._headerControlsElement
     if (toolbar) {
@@ -350,44 +356,10 @@ export class ViewSql extends HTMLElement {
   }
 
   renderPagination() {
-    const totalPages = Math.ceil(this.totalCount / this.pageSize) || 1
-
-    this.paginationContainer.innerHTML = `
-      <button data-action="first" aria-label="First page" title="First page" ${this.currentPage === 0 ? 'disabled' : ''}><i aria-hidden="true">first_page</i></button>
-      <button data-action="prev" aria-label="Previous page" title="Previous page" ${this.currentPage === 0 ? 'disabled' : ''}><i aria-hidden="true">chevron_left</i></button>
-      <span>Page ${this.currentPage + 1} of ${totalPages}</span>
-      <button data-action="next" aria-label="Next page" title="Next page" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}><i aria-hidden="true">chevron_right</i></button>
-      <button data-action="last" aria-label="Last page" title="Last page" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}><i aria-hidden="true">last_page</i></button>
-      <select data-action="page-size">
-        ${[10, 20, 50, 100].map(size => `<option value="${size}" ${size === this.pageSize ? 'selected' : ''}>${size} rows</option>`).join('')}
-      </select>
-    `
-
-    this.paginationContainer.querySelector('[data-action="first"]').addEventListener('click', async () => {
-      this.currentPage = 0
-      await this.fetchTableData()
-    })
-    this.paginationContainer.querySelector('[data-action="prev"]').addEventListener('click', async () => {
-      if (this.currentPage > 0) {
-        this.currentPage--
-        await this.fetchTableData()
-      }
-    })
-    this.paginationContainer.querySelector('[data-action="next"]').addEventListener('click', async () => {
-      if (this.currentPage < totalPages - 1) {
-        this.currentPage++
-        await this.fetchTableData()
-      }
-    })
-    this.paginationContainer.querySelector('[data-action="last"]').addEventListener('click', async () => {
-      this.currentPage = totalPages - 1
-      await this.fetchTableData()
-    })
-    this.paginationContainer.querySelector('[data-action="page-size"]').addEventListener('change', async (event) => {
-      this.pageSize = parseInt(event.target.value, 10)
-      this.currentPage = 0
-      await this.fetchTableData()
-    })
+    if (!this.paginationElement) return
+    this.paginationElement.page = this.currentPage
+    this.paginationElement.pageSize = this.pageSize
+    this.paginationElement.totalCount = this.totalCount
   }
 
   setTablesStatus(text) {

@@ -2,6 +2,8 @@ import { init } from './core/runtime.js'
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
 import './ui-plugins/popup.js'
+import './widgets/code-editor.js'
+import './widgets/view-pagination.js'
 import './views/view-sql.js'
 import './views/sql-table-editor.js'
 
