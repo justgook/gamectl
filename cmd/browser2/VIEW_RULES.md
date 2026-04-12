@@ -8,20 +8,23 @@ GAMS views and UI should be built only from the elements, slots, classes, and at
 
 ### Root
 
-- view root - should stretch to the full Area and use `flex: 1`.
+- view root - should stretch to the full Area.
+- view custom element root should use `display: contents` so the semantic view children participate directly in the Area layout.
 
 ### Main element
 
-- each view should contain exactly one main element.
+Each view should contain exactly one main element.
+
 - `article` - main view render element.
 - `canvas` - main view render element when the view renders into canvas.
 - `table` - main view render element when the view is primarily tabular.
 
 ### Optional elements
 
+Optional elements should appear at most once per view.
+
 - `aside` - optional side panel next to the main view render element.
 - `footer` - optional bottom area for status, actions, pagination, or secondary controls.
-- optional elements should appear at most once per view.
 
 ### Header actions
 
@@ -62,10 +65,23 @@ GAMS views and UI should be built only from the elements, slots, classes, and at
 - `th` - table header cell.
 - `td` - table data cell.
 
+## Data attributes
+
+- `data-*` attributes are allowed for view/widget configuration, behavior flags, and internal DOM hooks.
+- `data-*` attributes should not be used as the styling contract for browser2 UI.
+- `data-element` - stable internal hook for structural subparts in views/widgets.
+- `data-action` - stable internal hook for interactive controls/actions.
+- `data-field` - stable internal hook for form fields and bindings.
+
 ## Custom / ARIA attributes
 
 - `[aria-selected="true"]` - selected items, rows, and similar selectable UI records.
+- `[role="tabpanel"]` - tab panel content region.
+- `[role="tabpanel"][hidden]` - inactive tab panel content.
 
 ## Custom elements
 
+Reusable custom UI elements should live in `cmd/browser2/widgets/`, one widget per file.
+
 - `code-editor` - text area for code editing with highlight.
+- `view-pagination` - generic pagination widget for paged views.
