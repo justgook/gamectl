@@ -13,7 +13,7 @@ GAMS views and UI should be built only from the elements, slots, classes, and at
 ### Main element
 
 - each view should contain exactly one main element.
-- `main` - main view render element.
+- `article` - main view render element.
 - `canvas` - main view render element when the view renders into canvas.
 - `table` - main view render element when the view is primarily tabular.
 
@@ -39,6 +39,7 @@ GAMS views and UI should be built only from the elements, slots, classes, and at
 ## Form
 
 - `form` - base element for grouped inputs and actions; default layout is column.
+- `label` - form field label.
 - `form > footer` - actions area inside forms.
 - `input[type="text"]` - standard single-line text input.
 - `input[type="number"]` - numeric input.
@@ -46,14 +47,10 @@ GAMS views and UI should be built only from the elements, slots, classes, and at
 - `input[type="search"]` - search input.
 - `input[type="email"]` - email input.
 - `input[type="password"]` - password input.
+- `input[type="checkbox"]` - boolean/toggle form input.
 - `select` - select/dropdown input.
 - `textarea` - multiline text input.
-- `fieldset` - grouped form section with border.
-- `legend` - fieldset label/title.
-
-## Structure
-
-- `section` - grouped UI block inside a view, editor, or layout.
+- `output` - result or status text for form/view operations.
 
 ## Tables
 

@@ -34,28 +34,21 @@ export class ViewSql extends HTMLElement {
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
-    this.style.display = 'flex'
-    this.style.width = '100%'
-    this.style.height = '100%'
-    this.style.minHeight = '0'
+    this.style.display = "contents"
 
     this.innerHTML = `
-      <section data-element="sql-layout" style="display:grid; grid-template-columns: minmax(0,10rem) minmax(0, 1fr); width:100%; height:100%; min-height:0;">
-        <section data-element="tables-pane" style="display:flex; flex-direction:column; min-height:0; border-right: var(--border, 1px solid var(--fg-separator));">
-          <main data-element="list-container" style="flex:1; min-height:0; overflow:auto;"></main>
-          <footer data-element="tables-status"></footer>
-        </section>
-        <section data-element="table-pane" style="display:flex; flex-direction:column; min-width:0; min-height:0;">
-          <main data-element="table-container" style="flex:1; min-width:0; min-height:0; overflow:auto;"></main>
-          <footer>
-            <div data-element="pagination" part="pagination"></div>
-            <div data-element="status"></div>
-          </footer>
-        </section>
-      </section>
+      <aside data-element="tables-pane">
+        <table data-element="tables-container"></table>
+        <p data-element="tables-status"></p>
+      </aside>
+      <table data-element="table-container"></table>
+      <footer>
+        <p data-element="status"></p>
+        <div data-element="pagination" part="pagination"></div>
+      </footer>
     `
 
-    this.tablesContainer = this.querySelector('[data-element="list-container"]')
+    this.tablesContainer = this.querySelector('[data-element="tables-container"]')
     this.tablesStatusContainer = this.querySelector('[data-element="tables-status"]')
     this.tableContainer = this.querySelector('[data-element="table-container"]')
     this.paginationContainer = this.querySelector('[data-element="pagination"]')
@@ -205,25 +198,14 @@ export class ViewSql extends HTMLElement {
   }
 
   renderTables() {
-    if (this.tables.length === 0) {
-      this.tablesContainer.innerHTML = '<p>No tables found in database.</p>'
-      return
-    }
-
     this.tablesContainer.innerHTML = ''
 
-    const tableElement = document.createElement('table')
-
-    const caption = document.createElement('caption')
-    caption.textContent = 'Database tables'
-    tableElement.appendChild(caption)
-
     const head = document.createElement('thead')
-    head.innerHTML = '<tr><th>Name</th><th style="text-align: right;">Rows</th></tr>'
-    tableElement.appendChild(head)
+    head.innerHTML = '<tr><th>Name</th><th>Rows</th></tr>'
+    this.tablesContainer.appendChild(head)
 
     const body = document.createElement('tbody')
-    tableElement.appendChild(body)
+    this.tablesContainer.appendChild(body)
 
     for (const tableInfo of this.tables) {
       const row = document.createElement('tr')
@@ -236,7 +218,6 @@ export class ViewSql extends HTMLElement {
       nameCell.textContent = tableInfo.name
 
       const countCell = document.createElement('td')
-      countCell.style.textAlign = 'right'
       countCell.textContent = tableInfo.rowCount >= 0 ? String(tableInfo.rowCount) : '?'
 
       row.appendChild(nameCell)
@@ -253,7 +234,6 @@ export class ViewSql extends HTMLElement {
       body.appendChild(row)
     }
 
-    this.tablesContainer.appendChild(tableElement)
     this.updateSelectionUI()
     this.updateHeaderControlsUI()
   }
@@ -276,24 +256,35 @@ export class ViewSql extends HTMLElement {
   }
 
   renderTable() {
+    this.tableContainer.innerHTML = ''
+
+    const tbody = document.createElement('tbody')
+
     if (!this.selectedTable) {
-      this.tableContainer.innerHTML = '<div class="sql-table-empty">Select a table.</div>'
+      const tr = document.createElement('tr')
+      const td = document.createElement('td')
+      td.textContent = 'Select a table.'
+      tr.appendChild(td)
+      tbody.appendChild(tr)
+      this.tableContainer.appendChild(tbody)
       return
     }
 
     if (this.columns.length === 0) {
-      this.tableContainer.innerHTML = '<div class="sql-table-empty">No data. Set data-query attribute or check your query.</div>'
+      const tr = document.createElement('tr')
+      const td = document.createElement('td')
+      td.textContent = 'No data. Set data-query attribute or check your query.'
+      tr.appendChild(td)
+      tbody.appendChild(tr)
+      this.tableContainer.appendChild(tbody)
       return
     }
-
-    const table = document.createElement('table')
-    table.className = 'sql-table'
 
     const colgroup = document.createElement('colgroup')
     this.columns.forEach(() => {
       colgroup.appendChild(document.createElement('col'))
     })
-    table.appendChild(colgroup)
+    this.tableContainer.appendChild(colgroup)
 
     const thead = document.createElement('thead')
     const headerRow = document.createElement('tr')
@@ -304,9 +295,8 @@ export class ViewSql extends HTMLElement {
       headerRow.appendChild(th)
     })
     thead.appendChild(headerRow)
-    table.appendChild(thead)
+    this.tableContainer.appendChild(thead)
 
-    const tbody = document.createElement('tbody')
     this.rows.forEach((row) => {
       const tr = document.createElement('tr')
       this.columns.forEach((column) => {
@@ -317,15 +307,11 @@ export class ViewSql extends HTMLElement {
       })
       tbody.appendChild(tr)
     })
-    table.appendChild(tbody)
-
-    this.tableContainer.innerHTML = ''
-    this.tableContainer.appendChild(table)
+    this.tableContainer.appendChild(tbody)
   }
 
   renderCell(td, value, column) {
     const colType = this.detectColumnType(column, value)
-    td.className = `sql-table-cell sql-table-cell-${colType}`
 
     switch (colType) {
       case 'boolean': {
@@ -338,7 +324,6 @@ export class ViewSql extends HTMLElement {
       }
       case 'number':
         td.textContent = value ?? ''
-        td.style.textAlign = 'right'
         break
       default:
         if (value && value.length > 100) {
@@ -370,7 +355,7 @@ export class ViewSql extends HTMLElement {
     this.paginationContainer.innerHTML = `
       <button data-action="first" aria-label="First page" title="First page" ${this.currentPage === 0 ? 'disabled' : ''}><i aria-hidden="true">first_page</i></button>
       <button data-action="prev" aria-label="Previous page" title="Previous page" ${this.currentPage === 0 ? 'disabled' : ''}><i aria-hidden="true">chevron_left</i></button>
-      <span class="sql-table-page-info">Page ${this.currentPage + 1} of ${totalPages}</span>
+      <span>Page ${this.currentPage + 1} of ${totalPages}</span>
       <button data-action="next" aria-label="Next page" title="Next page" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}><i aria-hidden="true">chevron_right</i></button>
       <button data-action="last" aria-label="Last page" title="Last page" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''}><i aria-hidden="true">last_page</i></button>
       <select data-action="page-size">

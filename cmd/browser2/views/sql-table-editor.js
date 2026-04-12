@@ -17,6 +17,7 @@ export class SqlTableEditor extends HTMLElement {
     this.columnsContainer = null
     this.statusContainer = null
     this.tableNameInput = null
+    this._headerControlsElement = null
   }
 
   connectedCallback() {
@@ -25,42 +26,31 @@ export class SqlTableEditor extends HTMLElement {
 
     const mode = this.popupProps?.mode || 'create'
 
-    this.style.display = 'flex'
-    this.style.flexDirection = 'column'
-    this.style.gap = 'var(--space-4)'
-
     this.innerHTML = `
-      <form data-element="form" novalidate style="display:flex; flex-direction:column; gap:var(--space-4);">
-        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-          <label for="sql-table-editor-name">Table name</label>
-          <input id="sql-table-editor-name" type="text" data-field="table-name" placeholder="my_table" autocomplete="off">
-        </div>
+      <form data-element="form" novalidate>
+        <label for="sql-table-editor-name">Table name</label>
+        <input id="sql-table-editor-name" type="text" data-field="table-name" placeholder="my_table" autocomplete="off">
 
-        <section style="display: flex; flex-direction: column; gap: var(--space-2);">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);">
-            <strong>Columns</strong>
-            <button type="button" data-action="add-column">Add column</button>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th style="width: 56px; text-align: center;">PK</th>
-                <th style="width: 56px; text-align: center;">AI</th>
-                <th style="width: 56px; text-align: center;">NN</th>
-                <th style="width: 56px;"></th>
-              </tr>
-            </thead>
-            <tbody data-element="columns"></tbody>
-          </table>
-        </section>
+        <table>
+          <caption>Columns</caption>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>PK</th>
+              <th>AI</th>
+              <th>NN</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody data-element="columns"></tbody>
+        </table>
 
-        <footer style="display: flex; justify-content: flex-end; gap: var(--space-2);">
+        <footer>
+          <output data-element="status"></output>
           <button type="button" data-action="cancel">Cancel</button>
           <button type="submit" data-action="save" class="accent">${mode === 'create' ? 'Create table' : 'Save'}</button>
         </footer>
-        <div data-element="status"></div>
       </form>
     `
 
@@ -68,10 +58,12 @@ export class SqlTableEditor extends HTMLElement {
     this.statusContainer = this.querySelector('[data-element="status"]')
     this.tableNameInput = this.querySelector('[data-field="table-name"]')
 
+    this._mountHeaderControls()
+
     this._addColumnRow(this.columnsContainer, 'id', 'INTEGER', true, true)
     this._addColumnRow(this.columnsContainer, '', 'TEXT', false, false)
 
-    this.querySelector('[data-action="add-column"]').addEventListener('click', () => {
+    this._headerControlsElement?.querySelector('[data-action="add-column"]')?.addEventListener('click', () => {
       this._addColumnRow(this.columnsContainer, '', 'TEXT', false, false)
     })
 
@@ -87,6 +79,35 @@ export class SqlTableEditor extends HTMLElement {
     queueMicrotask(() => {
       this.tableNameInput.focus()
     })
+  }
+
+  disconnectedCallback() {
+    this._unmountHeaderControls()
+  }
+
+  createHeaderControlsElement() {
+    const toolbar = document.createElement('div')
+    toolbar.dataset.element = 'toolbar'
+    toolbar.setAttribute('slot', 'header-controls')
+    toolbar.innerHTML = `
+      <button data-action="add-column" aria-label="Add column" title="Add column"><i aria-hidden="true">playlist_add</i></button>
+    `
+    return toolbar
+  }
+
+  _mountHeaderControls() {
+    if (!this.parentElement || this._headerControlsElement) return
+
+    const headerControls = this.createHeaderControlsElement()
+    this._headerControlsElement = headerControls
+    this.parentElement.appendChild(headerControls)
+  }
+
+  _unmountHeaderControls() {
+    if (this._headerControlsElement?.parentElement) {
+      this._headerControlsElement.remove()
+    }
+    this._headerControlsElement = null
   }
 
   setStatus(text, tone = null) {
@@ -108,7 +129,6 @@ export class SqlTableEditor extends HTMLElement {
     nameInput.placeholder = 'column_name'
     nameInput.value = name
     nameInput.autocomplete = 'off'
-    nameInput.style.width = '100%'
     nameCell.appendChild(nameInput)
 
     const typeCell = document.createElement('td')
@@ -121,11 +141,9 @@ export class SqlTableEditor extends HTMLElement {
       option.selected = optionType === type
       typeSelect.appendChild(option)
     }
-    typeSelect.style.width = '100%'
     typeCell.appendChild(typeSelect)
 
     const primaryCell = document.createElement('td')
-    primaryCell.style.textAlign = 'center'
     const primaryInput = document.createElement('input')
     primaryInput.type = 'checkbox'
     primaryInput.dataset.field = 'primary-key'
@@ -134,7 +152,6 @@ export class SqlTableEditor extends HTMLElement {
     primaryCell.appendChild(primaryInput)
 
     const autoCell = document.createElement('td')
-    autoCell.style.textAlign = 'center'
     const autoInput = document.createElement('input')
     autoInput.type = 'checkbox'
     autoInput.dataset.field = 'auto-increment'
@@ -143,7 +160,6 @@ export class SqlTableEditor extends HTMLElement {
     autoCell.appendChild(autoInput)
 
     const notNullCell = document.createElement('td')
-    notNullCell.style.textAlign = 'center'
     const notNullInput = document.createElement('input')
     notNullInput.type = 'checkbox'
     notNullInput.dataset.field = 'not-null'
@@ -151,7 +167,6 @@ export class SqlTableEditor extends HTMLElement {
     notNullCell.appendChild(notNullInput)
 
     const removeCell = document.createElement('td')
-    removeCell.style.textAlign = 'center'
     const removeButton = document.createElement('button')
     removeButton.type = 'button'
     removeButton.dataset.action = 'remove-column'

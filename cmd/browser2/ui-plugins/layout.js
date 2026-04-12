@@ -119,7 +119,7 @@ export class ViewArea extends HTMLElement {
         <select part="view-select" name="view" data-action="select-view" class="view-selector"></select>
         <slot name="header-controls"></slot>
       </header>
-      <article><slot></slot></article>`
+      <main><slot></slot></main>`
   }
 
   connectedCallback() {
@@ -324,6 +324,7 @@ export class UiLayout extends HTMLElement {
   }
 
   connectedCallback() {
+    this.style.isolation = "isolate"
     this.style.position = 'fixed'
     this.style.inset = '0'
     this.style.display = 'block'

@@ -56,8 +56,8 @@ export class PopupManager extends HTMLElement {
   }
 
   connectedCallback() {
-    // Add CSS class for styling
-    // this.classList.add('popup-manager')
+    this.style.display = "contents"
+    this.style.isolation = "isolate"
 
     // Set up mutation observer to watch for popup changes
     this.observer = new MutationObserver((mutations) => {

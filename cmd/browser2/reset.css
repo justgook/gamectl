@@ -54,6 +54,10 @@
     max-width: 100%;
   }
 
+  canvas {
+    image-rendering: pixelated;
+  }
+
   /* 7. Inherit fonts for form controls */
   input,
   button,
