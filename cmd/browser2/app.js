@@ -5,12 +5,13 @@ import './ui-plugins/popup.js'
 import './widgets/code-editor.js'
 import './widgets/view-pagination.js'
 import './views/view-sql.js'
+import './views/view-sql-console.js'
 import './views/sql-table-editor.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
 const DEFAULT_LAYOUT = `
-  <view-empty />
+  <view-sql-console />
   <sql-table-editor setup="0:h:50"/>
   <view-sql setup="0:v:50" />
 `
@@ -34,6 +35,10 @@ const viewRegistry = new Map([
   ['view-sql', {
     label: 'SQL',
     create: () => document.createElement('view-sql'),
+  }],
+  ['view-sql-console', {
+    label: 'SQL Console',
+    create: () => document.createElement('view-sql-console'),
   }],
   ['view-assets', placeholderView('view-assets', 'Assets')],
   ['view-debug', placeholderView('view-debug', 'Debug')],

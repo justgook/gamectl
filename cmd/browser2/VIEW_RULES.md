@@ -18,6 +18,7 @@ Each view should contain exactly one main element.
 - `article` - main view render element.
 - `canvas` - main view render element when the view renders into canvas.
 - `table` - main view render element when the view is primarily tabular.
+- `form` - main view render element when the view is primarily an editor, inspector, wizard, or other form-driven workflow.
 
 ### Optional elements
 
@@ -58,6 +59,10 @@ Optional elements should appear at most once per view.
 - `textarea` - multiline text input.
 - `output` - result or status text for form/view operations.
 
+## Text output
+
+- `pre` - preformatted read-only text output for logs, console transcripts, and whitespace-sensitive textual results.
+
 ## Icons
 
 - `i` - icon element using Material Symbols.
@@ -66,6 +71,7 @@ Optional elements should appear at most once per view.
 ## Tables
 
 - `table` - base element for tabular data in UI.
+- `caption` - optional table title/label when the table needs an intrinsic semantic heading.
 - `thead` - required table header section.
 - `tbody` - required table body section.
 - `tfoot` - optional table footer section.

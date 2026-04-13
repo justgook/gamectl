@@ -24,6 +24,8 @@ export class SqlTableEditor extends HTMLElement {
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
+    this.style.display = 'contents'
+
     const mode = this.popupProps?.mode || 'create'
 
     this.innerHTML = `

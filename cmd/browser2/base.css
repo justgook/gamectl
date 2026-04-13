@@ -629,16 +629,21 @@
   /* ═══════════════════════════════════════════════════════════════════════════
      Views helpers (build block)
    ═══════════════════════════════════════════════════════════════════════════ */
-  main {
-    /* height: 100%; */
+  :host {
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
 
-    /* 2 columns: main + aside */
-    grid-template-columns: 1fr auto;
-
-    /* 2 rows: content + footer */
-    grid-template-rows: 1fr auto;
-
+  main {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     grid-template-areas:
       "main aside"
       "footer footer";
@@ -646,19 +651,49 @@
 
   article,
   canvas,
-  table {
+  table,
+  form {
     grid-area: main;
     min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  article,
+  form {
+    display: flex;
+    overflow: auto;
+    flex: 1;
+  }
+
+  form {
+    flex-direction: column;
+    overflow: auto;
   }
 
   aside {
     grid-area: aside;
+    position: relative;
+    inset: auto;
+    z-index: 10;
     width: var(--aside-width);
+    max-width: min(100%, var(--aside-width));
+    max-height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
   }
 
   /* Footer (optional) */
   footer {
     grid-area: footer;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
   }
 
   tbody {
@@ -674,6 +709,50 @@
     flex-direction: column;
   }
 
+  pre {
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    font-family: var(--font-mono);
+  }
+
+  pre > [data-element="output-line"] {
+    display: block;
+    color: var(--text);
+  }
+
+  pre > [data-element="output-spacer"] {
+    display: block;
+    height: 1lh;
+  }
+
+  pre > .accent,
+  pre > .success,
+  pre > .warning,
+  pre > .danger,
+  pre > .info {
+    color: var(--intent-soft-fg);
+  }
+
+  output {
+    min-width: 0;
+    color: var(--text-muted);
+  }
+
+  output.accent,
+  .accent > output,
+  output.success,
+  .success > output,
+  output.warning,
+  .warning > output,
+  output.danger,
+  .danger > output,
+  output.info,
+  .info > output {
+    color: var(--intent-soft-fg);
+  }
 
   fieldset {
     margin: 0;
