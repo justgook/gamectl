@@ -41,7 +41,9 @@ export class ViewSql extends HTMLElement {
         <table data-element="tables-container"></table>
         <output data-element="tables-status"></output>
       </aside>
-      <table data-element="table-container"></table>
+      <article>
+        <table data-element="table-container"></table>
+      </article>
       <footer>
         <output data-element="status"></output>
         <view-pagination data-page="0" data-page-size-options="10,20,50,100"></view-pagination>
