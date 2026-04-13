@@ -1,8 +1,8 @@
 # View Rules
 
-GAMS UI uses themeable semantic elements, classes, and attributes as a project UI vocabulary. This file is a compact lookup for the preferred combinations used when building or migrating views.
+UI uses themeable semantic elements, classes, and attributes as a project UI vocabulary. This file is a compact lookup for the preferred combinations used when building or migrating views.
 
-GAMS views and UI should be built only from the elements, slots, classes, and attributes documented here. UI HTML should not contain custom CSS, inline styling, or undocumented elements/patterns. Existing code that does so is legacy/deprecated and a target for rework.
+Views and UI should be built only from the elements, slots, classes, and attributes documented here. UI HTML should not contain custom CSS, inline styling, or undocumented elements/patterns. Existing code that does so is legacy/deprecated and a target for rework.
 
 ## View layout
 
@@ -51,9 +51,17 @@ Optional elements should appear at most once per view.
 - `input[type="email"]` - email input.
 - `input[type="password"]` - password input.
 - `input[type="checkbox"]` - boolean/toggle form input.
+- `button` - interactive action control.
 - `select` - select/dropdown input.
+- `option` - option item inside `select`.
+- `optgroup` - grouped options inside `select`.
 - `textarea` - multiline text input.
 - `output` - result or status text for form/view operations.
+
+## Icons
+
+- `i` - icon element using Material Symbols.
+- `button > i` - icon content inside button controls.
 
 ## Tables
 
@@ -68,7 +76,7 @@ Optional elements should appear at most once per view.
 ## Data attributes
 
 - `data-*` attributes are allowed for view/widget configuration, behavior flags, and internal DOM hooks.
-- `data-*` attributes should not be used as the styling contract for browser2 UI.
+- `data-*` attributes should not be used as the styling contract for UI.
 - `data-element` - stable internal hook for structural subparts in views/widgets.
 - `data-action` - stable internal hook for interactive controls/actions.
 - `data-field` - stable internal hook for form fields and bindings.
