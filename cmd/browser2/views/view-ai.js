@@ -3,40 +3,37 @@ import { runtime } from '../core/runtime.js'
 const decoder = new TextDecoder()
 
 function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
+  return decoder.decode(result.output)
 }
 
-function parseOutput(result, fallback = null) {
-  const text = decodeOutput(result)
-  if (!text) return fallback
-  try {
-    return JSON.parse(text)
-  } catch {
-    return fallback
-  }
+function parseOutput(result) {
+  return JSON.parse(decodeOutput(result))
+}
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message)
 }
 
 function messageText(message) {
-  if (!message) return ''
   if (typeof message.content === 'string') return message.content
-  if (!Array.isArray(message.content)) return ''
+  assert(Array.isArray(message.content), 'Expected message.content to be an array or string')
 
   return message.content.flatMap((block) => {
-    if (block?.type === 'text') return [block.text || '']
-    if (block?.type === 'tool_call') return [`Tool call: ${block.name} ${JSON.stringify(block.arguments || {})}`]
-    if (block?.type === 'tool_result') {
-      const text = Array.isArray(block.content)
-        ? block.content.map((entry) => entry?.text || '').filter(Boolean).join('\n')
-        : ''
+    if (block.type === 'text') return [block.text]
+    if (block.type === 'tool_call') return [`Tool call: ${block.name} ${JSON.stringify(block.arguments)}`]
+    if (block.type === 'tool_result') {
+      assert(Array.isArray(block.content), 'Expected tool_result.content to be an array')
+      const text = block.content.map((entry) => entry.text).join('\n')
       return [`${block.isError ? 'Tool error' : 'Tool result'}: ${block.name}${text ? `\n${text}` : ''}`]
     }
-    return []
-  }).filter(Boolean).join('\n')
+    throw new Error(`Unknown message block type '${block.type}'`)
+  }).join('\n')
 }
 
 export class ViewAi extends HTMLElement {
   constructor() {
     super()
+    this.openConfig = null
     this.handle = null
     this.cursor = null
     this.loadingHistory = false
@@ -72,148 +69,128 @@ export class ViewAi extends HTMLElement {
     this.sendButton = this.querySelector('button[type="submit"]')
     this.statusElement = this.querySelector('[data-element="status"]')
 
-    this.formElement?.addEventListener('submit', async (event) => {
+    assert(this.logElement instanceof HTMLElement, 'view-ai missing log element')
+    assert(this.formElement instanceof HTMLFormElement, 'view-ai missing form element')
+    assert(this.inputElement, 'view-ai missing prompt editor')
+    assert(this.sendButton instanceof HTMLButtonElement, 'view-ai missing send button')
+    assert(this.statusElement instanceof HTMLOutputElement, 'view-ai missing status element')
+    assert(this.openConfig && typeof this.openConfig === 'object', 'view-ai requires openConfig')
+
+    this.formElement.addEventListener('submit', async (event) => {
       event.preventDefault()
       await this.handleSubmit()
     })
 
-    this.logElement?.addEventListener('scroll', async () => {
-      if (!this.logElement || this.loadingHistory || this.cursor == null) return
+    this.logElement.addEventListener('scroll', async () => {
+      if (this.loadingHistory || this.cursor == null) return
       if (this.logElement.scrollTop <= 0) {
         await this.loadOlder()
       }
     })
 
-    this.bootstrap().catch((error) => {
-      this.setStatus(`Bootstrap failed: ${error?.message || error}`, 'danger')
-      this.appendLog(`error: ${error?.message || error}`)
-    })
+    this.bootstrap()
   }
 
   async bootstrap() {
     this.setBusy(true)
     this.setStatus('Opening session...', 'info')
 
-    const opened = await runtime.call('ai.agent', 'open', JSON.stringify({
-      profile: 'browser2-default',
-      persist: {
-        driver: 'fs',
-        format: 'jsonl',
-        path: '/ai/sessions/view-ai-default.jsonl',
-      },
-    }))
-    const payload = parseOutput(opened, {})
+    const opened = await runtime.call('ai.agent', 'open', JSON.stringify(this.openConfig))
+    assert(opened.returnCode === 0, `ai.agent open failed: ${decodeOutput(opened)}`)
+
+    const payload = parseOutput(opened)
+    assert(Number.isInteger(payload.handle), 'ai.agent open did not return a numeric handle')
     this.handle = payload.handle
     this.cursor = null
 
     await this.reloadLatest()
     this.setStatus('Ready', 'success')
     this.setBusy(false)
-    queueMicrotask(() => this.inputElement?.focus())
+    queueMicrotask(() => this.inputElement.focus())
   }
 
   async handleSubmit() {
-    const prompt = this.inputElement?.value?.trim() || ''
-    if (!prompt || this.handle == null) return
+    const prompt = this.inputElement.value.trim()
+    if (!prompt) return
+    assert(Number.isInteger(this.handle), 'view-ai has no session handle')
 
     this.setBusy(true)
     this.setStatus('Running...', 'info')
 
-    try {
-      const result = await runtime.call('ai.agent', 'send', JSON.stringify({
-        handle: this.handle,
-        message: prompt,
-      }))
+    const result = await runtime.call('ai.agent', 'send', JSON.stringify({
+      handle: this.handle,
+      message: prompt,
+    }))
+    assert(result.returnCode === 0, `ai.agent send failed: ${decodeOutput(result)}`)
 
-      if (result.returnCode !== 0) {
-        throw new Error(decodeOutput(result) || 'ai.agent send failed')
-      }
-
-      if (this.inputElement) this.inputElement.value = ''
-      await this.reloadLatest()
-      this.setStatus('Done', 'success')
-    } catch (error) {
-      this.appendLog(`error: ${error?.message || error}`)
-      this.setStatus(`Error: ${error?.message || error}`, 'danger')
-      console.error('view-ai request failed:', error)
-    } finally {
-      this.setBusy(false)
-    }
+    this.inputElement.value = ''
+    await this.reloadLatest()
+    this.setStatus('Done', 'success')
+    this.setBusy(false)
   }
 
   async reloadLatest() {
-    if (this.handle == null) return
+    assert(Number.isInteger(this.handle), 'view-ai has no session handle')
     const page = await runtime.call('ai.agent', 'get_history_page', JSON.stringify({
       handle: this.handle,
       cursor: null,
       limit: 50,
     }))
-    const payload = parseOutput(page, { items: [], nextCursor: null })
+    assert(page.returnCode === 0, `ai.agent get_history_page failed: ${decodeOutput(page)}`)
+
+    const payload = parseOutput(page)
     this.cursor = payload.nextCursor
-    this.renderItems(payload.items || [])
-    if (this.logElement) {
-      this.logElement.scrollTop = this.logElement.scrollHeight
-    }
+    this.renderItems(payload.items)
+    this.logElement.scrollTop = this.logElement.scrollHeight
   }
 
   async loadOlder() {
-    if (this.handle == null || this.cursor == null) return
+    assert(Number.isInteger(this.handle), 'view-ai has no session handle')
+    assert(this.cursor != null, 'view-ai loadOlder called without cursor')
     this.loadingHistory = true
 
-    try {
-      const previousHeight = this.logElement?.scrollHeight || 0
-      const page = await runtime.call('ai.agent', 'get_history_page', JSON.stringify({
-        handle: this.handle,
-        cursor: this.cursor,
-        limit: 50,
-      }))
-      const payload = parseOutput(page, { items: [], nextCursor: null })
-      this.cursor = payload.nextCursor
-      this.prependItems(payload.items || [])
-      if (this.logElement) {
-        const nextHeight = this.logElement.scrollHeight
-        this.logElement.scrollTop = nextHeight - previousHeight
-      }
-    } finally {
-      this.loadingHistory = false
-    }
+    const previousHeight = this.logElement.scrollHeight
+    const page = await runtime.call('ai.agent', 'get_history_page', JSON.stringify({
+      handle: this.handle,
+      cursor: this.cursor,
+      limit: 50,
+    }))
+    assert(page.returnCode === 0, `ai.agent get_history_page failed: ${decodeOutput(page)}`)
+
+    const payload = parseOutput(page)
+    this.cursor = payload.nextCursor
+    this.prependItems(payload.items)
+    const nextHeight = this.logElement.scrollHeight
+    this.logElement.scrollTop = nextHeight - previousHeight
+    this.loadingHistory = false
   }
 
   renderItems(items) {
-    if (!this.logElement) return
     this.logElement.textContent = this.formatItems(items)
   }
 
   prependItems(items) {
-    if (!this.logElement || !items.length) return
-    const existing = this.logElement.textContent || ''
+    if (items.length === 0) return
+    const existing = this.logElement.textContent
     const prefix = this.formatItems(items)
-    this.logElement.textContent = existing ? `${prefix}\n\n${existing}` : prefix
+    this.logElement.textContent = `${prefix}\n\n${existing}`
   }
 
   formatItems(items) {
-    const lines = []
-    for (const message of items) {
-      if (message.role === 'user') lines.push(`You: ${messageText(message)}`)
-      else if (message.role === 'assistant') lines.push(`Agent: ${messageText(message)}`)
-      else if (message.role === 'tool') lines.push(messageText(message))
-      else lines.push(messageText(message))
-    }
-    return lines.length > 0 ? lines.join('\n\n') : 'AI agent ready.'
-  }
-
-  appendLog(line) {
-    if (!this.logElement) return
-    const current = this.logElement.textContent || ''
-    this.logElement.textContent = current ? `${current}\n${line}` : line
+    if (items.length === 0) return 'AI agent ready.'
+    return items.map((message) => {
+      if (message.role === 'user') return `You: ${messageText(message)}`
+      if (message.role === 'assistant') return `Agent: ${messageText(message)}`
+      if (message.role === 'tool') return messageText(message)
+      throw new Error(`Unknown message role '${message.role}'`)
+    }).join('\n\n')
   }
 
   setBusy(busy) {
-    if (this.sendButton) this.sendButton.disabled = busy
+    this.sendButton.disabled = busy
   }
 
   setStatus(text, tone = '') {
-    if (!this.statusElement) return
     this.statusElement.textContent = text
     this.statusElement.className = ''
     if (tone) this.statusElement.classList.add(tone)

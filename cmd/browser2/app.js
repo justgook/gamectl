@@ -18,6 +18,14 @@ const DEFAULT_LAYOUT = `
   <view-ai setup="1:v:50" />
 `
 
+const AI_OPEN_CONFIG = {
+  persist: {
+    driver: 'fs',
+    format: 'jsonl',
+    path: '/ai/sessions/view-ai-default.jsonl',
+  },
+}
+
 function placeholderView(tag, label) {
   return {
     label,
@@ -44,7 +52,11 @@ const viewRegistry = new Map([
   }],
   ['view-ai', {
     label: 'AI',
-    create: () => document.createElement('view-ai'),
+    create: () => {
+      const el = document.createElement('view-ai')
+      el.openConfig = structuredClone(AI_OPEN_CONFIG)
+      return el
+    },
   }],
   ['view-assets', placeholderView('view-assets', 'Assets')],
   ['view-debug', placeholderView('view-debug', 'Debug')],

@@ -19,7 +19,8 @@
      ═══════════════════════════════════════════════════════════════════════════ */
 
   :root {
-    --bg: #0b0c10;
+    --base-bg: #0b0c10;
+    --bg: var(--base-bg);
     --surface: #11131a;
     --surface-elevated: #171a23;
     --surface-hover: color-mix(in oklab, var(--surface), white 5%);
@@ -30,7 +31,8 @@
      ═══════════════════════════════════════════════════════════════════════════ */
 
   :root {
-    --border: #262a36;
+    --base-border: #262a36;
+    --border: var(--base-border);
     --border-hover: color-mix(in oklab, var(--border), var(--text) 18%);
     --border-focus: var(--accent);
   }
@@ -40,10 +42,13 @@
      ═══════════════════════════════════════════════════════════════════════════ */
 
   :root {
-    --text: #e8eaf0;
-    --text-muted: #a8afc3;
+    --base-text: #e8eaf0;
+    --base-text-muted: #a8afc3;
+    --base-ink: #0b0c10;
+    --text: var(--base-text);
+    --text-muted: var(--base-text-muted);
     --text-faint: color-mix(in oklab, var(--text-muted), transparent 40%);
-    --ink: #0b0c10;
+    --ink: var(--base-ink);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
@@ -107,78 +112,50 @@
     --intent-bg: var(--intent);
     --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
     --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
-    --intent-fg: var(--ink);
+    --intent-fg: var(--base-ink);
     --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
     --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
 
     /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
     --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--intent), var(--border) 60%);
-    --intent-soft-fg: color-mix(in oklab, var(--intent), var(--text) 30%);
+    --intent-soft-border: color-mix(in oklab, var(--intent), var(--base-border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
      INTENT CLASSES
      ═══════════════════════════════════════════════════════════════════════════ */
 
+  .accent,
+  .success,
+  .warning,
+  .danger,
+  .info {
+    --bg: var(--intent-soft-bg);
+    --border: var(--intent-soft-border);
+    --text: var(--intent-soft-fg);
+    --text-muted: color-mix(in oklab, var(--text), var(--base-text-muted) 60%);
+    --ink: var(--base-ink);
+  }
+
   .accent {
     --intent: var(--accent);
-    --intent-bg: var(--accent);
-    --intent-hover-bg: color-mix(in oklab, var(--accent), white 12%);
-    --intent-active-bg: color-mix(in oklab, var(--accent), white 22%);
-    --intent-border: color-mix(in oklab, var(--accent), black 20%);
-    --intent-ring: color-mix(in oklab, var(--accent), transparent 65%);
-    --intent-soft-bg: color-mix(in oklab, var(--accent), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--accent), var(--border) 60%);
-    --intent-soft-fg: color-mix(in oklab, var(--accent), var(--text) 30%);
   }
 
   .success {
     --intent: var(--success);
-    --intent-bg: var(--success);
-    --intent-hover-bg: color-mix(in oklab, var(--success), white 12%);
-    --intent-active-bg: color-mix(in oklab, var(--success), white 22%);
-    --intent-border: color-mix(in oklab, var(--success), black 20%);
-    --intent-ring: color-mix(in oklab, var(--success), transparent 65%);
-    --intent-soft-bg: color-mix(in oklab, var(--success), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--success), var(--border) 60%);
-    --intent-soft-fg: color-mix(in oklab, var(--success), var(--text) 30%);
   }
 
   .warning {
     --intent: var(--warning);
-    --intent-bg: var(--warning);
-    --intent-hover-bg: color-mix(in oklab, var(--warning), white 12%);
-    --intent-active-bg: color-mix(in oklab, var(--warning), white 22%);
-    --intent-border: color-mix(in oklab, var(--warning), black 20%);
-    --intent-ring: color-mix(in oklab, var(--warning), transparent 65%);
-    --intent-soft-bg: color-mix(in oklab, var(--warning), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--warning), var(--border) 60%);
-    --intent-soft-fg: color-mix(in oklab, var(--warning), var(--text) 30%);
   }
 
   .danger {
     --intent: var(--danger);
-    --intent-bg: var(--danger);
-    --intent-hover-bg: color-mix(in oklab, var(--danger), white 12%);
-    --intent-active-bg: color-mix(in oklab, var(--danger), white 22%);
-    --intent-border: color-mix(in oklab, var(--danger), black 20%);
-    --intent-ring: color-mix(in oklab, var(--danger), transparent 65%);
-    --intent-soft-bg: color-mix(in oklab, var(--danger), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--danger), var(--border) 60%);
-    --intent-soft-fg: color-mix(in oklab, var(--danger), var(--text) 30%);
   }
 
   .info {
     --intent: var(--info);
-    --intent-bg: var(--info);
-    --intent-hover-bg: color-mix(in oklab, var(--info), white 12%);
-    --intent-active-bg: color-mix(in oklab, var(--info), white 22%);
-    --intent-border: color-mix(in oklab, var(--info), black 20%);
-    --intent-ring: color-mix(in oklab, var(--info), transparent 65%);
-    --intent-soft-bg: color-mix(in oklab, var(--info), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--info), var(--border) 60%);
-    --intent-soft-fg: color-mix(in oklab, var(--info), var(--text) 30%);
   }
 
   .elevated {
@@ -731,39 +708,39 @@
     font-family: var(--font-mono);
   }
 
-  pre > [data-element="output-line"] {
+  pre>[data-element="output-line"] {
     display: block;
     color: var(--text);
   }
 
-  pre > [data-element="output-spacer"] {
+  pre>[data-element="output-spacer"] {
     display: block;
     height: 1lh;
   }
 
-  pre > .accent,
-  pre > .success,
-  pre > .warning,
-  pre > .danger,
-  pre > .info {
+  pre>.accent,
+  pre>.success,
+  pre>.warning,
+  pre>.danger,
+  pre>.info {
     color: var(--intent-soft-fg);
   }
 
   output {
     min-width: 0;
-    color: var(--text-muted);
+    color: var(--text);
   }
 
   output.accent,
-  .accent > output,
+  .accent>output,
   output.success,
-  .success > output,
+  .success>output,
   output.warning,
-  .warning > output,
+  .warning>output,
   output.danger,
-  .danger > output,
+  .danger>output,
   output.info,
-  .info > output {
+  .info>output {
     color: var(--intent-soft-fg);
   }
 
