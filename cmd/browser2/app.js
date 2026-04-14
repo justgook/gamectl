@@ -6,6 +6,7 @@ import './widgets/code-editor.js'
 import './widgets/view-pagination.js'
 import './views/view-sql.js'
 import './views/view-sql-console.js'
+import './views/view-files.js'
 import './views/view-ai.js'
 import './views/sql-table-editor.js'
 
@@ -57,6 +58,10 @@ const viewRegistry = new Map([
       el.openConfig = structuredClone(AI_OPEN_CONFIG)
       return el
     },
+  }],
+  ['view-files', {
+    label: 'Files',
+    create: () => document.createElement('view-files'),
   }],
   ['view-assets', placeholderView('view-assets', 'Assets')],
   ['view-debug', placeholderView('view-debug', 'Debug')],
