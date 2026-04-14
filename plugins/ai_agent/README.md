@@ -5,10 +5,12 @@ Initial notes for a GAMS `ai.agent` plugin.
 ## Goal
 Create a JS service plugin that owns:
 - agent sessions
+- history
 - context assembly
-- tool registration
+- tool registration/bootstrap
 - provider selection
-- tool execution loop
+- persistence
+- internal execution loop
 
 This should stay provider-agnostic. Provider-specific API details should live behind `ai_provider_*` plugins.
 
@@ -17,15 +19,18 @@ This should stay provider-agnostic. Provider-specific API details should live be
 ### Responsibilities
 `ai_agent` should own:
 - normalized conversation state
-- registered tools
-- registered context entries
+- session handles
+- registered/default tools
+- registered/default context
 - session config
-- execution loop
+- persistence hooks
+- internal tool-call loop
 - tool-call validation before dispatch
+- paged history access
 
 `ai_agent` should **not** own:
 - OpenAI/OpenRouter/Codex-specific payload quirks
-- auth specifics for each provider
+- browser UI
 - host-specific UI behavior
 
 ## GAMS-specific shape
@@ -45,15 +50,41 @@ Context should include:
 
 Important: runtime/editor state should usually be passed as **context**, not exploded into many tiny helper tools.
 
-## Proposed v1 API ideas
-- `create_session(input)`
-- `set_provider(input)`
-- `register_tool(input)`
-- `set_tools(input)`
-- `set_context(input)`
-- `add_context(input)`
-- `send(input)`
-- `run_step(input)`
+## Handle-based API direction
+Sessions should be opened like other GAMS handle-based resources.
+
+Example flow:
+- `open(...) -> { handle }`
+- `send({ handle, message })`
+- `get_history_page({ handle, cursor, limit })`
+- `get_summary({ handle })`
+- `close({ handle })`
+
+`view-ai` should keep only a handle and UI state.
+
+## Persistence direction
+Persistence is owned by `ai_agent`.
+
+If `open(...)` receives:
+
+```json
+{
+  "persist": {
+    "driver": "fs",
+    "format": "jsonl",
+    "path": "/ai/sessions/default.jsonl"
+  }
+}
+```
+
+then:
+- if `path` exists, the session is loaded from that JSONL file
+- if `path` does not exist, a new persisted session is created there
+- if `persist` is omitted, the session is memory-only
+
+V1 should support only:
+- `driver: "fs"`
+- `format: "jsonl"`
 
 ## External inspiration
 
@@ -108,25 +139,6 @@ Useful ideas to borrow:
 References:
 - https://github.com/badlogic/pi-mono/blob/efc58fed7044ff2be14903502a9b200f3c215286/packages/mom/README.md#L119-L206
 
-### pi-mono `packages/coding-agent`
-Useful idea to borrow:
-- dynamic provider registration / unregistration pattern
-
-References:
-- https://github.com/badlogic/pi-mono/blob/efc58fed7044ff2be14903502a9b200f3c215286/packages/coding-agent/docs/custom-provider.md#L1-L168
-- https://github.com/badlogic/pi-mono/blob/efc58fed7044ff2be14903502a9b200f3c215286/packages/coding-agent/src/core/model-registry.ts#L682-L780
-
-### pi-mono `packages/web-ui`
-Less relevant for v1 core logic, but useful later for a `view-agent` browser UI.
-
-Useful ideas to borrow later:
-- UI bound to agent state/events instead of provider APIs directly
-- storage separated from UI
-- tool injection at UI composition boundary
-
-Reference:
-- https://github.com/badlogic/pi-mono/blob/efc58fed7044ff2be14903502a9b200f3c215286/packages/web-ui/README.md#L67-L95
-
 ## Current design takeaway
 Best sources of inspiration:
 - `packages/agent` -> shape of `ai_agent`
@@ -136,7 +148,5 @@ Best sources of inspiration:
 ## Open questions
 - exact plugin runtime for `ai_agent` in browser2: worker JS plugin vs main-thread JS plugin
 - how context should be collected from current GAMS runtime state
-- how tool registration metadata should be shaped in GAMS
-- whether tool execution should always go through plugin calls or allow local adapters too
-- how session persistence should be stored in GAMS
-- whether v1 needs event streaming or only step-based execution
+- how persistence backend should be injected/configured
+- whether v1 needs event streaming or only polling/paged access

@@ -106,6 +106,19 @@ const buildinPlugins = [
       initialPages: 288,
       maximumPages: 512,
     },
+  },
+  {
+    id: 'ai.provider.mock',
+    runtime: 'js',
+    role: 'service',
+    url: 'local:/plugins/ai_provider_mock.js',
+  },
+  {
+    id: 'ai.agent',
+    runtime: 'js',
+    role: 'service',
+    deps: ['fs', 'ai.provider.mock'],
+    url: 'local:/plugins/ai_agent.js',
   }
 ]
 
