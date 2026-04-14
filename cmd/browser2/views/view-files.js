@@ -53,6 +53,22 @@ function indentText(depth) {
   return '\u00a0\u00a0\u00a0\u00a0'.repeat(depth)
 }
 
+function getExtension(path) {
+  const name = String(path || '').split('/').pop() || ''
+  const parts = name.split('.')
+  if (parts.length <= 1) return ''
+  return parts.pop().toLowerCase()
+}
+
+function resolveFileEditorTag(path) {
+  const ext = getExtension(path)
+  if (ext) {
+    const extTag = `files-${ext}`
+    if (customElements.get(extTag)) return extTag
+  }
+  return 'files-default'
+}
+
 export class ViewFiles extends HTMLElement {
   static get observedAttributes() {
     return ['data-root', 'data-mode', 'data-filter', 'data-select-folders', 'data-multi-select', 'data-default-name']
@@ -73,6 +89,7 @@ export class ViewFiles extends HTMLElement {
     this.tableElement = null
     this.pathElement = null
     this.statusElement = null
+    this.targetElement = null
     this._headerControlsElement = null
   }
 
@@ -88,16 +105,19 @@ export class ViewFiles extends HTMLElement {
       </article>
       <footer>
         <output data-element="path"></output>
+        <output data-element="target"></output>
         <output data-element="status"></output>
       </footer>
     `
 
     this.tableElement = this.querySelector('[data-element="table"]')
     this.pathElement = this.querySelector('[data-element="path"]')
+    this.targetElement = this.querySelector('[data-element="target"]')
     this.statusElement = this.querySelector('[data-element="status"]')
 
     assert(this.tableElement instanceof HTMLTableElement, 'view-files missing table element')
     assert(this.pathElement instanceof HTMLOutputElement, 'view-files missing path output')
+    assert(this.targetElement instanceof HTMLOutputElement, 'view-files missing target output')
     assert(this.statusElement instanceof HTMLOutputElement, 'view-files missing status output')
 
     this._mountHeaderControls()
@@ -105,10 +125,16 @@ export class ViewFiles extends HTMLElement {
     const toolbar = this._headerControlsElement
     assert(toolbar instanceof HTMLElement, 'view-files missing header controls element')
     toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh())
+    toolbar.querySelector('[data-action="new-file"]')?.addEventListener('click', () => this.openCreatePopup('file'))
+    toolbar.querySelector('[data-action="new-folder"]')?.addEventListener('click', () => this.openCreatePopup('directory'))
+    toolbar.querySelector('[data-action="rename"]')?.addEventListener('click', () => this.openRenamePopup())
+    toolbar.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelected())
 
     this.addEventListener('keydown', (event) => this.handleKeyDown(event))
 
     this.setPath(this.rootPath)
+    this.updateTargetPath()
+    this.updateHeaderControlsUI()
     this.refresh()
   }
 
@@ -127,6 +153,7 @@ export class ViewFiles extends HTMLElement {
       this.expandedPaths.clear()
       if (this.dataset.ready) {
         this.setPath(this.rootPath)
+        this.updateTargetPath()
         void this.refresh()
       }
       return
@@ -172,6 +199,10 @@ export class ViewFiles extends HTMLElement {
     toolbar.setAttribute('slot', 'header-controls')
     toolbar.innerHTML = `
       <button data-action="refresh" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      <button data-action="new-file" aria-label="Create file" title="Create file"><i aria-hidden="true">note_add</i></button>
+      <button data-action="new-folder" aria-label="Create folder" title="Create folder"><i aria-hidden="true">create_new_folder</i></button>
+      <button data-action="rename" aria-label="Rename" title="Rename"><i aria-hidden="true">drive_file_rename_outline</i></button>
+      <button data-action="delete" aria-label="Delete" title="Delete"><i aria-hidden="true">delete</i></button>
     `
     return toolbar
   }
@@ -191,6 +222,21 @@ export class ViewFiles extends HTMLElement {
     this._headerControlsElement = null
   }
 
+  updateHeaderControlsUI() {
+    if (!this._headerControlsElement) return
+    const renameButton = this._headerControlsElement.querySelector('[data-action="rename"]')
+    if (renameButton instanceof HTMLButtonElement) {
+      renameButton.disabled = !this.selectedPath
+    }
+
+    this.updateTargetPath()
+
+    const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
+    if (deleteButton instanceof HTMLButtonElement) {
+      deleteButton.disabled = !this.selectedPath
+    }
+  }
+
   async callFs(method, input) {
     const result = await runtime.call('fs', method, input)
     if (result.returnCode !== 0) {
@@ -204,14 +250,17 @@ export class ViewFiles extends HTMLElement {
     this.setPath(this.rootPath)
 
     try {
+      this.fileTree.clear()
       await this.loadDirectory(this.rootPath)
       await this.ensureExpandedDirectoriesLoaded()
       this.pruneSelection()
       this.render()
+      this.updateHeaderControlsUI()
       this.setStatus(this.describeStatus(), 'success')
     } catch (error) {
       this.fileTree.clear()
       this.renderError(error)
+      this.updateHeaderControlsUI()
       this.setStatus(`Error: ${error?.message || error}`, 'danger')
       console.error('view-files refresh failed:', error)
     }
@@ -243,9 +292,22 @@ export class ViewFiles extends HTMLElement {
   }
 
   async ensureExpandedDirectoriesLoaded() {
-    for (const path of this.expandedPaths) {
-      if (this.fileTree.has(path)) continue
+    const pending = [...this.expandedPaths]
+    const loaded = new Set()
+
+    while (pending.length > 0) {
+      const path = pending.shift()
+      if (loaded.has(path)) continue
+      loaded.add(path)
+
       await this.loadDirectory(path)
+
+      const entries = this.fileTree.get(path) || []
+      for (const entry of entries) {
+        if (entry.type !== 'directory') continue
+        if (!this.expandedPaths.has(entry.path)) continue
+        pending.push(entry.path)
+      }
     }
   }
 
@@ -380,6 +442,11 @@ export class ViewFiles extends HTMLElement {
       }
       this.selectRow(entry.path)
     })
+    row.addEventListener('dblclick', async () => {
+      if (entry.type === 'file') {
+        await this.openFile(entry.path)
+      }
+    })
     row.addEventListener('keydown', (event) => this.handleRowKeyDown(event, entry))
 
     return row
@@ -388,6 +455,196 @@ export class ViewFiles extends HTMLElement {
   isPathSelected(path) {
     if (this.multiSelect) return this.selectedPaths.has(path)
     return this.selectedPath === path
+  }
+
+  getEntry(path, directoryPath = this.rootPath) {
+    const entries = this.fileTree.get(directoryPath) || []
+    for (const entry of entries) {
+      if (entry.path === path) return entry
+      if (entry.type === 'directory' && this.fileTree.has(entry.path)) {
+        const found = this.getEntry(path, entry.path)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  getTargetDirectoryPath() {
+    if (!this.selectedPath) return this.rootPath
+    const selectedEntry = this.getEntry(this.selectedPath)
+    if (!selectedEntry) return this.rootPath
+
+    if (selectedEntry.type === 'directory') {
+      if (this.expandedPaths.has(selectedEntry.path)) {
+        return selectedEntry.path
+      }
+      const slashIndex = selectedEntry.path.lastIndexOf('/')
+      return slashIndex <= 0 ? '/' : selectedEntry.path.slice(0, slashIndex)
+    }
+
+    const slashIndex = this.selectedPath.lastIndexOf('/')
+    return slashIndex <= 0 ? '/' : this.selectedPath.slice(0, slashIndex)
+  }
+
+  async openCreatePopup(kind) {
+    const parentPath = this.getTargetDirectoryPath()
+    const title = kind === 'directory' ? 'Create Folder' : 'Create File'
+    const result = await runtime.call('ui.popup', 'open', {
+      title,
+      size: 'medium',
+      tag: 'file-rename',
+      props: {
+        mode: 'create',
+        kind,
+        parentPath,
+      },
+    })
+
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (payload?.reload) {
+      if (payload.revealPath && payload.revealPath !== this.rootPath) {
+        this.expandedPaths.add(payload.revealPath)
+      }
+      await this.refresh()
+      if (payload.selectedPath) this.selectRow(payload.selectedPath)
+    }
+  }
+
+  async openRenamePopup() {
+    if (!this.selectedPath) return
+    const entry = this.getEntry(this.selectedPath)
+    assert(entry, `view-files selected path not found: ${this.selectedPath}`)
+
+    const sourcePath = entry.path
+    const result = await runtime.call('ui.popup', 'open', {
+      title: entry.type === 'directory' ? 'Rename Folder' : 'Rename File',
+      size: 'medium',
+      tag: 'file-rename',
+      props: {
+        mode: 'rename',
+        kind: entry.type,
+        targetPath: entry.path,
+      },
+    })
+
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (payload?.reload) {
+      if (entry.type === 'directory' && payload.selectedPath) {
+        this.rewriteExpandedPaths(sourcePath, payload.selectedPath)
+      }
+      if (payload.revealPath && payload.revealPath !== this.rootPath) {
+        this.expandedPaths.add(payload.revealPath)
+      }
+      this.selectedPath = null
+      this.selectedPaths.clear()
+      await this.refresh()
+      if (payload.selectedPath) this.selectRow(payload.selectedPath)
+    }
+  }
+
+  async confirmDelete(entry) {
+    const result = await runtime.call('ui.toast', 'confirm', {
+      message: entry.type === 'directory'
+        ? `Delete folder "${entry.name}" and all its contents?`
+        : `Delete file "${entry.name}"?`,
+      type: 'warning',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    })
+    return JSON.parse(decodeOutput(result) || 'false') === true
+  }
+
+  async deletePathRecursive(path) {
+    const statResult = await this.callFs('stat', path)
+    const stat = JSON.parse(decodeOutput(statResult))
+    assert(stat && typeof stat.type === 'string', `fs.stat missing type for '${path}'`)
+
+    if (stat.type === 'directory') {
+      const listResult = await this.callFs('list', path)
+      const names = JSON.parse(decodeOutput(listResult))
+      assert(Array.isArray(names), 'fs.list must return an array of entry names')
+
+      for (const name of names) {
+        await this.deletePathRecursive(joinPath(path, name))
+      }
+
+      await this.callFs('rmdir', path)
+      return
+    }
+
+    await this.callFs('remove', path)
+  }
+
+  async deleteSelected() {
+    if (!this.selectedPath) return
+    const entry = this.getEntry(this.selectedPath)
+    assert(entry, `view-files selected path not found: ${this.selectedPath}`)
+
+    const confirmed = await this.confirmDelete(entry)
+    if (!confirmed) return
+
+    this.setStatus(`Deleting ${entry.path}...`, 'info')
+    await this.deletePathRecursive(entry.path)
+
+    this.selectedPath = null
+    this.selectedPaths.clear()
+    this.fileTree.clear()
+    this.removeExpandedPathTree(entry.path)
+    await this.refresh()
+  }
+
+  async openFile(path) {
+    const entry = this.getEntry(path)
+    assert(entry, `view-files file path not found: ${path}`)
+    assert(entry.type === 'file', `view-files openFile expected file path: ${path}`)
+
+    const result = await runtime.call('ui.popup', 'open', {
+      title: entry.name,
+      size: 'large',
+      tag: resolveFileEditorTag(entry.path),
+      props: {
+        path: entry.path,
+      },
+    })
+
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (payload?.reload) {
+      await this.refresh()
+      if (payload.selectedPath) this.selectRow(payload.selectedPath)
+    }
+  }
+
+  rewriteExpandedPaths(sourcePath, targetPath) {
+    const source = normalizePath(sourcePath)
+    const target = normalizePath(targetPath)
+    const next = new Set()
+
+    for (const path of this.expandedPaths) {
+      if (path === source) {
+        next.add(target)
+        continue
+      }
+      if (path.startsWith(`${source}/`)) {
+        next.add(`${target}${path.slice(source.length)}`)
+        continue
+      }
+      next.add(path)
+    }
+
+    this.expandedPaths = next
+  }
+
+  removeExpandedPathTree(pathToRemove) {
+    const target = normalizePath(pathToRemove)
+    const next = new Set()
+
+    for (const path of this.expandedPaths) {
+      if (path === target) continue
+      if (path.startsWith(`${target}/`)) continue
+      next.add(path)
+    }
+
+    this.expandedPaths = next
   }
 
   selectRow(path) {
@@ -399,6 +656,7 @@ export class ViewFiles extends HTMLElement {
       this.selectedPaths = new Set([path])
     }
     this.updateSelectionUI()
+    this.updateHeaderControlsUI()
   }
 
   updateSelectionUI() {
@@ -415,6 +673,7 @@ export class ViewFiles extends HTMLElement {
         await this.toggleDirectory(entry.path)
       } else {
         this.selectRow(entry.path)
+        await this.openFile(entry.path)
       }
       return
     }
@@ -429,6 +688,18 @@ export class ViewFiles extends HTMLElement {
     if (event.key === 'F5') {
       event.preventDefault()
       void this.refresh()
+      return
+    }
+
+    if (event.key === 'F2') {
+      event.preventDefault()
+      void this.openRenamePopup()
+      return
+    }
+
+    if (event.key === 'Delete') {
+      event.preventDefault()
+      void this.deleteSelected()
     }
   }
 
@@ -452,7 +723,12 @@ export class ViewFiles extends HTMLElement {
 
   setPath(path) {
     assert(this.pathElement instanceof HTMLOutputElement, 'view-files path output is not initialized')
-    this.pathElement.textContent = path
+    this.pathElement.textContent = `Root: ${path}`
+  }
+
+  updateTargetPath() {
+    assert(this.targetElement instanceof HTMLOutputElement, 'view-files target output is not initialized')
+    this.targetElement.textContent = `Create in: ${this.getTargetDirectoryPath()}`
   }
 
   setStatus(text, tone = null) {
