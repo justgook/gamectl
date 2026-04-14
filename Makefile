@@ -51,7 +51,12 @@ WAILS_SDKROOT ?= $(shell xcrun --show-sdk-path)
 # Detect all plugin subdirectories (exclude fs which is now built-in to plugin-manager)
 PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
 PLUGINS := $(notdir $(PLUGIN_DIRS))
-PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
+JS_PLUGIN_ENTRYPOINTS := $(wildcard $(PLUGIN_DIR)/*/index.js)
+PLUGIN_NAMES_JS := $(sort $(patsubst $(PLUGIN_DIR)/%/index.js,%,$(JS_PLUGIN_ENTRYPOINTS)))
+PLUGIN_NAMES_WASM := $(filter-out $(PLUGIN_NAMES_JS),$(PLUGINS))
+PLUGIN_TARGETS_WASM := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGIN_NAMES_WASM)))
+PLUGIN_TARGETS_JS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .js,$(PLUGIN_NAMES_JS)))
+PLUGIN_TARGETS := $(PLUGIN_TARGETS_WASM) $(PLUGIN_TARGETS_JS)
 
 # Detect plugin test entry points.
 # Each plugin can contribute `plugins/<name>/test/e2e.mjs` and `make test`
@@ -94,6 +99,7 @@ PLUGIN_CFLAGS :=
 PLUGIN_LDFLAGS :=
 PLUGIN_C_SOURCES :=
 PLUGIN_EXTRA_DEPS :=
+PLUGIN_JS_EXTRA_DEPS :=
 
 # Helper macro: attach manifest-defined variables to that plugin's wasm target
 #
@@ -125,6 +131,7 @@ define APPLY_PLUGIN_MANIFEST
   ZIG_LDFLAGS_$(1)      := $$(PLUGIN_LDFLAGS)
   ZIG_C_SOURCES_$(1)    := $$(if $$(strip $$(PLUGIN_C_SOURCES)),$$(PLUGIN_C_SOURCES),$(wildcard $(PLUGIN_DIR)/$(1)/main.c))
   ZIG_EXTRA_DEPS_$(1)   := $$(if $$(strip $$(PLUGIN_EXTRA_DEPS)),$$(PLUGIN_EXTRA_DEPS),$(wildcard $(PLUGIN_DIR)/$(1)/*.h))
+  JS_EXTRA_DEPS_$(1)    := $$(or $$(PLUGIN_JS_EXTRA_DEPS),$$(PLUGIN_EXTRA_DEPS))
 
   # Apply as target-specific vars for this plugin's .wasm output
   $(BUILD_DIR)/plugins/$(1).wasm: ODIN_WASM_TARGET := $$(ODIN_WASM_TARGET_$(1))
@@ -140,6 +147,7 @@ define APPLY_PLUGIN_MANIFEST
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_C_SOURCES := $$(ZIG_C_SOURCES_$(1))
   $$(if $$(strip $$(ZIG_C_SOURCES_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_C_SOURCES_$(1)))
   $$(if $$(strip $$(ZIG_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_EXTRA_DEPS_$(1)))
+  $$(if $$(strip $$(JS_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).js: $$(JS_EXTRA_DEPS_$(1)))
 
   # Cleanup manifest locals so they don't leak into next plugin
   PLUGIN_ODIN_WASM_TARGET :=
@@ -154,6 +162,7 @@ define APPLY_PLUGIN_MANIFEST
   PLUGIN_LDFLAGS :=
   PLUGIN_C_SOURCES :=
   PLUGIN_EXTRA_DEPS :=
+  PLUGIN_JS_EXTRA_DEPS :=
 endef
 
 $(foreach p,$(PLUGINS),$(eval $(call APPLY_PLUGIN_MANIFEST,$(p))))
@@ -174,14 +183,18 @@ test: $(PLUGIN_TEST_TARGETS)
 
 define DEFINE_PLUGIN_TEST
 .PHONY: $(1)-test
-$(1)-test: $(BUILD_DIR)/plugins/$(1).wasm $(PLUGIN_DIR)/$(1)/test/e2e.mjs
+$(1)-test: $(if $(filter $(1),$(PLUGIN_NAMES_JS)),$(BUILD_DIR)/plugins/$(1).js,$(BUILD_DIR)/plugins/$(1).wasm) $(PLUGIN_DIR)/$(1)/test/e2e.mjs
 	$(Q)node ./$(PLUGIN_DIR)/$(1)/test/e2e.mjs
 endef
 
 $(foreach p,$(PLUGIN_TEST_PLUGINS),$(eval $(call DEFINE_PLUGIN_TEST,$(p))))
 
-.PHONY: plugins-release
+.PHONY: plugins-release plugins-release-wasm plugins-release-js
 plugins-release: $(PLUGIN_TARGETS)
+
+plugins-release-wasm: $(PLUGIN_TARGETS_WASM)
+
+plugins-release-js: $(PLUGIN_TARGETS_JS)
 
 GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
 
@@ -202,9 +215,9 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%
 		$(ZIG_EXTRA_FLAGS) \
 		-femit-bin=$@
 
-$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
-	$(Q)echo "nothing to do $*..."
-	$(Q)touch $@
+$(BUILD_DIR)/plugins/%.js: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%/*.js) | $(BUILD_DIR)/plugins
+	$(Q)echo "Registering JS plugin $*..."
+	$(Q)$(CP) $< $@
 
 # Rule to build Odin plugins
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/%/*.odin) | $(BUILD_DIR)/plugins
