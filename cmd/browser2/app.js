@@ -6,6 +6,7 @@ import './widgets/code-editor.js'
 import './widgets/view-pagination.js'
 import './views/view-sql.js'
 import './views/view-sql-console.js'
+import './views/view-ai.js'
 import './views/sql-table-editor.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
@@ -14,6 +15,7 @@ const DEFAULT_LAYOUT = `
   <view-sql-console />
   <sql-table-editor setup="0:h:50"/>
   <view-sql setup="0:v:50" />
+  <view-ai setup="1:v:50" />
 `
 
 function placeholderView(tag, label) {
@@ -39,6 +41,10 @@ const viewRegistry = new Map([
   ['view-sql-console', {
     label: 'SQL Console',
     create: () => document.createElement('view-sql-console'),
+  }],
+  ['view-ai', {
+    label: 'AI',
+    create: () => document.createElement('view-ai'),
   }],
   ['view-assets', placeholderView('view-assets', 'Assets')],
   ['view-debug', placeholderView('view-debug', 'Debug')],
