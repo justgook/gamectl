@@ -7,17 +7,11 @@ function decodeInput(input) {
   if (ArrayBuffer.isView(input)) {
     return decoder.decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
   }
-  return String(input ?? '')
+  throw new Error(`Unsupported input type '${typeof input}'`)
 }
 
-function parseJson(input, fallback = {}) {
-  const text = decodeInput(input)
-  if (!text) return fallback
-  try {
-    return JSON.parse(text)
-  } catch {
-    return fallback
-  }
+function parseJson(input) {
+  return JSON.parse(decodeInput(input))
 }
 
 function ok(value = {}) {
@@ -34,34 +28,36 @@ function fail(message, details = {}) {
   }
 }
 
+function assert(condition, message) {
+  if (!condition) throw new Error(message)
+}
+
 function now() {
   return Date.now()
 }
 
 function validateRequired(schema, args) {
-  const required = Array.isArray(schema?.required) ? schema.required : []
+  const required = Array.isArray(schema.required) ? schema.required : []
   for (const key of required) {
-    if (args?.[key] === undefined) return `Missing required field '${key}'`
+    if (args[key] === undefined) return `Missing required field '${key}'`
   }
   return ''
 }
 
 function messageText(message) {
-  if (!message) return ''
   if (typeof message.content === 'string') return message.content
-  if (!Array.isArray(message.content)) return ''
+  assert(Array.isArray(message.content), 'Expected message.content to be an array or string')
 
   return message.content.flatMap((block) => {
-    if (block?.type === 'text') return [block.text || '']
-    if (block?.type === 'tool_call') return [`Tool call: ${block.name} ${JSON.stringify(block.arguments || {})}`]
-    if (block?.type === 'tool_result') {
-      const text = Array.isArray(block.content)
-        ? block.content.map((entry) => entry?.text || '').filter(Boolean).join('\n')
-        : ''
+    if (block.type === 'text') return [block.text]
+    if (block.type === 'tool_call') return [`Tool call: ${block.name} ${JSON.stringify(block.arguments)}`]
+    if (block.type === 'tool_result') {
+      assert(Array.isArray(block.content), 'Expected tool_result.content to be an array')
+      const text = block.content.map((entry) => entry.text).join('\n')
       return [`${block.isError ? 'Tool error' : 'Tool result'}: ${block.name}${text ? `\n${text}` : ''}`]
     }
-    return []
-  }).filter(Boolean).join('\n')
+    throw new Error(`Unknown content block type '${block.type}'`)
+  }).join('\n')
 }
 
 function writeFsPayload(path, text) {
@@ -76,27 +72,30 @@ function writeFsPayload(path, text) {
 
 function fsExists(ctx, path) {
   const result = ctx.callSync('fs', 'exists', path)
-  if (result?.returnCode) return false
-  return decoder.decode(result.output || new Uint8Array()).trim() === 'true'
+  if (result.returnCode !== 0) return false
+  return decoder.decode(result.output).trim() === 'true'
 }
 
 function fsReadText(ctx, path) {
   const result = ctx.callSync('fs', 'read', path)
-  if (result?.returnCode) {
-    throw new Error(decoder.decode(result.output || new Uint8Array()) || `fs.read failed for ${path}`)
+  if (result.returnCode !== 0) {
+    throw new Error(decoder.decode(result.output) || `fs.read failed for ${path}`)
   }
-  return decoder.decode(result.output || new Uint8Array())
+  return decoder.decode(result.output)
 }
 
 function fsWriteText(ctx, path, text) {
   const result = ctx.callSync('fs', 'write', writeFsPayload(path, text))
-  if (result?.returnCode) {
-    throw new Error(decoder.decode(result.output || new Uint8Array()) || `fs.write failed for ${path}`)
+  if (result.returnCode !== 0) {
+    throw new Error(decoder.decode(result.output) || `fs.write failed for ${path}`)
   }
 }
 
-function isSupportedPersistConfig(persist) {
-  return persist && persist.driver === 'fs' && persist.format === 'jsonl' && typeof persist.path === 'string' && persist.path.length > 0
+function assertPersistConfig(persist) {
+  assert(persist && typeof persist === 'object', 'Persist config is required')
+  assert(persist.driver === 'fs', `Unsupported persist driver '${persist.driver}'`)
+  assert(persist.format === 'jsonl', `Unsupported persist format '${persist.format}'`)
+  assert(typeof persist.path === 'string' && persist.path.length > 0, 'Persist path is required')
 }
 
 function makeDefaultTools() {
@@ -139,14 +138,13 @@ function makeDefaultTools() {
   ]
 }
 
-function makeDefaultContext(profile = 'browser2-default') {
+function makeDefaultContext() {
   return [
     {
       kind: 'bootstrap',
       source: 'ai.agent',
-      label: 'Default browser2 profile',
+      label: 'Default browser2 bootstrap',
       content: {
-        profile,
         host: 'browser2',
       },
     },
@@ -157,7 +155,9 @@ const sessions = new Map()
 let nextHandle = 1
 
 function getSession(handle) {
-  return sessions.get(Number(handle) || 0) || null
+  const session = sessions.get(Number(handle))
+  assert(session, `Session not found for handle '${handle}'`)
+  return session
 }
 
 function touch(session) {
@@ -169,35 +169,34 @@ function sessionSummary(session) {
     handle: session.handle,
     provider: session.provider,
     model: session.model,
-    profile: session.profile,
     status: session.status,
     stepCount: session.stepCount,
     lastError: session.lastError,
     messageCount: session.messages.length,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
-    persist: session.persist || null,
+    persist: session.persist,
   }
 }
 
-function newSession(data = {}) {
+function newSession(data) {
   const createdAt = now()
-  return {
+  const session = {
     handle: nextHandle++,
-    provider: data.provider || 'ai.provider.mock',
-    model: data.model || 'mock-default',
-    profile: data.profile || 'browser2-default',
-    persist: isSupportedPersistConfig(data.persist) ? data.persist : null,
+    provider: data.provider ?? 'ai.provider.mock',
+    model: data.model ?? 'mock-default',
+    persist: data.persist ?? null,
     messages: [],
-    tools: makeDefaultTools(),
-    context: makeDefaultContext(data.profile || 'browser2-default'),
+    tools: Array.isArray(data.tools) ? data.tools : makeDefaultTools(),
+    context: Array.isArray(data.context) ? data.context : makeDefaultContext(),
     status: 'idle',
     stepCount: 0,
-    maxSteps: Number(data.maxSteps || 8),
+    maxSteps: Number(data.maxSteps ?? 8),
     lastError: '',
     createdAt,
     updatedAt: createdAt,
   }
+  return session
 }
 
 function serializeSessionJsonl(session) {
@@ -206,7 +205,6 @@ function serializeSessionJsonl(session) {
     type: 'session_meta',
     provider: session.provider,
     model: session.model,
-    profile: session.profile,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     maxSteps: session.maxSteps,
@@ -220,47 +218,46 @@ function serializeSessionJsonl(session) {
   return `${lines.join('\n')}\n`
 }
 
-function deserializeSessionJsonl(text, persistOverride = null) {
+function deserializeSessionJsonl(text, persistOverride) {
   const session = newSession({ persist: persistOverride })
   session.messages = []
   session.tools = makeDefaultTools()
-  session.context = makeDefaultContext(session.profile)
+  session.context = makeDefaultContext()
 
-  for (const line of String(text || '').split(/\r?\n/)) {
+  for (const line of String(text).split(/\r?\n/)) {
     if (!line.trim()) continue
-    let entry = null
-    try {
-      entry = JSON.parse(line)
-    } catch {
-      continue
-    }
-    if (!entry || typeof entry !== 'object') continue
+    const entry = JSON.parse(line)
+    assert(entry && typeof entry === 'object', 'Expected JSONL entry object')
 
     if (entry.type === 'session_meta') {
-      session.provider = entry.provider || session.provider
-      session.model = entry.model || session.model
-      session.profile = entry.profile || session.profile
-      session.createdAt = Number(entry.createdAt || session.createdAt)
-      session.updatedAt = Number(entry.updatedAt || session.updatedAt)
-      session.maxSteps = Number(entry.maxSteps || session.maxSteps)
-      if (persistOverride) session.persist = persistOverride
-      else if (isSupportedPersistConfig(entry.persist)) session.persist = entry.persist
+      session.provider = entry.provider
+      session.model = entry.model
+      session.createdAt = Number(entry.createdAt)
+      session.updatedAt = Number(entry.updatedAt)
+      session.maxSteps = Number(entry.maxSteps)
+      session.persist = persistOverride
       continue
     }
 
-    if (entry.type === 'context' && Array.isArray(entry.items)) {
+    if (entry.type === 'context') {
+      assert(Array.isArray(entry.items), 'Expected context items array')
       session.context = entry.items
       continue
     }
 
-    if (entry.type === 'tools' && Array.isArray(entry.items)) {
+    if (entry.type === 'tools') {
+      assert(Array.isArray(entry.items), 'Expected tools items array')
       session.tools = entry.items
       continue
     }
 
-    if (entry.type === 'message' && entry.message) {
+    if (entry.type === 'message') {
+      assert(entry.message, 'Expected message entry payload')
       session.messages.push(entry.message)
+      continue
     }
+
+    throw new Error(`Unknown JSONL entry type '${entry.type}'`)
   }
 
   session.handle = nextHandle++
@@ -270,17 +267,20 @@ function deserializeSessionJsonl(text, persistOverride = null) {
 }
 
 function persistSession(ctx, session) {
-  if (!isSupportedPersistConfig(session.persist)) return
+  if (session.persist == null) return
   const text = serializeSessionJsonl(session)
   fsWriteText(ctx, session.persist.path, text)
 }
 
 function openSession(data, ctx) {
-  if (isSupportedPersistConfig(data.persist) && fsExists(ctx, data.persist.path)) {
-    const text = fsReadText(ctx, data.persist.path)
-    const session = deserializeSessionJsonl(text, data.persist)
-    sessions.set(session.handle, session)
-    return session
+  if (data.persist != null) {
+    assertPersistConfig(data.persist)
+    if (fsExists(ctx, data.persist.path)) {
+      const text = fsReadText(ctx, data.persist.path)
+      const session = deserializeSessionJsonl(text, data.persist)
+      sessions.set(session.handle, session)
+      return session
+    }
   }
 
   const session = newSession(data)
@@ -309,7 +309,7 @@ function executeToolCalls(ctx, session, toolCalls) {
       continue
     }
 
-    const validationError = validateRequired(tool.inputSchema, toolCall.arguments || {})
+    const validationError = validateRequired(tool.inputSchema, toolCall.arguments)
     if (validationError) {
       toolResults.push({
         role: 'tool',
@@ -326,10 +326,8 @@ function executeToolCalls(ctx, session, toolCalls) {
     }
 
     try {
-      const result = ctx.callSync(tool.target.plugin, tool.target.method, JSON.stringify(toolCall.arguments || {}))
-      const text = result?.output instanceof Uint8Array
-        ? decoder.decode(result.output)
-        : JSON.stringify(result ?? null)
+      const result = ctx.callSync(tool.target.plugin, tool.target.method, JSON.stringify(toolCall.arguments))
+      const text = decoder.decode(result.output)
 
       toolResults.push({
         role: 'tool',
@@ -337,7 +335,7 @@ function executeToolCalls(ctx, session, toolCalls) {
           type: 'tool_result',
           toolCallId: toolCall.id,
           name: toolCall.name,
-          isError: !!result?.returnCode,
+          isError: result.returnCode !== 0,
           content: [{ type: 'text', text }],
         }],
         timestamp: now(),
@@ -350,7 +348,7 @@ function executeToolCalls(ctx, session, toolCalls) {
           toolCallId: toolCall.id,
           name: toolCall.name,
           isError: true,
-          content: [{ type: 'text', text: String(error?.message || error) }],
+          content: [{ type: 'text', text: String(error.message || error) }],
         }],
         timestamp: now(),
       })
@@ -362,7 +360,7 @@ function executeToolCalls(ctx, session, toolCalls) {
 
 function runLoop(session, ctx) {
   const startedAt = session.messages.length
-  const maxSteps = session.maxSteps || 8
+  const maxSteps = session.maxSteps
   let lastAssistant = null
 
   for (let i = 0; i < maxSteps; i++) {
@@ -379,28 +377,20 @@ function runLoop(session, ctx) {
     }
 
     const providerResult = ctx.callSync(session.provider, 'chat', JSON.stringify(providerInput))
-    if (providerResult?.returnCode) {
+    if (providerResult.returnCode !== 0) {
       session.status = 'error'
-      session.lastError = decoder.decode(providerResult.output || new Uint8Array())
+      session.lastError = decoder.decode(providerResult.output)
       touch(session)
       persistSession(ctx, session)
       return fail('Provider call failed', { providerError: session.lastError })
     }
 
-    const assistant = parseJson(providerResult.output, {
-      role: 'assistant',
-      content: [{ type: 'text', text: 'Empty provider response' }],
-      stopReason: 'stop',
-      timestamp: now(),
-    })
-    assistant.timestamp ||= now()
+    const assistant = parseJson(providerResult.output)
+    assistant.timestamp ??= now()
     lastAssistant = assistant
     session.messages.push(assistant)
 
-    const toolCalls = Array.isArray(assistant.content)
-      ? assistant.content.filter((entry) => entry?.type === 'tool_call')
-      : []
-
+    const toolCalls = assistant.content.filter((entry) => entry.type === 'tool_call')
     if (toolCalls.length === 0) {
       session.status = 'idle'
       touch(session)
@@ -428,17 +418,14 @@ const plugin = {
 
   methods: {
     open(input, ctx) {
-      const data = parseJson(input, {})
-      if (data.persist && !isSupportedPersistConfig(data.persist)) {
-        return fail('Unsupported persist config', { supported: { driver: 'fs', format: 'jsonl' } })
-      }
+      const data = parseJson(input)
       const session = openSession(data, ctx)
       return ok({ handle: session.handle, summary: sessionSummary(session) })
     },
 
     close(input) {
-      const data = parseJson(input, {})
-      const handle = Number(data.handle || 0)
+      const data = parseJson(input)
+      const handle = Number(data.handle)
       sessions.delete(handle)
       return ok({ ok: true, handle })
     },
@@ -448,18 +435,16 @@ const plugin = {
     },
 
     get_summary(input) {
-      const data = parseJson(input, {})
+      const data = parseJson(input)
       const session = getSession(data.handle)
-      if (!session) return fail('Session not found')
       return ok(sessionSummary(session))
     },
 
     get_history_page(input) {
-      const data = parseJson(input, {})
+      const data = parseJson(input)
       const session = getSession(data.handle)
-      if (!session) return fail('Session not found')
 
-      const limit = Math.max(1, Number(data.limit || 50))
+      const limit = Math.max(1, Number(data.limit))
       const endExclusive = data.cursor == null
         ? session.messages.length
         : Math.max(0, Math.min(session.messages.length, Number(data.cursor)))
@@ -474,54 +459,49 @@ const plugin = {
     },
 
     set_provider(input, ctx) {
-      const data = parseJson(input, {})
+      const data = parseJson(input)
       const session = getSession(data.handle)
-      if (!session) return fail('Session not found')
-      session.provider = data.provider || session.provider
-      session.model = data.model || session.model
+      session.provider = data.provider
+      session.model = data.model
       touch(session)
       persistSession(ctx, session)
       return ok(sessionSummary(session))
     },
 
     set_context(input, ctx) {
-      const data = parseJson(input, {})
+      const data = parseJson(input)
       const session = getSession(data.handle)
-      if (!session) return fail('Session not found')
-      session.context = Array.isArray(data.context) ? data.context : []
+      assert(Array.isArray(data.context), 'Expected context array')
+      session.context = data.context
       touch(session)
       persistSession(ctx, session)
       return ok({ ok: true, summary: sessionSummary(session) })
     },
 
     add_context(input, ctx) {
-      const data = parseJson(input, {})
+      const data = parseJson(input)
       const session = getSession(data.handle)
-      if (!session) return fail('Session not found')
-      const entries = Array.isArray(data.context) ? data.context : (data.entry ? [data.entry] : [])
-      session.context.push(...entries)
+      assert(Array.isArray(data.context), 'Expected context array')
+      session.context.push(...data.context)
       touch(session)
       persistSession(ctx, session)
       return ok({ ok: true, summary: sessionSummary(session) })
     },
 
     send(input, ctx) {
-      const data = parseJson(input, {})
+      const data = parseJson(input)
       const session = getSession(data.handle)
-      if (!session) return fail('Session not found')
+      assert(typeof data.message === 'string', 'Expected message string')
+      assert(data.message.trim().length > 0, 'Message must not be empty')
 
-      const text = typeof data.message === 'string' ? data.message.trim() : ''
-      if (!text) return fail('Message is required')
-
-      session.messages.push({ role: 'user', content: text, timestamp: now() })
+      session.messages.push({ role: 'user', content: data.message.trim(), timestamp: now() })
       touch(session)
       return runLoop(session, ctx)
     },
 
     get_transcript_text(input) {
-      const data = parseJson(input, {})
+      const data = parseJson(input)
       const session = getSession(data.handle)
-      if (!session) return fail('Session not found')
       return ok({
         text: session.messages.map((message) => `${message.role}: ${messageText(message)}`).join('\n\n'),
       })

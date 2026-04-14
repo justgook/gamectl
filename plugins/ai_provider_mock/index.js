@@ -7,17 +7,11 @@ function decodeInput(input) {
   if (ArrayBuffer.isView(input)) {
     return decoder.decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
   }
-  return String(input ?? '')
+  throw new Error(`Unsupported input type '${typeof input}'`)
 }
 
-function parseJson(input, fallback = {}) {
-  const text = decodeInput(input)
-  if (!text) return fallback
-  try {
-    return JSON.parse(text)
-  } catch {
-    return fallback
-  }
+function parseJson(input) {
+  return JSON.parse(decodeInput(input))
 }
 
 function ok(value = {}) {
@@ -27,19 +21,21 @@ function ok(value = {}) {
   }
 }
 
-let script = []
-let cursor = 0
-
 function getLastMessage(messages) {
-  return Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1] : null
+  if (!Array.isArray(messages)) throw new Error('Expected request.messages to be an array')
+  return messages.length > 0 ? messages[messages.length - 1] : null
 }
 
 function extractToolResultText(message) {
-  if (!message || message.role !== 'tool') return ''
-  const block = Array.isArray(message.content) ? message.content[0] : null
-  const first = Array.isArray(block?.content) ? block.content[0] : null
-  return typeof first?.text === 'string' ? first.text : ''
+  if (message.role !== 'tool') throw new Error(`Expected tool message, got '${message.role}'`)
+  const block = message.content[0]
+  const first = block.content[0]
+  if (typeof first.text !== 'string') throw new Error('Expected tool result text content')
+  return first.text
 }
+
+let script = []
+let cursor = 0
 
 const plugin = {
   id: 'ai.provider.mock',
@@ -52,41 +48,40 @@ const plugin = {
     },
 
     set_script(input) {
-      const data = parseJson(input, {})
-      script = Array.isArray(data.script) ? data.script : []
+      const data = parseJson(input)
+      if (!Array.isArray(data.script)) throw new Error('Expected script array')
+      script = data.script
       cursor = 0
       return ok({ ok: true, count: script.length })
     },
 
     chat(input) {
-      const request = parseJson(input, {})
+      const request = parseJson(input)
       const step = script[cursor++]
+      if (step) return ok(step)
 
-      if (step) {
-        return ok(step)
-      }
-
-      const messages = Array.isArray(request.messages) ? request.messages : []
+      const messages = request.messages
       const lastMessage = getLastMessage(messages)
 
-      if (lastMessage?.role === 'tool') {
+      if (lastMessage && lastMessage.role === 'tool') {
         const resultText = extractToolResultText(lastMessage)
         return ok({
           role: 'assistant',
           content: [
             {
               type: 'text',
-              text: resultText ? `Tool result:\n${resultText}` : 'Tool finished.',
+              text: `Tool result:\n${resultText}`,
             },
           ],
           stopReason: 'stop',
         })
       }
 
-      const lastUser = [...messages].reverse().find((message) => message?.role === 'user')
-      const text = typeof lastUser?.content === 'string'
-        ? lastUser.content
-        : 'Mock provider response.'
+      const lastUser = [...messages].reverse().find((message) => message.role === 'user')
+      if (!lastUser) throw new Error('Mock provider expected at least one user message')
+      if (typeof lastUser.content !== 'string') throw new Error('Mock provider expected user content string')
+
+      const text = lastUser.content
       const lower = text.toLowerCase()
 
       if (lower.includes('list') && lower.includes('file')) {
