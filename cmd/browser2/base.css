@@ -718,14 +718,6 @@
     height: 1lh;
   }
 
-  pre>.accent,
-  pre>.success,
-  pre>.warning,
-  pre>.danger,
-  pre>.info {
-    color: var(--intent-soft-fg);
-  }
-
   output {
     min-width: 0;
     color: var(--text);
