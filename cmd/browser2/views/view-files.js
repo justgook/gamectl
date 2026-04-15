@@ -87,9 +87,14 @@ export class ViewFiles extends HTMLElement {
     this.selectedPaths = new Set()
     this.fileTree = new Map()
     this.tableElement = null
+    this.footerElement = null
     this.pathElement = null
     this.statusElement = null
     this.targetElement = null
+    this.filenameInput = null
+    this.actionCancelButton = null
+    this.actionSelectButton = null
+    this.actionSaveButton = null
     this._headerControlsElement = null
   }
 
@@ -103,22 +108,16 @@ export class ViewFiles extends HTMLElement {
       <article>
         <table data-element="table"></table>
       </article>
-      <footer>
-        <output data-element="path"></output>
-        <output data-element="target"></output>
-        <output data-element="status"></output>
-      </footer>
+      <footer data-element="footer"></footer>
     `
 
     this.tableElement = this.querySelector('[data-element="table"]')
-    this.pathElement = this.querySelector('[data-element="path"]')
-    this.targetElement = this.querySelector('[data-element="target"]')
-    this.statusElement = this.querySelector('[data-element="status"]')
+    this.footerElement = this.querySelector('[data-element="footer"]')
 
     assert(this.tableElement instanceof HTMLTableElement, 'view-files missing table element')
-    assert(this.pathElement instanceof HTMLOutputElement, 'view-files missing path output')
-    assert(this.targetElement instanceof HTMLOutputElement, 'view-files missing target output')
-    assert(this.statusElement instanceof HTMLOutputElement, 'view-files missing status output')
+    assert(this.footerElement instanceof HTMLElement, 'view-files missing footer element')
+
+    this.renderFooter()
 
     this._mountHeaderControls()
 
@@ -161,19 +160,29 @@ export class ViewFiles extends HTMLElement {
 
     if (name === 'data-mode') {
       this.mode = newValue || 'browser'
-      if (this.dataset.ready) this.render()
+      if (this.dataset.ready) {
+        this.renderFooter()
+        this.updateHeaderControlsUI()
+        this.render()
+      }
       return
     }
 
     if (name === 'data-filter') {
       this.filter = newValue || ''
-      if (this.dataset.ready) this.render()
+      if (this.dataset.ready) {
+        this.updateFooterUI()
+        this.render()
+      }
       return
     }
 
     if (name === 'data-select-folders') {
       this.selectFolders = newValue === 'true'
-      if (this.dataset.ready) this.render()
+      if (this.dataset.ready) {
+        this.updateFooterUI()
+        this.render()
+      }
       return
     }
 
@@ -184,12 +193,16 @@ export class ViewFiles extends HTMLElement {
         this.selectedPaths = new Set(first ? [first] : [])
         this.selectedPath = first || null
       }
-      if (this.dataset.ready) this.render()
+      if (this.dataset.ready) {
+        this.updateFooterUI()
+        this.render()
+      }
       return
     }
 
     if (name === 'data-default-name') {
       this.defaultName = newValue || ''
+      if (this.dataset.ready) this.renderFooter()
     }
   }
 
@@ -224,17 +237,115 @@ export class ViewFiles extends HTMLElement {
 
   updateHeaderControlsUI() {
     if (!this._headerControlsElement) return
-    const renameButton = this._headerControlsElement.querySelector('[data-action="rename"]')
-    if (renameButton instanceof HTMLButtonElement) {
-      renameButton.disabled = !this.selectedPath
+
+    const isBrowserMode = this.mode === 'browser'
+    const isSaverMode = this.mode === 'saver'
+
+    const newFileButton = this._headerControlsElement.querySelector('[data-action="new-file"]')
+    if (newFileButton instanceof HTMLButtonElement) {
+      newFileButton.disabled = !isBrowserMode
     }
 
-    this.updateTargetPath()
+    const newFolderButton = this._headerControlsElement.querySelector('[data-action="new-folder"]')
+    if (newFolderButton instanceof HTMLButtonElement) {
+      newFolderButton.disabled = !(isBrowserMode || isSaverMode)
+    }
+
+    const renameButton = this._headerControlsElement.querySelector('[data-action="rename"]')
+    if (renameButton instanceof HTMLButtonElement) {
+      renameButton.disabled = !isBrowserMode || !this.selectedPath
+    }
 
     const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
     if (deleteButton instanceof HTMLButtonElement) {
-      deleteButton.disabled = !this.selectedPath
+      deleteButton.disabled = !isBrowserMode || !this.selectedPath
     }
+
+    this.updateFooterUI()
+  }
+
+  renderFooter() {
+    assert(this.footerElement instanceof HTMLElement, 'view-files footer element is not initialized')
+
+    this.footerElement.innerHTML = ''
+
+    this.pathElement = document.createElement('output')
+    this.pathElement.dataset.element = 'path'
+    this.footerElement.appendChild(this.pathElement)
+
+    this.targetElement = document.createElement('output')
+    this.targetElement.dataset.element = 'target'
+    this.footerElement.appendChild(this.targetElement)
+
+    this.statusElement = document.createElement('output')
+    this.statusElement.dataset.element = 'status'
+    this.footerElement.appendChild(this.statusElement)
+
+    this.filenameInput = null
+    this.actionCancelButton = null
+    this.actionSelectButton = null
+    this.actionSaveButton = null
+
+    if (this.mode === 'chooser') {
+      this.actionCancelButton = document.createElement('button')
+      this.actionCancelButton.type = 'button'
+      this.actionCancelButton.dataset.action = 'cancel'
+      this.actionCancelButton.textContent = 'Cancel'
+      this.actionCancelButton.addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('chooser-cancel', { bubbles: true }))
+      })
+      this.footerElement.appendChild(this.actionCancelButton)
+
+      this.actionSelectButton = document.createElement('button')
+      this.actionSelectButton.type = 'button'
+      this.actionSelectButton.dataset.action = 'select'
+      this.actionSelectButton.classList.add('accent')
+      this.actionSelectButton.textContent = 'Select'
+      this.actionSelectButton.addEventListener('click', () => this.confirmChooserSelection())
+      this.footerElement.appendChild(this.actionSelectButton)
+    }
+
+    if (this.mode === 'saver') {
+      this.filenameInput = document.createElement('input')
+      this.filenameInput.type = 'text'
+      this.filenameInput.dataset.field = 'filename'
+      this.filenameInput.value = this.defaultName
+      this.filenameInput.addEventListener('input', () => {
+        this.defaultName = this.filenameInput.value
+        this.updateFooterUI()
+      })
+      this.filenameInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          void this.confirmSave()
+        }
+      })
+      this.footerElement.appendChild(this.filenameInput)
+
+      this.actionCancelButton = document.createElement('button')
+      this.actionCancelButton.type = 'button'
+      this.actionCancelButton.dataset.action = 'cancel'
+      this.actionCancelButton.textContent = 'Cancel'
+      this.actionCancelButton.addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('saver-cancel', { bubbles: true }))
+      })
+      this.footerElement.appendChild(this.actionCancelButton)
+
+      this.actionSaveButton = document.createElement('button')
+      this.actionSaveButton.type = 'button'
+      this.actionSaveButton.dataset.action = 'save'
+      this.actionSaveButton.classList.add('accent')
+      this.actionSaveButton.textContent = 'Save'
+      this.actionSaveButton.addEventListener('click', () => this.confirmSave())
+      this.footerElement.appendChild(this.actionSaveButton)
+    }
+
+    assert(this.pathElement instanceof HTMLOutputElement, 'view-files missing path output')
+    assert(this.targetElement instanceof HTMLOutputElement, 'view-files missing target output')
+    assert(this.statusElement instanceof HTMLOutputElement, 'view-files missing status output')
+
+    this.setPath(this.rootPath)
+    this.updateFooterUI()
   }
 
   async callFs(method, input) {
@@ -345,6 +456,20 @@ export class ViewFiles extends HTMLElement {
     return `${rootEntries.length} ${noun} at ${this.rootPath}`
   }
 
+  matchesFilter(filename) {
+    if (!this.filter) return true
+    const patterns = this.filter.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
+    if (patterns.length === 0) return true
+    const target = String(filename || '').toLowerCase()
+
+    return patterns.some((pattern) => {
+      const regexText = pattern
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '.*')
+      return new RegExp(`^${regexText}$`, 'i').test(target)
+    })
+  }
+
   render() {
     assert(this.tableElement instanceof HTMLTableElement, 'view-files table element is not initialized')
 
@@ -443,7 +568,7 @@ export class ViewFiles extends HTMLElement {
       this.selectRow(entry.path)
     })
     row.addEventListener('dblclick', async () => {
-      if (entry.type === 'file') {
+      if (entry.type === 'file' && this.mode === 'browser') {
         await this.openFile(entry.path)
       }
     })
@@ -453,8 +578,16 @@ export class ViewFiles extends HTMLElement {
   }
 
   isPathSelected(path) {
-    if (this.multiSelect) return this.selectedPaths.has(path)
+    if (this.multiSelect && this.mode === 'chooser') return this.selectedPaths.has(path)
     return this.selectedPath === path
+  }
+
+  isSelectableEntry(entry) {
+    if (!entry) return false
+    if (this.mode === 'browser') return true
+    if (this.mode === 'saver') return entry.type === 'directory' || entry.type === 'file'
+    if (entry.type === 'directory') return this.selectFolders
+    return this.matchesFilter(entry.name)
   }
 
   getEntry(path, directoryPath = this.rootPath) {
@@ -649,14 +782,28 @@ export class ViewFiles extends HTMLElement {
 
   selectRow(path) {
     this.selectedPath = path
-    if (this.multiSelect) {
-      if (this.selectedPaths.has(path)) this.selectedPaths.delete(path)
-      else this.selectedPaths.add(path)
+
+    if (this.mode === 'chooser' && this.multiSelect) {
+      const entry = this.getEntry(path)
+      if (this.isSelectableEntry(entry)) {
+        if (this.selectedPaths.has(path)) this.selectedPaths.delete(path)
+        else this.selectedPaths.add(path)
+      }
     } else {
-      this.selectedPaths = new Set([path])
+      this.selectedPaths = new Set(path ? [path] : [])
     }
+
+    if (this.mode === 'saver') {
+      const entry = this.getEntry(path)
+      if (entry?.type === 'file' && this.filenameInput instanceof HTMLInputElement) {
+        this.filenameInput.value = entry.name
+        this.defaultName = entry.name
+      }
+    }
+
     this.updateSelectionUI()
     this.updateHeaderControlsUI()
+    this.emitSelectionChanged()
   }
 
   updateSelectionUI() {
@@ -671,8 +818,11 @@ export class ViewFiles extends HTMLElement {
       if (entry.type === 'directory') {
         this.selectRow(entry.path)
         await this.toggleDirectory(entry.path)
-      } else {
-        this.selectRow(entry.path)
+        return
+      }
+
+      this.selectRow(entry.path)
+      if (this.mode === 'browser') {
         await this.openFile(entry.path)
       }
       return
@@ -691,15 +841,27 @@ export class ViewFiles extends HTMLElement {
       return
     }
 
-    if (event.key === 'F2') {
+    if (this.mode === 'browser' && event.key === 'F2') {
       event.preventDefault()
       void this.openRenamePopup()
       return
     }
 
-    if (event.key === 'Delete') {
+    if (this.mode === 'browser' && event.key === 'Delete') {
       event.preventDefault()
       void this.deleteSelected()
+      return
+    }
+
+    if (this.mode === 'chooser' && event.key === 'Escape') {
+      event.preventDefault()
+      this.dispatchEvent(new CustomEvent('chooser-cancel', { bubbles: true }))
+      return
+    }
+
+    if (this.mode === 'saver' && event.key === 'Escape') {
+      event.preventDefault()
+      this.dispatchEvent(new CustomEvent('saver-cancel', { bubbles: true }))
     }
   }
 
@@ -721,6 +883,57 @@ export class ViewFiles extends HTMLElement {
     this.setStatus(this.describeStatus(), 'success')
   }
 
+  getSelection() {
+    if (this.mode === 'chooser' && this.multiSelect) {
+      const result = []
+      for (const path of this.selectedPaths) {
+        const entry = this.getEntry(path)
+        if (!this.isSelectableEntry(entry)) continue
+        result.push({ path: entry.path, name: entry.name, type: entry.type })
+      }
+      return result
+    }
+
+    if (!this.selectedPath) return null
+    const entry = this.getEntry(this.selectedPath)
+    if (!this.isSelectableEntry(entry)) return null
+    return { path: entry.path, name: entry.name, type: entry.type }
+  }
+
+  emitSelectionChanged() {
+    this.dispatchEvent(new CustomEvent('selection-changed', {
+      bubbles: true,
+      detail: { selection: this.getSelection() },
+    }))
+  }
+
+  confirmChooserSelection() {
+    const selection = this.getSelection()
+    const hasSelection = Array.isArray(selection) ? selection.length > 0 : selection !== null
+    if (!hasSelection) return
+    this.dispatchEvent(new CustomEvent('chooser-select', {
+      bubbles: true,
+      detail: { selection },
+    }))
+  }
+
+  async confirmSave() {
+    assert(this.filenameInput instanceof HTMLInputElement, 'view-files saver filename input is not initialized')
+    const name = this.filenameInput.value.trim()
+    if (!name) {
+      this.setStatus('Error: File name is required', 'danger')
+      this.filenameInput.focus()
+      return
+    }
+
+    const directory = this.getTargetDirectoryPath()
+    const path = joinPath(directory, name)
+    this.dispatchEvent(new CustomEvent('saver-save', {
+      bubbles: true,
+      detail: { path, name, directory },
+    }))
+  }
+
   setPath(path) {
     assert(this.pathElement instanceof HTMLOutputElement, 'view-files path output is not initialized')
     this.pathElement.textContent = `Root: ${path}`
@@ -728,7 +941,37 @@ export class ViewFiles extends HTMLElement {
 
   updateTargetPath() {
     assert(this.targetElement instanceof HTMLOutputElement, 'view-files target output is not initialized')
+
+    if (this.mode === 'chooser') {
+      const selection = this.getSelection()
+      if (Array.isArray(selection)) {
+        this.targetElement.textContent = `Selected: ${selection.length}`
+        return
+      }
+      this.targetElement.textContent = selection ? `Selected: ${selection.path}` : 'Selected: none'
+      return
+    }
+
+    if (this.mode === 'saver') {
+      this.targetElement.textContent = `Save in: ${this.getTargetDirectoryPath()}`
+      return
+    }
+
     this.targetElement.textContent = `Create in: ${this.getTargetDirectoryPath()}`
+  }
+
+  updateFooterUI() {
+    this.updateTargetPath()
+
+    if (this.actionSelectButton instanceof HTMLButtonElement) {
+      const selection = this.getSelection()
+      const hasSelection = Array.isArray(selection) ? selection.length > 0 : selection !== null
+      this.actionSelectButton.disabled = !hasSelection
+    }
+
+    if (this.actionSaveButton instanceof HTMLButtonElement && this.filenameInput instanceof HTMLInputElement) {
+      this.actionSaveButton.disabled = this.filenameInput.value.trim() === ''
+    }
   }
 
   setStatus(text, tone = null) {
