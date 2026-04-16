@@ -11,22 +11,48 @@ function quoteIdent(name) {
   return String(name).replace(/"/g, '""')
 }
 
+function assert(condition, message) {
+  if (!condition) throw new Error(message)
+}
+
 export class ViewSql extends HTMLElement {
+  static get observedAttributes() {
+    return [
+      'data-mode',
+      'data-query',
+      'data-count-query',
+      'data-page-size',
+      'data-confirm-label',
+      'data-return-column',
+      'data-return-fields',
+    ]
+  }
+
   constructor() {
     super()
+    this.popupProps = this.popupProps || {}
     this.tables = []
     this.selectedTable = null
     this.rows = []
     this.columns = []
     this.currentPage = 0
-    this.pageSize = parseInt(this.getAttribute('data-page-size') || '20', 10)
+    this.pageSize = 20
     this.totalCount = 0
+    this.mode = 'browser'
+    this.query = ''
+    this.countQuery = ''
+    this.confirmLabel = 'Select'
+    this.returnColumn = ''
+    this.returnFields = []
+    this.selectedRowIndex = -1
+    this.tablesPaneElement = null
     this.tablesContainer = null
     this.tablesStatusContainer = null
     this.tableContainer = null
     this.paginationElement = null
     this.tableStatusContainer = null
-    this.queryContainer = null
+    this.actionCancelButton = null
+    this.actionSelectButton = null
     this._headerControlsElement = null
   }
 
@@ -44,23 +70,35 @@ export class ViewSql extends HTMLElement {
       <article>
         <table data-element="table-container"></table>
       </article>
-      <footer>
+      <footer data-element="footer">
         <output data-element="status"></output>
         <view-pagination data-page="0" data-page-size-options="10,20,50,100"></view-pagination>
       </footer>
     `
 
+    this.tablesPaneElement = this.querySelector('[data-element="tables-pane"]')
     this.tablesContainer = this.querySelector('[data-element="tables-container"]')
     this.tablesStatusContainer = this.querySelector('[data-element="tables-status"]')
     this.tableContainer = this.querySelector('[data-element="table-container"]')
     this.paginationElement = this.querySelector('view-pagination')
     this.tableStatusContainer = this.querySelector('[data-element="status"]')
 
+    this.readConfig()
     this._mountHeaderControls()
+    this.renderFooter()
+    this.updateModeUI()
 
     this.paginationElement?.addEventListener('change', async (event) => {
       this.currentPage = event.detail.page
       this.pageSize = event.detail.pageSize
+      if (this.mode === 'chooser') {
+        await this.fetchQueryData()
+        this.renderTable()
+        this.renderPagination()
+        this.updateChooserUI()
+        this.setTableStatus(`${this.totalCount} rows`)
+        return
+      }
       await this.fetchTableData()
     })
 
@@ -69,6 +107,8 @@ export class ViewSql extends HTMLElement {
       toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh(null))
       toolbar.querySelector('[data-action="create-table"]')?.addEventListener('click', () => this.openCreateTablePopup())
     }
+
+    this.addEventListener('keydown', (event) => this.handleKeyDown(event))
 
     this.refresh()
   }
@@ -105,6 +145,70 @@ export class ViewSql extends HTMLElement {
   }
 
   updateHeaderControlsUI() {
+    if (!this._headerControlsElement) return
+    const createTableButton = this._headerControlsElement.querySelector('[data-action="create-table"]')
+    if (createTableButton instanceof HTMLButtonElement) {
+      createTableButton.disabled = this.mode !== 'browser'
+    }
+  }
+
+  readConfig() {
+    const props = this.popupProps || {}
+    this.mode = String(props.mode || this.getAttribute('data-mode') || 'browser')
+    this.query = String(props.query || this.getAttribute('data-query') || '')
+    this.countQuery = String(props.countQuery || this.getAttribute('data-count-query') || '')
+    this.confirmLabel = String(props.confirmLabel || this.getAttribute('data-confirm-label') || 'Select')
+    this.returnColumn = String(props.returnColumn || this.getAttribute('data-return-column') || '')
+    const returnFieldsInput = props.returnFields ?? this.getAttribute('data-return-fields') ?? ''
+    this.returnFields = Array.isArray(returnFieldsInput)
+      ? returnFieldsInput.map((field) => String(field)).filter(Boolean)
+      : String(returnFieldsInput)
+        .split(',')
+        .map((field) => field.trim())
+        .filter(Boolean)
+
+    const pageSizeValue = props.pageSize ?? this.getAttribute('data-page-size') ?? '20'
+    const parsedPageSize = parseInt(String(pageSizeValue), 10)
+    this.pageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0 ? parsedPageSize : 20
+  }
+
+  renderFooter() {
+    const footer = this.querySelector('[data-element="footer"]')
+    if (!(footer instanceof HTMLElement)) return
+
+    this.actionCancelButton?.remove()
+    this.actionSelectButton?.remove()
+    this.actionCancelButton = null
+    this.actionSelectButton = null
+
+    if (this.mode !== 'chooser') return
+
+    this.actionCancelButton = document.createElement('button')
+    this.actionCancelButton.type = 'button'
+    this.actionCancelButton.dataset.action = 'cancel'
+    this.actionCancelButton.textContent = 'Cancel'
+    this.actionCancelButton.addEventListener('click', async () => {
+      await runtime.call('ui.popup', 'close', { cancelled: true, ok: false })
+    })
+    footer.appendChild(this.actionCancelButton)
+
+    this.actionSelectButton = document.createElement('button')
+    this.actionSelectButton.type = 'button'
+    this.actionSelectButton.dataset.action = 'select'
+    this.actionSelectButton.classList.add('accent')
+    this.actionSelectButton.textContent = this.confirmLabel
+    this.actionSelectButton.addEventListener('click', async () => {
+      await this.confirmSelection()
+    })
+    footer.appendChild(this.actionSelectButton)
+  }
+
+  updateModeUI() {
+    if (this.tablesPaneElement instanceof HTMLElement) {
+      this.tablesPaneElement.hidden = this.mode === 'chooser'
+    }
+    this.updateHeaderControlsUI()
+    this.updateChooserUI()
   }
 
   async callSql(sql) {
@@ -116,6 +220,23 @@ export class ViewSql extends HTMLElement {
   }
 
   async refresh(tableToSelect = null) {
+    this.readConfig()
+    this.renderFooter()
+    this.updateModeUI()
+
+    if (this.mode === 'chooser') {
+      this.setTableStatus('Loading...')
+      this.setTablesStatus('')
+      this.selectedTable = null
+      this.selectedRowIndex = -1
+      await this.fetchQueryData()
+      this.renderTable()
+      this.renderPagination()
+      this.updateChooserUI()
+      this.setTableStatus(`${this.totalCount} rows`)
+      return
+    }
+
     if (tableToSelect !== null) {
       this.selectedTable = tableToSelect
       this.currentPage = 0
@@ -189,6 +310,50 @@ export class ViewSql extends HTMLElement {
     this.renderPagination()
     this.setTablesStatus(`${this.tables.length} tables`)
     this.setTableStatus(`${this.totalCount} rows`)
+  }
+
+  interpolateQuery(query, params) {
+    return String(query).replace(/:(\w+)/g, (match, name) => {
+      if (!(name in params)) return match
+      const value = params[name]
+      if (typeof value === 'string') {
+        return `'${value.replace(/'/g, "''")}'`
+      }
+      return String(value)
+    })
+  }
+
+  async fetchQueryData() {
+    assert(this.query, 'view-sql chooser mode requires query')
+    assert(this.countQuery, 'view-sql chooser mode requires countQuery')
+
+    const params = {
+      offset: this.currentPage * this.pageSize,
+      limit: this.pageSize,
+      pageSize: this.pageSize,
+      page: this.currentPage,
+    }
+
+    const countCsv = await this.callSql(this.interpolateQuery(this.countQuery, params))
+    const countLines = parseCSVLines(countCsv.trim())
+    this.totalCount = parseInt(countLines[1]?.[0] || '0', 10) || 0
+
+    const rowsCsv = await this.callSql(this.interpolateQuery(this.query, params))
+    const lines = parseCSVLines(rowsCsv.trim())
+
+    if (lines.length > 0) {
+      this.columns = lines[0]
+      this.rows = lines.slice(1).map((row) => {
+        const obj = {}
+        this.columns.forEach((column, index) => {
+          obj[column] = row[index] ?? ''
+        })
+        return obj
+      })
+    } else {
+      this.columns = []
+      this.rows = []
+    }
   }
 
   async openCreateTablePopup() {
@@ -268,7 +433,7 @@ export class ViewSql extends HTMLElement {
 
     const tbody = document.createElement('tbody')
 
-    if (!this.selectedTable) {
+    if (this.mode !== 'chooser' && !this.selectedTable) {
       const tr = document.createElement('tr')
       const td = document.createElement('td')
       td.textContent = 'Select a table.'
@@ -305,8 +470,16 @@ export class ViewSql extends HTMLElement {
     thead.appendChild(headerRow)
     this.tableContainer.appendChild(thead)
 
-    this.rows.forEach((row) => {
+    this.rows.forEach((row, rowIndex) => {
       const tr = document.createElement('tr')
+      tr.dataset.rowIndex = String(rowIndex)
+      tr.setAttribute('aria-selected', rowIndex === this.selectedRowIndex ? 'true' : 'false')
+      tr.addEventListener('click', () => this.selectRow(rowIndex))
+      tr.addEventListener('dblclick', async () => {
+        this.selectRow(rowIndex)
+        if (this.mode === 'chooser') await this.confirmSelection()
+      })
+
       this.columns.forEach((column) => {
         const td = document.createElement('td')
         td.dataset.column = column
@@ -316,6 +489,7 @@ export class ViewSql extends HTMLElement {
       tbody.appendChild(tr)
     })
     this.tableContainer.appendChild(tbody)
+    this.updateChooserUI()
   }
 
   renderCell(td, value, column) {
@@ -364,12 +538,109 @@ export class ViewSql extends HTMLElement {
     this.paginationElement.totalCount = this.totalCount
   }
 
+  selectRow(rowIndex) {
+    this.selectedRowIndex = rowIndex
+    this.querySelectorAll('tr[data-row-index]').forEach((row) => {
+      row.setAttribute('aria-selected', Number(row.dataset.rowIndex) === rowIndex ? 'true' : 'false')
+    })
+    this.updateChooserUI()
+  }
+
+  getSelection() {
+    const row = this.rows[this.selectedRowIndex]
+    if (!row) return null
+
+    const primaryKey = this.columns.includes('id') ? 'id' : this.columns[0] || null
+    return {
+      row,
+      rowIndex: this.selectedRowIndex,
+      primaryKey,
+      primaryKeyValue: primaryKey ? row[primaryKey] ?? null : null,
+    }
+  }
+
+  projectSelection(selection) {
+    if (!selection) return null
+
+    let value = selection.row
+    if (this.returnColumn) {
+      value = selection.row?.[this.returnColumn]
+    } else if (this.returnFields.length > 0) {
+      value = {}
+      for (const field of this.returnFields) {
+        value[field] = selection.row?.[field]
+      }
+    }
+
+    return {
+      ...selection,
+      value,
+    }
+  }
+
+  updateChooserUI() {
+    if (this.mode !== 'chooser') return
+    const selection = this.getSelection()
+    if (this.actionSelectButton instanceof HTMLButtonElement) {
+      this.actionSelectButton.textContent = this.confirmLabel
+      this.actionSelectButton.disabled = !selection
+    }
+    this.dispatchEvent(new CustomEvent('selection-changed', {
+      bubbles: true,
+      detail: { selection: this.projectSelection(selection) },
+    }))
+  }
+
+  async confirmSelection() {
+    const selection = this.getSelection()
+    if (!selection) return
+    const payload = this.projectSelection(selection)
+    await runtime.call('ui.popup', 'close', payload)
+  }
+
+  handleKeyDown(event) {
+    if (this.mode !== 'chooser') return
+
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void this.confirmSelection()
+      return
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      void runtime.call('ui.popup', 'close', { cancelled: true, ok: false })
+    }
+  }
+
   setTablesStatus(text) {
-    this.tablesStatusContainer.textContent = text
+    if (this.tablesStatusContainer instanceof HTMLOutputElement) {
+      this.tablesStatusContainer.textContent = text
+    }
   }
 
   setTableStatus(text) {
-    this.tableStatusContainer.textContent = text
+    if (this.tableStatusContainer instanceof HTMLOutputElement) {
+      this.tableStatusContainer.textContent = text
+    }
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue === newValue || !this.dataset.ready) return
+
+    if (name === 'data-page-size') {
+      const parsed = parseInt(String(newValue || '20'), 10)
+      this.pageSize = Number.isFinite(parsed) && parsed > 0 ? parsed : 20
+      this.currentPage = 0
+      void this.refresh()
+      return
+    }
+
+    if (name === 'data-mode' || name === 'data-query' || name === 'data-count-query' || name === 'data-confirm-label' || name === 'data-return-column' || name === 'data-return-fields') {
+      this.currentPage = 0
+      this.selectedRowIndex = -1
+      void this.refresh()
+    }
   }
 }
 

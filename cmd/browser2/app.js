@@ -7,6 +7,7 @@ import './widgets/view-pagination.js'
 import './views/view-sql.js'
 import './views/view-sql-console.js'
 import './views/view-files.js'
+import './views/view-tree.js'
 import './views/files-rename.js'
 import './views/files-json.js'
 import './views/files-default.js'
@@ -66,7 +67,10 @@ const viewRegistry = new Map([
   ['view-animation', placeholderView('view-animation', 'Animation')],
   ['view-nodegraph', placeholderView('view-nodegraph', 'Nodegraph')],
   ['view-settings', placeholderView('view-settings', 'Settings')],
-  ['view-tree', placeholderView('view-tree', 'Tree')],
+  ['view-tree', {
+    label: 'Tree',
+    create: () => document.createElement('view-tree'),
+  }],
   ['view-game-runner', placeholderView('view-game-runner', 'Game Runner')],
 ])
 
