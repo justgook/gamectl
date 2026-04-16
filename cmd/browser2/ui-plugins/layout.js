@@ -198,7 +198,6 @@ export class ViewArea extends HTMLElement {
 
     const currentTag = this.getCurrentViewTag()
     const options = new Map()
-    options.set('view-empty', 'view-empty')
     options.set(currentTag, currentTag)
 
     const owner = this.requireOwner()

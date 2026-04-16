@@ -625,7 +625,7 @@ export class ViewFiles extends HTMLElement {
     const result = await runtime.call('ui.popup', 'open', {
       title,
       size: 'medium',
-      tag: 'file-rename',
+      tag: 'files-rename',
       props: {
         mode: 'create',
         kind,
@@ -652,7 +652,7 @@ export class ViewFiles extends HTMLElement {
     const result = await runtime.call('ui.popup', 'open', {
       title: entry.type === 'directory' ? 'Rename Folder' : 'Rename File',
       size: 'medium',
-      tag: 'file-rename',
+      tag: 'files-rename',
       props: {
         mode: 'rename',
         kind: entry.type,
