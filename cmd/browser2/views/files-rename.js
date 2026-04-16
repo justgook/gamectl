@@ -104,8 +104,8 @@ export class FileRename extends HTMLElement {
 
     this.innerHTML = `
       <form data-element="form" novalidate>
-        <label for="file-rename-name">${kind === 'directory' ? 'Folder name' : 'File name'}</label>
-        <input id="file-rename-name" type="text" data-field="name" autocomplete="off" value="${escapeAttribute(initialName)}">
+        <label for="files-rename-name">${kind === 'directory' ? 'Folder name' : 'File name'}</label>
+        <input id="files-rename-name" type="text" data-field="name" autocomplete="off" value="${escapeAttribute(initialName)}">
         <label>Location</label>
         <output data-element="location"></output>
         <footer>
@@ -121,10 +121,10 @@ export class FileRename extends HTMLElement {
     this.locationOutput = this.querySelector('[data-element="location"]')
     this.statusOutput = this.querySelector('[data-element="status"]')
 
-    assert(this.formElement instanceof HTMLFormElement, 'file-rename missing form element')
-    assert(this.nameInput instanceof HTMLInputElement, 'file-rename missing name input')
-    assert(this.locationOutput instanceof HTMLOutputElement, 'file-rename missing location output')
-    assert(this.statusOutput instanceof HTMLOutputElement, 'file-rename missing status output')
+    assert(this.formElement instanceof HTMLFormElement, 'files-rename missing form element')
+    assert(this.nameInput instanceof HTMLInputElement, 'files-rename missing name input')
+    assert(this.locationOutput instanceof HTMLOutputElement, 'files-rename missing location output')
+    assert(this.statusOutput instanceof HTMLOutputElement, 'files-rename missing status output')
 
     this.locationOutput.textContent = this.getLocationPath()
 
@@ -197,7 +197,7 @@ export class FileRename extends HTMLElement {
       this.nameInput.classList.add('danger')
       this.nameInput.focus()
       this.setStatus(`Error: ${error?.message || error}`, 'danger')
-      console.error('file-rename save failed:', error)
+      console.error('files-rename save failed:', error)
     }
   }
 
@@ -226,7 +226,7 @@ export class FileRename extends HTMLElement {
 
   async rename(name) {
     const sourcePath = normalizePath(this.popupProps?.targetPath || '')
-    assert(sourcePath !== '/', 'file-rename cannot rename root path')
+    assert(sourcePath !== '/', 'files-rename cannot rename root path')
 
     const parentPath = getParentPath(sourcePath)
     const targetPath = joinPath(parentPath, name)
@@ -271,6 +271,6 @@ function escapeAttribute(value) {
     .replace(/>/g, '&gt;')
 }
 
-if (!customElements.get('file-rename')) {
-  customElements.define('file-rename', FileRename)
+if (!customElements.get('files-rename')) {
+  customElements.define('files-rename', FileRename)
 }

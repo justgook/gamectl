@@ -7,7 +7,7 @@ import './widgets/view-pagination.js'
 import './views/view-sql.js'
 import './views/view-sql-console.js'
 import './views/view-files.js'
-import './views/file-rename.js'
+import './views/files-rename.js'
 import './views/files-json.js'
 import './views/files-default.js'
 import './views/view-ai.js'
@@ -43,9 +43,6 @@ function placeholderView(tag, label) {
 }
 
 const viewRegistry = new Map([
-  ['view-empty', placeholderView('view-empty', 'Empty')],
-  ['view-nodegraph2', placeholderView('view-nodegraph2', 'Nodegraph 2')],
-  ['view-settings', placeholderView('view-settings', 'Settings')],
   ['view-sql', {
     label: 'SQL',
     create: () => document.createElement('view-sql'),
@@ -66,8 +63,11 @@ const viewRegistry = new Map([
     label: 'Files',
     create: () => document.createElement('view-files'),
   }],
-  ['view-assets', placeholderView('view-assets', 'Assets')],
-  ['view-debug', placeholderView('view-debug', 'Debug')],
+  ['view-animation', placeholderView('view-animation', 'Animation')],
+  ['view-nodegraph', placeholderView('view-nodegraph', 'Nodegraph')],
+  ['view-settings', placeholderView('view-settings', 'Settings')],
+  ['view-tree', placeholderView('view-tree', 'Tree')],
+  ['view-game-runner', placeholderView('view-game-runner', 'Game Runner')],
 ])
 
 
