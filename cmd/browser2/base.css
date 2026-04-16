@@ -1,28 +1,12 @@
-@layer reset, base, theme;
+@layer reset, base, theme, intent;
 
-@layer base {
-
-  /* ═══════════════════════════════════════════════════════════════════════════
-     PALETTE
-     ═══════════════════════════════════════════════════════════════════════════ */
-
-  :root {
-    --accent: #7aa2ff;
-    --success: #3ddc97;
-    --warning: #ffcc66;
-    --danger: #ff5c7a;
-    --info: #5bd6ff;
-  }
-
+@layer intent {
   /* ═══════════════════════════════════════════════════════════════════════════
      SURFACES
      ═══════════════════════════════════════════════════════════════════════════ */
 
   :root {
-    --base-bg: #0b0c10;
     --bg: var(--base-bg);
-    --surface: #11131a;
-    --surface-elevated: #171a23;
     --surface-hover: color-mix(in oklab, var(--surface), white 5%);
   }
 
@@ -31,7 +15,6 @@
      ═══════════════════════════════════════════════════════════════════════════ */
 
   :root {
-    --base-border: #262a36;
     --border: var(--base-border);
     --border-hover: color-mix(in oklab, var(--border), var(--text) 18%);
     --border-focus: var(--accent);
@@ -42,9 +25,6 @@
      ═══════════════════════════════════════════════════════════════════════════ */
 
   :root {
-    --base-text: #e8eaf0;
-    --base-text-muted: #a8afc3;
-    --base-ink: #0b0c10;
     --text: var(--base-text);
     --text-muted: var(--base-text-muted);
     --text-faint: color-mix(in oklab, var(--text-muted), transparent 40%);
@@ -60,6 +40,105 @@
     --shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
     --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INTENT CLASSES
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  .accent,
+  .success,
+  .warning,
+  .danger,
+  .info {
+    --bg: var(--intent-soft-bg);
+    --border: var(--intent-soft-border);
+    --text: var(--intent-soft-fg);
+    --text-muted: color-mix(in oklab, var(--text), var(--base-text-muted) 60%);
+    --ink: var(--base-ink);
+    /* Weird requirement */
+    --intent-bg: var(--intent);
+    --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
+    --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
+    --intent-fg: var(--base-ink);
+    --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
+    --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
+
+    /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
+    --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
+    --intent-soft-border: color-mix(in oklab, var(--intent), var(--base-border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
+  }
+
+  .accent {
+    --intent: var(--accent);
+  }
+
+  .success {
+    --intent: var(--success);
+  }
+
+  .warning {
+    --intent: var(--warning);
+  }
+
+  .danger {
+    --intent: var(--danger);
+  }
+
+  .info {
+    --intent: var(--info);
+  }
+
+  .elevated {
+    background: var(--surface-elevated);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     INTENT BUNDLE
+
+     Default intent = accent. Override --intent via .accent/.success/.danger/etc
+     to recolor any component that consumes these tokens.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --intent: var(--accent);
+
+    /* filled (buttons, chips, slider fills, toggles) */
+    --intent-bg: var(--intent);
+    --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
+    --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
+    --intent-fg: var(--base-ink);
+    --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
+    --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
+
+    /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
+    --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
+    --intent-soft-border: color-mix(in oklab, var(--intent), var(--base-border) 60%);
+    --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
+  }
+}
+
+@layer base {
+  /* ═══════════════════════════════════════════════════════════════════════════
+     PALETTE
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  :root {
+    --accent: #7aa2ff;
+    --success: #3ddc97;
+    --warning: #ffcc66;
+    --danger: #ff5c7a;
+    --info: #5bd6ff;
+    --base-bg: #0b0c10;
+    --surface: #11131a;
+    --surface-elevated: #171a23;
+    --base-border: #262a36;
+    --base-text: #e8eaf0;
+    --base-text-muted: #a8afc3;
+    --base-ink: #0b0c10;
+  }
+
 
   /* ═══════════════════════════════════════════════════════════════════════════
      SIZING / SPACING
@@ -98,70 +177,7 @@
     --font-xl: 20px;
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
-     INTENT BUNDLE
 
-     Default intent = accent. Override --intent via .accent/.success/.danger/etc
-     to recolor any component that consumes these tokens.
-     ═══════════════════════════════════════════════════════════════════════════ */
-
-  :root {
-    --intent: var(--accent);
-
-    /* filled (buttons, chips, slider fills, toggles) */
-    --intent-bg: var(--intent);
-    --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
-    --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
-    --intent-fg: var(--base-ink);
-    --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
-    --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
-
-    /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
-    --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--intent), var(--base-border) 60%);
-    --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
-  }
-
-  /* ═══════════════════════════════════════════════════════════════════════════
-     INTENT CLASSES
-     ═══════════════════════════════════════════════════════════════════════════ */
-
-  .accent,
-  .success,
-  .warning,
-  .danger,
-  .info {
-    --bg: var(--intent-soft-bg);
-    --border: var(--intent-soft-border);
-    --text: var(--intent-soft-fg);
-    --text-muted: color-mix(in oklab, var(--text), var(--base-text-muted) 60%);
-    --ink: var(--base-ink);
-  }
-
-  .accent {
-    --intent: var(--accent);
-  }
-
-  .success {
-    --intent: var(--success);
-  }
-
-  .warning {
-    --intent: var(--warning);
-  }
-
-  .danger {
-    --intent: var(--danger);
-  }
-
-  .info {
-    --intent: var(--info);
-  }
-
-  .elevated {
-    background: var(--surface-elevated);
-    box-shadow: var(--shadow-elevated);
-  }
 
   /* ═══════════════════════════════════════════════════════════════════════════
      COMPONENT TOKENS
