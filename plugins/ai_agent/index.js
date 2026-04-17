@@ -1,5 +1,14 @@
+import Ajv from './ajv.bundle.mjs'
+
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
+const ajv = new Ajv({
+  allErrors: true,
+  strict: true,
+  coerceTypes: false,
+  useDefaults: false,
+  removeAdditional: false,
+})
 
 function decodeInput(input) {
   if (typeof input === 'string') return input
@@ -34,30 +43,6 @@ function assert(condition, message) {
 
 function now() {
   return Date.now()
-}
-
-function validateRequired(schema, args) {
-  const required = Array.isArray(schema.required) ? schema.required : []
-  for (const key of required) {
-    if (args[key] === undefined) return `Missing required field '${key}'`
-  }
-  return ''
-}
-
-function messageText(message) {
-  if (typeof message.content === 'string') return message.content
-  assert(Array.isArray(message.content), 'Expected message.content to be an array or string')
-
-  return message.content.flatMap((block) => {
-    if (block.type === 'text') return [block.text]
-    if (block.type === 'tool_call') return [`Tool call: ${block.name} ${JSON.stringify(block.arguments)}`]
-    if (block.type === 'tool_result') {
-      assert(Array.isArray(block.content), 'Expected tool_result.content to be an array')
-      const text = block.content.map((entry) => entry.text).join('\n')
-      return [`${block.isError ? 'Tool error' : 'Tool result'}: ${block.name}${text ? `\n${text}` : ''}`]
-    }
-    throw new Error(`Unknown content block type '${block.type}'`)
-  }).join('\n')
 }
 
 function writeFsPayload(path, text) {
@@ -98,61 +83,89 @@ function assertPersistConfig(persist) {
   assert(typeof persist.path === 'string' && persist.path.length > 0, 'Persist path is required')
 }
 
-function makeDefaultTools() {
-  return [
-    {
-      name: 'fs_list',
-      description: 'List files from the current workspace path.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: { type: 'string' },
-        },
-      },
-      target: { plugin: 'fs', method: 'list' },
-    },
-    {
-      name: 'fs_read',
-      description: 'Read a file from the current workspace path.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: { type: 'string' },
-        },
-        required: ['path'],
-      },
-      target: { plugin: 'fs', method: 'read' },
-    },
-    {
-      name: 'sql_query',
-      description: 'Execute a SQL query against the current database.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          sql: { type: 'string' },
-        },
-        required: ['sql'],
-      },
-      target: { plugin: 'sql', method: 'query' },
-    },
-  ]
+function formatAjvErrors(validate, toolName, originalArguments) {
+  assert(Array.isArray(validate.errors), `Tool '${toolName}' validation failed without AJV errors`)
+  const details = validate.errors.map((error) => {
+    const path = error.instancePath ? error.instancePath.slice(1) || 'root' : (error.params.missingProperty || 'root')
+    return `- ${path}: ${error.message}`
+  }).join('\n')
+  return `Validation failed for tool '${toolName}':\n${details}\nReceived arguments:\n${JSON.stringify(originalArguments, null, 2)}`
 }
 
-function makeDefaultContext() {
-  return [
-    {
-      kind: 'bootstrap',
-      source: 'ai.agent',
-      label: 'Default browser2 bootstrap',
-      content: {
-        host: 'browser2',
-      },
+function assertToolDefinitionShape(tool) {
+  assert(tool && typeof tool === 'object', 'Tool definition must be an object')
+  assert(typeof tool.name === 'string' && tool.name.length > 0, 'Tool name is required')
+  assert(typeof tool.description === 'string' && tool.description.length > 0, `Tool '${tool.name}' description is required`)
+  assert(tool.parameters && typeof tool.parameters === 'object', `Tool '${tool.name}' parameters schema is required`)
+  assert(tool.target && typeof tool.target === 'object', `Tool '${tool.name}' target is required`)
+  assert(typeof tool.target.plugin === 'string' && tool.target.plugin.length > 0, `Tool '${tool.name}' target.plugin is required`)
+  assert(typeof tool.target.method === 'string' && tool.target.method.length > 0, `Tool '${tool.name}' target.method is required`)
+}
+
+function normalizeTool(tool) {
+  assertToolDefinitionShape(tool)
+  const validate = ajv.compile(tool.parameters)
+  return {
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters,
+    target: {
+      plugin: tool.target.plugin,
+      method: tool.target.method,
     },
-  ]
+    validate,
+  }
+}
+
+function normalizeTools(tools) {
+  assert(Array.isArray(tools), 'Expected tools array')
+  return tools.map(normalizeTool)
+}
+
+function serializeTools(tools) {
+  return tools.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters,
+    target: tool.target,
+  }))
+}
+
+function validateToolArguments(tool, rawArguments) {
+  // assert(rawArguments && typeof rawArguments === 'object' && !Array.isArray(rawArguments), `Tool '${tool.name}' arguments must be an object`)
+  const argumentsCopy = structuredClone(rawArguments)
+  const valid = tool.validate(argumentsCopy)
+  if (!valid) {
+    return {
+      ok: false,
+      error: formatAjvErrors(tool.validate, tool.name, rawArguments),
+    }
+  }
+  return {
+    ok: true,
+    value: argumentsCopy,
+  }
+}
+
+function messageText(message) {
+  if (typeof message.content === 'string') return message.content
+  assert(Array.isArray(message.content), 'Expected message.content to be an array or string')
+
+  return message.content.flatMap((block) => {
+    if (block.type === 'text') return [block.text]
+    if (block.type === 'tool_call') return [`Tool call: ${block.name} ${JSON.stringify(block.arguments)}`]
+    if (block.type === 'tool_result') {
+      assert(Array.isArray(block.content), 'Expected tool_result.content to be an array')
+      const text = block.content.map((entry) => entry.text).join('\n')
+      return [`${block.isError ? 'Tool error' : 'Tool result'}: ${block.name}${text ? `\n${text}` : ''}`]
+    }
+    throw new Error(`Unknown content block type '${block.type}'`)
+  }).join('\n')
 }
 
 const sessions = new Map()
 let nextHandle = 1
+let nextToolCallId = 1
 
 function getSession(handle) {
   const session = sessions.get(Number(handle))
@@ -173,6 +186,8 @@ function sessionSummary(session) {
     stepCount: session.stepCount,
     lastError: session.lastError,
     messageCount: session.messages.length,
+    toolCount: session.tools.length,
+    contextCount: session.context.length,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     persist: session.persist,
@@ -181,14 +196,14 @@ function sessionSummary(session) {
 
 function newSession(data) {
   const createdAt = now()
-  const session = {
+  return {
     handle: nextHandle++,
     provider: data.provider ?? 'ai.provider.mock',
     model: data.model ?? 'mock-default',
     persist: data.persist ?? null,
     messages: [],
-    tools: Array.isArray(data.tools) ? data.tools : makeDefaultTools(),
-    context: Array.isArray(data.context) ? data.context : makeDefaultContext(),
+    tools: normalizeTools(data.tools ?? []),
+    context: data.context ?? [],
     status: 'idle',
     stepCount: 0,
     maxSteps: Number(data.maxSteps ?? 8),
@@ -196,7 +211,6 @@ function newSession(data) {
     createdAt,
     updatedAt: createdAt,
   }
-  return session
 }
 
 function serializeSessionJsonl(session) {
@@ -211,7 +225,7 @@ function serializeSessionJsonl(session) {
     persist: session.persist,
   }))
   lines.push(JSON.stringify({ type: 'context', items: session.context }))
-  lines.push(JSON.stringify({ type: 'tools', items: session.tools }))
+  lines.push(JSON.stringify({ type: 'tools', items: serializeTools(session.tools) }))
   for (const message of session.messages) {
     lines.push(JSON.stringify({ type: 'message', message }))
   }
@@ -219,10 +233,10 @@ function serializeSessionJsonl(session) {
 }
 
 function deserializeSessionJsonl(text, persistOverride) {
-  const session = newSession({ persist: persistOverride })
+  const session = newSession({ persist: persistOverride, tools: [], context: [] })
   session.messages = []
-  session.tools = makeDefaultTools()
-  session.context = makeDefaultContext()
+  session.tools = []
+  session.context = []
 
   for (const line of String(text).split(/\r?\n/)) {
     if (!line.trim()) continue
@@ -230,6 +244,8 @@ function deserializeSessionJsonl(text, persistOverride) {
     assert(entry && typeof entry === 'object', 'Expected JSONL entry object')
 
     if (entry.type === 'session_meta') {
+      assert(typeof entry.provider === 'string' && entry.provider.length > 0, 'Persisted session provider is required')
+      assert(typeof entry.model === 'string' && entry.model.length > 0, 'Persisted session model is required')
       session.provider = entry.provider
       session.model = entry.model
       session.createdAt = Number(entry.createdAt)
@@ -247,7 +263,7 @@ function deserializeSessionJsonl(text, persistOverride) {
 
     if (entry.type === 'tools') {
       assert(Array.isArray(entry.items), 'Expected tools items array')
-      session.tools = entry.items
+      session.tools = normalizeTools(entry.items)
       continue
     }
 
@@ -273,6 +289,7 @@ function persistSession(ctx, session) {
 }
 
 function openSession(data, ctx) {
+  assert(data && typeof data === 'object', 'ai.agent.open expects an object')
   if (data.persist != null) {
     assertPersistConfig(data.persist)
     if (fsExists(ctx, data.persist.path)) {
@@ -289,73 +306,46 @@ function openSession(data, ctx) {
   return session
 }
 
-function executeToolCalls(ctx, session, toolCalls) {
-  const toolResults = []
+function createToolResultMessage(toolCallId, toolName, text, isError) {
+  return {
+    role: 'tool',
+    content: [{
+      type: 'tool_result',
+      toolCallId,
+      name: toolName,
+      isError,
+      content: [{ type: 'text', text }],
+    }],
+    timestamp: now(),
+  }
+}
 
-  for (const toolCall of toolCalls) {
-    const tool = session.tools.find((entry) => entry.name === toolCall.name)
-    if (!tool) {
-      toolResults.push({
-        role: 'tool',
-        content: [{
-          type: 'tool_result',
-          toolCallId: toolCall.id,
-          name: toolCall.name,
-          isError: true,
-          content: [{ type: 'text', text: `Unknown tool '${toolCall.name}'` }],
-        }],
-        timestamp: now(),
-      })
-      continue
-    }
+function executeToolCall(ctx, session, toolCall) {
+  assert(typeof toolCall.id === 'string' && toolCall.id.length > 0, 'Tool call id is required')
+  assert(typeof toolCall.name === 'string' && toolCall.name.length > 0, 'Tool call name is required')
+  // assert(toolCall.arguments && typeof toolCall.arguments === 'object' && !Array.isArray(toolCall.arguments), `Tool call '${toolCall.name}' arguments must be an object`)
 
-    const validationError = validateRequired(tool.inputSchema, toolCall.arguments)
-    if (validationError) {
-      toolResults.push({
-        role: 'tool',
-        content: [{
-          type: 'tool_result',
-          toolCallId: toolCall.id,
-          name: toolCall.name,
-          isError: true,
-          content: [{ type: 'text', text: validationError }],
-        }],
-        timestamp: now(),
-      })
-      continue
-    }
-
-    try {
-      const result = ctx.callSync(tool.target.plugin, tool.target.method, JSON.stringify(toolCall.arguments))
-      const text = decoder.decode(result.output)
-
-      toolResults.push({
-        role: 'tool',
-        content: [{
-          type: 'tool_result',
-          toolCallId: toolCall.id,
-          name: toolCall.name,
-          isError: result.returnCode !== 0,
-          content: [{ type: 'text', text }],
-        }],
-        timestamp: now(),
-      })
-    } catch (error) {
-      toolResults.push({
-        role: 'tool',
-        content: [{
-          type: 'tool_result',
-          toolCallId: toolCall.id,
-          name: toolCall.name,
-          isError: true,
-          content: [{ type: 'text', text: String(error.message || error) }],
-        }],
-        timestamp: now(),
-      })
-    }
+  const tool = session.tools.find((entry) => entry.name === toolCall.name)
+  if (!tool) {
+    return createToolResultMessage(toolCall.id, toolCall.name, `Unknown tool '${toolCall.name}'`, true)
   }
 
-  return toolResults
+  const validated = validateToolArguments(tool, toolCall.arguments)
+  if (!validated.ok) {
+    return createToolResultMessage(toolCall.id, toolCall.name, validated.error, true)
+  }
+
+  try {
+    const result = ctx.callSync(tool.target.plugin, tool.target.method, JSON.stringify(validated.value))
+    const text = decoder.decode(result.output)
+    return createToolResultMessage(toolCall.id, toolCall.name, text, result.returnCode !== 0)
+  } catch (error) {
+    return createToolResultMessage(toolCall.id, toolCall.name, String(error.message || error), true)
+  }
+}
+
+function executeToolCalls(ctx, session, toolCalls) {
+  return toolCalls.map((toolCall) => executeToolCall(ctx, session, toolCall))
 }
 
 function runLoop(session, ctx) {
@@ -372,7 +362,7 @@ function runLoop(session, ctx) {
       handle: session.handle,
       model: session.model,
       messages: session.messages,
-      tools: session.tools,
+      tools: serializeTools(session.tools),
       context: session.context,
     }
 
@@ -386,6 +376,8 @@ function runLoop(session, ctx) {
     }
 
     const assistant = parseJson(providerResult.output)
+    assert(assistant && typeof assistant === 'object', 'Provider returned invalid assistant payload')
+    assert(Array.isArray(assistant.content), 'Provider assistant payload missing content array')
     assistant.timestamp ??= now()
     lastAssistant = assistant
     session.messages.push(assistant)
@@ -411,6 +403,10 @@ function runLoop(session, ctx) {
     lastAssistant,
     newMessages,
   })
+}
+
+function nextManualToolCallId() {
+  return `manual-tool-${nextToolCallId++}`
 }
 
 const plugin = {
@@ -443,7 +439,6 @@ const plugin = {
     get_history_page(input) {
       const data = parseJson(input)
       const session = getSession(data.handle)
-
       const limit = Math.max(1, Number(data.limit))
       const endExclusive = data.cursor == null
         ? session.messages.length
@@ -461,6 +456,8 @@ const plugin = {
     set_provider(input, ctx) {
       const data = parseJson(input)
       const session = getSession(data.handle)
+      assert(typeof data.provider === 'string' && data.provider.length > 0, 'Expected provider string')
+      assert(typeof data.model === 'string' && data.model.length > 0, 'Expected model string')
       session.provider = data.provider
       session.model = data.model
       touch(session)
@@ -497,6 +494,29 @@ const plugin = {
       session.messages.push({ role: 'user', content: data.message.trim(), timestamp: now() })
       touch(session)
       return runLoop(session, ctx)
+    },
+
+    invoke_tool(input, ctx) {
+      const data = parseJson(input)
+      const session = getSession(data.handle)
+      assert(typeof data.name === 'string' && data.name.length > 0, 'Expected tool name')
+      // assert(data.arguments && typeof data.arguments === 'object' && !Array.isArray(data.arguments), 'Expected tool arguments object')
+
+      const debugCommand = `/tool:${data.name} ${JSON.stringify(data.arguments)}`
+      session.messages.push({ role: 'user', content: debugCommand, timestamp: now() })
+      const toolResult = executeToolCall(ctx, session, {
+        id: nextManualToolCallId(),
+        name: data.name,
+        arguments: data.arguments,
+      })
+
+      session.messages.push(toolResult)
+      touch(session)
+      persistSession(ctx, session)
+      return ok({
+        summary: sessionSummary(session),
+        newMessages: [session.messages[session.messages.length - 2], toolResult],
+      })
     },
 
     get_transcript_text(input) {

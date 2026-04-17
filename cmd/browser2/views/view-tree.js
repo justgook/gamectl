@@ -138,7 +138,9 @@ export class ViewTree extends ViewCanvasBase {
   async callSql(sql) {
     const result = await runtime.call('sql', 'query', sql)
     if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
+      const err = new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
+      err.plugin = "view.tree"
+      throw err
     }
     return decodeOutput(result)
   }
@@ -160,7 +162,7 @@ export class ViewTree extends ViewCanvasBase {
       this.nodeSizes = {}
       this.setData(null)
       this.updateFooter(`Error: ${error?.message || error}`, 'danger')
-      console.error('view-tree load failed:', error)
+      throw error
     }
   }
 

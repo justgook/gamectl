@@ -214,7 +214,9 @@ export class ViewSql extends HTMLElement {
   async callSql(sql) {
     const result = await runtime.call('sql', 'query', sql)
     if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
+      const err = new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
+      err.plugin = "view.sql"
+      throw err
     }
     return decodeOutput(result)
   }
