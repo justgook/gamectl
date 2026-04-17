@@ -30,6 +30,19 @@ function messageText(message) {
   }).join('\n')
 }
 
+function parseToolCommand(prompt) {
+  if (!prompt.startsWith('/tool:')) return null
+  const spaceIndex = prompt.indexOf(' ')
+  assert(spaceIndex > '/tool:'.length, 'Tool command must be /tool:NAME {json}')
+  const name = prompt.slice('/tool:'.length, spaceIndex)
+  const jsonText = prompt.slice(spaceIndex + 1)
+  assert(name.length > 0, 'Tool command name is required')
+  assert(jsonText.length > 0, 'Tool command JSON arguments are required')
+  const argumentsValue = JSON.parse(jsonText)
+  // assert(argumentsValue && typeof argumentsValue === 'object' && !Array.isArray(argumentsValue), 'Tool command arguments must be a JSON object')
+  return { name, arguments: argumentsValue }
+}
+
 export class ViewAi extends HTMLElement {
   constructor() {
     super()
@@ -115,18 +128,32 @@ export class ViewAi extends HTMLElement {
     assert(Number.isInteger(this.handle), 'view-ai has no session handle')
 
     this.setBusy(true)
-    this.setStatus('Running...', 'info')
 
-    const result = await runtime.call('ai.agent', 'send', JSON.stringify({
-      handle: this.handle,
-      message: prompt,
-    }))
-    assert(result.returnCode === 0, `ai.agent send failed: ${decodeOutput(result)}`)
+    try {
+      const toolCommand = parseToolCommand(prompt)
+      if (toolCommand) {
+        this.setStatus(`Running tool ${toolCommand.name}...`, 'info')
+        const result = await runtime.call('ai.agent', 'invoke_tool', JSON.stringify({
+          handle: this.handle,
+          name: toolCommand.name,
+          arguments: toolCommand.arguments,
+        }))
+        assert(result.returnCode === 0, `ai.agent invoke_tool failed: ${decodeOutput(result)}`)
+      } else {
+        this.setStatus('Running...', 'info')
+        const result = await runtime.call('ai.agent', 'send', JSON.stringify({
+          handle: this.handle,
+          message: prompt,
+        }))
+        assert(result.returnCode === 0, `ai.agent send failed: ${decodeOutput(result)}`)
+      }
 
-    this.inputElement.value = ''
-    await this.reloadLatest()
-    this.setStatus('Done', 'success')
-    this.setBusy(false)
+      this.inputElement.value = ''
+      await this.reloadLatest()
+      this.setStatus('Done', 'success')
+    } finally {
+      this.setBusy(false)
+    }
   }
 
   async reloadLatest() {
@@ -149,20 +176,23 @@ export class ViewAi extends HTMLElement {
     assert(this.cursor != null, 'view-ai loadOlder called without cursor')
     this.loadingHistory = true
 
-    const previousHeight = this.logElement.scrollHeight
-    const page = await runtime.call('ai.agent', 'get_history_page', JSON.stringify({
-      handle: this.handle,
-      cursor: this.cursor,
-      limit: 50,
-    }))
-    assert(page.returnCode === 0, `ai.agent get_history_page failed: ${decodeOutput(page)}`)
+    try {
+      const previousHeight = this.logElement.scrollHeight
+      const page = await runtime.call('ai.agent', 'get_history_page', JSON.stringify({
+        handle: this.handle,
+        cursor: this.cursor,
+        limit: 50,
+      }))
+      assert(page.returnCode === 0, `ai.agent get_history_page failed: ${decodeOutput(page)}`)
 
-    const payload = parseOutput(page)
-    this.cursor = payload.nextCursor
-    this.prependItems(payload.items)
-    const nextHeight = this.logElement.scrollHeight
-    this.logElement.scrollTop = nextHeight - previousHeight
-    this.loadingHistory = false
+      const payload = parseOutput(page)
+      this.cursor = payload.nextCursor
+      this.prependItems(payload.items)
+      const nextHeight = this.logElement.scrollHeight
+      this.logElement.scrollTop = nextHeight - previousHeight
+    } finally {
+      this.loadingHistory = false
+    }
   }
 
   renderItems(items) {

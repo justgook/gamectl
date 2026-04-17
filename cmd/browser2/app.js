@@ -24,6 +24,55 @@ const DEFAULT_LAYOUT = `
 `
 
 const AI_OPEN_CONFIG = {
+  provider: 'ai.provider.mock',
+  model: 'mock-default',
+  context: [
+    {
+      kind: 'system',
+      source: 'browser2.app',
+      label: 'Default browser2 AI context',
+      content: {
+        text: 'You are the GAMS browser2 AI assistant. Use tools when useful and explain tool results clearly.',
+      },
+    },
+  ],
+  tools: [
+    {
+      name: 'fs_list',
+      description: 'List files from the current workspace path.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string' },
+        },
+        required: ['path'],
+        additionalProperties: false,
+      },
+      target: { plugin: 'fs', method: 'list' },
+    },
+    {
+      name: 'fs_read',
+      description: 'Read a file from the current workspace path.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string' },
+        },
+        required: ['path'],
+        additionalProperties: false,
+      },
+      target: { plugin: 'fs', method: 'read' },
+    },
+    {
+      name: 'sql_query',
+      description: 'Execute a SQL query against the current database.',
+      parameters: {
+        type: 'string',
+        // additionalProperties: false,
+      },
+      target: { plugin: 'sql', method: 'query' },
+    },
+  ],
   persist: {
     driver: 'fs',
     format: 'jsonl',
@@ -135,14 +184,14 @@ const buildinPlugins = [
     id: 'ai.provider.mock',
     runtime: 'js',
     role: 'service',
-    url: 'local:/plugins/ai_provider_mock.js',
+    url: 'local:/plugins/ai_provider_mock/index.js',
   },
   {
     id: 'ai.agent',
     runtime: 'js',
     role: 'service',
     deps: ['fs', 'ai.provider.mock'],
-    url: 'local:/plugins/ai_agent.js',
+    url: 'local:/plugins/ai_agent/index.js',
   }
 ]
 
@@ -155,6 +204,10 @@ function applyThemeStylesheet() {
   window.__currentThemeStylesheetHref = themeHref
 }
 
+function errorParse(e) {
+  return `${e.plugin ? "[" + e.plugin + "]: " : ""}${e.message || e.reason}`
+}
+
 async function main() {
   const root = document.body
   applyThemeStylesheet()
@@ -164,6 +217,14 @@ async function main() {
     const runtime = await init()
     await runtime.add(buildinPlugins)
     await runtime.call("sql", "open") // TODO move init of sql to plugin it self
+    window.onerror = function (_message, _source, _lineno, _colno, error) {
+      runtime.call("ui.toast", "error", errorParse(error))
+      return false // prevents default logging (optional)
+    }
+
+    window.addEventListener("unhandledrejection", (e) => {
+      runtime.call("ui.toast", "error", errorParse(e.reason))
+    })
 
     document.body.innerHTML = ''
 
@@ -177,6 +238,8 @@ async function main() {
     const toast = document.createElement('toast-manager')
     document.body.appendChild(toast)
     runtime.register({ id: 'ui.toast', methods: toast.api })
+
+
 
     const popup = document.createElement('popup-manager')
     document.body.appendChild(popup)

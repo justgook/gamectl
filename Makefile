@@ -55,7 +55,7 @@ JS_PLUGIN_ENTRYPOINTS := $(wildcard $(PLUGIN_DIR)/*/index.js)
 PLUGIN_NAMES_JS := $(sort $(patsubst $(PLUGIN_DIR)/%/index.js,%,$(JS_PLUGIN_ENTRYPOINTS)))
 PLUGIN_NAMES_WASM := $(filter-out $(PLUGIN_NAMES_JS),$(PLUGINS))
 PLUGIN_TARGETS_WASM := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGIN_NAMES_WASM)))
-PLUGIN_TARGETS_JS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .js,$(PLUGIN_NAMES_JS)))
+PLUGIN_TARGETS_JS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix /index.js,$(PLUGIN_NAMES_JS)))
 PLUGIN_TARGETS := $(PLUGIN_TARGETS_WASM) $(PLUGIN_TARGETS_JS)
 
 # Detect plugin test entry points.
@@ -147,7 +147,7 @@ define APPLY_PLUGIN_MANIFEST
   $(BUILD_DIR)/plugins/$(1).wasm: ZIG_C_SOURCES := $$(ZIG_C_SOURCES_$(1))
   $$(if $$(strip $$(ZIG_C_SOURCES_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_C_SOURCES_$(1)))
   $$(if $$(strip $$(ZIG_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_EXTRA_DEPS_$(1)))
-  $$(if $$(strip $$(JS_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).js: $$(JS_EXTRA_DEPS_$(1)))
+  $$(if $$(strip $$(JS_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1)/index.js: $$(JS_EXTRA_DEPS_$(1)))
 
   # Cleanup manifest locals so they don't leak into next plugin
   PLUGIN_ODIN_WASM_TARGET :=
@@ -183,7 +183,7 @@ test: $(PLUGIN_TEST_TARGETS)
 
 define DEFINE_PLUGIN_TEST
 .PHONY: $(1)-test
-$(1)-test: $(if $(filter $(1),$(PLUGIN_NAMES_JS)),$(BUILD_DIR)/plugins/$(1).js,$(BUILD_DIR)/plugins/$(1).wasm) $(PLUGIN_DIR)/$(1)/test/e2e.mjs
+$(1)-test: $(if $(filter $(1),$(PLUGIN_NAMES_JS)),$(BUILD_DIR)/plugins/$(1)/index.js,$(BUILD_DIR)/plugins/$(1).wasm) $(PLUGIN_DIR)/$(1)/test/e2e.mjs
 	$(Q)node ./$(PLUGIN_DIR)/$(1)/test/e2e.mjs
 endef
 
@@ -215,9 +215,11 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%
 		$(ZIG_EXTRA_FLAGS) \
 		-femit-bin=$@
 
-$(BUILD_DIR)/plugins/%.js: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%/*.js) | $(BUILD_DIR)/plugins
+$(BUILD_DIR)/plugins/%/index.js: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%/*.js) $(wildcard $(PLUGIN_DIR)/%/*.mjs) | $(BUILD_DIR)/plugins
 	$(Q)echo "Registering JS plugin $*..."
-	$(Q)$(CP) $< $@
+	$(Q)rm -rf $(BUILD_DIR)/plugins/$*
+	$(Q)$(MKDIR_P) $(BUILD_DIR)/plugins/$*
+	$(Q)cp -R $(PLUGIN_DIR)/$*/. $(BUILD_DIR)/plugins/$*/
 
 # Rule to build Odin plugins
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/%/*.odin) | $(BUILD_DIR)/plugins

@@ -34,59 +34,14 @@ class RuntimeWorker {
     if (this.pluginManager) return this.pluginManager
     const manager = await PluginManager.create({
       modules: [],
-      hostFunctions: this.getHostFunctions(),
     })
+
     this.pluginManager = manager
     for (const pluginId of this.mainPlugins) {
       this.registerRemoteHostPlugin(pluginId)
     }
 
     return manager
-  }
-
-  getHostFunctions() {
-    return [
-      {
-        module: 'fs',
-        function: 'read',
-        handler: (input) => this.callSync('fs', 'read', input),
-      },
-      {
-        module: 'fs',
-        function: 'write',
-        handler: (input) => this.callSync('fs', 'write', input),
-      },
-      {
-        module: 'fs',
-        function: 'delete',
-        handler: (input) => this.callSync('fs', 'remove', input),
-      },
-      {
-        module: 'fs',
-        function: 'exists',
-        handler: (input) => this.callSync('fs', 'exists', input),
-      },
-      {
-        module: 'fs',
-        function: 'list',
-        handler: (input) => this.callSync('fs', 'list', input),
-      },
-      {
-        module: 'fs',
-        function: 'mkdir',
-        handler: (input) => this.callSync('fs', 'mkdir', input),
-      },
-      {
-        module: 'fs',
-        function: 'rmdir',
-        handler: (input) => this.callSync('fs', 'rmdir', input),
-      },
-      {
-        module: 'fs',
-        function: 'stat',
-        handler: (input) => this.callSync('fs', 'stat', input),
-      },
-    ]
   }
 
   registerRemoteHostPlugin(pluginId) {
