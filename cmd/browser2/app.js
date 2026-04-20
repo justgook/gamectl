@@ -12,6 +12,7 @@ import './views/files-rename.js'
 import './views/files-json.js'
 import './views/files-default.js'
 import './views/view-ai.js'
+import './views/view-setting-fs.js'
 import './views/sql-table-editor.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
@@ -127,30 +128,56 @@ const viewRegistry = new Map([
   ['view-setting-plugins', placeholderView('view-setting-plugins', 'Setting Plugins', 'Settings')],
   ['view-setting-ai', placeholderView('view-setting-ai', 'Setting AI', 'Settings')],
   ['view-setting-keys', placeholderView('view-setting-keys', 'Setting Keybinding', 'Settings')],
-  ['view-setting-fs', placeholderView('view-setting-fs', 'Setting FileSystem', 'Settings')],
+  ['view-setting-fs', {
+    label: 'Setting FileSystem',
+    group: 'Settings',
+    create: () => document.createElement('view-setting-fs'),
+  }],
   ['view-setting-theme', placeholderView('view-setting-theme', 'Setting Theme', 'Settings')],
 ])
 
 
+
+function createFsPluginDefinitions() {
+  const provider = localStorage.getItem('browser.fs') || 'fs.opfs'
+  const webdavUrl = localStorage.getItem('browser.fs.webdav.url') || ''
+
+  return [
+    {
+      id: 'fs',
+      runtime: 'js',
+      role: 'service',
+      url: provider === 'fs.webdav'
+        ? 'local:../builtin/fs-webdav/index.js'
+        : 'local:../builtin/fs-opfs/index.js',
+      config: {
+        provider,
+        webdavUrl,
+      },
+    },
+    {
+      id: 'fs.opfs',
+      runtime: 'js',
+      role: 'service',
+      url: 'local:../builtin/fs-opfs/index.js',
+      config: {
+        provider: 'fs.opfs',
+      },
+    },
+    {
+      id: 'fs.webdav',
+      runtime: 'js',
+      role: 'service',
+      url: 'local:../builtin/fs-webdav/index.js',
+      config: {
+        provider: 'fs.webdav',
+        webdavUrl,
+      },
+    },
+  ]
+}
 const buildinPlugins = [
-  {
-    id: 'fs',
-    runtime: 'js',
-    role: 'service',
-    url: 'local:../builtin/fs-opfs/index.js',
-  },
-  {
-    id: 'fs.opfs',
-    runtime: 'js',
-    role: 'service',
-    url: 'local:../builtin/fs-opfs/index.js',
-  },
-  {
-    id: 'fs.webdav',
-    runtime: 'js',
-    role: 'service',
-    url: 'local:../builtin/fs-webdav/index.js',
-  },
+  ...createFsPluginDefinitions(),
   {
     id: 'sql',
     runtime: 'wasm',
