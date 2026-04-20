@@ -94,9 +94,11 @@ class RuntimeWorker {
 
     if (definition.runtime === 'wasm') {
       const manager = await this.ensurePluginManager()
-      console.log("[TODO]: add fs wasm plugin loader")
-      // const data = (await this.call("fs", "read", definition.url)).output
-      await manager.loadAdditionalModules([{ name: id, url: definition.url, memory: definition.memory }])
+      const result = await this.call('fs', 'read', definition.url)
+      if (result.returnCode !== 0) {
+        throw new Error(new TextDecoder().decode(result.output).trim() || `fs.read failed for '${definition.url}'`)
+      }
+      await manager.loadAdditionalModules([{ name: id, data: result.output, memory: definition.memory }])
       const instance = { id, definition, module: null, kind: 'wasm' }
       this.instances.set(id, instance)
       await this.initializePluginHooks(id)

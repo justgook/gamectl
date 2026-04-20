@@ -1,6 +1,8 @@
 import { SyncMessenger } from './SyncMessenger.js'
 
 const BUFFER_SIZE = 12 * 1024 * 1024
+const RESPONSE_JSON = 0x4a
+const RESPONSE_BINARY = 0x42
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
@@ -43,8 +45,18 @@ export class FsAdapter {
   _call(op, params = {}) {
     const request = encoder.encode(JSON.stringify({ op, ...params }))
     const responseBytes = this.messenger.callSync(request)
-    const response = JSON.parse(decoder.decode(responseBytes))
+    const responseType = responseBytes[0]
+    const payload = responseBytes.slice(1)
 
+    if (responseType === RESPONSE_BINARY) {
+      return payload
+    }
+
+    if (responseType !== RESPONSE_JSON) {
+      throw new Error(`Unknown fs response type: ${responseType}`)
+    }
+
+    const response = JSON.parse(decoder.decode(payload))
     if (!response.ok) {
       throw new Error(response.error)
     }
@@ -53,8 +65,7 @@ export class FsAdapter {
   }
 
   readFileSync(path) {
-    const data = this._call('readFile', { path })
-    return new Uint8Array(data)
+    return this._call('readFile', { path })
   }
 
   writeFileSync(path, data) {
@@ -92,7 +103,6 @@ export class FsAdapter {
   }
 
   readHttpSync(path) {
-    const data = this._call('readHttp', { path })
-    return new Uint8Array(data)
+    return this._call('readHttp', { path })
   }
 }

@@ -4,6 +4,24 @@ import * as backend from './backend-webdav.js'
 let handlers = null
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
+const RESPONSE_JSON = 0x4a
+const RESPONSE_BINARY = 0x42
+
+function encodeJsonResponse(value) {
+  const payload = encoder.encode(JSON.stringify(value))
+  const bytes = new Uint8Array(payload.length + 1)
+  bytes[0] = RESPONSE_JSON
+  bytes.set(payload, 1)
+  return bytes
+}
+
+function encodeBinaryResponse(data) {
+  const source = data instanceof Uint8Array ? data : new Uint8Array(data)
+  const bytes = new Uint8Array(source.length + 1)
+  bytes[0] = RESPONSE_BINARY
+  bytes.set(source, 1)
+  return bytes
+}
 
 async function handleRequest(requestBytes) {
   try {
@@ -11,12 +29,15 @@ async function handleRequest(requestBytes) {
     const { op, ...params } = request
     const handler = handlers[op]
     if (!handler) {
-      return encoder.encode(JSON.stringify({ ok: false, error: `Unknown operation: ${op}` }))
+      return encodeJsonResponse({ ok: false, error: `Unknown operation: ${op}` })
     }
     const result = await handler(params.path, params.data)
-    return encoder.encode(JSON.stringify(result))
+    if (result?.ok && (op === 'readFile' || op === 'readHttp')) {
+      return encodeBinaryResponse(result.data)
+    }
+    return encodeJsonResponse(result)
   } catch (err) {
-    return encoder.encode(JSON.stringify({ ok: false, error: err.message }))
+    return encodeJsonResponse({ ok: false, error: err.message })
   }
 }
 
