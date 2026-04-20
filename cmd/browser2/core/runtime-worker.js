@@ -197,9 +197,12 @@ class RuntimeWorker {
   }
 
   createContext(callerId) {
+    const definition = this.definitions.get(callerId) || null
     return {
       runtime: this,
       callerId,
+      definition,
+      config: definition?.config || null,
       call: (target, method, input) => this.call(target, method, input),
       callSync: (target, method, input) => this.callSync(target, method, input),
       memory: (target) => this.memory(target),

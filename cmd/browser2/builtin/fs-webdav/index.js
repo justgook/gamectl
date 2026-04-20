@@ -87,7 +87,7 @@ const plugin = {
   id: 'fs.webdav',
 
   async init(ctx) {
-    const raw = localStorage.getItem('browser.fs.webdav.url') || ''
+    const raw = ctx?.config?.webdavUrl || ''
     const { url, authorization } = parseWebdavUrl(raw)
     fs = await FsAdapter.start({ url, authorization })
     pluginCallerSync = ctx?.callSync ? (moduleName, functionName, input) => ctx.callSync(moduleName, functionName, input) : null
