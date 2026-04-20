@@ -196,22 +196,30 @@ export class ViewArea extends HTMLElement {
     const select = this.shadowRoot.querySelector('[data-action="select-view"]')
     if (!select) return
 
-    const currentTag = this.getCurrentViewTag()
-    const options = new Map()
-    options.set(currentTag, currentTag)
-
     const owner = this.requireOwner()
-    for (const view of owner.listViews()) {
-      options.set(view.tag, view.label || view.tag)
-    }
+    const currentTag = this.getCurrentViewTag()
 
     select.innerHTML = ''
-    for (const [tag, label] of options.entries()) {
+    const optionGroups = new Map()
+    for (const [tag, entry] of [...owner.viewRegistry.entries()]) {
+      const groupName = entry.group || ""
+      if (!optionGroups.has(groupName)) {
+        const node = document.createElement('optgroup')
+        node.label = groupName
+        optionGroups.set(groupName, node)
+      }
+      const optGroup = optionGroups.get(groupName)
+
       const option = document.createElement('option')
       option.value = tag
-      option.textContent = label
-      select.appendChild(option)
+      option.textContent = entry.label || tag
+      optGroup.appendChild(option)
     }
+
+    for (const node of optionGroups.values()) {
+      select.appendChild(node)
+    }
+
     select.value = currentTag
   }
 
@@ -427,31 +435,15 @@ export class UiLayout extends HTMLElement {
     return { valid: v[base], x0: v[base + 1], y0: v[base + 2], x1: v[base + 3], y1: v[base + 4] }
   }
 
-  normalizeViewRegistry(registry) {
-    if (registry instanceof Map) return new Map(registry)
-    return new Map(Object.entries(registry || {}))
-  }
-
   setViewRegistry(registry) {
-    this.viewRegistry = this.normalizeViewRegistry(registry)
+    this.viewRegistry = registry
     for (const chrome of this.content.values()) {
       chrome.refreshViewSelector?.()
     }
   }
 
-  getViewEntry(tag) {
-    return this.viewRegistry.get(tag) || null
-  }
-
-  listViews() {
-    return [...this.viewRegistry.entries()].map(([tag, entry]) => ({
-      tag,
-      label: entry?.label || tag,
-    }))
-  }
-
   createView(tag, attrs = {}, innerHTML = '') {
-    const entry = this.getViewEntry(tag)
+    const entry = this.viewRegistry.get(tag) || null
     const viewNode = typeof entry?.create === 'function'
       ? entry.create({ tag, attrs, innerHTML, layout: this })
       : document.createElement(tag)
