@@ -13,6 +13,7 @@ import './views/files-json.js'
 import './views/files-default.js'
 import './views/view-ai.js'
 import './views/view-setting-fs.js'
+import './views/view-setting-theme.js'
 import './views/sql-table-editor.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
@@ -133,7 +134,11 @@ const viewRegistry = new Map([
     group: 'Settings',
     create: () => document.createElement('view-setting-fs'),
   }],
-  ['view-setting-theme', placeholderView('view-setting-theme', 'Setting Theme', 'Settings')],
+  ['view-setting-theme', {
+    label: 'Setting Theme',
+    group: 'Settings',
+    create: () => document.createElement('view-setting-theme'),
+  }],
 ])
 
 
@@ -176,6 +181,7 @@ function createFsPluginDefinitions() {
     },
   ]
 }
+
 const buildinPlugins = [
   ...createFsPluginDefinitions(),
   {
@@ -230,18 +236,27 @@ const buildinPlugins = [
   }
 ]
 
-function applyThemeStylesheet() {
-  const theme = localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME
+function applyThemeStylesheet(nextTheme = null) {
+  const theme = nextTheme || localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME
   const themeHref = `./themes/${theme}.css`
   const link = document.getElementById('theme-stylesheet')
   link.setAttribute('href', themeHref)
   window.__currentTheme = theme
   window.__currentThemeStylesheetHref = themeHref
+
+  document.querySelectorAll('view-area, view-popup').forEach((el) => {
+    const shadowLink = el.shadowRoot?.querySelector('link[data-theme-stylesheet]')
+    if (shadowLink) {
+      shadowLink.setAttribute('href', themeHref)
+    }
+  })
 }
 
 function errorParse(e) {
   return `${e.plugin ? "[" + e.plugin + "]: " : ""}${e.message || e.reason}`
 }
+
+window.__applyThemeStylesheet = applyThemeStylesheet
 
 async function main() {
   const root = document.body
