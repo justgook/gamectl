@@ -131,9 +131,44 @@ function serializeTools(tools) {
   }))
 }
 
+function coerceToolArgumentsForSchema(schema, rawArguments) {
+  if (!schema || schema.type !== 'object') return rawArguments
+  if (rawArguments == null || typeof rawArguments === 'object') return rawArguments
+
+  const properties = schema.properties ?? {}
+  const keys = Object.keys(properties)
+  if (keys.length !== 1) return rawArguments
+
+  const [key] = keys
+  const propertySchema = properties[key]
+  if (!propertySchema || propertySchema.type !== typeof rawArguments) return rawArguments
+
+  const required = Array.isArray(schema.required) ? schema.required : []
+  if (required.length !== 1 || required[0] !== key) return rawArguments
+  if (schema.additionalProperties !== false) return rawArguments
+
+  return { [key]: rawArguments }
+}
+
+function serializeToolTargetInput(value) {
+  if (typeof value === 'string') return value
+  if (value == null) return JSON.stringify(value)
+
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const keys = Object.keys(value)
+    if (keys.length === 1) {
+      const singleValue = value[keys[0]]
+      if (typeof singleValue === 'string') return singleValue
+      if (typeof singleValue === 'number' || typeof singleValue === 'boolean') return String(singleValue)
+    }
+  }
+
+  return JSON.stringify(value)
+}
+
 function validateToolArguments(tool, rawArguments) {
-  // assert(rawArguments && typeof rawArguments === 'object' && !Array.isArray(rawArguments), `Tool '${tool.name}' arguments must be an object`)
-  const argumentsCopy = structuredClone(rawArguments)
+  const normalizedArguments = coerceToolArgumentsForSchema(tool.parameters, rawArguments)
+  const argumentsCopy = structuredClone(normalizedArguments)
   const valid = tool.validate(argumentsCopy)
   if (!valid) {
     return {
@@ -336,7 +371,7 @@ function executeToolCall(ctx, session, toolCall) {
   }
 
   try {
-    const result = ctx.callSync(tool.target.plugin, tool.target.method, JSON.stringify(validated.value))
+    const result = ctx.callSync(tool.target.plugin, tool.target.method, serializeToolTargetInput(validated.value))
     const text = decoder.decode(result.output)
     return createToolResultMessage(toolCall.id, toolCall.name, text, result.returnCode !== 0)
   } catch (error) {

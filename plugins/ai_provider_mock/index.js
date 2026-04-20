@@ -124,7 +124,7 @@ const plugin = {
               type: 'tool_call',
               id: `tool-${Date.now()}`,
               name: 'sql_query',
-              arguments: { sql: "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name" },
+              arguments: "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
             },
           ],
           stopReason: 'tool_use',
