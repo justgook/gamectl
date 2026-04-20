@@ -115,12 +115,18 @@ const viewRegistry = new Map([
   }],
   ['view-animation', placeholderView('view-animation', 'Animation')],
   ['view-nodegraph', placeholderView('view-nodegraph', 'Nodegraph')],
-  ['view-settings', placeholderView('view-settings', 'Settings')],
+  ['view-font', placeholderView('view-font', 'Artery Font')],
+  ['view-bullet', placeholderView('view-bullet', 'BulletMl')],
+  ['view-particle', placeholderView('view-particle', 'Particle')],
   ['view-tree', {
     label: 'Tree',
     create: () => document.createElement('view-tree'),
   }],
   ['view-game-runner', placeholderView('view-game-runner', 'Game Runner')],
+  ['view-setting-plugins', placeholderView('view-setting-plugins', 'Setting Plugins')],
+  ['view-setting-ai', placeholderView('view-setting-ai', 'Setting AI')],
+  ['view-setting-keys', placeholderView('view-setting-keys', 'Setting Keybinding')],
+  ['view-setting-fs', placeholderView('view-setting-fs', 'Setting FileSystem')],
 ])
 
 
