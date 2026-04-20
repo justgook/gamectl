@@ -1,4 +1,5 @@
 import { init } from './core/runtime.js'
+import { defaultPlugins } from './core/default-plugins.js'
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
 import './ui-plugins/popup.js'
@@ -14,6 +15,7 @@ import './views/files-default.js'
 import './views/view-ai.js'
 import './views/view-setting-fs.js'
 import './views/view-setting-theme.js'
+import './views/view-setting-plugins.js'
 import './views/sql-table-editor.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
@@ -126,7 +128,11 @@ const viewRegistry = new Map([
     create: () => document.createElement('view-tree'),
   }],
   ['view-game-runner', placeholderView('view-game-runner', 'Game Runner')],
-  ['view-setting-plugins', placeholderView('view-setting-plugins', 'Setting Plugins', 'Settings')],
+  ['view-setting-plugins', {
+    label: 'Setting Plugins',
+    group: 'Settings',
+    create: () => document.createElement('view-setting-plugins'),
+  }],
   ['view-setting-ai', placeholderView('view-setting-ai', 'Setting AI', 'Settings')],
   ['view-setting-keys', placeholderView('view-setting-keys', 'Setting Keybinding', 'Settings')],
   ['view-setting-fs', {
@@ -182,59 +188,26 @@ function createFsPluginDefinitions() {
   ]
 }
 
-const buildinPlugins = [
-  ...createFsPluginDefinitions(),
-  {
-    id: 'sql',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/sql.wasm?t=${Date.now()}`,
-  },
-  {
-    id: 'random',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/random.wasm?t=${Date.now()}`,
-  },
-  {
-    id: 'treegen',
-    runtime: 'wasm',
-    role: 'service',
-    deps: ['random'],
-    url: `/plugins/treegen.wasm?t=${Date.now()}`,
-  },
-  {
-    id: 'echo',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/echo.wasm?t=${Date.now()}`,
-  },
-  {
-    id: 'layout',
-    runtime: 'wasm',
-    role: 'service',
-    url: `/plugins/layout2.wasm?t=${Date.now()}`,
-    memory: {
-      import: true,
-      shared: true,
-      initialPages: 288,
-      maximumPages: 512,
-    },
-  },
-  {
-    id: 'ai.provider.mock',
-    runtime: 'js',
-    role: 'service',
-    url: 'local:/plugins/ai_provider_mock/index.js',
-  },
-  {
-    id: 'ai.agent',
-    runtime: 'js',
-    role: 'service',
-    deps: ['fs', 'ai.provider.mock'],
-    url: 'local:/plugins/ai_agent/index.js',
+const textDecoder = new TextDecoder()
+
+async function loadPluginDefinitions(runtime) {
+  const existsResult = await runtime.call('fs', 'exists', '/.plugins.json')
+  if (existsResult.returnCode !== 0) {
+    throw new Error(textDecoder.decode(existsResult.output))
   }
-]
+
+  const exists = textDecoder.decode(existsResult.output) === 'true'
+  if (!exists) {
+    return defaultPlugins
+  }
+
+  const readResult = await runtime.call('fs', 'read', '/.plugins.json')
+  if (readResult.returnCode !== 0) {
+    throw new Error(textDecoder.decode(readResult.output))
+  }
+
+  return JSON.parse(textDecoder.decode(readResult.output))
+}
 
 function applyThemeStylesheet(nextTheme = null) {
   const theme = nextTheme || localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME
@@ -265,7 +238,8 @@ async function main() {
 
   try {
     const runtime = await init()
-    await runtime.add(buildinPlugins)
+    await runtime.add(createFsPluginDefinitions())
+    await runtime.add(await loadPluginDefinitions(runtime))
     await runtime.call("sql", "open") // TODO move init of sql to plugin it self
     window.onerror = function (_message, _source, _lineno, _colno, error) {
       runtime.call("ui.toast", "error", errorParse(error))
