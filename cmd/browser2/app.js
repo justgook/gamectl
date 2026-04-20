@@ -80,9 +80,10 @@ const AI_OPEN_CONFIG = {
   },
 }
 
-function placeholderView(tag, label) {
+function placeholderView(tag, label, group = "TODO") {
   return {
     label,
+    group,
     create: () => {
       const el = document.createElement('view-empty')
       el.setAttribute('data-view-tag', tag)
@@ -116,17 +117,18 @@ const viewRegistry = new Map([
   ['view-animation', placeholderView('view-animation', 'Animation')],
   ['view-nodegraph', placeholderView('view-nodegraph', 'Nodegraph')],
   ['view-font', placeholderView('view-font', 'Artery Font')],
-  ['view-bullet', placeholderView('view-bullet', 'BulletMl')],
+  ['view-bullet', placeholderView('view-bullet', 'BulletML')],
   ['view-particle', placeholderView('view-particle', 'Particle')],
   ['view-tree', {
     label: 'Tree',
     create: () => document.createElement('view-tree'),
   }],
   ['view-game-runner', placeholderView('view-game-runner', 'Game Runner')],
-  ['view-setting-plugins', placeholderView('view-setting-plugins', 'Setting Plugins')],
-  ['view-setting-ai', placeholderView('view-setting-ai', 'Setting AI')],
-  ['view-setting-keys', placeholderView('view-setting-keys', 'Setting Keybinding')],
-  ['view-setting-fs', placeholderView('view-setting-fs', 'Setting FileSystem')],
+  ['view-setting-plugins', placeholderView('view-setting-plugins', 'Setting Plugins', 'Settings')],
+  ['view-setting-ai', placeholderView('view-setting-ai', 'Setting AI', 'Settings')],
+  ['view-setting-keys', placeholderView('view-setting-keys', 'Setting Keybinding', 'Settings')],
+  ['view-setting-fs', placeholderView('view-setting-fs', 'Setting FileSystem', 'Settings')],
+  ['view-setting-theme', placeholderView('view-setting-theme', 'Setting Theme', 'Settings')],
 ])
 
 
