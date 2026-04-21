@@ -19,6 +19,9 @@ High-priority browser view for migration. Today it contains custom runtime handl
 - heavy runtime work moves away from direct main-thread instance loading
 - cross-plugin communication uses routed plugin calls / notifications
 - shared state can be added where it improves responsiveness without special-case host APIs
+- current fresh-start backend target for browser2 work is `plugins/ng2`
+- `plugins/ng2` should expose handle-based graph/document APIs with no implicit active graph
+- `ng_host_resolve` should be removed and replaced by explicit plugin-to-plugin calls inside `ng2`
 
 ## Clarifications
 - The browser view boundary is relatively clear: canvas/editor UX, selection, editing gestures, popups, and keybindings should stay view-local.

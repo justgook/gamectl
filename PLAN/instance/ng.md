@@ -18,6 +18,8 @@ Move away from direct instance-style loading. The most likely target is:
 - runtime logic as `singleton` plugin(s)
 - browser rendering/editor surface as `view` plugin(s)
 - plugin-to-plugin contracts instead of ad-hoc host resolve callbacks
+- current non-destructive fresh-start backend target is `plugins/ng2`
+- `ng2` should use explicit handle-based graph APIs and remove `ng_host_resolve`
 
 ## Notes
 - This file tracks the **current legacy usage**.

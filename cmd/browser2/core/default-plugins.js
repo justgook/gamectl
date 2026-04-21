@@ -37,6 +37,19 @@ export const defaultPlugins = [
     },
   },
   {
+    id: 'ng2',
+    runtime: 'wasm',
+    role: 'service',
+    deps: ['sql'],
+    url: `local:/plugins/ng2.wasm?t=${Date.now()}`,
+    memory: {
+      import: true,
+      shared: true,
+      initialPages: 96,
+      maximumPages: 256,
+    },
+  },
+  {
     id: 'ai.provider.mock',
     runtime: 'js',
     role: 'service',

@@ -32,6 +32,13 @@ Optional elements should appear at most once per view.
 - `header` - should not be used inside view HTML.
 - `[slot="header-controls"]` - header tools/actions area for the view.
 
+### Popup flows
+
+- popup opening/closing should go through `runtime.call('ui.popup', ...)` instead of directly reaching into `popup-manager` from a view.
+- prefer dedicated popup views or existing reusable chooser/editor views over inline popup HTML assembled inside another view.
+- when add/edit flows are mostly the same, prefer one popup view with a mode prop over near-duplicate popup views.
+- reuse existing chooser views such as `view-sql` when they already fit the job.
+
 ## Intent
 
 - `.accent` - primary/default emphasis for main actions and highlighted UI state.

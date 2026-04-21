@@ -9,6 +9,8 @@ import './views/view-sql.js'
 import './views/view-sql-console.js'
 import './views/view-files.js'
 import './views/view-tree.js'
+import './views/view-ng.js'
+import './views/view-ng-node.js'
 import './views/files-rename.js'
 import './views/files-json.js'
 import './views/files-default.js'
@@ -20,11 +22,15 @@ import './views/sql-table-editor.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
+// const DEFAULT_LAYOUT = `
+//   <view-sql-console />
+//   <sql-table-editor setup="0:h:50"/>
+//   <view-sql setup="0:v:50" />
+//   <view-ai setup="1:v:50" />
+// `
+//
 const DEFAULT_LAYOUT = `
-  <view-sql-console />
-  <sql-table-editor setup="0:h:50"/>
-  <view-sql setup="0:v:50" />
-  <view-ai setup="1:v:50" />
+  <view-ng />
 `
 
 const AI_OPEN_CONFIG = {
@@ -119,7 +125,14 @@ const viewRegistry = new Map([
     create: () => document.createElement('view-files'),
   }],
   ['view-animation', placeholderView('view-animation', 'Animation')],
-  ['view-nodegraph', placeholderView('view-nodegraph', 'Nodegraph')],
+  ['view-ng', {
+    label: 'Nodegraph',
+    create: () => {
+      const el = document.createElement('view-ng')
+      el.setAttribute('graph-source', 'ng2')
+      return el
+    },
+  }],
   ['view-font', placeholderView('view-font', 'Artery Font')],
   ['view-bullet', placeholderView('view-bullet', 'BulletML')],
   ['view-particle', placeholderView('view-particle', 'Particle')],
