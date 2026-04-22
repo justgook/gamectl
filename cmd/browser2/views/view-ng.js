@@ -1014,23 +1014,31 @@ export class ViewNg extends HTMLElement {
     const inputCount = Math.max(0, Math.min(8, Number(draft.inputCount || 0)))
     const requestedOutputCount = Math.max(0, Math.min(8, Number(draft.outputCount || 0)))
     const outputCount = kind === NG.NODE_GOAL ? 0 : kind === NG.NODE_VALUE ? Math.max(1, requestedOutputCount) : requestedOutputCount
+    const draftInputs = Array.isArray(draft.inputs) ? draft.inputs : []
+    const draftOutputs = Array.isArray(draft.outputs) ? draft.outputs : []
     const node = {
       id: nodeId,
       kind,
       execState: 0,
       inputCount,
       outputCount,
-      inputs: Array.from({ length: inputCount }, (_, index) => ({ inputId: index + 1, srcNodeId: 0, srcOutputId: 0 })),
-      outputs: Array.from({ length: outputCount }, (_, index) => ({ outputId: index + 1 })),
+      inputs: Array.from({ length: inputCount }, (_, index) => ({
+        inputId: Number(draftInputs[index]?.inputId || index + 1),
+        srcNodeId: 0,
+        srcOutputId: 0,
+      })),
+      outputs: Array.from({ length: outputCount }, (_, index) => ({
+        outputId: Number(draftOutputs[index]?.outputId || index + 1),
+      })),
     }
     this.lastGraph.nodes.push(node)
     this.nodeNames.set(nodeId, String(draft.name || '').trim())
     this.portLabels.set(nodeId, {
-      inputs: Object.fromEntries(Array.from({ length: inputCount }, (_, index) => [String(index + 1), `input ${index + 1}`])),
-      outputs: Object.fromEntries(Array.from({ length: outputCount }, (_, index) => [String(index + 1), kind === NG.NODE_VALUE ? '' : `output ${index + 1}`])),
+      inputs: Object.fromEntries(Array.from({ length: inputCount }, (_, index) => [String(node.inputs[index].inputId), String(draftInputs[index]?.name || `input ${index + 1}`)])),
+      outputs: Object.fromEntries(Array.from({ length: outputCount }, (_, index) => [String(node.outputs[index].outputId), kind === NG.NODE_VALUE ? '' : String(draftOutputs[index]?.name || `output ${index + 1}`)])),
     })
     if (kind === NG.NODE_VALUE) {
-      this.valueByNode.set(nodeId, new Map([[1, String(draft.valueText || '')]]))
+      this.valueByNode.set(nodeId, new Map(Array.from({ length: outputCount }, (_, index) => [Number(node.outputs[index].outputId), String(draftOutputs[index]?.value || '')])))
     }
     const center = this._viewportCenterWorld()
     const size = this._measureNodeSize(node)
