@@ -51,6 +51,7 @@ Current state:
 - add/edit now share a single popup view:
   - `view-ng-node`
   - controlled by `mode: 'create' | 'edit'`
+  - visually/functionally ported toward the legacy node editor while using browser2 view rules
 - popup flows should use `runtime.call('ui.popup', ...)`, not direct `popup-manager` access
 - save remains a placeholder until `ng2.ng_graph_save` exists
 - reset/clear/auto-arrange are view-side editor actions

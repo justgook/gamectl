@@ -50,6 +50,8 @@ Optional elements should appear at most once per view.
 ## Form
 
 - `form` - base element for grouped inputs and actions; default layout is column.
+- `fieldset` - grouped subsection inside a form.
+- `legend` - title/label for a `fieldset`.
 - `label` - form field label.
 - `form > footer` - actions area inside forms.
 - `input[type="text"]` - standard single-line text input.
