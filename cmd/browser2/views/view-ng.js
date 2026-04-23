@@ -357,10 +357,10 @@ export class ViewNg extends HTMLElement {
     this.handleElement = null
     this.backendElement = null
     this.statusElement = null
-    this.ng2Handle = 0
-    this.ng2Memory = null
-    this.ng2InfoPtr = null
-    this.ng2InfoSize = 0
+    this.ngHandle = 0
+    this.ngMemory = null
+    this.ngInfoPtr = null
+    this.ngInfoSize = 0
     this.resizeObserver = new ResizeObserver(() => {
       this._resizeCanvas()
       this.render()
@@ -380,7 +380,7 @@ export class ViewNg extends HTMLElement {
         <canvas data-element="canvas"></canvas>
         <footer>
           <output data-element="handle">handle: scaffold</output>
-          <output data-element="backend" class="warning">backend: ng2 integration pending</output>
+          <output data-element="backend" class="warning">backend: ng integration pending</output>
           <output data-element="status" class="info">rendering: legacy WebGL scaffold copied from view-nodegraph2.js</output>
         </footer>
       `
@@ -833,9 +833,9 @@ export class ViewNg extends HTMLElement {
       this.lastGraph.edges = this.lastGraph.edges.filter((edge) => !(Number(edge.to) === Number(nodeId) && Number(edge.toInputId) === Number(inputId)))
       return true
     }
-    const ok = await this._callNg2Mutation('ng_input_disconnect', { handle: this.ng2Handle, nodeId, inputId }, `Could not disconnect input ${inputId} on node #${nodeId}`)
+    const ok = await this._callngMutation('ng_input_disconnect', { handle: this.ngHandle, nodeId, inputId }, `Could not disconnect input ${inputId} on node #${nodeId}`)
     if (!ok) return false
-    this._syncGraphSnapshotFromNg2({ preserveLayout: true })
+    this._syncGraphSnapshotFromng({ preserveLayout: true })
     return true
   }
 
@@ -846,9 +846,9 @@ export class ViewNg extends HTMLElement {
       this._connectInputLocally(toNodeId, toInputId, fromNodeId, fromOutputId)
       return true
     }
-    const ok = await this._callNg2Mutation('ng_input_connect', { handle: this.ng2Handle, nodeId: toNodeId, inputId: toInputId, srcNodeId: fromNodeId, srcOutputId: fromOutputId }, `Could not connect ${fromNodeId}.${fromOutputId} -> ${toNodeId}.${toInputId}`)
+    const ok = await this._callngMutation('ng_input_connect', { handle: this.ngHandle, nodeId: toNodeId, inputId: toInputId, srcNodeId: fromNodeId, srcOutputId: fromOutputId }, `Could not connect ${fromNodeId}.${fromOutputId} -> ${toNodeId}.${toInputId}`)
     if (!ok) return false
-    this._syncGraphSnapshotFromNg2({ preserveLayout: true })
+    this._syncGraphSnapshotFromng({ preserveLayout: true })
     return true
   }
 
@@ -886,16 +886,16 @@ export class ViewNg extends HTMLElement {
   }
 
   _assertMutableGraphSource(action) {
-    if (this.graphSource === 'sample' || this.graphSource === 'ng2') return true
+    if (this.graphSource === 'sample' || this.graphSource === 'ng') return true
     const message = `${action} is not supported for graph-source='${this.graphSource}'`
     this._setStatus(message, 'warning')
     void runtime.call('ui.toast', 'warning', { message })
     return false
   }
 
-  async _callNg2Mutation(method, payload, failurePrefix) {
-    await this.ensureNg2Binding()
-    const result = await runtime.call('ng2', method, JSON.stringify(payload))
+  async _callngMutation(method, payload, failurePrefix) {
+    await this.ensurengBinding()
+    const result = await runtime.call('ng', method, JSON.stringify(payload))
     if (result.returnCode !== 0) {
       const detail = decodeOutput(result) || result.returnCode
       const message = `${failurePrefix}: ${detail}`
@@ -906,46 +906,46 @@ export class ViewNg extends HTMLElement {
     return true
   }
 
-  _syncGraphSnapshotFromNg2({ preserveLayout = true, fit = false } = {}) {
-    this.setGraphSnapshot(this.readGraphSnapshotFromNg2(), { preserveLayout, fit })
+  _syncGraphSnapshotFromng({ preserveLayout = true, fit = false } = {}) {
+    this.setGraphSnapshot(this.readGraphSnapshotFromng(), { preserveLayout, fit })
   }
 
-  async _createNodeViaNg2(nodeId, draft) {
+  async _createNodeViang(nodeId, draft) {
     const kind = Number(draft.kind || NG.NODE_CODE)
     const draftInputs = Array.isArray(draft.inputs) ? draft.inputs : []
     const draftOutputs = Array.isArray(draft.outputs) ? draft.outputs : []
-    let ok = await this._callNg2Mutation('ng_node_create', { handle: this.ng2Handle, nodeId, kind }, `Could not create node #${nodeId}`)
+    let ok = await this._callngMutation('ng_node_create', { handle: this.ngHandle, nodeId, kind }, `Could not create node #${nodeId}`)
     if (!ok) return false
     for (const port of draftInputs) {
-      ok = await this._callNg2Mutation('ng_input_add', { handle: this.ng2Handle, nodeId, inputId: Number(port.inputId) }, `Could not add input ${Number(port.inputId)} to node #${nodeId}`)
+      ok = await this._callngMutation('ng_input_add', { handle: this.ngHandle, nodeId, inputId: Number(port.inputId) }, `Could not add input ${Number(port.inputId)} to node #${nodeId}`)
       if (!ok) return false
     }
     for (const port of draftOutputs) {
-      ok = await this._callNg2Mutation('ng_output_add', { handle: this.ng2Handle, nodeId, outputId: Number(port.outputId) }, `Could not add output ${Number(port.outputId)} to node #${nodeId}`)
+      ok = await this._callngMutation('ng_output_add', { handle: this.ngHandle, nodeId, outputId: Number(port.outputId) }, `Could not add output ${Number(port.outputId)} to node #${nodeId}`)
       if (!ok) return false
     }
     if (kind === NG.NODE_CALL && Number(draft.graphId || 0) > 0) {
-      ok = await this._callNg2Mutation('ng_node_set_arg', { handle: this.ng2Handle, nodeId, argIndex: 0, type: 1, a: Number(draft.graphId || 0), b: 0 }, `Could not set import graph id on node #${nodeId}`)
+      ok = await this._callngMutation('ng_node_set_arg', { handle: this.ngHandle, nodeId, argIndex: 0, type: 1, a: Number(draft.graphId || 0), b: 0 }, `Could not set import graph id on node #${nodeId}`)
       if (!ok) return false
     }
     return true
   }
 
-  async _replaceNodeViaNg2(nodeId, draft, kind) {
-    let ok = await this._callNg2Mutation('ng_node_replace', { handle: this.ng2Handle, nodeId, kind }, `Could not replace node #${nodeId}`)
+  async _replaceNodeViang(nodeId, draft, kind) {
+    let ok = await this._callngMutation('ng_node_replace', { handle: this.ngHandle, nodeId, kind }, `Could not replace node #${nodeId}`)
     if (!ok) return false
     const draftInputs = Array.isArray(draft.inputs) ? draft.inputs : []
     const draftOutputs = Array.isArray(draft.outputs) ? draft.outputs : []
     for (const port of draftInputs) {
-      ok = await this._callNg2Mutation('ng_input_add', { handle: this.ng2Handle, nodeId, inputId: Number(port.inputId) }, `Could not add input ${Number(port.inputId)} to node #${nodeId}`)
+      ok = await this._callngMutation('ng_input_add', { handle: this.ngHandle, nodeId, inputId: Number(port.inputId) }, `Could not add input ${Number(port.inputId)} to node #${nodeId}`)
       if (!ok) return false
     }
     for (const port of draftOutputs) {
-      ok = await this._callNg2Mutation('ng_output_add', { handle: this.ng2Handle, nodeId, outputId: Number(port.outputId) }, `Could not add output ${Number(port.outputId)} to node #${nodeId}`)
+      ok = await this._callngMutation('ng_output_add', { handle: this.ngHandle, nodeId, outputId: Number(port.outputId) }, `Could not add output ${Number(port.outputId)} to node #${nodeId}`)
       if (!ok) return false
     }
     if (kind === NG.NODE_CALL && Number(draft.graphId || 0) > 0) {
-      ok = await this._callNg2Mutation('ng_node_set_arg', { handle: this.ng2Handle, nodeId, argIndex: 0, type: 1, a: Number(draft.graphId || 0), b: 0 }, `Could not set import graph id on node #${nodeId}`)
+      ok = await this._callngMutation('ng_node_set_arg', { handle: this.ngHandle, nodeId, argIndex: 0, type: 1, a: Number(draft.graphId || 0), b: 0 }, `Could not set import graph id on node #${nodeId}`)
       if (!ok) return false
     }
     return true
@@ -959,24 +959,24 @@ export class ViewNg extends HTMLElement {
   }
 
   async runGraph() {
-    if (this.graphSource !== 'ng2') {
-      this._setStatus('run is only wired for ng2 right now', 'warning')
+    if (this.graphSource !== 'ng') {
+      this._setStatus('run is only wired for ng right now', 'warning')
       return
     }
-    await this.ensureNg2Binding()
-    const request = JSON.stringify({ handle: this.ng2Handle, goal: 0, inputs: {} })
-    const result = await runtime.call('ng2', 'ng_run', request)
+    await this.ensurengBinding()
+    const request = JSON.stringify({ handle: this.ngHandle, goal: 0, inputs: {} })
+    const result = await runtime.call('ng', 'ng_run', request)
     if (result.returnCode !== 0) {
-      throw new Error(`ng2.ng_run failed: ${decodeOutput(result) || result.returnCode}`)
+      throw new Error(`ng.ng_run failed: ${decodeOutput(result) || result.returnCode}`)
     }
     let payload = null
     try {
       payload = JSON.parse(decodeOutput(result) || 'null')
     } catch (error) {
-      throw new Error(`ng2.ng_run returned invalid JSON: ${error?.message || error}`)
+      throw new Error(`ng.ng_run returned invalid JSON: ${error?.message || error}`)
     }
-    if (this.graphSource === 'ng2') {
-      this._syncGraphSnapshotFromNg2({ preserveLayout: true, fit: false })
+    if (this.graphSource === 'ng') {
+      this._syncGraphSnapshotFromng({ preserveLayout: true, fit: false })
     }
     this._setStatus(`run finished for '${payload?.graph || this.graphName}'`, 'success')
     await this._showInfoPopup('Run result', JSON.stringify(payload, null, 2), 'info')
@@ -1039,9 +1039,9 @@ export class ViewNg extends HTMLElement {
       this._setStatus(`deleted ${selected.size} selected node${selected.size === 1 ? '' : 's'}`, 'success')
       return
     }
-    await this.ensureNg2Binding()
+    await this.ensurengBinding()
     for (const nodeId of selected) {
-      const ok = await this._callNg2Mutation('ng_node_delete', { handle: this.ng2Handle, nodeId }, `Could not delete node #${nodeId}`)
+      const ok = await this._callngMutation('ng_node_delete', { handle: this.ngHandle, nodeId }, `Could not delete node #${nodeId}`)
       if (!ok) return
       this.nodeLayout.delete(nodeId)
       this.nodeNames.delete(nodeId)
@@ -1055,24 +1055,24 @@ export class ViewNg extends HTMLElement {
     }
     this.selectedNodeIds.clear()
     if (selected.has(Number(this.activeNodeId))) this.activeNodeId = 0
-    this._syncGraphSnapshotFromNg2({ preserveLayout: true, fit: false })
+    this._syncGraphSnapshotFromng({ preserveLayout: true, fit: false })
     this._setStatus(`deleted ${selected.size} selected node${selected.size === 1 ? '' : 's'}`, 'success')
   }
 
   async showSaveGraphPopup() {
-    if (this.graphSource !== 'ng2') {
-      this._setStatus(`save is only wired for ng2 right now`, 'warning')
+    if (this.graphSource !== 'ng') {
+      this._setStatus(`save is only wired for ng right now`, 'warning')
       return
     }
-    await this.ensureNg2Binding()
+    await this.ensurengBinding()
     const document = this._buildPersistedGraphDocument()
-    const result = await runtime.call('ng2', 'ng_graph_save', JSON.stringify({
-      handle: this.ng2Handle,
+    const result = await runtime.call('ng', 'ng_graph_save', JSON.stringify({
+      handle: this.ngHandle,
       name: this.graphName,
       data: document,
     }))
     if (result.returnCode !== 0) {
-      throw new Error(`ng2.ng_graph_save failed: ${decodeOutput(result) || result.returnCode}`)
+      throw new Error(`ng.ng_graph_save failed: ${decodeOutput(result) || result.returnCode}`)
     }
     this._setStatus(`saved graph '${this.graphName}'`, 'success')
     await runtime.call('ui.toast', 'success', { message: `Saved graph '${this.graphName}'` })
@@ -1082,13 +1082,9 @@ export class ViewNg extends HTMLElement {
     const result = await runtime.call('ui.popup', 'open', {
       title: 'Open graph',
       size: 'large',
-      tag: 'view-sql',
+      tag: 'view-ng-graph',
       props: {
         mode: 'chooser',
-        query: `SELECT name, node_count, updated_at FROM ng2_graph_storage ORDER BY name LIMIT :limit OFFSET :offset`,
-        countQuery: `SELECT COUNT(*) AS count FROM ng2_graph_storage`,
-        returnColumn: 'name',
-        confirmLabel: 'Open',
       },
     })
     const payload = JSON.parse(decodeOutput(result) || 'null')
@@ -1136,10 +1132,10 @@ export class ViewNg extends HTMLElement {
       }
       this.lastGraph.nodes.push(node)
     } else {
-      await this.ensureNg2Binding()
-      const ok = await this._createNodeViaNg2(nodeId, draft)
+      await this.ensurengBinding()
+      const ok = await this._createNodeViang(nodeId, draft)
       if (!ok) return
-      this._syncGraphSnapshotFromNg2({ preserveLayout: true, fit: false })
+      this._syncGraphSnapshotFromng({ preserveLayout: true, fit: false })
     }
 
     this.nodeNames.set(nodeId, String(draft.name || '').trim())
@@ -1236,11 +1232,11 @@ export class ViewNg extends HTMLElement {
       this.lastGraph.edges = this.lastGraph.edges.filter((edge) => Number(edge.to) !== Number(nodeId) || validInputs.has(`${nodeId}:${Number(edge.toInputId)}`))
     }
 
-    if (this.graphSource === 'ng2') {
-      await this.ensureNg2Binding()
-      const ok = await this._replaceNodeViaNg2(nodeId, draft, node.kind)
+    if (this.graphSource === 'ng') {
+      await this.ensurengBinding()
+      const ok = await this._replaceNodeViang(nodeId, draft, node.kind)
       if (!ok) return
-      this._syncGraphSnapshotFromNg2({ preserveLayout: true, fit: false })
+      this._syncGraphSnapshotFromng({ preserveLayout: true, fit: false })
     }
 
     const liveNode = this._getNodeById(nodeId) || node
@@ -1601,32 +1597,32 @@ export class ViewNg extends HTMLElement {
     }
   }
 
-  async _closeNg2Handle() {
-    if (!this.ng2Handle) return
-    await runtime.call('ng2', 'ng_handle_close', String(this.ng2Handle))
-    this.ng2Handle = 0
-    this.ng2InfoPtr = null
+  async _closengHandle() {
+    if (!this.ngHandle) return
+    await runtime.call('ng', 'ng_handle_close', String(this.ngHandle))
+    this.ngHandle = 0
+    this.ngInfoPtr = null
   }
 
-  async _openNg2GraphByName(name) {
-    await this._closeNg2Handle()
-    if (!this.ng2Memory) {
-      this.ng2Memory = await runtime.memory('ng2')
+  async _openngGraphByName(name) {
+    await this._closengHandle()
+    if (!this.ngMemory) {
+      this.ngMemory = await runtime.memory('ng')
     }
-    if (!this.ng2InfoSize) {
-      this.ng2InfoSize = readI32String(await runtime.call('ng2', 'ng_get_info_size', ''))
-      assert(this.ng2InfoSize > 0, 'ng2.ng_get_info_size returned invalid size')
+    if (!this.ngInfoSize) {
+      this.ngInfoSize = readI32String(await runtime.call('ng', 'ng_get_info_size', ''))
+      assert(this.ngInfoSize > 0, 'ng.ng_get_info_size returned invalid size')
     }
-    const result = await runtime.call('ng2', 'ng_graph_open', JSON.stringify({ name }))
+    const result = await runtime.call('ng', 'ng_graph_open', JSON.stringify({ name }))
     if (result.returnCode !== 0) {
-      throw new Error(`ng2.ng_graph_open failed: ${decodeOutput(result) || result.returnCode}`)
+      throw new Error(`ng.ng_graph_open failed: ${decodeOutput(result) || result.returnCode}`)
     }
     const payload = JSON.parse(decodeOutput(result) || 'null')
-    assert(payload && Number(payload.handle) > 0, 'ng2.ng_graph_open returned invalid handle payload')
-    this.ng2Handle = Number(payload.handle)
-    this.ng2InfoPtr = readI32String(await runtime.call('ng2', 'ng_get_info_ptr', String(this.ng2Handle)))
+    assert(payload && Number(payload.handle) > 0, 'ng.ng_graph_open returned invalid handle payload')
+    this.ngHandle = Number(payload.handle)
+    this.ngInfoPtr = readI32String(await runtime.call('ng', 'ng_get_info_ptr', String(this.ngHandle)))
     this._applyPersistedGraphDocument(payload.data || { nodes: [], edges: [] })
-    this.setGraphSnapshot(this.readGraphSnapshotFromNg2(), { preserveLayout: true, fit: true })
+    this.setGraphSnapshot(this.readGraphSnapshotFromng(), { preserveLayout: true, fit: true })
   }
 
   async refreshGraphSource() {
@@ -1638,11 +1634,11 @@ export class ViewNg extends HTMLElement {
       return
     }
 
-    if (this.graphSource === 'ng2') {
-      await this._openNg2GraphByName(this.graphName)
-      this.handleElement.textContent = `handle: ${this.ng2Handle}`
-      this._setBackendStatus('backend: ng2 graph storage', 'success')
-      this._setStatus(`rendering ng2 graph '${this.graphName}' via shared memory`, 'info')
+    if (this.graphSource === 'ng') {
+      await this._openngGraphByName(this.graphName)
+      this.handleElement.textContent = `handle: ${this.ngHandle}`
+      this._setBackendStatus('backend: ng graph storage', 'success')
+      this._setStatus(`rendering ng graph '${this.graphName}' via shared memory`, 'info')
       return
     }
 
@@ -1680,31 +1676,31 @@ export class ViewNg extends HTMLElement {
     else this.render()
   }
 
-  async ensureNg2Binding() {
-    if (!this.ng2Handle) {
-      const created = await runtime.call('ng2', 'ng_handle_create', '')
-      this.ng2Handle = readI32String(created)
-      assert(this.ng2Handle > 0, 'ng2.ng_handle_create returned invalid handle')
+  async ensurengBinding() {
+    if (!this.ngHandle) {
+      const created = await runtime.call('ng', 'ng_handle_create', '')
+      this.ngHandle = readI32String(created)
+      assert(this.ngHandle > 0, 'ng.ng_handle_create returned invalid handle')
     }
-    if (!this.ng2Memory) {
-      this.ng2Memory = await runtime.memory('ng2')
+    if (!this.ngMemory) {
+      this.ngMemory = await runtime.memory('ng')
     }
-    if (!this.ng2InfoSize) {
-      this.ng2InfoSize = readI32String(await runtime.call('ng2', 'ng_get_info_size', ''))
-      assert(this.ng2InfoSize > 0, 'ng2.ng_get_info_size returned invalid size')
+    if (!this.ngInfoSize) {
+      this.ngInfoSize = readI32String(await runtime.call('ng', 'ng_get_info_size', ''))
+      assert(this.ngInfoSize > 0, 'ng.ng_get_info_size returned invalid size')
     }
-    this.ng2InfoPtr = readI32String(await runtime.call('ng2', 'ng_get_info_ptr', String(this.ng2Handle)))
-    assert(this.ng2InfoPtr >= 0, 'ng2.ng_get_info_ptr returned invalid pointer')
+    this.ngInfoPtr = readI32String(await runtime.call('ng', 'ng_get_info_ptr', String(this.ngHandle)))
+    assert(this.ngInfoPtr >= 0, 'ng.ng_get_info_ptr returned invalid pointer')
   }
 
-  readGraphSnapshotFromNg2() {
-    assert(this.ng2Memory, 'view-ng ng2 memory is not bound')
-    assert(this.ng2InfoPtr != null, 'view-ng ng2 info pointer is not bound')
-    const dv = new DataView(this.ng2Memory)
+  readGraphSnapshotFromng() {
+    assert(this.ngMemory, 'view-ng ng memory is not bound')
+    assert(this.ngInfoPtr != null, 'view-ng ng info pointer is not bound')
+    const dv = new DataView(this.ngMemory)
     const nodes = []
     const edges = []
     for (let i = 0; i < NG.MAX_NODES; i++) {
-      const base = this.ng2InfoPtr + INFO.NODES + i * ABI.NODE_SIZE
+      const base = this.ngInfoPtr + INFO.NODES + i * ABI.NODE_SIZE
       const id = dv.getUint32(base + NODE.ID, true)
       if (id === 0) continue
       const kind = dv.getUint32(base + NODE.KIND, true)

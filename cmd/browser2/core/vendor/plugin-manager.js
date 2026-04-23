@@ -138,8 +138,14 @@ class PluginManager {
       wasmModule.instance.exports._initialize();
     }
 
-    const moduleMemory = providedMemory || wasmModule.instance.exports.memory;
-    const heapBase = moduleMemory.buffer.byteLength;
+    const moduleMemory = wasmModule.instance.exports.memory || providedMemory;
+    const exportedHeapBase = Number(wasmModule.instance.exports.__heap_base?.value || 0);
+    const importedSharedTopReserve = 1024 * 1024;
+    const heapBase = exportedHeapBase > 0
+      ? exportedHeapBase
+      : (module?.memory?.import
+          ? Math.max(65536, moduleMemory.buffer.byteLength - importedSharedTopReserve)
+          : moduleMemory.buffer.byteLength);
     this.wasmModules.set(module.name, {
       name: module.name,
       instance: wasmModule.instance,
@@ -504,12 +510,17 @@ class PluginManager {
       const memory = new Uint8Array(callerModule.memory.buffer);
 
       // Read module and function names
-      const moduleName = this.textDecoder.decode(
-        memory.slice(modulePtr, modulePtr + moduleLen)
-      );
-      const funcName = this.textDecoder.decode(
-        memory.slice(funcPtr, funcPtr + funcLen)
-      );
+      const rawModuleName = memory.slice(modulePtr, modulePtr + moduleLen);
+      const rawFuncName = memory.slice(funcPtr, funcPtr + funcLen);
+      const moduleName = this.textDecoder.decode(rawModuleName).replace(/\u0000/g, '').trim();
+      const funcName = this.textDecoder.decode(rawFuncName).replace(/\u0000/g, '').trim();
+
+      if (!moduleName) {
+        throw new Error(`Empty module name in plugin_call from '${callerModuleName}' (ptr=${modulePtr}, len=${moduleLen}, raw=[${Array.from(rawModuleName).join(',')}])`);
+      }
+      if (!funcName) {
+        throw new Error(`Empty function name in plugin_call from '${callerModuleName}' (ptr=${funcPtr}, len=${funcLen}, raw=[${Array.from(rawFuncName).join(',')}])`);
+      }
 
       // Read input
       const input = inputLen > 0
