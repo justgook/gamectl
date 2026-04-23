@@ -32,7 +32,7 @@ build_odin_decoder :: proc() -> (string, string) {
 }
 
 emit_import_declarations :: proc() {
-	for i in 0..<schema_odin_import_count {
+	for i in 0 ..< schema_odin_import_count {
 		alias := sanitize_identifier(schema_odin_import_alias(i))
 		path := schema_odin_import_path(i)
 		if alias == "" || alias == "generated" {
@@ -62,7 +62,9 @@ emit_reader_runtime :: proc() {
 	emit("]u32,\n}\n\n")
 	emit("open_respack :: proc(data: []u8) -> (Package, bool) {\n")
 	emit("\tif len(data) < 8 { return Package{}, false }\n")
-	emit("\tif data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' { return Package{}, false }\n")
+	emit(
+		"\tif data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' { return Package{}, false }\n",
+	)
 	emit("\tif read_u16(data, 4) != RSPK_VERSION { return Package{}, false }\n")
 	emit("\tif int(read_u16(data, 6)) != ")
 	emit_int(data_slot_count)
@@ -86,17 +88,31 @@ emit_reader_runtime :: proc() {
 	emit("\tif length == 0 { return Reader{}, false }\n")
 	emit("\tif offset < 0 || offset + length > len(pkg.data) { return Reader{}, false }\n")
 	emit("\treturn Reader{data = pkg.data[offset:offset+length]}, true\n}\n\n")
-	emit("read_u8_reader :: proc(r: ^Reader) -> (u8, bool) {\n\tif r.pos + 1 > len(r.data) { return 0, false }\n\tv := r.data[r.pos]\n\tr.pos += 1\n\treturn v, true\n}\n\n")
-	emit("read_u16_reader :: proc(r: ^Reader) -> (u16, bool) {\n\tif r.pos + 2 > len(r.data) { return 0, false }\n\tv := u16(r.data[r.pos]) | (u16(r.data[r.pos+1]) << 8)\n\tr.pos += 2\n\treturn v, true\n}\n\n")
-	emit("read_u32_reader :: proc(r: ^Reader) -> (u32, bool) {\n\tif r.pos + 4 > len(r.data) { return 0, false }\n\tv := u32(r.data[r.pos]) | (u32(r.data[r.pos+1]) << 8) | (u32(r.data[r.pos+2]) << 16) | (u32(r.data[r.pos+3]) << 24)\n\tr.pos += 4\n\treturn v, true\n}\n\n")
-	emit("read_u64_reader :: proc(r: ^Reader) -> (u64, bool) {\n\tif r.pos + 8 > len(r.data) { return 0, false }\n\tv := u64(0)\n\tfor i in 0..<8 { v |= u64(r.data[r.pos+i]) << (8 * u64(i)) }\n\tr.pos += 8\n\treturn v, true\n}\n\n")
-	emit("read_u16 :: proc(data: []u8, offset: int) -> u16 { return u16(data[offset]) | (u16(data[offset+1]) << 8) }\n")
-	emit("read_u32 :: proc(data: []u8, offset: int) -> u32 { return u32(data[offset]) | (u32(data[offset+1]) << 8) | (u32(data[offset+2]) << 16) | (u32(data[offset+3]) << 24) }\n\n")
-	emit("read_string_reader :: proc(r: ^Reader) -> (string, bool) {\n\tcount, ok := read_u32_reader(r)\n\tif !ok { return \"\", false }\n\tstart := r.pos\n\tend := start + int(count)\n\tif end > len(r.data) { return \"\", false }\n\tr.pos = end\n\treturn string(r.data[start:end]), true\n}\n\n")
+	emit(
+		"read_u8_reader :: proc(r: ^Reader) -> (u8, bool) {\n\tif r.pos + 1 > len(r.data) { return 0, false }\n\tv := r.data[r.pos]\n\tr.pos += 1\n\treturn v, true\n}\n\n",
+	)
+	emit(
+		"read_u16_reader :: proc(r: ^Reader) -> (u16, bool) {\n\tif r.pos + 2 > len(r.data) { return 0, false }\n\tv := u16(r.data[r.pos]) | (u16(r.data[r.pos+1]) << 8)\n\tr.pos += 2\n\treturn v, true\n}\n\n",
+	)
+	emit(
+		"read_u32_reader :: proc(r: ^Reader) -> (u32, bool) {\n\tif r.pos + 4 > len(r.data) { return 0, false }\n\tv := u32(r.data[r.pos]) | (u32(r.data[r.pos+1]) << 8) | (u32(r.data[r.pos+2]) << 16) | (u32(r.data[r.pos+3]) << 24)\n\tr.pos += 4\n\treturn v, true\n}\n\n",
+	)
+	emit(
+		"read_u64_reader :: proc(r: ^Reader) -> (u64, bool) {\n\tif r.pos + 8 > len(r.data) { return 0, false }\n\tv := u64(0)\n\tfor i in 0..<8 { v |= u64(r.data[r.pos+i]) << (8 * u64(i)) }\n\tr.pos += 8\n\treturn v, true\n}\n\n",
+	)
+	emit(
+		"read_u16 :: proc(data: []u8, offset: int) -> u16 { return u16(data[offset]) | (u16(data[offset+1]) << 8) }\n",
+	)
+	emit(
+		"read_u32 :: proc(data: []u8, offset: int) -> u32 { return u32(data[offset]) | (u32(data[offset+1]) << 8) | (u32(data[offset+2]) << 16) | (u32(data[offset+3]) << 24) }\n\n",
+	)
+	emit(
+		"read_string_reader :: proc(r: ^Reader) -> (string, bool) {\n\tcount, ok := read_u32_reader(r)\n\tif !ok { return \"\", false }\n\tstart := r.pos\n\tend := start + int(count)\n\tif end > len(r.data) { return \"\", false }\n\tr.pos = end\n\treturn string(r.data[start:end]), true\n}\n\n",
+	)
 }
 
 emit_named_type_declarations :: proc() {
-	for i in len(builtin_names)..<type_count {
+	for i in len(builtin_names) ..< type_count {
 		if !types[i].has_name {
 			continue
 		}
@@ -120,7 +136,7 @@ emit_type_declaration :: proc(type_idx: int) {
 	case .Enum:
 		emit(sanitized_name)
 		emit(" :: enum u32 {\n")
-		for i in 0..<type_def.enum_count {
+		for i in 0 ..< type_def.enum_count {
 			enum_idx := type_def.enum_start + i
 			emit("\t")
 			emit(sanitize_identifier(enum_name_string(enum_idx)))
@@ -132,7 +148,7 @@ emit_type_declaration :: proc(type_idx: int) {
 	case .Struct:
 		emit(sanitized_name)
 		emit(" :: struct {\n")
-		for i in 0..<type_def.field_count {
+		for i in 0 ..< type_def.field_count {
 			field_idx := type_def.field_start + i
 			emit("\t")
 			emit(sanitize_identifier(field_name_string(field_idx)))
@@ -144,7 +160,7 @@ emit_type_declaration :: proc(type_idx: int) {
 	case .Oneof:
 		emit(sanitized_name)
 		emit("_Kind :: enum u16 {\n\t\tNone = 0,\n")
-		for i in 0..<type_def.option_count {
+		for i in 0 ..< type_def.option_count {
 			option_type := oneof_options[type_def.option_start + i]
 			emit("\t\t")
 			emit(sanitize_identifier(type_name_string(option_type)))
@@ -157,7 +173,7 @@ emit_type_declaration :: proc(type_idx: int) {
 		emit(" :: struct {\n\t\tkind: ")
 		emit(sanitized_name)
 		emit("_Kind,\n")
-		for i in 0..<type_def.option_count {
+		for i in 0 ..< type_def.option_count {
 			option_type := oneof_options[type_def.option_start + i]
 			emit("\t\t")
 			emit(sanitize_identifier(type_name_string(option_type)))
@@ -177,7 +193,7 @@ emit_type_declaration :: proc(type_idx: int) {
 
 emit_slot_reader_struct :: proc() {
 	emit("DecodedSlots :: struct {\n")
-	for i in 0..<data_slot_count {
+	for i in 0 ..< data_slot_count {
 		emit("\thas_slot_")
 		emit_int(i)
 		emit(": bool,\n\tslot_")
@@ -190,7 +206,7 @@ emit_slot_reader_struct :: proc() {
 }
 
 emit_named_decoders :: proc() {
-	for i in 0..<type_count {
+	for i in 0 ..< type_count {
 		if !types[i].has_name {
 			continue
 		}
@@ -212,16 +228,20 @@ emit_decoder_proc :: proc(type_idx: int) {
 	emit(") -> bool {\n")
 	#partial switch type_def.kind {
 	case .Struct:
-		for i in 0..<type_def.field_count {
+		for i in 0 ..< type_def.field_count {
 			field_idx := type_def.field_start + i
-			emit_decode_assign(fields[field_idx].type_index, join2("out.", sanitize_identifier(field_name_string(field_idx))), field_name_string(field_idx))
+			emit_decode_assign(
+				fields[field_idx].type_index,
+				join2("out.", sanitize_identifier(field_name_string(field_idx))),
+				field_name_string(field_idx),
+			)
 		}
 	case .Oneof:
 		emit("\ttag, ok := read_u16_reader(r)\n\tif !ok { return false }\n")
 		emit("\tout.kind = ")
 		emit(sanitized_name)
 		emit("_Kind(tag)\n\t#partial switch out.kind {\n")
-		for i in 0..<type_def.option_count {
+		for i in 0 ..< type_def.option_count {
 			option_type := oneof_options[type_def.option_start + i]
 			option_name := sanitize_identifier(type_name_string(option_type))
 			emit("\tcase .")
@@ -237,7 +257,7 @@ emit_decoder_proc :: proc(type_idx: int) {
 }
 
 emit_slot_readers :: proc() {
-	for i in 0..<data_slot_count {
+	for i in 0 ..< data_slot_count {
 		emit("read_slot_")
 		emit_int(i)
 		emit("_")
@@ -320,7 +340,9 @@ emit_decode_assign :: proc(type_idx: int, target: string, _label: string) {
 		emit(target)
 		emit(" = s\n")
 	case .Bytes:
-		emit("\tcount, ok := read_u32_reader(r)\n\tif !ok { return false }\n\tstart := r.pos\n\tend := start + int(count)\n\tif end > len(r.data) { return false }\n\tr.pos = end\n\t")
+		emit(
+			"\tcount, ok := read_u32_reader(r)\n\tif !ok { return false }\n\tstart := r.pos\n\tend := start + int(count)\n\tif end > len(r.data) { return false }\n\tr.pos = end\n\t",
+		)
 		emit(target)
 		emit(" = r.data[start:end]\n")
 	case .Struct, .Oneof:
@@ -333,7 +355,7 @@ emit_decode_assign :: proc(type_idx: int, target: string, _label: string) {
 		emit("\tfor j in 0..<")
 		emit_int(type_def.fixed_len)
 		emit(" {\n")
-			emit_decode_assign(type_def.target_type, join2(target, "[j]"), "")
+		emit_decode_assign(type_def.target_type, join2(target, "[j]"), "")
 		emit("\t}\n")
 	case .Vector:
 		emit("\tcount, ok := read_u32_reader(r)\n\tif !ok { return false }\n\t")
@@ -378,7 +400,9 @@ emit_alias_decode_assign :: proc(type_idx: int, target: string) {
 
 type_expr :: proc(type_idx: int) -> string {
 	type_def := types[type_idx]
-	if type_idx < len(builtin_names) && builtin_names[type_idx] != "" && types[type_idx].name_start == -1 {
+	if type_idx < len(builtin_names) &&
+	   builtin_names[type_idx] != "" &&
+	   types[type_idx].name_start == -1 {
 		return builtin_type_expr(type_def.kind)
 	}
 	if type_def.has_name {
@@ -392,12 +416,18 @@ type_expr :: proc(type_idx: int) -> string {
 
 type_expr_expanded :: proc(type_idx: int) -> string {
 	type_def := types[type_idx]
-	if type_idx < len(builtin_names) && builtin_names[type_idx] != "" && types[type_idx].name_start == -1 {
+	if type_idx < len(builtin_names) &&
+	   builtin_names[type_idx] != "" &&
+	   types[type_idx].name_start == -1 {
 		return builtin_type_expr(type_def.kind)
 	}
 	#partial switch type_def.kind {
 	case .Array:
-		return join3("[", int_string(type_def.fixed_len), join2("]", type_expr(type_def.target_type)))
+		return join3(
+			"[",
+			int_string(type_def.fixed_len),
+			join2("]", type_expr(type_def.target_type)),
+		)
 	case .Vector:
 		return join2("[]", type_expr(type_def.target_type))
 	case .String:
@@ -466,10 +496,13 @@ sanitize_identifier :: proc(text: string) -> string {
 	slot := next_temp_string_slot()
 	count := 0
 	last_underscore := false
-	for i in 0..<len(text) {
+	for i in 0 ..< len(text) {
 		c := text[i]
 		if c >= 'A' && c <= 'Z' {
-			if i > 0 && !last_underscore && ((text[i-1] >= 'a' && text[i-1] <= 'z') || (i + 1 < len(text) && text[i+1] >= 'a' && text[i+1] <= 'z')) {
+			if i > 0 &&
+			   !last_underscore &&
+			   ((text[i - 1] >= 'a' && text[i - 1] <= 'z') ||
+					   (i + 1 < len(text) && text[i + 1] >= 'a' && text[i + 1] <= 'z')) {
 				if count < TEMP_STRING_CAPACITY {
 					temp_string_slots[slot][count] = '_'
 					count += 1
@@ -510,7 +543,7 @@ sanitize_identifier :: proc(text: string) -> string {
 }
 
 is_external_odin_type :: proc(text: string) -> bool {
-	for i in 0..<len(text) {
+	for i in 0 ..< len(text) {
 		if text[i] == '.' {
 			return true
 		}
@@ -522,7 +555,7 @@ emit :: proc(text: string) {
 	if codegen_len + len(text) > len(codegen_buffer) {
 		return
 	}
-	copy(codegen_buffer[codegen_len:codegen_len+len(text)], text)
+	copy(codegen_buffer[codegen_len:codegen_len + len(text)], text)
 	codegen_len += len(text)
 }
 
@@ -572,13 +605,13 @@ next_temp_string_slot :: proc() -> int {
 join2 :: proc(a, b: string) -> string {
 	slot := next_temp_string_slot()
 	count := 0
-	for i in 0..<len(a) {
-		if count >= TEMP_STRING_CAPACITY { break }
+	for i in 0 ..< len(a) {
+		if count >= TEMP_STRING_CAPACITY {break}
 		temp_string_slots[slot][count] = a[i]
 		count += 1
 	}
-	for i in 0..<len(b) {
-		if count >= TEMP_STRING_CAPACITY { break }
+	for i in 0 ..< len(b) {
+		if count >= TEMP_STRING_CAPACITY {break}
 		temp_string_slots[slot][count] = b[i]
 		count += 1
 	}

@@ -19,6 +19,12 @@ export const defaultPlugins = [
     url: `local:/plugins/treegen.wasm?t=${Date.now()}`,
   },
   {
+    id: 'lua',
+    runtime: 'wasm',
+    role: 'service',
+    url: `local:/plugins/lua.wasm?t=${Date.now()}`,
+  },
+  {
     id: 'echo',
     runtime: 'wasm',
     role: 'service',

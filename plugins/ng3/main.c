@@ -185,6 +185,27 @@ static int lua_host_await_call_cont(lua_State *L, int status, lua_KContext ctx);
 static void clear_io(void);
 static void append_io(const char *s, size_t len);
 
+static int ng_hex_value(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+  if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+  return -1;
+}
+
+static ng_i32 ng_hex_decode_cstr(const char *hex, char *out, ng_i32 out_cap) {
+  size_t len = hex != NULL ? strlen(hex) : 0u;
+  if (hex == NULL || (len & 1u) != 0u) return NG_ERR_VALIDATION;
+  if ((ng_i32)(len / 2u) >= out_cap) return NG_ERR_CAPACITY;
+  for (size_t i = 0; i < len; i += 2u) {
+    int hi = ng_hex_value(hex[i]);
+    int lo = ng_hex_value(hex[i + 1u]);
+    if (hi < 0 || lo < 0) return NG_ERR_VALIDATION;
+    out[i / 2u] = (char)((hi << 4) | lo);
+  }
+  out[len / 2u] = '\0';
+  return NG_OK;
+}
+
 typedef struct {
   ng_i32 return_code;
   const uint8_t *output;
@@ -3693,8 +3714,8 @@ static ng_i32 ng_open_graph_json_by_name(const char *name, char *out_json,
   ng_sb_init(&query);
   ng_sb_init(&field);
   if (!ng_sb_append_len(&query,
-                        "SELECT data FROM ng_graph_storage WHERE name = '",
-                        sizeof("SELECT data FROM ng_graph_storage WHERE name = '") - 1u) ||
+                        "SELECT hex(data) FROM ng_graph_storage WHERE name = '",
+                        sizeof("SELECT hex(data) FROM ng_graph_storage WHERE name = '") - 1u) ||
       !ng_sql_escape_single_quotes(name != NULL ? name : "", name_len, &query) ||
       !ng_sb_append_len(&query, "' LIMIT 1", 9u)) {
     ng_sb_free(&query);
@@ -3707,14 +3728,9 @@ static ng_i32 ng_open_graph_json_by_name(const char *name, char *out_json,
     ng_sb_free(&field);
     return err;
   }
-  if ((ng_i32)field.len >= out_cap) {
-    ng_sb_free(&field);
-    return NG_ERR_CAPACITY;
-  }
-  memcpy(out_json, field.buf != NULL ? field.buf : "", field.len);
-  out_json[field.len] = '\0';
+  err = ng_hex_decode_cstr(field.buf != NULL ? field.buf : "", out_json, out_cap);
   ng_sb_free(&field);
-  return NG_OK;
+  return err;
 }
 
 uint32_t ng_handle_create(void) {
@@ -3748,19 +3764,9 @@ uint32_t ng_graph_open(void) {
   }
   err = ng_open_graph_json_by_name(name, g_code_buf, NG_IO_BUFFER_CAP);
   if (err != NG_OK) return err;
-  err = ng_init_raw();
-  if (err != NG_OK) return err;
-  err = ng_apply_cached_root_graph_json(g_code_buf, strlen(g_code_buf));
-  if (err != NG_OK) return err;
   strncpy(g_current_graph_name, name, sizeof(g_current_graph_name) - 1u);
   g_current_graph_name[sizeof(g_current_graph_name) - 1u] = '\0';
-  {
-    char out[NG_IO_BUFFER_CAP];
-    int n = snprintf(out, sizeof(out), "{\"handle\":1,\"name\":\"%s\",\"nodeCount\":%u,\"data\":%s}",
-                     g_current_graph_name, (unsigned)g_info.node_count, g_code_buf);
-    if (n <= 0 || n >= (int)sizeof(out)) return NG_ERR_CAPACITY;
-    pdk_output((const uint8_t *)out, (uint32_t)n);
-  }
+  pdk_output((const uint8_t *)g_code_buf, (uint32_t)strlen(g_code_buf));
   return NG_OK;
 }
 
@@ -3768,8 +3774,6 @@ uint32_t ng_graph_save(void) {
   uint32_t input_len = 0;
   const uint8_t *input = pdk_input(&input_len);
   char name[256] = {0};
-  char escaped_name[512] = {0};
-  char data_json[NG_IO_BUFFER_CAP] = {0};
   ng_u32 node_count = 0;
   ng_i32 rc;
   NgSerializedGraph parsed;
@@ -3777,52 +3781,49 @@ uint32_t ng_graph_save(void) {
   if (!json_extract_string_raw(input, input_len, "name", name, (uint32_t)sizeof(name))) {
     return NG_ERR_INVALID_ARG;
   }
-  if (!json_extract_object_raw_raw(input, input_len, "data", data_json, NG_IO_BUFFER_CAP)) {
+  if (!json_extract_object_raw_raw(input, input_len, "data", g_code_buf, NG_IO_BUFFER_CAP)) {
     return NG_ERR_INVALID_ARG;
   }
-  rc = ng_parse_serialized_graph(data_json, strlen(data_json), &parsed);
+  rc = ng_parse_serialized_graph(g_code_buf, strlen(g_code_buf), &parsed);
   if (rc != NG_OK) return rc;
   node_count = parsed.node_count;
   ng_free_serialized_graph(&parsed);
   ng_free_serialized_graph(&g_batch.root_graph);
-  rc = ng_set_cached_root_graph_json(data_json, strlen(data_json));
+  rc = ng_set_cached_root_graph_json(g_code_buf, strlen(g_code_buf));
   if (rc != NG_OK) return rc;
   strncpy(g_current_graph_name, name, sizeof(g_current_graph_name) - 1u);
   g_current_graph_name[sizeof(g_current_graph_name) - 1u] = '\0';
   {
-    char escaped_data[NG_IO_BUFFER_CAP] = {0};
-    char sql[NG_IO_BUFFER_CAP] = {0};
-    rc = ng_sql_escape_single_quotes(name, strlen(name), &(NgStrBuf){0});
-    (void)rc;
-    if (!ng_sql_escape_single_quotes(name, strlen(name), &(NgStrBuf){0})) {
-    }
-    {
-      NgStrBuf name_buf;
-      NgStrBuf data_buf;
-      ng_sb_init(&name_buf);
-      ng_sb_init(&data_buf);
-      if (!ng_sql_escape_single_quotes(name, strlen(name), &name_buf) ||
-          !ng_sql_escape_single_quotes(data_json, strlen(data_json), &data_buf)) {
-        ng_sb_free(&name_buf);
-        ng_sb_free(&data_buf);
-        return NG_ERR_CAPACITY;
-      }
-      int n = snprintf(sql, sizeof(sql),
-                       "INSERT INTO ng_graph_storage (name, data, node_count, updated_at) VALUES ('%s','%s',%u,datetime('now')) ON CONFLICT(name) DO UPDATE SET data=excluded.data, node_count=excluded.node_count, updated_at=excluded.updated_at",
-                       name_buf.buf != NULL ? name_buf.buf : "",
-                       data_buf.buf != NULL ? data_buf.buf : "",
-                       (unsigned)node_count);
+    NgStrBuf sql;
+    NgStrBuf name_buf;
+    NgStrBuf data_buf;
+    ng_sb_init(&sql);
+    ng_sb_init(&name_buf);
+    ng_sb_init(&data_buf);
+    if (!ng_sql_escape_single_quotes(name, strlen(name), &name_buf) ||
+        !ng_sql_escape_single_quotes(g_code_buf, strlen(g_code_buf), &data_buf) ||
+        !ng_sb_append_len(&sql, "INSERT INTO ng_graph_storage (name, data, node_count, updated_at) VALUES ('", sizeof("INSERT INTO ng_graph_storage (name, data, node_count, updated_at) VALUES ('") - 1u) ||
+        !ng_sb_append_len(&sql, name_buf.buf != NULL ? name_buf.buf : "", name_buf.len) ||
+        !ng_sb_append_len(&sql, "','", 3u) ||
+        !ng_sb_append_len(&sql, data_buf.buf != NULL ? data_buf.buf : "", data_buf.len) ||
+        !ng_sb_append_len(&sql, "',", 2u) ||
+        !ng_sb_append_u32(&sql, node_count) ||
+        !ng_sb_append_len(&sql, ",datetime('now')) ON CONFLICT(name) DO UPDATE SET data=excluded.data, node_count=excluded.node_count, updated_at=excluded.updated_at", sizeof(",datetime('now')) ON CONFLICT(name) DO UPDATE SET data=excluded.data, node_count=excluded.node_count, updated_at=excluded.updated_at") - 1u)) {
+      ng_sb_free(&sql);
       ng_sb_free(&name_buf);
       ng_sb_free(&data_buf);
-      if (n <= 0 || n >= (int)sizeof(sql)) return NG_ERR_CAPACITY;
+      return NG_ERR_CAPACITY;
     }
-    rc = ng_sql_exec_cstr(sql);
+    ng_sb_free(&name_buf);
+    ng_sb_free(&data_buf);
+    rc = ng_sql_exec_cstr(sql.buf != NULL ? sql.buf : "");
+    ng_sb_free(&sql);
     if (rc != NG_OK) return rc;
     {
-      int n = snprintf(escaped_data, sizeof(escaped_data), "{\"saved\":true,\"name\":\"%s\",\"nodeCount\":%u}",
+      int n = snprintf(g_resp_buf, sizeof(g_resp_buf), "{\"saved\":true,\"name\":\"%s\",\"nodeCount\":%u}",
                        g_current_graph_name, (unsigned)node_count);
-      if (n <= 0 || n >= (int)sizeof(escaped_data)) return NG_ERR_CAPACITY;
-      pdk_output((const uint8_t *)escaped_data, (uint32_t)n);
+      if (n <= 0 || n >= (int)sizeof(g_resp_buf)) return NG_ERR_CAPACITY;
+      pdk_output((const uint8_t *)g_resp_buf, (uint32_t)n);
     }
   }
   return NG_OK;
