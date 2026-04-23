@@ -287,7 +287,7 @@ export class ViewNgNode extends HTMLElement {
 
   async loadGraphs() {
     try {
-      const csv = await this.callSql('SELECT rowid, name, node_count, data FROM ng2_graph_storage ORDER BY name')
+      const csv = await this.callSql('SELECT rowid, name, node_count, data FROM ng_graph_storage ORDER BY name')
       const rows = parseCSVLines(csv.trim())
       this.graphEntries = rows.slice(1).map((row) => ({
         id: Number(row[0] || 0),
@@ -387,8 +387,8 @@ export class ViewNgNode extends HTMLElement {
           <thead><tr><th>Name</th><th>Default</th></tr></thead>
           <tbody>
             ${inputs.length
-              ? inputs.map((item, index) => `<tr><td>${escapeAttribute(String(item?.name || `input ${index + 1}`))}</td><td>${escapeAttribute(String(item?.value || ''))}</td></tr>`).join('')
-              : '<tr><td colspan="2">none</td></tr>'}
+        ? inputs.map((item, index) => `<tr><td>${escapeAttribute(String(item?.name || `input ${index + 1}`))}</td><td>${escapeAttribute(String(item?.value || ''))}</td></tr>`).join('')
+        : '<tr><td colspan="2">none</td></tr>'}
           </tbody>
         </table>
       </fieldset>
@@ -398,8 +398,8 @@ export class ViewNgNode extends HTMLElement {
           <thead><tr><th>Name</th></tr></thead>
           <tbody>
             ${outputs.length
-              ? outputs.map((item, index) => `<tr><td>${escapeAttribute(String(item?.name || `output ${index + 1}`))}</td></tr>`).join('')
-              : '<tr><td>none</td></tr>'}
+        ? outputs.map((item, index) => `<tr><td>${escapeAttribute(String(item?.name || `output ${index + 1}`))}</td></tr>`).join('')
+        : '<tr><td>none</td></tr>'}
           </tbody>
         </table>
       </fieldset>
@@ -415,10 +415,10 @@ export class ViewNgNode extends HTMLElement {
         <td>${Number(isInput ? port.inputId : port.outputId || index + 1)}</td>
         <td>
           ${isInput
-            ? `<input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}"><input type="text" name="input-port-name" value="${escapeAttribute(port.name || '')}" placeholder="Input ${index + 1}">`
-            : isValueNode
-              ? `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-value" value="${escapeAttribute(port.value || '')}" placeholder="Value ${index + 1}">`
-              : `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-name" value="${escapeAttribute(port.name || '')}" placeholder="Output ${index + 1}">`}
+        ? `<input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}"><input type="text" name="input-port-name" value="${escapeAttribute(port.name || '')}" placeholder="Input ${index + 1}">`
+        : isValueNode
+          ? `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-value" value="${escapeAttribute(port.value || '')}" placeholder="Value ${index + 1}">`
+          : `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-name" value="${escapeAttribute(port.name || '')}" placeholder="Output ${index + 1}">`}
         </td>
         <td><button type="submit" name="${isInput ? 'remove-input-id' : 'remove-output-id'}" value="${Number(isInput ? port.inputId : port.outputId || index + 1)}" aria-label="Delete"><i aria-hidden="true">delete</i></button></td>
       </tr>

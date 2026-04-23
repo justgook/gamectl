@@ -866,6 +866,19 @@
     z-index: 2;
   }
 
+  footer {
+    margin: 0px 1px;
+    display: flex;
+    gap: 1px;
+  }
+
+  footer>output {
+    box-shadow: var(--border-status-field);
+    flex-grow: 1;
+    padding: 2px 3px;
+    margin: 0;
+  }
+
   /* THE CUSTOM STUFF */
   select,
   input {

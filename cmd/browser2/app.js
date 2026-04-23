@@ -11,6 +11,7 @@ import './views/view-files.js'
 import './views/view-tree.js'
 import './views/view-ng.js'
 import './views/view-ng-node.js'
+import './views/view-ng-graph.js'
 import './views/files-rename.js'
 import './views/files-json.js'
 import './views/files-default.js'
@@ -129,7 +130,6 @@ const viewRegistry = new Map([
     label: 'Nodegraph',
     create: () => {
       const el = document.createElement('view-ng')
-      el.setAttribute('graph-source', 'ng2')
       return el
     },
   }],
