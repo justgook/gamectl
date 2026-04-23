@@ -11,8 +11,8 @@ WRITE_TOKEN_MAX :: 512
 
 SlotValue :: struct {
 	has_value: bool,
-	offset: int,
-	length: int,
+	offset:    int,
+	length:    int,
 }
 
 schema_buffer: [SCHEMA_BUFFER_CAPACITY]u8
@@ -156,16 +156,16 @@ reset_state :: proc() {
 	schema_len = 0
 	payload_used = 0
 	reset_schema_state()
-	for i in 0..<MAX_SLOTS {
+	for i in 0 ..< MAX_SLOTS {
 		slots[i] = SlotValue{}
 	}
 	writer_initialized = false
 }
 
 WriteRequest :: struct {
-	slot: int,
+	slot:          int,
 	payload_start: int,
-	payload_end: int,
+	payload_end:   int,
 }
 
 parse_write_request :: proc(input: []u8) -> (WriteRequest, string) {
@@ -181,8 +181,14 @@ parse_write_request :: proc(input: []u8) -> (WriteRequest, string) {
 	if !ok {
 		return WriteRequest{}, "slot parse error"
 	}
-	req := WriteRequest{slot = int(slot_value), payload_start = payload_start, payload_end = payload_end}
-	if req.payload_start < 0 || req.payload_end <= req.payload_start || req.payload_end > len(input) {
+	req := WriteRequest {
+		slot          = int(slot_value),
+		payload_start = payload_start,
+		payload_end   = payload_end,
+	}
+	if req.payload_start < 0 ||
+	   req.payload_end <= req.payload_start ||
+	   req.payload_end > len(input) {
 		return WriteRequest{}, "payload bounds invalid"
 	}
 	return req, ""
@@ -222,7 +228,7 @@ token_matches :: proc(input: []u8, tok: jsmn.Token, text: string) -> bool {
 	if span != len(text) {
 		return false
 	}
-	for i in 0..<span {
+	for i in 0 ..< span {
 		if input[tok.start + i] != text[i] {
 			return false
 		}
@@ -236,17 +242,4 @@ parse_int_token :: proc(input: []u8, tok: jsmn.Token) -> (int, bool) {
 		return 0, false
 	}
 	return int(value), true
-}
-
-json_error_string :: proc(code: int) -> string {
-	switch code {
-	case int(jsmn.JsmnError.NoMemory):
-		return "json parser: token pool exhausted"
-	case int(jsmn.JsmnError.Invalid):
-		return "json parser: invalid data"
-	case int(jsmn.JsmnError.Partial):
-		return "json parser: incomplete data"
-	case:
-		return "json parser error"
-	}
 }

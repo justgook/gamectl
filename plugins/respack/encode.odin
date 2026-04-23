@@ -14,7 +14,11 @@ string_decode_buffer: [PAYLOAD_CAPACITY]u8
 encode_payload_for_slot :: proc(slot_index: int, payload: []u8) -> (bool, string) {
 	writer := BinaryWriter{}
 	type_idx := data_slots[slot_index]
-	field := FieldDef{type_index = type_idx, default_token = -1, max_len = -1}
+	field := FieldDef {
+		type_index    = type_idx,
+		default_token = -1,
+		max_len       = -1,
+	}
 	ok, err := encode_json_value(&writer, payload, type_idx, field)
 	if !ok {
 		return false, err
@@ -30,7 +34,7 @@ writer_write :: proc(w: ^BinaryWriter, data: []u8) -> bool {
 	if w.len + len(data) > len(scratch_buffer) {
 		return false
 	}
-	copy(scratch_buffer[w.len:w.len+len(data)], data)
+	copy(scratch_buffer[w.len:w.len + len(data)], data)
 	w.len += len(data)
 	return true
 }
@@ -49,11 +53,16 @@ writer_u16 :: proc(w: ^BinaryWriter, value: u16) -> bool {
 }
 
 writer_u32 :: proc(w: ^BinaryWriter, value: u32) -> bool {
-	return writer_u8(w, u8(value & 0xff)) && writer_u8(w, u8((value >> 8) & 0xff)) && writer_u8(w, u8((value >> 16) & 0xff)) && writer_u8(w, u8((value >> 24) & 0xff))
+	return(
+		writer_u8(w, u8(value & 0xff)) &&
+		writer_u8(w, u8((value >> 8) & 0xff)) &&
+		writer_u8(w, u8((value >> 16) & 0xff)) &&
+		writer_u8(w, u8((value >> 24) & 0xff)) \
+	)
 }
 
 writer_u64 :: proc(w: ^BinaryWriter, value: u64) -> bool {
-	for shift in 0..<8 {
+	for shift in 0 ..< 8 {
 		if !writer_u8(w, u8((value >> (8 * u64(shift))) & 0xff)) {
 			return false
 		}
@@ -61,7 +70,15 @@ writer_u64 :: proc(w: ^BinaryWriter, value: u64) -> bool {
 	return true
 }
 
-encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, field: FieldDef) -> (bool, string) {
+encode_json_value :: proc(
+	w: ^BinaryWriter,
+	raw_input: []u8,
+	type_idx: int,
+	field: FieldDef,
+) -> (
+	bool,
+	string,
+) {
 	input := trim_space_slice(raw_input)
 	type_def := types[type_idx]
 	#partial switch type_def.kind {
@@ -69,11 +86,11 @@ encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, fiel
 		return encode_json_value(w, input, type_def.target_type, field)
 	case .Bool:
 		if bytes_equal_string(input, "true") {
-			if !writer_u8(w, 1) { return false, "payload too large" }
+			if !writer_u8(w, 1) {return false, "payload too large"}
 			return true, ""
 		}
 		if bytes_equal_string(input, "false") {
-			if !writer_u8(w, 0) { return false, "payload too large" }
+			if !writer_u8(w, 0) {return false, "payload too large"}
 			return true, ""
 		}
 		return false, "invalid bool"
@@ -102,7 +119,7 @@ encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, fiel
 		if len(input) == 0 || input[0] != '{' {
 			return false, "expected object"
 		}
-		for i in 0..<type_def.field_count {
+		for i in 0 ..< type_def.field_count {
 			field_idx := type_def.field_start + i
 			child_slice, found := find_object_field_slice(input, field_name_string(field_idx))
 			if !found {
@@ -115,7 +132,12 @@ encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, fiel
 				}
 				continue
 			}
-			ok, err := encode_json_value(w, child_slice, fields[field_idx].type_index, fields[field_idx])
+			ok, err := encode_json_value(
+				w,
+				child_slice,
+				fields[field_idx].type_index,
+				fields[field_idx],
+			)
 			if !ok {
 				return false, err
 			}
@@ -134,7 +156,12 @@ encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, fiel
 			if !found {
 				break
 			}
-			ok, err := encode_json_value(w, element, type_def.target_type, FieldDef{type_index = type_def.target_type, default_token = -1, max_len = -1})
+			ok, err := encode_json_value(
+				w,
+				element,
+				type_def.target_type,
+				FieldDef{type_index = type_def.target_type, default_token = -1, max_len = -1},
+			)
 			if !ok {
 				return false, err
 			}
@@ -155,7 +182,12 @@ encode_json_value :: proc(w: ^BinaryWriter, raw_input: []u8, type_idx: int, fiel
 			if !found {
 				break
 			}
-			ok, err := encode_json_value(w, element, type_def.target_type, FieldDef{type_index = type_def.target_type, default_token = -1, max_len = -1})
+			ok, err := encode_json_value(
+				w,
+				element,
+				type_def.target_type,
+				FieldDef{type_index = type_def.target_type, default_token = -1, max_len = -1},
+			)
 			if !ok {
 				return false, err
 			}
@@ -176,12 +208,22 @@ encode_schema_default :: proc(w: ^BinaryWriter, field_idx: int) -> (bool, string
 	}
 	default_tok := schema_tokens[field.default_token]
 	default_slice := schema_buffer[default_tok.start:default_tok.end]
-	if default_tok.type == jsmn.JsmnType.String && default_tok.start > 0 && default_tok.end < schema_len {
-		default_slice = schema_buffer[default_tok.start-1:default_tok.end+1]
+	if default_tok.type == jsmn.JsmnType.String &&
+	   default_tok.start > 0 &&
+	   default_tok.end < schema_len {
+		default_slice = schema_buffer[default_tok.start - 1:default_tok.end + 1]
 	}
 	return encode_json_value(w, default_slice, field.type_index, field)
 }
-encode_integer_bytes :: proc(w: ^BinaryWriter, input: []u8, kind: TypeKind, field: FieldDef) -> (bool, string) {
+encode_integer_bytes :: proc(
+	w: ^BinaryWriter,
+	input: []u8,
+	kind: TypeKind,
+	field: FieldDef,
+) -> (
+	bool,
+	string,
+) {
 	value, ok := parse_i64_bytes(trim_space_slice(input))
 	if !ok {
 		return false, "invalid integer"
@@ -194,35 +236,43 @@ encode_integer_bytes :: proc(w: ^BinaryWriter, input: []u8, kind: TypeKind, fiel
 	}
 	#partial switch kind {
 	case .U8:
-		if value < 0 || value > 255 { return false, "u8 out of range" }
-		if !writer_u8(w, u8(value)) { return false, "payload too large" }
+		if value < 0 || value > 255 {return false, "u8 out of range"}
+		if !writer_u8(w, u8(value)) {return false, "payload too large"}
 	case .U16:
-		if value < 0 || value > 65535 { return false, "u16 out of range" }
-		if !writer_u16(w, u16(value)) { return false, "payload too large" }
+		if value < 0 || value > 65535 {return false, "u16 out of range"}
+		if !writer_u16(w, u16(value)) {return false, "payload too large"}
 	case .U32:
-		if value < 0 { return false, "u32 out of range" }
-		if !writer_u32(w, u32(value)) { return false, "payload too large" }
+		if value < 0 {return false, "u32 out of range"}
+		if !writer_u32(w, u32(value)) {return false, "payload too large"}
 	case .U64:
-		if value < 0 { return false, "u64 out of range" }
-		if !writer_u64(w, u64(value)) { return false, "payload too large" }
+		if value < 0 {return false, "u64 out of range"}
+		if !writer_u64(w, u64(value)) {return false, "payload too large"}
 	case .I8:
-		if value < -128 || value > 127 { return false, "i8 out of range" }
-		if !writer_u8(w, transmute(u8)i8(value)) { return false, "payload too large" }
+		if value < -128 || value > 127 {return false, "i8 out of range"}
+		if !writer_u8(w, transmute(u8)i8(value)) {return false, "payload too large"}
 	case .I16:
-		if value < -32768 || value > 32767 { return false, "i16 out of range" }
-		if !writer_u16(w, transmute(u16)i16(value)) { return false, "payload too large" }
+		if value < -32768 || value > 32767 {return false, "i16 out of range"}
+		if !writer_u16(w, transmute(u16)i16(value)) {return false, "payload too large"}
 	case .I32:
-		if value < -2147483648 || value > 2147483647 { return false, "i32 out of range" }
-		if !writer_u32(w, transmute(u32)i32(value)) { return false, "payload too large" }
+		if value < -2147483648 || value > 2147483647 {return false, "i32 out of range"}
+		if !writer_u32(w, transmute(u32)i32(value)) {return false, "payload too large"}
 	case .I64:
-		if !writer_u64(w, transmute(u64)value) { return false, "payload too large" }
+		if !writer_u64(w, transmute(u64)value) {return false, "payload too large"}
 	case:
 		return false, "unsupported integer kind"
 	}
 	return true, ""
 }
 
-encode_float_bytes :: proc(w: ^BinaryWriter, input: []u8, kind: TypeKind, field: FieldDef) -> (bool, string) {
+encode_float_bytes :: proc(
+	w: ^BinaryWriter,
+	input: []u8,
+	kind: TypeKind,
+	field: FieldDef,
+) -> (
+	bool,
+	string,
+) {
 	value, ok := parse_f64_bytes(trim_space_slice(input))
 	if !ok {
 		return false, "invalid number"
@@ -235,11 +285,11 @@ encode_float_bytes :: proc(w: ^BinaryWriter, input: []u8, kind: TypeKind, field:
 	}
 	if kind == .F32 {
 		bits := transmute(u32)f32(value)
-		if !writer_u32(w, bits) { return false, "payload too large" }
+		if !writer_u32(w, bits) {return false, "payload too large"}
 		return true, ""
 	}
 	bits := transmute(u64)value
-	if !writer_u64(w, bits) { return false, "payload too large" }
+	if !writer_u64(w, bits) {return false, "payload too large"}
 	return true, ""
 }
 
@@ -247,9 +297,9 @@ encode_enum_bytes :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (bool
 	value: i64 = 0
 	matched := false
 	trimmed := trim_space_slice(input)
-	if len(trimmed) >= 2 && trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"' {
-		name := trimmed[1:len(trimmed)-1]
-		for i in 0..<types[type_idx].enum_count {
+	if len(trimmed) >= 2 && trimmed[0] == '"' && trimmed[len(trimmed) - 1] == '"' {
+		name := trimmed[1:len(trimmed) - 1]
+		for i in 0 ..< types[type_idx].enum_count {
 			enum_idx := types[type_idx].enum_start + i
 			if bytes_equal_string(name, enum_name_string(enum_idx)) {
 				value = enum_values[enum_idx].value
@@ -273,7 +323,15 @@ encode_enum_bytes :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (bool
 	return true, ""
 }
 
-encode_bytes_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int, field: FieldDef) -> (bool, string) {
+encode_bytes_value :: proc(
+	w: ^BinaryWriter,
+	input: []u8,
+	type_idx: int,
+	field: FieldDef,
+) -> (
+	bool,
+	string,
+) {
 	max_len := effective_type_max_len(type_idx, field)
 	file_path, has_file, file_err := decode_bytes_file_marker(input)
 	if file_err != "" {
@@ -292,7 +350,7 @@ encode_bytes_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int, field: 
 		}
 		return true, ""
 	}
-	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
+	if len(input) >= 2 && input[0] == '"' && input[len(input) - 1] == '"' {
 		bytes, ok := decode_json_string_bytes(input)
 		if !ok {
 			return false, "bytes must be string, array, or _file object"
@@ -360,7 +418,7 @@ decode_bytes_file_marker :: proc(input: []u8) -> (string, bool, string) {
 }
 
 decode_json_string_bytes :: proc(input: []u8) -> ([]u8, bool) {
-	if len(input) < 2 || input[0] != '"' || input[len(input)-1] != '"' {
+	if len(input) < 2 || input[0] != '"' || input[len(input) - 1] != '"' {
 		return nil, false
 	}
 	decoded_len, ok := decoded_json_string_len(input)
@@ -408,7 +466,7 @@ decode_json_string_bytes :: proc(input: []u8) -> ([]u8, bool) {
 			if i + 4 >= len(input) {
 				return nil, false
 			}
-			codepoint, parsed := parse_hex_u16(input[i+1:i+5])
+			codepoint, parsed := parse_hex_u16(input[i + 1:i + 5])
 			if !parsed {
 				return nil, false
 			}
@@ -447,7 +505,7 @@ decoded_json_string_len :: proc(input: []u8) -> (int, bool) {
 			if i + 4 >= len(input) {
 				return 0, false
 			}
-			codepoint, ok := parse_hex_u16(input[i+1:i+5])
+			codepoint, ok := parse_hex_u16(input[i + 1:i + 5])
 			if !ok {
 				return 0, false
 			}
@@ -466,7 +524,7 @@ parse_hex_u16 :: proc(data: []u8) -> (u16, bool) {
 		return 0, false
 	}
 	value: u16 = 0
-	for i in 0..<4 {
+	for i in 0 ..< 4 {
 		c := data[i]
 		digit: u16 = 0
 		switch {
@@ -535,7 +593,10 @@ encode_oneof_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (boo
 	if extra_found {
 		return false, "oneof requires exactly one field"
 	}
-	variant_idx := oneof_variant_index_from_name(trimmed[member.key_start:member.key_end], type_idx)
+	variant_idx := oneof_variant_index_from_name(
+		trimmed[member.key_start:member.key_end],
+		type_idx,
+	)
 	if variant_idx < 0 {
 		return false, "unknown oneof variant"
 	}
@@ -543,11 +604,16 @@ encode_oneof_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (boo
 		return false, "payload too large"
 	}
 	variant_type := oneof_options[types[type_idx].option_start + variant_idx]
-	return encode_json_value(w, trimmed[member.value_start:member.value_end], variant_type, FieldDef{type_index = variant_type, default_token = -1, max_len = -1})
+	return encode_json_value(
+		w,
+		trimmed[member.value_start:member.value_end],
+		variant_type,
+		FieldDef{type_index = variant_type, default_token = -1, max_len = -1},
+	)
 }
 
 oneof_variant_index_from_name :: proc(name: []u8, type_idx: int) -> int {
-	for i in 0..<types[type_idx].option_count {
+	for i in 0 ..< types[type_idx].option_count {
 		option_type := oneof_options[types[type_idx].option_start + i]
 		if oneof_name_matches_slice(name, option_type) {
 			return i
@@ -588,7 +654,7 @@ bytes_equal_string :: proc(data: []u8, text: string) -> bool {
 	if len(data) != len(text) {
 		return false
 	}
-	for i in 0..<len(text) {
+	for i in 0 ..< len(text) {
 		if data[i] != text[i] {
 			return false
 		}
@@ -649,7 +715,7 @@ next_array_element :: proc(data: []u8, cursor: int) -> ([]u8, int, bool) {
 }
 
 match_oneof_option :: proc(input: []u8, key: jsmn.Token, type_idx: int) -> int {
-	for i in 0..<types[type_idx].option_count {
+	for i in 0 ..< types[type_idx].option_count {
 		option_type := oneof_options[types[type_idx].option_start + i]
 		if oneof_name_matches(input, key, option_type) {
 			return i
@@ -676,10 +742,10 @@ oneof_name_matches :: proc(input: []u8, key: jsmn.Token, option_type: int) -> bo
 
 trim_variant_suffix :: proc(name: string) -> string {
 	if has_suffix(name, "_collider") {
-		return name[:len(name)-len("_collider")]
+		return name[:len(name) - len("_collider")]
 	}
 	if has_suffix(name, "_shape") {
-		return name[:len(name)-len("_shape")]
+		return name[:len(name) - len("_shape")]
 	}
 	return name
 }
@@ -689,7 +755,7 @@ has_suffix :: proc(value: string, suffix: string) -> bool {
 		return false
 	}
 	start := len(value) - len(suffix)
-	for i in 0..<len(suffix) {
+	for i in 0 ..< len(suffix) {
 		if value[start + i] != suffix[i] {
 			return false
 		}
@@ -704,7 +770,7 @@ store_payload :: proc(slot_index: int, data: []u8) -> (bool, string) {
 	}
 	slot := &slots[slot_index]
 	if slot.has_value && data_len <= slot.length {
-		copy(payload_buffer[slot.offset:slot.offset+data_len], data)
+		copy(payload_buffer[slot.offset:slot.offset + data_len], data)
 		slot.length = data_len
 		return true, ""
 	}
@@ -712,7 +778,7 @@ store_payload :: proc(slot_index: int, data: []u8) -> (bool, string) {
 		return false, "payload storage exhausted"
 	}
 	offset := payload_used
-	copy(payload_buffer[offset:offset+data_len], data)
+	copy(payload_buffer[offset:offset + data_len], data)
 	payload_used += data_len
 	slot.offset = offset
 	slot.length = data_len
@@ -726,15 +792,18 @@ build_dump_bytes :: proc() -> ([]u8, string) {
 	if header_size > len(scratch_buffer) {
 		return nil, "dump too large"
 	}
-	for i in 0..<header_size {
+	for i in 0 ..< header_size {
 		scratch_buffer[i] = 0
 	}
 	writer.len = header_size
-	for i in 0..<data_slot_count {
+	for i in 0 ..< data_slot_count {
 		if !slots[i].has_value {
 			continue
 		}
-		if !writer_write(&writer, payload_buffer[slots[i].offset:slots[i].offset+slots[i].length]) {
+		if !writer_write(
+			&writer,
+			payload_buffer[slots[i].offset:slots[i].offset + slots[i].length],
+		) {
 			return nil, "dump too large"
 		}
 	}
@@ -745,7 +814,7 @@ build_dump_bytes :: proc() -> ([]u8, string) {
 	write_u16_at(4, RSPK_VERSION)
 	write_u16_at(6, u16(data_slot_count))
 	data_cursor := header_size
-	for i in 0..<data_slot_count {
+	for i in 0 ..< data_slot_count {
 		entry := 8 + i * 8
 		if slots[i].has_value {
 			write_u32_at(entry, u32(data_cursor))
