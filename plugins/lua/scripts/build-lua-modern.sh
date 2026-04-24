@@ -3,10 +3,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 PLUGIN_DIR="$ROOT/plugins/lua"
+BUILD_DIR="${BUILD_DIR:-$ROOT/build.nosync}"
+PLUGIN_BUILD_DIR="$BUILD_DIR/obj/plugins/lua"
 LUA_DIR="$PLUGIN_DIR/vendor/lua"
-OBJ_DIR="$PLUGIN_DIR/build/lua-modern"
-LIB_A="$PLUGIN_DIR/build/lua54-wasi-modern.a"
-LIB_O="$PLUGIN_DIR/build/lua54-wasi-modern.o"
+OBJ_DIR="$PLUGIN_BUILD_DIR/lua-modern"
+LIB_A="$PLUGIN_BUILD_DIR/lua54-wasi-modern.a"
+LIB_O="$PLUGIN_BUILD_DIR/lua54-wasi-modern.o"
 
 mkdir -p "$OBJ_DIR"
 
