@@ -464,26 +464,24 @@ export class ViewNgNode extends HTMLElement {
         <legend>Inputs</legend>
         <table>
           <thead><tr><th>ID</th><th>Name</th><th></th></tr></thead>
-          <tbody>${this.renderPortRows('input')}</tbody>
+          <tbody>${this.renderPortRows('input')}
+            <td>New</td>
+            <td><input type="text" name="new-input-name" value="${escapeAttribute(this.draft.newInputName)}" placeholder="Input name"></td>
+            <td><button type="submit" name="intent" value="add-input" ${String(this.draft.newInputName).trim() ? '' : 'disabled'}><i aria-hidden="true">add</i></button></td>
+          </tbody>
         </table>
-        <label>
-          New input
-          <input type="text" name="new-input-name" value="${escapeAttribute(this.draft.newInputName)}" placeholder="Input name">
-        </label>
-        <button type="submit" name="intent" value="add-input" ${String(this.draft.newInputName).trim() ? '' : 'disabled'}><i aria-hidden="true">add</i></button>
       </fieldset>` : ''}
       ${nodeSupportsOutputs(this.draft.kind) && !isImportNode ? `
       <fieldset>
         <legend>Outputs</legend>
         <table>
           <thead><tr><th>ID</th><th>${isValueNode ? 'Value' : 'Name'}</th><th></th></tr></thead>
-          <tbody>${this.renderPortRows('output')}</tbody>
+          <tbody>${this.renderPortRows('output')}
+            <td>New</td>
+            <td><input type="text" name="${isValueNode ? 'new-output-value' : 'new-output-name'}" value="${escapeAttribute(isValueNode ? this.draft.newOutputValue : this.draft.newOutputName)}" placeholder="${isValueNode ? 'Value' : 'Output name'}"></td>
+            <td><button type="submit" name="intent" value="add-output" ${!isValueNode && !String(this.draft.newOutputName).trim() ? 'disabled' : ''}><i aria-hidden="true">add</i></button></td>
+          </tbody>
         </table>
-        <label>
-          New ${isValueNode ? 'value' : 'output'}
-          <input type="text" name="${isValueNode ? 'new-output-value' : 'new-output-name'}" value="${escapeAttribute(isValueNode ? this.draft.newOutputValue : this.draft.newOutputName)}" placeholder="${isValueNode ? 'Value' : 'Output name'}">
-        </label>
-        <button type="submit" name="intent" value="add-output" ${!isValueNode && !String(this.draft.newOutputName).trim() ? 'disabled' : ''}><i aria-hidden="true">add</i></button>
       </fieldset>` : ''}
       <footer>
         <output data-element="status"></output>
