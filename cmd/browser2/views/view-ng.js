@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { createWriteInput } from '../util/fs.js'
 import { cloneNgGraph, graphToRenderSnapshot } from './view-ng-state.js'
 
 const textDecoder = new TextDecoder()
@@ -311,6 +312,8 @@ export class ViewNg extends HTMLElement {
     toolbar.innerHTML = `
       <button data-action="run" class="success" aria-label="Run" title="Run"><i aria-hidden="true">play_arrow</i></button>
       <button data-action="add" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
+      <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
+      <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
       <button data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">replay</i></button>
       <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">clear_all</i></button>
       <button data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
@@ -332,6 +335,12 @@ export class ViewNg extends HTMLElement {
     })
     this._headerControlsElement.querySelector('[data-action="add"]')?.addEventListener('click', () => {
       void this.showAddNodePopup()
+    })
+    this._headerControlsElement.querySelector('[data-action="save"]')?.addEventListener('click', () => {
+      void this.showSaveGraphPopup()
+    })
+    this._headerControlsElement.querySelector('[data-action="load"]')?.addEventListener('click', () => {
+      void this.showLoadGraphPopup()
     })
     this._headerControlsElement.querySelector('[data-action="reset"]')?.addEventListener('click', () => {
       void this.resetGraph()
@@ -774,20 +783,113 @@ export class ViewNg extends HTMLElement {
   }
 
   autoArrangeNodes() {
-    const layout = this.assets.layout
-    this.lastGraph.nodes.forEach((node, index) => {
-      const col = index % layout.gridColumns
-      const row = Math.floor(index / layout.gridColumns)
-      const size = this._measureNodeSize(node)
-      this.nodeLayout.set(node.id, {
-        x: layout.gridOriginX + col * layout.gridStepX,
-        y: layout.gridOriginY + row * layout.gridStepY,
-        width: size.width,
-        height: size.height,
+    const nodes = this.lastGraph.nodes
+    if (!nodes.length) return
+
+    const nodeById = new Map(nodes.map((node) => [Number(node.id), node]))
+    const incoming = new Map(nodes.map((node) => [Number(node.id), []]))
+    const outgoing = new Map(nodes.map((node) => [Number(node.id), []]))
+
+    for (const edge of this.lastGraph.edges) {
+      const from = Number(edge.from)
+      const to = Number(edge.to)
+      if (!nodeById.has(from) || !nodeById.has(to)) continue
+      outgoing.get(from).push(to)
+      incoming.get(to).push(from)
+    }
+
+    const indegree = new Map(nodes.map((node) => [Number(node.id), incoming.get(Number(node.id)).length]))
+    const queue = nodes
+      .filter((node) => indegree.get(Number(node.id)) === 0)
+      .sort((a, b) => Number(a.id) - Number(b.id))
+      .map((node) => Number(node.id))
+    const topo = []
+
+    while (queue.length) {
+      const id = queue.shift()
+      topo.push(id)
+      for (const next of outgoing.get(id)) {
+        indegree.set(next, indegree.get(next) - 1)
+        if (indegree.get(next) === 0) {
+          queue.push(next)
+          queue.sort((a, b) => a - b)
+        }
+      }
+    }
+
+    const topoSet = new Set(topo)
+    for (const node of nodes) {
+      const id = Number(node.id)
+      if (!topoSet.has(id)) topo.push(id)
+    }
+
+    const layerById = new Map()
+    for (const id of topo) {
+      let layer = 0
+      for (const prev of incoming.get(id)) {
+        if (!layerById.has(prev)) continue
+        layer = Math.max(layer, layerById.get(prev) + 1)
+      }
+      layerById.set(id, layer)
+    }
+
+    const layers = []
+    for (const id of topo) {
+      const layer = layerById.get(id)
+      if (!layers[layer]) layers[layer] = []
+      layers[layer].push(id)
+    }
+
+    const sortLayerByNeighborOrder = (layerIds, neighborMap, neighborOrder) => {
+      layerIds.sort((a, b) => {
+        const aNeighbors = neighborMap.get(a).filter((id) => neighborOrder.has(id))
+        const bNeighbors = neighborMap.get(b).filter((id) => neighborOrder.has(id))
+        const aScore = aNeighbors.length ? aNeighbors.reduce((sum, id) => sum + neighborOrder.get(id), 0) / aNeighbors.length : Number.MAX_SAFE_INTEGER
+        const bScore = bNeighbors.length ? bNeighbors.reduce((sum, id) => sum + neighborOrder.get(id), 0) / bNeighbors.length : Number.MAX_SAFE_INTEGER
+        if (aScore !== bScore) return aScore - bScore
+        return a - b
       })
-    })
+    }
+
+    for (let i = 1; i < layers.length; i += 1) {
+      const prevOrder = new Map(layers[i - 1].map((id, index) => [id, index]))
+      sortLayerByNeighborOrder(layers[i], incoming, prevOrder)
+    }
+    for (let i = layers.length - 2; i >= 0; i -= 1) {
+      const nextOrder = new Map(layers[i + 1].map((id, index) => [id, index]))
+      sortLayerByNeighborOrder(layers[i], outgoing, nextOrder)
+    }
+
+    const layout = this.assets.layout
+    const originX = Number(layout.gridOriginX || 80)
+    const originY = Number(layout.gridOriginY || 58)
+    const horizontalGap = Math.max(Number(layout.gridStepX || 186), 220)
+    const verticalGap = Math.max(Number(layout.gridStepY || 112), 92)
+    const layerWidths = layers.map((layerIds) => Math.max(...layerIds.map((id) => this._measureNodeSize(nodeById.get(id)).width), 0))
+    const maxLayerHeight = Math.max(...layers.map((layerIds) => layerIds.reduce((sum, id) => sum + this._measureNodeSize(nodeById.get(id)).height + verticalGap, 0) - verticalGap), 0)
+
+    let x = originX
+    for (let layerIndex = 0; layerIndex < layers.length; layerIndex += 1) {
+      const layerIds = layers[layerIndex]
+      const totalHeight = layerIds.reduce((sum, id) => sum + this._measureNodeSize(nodeById.get(id)).height + verticalGap, 0) - verticalGap
+      let y = originY + Math.max(0, (maxLayerHeight - totalHeight) * 0.5)
+      for (const id of layerIds) {
+        const node = nodeById.get(id)
+        const size = this._measureNodeSize(node)
+        this.nodeLayout.set(id, {
+          x,
+          y: Math.round(y),
+          width: size.width,
+          height: size.height,
+        })
+        y += size.height + verticalGap
+      }
+      x += layerWidths[layerIndex] + horizontalGap
+    }
+
+    this._syncGraphNodePositionsFromLayout()
     this._updateGraphView({ fit: true })
-    this._setStatus('auto-arranged nodes', 'success')
+    this._setStatus(`auto-arranged ${nodes.length} node${nodes.length === 1 ? '' : 's'} by connections`, 'success')
   }
 
   async deleteSelectedNodes() {
@@ -819,13 +921,52 @@ export class ViewNg extends HTMLElement {
   }
 
   async showSaveGraphPopup() {
-    this._setStatus('graph persistence is not implemented yet', 'warning')
-    await this._showInfoPopup('Save graph', 'Persistence is intentionally skipped for now. Use getGraph() to obtain the raw node array.', 'info')
+    const result = await runtime.call('ui.popup', 'open', {
+      title: 'Save Graph',
+      size: 'medium',
+      tag: 'view-files',
+      props: {
+        mode: 'saver',
+        filter: '*.ng.json,*.json',
+        defaultName: `${this.graphName || 'graph'}.ng.json`,
+      },
+    })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return
+    assert(payload.path, 'view-ng save graph requires selected path')
+    const json = `${JSON.stringify(this.getGraph(), null, 2)}\n`
+    const writeResult = await runtime.call('fs', 'write', createWriteInput(payload.path, json))
+    if (writeResult.returnCode !== 0) {
+      throw new Error(decodeOutput(writeResult) || `fs.write failed: ${writeResult.returnCode}`)
+    }
+    this._setStatus(`saved graph to ${payload.path}`, 'success')
+    await runtime.call('ui.toast', 'success', { message: `Saved graph to ${payload.path}` })
   }
 
   async showLoadGraphPopup() {
-    this._setStatus('graph persistence is not implemented yet', 'warning')
-    await this._showInfoPopup('Load graph', 'Persistence is intentionally skipped for now. Use loadGraph(rawNodeArray) to load graph JSON.', 'info')
+    const result = await runtime.call('ui.popup', 'open', {
+      title: 'Load Graph',
+      size: 'medium',
+      tag: 'view-files',
+      props: {
+        mode: 'chooser',
+        filter: '*.ng.json,*.json',
+      },
+    })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return
+    const selection = payload.selection
+    const path = Array.isArray(selection) ? selection[0]?.path : selection?.path
+    assert(path, 'view-ng load graph requires selected file path')
+    const readResult = await runtime.call('fs', 'read', path)
+    if (readResult.returnCode !== 0) {
+      throw new Error(decodeOutput(readResult) || `fs.read failed: ${readResult.returnCode}`)
+    }
+    const graph = JSON.parse(decodeOutput(readResult))
+    this.loadGraph(graph)
+    this.graphName = String(path.split('/').pop() || this.graphName).replace(/\.ng\.json$/i, '').replace(/\.json$/i, '')
+    this._setStatus(`loaded graph from ${path}`, 'success')
+    await runtime.call('ui.toast', 'success', { message: `Loaded graph from ${path}` })
   }
 
   async showAddNodePopup() {

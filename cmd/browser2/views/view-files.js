@@ -102,6 +102,7 @@ export class ViewFiles extends HTMLElement {
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
+    this.readConfig()
     this.style.display = 'contents'
 
     this.innerHTML = `
@@ -129,6 +130,19 @@ export class ViewFiles extends HTMLElement {
     toolbar.querySelector('[data-action="rename"]')?.addEventListener('click', () => this.openRenamePopup())
     toolbar.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelected())
 
+    this.addEventListener('chooser-select', async (event) => {
+      await this.closePopupResult({ ok: true, cancelled: false, selection: event.detail.selection })
+    })
+    this.addEventListener('chooser-cancel', async () => {
+      await this.closePopupResult({ ok: false, cancelled: true })
+    })
+    this.addEventListener('saver-save', async (event) => {
+      await this.closePopupResult({ ok: true, cancelled: false, ...event.detail })
+    })
+    this.addEventListener('saver-cancel', async () => {
+      await this.closePopupResult({ ok: false, cancelled: true })
+    })
+
     this.addEventListener('keydown', (event) => this.handleKeyDown(event))
 
     this.setPath(this.rootPath)
@@ -139,6 +153,21 @@ export class ViewFiles extends HTMLElement {
 
   disconnectedCallback() {
     this._unmountHeaderControls()
+  }
+
+  readConfig() {
+    const props = this.popupProps || {}
+    this.rootPath = normalizePath(props.root || props.rootPath || this.getAttribute('data-root') || '/')
+    this.mode = String(props.mode || this.getAttribute('data-mode') || 'browser')
+    this.filter = String(props.filter || this.getAttribute('data-filter') || '')
+    this.selectFolders = Boolean(props.selectFolders ?? (this.getAttribute('data-select-folders') === 'true'))
+    this.multiSelect = Boolean(props.multiSelect ?? (this.getAttribute('data-multi-select') === 'true'))
+    this.defaultName = String(props.defaultName || this.getAttribute('data-default-name') || '')
+  }
+
+  async closePopupResult(result) {
+    if (this.popupId == null && !this.closest('view-popup')) return
+    await runtime.call('ui.popup', 'close', result)
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
