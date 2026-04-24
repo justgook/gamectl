@@ -158,6 +158,9 @@ const plugin = {
       try {
         const dirPath = path ? decodeInput(path) : '/'
         const mounted = listMountedPath(mounts, dirPath)
+        if (dirPath === '/') {
+          return success(JSON.stringify([...new Set([...fs.readdirSync(dirPath), ...mounted])].sort()))
+        }
         return success(JSON.stringify(mounted ?? fs.readdirSync(dirPath)))
       } catch (e) {
         return error(e.message)
