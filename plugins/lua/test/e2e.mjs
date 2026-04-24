@@ -255,6 +255,24 @@ async function main() {
   assert(nullOutput.returnCode === 0, `null output run failed: ${nullOutput.output}`)
   assert(nullOutput.output === 'null', `unexpected null output: ${nullOutput.output}`)
 
+  const syntaxError = runtime.call('run', [
+    'function main(',
+    '  output = 1',
+    'end',
+  ].join('\n'))
+  assert(syntaxError.returnCode === 1, `syntax error should fail: ${syntaxError.output}`)
+  assert(syntaxError.output.includes("(input):2: ')' expected near '='"), `syntax error message was not preserved: ${syntaxError.output}`)
+  assert(!syntaxError.output.includes('unreachable'), `syntax error leaked wasm trap: ${syntaxError.output}`)
+
+  const runtimeError = runtime.call('run', [
+    'function main()',
+    '  error("boom")',
+    'end',
+  ].join('\n'))
+  assert(runtimeError.returnCode === 1, `runtime error should fail: ${runtimeError.output}`)
+  assert(runtimeError.output.includes('(input):2: boom'), `runtime error message was not preserved: ${runtimeError.output}`)
+  assert(!runtimeError.output.includes('unreachable'), `runtime error leaked wasm trap: ${runtimeError.output}`)
+
   console.log('lua e2e ok')
 }
 

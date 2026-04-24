@@ -13,11 +13,20 @@ LUA_DIR := $(PLUGIN_DIR)/lua/vendor/lua
 PLUGIN_C_SOURCES := \
   $(LUA_PLUGIN_ALL_O)
 
-PLUGIN_CFLAGS := \
+LUA_CFLAGS := \
   -O2 \
+  -mexception-handling \
+  -mmultivalue \
+  -mreference-types \
+  -mllvm -wasm-enable-sjlj \
+  -mllvm -wasm-use-legacy-eh=false \
   -Dl_signalT=int \
   -I$(LUA_DIR) \
   -I$(PLUGIN_DIR)/sql/vendor
+
+# The prelinked object files are already compiled with EH/SJLJ flags.
+# Do not pass those compile-only flags to the final zig cc link step.
+PLUGIN_CFLAGS :=
 
 PLUGIN_ZIG_EXTRA_FLAGS :=
 
@@ -30,6 +39,7 @@ PLUGIN_LDFLAGS := \
   -Wl,--export=run
 
 PLUGIN_EXTRA_DEPS := \
+  $(PLUGIN_DIR)/lua/plugin.mk \
   $(PLUGIN_DIR)/lua/scripts/build-lua-modern.sh \
   $(PLUGIN_DIR)/lua/main.c \
   $(PLUGIN_DIR)/lua/shim/wasm_setjmp_shim.c \
@@ -45,10 +55,10 @@ $(LUA_BUILD_DIR):
 	$(Q)mkdir -p $@
 
 $(LUA_MAIN_O): $(PLUGIN_DIR)/lua/main.c $(PLUGIN_DIR)/lua/jsmn.h $(wildcard $(LUA_DIR)/*.h) | $(LUA_BUILD_DIR)
-	$(Q)zig cc -target wasm32-wasi -O2 -Dl_signalT=int -I$(LUA_DIR) -I$(PLUGIN_DIR)/sql/vendor -c $< -o $@
+	$(Q)zig cc -target wasm32-wasi $(LUA_CFLAGS) -c $< -o $@
 
 $(LUA_WASM_SETJMP_SHIM_O): $(PLUGIN_DIR)/lua/shim/wasm_setjmp_shim.c | $(LUA_BUILD_DIR)
-	$(Q)zig cc -target wasm32-wasi -O2 -c $< -o $@
+	$(Q)zig cc -target wasm32-wasi $(LUA_CFLAGS) -c $< -o $@
 
 $(LUA_PLUGIN_ALL_O): $(LUA_MAIN_O) $(LUA_WASM_SETJMP_SHIM_O) $(LUA_MODERN_O) | $(LUA_BUILD_DIR)
 	$(Q)wasm-ld -r -o $@ $(LUA_MAIN_O) $(LUA_WASM_SETJMP_SHIM_O) $(LUA_MODERN_O)
