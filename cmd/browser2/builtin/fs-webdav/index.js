@@ -1,6 +1,8 @@
 import { FsAdapter } from './FsAdapter.js'
+import { createMountRegistry, listMountedPath, mountedPathExists, readMountedPath, resolveMountedPath, statMountedPath } from '../mounts.js'
 
 let fs = null
+let mounts = null
 let pluginCallerSync = null
 
 const encoder = new TextEncoder()
@@ -90,6 +92,7 @@ const plugin = {
     const raw = ctx?.config?.webdavUrl || ''
     const { url, authorization } = parseWebdavUrl(raw)
     fs = await FsAdapter.start({ url, authorization })
+    mounts = createMountRegistry(ctx?.config?.fs || {})
     pluginCallerSync = ctx?.callSync ? (moduleName, functionName, input) => ctx.callSync(moduleName, functionName, input) : null
   },
 
@@ -105,10 +108,8 @@ const plugin = {
           const data = input.slice(commaIndex + 1)
           return meta.endsWith(';base64') ? success(base64ToUint8Array(data)) : success(encoder.encode(decodeURIComponent(data)))
         }
-        if (input.startsWith('local:')) {
-          const url = new URL(input.slice(6), location.origin).href
-          return success(fs.readHttpSync(url))
-        }
+        const mounted = readMountedPath(mounts, input, (url) => fs.readHttpSync(url))
+        if (mounted) return success(mounted)
         if (input.startsWith('image:')) return success(readImageProtocol(input))
         if (input.startsWith('http://') || input.startsWith('https://')) return success(fs.readHttpSync(input))
         return success(fs.readFileSync(input))
@@ -129,6 +130,7 @@ const plugin = {
         }
         if (nullIndex === -1) return error('Invalid format: missing null byte separator between path and data')
         const path = decoder.decode(bytes.slice(0, nullIndex))
+        if (resolveMountedPath(mounts, path)) return error(`Mounted path is read-only: ${path}`)
         const data = bytes.slice(nullIndex + 1)
         fs.writeFileSync(path, data)
         return success('OK')
@@ -139,7 +141,9 @@ const plugin = {
 
     remove(path) {
       try {
-        fs.unlinkSync(decodeInput(path))
+        const input = decodeInput(path)
+        if (resolveMountedPath(mounts, input)) return error(`Mounted path is read-only: ${input}`)
+        fs.unlinkSync(input)
         return success('OK')
       } catch (e) {
         return error(e.message)
@@ -148,7 +152,9 @@ const plugin = {
 
     exists(path) {
       try {
-        const result = fs.existsSync(decodeInput(path))
+        const input = decodeInput(path)
+        const mounted = mountedPathExists(mounts, input)
+        const result = mounted ?? fs.existsSync(input)
         return success(result ? 'true' : 'false')
       } catch (e) {
         return error(e.message)
@@ -158,7 +164,8 @@ const plugin = {
     list(path) {
       try {
         const dirPath = path ? decodeInput(path) : '/'
-        return success(JSON.stringify(fs.readdirSync(dirPath)))
+        const mounted = listMountedPath(mounts, dirPath)
+        return success(JSON.stringify(mounted ?? fs.readdirSync(dirPath)))
       } catch (e) {
         return error(e.message)
       }
@@ -166,7 +173,9 @@ const plugin = {
 
     mkdir(path) {
       try {
-        fs.mkdirSync(decodeInput(path))
+        const input = decodeInput(path)
+        if (resolveMountedPath(mounts, input)) return error(`Mounted path is read-only: ${input}`)
+        fs.mkdirSync(input)
         return success('OK')
       } catch (e) {
         return error(e.message)
@@ -175,7 +184,9 @@ const plugin = {
 
     rmdir(path) {
       try {
-        fs.rmdirSync(decodeInput(path))
+        const input = decodeInput(path)
+        if (resolveMountedPath(mounts, input)) return error(`Mounted path is read-only: ${input}`)
+        fs.rmdirSync(input)
         return success('OK')
       } catch (e) {
         return error(e.message)
@@ -184,7 +195,10 @@ const plugin = {
 
     stat(path) {
       try {
-        const stats = fs.statSync(decodeInput(path))
+        const input = decodeInput(path)
+        const mounted = statMountedPath(mounts, input)
+        if (mounted) return success(JSON.stringify(mounted))
+        const stats = fs.statSync(input)
         return success(JSON.stringify({ size: stats.size, type: stats.isDirectory() ? 'directory' : 'file' }))
       } catch (e) {
         return error(e.message)

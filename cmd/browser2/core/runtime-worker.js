@@ -71,14 +71,14 @@ class RuntimeWorker {
     if (definition.runtime === 'js') {
       let module = {}
 
-      if (definition.url.startsWith("local:")) {
-        module = (await import(definition.url.slice("local:".length))).default
+      if (definition.id === 'fs' || definition.id.startsWith('fs.')) {
+        module = (await import(definition.url)).default
       } else {
-        if (definition.id === "fs") {
-          throw Error("fs cannot load it self")
+        const result = await this.call('fs', 'read', definition.url)
+        if (result.returnCode !== 0) {
+          throw new Error(new TextDecoder().decode(result.output).trim() || `fs.read failed for '${definition.url}'`)
         }
-        const data = (await this.call("fs", "read", definition.url)).output
-        module = (await importJsFromBytes(data)).default
+        module = (await importJsFromBytes(result.output)).default
       }
 
       if (typeof module?.init === 'function') {

@@ -11,6 +11,15 @@ function quoteIdent(name) {
   return String(name).replace(/"/g, '""')
 }
 
+function sqlIdent(name) {
+  return `"${quoteIdent(name)}"`
+}
+
+function quoteSqlValue(value) {
+  if (value === null || value === undefined || value === '') return 'NULL'
+  return `'${String(value).replace(/'/g, "''")}'`
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
@@ -45,6 +54,8 @@ export class ViewSql extends HTMLElement {
     this.returnColumn = ''
     this.returnFields = []
     this.selectedRowIndex = -1
+    this.primaryKey = ''
+    this.editingCell = null
     this.tablesPaneElement = null
     this.tablesContainer = null
     this.tablesStatusContainer = null
@@ -91,6 +102,8 @@ export class ViewSql extends HTMLElement {
     this.paginationElement?.addEventListener('change', async (event) => {
       this.currentPage = event.detail.page
       this.pageSize = event.detail.pageSize
+      this.selectedRowIndex = -1
+      this.cancelEdit()
       if (this.mode === 'chooser') {
         await this.fetchQueryData()
         this.renderTable()
@@ -105,6 +118,8 @@ export class ViewSql extends HTMLElement {
     const toolbar = this._headerControlsElement
     if (toolbar) {
       toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh(null))
+      toolbar.querySelector('[data-action="insert"]')?.addEventListener('click', () => this.insertRow())
+      toolbar.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelectedRow())
       toolbar.querySelector('[data-action="create-table"]')?.addEventListener('click', () => this.openCreateTablePopup())
     }
 
@@ -123,6 +138,8 @@ export class ViewSql extends HTMLElement {
     toolbar.setAttribute('slot', 'header-controls')
     toolbar.innerHTML = `
       <button data-action="refresh" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      <button data-action="insert" aria-label="Insert row" title="Insert row"><i aria-hidden="true">add</i></button>
+      <button data-action="delete" aria-label="Delete row" title="Delete row"><i aria-hidden="true">remove</i></button>
       <button data-action="create-table" aria-label="Create table" title="Create table"><i aria-hidden="true">post_add</i></button>
     `
     return toolbar
@@ -146,6 +163,15 @@ export class ViewSql extends HTMLElement {
 
   updateHeaderControlsUI() {
     if (!this._headerControlsElement) return
+    const canEdit = this.mode === 'browser' && !!this.selectedTable
+    const insertButton = this._headerControlsElement.querySelector('[data-action="insert"]')
+    if (insertButton instanceof HTMLButtonElement) {
+      insertButton.disabled = !canEdit || this.columns.length === 0
+    }
+    const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
+    if (deleteButton instanceof HTMLButtonElement) {
+      deleteButton.disabled = !canEdit || this.selectedRowIndex < 0
+    }
     const createTableButton = this._headerControlsElement.querySelector('[data-action="create-table"]')
     if (createTableButton instanceof HTMLButtonElement) {
       createTableButton.disabled = this.mode !== 'browser'
@@ -221,7 +247,18 @@ export class ViewSql extends HTMLElement {
     return decodeOutput(result)
   }
 
+  async execSql(sql) {
+    const result = await runtime.call('sql', 'exec', sql)
+    if (result.returnCode !== 0) {
+      const err = new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
+      err.plugin = "view.sql"
+      throw err
+    }
+    return decodeOutput(result)
+  }
+
   async refresh(tableToSelect = null) {
+    this.cancelEdit()
     this.readConfig()
     this.renderFooter()
     this.updateModeUI()
@@ -242,6 +279,8 @@ export class ViewSql extends HTMLElement {
     if (tableToSelect !== null) {
       this.selectedTable = tableToSelect
       this.currentPage = 0
+      this.selectedRowIndex = -1
+      this.cancelEdit()
     }
 
     this.setTablesStatus('Loading...')
@@ -270,7 +309,7 @@ export class ViewSql extends HTMLElement {
 
     this.tables = []
     for (const name of names) {
-      const countCsv = await this.callSql(`SELECT COUNT(*) as count FROM ${quoteIdent(name)}`)
+      const countCsv = await this.callSql(`SELECT COUNT(*) as count FROM ${sqlIdent(name)}`)
       const countLines = parseCSVLines(countCsv.trim())
       const rowCount = parseInt(countLines[1][0], 10) || 0
       this.tables.push({ name, rowCount })
@@ -285,7 +324,7 @@ export class ViewSql extends HTMLElement {
   async fetchTableData() {
     if (!this.selectedTable) return
 
-    const tableName = quoteIdent(this.selectedTable)
+    const tableName = sqlIdent(this.selectedTable)
     const countCsv = await this.callSql(`SELECT COUNT(*) AS count FROM ${tableName}`)
     const countLines = parseCSVLines(countCsv.trim())
     this.totalCount = parseInt(countLines[1][0], 10) || 0
@@ -296,6 +335,7 @@ export class ViewSql extends HTMLElement {
 
     if (lines.length > 0) {
       this.columns = lines[0]
+      this.primaryKey = await this.detectPrimaryKey(this.selectedTable, this.columns)
       this.rows = lines.slice(1).map((row) => {
         const obj = {}
         this.columns.forEach((column, index) => {
@@ -306,12 +346,28 @@ export class ViewSql extends HTMLElement {
     } else {
       this.columns = []
       this.rows = []
+      this.primaryKey = ''
     }
 
     this.renderTable()
     this.renderPagination()
     this.setTablesStatus(`${this.tables.length} tables`)
     this.setTableStatus(`${this.totalCount} rows`)
+    this.updateHeaderControlsUI()
+  }
+
+  async detectPrimaryKey(tableName, columns) {
+    const csv = await this.callSql(`PRAGMA table_info(${sqlIdent(tableName)})`)
+    const lines = parseCSVLines(csv.trim())
+    const headers = lines[0] || []
+    const nameIndex = headers.indexOf('name')
+    const pkIndex = headers.indexOf('pk')
+    assert(nameIndex >= 0 && pkIndex >= 0, 'PRAGMA table_info returned unexpected columns')
+
+    const pkRow = lines.slice(1).find((line) => Number(line[pkIndex]) > 0)
+    if (pkRow?.[nameIndex]) return pkRow[nameIndex]
+    if (columns.includes('id')) return 'id'
+    return columns[0] || ''
   }
 
   interpolateQuery(query, params) {
@@ -417,6 +473,8 @@ export class ViewSql extends HTMLElement {
     if (tableName === this.selectedTable) return
     this.selectedTable = tableName
     this.currentPage = 0
+    this.selectedRowIndex = -1
+    this.cancelEdit()
     this.updateSelectionUI()
     this.updateHeaderControlsUI()
     this.setTableStatus(`Loading ${tableName}...`)
@@ -482,10 +540,18 @@ export class ViewSql extends HTMLElement {
         if (this.mode === 'chooser') await this.confirmSelection()
       })
 
-      this.columns.forEach((column) => {
+      this.columns.forEach((column, colIndex) => {
         const td = document.createElement('td')
         td.dataset.column = column
+        td.dataset.rowIndex = String(rowIndex)
+        td.dataset.colIndex = String(colIndex)
         this.renderCell(td, row[column], column)
+        td.addEventListener('dblclick', (event) => {
+          if (this.mode === 'chooser') return
+          event.stopPropagation()
+          this.selectRow(rowIndex)
+          this.startEdit(td, rowIndex, colIndex, row[column], column)
+        })
         tr.appendChild(td)
       })
       tbody.appendChild(tr)
@@ -545,6 +611,7 @@ export class ViewSql extends HTMLElement {
     this.querySelectorAll('tr[data-row-index]').forEach((row) => {
       row.setAttribute('aria-selected', Number(row.dataset.rowIndex) === rowIndex ? 'true' : 'false')
     })
+    this.updateHeaderControlsUI()
     this.updateChooserUI()
   }
 
@@ -600,18 +667,221 @@ export class ViewSql extends HTMLElement {
     await runtime.call('ui.popup', 'close', payload)
   }
 
-  handleKeyDown(event) {
-    if (this.mode !== 'chooser') return
+  startEdit(td, rowIndex, colIndex, currentValue, column) {
+    this.cancelEdit()
 
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      void this.confirmSelection()
+    const colType = this.detectColumnType(column, currentValue)
+    this.editingCell = { td, rowIndex, colIndex, column, originalValue: currentValue ?? '' }
+
+    td.dataset.editing = 'true'
+    td.innerHTML = ''
+
+    const input = document.createElement(colType === 'text' && String(currentValue ?? '').length > 50 ? 'textarea' : 'input')
+    if (input instanceof HTMLInputElement) {
+      input.type = colType === 'boolean' ? 'checkbox' : colType === 'number' ? 'number' : 'text'
+      if (input.type === 'checkbox') input.checked = currentValue === '1' || currentValue === 'true' || currentValue === true
+      else input.value = currentValue ?? ''
+    } else {
+      input.value = currentValue ?? ''
+    }
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !(input instanceof HTMLTextAreaElement && event.shiftKey)) {
+        event.preventDefault()
+        void this.commitEdit()
+        return
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        this.cancelEdit()
+        return
+      }
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        const direction = event.shiftKey ? -1 : 1
+        void this.commitEdit().then(() => this.startEditAt(rowIndex, colIndex + direction))
+      }
+    })
+    input.addEventListener('blur', () => {
+      if (this.editingCell?.td === td) void this.commitEdit()
+    })
+    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+      input.addEventListener('change', () => void this.commitEdit())
+    }
+
+    td.appendChild(input)
+    input.focus()
+    if (input instanceof HTMLInputElement && input.type !== 'checkbox') input.select()
+    if (input instanceof HTMLTextAreaElement) input.select()
+  }
+
+  startEditAt(rowIndex, colIndex) {
+    let nextRowIndex = rowIndex
+    let nextColIndex = colIndex
+    if (nextColIndex < 0) {
+      nextColIndex = this.columns.length - 1
+      nextRowIndex--
+    } else if (nextColIndex >= this.columns.length) {
+      nextColIndex = 0
+      nextRowIndex++
+    }
+    if (nextRowIndex < 0 || nextRowIndex >= this.rows.length) return
+
+    const column = this.columns[nextColIndex]
+    const row = this.rows[nextRowIndex]
+    const td = this.tableContainer.querySelector(`td[data-row-index="${nextRowIndex}"][data-col-index="${nextColIndex}"]`)
+    assert(td instanceof HTMLTableCellElement, 'editable table cell not found')
+    this.selectRow(nextRowIndex)
+    this.startEdit(td, nextRowIndex, nextColIndex, row[column], column)
+  }
+
+  cancelEdit() {
+    if (!this.editingCell) return
+    const { td, column, originalValue } = this.editingCell
+    td.removeAttribute('data-editing')
+    td.innerHTML = ''
+    this.renderCell(td, originalValue, column)
+    this.editingCell = null
+  }
+
+  async commitEdit() {
+    if (!this.editingCell) return
+
+    const { td, rowIndex, column, originalValue } = this.editingCell
+    const input = td.querySelector('input, textarea')
+    assert(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement, 'edit input not found')
+
+    const newValue = input instanceof HTMLInputElement && input.type === 'checkbox'
+      ? (input.checked ? '1' : '0')
+      : input.value
+
+    this.editingCell = null
+    td.removeAttribute('data-editing')
+    td.innerHTML = ''
+
+    if (newValue === String(originalValue ?? '')) {
+      this.renderCell(td, originalValue, column)
       return
     }
 
-    if (event.key === 'Escape') {
+    const pkWhereValue = column === this.primaryKey ? originalValue : this.rows[rowIndex][this.primaryKey]
+    this.rows[rowIndex][column] = newValue
+    this.renderCell(td, newValue, column)
+
+    try {
+      await this.updateRow(rowIndex, column, newValue, pkWhereValue)
+      this.setTableStatus(`Updated ${column}`)
+    } catch (error) {
+      this.rows[rowIndex][column] = originalValue
+      td.innerHTML = ''
+      this.renderCell(td, originalValue, column)
+      this.setTableStatus(`Update error: ${error.message}`)
+    }
+  }
+
+  async updateRow(rowIndex, column, value, pkWhereValue = undefined) {
+    assert(this.selectedTable, 'Cannot update: no table selected')
+    assert(this.primaryKey, 'Cannot update: no primary key column')
+
+    const row = this.rows[rowIndex]
+    const pkValue = pkWhereValue ?? row[this.primaryKey]
+    assert(pkValue !== undefined && pkValue !== null && pkValue !== '', 'Cannot update: no primary key value')
+
+    const sql = `UPDATE ${sqlIdent(this.selectedTable)} SET ${sqlIdent(column)} = ${quoteSqlValue(value)} WHERE ${sqlIdent(this.primaryKey)} = ${quoteSqlValue(pkValue)}`
+    await this.execSql(sql)
+  }
+
+  async insertRow() {
+    if (this.mode !== 'browser') return
+    assert(this.selectedTable, 'Cannot insert: no table selected')
+    assert(this.columns.length > 0, 'Cannot insert: no columns loaded')
+
+    const insertColumns = this.columns.filter((column) => column !== this.primaryKey)
+    assert(insertColumns.length > 0, 'Cannot insert: no insertable columns')
+
+    const sql = `INSERT INTO ${sqlIdent(this.selectedTable)} (${insertColumns.map(sqlIdent).join(', ')}) VALUES (${insertColumns.map(() => "''").join(', ')})`
+    try {
+      await this.execSql(sql)
+      this.setTableStatus('Row inserted')
+      const countCsv = await this.callSql(`SELECT COUNT(*) AS count FROM ${sqlIdent(this.selectedTable)}`)
+      const countLines = parseCSVLines(countCsv.trim())
+      this.totalCount = parseInt(countLines[1]?.[0] || '0', 10) || 0
+      this.currentPage = Math.max(0, Math.ceil(this.totalCount / this.pageSize) - 1)
+      this.selectedRowIndex = -1
+      await this.fetchTableData()
+    } catch (error) {
+      this.setTableStatus(`Insert error: ${error.message}`)
+    }
+  }
+
+  async deleteSelectedRow() {
+    if (this.mode !== 'browser') return
+    if (this.selectedRowIndex < 0) {
+      this.setTableStatus('No row selected')
+      return
+    }
+    await this.deleteRow(this.selectedRowIndex)
+  }
+
+  async deleteRow(rowIndex) {
+    assert(this.selectedTable, 'Cannot delete: no table selected')
+    assert(this.primaryKey, 'Cannot delete: no primary key column')
+
+    const row = this.rows[rowIndex]
+    const pkValue = row[this.primaryKey]
+    assert(pkValue !== undefined && pkValue !== null && pkValue !== '', 'Cannot delete: no primary key value')
+
+    const confirmResult = await runtime.call('ui.toast', 'confirm', {
+      message: `Delete row with ${this.primaryKey} = ${pkValue}?`,
+      type: 'warning',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+    })
+    const confirmed = JSON.parse(decodeOutput(confirmResult) || 'false')
+    if (!confirmed) return
+
+    try {
+      await this.execSql(`DELETE FROM ${sqlIdent(this.selectedTable)} WHERE ${sqlIdent(this.primaryKey)} = ${quoteSqlValue(pkValue)}`)
+      this.setTableStatus('Row deleted')
+      this.selectedRowIndex = -1
+      await this.fetchTableData()
+    } catch (error) {
+      this.setTableStatus(`Delete error: ${error.message}`)
+    }
+  }
+
+  handleKeyDown(event) {
+    if (this.editingCell) return
+
+    if (this.mode === 'chooser') {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        void this.confirmSelection()
+        return
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        void runtime.call('ui.popup', 'close', { cancelled: true, ok: false })
+      }
+      return
+    }
+
+    if (event.key === 'Insert') {
       event.preventDefault()
-      void runtime.call('ui.popup', 'close', { cancelled: true, ok: false })
+      void this.insertRow()
+      return
+    }
+
+    if ((event.key === 'Delete' && (event.ctrlKey || event.metaKey)) || (event.key === 'Backspace' && event.metaKey)) {
+      event.preventDefault()
+      void this.deleteSelectedRow()
+      return
+    }
+
+    if (event.key === 'Enter' && this.selectedRowIndex >= 0) {
+      event.preventDefault()
+      this.startEditAt(this.selectedRowIndex, 0)
     }
   }
 
