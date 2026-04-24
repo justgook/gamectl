@@ -765,9 +765,12 @@ export class ViewNg extends HTMLElement {
   }
 
   async runGraph() {
-    this._setStatus('run command is not implemented yet', 'warning')
-    await runtime()
-    await this._showInfoPopup('Run', 'Run command will be implemented later. Current graph JSON is available through getGraph().', 'info')
+    const parser = decodeOutput(await runtime.call("fs", "read", "builtin/assets/ng/run.lua"))
+    const graph = `local input = '${JSON.stringify(this.getGraph())}'\n`
+    const code = decodeOutput(await runtime.call("lua", "run", graph + parser))
+    const result = decodeOutput(await runtime.call("lua", "run", JSON.parse(code)))
+
+    await runtime.call('ui.toast', 'success', { message: result })
   }
 
   async resetGraph() {

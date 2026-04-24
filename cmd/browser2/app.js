@@ -1,5 +1,5 @@
 import { init } from './core/runtime.js'
-import { defaultPlugins } from './core/default-plugins.js'
+import { GAMS_CONFIG_PATH, loadDefaultGamsConfig, validateGamsConfig } from './core/gams-config.js'
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
 import './ui-plugins/popup.js'
@@ -11,7 +11,6 @@ import './views/view-files.js'
 import './views/view-tree.js'
 import './views/view-ng.js'
 import './views/view-ng-node.js'
-import './views/view-ng-graph.js'
 import './views/files-rename.js'
 import './views/files-json.js'
 import './views/files-default.js'
@@ -142,7 +141,7 @@ const viewRegistry = new Map([
   }],
   ['view-game-runner', placeholderView('view-game-runner', 'Game Runner')],
   ['view-setting-plugins', {
-    label: 'Setting Plugins',
+    label: 'Setting GAMS Config',
     group: 'Settings',
     create: () => document.createElement('view-setting-plugins'),
   }],
@@ -162,9 +161,10 @@ const viewRegistry = new Map([
 
 
 
-function createFsPluginDefinitions() {
+function createFsPluginDefinitions(config) {
   const provider = localStorage.getItem('browser.fs') || 'fs.opfs'
   const webdavUrl = localStorage.getItem('browser.fs.webdav.url') || ''
+  const fsConfig = config.fs
 
   return [
     {
@@ -172,30 +172,33 @@ function createFsPluginDefinitions() {
       runtime: 'js',
       role: 'service',
       url: provider === 'fs.webdav'
-        ? 'local:../builtin/fs-webdav/index.js'
-        : 'local:../builtin/fs-opfs/index.js',
+        ? '../builtin/fs-webdav/index.js'
+        : '../builtin/fs-opfs/index.js',
       config: {
         provider,
         webdavUrl,
+        fs: fsConfig,
       },
     },
     {
       id: 'fs.opfs',
       runtime: 'js',
       role: 'service',
-      url: 'local:../builtin/fs-opfs/index.js',
+      url: '../builtin/fs-opfs/index.js',
       config: {
         provider: 'fs.opfs',
+        fs: fsConfig,
       },
     },
     {
       id: 'fs.webdav',
       runtime: 'js',
       role: 'service',
-      url: 'local:../builtin/fs-webdav/index.js',
+      url: '../builtin/fs-webdav/index.js',
       config: {
         provider: 'fs.webdav',
         webdavUrl,
+        fs: fsConfig,
       },
     },
   ]
@@ -203,23 +206,21 @@ function createFsPluginDefinitions() {
 
 const textDecoder = new TextDecoder()
 
-async function loadPluginDefinitions(runtime) {
-  const existsResult = await runtime.call('fs', 'exists', '/.plugins.json')
+async function loadGamsConfig(runtime, defaultConfig) {
+  const existsResult = await runtime.call('fs', 'exists', GAMS_CONFIG_PATH)
   if (existsResult.returnCode !== 0) {
     throw new Error(textDecoder.decode(existsResult.output))
   }
 
   const exists = textDecoder.decode(existsResult.output) === 'true'
-  if (!exists) {
-    return defaultPlugins
-  }
+  if (!exists) return defaultConfig
 
-  const readResult = await runtime.call('fs', 'read', '/.plugins.json')
+  const readResult = await runtime.call('fs', 'read', GAMS_CONFIG_PATH)
   if (readResult.returnCode !== 0) {
     throw new Error(textDecoder.decode(readResult.output))
   }
 
-  return JSON.parse(textDecoder.decode(readResult.output))
+  return validateGamsConfig(JSON.parse(textDecoder.decode(readResult.output)), GAMS_CONFIG_PATH)
 }
 
 function applyThemeStylesheet(nextTheme = null) {
@@ -251,8 +252,11 @@ async function main() {
 
   try {
     const runtime = await init()
-    await runtime.add(createFsPluginDefinitions())
-    await runtime.add(await loadPluginDefinitions(runtime))
+    const defaultConfig = await loadDefaultGamsConfig()
+    await runtime.add(createFsPluginDefinitions(defaultConfig))
+    const gamsConfig = await loadGamsConfig(runtime, defaultConfig)
+    await runtime.add(createFsPluginDefinitions(gamsConfig))
+    await runtime.add(gamsConfig.plugins)
     await runtime.call("sql", "open") // TODO move init of sql to plugin it self
     window.onerror = function (_message, _source, _lineno, _colno, error) {
       runtime.call("ui.toast", "error", errorParse(error))

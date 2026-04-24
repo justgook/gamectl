@@ -177,13 +177,13 @@ export class ViewNgNode extends HTMLElement {
   constructor() {
     super()
     this.popupProps = this.popupProps || {}
-    this.mode = String(this.popupProps?.mode || 'create')
-    this.nodeId = Number(this.popupProps?.nodeId || 0)
+    this.mode = 'create'
+    this.nodeId = 0
     this.formElement = null
     this.statusOutput = null
     this.templates = []
     this.graphEntries = []
-    this.draft = this._createInitialDraft()
+    this.draft = null
   }
 
   _createInitialDraft() {
@@ -215,6 +215,10 @@ export class ViewNgNode extends HTMLElement {
   connectedCallback() {
     if (this.dataset.ready) return
     this.dataset.ready = '1'
+    this.popupProps = this.popupProps || {}
+    this.mode = String(this.popupProps?.mode || 'create')
+    this.nodeId = Number(this.popupProps?.nodeId || 0)
+    this.draft = this._createInitialDraft()
     this.style.display = 'contents'
     this.innerHTML = '<form data-element="form" novalidate></form>'
     this.formElement = this.querySelector('[data-element="form"]')
@@ -364,7 +368,7 @@ export class ViewNgNode extends HTMLElement {
         <legend>Code file</legend>
         <label>
           Path
-          <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" placeholder="local:/assets/ng/example.lua">
+          <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" placeholder="builtin/assets/ng/example.lua">
         </label>
         <div>
           <button type="submit" name="intent" value="load-code-file">Load</button>
@@ -750,9 +754,15 @@ export class ViewNgNode extends HTMLElement {
         mode: this.mode,
         nodeId: this.nodeId,
         draft: {
+          kind: Number(this.draft.kind || NG.NODE_CODE),
           name: String(this.draft.name || '').trim(),
-          inputLabels: this.draft.inputs.map((port) => String(port.name || '')),
-          outputLabels: this.draft.outputs.map((port) => String(this.draft.kind === NG.NODE_VALUE ? port.value : port.name || '')),
+          codePath: String(this.draft.codePath || '').trim(),
+          code: String(this.draft.code || ''),
+          graphName: String(this.draft.graphName || '').trim(),
+          graphId: Number(this.draft.graphId || 0),
+          graphSummary: this.draft.graphSummary,
+          inputs: this.draft.inputs.map((port, index) => ({ inputId: Number(port.inputId || index + 1), name: String(port.name || '').trim(), value: String(port.value || '') })),
+          outputs: this.draft.outputs.map((port, index) => ({ outputId: Number(port.outputId || index + 1), name: String(port.name || '').trim(), value: String(port.value || '') })),
         },
       })
       return

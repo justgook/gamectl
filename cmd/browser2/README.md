@@ -38,7 +38,7 @@ Current API:
 
 Notes:
 - Uses `SharedArrayBuffer` + `Atomics` + a dedicated worker for synchronous execution semantics.
-- Supports local storage paths as well as helper protocols like `local:` and `http(s):` via the copied browser FS behavior.
+- Supports local storage paths, `http(s):` reads, and read-only mounted files declared in `.gams.json` under `fs.mount`.
 - This is currently the default filesystem provider selected by `core/setup.js` through `browser.fs` localStorage config.
 
 ### `fs.webdav`
