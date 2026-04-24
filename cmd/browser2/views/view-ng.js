@@ -766,6 +766,7 @@ export class ViewNg extends HTMLElement {
 
   async runGraph() {
     this._setStatus('run command is not implemented yet', 'warning')
+    await runtime()
     await this._showInfoPopup('Run', 'Run command will be implemented later. Current graph JSON is available through getGraph().', 'info')
   }
 
