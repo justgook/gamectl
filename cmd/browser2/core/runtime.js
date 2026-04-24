@@ -32,7 +32,7 @@ class RuntimeProxy {
 
   handleMessage(event) {
     const msg = event.data || {}
-    if (msg.type === 'call-result' || msg.type === 'main-call-result' || msg.type === 'memory-result') {
+    if (msg.type === 'call-result' || msg.type === 'main-call-result' || msg.type === 'memory-result' || msg.type === 'ensure-loaded-result') {
       const pending = this.pending.get(msg.requestId)
       if (!pending) return
       this.pending.delete(msg.requestId)
@@ -133,6 +133,10 @@ class RuntimeProxy {
     return await this.send('memory', { pluginId })
   }
 
+  async ensureLoaded(pluginIds) {
+    return await this.send('ensure-loaded', { pluginIds })
+  }
+
   register(plugin) {
     if (!plugin?.id) throw new Error('main-thread plugin requires id')
     this.mainPlugins.set(plugin.id, plugin)
@@ -180,7 +184,7 @@ export async function init() {
 
   runtimeProxy = new RuntimeProxy(worker, mainSyncSab)
 
-  return { register, call, memory, add }
+  return { register, call, memory, ensureLoaded, add }
 }
 
 export function register(plugin) {
@@ -195,6 +199,10 @@ export async function memory(pluginId) {
   return await runtimeProxy.memory(pluginId)
 }
 
+export async function ensureLoaded(pluginIds) {
+  return await runtimeProxy.ensureLoaded(pluginIds)
+}
+
 export async function add(plugins) {
   return await runtimeProxy.add(plugins)
 }
@@ -204,6 +212,7 @@ export const runtime = {
   register,
   call,
   memory,
+  ensureLoaded,
   add,
 }
 

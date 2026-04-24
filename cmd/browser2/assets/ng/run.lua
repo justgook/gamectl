@@ -265,13 +265,11 @@ end
 
 local function emitProgressHelpers()
 	emit("local function __ng_node_done(nodeId)")
-	emit("  -- Progress placeholder. Later this can become:")
-	emit("  -- host.call(\"view-ng\", \"nodeDone\", json.encode({ id = nodeId }))")
+	emit("  -- Progress placeholder: notify view-ng that nodeId completed.")
 	emit("end")
 	emit("")
 	emit("local function __ng_goal_done(goalId)")
-	emit("  -- Progress placeholder. Later this can become:")
-	emit("  -- host.call(\"view-ng\", \"goalDone\", json.encode({ id = goalId }))")
+	emit("  -- Progress placeholder: notify view-ng that goalId completed.")
 	emit("end")
 	emit("")
 end
