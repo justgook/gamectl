@@ -833,6 +833,16 @@ export class ViewNg extends HTMLElement {
       layerById.set(id, layer)
     }
 
+    for (let i = topo.length - 1; i >= 0; i -= 1) {
+      const id = topo[i]
+      const successorLayers = outgoing.get(id)
+        .filter((next) => layerById.has(next))
+        .map((next) => layerById.get(next))
+      if (!successorLayers.length) continue
+      const compactLayer = Math.min(...successorLayers) - 1
+      if (compactLayer > layerById.get(id)) layerById.set(id, compactLayer)
+    }
+
     const layers = []
     for (const id of topo) {
       const layer = layerById.get(id)
