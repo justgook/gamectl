@@ -7,6 +7,16 @@ function decodeOutput(result) {
   return textDecoder.decode(result?.output || new Uint8Array())
 }
 
+function luaStringLiteral(value) {
+  return JSON.stringify(String(value))
+}
+
+function assertRuntimeOk(result, label) {
+  if (Number(result.returnCode || 0) !== 0) {
+    throw new Error(`${label} failed: ${decodeOutput(result)}`)
+  }
+}
+
 const NG = {
   NODE_GOAL: 1,
   NODE_CODE: 2,
@@ -765,12 +775,25 @@ export class ViewNg extends HTMLElement {
   }
 
   async runGraph() {
-    const parser = decodeOutput(await runtime.call("fs", "read", "builtin/assets/ng/run.lua"))
-    const graph = `local input = '${JSON.stringify(this.getGraph())}'\n`
-    const code = decodeOutput(await runtime.call("lua", "run", graph + parser))
-    const result = decodeOutput(await runtime.call("lua", "run", JSON.parse(code)))
+    this._setStatus('compiling graph run...', 'info')
 
-    await runtime.call('ui.toast', 'success', { message: result })
+    const compilerRead = await runtime.call('fs', 'read', 'builtin/assets/ng/run.lua')
+    assertRuntimeOk(compilerRead, 'read ng run compiler')
+
+    const graphJson = JSON.stringify(this.getGraph())
+    const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n${decodeOutput(compilerRead)}`
+    const compileResult = await runtime.call('lua', 'run', compilerSource)
+    assertRuntimeOk(compileResult, 'compile graph run')
+
+    const generatedSource = JSON.parse(decodeOutput(compileResult))
+    this._setStatus('running generated graph code...', 'info')
+
+    const runResult = await runtime.call('lua', 'run', generatedSource)
+    assertRuntimeOk(runResult, 'run generated graph code')
+
+    const resultText = decodeOutput(runResult)
+    this._setStatus('graph run completed', 'success')
+    await runtime.call('ui.toast', 'success', { message: resultText })
   }
 
   async resetGraph() {

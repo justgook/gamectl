@@ -40,11 +40,14 @@ class RuntimeWorker {
     for (const pluginId of this.mainPlugins) {
       this.registerRemoteHostPlugin(pluginId)
     }
+    for (const [pluginId, instance] of this.instances.entries()) {
+      if (instance?.definition?.runtime === 'js') this.registerWorkerJsHostPlugin(pluginId)
+    }
 
     return manager
   }
 
-  registerRemoteHostPlugin(pluginId) {
+  registerHostWildcard(pluginId, handler) {
     if (!this.pluginManager) return
     if (!this.pluginManager.hostModules.has(pluginId)) {
       this.pluginManager.hostModules.set(pluginId, { name: pluginId, functions: [] })
@@ -55,8 +58,16 @@ class RuntimeWorker {
     this.pluginManager.hostFunctionDefs.get(pluginId).set('*', {
       module: pluginId,
       function: '*',
-      handler: (functionName, input) => this.callMainThreadSync(pluginId, functionName, input),
+      handler,
     })
+  }
+
+  registerRemoteHostPlugin(pluginId) {
+    this.registerHostWildcard(pluginId, (functionName, input) => this.callMainThreadSync(pluginId, functionName, input))
+  }
+
+  registerWorkerJsHostPlugin(pluginId) {
+    this.registerHostWildcard(pluginId, (functionName, input) => this.callSync(pluginId, functionName, input))
   }
 
   async load(id) {
@@ -87,6 +98,7 @@ class RuntimeWorker {
 
       const instance = { id, definition, module }
       this.instances.set(id, instance)
+      this.registerWorkerJsHostPlugin(id)
       await this.initializePluginHooks(id, instance)
 
       return instance
