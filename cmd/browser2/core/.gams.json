@@ -159,6 +159,10 @@
           {
             "path": "plugins/treegen.wasm",
             "url": "/plugins/treegen.wasm"
+          },
+          {
+            "path": "plugins/minimap2.wasm",
+            "url": "/plugins/minimap2.wasm"
           }
         ]
       }
@@ -176,6 +180,15 @@
       "runtime": "wasm",
       "role": "service",
       "url": "builtin/plugins/random.wasm"
+    },
+    {
+      "id": "minimap2",
+      "runtime": "wasm",
+      "role": "service",
+      "deps": [
+        "random"
+      ],
+      "url": "builtin/plugins/minimap2.wasm"
     },
     {
       "id": "treegen",

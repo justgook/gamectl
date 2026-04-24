@@ -178,6 +178,16 @@ class RuntimeWorker {
     return this.callSync(id, method, input)
   }
 
+  async ensureLoaded(pluginIds) {
+    if (!Array.isArray(pluginIds)) throw new Error('ensureLoaded requires an array')
+    for (const pluginId of pluginIds) {
+      if (this.mainPlugins.has(pluginId) && !this.definitions.has(pluginId)) continue
+      if (!this.definitions.has(pluginId)) continue
+      await this.load(pluginId)
+    }
+    return { returnCode: 0, output: new Uint8Array() }
+  }
+
   async hasMethod(id, method) {
     const definition = this.definitions.get(id)
     if (!definition) return false
@@ -293,6 +303,12 @@ self.onmessage = async (event) => {
     if (msg.type === 'call') {
       const result = await runtime.call(msg.pluginId, msg.method, msg.input)
       self.postMessage({ type: 'call-result', requestId: msg.requestId, result })
+      return
+    }
+
+    if (msg.type === 'ensure-loaded') {
+      const result = await runtime.ensureLoaded(msg.pluginIds)
+      self.postMessage({ type: 'ensure-loaded-result', requestId: msg.requestId, result })
       return
     }
 

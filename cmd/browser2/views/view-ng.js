@@ -17,6 +17,22 @@ function assertRuntimeOk(result, label) {
   }
 }
 
+function stripLuaLineComments(source) {
+  return String(source).split('\n').map((line) => line.replace(/--.*$/, '')).join('\n')
+}
+
+function collectHostCallPluginNames(source) {
+  const plugins = new Set()
+  const text = stripLuaLineComments(source)
+  const pattern = /\bhost\.(?:call|awaitCall)\s*\(\s*(['"])([^'"]+)\1/g
+  let match = pattern.exec(text)
+  while (match) {
+    plugins.add(match[2])
+    match = pattern.exec(text)
+  }
+  return [...plugins].sort()
+}
+
 const NG = {
   NODE_GOAL: 1,
   NODE_CODE: 2,
@@ -786,6 +802,11 @@ export class ViewNg extends HTMLElement {
     assertRuntimeOk(compileResult, 'compile graph run')
 
     const generatedSource = JSON.parse(decodeOutput(compileResult))
+    const requiredPlugins = collectHostCallPluginNames(generatedSource)
+    if (requiredPlugins.length > 0) {
+      this._setStatus(`loading graph plugins: ${requiredPlugins.join(', ')}`, 'info')
+      await runtime.ensureLoaded(requiredPlugins)
+    }
     this._setStatus('running generated graph code...', 'info')
 
     const runResult = await runtime.call('lua', 'run', generatedSource)
