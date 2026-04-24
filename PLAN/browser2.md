@@ -448,15 +448,17 @@ Likely yes in the long term, with role metadata.
 ### 3. Do we keep separate plugin and view tables during migration?
 Probably acceptable short-term if it reduces risk.
 
-### 4. How do optional callback/notifier targets behave?
+### 4. How should `view-ng` expose graph state and future run behavior?
 Example:
-- `ng.run({ graph: "x", notifier: "view.ng" })`
+- `view-ng.loadGraph(rawNodeArray)` accepts the graph protocol
+- `view-ng.getGraph()` returns the current raw node array
+- a future `run` command consumes `getGraph()` but is not implemented yet
 
 Need rules for:
-- missing target
-- no-op behavior
-- error handling
-- capability discovery
+- graph validation on load
+- graph state serialization after edits
+- command registration for a future `run` action
+- result/error display once run behavior is designed later
 
 ### 5. What is the minimum lifecycle API for JS plugins?
 Need to decide whether we need hooks like:
@@ -492,10 +494,11 @@ Current phase-1 behavior:
 - `setup-view.js` now registers mock main-thread plugin/view endpoints for worker-side calls
 - the first Atomics-backed worker → main-thread synchronous bridge path now exists for plugin-side calls into registered main-thread endpoints
 - registered main-thread endpoints are now represented in the worker runtime as remote host plugins callable directly by plugin id
-- browser2 vendored `plugin-manager` now supports per-module imported/shared memory provisioning and `getMemory(moduleName)` for direct plugin↔ui shared-memory access patterns such as layout
+- browser2 vendored `plugin-manager` now supports per-module imported/shared memory provisioning and `getMemory(moduleName)` for direct plugin↔ui shared-memory access patterns such as layout; nodegraph browser2 work does not use shared-memory graph state as the source of truth
 - worker-side setup now loads `sql.default`, exposes it through capability alias `sql`, and calls `sql.open()`
 - a debug `echo` WASM plugin is available to exercise main → worker → WASM → main flow
 - migrations and DB restore/load are the next step after SQL bootstrap
+- nodegraph browser2 direction is now documented as frontend-owned raw node-array graph JSON in `PLAN/ng-protocol.md`; execution/persistence are intentionally deferred
 
 ## Recommended Immediate Next Tasks
 - [x] define browser2 bootstrap file structure
@@ -506,6 +509,8 @@ Current phase-1 behavior:
 - [ ] adapt or reimplement migration bootstrap on top of `fs` + `sql`
 - [x] prove one JS service/plugin endpoint call path
 - [ ] document first end-to-end migration recipe
+- [ ] refactor `view-ng` to load/render/edit frontend-owned raw node-array graph state
+- [ ] add `view-ng` graph load/get methods before designing persistence or run behavior
 
 ---
 

@@ -70,13 +70,13 @@ The default interaction model should be request/response plugin calls.
 Example:
 - `sql.query(...)`
 - `layout.split(...)`
-- `ng.run(...)`
+- `ui.popup(...)`
 
-Calls may also be used for notification-like behavior when the target is a JS/browser plugin.
+Calls may also be used for browser-only services or future execution pipelines.
 
 Example:
-- `ng.run({ graph: "x", notifier: "view.ng" })`
-- runtime-side code can call the configured notifier plugin during execution
+- `view-ng` owns frontend graph JSON and later exposes a `run` command
+- the future run implementation can decide how to process `view-ng.getGraph()`
 - toast/dialog behavior can also move behind plugin calls instead of special host helpers
 
 Important constraint:
@@ -179,9 +179,11 @@ Target:
 
 ### `ng`
 Target:
-- routed WASM runtime/service plugin
-- browser editor as JS plugin
-- optional notifier target, e.g. `ng.run({ graph: "x", notifier: "view.ng" })`
+- browser2 graph editor as `view-ng` JS view plugin
+- frontend-owned raw node-array graph JSON, documented in `PLAN/ng-protocol.md`
+- no nodegraph WASM backend in browser2
+- no compiler/execution/persistence details in the base view plan yet
+- future `run` command will consume the graph JSON returned by `view-ng`
 
 ### `layout`
 Target:
@@ -212,12 +214,12 @@ Target:
 
 ### Phase 3 — migrate priority services
 - [ ] `sql` contract/lifecycle cleanup
-- [ ] `ng` service + JS view split
+- [ ] `view-ng` frontend graph-state refactor
 - [ ] `layout` service + JS shell split
 - [ ] toast/dialog services as JS plugins
 
 ### Phase 4 — migrate views off legacy runtime ownership
-- [ ] migrate `view-nodegraph2`
+- [ ] migrate useful nodegraph UI behavior into browser2 `view-ng` frontend graph state
 - [ ] migrate layout shell integration
 - [ ] migrate `stbte` and `game-runner`
 - [ ] remove legacy `pluginManager.load(...)` ownership where replaced
@@ -225,7 +227,7 @@ Target:
 ## Current Observations Worth Keeping In Mind
 
 - `sql` is already close to the intended routed-service model.
-- `ng` and `layout` already look like important architecture test cases because current code mixes runtime logic with browser ownership.
+- Legacy nodegraph code and `layout` are important architecture test cases because current code mixes runtime logic with browser ownership; browser2 nodegraph now targets `view-ng` frontend graph JSON only, with execution left for a later command.
 - Browser views already have a registry, but browser shell/runtime wiring is still inconsistent.
 - `cmd/browser2` is a good place to prove the new model incrementally without requiring an all-at-once rewrite of `cmd/browser`.
 
