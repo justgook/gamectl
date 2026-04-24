@@ -12,6 +12,16 @@ Browser2 nodegraph editor view.
 
 ## Target Shape
 
+Implementation should separate the frontend graph model from WebGL rendering incrementally:
+
+- graph protocol validation/conversion lives outside rendering code
+- `view-ng` owns UI/event orchestration and calls model helpers
+- WebGL rendering can remain in `view-ng` initially, but should be extracted later once state migration is stable
+
+Current first extraction:
+
+- `cmd/browser2/views/view-ng-state.js` validates/clones raw node arrays and derives render snapshots.
+
 `view-ng` owns:
 
 - graph JSON state
@@ -111,10 +121,10 @@ For now:
 
 ## Todo
 
-- [ ] replace backend/shared-memory graph sample integration with frontend graph JSON state
-- [ ] implement `loadGraph(graph)` behavior for the raw node array protocol
-- [ ] implement `getGraph()` behavior for the raw node array protocol
-- [ ] validate protocol shape on load
+- [x] replace backend/shared-memory graph sample integration with frontend graph JSON state
+- [x] implement `loadGraph(graph)` behavior for the raw node array protocol
+- [x] implement `getGraph()` behavior for the raw node array protocol
+- [x] validate protocol shape on load
 - [ ] render nodes and connections from frontend state only
 - [ ] update frontend state directly for move/connect/disconnect/edit operations
 - [ ] leave `run` as a later command hook
