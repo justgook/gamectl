@@ -27,6 +27,14 @@ function escapeAttribute(value) {
     .replace(/>/g, '&gt;')
 }
 
+function dirname(path) {
+  const normalized = String(path || '').trim().replace(/\/+/g, '/')
+  if (!normalized || normalized === '/') return '/'
+  const slashIndex = normalized.lastIndexOf('/')
+  if (slashIndex <= 0) return '/'
+  return normalized.slice(0, slashIndex)
+}
+
 function clampPortCount(value, fallback = 0) {
   const n = Number(value)
   if (!Number.isFinite(n)) return fallback
@@ -371,6 +379,7 @@ export class ViewNgNode extends HTMLElement {
           <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" placeholder="builtin/assets/ng/example.lua">
         </label>
         <div>
+          <button type="submit" name="intent" value="choose-code-file">Open</button>
           <button type="submit" name="intent" value="load-code-file">Load</button>
           <button type="submit" name="intent" value="save-code-file">Save to path</button>
           ${hasPath ? '<button type="submit" name="intent" value="reload-code-file">Reload</button>' : ''}
@@ -642,7 +651,30 @@ export class ViewNgNode extends HTMLElement {
     this.draft.outputs = summary.outputs.map((entry, index) => ({ outputId: Number(entry.importPortId || index + 1), name: entry.name, value: '' }))
   }
 
+  async chooseCodeFile() {
+    const result = await runtime.call('ui.popup', 'open', {
+      title: 'Choose Code File',
+      size: 'large',
+      tag: 'view-files',
+      props: {
+        mode: 'chooser',
+        rootPath: dirname(this.draft.codePath),
+        filter: '*.lua',
+      },
+    })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (payload?.cancelled) return false
+    const selection = payload?.selection
+    if (!selection || Array.isArray(selection)) return false
+    this.draft.codePath = String(selection.path || '').trim()
+    return Boolean(this.draft.codePath)
+  }
+
   async readCodeFile(path) {
+    const existsResult = await this.callFs('exists', path)
+    if (decodeOutput(existsResult) !== 'true') {
+      throw new Error(`Code file does not exist: ${path}`)
+    }
     const result = await this.callFs('read', path)
     return decodeOutput(result)
   }
@@ -705,17 +737,20 @@ export class ViewNgNode extends HTMLElement {
       return
     }
 
-    if (intent === 'load-code-file' || intent === 'reload-code-file') {
-      if (!this.draft.codePath) {
-        this.draft.codeStatus = 'Choose a code file path first.'
-      } else {
-        try {
-          this.draft.code = await this.readCodeFile(this.draft.codePath)
-          this.draft.codeReadOnly = false
-          this.draft.codeStatus = ''
-        } catch (error) {
-          this.draft.codeStatus = String(error?.message || error)
+    if (intent === 'choose-code-file' || intent === 'load-code-file' || intent === 'reload-code-file') {
+      try {
+        if (intent === 'choose-code-file' || !this.draft.codePath) {
+          const selected = await this.chooseCodeFile()
+          if (!selected) {
+            this.renderForm()
+            return
+          }
         }
+        this.draft.code = await this.readCodeFile(this.draft.codePath)
+        this.draft.codeReadOnly = false
+        this.draft.codeStatus = ''
+      } catch (error) {
+        this.draft.codeStatus = String(error?.message || error)
       }
       this.renderForm()
       return

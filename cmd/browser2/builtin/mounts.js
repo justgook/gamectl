@@ -60,8 +60,7 @@ export function createMountRegistry(config) {
 }
 
 export function resolveMountedPath(registry, input) {
-  const raw = String(input || '')
-  if (raw.startsWith('/')) return null
+  const raw = String(input || '').replace(/^\/+/, '')
   const slashIndex = raw.indexOf('/')
   if (slashIndex <= 0) return null
 
@@ -78,11 +77,12 @@ export function readMountedPath(registry, input, readHttpSync) {
   if (!resolved) return null
   const url = resolved.mount.files.get(resolved.path)
   if (!url) throw new Error(`Mounted file not found: ${resolved.mountName}/${resolved.path}`)
-  return readHttpSync(new URL(url, location.origin).href)
+  const baseUrl = globalThis.location?.origin || 'http://localhost'
+  return readHttpSync(new URL(url, baseUrl).href)
 }
 
 export function mountedPathExists(registry, input) {
-  const raw = String(input || '').replace(/\/+/g, '/')
+  const raw = String(input || '').replace(/^\/+/, '').replace(/\/+/g, '/')
   if (registry.has(raw)) return true
   const resolved = resolveMountedPath(registry, input)
   if (!resolved) return null
@@ -90,9 +90,7 @@ export function mountedPathExists(registry, input) {
 }
 
 export function listMountedPath(registry, input) {
-  const value = String(input || '')
-  if (value.startsWith('/')) return null
-  const raw = value.replace(/\/+/g, '/')
+  const raw = String(input || '').replace(/^\/+/, '').replace(/\/+/g, '/')
   if (raw === '' || raw === '.') return Array.from(registry.keys()).sort()
 
   const slashIndex = raw.indexOf('/')
@@ -106,7 +104,7 @@ export function listMountedPath(registry, input) {
 }
 
 export function statMountedPath(registry, input) {
-  const raw = String(input || '').replace(/\/+/g, '/')
+  const raw = String(input || '').replace(/^\/+/, '').replace(/\/+/g, '/')
   if (registry.has(raw)) return { size: 0, type: 'directory' }
   const resolved = resolveMountedPath(registry, input)
   if (!resolved) return null
