@@ -210,6 +210,32 @@ func getTilemap(mapID string) (*tilemap.TileMap, error) {
 	return &tm, nil
 }
 
+func execSQL(sqlQuery string) error {
+	status, output, err := pdk.Call("sql", "exec", []byte(sqlQuery))
+	if err != nil {
+		return err
+	}
+	if status != 0 || (len(output) > 0 && string(output) != "OK") {
+		return fmt.Errorf(string(output))
+	}
+	return nil
+}
+
+//export __sql_init
+func SqlInit() uint32 {
+	err := execSQL(`CREATE TABLE IF NOT EXISTS tilemap_storage (
+		name TEXT PRIMARY KEY,
+		data TEXT NOT NULL
+	)`)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to initialize scaler SQL state: " + err.Error()))
+		return 1
+	}
+
+	pdk.Output(util.SuccessResponse())
+	return 0
+}
+
 func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	jsonStr, err := encodeTileMapJSON(tm)
 	if err != nil {
@@ -223,13 +249,8 @@ func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
 		escapedMapID, escapedData)
 
-	status, output, err := pdk.Call("sql", "exec", []byte(sqlQuery))
-	if err != nil {
+	if err := execSQL(sqlQuery); err != nil {
 		return fmt.Errorf("failed to store tilemap (size: %d bytes): %w", len(jsonStr), err)
-	}
-
-	if status != 0 || (len(output) > 0 && string(output) != "OK") {
-		return fmt.Errorf("SQL execution failed (size: %d bytes): %s", len(jsonStr), string(output))
 	}
 
 	return nil
@@ -285,7 +306,9 @@ func encodeTileMapJSON(tm *tilemap.TileMap) (string, error) {
 }
 
 func logToConsole(msg string) {
-	pdk.Call("host", "log", []byte(msg))
+	// browser2 does not expose the legacy generic `host.log` module to WASM
+	// plugins. Keep scaling logging as a no-op until a routed logger service
+	// exists, instead of making scaler depend on a host callback.
 }
 
 // =============================================================================

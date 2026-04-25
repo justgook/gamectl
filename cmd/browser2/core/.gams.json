@@ -163,6 +163,14 @@
           {
             "path": "plugins/minimap2.wasm",
             "url": "/plugins/minimap2.wasm"
+          },
+          {
+            "path": "plugins/scaler.wasm",
+            "url": "/plugins/scaler.wasm"
+          },
+          {
+            "path": "plugins/automap.wasm",
+            "url": "/plugins/automap.wasm"
           }
         ]
       }
@@ -180,6 +188,24 @@
       "runtime": "wasm",
       "role": "service",
       "url": "builtin/plugins/random.wasm"
+    },
+    {
+      "id": "scaler",
+      "runtime": "wasm",
+      "role": "service",
+      "deps": [
+        "sql"
+      ],
+      "url": "builtin/plugins/scaler.wasm"
+    },
+    {
+      "id": "automap",
+      "runtime": "wasm",
+      "role": "service",
+      "deps": [
+        "sql"
+      ],
+      "url": "builtin/plugins/automap.wasm"
     },
     {
       "id": "minimap2",
@@ -221,21 +247,6 @@
         "import": true,
         "shared": true,
         "initialPages": 288,
-        "maximumPages": 512
-      }
-    },
-    {
-      "id": "ng",
-      "runtime": "wasm",
-      "role": "service",
-      "deps": [
-        "sql"
-      ],
-      "url": "builtin/plugins/ng3.wasm",
-      "memory": {
-        "import": true,
-        "shared": true,
-        "initialPages": 416,
         "maximumPages": 512
       }
     },

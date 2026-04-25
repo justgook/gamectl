@@ -108,6 +108,32 @@ func Automap() int32 {
 // Tilemap storage integration
 // =============================================================================
 
+func execSQL(sqlQuery string) error {
+	status, output, err := pdk.Call("sql", "exec", []byte(sqlQuery))
+	if err != nil {
+		return err
+	}
+	if status != 0 || (len(output) > 0 && string(output) != "OK") {
+		return fmt.Errorf(string(output))
+	}
+	return nil
+}
+
+//export __sql_init
+func SqlInit() uint32 {
+	err := execSQL(`CREATE TABLE IF NOT EXISTS tilemap_storage (
+		name TEXT PRIMARY KEY,
+		data TEXT NOT NULL
+	)`)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to initialize automap SQL state: " + err.Error()))
+		return 1
+	}
+
+	pdk.Output(util.SuccessResponse())
+	return 0
+}
+
 func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	// Store tilemap in SQL storage
 	tilemapJSON, err := encodeTileMapJSON(tm)
@@ -116,17 +142,13 @@ func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	}
 
 	// Escape SQL string and insert
+	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
 	escapedData := strings.ReplaceAll(tilemapJSON, "'", "''")
 	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
-		mapID, escapedData)
+		escapedMapID, escapedData)
 
-	status, output, err := pdk.Call("sql", "exec", []byte(sqlQuery))
-	if err != nil {
+	if err := execSQL(sqlQuery); err != nil {
 		return fmt.Errorf("failed to store tilemap: %w", err)
-	}
-
-	if status != 0 || (len(output) > 0 && string(output) != "OK") {
-		return fmt.Errorf("SQL execution failed: %s", string(output))
 	}
 
 	return nil
@@ -183,7 +205,8 @@ func encodeTileMapJSON(tm *tilemap.TileMap) (string, error) {
 
 func getTilemap(mapID string) (*tilemap.TileMap, error) {
 	// Query tilemap from SQL storage
-	sqlQuery := fmt.Sprintf("SELECT data FROM tilemap_storage WHERE name = '%s'", mapID)
+	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
+	sqlQuery := fmt.Sprintf("SELECT data FROM tilemap_storage WHERE name = '%s'", escapedMapID)
 	status, csvOutput, err := pdk.Call("sql", "query", []byte(sqlQuery))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tilemap: %w", err)
