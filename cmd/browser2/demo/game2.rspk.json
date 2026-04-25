@@ -1,0 +1,86 @@
+{
+  "package": "main",
+  "odin": {
+    "package": "main",
+    "imports": {
+      "world": "world"
+    }
+  },
+  "data": [
+    "Positions",
+    "Atlas",
+    "Sprites",
+    "LUT",
+    "Tilemaps"
+  ],
+  "types": {
+    "Vec2": {
+      "type": "array",
+      "len": 2,
+      "value": "f32"
+    },
+    "Vec4": {
+      "type": "array",
+      "len": 4,
+      "value": "f32"
+    },
+    "world.Position": {
+      "type": "array",
+      "len": 2,
+      "value": "i32"
+    },
+    "iVec4": {
+      "type": "array",
+      "len": 4,
+      "value": "i32"
+    },
+    "EntityIds": {
+      "type": "vector",
+      "value": "u32"
+    },
+    "Positions": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Position"
+        }
+      }
+    },
+    "Atlas": {
+      "type": "bytes"
+    },
+    "UV": {
+      "type": "array",
+      "len": 4,
+      "value": "f32"
+    },
+    "Sprites": {
+      "type": "vector",
+      "value": "UV"
+    },
+    "LUT": {
+      "type": "bytes"
+    },
+    "Tilemaps": {
+      "type": "struct",
+      "fields": {
+        "entity_ids": "EntityIds",
+        "components": {
+          "type": "vector",
+          "value": "world.Tilemap"
+        }
+      }
+    },
+    "world.Tilemap": {
+      "type": "struct",
+      "fields": {
+        "pos": "Vec2",
+        "tile_size": "Vec2",
+        "tileset_uv": "Vec4",
+        "lut_uv": "Vec4"
+      }
+    }
+  }
+}

@@ -7,6 +7,26 @@
           {
             "path": "lut.ng.json",
             "url": "/demo/lut.ng.json"
+          },
+          {
+            "path": "assets.ng.json",
+            "url": "/demo/assets.ng.json"
+          },
+          {
+            "path": "game2.rspk.json",
+            "url": "/demo/game2.rspk.json"
+          },
+          {
+            "path": "ng/positions.lua",
+            "url": "/demo/ng/positions.lua"
+          },
+          {
+            "path": "ng/tilemaps.lua",
+            "url": "/demo/ng/tilemaps.lua"
+          },
+          {
+            "path": "assets/the_atlas.qoi",
+            "url": "/demo/assets/the_atlas.qoi"
           }
         ]
       },
@@ -184,6 +204,14 @@
           {
             "path": "plugins/image.wasm",
             "url": "/plugins/image.wasm"
+          },
+          {
+            "path": "plugins/pack.wasm",
+            "url": "/plugins/pack.wasm"
+          },
+          {
+            "path": "plugins/respack.wasm",
+            "url": "/plugins/respack.wasm"
           }
         ]
       }
@@ -225,6 +253,18 @@
       "runtime": "wasm",
       "role": "service",
       "url": "builtin/plugins/image.wasm"
+    },
+    {
+      "id": "pack",
+      "runtime": "wasm",
+      "role": "service",
+      "url": "builtin/plugins/pack.wasm"
+    },
+    {
+      "id": "respack",
+      "runtime": "wasm",
+      "role": "service",
+      "url": "builtin/plugins/respack.wasm"
     },
     {
       "id": "minimap2",
