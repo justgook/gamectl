@@ -135,16 +135,23 @@ class PluginManager {
 
     const moduleMemory = wasmModule.instance.exports.memory || providedMemory;
     const exportedHeapBase = Number(wasmModule.instance.exports.__heap_base?.value || 0);
-    const topDownHostAlloc = exportedHeapBase === 0 && typeof wasmModule.instance.exports.malloc === 'function';
-    if (topDownHostAlloc && moduleMemory.buffer.byteLength < 256 * 65536) {
-      moduleMemory.grow(256 - Math.floor(moduleMemory.buffer.byteLength / 65536));
-    }
+    const guestAlloc = typeof wasmModule.instance.exports.alloc === 'function'
+      ? wasmModule.instance.exports.alloc
+      : (typeof wasmModule.instance.exports[`${module.name}_plugin_alloc`] === 'function'
+          ? wasmModule.instance.exports[`${module.name}_plugin_alloc`]
+          : (typeof wasmModule.instance.exports.malloc === 'function' ? wasmModule.instance.exports.malloc : null));
+    const guestFree = typeof wasmModule.instance.exports.alloc === 'function' && typeof wasmModule.instance.exports.free === 'function'
+      ? wasmModule.instance.exports.free
+      : (typeof wasmModule.instance.exports[`${module.name}_plugin_alloc`] === 'function' && typeof wasmModule.instance.exports[`${module.name}_plugin_free`] === 'function'
+          ? wasmModule.instance.exports[`${module.name}_plugin_free`]
+          : (typeof wasmModule.instance.exports.malloc === 'function' && typeof wasmModule.instance.exports.free === 'function' ? wasmModule.instance.exports.free : null));
+    const topDownHostAlloc = false;
     const importedSharedTopReserve = 1024 * 1024;
     const heapBase = exportedHeapBase > 0
       ? exportedHeapBase
       : (module?.memory?.import
           ? Math.max(65536, moduleMemory.buffer.byteLength - importedSharedTopReserve)
-          : (topDownHostAlloc ? 65536 : moduleMemory.buffer.byteLength));
+          : moduleMemory.buffer.byteLength);
     this.wasmModules.set(module.name, {
       name: module.name,
       instance: wasmModule.instance,
@@ -156,12 +163,8 @@ class PluginManager {
       freeList: [],
       callFrames: [],
       topDownHostAlloc,
-      guestAlloc: typeof wasmModule.instance.exports.alloc === 'function'
-        ? wasmModule.instance.exports.alloc
-        : (typeof wasmModule.instance.exports[`${module.name}_plugin_alloc`] === 'function' ? wasmModule.instance.exports[`${module.name}_plugin_alloc`] : null),
-      guestFree: typeof wasmModule.instance.exports.alloc === 'function' && typeof wasmModule.instance.exports.free === 'function'
-        ? wasmModule.instance.exports.free
-        : (typeof wasmModule.instance.exports[`${module.name}_plugin_alloc`] === 'function' && typeof wasmModule.instance.exports[`${module.name}_plugin_free`] === 'function' ? wasmModule.instance.exports[`${module.name}_plugin_free`] : null),
+      guestAlloc,
+      guestFree,
       autoFreeOutputAllocations: true,
     });
 
