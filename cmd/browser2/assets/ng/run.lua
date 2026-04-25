@@ -13,7 +13,7 @@
 --   * code-node scripts execute with `inputs` and `outputs` tables in scope
 --   * code-node scripts may also use `_G.inputs` and `_G.outputs`
 --   * final graph results are written to global `output`
---   * `__ng_node_done` / `__ng_goal_done` are intentional progress placeholders
+--   * optional progress is provided by emitting an injected `__ng_progress` hook
 
 local NG = {
 	NODE_GOAL = 1,
@@ -30,6 +30,11 @@ end
 local graph = json.decode(graphJson)
 if type(graph) ~= "table" then
 	error("run.lua graph JSON must decode to an array")
+end
+
+local progressSource = _G.ngProgressSource or ngProgressSource or ""
+if type(progressSource) ~= "string" then
+	error("run.lua ngProgressSource must be a string")
 end
 
 local function assertInteger(value, label)
@@ -272,19 +277,40 @@ local function emitOutputDeclarations(node)
 end
 
 local function emitProgressHelpers()
+	if progressSource ~= "" then
+		emit(progressSource)
+		emit("")
+	end
+	emit("if type(__ng_progress) ~= \"function\" then")
+	emit("  function __ng_progress(method, nodeId, message)")
+	emit("  end")
+	emit("end")
+	emit("")
+	emit("local function __ng_node_start(nodeId)")
+	emit("  __ng_progress(\"nodeStart\", nodeId)")
+	emit("end")
+	emit("")
 	emit("local function __ng_node_done(nodeId)")
-	emit("  -- Progress placeholder: notify view-ng that nodeId completed.")
-	emit("  host.call('ui.toast', 'info', 'node done:' .. nodeId) ")
+	emit("  __ng_progress(\"nodeDone\", nodeId)")
+	emit("end")
+	emit("")
+	emit("local function __ng_node_error(nodeId, message)")
+	emit("  __ng_progress(\"nodeError\", nodeId, message)")
+	emit("end")
+	emit("")
+	emit("local function __ng_goal_start(goalId)")
+	emit("  __ng_progress(\"goalStart\", goalId)")
 	emit("end")
 	emit("")
 	emit("local function __ng_goal_done(goalId)")
-	emit("  -- Progress placeholder: notify view-ng that goalId completed.")
+	emit("  __ng_progress(\"goalDone\", goalId)")
 	emit("end")
 	emit("")
 end
 
 local function emitValueNode(node)
 	emit(("-- value node %d: %s"):format(node.id, node.name or ""))
+	emit(("__ng_node_start(%d)"):format(node.id))
 	for _, outputPort in ipairs(getOutputs(node)) do
 		emit(("%s = %s"):format(luaVar(node.id, outputPort.id), luaLiteral(outputPort.value)))
 	end
@@ -330,7 +356,8 @@ local function emitCodeNode(node)
 	local source = readTextFile(node.codePath)
 
 	emit(("-- code node %d: %s"):format(node.id, node.name or ""))
-	emit("do")
+	emit(("__ng_node_start(%d)"):format(node.id))
+	emit("local __ng_ok, __ng_err = xpcall(function()")
 	emit("  local inputs = {}")
 	emit("  local outputs = {}")
 	emit("  _G.inputs = inputs")
@@ -342,6 +369,10 @@ local function emitCodeNode(node)
 	emit("  -- end user code")
 	emit("")
 	emitOutputAssignments(node)
+	emit("end, function(err) return tostring(err) end)")
+	emit("if not __ng_ok then")
+	emit(("  __ng_node_error(%d, __ng_err)"):format(node.id))
+	emit("  error(__ng_err)")
 	emit("end")
 	emit(("__ng_node_done(%d)"):format(node.id))
 	emit("")
@@ -382,6 +413,7 @@ local function emitFinalOutput(goalNodes)
 	end
 	emit("}")
 	for _, goal in ipairs(goalNodes) do
+		emit(("__ng_goal_start(%d)"):format(goal.id))
 		emit(("__ng_goal_done(%d)"):format(goal.id))
 	end
 end

@@ -20,6 +20,13 @@ class RuntimeWorker {
     this.registerRemoteHostPlugin(pluginId)
   }
 
+  unregisterMainPlugin(pluginId) {
+    this.mainPlugins.delete(pluginId)
+    if (!this.pluginManager) return
+    this.pluginManager.hostModules.delete(pluginId)
+    this.pluginManager.hostFunctionDefs.delete(pluginId)
+  }
+
   async initializePluginHooks(id) {
     for (const hook of ['__fs_init', '__sql_init']) {
       if (!(await this.hasMethod(id, hook))) continue
@@ -320,6 +327,12 @@ self.onmessage = async (event) => {
 
     if (msg.type === 'register-main-plugin') {
       runtime.registerMainPlugin(msg.pluginId)
+      return
+    }
+
+    if (msg.type === 'unregister-main-plugin') {
+      runtime.unregisterMainPlugin(msg.pluginId)
+      self.postMessage({ type: 'unregister-main-plugin-result', requestId: msg.requestId, result: { returnCode: 0, output: new Uint8Array() } })
       return
     }
 
