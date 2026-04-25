@@ -37,8 +37,36 @@ func (rng *MyRandom) Intn(n int) int {
 	return int(rndIntn(uint32(n)))
 }
 
+func execSQL(sqlQuery string) error {
+	_, output, callErr := pdk.Call("sql", "exec", []byte(sqlQuery))
+	if callErr != nil {
+		return callErr
+	}
+	if len(output) > 0 && string(output) != "OK" {
+		return fmt.Errorf(string(output))
+	}
+	return nil
+}
+
 func logToConsole(msg string) {
-	pdk.Call("host", "log", []byte(msg))
+	// browser2 does not expose the legacy generic `host.log` module to WASM
+	// plugins. Keep generation logging as a no-op until a routed logger service
+	// exists, instead of making minimap2 depend on a host callback.
+}
+
+//export __sql_init
+func SqlInit() uint32 {
+	err := execSQL(`CREATE TABLE IF NOT EXISTS tilemap_storage (
+		name TEXT PRIMARY KEY,
+		data TEXT NOT NULL
+	)`)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to initialize minimap2 SQL state: " + err.Error()))
+		return 1
+	}
+
+	pdk.Output(util.SuccessResponse())
+	return 0
 }
 
 //export gen
@@ -116,16 +144,8 @@ func Gen() uint32 {
 	sqlQuery = fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
 		params.MapId, escapedData)
 
-	var output []byte
-	status, output, callErr = pdk.Call("sql", "exec", []byte(sqlQuery))
-	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to store tilemap: " + callErr.Error()))
-		return 1
-	}
-
-	// Check if SQL execution was successful
-	if len(output) > 0 && string(output) != "OK" {
-		pdk.Output(util.ErrorResponse("SQL execution failed: " + string(output)))
+	if err := execSQL(sqlQuery); err != nil {
+		pdk.Output(util.ErrorResponse("failed to store tilemap: " + err.Error()))
 		return 1
 	}
 

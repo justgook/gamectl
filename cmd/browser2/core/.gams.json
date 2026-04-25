@@ -186,6 +186,7 @@
       "runtime": "wasm",
       "role": "service",
       "deps": [
+        "sql",
         "random"
       ],
       "url": "builtin/plugins/minimap2.wasm"
