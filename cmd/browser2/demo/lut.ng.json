@@ -1,0 +1,370 @@
+[
+  {
+    "id": 2,
+    "kind": 2,
+    "x": 1162,
+    "y": 290,
+    "name": "Tilemap Scaler",
+    "codePath": "builtin/assets/ng/nodegraph2/pipeline-tilemap-scaler.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "inputMapId",
+        "srcNodeId": 11,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "outputMapId",
+        "srcNodeId": 11,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "scaleFactor",
+        "srcNodeId": 23,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "outputMapId",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "kind": 4,
+    "x": 600,
+    "y": 472,
+    "name": "Map Id",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "new_map"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "kind": 2,
+    "x": 516,
+    "y": 309,
+    "name": "World Tree Generator",
+    "codePath": "builtin/assets/ng/nodegraph2/pipeline-world-tree.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "nodeCount",
+        "srcNodeId": 13,
+        "srcOutputId": 2
+      },
+      {
+        "id": 2,
+        "name": "maxDepth",
+        "srcNodeId": 13,
+        "srcOutputId": 3
+      },
+      {
+        "id": 3,
+        "name": "maxBranching",
+        "srcNodeId": 13,
+        "srcOutputId": 4
+      },
+      {
+        "id": 4,
+        "name": "rootBranches",
+        "srcNodeId": 13,
+        "srcOutputId": 5
+      },
+      {
+        "id": 5,
+        "name": "treeId",
+        "srcNodeId": 13,
+        "srcOutputId": 6
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "treeId",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "kind": 2,
+    "x": 835,
+    "y": 285,
+    "name": "Minimap Generator",
+    "codePath": "builtin/assets/ng/nodegraph2/pipeline-create-minimap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "inputTreeId",
+        "srcNodeId": 10,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "mapId",
+        "srcNodeId": 9,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "direction",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "mapId",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "kind": 4,
+    "x": 260,
+    "y": 322,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 2,
+        "name": "",
+        "value": "20"
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "0"
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "0"
+      },
+      {
+        "id": 5,
+        "name": "",
+        "value": "0"
+      },
+      {
+        "id": 6,
+        "name": "",
+        "value": "progression"
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "kind": 2,
+    "x": 1428,
+    "y": 244,
+    "name": "Tilemap Automap",
+    "codePath": "builtin/assets/ng/nodegraph2/pipeline-apply-automap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rulesMapId",
+        "srcNodeId": 21,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "inputMapId",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "outputMapId",
+        "srcNodeId": 24,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "outputMapId",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "kind": 4,
+    "x": 1202,
+    "y": 194,
+    "name": "Rules",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "new_rules"
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "kind": 4,
+    "x": 1469,
+    "y": 382,
+    "name": "Layer",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "1"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "2"
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "kind": 4,
+    "x": 859,
+    "y": 414,
+    "name": "scaleFactor",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "4"
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "kind": 4,
+    "x": 1163,
+    "y": 412,
+    "name": "automaped id",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "the_automaped2"
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "kind": 2,
+    "x": 1750,
+    "y": 245,
+    "name": "LUT Generator",
+    "codePath": "builtin/assets/ng/nodegraph2/lut-generator.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "mapName",
+        "srcNodeId": 20,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layerIndex",
+        "srcNodeId": 22,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image+",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "kind": 1,
+    "x": 2071,
+    "y": 247,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "a",
+        "srcNodeId": 34,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  }
+]

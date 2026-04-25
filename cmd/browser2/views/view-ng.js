@@ -802,6 +802,8 @@ export class ViewNg extends HTMLElement {
     assertRuntimeOk(compileResult, 'compile graph run')
 
     const generatedSource = JSON.parse(decodeOutput(compileResult))
+    console.log("source ready", generatedSource)
+
     const requiredPlugins = collectHostCallPluginNames(generatedSource)
     if (requiredPlugins.length > 0) {
       this._setStatus(`loading graph plugins: ${requiredPlugins.join(', ')}`, 'info')

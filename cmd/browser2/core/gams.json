@@ -1,6 +1,15 @@
 {
   "fs": {
     "mount": {
+      "demo": {
+        "driver": "http",
+        "files": [
+          {
+            "path": "lut.ng.json",
+            "url": "/demo/lut.ng.json"
+          }
+        ]
+      },
       "builtin": {
         "driver": "http",
         "files": [
@@ -171,6 +180,10 @@
           {
             "path": "plugins/automap.wasm",
             "url": "/plugins/automap.wasm"
+          },
+          {
+            "path": "plugins/image.wasm",
+            "url": "/plugins/image.wasm"
           }
         ]
       }
@@ -206,6 +219,12 @@
         "sql"
       ],
       "url": "builtin/plugins/automap.wasm"
+    },
+    {
+      "id": "image",
+      "runtime": "wasm",
+      "role": "service",
+      "url": "builtin/plugins/image.wasm"
     },
     {
       "id": "minimap2",
