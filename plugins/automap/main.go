@@ -73,19 +73,14 @@ func Automap() int32 {
 
 	// Resolve automap target mode:
 	// - same input/output ID: update in place
-	// - different existing output ID: update existing target map
-	// - different missing output ID: create new empty target map
+	// - different output ID: create a fresh target map from the current input.
+	// Pipeline runs must be deterministic and repeatable; reusing a previous
+	// generated output as the next target makes repeated browser2 graph runs feed
+	// stale generated state back into automap.
 	targetMap := inputMap
 	if inputMapID != outputMapID {
-		targetMap, err = getTilemap(outputMapID)
-		if err != nil {
-			if !isTilemapNotFound(err) {
-				pdk.Output(errorResponse("failed to load output map: " + err.Error()))
-				return 1
-			}
-			targetMap = tilemap.NewTileMap()
-			targetMap.Props = cloneStringMap(inputMap.Props)
-		}
+		targetMap = tilemap.NewTileMap()
+		targetMap.Props = cloneStringMap(inputMap.Props)
 	}
 
 	// Apply automapping
@@ -101,9 +96,10 @@ func Automap() int32 {
 		return 1
 	}
 
-	// Return success with the map IDs
-	output, _ := json.Marshal(Response{Success: true})
-	pdk.Output(output)
+	// Return success with the map IDs. Keep this hand-encoded instead of using
+	// encoding/json here: TinyGo's JSON encoder can panic on repeated browser2
+	// runs after this stateful automap path updates an existing output map.
+	pdk.Output([]byte(`{"success":true}`))
 
 	return 0
 }
@@ -247,9 +243,7 @@ func getTilemap(mapID string) (*tilemap.TileMap, error) {
 // =============================================================================
 
 func errorResponse(msg string) []byte {
-	resp := Response{Success: false, Error: msg}
-	data, _ := json.Marshal(resp)
-	return data
+	return []byte(`{"success":false,"error":` + strconv.Quote(msg) + `}`)
 }
 
 func cloneString(value string) string {
