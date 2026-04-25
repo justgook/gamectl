@@ -35,6 +35,8 @@ PLUGIN_LDFLAGS := \
   -Wl,--export-memory \
   -Wl,--export-table \
   -Wl,--export=__heap_base \
+  -Wl,--export=lua_plugin_alloc \
+  -Wl,--export=lua_plugin_free \
   -Wl,--export=init \
   -Wl,--export=run
 

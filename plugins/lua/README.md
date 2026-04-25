@@ -79,6 +79,24 @@ function main()
 end
 ```
 
+### `csv.parse(text, options?)`
+
+Parses CSV into Lua tables. By default, the first row is treated as headers and returned rows are object tables keyed by header name.
+
+Pass `false` or `{ headers = false }` to return raw row arrays.
+
+Example:
+
+```lua
+function main()
+  local rows = csv.parse("name,score\nAda,10\nBob,\"20,000\"\n")
+  output = {
+    first = rows[1].name,
+    quoted = rows[2].score,
+  }
+end
+```
+
 ## `require(...)`
 
 The plugin enables Lua `require(...)` backed by `fs.read`.

@@ -232,6 +232,27 @@ async function main() {
     assert(parsed.reply === 'pong:hello', `unexpected host.call output: ${hostCall.output}`)
   }
 
+  const csvResult = runtime.call('run', [
+    'function main()',
+    '  local byHeader = csv.parse("name,score\\nAda,10\\nBob,\\"20,000\\"\\n", { headers = true })',
+    '  local raw = csv.parse("a,b\\r\\n1,2\\r\\n", false)',
+    '  output = {',
+    '    firstName = byHeader[1].name,',
+    '    firstScore = byHeader[1].score,',
+    '    quotedScore = byHeader[2].score,',
+    '    rawSecondRowFirstCell = raw[2][1],',
+    '  }',
+    'end'
+  ].join('\n'))
+  assert(csvResult.returnCode === 0, `csv.parse run failed: ${csvResult.output}`)
+  {
+    const parsed = parseJson(csvResult.output)
+    assert(parsed.firstName === 'Ada', `unexpected csv firstName: ${csvResult.output}`)
+    assert(parsed.firstScore === '10', `unexpected csv firstScore: ${csvResult.output}`)
+    assert(parsed.quotedScore === '20,000', `unexpected csv quotedScore: ${csvResult.output}`)
+    assert(parsed.rawSecondRowFirstCell === '1', `unexpected csv raw cell: ${csvResult.output}`)
+  }
+
   const requireResult = runtime.call('run', [
     'function main()',
     `  local a = require(${JSON.stringify(modulePath.slice(0, -4))})`,

@@ -133,11 +133,6 @@ class PluginManager {
     // Instantiate the WASM module
     const wasmModule = await WebAssembly.instantiate(wasmBytes, importObject);
 
-    // Initialize if _initialize exists (TinyGo compatibility)
-    if (wasmModule.instance.exports._initialize) {
-      wasmModule.instance.exports._initialize();
-    }
-
     const moduleMemory = wasmModule.instance.exports.memory || providedMemory;
     const exportedHeapBase = Number(wasmModule.instance.exports.__heap_base?.value || 0);
     const importedSharedTopReserve = 1024 * 1024;
@@ -156,7 +151,20 @@ class PluginManager {
       allocations: new Map(),
       freeList: [],
       callFrames: [],
+      guestAlloc: typeof wasmModule.instance.exports.alloc === 'function'
+        ? wasmModule.instance.exports.alloc
+        : (typeof wasmModule.instance.exports[`${module.name}_plugin_alloc`] === 'function' ? wasmModule.instance.exports[`${module.name}_plugin_alloc`] : null),
+      guestFree: typeof wasmModule.instance.exports.alloc === 'function' && typeof wasmModule.instance.exports.free === 'function'
+        ? wasmModule.instance.exports.free
+        : (typeof wasmModule.instance.exports[`${module.name}_plugin_alloc`] === 'function' && typeof wasmModule.instance.exports[`${module.name}_plugin_free`] === 'function' ? wasmModule.instance.exports[`${module.name}_plugin_free`] : null),
+      autoFreeOutputAllocations: true,
     });
+
+    // Initialize after registration so WASI shims and env.alloc/free can access
+    // this module's memory/allocator during TinyGo/Go startup.
+    if (wasmModule.instance.exports._initialize) {
+      wasmModule.instance.exports._initialize();
+    }
   }
 
   /**
@@ -206,11 +214,30 @@ class PluginManager {
       // File descriptor operations
       fd_close: () => 0,
       fd_write: (fd, iovs, iovsLen, nwritten) => {
-        // Minimal console.log support for stdout/stderr
-        if (fd === 1 || fd === 2) {
-          // fd 1 = stdout, fd 2 = stderr
-          // For now, just return success
-          return 0;
+        const module = this.wasmModules.get(moduleName);
+        if (!module) return 0;
+        const view = new DataView(module.memory.buffer);
+        const memory = new Uint8Array(module.memory.buffer);
+        let written = 0;
+        const chunks = [];
+        for (let i = 0; i < Number(iovsLen); i += 1) {
+          const base = Number(iovs) + i * 8;
+          const ptr = view.getUint32(base, true);
+          const len = view.getUint32(base + 4, true);
+          written += len;
+          if ((fd === 1 || fd === 2) && len > 0) chunks.push(memory.slice(ptr, ptr + len));
+        }
+        if (nwritten) view.setUint32(Number(nwritten), written, true);
+        if (chunks.length) {
+          const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+          const bytes = new Uint8Array(total);
+          let offset = 0;
+          for (const chunk of chunks) {
+            bytes.set(chunk, offset);
+            offset += chunk.length;
+          }
+          const text = this.textDecoder.decode(bytes).trimEnd();
+          if (text) (fd === 2 ? console.error : console.log)(`[${moduleName}] ${text}`);
         }
         return 0;
       },
@@ -399,6 +426,15 @@ class PluginManager {
     if (!module) return 0;
 
     if (size === 0) size = 1;
+
+    if (module.guestAlloc) {
+      const ptr = Number(module.guestAlloc(Number(size)) || 0);
+      if (!ptr) throw new Error(`Guest allocator returned null for ${moduleName}`);
+      module.allocations.set(ptr, Number(size));
+      new Uint8Array(module.memory.buffer, ptr, Number(size)).fill(0);
+      return ptr;
+    }
+
     const alignedSize = (Number(size) + 7) & ~7;
 
     let ptr = 0;
@@ -447,6 +483,12 @@ class PluginManager {
     const size = module.allocations.get(ptr);
     if (!size) return;
     module.allocations.delete(ptr);
+
+    if (module.guestFree) {
+      module.guestFree(Number(ptr));
+      return;
+    }
+
     module.freeList.push({ ptr, size });
     module.freeList.sort((a, b) => a.ptr - b.ptr);
 
@@ -560,7 +602,7 @@ class PluginManager {
         const outputPtr = this.allocFunc(callerModuleName, result.output.length);
         const callerMemory = new Uint8Array(callerModule.memory.buffer);
         callerMemory.set(result.output, outputPtr);
-        this.trackTempAlloc(callerModuleName, outputPtr);
+        if (callerModule.autoFreeOutputAllocations !== false) this.trackTempAlloc(callerModuleName, outputPtr);
 
         this.lastCallOutputPtr = outputPtr;
         this.lastCallOutputLen = result.output.length;
@@ -614,7 +656,7 @@ class PluginManager {
         const outputPtr = this.allocFunc(callerModuleName, output.length);
         const memory = new Uint8Array(callerModule.memory.buffer);
         memory.set(output, outputPtr);
-        this.trackTempAlloc(callerModuleName, outputPtr);
+        if (callerModule.autoFreeOutputAllocations !== false) this.trackTempAlloc(callerModuleName, outputPtr);
         this.currentOutputPtr = outputPtr;
         this.currentOutputLen = output.length;
       }
@@ -683,7 +725,7 @@ class PluginManager {
       if (this.currentOutputPtr !== 0 && this.currentOutputLen > 0) {
         const updatedMemory = new Uint8Array(module.memory.buffer);
         output = updatedMemory.slice(this.currentOutputPtr, this.currentOutputPtr + this.currentOutputLen);
-        this.trackTempAlloc(moduleName, this.currentOutputPtr);
+        if (module.autoFreeOutputAllocations !== false) this.trackTempAlloc(moduleName, this.currentOutputPtr);
       }
 
       return {

@@ -105,11 +105,19 @@ local function validateGraph()
 			inputIds[inputId] = true
 
 			if isConnectedInput(inputPort) then
-				local srcNodeId = assertInteger(inputPort.srcNodeId, portLabel(node, inputPort, "input") .. ".srcNodeId")
-				local srcOutputId = assertInteger(inputPort.srcOutputId, portLabel(node, inputPort, "input") .. ".srcOutputId")
+				local srcNodeId =
+					assertInteger(inputPort.srcNodeId, portLabel(node, inputPort, "input") .. ".srcNodeId")
+				local srcOutputId =
+					assertInteger(inputPort.srcOutputId, portLabel(node, inputPort, "input") .. ".srcOutputId")
 				local srcNode = getNode(srcNodeId)
 				if not hasOutput(srcNode, srcOutputId) then
-					error(portLabel(node, inputPort, "input") .. " references missing source output " .. tostring(srcNodeId) .. "." .. tostring(srcOutputId))
+					error(
+						portLabel(node, inputPort, "input")
+							.. " references missing source output "
+							.. tostring(srcNodeId)
+							.. "."
+							.. tostring(srcOutputId)
+					)
 				end
 			end
 		end
@@ -266,6 +274,7 @@ end
 local function emitProgressHelpers()
 	emit("local function __ng_node_done(nodeId)")
 	emit("  -- Progress placeholder: notify view-ng that nodeId completed.")
+	emit("  host.call('ui.toast', 'info', 'node done:' .. nodeId) ")
 	emit("end")
 	emit("")
 	emit("local function __ng_goal_done(goalId)")
