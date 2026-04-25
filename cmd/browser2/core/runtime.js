@@ -32,7 +32,7 @@ class RuntimeProxy {
 
   handleMessage(event) {
     const msg = event.data || {}
-    if (msg.type === 'call-result' || msg.type === 'main-call-result' || msg.type === 'memory-result' || msg.type === 'ensure-loaded-result') {
+    if (msg.type === 'call-result' || msg.type === 'main-call-result' || msg.type === 'memory-result' || msg.type === 'ensure-loaded-result' || msg.type === 'unregister-main-plugin-result') {
       const pending = this.pending.get(msg.requestId)
       if (!pending) return
       this.pending.delete(msg.requestId)
@@ -143,6 +143,12 @@ class RuntimeProxy {
     this.worker.postMessage({ type: 'register-main-plugin', pluginId: plugin.id })
   }
 
+  async unregister(pluginId) {
+    if (!pluginId) throw new Error('main-thread plugin unregister requires id')
+    this.mainPlugins.delete(pluginId)
+    return await this.send('unregister-main-plugin', { pluginId })
+  }
+
   add(plugins) {
     this.worker.postMessage({ type: 'add-plugins', plugins })
   }
@@ -184,11 +190,15 @@ export async function init() {
 
   runtimeProxy = new RuntimeProxy(worker, mainSyncSab)
 
-  return { register, call, memory, ensureLoaded, add }
+  return { register, unregister, call, memory, ensureLoaded, add }
 }
 
 export function register(plugin) {
   return runtimeProxy.register(plugin)
+}
+
+export async function unregister(pluginId) {
+  return await runtimeProxy.unregister(pluginId)
 }
 
 export async function call(pluginId, method, input) {
@@ -210,6 +220,7 @@ export async function add(plugins) {
 export const runtime = {
   init,
   register,
+  unregister,
   call,
   memory,
   ensureLoaded,

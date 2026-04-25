@@ -17,6 +17,13 @@ function assertRuntimeOk(result, label) {
   }
 }
 
+function decodeRuntimeInput(input) {
+  if (typeof input === 'string') return input
+  if (input instanceof Uint8Array) return textDecoder.decode(input)
+  if (ArrayBuffer.isView(input)) return textDecoder.decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
+  return String(input ?? '')
+}
+
 function stripLuaLineComments(source) {
   return String(source).split('\n').map((line) => line.replace(/--.*$/, '')).join('\n')
 }
@@ -39,6 +46,11 @@ const NG = {
   NODE_CALL: 3,
   NODE_VALUE: 4,
 }
+
+const EXEC_IDLE = 0
+const EXEC_DONE = 1
+const EXEC_ERROR = 2
+const EXEC_RUNNING = 3
 
 const MIN_SCALE = 0.2
 const MAX_SCALE = 3.0
@@ -216,6 +228,9 @@ export class ViewNg extends HTMLElement {
     this.offsetY = 0
     this.contentBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 }
     this.graphName = String(this.getAttribute('graph-name') || 'default').trim() || 'default'
+    this.progressPluginId = ''
+    this.currentRunId = ''
+    this._progressPluginRegistered = false
     this.nodeLayout = new Map()
     this.nodeNames = new Map()
     this.portLabels = new Map()
@@ -263,6 +278,7 @@ export class ViewNg extends HTMLElement {
   }
 
   connectedCallback() {
+    this._registerProgressPlugin()
     if (!this._ready) {
       this._ready = true
       this.style.display = 'contents'
@@ -319,6 +335,56 @@ export class ViewNg extends HTMLElement {
     this._resizeTarget = null
     this._unbindEvents()
     this._unmountHeaderControls()
+    void this._unregisterProgressPlugin()
+  }
+
+  _registerProgressPlugin() {
+    if (this._progressPluginRegistered) return
+    this.progressPluginId = `ui.ng.${crypto.randomUUID()}`
+    runtime.register({
+      id: this.progressPluginId,
+      methods: {
+        nodeStart: (input) => this._handleRunProgress('nodeStart', input),
+        nodeDone: (input) => this._handleRunProgress('nodeDone', input),
+        nodeError: (input) => this._handleRunProgress('nodeError', input),
+        goalStart: (input) => this._handleRunProgress('goalStart', input),
+        goalDone: (input) => this._handleRunProgress('goalDone', input),
+      },
+    })
+    this._progressPluginRegistered = true
+  }
+
+  async _unregisterProgressPlugin() {
+    if (!this._progressPluginRegistered) return
+    const pluginId = this.progressPluginId
+    this._progressPluginRegistered = false
+    this.progressPluginId = ''
+    await runtime.unregister(pluginId)
+  }
+
+  _handleRunProgress(method, input) {
+    const payload = JSON.parse(decodeRuntimeInput(input))
+    if (payload.runId !== this.currentRunId) return { returnCode: 0, output: new Uint8Array() }
+    const nodeId = Number(payload.nodeId || 0)
+    if (nodeId <= 0) throw new Error(`view-ng progress ${method} missing nodeId`)
+    if (method === 'nodeStart' || method === 'goalStart') this._setExecutionState(nodeId, EXEC_RUNNING, 'incoming')
+    if (method === 'nodeDone' || method === 'goalDone') this._setExecutionState(nodeId, EXEC_DONE, 'connected')
+    if (method === 'nodeError') this._setExecutionState(nodeId, EXEC_ERROR, 'connected')
+    this.render()
+    return { returnCode: 0, output: new Uint8Array() }
+  }
+
+  _setExecutionState(nodeId, state, edgeMode) {
+    const node = this.lastGraph.nodes.find((entry) => Number(entry.id) === Number(nodeId))
+    if (!node) throw new Error(`view-ng progress references missing node ${nodeId}`)
+    node.execState = state
+    for (const edge of this.lastGraph.edges) {
+      const incoming = Number(edge.to) === Number(nodeId)
+      const outgoing = Number(edge.from) === Number(nodeId)
+      if (edgeMode === 'incoming' && incoming) edge.execState = state
+      if (edgeMode === 'outgoing' && outgoing) edge.execState = state
+      if (edgeMode === 'connected' && (incoming || outgoing)) edge.execState = state
+    }
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -791,18 +857,30 @@ export class ViewNg extends HTMLElement {
   }
 
   async runGraph() {
+    this.clearExecutionState()
+    const runId = crypto.randomUUID()
+    this.currentRunId = runId
     this._setStatus('compiling graph run...', 'info')
 
     const compilerRead = await runtime.call('fs', 'read', 'builtin/assets/ng/run.lua')
     assertRuntimeOk(compilerRead, 'read ng run compiler')
 
     const graphJson = JSON.stringify(this.getGraph())
-    const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n${decodeOutput(compilerRead)}`
+    const progressSource = `local __ng_progress_plugin = ${luaStringLiteral(this.progressPluginId)}
+local __ng_progress_run_id = ${luaStringLiteral(runId)}
+function __ng_progress(method, nodeId, message)
+  host.call(__ng_progress_plugin, method, json.encode({
+    runId = __ng_progress_run_id,
+    nodeId = nodeId,
+    message = message,
+  }))
+end`
+    const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${decodeOutput(compilerRead)}`
     const compileResult = await runtime.call('lua', 'run', compilerSource)
     assertRuntimeOk(compileResult, 'compile graph run')
 
     const generatedSource = JSON.parse(decodeOutput(compileResult))
-    console.log("source ready", generatedSource)
+    // console.log("source ready", generatedSource)
 
     const requiredPlugins = collectHostCallPluginNames(generatedSource)
     if (requiredPlugins.length > 0) {
@@ -814,6 +892,7 @@ export class ViewNg extends HTMLElement {
     const runResult = await runtime.call('lua', 'run', generatedSource)
     assertRuntimeOk(runResult, 'run generated graph code')
 
+    if (this.currentRunId !== runId) return
     const resultText = decodeOutput(runResult)
     this._setStatus('graph run completed', 'success')
     await runtime.call('ui.toast', 'success', { message: resultText })
@@ -825,8 +904,8 @@ export class ViewNg extends HTMLElement {
   }
 
   clearExecutionState() {
-    for (const node of this.lastGraph.nodes) node.execState = 0
-    for (const edge of this.lastGraph.edges) edge.execState = 0
+    for (const node of this.lastGraph.nodes) node.execState = EXEC_IDLE
+    for (const edge of this.lastGraph.edges) edge.execState = EXEC_IDLE
     this._updateGraphView()
     this._setStatus('cleared local execution state', 'info')
   }
@@ -1569,7 +1648,10 @@ export class ViewNg extends HTMLElement {
   }
 
   _getNodeStateLabel(node) {
-    return `state ${node.execState}`
+    if (node.execState === EXEC_RUNNING) return 'running'
+    if (node.execState === EXEC_DONE) return 'done'
+    if (node.execState === EXEC_ERROR) return 'error'
+    return 'idle'
   }
 
   _getStoredNodeValue(nodeId, outputId) {
@@ -1685,6 +1767,7 @@ export class ViewNg extends HTMLElement {
       this._drawEdges(graph.nodes, graph.edges, posById, this.canvas.width, this.canvas.height, view)
       this._drawActiveConnection(this.canvas.width, this.canvas.height, view)
       this._drawNodes(graph.nodes, posById, this.canvas.width, this.canvas.height, view)
+      this._drawNodeExecutionOverlay(graph.nodes, posById, this.canvas.width, this.canvas.height, view)
       this._drawSelectionOverlay(graph.nodes, posById, this.canvas.width, this.canvas.height, view)
       this._drawMarqueeOverlay(this.canvas.width, this.canvas.height, view)
       this._drawPorts(graph.nodes, graph.edges, posById, this.canvas.width, this.canvas.height, view)
@@ -1889,6 +1972,25 @@ export class ViewNg extends HTMLElement {
     gl.uniform2f(gl.getUniformLocation(this.nodeProgram, 'u_skinSize'), this.skinTexture.width, this.skinTexture.height)
     gl.uniform4f(gl.getUniformLocation(this.nodeProgram, 'u_slice'), this.assets.nineSlice.left, this.assets.nineSlice.right, this.assets.nineSlice.top, this.assets.nineSlice.bottom)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nodes.length)
+  }
+
+  _drawNodeExecutionOverlay(nodes, posById, width, height, view) {
+    const rects = []
+    for (const node of nodes) {
+      if (node.execState === EXEC_IDLE) continue
+      const pos = posById.get(node.id)
+      const size = this._getNodeSize(node)
+      const color = this._colorForExec(node.execState, 'edge')
+      rects.push({
+        x: pos.x - 2,
+        y: pos.y - 2,
+        width: size.width + 4,
+        height: size.height + 4,
+        color: [color[0], color[1], color[2], 0.95],
+        strokePx: node.execState === EXEC_RUNNING ? 3 : 2,
+      })
+    }
+    this._drawRectOutline(rects, width, height, view)
   }
 
   _drawSelectionOverlay(nodes, posById, width, height, view) {
@@ -2288,7 +2390,7 @@ function graphToRenderSnapshot(graph) {
   const nodes = cloneNgGraph(graph).map((node) => ({
     id: node.id,
     kind: node.kind,
-    execState: 0,
+    execState: EXEC_IDLE,
     inputCount: node.inputs.length,
     outputCount: node.outputs.length,
     inputs: node.inputs.map((input) => ({
@@ -2307,7 +2409,7 @@ function graphToRenderSnapshot(graph) {
         fromOutputId: input.srcOutputId,
         to: node.id,
         toInputId: input.inputId,
-        execState: 0,
+        execState: EXEC_IDLE,
       })
     }
   }
