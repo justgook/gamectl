@@ -7,12 +7,11 @@ import (
 	"strings"
 
 	"github.com/justgook/gams/pkg/tilemap"
-	"github.com/justgook/wpm/pdk"
 )
 
-// logToConsole sends a log message to the browser console
+// logToConsole is intentionally a no-op in browser2 until logging is routed
+// through a first-class plugin/service instead of the legacy generic host module.
 func logToConsole(msg string) {
-	pdk.Call("host", "log", []byte(msg))
 }
 
 // Apply executes automapping in-place: match against the input map and write results back into it.
