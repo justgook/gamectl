@@ -32,32 +32,36 @@ func Automap() int32 {
 		return 1
 	}
 
-	if config.RulesMapID == "" {
+	rulesMapID := cloneString(config.RulesMapID)
+	inputMapID := cloneString(config.InputMapID)
+	outputMapID := cloneString(config.OutputMapID)
+
+	if rulesMapID == "" {
 		pdk.Output(errorResponse("missing rules map id"))
 
 		return 1
 	}
 
-	if config.InputMapID == "" {
+	if inputMapID == "" {
 		pdk.Output(errorResponse("missing input map id"))
 
 		return 1
 	}
 
-	if config.OutputMapID == "" {
+	if outputMapID == "" {
 		pdk.Output(errorResponse("missing output map id"))
 
 		return 1
 	}
 
 	// Load tilemaps from storage
-	rulesMap, err := getTilemap(config.RulesMapID)
+	rulesMap, err := getTilemap(rulesMapID)
 	if err != nil {
 		pdk.Output(errorResponse("failed to load rules map: " + err.Error()))
 		return 1
 	}
 
-	inputMap, err := getTilemap(config.InputMapID)
+	inputMap, err := getTilemap(inputMapID)
 	if err != nil {
 		pdk.Output(errorResponse("failed to load input map: " + err.Error()))
 		return 1
@@ -72,8 +76,8 @@ func Automap() int32 {
 	// - different existing output ID: update existing target map
 	// - different missing output ID: create new empty target map
 	targetMap := inputMap
-	if config.InputMapID != config.OutputMapID {
-		targetMap, err = getTilemap(config.OutputMapID)
+	if inputMapID != outputMapID {
+		targetMap, err = getTilemap(outputMapID)
 		if err != nil {
 			if !isTilemapNotFound(err) {
 				pdk.Output(errorResponse("failed to load output map: " + err.Error()))
@@ -92,7 +96,7 @@ func Automap() int32 {
 	}
 
 	// Store the output map back
-	if err := storeTilemap(config.OutputMapID, outputMap); err != nil {
+	if err := storeTilemap(outputMapID, outputMap); err != nil {
 		pdk.Output(errorResponse("failed to store output map: " + err.Error()))
 		return 1
 	}
@@ -114,7 +118,7 @@ func execSQL(sqlQuery string) error {
 		return err
 	}
 	if status != 0 || (len(output) > 0 && string(output) != "OK") {
-		return fmt.Errorf(string(output))
+		return fmt.Errorf("%s", string(output))
 	}
 	return nil
 }
@@ -144,8 +148,11 @@ func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	// Escape SQL string and insert
 	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
 	escapedData := strings.ReplaceAll(tilemapJSON, "'", "''")
-	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
-		escapedMapID, escapedData)
+	sqlQuery := fmt.Sprintf(
+		"INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
+		escapedMapID,
+		escapedData,
+	)
 
 	if err := execSQL(sqlQuery); err != nil {
 		return fmt.Errorf("failed to store tilemap: %w", err)
@@ -243,6 +250,10 @@ func errorResponse(msg string) []byte {
 	resp := Response{Success: false, Error: msg}
 	data, _ := json.Marshal(resp)
 	return data
+}
+
+func cloneString(value string) string {
+	return string(append([]byte(nil), value...))
 }
 
 func isTilemapNotFound(err error) bool {

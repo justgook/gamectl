@@ -10,7 +10,7 @@ import {
   statMountedPath,
 } from '../cmd/browser2/builtin/mounts.js'
 
-const config = JSON.parse(await readFile(new URL('../cmd/browser2/core/.gams.json', import.meta.url), 'utf8'))
+const config = JSON.parse(await readFile(new URL('../cmd/browser2/core/gams.json', import.meta.url), 'utf8'))
 const registry = createMountRegistry(config.fs)
 
 test('browser2 builtin mount lists root and child directories', () => {
