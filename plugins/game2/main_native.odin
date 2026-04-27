@@ -6,6 +6,8 @@ package main
 
 import "host"
 import sapp "sokol/app"
+WINDOW_SIZE :: [2]i32{960, 640}
+WINDOW_TITLE :: "Game"
 
 native_init :: proc "c" () {
 	context = host.default_context()
@@ -87,10 +89,10 @@ translate_event :: proc(e: ^sapp.Event) -> (host.Event, bool) {
 main :: proc() {
 	logger := transmute(sapp.Logger)host.logger()
 	app_desc := sapp.Desc {
-		width = 960,
-		height = 640,
+		width = WINDOW_SIZE[0],
+		height = WINDOW_SIZE[1],
 		sample_count = 1,
-		window_title = "Game2",
+		window_title = WINDOW_TITLE,
 		icon = {sokol_default = true},
 		logger = logger,
 	}

@@ -94,11 +94,7 @@ DEFAULT_CONFIG :: Camera_Config {
 }
 
 // Initialize camera with default values
-camera_init :: proc(
-	viewport: [2]f32 = {100, 100},
-	initial_pos: [2]f32 = {0, 0},
-	initial_zoom: f32 = 1.0,
-) -> Camera {
+camera_init :: proc(viewport: [2]f32 = {100, 100}, initial_pos: [2]f32 = {0, 0}, initial_zoom: f32 = 1.0) -> Camera {
 	return Camera {
 		position = initial_pos,
 		viewport = viewport,
@@ -381,12 +377,7 @@ world_to_screen :: proc(cam: ^Camera, world_pos: [2]f32, viewport_size: [2]f32) 
 }
 
 // Check if a point is visible on screen (with optional padding)
-is_on_screen :: proc(
-	cam: ^Camera,
-	world_pos: [2]f32,
-	viewport_size: [2]f32,
-	padding: f32 = 0,
-) -> bool {
+is_on_screen :: proc(cam: ^Camera, world_pos: [2]f32, viewport_size: [2]f32, padding: f32 = 0) -> bool {
 	pos := camera_get_render_position(cam)
 	zoom := camera_get_render_zoom(cam)
 

@@ -16,13 +16,15 @@ ACTION_2 :: u32(6)
 GAME_ASSET_PATH :: "/game/data.rspk"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
+// GAME_RESOLUTION :: [2]int{320, 180}
+GAME_RESOLUTION :: [2]c.int{640, 360}
 
 State :: struct {
-	world:       world.World,
-	atlas:       sg.Image,
-	lut:         sg.Image,
-	pass_action: sg.Pass_Action,
-	mouse_y:     f32,
+	world:          world.World,
+	game_offscreen: sg.Image,
+	game_pass:      sg.Pass_Action,
+	delme:          sg.Attachments,
+	display_pass:   sg.Pass_Action,
 }
 
 state: State
@@ -33,30 +35,30 @@ init_stage: u32
 app_init :: proc() {
 	host.setup_graphics()
 	host.info("app", "init")
+	state.game_offscreen = sg.make_image(
+		{usage = {color_attachment = true}, width = GAME_RESOLUTION[0], height = GAME_RESOLUTION[1]},
+	)
 	init_stage = 1
-	state.pass_action = {
+	state.game_pass = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 		depth = {load_action = .CLEAR, clear_value = 1.0},
 	}
+	state.delme.colors[0] = sg.make_view({color_attachment = {image = state.game_offscreen}})
 
-	// THE REAL STUFF
-	state.world.atlas = state.atlas
 
 	load_ok := load_game_assets(GAME_ASSET_PATH, &state.world)
 	assert(load_ok)
 
-	world.init(&state.world)
+	wh := [2]f32{host.widthf(), host.heightf()}
+	world.init(&state.world, wh)
 
 }
 
 app_frame :: proc() {
-	pass := sg.Pass {
-		action    = state.pass_action,
-		swapchain = host.swapchain(),
-	}
 
-	sg.begin_pass(pass)
-	world.frame(&state.world, host.frame_duration())
+	wh := [2]f32{host.widthf(), host.heightf()}
+	sg.begin_pass({action = state.game_pass, swapchain = host.swapchain()})
+	world.frame(&state.world, wh, host.frame_duration())
 	sg.end_pass()
 	sg.commit()
 }
@@ -64,8 +66,8 @@ app_frame :: proc() {
 
 app_event :: proc(event: host.Event) {
 	#partial switch event.kind {
-	case .Mouse_Move:
-		core_handle_mouse_move(event.mouse_y)
+	// case .Mouse_Move:
+	// 	core_handle_mouse_move(event.mouse_y)
 	case .Resized:
 		state.world.cam.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
 	case .Action_Down:
@@ -80,21 +82,16 @@ app_event :: proc(event: host.Event) {
 app_cleanup :: proc() {
 	world.cleanup(&state.world)
 	host.info("app", "cleanup")
-
-	if state.lut.id != 0 {
-		sg.destroy_image(state.lut)
-		state.lut = {}
-	}
-	if state.atlas.id != 0 {
-		sg.destroy_image(state.atlas)
-		state.atlas = {}
+	if state.game_offscreen.id != 0 {
+		sg.destroy_image(state.game_offscreen)
+		state.game_offscreen = {}
 	}
 	host.shutdown_graphics()
 }
 
-core_handle_mouse_move :: proc(mouse_y: f32) {
-	state.mouse_y = mouse_y
-}
+// core_handle_mouse_move :: proc(mouse_y: f32) {
+// 	state.mouse_y = mouse_y
+// }
 
 
 @(private = "file")
@@ -102,9 +99,7 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	host.info("assets", "loading")
 
 	asset_data := host.asset_read_all(filepath) or_return
-	host.info("assets", "loading", 1)
 	game_data := open_respack(asset_data) or_return
-	host.info("assets", "loading", 2)
 
 	the_pos := read_slot_0_positions(game_data) or_return
 	logic.load_storage(&w.position, the_pos.components, the_pos.entity_ids)

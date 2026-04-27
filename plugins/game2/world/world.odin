@@ -33,7 +33,7 @@ World :: struct {
 	animation:        logic.Component_Storage(Animation),
 }
 
-frame :: proc(w: ^World, dt: f64) {
+frame :: proc(w: ^World, wh: [2]f32, dt: f64) {
 	w.accumulator += dt
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
@@ -44,11 +44,13 @@ frame :: proc(w: ^World, dt: f64) {
 
 	sys_camera(w, dt)
 	sys_animation(w, dt)
+
+	// RENDER START HERE
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
 
-	half_w := host.widthf() * 0.5
-	half_h := host.heightf() * 0.5
+	half_w := wh[0] * 0.5
+	half_h := wh[1] * 0.5
 	screen_ortho :=
 		linalg.matrix_ortho3d_f32(-half_w, half_w, -half_h, half_h, -1, 1) *
 		linalg.matrix4_translate_f32({-half_w, -half_h, 0})
@@ -56,11 +58,12 @@ frame :: proc(w: ^World, dt: f64) {
 }
 
 
-init :: proc(w: ^World) {
+init :: proc(w: ^World, wh: [2]f32) {
 	w.next_entity_id = 100
 
 	w.sim_frame_length = 1.0 / 60.0
-	w.cam = camera_init({host.widthf(), host.heightf()}, {host.widthf() / 2, host.heightf() / 2}, 1.0)
+	// TODO: pass w/h from top
+	w.cam = camera_init(wh, wh / 2, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
