@@ -37,10 +37,7 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 
 
 	// update instance data
-	sg.update_buffer(
-		pipe.bind.vertex_buffers[1],
-		{ptr = &w.sprite, size = c.size_t(the_count * size_of(Sprite))},
-	)
+	sg.update_buffer(pipe.bind.vertex_buffers[1], {ptr = &w.sprite, size = c.size_t(the_count * size_of(Sprite))})
 
 	sg.apply_pipeline(pipe.pip)
 	sg.apply_bindings(pipe.bind)
