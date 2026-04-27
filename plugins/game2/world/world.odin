@@ -2,15 +2,19 @@ package world
 
 import "../host"
 import sg "../sokol/gfx"
+import "core:c"
 import "core:math/linalg"
 import "grid"
 import "logic"
 
+// GAME_RESOLUTION :: [2]int{320, 180}
+GAME_RESOLUTION :: [2]c.int{640, 360}
 
 World :: struct {
 	next_entity_id:   logic.Entity,
 	sim_frame_length: f64,
 	accumulator:      f64,
+	offscreen:        sg.Image,
 	atlas:            sg.Image,
 	lut:              sg.Image,
 	grid:             grid.Grid,
@@ -33,7 +37,7 @@ World :: struct {
 	animation:        logic.Component_Storage(Animation),
 }
 
-frame :: proc(w: ^World, wh: [2]f32, dt: f64) {
+frame :: proc(pass: sg.Pass, w: ^World, wh: [2]f32, dt: f64) {
 	w.accumulator += dt
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
@@ -45,24 +49,29 @@ frame :: proc(w: ^World, wh: [2]f32, dt: f64) {
 	sys_camera(w, dt)
 	sys_animation(w, dt)
 
+
 	// RENDER START HERE
+	sg.begin_pass(pass)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
-
 	half_w := wh[0] * 0.5
 	half_h := wh[1] * 0.5
 	screen_ortho :=
 		linalg.matrix_ortho3d_f32(-half_w, half_w, -half_h, half_h, -1, 1) *
 		linalg.matrix4_translate_f32({-half_w, -half_h, 0})
 	sys_nine_patch(w, &screen_ortho)
+	sg.end_pass()
+	sg.commit()
 }
 
 
 init :: proc(w: ^World, wh: [2]f32) {
-	w.next_entity_id = 100
+	w.offscreen = sg.make_image(
+		{usage = {color_attachment = true}, width = GAME_RESOLUTION[0], height = GAME_RESOLUTION[1]},
+	)
 
+	w.next_entity_id = 100
 	w.sim_frame_length = 1.0 / 60.0
-	// TODO: pass w/h from top
 	w.cam = camera_init(wh, wh / 2, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
@@ -119,6 +128,10 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 }
 
 cleanup :: proc(w: ^World) {
+	if w.offscreen.id != 0 {
+		sg.destroy_image(w.offscreen)
+		w.offscreen = {}
+	}
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.velocity)
 	sprites_cleanup(w.sprite_pipe)

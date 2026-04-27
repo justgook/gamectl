@@ -16,15 +16,14 @@ ACTION_2 :: u32(6)
 GAME_ASSET_PATH :: "/game/data.rspk"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
-// GAME_RESOLUTION :: [2]int{320, 180}
-GAME_RESOLUTION :: [2]c.int{640, 360}
+
 
 State :: struct {
-	world:          world.World,
-	game_offscreen: sg.Image,
-	game_pass:      sg.Pass_Action,
-	delme:          sg.Attachments,
-	display_pass:   sg.Pass_Action,
+	world:        world.World,
+	// game_offscreen: sg.Image,
+	game_pass:    sg.Pass_Action,
+	// delme:          sg.Attachments,
+	display_pass: sg.Pass_Action,
 }
 
 state: State
@@ -35,15 +34,12 @@ init_stage: u32
 app_init :: proc() {
 	host.setup_graphics()
 	host.info("app", "init")
-	state.game_offscreen = sg.make_image(
-		{usage = {color_attachment = true}, width = GAME_RESOLUTION[0], height = GAME_RESOLUTION[1]},
-	)
 	init_stage = 1
 	state.game_pass = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 		depth = {load_action = .CLEAR, clear_value = 1.0},
 	}
-	state.delme.colors[0] = sg.make_view({color_attachment = {image = state.game_offscreen}})
+	// state.delme.colors[0] = sg.make_view({color_attachment = {image = state.game_offscreen}})
 
 
 	load_ok := load_game_assets(GAME_ASSET_PATH, &state.world)
@@ -55,12 +51,8 @@ app_init :: proc() {
 }
 
 app_frame :: proc() {
-
 	wh := [2]f32{host.widthf(), host.heightf()}
-	sg.begin_pass({action = state.game_pass, swapchain = host.swapchain()})
-	world.frame(&state.world, wh, host.frame_duration())
-	sg.end_pass()
-	sg.commit()
+	world.frame({action = state.game_pass, swapchain = host.swapchain()}, &state.world, wh, host.frame_duration())
 }
 
 
@@ -82,10 +74,6 @@ app_event :: proc(event: host.Event) {
 app_cleanup :: proc() {
 	world.cleanup(&state.world)
 	host.info("app", "cleanup")
-	if state.game_offscreen.id != 0 {
-		sg.destroy_image(state.game_offscreen)
-		state.game_offscreen = {}
-	}
 	host.shutdown_graphics()
 }
 
