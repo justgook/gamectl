@@ -15,6 +15,7 @@ World :: struct {
 	sim_frame_length: f64,
 	accumulator:      f64,
 	offscreen:        sg.Image,
+	display_pipe:     ^Display_Pipe,
 	atlas:            sg.Image,
 	lut:              sg.Image,
 	grid:             grid.Grid,
@@ -60,6 +61,8 @@ frame :: proc(pass: sg.Pass, w: ^World, wh: [2]f32, dt: f64) {
 		linalg.matrix_ortho3d_f32(-half_w, half_w, -half_h, half_h, -1, 1) *
 		linalg.matrix4_translate_f32({-half_w, -half_h, 0})
 	sys_nine_patch(w, &screen_ortho)
+	// TODO: move to different pass
+	sys_display(w, &screen_ortho)
 	sg.end_pass()
 	sg.commit()
 }
@@ -69,6 +72,8 @@ init :: proc(w: ^World, wh: [2]f32) {
 	w.offscreen = sg.make_image(
 		{usage = {color_attachment = true}, width = GAME_RESOLUTION[0], height = GAME_RESOLUTION[1]},
 	)
+	w.display_pipe = display_init(w.atlas)
+
 
 	w.next_entity_id = 100
 	w.sim_frame_length = 1.0 / 60.0
@@ -132,6 +137,10 @@ cleanup :: proc(w: ^World) {
 		sg.destroy_image(w.offscreen)
 		w.offscreen = {}
 	}
+	display_cleanup(w.display_pipe)
+
+	delete(w.uv)
+
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.velocity)
 	sprites_cleanup(w.sprite_pipe)
