@@ -29,12 +29,10 @@ State :: struct {
 state: State
 atlas_pixels: [ATLAS_RGBA_CAPACITY]u8
 lut_pixels: [LUT_RGBA_CAPACITY]u8
-init_stage: u32
 
 app_init :: proc() {
 	host.setup_graphics()
 	host.info("app", "init")
-	init_stage = 1
 	state.game_pass = {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 		depth = {load_action = .CLEAR, clear_value = 1.0},
@@ -87,16 +85,23 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	host.info("assets", "loading")
 
 	asset_data := host.asset_read_all(filepath) or_return
+	defer delete(asset_data)
+
 	game_data := open_respack(asset_data) or_return
 
 	the_pos := read_slot_0_positions(game_data) or_return
 	logic.load_storage(&w.position, the_pos.components, the_pos.entity_ids)
+	delete(the_pos.entity_ids)
+	delete(the_pos.components)
 
 	atlas_bytes := read_slot_1_atlas(game_data) or_return
 	w.uv = read_slot_2_sprites(game_data) or_return
 	the_lut := read_slot_3_lut(game_data) or_return
+
 	the_tilemaps := read_slot_4_tilemaps(game_data) or_return
 	logic.load_storage(&w.tilemap, the_tilemaps.components, the_tilemaps.entity_ids)
+	delete(the_tilemaps.entity_ids)
+	delete(the_tilemaps.components)
 
 
 	w.lut = create_image(the_lut, lut_pixels[:]) or_return

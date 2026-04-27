@@ -74,6 +74,11 @@ Sprite_Pipe :: struct {
 
 sprites_cleanup :: proc(pipe: ^Sprite_Pipe) {
 	sg.destroy_pipeline(pipe.pip)
+	sg.destroy_sampler(pipe.bind.samplers[SMP_sprite_default_sampler])
+	sg.destroy_view(pipe.bind.views[VIEW_sprite_tex0])
+	sg.destroy_buffer(pipe.bind.vertex_buffers[0])
+	sg.destroy_buffer(pipe.bind.vertex_buffers[1])
+	sg.destroy_buffer(pipe.bind.index_buffer)
 	free(pipe)
 }
 

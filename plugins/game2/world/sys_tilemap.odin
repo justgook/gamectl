@@ -142,5 +142,5 @@ tilemap_cleanup :: proc(renderer: ^Tilemap_Pipe) {
 	sg.destroy_buffer(renderer.bind.vertex_buffers[0])
 	sg.destroy_buffer(renderer.bind.vertex_buffers[1])
 	sg.destroy_buffer(renderer.bind.index_buffer)
-	renderer^ = {}
+	free(renderer)
 }

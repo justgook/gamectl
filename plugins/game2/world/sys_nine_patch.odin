@@ -181,5 +181,5 @@ nine_patch_cleanup :: proc(pipe: ^Nine_Patch_Pipe) {
 	sg.destroy_buffer(pipe.bind.vertex_buffers[0])
 	sg.destroy_buffer(pipe.bind.vertex_buffers[1])
 	sg.destroy_buffer(pipe.bind.index_buffer)
-	pipe^ = {}
+	free(pipe)
 }

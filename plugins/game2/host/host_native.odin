@@ -193,6 +193,7 @@ setup_graphics_host :: proc() {
 
 shutdown_graphics_host :: proc() {
 	sg.shutdown()
+	log.destroy_console_logger(native_logger)
 	when ODIN_DEBUG {
 		info("mem", "------------------------------------------------------------")
 		defer info("mem", "------------------------------------------------------------")
