@@ -1,6 +1,7 @@
 package world
 
 import sg "../sokol/gfx"
+import "core:math"
 import "core:math/linalg"
 
 Display_Pipe :: struct {
@@ -26,8 +27,10 @@ display_resize :: proc(params: ^Display_Vs_Params, w, h: f32) {
 		linalg.matrix_ortho3d_f32(-half_w, half_w, -half_h, half_h, -1, 1) *
 		linalg.matrix4_translate_f32({-half_w, -half_h, 0})
 	params.ortho = screen_ortho
-	params.pos_px = {300, 300}
-	params.size_px = [2]f32{GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}
+	params.pos_px = {w * 0.5, h * 0.5}
+	params.size_px =
+		[2]f32{GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT} *
+		max(1, math.floor(min(w / GAME_RESOLUTION_WIDTH, h / GAME_RESOLUTION_HEIGHT)))
 }
 
 @(private = "file")
