@@ -33,14 +33,8 @@ func main() {
 	fmt.Printf("   Starting server on http://localhost:%s\n\n", *port)
 
 	http.Handle("/", http.FileServer(http.Dir(browserDir)))
-	http.Handle(
-		"/plugins/",
-		http.StripPrefix(
-			"/plugins/",
-			http.FileServer(http.Dir(filepath.Join(buildDir, "plugins"))),
-		),
-	)
-
+	serveFolder("plugins", buildDir)
+	serveFolder("assets", ".")
 	handler := corsMiddleware(http.DefaultServeMux)
 
 	log.Fatal(http.ListenAndServe(":"+*port, handler))
@@ -58,4 +52,14 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func serveFolder(dir string, buildDir string) {
+	http.Handle(
+		"/"+dir+"/",
+		http.StripPrefix(
+			"/"+dir+"/",
+			http.FileServer(http.Dir(filepath.Join(buildDir, dir))),
+		),
+	)
 }
