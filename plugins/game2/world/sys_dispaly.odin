@@ -7,8 +7,8 @@ sys_display :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	// ortho := matrix_ortho_2d(0, f32(fb_w), f32(fb_h), 0)
 	vs_params := Display_Vs_Params {
 		ortho   = ortho^,
-		pos_px  = {100, 100},
-		size_px = {200, 200},
+		pos_px  = {300, 300},
+		size_px = [2]f32{GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT},
 	}
 	// sg.update_buffer(pipe.bind.vertex_buffers[1], {ptr = &w.sprite, size = c.size_t(the_count * size_of(Sprite))})
 	pipe := w.display_pipe

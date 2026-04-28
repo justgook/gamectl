@@ -19,11 +19,8 @@ LUT_RGBA_CAPACITY :: 512 * 512 * 4
 
 
 State :: struct {
-	world:        world.World,
+	world: world.World,
 	// game_offscreen: sg.Image,
-	game_pass:    sg.Pass_Action,
-	// delme:          sg.Attachments,
-	display_pass: sg.Pass_Action,
 }
 
 state: State
@@ -33,24 +30,16 @@ lut_pixels: [LUT_RGBA_CAPACITY]u8
 app_init :: proc() {
 	host.setup_graphics()
 	host.info("app", "init")
-	state.game_pass = {
-		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
-		depth = {load_action = .CLEAR, clear_value = 1.0},
-	}
-	// state.delme.colors[0] = sg.make_view({color_attachment = {image = state.game_offscreen}})
-
 
 	load_ok := load_game_assets(GAME_ASSET_PATH, &state.world)
 	assert(load_ok)
 
 	wh := [2]f32{host.widthf(), host.heightf()}
 	world.init(&state.world, wh)
-
 }
 
 app_frame :: proc() {
-	wh := [2]f32{host.widthf(), host.heightf()}
-	world.frame({action = state.game_pass, swapchain = host.swapchain()}, &state.world, wh, host.frame_duration())
+	world.frame(&state.world, host.frame_duration())
 }
 
 
@@ -59,7 +48,8 @@ app_event :: proc(event: host.Event) {
 	// case .Mouse_Move:
 	// 	core_handle_mouse_move(event.mouse_y)
 	case .Resized:
-		state.world.cam.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
+		// state.world.cam.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
+		state.world.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
 	case .Action_Down:
 		state.world.player1^ += {world.InputSet(event.action_code - 1)}
 	case .Action_Up:
