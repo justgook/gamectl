@@ -139,31 +139,27 @@ Use one optional `aside`.
 
 Suggested sidebar sections:
 
-1. Tool state
-   - active tool
-   - active tile number
-2. Layers
+1. Layers
    - layer list
-   - active layer
+   - table row selection
+   - click toggles a layer in/out of selection
    - hide/show
    - lock/unlock
-   - solo
    - insert/delete/move controls
-3. Tilesets
+2. Tilesets
    - client-side helper only; not part of WASM state/snapshot/persistence
    - each tab represents one loaded tileset image file, named without extension
    - current client mock names: `dungeon_floor`, `dungeon_walls`, `forest_overgrowth`
    - each image is split into a grid by tile size
    - clicking a placeholder cell calls `set_active_tile` with the numeric tile id
    - tilemap persistence/WASM edit state remains numbers only
-4. Selection / clipboard
-   - selection bounds output
-   - copy/cut/paste buttons
-5. Map metadata
+3. Non-linear History
+   - placeholder for the upcoming `plugins/tilemap/undo/` integration
+   - undo/redo will be refactored into tilemap history state
+4. Map metadata
    - path
    - dimensions
    - dirty flag
-   - undo/redo availability
 
 ### Main element
 

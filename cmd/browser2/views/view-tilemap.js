@@ -8,6 +8,7 @@ const TOOL = {
   ERASE: 2,
   EYEDROPPER: 3,
   PASTE: 4,
+  FILL: 5,
 }
 
 const TOOL_LABELS = new Map([
@@ -16,6 +17,7 @@ const TOOL_LABELS = new Map([
   [TOOL.ERASE, 'Erase'],
   [TOOL.EYEDROPPER, 'Eyedropper'],
   [TOOL.PASTE, 'Paste'],
+  [TOOL.FILL, 'Fill'],
 ])
 
 const CLIENT_TILESETS = [
@@ -57,11 +59,8 @@ function validateSnapshot(snapshot) {
   assert(Number.isInteger(snapshot.height) && snapshot.height > 0, 'view-tilemap snapshot.height must be positive integer')
   assert(Array.isArray(snapshot.layers), 'view-tilemap snapshot.layers must be array')
   assert(Number.isInteger(snapshot.activeLayer), 'view-tilemap snapshot.activeLayer must be integer')
-  assert(Number.isInteger(snapshot.soloLayer), 'view-tilemap snapshot.soloLayer must be integer')
   assert(Number.isInteger(snapshot.tool), 'view-tilemap snapshot.tool must be integer')
   assert(Number.isInteger(snapshot.activeTile), 'view-tilemap snapshot.activeTile must be integer')
-  assert(typeof snapshot.hasSelection === 'boolean', 'view-tilemap snapshot.hasSelection must be boolean')
-  assert(typeof snapshot.hasClipboard === 'boolean', 'view-tilemap snapshot.hasClipboard must be boolean')
   assert(typeof snapshot.canUndo === 'boolean', 'view-tilemap snapshot.canUndo must be boolean')
   assert(typeof snapshot.canRedo === 'boolean', 'view-tilemap snapshot.canRedo must be boolean')
   for (const layer of snapshot.layers) {
@@ -85,17 +84,12 @@ export class ViewTilemap extends HTMLElement {
     this.pathElement = null
     this.dimensionsElement = null
     this.dirtyElement = null
-    this.toolElement = null
-    this.tileElement = null
-    this.layerSelectElement = null
-    this.soloLayerSelectElement = null
     this.layersElement = null
-    this.selectionElement = null
-    this.clipboardElement = null
     this.undoStateElement = null
     this.tilesetTabsElement = null
     this.tilesetPanelsElement = null
     this.activeTilesetName = ''
+    this.selectedLayerIndexes = new Set()
   }
 
   connectedCallback() {
@@ -110,56 +104,24 @@ export class ViewTilemap extends HTMLElement {
         <output data-element="dirty"></output>
       </article>
       <aside data-element="sidebar">
-        <form data-element="state" novalidate>
-          <fieldset>
-            <legend>Tool</legend>
-            <label>
-              Active Tool
-              <select data-field="tool">
-                <option value="0">Select</option>
-                <option value="1">Brush</option>
-                <option value="2">Erase</option>
-                <option value="3">Eyedropper</option>
-                <option value="4">Paste</option>
-              </select>
-            </label>
-            <label>
-              Active Tile
-              <input type="number" data-field="tile" min="0" step="1" />
-            </label>
-          </fieldset>
-          <fieldset>
-            <legend>Layers</legend>
-            <label>
-              Active Layer
-              <select data-field="active-layer"></select>
-            </label>
-            <label>
-              Solo Layer
-              <select data-field="solo-layer"></select>
-            </label>
-            <table data-element="layers">
-              <thead>
-                <tr><th>Layer</th><th>Hidden</th><th>Locked</th><th>Actions</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </fieldset>
-          <fieldset data-element="tilesets">
-            <legend>Tilesets</legend>
-            <div role="tablist" data-element="tileset-tabs" aria-label="Tileset files"></div>
-            <div data-element="tileset-panels"></div>
-          </fieldset>
-          <fieldset>
-            <legend>Selection</legend>
-            <output data-element="selection"></output>
-            <output data-element="clipboard"></output>
-          </fieldset>
-          <fieldset>
-            <legend>History</legend>
-            <output data-element="undo-state"></output>
-          </fieldset>
-        </form>
+        <fieldset>
+          <legend>Layers</legend>
+          <table data-element="layers">
+            <thead>
+              <tr><th>Layer</th><th>Hidden</th><th>Locked</th><th>Actions</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </fieldset>
+        <fieldset data-element="tilesets">
+          <legend>Tilesets</legend>
+          <div role="tablist" data-element="tileset-tabs" aria-label="Tileset files"></div>
+          <div data-element="tileset-panels"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Non-linear History</legend>
+          <output data-element="undo-state">Tilemap history placeholder</output>
+        </fieldset>
       </aside>
       <footer>
         <output data-element="status">Loading tilemap…</output>
@@ -172,13 +134,7 @@ export class ViewTilemap extends HTMLElement {
     this.pathElement = this.querySelector('[data-element="path"]')
     this.dimensionsElement = this.querySelector('[data-element="dimensions"]')
     this.dirtyElement = this.querySelector('[data-element="dirty"]')
-    this.toolElement = this.querySelector('[data-field="tool"]')
-    this.tileElement = this.querySelector('[data-field="tile"]')
-    this.layerSelectElement = this.querySelector('[data-field="active-layer"]')
-    this.soloLayerSelectElement = this.querySelector('[data-field="solo-layer"]')
     this.layersElement = this.querySelector('[data-element="layers"]')
-    this.selectionElement = this.querySelector('[data-element="selection"]')
-    this.clipboardElement = this.querySelector('[data-element="clipboard"]')
     this.undoStateElement = this.querySelector('[data-element="undo-state"]')
     this.tilesetTabsElement = this.querySelector('[data-element="tileset-tabs"]')
     this.tilesetPanelsElement = this.querySelector('[data-element="tileset-panels"]')
@@ -189,13 +145,7 @@ export class ViewTilemap extends HTMLElement {
     assert(this.pathElement instanceof HTMLOutputElement, 'view-tilemap missing path output')
     assert(this.dimensionsElement instanceof HTMLOutputElement, 'view-tilemap missing dimensions output')
     assert(this.dirtyElement instanceof HTMLOutputElement, 'view-tilemap missing dirty output')
-    assert(this.toolElement instanceof HTMLSelectElement, 'view-tilemap missing tool select')
-    assert(this.tileElement instanceof HTMLInputElement, 'view-tilemap missing tile input')
-    assert(this.layerSelectElement instanceof HTMLSelectElement, 'view-tilemap missing layer select')
-    assert(this.soloLayerSelectElement instanceof HTMLSelectElement, 'view-tilemap missing solo layer select')
     assert(this.layersElement instanceof HTMLTableElement, 'view-tilemap missing layers table')
-    assert(this.selectionElement instanceof HTMLOutputElement, 'view-tilemap missing selection output')
-    assert(this.clipboardElement instanceof HTMLOutputElement, 'view-tilemap missing clipboard output')
     assert(this.undoStateElement instanceof HTMLOutputElement, 'view-tilemap missing undo output')
     assert(this.tilesetTabsElement instanceof HTMLElement, 'view-tilemap missing tileset tabs')
     assert(this.tilesetPanelsElement instanceof HTMLElement, 'view-tilemap missing tileset panels')
@@ -219,13 +169,27 @@ export class ViewTilemap extends HTMLElement {
       <button type="button" data-action="save" class="accent"><i aria-hidden="true">save</i></button>
       <button type="button" data-action="save-as"><i aria-hidden="true">save_as</i></button>
       <button type="button" data-action="reload"><i aria-hidden="true">refresh</i></button>
-      <button type="button" data-action="select" data-tool="0"><i aria-hidden="true">select_all</i></button>
-      <button type="button" data-action="brush" data-tool="1"><i aria-hidden="true">brush</i></button>
-      <button type="button" data-action="erase" data-tool="2"><i aria-hidden="true">ink_eraser</i></button>
-      <button type="button" data-action="eyedropper" data-tool="3"><i aria-hidden="true">colorize</i></button>
-      <button type="button" data-action="paste-tool" data-tool="4"><i aria-hidden="true">content_paste</i></button>
-      <button type="button" data-action="undo"><i aria-hidden="true">undo</i></button>
-      <button type="button" data-action="redo"><i aria-hidden="true">redo</i></button>
+      <div role="buttongroup" data-element="tools">
+        <button type="button" data-action="select" data-tool="0"><i aria-hidden="true">select_all</i></button>
+        <button type="button" data-action="brush" data-tool="1"><i aria-hidden="true">brush</i></button>
+        <button type="button" data-action="erase" data-tool="2"><i aria-hidden="true">ink_eraser</i></button>
+        <button type="button" data-action="eyedropper" data-tool="3"><i aria-hidden="true">colorize</i></button>
+        <button type="button" data-action="paste-tool" data-tool="4"><i aria-hidden="true">content_paste</i></button>
+        <button type="button" data-action="fill" data-tool="5"><i aria-hidden="true">format_color_fill</i></button>
+      </div>
+      <div role="buttongroup" data-element="edit-actions">
+        <button type="button" data-action="cut"><i aria-hidden="true">content_cut</i></button>
+        <button type="button" data-action="copy"><i aria-hidden="true">content_copy</i></button>
+        <button type="button" data-action="undo"><i aria-hidden="true">undo</i></button>
+        <button type="button" data-action="redo"><i aria-hidden="true">redo</i></button>
+      </div>
+      <div role="buttongroup" data-element="view-actions">
+        <button type="button" data-action="grid" aria-selected="true"><i aria-hidden="true">grid_on</i></button>
+        <button type="button" data-action="zoom-in"><i aria-hidden="true">zoom_in</i></button>
+        <button type="button" data-action="zoom-out"><i aria-hidden="true">zoom_out</i></button>
+        <button type="button" data-action="zoom-fit"><i aria-hidden="true">fit_screen</i></button>
+      </div>
+      <button type="button" data-action="settings"><i aria-hidden="true">settings</i></button>
     `
     this.headerControlsElement = controls
     this.parentElement.appendChild(controls)
@@ -237,26 +201,6 @@ export class ViewTilemap extends HTMLElement {
   }
 
   bindEvents() {
-    this.toolElement.addEventListener('change', async () => {
-      await this.callOk('set_tool', { handle: this.requireHandle(), tool: Number(this.toolElement.value) })
-      await this.refreshSnapshot('Tool updated')
-    })
-
-    this.tileElement.addEventListener('change', async () => {
-      await this.callOk('set_active_tile', { handle: this.requireHandle(), tile: Number(this.tileElement.value) })
-      await this.refreshSnapshot('Active tile updated')
-    })
-
-    this.layerSelectElement.addEventListener('change', async () => {
-      await this.callOk('set_active_layer', { handle: this.requireHandle(), layer: Number(this.layerSelectElement.value) })
-      await this.refreshSnapshot('Active layer updated')
-    })
-
-    this.soloLayerSelectElement.addEventListener('change', async () => {
-      await this.callOk('set_solo_layer', { handle: this.requireHandle(), layer: Number(this.soloLayerSelectElement.value) })
-      await this.refreshSnapshot('Solo layer updated')
-    })
-
     this.tilesetTabsElement.addEventListener('click', (event) => {
       const button = event.target.closest('button[role="tab"][data-tileset]')
       if (!(button instanceof HTMLButtonElement)) return
@@ -265,26 +209,14 @@ export class ViewTilemap extends HTMLElement {
 
     this.layersElement.addEventListener('click', async (event) => {
       const button = event.target.closest('button[data-action]')
-      if (!(button instanceof HTMLButtonElement)) return
-      const layer = Number(button.dataset.layer)
-      const action = button.dataset.action
-      if (action === 'layer-hidden') {
-        await this.callOk('set_layer_hidden', { handle: this.requireHandle(), layer, hidden: button.dataset.next === '1' })
-      } else if (action === 'layer-locked') {
-        await this.callOk('set_layer_locked', { handle: this.requireHandle(), layer, locked: button.dataset.next === '1' })
-      } else if (action === 'layer-insert') {
-        await this.callOk('insert_layer', { handle: this.requireHandle(), index: layer + 1 })
-      } else if (action === 'layer-delete') {
-        await this.callOk('delete_layer', { handle: this.requireHandle(), index: layer })
-      } else if (action === 'layer-up') {
-        await this.callOk('move_layer', { handle: this.requireHandle(), from: layer, to: Math.max(0, layer - 1) })
-      } else if (action === 'layer-down') {
-        assert(this.snapshot, 'view-tilemap missing snapshot for layer-down')
-        await this.callOk('move_layer', { handle: this.requireHandle(), from: layer, to: Math.min(this.snapshot.layers.length - 1, layer + 1) })
-      } else {
-        throw new Error(`view-tilemap unknown layer action ${action}`)
+      if (button instanceof HTMLButtonElement) {
+        await this.handleLayerAction(button)
+        return
       }
-      await this.refreshSnapshot('Layer updated')
+
+      const row = event.target.closest('tr[data-layer]')
+      if (!(row instanceof HTMLTableRowElement)) return
+      await this.toggleLayerSelection(Number(row.dataset.layer))
     })
 
     this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.openMock())
@@ -296,8 +228,16 @@ export class ViewTilemap extends HTMLElement {
     this.queryHeader('[data-action="erase"]').addEventListener('click', async () => this.setTool(TOOL.ERASE))
     this.queryHeader('[data-action="eyedropper"]').addEventListener('click', async () => this.setTool(TOOL.EYEDROPPER))
     this.queryHeader('[data-action="paste-tool"]').addEventListener('click', async () => this.setTool(TOOL.PASTE))
+    this.queryHeader('[data-action="fill"]').addEventListener('click', async () => this.setTool(TOOL.FILL))
+    this.queryHeader('[data-action="cut"]').addEventListener('click', async () => this.command('cut', 'Cut'))
+    this.queryHeader('[data-action="copy"]').addEventListener('click', async () => this.command('copy', 'Copy'))
     this.queryHeader('[data-action="undo"]').addEventListener('click', async () => this.command('undo', 'Undo'))
     this.queryHeader('[data-action="redo"]').addEventListener('click', async () => this.command('redo', 'Redo'))
+    this.queryHeader('[data-action="grid"]').addEventListener('click', () => this.toggleGrid())
+    this.queryHeader('[data-action="zoom-in"]').addEventListener('click', () => this.setStatus('Zoom in placeholder', 'info'))
+    this.queryHeader('[data-action="zoom-out"]').addEventListener('click', () => this.setStatus('Zoom out placeholder', 'info'))
+    this.queryHeader('[data-action="zoom-fit"]').addEventListener('click', () => this.setStatus('Zoom fit placeholder', 'info'))
+    this.queryHeader('[data-action="settings"]').addEventListener('click', async () => this.openSettings())
   }
 
   queryHeader(selector) {
@@ -331,6 +271,28 @@ export class ViewTilemap extends HTMLElement {
     }
   }
 
+  async handleLayerAction(button) {
+    const layer = Number(button.dataset.layer)
+    const action = button.dataset.action
+    if (action === 'layer-hidden') {
+      await this.callOk('set_layer_hidden', { handle: this.requireHandle(), layer, hidden: button.dataset.next === '1' })
+    } else if (action === 'layer-locked') {
+      await this.callOk('set_layer_locked', { handle: this.requireHandle(), layer, locked: button.dataset.next === '1' })
+    } else if (action === 'layer-insert') {
+      await this.callOk('insert_layer', { handle: this.requireHandle(), index: layer + 1 })
+    } else if (action === 'layer-delete') {
+      await this.callOk('delete_layer', { handle: this.requireHandle(), index: layer })
+    } else if (action === 'layer-up') {
+      await this.callOk('move_layer', { handle: this.requireHandle(), from: layer, to: Math.max(0, layer - 1) })
+    } else if (action === 'layer-down') {
+      assert(this.snapshot, 'view-tilemap missing snapshot for layer-down')
+      await this.callOk('move_layer', { handle: this.requireHandle(), from: layer, to: Math.min(this.snapshot.layers.length - 1, layer + 1) })
+    } else {
+      throw new Error(`view-tilemap unknown layer action ${action}`)
+    }
+    await this.refreshSnapshot('Layer updated')
+  }
+
   async openMock() {
     const path = this.snapshot?.path || 'maps/mock.tilemap.json'
     const result = await this.callJson('open', { path })
@@ -358,9 +320,24 @@ export class ViewTilemap extends HTMLElement {
     await this.refreshSnapshot(`${TOOL_LABELS.get(tool)} tool selected`)
   }
 
+  toggleGrid() {
+    const button = this.queryHeader('[data-action="grid"]')
+    assert(button instanceof HTMLButtonElement, 'view-tilemap grid control must be a button')
+    const enabled = button.getAttribute('aria-selected') !== 'true'
+    button.setAttribute('aria-selected', enabled ? 'true' : 'false')
+    this.setStatus(enabled ? 'Grid preview enabled' : 'Grid preview disabled', 'info')
+  }
+
   async command(method, label) {
     await this.callOk(method, { handle: this.requireHandle() })
     await this.refreshSnapshot(label)
+  }
+
+  async openSettings() {
+    await runtime.call('ui.popup', 'open', {
+      title: 'Tilemap Settings',
+      content: 'Tilemap settings placeholder',
+    })
   }
 
   async callOk(method, payload) {
@@ -390,19 +367,11 @@ export class ViewTilemap extends HTMLElement {
     this.dirtyElement.textContent = snapshot.dirty ? 'Dirty' : 'Saved'
     this.dirtyElement.className = snapshot.dirty ? 'warning' : 'success'
 
-    this.toolElement.value = String(snapshot.tool)
-    this.tileElement.value = String(snapshot.activeTile)
-
     this.renderHeaderControls(snapshot)
-    this.renderLayerOptions(snapshot)
     this.renderLayers(snapshot)
     this.renderTilesets(snapshot.activeTile)
 
-    this.selectionElement.textContent = snapshot.hasSelection
-      ? `Selection: ${snapshot.selection.x0},${snapshot.selection.y0} → ${snapshot.selection.x1},${snapshot.selection.y1}`
-      : 'Selection: none'
-    this.clipboardElement.textContent = snapshot.hasClipboard ? 'Clipboard: available' : 'Clipboard: empty'
-    this.undoStateElement.textContent = `Undo: ${snapshot.canUndo ? 'yes' : 'no'} / Redo: ${snapshot.canRedo ? 'yes' : 'no'}`
+    this.undoStateElement.textContent = `Non-linear history placeholder — undo: ${snapshot.canUndo ? 'yes' : 'no'} / redo: ${snapshot.canRedo ? 'yes' : 'no'}`
   }
 
   selectTilesetTab(name) {
@@ -543,44 +512,48 @@ export class ViewTilemap extends HTMLElement {
     redoButton.disabled = !snapshot.canRedo
   }
 
-  renderLayerOptions(snapshot) {
-    this.layerSelectElement.replaceChildren()
-    this.soloLayerSelectElement.replaceChildren()
-
-    const allOption = document.createElement('option')
-    allOption.value = '-1'
-    allOption.textContent = 'All layers'
-    this.layerSelectElement.appendChild(allOption)
-
-    const noSoloOption = document.createElement('option')
-    noSoloOption.value = '-1'
-    noSoloOption.textContent = 'No solo layer'
-    this.soloLayerSelectElement.appendChild(noSoloOption)
-
-    for (const layer of snapshot.layers) {
-      const activeOption = document.createElement('option')
-      activeOption.value = String(layer.index)
-      activeOption.textContent = layer.name
-      this.layerSelectElement.appendChild(activeOption)
-
-      const soloOption = document.createElement('option')
-      soloOption.value = String(layer.index)
-      soloOption.textContent = layer.name
-      this.soloLayerSelectElement.appendChild(soloOption)
+  normalizeSelectedLayers(snapshot) {
+    const available = new Set(snapshot.layers.map((layer) => layer.index))
+    for (const index of [...this.selectedLayerIndexes]) {
+      if (!available.has(index)) this.selectedLayerIndexes.delete(index)
     }
 
-    this.layerSelectElement.value = String(snapshot.activeLayer)
-    this.soloLayerSelectElement.value = String(snapshot.soloLayer)
+  }
+
+  async toggleLayerSelection(layer) {
+    if (this.selectedLayerIndexes.has(layer)) this.selectedLayerIndexes.delete(layer)
+    else this.selectedLayerIndexes.add(layer)
+
+    await this.syncBackendActiveLayerFromSelection()
+    this.renderLayers(this.requireSnapshot())
+    this.setStatus('Layer selection updated', 'info')
+  }
+
+  async syncBackendActiveLayerFromSelection() {
+    if (this.selectedLayerIndexes.size === 1) {
+      const [layer] = [...this.selectedLayerIndexes]
+      await this.callOk('set_active_layer', { handle: this.requireHandle(), layer })
+      return
+    }
+
+    await this.callOk('set_active_layer', { handle: this.requireHandle(), layer: -1 })
+  }
+
+  requireSnapshot() {
+    assert(this.snapshot, 'view-tilemap requires snapshot')
+    return this.snapshot
   }
 
   renderLayers(snapshot) {
     const tbody = this.layersElement.querySelector('tbody')
     assert(tbody instanceof HTMLTableSectionElement, 'view-tilemap missing layers tbody')
     tbody.replaceChildren()
+    this.normalizeSelectedLayers(snapshot)
 
     for (const layer of snapshot.layers) {
       const row = document.createElement('tr')
-      if (layer.index === snapshot.activeLayer) row.setAttribute('aria-selected', 'true')
+      row.dataset.layer = String(layer.index)
+      if (this.selectedLayerIndexes.has(layer.index)) row.setAttribute('aria-selected', 'true')
 
       const nameCell = document.createElement('td')
       nameCell.textContent = layer.name

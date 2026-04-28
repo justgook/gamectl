@@ -47,6 +47,11 @@ Optional elements should appear at most once per view.
 - `.danger` - error, destructive action, or invalid state.
 - `.info` - informational or progress state.
 
+## Button groups
+
+- `[role="buttongroup"]` - grouped related buttons, especially compact toolbars and one-off action groups.
+- `[role="buttongroup"] > button` - button inside a grouped toolbar.
+
 ## Form
 
 - `form` - base element for grouped inputs and actions; default layout is column.
