@@ -22,6 +22,9 @@ const CLIENT_TILESETS = [
   { name: 'dungeon_floor', path: 'tilesets/dungeon_floor.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 1 },
   { name: 'dungeon_walls', path: 'tilesets/dungeon_walls.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 33 },
   { name: 'forest_overgrowth', path: 'tilesets/forest_overgrowth.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 65 },
+  { name: 'forest_overgrowth1', path: 'tilesets/forest_overgrowth1.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 65 },
+  { name: 'forest_overgrowth2', path: 'tilesets/forest_overgrowtah2.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 65 },
+  { name: 'forest_overgrowth3', path: 'tilesets/forest_overgrowth3.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 65 },
 ]
 
 function assert(condition, message) {

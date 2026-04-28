@@ -792,6 +792,7 @@
     list-style-type: none;
     display: flex;
     padding-left: 3px;
+    padding-top: 3px;
   }
 
   menu[role=tablist]>li,
