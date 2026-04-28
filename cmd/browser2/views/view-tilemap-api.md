@@ -291,26 +291,16 @@ Input:
 
 Use `layer: -1` for no solo layer.
 
-## Tile Definitions / Categories
+## Tile Definitions / Tilesets
 
 ### `define_tile`
 
-Equivalent to `stbte_define_tile`.
+Equivalent to `stbte_define_tile`, but browser2 should not expose stbte categories in the view UI. Tileset/palette presentation is a view concern layered over tile ids.
 
 Input:
 
 ```json
-{ "handle": 1, "id": 42, "layermask": 3, "category": 0 }
-```
-
-### `set_active_category`
-
-Equivalent to `stbte_set_active_category`.
-
-Input:
-
-```json
-{ "handle": 1, "category": 0 }
+{ "handle": 1, "id": 42, "layermask": 3 }
 ```
 
 ## Selection / Clipboard
@@ -469,7 +459,6 @@ Output:
   "soloLayer": -1,
   "tool": 1,
   "activeTile": 42,
-  "activeCategory": 0,
   "hasSelection": false,
   "hasClipboard": false,
   "canUndo": false,
@@ -488,6 +477,8 @@ Output:
 ```
 
 Phase-1 mock can return stable sample values here before real map memory is wired.
+
+Tilesets are intentionally not part of this WASM API. They are client-side helper/representation data for selecting numeric tile ids. Tilemap persistence/WASM edit state remains numeric tile ids only.
 
 ## Filesystem Format
 

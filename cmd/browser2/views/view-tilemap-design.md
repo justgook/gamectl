@@ -25,7 +25,7 @@ Responsibilities:
 
 - handle table for open tilemap documents
 - stbte-like map/editor state
-- active tool/tile/category/layer
+- active tool/tile/layer
 - selection and clipboard
 - undo/redo
 - layer structure mutations
@@ -142,7 +142,6 @@ Suggested sidebar sections:
 1. Tool state
    - active tool
    - active tile number
-   - active category
 2. Layers
    - layer list
    - active layer
@@ -150,10 +149,17 @@ Suggested sidebar sections:
    - lock/unlock
    - solo
    - insert/delete/move controls
-3. Selection / clipboard
+3. Tilesets
+   - client-side helper only; not part of WASM state/snapshot/persistence
+   - each tab represents one loaded tileset image file, named without extension
+   - current client mock names: `dungeon_floor`, `dungeon_walls`, `forest_overgrowth`
+   - each image is split into a grid by tile size
+   - clicking a placeholder cell calls `set_active_tile` with the numeric tile id
+   - tilemap persistence/WASM edit state remains numbers only
+4. Selection / clipboard
    - selection bounds output
    - copy/cut/paste buttons
-4. Map metadata
+5. Map metadata
    - path
    - dimensions
    - dirty flag
@@ -224,28 +230,29 @@ Done in `view-tilemap-api.md`.
 
 ### Step 2: mock WASM service
 
-Create a new `plugins/tilemap/` service or wrap/adapt `plugins/stbte/`.
+Status: bootstrapped.
 
-Recommended first step:
+- `plugins/tilemap/main.c` exposes the planned browser2 method names.
+- It maintains tiny mock in-memory document/editor state.
+- `create/open/snapshot` return stable mock data.
+- `cmd/browser2/core/gams.json` registers the plugin as `tilemap` and mounts `/plugins/tilemap.wasm`.
+- `make build.nosync/plugins/tilemap.wasm` succeeds.
+- `make tilemap-test` verifies the mock create/set/apply/snapshot/save loop.
 
-- create `plugins/tilemap/main.c`
-- expose all final browser2 method names
-- parse only minimal JSON needed for handles
-- return mock `snapshot`
-- maintain a tiny in-memory mock document state if simple
-- add browser2 `gams.json` plugin entry as `tilemap`
+Next backend step after UI shell: replace mock internals with a handle table around stbte state.
 
 ### Step 3: HTML-only view
 
-Create `cmd/browser2/views/view-tilemap.js`:
+Status: bootstrapped.
 
-- no canvas yet
-- header controls
-- sidebar
-- footer status
-- call `runtime.call('tilemap', ...)`
-- render mock snapshot
-- replace app placeholder for `view-tilemap`
+- `cmd/browser2/views/view-tilemap.js` exists.
+- It has no canvas yet.
+- It renders `div[slot="header-controls"]`, summary article, sidebar, and footer status.
+- It marks selected tool buttons with `[aria-selected="true"]` and `.accent`.
+- It disables undo/redo buttons from backend snapshot `canUndo` / `canRedo`.
+- It calls `runtime.call('tilemap', ...)` with the final mock API names.
+- It renders mock `snapshot` state.
+- `cmd/browser2/app.js` imports the view and replaces the placeholder registry entry.
 
 ### Step 4: real backend state
 

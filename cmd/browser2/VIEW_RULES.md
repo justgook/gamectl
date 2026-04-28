@@ -96,9 +96,19 @@ Optional elements should appear at most once per view.
 - `data-action` - stable internal hook for interactive controls/actions.
 - `data-field` - stable internal hook for form fields and bindings.
 
+## Tabs
+
+Current tab vocabulary follows the legacy/browser theme selectors and should be refined after more browser2 usage.
+
+- `[role="tablist"]` - tab button container.
+- `button[role="tab"]` - tab selector control.
+- `button[role="tab"][aria-selected="true"]` - active tab selector.
+- `[role="tabpanel"]` - tab panel content region.
+- `[role="tabpanel"][hidden]` - inactive tab panel content.
+
 ## Custom / ARIA attributes
 
-- `[aria-selected="true"]` - selected items, rows, and similar selectable UI records.
+- `[aria-selected="true"]` - selected items, rows, tabs, and similar selectable UI records.
 - `[role="tabpanel"]` - tab panel content region.
 - `[role="tabpanel"][hidden]` - inactive tab panel content.
 
