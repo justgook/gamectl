@@ -100,8 +100,8 @@ Optional elements should appear at most once per view.
 
 Current tab vocabulary follows the legacy/browser theme selectors and should be refined after more browser2 usage.
 
-- `[role="tablist"]` - tab button container.
-- `button[role="tab"]` - tab selector control.
+- `[role="tablist"]` - tab button container; horizontally scrolls when tabs do not fit the parent width.
+- `button[role="tab"]` - tab selector control; text should be concise and may ellipsize.
 - `button[role="tab"][aria-selected="true"]` - active tab selector.
 - `[role="tabpanel"]` - tab panel content region.
 - `[role="tabpanel"][hidden]` - inactive tab panel content.

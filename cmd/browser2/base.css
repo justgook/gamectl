@@ -695,6 +695,9 @@
     box-sizing: border-box;
   }
 
+  aside * {
+    max-width: min(100%, var(--aside-width));
+  }
 
 
   /* Footer (optional) */
@@ -820,9 +823,24 @@
      TABS
      ═══════════════════════════════════════════════════════════════════════════ */
 
+  [role="tablist"]>[role="tab"] {
+    flex: 0 0 clamp(4rem, 33%, 9rem);
+    min-inline-size: 4rem;
+    max-inline-size: 9rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+
   [role="tabpanel"] {
     min-inline-size: 0;
     min-block-size: 0;
+  }
+
+  aside [role="tablist"] {
+    /* TODO: find reason why it not shrinks other way */
+    width: 198px;
   }
 
   [role="tabpanel"][hidden] {

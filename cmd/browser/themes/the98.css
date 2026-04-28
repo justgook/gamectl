@@ -778,7 +778,6 @@
     padding-left: 3px;
   }
 
-  menu[role=tablist]>li,
   [role="tablist"]>[role="tab"] {
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
@@ -804,7 +803,6 @@
     box-shadow: var(--border-tab);
   }
 
-  menu[role=tablist]>li[aria-selected=true],
   [role="tablist"]>[role="tab"][aria-selected="true"] {
     padding-bottom: 2px;
     margin-top: -2px;
