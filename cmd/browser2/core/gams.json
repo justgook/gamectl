@@ -190,10 +190,6 @@
             "url": "/plugins/treegen.wasm"
           },
           {
-            "path": "plugins/tilemap.wasm",
-            "url": "/plugins/tilemap.wasm"
-          },
-          {
             "path": "plugins/minimap2.wasm",
             "url": "/plugins/minimap2.wasm"
           },
@@ -300,12 +296,6 @@
       "runtime": "wasm",
       "role": "service",
       "url": "builtin/plugins/echo.wasm"
-    },
-    {
-      "id": "tilemap",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/tilemap.wasm"
     },
     {
       "id": "layout",

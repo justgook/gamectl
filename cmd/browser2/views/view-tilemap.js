@@ -1,7 +1,5 @@
 import { runtime } from '../core/runtime.js'
 
-const decoder = new TextDecoder()
-
 const TOOL = {
   SELECT: 0,
   BRUSH: 1,
@@ -33,21 +31,155 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
-}
-
-function assertRuntimeOk(result, label) {
-  if (Number(result?.returnCode || 0) !== 0) {
-    throw new Error(`${label} failed: ${decodeOutput(result)}`)
+class TilemapState {
+  constructor() {
+    this.handle = 1
+    this.path = 'maps/mock.tilemap.json'
+    this.width = 32
+    this.height = 24
+    this.layers = [
+      { index: 0, name: 'Layer 0', hidden: false, locked: false },
+      { index: 1, name: 'Layer 1', hidden: false, locked: false },
+      { index: 2, name: 'Layer 2', hidden: false, locked: false },
+    ]
+    this.activeLayer = 0
+    this.tool = TOOL.BRUSH
+    this.activeTile = 1
+    this.dirty = false
+    this.canUndo = false
+    this.canRedo = false
+    this.hasClipboard = false
   }
-}
 
-function parseJsonOutput(result, label) {
-  assertRuntimeOk(result, label)
-  const text = decodeOutput(result)
-  assert(text.length > 0, `${label} returned empty output`)
-  return JSON.parse(text)
+  create({ path, width, height, layers }) {
+    this.path = path
+    this.width = width
+    this.height = height
+    this.layers = Array.from({ length: layers }, (_item, index) => ({
+      index,
+      name: `Layer ${index}`,
+      hidden: false,
+      locked: false,
+    }))
+    this.activeLayer = layers > 0 ? 0 : -1
+    this.dirty = false
+    this.canUndo = false
+    this.canRedo = false
+    return { handle: this.handle }
+  }
+
+  open({ path }) {
+    this.path = path
+    this.dirty = false
+    return { handle: this.handle }
+  }
+
+  save({ path }) {
+    this.path = path
+    this.dirty = false
+  }
+
+  snapshot() {
+    return {
+      handle: this.handle,
+      path: this.path,
+      dirty: this.dirty,
+      width: this.width,
+      height: this.height,
+      layers: this.layers.map((layer, index) => ({ ...layer, index })),
+      activeLayer: this.activeLayer,
+      tool: this.tool,
+      activeTile: this.activeTile,
+      canUndo: this.canUndo,
+      canRedo: this.canRedo,
+    }
+  }
+
+  setTool(tool) {
+    this.tool = tool
+  }
+
+  setActiveTile(tile) {
+    this.activeTile = tile
+  }
+
+  setActiveLayer(layer) {
+    this.activeLayer = layer
+  }
+
+  setLayerHidden(layer, hidden) {
+    this.requireLayer(layer).hidden = hidden
+  }
+
+  setLayerLocked(layer, locked) {
+    this.requireLayer(layer).locked = locked
+  }
+
+  insertLayer(index) {
+    assert(index >= 0 && index <= this.layers.length, 'tilemap state insert layer index out of range')
+    this.layers.splice(index, 0, { index, name: `Layer ${index}`, hidden: false, locked: false })
+    this.renumberLayers()
+    this.markDirty()
+  }
+
+  deleteLayer(index) {
+    assert(this.layers.length > 1, 'tilemap state must keep at least one layer')
+    this.requireLayer(index)
+    this.layers.splice(index, 1)
+    this.renumberLayers()
+    if (this.activeLayer === index) this.activeLayer = -1
+    else if (this.activeLayer > index) this.activeLayer -= 1
+    this.markDirty()
+  }
+
+  moveLayer(from, to) {
+    this.requireLayer(from)
+    this.requireLayer(to)
+    if (from === to) return
+    const [layer] = this.layers.splice(from, 1)
+    this.layers.splice(to, 0, layer)
+    this.renumberLayers()
+    this.activeLayer = to
+    this.markDirty()
+  }
+
+  cut() {
+    this.hasClipboard = true
+    this.markDirty()
+  }
+
+  copy() {
+    this.hasClipboard = true
+  }
+
+  undo() {
+    this.canUndo = false
+    this.canRedo = true
+  }
+
+  redo() {
+    this.canUndo = true
+    this.canRedo = false
+  }
+
+  markDirty() {
+    this.dirty = true
+    this.canUndo = true
+    this.canRedo = false
+  }
+
+  renumberLayers() {
+    this.layers.forEach((layer, index) => {
+      layer.index = index
+      layer.name = `Layer ${index}`
+    })
+  }
+
+  requireLayer(index) {
+    const layer = this.layers[index]
+    assert(layer, `tilemap state missing layer ${index}`)
+    return layer
+  }
 }
 
 function validateSnapshot(snapshot) {
@@ -75,6 +207,7 @@ function validateSnapshot(snapshot) {
 export class ViewTilemap extends HTMLElement {
   constructor() {
     super()
+    this.state = new TilemapState()
     this.handle = 0
     this.snapshot = null
     this.headerControlsElement = null
@@ -250,14 +383,11 @@ export class ViewTilemap extends HTMLElement {
     this.setStatus('Creating mock tilemap…', 'info')
     try {
       const path = this.getAttribute('path') || this.getAttribute('data-path') || 'maps/mock.tilemap.json'
-      const result = await this.callJson('create', {
+      const result = this.state.create({
         path,
         width: 32,
         height: 24,
         layers: 3,
-        spacingX: 16,
-        spacingY: 16,
-        maxTiles: 1024,
       })
       assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap create returned invalid handle')
       this.handle = result.handle
@@ -274,18 +404,18 @@ export class ViewTilemap extends HTMLElement {
     const layer = Number(button.dataset.layer)
     const action = button.dataset.action
     if (action === 'layer-hidden') {
-      await this.callOk('set_layer_hidden', { handle: this.requireHandle(), layer, hidden: button.dataset.next === '1' })
+      this.state.setLayerHidden(layer, button.dataset.next === '1')
     } else if (action === 'layer-locked') {
-      await this.callOk('set_layer_locked', { handle: this.requireHandle(), layer, locked: button.dataset.next === '1' })
+      this.state.setLayerLocked(layer, button.dataset.next === '1')
     } else if (action === 'layer-insert') {
-      await this.callOk('insert_layer', { handle: this.requireHandle(), index: layer + 1 })
+      this.state.insertLayer(layer + 1)
     } else if (action === 'layer-delete') {
-      await this.callOk('delete_layer', { handle: this.requireHandle(), index: layer })
+      this.state.deleteLayer(layer)
     } else if (action === 'layer-up') {
-      await this.callOk('move_layer', { handle: this.requireHandle(), from: layer, to: Math.max(0, layer - 1) })
+      this.state.moveLayer(layer, Math.max(0, layer - 1))
     } else if (action === 'layer-down') {
       assert(this.snapshot, 'view-tilemap missing snapshot for layer-down')
-      await this.callOk('move_layer', { handle: this.requireHandle(), from: layer, to: Math.min(this.snapshot.layers.length - 1, layer + 1) })
+      this.state.moveLayer(layer, Math.min(this.snapshot.layers.length - 1, layer + 1))
     } else {
       throw new Error(`view-tilemap unknown layer action ${action}`)
     }
@@ -294,19 +424,19 @@ export class ViewTilemap extends HTMLElement {
 
   async openMock() {
     const path = this.snapshot?.path || 'maps/mock.tilemap.json'
-    const result = await this.callJson('open', { path })
+    const result = this.state.open({ path })
     assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap open returned invalid handle')
     this.handle = result.handle
     await this.refreshSnapshot('Opened')
   }
 
   async saveAsMock() {
-    await this.callOk('save', { handle: this.requireHandle(), path: this.snapshot?.path || 'maps/mock.tilemap.json' })
+    this.state.save({ path: this.snapshot?.path || 'maps/mock.tilemap.json' })
     await this.refreshSnapshot('Saved as mock path')
   }
 
   async save() {
-    await this.callOk('save', { handle: this.requireHandle(), path: this.snapshot?.path || 'maps/mock.tilemap.json' })
+    this.state.save({ path: this.snapshot?.path || 'maps/mock.tilemap.json' })
     await this.refreshSnapshot('Saved')
   }
 
@@ -315,7 +445,7 @@ export class ViewTilemap extends HTMLElement {
   }
 
   async setTool(tool) {
-    await this.callOk('set_tool', { handle: this.requireHandle(), tool })
+    this.state.setTool(tool)
     await this.refreshSnapshot(`${TOOL_LABELS.get(tool)} tool selected`)
   }
 
@@ -328,7 +458,9 @@ export class ViewTilemap extends HTMLElement {
   }
 
   async command(method, label) {
-    await this.callOk(method, { handle: this.requireHandle() })
+    const fn = this.state[method]
+    assert(typeof fn === 'function', `view-tilemap state missing command ${method}`)
+    fn.call(this.state)
     await this.refreshSnapshot(label)
   }
 
@@ -339,17 +471,8 @@ export class ViewTilemap extends HTMLElement {
     })
   }
 
-  async callOk(method, payload) {
-    const result = await runtime.call('tilemap', method, JSON.stringify(payload))
-    assertRuntimeOk(result, `tilemap.${method}`)
-  }
-
-  async callJson(method, payload) {
-    return parseJsonOutput(await runtime.call('tilemap', method, JSON.stringify(payload)), `tilemap.${method}`)
-  }
-
   async refreshSnapshot(statusText) {
-    const snapshot = validateSnapshot(await this.callJson('snapshot', { handle: this.requireHandle() }))
+    const snapshot = validateSnapshot(this.state.snapshot())
     this.snapshot = snapshot
     this.renderSnapshot(snapshot)
     this.setStatus(statusText, snapshot.dirty ? 'warning' : 'success')
@@ -453,7 +576,7 @@ export class ViewTilemap extends HTMLElement {
     const x = Math.floor((event.clientX - rect.left) / tileset.tileWidth)
     const y = Math.floor((event.clientY - rect.top) / tileset.tileHeight)
     const tile = tileset.firstTileId + y * tileset.columns + x
-    await this.callOk('set_active_tile', { handle: this.requireHandle(), tile })
+    this.state.setActiveTile(tile)
     await this.refreshSnapshot(`Active tile ${tile} selected from ${tileset.name}`)
   }
 
@@ -531,11 +654,11 @@ export class ViewTilemap extends HTMLElement {
   async syncBackendActiveLayerFromSelection() {
     if (this.selectedLayerIndexes.size === 1) {
       const [layer] = [...this.selectedLayerIndexes]
-      await this.callOk('set_active_layer', { handle: this.requireHandle(), layer })
+      this.state.setActiveLayer(layer)
       return
     }
 
-    await this.callOk('set_active_layer', { handle: this.requireHandle(), layer: -1 })
+    this.state.setActiveLayer(-1)
   }
 
   requireSnapshot() {
