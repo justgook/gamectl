@@ -8,14 +8,15 @@
 @vs vs_sprite_base
 layout(binding=0) uniform vs_params {
     mat4 ortho;
+    vec2 atlas_size;
 };
+
 
 in vec2 pos;
 in vec2 inst_pos;
 in float inst_z;
 in float inst_opacity;
 in uint inst_flip_flags;
-in vec2 inst_size;
 in vec4 inst_uv;
 in vec4 inst_color_add;  // Additive color for blink/flash effects (RGB + intensity)
 in ivec2 inst_offset;
@@ -40,9 +41,9 @@ const mat2 FLIP_MATRICES[8] = mat2[](
 
 
 void main() {
-    vec2 pos_in_px = pos * inst_size + inst_pos + vec2(inst_offset);
+    vec2 sprite_size = abs(inst_uv.zw - inst_uv.xy) * atlas_size;
+    vec2 pos_in_px = pos * sprite_size + inst_pos + vec2(inst_offset);
     gl_Position = ortho * vec4(pos_in_px, inst_z, 1.0);
-    // gl_Position = vec4(pos, inst_z, 1.0);
     opacity = inst_opacity;
     colorAdd = inst_color_add;
 

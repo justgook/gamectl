@@ -33,8 +33,7 @@ app_init :: proc() {
 	load_ok := load_game_assets(GAME_ASSET_PATH, &state.world)
 	assert(load_ok)
 
-	wh := [2]f32{host.widthf(), host.heightf()}
-	world.init(&state.world, wh)
+	world.init(&state.world)
 }
 
 app_frame :: proc() {
