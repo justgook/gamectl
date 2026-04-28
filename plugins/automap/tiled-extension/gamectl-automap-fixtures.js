@@ -30,6 +30,8 @@ var specialMatchTypes = {
   rule_NonEmpty: "NonEmpty",
   rule_Other: "Other",
   rule_Negate: "Negate",
+  rule_Different: "Different",
+  rule_Same: "Same",
 }
 
 function readJson(path) {

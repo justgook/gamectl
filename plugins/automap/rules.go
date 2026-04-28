@@ -20,6 +20,7 @@ var rulePropsToExclude = map[string]bool{
 	"rule_WrapBorder": true, "rule_NoOverlappingOutput": true,
 	"rule_DeleteTiles": true, "rule_Empty": true, "rule_NonEmpty": true,
 	"rule_Other": true, "rule_Ignore": true, "rule_Negate": true,
+	"rule_Different": true, "rule_Same": true,
 }
 
 // shouldCopyProp checks if a property should be copied
@@ -122,6 +123,9 @@ type InputGroup struct {
 }
 
 func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height int, config *GlobalConfig) bool {
+	referenceTile := uint32(0)
+	hasReference := false
+
 	for _, cell := range g.Cells {
 		absIndex := RelativeToAbsoluteIndex(index, width, height, cell.Point.X, cell.Point.Y)
 		if absIndex < 0 {
@@ -131,6 +135,7 @@ func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height 
 		inputTileValue := targetLayer.Data[absIndex]
 		hasNegateTile := false
 		matched := false
+		bindReference := false
 
 		for _, matcher := range cell.Matchers {
 			if matcher.Value == config.SpecialTiles.Negate {
@@ -138,22 +143,31 @@ func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height 
 				continue
 			}
 
-			cellMatched := matchTile(matcher.Value, inputTileValue, config, g)
+			cellMatched := matchTile(matcher.Value, inputTileValue, config, g, referenceTile, hasReference)
 			if matcher.IsNegated {
 				cellMatched = !cellMatched
 			}
 
 			if cellMatched {
 				matched = true
+				if !hasReference && !matcher.IsNegated && isReferenceBinder(matcher.Value, config) {
+					bindReference = true
+				}
 			}
 		}
 
 		if hasNegateTile {
 			matched = !matched
+			bindReference = false
 		}
 
 		if !matched {
 			return false
+		}
+
+		if bindReference {
+			referenceTile = inputTileValue
+			hasReference = true
 		}
 	}
 
@@ -291,8 +305,13 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 
 		// Only create rule if has both inputs and outputs
 		if len(inputLayers) > 0 && len(outputLayers) > 0 {
+			inputGroups, err := buildInputGroups(inputLayers, config)
+			if err != nil {
+				return nil, fmt.Errorf("rule at position %d: %w", idx, err)
+			}
+
 			rules = append(rules, &Rule{
-				InputGroups: buildInputGroups(inputLayers, config),
+				InputGroups: inputGroups,
 				Outputs:     buildRuleOutputs(outputLayers),
 				ModX:        max(parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_ModX"), config.ModX), 1),
 				ModY:        max(parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_ModY"), config.ModY), 1),
@@ -381,9 +400,9 @@ func hasAnyTile(rulesMap *tilemap.TileMap, idx int) bool {
 	return false
 }
 
-// matchTile compares a rule tile value against an input tile value
-// Returns true if they match according to special tile rules
-func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, group *InputGroup) bool {
+// matchTile compares a rule tile value against an input tile value.
+// Returns true if they match according to special tile rules.
+func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, group *InputGroup, referenceTile uint32, hasReference bool) bool {
 	// Special case: Ignore - always matches
 	if ruleTileValue == config.SpecialTiles.Ignore {
 		return true
@@ -401,16 +420,38 @@ func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, group
 
 	// Special case: Other - matches tiles NOT used in this rule
 	if ruleTileValue == config.SpecialTiles.Other {
-		return group.matchesOther(inputTileValue)
+		return group.matchesOther(inputTileValue, config)
+	}
+
+	// Special case: Different - matches any tile not equal to the bound reference tile
+	if ruleTileValue == config.SpecialTiles.Different {
+		return hasReference && inputTileValue != referenceTile
+	}
+
+	// Special case: Same - matches any tile equal to the bound reference tile
+	if ruleTileValue == config.SpecialTiles.Same {
+		return hasReference && inputTileValue == referenceTile
 	}
 
 	// Regular match: exact value comparison
 	return ruleTileValue == inputTileValue
 }
 
+func isReferenceBinder(ruleTileValue uint32, config *GlobalConfig) bool {
+	if ruleTileValue == config.SpecialTiles.Empty ||
+		ruleTileValue == config.SpecialTiles.Other ||
+		ruleTileValue == config.SpecialTiles.Negate ||
+		ruleTileValue == config.SpecialTiles.Different ||
+		ruleTileValue == config.SpecialTiles.Same {
+		return false
+	}
+
+	return true
+}
+
 // containsTileValue checks if a tile value is used anywhere in this input group
 // Excludes special tiles from the check
-func (g *InputGroup) containsTileValue(tileValue uint32) bool {
+func (g *InputGroup) containsTileValue(tileValue uint32, config *GlobalConfig) bool {
 	// Zero is never "used" for Other matching
 	if tileValue == 0 {
 		return false
@@ -418,7 +459,7 @@ func (g *InputGroup) containsTileValue(tileValue uint32) bool {
 
 	for _, cell := range g.Cells {
 		for _, matcher := range cell.Matchers {
-			if matcher.Value == 0 {
+			if matcher.Value == 0 || config.SpecialTiles.IsSpecial(matcher.Value) {
 				continue
 			}
 			if matcher.Value == tileValue {
@@ -430,12 +471,12 @@ func (g *InputGroup) containsTileValue(tileValue uint32) bool {
 	return false
 }
 
-func (g *InputGroup) matchesOther(inputTileValue uint32) bool {
+func (g *InputGroup) matchesOther(inputTileValue uint32, config *GlobalConfig) bool {
 	if inputTileValue == 0 {
 		return !g.HasEmptyMatcher
 	}
 
-	return !g.containsTileValue(inputTileValue)
+	return !g.containsTileValue(inputTileValue, config)
 }
 
 // Bounds returns the maximum width and height needed for this rule's input region.
@@ -476,7 +517,7 @@ func CalculateMaxRuleBounds(rules []*Rule) (maxWidth, maxHeight int) {
 	return maxWidth, maxHeight
 }
 
-func buildInputGroups(inputLayers []*InputLayer, config *GlobalConfig) []*InputGroup {
+func buildInputGroups(inputLayers []*InputLayer, config *GlobalConfig) ([]*InputGroup, error) {
 	groupMap := make(map[string]*InputGroup)
 	order := make([]string, 0, len(inputLayers))
 
@@ -528,10 +569,40 @@ func buildInputGroups(inputLayers []*InputLayer, config *GlobalConfig) []*InputG
 			}
 			return group.Cells[i].Point.X < group.Cells[j].Point.X
 		})
+		if err := group.validateRelativeReferences(config); err != nil {
+			return nil, err
+		}
+
 		groups = append(groups, group)
 	}
 
-	return groups
+	return groups, nil
+}
+
+func (g *InputGroup) validateRelativeReferences(config *GlobalConfig) error {
+	hasReferenceBinder := false
+
+	for _, cell := range g.Cells {
+		cellHasRelative := false
+		cellHasBinder := false
+		for _, matcher := range cell.Matchers {
+			if matcher.Value == config.SpecialTiles.Different || matcher.Value == config.SpecialTiles.Same {
+				cellHasRelative = true
+			}
+			if !matcher.IsNegated && isReferenceBinder(matcher.Value, config) {
+				cellHasBinder = true
+			}
+		}
+
+		if cellHasRelative && !hasReferenceBinder {
+			return fmt.Errorf("relative matcher at (%d,%d) used before reference established", cell.Point.X, cell.Point.Y)
+		}
+		if cellHasBinder {
+			hasReferenceBinder = true
+		}
+	}
+
+	return nil
 }
 
 func buildRuleOutputs(outputLayers []*OutputLayer) *RuleOutputs {

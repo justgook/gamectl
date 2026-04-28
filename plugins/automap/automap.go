@@ -40,9 +40,10 @@ func AutomapApplyToTarget(
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	logToConsole(fmt.Sprintf("[Automap] Config parsed - Special tiles: Empty=%d, NonEmpty=%d, Ignore=%d, Other=%d, Negate=%d",
+	logToConsole(fmt.Sprintf("[Automap] Config parsed - Special tiles: Empty=%d, NonEmpty=%d, Ignore=%d, Other=%d, Negate=%d, Different=%d, Same=%d",
 		config.SpecialTiles.Empty, config.SpecialTiles.NonEmpty, config.SpecialTiles.Ignore,
-		config.SpecialTiles.Other, config.SpecialTiles.Negate))
+		config.SpecialTiles.Other, config.SpecialTiles.Negate, config.SpecialTiles.Different,
+		config.SpecialTiles.Same))
 
 	// 2. Detect regions and extract rules
 	rules, err := ExtractRules(rulesMap, config)
