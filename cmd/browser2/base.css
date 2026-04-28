@@ -373,12 +373,6 @@
     border-bottom-right-radius: var(--radius-sm);
   }
 
-  [role="buttongroup"]>button:hover,
-  [role="buttongroup"]>button:focus-visible,
-  [role="buttongroup"]>button[aria-pressed="true"] {
-    z-index: 1;
-  }
-
   view-pagination {
     display: flex;
     align-items: center;
