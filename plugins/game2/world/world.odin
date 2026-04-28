@@ -42,7 +42,6 @@ World :: struct {
 	offscreen_pass:      sg.Pass,
 	display_pass_action: sg.Pass_Action,
 	display_pipe:        ^Display_Pipe,
-	viewport:            [2]f32,
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -72,12 +71,8 @@ frame :: proc(w: ^World, dt: f64) {
 
 	// RENDER THE CANVAS ON SCREEN
 	sg.begin_pass({action = w.display_pass_action, swapchain = host.swapchain()})
-	half_w: f32 = w.viewport[0] * 0.5
-	half_h: f32 = w.viewport[1] * 0.5
-	screen_ortho :=
-		linalg.matrix_ortho3d_f32(-half_w, half_w, -half_h, half_h, -1, 1) *
-		linalg.matrix4_translate_f32({-half_w, -half_h, 0})
-	sys_display(w, &screen_ortho)
+	sys_display(w)
+	// sys_nine_patch(w, &screen_ortho)
 	sg.end_pass()
 
 	sg.commit()
@@ -116,8 +111,7 @@ init :: proc(w: ^World, wh: [2]f32) {
 		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
 		depth = {load_action = .CLEAR, clear_value = 1.0},
 	}
-	// w.display_pipe.bind.views[VIEW_display_tex0] = sg.make_view({texture = {image = color_img}})
-	// w.display_pipe = display_init(w.atlas)
+
 	w.display_pipe = display_init(color_img)
 
 

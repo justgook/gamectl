@@ -20,7 +20,6 @@ LUT_RGBA_CAPACITY :: 512 * 512 * 4
 
 State :: struct {
 	world: world.World,
-	// game_offscreen: sg.Image,
 }
 
 state: State
@@ -49,7 +48,12 @@ app_event :: proc(event: host.Event) {
 	// 	core_handle_mouse_move(event.mouse_y)
 	case .Resized:
 		// state.world.cam.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
-		state.world.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
+		// state.world.viewport = {f32(event.framebuffer_width), f32(event.framebuffer_height)}
+		world.display_resize(
+			&state.world.display_pipe.params,
+			f32(event.framebuffer_width),
+			f32(event.framebuffer_height),
+		)
 	case .Action_Down:
 		state.world.player1^ += {world.InputSet(event.action_code - 1)}
 	case .Action_Up:
