@@ -643,10 +643,10 @@
       "footer footer";
   }
 
-  article,
-  canvas,
-  table,
-  form {
+  main>article,
+  main>canvas,
+  main>table,
+  main>form {
     grid-area: main;
     min-width: 0;
     min-height: 0;
@@ -694,6 +694,8 @@
     flex-direction: column;
     box-sizing: border-box;
   }
+
+
 
   /* Footer (optional) */
   footer {
@@ -758,6 +760,10 @@
     border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+  }
+
+  fieldset>canvas {
+    align-self: center;
   }
 
   legend {

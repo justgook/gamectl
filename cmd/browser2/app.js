@@ -11,6 +11,7 @@ import './views/view-files.js'
 import './views/view-tree.js'
 import './views/view-ng.js'
 import './views/view-ng-node.js'
+import './views/view-tilemap.js'
 import './views/files-rename.js'
 import './views/files-json.js'
 import './views/files-default.js'
@@ -30,7 +31,7 @@ const DEFAULT_THEME = 'the98'
 // `
 //
 const DEFAULT_LAYOUT = `
-  <view-ng />
+  <view-tilemap />
 `
 
 const AI_OPEN_CONFIG = {
@@ -125,7 +126,10 @@ const viewRegistry = new Map([
     create: () => document.createElement('view-files'),
   }],
   ['view-animation', placeholderView('view-animation', 'Animation')],
-  ['view-tilemap', placeholderView('view-tilemap', 'Tilemap')],
+  ['view-tilemap', {
+    label: 'Tilemap',
+    create: () => document.createElement('view-tilemap'),
+  }],
   ['view-ng', {
     label: 'Nodegraph',
     create: () => {
