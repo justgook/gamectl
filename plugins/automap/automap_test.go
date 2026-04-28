@@ -225,6 +225,87 @@ func TestAutomapApplyToTargetCreatesMissingLayerInExistingMap(t *testing.T) {
 	}
 }
 
+func TestAutomapApplyMatchesDifferentFromBoundReference(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+	rulesMap.Props = map[string]string{
+		"rule_Ignore":    "900",
+		"rule_Different": "901",
+	}
+
+	input := tilemap.NewTileLayer(2, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0"}
+	input.Data[0] = 900
+	input.Data[1] = 901
+
+	output := tilemap.NewTileLayer(2, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#0"}
+	output.Data[1] = 7
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+	inputMap := singleLayerMap(2, 1)
+	inputMap.Layers[0].Data[0] = 17
+	inputMap.Layers[0].Data[1] = 8
+
+	result, err := AutomapApply(rulesMap, inputMap)
+	if err != nil {
+		t.Fatalf("AutomapApply returned error: %v", err)
+	}
+
+	if got := result.Layers[0].Data[1]; got != 7 {
+		t.Fatalf("expected Different to match and write 7, got %d", got)
+	}
+}
+
+func TestAutomapApplyRejectsDifferentEqualToBoundReference(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+	rulesMap.Props = map[string]string{
+		"rule_Ignore":    "900",
+		"rule_Different": "901",
+	}
+
+	input := tilemap.NewTileLayer(2, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0"}
+	input.Data[0] = 900
+	input.Data[1] = 901
+
+	output := tilemap.NewTileLayer(2, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#0"}
+	output.Data[1] = 7
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+	inputMap := singleLayerMap(2, 1)
+	inputMap.Layers[0].Data[0] = 17
+	inputMap.Layers[0].Data[1] = 17
+
+	_, err := AutomapApply(rulesMap, inputMap)
+	if err == nil {
+		t.Fatalf("expected Different to reject a tile equal to the bound reference")
+	}
+}
+
+func TestExtractRulesRejectsDifferentBeforeReference(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+	rulesMap.Props = map[string]string{"rule_Different": "901"}
+
+	input := tilemap.NewTileLayer(1, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0"}
+	input.Data[0] = 901
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#0"}
+	output.Data[0] = 7
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+	config, err := ParseGlobalConfig(rulesMap.Props)
+	if err != nil {
+		t.Fatalf("ParseGlobalConfig returned error: %v", err)
+	}
+
+	if _, err := ExtractRules(rulesMap, config); err == nil {
+		t.Fatalf("expected Different before a reference binder to fail validation")
+	}
+}
+
 func TestPrepareMapForEdgeMatchingTreatsOverflowAsMatchOutsideMap(t *testing.T) {
 	rulesMap := tilemap.NewTileMap()
 	rulesMap.Props = map[string]string{"rule_OverflowBorder": "true"}

@@ -22,8 +22,10 @@ Define custom tile-IDs with special matching semantics. Each property maps to a 
 | `rule_Empty` | `tileID` | Matcher for "empty cell" (when used as output, erases tile) |
 | `rule_NonEmpty` | `tileID` | Matcher for "any non-empty tile" |
 | `rule_Other` | `tileID` | Matcher for "any tile not used by this rule's input on that layer" |
-| `rule_Ignore` | `tileID` | "Ignore this cell" — used to connect disconnected parts of a rule |
+| `rule_Ignore` | `tileID` | "Ignore this cell" — used to connect disconnected parts of a rule; can bind a relative-match reference tile |
 | `rule_Negate` | `tileID` | Invert matching condition at this cell (makes input like inputnot here) |
+| `rule_Different` | `tileID` | Matcher for "tile value differs from the first reference tile bound earlier in this input group"; empty (`0`) is different by default |
+| `rule_Same` | `tileID` | Matcher for "tile value equals the first reference tile bound earlier in this input group" |
 
 ## Layer-Level Properties (set in `layer.Meta`)
 

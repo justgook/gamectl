@@ -197,8 +197,10 @@ Special tiles are configured on the rules map root `props`. The values are tile 
 | `rule_Empty` | Match an empty cell (`0`). | Write `0`, erasing the target cell. |
 | `rule_NonEmpty` | Match any non-empty cell. | Writes that configured tile ID if used as normal output. |
 | `rule_Other` | Match a tile different from all non-special tiles used by the same input group. Empty matches only when the group does not explicitly use `rule_Empty`. | Writes that configured tile ID if used as normal output. |
-| `rule_Ignore` | Always match; useful to connect disconnected rule parts. | Writes that configured tile ID if used as normal output. |
+| `rule_Ignore` | Always match; useful to connect disconnected rule parts. It can bind the reference tile used by `rule_Different` / `rule_Same`. | Writes that configured tile ID if used as normal output. |
 | `rule_Negate` | Invert the match result at this cell. | Writes that configured tile ID if used as normal output. |
+| `rule_Different` | Match any tile whose value is different from the first reference tile bound earlier in the same input group. Empty (`0`) counts as different by default. | Writes that configured tile ID if used as normal output. |
+| `rule_Same` | Match any tile whose value equals the first reference tile bound earlier in the same input group. | Writes that configured tile ID if used as normal output. |
 
 Example special tile configuration:
 
@@ -209,7 +211,9 @@ Example special tile configuration:
     "rule_Empty": "1028",
     "rule_Other": "1029",
     "rule_Ignore": "1030",
-    "rule_Negate": "1031"
+    "rule_Negate": "1031",
+    "rule_Different": "1032",
+    "rule_Same": "1033"
   }
 }
 ```
@@ -304,7 +308,7 @@ Supported concepts:
 - input and output layers
 - same-index alternate input matchers
 - randomized output variants
-- special tiles: Empty, NonEmpty, Other, Ignore, Negate
+- special tiles: Empty, NonEmpty, Other, Ignore, Negate, Different, Same
 - matching outside map bounds, overflow borders, and wrap borders
 - no-overlap output
 - delete matched input region
