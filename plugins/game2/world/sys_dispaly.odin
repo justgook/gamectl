@@ -3,14 +3,14 @@ package world
 import sg "../sokol/gfx"
 import "core:math/linalg"
 
-sys_display :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
-	// ortho := matrix_ortho_2d(0, f32(fb_w), f32(fb_h), 0)
-	vs_params := Display_Vs_Params {
-		ortho   = ortho^,
-		pos_px  = {300, 300},
-		size_px = [2]f32{GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT},
-	}
-	// sg.update_buffer(pipe.bind.vertex_buffers[1], {ptr = &w.sprite, size = c.size_t(the_count * size_of(Sprite))})
+Display_Pipe :: struct {
+	pip:    sg.Pipeline,
+	bind:   sg.Bindings,
+	params: Display_Vs_Params,
+}
+
+sys_display :: proc(w: ^World) {
+	vs_params := w.display_pipe.params
 	pipe := w.display_pipe
 
 	sg.apply_pipeline(pipe.pip)
@@ -19,16 +19,23 @@ sys_display :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	sg.draw(0, 6, 1)
 }
 
+display_resize :: proc(params: ^Display_Vs_Params, w, h: f32) {
+	half_w: f32 = w * 0.5
+	half_h: f32 = h * 0.5
+	screen_ortho :=
+		linalg.matrix_ortho3d_f32(-half_w, half_w, -half_h, half_h, -1, 1) *
+		linalg.matrix4_translate_f32({-half_w, -half_h, 0})
+	params.ortho = screen_ortho
+	params.pos_px = {300, 300}
+	params.size_px = [2]f32{GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}
+}
+
 @(private = "file")
 BASE_VERTICES := [?][2]f32{{-.5, -.5}, {-.5, .5}, {.5, -.5}, {.5, .5}}
 
 @(private = "file")
 BASE_INDICES := [?]u16{0, 1, 2, 2, 1, 3}
 
-Display_Pipe :: struct {
-	pip:  sg.Pipeline,
-	bind: sg.Bindings,
-}
 
 display_cleanup :: proc(pipe: ^Display_Pipe) {
 	sg.destroy_pipeline(pipe.pip)
