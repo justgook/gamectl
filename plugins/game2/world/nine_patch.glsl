@@ -95,7 +95,7 @@ out vec4 frag_color;
 void main() {
     vec2 uv2 = uv;
     frag_color = texture(sampler2D(tex0, smp), uv2);
-    frag_color.a = 1.0;
+    // frag_color.a = 1.0;
 
     if (patch_coord.x > 1.0 && patch_coord.x < 2.0) {
         uv2.x = frag_repeat_offset.x + mod(frag_repeat.x, frag_repeat_part.x);
@@ -104,6 +104,10 @@ void main() {
     if (patch_coord.y > 1.0 && patch_coord.y < 2.0) {
         uv2.y = frag_repeat_offset.y + mod(frag_repeat.y, frag_repeat_part.y);
         frag_color = texture(sampler2D(tex0, smp), uv2);
+    }
+
+    if (frag_color.a < 0.001) {
+        discard;
     }
 }
 @end

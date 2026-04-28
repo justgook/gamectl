@@ -2,13 +2,11 @@ package world
 
 import "../host"
 import sg "../sokol/gfx"
-import "core:c"
 import "core:math/linalg"
 import "grid"
 import "logic"
 
 // GAME_RESOLUTION :: [2]int{320, 180}
-GAME_RESOLUTION :: [2]c.int{640, 360}
 GAME_RESOLUTION_WIDTH :: 640
 GAME_RESOLUTION_HEIGHT :: 360
 OFFSCREEN_SAMPLE_COUNT :: 1
@@ -84,8 +82,8 @@ init :: proc(w: ^World) {
 	color_img := sg.make_image(
 	{
 		usage = {color_attachment = true},
-		width = GAME_RESOLUTION[0],
-		height = GAME_RESOLUTION[1],
+		width = GAME_RESOLUTION_WIDTH,
+		height = GAME_RESOLUTION_HEIGHT,
 		// pixel_format = .RGBA8,
 		sample_count = OFFSCREEN_SAMPLE_COUNT,
 	},
@@ -94,8 +92,8 @@ init :: proc(w: ^World) {
 	depth_img := sg.make_image(
 		{
 			usage = {depth_stencil_attachment = true},
-			width = GAME_RESOLUTION[0],
-			height = GAME_RESOLUTION[1],
+			width = GAME_RESOLUTION_WIDTH,
+			height = GAME_RESOLUTION_HEIGHT,
 			sample_count = 1,
 			pixel_format = .DEPTH_STENCIL,
 		},
@@ -118,7 +116,7 @@ init :: proc(w: ^World) {
 
 	w.next_entity_id = 100
 	w.sim_frame_length = 1.0 / 60.0
-	w.cam = camera_init({GAME_RESOLUTION_HEIGHT, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
+	w.cam = camera_init({GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
