@@ -98,11 +98,7 @@ export class ViewTilemap extends HTMLElement {
     this.style.display = 'contents'
 
     this.innerHTML = `
-      <article data-element="summary">
-        <output data-element="path"></output>
-        <output data-element="dimensions"></output>
-        <output data-element="dirty"></output>
-      </article>
+      <article data-element="summary"></article>
       <aside data-element="sidebar">
         <fieldset>
           <legend>Layers</legend>
@@ -124,6 +120,9 @@ export class ViewTilemap extends HTMLElement {
         </fieldset>
       </aside>
       <footer>
+        <output data-element="path"></output>
+        <output data-element="dimensions"></output>
+        <output data-element="dirty"></output>
         <output data-element="status">Loading tilemap…</output>
       </footer>
     `
