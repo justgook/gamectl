@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { ViewCanvasBase } from '../util/view-canvas-base.js'
 
 const TOOL = {
   SELECT: 0,
@@ -17,6 +18,8 @@ const TOOL_LABELS = new Map([
   [TOOL.PASTE, 'Paste'],
   [TOOL.FILL, 'Fill'],
 ])
+
+const LAYER_COLORS = ['#7aa2ff', '#3ddc97', '#ffcc66', '#ff5c7a', '#5bd6ff']
 
 const CLIENT_TILESETS = [
   { name: 'dungeon_floor', path: 'tilesets/dungeon_floor.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 1 },
@@ -204,14 +207,12 @@ function validateSnapshot(snapshot) {
   return snapshot
 }
 
-export class ViewTilemap extends HTMLElement {
+export class ViewTilemap extends ViewCanvasBase {
   constructor() {
     super()
     this.state = new TilemapState()
     this.handle = 0
     this.snapshot = null
-    this.headerControlsElement = null
-    this.summaryElement = null
     this.sidebarElement = null
     this.statusElement = null
     this.pathElement = null
@@ -223,6 +224,7 @@ export class ViewTilemap extends HTMLElement {
     this.tilesetPanelsElement = null
     this.activeTilesetName = ''
     this.selectedLayerIndexes = new Set()
+    this.showGrid = true
   }
 
   connectedCallback() {
@@ -231,7 +233,7 @@ export class ViewTilemap extends HTMLElement {
     this.style.display = 'contents'
 
     this.innerHTML = `
-      <article data-element="summary"></article>
+      <canvas data-element="canvas"></canvas>
       <aside data-element="sidebar">
         <fieldset>
           <legend>Layers</legend>
@@ -260,7 +262,6 @@ export class ViewTilemap extends HTMLElement {
       </footer>
     `
 
-    this.summaryElement = this.querySelector('[data-element="summary"]')
     this.sidebarElement = this.querySelector('[data-element="sidebar"]')
     this.statusElement = this.querySelector('[data-element="status"]')
     this.pathElement = this.querySelector('[data-element="path"]')
@@ -271,7 +272,6 @@ export class ViewTilemap extends HTMLElement {
     this.tilesetTabsElement = this.querySelector('[data-element="tileset-tabs"]')
     this.tilesetPanelsElement = this.querySelector('[data-element="tileset-panels"]')
 
-    assert(this.summaryElement instanceof HTMLElement, 'view-tilemap missing summary article')
     assert(this.sidebarElement instanceof HTMLElement, 'view-tilemap missing sidebar')
     assert(this.statusElement instanceof HTMLOutputElement, 'view-tilemap missing status output')
     assert(this.pathElement instanceof HTMLOutputElement, 'view-tilemap missing path output')
@@ -282,19 +282,13 @@ export class ViewTilemap extends HTMLElement {
     assert(this.tilesetTabsElement instanceof HTMLElement, 'view-tilemap missing tileset tabs')
     assert(this.tilesetPanelsElement instanceof HTMLElement, 'view-tilemap missing tileset panels')
 
-    this.mountHeaderControls()
+    super.connectedCallback()
     this.bindEvents()
     void this.bootstrap()
   }
 
-  disconnectedCallback() {
-    this.unmountHeaderControls()
-  }
-
-  mountHeaderControls() {
-    assert(this.parentElement, 'view-tilemap requires parent element for header controls')
+  createHeaderControlsElement() {
     const controls = document.createElement('div')
-    controls.setAttribute('slot', 'header-controls')
     controls.dataset.element = 'header-controls'
     controls.innerHTML = `
       <button type="button" data-action="open"><i aria-hidden="true">folder_open</i></button>
@@ -323,13 +317,7 @@ export class ViewTilemap extends HTMLElement {
       </div>
       <button type="button" data-action="settings"><i aria-hidden="true">settings</i></button>
     `
-    this.headerControlsElement = controls
-    this.parentElement.appendChild(controls)
-  }
-
-  unmountHeaderControls() {
-    if (this.headerControlsElement?.parentElement) this.headerControlsElement.remove()
-    this.headerControlsElement = null
+    return controls
   }
 
   bindEvents() {
@@ -366,14 +354,14 @@ export class ViewTilemap extends HTMLElement {
     this.queryHeader('[data-action="undo"]').addEventListener('click', async () => this.command('undo', 'Undo'))
     this.queryHeader('[data-action="redo"]').addEventListener('click', async () => this.command('redo', 'Redo'))
     this.queryHeader('[data-action="grid"]').addEventListener('click', () => this.toggleGrid())
-    this.queryHeader('[data-action="zoom-in"]').addEventListener('click', () => this.setStatus('Zoom in placeholder', 'info'))
-    this.queryHeader('[data-action="zoom-out"]').addEventListener('click', () => this.setStatus('Zoom out placeholder', 'info'))
-    this.queryHeader('[data-action="zoom-fit"]').addEventListener('click', () => this.setStatus('Zoom fit placeholder', 'info'))
+    this.queryHeader('[data-action="zoom-in"]').addEventListener('click', () => this.zoomIn())
+    this.queryHeader('[data-action="zoom-out"]').addEventListener('click', () => this.zoomOut())
+    this.queryHeader('[data-action="zoom-fit"]').addEventListener('click', () => this.fitToContent())
     this.queryHeader('[data-action="settings"]').addEventListener('click', async () => this.openSettings())
   }
 
   queryHeader(selector) {
-    const element = this.headerControlsElement?.querySelector(selector)
+    const element = this.queryHeaderControl(selector)
     assert(element instanceof HTMLElement, `view-tilemap missing header control ${selector}`)
     return element
   }
@@ -454,6 +442,8 @@ export class ViewTilemap extends HTMLElement {
     assert(button instanceof HTMLButtonElement, 'view-tilemap grid control must be a button')
     const enabled = button.getAttribute('aria-selected') !== 'true'
     button.setAttribute('aria-selected', enabled ? 'true' : 'false')
+    this.showGrid = enabled
+    this.draw()
     this.setStatus(enabled ? 'Grid preview enabled' : 'Grid preview disabled', 'info')
   }
 
@@ -474,6 +464,7 @@ export class ViewTilemap extends HTMLElement {
   async refreshSnapshot(statusText) {
     const snapshot = validateSnapshot(this.state.snapshot())
     this.snapshot = snapshot
+    this.setData(snapshot)
     this.renderSnapshot(snapshot)
     this.setStatus(statusText, snapshot.dirty ? 'warning' : 'success')
   }
@@ -617,8 +608,8 @@ export class ViewTilemap extends HTMLElement {
   }
 
   renderHeaderControls(snapshot) {
-    assert(this.headerControlsElement instanceof HTMLElement, 'view-tilemap missing header controls')
-    for (const button of this.headerControlsElement.querySelectorAll('button[data-tool]')) {
+    assert(this._headerControlsElement instanceof HTMLElement, 'view-tilemap missing header controls')
+    for (const button of this._headerControlsElement.querySelectorAll('button[data-tool]')) {
       assert(button instanceof HTMLButtonElement, 'view-tilemap tool control must be a button')
       const selected = Number(button.dataset.tool) === snapshot.tool
       button.classList.toggle('accent', selected)
@@ -648,6 +639,7 @@ export class ViewTilemap extends HTMLElement {
 
     await this.syncBackendActiveLayerFromSelection()
     this.renderLayers(this.requireSnapshot())
+    this.draw()
     this.setStatus('Layer selection updated', 'info')
   }
 
@@ -700,6 +692,72 @@ export class ViewTilemap extends HTMLElement {
     }
   }
 
+  calculateContentBounds(data) {
+    const snapshot = data || this.snapshot || this.state.snapshot()
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: snapshot.width * 16,
+      maxY: snapshot.height * 16,
+    }
+  }
+
+  drawContent(ctx, data) {
+    const snapshot = data || this.snapshot
+    if (!snapshot) return
+
+    const tileWidth = 16
+    const tileHeight = 16
+    const widthPx = snapshot.width * tileWidth
+    const heightPx = snapshot.height * tileHeight
+
+    ctx.save()
+    ctx.fillStyle = '#18212b'
+    ctx.fillRect(0, 0, widthPx, heightPx)
+
+    for (let y = 0; y < snapshot.height; y++) {
+      for (let x = 0; x < snapshot.width; x++) {
+        const parity = (x + y) % 2
+        ctx.fillStyle = parity ? '#243244' : '#202c3b'
+        ctx.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight)
+      }
+    }
+
+    for (const layer of snapshot.layers) {
+      if (layer.hidden) continue
+      const layerAlpha = this.selectedLayerIndexes.size === 0 || this.selectedLayerIndexes.has(layer.index) ? 0.45 : 0.16
+      ctx.globalAlpha = layerAlpha
+      ctx.fillStyle = LAYER_COLORS[layer.index % LAYER_COLORS.length]
+      const inset = 2 + layer.index * 2
+      for (let y = layer.index; y < snapshot.height; y += 4) {
+        for (let x = layer.index; x < snapshot.width; x += 5) {
+          ctx.fillRect(x * tileWidth + inset, y * tileHeight + inset, tileWidth - inset * 2, tileHeight - inset * 2)
+        }
+      }
+    }
+    ctx.globalAlpha = 1
+
+    if (this.showGrid) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+      ctx.lineWidth = 1 / this.scale
+      ctx.beginPath()
+      for (let x = 0; x <= snapshot.width; x++) {
+        ctx.moveTo(x * tileWidth, 0)
+        ctx.lineTo(x * tileWidth, heightPx)
+      }
+      for (let y = 0; y <= snapshot.height; y++) {
+        ctx.moveTo(0, y * tileHeight)
+        ctx.lineTo(widthPx, y * tileHeight)
+      }
+      ctx.stroke()
+    }
+
+    ctx.strokeStyle = '#ffcc66'
+    ctx.lineWidth = 2 / this.scale
+    ctx.strokeRect(0, 0, widthPx, heightPx)
+    ctx.restore()
+  }
+
   createLayerButton(action, layer, icon, next) {
     const button = document.createElement('button')
     button.type = 'button'
@@ -714,8 +772,8 @@ export class ViewTilemap extends HTMLElement {
   }
 
   setBusy(isBusy) {
-    assert(this.headerControlsElement instanceof HTMLElement, 'view-tilemap missing header controls')
-    for (const button of this.headerControlsElement.querySelectorAll('button')) {
+    assert(this._headerControlsElement instanceof HTMLElement, 'view-tilemap missing header controls')
+    for (const button of this._headerControlsElement.querySelectorAll('button')) {
       button.disabled = isBusy
     }
     if (!isBusy && this.snapshot) this.renderHeaderControls(this.snapshot)
