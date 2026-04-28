@@ -125,6 +125,7 @@ const viewRegistry = new Map([
     create: () => document.createElement('view-files'),
   }],
   ['view-animation', placeholderView('view-animation', 'Animation')],
+  ['view-tilemap', placeholderView('view-tilemap', 'Tilemap')],
   ['view-ng', {
     label: 'Nodegraph',
     create: () => {
