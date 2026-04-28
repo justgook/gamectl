@@ -9,36 +9,43 @@ import "logic"
 
 // GAME_RESOLUTION :: [2]int{320, 180}
 GAME_RESOLUTION :: [2]c.int{640, 360}
+GAME_RESOLUTION_WIDTH :: 640
+GAME_RESOLUTION_HEIGHT :: 360
+OFFSCREEN_SAMPLE_COUNT :: 1
+
 
 World :: struct {
-	next_entity_id:   logic.Entity,
-	sim_frame_length: f64,
-	accumulator:      f64,
-	offscreen:        sg.Image,
-	display_pipe:     ^Display_Pipe,
-	atlas:            sg.Image,
-	lut:              sg.Image,
-	grid:             grid.Grid,
-	cam:              Camera,
-	player1:          ^Input,
-	sprite_pipe:      ^Sprite_Pipe,
-	tilemap_pipe:     ^Tilemap_Pipe,
-	nine_patch_pipe:  ^Nine_Patch_Pipe,
-	uv:               []UV,
-	position:         logic.Component_Storage(Position),
-	velocity:         logic.Component_Storage(Velocity),
-	sprite:           logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
-	tilemap:          logic.Component_Storage_Fixed(Tilemap, MAX_TILEMAPS),
-	nine_patch:       logic.Component_Storage_Fixed(Nine_Patch, NINE_PATCH_RENDER_MAX),
-	brain:            logic.Component_Storage(Brain),
-	input:            logic.Component_Storage(Input),
-	timer:            logic.Component_Storage(Timer),
+	next_entity_id:      logic.Entity,
+	sim_frame_length:    f64,
+	accumulator:         f64,
+	atlas:               sg.Image,
+	lut:                 sg.Image,
+	grid:                grid.Grid,
+	cam:                 Camera,
+	player1:             ^Input,
+	sprite_pipe:         ^Sprite_Pipe,
+	tilemap_pipe:        ^Tilemap_Pipe,
+	nine_patch_pipe:     ^Nine_Patch_Pipe,
+	uv:                  []UV,
+	position:            logic.Component_Storage(Position),
+	velocity:            logic.Component_Storage(Velocity),
+	sprite:              logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
+	tilemap:             logic.Component_Storage_Fixed(Tilemap, MAX_TILEMAPS),
+	nine_patch:          logic.Component_Storage_Fixed(Nine_Patch, NINE_PATCH_RENDER_MAX),
+	brain:               logic.Component_Storage(Brain),
+	input:               logic.Component_Storage(Input),
+	timer:               logic.Component_Storage(Timer),
 	// animations
-	animation_atlas:  Animation_Atlas,
-	animation:        logic.Component_Storage(Animation),
+	animation_atlas:     Animation_Atlas,
+	animation:           logic.Component_Storage(Animation),
+	// NEW rendering
+	offscreen_pass:      sg.Pass,
+	display_pass_action: sg.Pass_Action,
+	display_pipe:        ^Display_Pipe,
+	viewport:            [2]f32,
 }
 
-frame :: proc(pass: sg.Pass, w: ^World, wh: [2]f32, dt: f64) {
+frame :: proc(w: ^World, dt: f64) {
 	w.accumulator += dt
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
@@ -52,27 +59,66 @@ frame :: proc(pass: sg.Pass, w: ^World, wh: [2]f32, dt: f64) {
 
 
 	// RENDER START HERE
-	sg.begin_pass(pass)
+	virtual_half_w: f32 = GAME_RESOLUTION_WIDTH * 0.5
+	virtual_half_h: f32 = GAME_RESOLUTION_HEIGHT * 0.5
+	virtual_screen_ortho :=
+		linalg.matrix_ortho3d_f32(-virtual_half_w, virtual_half_w, -virtual_half_h, virtual_half_h, -1, 1) *
+		linalg.matrix4_translate_f32({-virtual_half_w, -virtual_half_h, 0})
+	sg.begin_pass(w.offscreen_pass)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
-	half_w := wh[0] * 0.5
-	half_h := wh[1] * 0.5
+	sys_nine_patch(w, &virtual_screen_ortho)
+	sg.end_pass()
+
+	// RENDER THE CANVAS ON SCREEN
+	sg.begin_pass({action = w.display_pass_action, swapchain = host.swapchain()})
+	half_w: f32 = w.viewport[0] * 0.5
+	half_h: f32 = w.viewport[1] * 0.5
 	screen_ortho :=
 		linalg.matrix_ortho3d_f32(-half_w, half_w, -half_h, half_h, -1, 1) *
 		linalg.matrix4_translate_f32({-half_w, -half_h, 0})
-	sys_nine_patch(w, &screen_ortho)
-	// TODO: move to different pass
 	sys_display(w, &screen_ortho)
 	sg.end_pass()
+
 	sg.commit()
 }
 
 
 init :: proc(w: ^World, wh: [2]f32) {
-	w.offscreen = sg.make_image(
-		{usage = {color_attachment = true}, width = GAME_RESOLUTION[0], height = GAME_RESOLUTION[1]},
+	// TODO: move outside to display init
+	w.cam.viewport = [2]f32{GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}
+	color_img := sg.make_image(
+	{
+		usage = {color_attachment = true},
+		width = GAME_RESOLUTION[0],
+		height = GAME_RESOLUTION[1],
+		// pixel_format = .RGBA8,
+		sample_count = OFFSCREEN_SAMPLE_COUNT,
+	},
 	)
-	w.display_pipe = display_init(w.atlas)
+	depth_img := sg.make_image(
+		{
+			usage = {depth_stencil_attachment = true},
+			width = GAME_RESOLUTION[0],
+			height = GAME_RESOLUTION[1],
+			sample_count = 1,
+			pixel_format = .DEPTH_STENCIL,
+		},
+	)
+	w.offscreen_pass = {
+		action = {colors = {0 = {load_action = .CLEAR, clear_value = {0.25, 0.25, 0.25, 1.0}}}},
+		attachments = {
+			colors = {0 = sg.make_view({color_attachment = {image = color_img}})},
+			depth_stencil = sg.make_view({depth_stencil_attachment = {image = depth_img}}),
+		},
+	}
+	w.display_pass_action = {
+		colors = {0 = {load_action = .CLEAR, clear_value = {0.08, 0.09, 0.12, 1.0}}},
+		depth = {load_action = .CLEAR, clear_value = 1.0},
+	}
+	// w.display_pipe.bind.views[VIEW_display_tex0] = sg.make_view({texture = {image = color_img}})
+	// w.display_pipe = display_init(w.atlas)
+	w.display_pipe = display_init(color_img)
 
 
 	w.next_entity_id = 100
@@ -133,14 +179,11 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 }
 
 cleanup :: proc(w: ^World) {
-	if w.offscreen.id != 0 {
-		sg.destroy_image(w.offscreen)
-		w.offscreen = {}
-	}
+	// sg.destroy_image(w.offscreen_image)
+	// w.offscreen_image = {}
 	display_cleanup(w.display_pipe)
 
 	delete(w.uv)
-
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.velocity)
 	sprites_cleanup(w.sprite_pipe)
