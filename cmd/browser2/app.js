@@ -177,8 +177,8 @@ function createFsPluginDefinitions(config) {
       runtime: 'js',
       role: 'service',
       url: provider === 'fs.webdav'
-        ? '../builtin/fs-webdav/index.js'
-        : '../builtin/fs-opfs/index.js',
+        ? '../core/fs-webdav/index.js'
+        : '../core/fs-opfs/index.js',
       config: {
         provider,
         webdavUrl,
@@ -189,7 +189,7 @@ function createFsPluginDefinitions(config) {
       id: 'fs.opfs',
       runtime: 'js',
       role: 'service',
-      url: '../builtin/fs-opfs/index.js',
+      url: '../core/fs-opfs/index.js',
       config: {
         provider: 'fs.opfs',
         fs: fsConfig,
@@ -199,7 +199,7 @@ function createFsPluginDefinitions(config) {
       id: 'fs.webdav',
       runtime: 'js',
       role: 'service',
-      url: '../builtin/fs-webdav/index.js',
+      url: '../core/fs-webdav/index.js',
       config: {
         provider: 'fs.webdav',
         webdavUrl,
