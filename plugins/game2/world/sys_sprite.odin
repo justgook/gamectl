@@ -32,7 +32,8 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	}
 
 	vs_params := Sprite_Vs_Params {
-		ortho = ortho^,
+		ortho      = ortho^,
+		atlas_size = pipe.atlas_size,
 	}
 
 
@@ -60,16 +61,15 @@ Sprite :: struct {
 	z:         f32,
 	opacity:   f32,
 	flip:      u8,
-	size:      [2]f32,
 	uv:        [4]f32,
 	color_add: [4]f32, // RGB + intensity for blink/flash effects
 	offset:    [2]i32, // TODO implement in shader
 }
 
 Sprite_Pipe :: struct {
-	pip:  sg.Pipeline,
-	bind: sg.Bindings,
-	// atlas_size: [2]f32,
+	pip:        sg.Pipeline,
+	bind:       sg.Bindings,
+	atlas_size: [2]f32,
 }
 
 sprites_cleanup :: proc(pipe: ^Sprite_Pipe) {
@@ -84,6 +84,8 @@ sprites_cleanup :: proc(pipe: ^Sprite_Pipe) {
 
 sprites_init :: proc(tex0: sg.Image) -> ^Sprite_Pipe {
 	pipe := new(Sprite_Pipe)
+	tex0_desc := sg.query_image_desc(tex0)
+	pipe.atlas_size = {f32(tex0_desc.width), f32(tex0_desc.height)}
 	pipe.bind.samplers[SMP_sprite_default_sampler] = sg.make_sampler({})
 	pipe.bind.views[VIEW_sprite_tex0] = sg.make_view({texture = {image = tex0}})
 
@@ -121,7 +123,6 @@ sprites_init :: proc(tex0: sg.Image) -> ^Sprite_Pipe {
 				ATTR_sprite_sprite_inst_z = {format = .FLOAT, buffer_index = 1},
 				ATTR_sprite_sprite_inst_opacity = {format = .FLOAT, buffer_index = 1},
 				ATTR_sprite_sprite_inst_flip_flags = {format = .UBYTE4, buffer_index = 1},
-				ATTR_sprite_sprite_inst_size = {format = .FLOAT2, buffer_index = 1},
 				ATTR_sprite_sprite_inst_uv = {format = .FLOAT4, buffer_index = 1},
 				ATTR_sprite_sprite_inst_color_add = {format = .FLOAT4, buffer_index = 1},
 				ATTR_sprite_sprite_inst_offset = {format = .INT2, buffer_index = 1},

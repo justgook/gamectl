@@ -79,9 +79,8 @@ frame :: proc(w: ^World, dt: f64) {
 }
 
 
-init :: proc(w: ^World, wh: [2]f32) {
+init :: proc(w: ^World) {
 	// TODO: move outside to display init
-	w.cam.viewport = [2]f32{GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}
 	color_img := sg.make_image(
 	{
 		usage = {color_attachment = true},
@@ -91,6 +90,7 @@ init :: proc(w: ^World, wh: [2]f32) {
 		sample_count = OFFSCREEN_SAMPLE_COUNT,
 	},
 	)
+
 	depth_img := sg.make_image(
 		{
 			usage = {depth_stencil_attachment = true},
@@ -100,6 +100,7 @@ init :: proc(w: ^World, wh: [2]f32) {
 			pixel_format = .DEPTH_STENCIL,
 		},
 	)
+
 	w.offscreen_pass = {
 		action = {colors = {0 = {load_action = .CLEAR, clear_value = {0.25, 0.25, 0.25, 1.0}}}},
 		attachments = {
@@ -117,11 +118,11 @@ init :: proc(w: ^World, wh: [2]f32) {
 
 	w.next_entity_id = 100
 	w.sim_frame_length = 1.0 / 60.0
-	w.cam = camera_init(wh, wh / 2, 1.0)
+	w.cam = camera_init({GAME_RESOLUTION_HEIGHT, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
-	// THE FIRST MOCK DATA
+	// TODO: delete MOCK DATA
 
 	player := create_entity(w)
 	logic.add_component(&w.brain, player, Brain{})
@@ -130,7 +131,8 @@ init :: proc(w: ^World, wh: [2]f32) {
 	logic.add_component(&w.velocity, player, Velocity{})
 	// logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
 	logic.add_component(&w.position, player, Position{})
-	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[968], size = {128, 128}})
+	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[969]})
+	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
 
 	ui := create_entity(w)
 	logic.add_component(
@@ -143,7 +145,7 @@ init :: proc(w: ^World, wh: [2]f32) {
 	// // logic.add_component(
 	// // 	&w.sprite,
 	// // 	background,
-	// // 	Sprite{opacity = 1, uv = {0, 0, 1, 1}, size = {256, 256}},
+	// // 	Sprite{opacity = 1, uv = {0, 0, 1, 1}},
 	// // )
 	// logic.add_component(
 	// 	&w.tilemap,
