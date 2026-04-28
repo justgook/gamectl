@@ -822,6 +822,9 @@
   /* ═══════════════════════════════════════════════════════════════════════════
      TABS
      ═══════════════════════════════════════════════════════════════════════════ */
+  [role="tablist"] {
+    overflow: auto;
+  }
 
   [role="tablist"]>[role="tab"] {
     flex: 0 0 clamp(4rem, 33%, 9rem);
@@ -832,15 +835,14 @@
     text-overflow: ellipsis;
   }
 
+  aside [role="tablist"] {
+    /* TODO: find reason why it not shrinks other way */
+    width: 198px;
+  }
 
   [role="tabpanel"] {
     min-inline-size: 0;
     min-block-size: 0;
-  }
-
-  aside [role="tablist"] {
-    /* TODO: find reason why it not shrinks other way */
-    width: 198px;
   }
 
   [role="tabpanel"][hidden] {
