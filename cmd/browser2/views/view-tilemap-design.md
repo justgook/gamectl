@@ -242,7 +242,7 @@ Status: bootstrapped.
 
 - `cmd/browser2/views/view-tilemap.js` exists.
 - It has no canvas yet.
-- It renders `div[slot="header-controls"]`, summary article, sidebar, and footer status.
+- It extends `ViewCanvasBase` and renders `canvas`, sidebar, and footer status.
 - It marks selected tool buttons with `[aria-selected="true"]` and `.accent`.
 - It disables undo/redo buttons from state snapshot `canUndo` / `canRedo`.
 - It calls private `TilemapState` methods with the final planned API shape.
@@ -266,15 +266,18 @@ Replace `TilemapState` internals with the chosen real implementation:
 
 ### Step 6: canvas
 
-- shared memory descriptor
-- rendering
-- pointer interactions -> `apply`
+Status: placeholder canvas wired.
 
-## Acceptance For HTML-first Phase
+- `view-tilemap.js` now extends `cmd/browser2/util/view-canvas-base.js`.
+- Zoom/pan/fit use the shared canvas base behavior.
+- Header zoom buttons call `zoomIn`, `zoomOut`, and `fitToContent`.
+- Current drawing is a simple 2D placeholder grid/map render from `TilemapState.snapshot()`.
+- Future advanced rendering may replace/extend this with a WebGL path for large maps, mipmaps, lookup tables, shaders, etc.
 
-- `tilemap` plugin is registered in browser2 and loadable.
-- `view-tilemap` opens/creates a mock handle.
-- Header controls call the final API method names.
-- Sidebar renders snapshot layers/tool/selection/undo state.
+## Acceptance For Current Prototype Phase
+
+- `view-tilemap` opens/creates a mock handle through private `TilemapState`.
+- Header controls call the final state method shape.
+- Sidebar renders snapshot layers/tilesets/history state.
+- Canvas renders a placeholder map and supports base zoom/pan/fit.
 - No legacy browser imports.
-- No canvas code is required yet.
