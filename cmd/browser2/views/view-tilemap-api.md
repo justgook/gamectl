@@ -1,34 +1,29 @@
-# view-tilemap / tilemap WASM API
+# view-tilemap State API
 
-This is the browser2 tilemap service API target.
+This is the browser2 tilemap editor state contract used by `cmd/browser2/views/view-tilemap.js`.
 
-Goal: keep the API as close as practical to `plugins/stbte/`, but make document ownership explicit by adding a `handle` argument to every stateful operation.
+Current implementation: a private `TilemapState` class inside `view-tilemap.js`.
 
-## Plugin
+Goal: keep method names close to `plugins/stbte/` and the earlier backend plan, while allowing the browser2 UI to iterate without a temporary fake WASM plugin.
 
-- plugin id: `tilemap`
-- runtime: worker-side WASM singleton
+## State Owner
+
+- state class: `TilemapState`
 - view: `cmd/browser2/views/view-tilemap.js`
-- primary state owner: `tilemap` plugin
-- UI state owner: view only where it is purely visual/camera-related
+- primary state owner for now: private `TilemapState`
+- UI/render owner: `ViewTilemap`
+- no browser2 `tilemap` WASM plugin is currently registered
+- no `runtime.call('tilemap', ...)` path should be used during this prototype phase
 
-## Call Encoding
+## Call Shape
 
-Browser2 runtime calls plugin methods by name. Each method receives JSON input and returns either:
+`ViewTilemap` calls methods directly on `this.state` and renders from `this.state.snapshot()`.
 
-- empty output for status-only calls
-- JSON output for getters/snapshots/descriptors
-
-Return code convention:
-
-- `0`: success
-- non-zero: failure, output is an error message
-
-Internal C/WASM implementation may call functions named like stbte exports, but the browser2 plugin API should expose method names without the `stbte_` prefix where possible.
+State methods should remain simple and close to the planned backend names so the internals can later be replaced by filesystem-backed or WASM-backed state without rewriting the DOM/rendering layer.
 
 ## Handles
 
-Every opened/created map receives a positive integer handle.
+The current client-side state keeps a mock positive handle for API-shape continuity.
 
 ```json
 { "handle": 1 }
@@ -36,7 +31,7 @@ Every opened/created map receives a positive integer handle.
 
 Handle `0` is invalid.
 
-The plugin owns all handle tables and map/editor state. The view never stores raw map pointers as authoritative state.
+The handle is not a WASM pointer and should not be treated as a backend resource id until a real backend exists.
 
 ## Constants
 
@@ -516,11 +511,11 @@ Do not put JSON patching logic in the view.
 
 ## Bootstrap Mock Scope
 
-The first `tilemap` WASM can implement all method names above but return mock/synthetic state:
+The private `TilemapState` prototype implements the method shape above with mock/synthetic state:
 
 - `create/open` returns handle `1`
-- `snapshot` returns fixed dimensions/layers/tools
-- setters return success and update only trivial in-memory fields if cheap
-- `save` returns success without writing, or returns a clear `not implemented` until filesystem wiring starts
+- `snapshot` returns current client-side dimensions/layers/tools
+- setters update local in-memory fields
+- `save` clears the dirty flag without filesystem writes for now
 
-The purpose of the mock is to unblock view header/sidebar development against the final API.
+The purpose of the mock state is to unblock view header/sidebar development against the final API shape without introducing a fake WASM plugin.

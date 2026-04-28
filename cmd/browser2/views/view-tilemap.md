@@ -83,18 +83,17 @@ Recommended initial memory layout:
 - this matches the existing `plugins/stbte` logical store better than legacy JS array-of-layers rendering
 - if 32-bit tile ids become required, explicitly change the format to `u32-layer-major`
 
-## WASM Implementation Notes
+## State Implementation Notes
 
-There is already a headless `plugins/stbte/` C/WASM plugin with useful low-level tilemap editing exports, including logical stores, selection, clipboard, chunk import/export, and undo/redo helpers.
+Current browser2 prototype uses a private `TilemapState` class inside `cmd/browser2/views/view-tilemap.js` instead of a temporary mock WASM plugin.
 
 Planning choice:
 
-- Keep `plugins/stbte` as either:
-  - the first `tilemap` plugin implementation after renaming/registering it as `tilemap`, or
-  - a lower-level implementation reference copied into a new `plugins/tilemap/` service.
-- Browser2 should register the service as `tilemap`, not expose the old `stbte` name to the view unless we explicitly choose that API.
-- Add the plugin to `cmd/browser2/core/gams.json` with imported shared memory if the view needs direct memory reads.
-- Avoid JSON round-trips for every paint/render frame; JSON is for command inputs and metadata snapshots, memory is for tile cell data.
+- Keep UI/rendering in `ViewTilemap`.
+- Keep tilemap/editor logic in `TilemapState` with method names close to the planned backend API.
+- Do not register a browser2 `tilemap` WASM service until there is a concrete backend need.
+- `plugins/stbte/` remains a useful reference for future advanced editing behavior.
+- Avoid JSON round-trips for every paint/render frame when a real backend is introduced.
 
 Open question / requires clarification:
 
@@ -110,12 +109,12 @@ Owns:
 - pointer-to-tile coordinate conversion
 - header controls
 - current tool/tile/layer UI state
-- asking `tilemap` plugin to mutate document state
-- rereading shared memory after mutations and drawing
+- asking private `TilemapState` to mutate document state
+- rendering from state snapshots
 
 Does not own:
 - SQL persistence details
-- tilemap JSON normalization beyond strict validation of plugin outputs
+- tilemap JSON normalization beyond strict validation of state/backend outputs
 - global cache invalidation
 - legacy tilemap editor mutations
 - standalone data source events
@@ -142,8 +141,8 @@ Initial interactions:
 - mouse drag paints current tile to current layer
 - space + drag pans via `ViewCanvasBase`
 - wheel pans; ctrl/cmd wheel zooms via `ViewCanvasBase`
-- fit uses plugin snapshot bounds
-- save calls `tilemap.save`
+- fit uses state snapshot bounds
+- save calls `TilemapState.save` until filesystem persistence is wired
 
 Rendering phase 1:
 - draw grid
@@ -161,7 +160,7 @@ Rendering phase 2:
 
 Normal browser2 tilemap persistence should move to filesystem paths, matching the nodegraph direction.
 
-The view should not build SQL strings. The `tilemap` plugin should call `fs` for open/save.
+The view should not build SQL strings. The current `TilemapState` prototype will later wire open/save to `fs` or be replaced internally by filesystem-backed state.
 
 The existing SQL table can remain an import/export compatibility target for old generator workflows, but it should not be the default browser2 tilemap save path:
 
@@ -191,19 +190,18 @@ Legacy behavior to keep conceptually:
 
 ## Implementation Phases
 
-### Phase 0: contract and registration
+### Phase 0: state contract
 
-- Decide plugin id: `tilemap`.
-- Decide whether to adapt `plugins/stbte` or create `plugins/tilemap`.
-- Add browser2 plugin definition to `cmd/browser2/core/gams.json`.
-- Add this plan's API as the first contract; keep it intentionally small.
+- Keep `TilemapState` method names close to the planned backend API.
+- Do not register a fake `tilemap` plugin during the browser2 UI prototype phase.
+- Add backend/plugin registration only when there is a concrete implementation need.
 
-### Phase 1: minimal service + minimal view
+### Phase 1: minimal state + minimal view
 
-- Implement/load/create/snapshot/paint/save/close.
-- Implement `view-tilemap.js` canvas with colored cell rendering.
+- Implement create/open/snapshot/save in private `TilemapState`.
+- Implement `view-tilemap.js` HTML/sidebar/header shell first.
 - Register/import the view in `cmd/browser2/app.js` and replace the placeholder registry entry.
-- Use strict assertions for required plugin responses and memory descriptors.
+- Use strict assertions for required state snapshots.
 
 ### Phase 2: editor tools
 

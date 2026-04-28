@@ -98,7 +98,7 @@ For real backend save/load, consider `yyjson` for mutable JSON updates:
 - avoid manual string concatenation
 - keep JSON manipulation in WASM/backend, not in the view
 
-Open question: vendoring `yyjson` into `plugins/tilemap/` vs using a smaller custom serializer for phase 1. Mark this as implementation detail after the mock API is in place.
+Open question: vendoring `yyjson` into the eventual tilemap backend vs using a smaller custom serializer. This is deferred until the client-side state prototype settles.
 
 ## Initial UI Scope: HTML First
 
@@ -154,7 +154,7 @@ Suggested sidebar sections:
    - clicking a placeholder cell calls `set_active_tile` with the numeric tile id
    - tilemap persistence/WASM edit state remains numbers only
 3. Non-linear History
-   - placeholder for the upcoming `plugins/tilemap/undo/` integration
+   - placeholder for upcoming tilemap non-linear undo integration
    - undo/redo will be refactored into tilemap history state
 4. Map metadata
    - path
@@ -224,18 +224,17 @@ After HTML shell works:
 
 Done in `view-tilemap-api.md`.
 
-### Step 2: mock WASM service
+### Step 2: client-side state prototype
 
 Status: bootstrapped.
 
-- `plugins/tilemap/main.c` exposes the planned browser2 method names.
-- It maintains tiny mock in-memory document/editor state.
-- `create/open/snapshot` return stable mock data.
-- `cmd/browser2/core/gams.json` registers the plugin as `tilemap` and mounts `/plugins/tilemap.wasm`.
-- `make build.nosync/plugins/tilemap.wasm` succeeds.
-- `make tilemap-test` verifies the mock create/set/apply/snapshot/save loop.
+- `cmd/browser2/views/view-tilemap.js` contains a private `TilemapState` class.
+- `TilemapState` owns mock tilemap/editor state while the view owns DOM/rendering only.
+- `create/open/save/snapshot` and layer/tool/history methods are kept close to the planned backend API names.
+- The temporary `plugins/tilemap/` mock WASM plugin was removed.
+- `cmd/browser2/core/gams.json` no longer registers a tilemap WASM plugin.
 
-Next backend step after UI shell: replace mock internals with a handle table around stbte state.
+Next backend step after UI shell: replace `TilemapState` internals with real tilemap state/persistence while preserving the view-facing method shape.
 
 ### Step 3: HTML-only view
 
@@ -245,18 +244,19 @@ Status: bootstrapped.
 - It has no canvas yet.
 - It renders `div[slot="header-controls"]`, summary article, sidebar, and footer status.
 - It marks selected tool buttons with `[aria-selected="true"]` and `.accent`.
-- It disables undo/redo buttons from backend snapshot `canUndo` / `canRedo`.
-- It calls `runtime.call('tilemap', ...)` with the final mock API names.
+- It disables undo/redo buttons from state snapshot `canUndo` / `canRedo`.
+- It calls private `TilemapState` methods with the final planned API shape.
 - It renders mock `snapshot` state.
 - `cmd/browser2/app.js` imports the view and replaces the placeholder registry entry.
 
-### Step 4: real backend state
+### Step 4: real backend/state
 
-Adapt `plugins/stbte` API internally with handle table:
+Replace `TilemapState` internals with the chosen real implementation:
 
-- `handle -> stbte_tilemap*`
-- method JSON args -> existing `stbte_*` calls
-- `snapshot` reads state from structs/offset helpers
+- filesystem-backed tilemap JSON persistence
+- tile numbers as authoritative edit data
+- optional later stbte/tilemap backend for advanced editing operations
+- `snapshot` remains the view-facing state projection
 
 ### Step 5: filesystem persistence
 
