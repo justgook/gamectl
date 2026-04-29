@@ -338,6 +338,8 @@ web: $(PLUGIN_TARGETS)
 	$(Q)cp -r cmd/browser/. $(BUILD_DIR)/web/
 	$(Q)echo "  Copying plugins..."
 	$(Q)cp -r $(BUILD_DIR)/plugins/* $(BUILD_DIR)/web/plugins/
+	$(Q)echo "  Copying assets..."
+	$(Q)cp -r assets/* $(BUILD_DIR)/web/assets/
 	$(Q)echo "✓ Production build ready at $(BUILD_DIR)/web/"
 
 .PHONY: clean

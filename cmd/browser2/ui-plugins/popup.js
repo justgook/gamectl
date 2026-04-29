@@ -312,9 +312,9 @@ export class ViewPopup extends HTMLElement {
             <button part="close" type="button" data-action="close" aria-label="Close popup"><i style="font-size: inherit;">close</i></button>
 
           </header>
-          <div part="body">
+          <main part="body">
             <slot></slot>
-          </div>
+          </main>
         </section>
       `
 
