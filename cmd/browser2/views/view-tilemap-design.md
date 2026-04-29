@@ -272,6 +272,7 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 - Zoom/pan/fit use the shared canvas base behavior.
 - Header zoom buttons call `zoomIn`, `zoomOut`, and `fitToContent`.
 - Open uses a `ui.popup` with `view-sql` in chooser mode against `tilemap_storage`; the popup options are isolated in `createOpenTilemapPopupOptions()` so replacing the chooser content with `view-files mode:chooser` later is a one-method content swap.
+- Save As uses `view-sql` in saver mode: users may click an existing row or type a new `tilemap_storage.name`, and `view-tilemap` decides to `INSERT OR REPLACE` that name.
 - Current drawing is a 2D canvas render from `TilemapState.snapshot()` tile data.
 - Tileset behavior:
   - maps without tileset metadata use one generated tileset sized to the maximum tile id present in the map.
@@ -289,7 +290,7 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 
 ## Acceptance For Current Prototype Phase
 
-- `view-tilemap` opens/creates a mock handle through private `TilemapState`.
+- `view-tilemap` opens `DEFAULT_TILEMAP_NAME` (`default`) from `tilemap_storage` during bootstrap.
 - Header controls call the final state method shape.
 - Sidebar renders snapshot layers/tilesets/history state.
 - Canvas renders a placeholder map and supports base zoom/pan/fit.
