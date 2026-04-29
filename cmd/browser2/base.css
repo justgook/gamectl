@@ -832,7 +832,7 @@
 
   aside [role="tablist"] {
     /* TODO: find reason why it not shrinks other way */
-    width: 198px;
+    width: 196px;
   }
 
   [role="tabpanel"] {
