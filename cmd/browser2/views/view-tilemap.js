@@ -716,10 +716,10 @@ export class ViewTilemap extends ViewCanvasBase {
     } else if (action === 'layer-delete') {
       this.state.deleteLayer(layer)
     } else if (action === 'layer-up') {
-      this.state.moveLayer(layer, Math.max(0, layer - 1))
-    } else if (action === 'layer-down') {
-      assert(this.snapshot, 'view-tilemap missing snapshot for layer-down')
+      assert(this.snapshot, 'view-tilemap missing snapshot for layer-up')
       this.state.moveLayer(layer, Math.min(this.snapshot.layers.length - 1, layer + 1))
+    } else if (action === 'layer-down') {
+      this.state.moveLayer(layer, Math.max(0, layer - 1))
     } else {
       throw new Error(`view-tilemap unknown layer action ${action}`)
     }
@@ -1111,7 +1111,7 @@ export class ViewTilemap extends ViewCanvasBase {
     tbody.replaceChildren()
     this.normalizeSelectedLayers(snapshot)
 
-    for (const layer of snapshot.layers) {
+    for (const layer of snapshot.layers.toReversed()) {
       const row = document.createElement('tr')
       row.dataset.layer = String(layer.index)
       if (this.selectedLayerIndexes.has(layer.index)) row.setAttribute('aria-selected', 'true')
