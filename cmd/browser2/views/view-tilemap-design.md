@@ -271,7 +271,8 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 - `view-tilemap.js` now extends `cmd/browser2/util/view-canvas-base.js`.
 - Zoom/pan/fit use the shared canvas base behavior.
 - Header zoom buttons call `zoomIn`, `zoomOut`, and `fitToContent`.
-- Current drawing is a simple 2D placeholder grid/map render from `TilemapState.snapshot()`.
+- Open uses a `ui.popup` with `view-sql` in chooser mode against `tilemap_storage`; the popup options are isolated in `createOpenTilemapPopupOptions()` so replacing the chooser content with `view-files mode:chooser` later is a one-method content swap.
+- Current drawing is a simple 2D canvas render from `TilemapState.snapshot()` tile data.
 - `view-tilemap.js` owns the internal render helpers because each `view-*.js` must be deployment-contained:
   - `TilemapRender` draws the main map canvas from a snapshot plus view-owned selection/grid/camera data.
   - `TilesetRender` draws client-side tileset picker canvases and maps clicks to tile ids.
