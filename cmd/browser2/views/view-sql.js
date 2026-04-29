@@ -51,6 +51,8 @@ export class ViewSql extends HTMLElement {
     this.query = ''
     this.countQuery = ''
     this.confirmLabel = 'Select'
+    this.valueLabel = 'Name'
+    this.value = ''
     this.returnColumn = ''
     this.returnFields = []
     this.selectedRowIndex = -1
@@ -64,6 +66,7 @@ export class ViewSql extends HTMLElement {
     this.tableStatusContainer = null
     this.actionCancelButton = null
     this.actionSelectButton = null
+    this.actionValueInput = null
     this._headerControlsElement = null
   }
 
@@ -104,7 +107,7 @@ export class ViewSql extends HTMLElement {
       this.pageSize = event.detail.pageSize
       this.selectedRowIndex = -1
       this.cancelEdit()
-      if (this.mode === 'chooser') {
+      if (this.mode === 'chooser' || this.mode === 'saver') {
         await this.fetchQueryData()
         this.renderTable()
         this.renderPagination()
@@ -183,7 +186,9 @@ export class ViewSql extends HTMLElement {
     this.mode = String(props.mode || this.getAttribute('data-mode') || 'browser')
     this.query = String(props.query || this.getAttribute('data-query') || '')
     this.countQuery = String(props.countQuery || this.getAttribute('data-count-query') || '')
-    this.confirmLabel = String(props.confirmLabel || this.getAttribute('data-confirm-label') || 'Select')
+    this.confirmLabel = String(props.confirmLabel || this.getAttribute('data-confirm-label') || (this.mode === 'saver' ? 'Save' : 'Select'))
+    this.valueLabel = String(props.valueLabel || this.getAttribute('data-value-label') || 'Name')
+    this.value = String(props.value ?? this.getAttribute('data-value') ?? '')
     this.returnColumn = String(props.returnColumn || this.getAttribute('data-return-column') || '')
     const returnFieldsInput = props.returnFields ?? this.getAttribute('data-return-fields') ?? ''
     this.returnFields = Array.isArray(returnFieldsInput)
@@ -204,10 +209,12 @@ export class ViewSql extends HTMLElement {
 
     this.actionCancelButton?.remove()
     this.actionSelectButton?.remove()
+    this.actionValueInput?.remove()
     this.actionCancelButton = null
     this.actionSelectButton = null
+    this.actionValueInput = null
 
-    if (this.mode !== 'chooser') return
+    if (this.mode !== 'chooser' && this.mode !== 'saver') return
 
     this.actionCancelButton = document.createElement('button')
     this.actionCancelButton.type = 'button'
@@ -217,6 +224,19 @@ export class ViewSql extends HTMLElement {
       await runtime.call('ui.popup', 'close', { cancelled: true, ok: false })
     })
     footer.appendChild(this.actionCancelButton)
+
+    if (this.mode === 'saver') {
+      this.actionValueInput = document.createElement('input')
+      this.actionValueInput.type = 'text'
+      this.actionValueInput.value = this.value
+      this.actionValueInput.placeholder = this.valueLabel
+      this.actionValueInput.setAttribute('aria-label', this.valueLabel)
+      this.actionValueInput.addEventListener('input', () => {
+        this.value = this.actionValueInput.value
+        this.updateChooserUI()
+      })
+      footer.appendChild(this.actionValueInput)
+    }
 
     this.actionSelectButton = document.createElement('button')
     this.actionSelectButton.type = 'button'
@@ -231,7 +251,7 @@ export class ViewSql extends HTMLElement {
 
   updateModeUI() {
     if (this.tablesPaneElement instanceof HTMLElement) {
-      this.tablesPaneElement.hidden = this.mode === 'chooser'
+      this.tablesPaneElement.hidden = this.mode === 'chooser' || this.mode === 'saver'
     }
     this.updateHeaderControlsUI()
     this.updateChooserUI()
@@ -263,7 +283,7 @@ export class ViewSql extends HTMLElement {
     this.renderFooter()
     this.updateModeUI()
 
-    if (this.mode === 'chooser') {
+    if (this.mode === 'chooser' || this.mode === 'saver') {
       this.setTableStatus('Loading...')
       this.setTablesStatus('')
       this.selectedTable = null
@@ -382,8 +402,8 @@ export class ViewSql extends HTMLElement {
   }
 
   async fetchQueryData() {
-    assert(this.query, 'view-sql chooser mode requires query')
-    assert(this.countQuery, 'view-sql chooser mode requires countQuery')
+    assert(this.query, 'view-sql chooser/saver mode requires query')
+    assert(this.countQuery, 'view-sql chooser/saver mode requires countQuery')
 
     const params = {
       offset: this.currentPage * this.pageSize,
@@ -493,7 +513,7 @@ export class ViewSql extends HTMLElement {
 
     const tbody = document.createElement('tbody')
 
-    if (this.mode !== 'chooser' && !this.selectedTable) {
+    if (this.mode !== 'chooser' && this.mode !== 'saver' && !this.selectedTable) {
       const tr = document.createElement('tr')
       const td = document.createElement('td')
       td.textContent = 'Select a table.'
@@ -537,7 +557,7 @@ export class ViewSql extends HTMLElement {
       tr.addEventListener('click', () => this.selectRow(rowIndex))
       tr.addEventListener('dblclick', async () => {
         this.selectRow(rowIndex)
-        if (this.mode === 'chooser') await this.confirmSelection()
+        if (this.mode === 'chooser' || this.mode === 'saver') await this.confirmSelection()
       })
 
       this.columns.forEach((column, colIndex) => {
@@ -547,7 +567,7 @@ export class ViewSql extends HTMLElement {
         td.dataset.colIndex = String(colIndex)
         this.renderCell(td, row[column], column)
         td.addEventListener('dblclick', (event) => {
-          if (this.mode === 'chooser') return
+          if (this.mode === 'chooser' || this.mode === 'saver') return
           event.stopPropagation()
           this.selectRow(rowIndex)
           this.startEdit(td, rowIndex, colIndex, row[column], column)
@@ -608,6 +628,15 @@ export class ViewSql extends HTMLElement {
 
   selectRow(rowIndex) {
     this.selectedRowIndex = rowIndex
+    if (this.mode === 'saver') {
+      const selection = this.getSelection()
+      const projected = this.projectSelection(selection)
+      const nextValue = String(projected?.value ?? selection?.primaryKeyValue ?? '')
+      if (nextValue.length > 0) {
+        this.value = nextValue
+        if (this.actionValueInput instanceof HTMLInputElement) this.actionValueInput.value = nextValue
+      }
+    }
     this.querySelectorAll('tr[data-row-index]').forEach((row) => {
       row.setAttribute('aria-selected', Number(row.dataset.rowIndex) === rowIndex ? 'true' : 'false')
     })
@@ -648,21 +677,34 @@ export class ViewSql extends HTMLElement {
   }
 
   updateChooserUI() {
-    if (this.mode !== 'chooser') return
+    if (this.mode !== 'chooser' && this.mode !== 'saver') return
     const selection = this.getSelection()
+    const projected = this.projectSelection(selection)
     if (this.actionSelectButton instanceof HTMLButtonElement) {
       this.actionSelectButton.textContent = this.confirmLabel
-      this.actionSelectButton.disabled = !selection
+      this.actionSelectButton.disabled = this.mode === 'chooser' ? !selection : this.value.trim().length === 0
     }
     this.dispatchEvent(new CustomEvent('selection-changed', {
       bubbles: true,
-      detail: { selection: this.projectSelection(selection) },
+      detail: { selection: projected },
     }))
   }
 
   async confirmSelection() {
     const selection = this.getSelection()
-    if (!selection) return
+    if (this.mode === 'chooser' && !selection) return
+    if (this.mode === 'saver') {
+      const value = this.value.trim()
+      if (!value) return
+      await runtime.call('ui.popup', 'close', {
+        ok: true,
+        cancelled: false,
+        value,
+        row: selection?.row || null,
+        selection: this.projectSelection(selection),
+      })
+      return
+    }
     const payload = this.projectSelection(selection)
     await runtime.call('ui.popup', 'close', payload)
   }
@@ -853,7 +895,7 @@ export class ViewSql extends HTMLElement {
   handleKeyDown(event) {
     if (this.editingCell) return
 
-    if (this.mode === 'chooser') {
+    if (this.mode === 'chooser' || this.mode === 'saver') {
       if (event.key === 'Enter') {
         event.preventDefault()
         void this.confirmSelection()

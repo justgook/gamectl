@@ -37,6 +37,8 @@ const GENERATED_TILESET_PALETTE = [
   '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000', '#a9a9ff', '#ff7f50',
 ]
 
+const DEFAULT_TILEMAP_NAME = 'default'
+
 const DEFAULT_COLOR_TILESET_SPEC = {
   name: 'colors',
   path: 'generated:colors',
@@ -64,42 +66,18 @@ class TilemapCommand {
 class TilemapState {
   constructor() {
     this.handle = 1
-    this.path = 'maps/mock.tilemap.json'
-    this.name = 'mock'
-    this.width = 32
-    this.height = 24
+    this.path = `sql:tilemap_storage/${DEFAULT_TILEMAP_NAME}`
+    this.name = DEFAULT_TILEMAP_NAME
+    this.width = 1
+    this.height = 1
     this.props = {}
-    this.layers = [
-      { index: 0, name: 'Layer 0', hidden: false, locked: false, width: 32, data: [] },
-      { index: 1, name: 'Layer 1', hidden: false, locked: false, width: 32, data: [] },
-      { index: 2, name: 'Layer 2', hidden: false, locked: false, width: 32, data: [] },
-    ]
+    this.layers = []
     this.activeLayer = 0
     this.tool = TOOL.BRUSH
     this.activeTile = 1
     this.dirty = false
     this.history = new UndoHistory()
     this.hasClipboard = false
-  }
-
-  create({ path, width, height, layers }) {
-    this.path = path
-    this.name = String(path)
-    this.width = width
-    this.height = height
-    this.props = {}
-    this.layers = Array.from({ length: layers }, (_item, index) => ({
-      index,
-      name: `Layer ${index}`,
-      hidden: false,
-      locked: false,
-      width,
-      data: new Array(width * height).fill(0),
-    }))
-    this.activeLayer = layers > 0 ? 0 : -1
-    this.dirty = false
-    this.resetHistory()
-    return { handle: this.handle }
   }
 
   open({ name, data }) {
@@ -111,9 +89,22 @@ class TilemapState {
     return { handle: this.handle }
   }
 
-  save({ path }) {
-    this.path = path
+  save({ name }) {
+    assert(typeof name === 'string' && name.length > 0, 'tilemap state save requires tilemap name')
+    this.name = name
+    this.path = `sql:tilemap_storage/${name}`
     this.dirty = false
+  }
+
+  toStorageData() {
+    return JSON.stringify({
+      props: { ...this.props },
+      layers: this.layers.map((layer) => ({
+        width: layer.width,
+        data: layer.data.slice(),
+        props: { ...(layer.props || {}), name: layer.name },
+      })),
+    })
   }
 
   loadTilemapData(name, data) {
@@ -743,7 +734,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
     this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.openTilemap())
     this.queryHeader('[data-action="save"]').addEventListener('click', async () => this.save())
-    this.queryHeader('[data-action="save-as"]').addEventListener('click', async () => this.saveAsMock())
+    this.queryHeader('[data-action="save-as"]').addEventListener('click', async () => this.saveAs())
     this.queryHeader('[data-action="reload"]').addEventListener('click', async () => this.reload())
     this.queryHeader('[data-action="select"]').addEventListener('click', async () => this.setTool(TOOL.SELECT))
     this.queryHeader('[data-action="brush"]').addEventListener('click', async () => this.setTool(TOOL.BRUSH))
@@ -770,18 +761,13 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async bootstrap() {
     this.setBusy(true)
-    this.setStatus('Creating mock tilemap…', 'info')
+    this.setStatus(`Opening ${DEFAULT_TILEMAP_NAME} tilemap…`, 'info')
     try {
-      const path = this.getAttribute('path') || this.getAttribute('data-path') || 'maps/mock.tilemap.json'
-      const result = this.state.create({
-        path,
-        width: 32,
-        height: 24,
-        layers: 3,
-      })
-      assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap create returned invalid handle')
+      const tilemap = await this.loadTilemapStorageRecord(DEFAULT_TILEMAP_NAME)
+      const result = this.state.open(tilemap)
+      assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap default open returned invalid handle')
       this.handle = result.handle
-      await this.refreshSnapshot('Ready', { autoFit: true })
+      await this.refreshSnapshot(`Opened ${DEFAULT_TILEMAP_NAME}`, { autoFit: true })
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
       await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
@@ -869,18 +855,72 @@ export class ViewTilemap extends ViewCanvasBase {
     return decodeOutput(result)
   }
 
-  async saveAsMock() {
-    this.state.save({ path: this.snapshot?.path || 'maps/mock.tilemap.json' })
-    await this.refreshSnapshot('Saved as mock path')
+  async execSql(sql) {
+    const result = await runtime.call('sql', 'exec', sql)
+    if (result.returnCode !== 0) {
+      throw new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
+    }
+    return decodeOutput(result)
+  }
+
+  async saveAs() {
+    const payload = await this.chooseSaveTarget()
+    if (payload.cancelled) return
+    await this.saveToStorageName(payload.name)
+    await this.refreshSnapshot(`Saved as ${payload.name}`)
+    await runtime.call('ui.toast', 'success', { message: `Saved tilemap ${payload.name}` })
   }
 
   async save() {
-    this.state.save({ path: this.snapshot?.path || 'maps/mock.tilemap.json' })
+    assert(this.snapshot, 'view-tilemap save requires current snapshot')
+    await this.saveToStorageName(this.snapshot.name)
     await this.refreshSnapshot('Saved')
+    await runtime.call('ui.toast', 'success', { message: `Saved tilemap ${this.snapshot.name}` })
+  }
+
+  async chooseSaveTarget() {
+    const result = await runtime.call('ui.popup', 'open', this.createSaveTilemapPopupOptions())
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return { cancelled: true }
+    const name = typeof payload.value === 'string' ? payload.value.trim() : ''
+    assert(name.length > 0, 'view-tilemap save-as requires tilemap_storage name')
+    return { cancelled: false, name }
+  }
+
+  createSaveTilemapPopupOptions() {
+    return {
+      title: 'Save Tilemap As',
+      size: 'medium',
+      tag: 'view-sql',
+      props: {
+        mode: 'saver',
+        query: 'SELECT name FROM tilemap_storage ORDER BY name LIMIT :limit OFFSET :offset',
+        countQuery: 'SELECT COUNT(*) AS count FROM tilemap_storage',
+        returnColumn: 'name',
+        confirmLabel: 'Save',
+        valueLabel: 'Tilemap name',
+        value: this.snapshot?.name || DEFAULT_TILEMAP_NAME,
+        pageSize: 20,
+      },
+    }
+  }
+
+  async saveToStorageName(name) {
+    assert(typeof name === 'string' && name.length > 0, 'view-tilemap save requires tilemap_storage name')
+    const data = this.state.toStorageData()
+    await this.execSql(`INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES (${quoteSqlValue(name)}, ${quoteSqlValue(data)})`)
+    this.state.save({ name })
   }
 
   async reload() {
-    await this.refreshSnapshot('Reloaded snapshot')
+    assert(this.snapshot, 'view-tilemap reload requires current snapshot')
+    assert(typeof this.snapshot.name === 'string' && this.snapshot.name.length > 0, 'view-tilemap reload requires current tilemap name')
+    const tilemap = await this.loadTilemapStorageRecord(this.snapshot.name)
+    const result = this.state.open(tilemap)
+    assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap reload returned invalid handle')
+    this.handle = result.handle
+    this.selectedLayerIndexes.clear()
+    await this.refreshSnapshot(`Reloaded ${tilemap.name}`, { autoFit: true })
   }
 
   async setTool(tool) {
