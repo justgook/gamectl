@@ -246,6 +246,7 @@
   }
 
   fieldset {
+    border: 2px solid transparent;
     border-image: var(--win98-icon-groupbox-border) 2;
     padding: calc(2 * var(--border-width) + var(--element-spacing));
     padding-block-start: var(--element-spacing);
