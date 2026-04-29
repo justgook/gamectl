@@ -66,6 +66,7 @@ Optional elements should appear at most once per view.
 - `input[type="email"]` - email input.
 - `input[type="password"]` - password input.
 - `input[type="checkbox"]` - boolean/toggle form input.
+- `input[type="file"]` - native file picker for upload/import actions; may be created hidden and triggered by a documented button.
 - `button` - interactive action control.
 - `select` - select/dropdown input.
 - `option` - option item inside `select`.
@@ -76,6 +77,10 @@ Optional elements should appear at most once per view.
 ## Text output
 
 - `pre` - preformatted read-only text output for logs, console transcripts, and whitespace-sensitive textual results.
+
+## File transfer helpers
+
+- `a[download]` - temporary browser download trigger for exporting/downloading files; create programmatically and remove after activation.
 
 ## Icons
 
