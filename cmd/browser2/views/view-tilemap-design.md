@@ -266,13 +266,16 @@ Replace `TilemapState` internals with the chosen real implementation:
 
 ### Step 6: canvas
 
-Status: placeholder canvas wired.
+Status: placeholder canvas wired and renderer split started.
 
 - `view-tilemap.js` now extends `cmd/browser2/util/view-canvas-base.js`.
 - Zoom/pan/fit use the shared canvas base behavior.
 - Header zoom buttons call `zoomIn`, `zoomOut`, and `fitToContent`.
 - Current drawing is a simple 2D placeholder grid/map render from `TilemapState.snapshot()`.
-- Future advanced rendering may replace/extend this with a WebGL path for large maps, mipmaps, lookup tables, shaders, etc.
+- `cmd/browser2/views/view-tilemap-render.js` owns the render helpers:
+  - `TilemapRender` draws the main map canvas from a snapshot plus view-owned selection/grid/camera data.
+  - `TilesetRender` draws client-side tileset picker canvases and maps clicks to tile ids.
+- Future advanced rendering should replace/extend `TilemapRender` with a WebGL path for large maps, mipmaps, lookup tables, shaders, etc.
 
 ## Acceptance For Current Prototype Phase
 
