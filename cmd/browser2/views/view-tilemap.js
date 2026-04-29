@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { UndoHistory } from '../util/undo.js'
 import { ViewCanvasBase } from '../util/view-canvas-base.js'
 
 const TOOL = {
@@ -32,6 +33,17 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
+class TilemapCommand {
+  constructor(label, redo, undo) {
+    assert(typeof label === 'string' && label.length > 0, 'tilemap command label must be non-empty string')
+    assert(typeof redo === 'function', 'tilemap command redo must be function')
+    assert(typeof undo === 'function', 'tilemap command undo must be function')
+    this.label = label
+    this.redo = redo
+    this.undo = undo
+  }
+}
+
 class TilemapState {
   constructor() {
     this.handle = 1
@@ -47,8 +59,7 @@ class TilemapState {
     this.tool = TOOL.BRUSH
     this.activeTile = 1
     this.dirty = false
-    this.canUndo = false
-    this.canRedo = false
+    this.history = new UndoHistory()
     this.hasClipboard = false
   }
 
@@ -64,14 +75,14 @@ class TilemapState {
     }))
     this.activeLayer = layers > 0 ? 0 : -1
     this.dirty = false
-    this.canUndo = false
-    this.canRedo = false
+    this.resetHistory()
     return { handle: this.handle }
   }
 
   open({ path }) {
     this.path = path
     this.dirty = false
+    this.resetHistory()
     return { handle: this.handle }
   }
 
@@ -91,8 +102,9 @@ class TilemapState {
       activeLayer: this.activeLayer,
       tool: this.tool,
       activeTile: this.activeTile,
-      canUndo: this.canUndo,
-      canRedo: this.canRedo,
+      canUndo: this.history.canUndo(),
+      canRedo: this.history.canRedo(),
+      history: this.createHistorySnapshot(),
     }
   }
 
@@ -109,44 +121,78 @@ class TilemapState {
   }
 
   setLayerHidden(layer, hidden) {
-    this.requireLayer(layer).hidden = hidden
+    const target = this.requireLayer(layer)
+    const previous = target.hidden
+    if (previous === hidden) return
+    this.executeDirtyCommand(`Set ${target.name} ${hidden ? 'hidden' : 'visible'}`, () => {
+      this.requireLayer(layer).hidden = hidden
+    }, () => {
+      this.requireLayer(layer).hidden = previous
+    })
   }
 
   setLayerLocked(layer, locked) {
-    this.requireLayer(layer).locked = locked
+    const target = this.requireLayer(layer)
+    const previous = target.locked
+    if (previous === locked) return
+    this.executeDirtyCommand(`Set ${target.name} ${locked ? 'locked' : 'unlocked'}`, () => {
+      this.requireLayer(layer).locked = locked
+    }, () => {
+      this.requireLayer(layer).locked = previous
+    })
   }
 
   insertLayer(index) {
     assert(index >= 0 && index <= this.layers.length, 'tilemap state insert layer index out of range')
-    this.layers.splice(index, 0, { index, name: `Layer ${index}`, hidden: false, locked: false })
-    this.renumberLayers()
-    this.markDirty()
+    const previousActiveLayer = this.activeLayer
+    this.executeDirtyCommand(`Insert layer ${index}`, () => {
+      this.layers.splice(index, 0, { index, name: `Layer ${index}`, hidden: false, locked: false })
+      this.renumberLayers()
+      this.activeLayer = index
+    }, () => {
+      this.layers.splice(index, 1)
+      this.renumberLayers()
+      this.activeLayer = previousActiveLayer
+    })
   }
 
   deleteLayer(index) {
     assert(this.layers.length > 1, 'tilemap state must keep at least one layer')
-    this.requireLayer(index)
-    this.layers.splice(index, 1)
-    this.renumberLayers()
-    if (this.activeLayer === index) this.activeLayer = -1
-    else if (this.activeLayer > index) this.activeLayer -= 1
-    this.markDirty()
+    const deletedLayer = { ...this.requireLayer(index) }
+    const previousActiveLayer = this.activeLayer
+    this.executeDirtyCommand(`Delete ${deletedLayer.name}`, () => {
+      this.layers.splice(index, 1)
+      this.renumberLayers()
+      if (this.activeLayer === index) this.activeLayer = -1
+      else if (this.activeLayer > index) this.activeLayer -= 1
+    }, () => {
+      this.layers.splice(index, 0, { ...deletedLayer })
+      this.renumberLayers()
+      this.activeLayer = previousActiveLayer
+    })
   }
 
   moveLayer(from, to) {
     this.requireLayer(from)
     this.requireLayer(to)
     if (from === to) return
-    const [layer] = this.layers.splice(from, 1)
-    this.layers.splice(to, 0, layer)
-    this.renumberLayers()
-    this.activeLayer = to
-    this.markDirty()
+    const previousActiveLayer = this.activeLayer
+    this.executeDirtyCommand(`Move layer ${from} to ${to}`, () => {
+      this.moveLayerRaw(from, to)
+      this.activeLayer = to
+    }, () => {
+      this.moveLayerRaw(to, from)
+      this.activeLayer = previousActiveLayer
+    })
   }
 
   cut() {
-    this.hasClipboard = true
-    this.markDirty()
+    const previousClipboard = this.hasClipboard
+    this.executeDirtyCommand('Cut selection', () => {
+      this.hasClipboard = true
+    }, () => {
+      this.hasClipboard = previousClipboard
+    })
   }
 
   copy() {
@@ -154,19 +200,50 @@ class TilemapState {
   }
 
   undo() {
-    this.canUndo = false
-    this.canRedo = true
+    this.history.undo()
   }
 
   redo() {
-    this.canUndo = true
-    this.canRedo = false
+    this.history.redo()
   }
 
-  markDirty() {
+  moveHistoryTo(index) {
+    const state = this.history.toArray()[index]
+    assert(state, `tilemap state missing history index ${index}`)
+    this.history.moveTo(state)
     this.dirty = true
-    this.canUndo = true
-    this.canRedo = false
+  }
+
+  executeDirtyCommand(label, redo, undo) {
+    this.history.execute(new TilemapCommand(label, () => {
+      redo()
+      this.dirty = true
+    }, () => {
+      undo()
+      this.dirty = true
+    }))
+  }
+
+  moveLayerRaw(from, to) {
+    const [layer] = this.layers.splice(from, 1)
+    assert(layer, `tilemap state missing layer ${from}`)
+    this.layers.splice(to, 0, layer)
+    this.renumberLayers()
+  }
+
+  resetHistory() {
+    this.history.dispose()
+    this.history = new UndoHistory()
+  }
+
+  createHistorySnapshot() {
+    const states = this.history.toArray()
+    return states.map((state, index) => ({
+      index,
+      label: state.command.label,
+      current: state === this.history.current,
+      parentIndex: state.parent ? states.indexOf(state.parent) : -1,
+    }))
   }
 
   renumberLayers() {
@@ -196,6 +273,13 @@ function validateSnapshot(snapshot) {
   assert(Number.isInteger(snapshot.activeTile), 'view-tilemap snapshot.activeTile must be integer')
   assert(typeof snapshot.canUndo === 'boolean', 'view-tilemap snapshot.canUndo must be boolean')
   assert(typeof snapshot.canRedo === 'boolean', 'view-tilemap snapshot.canRedo must be boolean')
+  assert(Array.isArray(snapshot.history), 'view-tilemap snapshot.history must be array')
+  for (const entry of snapshot.history) {
+    assert(Number.isInteger(entry.index), 'view-tilemap history.index must be integer')
+    assert(typeof entry.label === 'string' && entry.label.length > 0, 'view-tilemap history.label must be non-empty string')
+    assert(typeof entry.current === 'boolean', 'view-tilemap history.current must be boolean')
+    assert(Number.isInteger(entry.parentIndex), 'view-tilemap history.parentIndex must be integer')
+  }
   for (const layer of snapshot.layers) {
     assert(Number.isInteger(layer.index), 'view-tilemap layer.index must be integer')
     assert(typeof layer.name === 'string', 'view-tilemap layer.name must be string')
@@ -217,7 +301,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.dimensionsElement = null
     this.dirtyElement = null
     this.layersElement = null
-    this.undoStateElement = null
+    this.historyElement = null
     this.tilesetTabsElement = null
     this.tilesetPanelsElement = null
     this.activeTilesetName = ''
@@ -250,8 +334,13 @@ export class ViewTilemap extends ViewCanvasBase {
           <div data-element="tileset-panels"></div>
         </fieldset>
         <fieldset>
-          <legend>Non-linear History</legend>
-          <output data-element="undo-state">Tilemap history placeholder</output>
+          <legend>History</legend>
+          <table data-element="undo-history">
+            <thead>
+              <tr><th>#</th><th>Command</th><th>Parent</th><th>State</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </fieldset>
       </aside>
       <footer>
@@ -268,7 +357,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.dimensionsElement = this.querySelector('[data-element="dimensions"]')
     this.dirtyElement = this.querySelector('[data-element="dirty"]')
     this.layersElement = this.querySelector('[data-element="layers"]')
-    this.undoStateElement = this.querySelector('[data-element="undo-state"]')
+    this.historyElement = this.querySelector('[data-element="undo-history"]')
     this.tilesetTabsElement = this.querySelector('[data-element="tileset-tabs"]')
     this.tilesetPanelsElement = this.querySelector('[data-element="tileset-panels"]')
 
@@ -278,7 +367,7 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(this.dimensionsElement instanceof HTMLOutputElement, 'view-tilemap missing dimensions output')
     assert(this.dirtyElement instanceof HTMLOutputElement, 'view-tilemap missing dirty output')
     assert(this.layersElement instanceof HTMLTableElement, 'view-tilemap missing layers table')
-    assert(this.undoStateElement instanceof HTMLOutputElement, 'view-tilemap missing undo output')
+    assert(this.historyElement instanceof HTMLTableElement, 'view-tilemap missing undo history table')
     assert(this.tilesetTabsElement instanceof HTMLElement, 'view-tilemap missing tileset tabs')
     assert(this.tilesetPanelsElement instanceof HTMLElement, 'view-tilemap missing tileset panels')
 
@@ -337,6 +426,13 @@ export class ViewTilemap extends ViewCanvasBase {
       const row = event.target.closest('tr[data-layer]')
       if (!(row instanceof HTMLTableRowElement)) return
       await this.toggleLayerSelection(Number(row.dataset.layer))
+    })
+
+    this.historyElement.addEventListener('click', async (event) => {
+      const row = event.target.closest('tr[data-history-index]')
+      if (!(row instanceof HTMLTableRowElement)) return
+      this.state.moveHistoryTo(Number(row.dataset.historyIndex))
+      await this.refreshSnapshot('History state selected')
     })
 
     this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.openMock())
@@ -483,8 +579,49 @@ export class ViewTilemap extends ViewCanvasBase {
     this.renderHeaderControls(snapshot)
     this.renderLayers(snapshot)
     this.renderTilesets(snapshot.activeTile)
+    this.renderHistory(snapshot)
+  }
 
-    this.undoStateElement.textContent = `Non-linear history placeholder — undo: ${snapshot.canUndo ? 'yes' : 'no'} / redo: ${snapshot.canRedo ? 'yes' : 'no'}`
+  renderHistory(snapshot) {
+    assert(this.historyElement instanceof HTMLTableElement, 'view-tilemap missing undo history table')
+    assert(Array.isArray(snapshot.history), 'view-tilemap snapshot history must be array')
+    const tbody = this.historyElement.querySelector('tbody')
+    assert(tbody instanceof HTMLTableSectionElement, 'view-tilemap missing undo history tbody')
+    tbody.replaceChildren()
+
+    if (snapshot.history.length === 0) {
+      const row = document.createElement('tr')
+      const cell = document.createElement('td')
+      cell.colSpan = 4
+      cell.textContent = 'No history yet'
+      row.appendChild(cell)
+      tbody.appendChild(row)
+      return
+    }
+
+    for (const entry of snapshot.history) {
+      const row = document.createElement('tr')
+      row.dataset.historyIndex = String(entry.index)
+      if (entry.current) row.setAttribute('aria-selected', 'true')
+
+      const indexCell = document.createElement('td')
+      indexCell.textContent = String(entry.index)
+      row.appendChild(indexCell)
+
+      const labelCell = document.createElement('td')
+      labelCell.textContent = entry.label
+      row.appendChild(labelCell)
+
+      const parentCell = document.createElement('td')
+      parentCell.textContent = entry.parentIndex >= 0 ? String(entry.parentIndex) : 'root'
+      row.appendChild(parentCell)
+
+      const stateCell = document.createElement('td')
+      stateCell.textContent = entry.current ? 'Current' : ''
+      row.appendChild(stateCell)
+
+      tbody.appendChild(row)
+    }
   }
 
   selectTilesetTab(name) {
@@ -697,17 +834,11 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 }
 
-if (!customElements.get('view-tilemap')) {
-  customElements.define('view-tilemap', ViewTilemap)
-}
-
-
-
 const DEFAULT_TILE_WIDTH = 16
 const DEFAULT_TILE_HEIGHT = 16
 const DEFAULT_LAYER_COLORS = ['#7aa2ff', '#3ddc97', '#ffcc66', '#ff5c7a', '#5bd6ff']
 
-export class TilemapRender {
+class TilemapRender {
   constructor({ tileWidth = DEFAULT_TILE_WIDTH, tileHeight = DEFAULT_TILE_HEIGHT, layerColors = DEFAULT_LAYER_COLORS } = {}) {
     assert(Number.isInteger(tileWidth) && tileWidth > 0, 'tilemap render tileWidth must be positive integer')
     assert(Number.isInteger(tileHeight) && tileHeight > 0, 'tilemap render tileHeight must be positive integer')
@@ -808,7 +939,7 @@ export class TilemapRender {
   }
 }
 
-export class TilesetRender {
+class TilesetRender {
   draw(canvas, tileset, activeTile) {
     assert(canvas instanceof HTMLCanvasElement, 'tileset render requires canvas')
     this.validateTileset(tileset)
@@ -873,4 +1004,8 @@ export class TilesetRender {
     assert(Number.isInteger(tileset.rows) && tileset.rows > 0, 'tileset render tileset.rows must be positive integer')
     assert(Number.isInteger(tileset.firstTileId), 'tileset render tileset.firstTileId must be integer')
   }
+}
+
+if (!customElements.get('view-tilemap')) {
+  customElements.define('view-tilemap', ViewTilemap)
 }

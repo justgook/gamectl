@@ -153,9 +153,9 @@ Suggested sidebar sections:
    - each image is split into a grid by tile size
    - clicking a placeholder cell calls `set_active_tile` with the numeric tile id
    - tilemap persistence/WASM edit state remains numbers only
-3. Non-linear History
-   - placeholder for upcoming tilemap non-linear undo integration
-   - undo/redo will be refactored into tilemap history state
+3. History
+   - renders the current `UndoHistory.toArray()` state from `cmd/browser2/util/undo.js`
+   - undo/redo and history-state jumping use tilemap history state
 4. Map metadata
    - path
    - dimensions
@@ -266,15 +266,17 @@ Replace `TilemapState` internals with the chosen real implementation:
 
 ### Step 6: canvas
 
-Status: placeholder canvas wired and renderer split started.
+Status: placeholder canvas wired and renderer classes split inside the single view file.
 
 - `view-tilemap.js` now extends `cmd/browser2/util/view-canvas-base.js`.
 - Zoom/pan/fit use the shared canvas base behavior.
 - Header zoom buttons call `zoomIn`, `zoomOut`, and `fitToContent`.
 - Current drawing is a simple 2D placeholder grid/map render from `TilemapState.snapshot()`.
-- `cmd/browser2/views/view-tilemap-render.js` owns the render helpers:
+- `view-tilemap.js` owns the internal render helpers because each `view-*.js` must be deployment-contained:
   - `TilemapRender` draws the main map canvas from a snapshot plus view-owned selection/grid/camera data.
   - `TilesetRender` draws client-side tileset picker canvases and maps clicks to tile ids.
+- `TilemapState` now uses `cmd/browser2/util/undo.js` for command history.
+- The sidebar History table renders `UndoHistory.toArray()` state, including current state and parent index for non-linear branches.
 - Future advanced rendering should replace/extend `TilemapRender` with a WebGL path for large maps, mipmaps, lookup tables, shaders, etc.
 
 ## Acceptance For Current Prototype Phase
