@@ -272,7 +272,13 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 - Zoom/pan/fit use the shared canvas base behavior.
 - Header zoom buttons call `zoomIn`, `zoomOut`, and `fitToContent`.
 - Open uses a `ui.popup` with `view-sql` in chooser mode against `tilemap_storage`; the popup options are isolated in `createOpenTilemapPopupOptions()` so replacing the chooser content with `view-files mode:chooser` later is a one-method content swap.
-- Current drawing is a simple 2D canvas render from `TilemapState.snapshot()` tile data.
+- Current drawing is a 2D canvas render from `TilemapState.snapshot()` tile data.
+- Tileset behavior:
+  - maps without tileset metadata use one generated color tileset.
+  - maps with `props.tilesets` load those files through `runtime.call('fs', 'read', tilesetUrl)`.
+  - QOI is the only supported real tileset format; `TilemapTileset` decodes QOI to RGBA pixel data and exposes it through `getData()` for future WebGL upload.
+  - per-layer `props.tileset` loading is intentionally unsupported.
+  - the tileset tab strip always starts with a plus tab reserved for future add-tileset behavior.
 - `view-tilemap.js` owns the internal render helpers because each `view-*.js` must be deployment-contained:
   - `TilemapRender` draws the main map canvas from a snapshot plus view-owned selection/grid/camera data.
   - `TilesetRender` draws client-side tileset picker canvases and maps clicks to tile ids.

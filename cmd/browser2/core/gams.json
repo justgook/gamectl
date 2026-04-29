@@ -27,6 +27,10 @@
           {
             "path": "assets/the_atlas.qoi",
             "url": "/demo/assets/the_atlas.qoi"
+          },
+          {
+            "path": "assets/rules.qoi",
+            "url": "/demo/assets/rules.qoi"
           }
         ]
       },

@@ -31,14 +31,15 @@ function quoteSqlValue(value) {
   return `'${String(value).replace(/'/g, "''")}'`
 }
 
-const CLIENT_TILESETS = [
-  { name: 'dungeon_floor', path: 'tilesets/dungeon_floor.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 1 },
-  { name: 'dungeon_walls', path: 'tilesets/dungeon_walls.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 33 },
-  { name: 'forest_overgrowth', path: 'tilesets/forest_overgrowth.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 65 },
-  { name: 'forest_overgrowth1', path: 'tilesets/forest_overgrowth1.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 65 },
-  { name: 'forest_overgrowth2', path: 'tilesets/forest_overgrowtah2.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 65 },
-  { name: 'forest_overgrowth3', path: 'tilesets/forest_overgrowth3.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 65 },
-]
+const DEFAULT_COLOR_TILESET_SPEC = {
+  name: 'colors',
+  path: 'generated:colors',
+  tileWidth: 16,
+  tileHeight: 16,
+  columns: 16,
+  rows: 16,
+  firstTileId: 1,
+}
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -334,6 +335,146 @@ class TilemapState {
   }
 }
 
+class TilemapTileset {
+  constructor({ name, path, tileWidth, tileHeight, firstTileId, columns, rows, width, height, pixels = null, canvas = null, colorOnly = false }) {
+    assert(typeof name === 'string' && name.length > 0, 'tileset name must be non-empty string')
+    assert(typeof path === 'string' && path.length > 0, 'tileset path must be non-empty string')
+    assert(Number.isInteger(tileWidth) && tileWidth > 0, 'tileset tileWidth must be positive integer')
+    assert(Number.isInteger(tileHeight) && tileHeight > 0, 'tileset tileHeight must be positive integer')
+    assert(Number.isInteger(firstTileId), 'tileset firstTileId must be integer')
+    assert(Number.isInteger(columns) && columns > 0, 'tileset columns must be positive integer')
+    assert(Number.isInteger(rows) && rows > 0, 'tileset rows must be positive integer')
+    this.name = name
+    this.path = path
+    this.tileWidth = tileWidth
+    this.tileHeight = tileHeight
+    this.firstTileId = firstTileId
+    this.columns = columns
+    this.rows = rows
+    this.width = width ?? columns * tileWidth
+    this.height = height ?? rows * tileHeight
+    this.pixels = pixels
+    this.canvas = canvas
+    this.colorOnly = colorOnly
+  }
+
+  static createDefault() {
+    return new TilemapTileset({ ...DEFAULT_COLOR_TILESET_SPEC, colorOnly: true })
+  }
+
+  static async load(spec, firstTileId) {
+    const result = await runtime.call('fs', 'read', spec.path)
+    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.read failed for tileset ${spec.path}: ${result.returnCode}`)
+    const image = TilemapTileset.decodeQoi(result.output)
+    const columns = Math.floor(image.width / spec.tileWidth)
+    const imageRows = Math.floor(image.height / spec.tileHeight)
+    assert(columns > 0 && imageRows > 0, `tileset ${spec.name} image is smaller than tile size`)
+    const rows = spec.count > 0 ? Math.ceil(spec.count / columns) : imageRows
+    const canvas = TilemapTileset.createCanvas(image)
+    return new TilemapTileset({ ...spec, firstTileId, columns, rows, width: image.width, height: image.height, pixels: image.pixels, canvas })
+  }
+
+  static createCanvas(image) {
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const ctx = canvas.getContext('2d')
+    assert(ctx, 'tileset qoi canvas requires 2d context')
+    ctx.putImageData(new ImageData(image.pixels, image.width, image.height), 0, 0)
+    return canvas
+  }
+
+  static decodeQoi(input) {
+    const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
+    assert(bytes.length >= 22, 'QOI data too short')
+    assert(bytes[0] === 0x71 && bytes[1] === 0x6f && bytes[2] === 0x69 && bytes[3] === 0x66, 'tileset image must be QOI')
+    const width = TilemapTileset.readU32(bytes, 4)
+    const height = TilemapTileset.readU32(bytes, 8)
+    const channels = bytes[12]
+    const colorspace = bytes[13]
+    assert(width > 0 && height > 0, 'QOI width and height must be positive')
+    assert(channels === 3 || channels === 4, 'QOI channels must be 3 or 4')
+    assert(colorspace === 0 || colorspace === 1, 'QOI colorspace must be 0 or 1')
+
+    const pixels = new Uint8ClampedArray(width * height * 4)
+    const index = Array.from({ length: 64 }, () => [0, 0, 0, 0])
+    let r = 0
+    let g = 0
+    let b = 0
+    let a = 255
+    let p = 14
+    let px = 0
+
+    while (px < pixels.length) {
+      const b1 = bytes[p++]
+      assert(Number.isInteger(b1), 'QOI stream ended before all pixels decoded')
+
+      if (b1 === 0xfe) {
+        r = bytes[p++]; g = bytes[p++]; b = bytes[p++]
+      } else if (b1 === 0xff) {
+        r = bytes[p++]; g = bytes[p++]; b = bytes[p++]; a = bytes[p++]
+      } else {
+        const tag = b1 & 0xc0
+        if (tag === 0x00) {
+          const cached = index[b1]
+          r = cached[0]; g = cached[1]; b = cached[2]; a = cached[3]
+        } else if (tag === 0x40) {
+          r = (r + ((b1 >> 4) & 0x03) - 2) & 0xff
+          g = (g + ((b1 >> 2) & 0x03) - 2) & 0xff
+          b = (b + (b1 & 0x03) - 2) & 0xff
+        } else if (tag === 0x80) {
+          const b2 = bytes[p++]
+          assert(Number.isInteger(b2), 'QOI LUMA missing second byte')
+          const dg = (b1 & 0x3f) - 32
+          r = (r + dg - 8 + ((b2 >> 4) & 0x0f)) & 0xff
+          g = (g + dg) & 0xff
+          b = (b + dg - 8 + (b2 & 0x0f)) & 0xff
+        } else {
+          const run = (b1 & 0x3f) + 1
+          for (let i = 0; i < run; i++) {
+            pixels[px++] = r; pixels[px++] = g; pixels[px++] = b; pixels[px++] = a
+          }
+          continue
+        }
+      }
+
+      index[TilemapTileset.colorHash(r, g, b, a)] = [r, g, b, a]
+      pixels[px++] = r; pixels[px++] = g; pixels[px++] = b; pixels[px++] = a
+    }
+
+    return { width, height, channels, colorspace, pixels }
+  }
+
+  static readU32(bytes, offset) {
+    return ((bytes[offset] << 24) >>> 0) + (bytes[offset + 1] << 16) + (bytes[offset + 2] << 8) + bytes[offset + 3]
+  }
+
+  static colorHash(r, g, b, a) {
+    return (r * 3 + g * 5 + b * 7 + a * 11) % 64
+  }
+
+  containsTile(tile) {
+    const count = this.columns * this.rows
+    return tile >= this.firstTileId && tile < this.firstTileId + count
+  }
+
+  getData() {
+    return {
+      name: this.name,
+      path: this.path,
+      tileWidth: this.tileWidth,
+      tileHeight: this.tileHeight,
+      firstTileId: this.firstTileId,
+      columns: this.columns,
+      rows: this.rows,
+      width: this.width,
+      height: this.height,
+      pixels: this.pixels,
+      colorOnly: this.colorOnly,
+    }
+  }
+}
+
 function validateSnapshot(snapshot) {
   assert(snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot), 'view-tilemap snapshot must be an object')
   assert(Number.isInteger(snapshot.handle) && snapshot.handle > 0, 'view-tilemap snapshot.handle must be positive integer')
@@ -382,6 +523,8 @@ export class ViewTilemap extends ViewCanvasBase {
     this.tilesetTabsElement = null
     this.tilesetPanelsElement = null
     this.activeTilesetName = ''
+    this.tilesets = [TilemapTileset.createDefault()]
+    this.tilesetSourceKey = ''
     this.selectedLayerIndexes = new Set()
     this.showGrid = true
     this.tilemapRender = new TilemapRender()
@@ -686,10 +829,74 @@ export class ViewTilemap extends ViewCanvasBase {
   async refreshSnapshot(statusText, { autoFit = false } = {}) {
     assert(typeof autoFit === 'boolean', 'view-tilemap refreshSnapshot autoFit must be boolean')
     const snapshot = validateSnapshot(this.state.snapshot())
+    await this.syncTilesets(snapshot)
     this.snapshot = snapshot
     this.setData(snapshot, { autoFit })
     this.renderSnapshot(snapshot)
     this.setStatus(statusText, snapshot.dirty ? 'warning' : 'success')
+  }
+
+  async syncTilesets(snapshot) {
+    const sourceKey = this.createTilesetSourceKey(snapshot)
+    if (sourceKey === this.tilesetSourceKey) return
+    this.tilesets = await this.createTilesetsForSnapshot(snapshot)
+    this.tilesetSourceKey = sourceKey
+    this.tilemapRender.setTilesets(this.tilesets)
+  }
+
+  createTilesetSourceKey(snapshot) {
+    return JSON.stringify({
+      tilesets: snapshot.props?.tilesets ?? '',
+      tileSize: snapshot.props?.tileSize ?? '',
+      sourceTileSize: snapshot.props?.sourceTileSize ?? '',
+      tw: snapshot.props?.tw ?? '',
+      th: snapshot.props?.th ?? '',
+    })
+  }
+
+  async createTilesetsForSnapshot(snapshot) {
+    const specs = this.collectTilesetSpecs(snapshot)
+    if (specs.length === 0) return [TilemapTileset.createDefault()]
+
+    let firstTileId = 1
+    const tilesets = []
+    for (const spec of specs) {
+      const tileset = await TilemapTileset.load(spec, firstTileId)
+      tilesets.push(tileset)
+      firstTileId += tileset.columns * tileset.rows
+    }
+    return tilesets
+  }
+
+  collectTilesetSpecs(snapshot) {
+    const mapTilesets = snapshot.props?.tilesets
+    if (typeof mapTilesets !== 'string' || mapTilesets.length === 0) return []
+    const parsed = JSON.parse(mapTilesets)
+    assert(Array.isArray(parsed), 'view-tilemap props.tilesets must be JSON array')
+    return parsed.map((entry) => this.normalizeTilesetSpec(entry, snapshot.props))
+  }
+
+  normalizeTilesetSpec(entry, props) {
+    assert(entry && typeof entry === 'object' && !Array.isArray(entry), 'view-tilemap tileset entry must be object')
+    const file = String(entry.file ?? entry.path ?? entry.url ?? '')
+    assert(file.length > 0, 'view-tilemap tileset entry requires file')
+    const name = String(entry.name || this.nameFromTilesetPath(file))
+    const tileWidth = this.parsePositiveInt(entry.tileWidth ?? entry.tw ?? props?.sourceTileSize ?? props?.tileSize ?? props?.tw ?? DEFAULT_TILE_WIDTH, 'tileset tile width')
+    const tileHeight = this.parsePositiveInt(entry.tileHeight ?? entry.th ?? props?.sourceTileSize ?? props?.tileSize ?? props?.th ?? DEFAULT_TILE_HEIGHT, 'tileset tile height')
+    const count = entry.count == null ? 0 : this.parsePositiveInt(entry.count, 'tileset count')
+    return { name, path: file, tileWidth, tileHeight, count }
+  }
+
+  nameFromTilesetPath(path) {
+    const clean = String(path).split('?')[0]
+    const file = clean.slice(clean.lastIndexOf('/') + 1)
+    return file.replace(/\.[^.]+$/, '') || 'tileset'
+  }
+
+  parsePositiveInt(value, label) {
+    const parsed = Number.parseInt(String(value), 10)
+    assert(Number.isInteger(parsed) && parsed > 0, `view-tilemap ${label} must be positive integer`)
+    return parsed
   }
 
   requireHandle() {
@@ -776,12 +983,22 @@ export class ViewTilemap extends ViewCanvasBase {
     this.tilesetTabsElement.replaceChildren()
     this.tilesetPanelsElement.replaceChildren()
 
-    const activeTileset = CLIENT_TILESETS.find((tileset) => this.tilesetRender.containsTile(tileset, activeTile))
-    const activeName = CLIENT_TILESETS.some((tileset) => tileset.name === this.activeTilesetName)
+    const tilesets = this.tilesets.length > 0 ? this.tilesets : [TilemapTileset.createDefault()]
+    const activeTileset = tilesets.find((tileset) => this.tilesetRender.containsTile(tileset, activeTile))
+    const activeName = tilesets.some((tileset) => tileset.name === this.activeTilesetName)
       ? this.activeTilesetName
-      : activeTileset?.name || CLIENT_TILESETS[0].name
+      : activeTileset?.name || tilesets[0].name
 
-    for (const tileset of CLIENT_TILESETS) {
+    const addTab = document.createElement('button')
+    addTab.type = 'button'
+    addTab.setAttribute('role', 'tab')
+    addTab.setAttribute('aria-selected', 'false')
+    addTab.dataset.action = 'tileset-add'
+    addTab.title = 'Add tileset'
+    addTab.innerHTML = '<i aria-hidden="true">add</i>'
+    this.tilesetTabsElement.appendChild(addTab)
+
+    for (const tileset of tilesets) {
       const selected = tileset.name === activeName
       const panelId = `view-tilemap-tileset-${tileset.name}`
 
@@ -816,13 +1033,18 @@ export class ViewTilemap extends ViewCanvasBase {
 
       const status = document.createElement('output')
       status.dataset.element = 'tileset-status'
-      status.textContent = `${tileset.path} — client-side helper only; click grid cells to set active tile id`
+      status.textContent = this.tilesetStatusText(tileset)
       panel.appendChild(status)
 
       this.tilesetPanelsElement.appendChild(panel)
     }
 
     this.activeTilesetName = activeName
+  }
+
+  tilesetStatusText(tileset) {
+    if (tileset.colorOnly) return `${tileset.path} — generated color tiles; click grid cells to set active tile id`
+    return `${tileset.path} — QOI ${tileset.width} × ${tileset.height}; ${tileset.columns} × ${tileset.rows} tiles; click grid cells to set active tile id`
   }
 
   async selectTileFromTileset(event, tileset) {
@@ -973,6 +1195,12 @@ class TilemapRender {
     this.tileWidth = tileWidth
     this.tileHeight = tileHeight
     this.layerColors = layerColors
+    this.tilesets = [TilemapTileset.createDefault()]
+  }
+
+  setTilesets(tilesets) {
+    assert(Array.isArray(tilesets), 'tilemap render tilesets must be array')
+    this.tilesets = tilesets.length > 0 ? tilesets : [TilemapTileset.createDefault()]
   }
 
   calculateContentBounds(snapshot) {
@@ -1028,16 +1256,33 @@ class TilemapRender {
         const x = tileIndex % layer.width
         const y = Math.floor(tileIndex / layer.width)
         if (x >= snapshot.width || y >= snapshot.height) continue
-        ctx.fillStyle = this.tileColor(tile, layer.index)
-        ctx.fillRect(
-          x * this.tileWidth + inset,
-          y * this.tileHeight + inset,
-          this.tileWidth - inset * 2,
-          this.tileHeight - inset * 2,
-        )
+        this.drawTile(ctx, tile, layer, x * this.tileWidth, y * this.tileHeight, inset)
       }
     }
     ctx.globalAlpha = 1
+  }
+
+  drawTile(ctx, tile, layer, dx, dy, inset) {
+    const tileset = this.findTileset(tile)
+    if (tileset && !tileset.colorOnly && tileset.canvas) {
+      const localTile = tile - tileset.firstTileId
+      const sx = (localTile % tileset.columns) * tileset.tileWidth
+      const sy = Math.floor(localTile / tileset.columns) * tileset.tileHeight
+      ctx.drawImage(tileset.canvas, sx, sy, tileset.tileWidth, tileset.tileHeight, dx, dy, this.tileWidth, this.tileHeight)
+      return
+    }
+
+    ctx.fillStyle = this.tileColor(tile, layer.index)
+    ctx.fillRect(
+      dx + inset,
+      dy + inset,
+      this.tileWidth - inset * 2,
+      this.tileHeight - inset * 2,
+    )
+  }
+
+  findTileset(tile) {
+    return this.tilesets.find((tileset) => tileset.containsTile(tile)) || null
   }
 
   tileColor(tile, layerIndex) {
@@ -1096,16 +1341,30 @@ class TilesetRender {
     ctx.fillStyle = '#ddd'
     ctx.font = '10px monospace'
 
+    if (!tileset.colorOnly && tileset.canvas) {
+      ctx.drawImage(tileset.canvas, 0, 0)
+    }
+
     for (let y = 0; y < tileset.rows; y++) {
       for (let x = 0; x < tileset.columns; x++) {
         const tile = tileset.firstTileId + y * tileset.columns + x
         const px = x * tileset.tileWidth
         const py = y * tileset.tileHeight
+        if (tileset.colorOnly) {
+          ctx.fillStyle = this.tileColor(tile)
+          ctx.fillRect(px, py, tileset.tileWidth, tileset.tileHeight)
+          ctx.fillStyle = '#111'
+          ctx.fillText(String(tile), px + 2, py + 11)
+        }
+        ctx.strokeStyle = '#888'
         ctx.strokeRect(px + 0.5, py + 0.5, tileset.tileWidth, tileset.tileHeight)
-        ctx.fillText(String(tile), px + 2, py + 11)
         if (tile === activeTile) this.drawActiveTile(ctx, px, py, tileset)
       }
     }
+  }
+
+  tileColor(tile) {
+    return `hsl(${Math.abs(tile * 47) % 360} 72% 58%)`
   }
 
   tileFromPointerEvent(event, tileset) {
@@ -1121,8 +1380,7 @@ class TilesetRender {
   containsTile(tileset, tile) {
     this.validateTileset(tileset)
     assert(Number.isInteger(tile), 'tileset render tile must be integer')
-    const count = tileset.columns * tileset.rows
-    return tile >= tileset.firstTileId && tile < tileset.firstTileId + count
+    return tileset.containsTile(tile)
   }
 
   drawActiveTile(ctx, px, py, tileset) {
