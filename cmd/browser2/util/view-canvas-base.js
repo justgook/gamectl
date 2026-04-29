@@ -134,12 +134,18 @@ export class ViewCanvasBase extends HTMLElement {
     this._tryAutoFit()
   }
 
-  setData(data) {
+  setData(data, { autoFit = true } = {}) {
+    assert(typeof autoFit === 'boolean', 'view-canvas-base setData autoFit must be boolean')
     this.data = data
     this.contentBounds = this.calculateContentBounds(data)
-    this._hasAutoFitted = false
+    if (autoFit) {
+      this._hasAutoFitted = false
+      this.draw()
+      this._tryAutoFit()
+      return
+    }
+    this._constrainPosition()
     this.draw()
-    this._tryAutoFit()
   }
 
   draw() {

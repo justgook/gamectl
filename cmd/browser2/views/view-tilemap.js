@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { parseCSVLines } from '../util/csv.js'
 import { UndoHistory } from '../util/undo.js'
 import { ViewCanvasBase } from '../util/view-canvas-base.js'
 
@@ -19,6 +20,16 @@ const TOOL_LABELS = new Map([
   [TOOL.PASTE, 'Paste'],
   [TOOL.FILL, 'Fill'],
 ])
+
+const textDecoder = new TextDecoder()
+
+function decodeOutput(result) {
+  return textDecoder.decode(result.output || new Uint8Array())
+}
+
+function quoteSqlValue(value) {
+  return `'${String(value).replace(/'/g, "''")}'`
+}
 
 const CLIENT_TILESETS = [
   { name: 'dungeon_floor', path: 'tilesets/dungeon_floor.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 1 },
@@ -48,12 +59,14 @@ class TilemapState {
   constructor() {
     this.handle = 1
     this.path = 'maps/mock.tilemap.json'
+    this.name = 'mock'
     this.width = 32
     this.height = 24
+    this.props = {}
     this.layers = [
-      { index: 0, name: 'Layer 0', hidden: false, locked: false },
-      { index: 1, name: 'Layer 1', hidden: false, locked: false },
-      { index: 2, name: 'Layer 2', hidden: false, locked: false },
+      { index: 0, name: 'Layer 0', hidden: false, locked: false, width: 32, data: [] },
+      { index: 1, name: 'Layer 1', hidden: false, locked: false, width: 32, data: [] },
+      { index: 2, name: 'Layer 2', hidden: false, locked: false, width: 32, data: [] },
     ]
     this.activeLayer = 0
     this.tool = TOOL.BRUSH
@@ -65,13 +78,17 @@ class TilemapState {
 
   create({ path, width, height, layers }) {
     this.path = path
+    this.name = String(path)
     this.width = width
     this.height = height
+    this.props = {}
     this.layers = Array.from({ length: layers }, (_item, index) => ({
       index,
       name: `Layer ${index}`,
       hidden: false,
       locked: false,
+      width,
+      data: new Array(width * height).fill(0),
     }))
     this.activeLayer = layers > 0 ? 0 : -1
     this.dirty = false
@@ -79,8 +96,10 @@ class TilemapState {
     return { handle: this.handle }
   }
 
-  open({ path }) {
-    this.path = path
+  open({ name, data }) {
+    assert(typeof name === 'string' && name.length > 0, 'tilemap state open requires tilemap name')
+    assert(typeof data === 'string' && data.length > 0, 'tilemap state open requires tilemap data')
+    this.loadTilemapData(name, data)
     this.dirty = false
     this.resetHistory()
     return { handle: this.handle }
@@ -91,14 +110,68 @@ class TilemapState {
     this.dirty = false
   }
 
+  loadTilemapData(name, data) {
+    const tilemap = JSON.parse(data)
+    assert(tilemap && typeof tilemap === 'object' && !Array.isArray(tilemap), 'tilemap storage data must be object JSON')
+    assert(Array.isArray(tilemap.layers), 'tilemap storage data.layers must be array')
+    assert(tilemap.layers.length > 0, 'tilemap storage must contain at least one layer')
+
+    const layers = tilemap.layers.map((layer, index) => this.parseLayer(layer, index))
+    const width = Math.max(...layers.map((layer) => layer.width))
+    const height = Math.max(...layers.map((layer) => Math.ceil(layer.data.length / layer.width)))
+    assert(Number.isInteger(width) && width > 0, 'tilemap storage width must be positive integer')
+    assert(Number.isInteger(height) && height > 0, 'tilemap storage height must be positive integer')
+
+    this.name = name
+    this.path = `sql:tilemap_storage/${name}`
+    this.width = width
+    this.height = height
+    this.props = tilemap.props && typeof tilemap.props === 'object' && !Array.isArray(tilemap.props) ? { ...tilemap.props } : {}
+    this.layers = layers
+    this.activeLayer = 0
+    this.activeTile = this.findFirstTile(layers)
+  }
+
+  parseLayer(layer, index) {
+    assert(layer && typeof layer === 'object' && !Array.isArray(layer), `tilemap layer ${index} must be object`)
+    assert(Number.isInteger(layer.width) && layer.width > 0, `tilemap layer ${index}.width must be positive integer`)
+    assert(Array.isArray(layer.data), `tilemap layer ${index}.data must be array`)
+    const props = layer.props && typeof layer.props === 'object' && !Array.isArray(layer.props) ? { ...layer.props } : {}
+    const name = typeof props.name === 'string' && props.name.length > 0 ? props.name : `Layer ${index}`
+    const readonly = props.readonly === true || props.readonly === 'true'
+    return {
+      index,
+      name,
+      hidden: false,
+      locked: readonly,
+      width: layer.width,
+      data: layer.data.map((tile, tileIndex) => {
+        const value = Number(tile)
+        assert(Number.isInteger(value), `tilemap layer ${index}.data[${tileIndex}] must be integer-like`)
+        return value
+      }),
+      props,
+    }
+  }
+
+  findFirstTile(layers) {
+    for (const layer of layers) {
+      const tile = layer.data.find((value) => value > 0)
+      if (Number.isInteger(tile)) return tile
+    }
+    return 1
+  }
+
   snapshot() {
     return {
       handle: this.handle,
+      name: this.name,
       path: this.path,
       dirty: this.dirty,
       width: this.width,
       height: this.height,
-      layers: this.layers.map((layer, index) => ({ ...layer, index })),
+      props: { ...this.props },
+      layers: this.layers.map((layer, index) => ({ ...layer, index, data: layer.data.slice() })),
       activeLayer: this.activeLayer,
       tool: this.tool,
       activeTile: this.activeTile,
@@ -146,7 +219,7 @@ class TilemapState {
     assert(index >= 0 && index <= this.layers.length, 'tilemap state insert layer index out of range')
     const previousActiveLayer = this.activeLayer
     this.executeDirtyCommand(`Insert layer ${index}`, () => {
-      this.layers.splice(index, 0, { index, name: `Layer ${index}`, hidden: false, locked: false })
+      this.layers.splice(index, 0, { index, name: `Layer ${index}`, hidden: false, locked: false, width: this.width, data: new Array(this.width * this.height).fill(0), props: {} })
       this.renumberLayers()
       this.activeLayer = index
     }, () => {
@@ -248,8 +321,9 @@ class TilemapState {
 
   renumberLayers() {
     this.layers.forEach((layer, index) => {
+      const previousDefaultName = `Layer ${layer.index}`
       layer.index = index
-      layer.name = `Layer ${index}`
+      if (layer.name === previousDefaultName) layer.name = `Layer ${index}`
     })
   }
 
@@ -263,6 +337,7 @@ class TilemapState {
 function validateSnapshot(snapshot) {
   assert(snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot), 'view-tilemap snapshot must be an object')
   assert(Number.isInteger(snapshot.handle) && snapshot.handle > 0, 'view-tilemap snapshot.handle must be positive integer')
+  assert(typeof snapshot.name === 'string', 'view-tilemap snapshot.name must be string')
   assert(typeof snapshot.path === 'string', 'view-tilemap snapshot.path must be string')
   assert(typeof snapshot.dirty === 'boolean', 'view-tilemap snapshot.dirty must be boolean')
   assert(Number.isInteger(snapshot.width) && snapshot.width > 0, 'view-tilemap snapshot.width must be positive integer')
@@ -285,6 +360,8 @@ function validateSnapshot(snapshot) {
     assert(typeof layer.name === 'string', 'view-tilemap layer.name must be string')
     assert(typeof layer.hidden === 'boolean', 'view-tilemap layer.hidden must be boolean')
     assert(typeof layer.locked === 'boolean', 'view-tilemap layer.locked must be boolean')
+    assert(Number.isInteger(layer.width) && layer.width > 0, 'view-tilemap layer.width must be positive integer')
+    assert(Array.isArray(layer.data), 'view-tilemap layer.data must be array')
   }
   return snapshot
 }
@@ -435,7 +512,7 @@ export class ViewTilemap extends ViewCanvasBase {
       await this.refreshSnapshot('History state selected')
     })
 
-    this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.openMock())
+    this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.openTilemap())
     this.queryHeader('[data-action="save"]').addEventListener('click', async () => this.save())
     this.queryHeader('[data-action="save-as"]').addEventListener('click', async () => this.saveAsMock())
     this.queryHeader('[data-action="reload"]').addEventListener('click', async () => this.reload())
@@ -475,7 +552,7 @@ export class ViewTilemap extends ViewCanvasBase {
       })
       assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap create returned invalid handle')
       this.handle = result.handle
-      await this.refreshSnapshot('Ready')
+      await this.refreshSnapshot('Ready', { autoFit: true })
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
       await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
@@ -506,12 +583,61 @@ export class ViewTilemap extends ViewCanvasBase {
     await this.refreshSnapshot('Layer updated')
   }
 
-  async openMock() {
-    const path = this.snapshot?.path || 'maps/mock.tilemap.json'
-    const result = this.state.open({ path })
+  async openTilemap() {
+    const selection = await this.chooseTilemapFromStorage()
+    if (selection.cancelled) return
+    const tilemap = await this.loadTilemapStorageRecord(selection.name)
+    const result = this.state.open(tilemap)
     assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap open returned invalid handle')
     this.handle = result.handle
-    await this.refreshSnapshot('Opened')
+    this.selectedLayerIndexes.clear()
+    await this.refreshSnapshot(`Opened ${tilemap.name}`, { autoFit: true })
+  }
+
+  async chooseTilemapFromStorage() {
+    const result = await runtime.call('ui.popup', 'open', this.createOpenTilemapPopupOptions())
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return { cancelled: true }
+    const name = typeof payload.value === 'string' ? payload.value : payload.row.name
+    assert(typeof name === 'string' && name.length > 0, 'view-tilemap open requires selected tilemap_storage name')
+    return { cancelled: false, name }
+  }
+
+  createOpenTilemapPopupOptions() {
+    return {
+      title: 'Open Tilemap',
+      size: 'medium',
+      tag: 'view-sql',
+      props: {
+        mode: 'chooser',
+        query: 'SELECT name FROM tilemap_storage ORDER BY name LIMIT :limit OFFSET :offset',
+        countQuery: 'SELECT COUNT(*) AS count FROM tilemap_storage',
+        returnColumn: 'name',
+        confirmLabel: 'Open',
+        pageSize: 20,
+      },
+    }
+  }
+
+  async loadTilemapStorageRecord(name) {
+    assert(typeof name === 'string' && name.length > 0, 'view-tilemap load requires tilemap_storage name')
+    const csv = await this.callSql(`SELECT name, data FROM tilemap_storage WHERE name = ${quoteSqlValue(name)} LIMIT 1`)
+    const lines = parseCSVLines(csv.trim())
+    assert(lines.length === 2, `tilemap_storage missing selected tilemap ${name}`)
+    const headers = lines[0]
+    const row = lines[1]
+    const nameIndex = headers.indexOf('name')
+    const dataIndex = headers.indexOf('data')
+    assert(nameIndex >= 0 && dataIndex >= 0, 'tilemap_storage query returned unexpected columns')
+    return { name: row[nameIndex], data: row[dataIndex] }
+  }
+
+  async callSql(sql) {
+    const result = await runtime.call('sql', 'query', sql)
+    if (result.returnCode !== 0) {
+      throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
+    }
+    return decodeOutput(result)
   }
 
   async saveAsMock() {
@@ -557,10 +683,11 @@ export class ViewTilemap extends ViewCanvasBase {
     })
   }
 
-  async refreshSnapshot(statusText) {
+  async refreshSnapshot(statusText, { autoFit = false } = {}) {
+    assert(typeof autoFit === 'boolean', 'view-tilemap refreshSnapshot autoFit must be boolean')
     const snapshot = validateSnapshot(this.state.snapshot())
     this.snapshot = snapshot
-    this.setData(snapshot)
+    this.setData(snapshot, { autoFit })
     this.renderSnapshot(snapshot)
     this.setStatus(statusText, snapshot.dirty ? 'warning' : 'success')
   }
@@ -892,22 +1019,32 @@ class TilemapRender {
   drawLayers(ctx, snapshot, selectedLayerIndexes) {
     for (const layer of snapshot.layers) {
       if (layer.hidden) continue
-      const layerAlpha = selectedLayerIndexes.size === 0 || selectedLayerIndexes.has(layer.index) ? 0.45 : 0.16
+      const layerAlpha = selectedLayerIndexes.size === 0 || selectedLayerIndexes.has(layer.index) ? 0.78 : 0.24
       ctx.globalAlpha = layerAlpha
-      ctx.fillStyle = this.layerColors[layer.index % this.layerColors.length]
-      const inset = 2 + layer.index * 2
-      for (let y = layer.index; y < snapshot.height; y += 4) {
-        for (let x = layer.index; x < snapshot.width; x += 5) {
-          ctx.fillRect(
-            x * this.tileWidth + inset,
-            y * this.tileHeight + inset,
-            this.tileWidth - inset * 2,
-            this.tileHeight - inset * 2,
-          )
-        }
+      const inset = Math.min(3 + layer.index, Math.floor(this.tileWidth / 3), Math.floor(this.tileHeight / 3))
+      for (let tileIndex = 0; tileIndex < layer.data.length; tileIndex++) {
+        const tile = layer.data[tileIndex]
+        if (tile === 0) continue
+        const x = tileIndex % layer.width
+        const y = Math.floor(tileIndex / layer.width)
+        if (x >= snapshot.width || y >= snapshot.height) continue
+        ctx.fillStyle = this.tileColor(tile, layer.index)
+        ctx.fillRect(
+          x * this.tileWidth + inset,
+          y * this.tileHeight + inset,
+          this.tileWidth - inset * 2,
+          this.tileHeight - inset * 2,
+        )
       }
     }
     ctx.globalAlpha = 1
+  }
+
+  tileColor(tile, layerIndex) {
+    const base = this.layerColors[layerIndex % this.layerColors.length]
+    const hue = Math.abs((tile * 47 + layerIndex * 29) % 360)
+    if (tile < this.layerColors.length) return base
+    return `hsl(${hue} 72% 58%)`
   }
 
   drawGrid(ctx, snapshot, widthPx, heightPx, scale) {
@@ -936,6 +1073,11 @@ class TilemapRender {
     assert(Number.isInteger(snapshot.width) && snapshot.width > 0, 'tilemap render snapshot.width must be positive integer')
     assert(Number.isInteger(snapshot.height) && snapshot.height > 0, 'tilemap render snapshot.height must be positive integer')
     assert(Array.isArray(snapshot.layers), 'tilemap render snapshot.layers must be array')
+    for (const layer of snapshot.layers) {
+      assert(Number.isInteger(layer.index), 'tilemap render layer.index must be integer')
+      assert(Number.isInteger(layer.width) && layer.width > 0, 'tilemap render layer.width must be positive integer')
+      assert(Array.isArray(layer.data), 'tilemap render layer.data must be array')
+    }
   }
 }
 
