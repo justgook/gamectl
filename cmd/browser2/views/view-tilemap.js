@@ -31,13 +31,18 @@ function quoteSqlValue(value) {
   return `'${String(value).replace(/'/g, "''")}'`
 }
 
+const GENERATED_TILESET_PALETTE = [
+  '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6',
+  '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3',
+  '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000', '#a9a9ff', '#ff7f50',
+]
+
 const DEFAULT_COLOR_TILESET_SPEC = {
   name: 'colors',
   path: 'generated:colors',
   tileWidth: 16,
   tileHeight: 16,
   columns: 16,
-  rows: 16,
   firstTileId: 1,
 }
 
@@ -336,7 +341,7 @@ class TilemapState {
 }
 
 class TilemapTileset {
-  constructor({ name, path, tileWidth, tileHeight, firstTileId, columns, rows, width, height, pixels = null, canvas = null, colorOnly = false }) {
+  constructor({ name, path, tileWidth, tileHeight, firstTileId, columns, rows, tileCount = columns * rows, width, height, pixels = null, canvas = null, colorOnly = false }) {
     assert(typeof name === 'string' && name.length > 0, 'tileset name must be non-empty string')
     assert(typeof path === 'string' && path.length > 0, 'tileset path must be non-empty string')
     assert(Number.isInteger(tileWidth) && tileWidth > 0, 'tileset tileWidth must be positive integer')
@@ -344,6 +349,7 @@ class TilemapTileset {
     assert(Number.isInteger(firstTileId), 'tileset firstTileId must be integer')
     assert(Number.isInteger(columns) && columns > 0, 'tileset columns must be positive integer')
     assert(Number.isInteger(rows) && rows > 0, 'tileset rows must be positive integer')
+    assert(Number.isInteger(tileCount) && tileCount > 0 && tileCount <= columns * rows, 'tileset tileCount must fit tileset grid')
     this.name = name
     this.path = path
     this.tileWidth = tileWidth
@@ -351,6 +357,7 @@ class TilemapTileset {
     this.firstTileId = firstTileId
     this.columns = columns
     this.rows = rows
+    this.tileCount = tileCount
     this.width = width ?? columns * tileWidth
     this.height = height ?? rows * tileHeight
     this.pixels = pixels
@@ -359,7 +366,74 @@ class TilemapTileset {
   }
 
   static createDefault() {
-    return new TilemapTileset({ ...DEFAULT_COLOR_TILESET_SPEC, colorOnly: true })
+    return TilemapTileset.createGenerated(1)
+  }
+
+  static createGenerated(maxTileId) {
+    assert(Number.isInteger(maxTileId) && maxTileId >= 0, 'generated tileset max tile id must be non-negative integer')
+    const count = Math.max(1, maxTileId)
+    const columns = TilemapTileset.generatedColumnCount(count)
+    const rows = count / columns
+    const width = columns * DEFAULT_COLOR_TILESET_SPEC.tileWidth
+    const height = rows * DEFAULT_COLOR_TILESET_SPEC.tileHeight
+    const pixels = new Uint8ClampedArray(width * height * 4)
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    assert(ctx, 'generated tileset requires 2d context')
+
+    for (let tile = 1; tile <= count; tile++) {
+      const localTile = tile - 1
+      const x = localTile % columns
+      const y = Math.floor(localTile / columns)
+      TilemapTileset.drawGeneratedTile(ctx, tile, x * DEFAULT_COLOR_TILESET_SPEC.tileWidth, y * DEFAULT_COLOR_TILESET_SPEC.tileHeight, DEFAULT_COLOR_TILESET_SPEC.tileWidth, DEFAULT_COLOR_TILESET_SPEC.tileHeight)
+    }
+
+    const image = ctx.getImageData(0, 0, width, height)
+    pixels.set(image.data)
+    return new TilemapTileset({ ...DEFAULT_COLOR_TILESET_SPEC, columns, rows, tileCount: count, width, height, pixels, canvas, colorOnly: true })
+  }
+
+  static generatedColumnCount(count) {
+    for (let columns = Math.min(DEFAULT_COLOR_TILESET_SPEC.columns, count); columns > 1; columns--) {
+      if (count % columns === 0) return columns
+    }
+    return count
+  }
+
+  static drawGeneratedTile(ctx, tile, x, y, width, height) {
+    const primary = GENERATED_TILESET_PALETTE[(tile - 1) % GENERATED_TILESET_PALETTE.length]
+    const secondary = GENERATED_TILESET_PALETTE[Math.floor((tile - 1) / GENERATED_TILESET_PALETTE.length) % GENERATED_TILESET_PALETTE.length]
+    const pattern = Math.floor((tile - 1) / GENERATED_TILESET_PALETTE.length)
+
+    ctx.fillStyle = primary
+    ctx.fillRect(x, y, width, height)
+
+    if (pattern > 0) {
+      ctx.fillStyle = secondary
+      const halfWidth = Math.ceil(width / 2)
+      const halfHeight = Math.ceil(height / 2)
+      if (pattern % 4 === 1) {
+        ctx.fillRect(x, y, halfWidth, height)
+      } else if (pattern % 4 === 2) {
+        ctx.fillRect(x, y, width, halfHeight)
+      } else if (pattern % 4 === 3) {
+        ctx.beginPath()
+        ctx.moveTo(x, y)
+        ctx.lineTo(x + width, y)
+        ctx.lineTo(x, y + height)
+        ctx.closePath()
+        ctx.fill()
+      } else {
+        ctx.fillRect(x + 3, y + 3, width - 6, height - 6)
+      }
+    }
+
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'
+    ctx.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1)
+    ctx.fillStyle = 'rgba(255,255,255,0.22)'
+    ctx.fillRect(x + 1, y + 1, width - 2, 2)
   }
 
   static async load(spec, firstTileId) {
@@ -369,9 +443,10 @@ class TilemapTileset {
     const columns = Math.floor(image.width / spec.tileWidth)
     const imageRows = Math.floor(image.height / spec.tileHeight)
     assert(columns > 0 && imageRows > 0, `tileset ${spec.name} image is smaller than tile size`)
-    const rows = spec.count > 0 ? Math.ceil(spec.count / columns) : imageRows
+    const tileCount = spec.count > 0 ? spec.count : columns * imageRows
+    const rows = Math.ceil(tileCount / columns)
     const canvas = TilemapTileset.createCanvas(image)
-    return new TilemapTileset({ ...spec, firstTileId, columns, rows, width: image.width, height: image.height, pixels: image.pixels, canvas })
+    return new TilemapTileset({ ...spec, firstTileId, columns, rows, tileCount, width: image.width, height: image.height, pixels: image.pixels, canvas })
   }
 
   static createCanvas(image) {
@@ -454,8 +529,18 @@ class TilemapTileset {
   }
 
   containsTile(tile) {
-    const count = this.columns * this.rows
-    return tile >= this.firstTileId && tile < this.firstTileId + count
+    return tile >= this.firstTileId && tile < this.firstTileId + this.tileCount
+  }
+
+  drawTile(ctx, tile, dx, dy, width, height) {
+    assert(ctx instanceof CanvasRenderingContext2D, 'tileset drawTile requires 2d context')
+    assert(Number.isInteger(tile), 'tileset drawTile tile must be integer')
+    assert(this.containsTile(tile), `tileset ${this.name} does not contain tile ${tile}`)
+    assert(this.canvas instanceof HTMLCanvasElement, `tileset ${this.name} missing render canvas`)
+    const localTile = tile - this.firstTileId
+    const sx = (localTile % this.columns) * this.tileWidth
+    const sy = Math.floor(localTile / this.columns) * this.tileHeight
+    ctx.drawImage(this.canvas, sx, sy, this.tileWidth, this.tileHeight, dx, dy, width, height)
   }
 
   getData() {
@@ -467,6 +552,7 @@ class TilemapTileset {
       firstTileId: this.firstTileId,
       columns: this.columns,
       rows: this.rows,
+      tileCount: this.tileCount,
       width: this.width,
       height: this.height,
       pixels: this.pixels,
@@ -856,7 +942,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async createTilesetsForSnapshot(snapshot) {
     const specs = this.collectTilesetSpecs(snapshot)
-    if (specs.length === 0) return [TilemapTileset.createDefault()]
+    if (specs.length === 0) return [TilemapTileset.createGenerated(this.maxTileId(snapshot))]
 
     let firstTileId = 1
     const tilesets = []
@@ -866,6 +952,16 @@ export class ViewTilemap extends ViewCanvasBase {
       firstTileId += tileset.columns * tileset.rows
     }
     return tilesets
+  }
+
+  maxTileId(snapshot) {
+    let maxTile = 0
+    for (const layer of snapshot.layers) {
+      for (const tile of layer.data) {
+        if (tile > maxTile) maxTile = tile
+      }
+    }
+    return maxTile
   }
 
   collectTilesetSpecs(snapshot) {
@@ -1247,9 +1343,9 @@ class TilemapRender {
   drawLayers(ctx, snapshot, selectedLayerIndexes) {
     for (const layer of snapshot.layers) {
       if (layer.hidden) continue
-      const layerAlpha = selectedLayerIndexes.size === 0 || selectedLayerIndexes.has(layer.index) ? 0.78 : 0.24
+      const layerAlpha = selectedLayerIndexes.size === 0 || selectedLayerIndexes.has(layer.index) ? 1 : 0.24
       ctx.globalAlpha = layerAlpha
-      const inset = Math.min(3 + layer.index, Math.floor(this.tileWidth / 3), Math.floor(this.tileHeight / 3))
+      const inset = 0
       for (let tileIndex = 0; tileIndex < layer.data.length; tileIndex++) {
         const tile = layer.data[tileIndex]
         if (tile === 0) continue
@@ -1262,34 +1358,14 @@ class TilemapRender {
     ctx.globalAlpha = 1
   }
 
-  drawTile(ctx, tile, layer, dx, dy, inset) {
+  drawTile(ctx, tile, _layer, dx, dy, _inset) {
     const tileset = this.findTileset(tile)
-    if (tileset && !tileset.colorOnly && tileset.canvas) {
-      const localTile = tile - tileset.firstTileId
-      const sx = (localTile % tileset.columns) * tileset.tileWidth
-      const sy = Math.floor(localTile / tileset.columns) * tileset.tileHeight
-      ctx.drawImage(tileset.canvas, sx, sy, tileset.tileWidth, tileset.tileHeight, dx, dy, this.tileWidth, this.tileHeight)
-      return
-    }
-
-    ctx.fillStyle = this.tileColor(tile, layer.index)
-    ctx.fillRect(
-      dx + inset,
-      dy + inset,
-      this.tileWidth - inset * 2,
-      this.tileHeight - inset * 2,
-    )
+    assert(tileset, `tilemap render missing tileset for tile ${tile}`)
+    tileset.drawTile(ctx, tile, dx, dy, this.tileWidth, this.tileHeight)
   }
 
   findTileset(tile) {
     return this.tilesets.find((tileset) => tileset.containsTile(tile)) || null
-  }
-
-  tileColor(tile, layerIndex) {
-    const base = this.layerColors[layerIndex % this.layerColors.length]
-    const hue = Math.abs((tile * 47 + layerIndex * 29) % 360)
-    if (tile < this.layerColors.length) return base
-    return `hsl(${hue} 72% 58%)`
   }
 
   drawGrid(ctx, snapshot, widthPx, heightPx, scale) {
@@ -1341,30 +1417,24 @@ class TilesetRender {
     ctx.fillStyle = '#ddd'
     ctx.font = '10px monospace'
 
-    if (!tileset.colorOnly && tileset.canvas) {
+    if (tileset.canvas) {
       ctx.drawImage(tileset.canvas, 0, 0)
     }
 
-    for (let y = 0; y < tileset.rows; y++) {
-      for (let x = 0; x < tileset.columns; x++) {
-        const tile = tileset.firstTileId + y * tileset.columns + x
-        const px = x * tileset.tileWidth
-        const py = y * tileset.tileHeight
-        if (tileset.colorOnly) {
-          ctx.fillStyle = this.tileColor(tile)
-          ctx.fillRect(px, py, tileset.tileWidth, tileset.tileHeight)
-          ctx.fillStyle = '#111'
-          ctx.fillText(String(tile), px + 2, py + 11)
-        }
-        ctx.strokeStyle = '#888'
-        ctx.strokeRect(px + 0.5, py + 0.5, tileset.tileWidth, tileset.tileHeight)
-        if (tile === activeTile) this.drawActiveTile(ctx, px, py, tileset)
+    for (let tileOffset = 0; tileOffset < tileset.tileCount; tileOffset++) {
+      const tile = tileset.firstTileId + tileOffset
+      const x = tileOffset % tileset.columns
+      const y = Math.floor(tileOffset / tileset.columns)
+      const px = x * tileset.tileWidth
+      const py = y * tileset.tileHeight
+      if (tileset.colorOnly) {
+        ctx.fillStyle = '#111'
+        ctx.fillText(String(tile), px + 2, py + 11)
       }
+      ctx.strokeStyle = '#888'
+      ctx.strokeRect(px + 0.5, py + 0.5, tileset.tileWidth, tileset.tileHeight)
+      if (tile === activeTile) this.drawActiveTile(ctx, px, py, tileset)
     }
-  }
-
-  tileColor(tile) {
-    return `hsl(${Math.abs(tile * 47) % 360} 72% 58%)`
   }
 
   tileFromPointerEvent(event, tileset) {
@@ -1374,7 +1444,9 @@ class TilesetRender {
     const x = Math.floor((event.clientX - rect.left) / tileset.tileWidth)
     const y = Math.floor((event.clientY - rect.top) / tileset.tileHeight)
     assert(x >= 0 && x < tileset.columns && y >= 0 && y < tileset.rows, 'tileset render pointer outside tileset bounds')
-    return tileset.firstTileId + y * tileset.columns + x
+    const tileOffset = y * tileset.columns + x
+    assert(tileOffset < tileset.tileCount, 'tileset render pointer outside available tiles')
+    return tileset.firstTileId + tileOffset
   }
 
   containsTile(tileset, tile) {
@@ -1403,6 +1475,7 @@ class TilesetRender {
     assert(Number.isInteger(tileset.columns) && tileset.columns > 0, 'tileset render tileset.columns must be positive integer')
     assert(Number.isInteger(tileset.rows) && tileset.rows > 0, 'tileset render tileset.rows must be positive integer')
     assert(Number.isInteger(tileset.firstTileId), 'tileset render tileset.firstTileId must be integer')
+    assert(Number.isInteger(tileset.tileCount) && tileset.tileCount > 0, 'tileset render tileset.tileCount must be positive integer')
   }
 }
 

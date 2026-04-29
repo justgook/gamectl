@@ -274,9 +274,10 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 - Open uses a `ui.popup` with `view-sql` in chooser mode against `tilemap_storage`; the popup options are isolated in `createOpenTilemapPopupOptions()` so replacing the chooser content with `view-files mode:chooser` later is a one-method content swap.
 - Current drawing is a 2D canvas render from `TilemapState.snapshot()` tile data.
 - Tileset behavior:
-  - maps without tileset metadata use one generated color tileset.
+  - maps without tileset metadata use one generated tileset sized to the maximum tile id present in the map.
   - maps with `props.tilesets` load those files through `runtime.call('fs', 'read', tilesetUrl)`.
   - QOI is the only supported real tileset format; `TilemapTileset` decodes QOI to RGBA pixel data and exposes it through `getData()` for future WebGL upload.
+  - Generated tilesets are also backed by `TilemapTileset` canvas/pixel data, so `TilemapRender` renders generated and real tilesets through the same `drawTile` path.
   - per-layer `props.tileset` loading is intentionally unsupported.
   - the tileset tab strip always starts with a plus tab reserved for future add-tileset behavior.
 - `view-tilemap.js` owns the internal render helpers because each `view-*.js` must be deployment-contained:
