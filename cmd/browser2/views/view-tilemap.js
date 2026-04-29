@@ -19,8 +19,6 @@ const TOOL_LABELS = new Map([
   [TOOL.FILL, 'Fill'],
 ])
 
-const LAYER_COLORS = ['#7aa2ff', '#3ddc97', '#ffcc66', '#ff5c7a', '#5bd6ff']
-
 const CLIENT_TILESETS = [
   { name: 'dungeon_floor', path: 'tilesets/dungeon_floor.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 1 },
   { name: 'dungeon_walls', path: 'tilesets/dungeon_walls.png', tileWidth: 16, tileHeight: 16, columns: 8, rows: 4, firstTileId: 33 },
@@ -225,6 +223,8 @@ export class ViewTilemap extends ViewCanvasBase {
     this.activeTilesetName = ''
     this.selectedLayerIndexes = new Set()
     this.showGrid = true
+    this.tilemapRender = new TilemapRender()
+    this.tilesetRender = new TilesetRender()
   }
 
   connectedCallback() {
@@ -512,7 +512,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.tilesetTabsElement.replaceChildren()
     this.tilesetPanelsElement.replaceChildren()
 
-    const activeTileset = CLIENT_TILESETS.find((tileset) => this.tilesetContainsTile(tileset, activeTile))
+    const activeTileset = CLIENT_TILESETS.find((tileset) => this.tilesetRender.containsTile(tileset, activeTile))
     const activeName = CLIENT_TILESETS.some((tileset) => tileset.name === this.activeTilesetName)
       ? this.activeTilesetName
       : activeTileset?.name || CLIENT_TILESETS[0].name
@@ -548,7 +548,7 @@ export class ViewTilemap extends ViewCanvasBase {
       canvas.height = tileset.rows * tileset.tileHeight
       canvas.addEventListener('click', async (event) => this.selectTileFromTileset(event, tileset))
       panel.appendChild(canvas)
-      this.drawTilesetPlaceholder(canvas, tileset, activeTile)
+      this.tilesetRender.draw(canvas, tileset, activeTile)
 
       const status = document.createElement('output')
       status.dataset.element = 'tileset-status'
@@ -563,48 +563,9 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async selectTileFromTileset(event, tileset) {
     assert(event.currentTarget instanceof HTMLCanvasElement, 'view-tilemap tileset click requires canvas')
-    const rect = event.currentTarget.getBoundingClientRect()
-    const x = Math.floor((event.clientX - rect.left) / tileset.tileWidth)
-    const y = Math.floor((event.clientY - rect.top) / tileset.tileHeight)
-    const tile = tileset.firstTileId + y * tileset.columns + x
+    const tile = this.tilesetRender.tileFromPointerEvent(event, tileset)
     this.state.setActiveTile(tile)
     await this.refreshSnapshot(`Active tile ${tile} selected from ${tileset.name}`)
-  }
-
-  tilesetContainsTile(tileset, tile) {
-    const count = tileset.columns * tileset.rows
-    return tile >= tileset.firstTileId && tile < tileset.firstTileId + count
-  }
-
-  drawTilesetPlaceholder(canvas, tileset, activeTile) {
-    const ctx = canvas.getContext('2d')
-    assert(ctx, 'view-tilemap tileset canvas requires 2d context')
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = '#222'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.strokeStyle = '#888'
-    ctx.fillStyle = '#ddd'
-    ctx.font = '10px monospace'
-
-    for (let y = 0; y < tileset.rows; y++) {
-      for (let x = 0; x < tileset.columns; x++) {
-        const tile = tileset.firstTileId + y * tileset.columns + x
-        const px = x * tileset.tileWidth
-        const py = y * tileset.tileHeight
-        ctx.strokeRect(px + 0.5, py + 0.5, tileset.tileWidth, tileset.tileHeight)
-        ctx.fillText(String(tile), px + 2, py + 11)
-        if (tile === activeTile) {
-          ctx.save()
-          ctx.strokeStyle = '#ffcc66'
-          ctx.lineWidth = 2
-          ctx.strokeRect(px + 1, py + 1, tileset.tileWidth - 2, tileset.tileHeight - 2)
-          ctx.strokeStyle = '#111'
-          ctx.lineWidth = 1
-          ctx.strokeRect(px + 3.5, py + 3.5, tileset.tileWidth - 7, tileset.tileHeight - 7)
-          ctx.restore()
-        }
-      }
-    }
   }
 
   renderHeaderControls(snapshot) {
@@ -694,68 +655,18 @@ export class ViewTilemap extends ViewCanvasBase {
 
   calculateContentBounds(data) {
     const snapshot = data || this.snapshot || this.state.snapshot()
-    return {
-      minX: 0,
-      minY: 0,
-      maxX: snapshot.width * 16,
-      maxY: snapshot.height * 16,
-    }
+    return this.tilemapRender.calculateContentBounds(snapshot)
   }
 
   drawContent(ctx, data) {
     const snapshot = data || this.snapshot
     if (!snapshot) return
-
-    const tileWidth = 16
-    const tileHeight = 16
-    const widthPx = snapshot.width * tileWidth
-    const heightPx = snapshot.height * tileHeight
-
-    ctx.save()
-    ctx.fillStyle = '#18212b'
-    ctx.fillRect(0, 0, widthPx, heightPx)
-
-    for (let y = 0; y < snapshot.height; y++) {
-      for (let x = 0; x < snapshot.width; x++) {
-        const parity = (x + y) % 2
-        ctx.fillStyle = parity ? '#243244' : '#202c3b'
-        ctx.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight)
-      }
-    }
-
-    for (const layer of snapshot.layers) {
-      if (layer.hidden) continue
-      const layerAlpha = this.selectedLayerIndexes.size === 0 || this.selectedLayerIndexes.has(layer.index) ? 0.45 : 0.16
-      ctx.globalAlpha = layerAlpha
-      ctx.fillStyle = LAYER_COLORS[layer.index % LAYER_COLORS.length]
-      const inset = 2 + layer.index * 2
-      for (let y = layer.index; y < snapshot.height; y += 4) {
-        for (let x = layer.index; x < snapshot.width; x += 5) {
-          ctx.fillRect(x * tileWidth + inset, y * tileHeight + inset, tileWidth - inset * 2, tileHeight - inset * 2)
-        }
-      }
-    }
-    ctx.globalAlpha = 1
-
-    if (this.showGrid) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)'
-      ctx.lineWidth = 1 / this.scale
-      ctx.beginPath()
-      for (let x = 0; x <= snapshot.width; x++) {
-        ctx.moveTo(x * tileWidth, 0)
-        ctx.lineTo(x * tileWidth, heightPx)
-      }
-      for (let y = 0; y <= snapshot.height; y++) {
-        ctx.moveTo(0, y * tileHeight)
-        ctx.lineTo(widthPx, y * tileHeight)
-      }
-      ctx.stroke()
-    }
-
-    ctx.strokeStyle = '#ffcc66'
-    ctx.lineWidth = 2 / this.scale
-    ctx.strokeRect(0, 0, widthPx, heightPx)
-    ctx.restore()
+    this.tilemapRender.draw(ctx, {
+      snapshot,
+      selectedLayerIndexes: this.selectedLayerIndexes,
+      showGrid: this.showGrid,
+      scale: this.scale,
+    })
   }
 
   createLayerButton(action, layer, icon, next) {
@@ -788,4 +699,178 @@ export class ViewTilemap extends ViewCanvasBase {
 
 if (!customElements.get('view-tilemap')) {
   customElements.define('view-tilemap', ViewTilemap)
+}
+
+
+
+const DEFAULT_TILE_WIDTH = 16
+const DEFAULT_TILE_HEIGHT = 16
+const DEFAULT_LAYER_COLORS = ['#7aa2ff', '#3ddc97', '#ffcc66', '#ff5c7a', '#5bd6ff']
+
+export class TilemapRender {
+  constructor({ tileWidth = DEFAULT_TILE_WIDTH, tileHeight = DEFAULT_TILE_HEIGHT, layerColors = DEFAULT_LAYER_COLORS } = {}) {
+    assert(Number.isInteger(tileWidth) && tileWidth > 0, 'tilemap render tileWidth must be positive integer')
+    assert(Number.isInteger(tileHeight) && tileHeight > 0, 'tilemap render tileHeight must be positive integer')
+    assert(Array.isArray(layerColors) && layerColors.length > 0, 'tilemap render layerColors must be non-empty array')
+    this.tileWidth = tileWidth
+    this.tileHeight = tileHeight
+    this.layerColors = layerColors
+  }
+
+  calculateContentBounds(snapshot) {
+    this.validateSnapshotShape(snapshot)
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: snapshot.width * this.tileWidth,
+      maxY: snapshot.height * this.tileHeight,
+    }
+  }
+
+  draw(ctx, { snapshot, selectedLayerIndexes, showGrid, scale }) {
+    assert(ctx instanceof CanvasRenderingContext2D, 'tilemap render requires 2d context')
+    this.validateSnapshotShape(snapshot)
+    assert(selectedLayerIndexes instanceof Set, 'tilemap render selectedLayerIndexes must be a Set')
+    assert(typeof showGrid === 'boolean', 'tilemap render showGrid must be boolean')
+    assert(Number.isFinite(scale) && scale > 0, 'tilemap render scale must be positive number')
+
+    const widthPx = snapshot.width * this.tileWidth
+    const heightPx = snapshot.height * this.tileHeight
+
+    ctx.save()
+    this.drawBackground(ctx, snapshot, widthPx, heightPx)
+    this.drawLayers(ctx, snapshot, selectedLayerIndexes)
+    if (showGrid) this.drawGrid(ctx, snapshot, widthPx, heightPx, scale)
+    this.drawBounds(ctx, widthPx, heightPx, scale)
+    ctx.restore()
+  }
+
+  drawBackground(ctx, snapshot, widthPx, heightPx) {
+    ctx.fillStyle = '#18212b'
+    ctx.fillRect(0, 0, widthPx, heightPx)
+
+    for (let y = 0; y < snapshot.height; y++) {
+      for (let x = 0; x < snapshot.width; x++) {
+        const parity = (x + y) % 2
+        ctx.fillStyle = parity ? '#243244' : '#202c3b'
+        ctx.fillRect(x * this.tileWidth, y * this.tileHeight, this.tileWidth, this.tileHeight)
+      }
+    }
+  }
+
+  drawLayers(ctx, snapshot, selectedLayerIndexes) {
+    for (const layer of snapshot.layers) {
+      if (layer.hidden) continue
+      const layerAlpha = selectedLayerIndexes.size === 0 || selectedLayerIndexes.has(layer.index) ? 0.45 : 0.16
+      ctx.globalAlpha = layerAlpha
+      ctx.fillStyle = this.layerColors[layer.index % this.layerColors.length]
+      const inset = 2 + layer.index * 2
+      for (let y = layer.index; y < snapshot.height; y += 4) {
+        for (let x = layer.index; x < snapshot.width; x += 5) {
+          ctx.fillRect(
+            x * this.tileWidth + inset,
+            y * this.tileHeight + inset,
+            this.tileWidth - inset * 2,
+            this.tileHeight - inset * 2,
+          )
+        }
+      }
+    }
+    ctx.globalAlpha = 1
+  }
+
+  drawGrid(ctx, snapshot, widthPx, heightPx, scale) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+    ctx.lineWidth = 1 / scale
+    ctx.beginPath()
+    for (let x = 0; x <= snapshot.width; x++) {
+      ctx.moveTo(x * this.tileWidth, 0)
+      ctx.lineTo(x * this.tileWidth, heightPx)
+    }
+    for (let y = 0; y <= snapshot.height; y++) {
+      ctx.moveTo(0, y * this.tileHeight)
+      ctx.lineTo(widthPx, y * this.tileHeight)
+    }
+    ctx.stroke()
+  }
+
+  drawBounds(ctx, widthPx, heightPx, scale) {
+    ctx.strokeStyle = '#ffcc66'
+    ctx.lineWidth = 2 / scale
+    ctx.strokeRect(0, 0, widthPx, heightPx)
+  }
+
+  validateSnapshotShape(snapshot) {
+    assert(snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot), 'tilemap render snapshot must be an object')
+    assert(Number.isInteger(snapshot.width) && snapshot.width > 0, 'tilemap render snapshot.width must be positive integer')
+    assert(Number.isInteger(snapshot.height) && snapshot.height > 0, 'tilemap render snapshot.height must be positive integer')
+    assert(Array.isArray(snapshot.layers), 'tilemap render snapshot.layers must be array')
+  }
+}
+
+export class TilesetRender {
+  draw(canvas, tileset, activeTile) {
+    assert(canvas instanceof HTMLCanvasElement, 'tileset render requires canvas')
+    this.validateTileset(tileset)
+    assert(Number.isInteger(activeTile), 'tileset render activeTile must be integer')
+
+    const ctx = canvas.getContext('2d')
+    assert(ctx, 'tileset render canvas requires 2d context')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = '#222'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.strokeStyle = '#888'
+    ctx.fillStyle = '#ddd'
+    ctx.font = '10px monospace'
+
+    for (let y = 0; y < tileset.rows; y++) {
+      for (let x = 0; x < tileset.columns; x++) {
+        const tile = tileset.firstTileId + y * tileset.columns + x
+        const px = x * tileset.tileWidth
+        const py = y * tileset.tileHeight
+        ctx.strokeRect(px + 0.5, py + 0.5, tileset.tileWidth, tileset.tileHeight)
+        ctx.fillText(String(tile), px + 2, py + 11)
+        if (tile === activeTile) this.drawActiveTile(ctx, px, py, tileset)
+      }
+    }
+  }
+
+  tileFromPointerEvent(event, tileset) {
+    assert(event.currentTarget instanceof HTMLCanvasElement, 'tileset render pointer event requires canvas currentTarget')
+    this.validateTileset(tileset)
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = Math.floor((event.clientX - rect.left) / tileset.tileWidth)
+    const y = Math.floor((event.clientY - rect.top) / tileset.tileHeight)
+    assert(x >= 0 && x < tileset.columns && y >= 0 && y < tileset.rows, 'tileset render pointer outside tileset bounds')
+    return tileset.firstTileId + y * tileset.columns + x
+  }
+
+  containsTile(tileset, tile) {
+    this.validateTileset(tileset)
+    assert(Number.isInteger(tile), 'tileset render tile must be integer')
+    const count = tileset.columns * tileset.rows
+    return tile >= tileset.firstTileId && tile < tileset.firstTileId + count
+  }
+
+  drawActiveTile(ctx, px, py, tileset) {
+    ctx.save()
+    ctx.strokeStyle = '#ffcc66'
+    ctx.lineWidth = 2
+    ctx.strokeRect(px + 1, py + 1, tileset.tileWidth - 2, tileset.tileHeight - 2)
+    ctx.strokeStyle = '#111'
+    ctx.lineWidth = 1
+    ctx.strokeRect(px + 3.5, py + 3.5, tileset.tileWidth - 7, tileset.tileHeight - 7)
+    ctx.restore()
+  }
+
+  validateTileset(tileset) {
+    assert(tileset && typeof tileset === 'object' && !Array.isArray(tileset), 'tileset render tileset must be an object')
+    assert(typeof tileset.name === 'string' && tileset.name.length > 0, 'tileset render tileset.name must be non-empty string')
+    assert(typeof tileset.path === 'string', 'tileset render tileset.path must be string')
+    assert(Number.isInteger(tileset.tileWidth) && tileset.tileWidth > 0, 'tileset render tileset.tileWidth must be positive integer')
+    assert(Number.isInteger(tileset.tileHeight) && tileset.tileHeight > 0, 'tileset render tileset.tileHeight must be positive integer')
+    assert(Number.isInteger(tileset.columns) && tileset.columns > 0, 'tileset render tileset.columns must be positive integer')
+    assert(Number.isInteger(tileset.rows) && tileset.rows > 0, 'tileset render tileset.rows must be positive integer')
+    assert(Number.isInteger(tileset.firstTileId), 'tileset render tileset.firstTileId must be integer')
+  }
 }
