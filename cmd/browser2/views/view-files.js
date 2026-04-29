@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { createWriteInput } from '../util/fs.js'
 
 const decoder = new TextDecoder()
 
@@ -129,6 +130,8 @@ export class ViewFiles extends HTMLElement {
     toolbar.querySelector('[data-action="new-folder"]')?.addEventListener('click', () => this.openCreatePopup('directory'))
     toolbar.querySelector('[data-action="rename"]')?.addEventListener('click', () => this.openRenamePopup())
     toolbar.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelected())
+    toolbar.querySelector('[data-action="upload"]')?.addEventListener('click', () => this.uploadFile())
+    toolbar.querySelector('[data-action="download"]')?.addEventListener('click', () => this.downloadSelected())
 
     this.addEventListener('chooser-select', async (event) => {
       await this.closePopupResult({ ok: true, cancelled: false, selection: event.detail.selection })
@@ -245,6 +248,8 @@ export class ViewFiles extends HTMLElement {
       <button data-action="new-folder" aria-label="Create folder" title="Create folder"><i aria-hidden="true">create_new_folder</i></button>
       <button data-action="rename" aria-label="Rename" title="Rename"><i aria-hidden="true">drive_file_rename_outline</i></button>
       <button data-action="delete" aria-label="Delete" title="Delete"><i aria-hidden="true">delete</i></button>
+      <button data-action="upload" aria-label="Upload file" title="Upload file"><i aria-hidden="true">upload</i></button>
+      <button data-action="download" aria-label="Download file" title="Download file"><i aria-hidden="true">download</i></button>
     `
     return toolbar
   }
@@ -288,6 +293,17 @@ export class ViewFiles extends HTMLElement {
     const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
     if (deleteButton instanceof HTMLButtonElement) {
       deleteButton.disabled = !isBrowserMode || !this.selectedPath
+    }
+
+    const uploadButton = this._headerControlsElement.querySelector('[data-action="upload"]')
+    if (uploadButton instanceof HTMLButtonElement) {
+      uploadButton.disabled = !isBrowserMode
+    }
+
+    const downloadButton = this._headerControlsElement.querySelector('[data-action="download"]')
+    if (downloadButton instanceof HTMLButtonElement) {
+      const selectedEntry = this.selectedPath ? this.getEntry(this.selectedPath) : null
+      downloadButton.disabled = !isBrowserMode || selectedEntry?.type !== 'file'
     }
 
     this.updateFooterUI()
@@ -753,6 +769,106 @@ export class ViewFiles extends HTMLElement {
     this.fileTree.clear()
     this.removeExpandedPathTree(entry.path)
     await this.refresh()
+  }
+
+  getParentDirectoryPath(path) {
+    const normalizedPath = normalizePath(path)
+    const slashIndex = normalizedPath.lastIndexOf('/')
+    return slashIndex <= 0 ? '/' : normalizedPath.slice(0, slashIndex)
+  }
+
+  getUploadDirectoryPath() {
+    if (!this.selectedPath) return this.rootPath
+    const selectedEntry = this.getEntry(this.selectedPath)
+    assert(selectedEntry, `view-files selected path not found: ${this.selectedPath}`)
+    return selectedEntry.type === 'directory' ? selectedEntry.path : this.getParentDirectoryPath(selectedEntry.path)
+  }
+
+  async uploadFile() {
+    if (this.mode !== 'browser') return
+
+    const destinationDirectory = this.getUploadDirectoryPath()
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.hidden = true
+
+    input.addEventListener('change', async () => {
+      const files = Array.from(input.files || [])
+      input.remove()
+      if (files.length === 0) return
+
+      this.setStatus(`Uploading ${files.length} file${files.length === 1 ? '' : 's'} to ${destinationDirectory}...`, 'info')
+
+      try {
+        let selectedUploadPath = null
+        for (const file of files) {
+          const content = new Uint8Array(await file.arrayBuffer())
+          const filePath = joinPath(destinationDirectory, file.name)
+          await this.callFs('write', createWriteInput(filePath, content))
+          selectedUploadPath = filePath
+        }
+
+        if (destinationDirectory !== this.rootPath) {
+          this.expandedPaths.add(destinationDirectory)
+        }
+        await this.refresh()
+        if (selectedUploadPath) this.selectRow(selectedUploadPath)
+        await runtime.call('ui.toast', 'success', {
+          message: `Uploaded ${files.length} file${files.length === 1 ? '' : 's'}`,
+        })
+      } catch (error) {
+        this.setStatus(`Error: ${error?.message || error}`, 'danger')
+        await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
+        console.error('view-files upload failed:', error)
+      }
+    }, { once: true })
+
+    document.body.appendChild(input)
+    input.click()
+  }
+
+  async downloadSelected() {
+    if (this.mode !== 'browser') return
+
+    if (!this.selectedPath) {
+      this.setStatus('No file selected for download', 'warning')
+      await runtime.call('ui.toast', 'warning', { message: 'No file selected for download' })
+      return
+    }
+
+    const entry = this.getEntry(this.selectedPath)
+    assert(entry, `view-files selected path not found: ${this.selectedPath}`)
+
+    if (entry.type !== 'file') {
+      this.setStatus('Folders cannot be downloaded directly', 'warning')
+      await runtime.call('ui.toast', 'warning', { message: 'Folders cannot be downloaded directly' })
+      return
+    }
+
+    this.setStatus(`Downloading ${entry.path}...`, 'info')
+
+    try {
+      const result = await this.callFs('read', entry.path)
+      const blob = new Blob([result.output])
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = entry.name
+      document.body.appendChild(link)
+      link.click()
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url)
+        link.remove()
+      }, 0)
+
+      this.setStatus(`Downloaded ${entry.path}`, 'success')
+      await runtime.call('ui.toast', 'success', { message: `Downloaded ${entry.name}` })
+    } catch (error) {
+      this.setStatus(`Error: ${error?.message || error}`, 'danger')
+      await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
+      console.error('view-files download failed:', error)
+    }
   }
 
   async openFile(path) {
