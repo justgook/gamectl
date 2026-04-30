@@ -1,5 +1,6 @@
 import { runtime } from '../core/runtime.js'
 import { createWriteInput } from '../util/fs.js'
+import { parseCSVLines } from '../util/csv.js'
 
 const textDecoder = new TextDecoder()
 
@@ -199,7 +200,7 @@ function getNodeGraphRenderAssets() {
 
 export class ViewNg extends HTMLElement {
   static get observedAttributes() {
-    return ['graph-name']
+    return ['graph-name', 'data-source']
   }
 
   constructor() {
@@ -317,7 +318,9 @@ export class ViewNg extends HTMLElement {
       this._bindEvents()
       this._resizeTarget = this.parentElement || this.canvas
       this.resizeObserver.observe(this._resizeTarget)
-      this._loadAssets().then(() => {
+      this._loadAssets().then(async () => {
+        const path = String(this.getAttribute('data-source') || '').trim()
+        if (path) await this.loadGraphFS(path)
         this.handleElement.textContent = `nodes: ${this.graphNodes.length}`
         this._setBackendStatus('state: frontend', 'success')
         this._setStatus(`ready for graph '${this.graphName}'`, 'info')
@@ -392,6 +395,11 @@ export class ViewNg extends HTMLElement {
     if (name === 'graph-name') {
       this.graphName = String(newValue || 'default').trim() || 'default'
       if (this._ready) this._setStatus(`graph name set to '${this.graphName}'`, 'info')
+      return
+    }
+    if (name === 'data-source' && this._ready) {
+      const dataSource = String(newValue || '').trim()
+      if (dataSource) void this.loadGraphFS(dataSource)
       return
     }
   }
@@ -1096,6 +1104,11 @@ end`
     const selection = payload.selection
     const path = Array.isArray(selection) ? selection[0]?.path : selection?.path
     assert(path, 'view-ng load graph requires selected file path')
+
+    await this.loadGraphFS(path)
+  }
+
+  async loadGraphFS(path, notify = true) {
     const readResult = await runtime.call('fs', 'read', path)
     if (readResult.returnCode !== 0) {
       throw new Error(decodeOutput(readResult) || `fs.read failed: ${readResult.returnCode}`)
@@ -1104,7 +1117,9 @@ end`
     this.loadGraph(graph)
     this.graphName = String(path.split('/').pop() || this.graphName).replace(/\.ng\.json$/i, '').replace(/\.json$/i, '')
     this._setStatus(`loaded graph from ${path}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Loaded graph from ${path}` })
+    if (notify) {
+      await runtime.call('ui.toast', 'success', { message: `Loaded graph from ${path}` })
+    }
   }
 
   async showAddNodePopup() {
