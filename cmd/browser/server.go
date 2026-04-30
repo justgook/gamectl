@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	port := flag.String("port", "8082", "Port to run the server on")
+	port := flag.String("port", "8080", "Port to run the server on")
 	flag.Parse()
 
 	cwd, err := os.Getwd()
@@ -23,10 +23,10 @@ func main() {
 		buildDirName = "build.nosync"
 	}
 
-	browserDir := filepath.Join(cwd, "cmd", "browser2")
+	browserDir := filepath.Join(cwd, "cmd", "browser")
 	buildDir := filepath.Join(cwd, buildDirName)
 
-	fmt.Printf("GAMS Browser IDE Server (next host)\n")
+	fmt.Printf("GAMS Browser IDE Server\n")
 	fmt.Printf("   Current Working Directory: %s\n", cwd)
 	fmt.Printf("   Browser files: %s\n", browserDir)
 	fmt.Printf("   Build files:   %s (via /build/)\n", buildDir)

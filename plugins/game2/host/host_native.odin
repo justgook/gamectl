@@ -141,7 +141,7 @@ asset_read_all_host :: proc(path: string) -> ([]u8, bool) {
 		return nil, false
 	}
 	candidates := [4]string {
-		fmt.tprintf("../../cmd/browser/assets/game/%s", name),
+		fmt.tprintf("../../cmd/browser/demo/assets/%s", name),
 		fmt.tprintf("../../example/%s", name),
 		fmt.tprintf("example/%s", name),
 		name,

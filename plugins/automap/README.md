@@ -218,7 +218,7 @@ Example special tile configuration:
 }
 ```
 
-`cmd/browser/assets/kkte/rules.qoi` contains an existing visual rules tile asset that can be used as a source for these special tiles. If this README later needs visible icons, prefer either splitting that asset into documented tile IDs or replacing it with small first-party SVG icons.
+`cmd/browser/demo/assets/rules.qoi` contains an existing visual rules tile asset that can be used as a source for these special tiles. If this README later needs visible icons, prefer either splitting that asset into documented tile IDs or replacing it with small first-party SVG icons.
 
 ## Map-Level Properties
 

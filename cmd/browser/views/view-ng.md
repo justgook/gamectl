@@ -1,19 +1,19 @@
 # view-ng Rules
 
-This file records the intended rules for the future `cmd/browser2/views/view-ng.js` implementation.
+This file records the intended rules for the future `cmd/browser/views/view-ng.js` implementation.
 
 `view-ng.js` does not need to preserve legacy `cmd/browser/views/view-nodegraph2.js` runtime ownership patterns.
 
 ## Core Rules
 
-1. `view-ng.js` is a **browser2 fresh-start view**.
+1. `view-ng.js` is a **browser fresh-start view**.
 2. It should target `plugins/ng2/`, not the legacy instance-owned `ng` flow.
 3. It must not instantiate its own WASM runtime.
 4. It must not own a private worker/runtime.
 5. It must not recreate `pluginManager.load(...)`-style per-view runtime ownership.
 6. It should bind to a **global worker-side** `ng2` plugin.
 7. It should operate on an explicit **graph/document handle**.
-8. It should follow `cmd/browser2/VIEW_RULES.md`.
+8. It should follow `cmd/browser/VIEW_RULES.md`.
 9. It should use strict fail-fast behavior for required internal state.
 10. It should not add legacy compatibility behavior for old browser view contracts.
 
@@ -31,7 +31,7 @@ This file records the intended rules for the future `cmd/browser2/views/view-ng.
 
 ## Current Migration Notes
 
-The browser2 view now carries over the legacy header control surface from `view-nodegraph2.js`:
+The browser view now carries over the legacy header control surface from `view-nodegraph2.js`:
 - run
 - add
 - save
@@ -51,7 +51,7 @@ Current state:
 - add/edit now share a single popup view:
   - `view-ng-node`
   - controlled by `mode: 'create' | 'edit'`
-  - visually/functionally ported toward the legacy node editor while using browser2 view rules
+  - visually/functionally ported toward the legacy node editor while using browser view rules
 - popup flows should use `runtime.call('ui.popup', ...)`, not direct `popup-manager` access
 - save remains a placeholder until `ng2.ng_graph_save` exists
 - reset/clear/auto-arrange are view-side editor actions
@@ -84,11 +84,11 @@ The view must not own:
 ## Binding Model
 
 The intended model is:
-- browser2 registers `ng2` as a global worker-side WASM plugin
+- browser registers `ng2` as a global worker-side WASM plugin
 - `view-ng.js` creates/opens one graph handle through `ng2`
 - `view-ng.js` issues explicit handle-based calls to mutate/run the graph
 - `view-ng.js` reads shared memory from `ng2` for rendering/inspection when appropriate
 
 ## Fresh-Start Rule
 
-If the old implementation shape conflicts with the browser2 target architecture, prefer the browser2 target architecture and break the old shape.
+If the old implementation shape conflicts with the browser target architecture, prefer the browser target architecture and break the old shape.

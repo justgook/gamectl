@@ -75,7 +75,7 @@ func Automap() int32 {
 	// - same input/output ID: update in place
 	// - different output ID: create a fresh target map from the current input.
 	// Pipeline runs must be deterministic and repeatable; reusing a previous
-	// generated output as the next target makes repeated browser2 graph runs feed
+	// generated output as the next target makes repeated browser graph runs feed
 	// stale generated state back into automap.
 	targetMap := inputMap
 	if inputMapID != outputMapID {
@@ -97,7 +97,7 @@ func Automap() int32 {
 	}
 
 	// Return success with the map IDs. Keep this hand-encoded instead of using
-	// encoding/json here: TinyGo's JSON encoder can panic on repeated browser2
+	// encoding/json here: TinyGo's JSON encoder can panic on repeated browser
 	// runs after this stateful automap path updates an existing output map.
 	pdk.Output([]byte(`{"success":true}`))
 

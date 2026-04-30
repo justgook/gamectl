@@ -487,7 +487,7 @@ class PluginManager {
   /**
    * Free a persistent host-managed allocation.
    *
-   * Freed regions are merged and reused for later allocations so browser2 wasm
+   * Freed regions are merged and reused for later allocations so browser wasm
    * plugins can mix long-lived heaps with transient PDK buffers without
    * unbounded linear-memory growth.
    */

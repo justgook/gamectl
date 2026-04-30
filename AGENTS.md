@@ -41,20 +41,20 @@ This repository is moving toward a unified `pluginManager` architecture.
 - `ng` runtime / `view-nodegraph2`
 - `layout`
 - `sql`
-- `cmd/browser2` worker-side runtime/bootstrap
+- `cmd/browser` worker-side runtime/bootstrap
 - legacy `pluginManager.load(...)` view runtimes
 
 ## Guidance For AI Agents
 - Read `PLAN/PLAN.md` before proposing architecture changes.
 - When discussing a plugin, check whether it already has a file under `PLAN/`.
 - Prefer updating planning docs with clear migration targets instead of assuming unfinished details.
-- Treat `cmd/browser2` as a fresh-start host: breaking changes are acceptable there and backwards-compatibility shims should not be introduced unless explicitly planned.
-- For browser2 planning/work, prefer worker-side setup/bootstrap for base plugins and document any main-thread bridge assumptions explicitly.
-- For browser2 internal plugin↔ui shared-memory designs, prefer direct ownership by the participating plugin/view pair over runtime-managed mirrored state when possible. In particular, if a WASM plugin already has a suitable in-memory state layout, prefer sharing that linear memory directly with the UI instead of adding runtime-owned copy layers, headers, or protocol versioning unless there is a concrete need.
-- Do not add API/protocol versioning or compatibility structure to internal first-party browser2 communication unless there is a real migration/interoperability requirement; browser2 is a fresh-start host owned as one codebase and can evolve in lockstep.
-- Browser/base/theme CSS relies on semantic meaning of HTML tags in the existing browser UI. When migrating views from `cmd/browser` to `cmd/browser2`, preserve the original HTML structure/tags as much as possible instead of replacing them with arbitrary wrappers; tag choice is part of the styling contract here, even when it differs from conventional HTML semantics.
-- For `cmd/browser2` view/UI work, follow `cmd/browser2/VIEW_RULES.md`. Treat it as the canonical ruleset for allowed elements, attributes, slots, classes, and UI structure. Update it during development whenever the browser2 UI vocabulary/rules are clarified or extended.
-- Browser2/internal app code should use a **strict fail-fast style**. Do not add graceful fallbacks, defensive optional behavior, best-effort recovery, or silent defaulting for required internal data/config/state. If required data is missing or malformed, treat it as a bug and fail loudly.
-- In particular for first-party browser2 JS/plugins/views: do not write code like "if config is missing, continue with {}", broad `try/catch` that hides invariant violations, optional chaining for elements/state that must exist, or fallback parsing paths that silently accept invalid internal data. Required values should be assumed present and should throw immediately when violated.
+- Treat `cmd/browser` as a fresh-start host: breaking changes are acceptable there and backwards-compatibility shims should not be introduced unless explicitly planned.
+- For browser planning/work, prefer worker-side setup/bootstrap for base plugins and document any main-thread bridge assumptions explicitly.
+- For browser internal plugin↔ui shared-memory designs, prefer direct ownership by the participating plugin/view pair over runtime-managed mirrored state when possible. In particular, if a WASM plugin already has a suitable in-memory state layout, prefer sharing that linear memory directly with the UI instead of adding runtime-owned copy layers, headers, or protocol versioning unless there is a concrete need.
+- Do not add API/protocol versioning or compatibility structure to internal first-party browser communication unless there is a real migration/interoperability requirement; browser is a fresh-start host owned as one codebase and can evolve in lockstep.
+- Browser/base/theme CSS relies on semantic meaning of HTML tags in the current browser UI. Preserve the original HTML structure/tags as much as possible instead of replacing them with arbitrary wrappers; tag choice is part of the styling contract here, even when it differs from conventional HTML semantics.
+- For `cmd/browser` view/UI work, follow `cmd/browser/VIEW_RULES.md`. Treat it as the canonical ruleset for allowed elements, attributes, slots, classes, and UI structure. Update it during development whenever the browser UI vocabulary/rules are clarified or extended.
+- Browser/internal app code should use a **strict fail-fast style**. Do not add graceful fallbacks, defensive optional behavior, best-effort recovery, or silent defaulting for required internal data/config/state. If required data is missing or malformed, treat it as a bug and fail loudly.
+- In particular for first-party browser JS/plugins/views: do not write code like "if config is missing, continue with {}", broad `try/catch` that hides invariant violations, optional chaining for elements/state that must exist, or fallback parsing paths that silently accept invalid internal data. Required values should be assumed present and should throw immediately when violated.
 - Reserve structured error returns / recoverable handling for true runtime outcomes that are expected as part of agent/tool/model behavior, not for internal wiring/config bugs.
 - If a plugin’s target shape is unclear, mark it as **requires clarification** instead of over-specifying.

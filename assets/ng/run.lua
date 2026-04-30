@@ -1,6 +1,6 @@
 -- run.lua
 --
--- Compiles a browser2 view-ng raw node-array graph into one Lua program.
+-- Compiles a browser view-ng raw node-array graph into one Lua program.
 --
 -- Compiler input:
 --   _G.input or input: JSON string containing the graph returned by view-ng.getGraph().

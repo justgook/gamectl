@@ -1,18 +1,18 @@
 # view-tilemap State API
 
-This is the browser2 tilemap editor state contract used by `cmd/browser2/views/view-tilemap.js`.
+This is the browser tilemap editor state contract used by `cmd/browser/views/view-tilemap.js`.
 
 Current implementation: a private `TilemapState` class inside `view-tilemap.js`.
 
-Goal: keep method names close to `plugins/stbte/` and the earlier backend plan, while allowing the browser2 UI to iterate without a temporary fake WASM plugin.
+Goal: keep method names close to `plugins/stbte/` and the earlier backend plan, while allowing the browser UI to iterate without a temporary fake WASM plugin.
 
 ## State Owner
 
 - state class: `TilemapState`
-- view: `cmd/browser2/views/view-tilemap.js`
+- view: `cmd/browser/views/view-tilemap.js`
 - primary state owner for now: private `TilemapState`
 - UI/render owner: `ViewTilemap`
-- no browser2 `tilemap` WASM plugin is currently registered
+- no browser `tilemap` WASM plugin is currently registered
 - no `runtime.call('tilemap', ...)` path should be used during this prototype phase
 
 ## Call Shape
@@ -290,7 +290,7 @@ Use `layer: -1` for no solo layer.
 
 ### `define_tile`
 
-Equivalent to `stbte_define_tile`, but browser2 should not expose stbte categories in the view UI. Tileset/palette presentation is a view concern layered over tile ids.
+Equivalent to `stbte_define_tile`, but browser should not expose stbte categories in the view UI. Tileset/palette presentation is a view concern layered over tile ids.
 
 Input:
 

@@ -143,7 +143,7 @@ export class ViewSettingTheme extends HTMLElement {
 
   applyPreview(themeId) {
     const apply = window.__applyThemeStylesheet
-    assert(typeof apply === 'function', 'browser2 theme apply hook is not installed')
+    assert(typeof apply === 'function', 'browser theme apply hook is not installed')
     apply(themeId)
   }
 

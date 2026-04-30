@@ -8,10 +8,9 @@ It combines a modular UI (views), a runtime WebAssembly plugin system, SQLite-ba
 - Browser IDE shell served from `cmd/browser/`
 - Dynamic WASM plugin loading (Go, C, Zig, Odin)
 - SQL-first runtime state and configuration via the `sql` plugin
-- Built-in game runner view to test assets directly in-game from inside GAMS
 - File system abstraction with OPFS and WebDAV backends
-- Built-in views for node graphs, files, tilemap/sprite tooling, SQL tables/console, settings, and game runner
-- Pipeline-oriented workflow with seeded example pipelines
+- Built-in views for node graphs, files, tilemap tooling, SQL tables/console, settings, and AI assistance
+- Pipeline-oriented workflow with mounted demo assets and example pipelines
 
 ## Key Capabilities
 
@@ -23,10 +22,10 @@ It combines a modular UI (views), a runtime WebAssembly plugin system, SQLite-ba
 
 ## Architecture At A Glance
 
-- **Frontend app**: `cmd/browser/app.js` boots in phases (filesystem, DB migrations, plugins, then views)
-- **Plugin runtime**: `cmd/browser/systems/plugin-manager/` handles plugin calls and worker orchestration
-- **View loader**: `cmd/browser/systems/view-loader.js` loads enabled views from registry
-- **Registry + persistence**: SQL migrations in `cmd/browser/data/migrations/` define plugin/view registries, settings, and seeded data
+- **Frontend app**: `cmd/browser/app.js` boots the theme, filesystem provider, plugin runtime, and default layout
+- **Plugin runtime**: `cmd/browser/core/` handles plugin calls, worker orchestration, filesystem mounts, and host bridges
+- **Views/widgets**: `cmd/browser/views/` and `cmd/browser/widgets/` provide the browser UI surface
+- **Bootstrap config**: `cmd/browser/core/gams.json` defines built-in mounts and first-party plugin registrations
 - **WASM outputs**: compiled to `build.nosync/plugins/*.wasm`
 
 ## Requirements
@@ -78,7 +77,7 @@ make clean
 
 ## Repository Layout
 
-- `cmd/browser/` - browser application, views, systems, migrations, static assets
+- `cmd/browser/` - browser application, core runtime, views, widgets, themes, and demo assets
 - `cmd/native/` - Wails desktop wrapper around the browser application
 - `plugins/` - WASM plugins in mixed languages (Go/C/Zig/Odin)
 - `pkg/` - shared Go packages (tilemap, tree, utilities, qoi)

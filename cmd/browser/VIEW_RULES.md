@@ -109,7 +109,7 @@ Optional elements should appear at most once per view.
 
 ## Tabs
 
-Current tab vocabulary follows the legacy/browser theme selectors and should be refined after more browser2 usage.
+Current tab vocabulary follows the legacy/browser theme selectors and should be refined after more browser usage.
 
 - `[role="tablist"]` - tab button container; horizontally scrolls when tabs do not fit the parent width.
 - `button[role="tab"]` - tab selector control; text should be concise and may ellipsize.
@@ -125,7 +125,7 @@ Current tab vocabulary follows the legacy/browser theme selectors and should be 
 
 ## Custom elements
 
-Reusable custom UI elements should live in `cmd/browser2/widgets/`, one widget per file.
+Reusable custom UI elements should live in `cmd/browser/widgets/`, one widget per file.
 
 - `code-editor` - text area for code editing with highlight.
 - `view-pagination` - generic pagination widget for paged views.

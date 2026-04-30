@@ -306,7 +306,7 @@ func encodeTileMapJSON(tm *tilemap.TileMap) (string, error) {
 }
 
 func logToConsole(msg string) {
-	// browser2 does not expose the legacy generic `host.log` module to WASM
+	// browser does not expose the legacy generic `host.log` module to WASM
 	// plugins. Keep scaling logging as a no-op until a routed logger service
 	// exists, instead of making scaler depend on a host callback.
 }

@@ -146,7 +146,7 @@ Best sources of inspiration:
 - `packages/mom` -> shape of context/memory handling
 
 ## Open questions
-- exact plugin runtime for `ai_agent` in browser2: worker JS plugin vs main-thread JS plugin
+- exact plugin runtime for `ai_agent` in browser: worker JS plugin vs main-thread JS plugin
 - how context should be collected from current GAMS runtime state
 - how persistence backend should be injected/configured
 - whether v1 needs event streaming or only polling/paged access

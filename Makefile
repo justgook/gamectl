@@ -270,15 +270,6 @@ browser-run: browser $(PLUGIN_TARGETS)
 	$(Q)echo "Starting GAMS Browser IDE..."
 	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
 
-.PHONY: browser2
-browser2: $(PLUGIN_TARGETS)
-	$(Q)go build -o $(BUILD_DIR)/browser2-server ./cmd/browser2/server.go
-
-.PHONY: browser2-run
-browser2-run: browser2 $(PLUGIN_TARGETS)
-	$(Q)echo "Starting GAMS Browser2 IDE..."
-	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser2-server -port 8082
-
 .PHONY: cli
 cli: plugins-release
 	$(Q)(cd $(CLI_DIR) && SDKROOT="$(WAILS_SDKROOT)" CC="$(WAILS_CC)" go build -mod=mod -o ../../$(BUILD_DIR)/gams .)
@@ -332,7 +323,7 @@ $(BUILD_DIR)/plugins:
 web: $(PLUGIN_TARGETS)
 	$(Q)rm -rf $(BUILD_DIR)/web
 	$(Q)echo "Creating production web build in $(BUILD_DIR)/web/..."
-	$(Q)mkdir -p $(BUILD_DIR)/web/plugins
+	$(Q)mkdir -p $(BUILD_DIR)/web/plugins $(BUILD_DIR)/web/assets
 	$(Q)echo "  Copying browser files..."
 	$(Q)pwd
 	$(Q)cp -r cmd/browser/. $(BUILD_DIR)/web/
