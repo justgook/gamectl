@@ -42,6 +42,7 @@ const SELECT_MODE = {
 
 const DEFAULT_SELECT_ADD_KEY = 'Shift'
 const DEFAULT_SELECT_REMOVE_KEY = 'Control'
+const PASTE_PREVIEW_ALPHA = 0.55
 
 function decodeOutput(result) {
   return textDecoder.decode(result.output || new Uint8Array())
@@ -313,17 +314,79 @@ class TilemapState {
     return true
   }
 
-  cut() {
-    const previousClipboard = this.hasClipboard
-    this.executeDirtyCommand('Cut selection', () => {
-      this.hasClipboard = true
-    }, () => {
-      this.hasClipboard = previousClipboard
-    })
+  copyCells(layerIndexes, cells) {
+    assert(Array.isArray(layerIndexes), 'tilemap state copyCells layerIndexes must be array')
+    assert(Array.isArray(cells), 'tilemap state copyCells cells must be array')
+    assert(layerIndexes.length > 0, 'tilemap state copyCells requires at least one layer')
+    assert(cells.length > 0, 'tilemap state copyCells requires at least one cell')
+    const minX = Math.min(...cells.map((cell) => cell.x))
+    const minY = Math.min(...cells.map((cell) => cell.y))
+    const maxX = Math.max(...cells.map((cell) => cell.x))
+    const maxY = Math.max(...cells.map((cell) => cell.y))
+    const entries = []
+
+    for (const layerIndex of layerIndexes) {
+      const layer = this.requireLayer(layerIndex)
+      const tiles = []
+      for (const cell of cells) {
+        assert(Number.isInteger(cell.x) && Number.isInteger(cell.y), 'tilemap state copyCells cell must contain integer x/y')
+        const tileIndex = cell.y * layer.width + cell.x
+        const tile = cell.x >= 0 && cell.x < layer.width && tileIndex >= 0 && tileIndex < layer.data.length ? layer.data[tileIndex] : 0
+        if (tile === 0) continue
+        tiles.push({ dx: cell.x - minX, dy: cell.y - minY, tile })
+      }
+      entries.push({ sourceLayer: layerIndex, tiles })
+    }
+
+    return { width: maxX - minX + 1, height: maxY - minY + 1, entries }
   }
 
-  copy() {
-    this.hasClipboard = true
+  cutCells(layerIndexes, cells) {
+    const clipboard = this.copyCells(layerIndexes, cells)
+    let changed = false
+    for (const layerIndex of layerIndexes) {
+      const layer = this.requireLayer(layerIndex)
+      for (const cell of cells) {
+        const tileIndex = cell.y * layer.width + cell.x
+        if (cell.x < 0 || cell.x >= layer.width || tileIndex < 0 || tileIndex >= layer.data.length) continue
+        if (layer.data[tileIndex] === 0) continue
+        layer.data[tileIndex] = 0
+        changed = true
+      }
+    }
+    if (changed) this.dirty = true
+    return { clipboard, changed }
+  }
+
+  pasteClipboard(clipboard, origin, targetLayerIndexes) {
+    assert(clipboard && typeof clipboard === 'object' && !Array.isArray(clipboard), 'tilemap state pasteClipboard clipboard must be object')
+    assert(Number.isInteger(origin.x) && Number.isInteger(origin.y), 'tilemap state pasteClipboard origin must contain integer x/y')
+    assert(Array.isArray(targetLayerIndexes), 'tilemap state pasteClipboard targetLayerIndexes must be array')
+    assert(targetLayerIndexes.length === clipboard.entries.length, 'tilemap state pasteClipboard target layer count must match clipboard entries')
+    const changes = []
+
+    clipboard.entries.forEach((entry, entryIndex) => {
+      const layerIndex = targetLayerIndexes[entryIndex]
+      const layer = this.requireLayer(layerIndex)
+      for (const tile of entry.tiles) {
+        const x = origin.x + tile.dx
+        const y = origin.y + tile.dy
+        const tileIndex = y * layer.width + x
+        if (x < 0 || x >= layer.width || tileIndex < 0 || tileIndex >= layer.data.length) continue
+        if (tile.tile === 0) continue
+        const previous = layer.data[tileIndex]
+        if (previous === tile.tile) continue
+        changes.push({ layerIndex, tileIndex, previous, next: tile.tile })
+      }
+    })
+
+    if (changes.length === 0) return false
+    this.executeDirtyCommand(`Paste ${changes.length} tile${changes.length === 1 ? '' : 's'}`, () => {
+      for (const change of changes) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.next
+    }, () => {
+      for (const change of changes) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.previous
+    })
+    return true
   }
 
   undo() {
@@ -729,6 +792,10 @@ class TilemapSelectionTool {
     return this.selectedCells.has(this.key(cell.x, cell.y))
   }
 
+  cells() {
+    return [...this.selectedCells].map((key) => this.cellFromKey(key)).sort((a, b) => a.y - b.y || a.x - b.x)
+  }
+
   statusText(mode) {
     if (mode === SELECT_MODE.ADD) return 'Selection added'
     if (mode === SELECT_MODE.REMOVE) return 'Selection removed'
@@ -845,6 +912,8 @@ export class ViewTilemap extends ViewCanvasBase {
     })
     this.eraseDragCells = null
     this.eraseChanges = null
+    this.clipboard = null
+    this.pastePreviewCell = null
     this.showGrid = true
     this.tilemapRender = new TilemapRender()
     this.tilesetRender = new TilesetRender()
@@ -982,10 +1051,13 @@ export class ViewTilemap extends ViewCanvasBase {
     this.queryHeader('[data-action="brush"]').addEventListener('click', async () => this.setTool(TOOL.BRUSH))
     this.queryHeader('[data-action="erase"]').addEventListener('click', async () => this.setTool(TOOL.ERASE))
     this.queryHeader('[data-action="eyedropper"]').addEventListener('click', async () => this.setTool(TOOL.EYEDROPPER))
-    this.queryHeader('[data-action="paste-tool"]').addEventListener('click', async () => this.setTool(TOOL.PASTE))
+    this.queryHeader('[data-action="paste-tool"]').addEventListener('click', async () => {
+      if (!this.clipboard) return
+      await this.setTool(TOOL.PASTE)
+    })
     this.queryHeader('[data-action="fill"]').addEventListener('click', async () => this.setTool(TOOL.FILL))
-    this.queryHeader('[data-action="cut"]').addEventListener('click', async () => this.command('cut', 'Cut'))
-    this.queryHeader('[data-action="copy"]').addEventListener('click', async () => this.command('copy', 'Copy'))
+    this.queryHeader('[data-action="cut"]').addEventListener('click', async () => this.cutSelection())
+    this.queryHeader('[data-action="copy"]').addEventListener('click', async () => this.copySelection())
     this.queryHeader('[data-action="undo"]').addEventListener('click', async () => this.command('undo', 'Undo'))
     this.queryHeader('[data-action="redo"]').addEventListener('click', async () => this.command('redo', 'Redo'))
     this.queryHeader('[data-action="grid"]').addEventListener('click', () => this.toggleGrid())
@@ -1060,6 +1132,8 @@ export class ViewTilemap extends ViewCanvasBase {
     this.selectionTool.clear()
     this.eraseDragCells = null
     this.eraseChanges = null
+    this.clipboard = null
+    this.pastePreviewCell = null
     await this.refreshSnapshot(`Opened ${tilemap.name}`, { autoFit })
   }
 
@@ -1202,12 +1276,17 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   async setTool(tool) {
+    if (tool === TOOL.PASTE && !this.clipboard) {
+      this.setStatus('Clipboard is empty', 'info')
+      return
+    }
     this.state.setTool(tool)
     if (tool !== TOOL.SELECT) this.selectionTool.clearDrag()
     if (tool !== TOOL.ERASE) {
       this.eraseDragCells = null
       this.eraseChanges = null
     }
+    if (tool !== TOOL.PASTE) this.pastePreviewCell = null
     await this.refreshSnapshot(`${TOOL_LABELS.get(tool)} tool selected`)
   }
 
@@ -1226,6 +1305,58 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(typeof fn === 'function', `view-tilemap state missing command ${method}`)
     fn.call(this.state)
     await this.refreshSnapshot(label)
+  }
+
+  async copySelection() {
+    if (!this.canCopySelection()) return
+    const layers = this.copyLayerIndexes()
+    const cells = this.selectionTool.cells()
+    this.clipboard = this.state.copyCells(layers, cells)
+    this.pastePreviewCell = null
+    await this.refreshSnapshot('Selection copied')
+  }
+
+  async cutSelection() {
+    if (!this.canCopySelection()) return
+    const layers = this.copyLayerIndexes()
+    const cells = this.selectionTool.cells()
+    const result = this.state.cutCells(layers, cells)
+    this.clipboard = result.clipboard
+    this.pastePreviewCell = null
+    await this.refreshSnapshot(result.changed ? 'Selection cut' : 'Selection copied')
+  }
+
+  canCopySelection() {
+    return this.selectionTool.selectedCells.size > 0 && this.copyLayerIndexes().length > 0
+  }
+
+  copyLayerIndexes() {
+    return [...this.selectedLayerIndexes].filter((index) => Number.isInteger(index) && index >= 0).sort((a, b) => a - b)
+  }
+
+  async pasteClipboardAt(cell) {
+    if (!this.clipboard) {
+      this.setStatus('Clipboard is empty', 'info')
+      return
+    }
+    const targets = this.pasteTargetLayerIndexes()
+    if (targets.length === 0) {
+      this.setStatus('Select a target layer before pasting', 'info')
+      return
+    }
+    const changed = this.state.pasteClipboard(this.clipboard, cell, targets)
+    if (!changed) {
+      this.setStatus('Nothing pasted', 'info')
+      return
+    }
+    await this.refreshSnapshot('Clipboard pasted')
+  }
+
+  pasteTargetLayerIndexes() {
+    assert(this.clipboard, 'view-tilemap paste target requires clipboard')
+    if (this.clipboard.entries.length > 1) return this.clipboard.entries.map((entry) => entry.sourceLayer)
+    const selected = this.copyLayerIndexes()
+    return selected.length === 1 ? selected : []
   }
 
   async openSettings() {
@@ -1331,7 +1462,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
     this.renderHeaderControls(snapshot)
     this.renderLayers(snapshot)
-    this.renderTilesets(snapshot.activeTile)
+    this.renderTilesets(snapshot)
     this.renderHistory(snapshot)
   }
 
@@ -1395,15 +1526,18 @@ export class ViewTilemap extends ViewCanvasBase {
     }
   }
 
-  renderTilesets(activeTile) {
-    assert(Number.isInteger(activeTile), 'view-tilemap active tile must be integer')
+  renderTilesets(snapshot) {
+    assert(snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot), 'view-tilemap renderTilesets snapshot must be object')
+    assert(Number.isInteger(snapshot.activeTile), 'view-tilemap active tile must be integer')
     assert(this.tilesetTabsElement instanceof HTMLElement, 'view-tilemap missing tileset tabs')
     assert(this.tilesetPanelsElement instanceof HTMLElement, 'view-tilemap missing tileset panels')
     this.tilesetTabsElement.replaceChildren()
     this.tilesetPanelsElement.replaceChildren()
 
     const tilesets = this.tilesets.length > 0 ? this.tilesets : [TilemapTileset.createDefault()]
-    const activeTileset = tilesets.find((tileset) => this.tilesetRender.containsTile(tileset, activeTile))
+    const activeTile = this.canShowTilesetActiveTile(snapshot.tool) ? snapshot.activeTile : null
+    const clipboardTiles = snapshot.tool === TOOL.PASTE ? this.clipboardTileSet() : new Set()
+    const activeTileset = Number.isInteger(activeTile) ? tilesets.find((tileset) => this.tilesetRender.containsTile(tileset, activeTile)) : null
     const activeName = tilesets.some((tileset) => tileset.name === this.activeTilesetName)
       ? this.activeTilesetName
       : activeTileset?.name || tilesets[0].name
@@ -1448,7 +1582,7 @@ export class ViewTilemap extends ViewCanvasBase {
       canvas.height = tileset.rows * tileset.tileHeight
       canvas.addEventListener('click', async (event) => this.selectTileFromTileset(event, tileset))
       panel.appendChild(canvas)
-      this.tilesetRender.draw(canvas, tileset, activeTile)
+      this.tilesetRender.draw(canvas, tileset, activeTile, clipboardTiles)
 
       const status = document.createElement('output')
       status.dataset.element = 'tileset-status'
@@ -1461,6 +1595,21 @@ export class ViewTilemap extends ViewCanvasBase {
     this.activeTilesetName = activeName
   }
 
+  canShowTilesetActiveTile(tool) {
+    return tool === TOOL.BRUSH || tool === TOOL.EYEDROPPER || tool === TOOL.PASTE || tool === TOOL.FILL
+  }
+
+  clipboardTileSet() {
+    const tiles = new Set()
+    if (!this.clipboard) return tiles
+    for (const entry of this.clipboard.entries) {
+      for (const tile of entry.tiles) {
+        if (tile.tile !== 0) tiles.add(tile.tile)
+      }
+    }
+    return tiles
+  }
+
   tilesetStatusText(tileset) {
     if (tileset.colorOnly) return `${tileset.path} — generated color tiles; click grid cells to set active tile id`
     return `${tileset.path} — QOI ${tileset.width} × ${tileset.height}; ${tileset.columns} × ${tileset.rows} tiles; click grid cells to set active tile id`
@@ -1470,6 +1619,12 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(event.currentTarget instanceof HTMLCanvasElement, 'view-tilemap tileset click requires canvas')
     const tile = this.tilesetRender.tileFromPointerEvent(event, tileset)
     this.state.setActiveTile(tile)
+    const snapshot = this.requireSnapshot()
+    if (snapshot.tool !== TOOL.BRUSH && snapshot.tool !== TOOL.FILL) {
+      await this.setTool(TOOL.BRUSH)
+      this.setStatus(`Active tile ${tile} selected from ${tileset.name}`, 'info')
+      return
+    }
     await this.refreshSnapshot(`Active tile ${tile} selected from ${tileset.name}`)
   }
 
@@ -1485,10 +1640,19 @@ export class ViewTilemap extends ViewCanvasBase {
 
     const undoButton = this.queryHeader('[data-action="undo"]')
     const redoButton = this.queryHeader('[data-action="redo"]')
+    const cutButton = this.queryHeader('[data-action="cut"]')
+    const copyButton = this.queryHeader('[data-action="copy"]')
+    const pasteButton = this.queryHeader('[data-action="paste-tool"]')
     assert(undoButton instanceof HTMLButtonElement, 'view-tilemap undo control must be a button')
     assert(redoButton instanceof HTMLButtonElement, 'view-tilemap redo control must be a button')
+    assert(cutButton instanceof HTMLButtonElement, 'view-tilemap cut control must be a button')
+    assert(copyButton instanceof HTMLButtonElement, 'view-tilemap copy control must be a button')
+    assert(pasteButton instanceof HTMLButtonElement, 'view-tilemap paste control must be a button')
     undoButton.disabled = !snapshot.canUndo
     redoButton.disabled = !snapshot.canRedo
+    cutButton.disabled = !this.canCopySelection()
+    copyButton.disabled = !this.canCopySelection()
+    pasteButton.disabled = !this.clipboard
   }
 
   normalizeSelectedLayers(snapshot) {
@@ -1504,7 +1668,9 @@ export class ViewTilemap extends ViewCanvasBase {
     else this.selectedLayerIndexes.add(layer)
 
     await this.syncBackendActiveLayerFromSelection()
-    this.renderLayers(this.requireSnapshot())
+    const snapshot = this.requireSnapshot()
+    this.renderLayers(snapshot)
+    this.renderHeaderControls(snapshot)
     this.draw()
     this.setStatus('Layer selection updated', 'info')
   }
@@ -1577,6 +1743,7 @@ export class ViewTilemap extends ViewCanvasBase {
       tileHeight: this.tilemapRender.tileHeight,
       scale: this.scale,
     })
+    this.drawPastePreview(ctx, snapshot)
   }
 
   onCanvasMouseDown(event) {
@@ -1596,6 +1763,15 @@ export class ViewTilemap extends ViewCanvasBase {
       this.eraseDragCells = new Map()
       this.eraseChanges = new Map()
       this.addEraseDragCell(this.cellFromPointerEvent(event, snapshot))
+      return
+    }
+
+    if (snapshot.tool === TOOL.PASTE) {
+      event.preventDefault()
+      this.focus()
+      const cell = this.pasteCellFromPointerEvent(event, snapshot)
+      this.pastePreviewCell = cell
+      void this.pasteClipboardAt(cell)
     }
   }
 
@@ -1610,6 +1786,13 @@ export class ViewTilemap extends ViewCanvasBase {
     if (this.eraseDragCells) {
       const snapshot = this.requireSnapshot()
       this.addEraseDragCell(this.cellFromPointerEvent(event, snapshot))
+      return
+    }
+
+    const snapshot = this.requireSnapshot()
+    if (snapshot.tool === TOOL.PASTE && this.clipboard) {
+      this.pastePreviewCell = this.pasteCellFromPointerEvent(event, snapshot)
+      this.draw()
     }
   }
 
@@ -1617,6 +1800,7 @@ export class ViewTilemap extends ViewCanvasBase {
     if (this.selectionTool.drag) {
       const snapshot = this.requireSnapshot()
       const result = this.selectionTool.finish(this.cellFromPointerEvent(event, snapshot))
+      this.renderHeaderControls(snapshot)
       this.draw()
       this.setStatus(result.status, 'info')
       return
@@ -1656,6 +1840,48 @@ export class ViewTilemap extends ViewCanvasBase {
 
   eraseLayerIndexes(_snapshot) {
     return [...this.selectedLayerIndexes].filter((index) => Number.isInteger(index) && index >= 0).sort((a, b) => a - b)
+  }
+
+  drawPastePreview(ctx, snapshot) {
+    if (snapshot.tool !== TOOL.PASTE || !this.clipboard || !this.pastePreviewCell) return
+    ctx.save()
+    ctx.globalAlpha = PASTE_PREVIEW_ALPHA
+    for (const entry of this.clipboard.entries) {
+      for (const tile of entry.tiles) {
+        if (tile.tile === 0) continue
+        const tileset = this.tilemapRender.findTileset(tile.tile)
+        if (!tileset) continue
+        tileset.drawTile(
+          ctx,
+          tile.tile,
+          (this.pastePreviewCell.x + tile.dx) * this.tilemapRender.tileWidth,
+          (this.pastePreviewCell.y + tile.dy) * this.tilemapRender.tileHeight,
+          this.tilemapRender.tileWidth,
+          this.tilemapRender.tileHeight,
+        )
+      }
+    }
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = SELECT_COLORS.ACTIVE_BORDER
+    ctx.lineWidth = 2 / this.scale
+    ctx.strokeRect(
+      this.pastePreviewCell.x * this.tilemapRender.tileWidth,
+      this.pastePreviewCell.y * this.tilemapRender.tileHeight,
+      this.clipboard.width * this.tilemapRender.tileWidth,
+      this.clipboard.height * this.tilemapRender.tileHeight,
+    )
+    ctx.restore()
+  }
+
+  pasteCellFromPointerEvent(event, snapshot) {
+    assert(this.clipboard, 'view-tilemap paste pointer requires clipboard')
+    const point = this.getWorldPoint(event.clientX, event.clientY)
+    const x = Math.floor(point.x / this.tilemapRender.tileWidth)
+    const y = Math.floor(point.y / this.tilemapRender.tileHeight)
+    return {
+      x: Math.max(1 - this.clipboard.width, Math.min(snapshot.width - 1, x)),
+      y: Math.max(1 - this.clipboard.height, Math.min(snapshot.height - 1, y)),
+    }
   }
 
   cellFromPointerEvent(event, snapshot) {
@@ -1818,10 +2044,11 @@ class TilemapRender {
 }
 
 class TilesetRender {
-  draw(canvas, tileset, activeTile) {
+  draw(canvas, tileset, activeTile, highlightedTiles = new Set()) {
     assert(canvas instanceof HTMLCanvasElement, 'tileset render requires canvas')
     this.validateTileset(tileset)
-    assert(Number.isInteger(activeTile), 'tileset render activeTile must be integer')
+    assert(activeTile === null || Number.isInteger(activeTile), 'tileset render activeTile must be integer or null')
+    assert(highlightedTiles instanceof Set, 'tileset render highlightedTiles must be Set')
 
     const ctx = canvas.getContext('2d')
     assert(ctx, 'tileset render canvas requires 2d context')
@@ -1848,7 +2075,7 @@ class TilesetRender {
       }
       ctx.strokeStyle = '#888'
       ctx.strokeRect(px + 0.5, py + 0.5, tileset.tileWidth, tileset.tileHeight)
-      if (tile === activeTile) this.drawActiveTile(ctx, px, py, tileset)
+      if ((Number.isInteger(activeTile) && tile === activeTile) || highlightedTiles.has(tile)) this.drawActiveTile(ctx, px, py, tileset)
     }
   }
 
