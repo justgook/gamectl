@@ -358,6 +358,15 @@ class TilemapState {
     return { clipboard, changed }
   }
 
+  sampleTile(layerIndex, cell) {
+    const layer = this.requireLayer(layerIndex)
+    assert(Number.isInteger(cell.x) && Number.isInteger(cell.y), 'tilemap state sampleTile cell must contain integer x/y')
+    if (cell.x < 0 || cell.x >= layer.width || cell.y < 0) return 0
+    const tileIndex = cell.y * layer.width + cell.x
+    if (tileIndex < 0 || tileIndex >= layer.data.length) return 0
+    return layer.data[tileIndex]
+  }
+
   pasteClipboard(clipboard, origin, targetLayerIndexes) {
     assert(clipboard && typeof clipboard === 'object' && !Array.isArray(clipboard), 'tilemap state pasteClipboard clipboard must be object')
     assert(Number.isInteger(origin.x) && Number.isInteger(origin.y), 'tilemap state pasteClipboard origin must contain integer x/y')
@@ -1334,6 +1343,22 @@ export class ViewTilemap extends ViewCanvasBase {
     return [...this.selectedLayerIndexes].filter((index) => Number.isInteger(index) && index >= 0).sort((a, b) => a - b)
   }
 
+  async sampleTileAt(cell) {
+    const layerIndex = this.eyedropperLayerIndex()
+    if (!Number.isInteger(layerIndex)) {
+      this.setStatus('Select a layer before sampling', 'info')
+      return
+    }
+    const tile = this.state.sampleTile(layerIndex, cell)
+    this.state.setActiveTile(tile)
+    await this.refreshSnapshot(`Sampled tile ${tile} from layer ${layerIndex}`)
+  }
+
+  eyedropperLayerIndex() {
+    if (this.selectedLayerIndexes.size === 0) return null
+    return Math.max(...this.selectedLayerIndexes)
+  }
+
   async pasteClipboardAt(cell) {
     if (!this.clipboard) {
       this.setStatus('Clipboard is empty', 'info')
@@ -1763,6 +1788,13 @@ export class ViewTilemap extends ViewCanvasBase {
       this.eraseDragCells = new Map()
       this.eraseChanges = new Map()
       this.addEraseDragCell(this.cellFromPointerEvent(event, snapshot))
+      return
+    }
+
+    if (snapshot.tool === TOOL.EYEDROPPER) {
+      event.preventDefault()
+      this.focus()
+      void this.sampleTileAt(this.cellFromPointerEvent(event, snapshot))
       return
     }
 
