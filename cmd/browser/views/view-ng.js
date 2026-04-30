@@ -175,7 +175,7 @@ function getNodeGraphRenderAssets() {
       hitRadiusPx: 10,
     },
     text: {
-      fontPx: 14,
+      fontPx: 12,
       aa: 8,
       effect: 'fill',
       stroke: 2.5,

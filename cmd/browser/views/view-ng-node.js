@@ -1,6 +1,5 @@
 import { runtime } from '../core/runtime.js'
 import { parseCSVLines } from '../util/csv.js'
-import { createWriteInput } from '../util/fs.js'
 
 const textDecoder = new TextDecoder()
 
@@ -79,7 +78,7 @@ function createNodeDraft(kind = NG.NODE_CODE) {
     codePath: '',
     code: '',
     codeReadOnly: kind === NG.NODE_CODE,
-    codeStatus: kind === NG.NODE_CODE ? 'Choose a code file to enable editing.' : '',
+    codeStatus: kind === NG.NODE_CODE ? 'Choose a code file to edit.' : '',
     newInputName: '',
     newOutputName: '',
     newOutputValue: '',
@@ -106,9 +105,9 @@ function normalizeTemplatePayload(payload, fallbackKind = NG.NODE_CODE) {
   normalized.codeStatus = normalized.codePath
     ? ''
     : normalized.code
-      ? 'Legacy inline code detected. Use Save to path to migrate it to a file.'
+      ? 'Legacy inline code detected. Choose a file path and edit it in view-code.'
       : kind === NG.NODE_CODE
-        ? 'Choose a code file to enable editing.'
+        ? 'Choose a code file to edit.'
         : ''
 
   const inputList = Array.isArray(payload?.inputs) ? payload.inputs : []
@@ -211,7 +210,7 @@ export class ViewNgNode extends HTMLElement {
       draft.codePath = String(this.popupProps?.codePath || '').trim()
       draft.code = String(this.popupProps?.code || '')
       draft.codeReadOnly = Boolean(this.popupProps?.codeReadOnly ?? (kind === NG.NODE_CODE && !draft.codePath))
-      draft.codeStatus = String(this.popupProps?.codeStatus || (kind === NG.NODE_CODE && !draft.codePath ? 'Choose a code file to enable editing.' : ''))
+      draft.codeStatus = String(this.popupProps?.codeStatus || (kind === NG.NODE_CODE && !draft.codePath ? 'Choose a code file to edit.' : ''))
       draft.graphName = String(this.popupProps?.graphName || '').trim()
       draft.graphId = Number(this.popupProps?.graphId || 0)
       draft.graphSummary = this.popupProps?.graphSummary || { inputs: [], outputs: [] }
@@ -265,14 +264,6 @@ export class ViewNgNode extends HTMLElement {
       throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
     }
     return decodeOutput(result)
-  }
-
-  async callFs(method, input) {
-    const result = await runtime.call('fs', method, input)
-    if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `fs.${method} failed: ${result.returnCode}`)
-    }
-    return result
   }
 
   async loadTemplates() {
@@ -339,7 +330,7 @@ export class ViewNgNode extends HTMLElement {
 
     if (this.draft.kind === NG.NODE_CODE && !this.draft.codePath) {
       this.draft.codeReadOnly = true
-      this.draft.codeStatus = this.draft.codeStatus || 'Choose a code file to enable editing.'
+      this.draft.codeStatus = this.draft.codeStatus || 'Choose a code file to edit.'
     }
   }
 
@@ -369,7 +360,6 @@ export class ViewNgNode extends HTMLElement {
   }
 
   renderCodeSourceFields() {
-    const hasPath = Boolean(String(this.draft.codePath || '').trim())
     const message = String(this.draft.codeStatus || '').trim()
     return `
       <fieldset>
@@ -378,14 +368,11 @@ export class ViewNgNode extends HTMLElement {
           Path
           <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" placeholder="builtin/assets/ng/example.lua">
         </label>
-        <div>
-          <button type="submit" name="intent" value="choose-code-file">Open</button>
-          <button type="submit" name="intent" value="load-code-file">Load</button>
-          <button type="submit" name="intent" value="save-code-file">Save to path</button>
-          ${hasPath ? '<button type="submit" name="intent" value="reload-code-file">Reload</button>' : ''}
+        <div role="buttongroup">
+          <button type="submit" name="intent" value="browse-code-file">Browse</button>
+          <button type="submit" name="intent" value="edit-code-file">Edit</button>
         </div>
         ${message ? `<output class="warning">${escapeAttribute(message)}</output>` : ''}
-        <code-editor name="code" lang="lua" rows="12" spellcheck="false" ${this.draft.codeReadOnly ? 'readonly' : ''} placeholder="-- Lua code. Read inputs via inputs[<id>] and write outputs via outputs[<id>].">${escapeAttribute(this.draft.code)}</code-editor>
       </fieldset>
     `
   }
@@ -571,7 +558,6 @@ export class ViewNgNode extends HTMLElement {
     const formData = new FormData(this.formElement)
     this.draft.name = String(formData.get('name') || '').trim()
     this.draft.codePath = String(formData.get('code-path') || '').trim()
-    this.draft.code = String(formData.get('code') || '')
     this.draft.newInputName = String(formData.get('new-input-name') || '')
     this.draft.newOutputName = String(formData.get('new-output-name') || '')
     this.draft.newOutputValue = String(formData.get('new-output-value') || '')
@@ -670,19 +656,6 @@ export class ViewNgNode extends HTMLElement {
     return Boolean(this.draft.codePath)
   }
 
-  async readCodeFile(path) {
-    const existsResult = await this.callFs('exists', path)
-    if (decodeOutput(existsResult) !== 'true') {
-      throw new Error(`Code file does not exist: ${path}`)
-    }
-    const result = await this.callFs('read', path)
-    return decodeOutput(result)
-  }
-
-  async writeCodeFile(path, content) {
-    await this.callFs('write', createWriteInput(path, String(content ?? '')))
-  }
-
   setStatus(text, tone = null) {
     this.statusOutput.textContent = text
     this.statusOutput.classList.remove('accent', 'success', 'warning', 'danger', 'info')
@@ -737,18 +710,10 @@ export class ViewNgNode extends HTMLElement {
       return
     }
 
-    if (intent === 'choose-code-file' || intent === 'load-code-file' || intent === 'reload-code-file') {
+    if (intent === 'browse-code-file') {
       try {
-        if (intent === 'choose-code-file' || !this.draft.codePath) {
-          const selected = await this.chooseCodeFile()
-          if (!selected) {
-            this.renderForm()
-            return
-          }
-        }
-        this.draft.code = await this.readCodeFile(this.draft.codePath)
-        this.draft.codeReadOnly = false
-        this.draft.codeStatus = ''
+        const selected = await this.chooseCodeFile()
+        if (selected) this.draft.codeStatus = ''
       } catch (error) {
         this.draft.codeStatus = String(error?.message || error)
       }
@@ -756,16 +721,21 @@ export class ViewNgNode extends HTMLElement {
       return
     }
 
-    if (intent === 'save-code-file') {
+    if (intent === 'edit-code-file') {
       if (!this.draft.codePath) {
         this.draft.codeStatus = 'Choose a code file path first.'
         this.renderForm()
         return
       }
       try {
-        await this.writeCodeFile(this.draft.codePath, this.draft.code)
-        this.draft.codeReadOnly = false
-        this.draft.codeStatus = ''
+        const result = await runtime.call('ui.popup', 'open', {
+          title: 'Edit Code',
+          size: 'large',
+          tag: 'view-code',
+          attributes: { 'data-source': this.draft.codePath },
+        })
+        const payload = JSON.parse(decodeOutput(result) || 'null')
+        this.draft.codeStatus = payload?.ok ? 'Code file saved.' : ''
       } catch (error) {
         this.draft.codeStatus = String(error?.message || error)
       }

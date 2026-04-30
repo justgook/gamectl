@@ -52,6 +52,7 @@ Current state:
   - `view-ng-node`
   - controlled by `mode: 'create' | 'edit'`
   - visually/functionally ported toward the legacy node editor while using browser view rules
+  - code nodes store a file path and open that file in a dedicated `view-code` popup instead of embedding an inline code editor
 - popup flows should use `runtime.call('ui.popup', ...)`, not direct `popup-manager` access
 - save remains a placeholder until `ng2.ng_graph_save` exists
 - reset/clear/auto-arrange are view-side editor actions
