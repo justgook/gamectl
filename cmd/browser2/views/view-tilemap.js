@@ -1056,6 +1056,7 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap open returned invalid handle')
     this.handle = result.handle
     this.selectedLayerIndexes.clear()
+    this.selectedLayerIndexes.add(0)
     this.selectionTool.clear()
     this.eraseDragCells = null
     this.eraseChanges = null
@@ -1653,9 +1654,8 @@ export class ViewTilemap extends ViewCanvasBase {
     await this.refreshSnapshot('Tiles erased')
   }
 
-  eraseLayerIndexes(snapshot) {
-    const indexes = this.selectedLayerIndexes.size > 0 ? [...this.selectedLayerIndexes] : [snapshot.activeLayer]
-    return indexes.filter((index) => Number.isInteger(index) && index >= 0).sort((a, b) => a - b)
+  eraseLayerIndexes(_snapshot) {
+    return [...this.selectedLayerIndexes].filter((index) => Number.isInteger(index) && index >= 0).sort((a, b) => a - b)
   }
 
   cellFromPointerEvent(event, snapshot) {
