@@ -23,6 +23,26 @@ const TOOL_LABELS = new Map([
 
 const textDecoder = new TextDecoder()
 
+const SELECT_COLORS = {
+  DRAG_BORDER: 'rgba(122,162,255,0.95)',
+  DRAG_FILL: 'rgba(122,162,255,0.18)',
+  ADD_BORDER: 'rgba(61,220,151,0.95)',
+  ADD_FILL: 'rgba(61,220,151,0.22)',
+  REMOVE_BORDER: 'rgba(255,92,122,0.95)',
+  REMOVE_FILL: 'rgba(255,92,122,0.22)',
+  ACTIVE_BORDER: 'rgba(255,204,102,0.95)',
+  ACTIVE_FILL: 'rgba(255,204,102,0.18)',
+}
+
+const SELECT_MODE = {
+  REPLACE: 'replace',
+  ADD: 'add',
+  REMOVE: 'remove',
+}
+
+const DEFAULT_SELECT_ADD_KEY = 'Shift'
+const DEFAULT_SELECT_REMOVE_KEY = 'Control'
+
 function decodeOutput(result) {
   return textDecoder.decode(result.output || new Uint8Array())
 }
@@ -582,9 +602,180 @@ function validateSnapshot(snapshot) {
   return snapshot
 }
 
+class TilemapSelectionTool {
+  constructor({ getAddKey, getRemoveKey }) {
+    assert(typeof getAddKey === 'function', 'tilemap selection tool getAddKey must be function')
+    assert(typeof getRemoveKey === 'function', 'tilemap selection tool getRemoveKey must be function')
+    this.getAddKey = getAddKey
+    this.getRemoveKey = getRemoveKey
+    this.selectedCells = new Set()
+    this.drag = null
+  }
+
+  clear() {
+    this.selectedCells.clear()
+    this.drag = null
+  }
+
+  clearDrag() {
+    this.drag = null
+  }
+
+  start(cell, event) {
+    const mode = this.modeFromEvent(event)
+    if (mode === SELECT_MODE.REPLACE) this.selectedCells.clear()
+    this.drag = { mode, startX: cell.x, startY: cell.y, endX: cell.x, endY: cell.y }
+  }
+
+  update(cell) {
+    assert(this.drag, 'tilemap selection update requires active drag')
+    this.drag.endX = cell.x
+    this.drag.endY = cell.y
+  }
+
+  finish(cell) {
+    assert(this.drag, 'tilemap selection finish requires active drag')
+    this.update(cell)
+    const rect = this.rectFromDrag(this.drag)
+    if (rect.width === 1 && rect.height === 1) {
+      this.clear()
+      return { status: 'Selection cleared' }
+    }
+
+    const mode = this.drag.mode
+    this.applyRect(rect, mode)
+    this.drag = null
+    return { status: this.statusText(mode) }
+  }
+
+  modeFromEvent(event) {
+    if (this.eventHasKey(event, this.getAddKey())) return SELECT_MODE.ADD
+    if (this.eventHasKey(event, this.getRemoveKey())) return SELECT_MODE.REMOVE
+    return SELECT_MODE.REPLACE
+  }
+
+  eventHasKey(event, key) {
+    const normalized = String(key || '').trim().toLowerCase()
+    assert(normalized.length > 0, 'tilemap selection key must be non-empty')
+    if (normalized === 'shift') return event.shiftKey
+    if (normalized === 'control' || normalized === 'ctrl') return event.ctrlKey
+    if (normalized === 'alt' || normalized === 'option') return event.altKey
+    if (normalized === 'meta' || normalized === 'cmd' || normalized === 'command') return event.metaKey
+    throw new Error(`tilemap selection unsupported modifier key ${key}`)
+  }
+
+  rectFromDrag(selection) {
+    const minX = Math.min(selection.startX, selection.endX)
+    const minY = Math.min(selection.startY, selection.endY)
+    const maxX = Math.max(selection.startX, selection.endX)
+    const maxY = Math.max(selection.startY, selection.endY)
+    return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+  }
+
+  applyRect(rect, mode) {
+    for (let y = rect.y; y < rect.y + rect.height; y++) {
+      for (let x = rect.x; x < rect.x + rect.width; x++) {
+        const key = this.key(x, y)
+        if (mode === SELECT_MODE.REMOVE) this.selectedCells.delete(key)
+        else this.selectedCells.add(key)
+      }
+    }
+  }
+
+  key(x, y) {
+    return `${x},${y}`
+  }
+
+  statusText(mode) {
+    if (mode === SELECT_MODE.ADD) return 'Selection added'
+    if (mode === SELECT_MODE.REMOVE) return 'Selection removed'
+    return 'Selection updated'
+  }
+
+  draw(ctx, { tileWidth, tileHeight, scale }) {
+    assert(ctx instanceof CanvasRenderingContext2D, 'tilemap selection draw requires 2d context')
+    assert(Number.isInteger(tileWidth) && tileWidth > 0, 'tilemap selection tileWidth must be positive integer')
+    assert(Number.isInteger(tileHeight) && tileHeight > 0, 'tilemap selection tileHeight must be positive integer')
+    assert(Number.isFinite(scale) && scale > 0, 'tilemap selection scale must be positive number')
+
+    if (this.selectedCells.size > 0) {
+      this.drawCells(ctx, this.selectedCells, tileWidth, tileHeight, scale, SELECT_COLORS.ACTIVE_BORDER, SELECT_COLORS.ACTIVE_FILL)
+    }
+
+    if (this.drag) {
+      const colors = this.colorsForMode(this.drag.mode)
+      this.drawRect(ctx, this.rectFromDrag(this.drag), tileWidth, tileHeight, scale, colors.border, colors.fill)
+    }
+  }
+
+  colorsForMode(mode) {
+    if (mode === SELECT_MODE.ADD) return { border: SELECT_COLORS.ADD_BORDER, fill: SELECT_COLORS.ADD_FILL }
+    if (mode === SELECT_MODE.REMOVE) return { border: SELECT_COLORS.REMOVE_BORDER, fill: SELECT_COLORS.REMOVE_FILL }
+    return { border: SELECT_COLORS.DRAG_BORDER, fill: SELECT_COLORS.DRAG_FILL }
+  }
+
+  drawCells(ctx, cells, tileWidth, tileHeight, scale, border, fill) {
+    ctx.save()
+    ctx.fillStyle = fill
+    for (const key of cells) {
+      const { x, y } = this.cellFromKey(key)
+      ctx.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight)
+    }
+
+    ctx.strokeStyle = border
+    ctx.lineWidth = 2 / scale
+    ctx.beginPath()
+    for (const key of cells) {
+      const { x, y } = this.cellFromKey(key)
+      const px = x * tileWidth
+      const py = y * tileHeight
+      if (!cells.has(this.key(x, y - 1))) {
+        ctx.moveTo(px, py)
+        ctx.lineTo(px + tileWidth, py)
+      }
+      if (!cells.has(this.key(x + 1, y))) {
+        ctx.moveTo(px + tileWidth, py)
+        ctx.lineTo(px + tileWidth, py + tileHeight)
+      }
+      if (!cells.has(this.key(x, y + 1))) {
+        ctx.moveTo(px + tileWidth, py + tileHeight)
+        ctx.lineTo(px, py + tileHeight)
+      }
+      if (!cells.has(this.key(x - 1, y))) {
+        ctx.moveTo(px, py + tileHeight)
+        ctx.lineTo(px, py)
+      }
+    }
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  drawRect(ctx, rect, tileWidth, tileHeight, scale, border, fill) {
+    const x = rect.x * tileWidth
+    const y = rect.y * tileHeight
+    const width = rect.width * tileWidth
+    const height = rect.height * tileHeight
+    ctx.save()
+    ctx.fillStyle = fill
+    ctx.fillRect(x, y, width, height)
+    ctx.strokeStyle = border
+    ctx.lineWidth = 2 / scale
+    ctx.strokeRect(x, y, width, height)
+    ctx.restore()
+  }
+
+  cellFromKey(key) {
+    const [xText, yText] = key.split(',')
+    const x = Number(xText)
+    const y = Number(yText)
+    assert(Number.isInteger(x) && Number.isInteger(y), `tilemap selection invalid cell key ${key}`)
+    return { x, y }
+  }
+}
+
 export class ViewTilemap extends ViewCanvasBase {
   static get observedAttributes() {
-    return ['data-source']
+    return ['data-source', 'data-selection-add-key', 'data-selection-remove-key']
   }
 
   constructor() {
@@ -605,6 +796,10 @@ export class ViewTilemap extends ViewCanvasBase {
     this.tilesets = [TilemapTileset.createDefault()]
     this.tilesetSourceKey = ''
     this.selectedLayerIndexes = new Set()
+    this.selectionTool = new TilemapSelectionTool({
+      getAddKey: () => this.selectionAddKey,
+      getRemoveKey: () => this.selectionRemoveKey,
+    })
     this.showGrid = true
     this.tilemapRender = new TilemapRender()
     this.tilesetRender = new TilesetRender()
@@ -792,6 +987,14 @@ export class ViewTilemap extends ViewCanvasBase {
     }
   }
 
+  get selectionAddKey() {
+    return String(this.dataset.selectionAddKey || DEFAULT_SELECT_ADD_KEY).trim()
+  }
+
+  get selectionRemoveKey() {
+    return String(this.dataset.selectionRemoveKey || DEFAULT_SELECT_REMOVE_KEY).trim()
+  }
+
   normalizeTilemapDataSource(dataSource) {
     const source = String(dataSource || '').trim()
     assert(source.length > 0, 'view-tilemap data-source must be non-empty')
@@ -808,6 +1011,7 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap open returned invalid handle')
     this.handle = result.handle
     this.selectedLayerIndexes.clear()
+    this.selectionTool.clear()
     await this.refreshSnapshot(`Opened ${tilemap.name}`, { autoFit })
   }
 
@@ -951,6 +1155,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async setTool(tool) {
     this.state.setTool(tool)
+    if (tool !== TOOL.SELECT) this.selectionTool.clearDrag()
     await this.refreshSnapshot(`${TOOL_LABELS.get(tool)} tool selected`)
   }
 
@@ -1315,6 +1520,46 @@ export class ViewTilemap extends ViewCanvasBase {
       showGrid: this.showGrid,
       scale: this.scale,
     })
+    this.selectionTool.draw(ctx, {
+      tileWidth: this.tilemapRender.tileWidth,
+      tileHeight: this.tilemapRender.tileHeight,
+      scale: this.scale,
+    })
+  }
+
+  onCanvasMouseDown(event) {
+    if (event.button !== 0) return
+    const snapshot = this.requireSnapshot()
+    if (snapshot.tool !== TOOL.SELECT) return
+    event.preventDefault()
+    this.focus()
+    this.selectionTool.start(this.cellFromPointerEvent(event, snapshot), event)
+    this.draw()
+
+    return false
+  }
+
+  onCanvasMouseMove(event) {
+    if (!this.selectionTool.drag) return
+    const snapshot = this.requireSnapshot()
+    this.selectionTool.update(this.cellFromPointerEvent(event, snapshot))
+    this.draw()
+  }
+
+  onCanvasMouseUp(event) {
+    if (!this.selectionTool.drag) return
+    const snapshot = this.requireSnapshot()
+    const result = this.selectionTool.finish(this.cellFromPointerEvent(event, snapshot))
+    this.draw()
+    this.setStatus(result.status, 'info')
+  }
+
+  cellFromPointerEvent(event, snapshot) {
+    const point = this.getWorldPoint(event.clientX, event.clientY)
+    return {
+      x: Math.max(0, Math.min(snapshot.width - 1, Math.floor(point.x / this.tilemapRender.tileWidth))),
+      y: Math.max(0, Math.min(snapshot.height - 1, Math.floor(point.y / this.tilemapRender.tileHeight))),
+    }
   }
 
   createLayerButton(action, layer, icon, next) {
