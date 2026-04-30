@@ -20,6 +20,7 @@ import './views/view-setting-fs.js'
 import './views/view-setting-theme.js'
 import './views/view-setting-plugins.js'
 import './views/sql-table-editor.js'
+import './views/tilemap-settings.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'

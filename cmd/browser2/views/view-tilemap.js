@@ -1052,6 +1052,7 @@ export class ViewTilemap extends ViewCanvasBase {
     const controls = document.createElement('div')
     controls.dataset.element = 'header-controls'
     controls.innerHTML = `
+      <button type="button" data-action="new"><i aria-hidden="true">docs</i></button>
       <button type="button" data-action="open"><i aria-hidden="true">folder_open</i></button>
       <button type="button" data-action="save" class="accent"><i aria-hidden="true">save</i></button>
       <button type="button" data-action="save-as"><i aria-hidden="true">save_as</i></button>
@@ -1107,6 +1108,7 @@ export class ViewTilemap extends ViewCanvasBase {
       await this.refreshSnapshot('History state selected')
     })
 
+    this.queryHeader('[data-action="new"]').addEventListener('click', async () => this.newTilemap())
     this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.openTilemap())
     this.queryHeader('[data-action="save"]').addEventListener('click', async () => this.save())
     this.queryHeader('[data-action="save-as"]').addEventListener('click', async () => this.saveAs())
@@ -1223,6 +1225,23 @@ export class ViewTilemap extends ViewCanvasBase {
       throw new Error(`view-tilemap unknown layer action ${action}`)
     }
     await this.refreshSnapshot('Layer updated')
+  }
+
+  async newTilemap() {
+    const result = await runtime.call('ui.popup', 'open', {
+      title: 'Create Tilemap',
+      size: 'medium',
+      tag: 'tilemap-settings',
+      attributes: {
+        'data-mode': 'create',
+        'data-title': 'Create Tilemap',
+      },
+    })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (payload?.reload) {
+      await this.openTilemapStorageName(payload.name, { autoFit: true })
+      await runtime.call('ui.toast', 'success', { message: `Created tilemap ${payload.name}` })
+    }
   }
 
   async openTilemap() {
@@ -1446,16 +1465,31 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   async openSettings() {
-    await runtime.call('ui.popup', 'open', {
+    assert(this.snapshot, 'view-tilemap settings requires current snapshot')
+    await this.saveToStorageName(this.snapshot.name)
+    await this.refreshSnapshot('Saved before opening settings')
+    const result = await runtime.call('ui.popup', 'open', {
       title: 'Tilemap Settings',
-      content: 'Tilemap settings placeholder',
+      size: 'medium',
+      tag: 'tilemap-settings',
+      attributes: {
+        'data-mode': 'edit',
+        'data-title': 'Tilemap Settings',
+        'data-source': this.snapshot.name,
+      },
     })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (payload?.reload) {
+      await this.openTilemapStorageName(payload.name, { autoFit: true })
+      await runtime.call('ui.toast', 'success', { message: `Updated tilemap ${payload.name}` })
+    }
   }
 
   async refreshSnapshot(statusText, { autoFit = false } = {}) {
     assert(typeof autoFit === 'boolean', 'view-tilemap refreshSnapshot autoFit must be boolean')
     const snapshot = validateSnapshot(this.state.snapshot())
     await this.syncTilesets(snapshot)
+    this.applyTileSize(snapshot)
     this.snapshot = snapshot
     this.setData(snapshot, { autoFit })
     this.renderSnapshot(snapshot)
@@ -1533,6 +1567,12 @@ export class ViewTilemap extends ViewCanvasBase {
     const parsed = Number.parseInt(String(value), 10)
     assert(Number.isInteger(parsed) && parsed > 0, `view-tilemap ${label} must be positive integer`)
     return parsed
+  }
+
+  applyTileSize(snapshot) {
+    const tileSize = this.parsePositiveInt(snapshot.props?.tileSize ?? snapshot.props?.sourceTileSize ?? snapshot.props?.tw ?? DEFAULT_TILE_WIDTH, 'tile size')
+    this.tilemapRender.tileWidth = tileSize
+    this.tilemapRender.tileHeight = tileSize
   }
 
   requireHandle() {
