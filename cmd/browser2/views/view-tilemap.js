@@ -52,6 +52,23 @@ function quoteSqlValue(value) {
   return `'${String(value).replace(/'/g, "''")}'`
 }
 
+function normalizeStringProps(input, label) {
+  if (input == null) return {}
+  assert(input && typeof input === 'object' && !Array.isArray(input), `${label} must be an object`)
+  const props = {}
+  for (const [key, value] of Object.entries(input)) {
+    props[String(key)] = String(value ?? '')
+  }
+  return props
+}
+
+function layerDisplayName(layer) {
+  assert(layer && typeof layer === 'object' && !Array.isArray(layer), 'tilemap layer display name requires layer')
+  assert(layer.props && typeof layer.props === 'object' && !Array.isArray(layer.props), 'tilemap layer display name requires props')
+  const name = layer.props.name
+  return typeof name === 'string' && name.length > 0 ? name : `Layer ${layer.index}`
+}
+
 const GENERATED_TILESET_PALETTE = [
   '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6',
   '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3',
@@ -121,7 +138,7 @@ class TilemapState {
       layers: this.layers.map((layer) => ({
         width: layer.width,
         data: layer.data.slice(),
-        props: { ...(layer.props || {}), name: layer.name },
+        props: { ...(layer.props || {}) },
       })),
     })
   }
@@ -142,7 +159,7 @@ class TilemapState {
     this.path = `sql:tilemap_storage/${name}`
     this.width = width
     this.height = height
-    this.props = tilemap.props && typeof tilemap.props === 'object' && !Array.isArray(tilemap.props) ? { ...tilemap.props } : {}
+    this.props = normalizeStringProps(tilemap.props, 'tilemap props')
     this.layers = layers
     this.activeLayer = 0
     this.activeTile = this.findFirstTile(layers)
@@ -152,12 +169,10 @@ class TilemapState {
     assert(layer && typeof layer === 'object' && !Array.isArray(layer), `tilemap layer ${index} must be object`)
     assert(Number.isInteger(layer.width) && layer.width > 0, `tilemap layer ${index}.width must be positive integer`)
     assert(Array.isArray(layer.data), `tilemap layer ${index}.data must be array`)
-    const props = layer.props && typeof layer.props === 'object' && !Array.isArray(layer.props) ? { ...layer.props } : {}
-    const name = typeof props.name === 'string' && props.name.length > 0 ? props.name : `Layer ${index}`
-    const readonly = props.readonly === true || props.readonly === 'true'
+    const props = normalizeStringProps(layer.props, `tilemap layer ${index}.props`)
+    const readonly = props.readonly === 'true'
     return {
       index,
-      name,
       hidden: false,
       locked: readonly,
       width: layer.width,
@@ -187,7 +202,7 @@ class TilemapState {
       width: this.width,
       height: this.height,
       props: { ...this.props },
-      layers: this.layers.map((layer, index) => ({ ...layer, index, data: layer.data.slice() })),
+      layers: this.layers.map((layer, index) => ({ ...layer, index, props: { ...layer.props }, data: layer.data.slice() })),
       activeLayer: this.activeLayer,
       tool: this.tool,
       activeTile: this.activeTile,
@@ -222,11 +237,42 @@ class TilemapState {
     })
   }
 
+  setMapProps(props) {
+    const previous = { ...this.props }
+    const next = normalizeStringProps(props, 'tilemap map props')
+    if (JSON.stringify(previous) === JSON.stringify(next)) return
+    this.executeDirtyCommand('Set map properties', () => {
+      this.props = { ...next }
+    }, () => {
+      this.props = { ...previous }
+    })
+  }
+
+  setLayerProps(layer, props) {
+    const target = this.requireLayer(layer)
+    const previousProps = { ...target.props }
+    const previousLocked = target.locked
+    const nextProps = normalizeStringProps(props, `tilemap layer ${layer}.props`)
+    const nextLocked = nextProps.readonly === 'true'
+    if (JSON.stringify(previousProps) === JSON.stringify(nextProps) && previousLocked === nextLocked) return
+    const label = layerDisplayName(target)
+    this.executeDirtyCommand(`Set ${label} properties`, () => {
+      const layerState = this.requireLayer(layer)
+      layerState.props = { ...nextProps }
+      layerState.locked = nextLocked
+    }, () => {
+      const layerState = this.requireLayer(layer)
+      layerState.props = { ...previousProps }
+      layerState.locked = previousLocked
+    })
+  }
+
   setLayerHidden(layer, hidden) {
     const target = this.requireLayer(layer)
     const previous = target.hidden
     if (previous === hidden) return
-    this.executeDirtyCommand(`Set ${target.name} ${hidden ? 'hidden' : 'visible'}`, () => {
+    const label = layerDisplayName(target)
+    this.executeDirtyCommand(`Set ${label} ${hidden ? 'hidden' : 'visible'}`, () => {
       this.requireLayer(layer).hidden = hidden
     }, () => {
       this.requireLayer(layer).hidden = previous
@@ -237,7 +283,8 @@ class TilemapState {
     const target = this.requireLayer(layer)
     const previous = target.locked
     if (previous === locked) return
-    this.executeDirtyCommand(`Set ${target.name} ${locked ? 'locked' : 'unlocked'}`, () => {
+    const label = layerDisplayName(target)
+    this.executeDirtyCommand(`Set ${label} ${locked ? 'locked' : 'unlocked'}`, () => {
       this.requireLayer(layer).locked = locked
     }, () => {
       this.requireLayer(layer).locked = previous
@@ -248,7 +295,7 @@ class TilemapState {
     assert(index >= 0 && index <= this.layers.length, 'tilemap state insert layer index out of range')
     const previousActiveLayer = this.activeLayer
     this.executeDirtyCommand(`Insert layer ${index}`, () => {
-      this.layers.splice(index, 0, { index, name: `Layer ${index}`, hidden: false, locked: false, width: this.width, data: new Array(this.width * this.height).fill(0), props: {} })
+      this.layers.splice(index, 0, { index, hidden: false, locked: false, width: this.width, data: new Array(this.width * this.height).fill(0), props: { name: `Layer ${index}` } })
       this.renumberLayers()
       this.activeLayer = index
     }, () => {
@@ -260,15 +307,16 @@ class TilemapState {
 
   deleteLayer(index) {
     assert(this.layers.length > 1, 'tilemap state must keep at least one layer')
-    const deletedLayer = { ...this.requireLayer(index) }
+    const sourceLayer = this.requireLayer(index)
+    const deletedLayer = { ...sourceLayer, data: sourceLayer.data.slice(), props: { ...sourceLayer.props } }
     const previousActiveLayer = this.activeLayer
-    this.executeDirtyCommand(`Delete ${deletedLayer.name}`, () => {
+    this.executeDirtyCommand(`Delete ${layerDisplayName(deletedLayer)}`, () => {
       this.layers.splice(index, 1)
       this.renumberLayers()
       if (this.activeLayer === index) this.activeLayer = -1
       else if (this.activeLayer > index) this.activeLayer -= 1
     }, () => {
-      this.layers.splice(index, 0, { ...deletedLayer })
+      this.layers.splice(index, 0, { ...deletedLayer, data: deletedLayer.data.slice(), props: { ...deletedLayer.props } })
       this.renumberLayers()
       this.activeLayer = previousActiveLayer
     })
@@ -515,7 +563,8 @@ class TilemapState {
     this.layers.forEach((layer, index) => {
       const previousDefaultName = `Layer ${layer.index}`
       layer.index = index
-      if (layer.name === previousDefaultName) layer.name = `Layer ${index}`
+      assert(layer.props && typeof layer.props === 'object' && !Array.isArray(layer.props), 'tilemap layer props required while renumbering')
+      if (layer.props.name === previousDefaultName) layer.props.name = `Layer ${index}`
     })
   }
 
@@ -771,7 +820,7 @@ function validateSnapshot(snapshot) {
   }
   for (const layer of snapshot.layers) {
     assert(Number.isInteger(layer.index), 'view-tilemap layer.index must be integer')
-    assert(typeof layer.name === 'string', 'view-tilemap layer.name must be string')
+    assert(layer.props && typeof layer.props === 'object' && !Array.isArray(layer.props), 'view-tilemap layer.props must be object')
     assert(typeof layer.hidden === 'boolean', 'view-tilemap layer.hidden must be boolean')
     assert(typeof layer.locked === 'boolean', 'view-tilemap layer.locked must be boolean')
     assert(Number.isInteger(layer.width) && layer.width > 0, 'view-tilemap layer.width must be positive integer')
@@ -1091,6 +1140,7 @@ export class ViewTilemap extends ViewCanvasBase {
         <button type="button" data-action="zoom-out"><i aria-hidden="true">zoom_out</i></button>
         <button type="button" data-action="zoom-fit"><i aria-hidden="true">fit_screen</i></button>
       </div>
+      <button type="button" data-action="map-props"><i aria-hidden="true">tune</i></button>
       <button type="button" data-action="settings"><i aria-hidden="true">settings</i></button>
     `
     return controls
@@ -1149,6 +1199,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.queryHeader('[data-action="zoom-in"]').addEventListener('click', () => this.zoomIn())
     this.queryHeader('[data-action="zoom-out"]').addEventListener('click', () => this.zoomOut())
     this.queryHeader('[data-action="zoom-fit"]').addEventListener('click', () => this.fitToContent())
+    this.queryHeader('[data-action="map-props"]').addEventListener('click', async () => this.openMapProps())
     this.queryHeader('[data-action="settings"]').addEventListener('click', async () => this.openSettings())
   }
 
@@ -1240,6 +1291,9 @@ export class ViewTilemap extends ViewCanvasBase {
       this.state.moveLayer(layer, Math.min(this.snapshot.layers.length - 1, layer + 1))
     } else if (action === 'layer-down') {
       this.state.moveLayer(layer, Math.max(0, layer - 1))
+    } else if (action === 'layer-props') {
+      await this.openLayerProps(layer)
+      return
     } else {
       throw new Error(`view-tilemap unknown layer action ${action}`)
     }
@@ -1533,6 +1587,43 @@ export class ViewTilemap extends ViewCanvasBase {
     if (this.clipboard.entries.length > 1) return this.clipboard.entries.map((entry) => entry.sourceLayer)
     const selected = this.copyLayerIndexes()
     return selected.length === 1 ? selected : []
+  }
+
+  async openMapProps() {
+    const snapshot = this.requireSnapshot()
+    const result = await runtime.call('ui.popup', 'open', {
+      title: 'Map Properties',
+      size: 'medium',
+      tag: 'view-props',
+      props: {
+        title: 'Map Properties',
+        dataSource: snapshot.props,
+      },
+    })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return
+    this.state.setMapProps(payload.data)
+    await this.refreshSnapshot('Map properties updated')
+  }
+
+  async openLayerProps(layerIndex) {
+    const snapshot = this.requireSnapshot()
+    const layer = snapshot.layers.find((entry) => entry.index === layerIndex)
+    assert(layer, `view-tilemap missing layer ${layerIndex}`)
+    const label = layerDisplayName(layer)
+    const result = await runtime.call('ui.popup', 'open', {
+      title: `${label} Properties`,
+      size: 'medium',
+      tag: 'view-props',
+      props: {
+        title: `${label} Properties`,
+        dataSource: layer.props,
+      },
+    })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return
+    this.state.setLayerProps(layerIndex, payload.data)
+    await this.refreshSnapshot(`${label} properties updated`)
   }
 
   async openSettings() {
@@ -1901,7 +1992,7 @@ export class ViewTilemap extends ViewCanvasBase {
       if (this.selectedLayerIndexes.has(layer.index)) row.setAttribute('aria-selected', 'true')
 
       const nameCell = document.createElement('td')
-      nameCell.textContent = layer.name
+      nameCell.textContent = layerDisplayName(layer)
       row.appendChild(nameCell)
 
       const hiddenCell = document.createElement('td')
@@ -1916,6 +2007,7 @@ export class ViewTilemap extends ViewCanvasBase {
       actionsCell.appendChild(this.createLayerButton('layer-up', layer.index, 'arrow_upward', ''))
       actionsCell.appendChild(this.createLayerButton('layer-down', layer.index, 'arrow_downward', ''))
       actionsCell.appendChild(this.createLayerButton('layer-insert', layer.index, 'add', ''))
+      actionsCell.appendChild(this.createLayerButton('layer-props', layer.index, 'tune', ''))
       actionsCell.appendChild(this.createLayerButton('layer-delete', layer.index, 'delete', ''))
       row.appendChild(actionsCell)
 
