@@ -1056,11 +1056,8 @@ export class ViewTilemap extends ViewCanvasBase {
       <aside data-element="sidebar">
         <fieldset>
           <legend>Layers</legend>
-          <table data-element="layers">
-            <thead>
-              <tr><th>Layer</th><th>Hidden</th><th>Locked</th><th>Actions</th></tr>
-            </thead>
-            <tbody></tbody>
+          <table>
+            <tbody data-element="layers"></tbody>
           </table>
         </fieldset>
         <fieldset data-element="tilesets">
@@ -1101,7 +1098,6 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(this.pathElement instanceof HTMLOutputElement, 'view-tilemap missing path output')
     assert(this.dimensionsElement instanceof HTMLOutputElement, 'view-tilemap missing dimensions output')
     assert(this.dirtyElement instanceof HTMLOutputElement, 'view-tilemap missing dirty output')
-    assert(this.layersElement instanceof HTMLTableElement, 'view-tilemap missing layers table')
     assert(this.historyElement instanceof HTMLTableElement, 'view-tilemap missing undo history table')
     assert(this.tilesetTabsElement instanceof HTMLElement, 'view-tilemap missing tileset tabs')
     assert(this.tilesetPanelsElement instanceof HTMLElement, 'view-tilemap missing tileset panels')
@@ -1981,7 +1977,7 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   renderLayers(snapshot) {
-    const tbody = this.layersElement.querySelector('tbody')
+    const tbody = this.layersElement
     assert(tbody instanceof HTMLTableSectionElement, 'view-tilemap missing layers tbody')
     tbody.replaceChildren()
     this.normalizeSelectedLayers(snapshot)
@@ -1995,15 +1991,10 @@ export class ViewTilemap extends ViewCanvasBase {
       nameCell.textContent = layerDisplayName(layer)
       row.appendChild(nameCell)
 
-      const hiddenCell = document.createElement('td')
-      hiddenCell.appendChild(this.createLayerButton('layer-hidden', layer.index, layer.hidden ? 'visibility_off' : 'visibility', layer.hidden ? '0' : '1'))
-      row.appendChild(hiddenCell)
-
-      const lockedCell = document.createElement('td')
-      lockedCell.appendChild(this.createLayerButton('layer-locked', layer.index, layer.locked ? 'lock' : 'lock_open', layer.locked ? '0' : '1'))
-      row.appendChild(lockedCell)
-
       const actionsCell = document.createElement('td')
+      actionsCell.appendChild(this.createLayerButton('layer-hidden', layer.index, layer.hidden ? 'visibility_off' : 'visibility', layer.hidden ? '0' : '1'))
+
+      actionsCell.appendChild(this.createLayerButton('layer-locked', layer.index, layer.locked ? 'lock' : 'lock_open', layer.locked ? '0' : '1'))
       actionsCell.appendChild(this.createLayerButton('layer-up', layer.index, 'arrow_upward', ''))
       actionsCell.appendChild(this.createLayerButton('layer-down', layer.index, 'arrow_downward', ''))
       actionsCell.appendChild(this.createLayerButton('layer-insert', layer.index, 'add', ''))
