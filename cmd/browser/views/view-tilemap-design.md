@@ -1,8 +1,8 @@
 # view-tilemap Design
 
-Fresh-start browser2 tilemap editor design.
+Fresh-start browser tilemap editor design.
 
-Companion API doc: `cmd/browser2/views/view-tilemap-api.md`.
+Companion API doc: `cmd/browser/views/view-tilemap-api.md`.
 
 ## Direction
 
@@ -76,7 +76,7 @@ Target user flow:
 - save back to the same path
 - save-as to a different path
 
-SQL compatibility can be handled later as explicit import/export migration tooling, not the primary browser2 tilemap path.
+SQL compatibility can be handled later as explicit import/export migration tooling, not the primary browser tilemap path.
 
 ## JSON Handling
 
@@ -154,7 +154,7 @@ Suggested sidebar sections:
    - clicking a placeholder cell calls `set_active_tile` with the numeric tile id
    - tilemap persistence/WASM edit state remains numbers only
 3. History
-   - renders the current `UndoHistory.toArray()` state from `cmd/browser2/util/undo.js`
+   - renders the current `UndoHistory.toArray()` state from `cmd/browser/util/undo.js`
    - undo/redo and history-state jumping use tilemap history state
 4. Map metadata
    - path
@@ -213,7 +213,7 @@ After HTML shell works:
 ## Sidepanel Rules
 
 - Use `aside`; no custom CSS/inline styles.
-- Preserve semantic browser2 UI tags.
+- Preserve semantic browser UI tags.
 - Use `data-element`, `data-action`, and `data-field` hooks.
 - Keep rendering deterministic from `snapshot`.
 - Missing required DOM/snapshot fields should throw immediately.
@@ -228,11 +228,11 @@ Done in `view-tilemap-api.md`.
 
 Status: bootstrapped.
 
-- `cmd/browser2/views/view-tilemap.js` contains a private `TilemapState` class.
+- `cmd/browser/views/view-tilemap.js` contains a private `TilemapState` class.
 - `TilemapState` owns mock tilemap/editor state while the view owns DOM/rendering only.
 - `create/open/save/snapshot` and layer/tool/history methods are kept close to the planned backend API names.
 - The temporary `plugins/tilemap/` mock WASM plugin was removed.
-- `cmd/browser2/core/gams.json` no longer registers a tilemap WASM plugin.
+- `cmd/browser/core/gams.json` no longer registers a tilemap WASM plugin.
 
 Next backend step after UI shell: replace `TilemapState` internals with real tilemap state/persistence while preserving the view-facing method shape.
 
@@ -240,14 +240,14 @@ Next backend step after UI shell: replace `TilemapState` internals with real til
 
 Status: bootstrapped.
 
-- `cmd/browser2/views/view-tilemap.js` exists.
+- `cmd/browser/views/view-tilemap.js` exists.
 - It has no canvas yet.
 - It extends `ViewCanvasBase` and renders `canvas`, sidebar, and footer status.
 - It marks selected tool buttons with `[aria-selected="true"]` and `.accent`.
 - It disables undo/redo buttons from state snapshot `canUndo` / `canRedo`.
 - It calls private `TilemapState` methods with the final planned API shape.
 - It renders mock `snapshot` state.
-- `cmd/browser2/app.js` imports the view and replaces the placeholder registry entry.
+- `cmd/browser/app.js` imports the view and replaces the placeholder registry entry.
 
 ### Step 4: real backend/state
 
@@ -268,7 +268,7 @@ Replace `TilemapState` internals with the chosen real implementation:
 
 Status: placeholder canvas wired and renderer classes split inside the single view file.
 
-- `view-tilemap.js` now extends `cmd/browser2/util/view-canvas-base.js`.
+- `view-tilemap.js` now extends `cmd/browser/util/view-canvas-base.js`.
 - Zoom/pan/fit use the shared canvas base behavior.
 - Header zoom buttons call `zoomIn`, `zoomOut`, and `fitToContent`.
 - Open uses a `ui.popup` with `view-sql` in chooser mode against `tilemap_storage`; the popup options are isolated in `createOpenTilemapPopupOptions()` so replacing the chooser content with `view-files mode:chooser` later is a one-method content swap.
@@ -284,7 +284,7 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 - `view-tilemap.js` owns the internal render helpers because each `view-*.js` must be deployment-contained:
   - `TilemapRender` draws the main map canvas from a snapshot plus view-owned selection/grid/camera data.
   - `TilesetRender` draws client-side tileset picker canvases and maps clicks to tile ids.
-- `TilemapState` now uses `cmd/browser2/util/undo.js` for command history.
+- `TilemapState` now uses `cmd/browser/util/undo.js` for command history.
 - The sidebar History table renders `UndoHistory.toArray()` state, including current state and parent index for non-linear branches.
 - Future advanced rendering should replace/extend `TilemapRender` with a WebGL path for large maps, mipmaps, lookup tables, shaders, etc.
 

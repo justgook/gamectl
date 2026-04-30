@@ -8,7 +8,7 @@ This file captures the next migration steps for `ai.agent` and the provider side
 
 It should **not** own provider selection logic or provider-specific behavior.
 
-Instead, browser2/bootstrap config should load exactly one first-party provider implementation under the stable plugin id:
+Instead, browser/bootstrap config should load exactly one first-party provider implementation under the stable plugin id:
 
 - `ai.provider`
 
@@ -145,7 +145,7 @@ This same execution path should be shared by:
 - normal model-requested tool calls
 - manual `/tool:...` debug calls
 
-## 2. browser2 JS plugin runtime is effectively sync-oriented today
+## 2. browser JS plugin runtime is effectively sync-oriented today
 A real network provider like Codex/OpenAI is async by nature.
 
 It needs:
@@ -155,7 +155,7 @@ It needs:
 - async transport handling
 - possibly streaming or polling
 
-Current browser2 JS plugin calling behavior forced `ai.agent` back to sync-style calls for JS plugin methods.
+Current browser JS plugin calling behavior forced `ai.agent` back to sync-style calls for JS plugin methods.
 
 That is workable for:
 - local tool execution
@@ -164,7 +164,7 @@ That is workable for:
 but it is the wrong shape for a real provider.
 
 ### Needed fix
-The browser2 JS runtime path should support async JS plugin methods on normal `call(...)` paths.
+The browser JS runtime path should support async JS plugin methods on normal `call(...)` paths.
 
 Specifically:
 - `call()` should be allowed to await Promise-returning JS plugin methods
@@ -181,7 +181,7 @@ That keeps the architecture deterministic:
 ## Target provider shape
 
 ## Unified runtime id
-The active provider loaded into browser2 should be:
+The active provider loaded into browser should be:
 - `ai.provider`
 
 ## Concrete implementation for Codex
@@ -244,7 +244,7 @@ During transition, the existing mock provider can remain the concrete implementa
 
 That lets the contract stabilize before the real provider lands.
 
-### Step 4: make browser2 JS calls async-capable
+### Step 4: make browser JS calls async-capable
 Update runtime JS plugin calling so the provider can perform real async network work.
 
 Needed outcome:

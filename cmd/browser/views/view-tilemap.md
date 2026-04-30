@@ -1,20 +1,20 @@
 # view-tilemap Plan
 
-This file records the intended browser2 plan for replacing legacy `cmd/browser/views/view-tilemap.js` with a fresh-start implementation split into a worker-side WASM tilemap service and a browser2 view.
+This file records the intended browser plan for replacing legacy `cmd/browser/views/view-tilemap.js` with a fresh-start implementation split into a worker-side WASM tilemap service and a browser view.
 
 Detailed follow-up docs:
 
-- `cmd/browser2/views/view-tilemap-design.md` — backend-driven stbte-like design and bootstrap order.
-- `cmd/browser2/views/view-tilemap-api.md` — method-by-method API, copied close to `plugins/stbte/` with a handle argument.
+- `cmd/browser/views/view-tilemap-design.md` — backend-driven stbte-like design and bootstrap order.
+- `cmd/browser/views/view-tilemap-api.md` — method-by-method API, copied close to `plugins/stbte/` with a handle argument.
 
 ## Core Rules
 
-1. `view-tilemap.js` is a **browser2 fresh-start view**.
+1. `view-tilemap.js` is a **browser fresh-start view**.
 2. It must not use the legacy browser event bus or cache events.
 3. It must not recreate old `pluginManager.load(...)` per-view runtime ownership.
 4. Tilemap document/state logic should live in one global worker-side plugin.
 5. Browser UI code should own only rendering, interaction, camera, and header controls.
-6. The view should follow `cmd/browser2/VIEW_RULES.md`.
+6. The view should follow `cmd/browser/VIEW_RULES.md`.
 7. Required state/config should fail fast; do not add silent fallbacks for internal wiring bugs.
 8. Prefer direct shared-memory ownership by the tilemap plugin/view pair over runtime-owned mirrored state.
 9. Start with the minimal useful editor loop, then add advanced tools.
@@ -23,7 +23,7 @@ Detailed follow-up docs:
 
 ### Worker-side plugin: `tilemap`
 
-Role: singleton service plugin loaded by browser2 runtime.
+Role: singleton service plugin loaded by browser runtime.
 
 Owns:
 - tilemap document handles
@@ -85,13 +85,13 @@ Recommended initial memory layout:
 
 ## State Implementation Notes
 
-Current browser2 prototype uses a private `TilemapState` class inside `cmd/browser2/views/view-tilemap.js` instead of a temporary mock WASM plugin.
+Current browser prototype uses a private `TilemapState` class inside `cmd/browser/views/view-tilemap.js` instead of a temporary mock WASM plugin.
 
 Planning choice:
 
 - Keep UI/rendering in `ViewTilemap`.
 - Keep tilemap/editor logic in `TilemapState` with method names close to the planned backend API.
-- Do not register a browser2 `tilemap` WASM service until there is a concrete backend need.
+- Do not register a browser `tilemap` WASM service until there is a concrete backend need.
 - `plugins/stbte/` remains a useful reference for future advanced editing behavior.
 - Avoid JSON round-trips for every paint/render frame when a real backend is introduced.
 
@@ -100,7 +100,7 @@ Open question / requires clarification:
 - Should the plugin preserve full `pkg/tilemap` JSON `uint32` ids, or is `uint16` enough for the editor core?
 - Should tileset image lookup/render metadata remain in SQL/tilemap props, or move to a separate asset/tileset plugin contract?
 
-## View: `cmd/browser2/views/view-tilemap.js`
+## View: `cmd/browser/views/view-tilemap.js`
 
 Owns:
 - custom element lifecycle
@@ -158,11 +158,11 @@ Rendering phase 2:
 
 ## Persistence Model
 
-Normal browser2 tilemap persistence should move to filesystem paths, matching the nodegraph direction.
+Normal browser tilemap persistence should move to filesystem paths, matching the nodegraph direction.
 
 The view should not build SQL strings. The current `TilemapState` prototype will later wire open/save to `fs` or be replaced internally by filesystem-backed state.
 
-The existing SQL table can remain an import/export compatibility target for old generator workflows, but it should not be the default browser2 tilemap save path:
+The existing SQL table can remain an import/export compatibility target for old generator workflows, but it should not be the default browser tilemap save path:
 
 ```sql
 CREATE TABLE IF NOT EXISTS tilemap_storage (
@@ -193,14 +193,14 @@ Legacy behavior to keep conceptually:
 ### Phase 0: state contract
 
 - Keep `TilemapState` method names close to the planned backend API.
-- Do not register a fake `tilemap` plugin during the browser2 UI prototype phase.
+- Do not register a fake `tilemap` plugin during the browser UI prototype phase.
 - Add backend/plugin registration only when there is a concrete implementation need.
 
 ### Phase 1: minimal state + minimal view
 
 - Implement create/open/snapshot/save in private `TilemapState`.
 - Implement `view-tilemap.js` HTML/sidebar/header shell first.
-- Register/import the view in `cmd/browser2/app.js` and replace the placeholder registry entry.
+- Register/import the view in `cmd/browser/app.js` and replace the placeholder registry entry.
 - Use strict assertions for required state snapshots.
 
 ### Phase 2: editor tools
@@ -215,7 +215,7 @@ Legacy behavior to keep conceptually:
 - Add tileset image rendering.
 - Add doors/special overlays.
 - Add layer list/inspector as `aside` if needed.
-- Add chooser popup for opening maps, preferably reusing `view-sql` or a dedicated browser2 popup view.
+- Add chooser popup for opening maps, preferably reusing `view-sql` or a dedicated browser popup view.
 
 ## Acceptance Criteria For Phase 1
 
@@ -223,4 +223,4 @@ Legacy behavior to keep conceptually:
 - Painting updates the plugin-owned memory and redraws without a full JSON reload.
 - Save writes back to `tilemap_storage` through plugin-to-plugin `tilemap -> sql` calls.
 - The view has no dependency on legacy `cmd/browser` modules.
-- The view uses only documented browser2 UI structure/elements.
+- The view uses only documented browser UI structure/elements.

@@ -9,7 +9,7 @@ import (
 	"github.com/justgook/gams/pkg/tilemap"
 )
 
-// logToConsole is intentionally a no-op in browser2 until logging is routed
+// logToConsole is intentionally a no-op in browser until logging is routed
 // through a first-class plugin/service instead of the legacy generic host module.
 func logToConsole(msg string) {
 }

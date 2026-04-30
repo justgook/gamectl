@@ -43,10 +43,10 @@ const AI_OPEN_CONFIG = {
   context: [
     {
       kind: 'system',
-      source: 'browser2.app',
-      label: 'Default browser2 AI context',
+      source: 'browser.app',
+      label: 'Default browser AI context',
       content: {
-        text: 'You are the GAMS browser2 AI assistant. Use tools when useful and explain tool results clearly.',
+        text: 'You are the GAMS browser AI assistant. Use tools when useful and explain tool results clearly.',
       },
     },
   ],

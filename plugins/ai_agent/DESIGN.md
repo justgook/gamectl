@@ -21,11 +21,11 @@ It should not own:
 
 ## Placement
 Target shape:
-- browser2 JS service plugin
+- browser JS service plugin
 - callable through runtime/plugin manager like other services
 
 Related UI:
-- `cmd/browser2/views/view-ai.js` is only one interface
+- `cmd/browser/views/view-ai.js` is only one interface
 - `view-ai` should open a handle and then read/send via `ai_agent`
 - other views or actions should also be able to talk to `ai_agent`
 
@@ -35,7 +35,7 @@ Sessions are opened like other GAMS resources.
 ### Open
 ```json
 {
-  "profile": "browser2-default",
+  "profile": "browser-default",
   "persist": {
     "driver": "fs",
     "format": "jsonl",
@@ -246,7 +246,7 @@ Note: low-level `run_step`/`run` are internal concepts, not preferred UI-facing 
 ### `open`
 ```json
 {
-  "profile": "browser2-default"
+  "profile": "browser-default"
 }
 ```
 
@@ -355,7 +355,7 @@ It should not:
 ## V1 implementation order
 1. `ai_provider_mock`
 2. handle-based `ai_agent` with in-memory sessions
-3. default browser2 profile/tool bootstrap in `ai_agent.open()`
+3. default browser profile/tool bootstrap in `ai_agent.open()`
 4. thin `view-ai` using one handle
 5. persistence backend support
 6. real provider plugins
@@ -364,4 +364,4 @@ It should not:
 - worker-side JS plugin vs main-thread JS plugin for `ai_agent`
 - exact persistence wrapper shape
 - whether provider registration should also be dynamic at runtime
-- how browser2 runtime context providers should feed `ai_agent`
+- how browser runtime context providers should feed `ai_agent`
