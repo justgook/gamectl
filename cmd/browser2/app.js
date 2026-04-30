@@ -31,7 +31,7 @@ const DEFAULT_THEME = 'the98'
 // `
 //
 const DEFAULT_LAYOUT = `
-  <view-tilemap />
+  <view-tilemap data-source="rules" />
   <view-ng setup="0:v:50" data-source="/demo/assets.ng.json" />
 `
 
