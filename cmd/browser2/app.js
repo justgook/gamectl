@@ -265,7 +265,6 @@ async function main() {
     const gamsConfig = await loadGamsConfig(runtime, defaultConfig)
     await runtime.add(createFsPluginDefinitions(gamsConfig))
     await runtime.add(gamsConfig.plugins)
-    await runtime.call("sql", "open") // TODO move init of sql to plugin it self
 
     await debugMigration(runtime)
 

@@ -46,8 +46,7 @@ class MigrationManager {
   async init() {
     console.log('[Migration] Initializing database...')
 
-    // Open empty database first
-    await window.pluginManager.call('sql', 'open', '')
+    // The SQL plugin opens its empty in-memory database during plugin load.
 
     // Check if binary database exists
     const exists = await this.databaseExists()

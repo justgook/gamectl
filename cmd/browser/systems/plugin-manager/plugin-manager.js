@@ -142,6 +142,13 @@ class PluginManager {
       memory: wasmModule.instance.exports.memory
     });
 
+    if (module.name === 'sql') {
+      const result = this.callWasmFunction(module.name, '__sql_init', new Uint8Array(0));
+      if (result.returnCode !== 0) {
+        throw new Error(new TextDecoder().decode(result.output).trim() || 'SQL plugin initialization failed');
+      }
+    }
+
     // Pre-allocate a small amount of memory to ensure the memory system is initialized
     // This prevents issues with the first cross-plugin call
     try {
