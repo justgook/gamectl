@@ -37,8 +37,6 @@ const GENERATED_TILESET_PALETTE = [
   '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000', '#a9a9ff', '#ff7f50',
 ]
 
-const DEFAULT_TILEMAP_NAME = 'default'
-
 const DEFAULT_COLOR_TILESET_SPEC = {
   name: 'colors',
   path: 'generated:colors',
@@ -66,8 +64,8 @@ class TilemapCommand {
 class TilemapState {
   constructor() {
     this.handle = 1
-    this.path = `sql:tilemap_storage/${DEFAULT_TILEMAP_NAME}`
-    this.name = DEFAULT_TILEMAP_NAME
+    this.path = ''
+    this.name = ''
     this.width = 1
     this.height = 1
     this.props = {}
@@ -585,6 +583,10 @@ function validateSnapshot(snapshot) {
 }
 
 export class ViewTilemap extends ViewCanvasBase {
+  static get observedAttributes() {
+    return ['data-source']
+  }
+
   constructor() {
     super()
     this.state = new TilemapState()
@@ -644,7 +646,7 @@ export class ViewTilemap extends ViewCanvasBase {
         <output data-element="path"></output>
         <output data-element="dimensions"></output>
         <output data-element="dirty"></output>
-        <output data-element="status">Loading tilemap…</output>
+        <output data-element="status">No tilemap loaded</output>
       </footer>
     `
 
@@ -759,21 +761,54 @@ export class ViewTilemap extends ViewCanvasBase {
     return element
   }
 
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue === newValue) return
+    if (name === 'data-source' && this.dataset.ready) {
+      const dataSource = String(newValue || '').trim()
+      if (dataSource) void this.loadDataSource(dataSource)
+    }
+  }
+
   async bootstrap() {
+    const dataSource = String(this.getAttribute('data-source') || '').trim()
+    if (!dataSource) {
+      this.setStatus('No tilemap loaded', 'info')
+      return
+    }
+    await this.loadDataSource(dataSource)
+  }
+
+  async loadDataSource(dataSource) {
+    const name = this.normalizeTilemapDataSource(dataSource)
     this.setBusy(true)
-    this.setStatus(`Opening ${DEFAULT_TILEMAP_NAME} tilemap…`, 'info')
+    this.setStatus(`Opening ${name} tilemap…`, 'info')
     try {
-      const tilemap = await this.loadTilemapStorageRecord(DEFAULT_TILEMAP_NAME)
-      const result = this.state.open(tilemap)
-      assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap default open returned invalid handle')
-      this.handle = result.handle
-      await this.refreshSnapshot(`Opened ${DEFAULT_TILEMAP_NAME}`, { autoFit: true })
+      await this.openTilemapStorageName(name, { autoFit: true })
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
       await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
     } finally {
       this.setBusy(false)
     }
+  }
+
+  normalizeTilemapDataSource(dataSource) {
+    const source = String(dataSource || '').trim()
+    assert(source.length > 0, 'view-tilemap data-source must be non-empty')
+    const storagePrefix = 'sql:tilemap_storage/'
+    if (source.startsWith(storagePrefix)) return source.slice(storagePrefix.length)
+    return source
+  }
+
+  async openTilemapStorageName(name, { autoFit = true } = {}) {
+    assert(typeof name === 'string' && name.length > 0, 'view-tilemap open requires tilemap_storage name')
+    assert(typeof autoFit === 'boolean', 'view-tilemap open autoFit must be boolean')
+    const tilemap = await this.loadTilemapStorageRecord(name)
+    const result = this.state.open(tilemap)
+    assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap open returned invalid handle')
+    this.handle = result.handle
+    this.selectedLayerIndexes.clear()
+    await this.refreshSnapshot(`Opened ${tilemap.name}`, { autoFit })
   }
 
   async handleLayerAction(button) {
@@ -801,12 +836,7 @@ export class ViewTilemap extends ViewCanvasBase {
   async openTilemap() {
     const selection = await this.chooseTilemapFromStorage()
     if (selection.cancelled) return
-    const tilemap = await this.loadTilemapStorageRecord(selection.name)
-    const result = this.state.open(tilemap)
-    assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap open returned invalid handle')
-    this.handle = result.handle
-    this.selectedLayerIndexes.clear()
-    await this.refreshSnapshot(`Opened ${tilemap.name}`, { autoFit: true })
+    await this.openTilemapStorageName(selection.name, { autoFit: true })
   }
 
   async chooseTilemapFromStorage() {
@@ -899,7 +929,7 @@ export class ViewTilemap extends ViewCanvasBase {
         returnColumn: 'name',
         confirmLabel: 'Save',
         valueLabel: 'Tilemap name',
-        value: this.snapshot?.name || DEFAULT_TILEMAP_NAME,
+        value: this.snapshot?.name || '',
         pageSize: 20,
       },
     }
@@ -915,12 +945,8 @@ export class ViewTilemap extends ViewCanvasBase {
   async reload() {
     assert(this.snapshot, 'view-tilemap reload requires current snapshot')
     assert(typeof this.snapshot.name === 'string' && this.snapshot.name.length > 0, 'view-tilemap reload requires current tilemap name')
-    const tilemap = await this.loadTilemapStorageRecord(this.snapshot.name)
-    const result = this.state.open(tilemap)
-    assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap reload returned invalid handle')
-    this.handle = result.handle
-    this.selectedLayerIndexes.clear()
-    await this.refreshSnapshot(`Reloaded ${tilemap.name}`, { autoFit: true })
+    await this.openTilemapStorageName(this.snapshot.name, { autoFit: true })
+    this.setStatus(`Reloaded ${this.snapshot.name}`, 'success')
   }
 
   async setTool(tool) {

@@ -326,10 +326,6 @@ async function debugMigration(runtime) {
 );`)
   await runtime.call("sql", "exec", `INSERT INTO tilemap_storage (name, data) VALUES
 (
-  'default',
-  '{"layers":[{"width":10,"data":[1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,3,3,3,1,1,2,1,2,1,1,3,1,3,1,1,2,2,2,1,1,3,3,3,1,1,1,1,1,1,1,1,1,1,1,1,4,4,1,1,1,1,4,4,1,1,4,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1],"props":{"name":"Terrain"}},{"width":10,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,5,5,0,0,0,5,0,0,0,0,0,0,5,0,0,0,0,0,0,0,0,0,0,0],"props":{"name":"Details"}},{"width":10,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"props":{"name":"Overlay"}}],"props":{"tileSize":"32","sourceTileSize":"16"}}'
-),
-(
   'tileset_demo',
   '{"layers":[{"data":[2,3,4, 0,0,0, 0,0,0],"width":3,"props":{"tw":"16","th":"16", "tileset":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAABQBAMAAABsc2MHAAAAEnRFWHRBdXRob3IARGF2aWQgU21pdGhp1FRuAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAAAlwSFlzAAAA7AAAAOwBeShxvQAAABJQTFRFR3BM2dnZzMzM////8vLy5eXlv3qrMgAAAAF0Uk5TAEDm2GYAAAF8SURBVFjD7ZhRboQwDES5QrbaAzTdE8CeAIUDrNTc/yptldjBszF123xR+8fCkCeEomEmU/5lLUpN13L//dpfp85VYCgPpNBfqM514MtXu6fSsfS5Ax3owGfgHOPbvhMQ52bgPUbZKxDnduD6KjsBYW4HpqlWkMCE663AjYAPCdzqde12YCZglsBcr2v/wbYh4LB96EAHnhA4RwIO00MGjtJDAg7TQ+x/1kOpewP0UOreAD105+DAfw68xM+6pdKx9LkOLE+kELulzlVgfYHbpb9QnatAdlWmfNy+qTZnoJaLjcCmh+xMlVxsBDY9lFb3u+2hbaPON3SgA88JPNS9lpNlfl4W6Q+bj5yOda/l5AB+EHJ0Ax7rXsvJAfwg5OiVdRA9NH2r/j9H9418fghA1rcA/g98YQLfuPH5IQBZ3wL4P/CFCXxjnvAIALfB8TZ5/p060IEnBVZ/KPMw1RwJiDIkgfu8XHVP5mF+AyNwl5fJH8o8zMDVCGR9/ABC9Zf1svGALwAAAABJRU5ErkJggg=="}}]}'
 ),
