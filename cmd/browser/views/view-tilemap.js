@@ -170,11 +170,9 @@ class TilemapState {
     assert(Number.isInteger(layer.width) && layer.width > 0, `tilemap layer ${index}.width must be positive integer`)
     assert(Array.isArray(layer.data), `tilemap layer ${index}.data must be array`)
     const props = normalizeStringProps(layer.props, `tilemap layer ${index}.props`)
-    const readonly = props.readonly === 'true'
     return {
       index,
       hidden: false,
-      locked: readonly,
       width: layer.width,
       data: layer.data.map((tile, tileIndex) => {
         const value = Number(tile)
@@ -251,19 +249,13 @@ class TilemapState {
   setLayerProps(layer, props) {
     const target = this.requireLayer(layer)
     const previousProps = { ...target.props }
-    const previousLocked = target.locked
     const nextProps = normalizeStringProps(props, `tilemap layer ${layer}.props`)
-    const nextLocked = nextProps.readonly === 'true'
-    if (JSON.stringify(previousProps) === JSON.stringify(nextProps) && previousLocked === nextLocked) return
+    if (JSON.stringify(previousProps) === JSON.stringify(nextProps)) return
     const label = layerDisplayName(target)
     this.executeDirtyCommand(`Set ${label} properties`, () => {
-      const layerState = this.requireLayer(layer)
-      layerState.props = { ...nextProps }
-      layerState.locked = nextLocked
+      this.requireLayer(layer).props = { ...nextProps }
     }, () => {
-      const layerState = this.requireLayer(layer)
-      layerState.props = { ...previousProps }
-      layerState.locked = previousLocked
+      this.requireLayer(layer).props = { ...previousProps }
     })
   }
 
@@ -279,23 +271,12 @@ class TilemapState {
     })
   }
 
-  setLayerLocked(layer, locked) {
-    const target = this.requireLayer(layer)
-    const previous = target.locked
-    if (previous === locked) return
-    const label = layerDisplayName(target)
-    this.executeDirtyCommand(`Set ${label} ${locked ? 'locked' : 'unlocked'}`, () => {
-      this.requireLayer(layer).locked = locked
-    }, () => {
-      this.requireLayer(layer).locked = previous
-    })
-  }
 
   insertLayer(index) {
     assert(index >= 0 && index <= this.layers.length, 'tilemap state insert layer index out of range')
     const previousActiveLayer = this.activeLayer
     this.executeDirtyCommand(`Insert layer ${index}`, () => {
-      this.layers.splice(index, 0, { index, hidden: false, locked: false, width: this.width, data: new Array(this.width * this.height).fill(0), props: { name: `Layer ${index}` } })
+      this.layers.splice(index, 0, { index, hidden: false, width: this.width, data: new Array(this.width * this.height).fill(0), props: { name: `Layer ${index}` } })
       this.renumberLayers()
       this.activeLayer = index
     }, () => {
@@ -822,7 +803,6 @@ function validateSnapshot(snapshot) {
     assert(Number.isInteger(layer.index), 'view-tilemap layer.index must be integer')
     assert(layer.props && typeof layer.props === 'object' && !Array.isArray(layer.props), 'view-tilemap layer.props must be object')
     assert(typeof layer.hidden === 'boolean', 'view-tilemap layer.hidden must be boolean')
-    assert(typeof layer.locked === 'boolean', 'view-tilemap layer.locked must be boolean')
     assert(Number.isInteger(layer.width) && layer.width > 0, 'view-tilemap layer.width must be positive integer')
     assert(Array.isArray(layer.data), 'view-tilemap layer.data must be array')
   }
@@ -1276,8 +1256,6 @@ export class ViewTilemap extends ViewCanvasBase {
     const action = button.dataset.action
     if (action === 'layer-hidden') {
       this.state.setLayerHidden(layer, button.dataset.next === '1')
-    } else if (action === 'layer-locked') {
-      this.state.setLayerLocked(layer, button.dataset.next === '1')
     } else if (action === 'layer-insert') {
       this.state.insertLayer(layer + 1)
     } else if (action === 'layer-delete') {
@@ -1994,7 +1972,6 @@ export class ViewTilemap extends ViewCanvasBase {
       const actionsCell = document.createElement('td')
       actionsCell.appendChild(this.createLayerButton('layer-hidden', layer.index, layer.hidden ? 'visibility_off' : 'visibility', layer.hidden ? '0' : '1'))
 
-      actionsCell.appendChild(this.createLayerButton('layer-locked', layer.index, layer.locked ? 'lock' : 'lock_open', layer.locked ? '0' : '1'))
       actionsCell.appendChild(this.createLayerButton('layer-up', layer.index, 'arrow_upward', ''))
       actionsCell.appendChild(this.createLayerButton('layer-down', layer.index, 'arrow_downward', ''))
       actionsCell.appendChild(this.createLayerButton('layer-insert', layer.index, 'add', ''))
