@@ -327,6 +327,30 @@ class TilemapState {
     return this.commitLiveTileChanges(changes, 'Paint')
   }
 
+  fillCells(layerIndex, cells, tile) {
+    assert(Number.isInteger(layerIndex), 'tilemap state fillCells layerIndex must be integer')
+    assert(Array.isArray(cells), 'tilemap state fillCells cells must be array')
+    assert(Number.isInteger(tile), 'tilemap state fillCells tile must be integer')
+    const changes = []
+    for (const cell of cells) {
+      assert(Number.isInteger(cell.x) && Number.isInteger(cell.y), 'tilemap state fillCells cell must contain integer x/y')
+      const layer = this.requireLayer(layerIndex)
+      if (cell.x < 0 || cell.x >= layer.width || cell.y < 0) continue
+      const tileIndex = cell.y * layer.width + cell.x
+      if (tileIndex < 0 || tileIndex >= layer.data.length) continue
+      const previous = layer.data[tileIndex]
+      if (previous === tile) continue
+      changes.push({ layerIndex, tileIndex, previous, next: tile })
+    }
+    if (changes.length === 0) return false
+    this.executeDirtyCommand(`Fill ${changes.length} tile${changes.length === 1 ? '' : 's'}`, () => {
+      for (const change of changes) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.next
+    }, () => {
+      for (const change of changes) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.previous
+    })
+    return true
+  }
+
   commitLiveTileChanges(changes, label) {
     assert(changes instanceof Map, 'tilemap state commitLiveTileChanges changes must be Map')
     assert(typeof label === 'string' && label.length > 0, 'tilemap state commitLiveTileChanges label must be non-empty string')
@@ -1844,6 +1868,13 @@ export class ViewTilemap extends ViewCanvasBase {
       return
     }
 
+    if (snapshot.tool === TOOL.FILL) {
+      event.preventDefault()
+      this.focus()
+      void this.fillTiles()
+      return
+    }
+
     if (snapshot.tool === TOOL.PASTE) {
       event.preventDefault()
       this.focus()
@@ -1934,6 +1965,30 @@ export class ViewTilemap extends ViewCanvasBase {
   brushLayerIndex() {
     if (this.selectedLayerIndexes.size === 0) return null
     return Math.max(...this.selectedLayerIndexes)
+  }
+
+  async fillTiles() {
+    const layerIndex = this.brushLayerIndex()
+    if (!Number.isInteger(layerIndex)) {
+      this.setStatus('Select a layer before filling', 'info')
+      return
+    }
+    const snapshot = this.requireSnapshot()
+    const cells = this.selectionTool.selectedCells.size > 0 ? this.selectionTool.cells() : this.allTilemapCells(snapshot)
+    const changed = this.state.fillCells(layerIndex, cells, snapshot.activeTile)
+    if (!changed) {
+      this.setStatus('Nothing filled', 'info')
+      return
+    }
+    await this.refreshSnapshot('Tiles filled')
+  }
+
+  allTilemapCells(snapshot) {
+    const cells = []
+    for (let y = 0; y < snapshot.height; y++) {
+      for (let x = 0; x < snapshot.width; x++) cells.push({ x, y })
+    }
+    return cells
   }
 
   addEraseDragCell(cell) {
