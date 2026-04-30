@@ -118,6 +118,71 @@ func TestAutomapApplyMatchesMissingTargetLayerAsEmpty(t *testing.T) {
 	}
 }
 
+func TestAutomapApplyOutputEmptyErasesTargetTile(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+	rulesMap.Props = map[string]string{
+		"rule_NonEmpty": "1027",
+		"rule_Empty":    "1028",
+	}
+
+	input := tilemap.NewTileLayer(1, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0"}
+	input.Data[0] = 1027
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#0"}
+	output.Data[0] = 1028
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+	inputMap := singleLayerMap(1, 1)
+	inputMap.Layers[0].Data[0] = 7
+
+	result, err := AutomapApply(rulesMap, inputMap)
+	if err != nil {
+		t.Fatalf("AutomapApply returned error: %v", err)
+	}
+
+	if got := result.Layers[0].Data[0]; got != 0 {
+		t.Fatalf("expected rule_Empty output tile to erase target cell, got %d", got)
+	}
+}
+
+func TestAutomapApplyToTargetOutputEmptyErasesExistingTargetTile(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+	rulesMap.Props = map[string]string{
+		"rule_NonEmpty": "1027",
+		"rule_Empty":    "1028",
+	}
+
+	input := tilemap.NewTileLayer(1, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0"}
+	input.Data[0] = 1027
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "[name=\"decor\"]"}
+	output.Data[0] = 1028
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+
+	inputMap := singleLayerMap(1, 1)
+	inputMap.Layers[0].Data[0] = 7
+
+	targetMap := tilemap.NewTileMap()
+	decor := tilemap.NewTileLayer(1, 1)
+	decor.Props["name"] = "decor"
+	decor.Data[0] = 55
+	targetMap.Layers = []tilemap.TileLayer{*decor}
+
+	result, err := AutomapApplyToTarget(rulesMap, inputMap, targetMap)
+	if err != nil {
+		t.Fatalf("AutomapApplyToTarget returned error: %v", err)
+	}
+
+	if got := result.Layers[0].Data[0]; got != 0 {
+		t.Fatalf("expected rule_Empty output tile to erase existing target cell, got %d", got)
+	}
+}
+
 func TestAutomapApplyToTargetDoesNotCopyInputIntoNewMap(t *testing.T) {
 	rulesMap := tilemap.NewTileMap()
 	rulesMap.Props = map[string]string{"rule_NonEmpty": "1027"}
