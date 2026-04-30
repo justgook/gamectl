@@ -32,6 +32,7 @@ const DEFAULT_THEME = 'the98'
 //
 const DEFAULT_LAYOUT = `
   <view-tilemap />
+  <view-ng setup="0:v:50" data-source="/demo/assets.ng.json" />
 `
 
 const AI_OPEN_CONFIG = {
@@ -263,6 +264,10 @@ async function main() {
     await runtime.add(createFsPluginDefinitions(gamsConfig))
     await runtime.add(gamsConfig.plugins)
     await runtime.call("sql", "open") // TODO move init of sql to plugin it self
+
+    await debugMigration(runtime)
+
+
     window.onerror = function (_message, _source, _lineno, _colno, error) {
       runtime.call("ui.toast", "error", errorParse(error))
       return false // prevents default logging (optional)
@@ -291,7 +296,6 @@ async function main() {
 
     // DO NOT USE IT - it is exposed just for debuging, use `import {call} from "./coder/runtime.js"`
     window.runtime = runtime
-    debugMigration(runtime)
 
   } catch (error) {
     console.error('[browser] boot failed', error)
@@ -315,12 +319,12 @@ function escapeHtml(value) {
 main()
 
 /// TEMP DEBUG MIGRATIONS (REMOVE FOR PRODUCTION)
-function debugMigration(runtime) {
-  runtime.call("sql", "exec", `CREATE TABLE IF NOT EXISTS tilemap_storage (
+async function debugMigration(runtime) {
+  await runtime.call("sql", "exec", `CREATE TABLE IF NOT EXISTS tilemap_storage (
     name TEXT PRIMARY KEY,     -- Tilemap identifier (e.g., 'new_map', 'rules-basic-walls')
     data TEXT NOT NULL         -- JSON data as-is from current tilemap-storage format
 );`)
-  runtime.call("sql", "exec", `INSERT INTO tilemap_storage (name, data) VALUES
+  await runtime.call("sql", "exec", `INSERT INTO tilemap_storage (name, data) VALUES
 (
   'default',
   '{"layers":[{"width":10,"data":[1,1,1,1,1,1,1,1,1,1,1,2,2,2,1,1,3,3,3,1,1,2,1,2,1,1,3,1,3,1,1,2,2,2,1,1,3,3,3,1,1,1,1,1,1,1,1,1,1,1,1,4,4,1,1,1,1,4,4,1,1,4,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1],"props":{"name":"Terrain"}},{"width":10,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,5,5,0,0,0,5,0,0,0,0,0,0,5,0,0,0,0,0,0,0,0,0,0,0],"props":{"name":"Details"}},{"width":10,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"props":{"name":"Overlay"}}],"props":{"tileSize":"32","sourceTileSize":"16"}}'
