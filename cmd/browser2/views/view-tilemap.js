@@ -209,6 +209,19 @@ class TilemapState {
     this.activeLayer = layer
   }
 
+  setTilesetSpecs(specs) {
+    assert(Array.isArray(specs), 'tilemap state tileset specs must be array')
+    const previous = this.props.tilesets
+    const next = JSON.stringify(specs)
+    if (previous === next) return
+    this.executeDirtyCommand('Set tilesets', () => {
+      this.props.tilesets = next
+    }, () => {
+      if (previous === undefined) delete this.props.tilesets
+      else this.props.tilesets = previous
+    })
+  }
+
   setLayerHidden(layer, hidden) {
     const target = this.requireLayer(layer)
     const previous = target.hidden
@@ -539,12 +552,13 @@ class TilemapTileset {
   }
 
   static createDefault() {
-    return TilemapTileset.createGenerated(1)
+    return TilemapTileset.createGenerated(1, 1)
   }
 
-  static createGenerated(maxTileId) {
-    assert(Number.isInteger(maxTileId) && maxTileId >= 0, 'generated tileset max tile id must be non-negative integer')
-    const count = Math.max(1, maxTileId)
+  static createGenerated(firstTileId, tileCount = firstTileId) {
+    assert(Number.isInteger(firstTileId) && firstTileId > 0, 'generated tileset first tile id must be positive integer')
+    assert(Number.isInteger(tileCount) && tileCount > 0, 'generated tileset tile count must be positive integer')
+    const count = tileCount
     const columns = TilemapTileset.generatedColumnCount(count)
     const rows = count / columns
     const width = columns * DEFAULT_COLOR_TILESET_SPEC.tileWidth
@@ -556,16 +570,16 @@ class TilemapTileset {
     const ctx = canvas.getContext('2d')
     assert(ctx, 'generated tileset requires 2d context')
 
-    for (let tile = 1; tile <= count; tile++) {
-      const localTile = tile - 1
-      const x = localTile % columns
-      const y = Math.floor(localTile / columns)
+    for (let tileOffset = 0; tileOffset < count; tileOffset++) {
+      const tile = firstTileId + tileOffset
+      const x = tileOffset % columns
+      const y = Math.floor(tileOffset / columns)
       TilemapTileset.drawGeneratedTile(ctx, tile, x * DEFAULT_COLOR_TILESET_SPEC.tileWidth, y * DEFAULT_COLOR_TILESET_SPEC.tileHeight, DEFAULT_COLOR_TILESET_SPEC.tileWidth, DEFAULT_COLOR_TILESET_SPEC.tileHeight)
     }
 
     const image = ctx.getImageData(0, 0, width, height)
     pixels.set(image.data)
-    return new TilemapTileset({ ...DEFAULT_COLOR_TILESET_SPEC, columns, rows, tileCount: count, width, height, pixels, canvas, colorOnly: true })
+    return new TilemapTileset({ ...DEFAULT_COLOR_TILESET_SPEC, firstTileId, columns, rows, tileCount: count, width, height, pixels, canvas, colorOnly: true })
   }
 
   static generatedColumnCount(count) {
@@ -1083,9 +1097,14 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   bindEvents() {
-    this.tilesetTabsElement.addEventListener('click', (event) => {
-      const button = event.target.closest('button[role="tab"][data-tileset]')
+    this.tilesetTabsElement.addEventListener('click', async (event) => {
+      const button = event.target.closest('button[role="tab"]')
       if (!(button instanceof HTMLButtonElement)) return
+      if (button.dataset.action === 'tileset-add') {
+        await this.addTilesetFromChooser()
+        return
+      }
+      assert(button.dataset.tileset, 'view-tilemap tileset tab requires data-tileset')
       this.selectTilesetTab(button.dataset.tileset)
     })
 
@@ -1273,6 +1292,58 @@ export class ViewTilemap extends ViewCanvasBase {
         pageSize: 20,
       },
     }
+  }
+
+  async addTilesetFromChooser() {
+    assert(this.snapshot, 'view-tilemap add tileset requires current snapshot')
+    const result = await runtime.call('ui.popup', 'open', {
+      title: 'Choose Tileset QOI',
+      size: 'medium',
+      tag: 'view-files',
+      props: {
+        mode: 'chooser',
+        filter: '*.qoi',
+      },
+    })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return
+    const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
+    assert(selection?.path, 'view-tilemap add tileset requires selected QOI path')
+    await this.addTilesetPath(selection.path)
+  }
+
+  async addTilesetPath(path) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tilemap add tileset requires path')
+    assert(path.toLowerCase().endsWith('.qoi'), 'view-tilemap add tileset requires .qoi file')
+    const snapshot = this.requireSnapshot()
+    const specs = this.collectTilesetSpecs(snapshot)
+    specs.push({
+      name: this.uniqueTilesetName(this.nameFromTilesetPath(path), specs),
+      path,
+      tileWidth: this.parsePositiveInt(snapshot.props?.sourceTileSize ?? snapshot.props?.tileSize ?? snapshot.props?.tw ?? DEFAULT_TILE_WIDTH, 'tileset tile width'),
+      tileHeight: this.parsePositiveInt(snapshot.props?.sourceTileSize ?? snapshot.props?.tileSize ?? snapshot.props?.th ?? DEFAULT_TILE_HEIGHT, 'tileset tile height'),
+      count: 0,
+    })
+    this.state.setTilesetSpecs(specs.map((spec) => ({
+      name: spec.name,
+      file: spec.path,
+      tileWidth: spec.tileWidth,
+      tileHeight: spec.tileHeight,
+      ...(spec.count > 0 ? { count: spec.count } : {}),
+    })))
+    this.activeTilesetName = specs[specs.length - 1].name
+    await this.refreshSnapshot(`Added tileset ${this.activeTilesetName}`)
+    await runtime.call('ui.toast', 'success', { message: `Added tileset ${this.activeTilesetName}` })
+  }
+
+  uniqueTilesetName(name, specs) {
+    assert(typeof name === 'string' && name.length > 0, 'view-tilemap tileset name must be non-empty string')
+    assert(Array.isArray(specs), 'view-tilemap tileset specs must be array')
+    const used = new Set(specs.map((spec) => spec.name))
+    if (!used.has(name)) return name
+    let index = 2
+    while (used.has(`${name}-${index}`)) index += 1
+    return `${name}-${index}`
   }
 
   async loadTilemapStorageRecord(name) {
@@ -1516,15 +1587,17 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async createTilesetsForSnapshot(snapshot) {
     const specs = this.collectTilesetSpecs(snapshot)
-    if (specs.length === 0) return [TilemapTileset.createGenerated(this.maxTileId(snapshot))]
+    const maxTileId = this.maxTileId(snapshot)
+    if (specs.length === 0) return [TilemapTileset.createGenerated(1, Math.max(1, maxTileId))]
 
     let firstTileId = 1
     const tilesets = []
     for (const spec of specs) {
       const tileset = await TilemapTileset.load(spec, firstTileId)
       tilesets.push(tileset)
-      firstTileId += tileset.columns * tileset.rows
+      firstTileId += tileset.tileCount
     }
+    if (maxTileId >= firstTileId) tilesets.push(TilemapTileset.createGenerated(firstTileId, maxTileId - firstTileId + 1))
     return tilesets
   }
 
