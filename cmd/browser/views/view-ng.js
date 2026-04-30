@@ -188,12 +188,77 @@ function getNodeGraphRenderAssets() {
         channels: 4,
       },
     },
-    nineSlice: {
-      textureUrl: '/assets/ng/nine.png',
-      left: 8,
-      right: 8,
-      top: 8,
-      bottom: 8,
+    nineSlices: {
+      idle: {
+        textureUrl: '/assets/ng/nine.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      success: {
+        textureUrl: '/assets/ng/nine-success.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      error: {
+        textureUrl: '/assets/ng/nine-error.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      processing: {
+        textureUrl: '/assets/ng/nine-processing.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      hover: {
+        textureUrl: '/assets/ng/nine-hover.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      selected: {
+        textureUrl: '/assets/ng/nine-selected.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      activeSelected: {
+        textureUrl: '/assets/ng/nine-active-selected.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      selectedSuccess: {
+        textureUrl: '/assets/ng/nine-selected-success.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      selectedError: {
+        textureUrl: '/assets/ng/nine-selected-error.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
+      selectedProcessing: {
+        textureUrl: '/assets/ng/nine-selected-processing.png',
+        left: 8,
+        right: 8,
+        top: 8,
+        bottom: 8,
+      },
     },
   }
 }
@@ -208,7 +273,7 @@ export class ViewNg extends HTMLElement {
     this.canvas = null
     this.gl = null
     this.assets = getNodeGraphRenderAssets()
-    this.skinTexture = null
+    this.skinTextures = null
     this.portTextures = null
     this.textAtlas = null
     this.baseVao = null
@@ -1782,8 +1847,6 @@ end`
       this._drawEdges(graph.nodes, graph.edges, posById, this.canvas.width, this.canvas.height, view)
       this._drawActiveConnection(this.canvas.width, this.canvas.height, view)
       this._drawNodes(graph.nodes, posById, this.canvas.width, this.canvas.height, view)
-      this._drawNodeExecutionOverlay(graph.nodes, posById, this.canvas.width, this.canvas.height, view)
-      this._drawSelectionOverlay(graph.nodes, posById, this.canvas.width, this.canvas.height, view)
       this._drawMarqueeOverlay(this.canvas.width, this.canvas.height, view)
       this._drawPorts(graph.nodes, graph.edges, posById, this.canvas.width, this.canvas.height, view)
       this._drawLabels(graph.nodes, posById, this.canvas.width, this.canvas.height, view)
@@ -1881,7 +1944,14 @@ end`
   }
 
   async _loadNineSliceTextureFromAssets() {
-    this.skinTexture = await this._loadTextureFromUrl(this.assets.nineSlice.textureUrl)
+    const entries = Object.entries(this.assets.nineSlices)
+    assert(entries.length > 0, 'view-ng requires nineSlices assets')
+    const loaded = await Promise.all(entries.map(async ([key, slice]) => {
+      assert(slice.textureUrl, `view-ng nineSlices.${key} missing textureUrl`)
+      const texture = await this._loadTextureFromUrl(slice.textureUrl)
+      return [key, { ...slice, ...texture }]
+    }))
+    this.skinTextures = new Map(loaded)
   }
 
   async _loadPortTexturesFromAssets() {
@@ -1962,15 +2032,29 @@ end`
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, Math.floor(o / 10))
   }
 
-  _drawNodes(nodes, posById, width, height, view) {
-    if (!nodes.length || !this.skinTexture) return
+  _getNodeSkinKey(node) {
+    const selected = this.selectedNodeIds.has(node.id)
+    const active = selected && Number(node.id) === Number(this.activeNodeId)
+    const hovered = this.hoverPick?.kind === 'node' && Number(this.hoverPick.nodeId) === Number(node.id)
+    if (selected && node.execState === EXEC_ERROR) return 'selectedError'
+    if (selected && node.execState === EXEC_RUNNING) return 'selectedProcessing'
+    if (selected && node.execState === EXEC_DONE) return 'selectedSuccess'
+    if (active) return 'activeSelected'
+    if (selected) return 'selected'
+    if (node.execState === EXEC_ERROR) return 'error'
+    if (node.execState === EXEC_RUNNING) return 'processing'
+    if (node.execState === EXEC_DONE) return 'success'
+    if (hovered) return 'hover'
+    return 'idle'
+  }
+
+  _drawNodeSkinBatch(textureInfo, rects, width, height, view) {
+    if (!rects.length) return
     const gl = this.gl
-    const data = new Float32Array(nodes.length * 4)
+    const data = new Float32Array(rects.length * 4)
     let o = 0
-    for (const node of nodes) {
-      const pos = posById.get(node.id)
-      const size = this._getNodeSize(node)
-      data[o++] = pos.x; data[o++] = pos.y; data[o++] = size.width; data[o++] = size.height
+    for (const rect of rects) {
+      data[o++] = rect.x; data[o++] = rect.y; data[o++] = rect.width; data[o++] = rect.height
     }
     gl.useProgram(this.nodeProgram)
     gl.bindVertexArray(this.baseVao)
@@ -1980,53 +2064,34 @@ end`
     gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 16, 0)
     gl.vertexAttribDivisor(1, 1)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this.skinTexture.texture)
+    gl.bindTexture(gl.TEXTURE_2D, textureInfo.texture)
     gl.uniform1i(gl.getUniformLocation(this.nodeProgram, 'u_skin'), 0)
     gl.uniformMatrix3fv(gl.getUniformLocation(this.nodeProgram, 'u_view'), false, view)
     gl.uniform2f(gl.getUniformLocation(this.nodeProgram, 'u_viewportPx'), width, height)
-    gl.uniform2f(gl.getUniformLocation(this.nodeProgram, 'u_skinSize'), this.skinTexture.width, this.skinTexture.height)
-    gl.uniform4f(gl.getUniformLocation(this.nodeProgram, 'u_slice'), this.assets.nineSlice.left, this.assets.nineSlice.right, this.assets.nineSlice.top, this.assets.nineSlice.bottom)
-    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nodes.length)
+    gl.uniform2f(gl.getUniformLocation(this.nodeProgram, 'u_skinSize'), textureInfo.width, textureInfo.height)
+    gl.uniform4f(gl.getUniformLocation(this.nodeProgram, 'u_slice'), textureInfo.left, textureInfo.right, textureInfo.top, textureInfo.bottom)
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, rects.length)
   }
 
-  _drawNodeExecutionOverlay(nodes, posById, width, height, view) {
-    const rects = []
+  _drawNodes(nodes, posById, width, height, view) {
+    if (!nodes.length || !this.skinTextures) return
+    const batches = new Map()
     for (const node of nodes) {
-      if (node.execState === EXEC_IDLE) continue
       const pos = posById.get(node.id)
+      assert(pos, `view-ng missing node position ${node.id}`)
       const size = this._getNodeSize(node)
-      const color = this._colorForExec(node.execState, 'edge')
-      rects.push({
-        x: pos.x - 2,
-        y: pos.y - 2,
-        width: size.width + 4,
-        height: size.height + 4,
-        color: [color[0], color[1], color[2], 0.95],
-        strokePx: node.execState === EXEC_RUNNING ? 3 : 2,
-      })
+      const key = this._getNodeSkinKey(node)
+      if (!batches.has(key)) batches.set(key, [])
+      batches.get(key).push({ x: pos.x, y: pos.y, width: size.width, height: size.height })
     }
-    this._drawRectOutline(rects, width, height, view)
-  }
-
-  _drawSelectionOverlay(nodes, posById, width, height, view) {
-    if (!this.selectedNodeIds.size) return
-    const selection = this.assets.theme.selection
-    const rects = []
-    for (const node of nodes) {
-      if (!this.selectedNodeIds.has(node.id)) continue
-      const pos = posById.get(node.id)
-      const size = this._getNodeSize(node)
-      const isActive = Number(node.id) === Number(this.activeNodeId)
-      rects.push({
-        x: pos.x - (isActive ? 5 : 3),
-        y: pos.y - (isActive ? 5 : 3),
-        width: size.width + (isActive ? 10 : 6),
-        height: size.height + (isActive ? 10 : 6),
-        color: [selection[0], selection[1], selection[2], isActive ? 1.0 : 0.95],
-        strokePx: isActive ? 3 : 2,
-      })
+    const drawOrder = ['idle', 'success', 'error', 'processing', 'hover', 'selected', 'activeSelected', 'selectedSuccess', 'selectedError', 'selectedProcessing']
+    for (const key of drawOrder) {
+      const rects = batches.get(key) || []
+      if (!rects.length) continue
+      const textureInfo = this.skinTextures.get(key)
+      assert(textureInfo, `view-ng missing nineSlices texture '${key}'`)
+      this._drawNodeSkinBatch(textureInfo, rects, width, height, view)
     }
-    this._drawRectOutline(rects, width, height, view)
   }
 
   _drawActiveConnection(width, height, view) {
@@ -2105,14 +2170,7 @@ end`
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, 1)
       return
     }
-    if (pick.kind === 'node') {
-      const node = nodes.find((entry) => entry.id === pick.nodeId)
-      const pos = node ? posById.get(node.id) : null
-      if (!node || !pos) return
-      const size = this._getNodeSize(node)
-      const active = this.assets.theme.edgeActive || [133 / 255, 192 / 255, 255 / 255, 1]
-      this._drawRectOutline([{ x: pos.x - 2, y: pos.y - 2, width: size.width + 4, height: size.height + 4, color: [active[0], active[1], active[2], 0.85], strokePx: 2 }], width, height, view)
-    }
+    if (pick.kind === 'node') return
   }
 
   _drawMarqueeOverlay(width, height, view) {

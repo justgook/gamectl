@@ -50,6 +50,42 @@
             "url": "/assets/ng/nine.png"
           },
           {
+            "path": "assets/ng/nine-active-selected.png",
+            "url": "/assets/ng/nine-active-selected.png"
+          },
+          {
+            "path": "assets/ng/nine-error.png",
+            "url": "/assets/ng/nine-error.png"
+          },
+          {
+            "path": "assets/ng/nine-hover.png",
+            "url": "/assets/ng/nine-hover.png"
+          },
+          {
+            "path": "assets/ng/nine-processing.png",
+            "url": "/assets/ng/nine-processing.png"
+          },
+          {
+            "path": "assets/ng/nine-selected.png",
+            "url": "/assets/ng/nine-selected.png"
+          },
+          {
+            "path": "assets/ng/nine-selected-error.png",
+            "url": "/assets/ng/nine-selected-error.png"
+          },
+          {
+            "path": "assets/ng/nine-selected-processing.png",
+            "url": "/assets/ng/nine-selected-processing.png"
+          },
+          {
+            "path": "assets/ng/nine-selected-success.png",
+            "url": "/assets/ng/nine-selected-success.png"
+          },
+          {
+            "path": "assets/ng/nine-success.png",
+            "url": "/assets/ng/nine-success.png"
+          },
+          {
             "path": "assets/ng/nodegraph2/array.lua",
             "url": "/assets/ng/nodegraph2/array.lua"
           },
