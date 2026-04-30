@@ -274,6 +274,45 @@ class TilemapState {
     })
   }
 
+  eraseCellLive(layerIndexes, cell, changes) {
+    assert(Array.isArray(layerIndexes), 'tilemap state eraseCellLive layerIndexes must be array')
+    assert(Number.isInteger(cell.x) && Number.isInteger(cell.y), 'tilemap state eraseCellLive cell must contain integer x/y')
+    assert(changes instanceof Map, 'tilemap state eraseCellLive changes must be Map')
+    let changed = false
+
+    for (const layerIndex of layerIndexes) {
+      const layer = this.requireLayer(layerIndex)
+      if (cell.x < 0 || cell.x >= layer.width || cell.y < 0) continue
+      const tileIndex = cell.y * layer.width + cell.x
+      if (tileIndex < 0 || tileIndex >= layer.data.length) continue
+      const key = `${layerIndex}:${tileIndex}`
+      if (changes.has(key)) continue
+      const previous = layer.data[tileIndex]
+      if (previous === 0) continue
+      changes.set(key, { layerIndex, tileIndex, previous })
+      layer.data[tileIndex] = 0
+      changed = true
+    }
+
+    if (changed) this.dirty = true
+    return changed
+  }
+
+  commitEraseChanges(changes) {
+    assert(changes instanceof Map, 'tilemap state commitEraseChanges changes must be Map')
+    const committed = [...changes.values()]
+    if (committed.length === 0) return false
+    this.history.add(new TilemapCommand(`Erase ${committed.length} tile${committed.length === 1 ? '' : 's'}`, () => {
+      for (const change of committed) this.requireLayer(change.layerIndex).data[change.tileIndex] = 0
+      this.dirty = true
+    }, () => {
+      for (const change of committed) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.previous
+      this.dirty = true
+    }))
+    this.dirty = true
+    return true
+  }
+
   cut() {
     const previousClipboard = this.hasClipboard
     this.executeDirtyCommand('Cut selection', () => {
@@ -637,12 +676,12 @@ class TilemapSelectionTool {
     assert(this.drag, 'tilemap selection finish requires active drag')
     this.update(cell)
     const rect = this.rectFromDrag(this.drag)
-    if (rect.width === 1 && rect.height === 1) {
+    const mode = this.drag.mode
+    if (rect.width === 1 && rect.height === 1 && mode === SELECT_MODE.REPLACE) {
       this.clear()
       return { status: 'Selection cleared' }
     }
 
-    const mode = this.drag.mode
     this.applyRect(rect, mode)
     this.drag = null
     return { status: this.statusText(mode) }
@@ -684,6 +723,10 @@ class TilemapSelectionTool {
 
   key(x, y) {
     return `${x},${y}`
+  }
+
+  containsCell(cell) {
+    return this.selectedCells.has(this.key(cell.x, cell.y))
   }
 
   statusText(mode) {
@@ -800,6 +843,8 @@ export class ViewTilemap extends ViewCanvasBase {
       getAddKey: () => this.selectionAddKey,
       getRemoveKey: () => this.selectionRemoveKey,
     })
+    this.eraseDragCells = null
+    this.eraseChanges = null
     this.showGrid = true
     this.tilemapRender = new TilemapRender()
     this.tilesetRender = new TilesetRender()
@@ -1012,6 +1057,8 @@ export class ViewTilemap extends ViewCanvasBase {
     this.handle = result.handle
     this.selectedLayerIndexes.clear()
     this.selectionTool.clear()
+    this.eraseDragCells = null
+    this.eraseChanges = null
     await this.refreshSnapshot(`Opened ${tilemap.name}`, { autoFit })
   }
 
@@ -1156,6 +1203,10 @@ export class ViewTilemap extends ViewCanvasBase {
   async setTool(tool) {
     this.state.setTool(tool)
     if (tool !== TOOL.SELECT) this.selectionTool.clearDrag()
+    if (tool !== TOOL.ERASE) {
+      this.eraseDragCells = null
+      this.eraseChanges = null
+    }
     await this.refreshSnapshot(`${TOOL_LABELS.get(tool)} tool selected`)
   }
 
@@ -1530,28 +1581,81 @@ export class ViewTilemap extends ViewCanvasBase {
   onCanvasMouseDown(event) {
     if (event.button !== 0) return
     const snapshot = this.requireSnapshot()
-    if (snapshot.tool !== TOOL.SELECT) return
-    event.preventDefault()
-    this.focus()
-    this.selectionTool.start(this.cellFromPointerEvent(event, snapshot), event)
-    this.draw()
+    if (snapshot.tool === TOOL.SELECT) {
+      event.preventDefault()
+      this.focus()
+      this.selectionTool.start(this.cellFromPointerEvent(event, snapshot), event)
+      this.draw()
+      return
+    }
 
-    return false
+    if (snapshot.tool === TOOL.ERASE) {
+      event.preventDefault()
+      this.focus()
+      this.eraseDragCells = new Map()
+      this.eraseChanges = new Map()
+      this.addEraseDragCell(this.cellFromPointerEvent(event, snapshot))
+    }
   }
 
   onCanvasMouseMove(event) {
-    if (!this.selectionTool.drag) return
-    const snapshot = this.requireSnapshot()
-    this.selectionTool.update(this.cellFromPointerEvent(event, snapshot))
-    this.draw()
+    if (this.selectionTool.drag) {
+      const snapshot = this.requireSnapshot()
+      this.selectionTool.update(this.cellFromPointerEvent(event, snapshot))
+      this.draw()
+      return
+    }
+
+    if (this.eraseDragCells) {
+      const snapshot = this.requireSnapshot()
+      this.addEraseDragCell(this.cellFromPointerEvent(event, snapshot))
+    }
   }
 
   onCanvasMouseUp(event) {
-    if (!this.selectionTool.drag) return
-    const snapshot = this.requireSnapshot()
-    const result = this.selectionTool.finish(this.cellFromPointerEvent(event, snapshot))
-    this.draw()
-    this.setStatus(result.status, 'info')
+    if (this.selectionTool.drag) {
+      const snapshot = this.requireSnapshot()
+      const result = this.selectionTool.finish(this.cellFromPointerEvent(event, snapshot))
+      this.draw()
+      this.setStatus(result.status, 'info')
+      return
+    }
+
+    if (this.eraseDragCells) {
+      const snapshot = this.requireSnapshot()
+      this.addEraseDragCell(this.cellFromPointerEvent(event, snapshot))
+      void this.finishEraseGesture(snapshot)
+    }
+  }
+
+  addEraseDragCell(cell) {
+    assert(this.eraseDragCells instanceof Map, 'view-tilemap erase drag cells must be Map')
+    assert(this.eraseChanges instanceof Map, 'view-tilemap erase changes must be Map')
+    if (this.selectionTool.selectedCells.size > 0 && !this.selectionTool.containsCell(cell)) return
+    this.eraseDragCells.set(this.selectionTool.key(cell.x, cell.y), cell)
+    const changed = this.state.eraseCellLive(this.eraseLayerIndexes(this.requireSnapshot()), cell, this.eraseChanges)
+    if (!changed) return
+    this.snapshot = validateSnapshot(this.state.snapshot())
+    this.setData(this.snapshot, { autoFit: false })
+  }
+
+  async finishEraseGesture(_snapshot) {
+    assert(this.eraseDragCells instanceof Map, 'view-tilemap finish erase requires active erase gesture')
+    assert(this.eraseChanges instanceof Map, 'view-tilemap finish erase requires active erase changes')
+    const draggedCellCount = this.eraseDragCells.size
+    const changed = this.state.commitEraseChanges(this.eraseChanges)
+    this.eraseDragCells = null
+    this.eraseChanges = null
+    if (!changed) {
+      this.setStatus(draggedCellCount === 0 ? 'Nothing erased outside active selection' : 'Nothing erased', 'info')
+      return
+    }
+    await this.refreshSnapshot('Tiles erased')
+  }
+
+  eraseLayerIndexes(snapshot) {
+    const indexes = this.selectedLayerIndexes.size > 0 ? [...this.selectedLayerIndexes] : [snapshot.activeLayer]
+    return indexes.filter((index) => Number.isInteger(index) && index >= 0).sort((a, b) => a - b)
   }
 
   cellFromPointerEvent(event, snapshot) {
