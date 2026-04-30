@@ -190,6 +190,10 @@
             "url": "/plugins/sql.wasm"
           },
           {
+            "path": "plugins/sql-vec.wasm",
+            "url": "/plugins/sql-vec.wasm"
+          },
+          {
             "path": "plugins/treegen.wasm",
             "url": "/plugins/treegen.wasm"
           },
@@ -226,7 +230,7 @@
       "id": "sql",
       "runtime": "wasm",
       "role": "service",
-      "url": "builtin/plugins/sql.wasm"
+      "url": "builtin/plugins/sql-vec.wasm"
     },
     {
       "id": "random",
