@@ -1002,6 +1002,29 @@
     padding: 0 4px;
   }
 
+
+  table:has(:not(thead)) {
+    table-layout: auto;
+  }
+
+  table>tbody>tr>td:has(button) {
+    text-align: center;
+  }
+
+  table>tbody>tr>td:has(button:nth-of-type(4)) {
+    padding: 4px 4px 0 4px;
+    text-align: right;
+  }
+
+  td:has(button:nth-of-type(4))>button:has(i) {
+    padding: 0 1px;
+    min-height: 14px;
+  }
+
+  td:has(button:nth-of-type(4))>button>i {
+    font-size: inherit;
+  }
+
   view-toast {
     border-radius: 0;
     box-shadow: var(--border-window-outer), var(--border-window-inner);
