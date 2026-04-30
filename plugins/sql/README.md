@@ -12,11 +12,7 @@ A full-featured SQL database plugin implemented in C with embedded SQLite3 that 
 
 ## Functions
 
-### `open`
-Initialize and open an in-memory SQLite3 database.
-- **Input**: None
-- **Output**: `"OK"` on success, error message on failure
-- **Note**: Must be called before any other SQL operations
+The in-memory SQLite3 database is opened automatically when the plugin loads via its internal `__sql_init` hook; there is no public `open` method.
 
 ### `exec`
 Execute non-SELECT SQL statements (CREATE, INSERT, UPDATE, DELETE, etc.).
@@ -148,7 +144,7 @@ The plugin is automatically built when running `make plugins-release` from the p
 make plugins-release
 
 # Build only SQL plugin
-make build.nosync/sql.wasm
+make build.nosync/plugins/sql.wasm
 ```
 
 ### Build Process
@@ -164,11 +160,7 @@ The Makefile includes a special rule for the SQL plugin that:
 ### Basic Workflow
 
 ```javascript
-// 1. Open database
-manager.call('sql', 'open', '')
-// Returns: "OK"
-
-// 2. Create table
+// 1. Create table; the database is already open after plugin load.
 manager.call('sql', 'exec', 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER)')
 // Returns: "OK"
 
@@ -196,7 +188,7 @@ const savedDump = localStorage.getItem('my-game-backup')
 manager.call('sql', 'restore', savedDump)
 // Returns: "Database restored successfully"
 
-// 8. Close database
+// 7. Close database
 manager.call('sql', 'close', '')
 // Returns: "OK"
 ```
@@ -227,7 +219,6 @@ async function createSqlDump() {
 
 // Restore from SQL dump
 async function restoreFromSqlDump(sqlDump) {
-  await manager.call('sql', 'open', '')
   const result = await manager.call('sql', 'restore', sqlDump)
   console.log(new TextDecoder().decode(result.output))
 }
@@ -251,7 +242,6 @@ async function createBinaryBackup() {
 async function loadBinaryBackup() {
   const binaryBackup = localStorage.getItem('ide-state-backup')
   if (binaryBackup) {
-    await manager.call('sql', 'open', '')
     const result = await manager.call('sql', 'load', binaryBackup)
     console.log('IDE state restored:', new TextDecoder().decode(result.output))
   }
@@ -350,7 +340,6 @@ function compareBackupSizes() {
 
 ```javascript
 // Generate a procedural world with biomes
-manager.call('sql', 'open', '')
 
 // Create biome table
 manager.call('sql', 'exec', `

@@ -315,9 +315,6 @@ func (a *app) bootstrapDatabase(runtime *wasmhost.Runtime) (bootstrapStatus, err
 		return status, err
 	}
 
-	if _, err := a.callPlugin(runtime, "sql", "open", []byte{}); err != nil {
-		return status, err
-	}
 	if status.DatabaseExists {
 		if _, err := a.callPlugin(runtime, "sql", "load_binary", []byte(a.paths.Database)); err != nil {
 			return status, err

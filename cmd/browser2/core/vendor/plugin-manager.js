@@ -423,7 +423,7 @@ class PluginManager {
    * Important: PDK alloc/free must behave like a real allocator, not a
    * per-call scratch arena. Plugins such as sql keep pointers returned from
    * pdk_alloc across calls (for example SQLite's long-lived heap configured in
-   * sql.open()).
+   * sql.__sql_init()).
    *
    * We still track temporary call-scoped allocations separately via callFrames
    * so buffers created only for a single host/plugin exchange can be released

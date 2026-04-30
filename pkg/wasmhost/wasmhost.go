@@ -537,6 +537,15 @@ func (m *wasmtimeManager) loadWasmModule(module loadedModule) error {
 		return fmt.Errorf("define module instance %s: %w", module.Name, err)
 	}
 	m.wasmModules[module.Name] = &wasmtimeModuleState{module: compiled, instance: instance}
+	if module.Name == "sql" {
+		returnCode, output, err := m.callWasmFunction(module.Name, "__sql_init", nil)
+		if err != nil {
+			return fmt.Errorf("initialize sql module: %w", err)
+		}
+		if returnCode != 0 {
+			return fmt.Errorf("initialize sql module: %s", strings.TrimSpace(string(output)))
+		}
+	}
 	return nil
 }
 
