@@ -156,7 +156,7 @@ export class TilemapSettings extends HTMLElement {
     return {
       name: '',
       data: {
-        props: { tileSize: DEFAULT_TILE_SIZE },
+        props: { tileSize: String(DEFAULT_TILE_SIZE) },
         layers: [{
           width: DEFAULT_MAP_WIDTH,
           data: new Array(DEFAULT_MAP_WIDTH * DEFAULT_MAP_HEIGHT).fill(0),
@@ -226,7 +226,7 @@ export class TilemapSettings extends HTMLElement {
 
   updatedStorageData(data, settings) {
     const props = data.props && typeof data.props === 'object' && !Array.isArray(data.props) ? { ...data.props } : {}
-    props.tileSize = settings.tileSize
+    props.tileSize = String(settings.tileSize)
 
     return {
       props,
