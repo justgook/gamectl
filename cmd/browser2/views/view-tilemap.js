@@ -290,7 +290,7 @@ class TilemapState {
       if (changes.has(key)) continue
       const previous = layer.data[tileIndex]
       if (previous === 0) continue
-      changes.set(key, { layerIndex, tileIndex, previous })
+      changes.set(key, { layerIndex, tileIndex, previous, next: 0 })
       layer.data[tileIndex] = 0
       changed = true
     }
@@ -301,10 +301,39 @@ class TilemapState {
 
   commitEraseChanges(changes) {
     assert(changes instanceof Map, 'tilemap state commitEraseChanges changes must be Map')
+    return this.commitLiveTileChanges(changes, 'Erase')
+  }
+
+  paintCellLive(layerIndex, cell, tile, changes) {
+    assert(Number.isInteger(layerIndex), 'tilemap state paintCellLive layerIndex must be integer')
+    assert(Number.isInteger(cell.x) && Number.isInteger(cell.y), 'tilemap state paintCellLive cell must contain integer x/y')
+    assert(Number.isInteger(tile), 'tilemap state paintCellLive tile must be integer')
+    assert(changes instanceof Map, 'tilemap state paintCellLive changes must be Map')
+    const layer = this.requireLayer(layerIndex)
+    if (cell.x < 0 || cell.x >= layer.width || cell.y < 0) return false
+    const tileIndex = cell.y * layer.width + cell.x
+    if (tileIndex < 0 || tileIndex >= layer.data.length) return false
+    const previous = layer.data[tileIndex]
+    if (previous === tile) return false
+    const key = `${layerIndex}:${tileIndex}`
+    if (!changes.has(key)) changes.set(key, { layerIndex, tileIndex, previous, next: tile })
+    layer.data[tileIndex] = tile
+    this.dirty = true
+    return true
+  }
+
+  commitPaintChanges(changes) {
+    assert(changes instanceof Map, 'tilemap state commitPaintChanges changes must be Map')
+    return this.commitLiveTileChanges(changes, 'Paint')
+  }
+
+  commitLiveTileChanges(changes, label) {
+    assert(changes instanceof Map, 'tilemap state commitLiveTileChanges changes must be Map')
+    assert(typeof label === 'string' && label.length > 0, 'tilemap state commitLiveTileChanges label must be non-empty string')
     const committed = [...changes.values()]
     if (committed.length === 0) return false
-    this.history.add(new TilemapCommand(`Erase ${committed.length} tile${committed.length === 1 ? '' : 's'}`, () => {
-      for (const change of committed) this.requireLayer(change.layerIndex).data[change.tileIndex] = 0
+    this.history.add(new TilemapCommand(`${label} ${committed.length} tile${committed.length === 1 ? '' : 's'}`, () => {
+      for (const change of committed) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.next
       this.dirty = true
     }, () => {
       for (const change of committed) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.previous
@@ -921,6 +950,8 @@ export class ViewTilemap extends ViewCanvasBase {
     })
     this.eraseDragCells = null
     this.eraseChanges = null
+    this.brushDragCells = null
+    this.brushChanges = null
     this.clipboard = null
     this.pastePreviewCell = null
     this.showGrid = true
@@ -1141,6 +1172,8 @@ export class ViewTilemap extends ViewCanvasBase {
     this.selectionTool.clear()
     this.eraseDragCells = null
     this.eraseChanges = null
+    this.brushDragCells = null
+    this.brushChanges = null
     this.clipboard = null
     this.pastePreviewCell = null
     await this.refreshSnapshot(`Opened ${tilemap.name}`, { autoFit })
@@ -1294,6 +1327,10 @@ export class ViewTilemap extends ViewCanvasBase {
     if (tool !== TOOL.ERASE) {
       this.eraseDragCells = null
       this.eraseChanges = null
+    }
+    if (tool !== TOOL.BRUSH) {
+      this.brushDragCells = null
+      this.brushChanges = null
     }
     if (tool !== TOOL.PASTE) this.pastePreviewCell = null
     await this.refreshSnapshot(`${TOOL_LABELS.get(tool)} tool selected`)
@@ -1782,6 +1819,15 @@ export class ViewTilemap extends ViewCanvasBase {
       return
     }
 
+    if (snapshot.tool === TOOL.BRUSH) {
+      event.preventDefault()
+      this.focus()
+      this.brushDragCells = new Map()
+      this.brushChanges = new Map()
+      this.addBrushDragCell(this.cellFromPointerEvent(event, snapshot))
+      return
+    }
+
     if (snapshot.tool === TOOL.ERASE) {
       event.preventDefault()
       this.focus()
@@ -1815,6 +1861,12 @@ export class ViewTilemap extends ViewCanvasBase {
       return
     }
 
+    if (this.brushDragCells) {
+      const snapshot = this.requireSnapshot()
+      this.addBrushDragCell(this.cellFromPointerEvent(event, snapshot))
+      return
+    }
+
     if (this.eraseDragCells) {
       const snapshot = this.requireSnapshot()
       this.addEraseDragCell(this.cellFromPointerEvent(event, snapshot))
@@ -1838,11 +1890,50 @@ export class ViewTilemap extends ViewCanvasBase {
       return
     }
 
+    if (this.brushDragCells) {
+      const snapshot = this.requireSnapshot()
+      this.addBrushDragCell(this.cellFromPointerEvent(event, snapshot))
+      void this.finishBrushGesture(snapshot)
+      return
+    }
+
     if (this.eraseDragCells) {
       const snapshot = this.requireSnapshot()
       this.addEraseDragCell(this.cellFromPointerEvent(event, snapshot))
       void this.finishEraseGesture(snapshot)
     }
+  }
+
+  addBrushDragCell(cell) {
+    assert(this.brushDragCells instanceof Map, 'view-tilemap brush drag cells must be Map')
+    assert(this.brushChanges instanceof Map, 'view-tilemap brush changes must be Map')
+    if (this.selectionTool.selectedCells.size > 0 && !this.selectionTool.containsCell(cell)) return
+    const layerIndex = this.brushLayerIndex()
+    if (!Number.isInteger(layerIndex)) return
+    this.brushDragCells.set(this.selectionTool.key(cell.x, cell.y), cell)
+    const changed = this.state.paintCellLive(layerIndex, cell, this.requireSnapshot().activeTile, this.brushChanges)
+    if (!changed) return
+    this.snapshot = validateSnapshot(this.state.snapshot())
+    this.setData(this.snapshot, { autoFit: false })
+  }
+
+  async finishBrushGesture(_snapshot) {
+    assert(this.brushDragCells instanceof Map, 'view-tilemap finish brush requires active brush gesture')
+    assert(this.brushChanges instanceof Map, 'view-tilemap finish brush requires active brush changes')
+    const draggedCellCount = this.brushDragCells.size
+    const changed = this.state.commitPaintChanges(this.brushChanges)
+    this.brushDragCells = null
+    this.brushChanges = null
+    if (!changed) {
+      this.setStatus(draggedCellCount === 0 ? 'Nothing painted outside active selection' : 'Nothing painted', 'info')
+      return
+    }
+    await this.refreshSnapshot('Tiles painted')
+  }
+
+  brushLayerIndex() {
+    if (this.selectedLayerIndexes.size === 0) return null
+    return Math.max(...this.selectedLayerIndexes)
   }
 
   addEraseDragCell(cell) {
