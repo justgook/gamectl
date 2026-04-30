@@ -1,0 +1,462 @@
+# SQL Vec Plugin
+
+A full-featured SQL database plugin implemented in C with embedded SQLite3 plus the statically linked [`sqlite-vec`](https://github.com/asg017/sqlite-vec) extension.
+
+## Features
+
+- **Full SQLite3 Database**: Complete SQL database engine compiled to WebAssembly
+- **sqlite-vec**: Vector functions and virtual tables from sqlite-vec v0.1.3, available immediately after plugin init
+- **In-Memory Database**: Fast, ephemeral database perfect for procedural generation
+- **Standard SQL**: Supports CREATE, INSERT, UPDATE, DELETE, SELECT, and more
+- **PDK Integration**: Uses PDK for input/output while leveraging SQLite3's internal memory management
+- **WASI Target**: Built with wasm32-wasi for libc support required by SQLite3
+
+## Functions
+
+The in-memory SQLite3 database is opened automatically when the plugin loads via its internal `__sql_init` hook; there is no public `open` method. During that hook, sqlite-vec is registered statically, so functions like `vec_version()` and `vec_distance_l2(...)` are available through normal `query`/`exec` calls.
+
+### `exec`
+Execute non-SELECT SQL statements (CREATE, INSERT, UPDATE, DELETE, etc.).
+- **Input**: SQL statement as string
+- **Output**: `"OK"` on success, error message on failure
+- **Example Input**: `"CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)"`
+
+### `query`
+Execute SELECT queries and return results in CSV format.
+- **Input**: SELECT SQL statement as string
+- **Output**: CSV-formatted results with header row
+- **Format**: `"col1,col2,col3\nval1,val2,val3\n..."`
+- **Example Input**: `"SELECT * FROM users"`
+- **Example Output**: `"id,name\n1,Alice\n2,Bob\n"`
+
+### `dump`
+Export the entire database as SQL statements (like `pg_dump` or SQLite `.dump`).
+- **Input**: None
+- **Output**: Complete SQL dump including schema and data
+- **Format**: SQL statements that can recreate the database
+- **Example Output**: 
+```sql
+-- SQLite database dump
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+
+CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER);
+
+INSERT INTO items VALUES(1,'sword',100);
+INSERT INTO items VALUES(2,'shield',75);
+
+COMMIT;
+```
+
+### `backup`
+Create a binary backup using optimized SQL format (based on SQLite backup API concepts).
+- **Input**: None
+- **Output**: Compact binary-style backup with special markers
+- **Format**: Optimized SQL with binary backup headers for fast restore
+- **Use Case**: IDE state persistence, quick save/restore
+- **Example Output**:
+```sql
+-- BINARY_BACKUP_V1
+-- Generated from binary backup
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+
+CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER);
+
+INSERT INTO items VALUES(1,'sword',100);
+INSERT INTO items VALUES(2,'shield',75);
+
+COMMIT;
+-- END_BINARY_BACKUP_V1
+```
+
+### `load`
+Load database from a binary backup created by the `backup` function.
+- **Input**: Binary backup string (output from `backup` function)
+- **Output**: `"Binary backup loaded successfully"` on success, error message on failure
+- **Note**: Validates binary backup format before loading
+
+### `restore`
+Restore database from a SQL dump created by the `dump` function.
+- **Input**: SQL dump string (output from `dump` function)
+- **Output**: `"Database restored successfully"` on success, error message on failure
+- **Note**: Executes the entire dump as a transaction
+
+### `save_binary`
+Save the database as a binary SQLite file to the filesystem (OPFS).
+- **Input**: File path (e.g., `/databases/game.sqlite`)
+- **Output**: `"OK"` on success, error message on failure
+- **Note**: Uses `sqlite3_serialize()` to create an exact binary copy of the database
+- **Use Case**: Persistent storage, file downloads, database sharing
+- **Example Input**: `/saves/world-001.sqlite`
+
+### `load_binary`
+Load a database from a binary SQLite file in the filesystem (OPFS).
+- **Input**: File path (e.g., `/databases/game.sqlite`)
+- **Output**: `"OK"` on success, error message on failure
+- **Note**: Uses `sqlite3_deserialize()` to load the exact binary database. Automatically closes any existing database before loading.
+- **Use Case**: Restore from persistent storage, load shared databases
+- **Example Input**: `/saves/world-001.sqlite`
+
+### `close`
+Close the database connection and free resources.
+- **Input**: None
+- **Output**: `"OK"`
+
+### `info`
+Returns information about the plugin.
+- **Input**: None
+- **Output**: Plugin description and version
+
+## Implementation Details
+
+- **Language**: C
+- **Database**: SQLite3 (amalgamation build)
+- **Target**: wasm32-wasi (requires WASI runtime)
+- **Size**: ~4.2MB WASM file (includes full SQLite3 engine)
+- **Memory**: Uses PDK allocator for plugin I/O, SQLite3's internal allocator for database operations
+- **Features**:
+  - Full SQL support (DDL, DML, queries)
+  - In-memory database (`:memory:`)
+  - CSV result formatting
+  - Error handling with descriptive messages
+  - Optimized SQLite3 build flags
+
+## SQLite3 Configuration
+
+The plugin uses optimized SQLite3 compile-time options:
+
+- `SQLITE_OMIT_LOAD_EXTENSION`: No dynamic extension loading
+- `SQLITE_THREADSAFE=0`: Single-threaded (WASM is single-threaded)
+- `SQLITE_OMIT_WAL`: No Write-Ahead Logging
+- `SQLITE_TEMP_STORE=3`: Use memory for temporary storage
+- `SQLITE_OMIT_DEPRECATED`: Remove deprecated features
+- `SQLITE_OMIT_SHARED_CACHE`: No shared cache mode
+- Additional optimizations for size and performance
+
+## Building
+
+The plugin is automatically built when running `make plugins-release` from the project root.
+
+**Requirements**: Zig compiler with WASI libc support
+
+```bash
+# Build all plugins
+make plugins-release
+
+# Build only SQL Vec plugin
+make build.nosync/plugins/sql-vec.wasm
+```
+
+### Build Process
+
+The Makefile includes a manifest for the SQL Vec plugin that:
+1. Compiles both `main.c` and `sqlite3.c` together
+2. Links with WASI libc (`-lc`)
+3. Applies SQLite3 optimization flags
+4. Produces a single `sql-vec.wasm` file
+
+## Usage Examples
+
+### Basic Workflow
+
+```javascript
+// sqlite-vec is available immediately.
+manager.call('sql-vec', 'query', "SELECT vec_version(), vec_distance_l2('[1,2]', '[2,4]')")
+// Returns: "vec_version(),vec_distance_l2('[1,2]', '[2,4]')\nv0.1.3,2.236068\n"
+
+// 1. Create table; the database is already open after plugin load.
+manager.call('sql-vec', 'exec', 'CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value INTEGER)')
+// Returns: "OK"
+
+// 3. Insert data
+manager.call('sql-vec', 'exec', "INSERT INTO items (name, value) VALUES ('sword', 100)")
+manager.call('sql-vec', 'exec', "INSERT INTO items (name, value) VALUES ('shield', 75)")
+// Returns: "OK"
+
+// 4. Query data
+manager.call('sql-vec', 'query', 'SELECT * FROM items WHERE value > 50')
+// Returns: "id,name,value\n1,sword,100\n2,shield,75\n"
+
+// 5. Backup database
+const dumpResult = manager.call('sql-vec', 'dump', '')
+const sqlDump = new TextDecoder().decode(dumpResult.output)
+localStorage.setItem('my-game-backup', sqlDump)
+// Save dump for later restoration
+
+// 6. Update data
+manager.call('sql-vec', 'exec', "UPDATE items SET value = 120 WHERE name = 'sword'")
+// Returns: "OK"
+
+// 7. Restore from backup (if needed)
+const savedDump = localStorage.getItem('my-game-backup')
+manager.call('sql-vec', 'restore', savedDump)
+// Returns: "Database restored successfully"
+
+// 7. Close database
+manager.call('sql-vec', 'close', '')
+// Returns: "OK"
+```
+
+### Backup and Restore Workflows
+
+#### **SQL Dump/Restore** (Human-readable, version control friendly)
+
+```javascript
+// Create SQL dump for version control
+async function createSqlDump() {
+  const dumpResult = await manager.call('sql-vec', 'dump', '')
+  const sqlDump = new TextDecoder().decode(dumpResult.output)
+  
+  // Save to localStorage
+  localStorage.setItem('game-sql-backup-' + Date.now(), sqlDump)
+  
+  // Download as .sql file for version control
+  const blob = new Blob([sqlDump], { type: 'text/sql' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'procedural-world.sql'
+  a.click()
+  
+  return sqlDump
+}
+
+// Restore from SQL dump
+async function restoreFromSqlDump(sqlDump) {
+  const result = await manager.call('sql-vec', 'restore', sqlDump)
+  console.log(new TextDecoder().decode(result.output))
+}
+```
+
+#### **Binary Backup/Load** (SQL text format, IDE state persistence)
+
+```javascript
+// Create binary backup for fast state saving
+async function createBinaryBackup() {
+  const backupResult = await manager.call('sql-vec', 'backup', '')
+  const binaryBackup = new TextDecoder().decode(backupResult.output)
+  
+  // Save to localStorage for IDE state
+  localStorage.setItem('ide-state-backup', binaryBackup)
+  
+  return binaryBackup
+}
+
+// Load binary backup for fast restoration
+async function loadBinaryBackup() {
+  const binaryBackup = localStorage.getItem('ide-state-backup')
+  if (binaryBackup) {
+    const result = await manager.call('sql-vec', 'load', binaryBackup)
+    console.log('IDE state restored:', new TextDecoder().decode(result.output))
+  }
+}
+
+// Auto-save on page unload
+window.addEventListener('beforeunload', async () => {
+  await createBinaryBackup()
+})
+
+// Auto-restore on page load
+window.addEventListener('load', async () => {
+  await loadBinaryBackup()
+})
+```
+
+#### **Binary File Save/Load** (True SQLite binary files in OPFS)
+
+```javascript
+// Save database as a binary SQLite file to OPFS
+async function saveDatabaseToFile(filePath) {
+  const result = await manager.call('sql-vec', 'save_binary', filePath)
+  const output = new TextDecoder().decode(result.output)
+  
+  if (result.returnCode !== 0) {
+    console.error('Failed to save database:', output)
+    return false
+  }
+  
+  console.log('Database saved to:', filePath)
+  return true
+}
+
+// Load database from a binary SQLite file in OPFS
+async function loadDatabaseFromFile(filePath) {
+  const result = await manager.call('sql-vec', 'load_binary', filePath)
+  const output = new TextDecoder().decode(result.output)
+  
+  if (result.returnCode !== 0) {
+    console.error('Failed to load database:', output)
+    return false
+  }
+  
+  console.log('Database loaded from:', filePath)
+  return true
+}
+
+// Example: Save game state to multiple slots
+async function saveGameSlot(slotNumber) {
+  const filePath = `/saves/game-slot-${slotNumber}.sqlite`
+  await saveDatabaseToFile(filePath)
+}
+
+// Example: Load game state from a slot
+async function loadGameSlot(slotNumber) {
+  const filePath = `/saves/game-slot-${slotNumber}.sqlite`
+  await loadDatabaseFromFile(filePath)
+}
+
+// Example: List all save files
+async function listSaveFiles() {
+  const result = await manager.call('fs', 'list', '/saves')
+  const files = JSON.parse(new TextDecoder().decode(result.output))
+  return files.filter(f => f.endsWith('.sqlite'))
+}
+```
+
+#### **Utility Functions**
+
+```javascript
+// List all backups in localStorage
+function listBackups() {
+  const sqlBackups = Object.keys(localStorage)
+    .filter(key => key.startsWith('game-sql-backup-'))
+    .sort()
+  
+  const binaryBackups = Object.keys(localStorage)
+    .filter(key => key.includes('ide-state-backup'))
+  
+  return { sqlBackups, binaryBackups }
+}
+
+// Compare backup sizes
+function compareBackupSizes() {
+  const sqlDump = localStorage.getItem('game-sql-backup-latest')
+  const binaryBackup = localStorage.getItem('ide-state-backup')
+  
+  return {
+    sql: sqlDump ? sqlDump.length : 0,
+    binary: binaryBackup ? binaryBackup.length : 0
+  }
+}
+```
+
+### Procedural Generation Use Case
+
+```javascript
+// Generate a procedural world with biomes
+
+// Create biome table
+manager.call('sql-vec', 'exec', `
+  CREATE TABLE biomes (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    temperature INTEGER,
+    humidity INTEGER,
+    rarity INTEGER
+  )
+`)
+
+// Insert biome data
+manager.call('sql-vec', 'exec', "INSERT INTO biomes VALUES (1, 'desert', 90, 10, 20)")
+manager.call('sql-vec', 'exec', "INSERT INTO biomes VALUES (2, 'forest', 60, 70, 40)")
+manager.call('sql-vec', 'exec', "INSERT INTO biomes VALUES (3, 'tundra', 10, 30, 15)")
+
+// Query for hot, dry biomes
+const result = manager.call('sql-vec', 'query', 
+  'SELECT name FROM biomes WHERE temperature > 70 AND humidity < 30'
+)
+// Returns: "name\ndesert\n"
+
+// Complex query with aggregation
+manager.call('sql-vec', 'query', 
+  'SELECT AVG(temperature) as avg_temp, COUNT(*) as count FROM biomes'
+)
+// Returns: "avg_temp,count\n53.333333,3\n"
+```
+
+### Advanced SQL Features
+
+```javascript
+// Joins
+manager.call('sql-vec', 'exec', `
+  CREATE TABLE regions (id INTEGER, biome_id INTEGER, x INTEGER, y INTEGER)
+`)
+manager.call('sql-vec', 'query', `
+  SELECT r.x, r.y, b.name 
+  FROM regions r 
+  JOIN biomes b ON r.biome_id = b.id
+`)
+
+// Aggregations
+manager.call('sql-vec', 'query', `
+  SELECT biome_id, COUNT(*) as region_count 
+  FROM regions 
+  GROUP BY biome_id
+`)
+
+// Subqueries
+manager.call('sql-vec', 'query', `
+  SELECT * FROM biomes 
+  WHERE rarity > (SELECT AVG(rarity) FROM biomes)
+`)
+```
+
+## Comparison with Math Plugin
+
+| Feature | Math Plugin | SQL Vec Plugin |
+|---------|-------------|------------|
+| **Target** | wasm32-freestanding | wasm32-wasi |
+| **Dependencies** | None (bare WASM) | WASI libc |
+| **Size** | ~18KB | ~4.2MB |
+| **Memory** | PDK only | PDK + SQLite3 allocator |
+| **Use Case** | Simple calculations | Complex data queries |
+
+## Limitations
+
+1. **Size**: Large WASM file (~4.2MB) due to full SQLite3 engine
+2. **WASI Required**: Host must support WASI runtime
+3. **Dump Size**: Large databases may exceed output buffer limits (2MB currently)
+4. **Binary File Size**: Binary save/load limited by OPFS buffer size (~10MB)
+
+## Future Enhancements
+
+- [x] **Database dump/restore functionality** (✅ IMPLEMENTED)
+- [x] **Binary database save/load to filesystem** (✅ IMPLEMENTED via `save_binary`/`load_binary`)
+- [ ] Larger dump buffer sizes for big databases
+- [ ] Incremental/differential backups
+- [ ] JSON output format option for dumps
+- [ ] Prepared statement caching
+- [ ] Advanced transaction support
+- [ ] Custom SQL functions via PDK callbacks
+- [ ] Compression for dumps/binary files
+
+## Technical Notes
+
+### Why WASI Instead of Bare WASM?
+
+Unlike the Math plugin which uses bare WASM (`wasm32-freestanding`), the SQL Vec plugin requires WASI because:
+
+1. **SQLite3 Dependencies**: SQLite3 uses standard C library functions (stdio, stdlib, string.h)
+2. **File System Abstraction**: SQLite3's VFS (Virtual File System) expects POSIX-like APIs
+3. **Memory Management**: SQLite3 has its own sophisticated memory allocator
+4. **Complexity**: Reimplementing all libc functions for bare WASM would be impractical
+
+### Memory Management Strategy
+
+The plugin uses a hybrid approach:
+- **PDK Allocator**: For plugin input/output buffers
+- **SQLite3 Allocator**: For internal database operations (can be configured to use PDK via `sqlite3_config`)
+- **WASI libc**: For standard C library functions
+
+### Performance Considerations
+
+- In-memory database is very fast (no disk I/O)
+- CSV formatting is simple but not the most efficient
+- Consider using binary formats for large result sets
+- Query complexity affects performance (use EXPLAIN QUERY PLAN)
+
+## License
+
+This plugin uses SQLite3, which is in the public domain, and sqlite-vec from https://github.com/asg017/sqlite-vec.
+See: https://www.sqlite.org/copyright.html
