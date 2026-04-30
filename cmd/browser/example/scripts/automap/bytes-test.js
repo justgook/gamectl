@@ -1,6 +1,0 @@
-const aa = bytes()
-aa.setUint8(11)
-aa.setUint8(11)
-aa.setUint8(11)
-const bbb = new Uint8Array(aa.commit())
-$out.output = bbb.toBase64()
