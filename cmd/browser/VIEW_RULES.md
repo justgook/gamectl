@@ -31,6 +31,12 @@ Optional elements should appear at most once per view.
 
 - `header` - should not be used inside view HTML.
 - `[slot="header-controls"]` - header tools/actions area for the view.
+- Header controls should use grouped button clusters in this order when present: `file-actions`, tool/domain actions, `edit-actions`, `view-actions`, `config-actions`.
+- `[role="buttongroup"][data-element="file-actions"]` - new/open/save/save-as/reload source actions.
+- `[role="buttongroup"][data-element="tool-actions"]` - primary view-specific tools/actions.
+- `[role="buttongroup"][data-element="edit-actions"]` - copy/cut/undo/redo and similar edit history actions.
+- `[role="buttongroup"][data-element="view-actions"]` - viewport/display actions such as grid, zoom, fit, auto-arrange.
+- `[role="buttongroup"][data-element="config-actions"]` - properties/settings actions.
 
 ### Popup flows
 

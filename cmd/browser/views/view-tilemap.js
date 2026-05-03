@@ -1118,12 +1118,14 @@ export class ViewTilemap extends ViewCanvasBase {
     const controls = document.createElement('div')
     controls.dataset.element = 'header-controls'
     controls.innerHTML = `
-      <button type="button" data-action="new"><i aria-hidden="true">docs</i></button>
-      <button type="button" data-action="open"><i aria-hidden="true">folder_open</i></button>
-      <button type="button" data-action="save" class="accent"><i aria-hidden="true">save</i></button>
-      <button type="button" data-action="save-as"><i aria-hidden="true">save_as</i></button>
-      <button type="button" data-action="reload"><i aria-hidden="true">refresh</i></button>
-      <div role="buttongroup" data-element="tools">
+      <div role="buttongroup" data-element="file-actions">
+        <button type="button" data-action="new"><i aria-hidden="true">docs</i></button>
+        <button type="button" data-action="open"><i aria-hidden="true">folder_open</i></button>
+        <button type="button" data-action="save" class="accent"><i aria-hidden="true">save</i></button>
+        <button type="button" data-action="save-as"><i aria-hidden="true">save_as</i></button>
+        <button type="button" data-action="reload"><i aria-hidden="true">refresh</i></button>
+      </div>
+      <div role="buttongroup" data-element="tool-actions">
         <button type="button" data-action="select" data-tool="0"><i aria-hidden="true">select_all</i></button>
         <button type="button" data-action="brush" data-tool="1"><i aria-hidden="true">brush</i></button>
         <button type="button" data-action="erase" data-tool="2"><i aria-hidden="true">ink_eraser</i></button>
@@ -1143,8 +1145,10 @@ export class ViewTilemap extends ViewCanvasBase {
         <button type="button" data-action="zoom-out"><i aria-hidden="true">zoom_out</i></button>
         <button type="button" data-action="zoom-fit"><i aria-hidden="true">fit_screen</i></button>
       </div>
-      <button type="button" data-action="map-props"><i aria-hidden="true">tune</i></button>
-      <button type="button" data-action="settings"><i aria-hidden="true">settings</i></button>
+      <div role="buttongroup" data-element="config-actions">
+        <button type="button" data-action="map-props"><i aria-hidden="true">tune</i></button>
+        <button type="button" data-action="settings"><i aria-hidden="true">settings</i></button>
+      </div>
     `
     return controls
   }

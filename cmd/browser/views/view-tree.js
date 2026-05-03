@@ -298,19 +298,23 @@ export class ViewTree extends HTMLElement {
     controls.dataset.element = 'header-controls'
     controls.setAttribute('slot', 'header-controls')
     controls.innerHTML = `
-      <button type="button" data-action="new" aria-label="New tree" title="New tree"><i aria-hidden="true">docs</i></button>
-      <button type="button" data-action="open" aria-label="Open tree" title="Open tree"><i aria-hidden="true">folder_open</i></button>
-      <button type="button" data-action="save" class="accent" aria-label="Save tree" title="Save tree"><i aria-hidden="true">save</i></button>
-      <button type="button" data-action="save-as" aria-label="Save tree as" title="Save tree as"><i aria-hidden="true">save_as</i></button>
-      <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      <div role="buttongroup" data-element="file-actions">
+        <button type="button" data-action="new" aria-label="New tree" title="New tree"><i aria-hidden="true">docs</i></button>
+        <button type="button" data-action="open" aria-label="Open tree" title="Open tree"><i aria-hidden="true">folder_open</i></button>
+        <button type="button" data-action="save" class="accent" aria-label="Save tree" title="Save tree"><i aria-hidden="true">save</i></button>
+        <button type="button" data-action="save-as" aria-label="Save tree as" title="Save tree as"><i aria-hidden="true">save_as</i></button>
+        <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      </div>
+      <div role="buttongroup" data-element="tool-actions">
+        <button type="button" data-action="add-node" aria-label="Add node" title="Add node"><i aria-hidden="true">add</i></button>
+        <button type="button" data-action="change-parent" aria-label="Change parent" title="Change parent"><i aria-hidden="true">account_tree</i></button>
+        <button type="button" data-action="edit-node-props" aria-label="Edit node properties" title="Edit node properties"><i aria-hidden="true">tune</i></button>
+      </div>
       <div role="buttongroup" data-element="view-actions">
         <button type="button" data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
         <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
         <button type="button" data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
-      <button type="button" data-action="add-node" aria-label="Add node" title="Add node"><i aria-hidden="true">add</i></button>
-      <button type="button" data-action="change-parent" aria-label="Change parent" title="Change parent"><i aria-hidden="true">account_tree</i></button>
-      <button type="button" data-action="edit-node-props" aria-label="Edit node properties" title="Edit node properties"><i aria-hidden="true">tune</i></button>
     `
     return controls
   }
