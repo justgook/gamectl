@@ -256,7 +256,8 @@ export class ViewTree extends HTMLElement {
       this._resizeTarget = this.parentElement || this.canvas
       this.resizeObserver.observe(this._resizeTarget)
       this._loadAssets().then(async () => {
-        await this.loadTree()
+        if (this.treeKey) await this.loadTree()
+        else this.newTreeData('untitled', { dirty: true, fit: true })
       }).catch((error) => { throw error })
     }
     this.render()
@@ -279,7 +280,7 @@ export class ViewTree extends HTMLElement {
   }
 
   _readTreeKey() {
-    return String(this.getAttribute('data-key') || this.getAttribute('data-source') || 'progression').trim() || 'progression'
+    return String(this.getAttribute('data-key') || this.getAttribute('data-source') || '').trim()
   }
 
   _styleCanvas() {
@@ -432,12 +433,24 @@ export class ViewTree extends HTMLElement {
     this.updateFooter()
   }
 
-  newTree() {
-    this.treeKey = 'untitled'
-    this.setTreeData([{ parent: -1, data: {} }], { dirty: true, fit: true })
+  newTreeData(name, { dirty = true, fit = true } = {}) {
+    assert(typeof name === 'string' && name.length > 0, 'view-tree new requires tree name')
+    this.treeKey = name
+    this.setTreeData([{ parent: -1, data: {} }], { dirty, fit })
     this.selectedNodeIndex = 0
-    this.updateFooter('Created new tree', 'success')
+    this.updateFooter(`Created new tree ${name}`, 'success')
     this.render()
+  }
+
+  async newTree() {
+    const result = await runtime.call('ui.popup', 'open', this.createNewTreePopupOptions())
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return
+    const name = typeof payload.value === 'string' ? payload.value.trim() : ''
+    assert(name.length > 0, 'view-tree new requires tree_storage name')
+    this.newTreeData(name, { dirty: false, fit: true })
+    await this.saveToStorageName(name)
+    await runtime.call('ui.toast', 'success', { message: `Created tree ${name}` })
   }
 
   async openTree() {
@@ -486,6 +499,24 @@ export class ViewTree extends HTMLElement {
     this.dirty = false
     this.updateFooter(`Saved as ${this.treeKey}`, 'success')
     await runtime.call('ui.toast', 'success', { message: `Saved tree ${this.treeKey}` })
+  }
+
+  createNewTreePopupOptions() {
+    return {
+      title: 'Create Tree',
+      size: 'medium',
+      tag: 'view-sql',
+      props: {
+        mode: 'saver',
+        query: 'SELECT name FROM tree_storage ORDER BY name LIMIT :limit OFFSET :offset',
+        countQuery: 'SELECT COUNT(*) AS count FROM tree_storage',
+        returnColumn: 'name',
+        confirmLabel: 'Create',
+        valueLabel: 'Tree name',
+        value: 'new_tree',
+        pageSize: 20,
+      },
+    }
   }
 
   createSaveTreePopupOptions() {

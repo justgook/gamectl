@@ -298,6 +298,8 @@ export class ViewNg extends HTMLElement {
     this.offsetY = 0
     this.contentBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 }
     this.graphName = String(this.getAttribute('graph-name') || 'default').trim() || 'default'
+    this.graphPath = String(this.getAttribute('data-source') || '').trim()
+    this._suppressDataSourceReload = false
     this.pluginId = ''
     this.progressPluginId = ''
     this.currentRunId = ''
@@ -424,7 +426,7 @@ export class ViewNg extends HTMLElement {
         goalStart: (input) => this._handleRunProgress('goalStart', input),
         goalDone: (input) => this._handleRunProgress('goalDone', input),
         save: async () => {
-          await this.showSaveGraphPopup()
+          await this.saveGraph()
           return okResult()
         },
         run: async () => {
@@ -488,6 +490,8 @@ export class ViewNg extends HTMLElement {
     }
     if (name === 'data-source' && this._ready) {
       const dataSource = String(newValue || '').trim()
+      this.graphPath = dataSource
+      if (this._suppressDataSourceReload) return
       if (dataSource) void this.loadGraphFS(dataSource)
       return
     }
@@ -526,16 +530,16 @@ export class ViewNg extends HTMLElement {
     this._headerControlsElement = this.createHeaderControlsElement()
     this.parentElement.appendChild(this._headerControlsElement)
     this._headerControlsElement.querySelector('[data-action="new"]')?.addEventListener('click', () => {
-      void this.resetGraph()
+      void this.newGraph()
     })
     this._headerControlsElement.querySelector('[data-action="open"]')?.addEventListener('click', () => {
       void this.showLoadGraphPopup()
     })
     this._headerControlsElement.querySelector('[data-action="save"]')?.addEventListener('click', () => {
-      void this.showSaveGraphPopup()
+      void this.saveGraph()
     })
     this._headerControlsElement.querySelector('[data-action="save-as"]')?.addEventListener('click', () => {
-      void this.showSaveGraphPopup()
+      void this.saveGraphAs()
     })
     this._headerControlsElement.querySelector('[data-action="reload"]')?.addEventListener('click', () => {
       void this.reloadGraph()
@@ -1010,9 +1014,29 @@ end`
     this._setStatus(`reset graph '${this.graphName}'`, 'info')
   }
 
+  async newGraph() {
+    const result = await runtime.call('ui.popup', 'open', {
+      title: 'Create Graph',
+      size: 'medium',
+      tag: 'view-files',
+      props: {
+        mode: 'saver',
+        filter: '*.ng.json,*.json',
+        defaultName: 'new-graph.ng.json',
+      },
+    })
+    const payload = JSON.parse(decodeOutput(result) || 'null')
+    if (!payload || payload.cancelled) return
+    assert(payload.path, 'view-ng new graph requires selected path')
+    await this.saveGraphToPath(payload.path, [])
+    await this.loadGraphFS(payload.path, false)
+    this._setStatus(`created graph ${payload.path}`, 'success')
+    await runtime.call('ui.toast', 'success', { message: `Created graph ${payload.path}` })
+  }
+
   async reloadGraph() {
-    const path = String(this.getAttribute('data-source') || '').trim()
-    assert(path.length > 0, 'view-ng reload requires data-source')
+    const path = String(this.graphPath || '').trim()
+    assert(path.length > 0, 'view-ng reload requires current graph path')
     await this.loadGraphFS(path)
   }
 
@@ -1177,9 +1201,17 @@ end`
     this._setStatus(`deleted ${selected.size} selected node${selected.size === 1 ? '' : 's'}`, 'success')
   }
 
-  async showSaveGraphPopup() {
+  async saveGraph() {
+    const path = String(this.graphPath || '').trim()
+    assert(path.length > 0, 'view-ng save requires current graph path')
+    await this.saveGraphToPath(path, this.getGraph())
+    this._setStatus(`saved graph to ${path}`, 'success')
+    await runtime.call('ui.toast', 'success', { message: `Saved graph to ${path}` })
+  }
+
+  async saveGraphAs() {
     const result = await runtime.call('ui.popup', 'open', {
-      title: 'Save Graph',
+      title: 'Save Graph As',
       size: 'medium',
       tag: 'view-files',
       props: {
@@ -1190,14 +1222,31 @@ end`
     })
     const payload = JSON.parse(decodeOutput(result) || 'null')
     if (!payload || payload.cancelled) return
-    assert(payload.path, 'view-ng save graph requires selected path')
-    const json = `${JSON.stringify(this.getGraph(), null, 2)}\n`
-    const writeResult = await runtime.call('fs', 'write', createWriteInput(payload.path, json))
+    assert(payload.path, 'view-ng save-as requires selected path')
+    await this.saveGraphToPath(payload.path, this.getGraph())
+    this.setGraphPath(payload.path)
+    this._setStatus(`saved graph to ${payload.path}`, 'success')
+    await runtime.call('ui.toast', 'success', { message: `Saved graph to ${payload.path}` })
+  }
+
+  async saveGraphToPath(path, graph) {
+    assert(typeof path === 'string' && path.length > 0, 'view-ng save requires path')
+    const json = `${JSON.stringify(graph, null, 2)}\n`
+    const writeResult = await runtime.call('fs', 'write', createWriteInput(path, json))
     if (writeResult.returnCode !== 0) {
       throw new Error(decodeOutput(writeResult) || `fs.write failed: ${writeResult.returnCode}`)
     }
-    this._setStatus(`saved graph to ${payload.path}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Saved graph to ${payload.path}` })
+  }
+
+  setGraphPath(path) {
+    assert(typeof path === 'string' && path.length > 0, 'view-ng graph path is required')
+    this.graphPath = path
+    this.graphName = String(path.split('/').pop() || this.graphName).replace(/\.ng\.json$/i, '').replace(/\.json$/i, '')
+    if (this.getAttribute('data-source') !== path) {
+      this._suppressDataSourceReload = true
+      this.setAttribute('data-source', path)
+      this._suppressDataSourceReload = false
+    }
   }
 
   async showLoadGraphPopup() {
@@ -1226,7 +1275,7 @@ end`
     }
     const graph = JSON.parse(decodeOutput(readResult))
     this.loadGraph(graph)
-    this.graphName = String(path.split('/').pop() || this.graphName).replace(/\.ng\.json$/i, '').replace(/\.json$/i, '')
+    this.setGraphPath(path)
     this._setStatus(`loaded graph from ${path}`, 'success')
     if (notify) {
       await runtime.call('ui.toast', 'success', { message: `Loaded graph from ${path}` })
