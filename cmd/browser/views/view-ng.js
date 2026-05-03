@@ -18,6 +18,10 @@ function assertRuntimeOk(result, label) {
   }
 }
 
+function okResult() {
+  return { returnCode: 0, output: new Uint8Array() }
+}
+
 function decodeRuntimeInput(input) {
   if (typeof input === 'string') return input
   if (input instanceof Uint8Array) return textDecoder.decode(input)
@@ -294,6 +298,7 @@ export class ViewNg extends HTMLElement {
     this.offsetY = 0
     this.contentBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 }
     this.graphName = String(this.getAttribute('graph-name') || 'default').trim() || 'default'
+    this.pluginId = ''
     this.progressPluginId = ''
     this.currentRunId = ''
     this._progressPluginRegistered = false
@@ -408,24 +413,43 @@ export class ViewNg extends HTMLElement {
 
   _registerProgressPlugin() {
     if (this._progressPluginRegistered) return
-    this.progressPluginId = `ui.ng.${crypto.randomUUID()}`
+    this.pluginId = `view.ng.${crypto.randomUUID()}`
+    this.progressPluginId = this.pluginId
     runtime.register({
-      id: this.progressPluginId,
+      id: this.pluginId,
       methods: {
         nodeStart: (input) => this._handleRunProgress('nodeStart', input),
         nodeDone: (input) => this._handleRunProgress('nodeDone', input),
         nodeError: (input) => this._handleRunProgress('nodeError', input),
         goalStart: (input) => this._handleRunProgress('goalStart', input),
         goalDone: (input) => this._handleRunProgress('goalDone', input),
+        save: async () => {
+          await this.showSaveGraphPopup()
+          return okResult()
+        },
+        run: async () => {
+          await this.runGraph()
+          return okResult()
+        },
+        reload: async () => {
+          await this.reloadGraph()
+          return okResult()
+        },
+        clearSelection: async () => {
+          this.clearSelection()
+          return okResult()
+        },
       },
     })
+    void runtime.call('ui.context', 'activateView', { id: this.pluginId })
     this._progressPluginRegistered = true
   }
 
   async _unregisterProgressPlugin() {
     if (!this._progressPluginRegistered) return
-    const pluginId = this.progressPluginId
+    const pluginId = this.pluginId
     this._progressPluginRegistered = false
+    this.pluginId = ''
     this.progressPluginId = ''
     await runtime.unregister(pluginId)
   }
@@ -1116,6 +1140,13 @@ end`
     this._syncGraphNodePositionsFromLayout()
     this._updateGraphView({ fit: true })
     this._setStatus(`auto-arranged ${nodes.length} node${nodes.length === 1 ? '' : 's'} by connections`, 'success')
+  }
+
+  clearSelection() {
+    this.selectedNodeIds.clear()
+    this.activeNodeId = 0
+    this._syncSelectionActionButtons()
+    this.render()
   }
 
   async deleteSelectedNodes() {

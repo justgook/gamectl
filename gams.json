@@ -194,6 +194,10 @@
             "url": "/assets/ng/template.lua"
           },
           {
+            "path": "assets/keys/save-active-view.lua",
+            "url": "/assets/keys/save-active-view.lua"
+          },
+          {
             "path": "plugins/ai_agent/index.js",
             "url": "/plugins/ai_agent/index.js"
           },
@@ -260,6 +264,23 @@
         ]
       }
     }
+  },
+  "ui": {
+    "keys": [
+      {
+        "key": "mod+s",
+        "script": "builtin/assets/keys/save-active-view.lua",
+        "allowInput": true
+      },
+      {
+        "key": "escape",
+        "call": ["activeView.id", "clearSelection", "{}"]
+      },
+      {
+        "key": "mod+r",
+        "call": ["activeView.id", "run", "{}"]
+      }
+    ]
   },
   "plugins": [
     {
