@@ -1,5 +1,5 @@
 export const GAMS_CONFIG_PATH = '/gams.json'
-export const DEFAULT_GAMS_CONFIG_URL = './core/gams.json'
+export const DEFAULT_GAMS_CONFIG_URL = GAMS_CONFIG_PATH
 
 export async function loadDefaultGamsConfig() {
   const response = await fetch(DEFAULT_GAMS_CONFIG_URL, { cache: 'no-store' })
