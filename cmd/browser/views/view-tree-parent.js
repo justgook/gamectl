@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -15,6 +16,7 @@ export class ViewTreeParent extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
     this.style.display = 'contents'
@@ -81,6 +83,10 @@ export class ViewTreeParent extends HTMLElement {
     const parentIndex = Number(this.selectElement.value)
     assert(Number.isInteger(parentIndex) && parentIndex >= 0, 'view-tree-parent selected parent must be non-negative integer')
     await runtime.call('ui.popup', 'close', { ok: true, cancelled: false, parentIndex })
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

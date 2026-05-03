@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -29,6 +30,7 @@ export class ViewProps extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
     this.style.display = 'contents'
@@ -183,6 +185,10 @@ export class ViewProps extends HTMLElement {
     this.statusElement.textContent = text
     this.statusElement.className = ''
     if (tone) this.statusElement.classList.add(tone)
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 
 const decoder = new TextDecoder()
 
@@ -58,6 +59,7 @@ export class ViewAi extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -224,6 +226,10 @@ export class ViewAi extends HTMLElement {
     this.statusElement.textContent = text
     this.statusElement.className = ''
     if (tone) this.statusElement.classList.add(tone)
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 import { parseCSVLines } from '../util/csv.js'
 
 const textDecoder = new TextDecoder()
@@ -220,6 +221,7 @@ export class ViewNgNode extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
     this.popupProps = this.popupProps || {}
@@ -790,6 +792,10 @@ export class ViewNgNode extends HTMLElement {
         outputs: this.draft.outputs.map((port, index) => ({ outputId: Number(port.outputId || index + 1), name: String(port.name || '').trim(), value: String(port.value || '') })),
       },
     })
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

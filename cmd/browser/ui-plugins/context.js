@@ -54,7 +54,6 @@ export function createUiContext() {
 
   const onInteraction = (event) => {
     const view = viewFromEvent(event)
-    console.log("view", view)
     if (view instanceof HTMLElement) setActiveView(view)
     else if (view === false) state.activeView = { id: '' }
   }

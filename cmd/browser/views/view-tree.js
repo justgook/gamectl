@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 import { parseCSVLines } from '../util/csv.js'
 
 const textDecoder = new TextDecoder()
@@ -223,6 +224,7 @@ export class ViewTree extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (!this._ready) {
       this._ready = true
       this.style.display = 'contents'
@@ -265,6 +267,7 @@ export class ViewTree extends HTMLElement {
     this._resizeTarget = null
     this._unbindEvents()
     this._unmountHeaderControls()
+    void unregisterViewPlugin(this)
   }
 
   attributeChangedCallback(name, oldValue, newValue) {

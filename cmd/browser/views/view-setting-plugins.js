@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 import { GAMS_CONFIG_PATH, loadDefaultGamsConfig, validateGamsConfig } from '../core/gams-config.js'
 import { createWriteInput } from '../util/fs.js'
 
@@ -30,6 +31,7 @@ export class ViewSettingPlugins extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -174,6 +176,10 @@ export class ViewSettingPlugins extends HTMLElement {
     } finally {
       this.setBusy(false)
     }
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

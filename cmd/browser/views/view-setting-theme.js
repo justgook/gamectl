@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
@@ -27,6 +28,7 @@ export class ViewSettingTheme extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -177,6 +179,10 @@ export class ViewSettingTheme extends HTMLElement {
       this.setStatus(String(error?.message || error), 'danger')
       await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
     }
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

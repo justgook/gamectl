@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 import { createWriteInput } from '../util/fs.js'
 
 const textDecoder = new TextDecoder()
@@ -27,6 +28,7 @@ export class ViewCode extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
     this.style.display = 'contents'
@@ -119,6 +121,10 @@ export class ViewCode extends HTMLElement {
     } finally {
       this.setBusy(false)
     }
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 
