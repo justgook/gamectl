@@ -9,6 +9,7 @@ import './views/view-sql.js'
 import './views/view-sql-console.js'
 import './views/view-files.js'
 import './views/view-tree.js'
+import './views/view-tree-parent.js'
 import './views/view-props.js'
 import './views/view-ng.js'
 import './views/view-ng-node.js'
@@ -34,7 +35,7 @@ const DEFAULT_THEME = 'the98'
 // `
 //
 const DEFAULT_LAYOUT = `
-  <view-tree data-source="rules" />
+  <view-tree data-source="progression" />
   <view-ng setup="0:v:50" data-source="/demo/assets.ng.json" />
 `
 
