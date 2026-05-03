@@ -3,6 +3,8 @@ import { GAMS_CONFIG_PATH, loadDefaultGamsConfig, validateGamsConfig } from './c
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
 import './ui-plugins/popup.js'
+import { createUiContext } from './ui-plugins/context.js'
+import { createUiKeys } from './ui-plugins/keys.js'
 import './widgets/code-editor.js'
 import './widgets/view-pagination.js'
 import './views/view-sql.js'
@@ -282,6 +284,8 @@ async function main() {
 
     document.body.innerHTML = ''
 
+    runtime.register(createUiContext())
+
     const layout = document.createElement('ui-layout')
     layout.setViewRegistry(viewRegistry)
     document.body.appendChild(layout)
@@ -296,6 +300,8 @@ async function main() {
     const popup = document.createElement('popup-manager')
     document.body.appendChild(popup)
     runtime.register({ id: 'ui.popup', methods: popup.api })
+
+    runtime.register(createUiKeys(runtime, gamsConfig))
 
     // DO NOT USE IT - it is exposed just for debuging, use `import {call} from "./coder/runtime.js"`
     window.runtime = runtime

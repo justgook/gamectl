@@ -23,6 +23,14 @@ export function validateGamsConfig(config, source) {
   if (!Array.isArray(config.plugins)) {
     throw new Error(`${source} must contain a plugins array`)
   }
+  if (config.ui != null) {
+    if (typeof config.ui !== 'object' || Array.isArray(config.ui)) {
+      throw new Error(`${source} ui must be an object`)
+    }
+    if (config.ui.keys != null && !Array.isArray(config.ui.keys)) {
+      throw new Error(`${source} ui.keys must be an array`)
+    }
+  }
 
   return config
 }
