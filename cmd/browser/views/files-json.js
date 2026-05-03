@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 import { createWriteInput } from '../util/fs.js'
 
 const decoder = new TextDecoder()
@@ -23,6 +24,7 @@ export class FilesJson extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -136,6 +138,10 @@ export class FilesJson extends HTMLElement {
     } finally {
       this.setBusy(false)
     }
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

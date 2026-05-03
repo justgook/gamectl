@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 import { parseCSVLines } from '../util/csv.js'
 
 const textDecoder = new TextDecoder()
@@ -43,6 +44,7 @@ export class TilemapSettings extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
     this.style.display = 'contents'
@@ -268,6 +270,10 @@ export class TilemapSettings extends HTMLElement {
     const result = await runtime.call('sql', 'exec', sql)
     if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
     return decodeOutput(result)
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

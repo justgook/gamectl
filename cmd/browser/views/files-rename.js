@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 import { createWriteInput } from '../util/fs.js'
 
 const decoder = new TextDecoder()
@@ -93,6 +94,7 @@ export class FileRename extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -260,6 +262,10 @@ export class FileRename extends HTMLElement {
       selectedPath: targetPath,
       revealPath: parentPath,
     })
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

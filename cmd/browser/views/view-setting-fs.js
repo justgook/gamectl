@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 
 const FS_STORAGE_KEY = 'browser.fs'
 const WEBDAV_URL_STORAGE_KEY = 'browser.fs.webdav.url'
@@ -50,6 +51,7 @@ export class ViewSettingFs extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -181,6 +183,10 @@ export class ViewSettingFs extends HTMLElement {
     } finally {
       this.applyButtonElement.disabled = false
     }
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

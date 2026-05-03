@@ -1,3 +1,5 @@
+import { registerViewPlugin, unregisterViewPlugin } from './view-plugin.js'
+
 const MIN_SCALE = 0.2
 const MAX_SCALE = 3
 
@@ -41,6 +43,7 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     this.style.display = 'contents'
     this.canvas = this.querySelector('canvas[data-element="canvas"]') || this.querySelector('canvas')
     if (!(this.canvas instanceof HTMLCanvasElement)) {
@@ -76,6 +79,7 @@ export class ViewCanvasBase extends HTMLElement {
     this._resizeObserver.disconnect()
     this._removeEventListeners()
     this._unmountHeaderControls()
+    void unregisterViewPlugin(this)
   }
 
   createHeaderControlsElement() {

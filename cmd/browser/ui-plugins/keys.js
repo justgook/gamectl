@@ -117,12 +117,28 @@ export function createUiKeys(runtime, config) {
     return JSON.parse(decodeOutput(result))
   }
 
+  async function runCall(callSpec, ctx) {
+    if (!Array.isArray(callSpec) || callSpec.length !== 3) throw new Error('shortcut call must be [plugin, method, input]')
+    const pluginId = callSpec[0] === 'activeView.id' ? resolveContextPath(ctx, callSpec[0]) : callSpec[0]
+    const result = await runtime.call(String(pluginId), callSpec[1], callSpec[2])
+    assertOk(result, `shortcut call ${pluginId}.${callSpec[1]}`)
+  }
+
+  async function dispatchScriptOutput(value, ctx) {
+    if (value == null) return
+    if (Array.isArray(value)) {
+      for (const item of value) await dispatchScriptOutput(item, ctx)
+      return
+    }
+    if (typeof value !== 'object') throw new Error('shortcut script output must be null, object, or array')
+    if (value.call != null) await runCall(value.call, ctx)
+    if (value.calls != null) await dispatchScriptOutput(value.calls.map((call) => ({ call })), ctx)
+  }
+
   async function runBinding(binding) {
     const ctx = await snapshotContext()
     if (binding.call) {
-      const pluginId = resolveContextPath(ctx, binding.call[0])
-      const result = await runtime.call(String(pluginId), binding.call[1], binding.call[2])
-      assertOk(result, `shortcut call ${pluginId}.${binding.call[1]}`)
+      await runCall(binding.call, ctx)
       return
     }
 
@@ -131,6 +147,7 @@ export function createUiKeys(runtime, config) {
     const source = `_G.ctx = json.decode(${luaStringLiteral(JSON.stringify(ctx))})\n${decodeOutput(readResult)}`
     const runResult = await runtime.call('lua', 'run', source)
     assertOk(runResult, `run shortcut script '${binding.script}'`)
+    await dispatchScriptOutput(JSON.parse(decodeOutput(runResult)), ctx)
   }
 
   const onKeyDown = (event) => {

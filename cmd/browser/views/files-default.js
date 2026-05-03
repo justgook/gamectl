@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 
 const decoder = new TextDecoder()
 
@@ -50,6 +51,7 @@ export class FilesDefault extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -129,6 +131,10 @@ export class FilesDefault extends HTMLElement {
     }
 
     this.tableElement.appendChild(tbody)
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

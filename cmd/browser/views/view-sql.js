@@ -1,4 +1,5 @@
 import { runtime } from '../core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
 import { parseCSVLines } from '../util/csv.js'
 
 const textDecoder = new TextDecoder()
@@ -71,6 +72,7 @@ export class ViewSql extends HTMLElement {
   }
 
   connectedCallback() {
+    registerViewPlugin(this)
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -133,6 +135,7 @@ export class ViewSql extends HTMLElement {
 
   disconnectedCallback() {
     this._unmountHeaderControls()
+    void unregisterViewPlugin(this)
   }
 
   createHeaderControlsElement() {
