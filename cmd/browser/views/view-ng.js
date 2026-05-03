@@ -474,18 +474,25 @@ export class ViewNg extends HTMLElement {
     toolbar.dataset.element = 'toolbar'
     toolbar.setAttribute('slot', 'header-controls')
     toolbar.innerHTML = `
-      <button data-action="run" class="success" aria-label="Run" title="Run"><i aria-hidden="true">play_arrow</i></button>
-      <button data-action="add" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
-      <button data-action="save" class="accent" aria-label="Save" title="Save"><i aria-hidden="true">save</i></button>
-      <button data-action="load" aria-label="Load" title="Load"><i aria-hidden="true">folder_open</i></button>
-      <button data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">replay</i></button>
-      <button data-action="clear" aria-label="Clear" title="Clear"><i aria-hidden="true">clear_all</i></button>
-      <button data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
-      <button data-action="delete" aria-label="Delete Selected" title="Delete Selected"><i aria-hidden="true">delete</i></button>
-      <button data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
-      <button data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
-      <button data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
-      <button data-action="auto-arrange" aria-label="Auto Arrange" title="Auto Arrange"><i aria-hidden="true">account_tree</i></button>
+      <div role="buttongroup" data-element="file-actions">
+        <button type="button" data-action="new" aria-label="New graph" title="New graph"><i aria-hidden="true">docs</i></button>
+        <button type="button" data-action="open" aria-label="Open graph" title="Open graph"><i aria-hidden="true">folder_open</i></button>
+        <button type="button" data-action="save" class="accent" aria-label="Save graph" title="Save graph"><i aria-hidden="true">save</i></button>
+        <button type="button" data-action="save-as" aria-label="Save graph as" title="Save graph as"><i aria-hidden="true">save_as</i></button>
+        <button type="button" data-action="reload" aria-label="Reload graph" title="Reload graph"><i aria-hidden="true">refresh</i></button>
+      </div>
+      <div role="buttongroup" data-element="tool-actions">
+        <button type="button" data-action="run" class="success" aria-label="Run" title="Run"><i aria-hidden="true">play_arrow</i></button>
+        <button type="button" data-action="add" aria-label="Add Node" title="Add Node"><i aria-hidden="true">add</i></button>
+        <button type="button" data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
+        <button type="button" data-action="delete" aria-label="Delete Selected" title="Delete Selected"><i aria-hidden="true">delete</i></button>
+      </div>
+      <div role="buttongroup" data-element="view-actions">
+        <button type="button" data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button type="button" data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="auto-arrange" aria-label="Auto Arrange" title="Auto Arrange"><i aria-hidden="true">account_tree</i></button>
+      </div>
     `
     return toolbar
   }
@@ -494,23 +501,26 @@ export class ViewNg extends HTMLElement {
     if (!this.parentElement || this._headerControlsElement) return
     this._headerControlsElement = this.createHeaderControlsElement()
     this.parentElement.appendChild(this._headerControlsElement)
+    this._headerControlsElement.querySelector('[data-action="new"]')?.addEventListener('click', () => {
+      void this.resetGraph()
+    })
+    this._headerControlsElement.querySelector('[data-action="open"]')?.addEventListener('click', () => {
+      void this.showLoadGraphPopup()
+    })
+    this._headerControlsElement.querySelector('[data-action="save"]')?.addEventListener('click', () => {
+      void this.showSaveGraphPopup()
+    })
+    this._headerControlsElement.querySelector('[data-action="save-as"]')?.addEventListener('click', () => {
+      void this.showSaveGraphPopup()
+    })
+    this._headerControlsElement.querySelector('[data-action="reload"]')?.addEventListener('click', () => {
+      void this.reloadGraph()
+    })
     this._headerControlsElement.querySelector('[data-action="run"]')?.addEventListener('click', () => {
       void this.runGraph()
     })
     this._headerControlsElement.querySelector('[data-action="add"]')?.addEventListener('click', () => {
       void this.showAddNodePopup()
-    })
-    this._headerControlsElement.querySelector('[data-action="save"]')?.addEventListener('click', () => {
-      void this.showSaveGraphPopup()
-    })
-    this._headerControlsElement.querySelector('[data-action="load"]')?.addEventListener('click', () => {
-      void this.showLoadGraphPopup()
-    })
-    this._headerControlsElement.querySelector('[data-action="reset"]')?.addEventListener('click', () => {
-      void this.resetGraph()
-    })
-    this._headerControlsElement.querySelector('[data-action="clear"]')?.addEventListener('click', () => {
-      this.clearExecutionState()
     })
     this._headerControlsElement.querySelector('[data-action="edit"]')?.addEventListener('click', () => {
       void this.showEditNodePopup()
@@ -930,7 +940,7 @@ export class ViewNg extends HTMLElement {
   }
 
   async runGraph() {
-    this.clearExecutionState()
+    this.resetExecutionState()
     const runId = crypto.randomUUID()
     this.currentRunId = runId
     this._setStatus('compiling graph run...', 'info')
@@ -976,11 +986,16 @@ end`
     this._setStatus(`reset graph '${this.graphName}'`, 'info')
   }
 
-  clearExecutionState() {
+  async reloadGraph() {
+    const path = String(this.getAttribute('data-source') || '').trim()
+    assert(path.length > 0, 'view-ng reload requires data-source')
+    await this.loadGraphFS(path)
+  }
+
+  resetExecutionState() {
     for (const node of this.lastGraph.nodes) node.execState = EXEC_IDLE
     for (const edge of this.lastGraph.edges) edge.execState = EXEC_IDLE
     this._updateGraphView()
-    this._setStatus('cleared local execution state', 'info')
   }
 
   autoArrangeNodes() {
