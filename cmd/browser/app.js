@@ -1,4 +1,5 @@
 import { init } from './core/runtime.js'
+import { require } from "/util/require.js"
 import { GAMS_CONFIG_PATH, loadDefaultGamsConfig, validateGamsConfig } from './core/gams-config.js'
 import './ui-plugins/toast.js'
 import './ui-plugins/layout.js'
@@ -25,28 +26,6 @@ function decodeOutput(result) {
   return new TextDecoder().decode(result?.output || new Uint8Array())
 }
 
-async function importJsFromBytes(bytes) {
-  let source = new TextDecoder().decode(bytes)
-
-  source = source.replace(
-    /from\s+["'](\/[^"']+)["']/g,
-    (_, path) => `from "${new URL(path, location.origin).href}"`
-  )
-
-  source = source.replace(
-    /import\s*\(\s*["'](\/[^"']+)["']\s*\)/g,
-    (_, path) => `import("${new URL(path, location.origin).href}")`
-  )
-
-  const blob = new Blob([source], { type: "text/javascript" })
-  const url = URL.createObjectURL(blob)
-
-  try {
-    return await import(url)
-  } finally {
-    URL.revokeObjectURL(url)
-  }
-}
 
 function createConfiguredViewRegistry(config, runtime) {
   const entries = config.ui.views
@@ -60,9 +39,7 @@ function createConfiguredViewRegistry(config, runtime) {
       async load() {
         if (customElements.get(tag)) return
         if (typeof viewConfig.url !== 'string' || viewConfig.url.length === 0) throw new Error(`gams config ui.views.${tag}.url is required`)
-        const readResult = await runtime.call('fs', 'read', viewConfig.url)
-        if (readResult.returnCode !== 0) throw new Error(decodeOutput(readResult) || `fs.read failed for ${viewConfig.url}`)
-        await importJsFromBytes(readResult.output)
+        await require(viewConfig.url)
         if (!customElements.get(tag)) throw new Error(`view '${tag}' did not register custom element '${tag}'`)
       },
 
