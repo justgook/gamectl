@@ -140,12 +140,7 @@ asset_read_all_host :: proc(path: string) -> ([]u8, bool) {
 		assert(false, fmt.tprintf("native asset read rejected invalid path: %s", path))
 		return nil, false
 	}
-	candidates := [4]string {
-		fmt.tprintf("../../demo/%s", name),
-		fmt.tprintf("../../example/%s", name),
-		fmt.tprintf("example/%s", name),
-		name,
-	}
+	candidates := [?]string{fmt.tprintf("../../demo/output/%s", name), name}
 	for candidate in candidates {
 		if data, err := os.read_entire_file(candidate, context.allocator); err == nil {
 			return data, true
@@ -153,14 +148,7 @@ asset_read_all_host :: proc(path: string) -> ([]u8, bool) {
 	}
 	assert(
 		false,
-		fmt.tprintf(
-			"native asset not found: %s (tried: %s, %s, %s, %s)",
-			path,
-			candidates[0],
-			candidates[1],
-			candidates[2],
-			candidates[3],
-		),
+		fmt.tprintf("native asset not found: %s (tried: %s, %s, %s, %s)", path, candidates[0], candidates[1]),
 	)
 	return nil, false
 }
