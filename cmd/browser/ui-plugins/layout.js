@@ -177,9 +177,9 @@ export class ViewArea extends HTMLElement {
     this.refreshViewSelector()
   }
 
-  switchView(viewTag) {
+  async switchView(viewTag) {
     const owner = this.requireOwner()
-    const newView = owner.createView(viewTag)
+    const newView = await owner.createView(viewTag)
     this.setView(newView)
   }
 
@@ -188,7 +188,7 @@ export class ViewArea extends HTMLElement {
     this._selectorReady = true
     const select = this.shadowRoot.querySelector('[data-action="select-view"]')
     select.addEventListener('change', (event) => {
-      if (event.target.value) this.switchView(event.target.value)
+      if (event.target.value) void this.switchView(event.target.value)
     })
   }
 
@@ -202,6 +202,7 @@ export class ViewArea extends HTMLElement {
     select.innerHTML = ''
     const optionGroups = new Map()
     for (const [tag, entry] of [...owner.viewRegistry.entries()]) {
+      if (entry.internal === true) continue
       const groupName = entry.group || ""
       if (!optionGroups.has(groupName)) {
         const node = document.createElement('optgroup')
@@ -442,10 +443,10 @@ export class UiLayout extends HTMLElement {
     }
   }
 
-  createView(tag, attrs = {}, innerHTML = '') {
+  async createView(tag, attrs = {}, innerHTML = '') {
     const entry = this.viewRegistry.get(tag) || null
     const viewNode = typeof entry?.create === 'function'
-      ? entry.create({ tag, attrs, innerHTML, layout: this })
+      ? await entry.create({ tag, attrs, innerHTML, layout: this })
       : document.createElement(tag)
     for (const [name, value] of Object.entries(attrs || {})) {
       if (name === 'setup') continue
@@ -455,8 +456,8 @@ export class UiLayout extends HTMLElement {
     return viewNode
   }
 
-  instantiateView(spec) {
-    const viewNode = this.createView(spec.tag, spec.attrs || {}, spec.innerHTML || '')
+  async instantiateView(spec) {
+    const viewNode = await this.createView(spec.tag, spec.attrs || {}, spec.innerHTML || '')
     for (const [name, value] of Object.entries(spec.attrs || {})) {
       if (name === 'setup') continue
       viewNode.setAttribute(name, value)
@@ -465,8 +466,8 @@ export class UiLayout extends HTMLElement {
     return viewNode
   }
 
-  cloneViewNode(node) {
-    const clone = this.createView(node.tagName.toLowerCase())
+  async cloneViewNode(node) {
+    const clone = await this.createView(node.tagName.toLowerCase())
     for (const attr of Array.from(node.attributes || [])) {
       clone.setAttribute(attr.name, attr.value)
     }
@@ -489,7 +490,7 @@ export class UiLayout extends HTMLElement {
   async createChromeForViewSpec(spec, areaId) {
     const contentId = ++this.contentCounter
     await this.setAreaContent(areaId, contentId)
-    const viewNode = this.instantiateView(spec)
+    const viewNode = await this.instantiateView(spec)
     return this.createChromeForViewNode(viewNode, areaId, contentId)
   }
 
@@ -522,7 +523,7 @@ export class UiLayout extends HTMLElement {
     for (const cloneInfo of pendingClones) {
       const sourceChrome = this.content.get(cloneInfo.oldContentId)
       const sourceView = sourceChrome?.getCurrentView?.() || sourceChrome?.firstElementChild || null
-      const cloneView = sourceView ? this.cloneViewNode(sourceView) : document.createElement('view-empty')
+      const cloneView = sourceView ? await this.cloneViewNode(sourceView) : document.createElement('view-empty')
       this.createChromeForViewNode(cloneView, cloneInfo.areaId, cloneInfo.newContentId)
     }
   }
@@ -590,7 +591,7 @@ export class UiLayout extends HTMLElement {
   ensureChrome(areaId, contentId) {
     let chrome = this.content.get(contentId)
     if (chrome) return chrome
-    chrome = this.createChromeForViewNode(this.createView('view-empty'), areaId, contentId)
+    chrome = this.createChromeForViewNode(document.createElement('view-empty'), areaId, contentId)
     return chrome
   }
 

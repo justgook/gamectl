@@ -167,11 +167,18 @@ export class PopupManager extends HTMLElement {
     return popup
   }
 
-  createContent(options = {}) {
+  setViewRegistry(viewRegistry) {
+    this.viewRegistry = viewRegistry
+  }
+
+  async createContent(options = {}) {
     const { tag = '', html = '', props = {}, attributes = {} } = options
 
     if (tag) {
-      const element = document.createElement(tag)
+      const entry = this.viewRegistry?.get(tag) || null
+      const element = typeof entry?.create === 'function'
+        ? await entry.create({ tag, attrs: attributes, innerHTML: '', popup: this })
+        : document.createElement(tag)
       element.popupProps = props || {}
       for (const [key, value] of Object.entries(attributes || {})) {
         if (value == null) continue
@@ -198,7 +205,7 @@ export class PopupManager extends HTMLElement {
 
   async open(options = {}) {
     const popupId = this.nextPopupId++
-    const content = this.createContent(options)
+    const content = await this.createContent(options)
     const popup = this.showPopup({
       title: options.title || '',
       content,

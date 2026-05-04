@@ -7,25 +7,6 @@ import { createUiContext } from './ui-plugins/context.js'
 import { createUiKeys } from './ui-plugins/keys.js'
 import './widgets/code-editor.js'
 import './widgets/view-pagination.js'
-import './view/view-sql.js'
-import './view/view-sql-console.js'
-import './view/view-files.js'
-import './view/view-tree.js'
-import './view/view-tree-parent.js'
-import './view/view-props.js'
-import './view/view-ng.js'
-import './view/view-ng-node.js'
-import './view/view-code.js'
-import './view/view-tilemap.js'
-import './view/files-rename.js'
-import './view/files-json.js'
-import './view/files-default.js'
-import './view/view-ai.js'
-import './view/view-setting-fs.js'
-import './view/view-setting-theme.js'
-import './view/view-setting-plugins.js'
-import './view/sql-table-editor.js'
-import './view/tilemap-settings.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
@@ -41,142 +22,76 @@ const DEFAULT_LAYOUT = `
   <view-ng setup="0:v:50" data-source="/demo/assets.ng.json" />
 `
 
-let activeGamsConfig = null
+const BUILTIN_VIEW_IMPORT_URLS = new Map([
+  ['files-default', './view/files-default.js'],
+  ['files-json', './view/files-json.js'],
+  ['files-rename', './view/files-rename.js'],
+  ['sql-table-editor', './view/sql-table-editor.js'],
+  ['tilemap-settings', './view/tilemap-settings.js'],
+  ['view-ai', './view/view-ai.js'],
+  ['view-code', './view/view-code.js'],
+  ['view-files', './view/view-files.js'],
+  ['view-ng-node', './view/view-ng-node.js'],
+  ['view-ng', './view/view-ng.js'],
+  ['view-props', './view/view-props.js'],
+  ['view-setting-fs', './view/view-setting-fs.js'],
+  ['view-setting-plugins', './view/view-setting-plugins.js'],
+  ['view-setting-theme', './view/view-setting-theme.js'],
+  ['view-sql-console', './view/view-sql-console.js'],
+  ['view-sql', './view/view-sql.js'],
+  ['view-tilemap', './view/view-tilemap.js'],
+  ['view-tree-parent', './view/view-tree-parent.js'],
+  ['view-tree', './view/view-tree.js'],
+])
 
-const AI_OPEN_CONFIG = {
-  provider: 'ai.provider.mock',
-  model: 'mock-default',
-  context: [
-    {
-      kind: 'system',
-      source: 'browser.app',
-      label: 'Default browser AI context',
-      content: {
-        text: 'You are the GAMS browser AI assistant. Use tools when useful and explain tool results clearly.',
-      },
-    },
-  ],
-  tools: [
-    {
-      name: 'fs_list',
-      description: 'List files from the current workspace path.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string' },
-        },
-        required: ['path'],
-        additionalProperties: false,
-      },
-      target: { plugin: 'fs', method: 'list' },
-    },
-    {
-      name: 'fs_read',
-      description: 'Read a file from the current workspace path.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string' },
-        },
-        required: ['path'],
-        additionalProperties: false,
-      },
-      target: { plugin: 'fs', method: 'read' },
-    },
-    {
-      name: 'sql_query',
-      description: 'Execute a SQL query against the current database.',
-      parameters: {
-        type: 'string',
-        // additionalProperties: false,
-      },
-      target: { plugin: 'sql', method: 'query' },
-    },
-  ],
-  persist: {
-    driver: 'fs',
-    format: 'jsonl',
-    path: '/ai/sessions/view-ai-default.jsonl',
-  },
+function decodeOutput(result) {
+  return new TextDecoder().decode(result?.output || new Uint8Array())
 }
 
-function placeholderView(tag, label, group = "TODO") {
-  return {
-    label,
-    group,
-    create: () => {
-      const el = document.createElement('view-empty')
-      el.setAttribute('data-view-tag', tag)
-      el.setAttribute('data-view-label', label)
-      return el
-    },
+async function importJsFromBytes(bytes) {
+  const blob = new Blob([bytes], { type: 'text/javascript' })
+  const url = URL.createObjectURL(blob)
+  try {
+    return await import(url)
+  } finally {
+    URL.revokeObjectURL(url)
   }
 }
 
-const viewRegistry = new Map([
-  ['view-sql', {
-    label: 'SQL',
-    create: () => document.createElement('view-sql'),
-  }],
-  ['view-sql-console', {
-    label: 'SQL Console',
-    create: () => document.createElement('view-sql-console'),
-  }],
-  ['view-ai', {
-    label: 'AI',
-    create: () => {
-      const el = document.createElement('view-ai')
-      el.openConfig = structuredClone(AI_OPEN_CONFIG)
-      return el
-    },
-  }],
-  ['view-files', {
-    label: 'Files',
-    create: () => document.createElement('view-files'),
-  }],
-  ['view-animation', placeholderView('view-animation', 'Animation')],
-  ['view-tilemap', {
-    label: 'Tilemap',
-    create: () => document.createElement('view-tilemap'),
-  }],
-  ['view-ng', {
-    label: 'Nodegraph',
-    create: () => {
-      const viewConfig = activeGamsConfig.ui.views['view-ng']
-      if (!viewConfig) throw new Error('gams config ui.views.view-ng is required')
-      const el = document.createElement('view-ng')
-      el.viewConfig = viewConfig
-      return el
-    },
-  }],
-  ['view-font', placeholderView('view-font', 'Artery Font')],
-  ['view-bullet', placeholderView('view-bullet', 'BulletML')],
-  ['view-particle', placeholderView('view-particle', 'Particle')],
-  ['view-tree', {
-    label: 'Tree',
-    create: () => document.createElement('view-tree'),
-  }],
-  ['view-game-runner', placeholderView('view-game-runner', 'Game Runner')],
-  ['view-setting-plugins', {
-    label: 'Setting GAMS Config',
-    group: 'Settings',
-    create: () => document.createElement('view-setting-plugins'),
-  }],
-  ['view-setting-ai', placeholderView('view-setting-ai', 'Setting AI', 'Settings')],
-  ['view-setting-keys', placeholderView('view-setting-keys', 'Setting Keybinding', 'Settings')],
-  ['view-setting-fs', {
-    label: 'Setting FileSystem',
-    group: 'Settings',
-    create: () => document.createElement('view-setting-fs'),
-  }],
-  ['view-setting-theme', {
-    label: 'Setting Theme',
-    group: 'Settings',
-    create: () => document.createElement('view-setting-theme'),
-  }],
-])
-
-
+function createConfiguredViewRegistry(config, runtime) {
+  const entries = config.ui.views
+  if (!entries || typeof entries !== 'object' || Array.isArray(entries)) throw new Error('gams config ui.views is required')
+  return new Map(Object.entries(entries).map(([tag, viewConfig]) => {
+    if (!viewConfig || typeof viewConfig !== 'object' || Array.isArray(viewConfig)) throw new Error(`gams config ui.views.${tag} must be an object`)
+    return [tag, {
+      label: viewConfig.label || tag,
+      group: viewConfig.group || '',
+      internal: viewConfig.internal === true,
+      async load() {
+        if (customElements.get(tag)) return
+        const builtinUrl = BUILTIN_VIEW_IMPORT_URLS.get(tag)
+        if (builtinUrl) {
+          await import(builtinUrl)
+        } else {
+          if (typeof viewConfig.url !== 'string' || viewConfig.url.length === 0) throw new Error(`gams config ui.views.${tag}.url is required`)
+          const readResult = await runtime.call('fs', 'read', viewConfig.url)
+          if (readResult.returnCode !== 0) throw new Error(decodeOutput(readResult) || `fs.read failed for ${viewConfig.url}`)
+          await importJsFromBytes(readResult.output)
+        }
+        if (!customElements.get(tag)) throw new Error(`view '${tag}' did not register custom element '${tag}'`)
+      },
+      async create() {
+        await this.load()
+        const el = document.createElement(tag)
+        el.runtime = runtime
+        el.viewConfig = viewConfig
+        if (viewConfig.config !== undefined) el.config = viewConfig.config
+        if (tag === 'view-ai') el.openConfig = structuredClone(viewConfig.config)
+        return el
+      },
+    }]
+  }))
+}
 
 function createFsPluginDefinitions(config) {
   const provider = localStorage.getItem('browser.fs') || 'fs.opfs'
@@ -272,7 +187,7 @@ async function main() {
     const defaultConfig = await loadDefaultGamsConfig()
     await runtime.add(createFsPluginDefinitions(defaultConfig))
     const gamsConfig = await loadGamsConfig(runtime, defaultConfig)
-    activeGamsConfig = gamsConfig
+    const viewRegistry = createConfiguredViewRegistry(gamsConfig, runtime)
     await runtime.add(createFsPluginDefinitions(gamsConfig))
     await runtime.add(gamsConfig.plugins)
 
@@ -304,6 +219,7 @@ async function main() {
     runtime.register({ id: 'ui.toast', methods: toast.api })
 
     const popup = document.createElement('popup-manager')
+    popup.setViewRegistry(viewRegistry)
     document.body.appendChild(popup)
     runtime.register({ id: 'ui.popup', methods: popup.api })
 
