@@ -5,6 +5,10 @@
         "driver": "http",
         "files": [
           {
+            "path": "gams.json",
+            "url": "/demo/gams.json"
+          },
+          {
             "path": "lut.ng.json",
             "url": "/demo/lut.ng.json"
           },
@@ -549,7 +553,175 @@
               "bottom": 8
             }
           }
+        },
+        "url": "builtin/view/view-ng.js",
+        "label": "Nodegraph",
+        "internal": false
+      },
+      "view-sql": {
+        "url": "builtin/view/view-sql.js",
+        "label": "SQL",
+        "internal": false
+      },
+      "view-sql-console": {
+        "url": "builtin/view/view-sql-console.js",
+        "label": "SQL Console",
+        "internal": false
+      },
+      "view-ai": {
+        "url": "builtin/view/view-ai.js",
+        "label": "AI",
+        "internal": false,
+        "config": {
+          "provider": "ai.provider.mock",
+          "model": "mock-default",
+          "context": [
+            {
+              "kind": "system",
+              "source": "browser.app",
+              "label": "Default browser AI context",
+              "content": {
+                "text": "You are the GAMS browser AI assistant. Use tools when useful and explain tool results clearly."
+              }
+            }
+          ],
+          "tools": [
+            {
+              "name": "fs_list",
+              "description": "List files from the current workspace path.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "additionalProperties": false
+              },
+              "target": {
+                "plugin": "fs",
+                "method": "list"
+              }
+            },
+            {
+              "name": "fs_read",
+              "description": "Read a file from the current workspace path.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "additionalProperties": false
+              },
+              "target": {
+                "plugin": "fs",
+                "method": "read"
+              }
+            },
+            {
+              "name": "sql_query",
+              "description": "Execute a SQL query against the current database.",
+              "parameters": {
+                "type": "string"
+              },
+              "target": {
+                "plugin": "sql",
+                "method": "query"
+              }
+            }
+          ],
+          "persist": {
+            "driver": "fs",
+            "format": "jsonl",
+            "path": "/ai/sessions/view-ai-default.jsonl"
+          }
         }
+      },
+      "view-files": {
+        "url": "builtin/view/view-files.js",
+        "label": "Files",
+        "internal": false
+      },
+      "view-tilemap": {
+        "url": "builtin/view/view-tilemap.js",
+        "label": "Tilemap",
+        "internal": false
+      },
+      "view-tree": {
+        "url": "builtin/view/view-tree.js",
+        "label": "Tree",
+        "internal": false
+      },
+      "view-setting-plugins": {
+        "url": "builtin/view/view-setting-plugins.js",
+        "label": "Setting GAMS Config",
+        "group": "Settings",
+        "internal": false
+      },
+      "view-setting-fs": {
+        "url": "builtin/view/view-setting-fs.js",
+        "label": "Setting FileSystem",
+        "group": "Settings",
+        "internal": false
+      },
+      "view-setting-theme": {
+        "url": "builtin/view/view-setting-theme.js",
+        "label": "Setting Theme",
+        "group": "Settings",
+        "internal": false
+      },
+      "view-code": {
+        "url": "builtin/view/view-code.js",
+        "label": "Code",
+        "internal": true
+      },
+      "view-ng-node": {
+        "url": "builtin/view/view-ng-node.js",
+        "label": "Node Editor",
+        "internal": true
+      },
+      "view-props": {
+        "url": "builtin/view/view-props.js",
+        "label": "Properties",
+        "internal": true
+      },
+      "view-tree-parent": {
+        "url": "builtin/view/view-tree-parent.js",
+        "label": "Tree Parent",
+        "internal": true
+      },
+      "files-rename": {
+        "url": "builtin/view/files-rename.js",
+        "label": "Rename File",
+        "internal": true
+      },
+      "files-json": {
+        "url": "builtin/view/files-json.js",
+        "label": "JSON File",
+        "internal": true
+      },
+      "files-default": {
+        "url": "builtin/view/files-default.js",
+        "label": "File",
+        "internal": true
+      },
+      "sql-table-editor": {
+        "url": "builtin/view/sql-table-editor.js",
+        "label": "SQL Table Editor",
+        "internal": true
+      },
+      "tilemap-settings": {
+        "url": "builtin/view/tilemap-settings.js",
+        "label": "Tilemap Settings",
+        "internal": true
       }
     }
   },
