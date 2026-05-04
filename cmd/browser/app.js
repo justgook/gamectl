@@ -8,8 +8,7 @@ import { createUiKeys } from './ui-plugins/keys.js'
 import './widgets/code-editor.js'
 import './widgets/view-pagination.js'
 
-const THEME_STORAGE_KEY = 'browser.theme'
-const DEFAULT_THEME = 'the98'
+let currentThemeStylesheetObjectUrl = ''
 // const DEFAULT_LAYOUT = `
 //   <view-sql-console />
 //   <sql-table-editor setup="0:h:50"/>
@@ -36,7 +35,6 @@ const BUILTIN_VIEW_IMPORT_URLS = new Map([
   ['view-props', './view/view-props.js'],
   ['view-setting-fs', './view/view-setting-fs.js'],
   ['view-setting-plugins', './view/view-setting-plugins.js'],
-  ['view-setting-theme', './view/view-setting-theme.js'],
   ['view-sql-console', './view/view-sql-console.js'],
   ['view-sql', './view/view-sql.js'],
   ['view-tilemap', './view/view-tilemap.js'],
@@ -155,31 +153,36 @@ async function loadGamsConfig(runtime, defaultConfig) {
   return validateGamsConfig(JSON.parse(textDecoder.decode(readResult.output)), GAMS_CONFIG_PATH)
 }
 
-function applyThemeStylesheet(nextTheme = null) {
-  const theme = nextTheme || localStorage.getItem(THEME_STORAGE_KEY) || DEFAULT_THEME
-  const themeHref = `./themes/${theme}.css`
+async function applyThemeStylesheet(runtime, config) {
+  const themePath = config?.ui?.theme?.path
+  if (typeof themePath !== 'string' || themePath.length === 0) throw new Error('gams config ui.theme.path is required')
+  const readResult = await runtime.call('fs', 'read', themePath)
+  if (readResult.returnCode !== 0) throw new Error(decodeOutput(readResult) || `fs.read failed for theme ${themePath}`)
+
+  const blob = new Blob([readResult.output], { type: 'text/css' })
+  const themeHref = URL.createObjectURL(blob)
+  const previousUrl = currentThemeStylesheetObjectUrl
+  currentThemeStylesheetObjectUrl = themeHref
+
   const link = document.getElementById('theme-stylesheet')
   link.setAttribute('href', themeHref)
-  window.__currentTheme = theme
+  window.__currentThemePath = themePath
   window.__currentThemeStylesheetHref = themeHref
 
   document.querySelectorAll('view-area, view-popup').forEach((el) => {
     const shadowLink = el.shadowRoot?.querySelector('link[data-theme-stylesheet]')
-    if (shadowLink) {
-      shadowLink.setAttribute('href', themeHref)
-    }
+    if (shadowLink) shadowLink.setAttribute('href', themeHref)
   })
+
+  if (previousUrl) URL.revokeObjectURL(previousUrl)
 }
 
 function errorParse(e) {
   return `${e.plugin ? "[" + e.plugin + "]: " : ""}${e.message || e.reason}`
 }
 
-window.__applyThemeStylesheet = applyThemeStylesheet
-
 async function main() {
   const root = document.body
-  applyThemeStylesheet()
   root.innerHTML = '<div style="padding:24px; color:var(--text);">Booting...</div>'
 
   try {
@@ -189,6 +192,7 @@ async function main() {
     const gamsConfig = await loadGamsConfig(runtime, defaultConfig)
     const viewRegistry = createConfiguredViewRegistry(gamsConfig, runtime)
     await runtime.add(createFsPluginDefinitions(gamsConfig))
+    await applyThemeStylesheet(runtime, gamsConfig)
     await runtime.add(gamsConfig.plugins)
 
     await debugMigration(runtime)
