@@ -1024,7 +1024,7 @@ export class ViewTilemap extends ViewCanvasBase {
     super()
     this.state = new TilemapState()
     this.handle = 0
-    this.snapshot = null
+    this.snapshot = validateSnapshot(this.state.snapshot())
     this.sidebarElement = null
     this.statusElement = null
     this.pathElement = null
@@ -1111,6 +1111,8 @@ export class ViewTilemap extends ViewCanvasBase {
 
     super.connectedCallback()
     this.bindEvents()
+    this.setData(this.snapshot, { autoFit: false })
+    this.renderSnapshot(this.snapshot)
     void this.bootstrap()
   }
 
@@ -1760,10 +1762,17 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   renderSnapshot(snapshot) {
-    this.pathElement.textContent = `Path: ${snapshot.path}`
-    this.dimensionsElement.textContent = `Size: ${snapshot.width} × ${snapshot.height}`
-    this.dirtyElement.textContent = snapshot.dirty ? 'Dirty' : 'Saved'
-    this.dirtyElement.className = snapshot.dirty ? 'warning' : 'success'
+    if (!this.hasLoadedMap(snapshot)) {
+      this.pathElement.textContent = 'No tilemap loaded'
+      this.dimensionsElement.textContent = ''
+      this.dirtyElement.textContent = ''
+      this.dirtyElement.className = ''
+    } else {
+      this.pathElement.textContent = `Path: ${snapshot.path}`
+      this.dimensionsElement.textContent = `Size: ${snapshot.width} × ${snapshot.height}`
+      this.dirtyElement.textContent = snapshot.dirty ? 'Dirty' : 'Saved'
+      this.dirtyElement.className = snapshot.dirty ? 'warning' : 'success'
+    }
 
     this.renderHeaderControls(snapshot)
     this.renderLayers(snapshot)
@@ -1995,6 +2004,10 @@ export class ViewTilemap extends ViewCanvasBase {
     return this.snapshot
   }
 
+  hasLoadedMap(snapshot = this.snapshot) {
+    return Boolean(snapshot && Array.isArray(snapshot.layers) && snapshot.layers.length > 0)
+  }
+
   layerIndexFromActionButton(button) {
     const row = button.closest('tr[data-layer-id]')
     assert(row instanceof HTMLTableRowElement, 'view-tilemap layer action requires containing layer row')
@@ -2063,6 +2076,10 @@ export class ViewTilemap extends ViewCanvasBase {
   onCanvasMouseDown(event) {
     if (event.button !== 0) return
     const snapshot = this.requireSnapshot()
+    if (!this.hasLoadedMap(snapshot)) {
+      this.setStatus('No tilemap loaded', 'info')
+      return
+    }
     if (snapshot.tool === TOOL.SELECT) {
       event.preventDefault()
       this.focus()
@@ -2133,6 +2150,7 @@ export class ViewTilemap extends ViewCanvasBase {
     }
 
     const snapshot = this.requireSnapshot()
+    if (!this.hasLoadedMap(snapshot)) return
     if (snapshot.tool === TOOL.PASTE && this.clipboard) {
       this.pastePreviewCell = this.pasteCellFromPointerEvent(event, snapshot)
       this.draw()
@@ -2140,6 +2158,7 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   onCanvasMouseUp(event) {
+    if (!this.hasLoadedMap(this.snapshot)) return
     if (this.selectionTool.drag) {
       const snapshot = this.requireSnapshot()
       const result = this.selectionTool.finish(this.cellFromPointerEvent(event, snapshot))

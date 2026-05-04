@@ -121,15 +121,15 @@ function getTreeRenderAssets() {
       shadowX: 4,
       shadowY: -4,
       source: {
-        metaUrl: '/assets/ng/atlas-mtsdf.json',
-        atlasUrl: '/assets/ng/atlas-mtsdf.png',
+        metaUrl: '/demo/ng/atlas-mtsdf.json',
+        atlasUrl: '/demo/ng/atlas-mtsdf.png',
         channels: 4,
       },
     },
     nineSlices: {
-      idle: { textureUrl: '/assets/ng/nine.png', left: 8, right: 8, top: 8, bottom: 8 },
-      hover: { textureUrl: '/assets/ng/nine-hover.png', left: 8, right: 8, top: 8, bottom: 8 },
-      selected: { textureUrl: '/assets/ng/nine-selected.png', left: 8, right: 8, top: 8, bottom: 8 },
+      idle: { textureUrl: '/demo/ng/nine.png', left: 8, right: 8, top: 8, bottom: 8 },
+      hover: { textureUrl: '/demo/ng/nine-hover.png', left: 8, right: 8, top: 8, bottom: 8 },
+      selected: { textureUrl: '/demo/ng/nine-selected.png', left: 8, right: 8, top: 8, bottom: 8 },
     },
   }
 }

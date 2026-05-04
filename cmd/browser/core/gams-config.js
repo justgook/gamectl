@@ -1,4 +1,4 @@
-export const GAMS_CONFIG_PATH = '/gams.json'
+export const GAMS_CONFIG_PATH = '/demo/gams.json'
 export const DEFAULT_GAMS_CONFIG_URL = GAMS_CONFIG_PATH
 
 export async function loadDefaultGamsConfig() {

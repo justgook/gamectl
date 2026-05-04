@@ -159,8 +159,8 @@ function getNodeGraphRenderAssets() {
       height: 62,
     },
     ports: {
-      emptyIconUrl: '/assets/ng/port-empty.png',
-      fullIconUrl: '/assets/ng/port-full.png',
+      emptyIconUrl: '/demo/ng/port-empty.png',
+      fullIconUrl: '/demo/ng/port-full.png',
       iconSizePx: 12,
       spacingY: 18,
       rowStartY: 30,
@@ -187,77 +187,77 @@ function getNodeGraphRenderAssets() {
       shadowX: 4,
       shadowY: -4,
       source: {
-        metaUrl: '/assets/ng/atlas-mtsdf.json',
-        atlasUrl: '/assets/ng/atlas-mtsdf.png',
+        metaUrl: '/demo/ng/atlas-mtsdf.json',
+        atlasUrl: '/demo/ng/atlas-mtsdf.png',
         channels: 4,
       },
     },
     nineSlices: {
       idle: {
-        textureUrl: '/assets/ng/nine.png',
+        textureUrl: '/demo/ng/nine.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       success: {
-        textureUrl: '/assets/ng/nine-success.png',
+        textureUrl: '/demo/ng/nine-success.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       error: {
-        textureUrl: '/assets/ng/nine-error.png',
+        textureUrl: '/demo/ng/nine-error.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       processing: {
-        textureUrl: '/assets/ng/nine-processing.png',
+        textureUrl: '/demo/ng/nine-processing.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       hover: {
-        textureUrl: '/assets/ng/nine-hover.png',
+        textureUrl: '/demo/ng/nine-hover.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       selected: {
-        textureUrl: '/assets/ng/nine-selected.png',
+        textureUrl: '/demo/ng/nine-selected.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       activeSelected: {
-        textureUrl: '/assets/ng/nine-active-selected.png',
+        textureUrl: '/demo/ng/nine-active-selected.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       selectedSuccess: {
-        textureUrl: '/assets/ng/nine-selected-success.png',
+        textureUrl: '/demo/ng/nine-selected-success.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       selectedError: {
-        textureUrl: '/assets/ng/nine-selected-error.png',
+        textureUrl: '/demo/ng/nine-selected-error.png',
         left: 8,
         right: 8,
         top: 8,
         bottom: 8,
       },
       selectedProcessing: {
-        textureUrl: '/assets/ng/nine-selected-processing.png',
+        textureUrl: '/demo/ng/nine-selected-processing.png',
         left: 8,
         right: 8,
         top: 8,
@@ -973,7 +973,7 @@ export class ViewNg extends HTMLElement {
     this.currentRunId = runId
     this._setStatus('compiling graph run...', 'info')
 
-    const compilerRead = await runtime.call('fs', 'read', 'builtin/assets/ng/run.lua')
+    const compilerRead = await runtime.call('fs', 'read', 'demo/ng/run.lua')
     assertRuntimeOk(compilerRead, 'read ng run compiler')
 
     const graphJson = JSON.stringify(this.getGraph())

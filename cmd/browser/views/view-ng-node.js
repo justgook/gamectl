@@ -368,7 +368,7 @@ export class ViewNgNode extends HTMLElement {
         <legend>Code file</legend>
         <label>
           Path
-          <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" placeholder="builtin/assets/ng/example.lua">
+          <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" placeholder="demo/ng/presets/example.lua">
         </label>
         <div role="buttongroup">
           <button type="submit" name="intent" value="browse-code-file">Browse</button>

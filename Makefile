@@ -33,7 +33,7 @@ ASSETS_DIR ?= example/assets
 
 BUILD_DIR ?= build.nosync
 BROWSER_DIR ?= cmd/browser
-GAMS_CONFIG ?= gams.json
+GAMS_CONFIG ?= demo/gams.json
 DEMO_DIR ?= demo
 CLI_DIR ?= cmd/cli
 NATIVE_DIR ?= cmd/native
@@ -326,15 +326,13 @@ $(BUILD_DIR)/plugins:
 web: $(PLUGIN_TARGETS)
 	$(Q)rm -rf $(BUILD_DIR)/web
 	$(Q)echo "Creating production web build in $(BUILD_DIR)/web/..."
-	$(Q)mkdir -p $(BUILD_DIR)/web/plugins $(BUILD_DIR)/web/assets $(BUILD_DIR)/web/demo
+	$(Q)mkdir -p $(BUILD_DIR)/web/plugins $(BUILD_DIR)/web/demo
 	$(Q)echo "  Copying browser files..."
 	$(Q)cp -r $(BROWSER_DIR)/. $(BUILD_DIR)/web/
 	$(Q)echo "  Copying GAMS config..."
-	$(Q)cp $(GAMS_CONFIG) $(BUILD_DIR)/web/gams.json
+	$(Q)cp $(GAMS_CONFIG) $(BUILD_DIR)/web/demo/gams.json
 	$(Q)echo "  Copying plugins..."
 	$(Q)cp -r $(BUILD_DIR)/plugins/* $(BUILD_DIR)/web/plugins/
-	$(Q)echo "  Copying assets..."
-	$(Q)cp -r assets/. $(BUILD_DIR)/web/assets/
 	$(Q)echo "  Copying demo..."
 	$(Q)cp -r $(DEMO_DIR)/. $(BUILD_DIR)/web/demo/
 	$(Q)echo "✓ Production build ready at $(BUILD_DIR)/web/"
