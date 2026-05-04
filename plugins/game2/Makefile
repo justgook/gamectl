@@ -35,7 +35,6 @@ ROOT_BUILD_DIR ?= ../../build.nosync
 PLUGIN_WASM ?= $(ROOT_BUILD_DIR)/plugins/game2.wasm
 SOKOL_NATIVE_PROFILE ?= debug
 ATLAS_ASSET ?= ../../demo/assets/the_atlas.qoi
-LUT_ASSET ?= ../../demo/assets/lut.qoi
 
 SHADER_SOURCES := $(shell find . -name '*.glsl' -print | LC_ALL=C sort | sed 's#^\./##' | tr '\n' ' ')
 
@@ -206,10 +205,8 @@ native-release:
 web: plugin | $(WEB_DIR)
 	$(Q)echo "Building standalone web bundle"
 	$(Q)$(CP) "$(PLUGIN_WASM)" "$(WEB_DIR)/game2.wasm"
-	$(Q)$(CP) "$(ATLAS_ASSET)" "$(WEB_DIR)/the_atlas.qoi"
-	$(Q)$(CP) "$(LUT_ASSET)" "$(WEB_DIR)/lut.qoi"
 	$(Q)$(CP) web/index.html "$(WEB_DIR)/index.html"
-	$(Q)$(CP) ../../cmd/browser/util/gl-bridge.js "$(WEB_DIR)/gl-bridge.js"
+	$(Q)$(CP) web/gl-bridge.js "$(WEB_DIR)/gl-bridge.js"
 
 .PHONY: serve
 serve: web
