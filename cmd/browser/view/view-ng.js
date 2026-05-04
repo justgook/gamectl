@@ -130,141 +130,86 @@ function buildGlyphMap(meta) {
   return map
 }
 
-function getNodeGraphRenderAssets() {
-  return {
-    theme: {
-      clear: [11 / 255, 25 / 255, 34 / 255, 1],
-      text: [214 / 255, 236 / 255, 248 / 255, 1],
-      textMuted: [147 / 255, 177 / 255, 194 / 255, 1],
-      selection: [74 / 255, 199 / 255, 255 / 255, 1],
-      edge: [70 / 255, 108 / 255, 132 / 255, 0.95],
-      edgeActive: [133 / 255, 192 / 255, 255 / 255, 1],
-      edgeSuccess: [44 / 255, 201 / 255, 170 / 255, 0.98],
-      edgeError: [255 / 255, 107 / 255, 107 / 255, 0.98],
-      edgeStale: [222 / 255, 177 / 255, 95 / 255, 0.98],
-    },
-    layout: {
-      gridColumns: 4,
-      gridOriginX: 80,
-      gridOriginY: 58,
-      gridStepX: 186,
-      gridStepY: 112,
-      nodeHeaderHeight: 28,
-      nodePaddingX: 10,
-      nodePaddingY: 8,
-    },
-    node: {
-      width: 146,
-      minHeight: 62,
-      height: 62,
-    },
-    ports: {
-      emptyIconUrl: '/demo/ng/port-empty.png',
-      fullIconUrl: '/demo/ng/port-full.png',
-      iconSizePx: 12,
-      spacingY: 18,
-      rowStartY: 30,
-      hitRadiusPx: 16,
-      labelOffsetX: 10,
-      labelFontPx: 11,
-      inputInsetX: 0,
-      outputInsetX: 0,
-    },
-    edge: {
-      handleMin: 26,
-      handleMax: 180,
-      halfWidthPx: 1.7,
-      glowPx: 2.2,
-      aaPx: 1.0,
-      hitRadiusPx: 10,
-    },
-    text: {
-      fontPx: 12,
-      aa: 8,
-      effect: 'fill',
-      stroke: 2.5,
-      glow: 2,
-      shadowX: 4,
-      shadowY: -4,
-      source: {
-        metaUrl: '/demo/ng/atlas-mtsdf.json',
-        atlasUrl: '/demo/ng/atlas-mtsdf.png',
-        channels: 4,
-      },
-    },
-    nineSlices: {
-      idle: {
-        textureUrl: '/demo/ng/nine.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      success: {
-        textureUrl: '/demo/ng/nine-success.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      error: {
-        textureUrl: '/demo/ng/nine-error.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      processing: {
-        textureUrl: '/demo/ng/nine-processing.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      hover: {
-        textureUrl: '/demo/ng/nine-hover.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      selected: {
-        textureUrl: '/demo/ng/nine-selected.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      activeSelected: {
-        textureUrl: '/demo/ng/nine-active-selected.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      selectedSuccess: {
-        textureUrl: '/demo/ng/nine-selected-success.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      selectedError: {
-        textureUrl: '/demo/ng/nine-selected-error.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-      selectedProcessing: {
-        textureUrl: '/demo/ng/nine-selected-processing.png',
-        left: 8,
-        right: 8,
-        top: 8,
-        bottom: 8,
-      },
-    },
+function isPlainObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function cloneConfigValue(value) {
+  if (Array.isArray(value)) return value.map((item) => cloneConfigValue(item))
+  if (isPlainObject(value)) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneConfigValue(item)]))
+  return value
+}
+
+function requireObject(value, label) {
+  if (!isPlainObject(value)) throw new Error(`${label} must be an object`)
+  return value
+}
+
+function requireConfigString(value, label) {
+  if (typeof value !== 'string' || value.length === 0) throw new Error(`${label} must be a non-empty string`)
+  return value
+}
+
+function requireConfigNumber(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${label} must be a finite number`)
+  return value
+}
+
+function requireConfigNumberArray(value, label, length = null) {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`)
+  if (length != null && value.length !== length) throw new Error(`${label} must contain ${length} numbers`)
+  for (let i = 0; i < value.length; i += 1) requireConfigNumber(value[i], `${label}[${i}]`)
+  return value
+}
+
+function requireKeys(object, label, keys) {
+  requireObject(object, label)
+  for (const key of keys) {
+    if (!(key in object)) throw new Error(`${label}.${key} is required`)
   }
+  return object
+}
+
+function validateNineSlice(slice, label) {
+  requireKeys(slice, label, ['textureUrl', 'left', 'right', 'top', 'bottom'])
+  requireConfigString(slice.textureUrl, `${label}.textureUrl`)
+  requireConfigNumber(slice.left, `${label}.left`)
+  requireConfigNumber(slice.right, `${label}.right`)
+  requireConfigNumber(slice.top, `${label}.top`)
+  requireConfigNumber(slice.bottom, `${label}.bottom`)
+}
+
+function validateNodeGraphRenderConfig(config) {
+  requireKeys(config, 'view-ng config.config', ['theme', 'layout', 'node', 'ports', 'edge', 'text', 'nineSlices'])
+  requireKeys(config.theme, 'view-ng config.config.theme', ['clear', 'text', 'textMuted', 'selection', 'edge', 'edgeActive', 'edgeSuccess', 'edgeError', 'edgeStale'])
+  for (const key of Object.keys(config.theme)) requireConfigNumberArray(config.theme[key], `view-ng config.config.theme.${key}`, 4)
+
+  requireKeys(config.layout, 'view-ng config.config.layout', ['gridColumns', 'gridOriginX', 'gridOriginY', 'gridStepX', 'gridStepY', 'nodeHeaderHeight', 'nodePaddingX', 'nodePaddingY'])
+  for (const key of Object.keys(config.layout)) requireConfigNumber(config.layout[key], `view-ng config.config.layout.${key}`)
+
+  requireKeys(config.node, 'view-ng config.config.node', ['width', 'minHeight', 'height'])
+  for (const key of Object.keys(config.node)) requireConfigNumber(config.node[key], `view-ng config.config.node.${key}`)
+
+  requireKeys(config.ports, 'view-ng config.config.ports', ['emptyIconUrl', 'fullIconUrl', 'iconSizePx', 'spacingY', 'rowStartY', 'hitRadiusPx', 'labelOffsetX', 'labelFontPx', 'inputInsetX', 'outputInsetX'])
+  requireConfigString(config.ports.emptyIconUrl, 'view-ng config.config.ports.emptyIconUrl')
+  requireConfigString(config.ports.fullIconUrl, 'view-ng config.config.ports.fullIconUrl')
+  for (const key of ['iconSizePx', 'spacingY', 'rowStartY', 'hitRadiusPx', 'labelOffsetX', 'labelFontPx', 'inputInsetX', 'outputInsetX']) requireConfigNumber(config.ports[key], `view-ng config.config.ports.${key}`)
+
+  requireKeys(config.edge, 'view-ng config.config.edge', ['handleMin', 'handleMax', 'halfWidthPx', 'glowPx', 'aaPx', 'hitRadiusPx'])
+  for (const key of Object.keys(config.edge)) requireConfigNumber(config.edge[key], `view-ng config.config.edge.${key}`)
+
+  requireKeys(config.text, 'view-ng config.config.text', ['fontPx', 'aa', 'effect', 'stroke', 'glow', 'shadowX', 'shadowY', 'source'])
+  requireConfigString(config.text.effect, 'view-ng config.config.text.effect')
+  for (const key of ['fontPx', 'aa', 'stroke', 'glow', 'shadowX', 'shadowY']) requireConfigNumber(config.text[key], `view-ng config.config.text.${key}`)
+  requireKeys(config.text.source, 'view-ng config.config.text.source', ['metaUrl', 'atlasUrl', 'channels'])
+  requireConfigString(config.text.source.metaUrl, 'view-ng config.config.text.source.metaUrl')
+  requireConfigString(config.text.source.atlasUrl, 'view-ng config.config.text.source.atlasUrl')
+  requireConfigNumber(config.text.source.channels, 'view-ng config.config.text.source.channels')
+
+  requireKeys(config.nineSlices, 'view-ng config.config.nineSlices', ['idle', 'success', 'error', 'processing', 'hover', 'selected', 'activeSelected', 'selectedSuccess', 'selectedError', 'selectedProcessing'])
+  for (const key of Object.keys(config.nineSlices)) validateNineSlice(config.nineSlices[key], `view-ng config.config.nineSlices.${key}`)
+
+  return config
 }
 
 export class ViewNg extends HTMLElement {
@@ -276,7 +221,8 @@ export class ViewNg extends HTMLElement {
     super()
     this.canvas = null
     this.gl = null
-    this.assets = getNodeGraphRenderAssets()
+    this.viewConfig = null
+    this.assets = null
     this.skinTextures = null
     this.portTextures = null
     this.textAtlas = null
@@ -353,6 +299,7 @@ export class ViewNg extends HTMLElement {
   connectedCallback() {
     this._registerProgressPlugin()
     if (!this._ready) {
+      this._applyViewConfig()
       this._ready = true
       this.style.display = 'contents'
       this.innerHTML = `
@@ -403,6 +350,13 @@ export class ViewNg extends HTMLElement {
     }
 
     this.render()
+  }
+
+  _applyViewConfig() {
+    const config = this.viewConfig
+    if (!isPlainObject(config)) throw new Error('view-ng config must be an object')
+    if (!isPlainObject(config.config)) throw new Error('view-ng config.config must be an object')
+    this.assets = validateNodeGraphRenderConfig(cloneConfigValue(config.config))
   }
 
   disconnectedCallback() {
@@ -729,7 +683,7 @@ export class ViewNg extends HTMLElement {
   }
 
   _hitTestPort(worldX, worldY, nodes, posById) {
-    const hitRadiusPx = Number(this.assets.ports.hitRadiusPx || 16)
+    const hitRadiusPx = Number(this.assets.ports.hitRadiusPx)
     const hitRadiusWorld = hitRadiusPx / Math.max(0.0001, this.scale)
     const outputUsage = new Set((this.lastGraph?.edges || []).map((edge) => `${edge.from}:${edge.fromOutputId}`))
     for (let i = nodes.length - 1; i >= 0; i -= 1) {
@@ -757,7 +711,7 @@ export class ViewNg extends HTMLElement {
 
   _hitTestEdge(worldX, worldY, nodes, edges, posById) {
     const edgeCfg = this.assets.edge
-    const hitRadiusPx = Number(edgeCfg.hitRadiusPx || 10)
+    const hitRadiusPx = Number(edgeCfg.hitRadiusPx)
     const hitRadiusWorld = hitRadiusPx / Math.max(0.0001, this.scale)
     const nodesById = new Map(nodes.map((node) => [node.id, node]))
     let best = null
@@ -1135,10 +1089,10 @@ end`
     }
 
     const layout = this.assets.layout
-    const originX = Number(layout.gridOriginX || 80)
-    const originY = Number(layout.gridOriginY || 58)
-    const horizontalGap = Math.max(Number(layout.gridStepX || 186), 220)
-    const verticalGap = Math.max(Number(layout.gridStepY || 112), 92)
+    const originX = Number(layout.gridOriginX)
+    const originY = Number(layout.gridOriginY)
+    const horizontalGap = Math.max(Number(layout.gridStepX), 220)
+    const verticalGap = Math.max(Number(layout.gridStepY), 92)
     const layerWidths = layers.map((layerIds) => Math.max(...layerIds.map((id) => this._measureNodeSize(nodeById.get(id)).width), 0))
     const maxLayerHeight = Math.max(...layers.map((layerIds) => layerIds.reduce((sum, id) => sum + this._measureNodeSize(nodeById.get(id)).height + verticalGap, 0) - verticalGap), 0)
 
@@ -1588,8 +1542,8 @@ end`
       this.nodeLayout.set(node.id, {
         x: layout.gridOriginX + col * layout.gridStepX,
         y: layout.gridOriginY + row * layout.gridStepY,
-        width: Number(this.assets.node.width || 146),
-        height: Number(this.assets.node.minHeight || 62),
+        width: Number(this.assets.node.width),
+        height: Number(this.assets.node.minHeight),
       })
     })
   }
@@ -1797,7 +1751,7 @@ end`
   _measureTextWidth(text, scale = 1) {
     const value = String(text || '')
     if (!value) return 0
-    const atlasSize = Math.max(1, this.textAtlas?.atlasSize || this.assets?.text?.fontPx || 14)
+    const atlasSize = Math.max(1, this.textAtlas?.atlasSize || this.assets.text.fontPx)
     const glyphs = this.textAtlas?.glyphs
     if (!glyphs) return value.length * atlasSize * 0.58 * scale
     let widthPx = 0
@@ -1834,22 +1788,22 @@ end`
   }
 
   _measureNodeSize(node) {
-    const nodeCfg = this.assets?.node || {}
-    const layout = this.assets?.layout || {}
-    const ports = this.assets?.ports || {}
-    const text = this.assets?.text || {}
-    const minWidth = Number(nodeCfg.width || 146)
-    const minHeight = Number(nodeCfg.minHeight || nodeCfg.height || 62)
-    const padX = Number(layout.nodePaddingX || 10)
-    const nodePaddingY = Number(layout.nodePaddingY || 8)
-    const rowStartY = Number(ports.rowStartY || ((layout.nodeHeaderHeight || 28) + 2))
-    const spacingY = Number(ports.spacingY || 18)
-    const iconSizePx = Number(ports.iconSizePx || 12)
-    const labelOffset = Number(ports.labelOffsetX || 10)
-    const inputInsetX = Number(ports.inputInsetX || 0)
-    const outputInsetX = Number(ports.outputInsetX || 0)
-    const titlePx = Number(text.fontPx || 14)
-    const portPx = Number(ports.labelFontPx || 11)
+    const nodeCfg = this.assets.node
+    const layout = this.assets.layout
+    const ports = this.assets.ports
+    const text = this.assets.text
+    const minWidth = Number(nodeCfg.width)
+    const minHeight = Number(nodeCfg.minHeight)
+    const padX = Number(layout.nodePaddingX)
+    const nodePaddingY = Number(layout.nodePaddingY)
+    const rowStartY = Number(ports.rowStartY)
+    const spacingY = Number(ports.spacingY)
+    const iconSizePx = Number(ports.iconSizePx)
+    const labelOffset = Number(ports.labelOffsetX)
+    const inputInsetX = Number(ports.inputInsetX)
+    const outputInsetX = Number(ports.outputInsetX)
+    const titlePx = Number(text.fontPx)
+    const portPx = Number(ports.labelFontPx)
     const atlasSize = Math.max(1, this.textAtlas?.atlasSize || titlePx)
     const titleScale = titlePx / atlasSize
     const portScale = portPx / atlasSize
@@ -2193,7 +2147,7 @@ end`
     if (!this.connectionDrag) return
     const drag = this.connectionDrag
     const edgeCfg = this.assets.edge
-    const active = this.assets.theme.edgeActive || [133 / 255, 192 / 255, 255 / 255, 1]
+    const active = this.assets.theme.edgeActive
     const p0 = drag.fixed.direction === 'output' ? { x: drag.fixed.x, y: drag.fixed.y } : drag.moving
     const p3 = drag.fixed.direction === 'output' ? drag.moving : { x: drag.fixed.x, y: drag.fixed.y }
     const h = Math.max(edgeCfg.handleMin, Math.min(edgeCfg.handleMax, Math.abs(p3.x - p0.x) * 0.5))
@@ -2223,12 +2177,12 @@ end`
       const pos = node ? posById.get(node.id) : null
       if (!node || !pos || !this.portTextures?.full) return
       const p = this._getPortCenter(node, pos, pick.direction === 'input', pick.index)
-      const iconSize = Number(this.assets.ports.iconSizePx || 12) + 4
+      const iconSize = Number(this.assets.ports.iconSizePx) + 4
       const half = iconSize * 0.5
       this._drawPortBatch(this.portTextures.full, new Float32Array([p.x - half, p.y - half, iconSize, iconSize, 0, 0, 1, 1]), width, height, view)
-      const validColor = this.assets.theme.edgeSuccess || [44 / 255, 201 / 255, 170 / 255, 0.98]
-      const invalidColor = this.assets.theme.edgeError || [255 / 255, 107 / 255, 107 / 255, 0.98]
-      const activeColor = this.assets.theme.edgeActive || [133 / 255, 192 / 255, 255 / 255, 1]
+      const validColor = this.assets.theme.edgeSuccess
+      const invalidColor = this.assets.theme.edgeError
+      const activeColor = this.assets.theme.edgeActive
       const color = this.connectionDrag
         ? (this.connectionDrag.validTarget && this.connectionDrag.validTarget.nodeId === pick.nodeId && this.connectionDrag.validTarget.portId === pick.portId && this.connectionDrag.validTarget.direction === pick.direction ? validColor : invalidColor)
         : activeColor
@@ -2242,7 +2196,7 @@ end`
       const toPos = posById.get(pick.edge.to)
       if (!fromNode || !toNode || !fromPos || !toPos) return
       const edgeCfg = this.assets.edge
-      const active = this.assets.theme.edgeActive || [133 / 255, 192 / 255, 255 / 255, 1]
+      const active = this.assets.theme.edgeActive
       const p0 = this._getPortCenter(fromNode, fromPos, false, this._getOutputIndex(fromNode, pick.edge.fromOutputId))
       const p3 = this._getPortCenter(toNode, toPos, true, this._getInputIndex(toNode, pick.edge.toInputId))
       const h = Math.max(edgeCfg.handleMin, Math.min(edgeCfg.handleMax, Math.abs(p3.x - p0.x) * 0.5))
@@ -2372,7 +2326,7 @@ end`
 
   _drawPorts(nodes, edges, posById, width, height, view) {
     if (!this.portTextures) return
-    const iconSize = Number(this.assets.ports.iconSizePx) || 12
+    const iconSize = Number(this.assets.ports.iconSizePx)
     const half = iconSize * 0.5
     const outputUsage = new Set(edges.map((edge) => `${edge.from}:${edge.fromOutputId}`))
     const emptyInstances = []
@@ -2403,7 +2357,7 @@ end`
     const gl = this.gl
     const glyphs = this.textAtlas.glyphs
     const c = this.assets.theme.text
-    const cMuted = this.assets.theme.textMuted || c
+    const cMuted = this.assets.theme.textMuted
     gl.useProgram(this.textProgram)
     gl.bindVertexArray(this.baseVao)
     gl.activeTexture(gl.TEXTURE0)
@@ -2412,17 +2366,17 @@ end`
     gl.uniformMatrix3fv(gl.getUniformLocation(this.textProgram, 'u_view'), false, view)
     gl.uniform2f(gl.getUniformLocation(this.textProgram, 'u_viewport'), width, height)
     const colorLoc = gl.getUniformLocation(this.textProgram, 'u_color')
-    const aa = Math.min(32.0, Math.max(6.0, Number(this.assets.text.aa || 8) * this.scale))
+    const aa = Math.min(32.0, Math.max(6.0, Number(this.assets.text.aa) * this.scale))
     gl.uniform1f(gl.getUniformLocation(this.textProgram, 'u_aa'), aa)
     gl.uniform1f(gl.getUniformLocation(this.textProgram, 'uDistRange'), this.textAtlas.distRange)
     gl.uniform1i(gl.getUniformLocation(this.textProgram, 'uEffect'), 0)
-    gl.uniform1f(gl.getUniformLocation(this.textProgram, 'uStroke'), Number(this.assets.text.stroke || 2.5))
-    gl.uniform1f(gl.getUniformLocation(this.textProgram, 'uGlow'), Number(this.assets.text.glow || 2))
-    gl.uniform2f(gl.getUniformLocation(this.textProgram, 'uShadowPx'), Number(this.assets.text.shadowX || 4), Number(this.assets.text.shadowY || -4))
+    gl.uniform1f(gl.getUniformLocation(this.textProgram, 'uStroke'), Number(this.assets.text.stroke))
+    gl.uniform1f(gl.getUniformLocation(this.textProgram, 'uGlow'), Number(this.assets.text.glow))
+    gl.uniform2f(gl.getUniformLocation(this.textProgram, 'uShadowPx'), Number(this.assets.text.shadowX), Number(this.assets.text.shadowY))
     gl.uniform2f(gl.getUniformLocation(this.textProgram, 'uAtlasSize'), this.textAtlas.atlasW, this.textAtlas.atlasH)
-    const atlasSize = Math.max(1, this.textAtlas.atlasSize || 48)
-    const titlePx = Number(this.assets.text.fontPx || 14)
-    const portPx = Number(this.assets.ports.labelFontPx || 11)
+    const atlasSize = Math.max(1, this.textAtlas.atlasSize)
+    const titlePx = Number(this.assets.text.fontPx)
+    const portPx = Number(this.assets.ports.labelFontPx)
     const titleScale = titlePx / atlasSize
     const portScale = portPx / atlasSize
     const drawText = (text, startX, baselineY, scale) => {
@@ -2442,9 +2396,9 @@ end`
         x += g.advancePx * scale
       }
     }
-    const iconHalf = Number(this.assets.ports.iconSizePx || 12) * 0.5
-    const labelOffset = Number(this.assets.ports.labelOffsetX || 10)
-    const padX = Number(this.assets.layout.nodePaddingX || 10)
+    const iconHalf = Number(this.assets.ports.iconSizePx) * 0.5
+    const labelOffset = Number(this.assets.ports.labelOffsetX)
+    const padX = Number(this.assets.layout.nodePaddingX)
     for (const node of nodes) {
       const pos = posById.get(node.id)
       const size = this._getNodeSize(node)

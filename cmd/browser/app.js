@@ -7,25 +7,25 @@ import { createUiContext } from './ui-plugins/context.js'
 import { createUiKeys } from './ui-plugins/keys.js'
 import './widgets/code-editor.js'
 import './widgets/view-pagination.js'
-import './views/view-sql.js'
-import './views/view-sql-console.js'
-import './views/view-files.js'
-import './views/view-tree.js'
-import './views/view-tree-parent.js'
-import './views/view-props.js'
-import './views/view-ng.js'
-import './views/view-ng-node.js'
-import './views/view-code.js'
-import './views/view-tilemap.js'
-import './views/files-rename.js'
-import './views/files-json.js'
-import './views/files-default.js'
-import './views/view-ai.js'
-import './views/view-setting-fs.js'
-import './views/view-setting-theme.js'
-import './views/view-setting-plugins.js'
-import './views/sql-table-editor.js'
-import './views/tilemap-settings.js'
+import './view/view-sql.js'
+import './view/view-sql-console.js'
+import './view/view-files.js'
+import './view/view-tree.js'
+import './view/view-tree-parent.js'
+import './view/view-props.js'
+import './view/view-ng.js'
+import './view/view-ng-node.js'
+import './view/view-code.js'
+import './view/view-tilemap.js'
+import './view/files-rename.js'
+import './view/files-json.js'
+import './view/files-default.js'
+import './view/view-ai.js'
+import './view/view-setting-fs.js'
+import './view/view-setting-theme.js'
+import './view/view-setting-plugins.js'
+import './view/sql-table-editor.js'
+import './view/tilemap-settings.js'
 
 const THEME_STORAGE_KEY = 'browser.theme'
 const DEFAULT_THEME = 'the98'
@@ -40,6 +40,8 @@ const DEFAULT_LAYOUT = `
   <view-tree data-source="progression" />
   <view-ng setup="0:v:50" data-source="/demo/assets.ng.json" />
 `
+
+let activeGamsConfig = null
 
 const AI_OPEN_CONFIG = {
   provider: 'ai.provider.mock',
@@ -140,7 +142,10 @@ const viewRegistry = new Map([
   ['view-ng', {
     label: 'Nodegraph',
     create: () => {
+      const viewConfig = activeGamsConfig.ui.views['view-ng']
+      if (!viewConfig) throw new Error('gams config ui.views.view-ng is required')
       const el = document.createElement('view-ng')
+      el.viewConfig = viewConfig
       return el
     },
   }],
@@ -267,6 +272,7 @@ async function main() {
     const defaultConfig = await loadDefaultGamsConfig()
     await runtime.add(createFsPluginDefinitions(defaultConfig))
     const gamsConfig = await loadGamsConfig(runtime, defaultConfig)
+    activeGamsConfig = gamsConfig
     await runtime.add(createFsPluginDefinitions(gamsConfig))
     await runtime.add(gamsConfig.plugins)
 

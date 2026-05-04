@@ -1,11 +1,11 @@
 # view-tilemap Plan
 
-This file records the intended browser plan for replacing legacy `cmd/browser/views/view-tilemap.js` with a fresh-start implementation split into a worker-side WASM tilemap service and a browser view.
+This file records the intended browser plan for replacing legacy `cmd/browser/view/view-tilemap.js` with a fresh-start implementation split into a worker-side WASM tilemap service and a browser view.
 
 Detailed follow-up docs:
 
-- `cmd/browser/views/view-tilemap-design.md` — backend-driven stbte-like design and bootstrap order.
-- `cmd/browser/views/view-tilemap-api.md` — method-by-method API, copied close to `plugins/stbte/` with a handle argument.
+- `cmd/browser/view/view-tilemap-design.md` — backend-driven stbte-like design and bootstrap order.
+- `cmd/browser/view/view-tilemap-api.md` — method-by-method API, copied close to `plugins/stbte/` with a handle argument.
 
 ## Core Rules
 
@@ -85,7 +85,7 @@ Recommended initial memory layout:
 
 ## State Implementation Notes
 
-Current browser prototype uses a private `TilemapState` class inside `cmd/browser/views/view-tilemap.js` instead of a temporary mock WASM plugin.
+Current browser prototype uses a private `TilemapState` class inside `cmd/browser/view/view-tilemap.js` instead of a temporary mock WASM plugin.
 
 Planning choice:
 
@@ -100,7 +100,7 @@ Open question / requires clarification:
 - Should the plugin preserve full `pkg/tilemap` JSON `uint32` ids, or is `uint16` enough for the editor core?
 - Should tileset image lookup/render metadata remain in SQL/tilemap props, or move to a separate asset/tileset plugin contract?
 
-## View: `cmd/browser/views/view-tilemap.js`
+## View: `cmd/browser/view/view-tilemap.js`
 
 Owns:
 - custom element lifecycle

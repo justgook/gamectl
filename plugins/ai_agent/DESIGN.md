@@ -25,7 +25,7 @@ Target shape:
 - callable through runtime/plugin manager like other services
 
 Related UI:
-- `cmd/browser/views/view-ai.js` is only one interface
+- `cmd/browser/view/view-ai.js` is only one interface
 - `view-ai` should open a handle and then read/send via `ai_agent`
 - other views or actions should also be able to talk to `ai_agent`
 
