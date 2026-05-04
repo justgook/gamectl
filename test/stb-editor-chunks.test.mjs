@@ -19,7 +19,7 @@ import {
   readChunkedTilemapProjectionFromMemory,
   resizeLogicalTilemap,
   writeChunkedTilemapProjectionToMemory
-} from '../cmd/browser/views/stb-editor-chunks.js'
+} from '../cmd/browser/view/stb-editor-chunks.js'
 
 test('chunk helpers build correct grid and bounds', () => {
   assert.deepEqual(getChunkGrid(512, 300), { cols: 2, rows: 2, count: 4 })

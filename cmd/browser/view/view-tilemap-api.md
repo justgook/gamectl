@@ -1,6 +1,6 @@
 # view-tilemap State API
 
-This is the browser tilemap editor state contract used by `cmd/browser/views/view-tilemap.js`.
+This is the browser tilemap editor state contract used by `cmd/browser/view/view-tilemap.js`.
 
 Current implementation: a private `TilemapState` class inside `view-tilemap.js`.
 
@@ -9,7 +9,7 @@ Goal: keep method names close to `plugins/stbte/` and the earlier backend plan, 
 ## State Owner
 
 - state class: `TilemapState`
-- view: `cmd/browser/views/view-tilemap.js`
+- view: `cmd/browser/view/view-tilemap.js`
 - primary state owner for now: private `TilemapState`
 - UI/render owner: `ViewTilemap`
 - no browser `tilemap` WASM plugin is currently registered

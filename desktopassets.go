@@ -15,7 +15,7 @@ import "embed"
 //go:embed cmd/browser/themes/**
 //go:embed cmd/browser/ui-plugins/**
 //go:embed cmd/browser/util/**
-//go:embed cmd/browser/views/**
+//go:embed cmd/browser/view/**
 //go:embed cmd/browser/widgets/**
 //go:embed build.nosync/plugins/*.wasm
 var FS embed.FS

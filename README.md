@@ -24,7 +24,7 @@ It combines a modular UI (views), a runtime WebAssembly plugin system, SQLite-ba
 
 - **Frontend app**: `cmd/browser/app.js` boots the theme, filesystem provider, plugin runtime, and default layout
 - **Plugin runtime**: `cmd/browser/core/` handles plugin calls, worker orchestration, filesystem mounts, and host bridges
-- **Views/widgets**: `cmd/browser/views/` and `cmd/browser/widgets/` provide the browser UI surface
+- **Views/widgets**: `cmd/browser/view/` and `cmd/browser/widgets/` provide the browser UI surface
 - **Bootstrap config**: `cmd/browser/core/gams.json` defines built-in mounts and first-party plugin registrations
 - **WASM outputs**: compiled to `build.nosync/plugins/*.wasm`
 

@@ -30,6 +30,16 @@ export function validateGamsConfig(config, source) {
     if (config.ui.keys != null && !Array.isArray(config.ui.keys)) {
       throw new Error(`${source} ui.keys must be an array`)
     }
+    if (config.ui.views != null && (typeof config.ui.views !== 'object' || Array.isArray(config.ui.views))) {
+      throw new Error(`${source} ui.views must be an object`)
+    }
+    if (config.ui.views != null) {
+      for (const [tag, viewConfig] of Object.entries(config.ui.views)) {
+        if (viewConfig == null || typeof viewConfig !== 'object' || Array.isArray(viewConfig)) {
+          throw new Error(`${source} ui.views.${tag} must be an object`)
+        }
+      }
+    }
   }
 
   return config

@@ -2,7 +2,7 @@
 
 Fresh-start browser tilemap editor design.
 
-Companion API doc: `cmd/browser/views/view-tilemap-api.md`.
+Companion API doc: `cmd/browser/view/view-tilemap-api.md`.
 
 ## Direction
 
@@ -228,7 +228,7 @@ Done in `view-tilemap-api.md`.
 
 Status: bootstrapped.
 
-- `cmd/browser/views/view-tilemap.js` contains a private `TilemapState` class.
+- `cmd/browser/view/view-tilemap.js` contains a private `TilemapState` class.
 - `TilemapState` owns mock tilemap/editor state while the view owns DOM/rendering only.
 - `create/open/save/snapshot` and layer/tool/history methods are kept close to the planned backend API names.
 - The temporary `plugins/tilemap/` mock WASM plugin was removed.
@@ -240,7 +240,7 @@ Next backend step after UI shell: replace `TilemapState` internals with real til
 
 Status: bootstrapped.
 
-- `cmd/browser/views/view-tilemap.js` exists.
+- `cmd/browser/view/view-tilemap.js` exists.
 - It has no canvas yet.
 - It extends `ViewCanvasBase` and renders `canvas`, sidebar, and footer status.
 - It marks selected tool buttons with `[aria-selected="true"]` and `.accent`.

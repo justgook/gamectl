@@ -1,8 +1,8 @@
 # view-ng Rules
 
-This file records the intended rules for the future `cmd/browser/views/view-ng.js` implementation.
+This file records the intended rules for the future `cmd/browser/view/view-ng.js` implementation.
 
-`view-ng.js` does not need to preserve legacy `cmd/browser/views/view-nodegraph2.js` runtime ownership patterns.
+`view-ng.js` does not need to preserve legacy `cmd/browser/view/view-nodegraph2.js` runtime ownership patterns.
 
 ## Core Rules
 
