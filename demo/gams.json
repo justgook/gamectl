@@ -342,6 +342,10 @@
             "url": "/view/view-tree.js"
           },
           {
+            "path": "view/view-bullet.js",
+            "url": "/view/view-bullet.js"
+          },
+          {
             "path": "theme/current.css",
             "url": "/themes/current.css"
           },
@@ -398,6 +402,12 @@
       }
     ],
     "views": {
+      "view-bullet": {
+        "url": "builtin/view/view-bullet.js",
+        "label": "BulletML",
+        "group": "TODO",
+        "internal": false
+      },
       "view-ng": {
         "config": {
           "theme": {

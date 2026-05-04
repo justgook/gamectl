@@ -1,6 +1,5 @@
-import { runtime } from '../core/runtime.js'
-import { createWriteInput } from '../util/fs.js'
-import { parseCSVLines } from '../util/csv.js'
+import { runtime } from '/core/runtime.js'
+import { createWriteInput } from '/util/fs.js'
 
 const textDecoder = new TextDecoder()
 

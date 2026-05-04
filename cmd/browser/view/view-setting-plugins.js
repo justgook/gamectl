@@ -1,7 +1,7 @@
-import { runtime } from '../core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
-import { GAMS_CONFIG_PATH, loadDefaultGamsConfig, validateGamsConfig } from '../core/gams-config.js'
-import { createWriteInput } from '../util/fs.js'
+import { runtime } from '/core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { GAMS_CONFIG_PATH, loadDefaultGamsConfig, validateGamsConfig } from '/core/gams-config.js'
+import { createWriteInput } from '/util/fs.js'
 
 const decoder = new TextDecoder()
 

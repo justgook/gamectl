@@ -1,6 +1,6 @@
-import { runtime } from '../core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
-import { createWriteInput } from '../util/fs.js'
+import { runtime } from '/core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { createWriteInput } from '/util/fs.js'
 
 const textDecoder = new TextDecoder()
 

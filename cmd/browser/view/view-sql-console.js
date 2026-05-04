@@ -1,6 +1,6 @@
-import { runtime } from '../core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
-import { parseCSVLines } from '../util/csv.js'
+import { runtime } from '/core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { parseCSVLines } from '/util/csv.js'
 
 const textDecoder = new TextDecoder()
 
@@ -14,7 +14,7 @@ function isQueryStatement(sql) {
     || normalized.startsWith('PRAGMA')
     || normalized.startsWith('EXPLAIN')
     || normalized.startsWith('WITH')
-  }
+}
 
 function formatCsvAsTable(csv) {
   const rows = parseCSVLines(String(csv || '').trim())
