@@ -342,8 +342,24 @@
             "url": "/view/view-tree.js"
           },
           {
+            "path": "view/view-animation.js",
+            "url": "/view/view-animation.js"
+          },
+          {
+            "path": "view/view-font.js",
+            "url": "/view/view-font.js"
+          },
+          {
             "path": "view/view-bullet.js",
             "url": "/view/view-bullet.js"
+          },
+          {
+            "path": "view/view-particle.js",
+            "url": "/view/view-particle.js"
+          },
+          {
+            "path": "view/view-game-runner.js",
+            "url": "/view/view-game-runner.js"
           },
           {
             "path": "theme/current.css",
@@ -402,9 +418,33 @@
       }
     ],
     "views": {
+      "view-animation": {
+        "url": "builtin/view/view-animation.js",
+        "label": "Animation",
+        "group": "TODO",
+        "internal": false
+      },
+      "view-font": {
+        "url": "builtin/view/view-font.js",
+        "label": "Artery Font",
+        "group": "TODO",
+        "internal": false
+      },
       "view-bullet": {
         "url": "builtin/view/view-bullet.js",
         "label": "BulletML",
+        "group": "TODO",
+        "internal": false
+      },
+      "view-particle": {
+        "url": "builtin/view/view-particle.js",
+        "label": "Particle",
+        "group": "TODO",
+        "internal": false
+      },
+      "view-game-runner": {
+        "url": "builtin/view/view-game-runner.js",
+        "label": "Game Runner",
         "group": "TODO",
         "internal": false
       },
