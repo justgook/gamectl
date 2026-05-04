@@ -10,8 +10,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '../../..')
 const wasmPath = path.join(repoRoot, 'build.nosync/plugins/respack.wasm')
 const schemaPath = path.join(repoRoot, 'plugins/respack/testdata/simple.respack.json')
-const game2SchemaPath = path.join(repoRoot, 'cmd/browser/demo/game2.rspk.json')
-const atlasPath = path.join(repoRoot, 'cmd/browser/demo/assets/the_atlas.qoi')
+const game2SchemaPath = path.join(repoRoot, 'demo/game2.rspk.json')
+const atlasPath = path.join(repoRoot, 'demo/assets/the_atlas.qoi')
 const tempDir = path.join(repoRoot, 'build.nosync/respack-e2e')
 
 function toArrayBuffer(buffer) {

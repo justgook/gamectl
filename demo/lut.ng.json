@@ -5,7 +5,7 @@
     "x": 1162,
     "y": 290,
     "name": "Tilemap Scaler",
-    "codePath": "builtin/assets/ng/nodegraph2/pipeline-tilemap-scaler.lua",
+    "codePath": "demo/ng/presets/pipeline-tilemap-scaler.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -65,7 +65,7 @@
     "x": 516,
     "y": 309,
     "name": "World Tree Generator",
-    "codePath": "builtin/assets/ng/nodegraph2/pipeline-world-tree.lua",
+    "codePath": "demo/ng/presets/pipeline-world-tree.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -119,7 +119,7 @@
     "x": 835,
     "y": 285,
     "name": "Minimap Generator",
-    "codePath": "builtin/assets/ng/nodegraph2/pipeline-create-minimap.lua",
+    "codePath": "demo/ng/presets/pipeline-create-minimap.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -199,7 +199,7 @@
     "x": 1428,
     "y": 244,
     "name": "Tilemap Automap",
-    "codePath": "builtin/assets/ng/nodegraph2/pipeline-apply-automap.lua",
+    "codePath": "demo/ng/presets/pipeline-apply-automap.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -318,7 +318,7 @@
     "x": 1750,
     "y": 245,
     "name": "LUT Generator",
-    "codePath": "builtin/assets/ng/nodegraph2/lut-generator.lua",
+    "codePath": "demo/ng/presets/lut-generator.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [

@@ -348,9 +348,6 @@ func (r *Runtime) resolveLocal(path string) string {
 	if base == "" {
 		base, _ = os.Getwd()
 	}
-	if trimmed == "assets" || strings.HasPrefix(trimmed, "assets/") {
-		return filepath.Clean(filepath.Join(base, "cmd", "browser", trimmed))
-	}
 	return filepath.Clean(filepath.Join(base, trimmed))
 }
 

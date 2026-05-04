@@ -25,23 +25,16 @@ func main() {
 
 	browserDir := filepath.Join(cwd, "cmd", "browser")
 	buildDir := filepath.Join(cwd, buildDirName)
-	gamsConfigPath := filepath.Join(cwd, "gams.json")
 
 	fmt.Printf("GAMS Browser IDE Server\n")
 	fmt.Printf("   Current Working Directory: %s\n", cwd)
 	fmt.Printf("   Browser files: %s\n", browserDir)
-	fmt.Printf("   GAMS config:   %s (via /gams.json)\n", gamsConfigPath)
 	fmt.Printf("   Build files:   %s (via /plugins/)\n", buildDir)
-	fmt.Printf("   Assets:        %s (via /assets/)\n", filepath.Join(cwd, "assets"))
 	fmt.Printf("   Demo:          %s (via /demo/)\n", filepath.Join(cwd, "demo"))
 	fmt.Printf("   Starting server on http://localhost:%s\n\n", *port)
 
-	http.HandleFunc("/gams.json", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, gamsConfigPath)
-	})
 	http.Handle("/", http.FileServer(http.Dir(browserDir)))
 	serveFolder("plugins", buildDir)
-	serveFolder("assets", cwd)
 	serveFolder("demo", cwd)
 	handler := corsMiddleware(http.DefaultServeMux)
 

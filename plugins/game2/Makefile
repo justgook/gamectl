@@ -34,8 +34,8 @@ NATIVE_BIN ?= $(NATIVE_DIR)/game2
 ROOT_BUILD_DIR ?= ../../build.nosync
 PLUGIN_WASM ?= $(ROOT_BUILD_DIR)/plugins/game2.wasm
 SOKOL_NATIVE_PROFILE ?= debug
-ATLAS_ASSET ?= ../../cmd/browser/demo/assets/the_atlas.qoi
-LUT_ASSET ?= ../../cmd/browser/assets/game/lut.qoi
+ATLAS_ASSET ?= ../../demo/assets/the_atlas.qoi
+LUT_ASSET ?= ../../demo/assets/lut.qoi
 
 SHADER_SOURCES := $(shell find . -name '*.glsl' -print | LC_ALL=C sort | sed 's#^\./##' | tr '\n' ' ')
 

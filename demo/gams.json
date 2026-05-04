@@ -25,178 +25,182 @@
             "url": "/demo/ng/tilemaps.lua"
           },
           {
+            "path": "ng/presets/array.lua",
+            "url": "/demo/ng/presets/array.lua"
+          },
+          {
+            "path": "ng/presets/image-atlas.lua",
+            "url": "/demo/ng/presets/image-atlas.lua"
+          },
+          {
+            "path": "ng/presets/image-flipy.lua",
+            "url": "/demo/ng/presets/image-flipy.lua"
+          },
+          {
+            "path": "ng/presets/image-open.lua",
+            "url": "/demo/ng/presets/image-open.lua"
+          },
+          {
+            "path": "ng/presets/image-wrap.lua",
+            "url": "/demo/ng/presets/image-wrap.lua"
+          },
+          {
+            "path": "ng/presets/image-write.lua",
+            "url": "/demo/ng/presets/image-write.lua"
+          },
+          {
+            "path": "ng/presets/initial-node-code.lua",
+            "url": "/demo/ng/presets/initial-node-code.lua"
+          },
+          {
+            "path": "ng/presets/lut-generator.lua",
+            "url": "/demo/ng/presets/lut-generator.lua"
+          },
+          {
+            "path": "ng/presets/pack-rects.lua",
+            "url": "/demo/ng/presets/pack-rects.lua"
+          },
+          {
+            "path": "ng/presets/pick.lua",
+            "url": "/demo/ng/presets/pick.lua"
+          },
+          {
+            "path": "ng/presets/pipeline-apply-automap.lua",
+            "url": "/demo/ng/presets/pipeline-apply-automap.lua"
+          },
+          {
+            "path": "ng/presets/pipeline-assign-biomes.lua",
+            "url": "/demo/ng/presets/pipeline-assign-biomes.lua"
+          },
+          {
+            "path": "ng/presets/pipeline-assign-keys-locks.lua",
+            "url": "/demo/ng/presets/pipeline-assign-keys-locks.lua"
+          },
+          {
+            "path": "ng/presets/pipeline-create-minimap.lua",
+            "url": "/demo/ng/presets/pipeline-create-minimap.lua"
+          },
+          {
+            "path": "ng/presets/pipeline-tilemap-scaler.lua",
+            "url": "/demo/ng/presets/pipeline-tilemap-scaler.lua"
+          },
+          {
+            "path": "ng/presets/pipeline-world-tree.lua",
+            "url": "/demo/ng/presets/pipeline-world-tree.lua"
+          },
+          {
+            "path": "ng/presets/read-file.lua",
+            "url": "/demo/ng/presets/read-file.lua"
+          },
+          {
+            "path": "ng/presets/remap.lua",
+            "url": "/demo/ng/presets/remap.lua"
+          },
+          {
+            "path": "ng/presets/respack-build.lua",
+            "url": "/demo/ng/presets/respack-build.lua"
+          },
+          {
+            "path": "ng/presets/respack-generate-odin.lua",
+            "url": "/demo/ng/presets/respack-generate-odin.lua"
+          },
+          {
+            "path": "ng/presets/sql-query.lua",
+            "url": "/demo/ng/presets/sql-query.lua"
+          },
+          {
+            "path": "ng/presets/uvs.lua",
+            "url": "/demo/ng/presets/uvs.lua"
+          },
+          {
+            "path": "ng/presets/zip.lua",
+            "url": "/demo/ng/presets/zip.lua"
+          },
+          {
+            "path": "ng/atlas-mtsdf.json",
+            "url": "/demo/ng/atlas-mtsdf.json"
+          },
+          {
+            "path": "ng/atlas-mtsdf.png",
+            "url": "/demo/ng/atlas-mtsdf.png"
+          },
+          {
+            "path": "ng/nine.png",
+            "url": "/demo/ng/nine.png"
+          },
+          {
+            "path": "ng/nine-active-selected.png",
+            "url": "/demo/ng/nine-active-selected.png"
+          },
+          {
+            "path": "ng/nine-error.png",
+            "url": "/demo/ng/nine-error.png"
+          },
+          {
+            "path": "ng/nine-hover.png",
+            "url": "/demo/ng/nine-hover.png"
+          },
+          {
+            "path": "ng/nine-processing.png",
+            "url": "/demo/ng/nine-processing.png"
+          },
+          {
+            "path": "ng/nine-selected.png",
+            "url": "/demo/ng/nine-selected.png"
+          },
+          {
+            "path": "ng/nine-selected-error.png",
+            "url": "/demo/ng/nine-selected-error.png"
+          },
+          {
+            "path": "ng/nine-selected-processing.png",
+            "url": "/demo/ng/nine-selected-processing.png"
+          },
+          {
+            "path": "ng/nine-selected-success.png",
+            "url": "/demo/ng/nine-selected-success.png"
+          },
+          {
+            "path": "ng/nine-success.png",
+            "url": "/demo/ng/nine-success.png"
+          },
+          {
+            "path": "ng/port-empty.png",
+            "url": "/demo/ng/port-empty.png"
+          },
+          {
+            "path": "ng/port-full.png",
+            "url": "/demo/ng/port-full.png"
+          },
+          {
+            "path": "ng/run.lua",
+            "url": "/demo/ng/run.lua"
+          },
+          {
+            "path": "ng/template.lua",
+            "url": "/demo/ng/template.lua"
+          },
+          {
+            "path": "keys/save-active-view.lua",
+            "url": "/demo/keys/save-active-view.lua"
+          },
+          {
+            "path": "data.rspk",
+            "url": "/demo/data.rspk"
+          },
+          {
             "path": "assets/the_atlas.qoi",
             "url": "/demo/assets/the_atlas.qoi"
           },
           {
-            "path": "assets/rules.qoi",
-            "url": "/demo/assets/rules.qoi"
+            "path": "tilemap/rules.qoi",
+            "url": "/demo/tilemap/rules.qoi"
           }
         ]
       },
       "builtin": {
         "driver": "http",
         "files": [
-          {
-            "path": "assets/ng/atlas-mtsdf.json",
-            "url": "/assets/ng/atlas-mtsdf.json"
-          },
-          {
-            "path": "assets/ng/atlas-mtsdf.png",
-            "url": "/assets/ng/atlas-mtsdf.png"
-          },
-          {
-            "path": "assets/ng/nine.png",
-            "url": "/assets/ng/nine.png"
-          },
-          {
-            "path": "assets/ng/nine-active-selected.png",
-            "url": "/assets/ng/nine-active-selected.png"
-          },
-          {
-            "path": "assets/ng/nine-error.png",
-            "url": "/assets/ng/nine-error.png"
-          },
-          {
-            "path": "assets/ng/nine-hover.png",
-            "url": "/assets/ng/nine-hover.png"
-          },
-          {
-            "path": "assets/ng/nine-processing.png",
-            "url": "/assets/ng/nine-processing.png"
-          },
-          {
-            "path": "assets/ng/nine-selected.png",
-            "url": "/assets/ng/nine-selected.png"
-          },
-          {
-            "path": "assets/ng/nine-selected-error.png",
-            "url": "/assets/ng/nine-selected-error.png"
-          },
-          {
-            "path": "assets/ng/nine-selected-processing.png",
-            "url": "/assets/ng/nine-selected-processing.png"
-          },
-          {
-            "path": "assets/ng/nine-selected-success.png",
-            "url": "/assets/ng/nine-selected-success.png"
-          },
-          {
-            "path": "assets/ng/nine-success.png",
-            "url": "/assets/ng/nine-success.png"
-          },
-          {
-            "path": "assets/ng/nodegraph2/array.lua",
-            "url": "/assets/ng/nodegraph2/array.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/image-atlas.lua",
-            "url": "/assets/ng/nodegraph2/image-atlas.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/image-flipy.lua",
-            "url": "/assets/ng/nodegraph2/image-flipy.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/image-open.lua",
-            "url": "/assets/ng/nodegraph2/image-open.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/image-wrap.lua",
-            "url": "/assets/ng/nodegraph2/image-wrap.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/image-write.lua",
-            "url": "/assets/ng/nodegraph2/image-write.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/initial-node-code.lua",
-            "url": "/assets/ng/nodegraph2/initial-node-code.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/lut-generator.lua",
-            "url": "/assets/ng/nodegraph2/lut-generator.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/pack-rects.lua",
-            "url": "/assets/ng/nodegraph2/pack-rects.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/pick.lua",
-            "url": "/assets/ng/nodegraph2/pick.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/pipeline-apply-automap.lua",
-            "url": "/assets/ng/nodegraph2/pipeline-apply-automap.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/pipeline-assign-biomes.lua",
-            "url": "/assets/ng/nodegraph2/pipeline-assign-biomes.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/pipeline-assign-keys-locks.lua",
-            "url": "/assets/ng/nodegraph2/pipeline-assign-keys-locks.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/pipeline-create-minimap.lua",
-            "url": "/assets/ng/nodegraph2/pipeline-create-minimap.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/pipeline-tilemap-scaler.lua",
-            "url": "/assets/ng/nodegraph2/pipeline-tilemap-scaler.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/pipeline-world-tree.lua",
-            "url": "/assets/ng/nodegraph2/pipeline-world-tree.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/read-file.lua",
-            "url": "/assets/ng/nodegraph2/read-file.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/remap.lua",
-            "url": "/assets/ng/nodegraph2/remap.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/respack-build.lua",
-            "url": "/assets/ng/nodegraph2/respack-build.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/respack-generate-odin.lua",
-            "url": "/assets/ng/nodegraph2/respack-generate-odin.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/sql-query.lua",
-            "url": "/assets/ng/nodegraph2/sql-query.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/uvs.lua",
-            "url": "/assets/ng/nodegraph2/uvs.lua"
-          },
-          {
-            "path": "assets/ng/nodegraph2/zip.lua",
-            "url": "/assets/ng/nodegraph2/zip.lua"
-          },
-          {
-            "path": "assets/ng/port-empty.png",
-            "url": "/assets/ng/port-empty.png"
-          },
-          {
-            "path": "assets/ng/port-full.png",
-            "url": "/assets/ng/port-full.png"
-          },
-          {
-            "path": "assets/ng/run.lua",
-            "url": "/assets/ng/run.lua"
-          },
-          {
-            "path": "assets/ng/template.lua",
-            "url": "/assets/ng/template.lua"
-          },
-          {
-            "path": "assets/keys/save-active-view.lua",
-            "url": "/assets/keys/save-active-view.lua"
-          },
           {
             "path": "plugins/ai_agent/index.js",
             "url": "/plugins/ai_agent/index.js"
@@ -269,16 +273,24 @@
     "keys": [
       {
         "key": "mod+s",
-        "script": "builtin/assets/keys/save-active-view.lua",
+        "script": "demo/keys/save-active-view.lua",
         "allowInput": true
       },
       {
         "key": "escape",
-        "call": ["activeView.id", "clearSelection", "{}"]
+        "call": [
+          "activeView.id",
+          "clearSelection",
+          "{}"
+        ]
       },
       {
         "key": "mod+r",
-        "call": ["activeView.id", "run", "{}"]
+        "call": [
+          "activeView.id",
+          "run",
+          "{}"
+        ]
       }
     ]
   },

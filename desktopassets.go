@@ -10,7 +10,7 @@ import "embed"
 //go:embed cmd/browser/MaterialSymbolsRounded*.woff2
 //go:embed cmd/browser/reset.css
 //go:embed cmd/browser/core/**
-//go:embed cmd/browser/demo/**
+//go:embed demo/**
 //go:embed cmd/browser/fonts/**
 //go:embed cmd/browser/themes/**
 //go:embed cmd/browser/ui-plugins/**
