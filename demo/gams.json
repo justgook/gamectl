@@ -322,10 +322,6 @@
             "url": "/view/view-setting-plugins.js"
           },
           {
-            "path": "view/view-setting-theme.js",
-            "url": "/view/view-setting-theme.js"
-          },
-          {
             "path": "view/view-sql-console.js",
             "url": "/view/view-sql-console.js"
           },
@@ -344,6 +340,34 @@
           {
             "path": "view/view-tree.js",
             "url": "/view/view-tree.js"
+          },
+          {
+            "path": "theme/current.css",
+            "url": "/themes/current.css"
+          },
+          {
+            "path": "theme/empty.css",
+            "url": "/themes/empty.css"
+          },
+          {
+            "path": "theme/neon.css",
+            "url": "/themes/neon.css"
+          },
+          {
+            "path": "theme/obsidian.css",
+            "url": "/themes/obsidian.css"
+          },
+          {
+            "path": "theme/the7.css",
+            "url": "/themes/the7.css"
+          },
+          {
+            "path": "theme/the98.css",
+            "url": "/themes/the98.css"
+          },
+          {
+            "path": "theme/thexp.css",
+            "url": "/themes/thexp.css"
           }
         ]
       }
@@ -672,12 +696,6 @@
         "group": "Settings",
         "internal": false
       },
-      "view-setting-theme": {
-        "url": "builtin/view/view-setting-theme.js",
-        "label": "Setting Theme",
-        "group": "Settings",
-        "internal": false
-      },
       "view-code": {
         "url": "builtin/view/view-code.js",
         "label": "Code",
@@ -723,6 +741,9 @@
         "label": "Tilemap Settings",
         "internal": true
       }
+    },
+    "theme": {
+      "path": "builtin/theme/the98.css"
     }
   },
   "plugins": [

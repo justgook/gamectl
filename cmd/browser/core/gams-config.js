@@ -30,6 +30,14 @@ export function validateGamsConfig(config, source) {
     if (config.ui.keys != null && !Array.isArray(config.ui.keys)) {
       throw new Error(`${source} ui.keys must be an array`)
     }
+    if (config.ui.theme != null) {
+      if (typeof config.ui.theme !== 'object' || Array.isArray(config.ui.theme)) {
+        throw new Error(`${source} ui.theme must be an object`)
+      }
+      if (typeof config.ui.theme.path !== 'string' || config.ui.theme.path.length === 0) {
+        throw new Error(`${source} ui.theme.path must be a non-empty string`)
+      }
+    }
     if (config.ui.views != null && (typeof config.ui.views !== 'object' || Array.isArray(config.ui.views))) {
       throw new Error(`${source} ui.views must be an object`)
     }
