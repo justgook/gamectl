@@ -1,6 +1,6 @@
-import { runtime } from '../core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
-import { parseCSVLines } from '../util/csv.js'
+import { runtime } from '/core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { parseCSVLines } from '/util/csv.js'
 
 const textDecoder = new TextDecoder()
 const DEFAULT_TILE_SIZE = 16

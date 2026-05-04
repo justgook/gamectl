@@ -1,5 +1,5 @@
-import { runtime } from '../core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '../util/view-plugin.js'
+import { runtime } from '/core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 
 const FS_STORAGE_KEY = 'browser.fs'
 const WEBDAV_URL_STORAGE_KEY = 'browser.fs.webdav.url'

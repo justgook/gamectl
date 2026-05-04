@@ -21,34 +21,26 @@ const DEFAULT_LAYOUT = `
   <view-ng setup="0:v:50" data-source="/demo/assets.ng.json" />
 `
 
-const BUILTIN_VIEW_IMPORT_URLS = new Map([
-  ['files-default', './view/files-default.js'],
-  ['files-json', './view/files-json.js'],
-  ['files-rename', './view/files-rename.js'],
-  ['sql-table-editor', './view/sql-table-editor.js'],
-  ['tilemap-settings', './view/tilemap-settings.js'],
-  ['view-ai', './view/view-ai.js'],
-  ['view-code', './view/view-code.js'],
-  ['view-files', './view/view-files.js'],
-  ['view-ng-node', './view/view-ng-node.js'],
-  ['view-ng', './view/view-ng.js'],
-  ['view-props', './view/view-props.js'],
-  ['view-setting-fs', './view/view-setting-fs.js'],
-  ['view-setting-plugins', './view/view-setting-plugins.js'],
-  ['view-sql-console', './view/view-sql-console.js'],
-  ['view-sql', './view/view-sql.js'],
-  ['view-tilemap', './view/view-tilemap.js'],
-  ['view-tree-parent', './view/view-tree-parent.js'],
-  ['view-tree', './view/view-tree.js'],
-])
-
 function decodeOutput(result) {
   return new TextDecoder().decode(result?.output || new Uint8Array())
 }
 
 async function importJsFromBytes(bytes) {
-  const blob = new Blob([bytes], { type: 'text/javascript' })
+  let source = new TextDecoder().decode(bytes)
+
+  source = source.replace(
+    /from\s+["'](\/[^"']+)["']/g,
+    (_, path) => `from "${new URL(path, location.origin).href}"`
+  )
+
+  source = source.replace(
+    /import\s*\(\s*["'](\/[^"']+)["']\s*\)/g,
+    (_, path) => `import("${new URL(path, location.origin).href}")`
+  )
+
+  const blob = new Blob([source], { type: "text/javascript" })
   const url = URL.createObjectURL(blob)
+
   try {
     return await import(url)
   } finally {
@@ -67,17 +59,13 @@ function createConfiguredViewRegistry(config, runtime) {
       internal: viewConfig.internal === true,
       async load() {
         if (customElements.get(tag)) return
-        const builtinUrl = BUILTIN_VIEW_IMPORT_URLS.get(tag)
-        if (builtinUrl) {
-          await import(builtinUrl)
-        } else {
-          if (typeof viewConfig.url !== 'string' || viewConfig.url.length === 0) throw new Error(`gams config ui.views.${tag}.url is required`)
-          const readResult = await runtime.call('fs', 'read', viewConfig.url)
-          if (readResult.returnCode !== 0) throw new Error(decodeOutput(readResult) || `fs.read failed for ${viewConfig.url}`)
-          await importJsFromBytes(readResult.output)
-        }
+        if (typeof viewConfig.url !== 'string' || viewConfig.url.length === 0) throw new Error(`gams config ui.views.${tag}.url is required`)
+        const readResult = await runtime.call('fs', 'read', viewConfig.url)
+        if (readResult.returnCode !== 0) throw new Error(decodeOutput(readResult) || `fs.read failed for ${viewConfig.url}`)
+        await importJsFromBytes(readResult.output)
         if (!customElements.get(tag)) throw new Error(`view '${tag}' did not register custom element '${tag}'`)
       },
+
       async create() {
         await this.load()
         const el = document.createElement(tag)

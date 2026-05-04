@@ -1,7 +1,7 @@
-import { runtime } from '../core/runtime.js'
-import { parseCSVLines } from '../util/csv.js'
-import { UndoHistory } from '../util/undo.js'
-import { ViewCanvasBase } from '../util/view-canvas-base.js'
+import { runtime } from '/core/runtime.js'
+import { parseCSVLines } from '/util/csv.js'
+import { UndoHistory } from '/util/undo.js'
+import { ViewCanvasBase } from '/util/view-canvas-base.js'
 
 const TOOL = {
   SELECT: 0,
