@@ -189,16 +189,24 @@
             "url": "/demo/keys/save-active-view.lua"
           },
           {
-            "path": "data.rspk",
-            "url": "/demo/data.rspk"
-          },
-          {
             "path": "assets/the_atlas.qoi",
             "url": "/demo/assets/the_atlas.qoi"
           },
           {
             "path": "tilemap/rules.qoi",
             "url": "/demo/tilemap/rules.qoi"
+          },
+          {
+            "path": "game-runner/view-game-runner.js",
+            "url": "/demo/game-runner/view-game-runner.js"
+          },
+          {
+            "path": "game-runner/gl-bridge.js",
+            "url": "/demo/game-runner/gl-bridge.js"
+          },
+          {
+            "path": "game-runner/README.md",
+            "url": "/demo/game-runner/README.md"
           }
         ]
       },
@@ -216,6 +224,10 @@
           {
             "path": "plugins/echo.wasm",
             "url": "/plugins/echo.wasm"
+          },
+          {
+            "path": "plugins/game2.wasm",
+            "url": "/plugins/game2.wasm"
           },
           {
             "path": "plugins/layout2.wasm",
@@ -358,10 +370,6 @@
             "url": "/view/view-particle.js"
           },
           {
-            "path": "view/view-game-runner.js",
-            "url": "/view/view-game-runner.js"
-          },
-          {
             "path": "theme/current.css",
             "url": "/themes/current.css"
           },
@@ -443,10 +451,17 @@
         "internal": false
       },
       "view-game-runner": {
-        "url": "builtin/view/view-game-runner.js",
+        "url": "demo/game-runner/view-game-runner.js",
         "label": "Game Runner",
-        "group": "TODO",
-        "internal": false
+        "group": "Demo",
+        "internal": false,
+        "config": {
+          "wasm": "builtin/plugins/game2.wasm",
+          "glBridge": "demo/game-runner/gl-bridge.js",
+          "assetSources": {
+            "/game/data.rspk": "/data.rspk"
+          }
+        }
       },
       "view-ng": {
         "config": {

@@ -1,6 +1,6 @@
-import { toast } from "../systems/toast.js"
-import { parseCSVLines } from "../util/csv.js"
-import { GLBridge } from "../util/gl-bridge.js"
+import { runtime } from '/core/runtime.js'
+import { require } from '/util/require.js'
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 
 const FALLBACK_EVENT_OFFSETS = {
   frame_count: 0,
@@ -23,27 +23,33 @@ const ACTION_LEFT = 4
 const ACTION_1 = 5
 const ACTION_2 = 6
 
-const ACTION_BY_EVENT_NAME = new Map([
-  ['game:action:left', ACTION_LEFT],
-  ['game:action:right', ACTION_RIGHT],
-  ['game:action:up', ACTION_UP],
-  ['game:action:down', ACTION_DOWN],
-  ['game:action:action1', ACTION_1],
-  ['game:action:action2', ACTION_2],
+const ACTION_BY_KEY = new Map([
+  ['w', ACTION_UP],
+  ['arrowup', ACTION_UP],
+  ['d', ACTION_RIGHT],
+  ['arrowright', ACTION_RIGHT],
+  ['s', ACTION_DOWN],
+  ['arrowdown', ACTION_DOWN],
+  ['a', ACTION_LEFT],
+  ['arrowleft', ACTION_LEFT],
+  ['j', ACTION_1],
+  ['z', ACTION_1],
+  ['k', ACTION_2],
+  ['x', ACTION_2],
 ])
 
-const GAME_RUNNER_ASSET_SOURCES_TABLE = 'game_runner_asset_sources'
+const textDecoder = new TextDecoder()
+const textEncoder = new TextEncoder()
 
-function escapeAttribute(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+function decodeOutput(result) {
+  return textDecoder.decode(result?.output || new Uint8Array())
 }
 
-function escapeSqlString(value) {
-  return String(value ?? '').replace(/'/g, "''")
+function encodeResult(value) {
+  return {
+    returnCode: 0,
+    output: textEncoder.encode(JSON.stringify(value ?? null)),
+  }
 }
 
 function writeU64(view, offset, value) {
@@ -53,41 +59,31 @@ function writeU64(view, offset, value) {
   view.setUint32(offset + 4, hi, true)
 }
 
-function createAssetSources(entries = []) {
-  return new Map([...entries])
+function assertOk(result, label) {
+  if (Number(result?.returnCode || 0) !== 0) throw new Error(`${label} failed: ${decodeOutput(result)}`)
 }
 
-export default class ViewGameRunner extends HTMLElement {
-  static get viewMeta() {
-    return { displayName: 'Game Runner', category: 'Canvas' }
-  }
+function normalizeConfig(config) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('view-game-runner config is required')
+  if (typeof config.wasm !== 'string' || config.wasm.length === 0) throw new Error('view-game-runner config.wasm is required')
+  if (typeof config.glBridge !== 'string' || config.glBridge.length === 0) throw new Error('view-game-runner config.glBridge is required')
+  const assetSources = config.assetSources
+  if (typeof assetSources !== 'object' || assetSources == null || Array.isArray(assetSources)) throw new Error('view-game-runner config.assetSources must be an object')
+  return { wasm: config.wasm, glBridge: config.glBridge, assetSources, pointerEvents: config.pointerEvents === true }
+}
 
-  static get keybindings() {
-    return [
-      { id: 'action-left', eventName: 'game:action:left', description: 'Move left', defaultKeys: 'a', eventType: 'both' },
-      { id: 'action-right', eventName: 'game:action:right', description: 'Move right', defaultKeys: 'd', eventType: 'both' },
-      { id: 'action-up', eventName: 'game:action:up', description: 'Move up', defaultKeys: 'w', eventType: 'both' },
-      { id: 'action-down', eventName: 'game:action:down', description: 'Move down', defaultKeys: 's', eventType: 'both' },
-      { id: 'action-1', eventName: 'game:action:action1', description: 'Primary action', defaultKeys: 'j', eventType: 'both' },
-      { id: 'action-2', eventName: 'game:action:action2', description: 'Secondary action', defaultKeys: 'k', eventType: 'both' },
-    ]
-  }
-
+export class ViewGameRunner extends HTMLElement {
   constructor() {
     super()
-    this.canvas = document.createElement('canvas')
-    this.canvas.style.display = 'block'
-    this.canvas.style.width = '100%'
-    this.canvas.style.height = '100%'
-
+    this.runtime = runtime
+    this.canvas = null
     this.gl = null
     this.glBridge = null
-
-    this.pluginHandle = null
+    this.instance = null
     this.exports = null
     this.memory = null
     this.isPaused = false
-    this.enableInputBridge = false
+    this.enablePointerBridge = false
 
     this._raf = 0
     this._eventOffsets = { ...FALLBACK_EVENT_OFFSETS }
@@ -95,62 +91,80 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventFrameCount = 0
     this._pressedActions = new Set()
     this._assetCache = new Map()
-    this._assetSources = createAssetSources()
-    this._textDecoder = new TextDecoder()
     this._headerControls = null
-    this._assetBtn = null
     this._playPauseBtn = null
-    this._reloadBtn = null
+    this._resizeObserver = new ResizeObserver(() => this._onResize())
 
-    this._resizeObserver = new ResizeObserver(() => {
-      this._onResize()
-    })
-
-    this._boundPointerDown = (e) => this.onPointerDown(e)
-    this._boundPointerMove = (e) => this.onPointerMove(e)
-    this._boundPointerUp = (e) => this.onPointerUp(e)
-    this._boundWheel = (e) => this.onWheel(e)
+    this._boundPointerDown = (event) => this.onPointerDown(event)
+    this._boundPointerMove = (event) => this.onPointerMove(event)
+    this._boundPointerUp = (event) => this.onPointerUp(event)
+    this._boundWheel = (event) => this.onWheel(event)
+    this._boundKeyDown = (event) => this.onKey(event, true)
+    this._boundKeyUp = (event) => this.onKey(event, false)
   }
 
   connectedCallback() {
-    this.style.display = 'block'
-    this.style.position = 'relative'
-    this.style.overflow = 'hidden'
-    this.style.flex = 1
+    this.style.display = 'contents'
+    this.innerHTML = '<canvas data-element="canvas"></canvas>'
+    this.canvas = this.querySelector('canvas[data-element="canvas"]')
+    if (!(this.canvas instanceof HTMLCanvasElement)) throw new Error('view-game-runner missing canvas')
 
-    if (!this.canvas.isConnected) {
-      this.appendChild(this.canvas)
-    }
+    this.canvas.style.display = 'block'
+    this.canvas.style.width = '100%'
+    this.canvas.style.height = '100%'
+    this.canvas.style.minWidth = '0'
+    this.canvas.style.minHeight = '0'
+    this.canvas.style.maxWidth = '100%'
+    this.canvas.style.maxHeight = '100%'
+    this.canvas.style.justifySelf = 'stretch'
+    this.canvas.style.alignSelf = 'stretch'
+    this.canvas.style.touchAction = 'none'
+    this.canvas.tabIndex = 0
+
     this._mountHeaderControls()
-    this.setupInputHandlers()
-    this._resizeObserver.observe(this)
-    this._initialize().catch((error) => {
+    this._setupInputHandlers()
+    this._resizeObserver.observe(this.parentElement || this.canvas)
+    registerViewPlugin(this, {
+      run: async () => {
+        this.isPaused = false
+        this._syncControlState()
+        return encodeResult({ ok: true, paused: this.isPaused })
+      },
+      reload: async () => {
+        await this.reload()
+        return encodeResult({ ok: true })
+      },
+    })
+
+    this._boot().catch((error) => {
       console.error('[game-runner] boot failed:', error)
+      void this._toast('error', `Game runner boot failed: ${String(error?.message || error)}`)
     })
   }
 
   disconnectedCallback() {
     this._resizeObserver.disconnect()
     this._releaseAllActions()
-    this.teardownInputHandlers()
+    this._teardownInputHandlers()
     this._unmountHeaderControls()
-
     this._stopLoop()
-    this._teardownPlugin()
+    this._teardownWasm()
+    void unregisterViewPlugin(this)
   }
 
-  async _initialize() {
-    await this._loadAssetSourcesFromStorage()
+  async reload() {
+    this._stopLoop()
+    this._teardownWasm()
+    this._eventBufferPtr = 0
+    this._eventFrameCount = 0
     await this._boot()
   }
 
   async _boot() {
-    if (this.pluginHandle) return
-    if (!window.pluginManager) {
-      throw new Error('pluginManager is not available')
-    }
-
-    await this._preloadAssets()
+    if (this.instance) return
+    const config = normalizeConfig(this.config || this.viewConfig?.config)
+    this.enablePointerBridge = config.pointerEvents
+    await this._preloadAssets(config.assetSources)
 
     const gl = this.canvas.getContext('webgl2', {
       alpha: false,
@@ -161,37 +175,33 @@ export default class ViewGameRunner extends HTMLElement {
       preserveDrawingBuffer: false,
       powerPreference: 'high-performance',
     })
-
-    if (!gl) {
-      this.textContent = 'WebGL2 not supported'
-      return
-    }
+    if (!gl) throw new Error('WebGL2 is not supported')
 
     this.gl = gl
     this._resizeCanvas()
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height)
 
+    const { GLBridge } = await require(config.glBridge)
     this.glBridge = new GLBridge(gl, null)
-    const glImports = this.glBridge.createImportObject()
-    const assetImports = this._createAssetImports()
+
+    const wasmResult = await this.runtime.call('fs', 'read', config.wasm)
+    assertOk(wasmResult, `read game wasm '${config.wasm}'`)
 
     const importObject = {
       env: {
         js_canvas_width: () => this.canvas.width,
         js_canvas_height: () => this.canvas.height,
         js_webgl_framebuffer: () => 0,
-        ...assetImports,
-        ...glImports,
+        ...this._createAssetImports(),
+        ...this.glBridge.createImportObject(),
       },
     }
 
-    this.pluginHandle = await window.pluginManager.load({
-      name: 'game',
-      importObject,
-    })
-
-    this.exports = this.pluginHandle.exports
-    this.memory = this.pluginHandle.memory || this.exports?.memory || null
+    const instantiated = await WebAssembly.instantiate(wasmResult.output, importObject)
+    this.instance = instantiated.instance || instantiated
+    this.exports = this.instance.exports
+    this.memory = this.exports.memory
+    if (!(this.memory instanceof WebAssembly.Memory)) throw new Error('game wasm must export memory')
     this.glBridge.memory = this.memory
 
     this._eventOffsets = this._resolveEventOffsets()
@@ -199,9 +209,8 @@ export default class ViewGameRunner extends HTMLElement {
     this._eventFrameCount = 0
     this._pressedActions.clear()
 
-    if (typeof this.exports?.init !== 'function' || typeof this.exports?.frame !== 'function') {
-      throw new Error('plugin exports must include init() and frame()')
-    }
+    if (typeof this.exports.init !== 'function') throw new Error('game wasm must export init()')
+    if (typeof this.exports.frame !== 'function') throw new Error('game wasm must export frame()')
 
     this.exports.init()
     this.isPaused = false
@@ -214,66 +223,43 @@ export default class ViewGameRunner extends HTMLElement {
     this._stopLoop()
     const tick = () => {
       this._raf = requestAnimationFrame(tick)
+      if (this.isPaused) return
       try {
-        if (!this.isPaused) {
-          this.exports?.frame?.()
-        }
+        this.exports.frame()
       } catch (error) {
         console.error('[game-runner] frame failed:', error)
         this._stopLoop()
+        void this._toast('error', `Game frame failed: ${String(error?.message || error)}`)
       }
     }
     this._raf = requestAnimationFrame(tick)
   }
 
   _stopLoop() {
-    if (this._raf) {
-      cancelAnimationFrame(this._raf)
-      this._raf = 0
-    }
+    if (!this._raf) return
+    cancelAnimationFrame(this._raf)
+    this._raf = 0
   }
 
-  _teardownPlugin() {
-    try {
-      this.exports?.cleanup?.()
-    } catch (error) {
-      console.warn('[game-runner] cleanup failed:', error)
-    }
-
-    if (this.pluginHandle) {
-      window.pluginManager.unload(this.pluginHandle)
-      this.pluginHandle = null
-    }
-
+  _teardownWasm() {
+    if (this.exports && typeof this.exports.cleanup === 'function') this.exports.cleanup()
+    this.instance = null
     this.exports = null
     this.memory = null
-    this._assetCache.clear()
     this.glBridge = null
     this.gl = null
-  }
-
-  async _reloadPlugin() {
-    this._stopLoop()
-    this._teardownPlugin()
-    this._eventBufferPtr = 0
-    this._eventFrameCount = 0
-    await this._boot()
+    this._assetCache.clear()
   }
 
   _mountHeaderControls() {
     if (!this.parentElement || this._headerControls) return
-
     const controls = document.createElement('div')
     controls.setAttribute('slot', 'header-controls')
-    controls.style.display = 'flex'
-    controls.style.gap = '6px'
-    controls.style.alignItems = 'center'
+    controls.setAttribute('role', 'buttongroup')
+    controls.dataset.element = 'tool-actions'
 
     const playPauseBtn = document.createElement('button')
     playPauseBtn.type = 'button'
-    playPauseBtn.setAttribute('aria-label', 'Pause')
-    playPauseBtn.setAttribute('title', 'Pause')
-    playPauseBtn.innerHTML = '<i aria-hidden="true">pause</i>'
     playPauseBtn.addEventListener('click', () => {
       this.isPaused = !this.isPaused
       this._syncControlState()
@@ -285,289 +271,93 @@ export default class ViewGameRunner extends HTMLElement {
     reloadBtn.setAttribute('title', 'Reload')
     reloadBtn.innerHTML = '<i aria-hidden="true">refresh</i>'
     reloadBtn.addEventListener('click', () => {
-      this._reloadPlugin().catch((error) => {
+      this.reload().catch((error) => {
         console.error('[game-runner] reload failed:', error)
+        void this._toast('error', `Game runner reload failed: ${String(error?.message || error)}`)
       })
-    })
-
-    const assetsBtn = document.createElement('button')
-    assetsBtn.type = 'button'
-    assetsBtn.setAttribute('aria-label', 'Asset Sources')
-    assetsBtn.setAttribute('title', 'Asset Sources')
-    assetsBtn.innerHTML = '<i aria-hidden="true">inventory_2</i>'
-    assetsBtn.addEventListener('click', () => {
-      this.showAssetSourcesPopup()
     })
 
     controls.appendChild(playPauseBtn)
     controls.appendChild(reloadBtn)
-    controls.appendChild(assetsBtn)
     this.parentElement.appendChild(controls)
-
     this._headerControls = controls
-    this._assetBtn = assetsBtn
     this._playPauseBtn = playPauseBtn
-    this._reloadBtn = reloadBtn
     this._syncControlState()
   }
 
   _unmountHeaderControls() {
-    if (this._headerControls?.parentElement) {
-      this._headerControls.remove()
-    }
+    if (this._headerControls?.parentElement) this._headerControls.remove()
     this._headerControls = null
-    this._assetBtn = null
     this._playPauseBtn = null
-    this._reloadBtn = null
-  }
-
-  _getAssetSourceEntries() {
-    return Array.from(this._assetSources.entries()).map(([assetPath, source]) => ({ assetPath, source }))
-  }
-
-  async _loadAssetSourcesFromStorage() {
-    if (!window.pluginManager) {
-      this._assetSources = createAssetSources()
-      return
-    }
-
-    try {
-      const result = await window.pluginManager.call(
-        'sql',
-        'query',
-        `SELECT asset_path, source FROM ${GAME_RUNNER_ASSET_SOURCES_TABLE} ORDER BY asset_path`
-      )
-      const csv = this._textDecoder.decode(result.output || new Uint8Array())
-      const rows = parseCSVLines(csv.trim())
-      const entries = []
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i] || []
-        const assetPath = String(row[0] || '').trim()
-        const source = String(row[1] || '').trim()
-        if (!assetPath || !source) continue
-        entries.push([assetPath, source])
-      }
-
-      this._assetSources = createAssetSources(entries)
-    } catch (error) {
-      console.warn('[game-runner] failed to load asset sources from storage:', error)
-      this._assetSources = createAssetSources()
-    }
-  }
-
-  async _saveAssetSourcesToStorage(entries) {
-    const statements = ['BEGIN TRANSACTION', `DELETE FROM ${GAME_RUNNER_ASSET_SOURCES_TABLE}`]
-    for (const entry of entries) {
-      const assetPath = escapeSqlString(entry.assetPath)
-      const source = escapeSqlString(entry.source)
-      statements.push(
-        `INSERT INTO ${GAME_RUNNER_ASSET_SOURCES_TABLE} (asset_path, source, updated_at) VALUES ('${assetPath}', '${source}', datetime('now'))`
-      )
-    }
-    statements.push('COMMIT')
-    await window.pluginManager.call('sql', 'exec', statements.join(';\n'))
-  }
-
-  showAssetSourcesPopup() {
-    const popupManager = this.closest('popup-manager') || document.querySelector('popup-manager')
-    if (!popupManager) {
-      toast.error('Popup manager is not available.')
-      return
-    }
-
-    const form = document.createElement('form')
-    const draft = this._getAssetSourceEntries()
-    if (draft.length === 0) {
-      draft.push({ assetPath: '', source: '' })
-    }
-
-    const syncDraftFromForm = () => {
-      const formData = new FormData(form)
-      const assetPaths = formData.getAll('asset-path')
-      const sources = formData.getAll('asset-source')
-      draft.length = 0
-      for (let i = 0; i < Math.max(assetPaths.length, sources.length); i++) {
-        draft.push({
-          assetPath: String(assetPaths[i] || ''),
-          source: String(sources[i] || ''),
-        })
-      }
-    }
-
-    const renderForm = () => {
-      form.innerHTML = `
-        <p>Map game asset paths to local sources.</p>
-        <fieldset>
-          <legend>Asset sources</legend>
-          <ul>
-            ${draft.map((entry, index) => `
-              <li>
-                <input type="text" name="asset-path" value="${escapeAttribute(entry.assetPath)}" placeholder="/game/example.bin">
-                <input type="text" name="asset-source" value="${escapeAttribute(entry.source)}" placeholder="local:/example/file.bin">
-                <button type="submit" name="remove-entry-index" value="${index}" aria-label="Delete mapping ${index + 1}" title="Delete mapping"><i aria-hidden="true">delete</i></button>
-              </li>
-            `).join('')}
-          </ul>
-        </fieldset>
-        <footer>
-          <button type="submit" name="intent" value="add-entry"><i aria-hidden="true">add</i> Add mapping</button>
-          <button type="submit" name="intent" value="save" class="accent">Save</button>
-        </footer>
-      `
-    }
-
-    const popup = popupManager.showPopup({
-      title: 'Asset Sources',
-      content: form,
-      size: 'medium',
-    })
-
-    form.onsubmit = async (event) => {
-      event.preventDefault()
-      syncDraftFromForm()
-
-      const submitter = event.submitter
-      const formData = new FormData(form, submitter || undefined)
-      const intent = formData.has('remove-entry-index')
-        ? `remove-entry:${String(formData.get('remove-entry-index') || '')}`
-        : String(formData.get('intent') || 'save')
-
-      if (intent === 'add-entry') {
-        draft.push({ assetPath: '', source: '' })
-        renderForm()
-        return
-      }
-
-      if (intent.startsWith('remove-entry:')) {
-        const index = Number(intent.split(':')[1])
-        draft.splice(index, 1)
-        if (draft.length === 0) {
-          draft.push({ assetPath: '', source: '' })
-        }
-        renderForm()
-        return
-      }
-
-      const normalizedEntries = []
-      const seenAssetPaths = new Set()
-      for (const entry of draft) {
-        const assetPath = String(entry.assetPath || '').trim()
-        const source = String(entry.source || '').trim()
-        if (!assetPath && !source) continue
-        if (!assetPath || !source) {
-          toast.error('Each asset mapping needs both a key and a value.')
-          return
-        }
-        if (seenAssetPaths.has(assetPath)) {
-          toast.error(`Duplicate asset path: ${assetPath}`)
-          return
-        }
-        seenAssetPaths.add(assetPath)
-        normalizedEntries.push({ assetPath, source })
-      }
-
-      try {
-        await this._saveAssetSourcesToStorage(normalizedEntries)
-        this._assetSources = createAssetSources(normalizedEntries.map(({ assetPath, source }) => [assetPath, source]))
-        await this._reloadPlugin()
-        toast.success('Saved asset sources.')
-        popup.close()
-      } catch (error) {
-        toast.error(`Failed to save asset sources: ${String(error?.message || error)}`)
-      }
-    }
-
-    renderForm()
   }
 
   _syncControlState() {
-    if (this._playPauseBtn) {
-      const isPaused = this.isPaused
-      this._playPauseBtn.setAttribute('aria-label', isPaused ? 'Resume' : 'Pause')
-      this._playPauseBtn.setAttribute('title', isPaused ? 'Resume' : 'Pause')
-      this._playPauseBtn.innerHTML = isPaused
-        ? '<i aria-hidden="true">play_arrow</i>'
-        : '<i aria-hidden="true">pause</i>'
-    }
+    if (!this._playPauseBtn) return
+    this._playPauseBtn.setAttribute('aria-label', this.isPaused ? 'Resume' : 'Pause')
+    this._playPauseBtn.setAttribute('title', this.isPaused ? 'Resume' : 'Pause')
+    this._playPauseBtn.innerHTML = this.isPaused
+      ? '<i aria-hidden="true">play_arrow</i>'
+      : '<i aria-hidden="true">pause</i>'
   }
 
-  setupInputHandlers() {
-    this.canvas.tabIndex = 0
+  _setupInputHandlers() {
     this.canvas.addEventListener('pointerdown', this._boundPointerDown)
     this.canvas.addEventListener('pointermove', this._boundPointerMove)
     this.canvas.addEventListener('pointerup', this._boundPointerUp)
+    this.canvas.addEventListener('pointerleave', this._boundPointerUp)
     this.canvas.addEventListener('wheel', this._boundWheel, { passive: true })
+    this.canvas.addEventListener('keydown', this._boundKeyDown)
+    this.canvas.addEventListener('keyup', this._boundKeyUp)
   }
 
-  teardownInputHandlers() {
+  _teardownInputHandlers() {
+    if (!(this.canvas instanceof HTMLCanvasElement)) return
     this.canvas.removeEventListener('pointerdown', this._boundPointerDown)
     this.canvas.removeEventListener('pointermove', this._boundPointerMove)
     this.canvas.removeEventListener('pointerup', this._boundPointerUp)
+    this.canvas.removeEventListener('pointerleave', this._boundPointerUp)
     this.canvas.removeEventListener('wheel', this._boundWheel)
+    this.canvas.removeEventListener('keydown', this._boundKeyDown)
+    this.canvas.removeEventListener('keyup', this._boundKeyUp)
   }
 
   _onResize() {
     const gl = this.gl
     const { cssW, cssH, fbW, fbH } = this._resizeCanvas()
-    if (gl) {
-      gl.viewport(0, 0, fbW, fbH)
-    }
+    if (gl) gl.viewport(0, 0, fbW, fbH)
     this._dispatchResized(cssW, cssH, fbW, fbH)
   }
 
   _resizeCanvas() {
     const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 4))
-    const cssW = Math.max(1, Math.floor(this.clientWidth || 0))
-    const cssH = Math.max(1, Math.floor(this.clientHeight || 0))
+    const rect = this.canvas.getBoundingClientRect()
+    const cssW = Math.max(1, Math.floor(rect.width || this.canvas.clientWidth || 1))
+    const cssH = Math.max(1, Math.floor(rect.height || this.canvas.clientHeight || 1))
     const fbW = Math.max(1, Math.floor(cssW * dpr))
     const fbH = Math.max(1, Math.floor(cssH * dpr))
-
     if (this.canvas.width !== fbW) this.canvas.width = fbW
     if (this.canvas.height !== fbH) this.canvas.height = fbH
-
     return { cssW, cssH, fbW, fbH, dpr }
   }
 
-  async _preloadAssets() {
+  async _preloadAssets(assetSources) {
     this._assetCache.clear()
-
-    const entries = Array.from(this._assetSources.entries())
-    if (entries.length === 0) {
-      return
-    }
-
+    const entries = Object.entries(assetSources)
     await Promise.all(entries.map(async ([assetPath, source]) => {
-      try {
-        const result = await window.pluginManager.call('fs', 'read', source)
-        if (result.returnCode !== 0) {
-          const message = this._textDecoder.decode(result.output || new Uint8Array())
-          console.warn(`[game-runner] failed to preload ${assetPath} from ${source}: ${message}`)
-          return
-        }
-
-        const bytes = result.output instanceof Uint8Array
-          ? result.output
-          : new Uint8Array(result.output)
-        this._assetCache.set(assetPath, bytes)
-      } catch (error) {
-        console.warn(`[game-runner] failed to preload ${assetPath} from ${source}:`, error)
-      }
+      if (typeof source !== 'string' || source.length === 0) throw new Error(`asset source for '${assetPath}' must be a non-empty string`)
+      const result = await this.runtime.call('fs', 'read', source)
+      assertOk(result, `read game asset '${assetPath}' from '${source}'`)
+      this._assetCache.set(assetPath, result.output instanceof Uint8Array ? result.output : new Uint8Array(result.output))
     }))
   }
 
   _readWasmUtf8(ptr, len) {
-    if (!this.memory) return ''
-
     const start = Number(ptr) >>> 0
     const size = Number(len) >>> 0
     if (size === 0) return ''
-
     const end = start + size
-    if (end > this.memory.buffer.byteLength) {
-      return ''
-    }
-
-    return this._textDecoder.decode(new Uint8Array(this.memory.buffer, start, size))
+    if (end > this.memory.buffer.byteLength) throw new Error('game wasm utf8 read out of bounds')
+    return textDecoder.decode(new Uint8Array(this.memory.buffer, start, size))
   }
 
   _createAssetImports() {
@@ -575,43 +365,26 @@ export default class ViewGameRunner extends HTMLElement {
       js_log: (level, tagPtr, tagLen, messagePtr, messageLen) => {
         const tag = this._readWasmUtf8(tagPtr, tagLen)
         const message = this._readWasmUtf8(messagePtr, messageLen)
-        const prefix = tag ? `[${tag}]` : '[game2]'
-        if ((level >>> 0) >= 3) {
-          console.error(prefix, message)
-        } else if ((level >>> 0) === 2) {
-          console.warn(prefix, message)
-        } else if ((level >>> 0) === 0) {
-          console.debug(prefix, message)
-        } else {
-          console.info(prefix, message)
-        }
+        const prefix = tag ? `[${tag}]` : '[game]'
+        if ((level >>> 0) >= 3) console.error(prefix, message)
+        else if ((level >>> 0) === 2) console.warn(prefix, message)
+        else if ((level >>> 0) === 0) console.debug(prefix, message)
+        else console.info(prefix, message)
       },
-
       game_asset_size: (pathPtr, pathLen) => {
         const path = this._readWasmUtf8(pathPtr, pathLen)
-        if (!path) return -1
-
         const bytes = this._assetCache.get(path)
-        if (!bytes) return -1
-        return bytes.byteLength
+        return bytes ? bytes.byteLength : -1
       },
-
       game_asset_read: (pathPtr, pathLen, dstPtr, dstCap) => {
-        if (!this.memory) return -1
-
         const path = this._readWasmUtf8(pathPtr, pathLen)
-        if (!path) return -1
-
         const bytes = this._assetCache.get(path)
         if (!bytes) return -1
-
         const dst = Number(dstPtr) >>> 0
         const cap = Number(dstCap) >>> 0
         if (cap < bytes.byteLength) return -2
-
         const end = dst + bytes.byteLength
         if (end > this.memory.buffer.byteLength) return -3
-
         new Uint8Array(this.memory.buffer, dst, bytes.byteLength).set(bytes)
         return bytes.byteLength
       },
@@ -621,95 +394,80 @@ export default class ViewGameRunner extends HTMLElement {
   _resolveEventOffsets() {
     const offsets = { ...FALLBACK_EVENT_OFFSETS }
     const ex = this.exports
-    if (!ex) return offsets
-
-    if (typeof ex.event_offset_window_width === 'function') {
-      offsets.window_width = Number(ex.event_offset_window_width())
-    }
-    if (typeof ex.event_offset_action_code === 'function') {
-      offsets.action_code = Number(ex.event_offset_action_code())
-    }
-    if (typeof ex.event_offset_window_height === 'function') {
-      offsets.window_height = Number(ex.event_offset_window_height())
-    }
-    if (typeof ex.event_offset_framebuffer_width === 'function') {
-      offsets.framebuffer_width = Number(ex.event_offset_framebuffer_width())
-    }
-    if (typeof ex.event_offset_framebuffer_height === 'function') {
-      offsets.framebuffer_height = Number(ex.event_offset_framebuffer_height())
-    }
-
+    if (typeof ex.event_offset_window_width === 'function') offsets.window_width = Number(ex.event_offset_window_width())
+    if (typeof ex.event_offset_action_code === 'function') offsets.action_code = Number(ex.event_offset_action_code())
+    if (typeof ex.event_offset_window_height === 'function') offsets.window_height = Number(ex.event_offset_window_height())
+    if (typeof ex.event_offset_framebuffer_width === 'function') offsets.framebuffer_width = Number(ex.event_offset_framebuffer_width())
+    if (typeof ex.event_offset_framebuffer_height === 'function') offsets.framebuffer_height = Number(ex.event_offset_framebuffer_height())
     return offsets
   }
 
   _getEventBufferPtr() {
-    if (!this.exports || typeof this.exports.get_event_buffer !== 'function') return 0
-    if (!this.memory) return 0
-    if (!this._eventBufferPtr) {
-      this._eventBufferPtr = Number(this.exports.get_event_buffer())
-    }
+    if (typeof this.exports.get_event_buffer !== 'function') return 0
+    if (!this._eventBufferPtr) this._eventBufferPtr = Number(this.exports.get_event_buffer())
     return this._eventBufferPtr
   }
 
-  _dispatchResized(cssW = Math.max(1, Math.floor(this.clientWidth || 0)), cssH = Math.max(1, Math.floor(this.clientHeight || 0)), fbW = this.canvas.width, fbH = this.canvas.height) {
+  _dispatchResized(cssW = Math.max(1, Math.floor(this.canvas.getBoundingClientRect().width || 1)), cssH = Math.max(1, Math.floor(this.canvas.getBoundingClientRect().height || 1)), fbW = this.canvas.width, fbH = this.canvas.height) {
     if (!this.exports || typeof this.exports.event !== 'function') return
-    if (!this.memory) return
-    if (typeof this.exports.get_event_buffer !== 'function') return
-
     const eventPtr = this._getEventBufferPtr()
     if (!eventPtr) return
-
     const view = new DataView(this.memory.buffer)
-    const o = this._eventOffsets || FALLBACK_EVENT_OFFSETS
-
+    const o = this._eventOffsets
     writeU64(view, eventPtr + o.frame_count, this._eventFrameCount++)
     view.setUint32(eventPtr + o.type, EVENT_TYPE_RESIZED, true)
     view.setInt32(eventPtr + o.window_width, cssW, true)
     view.setInt32(eventPtr + o.window_height, cssH, true)
     view.setInt32(eventPtr + o.framebuffer_width, fbW, true)
     view.setInt32(eventPtr + o.framebuffer_height, fbH, true)
-
     this.exports.event(eventPtr)
   }
 
-  onPointerDown(e) {
-    this._sendHostEventExample(4, (view, ptr) => {
-      view.setFloat32(ptr + 32, e.offsetX, true)
-      view.setFloat32(ptr + 36, e.offsetY, true)
-      view.setInt32(ptr + 28, e.button ?? 0, true)
+  onKey(event, isDown) {
+    const actionCode = ACTION_BY_KEY.get(String(event.key || '').toLowerCase())
+    if (!actionCode) return
+    event.preventDefault()
+    event.stopPropagation()
+    this._dispatchActionEvent(actionCode, isDown)
+  }
+
+  onPointerDown(event) {
+    this.canvas.focus()
+    this.canvas.setPointerCapture(event.pointerId)
+    this._sendHostEvent(4, (view, ptr) => {
+      view.setFloat32(ptr + 32, event.offsetX, true)
+      view.setFloat32(ptr + 36, event.offsetY, true)
+      view.setInt32(ptr + 28, event.button ?? 0, true)
     })
   }
 
-  onPointerMove(e) {
-    this._sendHostEventExample(7, (view, ptr) => {
-      view.setFloat32(ptr + 32, e.offsetX, true)
-      view.setFloat32(ptr + 36, e.offsetY, true)
+  onPointerMove(event) {
+    this._sendHostEvent(7, (view, ptr) => {
+      view.setFloat32(ptr + 32, event.offsetX, true)
+      view.setFloat32(ptr + 36, event.offsetY, true)
     })
   }
 
-  onPointerUp(e) {
-    this._sendHostEventExample(5, (view, ptr) => {
-      view.setFloat32(ptr + 32, e.offsetX, true)
-      view.setFloat32(ptr + 36, e.offsetY, true)
-      view.setInt32(ptr + 28, e.button ?? 0, true)
+  onPointerUp(event) {
+    if (this.canvas.hasPointerCapture(event.pointerId)) this.canvas.releasePointerCapture(event.pointerId)
+    this._sendHostEvent(5, (view, ptr) => {
+      view.setFloat32(ptr + 32, event.offsetX, true)
+      view.setFloat32(ptr + 36, event.offsetY, true)
+      view.setInt32(ptr + 28, event.button ?? 0, true)
     })
   }
 
-  onWheel(e) {
-    this._sendHostEventExample(6, (view, ptr) => {
-      view.setFloat32(ptr + 48, e.deltaX || 0, true)
-      view.setFloat32(ptr + 52, e.deltaY || 0, true)
+  onWheel(event) {
+    this._sendHostEvent(6, (view, ptr) => {
+      view.setFloat32(ptr + 48, event.deltaX || 0, true)
+      view.setFloat32(ptr + 52, event.deltaY || 0, true)
     })
   }
 
   _dispatchActionEvent(actionCode, isDown) {
-    if (!this.memory || !this.exports || typeof this.exports.event !== 'function') {
-      return
-    }
-    if (typeof this.exports.get_event_buffer !== 'function') {
-      return
-    }
-
+    if (!this.exports || typeof this.exports.event !== 'function') return
+    const eventPtr = this._getEventBufferPtr()
+    if (!eventPtr) return
     if (isDown) {
       if (this._pressedActions.has(actionCode)) return
       this._pressedActions.add(actionCode)
@@ -717,12 +475,8 @@ export default class ViewGameRunner extends HTMLElement {
       if (!this._pressedActions.has(actionCode)) return
       this._pressedActions.delete(actionCode)
     }
-
-    const eventPtr = this._getEventBufferPtr()
-    if (!eventPtr) return
-
     const view = new DataView(this.memory.buffer)
-    const o = this._eventOffsets || FALLBACK_EVENT_OFFSETS
+    const o = this._eventOffsets
     writeU64(view, eventPtr + o.frame_count, this._eventFrameCount++)
     view.setUint32(eventPtr + o.type, isDown ? EVENT_TYPE_ACTION_DOWN : EVENT_TYPE_ACTION_UP, true)
     view.setUint32(eventPtr + o.action_code, actionCode, true)
@@ -730,42 +484,26 @@ export default class ViewGameRunner extends HTMLElement {
   }
 
   _releaseAllActions() {
-    if (this._pressedActions.size === 0) return
-    for (const actionCode of Array.from(this._pressedActions)) {
-      this._dispatchActionEvent(actionCode, false)
-    }
+    for (const actionCode of Array.from(this._pressedActions)) this._dispatchActionEvent(actionCode, false)
   }
 
-  handleKeybinding(eventName, context = {}) {
-    const actionCode = ACTION_BY_EVENT_NAME.get(eventName)
-    if (!actionCode) return false
-
-    const phase = context.phase || 'down'
-
-    this._dispatchActionEvent(actionCode, phase === 'down')
-    return true
-  }
-
-  _sendHostEventExample(eventType, writeFields) {
-    if (!this.memory || !this.exports || typeof this.exports.event !== 'function') {
-      return
-    }
-    if (typeof this.exports.get_event_buffer !== 'function') {
-      return
-    }
-
+  _sendHostEvent(eventType, writeFields) {
+    if (!this.enablePointerBridge) return
+    if (!this.exports || typeof this.exports.event !== 'function') return
     const eventPtr = this._getEventBufferPtr()
     if (!eventPtr) return
-
     const view = new DataView(this.memory.buffer)
     writeU64(view, eventPtr + FALLBACK_EVENT_OFFSETS.frame_count, this._eventFrameCount++)
     view.setUint32(eventPtr + FALLBACK_EVENT_OFFSETS.type, eventType, true)
     writeFields(view, eventPtr)
-
-    // Disabled by default: this is example host->WASM event wiring.
-    // Remove the guard when full input bridge is ready.
-    if (this.enableInputBridge) {
-      this.exports.event(eventPtr)
-    }
+    this.exports.event(eventPtr)
   }
+
+  async _toast(method, message) {
+    await this.runtime.call('ui.toast', method, String(message))
+  }
+}
+
+if (!customElements.get('view-game-runner')) {
+  customElements.define('view-game-runner', ViewGameRunner)
 }
