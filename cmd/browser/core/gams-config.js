@@ -46,6 +46,9 @@ export function validateGamsConfig(config, source) {
         if (viewConfig == null || typeof viewConfig !== 'object' || Array.isArray(viewConfig)) {
           throw new Error(`${source} ui.views.${tag} must be an object`)
         }
+        if (viewConfig.defaultSource != null && (typeof viewConfig.defaultSource !== 'string' || viewConfig.defaultSource.length === 0)) {
+          throw new Error(`${source} ui.views.${tag}.defaultSource must be a non-empty string`)
+        }
       }
     }
   }
