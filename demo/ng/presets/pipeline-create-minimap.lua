@@ -1,7 +1,7 @@
 -- Create Minimap - Pipeline Step 4
 -- Calls minimap2 plugin to generate tilemap visualization from tree
--- Inputs: inputTreeId, mapId, direction
--- Outputs: mapId (success), error (failure)
+-- Inputs: tree, map, direction
+-- Outputs: map (success), error (failure)
 
 ---@type { awaitCall: fun(service: string, method: string, payload: string): string }
 _G.host = host
@@ -14,13 +14,13 @@ _G.inputs = inputs
 ---@type string[]
 _G.outputs = outputs
 
-local inputTreeId = inputs[1]
-if inputTreeId == nil or inputTreeId == "" then
-	inputTreeId = "progression"
+local tree = inputs[1]
+if tree == nil or tree == "" then
+	tree = "progression.tree.json"
 end
-local mapId = inputs[2]
-if mapId == nil or mapId == "" then
-	mapId = "new_map"
+local map = inputs[2]
+if map == nil or map == "" then
+	map = "/minimap.map.json"
 end
 local direction = inputs[3]
 if direction == nil or direction == "" then
@@ -28,8 +28,8 @@ if direction == nil or direction == "" then
 end
 
 local payload = {
-	treeId = inputTreeId,
-	mapId = mapId,
+	tree = tree,
+	map = map,
 	direction = direction,
 }
 
@@ -42,10 +42,10 @@ if not ok then
 end
 
 if response.success then
-	outputs[1] = mapId -- Return the map ID
+	outputs[1] = map -- Return the map source path
 	outputs[2] = "" -- No error
 else
-	outputs[1] = "" -- No map ID on error
+	outputs[1] = "" -- No map source path on error
 	outputs[2] = response.error or "Unknown error"
 end
 

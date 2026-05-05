@@ -1,7 +1,7 @@
 -- World Tree Generator - Pipeline Step 1
 -- Calls treegen plugin to generate procedural tree
--- Inputs: nodeCount, maxDepth, maxBranching, rootBranches, treeId
--- Outputs: treeId (success), error (failure)
+-- Inputs: nodeCount, maxDepth, maxBranching, rootBranches, src
+-- Outputs: src (success), error (failure)
 
 ---@type { awaitCall: fun(service: string, method: string, payload: string): string }
 _G.host = host
@@ -28,13 +28,13 @@ local rootBranches = inputs[4]
 if rootBranches == nil or rootBranches == "" then
 	rootBranches = "0"
 end
-local treeId = inputs[5]
-if treeId == nil or treeId == "" then
-	treeId = "progression"
+local src = inputs[5]
+if src == nil or src == "" then
+	src = "progression.tree.json"
 end
 
 local payload = {
-	name = treeId,
+	src = src,
 	nodeCount = tonumber(nodeCount) or 10,
 	maxDepth = tonumber(maxDepth) or 0,
 	maxBranching = tonumber(maxBranching) or 0,
@@ -56,9 +56,9 @@ if not ok then
 end
 
 if response.success then
-	outputs[1] = treeId -- Return the tree ID
+	outputs[1] = src -- Return the tree source path
 	outputs[2] = "" -- No error
 else
-	outputs[1] = "" -- No tree ID on error
+	outputs[1] = "" -- No source path on error
 	outputs[2] = response.error or "Unknown error"
 end

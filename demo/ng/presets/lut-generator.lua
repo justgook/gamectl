@@ -1,7 +1,7 @@
-local mapName = inputs[1]
-if mapName == nil or mapName == "" then
+local map = inputs[1]
+if map == nil or map == "" then
 	outputs[1] = ""
-	outputs[2] = "map name is required"
+	outputs[2] = "map is required"
 	return
 end
 
@@ -16,10 +16,6 @@ layerSelector = math.floor(layerSelector)
 local function fail(message)
 	outputs[1] = ""
 	outputs[2] = message
-end
-
-local function escapeSqlString(value)
-	return tostring(value):gsub("'", "''")
 end
 
 local function decodeJson(text, label)
@@ -83,23 +79,8 @@ local function base64Encode(bytes)
 	return base64
 end
 
-local sql = "SELECT rowid AS id, name, data FROM tilemap_storage WHERE name = '"
-	.. escapeSqlString(mapName)
-	.. "' LIMIT 1"
-local csvText = host.awaitCall("sql", "query", sql)
-local okRows, rows = pcall(csv.parse, csvText, { headers = true })
-if not okRows then
-	fail(csvText ~= "" and csvText or "SQL query failed")
-	return
-end
-
-if #rows == 0 then
-	fail("Tilemap not found: " .. tostring(mapName))
-	return
-end
-
-local row = rows[1]
-local tilemapJson, tilemapErr = decodeJson(row.data or "{}", "tilemap JSON")
+local tilemapText = host.awaitCall("fs", "read", map)
+local tilemapJson, tilemapErr = decodeJson(tilemapText or "", "tilemap JSON")
 if tilemapJson == nil then
 	fail(tilemapErr)
 	return
@@ -182,8 +163,7 @@ local metadata = {
 	width = width,
 	height = height,
 	tileCount = #data,
-	tilemapId = tonumber(row.id),
-	tilemapName = row.name or mapName,
+	tilemapName = map,
 	layerIndex = layerSelector,
 	layerName = ((type(layer.props) == "table" and layer.props.name) or ("layer " .. tostring(layerSelector))),
 }

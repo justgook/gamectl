@@ -27,8 +27,8 @@ type DoorSizesConfig struct {
 
 // Input represents the plugin input structure
 type Input struct {
-	InputMapID  string          `json:"inputMapId"`          // Required: source tilemap ID to scale
-	OutputMapID string          `json:"outputMapId"`         // Required: destination tilemap ID
+	InputMap    string          `json:"inputMap"`            // Required: source tilemap JSON file path to scale
+	OutputMap   string          `json:"outputMap"`           // Required: destination tilemap JSON file path
 	ScaleFactor int             `json:"scaleFactor"`         // Required: integer multiplier (2, 3, 4, etc.)
 	DoorSizes   json.RawMessage `json:"doorSizes,omitempty"` // Optional raw JSON to avoid TinyGo pointer decode issues
 }
@@ -48,12 +48,12 @@ func Scale() int32 {
 	}
 
 	// Validate required parameters
-	if params.InputMapID == "" {
-		pdk.Output(util.ErrorResponse("inputMapId is required"))
+	if params.InputMap == "" {
+		pdk.Output(util.ErrorResponse("inputMap is required"))
 		return 1
 	}
-	if params.OutputMapID == "" {
-		pdk.Output(util.ErrorResponse("outputMapId is required"))
+	if params.OutputMap == "" {
+		pdk.Output(util.ErrorResponse("outputMap is required"))
 		return 1
 	}
 	if params.ScaleFactor <= 0 {
@@ -72,8 +72,8 @@ func Scale() int32 {
 		doorSizes = decoded
 	}
 
-	// Load input tilemap from storage
-	inputMap, err := getTilemap(params.InputMapID)
+	// Load input tilemap from filesystem
+	inputMap, err := getTilemap(params.InputMap)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("failed to load input map: " + err.Error()))
 		return 1
@@ -83,7 +83,7 @@ func Scale() int32 {
 	outputMap := scaleTilemap(inputMap, params.ScaleFactor, doorSizes)
 
 	// Store the output map
-	if err := storeTilemap(params.OutputMapID, outputMap); err != nil {
+	if err := storeTilemap(params.OutputMap, outputMap); err != nil {
 		pdk.Output(util.ErrorResponse("failed to store output map: " + err.Error()))
 		return 1
 	}
@@ -175,82 +175,58 @@ func scaleStandardLayer(layer tilemap.TileLayer, scaleFactor int) tilemap.TileLa
 }
 
 // =============================================================================
-// Tilemap storage integration
+// Tilemap filesystem integration
 // =============================================================================
 
-func getTilemap(mapID string) (*tilemap.TileMap, error) {
-	// Query tilemap from SQL storage using proper SQL escaping
-	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
-	sqlQuery := fmt.Sprintf("SELECT data FROM tilemap_storage WHERE name = '%s'", escapedMapID)
-	status, csvOutput, err := pdk.Call("sql", "query", []byte(sqlQuery))
+func readFile(path string) ([]byte, error) {
+	status, output, err := pdk.Call("fs", "read", []byte(path))
 	if err != nil {
-		return nil, fmt.Errorf("failed to query tilemap: %w", err)
+		return nil, err
 	}
-
 	if status != 0 {
-		return nil, fmt.Errorf("SQL query failed")
+		return nil, fmt.Errorf("%s", string(output))
+	}
+	return output, nil
+}
+
+func writeFile(path string, data []byte) error {
+	input := make([]byte, 0, len(path)+1+len(data))
+	input = append(input, path...)
+	input = append(input, 0)
+	input = append(input, data...)
+
+	_, output, err := pdk.Call("fs", "write", input)
+	if err != nil {
+		return err
+	}
+	if len(output) > 0 && string(output) != "OK" {
+		return fmt.Errorf("%s", string(output))
+	}
+	return nil
+}
+
+func getTilemap(path string) (*tilemap.TileMap, error) {
+	jsonData, err := readFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read tilemap: %w", err)
 	}
 
-	// Parse CSV response to get JSON data
-	csv := string(csvOutput)
-	lines := util.ParseCSVLines(csv)
-	if len(lines) < 2 || len(lines[1]) < 1 {
-		return nil, fmt.Errorf("tilemap not found: %s", mapID)
-	}
-
-	// Get the JSON data from CSV
-	jsonData := lines[1][0]
-
-	// Parse tilemap from JSON data
 	var tm tilemap.TileMap
-	if err := json.Unmarshal([]byte(jsonData), &tm); err != nil {
+	if err := json.Unmarshal(jsonData, &tm); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal tilemap (data length: %d): %w", len(jsonData), err)
 	}
 
 	return &tm, nil
 }
 
-func execSQL(sqlQuery string) error {
-	status, output, err := pdk.Call("sql", "exec", []byte(sqlQuery))
-	if err != nil {
-		return err
-	}
-	if status != 0 || (len(output) > 0 && string(output) != "OK") {
-		return fmt.Errorf(string(output))
-	}
-	return nil
-}
-
-//export __sql_init
-func SqlInit() uint32 {
-	err := execSQL(`CREATE TABLE IF NOT EXISTS tilemap_storage (
-		name TEXT PRIMARY KEY,
-		data TEXT NOT NULL
-	)`)
-	if err != nil {
-		pdk.Output(util.ErrorResponse("failed to initialize scaler SQL state: " + err.Error()))
-		return 1
-	}
-
-	pdk.Output(util.SuccessResponse())
-	return 0
-}
-
-func storeTilemap(mapID string, tm *tilemap.TileMap) error {
+func storeTilemap(path string, tm *tilemap.TileMap) error {
 	jsonStr, err := encodeTileMapJSON(tm)
 	if err != nil {
 		return fmt.Errorf("failed to marshal tilemap: %w", err)
 	}
 
-	// Build SQL INSERT using proper escaping
-	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
-	escapedData := strings.ReplaceAll(jsonStr, "'", "''")
-
-	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
-		escapedMapID, escapedData)
-
-	if err := execSQL(sqlQuery); err != nil {
-		return fmt.Errorf("failed to store tilemap (size: %d bytes): %w", len(jsonStr), err)
+	if err := writeFile(path, []byte(jsonStr)); err != nil {
+		return fmt.Errorf("failed to write tilemap (size: %d bytes): %w", len(jsonStr), err)
 	}
 
 	return nil
