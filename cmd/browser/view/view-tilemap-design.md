@@ -260,9 +260,13 @@ Replace `TilemapState` internals with the chosen real implementation:
 
 ### Step 5: filesystem persistence
 
-- add `open(path)` and `save(path)` through `fs`
-- import/export existing tilemap JSON
-- consider `yyjson` for preserving/updating dynamic fields
+Status: wired in the browser prototype.
+
+- `open(path)`, reload, save, and save-as use `fs.read` / `fs.write`.
+- `data-source` is a filesystem path and fails fast for `sql:` sources.
+- `view-files` is used for open/save-as chooser flows.
+- import/export existing SQL tilemap JSON can be added later as explicit migration tooling.
+- consider `yyjson` for preserving/updating dynamic fields in a future backend.
 
 ### Step 6: canvas
 
@@ -271,8 +275,8 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 - `view-tilemap.js` now extends `cmd/browser/util/view-canvas-base.js`.
 - Zoom/pan/fit use the shared canvas base behavior.
 - Header zoom buttons call `zoomIn`, `zoomOut`, and `fitToContent`.
-- Open uses a `ui.popup` with `view-sql` in chooser mode against `tilemap_storage`; the popup options are isolated in `createOpenTilemapPopupOptions()` so replacing the chooser content with `view-files mode:chooser` later is a one-method content swap.
-- Save As uses `view-sql` in saver mode: users may click an existing row or type a new `tilemap_storage.name`, and `view-tilemap` decides to `INSERT OR REPLACE` that name.
+- Open uses a `ui.popup` with `view-files` in chooser mode filtered to `*.tilemap.json,*.json`.
+- Save As uses `view-files` in saver mode and writes the selected filesystem path through `fs.write`.
 - Current drawing is a 2D canvas render from `TilemapState.snapshot()` tile data.
 - Tileset behavior:
   - maps without tileset metadata use one generated tileset sized to the maximum tile id present in the map.
@@ -290,7 +294,7 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 
 ## Acceptance For Current Prototype Phase
 
-- `view-tilemap` starts unloaded unless an explicit `data-source` is provided.
+- `view-tilemap` starts unloaded unless an explicit filesystem `data-source` path is provided.
 - Header controls call the final state method shape.
 - Sidebar renders snapshot layers/tilesets/history state.
 - Canvas renders a placeholder map and supports base zoom/pan/fit.
