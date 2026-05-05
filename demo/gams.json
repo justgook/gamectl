@@ -202,11 +202,7 @@
           },
           {
             "path": "game-runner/gl-bridge.js",
-            "url": "/demo/game-runner/gl-bridge.js"
-          },
-          {
-            "path": "game-runner/README.md",
-            "url": "/demo/game-runner/README.md"
+            "url": "/plugins/game2/gl-bridge.js"
           }
         ]
       },
