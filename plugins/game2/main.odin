@@ -78,7 +78,6 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	host.info("assets", "loading")
 
 	asset_data := host.asset_read_all(filepath) or_return
-	defer delete(asset_data)
 
 	game_data := open_respack(asset_data) or_return
 
