@@ -1,6 +1,6 @@
 import { runtime } from '/core/runtime.js'
+import { createWriteInput } from '/util/fs.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { parseCSVLines } from '/util/csv.js'
 
 const textDecoder = new TextDecoder()
 const DEFAULT_TILE_SIZE = 16
@@ -15,8 +15,10 @@ function decodeOutput(result) {
   return textDecoder.decode(result?.output || new Uint8Array())
 }
 
-function quoteSqlValue(value) {
-  return `'${String(value).replace(/'/g, "''")}'`
+function basename(path) {
+  const normalized = String(path || '').trim()
+  const parts = normalized.split('/').filter(Boolean)
+  return parts.length > 0 ? parts[parts.length - 1] : normalized
 }
 
 function parsePositiveInt(value, label) {
@@ -54,8 +56,8 @@ export class TilemapSettings extends HTMLElement {
         <fieldset>
           <legend data-element="legend">Tilemap Settings</legend>
 
-          <label for="tilemap-settings-name">Name</label>
-          <input id="tilemap-settings-name" type="text" data-field="name" autocomplete="off" placeholder="my_tilemap">
+          <label for="tilemap-settings-name">Path</label>
+          <input id="tilemap-settings-name" type="text" data-field="name" autocomplete="off" placeholder="/maps/world.tilemap.json">
 
           <label for="tilemap-settings-tile-size">Tile size</label>
           <input id="tilemap-settings-tile-size" type="number" min="1" step="1" data-field="tile-size">
@@ -126,11 +128,11 @@ export class TilemapSettings extends HTMLElement {
     this.saveButton.textContent = this.mode === 'create' ? 'Create' : 'Save'
   }
 
-  dataSourceName() {
+  dataSourcePath() {
     const value = String(this.getAttribute('data-source') || '').trim()
-    assert(value.length > 0, 'tilemap-settings requires data-source')
-    const prefix = 'sql:tilemap_storage/'
-    return value.startsWith(prefix) ? value.slice(prefix.length) : value
+    assert(value.length > 0, 'tilemap-settings requires data-source path')
+    assert(!value.startsWith('sql:'), 'tilemap-settings data-source must be a filesystem path, not sql')
+    return value
   }
 
   async load() {
@@ -138,16 +140,16 @@ export class TilemapSettings extends HTMLElement {
       if (this.mode === 'create') {
         this.tilemap = this.createDefaultTilemap()
         this.renderTilemap(this.tilemap)
-        this.setStatus('Enter tilemap name and settings', 'info')
+        this.setStatus('Enter tilemap path and settings', 'info')
         queueMicrotask(() => this.nameInput.focus())
         return
       }
 
-      const name = this.dataSourceName()
-      this.setStatus(`Loading ${name}…`, 'info')
-      this.tilemap = await this.loadTilemap(name)
+      const path = this.dataSourcePath()
+      this.setStatus(`Loading ${path}…`, 'info')
+      this.tilemap = await this.loadTilemap(path)
       this.renderTilemap(this.tilemap)
-      this.setStatus(`Loaded ${name}`, 'success')
+      this.setStatus(`Loaded ${path}`, 'success')
       queueMicrotask(() => this.nameInput.focus())
     } catch (error) {
       this.setStatus(`Error: ${error.message}`, 'danger')
@@ -156,7 +158,7 @@ export class TilemapSettings extends HTMLElement {
 
   createDefaultTilemap() {
     return {
-      name: '',
+      path: '',
       data: {
         props: { tileSize: String(DEFAULT_TILE_SIZE) },
         layers: [{
@@ -168,18 +170,12 @@ export class TilemapSettings extends HTMLElement {
     }
   }
 
-  async loadTilemap(name) {
-    const csv = await this.callSql(`SELECT name, data FROM tilemap_storage WHERE name = ${quoteSqlValue(name)} LIMIT 1`)
-    const lines = parseCSVLines(csv.trim())
-    assert(lines.length === 2, `tilemap_storage missing tilemap ${name}`)
-    const headers = lines[0]
-    const row = lines[1]
-    const nameIndex = headers.indexOf('name')
-    const dataIndex = headers.indexOf('data')
-    assert(nameIndex >= 0 && dataIndex >= 0, 'tilemap_storage query returned unexpected columns')
-    const data = JSON.parse(row[dataIndex])
+  async loadTilemap(path) {
+    const result = await runtime.call('fs', 'read', path)
+    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
+    const data = JSON.parse(decodeOutput(result))
     this.validateStorageData(data)
-    return { name: row[nameIndex], data }
+    return { path, data }
   }
 
   validateStorageData(data) {
@@ -195,7 +191,7 @@ export class TilemapSettings extends HTMLElement {
 
   renderTilemap(tilemap) {
     const props = tilemap.data.props && typeof tilemap.data.props === 'object' && !Array.isArray(tilemap.data.props) ? tilemap.data.props : {}
-    this.nameInput.value = tilemap.name
+    this.nameInput.value = tilemap.path
     this.tileSizeInput.value = String(parsePositiveInt(props.tileSize ?? props.sourceTileSize ?? props.tw ?? DEFAULT_TILE_SIZE, 'Tile size'))
     this.widthInput.value = String(Math.max(...tilemap.data.layers.map((layer) => layer.width)))
     this.heightInput.value = String(Math.max(...tilemap.data.layers.map((layer) => Math.ceil(layer.data.length / layer.width))))
@@ -203,13 +199,14 @@ export class TilemapSettings extends HTMLElement {
 
   async save() {
     assert(this.tilemap, 'tilemap-settings save requires loaded tilemap')
-    const name = this.nameInput.value.trim()
-    if (!name) {
+    const path = this.nameInput.value.trim()
+    if (!path) {
       this.nameInput.classList.add('danger')
       this.nameInput.focus()
-      this.setStatus('Error: Name is required', 'danger')
+      this.setStatus('Error: Path is required', 'danger')
       return
     }
+    assert(!path.startsWith('sql:'), 'tilemap-settings path must be a filesystem path, not sql')
     this.nameInput.classList.remove('danger')
 
     const tileSize = parsePositiveInt(this.tileSizeInput.value, 'Tile size')
@@ -219,8 +216,9 @@ export class TilemapSettings extends HTMLElement {
     const data = this.updatedStorageData(this.tilemap.data, { tileSize, width, height })
     this.setStatus('Saving…', 'info')
     try {
-      await this.execSql(`INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES (${quoteSqlValue(name)}, ${quoteSqlValue(JSON.stringify(data))})`)
-      await runtime.call('ui.popup', 'close', { reload: true, cancelled: false, name })
+      const result = await runtime.call('fs', 'write', createWriteInput(path, `${JSON.stringify(data, null, 2)}\n`))
+      if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
+      await runtime.call('ui.popup', 'close', { reload: true, cancelled: false, path, name: basename(path) })
     } catch (error) {
       this.setStatus(`Error: ${error.message}`, 'danger')
     }
@@ -260,17 +258,6 @@ export class TilemapSettings extends HTMLElement {
     if (tone) this.statusElement.classList.add(tone)
   }
 
-  async callSql(sql) {
-    const result = await runtime.call('sql', 'query', sql)
-    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
-    return decodeOutput(result)
-  }
-
-  async execSql(sql) {
-    const result = await runtime.call('sql', 'exec', sql)
-    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
-    return decodeOutput(result)
-  }
 
   disconnectedCallback() {
     void unregisterViewPlugin(this)

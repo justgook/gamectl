@@ -1,5 +1,5 @@
 import { runtime } from '/core/runtime.js'
-import { parseCSVLines } from '/util/csv.js'
+import { createWriteInput } from '/util/fs.js'
 import { UndoHistory } from '/util/undo.js'
 import { ViewCanvasBase } from '/util/view-canvas-base.js'
 import { viewOk } from '/util/view-plugin.js'
@@ -49,8 +49,15 @@ function decodeOutput(result) {
   return textDecoder.decode(result.output || new Uint8Array())
 }
 
-function quoteSqlValue(value) {
-  return `'${String(value).replace(/'/g, "''")}'`
+function basename(path) {
+  const normalized = String(path || '').trim()
+  const parts = normalized.split('/').filter(Boolean)
+  return parts.length > 0 ? parts[parts.length - 1] : normalized
+}
+
+function tilemapNameFromPath(path) {
+  const name = basename(path)
+  return name.replace(/\.tilemap\.json$/i, '').replace(/\.json$/i, '')
 }
 
 function normalizeStringProps(input, label) {
@@ -118,19 +125,19 @@ class TilemapState {
     this.hasClipboard = false
   }
 
-  open({ name, data }) {
-    assert(typeof name === 'string' && name.length > 0, 'tilemap state open requires tilemap name')
+  open({ path, data }) {
+    assert(typeof path === 'string' && path.length > 0, 'tilemap state open requires tilemap path')
     assert(typeof data === 'string' && data.length > 0, 'tilemap state open requires tilemap data')
-    this.loadTilemapData(name, data)
+    this.loadTilemapData(path, data)
     this.dirty = false
     this.resetHistory()
     return { handle: this.handle }
   }
 
-  save({ name }) {
-    assert(typeof name === 'string' && name.length > 0, 'tilemap state save requires tilemap name')
-    this.name = name
-    this.path = `sql:tilemap_storage/${name}`
+  save({ path }) {
+    assert(typeof path === 'string' && path.length > 0, 'tilemap state save requires tilemap path')
+    this.path = path
+    this.name = tilemapNameFromPath(path)
     this.dirty = false
   }
 
@@ -145,9 +152,9 @@ class TilemapState {
     })
   }
 
-  loadTilemapData(name, data) {
+  loadTilemapData(path, data) {
     const tilemap = JSON.parse(data)
-    assert(tilemap && typeof tilemap === 'object' && !Array.isArray(tilemap), 'tilemap storage data must be object JSON')
+    assert(tilemap && typeof tilemap === 'object' && !Array.isArray(tilemap), 'tilemap file data must be object JSON')
     assert(Array.isArray(tilemap.layers), 'tilemap storage data.layers must be array')
     assert(tilemap.layers.length > 0, 'tilemap storage must contain at least one layer')
 
@@ -158,8 +165,8 @@ class TilemapState {
     assert(Number.isInteger(width) && width > 0, 'tilemap storage width must be positive integer')
     assert(Number.isInteger(height) && height > 0, 'tilemap storage height must be positive integer')
 
-    this.name = name
-    this.path = `sql:tilemap_storage/${name}`
+    this.path = path
+    this.name = tilemapNameFromPath(path)
     this.width = width
     this.height = height
     this.props = normalizeStringProps(tilemap.props, 'tilemap props')
@@ -1266,11 +1273,11 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   async loadDataSource(dataSource) {
-    const name = this.normalizeTilemapDataSource(dataSource)
+    const path = this.normalizeTilemapDataSource(dataSource)
     this.setBusy(true)
-    this.setStatus(`Opening ${name} tilemap…`, 'info')
+    this.setStatus(`Opening ${path} tilemap…`, 'info')
     try {
-      await this.openTilemapStorageName(name, { autoFit: true })
+      await this.openTilemapPath(path, { autoFit: true })
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
       await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
@@ -1289,16 +1296,15 @@ export class ViewTilemap extends ViewCanvasBase {
 
   normalizeTilemapDataSource(dataSource) {
     const source = String(dataSource || '').trim()
-    assert(source.length > 0, 'view-tilemap data-source must be non-empty')
-    const storagePrefix = 'sql:tilemap_storage/'
-    if (source.startsWith(storagePrefix)) return source.slice(storagePrefix.length)
+    assert(source.length > 0, 'view-tilemap data-source must be non-empty filesystem path')
+    assert(!source.startsWith('sql:'), 'view-tilemap data-source must be a filesystem path, not sql')
     return source
   }
 
-  async openTilemapStorageName(name, { autoFit = true } = {}) {
-    assert(typeof name === 'string' && name.length > 0, 'view-tilemap open requires tilemap_storage name')
+  async openTilemapPath(path, { autoFit = true } = {}) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tilemap open requires tilemap path')
     assert(typeof autoFit === 'boolean', 'view-tilemap open autoFit must be boolean')
-    const tilemap = await this.loadTilemapStorageRecord(name)
+    const tilemap = await this.loadTilemapFile(path)
     const result = this.state.open(tilemap)
     assert(Number.isInteger(result.handle) && result.handle > 0, 'view-tilemap open returned invalid handle')
     this.handle = result.handle
@@ -1311,7 +1317,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.brushChanges = null
     this.clipboard = null
     this.pastePreviewCell = null
-    await this.refreshSnapshot(`Opened ${tilemap.name}`, { autoFit })
+    await this.refreshSnapshot(`Opened ${tilemap.path}`, { autoFit })
   }
 
   async handleLayerAction(button) {
@@ -1359,38 +1365,34 @@ export class ViewTilemap extends ViewCanvasBase {
     })
     const payload = JSON.parse(decodeOutput(result) || 'null')
     if (payload?.reload) {
-      await this.openTilemapStorageName(payload.name, { autoFit: true })
-      await runtime.call('ui.toast', 'success', { message: `Created tilemap ${payload.name}` })
+      await this.openTilemapPath(payload.path, { autoFit: true })
+      await runtime.call('ui.toast', 'success', { message: `Created tilemap ${payload.path}` })
     }
   }
 
   async openTilemap() {
-    const selection = await this.chooseTilemapFromStorage()
+    const selection = await this.chooseTilemapFile()
     if (selection.cancelled) return
-    await this.openTilemapStorageName(selection.name, { autoFit: true })
+    await this.openTilemapPath(selection.path, { autoFit: true })
   }
 
-  async chooseTilemapFromStorage() {
+  async chooseTilemapFile() {
     const result = await runtime.call('ui.popup', 'open', this.createOpenTilemapPopupOptions())
     const payload = JSON.parse(decodeOutput(result) || 'null')
     if (!payload || payload.cancelled) return { cancelled: true }
-    const name = typeof payload.value === 'string' ? payload.value : payload.row.name
-    assert(typeof name === 'string' && name.length > 0, 'view-tilemap open requires selected tilemap_storage name')
-    return { cancelled: false, name }
+    const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
+    assert(selection?.path, 'view-tilemap open requires selected tilemap file path')
+    return { cancelled: false, path: selection.path }
   }
 
   createOpenTilemapPopupOptions() {
     return {
       title: 'Open Tilemap',
       size: 'medium',
-      tag: 'view-sql',
+      tag: 'view-files',
       props: {
         mode: 'chooser',
-        query: 'SELECT name FROM tilemap_storage ORDER BY name LIMIT :limit OFFSET :offset',
-        countQuery: 'SELECT COUNT(*) AS count FROM tilemap_storage',
-        returnColumn: 'name',
-        confirmLabel: 'Open',
-        pageSize: 20,
+        filter: '*.tilemap.json,*.json',
       },
     }
   }
@@ -1447,90 +1449,74 @@ export class ViewTilemap extends ViewCanvasBase {
     return `${name}-${index}`
   }
 
-  async loadTilemapStorageRecord(name) {
-    assert(typeof name === 'string' && name.length > 0, 'view-tilemap load requires tilemap_storage name')
-    const csv = await this.callSql(`SELECT name, data FROM tilemap_storage WHERE name = ${quoteSqlValue(name)} LIMIT 1`)
-    const lines = parseCSVLines(csv.trim())
-    assert(lines.length === 2, `tilemap_storage missing selected tilemap ${name}`)
-    const headers = lines[0]
-    const row = lines[1]
-    const nameIndex = headers.indexOf('name')
-    const dataIndex = headers.indexOf('data')
-    assert(nameIndex >= 0 && dataIndex >= 0, 'tilemap_storage query returned unexpected columns')
-    return { name: row[nameIndex], data: row[dataIndex] }
+  async loadTilemapFile(path) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tilemap load requires tilemap file path')
+    const result = await runtime.call('fs', 'read', path)
+    if (result.returnCode !== 0) {
+      throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
+    }
+    return { path, data: decodeOutput(result) }
   }
 
-  async callSql(sql) {
-    const result = await runtime.call('sql', 'query', sql)
+  async writeTilemapFile(path, data) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tilemap write requires tilemap file path')
+    assert(typeof data === 'string' && data.length > 0, 'view-tilemap write requires tilemap data')
+    const result = await runtime.call('fs', 'write', createWriteInput(path, data))
     if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
+      throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
     }
-    return decodeOutput(result)
-  }
-
-  async execSql(sql) {
-    const result = await runtime.call('sql', 'exec', sql)
-    if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
-    }
-    return decodeOutput(result)
   }
 
   async saveAs() {
     const payload = await this.chooseSaveTarget()
     if (payload.cancelled) return
-    await this.saveToStorageName(payload.name)
-    await this.refreshSnapshot(`Saved as ${payload.name}`)
-    await runtime.call('ui.toast', 'success', { message: `Saved tilemap ${payload.name}` })
+    await this.saveToPath(payload.path)
+    await this.refreshSnapshot(`Saved as ${payload.path}`)
+    await runtime.call('ui.toast', 'success', { message: `Saved tilemap ${payload.path}` })
   }
 
   async save() {
     assert(this.snapshot, 'view-tilemap save requires current snapshot')
-    await this.saveToStorageName(this.snapshot.name)
+    assert(typeof this.snapshot.path === 'string' && this.snapshot.path.length > 0, 'view-tilemap save requires current tilemap path')
+    await this.saveToPath(this.snapshot.path)
     await this.refreshSnapshot('Saved')
-    await runtime.call('ui.toast', 'success', { message: `Saved tilemap ${this.snapshot.name}` })
+    await runtime.call('ui.toast', 'success', { message: `Saved tilemap ${this.snapshot.path}` })
   }
 
   async chooseSaveTarget() {
     const result = await runtime.call('ui.popup', 'open', this.createSaveTilemapPopupOptions())
     const payload = JSON.parse(decodeOutput(result) || 'null')
     if (!payload || payload.cancelled) return { cancelled: true }
-    const name = typeof payload.value === 'string' ? payload.value.trim() : ''
-    assert(name.length > 0, 'view-tilemap save-as requires tilemap_storage name')
-    return { cancelled: false, name }
+    assert(typeof payload.path === 'string' && payload.path.length > 0, 'view-tilemap save-as requires tilemap file path')
+    return { cancelled: false, path: payload.path }
   }
 
   createSaveTilemapPopupOptions() {
     return {
       title: 'Save Tilemap As',
       size: 'medium',
-      tag: 'view-sql',
+      tag: 'view-files',
       props: {
         mode: 'saver',
-        query: 'SELECT name FROM tilemap_storage ORDER BY name LIMIT :limit OFFSET :offset',
-        countQuery: 'SELECT COUNT(*) AS count FROM tilemap_storage',
-        returnColumn: 'name',
-        confirmLabel: 'Save',
-        valueLabel: 'Tilemap name',
-        value: this.snapshot?.name || '',
-        pageSize: 20,
+        filter: '*.tilemap.json,*.json',
+        defaultName: basename(this.snapshot?.path || 'new.tilemap.json'),
       },
     }
   }
 
-  async saveToStorageName(name) {
-    assert(typeof name === 'string' && name.length > 0, 'view-tilemap save requires tilemap_storage name')
-    const data = this.state.toStorageData()
-    await this.execSql(`INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES (${quoteSqlValue(name)}, ${quoteSqlValue(data)})`)
-    this.state.save({ name })
+  async saveToPath(path) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tilemap save requires tilemap file path')
+    const data = `${this.state.toStorageData()}\n`
+    await this.writeTilemapFile(path, data)
+    this.state.save({ path })
   }
 
   async reload() {
     assert(this.snapshot, 'view-tilemap reload requires current snapshot')
-    assert(typeof this.snapshot.name === 'string' && this.snapshot.name.length > 0, 'view-tilemap reload requires current tilemap name')
-    await this.openTilemapStorageName(this.snapshot.name, { autoFit: true })
-    this.setStatus(`Reloaded tilemap ${this.snapshot.name}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Reloaded tilemap ${this.snapshot.name}` })
+    assert(typeof this.snapshot.path === 'string' && this.snapshot.path.length > 0, 'view-tilemap reload requires current tilemap path')
+    await this.openTilemapPath(this.snapshot.path, { autoFit: true })
+    this.setStatus(`Reloaded tilemap ${this.snapshot.path}`, 'success')
+    await runtime.call('ui.toast', 'success', { message: `Reloaded tilemap ${this.snapshot.path}` })
   }
 
   async setTool(tool) {
@@ -1676,7 +1662,8 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async openSettings() {
     assert(this.snapshot, 'view-tilemap settings requires current snapshot')
-    await this.saveToStorageName(this.snapshot.name)
+    assert(typeof this.snapshot.path === 'string' && this.snapshot.path.length > 0, 'view-tilemap settings requires current tilemap path')
+    await this.saveToPath(this.snapshot.path)
     await this.refreshSnapshot('Saved before opening settings')
     const result = await runtime.call('ui.popup', 'open', {
       title: 'Tilemap Settings',
@@ -1685,13 +1672,13 @@ export class ViewTilemap extends ViewCanvasBase {
       attributes: {
         'data-mode': 'edit',
         'data-title': 'Tilemap Settings',
-        'data-source': this.snapshot.name,
+        'data-source': this.snapshot.path,
       },
     })
     const payload = JSON.parse(decodeOutput(result) || 'null')
     if (payload?.reload) {
-      await this.openTilemapStorageName(payload.name, { autoFit: true })
-      await runtime.call('ui.toast', 'success', { message: `Updated tilemap ${payload.name}` })
+      await this.openTilemapPath(payload.path, { autoFit: true })
+      await runtime.call('ui.toast', 'success', { message: `Updated tilemap ${payload.path}` })
     }
   }
 

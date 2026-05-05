@@ -9,6 +9,10 @@
             "url": "/demo/gams.json"
           },
           {
+            "path": "rules.map.json",
+            "url": "/demo/rules.map.json"
+          },
+          {
             "path": "lut.ng.json",
             "url": "/demo/lut.ng.json"
           },

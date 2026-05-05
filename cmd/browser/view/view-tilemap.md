@@ -31,7 +31,7 @@ Owns:
 - tile cell storage in WASM memory
 - tile edit operations
 - selection/clipboard/undo/redo if enabled
-- load/save conversion between SQL JSON rows and internal memory
+- load/save conversion between filesystem tilemap JSON and internal memory
 - validation of map/layer dimensions and supported value ranges
 
 Does not own:
@@ -98,7 +98,7 @@ Planning choice:
 Open question / requires clarification:
 
 - Should the plugin preserve full `pkg/tilemap` JSON `uint32` ids, or is `uint16` enough for the editor core?
-- Should tileset image lookup/render metadata remain in SQL/tilemap props, or move to a separate asset/tileset plugin contract?
+- Should tileset image lookup/render metadata remain in tilemap props, or move to a separate asset/tileset plugin contract?
 
 ## View: `cmd/browser/view/view-tilemap.js`
 
@@ -142,7 +142,7 @@ Initial interactions:
 - space + drag pans via `ViewCanvasBase`
 - wheel pans; ctrl/cmd wheel zooms via `ViewCanvasBase`
 - fit uses state snapshot bounds
-- save calls `TilemapState.save` until filesystem persistence is wired
+- save writes the current tilemap JSON through `fs.write`
 
 Rendering phase 1:
 - draw grid
@@ -158,18 +158,11 @@ Rendering phase 2:
 
 ## Persistence Model
 
-Normal browser tilemap persistence should move to filesystem paths, matching the nodegraph direction.
+Normal browser tilemap persistence uses filesystem paths, matching the nodegraph direction.
 
-The view should not build SQL strings. The current `TilemapState` prototype will later wire open/save to `fs` or be replaced internally by filesystem-backed state.
+The view does not build SQL strings. `data-source`, open, reload, save, and save-as all use filesystem paths and `fs.read` / `fs.write`.
 
-The existing SQL table can remain an import/export compatibility target for old generator workflows, but it should not be the default browser tilemap save path:
-
-```sql
-CREATE TABLE IF NOT EXISTS tilemap_storage (
-  name TEXT PRIMARY KEY,
-  data TEXT NOT NULL
-)
-```
+The existing SQL table can remain an explicit import/export compatibility target for old generator workflows, but it is not the browser tilemap save path.
 
 ## Migration From Legacy View
 
@@ -182,7 +175,7 @@ Legacy pieces to avoid:
 - tooltip/menu DOM copied as-is from old browser view
 
 Legacy behavior to keep conceptually:
-- `data-key` / map name selection, but rename/validate contract if needed
+- `data-source` file path selection
 - canvas view with grid
 - save/reload/zoom controls
 - simple numeric tile painting
@@ -215,12 +208,12 @@ Legacy behavior to keep conceptually:
 - Add tileset image rendering.
 - Add doors/special overlays.
 - Add layer list/inspector as `aside` if needed.
-- Add chooser popup for opening maps, preferably reusing `view-sql` or a dedicated browser popup view.
+- Use `view-files` chooser/saver popups for opening and saving maps.
 
 ## Acceptance Criteria For Phase 1
 
-- Opening `view-tilemap` loads a named map through the worker-side `tilemap` plugin.
-- Painting updates the plugin-owned memory and redraws without a full JSON reload.
-- Save writes back to `tilemap_storage` through plugin-to-plugin `tilemap -> sql` calls.
+- Opening `view-tilemap` loads a filesystem `.tilemap.json` path.
+- Painting updates state and redraws without a full JSON reload.
+- Save writes JSON back to the current filesystem path through `fs.write`.
 - The view has no dependency on legacy `cmd/browser` modules.
 - The view uses only documented browser UI structure/elements.

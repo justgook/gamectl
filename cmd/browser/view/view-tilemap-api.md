@@ -61,7 +61,7 @@ Input:
   "spacingX": 16,
   "spacingY": 16,
   "maxTiles": 1024,
-  "name": "maps/new.tilemap.json"
+  "path": "maps/new.tilemap.json"
 }
 ```
 
@@ -516,6 +516,6 @@ The private `TilemapState` prototype implements the method shape above with mock
 - `create/open` returns handle `1`
 - `snapshot` returns current client-side dimensions/layers/tools
 - setters update local in-memory fields
-- `save` clears the dirty flag without filesystem writes for now
+- `save` writes through `fs.write` in the current browser prototype and clears the dirty flag
 
-The purpose of the mock state is to unblock view header/sidebar development against the final API shape without introducing a fake WASM plugin.
+The purpose of the client-side state is to unblock view/header/sidebar/canvas development against the final API shape without introducing a fake WASM plugin.
