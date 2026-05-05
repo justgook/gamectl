@@ -189,6 +189,10 @@
             "url": "/demo/keys/save-active-view.lua"
           },
           {
+            "path": "keys/escape.lua",
+            "url": "/demo/keys/escape.lua"
+          },
+          {
             "path": "assets/the_atlas.qoi",
             "url": "/demo/assets/the_atlas.qoi"
           },
@@ -406,11 +410,8 @@
       },
       {
         "key": "escape",
-        "call": [
-          "activeView.id",
-          "clearSelection",
-          "{}"
-        ]
+        "script": "demo/keys/escape.lua",
+        "allowInput": false
       },
       {
         "key": "mod+r",
