@@ -1,4 +1,6 @@
-import Ajv from './ajv.bundle.mjs'
+// import Ajv from './ajv.bundle.mjs'
+import { require } from "/util/require.js"
+const Ajv = await require("/builtin/plugins/ai_agent/ajv.bundle.mjs")
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()

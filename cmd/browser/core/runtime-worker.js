@@ -1,4 +1,6 @@
 import { PluginManager } from './vendor/plugin-manager.js'
+import { require } from "/util/require.js"
+
 
 const MAIN_SYNC_HEADER_SIZE = 8
 
@@ -92,11 +94,7 @@ class RuntimeWorker {
       if (definition.id === 'fs' || definition.id.startsWith('fs.')) {
         module = (await import(definition.url)).default
       } else {
-        const result = await this.call('fs', 'read', definition.url)
-        if (result.returnCode !== 0) {
-          throw new Error(new TextDecoder().decode(result.output).trim() || `fs.read failed for '${definition.url}'`)
-        }
-        module = (await importJsFromBytes(result.output)).default
+        module = (await require(definition.url, this)).default
       }
 
       if (typeof module?.init === 'function') {
@@ -351,18 +349,6 @@ self.onmessage = async (event) => {
     } else {
       console.error('[browser worker-runtime] unhandled error', error)
     }
-  }
-}
-
-async function importJsFromBytes(bytes) {
-  const blob = new Blob([bytes], {
-    type: 'text/javascript'
-  })
-  const url = URL.createObjectURL(blob)
-  try {
-    return await import(url)
-  } finally {
-    URL.revokeObjectURL(url)
   }
 }
 
