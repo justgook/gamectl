@@ -1,6 +1,6 @@
 import { runtime } from '/core/runtime.js'
+import { createWriteInput } from '/util/fs.js'
 import { registerViewPlugin, unregisterViewPlugin, viewOk } from '/util/view-plugin.js'
-import { parseCSVLines } from '/util/csv.js'
 
 const textDecoder = new TextDecoder()
 
@@ -27,8 +27,10 @@ function decodeOutput(result) {
   return textDecoder.decode(result?.output || new Uint8Array())
 }
 
-function quoteSqlValue(value) {
-  return `'${String(value).replace(/'/g, "''")}'`
+function basename(path) {
+  const normalized = String(path || '').trim()
+  const parts = normalized.split('/').filter(Boolean)
+  return parts.length > 0 ? parts[parts.length - 1] : normalized
 }
 
 function createShader(gl, type, source) {
@@ -172,7 +174,7 @@ function cloneTree(input) {
 
 export class ViewTree extends HTMLElement {
   static get observedAttributes() {
-    return ['data-key', 'data-source']
+    return ['data-source']
   }
 
   constructor() {
@@ -273,14 +275,21 @@ export class ViewTree extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
-    if (name !== 'data-key' && name !== 'data-source') return
+    if (name !== 'data-source') return
     this.treeKey = this._readTreeKey()
     this.updateFooter()
-    if (this._ready) void this.loadTree()
+    if (this._ready && this.treeKey) void this.loadTree()
   }
 
   _readTreeKey() {
-    return String(this.getAttribute('data-key') || this.getAttribute('data-source') || '').trim()
+    return String(this.getAttribute('data-source') || '').trim()
+  }
+
+  normalizeTreeDataSource(dataSource) {
+    const source = String(dataSource || '').trim()
+    assert(source.length > 0, 'view-tree data-source must be non-empty filesystem path')
+    assert(!source.startsWith('sql:'), 'view-tree data-source must be a filesystem path, not sql')
+    return source
   }
 
   _styleCanvas() {
@@ -399,7 +408,7 @@ export class ViewTree extends HTMLElement {
   }
 
   updateFooter(status = null, tone = null) {
-    if (this.keyElement instanceof HTMLOutputElement) this.keyElement.textContent = `Key: ${this.treeKey}`
+    if (this.keyElement instanceof HTMLOutputElement) this.keyElement.textContent = `Path: ${this.treeKey}`
     if (this.countElement instanceof HTMLOutputElement) this.countElement.textContent = `Nodes: ${this.treeData.length}`
     if (this.dirtyElement instanceof HTMLOutputElement) {
       this.dirtyElement.textContent = this.dirty ? 'Dirty' : 'Saved'
@@ -415,29 +424,27 @@ export class ViewTree extends HTMLElement {
     this.render()
   }
 
-  async callSql(sql) {
-    const result = await runtime.call('sql', 'query', sql)
-    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
-    return decodeOutput(result)
-  }
-
-  async execSql(sql) {
-    const result = await runtime.call('sql', 'exec', sql)
-    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
-    return decodeOutput(result)
-  }
-
   async loadTree() {
-    this.updateFooter(`Loading ${this.treeKey}...`, 'info')
-    const csv = await this.callSql(`SELECT name, data FROM tree_storage WHERE name = ${quoteSqlValue(this.treeKey)} LIMIT 1`)
-    const lines = parseCSVLines(csv.trim())
-    assert(lines.length === 2, `tree '${this.treeKey}' was not found`)
-    const headers = lines[0]
-    const row = lines[1]
-    const dataIndex = headers.indexOf('data')
-    assert(dataIndex >= 0, 'tree_storage query returned no data column')
-    this.setTreeData(JSON.parse(row[dataIndex]), { dirty: false, fit: true })
-    this.updateFooter(`Loaded ${this.treeKey}`, 'success')
+    const path = this.normalizeTreeDataSource(this.treeKey)
+    this.updateFooter(`Loading ${path}...`, 'info')
+    const data = await this.loadTreeFile(path)
+    this.treeKey = path
+    this.setTreeData(JSON.parse(data), { dirty: false, fit: true })
+    this.updateFooter(`Loaded ${path}`, 'success')
+  }
+
+  async loadTreeFile(path) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tree load requires tree file path')
+    const result = await runtime.call('fs', 'read', path)
+    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
+    return decodeOutput(result)
+  }
+
+  async writeTreeFile(path, data) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tree write requires tree file path')
+    assert(typeof data === 'string' && data.length > 0, 'view-tree write requires tree data')
+    const result = await runtime.call('fs', 'write', createWriteInput(path, data))
+    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
   }
 
   setTreeData(data, { dirty = false, fit = false } = {}) {
@@ -456,12 +463,12 @@ export class ViewTree extends HTMLElement {
     this.updateFooter()
   }
 
-  newTreeData(name, { dirty = true, fit = true } = {}) {
-    assert(typeof name === 'string' && name.length > 0, 'view-tree new requires tree name')
-    this.treeKey = name
+  newTreeData(path, { dirty = true, fit = true } = {}) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tree new requires tree file path')
+    this.treeKey = path
     this.setTreeData([{ parent: -1, data: {} }], { dirty, fit })
     this.selectedNodeIndex = 0
-    this.updateFooter(`Created new tree ${name}`, 'success')
+    this.updateFooter(`Created new tree ${path}`, 'success')
     this.render()
   }
 
@@ -469,20 +476,20 @@ export class ViewTree extends HTMLElement {
     const result = await runtime.call('ui.popup', 'open', this.createNewTreePopupOptions())
     const payload = JSON.parse(decodeOutput(result) || 'null')
     if (!payload || payload.cancelled) return
-    const name = typeof payload.value === 'string' ? payload.value.trim() : ''
-    assert(name.length > 0, 'view-tree new requires tree_storage name')
-    this.newTreeData(name, { dirty: false, fit: true })
-    await this.saveToStorageName(name)
-    await runtime.call('ui.toast', 'success', { message: `Created tree ${name}` })
+    const path = typeof payload.path === 'string' ? payload.path.trim() : ''
+    assert(path.length > 0, 'view-tree new requires tree file path')
+    this.newTreeData(path, { dirty: false, fit: true })
+    await this.saveToPath(path)
+    await runtime.call('ui.toast', 'success', { message: `Created tree ${path}` })
   }
 
   async openTree() {
     const result = await runtime.call('ui.popup', 'open', this.createOpenTreePopupOptions())
     const payload = JSON.parse(decodeOutput(result) || 'null')
     if (!payload || payload.cancelled) return
-    const name = typeof payload.value === 'string' ? payload.value : payload.row?.name
-    assert(typeof name === 'string' && name.length > 0, 'view-tree open requires selected tree_storage name')
-    this.treeKey = name
+    const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
+    assert(selection?.path, 'view-tree open requires selected tree file path')
+    this.treeKey = selection.path
     await this.loadTree()
   }
 
@@ -490,21 +497,17 @@ export class ViewTree extends HTMLElement {
     return {
       title: 'Open Tree',
       size: 'medium',
-      tag: 'view-sql',
+      tag: 'view-files',
       props: {
         mode: 'chooser',
-        query: 'SELECT name, length(data) AS bytes FROM tree_storage ORDER BY name LIMIT :limit OFFSET :offset',
-        countQuery: 'SELECT COUNT(*) AS count FROM tree_storage',
-        returnColumn: 'name',
-        confirmLabel: 'Open',
-        pageSize: 20,
+        filter: '*.tree.json,*.json',
       },
     }
   }
 
   async save() {
     assert(this.treeData.length > 0, 'view-tree save requires a tree')
-    await this.saveToStorageName(this.treeKey)
+    await this.saveToPath(this.treeKey)
     this.dirty = false
     this.updateFooter(`Saved ${this.treeKey}`, 'success')
     await runtime.call('ui.toast', 'success', { message: `Saved tree ${this.treeKey}` })
@@ -515,10 +518,10 @@ export class ViewTree extends HTMLElement {
     const result = await runtime.call('ui.popup', 'open', this.createSaveTreePopupOptions())
     const payload = JSON.parse(decodeOutput(result) || 'null')
     if (!payload || payload.cancelled) return
-    const name = typeof payload.value === 'string' ? payload.value.trim() : ''
-    assert(name.length > 0, 'view-tree save-as requires tree_storage name')
-    await this.saveToStorageName(name)
-    this.treeKey = name
+    const path = typeof payload.path === 'string' ? payload.path.trim() : ''
+    assert(path.length > 0, 'view-tree save-as requires tree file path')
+    await this.saveToPath(path)
+    this.treeKey = path
     this.dirty = false
     this.updateFooter(`Saved as ${this.treeKey}`, 'success')
     await runtime.call('ui.toast', 'success', { message: `Saved tree ${this.treeKey}` })
@@ -528,16 +531,11 @@ export class ViewTree extends HTMLElement {
     return {
       title: 'Create Tree',
       size: 'medium',
-      tag: 'view-sql',
+      tag: 'view-files',
       props: {
         mode: 'saver',
-        query: 'SELECT name FROM tree_storage ORDER BY name LIMIT :limit OFFSET :offset',
-        countQuery: 'SELECT COUNT(*) AS count FROM tree_storage',
-        returnColumn: 'name',
-        confirmLabel: 'Create',
-        valueLabel: 'Tree name',
-        value: 'new_tree',
-        pageSize: 20,
+        filter: '*.tree.json,*.json',
+        defaultName: 'new.tree.json',
       },
     }
   }
@@ -546,24 +544,19 @@ export class ViewTree extends HTMLElement {
     return {
       title: 'Save Tree As',
       size: 'medium',
-      tag: 'view-sql',
+      tag: 'view-files',
       props: {
         mode: 'saver',
-        query: 'SELECT name FROM tree_storage ORDER BY name LIMIT :limit OFFSET :offset',
-        countQuery: 'SELECT COUNT(*) AS count FROM tree_storage',
-        returnColumn: 'name',
-        confirmLabel: 'Save',
-        valueLabel: 'Tree name',
-        value: this.treeKey,
-        pageSize: 20,
+        filter: '*.tree.json,*.json',
+        defaultName: basename(this.treeKey || 'new.tree.json'),
       },
     }
   }
 
-  async saveToStorageName(name) {
-    assert(typeof name === 'string' && name.length > 0, 'view-tree save requires tree_storage name')
-    const data = JSON.stringify(this.treeData)
-    await this.execSql(`INSERT OR REPLACE INTO tree_storage (name, data) VALUES (${quoteSqlValue(name)}, ${quoteSqlValue(data)})`)
+  async saveToPath(path) {
+    assert(typeof path === 'string' && path.length > 0, 'view-tree save requires tree file path')
+    const data = `${JSON.stringify(this.treeData)}\n`
+    await this.writeTreeFile(path, data)
   }
 
   async reload() {
