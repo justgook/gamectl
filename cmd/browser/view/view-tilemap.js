@@ -2,6 +2,7 @@ import { runtime } from '/core/runtime.js'
 import { parseCSVLines } from '/util/csv.js'
 import { UndoHistory } from '/util/undo.js'
 import { ViewCanvasBase } from '/util/view-canvas-base.js'
+import { viewOk } from '/util/view-plugin.js'
 
 const TOOL = {
   SELECT: 0,
@@ -1116,6 +1117,35 @@ export class ViewTilemap extends ViewCanvasBase {
     void this.bootstrap()
   }
 
+  createViewPluginMethods() {
+    return {
+      tool_1: async () => {
+        await this.setTool(TOOL.SELECT)
+        return viewOk()
+      },
+      tool_2: async () => {
+        await this.setTool(TOOL.BRUSH)
+        return viewOk()
+      },
+      tool_3: async () => {
+        await this.setTool(TOOL.ERASE)
+        return viewOk()
+      },
+      tool_4: async () => {
+        await this.setTool(TOOL.EYEDROPPER)
+        return viewOk()
+      },
+      tool_5: async () => {
+        await this.setTool(TOOL.PASTE)
+        return viewOk()
+      },
+      tool_6: async () => {
+        await this.setTool(TOOL.FILL)
+        return viewOk()
+      },
+    }
+  }
+
   createHeaderControlsElement() {
     const controls = document.createElement('div')
     controls.dataset.element = 'header-controls'
@@ -1499,7 +1529,8 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(this.snapshot, 'view-tilemap reload requires current snapshot')
     assert(typeof this.snapshot.name === 'string' && this.snapshot.name.length > 0, 'view-tilemap reload requires current tilemap name')
     await this.openTilemapStorageName(this.snapshot.name, { autoFit: true })
-    this.setStatus(`Reloaded ${this.snapshot.name}`, 'success')
+    this.setStatus(`Reloaded tilemap ${this.snapshot.name}`, 'success')
+    await runtime.call('ui.toast', 'success', { message: `Reloaded tilemap ${this.snapshot.name}` })
   }
 
   async setTool(tool) {
@@ -1997,6 +2028,13 @@ export class ViewTilemap extends ViewCanvasBase {
     }
 
     this.state.setActiveLayer(-1)
+  }
+
+  clearSelection() {
+    this.selectionTool.clear()
+    this.renderHeaderControls(this.requireSnapshot())
+    this.draw()
+    this.setStatus('Selection cleared', 'info')
   }
 
   requireSnapshot() {

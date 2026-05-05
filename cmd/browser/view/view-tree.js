@@ -1,5 +1,5 @@
 import { runtime } from '/core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { registerViewPlugin, unregisterViewPlugin, viewOk } from '/util/view-plugin.js'
 import { parseCSVLines } from '/util/csv.js'
 
 const textDecoder = new TextDecoder()
@@ -224,7 +224,7 @@ export class ViewTree extends HTMLElement {
   }
 
   connectedCallback() {
-    registerViewPlugin(this)
+    registerViewPlugin(this, this.createViewPluginMethods())
     if (!this._ready) {
       this._ready = true
       this.style.display = 'contents'
@@ -295,6 +295,23 @@ export class ViewTree extends HTMLElement {
     this.canvas.style.alignSelf = 'stretch'
     this.canvas.style.touchAction = 'none'
     this.canvas.tabIndex = 0
+  }
+
+  createViewPluginMethods() {
+    return {
+      tool_1: async () => {
+        await this.addNode()
+        return viewOk()
+      },
+      tool_2: async () => {
+        await this.changeParent()
+        return viewOk()
+      },
+      tool_3: async () => {
+        await this.editSelectedNodeProps()
+        return viewOk()
+      },
+    }
   }
 
   createHeaderControlsElement() {
@@ -390,6 +407,12 @@ export class ViewTree extends HTMLElement {
     }
     if (status !== null) this.setStatus(status, tone)
     this.renderHeaderControls()
+  }
+
+  clearSelection() {
+    this.selectedNodeIndex = -1
+    this.updateFooter('Selection cleared', 'info')
+    this.render()
   }
 
   async callSql(sql) {
@@ -546,6 +569,7 @@ export class ViewTree extends HTMLElement {
   async reload() {
     assert(this.treeData.length > 0, 'view-tree reload requires a tree')
     await this.loadTree()
+    await runtime.call('ui.toast', 'success', { message: `Reloaded tree ${this.treeKey}` })
   }
 
   async addNode() {

@@ -43,7 +43,7 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   connectedCallback() {
-    registerViewPlugin(this)
+    registerViewPlugin(this, this.createViewPluginMethods())
     this.style.display = 'contents'
     this.canvas = this.querySelector('canvas[data-element="canvas"]') || this.querySelector('canvas')
     if (!(this.canvas instanceof HTMLCanvasElement)) {
@@ -80,6 +80,10 @@ export class ViewCanvasBase extends HTMLElement {
     this._removeEventListeners()
     this._unmountHeaderControls()
     void unregisterViewPlugin(this)
+  }
+
+  createViewPluginMethods() {
+    return {}
   }
 
   createHeaderControlsElement() {
