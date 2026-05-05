@@ -1,25 +1,25 @@
 -- Apply Automap Rules - Pipeline Step 5
 -- Calls automap plugin to apply transformation rules to tilemap
--- Inputs: rulesMapId, inputMapId, outputMapId
--- Outputs: outputMapId (success), error (failure)
+-- Inputs: rulesMap, inputMap, outputMap
+-- Outputs: outputMap (success), error (failure)
 
-local rulesMapId = inputs[1]
-if rulesMapId == nil or rulesMapId == "" then
-	rulesMapId = "rules"
+local rulesMap = inputs[1]
+if rulesMap == nil or rulesMap == "" then
+	rulesMap = "plugins/automap/testdata/new_rules/rules.json"
 end
-local inputMapId = inputs[2]
-if inputMapId == nil or inputMapId == "" then
-	inputMapId = "new_map"
+local inputMap = inputs[2]
+if inputMap == nil or inputMap == "" then
+	inputMap = "plugins/automap/testdata/new_rules/input.json"
 end
-local outputMapId = inputs[3]
-if outputMapId == nil or outputMapId == "" then
-	outputMapId = "automap_result"
+local outputMap = inputs[3]
+if outputMap == nil or outputMap == "" then
+	outputMap = "automap_result.tilemap.json"
 end
 
 local payload = {
-	rulesMapId = rulesMapId,
-	inputMapId = inputMapId,
-	outputMapId = outputMapId,
+	rulesMap = rulesMap,
+	inputMap = inputMap,
+	outputMap = outputMap,
 }
 
 local resultText = host.awaitCall("automap", "automap", json.encode(payload))
@@ -31,10 +31,9 @@ if not ok then
 end
 
 if response.success then
-	outputs[1] = response.outputMapId or outputMapId -- Return the output map ID
-	outputs[2] = "" -- No error
+	outputs[1] = response.outputMap or outputMap
+	outputs[2] = ""
 else
-	outputs[1] = "" -- No map ID on error
+	outputs[1] = ""
 	outputs[2] = response.error or "Unknown error"
 end
-

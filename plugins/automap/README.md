@@ -23,19 +23,19 @@ The WASM export is:
 
 ```json
 {
-  "rulesMapId": "rules",
-  "inputMapId": "level-source",
-  "outputMapId": "level-output"
+  "rulesMap": "maps/rules.tilemap.json",
+  "inputMap": "maps/level-source.tilemap.json",
+  "outputMap": "maps/level-output.tilemap.json"
 }
 ```
 
-- `rulesMapId` — SQL-stored tilemap containing automap rules.
-- `inputMapId` — SQL-stored tilemap used for matching.
-- `outputMapId` — SQL-stored tilemap receiving output.
+- `rulesMap` — filesystem tilemap JSON path containing automap rules.
+- `inputMap` — filesystem tilemap JSON path used for matching.
+- `outputMap` — filesystem tilemap JSON path receiving output.
 
-If `inputMapId == outputMapId`, the map is updated in-place. If they differ, Automap creates a fresh output map using the input map's root properties, but not its layers, then writes generated layers into it.
+If `inputMap == outputMap`, the map is updated in-place. If they differ, Automap creates a fresh output map using the input map's root properties, but not its layers, then writes generated layers into it.
 
-Tilemaps are stored in the shared SQL table `tilemap_storage` as JSON.
+Tilemaps are read and written through the `fs` plugin as native GAMS tilemap JSON files.
 
 ## Tilemap Format
 

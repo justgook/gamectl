@@ -205,19 +205,19 @@
     "inputs": [
       {
         "id": 1,
-        "name": "rulesMapId",
+        "name": "rulesMap",
         "srcNodeId": 21,
         "srcOutputId": 1
       },
       {
         "id": 2,
-        "name": "inputMapId",
+        "name": "inputMap",
         "srcNodeId": 2,
         "srcOutputId": 1
       },
       {
         "id": 3,
-        "name": "outputMapId",
+        "name": "outputMap",
         "srcNodeId": 24,
         "srcOutputId": 1
       }
@@ -225,7 +225,7 @@
     "outputs": [
       {
         "id": 1,
-        "name": "outputMapId",
+        "name": "outputMap",
         "value": ""
       },
       {
@@ -249,7 +249,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "new_rules"
+        "value": "plugins/automap/testdata/new_rules/rules.json"
       }
     ]
   },
@@ -308,7 +308,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "the_automaped2"
+        "value": "automap_result.tilemap.json"
       }
     ]
   },

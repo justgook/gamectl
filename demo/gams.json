@@ -1284,21 +1284,21 @@
               "codePath": "demo/ng/presets/pipeline-apply-automap.lua",
               "inputs": [
                 {
-                  "name": "rulesMapId",
-                  "defaultValue": "rules"
+                  "name": "rulesMap",
+                  "defaultValue": "plugins/automap/testdata/new_rules/rules.json"
                 },
                 {
-                  "name": "inputMapId",
-                  "defaultValue": "new_map"
+                  "name": "inputMap",
+                  "defaultValue": "plugins/automap/testdata/new_rules/input.json"
                 },
                 {
-                  "name": "outputMapId",
-                  "defaultValue": "automap_result"
+                  "name": "outputMap",
+                  "defaultValue": "automap_result.tilemap.json"
                 }
               ],
               "outputs": [
                 {
-                  "name": "outputMapId"
+                  "name": "outputMap"
                 },
                 {
                   "name": "error"
@@ -1491,7 +1491,7 @@
       "runtime": "wasm",
       "role": "service",
       "deps": [
-        "sql"
+        "fs"
       ],
       "url": "builtin/plugins/automap.wasm"
     },
