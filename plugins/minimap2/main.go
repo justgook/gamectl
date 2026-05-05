@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/justgook/gams/pkg/tree"
 	"github.com/justgook/gams/pkg/util"
@@ -13,8 +12,8 @@ import (
 
 // Input represents the plugin input structure
 type Input struct {
-	TreeId string `json:"treeId"` // Required: tree to read from tree-storage
-	MapId  string `json:"mapId"`  // Required: map ID to save in tilemap-storage
+	Tree string `json:"tree"` // Required: tree JSON file path to read through fs
+	Map  string `json:"map"`  // Required: tilemap JSON file path to write through fs
 }
 
 // MyRandom implements Random interface using WASM imports
@@ -37,13 +36,29 @@ func (rng *MyRandom) Intn(n int) int {
 	return int(rndIntn(uint32(n)))
 }
 
-func execSQL(sqlQuery string) error {
-	_, output, callErr := pdk.Call("sql", "exec", []byte(sqlQuery))
+func readFile(path string) ([]byte, error) {
+	status, output, callErr := pdk.Call("fs", "read", []byte(path))
+	if callErr != nil {
+		return nil, callErr
+	}
+	if status != 0 {
+		return nil, fmt.Errorf("%s", string(output))
+	}
+	return output, nil
+}
+
+func writeFile(path string, data []byte) error {
+	input := make([]byte, 0, len(path)+1+len(data))
+	input = append(input, path...)
+	input = append(input, 0)
+	input = append(input, data...)
+
+	_, output, callErr := pdk.Call("fs", "write", input)
 	if callErr != nil {
 		return callErr
 	}
 	if len(output) > 0 && string(output) != "OK" {
-		return fmt.Errorf(string(output))
+		return fmt.Errorf("%s", string(output))
 	}
 	return nil
 }
@@ -52,21 +67,6 @@ func logToConsole(msg string) {
 	// browser does not expose the legacy generic `host.log` module to WASM
 	// plugins. Keep generation logging as a no-op until a routed logger service
 	// exists, instead of making minimap2 depend on a host callback.
-}
-
-//export __sql_init
-func SqlInit() uint32 {
-	err := execSQL(`CREATE TABLE IF NOT EXISTS tilemap_storage (
-		name TEXT PRIMARY KEY,
-		data TEXT NOT NULL
-	)`)
-	if err != nil {
-		pdk.Output(util.ErrorResponse("failed to initialize minimap2 SQL state: " + err.Error()))
-		return 1
-	}
-
-	pdk.Output(util.SuccessResponse())
-	return 0
 }
 
 //export gen
@@ -79,38 +79,24 @@ func Gen() uint32 {
 	}
 
 	// Validate required parameters
-	if params.TreeId == "" {
-		pdk.Output(util.ErrorResponse("treeId is required"))
+	if params.Tree == "" {
+		pdk.Output(util.ErrorResponse("tree is required"))
 		return 1
 	}
-	if params.MapId == "" {
-		pdk.Output(util.ErrorResponse("mapId is required"))
-		return 1
-	}
-
-	// Query tree from SQL storage
-	sqlQuery := fmt.Sprintf("SELECT data FROM tree_storage WHERE name = '%s'", params.TreeId)
-	status, csvOutput, callErr := pdk.Call("sql", "query", []byte(sqlQuery))
-	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to query tree: " + callErr.Error()))
-		return 1
-	}
-	if status != 0 {
-		pdk.Output(util.ErrorResponse("SQL query failed"))
+	if params.Map == "" {
+		pdk.Output(util.ErrorResponse("map is required"))
 		return 1
 	}
 
-	// Parse CSV response to get JSON data
-	csv := string(csvOutput)
-	lines := util.ParseCSVLines(csv)
-	if len(lines) < 2 || len(lines[1]) < 1 {
-		pdk.Output(util.ErrorResponse("tree not found: " + params.TreeId))
+	treeData, err := readFile(params.Tree)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to read tree: " + err.Error()))
 		return 1
 	}
 
 	// Parse tree from JSON data
 	var t tree.Tree
-	if err := json.Unmarshal([]byte(lines[1][0]), &t); err != nil {
+	if err := json.Unmarshal(treeData, &t); err != nil {
 		pdk.Output(util.ErrorResponse("failed to parse tree: " + err.Error()))
 		return 1
 	}
@@ -132,20 +118,14 @@ func Gen() uint32 {
 	tileMap := p.ToTileMap()
 	logToConsole("[Minimap2] Generation completed successfully")
 
-	// Store tilemap in SQL storage
 	tilemapJSON, err := json.Marshal(tileMap)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("failed to marshal tilemap: " + err.Error()))
 		return 1
 	}
 
-	// Escape SQL string and insert
-	escapedData := strings.ReplaceAll(string(tilemapJSON), "'", "''")
-	sqlQuery = fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
-		params.MapId, escapedData)
-
-	if err := execSQL(sqlQuery); err != nil {
-		pdk.Output(util.ErrorResponse("failed to store tilemap: " + err.Error()))
+	if err := writeFile(params.Map, tilemapJSON); err != nil {
+		pdk.Output(util.ErrorResponse("failed to write tilemap: " + err.Error()))
 		return 1
 	}
 

@@ -159,8 +159,6 @@ async function main() {
     await applyThemeStylesheet(runtime, gamsConfig)
     await runtime.add(gamsConfig.plugins)
 
-    await debugMigration(runtime)
-
 
     window.onerror = function (_message, _source, _lineno, _colno, error) {
       runtime.call("ui.toast", "error", errorParse(error))
@@ -217,19 +215,3 @@ function escapeHtml(value) {
 
 main()
 
-/// TEMP DEBUG MIGRATIONS (REMOVE FOR PRODUCTION)
-async function debugMigration(runtime) {
-  await runtime.call("sql", "exec", `CREATE TABLE IF NOT EXISTS tree_storage (
-    name TEXT PRIMARY KEY,
-    data TEXT NOT NULL
-);`)
-
-  await runtime.call("sql", "exec", `INSERT INTO tree_storage (name, data) VALUES
-(
-  'progression',
-  '[{"parent":-1},{"parent":0},{"parent":1},{"parent":1},{"parent":3},{"parent":4},{"parent":4},{"parent":6},{"parent":6},{"parent":0},{"parent":7},{"parent":1},{"parent":8},{"parent":1},{"parent":9},{"parent":14},{"parent":8},{"parent":11},{"parent":1},{"parent":14}]'
-)
-`)
-
-
-}

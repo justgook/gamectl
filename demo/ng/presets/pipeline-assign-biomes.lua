@@ -1,11 +1,11 @@
 -- Assign Biomes - Pipeline Step 2
 -- Calls biomes plugin to assign biome names to tree nodes
--- Inputs: treeId, biomesQuery
--- Outputs: treeId (success), error (failure)
+-- Inputs: src, biomesQuery
+-- Outputs: src (success), error (failure)
 
-local treeId = inputs[1]
-if treeId == nil or treeId == "" then
-	treeId = "progression"
+local src = inputs[1]
+if src == nil or src == "" then
+	src = "progression.tree.json"
 end
 local biomesQuery = inputs[2]
 if biomesQuery == nil or biomesQuery == "" then
@@ -13,7 +13,7 @@ if biomesQuery == nil or biomesQuery == "" then
 end
 
 local payload = {
-	treeId = treeId,
+	src = src,
 	biomesQuery = biomesQuery,
 }
 
@@ -26,10 +26,10 @@ if not ok then
 end
 
 if response.success then
-	outputs[1] = treeId -- Return the tree ID
+	outputs[1] = src -- Return the tree source path
 	outputs[2] = "" -- No error
 else
-	outputs[1] = "" -- No tree ID on error
+	outputs[1] = "" -- No source path on error
 	outputs[2] = response.error or "Unknown error"
 end
 

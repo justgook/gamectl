@@ -1,11 +1,11 @@
 -- Assign Keys & Locks - Pipeline Step 3
 -- Calls keylock plugin to assign keys and locks for progression
--- Inputs: treeId, keysQuery, keyChance, lockChance, maxKeysPerLock
--- Outputs: treeId (success), error (failure)
+-- Inputs: src, keysQuery, keyChance, lockChance, maxKeysPerLock
+-- Outputs: src (success), error (failure)
 
-local treeId = inputs[1]
-if treeId == nil or treeId == "" then
-	treeId = "progression"
+local src = inputs[1]
+if src == nil or src == "" then
+	src = "progression.tree.json"
 end
 local keysQuery = inputs[2]
 if keysQuery == nil or keysQuery == "" then
@@ -25,7 +25,7 @@ if maxKeysPerLock == nil or maxKeysPerLock == "" then
 end
 
 local payload = {
-	treeId = treeId,
+	src = src,
 	keysQuery = keysQuery,
 	keyChance = tonumber(keyChance) or 0.5,
 	lockChance = tonumber(lockChance) or 0.7,
@@ -41,10 +41,10 @@ if not ok then
 end
 
 if response.success then
-	outputs[1] = treeId -- Return the tree ID
+	outputs[1] = src -- Return the tree source path
 	outputs[2] = "" -- No error
 else
-	outputs[1] = "" -- No tree ID on error
+	outputs[1] = "" -- No source path on error
 	outputs[2] = response.error or "Unknown error"
 end
 
