@@ -218,6 +218,10 @@
             "url": "/plugins/ai_agent/index.js"
           },
           {
+            "path": "plugins/ai_agent/ajv.bundle.mjs",
+            "url": "/plugins/ai_agent/ajv.bundle.mjs"
+          },
+          {
             "path": "plugins/ai_provider_mock/index.js",
             "url": "/plugins/ai_provider_mock/index.js"
           },

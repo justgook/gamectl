@@ -4,8 +4,8 @@ function decodeOutput(result) {
   return new TextDecoder().decode(result?.output || new Uint8Array())
 }
 
-export async function require(path) {
-  const readResult = await runtime.call('fs', 'read', path)
+export async function require(path, runtimeHost = runtime) {
+  const readResult = await runtimeHost.call('fs', 'read', path)
   if (readResult.returnCode !== 0) throw new Error(decodeOutput(readResult) || `fs.read failed for ${path}`)
 
   return await importJsFromBytes(readResult.output)
