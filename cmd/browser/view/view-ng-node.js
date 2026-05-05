@@ -35,12 +35,6 @@ function dirname(path) {
   return normalized.slice(0, slashIndex)
 }
 
-function clampPortCount(value, fallback = 0) {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return fallback
-  return Math.max(0, Math.min(32, Math.floor(n)))
-}
-
 function kindToFormValue(kind) {
   if (kind === NG.NODE_VALUE) return 'value'
   if (kind === NG.NODE_GOAL) return 'goal'
@@ -56,11 +50,11 @@ function kindFromFormValue(value, fallback = NG.NODE_CODE) {
   return fallback
 }
 
-function nodeKindLabel(kind) {
-  if (kind === NG.NODE_VALUE) return 'node-value'
-  if (kind === NG.NODE_GOAL) return 'node-goal'
-  if (kind === NG.NODE_CALL) return 'import-node'
-  return 'node-code'
+function kindFromConfigValue(value, fallback = NG.NODE_CODE) {
+  if (typeof value === 'string') return kindFromFormValue(value.trim().toLowerCase(), fallback)
+  const kind = Number(value || fallback)
+  if (kind === NG.NODE_VALUE || kind === NG.NODE_GOAL || kind === NG.NODE_CODE || kind === NG.NODE_CALL) return kind
+  return fallback
 }
 
 function nodeSupportsInputs(kind) {
@@ -268,26 +262,18 @@ export class ViewNgNode extends HTMLElement {
     return decodeOutput(result)
   }
 
-  async loadTemplates() {
-    try {
-      const csv = await this.callSql('SELECT name, kind, data FROM nodegraph2_node_templates ORDER BY name')
-      const rows = parseCSVLines(csv.trim())
-      this.templates = rows.slice(1).map((row) => {
-        const name = String(row[0] || '').trim()
-        const kind = Number(row[1] || 0)
-        const raw = String(row[2] || '')
-        if (!name) return null
-        let data = {}
-        try {
-          data = JSON.parse(raw || '{}')
-        } catch {
-          data = {}
-        }
-        return { name, kind, data }
-      }).filter(Boolean)
-    } catch (error) {
-      this.templates = []
-    }
+  loadTemplates() {
+    const presets = this.config?.presets || []
+    this.templates = presets.map((entry) => {
+      const name = String(entry?.name || '').trim()
+      if (!name) return null
+      const kind = kindFromConfigValue(entry?.kind)
+      return {
+        name,
+        kind,
+        data: { ...entry, name, kind },
+      }
+    }).filter(Boolean)
   }
 
   async loadGraphs() {
@@ -336,16 +322,12 @@ export class ViewNgNode extends HTMLElement {
     }
   }
 
-  kindLabel(kind) {
-    return nodeKindLabel(kind)
-  }
-
   renderNodeTypeOptions(selectedKind, selectedTemplateName = '') {
     const selected = selectedTemplateName ? `template:${selectedTemplateName}` : kindToFormValue(selectedKind)
     const templateOptions = this.templates.length
       ? this.templates.map((entry) => {
         const value = `template:${entry.name}`
-        return `<option value="${escapeAttribute(value)}" ${selected === value ? 'selected' : ''}>${escapeAttribute(entry.name)} (${escapeAttribute(this.kindLabel(Number(entry.kind || NG.NODE_CODE)))})</option>`
+        return `<option value="${escapeAttribute(value)}" ${selected === value ? 'selected' : ''}>${escapeAttribute(entry.name)}</option>`
       }).join('')
       : '<option value="template-empty" disabled>empty</option>'
     return `

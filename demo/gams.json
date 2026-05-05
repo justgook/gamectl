@@ -765,7 +765,553 @@
       "view-ng-node": {
         "url": "builtin/view/view-ng-node.js",
         "label": "Node Editor",
-        "internal": true
+        "internal": true,
+        "config": {
+          "presets": [
+            {
+              "name": "Array",
+              "kind": "code",
+              "codePath": "demo/ng/presets/array.lua",
+              "inputs": [
+                {
+                  "name": "item1",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "item2",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "array"
+                }
+              ]
+            },
+            {
+              "name": "Biome Assigner",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pipeline-assign-biomes.lua",
+              "inputs": [
+                {
+                  "name": "treeId",
+                  "defaultValue": "progression"
+                },
+                {
+                  "name": "biomesQuery",
+                  "defaultValue": "SELECT name FROM biomes ORDER BY RANDOM()"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "treeId"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Demo UVs",
+              "kind": "code",
+              "codePath": "demo/ng/presets/uvs.lua",
+              "outputs": [
+                {
+                  "name": "uvs"
+                }
+              ]
+            },
+            {
+              "name": "Image Atlas",
+              "kind": "code",
+              "codePath": "demo/ng/presets/image-atlas.lua",
+              "inputs": [
+                {
+                  "name": "images",
+                  "defaultValue": "[]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "image"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Image FlipY",
+              "kind": "code",
+              "codePath": "demo/ng/presets/image-flipy.lua",
+              "inputs": [
+                {
+                  "name": "image",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "image"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Image Open",
+              "kind": "code",
+              "codePath": "demo/ng/presets/image-open.lua",
+              "inputs": [
+                {
+                  "name": "path",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "image"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Image Wrap",
+              "kind": "code",
+              "codePath": "demo/ng/presets/image-wrap.lua",
+              "inputs": [
+                {
+                  "name": "image",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "handle"
+                }
+              ]
+            },
+            {
+              "name": "Image Write",
+              "kind": "code",
+              "codePath": "demo/ng/presets/image-write.lua",
+              "inputs": [
+                {
+                  "name": "image",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "path",
+                  "defaultValue": "/tmp/image.qoi"
+                },
+                {
+                  "name": "format",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "path"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Keys & Locks Assigner",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pipeline-assign-keys-locks.lua",
+              "inputs": [
+                {
+                  "name": "treeId",
+                  "defaultValue": "progression"
+                },
+                {
+                  "name": "keysQuery",
+                  "defaultValue": "SELECT name FROM keys ORDER BY RANDOM() LIMIT 15"
+                },
+                {
+                  "name": "keyChance",
+                  "defaultValue": "0.5"
+                },
+                {
+                  "name": "lockChance",
+                  "defaultValue": "0.7"
+                },
+                {
+                  "name": "maxKeysPerLock",
+                  "defaultValue": "2"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "treeId"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "LUT Generator",
+              "kind": "code",
+              "codePath": "demo/ng/presets/lut-generator.lua",
+              "inputs": [
+                {
+                  "name": "mapName",
+                  "defaultValue": "new_map"
+                },
+                {
+                  "name": "layerIndex",
+                  "defaultValue": "1"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "image+"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Pack Rects",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pack-rects.lua",
+              "inputs": [
+                {
+                  "name": "rects",
+                  "defaultValue": "[]"
+                },
+                {
+                  "name": "width",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "height",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "padding",
+                  "defaultValue": "0"
+                },
+                {
+                  "name": "autoSize",
+                  "defaultValue": "true"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "packedRects"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Pick",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pick.lua",
+              "inputs": [
+                {
+                  "name": "items",
+                  "defaultValue": "[]"
+                },
+                {
+                  "name": "fields",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "items"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Read File",
+              "kind": "code",
+              "codePath": "demo/ng/presets/read-file.lua",
+              "inputs": [
+                {
+                  "name": "path",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "content"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Remap",
+              "kind": "code",
+              "codePath": "demo/ng/presets/remap.lua",
+              "inputs": [
+                {
+                  "name": "items",
+                  "defaultValue": "[]"
+                },
+                {
+                  "name": "fields",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "srcMin",
+                  "defaultValue": "0"
+                },
+                {
+                  "name": "srcMax",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "dstMin",
+                  "defaultValue": "0"
+                },
+                {
+                  "name": "dstMax",
+                  "defaultValue": "1"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "items"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Respack Build",
+              "kind": "code",
+              "codePath": "demo/ng/presets/respack-build.lua",
+              "inputs": [
+                {
+                  "name": "schema",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "outputFile",
+                  "defaultValue": "/tmp/output.rspk"
+                },
+                {
+                  "name": "slots",
+                  "defaultValue": "[]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "outputFile"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Respack Generate Odin",
+              "kind": "code",
+              "codePath": "demo/ng/presets/respack-generate-odin.lua",
+              "inputs": [
+                {
+                  "name": "schema",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "outputFile",
+                  "defaultValue": "/tmp/respack-decoder.odin"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "odinSource"
+                },
+                {
+                  "name": "outputFile"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "SQL Query",
+              "kind": "code",
+              "codePath": "demo/ng/presets/sql-query.lua",
+              "inputs": [
+                {
+                  "name": "query",
+                  "defaultValue": "SELECT 1 AS value"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "rows"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Tilemap Automap",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pipeline-apply-automap.lua",
+              "inputs": [
+                {
+                  "name": "rulesMapId",
+                  "defaultValue": "rules"
+                },
+                {
+                  "name": "inputMapId",
+                  "defaultValue": "new_map"
+                },
+                {
+                  "name": "outputMapId",
+                  "defaultValue": "automap_result"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "outputMapId"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Tilemap minimap Generator",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pipeline-create-minimap.lua",
+              "inputs": [
+                {
+                  "name": "inputTreeId",
+                  "defaultValue": "progression"
+                },
+                {
+                  "name": "mapId",
+                  "defaultValue": "new_map"
+                },
+                {
+                  "name": "direction",
+                  "defaultValue": "radial"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "mapId"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Tilemap Scaler",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pipeline-tilemap-scaler.lua",
+              "inputs": [
+                {
+                  "name": "inputMapId",
+                  "defaultValue": "new_map"
+                },
+                {
+                  "name": "outputMapId",
+                  "defaultValue": "scaled_map"
+                },
+                {
+                  "name": "scaleFactor",
+                  "defaultValue": "2"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "outputMapId"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "World Tree Generator",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pipeline-world-tree.lua",
+              "inputs": [
+                {
+                  "name": "nodeCount",
+                  "defaultValue": "10"
+                },
+                {
+                  "name": "maxDepth",
+                  "defaultValue": "0"
+                },
+                {
+                  "name": "maxBranching",
+                  "defaultValue": "0"
+                },
+                {
+                  "name": "rootBranches",
+                  "defaultValue": "0"
+                },
+                {
+                  "name": "treeId",
+                  "defaultValue": "progression"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "treeId"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Zip",
+              "kind": "code",
+              "codePath": "demo/ng/presets/zip.lua",
+              "inputs": [
+                {
+                  "name": "items1",
+                  "defaultValue": "[]"
+                },
+                {
+                  "name": "items2",
+                  "defaultValue": "[]"
+                },
+                {
+                  "name": "items3",
+                  "defaultValue": "[]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "items"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            }
+          ]
+        }
       },
       "view-props": {
         "url": "builtin/view/view-props.js",
