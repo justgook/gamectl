@@ -5,6 +5,7 @@
 @ctype mat4 matrix[4,4]f32
 
 @vs vs_display
+@glsl_options flip_vert_y // fixes the different `origin_top_left` in webgl and native
 layout(binding=0) uniform vs_params {
     mat4 ortho;
     vec2 pos_px;
