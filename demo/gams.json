@@ -905,8 +905,8 @@
               "codePath": "demo/ng/presets/pipeline-assign-biomes.lua",
               "inputs": [
                 {
-                  "name": "treeId",
-                  "defaultValue": "progression"
+                  "name": "src",
+                  "defaultValue": "progression.tree.json"
                 },
                 {
                   "name": "biomesQuery",
@@ -915,7 +915,7 @@
               ],
               "outputs": [
                 {
-                  "name": "treeId"
+                  "name": "src"
                 },
                 {
                   "name": "error"
@@ -1038,8 +1038,8 @@
               "codePath": "demo/ng/presets/pipeline-assign-keys-locks.lua",
               "inputs": [
                 {
-                  "name": "treeId",
-                  "defaultValue": "progression"
+                  "name": "src",
+                  "defaultValue": "progression.tree.json"
                 },
                 {
                   "name": "keysQuery",
@@ -1060,7 +1060,7 @@
               ],
               "outputs": [
                 {
-                  "name": "treeId"
+                  "name": "src"
                 },
                 {
                   "name": "error"
@@ -1073,8 +1073,8 @@
               "codePath": "demo/ng/presets/lut-generator.lua",
               "inputs": [
                 {
-                  "name": "mapName",
-                  "defaultValue": "new_map"
+                  "name": "map",
+                  "defaultValue": "/minimap.map.json"
                 },
                 {
                   "name": "layerIndex",
@@ -1311,12 +1311,12 @@
               "codePath": "demo/ng/presets/pipeline-create-minimap.lua",
               "inputs": [
                 {
-                  "name": "inputTreeId",
-                  "defaultValue": "progression"
+                  "name": "tree",
+                  "defaultValue": "progression.tree.json"
                 },
                 {
-                  "name": "mapId",
-                  "defaultValue": "new_map"
+                  "name": "map",
+                  "defaultValue": "/minimap.map.json"
                 },
                 {
                   "name": "direction",
@@ -1325,7 +1325,7 @@
               ],
               "outputs": [
                 {
-                  "name": "mapId"
+                  "name": "map"
                 },
                 {
                   "name": "error"
@@ -1338,12 +1338,12 @@
               "codePath": "demo/ng/presets/pipeline-tilemap-scaler.lua",
               "inputs": [
                 {
-                  "name": "inputMapId",
-                  "defaultValue": "new_map"
+                  "name": "inputMap",
+                  "defaultValue": "/minimap.map.json"
                 },
                 {
-                  "name": "outputMapId",
-                  "defaultValue": "scaled_map"
+                  "name": "outputMap",
+                  "defaultValue": "/scaled.map.json"
                 },
                 {
                   "name": "scaleFactor",
@@ -1352,7 +1352,7 @@
               ],
               "outputs": [
                 {
-                  "name": "outputMapId"
+                  "name": "outputMap"
                 },
                 {
                   "name": "error"
@@ -1381,13 +1381,13 @@
                   "defaultValue": "0"
                 },
                 {
-                  "name": "treeId",
-                  "defaultValue": "progression"
+                  "name": "src",
+                  "defaultValue": "progression.tree.json"
                 }
               ],
               "outputs": [
                 {
-                  "name": "treeId"
+                  "name": "src"
                 },
                 {
                   "name": "error"
