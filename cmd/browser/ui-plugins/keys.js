@@ -111,10 +111,12 @@ export function createUiKeys(runtime, config) {
     byKey.get(binding.normalizedKey).push(binding)
   }
 
-  async function snapshotContext() {
+  async function snapshotContext(inTextInput) {
     const result = await runtime.call('ui.context', 'snapshot', '{}')
     assertOk(result, 'ui.context.snapshot')
-    return JSON.parse(decodeOutput(result))
+    const ctx = JSON.parse(decodeOutput(result))
+    ctx.key = { inTextInput }
+    return ctx
   }
 
   async function runCall(callSpec, ctx) {
@@ -135,8 +137,8 @@ export function createUiKeys(runtime, config) {
     if (value.calls != null) await dispatchScriptOutput(value.calls.map((call) => ({ call })), ctx)
   }
 
-  async function runBinding(binding) {
-    const ctx = await snapshotContext()
+  async function runBinding(binding, inTextInput) {
+    const ctx = await snapshotContext(inTextInput)
     if (binding.call) {
       await runCall(binding.call, ctx)
       return
@@ -159,7 +161,7 @@ export function createUiKeys(runtime, config) {
     if (!binding) return
     event.preventDefault()
     event.stopPropagation()
-    void runBinding(binding)
+    void runBinding(binding, inTextInput)
   }
 
   window.addEventListener('keydown', onKeyDown, { capture: true })
