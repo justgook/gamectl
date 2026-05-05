@@ -382,6 +382,18 @@ export class ViewNg extends HTMLElement {
           await this.saveGraph()
           return okResult()
         },
+        saveAs: async () => {
+          await this.saveGraphAs()
+          return okResult()
+        },
+        new: async () => {
+          await this.newGraph()
+          return okResult()
+        },
+        open: async () => {
+          await this.showLoadGraphPopup()
+          return okResult()
+        },
         run: async () => {
           await this.runGraph()
           return okResult()
@@ -390,10 +402,40 @@ export class ViewNg extends HTMLElement {
           await this.reloadGraph()
           return okResult()
         },
+        zoomIn: async () => {
+          this.zoomIn()
+          return okResult()
+        },
+        zoomOut: async () => {
+          this.zoomOut()
+          return okResult()
+        },
+        zoomFit: async () => {
+          this.fitToContent()
+          return okResult()
+        },
         clearSelection: async () => {
           this.clearSelection()
           return okResult()
         },
+        tool_1: async () => {
+          await this.runGraph()
+          return okResult()
+        },
+        tool_2: async () => {
+          await this.showAddNodePopup()
+          return okResult()
+        },
+        tool_3: async () => {
+          await this.showEditNodePopup()
+          return okResult()
+        },
+        tool_4: async () => {
+          await this.deleteSelectedNodes()
+          return okResult()
+        },
+        tool_5: async () => okResult(),
+        tool_6: async () => okResult(),
       },
     })
     void runtime.call('ui.context', 'activateView', { id: this.pluginId })
@@ -990,7 +1032,9 @@ end`
   async reloadGraph() {
     const path = String(this.graphPath || '').trim()
     assert(path.length > 0, 'view-ng reload requires current graph path')
-    await this.loadGraphFS(path)
+    await this.loadGraphFS(path, false)
+    this._setStatus(`reloaded graph from ${path}`, 'success')
+    await runtime.call('ui.toast', 'success', { message: `Reloaded graph from ${path}` })
   }
 
   resetExecutionState() {

@@ -905,10 +905,6 @@ export class ViewSql extends HTMLElement {
         return
       }
 
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        void runtime.call('ui.popup', 'close', { cancelled: true, ok: false })
-      }
       return
     }
 

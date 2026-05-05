@@ -1001,16 +1001,6 @@ export class ViewFiles extends HTMLElement {
       return
     }
 
-    if (this.mode === 'chooser' && event.key === 'Escape') {
-      event.preventDefault()
-      this.dispatchEvent(new CustomEvent('chooser-cancel', { bubbles: true }))
-      return
-    }
-
-    if (this.mode === 'saver' && event.key === 'Escape') {
-      event.preventDefault()
-      this.dispatchEvent(new CustomEvent('saver-cancel', { bubbles: true }))
-    }
   }
 
   async toggleDirectory(path) {

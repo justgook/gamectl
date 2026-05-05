@@ -22,6 +22,10 @@ async function callViewMethod(view, methodNames, input) {
   throw new Error(`${view.pluginId} does not implement ${methodNames[0]}`)
 }
 
+async function noop() {
+  return encodeResult({ ok: true })
+}
+
 export function registerViewPlugin(view, methods = {}) {
   if (!(view instanceof HTMLElement)) throw new Error('registerViewPlugin requires an HTMLElement')
   if (typeof view.pluginId === 'string' && view.pluginId.length > 0) return view.pluginId
@@ -32,10 +36,22 @@ export function registerViewPlugin(view, methods = {}) {
     id: pluginId,
     methods: {
       ping: async () => encodeResult({ ok: true, id: pluginId }),
-      save: async (input) => callViewMethod(view, ['save'], input),
+      save: async (input) => callViewMethod(view, ['save', 'saveGraph'], input),
+      saveAs: async (input) => callViewMethod(view, ['saveAs', 'saveGraphAs'], input),
+      new: async (input) => callViewMethod(view, ['new', 'newGraph', 'newTree', 'newTilemap'], input),
+      open: async (input) => callViewMethod(view, ['open', 'showLoadGraphPopup', 'openTree', 'openTilemap'], input),
       run: async (input) => callViewMethod(view, ['run', 'runGraph'], input),
       reload: async (input) => callViewMethod(view, ['reload', 'reloadGraph'], input),
+      zoomIn: async (input) => callViewMethod(view, ['zoomIn'], input),
+      zoomOut: async (input) => callViewMethod(view, ['zoomOut'], input),
+      zoomFit: async (input) => callViewMethod(view, ['zoomFit', 'fitToContent'], input),
       clearSelection: async (input) => callViewMethod(view, ['clearSelection'], input),
+      tool_1: noop,
+      tool_2: noop,
+      tool_3: noop,
+      tool_4: noop,
+      tool_5: noop,
+      tool_6: noop,
       ...methods,
     },
   })
