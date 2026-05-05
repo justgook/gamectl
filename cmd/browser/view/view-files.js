@@ -1,5 +1,5 @@
 import { runtime } from '/core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { registerViewPlugin, unregisterViewPlugin, viewOk } from '/util/view-plugin.js'
 import { createWriteInput } from '/util/fs.js'
 
 const decoder = new TextDecoder()
@@ -101,7 +101,7 @@ export class ViewFiles extends HTMLElement {
   }
 
   connectedCallback() {
-    registerViewPlugin(this)
+    registerViewPlugin(this, this.createViewPluginMethods())
     if (this.dataset.ready) return
     this.dataset.ready = '1'
 
@@ -127,13 +127,12 @@ export class ViewFiles extends HTMLElement {
 
     const toolbar = this._headerControlsElement
     assert(toolbar instanceof HTMLElement, 'view-files missing header controls element')
-    toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh())
-    toolbar.querySelector('[data-action="new-file"]')?.addEventListener('click', () => this.openCreatePopup('file'))
-    toolbar.querySelector('[data-action="new-folder"]')?.addEventListener('click', () => this.openCreatePopup('directory'))
-    toolbar.querySelector('[data-action="rename"]')?.addEventListener('click', () => this.openRenamePopup())
-    toolbar.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelected())
-    toolbar.querySelector('[data-action="upload"]')?.addEventListener('click', () => this.uploadFile())
+    toolbar.querySelector('[data-action="new"]')?.addEventListener('click', () => this.newEntry())
     toolbar.querySelector('[data-action="download"]')?.addEventListener('click', () => this.downloadSelected())
+    toolbar.querySelector('[data-action="upload"]')?.addEventListener('click', () => this.uploadFile())
+    toolbar.querySelector('[data-action="reload"]')?.addEventListener('click', () => this.reload())
+    toolbar.querySelector('[data-action="edit"]')?.addEventListener('click', () => this.editSelected())
+    toolbar.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelected())
 
     this.addEventListener('chooser-select', async (event) => {
       await this.closePopupResult({ ok: true, cancelled: false, selection: event.detail.selection })
@@ -147,8 +146,6 @@ export class ViewFiles extends HTMLElement {
     this.addEventListener('saver-cancel', async () => {
       await this.closePopupResult({ ok: false, cancelled: true })
     })
-
-    this.addEventListener('keydown', (event) => this.handleKeyDown(event))
 
     this.setPath(this.rootPath)
     this.updateTargetPath()
@@ -241,18 +238,54 @@ export class ViewFiles extends HTMLElement {
     }
   }
 
+  createViewPluginMethods() {
+    return {
+      new: async () => {
+        await this.newEntry()
+        return viewOk()
+      },
+      open: async () => {
+        await this.downloadSelected()
+        return viewOk()
+      },
+      save: async () => {
+        await this.uploadFile()
+        return viewOk()
+      },
+      saveAs: async () => {
+        await this.uploadFile()
+        return viewOk()
+      },
+      reload: async () => {
+        await this.reload()
+        return viewOk()
+      },
+      tool_1: async () => {
+        await this.editSelected()
+        return viewOk()
+      },
+      tool_2: async () => {
+        await this.deleteSelected()
+        return viewOk()
+      },
+    }
+  }
+
   createHeaderControlsElement() {
     const toolbar = document.createElement('div')
     toolbar.dataset.element = 'toolbar'
     toolbar.setAttribute('slot', 'header-controls')
     toolbar.innerHTML = `
-      <button data-action="refresh" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
-      <button data-action="new-file" aria-label="Create file" title="Create file"><i aria-hidden="true">note_add</i></button>
-      <button data-action="new-folder" aria-label="Create folder" title="Create folder"><i aria-hidden="true">create_new_folder</i></button>
-      <button data-action="rename" aria-label="Rename" title="Rename"><i aria-hidden="true">drive_file_rename_outline</i></button>
-      <button data-action="delete" aria-label="Delete" title="Delete"><i aria-hidden="true">delete</i></button>
-      <button data-action="upload" aria-label="Upload file" title="Upload file"><i aria-hidden="true">upload</i></button>
-      <button data-action="download" aria-label="Download file" title="Download file"><i aria-hidden="true">download</i></button>
+      <div role="buttongroup" data-element="file-actions">
+        <button type="button" data-action="new" aria-label="New" title="New"><i aria-hidden="true">note_add</i></button>
+        <button type="button" data-action="download" aria-label="Download file" title="Download file"><i aria-hidden="true">download</i></button>
+        <button type="button" data-action="upload" aria-label="Upload file" title="Upload file"><i aria-hidden="true">upload</i></button>
+        <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      </div>
+      <div role="buttongroup" data-element="tool-actions">
+        <button type="button" data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
+        <button type="button" data-action="delete" aria-label="Delete" title="Delete"><i aria-hidden="true">delete</i></button>
+      </div>
     `
     return toolbar
   }
@@ -278,24 +311,16 @@ export class ViewFiles extends HTMLElement {
     const isBrowserMode = this.mode === 'browser'
     const isSaverMode = this.mode === 'saver'
 
-    const newFileButton = this._headerControlsElement.querySelector('[data-action="new-file"]')
-    if (newFileButton instanceof HTMLButtonElement) {
-      newFileButton.disabled = !isBrowserMode
+    const selectedEntry = this.selectedPath ? this.getEntry(this.selectedPath) : null
+
+    const newButton = this._headerControlsElement.querySelector('[data-action="new"]')
+    if (newButton instanceof HTMLButtonElement) {
+      newButton.disabled = !(isBrowserMode || isSaverMode)
     }
 
-    const newFolderButton = this._headerControlsElement.querySelector('[data-action="new-folder"]')
-    if (newFolderButton instanceof HTMLButtonElement) {
-      newFolderButton.disabled = !(isBrowserMode || isSaverMode)
-    }
-
-    const renameButton = this._headerControlsElement.querySelector('[data-action="rename"]')
-    if (renameButton instanceof HTMLButtonElement) {
-      renameButton.disabled = !isBrowserMode || !this.selectedPath
-    }
-
-    const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
-    if (deleteButton instanceof HTMLButtonElement) {
-      deleteButton.disabled = !isBrowserMode || !this.selectedPath
+    const downloadButton = this._headerControlsElement.querySelector('[data-action="download"]')
+    if (downloadButton instanceof HTMLButtonElement) {
+      downloadButton.disabled = !isBrowserMode || selectedEntry?.type !== 'file'
     }
 
     const uploadButton = this._headerControlsElement.querySelector('[data-action="upload"]')
@@ -303,10 +328,19 @@ export class ViewFiles extends HTMLElement {
       uploadButton.disabled = !isBrowserMode
     }
 
-    const downloadButton = this._headerControlsElement.querySelector('[data-action="download"]')
-    if (downloadButton instanceof HTMLButtonElement) {
-      const selectedEntry = this.selectedPath ? this.getEntry(this.selectedPath) : null
-      downloadButton.disabled = !isBrowserMode || selectedEntry?.type !== 'file'
+    const reloadButton = this._headerControlsElement.querySelector('[data-action="reload"]')
+    if (reloadButton instanceof HTMLButtonElement) {
+      reloadButton.disabled = false
+    }
+
+    const editButton = this._headerControlsElement.querySelector('[data-action="edit"]')
+    if (editButton instanceof HTMLButtonElement) {
+      editButton.disabled = !isBrowserMode || selectedEntry?.type !== 'file'
+    }
+
+    const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
+    if (deleteButton instanceof HTMLButtonElement) {
+      deleteButton.disabled = !isBrowserMode || !this.selectedPath
     }
 
     this.updateFooterUI()
@@ -423,6 +457,11 @@ export class ViewFiles extends HTMLElement {
       this.setStatus(`Error: ${error?.message || error}`, 'danger')
       console.error('view-files refresh failed:', error)
     }
+  }
+
+  async reload() {
+    await this.refresh()
+    await runtime.call('ui.toast', 'success', { message: `Reloaded files from ${this.rootPath}` })
   }
 
   async loadDirectory(path) {
@@ -667,6 +706,10 @@ export class ViewFiles extends HTMLElement {
     return slashIndex <= 0 ? '/' : this.selectedPath.slice(0, slashIndex)
   }
 
+  async newEntry() {
+    await this.openCreatePopup(this.mode === 'saver' ? 'directory' : 'file')
+  }
+
   async openCreatePopup(kind) {
     const parentPath = this.getTargetDirectoryPath()
     const title = kind === 'directory' ? 'Create Folder' : 'Create File'
@@ -689,6 +732,22 @@ export class ViewFiles extends HTMLElement {
       await this.refresh()
       if (payload.selectedPath) this.selectRow(payload.selectedPath)
     }
+  }
+
+  async editSelected() {
+    if (!this.selectedPath) {
+      this.setStatus('No file selected for edit', 'warning')
+      await runtime.call('ui.toast', 'warning', { message: 'No file selected for edit' })
+      return
+    }
+    const entry = this.getEntry(this.selectedPath)
+    assert(entry, `view-files selected path not found: ${this.selectedPath}`)
+    if (entry.type !== 'file') {
+      this.setStatus('Folders cannot be edited directly', 'warning')
+      await runtime.call('ui.toast', 'warning', { message: 'Folders cannot be edited directly' })
+      return
+    }
+    await this.openFile(entry.path)
   }
 
   async openRenamePopup() {
@@ -980,27 +1039,6 @@ export class ViewFiles extends HTMLElement {
       event.preventDefault()
       this.selectRow(entry.path)
     }
-  }
-
-  handleKeyDown(event) {
-    if (event.key === 'F5') {
-      event.preventDefault()
-      void this.refresh()
-      return
-    }
-
-    if (this.mode === 'browser' && event.key === 'F2') {
-      event.preventDefault()
-      void this.openRenamePopup()
-      return
-    }
-
-    if (this.mode === 'browser' && event.key === 'Delete') {
-      event.preventDefault()
-      void this.deleteSelected()
-      return
-    }
-
   }
 
   async toggleDirectory(path) {
