@@ -111,7 +111,7 @@ Optional elements should appear at most once per view.
 - `data-element` - stable internal hook for structural subparts in views/widgets.
 - `data-action` - stable internal hook for interactive controls/actions.
 - `data-field` - stable internal hook for form fields and bindings.
-- `data-source` -  initial source name to load when mounted.
+- `data-source` - initial source name to load when mounted. When omitted for a registry-created view, `ui.views.<tag>.defaultSource` from `gams.json` may provide the initial `data-source`.
 
 ## Tabs
 

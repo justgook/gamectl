@@ -294,7 +294,7 @@ Status: placeholder canvas wired and renderer classes split inside the single vi
 
 ## Acceptance For Current Prototype Phase
 
-- `view-tilemap` starts unloaded unless an explicit filesystem `data-source` path is provided.
+- `view-tilemap` starts unloaded unless an explicit filesystem `data-source` path is provided, or the registry applies `ui.views.view-tilemap.defaultSource` as `data-source`.
 - Header controls call the final state method shape.
 - Sidebar renders snapshot layers/tilesets/history state.
 - Canvas renders a placeholder map and supports base zoom/pan/fit.

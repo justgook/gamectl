@@ -42,12 +42,13 @@ function createConfiguredViewRegistry(config, runtime) {
         if (!customElements.get(tag)) throw new Error(`view '${tag}' did not register custom element '${tag}'`)
       },
 
-      async create() {
+      async create(options = {}) {
         await this.load()
         const el = document.createElement(tag)
         el.runtime = runtime
         el.viewConfig = viewConfig
         if (viewConfig.config !== undefined) el.config = viewConfig.config
+        if (viewConfig.defaultSource !== undefined && !Object.hasOwn(options.attrs || {}, 'data-source')) el.setAttribute('data-source', viewConfig.defaultSource)
         if (tag === 'view-ai') el.openConfig = structuredClone(viewConfig.config)
         return el
       },

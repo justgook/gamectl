@@ -752,7 +752,8 @@
         },
         "url": "builtin/view/view-ng.js",
         "label": "Nodegraph",
-        "internal": false
+        "internal": false,
+        "defaultSource": "/demo/assets.ng.json"
       },
       "view-sql": {
         "url": "builtin/view/view-sql.js",
@@ -849,12 +850,14 @@
       "view-tilemap": {
         "url": "builtin/view/view-tilemap.js",
         "label": "Tilemap",
-        "internal": false
+        "internal": false,
+        "defaultSource": "/demo/rules.map.json"
       },
       "view-tree": {
         "url": "builtin/view/view-tree.js",
         "label": "Tree",
-        "internal": false
+        "internal": false,
+        "defaultSource": "progression.tree.json"
       },
       "view-setting-plugins": {
         "url": "builtin/view/view-setting-plugins.js",
