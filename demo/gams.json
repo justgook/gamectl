@@ -37,6 +37,10 @@
             "url": "/demo/ng/presets/array.lua"
           },
           {
+            "path": "ng/presets/copy-prop.lua",
+            "url": "/demo/ng/presets/copy-prop.lua"
+          },
+          {
             "path": "ng/presets/image-atlas.lua",
             "url": "/demo/ng/presets/image-atlas.lua"
           },
@@ -203,6 +207,10 @@
           {
             "path": "tilemap/rules.qoi",
             "url": "/demo/tilemap/rules.qoi"
+          },
+          {
+            "path": "tilemap/primitives.qoi",
+            "url": "/demo/tilemap/primitives.qoi"
           },
           {
             "path": "game-runner/view-game-runner.js",
@@ -928,6 +936,33 @@
               "outputs": [
                 {
                   "name": "array"
+                }
+              ]
+            },
+            {
+              "name": "Copy Prop",
+              "kind": "code",
+              "codePath": "demo/ng/presets/copy-prop.lua",
+              "inputs": [
+                {
+                  "name": "from",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "to",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "prop",
+                  "defaultValue": "[\"tilesets\", \"tileSize\"]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "to"
+                },
+                {
+                  "name": "error"
                 }
               ]
             },
