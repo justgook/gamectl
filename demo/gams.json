@@ -761,7 +761,7 @@
         "url": "builtin/view/view-ng.js",
         "label": "Nodegraph",
         "internal": false,
-        "defaultSource": "/demo/assets.ng.json"
+        "defaultSource": "/assets.ng.json"
       },
       "view-sql": {
         "url": "builtin/view/view-sql.js",

@@ -18,8 +18,8 @@ let currentThemeStylesheetObjectUrl = ''
 // `
 //
 const DEFAULT_LAYOUT = `
-  <view-tilemap data-source="/demo/rules.map.json" />
-  <view-ng setup="0:v:50" data-source="/demo/assets.ng.json" />
+  <view-tilemap data-source="/edge_rules.map.json" />
+  <view-ng setup="0:v:50" />
 `
 
 function decodeOutput(result) {
