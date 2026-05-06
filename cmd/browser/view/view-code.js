@@ -20,10 +20,7 @@ function getExtension(path) {
 }
 
 function languageForPath(path) {
-  const ext = getExtension(path)
-  if (ext === 'json') return 'json'
-  if (ext === 'lua') return 'lua'
-  return 'text'
+  return getExtension(path)
 }
 
 function placeholderForLanguage(lang) {
@@ -59,7 +56,7 @@ export class ViewCode extends HTMLElement {
 
     this.innerHTML = `
       <form data-element="form" novalidate>
-        <code-editor data-field="content" rows="24" spellcheck="false"></code-editor>
+        <code-editor data-field="content" lang="text" rows="24" spellcheck="false"></code-editor>
         <footer>
           <output data-element="path"></output>
           <output data-element="status">Loading...</output>
@@ -84,8 +81,7 @@ export class ViewCode extends HTMLElement {
     assert(pathOutput instanceof HTMLOutputElement, 'view-code missing path output')
 
     pathOutput.textContent = this.path
-    this.editorElement.setAttribute('lang', this.codeLang)
-    this.editorElement.setAttribute('placeholder', placeholderForLanguage(this.codeLang))
+    this.syncEditorLanguage()
 
     cancelButton.addEventListener('click', async () => {
       await runtime.call('ui.popup', 'close', { ok: false, cancelled: true, path: this.path, reload: false })
@@ -104,17 +100,22 @@ export class ViewCode extends HTMLElement {
 
     if (name === 'data-source') {
       this.path = String(newValue || '').trim()
+      this.codeLang = String(this.getAttribute('data-lang') || languageForPath(this.path))
+      this.syncEditorLanguage()
       if (this.dataset.ready) void this.load()
       return
     }
 
     if (name === 'data-lang') {
       this.codeLang = String(newValue || languageForPath(this.path))
-      if (this.editorElement) {
-        this.editorElement.setAttribute('lang', this.codeLang)
-        this.editorElement.setAttribute('placeholder', placeholderForLanguage(this.codeLang))
-      }
+      this.syncEditorLanguage()
     }
+  }
+
+  syncEditorLanguage() {
+    if (!this.editorElement) return
+    this.editorElement.setAttribute('lang', this.codeLang)
+    this.editorElement.setAttribute('placeholder', placeholderForLanguage(this.codeLang))
   }
 
   setBusy(isBusy) {

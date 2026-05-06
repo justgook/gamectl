@@ -512,25 +512,25 @@
     color: var(--text-faint);
   }
 
-  code-editor[lang="lua"] .comment {
+  code-editor .comment {
     color: #999;
   }
 
-  code-editor[lang="lua"] .string {
+  code-editor .string {
     color: #7ec699;
     font-weight: 400;
   }
 
-  code-editor[lang="lua"] .number {
+  code-editor .number {
     color: #f08d49;
   }
 
-  code-editor[lang="lua"] .keyword {
+  code-editor .keyword {
     color: #cc99cd;
     font-weight: bold;
   }
 
-  code-editor[lang="lua"] .operator {
+  code-editor .operator {
     color: #67cdcc;
   }
 
