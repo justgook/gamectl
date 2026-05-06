@@ -845,7 +845,13 @@
       "view-files": {
         "url": "builtin/view/view-files.js",
         "label": "Files",
-        "internal": false
+        "internal": false,
+        "config": {
+          "open": {
+            "json": "files-json",
+            "default": "files-default"
+          }
+        }
       },
       "view-tilemap": {
         "url": "builtin/view/view-tilemap.js",
