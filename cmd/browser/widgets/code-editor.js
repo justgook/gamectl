@@ -72,8 +72,55 @@ function highlightLua(source) {
   return out;
 }
 
+function highlightJson(source) {
+  const tokenPattern = /("(?:\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4})|[^"\\])*"|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|\b(?:true|false|null)\b|[{}\[\]:,])/g;
+  let out = "";
+  let last = 0;
+  let match = tokenPattern.exec(source);
+
+  while (match) {
+    const index = match.index;
+    if (index > last) {
+      out += escapeHtml(source.slice(last, index));
+    }
+
+    const token = match[0];
+    let klass = "";
+    if (token.startsWith('"')) {
+      klass = "string";
+    } else if (/^-?\d/.test(token)) {
+      klass = "number";
+    } else if (/^(?:true|false|null)$/.test(token)) {
+      klass = "keyword";
+    } else if (/^[{}\[\]:,]$/.test(token)) {
+      klass = "operator";
+    }
+
+    if (klass) {
+      out += `<span class="${klass}">${escapeHtml(token)}</span>`;
+    } else {
+      out += escapeHtml(token);
+    }
+
+    last = index + token.length;
+    match = tokenPattern.exec(source);
+  }
+
+  if (last < source.length) {
+    out += escapeHtml(source.slice(last));
+  }
+
+  return out;
+}
+
 function highlightPlain(source) {
   return escapeHtml(source);
+}
+
+function highlightSource(source, lang) {
+  if (lang === "lua") return highlightLua(source);
+  if (lang === "json") return highlightJson(source);
+  return highlightPlain(source);
 }
 
 function ensureTrailingNewline(text) {
@@ -231,7 +278,7 @@ export class CodeEditor extends HTMLElement {
 
     const source = this._textarea.value;
     const lang = String(this.getAttribute("lang") || "").toLowerCase();
-    const html = lang === "lua" ? highlightLua(source) : highlightPlain(source);
+    const html = highlightSource(source, lang);
     this._code.innerHTML = ensureTrailingNewline(html);
     this._syncViewport();
     this._onScroll();

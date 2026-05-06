@@ -857,6 +857,9 @@
             "bmp": "view-image",
             "json": "view-code",
             "lua": "view-code",
+            "css": "view-code",
+            "js": "view-code",
+            "odin": "view-code",
             "default": "files-default"
           }
         }
