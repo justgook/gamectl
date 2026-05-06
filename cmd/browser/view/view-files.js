@@ -62,14 +62,6 @@ function getExtension(path) {
   return parts.pop().toLowerCase()
 }
 
-function resolveFileEditorTag(path) {
-  const ext = getExtension(path)
-  if (ext) {
-    const extTag = `files-${ext}`
-    if (customElements.get(extTag)) return extTag
-  }
-  return 'files-default'
-}
 
 export class ViewFiles extends HTMLElement {
   static get observedAttributes() {
@@ -84,6 +76,7 @@ export class ViewFiles extends HTMLElement {
     this.selectFolders = this.getAttribute('data-select-folders') === 'true'
     this.multiSelect = this.getAttribute('data-multi-select') === 'true'
     this.defaultName = this.getAttribute('data-default-name') || ''
+    this.openConfig = null
     this.expandedPaths = new Set()
     this.selectedPath = null
     this.selectedPaths = new Set()
@@ -166,6 +159,7 @@ export class ViewFiles extends HTMLElement {
     this.selectFolders = Boolean(props.selectFolders ?? (this.getAttribute('data-select-folders') === 'true'))
     this.multiSelect = Boolean(props.multiSelect ?? (this.getAttribute('data-multi-select') === 'true'))
     this.defaultName = String(props.defaultName || this.getAttribute('data-default-name') || '')
+    this.openConfig = this.config.open
   }
 
   async closePopupResult(result) {
@@ -933,6 +927,11 @@ export class ViewFiles extends HTMLElement {
     }
   }
 
+  resolveFileOpenTag(path) {
+    const ext = getExtension(path)
+    return this.openConfig[ext] || this.openConfig.default
+  }
+
   async openFile(path) {
     const entry = this.getEntry(path)
     assert(entry, `view-files file path not found: ${path}`)
@@ -941,7 +940,7 @@ export class ViewFiles extends HTMLElement {
     const result = await runtime.call('ui.popup', 'open', {
       title: entry.name,
       size: 'large',
-      tag: resolveFileEditorTag(entry.path),
+      tag: this.resolveFileOpenTag(entry.path),
       props: {
         path: entry.path,
       },
