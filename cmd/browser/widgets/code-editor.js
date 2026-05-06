@@ -22,6 +22,206 @@ const LUA_KEYWORDS = new Set([
   "while",
 ]);
 
+const JS_KEYWORDS = new Set([
+  "async",
+  "await",
+  "break",
+  "case",
+  "catch",
+  "class",
+  "const",
+  "continue",
+  "debugger",
+  "default",
+  "delete",
+  "do",
+  "else",
+  "export",
+  "extends",
+  "false",
+  "finally",
+  "for",
+  "from",
+  "function",
+  "get",
+  "if",
+  "import",
+  "in",
+  "instanceof",
+  "let",
+  "new",
+  "null",
+  "of",
+  "return",
+  "set",
+  "static",
+  "super",
+  "switch",
+  "this",
+  "throw",
+  "true",
+  "try",
+  "typeof",
+  "undefined",
+  "var",
+  "void",
+  "while",
+  "with",
+  "yield",
+]);
+
+const CSS_KEYWORDS = new Set([
+  "absolute",
+  "auto",
+  "block",
+  "border-box",
+  "center",
+  "collapse",
+  "contents",
+  "fixed",
+  "flex",
+  "grid",
+  "hidden",
+  "inherit",
+  "initial",
+  "inline",
+  "inline-block",
+  "none",
+  "relative",
+  "solid",
+  "transparent",
+  "unset",
+  "var",
+  "visible",
+]);
+
+const ODIN_KEYWORDS = new Set([
+  "any",
+  "auto_cast",
+  "bit_field",
+  "bit_set",
+  "bool",
+  "break",
+  "case",
+  "cast",
+  "complex128",
+  "complex64",
+  "continue",
+  "context",
+  "defer",
+  "distinct",
+  "do",
+  "dynamic",
+  "else",
+  "enum",
+  "fallthrough",
+  "false",
+  "f16",
+  "f32",
+  "f64",
+  "for",
+  "foreign",
+  "i16",
+  "i32",
+  "i64",
+  "i8",
+  "if",
+  "import",
+  "in",
+  "int",
+  "map",
+  "matrix",
+  "nil",
+  "not_in",
+  "or_else",
+  "or_return",
+  "package",
+  "proc",
+  "quaternion128",
+  "quaternion256",
+  "rawptr",
+  "return",
+  "rune",
+  "soa",
+  "string",
+  "struct",
+  "switch",
+  "true",
+  "typeid",
+  "u16",
+  "u32",
+  "u64",
+  "u8",
+  "uint",
+  "uintptr",
+  "union",
+  "using",
+  "when",
+  "where",
+]);
+
+const C_KEYWORDS = new Set([
+  "alignas",
+  "alignof",
+  "auto",
+  "bool",
+  "break",
+  "case",
+  "char",
+  "const",
+  "constexpr",
+  "continue",
+  "default",
+  "do",
+  "double",
+  "else",
+  "enum",
+  "extern",
+  "false",
+  "float",
+  "for",
+  "goto",
+  "if",
+  "inline",
+  "int",
+  "long",
+  "nullptr",
+  "register",
+  "restrict",
+  "return",
+  "short",
+  "signed",
+  "sizeof",
+  "static",
+  "static_assert",
+  "struct",
+  "switch",
+  "thread_local",
+  "true",
+  "typedef",
+  "typeof",
+  "typeof_unqual",
+  "union",
+  "unsigned",
+  "void",
+  "volatile",
+  "while",
+  "_Alignas",
+  "_Alignof",
+  "_Atomic",
+  "_BitInt",
+  "_Bool",
+  "_Complex",
+  "_Decimal128",
+  "_Decimal32",
+  "_Decimal64",
+  "_Generic",
+  "_Imaginary",
+  "_Noreturn",
+  "_Static_assert",
+  "_Thread_local",
+]);
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -52,6 +252,180 @@ function highlightLua(source) {
     } else if (LUA_KEYWORDS.has(token)) {
       klass = "keyword";
     } else if (/^(?:\.\.\.|==|~=|<=|>=|\.\.|[+\-*/%^#=<>.,:;(){}\[\]])$/.test(token)) {
+      klass = "operator";
+    }
+
+    if (klass) {
+      out += `<span class="${klass}">${escapeHtml(token)}</span>`;
+    } else {
+      out += escapeHtml(token);
+    }
+
+    last = index + token.length;
+    match = tokenPattern.exec(source);
+  }
+
+  if (last < source.length) {
+    out += escapeHtml(source.slice(last));
+  }
+
+  return out;
+}
+
+function highlightJs(source) {
+  const tokenPattern = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|`(?:\\[\s\S]|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\b(?:0[xX][\da-fA-F]+|0[bB][01]+|0[oO][0-7]+|\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?n?\b|\b[$_A-Za-z][$_A-Za-z0-9]*\b|=>|===|!==|==|!=|<=|>=|\+\+|--|&&|\|\||\?\?|\?\.|\*\*=|\*\*|<<=|>>>=|>>=|<<|>>>|>>|\+=|-=|\*=|\/=|%=|&=|\|=|\^=|&&=|\|\|=|\?\?=|[+\-*/%&|^~!<>=?:;.,(){}\[\]])/g;
+  let out = "";
+  let last = 0;
+  let match = tokenPattern.exec(source);
+
+  while (match) {
+    const index = match.index;
+    if (index > last) {
+      out += escapeHtml(source.slice(last, index));
+    }
+
+    const token = match[0];
+    let klass = "";
+    if (token.startsWith("/*") || token.startsWith("//")) {
+      klass = "comment";
+    } else if (token.startsWith('"') || token.startsWith("'") || token.startsWith("`")) {
+      klass = "string";
+    } else if (/^(?:\d|\.\d)/.test(token)) {
+      klass = "number";
+    } else if (JS_KEYWORDS.has(token)) {
+      klass = "keyword";
+    } else if (/^(?:=>|===|!==|==|!=|<=|>=|\+\+|--|&&|\|\||\?\?|\?\.|\*\*=|\*\*|<<=|>>>=|>>=|<<|>>>|>>|\+=|-=|\*=|\/=|%=|&=|\|=|\^=|&&=|\|\|=|\?\?=|[+\-*/%&|^~!<>=?:;.,(){}\[\]])$/.test(token)) {
+      klass = "operator";
+    }
+
+    if (klass) {
+      out += `<span class="${klass}">${escapeHtml(token)}</span>`;
+    } else {
+      out += escapeHtml(token);
+    }
+
+    last = index + token.length;
+    match = tokenPattern.exec(source);
+  }
+
+  if (last < source.length) {
+    out += escapeHtml(source.slice(last));
+  }
+
+  return out;
+}
+
+function highlightCss(source) {
+  const tokenPattern = /(\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#[\da-fA-F]{3,8}\b|@[\w-]+|--[\w-]+|\b-?(?:\d+(?:\.\d*)?|\.\d+)(?:%|[a-zA-Z]+)?\b|\b[_A-Za-z-][_A-Za-z0-9-]*\b|[{}\[\]():;,.>+~*=|^$!])/g;
+  let out = "";
+  let last = 0;
+  let match = tokenPattern.exec(source);
+
+  while (match) {
+    const index = match.index;
+    if (index > last) {
+      out += escapeHtml(source.slice(last, index));
+    }
+
+    const token = match[0];
+    let klass = "";
+    if (token.startsWith("/*")) {
+      klass = "comment";
+    } else if (token.startsWith('"') || token.startsWith("'")) {
+      klass = "string";
+    } else if (/^(?:#[\da-fA-F]{3,8}\b|-?(?:\d|\.\d))/.test(token)) {
+      klass = "number";
+    } else if (token.startsWith("@") || CSS_KEYWORDS.has(token)) {
+      klass = "keyword";
+    } else if (/^[{}\[\]():;,.>+~*=|^$!]$/.test(token)) {
+      klass = "operator";
+    }
+
+    if (klass) {
+      out += `<span class="${klass}">${escapeHtml(token)}</span>`;
+    } else {
+      out += escapeHtml(token);
+    }
+
+    last = index + token.length;
+    match = tokenPattern.exec(source);
+  }
+
+  if (last < source.length) {
+    out += escapeHtml(source.slice(last));
+  }
+
+  return out;
+}
+
+function highlightC(source) {
+  const tokenPattern = /(#[^\n]*|\/\*[\s\S]*?\*\/|\/\/[^\n]*|L?"(?:\\.|[^"\\])*"|[LuU]?'(?:\\.|[^'\\])*'|\b(?:0[xX][\da-fA-F]+(?:\.\da-fA-F*)?(?:[pP][+-]?\d+)?|\d+(?:\.\d*)?|\.\d+)(?:[eEpP][+-]?\d+)?[uUlLfF]*\b|\b[A-Za-z_][A-Za-z0-9_]*\b|->|\+\+|--|<<=|>>=|==|!=|<=|>=|&&|\|\||<<|>>|\+=|-=|\*=|\/=|%=|&=|\|=|\^=|\.\.\.|[+\-*/%&|^~!<>=?:;.,(){}\[\]])/g;
+  let out = "";
+  let last = 0;
+  let match = tokenPattern.exec(source);
+
+  while (match) {
+    const index = match.index;
+    if (index > last) {
+      out += escapeHtml(source.slice(last, index));
+    }
+
+    const token = match[0];
+    let klass = "";
+    if (token.startsWith("/*") || token.startsWith("//")) {
+      klass = "comment";
+    } else if (token.startsWith("#")) {
+      klass = "keyword";
+    } else if (token.startsWith('"') || token.startsWith("'") || /^L"/.test(token) || /^[LuU]'/.test(token)) {
+      klass = "string";
+    } else if (/^(?:\d|\.\d)/.test(token)) {
+      klass = "number";
+    } else if (C_KEYWORDS.has(token)) {
+      klass = "keyword";
+    } else if (/^(?:->|\+\+|--|<<=|>>=|==|!=|<=|>=|&&|\|\||<<|>>|\+=|-=|\*=|\/=|%=|&=|\|=|\^=|\.\.\.|[+\-*/%&|^~!<>=?:;.,(){}\[\]])$/.test(token)) {
+      klass = "operator";
+    }
+
+    if (klass) {
+      out += `<span class="${klass}">${escapeHtml(token)}</span>`;
+    } else {
+      out += escapeHtml(token);
+    }
+
+    last = index + token.length;
+    match = tokenPattern.exec(source);
+  }
+
+  if (last < source.length) {
+    out += escapeHtml(source.slice(last));
+  }
+
+  return out;
+}
+
+function highlightOdin(source) {
+  const tokenPattern = /(\/\*[\s\S]*?\*\/|\/\/[^\n]*|`[^`]*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#[A-Za-z_][A-Za-z0-9_]*|\b(?:0[xX][\da-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\d[\d_]*(?:\.\d[\d_]*)?)(?:[eE][+-]?\d[\d_]*)?\b|\b[A-Za-z_][A-Za-z0-9_]*\b|:=|::|->|=>|==|!=|<=|>=|&&|\|\||\.\.|\.\.<|[+\-*/%&|~!^=<>?:;.,(){}\[\]])/g;
+  let out = "";
+  let last = 0;
+  let match = tokenPattern.exec(source);
+
+  while (match) {
+    const index = match.index;
+    if (index > last) {
+      out += escapeHtml(source.slice(last, index));
+    }
+
+    const token = match[0];
+    let klass = "";
+    if (token.startsWith("/*") || token.startsWith("//")) {
+      klass = "comment";
+    } else if (token.startsWith('"') || token.startsWith("'") || token.startsWith("`")) {
+      klass = "string";
+    } else if (/^#/.test(token) || ODIN_KEYWORDS.has(token)) {
+      klass = "keyword";
+    } else if (/^\d/.test(token)) {
+      klass = "number";
+    } else if (/^(?::=|::|->|=>|==|!=|<=|>=|&&|\|\||\.\.|\.\.<|[+\-*/%&|~!^=<>?:;.,(){}\[\]])$/.test(token)) {
       klass = "operator";
     }
 
@@ -119,6 +493,10 @@ function highlightPlain(source) {
 
 function highlightSource(source, lang) {
   if (lang === "lua") return highlightLua(source);
+  if (lang === "js" || lang === "javascript" || lang === "mjs" || lang === "cjs" || lang === "jsx") return highlightJs(source);
+  if (lang === "css") return highlightCss(source);
+  if (lang === "c" || lang === "h") return highlightC(source);
+  if (lang === "odin" || lang === "od") return highlightOdin(source);
   if (lang === "json") return highlightJson(source);
   return highlightPlain(source);
 }

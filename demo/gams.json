@@ -860,6 +860,11 @@
             "css": "view-code",
             "js": "view-code",
             "odin": "view-code",
+            "c": "view-code",
+            "md": "view-code",
+            "mk": "view-code",
+            "glsl": "view-code",
+            "gitignore": "view-code",
             "default": "files-default"
           }
         }
