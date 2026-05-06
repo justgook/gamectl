@@ -348,7 +348,7 @@ func TestAutomapApplyRejectsDifferentEqualToBoundReference(t *testing.T) {
 	}
 }
 
-func TestExtractRulesRejectsDifferentBeforeReference(t *testing.T) {
+func TestAutomapApplyAllowsDifferentWithoutEarlierReference(t *testing.T) {
 	rulesMap := tilemap.NewTileMap()
 	rulesMap.Props = map[string]string{"rule_Different": "901"}
 
@@ -361,13 +361,16 @@ func TestExtractRulesRejectsDifferentBeforeReference(t *testing.T) {
 	output.Data[0] = 7
 
 	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
-	config, err := ParseGlobalConfig(rulesMap.Props)
+	inputMap := singleLayerMap(1, 1)
+	inputMap.Layers[0].Data[0] = 4
+
+	result, err := AutomapApply(rulesMap, inputMap)
 	if err != nil {
-		t.Fatalf("ParseGlobalConfig returned error: %v", err)
+		t.Fatalf("AutomapApply returned error: %v", err)
 	}
 
-	if _, err := ExtractRules(rulesMap, config); err == nil {
-		t.Fatalf("expected Different before a reference binder to fail validation")
+	if got := result.Layers[0].Data[0]; got != 7 {
+		t.Fatalf("expected Different without a reference to match non-empty and write 7, got %d", got)
 	}
 }
 

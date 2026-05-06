@@ -125,6 +125,8 @@ type InputGroup struct {
 func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height int, config *GlobalConfig) bool {
 	referenceTile := uint32(0)
 	hasReference := false
+	matchedNonDifferentValues := map[uint32]struct{}{}
+	matchedDifferentValues := []uint32{}
 
 	for _, cell := range g.Cells {
 		absIndex := RelativeToAbsoluteIndex(index, width, height, cell.Point.X, cell.Point.Y)
@@ -136,6 +138,8 @@ func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height 
 		hasNegateTile := false
 		matched := false
 		bindReference := false
+		matchedByDifferent := false
+		matchedByNonDifferent := false
 
 		for _, matcher := range cell.Matchers {
 			if matcher.Value == config.SpecialTiles.Negate {
@@ -153,12 +157,21 @@ func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height 
 				if !hasReference && !matcher.IsNegated && isReferenceBinder(matcher.Value, config) {
 					bindReference = true
 				}
+				if !matcher.IsNegated {
+					if matcher.Value == config.SpecialTiles.Different {
+						matchedByDifferent = true
+					} else {
+						matchedByNonDifferent = true
+					}
+				}
 			}
 		}
 
 		if hasNegateTile {
 			matched = !matched
 			bindReference = false
+			matchedByDifferent = false
+			matchedByNonDifferent = false
 		}
 
 		if !matched {
@@ -168,6 +181,18 @@ func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height 
 		if bindReference {
 			referenceTile = inputTileValue
 			hasReference = true
+		}
+		if matchedByDifferent {
+			matchedDifferentValues = append(matchedDifferentValues, inputTileValue)
+		}
+		if matchedByNonDifferent {
+			matchedNonDifferentValues[inputTileValue] = struct{}{}
+		}
+	}
+
+	for _, differentValue := range matchedDifferentValues {
+		if _, exists := matchedNonDifferentValues[differentValue]; exists {
+			return false
 		}
 	}
 
@@ -423,9 +448,11 @@ func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, group
 		return group.matchesOther(inputTileValue, config)
 	}
 
-	// Special case: Different - matches any tile not equal to the bound reference tile
+	// Special case: Different - first matches any non-empty tile. Once the whole
+	// input group matched, InputGroup.Match rejects Different cells whose concrete
+	// value was also matched by any non-Different matcher in the same group.
 	if ruleTileValue == config.SpecialTiles.Different {
-		return hasReference && inputTileValue != referenceTile
+		return inputTileValue != 0
 	}
 
 	// Special case: Same - matches any tile equal to the bound reference tile
@@ -586,7 +613,7 @@ func (g *InputGroup) validateRelativeReferences(config *GlobalConfig) error {
 		cellHasRelative := false
 		cellHasBinder := false
 		for _, matcher := range cell.Matchers {
-			if matcher.Value == config.SpecialTiles.Different || matcher.Value == config.SpecialTiles.Same {
+			if matcher.Value == config.SpecialTiles.Same {
 				cellHasRelative = true
 			}
 			if !matcher.IsNegated && isReferenceBinder(matcher.Value, config) {

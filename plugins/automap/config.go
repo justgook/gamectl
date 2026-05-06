@@ -29,7 +29,7 @@ type SpecialTileDefs struct {
 	Other     uint32 // Matches tiles not used in this rule
 	Ignore    uint32 // Always matches (skip check)
 	Negate    uint32 // Invert matching condition
-	Different uint32 // Matches tiles different from the first bound reference tile
+	Different uint32 // Matches non-empty tiles different from other matched non-Different cells
 	Same      uint32 // Matches tiles equal to the first bound reference tile
 }
 
