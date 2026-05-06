@@ -118,6 +118,104 @@ func TestAutomapApplyMatchesMissingTargetLayerAsEmpty(t *testing.T) {
 	}
 }
 
+func TestAutomapApplyMatchesInputnotRoleWhenPatternDoesNotMatch(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+
+	inputnot := tilemap.NewTileLayer(1, 1)
+	inputnot.Props = map[string]string{"rule_role": "inputnot", "rule_target_layer": "#0"}
+	inputnot.Data[0] = 5
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#0"}
+	output.Data[0] = 9
+
+	rulesMap.Layers = []tilemap.TileLayer{*inputnot, *output}
+	inputMap := singleLayerMap(1, 1)
+	inputMap.Layers[0].Data[0] = 4
+
+	result, err := AutomapApply(rulesMap, inputMap)
+	if err != nil {
+		t.Fatalf("AutomapApply returned error: %v", err)
+	}
+
+	if got := result.Layers[0].Data[0]; got != 9 {
+		t.Fatalf("expected inputnot to match a different tile and write 9, got %d", got)
+	}
+}
+
+func TestAutomapApplyRejectsInputnotRoleWhenPatternMatches(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+
+	inputnot := tilemap.NewTileLayer(1, 1)
+	inputnot.Props = map[string]string{"rule_role": "inputnot", "rule_target_layer": "#0"}
+	inputnot.Data[0] = 5
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#0"}
+	output.Data[0] = 9
+
+	rulesMap.Layers = []tilemap.TileLayer{*inputnot, *output}
+	inputMap := singleLayerMap(1, 1)
+	inputMap.Layers[0].Data[0] = 5
+
+	_, err := AutomapApply(rulesMap, inputMap)
+	if err == nil {
+		t.Fatalf("expected inputnot to reject the matching tile")
+	}
+}
+
+func TestAutomapApplyUsesInputnotLayerPositionConstraints(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+
+	inputnot := tilemap.NewTileLayer(1, 1)
+	inputnot.Props = map[string]string{"rule_role": "inputnot", "rule_target_layer": "#0", "rule_ModX": "2", "rule_OffsetX": "1"}
+	inputnot.Data[0] = 5
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#0"}
+	output.Data[0] = 9
+
+	rulesMap.Layers = []tilemap.TileLayer{*inputnot, *output}
+	inputMap := singleLayerMap(2, 1)
+	inputMap.Layers[0].Data[0] = 4
+	inputMap.Layers[0].Data[1] = 4
+
+	result, err := AutomapApply(rulesMap, inputMap)
+	if err != nil {
+		t.Fatalf("AutomapApply returned error: %v", err)
+	}
+
+	if got := result.Layers[0].Data[0]; got != 4 {
+		t.Fatalf("expected mod constraint to skip x=0 and leave original tile, got %d", got)
+	}
+	if got := result.Layers[0].Data[1]; got != 9 {
+		t.Fatalf("expected mod constraint to apply at x=1 and write 9, got %d", got)
+	}
+}
+
+func TestExtractRulesRejectsObsoleteRuleInputNot(t *testing.T) {
+	rulesMap := tilemap.NewTileMap()
+
+	input := tilemap.NewTileLayer(1, 1)
+	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0", "rule_input_not": "true"}
+	input.Data[0] = 5
+
+	output := tilemap.NewTileLayer(1, 1)
+	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#0"}
+	output.Data[0] = 9
+
+	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
+	config, err := ParseGlobalConfig(rulesMap.Props)
+	if err != nil {
+		t.Fatalf("ParseGlobalConfig returned error: %v", err)
+	}
+
+	_, err = ExtractRules(rulesMap, config)
+	if err == nil {
+		t.Fatalf("expected obsolete rule_input_not to be rejected")
+	}
+}
+
 func TestAutomapApplyOutputEmptyErasesTargetTile(t *testing.T) {
 	rulesMap := tilemap.NewTileMap()
 	rulesMap.Props = map[string]string{

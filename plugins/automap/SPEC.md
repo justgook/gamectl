@@ -23,7 +23,7 @@ Define custom tile-IDs with special matching semantics. Each property maps to a 
 | `rule_NonEmpty` | `tileID` | Matcher for "any non-empty tile" |
 | `rule_Other` | `tileID` | Matcher for "any tile not used by this rule's input on that layer" |
 | `rule_Ignore` | `tileID` | "Ignore this cell" — used to connect disconnected parts of a rule; can bind the `rule_Same` reference tile |
-| `rule_Negate` | `tileID` | Invert matching condition at this cell (makes input like inputnot here) |
+| `rule_Negate` | `tileID` | Invert matching condition at this cell (makes input behave like `rule_role: "inputnot"` for this cell) |
 | `rule_Different` | `tileID` | Matcher for "any non-empty tile whose concrete value was not also matched by a non-`rule_Different` matcher in the same input group" |
 | `rule_Same` | `tileID` | Matcher for "tile value equals the first reference tile bound earlier in this input group" |
 
@@ -32,7 +32,7 @@ Define custom tile-IDs with special matching semantics. Each property maps to a 
 ### Basic Layer Identification
 | Property | Type | Description |
 |----------|------|-------------|
-| `rule_role` | `"input"` \| `"output"` | Whether this layer is input or output for the rule |
+| `rule_role` | `"input"` \| `"inputnot"` \| `"output"` | Whether this layer is positive input, inverted input, or output for the rule |
 | `rule_target_layer` | `selector` | CSS-like selector for target layer matching |
 
 ### Target Layer Selectors
@@ -98,7 +98,6 @@ Matches the first available layer in the target tilemap.
 | Property | Type | Description |
 |----------|------|-------------|
 | `rule_input_index` | `string` (optional) | Index for grouping alternate input-layers (for "any-of" semantics) |
-| `rule_input_not` | `bool` (optional) | If `true`: invert the input (match where target layer ≠ given pattern) |
 | `rule_layer_IgnoreHorizontalFlip` | `bool` (optional) | Allow matching also on horizontally flipped versions of pattern |
 | `rule_layer_IgnoreVerticalFlip` | `bool` (optional) | Allow vertical flip matching (if implemented) |
 | `rule_layer_IgnoreDiagonalFlip` | `bool` (optional) | Allow diagonal/rotated matching (if implemented) |
