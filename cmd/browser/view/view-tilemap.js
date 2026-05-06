@@ -118,7 +118,7 @@ class TilemapState {
     this.layers = []
     this.nextLayerId = 1
     this.activeLayer = 0
-    this.tool = TOOL.BRUSH
+    this.tool = TOOL.SELECT
     this.activeTile = 1
     this.dirty = false
     this.history = new UndoHistory()
