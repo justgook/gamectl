@@ -134,10 +134,17 @@ func Gen() uint32 {
 	return 0
 }
 
-func getRoomShape(node *tree.Node) placement.RoomShape {
+func getRoomShape(node *tree.Node) (placement.RoomShape, error) {
+	if room, ok := node.Data["minimap"]; ok {
+		result := placement.RoomShape{}
+		err := json.Unmarshal([]byte(room), &result)
+
+		return result, err
+	}
+
 	rng := &MyRandom{}
 	idx := rng.Intn(len(roomShapesToChooseFrom))
-	return roomShapesToChooseFrom[idx]
+	return roomShapesToChooseFrom[idx], nil
 }
 
 // Room shapes available for selection
