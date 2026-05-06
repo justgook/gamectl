@@ -55,8 +55,12 @@ function indentText(depth) {
   return '\u00a0\u00a0\u00a0\u00a0'.repeat(depth)
 }
 
+function getFilename(path) {
+  return String(path || '').split('/').pop() || ''
+}
+
 function getExtension(path) {
-  const name = String(path || '').split('/').pop() || ''
+  const name = getFilename(path)
   const parts = name.split('.')
   if (parts.length <= 1) return ''
   return parts.pop().toLowerCase()
@@ -928,8 +932,9 @@ export class ViewFiles extends HTMLElement {
   }
 
   resolveFileOpenTag(path) {
+    const name = getFilename(path)
     const ext = getExtension(path)
-    return this.openConfig[ext] || this.openConfig.default
+    return this.openConfig[name] || this.openConfig[name.toLowerCase()] || this.openConfig[ext] || this.openConfig.default
   }
 
   async openFile(path) {

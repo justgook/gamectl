@@ -12,15 +12,19 @@ function decodeOutput(result) {
   return textDecoder.decode(result?.output || new Uint8Array())
 }
 
+function getFilename(path) {
+  return String(path || '').split('/').pop() || ''
+}
+
 function getExtension(path) {
-  const name = String(path || '').split('/').pop() || ''
+  const name = getFilename(path)
   const parts = name.split('.')
   if (parts.length <= 1) return ''
   return parts.pop().toLowerCase()
 }
 
 function languageForPath(path) {
-  return getExtension(path)
+  return getExtension(path) || getFilename(path).toLowerCase()
 }
 
 function placeholderForLanguage(lang) {
