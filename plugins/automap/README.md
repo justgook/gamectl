@@ -66,9 +66,17 @@ Layer height is derived from `len(data) / width`. Tile ID `0` is the normal empt
 
 A rules map is a normal GAMS tilemap with:
 
-- one or more layers whose `props.rule_role` is `"input"`
+- one or more layers whose `props.rule_role` is `"input"` or `"inputnot"`
 - one or more layers whose `props.rule_role` is `"output"`
 - `props.rule_target_layer` on every rule layer
+
+Valid `rule_role` values are:
+
+| Value | Meaning |
+|---|---|
+| `input` | Positive input matcher. |
+| `inputnot` | Inverted input matcher; each tile matches when the target cell does not match this layer's pattern. |
+| `output` | Output writer. |
 
 Every contiguous region of non-zero tiles across the rule layers is one rule. Connectivity is 8-way, so diagonal touching counts as connected. Leave at least one empty-cell gap between separate rules.
 
@@ -106,12 +114,13 @@ Required layer properties:
 }
 ```
 
+Use `"rule_role": "inputnot"` for an inverted input layer.
+
 Optional properties:
 
 | Property | Type | Meaning |
 |---|---:|---|
 | `rule_input_index` | string | Groups input layers. Layers with the same target selector and same index contribute alternate matchers at the same cells. Different indices are separate required condition groups in the current implementation. |
-| `rule_input_not` | bool | Inverts this input layer's matches. |
 | `rule_ModX` | int | Match only every N tiles on X. |
 | `rule_ModY` | int | Match only every N tiles on Y. |
 | `rule_OffsetX` | int | Offset for `rule_ModX`. |

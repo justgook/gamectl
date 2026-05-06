@@ -98,11 +98,11 @@ function tiledRuleLayerName(props, layerIndex, targetLayerNames) {
   var role = props.rule_role || ""
   var selector = props.rule_target_layer || ("#" + layerIndex)
   var targetName = selectorToName(selector, targetLayerNames)
-  if (role === "input") {
-    var inputPrefix = "input"
-    if (parseBool(props.rule_input_not)) {
-      inputPrefix += "not"
-    }
+  if (props.rule_input_not !== undefined) {
+    throw new Error("obsolete rule_input_not on rule layer; use rule_role=\"inputnot\"")
+  }
+  if (role === "input" || role === "inputnot") {
+    var inputPrefix = role === "inputnot" ? "inputnot" : "input"
     inputPrefix += props.rule_input_index || ""
     return inputPrefix + "_" + targetName
   }

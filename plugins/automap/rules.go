@@ -28,6 +28,10 @@ func shouldCopyProp(key string) bool {
 	return !rulePropsToExclude[key]
 }
 
+func isInputRole(role string) bool {
+	return role == "input" || role == "inputnot"
+}
+
 // Rule represents one pattern alternative (one input_index)
 // Contains multiple InputLayers that define the matching conditions
 type Rule struct {
@@ -232,6 +236,12 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 		return nil, fmt.Errorf("no layers in rules map")
 	}
 
+	for layerIdx := range rulesMap.Layers {
+		if _, exists := rulesMap.Layers[layerIdx].Props["rule_input_not"]; exists {
+			return nil, fmt.Errorf("layer %d uses obsolete rule_input_not; use rule_role=\"inputnot\"", layerIdx)
+		}
+	}
+
 	width := rulesMap.Layers[0].Width
 	height := rulesMap.Layers[0].Height()
 
@@ -302,12 +312,12 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 				}
 			}
 
-			if role == "input" {
+			if isInputRole(role) {
 				inputLayers = append(inputLayers, &InputLayer{
 					Tiles:          normalized,
 					TargetSelector: targetLayer,
 					InputIndex:     layer.Props["rule_input_index"],
-					IsNegated:      parseBool(layer.Props["rule_input_not"], false),
+					IsNegated:      role == "inputnot",
 				})
 			} else if role == "output" {
 				// Copy non-rule properties from source layer
@@ -325,6 +335,8 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 					Probability:    parseFloat(layer.Props["rule_output_Probability"], 1.0),
 					Props:          props,
 				})
+			} else {
+				return nil, fmt.Errorf("layer %d has invalid rule_role %q", layerIdx, role)
 			}
 		}
 
@@ -665,7 +677,7 @@ func firstNonEmptyLayerProp(inputLayers []*InputLayer, rulesMap *tilemap.TileMap
 	for _, inputLayer := range inputLayers {
 		for i := range rulesMap.Layers {
 			layer := &rulesMap.Layers[i]
-			if layer.Props["rule_role"] != "input" {
+			if !isInputRole(layer.Props["rule_role"]) {
 				continue
 			}
 			if layer.Props["rule_target_layer"] != inputLayer.TargetSelector {

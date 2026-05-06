@@ -712,7 +712,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "tmp/automap_result.tilemap.json"
+        "value": "tmp/automap_result.map.json"
       }
     ]
   },
@@ -1188,7 +1188,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "tmp/saled_minimap.map.json"
+        "value": "tmp/minimap_scaled.map.json"
       }
     ]
   }
