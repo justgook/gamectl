@@ -13,7 +13,7 @@ type Random interface {
 }
 
 // GetRoomShapeFunc is a function that returns the shape for a given node
-type GetRoomShapeFunc func(node *tree.Node) RoomShape
+type GetRoomShapeFunc func(node *tree.Node) (RoomShape, error)
 
 // GetExtensionTileFunc is a function that selects which tile to extend with
 // Given a list of valid extension tiles, returns the selected one
@@ -77,7 +77,10 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 
 	// Get root node
 	root := (*g.Tree)[0]
-	rootShape := g.GetRoomShape(root)
+	rootShape, err := g.GetRoomShape(root)
+	if err != nil {
+		return nil, err
+	}
 
 	// Place root at origin
 	rootTiles := rootShape.Translate(Point{0, 0})
@@ -117,7 +120,12 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 				if attempt < maxAttempts {
 					return g.generateWithRetry(attempt + 1)
 				}
-				return nil, fmt.Errorf("failed to place node %d after %d attempts: %v", childIdx, attempt+1, err)
+				return nil, fmt.Errorf(
+					"failed to place node %d after %d attempts: %v",
+					childIdx,
+					attempt+1,
+					err,
+				)
 			}
 
 			// IMPORTANT: Mark child as unfinished IMMEDIATELY after placing,
@@ -161,7 +169,10 @@ func (g *Generator) generateWithRetry(attempt int) (*Placement, error) {
 // placeChildSafe is like placeChild but returns error instead of panicking
 func (g *Generator) placeChildSafe(parentIdx, childIdx int, isLastChild bool) error {
 	parent := g.Placement.Rooms[RoomID(parentIdx+1)]
-	childShape := g.GetRoomShape((*g.Tree)[childIdx])
+	childShape, err := g.GetRoomShape((*g.Tree)[childIdx])
+	if err != nil {
+		return err
+	}
 	childHasChildren := g.hasChildren(childIdx)
 	parentRoomID := RoomID(parentIdx + 1)
 	childRoomID := RoomID(childIdx + 1)

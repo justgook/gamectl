@@ -894,7 +894,7 @@
         "url": "builtin/view/view-tree.js",
         "label": "Tree",
         "internal": false,
-        "defaultSource": "progression.tree.json"
+        "defaultSource": "tmp/progression.tree.json"
       },
       "view-setting-plugins": {
         "url": "builtin/view/view-setting-plugins.js",
