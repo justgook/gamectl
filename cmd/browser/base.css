@@ -189,6 +189,18 @@
     /* popup */
     --popup-backdrop: rgba(2, 4, 8, 0.7);
 
+    /* code editor - Catppuccin Mocha */
+    --code-editor-bg: #1e1e2e;
+    --code-editor-border: #313244;
+    --code-editor-text: #cdd6f4;
+    --code-editor-caret: #f5e0dc;
+    --code-editor-placeholder: #6c7086;
+    --code-token-comment: #6c7086;
+    --code-token-string: #a6e3a1;
+    --code-token-number: #fab387;
+    --code-token-keyword: #cba6f7;
+    --code-token-operator: #89dceb;
+
     /* resize handles */
     --resize-handle-size: 12px;
     --resize-handle-bg: color-mix(in oklab, var(--border) 85%, transparent);
@@ -440,10 +452,9 @@
     max-height: 400px;
     position: relative;
     display: block;
-    border: 1px solid var(--border);
+    border: 1px solid var(--code-editor-border);
     border-radius: var(--radius-sm);
-    /* background: var(--surface); */
-    background: #2d2d2d;
+    background: var(--code-editor-bg);
     font-family: var(--font-mono);
     font-size: var(--font-sm);
     line-height: var(--code-editor-line-height);
@@ -489,7 +500,7 @@
     left: 0;
     overflow: hidden;
     pointer-events: none;
-    color: #ccc;
+    color: var(--code-editor-text);
   }
 
   code-editor .code-editor-scroller>pre>code {
@@ -503,35 +514,36 @@
     inset: 0;
     background: transparent;
     color: transparent;
-    caret-color: var(--text);
+    caret-color: var(--code-editor-caret);
     overflow: auto;
     resize: none;
   }
 
   code-editor .code-editor-scroller>textarea::placeholder {
-    color: var(--text-faint);
+    color: var(--code-editor-placeholder);
   }
 
   code-editor .comment {
-    color: #999;
+    color: var(--code-token-comment);
+    font-style: italic;
   }
 
   code-editor .string {
-    color: #7ec699;
+    color: var(--code-token-string);
     font-weight: 400;
   }
 
   code-editor .number {
-    color: #f08d49;
+    color: var(--code-token-number);
   }
 
   code-editor .keyword {
-    color: #cc99cd;
-    font-weight: bold;
+    color: var(--code-token-keyword);
+    font-weight: 600;
   }
 
   code-editor .operator {
-    color: #67cdcc;
+    color: var(--code-token-operator);
   }
 
   input::placeholder,
@@ -851,11 +863,11 @@
   }
 
   code-editor .code-editor-scroller>pre {
-    color: #ccc;
+    color: var(--code-editor-text);
   }
 
   code-editor .code-editor-scroller>textarea {
-    caret-color: #ccc;
+    caret-color: var(--code-editor-caret);
   }
 
   /* corners */
