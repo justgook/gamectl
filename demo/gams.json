@@ -290,10 +290,6 @@
             "url": "/view/files-default.js"
           },
           {
-            "path": "view/files-json.js",
-            "url": "/view/files-json.js"
-          },
-          {
             "path": "view/files-rename.js",
             "url": "/view/files-rename.js"
           },
@@ -859,7 +855,8 @@
             "webp": "view-image",
             "gif": "view-image",
             "bmp": "view-image",
-            "json": "files-json",
+            "json": "view-code",
+            "lua": "view-code",
             "default": "files-default"
           }
         }
@@ -1463,11 +1460,6 @@
       "files-rename": {
         "url": "builtin/view/files-rename.js",
         "label": "Rename File",
-        "internal": true
-      },
-      "files-json": {
-        "url": "builtin/view/files-json.js",
-        "label": "JSON File",
         "internal": true
       },
       "files-default": {

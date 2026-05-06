@@ -12,9 +12,29 @@ function decodeOutput(result) {
   return textDecoder.decode(result?.output || new Uint8Array())
 }
 
+function getExtension(path) {
+  const name = String(path || '').split('/').pop() || ''
+  const parts = name.split('.')
+  if (parts.length <= 1) return ''
+  return parts.pop().toLowerCase()
+}
+
+function languageForPath(path) {
+  const ext = getExtension(path)
+  if (ext === 'json') return 'json'
+  if (ext === 'lua') return 'lua'
+  return 'text'
+}
+
+function placeholderForLanguage(lang) {
+  if (lang === 'json') return '{}'
+  if (lang === 'lua') return '-- Lua code'
+  return ''
+}
+
 export class ViewCode extends HTMLElement {
   static get observedAttributes() {
-    return ['data-source']
+    return ['data-source', 'data-lang']
   }
 
   constructor() {
@@ -25,6 +45,7 @@ export class ViewCode extends HTMLElement {
     this.statusOutput = null
     this.saveButton = null
     this.path = ''
+    this.codeLang = 'text'
   }
 
   connectedCallback() {
@@ -32,15 +53,15 @@ export class ViewCode extends HTMLElement {
     if (this.dataset.ready) return
     this.dataset.ready = '1'
     this.style.display = 'contents'
-    this.path = String(this.getAttribute('data-source') || '').trim()
+    this.path = String(this.popupProps?.path || this.getAttribute('data-source') || '').trim()
     assert(this.path, 'view-code requires data-source')
+    this.codeLang = String(this.getAttribute('data-lang') || languageForPath(this.path))
 
     this.innerHTML = `
       <form data-element="form" novalidate>
-        <label for="view-code-path">Path</label>
-        <output id="view-code-path" data-element="path"></output>
-        <code-editor data-field="content" lang="lua" rows="24" spellcheck="false" placeholder="-- Lua code"></code-editor>
+        <code-editor data-field="content" rows="24" spellcheck="false"></code-editor>
         <footer>
+          <output data-element="path"></output>
           <output data-element="status">Loading...</output>
           <button type="button" data-action="cancel">Cancel</button>
           <button type="submit" data-action="save" class="accent">Save</button>
@@ -63,9 +84,11 @@ export class ViewCode extends HTMLElement {
     assert(pathOutput instanceof HTMLOutputElement, 'view-code missing path output')
 
     pathOutput.textContent = this.path
+    this.editorElement.setAttribute('lang', this.codeLang)
+    this.editorElement.setAttribute('placeholder', placeholderForLanguage(this.codeLang))
 
     cancelButton.addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { ok: false, cancelled: true, path: this.path })
+      await runtime.call('ui.popup', 'close', { ok: false, cancelled: true, path: this.path, reload: false })
     })
 
     this.formElement.addEventListener('submit', async (event) => {
@@ -74,6 +97,24 @@ export class ViewCode extends HTMLElement {
     })
 
     void this.load()
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue === newValue) return
+
+    if (name === 'data-source') {
+      this.path = String(newValue || '').trim()
+      if (this.dataset.ready) void this.load()
+      return
+    }
+
+    if (name === 'data-lang') {
+      this.codeLang = String(newValue || languageForPath(this.path))
+      if (this.editorElement) {
+        this.editorElement.setAttribute('lang', this.codeLang)
+        this.editorElement.setAttribute('placeholder', placeholderForLanguage(this.codeLang))
+      }
+    }
   }
 
   setBusy(isBusy) {
@@ -114,7 +155,7 @@ export class ViewCode extends HTMLElement {
         throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
       }
       this.setStatus('Saved', 'success')
-      await runtime.call('ui.popup', 'close', { ok: true, cancelled: false, path: this.path })
+      await runtime.call('ui.popup', 'close', { ok: true, cancelled: false, path: this.path, reload: true, selectedPath: this.path })
     } catch (error) {
       this.setStatus(`Error: ${error?.message || error}`, 'danger')
       console.error('view-code save failed:', error)
