@@ -450,19 +450,25 @@ class TilemapState {
 
   cutCells(layerIndexes, cells) {
     const clipboard = this.copyCells(layerIndexes, cells)
-    let changed = false
+    const changes = []
     for (const layerIndex of layerIndexes) {
       const layer = this.requireLayer(layerIndex)
       for (const cell of cells) {
         const tileIndex = cell.y * layer.width + cell.x
         if (cell.x < 0 || cell.x >= layer.width || tileIndex < 0 || tileIndex >= layer.data.length) continue
-        if (layer.data[tileIndex] === 0) continue
-        layer.data[tileIndex] = 0
-        changed = true
+        const previous = layer.data[tileIndex]
+        if (previous === 0) continue
+        changes.push({ layerIndex, tileIndex, previous, next: 0 })
       }
     }
-    if (changed) this.dirty = true
-    return { clipboard, changed }
+    if (changes.length > 0) {
+      this.executeDirtyCommand(`Cut ${changes.length} tile${changes.length === 1 ? '' : 's'}`, () => {
+        for (const change of changes) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.next
+      }, () => {
+        for (const change of changes) this.requireLayer(change.layerIndex).data[change.tileIndex] = change.previous
+      })
+    }
+    return { clipboard, changed: changes.length > 0 }
   }
 
   sampleTile(layerIndex, cell) {
