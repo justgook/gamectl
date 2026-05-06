@@ -318,6 +318,10 @@
             "url": "/view/view-files.js"
           },
           {
+            "path": "view/view-image.js",
+            "url": "/view/view-image.js"
+          },
+          {
             "path": "view/view-ng-node.js",
             "url": "/view/view-ng-node.js"
           },
@@ -848,10 +852,23 @@
         "internal": false,
         "config": {
           "open": {
+            "qoi": "view-image",
+            "png": "view-image",
+            "jpg": "view-image",
+            "jpeg": "view-image",
+            "webp": "view-image",
+            "gif": "view-image",
+            "bmp": "view-image",
             "json": "files-json",
             "default": "files-default"
           }
         }
+      },
+      "view-image": {
+        "url": "builtin/view/view-image.js",
+        "label": "Image",
+        "internal": false,
+        "defaultSource": "/demo/ng/nine.png"
       },
       "view-tilemap": {
         "url": "builtin/view/view-tilemap.js",
