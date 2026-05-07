@@ -33,9 +33,6 @@ This repository is moving toward a unified `pluginManager` architecture.
 
 ## Important Planning Files
 - `PLAN/PLAN.md` — overall strategy, vocabulary, and priority migration targets.
-- `PLAN/singleton/*.md` — singleton plugins and singleton migration targets.
-- `PLAN/instance/*.md` — legacy instance usages.
-- `PLAN/view/*.md` — browser view migration targets.
 
 ## Current Priority Areas
 - `ng` runtime / `view-nodegraph2`
