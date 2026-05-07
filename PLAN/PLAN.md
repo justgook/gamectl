@@ -18,37 +18,25 @@ This document is the top-level planning index. Detailed plans can be split under
 
 Goal: make `tree` carry enough structured intent for downstream procedural plugins to consume without regenerating already-authored facts.
 
-Near-term work:
+Remaining work:
 
-- Keep the tree node shape intentionally minimal: nodes MUST only have `parent` and `data`.
-- Keep `tree.Node.Data` as `map[string]string`. It is metadata only: plugins/views can agree on string keys and parse string values when they need richer meaning.
-- Define stable `node.data` keys for generation metadata; do not add top-level node properties for plugin-specific needs.
-- Finish `plugins/minimap2` support for reading a node `minimap` data key and extracting the room shape from the tree instead of always choosing a generated shape.
-- Decide the exact JSON string shape stored at `data["minimap"]`.
-  - Current implementation expects `data["minimap"]` to unmarshal into `placement.RoomShape`.
-  - Candidate value: JSON array of `{ "x": number, "y": number }` cells relative to the room origin.
-- Add examples/tests for trees with explicit room shapes.
-- Keep generated defaults as a separate fallback only where generation is explicitly requested.
+- Add fixtures/integration tests showing authored `data.minimap` masks flowing from tree JSON through `plugins/minimap2` into tilemap output.
 
 Decisions:
 
 - `tree.Node.Data` MUST stay `map[string]string`.
 - Plugin/view metadata MUST live inside `data`; no additional node properties beyond `parent` and `data`.
-- Room-shape metadata for minimap work should use a `data` key such as `minimap`; if more detail is needed later, encode it inside that string value rather than expanding the node schema.
+- Room-shape metadata for minimap work uses `data["minimap"]`.
+- `data["minimap"]` stores a compact room-shape mask string: rows separated by `/`, `#` for occupied cells, and `.` for empty cells, parsed by `placement.ParseRoomShapeMask`.
+- If a node has no `data["minimap"]` mask, `plugins/minimap2` uses its existing random room-shape chooser fallback.
 
 ### 2. Minimap and room-shape generation
 
 Goal: separate room graph/layout concerns from room content generation.
 
-Near-term work:
+Remaining work:
 
-- Treat `minimap2` as the active placement/layout path.
 - Keep `minimap` as legacy unless needed for migration comparison.
-- Ensure `minimap2` can:
-  - read tree input through `fs`,
-  - write tilemap output through `fs`,
-  - preserve explicit room shapes from tree metadata,
-  - generate missing room shapes only when requested/allowed.
 
 Proposed logical split:
 
@@ -130,7 +118,7 @@ Goal: build embeddable UI widgets that views can reuse without hard-coding host/
 
 Current widget plans:
 
-- `PLAN/widget-timeline.md` — Aseprite-inspired `gams-timeline` widget for animation creation, sprite layering/compositing, frames/cels, and later skeleton animation.
+- `PLAN/widget-timeline.md` — Aseprite-inspired `widget-timeline` widget for animation creation, sprite layering/compositing, frames/cels, and later skeleton animation.
 
 ### 6. Browser views for generation workflows
 
@@ -151,15 +139,13 @@ View assumptions:
 
 ## Suggested Implementation Order
 
-1. Finalize `data.minimap` shape and add tree fixtures/examples for explicit room shapes.
-2. Complete/verify `plugins/minimap2` extraction of room shape from tree metadata.
-3. Define minimal `fs` + `mounts` protocol contract for `read`/`write` on named mounts.
-4. Add a planning file for room generation research and summarize MarkovJunior/WFC findings there.
-5. Prototype `roomgen` as a singleton plugin with a simple deterministic generator before committing to Markov/WFC integration.
-6. Add `view-roomgen` once plugin contracts are stable enough for UI iteration.
+1. Add minimap2 tree fixture/integration tests for authored `data.minimap` masks.
+2. Define minimal `fs` + `mounts` protocol contract for `read`/`write` on named mounts.
+3. Add a planning file for room generation research and summarize MarkovJunior/WFC findings there.
+4. Prototype `roomgen` as a singleton plugin with a simple deterministic generator before committing to Markov/WFC integration.
+5. Add `view-roomgen` once plugin contracts are stable enough for UI iteration.
 
 ## Requires Clarification
 
-- Exact string value schema for procedural generation metadata keys such as `data["minimap"]`.
 - Mount path syntax and first required backend set.
 - Whether MarkovJunior/WFC should become direct dependencies, ports, or design references only.

@@ -45,6 +45,14 @@
             "url": "/demo/ng/presets/image-atlas.lua"
           },
           {
+            "path": "ng/presets/image-close.lua",
+            "url": "/demo/ng/presets/image-close.lua"
+          },
+          {
+            "path": "ng/presets/image-close-all.lua",
+            "url": "/demo/ng/presets/image-close-all.lua"
+          },
+          {
             "path": "ng/presets/image-flipy.lua",
             "url": "/demo/ng/presets/image-flipy.lua"
           },
@@ -1088,6 +1096,49 @@
               "outputs": [
                 {
                   "name": "image"
+                },
+                {
+                  "name": "error"
+                }
+              ],
+              "group": "Image"
+            },
+            {
+              "name": "Close",
+              "kind": "code",
+              "codePath": "demo/ng/presets/image-close.lua",
+              "inputs": [
+                {
+                  "name": "images",
+                  "defaultValue": "[]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "closed"
+                },
+                {
+                  "name": "error"
+                }
+              ],
+              "group": "Image"
+            },
+            {
+              "name": "Close All",
+              "kind": "code",
+              "codePath": "demo/ng/presets/image-close-all.lua",
+              "inputs": [
+                {
+                  "name": "value",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "value"
+                },
+                {
+                  "name": "closed"
                 },
                 {
                   "name": "error"

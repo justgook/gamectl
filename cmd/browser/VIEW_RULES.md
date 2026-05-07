@@ -135,3 +135,15 @@ Reusable custom UI elements should live in `cmd/browser/widgets/`, one widget pe
 
 - `code-editor` - text area for code editing with highlight.
 - `view-pagination` - generic pagination widget for paged views.
+- `widget-timeline` - reusable timeline widget for layers, frames, cels, and later tags.
+
+## Timeline widget
+
+- `widget-timeline` - root custom element.
+- `article[data-element="timeline"]` - timeline body.
+- `table[data-element="timeline-table"]` - layer/frame/cel grid.
+- `thead[data-element="frame-header"]` - frame number header.
+- `tbody[data-element="layer-rows"]` - layer and cel rows.
+- `tr[aria-selected="true"]` - active layer row.
+- `button[aria-pressed]` - active/toggle button state, including active cel buttons.
+- `button[data-action="select-cel"]` - cel selector.

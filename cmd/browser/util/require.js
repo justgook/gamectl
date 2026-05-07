@@ -20,6 +20,11 @@ export async function importJsFromBytes(bytes) {
   )
 
   source = source.replace(
+    /import\s+["'](\/[^"']+)["']/g,
+    (_, path) => `import "${new URL(path, location.origin).href}"`
+  )
+
+  source = source.replace(
     /import\s*\(\s*["'](\/[^"']+)["']\s*\)/g,
     (_, path) => `import("${new URL(path, location.origin).href}")`
   )

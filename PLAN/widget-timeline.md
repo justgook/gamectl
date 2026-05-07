@@ -13,7 +13,7 @@ The widget should be embeddable by any browser view, especially animation creati
 
 Proposed custom element:
 
-- `gams-timeline` in `cmd/browser/widgets/timeline.js`
+- `widget-timeline` in `cmd/browser/widgets/timeline.js`
 
 Name rationale:
 
@@ -83,7 +83,7 @@ Operations:
 
 ## Initial Scope
 
-Phase 1 should implement the reusable timeline shell with a practical layer stack:
+Phase 1 should implement the reusable timeline shell with a practical layer stack using only the existing browser UI vocabulary and existing/base theme styling. The first implementation should not require new CSS; it should rely on semantic elements, existing button/table/form styling, and documented attributes. If the UI exposes a concrete missing styling primitive later, document that separately before adding CSS.
 
 - render nested layers/groups
 - render frame header and optional cel grid when `model.showFrames` is true
@@ -93,7 +93,7 @@ Phase 1 should implement the reusable timeline shell with a practical layer stac
 - toggle visible/locked/continuous
 - add/delete/duplicate/reorder layers through the supplied model/controller object
 - add/delete/duplicate/reorder frames through the supplied model/controller object if frame controls are enabled
-- drag or button-based reorder; if drag is too much, start with up/down buttons
+- use button-based reorder in phase 1; defer drag-and-drop
 - avoid special background constraints; all drawable layers use the same movement/stacking rules
 
 Phase 1 should not implement:
@@ -246,12 +246,12 @@ After each model operation, the widget should re-render from `model.layers`, `mo
 
 ## DOM / View Rules Vocabulary
 
-Implementation should follow `cmd/browser/VIEW_RULES.md` and preserve semantic/themed elements.
+Implementation should follow `cmd/browser/VIEW_RULES.md` and preserve semantic/themed elements. The widget should be built from existing semantic HTML and documented UI patterns instead of introducing CSS-dependent wrapper structure.
 
 Recommended internal structure:
 
 ```html
-<gams-timeline>
+<widget-timeline>
   <article data-element="timeline">
     <table data-element="timeline-table">
       <thead data-element="frame-header">...</thead>
@@ -265,14 +265,17 @@ Recommended internal structure:
     <button data-action="duplicate"><i>content_copy</i></button>
     <button data-action="delete"><i>delete</i></button>
   </footer>
-</gams-timeline>
+</widget-timeline>
 ```
 
 Expected additions to `VIEW_RULES.md` when implemented:
 
-- `gams-timeline` - reusable timeline widget for layers, frames, cels, and tags
+- `widget-timeline` - reusable timeline widget for layers, frames, cels, and tags
+- timeline-specific `data-element` / `data-action` names used by the widget
 - `button[aria-pressed]` - toggle buttons for visible/locked/continuous if not already documented
 - `tr[aria-selected="true"]` - selected layer/cel row pattern
+
+Do not add CSS as part of phase 1 unless implementation proves that an existing documented element/pattern cannot express a required control. Prefer adjusting markup to fit the current UI vocabulary over adding timeline-specific style rules.
 
 ## UI Notes from Aseprite
 
@@ -298,7 +301,7 @@ Near term, this can be a browser-only widget.
 
 Longer term contracts:
 
-- `view-animation` uses `gams-timeline` for frame animation authoring.
+- `view-animation` uses `widget-timeline` for frame animation authoring.
 - Sprite/image compositing plugin owns persisted layer/cel data and render/composite operations.
 - Tilemap, skeleton, rig, sprite, and image-specific semantics stay in the embedding view/plugin; at the widget level they are all normal `layer` rows unless a later requirement justifies extending the contract.
 
@@ -308,11 +311,12 @@ Prefer plugin-to-plugin calls for persistence/compositing. The widget should not
 
 1. Add `cmd/browser/widgets/timeline.js` with strict data/model validation and direct model/controller calls.
 2. Import it from `cmd/browser/app.js`.
-3. Add base CSS tokens/styles in `cmd/browser/base.css`.
-4. Update `cmd/browser/VIEW_RULES.md` with the new widget vocabulary.
-5. Embed a demo/static instance into `view-animation` using the sample Shadow/Gun/Body/Background stack from the screenshot, with Background represented as a normal layer.
-6. Add frame/cel strip support once the animation data shape is chosen.
-7. Connect to an animation/sprite plugin contract for loading/saving and compositing.
+3. Update `cmd/browser/VIEW_RULES.md` with the new widget vocabulary.
+4. Embed a demo/static instance into `view-animation` using the sample Shadow/Gun/Body/Background stack from the screenshot, with Background represented as a normal layer.
+5. Add frame/cel strip support once the animation data shape is chosen.
+6. Connect to an animation/sprite plugin contract for loading/saving and compositing.
+
+Phase 1 deliberately excludes `cmd/browser/base.css` or theme updates. If later work needs styling, first record the missing reusable UI primitive in `VIEW_RULES.md` and keep any CSS generic rather than timeline-specific.
 
 ## Requires Clarification
 
@@ -320,4 +324,5 @@ Prefer plugin-to-plugin calls for persistence/compositing. The widget should not
 - Whether animation frames are globally indexed or can differ per layer/track.
 - Whether `continuous` should mean Aseprite-like cel creation preference only, or also runtime interpolation/reuse behavior in GAMS.
 - Whether future subtype display metadata is needed, or whether all editor/plugin-specific meanings can remain outside the widget contract.
-- Whether drag-and-drop reorder is required in phase 1 or button reorder is enough.
+- Whether drag-and-drop reorder is needed after the phase 1 button-based reorder proves the model contract.
+- Whether existing semantic/table/button styling is sufficient for the first usable widget, or if a generic reusable UI primitive needs to be added later.
