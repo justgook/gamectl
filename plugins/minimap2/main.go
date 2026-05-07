@@ -136,10 +136,7 @@ func Gen() uint32 {
 
 func getRoomShape(node *tree.Node) (placement.RoomShape, error) {
 	if room, ok := node.Data["minimap"]; ok {
-		result := placement.RoomShape{}
-		err := json.Unmarshal([]byte(room), &result)
-
-		return result, err
+		return placement.ParseRoomShapeMask(room)
 	}
 
 	rng := &MyRandom{}

@@ -292,8 +292,8 @@
   {
     "id": 10,
     "kind": 2,
-    "x": 516,
-    "y": 309,
+    "x": 287,
+    "y": 315,
     "name": "World Tree Generator",
     "codePath": "demo/ng/presets/pipeline-world-tree.lua",
     "graphId": 0,
@@ -356,7 +356,7 @@
       {
         "id": 1,
         "name": "tree",
-        "srcNodeId": 10,
+        "srcNodeId": 43,
         "srcOutputId": 1
       },
       {
@@ -388,8 +388,8 @@
   {
     "id": 13,
     "kind": 4,
-    "x": 260,
-    "y": 322,
+    "x": 31,
+    "y": 328,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1189,6 +1189,42 @@
         "id": 1,
         "name": "",
         "value": "tmp/minimap_scaled.map.json"
+      }
+    ]
+  },
+  {
+    "id": 43,
+    "kind": 2,
+    "x": 553,
+    "y": 308,
+    "name": "Minimap Shape Assigner",
+    "codePath": "demo/ng/presets/pipeline-assign-minimap-shapes.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "srcNodeId": 10,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "out",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "out",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
       }
     ]
   }
