@@ -941,7 +941,8 @@
                 {
                   "name": "array"
                 }
-              ]
+              ],
+              "group": "Data"
             },
             {
               "name": "Copy Prop",
@@ -968,7 +969,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Data"
             },
             {
               "name": "Biome Assigner",
@@ -991,7 +993,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Progression"
             },
             {
               "name": "Minimap Shape Assigner",
@@ -1014,20 +1017,22 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Progression"
             },
             {
-              "name": "Demo UVs",
+              "name": "UVs",
               "kind": "code",
               "codePath": "demo/ng/presets/uvs.lua",
               "outputs": [
                 {
                   "name": "uvs"
                 }
-              ]
+              ],
+              "group": "Demo"
             },
             {
-              "name": "Image Atlas",
+              "name": "Atlas",
               "kind": "code",
               "codePath": "demo/ng/presets/image-atlas.lua",
               "inputs": [
@@ -1043,10 +1048,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Image"
             },
             {
-              "name": "Image FlipY",
+              "name": "FlipY",
               "kind": "code",
               "codePath": "demo/ng/presets/image-flipy.lua",
               "inputs": [
@@ -1062,10 +1068,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Image"
             },
             {
-              "name": "Image Open",
+              "name": "Open",
               "kind": "code",
               "codePath": "demo/ng/presets/image-open.lua",
               "inputs": [
@@ -1081,10 +1088,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Image"
             },
             {
-              "name": "Image Wrap",
+              "name": "Wrap",
               "kind": "code",
               "codePath": "demo/ng/presets/image-wrap.lua",
               "inputs": [
@@ -1097,10 +1105,11 @@
                 {
                   "name": "handle"
                 }
-              ]
+              ],
+              "group": "Image"
             },
             {
-              "name": "Image Write",
+              "name": "Write",
               "kind": "code",
               "codePath": "demo/ng/presets/image-write.lua",
               "inputs": [
@@ -1124,7 +1133,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Image"
             },
             {
               "name": "Keys & Locks Assigner",
@@ -1159,7 +1169,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Progression"
             },
             {
               "name": "LUT Generator",
@@ -1182,7 +1193,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Image"
             },
             {
               "name": "Pack Rects",
@@ -1217,7 +1229,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Data"
             },
             {
               "name": "Pick",
@@ -1240,7 +1253,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Data"
             },
             {
               "name": "Read File",
@@ -1259,7 +1273,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "File"
             },
             {
               "name": "Remap",
@@ -1298,10 +1313,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Data"
             },
             {
-              "name": "Respack Build",
+              "name": "Build",
               "kind": "code",
               "codePath": "demo/ng/presets/respack-build.lua",
               "inputs": [
@@ -1325,10 +1341,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Respack"
             },
             {
-              "name": "Respack Generate Odin",
+              "name": "Generate Odin",
               "kind": "code",
               "codePath": "demo/ng/presets/respack-generate-odin.lua",
               "inputs": [
@@ -1351,10 +1368,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Respack"
             },
             {
-              "name": "SQL Query",
+              "name": "Query",
               "kind": "code",
               "codePath": "demo/ng/presets/sql-query.lua",
               "inputs": [
@@ -1370,10 +1388,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "SQL"
             },
             {
-              "name": "Tilemap Automap",
+              "name": "Automap",
               "kind": "code",
               "codePath": "demo/ng/presets/pipeline-apply-automap.lua",
               "inputs": [
@@ -1397,10 +1416,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Tilemap"
             },
             {
-              "name": "Tilemap minimap Generator",
+              "name": "Minimap Generator",
               "kind": "code",
               "codePath": "demo/ng/presets/pipeline-create-minimap.lua",
               "inputs": [
@@ -1424,10 +1444,11 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Tilemap"
             },
             {
-              "name": "Tilemap Scaler",
+              "name": "Scaler",
               "kind": "code",
               "codePath": "demo/ng/presets/pipeline-tilemap-scaler.lua",
               "inputs": [
@@ -1451,7 +1472,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Tilemap"
             },
             {
               "name": "World Tree Generator",
@@ -1486,7 +1508,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Progression"
             },
             {
               "name": "Zip",
@@ -1513,7 +1536,8 @@
                 {
                   "name": "error"
                 }
-              ]
+              ],
+              "group": "Data"
             }
           ]
         }
