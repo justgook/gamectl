@@ -20,18 +20,21 @@ Goal: make `tree` carry enough structured intent for downstream procedural plugi
 
 Near-term work:
 
-- Define stable `node.data` keys for generation metadata.
-- Finish `plugins/minimap2` support for reading a node `minimap` property and extracting the room shape from the tree instead of always choosing a generated shape.
-- Decide the exact JSON shape for `data.minimap`.
+- Keep the tree node shape intentionally minimal: nodes MUST only have `parent` and `data`.
+- Keep `tree.Node.Data` as `map[string]string`. It is metadata only: plugins/views can agree on string keys and parse string values when they need richer meaning.
+- Define stable `node.data` keys for generation metadata; do not add top-level node properties for plugin-specific needs.
+- Finish `plugins/minimap2` support for reading a node `minimap` data key and extracting the room shape from the tree instead of always choosing a generated shape.
+- Decide the exact JSON string shape stored at `data["minimap"]`.
   - Current implementation expects `data["minimap"]` to unmarshal into `placement.RoomShape`.
-  - Candidate shape: array of `{ "x": number, "y": number }` cells relative to the room origin.
+  - Candidate value: JSON array of `{ "x": number, "y": number }` cells relative to the room origin.
 - Add examples/tests for trees with explicit room shapes.
 - Keep generated defaults as a separate fallback only where generation is explicitly requested.
 
-Open questions:
+Decisions:
 
-- Should `tree.Node.Data` stay `map[string]string`, or should richer typed metadata be introduced later?
-- Should room shape live directly at `data.minimap`, or under a more explicit key such as `data.roomShape` / `data.minimap.roomShape` once tree metadata grows?
+- `tree.Node.Data` MUST stay `map[string]string`.
+- Plugin/view metadata MUST live inside `data`; no additional node properties beyond `parent` and `data`.
+- Room-shape metadata for minimap work should use a `data` key such as `minimap`; if more detail is needed later, encode it inside that string value rather than expanding the node schema.
 
 ### 2. Minimap and room-shape generation
 
@@ -127,7 +130,7 @@ Goal: build embeddable UI widgets that views can reuse without hard-coding host/
 
 Current widget plans:
 
-- `PLAN/widget-layers.md` — Aseprite-inspired `layers-widget` for animation creation, sprite layering/compositing, and later skeleton animation.
+- `PLAN/widget-timeline.md` — Aseprite-inspired `gams-timeline` widget for animation creation, sprite layering/compositing, frames/cels, and later skeleton animation.
 
 ### 6. Browser views for generation workflows
 
@@ -157,7 +160,6 @@ View assumptions:
 
 ## Requires Clarification
 
-- Final tree metadata schema for procedural generation.
-- Whether room shape should be minimap-specific or a generic room property.
+- Exact string value schema for procedural generation metadata keys such as `data["minimap"]`.
 - Mount path syntax and first required backend set.
 - Whether MarkovJunior/WFC should become direct dependencies, ports, or design references only.
