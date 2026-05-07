@@ -286,6 +286,10 @@
             "url": "/plugins/minimap2.wasm"
           },
           {
+            "path": "plugins/markov.wasm",
+            "url": "/plugins/markov.wasm"
+          },
+          {
             "path": "plugins/scaler.wasm",
             "url": "/plugins/scaler.wasm"
           },
@@ -1690,6 +1694,15 @@
         "random"
       ],
       "url": "builtin/plugins/minimap2.wasm"
+    },
+    {
+      "id": "markov",
+      "runtime": "wasm",
+      "role": "service",
+      "deps": [
+        "fs"
+      ],
+      "url": "builtin/plugins/markov.wasm"
     },
     {
       "id": "treegen",
