@@ -30,6 +30,7 @@ func (r *RNG) Float64() float64 {
 type RunOptions struct {
 	Width        int
 	Height       int
+	Depth        int
 	Seed         uint64
 	Steps        int
 	InitialCells string
@@ -50,7 +51,10 @@ func Run(model *Model, opts RunOptions) (*RunResult, error) {
 	if opts.Steps <= 0 {
 		opts.Steps = 50000
 	}
-	g, err := NewGrid(opts.Width, opts.Height, model.Values)
+	if opts.Depth <= 0 {
+		opts.Depth = 1
+	}
+	g, err := NewGrid3D(opts.Width, opts.Height, opts.Depth, model.Values)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +81,7 @@ func Run(model *Model, opts RunOptions) (*RunResult, error) {
 		}
 		changedCount++
 	}
-	return &RunResult{OK: true, Width: g.W, Height: g.H, Depth: 1, Values: g.Values, Cells: g.DecodeRows(), StepsRun: stepsRun, Changed: changedCount}, nil
+	return &RunResult{OK: true, Width: g.W, Height: g.H, Depth: g.D, Values: g.Values, Cells: g.DecodeRows(), StepsRun: stepsRun, Changed: changedCount}, nil
 }
 
 type InspectResult struct {

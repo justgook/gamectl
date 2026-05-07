@@ -48,6 +48,9 @@ func (p *PathNode) Features(out map[string]bool) {
 }
 
 func (p *PathNode) Step(g *Grid, rng *RNG) (bool, error) {
+	if g.D != 1 {
+		return false, fmt.Errorf("3D path is not implemented yet")
+	}
 	frontier := make([]point, 0)
 	starts := make([]point, 0)
 	generations := make([]int, len(g.State))
