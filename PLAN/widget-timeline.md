@@ -52,22 +52,21 @@ Core layer row fields:
 
 Layer kinds:
 
-- `layer`: transparent raster/sprite layer, stackable and movable
+- `layer`: generic leaf row/layer, stackable and movable
 - `group`: contains child layers and can collapse/expand
-- `tilemap`: tilemap layer for tile-based animation/editing
-- future: `skeleton` or `rig` layer kind if skeleton animation needs distinct behavior
 
 Intentional simplification:
 
 - Do not implement Aseprite’s special `background` layer rules.
 - Backgrounds can be represented as normal `layer` entries named/background-tagged by the embedding view if needed.
-- This avoids one-off ordering/movement/opacity constraints without clear benefit for GAMS.
+- Tilemap, skeleton, rig, sprite, image, and other editor/plugin-specific subtypes should be represented as normal `layer` entries at the widget level for now.
+- If subtype-specific behavior is needed later, the embedding view/plugin can keep subtype metadata outside the widget contract or add optional display metadata without changing core timeline operations.
+- This avoids one-off ordering/movement/opacity/type constraints without clear benefit for GAMS.
 
 Operations:
 
 - add new transparent layer
 - add group
-- add tilemap layer
 - rename layer
 - duplicate/copy layer
 - delete layer
@@ -234,12 +233,12 @@ Interaction mapping:
 - visibility toggle calls `model.setLayerVisible(layerId, visible)`
 - lock toggle calls `model.setLayerLocked(layerId, locked)`
 - continuous toggle calls `model.setLayerContinuous(layerId, continuous)`
-- add layer/group/tilemap calls `model.addLayer({ parentId, kind, afterLayerId })`
+- add layer/group calls `model.addLayer({ parentId, kind, afterLayerId })`
 - delete calls `model.deleteLayer(layerId)`
 - duplicate calls `model.duplicateLayer(layerId)`
 - reorder calls `model.moveLayer({ layerId, parentId, index })`
 - group expand/collapse calls `model.setLayerCollapsed(layerId, collapsed)`
-- layer/tilemap conversion calls `model.convertLayerKind({ layerId, kind })`
+- group/layer conversion, if supported, calls `model.convertLayerKind({ layerId, kind })`
 - add/delete/duplicate/reorder frame controls call `model.addFrame(...)`, `model.deleteFrame(...)`, `model.duplicateFrame(...)`, `model.moveFrame(...)`
 - cel copy/move/delete controls call `model.copyCel(...)`, `model.moveCel(...)`, `model.deleteCel(...)`
 
@@ -282,7 +281,7 @@ Copyable behavior:
 - eye icon for visibility
 - lock icon for locked state
 - linked/chain or repeated-dot icon for continuous cels
-- layer kind icon before the name
+- generic layer/group icon before the name
 - active layer/cel highlighted
 - group rows can indent children and show collapsed state
 - timeline/cel area can use compact frame-number columns like the screenshot
@@ -301,8 +300,7 @@ Longer term contracts:
 
 - `view-animation` uses `gams-timeline` for frame animation authoring.
 - Sprite/image compositing plugin owns persisted layer/cel data and render/composite operations.
-- Tilemap layers route tile editing to tilemap plugins.
-- Skeleton animation can either use `kind: 'skeleton'` or a separate track/layer widget once requirements are clearer.
+- Tilemap, skeleton, rig, sprite, and image-specific semantics stay in the embedding view/plugin; at the widget level they are all normal `layer` rows unless a later requirement justifies extending the contract.
 
 Prefer plugin-to-plugin calls for persistence/compositing. The widget should not call `fs` or asset plugins directly.
 
@@ -321,5 +319,5 @@ Prefer plugin-to-plugin calls for persistence/compositing. The widget should not
 - Exact persisted asset schema for layered sprites/animations.
 - Whether animation frames are globally indexed or can differ per layer/track.
 - Whether `continuous` should mean Aseprite-like cel creation preference only, or also runtime interpolation/reuse behavior in GAMS.
-- First skeleton-animation requirements and whether they fit a normal layer kind.
+- Whether future subtype display metadata is needed, or whether all editor/plugin-specific meanings can remain outside the widget contract.
 - Whether drag-and-drop reorder is required in phase 1 or button reorder is enough.
