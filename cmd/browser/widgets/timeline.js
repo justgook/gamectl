@@ -1,8 +1,15 @@
+function forEachLayer(layers, callback) {
+  layers.forEach((layer) => {
+    callback(layer)
+    if (layer.kind === 'group') forEachLayer(layer.children, callback)
+  })
+}
+
 function createMockTimelineModel() {
   const state = {
     activeLayerId: 'body',
     activeFrame: 0,
-    frameCount: 4,
+    frameCount: 6,
     showFrames: true,
     firstFrameNumber: 1,
     layers: [
@@ -13,7 +20,7 @@ function createMockTimelineModel() {
         visible: true,
         locked: false,
         continuous: true,
-        cels: [{ frame: 0 }, { frame: 1 }, { frame: 2 }, { frame: 3 }],
+        cels: [{ frame: 0 }, { frame: 1 }, { frame: 2 }, { frame: 3 }, { frame: 4 }, { frame: 5 }],
       },
       {
         id: 'character',
@@ -30,7 +37,7 @@ function createMockTimelineModel() {
             visible: true,
             locked: false,
             continuous: true,
-            cels: [{ frame: 0 }, { frame: 2 }],
+            cels: [{ frame: 0 }, { frame: 2 }, { frame: 3 }],
           },
           {
             id: 'body',
@@ -39,7 +46,7 @@ function createMockTimelineModel() {
             visible: true,
             locked: false,
             continuous: true,
-            cels: [{ frame: 0 }, { frame: 1 }, { frame: 2 }, { frame: 3 }],
+            cels: [{ frame: 0 }, { frame: 1 }, { frame: 2 }, { frame: 3 }, { frame: 4 }],
           },
         ],
       },
@@ -50,7 +57,7 @@ function createMockTimelineModel() {
         visible: true,
         locked: false,
         continuous: true,
-        cels: [{ frame: 0 }],
+        cels: [{ frame: 0 }, { frame: 1 }, { frame: 2 }, { frame: 3 }, { frame: 4 }, { frame: 5 }],
       },
     ],
   }
@@ -64,6 +71,46 @@ function createMockTimelineModel() {
     get showFrames() { return state.showFrames },
     get firstFrameNumber() { return state.firstFrameNumber },
     get layers() { return state.layers },
+
+    setLayerVisible(layerId, visible) {
+      let found = false
+      forEachLayer(state.layers, (layer) => {
+        if (layer.id !== layerId) return
+        layer.visible = visible
+        found = true
+      })
+      if (!found) throw new Error(`unknown layer ${layerId}`)
+    },
+
+    setAllLayersVisible(visible) {
+      forEachLayer(state.layers, (layer) => {
+        layer.visible = visible
+      })
+    },
+
+    addLayer() {
+      const id = `layer-${Date.now()}`
+      state.layers.unshift({
+        id,
+        name: 'Layer',
+        kind: 'layer',
+        visible: true,
+        locked: false,
+        continuous: true,
+        cels: [],
+      })
+      state.activeLayerId = id
+    },
+
+    addFrame() {
+      state.frameCount += 1
+      state.activeFrame = state.frameCount - 1
+    },
+
+    selectCel({ layerId, frame }) {
+      state.activeLayerId = layerId
+      state.activeFrame = frame
+    },
   }
 }
 
@@ -106,10 +153,19 @@ function hasCel(layer, frame) {
   return layer.cels.some((cel) => cel.frame === frame)
 }
 
+function allLayersVisible(layers) {
+  let allVisible = true
+  forEachLayer(layers, (layer) => {
+    if (!layer.visible) allVisible = false
+  })
+  return allVisible
+}
+
 export class WidgetTimeline extends HTMLElement {
   constructor() {
     super()
     this._model = createMockTimelineModel()
+    this._playing = false
   }
 
   connectedCallback() {
@@ -130,16 +186,34 @@ export class WidgetTimeline extends HTMLElement {
     this._validateModel(model)
     const rows = flattenLayers(model.layers)
     const frames = Array.from({ length: model.frameCount }, (_, index) => index)
+    const globalVisible = allLayersVisible(model.layers)
 
     this.innerHTML = `
       <article data-element="timeline">
         <table data-element="timeline-table">
           <thead data-element="frame-header">
-            <tr>
-              <th>Layer</th>
-              <th>Visible</th>
-              <th>Locked</th>
-              <th>Continuous</th>
+            <tr data-element="timeline-topbar">
+              <th colspan="2">
+                <span role="buttongroup" data-element="playback-actions">
+                  <button data-action="start" aria-label="First frame" title="First frame"><i aria-hidden="true">first_page</i></button>
+                  <button data-action="back" aria-label="Previous frame" title="Previous frame"><i aria-hidden="true">chevron_left</i></button>
+                  <button data-action="play-pause" aria-label="Play or pause" title="Play or pause"><i aria-hidden="true">${this._playing ? 'pause' : 'play_arrow'}</i></button>
+                  <button data-action="forward" aria-label="Next frame" title="Next frame"><i aria-hidden="true">chevron_right</i></button>
+                  <button data-action="end" aria-label="Last frame" title="Last frame"><i aria-hidden="true">last_page</i></button>
+                </span>
+              </th>
+              ${model.showFrames ? `<th colspan="${frames.length}"><output data-element="timeline-tags">Tags</output></th>` : ''}
+            </tr>
+            <tr data-element="timeline-index-row">
+              <th>
+                <button data-action="toggle-all-visible" aria-pressed="${globalVisible ? 'true' : 'false'}" aria-label="Show or hide all layers" title="Show or hide all layers"><i aria-hidden="true">${globalVisible ? 'visibility' : 'visibility_off'}</i></button>
+              </th>
+              <th>
+                <span role="buttongroup" data-element="timeline-add-actions">
+                  <button data-action="add-layer" aria-label="Add layer" title="Add layer"><i aria-hidden="true">add</i></button>
+                  <button data-action="add-frame" aria-label="Add frame" title="Add frame"><i aria-hidden="true">note_add</i></button>
+                </span>
+              </th>
               ${model.showFrames ? frames.map((frame) => `<th>${model.firstFrameNumber + frame}</th>`).join('') : ''}
             </tr>
           </thead>
@@ -150,9 +224,65 @@ export class WidgetTimeline extends HTMLElement {
       </article>
     `
 
+    this._bindEvents(model)
+  }
+
+  _bindEvents(model) {
+    this.querySelector('[data-action="start"]').addEventListener('click', () => {
+      model.activeFrame = 0
+      this.render()
+    })
+
+    this.querySelector('[data-action="back"]').addEventListener('click', () => {
+      model.activeFrame = Math.max(0, model.activeFrame - 1)
+      this.render()
+    })
+
+    this.querySelector('[data-action="play-pause"]').addEventListener('click', () => {
+      this._playing = !this._playing
+      this.render()
+    })
+
+    this.querySelector('[data-action="forward"]').addEventListener('click', () => {
+      model.activeFrame = Math.min(model.frameCount - 1, model.activeFrame + 1)
+      this.render()
+    })
+
+    this.querySelector('[data-action="end"]').addEventListener('click', () => {
+      model.activeFrame = model.frameCount - 1
+      this.render()
+    })
+
+    this.querySelector('[data-action="toggle-all-visible"]').addEventListener('click', () => {
+      if (typeof model.setAllLayersVisible !== 'function') throw new Error('widget-timeline.model.setAllLayersVisible is required')
+      model.setAllLayersVisible(!allLayersVisible(model.layers))
+      this.render()
+    })
+
+    this.querySelector('[data-action="add-layer"]').addEventListener('click', () => {
+      if (typeof model.addLayer !== 'function') throw new Error('widget-timeline.model.addLayer is required')
+      model.addLayer({ parentId: null, kind: 'layer', afterLayerId: model.activeLayerId })
+      this.render()
+    })
+
+    this.querySelector('[data-action="add-frame"]').addEventListener('click', () => {
+      if (typeof model.addFrame !== 'function') throw new Error('widget-timeline.model.addFrame is required')
+      model.addFrame({ afterFrame: model.activeFrame })
+      this.render()
+    })
+
     this.querySelectorAll('[data-layer-id]').forEach((row) => {
       row.addEventListener('click', () => {
         model.activeLayerId = row.getAttribute('data-layer-id')
+        this.render()
+      })
+    })
+
+    this.querySelectorAll('[data-action="toggle-layer-visible"]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation()
+        if (typeof model.setLayerVisible !== 'function') throw new Error('widget-timeline.model.setLayerVisible is required')
+        model.setLayerVisible(button.getAttribute('data-layer-id'), button.getAttribute('aria-pressed') !== 'true')
         this.render()
       })
     })
@@ -176,10 +306,10 @@ export class WidgetTimeline extends HTMLElement {
     const indent = '&nbsp;'.repeat(depth * 4)
     return `
       <tr data-layer-id="${escapeHtml(layer.id)}" aria-selected="${active ? 'true' : 'false'}">
+        <td>
+          <button data-action="toggle-layer-visible" data-layer-id="${escapeHtml(layer.id)}" aria-pressed="${layer.visible ? 'true' : 'false'}" aria-label="Toggle layer visibility" title="Toggle layer visibility"><i aria-hidden="true">${layer.visible ? 'visibility' : 'visibility_off'}</i></button>
+        </td>
         <td>${indent}${groupPrefix}${escapeHtml(layer.name)}</td>
-        <td>${layer.visible ? 'yes' : 'no'}</td>
-        <td>${layer.locked ? 'yes' : 'no'}</td>
-        <td>${layer.kind === 'layer' ? (layer.continuous ? 'yes' : 'no') : ''}</td>
         ${this._model.showFrames ? frames.map((frame) => `
           <td>
             <button data-action="select-cel" data-layer-id="${escapeHtml(layer.id)}" data-frame="${frame}" aria-pressed="${active && this._model.activeFrame === frame ? 'true' : 'false'}">${hasCel(layer, frame) ? '●' : '○'}</button>
