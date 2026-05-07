@@ -89,6 +89,10 @@
             "url": "/demo/ng/presets/pipeline-assign-keys-locks.lua"
           },
           {
+            "path": "ng/presets/pipeline-assign-minimap-shapes.lua",
+            "url": "/demo/ng/presets/pipeline-assign-minimap-shapes.lua"
+          },
+          {
             "path": "ng/presets/pipeline-create-minimap.lua",
             "url": "/demo/ng/presets/pipeline-create-minimap.lua"
           },
@@ -983,6 +987,29 @@
               "outputs": [
                 {
                   "name": "src"
+                },
+                {
+                  "name": "error"
+                }
+              ]
+            },
+            {
+              "name": "Minimap Shape Assigner",
+              "kind": "code",
+              "codePath": "demo/ng/presets/pipeline-assign-minimap-shapes.lua",
+              "inputs": [
+                {
+                  "name": "tree",
+                  "defaultValue": "progression.tree.json"
+                },
+                {
+                  "name": "out",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "out"
                 },
                 {
                   "name": "error"
