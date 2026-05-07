@@ -6,11 +6,11 @@ import (
 )
 
 type Grid struct {
-	W, H   int
-	Values string
-	Index  map[byte]byte
-	Waves  map[byte]string
-	State  []byte
+	W, H, D int
+	Values  string
+	Index   map[byte]byte
+	Waves   map[byte]string
+	State   []byte
 }
 
 type Rule struct {
@@ -19,17 +19,18 @@ type Rule struct {
 }
 
 type Pattern struct {
-	W, H int
-	Data []byte
+	W, H, D int
+	Data    []byte
 }
 
 type Match struct {
-	Rule *Rule
-	X, Y int
+	Rule    *Rule
+	X, Y, Z int
 }
 
-func NewGrid(w, h int, values string) (*Grid, error) {
-	if w <= 0 || h <= 0 {
+func NewGrid(w, h int, values string) (*Grid, error) { return NewGrid3D(w, h, 1, values) }
+func NewGrid3D(w, h, d int, values string) (*Grid, error) {
+	if w <= 0 || h <= 0 || d <= 0 {
 		return nil, fmt.Errorf("grid dimensions must be positive")
 	}
 	if values == "" {
@@ -48,26 +49,30 @@ func NewGrid(w, h int, values string) (*Grid, error) {
 		waves[ch] = string(ch)
 	}
 	waves['*'] = values
-	return &Grid{W: w, H: h, Values: values, Index: idx, Waves: waves, State: make([]byte, w*h)}, nil
+	return &Grid{W: w, H: h, D: d, Values: values, Index: idx, Waves: waves, State: make([]byte, w*h*d)}, nil
 }
 
 func (g *Grid) SetOrigin() {
 	if len(g.Values) < 2 {
 		return
 	}
-	g.State[g.W/2+(g.H/2)*g.W] = 1
+	g.State[g.W/2+(g.H/2)*g.W+(g.D/2)*g.W*g.H] = 1
 }
 
 func (g *Grid) DecodeRows() string {
-	rows := make([]string, g.H)
-	for y := 0; y < g.H; y++ {
-		b := make([]byte, g.W)
-		for x := 0; x < g.W; x++ {
-			b[x] = g.Values[g.State[x+y*g.W]]
+	slices := make([]string, g.D)
+	for z := 0; z < g.D; z++ {
+		rows := make([]string, g.H)
+		for y := 0; y < g.H; y++ {
+			b := make([]byte, g.W)
+			for x := 0; x < g.W; x++ {
+				b[x] = g.Values[g.State[x+y*g.W+z*g.W*g.H]]
+			}
+			rows[y] = string(b)
 		}
-		rows[y] = string(b)
+		slices[g.D-1-z] = strings.Join(rows, "/")
 	}
-	return strings.Join(rows, "/")
+	return strings.Join(slices, " ")
 }
 
 func (g *Grid) EncodeRows(rows string) error {
@@ -75,8 +80,8 @@ func (g *Grid) EncodeRows(rows string) error {
 	if err != nil {
 		return err
 	}
-	if p.W != g.W || p.H != g.H {
-		return fmt.Errorf("initial cells dimensions %dx%d do not match grid %dx%d", p.W, p.H, g.W, g.H)
+	if p.W != g.W || p.H != g.H || p.D != g.D {
+		return fmt.Errorf("initial cells dimensions %dx%dx%d do not match grid %dx%dx%d", p.W, p.H, p.D, g.W, g.H, g.D)
 	}
 	for i, ch := range p.Data {
 		v, ok := g.Index[ch]
@@ -93,19 +98,28 @@ func ParsePattern(s string) (Pattern, error) {
 	if s == "" {
 		return Pattern{}, fmt.Errorf("pattern is empty")
 	}
-	rows := strings.Split(s, "/")
-	w := len(rows[0])
-	if w == 0 {
+	sliceStrings := strings.Split(s, " ")
+	firstRows := strings.Split(sliceStrings[0], "/")
+	w := len(firstRows[0])
+	h := len(firstRows)
+	if w == 0 || h == 0 {
 		return Pattern{}, fmt.Errorf("pattern has empty first row")
 	}
-	data := make([]byte, 0, w*len(rows))
-	for _, row := range rows {
-		if len(row) != w {
+	data := make([]byte, w*h*len(sliceStrings))
+	for sz, slice := range sliceStrings {
+		rows := strings.Split(slice, "/")
+		if len(rows) != h {
 			return Pattern{}, fmt.Errorf("ragged pattern %q", s)
 		}
-		data = append(data, []byte(row)...)
+		z := len(sliceStrings) - 1 - sz
+		for y, row := range rows {
+			if len(row) != w {
+				return Pattern{}, fmt.Errorf("ragged pattern %q", s)
+			}
+			copy(data[y*w+z*w*h:y*w+z*w*h+w], []byte(row))
+		}
 	}
-	return Pattern{W: w, H: len(rows), Data: data}, nil
+	return Pattern{W: w, H: h, D: len(sliceStrings), Data: data}, nil
 }
 
 func ParseRule(in, out string) (Rule, error) {
@@ -121,10 +135,14 @@ func ParseRule(in, out string) (Rule, error) {
 }
 
 func NewRule(pin, pout Pattern) (Rule, error) {
-	if pin.W != pout.W || pin.H != pout.H {
+	if pin.W != pout.W || pin.H != pout.H || pin.D != pout.D {
 		return Rule{}, fmt.Errorf("rule input/output dimensions differ")
 	}
-	return Rule{In: pin, Out: pout, P: 1}, nil
+	return NewRuleAny(pin, pout), nil
+}
+
+func NewRuleAny(pin, pout Pattern) Rule {
+	return Rule{In: pin, Out: pout, P: 1}
 }
 
 func SplitGluedRule(rect Pattern) (Rule, error) {
@@ -132,11 +150,13 @@ func SplitGluedRule(rect Pattern) (Rule, error) {
 		return Rule{}, fmt.Errorf("odd width %d in glued rule", rect.W)
 	}
 	half := rect.W / 2
-	pin := Pattern{W: half, H: rect.H, Data: make([]byte, half*rect.H)}
-	pout := Pattern{W: half, H: rect.H, Data: make([]byte, half*rect.H)}
-	for y := 0; y < rect.H; y++ {
-		copy(pin.Data[y*half:(y+1)*half], rect.Data[y*rect.W:y*rect.W+half])
-		copy(pout.Data[y*half:(y+1)*half], rect.Data[y*rect.W+half:y*rect.W+rect.W])
+	pin := Pattern{W: half, H: rect.H, D: rect.D, Data: make([]byte, half*rect.H*rect.D)}
+	pout := Pattern{W: half, H: rect.H, D: rect.D, Data: make([]byte, half*rect.H*rect.D)}
+	for z := 0; z < rect.D; z++ {
+		for y := 0; y < rect.H; y++ {
+			copy(pin.Data[y*half+z*half*rect.H:y*half+z*half*rect.H+half], rect.Data[y*rect.W+z*rect.W*rect.H:y*rect.W+z*rect.W*rect.H+half])
+			copy(pout.Data[y*half+z*half*rect.H:y*half+z*half*rect.H+half], rect.Data[y*rect.W+z*rect.W*rect.H+half:y*rect.W+z*rect.W*rect.H+rect.W])
+		}
 	}
 	return NewRule(pin, pout)
 }
@@ -146,30 +166,38 @@ func (g *Grid) Matches(r *Rule) []Match {
 	if r.P <= 0 {
 		return out
 	}
-	for y := 0; y <= g.H-r.In.H; y++ {
-		for x := 0; x <= g.W-r.In.W; x++ {
-			if g.MatchAt(r, x, y) {
-				out = append(out, Match{Rule: r, X: x, Y: y})
+	for z := 0; z <= g.D-r.In.D; z++ {
+		for y := 0; y <= g.H-r.In.H; y++ {
+			for x := 0; x <= g.W-r.In.W; x++ {
+				if g.MatchAt(r, x, y, z) {
+					out = append(out, Match{Rule: r, X: x, Y: y, Z: z})
+				}
 			}
 		}
 	}
 	return out
 }
 
-func (g *Grid) MatchAt(r *Rule, x, y int) bool {
-	for py := 0; py < r.In.H; py++ {
-		for px := 0; px < r.In.W; px++ {
-			want := r.In.Data[px+py*r.In.W]
-			if want == '*' {
-				continue
-			}
-			actual := g.Values[g.State[x+px+(y+py)*g.W]]
-			wave, ok := g.Waves[want]
-			if !ok {
-				return false
-			}
-			if !strings.ContainsRune(wave, rune(actual)) {
-				return false
+func (g *Grid) MatchAt(r *Rule, x, y int, zOpt ...int) bool {
+	z := 0
+	if len(zOpt) > 0 {
+		z = zOpt[0]
+	}
+	for pz := 0; pz < r.In.D; pz++ {
+		for py := 0; py < r.In.H; py++ {
+			for px := 0; px < r.In.W; px++ {
+				want := r.In.Data[px+py*r.In.W+pz*r.In.W*r.In.H]
+				if want == '*' {
+					continue
+				}
+				actual := g.Values[g.State[x+px+(y+py)*g.W+(z+pz)*g.W*g.H]]
+				wave, ok := g.Waves[want]
+				if !ok {
+					return false
+				}
+				if !strings.ContainsRune(wave, rune(actual)) {
+					return false
+				}
 			}
 		}
 	}
@@ -178,14 +206,16 @@ func (g *Grid) MatchAt(r *Rule, x, y int) bool {
 
 func (g *Grid) Apply(m Match) {
 	r := m.Rule
-	for py := 0; py < r.Out.H; py++ {
-		for px := 0; px < r.Out.W; px++ {
-			ch := r.Out.Data[px+py*r.Out.W]
-			if ch == '*' {
-				continue
-			}
-			if v, ok := g.Index[ch]; ok {
-				g.State[m.X+px+(m.Y+py)*g.W] = v
+	for pz := 0; pz < r.Out.D; pz++ {
+		for py := 0; py < r.Out.H; py++ {
+			for px := 0; px < r.Out.W; px++ {
+				ch := r.Out.Data[px+py*r.Out.W+pz*r.Out.W*r.Out.H]
+				if ch == '*' {
+					continue
+				}
+				if v, ok := g.Index[ch]; ok {
+					g.State[m.X+px+(m.Y+py)*g.W+(m.Z+pz)*g.W*g.H] = v
+				}
 			}
 		}
 	}

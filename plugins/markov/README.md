@@ -2,13 +2,26 @@
 
 `markov` is the GAMS MarkovJunior-compatible procedural generation service.
 
-The public surface is MarkovJunior XML. Internally the plugin parses XML into a native runtime representation.
+The public surface is **MarkovJunior XML**. Internally the plugin parses XML into a native Go/TinyGo runtime representation and runs as a WASM service plugin.
+
+## Current Progress Snapshot
+
+Status after the current implementation pass:
+
+- **All unique upstream MarkovJunior model XML files parse locally.**
+- Compatibility report currently shows:
+
+```text
+parsed=137 unsupported=0 uniqueModels=137
+```
+
+This means the plugin recognizes the model syntax and referenced resources well enough to parse the full upstream model set. It **does not yet mean output parity** with the original MarkovJunior runtime.
 
 ## Methods
 
 ### `run`
 
-Runs a model.
+Runs a model from either `model` path or inline `modelXml`.
 
 ```json
 {
@@ -33,10 +46,6 @@ Runs a model.
 }
 ```
 
-Either `model` or `modelXml` is required.
-
-Current implementation supports 2D only (`depth` omitted or `1`). `modelXml` is useful for tests and editor previews. `model` reads through `fs.read`.
-
 Response:
 
 ```json
@@ -52,7 +61,7 @@ Response:
 }
 ```
 
-If `output.grid` is set, the same response JSON is written through `fs.write`. If `output.tilemap` is set, a GAMS tilemap is written using `tileIds`.
+If `output.grid` is set, the response JSON is written through `fs.write`. If `output.tilemap` is set, a GAMS tilemap is written using `tileIds`.
 
 ### `runModelEntry`
 
@@ -83,63 +92,146 @@ Parses a model and returns basic metadata.
 }
 ```
 
-Response:
+## What Works Now
 
-```json
-{
-  "ok": true,
-  "values": "BW",
-  "origin": false,
-  "features": {
-    "one": true,
-    "rules": true
-  }
-}
-```
+### General XML/runtime
 
-## Compatibility status
+- MarkovJunior XML as public format.
+- XML root `values`, `origin`, `folder`.
+- `models.xml` catalog parsing.
+- `runModelEntry` for upstream-style model entries.
+- Symbolic 2D grids.
+- Basic symbolic 3D grids with MarkovJunior space-separated z-slices.
+- Symbolic grid output encoding:
+  - `/` separates rows.
+  - spaces separate z-slices.
+- Initial grid input through `initial.cells`.
+- Optional grid JSON output through `output.grid`.
+- Optional 2D tilemap output through `output.tilemap` + `tileIds`.
 
-Implemented now:
+### Rules and branches
 
-- XML root with `values` and `origin`
-- inline rule attributes on `one`, `all`, `prl`
-- child `<rule in="..." out="..."/>` elements
-- 2D PNG file-backed rules with `file`, `fin`, `fout`, `legend`, and `folder`
-- input unions from `<union symbol="?" values="BR"/>`
-- `sequence`
-- `markov`
-- `models.xml` catalog parsing and `runModelEntry`
-- 2D `path` node with `from`, `to`, `on`, `color`, `inertia`, `longest`, and `edges`
-- 2D `convolution` node with `VonNeumann` and `Moore` neighborhoods, `periodic`, `steps`, `values`, `sum`, and `p`
-- 2D symbolic grid row encoding
-- `*` wildcard/no-op output cells
+- Inline rule attributes on `one`, `all`, `prl`.
+- Child `<rule in="..." out="..."/>` elements.
+- `*` wildcard/no-op output cells.
+- Input unions from `<union symbol="?" values="BR"/>`.
+- `sequence`.
+- `markov`.
+- `one`.
+- `all`.
+- `prl`.
 
-Not implemented yet:
+### File-backed rules
 
-- symmetry transforms
-- full MarkovJunior symmetry behavior for file-backed rules
-- `observe`, inference, search
-- 3D `path` vertices behavior
-- `map`
-- 3D `convolution` neighborhoods such as `NoCorners`
-- `convchain`
-- `wfc`
-- 3D grids and `.vox` file-backed rules
+- 2D PNG rule resources.
+- VOX rule resources.
+- `file` glued input/output rules.
+- `fin` / `fout` rules.
+- `legend` mapping.
+- rule `folder` resolution, including inside `map`.
 
-## Development target
+### Procedural nodes
 
-Use upstream MarkovJunior models as compatibility fixtures. The long-term completion target is: all models in `tmp/MarkovJunior/models.xml` can be parsed and run with matching behavior or documented intentional GAMS output differences.
+- 2D `path` with:
+  - `from`
+  - `to`
+  - `on`
+  - `color`
+  - `inertia`
+  - `longest`
+  - `edges`
+- 2D `convolution` with:
+  - `VonNeumann`
+  - `Moore`
+  - `periodic`
+  - `steps`
+  - `values`
+  - `sum`
+  - `p`
+- 3D `convolution` with:
+  - `VonNeumann`
+  - `NoCorners`
+- Basic `map` with:
+  - rational `scale`
+  - map-local `values`
+  - mapping rules
+  - child nodes
+- 2D `convchain` with:
+  - PNG samples
+  - `n`
+  - `steps`
+  - `temperature`
+  - `on`
+  - `black`
+  - `white`
+- Initial 2D overlap `wfc` with:
+  - PNG samples
+  - `n`
+  - `periodicInput`
+  - `tries`
+  - constraints via child rules
+  - child nodes
+- Initial tile/VOX `wfc` with:
+  - tileset XML
+  - VOX tile loading
+  - neighbor constraints
+  - `periodic`
+  - `overlap`
+  - `overlapz`
+  - constraints via child rules
+  - child nodes
 
-Current local compatibility report is available through:
+## What Still Needs Improvement
+
+The remaining work is mostly **behavior/output parity**, not parser coverage.
+
+Known gaps:
+
+- Exact MarkovJunior PRNG parity.
+- Exact MarkovJunior WFC entropy/seed/output behavior.
+- Full tile WFC symmetry/action parity.
+- Full `convchain` symmetry/PRNG parity.
+- 3D `path` behavior.
+- `observe`, inference, and search.
+- Full branch/reset semantics for repeated `map` and WFC execution.
+- Full symmetry transform support for all rule/node contexts.
+- Output comparison fixtures against upstream generated images/voxels.
+- Browser `view-markov` editor/runner UI.
+
+## Validation Commands
+
+Compatibility parser report:
 
 ```sh
 go test -v ./plugins/markov/mj -run TestMarkovJuniorCompatibilityReport
 ```
 
-At the first pass this reports how many unique upstream models parse and groups unsupported blockers.
+Full unit tests:
 
-Browser-style WASM e2e can be run with:
+```sh
+go test ./plugins/markov/mj
+```
+
+Browser-style WASM e2e:
 
 ```sh
 make markov-test
 ```
+
+Build plugin:
+
+```sh
+make build.nosync/plugins/markov.wasm
+```
+
+## Development Target
+
+Short term:
+
+1. Keep all upstream models parsing.
+2. Add targeted run fixtures for representative upstream models.
+3. Compare generated symbolic/VOX/PNG outputs against original MarkovJunior where practical.
+
+Long term:
+
+- Run all models from `tmp/MarkovJunior/models.xml` with matching behavior or clearly documented intentional GAMS differences.

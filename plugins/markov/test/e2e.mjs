@@ -172,6 +172,48 @@ async function main() {
   const convolutionPayload = JSON.parse(convolutionRun.outputText)
   assert(convolutionPayload.cells === 'WWW', `unexpected convolution cells: ${convolutionRun.outputText}`)
 
+  const volumeRun = runtime.call('run', {
+    modelXml: '<one values="BW" in="B B" out="W W"/>',
+    width: 1,
+    height: 1,
+    depth: 2,
+    seed: 1,
+    steps: 10,
+  })
+  assert(volumeRun.returnCode === 0, `volume run failed: ${volumeRun.outputText}`)
+  const volumePayload = JSON.parse(volumeRun.outputText)
+  assert(volumePayload.depth === 2 && volumePayload.cells === 'W W', `unexpected volume cells: ${volumeRun.outputText}`)
+
+  const mapRun = runtime.call('run', {
+    modelXml: '<sequence values="BW"><all in="B" out="W"/><map scale="2 2 1" values="._"><rule in="W" out="__/__"/></map></sequence>',
+    width: 2,
+    height: 1,
+    depth: 1,
+    seed: 1,
+    steps: 10,
+  })
+  assert(mapRun.returnCode === 0, `map run failed: ${mapRun.outputText}`)
+  const mapPayload = JSON.parse(mapRun.outputText)
+  assert(mapPayload.width === 4 && mapPayload.height === 2 && mapPayload.cells === '____/____', `unexpected map cells: ${mapRun.outputText}`)
+
+  const sampleDir = path.join(tempDir, 'resources', 'samples')
+  await fs.mkdir(sampleDir, { recursive: true })
+  await fs.copyFile(path.join(repoRoot, 'tmp/MarkovJunior/resources/samples/Maze.png'), path.join(sampleDir, 'Maze.png'))
+  const sampleModel = path.join(tempDir, 'Chain.xml')
+  await fs.writeFile(sampleModel, '<convchain values="BDA" sample="Maze" on="B" black="D" white="A" n="2" steps="2"/>')
+  const convChainRun = runtime.call('run', { model: sampleModel, width: 4, height: 4, seed: 1, steps: 10 })
+  assert(convChainRun.returnCode === 0, `convchain run failed: ${convChainRun.outputText}`)
+  const convChainPayload = JSON.parse(convChainRun.outputText)
+  assert(convChainPayload.cells !== 'BBBB/BBBB/BBBB/BBBB', `convchain did not modify cells: ${convChainRun.outputText}`)
+
+  await fs.copyFile(path.join(repoRoot, 'tmp/MarkovJunior/resources/samples/Dungeon.png'), path.join(sampleDir, 'Dungeon.png'))
+  const wfcModel = path.join(tempDir, 'Wave.xml')
+  await fs.writeFile(wfcModel, '<wfc values="BWP" sample="Dungeon" n="3" tries="10"/>')
+  const wfcRun = runtime.call('run', { model: wfcModel, width: 6, height: 6, seed: 1, steps: 10 })
+  assert(wfcRun.returnCode === 0, `overlap wfc run failed: ${wfcRun.outputText}`)
+  const wfcPayload = JSON.parse(wfcRun.outputText)
+  assert(wfcPayload.width === 6 && wfcPayload.height === 6 && wfcPayload.values === 'BWP', `unexpected wfc payload: ${wfcRun.outputText}`)
+
   const modelDir = path.join(tempDir, 'models')
   await fs.mkdir(modelDir, { recursive: true })
   const modelsXml = path.join(tempDir, 'models.xml')

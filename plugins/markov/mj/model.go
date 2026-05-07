@@ -92,7 +92,7 @@ func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string) (Node,
 		}
 		rn := &RuleNode{Kind: kind, Steps: intAttr(x.Attrs, "steps", 0)}
 		if hasAnyAttr(x.Attrs, "in", "out", "fin", "fout", "file") {
-			r, err := parseRuleAttrs(x.Attrs, opts, folder)
+			r, err := parseRuleAttrs(x.Attrs, opts, folder, true)
 			if err != nil {
 				return nil, err
 			}
@@ -102,7 +102,7 @@ func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string) (Node,
 			if child.XMLName.Local != "rule" {
 				continue
 			}
-			r, err := parseRuleAttrs(child.Attrs, opts, folder)
+			r, err := parseRuleAttrs(child.Attrs, opts, folder, true)
 			if err != nil {
 				return nil, err
 			}
@@ -116,14 +116,24 @@ func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string) (Node,
 		return parsePathNode(x, model)
 	case "convolution":
 		return parseConvolutionNode(x, model)
-	case "map", "convchain", "wfc":
-		return nil, fmt.Errorf("unsupported node type: %s", kind)
+	case "map":
+		return parseMapNode(x, model, opts, folder)
+	case "convchain":
+		return parseConvChainNode(x, model, opts)
+	case "wfc":
+		if attr(x.Attrs, "sample") != "" {
+			return parseOverlapWFCNode(x, model, opts, folder)
+		}
+		if attr(x.Attrs, "tileset") != "" {
+			return parseTileWFCNode(x, model, opts, folder)
+		}
+		return nil, fmt.Errorf("wfc requires sample or tileset")
 	default:
 		return nil, fmt.Errorf("unknown node type: %s", kind)
 	}
 }
 
-func parseRuleAttrs(attrs []xml.Attr, opts ParseOptions, folder string) (Rule, error) {
+func parseRuleAttrs(attrs []xml.Attr, opts ParseOptions, folder string, requireSameSize bool) (Rule, error) {
 	in := attr(attrs, "in")
 	out := attr(attrs, "out")
 	fin := attr(attrs, "fin")
@@ -160,7 +170,11 @@ func parseRuleAttrs(attrs []xml.Attr, opts ParseOptions, folder string) (Rule, e
 			}
 		}
 		if err == nil {
-			r, err = NewRule(pin, pout)
+			if requireSameSize {
+				r, err = NewRule(pin, pout)
+			} else {
+				r = NewRuleAny(pin, pout)
+			}
 		}
 	}
 	if err != nil {

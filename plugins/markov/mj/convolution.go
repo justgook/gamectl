@@ -27,6 +27,11 @@ var kernels2D = map[string][]int{
 	"Moore":      {1, 1, 1, 1, 0, 1, 1, 1, 1},
 }
 
+var kernels3D = map[string][]int{
+	"VonNeumann": {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0},
+	"NoCorners":  {0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0},
+}
+
 func parseConvolutionNode(x xmlNode, model *Model) (Node, error) {
 	n := &ConvolutionNode{
 		Neighborhood: attr(x.Attrs, "neighborhood"),
@@ -36,8 +41,10 @@ func parseConvolutionNode(x xmlNode, model *Model) (Node, error) {
 	if n.Neighborhood == "" {
 		return nil, fmt.Errorf("convolution requires neighborhood")
 	}
-	if _, ok := kernels2D[n.Neighborhood]; !ok {
-		return nil, fmt.Errorf("unsupported convolution neighborhood: %s", n.Neighborhood)
+	if _, ok2 := kernels2D[n.Neighborhood]; !ok2 {
+		if _, ok3 := kernels3D[n.Neighborhood]; !ok3 {
+			return nil, fmt.Errorf("unsupported convolution neighborhood: %s", n.Neighborhood)
+		}
 	}
 	ruleNodes := make([]xmlNode, 0)
 	for _, child := range x.Nodes {
@@ -118,34 +125,61 @@ func (n *ConvolutionNode) Step(g *Grid, rng *RNG) (bool, error) {
 	if n.Steps > 0 && n.Counter >= n.Steps {
 		return false, nil
 	}
-	kernel := kernels2D[n.Neighborhood]
 	sumfield := make([][]int, len(g.State))
 	for i := range sumfield {
 		sumfield[i] = make([]int, len(g.Values))
 	}
-	for y := 0; y < g.H; y++ {
-		for x := 0; x < g.W; x++ {
-			sums := sumfield[x+y*g.W]
-			for dy := -1; dy <= 1; dy++ {
-				for dx := -1; dx <= 1; dx++ {
-					sx, sy := x+dx, y+dy
-					if n.Periodic {
-						if sx < 0 {
-							sx += g.W
-						} else if sx >= g.W {
-							sx -= g.W
+	if g.D == 1 {
+		kernel := kernels2D[n.Neighborhood]
+		if kernel == nil {
+			return false, fmt.Errorf("convolution neighborhood %s requires 3D grid", n.Neighborhood)
+		}
+		for y := 0; y < g.H; y++ {
+			for x := 0; x < g.W; x++ {
+				sums := sumfield[x+y*g.W]
+				for dy := -1; dy <= 1; dy++ {
+					for dx := -1; dx <= 1; dx++ {
+						sx, sy := x+dx, y+dy
+						if n.Periodic {
+							sx = wrap(sx, g.W)
+							sy = wrap(sy, g.H)
+						} else if sx < 0 || sy < 0 || sx >= g.W || sy >= g.H {
+							continue
 						}
-						if sy < 0 {
-							sy += g.H
-						} else if sy >= g.H {
-							sy -= g.H
+						weight := kernel[dx+1+(dy+1)*3]
+						if weight != 0 {
+							sums[g.State[sx+sy*g.W]] += weight
 						}
-					} else if sx < 0 || sy < 0 || sx >= g.W || sy >= g.H {
-						continue
 					}
-					weight := kernel[dx+1+(dy+1)*3]
-					if weight != 0 {
-						sums[g.State[sx+sy*g.W]] += weight
+				}
+			}
+		}
+	} else {
+		kernel := kernels3D[n.Neighborhood]
+		if kernel == nil {
+			return false, fmt.Errorf("convolution neighborhood %s requires 2D grid", n.Neighborhood)
+		}
+		for z := 0; z < g.D; z++ {
+			for y := 0; y < g.H; y++ {
+				for x := 0; x < g.W; x++ {
+					sums := sumfield[x+y*g.W+z*g.W*g.H]
+					for dz := -1; dz <= 1; dz++ {
+						for dy := -1; dy <= 1; dy++ {
+							for dx := -1; dx <= 1; dx++ {
+								sx, sy, sz := x+dx, y+dy, z+dz
+								if n.Periodic {
+									sx = wrap(sx, g.W)
+									sy = wrap(sy, g.H)
+									sz = wrap(sz, g.D)
+								} else if sx < 0 || sy < 0 || sz < 0 || sx >= g.W || sy >= g.H || sz >= g.D {
+									continue
+								}
+								weight := kernel[dx+1+(dy+1)*3+(dz+1)*9]
+								if weight != 0 {
+									sums[g.State[sx+sy*g.W+sz*g.W*g.H]] += weight
+								}
+							}
+						}
 					}
 				}
 			}
@@ -177,6 +211,16 @@ func (n *ConvolutionNode) Step(g *Grid, rng *RNG) (bool, error) {
 	}
 	n.Counter++
 	return changed, nil
+}
+
+func wrap(v, max int) int {
+	if v < 0 {
+		return v + max
+	}
+	if v >= max {
+		return v - max
+	}
+	return v
 }
 
 func indexOfValue(values string, ch byte) (byte, bool) {

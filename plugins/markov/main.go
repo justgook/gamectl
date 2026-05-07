@@ -100,16 +100,15 @@ func Run() int32 {
 		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
 		return 1
 	}
-	if input.Depth != 0 && input.Depth != 1 {
-		pdk.Output(util.ErrorResponse("only depth 1 is implemented"))
-		return 1
+	if input.Depth == 0 {
+		input.Depth = 1
 	}
 	model, err := loadModel(input.Model, input.ModelXML)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("failed to load model: " + err.Error()))
 		return 1
 	}
-	result, err := mj.Run(model, mj.RunOptions{Width: input.Width, Height: input.Height, Seed: input.Seed, Steps: input.Steps, InitialCells: input.Initial.Cells})
+	result, err := mj.Run(model, mj.RunOptions{Width: input.Width, Height: input.Height, Depth: input.Depth, Seed: input.Seed, Steps: input.Steps, InitialCells: input.Initial.Cells})
 	if err != nil {
 		pdk.Output(util.ErrorResponse("generation failed: " + err.Error()))
 		return 1
@@ -126,6 +125,10 @@ func Run() int32 {
 		}
 	}
 	if input.Output.Tilemap != "" {
+		if result.Depth != 1 {
+			pdk.Output(util.ErrorResponse("tilemap output requires depth 1"))
+			return 1
+		}
 		if len(input.TileIDs) == 0 {
 			pdk.Output(util.ErrorResponse("tileIds is required when output.tilemap is set"))
 			return 1
@@ -179,10 +182,6 @@ func RunModelEntry() int32 {
 		pdk.Output(util.ErrorResponse(err.Error()))
 		return 1
 	}
-	if entry.Height != 1 {
-		pdk.Output(util.ErrorResponse("only depth 1 is implemented"))
-		return 1
-	}
 	modelPath := joinPath(dirname(input.ModelsXML), "models/"+entry.Name+".xml")
 	model, err := loadModel(modelPath, "")
 	if err != nil {
@@ -193,7 +192,7 @@ func RunModelEntry() int32 {
 	if input.Steps != 0 {
 		steps = input.Steps
 	}
-	result, err := mj.Run(model, mj.RunOptions{Width: entry.Length, Height: entry.Width, Seed: input.Seed, Steps: steps, InitialCells: input.Initial.Cells})
+	result, err := mj.Run(model, mj.RunOptions{Width: entry.Length, Height: entry.Width, Depth: entry.Height, Seed: input.Seed, Steps: steps, InitialCells: input.Initial.Cells})
 	if err != nil {
 		pdk.Output(util.ErrorResponse("generation failed: " + err.Error()))
 		return 1
@@ -210,6 +209,10 @@ func RunModelEntry() int32 {
 		}
 	}
 	if input.Output.Tilemap != "" {
+		if result.Depth != 1 {
+			pdk.Output(util.ErrorResponse("tilemap output requires depth 1"))
+			return 1
+		}
 		if len(input.TileIDs) == 0 {
 			pdk.Output(util.ErrorResponse("tileIds is required when output.tilemap is set"))
 			return 1

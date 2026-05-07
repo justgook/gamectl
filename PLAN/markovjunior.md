@@ -101,10 +101,17 @@ Notes:
 - `initial.cells` is optional; when omitted, the plugin clears to the first `values` symbol and optionally applies model `origin`.
 - `locks` are planned GAMS additions, not original MarkovJunior behavior. They let room exits, walls, or authored tiles survive generation.
 - `output.grid` writes symbolic generated grid JSON. `output.tilemap` optionally writes a GAMS tilemap using `tileIds`.
-- First implementation supports 2D only (`depth: 1`) and fails loudly on unsupported node/features.
+- First implementation supports symbolic 2D and basic 3D grids, and fails loudly on unsupported node/features.
 - 2D PNG file-backed rules are supported for `file`, `fin`, `fout`, `legend`, and `folder`.
 - 2D `path` is supported for `from`, `to`, `on`, `color`, `inertia`, `longest`, and `edges`.
 - 2D `convolution` is supported for `VonNeumann` and `Moore` neighborhoods, `periodic`, `steps`, `values`, `sum`, and `p`.
+- Basic 3D symbolic space-separated z-slice patterns are supported.
+- 3D `convolution` is supported for `VonNeumann` and `NoCorners`.
+- Basic `map` is supported for rational `scale`, mapping rules, and child nodes.
+- 2D `convchain` is supported with PNG samples, `n`, `steps`, `temperature`, `on`, `black`, and `white`.
+- Initial 2D overlap `wfc` is supported with PNG samples, `n`, `periodicInput`, `tries`, constraints, and child nodes.
+- Initial tile/VOX `wfc` is supported with tileset XML, VOX tile loading, neighbor constraints, `periodic`, `overlap`, `overlapz`, constraints, and child nodes.
+- `.vox` file-backed rules are supported for symbolic rule input/output.
 
 Proposed output:
 
@@ -157,7 +164,7 @@ Follow `cmd/browser/VIEW_RULES.md`: one `form` or `canvas` main element, optiona
 Status: initial pass complete.
 
 - Added `plugins/markov` with Go structs for model/input/output.
-- Added parser for symbolic 2D patterns (`/` rows).
+- Added parser for symbolic 2D/3D patterns (`/` rows and spaces between z-slices).
 - Added tests for catalog parsing, XML parsing, rule matching/application through generation, and compatibility reporting.
 - No browser view yet.
 
@@ -167,7 +174,7 @@ Status: initial pass complete, compatibility gaps remain.
 
 - Implemented grid state as `[]byte` plus symbol table.
 - Implemented rule matching with bounds checks.
-- Implemented `one`, `all`, `prl`, `sequence`, `markov`, 2D `path`, and 2D `convolution` enough to run small inline and 2D PNG file-backed models.
+- Implemented `one`, `all`, `prl`, `sequence`, `markov`, 2D `path`, 2D/3D symbolic grids, 2D/3D `convolution`, basic `map`, 2D `convchain`, initial overlap `wfc`, initial tile/VOX `wfc`, and VOX rule input/output enough to parse all upstream MarkovJunior models and run small fixtures.
 - Uses TinyGo-compatible deterministic local PRNG for now.
 - Exports `run`, `runModelEntry`, and `inspect`; reads/writes assets through `fs`, like `minimap2`.
 - Added unit tests and browser-style WASM e2e test for `inspect`, `run`, and `runModelEntry`.
@@ -190,10 +197,11 @@ Only add these when needed by actual project models:
 
 - symmetry transforms beyond identity/basic rotations/reflections
 - 3D `path` vertices behavior
-- 3D `convolution` neighborhoods such as `NoCorners`
-- `wfc`
+- full MarkovJunior branch/reset semantics for repeated `map` execution
+- full MarkovJunior symmetry/PRNG parity for `convchain`
+- full MarkovJunior tile WFC symmetry/action parity
+- Shannon entropy/seed/output parity for WFC
 - complete symmetry behavior for imported/file-backed rules
-- 3D grids/VOX rule input/output
 - inference/search/observe
 
 ## Open Questions
