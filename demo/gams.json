@@ -958,8 +958,12 @@
                   "defaultValue": ""
                 },
                 {
-                  "name": "prop",
-                  "defaultValue": "[\"tilesets\", \"tileSize\"]"
+                  "name": "src",
+                  "defaultValue": "[\"props.tilesets\", \"props.tileSize\"]"
+                },
+                {
+                  "name": "target",
+                  "defaultValue": "[\"props.tilesets\", \"props.tileSize\"]"
                 }
               ],
               "outputs": [
