@@ -142,8 +142,22 @@ Reusable custom UI elements should live in `cmd/browser/widgets/`, one widget pe
 - `widget-timeline` - root custom element.
 - `article[data-element="timeline"]` - timeline body.
 - `table[data-element="timeline-table"]` - layer/frame/cel grid.
-- `thead[data-element="frame-header"]` - frame number header.
+- `thead[data-element="frame-header"]` - timeline controls and frame number header.
+- `tr[data-element="timeline-topbar"]` - playback controls and tag space.
+- `tr[data-element="timeline-index-row"]` - global layer actions and frame indexes.
+- `[role="buttongroup"][data-element="playback-actions"]` - start/back/play-pause/forward/end controls.
+- `[role="buttongroup"][data-element="timeline-add-actions"]` - add layer / add frame controls in the layer header cell.
+- `output[data-element="timeline-tags"]` - placeholder/space for frame tags.
 - `tbody[data-element="layer-rows"]` - layer and cel rows.
 - `tr[aria-selected="true"]` - active layer row.
-- `button[aria-pressed]` - active/toggle button state, including active cel buttons.
+- `button[aria-pressed]` - active/toggle button state, including visibility and active cel buttons.
+- `button[data-action="start"]` - first frame.
+- `button[data-action="back"]` - previous frame.
+- `button[data-action="play-pause"]` - play/pause timeline preview.
+- `button[data-action="forward"]` - next frame.
+- `button[data-action="end"]` - last frame.
+- `button[data-action="toggle-all-visible"]` - show/hide all layers.
+- `button[data-action="add-layer"]` - add a new layer.
+- `button[data-action="add-frame"]` - add a new frame.
+- `button[data-action="toggle-layer-visible"]` - show/hide one layer or group.
 - `button[data-action="select-cel"]` - cel selector.
