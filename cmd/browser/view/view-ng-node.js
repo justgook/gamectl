@@ -268,10 +268,12 @@ export class ViewNgNode extends HTMLElement {
       const name = String(entry?.name || '').trim()
       if (!name) return null
       const kind = kindFromConfigValue(entry?.kind)
+      const group = String(entry?.group || 'Presets').trim() || 'Presets'
       return {
         name,
         kind,
-        data: { ...entry, name, kind },
+        group,
+        data: { ...entry, name, kind, group },
       }
     }).filter(Boolean)
   }
@@ -324,12 +326,24 @@ export class ViewNgNode extends HTMLElement {
 
   renderNodeTypeOptions(selectedKind, selectedTemplateName = '') {
     const selected = selectedTemplateName ? `template:${selectedTemplateName}` : kindToFormValue(selectedKind)
-    const templateOptions = this.templates.length
-      ? this.templates.map((entry) => {
-        const value = `template:${entry.name}`
-        return `<option value="${escapeAttribute(value)}" ${selected === value ? 'selected' : ''}>${escapeAttribute(entry.name)}</option>`
-      }).join('')
-      : '<option value="template-empty" disabled>empty</option>'
+    const groups = new Map()
+    for (const entry of this.templates) {
+      const group = String(entry.group || 'Presets').trim() || 'Presets'
+      if (!groups.has(group)) groups.set(group, [])
+      groups.get(group).push(entry)
+    }
+    const orderedGroups = [
+      ...Array.from(groups.keys()).filter((group) => group !== 'Presets').sort((a, b) => a.localeCompare(b)),
+      ...(groups.has('Presets') ? ['Presets'] : []),
+    ]
+    const templateOptions = orderedGroups.length
+      ? orderedGroups.map((group) => `<optgroup label="${escapeAttribute(group)}">
+        ${groups.get(group).map((entry) => {
+          const value = `template:${entry.name}`
+          return `<option value="${escapeAttribute(value)}" ${selected === value ? 'selected' : ''}>${escapeAttribute(entry.name)}</option>`
+        }).join('')}
+      </optgroup>`).join('')
+      : '<optgroup label="Presets"><option value="template-empty" disabled>empty</option></optgroup>'
     return `
       <optgroup label="Base">
         <option value="value" ${selected === 'value' ? 'selected' : ''}>value</option>
@@ -337,9 +351,7 @@ export class ViewNgNode extends HTMLElement {
         <option value="goal" ${selected === 'goal' ? 'selected' : ''}>goal</option>
         <option value="import" ${selected === 'import' ? 'selected' : ''}>import</option>
       </optgroup>
-      <optgroup label="Presets">
-        ${templateOptions}
-      </optgroup>
+      ${templateOptions}
     `
   }
 
