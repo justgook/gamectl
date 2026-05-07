@@ -1,7 +1,9 @@
 -- Copy Prop
--- Copies top-level tilemap props from one map JSON file to another.
--- Inputs: from, to, prop
---   prop examples: "tileSize", ["tilesets", "tileSize"]
+-- Copies values from arbitrary JSON paths in one file to arbitrary JSON paths in another.
+-- Inputs: from, to, src, target
+--   src examples: "props.tileSize", ["props.tilesets", "props.tileSize"], ["0.test", "0.arr.3.test"]
+--   target examples: "props.tileSize", ["props.tilesets", "props.tileSize"], ["prop1", "prop2"]
+-- Numeric path segments are zero-based array indexes.
 -- Outputs: to (success), error (failure)
 
 local function fail(message)
@@ -20,36 +22,47 @@ if toPath == nil or toPath == "" then
 	fail("to is required")
 end
 
-local propText = inputs[3]
-if propText == nil or propText == "" then
-	fail("prop is required")
+local srcText = inputs[3]
+if srcText == nil or srcText == "" then
+	fail("src is required")
 end
 
-local okProp, prop = pcall(json.decode, propText)
-if not okProp then
-	fail('prop must be JSON, e.g. ["tilesets", "tileSize"]')
+local targetText = inputs[4]
+if targetText == nil or targetText == "" then
+	fail("target is required")
 end
 
-local propNames = {}
-if type(prop) == "string" then
-	propNames[1] = prop
-elseif type(prop) == "table" then
-	if prop[1] == "tilemap" and type(prop[2]) == "string" and prop[3] == nil then
-		propNames[1] = prop[2]
-	else
-		for index, propName in ipairs(prop) do
-			if type(propName) ~= "string" or propName == "" then
-				fail("prop[" .. tostring(index) .. "] must be a non-empty string")
-			end
-			propNames[#propNames + 1] = propName
-		end
+local function decodePathList(text, name)
+	local ok, value = pcall(json.decode, text)
+	if not ok then
+		fail(name .. ' must be JSON, e.g. ["props.tilesets", "props.tileSize"]')
 	end
-else
-	fail("prop must be a string or JSON array of prop names")
+
+	local paths = {}
+	if type(value) == "string" then
+		paths[1] = value
+	elseif type(value) == "table" then
+		for index, path in ipairs(value) do
+			if type(path) ~= "string" or path == "" then
+				fail(name .. "[" .. tostring(index) .. "] must be a non-empty string")
+			end
+			paths[#paths + 1] = path
+		end
+	else
+		fail(name .. " must be a string or JSON array of path strings")
+	end
+
+	if #paths == 0 then
+		fail(name .. " must contain at least one path")
+	end
+	return paths
 end
 
-if #propNames == 0 then
-	fail("prop must contain at least one prop name")
+local srcPaths = decodePathList(srcText, "src")
+local targetPaths = decodePathList(targetText, "target")
+
+if #srcPaths ~= #targetPaths then
+	fail("src and target must contain the same number of paths")
 end
 
 local function readJson(path, label)
@@ -61,28 +74,69 @@ local function readJson(path, label)
 	return data
 end
 
-local fromMap = readJson(fromPath, "from")
-local toMap = readJson(toPath, "to")
-
-if type(fromMap.props) ~= "table" then
-	fail("from map has no props")
-end
-
-if toMap.props == nil then
-	toMap.props = {}
-elseif type(toMap.props) ~= "table" then
-	fail("to map props must be an object")
-end
-
-for _, propName in ipairs(propNames) do
-	local value = fromMap.props[propName]
-	if value == nil then
-		fail("from map props has no key: " .. propName)
+local function parsePath(path, label)
+	local parts = {}
+	for part in string.gmatch(path, "[^%.]+") do
+		parts[#parts + 1] = part
 	end
-	toMap.props[propName] = value
+	if #parts == 0 then
+		fail(label .. " path must not be empty")
+	end
+	return parts
 end
 
-local encoded = json.encode(toMap)
+local function pathKey(part)
+	if string.match(part, "^%d+$") then
+		return tonumber(part) + 1
+	end
+	return part
+end
+
+local function getPath(root, path)
+	local parts = parsePath(path, "src")
+	local current = root
+	for _, part in ipairs(parts) do
+		if type(current) ~= "table" then
+			fail("src path parent is not an object/array: " .. path)
+		end
+		current = current[pathKey(part)]
+		if current == nil then
+			fail("src path not found: " .. path)
+		end
+	end
+	return current
+end
+
+local function setPath(root, path, value)
+	local parts = parsePath(path, "target")
+	local current = root
+	for index = 1, #parts - 1 do
+		if type(current) ~= "table" then
+			fail("target path parent is not an object/array: " .. path)
+		end
+		local key = pathKey(parts[index])
+		if current[key] == nil then
+			current[key] = {}
+		elseif type(current[key]) ~= "table" then
+			fail("target path parent already exists and is not an object/array: " .. path)
+		end
+		current = current[key]
+	end
+
+	if type(current) ~= "table" then
+		fail("target path parent is not an object/array: " .. path)
+	end
+	current[pathKey(parts[#parts])] = value
+end
+
+local fromData = readJson(fromPath, "from")
+local toData = readJson(toPath, "to")
+
+for index, srcPath in ipairs(srcPaths) do
+	setPath(toData, targetPaths[index], getPath(fromData, srcPath))
+end
+
+local encoded = json.encode(toData)
 host.awaitCall("fs", "write", toPath .. "\0" .. encoded)
 
 outputs[1] = toPath

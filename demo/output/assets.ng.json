@@ -1096,13 +1096,13 @@
       {
         "id": 1,
         "name": "mapID",
-        "srcNodeId": 40,
+        "srcNodeId": 44,
         "srcOutputId": 1
       },
       {
         "id": 2,
         "name": "err",
-        "srcNodeId": 40,
+        "srcNodeId": 44,
         "srcOutputId": 2
       },
       {
@@ -1113,48 +1113,6 @@
       }
     ],
     "outputs": []
-  },
-  {
-    "id": 40,
-    "kind": 2,
-    "x": 1643,
-    "y": 37,
-    "name": "Copy Prop",
-    "codePath": "demo/ng/presets/copy-prop.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "from",
-        "srcNodeId": 38,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "to",
-        "srcNodeId": 37,
-        "srcOutputId": 1
-      },
-      {
-        "id": 3,
-        "name": "prop",
-        "srcNodeId": 41,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "to",
-        "value": ""
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": ""
-      }
-    ]
   },
   {
     "id": 41,
@@ -1170,7 +1128,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "[\"tilesets\", \"tileSize\"]"
+        "value": "[\"props.tilesets\", \"props.tileSize\"]"
       }
     ]
   },
@@ -1219,6 +1177,54 @@
       {
         "id": 1,
         "name": "out",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 44,
+    "kind": 2,
+    "x": 1654,
+    "y": -23,
+    "name": "Copy Prop",
+    "codePath": "demo/ng/presets/copy-prop.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "from",
+        "srcNodeId": 38,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "to",
+        "srcNodeId": 37,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "src",
+        "srcNodeId": 41,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "target",
+        "srcNodeId": 41,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "to",
         "value": ""
       },
       {
