@@ -202,7 +202,7 @@ plugins-release-js: $(PLUGIN_TARGETS_JS)
 GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
 
 # Rule to build Go plugins
-$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/*.go) $(GO_PLUGIN_SHARED_DEPS) | $(BUILD_DIR)/plugins
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $$(shell find $(PLUGIN_DIR)/$$* -name '*.go' 2>/dev/null) $(GO_PLUGIN_SHARED_DEPS) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Go plugin $*..."
 	$(Q)GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o $@ ./$(PLUGIN_DIR)/$*/
 

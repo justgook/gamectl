@@ -37,6 +37,17 @@ type RunInput struct {
 	TileIDs  map[string]uint32 `json:"tileIds,omitempty"`
 }
 
+type RunModelEntryInput struct {
+	ModelsXML  string            `json:"modelsXml"`
+	Name       string            `json:"name"`
+	Occurrence int               `json:"occurrence,omitempty"`
+	Seed       uint64            `json:"seed,omitempty"`
+	Steps      int               `json:"steps,omitempty"`
+	Initial    Initial           `json:"initial,omitempty"`
+	Output     Output            `json:"output,omitempty"`
+	TileIDs    map[string]uint32 `json:"tileIds,omitempty"`
+}
+
 type InspectInput struct {
 	Model    string `json:"model,omitempty"`
 	ModelXML string `json:"modelXml,omitempty"`
@@ -70,7 +81,7 @@ func writeFile(path string, data []byte) error {
 
 func loadModel(path, inline string) (*mj.Model, error) {
 	if inline != "" {
-		return mj.ParseXML([]byte(inline))
+		return mj.ParseXMLWithOptions([]byte(inline), mj.ParseOptions{ReadFile: readFile})
 	}
 	if path == "" {
 		return nil, fmt.Errorf("model or modelXml is required")
@@ -79,7 +90,7 @@ func loadModel(path, inline string) (*mj.Model, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mj.ParseXML(data)
+	return mj.ParseXMLWithOptions(data, mj.ParseOptions{ResourceRoot: resourceRootForModel(path), ReadFile: readFile})
 }
 
 //go:wasmexport run
@@ -138,6 +149,90 @@ func Run() int32 {
 	return 0
 }
 
+//go:wasmexport runModelEntry
+func RunModelEntry() int32 {
+	var input RunModelEntryInput
+	if err := json.Unmarshal(pdk.Input(), &input); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+	if input.ModelsXML == "" {
+		pdk.Output(util.ErrorResponse("modelsXml is required"))
+		return 1
+	}
+	if input.Name == "" {
+		pdk.Output(util.ErrorResponse("name is required"))
+		return 1
+	}
+	catalogData, err := readFile(input.ModelsXML)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to read modelsXml: " + err.Error()))
+		return 1
+	}
+	entries, err := mj.ParseModelsXML(catalogData)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to parse modelsXml: " + err.Error()))
+		return 1
+	}
+	entry, err := mj.FindModelEntry(entries, input.Name, input.Occurrence)
+	if err != nil {
+		pdk.Output(util.ErrorResponse(err.Error()))
+		return 1
+	}
+	if entry.Height != 1 {
+		pdk.Output(util.ErrorResponse("only depth 1 is implemented"))
+		return 1
+	}
+	modelPath := joinPath(dirname(input.ModelsXML), "models/"+entry.Name+".xml")
+	model, err := loadModel(modelPath, "")
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to load model: " + err.Error()))
+		return 1
+	}
+	steps := entry.Steps
+	if input.Steps != 0 {
+		steps = input.Steps
+	}
+	result, err := mj.Run(model, mj.RunOptions{Width: entry.Length, Height: entry.Width, Seed: input.Seed, Steps: steps, InitialCells: input.Initial.Cells})
+	if err != nil {
+		pdk.Output(util.ErrorResponse("generation failed: " + err.Error()))
+		return 1
+	}
+	if input.Output.Grid != "" {
+		data, err := json.Marshal(result)
+		if err != nil {
+			pdk.Output(util.ErrorResponse("failed to marshal grid: " + err.Error()))
+			return 1
+		}
+		if err := writeFile(input.Output.Grid, data); err != nil {
+			pdk.Output(util.ErrorResponse("failed to write grid: " + err.Error()))
+			return 1
+		}
+	}
+	if input.Output.Tilemap != "" {
+		if len(input.TileIDs) == 0 {
+			pdk.Output(util.ErrorResponse("tileIds is required when output.tilemap is set"))
+			return 1
+		}
+		data, err := json.Marshal(toTileMap(result, input.TileIDs))
+		if err != nil {
+			pdk.Output(util.ErrorResponse("failed to marshal tilemap: " + err.Error()))
+			return 1
+		}
+		if err := writeFile(input.Output.Tilemap, data); err != nil {
+			pdk.Output(util.ErrorResponse("failed to write tilemap: " + err.Error()))
+			return 1
+		}
+	}
+	data, err := json.Marshal(result)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to marshal response: " + err.Error()))
+		return 1
+	}
+	pdk.Output(data)
+	return 0
+}
+
 //go:wasmexport inspect
 func Inspect() int32 {
 	var input InspectInput
@@ -157,6 +252,38 @@ func Inspect() int32 {
 	}
 	pdk.Output(data)
 	return 0
+}
+
+func resourceRootForModel(modelPath string) string {
+	dir := dirname(modelPath)
+	if basename(dir) == "models" {
+		return dirname(dir)
+	}
+	return dir
+}
+
+func basename(path string) string {
+	path = strings.TrimRight(path, "/")
+	idx := strings.LastIndex(path, "/")
+	if idx < 0 {
+		return path
+	}
+	return path[idx+1:]
+}
+
+func dirname(path string) string {
+	idx := strings.LastIndex(path, "/")
+	if idx < 0 {
+		return ""
+	}
+	return path[:idx]
+}
+
+func joinPath(base, rel string) string {
+	if base == "" {
+		return rel
+	}
+	return strings.TrimRight(base, "/") + "/" + strings.TrimLeft(rel, "/")
 }
 
 func toTileMap(result *mj.RunResult, tileIDs map[string]uint32) *tilemap.TileMap {

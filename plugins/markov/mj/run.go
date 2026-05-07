@@ -23,6 +23,10 @@ func (r *RNG) Intn(n int) int {
 	return int(r.Next() % uint64(n))
 }
 
+func (r *RNG) Float64() float64 {
+	return float64(r.Next()>>11) / (1 << 53)
+}
+
 type RunOptions struct {
 	Width        int
 	Height       int
@@ -49,6 +53,9 @@ func Run(model *Model, opts RunOptions) (*RunResult, error) {
 	g, err := NewGrid(opts.Width, opts.Height, model.Values)
 	if err != nil {
 		return nil, err
+	}
+	for ch, wave := range model.Waves {
+		g.Waves[ch] = wave
 	}
 	if opts.InitialCells != "" {
 		if err := g.EncodeRows(opts.InitialCells); err != nil {
