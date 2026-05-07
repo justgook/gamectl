@@ -49,14 +49,26 @@ Plugin id: `markov`.
 Implemented first methods:
 
 - `run` — run a MarkovJunior XML model from `model` path or inline `modelXml`.
+- `runModelEntry` — read upstream-style `models.xml` entry by name, then run the referenced model with its declared size/settings.
 - `inspect` — parse a model and return values/origin/features.
 
 Planned compatibility methods:
 
-- `runModelEntry` — read upstream-style `models.xml` entry by name, then run the referenced model with its declared size/settings.
 - `validate` — parse and return unsupported features/errors without generation.
 - `runSteps` — bounded debug/preview frames for the browser view.
 - `compare` — compare against fixture output for compatibility testing.
+
+Current local compatibility report:
+
+```sh
+go test -v ./plugins/markov/mj -run TestMarkovJuniorCompatibilityReport
+```
+
+Current WASM e2e:
+
+```sh
+make markov-test
+```
 
 Current `run` input:
 
@@ -90,6 +102,9 @@ Notes:
 - `locks` are planned GAMS additions, not original MarkovJunior behavior. They let room exits, walls, or authored tiles survive generation.
 - `output.grid` writes symbolic generated grid JSON. `output.tilemap` optionally writes a GAMS tilemap using `tileIds`.
 - First implementation supports 2D only (`depth: 1`) and fails loudly on unsupported node/features.
+- 2D PNG file-backed rules are supported for `file`, `fin`, `fout`, `legend`, and `folder`.
+- 2D `path` is supported for `from`, `to`, `on`, `color`, `inertia`, `longest`, and `edges`.
+- 2D `convolution` is supported for `VonNeumann` and `Moore` neighborhoods, `periodic`, `steps`, `values`, `sum`, and `p`.
 
 Proposed output:
 
@@ -139,19 +154,23 @@ Follow `cmd/browser/VIEW_RULES.md`: one `form` or `canvas` main element, optiona
 
 ### Phase 1: Planning fixture and core data types
 
-- Add `plugins/markov` with Go structs for model/input/output.
-- Add parser for symbolic patterns (`/` rows, optional future z separators).
-- Add tests for pattern parsing, rule matching, and rule application.
+Status: initial pass complete.
+
+- Added `plugins/markov` with Go structs for model/input/output.
+- Added parser for symbolic 2D patterns (`/` rows).
+- Added tests for catalog parsing, XML parsing, rule matching/application through generation, and compatibility reporting.
 - No browser view yet.
 
 ### Phase 2: Deterministic 2D rewrite MVP
 
-- Implement grid state as `[]byte` plus symbol table.
-- Implement rule matching with bounds checks.
-- Implement `one`, `all`, `prl`, `sequence`, and `markov` enough to run small models.
-- Use existing `random` plugin import style or TinyGo-compatible deterministic local PRNG if the runtime contract allows.
-- Export `gen` and read/write assets through `fs`, like `minimap2`.
-- Add an e2e test with a small fixed model and seed.
+Status: initial pass complete, compatibility gaps remain.
+
+- Implemented grid state as `[]byte` plus symbol table.
+- Implemented rule matching with bounds checks.
+- Implemented `one`, `all`, `prl`, `sequence`, `markov`, 2D `path`, and 2D `convolution` enough to run small inline and 2D PNG file-backed models.
+- Uses TinyGo-compatible deterministic local PRNG for now.
+- Exports `run`, `runModelEntry`, and `inspect`; reads/writes assets through `fs`, like `minimap2`.
+- Added unit tests and browser-style WASM e2e test for `inspect`, `run`, and `runModelEntry`.
 
 ### Phase 3: Tilemap output
 
@@ -170,11 +189,11 @@ Follow `cmd/browser/VIEW_RULES.md`: one `form` or `canvas` main element, optiona
 Only add these when needed by actual project models:
 
 - symmetry transforms beyond identity/basic rotations/reflections
-- `path`
-- `convolution`
+- 3D `path` vertices behavior
+- 3D `convolution` neighborhoods such as `NoCorners`
 - `wfc`
-- file-backed rules (`fin`, `fout`, `file`) and PNG import
-- 3D grids/VOX output
+- complete symmetry behavior for imported/file-backed rules
+- 3D grids/VOX rule input/output
 - inference/search/observe
 
 ## Open Questions

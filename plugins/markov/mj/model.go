@@ -10,7 +10,13 @@ import (
 type Model struct {
 	Values string
 	Origin bool
+	Waves  map[byte]string
 	Root   Node
+}
+
+type ParseOptions struct {
+	ResourceRoot string
+	ReadFile     func(string) ([]byte, error)
 }
 
 type Node interface {
@@ -36,7 +42,9 @@ type xmlNode struct {
 	Nodes   []xmlNode  `xml:",any"`
 }
 
-func ParseXML(data []byte) (*Model, error) {
+func ParseXML(data []byte) (*Model, error) { return ParseXMLWithOptions(data, ParseOptions{}) }
+
+func ParseXMLWithOptions(data []byte, opts ParseOptions) (*Model, error) {
 	var x xmlNode
 	if err := xml.Unmarshal(data, &x); err != nil {
 		return nil, err
@@ -45,23 +53,33 @@ func ParseXML(data []byte) (*Model, error) {
 	if values == "" {
 		return nil, fmt.Errorf("root values is required")
 	}
-	n, err := parseNode(x)
+	model := &Model{Values: strings.ReplaceAll(values, " ", ""), Origin: boolAttr(x.Attrs, "origin", false), Waves: map[byte]string{}}
+	for i := 0; i < len(model.Values); i++ {
+		model.Waves[model.Values[i]] = string(model.Values[i])
+	}
+	model.Waves['*'] = model.Values
+	collectUnions(x, model.Waves)
+	n, err := parseNode(x, model, opts, attr(x.Attrs, "folder"))
 	if err != nil {
 		return nil, err
 	}
-	return &Model{Values: strings.ReplaceAll(values, " ", ""), Origin: boolAttr(x.Attrs, "origin", false), Root: n}, nil
+	model.Root = n
+	return model, nil
 }
 
-func parseNode(x xmlNode) (Node, error) {
+func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string) (Node, error) {
 	kind := x.XMLName.Local
 	switch kind {
 	case "sequence", "markov":
+		if f := attr(x.Attrs, "folder"); f != "" {
+			folder = f
+		}
 		b := &Branch{Kind: kind}
 		for _, child := range x.Nodes {
 			if child.XMLName.Local == "rule" || child.XMLName.Local == "observe" || child.XMLName.Local == "union" {
 				continue
 			}
-			n, err := parseNode(child)
+			n, err := parseNode(child, model, opts, folder)
 			if err != nil {
 				return nil, err
 			}
@@ -69,9 +87,12 @@ func parseNode(x xmlNode) (Node, error) {
 		}
 		return b, nil
 	case "one", "all", "prl":
+		if f := attr(x.Attrs, "folder"); f != "" {
+			folder = f
+		}
 		rn := &RuleNode{Kind: kind, Steps: intAttr(x.Attrs, "steps", 0)}
-		if attr(x.Attrs, "in") != "" || attr(x.Attrs, "out") != "" {
-			r, err := parseRuleAttrs(x.Attrs)
+		if hasAnyAttr(x.Attrs, "in", "out", "fin", "fout", "file") {
+			r, err := parseRuleAttrs(x.Attrs, opts, folder)
 			if err != nil {
 				return nil, err
 			}
@@ -81,7 +102,7 @@ func parseNode(x xmlNode) (Node, error) {
 			if child.XMLName.Local != "rule" {
 				continue
 			}
-			r, err := parseRuleAttrs(child.Attrs)
+			r, err := parseRuleAttrs(child.Attrs, opts, folder)
 			if err != nil {
 				return nil, err
 			}
@@ -91,20 +112,57 @@ func parseNode(x xmlNode) (Node, error) {
 			return nil, fmt.Errorf("%s node has no inline rules; file-backed or advanced nodes are not implemented yet", kind)
 		}
 		return rn, nil
-	case "path", "map", "convolution", "convchain", "wfc":
+	case "path":
+		return parsePathNode(x, model)
+	case "convolution":
+		return parseConvolutionNode(x, model)
+	case "map", "convchain", "wfc":
 		return nil, fmt.Errorf("unsupported node type: %s", kind)
 	default:
 		return nil, fmt.Errorf("unknown node type: %s", kind)
 	}
 }
 
-func parseRuleAttrs(attrs []xml.Attr) (Rule, error) {
+func parseRuleAttrs(attrs []xml.Attr, opts ParseOptions, folder string) (Rule, error) {
 	in := attr(attrs, "in")
 	out := attr(attrs, "out")
-	if in == "" || out == "" {
-		return Rule{}, fmt.Errorf("rule requires in and out attributes")
+	fin := attr(attrs, "fin")
+	fout := attr(attrs, "fout")
+	file := attr(attrs, "file")
+	legend := attr(attrs, "legend")
+	var r Rule
+	var err error
+	if file != "" {
+		if in != "" || out != "" || fin != "" || fout != "" {
+			return Rule{}, fmt.Errorf("rule already contains a file attribute")
+		}
+		var rect Pattern
+		rect, err = loadResourcePattern(opts, folder, file, legend)
+		if err == nil {
+			r, err = SplitGluedRule(rect)
+		}
+	} else {
+		var pin, pout Pattern
+		if in != "" {
+			pin, err = ParsePattern(in)
+		} else if fin != "" {
+			pin, err = loadResourcePattern(opts, folder, fin, legend)
+		} else {
+			err = fmt.Errorf("rule requires in or fin attribute")
+		}
+		if err == nil {
+			if out != "" {
+				pout, err = ParsePattern(out)
+			} else if fout != "" {
+				pout, err = loadResourcePattern(opts, folder, fout, legend)
+			} else {
+				err = fmt.Errorf("rule requires out or fout attribute")
+			}
+		}
+		if err == nil {
+			r, err = NewRule(pin, pout)
+		}
 	}
-	r, err := ParseRule(in, out)
 	if err != nil {
 		return Rule{}, err
 	}
@@ -232,6 +290,18 @@ func intAttr(attrs []xml.Attr, name string, def int) int {
 		return def
 	}
 	v, err := strconv.Atoi(s)
+	if err != nil {
+		return def
+	}
+	return v
+}
+
+func floatAttr(attrs []xml.Attr, name string, def float64) float64 {
+	s := attr(attrs, name)
+	if s == "" {
+		return def
+	}
+	v, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return def
 	}

@@ -9,6 +9,7 @@ type Grid struct {
 	W, H   int
 	Values string
 	Index  map[byte]byte
+	Waves  map[byte]string
 	State  []byte
 }
 
@@ -42,7 +43,12 @@ func NewGrid(w, h int, values string) (*Grid, error) {
 		}
 		idx[ch] = byte(i)
 	}
-	return &Grid{W: w, H: h, Values: values, Index: idx, State: make([]byte, w*h)}, nil
+	waves := make(map[byte]string, len(idx)+1)
+	for ch := range idx {
+		waves[ch] = string(ch)
+	}
+	waves['*'] = values
+	return &Grid{W: w, H: h, Values: values, Index: idx, Waves: waves, State: make([]byte, w*h)}, nil
 }
 
 func (g *Grid) SetOrigin() {
@@ -111,10 +117,28 @@ func ParseRule(in, out string) (Rule, error) {
 	if err != nil {
 		return Rule{}, fmt.Errorf("invalid rule output: %w", err)
 	}
+	return NewRule(pin, pout)
+}
+
+func NewRule(pin, pout Pattern) (Rule, error) {
 	if pin.W != pout.W || pin.H != pout.H {
 		return Rule{}, fmt.Errorf("rule input/output dimensions differ")
 	}
 	return Rule{In: pin, Out: pout, P: 1}, nil
+}
+
+func SplitGluedRule(rect Pattern) (Rule, error) {
+	if rect.W%2 != 0 {
+		return Rule{}, fmt.Errorf("odd width %d in glued rule", rect.W)
+	}
+	half := rect.W / 2
+	pin := Pattern{W: half, H: rect.H, Data: make([]byte, half*rect.H)}
+	pout := Pattern{W: half, H: rect.H, Data: make([]byte, half*rect.H)}
+	for y := 0; y < rect.H; y++ {
+		copy(pin.Data[y*half:(y+1)*half], rect.Data[y*rect.W:y*rect.W+half])
+		copy(pout.Data[y*half:(y+1)*half], rect.Data[y*rect.W+half:y*rect.W+rect.W])
+	}
+	return NewRule(pin, pout)
 }
 
 func (g *Grid) Matches(r *Rule) []Match {
@@ -139,8 +163,12 @@ func (g *Grid) MatchAt(r *Rule, x, y int) bool {
 			if want == '*' {
 				continue
 			}
-			iv, ok := g.Index[want]
-			if !ok || g.State[x+px+(y+py)*g.W] != iv {
+			actual := g.Values[g.State[x+px+(y+py)*g.W]]
+			wave, ok := g.Waves[want]
+			if !ok {
+				return false
+			}
+			if !strings.ContainsRune(wave, rune(actual)) {
 				return false
 			}
 		}
