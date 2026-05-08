@@ -22,18 +22,21 @@ type ParseOptions struct {
 type Node interface {
 	Type() string
 	Step(g *Grid, rng *RNG) (bool, error)
+	Reset()
 	Features(out map[string]bool)
 }
 
 type Branch struct {
 	Kind  string
 	Nodes []Node
+	N     int
 }
 
 type RuleNode struct {
-	Kind  string
-	Rules []Rule
-	Steps int
+	Kind    string
+	Rules   []Rule
+	Steps   int
+	Counter int
 }
 
 type xmlNode struct {
@@ -59,7 +62,11 @@ func ParseXMLWithOptions(data []byte, opts ParseOptions) (*Model, error) {
 	}
 	model.Waves['*'] = model.Values
 	collectUnions(x, model.Waves)
-	n, err := parseNode(x, model, opts, attr(x.Attrs, "folder"))
+	symmetry, err := parseSquareSymmetry(attr(x.Attrs, "symmetry"), []bool{true, true, true, true, true, true, true, true})
+	if err != nil {
+		return nil, err
+	}
+	n, err := parseNode(x, model, opts, attr(x.Attrs, "folder"), symmetry)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +74,34 @@ func ParseXMLWithOptions(data []byte, opts ParseOptions) (*Model, error) {
 	return model, nil
 }
 
-func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string) (Node, error) {
+func parseSquareSymmetry(s string, dflt []bool) ([]bool, error) {
+	if s == "" {
+		return dflt, nil
+	}
+	switch s {
+	case "()":
+		return []bool{true, false, false, false, false, false, false, false}, nil
+	case "(x)":
+		return []bool{true, true, false, false, false, false, false, false}, nil
+	case "(y)":
+		return []bool{true, false, false, false, false, true, false, false}, nil
+	case "(x)(y)":
+		return []bool{true, true, false, false, true, true, false, false}, nil
+	case "(xy+)":
+		return []bool{true, false, true, false, true, false, true, false}, nil
+	case "(xy)":
+		return []bool{true, true, true, true, true, true, true, true}, nil
+	default:
+		return nil, fmt.Errorf("unknown symmetry %q", s)
+	}
+}
+
+func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string, parentSymmetry []bool) (Node, error) {
 	kind := x.XMLName.Local
+	symmetry, err := parseSquareSymmetry(attr(x.Attrs, "symmetry"), parentSymmetry)
+	if err != nil {
+		return nil, err
+	}
 	switch kind {
 	case "sequence", "markov":
 		if f := attr(x.Attrs, "folder"); f != "" {
@@ -79,7 +112,7 @@ func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string) (Node,
 			if child.XMLName.Local == "rule" || child.XMLName.Local == "observe" || child.XMLName.Local == "union" {
 				continue
 			}
-			n, err := parseNode(child, model, opts, folder)
+			n, err := parseNode(child, model, opts, folder, symmetry)
 			if err != nil {
 				return nil, err
 			}
@@ -96,7 +129,7 @@ func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string) (Node,
 			if err != nil {
 				return nil, err
 			}
-			rn.Rules = append(rn.Rules, r)
+			rn.Rules = append(rn.Rules, r.SquareSymmetries(symmetry)...)
 		}
 		for _, child := range x.Nodes {
 			if child.XMLName.Local != "rule" {
@@ -106,7 +139,11 @@ func parseNode(x xmlNode, model *Model, opts ParseOptions, folder string) (Node,
 			if err != nil {
 				return nil, err
 			}
-			rn.Rules = append(rn.Rules, r)
+			ruleSymmetry, err := parseSquareSymmetry(attr(child.Attrs, "symmetry"), symmetry)
+			if err != nil {
+				return nil, err
+			}
+			rn.Rules = append(rn.Rules, r.SquareSymmetries(ruleSymmetry)...)
 		}
 		if len(rn.Rules) == 0 {
 			return nil, fmt.Errorf("%s node has no inline rules; file-backed or advanced nodes are not implemented yet", kind)
@@ -192,6 +229,12 @@ func parseRuleAttrs(attrs []xml.Attr, opts ParseOptions, folder string, requireS
 }
 
 func (b *Branch) Type() string { return b.Kind }
+func (b *Branch) Reset() {
+	for _, n := range b.Nodes {
+		n.Reset()
+	}
+	b.N = 0
+}
 func (b *Branch) Features(out map[string]bool) {
 	out[b.Kind] = true
 	for _, n := range b.Nodes {
@@ -200,57 +243,47 @@ func (b *Branch) Features(out map[string]bool) {
 }
 
 func (b *Branch) Step(g *Grid, rng *RNG) (bool, error) {
-	switch b.Kind {
-	case "sequence":
-		changed := false
-		for _, n := range b.Nodes {
-			c, err := n.Step(g, rng)
-			if err != nil {
-				return false, err
-			}
-			changed = changed || c
-		}
-		return changed, nil
-	case "markov":
-		for _, n := range b.Nodes {
-			c, err := n.Step(g, rng)
-			if err != nil {
-				return false, err
-			}
-			if c {
-				return true, nil
-			}
-		}
-		return false, nil
-	default:
+	if b.Kind == "markov" {
+		b.N = 0
+	}
+	if b.Kind != "sequence" && b.Kind != "markov" {
 		return false, fmt.Errorf("unsupported branch kind %s", b.Kind)
 	}
+	for ; b.N < len(b.Nodes); b.N++ {
+		changed, err := b.Nodes[b.N].Step(g, rng)
+		if err != nil {
+			return false, err
+		}
+		if changed {
+			return true, nil
+		}
+	}
+	b.Reset()
+	return false, nil
 }
 
 func (r *RuleNode) Type() string                 { return r.Kind }
+func (r *RuleNode) Reset()                       { r.Counter = 0 }
 func (r *RuleNode) Features(out map[string]bool) { out[r.Kind] = true; out["rules"] = true }
 func (r *RuleNode) Step(g *Grid, rng *RNG) (bool, error) {
-	limit := 1
-	if r.Steps > 0 {
-		limit = r.Steps
+	if r.Steps > 0 && r.Counter >= r.Steps {
+		return false, nil
 	}
-	changed := false
-	for i := 0; i < limit; i++ {
-		c := false
-		switch r.Kind {
-		case "one":
-			c = r.stepOne(g, rng)
-		case "all", "prl":
-			c = r.stepAll(g, rng)
-		default:
-			return false, fmt.Errorf("unsupported rule node kind %s", r.Kind)
-		}
-		changed = changed || c
-		if !c || r.Steps == 0 {
-			break
-		}
+	var c bool
+	switch r.Kind {
+	case "one":
+		c = r.stepOne(g, rng)
+	case "all":
+		c = r.stepAll(g, rng)
+	case "prl":
+		c = r.stepParallel(g, rng)
+	default:
+		return false, fmt.Errorf("unsupported rule node kind %s", r.Kind)
 	}
-	return changed, nil
+	if c {
+		r.Counter++
+	}
+	return c, nil
 }
 
 func (r *RuleNode) stepOne(g *Grid, rng *RNG) bool {
@@ -271,12 +304,36 @@ func (r *RuleNode) stepAll(g *Grid, rng *RNG) bool {
 	for ri := range r.Rules {
 		matches := g.Matches(&r.Rules[ri])
 		for _, m := range matches {
-			if !g.MatchAt(m.Rule, m.X, m.Y) {
+			if !g.MatchAt(m.Rule, m.X, m.Y, m.Z) {
 				continue
 			}
-			g.Apply(m)
-			changed = true
+			if m.Rule.P < 1 && rng.Float64() >= m.Rule.P {
+				continue
+			}
+			if g.Apply(m) {
+				changed = true
+			}
 		}
+	}
+	return changed
+}
+
+func (r *RuleNode) stepParallel(g *Grid, rng *RNG) bool {
+	newState := append([]byte(nil), g.State...)
+	changed := false
+	for ri := range r.Rules {
+		matches := g.Matches(&r.Rules[ri])
+		for _, m := range matches {
+			if m.Rule.P < 1 && rng.Float64() >= m.Rule.P {
+				continue
+			}
+			if applyToState(m, g, newState) {
+				changed = true
+			}
+		}
+	}
+	if changed {
+		copy(g.State, newState)
 	}
 	return changed
 }

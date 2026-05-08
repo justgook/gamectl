@@ -145,6 +145,74 @@ func NewRuleAny(pin, pout Pattern) Rule {
 	return Rule{In: pin, Out: pout, P: 1}
 }
 
+func (p Pattern) ZRotated() Pattern {
+	out := Pattern{W: p.H, H: p.W, D: p.D, Data: make([]byte, len(p.Data))}
+	for z := 0; z < p.D; z++ {
+		for y := 0; y < p.H; y++ {
+			for x := 0; x < p.W; x++ {
+				nx := p.H - 1 - y
+				ny := x
+				out.Data[nx+ny*out.W+z*out.W*out.H] = p.Data[x+y*p.W+z*p.W*p.H]
+			}
+		}
+	}
+	return out
+}
+
+func (p Pattern) Reflected() Pattern {
+	out := Pattern{W: p.W, H: p.H, D: p.D, Data: make([]byte, len(p.Data))}
+	for z := 0; z < p.D; z++ {
+		for y := 0; y < p.H; y++ {
+			for x := 0; x < p.W; x++ {
+				nx := p.W - 1 - x
+				out.Data[nx+y*out.W+z*out.W*out.H] = p.Data[x+y*p.W+z*p.W*p.H]
+			}
+		}
+	}
+	return out
+}
+
+func (r Rule) ZRotated() Rule {
+	return Rule{In: r.In.ZRotated(), Out: r.Out.ZRotated(), P: r.P}
+}
+
+func (r Rule) Reflected() Rule {
+	return Rule{In: r.In.Reflected(), Out: r.Out.Reflected(), P: r.P}
+}
+
+func (r Rule) Same(other Rule) bool {
+	return r.P == other.P && r.In.W == other.In.W && r.In.H == other.In.H && r.In.D == other.In.D && r.Out.W == other.Out.W && r.Out.H == other.Out.H && r.Out.D == other.Out.D && string(r.In.Data) == string(other.In.Data) && string(r.Out.Data) == string(other.Out.Data)
+}
+
+func (r Rule) SquareSymmetries(symmetry []bool) []Rule {
+	variants := make([]Rule, 8)
+	variants[0] = r
+	variants[1] = variants[0].Reflected()
+	variants[2] = variants[0].ZRotated()
+	variants[3] = variants[2].Reflected()
+	variants[4] = variants[2].ZRotated()
+	variants[5] = variants[4].Reflected()
+	variants[6] = variants[4].ZRotated()
+	variants[7] = variants[6].Reflected()
+	out := []Rule{}
+	for i, rule := range variants {
+		if symmetry != nil && (i >= len(symmetry) || !symmetry[i]) {
+			continue
+		}
+		seen := false
+		for _, existing := range out {
+			if existing.Same(rule) {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			out = append(out, rule)
+		}
+	}
+	return out
+}
+
 func SplitGluedRule(rect Pattern) (Rule, error) {
 	if rect.W%2 != 0 {
 		return Rule{}, fmt.Errorf("odd width %d in glued rule", rect.W)
@@ -204,8 +272,13 @@ func (g *Grid) MatchAt(r *Rule, x, y int, zOpt ...int) bool {
 	return true
 }
 
-func (g *Grid) Apply(m Match) {
+func (g *Grid) Apply(m Match) bool {
+	return applyToState(m, g, g.State)
+}
+
+func applyToState(m Match, g *Grid, state []byte) bool {
 	r := m.Rule
+	changed := false
 	for pz := 0; pz < r.Out.D; pz++ {
 		for py := 0; py < r.Out.H; py++ {
 			for px := 0; px < r.Out.W; px++ {
@@ -214,9 +287,14 @@ func (g *Grid) Apply(m Match) {
 					continue
 				}
 				if v, ok := g.Index[ch]; ok {
-					g.State[m.X+px+(m.Y+py)*g.W+(m.Z+pz)*g.W*g.H] = v
+					i := m.X + px + (m.Y+py)*g.W + (m.Z+pz)*g.W*g.H
+					if state[i] != v {
+						state[i] = v
+						changed = true
+					}
 				}
 			}
 		}
 	}
+	return changed
 }

@@ -117,6 +117,7 @@ func parseConvolutionRule(x xmlNode, model *Model) (ConvolutionRule, error) {
 }
 
 func (n *ConvolutionNode) Type() string { return "convolution" }
+func (n *ConvolutionNode) Reset()       { n.Counter = 0 }
 func (n *ConvolutionNode) Features(out map[string]bool) {
 	out["convolution"] = true
 }
