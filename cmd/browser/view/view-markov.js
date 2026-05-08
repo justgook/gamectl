@@ -46,14 +46,8 @@ function exampleByName(name) {
   return example
 }
 
-function modelUrl(name) {
-  return `/demo/res-markov/models/${encodeURIComponent(name)}.xml`
-}
-
-async function fetchModelXml(name) {
-  const response = await fetch(modelUrl(name), { cache: 'no-store' })
-  if (!response.ok) throw new Error(`failed to load ${name}.xml: ${response.status} ${response.statusText}`)
-  return await response.text()
+function modelPath(name) {
+  return `markov/models/${name}.xml`
 }
 
 function rowsFromCells(cells, width, height) {
@@ -77,6 +71,9 @@ export class ViewMarkov extends ViewCanvasBase {
     this.metaElement = null
     this.pathElement = null
     this.running = false
+    this.handle = 0
+    this.playing = false
+    this.animationFrame = 0
   }
 
   connectedCallback() {
@@ -104,7 +101,7 @@ export class ViewMarkov extends ViewCanvasBase {
 
     super.connectedCallback()
     this.syncHeaderControls()
-    void this.runCurrent()
+    void this.resetSession()
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -115,18 +112,18 @@ export class ViewMarkov extends ViewCanvasBase {
     this.exampleName = exampleByName(source).name
     if (this.dataset.ready) {
       this.syncHeaderControls()
-      void this.runCurrent()
+      void this.resetSession()
     }
   }
 
   createViewPluginMethods() {
     return {
       reload: async () => {
-        await this.runCurrent()
+        await this.resetSession()
         return { ok: true }
       },
       run: async () => {
-        await this.runCurrent()
+        await this.stepCurrent()
         return { ok: true }
       },
       zoomIn: async () => {
@@ -150,11 +147,13 @@ export class ViewMarkov extends ViewCanvasBase {
     toolbar.innerHTML = `
       <div role="buttongroup" data-element="file-actions">
         <select data-field="example" aria-label="Example"></select>
-        <button type="button" data-action="reload" aria-label="Run" title="Run"><i aria-hidden="true">play_arrow</i></button>
+        <button type="button" data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">restart_alt</i></button>
       </div>
       <div role="buttongroup" data-element="tool-actions">
         <input type="number" data-field="seed" aria-label="Seed" title="Seed" min="0" step="1" value="1">
-        <input type="number" data-field="steps" aria-label="Steps" title="Steps override (0 = model default)" min="0" step="1" value="0">
+        <input type="number" data-field="steps" aria-label="Steps per frame" title="Steps per frame" min="1" step="1" value="1">
+        <button type="button" data-action="step" aria-label="Step" title="Step"><i aria-hidden="true">skip_next</i></button>
+        <button type="button" data-action="play-pause" aria-label="Play" title="Play"><i aria-hidden="true">play_arrow</i></button>
         <button type="button" data-action="reroll" aria-label="Reroll" title="Reroll seed"><i aria-hidden="true">casino</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
@@ -177,7 +176,9 @@ export class ViewMarkov extends ViewCanvasBase {
       this.exampleName = exampleByName(select.value).name
       this.setAttribute('data-source', this.exampleName)
     })
-    toolbar.querySelector('[data-action="reload"]').addEventListener('click', () => this.runCurrent())
+    toolbar.querySelector('[data-action="reset"]').addEventListener('click', () => this.resetSession())
+    toolbar.querySelector('[data-action="step"]').addEventListener('click', () => this.stepCurrent())
+    toolbar.querySelector('[data-action="play-pause"]').addEventListener('click', () => this.togglePlayback())
     toolbar.querySelector('[data-action="reroll"]').addEventListener('click', () => this.reroll())
     toolbar.querySelector('[data-action="zoom-out"]').addEventListener('click', () => this.zoomOut())
     toolbar.querySelector('[data-action="zoom-fit"]').addEventListener('click', () => this.fitToContent())
@@ -190,8 +191,8 @@ export class ViewMarkov extends ViewCanvasBase {
     const select = this.queryHeaderControl('[data-field="example"]')
     const stepsInput = this.queryHeaderControl('[data-field="steps"]')
     if (select instanceof HTMLSelectElement) select.value = example.name
-    if (stepsInput instanceof HTMLInputElement) stepsInput.value = String(Math.max(0, example.steps))
-    if (this.pathElement instanceof HTMLOutputElement) this.pathElement.textContent = modelUrl(example.name)
+    if (stepsInput instanceof HTMLInputElement) stepsInput.value = '1'
+    if (this.pathElement instanceof HTMLOutputElement) this.pathElement.textContent = modelPath(example.name)
   }
 
   setStatus(text, tone = null) {
@@ -217,42 +218,121 @@ export class ViewMarkov extends ViewCanvasBase {
     return value
   }
 
+  disconnectedCallback() {
+    this.stopPlayback()
+    void this.destroySession()
+    super.disconnectedCallback()
+  }
+
   async reroll() {
     const input = this.queryHeaderControl('[data-field="seed"]')
     assert(input instanceof HTMLInputElement, 'view-markov missing seed input')
     input.value = String(Math.floor(Math.random() * 0x7fffffff) + 1)
-    await this.runCurrent()
+    await this.resetSession()
   }
 
-  async runCurrent() {
+  async destroySession() {
+    if (this.handle === 0) return
+    const handle = this.handle
+    this.handle = 0
+    const result = await runtime.call('markov', 'destroy', JSON.stringify({ handle }))
+    parseJsonOutput(result, 'markov.destroy')
+  }
+
+  async resetSession() {
     if (this.running) return
     this.running = true
+    this.stopPlayback()
     const example = exampleByName(this.exampleName)
-    this.setStatus(`Running ${example.name}...`, 'info')
+    this.setStatus(`Resetting ${example.name}...`, 'info')
     try {
-      const modelXml = await fetchModelXml(example.name)
+      await this.destroySession()
       const started = performance.now()
-      const result = await runtime.call('markov', 'run', {
-        modelXml,
+      const result = await runtime.call('markov', 'create', JSON.stringify({
+        model: modelPath(example.name),
         width: example.width,
         height: example.height,
         depth: 1,
         seed: this.seed(),
-        steps: this.steps(),
-      })
-      const grid = parseJsonOutput(result, 'markov.run')
-      const rows = rowsFromCells(grid.cells, grid.width, grid.height)
-      this.setData({ ...grid, rows }, { autoFit: true })
-      assert(this.metaElement instanceof HTMLOutputElement, 'view-markov meta output is not initialized')
-      this.metaElement.textContent = `${grid.width} × ${grid.height} · values ${grid.values} · steps ${grid.stepsRun} · changed ${grid.changed}`
-      this.setStatus(`${example.name} generated in ${Math.round(performance.now() - started)}ms`, 'success')
+      }))
+      const session = parseJsonOutput(result, 'markov.create')
+      assert(Number.isInteger(session.handle) && session.handle > 0, 'markov.create returned invalid handle')
+      this.handle = session.handle
+      this.applyGrid(session.grid, true)
+      this.setStatus(`${example.name} ready in ${Math.round(performance.now() - started)}ms`, 'success')
     } catch (error) {
+      this.handle = 0
       this.setData(null, { autoFit: false })
       this.setStatus(`Error: ${error?.message || error}`, 'danger')
-      console.error('view-markov run failed:', error)
+      console.error('view-markov reset failed:', error)
     } finally {
       this.running = false
     }
+  }
+
+  async stepCurrent() {
+    if (this.running) return
+    if (this.handle === 0) {
+      await this.resetSession()
+      if (this.handle === 0) return
+    }
+    this.running = true
+    const started = performance.now()
+    try {
+      const result = await runtime.call('markov', 'step', JSON.stringify({ handle: this.handle, steps: this.steps() }))
+      const session = parseJsonOutput(result, 'markov.step')
+      this.applyGrid(session.grid, false)
+      const grid = session.grid
+      this.setStatus(grid.done ? `Done in ${grid.stepsRun} steps` : `Stepped in ${Math.round(performance.now() - started)}ms`, grid.done ? 'success' : 'info')
+      if (grid.done) this.stopPlayback()
+    } catch (error) {
+      this.stopPlayback()
+      this.setStatus(`Error: ${error?.message || error}`, 'danger')
+      console.error('view-markov step failed:', error)
+    } finally {
+      this.running = false
+    }
+  }
+
+  applyGrid(grid, autoFit) {
+    assert(grid && typeof grid === 'object' && !Array.isArray(grid), 'view-markov grid must be object')
+    const rows = rowsFromCells(grid.cells, grid.width, grid.height)
+    this.setData({ ...grid, rows }, { autoFit })
+    assert(this.metaElement instanceof HTMLOutputElement, 'view-markov meta output is not initialized')
+    this.metaElement.textContent = `${grid.width} × ${grid.height} · values ${grid.values} · steps ${grid.stepsRun} · changed ${grid.changed}${grid.done ? ' · done' : ''}`
+  }
+
+  togglePlayback() {
+    if (this.playing) {
+      this.stopPlayback()
+      return
+    }
+    this.playing = true
+    this.syncPlaybackButton()
+    this.animationFrame = requestAnimationFrame(() => this.playbackTick())
+  }
+
+  stopPlayback() {
+    this.playing = false
+    if (this.animationFrame !== 0) cancelAnimationFrame(this.animationFrame)
+    this.animationFrame = 0
+    this.syncPlaybackButton()
+  }
+
+  syncPlaybackButton() {
+    const button = this.queryHeaderControl('[data-action="play-pause"]')
+    if (!(button instanceof HTMLButtonElement)) return
+    const icon = button.querySelector('i')
+    if (icon) icon.textContent = this.playing ? 'pause' : 'play_arrow'
+    button.setAttribute('aria-label', this.playing ? 'Pause' : 'Play')
+    button.setAttribute('title', this.playing ? 'Pause' : 'Play')
+  }
+
+  async playbackTick() {
+    if (!this.playing) return
+    await this.stepCurrent()
+    if (!this.playing) return
+    this.animationFrame = requestAnimationFrame(() => this.playbackTick())
   }
 
   calculateContentBounds(data) {

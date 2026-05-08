@@ -82,6 +82,51 @@ Runs an upstream-style entry from `models.xml`.
 
 The plugin reads `modelsXml`, finds the named `<model>`, derives dimensions/settings, then loads `models/<name>.xml` beside the catalog path. `steps` overrides the catalog value when non-zero.
 
+### `create` / `step` / `snapshot` / `destroy`
+
+Creates an incremental in-memory runner for previews and animations.
+
+```json
+{
+  "model": "markov/models/Basic.xml",
+  "width": 60,
+  "height": 60,
+  "depth": 1,
+  "seed": 1
+}
+```
+
+`create` returns a handle and initial grid snapshot:
+
+```json
+{
+  "ok": true,
+  "handle": 1,
+  "grid": {
+    "ok": true,
+    "width": 60,
+    "height": 60,
+    "depth": 1,
+    "values": "BW",
+    "cells": "BBBB/...",
+    "stepsRun": 0,
+    "changed": 0,
+    "done": false
+  }
+}
+```
+
+Advance a session:
+
+```json
+{
+  "handle": 1,
+  "steps": 1
+}
+```
+
+`snapshot` accepts `{ "handle": 1 }` and returns the current grid. `destroy` releases the session handle.
+
 ### `inspect`
 
 Parses a model and returns basic metadata.

@@ -53,6 +53,24 @@ type InspectInput struct {
 	ModelXML string `json:"modelXml,omitempty"`
 }
 
+type SessionInput struct {
+	Handle int `json:"handle"`
+}
+
+type StepInput struct {
+	Handle int `json:"handle"`
+	Steps  int `json:"steps,omitempty"`
+}
+
+type SessionResult struct {
+	OK     bool          `json:"ok"`
+	Handle int           `json:"handle"`
+	Grid   *mj.RunResult `json:"grid,omitempty"`
+}
+
+var sessions = map[int]*mj.Runner{}
+var nextHandle = 1
+
 func readFile(path string) ([]byte, error) {
 	status, output, callErr := pdk.Call("fs", "read", []byte(path))
 	if callErr != nil {
@@ -228,6 +246,106 @@ func RunModelEntry() int32 {
 		}
 	}
 	data, err := json.Marshal(result)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to marshal response: " + err.Error()))
+		return 1
+	}
+	pdk.Output(data)
+	return 0
+}
+
+//go:wasmexport create
+func Create() int32 {
+	var input RunInput
+	if err := json.Unmarshal(pdk.Input(), &input); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+	if input.Depth == 0 {
+		input.Depth = 1
+	}
+	model, err := loadModel(input.Model, input.ModelXML)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to load model: " + err.Error()))
+		return 1
+	}
+	runner, err := mj.NewRunner(model, mj.RunOptions{Width: input.Width, Height: input.Height, Depth: input.Depth, Seed: input.Seed, InitialCells: input.Initial.Cells})
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to create runner: " + err.Error()))
+		return 1
+	}
+	handle := nextHandle
+	nextHandle++
+	sessions[handle] = runner
+	data, err := json.Marshal(SessionResult{OK: true, Handle: handle, Grid: runner.Snapshot()})
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to marshal response: " + err.Error()))
+		return 1
+	}
+	pdk.Output(data)
+	return 0
+}
+
+//go:wasmexport step
+func Step() int32 {
+	var input StepInput
+	if err := json.Unmarshal(pdk.Input(), &input); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+	runner := sessions[input.Handle]
+	if runner == nil {
+		pdk.Output(util.ErrorResponse("unknown markov session handle"))
+		return 1
+	}
+	grid, err := runner.Step(input.Steps)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("generation failed: " + err.Error()))
+		return 1
+	}
+	data, err := json.Marshal(SessionResult{OK: true, Handle: input.Handle, Grid: grid})
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to marshal response: " + err.Error()))
+		return 1
+	}
+	pdk.Output(data)
+	return 0
+}
+
+//go:wasmexport snapshot
+func Snapshot() int32 {
+	var input SessionInput
+	if err := json.Unmarshal(pdk.Input(), &input); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+	runner := sessions[input.Handle]
+	if runner == nil {
+		pdk.Output(util.ErrorResponse("unknown markov session handle"))
+		return 1
+	}
+	data, err := json.Marshal(SessionResult{OK: true, Handle: input.Handle, Grid: runner.Snapshot()})
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to marshal response: " + err.Error()))
+		return 1
+	}
+	pdk.Output(data)
+	return 0
+}
+
+//go:wasmexport destroy
+func Destroy() int32 {
+	var input SessionInput
+	if err := json.Unmarshal(pdk.Input(), &input); err != nil {
+		pdk.Output(util.ErrorResponse("invalid input: " + err.Error()))
+		return 1
+	}
+	if sessions[input.Handle] == nil {
+		pdk.Output(util.ErrorResponse("unknown markov session handle"))
+		return 1
+	}
+	delete(sessions, input.Handle)
+	data, err := json.Marshal(SessionResult{OK: true, Handle: input.Handle})
 	if err != nil {
 		pdk.Output(util.ErrorResponse("failed to marshal response: " + err.Error()))
 		return 1
