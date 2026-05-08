@@ -18,9 +18,10 @@ let currentThemeStylesheetObjectUrl = ''
 // `
 //
 const DEFAULT_LAYOUT = `
-  <view-tilemap data-source="/edge_rules.map.json" />
-  <view-ng setup="0:v:50" />
-  <view-animation setup="0:h:50" />
+  <view-markov data-source="Basic" />
+  <view-tilemap data-source="/edge_rules.map.json" setup="0:v:50" />
+  <view-ng setup="1:h:50" />
+  <view-animation setup="1:v:50" />
 `
 
 function decodeOutput(result) {

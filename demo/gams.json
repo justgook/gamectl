@@ -350,6 +350,10 @@
             "url": "/view/view-image.js"
           },
           {
+            "path": "view/view-markov.js",
+            "url": "/view/view-markov.js"
+          },
+          {
             "path": "view/view-ng-node.js",
             "url": "/view/view-ng-node.js"
           },
@@ -432,6 +436,15 @@
           {
             "path": "theme/thexp.css",
             "url": "/themes/thexp.css"
+          }
+        ]
+      },
+      "demo/res-markov": {
+        "driver": "http",
+        "files": [
+          {
+            "path": "models.xml",
+            "url": "/demo/res-markov/models.xml"
           }
         ]
       }
@@ -907,6 +920,13 @@
         "label": "Image",
         "internal": false,
         "defaultSource": "/demo/ng/nine.png"
+      },
+      "view-markov": {
+        "url": "builtin/view/view-markov.js",
+        "label": "Markov",
+        "group": "Generation",
+        "internal": false,
+        "defaultSource": "Basic"
       },
       "view-tilemap": {
         "url": "builtin/view/view-tilemap.js",
