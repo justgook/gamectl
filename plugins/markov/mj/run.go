@@ -45,12 +45,19 @@ type RunResult struct {
 	Cells    string `json:"cells"`
 	StepsRun int    `json:"stepsRun"`
 	Changed  int    `json:"changed"`
+	Done     bool   `json:"done"`
 }
 
-func Run(model *Model, opts RunOptions) (*RunResult, error) {
-	if opts.Steps <= 0 {
-		opts.Steps = 50000
-	}
+type Runner struct {
+	Model    *Model
+	Grid     *Grid
+	RNG      *RNG
+	StepsRun int
+	Changed  int
+	Done     bool
+}
+
+func NewRunner(model *Model, opts RunOptions) (*Runner, error) {
 	if opts.Depth <= 0 {
 		opts.Depth = 1
 	}
@@ -68,20 +75,44 @@ func Run(model *Model, opts RunOptions) (*RunResult, error) {
 	} else if model.Origin {
 		g.SetOrigin()
 	}
-	rng := NewRNG(opts.Seed)
-	changedCount := 0
-	stepsRun := 0
-	for ; stepsRun < opts.Steps; stepsRun++ {
-		changed, err := model.Root.Step(g, rng)
+	return &Runner{Model: model, Grid: g, RNG: NewRNG(opts.Seed)}, nil
+}
+
+func (r *Runner) Step(steps int) (*RunResult, error) {
+	if steps <= 0 {
+		steps = 1
+	}
+	if r.Done {
+		return r.Snapshot(), nil
+	}
+	for i := 0; i < steps; i++ {
+		changed, err := r.Model.Root.Step(r.Grid, r.RNG)
 		if err != nil {
 			return nil, err
 		}
 		if !changed {
+			r.Done = true
 			break
 		}
-		changedCount++
+		r.StepsRun++
+		r.Changed++
 	}
-	return &RunResult{OK: true, Width: g.W, Height: g.H, Depth: g.D, Values: g.Values, Cells: g.DecodeRows(), StepsRun: stepsRun, Changed: changedCount}, nil
+	return r.Snapshot(), nil
+}
+
+func (r *Runner) Snapshot() *RunResult {
+	return &RunResult{OK: true, Width: r.Grid.W, Height: r.Grid.H, Depth: r.Grid.D, Values: r.Grid.Values, Cells: r.Grid.DecodeRows(), StepsRun: r.StepsRun, Changed: r.Changed, Done: r.Done}
+}
+
+func Run(model *Model, opts RunOptions) (*RunResult, error) {
+	if opts.Steps <= 0 {
+		opts.Steps = 50000
+	}
+	runner, err := NewRunner(model, opts)
+	if err != nil {
+		return nil, err
+	}
+	return runner.Step(opts.Steps)
 }
 
 type InspectResult struct {

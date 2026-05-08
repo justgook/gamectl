@@ -439,12 +439,1656 @@
           }
         ]
       },
-      "demo/res-markov": {
+      "markov": {
         "driver": "http",
         "files": [
           {
             "path": "models.xml",
             "url": "/demo/res-markov/models.xml"
+          },
+          {
+            "path": "models/Apartemazements.xml",
+            "url": "/demo/res-markov/models/Apartemazements.xml"
+          },
+          {
+            "path": "models/Backtracker.xml",
+            "url": "/demo/res-markov/models/Backtracker.xml"
+          },
+          {
+            "path": "models/BacktrackerCycle.xml",
+            "url": "/demo/res-markov/models/BacktrackerCycle.xml"
+          },
+          {
+            "path": "models/Basic.xml",
+            "url": "/demo/res-markov/models/Basic.xml"
+          },
+          {
+            "path": "models/BasicBrickWall.xml",
+            "url": "/demo/res-markov/models/BasicBrickWall.xml"
+          },
+          {
+            "path": "models/BasicDijkstraDungeon.xml",
+            "url": "/demo/res-markov/models/BasicDijkstraDungeon.xml"
+          },
+          {
+            "path": "models/BasicDijkstraFill.xml",
+            "url": "/demo/res-markov/models/BasicDijkstraFill.xml"
+          },
+          {
+            "path": "models/BasicDungeonGrowth.xml",
+            "url": "/demo/res-markov/models/BasicDungeonGrowth.xml"
+          },
+          {
+            "path": "models/BasicKeys.xml",
+            "url": "/demo/res-markov/models/BasicKeys.xml"
+          },
+          {
+            "path": "models/BasicPartitioning.xml",
+            "url": "/demo/res-markov/models/BasicPartitioning.xml"
+          },
+          {
+            "path": "models/BasicSkyline.xml",
+            "url": "/demo/res-markov/models/BasicSkyline.xml"
+          },
+          {
+            "path": "models/BasicSnake.xml",
+            "url": "/demo/res-markov/models/BasicSnake.xml"
+          },
+          {
+            "path": "models/BernoulliPercolation.xml",
+            "url": "/demo/res-markov/models/BernoulliPercolation.xml"
+          },
+          {
+            "path": "models/BiasedGrowth.xml",
+            "url": "/demo/res-markov/models/BiasedGrowth.xml"
+          },
+          {
+            "path": "models/BiasedGrowthContraction.xml",
+            "url": "/demo/res-markov/models/BiasedGrowthContraction.xml"
+          },
+          {
+            "path": "models/BiasedMazeGrowth.xml",
+            "url": "/demo/res-markov/models/BiasedMazeGrowth.xml"
+          },
+          {
+            "path": "models/BiasedVoronoi.xml",
+            "url": "/demo/res-markov/models/BiasedVoronoi.xml"
+          },
+          {
+            "path": "models/BishopParity.xml",
+            "url": "/demo/res-markov/models/BishopParity.xml"
+          },
+          {
+            "path": "models/BlueNoise.xml",
+            "url": "/demo/res-markov/models/BlueNoise.xml"
+          },
+          {
+            "path": "models/CarmaTower.xml",
+            "url": "/demo/res-markov/models/CarmaTower.xml"
+          },
+          {
+            "path": "models/Cave.xml",
+            "url": "/demo/res-markov/models/Cave.xml"
+          },
+          {
+            "path": "models/CaveContour.xml",
+            "url": "/demo/res-markov/models/CaveContour.xml"
+          },
+          {
+            "path": "models/CentralCrawlers.xml",
+            "url": "/demo/res-markov/models/CentralCrawlers.xml"
+          },
+          {
+            "path": "models/CentralSAW.xml",
+            "url": "/demo/res-markov/models/CentralSAW.xml"
+          },
+          {
+            "path": "models/ChainDungeon.xml",
+            "url": "/demo/res-markov/models/ChainDungeon.xml"
+          },
+          {
+            "path": "models/ChainDungeonMaze.xml",
+            "url": "/demo/res-markov/models/ChainDungeonMaze.xml"
+          },
+          {
+            "path": "models/ChainMaze.xml",
+            "url": "/demo/res-markov/models/ChainMaze.xml"
+          },
+          {
+            "path": "models/Chase.xml",
+            "url": "/demo/res-markov/models/Chase.xml"
+          },
+          {
+            "path": "models/Circuit.xml",
+            "url": "/demo/res-markov/models/Circuit.xml"
+          },
+          {
+            "path": "models/ClosedSurface.xml",
+            "url": "/demo/res-markov/models/ClosedSurface.xml"
+          },
+          {
+            "path": "models/ColoredKnots.xml",
+            "url": "/demo/res-markov/models/ColoredKnots.xml"
+          },
+          {
+            "path": "models/CompleteSAW.xml",
+            "url": "/demo/res-markov/models/CompleteSAW.xml"
+          },
+          {
+            "path": "models/CompleteSAWSmart.xml",
+            "url": "/demo/res-markov/models/CompleteSAWSmart.xml"
+          },
+          {
+            "path": "models/ConnectedCaves.xml",
+            "url": "/demo/res-markov/models/ConnectedCaves.xml"
+          },
+          {
+            "path": "models/ConstrainedCaves.xml",
+            "url": "/demo/res-markov/models/ConstrainedCaves.xml"
+          },
+          {
+            "path": "models/Counting.xml",
+            "url": "/demo/res-markov/models/Counting.xml"
+          },
+          {
+            "path": "models/Coupling.xml",
+            "url": "/demo/res-markov/models/Coupling.xml"
+          },
+          {
+            "path": "models/Crawlers.xml",
+            "url": "/demo/res-markov/models/Crawlers.xml"
+          },
+          {
+            "path": "models/CrawlersChase.xml",
+            "url": "/demo/res-markov/models/CrawlersChase.xml"
+          },
+          {
+            "path": "models/CrossCountry.xml",
+            "url": "/demo/res-markov/models/CrossCountry.xml"
+          },
+          {
+            "path": "models/Cycles.xml",
+            "url": "/demo/res-markov/models/Cycles.xml"
+          },
+          {
+            "path": "models/DenseSAW.xml",
+            "url": "/demo/res-markov/models/DenseSAW.xml"
+          },
+          {
+            "path": "models/DiagonalPath.xml",
+            "url": "/demo/res-markov/models/DiagonalPath.xml"
+          },
+          {
+            "path": "models/Digger.xml",
+            "url": "/demo/res-markov/models/Digger.xml"
+          },
+          {
+            "path": "models/DijkstraDungeon.xml",
+            "url": "/demo/res-markov/models/DijkstraDungeon.xml"
+          },
+          {
+            "path": "models/Division.xml",
+            "url": "/demo/res-markov/models/Division.xml"
+          },
+          {
+            "path": "models/DualRetraction.xml",
+            "url": "/demo/res-markov/models/DualRetraction.xml"
+          },
+          {
+            "path": "models/DualRetraction3D.xml",
+            "url": "/demo/res-markov/models/DualRetraction3D.xml"
+          },
+          {
+            "path": "models/DungeonGrowth.xml",
+            "url": "/demo/res-markov/models/DungeonGrowth.xml"
+          },
+          {
+            "path": "models/DwarfPath.xml",
+            "url": "/demo/res-markov/models/DwarfPath.xml"
+          },
+          {
+            "path": "models/Dwarves.xml",
+            "url": "/demo/res-markov/models/Dwarves.xml"
+          },
+          {
+            "path": "models/Escher.xml",
+            "url": "/demo/res-markov/models/Escher.xml"
+          },
+          {
+            "path": "models/EscherSurface.xml",
+            "url": "/demo/res-markov/models/EscherSurface.xml"
+          },
+          {
+            "path": "models/EuclideanPath.xml",
+            "url": "/demo/res-markov/models/EuclideanPath.xml"
+          },
+          {
+            "path": "models/FindLongCycle.xml",
+            "url": "/demo/res-markov/models/FindLongCycle.xml"
+          },
+          {
+            "path": "models/FireNoise.xml",
+            "url": "/demo/res-markov/models/FireNoise.xml"
+          },
+          {
+            "path": "models/Flowers.xml",
+            "url": "/demo/res-markov/models/Flowers.xml"
+          },
+          {
+            "path": "models/Forest.xml",
+            "url": "/demo/res-markov/models/Forest.xml"
+          },
+          {
+            "path": "models/ForestFire.xml",
+            "url": "/demo/res-markov/models/ForestFire.xml"
+          },
+          {
+            "path": "models/ForestFireCA.xml",
+            "url": "/demo/res-markov/models/ForestFireCA.xml"
+          },
+          {
+            "path": "models/GameOfLife.xml",
+            "url": "/demo/res-markov/models/GameOfLife.xml"
+          },
+          {
+            "path": "models/GoTo.xml",
+            "url": "/demo/res-markov/models/GoTo.xml"
+          },
+          {
+            "path": "models/GoToGradient.xml",
+            "url": "/demo/res-markov/models/GoToGradient.xml"
+          },
+          {
+            "path": "models/GrowTo.xml",
+            "url": "/demo/res-markov/models/GrowTo.xml"
+          },
+          {
+            "path": "models/Growth.xml",
+            "url": "/demo/res-markov/models/Growth.xml"
+          },
+          {
+            "path": "models/GrowthCompetition.xml",
+            "url": "/demo/res-markov/models/GrowthCompetition.xml"
+          },
+          {
+            "path": "models/GrowthContraction.xml",
+            "url": "/demo/res-markov/models/GrowthContraction.xml"
+          },
+          {
+            "path": "models/GrowthWalk.xml",
+            "url": "/demo/res-markov/models/GrowthWalk.xml"
+          },
+          {
+            "path": "models/HamiltonianPath.xml",
+            "url": "/demo/res-markov/models/HamiltonianPath.xml"
+          },
+          {
+            "path": "models/HamiltonianPaths.xml",
+            "url": "/demo/res-markov/models/HamiltonianPaths.xml"
+          },
+          {
+            "path": "models/Hills.xml",
+            "url": "/demo/res-markov/models/Hills.xml"
+          },
+          {
+            "path": "models/IrregularMazeGrowth.xml",
+            "url": "/demo/res-markov/models/IrregularMazeGrowth.xml"
+          },
+          {
+            "path": "models/IrregularSAW.xml",
+            "url": "/demo/res-markov/models/IrregularSAW.xml"
+          },
+          {
+            "path": "models/Island.xml",
+            "url": "/demo/res-markov/models/Island.xml"
+          },
+          {
+            "path": "models/Keys.xml",
+            "url": "/demo/res-markov/models/Keys.xml"
+          },
+          {
+            "path": "models/KnightPatrol.xml",
+            "url": "/demo/res-markov/models/KnightPatrol.xml"
+          },
+          {
+            "path": "models/Knots2D.xml",
+            "url": "/demo/res-markov/models/Knots2D.xml"
+          },
+          {
+            "path": "models/Knots3D.xml",
+            "url": "/demo/res-markov/models/Knots3D.xml"
+          },
+          {
+            "path": "models/Laplace.xml",
+            "url": "/demo/res-markov/models/Laplace.xml"
+          },
+          {
+            "path": "models/Lightning.xml",
+            "url": "/demo/res-markov/models/Lightning.xml"
+          },
+          {
+            "path": "models/LoopErasedWalk.xml",
+            "url": "/demo/res-markov/models/LoopErasedWalk.xml"
+          },
+          {
+            "path": "models/LoopGrowth.xml",
+            "url": "/demo/res-markov/models/LoopGrowth.xml"
+          },
+          {
+            "path": "models/LostCity.xml",
+            "url": "/demo/res-markov/models/LostCity.xml"
+          },
+          {
+            "path": "models/MarchingSquares.xml",
+            "url": "/demo/res-markov/models/MarchingSquares.xml"
+          },
+          {
+            "path": "models/MazeBacktracker.xml",
+            "url": "/demo/res-markov/models/MazeBacktracker.xml"
+          },
+          {
+            "path": "models/MazeGrowth.xml",
+            "url": "/demo/res-markov/models/MazeGrowth.xml"
+          },
+          {
+            "path": "models/MazeMap.xml",
+            "url": "/demo/res-markov/models/MazeMap.xml"
+          },
+          {
+            "path": "models/MazeTrail.xml",
+            "url": "/demo/res-markov/models/MazeTrail.xml"
+          },
+          {
+            "path": "models/ModernHouse.xml",
+            "url": "/demo/res-markov/models/ModernHouse.xml"
+          },
+          {
+            "path": "models/MultiHeadedDungeon.xml",
+            "url": "/demo/res-markov/models/MultiHeadedDungeon.xml"
+          },
+          {
+            "path": "models/MultiHeadedWalk.xml",
+            "url": "/demo/res-markov/models/MultiHeadedWalk.xml"
+          },
+          {
+            "path": "models/MultiHeadedWalkDungeon.xml",
+            "url": "/demo/res-markov/models/MultiHeadedWalkDungeon.xml"
+          },
+          {
+            "path": "models/MultiSokoban8.xml",
+            "url": "/demo/res-markov/models/MultiSokoban8.xml"
+          },
+          {
+            "path": "models/MultiSokoban9.xml",
+            "url": "/demo/res-markov/models/MultiSokoban9.xml"
+          },
+          {
+            "path": "models/NestedGrowth.xml",
+            "url": "/demo/res-markov/models/NestedGrowth.xml"
+          },
+          {
+            "path": "models/NoDeadEnds.xml",
+            "url": "/demo/res-markov/models/NoDeadEnds.xml"
+          },
+          {
+            "path": "models/Noise.xml",
+            "url": "/demo/res-markov/models/Noise.xml"
+          },
+          {
+            "path": "models/NystromDungeon.xml",
+            "url": "/demo/res-markov/models/NystromDungeon.xml"
+          },
+          {
+            "path": "models/OddScale.xml",
+            "url": "/demo/res-markov/models/OddScale.xml"
+          },
+          {
+            "path": "models/OddScale3D.xml",
+            "url": "/demo/res-markov/models/OddScale3D.xml"
+          },
+          {
+            "path": "models/OpenCave.xml",
+            "url": "/demo/res-markov/models/OpenCave.xml"
+          },
+          {
+            "path": "models/OpenCave3D.xml",
+            "url": "/demo/res-markov/models/OpenCave3D.xml"
+          },
+          {
+            "path": "models/OrganicMechanic.xml",
+            "url": "/demo/res-markov/models/OrganicMechanic.xml"
+          },
+          {
+            "path": "models/OrientedEscher.xml",
+            "url": "/demo/res-markov/models/OrientedEscher.xml"
+          },
+          {
+            "path": "models/PaintCompetition.xml",
+            "url": "/demo/res-markov/models/PaintCompetition.xml"
+          },
+          {
+            "path": "models/ParallelGrowth.xml",
+            "url": "/demo/res-markov/models/ParallelGrowth.xml"
+          },
+          {
+            "path": "models/ParallelMazeGrowth.xml",
+            "url": "/demo/res-markov/models/ParallelMazeGrowth.xml"
+          },
+          {
+            "path": "models/ParallelWalk.xml",
+            "url": "/demo/res-markov/models/ParallelWalk.xml"
+          },
+          {
+            "path": "models/Partitioning.xml",
+            "url": "/demo/res-markov/models/Partitioning.xml"
+          },
+          {
+            "path": "models/Percolation.xml",
+            "url": "/demo/res-markov/models/Percolation.xml"
+          },
+          {
+            "path": "models/PeriodicEscher.xml",
+            "url": "/demo/res-markov/models/PeriodicEscher.xml"
+          },
+          {
+            "path": "models/PillarsOfEternity.xml",
+            "url": "/demo/res-markov/models/PillarsOfEternity.xml"
+          },
+          {
+            "path": "models/Push.xml",
+            "url": "/demo/res-markov/models/Push.xml"
+          },
+          {
+            "path": "models/PutColoredLs.xml",
+            "url": "/demo/res-markov/models/PutColoredLs.xml"
+          },
+          {
+            "path": "models/PutLs.xml",
+            "url": "/demo/res-markov/models/PutLs.xml"
+          },
+          {
+            "path": "models/RainbowGrowth.xml",
+            "url": "/demo/res-markov/models/RainbowGrowth.xml"
+          },
+          {
+            "path": "models/RandomWalk.xml",
+            "url": "/demo/res-markov/models/RandomWalk.xml"
+          },
+          {
+            "path": "models/Rectangle.xml",
+            "url": "/demo/res-markov/models/Rectangle.xml"
+          },
+          {
+            "path": "models/RegularPath.xml",
+            "url": "/demo/res-markov/models/RegularPath.xml"
+          },
+          {
+            "path": "models/RegularSAW.xml",
+            "url": "/demo/res-markov/models/RegularSAW.xml"
+          },
+          {
+            "path": "models/RegularSAWRestart.xml",
+            "url": "/demo/res-markov/models/RegularSAWRestart.xml"
+          },
+          {
+            "path": "models/River.xml",
+            "url": "/demo/res-markov/models/River.xml"
+          },
+          {
+            "path": "models/Rosettes.xml",
+            "url": "/demo/res-markov/models/Rosettes.xml"
+          },
+          {
+            "path": "models/SAWRestart.xml",
+            "url": "/demo/res-markov/models/SAWRestart.xml"
+          },
+          {
+            "path": "models/SeaVilla.xml",
+            "url": "/demo/res-markov/models/SeaVilla.xml"
+          },
+          {
+            "path": "models/SelectLargeCaves.xml",
+            "url": "/demo/res-markov/models/SelectLargeCaves.xml"
+          },
+          {
+            "path": "models/SelectLongKnots.xml",
+            "url": "/demo/res-markov/models/SelectLongKnots.xml"
+          },
+          {
+            "path": "models/SelfAvoidingWalk.xml",
+            "url": "/demo/res-markov/models/SelfAvoidingWalk.xml"
+          },
+          {
+            "path": "models/SequentialSnake.xml",
+            "url": "/demo/res-markov/models/SequentialSnake.xml"
+          },
+          {
+            "path": "models/SequentialSokoban.xml",
+            "url": "/demo/res-markov/models/SequentialSokoban.xml"
+          },
+          {
+            "path": "models/Sewers.xml",
+            "url": "/demo/res-markov/models/Sewers.xml"
+          },
+          {
+            "path": "models/SmartSAW.xml",
+            "url": "/demo/res-markov/models/SmartSAW.xml"
+          },
+          {
+            "path": "models/SmarterDigger.xml",
+            "url": "/demo/res-markov/models/SmarterDigger.xml"
+          },
+          {
+            "path": "models/SmoothTrail.xml",
+            "url": "/demo/res-markov/models/SmoothTrail.xml"
+          },
+          {
+            "path": "models/Snake.xml",
+            "url": "/demo/res-markov/models/Snake.xml"
+          },
+          {
+            "path": "models/SnellLaw.xml",
+            "url": "/demo/res-markov/models/SnellLaw.xml"
+          },
+          {
+            "path": "models/SoftPath.xml",
+            "url": "/demo/res-markov/models/SoftPath.xml"
+          },
+          {
+            "path": "models/SokobanLevel1.xml",
+            "url": "/demo/res-markov/models/SokobanLevel1.xml"
+          },
+          {
+            "path": "models/SokobanLevel2.xml",
+            "url": "/demo/res-markov/models/SokobanLevel2.xml"
+          },
+          {
+            "path": "models/StableCrawlers.xml",
+            "url": "/demo/res-markov/models/StableCrawlers.xml"
+          },
+          {
+            "path": "models/StairsPath.xml",
+            "url": "/demo/res-markov/models/StairsPath.xml"
+          },
+          {
+            "path": "models/StochasticVoronoi.xml",
+            "url": "/demo/res-markov/models/StochasticVoronoi.xml"
+          },
+          {
+            "path": "models/StormySnellLaw.xml",
+            "url": "/demo/res-markov/models/StormySnellLaw.xml"
+          },
+          {
+            "path": "models/StrangeDungeon.xml",
+            "url": "/demo/res-markov/models/StrangeDungeon.xml"
+          },
+          {
+            "path": "models/StrangeGrowth.xml",
+            "url": "/demo/res-markov/models/StrangeGrowth.xml"
+          },
+          {
+            "path": "models/StrangeNoise.xml",
+            "url": "/demo/res-markov/models/StrangeNoise.xml"
+          },
+          {
+            "path": "models/SubmergedKnots.xml",
+            "url": "/demo/res-markov/models/SubmergedKnots.xml"
+          },
+          {
+            "path": "models/Surface.xml",
+            "url": "/demo/res-markov/models/Surface.xml"
+          },
+          {
+            "path": "models/Tetris.xml",
+            "url": "/demo/res-markov/models/Tetris.xml"
+          },
+          {
+            "path": "models/Texture.xml",
+            "url": "/demo/res-markov/models/Texture.xml"
+          },
+          {
+            "path": "models/TileDungeon.xml",
+            "url": "/demo/res-markov/models/TileDungeon.xml"
+          },
+          {
+            "path": "models/TilePath.xml",
+            "url": "/demo/res-markov/models/TilePath.xml"
+          },
+          {
+            "path": "models/Trail.xml",
+            "url": "/demo/res-markov/models/Trail.xml"
+          },
+          {
+            "path": "models/Voronoi.xml",
+            "url": "/demo/res-markov/models/Voronoi.xml"
+          },
+          {
+            "path": "models/WaveBrickWall.xml",
+            "url": "/demo/res-markov/models/WaveBrickWall.xml"
+          },
+          {
+            "path": "models/WaveDungeon.xml",
+            "url": "/demo/res-markov/models/WaveDungeon.xml"
+          },
+          {
+            "path": "models/WaveFlowers.xml",
+            "url": "/demo/res-markov/models/WaveFlowers.xml"
+          },
+          {
+            "path": "models/Wilson.xml",
+            "url": "/demo/res-markov/models/Wilson.xml"
+          },
+          {
+            "path": "models/WolfBasedApproach.xml",
+            "url": "/demo/res-markov/models/WolfBasedApproach.xml"
+          },
+          {
+            "path": "resources/fonts/Tamzen8x16b.png",
+            "url": "/demo/res-markov/resources/fonts/Tamzen8x16b.png"
+          },
+          {
+            "path": "resources/fonts/Tamzen8x16r.png",
+            "url": "/demo/res-markov/resources/fonts/Tamzen8x16r.png"
+          },
+          {
+            "path": "resources/palette.xml",
+            "url": "/demo/res-markov/resources/palette.xml"
+          },
+          {
+            "path": "resources/rules/BasicDijkstraRoom.png",
+            "url": "/demo/res-markov/resources/rules/BasicDijkstraRoom.png"
+          },
+          {
+            "path": "resources/rules/BasicDijkstraRoom.vox",
+            "url": "/demo/res-markov/resources/rules/BasicDijkstraRoom.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/block_1_5x3.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/block_1_5x3.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/block_2_4x3.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/block_2_4x3.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/bracing_h_1.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/bracing_h_1.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/bracing_h_2.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/bracing_h_2.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/bracing_h_3.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/bracing_h_3.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/bracing_v_1.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/bracing_v_1.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/bracing_v_2.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/bracing_v_2.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/bracing_v_3.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/bracing_v_3.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/cut_1.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/cut_1.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/cut_2.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/cut_2.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/holes_2.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/holes_2.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/holes_4.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/holes_4.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/holes_h_4.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/holes_h_4.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/holes_v_3.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/holes_v_3.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/roof_3x5.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/roof_3x5.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/roof_5x9.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/roof_5x9.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/roof_7x11.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/roof_7x11.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/roof_7x7.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/roof_7x7.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/roof_thing_1.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/roof_thing_1.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/roof_thing_2.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/roof_thing_2.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/roof_thing_5x9.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/roof_thing_5x9.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/roof_thing_7x11.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/roof_thing_7x11.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/side_11x7.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/side_11x7.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/side_13x5.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/side_13x5.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/side_3x5.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/side_3x5.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/side_3x5_fake.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/side_3x5_fake.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/side_5x13.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/side_5x13.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/side_5x3.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/side_5x3.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/side_5x3_fake.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/side_5x3_fake.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/side_7x11.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/side_7x11.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/small_windows_2.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/small_windows_2.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/small_windows_3.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/small_windows_3.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/window_1.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/window_1.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/window_2.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/window_2.vox"
+          },
+          {
+            "path": "resources/rules/CarmaTower/window_3.vox",
+            "url": "/demo/res-markov/resources/rules/CarmaTower/window_3.vox"
+          },
+          {
+            "path": "resources/rules/Chip.png",
+            "url": "/demo/res-markov/resources/rules/Chip.png"
+          },
+          {
+            "path": "resources/rules/ConstrainedRoom.png",
+            "url": "/demo/res-markov/resources/rules/ConstrainedRoom.png"
+          },
+          {
+            "path": "resources/rules/DijkstraRoom.png",
+            "url": "/demo/res-markov/resources/rules/DijkstraRoom.png"
+          },
+          {
+            "path": "resources/rules/DualRetraction/Room1.png",
+            "url": "/demo/res-markov/resources/rules/DualRetraction/Room1.png"
+          },
+          {
+            "path": "resources/rules/DualRetraction/Room1.vox",
+            "url": "/demo/res-markov/resources/rules/DualRetraction/Room1.vox"
+          },
+          {
+            "path": "resources/rules/DualRetraction/Room2.png",
+            "url": "/demo/res-markov/resources/rules/DualRetraction/Room2.png"
+          },
+          {
+            "path": "resources/rules/DualRetraction/Room2.vox",
+            "url": "/demo/res-markov/resources/rules/DualRetraction/Room2.vox"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room1.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room1.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room10.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room10.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room11.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room11.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room12.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room12.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room13.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room13.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room14.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room14.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room15.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room15.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room16.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room16.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room17.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room17.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room18.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room18.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room2.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room2.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room3.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room3.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room4.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room4.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room5.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room5.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room6.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room6.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room7.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room7.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room8.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room8.png"
+          },
+          {
+            "path": "resources/rules/DungeonGrowth/Room9.png",
+            "url": "/demo/res-markov/resources/rules/DungeonGrowth/Room9.png"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Bridge.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Bridge.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/ColumnBottom.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/ColumnBottom.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/ColumnTop.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/ColumnTop.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/ContactBottom.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/ContactBottom.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/ContactTop.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/ContactTop.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Dir.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Dir.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Down.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Down.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Edge.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Edge.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/FrameDir.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/FrameDir.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/FrameVertex.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/FrameVertex.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/GlassColumnBottom.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/GlassColumnBottom.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/GlassColumnMid.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/GlassColumnMid.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/GlassColumnTop.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/GlassColumnTop.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Grass.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Grass.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/In.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/In.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Node.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Node.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Out.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Out.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/SecondaryDir.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/SecondaryDir.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/SecondaryNode.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/SecondaryNode.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/StyleBottom.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/StyleBottom.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/StyleTop.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/StyleTop.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/TertiaryDir.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/TertiaryDir.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Up.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Up.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/Wall.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/Wall.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/WallBottom.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/WallBottom.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/WallTop.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/WallTop.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/WindowBottom.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/WindowBottom.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/WindowMid.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/WindowMid.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/WindowTop.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/WindowTop.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/WoodBottom.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/WoodBottom.vox"
+          },
+          {
+            "path": "resources/rules/ModernHouse/WoodTop.vox",
+            "url": "/demo/res-markov/resources/rules/ModernHouse/WoodTop.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/BridgeWood.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/BridgeWood.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/ContactWood.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/ContactWood.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Cross.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Cross.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/CrossX.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/CrossX.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Dir.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Dir.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/DrawPier.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/DrawPier.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Edge.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Edge.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Goal.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Goal.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/In.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/In.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/KeyK.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/KeyK.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/KeyL.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/KeyL.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/KeyR.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/KeyR.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Ladder.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Ladder.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/LadderBottom.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/LadderBottom.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/LadderTop.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/LadderTop.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Line.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Line.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/LockK.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/LockK.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/LockL.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/LockL.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/LockR.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/LockR.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Out.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Out.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/OutIn.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/OutIn.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/OutWall.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/OutWall.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Pier.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Pier.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Room.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Room.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/RoomDouble.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/RoomDouble.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/RoomIn.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/RoomIn.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/RoomOut.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/RoomOut.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/RoomWall.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/RoomWall.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/StairsBottom.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/StairsBottom.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/StairsTop.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/StairsTop.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Stone.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Stone.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/TopContactWood.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/TopContactWood.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/TopCross.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/TopCross.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/TopDir.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/TopDir.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/TopEdge.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/TopEdge.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/TopIn.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/TopIn.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/TopOut.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/TopOut.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/TopStone.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/TopStone.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/TopWall.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/TopWall.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Wall.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Wall.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/Water.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/Water.vox"
+          },
+          {
+            "path": "resources/rules/SeaVilla/WaterWall.vox",
+            "url": "/demo/res-markov/resources/rules/SeaVilla/WaterWall.vox"
+          },
+          {
+            "path": "resources/rules/Sokoban1.png",
+            "url": "/demo/res-markov/resources/rules/Sokoban1.png"
+          },
+          {
+            "path": "resources/rules/Sokoban2.png",
+            "url": "/demo/res-markov/resources/rules/Sokoban2.png"
+          },
+          {
+            "path": "resources/rules/Stairs/Down.vox",
+            "url": "/demo/res-markov/resources/rules/Stairs/Down.vox"
+          },
+          {
+            "path": "resources/rules/Stairs/End.vox",
+            "url": "/demo/res-markov/resources/rules/Stairs/End.vox"
+          },
+          {
+            "path": "resources/rules/Stairs/Line.vox",
+            "url": "/demo/res-markov/resources/rules/Stairs/Line.vox"
+          },
+          {
+            "path": "resources/rules/Stairs/Turn.vox",
+            "url": "/demo/res-markov/resources/rules/Stairs/Turn.vox"
+          },
+          {
+            "path": "resources/rules/Stairs/Up.vox",
+            "url": "/demo/res-markov/resources/rules/Stairs/Up.vox"
+          },
+          {
+            "path": "resources/samples/BrickWall.png",
+            "url": "/demo/res-markov/resources/samples/BrickWall.png"
+          },
+          {
+            "path": "resources/samples/Dungeon.png",
+            "url": "/demo/res-markov/resources/samples/Dungeon.png"
+          },
+          {
+            "path": "resources/samples/Flowers.png",
+            "url": "/demo/res-markov/resources/samples/Flowers.png"
+          },
+          {
+            "path": "resources/samples/Maze.png",
+            "url": "/demo/res-markov/resources/samples/Maze.png"
+          },
+          {
+            "path": "resources/samples/Room.png",
+            "url": "/demo/res-markov/resources/samples/Room.png"
+          },
+          {
+            "path": "resources/samples/Sewers.png",
+            "url": "/demo/res-markov/resources/samples/Sewers.png"
+          },
+          {
+            "path": "resources/samples/Skew1.png",
+            "url": "/demo/res-markov/resources/samples/Skew1.png"
+          },
+          {
+            "path": "resources/samples/Skew2.png",
+            "url": "/demo/res-markov/resources/samples/Skew2.png"
+          },
+          {
+            "path": "resources/settings.xml",
+            "url": "/demo/res-markov/resources/settings.xml"
+          },
+          {
+            "path": "resources/tilesets/Dungeon.xml",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon.xml"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/Door.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/Door.vox"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/In.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/In.vox"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/Out.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/Out.vox"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/Stone.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/Stone.vox"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/T.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/T.vox"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/Dungeon/Wall.vox",
+            "url": "/demo/res-markov/resources/tilesets/Dungeon/Wall.vox"
+          },
+          {
+            "path": "resources/tilesets/Escher.xml",
+            "url": "/demo/res-markov/resources/tilesets/Escher.xml"
+          },
+          {
+            "path": "resources/tilesets/Escher/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Escher/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Escher/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/Escher/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/Escher/Stairs.vox",
+            "url": "/demo/res-markov/resources/tilesets/Escher/Stairs.vox"
+          },
+          {
+            "path": "resources/tilesets/Escher/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/Escher/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/Escher/X.vox",
+            "url": "/demo/res-markov/resources/tilesets/Escher/X.vox"
+          },
+          {
+            "path": "resources/tilesets/EscherSurface.xml",
+            "url": "/demo/res-markov/resources/tilesets/EscherSurface.xml"
+          },
+          {
+            "path": "resources/tilesets/EscherSurface/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/EscherSurface/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/EscherSurface/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/EscherSurface/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/EscherSurface/Stairs.vox",
+            "url": "/demo/res-markov/resources/tilesets/EscherSurface/Stairs.vox"
+          },
+          {
+            "path": "resources/tilesets/EscherSurface/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/EscherSurface/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/EscherSurface/X.vox",
+            "url": "/demo/res-markov/resources/tilesets/EscherSurface/X.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots2D.xml",
+            "url": "/demo/res-markov/resources/tilesets/Knots2D.xml"
+          },
+          {
+            "path": "resources/tilesets/Knots2D/Cross.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots2D/Cross.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots2D/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots2D/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots2D/End.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots2D/End.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots2D/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots2D/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots2D/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots2D/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D.xml",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D.xml"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/3/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/3/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/3/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/3/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/3/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/3/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/4/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/4/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/4/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/4/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/4/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/4/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/5/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/5/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/5/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/5/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/5/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/5/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/Tubes/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/Tubes/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/Tubes/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/Tubes/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/Knots3D/Tubes/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/Knots3D/Tubes/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/MarchingHills.xml",
+            "url": "/demo/res-markov/resources/tilesets/MarchingHills.xml"
+          },
+          {
+            "path": "resources/tilesets/MarchingHills/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/MarchingHills/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/MarchingHills/In.vox",
+            "url": "/demo/res-markov/resources/tilesets/MarchingHills/In.vox"
+          },
+          {
+            "path": "resources/tilesets/MarchingHills/Out.vox",
+            "url": "/demo/res-markov/resources/tilesets/MarchingHills/Out.vox"
+          },
+          {
+            "path": "resources/tilesets/MarchingHills/Stone.vox",
+            "url": "/demo/res-markov/resources/tilesets/MarchingHills/Stone.vox"
+          },
+          {
+            "path": "resources/tilesets/MarchingHills/Wall.vox",
+            "url": "/demo/res-markov/resources/tilesets/MarchingHills/Wall.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedEscher.xml",
+            "url": "/demo/res-markov/resources/tilesets/OrientedEscher.xml"
+          },
+          {
+            "path": "resources/tilesets/OrientedEscher/Cube.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedEscher/Cube.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedEscher/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedEscher/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedEscher/Stairs.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedEscher/Stairs.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedEscher/T.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedEscher/T.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedEscher/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedEscher/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedStairs.xml",
+            "url": "/demo/res-markov/resources/tilesets/OrientedStairs.xml"
+          },
+          {
+            "path": "resources/tilesets/OrientedStairs/Cube.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedStairs/Cube.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedStairs/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedStairs/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedStairs/StairsB.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedStairs/StairsB.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedStairs/StairsT.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedStairs/StairsT.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedStairs/T1.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedStairs/T1.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedStairs/T2.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedStairs/T2.vox"
+          },
+          {
+            "path": "resources/tilesets/OrientedStairs/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/OrientedStairs/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/Partition.xml",
+            "url": "/demo/res-markov/resources/tilesets/Partition.xml"
+          },
+          {
+            "path": "resources/tilesets/Partition/I.vox",
+            "url": "/demo/res-markov/resources/tilesets/Partition/I.vox"
+          },
+          {
+            "path": "resources/tilesets/Partition/Nothing.vox",
+            "url": "/demo/res-markov/resources/tilesets/Partition/Nothing.vox"
+          },
+          {
+            "path": "resources/tilesets/Partition/T.vox",
+            "url": "/demo/res-markov/resources/tilesets/Partition/T.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges.xml",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges.xml"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/00.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/00.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/01.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/01.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/10.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/10.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/11.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/11.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Bridge.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Bridge.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/ContactDown.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/ContactDown.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/ContactUp.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/ContactUp.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Cross.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Cross.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Down.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Down.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/I.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/I.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Nothing.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Nothing.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/T.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/T.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Up0.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Up0.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/Up1.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/Up1.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/X.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/X.vox"
+          },
+          {
+            "path": "resources/tilesets/PartitionedEdges/o.vox",
+            "url": "/demo/res-markov/resources/tilesets/PartitionedEdges/o.vox"
+          },
+          {
+            "path": "resources/tilesets/Paths.xml",
+            "url": "/demo/res-markov/resources/tilesets/Paths.xml"
+          },
+          {
+            "path": "resources/tilesets/Paths/Down.vox",
+            "url": "/demo/res-markov/resources/tilesets/Paths/Down.vox"
+          },
+          {
+            "path": "resources/tilesets/Paths/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Paths/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Paths/Line.vox",
+            "url": "/demo/res-markov/resources/tilesets/Paths/Line.vox"
+          },
+          {
+            "path": "resources/tilesets/Paths/Turn.vox",
+            "url": "/demo/res-markov/resources/tilesets/Paths/Turn.vox"
+          },
+          {
+            "path": "resources/tilesets/Paths/Up.vox",
+            "url": "/demo/res-markov/resources/tilesets/Paths/Up.vox"
+          },
+          {
+            "path": "resources/tilesets/Paths/X.vox",
+            "url": "/demo/res-markov/resources/tilesets/Paths/X.vox"
+          },
+          {
+            "path": "resources/tilesets/Surface.xml",
+            "url": "/demo/res-markov/resources/tilesets/Surface.xml"
+          },
+          {
+            "path": "resources/tilesets/Surface/Angle.vox",
+            "url": "/demo/res-markov/resources/tilesets/Surface/Angle.vox"
+          },
+          {
+            "path": "resources/tilesets/Surface/Concave.vox",
+            "url": "/demo/res-markov/resources/tilesets/Surface/Concave.vox"
+          },
+          {
+            "path": "resources/tilesets/Surface/Corner.vox",
+            "url": "/demo/res-markov/resources/tilesets/Surface/Corner.vox"
+          },
+          {
+            "path": "resources/tilesets/Surface/Empty.vox",
+            "url": "/demo/res-markov/resources/tilesets/Surface/Empty.vox"
+          },
+          {
+            "path": "resources/tilesets/Surface/Plane.vox",
+            "url": "/demo/res-markov/resources/tilesets/Surface/Plane.vox"
           }
         ]
       }
