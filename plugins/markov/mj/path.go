@@ -43,6 +43,7 @@ func parsePathNode(x xmlNode, model *Model) (Node, error) {
 }
 
 func (p *PathNode) Type() string { return "path" }
+func (p *PathNode) Reset()       {}
 func (p *PathNode) Features(out map[string]bool) {
 	out["path"] = true
 }

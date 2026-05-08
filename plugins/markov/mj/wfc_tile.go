@@ -93,7 +93,7 @@ func parseTileWFCNode(x xmlNode, parent *Model, opts ParseOptions, folder string
 		case "union", "observe":
 			continue
 		default:
-			n, err := parseNode(child, mapModel, opts, folder)
+			n, err := parseNode(child, mapModel, opts, folder, []bool{true, true, true, true, true, true, true, true})
 			if err != nil {
 				return nil, err
 			}
@@ -104,6 +104,11 @@ func parseTileWFCNode(x xmlNode, parent *Model, opts ParseOptions, folder string
 }
 
 func (n *TileWFCNode) Type() string { return "wfc" }
+func (n *TileWFCNode) Reset() {
+	for _, child := range n.Children {
+		child.Reset()
+	}
+}
 func (n *TileWFCNode) Features(out map[string]bool) {
 	out["wfc"] = true
 	out["wfc.tile"] = true

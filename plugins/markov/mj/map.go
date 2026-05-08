@@ -64,7 +64,7 @@ func parseMapNode(x xmlNode, parent *Model, opts ParseOptions, folder string) (N
 		case "union", "observe":
 			continue
 		default:
-			n, err := parseNode(child, mapModel, opts, folder)
+			n, err := parseNode(child, mapModel, opts, folder, []bool{true, true, true, true, true, true, true, true})
 			if err != nil {
 				return nil, err
 			}
@@ -76,6 +76,11 @@ func parseMapNode(x xmlNode, parent *Model, opts ParseOptions, folder string) (N
 }
 
 func (m *MapNode) Type() string { return "map" }
+func (m *MapNode) Reset() {
+	for _, child := range m.Children {
+		child.Reset()
+	}
+}
 func (m *MapNode) Features(out map[string]bool) {
 	out["map"] = true
 	for _, child := range m.Children {

@@ -53,6 +53,7 @@ func parseConvChainNode(x xmlNode, model *Model, opts ParseOptions) (Node, error
 }
 
 func (c *ConvChainNode) Type() string { return "convchain" }
+func (c *ConvChainNode) Reset()       {}
 func (c *ConvChainNode) Features(out map[string]bool) {
 	out["convchain"] = true
 }

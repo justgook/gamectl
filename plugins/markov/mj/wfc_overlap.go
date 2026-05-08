@@ -81,7 +81,7 @@ func parseOverlapWFCNode(x xmlNode, parent *Model, opts ParseOptions, folder str
 		case "union", "observe":
 			continue
 		default:
-			n, err := parseNode(child, mapModel, opts, folder)
+			n, err := parseNode(child, mapModel, opts, folder, []bool{true, true, true, true, true, true, true, true})
 			if err != nil {
 				return nil, err
 			}
@@ -92,6 +92,11 @@ func parseOverlapWFCNode(x xmlNode, parent *Model, opts ParseOptions, folder str
 }
 
 func (n *OverlapWFCNode) Type() string { return "wfc" }
+func (n *OverlapWFCNode) Reset() {
+	for _, child := range n.Children {
+		child.Reset()
+	}
+}
 func (n *OverlapWFCNode) Features(out map[string]bool) {
 	out["wfc"] = true
 	out["wfc.overlap"] = true
