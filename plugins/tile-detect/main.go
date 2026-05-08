@@ -9,9 +9,9 @@ import (
 	"math"
 	"sort"
 
-	"github.com/justgook/gamectl/pkg/qoi"
-	"github.com/justgook/gamectl/pkg/tilemap"
-	"github.com/justgook/gamectl/pkg/util"
+	"github.com/justgook/gams/pkg/qoi"
+	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -120,10 +120,6 @@ func fsWrite(path string, data []byte) error {
 func logMsg(msg string) {
 	pdk.Call("host", "log", []byte(msg))
 }
-
-// =============================================================================
-// Image handling
-// =============================================================================
 
 func loadImage(path string) (*image.NRGBA, error) {
 	data, err := fsRead(path)

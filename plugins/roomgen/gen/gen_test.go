@@ -3,7 +3,7 @@ package gen
 import (
 	"testing"
 
-	"github.com/justgook/gamectl/pkg/tilemap"
+	"github.com/justgook/gams/pkg/tilemap"
 )
 
 // =============================================================================

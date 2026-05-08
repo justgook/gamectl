@@ -1,0 +1,790 @@
+package logic
+
+Entity :: u32
+
+// Component storage using dynamic arrays and sparse sets
+Component_Storage :: struct($T: typeid) {
+	// Dense array of components
+	components: [dynamic]T,
+	// Dense array of entity IDs corresponding to components
+	entity_ids: [dynamic]Entity,
+	// Sparse array mapping entity IDs to dense array indices
+	sparse:     map[Entity]int,
+}
+
+Component_Storage_Fixed :: struct($T: typeid, $N: int) {
+	components: [N]T,
+	entity_ids: [N]Entity,
+	sparse:     map[Entity]int,
+	count:      int,
+}
+
+Storage_View :: struct($T: typeid) {
+	components: []T,
+	entity_ids: []Entity,
+	sparse:     map[Entity]int,
+}
+
+load_storage_dynamic :: proc(storage: ^Component_Storage($T), components: []T, entity_ids: []Entity) {
+	for &value, index in entity_ids {
+		add_component(storage, value, components[index])
+	}
+}
+
+load_storage_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N), components: []T, entity_ids: []Entity) {
+	for &value, index in entity_ids {
+		add_component(storage, value, components[index])
+	}
+}
+
+load_storage :: proc {
+	load_storage_dynamic,
+	load_storage_fixed,
+}
+
+destroy_storage_dynamic :: proc(storage: ^Component_Storage($T)) {
+	delete(storage.components)
+	delete(storage.entity_ids)
+	delete(storage.sparse)
+}
+
+destroy_storage_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N)) {
+	delete(storage.sparse)
+	storage.count = 0
+}
+
+destroy_storage :: proc {
+	destroy_storage_dynamic,
+	destroy_storage_fixed,
+}
+
+add_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity, component: T) {
+	if storage.sparse == nil {
+		storage.sparse = make(map[Entity]int)
+	}
+
+	if entity in storage.sparse {
+		idx := storage.sparse[entity]
+		storage.components[idx] = component
+		return
+	}
+
+	append(&storage.components, component)
+	append(&storage.entity_ids, entity)
+	storage.sparse[entity] = len(storage.components) - 1
+}
+
+add_component_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N), entity: Entity, component: T) {
+	if storage.sparse == nil {
+		storage.sparse = make(map[Entity]int)
+	}
+
+	if entity in storage.sparse {
+		idx := storage.sparse[entity]
+		storage.components[idx] = component
+		return
+	}
+
+	assert(storage.count < N)
+
+	storage.components[storage.count] = component
+	storage.entity_ids[storage.count] = entity
+	storage.sparse[entity] = storage.count
+	storage.count += 1
+	return
+}
+
+add_component :: proc {
+	add_component_dynamic,
+	add_component_fixed,
+}
+
+
+delete_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity) -> (ok: bool) {
+	// Get the index from the sparse array
+	dense_idx, exists := storage.sparse[entity]
+	if !exists {
+		return false
+	}
+
+	unordered_remove(&storage.components, dense_idx)
+	unordered_remove(&storage.entity_ids, dense_idx)
+
+	// Update the sparse map for the moved entity if there was one
+	if len(storage.entity_ids) > dense_idx {
+		moved_entity_id := storage.entity_ids[dense_idx]
+		storage.sparse[moved_entity_id] = dense_idx
+	}
+
+	delete_key(&storage.sparse, entity)
+
+	return true
+}
+
+delete_component_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N), entity: Entity) -> (ok: bool) {
+	dense_idx, exists := storage.sparse[entity]
+	if !exists {
+		return false
+	}
+
+	last_idx := storage.count - 1
+	if dense_idx != last_idx {
+		storage.components[dense_idx] = storage.components[last_idx]
+		storage.entity_ids[dense_idx] = storage.entity_ids[last_idx]
+
+		moved_entity_id := storage.entity_ids[dense_idx]
+		storage.sparse[moved_entity_id] = dense_idx
+	}
+
+	storage.count -= 1
+	delete_key(&storage.sparse, entity)
+
+	return true
+}
+
+delete_component :: proc {
+	delete_component_dynamic,
+	delete_component_fixed,
+}
+
+@(require_results)
+get_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity) -> (^T, bool) #optional_ok {
+	if idx, ok := storage.sparse[entity]; ok {
+		return &storage.components[idx], true
+	}
+
+	return nil, false
+}
+
+@(require_results)
+get_component_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N), entity: Entity) -> (^T, bool) #optional_ok {
+	if idx, ok := storage.sparse[entity]; ok {
+		return &storage.components[idx], true
+	}
+
+	return nil, false
+}
+
+@(require_results)
+get_component :: proc {
+	get_component_dynamic,
+	get_component_fixed,
+}
+
+@(require_results)
+has_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity) -> bool {
+	return entity in storage.sparse
+}
+
+@(require_results)
+has_component_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N), entity: Entity) -> bool {
+	return entity in storage.sparse
+}
+
+@(require_results)
+has_component_view :: proc(storage: Storage_View($T), entity: Entity) -> bool {
+	return entity in storage.sparse
+}
+
+@(require_results)
+has_component :: proc {
+	has_component_dynamic,
+	has_component_fixed,
+	has_component_view,
+}
+
+with_component_dynamic :: proc(storage: ^Component_Storage($T), entity: Entity, fn: proc(c: ^T)) {
+	idx, ok := storage.sparse[entity]
+	if !ok {
+		return
+	}
+
+	fn(&storage.components[idx])
+}
+
+with_component_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N), entity: Entity, fn: proc(c: ^T)) {
+	idx, ok := storage.sparse[entity]
+	if !ok {
+		return
+	}
+
+	fn(&storage.components[idx])
+}
+
+with_component :: proc {
+	with_component_dynamic,
+	with_component_fixed,
+}
+
+@(require_results)
+storage_view_dynamic :: proc(storage: ^Component_Storage($T)) -> Storage_View(T) {
+	return Storage_View(T) {
+		components = storage.components[:],
+		entity_ids = storage.entity_ids[:],
+		sparse = storage.sparse,
+	}
+}
+
+@(require_results)
+storage_view_fixed :: proc(storage: ^Component_Storage_Fixed($T, $N)) -> Storage_View(T) {
+	return Storage_View(T) {
+		components = storage.components[:storage.count],
+		entity_ids = storage.entity_ids[:storage.count],
+		sparse = storage.sparse,
+	}
+}
+
+@(require_results)
+storage_view :: proc {
+	storage_view_dynamic,
+	storage_view_fixed,
+}
+
+
+View1 :: struct($A: typeid) {
+	storage_a:     Storage_View(A),
+	current_index: int,
+}
+
+View2 :: struct($A, $B: typeid) {
+	storage_a:     Storage_View(A),
+	storage_b:     Storage_View(B),
+	current_index: int,
+}
+
+View3 :: struct($A, $B, $C: typeid) {
+	storage_a:     Storage_View(A),
+	storage_b:     Storage_View(B),
+	storage_c:     Storage_View(C),
+	current_index: int,
+}
+
+
+View4 :: struct($A, $B, $C, $D: typeid) {
+	storage_a:     Storage_View(A),
+	storage_b:     Storage_View(B),
+	storage_c:     Storage_View(C),
+	storage_d:     Storage_View(D),
+	current_index: int,
+}
+
+@(require_results)
+make_view1_from_views :: proc(storage_a: Storage_View($A)) -> View1(A) {
+	return View1(A){storage_a = storage_a, current_index = 0}
+}
+
+@(require_results)
+make_view2_from_views :: proc(storage_a: Storage_View($A), storage_b: Storage_View($B)) -> View2(A, B) {
+	return View2(A, B){storage_a = storage_a, storage_b = storage_b, current_index = 0}
+}
+
+@(require_results)
+make_view3_from_views :: proc(
+	storage_a: Storage_View($A),
+	storage_b: Storage_View($B),
+	storage_c: Storage_View($C),
+) -> View3(A, B, C) {
+	return View3(A, B, C){storage_a = storage_a, storage_b = storage_b, storage_c = storage_c, current_index = 0}
+}
+
+@(require_results)
+make_view4_from_views :: proc(
+	storage_a: Storage_View($A),
+	storage_b: Storage_View($B),
+	storage_c: Storage_View($C),
+	storage_d: Storage_View($D),
+) -> View4(A, B, C, D) {
+	return View4(A, B, C, D) {
+		storage_a = storage_a,
+		storage_b = storage_b,
+		storage_c = storage_c,
+		storage_d = storage_d,
+		current_index = 0,
+	}
+}
+
+@(require_results)
+view :: proc {// 1 storage
+	make_view1_dynamic,
+	make_view1_fixed,
+
+	// 2 storages
+	make_view2_dynamic_dynamic,
+	make_view2_dynamic_fixed,
+	make_view2_fixed_dynamic,
+	make_view2_fixed_fixed,
+
+	// 3 storages
+	make_view3_dynamic_dynamic_dynamic,
+	make_view3_dynamic_dynamic_fixed,
+	make_view3_dynamic_fixed_dynamic,
+	make_view3_dynamic_fixed_fixed,
+	make_view3_fixed_dynamic_dynamic,
+	make_view3_fixed_dynamic_fixed,
+	make_view3_fixed_fixed_dynamic,
+	make_view3_fixed_fixed_fixed,
+
+	// 4 storages
+	make_view4_dynamic_dynamic_dynamic_dynamic,
+	make_view4_dynamic_dynamic_dynamic_fixed,
+	make_view4_dynamic_dynamic_fixed_dynamic,
+	make_view4_dynamic_dynamic_fixed_fixed,
+	make_view4_dynamic_fixed_dynamic_dynamic,
+	make_view4_dynamic_fixed_dynamic_fixed,
+	make_view4_dynamic_fixed_fixed_dynamic,
+	make_view4_dynamic_fixed_fixed_fixed,
+	make_view4_fixed_dynamic_dynamic_dynamic,
+	make_view4_fixed_dynamic_dynamic_fixed,
+	make_view4_fixed_dynamic_fixed_dynamic,
+	make_view4_fixed_dynamic_fixed_fixed,
+	make_view4_fixed_fixed_dynamic_dynamic,
+	make_view4_fixed_fixed_dynamic_fixed,
+	make_view4_fixed_fixed_fixed_dynamic,
+	make_view4_fixed_fixed_fixed_fixed,
+}
+
+@(require_results)
+make_view1_dynamic :: proc(storage_a: ^Component_Storage($A)) -> View1(A) {
+	return make_view1_from_views(storage_view(storage_a))
+}
+
+@(require_results)
+make_view1_fixed :: proc(storage_a: ^Component_Storage_Fixed($A, $N)) -> View1(A) {
+	return make_view1_from_views(storage_view(storage_a))
+}
+
+@(require_results)
+make_view2_dynamic_dynamic :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage($B),
+) -> View2(A, B) {
+	return make_view2_from_views(storage_view(storage_a), storage_view(storage_b))
+}
+
+@(require_results)
+make_view2_fixed_dynamic :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage($B),
+) -> View2(A, B) {
+	return make_view2_from_views(storage_view(storage_a), storage_view(storage_b))
+}
+
+@(require_results)
+make_view2_dynamic_fixed :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+) -> View2(A, B) {
+	return make_view2_from_views(storage_view(storage_a), storage_view(storage_b))
+}
+
+@(require_results)
+make_view2_fixed_fixed :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+) -> View2(A, B) {
+	return make_view2_from_views(storage_view(storage_a), storage_view(storage_b))
+}
+
+@(require_results)
+make_view3_dynamic_dynamic_dynamic :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage($C),
+) -> View3(A, B, C) {
+	return make_view3_from_views(storage_view(storage_a), storage_view(storage_b), storage_view(storage_c))
+}
+
+@(require_results)
+make_view3_fixed_dynamic_dynamic :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage($C),
+) -> View3(A, B, C) {
+	return make_view3_from_views(storage_view(storage_a), storage_view(storage_b), storage_view(storage_c))
+}
+
+@(require_results)
+make_view3_dynamic_fixed_dynamic :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage($C),
+) -> View3(A, B, C) {
+	return make_view3_from_views(storage_view(storage_a), storage_view(storage_b), storage_view(storage_c))
+}
+
+@(require_results)
+make_view3_dynamic_dynamic_fixed :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+) -> View3(A, B, C) {
+	return make_view3_from_views(storage_view(storage_a), storage_view(storage_b), storage_view(storage_c))
+}
+
+@(require_results)
+make_view3_fixed_fixed_dynamic :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage($C),
+) -> View3(A, B, C) {
+	return make_view3_from_views(storage_view(storage_a), storage_view(storage_b), storage_view(storage_c))
+}
+
+@(require_results)
+make_view3_fixed_dynamic_fixed :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+) -> View3(A, B, C) {
+	return make_view3_from_views(storage_view(storage_a), storage_view(storage_b), storage_view(storage_c))
+}
+
+@(require_results)
+make_view3_dynamic_fixed_fixed :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+) -> View3(A, B, C) {
+	return make_view3_from_views(storage_view(storage_a), storage_view(storage_b), storage_view(storage_c))
+}
+
+@(require_results)
+make_view3_fixed_fixed_fixed :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+) -> View3(A, B, C) {
+	return make_view3_from_views(storage_view(storage_a), storage_view(storage_b), storage_view(storage_c))
+}
+
+@(require_results)
+make_view4_dynamic_dynamic_dynamic_dynamic :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage($C),
+	storage_d: ^Component_Storage($D),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_fixed_dynamic_dynamic_dynamic :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage($C),
+	storage_d: ^Component_Storage($D),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_dynamic_fixed_dynamic_dynamic :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage($C),
+	storage_d: ^Component_Storage($D),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_dynamic_dynamic_fixed_fixed :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+	storage_d: ^Component_Storage_Fixed($D, $ND),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_dynamic_dynamic_fixed_dynamic :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+	storage_d: ^Component_Storage($D),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_dynamic_dynamic_dynamic_fixed :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage($C),
+	storage_d: ^Component_Storage_Fixed($D, $ND),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_fixed_fixed_fixed_fixed :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+	storage_d: ^Component_Storage_Fixed($D, $ND),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_fixed_fixed_fixed_dynamic :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+	storage_d: ^Component_Storage($D),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_fixed_fixed_dynamic_fixed :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage($C),
+	storage_d: ^Component_Storage_Fixed($D, $ND),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_fixed_dynamic_fixed_fixed :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+	storage_d: ^Component_Storage_Fixed($D, $ND),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_dynamic_fixed_fixed_fixed :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+	storage_d: ^Component_Storage_Fixed($D, $ND),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_fixed_fixed_dynamic_dynamic :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage($C),
+	storage_d: ^Component_Storage($D),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_fixed_dynamic_fixed_dynamic :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+	storage_d: ^Component_Storage($D),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_fixed_dynamic_dynamic_fixed :: proc(
+	storage_a: ^Component_Storage_Fixed($A, $NA),
+	storage_b: ^Component_Storage($B),
+	storage_c: ^Component_Storage($C),
+	storage_d: ^Component_Storage_Fixed($D, $ND),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_dynamic_fixed_fixed_dynamic :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage_Fixed($C, $NC),
+	storage_d: ^Component_Storage($D),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+@(require_results)
+make_view4_dynamic_fixed_dynamic_fixed :: proc(
+	storage_a: ^Component_Storage($A),
+	storage_b: ^Component_Storage_Fixed($B, $NB),
+	storage_c: ^Component_Storage($C),
+	storage_d: ^Component_Storage_Fixed($D, $ND),
+) -> View4(A, B, C, D) {
+	return make_view4_from_views(
+		storage_view(storage_a),
+		storage_view(storage_b),
+		storage_view(storage_c),
+		storage_view(storage_d),
+	)
+}
+
+each_component_dynamic :: proc(s: ^Component_Storage($A), fn: proc(id: int, c: ^A)) {
+	for id, i in s.sparse {
+		fn(id, &s.components[i])
+	}
+}
+
+each_component_fixed :: proc(s: ^Component_Storage_Fixed($A, $N), fn: proc(id: int, c: ^A)) {
+	for id, i in s.sparse {
+		fn(id, &s.components[i])
+	}
+}
+
+each :: proc {
+	each_component_dynamic,
+	each_component_fixed,
+	each_view1,
+	each_view2,
+	each_view3,
+	each_view4,
+}
+
+each_view1 :: proc(view: ^View1($A)) -> (entity: Entity, a: ^A, ok: bool) {
+	if ok = view.current_index < len(view.storage_a.entity_ids); ok {
+		entity = view.storage_a.entity_ids[view.current_index]
+		a = &view.storage_a.components[view.current_index]
+		view.current_index += 1
+	}
+
+	return
+}
+
+
+each_view2 :: proc(view: ^View2($A, $B)) -> (entity: Entity, a: ^A, b: ^B, ok: bool) {
+	for view.current_index < len(view.storage_a.entity_ids) {
+		entity = view.storage_a.entity_ids[view.current_index]
+		if ok = has_component(view.storage_b, entity); ok {
+			a = &view.storage_a.components[view.current_index]
+			b_idx := view.storage_b.sparse[entity]
+			b = &view.storage_b.components[b_idx]
+			view.current_index += 1
+			return
+		}
+		view.current_index += 1
+	}
+	return
+}
+
+
+each_view3 :: proc(view: ^View3($A, $B, $C)) -> (entity: Entity, a: ^A, b: ^B, c: ^C, ok: bool) {
+	for view.current_index < len(view.storage_a.entity_ids) {
+		entity = view.storage_a.entity_ids[view.current_index]
+		ok1 := has_component(view.storage_b, entity)
+		ok2 := has_component(view.storage_c, entity)
+		if ok = ok1 && ok2; ok {
+			a = &view.storage_a.components[view.current_index]
+			b_idx := view.storage_b.sparse[entity]
+			b = &view.storage_b.components[b_idx]
+			c_idx := view.storage_c.sparse[entity]
+			c = &view.storage_c.components[c_idx]
+			view.current_index += 1
+			return
+		}
+		view.current_index += 1
+	}
+	return
+}
+
+
+each_view4 :: proc(view: ^View4($A, $B, $C, $D)) -> (entity: Entity, a: ^A, b: ^B, c: ^C, d: ^D, ok: bool) {
+	for view.current_index < len(view.storage_a.entity_ids) {
+		entity = view.storage_a.entity_ids[view.current_index]
+		ok1 := has_component(view.storage_b, entity)
+		ok2 := has_component(view.storage_c, entity)
+		ok3 := has_component(view.storage_d, entity)
+		if ok = ok1 && ok2 && ok3; ok {
+			a = &view.storage_a.components[view.current_index]
+			b_idx := view.storage_b.sparse[entity]
+			b = &view.storage_b.components[b_idx]
+			c_idx := view.storage_c.sparse[entity]
+			c = &view.storage_c.components[c_idx]
+			d_idx := view.storage_d.sparse[entity]
+			d = &view.storage_d.components[d_idx]
+
+			view.current_index += 1
+			return
+		}
+		view.current_index += 1
+	}
+
+	return
+}

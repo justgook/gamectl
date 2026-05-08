@@ -1,0 +1,32 @@
+module github.com/justgook/gams/cmd/cli
+
+go 1.25.2
+
+require (
+	github.com/bytecodealliance/wasmtime-go/v43 v43.0.0
+	github.com/justgook/gams v0.0.0
+	github.com/spf13/cobra v1.10.2
+	github.com/spf13/viper v1.21.0
+)
+
+require (
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/justgook/wpm/sdk v0.0.0-20251221185913-c7c21b35f640 // indirect
+	github.com/pelletier/go-toml/v2 v2.3.0 // indirect
+	github.com/sagikazarmark/locafero v0.12.0 // indirect
+	github.com/spf13/afero v1.15.0 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/tetratelabs/wazero v1.11.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
+)
+
+replace github.com/justgook/gams => ../..
+
+replace github.com/justgook/wpm/sdk => ../../third_party/wpm/sdk

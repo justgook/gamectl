@@ -3,7 +3,7 @@ package biomes
 import (
 	"testing"
 
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 // MockRandom implements Random interface for deterministic testing

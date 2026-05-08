@@ -1,56 +1,57 @@
-# gamectl (Go, JavaScript, HTML, CSS, Zig)
+# AGENTS
 
-`gamectl` is a game building tool for procedural generation, designed to allow users to generate games with minimal effort (a few clicks) or deep customization. It features a world progression graph that evolves into a minimap and then a full map, enabling procedural generation of all game elements. The system supports intersecting or 'hardcoding' any generation step to precisely control the outcome.
+This repository is **GAMS** — **Game Assets Management Tool** — a CMS for games, currently living in the `gamectl` repo.
 
-The project consists of a browser-based client, a Go backend, and a plugin-based architecture. It leverages Go for core logic and plugins, and a custom JavaScript frontend for the user interface, supported by a design system.
+## What GAMS Is
+GAMS is a plugin-driven CMS/toolkit for managing game assets, game data, and related workflows. It has a browser UI, a CLI, and potentially other hosts, but the long-term goal is that most behavior lives in plugins instead of host-specific code.
 
-## Project Structure
+In practice, the repo contains:
+- WASM plugins for data processing, generation, storage, image/tile/sprite work, and runtime utilities
+- browser views/editors for working with those plugins visually
+- a `pluginManager` that routes calls between plugins
 
-- `cmd/browser/`: Contains the browser-based client application, including JavaScript for UI systems and views, HTML, CSS, and a Go server to serve these assets.
-- `design/`: Houses design assets, scripts for generating showcases, and a comprehensive design token system (JSON). The `design/build` directory (generated) contains compiled design tokens (CSS, JS) and the design system showcase HTML.
-- `pkg/`: Core Go packages providing shared functionalities like graph, minimap, tilemap, and tree structures.
-- `plugins/`: A modular directory for various plugins (Go and Zig) that extend the system's procedural generation capabilities. These plugins are responsible for specific generation steps, including storing data, generating code, and generating assets, with the ability to intersect or override generation logic.
+## How It Works
+- Plugins expose callable functions.
+- Hosts such as browser or CLI load/register plugins and provide the runtime shell.
+- Browser views are being migrated from special-case handling into first-class plugins too.
+- The main architectural direction is to let plugins call other plugins through stable contracts, instead of relying on ad-hoc host callbacks.
 
-## Code Standards
+This repository is moving toward a unified `pluginManager` architecture.
 
-- **Go**: Follows standard Go conventions and module practices.
-- **JavaScript**: Structured into `systems` and `views` within the browser client.
-- **Design Tokens**: JSON-based design tokens ensure consistent styling across the application.
+## Core Direction
+- Prefer **plugin-to-plugin** calls over special host callbacks.
+- Keep **browser / CLI / native** hosts thin.
+- Support **built-in and project-defined** plugins/views through the same registration model.
+- Prefer **`singleton`** plugins for new work.
+- Treat **`instance`** plugins as legacy / migration-only.
+- Migrate browser-rendered views into first-class **`view`** plugins managed by `pluginManager`.
 
-## Technology-Specific Conventions
+## Plugin Vocabulary
+- **`singleton`**: one logical runtime per host environment; preferred target model.
+- **`instance`**: plugin created by another plugin/view; legacy pattern to phase out.
+- **`view`**: browser-rendered plugin that should be registered and routed through `pluginManager`.
 
-### Go Backend/Plugins
-- Plugins are organized in `plugins/` with `main.go` as entry points.
-- Core utilities are in `pkg/`.
+## Important Planning Files
+- `PLAN/PLAN.md` — overall strategy, vocabulary, and priority migration targets.
 
-### Browser Frontend
-- UI logic is separated into `systems/` (for application logic) and `views/` (for rendering components).
-- Styling is managed via `app.css` and `reset.css`, likely informed by the `design/` tokens.
+## Current Priority Areas
+- `ng` runtime / `view-nodegraph2`
+- `layout`
+- `sql`
+- `cmd/browser` worker-side runtime/bootstrap
+- legacy `pluginManager.load(...)` view runtimes
 
-### Design System
-- Design tokens are defined in `design/tokens/` using JSON files, categorized by global, semantic, and component-specific values.
-- Scripts in `design/script/` are used for generating design showcases and potentially processing design tokens.
-- The `design/build` directory is generated and contains the compiled design tokens and showcase.
-
-### Makefiles
-- The **root `Makefile`** orchestrates the entire project build, including Go and Zig plugins, the Go browser server, and integrates the design token generation from the `design/` directory.
-- The **`design/Makefile`** is specialized for the design system, handling the generation of design tokens (CSS, JS) and the design system showcase HTML.
-
-## Specialized Agents Available
-
-For different types of work, use these agents:
-- **@coder-agent**: Implementation work and step-by-step coding tasks
-- **@tester**: Test creation, TDD, and comprehensive coverage
-- **@reviewer**: Code review, security analysis, and quality assurance
-- **@documentation**: Writing, docs, and technical communication
-
-## Development Workflow
-
-- **Build**: The project uses `Makefile` for its build process. Refer to the `Makefile` for specific build commands.
-- **Plugin Development**: When developing new plugins, adhere to the existing structure and conventions found in the `plugins/` directory. Plugins are central to the procedural generation process, handling data storage, code generation, and asset generation, with support for custom intersection logic.
-- **Frontend Development**: When working on the browser frontend, ensure new features and components align with the `systems/` and `views/` separation of concerns.
-
-## External Guidelines
-
-- Refer to `go.mod` for Go module dependencies.
-- Refer to `design/package.json` for design-related script dependencies.
+## Guidance For AI Agents
+- Read `PLAN/PLAN.md` before proposing architecture changes.
+- When discussing a plugin, check whether it already has a file under `PLAN/`.
+- Prefer updating planning docs with clear migration targets instead of assuming unfinished details.
+- Treat `cmd/browser` as a fresh-start host: breaking changes are acceptable there and backwards-compatibility shims should not be introduced unless explicitly planned.
+- For browser planning/work, prefer worker-side setup/bootstrap for base plugins and document any main-thread bridge assumptions explicitly.
+- For browser internal plugin↔ui shared-memory designs, prefer direct ownership by the participating plugin/view pair over runtime-managed mirrored state when possible. In particular, if a WASM plugin already has a suitable in-memory state layout, prefer sharing that linear memory directly with the UI instead of adding runtime-owned copy layers, headers, or protocol versioning unless there is a concrete need.
+- Do not add API/protocol versioning or compatibility structure to internal first-party browser communication unless there is a real migration/interoperability requirement; browser is a fresh-start host owned as one codebase and can evolve in lockstep.
+- Browser/base/theme CSS relies on semantic meaning of HTML tags in the current browser UI. Preserve the original HTML structure/tags as much as possible instead of replacing them with arbitrary wrappers; tag choice is part of the styling contract here, even when it differs from conventional HTML semantics.
+- For `cmd/browser` view/UI work, follow `cmd/browser/VIEW_RULES.md`. Treat it as the canonical ruleset for allowed elements, attributes, slots, classes, and UI structure. Update it during development whenever the browser UI vocabulary/rules are clarified or extended.
+- Browser/internal app code should use a **strict fail-fast style**. Do not add graceful fallbacks, defensive optional behavior, best-effort recovery, or silent defaulting for required internal data/config/state. If required data is missing or malformed, treat it as a bug and fail loudly.
+- In particular for first-party browser JS/plugins/views: do not write code like "if config is missing, continue with {}", broad `try/catch` that hides invariant violations, optional chaining for elements/state that must exist, or fallback parsing paths that silently accept invalid internal data. Required values should be assumed present and should throw immediately when violated.
+- Reserve structured error returns / recoverable handling for true runtime outcomes that are expected as part of agent/tool/model behavior, not for internal wiring/config bugs.
+- If a plugin’s target shape is unclear, mark it as **requires clarification** instead of over-specifying.

@@ -20,16 +20,27 @@
 
 # Build artifacts and tools
 /tmp/
+tmp/
 #/aseprite/
 /build/
 /build.nosync/
+/plugins/ng/build/
 *.wasm
+/tools/opr-import/opr-import
+/game2-*.png
+/cmd/native/build/
+/cmd/native/wailsjs/
+/cmd/native/native
 #OS and IDE file
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
+.playwright-cli
+/.playwright/
+/.claude/
+/.pi/
 ehthumbs.db
 Thumbs.db
 
@@ -37,3 +48,4 @@ Thumbs.db
 *.iml
 
 assets/**/backups/
+database.sqlite

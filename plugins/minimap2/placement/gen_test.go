@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 // MockRandom provides deterministic random for testing
@@ -132,8 +132,8 @@ func TestPlaceRootOnly(t *testing.T) {
 	tr.Add(0, nil) // Root points to itself
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -159,8 +159,8 @@ func TestPlaceRootWithOneChild(t *testing.T) {
 	tr.Add(0, nil) // Child of root (idx 1)
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -203,8 +203,8 @@ func TestPlaceRootWithMultipleChildren(t *testing.T) {
 	tr.Add(0, nil) // Child 3 (idx 3)
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -249,8 +249,8 @@ func TestPlaceManyChildrenRequiresExtension(t *testing.T) {
 	tr.Add(0, nil) // Child 5 - requires extension
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -281,8 +281,8 @@ func TestDeepTree(t *testing.T) {
 	tr.Add(2, nil) // D (idx 3)
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -329,10 +329,10 @@ func TestLargerRoomShapes(t *testing.T) {
 	shapeIdx := 0
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
 		s := shapes[shapeIdx]
 		shapeIdx++
-		return s
+		return s, nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -361,8 +361,8 @@ func TestToTileMap(t *testing.T) {
 	tr.Add(0, nil) // Child
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -407,8 +407,8 @@ func TestBranchingTree(t *testing.T) {
 	tr.Add(1, nil) // D
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -461,8 +461,8 @@ func TestDoorConnections(t *testing.T) {
 	tr.Add(0, nil) // C
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -503,7 +503,13 @@ func TestDoorConnections(t *testing.T) {
 	t.Logf("Doors: %d entries, %d tiles with doors", len(placement.Doors), nonZeroDoors)
 	t.Logf("Door connections:")
 	for _, door := range placement.Doors {
-		t.Logf("  Room %d at (%d,%d) dir=%d", door.RoomID, door.Point.X, door.Point.Y, door.Direction)
+		t.Logf(
+			"  Room %d at (%d,%d) dir=%d",
+			door.RoomID,
+			door.Point.X,
+			door.Point.Y,
+			door.Direction,
+		)
 	}
 }
 
@@ -516,8 +522,8 @@ func TestStressManyChildren(t *testing.T) {
 	}
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -556,8 +562,8 @@ func TestEmptyTree(t *testing.T) {
 	tr := tree.Tree{}
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -589,8 +595,8 @@ func TestComplexNestedTree(t *testing.T) {
 	tr.Add(4, nil) // G (6)
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
-		return singleTile()
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile(), nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -648,10 +654,10 @@ func TestVariedRoomShapes(t *testing.T) {
 	shapeIdx := 0
 
 	rng := &MockRandom{}
-	gen := NewGenerator(&tr, func(node *tree.Node) RoomShape {
+	gen := NewGenerator(&tr, func(node *tree.Node) (RoomShape, error) {
 		s := shapes[shapeIdx]
 		shapeIdx++
-		return s
+		return s, nil
 	}, rng)
 
 	placement, err := gen.Generate()
@@ -710,8 +716,8 @@ func TestStress50Rooms(t *testing.T) {
 			// Generate random tree with 50 nodes
 			tr := generateRandomTree(50, rng)
 
-			gen := NewGenerator(tr, func(node *tree.Node) RoomShape {
-				return testRoomShapes[rng.Intn(len(testRoomShapes))]
+			gen := NewGenerator(tr, func(node *tree.Node) (RoomShape, error) {
+				return testRoomShapes[rng.Intn(len(testRoomShapes))], nil
 			}, rng)
 
 			placement, err := gen.Generate()
@@ -771,8 +777,8 @@ func TestStress50RoomsOnlySingleTiles(t *testing.T) {
 
 			tr := generateRandomTree(50, rng)
 
-			gen := NewGenerator(tr, func(node *tree.Node) RoomShape {
-				return singleTile()
+			gen := NewGenerator(tr, func(node *tree.Node) (RoomShape, error) {
+				return singleTile(), nil
 			}, rng)
 
 			placement, err := gen.Generate()

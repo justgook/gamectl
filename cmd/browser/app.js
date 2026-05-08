@@ -1,313 +1,219 @@
+import { init } from './core/runtime.js'
+import { require } from "/util/require.js"
+import { GAMS_CONFIG_PATH, loadDefaultGamsConfig, validateGamsConfig } from './core/gams-config.js'
+import './ui-plugins/toast.js'
+import './ui-plugins/layout.js'
+import './ui-plugins/popup.js'
+import { createUiContext } from './ui-plugins/context.js'
+import { createUiKeys } from './ui-plugins/keys.js'
+import './widgets/code-editor.js'
+import './widgets/view-pagination.js'
 
-// Initialize event bus first
-import "./systems/event-bus.js"
-import { bus as eventBus } from "./systems/event-bus.js"
-import { toast } from './systems/toast.js'
-import { parseCSVLines } from './util/csv.js'
+let currentThemeStylesheetObjectUrl = ''
+// const DEFAULT_LAYOUT = `
+//   <view-sql-console />
+//   <sql-table-editor setup="0:h:50"/>
+//   <view-sql setup="0:v:50" />
+//   <view-ai setup="1:v:50" />
+// `
+//
+const DEFAULT_LAYOUT = `
+  <view-markov data-source="Basic" />
+  <view-tilemap data-source="/edge_rules.map.json" setup="0:v:50" />
+  <view-ng setup="1:h:50" />
+`
 
-import "./systems/cache.js"
-
-// Infrastructure components (always static - not views)
-import { ViewChrome } from "./views/chrome.js"
-import { ViewSplitter } from "./views/view-splitter.js"
-import { LayoutParent } from "./views/layout.js"
-
-// Popup system
-import { PopupManager } from "./views/popup-manager.js"
-import { PluginManagerProxy } from "./systems/plugin-manager/proxy.js"
-import { ViewPopup } from "./views/view-popup.js"
-
-// Toast system
-import { ToastManager } from "./views/toast-manager.js"
-import { ViewToast } from "./views/view-toast.js"
-
-// Node graph sub-components (not views, always static)
-import "./views/nodegraph/node-base.js"
-import "./views/nodegraph/node-input.js"
-import "./views/nodegraph/node-plugin.js"
-import "./views/nodegraph/node-output.js"
-import "./views/nodegraph/node-tostring.js"
-import "./views/nodegraph/node-fromjson.js"
-import "./views/nodegraph/node-fields.js"
-import "./views/nodegraph/node-popup.js"
-import "./views/nodegraph/node-code.js"
-
-// View loader system
-import { viewLoader } from "./systems/view-loader.js"
-
-// Register infrastructure custom elements
-customElements.define('layout-parent', LayoutParent)
-customElements.define('view-splitter', ViewSplitter)
-
-// === Splash screen status helper ===
-function splashStatus(message) {
-  const el = document.querySelector('.splash-loader-text')
-  if (el) el.textContent = message
+function decodeOutput(result) {
+  return new TextDecoder().decode(result?.output || new Uint8Array())
 }
 
-// === Three-phase boot ===
+function createConfiguredViewRegistry(config, runtime) {
+  const entries = config.ui.views
+  if (!entries || typeof entries !== 'object' || Array.isArray(entries)) throw new Error('gams config ui.views is required')
+  return new Map(Object.entries(entries).map(([tag, viewConfig]) => {
+    if (!viewConfig || typeof viewConfig !== 'object' || Array.isArray(viewConfig)) throw new Error(`gams config ui.views.${tag} must be an object`)
+    return [tag, {
+      label: viewConfig.label || tag,
+      group: viewConfig.group || '',
+      internal: viewConfig.internal === true,
+      async load() {
+        if (customElements.get(tag)) return
+        if (typeof viewConfig.url !== 'string' || viewConfig.url.length === 0) throw new Error(`gams config ui.views.${tag}.url is required`)
+        await require(viewConfig.url)
+        if (!customElements.get(tag)) throw new Error(`view '${tag}' did not register custom element '${tag}'`)
+      },
 
-const decoder = new TextDecoder()
-const APPEARANCE_STORAGE_KEY = 'gamectl.appearance'
-const THEME_STYLESHEET_ID = 'theme-stylesheet'
-const THEME_FILES = {
-  current: 'themes/current.css',
-  obsidian: 'themes/obsidian.css',
-  neon: 'themes/neon.css',
+      async create(options = {}) {
+        await this.load()
+        const el = document.createElement(tag)
+        el.runtime = runtime
+        el.viewConfig = viewConfig
+        if (viewConfig.config !== undefined) el.config = viewConfig.config
+        if (viewConfig.defaultSource !== undefined && !Object.hasOwn(options.attrs || {}, 'data-source')) el.setAttribute('data-source', viewConfig.defaultSource)
+        if (tag === 'view-ai') el.openConfig = structuredClone(viewConfig.config)
+        return el
+      },
+    }]
+  }))
 }
 
-function normalizeThemeName(theme) {
-  if (!theme || theme === 'dark') return 'current'
-  if (theme === 'current' || theme === 'obsidian' || theme === 'neon') return theme
-  return 'current'
+function createFsPluginDefinitions(config) {
+  const provider = localStorage.getItem('browser.fs') || 'fs.opfs'
+  const webdavUrl = localStorage.getItem('browser.fs.webdav.url') || ''
+  const fsConfig = config.fs
+
+  return [
+    {
+      id: 'fs',
+      runtime: 'js',
+      role: 'service',
+      url: provider === 'fs.webdav'
+        ? '../core/fs-webdav/index.js'
+        : '../core/fs-opfs/index.js',
+      config: {
+        provider,
+        webdavUrl,
+        fs: fsConfig,
+      },
+    },
+    {
+      id: 'fs.opfs',
+      runtime: 'js',
+      role: 'service',
+      url: '../core/fs-opfs/index.js',
+      config: {
+        provider: 'fs.opfs',
+        fs: fsConfig,
+      },
+    },
+    {
+      id: 'fs.webdav',
+      runtime: 'js',
+      role: 'service',
+      url: '../core/fs-webdav/index.js',
+      config: {
+        provider: 'fs.webdav',
+        webdavUrl,
+        fs: fsConfig,
+      },
+    },
+  ]
 }
 
-function applyThemeStylesheet(theme) {
-  const normalizedTheme = normalizeThemeName(theme)
-  const themeHref = THEME_FILES[normalizedTheme] || THEME_FILES.current
-  const syncRoot = (root) => {
-    const link = root?.querySelector?.('[data-theme-stylesheet]')
-    if (link && link.getAttribute('href') !== themeHref) {
-      link.setAttribute('href', themeHref)
-    }
+const textDecoder = new TextDecoder()
+
+async function loadGamsConfig(runtime, defaultConfig) {
+  const existsResult = await runtime.call('fs', 'exists', GAMS_CONFIG_PATH)
+  if (existsResult.returnCode !== 0) {
+    throw new Error(textDecoder.decode(existsResult.output))
   }
 
-  syncRoot(document)
-  document.querySelectorAll('view-chrome, view-popup').forEach(el => syncRoot(el.shadowRoot))
+  const exists = textDecoder.decode(existsResult.output) === 'true'
+  if (!exists) return defaultConfig
 
-  window.__currentTheme = normalizedTheme
+  const readResult = await runtime.call('fs', 'read', GAMS_CONFIG_PATH)
+  if (readResult.returnCode !== 0) {
+    throw new Error(textDecoder.decode(readResult.output))
+  }
+
+  return validateGamsConfig(JSON.parse(textDecoder.decode(readResult.output)), GAMS_CONFIG_PATH)
+}
+
+async function applyThemeStylesheet(runtime, config) {
+  const themePath = config?.ui?.theme?.path
+  if (typeof themePath !== 'string' || themePath.length === 0) throw new Error('gams config ui.theme.path is required')
+  const readResult = await runtime.call('fs', 'read', themePath)
+  if (readResult.returnCode !== 0) throw new Error(decodeOutput(readResult) || `fs.read failed for theme ${themePath}`)
+
+  const blob = new Blob([readResult.output], { type: 'text/css' })
+  const themeHref = URL.createObjectURL(blob)
+  const previousUrl = currentThemeStylesheetObjectUrl
+  currentThemeStylesheetObjectUrl = themeHref
+
+  const link = document.getElementById('theme-stylesheet')
+  link.setAttribute('href', themeHref)
+  window.__currentThemePath = themePath
   window.__currentThemeStylesheetHref = themeHref
-  window.__syncThemeStylesheetToRoot = syncRoot
 
-  const link = document.getElementById(THEME_STYLESHEET_ID)
-  if (link && link.getAttribute('href') !== themeHref) {
-    link.setAttribute('href', themeHref)
-  }
-}
-
-window.__applyThemeStylesheet = applyThemeStylesheet
-
-function readAppearanceFromLocalStorage() {
-  try {
-    const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch (error) {
-    console.warn('[App] Failed to parse local appearance settings:', error)
-    return null
-  }
-}
-
-async function applyAppearanceSettings() {
-  const localSettings = readAppearanceFromLocalStorage() || {}
-
-  try {
-    const result = await window.pluginManager.call(
-      'sql',
-      'query',
-      "SELECT key, value FROM settings WHERE category='appearance'"
-    )
-
-    const csv = decoder.decode(result.output).trim()
-    if (!csv) return
-
-    const lines = parseCSVLines(csv)
-    const settings = {}
-    for (let i = 1; i < lines.length; i++) {
-      const row = lines[i]
-      if (row.length >= 2) settings[row[0]] = row[1]
-    }
-
-    settings['appearance.theme'] = localSettings['appearance.theme'] || settings['appearance.theme']
-    settings['appearance.font-family'] = localSettings['appearance.font-family'] || settings['appearance.font-family']
-    settings['appearance.font-size'] = localSettings['appearance.font-size'] || settings['appearance.font-size']
-
-    const theme = settings['appearance.theme']
-    const normalizedTheme = normalizeThemeName(theme)
-    applyThemeStylesheet(normalizedTheme)
-
-    const fontFamily = settings['appearance.font-family']
-    if (!fontFamily || fontFamily === 'default') {
-      document.documentElement.style.removeProperty('--ui-font-body-override')
-      document.documentElement.style.removeProperty('--ui-font-body')
-    } else {
-      document.documentElement.style.setProperty('--ui-font-body-override', fontFamily)
-      document.documentElement.style.setProperty('--ui-font-body', fontFamily)
-    }
-
-    const fontSize = settings['appearance.font-size']
-    if (fontSize) document.documentElement.style.setProperty('--font-size-md', `${fontSize}px`)
-  } catch (error) {
-    console.warn('[App] Failed to apply appearance settings:', error)
-
-    // Fallback to localStorage only
-    const theme = localSettings['appearance.theme']
-    const normalizedTheme = normalizeThemeName(theme)
-    applyThemeStylesheet(normalizedTheme)
-
-    const fontFamily = localSettings['appearance.font-family']
-    if (!fontFamily || fontFamily === 'default') {
-      document.documentElement.style.removeProperty('--ui-font-body-override')
-      document.documentElement.style.removeProperty('--ui-font-body')
-    } else {
-      document.documentElement.style.setProperty('--ui-font-body-override', fontFamily)
-      document.documentElement.style.setProperty('--ui-font-body', fontFamily)
-    }
-
-    const fontSize = localSettings['appearance.font-size']
-    if (fontSize) document.documentElement.style.setProperty('--font-size-md', `${fontSize}px`)
-  }
-}
-
-// Phase 1: Initialize FS (host functions) + SQL (base WASM plugin)
-splashStatus('Initializing filesystem...')
-window.pluginManager = await PluginManagerProxy.create()
-
-// Initialize database using migration system
-// - Loads from /database.sqlite if exists in FS
-// - Otherwise runs all migrations from /data/migrations/
-// - Listens for file:save event to persist database
-splashStatus('Loading database...')
-import { migrationManager } from "./systems/migration.js"
-await migrationManager.init()
-window.migrationManager = migrationManager // Expose for debugging
-await applyAppearanceSettings()
-
-// Phase 2: Query plugin registry from DB, load enabled plugins via FS
-splashStatus('Loading plugins...')
-try {
-  const result = await window.pluginManager.call('sql', 'query',
-    "SELECT name, url FROM plugins WHERE enabled = 1 AND type != 'base' AND scope = 'global' ORDER BY rowid"
-  )
-  const csv = decoder.decode(result.output).trim()
-  const lines = csv.split('\n')
-
-  // Parse CSV (first line is header: name,url)
-  const plugins = []
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-    const commaIdx = line.indexOf(',')
-    if (commaIdx === -1) continue
-    const name = line.slice(0, commaIdx)
-    const url = line.slice(commaIdx + 1)
-    plugins.push({ name, url })
-  }
-
-  console.log(`[App] Phase 2: loading ${plugins.length} plugins from registry`)
-
-  for (const p of plugins) {
-    splashStatus(`Loading plugin: ${p.name}...`)
-  }
-
-  const loadResult = await window.pluginManager.loadPlugins(plugins)
-
-  if (loadResult.failed?.length > 0) {
-    console.warn('[App] Some plugins failed to load:', loadResult.failed)
-    for (const f of loadResult.failed) {
-      toast.error(`Plugin '${f.name}' failed: ${f.error}`)
-    }
-  }
-
-  console.log(`[App] Phase 2 complete: ${loadResult.loaded?.length || 0} plugins loaded`)
-} catch (error) {
-  console.error('[App] Phase 2 plugin loading failed:', error)
-  toast.error('Failed to load plugins from registry')
-}
-
-// Phase 3: Query view registry from DB, load enabled views via ViewLoader
-splashStatus('Loading views...')
-try {
-  const result = await window.pluginManager.call('sql', 'query',
-    "SELECT name, url FROM views WHERE enabled = 1 ORDER BY rowid"
-  )
-  const csv = decoder.decode(result.output).trim()
-  const lines = csv.split('\n')
-
-  // Parse CSV (first line is header: name,url)
-  const views = []
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-    const commaIdx = line.indexOf(',')
-    if (commaIdx === -1) continue
-    const name = line.slice(0, commaIdx)
-    const url = line.slice(commaIdx + 1)
-    views.push({ name, url })
-  }
-
-  console.log(`[App] Phase 3: loading ${views.length} views from registry`)
-
-  const viewResult = await viewLoader.loadAll(views, (name) => {
-    splashStatus(`Loading view: ${name}...`)
+  document.querySelectorAll('view-area, view-popup').forEach((el) => {
+    const shadowLink = el.shadowRoot?.querySelector('link[data-theme-stylesheet]')
+    if (shadowLink) shadowLink.setAttribute('href', themeHref)
   })
 
-  if (viewResult.failed?.length > 0) {
-    console.warn('[App] Some views failed to load:', viewResult.failed)
-    for (const f of viewResult.failed) {
-      toast.error(`View '${f.name}' failed: ${f.error}`)
-    }
-  }
-
-  console.log(`[App] Phase 3 complete: ${viewResult.loaded?.length || 0} views loaded`)
-} catch (error) {
-  console.error('[App] Phase 3 view loading failed:', error)
-  toast.error('Failed to load views from registry')
+  if (previousUrl) URL.revokeObjectURL(previousUrl)
 }
 
-window.viewLoader = viewLoader // Expose for debugging
-
-// Emit ready event so cache manager can process queued requests
-// This must happen AFTER all plugins and views are loaded
-eventBus.emit('plugin-manager:ready')
-
-// Initialize keybinding manager
-splashStatus('Initializing keybindings...')
-import { keybindingManager } from "./systems/keybinding-manager.js"
-await keybindingManager.init()
-window.keybindingManager = keybindingManager // Expose for debugging
-
-// Wire app:settings keybinding (Ctrl+,) to open settings view
-eventBus.on('app:settings', () => {
-  // Find the focused chrome panel, or fall back to the first one
-  const chromes = document.querySelectorAll('view-chrome')
-  let target = chromes[0]
-  for (const chrome of chromes) {
-    const slot = chrome.shadowRoot?.querySelector('slot:not([name])')
-    const assigned = slot?.assignedElements?.()[0]
-    if (assigned && document.activeElement && chrome.contains(document.activeElement)) {
-      target = chrome
-      break
-    }
-  }
-  if (target) {
-    target.switchView('view-settings')
-  }
-})
-
-splashStatus('Ready')
-toast.success("App is ready")
-
-// Enable splash screen Enter button now that app is fully loaded
-const splashScreen = document.getElementById('splash-screen')
-if (splashScreen) {
-  splashScreen.setAttribute('data-ready', '')
-
-  const dismissSplash = () => {
-    splashScreen.classList.add('splash-hidden')
-    splashScreen.addEventListener('transitionend', () => {
-      splashScreen.remove()
-    }, { once: true })
-  }
-
-  const enterBtn = splashScreen.querySelector('.splash-enter')
-  if (enterBtn) {
-    enterBtn.disabled = false
-    enterBtn.addEventListener('click', dismissSplash)
-  }
-
-  // Click on backdrop (outside panel) also dismisses
-  splashScreen.addEventListener('click', (e) => {
-    if (e.target === splashScreen) dismissSplash()
-  })
+function errorParse(e) {
+  return `${e.plugin ? "[" + e.plugin + "]: " : ""}${e.message || e.reason}`
 }
+
+async function main() {
+  const root = document.body
+  root.innerHTML = '<div style="padding:24px; color:var(--text);">Booting...</div>'
+
+  try {
+    const runtime = await init()
+    const defaultConfig = await loadDefaultGamsConfig()
+    await runtime.add(createFsPluginDefinitions(defaultConfig))
+    const gamsConfig = await loadGamsConfig(runtime, defaultConfig)
+    const viewRegistry = createConfiguredViewRegistry(gamsConfig, runtime)
+    await runtime.add(createFsPluginDefinitions(gamsConfig))
+    await applyThemeStylesheet(runtime, gamsConfig)
+    await runtime.add(gamsConfig.plugins)
+
+
+    window.onerror = function (_message, _source, _lineno, _colno, error) {
+      runtime.call("ui.toast", "error", errorParse(error))
+      return false // prevents default logging (optional)
+    }
+
+    window.addEventListener("unhandledrejection", (e) => {
+      runtime.call("ui.toast", "error", errorParse(e.reason))
+    })
+
+    document.body.innerHTML = ''
+
+    runtime.register(createUiContext())
+
+    const layout = document.createElement('ui-layout')
+    layout.setViewRegistry(viewRegistry)
+    document.body.appendChild(layout)
+    runtime.register({ id: 'ui.layout', methods: layout.api })
+    await layout.bindRuntime(runtime)
+    await layout.load(DEFAULT_LAYOUT)
+
+    const toast = document.createElement('toast-manager')
+    document.body.appendChild(toast)
+    runtime.register({ id: 'ui.toast', methods: toast.api })
+
+    const popup = document.createElement('popup-manager')
+    popup.setViewRegistry(viewRegistry)
+    document.body.appendChild(popup)
+    runtime.register({ id: 'ui.popup', methods: popup.api })
+
+    runtime.register(createUiKeys(runtime, gamsConfig))
+
+    // DO NOT USE IT - it is exposed just for debuging, use `import {call} from "./coder/runtime.js"`
+    window.runtime = runtime
+
+  } catch (error) {
+    console.error('[browser] boot failed', error)
+    root.innerHTML = `
+      <main style="width:min(960px,calc(100vw - 48px));margin:24px auto;padding:24px;border:1px solid var(--danger, var(--border));border-radius:12px;background:var(--surface-elevated);box-shadow:var(--shadow)">
+        <h1>GAMS Browser</h1>
+        <p>Bootstrap failed.</p>
+        <pre style="white-space: pre-wrap; background:var(--surface); padding:16px; border-radius:12px; border:1px solid var(--border);">${escapeHtml(String(error?.stack || error?.message || error))}</pre>
+      </main>
+    `
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+main()
+

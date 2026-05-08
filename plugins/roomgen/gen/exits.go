@@ -1,7 +1,7 @@
 package gen
 
 import (
-	"github.com/justgook/gamectl/pkg/tilemap"
+	"github.com/justgook/gams/pkg/tilemap"
 )
 
 // RoomInfo contains information about a single room extracted from tilemap

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game2 Web Runner</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #111;
+      color: #eee;
+      font-family: sans-serif;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    #controls {
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      border-bottom: 1px solid #333;
+    }
+
+    button {
+      border: 1px solid #444;
+      background: #222;
+      color: #eee;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    #canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="controls">
+    <button id="pause">Pause</button>
+    <button id="reload">Reload</button>
+  </div>
+  <canvas id="canvas"></canvas>
+  <script type="module">
+    import {GLBridge} from './gl-bridge.js'
+
+    const FALLBACK_EVENT_OFFSETS = {
+      frame_count: 0,
+      type: 8,
+      action_code: 40,
+      window_width: 256,
+      window_height: 260,
+      framebuffer_width: 264,
+      framebuffer_height: 268,
+    }
+
+    const EVENT_TYPE_RESIZED = 14
+    const EVENT_TYPE_ACTION_DOWN = 100
+    const EVENT_TYPE_ACTION_UP = 101
+    const ACTION_UP = 1
+    const ACTION_RIGHT = 2
+    const ACTION_DOWN = 3
+    const ACTION_LEFT = 4
+    const ACTION_1 = 5
+    const ACTION_2 = 6
+    const DEFAULT_ASSETS = new Map([
+      ["/game/data.rspk", "./data.rspk"]
+    ])
+
+    const canvas = document.getElementById('canvas')
+    const pauseBtn = document.getElementById('pause')
+    const reloadBtn = document.getElementById('reload')
+
+    let gl = null
+    let bridge = null
+    let instance = null
+    let raf = 0
+    let paused = false
+    let eventOffsets = {...FALLBACK_EVENT_OFFSETS}
+    let eventBufferPtr = 0
+    let eventFrameCount = 0
+    const assetCache = new Map()
+    const pressedActions = new Set()
+
+    const KEY_TO_ACTION = new Map([
+      ['KeyA', ACTION_LEFT],
+      ['ArrowLeft', ACTION_LEFT],
+      ['KeyD', ACTION_RIGHT],
+      ['ArrowRight', ACTION_RIGHT],
+      ['KeyW', ACTION_UP],
+      ['ArrowUp', ACTION_UP],
+      ['KeyS', ACTION_DOWN],
+      ['ArrowDown', ACTION_DOWN],
+      ['KeyJ', ACTION_1],
+      ['KeyK', ACTION_2],
+    ])
+
+    function writeU64(view, offset, value) {
+      const lo = value >>> 0
+      const hi = Math.floor(value / 0x100000000) >>> 0
+      view.setUint32(offset, lo, true)
+      view.setUint32(offset + 4, hi, true)
+    }
+
+    function readWasmUtf8(ptr, len) {
+      const memory = instance?.exports?.memory
+      if (!memory) return ''
+      return new TextDecoder().decode(new Uint8Array(memory.buffer, ptr >>> 0, len >>> 0))
+    }
+
+    function getEventBufferPtr() {
+      if (eventBufferPtr) return eventBufferPtr
+      if (typeof instance?.exports?.get_event_buffer !== 'function') return 0
+      eventBufferPtr = Number(instance.exports.get_event_buffer())
+      return eventBufferPtr
+    }
+
+    function resolveEventOffsets() {
+      const ex = instance?.exports
+      eventOffsets = {...FALLBACK_EVENT_OFFSETS}
+      if (!ex) return
+      if (typeof ex.event_offset_window_width === 'function') {
+        eventOffsets.window_width = Number(ex.event_offset_window_width())
+      }
+      if (typeof ex.event_offset_action_code === 'function') {
+        eventOffsets.action_code = Number(ex.event_offset_action_code())
+      }
+      if (typeof ex.event_offset_window_height === 'function') {
+        eventOffsets.window_height = Number(ex.event_offset_window_height())
+      }
+      if (typeof ex.event_offset_framebuffer_width === 'function') {
+        eventOffsets.framebuffer_width = Number(ex.event_offset_framebuffer_width())
+      }
+      if (typeof ex.event_offset_framebuffer_height === 'function') {
+        eventOffsets.framebuffer_height = Number(ex.event_offset_framebuffer_height())
+      }
+    }
+
+    function dispatchResized() {
+      if (!instance?.exports?.memory || typeof instance?.exports?.event !== 'function') return
+      const ptr = getEventBufferPtr()
+      if (!ptr) return
+
+      const view = new DataView(instance.exports.memory.buffer)
+      writeU64(view, ptr + eventOffsets.frame_count, eventFrameCount++)
+      view.setUint32(ptr + eventOffsets.type, EVENT_TYPE_RESIZED, true)
+      view.setInt32(ptr + eventOffsets.window_width, canvas.clientWidth | 0, true)
+      view.setInt32(ptr + eventOffsets.window_height, canvas.clientHeight | 0, true)
+      view.setInt32(ptr + eventOffsets.framebuffer_width, canvas.width, true)
+      view.setInt32(ptr + eventOffsets.framebuffer_height, canvas.height, true)
+      instance.exports.event(ptr)
+    }
+
+    function dispatchAction(actionCode, isDown) {
+      if (!instance?.exports?.memory || typeof instance?.exports?.event !== 'function') return
+      const ptr = getEventBufferPtr()
+      if (!ptr) return
+
+      if (isDown) {
+        if (pressedActions.has(actionCode)) return
+        pressedActions.add(actionCode)
+      } else {
+        if (!pressedActions.has(actionCode)) return
+        pressedActions.delete(actionCode)
+      }
+
+      const view = new DataView(instance.exports.memory.buffer)
+      writeU64(view, ptr + eventOffsets.frame_count, eventFrameCount++)
+      view.setUint32(ptr + eventOffsets.type, isDown ? EVENT_TYPE_ACTION_DOWN : EVENT_TYPE_ACTION_UP, true)
+      view.setUint32(ptr + eventOffsets.action_code, actionCode, true)
+      instance.exports.event(ptr)
+    }
+
+    function resize() {
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 4))
+      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr))
+      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr))
+      if (canvas.width !== w) canvas.width = w
+      if (canvas.height !== h) canvas.height = h
+      gl?.viewport(0, 0, w, h)
+    }
+
+    function startLoop() {
+      const tick = () => {
+        raf = requestAnimationFrame(tick)
+        if (!paused) instance?.exports?.frame?.()
+      }
+      raf = requestAnimationFrame(tick)
+    }
+
+    function stopLoop() {
+      if (raf) {
+        cancelAnimationFrame(raf)
+        raf = 0
+      }
+    }
+
+    async function preloadAssets() {
+      for (const [assetPath, assetUrl] of DEFAULT_ASSETS.entries()) {
+        if (assetCache.has(assetPath)) continue
+        const response = await fetch(assetUrl)
+        if (!response.ok) {
+          throw new Error(`Failed to load asset ${assetPath} from ${assetUrl} (${response.status})`)
+        }
+        const bytes = await response.arrayBuffer()
+        assetCache.set(assetPath, new Uint8Array(bytes))
+      }
+    }
+
+    async function boot() {
+      gl = canvas.getContext('webgl2', {
+        alpha: false,
+        depth: true,
+        stencil: true,
+        antialias: true,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: false,
+      })
+      if (!gl) throw new Error('WebGL2 not supported')
+
+      resize()
+      await preloadAssets()
+
+      bridge = new GLBridge(gl, null)
+      const wasmBytes = await fetch('./game2.wasm').then((r) => r.arrayBuffer())
+      const importObject = {
+        env: {
+          js_canvas_width: () => canvas.width,
+          js_canvas_height: () => canvas.height,
+          js_webgl_framebuffer: () => 0,
+          js_log: (level, tagPtr, tagLen, messagePtr, messageLen) => {
+            const tag = readWasmUtf8(tagPtr, tagLen)
+            const message = readWasmUtf8(messagePtr, messageLen)
+            const prefix = tag ? `[${tag}]` : '[game2]'
+            if ((level >>> 0) >= 3) {
+              console.error(prefix, message)
+            } else if ((level >>> 0) === 2) {
+              console.warn(prefix, message)
+            } else if ((level >>> 0) === 0) {
+              console.debug(prefix, message)
+            } else {
+              console.info(prefix, message)
+            }
+          },
+          game_asset_size: (pathPtr, pathLen) => {
+            const path = readWasmUtf8(pathPtr, pathLen)
+            const bytes = assetCache.get(path)
+            return bytes ? bytes.byteLength : -1
+          },
+          game_asset_read: (pathPtr, pathLen, dstPtr, dstCap) => {
+            const memory = instance?.exports?.memory
+            if (!memory) return -1
+            const path = readWasmUtf8(pathPtr, pathLen)
+            const bytes = assetCache.get(path)
+            if (!bytes) return -1
+            if ((dstCap >>> 0) < bytes.byteLength) return -2
+            const dst = dstPtr >>> 0
+            const end = dst + bytes.byteLength
+            if (end > memory.buffer.byteLength) return -3
+            new Uint8Array(memory.buffer, dst, bytes.byteLength).set(bytes)
+            return bytes.byteLength
+          },
+          ...bridge.createImportObject(),
+          glGetString: () => 0,
+          glGetStringi: () => 0,
+        },
+      }
+
+      const wasm = await WebAssembly.instantiate(wasmBytes, importObject)
+      instance = wasm.instance
+      window.__game2 = {instance}
+      bridge.memory = instance.exports.memory
+      resolveEventOffsets()
+      eventBufferPtr = 0
+      eventFrameCount = 0
+
+      instance.exports.init()
+      dispatchResized()
+      startLoop()
+    }
+
+    async function reload() {
+      stopLoop()
+      try {instance?.exports?.cleanup?.()} catch (_) { }
+      instance = null
+      eventBufferPtr = 0
+      eventFrameCount = 0
+      pressedActions.clear()
+      await boot()
+    }
+
+    pauseBtn.addEventListener('click', () => {
+      paused = !paused
+      pauseBtn.textContent = paused ? 'Resume' : 'Pause'
+    })
+    reloadBtn.addEventListener('click', () => {reload().catch(console.error)})
+
+    window.addEventListener('keydown', (event) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement || event.target?.isContentEditable) {
+        return
+      }
+      const action = KEY_TO_ACTION.get(event.code)
+      if (!action) return
+      event.preventDefault()
+      dispatchAction(action, true)
+    })
+
+    window.addEventListener('keyup', (event) => {
+      const action = KEY_TO_ACTION.get(event.code)
+      if (!action) return
+      event.preventDefault()
+      dispatchAction(action, false)
+    })
+
+    new ResizeObserver(() => {
+      resize()
+      dispatchResized()
+    }).observe(canvas)
+    window.addEventListener('resize', () => {
+      resize()
+      dispatchResized()
+    })
+
+    boot().catch((err) => {
+      console.error(err)
+      alert(err.message)
+    })
+  </script>
+</body>
+
+</html>

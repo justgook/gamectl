@@ -32,12 +32,144 @@ APP_DIR ?= ./example/cmd/game
 ASSETS_DIR ?= example/assets
 
 BUILD_DIR ?= build.nosync
+BROWSER_DIR ?= cmd/browser
+GAMS_CONFIG ?= demo/gams.json
+DEMO_DIR ?= demo
+CLI_DIR ?= cmd/cli
+NATIVE_DIR ?= cmd/native
+NATIVE_ASSETS_DIR ?= $(NATIVE_DIR)/assets
+NATIVE_OUTPUT_DIR ?= $(BUILD_DIR)/macos
+NATIVE_APP_BUNDLE ?= $(NATIVE_OUTPUT_DIR)/bin/gams.app
+NATIVE_APP_BUNDLE_DISPLAY ?= $(NATIVE_OUTPUT_DIR)/bin/GAMS.app
+NATIVE_OUTPUT_ASSETS := \
+	$(NATIVE_OUTPUT_DIR)/appicon.png \
+	$(NATIVE_OUTPUT_DIR)/darwin/Info.plist \
+	$(NATIVE_OUTPUT_DIR)/darwin/Info.dev.plist
 PLUGIN_DIR ?= plugins
+WAILS_RUN ?= go run github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+WAILS_CC ?= $(shell xcrun -f clang)
+WAILS_CXX ?= $(shell xcrun -f clang++)
+WAILS_SDKROOT ?= $(shell xcrun --show-sdk-path)
 
 # Detect all plugin subdirectories (exclude fs which is now built-in to plugin-manager)
 PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
 PLUGINS := $(notdir $(PLUGIN_DIRS))
-PLUGIN_TARGETS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGINS)))
+JS_PLUGIN_ENTRYPOINTS := $(wildcard $(PLUGIN_DIR)/*/index.js)
+PLUGIN_NAMES_JS := $(sort $(patsubst $(PLUGIN_DIR)/%/index.js,%,$(JS_PLUGIN_ENTRYPOINTS)))
+PLUGIN_NAMES_WASM := $(filter-out $(PLUGIN_NAMES_JS),$(PLUGINS))
+PLUGIN_TARGETS_WASM := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGIN_NAMES_WASM)))
+PLUGIN_TARGETS_JS := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix /index.js,$(PLUGIN_NAMES_JS)))
+PLUGIN_TARGETS := $(PLUGIN_TARGETS_WASM) $(PLUGIN_TARGETS_JS)
+
+# Detect plugin test entry points.
+# Each plugin can contribute `plugins/<name>/test/e2e.mjs` and `make test`
+# will run all discovered tests after building the matching plugin wasm.
+PLUGIN_TEST_SCRIPTS := $(wildcard $(PLUGIN_DIR)/*/test/e2e.mjs)
+PLUGIN_TEST_PLUGINS := $(sort $(patsubst $(PLUGIN_DIR)/%/test/e2e.mjs,%,$(PLUGIN_TEST_SCRIPTS)))
+PLUGIN_TEST_TARGETS := $(addsuffix -test,$(PLUGIN_TEST_PLUGINS))
+
+# --- Odin plugin build settings ---
+ODIN ?= odin
+# Good default for “plugin-style” WASM (no JS glue required):
+ODIN_WASM_TARGET ?= freestanding_wasm32
+# Common choices: speed | size | none
+ODIN_OPT ?= speed
+# If you need linker tweaks (import memory, stack size, etc), set this:
+ODIN_EXTRA_LINKER_FLAGS ?=
+
+# ------------------------------------------------------------
+# Per-plugin manifest support
+# Each plugin may define: plugins/<name>/plugin.mk
+#
+# The manifest can set variables like:
+#   ODIN_WASM_TARGET, ODIN_OPT, ODIN_EXTRA_LINKER_FLAGS
+#   ZIG_WASM_TARGET, ZIG_MCPU, ZIG_OPT, ZIG_EXTRA_FLAGS
+#   (and anything else you want)
+#
+# These are applied as *target-specific variables* only for that plugin's .wasm target.
+# ------------------------------------------------------------
+
+# Initialize manifest locals so --warn-undefined-variables doesn't fire
+PLUGIN_ODIN_WASM_TARGET :=
+PLUGIN_ODIN_OPT :=
+PLUGIN_ODIN_EXTRA_LINKER_FLAGS :=
+PLUGIN_ZIG_WASM_TARGET :=
+PLUGIN_ZIG_MCPU :=
+PLUGIN_ZIG_OPT :=
+PLUGIN_ZIG_C_COMPILER :=
+PLUGIN_ZIG_EXTRA_FLAGS :=
+PLUGIN_CFLAGS :=
+PLUGIN_LDFLAGS :=
+PLUGIN_C_SOURCES :=
+PLUGIN_EXTRA_DEPS :=
+PLUGIN_JS_EXTRA_DEPS :=
+
+# Helper macro: attach manifest-defined variables to that plugin's wasm target
+#
+# How it works:
+#   1. Set per-plugin namespaced vars to global defaults
+#   2. -include the plugin's plugin.mk (which may set PLUGIN_ZIG_* etc.)
+#   3. Override namespaced vars with any PLUGIN_* values that were set
+#   4. Attach namespaced vars as target-specific variables
+#   5. Clear PLUGIN_* locals so they don't leak to the next plugin
+#
+# NOTE: ifneq inside $(eval $(call ...)) doesn't work — Make expands
+# conditionals at parse time, not eval time. Instead we use $(or ...)
+# to pick the manifest value when non-empty, falling back to the default.
+define APPLY_PLUGIN_MANIFEST
+  # Load manifest if present (sets PLUGIN_ZIG_*, PLUGIN_ODIN_*, etc.)
+  -include $(PLUGIN_DIR)/$(1)/plugin.mk
+
+  # Resolve per-plugin values: manifest override or global default
+  ODIN_WASM_TARGET_$(1) := $$(or $$(PLUGIN_ODIN_WASM_TARGET),$(ODIN_WASM_TARGET))
+  ODIN_OPT_$(1)         := $$(or $$(PLUGIN_ODIN_OPT),$(ODIN_OPT))
+  ODIN_EXTRA_LINKER_FLAGS_$(1) := $$(or $$(PLUGIN_ODIN_EXTRA_LINKER_FLAGS),$(ODIN_EXTRA_LINKER_FLAGS))
+
+  ZIG_WASM_TARGET_$(1)  := $$(or $$(PLUGIN_ZIG_WASM_TARGET),wasm32-freestanding)
+  ZIG_MCPU_$(1)         := $$(PLUGIN_ZIG_MCPU)
+  ZIG_OPT_$(1)          := $$(or $$(PLUGIN_ZIG_OPT),ReleaseFast)
+  ZIG_C_COMPILER_$(1)   := $$(or $$(PLUGIN_ZIG_C_COMPILER),build-exe)
+  ZIG_EXTRA_FLAGS_$(1)  := $$(PLUGIN_ZIG_EXTRA_FLAGS)
+  ZIG_CFLAGS_$(1)       := $$(PLUGIN_CFLAGS)
+  ZIG_LDFLAGS_$(1)      := $$(PLUGIN_LDFLAGS)
+  ZIG_C_SOURCES_$(1)    := $$(if $$(strip $$(PLUGIN_C_SOURCES)),$$(PLUGIN_C_SOURCES),$(wildcard $(PLUGIN_DIR)/$(1)/main.c))
+  ZIG_EXTRA_DEPS_$(1)   := $$(if $$(strip $$(PLUGIN_EXTRA_DEPS)),$$(PLUGIN_EXTRA_DEPS),$(wildcard $(PLUGIN_DIR)/$(1)/*.h))
+  JS_EXTRA_DEPS_$(1)    := $$(or $$(PLUGIN_JS_EXTRA_DEPS),$$(PLUGIN_EXTRA_DEPS))
+
+  # Apply as target-specific vars for this plugin's .wasm output
+  $(BUILD_DIR)/plugins/$(1).wasm: ODIN_WASM_TARGET := $$(ODIN_WASM_TARGET_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ODIN_OPT := $$(ODIN_OPT_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ODIN_EXTRA_LINKER_FLAGS := $$(ODIN_EXTRA_LINKER_FLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_WASM_TARGET := $$(ZIG_WASM_TARGET_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_MCPU := $$(ZIG_MCPU_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_OPT := $$(ZIG_OPT_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_C_COMPILER := $$(ZIG_C_COMPILER_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_EXTRA_FLAGS := $$(ZIG_EXTRA_FLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_CFLAGS := $$(ZIG_CFLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_LDFLAGS := $$(ZIG_LDFLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: ZIG_C_SOURCES := $$(ZIG_C_SOURCES_$(1))
+  $$(if $$(strip $$(ZIG_C_SOURCES_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_C_SOURCES_$(1)))
+  $$(if $$(strip $$(ZIG_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_EXTRA_DEPS_$(1)))
+  $$(if $$(strip $$(JS_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1)/index.js: $$(JS_EXTRA_DEPS_$(1)))
+
+  # Cleanup manifest locals so they don't leak into next plugin
+  PLUGIN_ODIN_WASM_TARGET :=
+  PLUGIN_ODIN_OPT :=
+  PLUGIN_ODIN_EXTRA_LINKER_FLAGS :=
+  PLUGIN_ZIG_WASM_TARGET :=
+  PLUGIN_ZIG_MCPU :=
+  PLUGIN_ZIG_OPT :=
+  PLUGIN_ZIG_C_COMPILER :=
+  PLUGIN_ZIG_EXTRA_FLAGS :=
+  PLUGIN_CFLAGS :=
+  PLUGIN_LDFLAGS :=
+  PLUGIN_C_SOURCES :=
+  PLUGIN_EXTRA_DEPS :=
+  PLUGIN_JS_EXTRA_DEPS :=
+endef
+
+$(foreach p,$(PLUGINS),$(eval $(call APPLY_PLUGIN_MANIFEST,$(p))))
+
 
 SYS_GOOS := $(shell go env GOOS)
 SYS_GOARCH := $(shell go env GOARCH)
@@ -49,97 +181,142 @@ GO_MODULE_NAME ?= $(shell go list -m)
 .PHONY: all
 all: browser
 
-.PHONY: plugins-release
+.PHONY: test
+test: $(PLUGIN_TEST_TARGETS)
+
+define DEFINE_PLUGIN_TEST
+.PHONY: $(1)-test
+$(1)-test: $(if $(filter $(1),$(PLUGIN_NAMES_JS)),$(BUILD_DIR)/plugins/$(1)/index.js,$(BUILD_DIR)/plugins/$(1).wasm) $(PLUGIN_DIR)/$(1)/test/e2e.mjs
+	$(Q)node ./$(PLUGIN_DIR)/$(1)/test/e2e.mjs
+endef
+
+$(foreach p,$(PLUGIN_TEST_PLUGINS),$(eval $(call DEFINE_PLUGIN_TEST,$(p))))
+
+.PHONY: plugins-release plugins-release-wasm plugins-release-js
 plugins-release: $(PLUGIN_TARGETS)
 
+plugins-release-wasm: $(PLUGIN_TARGETS_WASM)
+
+plugins-release-js: $(PLUGIN_TARGETS_JS)
+
+GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
+
 # Rule to build Go plugins
-$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $(wildcard $(PLUGIN_DIR)/%/*.go) | $(BUILD_DIR)/plugins
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $$(shell find $(PLUGIN_DIR)/$$* -name '*.go' 2>/dev/null) $(GO_PLUGIN_SHARED_DEPS) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Go plugin $*..."
 	$(Q)GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o $@ ./$(PLUGIN_DIR)/$*/
 
 # Rule to build Zig plugins
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Zig plugin $*..."
-	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
-
-$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
-	$(Q)echo "nothing to do $*..."
-	$(Q)touch $@
-
-# Special rule for SQL plugin with SQLite3
-# Note: Uses wasm32-wasi target (not freestanding) because SQLite3 needs libc
-$(BUILD_DIR)/plugins/sql.wasm: $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/vendor/sqlite3.c $(wildcard $(PLUGIN_DIR)/sql/vendor/*.h) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building SQL plugin with SQLite3 mem3..."
-	$(Q)zig build-exe $(PLUGIN_DIR)/sql/main.c $(PLUGIN_DIR)/sql/vendor/sqlite3.c \
-		-target wasm32-wasi \
-		-lc \
-		-rdynamic \
-		-O ReleaseFast \
-		-DSQLITE_ENABLE_MEMSYS3 \
-		-DSQLITE_OMIT_LOAD_EXTENSION \
-		-DSQLITE_THREADSAFE=0 \
-		-DSQLITE_OMIT_WAL \
-		-DSQLITE_DEFAULT_MEMSTATUS=0 \
-		-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1 \
-		-DSQLITE_LIKE_DOESNT_MATCH_BLOBS \
-		-DSQLITE_MAX_EXPR_DEPTH=0 \
-		-DSQLITE_OMIT_DECLTYPE \
-		-DSQLITE_OMIT_DEPRECATED \
-		-DSQLITE_OMIT_PROGRESS_CALLBACK \
-		-DSQLITE_OMIT_SHARED_CACHE \
-		-DSQLITE_USE_ALLOCA \
-		-DSQLITE_TEMP_STORE=3 \
-		-femit-bin=$@
-
-# Special rule for stb_tilemap_editor with shared memory support
-# Needs --import-memory and --shared-memory so the main thread can read
-# draw command buffers from WASM linear memory via SharedArrayBuffer.
-$(BUILD_DIR)/plugins/stb_tilemap_editor.wasm: $(PLUGIN_DIR)/stb_tilemap_editor/main.c $(wildcard $(PLUGIN_DIR)/stb_tilemap_editor/*.h) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building stb_tilemap_editor plugin (shared memory)..."
 	$(Q)zig build-exe $< \
-		-target wasm32-freestanding \
-		-mcpu generic+atomics+bulk_memory \
+		-target $(ZIG_WASM_TARGET) \
+		$(if $(strip $(ZIG_MCPU)),-mcpu $(ZIG_MCPU),) \
 		-fno-entry \
 		-rdynamic \
-		-O ReleaseFast \
-		--import-memory \
-		--shared-memory \
-		--initial-memory=10354688 \
-		--max-memory=33554432 \
+		-O $(ZIG_OPT) \
+		$(ZIG_EXTRA_FLAGS) \
 		-femit-bin=$@
 
-$(BUILD_DIR)/plugins/stbte.wasm: $(PLUGIN_DIR)/stbte/main.c $(wildcard $(PLUGIN_DIR)/stbte/*.h) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building stbte plugin (shared memory)..."
-	$(Q)zig build-exe $< \
-		-target wasm32-freestanding \
-		-mcpu generic+atomics+bulk_memory \
-		-fno-entry \
-		-rdynamic \
-		-O ReleaseSmall \
-		-fstrip \
-		--import-memory \
-		--shared-memory \
-		--initial-memory=18874368 \
-		--max-memory=33554432 \
-		-femit-bin=$@
+$(BUILD_DIR)/plugins/%/index.js: $(PLUGIN_DIR)/%/index.js $(wildcard $(PLUGIN_DIR)/%/*.js) $(wildcard $(PLUGIN_DIR)/%/*.mjs) | $(BUILD_DIR)/plugins
+	$(Q)echo "Registering JS plugin $*..."
+	$(Q)rm -rf $(BUILD_DIR)/plugins/$*
+	$(Q)$(MKDIR_P) $(BUILD_DIR)/plugins/$*
+	$(Q)cp -R $(PLUGIN_DIR)/$*/. $(BUILD_DIR)/plugins/$*/
+
+# Rule to build Odin plugins
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/%/*.odin) | $(BUILD_DIR)/plugins
+	$(Q)echo "Building Odin plugin $*..."
+	$(Q)$(ODIN) build ./$(PLUGIN_DIR)/$* \
+		-target:$(ODIN_WASM_TARGET) \
+		-o:$(ODIN_OPT) \
+		--no-entry-point \
+		-out:$@ \
+		$(if $(ODIN_EXTRA_LINKER_FLAGS),-extra-linker-flags:"$(ODIN_EXTRA_LINKER_FLAGS)",)
 
 # Rule to build C plugins using Zig (bare WASM)
-$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.c $(wildcard $(PLUGIN_DIR)/%/*.h) | $(BUILD_DIR)/plugins
+$(BUILD_DIR)/plugins/%.wasm: | $(BUILD_DIR)/plugins
 	$(Q)echo "Building C plugin $*..."
-	$(Q)zig build-exe $< -target wasm32-freestanding -fno-entry -rdynamic -O ReleaseFast -femit-bin=$@
+	$(Q)if [ "$(ZIG_C_COMPILER)" = "cc" ]; then \
+		zig cc $(if $(strip $(ZIG_C_SOURCES)),$(ZIG_C_SOURCES),$(PLUGIN_DIR)/$*/main.c) \
+			-target $(ZIG_WASM_TARGET) \
+			$(if $(strip $(ZIG_MCPU)),-mcpu=$(ZIG_MCPU),) \
+			$(ZIG_CFLAGS) \
+			$(ZIG_LDFLAGS) \
+			$(ZIG_EXTRA_FLAGS) \
+			-o $@; \
+	else \
+		zig build-exe $(if $(strip $(ZIG_C_SOURCES)),$(ZIG_C_SOURCES),$(PLUGIN_DIR)/$*/main.c) \
+			-target $(ZIG_WASM_TARGET) \
+			$(if $(strip $(ZIG_MCPU)),-mcpu $(ZIG_MCPU),) \
+			-fno-entry \
+			-rdynamic \
+			-O $(ZIG_OPT) \
+			$(ZIG_CFLAGS) \
+			$(ZIG_LDFLAGS) \
+			$(ZIG_EXTRA_FLAGS) \
+			-femit-bin=$@; \
+	fi
+
+plugins/ng/build/lua54-wasi-modern.a plugins/ng/build/lua54-wasi-modern.o: plugins/ng/scripts/build-lua-modern.sh $(wildcard plugins/ng/vendor/lua/*.c) $(wildcard plugins/ng/vendor/lua/*.h)
+	$(Q)bash ./plugins/ng/scripts/build-lua-modern.sh
+
+.PHONY: ng-lua-modern
+ng-lua-modern: plugins/ng/build/lua54-wasi-modern.a plugins/ng/build/lua54-wasi-modern.o
 
 .PHONY: browser
 browser: $(PLUGIN_TARGETS)
-	$(Q)go build -o $(BUILD_DIR)/browser-server ./cmd/browser/server.go
+	$(Q)go build -o $(BUILD_DIR)/browser-server ./$(BROWSER_DIR)/server.go
 
 .PHONY: browser-run
 browser-run: browser $(PLUGIN_TARGETS)
-	$(Q)echo "Starting GameCtl Browser IDE..."
+	$(Q)echo "Starting GAMS Browser IDE..."
 	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
+
+.PHONY: cli
+cli: plugins-release
+	$(Q)(cd $(CLI_DIR) && SDKROOT="$(WAILS_SDKROOT)" CC="$(WAILS_CC)" go build -mod=mod -o ../../$(BUILD_DIR)/gams .)
+
+.PHONY: cli-run
+cli-run: cli
+	$(Q)$(BUILD_DIR)/gams --workdir .
+
+.PHONY: native-dev
+native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)
+	$(Q)(cd $(NATIVE_DIR) && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev)
+
+.PHONY: native-dev-inspector
+native-dev-inspector: plugins-release $(NATIVE_OUTPUT_ASSETS)
+	$(Q)(cd $(NATIVE_DIR) && GAMS_OPEN_INSPECTOR=1 GAMS_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev)
+
+.PHONY: native-build
+native-build: plugins-release $(NATIVE_OUTPUT_ASSETS)
+	$(Q)(cd $(NATIVE_DIR) && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build)
+	$(Q)if [ -d "$(NATIVE_APP_BUNDLE)" ]; then rm -rf "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE)" "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" "$(NATIVE_APP_BUNDLE_DISPLAY)"; fi
+
+.PHONY: native-build-debug
+native-build-debug: plugins-release $(NATIVE_OUTPUT_ASSETS)
+	$(Q)(cd $(NATIVE_DIR) && GAMS_OPEN_INSPECTOR=1 GAMS_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build -debug -devtools)
+	$(Q)if [ -d "$(NATIVE_APP_BUNDLE)" ]; then rm -rf "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE)" "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" "$(NATIVE_APP_BUNDLE_DISPLAY)"; fi
 
 # Ensure build directories exist
 $(BUILD_DIR):
 	$(Q)mkdir -p $@
+
+$(NATIVE_OUTPUT_DIR):
+	$(Q)mkdir -p $@
+
+$(NATIVE_OUTPUT_DIR)/darwin:
+	$(Q)mkdir -p $@
+
+$(NATIVE_OUTPUT_DIR)/appicon.png: $(NATIVE_ASSETS_DIR)/appicon.png | $(NATIVE_OUTPUT_DIR)
+	$(Q)cp "$<" "$@"
+
+$(NATIVE_OUTPUT_DIR)/darwin/Info.plist: $(NATIVE_ASSETS_DIR)/darwin/Info.plist | $(NATIVE_OUTPUT_DIR)/darwin
+	$(Q)cp "$<" "$@"
+
+$(NATIVE_OUTPUT_DIR)/darwin/Info.dev.plist: $(NATIVE_ASSETS_DIR)/darwin/Info.dev.plist | $(NATIVE_OUTPUT_DIR)/darwin
+	$(Q)cp "$<" "$@"
 
 $(BUILD_DIR)/plugins:
 	$(Q)mkdir -p $@
@@ -149,12 +326,15 @@ $(BUILD_DIR)/plugins:
 web: $(PLUGIN_TARGETS)
 	$(Q)rm -rf $(BUILD_DIR)/web
 	$(Q)echo "Creating production web build in $(BUILD_DIR)/web/..."
-	$(Q)mkdir -p $(BUILD_DIR)/web/plugins
+	$(Q)mkdir -p $(BUILD_DIR)/web/plugins $(BUILD_DIR)/web/demo
 	$(Q)echo "  Copying browser files..."
-	$(Q)pwd
-	$(Q)cp -r cmd/browser/. $(BUILD_DIR)/web/
+	$(Q)cp -r $(BROWSER_DIR)/. $(BUILD_DIR)/web/
+	$(Q)echo "  Copying GAMS config..."
+	$(Q)cp $(GAMS_CONFIG) $(BUILD_DIR)/web/demo/gams.json
 	$(Q)echo "  Copying plugins..."
 	$(Q)cp -r $(BUILD_DIR)/plugins/* $(BUILD_DIR)/web/plugins/
+	$(Q)echo "  Copying demo..."
+	$(Q)cp -r $(DEMO_DIR)/. $(BUILD_DIR)/web/demo/
 	$(Q)echo "✓ Production build ready at $(BUILD_DIR)/web/"
 
 .PHONY: clean

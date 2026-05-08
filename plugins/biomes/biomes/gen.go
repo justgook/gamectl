@@ -1,7 +1,7 @@
 package biomes
 
 import (
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 // Random interface for dependency injection

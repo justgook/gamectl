@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/justgook/gamectl/pkg/tilemap"
+	"github.com/justgook/gams/pkg/tilemap"
 )
 
 // EdgeMatchContext stores information needed to extend and later restore map edges
@@ -30,6 +30,9 @@ func PrepareMapForEdgeMatching(
 	matchOutsideMap := parseBool(rulesMap.Props["rule_MatchOutsideMap"], false)
 	overflowBorder := parseBool(rulesMap.Props["rule_OverflowBorder"], false)
 	wrapBorder := parseBool(rulesMap.Props["rule_WrapBorder"], false)
+	if overflowBorder || wrapBorder {
+		matchOutsideMap = true
+	}
 
 	// If MatchOutsideMap is not enabled, return original map
 	if !matchOutsideMap {
@@ -176,13 +179,9 @@ func fillWrapBorder(layers []tilemap.TileLayer, padX, padY, origWidth, origHeigh
 	}
 }
 
-// RestoreMapEdges crops output layers back to the original map size.
-// Modifies the outputLayers map in-place.
+// RestoreTileMapEdges crops a tilemap back to the original map size.
 // Does nothing if the context indicates the map was not extended.
-func RestoreMapEdges(
-	outputLayers map[string]*tilemap.TileLayer,
-	ctx *EdgeMatchContext,
-) {
+func RestoreTileMapEdges(tm *tilemap.TileMap, ctx *EdgeMatchContext) {
 	if !ctx.WasExtended {
 		return
 	}
@@ -190,14 +189,5 @@ func RestoreMapEdges(
 	logToConsole(fmt.Sprintf("[Automap] Cropping output layers back to original size: %dx%d",
 		ctx.OriginalWidth, ctx.OriginalHeight))
 
-	for key, layer := range outputLayers {
-		croppedLayers := tilemap.CropLayers(
-			[]tilemap.TileLayer{*layer},
-			ctx.PadX,
-			ctx.PadY,
-			ctx.OriginalWidth,
-			ctx.OriginalHeight,
-		)
-		outputLayers[key] = &croppedLayers[0]
-	}
+	tm.Layers = tilemap.CropLayers(tm.Layers, ctx.PadX, ctx.PadY, ctx.OriginalWidth, ctx.OriginalHeight)
 }

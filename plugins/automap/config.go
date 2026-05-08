@@ -12,7 +12,6 @@ type GlobalConfig struct {
 	OverflowBorder      bool
 	WrapBorder          bool
 	NoOverlappingOutput bool
-	MatchInOrder        bool
 	DeleteTiles         bool
 
 	// Default rule constraints (can be overridden per-layer)
@@ -25,11 +24,13 @@ type GlobalConfig struct {
 
 // SpecialTileDefs maps special matcher tiles (all default to 0 = disabled)
 type SpecialTileDefs struct {
-	Empty    uint32 // Matches empty cells (0)
-	NonEmpty uint32 // Matches any non-empty tile
-	Other    uint32 // Matches tiles not used in this rule
-	Ignore   uint32 // Always matches (skip check)
-	Negate   uint32 // Invert matching condition
+	Empty     uint32 // Matches empty cells (0)
+	NonEmpty  uint32 // Matches any non-empty tile
+	Other     uint32 // Matches tiles not used in this rule
+	Ignore    uint32 // Always matches (skip check)
+	Negate    uint32 // Invert matching condition
+	Different uint32 // Matches non-empty tiles different from other matched non-Different cells
+	Same      uint32 // Matches tiles equal to the first bound reference tile
 }
 
 // ParseGlobalConfig extracts configuration from rules map metadata
@@ -44,13 +45,14 @@ func ParseGlobalConfig(mapMeta map[string]string) (*GlobalConfig, error) {
 	cfg.SpecialTiles.Other = parseUint32(mapMeta["rule_Other"], 0)
 	cfg.SpecialTiles.Ignore = parseUint32(mapMeta["rule_Ignore"], 0)
 	cfg.SpecialTiles.Negate = parseUint32(mapMeta["rule_Negate"], 0)
+	cfg.SpecialTiles.Different = parseUint32(mapMeta["rule_Different"], 0)
+	cfg.SpecialTiles.Same = parseUint32(mapMeta["rule_Same"], 0)
 
 	// Parse boolean flags
 	cfg.MatchOutsideMap = parseBool(mapMeta["rule_MatchOutsideMap"], false)
 	cfg.OverflowBorder = parseBool(mapMeta["rule_OverflowBorder"], false)
 	cfg.WrapBorder = parseBool(mapMeta["rule_WrapBorder"], false)
 	cfg.NoOverlappingOutput = parseBool(mapMeta["rule_NoOverlappingOutput"], false)
-	cfg.MatchInOrder = parseBool(mapMeta["rule_MatchInOrder"], false)
 	cfg.DeleteTiles = parseBool(mapMeta["rule_DeleteTiles"], false)
 
 	// Parse rule constraints
@@ -119,5 +121,7 @@ func (s *SpecialTileDefs) IsSpecial(tileID uint32) bool {
 		tileID == s.NonEmpty ||
 		tileID == s.Other ||
 		tileID == s.Ignore ||
-		tileID == s.Negate
+		tileID == s.Negate ||
+		tileID == s.Different ||
+		tileID == s.Same
 }

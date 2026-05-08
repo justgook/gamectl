@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"image"
-	"image/png"
 	"sort"
 
-	"github.com/justgook/gamectl/pkg/qoi"
-	"github.com/justgook/gamectl/pkg/util"
+	"github.com/justgook/gams/pkg/pluginimg"
+	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -133,45 +131,8 @@ func logMsg(msg string) {
 	pdk.Call("host", "log", []byte(msg))
 }
 
-// =============================================================================
-// Image loading
-// =============================================================================
-
 func loadImage(path string) (*image.NRGBA, error) {
-	data, err := fsRead(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var img image.Image
-
-	// Try QOI first
-	if len(data) >= 4 && string(data[:4]) == "qoif" {
-		img, err = qoi.Decode(bytes.NewReader(data))
-		if err != nil {
-			return nil, fmt.Errorf("qoi decode error: %w", err)
-		}
-	} else {
-		// Try PNG
-		img, err = png.Decode(bytes.NewReader(data))
-		if err != nil {
-			return nil, fmt.Errorf("png decode error: %w", err)
-		}
-	}
-
-	// Convert to NRGBA
-	if nrgba, ok := img.(*image.NRGBA); ok {
-		return nrgba, nil
-	}
-
-	bounds := img.Bounds()
-	nrgba := image.NewNRGBA(bounds)
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			nrgba.Set(x, y, img.At(x, y))
-		}
-	}
-	return nrgba, nil
+	return pluginimg.LoadNRGBA(path)
 }
 
 // =============================================================================
@@ -600,11 +561,7 @@ func DetectGrid() int32 {
 }
 
 func saveImage(path string, img *image.NRGBA) error {
-	var buf bytes.Buffer
-	if err := qoi.Encode(&buf, img); err != nil {
-		return err
-	}
-	return fsWrite(path, buf.Bytes())
+	return pluginimg.SaveNRGBA(path, img, "qoi")
 }
 
 //go:wasmexport exportSpritesheet

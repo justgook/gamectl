@@ -3,7 +3,7 @@ package placement
 import (
 	"testing"
 
-	"github.com/justgook/gamectl/pkg/tree"
+	"github.com/justgook/gams/pkg/tree"
 )
 
 func TestDebugSeed3(t *testing.T) {
@@ -28,11 +28,11 @@ func TestDebugSeed3(t *testing.T) {
 	}
 
 	// Use SAME rng for shapes (matching stress test)
-	gen := NewGenerator(tr, func(node *tree.Node) RoomShape {
+	gen := NewGenerator(tr, func(node *tree.Node) (RoomShape, error) {
 		shape := testRoomShapes[rng.Intn(len(testRoomShapes))]
 		idx := tr.IndexOf(node)
 		t.Logf("Node %d shape: %v", idx, shape)
-		return shape
+		return shape, nil
 	}, rng)
 
 	defer func() {
@@ -88,8 +88,8 @@ func TestDebugSingleTileSeed3(t *testing.T) {
 
 	// All single tiles
 	singleTile := RoomShape{{X: 0, Y: 0}}
-	gen := NewGenerator(tr, func(node *tree.Node) RoomShape {
-		return singleTile
+	gen := NewGenerator(tr, func(node *tree.Node) (RoomShape, error) {
+		return singleTile, nil
 	}, rng)
 
 	placement, err := gen.Generate()

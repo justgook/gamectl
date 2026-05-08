@@ -3,17 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/justgook/gamectl/pkg/tree"
-	"github.com/justgook/gamectl/pkg/util"
-	"github.com/justgook/gamectl/plugins/keylock/keylock"
+	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/plugins/keylock/keylock"
 	"github.com/justgook/wpm/pdk"
 )
 
 // Input represents the plugin input structure
 type Input struct {
-	TreeId         string  `json:"treeId"`         // Required: tree to read/write from tree_storage
+	Src            string  `json:"src"`            // Required: tree JSON file path to read/write through fs
 	KeysQuery      string  `json:"keysQuery"`      // SQL query to get keys (e.g., "SELECT name FROM keys LIMIT 15")
 	KeyChance      float64 `json:"keyChance"`      // Base probability to place key (0.0-1.0, default 0.5)
 	LockChance     float64 `json:"lockChance"`     // Probability to lock (0.0-1.0, default 0.7)
@@ -44,6 +43,33 @@ func logToConsole(msg string) {
 	pdk.Call("host", "log", []byte(msg))
 }
 
+func readFile(path string) ([]byte, error) {
+	status, output, callErr := pdk.Call("fs", "read", []byte(path))
+	if callErr != nil {
+		return nil, callErr
+	}
+	if status != 0 {
+		return nil, fmt.Errorf("%s", string(output))
+	}
+	return output, nil
+}
+
+func writeFile(path string, data []byte) error {
+	input := make([]byte, 0, len(path)+1+len(data))
+	input = append(input, path...)
+	input = append(input, 0)
+	input = append(input, data...)
+
+	_, output, callErr := pdk.Call("fs", "write", input)
+	if callErr != nil {
+		return callErr
+	}
+	if len(output) > 0 && string(output) != "OK" {
+		return fmt.Errorf("%s", string(output))
+	}
+	return nil
+}
+
 //export gen
 func Gen() uint32 {
 	input := pdk.Input()
@@ -54,8 +80,8 @@ func Gen() uint32 {
 	}
 
 	// Validate required parameters
-	if params.TreeId == "" {
-		pdk.Output(util.ErrorResponse("treeId is required"))
+	if params.Src == "" {
+		pdk.Output(util.ErrorResponse("src is required"))
 		return 1
 	}
 	if params.KeysQuery == "" {
@@ -75,29 +101,15 @@ func Gen() uint32 {
 		cfg.MaxKeysPerLock = params.MaxKeysPerLock
 	}
 
-	// Query tree from SQL storage
-	sqlQuery := fmt.Sprintf("SELECT data FROM tree_storage WHERE name = '%s'", params.TreeId)
-	status, csvOutput, callErr := pdk.Call("sql", "query", []byte(sqlQuery))
-	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to query tree: " + callErr.Error()))
-		return 1
-	}
-	if status != 0 {
-		pdk.Output(util.ErrorResponse("SQL query failed"))
-		return 1
-	}
-
-	// Parse CSV response to get JSON data
-	csv := string(csvOutput)
-	lines := util.ParseCSVLines(csv)
-	if len(lines) < 2 || len(lines[1]) < 1 {
-		pdk.Output(util.ErrorResponse("tree not found: " + params.TreeId))
+	treeData, err := readFile(params.Src)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to read tree: " + err.Error()))
 		return 1
 	}
 
 	// Parse tree from JSON data
 	var theTree tree.Tree
-	if err := json.Unmarshal([]byte(lines[1][0]), &theTree); err != nil {
+	if err := json.Unmarshal(treeData, &theTree); err != nil {
 		pdk.Output(util.ErrorResponse("failed to parse tree: " + err.Error()))
 		return 1
 	}
@@ -159,28 +171,14 @@ func Gen() uint32 {
 
 	logToConsole(fmt.Sprintf("[Keylock] Placed %d keys, %d locks", keysPlaced, locksPlaced))
 
-	// Store tree back in SQL storage
 	treeJSON, err := json.Marshal(theTree)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("failed to marshal tree: " + err.Error()))
 		return 1
 	}
 
-	// Escape SQL string and insert
-	escapedData := strings.ReplaceAll(string(treeJSON), "'", "''")
-	sqlQuery = fmt.Sprintf("INSERT OR REPLACE INTO tree_storage (name, data) VALUES ('%s', '%s')",
-		params.TreeId, escapedData)
-
-	var output []byte
-	status, output, callErr = pdk.Call("sql", "exec", []byte(sqlQuery))
-	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to store tree: " + callErr.Error()))
-		return 1
-	}
-
-	// Check if SQL execution was successful
-	if len(output) > 0 && string(output) != "OK" {
-		pdk.Output(util.ErrorResponse("SQL execution failed: " + string(output)))
+	if err := writeFile(params.Src, treeJSON); err != nil {
+		pdk.Output(util.ErrorResponse("failed to write tree: " + err.Error()))
 		return 1
 	}
 

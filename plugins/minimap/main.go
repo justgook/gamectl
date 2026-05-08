@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gamectl/pkg/tree"
-	"github.com/justgook/gamectl/pkg/util"
-	"github.com/justgook/gamectl/plugins/minimap/minimap"
+	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/plugins/minimap/minimap"
 	"github.com/justgook/wpm/pdk"
 )
 
 // Input represents the plugin input structure
 type Input struct {
-	TreeId string `json:"treeId"` // Required: tree to read from tree-storage
-	MapId  string `json:"mapId"`  // Required: map ID to save in tilemap-storage
+	Src   string `json:"src"`   // Required: tree JSON file path to read through fs
+	MapId string `json:"mapId"` // Required: map ID to save in tilemap-storage
 }
 
 // MyRandom implements Random interface using WASM imports
@@ -38,6 +38,17 @@ func logToConsole(msg string) {
 	pdk.Call("host", "log", []byte(msg))
 }
 
+func readFile(path string) ([]byte, error) {
+	status, output, callErr := pdk.Call("fs", "read", []byte(path))
+	if callErr != nil {
+		return nil, callErr
+	}
+	if status != 0 {
+		return nil, fmt.Errorf("%s", string(output))
+	}
+	return output, nil
+}
+
 //export gen
 func Gen() uint32 {
 	input := pdk.Input()
@@ -48,8 +59,8 @@ func Gen() uint32 {
 	}
 
 	// Validate required parameters
-	if params.TreeId == "" {
-		pdk.Output(util.ErrorResponse("treeId is required"))
+	if params.Src == "" {
+		pdk.Output(util.ErrorResponse("src is required"))
 		return 1
 	}
 	if params.MapId == "" {
@@ -57,29 +68,15 @@ func Gen() uint32 {
 		return 1
 	}
 
-	// Query tree from SQL storage
-	sqlQuery := fmt.Sprintf("SELECT data FROM tree_storage WHERE name = '%s'", params.TreeId)
-	status, csvOutput, callErr := pdk.Call("sql", "query", []byte(sqlQuery))
-	if callErr != nil {
-		pdk.Output(util.ErrorResponse("failed to query tree: " + callErr.Error()))
-		return 1
-	}
-	if status != 0 {
-		pdk.Output(util.ErrorResponse("SQL query failed"))
-		return 1
-	}
-
-	// Parse CSV response to get JSON data
-	csv := string(csvOutput)
-	lines := util.ParseCSVLines(csv)
-	if len(lines) < 2 || len(lines[1]) < 1 {
-		pdk.Output(util.ErrorResponse("tree not found: " + params.TreeId))
+	treeData, err := readFile(params.Src)
+	if err != nil {
+		pdk.Output(util.ErrorResponse("failed to read tree: " + err.Error()))
 		return 1
 	}
 
 	// Parse tree from JSON data
 	var tree tree.Tree
-	if err := json.Unmarshal([]byte(lines[1][0]), &tree); err != nil {
+	if err := json.Unmarshal(treeData, &tree); err != nil {
 		pdk.Output(util.ErrorResponse("failed to parse tree: " + err.Error()))
 		return 1
 	}
@@ -104,11 +101,10 @@ func Gen() uint32 {
 
 	// Escape SQL string and insert
 	escapedData := strings.ReplaceAll(string(tilemapJSON), "'", "''")
-	sqlQuery = fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
+	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
 		params.MapId, escapedData)
 
-	var output []byte
-	status, output, callErr = pdk.Call("sql", "exec", []byte(sqlQuery))
+	_, output, callErr := pdk.Call("sql", "exec", []byte(sqlQuery))
 	if callErr != nil {
 		pdk.Output(util.ErrorResponse("failed to store tilemap: " + callErr.Error()))
 		return 1

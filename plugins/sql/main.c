@@ -144,8 +144,15 @@ static uint32_t append_csv_field(char *buf, uint32_t pos, uint32_t max, const ch
 // Exported Plugin Functions
 // =============================================================================
 
-// Initialize and open in-memory database
-__attribute__((export_name("open"))) uint32_t sql_open(void) {
+// Initialize and open in-memory database. This is intentionally not exported
+// as a public plugin method; runtimes call __sql_init when the plugin loads.
+static uint32_t sql_init_database(void) {
+  if (db) {
+    const char success_msg[] = "OK";
+    pdk_output((const uint8_t *)success_msg, sizeof(success_msg) - 1);
+    return 0;
+  }
+
   // Allocate heap for SQLite mem3 if not already allocated
   if (!g_sqlite_heap) {
     uint32_t heap_ptr = pdk_alloc((uint64_t)INITIAL_HEAP_SIZE);
@@ -156,19 +163,19 @@ __attribute__((export_name("open"))) uint32_t sql_open(void) {
     }
     g_sqlite_heap = (void *)(uintptr_t)heap_ptr;
     g_heap_size = INITIAL_HEAP_SIZE;
-  }
-  
-  // Configure SQLite3 to use mem3 with our heap
-  // Args: heap pointer, size in bytes, minimum allocation size (32 bytes = 2^5)
-  int rc = sqlite3_config(SQLITE_CONFIG_HEAP, g_sqlite_heap, (int)g_heap_size, 32);
-  if (rc != SQLITE_OK) {
-    const char error_msg[] = "Failed to configure SQLite mem3 allocator";
-    pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
-    return 1;
+
+    // Configure SQLite3 to use mem3 with our heap before SQLite initializes.
+    // Args: heap pointer, size in bytes, minimum allocation size (32 bytes = 2^5)
+    int config_rc = sqlite3_config(SQLITE_CONFIG_HEAP, g_sqlite_heap, (int)g_heap_size, 32);
+    if (config_rc != SQLITE_OK) {
+      const char error_msg[] = "Failed to configure SQLite mem3 allocator";
+      pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
+      return 1;
+    }
   }
 
   // Open in-memory database
-  rc = sqlite3_open(":memory:", &db);
+  int rc = sqlite3_open(":memory:", &db);
   if (rc != SQLITE_OK) {
     const char *err = sqlite3_errmsg(db);
     uint32_t err_len = pdk_strlen(err);
@@ -183,10 +190,14 @@ __attribute__((export_name("open"))) uint32_t sql_open(void) {
   return 0;
 }
 
+__attribute__((export_name("__sql_init"))) uint32_t sql_init(void) {
+  return sql_init_database();
+}
+
 // Execute non-SELECT SQL (CREATE, INSERT, UPDATE, DELETE)
 __attribute__((export_name("exec"))) uint32_t sql_exec(void) {
   if (!db) {
-    const char error_msg[] = "Database not opened. Call 'open' first.";
+    const char error_msg[] = "SQL database was not initialized.";
     pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
     return 1;
   }
@@ -236,7 +247,7 @@ __attribute__((export_name("exec"))) uint32_t sql_exec(void) {
 // Execute SELECT query and return CSV-formatted results
 __attribute__((export_name("query"))) uint32_t sql_query(void) {
   if (!db) {
-    const char error_msg[] = "Database not opened. Call 'open' first.";
+    const char error_msg[] = "SQL database was not initialized.";
     pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
     return 1;
   }
@@ -353,7 +364,7 @@ __attribute__((export_name("close"))) uint32_t sql_close(void) {
 // Dump database as SQL statements
 __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
   if (!db) {
-    const char error_msg[] = "Database not opened. Call 'open' first.";
+    const char error_msg[] = "SQL database was not initialized.";
     pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
     return 1;
   }
@@ -557,7 +568,7 @@ __attribute__((export_name("dump"))) uint32_t sql_dump(void) {
 // Binary backup using SQLite backup API - creates binary database snapshot
 __attribute__((export_name("backup"))) uint32_t sql_backup(void) {
   if (!db) {
-    const char error_msg[] = "Database not opened. Call 'open' first.";
+    const char error_msg[] = "SQL database was not initialized.";
     pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
     return 1;
   }
@@ -722,7 +733,7 @@ __attribute__((export_name("backup"))) uint32_t sql_backup(void) {
 // Binary load using SQLite backup API - loads from binary database snapshot
 __attribute__((export_name("load"))) uint32_t sql_load(void) {
   if (!db) {
-    const char error_msg[] = "Database not opened. Call 'open' first.";
+    const char error_msg[] = "SQL database was not initialized.";
     pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
     return 1;
   }
@@ -780,7 +791,7 @@ __attribute__((export_name("load"))) uint32_t sql_load(void) {
 // Restore database from SQL dump
 __attribute__((export_name("restore"))) uint32_t sql_restore(void) {
   if (!db) {
-    const char error_msg[] = "Database not opened. Call 'open' first.";
+    const char error_msg[] = "SQL database was not initialized.";
     pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
     return 1;
   }
@@ -832,7 +843,7 @@ __attribute__((export_name("restore"))) uint32_t sql_restore(void) {
 // Uses sqlite3_serialize() to get binary database and fs.write to save
 __attribute__((export_name("save_binary"))) uint32_t sql_save_binary(void) {
   if (!db) {
-    const char error_msg[] = "Database not opened. Call 'open' first.";
+    const char error_msg[] = "SQL database was not initialized.";
     pdk_output((const uint8_t *)error_msg, sizeof(error_msg) - 1);
     return 1;
   }
