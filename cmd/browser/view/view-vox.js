@@ -57,6 +57,54 @@ function shade(color, factor) {
   return `rgba(${Math.max(0, Math.min(255, Math.round(color.r * factor)))}, ${Math.max(0, Math.min(255, Math.round(color.g * factor)))}, ${Math.max(0, Math.min(255, Math.round(color.b * factor)))}, ${color.a})`
 }
 
+function parseTranslation(value) {
+  if (typeof value !== 'string' || value.length === 0) return { x: 0, y: 0, z: 0 }
+  const parts = value.trim().split(/\s+/).map((part) => Number.parseInt(part, 10))
+  assert(parts.length === 3 && parts.every(Number.isInteger), `view-vox invalid nTRN translation: ${value}`)
+  return { x: parts[0], y: parts[1], z: parts[2] }
+}
+
+function decodeRotation(value) {
+  if (typeof value !== 'string' || value.length === 0) return null
+  const packed = Number.parseInt(value, 10)
+  assert(Number.isInteger(packed) && packed >= 0 && packed <= 255, `view-vox invalid nTRN rotation: ${value}`)
+  const row0 = packed & 3
+  const row1 = (packed >> 2) & 3
+  const row2 = [0, 1, 2].find((axis) => axis !== row0 && axis !== row1)
+  assert(row2 !== undefined, `view-vox invalid nTRN rotation axes: ${value}`)
+  const signs = [
+    (packed & 16) ? -1 : 1,
+    (packed & 32) ? -1 : 1,
+    (packed & 64) ? -1 : 1,
+  ]
+  return [
+    { axis: row0, sign: signs[0] },
+    { axis: row1, sign: signs[1] },
+    { axis: row2, sign: signs[2] },
+  ]
+}
+
+function applyRotation(point, rotation) {
+  if (!rotation) return point
+  const values = [point.x, point.y, point.z]
+  return {
+    x: values[rotation[0].axis] * rotation[0].sign,
+    y: values[rotation[1].axis] * rotation[1].sign,
+    z: values[rotation[2].axis] * rotation[2].sign,
+  }
+}
+
+function composeTransform(parent, frame) {
+  const translation = parseTranslation(frame?._t)
+  const rotation = decodeRotation(frame?._r)
+  return {
+    x: parent.x + translation.x,
+    y: parent.y + translation.y,
+    z: parent.z + translation.z,
+    rotation: rotation || parent.rotation,
+  }
+}
+
 function projectPoint(x, y, z, rotation) {
   let rx = x
   let ry = y
@@ -78,16 +126,66 @@ function projectPoint(x, y, z, rotation) {
   }
 }
 
-function buildRenderVoxels(model, rotation) {
+function collectInstances(vox) {
+  const scene = vox.scene
+  if (!scene || scene.shapes.length === 0 || scene.transforms.length === 0) {
+    return vox.models.map((model, modelId) => ({ modelId, model, transform: { x: 0, y: 0, z: 0, rotation: null } }))
+  }
+
+  const transforms = new Map(scene.transforms.map((node) => [node.nodeId, node]))
+  const groups = new Map(scene.groups.map((node) => [node.nodeId, node]))
+  const shapes = new Map(scene.shapes.map((node) => [node.nodeId, node]))
+  const childIds = new Set()
+  for (const node of scene.transforms) childIds.add(node.childNodeId)
+  for (const node of scene.groups) {
+    for (const childNodeId of node.childNodeIds) childIds.add(childNodeId)
+  }
+  const roots = scene.transforms.filter((node) => !childIds.has(node.nodeId))
+  assert(roots.length > 0, 'view-vox scene graph has no root transform')
+
+  const instances = []
+  function visit(nodeId, transform) {
+    if (transforms.has(nodeId)) {
+      const node = transforms.get(nodeId)
+      const next = composeTransform(transform, node.frames[0] || {})
+      visit(node.childNodeId, next)
+      return
+    }
+    if (groups.has(nodeId)) {
+      const node = groups.get(nodeId)
+      for (const childNodeId of node.childNodeIds) visit(childNodeId, transform)
+      return
+    }
+    if (shapes.has(nodeId)) {
+      const node = shapes.get(nodeId)
+      for (const entry of node.models) {
+        const model = vox.models[entry.modelId]
+        assert(model, `view-vox scene references missing model ${entry.modelId}`)
+        instances.push({ modelId: entry.modelId, model, transform })
+      }
+      return
+    }
+    throw new Error(`view-vox scene references missing node ${nodeId}`)
+  }
+
+  for (const root of roots) visit(root.nodeId, { x: 0, y: 0, z: 0, rotation: null })
+  assert(instances.length > 0, 'view-vox scene graph produced no model instances')
+  return instances
+}
+
+function buildRenderVoxels(data, rotation) {
   const out = []
-  const voxels = model.voxels
-  for (let p = 0; p < voxels.length; p += 4) {
-    const x = voxels[p]
-    const y = voxels[p + 1]
-    const z = voxels[p + 2]
-    const colorIndex = voxels[p + 3]
-    const projected = projectPoint(x, y, z, rotation)
-    out.push({ x, y, z, colorIndex, sx: projected.x, sy: projected.y, depth: projected.depth })
+  for (const instance of data.instances) {
+    const voxels = instance.model.voxels
+    for (let p = 0; p < voxels.length; p += 4) {
+      const local = applyRotation({ x: voxels[p], y: voxels[p + 1], z: voxels[p + 2] }, instance.transform.rotation)
+      const x = local.x + instance.transform.x
+      const y = local.y + instance.transform.y
+      const z = local.z + instance.transform.z
+      const colorIndex = voxels[p + 3]
+      const projected = projectPoint(x, y, z, rotation)
+      out.push({ x, y, z, colorIndex, sx: projected.x, sy: projected.y, depth: projected.depth })
+    }
   }
   out.sort((a, b) => a.depth - b.depth || a.z - b.z || a.y - b.y || a.x - b.x)
   return out
@@ -234,12 +332,11 @@ export class ViewVox extends ViewCanvasBase {
 
       const bytes = result.output instanceof Uint8Array ? result.output : new Uint8Array(result.output)
       const vox = decodeVox(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-      const model = vox.models[0]
-      assert(model, 'view-vox decoded file has no model')
+      const instances = collectInstances(vox)
 
       this.rotation = 0
-      this.setData({ vox, model }, { autoFit: true })
-      this.setStatus(this.createStatusText(vox, model), 'success')
+      this.setData({ vox, instances }, { autoFit: true })
+      this.setStatus(this.createStatusText(vox, instances), 'success')
     } catch (error) {
       this.setData(null, { autoFit: false })
       this.setStatus(`Error: ${error?.message || error}`, 'danger')
@@ -247,20 +344,22 @@ export class ViewVox extends ViewCanvasBase {
     }
   }
 
-  createStatusText(vox, model) {
-    const parts = [
-      `${model.width} × ${model.height} × ${model.depth}`,
-      `${model.voxels.length / 4} voxels`,
+  createStatusText(vox, instances) {
+    const voxelCount = instances.reduce((sum, instance) => sum + instance.model.voxels.length / 4, 0)
+    const modelText = vox.models.length === 1 ? '1 model' : `${vox.models.length} models`
+    const instanceText = instances.length === 1 ? '1 instance' : `${instances.length} instances`
+    return [
+      modelText,
+      instanceText,
+      `${voxelCount} voxels`,
       vox.palette ? 'RGBA palette' : 'debug palette',
-    ]
-    if (vox.models.length > 1) parts.push(`showing model 1 of ${vox.models.length}`)
-    return parts.join(' · ')
+    ].join(' · ')
   }
 
   calculateContentBounds(data) {
     if (!data) return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
 
-    const rendered = buildRenderVoxels(data.model, this.rotation)
+    const rendered = buildRenderVoxels(data, this.rotation)
     if (rendered.length === 0) return { minX: 0, minY: 0, maxX: TILE_W, maxY: TILE_H }
 
     let minX = Infinity
@@ -280,7 +379,7 @@ export class ViewVox extends ViewCanvasBase {
   drawContent(ctx, data) {
     if (!data) return
 
-    const rendered = buildRenderVoxels(data.model, this.rotation)
+    const rendered = buildRenderVoxels(data, this.rotation)
     for (const voxel of rendered) {
       drawCube(ctx, voxel, colorForIndex(data.vox.palette, voxel.colorIndex))
     }
