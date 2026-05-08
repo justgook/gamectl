@@ -6,6 +6,10 @@ function readU32(view, offset) {
   return view.getUint32(offset, true)
 }
 
+function readI32(view, offset) {
+  return view.getInt32(offset, true)
+}
+
 function chunkId(bytes, offset) {
   return String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3])
 }
@@ -13,14 +17,15 @@ function chunkId(bytes, offset) {
 /**
  * Decode a MagicaVoxel .vox file.
  *
- * This decoder intentionally supports the core preview path first: VOX header,
- * MAIN, SIZE, XYZI, and RGBA. Unknown chunks are skipped, including their child
- * ranges. Scene graph/material chunks can be added when a caller needs them.
+ * This decoder supports the core preview path first: VOX header, MAIN, SIZE,
+ * XYZI, RGBA, plus the minimal scene graph chunks nTRN, nGRP, and nSHP needed
+ * to place model instances. Unknown chunks are skipped, including their child
+ * ranges. Material/render/layer metadata can be added when a caller needs it.
  *
  * @param {ArrayBuffer} arrayBuffer ArrayBuffer containing the VOX file.
  * @param {number|null} [byteOffset] Offset to the start of the VOX file.
  * @param {number|null} [byteLength] Length of the VOX file in bytes.
- * @returns {{version: number, models: Array<{width: number, height: number, depth: number, voxels: Uint8Array}>, palette: Uint8Array|null}}
+ * @returns {{version: number, models: Array<{width: number, height: number, depth: number, voxels: Uint8Array}>, palette: Uint8Array|null, scene: {transforms: Array<object>, groups: Array<object>, shapes: Array<object>}}}
  */
 export function decode(arrayBuffer, byteOffset, byteLength) {
   if (byteOffset === undefined || byteOffset === null) byteOffset = 0
@@ -39,8 +44,102 @@ export function decode(arrayBuffer, byteOffset, byteLength) {
 
   const version = readU32(view, 4)
   const models = []
+  const scene = { transforms: [], groups: [], shapes: [] }
   let palette = null
   let pendingSize = null
+
+  function readStringAt(offset, end) {
+    assert(offset + 4 <= end, 'VOX.decode: truncated STRING size')
+    const size = readU32(view, offset)
+    const start = offset + 4
+    const next = start + size
+    assert(next <= end, 'VOX.decode: truncated STRING data')
+    return { value: new TextDecoder().decode(bytes.subarray(start, next)), offset: next }
+  }
+
+  function readDictAt(offset, end) {
+    assert(offset + 4 <= end, 'VOX.decode: truncated DICT size')
+    const count = readU32(view, offset)
+    let cursor = offset + 4
+    const value = {}
+    for (let i = 0; i < count; i += 1) {
+      const key = readStringAt(cursor, end)
+      cursor = key.offset
+      const item = readStringAt(cursor, end)
+      cursor = item.offset
+      value[key.value] = item.value
+    }
+    return { value, offset: cursor }
+  }
+
+  function parseTransform(contentStart, contentEnd) {
+    assert(contentStart + 4 <= contentEnd, 'VOX.decode: nTRN missing node id')
+    let cursor = contentStart
+    const nodeId = readI32(view, cursor)
+    cursor += 4
+    const attributes = readDictAt(cursor, contentEnd)
+    cursor = attributes.offset
+    assert(cursor + 16 <= contentEnd, 'VOX.decode: nTRN fixed fields are truncated')
+    const childNodeId = readI32(view, cursor)
+    cursor += 4
+    const reservedId = readI32(view, cursor)
+    cursor += 4
+    const layerId = readI32(view, cursor)
+    cursor += 4
+    const frameCount = readU32(view, cursor)
+    cursor += 4
+    const frames = []
+    for (let i = 0; i < frameCount; i += 1) {
+      const frame = readDictAt(cursor, contentEnd)
+      cursor = frame.offset
+      frames.push(frame.value)
+    }
+    assert(cursor === contentEnd, 'VOX.decode: nTRN has trailing malformed data')
+    scene.transforms.push({ nodeId, attributes: attributes.value, childNodeId, reservedId, layerId, frames })
+  }
+
+  function parseGroup(contentStart, contentEnd) {
+    assert(contentStart + 4 <= contentEnd, 'VOX.decode: nGRP missing node id')
+    let cursor = contentStart
+    const nodeId = readI32(view, cursor)
+    cursor += 4
+    const attributes = readDictAt(cursor, contentEnd)
+    cursor = attributes.offset
+    assert(cursor + 4 <= contentEnd, 'VOX.decode: nGRP missing child count')
+    const childCount = readU32(view, cursor)
+    cursor += 4
+    const childNodeIds = []
+    for (let i = 0; i < childCount; i += 1) {
+      assert(cursor + 4 <= contentEnd, 'VOX.decode: nGRP child ids are truncated')
+      childNodeIds.push(readI32(view, cursor))
+      cursor += 4
+    }
+    assert(cursor === contentEnd, 'VOX.decode: nGRP has trailing malformed data')
+    scene.groups.push({ nodeId, attributes: attributes.value, childNodeIds })
+  }
+
+  function parseShape(contentStart, contentEnd) {
+    assert(contentStart + 4 <= contentEnd, 'VOX.decode: nSHP missing node id')
+    let cursor = contentStart
+    const nodeId = readI32(view, cursor)
+    cursor += 4
+    const attributes = readDictAt(cursor, contentEnd)
+    cursor = attributes.offset
+    assert(cursor + 4 <= contentEnd, 'VOX.decode: nSHP missing model count')
+    const modelCount = readU32(view, cursor)
+    cursor += 4
+    const models = []
+    for (let i = 0; i < modelCount; i += 1) {
+      assert(cursor + 4 <= contentEnd, 'VOX.decode: nSHP model id is truncated')
+      const modelId = readI32(view, cursor)
+      cursor += 4
+      const modelAttributes = readDictAt(cursor, contentEnd)
+      cursor = modelAttributes.offset
+      models.push({ modelId, attributes: modelAttributes.value })
+    }
+    assert(cursor === contentEnd, 'VOX.decode: nSHP has trailing malformed data')
+    scene.shapes.push({ nodeId, attributes: attributes.value, models })
+  }
 
   function parseChunks(start, end) {
     let pos = start
@@ -57,8 +156,12 @@ export function decode(arrayBuffer, byteOffset, byteLength) {
       assert(contentEnd <= end, `VOX.decode: truncated ${id} chunk content`)
       assert(childrenEnd <= end, `VOX.decode: truncated ${id} chunk children`)
 
-      if (id === 'nTRN' || id === 'nGRP' || id === 'nSHP') {
-        throw new Error(`VOX.decode: ${id} scene graph chunks are under construction and are not supported by the browser vox preview yet`)
+      if (id === 'nTRN') {
+        parseTransform(contentStart, contentEnd)
+      } else if (id === 'nGRP') {
+        parseGroup(contentStart, contentEnd)
+      } else if (id === 'nSHP') {
+        parseShape(contentStart, contentEnd)
       } else if (id === 'SIZE') {
         assert(contentSize >= 12, 'VOX.decode: SIZE chunk is too small')
         pendingSize = {
@@ -93,5 +196,5 @@ export function decode(arrayBuffer, byteOffset, byteLength) {
   parseChunks(8, byteLength)
   assert(models.length > 0, 'VOX.decode: missing SIZE/XYZI model data')
 
-  return { version, models, palette }
+  return { version, models, palette, scene }
 }

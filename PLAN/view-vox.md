@@ -4,7 +4,7 @@
 
 Add a first-party browser preview for MagicaVoxel `.vox` assets as a `view-files` open subview, matching the `view-image` pattern: double-clicking/opening a `.vox` file opens a popup-backed view for that file.
 
-Initial scope is a read-only asset preview, not an editor. Editing, palette authoring, animation, scene graph transforms, save/export actions, and open/save file toolbar actions are out of scope until the renderer contract is stable.
+Initial scope is a read-only asset preview, not an editor. Editing, palette authoring, animation, material rendering, save/export actions, and open/save file toolbar actions are out of scope until the renderer contract is stable. Minimal scene graph placement is supported only so MagicaVoxel/world-editor files can preview.
 
 ## Direction
 
@@ -28,7 +28,8 @@ Implementation status: initial MVP files exist at `cmd/browser/view/view-vox.js`
    - `MAIN`,
    - one or more model `SIZE` + `XYZI`,
    - optional `RGBA` palette,
-   - detect `nTRN`, `nGRP`, and `nSHP`, but throw a clear "under construction" error instead of silently ignoring scene graph data.
+   - extension data types needed by scene graph chunks: `STRING`, `DICT`, packed `ROTATION`,
+   - minimal scene graph chunks `nTRN`, `nGRP`, and `nSHP` for model instance placement.
 4. Render voxels to a canvas using an isometric/orthographic 2D projection.
 5. Provide header controls matching `view-image` only:
    - reload,
@@ -36,8 +37,8 @@ Implementation status: initial MVP files exist at `cmd/browser/view/view-vox.js`
    - zoom fit,
    - zoom in.
 6. Navigation differs from normal 2D canvas previews: pointer/drag navigation rotates the model instead of panning the viewport. No panning for MVP.
-7. Show footer status with dimensions, voxel count, palette source, and current file path.
-7. Register `.vox` in `view-files.config.open` to open with `view-vox`.
+7. Show footer status with model count, instance count, voxel count, palette source, and current file path.
+8. Register `.vox` in `view-files.config.open` to open with `view-vox`.
 
 ## Rendering Approach
 
@@ -60,20 +61,18 @@ Existing Go parser at `plugins/markov/mj/vox.go` is intentionally minimal and st
 Keep a clear separation between:
 
 1. **Base `.vox` preview support** — header/chunk walking plus `MAIN`, `SIZE`, `XYZI`, and `RGBA` needed to display simple voxel models.
-2. **MagicaVoxel extension/world-editor support** — documented in `tmp/MagicaVoxel-file-format-vox-extension.txt`, including scene graph, material, layer, render, note, and palette-index-map chunks. This should be implemented later as an explicit extension layer, not mixed into the MVP parser behavior silently.
+2. **MagicaVoxel extension/world-editor support** — documented in `tmp/MagicaVoxel-file-format-vox-extension.txt`. Minimal scene graph support (`nTRN`, `nGRP`, `nSHP`) is implemented for preview placement. Material, layer, render, note, and palette-index-map chunks remain later work and should not be silently mixed into base preview semantics.
 
 Important base `.vox` details to handle:
 
 - `XYZI` color index is 1-based.
 - `RGBA` contains 256 colors as RGBA bytes.
-- Files may contain multiple models; MVP may render all models at origin or render only the first model, but the behavior must be explicit in status.
+- Files may contain multiple models. If scene graph chunks are present, `nSHP` model ids determine rendered instances. If no scene graph exists, all models render at the origin as simple preview instances.
 - Unknown chunks should be skipped using their declared content/children sizes, not treated as fatal unless chunk sizes are malformed.
-- Scene graph chunks `nTRN`, `nGRP`, and `nSHP` are part of the extension/world-editor data, not the MVP base preview path. They are known but intentionally unsupported for MVP; the decoder must fail loudly with an under-construction message when they are present.
+- Scene graph chunks `nTRN`, `nGRP`, and `nSHP` are part of the extension/world-editor data. MVP support parses node ids, attributes, child links, model ids, first-frame translation, and packed rotation enough to place preview instances.
 
-Extension chunks to implement later from `tmp/MagicaVoxel-file-format-vox-extension.txt`:
+Extension chunks still to implement later from `tmp/MagicaVoxel-file-format-vox-extension.txt`:
 
-- shared extension data types: `STRING`, `DICT`, and packed `ROTATION`.
-- scene graph chunks: `nTRN`, `nGRP`, `nSHP`.
 - material/layer chunks: `MATL`, `LAYR`.
 - render/camera chunks: `rOBJ`, `rCAM`.
 - palette metadata chunks: `NOTE`, `IMAP`.
@@ -111,18 +110,18 @@ Do not add open/save/save-as/export buttons for MVP. Do not add rotate buttons f
 
 ## Integration Points
 
-- `cmd/browser/util/vox/decode.js`: shared browser-side `.vox` decoder for `VOX `, `MAIN`, `SIZE`, `XYZI`, and `RGBA`.
+- `cmd/browser/util/vox/decode.js`: shared browser-side `.vox` decoder for `VOX `, `MAIN`, `SIZE`, `XYZI`, `RGBA`, and minimal `nTRN`/`nGRP`/`nSHP` scene graph placement.
 - `cmd/browser/util/vox/encode.js`: shared browser-side minimal `.vox` encoder for generated or edited voxel assets.
 - `cmd/browser/view/view-vox.js`: new preview implementation, following `view-image` conventions for `data-source`, popup `path`, reload, zoom controls, and footer path/status. It should not expose open/save file actions. It may reuse `ViewCanvasBase` zoom/fit pieces, but must disable/avoid panning because drag navigation rotates the model for MVP.
 - `demo/gams.json`: add `view-vox` registration and `.vox` open mapping under `ui.views.view-files.config.open`.
-- Demo assets: `demo/vox/preview.vox` is a simple base-format fixture for preview testing. Existing `.vox` files under `demo/res-markov/resources/...` are mounted, but many contain extension scene graph chunks and should currently fail with the intentional under-construction message.
+- Demo assets: `demo/vox/preview.vox` is a simple base-format fixture for preview testing. Existing `.vox` files under `demo/res-markov/resources/...` are mounted and should preview through minimal `nTRN`/`nGRP`/`nSHP` scene graph support.
 - Optional tests later: parser fixture based on a tiny generated `.vox` similar to `plugins/markov/mj/wfc_tile_test.go`.
 
 ## Later Extensions
 
 - Promote parser to a singleton `vox` plugin if nodegraph, Markov tooling, conversion, or exporters need shared `.vox` decoding.
 - Add WebGL renderer for large models, perspective camera, lighting, outlines, and picking.
-- Support `nTRN`, `nGRP`, `nSHP`, `LAYR`, material chunks, and multi-model scene transforms.
+- Expand scene graph support beyond MVP placement if needed: full transform composition, layers/hidden state, material chunks, and multi-frame scene transforms.
 - Add export paths: screenshot PNG, mesh JSON/glTF, sprite sheet turntable, or tile/sprite thumbnails.
 - Integrate with `view-markov` for inspecting `.vox` rule inputs/outputs.
 
