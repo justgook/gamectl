@@ -11,6 +11,8 @@
 --
 -- Generated program conventions:
 --   * code-node scripts execute with `inputs` and `outputs` tables in scope
+--   * branch activity is available as `inputs.active[portId]`
+--   * outgoing branch activity is controlled with `outputs.active[portId]`
 --   * code-node scripts may also use `_G.inputs` and `_G.outputs`
 --   * final graph results are written to global `output`
 --   * optional progress is provided by emitting an injected `__ng_progress` hook
@@ -96,6 +98,7 @@ local function isConnectedInput(inputPort)
 		and inputPort.srcOutputId ~= 0
 end
 
+
 local function validateGraph()
 	for _, node in ipairs(graph) do
 		assertInteger(node.id, nodeLabel(node) .. ".id")
@@ -104,6 +107,9 @@ local function validateGraph()
 		local inputIds = {}
 		for _, inputPort in ipairs(getInputs(node)) do
 			local inputId = assertInteger(inputPort.id, portLabel(node, inputPort, "input") .. ".id")
+			if inputPort.name == "active" then
+				error(portLabel(node, inputPort, "input") .. ".name uses reserved name 'active'")
+			end
 			if inputIds[inputId] then
 				error(nodeLabel(node) .. " has duplicate input id " .. tostring(inputId))
 			end
@@ -130,6 +136,9 @@ local function validateGraph()
 		local outputIds = {}
 		for _, outputPort in ipairs(getOutputs(node)) do
 			local outputId = assertInteger(outputPort.id, portLabel(node, outputPort, "output") .. ".id")
+			if outputPort.name == "active" then
+				error(portLabel(node, outputPort, "output") .. ".name uses reserved name 'active'")
+			end
 			if outputIds[outputId] then
 				error(nodeLabel(node) .. " has duplicate output id " .. tostring(outputId))
 			end
@@ -150,6 +159,10 @@ end
 
 local function luaVar(nodeId, outputId)
 	return ("n%d_o%d"):format(nodeId, outputId)
+end
+
+local function luaActiveVar(nodeId, outputId)
+	return ("n%d_o%d_active"):format(nodeId, outputId)
 end
 
 local function luaString(value)
@@ -273,6 +286,7 @@ end
 local function emitOutputDeclarations(node)
 	for _, outputPort in ipairs(getOutputs(node)) do
 		emit(("local %s = nil"):format(luaVar(node.id, outputPort.id)))
+		emit(("local %s = false"):format(luaActiveVar(node.id, outputPort.id)))
 	end
 end
 
@@ -306,28 +320,84 @@ local function emitProgressHelpers()
 	emit("  __ng_progress(\"goalDone\", goalId)")
 	emit("end")
 	emit("")
+	emit("local function __ng_active_value(active, value)")
+	emit("  if active then")
+	emit("    return value")
+	emit("  end")
+	emit("  return nil")
+	emit("end")
+	emit("")
+end
+
+local function nodeActiveExpr(node)
+	local activeExprs = {}
+	for _, inputPort in ipairs(getInputs(node)) do
+		if isConnectedInput(inputPort) then
+			activeExprs[#activeExprs + 1] = luaActiveVar(inputPort.srcNodeId, inputPort.srcOutputId)
+		end
+	end
+	if #activeExprs == 0 then
+		return "true"
+	end
+	return table.concat(activeExprs, " or ")
+end
+
+local function emitInactiveOutputs(node, indent)
+	indent = indent or ""
+	for _, outputPort in ipairs(getOutputs(node)) do
+		emit(("%s%s = nil"):format(indent, luaVar(node.id, outputPort.id)))
+		emit(("%s%s = false"):format(indent, luaActiveVar(node.id, outputPort.id)))
+	end
+end
+
+local function emitValueAssignments(node, indent)
+	indent = indent or ""
+	for _, outputPort in ipairs(getOutputs(node)) do
+		emit(("%s%s = %s"):format(indent, luaVar(node.id, outputPort.id), luaLiteral(outputPort.value)))
+		emit(("%s%s = true"):format(indent, luaActiveVar(node.id, outputPort.id)))
+	end
 end
 
 local function emitValueNode(node)
 	emit(("-- value node %d: %s"):format(node.id, node.name or ""))
-	emit(("__ng_node_start(%d)"):format(node.id))
-	for _, outputPort in ipairs(getOutputs(node)) do
-		emit(("%s = %s"):format(luaVar(node.id, outputPort.id), luaLiteral(outputPort.value)))
-	end
-	emit(("__ng_node_done(%d)"):format(node.id))
+	emit(("local __ng_node_%d_active = %s"):format(node.id, nodeActiveExpr(node)))
+	emit(("if __ng_node_%d_active then"):format(node.id))
+	emit(("  __ng_node_start(%d)"):format(node.id))
+	emitValueAssignments(node, "  ")
+	emit(("  __ng_node_done(%d)"):format(node.id))
+	emit("else")
+	emitInactiveOutputs(node, "  ")
+	emit("end")
 	emit("")
 end
 
 local function emitInputAssignments(node)
 	for _, inputPort in ipairs(getInputs(node)) do
-		local valueExpr = "nil"
+		local activeExpr = "false"
 		if isConnectedInput(inputPort) then
-			valueExpr = luaVar(inputPort.srcNodeId, inputPort.srcOutputId)
+			local sourceActive = luaActiveVar(inputPort.srcNodeId, inputPort.srcOutputId)
+			local sourceValue = luaVar(inputPort.srcNodeId, inputPort.srcOutputId)
+			activeExpr = sourceActive
+			emit(("  if %s then"):format(sourceActive))
+			emit(("    inputs[%d] = %s"):format(inputPort.id, sourceValue))
+			if inputPort.name and inputPort.name ~= "" then
+				emit(("    inputs[%s] = %s"):format(luaString(inputPort.name), sourceValue))
+			end
+			emit("  else")
+			emit(("    inputs[%d] = nil"):format(inputPort.id))
+			if inputPort.name and inputPort.name ~= "" then
+				emit(("    inputs[%s] = nil"):format(luaString(inputPort.name)))
+			end
+			emit("  end")
+		else
+			emit(("  inputs[%d] = nil"):format(inputPort.id))
+			if inputPort.name and inputPort.name ~= "" then
+				emit(("  inputs[%s] = nil"):format(luaString(inputPort.name)))
+			end
 		end
-
-		emit(("  inputs[%d] = %s"):format(inputPort.id, valueExpr))
+		emit(("  inputs.active[%d] = %s"):format(inputPort.id, activeExpr))
 		if inputPort.name and inputPort.name ~= "" then
-			emit(("  inputs[%s] = %s"):format(luaString(inputPort.name), valueExpr))
+			emit(("  inputs.active[%s] = %s"):format(luaString(inputPort.name), activeExpr))
 		end
 	end
 end
@@ -342,12 +412,25 @@ local function emitUserCode(source)
 	end
 end
 
+local function emitOutputDefaults(node)
+	for _, outputPort in ipairs(getOutputs(node)) do
+		emit(("  outputs.active[%d] = true"):format(outputPort.id))
+		if outputPort.name and outputPort.name ~= "" then
+			emit(("  outputs.active[%s] = true"):format(luaString(outputPort.name)))
+		end
+	end
+end
+
 local function emitOutputAssignments(node)
 	for _, outputPort in ipairs(getOutputs(node)) do
 		local outVar = luaVar(node.id, outputPort.id)
+		local activeVar = luaActiveVar(node.id, outputPort.id)
 		emit(("  %s = outputs[%d]"):format(outVar, outputPort.id))
 		if outputPort.name and outputPort.name ~= "" then
+			emit(("  %s = outputs.active[%d] ~= false and outputs.active[%s] ~= false"):format(activeVar, outputPort.id, luaString(outputPort.name)))
 			emit(("  -- output %s -> %s"):format(luaString(outputPort.name), outVar))
+		else
+			emit(("  %s = outputs.active[%d] ~= false"):format(activeVar, outputPort.id))
 		end
 	end
 end
@@ -356,25 +439,31 @@ local function emitCodeNode(node)
 	local source = readTextFile(node.codePath)
 
 	emit(("-- code node %d: %s"):format(node.id, node.name or ""))
-	emit(("__ng_node_start(%d)"):format(node.id))
-	emit("local __ng_ok, __ng_err = xpcall(function()")
-	emit("  local inputs = {}")
-	emit("  local outputs = {}")
+	emit(("local __ng_node_%d_active = %s"):format(node.id, nodeActiveExpr(node)))
+	emit(("if __ng_node_%d_active then"):format(node.id))
+	emit(("  __ng_node_start(%d)"):format(node.id))
+	emit("  local __ng_ok, __ng_err = xpcall(function()")
+	emit("  local inputs = { active = {} }")
+	emit("  local outputs = { active = {} }")
 	emit("  _G.inputs = inputs")
 	emit("  _G.outputs = outputs")
 	emitInputAssignments(node)
+	emitOutputDefaults(node)
 	emit("")
 	emit("  -- begin user code: " .. node.codePath)
 	emitUserCode(source)
 	emit("  -- end user code")
 	emit("")
 	emitOutputAssignments(node)
-	emit("end, function(err) return tostring(err) end)")
-	emit("if not __ng_ok then")
-	emit(("  __ng_node_error(%d, __ng_err)"):format(node.id))
-	emit("  error(__ng_err)")
+	emit("  end, function(err) return tostring(err) end)")
+	emit("  if not __ng_ok then")
+	emit(("    __ng_node_error(%d, __ng_err)"):format(node.id))
+	emit("    error(__ng_err)")
+	emit("  end")
+	emit(("  __ng_node_done(%d)"):format(node.id))
+	emit("else")
+	emitInactiveOutputs(node, "  ")
 	emit("end")
-	emit(("__ng_node_done(%d)"):format(node.id))
 	emit("")
 end
 
@@ -401,10 +490,20 @@ local function emitFinalOutput(goalNodes)
 		for _, inputPort in ipairs(getInputs(goal)) do
 			local valueExpr = "nil"
 			if isConnectedInput(inputPort) then
-				valueExpr = luaVar(inputPort.srcNodeId, inputPort.srcOutputId)
+				valueExpr = ("__ng_active_value(%s, %s)"):format(luaActiveVar(inputPort.srcNodeId, inputPort.srcOutputId), luaVar(inputPort.srcNodeId, inputPort.srcOutputId))
 			end
 			local key = inputPort.name ~= "" and inputPort.name or tostring(inputPort.id)
 			emit(("      [%s] = %s,"):format(luaString(key), valueExpr))
+		end
+		emit("    },")
+		emit("    active = {")
+		for _, inputPort in ipairs(getInputs(goal)) do
+			local activeExpr = "false"
+			if isConnectedInput(inputPort) then
+				activeExpr = luaActiveVar(inputPort.srcNodeId, inputPort.srcOutputId)
+			end
+			local key = inputPort.name ~= "" and inputPort.name or tostring(inputPort.id)
+			emit(("      [%s] = %s,"):format(luaString(key), activeExpr))
 		end
 		emit("    },")
 		emit("  },")
