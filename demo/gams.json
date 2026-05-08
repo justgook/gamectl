@@ -25,6 +25,10 @@
             "url": "/demo/game2.rspk.json"
           },
           {
+            "path": "vox/preview.vox",
+            "url": "/demo/vox/preview.vox"
+          },
+          {
             "path": "ng/positions.lua",
             "url": "/demo/ng/positions.lua"
           },
@@ -348,6 +352,10 @@
           {
             "path": "view/view-image.js",
             "url": "/view/view-image.js"
+          },
+          {
+            "path": "view/view-vox.js",
+            "url": "/view/view-vox.js"
           },
           {
             "path": "view/view-markov.js",
@@ -2544,6 +2552,7 @@
             "webp": "view-image",
             "gif": "view-image",
             "bmp": "view-image",
+            "vox": "view-vox",
             "json": "view-code",
             "lua": "view-code",
             "css": "view-code",
@@ -2564,6 +2573,12 @@
         "label": "Image",
         "internal": false,
         "defaultSource": "/demo/ng/nine.png"
+      },
+      "view-vox": {
+        "url": "builtin/view/view-vox.js",
+        "label": "Vox",
+        "internal": false,
+        "defaultSource": "/demo/vox/preview.vox"
       },
       "view-markov": {
         "url": "builtin/view/view-markov.js",
