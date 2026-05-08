@@ -41,6 +41,14 @@
             "url": "/demo/ng/presets/copy-prop.lua"
           },
           {
+            "path": "ng/presets/if.lua",
+            "url": "/demo/ng/presets/if.lua"
+          },
+          {
+            "path": "ng/presets/or.lua",
+            "url": "/demo/ng/presets/or.lua"
+          },
+          {
             "path": "ng/presets/image-atlas.lua",
             "url": "/demo/ng/presets/image-atlas.lua"
           },
@@ -955,6 +963,51 @@
                 }
               ],
               "group": "Data"
+            },
+            {
+              "name": "IF",
+              "kind": "code",
+              "codePath": "demo/ng/presets/if.lua",
+              "inputs": [
+                {
+                  "name": "condition",
+                  "defaultValue": "true"
+                },
+                {
+                  "name": "value",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "true"
+                },
+                {
+                  "name": "false"
+                }
+              ],
+              "group": "Flow"
+            },
+            {
+              "name": "OR",
+              "kind": "code",
+              "codePath": "demo/ng/presets/or.lua",
+              "inputs": [
+                {
+                  "name": "a",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "b",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "value"
+                }
+              ],
+              "group": "Flow"
             },
             {
               "name": "Copy Prop",
