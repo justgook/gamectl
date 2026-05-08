@@ -6,6 +6,47 @@ function normalizeMountPath(path) {
   return normalized
 }
 
+function normalizeInputPath(path) {
+  return String(path || '').replace(/^\/+/, '').replace(/\/+/g, '/')
+}
+
+function normalizeMountName(name) {
+  const normalized = normalizeMountPath(name)
+  const valid = normalized.split('/').every((part) => /^[A-Za-z][A-Za-z0-9._-]*$/.test(part))
+  if (!valid) {
+    throw new Error(`Invalid mount name '${name}'`)
+  }
+  return normalized
+}
+
+function childMountEntries(registry, dir) {
+  const prefix = dir === '' ? '' : `${dir}/`
+  const entries = new Set()
+  for (const name of registry.keys()) {
+    if (!name.startsWith(prefix)) continue
+    const rest = name.slice(prefix.length)
+    if (rest === '') continue
+    entries.add(rest.split('/')[0])
+  }
+  return entries
+}
+
+function resolveMountPrefix(registry, input) {
+  const raw = normalizeInputPath(input)
+  if (raw === '' || raw === '.') return null
+
+  let bestName = ''
+  for (const name of registry.keys()) {
+    if ((raw === name || raw.startsWith(`${name}/`)) && name.length > bestName.length) {
+      bestName = name
+    }
+  }
+  if (!bestName) return null
+
+  const rest = raw === bestName ? '' : raw.slice(bestName.length + 1)
+  return { raw, mountName: bestName, mount: registry.get(bestName), path: rest }
+}
+
 export function createMountRegistry(config) {
   const mounts = config?.mount || {}
   if (!mounts || typeof mounts !== 'object' || Array.isArray(mounts)) {
@@ -13,9 +54,10 @@ export function createMountRegistry(config) {
   }
 
   const registry = new Map()
-  for (const [name, mount] of Object.entries(mounts)) {
-    if (!/^[A-Za-z][A-Za-z0-9._-]*$/.test(name)) {
-      throw new Error(`Invalid mount name '${name}'`)
+  for (const [rawName, mount] of Object.entries(mounts)) {
+    const name = normalizeMountName(rawName)
+    if (registry.has(name)) {
+      throw new Error(`Duplicate mount name '${name}'`)
     }
     if (!mount || typeof mount !== 'object' || Array.isArray(mount)) {
       throw new Error(`fs.mount.${name} must be an object`)
@@ -60,16 +102,9 @@ export function createMountRegistry(config) {
 }
 
 export function resolveMountedPath(registry, input) {
-  const raw = String(input || '').replace(/^\/+/, '')
-  const slashIndex = raw.indexOf('/')
-  if (slashIndex <= 0) return null
-
-  const mountName = raw.slice(0, slashIndex)
-  const mount = registry.get(mountName)
-  if (!mount) return null
-
-  const path = normalizeMountPath(raw.slice(slashIndex + 1))
-  return { mountName, mount, path }
+  const resolved = resolveMountPrefix(registry, input)
+  if (!resolved || resolved.path === '') return null
+  return { ...resolved, path: normalizeMountPath(resolved.path) }
 }
 
 export function readMountedPath(registry, input, readHttpSync) {
@@ -82,30 +117,38 @@ export function readMountedPath(registry, input, readHttpSync) {
 }
 
 export function mountedPathExists(registry, input) {
-  const raw = String(input || '').replace(/^\/+/, '').replace(/\/+/g, '/')
+  const raw = normalizeInputPath(input)
   if (registry.has(raw)) return true
+  if (childMountEntries(registry, raw).size > 0) return true
   const resolved = resolveMountedPath(registry, input)
   if (!resolved) return null
   return resolved.mount.files.has(resolved.path) || resolved.mount.dirs.has(resolved.path)
 }
 
 export function listMountedPath(registry, input) {
-  const raw = String(input || '').replace(/^\/+/, '').replace(/\/+/g, '/')
-  if (raw === '' || raw === '.') return Array.from(registry.keys()).sort()
+  const raw = normalizeInputPath(input)
+  if (raw === '' || raw === '.') return Array.from(childMountEntries(registry, '')).sort()
 
-  const slashIndex = raw.indexOf('/')
-  const mountName = slashIndex === -1 ? raw : raw.slice(0, slashIndex)
-  const mount = registry.get(mountName)
-  if (!mount) return null
-  const path = slashIndex === -1 ? '' : normalizeMountPath(raw.slice(slashIndex + 1))
-  const entries = mount.dirs.get(path)
-  if (!entries) throw new Error(`Mounted directory not found: ${raw}`)
-  return Array.from(entries).sort()
+  const virtualEntries = childMountEntries(registry, raw)
+  const exactMount = registry.get(raw)
+  if (exactMount) {
+    return Array.from(new Set([...(exactMount.dirs.get('') || []), ...virtualEntries])).sort()
+  }
+
+  const resolved = resolveMountedPath(registry, input)
+  if (resolved) {
+    const entries = resolved.mount.dirs.get(resolved.path)
+    if (!entries) throw new Error(`Mounted directory not found: ${raw}`)
+    return Array.from(new Set([...entries, ...virtualEntries])).sort()
+  }
+
+  if (virtualEntries.size > 0) return Array.from(virtualEntries).sort()
+  return null
 }
 
 export function statMountedPath(registry, input) {
-  const raw = String(input || '').replace(/^\/+/, '').replace(/\/+/g, '/')
-  if (registry.has(raw)) return { size: 0, type: 'directory' }
+  const raw = normalizeInputPath(input)
+  if (registry.has(raw) || childMountEntries(registry, raw).size > 0) return { size: 0, type: 'directory' }
   const resolved = resolveMountedPath(registry, input)
   if (!resolved) return null
   if (resolved.mount.files.has(resolved.path)) {
