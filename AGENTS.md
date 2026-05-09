@@ -55,3 +55,4 @@ This repository is moving toward a unified `pluginManager` architecture.
 - In particular for first-party browser JS/plugins/views: do not write code like "if config is missing, continue with {}", broad `try/catch` that hides invariant violations, optional chaining for elements/state that must exist, or fallback parsing paths that silently accept invalid internal data. Required values should be assumed present and should throw immediately when violated.
 - Reserve structured error returns / recoverable handling for true runtime outcomes that are expected as part of agent/tool/model behavior, not for internal wiring/config bugs.
 - If a plugin’s target shape is unclear, mark it as **requires clarification** instead of over-specifying.
+- For `cmd/app` / Tauri Rust checks, use the project Nix shell, e.g. from `cmd/app`: `nix-shell src-tauri/shell.nix --run 'cd src-tauri && cargo check'`.
