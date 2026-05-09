@@ -87,6 +87,8 @@ Initial contract idea:
 
 ### 4. Mounts and storage protocols
 
+Detailed plan: `PLAN/fs-runtime.md`.
+
 Goal: make asset IO independent of local/http-only assumptions by introducing mount-backed paths and protocol-aware filesystem routing.
 
 Needed capabilities:
