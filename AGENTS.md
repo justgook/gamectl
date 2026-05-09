@@ -32,7 +32,7 @@ This repository is moving toward a unified `pluginManager` architecture.
 - **`view`**: browser-rendered plugin that should be registered and routed through `pluginManager`.
 
 ## Important Planning Files
-- `PLAN/PLAN.md` — overall strategy, vocabulary, and priority migration targets.
+- `docs/PLAN/PLAN.md` — overall strategy, vocabulary, and priority migration targets.
 
 ## Current Priority Areas
 - `ng` runtime / `view-nodegraph2`
@@ -55,4 +55,4 @@ This repository is moving toward a unified `pluginManager` architecture.
 - In particular for first-party browser JS/plugins/views: do not write code like "if config is missing, continue with {}", broad `try/catch` that hides invariant violations, optional chaining for elements/state that must exist, or fallback parsing paths that silently accept invalid internal data. Required values should be assumed present and should throw immediately when violated.
 - Reserve structured error returns / recoverable handling for true runtime outcomes that are expected as part of agent/tool/model behavior, not for internal wiring/config bugs.
 - If a plugin’s target shape is unclear, mark it as **requires clarification** instead of over-specifying.
-- For `cmd/app` / Tauri Rust checks, use the project Nix shell, e.g. from `cmd/app`: `nix-shell src-tauri/shell.nix --run 'cd src-tauri && cargo check'`.
+- Use the root `shell.nix` for repository tooling. Prefer commands like `nix-shell --run 'make app-check'`, `nix-shell --run 'make app-run'`, `nix-shell --run 'make app-build-release'`, and `nix-shell --run 'make app-bundle-release'`. Tauri/Cargo output is placed under top-level `$(TAURI_APP_TARGET_DIR)` / `build.nosync/app/target` by default.

@@ -1,7 +1,7 @@
 package biomes
 
 import (
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 // Random interface for dependency injection

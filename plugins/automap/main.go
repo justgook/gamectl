@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/sdk/go/tilemap"
 	"github.com/justgook/wpm/pdk"
 )
 

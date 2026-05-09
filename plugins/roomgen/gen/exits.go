@@ -1,7 +1,7 @@
 package gen
 
 import (
-	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/sdk/go/tilemap"
 )
 
 // RoomInfo contains information about a single room extracted from tilemap

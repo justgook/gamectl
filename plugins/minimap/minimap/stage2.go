@@ -1,7 +1,7 @@
 package minimap
 
 import (
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 // Stage2Result contains the output of the grow-from-parent algorithm
@@ -191,7 +191,12 @@ func tryPlaceChildAdjacent(
 				}
 
 				if canPlaceShape(result, childShape, childPos) {
-					adjCount := countAdjacentToParentTerritory(result, childShape, childPos, parentID)
+					adjCount := countAdjacentToParentTerritory(
+						result,
+						childShape,
+						childPos,
+						parentID,
+					)
 					validPlacements = append(validPlacements, placement{
 						pos:      childPos,
 						adjacent: adjCount,
@@ -229,7 +234,12 @@ func canPlaceShape(result *Stage2Result, shape PlacedShape, pos Point) bool {
 }
 
 // countAdjacentToParentTerritory counts tiles adjacent to parent room or corridor
-func countAdjacentToParentTerritory(result *Stage2Result, shape PlacedShape, pos Point, parentID int) int {
+func countAdjacentToParentTerritory(
+	result *Stage2Result,
+	shape PlacedShape,
+	pos Point,
+	parentID int,
+) int {
 	corridorID := -parentID
 	count := 0
 

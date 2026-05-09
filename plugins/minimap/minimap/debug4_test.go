@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 func TestDebugCorridorCreation(t *testing.T) {
@@ -34,7 +34,7 @@ func TestDebugCorridorCreation(t *testing.T) {
 
 	fmt.Println("Grid with 1x1 shapes:")
 	printGrid2(result)
-	
+
 	// Show corridors
 	fmt.Println("\nCorridors (negative IDs):")
 	for pt, id := range result.Grid {
@@ -47,10 +47,18 @@ func TestDebugCorridorCreation(t *testing.T) {
 func printGrid2(result *Stage2Result) {
 	minX, minY, maxX, maxY := 0, 0, 0, 0
 	for pt := range result.Grid {
-		if pt[0] < minX { minX = pt[0] }
-		if pt[0] > maxX { maxX = pt[0] }
-		if pt[1] < minY { minY = pt[1] }
-		if pt[1] > maxY { maxY = pt[1] }
+		if pt[0] < minX {
+			minX = pt[0]
+		}
+		if pt[0] > maxX {
+			maxX = pt[0]
+		}
+		if pt[1] < minY {
+			minY = pt[1]
+		}
+		if pt[1] > maxY {
+			maxY = pt[1]
+		}
 	}
 	for y := minY; y <= maxY; y++ {
 		for x := minX; x <= maxX; x++ {

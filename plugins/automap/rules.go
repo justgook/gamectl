@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/sdk/go/tilemap"
 )
 
 // rulePropsToExclude lists all rule-specific properties
@@ -126,7 +126,11 @@ type InputGroup struct {
 	HasEmptyMatcher bool
 }
 
-func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height int, config *GlobalConfig) bool {
+func (g *InputGroup) Match(
+	targetLayer *tilemap.TileLayer,
+	index, width, height int,
+	config *GlobalConfig,
+) bool {
 	referenceTile := uint32(0)
 	hasReference := false
 	matchedNonDifferentValues := map[uint32]struct{}{}
@@ -151,7 +155,14 @@ func (g *InputGroup) Match(targetLayer *tilemap.TileLayer, index, width, height 
 				continue
 			}
 
-			cellMatched := matchTile(matcher.Value, inputTileValue, config, g, referenceTile, hasReference)
+			cellMatched := matchTile(
+				matcher.Value,
+				inputTileValue,
+				config,
+				g,
+				referenceTile,
+				hasReference,
+			)
 			if matcher.IsNegated {
 				cellMatched = !cellMatched
 			}
@@ -238,7 +249,10 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 
 	for layerIdx := range rulesMap.Layers {
 		if _, exists := rulesMap.Layers[layerIdx].Props["rule_input_not"]; exists {
-			return nil, fmt.Errorf("layer %d uses obsolete rule_input_not; use rule_role=\"inputnot\"", layerIdx)
+			return nil, fmt.Errorf(
+				"layer %d uses obsolete rule_input_not; use rule_role=\"inputnot\"",
+				layerIdx,
+			)
 		}
 	}
 
@@ -350,10 +364,28 @@ func ExtractRules(rulesMap *tilemap.TileMap, config *GlobalConfig) ([]*Rule, err
 			rules = append(rules, &Rule{
 				InputGroups: inputGroups,
 				Outputs:     buildRuleOutputs(outputLayers),
-				ModX:        max(parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_ModX"), config.ModX), 1),
-				ModY:        max(parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_ModY"), config.ModY), 1),
-				OffsetX:     parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_OffsetX"), config.OffsetX),
-				OffsetY:     parseInt(firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_OffsetY"), config.OffsetY),
+				ModX: max(
+					parseInt(
+						firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_ModX"),
+						config.ModX,
+					),
+					1,
+				),
+				ModY: max(
+					parseInt(
+						firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_ModY"),
+						config.ModY,
+					),
+					1,
+				),
+				OffsetX: parseInt(
+					firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_OffsetX"),
+					config.OffsetX,
+				),
+				OffsetY: parseInt(
+					firstNonEmptyLayerProp(inputLayers, rulesMap, "rule_OffsetY"),
+					config.OffsetY,
+				),
 				Probability: config.Probability,
 				OrderX:      globalMinX,
 				OrderY:      globalMinY,
@@ -439,7 +471,13 @@ func hasAnyTile(rulesMap *tilemap.TileMap, idx int) bool {
 
 // matchTile compares a rule tile value against an input tile value.
 // Returns true if they match according to special tile rules.
-func matchTile(ruleTileValue, inputTileValue uint32, config *GlobalConfig, group *InputGroup, referenceTile uint32, hasReference bool) bool {
+func matchTile(
+	ruleTileValue, inputTileValue uint32,
+	config *GlobalConfig,
+	group *InputGroup,
+	referenceTile uint32,
+	hasReference bool,
+) bool {
 	// Special case: Ignore - always matches
 	if ruleTileValue == config.SpecialTiles.Ignore {
 		return true
@@ -634,7 +672,11 @@ func (g *InputGroup) validateRelativeReferences(config *GlobalConfig) error {
 		}
 
 		if cellHasRelative && !hasReferenceBinder {
-			return fmt.Errorf("relative matcher at (%d,%d) used before reference established", cell.Point.X, cell.Point.Y)
+			return fmt.Errorf(
+				"relative matcher at (%d,%d) used before reference established",
+				cell.Point.X,
+				cell.Point.Y,
+			)
 		}
 		if cellHasBinder {
 			hasReferenceBinder = true
@@ -657,7 +699,10 @@ func buildRuleOutputs(outputLayers []*OutputLayer) *RuleOutputs {
 
 		variant, ok := variantMap[outputLayer.OutputIndex]
 		if !ok {
-			variant = &OutputVariant{Index: outputLayer.OutputIndex, Probability: outputLayer.Probability}
+			variant = &OutputVariant{
+				Index:       outputLayer.OutputIndex,
+				Probability: outputLayer.Probability,
+			}
 			variantMap[outputLayer.OutputIndex] = variant
 			order = append(order, outputLayer.OutputIndex)
 		}
@@ -673,7 +718,11 @@ func buildRuleOutputs(outputLayers []*OutputLayer) *RuleOutputs {
 	return outputs
 }
 
-func firstNonEmptyLayerProp(inputLayers []*InputLayer, rulesMap *tilemap.TileMap, key string) string {
+func firstNonEmptyLayerProp(
+	inputLayers []*InputLayer,
+	rulesMap *tilemap.TileMap,
+	key string,
+) string {
 	for _, inputLayer := range inputLayers {
 		for i := range rulesMap.Layers {
 			layer := &rulesMap.Layers[i]

@@ -6,8 +6,8 @@ import (
 	"image"
 	"sort"
 
-	"github.com/justgook/gams/pkg/pluginimg"
-	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/sdk/go/pluginimg"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -510,7 +510,15 @@ func DetectGrid() int32 {
 	cols := imgW / params.CellW
 	rows := imgH / params.CellH
 
-	logMsg(fmt.Sprintf("[sprite-detect] Grid detection: %dx%d cells in %dx%d image", cols, rows, imgW, imgH))
+	logMsg(
+		fmt.Sprintf(
+			"[sprite-detect] Grid detection: %dx%d cells in %dx%d image",
+			cols,
+			rows,
+			imgW,
+			imgH,
+		),
+	)
 
 	var cells []GridCell
 
@@ -616,8 +624,18 @@ func ExportSpritesheet() int32 {
 	sheetH := rows * params.CellH
 	spritesheet := image.NewNRGBA(image.Rect(0, 0, sheetW, sheetH))
 
-	logMsg(fmt.Sprintf("[sprite-detect] Creating spritesheet %dx%d (%d cols x %d rows) with %dx%d cells for %d sprites",
-		sheetW, sheetH, cols, rows, params.CellW, params.CellH, numSprites))
+	logMsg(
+		fmt.Sprintf(
+			"[sprite-detect] Creating spritesheet %dx%d (%d cols x %d rows) with %dx%d cells for %d sprites",
+			sheetW,
+			sheetH,
+			cols,
+			rows,
+			params.CellW,
+			params.CellH,
+			numSprites,
+		),
+	)
 
 	// Process each sprite
 	for i, sprite := range params.Sprites {

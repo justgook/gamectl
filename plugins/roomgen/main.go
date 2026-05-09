@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gams/pkg/tilemap"
-	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/gams/plugins/roomgen/gen"
+	"github.com/justgook/gams/sdk/go/tilemap"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -105,8 +105,15 @@ func Gen() int32 {
 	// Create random number generator
 	rng := &MyRandom{}
 
-	logToConsole(fmt.Sprintf("[RoomGen] Starting generation with abilities: jump=%d/%d, ladders=%v, walls=%v",
-		abilities.JumpHeight, abilities.JumpDistance, abilities.CanUseLadders, abilities.CanWallJump))
+	logToConsole(
+		fmt.Sprintf(
+			"[RoomGen] Starting generation with abilities: jump=%d/%d, ladders=%v, walls=%v",
+			abilities.JumpHeight,
+			abilities.JumpDistance,
+			abilities.CanUseLadders,
+			abilities.CanWallJump,
+		),
+	)
 
 	// Generate traversal geometry
 	geometryLayer, err := gen.RenderAllRoomsToTilemap(inputMap, abilities, variety, tileIDs, rng)
@@ -248,8 +255,11 @@ func storeTilemap(mapID string, tm *tilemap.TileMap) error {
 	escapedMapID := strings.ReplaceAll(mapID, "'", "''")
 	escapedData := strings.ReplaceAll(jsonStr, "'", "''")
 
-	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
-		escapedMapID, escapedData)
+	sqlQuery := fmt.Sprintf(
+		"INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
+		escapedMapID,
+		escapedData,
+	)
 
 	status, output, err := pdk.Call("sql", "exec", []byte(sqlQuery))
 	if err != nil {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gams/pkg/tilemap"
-	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/gams/plugins/markov/mj"
+	"github.com/justgook/gams/sdk/go/tilemap"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -108,7 +108,10 @@ func loadModel(path, inline string) (*mj.Model, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mj.ParseXMLWithOptions(data, mj.ParseOptions{ResourceRoot: resourceRootForModel(path), ReadFile: readFile})
+	return mj.ParseXMLWithOptions(
+		data,
+		mj.ParseOptions{ResourceRoot: resourceRootForModel(path), ReadFile: readFile},
+	)
 }
 
 //go:wasmexport run
@@ -126,7 +129,17 @@ func Run() int32 {
 		pdk.Output(util.ErrorResponse("failed to load model: " + err.Error()))
 		return 1
 	}
-	result, err := mj.Run(model, mj.RunOptions{Width: input.Width, Height: input.Height, Depth: input.Depth, Seed: input.Seed, Steps: input.Steps, InitialCells: input.Initial.Cells})
+	result, err := mj.Run(
+		model,
+		mj.RunOptions{
+			Width:        input.Width,
+			Height:       input.Height,
+			Depth:        input.Depth,
+			Seed:         input.Seed,
+			Steps:        input.Steps,
+			InitialCells: input.Initial.Cells,
+		},
+	)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("generation failed: " + err.Error()))
 		return 1
@@ -210,7 +223,17 @@ func RunModelEntry() int32 {
 	if input.Steps != 0 {
 		steps = input.Steps
 	}
-	result, err := mj.Run(model, mj.RunOptions{Width: entry.Length, Height: entry.Width, Depth: entry.Height, Seed: input.Seed, Steps: steps, InitialCells: input.Initial.Cells})
+	result, err := mj.Run(
+		model,
+		mj.RunOptions{
+			Width:        entry.Length,
+			Height:       entry.Width,
+			Depth:        entry.Height,
+			Seed:         input.Seed,
+			Steps:        steps,
+			InitialCells: input.Initial.Cells,
+		},
+	)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("generation failed: " + err.Error()))
 		return 1
@@ -269,7 +292,16 @@ func Create() int32 {
 		pdk.Output(util.ErrorResponse("failed to load model: " + err.Error()))
 		return 1
 	}
-	runner, err := mj.NewRunner(model, mj.RunOptions{Width: input.Width, Height: input.Height, Depth: input.Depth, Seed: input.Seed, InitialCells: input.Initial.Cells})
+	runner, err := mj.NewRunner(
+		model,
+		mj.RunOptions{
+			Width:        input.Width,
+			Height:       input.Height,
+			Depth:        input.Depth,
+			Seed:         input.Seed,
+			InitialCells: input.Initial.Cells,
+		},
+	)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("failed to create runner: " + err.Error()))
 		return 1
@@ -324,7 +356,9 @@ func Snapshot() int32 {
 		pdk.Output(util.ErrorResponse("unknown markov session handle"))
 		return 1
 	}
-	data, err := json.Marshal(SessionResult{OK: true, Handle: input.Handle, Grid: runner.Snapshot()})
+	data, err := json.Marshal(
+		SessionResult{OK: true, Handle: input.Handle, Grid: runner.Snapshot()},
+	)
 	if err != nil {
 		pdk.Output(util.ErrorResponse("failed to marshal response: " + err.Error()))
 		return 1
@@ -408,14 +442,21 @@ func joinPath(base, rel string) string {
 }
 
 func toTileMap(result *mj.RunResult, tileIDs map[string]uint32) *tilemap.TileMap {
-	layer := tilemap.TileLayer{Width: result.Width, Data: make([]uint32, result.Width*result.Height), Props: map[string]string{"name": "markov"}}
+	layer := tilemap.TileLayer{
+		Width: result.Width,
+		Data:  make([]uint32, result.Width*result.Height),
+		Props: map[string]string{"name": "markov"},
+	}
 	rows := strings.Split(result.Cells, "/")
 	for y, row := range rows {
 		for x := 0; x < len(row); x++ {
 			layer.Data[x+y*result.Width] = tileIDs[string(row[x])]
 		}
 	}
-	return &tilemap.TileMap{Layers: []tilemap.TileLayer{layer}, Props: map[string]string{"generator": "markov"}}
+	return &tilemap.TileMap{
+		Layers: []tilemap.TileLayer{layer},
+		Props:  map[string]string{"generator": "markov"},
+	}
 }
 
 func main() {}

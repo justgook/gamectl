@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 func TestDebugManyChildren(t *testing.T) {
@@ -33,10 +33,18 @@ func TestDebugManyChildren(t *testing.T) {
 	// Print the grid
 	minX, minY, maxX, maxY := 0, 0, 0, 0
 	for pt := range result.Grid {
-		if pt[0] < minX { minX = pt[0] }
-		if pt[0] > maxX { maxX = pt[0] }
-		if pt[1] < minY { minY = pt[1] }
-		if pt[1] > maxY { maxY = pt[1] }
+		if pt[0] < minX {
+			minX = pt[0]
+		}
+		if pt[0] > maxX {
+			maxX = pt[0]
+		}
+		if pt[1] < minY {
+			minY = pt[1]
+		}
+		if pt[1] > maxY {
+			maxY = pt[1]
+		}
 	}
 
 	fmt.Println("Grid:")

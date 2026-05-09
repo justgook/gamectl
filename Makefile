@@ -33,6 +33,11 @@ ASSETS_DIR ?= example/assets
 
 BUILD_DIR ?= build.nosync
 BROWSER_DIR ?= cmd/browser
+TAURI_APP_DIR ?= cmd/app
+TAURI_APP_DIR_SRC ?= $(TAURI_APP_DIR)/src-tauri
+NIX_SHELL ?= shell.nix
+TAURI_APP_TARGET_DIR ?= $(abspath $(BUILD_DIR)/app/target)
+TAURI_APP_BUNDLES ?= app,dmg
 GAMS_CONFIG ?= demo/gams.json
 DEMO_DIR ?= demo
 CLI_DIR ?= cmd/cli
@@ -280,6 +285,31 @@ cli: plugins-release
 .PHONY: cli-run
 cli-run: cli
 	$(Q)$(BUILD_DIR)/gams --workdir .
+
+.PHONY: app app-check app-run app-build app-build-debug app-build-release app-bundle app-bundle-debug app-bundle-release
+app: app-bundle-release
+
+app-check:
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
+
+app-run:
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
+
+app-build: app-build-release
+
+app-build-debug:
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --no-bundle
+
+app-build-release:
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --no-bundle
+
+app-bundle: app-bundle-release
+
+app-bundle-debug:
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --bundles $(TAURI_APP_BUNDLES)
+
+app-bundle-release:
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --bundles $(TAURI_APP_BUNDLES)
 
 .PHONY: native-dev
 native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)

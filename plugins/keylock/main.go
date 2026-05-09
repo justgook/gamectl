@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/justgook/gams/pkg/tree"
-	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/gams/plugins/keylock/keylock"
+	"github.com/justgook/gams/sdk/go/tree"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 

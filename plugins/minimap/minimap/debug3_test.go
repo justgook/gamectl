@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 func TestDebugPlacement(t *testing.T) {
@@ -43,15 +43,15 @@ func TestDebugPlacement(t *testing.T) {
 		parentTiles := getParentTerritory(result, 1)
 		parentEdges := getEdgeTiles(result, parentTiles)
 		fmt.Printf("\nPlacing child %d. Parent edges: %d\n", childIdx+1, len(parentEdges))
-		
+
 		placed := tryPlaceChildAdjacent(result, 1, childIdx+1, shapes[childIdx], parentEdges)
 		fmt.Printf("Direct placement succeeded: %v\n", placed)
-		
+
 		if !placed {
 			fmt.Println("Calling extendAndPlaceChild...")
 			extendAndPlaceChild(result, 1, childIdx+1, shapes[childIdx], parentTiles)
 		}
-		
+
 		printGrid(result)
 	}
 
@@ -59,25 +59,33 @@ func TestDebugPlacement(t *testing.T) {
 	parentTiles := getParentTerritory(result, 1)
 	parentEdges := getEdgeTiles(result, parentTiles)
 	fmt.Printf("\nPlacing child 6. Parent edges: %d, edges: %v\n", len(parentEdges), parentEdges)
-	
+
 	placed := tryPlaceChildAdjacent(result, 1, 6, shapes[5], parentEdges)
 	fmt.Printf("Direct placement succeeded: %v\n", placed)
-	
+
 	if !placed {
 		fmt.Println("Calling extendAndPlaceChild...")
 		extendAndPlaceChild(result, 1, 6, shapes[5], parentTiles)
 	}
-	
+
 	printGrid(result)
 }
 
 func printGrid(result *Stage2Result) {
 	minX, minY, maxX, maxY := 0, 0, 0, 0
 	for pt := range result.Grid {
-		if pt[0] < minX { minX = pt[0] }
-		if pt[0] > maxX { maxX = pt[0] }
-		if pt[1] < minY { minY = pt[1] }
-		if pt[1] > maxY { maxY = pt[1] }
+		if pt[0] < minX {
+			minX = pt[0]
+		}
+		if pt[0] > maxX {
+			maxX = pt[0]
+		}
+		if pt[1] < minY {
+			minY = pt[1]
+		}
+		if pt[1] > maxY {
+			maxY = pt[1]
+		}
 	}
 	for y := minY; y <= maxY; y++ {
 		for x := minX; x <= maxX; x++ {

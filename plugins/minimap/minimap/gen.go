@@ -1,8 +1,8 @@
 package minimap
 
 import (
-	"github.com/justgook/gams/pkg/tilemap"
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tilemap"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 type RoomShape [][2]int

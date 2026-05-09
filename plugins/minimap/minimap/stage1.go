@@ -1,7 +1,7 @@
 package minimap
 
 import (
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 // normalizeShape takes a shape and returns a PlacedShape with normalized points

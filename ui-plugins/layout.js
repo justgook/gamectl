@@ -113,8 +113,8 @@ export class ViewArea extends HTMLElement {
     this._selectorReady = false
 
     const shadowRoot = this.attachShadow({ mode: 'open' })
-    shadowRoot.innerHTML = `<link rel="stylesheet" href="reset.css">
-      <link rel="stylesheet" href="base.css">
+    shadowRoot.innerHTML = `<link rel="stylesheet" href="/css/reset.css">
+      <link rel="stylesheet" href="/css/base.css">
       <header part="header">
         <select part="view-select" name="view" data-action="select-view" class="view-selector"></select>
         <slot name="header-controls"></slot>

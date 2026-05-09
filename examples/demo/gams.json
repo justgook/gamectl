@@ -246,6 +246,107 @@
           }
         ]
       },
+      "builtin/views": {
+        "driver": "http",
+        "files": [
+          {
+            "path": "files-default.js",
+            "url": "/views/files-default.js"
+          },
+          {
+            "path": "files-rename.js",
+            "url": "/views/files-rename.js"
+          },
+          {
+            "path": "sql-table-editor.js",
+            "url": "/views/sql-table-editor.js"
+          },
+          {
+            "path": "tilemap-settings.js",
+            "url": "/views/tilemap-settings.js"
+          },
+          {
+            "path": "view-ai.js",
+            "url": "/views/view-ai.js"
+          },
+          {
+            "path": "view-code.js",
+            "url": "/views/view-code.js"
+          },
+          {
+            "path": "view-files.js",
+            "url": "/views/view-files.js"
+          },
+          {
+            "path": "view-image.js",
+            "url": "/views/view-image.js"
+          },
+          {
+            "path": "view-vox.js",
+            "url": "/views/view-vox.js"
+          },
+          {
+            "path": "view-markov.js",
+            "url": "/views/view-markov.js"
+          },
+          {
+            "path": "view-ng-node.js",
+            "url": "/views/view-ng-node.js"
+          },
+          {
+            "path": "view-ng.js",
+            "url": "/views/view-ng.js"
+          },
+          {
+            "path": "view-props.js",
+            "url": "/views/view-props.js"
+          },
+          {
+            "path": "view-setting-fs.js",
+            "url": "/views/view-setting-fs.js"
+          },
+          {
+            "path": "view-setting-plugins.js",
+            "url": "/views/view-setting-plugins.js"
+          },
+          {
+            "path": "view-sql-console.js",
+            "url": "/views/view-sql-console.js"
+          },
+          {
+            "path": "view-sql.js",
+            "url": "/views/view-sql.js"
+          },
+          {
+            "path": "view-tilemap.js",
+            "url": "/views/view-tilemap.js"
+          },
+          {
+            "path": "view-tree-parent.js",
+            "url": "/views/view-tree-parent.js"
+          },
+          {
+            "path": "view-tree.js",
+            "url": "/views/view-tree.js"
+          },
+          {
+            "path": "view-animation.js",
+            "url": "/views/view-animation.js"
+          },
+          {
+            "path": "view-font.js",
+            "url": "/views/view-font.js"
+          },
+          {
+            "path": "view-bullet.js",
+            "url": "/views/view-bullet.js"
+          },
+          {
+            "path": "view-particle.js",
+            "url": "/views/view-particle.js"
+          }
+        ]
+      },
       "builtin": {
         "driver": "http",
         "files": [
@@ -320,102 +421,6 @@
           {
             "path": "plugins/respack.wasm",
             "url": "/plugins/respack.wasm"
-          },
-          {
-            "path": "view/files-default.js",
-            "url": "/view/files-default.js"
-          },
-          {
-            "path": "view/files-rename.js",
-            "url": "/view/files-rename.js"
-          },
-          {
-            "path": "view/sql-table-editor.js",
-            "url": "/view/sql-table-editor.js"
-          },
-          {
-            "path": "view/tilemap-settings.js",
-            "url": "/view/tilemap-settings.js"
-          },
-          {
-            "path": "view/view-ai.js",
-            "url": "/view/view-ai.js"
-          },
-          {
-            "path": "view/view-code.js",
-            "url": "/view/view-code.js"
-          },
-          {
-            "path": "view/view-files.js",
-            "url": "/view/view-files.js"
-          },
-          {
-            "path": "view/view-image.js",
-            "url": "/view/view-image.js"
-          },
-          {
-            "path": "view/view-vox.js",
-            "url": "/view/view-vox.js"
-          },
-          {
-            "path": "view/view-markov.js",
-            "url": "/view/view-markov.js"
-          },
-          {
-            "path": "view/view-ng-node.js",
-            "url": "/view/view-ng-node.js"
-          },
-          {
-            "path": "view/view-ng.js",
-            "url": "/view/view-ng.js"
-          },
-          {
-            "path": "view/view-props.js",
-            "url": "/view/view-props.js"
-          },
-          {
-            "path": "view/view-setting-fs.js",
-            "url": "/view/view-setting-fs.js"
-          },
-          {
-            "path": "view/view-setting-plugins.js",
-            "url": "/view/view-setting-plugins.js"
-          },
-          {
-            "path": "view/view-sql-console.js",
-            "url": "/view/view-sql-console.js"
-          },
-          {
-            "path": "view/view-sql.js",
-            "url": "/view/view-sql.js"
-          },
-          {
-            "path": "view/view-tilemap.js",
-            "url": "/view/view-tilemap.js"
-          },
-          {
-            "path": "view/view-tree-parent.js",
-            "url": "/view/view-tree-parent.js"
-          },
-          {
-            "path": "view/view-tree.js",
-            "url": "/view/view-tree.js"
-          },
-          {
-            "path": "view/view-animation.js",
-            "url": "/view/view-animation.js"
-          },
-          {
-            "path": "view/view-font.js",
-            "url": "/view/view-font.js"
-          },
-          {
-            "path": "view/view-bullet.js",
-            "url": "/view/view-bullet.js"
-          },
-          {
-            "path": "view/view-particle.js",
-            "url": "/view/view-particle.js"
           },
           {
             "path": "theme/current.css",
@@ -2231,25 +2236,25 @@
     ],
     "views": {
       "view-animation": {
-        "url": "builtin/view/view-animation.js",
+        "url": "builtin/views/view-animation.js",
         "label": "Animation",
         "group": "TODO",
         "internal": false
       },
       "view-font": {
-        "url": "builtin/view/view-font.js",
+        "url": "builtin/views/view-font.js",
         "label": "Artery Font",
         "group": "TODO",
         "internal": false
       },
       "view-bullet": {
-        "url": "builtin/view/view-bullet.js",
+        "url": "builtin/views/view-bullet.js",
         "label": "BulletML",
         "group": "TODO",
         "internal": false
       },
       "view-particle": {
-        "url": "builtin/view/view-particle.js",
+        "url": "builtin/views/view-particle.js",
         "label": "Particle",
         "group": "TODO",
         "internal": false
@@ -2447,23 +2452,23 @@
             }
           }
         },
-        "url": "builtin/view/view-ng.js",
+        "url": "builtin/views/view-ng.js",
         "label": "Nodegraph",
         "internal": false,
         "defaultSource": "/assets.ng.json"
       },
       "view-sql": {
-        "url": "builtin/view/view-sql.js",
+        "url": "builtin/views/view-sql.js",
         "label": "SQL",
         "internal": false
       },
       "view-sql-console": {
-        "url": "builtin/view/view-sql-console.js",
+        "url": "builtin/views/view-sql-console.js",
         "label": "SQL Console",
         "internal": false
       },
       "view-ai": {
-        "url": "builtin/view/view-ai.js",
+        "url": "builtin/views/view-ai.js",
         "label": "AI",
         "internal": false,
         "config": {
@@ -2540,7 +2545,7 @@
         }
       },
       "view-files": {
-        "url": "builtin/view/view-files.js",
+        "url": "builtin/views/view-files.js",
         "label": "Files",
         "internal": false,
         "config": {
@@ -2569,55 +2574,55 @@
         }
       },
       "view-image": {
-        "url": "builtin/view/view-image.js",
+        "url": "builtin/views/view-image.js",
         "label": "Image",
         "internal": false,
         "defaultSource": "/demo/ng/nine.png"
       },
       "view-vox": {
-        "url": "builtin/view/view-vox.js",
+        "url": "builtin/views/view-vox.js",
         "label": "Vox",
         "internal": false,
         "defaultSource": "/demo/vox/preview.vox"
       },
       "view-markov": {
-        "url": "builtin/view/view-markov.js",
+        "url": "builtin/views/view-markov.js",
         "label": "Markov",
         "group": "Generation",
         "internal": false,
         "defaultSource": "Basic"
       },
       "view-tilemap": {
-        "url": "builtin/view/view-tilemap.js",
+        "url": "builtin/views/view-tilemap.js",
         "label": "Tilemap",
         "internal": false,
         "defaultSource": "/demo/rules.map.json"
       },
       "view-tree": {
-        "url": "builtin/view/view-tree.js",
+        "url": "builtin/views/view-tree.js",
         "label": "Tree",
         "internal": false,
         "defaultSource": "tmp/progression.tree.json"
       },
       "view-setting-plugins": {
-        "url": "builtin/view/view-setting-plugins.js",
+        "url": "builtin/views/view-setting-plugins.js",
         "label": "Setting GAMS Config",
         "group": "Settings",
         "internal": false
       },
       "view-setting-fs": {
-        "url": "builtin/view/view-setting-fs.js",
+        "url": "builtin/views/view-setting-fs.js",
         "label": "Setting FileSystem",
         "group": "Settings",
         "internal": false
       },
       "view-code": {
-        "url": "builtin/view/view-code.js",
+        "url": "builtin/views/view-code.js",
         "label": "Code",
         "internal": true
       },
       "view-ng-node": {
-        "url": "builtin/view/view-ng-node.js",
+        "url": "builtin/views/view-ng-node.js",
         "label": "Node Editor",
         "internal": true,
         "config": {
@@ -3334,32 +3339,32 @@
         }
       },
       "view-props": {
-        "url": "builtin/view/view-props.js",
+        "url": "builtin/views/view-props.js",
         "label": "Properties",
         "internal": true
       },
       "view-tree-parent": {
-        "url": "builtin/view/view-tree-parent.js",
+        "url": "builtin/views/view-tree-parent.js",
         "label": "Tree Parent",
         "internal": true
       },
       "files-rename": {
-        "url": "builtin/view/files-rename.js",
+        "url": "builtin/views/files-rename.js",
         "label": "Rename File",
         "internal": true
       },
       "files-default": {
-        "url": "builtin/view/files-default.js",
+        "url": "builtin/views/files-default.js",
         "label": "File",
         "internal": true
       },
       "sql-table-editor": {
-        "url": "builtin/view/sql-table-editor.js",
+        "url": "builtin/views/sql-table-editor.js",
         "label": "SQL Table Editor",
         "internal": true
       },
       "tilemap-settings": {
-        "url": "builtin/view/tilemap-settings.js",
+        "url": "builtin/views/tilemap-settings.js",
         "label": "Tilemap Settings",
         "internal": true
       }

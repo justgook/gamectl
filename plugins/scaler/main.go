@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/justgook/gams/pkg/tilemap"
-	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/sdk/go/tilemap"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -96,7 +96,11 @@ func Scale() int32 {
 // scaleTilemap scales a tilemap by the given factor.
 // Each tile in the input becomes a scaleFactor x scaleFactor block of identical tiles in the output.
 // Door layers are scaled using custom logic based on doorSizes configuration.
-func scaleTilemap(tm *tilemap.TileMap, scaleFactor int, doorSizes DoorSizesConfig) *tilemap.TileMap {
+func scaleTilemap(
+	tm *tilemap.TileMap,
+	scaleFactor int,
+	doorSizes DoorSizesConfig,
+) *tilemap.TileMap {
 	if scaleFactor <= 0 {
 		return tm
 	}
@@ -121,7 +125,11 @@ func scaleTilemap(tm *tilemap.TileMap, scaleFactor int, doorSizes DoorSizesConfi
 
 // scaleLayer scales a single layer by the given factor.
 // Dispatches to specialized scalers based on layer type.
-func scaleLayer(layer tilemap.TileLayer, scaleFactor int, doorSizes DoorSizesConfig) tilemap.TileLayer {
+func scaleLayer(
+	layer tilemap.TileLayer,
+	scaleFactor int,
+	doorSizes DoorSizesConfig,
+) tilemap.TileLayer {
 	// Check if this is a door layer - use specialized scaling
 	if layerType, ok := layer.Props["type"]; ok && layerType == "doors" {
 		return scaleDoorLayer(layer, scaleFactor, doorSizes)
@@ -213,7 +221,11 @@ func getTilemap(path string) (*tilemap.TileMap, error) {
 
 	var tm tilemap.TileMap
 	if err := json.Unmarshal(jsonData, &tm); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal tilemap (data length: %d): %w", len(jsonData), err)
+		return nil, fmt.Errorf(
+			"failed to unmarshal tilemap (data length: %d): %w",
+			len(jsonData),
+			err,
+		)
 	}
 
 	return &tm, nil
@@ -330,7 +342,11 @@ func clampDoorSize(size DoorSize, scaleFactor int) DoorSize {
 // scaleDoorLayer scales the door layer with custom door placement logic.
 // Each original door tile is examined for its direction bitmask, and doors
 // are placed on the edges of the scaled tile area with proper centering.
-func scaleDoorLayer(layer tilemap.TileLayer, scaleFactor int, doorSizes DoorSizesConfig) tilemap.TileLayer {
+func scaleDoorLayer(
+	layer tilemap.TileLayer,
+	scaleFactor int,
+	doorSizes DoorSizesConfig,
+) tilemap.TileLayer {
 	originalWidth := layer.Width
 	originalHeight := layer.Height()
 
@@ -338,7 +354,13 @@ func scaleDoorLayer(layer tilemap.TileLayer, scaleFactor int, doorSizes DoorSize
 	newHeight := originalHeight * scaleFactor
 	newData := make([]uint32, newWidth*newHeight)
 
-	logToConsole(fmt.Sprintf("[Scaler] scaling door layer %dx%d with custom door placement", newWidth, newHeight))
+	logToConsole(
+		fmt.Sprintf(
+			"[Scaler] scaling door layer %dx%d with custom door placement",
+			newWidth,
+			newHeight,
+		),
+	)
 
 	// Clamp door sizes to ensure they fit within scaled tiles
 	clampedSizes := DoorSizesConfig{
