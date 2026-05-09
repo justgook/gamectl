@@ -9,9 +9,9 @@ import (
 	"math"
 	"sort"
 
-	"github.com/justgook/gams/pkg/qoi"
-	"github.com/justgook/gams/pkg/tilemap"
-	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/sdk/go/qoi"
+	"github.com/justgook/gams/sdk/go/tilemap"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -197,7 +197,10 @@ func hashTile(img *image.NRGBA, tileX, tileY, tileW, tileH, imgW, skipNth int) u
 }
 
 // tilesEqual compares two tiles with tolerance
-func tilesEqual(img *image.NRGBA, t1x, t1y, t2x, t2y, tileW, tileH, imgW, tolerance, skipNth int) bool {
+func tilesEqual(
+	img *image.NRGBA,
+	t1x, t1y, t2x, t2y, tileW, tileH, imgW, tolerance, skipNth int,
+) bool {
 	step := skipNth
 	if step < 1 {
 		step = 1
@@ -389,7 +392,14 @@ func DetectSize() int32 {
 
 	tileW, tileH, confidence := detectTileSize(img, minSize, maxSize)
 
-	logMsg(fmt.Sprintf("[tile-detect] Detected tile size: %dx%d (confidence: %.2f)", tileW, tileH, confidence))
+	logMsg(
+		fmt.Sprintf(
+			"[tile-detect] Detected tile size: %dx%d (confidence: %.2f)",
+			tileW,
+			tileH,
+			confidence,
+		),
+	)
 
 	output := DetectSizeOutput{
 		Success:    true,
@@ -442,7 +452,15 @@ func Extract() int32 {
 	cols := imgW / params.TileW
 	rows := imgH / params.TileH
 
-	logMsg(fmt.Sprintf("[tile-detect] Extracting %dx%d tiles from %dx%d image", cols, rows, imgW, imgH))
+	logMsg(
+		fmt.Sprintf(
+			"[tile-detect] Extracting %dx%d tiles from %dx%d image",
+			cols,
+			rows,
+			imgW,
+			imgH,
+		),
+	)
 
 	// Track unique tiles by hash
 	type uniqueTile struct {

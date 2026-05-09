@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/sdk/go/tilemap"
 )
 
 func TestAutomapFixturesMatchTiled(t *testing.T) {
@@ -168,7 +168,12 @@ func TestAutomapApplyUsesInputnotLayerPositionConstraints(t *testing.T) {
 	rulesMap := tilemap.NewTileMap()
 
 	inputnot := tilemap.NewTileLayer(1, 1)
-	inputnot.Props = map[string]string{"rule_role": "inputnot", "rule_target_layer": "#0", "rule_ModX": "2", "rule_OffsetX": "1"}
+	inputnot.Props = map[string]string{
+		"rule_role":         "inputnot",
+		"rule_target_layer": "#0",
+		"rule_ModX":         "2",
+		"rule_OffsetX":      "1",
+	}
 	inputnot.Data[0] = 5
 
 	output := tilemap.NewTileLayer(1, 1)
@@ -197,7 +202,11 @@ func TestExtractRulesRejectsObsoleteRuleInputNot(t *testing.T) {
 	rulesMap := tilemap.NewTileMap()
 
 	input := tilemap.NewTileLayer(1, 1)
-	input.Props = map[string]string{"rule_role": "input", "rule_target_layer": "#0", "rule_input_not": "true"}
+	input.Props = map[string]string{
+		"rule_role":         "input",
+		"rule_target_layer": "#0",
+		"rule_input_not":    "true",
+	}
 	input.Data[0] = 5
 
 	output := tilemap.NewTileLayer(1, 1)
@@ -290,7 +299,11 @@ func TestAutomapApplyToTargetDoesNotCopyInputIntoNewMap(t *testing.T) {
 	input.Data[0] = 1027
 
 	output := tilemap.NewTileLayer(1, 1)
-	output.Props = map[string]string{"rule_role": "output", "rule_target_layer": "#1", "name": "decor"}
+	output.Props = map[string]string{
+		"rule_role":         "output",
+		"rule_target_layer": "#1",
+		"name":              "decor",
+	}
 	output.Data[0] = 9
 
 	rulesMap.Layers = []tilemap.TileLayer{*input, *output}
@@ -378,7 +391,10 @@ func TestAutomapApplyToTargetCreatesMissingLayerInExistingMap(t *testing.T) {
 	}
 
 	if len(result.Layers) != 2 {
-		t.Fatalf("expected missing indexed output layer to be created, got %d layers", len(result.Layers))
+		t.Fatalf(
+			"expected missing indexed output layer to be created, got %d layers",
+			len(result.Layers),
+		)
 	}
 	if got := result.Layers[0].Data[0]; got != 0 {
 		t.Fatalf("expected original target layer to remain unchanged, got %d", got)
@@ -468,7 +484,10 @@ func TestAutomapApplyAllowsDifferentWithoutEarlierReference(t *testing.T) {
 	}
 
 	if got := result.Layers[0].Data[0]; got != 7 {
-		t.Fatalf("expected Different without a reference to match non-empty and write 7, got %d", got)
+		t.Fatalf(
+			"expected Different without a reference to match non-empty and write 7, got %d",
+			got,
+		)
 	}
 }
 
@@ -478,9 +497,11 @@ func TestPrepareMapForEdgeMatchingTreatsOverflowAsMatchOutsideMap(t *testing.T) 
 
 	inputMap := singleLayerMap(2, 2)
 	rules := []*Rule{{
-		InputGroups: []*InputGroup{{Cells: []InputCell{{Point: Point{X: 1, Y: 0}, Matchers: []InputMatcher{{Value: 1}}}}}},
-		Outputs:     &RuleOutputs{},
-		Config:      &GlobalConfig{},
+		InputGroups: []*InputGroup{
+			{Cells: []InputCell{{Point: Point{X: 1, Y: 0}, Matchers: []InputMatcher{{Value: 1}}}}},
+		},
+		Outputs: &RuleOutputs{},
+		Config:  &GlobalConfig{},
 	}}
 
 	workingMap, ctx := PrepareMapForEdgeMatching(rulesMap, inputMap, rules)
@@ -592,7 +613,13 @@ func TestFixtureGoldenShape(t *testing.T) {
 		}
 		for i, layer := range outputMap.Layers {
 			if got, want := len(layer.Data), layer.Width*layer.Height(); got != want {
-				t.Fatalf("fixture %s output layer %d has invalid shape: got %d want %d", caseName, i, got, want)
+				t.Fatalf(
+					"fixture %s output layer %d has invalid shape: got %d want %d",
+					caseName,
+					i,
+					got,
+					want,
+				)
 			}
 		}
 	}

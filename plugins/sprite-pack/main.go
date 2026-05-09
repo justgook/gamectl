@@ -7,8 +7,8 @@ import (
 	"image"
 	"sort"
 
-	"github.com/justgook/gams/pkg/pluginimg"
-	"github.com/justgook/gams/pkg/util"
+	"github.com/justgook/gams/sdk/go/pluginimg"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -586,7 +586,11 @@ func Pack() int32 {
 		if params.Options.FlipY {
 			img, err = pluginimg.TransformNRGBA(img, 2)
 			if err != nil {
-				pdk.Output(util.ErrorResponse(fmt.Sprintf("sprite %d: failed to flip image: %s", i, err.Error())))
+				pdk.Output(
+					util.ErrorResponse(
+						fmt.Sprintf("sprite %d: failed to flip image: %s", i, err.Error()),
+					),
+				)
 				return 1
 			}
 		}
@@ -712,7 +716,9 @@ func PackTiles() int32 {
 			return 1
 		}
 		if tile.TileW <= 0 || tile.TileH <= 0 {
-			pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: tileW and tileH must be positive", i)))
+			pdk.Output(
+				util.ErrorResponse(fmt.Sprintf("tile %d: tileW and tileH must be positive", i)),
+			)
 			return 1
 		}
 
@@ -742,8 +748,21 @@ func PackTiles() int32 {
 
 		// Bounds check
 		if tileX+tile.TileW > srcW || tileY+tile.TileH > srcH {
-			pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: tileId %d out of bounds (tile at %d,%d size %dx%d, image %dx%d)",
-				i, tile.TileId, tileX, tileY, tile.TileW, tile.TileH, srcW, srcH)))
+			pdk.Output(
+				util.ErrorResponse(
+					fmt.Sprintf(
+						"tile %d: tileId %d out of bounds (tile at %d,%d size %dx%d, image %dx%d)",
+						i,
+						tile.TileId,
+						tileX,
+						tileY,
+						tile.TileW,
+						tile.TileH,
+						srcW,
+						srcH,
+					),
+				),
+			)
 			return 1
 		}
 
@@ -768,7 +787,11 @@ func PackTiles() int32 {
 		if params.Options.FlipY {
 			flipped, err := pluginimg.TransformNRGBA(tileImg, 2)
 			if err != nil {
-				pdk.Output(util.ErrorResponse(fmt.Sprintf("tile %d: failed to flip image: %s", i, err.Error())))
+				pdk.Output(
+					util.ErrorResponse(
+						fmt.Sprintf("tile %d: failed to flip image: %s", i, err.Error()),
+					),
+				)
 				return 1
 			}
 			tileImg = flipped
@@ -985,7 +1008,13 @@ func PackTilesets() int32 {
 		return 1
 	}
 
-	logMsg(fmt.Sprintf("[sprite-pack] Packing %d tilesets and %d LUTs", len(params.Tilesets), len(params.LUTs)))
+	logMsg(
+		fmt.Sprintf(
+			"[sprite-pack] Packing %d tilesets and %d LUTs",
+			len(params.Tilesets),
+			len(params.LUTs),
+		),
+	)
 
 	// Image cache for source tilesets
 	imageCache := make(map[string]*image.NRGBA)
@@ -1018,7 +1047,13 @@ func PackTilesets() int32 {
 				var err error
 				srcImg, err = loadImage(source.Path)
 				if err != nil {
-					logMsg(fmt.Sprintf("[sprite-pack] Warning: failed to load tileset %s: %s", source.Path, err.Error()))
+					logMsg(
+						fmt.Sprintf(
+							"[sprite-pack] Warning: failed to load tileset %s: %s",
+							source.Path,
+							err.Error(),
+						),
+					)
 					continue
 				}
 				imageCache[source.Path] = srcImg
@@ -1078,7 +1113,14 @@ func PackTilesets() int32 {
 			origH: tileset.ImageH,
 		})
 
-		logMsg(fmt.Sprintf("[sprite-pack] Built tileset %s (%dx%d)", tileset.Name, tileset.ImageW, tileset.ImageH))
+		logMsg(
+			fmt.Sprintf(
+				"[sprite-pack] Built tileset %s (%dx%d)",
+				tileset.Name,
+				tileset.ImageW,
+				tileset.ImageH,
+			),
+		)
 	}
 
 	// Build LUT images from base64 pixel data
@@ -1090,13 +1132,26 @@ func PackTilesets() int32 {
 		// Decode base64 pixels
 		pixels, err := decodeBase64(lut.Pixels)
 		if err != nil {
-			logMsg(fmt.Sprintf("[sprite-pack] Warning: failed to decode LUT pixels for %s: %s", lut.Name, err.Error()))
+			logMsg(
+				fmt.Sprintf(
+					"[sprite-pack] Warning: failed to decode LUT pixels for %s: %s",
+					lut.Name,
+					err.Error(),
+				),
+			)
 			continue
 		}
 
 		expectedSize := lut.Width * lut.Height * 4
 		if len(pixels) < expectedSize {
-			logMsg(fmt.Sprintf("[sprite-pack] Warning: LUT %s has insufficient pixel data (%d < %d)", lut.Name, len(pixels), expectedSize))
+			logMsg(
+				fmt.Sprintf(
+					"[sprite-pack] Warning: LUT %s has insufficient pixel data (%d < %d)",
+					lut.Name,
+					len(pixels),
+					expectedSize,
+				),
+			)
 			continue
 		}
 

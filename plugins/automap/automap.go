@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/sdk/go/tilemap"
 )
 
 // logToConsole is intentionally a no-op in browser until logging is routed
@@ -40,10 +40,18 @@ func AutomapApplyToTarget(
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	logToConsole(fmt.Sprintf("[Automap] Config parsed - Special tiles: Empty=%d, NonEmpty=%d, Ignore=%d, Other=%d, Negate=%d, Different=%d, Same=%d",
-		config.SpecialTiles.Empty, config.SpecialTiles.NonEmpty, config.SpecialTiles.Ignore,
-		config.SpecialTiles.Other, config.SpecialTiles.Negate, config.SpecialTiles.Different,
-		config.SpecialTiles.Same))
+	logToConsole(
+		fmt.Sprintf(
+			"[Automap] Config parsed - Special tiles: Empty=%d, NonEmpty=%d, Ignore=%d, Other=%d, Negate=%d, Different=%d, Same=%d",
+			config.SpecialTiles.Empty,
+			config.SpecialTiles.NonEmpty,
+			config.SpecialTiles.Ignore,
+			config.SpecialTiles.Other,
+			config.SpecialTiles.Negate,
+			config.SpecialTiles.Different,
+			config.SpecialTiles.Same,
+		),
+	)
 
 	// 2. Detect regions and extract rules
 	rules, err := ExtractRules(rulesMap, config)
@@ -91,15 +99,33 @@ func AutomapApplyToTarget(
 	return resultMap, nil
 }
 
-func applyRule(resultMap *tilemap.TileMap, width, height, index int, rule *Rule, tracker *OccupiedTracker) {
+func applyRule(
+	resultMap *tilemap.TileMap,
+	width, height, index int,
+	rule *Rule,
+	tracker *OccupiedTracker,
+) {
 	selected := selectedOutputs(rule.Outputs)
 	if rule.Config.DeleteTiles {
 		deleteRuleInputTiles(resultMap, width, height, index, rule, selected)
 	}
 
 	for _, outputLayer := range selected {
-		targetLayer := getOrCreateTargetLayer(resultMap, width, height, outputLayer.TargetSelector, outputLayer.Props)
-		applyTilesToOutput(targetLayer, index, outputLayer, rule.Config, tracker, rule.Config.NoOverlappingOutput)
+		targetLayer := getOrCreateTargetLayer(
+			resultMap,
+			width,
+			height,
+			outputLayer.TargetSelector,
+			outputLayer.Props,
+		)
+		applyTilesToOutput(
+			targetLayer,
+			index,
+			outputLayer,
+			rule.Config,
+			tracker,
+			rule.Config.NoOverlappingOutput,
+		)
 	}
 }
 
@@ -145,7 +171,14 @@ func chooseVariant(variants []*OutputVariant) *OutputVariant {
 	return variants[len(variants)-1]
 }
 
-func applyTilesToOutput(targetLayer *tilemap.TileLayer, index int, outputLayer *OutputLayer, config *GlobalConfig, tracker *OccupiedTracker, noOverlap bool) {
+func applyTilesToOutput(
+	targetLayer *tilemap.TileLayer,
+	index int,
+	outputLayer *OutputLayer,
+	config *GlobalConfig,
+	tracker *OccupiedTracker,
+	noOverlap bool,
+) {
 	width := targetLayer.Width
 	height := targetLayer.Height()
 
@@ -177,9 +210,20 @@ func applyTilesToOutput(targetLayer *tilemap.TileLayer, index int, outputLayer *
 	}
 }
 
-func deleteRuleInputTiles(resultMap *tilemap.TileMap, width, height, index int, rule *Rule, selected []*OutputLayer) {
+func deleteRuleInputTiles(
+	resultMap *tilemap.TileMap,
+	width, height, index int,
+	rule *Rule,
+	selected []*OutputLayer,
+) {
 	for _, outputLayer := range selected {
-		targetLayer := getOrCreateTargetLayer(resultMap, width, height, outputLayer.TargetSelector, outputLayer.Props)
+		targetLayer := getOrCreateTargetLayer(
+			resultMap,
+			width,
+			height,
+			outputLayer.TargetSelector,
+			outputLayer.Props,
+		)
 		clearRuleRegion(targetLayer, index, rule)
 	}
 }
@@ -242,7 +286,12 @@ func cloneStringMap(src map[string]string) map[string]string {
 	return cloned
 }
 
-func getOrCreateTargetLayer(resultMap *tilemap.TileMap, width, height int, selector string, props map[string]string) *tilemap.TileLayer {
+func getOrCreateTargetLayer(
+	resultMap *tilemap.TileMap,
+	width, height int,
+	selector string,
+	props map[string]string,
+) *tilemap.TileLayer {
 	if layer := tilemap.FindLayer(resultMap, selector); layer != nil {
 		ensureLayerSize(layer, width, height)
 		if layer.Props == nil {
@@ -283,14 +332,23 @@ func getOrCreateTargetLayer(resultMap *tilemap.TileMap, width, height int, selec
 	return &resultMap.Layers[len(resultMap.Layers)-1]
 }
 
-func prepareTargetMapForOutput(targetMap, inputMap *tilemap.TileMap, edgeCtx *EdgeMatchContext) *tilemap.TileMap {
+func prepareTargetMapForOutput(
+	targetMap, inputMap *tilemap.TileMap,
+	edgeCtx *EdgeMatchContext,
+) *tilemap.TileMap {
 	resultMap := cloneTileMap(targetMap)
 	if len(resultMap.Props) == 0 {
 		resultMap.Props = cloneStringMap(inputMap.Props)
 	}
 
 	if edgeCtx.WasExtended {
-		resultMap.Layers = tilemap.ExtendLayers(resultMap.Layers, edgeCtx.PadX, edgeCtx.PadY, edgeCtx.PadX, edgeCtx.PadY)
+		resultMap.Layers = tilemap.ExtendLayers(
+			resultMap.Layers,
+			edgeCtx.PadX,
+			edgeCtx.PadY,
+			edgeCtx.PadX,
+			edgeCtx.PadY,
+		)
 	}
 
 	return resultMap
@@ -332,7 +390,11 @@ func defaultLayerName(selector string, layerIndex int) string {
 	return selector
 }
 
-func findLayerOrEmpty(inputMap *tilemap.TileMap, selector string, width, height int) *tilemap.TileLayer {
+func findLayerOrEmpty(
+	inputMap *tilemap.TileMap,
+	selector string,
+	width, height int,
+) *tilemap.TileLayer {
 	if layer := tilemap.FindLayer(inputMap, selector); layer != nil {
 		return layer
 	}

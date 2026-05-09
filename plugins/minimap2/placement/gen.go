@@ -3,8 +3,8 @@ package placement
 import (
 	"fmt"
 
-	"github.com/justgook/gams/pkg/tilemap"
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tilemap"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 // Random interface for pluggable random number generation

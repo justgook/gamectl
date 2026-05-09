@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/gams/plugins/treegen/treegen"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 

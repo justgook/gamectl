@@ -3,7 +3,7 @@ package minimap
 import (
 	"testing"
 
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 // simpleRoomShape returns a 2x2 square shape for all nodes

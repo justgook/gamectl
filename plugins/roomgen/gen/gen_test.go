@@ -3,7 +3,7 @@ package gen
 import (
 	"testing"
 
-	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/sdk/go/tilemap"
 )
 
 // =============================================================================
@@ -623,12 +623,64 @@ func TestExtractRooms(t *testing.T) {
 		Layers: []tilemap.TileLayer{
 			{
 				Width: 5,
-				Data:  []uint32{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+				Data: []uint32{
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+					1,
+				},
 				Props: map[string]string{"name": "rooms"},
 			},
 			{
 				Width: 5,
-				Data:  []uint32{uint32(DoorNorth), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint32(DoorSouth)},
+				Data: []uint32{
+					uint32(DoorNorth),
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					0,
+					uint32(DoorSouth),
+				},
 				Props: map[string]string{"type": "doors"},
 			},
 		},
@@ -847,7 +899,11 @@ func TestFindNearestInside(t *testing.T) {
 	inside := Point{1, 1}
 	result := shape.FindNearestInside(inside)
 	if result != inside {
-		t.Errorf("FindNearestInside should return same point for inside: got %v, want %v", result, inside)
+		t.Errorf(
+			"FindNearestInside should return same point for inside: got %v, want %v",
+			result,
+			inside,
+		)
 	}
 }
 
@@ -924,7 +980,11 @@ func TestRenderNonRectangularRoom(t *testing.T) {
 			globalPos := Point{room.Bounds.X + x, room.Bounds.Y + y}
 
 			if tileValue != 0 && !room.Shape.Contains(globalPos) {
-				t.Errorf("tile placed at %v which is outside room shape, value=%d", globalPos, tileValue)
+				t.Errorf(
+					"tile placed at %v which is outside room shape, value=%d",
+					globalPos,
+					tileValue,
+				)
 			}
 		}
 	}

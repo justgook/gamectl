@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/justgook/gams/pkg/tree"
+	"github.com/justgook/gams/sdk/go/tree"
 )
 
 func TestDebugExtend(t *testing.T) {
@@ -33,10 +33,18 @@ func TestDebugExtend(t *testing.T) {
 	// Print the grid including negative IDs
 	minX, minY, maxX, maxY := 0, 0, 0, 0
 	for pt := range result.Grid {
-		if pt[0] < minX { minX = pt[0] }
-		if pt[0] > maxX { maxX = pt[0] }
-		if pt[1] < minY { minY = pt[1] }
-		if pt[1] > maxY { maxY = pt[1] }
+		if pt[0] < minX {
+			minX = pt[0]
+		}
+		if pt[0] > maxX {
+			maxX = pt[0]
+		}
+		if pt[1] < minY {
+			minY = pt[1]
+		}
+		if pt[1] > maxY {
+			maxY = pt[1]
+		}
 	}
 
 	fmt.Println("Grid (negative = corridor):")
@@ -54,7 +62,7 @@ func TestDebugExtend(t *testing.T) {
 
 	// Check room 6
 	fmt.Printf("\nRoom 6 tiles: %v\n", result.RoomTiles[6])
-	
+
 	// Check what room 6 is adjacent to
 	for _, pt := range result.RoomTiles[6] {
 		neighbors := []Point{

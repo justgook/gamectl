@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/sdk/go/tilemap"
 )
 
 // EdgeMatchContext stores information needed to extend and later restore map edges
@@ -57,8 +57,10 @@ func PrepareMapForEdgeMatching(
 		fillStrategy = "Empty"
 	}
 
-	logToConsole(fmt.Sprintf("[Automap] MatchOutsideMap enabled - max rule bounds: %dx%d, fill strategy: %s",
-		maxRuleWidth, maxRuleHeight, fillStrategy))
+	logToConsole(
+		fmt.Sprintf("[Automap] MatchOutsideMap enabled - max rule bounds: %dx%d, fill strategy: %s",
+			maxRuleWidth, maxRuleHeight, fillStrategy),
+	)
 
 	// Store original dimensions
 	originalWidth := inputMap.Layers[0].Width
@@ -189,5 +191,11 @@ func RestoreTileMapEdges(tm *tilemap.TileMap, ctx *EdgeMatchContext) {
 	logToConsole(fmt.Sprintf("[Automap] Cropping output layers back to original size: %dx%d",
 		ctx.OriginalWidth, ctx.OriginalHeight))
 
-	tm.Layers = tilemap.CropLayers(tm.Layers, ctx.PadX, ctx.PadY, ctx.OriginalWidth, ctx.OriginalHeight)
+	tm.Layers = tilemap.CropLayers(
+		tm.Layers,
+		ctx.PadX,
+		ctx.PadY,
+		ctx.OriginalWidth,
+		ctx.OriginalHeight,
+	)
 }

@@ -1,7 +1,7 @@
 package gen
 
 import (
-	"github.com/justgook/gams/pkg/tilemap"
+	"github.com/justgook/gams/sdk/go/tilemap"
 )
 
 // RenderToTilemap converts all segments to a tile layer
@@ -99,7 +99,13 @@ func shouldOverwrite(newType, existingType SegmentType) bool {
 }
 
 // RenderRoomToTilemap generates traversal geometry for a single room
-func RenderRoomToTilemap(room *RoomInfo, abilities PlayerAbilities, variety VarietyConfig, tileIDs TileIDConfig, rng Random) *tilemap.TileLayer {
+func RenderRoomToTilemap(
+	room *RoomInfo,
+	abilities PlayerAbilities,
+	variety VarietyConfig,
+	tileIDs TileIDConfig,
+	rng Random,
+) *tilemap.TileLayer {
 	// Use new validated generation pipeline
 	return RenderRoomToTilemapValidated(room, abilities, variety, tileIDs, rng)
 }
@@ -107,7 +113,13 @@ func RenderRoomToTilemap(room *RoomInfo, abilities PlayerAbilities, variety Vari
 // RenderRoomToTilemapValidated generates traversal geometry using validated segment generation
 // This version guarantees reachability by construction - no post-validation needed
 // It properly handles non-rectangular room shapes.
-func RenderRoomToTilemapValidated(room *RoomInfo, abilities PlayerAbilities, variety VarietyConfig, tileIDs TileIDConfig, rng Random) *tilemap.TileLayer {
+func RenderRoomToTilemapValidated(
+	room *RoomInfo,
+	abilities PlayerAbilities,
+	variety VarietyConfig,
+	tileIDs TileIDConfig,
+	rng Random,
+) *tilemap.TileLayer {
 	// Create navigation graph with validated connectivity
 	graph := CreateNavigationGraphWithValidation(room, abilities, rng, variety)
 
@@ -135,20 +147,36 @@ func RenderRoomToTilemapValidated(room *RoomInfo, abilities PlayerAbilities, var
 
 		// Use shape-aware generation for non-rectangular rooms
 		if room.Shape != nil && len(room.Shape.Tiles) > 0 {
-			segments = GenerateBasicSegmentsInShape(fromNode.Position, toNode.Position, abilities, room.Shape)
+			segments = GenerateBasicSegmentsInShape(
+				fromNode.Position,
+				toNode.Position,
+				abilities,
+				room.Shape,
+			)
 		}
 
 		// Fallback to bounds-based generation
 		if segments == nil {
 			// Try anchor variety for non-straight paths
 			if rng != nil {
-				segments = AddAnchorVariety(fromNode.Position, toNode.Position, abilities, room.Bounds, rng)
+				segments = AddAnchorVariety(
+					fromNode.Position,
+					toNode.Position,
+					abilities,
+					room.Bounds,
+					rng,
+				)
 			}
 		}
 
 		if segments == nil {
 			// Use tiered segment generation (tries advanced, falls back to basic)
-			segments = GenerateSegmentsWithTier(fromNode.Position, toNode.Position, abilities, room.Bounds)
+			segments = GenerateSegmentsWithTier(
+				fromNode.Position,
+				toNode.Position,
+				abilities,
+				room.Bounds,
+			)
 		}
 
 		if segments != nil {
@@ -277,13 +305,24 @@ func GenerateSegments(graph *NavigationGraph, abilities PlayerAbilities, bounds 
 
 // AddVariety applies decoration to segments (wrapper for legacy compatibility)
 // This replaces the old variety.go AddVariety function
-func AddVariety(segments []PathSegment, rng Random, variety VarietyConfig, bounds Rect) []PathSegment {
+func AddVariety(
+	segments []PathSegment,
+	rng Random,
+	variety VarietyConfig,
+	bounds Rect,
+) []PathSegment {
 	config := DecorationConfigFromVariety(variety)
 	return ApplyDecoration(segments, rng, config, bounds)
 }
 
 // RenderAllRoomsToTilemap generates traversal geometry for all rooms in a tilemap
-func RenderAllRoomsToTilemap(tm *tilemap.TileMap, abilities PlayerAbilities, variety VarietyConfig, tileIDs TileIDConfig, rng Random) (*tilemap.TileLayer, error) {
+func RenderAllRoomsToTilemap(
+	tm *tilemap.TileMap,
+	abilities PlayerAbilities,
+	variety VarietyConfig,
+	tileIDs TileIDConfig,
+	rng Random,
+) (*tilemap.TileLayer, error) {
 	// Extract rooms from tilemap
 	rooms, err := ExtractRooms(tm)
 	if err != nil {

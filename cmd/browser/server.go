@@ -28,14 +28,17 @@ func main() {
 
 	fmt.Printf("GAMS Browser IDE Server\n")
 	fmt.Printf("   Current Working Directory: %s\n", cwd)
-	fmt.Printf("   Browser files: %s\n", browserDir)
-	fmt.Printf("   Build files:   %s (via /plugins/)\n", buildDir)
-	fmt.Printf("   Demo:          %s (via /demo/)\n", filepath.Join(cwd, "demo"))
-	fmt.Printf("   Starting server on http://localhost:%s\n\n", *port)
 
 	http.Handle("/", http.FileServer(http.Dir(browserDir)))
 	serveFolder("plugins", buildDir)
-	serveFolder("demo", cwd)
+	serveFolder("views", cwd)
+	serveFolder("themes", cwd)
+	serveFolder("ui-plugins", cwd)
+	serveSubFolder("demo", "examples/demo", cwd)
+	serveSubFolder("widgets", "packages/widgets", cwd)
+	serveSubFolder("util", "packages/util", cwd)
+	serveSubFolder("fonts", "packages/fonts", cwd)
+	serveSubFolder("css", "packages/css", cwd)
 	handler := corsMiddleware(http.DefaultServeMux)
 
 	log.Fatal(http.ListenAndServe(":"+*port, handler))
@@ -55,12 +58,22 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func serveFolder(dir string, buildDir string) {
+func serveFolder(dir string, target string) {
 	http.Handle(
 		"/"+dir+"/",
 		http.StripPrefix(
 			"/"+dir+"/",
-			http.FileServer(http.Dir(filepath.Join(buildDir, dir))),
+			http.FileServer(http.Dir(filepath.Join(target, dir))),
+		),
+	)
+}
+
+func serveSubFolder(as, from, target string) {
+	http.Handle(
+		"/"+as+"/",
+		http.StripPrefix(
+			"/"+as+"/",
+			http.FileServer(http.Dir(filepath.Join(target, from))),
 		),
 	)
 }

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justgook/gams/pkg/tree"
-	"github.com/justgook/gams/pkg/util"
 	"github.com/justgook/gams/plugins/minimap/minimap"
+	"github.com/justgook/gams/sdk/go/tree"
+	"github.com/justgook/gams/sdk/go/util"
 	"github.com/justgook/wpm/pdk"
 )
 
@@ -101,8 +101,11 @@ func Gen() uint32 {
 
 	// Escape SQL string and insert
 	escapedData := strings.ReplaceAll(string(tilemapJSON), "'", "''")
-	sqlQuery := fmt.Sprintf("INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
-		params.MapId, escapedData)
+	sqlQuery := fmt.Sprintf(
+		"INSERT OR REPLACE INTO tilemap_storage (name, data) VALUES ('%s', '%s')",
+		params.MapId,
+		escapedData,
+	)
 
 	_, output, callErr := pdk.Call("sql", "exec", []byte(sqlQuery))
 	if callErr != nil {

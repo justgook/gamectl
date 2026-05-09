@@ -310,8 +310,8 @@ export class ViewPopup extends HTMLElement {
     // Create shadow DOM
     const shadowRoot = this.attachShadow({ mode: 'open' })
     shadowRoot.innerHTML = `
-      <link rel="stylesheet" href="reset.css">
-      <link rel="stylesheet" href="base.css">
+      <link rel="stylesheet" href="/css/reset.css">
+      <link rel="stylesheet" href="/css/base.css">
         <section part="container">
           <header part="header">
             <slot name="title"></slot>
