@@ -123,6 +123,7 @@ init :: proc(w: ^World) {
 	// TODO: delete MOCK DATA
 
 	player := create_entity(w)
+	camera_track(&w.cam, player)
 	logic.add_component(&w.brain, player, Brain{})
 	logic.add_component(&w.input, player, Input{})
 	w.player1, _ = logic.get_component(&w.input, player)

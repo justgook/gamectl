@@ -891,7 +891,7 @@ export function getThemeStylesheetSource() {
     || document.querySelector(THEME_SELECTOR)
 }
 
-export function ensureThemeStylesheetLink(root, { insertAfter = 'link[href="base.css"]' } = {}) {
+export function ensureThemeStylesheetLink(root, { insertAfter = 'link[href]:last-of-type' } = {}) {
   if (!root?.querySelector) return null
 
   const source = getThemeStylesheetSource()

@@ -55,7 +55,7 @@ struct HttpFileConfig {
 impl VirtualFs {
     pub fn load_default() -> Result<Self, String> {
         let repo_root = find_repo_root()?;
-        let config_path = repo_root.join("demo/gams.json");
+        let config_path = repo_root.join("examples/demo/gams.json");
         let bytes = std::fs::read(&config_path)
             .map_err(|error| format!("failed to read {}: {error}", config_path.display()))?;
         let config: GamsConfig = serde_json::from_slice(&bytes)
@@ -295,7 +295,7 @@ fn find_repo_root() -> Result<PathBuf, String> {
         std::env::current_dir().map_err(|error| error.to_string())?.join("../../"),
     ] {
         let candidate = candidate.canonicalize().map_err(|error| error.to_string())?;
-        if candidate.join("demo/gams.json").exists() {
+        if candidate.join("examples/demo/gams.json").exists() {
             return Ok(candidate);
         }
     }

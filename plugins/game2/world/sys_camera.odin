@@ -1,21 +1,18 @@
 package world
 import "core:math"
 import "core:math/linalg"
+import "logic"
 
 // import "logic"
 
 sys_camera :: proc(w: ^World, dt: f64) {
-
-	// Get target position if we're tracking an entity
-	// target_pos: Maybe([2]f32)
-	// if w.player_entity >= 0 {
-	// 	if pos, ok := logic.get_component(&w.position, w.player_entity); ok {
-	// 		target_pos = to_pixelf(pos^)
-	// 	}
-	// }
-
 	// Update camera
 	target_pos := [2]f32{0, 0}
+	if w.cam.target_entity >= 0 {
+		p, ok := logic.get_component(&w.position, logic.Entity(w.cam.target_entity))
+		target_pos = ok ? to_pixelf(p^) : target_pos
+	}
+
 	camera_update(&w.cam, target_pos, f32(dt))
 	w.cam.ortho = camera_get_matrix(&w.cam, w.cam.viewport)
 }
@@ -111,8 +108,8 @@ camera_init :: proc(viewport: [2]f32 = {100, 100}, initial_pos: [2]f32 = {0, 0},
 }
 
 // Set camera to track an entity
-camera_track :: proc(cam: ^Camera, entity_id: int, immediate: bool = false) {
-	cam.target_entity = entity_id
+camera_track :: proc(cam: ^Camera, entity_id: logic.Entity, immediate: bool = false) {
+	cam.target_entity = int(entity_id)
 	// If immediate, we'll snap to target in the update when target_pos is provided
 }
 
