@@ -10,17 +10,11 @@ import './widgets/code-editor.js'
 import './widgets/view-pagination.js'
 
 let currentThemeStylesheetObjectUrl = ''
-// const DEFAULT_LAYOUT = `
-//   <view-sql-console />
-//   <sql-table-editor setup="0:h:50"/>
-//   <view-sql setup="0:v:50" />
-//   <view-ai setup="1:v:50" />
-// `
-//
+//  <view-tilemap data-source="/edge_rules.map.json" />
+
 const DEFAULT_LAYOUT = `
-  <view-markov data-source="Basic" />
-  <view-tilemap data-source="/edge_rules.map.json" setup="0:v:50" />
-  <view-ng setup="1:h:50" />
+  <view-game-runner />
+  <view-ng setup="0:v:50" />
 `
 
 function decodeOutput(result) {
