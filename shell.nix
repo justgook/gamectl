@@ -48,6 +48,7 @@ pkgs.mkShell {
     install_cargo_tool wit-bindgen wit-bindgen-cli
     install_cargo_tool wasm-tools wasm-tools --locked
     install_cargo_binary_tool wkg wkg
+    install_cargo_binary_tool cargo-tauri tauri-cli
 
     wasi_sdk_release="33"
     wasi_sdk_version="33.0"
@@ -111,7 +112,12 @@ pkgs.mkShell {
 
     export WASI_SDK_PATH="$wasi_sdk_dir"
     export WASI_SYSROOT="$WASI_SDK_PATH/share/wasi-sysroot"
-    export PATH="$WASI_SDK_PATH/bin:$PATH"
+
+    # Keep native host builds native. Tauri/macOS crates use `clang` for
+    # Objective-C/C build scripts, so the WASI SDK must not shadow the host
+    # compiler. WASI tools such as `wasm32-wasip2-clang` remain available via
+    # the appended SDK path.
+    export PATH="$PATH:$WASI_SDK_PATH/bin"
 
     echo "GAMS dev tools ready:"
     echo "  cargo tools: $CARGO_INSTALL_ROOT/bin"

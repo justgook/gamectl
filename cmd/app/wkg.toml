@@ -1,0 +1,2 @@
+[overrides]
+"gams:runtime" = { path = "../../wit/runtime" }

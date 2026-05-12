@@ -494,19 +494,96 @@ Do not preserve it as a separate runtime now. The Tauri app already has CLI supp
 
 ## Implementation Chunks
 
+### Current Repo Baseline
+
+`cmd/app` was destructively reset into the new bootstrap shape. The old byte-oriented Tauri command:
+
+```text
+runtime_call(plugin, method, input: Vec<u8>) -> Vec<u8>
+```
+
+and old `VirtualFs` implementation have been removed from the app runtime. The app now exposes structured Tauri commands:
+
+```text
+runtime_add_plugins(paths: Vec<String>) -> Vec<ComponentHandle>
+runtime_invoke(target: String, args: serde_json::Value) -> serde_json::Value
+runtime_diagnostics() -> serde_json::Value
+```
+
+The root WIT folder now defines `gams:runtime@1.0.0` with the single frontend-view `call` import. `cmd/app/wit/app.wit` declares the app host world and the intended `wasi:filesystem` imports; the Rust MVP uses `wasmtime_wasi::p2::add_to_linker_sync` for predefined WASIp2 host imports.
+
+`cmd/cli` currently contains the useful component-model experiment:
+
+- Wasmtime component-model engine setup.
+- Component loading from paths.
+- Import/export inspection through `component_type()`.
+- Simple provider conflict detection.
+- Topological ordering for components that import other components' exported interfaces.
+- Forwarding exported interface funcs into a `Linker`.
+- WIT-like invocation parsing and dynamic `Val` call/result handling.
+
+Migration should move these ideas, not the separate CLI binary, into `cmd/app`.
+
 ### Phase 1: Runtime Skeleton in `cmd/app`
 
-- Create a modular runtime area under `cmd/app/src-tauri/src/runtime/` or equivalent.
-- Move/adapt component loading and export inspection ideas from `cmd/cli`.
-- Add a registry that can store callable WIT functions/providers.
-- Keep current Tauri command bridge minimal while replacing old byte plugin assumptions.
+- Replace `cmd/app/src-tauri/src/runtime.rs` with a modular runtime directory, e.g.:
+
+  ```text
+  cmd/app/src-tauri/src/runtime/
+    mod.rs
+    component.rs      # load/inspect/instantiate WASM components
+    registry.rs       # symbols -> provider/function metadata
+    values.rs         # serde_json <-> wasmtime::component::Val conversion
+    bridge.rs         # Tauri command/request response plumbing
+    native.rs         # native providers, initially filesystem/runtime diagnostics
+  ```
+
+- Add Wasmtime component-model dependencies to `cmd/app` and keep versions aligned with `cmd/cli` unless there is a build reason not to.
+- Migrate component loading/export inspection from `cmd/cli` into `runtime::component`.
+- Add a registry that stores callable providers by full WIT symbol:
+
+  ```text
+  package/interface::function
+  ```
+
+- Keep the first registry strict:
+  - duplicate providers for the same symbol are an error,
+  - missing imports are an error unless satisfied by a registered native/UI provider,
+  - ambiguous unversioned calls are an error.
+- Change the Tauri command surface from byte plugin calls toward structured runtime calls:
+
+  ```rust
+  runtime_invoke(target: String, args: serde_json::Value) -> Result<serde_json::Value, String>
+  runtime_add_plugins(paths: Vec<String>) -> Result<Vec<ComponentHandle>, String>
+  ```
+
+- Keep the old `runtime_call` only as a temporary local demo path while Phase 1 is in progress; do not expand it.
+
+### Phase 1 MVP Acceptance Test
+
+Use `plugins/adder` as the first component smoke test:
+
+1. Build `plugins/adder` into a component.
+2. Launch `cmd/app`.
+3. Register the component from frontend JS with `runtime.addPlugins([path])`.
+4. Call:
+
+   ```js
+   await gams.runtime.invoke("docs:adder/add::add", [2, 3])
+   ```
+
+5. Receive JS number `5`.
+6. Surface the component handle with path/import/export diagnostics.
+
+This MVP intentionally does not require UI plugins, dynamic views, config-driven startup, or full WASI filesystem use yet.
 
 ### Phase 2: WASI Filesystem First
 
-- Add Wasmtime WASI/component dependencies to `cmd/app`.
-- Register `wasi:filesystem` support during runtime initialization.
+- Register WASI filesystem/preopens during runtime initialization before loading project components.
+- Represent project roots as WASI preopens such as `/project` and `/cache`.
 - Remove app runtime dependency on the old GAMS virtual mount FS as the primary path.
-- Keep only minimal bootstrap native fs reads.
+- Keep only minimal host bootstrap reads through native `std::fs`.
+- Add a native/frontend filesystem helper only as a wrapper around the same registered filesystem provider, not as a second path model.
 
 ### Phase 3: Frontend Low-Level Runtime Bridge
 
@@ -519,7 +596,7 @@ gams.runtime.onCallView(callback)
 gams.runtime.addUiPlugin(wit, functions)
 ```
 
-Start with exact features needed to prove end-to-end calls.
+Start with exact features needed to prove end-to-end calls. The frontend API should be fail-fast: missing `__TAURI__`, invalid target strings, malformed handle data, or missing view dispatchers should throw immediately.
 
 ### Phase 4: UI Plugin Provider
 

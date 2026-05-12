@@ -55,6 +55,8 @@ WAILS_RUN ?= go run github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 WAILS_CC ?= $(shell xcrun -f clang)
 WAILS_CXX ?= $(shell xcrun -f clang++)
 WAILS_SDKROOT ?= $(shell xcrun --show-sdk-path)
+HOST_CC ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang ]; then echo /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang; else command -v clang || command -v cc; fi)
+HOST_CXX ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++ ]; then echo /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++; else command -v clang++ || command -v c++; fi)
 
 # Detect all plugin subdirectories (exclude fs which is now built-in to plugin-manager)
 PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
@@ -327,26 +329,26 @@ cli-run: cli
 app: app-bundle-release
 
 app-check:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
 
 app-run:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
 
 app-build: app-build-release
 
 app-build-debug:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --no-bundle
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --no-bundle
 
 app-build-release:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --no-bundle
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --no-bundle
 
 app-bundle: app-bundle-release
 
 app-bundle-debug:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --bundles $(TAURI_APP_BUNDLES)
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --bundles $(TAURI_APP_BUNDLES)
 
 app-bundle-release:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --bundles $(TAURI_APP_BUNDLES)
+	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --bundles $(TAURI_APP_BUNDLES)
 
 .PHONY: native-dev
 native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)
