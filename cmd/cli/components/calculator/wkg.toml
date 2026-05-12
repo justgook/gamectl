@@ -1,0 +1,2 @@
+[overrides]
+"docs:adder" = { path = "../adder/wit" }
