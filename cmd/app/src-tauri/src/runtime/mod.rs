@@ -3,6 +3,7 @@ mod values;
 use anyhow::{bail, Context as AnyhowContext, Result};
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use values::{json_to_val, result_json, val_default_for_type};
 use wasmtime::{Config, Engine, Store, StoreContextMut};
@@ -19,9 +20,12 @@ struct RuntimeInner {
     linker: Linker<HostState>,
     store: Store<HostState>,
     next_component: usize,
+    next_resource: usize,
     components: BTreeMap<String, ComponentRecord>,
     funcs: BTreeMap<String, ExportedFunc>,
     preopens: Vec<Preopen>,
+    descriptors: BTreeMap<String, DescriptorResource>,
+    directory_entry_streams: BTreeMap<String, DirectoryEntryStreamResource>,
 }
 
 pub struct HostState {
@@ -52,12 +56,31 @@ struct NativeFunc {
 #[derive(Clone, Copy)]
 enum NativeFuncKind {
     WasiFilesystemPreopensGetDirectories,
+    WasiFilesystemDescriptorReadDirectory,
+    WasiFilesystemDirectoryEntryStreamReadDirectoryEntry,
 }
 
 #[derive(Clone)]
 struct Preopen {
     guest_path: String,
     descriptor: String,
+}
+
+#[derive(Clone)]
+struct DescriptorResource {
+    host_path: PathBuf,
+}
+
+#[derive(Clone)]
+struct DirectoryEntryStreamResource {
+    entries: Vec<DirectoryEntry>,
+    cursor: usize,
+}
+
+#[derive(Clone)]
+struct DirectoryEntry {
+    name: String,
+    descriptor_type: &'static str,
 }
 
 #[derive(Clone)]
@@ -90,10 +113,15 @@ impl Runtime {
         add_gams_runtime_import(&mut linker)?;
 
         let cwd = std::env::current_dir().context("failed to resolve current working directory")?;
+        let root_descriptor = "wasi:filesystem/descriptor:1".to_string();
         let preopens = vec![Preopen {
             guest_path: "/".to_string(),
-            descriptor: "wasi:filesystem/descriptor:1".to_string(),
+            descriptor: root_descriptor.clone(),
         }];
+        let descriptors = BTreeMap::from([(
+            root_descriptor,
+            DescriptorResource { host_path: cwd.clone() },
+        )]);
 
         let mut wasi_builder = WasiCtx::builder();
         wasi_builder.inherit_stdio().inherit_args();
@@ -112,9 +140,12 @@ impl Runtime {
             linker,
             store,
             next_component: 1,
+            next_resource: 2,
             components: BTreeMap::new(),
             funcs: BTreeMap::new(),
             preopens,
+            descriptors,
+            directory_entry_streams: BTreeMap::new(),
         };
         inner.register_native_builtins()?;
 
@@ -232,13 +263,81 @@ impl RuntimeInner {
                     preopen.guest_path,
                 ])).collect()))
             }
+
+            NativeFuncKind::WasiFilesystemDescriptorReadDirectory => {
+                if args.len() != 1 {
+                    bail!("{target} expects 1 arg, got {}", args.len());
+                }
+                let descriptor = resource_arg(&args[0], "wasi:filesystem/types@0.2.0/descriptor")?;
+                let descriptor = self.descriptors.get(descriptor)
+                    .with_context(|| format!("unknown descriptor resource `{descriptor}`"))?;
+
+                let mut entries = Vec::new();
+                for entry in std::fs::read_dir(&descriptor.host_path)
+                    .with_context(|| format!("failed to read directory {}", descriptor.host_path.display()))?
+                {
+                    let entry = entry?;
+                    let metadata = entry.metadata()?;
+                    entries.push(DirectoryEntry {
+                        name: entry.file_name().to_string_lossy().to_string(),
+                        descriptor_type: descriptor_type_for_metadata(&metadata),
+                    });
+                }
+                entries.sort_by(|a, b| a.name.cmp(&b.name));
+
+                let stream = self.alloc_resource("wasi:filesystem/directory-entry-stream");
+                self.directory_entry_streams.insert(stream.clone(), DirectoryEntryStreamResource {
+                    entries,
+                    cursor: 0,
+                });
+
+                Ok(serde_json::json!({
+                    "resource": stream,
+                    "type": "wasi:filesystem/types@0.2.0/directory-entry-stream",
+                }))
+            }
+
+            NativeFuncKind::WasiFilesystemDirectoryEntryStreamReadDirectoryEntry => {
+                if args.len() != 1 {
+                    bail!("{target} expects 1 arg, got {}", args.len());
+                }
+                let stream = resource_arg(&args[0], "wasi:filesystem/types@0.2.0/directory-entry-stream")?;
+                let stream = self.directory_entry_streams.get_mut(stream)
+                    .with_context(|| format!("unknown directory-entry-stream resource `{stream}`"))?;
+
+                if stream.cursor >= stream.entries.len() {
+                    return Ok(serde_json::Value::Null);
+                }
+
+                let entry = stream.entries[stream.cursor].clone();
+                stream.cursor += 1;
+
+                Ok(serde_json::json!({
+                    "type": entry.descriptor_type,
+                    "name": entry.name,
+                }))
+            }
         }
+    }
+
+    fn alloc_resource(&mut self, prefix: &str) -> String {
+        let resource = format!("{prefix}:{}", self.next_resource);
+        self.next_resource += 1;
+        resource
     }
 
     fn register_native_builtins(&mut self) -> Result<()> {
         self.insert_unique_native_func(
             "wasi:filesystem/preopens@0.2.0::get-directories",
             NativeFuncKind::WasiFilesystemPreopensGetDirectories,
+        )?;
+        self.insert_unique_native_func(
+            "wasi:filesystem/types@0.2.0::descriptor.read-directory",
+            NativeFuncKind::WasiFilesystemDescriptorReadDirectory,
+        )?;
+        self.insert_unique_native_func(
+            "wasi:filesystem/types@0.2.0::directory-entry-stream.read-directory-entry",
+            NativeFuncKind::WasiFilesystemDirectoryEntryStreamReadDirectoryEntry,
         )?;
         Ok(())
     }
@@ -407,6 +506,32 @@ fn strip_interface_version(interface: &str) -> &str {
     interface.rsplit_once('@').map_or(interface, |(base, _)| base)
 }
 
+fn resource_arg<'a>(value: &'a serde_json::Value, expected_type: &str) -> Result<&'a str> {
+    let object = value.as_object().context("resource argument must be an object")?;
+    let ty = object.get("type")
+        .and_then(|value| value.as_str())
+        .context("resource argument must contain string `type`")?;
+    if ty != expected_type {
+        bail!("resource argument type must be `{expected_type}`, got `{ty}`");
+    }
+    object.get("resource")
+        .and_then(|value| value.as_str())
+        .context("resource argument must contain string `resource`")
+}
+
+fn descriptor_type_for_metadata(metadata: &std::fs::Metadata) -> &'static str {
+    let file_type = metadata.file_type();
+    if file_type.is_dir() {
+        "directory"
+    } else if file_type.is_file() {
+        "regular-file"
+    } else if file_type.is_symlink() {
+        "symbolic-link"
+    } else {
+        "unknown"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Runtime;
@@ -417,6 +542,22 @@ mod tests {
         let value = runtime.invoke("wasi:filesystem/preopens@0.2.0::get-directories", serde_json::json!([])).unwrap();
         assert_eq!(value.as_array().unwrap().len(), 1);
         assert_eq!(value[0][1], serde_json::json!("/"));
+    }
+
+    #[test]
+    fn lists_current_directory_through_wasi_filesystem_builtins() {
+        let runtime = Runtime::new().unwrap();
+        let preopens = runtime.invoke("wasi:filesystem/preopens@0.2.0::get-directories", serde_json::json!([])).unwrap();
+        let descriptor = preopens[0][0].clone();
+        let stream = runtime.invoke(
+            "wasi:filesystem/types@0.2.0::descriptor.read-directory",
+            serde_json::json!([descriptor]),
+        ).unwrap();
+        let first = runtime.invoke(
+            "wasi:filesystem/types@0.2.0::directory-entry-stream.read-directory-entry",
+            serde_json::json!([stream]),
+        ).unwrap();
+        assert!(first.is_null() || first.get("name").unwrap().is_string());
     }
 
     #[test]
