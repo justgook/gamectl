@@ -148,8 +148,10 @@ View assumptions:
 ## Suggested Implementation Order
 
 1. Implement the `cmd/app` runtime architecture from `PLAN/app-runtime-component-ui-spec.md`:
-   - migrate the useful `cmd/cli` component loading/WIT wiring experiment into `cmd/app`,
-   - register WASI filesystem/preopens first,
+   - first migrate the useful `cmd/cli` component loading/WIT wiring experiment into `cmd/app`,
+   - use `plugins/adder` as the first component smoke test for `addPlugins` + `invoke`,
+   - replace the byte-oriented `runtime_call(plugin, method, bytes)` path with structured `runtime_invoke(target, args)` / `runtime_add_plugins(paths)` APIs,
+   - register WASI filesystem/preopens as the target filesystem model,
    - expose frontend low-level runtime APIs,
    - support singleton WIT-shaped `ui.plugins`,
    - support dynamic `ui.views` through `runtime.call(view-id, string)`.

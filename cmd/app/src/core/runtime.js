@@ -1,61 +1,69 @@
 let tauriInvoke = null
 
-async function invoke(command, args) {
+async function invokeCommand(command, args) {
   if (tauriInvoke) return await tauriInvoke(command, args)
 
   if (!globalThis.__TAURI__?.core?.invoke) {
-    throw new Error('Tauri invoke API is unavailable; runtime-native.js requires tauri.conf app.withGlobalTauri = true')
+    throw new Error('Tauri invoke API is unavailable; cmd/app requires app.withGlobalTauri = true')
   }
 
   tauriInvoke = globalThis.__TAURI__.core.invoke
   return await tauriInvoke(command, args)
 }
 
-function encodeInput(input) {
-  if (input == null) return []
-  if (input instanceof Uint8Array) return Array.from(input)
-  if (input instanceof ArrayBuffer) return Array.from(new Uint8Array(input))
-  if (typeof input === 'string') return Array.from(new TextEncoder().encode(input))
-  return Array.from(new TextEncoder().encode(JSON.stringify(input)))
+function assertString(value, name) {
+  if (typeof value !== 'string' || value.length === 0) throw new Error(`${name} must be a non-empty string`)
 }
 
-function decodeOutput(output) {
-  if (output instanceof Uint8Array) return output
-  return new Uint8Array(output || [])
+function assertArray(value, name) {
+  if (!Array.isArray(value)) throw new Error(`${name} must be an array`)
 }
 
 export class Runtime {
-  async call(plugin, method, input = new Uint8Array()) {
-    if (typeof plugin !== 'string' || plugin.length === 0) throw new Error('runtime.call requires plugin string')
-    if (typeof method !== 'string' || method.length === 0) throw new Error('runtime.call requires method string')
+  #viewDispatcher = null
 
-    const output = await invoke('runtime_call', {
-      plugin,
-      method,
-      input: encodeInput(input),
-    })
-
-    return decodeOutput(output)
+  async invoke(target, args = []) {
+    assertString(target, 'runtime.invoke target')
+    assertArray(args, 'runtime.invoke args')
+    return await invokeCommand('runtime_invoke', { target, args })
   }
 
-  async text(plugin, method, input = new Uint8Array()) {
-    return new TextDecoder().decode(await this.call(plugin, method, input))
+  async addPlugins(paths) {
+    assertArray(paths, 'runtime.addPlugins paths')
+    for (const path of paths) assertString(path, 'runtime.addPlugins path')
+    const handles = await invokeCommand('runtime_add_plugins', { paths })
+    assertArray(handles, 'runtime.addPlugins result')
+    for (const handle of handles) {
+      assertString(handle.handle, 'component handle')
+      assertString(handle.path, 'component path')
+      assertArray(handle.imports, 'component imports')
+      assertArray(handle.exports, 'component exports')
+    }
+    return handles
   }
 
-  async json(plugin, method, input = new Uint8Array()) {
-    return JSON.parse(await this.text(plugin, method, input))
+  onCallView(callback) {
+    if (typeof callback !== 'function') throw new Error('runtime.onCallView callback must be a function')
+    this.#viewDispatcher = callback
+  }
+
+  async callView(target, args) {
+    assertString(target, 'runtime.callView target')
+    assertString(args, 'runtime.callView args')
+    if (!this.#viewDispatcher) throw new Error('runtime.onCallView has not been registered')
+    const result = await this.#viewDispatcher(target, args)
+    assertString(result, 'runtime.callView result')
+    return result
+  }
+
+  async addUiPlugin(_wit, _functions) {
+    throw new Error('runtime.addUiPlugin is planned but not implemented in the destructive bootstrap yet')
+  }
+
+  async diagnostics() {
+    return await invokeCommand('runtime_diagnostics', {})
   }
 }
 
 export const runtime = new Runtime()
-
-export const fs = {
-  read: (path) => runtime.call('fs', 'read', path),
-  readText: (path) => runtime.text('fs', 'readText', path),
-  write: (path, bytes) => runtime.call('fs', 'write', { path, bytes: Array.from(bytes) }),
-  writeText: (path, text) => runtime.call('fs', 'writeText', { path, text }),
-  list: (path) => runtime.json('fs', 'list', path),
-  stat: (path) => runtime.json('fs', 'stat', path),
-  exists: (path) => runtime.json('fs', 'exists', path),
-  mounts: () => runtime.json('fs', 'mounts'),
-}
+globalThis.gams = Object.freeze({ runtime })
