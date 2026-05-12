@@ -108,6 +108,14 @@ PLUGIN_LDFLAGS :=
 PLUGIN_C_SOURCES :=
 PLUGIN_EXTRA_DEPS :=
 PLUGIN_JS_EXTRA_DEPS :=
+PLUGIN_WASM_COMPONENT :=
+PLUGIN_WIT_WORLD :=
+PLUGIN_COMPONENT_NAME :=
+PLUGIN_COMPONENT_SOURCES :=
+PLUGIN_COMPONENT_EXTRA_DEPS :=
+
+WIT_BINDGEN ?= wit-bindgen
+WASI_P2_CC ?= $(or $(wildcard $(HOME)/Repos/wasi-sdk/bin/wasm32-wasip2-clang),wasm32-wasip2-clang)
 
 # Helper macro: attach manifest-defined variables to that plugin's wasm target
 #
@@ -140,6 +148,11 @@ define APPLY_PLUGIN_MANIFEST
   ZIG_C_SOURCES_$(1)    := $$(if $$(strip $$(PLUGIN_C_SOURCES)),$$(PLUGIN_C_SOURCES),$(wildcard $(PLUGIN_DIR)/$(1)/main.c))
   ZIG_EXTRA_DEPS_$(1)   := $$(if $$(strip $$(PLUGIN_EXTRA_DEPS)),$$(PLUGIN_EXTRA_DEPS),$(wildcard $(PLUGIN_DIR)/$(1)/*.h))
   JS_EXTRA_DEPS_$(1)    := $$(or $$(PLUGIN_JS_EXTRA_DEPS),$$(PLUGIN_EXTRA_DEPS))
+  WASM_COMPONENT_$(1)   := $$(PLUGIN_WASM_COMPONENT)
+  WIT_WORLD_$(1)        := $$(PLUGIN_WIT_WORLD)
+  COMPONENT_NAME_$(1)   := $$(PLUGIN_COMPONENT_NAME)
+  COMPONENT_SOURCES_$(1) := $$(PLUGIN_COMPONENT_SOURCES)
+  COMPONENT_EXTRA_DEPS_$(1) := $$(PLUGIN_COMPONENT_EXTRA_DEPS)
 
   # Apply as target-specific vars for this plugin's .wasm output
   $(BUILD_DIR)/plugins/$(1).wasm: ODIN_WASM_TARGET := $$(ODIN_WASM_TARGET_$(1))
@@ -156,6 +169,11 @@ define APPLY_PLUGIN_MANIFEST
   $$(if $$(strip $$(ZIG_C_SOURCES_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_C_SOURCES_$(1)))
   $$(if $$(strip $$(ZIG_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(ZIG_EXTRA_DEPS_$(1)))
   $$(if $$(strip $$(JS_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1)/index.js: $$(JS_EXTRA_DEPS_$(1)))
+  $(BUILD_DIR)/plugins/$(1).wasm: WASM_COMPONENT := $$(WASM_COMPONENT_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: WIT_WORLD := $$(WIT_WORLD_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: COMPONENT_NAME := $$(COMPONENT_NAME_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: COMPONENT_SOURCES := $$(COMPONENT_SOURCES_$(1))
+  $$(if $$(strip $$(COMPONENT_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(COMPONENT_EXTRA_DEPS_$(1)))
 
   # Cleanup manifest locals so they don't leak into next plugin
   PLUGIN_ODIN_WASM_TARGET :=
@@ -171,6 +189,11 @@ define APPLY_PLUGIN_MANIFEST
   PLUGIN_C_SOURCES :=
   PLUGIN_EXTRA_DEPS :=
   PLUGIN_JS_EXTRA_DEPS :=
+  PLUGIN_WASM_COMPONENT :=
+  PLUGIN_WIT_WORLD :=
+  PLUGIN_COMPONENT_NAME :=
+  PLUGIN_COMPONENT_SOURCES :=
+  PLUGIN_COMPONENT_EXTRA_DEPS :=
 endef
 
 $(foreach p,$(PLUGINS),$(eval $(call APPLY_PLUGIN_MANIFEST,$(p))))
@@ -238,6 +261,20 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.odin $(wildcard $(PLUGIN_DIR)/
 		--no-entry-point \
 		-out:$@ \
 		$(if $(ODIN_EXTRA_LINKER_FLAGS),-extra-linker-flags:"$(ODIN_EXTRA_LINKER_FLAGS)",)
+
+# Rule to build C WASM component plugins.
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/component.c | $(BUILD_DIR)/plugins
+	$(Q)echo "Building C component plugin $*..."
+	$(Q)test -n "$(WIT_WORLD)" || { echo "missing PLUGIN_WIT_WORLD for component plugin $*" >&2; exit 1; }
+	$(Q)test -n "$(COMPONENT_NAME)" || { echo "missing PLUGIN_COMPONENT_NAME for component plugin $*" >&2; exit 1; }
+	$(Q)GEN_DIR="$(BUILD_DIR)/component-bindings/$*"; \
+		rm -rf "$$GEN_DIR"; \
+		mkdir -p "$$GEN_DIR"; \
+		(cd "$$GEN_DIR" && $(WIT_BINDGEN) c "$(abspath $(PLUGIN_DIR)/$*/wit)" -w "$(WIT_WORLD)"); \
+		$(WASI_P2_CC) -o $@ -mexec-model=reactor -I"$$GEN_DIR" \
+			"$$GEN_DIR/$(COMPONENT_NAME).c" \
+			$(if $(strip $(COMPONENT_SOURCES)),$(COMPONENT_SOURCES),$(PLUGIN_DIR)/$*/component.c) \
+			"$$GEN_DIR/$(COMPONENT_NAME)_component_type.o"
 
 # Rule to build C plugins using Zig (bare WASM)
 $(BUILD_DIR)/plugins/%.wasm: | $(BUILD_DIR)/plugins

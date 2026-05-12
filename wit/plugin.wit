@@ -1,0 +1,11 @@
+package kkgams:plugin@1.0.0;
+
+interface runtime {
+  call: func(target: string, method: string, input: list<u8>) -> result<list<u8>, string>;
+}
+
+world plugin {
+  import runtime;
+
+  export call: func(method: string, input: list<u8>) -> result<list<u8>, string>;
+}
