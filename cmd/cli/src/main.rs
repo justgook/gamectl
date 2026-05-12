@@ -3,7 +3,7 @@
 // cargo run -- \
 //   --plug components/adder/adder.component.wasm \
 //   --plug components/calculator/calculator.component.wasm \
-//   --invoke 'docs:calculator/calculate@0.1.0.eval-expression(add, 2, 3)'
+//   --invoke 'docs:calculator/calculate::eval-expression(add, 2, 3)'
 
 use anyhow::{bail, Result};
 use std::collections::{HashMap, HashSet};
@@ -71,11 +71,7 @@ fn main() -> Result<()> {
     }
 
     let invocation = parse_invocation(&args.invoke)?;
-    let key = format!("{}.{}", invocation.interface, invocation.function);
-
-    let exported = exported_funcs
-        .get(&key)
-        .with_context(|| format!("no exported function found for `{key}`"))?;
+    let exported = resolve_exported_func(&exported_funcs, &invocation)?;
 
     let params = invocation
         .args
@@ -83,9 +79,9 @@ fn main() -> Result<()> {
         .map(parse_simple_val)
         .collect::<Result<Vec<_>>>()?;
 
-let mut results = alloc_results(&store, &exported.func)?;
+    let mut results = alloc_results(&store, &exported.func)?;
 
-exported.func.call(&mut store, &params, &mut results)?;
+    exported.func.call(&mut store, &params, &mut results)?;
 
     println!("{results:?}");
 
@@ -283,7 +279,7 @@ fn expose_interface(
             },
         )?;
 
-        let full = format!("{interface_name}.{func_name}");
+        let full = format!("{interface_name}::{func_name}");
 
         registry.insert(
             full,
@@ -310,12 +306,13 @@ fn parse_invocation(s: &str) -> Result<Invocation> {
     let target = s[..open].trim();
     let args_raw = s[open + 1..close].trim();
 
-    let dot = target
-        .rfind('.')
-        .context("invoke target must be `interface.function(...)`")?;
+    let (interface, function) = target
+        .split_once("::")
+        .context("invoke target must be `interface::function(...)`")?;
 
-    let interface = target[..dot].to_string();
-    let function = target[dot + 1..].to_string();
+    if interface.is_empty() || function.is_empty() {
+        bail!("invoke target must be `interface::function(...)`");
+    }
 
     let args = if args_raw.is_empty() {
         Vec::new()
@@ -327,10 +324,57 @@ fn parse_invocation(s: &str) -> Result<Invocation> {
     };
 
     Ok(Invocation {
-        interface,
-        function,
+        interface: interface.to_string(),
+        function: function.to_string(),
         args,
     })
+}
+
+fn resolve_exported_func<'a>(
+    exported_funcs: &'a HashMap<String, ExportedFunc>,
+    invocation: &Invocation,
+) -> Result<&'a ExportedFunc> {
+    let exact_key = format!("{}::{}", invocation.interface, invocation.function);
+
+    if let Some(exported) = exported_funcs.get(&exact_key) {
+        return Ok(exported);
+    }
+
+    if invocation.interface.contains('@') {
+        bail!("no exported function found for `{exact_key}`");
+    }
+
+    let mut matches = exported_funcs
+        .iter()
+        .filter(|(key, _)| invocation_key_matches_unversioned(key, invocation))
+        .collect::<Vec<_>>();
+
+    match matches.len() {
+        0 => bail!("no exported function found for `{exact_key}`"),
+        1 => Ok(matches.swap_remove(0).1),
+        _ => {
+            matches.sort_by(|(a, _), (b, _)| a.cmp(b));
+            let options = matches
+                .into_iter()
+                .map(|(key, _)| format!("  {key}"))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            bail!("ambiguous invocation `{exact_key}` matches:\n{options}");
+        }
+    }
+}
+
+fn invocation_key_matches_unversioned(key: &str, invocation: &Invocation) -> bool {
+    let Some((interface, function)) = key.split_once("::") else {
+        return false;
+    };
+
+    function == invocation.function && strip_interface_version(interface) == invocation.interface
+}
+
+fn strip_interface_version(interface: &str) -> &str {
+    interface.rsplit_once('@').map_or(interface, |(base, _)| base)
 }
 
 fn parse_simple_val(s: String) -> Result<Val> {
