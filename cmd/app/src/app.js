@@ -27,9 +27,28 @@ while (true) {
   entries.push(entry)
 }
 
+let sampleRead = null
+const firstFile = entries.find((entry) => entry.type === 'regular-file')
+if (firstFile) {
+  const file = await runtime.invoke('wasi:filesystem/types@0.2.0::descriptor.open-at', [root, [], firstFile.name, [],
+    ['read']])
+  const [bytes, eof] = await runtime.invoke('wasi:filesystem/types@0.2.0::descriptor.read', [file, 256, 0])
+  sampleRead = {
+    name: firstFile.name,
+    eof,
+    text: new TextDecoder().decode(new Uint8Array(bytes)),
+  }
+}
 diagnostics.textContent = JSON.stringify({
   preopens,
   entries,
+  sampleRead,
   diagnostics: await runtime.diagnostics(),
 }, null, 2)
 console.log('gams.runtime ready', runtime)
+
+try {
+  console.log(await runtime.addPlugins(["plugins/adder.wasm"]))
+} catch (e) {
+  console.error(e)
+}
