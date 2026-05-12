@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
-use wasmtime::component::Val;
 use wasmtime::component::types::Type;
+use wasmtime::component::Val;
 
 pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
     Ok(match ty {
@@ -47,7 +47,11 @@ pub fn result_json(results: Vec<Val>) -> Result<Value> {
     match results.len() {
         0 => Ok(Value::Null),
         1 => val_to_json(results.into_iter().next().unwrap()),
-        _ => results.into_iter().map(val_to_json).collect::<Result<Vec<_>>>().map(Value::Array),
+        _ => results
+            .into_iter()
+            .map(val_to_json)
+            .collect::<Result<Vec<_>>>()
+            .map(Value::Array),
     }
 }
 
@@ -76,7 +80,12 @@ pub fn val_to_json(value: Val) -> Result<Value> {
             }
             Value::Object(object)
         }
-        Val::Tuple(values) => Value::Array(values.into_iter().map(val_to_json).collect::<Result<Vec<_>>>()?),
+        Val::Tuple(values) => Value::Array(
+            values
+                .into_iter()
+                .map(val_to_json)
+                .collect::<Result<Vec<_>>>()?,
+        ),
         Val::Variant(name, payload) => json!({
             "case": name,
             "value": match payload { Some(value) => val_to_json(*value)?, None => Value::Null },
@@ -151,9 +160,13 @@ pub fn val_default_for_type(ty: &Type) -> Result<Val> {
 }
 
 fn as_i64(value: &Value, expected: &str) -> Result<i64> {
-    value.as_i64().with_context(|| format!("expected {expected}"))
+    value
+        .as_i64()
+        .with_context(|| format!("expected {expected}"))
 }
 
 fn as_u64(value: &Value, expected: &str) -> Result<u64> {
-    value.as_u64().with_context(|| format!("expected {expected}"))
+    value
+        .as_u64()
+        .with_context(|| format!("expected {expected}"))
 }

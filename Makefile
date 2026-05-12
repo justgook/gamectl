@@ -332,7 +332,7 @@ app: app-bundle-release
 app-check:
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
 
-app-run:
+app-run: $(BUILD_DIR)/plugins/adder.wasm
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
 
 app-build: app-build-release
