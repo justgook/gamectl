@@ -1,5 +1,9 @@
 # Runtime and Virtual FS Interface
 
+Status: **superseded as target architecture** by `PLAN/app-runtime-component-ui-spec.md`.
+
+This file documents the previous app-side GAMS virtual FS/mount runtime direction. The new priority is to use WASI filesystem/preopens as the primary runtime filesystem model. Keep this file as historical context until the old implementation is removed or migrated.
+
 Goal: make the Tauri/Rust host provide a small mandatory runtime boundary that JS, views, and plugins can use without depending on Tauri-specific APIs directly.
 
 ## Boundary Contract

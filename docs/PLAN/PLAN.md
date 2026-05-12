@@ -6,6 +6,12 @@ This document is the top-level planning index. Detailed plans can be split under
 
 ## Current Direction
 
+Top priority: implement the app runtime/component/UI architecture in `PLAN/app-runtime-component-ui-spec.md`.
+
+- Move the useful `cmd/cli` component-loading experiment into `cmd/app`; `cmd/cli` is not a long-term separate runtime.
+- Use real WIT/component interfaces as stable plugin APIs instead of requiring universal `export call(method, bytes)` plugin exports.
+- Register WASI filesystem/preopens as the primary runtime filesystem model and phase out the app-side GAMS virtual mount FS as the target architecture.
+- Support singleton `ui.plugins` with WIT-shaped APIs and dynamic multi-instance `ui.views` through a small `runtime.call(view-id, string)` API.
 - Prefer plugin-to-plugin calls over host-specific callbacks.
 - Prefer `singleton` plugins for long-lived services and generators.
 - Treat `instance` plugins as legacy/migration-only unless a concrete use case requires them.
@@ -141,11 +147,17 @@ View assumptions:
 
 ## Suggested Implementation Order
 
-1. Add minimap2 tree fixture/integration tests for authored `data.minimap` masks.
-2. Define minimal `fs` + `mounts` protocol contract for `read`/`write` on named mounts.
-3. Add a planning file for room generation research and summarize MarkovJunior/WFC findings there.
-4. Prototype `roomgen` as a singleton plugin with a simple deterministic generator before committing to Markov/WFC integration.
-5. Add `view-roomgen` once plugin contracts are stable enough for UI iteration.
+1. Implement the `cmd/app` runtime architecture from `PLAN/app-runtime-component-ui-spec.md`:
+   - migrate the useful `cmd/cli` component loading/WIT wiring experiment into `cmd/app`,
+   - register WASI filesystem/preopens first,
+   - expose frontend low-level runtime APIs,
+   - support singleton WIT-shaped `ui.plugins`,
+   - support dynamic `ui.views` through `runtime.call(view-id, string)`.
+2. Add minimap2 tree fixture/integration tests for authored `data.minimap` masks.
+3. Revisit filesystem planning after WASI filesystem integration; avoid extending the old app-side virtual mount FS unless a concrete need remains.
+4. Add a planning file for room generation research and summarize MarkovJunior/WFC findings there.
+5. Prototype `roomgen` as a singleton plugin with a simple deterministic generator before committing to Markov/WFC integration.
+6. Add `view-roomgen` once plugin contracts are stable enough for UI iteration.
 
 ## Requires Clarification
 
