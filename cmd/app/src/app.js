@@ -18,8 +18,18 @@ const diagnostics = document.querySelector('#diagnostics')
 if (!diagnostics) throw new Error('missing #diagnostics')
 
 const preopens = await runtime.invoke('wasi:filesystem/preopens@0.2.0::get-directories', [])
+const root = preopens[0][0]
+const stream = await runtime.invoke('wasi:filesystem/types@0.2.0::descriptor.read-directory', [root])
+const entries = []
+while (true) {
+  const entry = await runtime.invoke('wasi:filesystem/types@0.2.0::directory-entry-stream.read-directory-entry', [stream])
+  if (entry === null) break
+  entries.push(entry)
+}
+
 diagnostics.textContent = JSON.stringify({
   preopens,
+  entries,
   diagnostics: await runtime.diagnostics(),
 }, null, 2)
 console.log('gams.runtime ready', runtime)
