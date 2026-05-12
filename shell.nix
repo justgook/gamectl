@@ -8,6 +8,7 @@ pkgs.mkShell {
     pkgs.which
     pkgs.rustc
     pkgs.cargo
+    pkgs.rustfmt
     pkgs.cargo-binstall
     pkgs.libiconv
     pkgs.curl
