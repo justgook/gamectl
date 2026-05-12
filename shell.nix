@@ -8,6 +8,7 @@ pkgs.mkShell {
     pkgs.which
     pkgs.rustc
     pkgs.cargo
+    pkgs.cargo-binstall
     pkgs.libiconv
     pkgs.curl
     pkgs.gnutar
@@ -33,8 +34,20 @@ pkgs.mkShell {
       fi
     }
 
+    install_cargo_binary_tool() {
+      local bin="$1"
+      local crate="$2"
+      shift 2
+
+      if ! command -v "$bin" >/dev/null 2>&1; then
+        echo "Installing prebuilt $crate into $CARGO_INSTALL_ROOT ..."
+        cargo binstall --root "$CARGO_INSTALL_ROOT" --no-confirm --disable-strategies compile "$@" "$crate"
+      fi
+    }
+
     install_cargo_tool wit-bindgen wit-bindgen-cli
     install_cargo_tool wasm-tools wasm-tools --locked
+    install_cargo_binary_tool wkg wkg
 
     wasi_sdk_release="33"
     wasi_sdk_version="33.0"
