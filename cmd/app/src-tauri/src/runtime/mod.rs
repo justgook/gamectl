@@ -97,7 +97,7 @@ struct ComponentRecord {
     instance: Instance,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ComponentHandle {
     pub handle: String,
     pub path: String,
@@ -111,6 +111,58 @@ impl Runtime {
     }
 
     fn new_at(cwd: PathBuf) -> Result<Self> {
+        Ok(Self {
+            inner: Mutex::new(RuntimeInner::new(cwd)?),
+        })
+    }
+
+    pub fn add_plugins(
+        &self,
+        paths: Vec<String>,
+        reload: bool,
+    ) -> Result<Vec<ComponentHandle>, String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "runtime lock poisoned".to_string())?;
+        inner
+            .add_plugins(paths, reload)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn invoke(
+        &self,
+        target: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "runtime lock poisoned".to_string())?;
+        inner
+            .invoke(target, args)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn diagnostics(&self) -> Result<serde_json::Value, String> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| "runtime lock poisoned".to_string())?;
+        Ok(serde_json::json!({
+            "components": inner.components.values().map(|component| serde_json::json!({
+                "handle": component.handle,
+                "path": component.path,
+                "imports": component.imports,
+                "exports": component.exports,
+            })).collect::<Vec<_>>(),
+            "exports": inner.funcs.keys().cloned().collect::<Vec<_>>(),
+        }))
+    }
+}
+
+impl RuntimeInner {
+    fn new(cwd: PathBuf) -> Result<Self> {
         let mut config = Config::new();
         config.wasm_component_model(true);
 
@@ -159,95 +211,116 @@ impl Runtime {
             directory_entry_streams: BTreeMap::new(),
         };
         inner.register_native_builtins()?;
-
-        Ok(Self {
-            inner: Mutex::new(inner),
-        })
+        Ok(inner)
     }
 
-    pub fn add_plugins(&self, paths: Vec<String>) -> Result<Vec<ComponentHandle>, String> {
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| "runtime lock poisoned".to_string())?;
-        inner.add_plugins(paths).map_err(|error| error.to_string())
-    }
-
-    pub fn invoke(
-        &self,
-        target: &str,
-        args: serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
-        let mut inner = self
-            .inner
-            .lock()
-            .map_err(|_| "runtime lock poisoned".to_string())?;
-        inner
-            .invoke(target, args)
-            .map_err(|error| error.to_string())
-    }
-
-    pub fn diagnostics(&self) -> Result<serde_json::Value, String> {
-        let inner = self
-            .inner
-            .lock()
-            .map_err(|_| "runtime lock poisoned".to_string())?;
-        Ok(serde_json::json!({
-            "components": inner.components.values().map(|component| serde_json::json!({
-                "handle": component.handle,
-                "path": component.path,
-                "imports": component.imports,
-                "exports": component.exports,
-            })).collect::<Vec<_>>(),
-            "exports": inner.funcs.keys().cloned().collect::<Vec<_>>(),
-        }))
-    }
-}
-
-impl RuntimeInner {
-    fn add_plugins(&mut self, paths: Vec<String>) -> Result<Vec<ComponentHandle>> {
-        let mut out = Vec::new();
-
-        for path in paths {
-            let resolved_path = resolve_component_path(&self.root, &path)?;
-            let component =
-                Component::from_file(&self.engine, &resolved_path).map_err(|error| {
-                    anyhow::anyhow!(
-                        "loading component {path} from {}: {error}",
-                        resolved_path.display()
-                    )
-                })?;
-            let imports = component_imports(&self.engine, &component);
-            let exports = component_exports(&self.engine, &component);
-
-            let instance = self
-                .linker
-                .instantiate(&mut self.store, &component)
-                .map_err(|error| anyhow::anyhow!("instantiating component {path}: {error}"))?;
-
-            self.expose_instance_exports(&component, &instance)?;
-
-            let handle = format!("component:{}", self.next_component);
-            self.next_component += 1;
-
-            let record = ComponentRecord {
-                handle: handle.clone(),
-                path: resolved_path.display().to_string(),
-                imports: imports.clone(),
-                exports: exports.clone(),
-                instance,
-            };
-            self.components.insert(handle.clone(), record);
-
-            out.push(ComponentHandle {
-                handle,
-                path: resolved_path.display().to_string(),
-                imports,
-                exports,
-            });
+    fn add_plugins(&mut self, paths: Vec<String>, reload: bool) -> Result<Vec<ComponentHandle>> {
+        if reload {
+            return self.reload_plugins(paths);
         }
 
+        let mut out = Vec::new();
+        for path in paths {
+            let resolved_path = resolve_component_path(&self.root, &path)?;
+            if let Some(existing) = self.component_by_path(&resolved_path) {
+                out.push(existing);
+                continue;
+            }
+            out.push(self.load_component(path, resolved_path)?);
+        }
         Ok(out)
+    }
+
+    fn reload_plugins(&mut self, paths: Vec<String>) -> Result<Vec<ComponentHandle>> {
+        let root = self.root.clone();
+        let reload_paths = paths
+            .iter()
+            .map(|path| resolve_component_path(&root, path))
+            .collect::<Result<Vec<_>>>()?;
+
+        let mut all_paths = self
+            .components
+            .values()
+            .map(|component| PathBuf::from(&component.path))
+            .collect::<Vec<_>>();
+        for reload_path in &reload_paths {
+            if !all_paths.iter().any(|path| path == reload_path) {
+                all_paths.push(reload_path.clone());
+            }
+        }
+
+        let mut rebuilt = RuntimeInner::new(root)?;
+        let handles = rebuilt.add_plugins(
+            all_paths
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>(),
+            false,
+        )?;
+        let requested = reload_paths
+            .iter()
+            .map(|path| {
+                handles
+                    .iter()
+                    .find(|handle| PathBuf::from(&handle.path) == *path)
+                    .cloned()
+                    .with_context(|| {
+                        format!("reloaded component handle not found for {}", path.display())
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        *self = rebuilt;
+        Ok(requested)
+    }
+
+    fn component_by_path(&self, path: &Path) -> Option<ComponentHandle> {
+        self.components
+            .values()
+            .find(|component| PathBuf::from(&component.path) == path)
+            .map(|component| ComponentHandle {
+                handle: component.handle.clone(),
+                path: component.path.clone(),
+                imports: component.imports.clone(),
+                exports: component.exports.clone(),
+            })
+    }
+
+    fn load_component(&mut self, path: String, resolved_path: PathBuf) -> Result<ComponentHandle> {
+        let component = Component::from_file(&self.engine, &resolved_path).map_err(|error| {
+            anyhow::anyhow!(
+                "loading component {path} from {}: {error}",
+                resolved_path.display()
+            )
+        })?;
+        let imports = component_imports(&self.engine, &component);
+        let exports = component_exports(&self.engine, &component);
+
+        let instance = self
+            .linker
+            .instantiate(&mut self.store, &component)
+            .map_err(|error| anyhow::anyhow!("instantiating component {path}: {error}"))?;
+
+        self.expose_instance_exports(&component, &instance)?;
+
+        let handle = format!("component:{}", self.next_component);
+        self.next_component += 1;
+
+        let path = resolved_path.display().to_string();
+        let record = ComponentRecord {
+            handle: handle.clone(),
+            path: path.clone(),
+            imports: imports.clone(),
+            exports: exports.clone(),
+            instance,
+        };
+        self.components.insert(handle.clone(), record);
+
+        Ok(ComponentHandle {
+            handle,
+            path,
+            imports,
+            exports,
+        })
     }
 
     fn invoke(&mut self, target: &str, args: serde_json::Value) -> Result<serde_json::Value> {
@@ -909,7 +982,7 @@ mod tests {
         let runtime = Runtime::new().unwrap();
         let path = PathBuf::from(path).canonicalize().unwrap();
         runtime
-            .add_plugins(vec![path.display().to_string()])
+            .add_plugins(vec![path.display().to_string()], false)
             .unwrap();
         let value = runtime
             .invoke("docs:adder/add::add", serde_json::json!([2, 3]))
@@ -932,8 +1005,59 @@ mod tests {
             .unwrap();
         let runtime = Runtime::new_at(root).unwrap();
         runtime
-            .add_plugins(vec!["plugins/adder.wasm".to_string()])
+            .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
             .unwrap();
+        let value = runtime
+            .invoke("docs:adder/add::add", serde_json::json!([2, 3]))
+            .unwrap();
+        assert_eq!(value, serde_json::json!(5));
+    }
+
+    #[test]
+    fn add_plugins_skips_already_loaded_component_by_default() {
+        let path = "../../../build.nosync/plugins/adder.wasm";
+        if !std::path::Path::new(path).exists() {
+            eprintln!(
+                "skipping adder smoke test; build it with `make build.nosync/plugins/adder.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        let first = runtime
+            .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
+            .unwrap();
+        let second = runtime
+            .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
+            .unwrap();
+        assert_eq!(first[0].handle, second[0].handle);
+        assert_eq!(first[0].path, second[0].path);
+    }
+
+    #[test]
+    fn add_plugins_reload_rebuilds_component_registry() {
+        let path = "../../../build.nosync/plugins/adder.wasm";
+        if !std::path::Path::new(path).exists() {
+            eprintln!(
+                "skipping adder smoke test; build it with `make build.nosync/plugins/adder.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        let first = runtime
+            .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
+            .unwrap();
+        let second = runtime
+            .add_plugins(vec!["plugins/adder.wasm".to_string()], true)
+            .unwrap();
+        assert_eq!(first[0].path, second[0].path);
         let value = runtime
             .invoke("docs:adder/add::add", serde_json::json!([2, 3]))
             .unwrap();
@@ -956,10 +1080,13 @@ mod tests {
             .unwrap();
         let runtime = Runtime::new_at(root).unwrap();
         runtime
-            .add_plugins(vec![
-                "plugins/adder.wasm".to_string(),
-                "plugins/calculator.wasm".to_string(),
-            ])
+            .add_plugins(
+                vec![
+                    "plugins/adder.wasm".to_string(),
+                    "plugins/calculator.wasm".to_string(),
+                ],
+                false,
+            )
             .unwrap();
         let value = runtime
             .invoke(
