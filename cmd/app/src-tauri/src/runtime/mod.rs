@@ -939,4 +939,34 @@ mod tests {
             .unwrap();
         assert_eq!(value, serde_json::json!(5));
     }
+
+    #[test]
+    fn calculator_calls_adder_component() {
+        let adder = "../../../build.nosync/plugins/adder.wasm";
+        let calculator = "../../../build.nosync/plugins/calculator.wasm";
+        if !std::path::Path::new(adder).exists() || !std::path::Path::new(calculator).exists() {
+            eprintln!(
+                "skipping calculator smoke test; build it with `make build.nosync/plugins/adder.wasm build.nosync/plugins/calculator.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        runtime
+            .add_plugins(vec![
+                "plugins/adder.wasm".to_string(),
+                "plugins/calculator.wasm".to_string(),
+            ])
+            .unwrap();
+        let value = runtime
+            .invoke(
+                "docs:calculator/calculate::eval-expression",
+                serde_json::json!(["add", 2, 3]),
+            )
+            .unwrap();
+        assert_eq!(value, serde_json::json!(5));
+    }
 }

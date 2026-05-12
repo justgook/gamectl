@@ -332,24 +332,24 @@ app: app-bundle-release
 app-check:
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
 
-app-run: $(BUILD_DIR)/plugins/adder.wasm
+app-run: $(PLUGIN_TARGETS)
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
 
 app-build: app-build-release
 
-app-build-debug:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --no-bundle
+app-build-debug: $(PLUGIN_TARGETS)
+	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --no-bundle
 
-app-build-release:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --no-bundle
+app-build-release: $(PLUGIN_TARGETS)
+	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --no-bundle
 
 app-bundle: app-bundle-release
 
-app-bundle-debug:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --bundles $(TAURI_APP_BUNDLES)
+app-bundle-debug: $(PLUGIN_TARGETS)
+	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --bundles $(TAURI_APP_BUNDLES)
 
-app-bundle-release:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --bundles $(TAURI_APP_BUNDLES)
+app-bundle-release: $(PLUGIN_TARGETS)
+	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --bundles $(TAURI_APP_BUNDLES)
 
 .PHONY: native-dev
 native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)
