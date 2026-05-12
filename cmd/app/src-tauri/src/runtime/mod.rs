@@ -8,7 +8,7 @@ use values::{json_to_val, result_json, val_default_for_type};
 use wasmtime::{Config, Engine, Store, StoreContextMut};
 use wasmtime::component::{Component, Func, Instance, Linker, ResourceTable, Val};
 use wasmtime::component::types::{ComponentInstance, ComponentItem};
-use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
+use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxView, WasiView};
 
 pub struct Runtime {
     inner: Mutex<RuntimeInner>,
@@ -21,6 +21,7 @@ struct RuntimeInner {
     next_component: usize,
     components: BTreeMap<String, ComponentRecord>,
     funcs: BTreeMap<String, ExportedFunc>,
+    preopens: Vec<Preopen>,
 }
 
 pub struct HostState {
@@ -38,8 +39,25 @@ impl WasiView for HostState {
 }
 
 #[derive(Clone)]
-struct ExportedFunc {
-    func: Func,
+enum ExportedFunc {
+    Wasm(Func),
+    Native(NativeFunc),
+}
+
+#[derive(Clone)]
+struct NativeFunc {
+    kind: NativeFuncKind,
+}
+
+#[derive(Clone, Copy)]
+enum NativeFuncKind {
+    WasiFilesystemPreopensGetDirectories,
+}
+
+#[derive(Clone)]
+struct Preopen {
+    guest_path: String,
+    descriptor: String,
 }
 
 #[derive(Clone)]
@@ -71,22 +89,37 @@ impl Runtime {
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
         add_gams_runtime_import(&mut linker)?;
 
-        let wasi_ctx = WasiCtx::builder().inherit_stdio().inherit_args().build();
+        let cwd = std::env::current_dir().context("failed to resolve current working directory")?;
+        let preopens = vec![Preopen {
+            guest_path: "/".to_string(),
+            descriptor: "wasi:filesystem/descriptor:1".to_string(),
+        }];
+
+        let mut wasi_builder = WasiCtx::builder();
+        wasi_builder.inherit_stdio().inherit_args();
+        wasi_builder
+            .preopened_dir(&cwd, "/", DirPerms::all(), FilePerms::all())
+            .map_err(|error| anyhow::anyhow!("failed to preopen {} as /: {error}", cwd.display()))?;
+        let wasi_ctx = wasi_builder.build();
         let state = HostState {
             wasi_ctx,
             resource_table: ResourceTable::new(),
         };
         let store = Store::new(&engine, state);
 
+        let mut inner = RuntimeInner {
+            engine,
+            linker,
+            store,
+            next_component: 1,
+            components: BTreeMap::new(),
+            funcs: BTreeMap::new(),
+            preopens,
+        };
+        inner.register_native_builtins()?;
+
         Ok(Self {
-            inner: Mutex::new(RuntimeInner {
-                engine,
-                linker,
-                store,
-                next_component: 1,
-                components: BTreeMap::new(),
-                funcs: BTreeMap::new(),
-            }),
+            inner: Mutex::new(inner),
         })
     }
 
@@ -155,7 +188,14 @@ impl RuntimeInner {
 
     fn invoke(&mut self, target: &str, args: serde_json::Value) -> Result<serde_json::Value> {
         let func = self.resolve_func(target)?.clone();
-        let ty = func.func.ty(&self.store);
+        match func {
+            ExportedFunc::Wasm(func) => self.invoke_wasm(target, func, args),
+            ExportedFunc::Native(func) => self.invoke_native(target, func, args),
+        }
+    }
+
+    fn invoke_wasm(&mut self, target: &str, func: Func, args: serde_json::Value) -> Result<serde_json::Value> {
+        let ty = func.ty(&self.store);
         let params_ty = ty.params().map(|(_, ty)| ty).collect::<Vec<_>>();
         let args = args.as_array().context("runtime_invoke args must be a JSON array")?;
         if args.len() != params_ty.len() {
@@ -171,10 +211,44 @@ impl RuntimeInner {
             .map(|ty| val_default_for_type(&ty))
             .collect::<Result<Vec<_>>>()?;
 
-        func.func.call(&mut self.store, &params, &mut results)
+        func.call(&mut self.store, &params, &mut results)
             .map_err(|error| anyhow::anyhow!("calling {target}: {error}"))?;
 
         result_json(results)
+    }
+
+    fn invoke_native(&mut self, target: &str, func: NativeFunc, args: serde_json::Value) -> Result<serde_json::Value> {
+        let args = args.as_array().context("runtime_invoke args must be a JSON array")?;
+        match func.kind {
+            NativeFuncKind::WasiFilesystemPreopensGetDirectories => {
+                if !args.is_empty() {
+                    bail!("{target} expects 0 args, got {}", args.len());
+                }
+                Ok(serde_json::Value::Array(self.preopens.iter().map(|preopen| serde_json::json!([
+                    {
+                        "resource": preopen.descriptor,
+                        "type": "wasi:filesystem/types@0.2.0/descriptor",
+                    },
+                    preopen.guest_path,
+                ])).collect()))
+            }
+        }
+    }
+
+    fn register_native_builtins(&mut self) -> Result<()> {
+        self.insert_unique_native_func(
+            "wasi:filesystem/preopens@0.2.0::get-directories",
+            NativeFuncKind::WasiFilesystemPreopensGetDirectories,
+        )?;
+        Ok(())
+    }
+
+    fn insert_unique_native_func(&mut self, key: &str, kind: NativeFuncKind) -> Result<()> {
+        if self.funcs.contains_key(key) {
+            bail!("duplicate provider for exported function `{key}`");
+        }
+        self.funcs.insert(key.to_string(), ExportedFunc::Native(NativeFunc { kind }));
+        Ok(())
     }
 
     fn resolve_func(&self, target: &str) -> Result<&ExportedFunc> {
@@ -298,7 +372,7 @@ fn insert_unique_func(funcs: &mut BTreeMap<String, ExportedFunc>, key: String, f
     if funcs.contains_key(&key) {
         bail!("duplicate provider for exported function `{key}`");
     }
-    funcs.insert(key, ExportedFunc { func });
+    funcs.insert(key, ExportedFunc::Wasm(func));
     Ok(())
 }
 
@@ -336,6 +410,14 @@ fn strip_interface_version(interface: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::Runtime;
+
+    #[test]
+    fn invokes_wasi_filesystem_preopens_builtin() {
+        let runtime = Runtime::new().unwrap();
+        let value = runtime.invoke("wasi:filesystem/preopens@0.2.0::get-directories", serde_json::json!([])).unwrap();
+        assert_eq!(value.as_array().unwrap().len(), 1);
+        assert_eq!(value[0][1], serde_json::json!("/"));
+    }
 
     #[test]
     fn invokes_adder_component() {

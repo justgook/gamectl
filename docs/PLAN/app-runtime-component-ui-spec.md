@@ -510,7 +510,7 @@ runtime_invoke(target: String, args: serde_json::Value) -> serde_json::Value
 runtime_diagnostics() -> serde_json::Value
 ```
 
-The root WIT folder now defines `gams:runtime@1.0.0` with the single frontend-view `call` import. `cmd/app/wit/app.wit` declares the app host world and the intended `wasi:filesystem` imports; the Rust MVP uses `wasmtime_wasi::p2::add_to_linker_sync` for predefined WASIp2 host imports.
+The root WIT folder now defines `gams:runtime@1.0.0` with the single frontend-view `call` import. `cmd/app/wit/app.wit` declares the app host world and the intended `wasi:filesystem` imports; the Rust MVP uses `wasmtime_wasi::p2::add_to_linker_sync` for predefined WASIp2 host imports. The first native builtin exposed through normal frontend `runtime.invoke` is `wasi:filesystem/preopens@0.2.0::get-directories`, with `/` mapped to the process current working directory.
 
 `cmd/cli` currently contains the useful component-model experiment:
 

@@ -17,5 +17,9 @@ app.innerHTML = `
 const diagnostics = document.querySelector('#diagnostics')
 if (!diagnostics) throw new Error('missing #diagnostics')
 
-diagnostics.textContent = JSON.stringify(await runtime.diagnostics(), null, 2)
+const preopens = await runtime.invoke('wasi:filesystem/preopens@0.2.0::get-directories', [])
+diagnostics.textContent = JSON.stringify({
+  preopens,
+  diagnostics: await runtime.diagnostics(),
+}, null, 2)
 console.log('gams.runtime ready', runtime)
