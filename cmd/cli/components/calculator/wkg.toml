@@ -1,2 +1,2 @@
 [overrides]
-"docs:adder" = { path = "../adder/wit" }
+"docs:adder" = { path = "../../../../plugins/adder/wit" }
