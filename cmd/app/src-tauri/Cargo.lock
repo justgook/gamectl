@@ -1598,6 +1598,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-cli",
  "tauri-plugin-opener",
+ "tempfile",
  "wasmtime",
  "wasmtime-wasi",
 ]

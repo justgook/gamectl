@@ -3,7 +3,8 @@ mod values;
 use anyhow::{bail, Context as AnyhowContext, Result};
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use values::{json_to_val, result_json, val_default_for_type};
 use wasmtime::{Config, Engine, Store, StoreContextMut};
@@ -57,6 +58,8 @@ struct NativeFunc {
 enum NativeFuncKind {
     WasiFilesystemPreopensGetDirectories,
     WasiFilesystemDescriptorReadDirectory,
+    WasiFilesystemDescriptorOpenAt,
+    WasiFilesystemDescriptorRead,
     WasiFilesystemDirectoryEntryStreamReadDirectoryEntry,
 }
 
@@ -112,7 +115,7 @@ impl Runtime {
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
         add_gams_runtime_import(&mut linker)?;
 
-        let cwd = std::env::current_dir().context("failed to resolve current working directory")?;
+        let cwd = runtime_root()?;
         let root_descriptor = "wasi:filesystem/descriptor:1".to_string();
         let preopens = vec![Preopen {
             guest_path: "/".to_string(),
@@ -291,12 +294,52 @@ impl RuntimeInner {
                     cursor: 0,
                 });
 
-                Ok(serde_json::json!({
-                    "resource": stream,
-                    "type": "wasi:filesystem/types@0.2.0/directory-entry-stream",
-                }))
+                Ok(resource_json(&stream, "wasi:filesystem/types@0.2.0/directory-entry-stream"))
             }
 
+ NativeFuncKind::WasiFilesystemDescriptorOpenAt => {
+                  if args.len() != 5 {
+                      bail!("{target} expects 5 args, got {}", args.len());
+                  }
+                  let base = resource_arg(&args[0], "wasi:filesystem/types@0.2.0/descriptor")?;
+                  let base = self.descriptors.get(base)
+                      .with_context(|| format!("unknown descriptor resource `{base}`"))?;
+                  reject_non_empty_flags(&args[1], "path-flags")?;
+                  let path = args[2].as_str().context("open-at path must be a string")?;
+                  reject_unsupported_open_flags(&args[3])?;
+                  reject_unsupported_descriptor_flags(&args[4])?;
+                  let target_path = safe_join(&base.host_path, path)?;
+                  if !target_path.exists() {
+                      bail!("path does not exist: {path}");
+                  }
+                  let descriptor = self.alloc_resource("wasi:filesystem/descriptor");
+                  self.descriptors.insert(descriptor.clone(), DescriptorResource { host_path: target_path });
+                  Ok(resource_json(&descriptor, "wasi:filesystem/types@0.2.0/descriptor"))
+              }
+ 
+              NativeFuncKind::WasiFilesystemDescriptorRead => {
+                  if args.len() != 3 {
+                      bail!("{target} expects 3 args, got {}", args.len());
+                  }
+                  let descriptor = resource_arg(&args[0], "wasi:filesystem/types@0.2.0/descriptor")?;
+                  let descriptor = self.descriptors.get(descriptor)
+                      .with_context(|| format!("unknown descriptor resource `{descriptor}`"))?;
+                  let length = args[1].as_u64().context("read length must be u64")?;
+                  let offset = args[2].as_u64().context("read offset must be u64")?;
+                  if length > usize::MAX as u64 {
+                      bail!("read length is too large: {length}");
+                  }
+ 
+                  let mut file = std::fs::File::open(&descriptor.host_path)
+                      .with_context(|| format!("failed to open {}", descriptor.host_path.display()))?;
+                  file.seek(SeekFrom::Start(offset))?;
+                  let mut bytes = vec![0; length as usize];
+                  let count = file.read(&mut bytes)?;
+                  bytes.truncate(count);
+                  let eof = count < length as usize;
+ 
+                  Ok(serde_json::json!([bytes, eof]))
+              }
             NativeFuncKind::WasiFilesystemDirectoryEntryStreamReadDirectoryEntry => {
                 if args.len() != 1 {
                     bail!("{target} expects 1 arg, got {}", args.len());
@@ -335,6 +378,14 @@ impl RuntimeInner {
             "wasi:filesystem/types@0.2.0::descriptor.read-directory",
             NativeFuncKind::WasiFilesystemDescriptorReadDirectory,
         )?;
+        self.insert_unique_native_func(
+              "wasi:filesystem/types@0.2.0::descriptor.open-at",
+              NativeFuncKind::WasiFilesystemDescriptorOpenAt,
+          )?;
+          self.insert_unique_native_func(
+              "wasi:filesystem/types@0.2.0::descriptor.read",
+              NativeFuncKind::WasiFilesystemDescriptorRead,
+          )?;
         self.insert_unique_native_func(
             "wasi:filesystem/types@0.2.0::directory-entry-stream.read-directory-entry",
             NativeFuncKind::WasiFilesystemDirectoryEntryStreamReadDirectoryEntry,
@@ -519,6 +570,77 @@ fn resource_arg<'a>(value: &'a serde_json::Value, expected_type: &str) -> Result
         .context("resource argument must contain string `resource`")
 }
 
+
+
+fn resource_json(resource: &str, ty: &str) -> serde_json::Value {
+    serde_json::json!({
+        "resource": resource,
+        "type": ty,
+    })
+}
+
+fn reject_non_empty_flags(value: &serde_json::Value, name: &str) -> Result<()> {
+    let flags = value.as_array().with_context(|| format!("{name} must be a JSON array of flag names"))?;
+    if !flags.is_empty() {
+        bail!("{name} flags are not supported yet: {flags:?}");
+    }
+    Ok(())
+}
+
+fn reject_unsupported_open_flags(value: &serde_json::Value) -> Result<()> {
+    let flags = value.as_array().context("open-flags must be a JSON array of flag names")?;
+    for flag in flags {
+        let flag = flag.as_str().context("open-flags entries must be strings")?;
+        match flag {
+            "create" | "directory" | "exclusive" | "truncate" => bail!("open-flag `{flag}` is not supported yet"),
+            other => bail!("unknown open-flag `{other}`"),
+        }
+    }
+    Ok(())
+}
+
+fn reject_unsupported_descriptor_flags(value: &serde_json::Value) -> Result<()> {
+    let flags = value.as_array().context("descriptor-flags must be a JSON array of flag names")?;
+    for flag in flags {
+        let flag = flag.as_str().context("descriptor-flags entries must be strings")?;
+        match flag {
+            "read" => {}
+            "write" | "file-integrity-sync" | "data-integrity-sync" | "requested-write-sync" | "mutate-directory" => {
+                bail!("descriptor-flag `{flag}` is not supported yet")
+            }
+            other => bail!("unknown descriptor-flag `{other}`"),
+        }
+    }
+    Ok(())
+}
+
+fn safe_join(base: &Path, relative: &str) -> Result<PathBuf> {
+    if relative.starts_with('/') || relative.starts_with('\\') {
+        bail!("WASI paths must be relative to their descriptor: `{relative}`");
+    }
+    let mut out = base.to_path_buf();
+    for part in relative.replace('\\', "/").split('/') {
+        if part.is_empty() || part == "." {
+            continue;
+        }
+        if part == ".." {
+            bail!("WASI path escapes are not permitted: `{relative}`");
+        }
+        out.push(part);
+    }
+    Ok(out)
+}
+
+fn runtime_root() -> Result<PathBuf> {
+    let raw = match std::env::var("GAMS_APP_CWD") {
+        Ok(value) if !value.is_empty() => PathBuf::from(value),
+        _ => std::env::current_dir().context("failed to resolve current working directory")?,
+    };
+    raw.canonicalize()
+        .with_context(|| format!("failed to resolve GAMS_APP_CWD/runtime root {}", raw.display()))
+}
+
+
 fn descriptor_type_for_metadata(metadata: &std::fs::Metadata) -> &'static str {
     let file_type = metadata.file_type();
     if file_type.is_dir() {
@@ -560,6 +682,29 @@ mod tests {
         assert!(first.is_null() || first.get("name").unwrap().is_string());
     }
 
+    #[test]
+     fn opens_and_reads_file_through_wasi_filesystem_builtins() {
+         let dir = tempfile::tempdir().unwrap();
+         std::fs::write(dir.path().join("hello.txt"), "hello from wasi").unwrap();
+         std::env::set_var("GAMS_APP_CWD", dir.path());
+ 
+         let runtime = Runtime::new().unwrap();
+         let preopens = runtime.invoke("wasi:filesystem/preopens@0.2.0::get-directories", serde_json::json!([])).unwrap();
+         let root = preopens[0][0].clone();
+         let file = runtime.invoke(
+             "wasi:filesystem/types@0.2.0::descriptor.open-at",
+             serde_json::json!([root, [], "hello.txt", [], ["read"]]),
+         ).unwrap();
+         let read = runtime.invoke(
+             "wasi:filesystem/types@0.2.0::descriptor.read",
+             serde_json::json!([file, 64, 0]),
+         ).unwrap();
+ 
+         assert_eq!(read[0], serde_json::json!(b"hello from wasi"));
+         assert_eq!(read[1], serde_json::json!(true));
+         std::env::remove_var("GAMS_APP_CWD");
+     }
+ 
     #[test]
     fn invokes_adder_component() {
         let path = "../../../build.nosync/plugins/adder.wasm";

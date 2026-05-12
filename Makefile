@@ -41,6 +41,7 @@ TAURI_APP_BUNDLES ?= app,dmg
 GAMS_CONFIG ?= demo/gams.json
 DEMO_DIR ?= demo
 CLI_DIR ?= cmd/cli
+APP_CWD ?= $(or $(value GAMS_APP_CWD),examples/demo)
 NATIVE_DIR ?= cmd/native
 NATIVE_ASSETS_DIR ?= $(NATIVE_DIR)/assets
 NATIVE_OUTPUT_DIR ?= $(BUILD_DIR)/macos
@@ -329,10 +330,10 @@ cli-run: cli
 app: app-bundle-release
 
 app-check:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
+	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
 
 app-run:
-	$(Q)cd $(TAURI_APP_DIR_SRC) && CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
+	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
 
 app-build: app-build-release
 

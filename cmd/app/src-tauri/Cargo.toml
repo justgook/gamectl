@@ -24,3 +24,5 @@ wasmtime-wasi = "44"
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-cli = "2"
 
+[dev-dependencies]
+tempfile = "3"
