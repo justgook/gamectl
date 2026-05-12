@@ -28,10 +28,11 @@ export class Runtime {
     return await invokeCommand('runtime_invoke', { target, args })
   }
 
-  async addPlugins(paths) {
+  async addPlugins(paths, reload = false) {
     assertArray(paths, 'runtime.addPlugins paths')
+    if (typeof reload !== 'boolean') throw new Error('runtime.addPlugins reload must be a boolean')
     for (const path of paths) assertString(path, 'runtime.addPlugins path')
-    const handles = await invokeCommand('runtime_add_plugins', { paths })
+    const handles = await invokeCommand('runtime_add_plugins', { paths, reload })
     assertArray(handles, 'runtime.addPlugins result')
     for (const handle of handles) {
       assertString(handle.handle, 'component handle')

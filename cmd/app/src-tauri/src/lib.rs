@@ -6,9 +6,10 @@ use tauri_plugin_cli::CliExt;
 #[tauri::command]
 fn runtime_add_plugins(
     paths: Vec<String>,
+    reload: bool,
     runtime: tauri::State<'_, runtime::Runtime>,
 ) -> Result<Vec<runtime::ComponentHandle>, String> {
-    runtime.add_plugins(paths)
+    runtime.add_plugins(paths, reload)
 }
 
 #[tauri::command]

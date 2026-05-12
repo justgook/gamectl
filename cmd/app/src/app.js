@@ -53,13 +53,12 @@ diagnostics.textContent = JSON.stringify({
 console.log('gams.runtime ready', runtime)
 
 try {
-  const pluginHandles = await runtime.addPlugins(['plugins/adder.wasm', 'plugins/calculator.wasm'])
+  await runtime.addPlugins(['plugins/adder.wasm', 'plugins/calculator.wasm'], true)
   const calculatorResult = await runtime.invoke('docs:calculator/calculate::eval-expression', ['add', 2, 3])
-  console.log({ pluginHandles, calculatorResult })
+  console.log(calculatorResult)
 } catch (e) {
   console.error(e)
 }
-
 diagnostics.textContent = JSON.stringify({
   preopens,
   entries,
