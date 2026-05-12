@@ -115,7 +115,7 @@ PLUGIN_COMPONENT_SOURCES :=
 PLUGIN_COMPONENT_EXTRA_DEPS :=
 
 WIT_BINDGEN ?= wit-bindgen
-WASI_P2_CC ?= $(or $(wildcard $(HOME)/Repos/wasi-sdk/bin/wasm32-wasip2-clang),wasm32-wasip2-clang)
+WASI_P2_CC ?= wasm32-wasip2-clang
 
 # Helper macro: attach manifest-defined variables to that plugin's wasm target
 #

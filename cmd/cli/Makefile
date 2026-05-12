@@ -1,6 +1,6 @@
 BUILD_DIR ?= ../../build.nosync
 PLUGIN_BUILD_DIR ?= $(BUILD_DIR)/plugins
-WASI_P2_CC ?= $(or $(wildcard $(HOME)/Repos/wasi-sdk/bin/wasm32-wasip2-clang),wasm32-wasip2-clang)
+WASI_P2_CC ?= wasm32-wasip2-clang
 
 run: $(PLUGIN_BUILD_DIR)/adder.wasm components/calculator/calculator.component.wasm
 	cargo run -- \

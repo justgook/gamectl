@@ -19,6 +19,7 @@
 #go.work
 
 # Build artifacts and tools
+/.dev-tools/
 /tmp/
 tmp/
 #/aseprite/
