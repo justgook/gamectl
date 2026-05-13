@@ -1,4 +1,5 @@
 let tauriInvoke = null
+let tauriListen = null
 
 async function invokeCommand(command, args) {
   if (tauriInvoke) return await tauriInvoke(command, args)
@@ -11,6 +12,17 @@ async function invokeCommand(command, args) {
   return await tauriInvoke(command, args)
 }
 
+async function listenEvent(event, callback) {
+  if (tauriListen) return await tauriListen(event, callback)
+
+  if (!globalThis.__TAURI__?.event?.listen) {
+    throw new Error('Tauri event API is unavailable; cmd/app requires app.withGlobalTauri = true')
+  }
+
+  tauriListen = globalThis.__TAURI__.event.listen
+  return await tauriListen(event, callback)
+}
+
 function assertString(value, name) {
   if (typeof value !== 'string' || value.length === 0) throw new Error(`${name} must be a non-empty string`)
 }
@@ -21,6 +33,38 @@ function assertArray(value, name) {
 
 export class Runtime {
   #viewDispatcher = null
+  #callViewListenerReady = null
+
+  constructor() {
+    this.#callViewListenerReady = this.#setupCallViewBridge()
+  }
+
+  get ready() {
+    return this.#callViewListenerReady
+  }
+
+  async #setupCallViewBridge() {
+    await listenEvent('gams-runtime-call-view', async (event) => {
+      const payload = event.payload
+      try {
+        if (!payload || typeof payload !== 'object') throw new Error('call-view payload must be an object')
+        assertString(payload.id, 'call-view payload id')
+        assertString(payload.target, 'call-view payload target')
+        assertString(payload.args, 'call-view payload args')
+        const ok = await this.callView(payload.target, payload.args)
+        await invokeCommand('runtime_call_view_response', { id: payload.id, ok, err: null })
+      } catch (error) {
+        const id = payload && typeof payload === 'object' && typeof payload.id === 'string' ? payload.id : ''
+        if (!id) throw error
+        await invokeCommand('runtime_call_view_response', {
+          id,
+          ok: null,
+          err: error instanceof Error ? error.message : String(error),
+        })
+      }
+    })
+    await invokeCommand('runtime_call_view_ready', {})
+  }
 
   async invoke(target, args = []) {
     assertString(target, 'runtime.invoke target')

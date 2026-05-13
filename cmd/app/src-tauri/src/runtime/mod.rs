@@ -4,7 +4,8 @@ use anyhow::{bail, Context as AnyhowContext, Result};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{mpsc, Arc, Mutex};
+use tauri::Emitter;
 use values::{json_to_val, result_json, val_default_for_type};
 use wasmtime::component::types::{ComponentInstance, ComponentItem};
 use wasmtime::component::{Component, Func, Instance, Linker, ResourceTable, Val};
@@ -13,6 +14,7 @@ use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxView, WasiView};
 
 pub struct Runtime {
     inner: Mutex<RuntimeInner>,
+    view_bridge: ViewBridge,
 }
 
 struct RuntimeInner {
@@ -26,9 +28,30 @@ struct RuntimeInner {
     linked_interfaces: BTreeSet<String>,
 }
 
+#[derive(Clone)]
+struct ViewBridge {
+    inner: Arc<Mutex<ViewBridgeInner>>,
+}
+
+struct ViewBridgeInner {
+    app_handle: Option<tauri::AppHandle>,
+    frontend_ready: bool,
+    next_call: u64,
+    pending: BTreeMap<String, mpsc::Sender<std::result::Result<String, String>>>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CallViewRequest {
+    id: String,
+    target: String,
+    args: String,
+}
+
 pub struct HostState {
     wasi_ctx: WasiCtx,
     resource_table: ResourceTable,
+    view_bridge: ViewBridge,
 }
 
 impl WasiView for HostState {
@@ -113,15 +136,135 @@ struct Version {
     patch: u64,
 }
 
+impl ViewBridge {
+    fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(ViewBridgeInner {
+                app_handle: None,
+                frontend_ready: false,
+                next_call: 1,
+                pending: BTreeMap::new(),
+            })),
+        }
+    }
+
+    fn attach_app_handle(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "view bridge lock poisoned".to_string())?;
+        inner.app_handle = Some(app_handle);
+        Ok(())
+    }
+
+    fn mark_frontend_ready(&self) -> Result<(), String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "view bridge lock poisoned".to_string())?;
+        if inner.app_handle.is_none() {
+            return Err("frontend view bridge app handle is not attached".to_string());
+        }
+        inner.frontend_ready = true;
+        Ok(())
+    }
+
+    fn call_view(&self, target: String, args: String) -> std::result::Result<String, String> {
+        let (id, app_handle, rx) = {
+            let mut inner = self
+                .inner
+                .lock()
+                .map_err(|_| "view bridge lock poisoned".to_string())?;
+            let app_handle = inner
+                .app_handle
+                .clone()
+                .ok_or_else(|| "frontend view bridge is not attached".to_string())?;
+            if !inner.frontend_ready {
+                return Err("frontend view bridge listener is not ready".to_string());
+            }
+            let id = format!("view-call:{}", inner.next_call);
+            inner.next_call += 1;
+            let (tx, rx) = mpsc::channel();
+            if inner.pending.insert(id.clone(), tx).is_some() {
+                return Err(format!("duplicate view call id `{id}`"));
+            }
+            (id, app_handle, rx)
+        };
+
+        let request = CallViewRequest {
+            id: id.clone(),
+            target,
+            args,
+        };
+        if let Err(error) = app_handle.emit("gams-runtime-call-view", request) {
+            let _ = self.remove_pending(&id);
+            return Err(format!("failed to emit call-view request `{id}`: {error}"));
+        }
+
+        rx.recv()
+            .map_err(|_| format!("frontend view bridge dropped response channel for `{id}`"))?
+    }
+
+    fn respond(
+        &self,
+        id: String,
+        result: std::result::Result<String, String>,
+    ) -> std::result::Result<(), String> {
+        let tx = self
+            .remove_pending(&id)?
+            .ok_or_else(|| format!("unknown call-view request `{id}`"))?;
+        tx.send(result)
+            .map_err(|_| format!("call-view request `{id}` is no longer waiting"))
+    }
+
+    fn remove_pending(
+        &self,
+        id: &str,
+    ) -> std::result::Result<Option<mpsc::Sender<std::result::Result<String, String>>>, String>
+    {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "view bridge lock poisoned".to_string())?;
+        Ok(inner.pending.remove(id))
+    }
+}
+
 impl Runtime {
     pub fn new() -> Result<Self> {
         Self::new_at(runtime_root()?)
     }
 
     fn new_at(cwd: PathBuf) -> Result<Self> {
+        let view_bridge = ViewBridge::new();
         Ok(Self {
-            inner: Mutex::new(RuntimeInner::new(cwd)?),
+            inner: Mutex::new(RuntimeInner::new(cwd, view_bridge.clone())?),
+            view_bridge,
         })
+    }
+
+    pub fn attach_app_handle(&self, app_handle: tauri::AppHandle) -> Result<(), String> {
+        self.view_bridge.attach_app_handle(app_handle)
+    }
+
+    pub fn mark_call_view_ready(&self) -> Result<(), String> {
+        self.view_bridge.mark_frontend_ready()
+    }
+
+    pub fn respond_to_call_view(
+        &self,
+        id: String,
+        ok: Option<String>,
+        err: Option<String>,
+    ) -> Result<(), String> {
+        match (ok, err) {
+            (Some(value), None) => self.view_bridge.respond(id, Ok(value)),
+            (None, Some(error)) => self.view_bridge.respond(id, Err(error)),
+            (Some(_), Some(_)) => {
+                Err("call-view response must not contain both ok and err".to_string())
+            }
+            (None, None) => Err("call-view response must contain ok or err".to_string()),
+        }
     }
 
     pub fn add_plugins(
@@ -170,7 +313,7 @@ impl Runtime {
 }
 
 impl RuntimeInner {
-    fn new(cwd: PathBuf) -> Result<Self> {
+    fn new(cwd: PathBuf, view_bridge: ViewBridge) -> Result<Self> {
         let mut config = Config::new();
         config.wasm_component_model(true);
 
@@ -190,6 +333,7 @@ impl RuntimeInner {
         let state = HostState {
             wasi_ctx,
             resource_table: ResourceTable::new(),
+            view_bridge,
         };
         let store = Store::new(&engine, state);
 
@@ -283,7 +427,8 @@ impl RuntimeInner {
             }
         }
 
-        let mut rebuilt = RuntimeInner::new(root)?;
+        let view_bridge = self.store.data().view_bridge.clone();
+        let mut rebuilt = RuntimeInner::new(root, view_bridge)?;
         let handles = rebuilt.add_plugins(
             all_paths
                 .iter()
@@ -701,9 +846,11 @@ fn add_gams_runtime_import(linker: &mut Linker<HostState>, interface_name: &str)
                     )))
                 }
             };
-            let message =
-                format!("frontend view bridge is not connected yet: target={target}, args={args}");
-            results[0] = Val::Result(Err(Some(Box::new(Val::String(message)))));
+            let bridge = _cx.data().view_bridge.clone();
+            match bridge.call_view(target, args) {
+                Ok(value) => results[0] = Val::Result(Ok(Some(Box::new(Val::String(value))))),
+                Err(error) => results[0] = Val::Result(Err(Some(Box::new(Val::String(error))))),
+            }
             Ok(())
         },
     )?;
@@ -1511,7 +1658,7 @@ mod tests {
         assert!(value["err"]
             .as_str()
             .unwrap()
-            .contains("frontend view bridge is not connected yet"));
+            .contains("frontend view bridge is not attached"));
     }
 
     #[test]

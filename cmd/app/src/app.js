@@ -17,13 +17,23 @@ app.innerHTML = `
 const diagnostics = document.querySelector('#diagnostics')
 if (!diagnostics) throw new Error('missing #diagnostics')
 
+await runtime.ready
+
+const viewCalls = []
+runtime.onCallView(async (target, args) => {
+  const call = { target, args }
+  viewCalls.push(call)
+  if (target !== 'benchmark:view') throw new Error(`unknown view ${target}`)
+  return JSON.stringify({ ok: true, received: call })
+})
+
 function unwrapResult(result, label) {
   if (result && Object.prototype.hasOwnProperty.call(result, 'ok')) return result.ok
   if (result && Object.prototype.hasOwnProperty.call(result, 'err')) throw new Error(`${label}: ${result.err}`)
   throw new Error(`${label}: expected WIT result object`)
 }
 
-await runtime.addPlugins(['plugins/fs.wasm'], true)
+await runtime.addPlugins(['plugins/fs.wasm', 'plugins/benchmark.wasm'], true)
 
 const gamsJsonText = unwrapResult(
   await runtime.invoke('fs/fs::read-text', ['/gams.json']),
@@ -47,6 +57,15 @@ if (firstFile) {
   }
 }
 
+// const viewCallResult = unwrapResult(
+//   await runtime.invoke('benchmark/benchmark::call-runtime-view', ['benchmark:view', '{"ping":true}']),
+//   'benchmark runtime.call',
+// )
+const wasiBenchmark = unwrapResult(
+  await runtime.invoke('benchmark/benchmark::check-wasi-filesystem', ['/']),
+  'benchmark wasi filesystem',
+)
+
 try {
   await runtime.addPlugins(['plugins/calculator.wasm', 'plugins/adder.wasm'], true)
   const calculatorResult = await runtime.invoke('calculator/calculate::eval-expression', ['add', 2, 3])
@@ -59,6 +78,9 @@ diagnostics.textContent = JSON.stringify({
   gamsJsonText: gamsJsonText.slice(0, 512),
   entries,
   sampleRead,
+  viewCalls,
+  // viewCallResult,
+  wasiBenchmark,
   diagnostics: await runtime.diagnostics(),
 }, null, 2)
 console.log('gams.runtime ready', runtime)
