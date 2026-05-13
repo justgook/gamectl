@@ -13,12 +13,15 @@ fn runtime_add_plugins(
 }
 
 #[tauri::command]
-fn runtime_invoke(
+async fn runtime_invoke(
     target: String,
     args: serde_json::Value,
     runtime: tauri::State<'_, runtime::Runtime>,
 ) -> Result<serde_json::Value, String> {
-    runtime.invoke(&target, args)
+    let runtime = runtime.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || runtime.invoke(&target, args))
+        .await
+        .map_err(|error| format!("runtime invoke task failed: {error}"))?
 }
 
 #[tauri::command]

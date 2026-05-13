@@ -23,6 +23,7 @@ const viewCalls = []
 runtime.onCallView(async (target, args) => {
   const call = { target, args }
   viewCalls.push(call)
+  console.log("got view call", call)
   if (target !== 'benchmark:view') throw new Error(`unknown view ${target}`)
   return JSON.stringify({ ok: true, received: call })
 })

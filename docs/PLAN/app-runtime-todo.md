@@ -164,6 +164,7 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
 - [x] Added frontend listener readiness handshake through `runtime_call_view_ready` so host calls fail fast until JS is listening.
 - [x] Added frontend demo validation where `benchmark/benchmark::call-runtime-view` calls `benchmark:view` and receives a JSON string response.
 - [x] Response handling does not lock `RuntimeInner`; `runtime_call_view_response` talks only to the separate view bridge pending-call table.
+- [x] `runtime_invoke` runs Wasmtime execution in `spawn_blocking` so a synchronous component call waiting for frontend does not block Tauri IPC/event handling.
 - [ ] Add an automated integration test for the real frontend bridge/deadlock behavior. Current Rust unit tests still validate the no-frontend error path only.
 
 ### Singleton UI Plugins
