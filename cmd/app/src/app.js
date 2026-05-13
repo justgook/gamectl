@@ -26,11 +26,11 @@ function unwrapResult(result, label) {
 await runtime.addPlugins(['plugins/fs.wasm'], true)
 
 const gamsJsonText = unwrapResult(
-  await runtime.invoke('gams:fs/fs::read-text', ['/gams.json']),
+  await runtime.invoke('fs/fs::read-text', ['/gams.json']),
   'read /gams.json',
 )
 const entries = unwrapResult(
-  await runtime.invoke('gams:fs/fs::list', ['/']),
+  await runtime.invoke('fs/fs::list', ['/']),
   'list /',
 )
 
@@ -38,7 +38,7 @@ let sampleRead = null
 const firstFile = entries.find((entry) => entry.type === 'regular-file')
 if (firstFile) {
   const bytes = unwrapResult(
-    await runtime.invoke('gams:fs/fs::read-file', [`/${firstFile.name}`]),
+    await runtime.invoke('fs/fs::read-file', [`/${firstFile.name}`]),
     `read /${firstFile.name}`,
   )
   sampleRead = {
@@ -49,7 +49,7 @@ if (firstFile) {
 
 try {
   await runtime.addPlugins(['plugins/calculator.wasm', 'plugins/adder.wasm'], true)
-  const calculatorResult = await runtime.invoke('docs:calculator/calculate::eval-expression', ['add', 2, 3])
+  const calculatorResult = await runtime.invoke('calculator/calculate::eval-expression', ['add', 2, 3])
   console.log('calculator result', calculatorResult)
 } catch (error) {
   console.error(error)
