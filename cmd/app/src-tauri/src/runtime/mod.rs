@@ -12,8 +12,9 @@ use wasmtime::component::{Component, Func, Instance, Linker, ResourceTable, Val}
 use wasmtime::{Config, Engine, Store, StoreContextMut};
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxView, WasiView};
 
+#[derive(Clone)]
 pub struct Runtime {
-    inner: Mutex<RuntimeInner>,
+    inner: Arc<Mutex<RuntimeInner>>,
     view_bridge: ViewBridge,
 }
 
@@ -238,7 +239,7 @@ impl Runtime {
     fn new_at(cwd: PathBuf) -> Result<Self> {
         let view_bridge = ViewBridge::new();
         Ok(Self {
-            inner: Mutex::new(RuntimeInner::new(cwd, view_bridge.clone())?),
+            inner: Arc::new(Mutex::new(RuntimeInner::new(cwd, view_bridge.clone())?)),
             view_bridge,
         })
     }
