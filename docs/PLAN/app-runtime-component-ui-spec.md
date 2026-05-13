@@ -48,15 +48,15 @@ The host should not grow a second GAMS virtual filesystem layer for normal front
 
 ### `gams:fs` Proxy Component
 
-`plugins/fs` exposes simple app-facing filesystem functions:
+`plugins/fs` exposes simple app-facing filesystem functions. The provider export uses its full WIT name, but frontend invocation must use namespace-less/version-less targets:
 
 ```text
-gams:fs/fs::read-file
-gams:fs/fs::read-text
-gams:fs/fs::list
+fs/fs::read-file
+fs/fs::read-text
+fs/fs::list
 ```
 
-This keeps frontend code simple while retaining real WASI access inside components.
+This keeps frontend code stable and simple while retaining real WASI access inside components.
 
 ### UI Plugins
 
