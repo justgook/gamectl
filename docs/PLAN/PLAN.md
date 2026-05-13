@@ -1,26 +1,56 @@
 # GAMS Planning
 
-GAMS is moving toward a plugin-driven CMS/toolkit where hosts stay thin and most behavior is exposed through singleton plugins, view plugins, and stable plugin-to-plugin contracts.
+GAMS is moving toward a plugin-driven CMS/toolkit where hosts stay thin and most behavior is exposed through WASM components, singleton services, view plugins, and stable WIT contracts.
 
-This document is the top-level planning index. Detailed plans can be split under `PLAN/singleton/`, `PLAN/view/`, and topic-specific files as work becomes concrete.
+This document is the top-level planning index. Detailed plans live under `docs/PLAN/`.
 
 ## Current Direction
 
-Top priority: implement the app runtime/component/UI architecture in `PLAN/app-runtime-component-ui-spec.md`.
+Top priority: follow `PLAN/app-runtime-todo.md`.
 
-- Move the useful `cmd/cli` component-loading experiment into `cmd/app`; `cmd/cli` is not a long-term separate runtime.
-- Use real WIT/component interfaces as stable plugin APIs instead of requiring universal `export call(method, bytes)` plugin exports.
-- Register WASI filesystem/preopens as the primary runtime filesystem model and phase out the app-side GAMS virtual mount FS as the target architecture.
-- Support singleton `ui.plugins` with WIT-shaped APIs and dynamic multi-instance `ui.views` through a small `runtime.call(view-id, string)` API.
-- Prefer plugin-to-plugin calls over host-specific callbacks.
-- Prefer `singleton` plugins for long-lived services and generators.
-- Treat `instance` plugins as legacy/migration-only unless a concrete use case requires them.
-- Migrate browser-rendered tools into first-class `view` plugins routed through `pluginManager`.
-- Keep browser and CLI hosts thin; `cmd/browser` can make breaking internal changes while the runtime is being rebuilt.
+Immediate next task: **add topological sorting for `runtime.addPlugins(paths)` in `cmd/app`**.
+
+Current runtime direction:
+
+- `cmd/app` is the primary host runtime for both desktop UI mode and Tauri CLI/subcommand mode.
+- `cmd/cli` is only an experiment/source of patterns; do not maintain it as a second runtime.
+- Use real WIT/component interfaces as stable plugin APIs.
+- Do not require universal byte-oriented `export call(method, bytes)` plugin exports.
+- Load components through `runtime.addPlugins(paths)` without caller-defined plugin ids.
+- Use `runtime.invoke(target, args)` for frontend calls into registered WIT exports.
+- Keep real WASI available to WASM components.
+- Use the `gams:fs` proxy component for frontend/app filesystem operations instead of raw frontend `wasi:filesystem` wrappers.
+- Support singleton `ui.plugins` with WIT-shaped APIs later.
+- Support dynamic multi-instance `ui.views` later through `gams:runtime/runtime.call(view-id, string)`.
+- Prefer plugin-to-plugin/component-to-component calls over host-specific callbacks.
+- Treat legacy `instance` plugins as migration-only unless a concrete use case requires them.
+
+## Priority Plans
+
+1. `PLAN/app-runtime-todo.md` — active `cmd/app` runtime TODO; start with topo-sort for `addPlugins`.
+2. `PLAN/app-runtime-component-ui-spec.md` — background architecture summary; active checklist moved to TODO file.
+3. `PLAN/fs-runtime.md` — historical/superseded app-side virtual FS plan.
 
 ## Planning Chunks
 
-### 1. Tree as generation source of truth
+### 1. cmd/app Runtime
+
+Detailed active plan: `PLAN/app-runtime-todo.md`.
+
+Current next task:
+
+- Add topological sorting for `runtime.addPlugins(paths)` so components can be passed in any dependency order.
+
+Remaining major runtime work:
+
+- Load/verify `plugins/fs.wasm` in the app flow and route frontend filesystem helpers through `gams:fs`.
+- Expand JSON ↔ WIT value conversion.
+- Implement blocking `gams:runtime/runtime.call` bridge to frontend views.
+- Implement singleton WIT-shaped frontend `ui.plugins`.
+- Decide project bootstrap/config loading.
+- Implement real Tauri CLI subcommands on the same runtime.
+
+### 2. Tree as generation source of truth
 
 Goal: make `tree` carry enough structured intent for downstream procedural plugins to consume without regenerating already-authored facts.
 
@@ -36,7 +66,7 @@ Decisions:
 - `data["minimap"]` stores a compact room-shape mask string: rows separated by `/`, `#` for occupied cells, and `.` for empty cells, parsed by `placement.ParseRoomShapeMask`.
 - If a node has no `data["minimap"]` mask, `plugins/minimap2` uses its existing random room-shape chooser fallback.
 
-### 2. Minimap and room-shape generation
+### 3. Minimap and room-shape generation
 
 Goal: separate room graph/layout concerns from room content generation.
 
@@ -50,7 +80,7 @@ Proposed logical split:
 2. `minimap2` converts tree + room-shape metadata into a room placement/tilemap.
 3. Later room-content plugins fill each room interior using WFC/Markov/user-guided generation.
 
-### 3. User-driven procedural room content generation
+### 4. User-driven procedural room content generation
 
 Goal: create new plugins/views for interactive procedural generation where the user can guide, lock, regenerate, and inspect room content.
 
@@ -91,35 +121,6 @@ Initial contract idea:
 }
 ```
 
-### 4. Mounts and storage protocols
-
-Detailed plan: `PLAN/fs-runtime.md`.
-
-Goal: make asset IO independent of local/http-only assumptions by introducing mount-backed paths and protocol-aware filesystem routing.
-
-Needed capabilities:
-
-- Multiple mounts with different protocols/backends.
-- Stable logical asset paths that plugins can pass to `fs`.
-- Backends such as:
-  - local/dev files,
-  - HTTP read-only assets,
-  - WebDAV remote project storage,
-  - OPFS browser-local project storage.
-
-Proposed logical split:
-
-1. `mounts` singleton plugin/service owns mount table and path resolution.
-2. `fs` plugin routes `read`/`write`/`list`/etc. through resolved mounts.
-3. Browser host provides only the minimal backend bridges needed for browser-only APIs such as OPFS.
-4. CLI host provides local filesystem and optional WebDAV implementations.
-
-Open questions:
-
-- Path syntax: `res://`, `project://`, `opfs://`, `webdav://`, or mount-name prefixes such as `/project/...`?
-- Which operations are required first: `read`, `write`, `list`, `stat`, `mkdir`, `delete`, `watch`?
-- Should mounts be configured by project file, user settings, or runtime calls?
-
 ### 5. Reusable browser widgets
 
 Goal: build embeddable UI widgets that views can reuse without hard-coding host/editor behavior.
@@ -137,31 +138,26 @@ Candidate views:
 - Tree authoring/inspection view.
 - Minimap placement preview view.
 - Room content generation view.
-- Mount/storage configuration view.
 
 View assumptions:
 
-- Views should call plugins through `pluginManager` contracts.
+- Views should call plugins through runtime/plugin contracts.
 - Views should not own core generation logic.
 - Shared memory/direct plugin-owned state can be used for first-party browser UI where it is simpler than runtime-managed mirrored state.
 
 ## Suggested Implementation Order
 
-1. Implement the `cmd/app` runtime architecture from `PLAN/app-runtime-component-ui-spec.md`:
-   - first migrate the useful `cmd/cli` component loading/WIT wiring experiment into `cmd/app`,
-   - use `plugins/adder` as the first component smoke test for `addPlugins` + `invoke`,
-   - replace the byte-oriented `runtime_call(plugin, method, bytes)` path with structured `runtime_invoke(target, args)` / `runtime_add_plugins(paths)` APIs,
-   - register WASI filesystem/preopens as the target filesystem model,
-   - expose frontend low-level runtime APIs,
-   - support singleton WIT-shaped `ui.plugins`,
-   - support dynamic `ui.views` through `runtime.call(view-id, string)`.
-2. Add minimap2 tree fixture/integration tests for authored `data.minimap` masks.
-3. Revisit filesystem planning after WASI filesystem integration; avoid extending the old app-side virtual mount FS unless a concrete need remains.
-4. Add a planning file for room generation research and summarize MarkovJunior/WFC findings there.
-5. Prototype `roomgen` as a singleton plugin with a simple deterministic generator before committing to Markov/WFC integration.
-6. Add `view-roomgen` once plugin contracts are stable enough for UI iteration.
+1. Add topo-sort for `runtime.addPlugins(paths)` in `cmd/app`.
+2. Ensure `plugins/fs.wasm` is loaded in app flow and frontend filesystem diagnostics use `gams:fs`.
+3. Expand JSON ↔ WIT conversion for structured types.
+4. Implement blocking WASM → frontend dynamic view calls.
+5. Implement singleton WIT-shaped `ui.plugins`.
+6. Decide project bootstrap/config loading.
+7. Add minimap2 tree fixture/integration tests for authored `data.minimap` masks.
+8. Continue room generation research/prototyping.
 
 ## Requires Clarification
 
-- Mount path syntax and first required backend set.
+- Project root/bootstrap config source for `cmd/app`.
+- Exact JS representation for complex WIT values.
 - Whether MarkovJunior/WFC should become direct dependencies, ports, or design references only.
