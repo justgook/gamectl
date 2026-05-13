@@ -3,7 +3,6 @@ mod values;
 use anyhow::{bail, Context as AnyhowContext, Result};
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use values::{json_to_val, result_json, val_default_for_type};
@@ -21,13 +20,9 @@ struct RuntimeInner {
     linker: Linker<HostState>,
     store: Store<HostState>,
     next_component: usize,
-    next_resource: usize,
     root: PathBuf,
     components: BTreeMap<String, ComponentRecord>,
     funcs: BTreeMap<String, ExportedFunc>,
-    preopens: Vec<Preopen>,
-    descriptors: BTreeMap<String, DescriptorResource>,
-    directory_entry_streams: BTreeMap<String, DirectoryEntryStreamResource>,
 }
 
 pub struct HostState {
@@ -47,44 +42,6 @@ impl WasiView for HostState {
 #[derive(Clone)]
 enum ExportedFunc {
     Wasm(Func),
-    Native(NativeFunc),
-}
-
-#[derive(Clone)]
-struct NativeFunc {
-    kind: NativeFuncKind,
-}
-
-#[derive(Clone, Copy)]
-enum NativeFuncKind {
-    WasiFilesystemPreopensGetDirectories,
-    WasiFilesystemDescriptorReadDirectory,
-    WasiFilesystemDescriptorOpenAt,
-    WasiFilesystemDescriptorRead,
-    WasiFilesystemDirectoryEntryStreamReadDirectoryEntry,
-}
-
-#[derive(Clone)]
-struct Preopen {
-    guest_path: String,
-    descriptor: String,
-}
-
-#[derive(Clone)]
-struct DescriptorResource {
-    host_path: PathBuf,
-}
-
-#[derive(Clone)]
-struct DirectoryEntryStreamResource {
-    entries: Vec<DirectoryEntry>,
-    cursor: usize,
-}
-
-#[derive(Clone)]
-struct DirectoryEntry {
-    name: String,
-    descriptor_type: &'static str,
 }
 
 #[derive(Clone)]
@@ -171,18 +128,6 @@ impl RuntimeInner {
 
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
         add_gams_runtime_import(&mut linker)?;
-        let root_descriptor = "wasi:filesystem/descriptor:1".to_string();
-        let preopens = vec![Preopen {
-            guest_path: "/".to_string(),
-            descriptor: root_descriptor.clone(),
-        }];
-        let descriptors = BTreeMap::from([(
-            root_descriptor,
-            DescriptorResource {
-                host_path: cwd.clone(),
-            },
-        )]);
-
         let mut wasi_builder = WasiCtx::builder();
         wasi_builder.inherit_stdio().inherit_args();
         wasi_builder
@@ -197,21 +142,15 @@ impl RuntimeInner {
         };
         let store = Store::new(&engine, state);
 
-        let mut inner = RuntimeInner {
+        Ok(RuntimeInner {
             engine,
             linker,
             store,
             next_component: 1,
-            next_resource: 2,
             root: cwd,
             components: BTreeMap::new(),
             funcs: BTreeMap::new(),
-            preopens,
-            descriptors,
-            directory_entry_streams: BTreeMap::new(),
-        };
-        inner.register_native_builtins()?;
-        Ok(inner)
+        })
     }
 
     fn add_plugins(&mut self, paths: Vec<String>, reload: bool) -> Result<Vec<ComponentHandle>> {
@@ -327,7 +266,6 @@ impl RuntimeInner {
         let func = self.resolve_func(target)?.clone();
         match func {
             ExportedFunc::Wasm(func) => self.invoke_wasm(target, func, args),
-            ExportedFunc::Native(func) => self.invoke_native(target, func, args),
         }
     }
 
@@ -365,199 +303,6 @@ impl RuntimeInner {
             .map_err(|error| anyhow::anyhow!("calling {target}: {error}"))?;
 
         result_json(results)
-    }
-
-    fn invoke_native(
-        &mut self,
-        target: &str,
-        func: NativeFunc,
-        args: serde_json::Value,
-    ) -> Result<serde_json::Value> {
-        let args = args
-            .as_array()
-            .context("runtime_invoke args must be a JSON array")?;
-        match func.kind {
-            NativeFuncKind::WasiFilesystemPreopensGetDirectories => {
-                if !args.is_empty() {
-                    bail!("{target} expects 0 args, got {}", args.len());
-                }
-                Ok(serde_json::Value::Array(
-                    self.preopens
-                        .iter()
-                        .map(|preopen| {
-                            serde_json::json!([
-                                {
-                                    "resource": preopen.descriptor,
-                                    "type": "wasi:filesystem/types@0.2.0/descriptor",
-                                },
-                                preopen.guest_path,
-                            ])
-                        })
-                        .collect(),
-                ))
-            }
-
-            NativeFuncKind::WasiFilesystemDescriptorReadDirectory => {
-                if args.len() != 1 {
-                    bail!("{target} expects 1 arg, got {}", args.len());
-                }
-                let descriptor = resource_arg(&args[0], "wasi:filesystem/types@0.2.0/descriptor")?;
-                let descriptor = self
-                    .descriptors
-                    .get(descriptor)
-                    .with_context(|| format!("unknown descriptor resource `{descriptor}`"))?;
-
-                let mut entries = Vec::new();
-                for entry in std::fs::read_dir(&descriptor.host_path).with_context(|| {
-                    format!(
-                        "failed to read directory {}",
-                        descriptor.host_path.display()
-                    )
-                })? {
-                    let entry = entry?;
-                    let metadata = entry.metadata()?;
-                    entries.push(DirectoryEntry {
-                        name: entry.file_name().to_string_lossy().to_string(),
-                        descriptor_type: descriptor_type_for_metadata(&metadata),
-                    });
-                }
-                entries.sort_by(|a, b| a.name.cmp(&b.name));
-
-                let stream = self.alloc_resource("wasi:filesystem/directory-entry-stream");
-                self.directory_entry_streams.insert(
-                    stream.clone(),
-                    DirectoryEntryStreamResource { entries, cursor: 0 },
-                );
-
-                Ok(resource_json(
-                    &stream,
-                    "wasi:filesystem/types@0.2.0/directory-entry-stream",
-                ))
-            }
-
-            NativeFuncKind::WasiFilesystemDescriptorOpenAt => {
-                if args.len() != 5 {
-                    bail!("{target} expects 5 args, got {}", args.len());
-                }
-                let base = resource_arg(&args[0], "wasi:filesystem/types@0.2.0/descriptor")?;
-                let base = self
-                    .descriptors
-                    .get(base)
-                    .with_context(|| format!("unknown descriptor resource `{base}`"))?;
-                reject_non_empty_flags(&args[1], "path-flags")?;
-                let path = args[2].as_str().context("open-at path must be a string")?;
-                reject_unsupported_open_flags(&args[3])?;
-                reject_unsupported_descriptor_flags(&args[4])?;
-                let target_path = safe_join(&base.host_path, path)?;
-                if !target_path.exists() {
-                    bail!("path does not exist: {path}");
-                }
-                let descriptor = self.alloc_resource("wasi:filesystem/descriptor");
-                self.descriptors.insert(
-                    descriptor.clone(),
-                    DescriptorResource {
-                        host_path: target_path,
-                    },
-                );
-                Ok(resource_json(
-                    &descriptor,
-                    "wasi:filesystem/types@0.2.0/descriptor",
-                ))
-            }
-
-            NativeFuncKind::WasiFilesystemDescriptorRead => {
-                if args.len() != 3 {
-                    bail!("{target} expects 3 args, got {}", args.len());
-                }
-                let descriptor = resource_arg(&args[0], "wasi:filesystem/types@0.2.0/descriptor")?;
-                let descriptor = self
-                    .descriptors
-                    .get(descriptor)
-                    .with_context(|| format!("unknown descriptor resource `{descriptor}`"))?;
-                let length = args[1].as_u64().context("read length must be u64")?;
-                let offset = args[2].as_u64().context("read offset must be u64")?;
-                if length > usize::MAX as u64 {
-                    bail!("read length is too large: {length}");
-                }
-
-                let mut file = std::fs::File::open(&descriptor.host_path).with_context(|| {
-                    format!("failed to open {}", descriptor.host_path.display())
-                })?;
-                file.seek(SeekFrom::Start(offset))?;
-                let mut bytes = vec![0; length as usize];
-                let count = file.read(&mut bytes)?;
-                bytes.truncate(count);
-                let eof = count < length as usize;
-
-                Ok(serde_json::json!([bytes, eof]))
-            }
-            NativeFuncKind::WasiFilesystemDirectoryEntryStreamReadDirectoryEntry => {
-                if args.len() != 1 {
-                    bail!("{target} expects 1 arg, got {}", args.len());
-                }
-                let stream = resource_arg(
-                    &args[0],
-                    "wasi:filesystem/types@0.2.0/directory-entry-stream",
-                )?;
-                let stream = self
-                    .directory_entry_streams
-                    .get_mut(stream)
-                    .with_context(|| {
-                        format!("unknown directory-entry-stream resource `{stream}`")
-                    })?;
-
-                if stream.cursor >= stream.entries.len() {
-                    return Ok(serde_json::Value::Null);
-                }
-
-                let entry = stream.entries[stream.cursor].clone();
-                stream.cursor += 1;
-
-                Ok(serde_json::json!({
-                    "type": entry.descriptor_type,
-                    "name": entry.name,
-                }))
-            }
-        }
-    }
-
-    fn alloc_resource(&mut self, prefix: &str) -> String {
-        let resource = format!("{prefix}:{}", self.next_resource);
-        self.next_resource += 1;
-        resource
-    }
-
-    fn register_native_builtins(&mut self) -> Result<()> {
-        self.insert_unique_native_func(
-            "wasi:filesystem/preopens@0.2.0::get-directories",
-            NativeFuncKind::WasiFilesystemPreopensGetDirectories,
-        )?;
-        self.insert_unique_native_func(
-            "wasi:filesystem/types@0.2.0::descriptor.read-directory",
-            NativeFuncKind::WasiFilesystemDescriptorReadDirectory,
-        )?;
-        self.insert_unique_native_func(
-            "wasi:filesystem/types@0.2.0::descriptor.open-at",
-            NativeFuncKind::WasiFilesystemDescriptorOpenAt,
-        )?;
-        self.insert_unique_native_func(
-            "wasi:filesystem/types@0.2.0::descriptor.read",
-            NativeFuncKind::WasiFilesystemDescriptorRead,
-        )?;
-        self.insert_unique_native_func(
-            "wasi:filesystem/types@0.2.0::directory-entry-stream.read-directory-entry",
-            NativeFuncKind::WasiFilesystemDirectoryEntryStreamReadDirectoryEntry,
-        )?;
-        Ok(())
-    }
-
-    fn insert_unique_native_func(&mut self, key: &str, kind: NativeFuncKind) -> Result<()> {
-        if self.funcs.contains_key(key) {
-            bail!("duplicate provider for exported function `{key}`");
-        }
-        self.funcs
-            .insert(key.to_string(), ExportedFunc::Native(NativeFunc { kind }));
-        Ok(())
     }
 
     fn resolve_func(&self, target: &str) -> Result<&ExportedFunc> {
@@ -751,81 +496,6 @@ fn strip_interface_version(interface: &str) -> &str {
         .map_or(interface, |(base, _)| base)
 }
 
-fn resource_arg<'a>(value: &'a serde_json::Value, expected_type: &str) -> Result<&'a str> {
-    let object = value
-        .as_object()
-        .context("resource argument must be an object")?;
-    let ty = object
-        .get("type")
-        .and_then(|value| value.as_str())
-        .context("resource argument must contain string `type`")?;
-    if ty != expected_type {
-        bail!("resource argument type must be `{expected_type}`, got `{ty}`");
-    }
-    object
-        .get("resource")
-        .and_then(|value| value.as_str())
-        .context("resource argument must contain string `resource`")
-}
-
-fn resource_json(resource: &str, ty: &str) -> serde_json::Value {
-    serde_json::json!({
-        "resource": resource,
-        "type": ty,
-    })
-}
-
-fn reject_non_empty_flags(value: &serde_json::Value, name: &str) -> Result<()> {
-    let flags = value
-        .as_array()
-        .with_context(|| format!("{name} must be a JSON array of flag names"))?;
-    if !flags.is_empty() {
-        bail!("{name} flags are not supported yet: {flags:?}");
-    }
-    Ok(())
-}
-
-fn reject_unsupported_open_flags(value: &serde_json::Value) -> Result<()> {
-    let flags = value
-        .as_array()
-        .context("open-flags must be a JSON array of flag names")?;
-    for flag in flags {
-        let flag = flag
-            .as_str()
-            .context("open-flags entries must be strings")?;
-        match flag {
-            "create" | "directory" | "exclusive" | "truncate" => {
-                bail!("open-flag `{flag}` is not supported yet")
-            }
-            other => bail!("unknown open-flag `{other}`"),
-        }
-    }
-    Ok(())
-}
-
-fn reject_unsupported_descriptor_flags(value: &serde_json::Value) -> Result<()> {
-    let flags = value
-        .as_array()
-        .context("descriptor-flags must be a JSON array of flag names")?;
-    for flag in flags {
-        let flag = flag
-            .as_str()
-            .context("descriptor-flags entries must be strings")?;
-        match flag {
-            "read" => {}
-            "write"
-            | "file-integrity-sync"
-            | "data-integrity-sync"
-            | "requested-write-sync"
-            | "mutate-directory" => {
-                bail!("descriptor-flag `{flag}` is not supported yet")
-            }
-            other => bail!("unknown descriptor-flag `{other}`"),
-        }
-    }
-    Ok(())
-}
-
 fn safe_join(base: &Path, relative: &str) -> Result<PathBuf> {
     if relative.starts_with('/') || relative.starts_with('\\') {
         bail!("WASI paths must be relative to their descriptor: `{relative}`");
@@ -884,90 +554,10 @@ fn resolve_component_path(root: &Path, path: &str) -> Result<PathBuf> {
     )
 }
 
-fn descriptor_type_for_metadata(metadata: &std::fs::Metadata) -> &'static str {
-    let file_type = metadata.file_type();
-    if file_type.is_dir() {
-        "directory"
-    } else if file_type.is_file() {
-        "regular-file"
-    } else if file_type.is_symlink() {
-        "symbolic-link"
-    } else {
-        "unknown"
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::Runtime;
     use std::path::PathBuf;
-
-    #[test]
-    fn invokes_wasi_filesystem_preopens_builtin() {
-        let runtime = Runtime::new().unwrap();
-        let value = runtime
-            .invoke(
-                "wasi:filesystem/preopens@0.2.0::get-directories",
-                serde_json::json!([]),
-            )
-            .unwrap();
-        assert_eq!(value.as_array().unwrap().len(), 1);
-        assert_eq!(value[0][1], serde_json::json!("/"));
-    }
-
-    #[test]
-    fn lists_current_directory_through_wasi_filesystem_builtins() {
-        let runtime = Runtime::new().unwrap();
-        let preopens = runtime
-            .invoke(
-                "wasi:filesystem/preopens@0.2.0::get-directories",
-                serde_json::json!([]),
-            )
-            .unwrap();
-        let descriptor = preopens[0][0].clone();
-        let stream = runtime
-            .invoke(
-                "wasi:filesystem/types@0.2.0::descriptor.read-directory",
-                serde_json::json!([descriptor]),
-            )
-            .unwrap();
-        let first = runtime
-            .invoke(
-                "wasi:filesystem/types@0.2.0::directory-entry-stream.read-directory-entry",
-                serde_json::json!([stream]),
-            )
-            .unwrap();
-        assert!(first.is_null() || first.get("name").unwrap().is_string());
-    }
-
-    #[test]
-    fn opens_and_reads_file_through_wasi_filesystem_builtins() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("hello.txt"), "hello from wasi").unwrap();
-        let runtime = Runtime::new_at(dir.path().to_path_buf()).unwrap();
-        let preopens = runtime
-            .invoke(
-                "wasi:filesystem/preopens@0.2.0::get-directories",
-                serde_json::json!([]),
-            )
-            .unwrap();
-        let root = preopens[0][0].clone();
-        let file = runtime
-            .invoke(
-                "wasi:filesystem/types@0.2.0::descriptor.open-at",
-                serde_json::json!([root, [], "hello.txt", [], ["read"]]),
-            )
-            .unwrap();
-        let read = runtime
-            .invoke(
-                "wasi:filesystem/types@0.2.0::descriptor.read",
-                serde_json::json!([file, 64, 0]),
-            )
-            .unwrap();
-
-        assert_eq!(read[0], serde_json::json!(b"hello from wasi"));
-        assert_eq!(read[1], serde_json::json!(true));
-    }
 
     #[test]
     fn invokes_adder_component() {
@@ -1101,7 +691,9 @@ mod tests {
     fn fs_proxy_reads_and_lists_through_wasi() {
         let fs = "../../../build.nosync/plugins/fs.wasm";
         if !std::path::Path::new(fs).exists() {
-            eprintln!("skipping fs proxy smoke test; build it with `make build.nosync/plugins/fs.wasm`");
+            eprintln!(
+                "skipping fs proxy smoke test; build it with `make build.nosync/plugins/fs.wasm`"
+            );
             return;
         }
 
