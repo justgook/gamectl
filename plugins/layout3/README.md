@@ -12,6 +12,9 @@ memory and no hidden singleton state is required.
 - no `get_info_ptr` / shared-memory snapshot
 - no PDK comma-separated arguments
 - component WIT records/lists/results instead of byte buffers
+- area/handle manipulation uses caller-visible string `content-id` values instead
+  of exposed list indices
+- panel and handle capacity is configurable through `layout-config`
 - handle axis and scope metadata are part of the document so operations can be
   pure functions over input documents
 - `try-corner` returns a document with `preview` populated instead of mutating a

@@ -44,30 +44,60 @@ component protocol:
 - errors are WIT `result` errors, not integer return codes plus side effects;
 - there is no exported pointer and no shared-memory snapshot contract;
 - handle axis/scope metadata is part of the document so implementation can be a
-  pure transform over request data.
+  pure transform over request data;
+- `content-id` is a unique string and is the public identity for areas/handles;
+- public operations select areas/handles by `content-id`, not by list index;
+- list indices are implementation/iteration details only;
+- maximum area/handle counts live in `layout-config` instead of hardcoded public
+  constants.
 
 This keeps `cmd/app` and future views thin: the host invokes typed WIT exports
 and stores/transfers the returned document as ordinary data.
 
-## Initial WIT status
+## Current implementation status
 
-Created: `plugins/layout3/wit/package.wit`
+Created:
+
+- `plugins/layout3/wit/package.wit`
+- `plugins/layout3/component.c`
+- `plugins/layout3/plugin.mk`
 
 World: `gams:layout3/layout3-plugin@1.0.0`
 
 Exported interface: `gams:layout3/layout@1.0.0`
 
+Implemented operations:
+
+- `init-screen`
+- `resize-screen`
+- `move-handle`
+- `move-corner`
+- `try-corner`
+- `rename-area-content`
+- `rename-handle-content`
+
 Validation performed with:
 
 ```sh
-wit-bindgen c plugins/layout3/wit --world gams:layout3/layout3-plugin@1.0.0 --out-dir /tmp/layout3-bindgen-check
+nix-shell --run 'make build.nosync/plugins/layout3.wasm'
+nix-shell --run 'cd cmd/app/src-tauri && cargo test runtime::tests::layout3_splits_by_content_id -- --nocapture'
 ```
+
+## Decisions
+
+- `content-id` is a string, not the `s32` inherited from layout2.
+- `content-id` is the public identity for layout manipulation. The backend may
+  use transient indices internally, but indices are not exposed in the contract.
+- `content-id` values must be unique within a layout document.
+- When a split creates a new area/handle and the caller does not provide ids,
+  layout3 derives ids by appending suffixes such as `_1`, repeating until the
+  id is unique. Example: `main` -> `main_1` -> `main_1_1` if the caller never
+  renames generated ids.
+- Max panel/handle capacity is configurable via `layout-config`.
 
 ## Open decisions
 
-- Whether `content-id` should stay `s32` for the first port or become `string`
-  / a typed view/plugin handle.
-- Whether max panel/handle capacity should remain an implementation limit for
-  compatibility or become configurable.
-- Whether layout documents should eventually expose stable area/handle ids
-  instead of list indices.
+- Whether area and handle `content-id` values share one global namespace or two
+  independent namespaces. The current WIT says unique within the document.
+- Exact generated handle id convention when a split creates a handle and the
+  caller does not provide `new-handle-content-id`.

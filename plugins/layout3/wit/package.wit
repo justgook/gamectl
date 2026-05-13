@@ -17,6 +17,8 @@ interface layout {
         min-size,
         not-implemented,
         capacity,
+        duplicate-content-id,
+        missing-content-id,
     }
 
     record layout-error {
@@ -38,14 +40,21 @@ interface layout {
 
     record area {
         bounds: rect,
-        content-id: s32,
+
+        /// Caller-visible identity for this panel/view slot.
+        /// Must be unique within the layout document.
+        content-id: string,
     }
 
     /// Renderable split handle plus the logical boundary metadata required to
     /// continue layout calculations without hidden component memory.
     record handle {
         bounds: rect,
-        content-id: s32,
+
+        /// Caller-visible identity for this split handle.
+        /// Must be unique within the layout document.
+        content-id: string,
+
         axis: axis,
         column-x0: s32,
         column-x1: s32,
@@ -65,15 +74,21 @@ interface layout {
         move-handle,
         move-corner,
         try-corner,
-        set-area-content,
-        set-handle-content,
+        rename-area-content,
+        rename-handle-content,
+    }
+
+    record layout-config {
+        max-areas: u32,
+        max-handles: u32,
+        min-panel-size: s32,
+        handle-half-size: s32,
     }
 
     record layout-document {
         screen-w: s32,
         screen-h: s32,
-        handle-half-size: s32,
-        min-panel-size: s32,
+        config: layout-config,
         generation: u64,
         areas: list<area>,
         handles: list<handle>,
@@ -93,8 +108,8 @@ interface layout {
     record init-screen-request {
         w: s32,
         h: s32,
-        handle-half-size: s32,
-        min-panel-size: s32,
+        config: layout-config,
+        root-content-id: string,
     }
 
     record resize-screen-request {
@@ -106,37 +121,43 @@ interface layout {
 
     record move-handle-request {
         document: layout-document,
-        handle-index: u32,
+        handle-content-id: string,
         x: s32,
         y: s32,
     }
 
     record move-corner-request {
         document: layout-document,
-        area-index: u32,
+        area-content-id: string,
         corner-index: u32,
         x: s32,
         y: s32,
+
+        /// Optional ids to use if this corner move creates a new area/handle.
+        /// If absent, the implementation derives ids from area-content-id by
+        /// appending a suffix such as `_1`, repeating until unique.
+        new-area-content-id: option<string>,
+        new-handle-content-id: option<string>,
     }
 
     record try-corner-request {
         document: layout-document,
-        area-index: u32,
+        area-content-id: string,
         corner-index: u32,
         x: s32,
         y: s32,
     }
 
-    record set-area-content-request {
+    record rename-area-content-request {
         document: layout-document,
-        area-index: u32,
-        content-id: s32,
+        area-content-id: string,
+        new-content-id: string,
     }
 
-    record set-handle-content-request {
+    record rename-handle-content-request {
         document: layout-document,
-        handle-index: u32,
-        content-id: s32,
+        handle-content-id: string,
+        new-content-id: string,
     }
 
     init-screen: func(request: init-screen-request) -> result<layout-response, layout-error>;
@@ -144,8 +165,8 @@ interface layout {
     move-handle: func(request: move-handle-request) -> result<layout-response, layout-error>;
     move-corner: func(request: move-corner-request) -> result<layout-response, layout-error>;
     try-corner: func(request: try-corner-request) -> result<layout-response, layout-error>;
-    set-area-content: func(request: set-area-content-request) -> result<layout-response, layout-error>;
-    set-handle-content: func(request: set-handle-content-request) -> result<layout-response, layout-error>;
+    rename-area-content: func(request: rename-area-content-request) -> result<layout-response, layout-error>;
+    rename-handle-content: func(request: rename-handle-content-request) -> result<layout-response, layout-error>;
 }
 
 world layout3-plugin {
