@@ -98,6 +98,13 @@ struct InterfaceId<'a> {
     version: Option<Version>,
 }
 
+#[derive(Clone, Debug)]
+struct InvocationInterfaceId<'a> {
+    package: &'a str,
+    interface: &'a str,
+    version: Option<Version>,
+}
+
 #[derive(Clone, Copy, Debug)]
 struct Version {
     major: u64,
@@ -510,15 +517,13 @@ impl RuntimeInner {
         let Some((interface, function)) = target.split_once("::") else {
             bail!("target must be `package/interface::function`");
         };
-
-        if interface.contains('@') {
-            bail!("no exported function found for `{target}`");
-        }
+        let requested = parse_invocation_interface_id(interface)
+            .with_context(|| format!("invalid invocation target `{target}`"))?;
 
         let mut matches = self
             .funcs
             .iter()
-            .filter(|(key, _)| invocation_key_matches_unversioned(key, interface, function))
+            .filter(|(key, _)| invocation_key_matches_request(key, &requested, function))
             .collect::<Vec<_>>();
 
         match matches.len() {
@@ -800,14 +805,27 @@ impl<'a> InterfaceId<'a> {
         if self.package != requested.package || self.interface != requested.interface {
             return false;
         }
-        match (self.version, requested.version) {
-            (Some(provider), Some(requested)) => {
-                provider.major == requested.major && provider.minor >= requested.minor
-            }
-            (None, None) => true,
-            (Some(_), None) => true,
-            (None, Some(_)) => false,
+        version_satisfies(self.version, requested.version)
+    }
+}
+
+impl<'a> InvocationInterfaceId<'a> {
+    fn matches_provider(&self, provider: &InterfaceId<'_>) -> bool {
+        if self.package != provider.package || self.interface != provider.interface {
+            return false;
         }
+        version_satisfies(provider.version, self.version)
+    }
+}
+
+fn version_satisfies(provider: Option<Version>, requested: Option<Version>) -> bool {
+    match (provider, requested) {
+        (Some(provider), Some(requested)) => {
+            provider.major == requested.major && provider.minor >= requested.minor
+        }
+        (None, None) => true,
+        (Some(_), None) => true,
+        (None, Some(_)) => false,
     }
 }
 
@@ -836,6 +854,33 @@ fn parse_interface_id(value: &str) -> Result<Option<InterfaceId<'_>>> {
         interface,
         version,
     }))
+}
+
+fn parse_invocation_interface_id(value: &str) -> Result<InvocationInterfaceId<'_>> {
+    let interface = value
+        .split_once("::")
+        .map_or(value, |(interface, _)| interface);
+    let (namespace_and_package, interface_and_version) = interface
+        .split_once('/')
+        .with_context(|| format!("interface id `{value}` must contain `/`"))?;
+    let package = namespace_and_package
+        .split_once(':')
+        .map_or(namespace_and_package, |(_namespace, package)| package);
+    if package.is_empty() {
+        bail!("interface id `{value}` has empty package");
+    }
+    let (interface, version) = match interface_and_version.rsplit_once('@') {
+        Some((interface, version)) => (interface, Some(parse_version(version)?)),
+        None => (interface_and_version, None),
+    };
+    if interface.is_empty() {
+        bail!("interface id `{value}` has empty interface");
+    }
+    Ok(InvocationInterfaceId {
+        package,
+        interface,
+        version,
+    })
 }
 
 fn parse_version(value: &str) -> Result<Version> {
@@ -895,17 +940,21 @@ fn component_exports(engine: &Engine, component: &Component) -> Vec<String> {
         .collect()
 }
 
-fn invocation_key_matches_unversioned(key: &str, interface: &str, function: &str) -> bool {
+fn invocation_key_matches_request(
+    key: &str,
+    requested: &InvocationInterfaceId<'_>,
+    function: &str,
+) -> bool {
     let Some((candidate_interface, candidate_function)) = key.split_once("::") else {
         return false;
     };
-    candidate_function == function && strip_interface_version(candidate_interface) == interface
-}
-
-fn strip_interface_version(interface: &str) -> &str {
-    interface
-        .rsplit_once('@')
-        .map_or(interface, |(base, _)| base)
+    if candidate_function != function {
+        return false;
+    }
+    let Ok(Some(candidate)) = parse_interface_id(candidate_interface) else {
+        return false;
+    };
+    requested.matches_provider(&candidate)
 }
 
 fn safe_join(base: &Path, relative: &str) -> Result<PathBuf> {
@@ -1230,12 +1279,12 @@ mod tests {
             .unwrap();
 
         let text = runtime
-            .invoke("gams:fs/fs::read-text", serde_json::json!(["/gams.json"]))
+            .invoke("fs/fs::read-text", serde_json::json!(["/gams.json"]))
             .unwrap();
         assert!(text["ok"].as_str().unwrap().contains("\"fs\""));
 
         let entries = runtime
-            .invoke("gams:fs/fs::list", serde_json::json!(["/"]))
+            .invoke("fs/fs::list", serde_json::json!(["/"]))
             .unwrap();
         let entries = entries["ok"].as_array().unwrap();
         assert!(entries.iter().any(|entry| entry["name"] == "gams.json"));

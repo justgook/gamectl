@@ -130,6 +130,30 @@ import runtime/runtime@1.2.9, provider runtime/runtime@1.2.0 -> OK
 import runtime/runtime@1.0.0, provider runtime/runtime@2.0.0 -> ERROR
 ```
 
+## Invocation Shorthand
+
+Frontend/runtime invocation may omit the namespace and use the compatibility identity directly:
+
+```text
+fs/fs::read-text
+```
+
+instead of:
+
+```text
+gams:fs/fs::read-text
+```
+
+The runtime resolves this by matching `package/interface` and applying the same version compatibility rules when a version is supplied:
+
+```text
+fs/fs@1.0.0::read-text
+```
+
+If multiple providers match the shorthand, invocation fails as ambiguous. In normal loading, duplicate provider-family checks should prevent this for a single major version.
+
+Diagnostics should still prefer full provider names when possible.
+
 ## Matching vs Wiring
 
 Matching may ignore namespace, but Wasmtime linking still needs the exact import name.
