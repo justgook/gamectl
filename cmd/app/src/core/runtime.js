@@ -34,6 +34,7 @@ function assertArray(value, name) {
 export class Runtime {
   #viewDispatcher = null
   #callViewListenerReady = null
+  #mainPlugins = new Map()
 
   constructor() {
     this.#callViewListenerReady = this.#setupCallViewBridge()
@@ -51,7 +52,7 @@ export class Runtime {
         assertString(payload.id, 'call-view payload id')
         assertString(payload.target, 'call-view payload target')
         assertString(payload.args, 'call-view payload args')
-        const ok = await this.callView(payload.target, payload.args)
+        const ok = await this.#callView(payload.target, payload.args)
         await invokeCommand('runtime_call_view_response', { id: payload.id, ok, err: null })
       } catch (error) {
         const id = payload && typeof payload === 'object' && typeof payload.id === 'string' ? payload.id : ''
@@ -92,7 +93,7 @@ export class Runtime {
     this.#viewDispatcher = callback
   }
 
-  async callView(target, args) {
+  async #callView(target, args) {
     assertString(target, 'runtime.callView target')
     assertString(args, 'runtime.callView args')
     if (!this.#viewDispatcher) throw new Error('runtime.onCallView has not been registered')
@@ -108,7 +109,34 @@ export class Runtime {
   async diagnostics() {
     return await invokeCommand('runtime_diagnostics', {})
   }
+
+  register(plugin) {
+    if (!plugin?.id) throw new Error('main-thread plugin requires id')
+    this.#mainPlugins.set(plugin.id, plugin)
+  }
+
+  async unregister(pluginId) {
+    if (!pluginId) throw new Error('main-thread plugin unregister requires id')
+    this.#mainPlugins.delete(pluginId)
+  }
+
+  async call(pluginId, method, input) {
+    const plugin = this.#mainPlugins.get(pluginId)
+    if (!plugin) {
+      throw new Error(`Unknown main-thread plugin '${pluginId}'`)
+    }
+
+    if (typeof plugin.call === 'function') {
+      return await plugin.call(method, input, this.createMainContext(plugin.id))
+    }
+
+    const fn = plugin.methods?.[method]
+    if (typeof fn !== 'function') {
+      throw new Error(`Main-thread plugin '${plugin.id}' does not implement method '${method}'`)
+    }
+
+    return await fn(input)
+  }
 }
 
 export const runtime = new Runtime()
-globalThis.gams = Object.freeze({ runtime })

@@ -1,8 +1,66 @@
 import { require2 } from "/util/require.js"
-// import { runtime } from "/core/runtime.js"
+import { runtime } from "/core/runtime.js"
+import { require2 as require } from "/util/require.js"
 
-console.log("INIT LAYOUT")
-function createConfiguredViewRegistry(config, runtime) {
+let currentThemeStylesheetObjectUrl = ''
+
+const DEFAULT_LAYOUT = `
+    <view-animation />
+    <view-empty setup="0:h:30" />
+    <view-animation setup="0:h:60" />
+  `
+
+function doInit(viewConfig) {
+  Promise.all([
+    require2("ui-plugins/layout3.js"),
+    require2("ui-plugins/toast.js"),
+    require2("ui-plugins/popup.js"),
+  ]).then(() => {
+    const viewRegistry = createConfiguredViewRegistry(viewConfig)
+
+    const layout = document.querySelector("ui-layout")
+    layout.setViewRegistry(viewRegistry)
+    layout.load(DEFAULT_LAYOUT)
+
+    const toast = document.querySelector("toast-manager")
+    runtime.register({ id: 'ui.toast', methods: toast.api })
+    const popup = document.querySelector("popup-manager")
+    runtime.register({ id: 'ui.popup', methods: popup.api })
+    popup.setViewRegistry(viewRegistry)
+
+
+    window.onerror = function (_message, _source, _lineno, _colno, error) {
+      runtime.call("ui.toast", "error", errorParse(error))
+      return false // prevents default logging (optional)
+    }
+
+    window.addEventListener("unhandledrejection", (e) => {
+      runtime.call("ui.toast", "error", errorParse(e))
+    })
+  })
+}
+
+export async function init(config) {
+
+  // console.log(DEFAULT_LAYOUT)
+  void applyThemeStylesheet(config)
+  console.log(config)
+  const fragment = new DocumentFragment()
+  fragment.appendChild(document.createElement('ui-layout'))
+  fragment.appendChild(document.createElement('popup-manager'))
+  fragment.appendChild(document.createElement('toast-manager'))
+
+  void doInit(config)
+  document.body.appendChild(fragment)
+}
+
+
+
+function errorParse(e) {
+  return `${e.plugin ? "[" + e.plugin + "]: " : ""}${e.message || e.reason}`
+}
+
+function createConfiguredViewRegistry(config) {
   const entries = config.ui.views
   if (!entries || typeof entries !== 'object' || Array.isArray(entries)) throw new Error('gams config ui.views is required')
   return new Map(Object.entries(entries).map(([tag, viewConfig]) => {
@@ -21,7 +79,7 @@ function createConfiguredViewRegistry(config, runtime) {
       async create(options = {}) {
         await this.load()
         const el = document.createElement(tag)
-        el.runtime = runtime
+        // el.runtime = runtime
         el.viewConfig = viewConfig
         if (viewConfig.config !== undefined) el.config = viewConfig.config
         if (viewConfig.defaultSource !== undefined && !Object.hasOwn(options.attrs || {}, 'data-source')) el.setAttribute('data-source', viewConfig.defaultSource)
@@ -32,34 +90,32 @@ function createConfiguredViewRegistry(config, runtime) {
   }))
 }
 
-function doInit() {
-  Promise.all([require2("ui-plugins/layout3.js"), require2("ui-plugins/toast.js")])
+
+async function applyThemeStylesheet(config) {
+  const themePath = config?.ui?.theme?.path
+  if (typeof themePath !== 'string' || themePath.length === 0) throw new Error('gams config ui.theme.path is required')
+  const readResult = unwrapResult(await runtime.invoke("fs/fs::read-file", [themePath]), "theme read")
+
+  const blob = new Blob([new Uint8Array(readResult)], { type: 'text/css' })
+  const themeHref = URL.createObjectURL(blob)
+  const previousUrl = currentThemeStylesheetObjectUrl
+  currentThemeStylesheetObjectUrl = themeHref
+
+  const link = document.getElementById('theme-stylesheet')
+  link.setAttribute('href', themeHref)
+  window.__currentThemePath = themePath
+  window.__currentThemeStylesheetHref = themeHref
+
+  document.querySelectorAll('view-area, view-popup').forEach((el) => {
+    const shadowLink = el.shadowRoot?.querySelector('link[data-theme-stylesheet]')
+    if (shadowLink) shadowLink.setAttribute('href', themeHref)
+  })
+
+  if (previousUrl) URL.revokeObjectURL(previousUrl)
 }
 
-export async function init() {
-  const DEFAULT_LAYOUT = `
-  <view-markov data-source="Basic" />
-  <view-tilemap data-source="/edge_rules.map.json" setup="0:v:50" />
-  <view-ng setup="1:h:50" />
-  <view-animation setup="1:v:50" />
-`
-  void doInit()
-  console.log(DEFAULT_LAYOUT)
-  const layout = document.createElement('ui-layout')
-  // layout.setViewRegistry([])
-
-  const fragment = new DocumentFragment();
-  fragment.appendChild(layout)
-
-  const toast = document.createElement('toast-manager')
-  fragment.appendChild(toast)
-  // runtime.register({ id: 'ui.toast', methods: toast.api })
-
-  return fragment
-  // runtime.register({ id: 'ui.layout', methods: layout.api })
-  // await layout.bindRuntime(runtime)
-  // await layout.load(DEFAULT_LAYOUT)
+function unwrapResult(result, label) {
+  if (result && Object.prototype.hasOwnProperty.call(result, "ok")) return result.ok
+  if (result && Object.prototype.hasOwnProperty.call(result, "err")) throw new Error(`${label}: ${result.err}`)
+  throw new Error(`${label}: expected WIT result object`)
 }
-
-
-
