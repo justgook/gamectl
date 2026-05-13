@@ -48,7 +48,7 @@ if (firstFile) {
 }
 
 try {
-  await runtime.addPlugins(['plugins/adder.wasm', 'plugins/calculator.wasm'], true)
+  await runtime.addPlugins(['plugins/calculator.wasm', 'plugins/adder.wasm'], true)
   const calculatorResult = await runtime.invoke('docs:calculator/calculate::eval-expression', ['add', 2, 3])
   console.log('calculator result', calculatorResult)
 } catch (error) {
