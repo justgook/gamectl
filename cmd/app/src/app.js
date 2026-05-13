@@ -18,6 +18,10 @@ const diagnostics = document.querySelector('#diagnostics')
 if (!diagnostics) throw new Error('missing #diagnostics')
 
 await runtime.ready
+/* THE Real app Start */
+runtime.addPlugins(["plugins/layout3.wasm"])
+/* THE DEBUG STUFF*/
+
 
 const viewCalls = []
 runtime.onCallView(async (target, args) => {
@@ -58,10 +62,10 @@ if (firstFile) {
   }
 }
 
-// const viewCallResult = unwrapResult(
-//   await runtime.invoke('benchmark/benchmark::call-runtime-view', ['benchmark:view', '{"ping":true}']),
-//   'benchmark runtime.call',
-// )
+const viewCallResult = unwrapResult(
+  await runtime.invoke('benchmark/benchmark::call-runtime-view', ['benchmark:view', '{"ping":true}']),
+  'benchmark runtime.call',
+)
 const wasiBenchmark = unwrapResult(
   await runtime.invoke('benchmark/benchmark::check-wasi-filesystem', ['/']),
   'benchmark wasi filesystem',
@@ -80,7 +84,7 @@ diagnostics.textContent = JSON.stringify({
   entries,
   sampleRead,
   viewCalls,
-  // viewCallResult,
+  viewCallResult,
   wasiBenchmark,
   diagnostics: await runtime.diagnostics(),
 }, null, 2)
