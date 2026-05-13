@@ -1326,4 +1326,221 @@ mod tests {
         let entries = entries["ok"].as_array().unwrap();
         assert!(entries.iter().any(|entry| entry["name"] == "gams.json"));
     }
+
+    #[test]
+    fn benchmark_exercises_json_wit_conversion() {
+        let benchmark = "../../../build.nosync/plugins/benchmark.wasm";
+        if !std::path::Path::new(benchmark).exists() {
+            eprintln!(
+                "skipping benchmark conversion test; build it with `make build.nosync/plugins/benchmark.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/benchmark.wasm".to_string()], false)
+            .unwrap();
+
+        let cases = [
+            (
+                "benchmark/benchmark::echo-bool",
+                serde_json::json!([true]),
+                serde_json::json!(true),
+            ),
+            (
+                "benchmark/benchmark::echo-s8",
+                serde_json::json!([-8]),
+                serde_json::json!(-8),
+            ),
+            (
+                "benchmark/benchmark::echo-u8",
+                serde_json::json!([8]),
+                serde_json::json!(8),
+            ),
+            (
+                "benchmark/benchmark::echo-s16",
+                serde_json::json!([-16]),
+                serde_json::json!(-16),
+            ),
+            (
+                "benchmark/benchmark::echo-u16",
+                serde_json::json!([16]),
+                serde_json::json!(16),
+            ),
+            (
+                "benchmark/benchmark::echo-s32",
+                serde_json::json!([-32]),
+                serde_json::json!(-32),
+            ),
+            (
+                "benchmark/benchmark::echo-u32",
+                serde_json::json!([32]),
+                serde_json::json!(32),
+            ),
+            (
+                "benchmark/benchmark::echo-s64",
+                serde_json::json!([-64]),
+                serde_json::json!(-64),
+            ),
+            (
+                "benchmark/benchmark::echo-u64",
+                serde_json::json!([64]),
+                serde_json::json!(64),
+            ),
+            (
+                "benchmark/benchmark::echo-f32",
+                serde_json::json!([1.5]),
+                serde_json::json!(1.5),
+            ),
+            (
+                "benchmark/benchmark::echo-f64",
+                serde_json::json!([2.25]),
+                serde_json::json!(2.25),
+            ),
+            (
+                "benchmark/benchmark::echo-char",
+                serde_json::json!(["λ"]),
+                serde_json::json!("λ"),
+            ),
+            (
+                "benchmark/benchmark::echo-string",
+                serde_json::json!(["hello"]),
+                serde_json::json!("hello"),
+            ),
+            (
+                "benchmark/benchmark::echo-enum",
+                serde_json::json!(["beta"]),
+                serde_json::json!("beta"),
+            ),
+            (
+                "benchmark/benchmark::echo-flags",
+                serde_json::json!([["read", "execute"]]),
+                serde_json::json!(["read", "execute"]),
+            ),
+            (
+                "benchmark/benchmark::echo-list-u8",
+                serde_json::json!([[1, 2, 3]]),
+                serde_json::json!([1, 2, 3]),
+            ),
+            (
+                "benchmark/benchmark::echo-list-string",
+                serde_json::json!([["a", "b"]]),
+                serde_json::json!(["a", "b"]),
+            ),
+            (
+                "benchmark/benchmark::echo-record",
+                serde_json::json!([{ "name": "rec", "count": 7, "enabled": true }]),
+                serde_json::json!({ "name": "rec", "count": 7, "enabled": true }),
+            ),
+            (
+                "benchmark/benchmark::echo-tuple",
+                serde_json::json!([["tuple", 9, false]]),
+                serde_json::json!(["tuple", 9, false]),
+            ),
+            (
+                "benchmark/benchmark::echo-option",
+                serde_json::json!(["some"]),
+                serde_json::json!("some"),
+            ),
+            (
+                "benchmark/benchmark::echo-option",
+                serde_json::json!([null]),
+                serde_json::json!(null),
+            ),
+            (
+                "benchmark/benchmark::echo-result",
+                serde_json::json!([{ "ok": 11 }]),
+                serde_json::json!({ "ok": 11 }),
+            ),
+            (
+                "benchmark/benchmark::echo-result",
+                serde_json::json!([{ "err": "bad" }]),
+                serde_json::json!({ "err": "bad" }),
+            ),
+            (
+                "benchmark/benchmark::echo-variant",
+                serde_json::json!([{ "case": "none" }]),
+                serde_json::json!({ "case": "none", "value": null }),
+            ),
+            (
+                "benchmark/benchmark::echo-variant",
+                serde_json::json!([{ "case": "text", "value": "variant" }]),
+                serde_json::json!({ "case": "text", "value": "variant" }),
+            ),
+            (
+                "benchmark/benchmark::echo-variant",
+                serde_json::json!([{ "case": "number", "value": 42 }]),
+                serde_json::json!({ "case": "number", "value": 42 }),
+            ),
+        ];
+
+        for (target, args, expected) in cases {
+            let value = runtime.invoke(target, args).unwrap();
+            assert_eq!(value, expected, "target {target}");
+        }
+    }
+
+    #[test]
+    fn benchmark_exercises_runtime_call_stub_for_deadlock_harness() {
+        let benchmark = "../../../build.nosync/plugins/benchmark.wasm";
+        if !std::path::Path::new(benchmark).exists() {
+            eprintln!(
+                "skipping benchmark runtime.call test; build it with `make build.nosync/plugins/benchmark.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/benchmark.wasm".to_string()], false)
+            .unwrap();
+
+        let value = runtime
+            .invoke(
+                "benchmark/benchmark::call-runtime-view",
+                serde_json::json!(["view:test", "{\"ping\":true}"]),
+            )
+            .unwrap();
+        assert!(value["err"]
+            .as_str()
+            .unwrap()
+            .contains("frontend view bridge is not connected yet"));
+    }
+
+    #[test]
+    fn benchmark_exercises_wasi_filesystem_from_component() {
+        let benchmark = "../../../build.nosync/plugins/benchmark.wasm";
+        if !std::path::Path::new(benchmark).exists() {
+            eprintln!(
+                "skipping benchmark wasi test; build it with `make build.nosync/plugins/benchmark.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/benchmark.wasm".to_string()], false)
+            .unwrap();
+
+        let value = runtime
+            .invoke(
+                "benchmark/benchmark::check-wasi-filesystem",
+                serde_json::json!(["/"]),
+            )
+            .unwrap();
+        let report = &value["ok"];
+        assert_eq!(report["first-preopen"], serde_json::json!("/"));
+        assert!(report["preopen-count"].as_u64().unwrap() >= 1);
+        assert!(report["entry-count"].as_u64().unwrap() >= 1);
+    }
 }
