@@ -1,7 +1,7 @@
-import { runtime } from '/core/runtime.js'
+import { runtime } from "/core/runtime.js"
 
-const app = document.querySelector('#app')
-if (!app) throw new Error('missing #app')
+const app = document.querySelector("#app")
+if (!app) throw new Error("missing #app")
 
 app.innerHTML = `
   <main>
@@ -14,12 +14,21 @@ app.innerHTML = `
   </main>
 `
 
-const diagnostics = document.querySelector('#diagnostics')
-if (!diagnostics) throw new Error('missing #diagnostics')
+const diagnostics = document.querySelector("#diagnostics")
+if (!diagnostics) throw new Error("missing #diagnostics")
 
 await runtime.ready
 /* THE Real app Start */
-runtime.addPlugins(["plugins/layout3.wasm"])
+runtime.addPlugins(["plugins/layout3.wasm", "plugins/fs.wasm"])
+const layoutView = await runtime.invoke("fs/fs::read-text", ["ui-plugins/layout.js"])
+
+const dir = unwrapResult(
+  await runtime.invoke("fs/fs::list", ["plugins"]),
+  "list plugins",
+)
+console.log(layoutView, dir)
+
+
 /* THE DEBUG STUFF*/
 
 
@@ -28,32 +37,32 @@ runtime.onCallView(async (target, args) => {
   const call = { target, args }
   viewCalls.push(call)
   console.log("got view call", call)
-  if (target !== 'benchmark:view') throw new Error(`unknown view ${target}`)
+  if (target !== "benchmark:view") throw new Error(`unknown view ${target}`)
   return JSON.stringify({ ok: true, received: call })
 })
 
 function unwrapResult(result, label) {
-  if (result && Object.prototype.hasOwnProperty.call(result, 'ok')) return result.ok
-  if (result && Object.prototype.hasOwnProperty.call(result, 'err')) throw new Error(`${label}: ${result.err}`)
+  if (result && Object.prototype.hasOwnProperty.call(result, "ok")) return result.ok
+  if (result && Object.prototype.hasOwnProperty.call(result, "err")) throw new Error(`${label}: ${result.err}`)
   throw new Error(`${label}: expected WIT result object`)
 }
 
-await runtime.addPlugins(['plugins/fs.wasm', 'plugins/benchmark.wasm'], true)
+await runtime.addPlugins(["plugins/benchmark.wasm"], true)
 
 const gamsJsonText = unwrapResult(
-  await runtime.invoke('fs/fs::read-text', ['/gams.json']),
-  'read /gams.json',
+  await runtime.invoke("fs/fs::read-text", ["gams.json"]),
+  "read /gams.json",
 )
 const entries = unwrapResult(
-  await runtime.invoke('fs/fs::list', ['/']),
-  'list /',
+  await runtime.invoke("fs/fs::list", ["."]),
+  "list /",
 )
 
 let sampleRead = null
-const firstFile = entries.find((entry) => entry.type === 'regular-file')
+const firstFile = entries.find((entry) => entry.type === "regular-file")
 if (firstFile) {
   const bytes = unwrapResult(
-    await runtime.invoke('fs/fs::read-file', [`/${firstFile.name}`]),
+    await runtime.invoke("fs/fs::read-file", [`${firstFile.name}`]),
     `read /${firstFile.name}`,
   )
   sampleRead = {
@@ -63,18 +72,18 @@ if (firstFile) {
 }
 
 const viewCallResult = unwrapResult(
-  await runtime.invoke('benchmark/benchmark::call-runtime-view', ['benchmark:view', '{"ping":true}']),
-  'benchmark runtime.call',
+  await runtime.invoke("benchmark/benchmark::call-runtime-view", ["benchmark:view", `{"ping":true}`]),
+  "benchmark runtime.call",
 )
 const wasiBenchmark = unwrapResult(
-  await runtime.invoke('benchmark/benchmark::check-wasi-filesystem', ['/']),
-  'benchmark wasi filesystem',
+  await runtime.invoke("benchmark/benchmark::check-wasi-filesystem", ["."]),
+  "benchmark wasi filesystem",
 )
 
 try {
-  await runtime.addPlugins(['plugins/calculator.wasm', 'plugins/adder.wasm'], true)
-  const calculatorResult = await runtime.invoke('calculator/calculate::eval-expression', ['add', 2, 3])
-  console.log('calculator result', calculatorResult)
+  await runtime.addPlugins(["plugins/calculator.wasm", "plugins/adder.wasm"], true)
+  const calculatorResult = await runtime.invoke("calculator/calculate::eval-expression", ["add", 2, 3])
+  console.log("calculator result", calculatorResult)
 } catch (error) {
   console.error(error)
 }
@@ -88,4 +97,4 @@ diagnostics.textContent = JSON.stringify({
   wasiBenchmark,
   diagnostics: await runtime.diagnostics(),
 }, null, 2)
-console.log('gams.runtime ready', runtime)
+console.log("gams.runtime ready", runtime)

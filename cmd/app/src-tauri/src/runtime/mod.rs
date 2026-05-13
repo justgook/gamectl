@@ -12,6 +12,12 @@ use wasmtime::component::{Component, Func, Instance, Linker, ResourceTable, Val}
 use wasmtime::{Config, Engine, Store, StoreContextMut};
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxView, WasiView};
 
+#[derive(Clone, Debug)]
+pub struct FsPreopen {
+    pub host_path: PathBuf,
+    pub guest_path: String,
+}
+
 #[derive(Clone)]
 pub struct Runtime {
     inner: Arc<Mutex<RuntimeInner>>,
@@ -24,6 +30,7 @@ struct RuntimeInner {
     store: Store<HostState>,
     next_component: usize,
     root: PathBuf,
+    preopens: Vec<FsPreopen>,
     components: BTreeMap<String, ComponentRecord>,
     funcs: BTreeMap<String, ExportedFunc>,
     linked_interfaces: BTreeSet<String>,
@@ -232,14 +239,14 @@ impl ViewBridge {
 }
 
 impl Runtime {
-    pub fn new() -> Result<Self> {
-        Self::new_at(runtime_root()?)
-    }
-
-    fn new_at(cwd: PathBuf) -> Result<Self> {
+    pub fn new_at(cwd: PathBuf, preopens: Vec<FsPreopen>) -> Result<Self> {
         let view_bridge = ViewBridge::new();
         Ok(Self {
-            inner: Arc::new(Mutex::new(RuntimeInner::new(cwd, view_bridge.clone())?)),
+            inner: Arc::new(Mutex::new(RuntimeInner::new(
+                cwd,
+                preopens,
+                view_bridge.clone(),
+            )?)),
             view_bridge,
         })
     }
@@ -314,7 +321,7 @@ impl Runtime {
 }
 
 impl RuntimeInner {
-    fn new(cwd: PathBuf, view_bridge: ViewBridge) -> Result<Self> {
+    fn new(cwd: PathBuf, preopens: Vec<FsPreopen>, view_bridge: ViewBridge) -> Result<Self> {
         let mut config = Config::new();
         config.wasm_component_model(true);
 
@@ -325,11 +332,23 @@ impl RuntimeInner {
         add_gams_runtime_import(&mut linker, "gams:runtime/runtime@1.0.0")?;
         let mut wasi_builder = WasiCtx::builder();
         wasi_builder.inherit_stdio().inherit_args();
-        wasi_builder
-            .preopened_dir(&cwd, "/", DirPerms::all(), FilePerms::all())
-            .map_err(|error| {
-                anyhow::anyhow!("failed to preopen {} as /: {error}", cwd.display())
-            })?;
+        let preopens = canonicalize_preopens(preopens)?;
+        for preopen in &preopens {
+            wasi_builder
+                .preopened_dir(
+                    &preopen.host_path,
+                    &preopen.guest_path,
+                    DirPerms::all(),
+                    FilePerms::all(),
+                )
+                .map_err(|error| {
+                    anyhow::anyhow!(
+                        "failed to preopen {} as {}: {error}",
+                        preopen.host_path.display(),
+                        preopen.guest_path
+                    )
+                })?;
+        }
         let wasi_ctx = wasi_builder.build();
         let state = HostState {
             wasi_ctx,
@@ -344,6 +363,7 @@ impl RuntimeInner {
             store,
             next_component: 1,
             root: cwd,
+            preopens,
             components: BTreeMap::new(),
             funcs: BTreeMap::new(),
             linked_interfaces: BTreeSet::from(["gams:runtime/runtime@1.0.0".to_string()]),
@@ -357,7 +377,7 @@ impl RuntimeInner {
 
         let requests = paths
             .iter()
-            .map(|path| resolve_component_path(&self.root, path))
+            .map(|path| resolve_component_path(&self.root, &self.preopens, path))
             .collect::<Result<Vec<_>>>()?;
 
         let mut candidates = Vec::new();
@@ -414,7 +434,7 @@ impl RuntimeInner {
         let root = self.root.clone();
         let reload_paths = paths
             .iter()
-            .map(|path| resolve_component_path(&root, path))
+            .map(|path| resolve_component_path(&root, &self.preopens, path))
             .collect::<Result<Vec<_>>>()?;
 
         let mut all_paths = self
@@ -429,7 +449,7 @@ impl RuntimeInner {
         }
 
         let view_bridge = self.store.data().view_bridge.clone();
-        let mut rebuilt = RuntimeInner::new(root, view_bridge)?;
+        let mut rebuilt = RuntimeInner::new(root, self.preopens.clone(), view_bridge)?;
         let handles = rebuilt.add_plugins(
             all_paths
                 .iter()
@@ -1124,51 +1144,95 @@ fn safe_join(base: &Path, relative: &str) -> Result<PathBuf> {
     Ok(out)
 }
 
-fn runtime_root() -> Result<PathBuf> {
-    let raw = match std::env::var("GAMS_APP_CWD") {
-        Ok(value) if !value.is_empty() => PathBuf::from(value),
-        _ => std::env::current_dir().context("failed to resolve current working directory")?,
-    };
-    raw.canonicalize().with_context(|| {
-        format!(
-            "failed to resolve GAMS_APP_CWD/runtime root {}",
-            raw.display()
-        )
-    })
+fn canonicalize_preopens(preopens: Vec<FsPreopen>) -> Result<Vec<FsPreopen>> {
+    preopens
+        .into_iter()
+        .map(|preopen| {
+            let host_path = preopen.host_path.canonicalize().with_context(|| {
+                format!(
+                    "failed to canonicalize preopen {} as {}",
+                    preopen.host_path.display(),
+                    preopen.guest_path
+                )
+            })?;
+            Ok(FsPreopen {
+                host_path,
+                guest_path: preopen.guest_path,
+            })
+        })
+        .collect()
 }
 
-fn resolve_component_path(root: &Path, path: &str) -> Result<PathBuf> {
+fn path_is_preopened(path: &Path, preopens: &[FsPreopen]) -> bool {
+    preopens
+        .iter()
+        .any(|preopen| path.starts_with(&preopen.host_path))
+}
+
+fn resolve_component_path(root: &Path, preopens: &[FsPreopen], path: &str) -> Result<PathBuf> {
     let raw = PathBuf::from(path);
+    let candidate = if raw.is_absolute() {
+        raw
+    } else {
+        safe_join(root, path)?
+    };
 
-    if raw.is_absolute() {
-        if raw.exists() {
-            return raw
-                .canonicalize()
-                .with_context(|| format!("failed to canonicalize absolute component path {path}"));
+    if !candidate.exists() {
+        if PathBuf::from(path).is_absolute() {
+            bail!("absolute component path not found: {path}");
         }
-        bail!("absolute component path not found: {path}");
+        bail!(
+            "component path not found relative to runtime root {}: {path}",
+            root.display()
+        );
     }
 
-    let candidate = safe_join(root, path)?;
-    if candidate.exists() {
-        return candidate.canonicalize().with_context(|| {
-            format!(
-                "failed to canonicalize component path {}",
-                candidate.display()
-            )
-        });
+    let resolved = candidate.canonicalize().with_context(|| {
+        format!(
+            "failed to canonicalize component path {}",
+            candidate.display()
+        )
+    })?;
+    if !path_is_preopened(&resolved, preopens) {
+        bail!(
+            "component path is not under a configured filesystem preopen: {}",
+            resolved.display()
+        );
     }
-
-    bail!(
-        "component path not found relative to runtime root {}: {path}",
-        root.display()
-    )
+    Ok(resolved)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Runtime;
-    use std::path::PathBuf;
+    use super::{FsPreopen, Runtime};
+    use std::path::{Path, PathBuf};
+
+    fn test_preopens(root: &Path) -> Vec<FsPreopen> {
+        let mut preopens = vec![
+            FsPreopen {
+                host_path: root.to_path_buf(),
+                guest_path: ".".to_string(),
+            },
+            FsPreopen {
+                host_path: root.to_path_buf(),
+                guest_path: root.to_string_lossy().into_owned(),
+            },
+        ];
+        for entry in std::fs::read_dir(root).unwrap() {
+            let entry = entry.unwrap();
+            if !entry.file_type().unwrap().is_symlink() {
+                continue;
+            }
+            let target = entry.path().canonicalize().unwrap();
+            if target.is_dir() {
+                preopens.push(FsPreopen {
+                    host_path: target,
+                    guest_path: entry.file_name().to_string_lossy().into_owned(),
+                });
+            }
+        }
+        preopens
+    }
 
     #[test]
     fn invokes_adder_component() {
@@ -1180,7 +1244,8 @@ mod tests {
             return;
         }
 
-        let runtime = Runtime::new().unwrap();
+        let root = PathBuf::from("../../..").canonicalize().unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         let path = PathBuf::from(path).canonicalize().unwrap();
         runtime
             .add_plugins(vec![path.display().to_string()], false)
@@ -1204,7 +1269,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
             .unwrap();
@@ -1227,7 +1292,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         let first = runtime
             .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
             .unwrap();
@@ -1251,7 +1316,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         let first = runtime
             .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
             .unwrap();
@@ -1279,7 +1344,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(
                 vec![
@@ -1312,7 +1377,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         let handles = runtime
             .add_plugins(
                 vec![
@@ -1348,7 +1413,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
             .unwrap();
@@ -1377,7 +1442,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         let error = runtime
             .add_plugins(vec!["plugins/calculator.wasm".to_string()], false)
             .unwrap_err();
@@ -1397,7 +1462,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::copy(&adder, dir.path().join("adder-a.wasm")).unwrap();
         std::fs::copy(&adder, dir.path().join("adder-b.wasm")).unwrap();
-        let runtime = Runtime::new_at(dir.path().to_path_buf()).unwrap();
+        let runtime = Runtime::new_at(dir.path().to_path_buf(), test_preopens(dir.path())).unwrap();
         let error = runtime
             .add_plugins(
                 vec!["adder-a.wasm".to_string(), "adder-b.wasm".to_string()],
@@ -1423,7 +1488,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
             .unwrap();
@@ -1458,21 +1523,46 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(vec!["plugins/fs.wasm".to_string()], false)
             .unwrap();
 
         let text = runtime
-            .invoke("fs/fs::read-text", serde_json::json!(["/gams.json"]))
+            .invoke("fs/fs::read-text", serde_json::json!(["gams.json"]))
             .unwrap();
-        assert!(text["ok"].as_str().unwrap().contains("\"fs\""));
+        assert!(
+            text["ok"].as_str().unwrap_or("").contains("\"fs\""),
+            "{text}"
+        );
+
+        let absolute_gams_json = root.join("gams.json").to_string_lossy().into_owned();
+        let absolute_text = runtime
+            .invoke("fs/fs::read-text", serde_json::json!([absolute_gams_json]))
+            .unwrap();
+        assert!(absolute_text["ok"].as_str().unwrap().contains("\"fs\""));
 
         let entries = runtime
-            .invoke("fs/fs::list", serde_json::json!(["/"]))
+            .invoke("fs/fs::list", serde_json::json!([""]))
             .unwrap();
         let entries = entries["ok"].as_array().unwrap();
         assert!(entries.iter().any(|entry| entry["name"] == "gams.json"));
+
+        let dot_entries = runtime
+            .invoke("fs/fs::list", serde_json::json!(["."]))
+            .unwrap();
+        let dot_entries = dot_entries["ok"].as_array().unwrap();
+        assert!(dot_entries.iter().any(|entry| entry["name"] == "gams.json"));
+
+        let plugin_bytes = runtime
+            .invoke("fs/fs::read-file", serde_json::json!(["plugins/fs.wasm"]))
+            .unwrap();
+        assert!(
+            plugin_bytes["ok"]
+                .as_array()
+                .is_some_and(|bytes| !bytes.is_empty()),
+            "{plugin_bytes}"
+        );
     }
 
     #[test]
@@ -1488,7 +1578,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(vec!["plugins/benchmark.wasm".to_string()], false)
             .unwrap();
@@ -1645,7 +1735,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(vec!["plugins/benchmark.wasm".to_string()], false)
             .unwrap();
@@ -1675,7 +1765,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(vec!["plugins/benchmark.wasm".to_string()], false)
             .unwrap();
@@ -1683,11 +1773,11 @@ mod tests {
         let value = runtime
             .invoke(
                 "benchmark/benchmark::check-wasi-filesystem",
-                serde_json::json!(["/"]),
+                serde_json::json!(["."]),
             )
             .unwrap();
         let report = &value["ok"];
-        assert_eq!(report["first-preopen"], serde_json::json!("/"));
+        assert_eq!(report["first-preopen"], serde_json::json!("."));
         assert!(report["preopen-count"].as_u64().unwrap() >= 1);
         assert!(report["entry-count"].as_u64().unwrap() >= 1);
     }
@@ -1705,7 +1795,7 @@ mod tests {
         let root = PathBuf::from("../../../examples/demo")
             .canonicalize()
             .unwrap();
-        let runtime = Runtime::new_at(root).unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
             .add_plugins(vec!["plugins/layout3.wasm".to_string()], false)
             .unwrap();
