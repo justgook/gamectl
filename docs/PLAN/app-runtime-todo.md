@@ -43,9 +43,9 @@ Runtime model:
 - [x] Added/kept smoke test for the `gams:fs` proxy component.
 - [x] Verified runtime tests pass with `cargo test`.
 
-## Next Task: Topological Loading for `addPlugins`
+## Completed Task: Topological Loading for `addPlugins`
 
-Start here.
+Initial implementation is complete. Keep this section as the behavior/test checklist for future hardening.
 
 ### Problem
 
@@ -69,7 +69,7 @@ await runtime.addPlugins([
 
 ### Target Behavior
 
-`addPlugins(paths)` should:
+Implemented initial topo-sort pass. Keep this section as the accepted behavior:
 
 1. Resolve/canonicalize all requested paths.
 2. Load component metadata for every not-yet-loaded requested path without instantiating immediately.
@@ -87,52 +87,42 @@ await runtime.addPlugins([
 
 ### Dependency Matching Rules
 
-Use the same interface naming convention as current export forwarding:
-
-```text
-package/interface[@version]::function
-```
-
-Component import inspection currently sees imported interface names such as:
-
-```text
-docs:adder/add
-wasi:filesystem/types@0.2.0
-gams:runtime/runtime@1.0.0
-```
-
-Component export inspection currently sees exported interface names such as:
-
-```text
-docs:adder/add
-gams:fs/fs
-```
+Canonical version rules are documented in `docs/VERSION.md`.
 
 For topo-sort, dependency is interface-level:
 
 ```text
 import docs:adder/add depends on provider exporting docs:adder/add
+import gams:runtime/runtime@1.0.0 may be satisfied by compatible */runtime/runtime@1.x.y
 ```
 
-Version handling should match current `invoke` ergonomics:
+Compatibility identity is:
 
-- exact versioned names should match exactly when present,
-- unversioned imports may match one versioned provider if unambiguous,
-- ambiguous unversioned matches should fail loudly.
+```text
+package/interface@major.minor.patch
+```
+
+Provider conflict family is:
+
+```text
+package/interface@major
+```
+
+Namespace is ignored for compatibility but retained for diagnostics and exact Wasmtime linker names.
 
 ### Tests to Add
 
-- [ ] Loading `[calculator, adder]` succeeds and `calculator` can call `adder`.
-- [ ] Loading `[adder, calculator]` still succeeds.
-- [ ] Duplicate providers for the same exported interface fail clearly.
-- [ ] Missing non-native provider fails clearly.
-- [ ] Already-loaded dependency can satisfy a newly loaded component.
-- [ ] Returned handles preserve caller request order.
-- [ ] Reload path still rebuilds registry and applies topo-sort.
+- [x] Loading `[calculator, adder]` succeeds and `calculator` can call `adder`.
+- [x] Loading `[adder, calculator]` still succeeds.
+- [x] Duplicate providers for the same exported interface fail clearly.
+- [x] Missing non-native provider fails clearly.
+- [x] Already-loaded dependency can satisfy a newly loaded component.
+- [x] Returned handles preserve caller request order.
+- [x] Reload path still rebuilds registry and applies topo-sort.
 
 ## Remaining Runtime TODO
 
-### `gams:fs` Proxy Integration
+### Next Task: `gams:fs` Proxy Integration
 
 - [ ] Ensure app startup/demo loads `plugins/fs.wasm` before frontend calls `gams:fs/fs::*`.
 - [ ] Decide whether `plugins/fs.wasm` is auto-loaded by host bootstrap, project config, or frontend boot code.

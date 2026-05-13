@@ -8,7 +8,7 @@ This document is the top-level planning index. Detailed plans live under `docs/P
 
 Top priority: follow `PLAN/app-runtime-todo.md`.
 
-Immediate next task: **add topological sorting for `runtime.addPlugins(paths)` in `cmd/app`**.
+Current task area: integrate `gams:fs` into the app startup flow after the initial topological loading/version-compatible wiring pass for `runtime.addPlugins(paths)`. Version matching rules are documented in `docs/VERSION.md`.
 
 Current runtime direction:
 
@@ -27,7 +27,7 @@ Current runtime direction:
 
 ## Priority Plans
 
-1. `PLAN/app-runtime-todo.md` — active `cmd/app` runtime TODO; start with topo-sort for `addPlugins`.
+1. `PLAN/app-runtime-todo.md` — active `cmd/app` runtime TODO; current focus is `gams:fs` app-flow integration.
 2. `PLAN/app-runtime-component-ui-spec.md` — background architecture summary; active checklist moved to TODO file.
 3. `PLAN/fs-runtime.md` — historical/superseded app-side virtual FS plan.
 
@@ -39,7 +39,7 @@ Detailed active plan: `PLAN/app-runtime-todo.md`.
 
 Current next task:
 
-- Add topological sorting for `runtime.addPlugins(paths)` so components can be passed in any dependency order.
+- Ensure `plugins/fs.wasm` is loaded in the app flow and frontend filesystem helpers use `gams:fs`.
 
 Remaining major runtime work:
 
@@ -147,14 +147,13 @@ View assumptions:
 
 ## Suggested Implementation Order
 
-1. Add topo-sort for `runtime.addPlugins(paths)` in `cmd/app`.
-2. Ensure `plugins/fs.wasm` is loaded in app flow and frontend filesystem diagnostics use `gams:fs`.
-3. Expand JSON ↔ WIT conversion for structured types.
-4. Implement blocking WASM → frontend dynamic view calls.
-5. Implement singleton WIT-shaped `ui.plugins`.
-6. Decide project bootstrap/config loading.
-7. Add minimap2 tree fixture/integration tests for authored `data.minimap` masks.
-8. Continue room generation research/prototyping.
+1. Ensure `plugins/fs.wasm` is loaded in app flow and frontend filesystem diagnostics use `gams:fs`.
+2. Expand JSON ↔ WIT conversion for structured types.
+3. Implement blocking WASM → frontend dynamic view calls.
+4. Implement singleton WIT-shaped `ui.plugins`.
+5. Decide project bootstrap/config loading.
+6. Add minimap2 tree fixture/integration tests for authored `data.minimap` masks.
+7. Continue room generation research/prototyping.
 
 ## Requires Clarification
 

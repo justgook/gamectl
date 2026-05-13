@@ -2,7 +2,7 @@ mod values;
 
 use anyhow::{bail, Context as AnyhowContext, Result};
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use values::{json_to_val, result_json, val_default_for_type};
@@ -23,6 +23,7 @@ struct RuntimeInner {
     root: PathBuf,
     components: BTreeMap<String, ComponentRecord>,
     funcs: BTreeMap<String, ExportedFunc>,
+    linked_interfaces: BTreeSet<String>,
 }
 
 pub struct HostState {
@@ -60,6 +61,49 @@ pub struct ComponentHandle {
     pub path: String,
     pub imports: Vec<String>,
     pub exports: Vec<String>,
+}
+
+struct ComponentCandidate {
+    path: String,
+    resolved_path: PathBuf,
+    component: Component,
+    imports: Vec<String>,
+    exports: Vec<String>,
+}
+
+#[derive(Clone)]
+struct InterfaceProvider {
+    interface: String,
+    source: ProviderSource,
+}
+
+#[derive(Clone)]
+enum ProviderSource {
+    NativeRuntime,
+    LoadedComponent { path: String },
+    NewComponent { index: usize, path: String },
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct InterfaceFamily {
+    package: String,
+    interface: String,
+    major: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+struct InterfaceId<'a> {
+    package: &'a str,
+    interface: &'a str,
+    version: Option<Version>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Version {
+    major: u64,
+    minor: u64,
+    #[allow(dead_code)]
+    patch: u64,
 }
 
 impl Runtime {
@@ -127,7 +171,7 @@ impl RuntimeInner {
         let mut linker = Linker::new(&engine);
 
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
-        add_gams_runtime_import(&mut linker)?;
+        add_gams_runtime_import(&mut linker, "gams:runtime/runtime@1.0.0")?;
         let mut wasi_builder = WasiCtx::builder();
         wasi_builder.inherit_stdio().inherit_args();
         wasi_builder
@@ -150,6 +194,7 @@ impl RuntimeInner {
             root: cwd,
             components: BTreeMap::new(),
             funcs: BTreeMap::new(),
+            linked_interfaces: BTreeSet::from(["gams:runtime/runtime@1.0.0".to_string()]),
         })
     }
 
@@ -158,16 +203,59 @@ impl RuntimeInner {
             return self.reload_plugins(paths);
         }
 
-        let mut out = Vec::new();
-        for path in paths {
-            let resolved_path = resolve_component_path(&self.root, &path)?;
-            if let Some(existing) = self.component_by_path(&resolved_path) {
-                out.push(existing);
+        let requests = paths
+            .iter()
+            .map(|path| resolve_component_path(&self.root, path))
+            .collect::<Result<Vec<_>>>()?;
+
+        let mut candidates = Vec::new();
+        let mut candidate_by_path = BTreeMap::new();
+        for (path, resolved_path) in paths.iter().zip(requests.iter()) {
+            if self.component_by_path(resolved_path).is_some() {
                 continue;
             }
-            out.push(self.load_component(path, resolved_path)?);
+            if candidate_by_path.contains_key(resolved_path) {
+                continue;
+            }
+
+            let component = Component::from_file(&self.engine, resolved_path).map_err(|error| {
+                anyhow::anyhow!(
+                    "loading component {path} from {}: {error}",
+                    resolved_path.display()
+                )
+            })?;
+            let imports = component_imports(&self.engine, &component);
+            let exports = component_exports(&self.engine, &component);
+            let index = candidates.len();
+            candidate_by_path.insert(resolved_path.clone(), index);
+            candidates.push(ComponentCandidate {
+                path: path.clone(),
+                resolved_path: resolved_path.clone(),
+                component,
+                imports,
+                exports,
+            });
         }
-        Ok(out)
+
+        let order = self.topo_sort_candidates(&candidates)?;
+        let mut loaded_by_path = BTreeMap::new();
+        for index in order {
+            let handle = self.instantiate_candidate(&candidates[index])?;
+            loaded_by_path.insert(candidates[index].resolved_path.clone(), handle);
+        }
+
+        requests
+            .iter()
+            .map(|path| {
+                if let Some(existing) = self.component_by_path(path) {
+                    return Ok(existing);
+                }
+                loaded_by_path
+                    .get(path)
+                    .cloned()
+                    .with_context(|| format!("component handle not found for {}", path.display()))
+            })
+            .collect()
     }
 
     fn reload_plugins(&mut self, paths: Vec<String>) -> Result<Vec<ComponentHandle>> {
@@ -224,32 +312,141 @@ impl RuntimeInner {
             })
     }
 
-    fn load_component(&mut self, path: String, resolved_path: PathBuf) -> Result<ComponentHandle> {
-        let component = Component::from_file(&self.engine, &resolved_path).map_err(|error| {
-            anyhow::anyhow!(
-                "loading component {path} from {}: {error}",
-                resolved_path.display()
-            )
-        })?;
-        let imports = component_imports(&self.engine, &component);
-        let exports = component_exports(&self.engine, &component);
+    fn topo_sort_candidates(&self, candidates: &[ComponentCandidate]) -> Result<Vec<usize>> {
+        let providers = self.provider_table(candidates)?;
+        let mut deps = BTreeMap::<usize, BTreeSet<usize>>::new();
+
+        for (index, candidate) in candidates.iter().enumerate() {
+            let mut candidate_deps = BTreeSet::new();
+            for import in &candidate.imports {
+                if is_wasi_interface(import) {
+                    continue;
+                }
+                let Some(provider) = resolve_provider(&providers, import)? else {
+                    bail!(
+                        "missing provider for import `{import}` required by `{}`",
+                        candidate.resolved_path.display()
+                    );
+                };
+                if let ProviderSource::NewComponent {
+                    index: provider_index,
+                    ..
+                } = provider.source
+                {
+                    if provider_index != index {
+                        candidate_deps.insert(provider_index);
+                    }
+                }
+            }
+            deps.insert(index, candidate_deps);
+        }
+
+        let mut done = BTreeSet::new();
+        let mut order = Vec::new();
+        loop {
+            let mut progressed = false;
+            for index in 0..candidates.len() {
+                if done.contains(&index) {
+                    continue;
+                }
+                if deps[&index].iter().all(|dep| done.contains(dep)) {
+                    done.insert(index);
+                    order.push(index);
+                    progressed = true;
+                }
+            }
+
+            if order.len() == candidates.len() {
+                return Ok(order);
+            }
+            if !progressed {
+                let remaining = (0..candidates.len())
+                    .filter(|index| !done.contains(index))
+                    .map(|index| format!("  {}", candidates[index].resolved_path.display()))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                bail!("cycle in component imports/exports:\n{remaining}");
+            }
+        }
+    }
+
+    fn provider_table(
+        &self,
+        candidates: &[ComponentCandidate],
+    ) -> Result<BTreeMap<InterfaceFamily, InterfaceProvider>> {
+        let mut providers = BTreeMap::new();
+        insert_provider(
+            &mut providers,
+            "gams:runtime/runtime@1.0.0",
+            ProviderSource::NativeRuntime,
+        )?;
+
+        for component in self.components.values() {
+            for export in &component.exports {
+                insert_provider(
+                    &mut providers,
+                    export,
+                    ProviderSource::LoadedComponent {
+                        path: component.path.clone(),
+                    },
+                )?;
+            }
+        }
+
+        for (index, candidate) in candidates.iter().enumerate() {
+            for export in &candidate.exports {
+                insert_provider(
+                    &mut providers,
+                    export,
+                    ProviderSource::NewComponent {
+                        index,
+                        path: candidate.resolved_path.display().to_string(),
+                    },
+                )?;
+            }
+        }
+
+        Ok(providers)
+    }
+
+    fn instantiate_candidate(&mut self, candidate: &ComponentCandidate) -> Result<ComponentHandle> {
+        let providers = self.provider_table(&[])?;
+        for import in &candidate.imports {
+            if is_wasi_interface(import) {
+                continue;
+            }
+            let Some(provider) = resolve_provider(&providers, import)? else {
+                bail!(
+                    "missing provider for import `{import}` required by `{}`",
+                    candidate.resolved_path.display()
+                );
+            };
+            match provider.source {
+                ProviderSource::NativeRuntime => self.ensure_gams_runtime_import(import)?,
+                ProviderSource::LoadedComponent { .. } | ProviderSource::NewComponent { .. } => {
+                    self.ensure_interface_alias(import, &provider.interface)?;
+                }
+            }
+        }
 
         let instance = self
             .linker
-            .instantiate(&mut self.store, &component)
-            .map_err(|error| anyhow::anyhow!("instantiating component {path}: {error}"))?;
+            .instantiate(&mut self.store, &candidate.component)
+            .map_err(|error| {
+                anyhow::anyhow!("instantiating component {}: {error}", candidate.path)
+            })?;
 
-        self.expose_instance_exports(&component, &instance)?;
+        self.expose_instance_exports(&candidate.component, &instance)?;
 
         let handle = format!("component:{}", self.next_component);
         self.next_component += 1;
 
-        let path = resolved_path.display().to_string();
+        let path = candidate.resolved_path.display().to_string();
         let record = ComponentRecord {
             handle: handle.clone(),
             path: path.clone(),
-            imports: imports.clone(),
-            exports: exports.clone(),
+            imports: candidate.imports.clone(),
+            exports: candidate.exports.clone(),
             instance,
         };
         self.components.insert(handle.clone(), record);
@@ -257,8 +454,8 @@ impl RuntimeInner {
         Ok(ComponentHandle {
             handle,
             path,
-            imports,
-            exports,
+            imports: candidate.imports.clone(),
+            exports: candidate.exports.clone(),
         })
     }
 
@@ -338,6 +535,69 @@ impl RuntimeInner {
         }
     }
 
+    fn ensure_gams_runtime_import(&mut self, interface_name: &str) -> Result<()> {
+        if self.linked_interfaces.contains(interface_name) {
+            return Ok(());
+        }
+        let parsed = parse_interface_id(interface_name)
+            .with_context(|| format!("invalid runtime import interface `{interface_name}`"))?
+            .with_context(|| format!("runtime import `{interface_name}` is not an interface id"))?;
+        if parsed.package != "runtime" || parsed.interface != "runtime" {
+            bail!("native runtime provider cannot satisfy `{interface_name}`");
+        }
+        let Some(version) = parsed.version else {
+            bail!("native runtime import `{interface_name}` must be versioned");
+        };
+        if version.major != 1 {
+            bail!(
+                "native runtime import `{interface_name}` requires unsupported major version {}",
+                version.major
+            );
+        }
+        add_gams_runtime_import(&mut self.linker, interface_name)?;
+        self.linked_interfaces.insert(interface_name.to_string());
+        Ok(())
+    }
+
+    fn ensure_interface_alias(
+        &mut self,
+        import_interface: &str,
+        provider_interface: &str,
+    ) -> Result<()> {
+        if import_interface == provider_interface
+            || self.linked_interfaces.contains(import_interface)
+        {
+            return Ok(());
+        }
+
+        let prefix = format!("{provider_interface}::");
+        let exports = self
+            .funcs
+            .iter()
+            .filter_map(|(key, func)| {
+                key.strip_prefix(&prefix)
+                    .map(|func_name| (func_name.to_string(), func.clone()))
+            })
+            .collect::<Vec<_>>();
+
+        if exports.is_empty() {
+            bail!("cannot alias `{import_interface}` to `{provider_interface}` because provider exports no functions yet");
+        }
+
+        let mut linker_iface = self.linker.instance(import_interface)?;
+        for (func_name, func) in exports {
+            let ExportedFunc::Wasm(forward) = func;
+            linker_iface.func_new(
+                &func_name,
+                move |mut cx: StoreContextMut<'_, HostState>, _callee, params, results| {
+                    forward.call(&mut cx, params, results)
+                },
+            )?;
+        }
+        self.linked_interfaces.insert(import_interface.to_string());
+        Ok(())
+    }
+
     fn expose_instance_exports(
         &mut self,
         component: &Component,
@@ -411,12 +671,13 @@ impl RuntimeInner {
             )?;
         }
 
+        self.linked_interfaces.insert(interface_name.to_string());
         Ok(())
     }
 }
 
-fn add_gams_runtime_import(linker: &mut Linker<HostState>) -> Result<()> {
-    let mut iface = linker.instance("gams:runtime/runtime@1.0.0")?;
+fn add_gams_runtime_import(linker: &mut Linker<HostState>, interface_name: &str) -> Result<()> {
+    let mut iface = linker.instance(interface_name)?;
     iface.func_new(
         "call",
         |_cx: StoreContextMut<'_, HostState>, _callee, params, results| {
@@ -455,6 +716,157 @@ fn insert_unique_func(
     }
     funcs.insert(key, ExportedFunc::Wasm(func));
     Ok(())
+}
+
+fn insert_provider(
+    providers: &mut BTreeMap<InterfaceFamily, InterfaceProvider>,
+    interface: &str,
+    source: ProviderSource,
+) -> Result<()> {
+    let Some(id) = parse_interface_id(interface)? else {
+        return Ok(());
+    };
+    let family = id.family();
+    let provider = InterfaceProvider {
+        interface: interface.to_string(),
+        source,
+    };
+    if let Some(existing) = providers.insert(family.clone(), provider.clone()) {
+        bail!(
+            "duplicate provider for interface family `{}`: `{}` from {}, `{}` from {}",
+            family.display(),
+            existing.interface,
+            existing.source.display(),
+            provider.interface,
+            provider.source.display(),
+        );
+    }
+    Ok(())
+}
+
+fn resolve_provider<'a>(
+    providers: &'a BTreeMap<InterfaceFamily, InterfaceProvider>,
+    import: &str,
+) -> Result<Option<&'a InterfaceProvider>> {
+    let Some(import_id) = parse_interface_id(import)? else {
+        return Ok(None);
+    };
+    let Some(provider) = providers.get(&import_id.family()) else {
+        return Ok(None);
+    };
+    let Some(provider_id) = parse_interface_id(&provider.interface)? else {
+        bail!("provider `{}` is not an interface id", provider.interface);
+    };
+    if !provider_id.satisfies(&import_id) {
+        bail!(
+            "provider `{}` from {} is not compatible with import `{}`",
+            provider.interface,
+            provider.source.display(),
+            import,
+        );
+    }
+    Ok(Some(provider))
+}
+
+impl ProviderSource {
+    fn display(&self) -> String {
+        match self {
+            ProviderSource::NativeRuntime => "native runtime".to_string(),
+            ProviderSource::LoadedComponent { path } => format!("loaded component {path}"),
+            ProviderSource::NewComponent { path, .. } => format!("requested component {path}"),
+        }
+    }
+}
+
+impl InterfaceFamily {
+    fn display(&self) -> String {
+        match self.major {
+            Some(major) => format!("{}/{}@{}", self.package, self.interface, major),
+            None => format!("{}/{}", self.package, self.interface),
+        }
+    }
+}
+
+impl<'a> InterfaceId<'a> {
+    fn family(&self) -> InterfaceFamily {
+        InterfaceFamily {
+            package: self.package.to_string(),
+            interface: self.interface.to_string(),
+            major: self.version.map(|version| version.major),
+        }
+    }
+
+    fn satisfies(&self, requested: &InterfaceId<'_>) -> bool {
+        if self.package != requested.package || self.interface != requested.interface {
+            return false;
+        }
+        match (self.version, requested.version) {
+            (Some(provider), Some(requested)) => {
+                provider.major == requested.major && provider.minor >= requested.minor
+            }
+            (None, None) => true,
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+        }
+    }
+}
+
+fn parse_interface_id(value: &str) -> Result<Option<InterfaceId<'_>>> {
+    let interface = value
+        .split_once("::")
+        .map_or(value, |(interface, _)| interface);
+    let Some((namespace_and_package, interface_and_version)) = interface.split_once('/') else {
+        return Ok(None);
+    };
+    let Some((_namespace, package)) = namespace_and_package.split_once(':') else {
+        return Ok(None);
+    };
+    if package.is_empty() {
+        bail!("interface id `{value}` has empty package");
+    }
+    let (interface, version) = match interface_and_version.rsplit_once('@') {
+        Some((interface, version)) => (interface, Some(parse_version(version)?)),
+        None => (interface_and_version, None),
+    };
+    if interface.is_empty() {
+        bail!("interface id `{value}` has empty interface");
+    }
+    Ok(Some(InterfaceId {
+        package,
+        interface,
+        version,
+    }))
+}
+
+fn parse_version(value: &str) -> Result<Version> {
+    let mut parts = value.split('.');
+    let major = parts
+        .next()
+        .context("version must contain major")?
+        .parse::<u64>()
+        .with_context(|| format!("invalid major version `{value}`"))?;
+    let minor = parts
+        .next()
+        .unwrap_or("0")
+        .parse::<u64>()
+        .with_context(|| format!("invalid minor version `{value}`"))?;
+    let patch = parts
+        .next()
+        .unwrap_or("0")
+        .parse::<u64>()
+        .with_context(|| format!("invalid patch version `{value}`"))?;
+    if parts.next().is_some() {
+        bail!("version `{value}` has too many parts");
+    }
+    Ok(Version {
+        major,
+        minor,
+        patch,
+    })
+}
+
+fn is_wasi_interface(interface: &str) -> bool {
+    interface.starts_with("wasi:")
 }
 
 fn component_imports(engine: &Engine, component: &Component) -> Vec<String> {
@@ -685,6 +1097,118 @@ mod tests {
             )
             .unwrap();
         assert_eq!(value, serde_json::json!(5));
+    }
+
+    #[test]
+    fn add_plugins_topo_sorts_reverse_dependency_order() {
+        let adder = "../../../build.nosync/plugins/adder.wasm";
+        let calculator = "../../../build.nosync/plugins/calculator.wasm";
+        if !std::path::Path::new(adder).exists() || !std::path::Path::new(calculator).exists() {
+            eprintln!(
+                "skipping calculator topo test; build it with `make build.nosync/plugins/adder.wasm build.nosync/plugins/calculator.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        let handles = runtime
+            .add_plugins(
+                vec![
+                    "plugins/calculator.wasm".to_string(),
+                    "plugins/adder.wasm".to_string(),
+                ],
+                false,
+            )
+            .unwrap();
+        assert!(handles[0].path.ends_with("calculator.wasm"));
+        assert!(handles[1].path.ends_with("adder.wasm"));
+
+        let value = runtime
+            .invoke(
+                "docs:calculator/calculate::eval-expression",
+                serde_json::json!(["add", 2, 3]),
+            )
+            .unwrap();
+        assert_eq!(value, serde_json::json!(5));
+    }
+
+    #[test]
+    fn add_plugins_uses_already_loaded_dependency() {
+        let adder = "../../../build.nosync/plugins/adder.wasm";
+        let calculator = "../../../build.nosync/plugins/calculator.wasm";
+        if !std::path::Path::new(adder).exists() || !std::path::Path::new(calculator).exists() {
+            eprintln!(
+                "skipping loaded dependency test; build it with `make build.nosync/plugins/adder.wasm build.nosync/plugins/calculator.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
+            .unwrap();
+        runtime
+            .add_plugins(vec!["plugins/calculator.wasm".to_string()], false)
+            .unwrap();
+        let value = runtime
+            .invoke(
+                "docs:calculator/calculate::eval-expression",
+                serde_json::json!(["add", 2, 3]),
+            )
+            .unwrap();
+        assert_eq!(value, serde_json::json!(5));
+    }
+
+    #[test]
+    fn add_plugins_reports_missing_provider() {
+        let calculator = "../../../build.nosync/plugins/calculator.wasm";
+        if !std::path::Path::new(calculator).exists() {
+            eprintln!(
+                "skipping missing provider test; build it with `make build.nosync/plugins/calculator.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        let error = runtime
+            .add_plugins(vec!["plugins/calculator.wasm".to_string()], false)
+            .unwrap_err();
+        assert!(error.contains("missing provider for import"), "{error}");
+    }
+
+    #[test]
+    fn add_plugins_rejects_duplicate_interface_family() {
+        let adder = PathBuf::from("../../../build.nosync/plugins/adder.wasm");
+        if !adder.exists() {
+            eprintln!(
+                "skipping duplicate provider test; build it with `make build.nosync/plugins/adder.wasm`"
+            );
+            return;
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::copy(&adder, dir.path().join("adder-a.wasm")).unwrap();
+        std::fs::copy(&adder, dir.path().join("adder-b.wasm")).unwrap();
+        let runtime = Runtime::new_at(dir.path().to_path_buf()).unwrap();
+        let error = runtime
+            .add_plugins(
+                vec!["adder-a.wasm".to_string(), "adder-b.wasm".to_string()],
+                false,
+            )
+            .unwrap_err();
+        assert!(
+            error.contains("duplicate provider for interface family"),
+            "{error}"
+        );
     }
 
     #[test]

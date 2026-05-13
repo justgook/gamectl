@@ -14,6 +14,7 @@ Core direction:
 - Components should not be forced to implement a generic `export call(method, bytes)` ABI.
 - Frontend calls component/native/UI exports through structured `runtime.invoke(target, args)`.
 - Components are loaded with `runtime.addPlugins(paths)`; plugin identity comes from WIT exports, not caller-defined ids.
+- WIT interface compatibility/version matching follows `docs/VERSION.md`.
 - Real WASI remains available to WASM components through Wasmtime WASI.
 - Frontend app IO should use the `gams:fs` proxy component instead of raw frontend-facing `wasi:filesystem` wrappers.
 - Dynamic view instances are addressed through `gams:runtime/runtime.call(view-id, string-args)`.
