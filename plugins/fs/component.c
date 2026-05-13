@@ -119,6 +119,11 @@ typedef struct resolved_path_t {
   size_t preopen_index;
   const char *relative_ptr;
   size_t relative_len;
+  bool has_fallback;
+  size_t fallback_preopen_index;
+  const char *fallback_ptr;
+  size_t fallback_len;
+  char *fallback_alloc;
 } resolved_path_t;
 
 static bool string_eq(const uint8_t *ptr, size_t len, const char *literal) {
@@ -151,10 +156,119 @@ static bool preopen_matches_path(const fs_proxy_string_t *preopen_path,
   return true;
 }
 
+static bool find_preopen(resolved_path_t *resolved, const char *name,
+                         size_t *ret_index) {
+  for (size_t i = 0; i < resolved->preopens.len; i++) {
+    fs_proxy_string_t *preopen_path = &resolved->preopens.ptr[i].f1;
+    if (string_eq(preopen_path->ptr, preopen_path->len, name)) {
+      *ret_index = i;
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool find_cwd_preopen(resolved_path_t *resolved, size_t *ret_index) {
+  for (size_t i = 0; i < resolved->preopens.len; i++) {
+    fs_proxy_string_t *preopen_path = &resolved->preopens.ptr[i].f1;
+    if (!string_eq(preopen_path->ptr, preopen_path->len, "/") &&
+        preopen_path->len > 0 && preopen_path->ptr[0] == '/') {
+      *ret_index = i;
+      return true;
+    }
+  }
+  return false;
+}
+
 static bool resolve_path(fs_proxy_string_t *path, resolved_path_t *resolved,
                          fs_proxy_string_t *err) {
   memset(resolved, 0, sizeof(*resolved));
   wasi_filesystem_preopens_get_directories(&resolved->preopens);
+
+  size_t root_index = 0;
+  bool has_root = find_preopen(resolved, "/", &root_index);
+  bool is_absolute = path->len > 0 && path->ptr[0] == '/';
+
+  if (has_root) {
+    resolved->preopen_index = root_index;
+
+    if (!is_absolute) {
+      bool found_relative_preopen = false;
+      size_t best_len = 0;
+      size_t best_relative_offset = 0;
+      for (size_t i = 0; i < resolved->preopens.len; i++) {
+        fs_proxy_string_t *preopen_path = &resolved->preopens.ptr[i].f1;
+        if (string_eq(preopen_path->ptr, preopen_path->len, "/") ||
+            (preopen_path->len > 0 && preopen_path->ptr[0] == '/')) {
+          continue;
+        }
+        size_t relative_offset = 0;
+        if (!preopen_matches_path(preopen_path, path, &relative_offset)) {
+          continue;
+        }
+        if (!found_relative_preopen || preopen_path->len > best_len) {
+          found_relative_preopen = true;
+          best_len = preopen_path->len;
+          best_relative_offset = relative_offset;
+          resolved->preopen_index = i;
+        }
+      }
+      if (found_relative_preopen) {
+        resolved->relative_ptr = (const char *)path->ptr + best_relative_offset;
+        resolved->relative_len = path->len - best_relative_offset;
+        return true;
+      }
+    }
+
+    if (is_absolute) {
+      resolved->relative_ptr = (const char *)path->ptr + 1;
+      resolved->relative_len = path->len - 1;
+      return true;
+    }
+
+    size_t cwd_index = 0;
+    if (find_cwd_preopen(resolved, &cwd_index)) {
+      resolved->preopen_index = cwd_index;
+      resolved->relative_ptr = (const char *)path->ptr;
+      resolved->relative_len = path->len;
+
+      fs_proxy_string_t *cwd = &resolved->preopens.ptr[cwd_index].f1;
+      size_t cwd_offset = string_eq(cwd->ptr, cwd->len, "/") ? 1 : 0;
+      size_t cwd_len = cwd->len - cwd_offset;
+      size_t sep_len = cwd_len > 0 && path->len > 0 ? 1 : 0;
+      if (cwd_len > SIZE_MAX - sep_len || cwd_len + sep_len > SIZE_MAX - path->len) {
+        wasi_filesystem_preopens_list_tuple2_own_descriptor_string_free(&resolved->preopens);
+        set_error(err, "path is too long");
+        return false;
+      }
+      resolved->fallback_len = cwd_len + sep_len + path->len;
+      resolved->fallback_alloc = malloc(resolved->fallback_len == 0 ? 1 : resolved->fallback_len);
+      if (!resolved->fallback_alloc) {
+        wasi_filesystem_preopens_list_tuple2_own_descriptor_string_free(&resolved->preopens);
+        set_error(err, "out-of-memory");
+        return false;
+      }
+      size_t offset = 0;
+      if (cwd_len > 0) {
+        memcpy(resolved->fallback_alloc, cwd->ptr + cwd_offset, cwd_len);
+        offset += cwd_len;
+      }
+      if (sep_len > 0) {
+        resolved->fallback_alloc[offset++] = '/';
+      }
+      if (path->len > 0) {
+        memcpy(resolved->fallback_alloc + offset, path->ptr, path->len);
+      }
+      resolved->has_fallback = true;
+      resolved->fallback_preopen_index = root_index;
+      resolved->fallback_ptr = resolved->fallback_alloc;
+      return true;
+    }
+
+    resolved->relative_ptr = (const char *)path->ptr;
+    resolved->relative_len = path->len;
+    return true;
+  }
 
   bool found = false;
   size_t best_len = 0;
@@ -174,6 +288,18 @@ static bool resolve_path(fs_proxy_string_t *path, resolved_path_t *resolved,
     }
   }
 
+  if (!found && !is_absolute) {
+    for (size_t i = 0; i < resolved->preopens.len; i++) {
+      fs_proxy_string_t *preopen_path = &resolved->preopens.ptr[i].f1;
+      if (string_eq(preopen_path->ptr, preopen_path->len, ".")) {
+        found = true;
+        best_relative_offset = 0;
+        resolved->preopen_index = i;
+        break;
+      }
+    }
+  }
+
   if (!found) {
     wasi_filesystem_preopens_list_tuple2_own_descriptor_string_free(&resolved->preopens);
     set_error(err, "path is not under a WASI preopen");
@@ -186,6 +312,7 @@ static bool resolve_path(fs_proxy_string_t *path, resolved_path_t *resolved,
 }
 
 static void resolved_path_free(resolved_path_t *resolved) {
+  free(resolved->fallback_alloc);
   wasi_filesystem_preopens_list_tuple2_own_descriptor_string_free(&resolved->preopens);
   memset(resolved, 0, sizeof(*resolved));
 }
@@ -210,6 +337,19 @@ static bool open_resolved_path(resolved_path_t *resolved,
   wasi_filesystem_types_error_code_t code = 0;
   bool ok = wasi_filesystem_types_method_descriptor_open_at(
       base, 0, &relative, 0, flags, ret, &code);
+  if (!ok && resolved->has_fallback &&
+      code == WASI_FILESYSTEM_TYPES_ERROR_CODE_NOT_PERMITTED) {
+    wasi_filesystem_types_borrow_descriptor_t fallback_base =
+        wasi_filesystem_types_borrow_descriptor(
+            resolved->preopens.ptr[resolved->fallback_preopen_index].f0);
+    fs_proxy_string_t fallback = {
+        .ptr = (uint8_t *)resolved->fallback_ptr,
+        .len = resolved->fallback_len,
+    };
+    code = 0;
+    ok = wasi_filesystem_types_method_descriptor_open_at(
+        fallback_base, 0, &fallback, 0, flags, ret, &code);
+  }
   if (!ok) {
     set_error(err, error_code_name(code));
     return false;

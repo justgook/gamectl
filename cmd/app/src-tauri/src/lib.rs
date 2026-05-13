@@ -1,5 +1,6 @@
 mod runtime;
 
+use std::path::{Path, PathBuf};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_cli::CliExt;
 
@@ -46,9 +47,51 @@ fn runtime_call_view_response(
     runtime.respond_to_call_view(id, ok, err)
 }
 
+fn runtime_root() -> anyhow::Result<PathBuf> {
+    let raw = match std::env::var("GAMS_APP_CWD") {
+        Ok(value) if !value.is_empty() => PathBuf::from(value),
+        _ => std::env::current_dir()?,
+    };
+    Ok(raw.canonicalize()?)
+}
+
+fn preopens_for_root(root: &Path) -> anyhow::Result<Vec<runtime::FsPreopen>> {
+    let mut preopens = vec![
+        runtime::FsPreopen {
+            host_path: root.to_path_buf(),
+            guest_path: ".".to_string(),
+        },
+        runtime::FsPreopen {
+            host_path: root.to_path_buf(),
+            guest_path: root.to_string_lossy().into_owned(),
+        },
+    ];
+
+    for entry in std::fs::read_dir(root)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_symlink() {
+            continue;
+        }
+        let target = entry.path().canonicalize()?;
+        if target.is_dir() {
+            preopens.push(runtime::FsPreopen {
+                host_path: target,
+                guest_path: entry.file_name().to_string_lossy().into_owned(),
+            });
+        }
+    }
+
+    Ok(preopens)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let runtime = runtime::Runtime::new().expect("failed to initialize GAMS runtime");
+    let root = runtime_root().expect("failed to resolve GAMS runtime root");
+    let runtime = runtime::Runtime::new_at(
+        root.clone(),
+        preopens_for_root(&root).expect("failed to build GAMS filesystem preopens"),
+    )
+    .expect("failed to initialize GAMS runtime");
 
     tauri::Builder::default()
         .manage(runtime)
