@@ -1,0 +1,153 @@
+package gams:layout3@1.0.0;
+
+/// Stateless rectangular panel layout protocol.
+///
+/// Unlike layout2, this interface does not expose component linear memory and
+/// does not require a long-lived mutable singleton layout. Every mutating
+/// operation receives the previous layout document and returns the next layout
+/// document plus operation metadata.
+interface layout {
+    enum layout-error-code {
+        not-initialized,
+        invalid-arg,
+        invalid-handle,
+        invalid-area,
+        invalid-corner,
+        out-of-bounds,
+        min-size,
+        not-implemented,
+        capacity,
+    }
+
+    record layout-error {
+        code: layout-error-code,
+        message: string,
+    }
+
+    enum axis {
+        vertical,
+        horizontal,
+    }
+
+    record rect {
+        x0: s32,
+        y0: s32,
+        x1: s32,
+        y1: s32,
+    }
+
+    record area {
+        bounds: rect,
+        content-id: s32,
+    }
+
+    /// Renderable split handle plus the logical boundary metadata required to
+    /// continue layout calculations without hidden component memory.
+    record handle {
+        bounds: rect,
+        content-id: s32,
+        axis: axis,
+        column-x0: s32,
+        column-x1: s32,
+        row-y0: s32,
+        row-y1: s32,
+    }
+
+    record preview {
+        valid: bool,
+        bounds: rect,
+    }
+
+    enum action {
+        none,
+        init-screen,
+        resize-screen,
+        move-handle,
+        move-corner,
+        try-corner,
+        set-area-content,
+        set-handle-content,
+    }
+
+    record layout-document {
+        screen-w: s32,
+        screen-h: s32,
+        handle-half-size: s32,
+        min-panel-size: s32,
+        generation: u64,
+        areas: list<area>,
+        handles: list<handle>,
+        preview: option<preview>,
+    }
+
+    record operation-info {
+        action: action,
+        generation: u64,
+    }
+
+    record layout-response {
+        document: layout-document,
+        info: operation-info,
+    }
+
+    record init-screen-request {
+        w: s32,
+        h: s32,
+        handle-half-size: s32,
+        min-panel-size: s32,
+    }
+
+    record resize-screen-request {
+        document: layout-document,
+        w: s32,
+        h: s32,
+        handle-half-size: s32,
+    }
+
+    record move-handle-request {
+        document: layout-document,
+        handle-index: u32,
+        x: s32,
+        y: s32,
+    }
+
+    record move-corner-request {
+        document: layout-document,
+        area-index: u32,
+        corner-index: u32,
+        x: s32,
+        y: s32,
+    }
+
+    record try-corner-request {
+        document: layout-document,
+        area-index: u32,
+        corner-index: u32,
+        x: s32,
+        y: s32,
+    }
+
+    record set-area-content-request {
+        document: layout-document,
+        area-index: u32,
+        content-id: s32,
+    }
+
+    record set-handle-content-request {
+        document: layout-document,
+        handle-index: u32,
+        content-id: s32,
+    }
+
+    init-screen: func(request: init-screen-request) -> result<layout-response, layout-error>;
+    resize-screen: func(request: resize-screen-request) -> result<layout-response, layout-error>;
+    move-handle: func(request: move-handle-request) -> result<layout-response, layout-error>;
+    move-corner: func(request: move-corner-request) -> result<layout-response, layout-error>;
+    try-corner: func(request: try-corner-request) -> result<layout-response, layout-error>;
+    set-area-content: func(request: set-area-content-request) -> result<layout-response, layout-error>;
+    set-handle-content: func(request: set-handle-content-request) -> result<layout-response, layout-error>;
+}
+
+world layout3-plugin {
+    export layout;
+}
