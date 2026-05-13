@@ -1691,4 +1691,71 @@ mod tests {
         assert!(report["preopen-count"].as_u64().unwrap() >= 1);
         assert!(report["entry-count"].as_u64().unwrap() >= 1);
     }
+
+    #[test]
+    fn layout3_splits_by_content_id() {
+        let layout3 = "../../../build.nosync/plugins/layout3.wasm";
+        if !std::path::Path::new(layout3).exists() {
+            eprintln!(
+                "skipping layout3 smoke test; build it with `make build.nosync/plugins/layout3.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/layout3.wasm".to_string()], false)
+            .unwrap();
+
+        let init = runtime
+            .invoke(
+                "layout3/layout::init-screen",
+                serde_json::json!([{
+                    "w": 800,
+                    "h": 600,
+                    "config": {
+                        "max-areas": 8,
+                        "max-handles": 7,
+                        "min-panel-size": 100,
+                        "handle-half-size": 4
+                    },
+                    "root-content-id": "main"
+                }]),
+            )
+            .unwrap();
+        let document = init["ok"]["document"].clone();
+        assert_eq!(
+            document["areas"][0]["content-id"],
+            serde_json::json!("main")
+        );
+
+        let split = runtime
+            .invoke(
+                "layout3/layout::move-corner",
+                serde_json::json!([{
+                    "document": document,
+                    "area-content-id": "main",
+                    "corner-index": 2,
+                    "x": 400,
+                    "y": 300,
+                    "new-area-content-id": null,
+                    "new-handle-content-id": null
+                }]),
+            )
+            .unwrap();
+        let document = &split["ok"]["document"];
+        assert_eq!(document["areas"].as_array().unwrap().len(), 2);
+        assert_eq!(document["handles"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            document["areas"][1]["content-id"],
+            serde_json::json!("main_1")
+        );
+        assert_eq!(
+            document["handles"][0]["content-id"],
+            serde_json::json!("main_handle")
+        );
+    }
 }
