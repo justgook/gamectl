@@ -1096,4 +1096,32 @@ mod tests {
             .unwrap();
         assert_eq!(value, serde_json::json!(5));
     }
+
+    #[test]
+    fn fs_proxy_reads_and_lists_through_wasi() {
+        let fs = "../../../build.nosync/plugins/fs.wasm";
+        if !std::path::Path::new(fs).exists() {
+            eprintln!("skipping fs proxy smoke test; build it with `make build.nosync/plugins/fs.wasm`");
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/fs.wasm".to_string()], false)
+            .unwrap();
+
+        let text = runtime
+            .invoke("gams:fs/fs::read-text", serde_json::json!(["/gams.json"]))
+            .unwrap();
+        assert!(text["ok"].as_str().unwrap().contains("\"fs\""));
+
+        let entries = runtime
+            .invoke("gams:fs/fs::list", serde_json::json!(["/"]))
+            .unwrap();
+        let entries = entries["ok"].as_array().unwrap();
+        assert!(entries.iter().any(|entry| entry["name"] == "gams.json"));
+    }
 }

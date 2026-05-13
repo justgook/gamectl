@@ -59,8 +59,8 @@ WAILS_SDKROOT ?= $(shell xcrun --show-sdk-path)
 HOST_CC ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang ]; then echo /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang; else command -v clang || command -v cc; fi)
 HOST_CXX ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++ ]; then echo /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++; else command -v clang++ || command -v c++; fi)
 
-# Detect all plugin subdirectories (exclude fs which is now built-in to plugin-manager)
-PLUGIN_DIRS := $(filter-out $(PLUGIN_DIR)/fs,$(wildcard $(PLUGIN_DIR)/*))
+# Detect all plugin subdirectories.
+PLUGIN_DIRS := $(wildcard $(PLUGIN_DIR)/*)
 PLUGINS := $(notdir $(PLUGIN_DIRS))
 JS_PLUGIN_ENTRYPOINTS := $(wildcard $(PLUGIN_DIR)/*/index.js)
 PLUGIN_NAMES_JS := $(sort $(patsubst $(PLUGIN_DIR)/%/index.js,%,$(JS_PLUGIN_ENTRYPOINTS)))

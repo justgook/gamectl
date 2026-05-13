@@ -1,0 +1,19 @@
+package gams:fs@1.0.0;
+
+interface fs {
+    record dir-entry {
+        name: string,
+        %type: string,
+    }
+
+    read-file: func(path: string) -> result<list<u8>, string>;
+    read-text: func(path: string) -> result<string, string>;
+    %list: func(path: string) -> result<list<dir-entry>, string>;
+}
+
+world fs-proxy {
+    import wasi:filesystem/types@0.2.0;
+    import wasi:filesystem/preopens@0.2.0;
+
+    export fs;
+}
