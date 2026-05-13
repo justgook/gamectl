@@ -1,5 +1,5 @@
-import { runtime } from '../core/runtime.js'
-import { ensureThemeStylesheetLink } from './layout.js'
+import { runtime } from '/core/runtime.js'
+import { ensureThemeStylesheetLink } from "/util/add-style.js"
 
 function decodeInput(input) {
   if (typeof input === 'string') return input

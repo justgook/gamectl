@@ -1,4 +1,5 @@
 import { runtime } from "/core/runtime.js"
+import { init } from "/___/services.js"
 
 const app = document.querySelector("#app")
 if (!app) throw new Error("missing #app")
@@ -19,24 +20,14 @@ if (!diagnostics) throw new Error("missing #diagnostics")
 
 await runtime.ready
 /* THE Real app Start */
-window.onerror = function (_message, _source, _lineno, _colno, error) {
-  runtime.call("ui.toast", "error", errorParse(error))
-  return false // prevents default logging (optional)
-}
 
-window.addEventListener("unhandledrejection", (e) => {
-  runtime.call("ui.toast", "error", errorParse(e.reason))
-})
 
 await runtime.addPlugins(["plugins/layout3.wasm", "plugins/fs.wasm"])
-document.body.appendChild(await (await import("/___/services.js")).init())
-
-// const dir = unwrapResult(
-//   await runtime.invoke("fs/fs::list", ["plugins"]),
-//   "list plugins",
-// )
-// console.log(layoutView, dir)
-
+const gamsJsonText2 = unwrapResult(
+  await runtime.invoke("fs/fs::read-text", ["gams.json"]),
+  "read /gams.json",
+)
+await init(JSON.parse(gamsJsonText2))
 
 /* THE DEBUG STUFF*/
 
@@ -97,6 +88,7 @@ try {
   console.error(error)
 }
 
+const ddd = await runtime.diagnostics()
 diagnostics.textContent = JSON.stringify({
   gamsJsonText: gamsJsonText.slice(0, 512),
   entries,
@@ -104,6 +96,6 @@ diagnostics.textContent = JSON.stringify({
   viewCalls,
   viewCallResult,
   wasiBenchmark,
-  diagnostics: await runtime.diagnostics(),
+  diagnostics: ddd,
 }, null, 2)
-console.log("gams.runtime ready", runtime)
+console.log("gams.runtime ready", ddd)

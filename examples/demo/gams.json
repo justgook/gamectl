@@ -2236,7 +2236,7 @@
     ],
     "views": {
       "view-animation": {
-        "url": "builtin/views/view-animation.js",
+        "url": "views/view-animation.js",
         "label": "Animation",
         "group": "TODO",
         "internal": false
@@ -3370,7 +3370,7 @@
       }
     },
     "theme": {
-      "path": "builtin/theme/the98.css"
+      "path": "themes/the98.css"
     }
   },
   "plugins": [
