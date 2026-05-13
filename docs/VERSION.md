@@ -130,27 +130,36 @@ import runtime/runtime@1.2.9, provider runtime/runtime@1.2.0 -> OK
 import runtime/runtime@1.0.0, provider runtime/runtime@2.0.0 -> ERROR
 ```
 
-## Invocation Shorthand
+## Invocation Names
 
-Frontend/runtime invocation may omit the namespace and use the compatibility identity directly:
+Frontend/runtime invocation must use a stable namespace-less, version-less target:
+
+```text
+package/interface::function
+```
+
+Example:
 
 ```text
 fs/fs::read-text
 ```
 
-instead of:
+Do **not** call full provider names from frontend/app code:
 
 ```text
-gams:fs/fs::read-text
+gams:fs/fs::read-text      # disallowed
+kkgams:fs/fs::read-text    # disallowed
 ```
 
-The runtime resolves this by matching `package/interface` and applying the same version compatibility rules when a version is supplied:
+Do **not** include versions in frontend/app invocation targets:
 
 ```text
-fs/fs@1.0.0::read-text
+fs/fs@1.0.0::read-text     # disallowed
 ```
 
-If multiple providers match the shorthand, invocation fails as ambiguous. In normal loading, duplicate provider-family checks should prevent this for a single major version.
+Rationale: frontend/app call sites should not need updates when an implementation moves between namespaces or when a compatible component version changes. Namespaces and versions are provider/wiring concerns, not app-call concerns.
+
+The runtime resolves invocation by matching `package/interface::function` against registered providers. If multiple providers match, invocation fails as ambiguous. Normal duplicate-provider-family checks should prevent ambiguity for a single major version.
 
 Diagnostics should still prefer full provider names when possible.
 

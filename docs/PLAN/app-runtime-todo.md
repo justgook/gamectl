@@ -11,7 +11,7 @@ This is the current implementation TODO for the `cmd/app` runtime. It supersedes
 Runtime model:
 
 - WASM components expose/import real WIT interfaces.
-- Frontend calls exported functions through structured `runtime.invoke(target, args)`; targets may use full names like `gams:fs/fs::read-text` or namespace-less shorthand like `fs/fs::read-text`.
+- Frontend calls exported functions through structured `runtime.invoke(target, args)`; targets must be namespace-less and version-less, e.g. `fs/fs::read-text`.
 - Components are loaded through `runtime.addPlugins(paths)` without caller-defined plugin ids.
 - Real WASI remains available to WASM components through `wasmtime_wasi::p2::add_to_linker_sync(...)`.
 - Frontend should not call raw `wasi:filesystem` directly for normal app IO.
@@ -124,7 +124,7 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
 
 ### Next Task: `gams:fs` Proxy Integration
 
-- [ ] Ensure app startup/demo loads `plugins/fs.wasm` before frontend calls `gams:fs/fs::*`.
+- [ ] Ensure app startup/demo loads `plugins/fs.wasm` before frontend calls `fs/fs::*`.
 - [ ] Decide whether `plugins/fs.wasm` is auto-loaded by host bootstrap, project config, or frontend boot code.
 - [ ] Add frontend convenience wrapper around `gams:fs`:
 

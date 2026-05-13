@@ -517,8 +517,7 @@ impl RuntimeInner {
         let Some((interface, function)) = target.split_once("::") else {
             bail!("target must be `package/interface::function`");
         };
-        let requested = parse_invocation_interface_id(interface)
-            .with_context(|| format!("invalid invocation target `{target}`"))?;
+        let requested = parse_invocation_interface_id(interface)?;
 
         let mut matches = self
             .funcs
@@ -860,26 +859,29 @@ fn parse_invocation_interface_id(value: &str) -> Result<InvocationInterfaceId<'_
     let interface = value
         .split_once("::")
         .map_or(value, |(interface, _)| interface);
-    let (namespace_and_package, interface_and_version) = interface
+    let (package, interface) = interface
         .split_once('/')
-        .with_context(|| format!("interface id `{value}` must contain `/`"))?;
-    let package = namespace_and_package
-        .split_once(':')
-        .map_or(namespace_and_package, |(_namespace, package)| package);
-    if package.is_empty() {
-        bail!("interface id `{value}` has empty package");
+        .with_context(|| format!("invocation interface `{value}` must be `package/interface`"))?;
+    if package.contains(':') {
+        bail!(
+            "invocation interface `{value}` must omit namespace; use `package/interface::function`"
+        );
     }
-    let (interface, version) = match interface_and_version.rsplit_once('@') {
-        Some((interface, version)) => (interface, Some(parse_version(version)?)),
-        None => (interface_and_version, None),
-    };
+    if interface.contains('@') {
+        bail!(
+            "invocation interface `{value}` must omit version; use `package/interface::function`"
+        );
+    }
+    if package.is_empty() {
+        bail!("invocation interface `{value}` has empty package");
+    }
     if interface.is_empty() {
-        bail!("interface id `{value}` has empty interface");
+        bail!("invocation interface `{value}` has empty interface");
     }
     Ok(InvocationInterfaceId {
         package,
         interface,
-        version,
+        version: None,
     })
 }
 
@@ -1036,7 +1038,7 @@ mod tests {
             .add_plugins(vec![path.display().to_string()], false)
             .unwrap();
         let value = runtime
-            .invoke("docs:adder/add::add", serde_json::json!([2, 3]))
+            .invoke("adder/add::add", serde_json::json!([2, 3]))
             .unwrap();
         assert_eq!(value, serde_json::json!(5));
     }
@@ -1059,7 +1061,7 @@ mod tests {
             .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
             .unwrap();
         let value = runtime
-            .invoke("docs:adder/add::add", serde_json::json!([2, 3]))
+            .invoke("adder/add::add", serde_json::json!([2, 3]))
             .unwrap();
         assert_eq!(value, serde_json::json!(5));
     }
@@ -1110,7 +1112,7 @@ mod tests {
             .unwrap();
         assert_eq!(first[0].path, second[0].path);
         let value = runtime
-            .invoke("docs:adder/add::add", serde_json::json!([2, 3]))
+            .invoke("adder/add::add", serde_json::json!([2, 3]))
             .unwrap();
         assert_eq!(value, serde_json::json!(5));
     }
@@ -1141,7 +1143,7 @@ mod tests {
             .unwrap();
         let value = runtime
             .invoke(
-                "docs:calculator/calculate::eval-expression",
+                "calculator/calculate::eval-expression",
                 serde_json::json!(["add", 2, 3]),
             )
             .unwrap();
@@ -1177,7 +1179,7 @@ mod tests {
 
         let value = runtime
             .invoke(
-                "docs:calculator/calculate::eval-expression",
+                "calculator/calculate::eval-expression",
                 serde_json::json!(["add", 2, 3]),
             )
             .unwrap();
@@ -1207,7 +1209,7 @@ mod tests {
             .unwrap();
         let value = runtime
             .invoke(
-                "docs:calculator/calculate::eval-expression",
+                "calculator/calculate::eval-expression",
                 serde_json::json!(["add", 2, 3]),
             )
             .unwrap();
@@ -1257,6 +1259,41 @@ mod tests {
         assert!(
             error.contains("duplicate provider for interface family"),
             "{error}"
+        );
+    }
+
+    #[test]
+    fn invoke_rejects_full_or_versioned_interface_targets() {
+        let path = "../../../build.nosync/plugins/adder.wasm";
+        if !std::path::Path::new(path).exists() {
+            eprintln!(
+                "skipping invocation target validation test; build it with `make build.nosync/plugins/adder.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/adder.wasm".to_string()], false)
+            .unwrap();
+
+        let full_name_error = runtime
+            .invoke("docs:adder/add::add", serde_json::json!([2, 3]))
+            .unwrap_err();
+        assert!(
+            full_name_error.contains("must omit namespace"),
+            "{full_name_error}"
+        );
+
+        let version_error = runtime
+            .invoke("adder/add@1.0.0::add", serde_json::json!([2, 3]))
+            .unwrap_err();
+        assert!(
+            version_error.contains("must omit version"),
+            "{version_error}"
         );
     }
 
