@@ -19,14 +19,23 @@ if (!diagnostics) throw new Error("missing #diagnostics")
 
 await runtime.ready
 /* THE Real app Start */
-runtime.addPlugins(["plugins/layout3.wasm", "plugins/fs.wasm"])
-const layoutView = await runtime.invoke("fs/fs::read-text", ["ui-plugins/layout.js"])
+window.onerror = function (_message, _source, _lineno, _colno, error) {
+  runtime.call("ui.toast", "error", errorParse(error))
+  return false // prevents default logging (optional)
+}
 
-const dir = unwrapResult(
-  await runtime.invoke("fs/fs::list", ["plugins"]),
-  "list plugins",
-)
-console.log(layoutView, dir)
+window.addEventListener("unhandledrejection", (e) => {
+  runtime.call("ui.toast", "error", errorParse(e.reason))
+})
+
+await runtime.addPlugins(["plugins/layout3.wasm", "plugins/fs.wasm"])
+document.body.appendChild(await (await import("/___/services.js")).init())
+
+// const dir = unwrapResult(
+//   await runtime.invoke("fs/fs::list", ["plugins"]),
+//   "list plugins",
+// )
+// console.log(layoutView, dir)
 
 
 /* THE DEBUG STUFF*/
