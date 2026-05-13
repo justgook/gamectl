@@ -138,17 +138,18 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
 
 ### WIT Value Conversion
 
-- [ ] Expand JSON -> WIT conversion in `cmd/app/src-tauri/src/runtime/values.rs`.
-- [ ] Required input types beyond current scalars/enums:
+- [x] Added `plugins/benchmark` component to exercise JSON ↔ WIT conversion.
+- [x] Expanded JSON -> WIT conversion in `cmd/app/src-tauri/src/runtime/values.rs` for:
   - records,
   - lists,
   - tuples,
   - flags,
   - variants,
   - options,
-  - results,
-  - resources if frontend/runtime-exposed APIs need them.
-- [ ] Decide JS representation for:
+  - results.
+- [x] Added runtime tests covering scalar echo functions plus records/lists/tuples/flags/variants/options/results.
+- [ ] Decide whether resource values should ever be frontend-invokable through JSON.
+- [ ] Finalize JS representation compatibility policy for:
   - variants,
   - results,
   - flags,
@@ -157,11 +158,12 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
 
 ### Blocking View Calls
 
+- [x] Added `plugins/benchmark` method `benchmark/benchmark::call-runtime-view` that calls `gams:runtime/runtime.call(target, args)` directly. Use this as the deadlock/regression harness when replacing the stub.
+- [x] Added current stub behavior test so the benchmark import path is validated before the real frontend bridge lands.
 - [ ] Replace the current `gams:runtime/runtime.call` stub.
 - [ ] Connect WASM `runtime.call(view-id, args)` to frontend `runtime.onCallView(callback)`.
 - [ ] The WASM call must block until frontend returns a string or error.
 - [ ] Avoid deadlock with the runtime mutex while the component is blocked waiting for frontend.
-- [ ] Add a test component that imports `gams:runtime/runtime.call`.
 
 ### Singleton UI Plugins
 
@@ -170,6 +172,12 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
 - [ ] Let WASM components import those UI plugin interfaces.
 - [ ] Forward WASM calls to JS functions and block until result.
 - [ ] Convert typed WIT args/results between Wasmtime `Val` and JS values.
+
+### WASI Filesystem Benchmark
+
+- [x] Added `plugins/benchmark` method `benchmark/benchmark::check-wasi-filesystem`.
+- [x] Added runtime test proving a component can see preopens and list a directory through real `wasi:filesystem`.
+- [ ] Expand the benchmark if/when the app needs more WASI operations beyond preopens/stat/open-directory/read-directory.
 
 ### Project Bootstrap / Config
 

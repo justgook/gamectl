@@ -39,6 +39,122 @@ pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
             Val::Enum(name.to_string())
         }
 
+        Type::Flags(flags) => {
+            let values = value.as_array().context("expected flags array")?;
+            let allowed = flags.names().collect::<Vec<_>>();
+            let mut out = Vec::new();
+            for value in values {
+                let name = value.as_str().context("expected flag name string")?;
+                if !allowed.iter().any(|candidate| *candidate == name) {
+                    bail!("unknown flag `{name}`");
+                }
+                if !out.iter().any(|existing| existing == name) {
+                    out.push(name.to_string());
+                }
+            }
+            Val::Flags(out)
+        }
+
+        Type::List(list) => {
+            let values = value.as_array().context("expected list array")?;
+            let ty = list.ty();
+            Val::List(
+                values
+                    .iter()
+                    .map(|value| json_to_val(value, &ty))
+                    .collect::<Result<Vec<_>>>()?,
+            )
+        }
+
+        Type::Record(record) => {
+            let object = value.as_object().context("expected record object")?;
+            let mut fields = Vec::new();
+            for field in record.fields() {
+                let value = object
+                    .get(field.name)
+                    .with_context(|| format!("missing record field `{}`", field.name))?;
+                fields.push((field.name.to_string(), json_to_val(value, &field.ty)?));
+            }
+            Val::Record(fields)
+        }
+
+        Type::Tuple(tuple) => {
+            let values = value.as_array().context("expected tuple array")?;
+            let types = tuple.types().collect::<Vec<_>>();
+            if values.len() != types.len() {
+                bail!(
+                    "expected tuple with {} values, got {}",
+                    types.len(),
+                    values.len()
+                );
+            }
+            Val::Tuple(
+                values
+                    .iter()
+                    .zip(types.iter())
+                    .map(|(value, ty)| json_to_val(value, ty))
+                    .collect::<Result<Vec<_>>>()?,
+            )
+        }
+
+        Type::Variant(variant) => {
+            let object = value.as_object().context("expected variant object")?;
+            let case = object
+                .get("case")
+                .and_then(|value| value.as_str())
+                .context("variant object must contain string `case`")?;
+            let mut found = None;
+            for candidate in variant.cases() {
+                if candidate.name == case {
+                    found = Some(candidate.ty);
+                    break;
+                }
+            }
+            let ty = found.with_context(|| format!("unknown variant case `{case}`"))?;
+            let payload = match ty {
+                Some(ty) => {
+                    let value = object
+                        .get("value")
+                        .with_context(|| format!("variant case `{case}` requires `value`"))?;
+                    Some(Box::new(json_to_val(value, &ty)?))
+                }
+                None => None,
+            };
+            Val::Variant(case.to_string(), payload)
+        }
+
+        Type::Option(option) => {
+            if value.is_null() {
+                Val::Option(None)
+            } else {
+                Val::Option(Some(Box::new(json_to_val(value, &option.ty())?)))
+            }
+        }
+
+        Type::Result(result) => {
+            let object = value.as_object().context("expected result object")?;
+            let has_ok = object.contains_key("ok");
+            let has_err = object.contains_key("err");
+            match (has_ok, has_err) {
+                (true, false) => {
+                    let payload = match result.ok() {
+                        Some(ty) => Some(Box::new(json_to_val(&object["ok"], &ty)?)),
+                        None => None,
+                    };
+                    Val::Result(Ok(payload))
+                }
+                (false, true) => {
+                    let payload = match result.err() {
+                        Some(ty) => Some(Box::new(json_to_val(&object["err"], &ty)?)),
+                        None => None,
+                    };
+                    Val::Result(Err(payload))
+                }
+                (true, true) => bail!("result object must not contain both `ok` and `err`"),
+                (false, false) => bail!("result object must contain `ok` or `err`"),
+            }
+        }
+
         unsupported => bail!("JSON -> WIT conversion is not implemented for type {unsupported:?}"),
     })
 }
