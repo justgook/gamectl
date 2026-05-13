@@ -1,6 +1,6 @@
 mod runtime;
 
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_cli::CliExt;
 
 #[tauri::command]
@@ -28,6 +28,21 @@ fn runtime_diagnostics(
     runtime.diagnostics()
 }
 
+#[tauri::command]
+fn runtime_call_view_ready(runtime: tauri::State<'_, runtime::Runtime>) -> Result<(), String> {
+    runtime.mark_call_view_ready()
+}
+
+#[tauri::command]
+fn runtime_call_view_response(
+    id: String,
+    ok: Option<String>,
+    err: Option<String>,
+    runtime: tauri::State<'_, runtime::Runtime>,
+) -> Result<(), String> {
+    runtime.respond_to_call_view(id, ok, err)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let runtime = runtime::Runtime::new().expect("failed to initialize GAMS runtime");
@@ -36,6 +51,9 @@ pub fn run() {
         .manage(runtime)
         .plugin(tauri_plugin_cli::init())
         .setup(|app| {
+            app.state::<runtime::Runtime>()
+                .attach_app_handle(app.handle().clone())?;
+
             let matches = app.cli().matches().map_err(|error| error.to_string())?;
             if let Some(subcommand) = matches.subcommand {
                 match subcommand.name.as_str() {
@@ -59,6 +77,8 @@ pub fn run() {
             runtime_add_plugins,
             runtime_invoke,
             runtime_diagnostics,
+            runtime_call_view_ready,
+            runtime_call_view_response,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

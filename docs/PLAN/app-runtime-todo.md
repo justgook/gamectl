@@ -159,11 +159,12 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
 ### Blocking View Calls
 
 - [x] Added `plugins/benchmark` method `benchmark/benchmark::call-runtime-view` that calls `gams:runtime/runtime.call(target, args)` directly. Use this as the deadlock/regression harness when replacing the stub.
-- [x] Added current stub behavior test so the benchmark import path is validated before the real frontend bridge lands.
-- [ ] Replace the current `gams:runtime/runtime.call` stub.
-- [ ] Connect WASM `runtime.call(view-id, args)` to frontend `runtime.onCallView(callback)`.
-- [ ] The WASM call must block until frontend returns a string or error.
-- [ ] Avoid deadlock with the runtime mutex while the component is blocked waiting for frontend.
+- [x] Replaced the `gams:runtime/runtime.call` stub with a Rust view bridge that emits a frontend request and blocks until response.
+- [x] Connected WASM `runtime.call(view-id, args)` to frontend `runtime.onCallView(callback)` through the Tauri event/command bridge.
+- [x] Added frontend listener readiness handshake through `runtime_call_view_ready` so host calls fail fast until JS is listening.
+- [x] Added frontend demo validation where `benchmark/benchmark::call-runtime-view` calls `benchmark:view` and receives a JSON string response.
+- [x] Response handling does not lock `RuntimeInner`; `runtime_call_view_response` talks only to the separate view bridge pending-call table.
+- [ ] Add an automated integration test for the real frontend bridge/deadlock behavior. Current Rust unit tests still validate the no-frontend error path only.
 
 ### Singleton UI Plugins
 
