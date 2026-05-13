@@ -17,53 +17,48 @@ app.innerHTML = `
 const diagnostics = document.querySelector('#diagnostics')
 if (!diagnostics) throw new Error('missing #diagnostics')
 
-const preopens = await runtime.invoke('wasi:filesystem/preopens@0.2.0::get-directories', [])
-const root = preopens[0][0]
-const stream = await runtime.invoke('wasi:filesystem/types@0.2.0::descriptor.read-directory', [root])
-const entries = []
-while (true) {
-  const entry = await runtime.invoke('wasi:filesystem/types@0.2.0::directory-entry-stream.read-directory-entry', [stream])
-  if (entry === null) break
-  entries.push(entry)
+function unwrapResult(result, label) {
+  if (result && Object.prototype.hasOwnProperty.call(result, 'ok')) return result.ok
+  if (result && Object.prototype.hasOwnProperty.call(result, 'err')) throw new Error(`${label}: ${result.err}`)
+  throw new Error(`${label}: expected WIT result object`)
 }
+
+await runtime.addPlugins(['plugins/fs.wasm'], true)
+
+const gamsJsonText = unwrapResult(
+  await runtime.invoke('gams:fs/fs::read-text', ['/gams.json']),
+  'read /gams.json',
+)
+const entries = unwrapResult(
+  await runtime.invoke('gams:fs/fs::list', ['/']),
+  'list /',
+)
 
 let sampleRead = null
 const firstFile = entries.find((entry) => entry.type === 'regular-file')
 if (firstFile) {
-  const file = await runtime.invoke('wasi:filesystem/types@0.2.0::descriptor.open-at', [
-    root,
-    [],
-    firstFile.name,
-    [],
-    ['read'],
-  ])
-  const [bytes, eof] = await runtime.invoke('wasi:filesystem/types@0.2.0::descriptor.read', [file, 256, 0])
+  const bytes = unwrapResult(
+    await runtime.invoke('gams:fs/fs::read-file', [`/${firstFile.name}`]),
+    `read /${firstFile.name}`,
+  )
   sampleRead = {
     name: firstFile.name,
-    eof,
-    text: new TextDecoder().decode(new Uint8Array(bytes)),
+    text: new TextDecoder().decode(new Uint8Array(bytes.slice(0, 256))),
   }
 }
+
+try {
+  await runtime.addPlugins(['plugins/adder.wasm', 'plugins/calculator.wasm'], true)
+  const calculatorResult = await runtime.invoke('docs:calculator/calculate::eval-expression', ['add', 2, 3])
+  console.log('calculator result', calculatorResult)
+} catch (error) {
+  console.error(error)
+}
+
 diagnostics.textContent = JSON.stringify({
-  preopens,
+  gamsJsonText: gamsJsonText.slice(0, 512),
   entries,
   sampleRead,
   diagnostics: await runtime.diagnostics(),
 }, null, 2)
 console.log('gams.runtime ready', runtime)
-
-try {
-  await runtime.addPlugins(['plugins/adder.wasm', 'plugins/calculator.wasm'], true)
-} catch (e) {
-  console.error(e)
-}
-
-const calculatorResult = await runtime.invoke('docs:calculator/calculate::eval-expression', ['add', 2, 3])
-console.log(calculatorResult)
-
-diagnostics.textContent = JSON.stringify({
-  preopens,
-  entries,
-  sampleRead,
-  diagnostics: await runtime.diagnostics(),
-}, null, 2)
