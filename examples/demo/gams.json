@@ -160,7 +160,7 @@
           "wasm": "builtin/plugins/game2.wasm",
           "glBridge": "game-runner/gl-bridge.js",
           "assetSources": {
-            "/game/data.rspk": "/data.rspk"
+            "game/data.rspk": "/data.rspk"
           }
         }
       },
@@ -347,20 +347,20 @@
         "url": "views/view-ng.js",
         "label": "Nodegraph",
         "internal": false,
-        "defaultSource": "/assets.ng.json"
+        "defaultSource": "assets.ng.json"
       },
       "view-sql": {
-        "url": "builtin/views/view-sql.js",
+        "url": "views/view-sql.js",
         "label": "SQL",
         "internal": false
       },
       "view-sql-console": {
-        "url": "builtin/views/view-sql-console.js",
+        "url": "views/view-sql-console.js",
         "label": "SQL Console",
         "internal": false
       },
       "view-ai": {
-        "url": "builtin/views/view-ai.js",
+        "url": "views/view-ai.js",
         "label": "AI",
         "internal": false,
         "config": {
@@ -432,12 +432,12 @@
           "persist": {
             "driver": "fs",
             "format": "jsonl",
-            "path": "/ai/sessions/view-ai-default.jsonl"
+            "path": "ai/sessions/view-ai-default.jsonl"
           }
         }
       },
       "view-files": {
-        "url": "builtin/views/view-files.js",
+        "url": "views/view-files.js",
         "label": "Files",
         "internal": false,
         "config": {
@@ -466,55 +466,55 @@
         }
       },
       "view-image": {
-        "url": "builtin/views/view-image.js",
+        "url": "views/view-image.js",
         "label": "Image",
         "internal": false,
         "defaultSource": "ng/nine.png"
       },
       "view-vox": {
-        "url": "builtin/views/view-vox.js",
+        "url": "views/view-vox.js",
         "label": "Vox",
         "internal": false,
         "defaultSource": "vox/preview.vox"
       },
       "view-markov": {
-        "url": "builtin/views/view-markov.js",
+        "url": "views/view-markov.js",
         "label": "Markov",
         "group": "Generation",
         "internal": false,
         "defaultSource": "Basic"
       },
       "view-tilemap": {
-        "url": "builtin/views/view-tilemap.js",
+        "url": "views/view-tilemap.js",
         "label": "Tilemap",
         "internal": false,
         "defaultSource": "rules.map.json"
       },
       "view-tree": {
-        "url": "builtin/views/view-tree.js",
+        "url": "views/view-tree.js",
         "label": "Tree",
         "internal": false,
         "defaultSource": "tmp/progression.tree.json"
       },
       "view-setting-plugins": {
-        "url": "builtin/views/view-setting-plugins.js",
+        "url": "views/view-setting-plugins.js",
         "label": "Setting GAMS Config",
         "group": "Settings",
         "internal": false
       },
       "view-setting-fs": {
-        "url": "builtin/views/view-setting-fs.js",
+        "url": "views/view-setting-fs.js",
         "label": "Setting FileSystem",
         "group": "Settings",
         "internal": false
       },
       "view-code": {
-        "url": "builtin/views/view-code.js",
+        "url": "views/view-code.js",
         "label": "Code",
         "internal": true
       },
       "view-ng-node": {
-        "url": "builtin/views/view-ng-node.js",
+        "url": "views/view-ng-node.js",
         "label": "Node Editor",
         "internal": true,
         "config": {
@@ -807,7 +807,7 @@
                 },
                 {
                   "name": "path",
-                  "defaultValue": "/tmp/image.qoi"
+                  "defaultValue": "tmp/image.qoi"
                 },
                 {
                   "name": "format",
@@ -867,7 +867,7 @@
               "inputs": [
                 {
                   "name": "map",
-                  "defaultValue": "/minimap.map.json"
+                  "defaultValue": "minimap.map.json"
                 },
                 {
                   "name": "layerIndex",
@@ -1015,7 +1015,7 @@
                 },
                 {
                   "name": "outputFile",
-                  "defaultValue": "/tmp/output.rspk"
+                  "defaultValue": "tmp/output.rspk"
                 },
                 {
                   "name": "slots",
@@ -1043,7 +1043,7 @@
                 },
                 {
                   "name": "outputFile",
-                  "defaultValue": "/tmp/respack-decoder.odin"
+                  "defaultValue": "tmp/respack-decoder.odin"
                 }
               ],
               "outputs": [
@@ -1118,7 +1118,7 @@
                 },
                 {
                   "name": "map",
-                  "defaultValue": "/minimap.map.json"
+                  "defaultValue": "minimap.map.json"
                 },
                 {
                   "name": "direction",
@@ -1142,11 +1142,11 @@
               "inputs": [
                 {
                   "name": "inputMap",
-                  "defaultValue": "/minimap.map.json"
+                  "defaultValue": "minimap.map.json"
                 },
                 {
                   "name": "outputMap",
-                  "defaultValue": "/scaled.map.json"
+                  "defaultValue": "scaled.map.json"
                 },
                 {
                   "name": "scaleFactor",
@@ -1231,32 +1231,32 @@
         }
       },
       "view-props": {
-        "url": "builtin/views/view-props.js",
+        "url": "views/view-props.js",
         "label": "Properties",
         "internal": true
       },
       "view-tree-parent": {
-        "url": "builtin/views/view-tree-parent.js",
+        "url": "views/view-tree-parent.js",
         "label": "Tree Parent",
         "internal": true
       },
       "files-rename": {
-        "url": "builtin/views/files-rename.js",
+        "url": "views/files-rename.js",
         "label": "Rename File",
         "internal": true
       },
       "files-default": {
-        "url": "builtin/views/files-default.js",
+        "url": "views/files-default.js",
         "label": "File",
         "internal": true
       },
       "sql-table-editor": {
-        "url": "builtin/views/sql-table-editor.js",
+        "url": "views/sql-table-editor.js",
         "label": "SQL Table Editor",
         "internal": true
       },
       "tilemap-settings": {
-        "url": "builtin/views/tilemap-settings.js",
+        "url": "views/tilemap-settings.js",
         "label": "Tilemap Settings",
         "internal": true
       }

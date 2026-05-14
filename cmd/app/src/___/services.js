@@ -44,10 +44,7 @@ function doInit(viewConfig) {
 }
 
 export async function init(config) {
-
-  // console.log(DEFAULT_LAYOUT)
   void applyThemeStylesheet(config)
-  console.log(config)
   const fragment = new DocumentFragment()
   fragment.appendChild(document.createElement('ui-layout'))
   fragment.appendChild(document.createElement('popup-manager'))
@@ -59,8 +56,10 @@ export async function init(config) {
 
 
 
-function errorParse(e) {
-  return `${e.plugin ? "[" + e.plugin + "]: " : ""}${e.message || e.reason}`
+function errorParse(error) {
+  const e = error.reason || error
+  console.trace(e)
+  return `${e.plugin ? "[" + e.plugin + "]: " : ""}${e.message || e}`
 }
 
 function createConfiguredViewRegistry(config) {

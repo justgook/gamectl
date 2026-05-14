@@ -344,8 +344,9 @@ export class ViewNg extends HTMLElement {
         this._setBackendStatus('state: frontend', 'success')
         this._setStatus(`ready for graph '${this.graphName}'`, 'info')
         this.render()
-      }).catch((error) => {
-        throw error
+      }).catch((e) => {
+        e.plugin = "view-ng"
+        throw e
       })
     }
 
@@ -1267,11 +1268,8 @@ end`
   }
 
   async loadGraphFS(path, notify = true) {
-    const readResult = await runtime.call('fs', 'read', path)
-    if (readResult.returnCode !== 0) {
-      throw new Error(decodeOutput(readResult) || `fs.read failed: ${readResult.returnCode}`)
-    }
-    const graph = JSON.parse(decodeOutput(readResult))
+    const readResult = unwrap(await runtime.invoke("fs/fs::read-text", [path]), path)
+    const graph = JSON.parse(readResult)
     this.loadGraph(graph)
     this.setGraphPath(path)
     this._setStatus(`loaded graph from ${path}`, 'success')
@@ -2022,7 +2020,12 @@ end`
 
   async _loadTextureFromUrl(url) {
     const res = unwrap(await runtime.invoke("fs/fs::read-file", [url]), url)
-    const image = await createImageBitmap(new Blob([res]))
+    let image = null
+    try {
+      image = await createImageBitmap(new Blob([new Uint8Array(res)]))
+    } catch (e) {
+      throw Error(`Filed to create image ${url}`)
+    }
     const gl = this.gl
     const tex = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, tex)
@@ -2054,17 +2057,21 @@ end`
   }
 
   async _loadTextAtlasFromAssets() {
-
     const [metaResult, atlasResult] = await Promise.all([
-      runtime.invoke("fs/fs::read-text", [this.assets.text.source.metaUrl]),
-      runtime.invoke("fs/fs::read-text", [this.assets.text.source.atlasUrl]),
+      runtime.invoke("fs/fs::read-text", [this.assets.text.source.metaUrl]).then(unwrap),
+      runtime.invoke("fs/fs::read-file", [this.assets.text.source.atlasUrl]).then(unwrap),
     ])
-    const metaRes = unwrap(metaResult)
-    const atlasRes = unwrap(atlasResult)
 
-    const meta = await metaRes.json()
-    const atlasBlob = await atlasRes.blob()
-    const atlasImage = await createImageBitmap(atlasBlob)
+    const meta = JSON.parse(metaResult)
+    const atlasRes = atlasResult
+    let atlasImage
+
+    try {
+      atlasImage = await createImageBitmap(new Blob([new Uint8Array(atlasRes)]))
+    } catch (e) {
+      throw Error(`Filed to create image ${atlasRes}`)
+    }
+
     const gl = this.gl
     const tex = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, tex)

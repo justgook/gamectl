@@ -1,5 +1,6 @@
 import { ensureThemeStylesheetLink } from "/util/add-style.js"
 import { runtime } from "/core/runtime.js"
+import { unwrap } from "/util/unwrap.js"
 
 function encodeResult(value) {
   return {
@@ -8,11 +9,7 @@ function encodeResult(value) {
   }
 }
 
-function unwrapResult(result, label) {
-  if (result && Object.prototype.hasOwnProperty.call(result, "ok")) return result.ok
-  if (result && Object.prototype.hasOwnProperty.call(result, "err")) throw new Error(`${label}: ${result.err}`)
-  throw new Error(`${label}: expected WIT result object`)
-}
+
 
 
 function decodeInput(input) {
@@ -246,6 +243,9 @@ export class UiLayout extends HTMLElement {
     super()
     this.document = {}
 
+
+
+
     this.viewRegistry = new Map()
     this.content = new Map()
     this.contentCounter = 0
@@ -274,6 +274,7 @@ export class UiLayout extends HTMLElement {
         return encodeResult({ ok: true, generation: this.lastGeneration })
       },
     }
+
     this.resizeObserver = new ResizeObserver(async (entries) => {
       for (const entry of entries) {
         if (entry.target !== this) continue
@@ -303,8 +304,10 @@ export class UiLayout extends HTMLElement {
   }
 
   async callLayout(method, ...args) {
-    const result = unwrapResult(await runtime.invoke(`layout3/layout::${method}`, args), `Layout::${method}`)
+    // console.log("CALL", method, JSON.stringify(args))
+    const result = unwrap(await runtime.invoke(`layout3/layout::${method}`, args), `Layout::${method}`)
     this.document = result.document
+    // console.log("GOT", method)
   }
 
   async initScreen(w, h, contentId) {
@@ -318,6 +321,7 @@ export class UiLayout extends HTMLElement {
   }
 
   async resizeScreen(w, h) {
+    console.log("resize-screen", JSON.stringify(this.document))
     await this.callLayout('resize-screen', { w, h, "handle-half-size": 6, document: this.document })
   }
 
