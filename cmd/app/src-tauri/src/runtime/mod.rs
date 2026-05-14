@@ -1554,6 +1554,12 @@ mod tests {
         let dot_entries = dot_entries["ok"].as_array().unwrap();
         assert!(dot_entries.iter().any(|entry| entry["name"] == "gams.json"));
 
+        let stat = runtime
+            .invoke("fs/fs::stat", serde_json::json!(["gams.json"]))
+            .unwrap();
+        assert_eq!(stat["ok"]["type"], "regular-file");
+        assert!(stat["ok"]["size"].as_u64().unwrap() > 0, "{stat}");
+
         let plugin_bytes = runtime
             .invoke("fs/fs::read-file", serde_json::json!(["plugins/fs.wasm"]))
             .unwrap();

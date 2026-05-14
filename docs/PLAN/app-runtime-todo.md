@@ -31,11 +31,12 @@ Runtime model:
 - [x] Added WIT-like exported function resolution, including unversioned matching.
 - [x] Added smoke tests for `adder` and `calculator` component invocation.
 - [x] Added `plugins/fs` C WASM component.
-- [x] Added `gams:fs@1.0.0` WIT package.
+- [x] Added `gams:fs@1.1.0` WIT package.
 - [x] Implemented `plugins/fs/component.c` with:
   - `gams:fs/fs::read-file`
   - `gams:fs/fs::read-text`
   - `gams:fs/fs::list`
+  - `gams:fs/fs::stat`
 - [x] Updated frontend app demo to use `gams:fs`, not raw `wasi:filesystem`.
 - [x] Removed obsolete frontend/native raw WASI filesystem wrappers from `cmd/app/src-tauri/src/runtime/mod.rs`.
 - [x] Removed manual frontend descriptor/preopen/directory-entry-stream resource tracking.
@@ -132,6 +133,7 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
   runtime.fs.readText(path)
   runtime.fs.readFile(path)
   runtime.fs.list(path)
+  runtime.fs.stat(path)
   ```
 
 - [ ] Expand `gams:fs` methods only when needed; do not reintroduce raw frontend WASI wrapper complexity.

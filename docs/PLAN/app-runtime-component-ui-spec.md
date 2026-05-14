@@ -54,6 +54,7 @@ The host should not grow a second GAMS virtual filesystem layer for normal front
 fs/fs::read-file
 fs/fs::read-text
 fs/fs::list
+fs/fs::stat
 ```
 
 This keeps frontend code stable and simple while retaining real WASI access inside components.
