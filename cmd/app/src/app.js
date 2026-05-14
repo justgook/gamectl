@@ -23,7 +23,7 @@ await runtime.ready
 /* THE Real app Start */
 
 
-await runtime.addPlugins(["plugins/fs.comp.wasm", "plugins/layout.comp.wasm"], true)
+await runtime.addPlugins(["plugins/random.comp.wasm", "plugins/fs.comp.wasm", "plugins/layout.comp.wasm", "plugins/lua.comp.wasm"], true)
 
 const gamsJsonText2 = unwrapResult(
   await runtime.invoke("fs/fs::read-text", ["gams.json"]),
@@ -50,7 +50,7 @@ function unwrapResult(result, label) {
   throw new Error(`${label}: expected WIT result object`)
 }
 
-await runtime.addPlugins(["plugins/benchmark.comp.wasm", "plugins/lua.comp.wasm"], true)
+await runtime.addPlugins(["plugins/benchmark.comp.wasm"], true)
 
 
 const gamsJsonText = unwrapResult(
