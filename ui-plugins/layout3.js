@@ -344,7 +344,7 @@ export class UiLayout extends HTMLElement {
     await this.callLayout('move-corner', {
       "area-content-id": `${contentId}`,
       "new-area-content-id": `${newId}`,
-      "new-handle-content-id": null,
+      "new-handle-content-id": `handle_${newId}`,
       "corner-index": cornerIndex,
       document: this.document,
       ...p

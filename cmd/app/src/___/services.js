@@ -6,16 +6,19 @@ let currentThemeStylesheetObjectUrl = ''
 
 const DEFAULT_LAYOUT = `
     <view-animation />
-    <view-empty setup="0:h:30" />
+    <view-ng setup="0:h:30" />
     <view-animation setup="0:h:60" />
   `
 
 function doInit(viewConfig) {
   Promise.all([
+    require2("ui-plugins/context.js"),
     require2("ui-plugins/layout3.js"),
     require2("ui-plugins/toast.js"),
     require2("ui-plugins/popup.js"),
-  ]).then(() => {
+  ]).then(([{ createUiContext }]) => {
+    runtime.register(createUiContext())
+
     const viewRegistry = createConfiguredViewRegistry(viewConfig)
 
     const layout = document.querySelector("ui-layout")

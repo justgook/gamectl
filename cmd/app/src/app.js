@@ -22,7 +22,8 @@ await runtime.ready
 /* THE Real app Start */
 
 
-await runtime.addPlugins(["plugins/layout3.wasm", "plugins/fs.wasm"])
+await runtime.addPlugins(["plugins/fs.wasm", "plugins/layout3.wasm"])
+
 const gamsJsonText2 = unwrapResult(
   await runtime.invoke("fs/fs::read-text", ["gams.json"]),
   "read /gams.json",
@@ -48,6 +49,7 @@ function unwrapResult(result, label) {
 }
 
 await runtime.addPlugins(["plugins/benchmark.wasm"], true)
+
 
 const gamsJsonText = unwrapResult(
   await runtime.invoke("fs/fs::read-text", ["gams.json"]),
@@ -99,3 +101,6 @@ diagnostics.textContent = JSON.stringify({
   diagnostics: ddd,
 }, null, 2)
 console.log("gams.runtime ready", ddd)
+// DO NOT USE - JSUT FOR DEBUG
+globalThis.runtime = runtime
+

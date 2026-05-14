@@ -1,4 +1,5 @@
 import { runtime } from '/core/runtime.js'
+import { unwrap } from '/util/unwrap.js'
 import { createWriteInput } from '/util/fs.js'
 
 const textDecoder = new TextDecoder()
@@ -2020,10 +2021,8 @@ end`
   }
 
   async _loadTextureFromUrl(url) {
-    const res = await fetch(url, { cache: 'no-cache' })
-    if (!res.ok) throw new Error(`failed to fetch ${url}: ${res.status}`)
-    const blob = await res.blob()
-    const image = await createImageBitmap(blob)
+    const res = unwrap(await runtime.invoke("fs/fs::read-file", [url]), url)
+    const image = await createImageBitmap(new Blob([res]))
     const gl = this.gl
     const tex = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, tex)
@@ -2055,12 +2054,14 @@ end`
   }
 
   async _loadTextAtlasFromAssets() {
-    const [metaRes, atlasRes] = await Promise.all([
-      fetch(this.assets.text.source.metaUrl, { cache: 'no-cache' }),
-      fetch(this.assets.text.source.atlasUrl, { cache: 'no-cache' }),
+
+    const [metaResult, atlasResult] = await Promise.all([
+      runtime.invoke("fs/fs::read-text", [this.assets.text.source.metaUrl]),
+      runtime.invoke("fs/fs::read-text", [this.assets.text.source.atlasUrl]),
     ])
-    if (!metaRes.ok) throw new Error(`failed to fetch ${this.assets.text.source.metaUrl}: ${metaRes.status}`)
-    if (!atlasRes.ok) throw new Error(`failed to fetch ${this.assets.text.source.atlasUrl}: ${atlasRes.status}`)
+    const metaRes = unwrap(metaResult)
+    const atlasRes = unwrap(atlasResult)
+
     const meta = await metaRes.json()
     const atlasBlob = await atlasRes.blob()
     const atlasImage = await createImageBitmap(atlasBlob)
