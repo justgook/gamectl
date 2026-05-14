@@ -1,4 +1,5 @@
 import { runtime } from "/core/runtime.js"
+import { unwrap } from "/util/unwrap.js"
 import { init } from "/___/services.js"
 
 const app = document.querySelector("#app")
@@ -22,7 +23,7 @@ await runtime.ready
 /* THE Real app Start */
 
 
-await runtime.addPlugins(["plugins/fs.wasm", "plugins/layout3.wasm"])
+await runtime.addPlugins(["plugins/fs.wasm", "plugins/layout3.wasm"], true)
 
 const gamsJsonText2 = unwrapResult(
   await runtime.invoke("fs/fs::read-text", ["gams.json"]),
@@ -103,4 +104,5 @@ diagnostics.textContent = JSON.stringify({
 console.log("gams.runtime ready", ddd)
 // DO NOT USE - JSUT FOR DEBUG
 globalThis.runtime = runtime
+globalThis.unwrap = unwrap
 
