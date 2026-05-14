@@ -324,6 +324,7 @@ impl RuntimeInner {
     fn new(cwd: PathBuf, preopens: Vec<FsPreopen>, view_bridge: ViewBridge) -> Result<Self> {
         let mut config = Config::new();
         config.wasm_component_model(true);
+        config.wasm_exceptions(true);
 
         let engine = Engine::new(&config)?;
         let mut linker = Linker::new(&engine);
@@ -1710,6 +1711,18 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("frontend view bridge is not attached"));
+
+        let source = [
+            "function main()",
+            "  local typo = nil",
+            "  return typo.missing",
+            "end",
+        ]
+        .join("\n");
+        let lua_error = runtime
+            .invoke("lua/lua::run", serde_json::json!([source]))
+            .unwrap();
+        assert!(lua_error["err"].as_str().unwrap().contains("nil"));
     }
 
     #[test]

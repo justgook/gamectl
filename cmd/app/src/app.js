@@ -83,15 +83,13 @@ const wasiBenchmark = unwrapResult(
   await runtime.invoke("benchmark/benchmark::check-wasi-filesystem", ["."]),
   "benchmark wasi filesystem",
 )
-const luaResult = unwrapResult(
-  await runtime.invoke("lua/lua::run", [`
+const luaResult = await runtime.invoke("lua/lua::run", [`
 function main()
   local result = host.call("ui.toast.confirm", '{"message":"Continue?"}')
+  --error("hello error")
   return { confirmed = json.decode(result).ok, answer = 42 }
 end
-`]),
-  "lua run",
-)
+`])
 console.log({ luaResult })
 
 try {
