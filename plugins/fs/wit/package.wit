@@ -1,4 +1,4 @@
-package gams:fs@1.0.0;
+package gams:fs@1.1.0;
 
 interface fs {
     record dir-entry {
@@ -6,9 +6,15 @@ interface fs {
         %type: string,
     }
 
+    record file-stat {
+        %type: string,
+        size: u64,
+    }
+
     read-file: func(path: string) -> result<list<u8>, string>;
     read-text: func(path: string) -> result<string, string>;
     %list: func(path: string) -> result<list<dir-entry>, string>;
+    stat: func(path: string) -> result<file-stat, string>;
 }
 
 world fs-proxy {

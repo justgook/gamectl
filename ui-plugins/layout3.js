@@ -321,7 +321,6 @@ export class UiLayout extends HTMLElement {
   }
 
   async resizeScreen(w, h) {
-    console.log("resize-screen", JSON.stringify(this.document))
     await this.callLayout('resize-screen', { w, h, "handle-half-size": 6, document: this.document })
   }
 

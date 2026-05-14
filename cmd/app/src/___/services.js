@@ -5,7 +5,7 @@ import { require2 as require } from "/util/require.js"
 let currentThemeStylesheetObjectUrl = ''
 
 const DEFAULT_LAYOUT = `
-    <view-animation />
+    <view-files />
     <view-ng setup="0:h:30" />
     <view-animation setup="0:h:60" />
   `

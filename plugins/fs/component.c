@@ -451,6 +451,50 @@ bool exports_gams_fs_fs_read_text(fs_proxy_string_t *path, fs_proxy_string_t *re
   return true;
 }
 
+bool exports_gams_fs_fs_stat(fs_proxy_string_t *path,
+                             exports_gams_fs_fs_file_stat_t *ret,
+                             fs_proxy_string_t *err) {
+  ret->type.ptr = NULL;
+  ret->type.len = 0;
+  ret->size = 0;
+
+  resolved_path_t resolved;
+  if (!resolve_path(path, &resolved, err)) {
+    return false;
+  }
+
+  wasi_filesystem_types_own_descriptor_t descriptor;
+  bool descriptor_is_preopen = false;
+  if (!open_resolved_path(&resolved, WASI_FILESYSTEM_TYPES_DESCRIPTOR_FLAGS_READ,
+                          &descriptor, &descriptor_is_preopen, err)) {
+    resolved_path_free(&resolved);
+    return false;
+  }
+
+  wasi_filesystem_types_descriptor_stat_t stat;
+  wasi_filesystem_types_error_code_t code = 0;
+  bool ok = wasi_filesystem_types_method_descriptor_stat(
+      wasi_filesystem_types_borrow_descriptor(descriptor), &stat, &code);
+  if (!ok) {
+    if (!descriptor_is_preopen) {
+      wasi_filesystem_types_descriptor_drop_own(descriptor);
+    }
+    resolved_path_free(&resolved);
+    set_error(err, error_code_name(code));
+    return false;
+  }
+
+  fs_proxy_string_dup(&ret->type, descriptor_type_name(stat.type));
+  ret->size = stat.size;
+  wasi_filesystem_types_descriptor_stat_free(&stat);
+
+  if (!descriptor_is_preopen) {
+    wasi_filesystem_types_descriptor_drop_own(descriptor);
+  }
+  resolved_path_free(&resolved);
+  return true;
+}
+
 bool exports_gams_fs_fs_list(fs_proxy_string_t *path,
                              exports_gams_fs_fs_list_dir_entry_t *ret,
                              fs_proxy_string_t *err) {

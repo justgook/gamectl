@@ -1,6 +1,7 @@
 import { runtime } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin, viewOk } from '/util/view-plugin.js'
 import { createWriteInput } from '/util/fs.js'
+import { unwrap } from '/util/unwrap.js'
 
 const decoder = new TextDecoder()
 
@@ -13,15 +14,15 @@ function decodeOutput(result) {
 }
 
 function normalizePath(path) {
-  const raw = String(path || '/').trim()
+  const raw = String(path || '.').trim()
   if (!raw || raw === '/') return '/'
   const parts = raw.split('/').filter(Boolean)
-  return `/${parts.join('/')}`
+  return `${parts.join('/')}`
 }
 
 function joinPath(basePath, name) {
   const base = normalizePath(basePath)
-  if (base === '/') return `/${name}`
+  if (base === '.') return `${name}`
   return `${base}/${name}`
 }
 
@@ -74,7 +75,7 @@ export class ViewFiles extends HTMLElement {
 
   constructor() {
     super()
-    this.rootPath = normalizePath(this.getAttribute('data-root') || '/')
+    this.rootPath = normalizePath(this.getAttribute('data-root') || '.')
     this.mode = this.getAttribute('data-mode') || 'browser'
     this.filter = this.getAttribute('data-filter') || ''
     this.selectFolders = this.getAttribute('data-select-folders') === 'true'
@@ -157,7 +158,7 @@ export class ViewFiles extends HTMLElement {
 
   readConfig() {
     const props = this.popupProps || {}
-    this.rootPath = normalizePath(props.root || props.rootPath || this.getAttribute('data-root') || '/')
+    this.rootPath = normalizePath(props.root || props.rootPath || this.getAttribute('data-root') || '.')
     this.mode = String(props.mode || this.getAttribute('data-mode') || 'browser')
     this.filter = String(props.filter || this.getAttribute('data-filter') || '')
     this.selectFolders = Boolean(props.selectFolders ?? (this.getAttribute('data-select-folders') === 'true'))
@@ -318,7 +319,7 @@ export class ViewFiles extends HTMLElement {
 
     const downloadButton = this._headerControlsElement.querySelector('[data-action="download"]')
     if (downloadButton instanceof HTMLButtonElement) {
-      downloadButton.disabled = !isBrowserMode || selectedEntry?.type !== 'file'
+      downloadButton.disabled = !isBrowserMode || selectedEntry?.type !== 'regular-file'
     }
 
     const uploadButton = this._headerControlsElement.querySelector('[data-action="upload"]')
@@ -333,7 +334,7 @@ export class ViewFiles extends HTMLElement {
 
     const editButton = this._headerControlsElement.querySelector('[data-action="edit"]')
     if (editButton instanceof HTMLButtonElement) {
-      editButton.disabled = !isBrowserMode || selectedEntry?.type !== 'file'
+      editButton.disabled = !isBrowserMode || selectedEntry?.type !== 'regular-file'
     }
 
     const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
@@ -429,10 +430,10 @@ export class ViewFiles extends HTMLElement {
   }
 
   async callFs(method, input) {
-    const result = await runtime.call('fs', method, input)
-    if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `fs.${method} failed: ${result.returnCode}`)
-    }
+    console.log(method, input)
+    const result = unwrap(await runtime.invoke(`fs/fs::${method}`, [input]))
+    console.log("result", result)
+
     return result
   }
 
@@ -464,26 +465,24 @@ export class ViewFiles extends HTMLElement {
 
   async loadDirectory(path) {
     const normalizedPath = normalizePath(path)
-    const listResult = await this.callFs('list', normalizedPath)
-    const names = JSON.parse(decodeOutput(listResult))
-    assert(Array.isArray(names), 'fs.list must return an array of entry names')
+    const files = await this.callFs('list', normalizedPath)
+    assert(Array.isArray(files), 'fs.list must return an array of entry names')
 
-    const entries = []
-    for (const name of names) {
-      const fullPath = joinPath(normalizedPath, name)
-      const statResult = await this.callFs('stat', fullPath)
-      const stat = JSON.parse(decodeOutput(statResult))
-      assert(stat && typeof stat === 'object', `fs.stat returned invalid payload for '${fullPath}'`)
-      assert(typeof stat.type === 'string', `fs.stat missing type for '${fullPath}'`)
+    const entries = await Promise.all(files.map(async (file) => {
+      const fullPath = joinPath(normalizedPath, file.name)
+      let stat = { size: 0 }
 
-      entries.push({
-        name,
+      if (file.type !== "directory") {
+        stat = await this.callFs('stat', fullPath)
+      }
+
+      return ({
+        name: file.name,
         path: fullPath,
-        type: stat.type,
+        type: file.type,
         size: Number.isFinite(stat.size) ? stat.size : Number(stat.size || 0),
       })
-    }
-
+    }))
     this.fileTree.set(normalizedPath, sortEntries(entries))
   }
 
@@ -653,7 +652,8 @@ export class ViewFiles extends HTMLElement {
       this.selectRow(entry.path)
     })
     row.addEventListener('dblclick', async () => {
-      if (entry.type === 'file' && this.mode === 'browser') {
+      console.log("AAAA", entry.type)
+      if (entry.type === 'regular-file' && this.mode === 'browser') {
         await this.openFile(entry.path)
       }
     })
@@ -670,7 +670,7 @@ export class ViewFiles extends HTMLElement {
   isSelectableEntry(entry) {
     if (!entry) return false
     if (this.mode === 'browser') return true
-    if (this.mode === 'saver') return entry.type === 'directory' || entry.type === 'file'
+    if (this.mode === 'saver') return entry.type === 'directory' || entry.type === 'regular-file'
     if (entry.type === 'directory') return this.selectFolders
     return this.matchesFilter(entry.name)
   }
@@ -705,7 +705,7 @@ export class ViewFiles extends HTMLElement {
   }
 
   async newEntry() {
-    await this.openCreatePopup(this.mode === 'saver' ? 'directory' : 'file')
+    await this.openCreatePopup(this.mode === 'saver' ? 'directory' : 'regular-file')
   }
 
   async openCreatePopup(kind) {
@@ -740,7 +740,7 @@ export class ViewFiles extends HTMLElement {
     }
     const entry = this.getEntry(this.selectedPath)
     assert(entry, `view-files selected path not found: ${this.selectedPath}`)
-    if (entry.type !== 'file') {
+    if (entry.type !== 'regular-file') {
       this.setStatus('Folders cannot be edited directly', 'warning')
       await runtime.call('ui.toast', 'warning', { message: 'Folders cannot be edited directly' })
       return
@@ -849,7 +849,7 @@ export class ViewFiles extends HTMLElement {
 
     const destinationDirectory = this.getUploadDirectoryPath()
     const input = document.createElement('input')
-    input.type = 'file'
+    input.type = 'regular-file'
     input.multiple = true
     input.hidden = true
 
@@ -900,7 +900,7 @@ export class ViewFiles extends HTMLElement {
     const entry = this.getEntry(this.selectedPath)
     assert(entry, `view-files selected path not found: ${this.selectedPath}`)
 
-    if (entry.type !== 'file') {
+    if (entry.type !== 'regular-file') {
       this.setStatus('Folders cannot be downloaded directly', 'warning')
       await runtime.call('ui.toast', 'warning', { message: 'Folders cannot be downloaded directly' })
       return
@@ -940,7 +940,7 @@ export class ViewFiles extends HTMLElement {
   async openFile(path) {
     const entry = this.getEntry(path)
     assert(entry, `view-files file path not found: ${path}`)
-    assert(entry.type === 'file', `view-files openFile expected file path: ${path}`)
+    assert(entry.type === 'regular-file', `view-files openFile expected file path: ${path}`)
 
     const result = await runtime.call('ui.popup', 'open', {
       title: entry.name,
@@ -1006,7 +1006,7 @@ export class ViewFiles extends HTMLElement {
 
     if (this.mode === 'saver') {
       const entry = this.getEntry(path)
-      if (entry?.type === 'file' && this.filenameInput instanceof HTMLInputElement) {
+      if (entry?.type === 'regular-file' && this.filenameInput instanceof HTMLInputElement) {
         this.filenameInput.value = entry.name
         this.defaultName = entry.name
       }
