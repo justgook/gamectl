@@ -27,7 +27,7 @@ function joinPath(basePath, name) {
 }
 
 function formatSize(size, type) {
-  if (type === 'directory') return '--'
+  if (type !== 'regular-file') return '--'
   if (!Number.isFinite(size) || size < 0) return '--'
   if (size < 1024) return `${size} B`
 
@@ -466,6 +466,7 @@ export class ViewFiles extends HTMLElement {
 
     const entries = await Promise.all(files.map(async (file) => {
       const fullPath = joinPath(normalizedPath, file.name)
+      let type = file.type
       let size = 0
 
       if (file.type === 'regular-file') {
@@ -473,10 +474,21 @@ export class ViewFiles extends HTMLElement {
         size = Number.isFinite(stat.size) ? stat.size : Number(stat.size || 0)
       }
 
+      if (file.type === 'symbolic-link') {
+        try {
+          const stat = await this.callFs('stat', fullPath)
+          type = stat.type
+          size = Number.isFinite(stat.size) ? stat.size : Number(stat.size || 0)
+        } catch (error) {
+          console.warn(`view-files could not resolve symbolic link '${fullPath}':`, error)
+        }
+      }
+
       return ({
         name: file.name,
         path: fullPath,
-        type: file.type,
+        type,
+        sourceType: file.type,
         size,
       })
     }))
@@ -623,7 +635,7 @@ export class ViewFiles extends HTMLElement {
     } else {
       const icon = document.createElement('i')
       icon.setAttribute('aria-hidden', 'true')
-      icon.textContent = 'description'
+      icon.textContent = entry.sourceType === 'symbolic-link' ? 'link' : 'description'
       nameCell.appendChild(icon)
       nameCell.appendChild(document.createTextNode(' '))
     }
@@ -631,11 +643,13 @@ export class ViewFiles extends HTMLElement {
     nameCell.appendChild(document.createTextNode(entry.name))
 
     const typeCell = document.createElement('td')
-    typeCell.textContent = entry.type === 'directory'
-      ? 'Folder'
-      : entry.type === 'regular-file'
-        ? 'File'
-        : entry.type
+    typeCell.textContent = entry.sourceType === 'symbolic-link'
+      ? `*${entry.type === 'directory' ? 'Folder' : entry.type === 'regular-file' ? 'File' : entry.type}`
+      : entry.type === 'directory'
+        ? 'Folder'
+        : entry.type === 'regular-file'
+          ? 'File'
+          : entry.type
 
     const sizeCell = document.createElement('td')
     sizeCell.textContent = formatSize(entry.size, entry.type)
