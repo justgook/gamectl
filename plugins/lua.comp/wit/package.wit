@@ -1,0 +1,14 @@
+package gams:lua@1.0.0;
+
+interface lua {
+    run: func(source: string) -> result<string, string>;
+}
+
+world lua-plugin {
+    import gams:runtime/runtime@1.0.0;
+
+    import wasi:filesystem/types@0.2.0;
+    import wasi:filesystem/preopens@0.2.0;
+
+    export lua;
+}

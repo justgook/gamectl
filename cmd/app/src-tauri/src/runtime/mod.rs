@@ -1667,6 +1667,52 @@ mod tests {
     }
 
     #[test]
+    fn lua_component_runs_script_and_calls_runtime() {
+        let lua = "../../../build.nosync/plugins/lua.comp.wasm";
+        if !std::path::Path::new(lua).exists() {
+            eprintln!(
+                "skipping lua component smoke test; build it with `make build.nosync/plugins/lua.comp.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/lua.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let source = [
+            "function main()",
+            "  return { answer = 42, ok = true }",
+            "end",
+        ]
+        .join("\n");
+        let value = runtime
+            .invoke("lua/lua::run", serde_json::json!([source]))
+            .unwrap();
+        let parsed: serde_json::Value =
+            serde_json::from_str(value["ok"].as_str().unwrap()).unwrap();
+        assert_eq!(parsed, serde_json::json!({ "answer": 42, "ok": true }));
+
+        let source = [
+            "function main()",
+            "  return host.call('view:test', '{\"ping\":true}')",
+            "end",
+        ]
+        .join("\n");
+        let host_call = runtime
+            .invoke("lua/lua::run", serde_json::json!([source]))
+            .unwrap();
+        assert!(host_call["err"]
+            .as_str()
+            .unwrap()
+            .contains("frontend view bridge is not attached"));
+    }
+
+    #[test]
     fn benchmark_exercises_json_wit_conversion() {
         let benchmark = "../../../build.nosync/plugins/benchmark.wasm";
         if !std::path::Path::new(benchmark).exists() {

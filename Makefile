@@ -115,6 +115,8 @@ PLUGIN_WASM_COMPONENT :=
 PLUGIN_WIT_WORLD :=
 PLUGIN_COMPONENT_NAME :=
 PLUGIN_COMPONENT_SOURCES :=
+PLUGIN_COMPONENT_CFLAGS :=
+PLUGIN_COMPONENT_LDFLAGS :=
 PLUGIN_COMPONENT_EXTRA_DEPS :=
 
 WIT_BINDGEN ?= wit-bindgen
@@ -161,6 +163,8 @@ define APPLY_PLUGIN_MANIFEST
   WIT_WORLD_$(1)        := $$(PLUGIN_WIT_WORLD)
   COMPONENT_NAME_$(1)   := $$(PLUGIN_COMPONENT_NAME)
   COMPONENT_SOURCES_$(1) := $$(PLUGIN_COMPONENT_SOURCES)
+  COMPONENT_CFLAGS_$(1) := $$(PLUGIN_COMPONENT_CFLAGS)
+  COMPONENT_LDFLAGS_$(1) := $$(PLUGIN_COMPONENT_LDFLAGS)
   COMPONENT_EXTRA_DEPS_$(1) := $$(PLUGIN_COMPONENT_EXTRA_DEPS)
 
   # Apply as target-specific vars for this plugin's .wasm output
@@ -182,6 +186,8 @@ define APPLY_PLUGIN_MANIFEST
   $(BUILD_DIR)/plugins/$(1).wasm: WIT_WORLD := $$(WIT_WORLD_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: COMPONENT_NAME := $$(COMPONENT_NAME_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: COMPONENT_SOURCES := $$(COMPONENT_SOURCES_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: COMPONENT_CFLAGS := $$(COMPONENT_CFLAGS_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: COMPONENT_LDFLAGS := $$(COMPONENT_LDFLAGS_$(1))
   $$(if $$(strip $$(COMPONENT_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(COMPONENT_EXTRA_DEPS_$(1)))
 
   # Cleanup manifest locals so they don't leak into next plugin
@@ -202,6 +208,8 @@ define APPLY_PLUGIN_MANIFEST
   PLUGIN_WIT_WORLD :=
   PLUGIN_COMPONENT_NAME :=
   PLUGIN_COMPONENT_SOURCES :=
+  PLUGIN_COMPONENT_CFLAGS :=
+  PLUGIN_COMPONENT_LDFLAGS :=
   PLUGIN_COMPONENT_EXTRA_DEPS :=
   PLUGIN_NAME :=
   PLUGIN_PATH :=
@@ -283,9 +291,11 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/com
 		mkdir -p "$$GEN_DIR"; \
 		(cd "$$GEN_DIR" && $(WIT_BINDGEN) c "$(abspath $(PLUGIN_DIR)/$*/wit)" -w "$(WIT_WORLD)"); \
 		$(WASI_P2_CC) -o "$@" -mexec-model=reactor -I"$$GEN_DIR" \
+			$(COMPONENT_CFLAGS) \
 			"$$GEN_DIR/$(COMPONENT_NAME).c" \
 			$(if $(strip $(COMPONENT_SOURCES)),$(COMPONENT_SOURCES),"$(PLUGIN_DIR)/$*/component.c") \
-			"$$GEN_DIR/$(COMPONENT_NAME)_component_type.o"
+			"$$GEN_DIR/$(COMPONENT_NAME)_component_type.o" \
+			$(COMPONENT_LDFLAGS)
 
 # Rule to build C plugins using Zig (bare WASM)
 $(BUILD_DIR)/plugins/%.wasm: | $(BUILD_DIR)/plugins
