@@ -1,4 +1,4 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { ViewCanvasBase } from '/util/view-canvas-base.js'
 import { decode as decodeVox } from '/util/vox/decode.js'
 
@@ -327,10 +327,8 @@ export class ViewVox extends ViewCanvasBase {
     this.setStatus('Loading...', 'info')
 
     try {
-      const result = await runtime.call('fs', 'read', this.path)
-      if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
+      const bytes = new Uint8Array(unwrap(await runtime.invoke('fs/fs::read-file', [this.path])))
 
-      const bytes = result.output instanceof Uint8Array ? result.output : new Uint8Array(result.output)
       const vox = decodeVox(bytes.buffer, bytes.byteOffset, bytes.byteLength)
       const instances = collectInstances(vox)
 

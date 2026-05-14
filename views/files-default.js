@@ -90,13 +90,7 @@ export class FilesDefault extends HTMLElement {
     this.setStatus('Loading...', 'info')
 
     try {
-      const statResult = await runtime.call('fs', 'stat', this.path)
-      if (statResult.returnCode !== 0) {
-        throw new Error(decodeOutput(statResult) || `fs.stat failed: ${statResult.returnCode}`)
-      }
-
-      const stat = JSON.parse(decodeOutput(statResult))
-      assert(stat && typeof stat === 'object', `files-default invalid stat payload for '${this.path}'`)
+      const stat = unwrap(await runtime.invoke('fs/fs::stat', [this.path]))
 
       const rows = [
         ['Name', this.path.split('/').pop() || this.path],

@@ -7,6 +7,7 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
+
 export class ViewCanvasBase extends HTMLElement {
   constructor() {
     super()
@@ -25,11 +26,26 @@ export class ViewCanvasBase extends HTMLElement {
     this._hasAutoFitted = false
     this._headerControlsElement = null
 
+    this._resizeFrame = 0
+    this._pendingCanvasSize = null
     this._resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target !== this.canvas) continue
-        const rect = entry.contentRect
-        this._onResized(rect.width, rect.height)
+
+        this._pendingCanvasSize = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        }
+
+        if (this._resizeFrame) return
+
+        this._resizeFrame = requestAnimationFrame(() => {
+          this._resizeFrame = 0
+          const size = this._pendingCanvasSize
+          this._pendingCanvasSize = null
+          if (!size) return
+          this._onResized(size.width, size.height)
+        })
       }
     })
 
@@ -76,6 +92,11 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   disconnectedCallback() {
+    if (this._resizeFrame) {
+      cancelAnimationFrame(this._resizeFrame)
+      this._resizeFrame = 0
+    }
+
     this._resizeObserver.disconnect()
     this._removeEventListeners()
     this._unmountHeaderControls()
@@ -349,9 +370,9 @@ export class ViewCanvasBase extends HTMLElement {
     if (this.canvas) this.canvas.style.cursor = 'default'
   }
 
-  onCanvasMouseDown(_event) {}
-  onCanvasMouseMove(_event) {}
-  onCanvasMouseUp(_event) {}
+  onCanvasMouseDown(_event) { }
+  onCanvasMouseMove(_event) { }
+  onCanvasMouseUp(_event) { }
 
   calculateContentBounds(_data) {
     throw new Error('ViewCanvasBase subclass must implement calculateContentBounds(data)')

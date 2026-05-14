@@ -2,14 +2,9 @@ import { runtime } from '/core/runtime.js'
 import { ViewCanvasBase } from '/util/view-canvas-base.js'
 import { decode as decodeQoi } from '/util/qoi/decode.js'
 
-const decoder = new TextDecoder()
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
-}
-
-function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
 }
 
 function getExtension(path) {
@@ -132,10 +127,8 @@ export class ViewImage extends ViewCanvasBase {
     this.setStatus('Loading...', 'info')
 
     try {
-      const result = await runtime.call('fs', 'read', this.path)
-      if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
+      const bytes = new Uint8Array(unwrap(await runtime.invoke('fs/fs::read-file', [this.path])))
 
-      const bytes = result.output instanceof Uint8Array ? result.output : new Uint8Array(result.output)
       const ext = getExtension(this.path)
       const source = ext === 'qoi'
         ? createCanvasFromQoi(bytes)
