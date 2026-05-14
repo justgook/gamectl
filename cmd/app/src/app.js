@@ -23,7 +23,7 @@ await runtime.ready
 /* THE Real app Start */
 
 
-await runtime.addPlugins(["plugins/fs.wasm", "plugins/layout3.wasm"], true)
+await runtime.addPlugins(["plugins/fs.comp.wasm", "plugins/layout.comp.wasm"], true)
 
 const gamsJsonText2 = unwrapResult(
   await runtime.invoke("fs/fs::read-text", ["gams.json"]),
@@ -49,7 +49,7 @@ function unwrapResult(result, label) {
   throw new Error(`${label}: expected WIT result object`)
 }
 
-await runtime.addPlugins(["plugins/benchmark.wasm"], true)
+await runtime.addPlugins(["plugins/benchmark.comp.wasm"], true)
 
 
 const gamsJsonText = unwrapResult(
@@ -84,7 +84,7 @@ const wasiBenchmark = unwrapResult(
 )
 
 try {
-  await runtime.addPlugins(["plugins/calculator.wasm", "plugins/adder.wasm"], true)
+  await runtime.addPlugins(["plugins/calculator.comp.wasm", "plugins/adder.comp.wasm"], true)
   const calculatorResult = await runtime.invoke("calculator/calculate::eval-expression", ["add", 2, 3])
   console.log("calculator result", calculatorResult)
 } catch (error) {

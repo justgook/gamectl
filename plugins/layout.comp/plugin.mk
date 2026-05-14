@@ -1,4 +1,4 @@
 PLUGIN_WASM_COMPONENT := 1
 PLUGIN_WIT_WORLD := gams:layout3/layout3-plugin@1.0.0
 PLUGIN_COMPONENT_NAME := layout3_plugin
-PLUGIN_COMPONENT_SOURCES := $(PLUGIN_DIR)/layout3/component.c
+PLUGIN_COMPONENT_SOURCES := $(PLUGIN_PATH)/component.c

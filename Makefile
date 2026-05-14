@@ -133,8 +133,14 @@ WASI_P2_CC ?= wasm32-wasip2-clang
 # conditionals at parse time, not eval time. Instead we use $(or ...)
 # to pick the manifest value when non-empty, falling back to the default.
 define APPLY_PLUGIN_MANIFEST
+  # Expose current plugin identity/path to manifests. Manifests should use
+  # $$(PLUGIN_PATH) instead of spelling their directory name so names like
+  # `foo.comp` (or any other dotted plugin directory) work after renames.
+  PLUGIN_NAME := $(1)
+  PLUGIN_PATH := $(PLUGIN_DIR)/$(1)
+
   # Load manifest if present (sets PLUGIN_ZIG_*, PLUGIN_ODIN_*, etc.)
-  -include $(PLUGIN_DIR)/$(1)/plugin.mk
+  -include $$(PLUGIN_PATH)/plugin.mk
 
   # Resolve per-plugin values: manifest override or global default
   ODIN_WASM_TARGET_$(1) := $$(or $$(PLUGIN_ODIN_WASM_TARGET),$(ODIN_WASM_TARGET))
@@ -148,8 +154,8 @@ define APPLY_PLUGIN_MANIFEST
   ZIG_EXTRA_FLAGS_$(1)  := $$(PLUGIN_ZIG_EXTRA_FLAGS)
   ZIG_CFLAGS_$(1)       := $$(PLUGIN_CFLAGS)
   ZIG_LDFLAGS_$(1)      := $$(PLUGIN_LDFLAGS)
-  ZIG_C_SOURCES_$(1)    := $$(if $$(strip $$(PLUGIN_C_SOURCES)),$$(PLUGIN_C_SOURCES),$(wildcard $(PLUGIN_DIR)/$(1)/main.c))
-  ZIG_EXTRA_DEPS_$(1)   := $$(if $$(strip $$(PLUGIN_EXTRA_DEPS)),$$(PLUGIN_EXTRA_DEPS),$(wildcard $(PLUGIN_DIR)/$(1)/*.h))
+  ZIG_C_SOURCES_$(1)    := $$(if $$(strip $$(PLUGIN_C_SOURCES)),$$(PLUGIN_C_SOURCES),$$(wildcard $$(PLUGIN_PATH)/main.c))
+  ZIG_EXTRA_DEPS_$(1)   := $$(if $$(strip $$(PLUGIN_EXTRA_DEPS)),$$(PLUGIN_EXTRA_DEPS),$$(wildcard $$(PLUGIN_PATH)/*.h))
   JS_EXTRA_DEPS_$(1)    := $$(or $$(PLUGIN_JS_EXTRA_DEPS),$$(PLUGIN_EXTRA_DEPS))
   WASM_COMPONENT_$(1)   := $$(PLUGIN_WASM_COMPONENT)
   WIT_WORLD_$(1)        := $$(PLUGIN_WIT_WORLD)
@@ -197,6 +203,8 @@ define APPLY_PLUGIN_MANIFEST
   PLUGIN_COMPONENT_NAME :=
   PLUGIN_COMPONENT_SOURCES :=
   PLUGIN_COMPONENT_EXTRA_DEPS :=
+  PLUGIN_NAME :=
+  PLUGIN_PATH :=
 endef
 
 $(foreach p,$(PLUGINS),$(eval $(call APPLY_PLUGIN_MANIFEST,$(p))))
@@ -274,9 +282,9 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/com
 		rm -rf "$$GEN_DIR"; \
 		mkdir -p "$$GEN_DIR"; \
 		(cd "$$GEN_DIR" && $(WIT_BINDGEN) c "$(abspath $(PLUGIN_DIR)/$*/wit)" -w "$(WIT_WORLD)"); \
-		$(WASI_P2_CC) -o $@ -mexec-model=reactor -I"$$GEN_DIR" \
+		$(WASI_P2_CC) -o "$@" -mexec-model=reactor -I"$$GEN_DIR" \
 			"$$GEN_DIR/$(COMPONENT_NAME).c" \
-			$(if $(strip $(COMPONENT_SOURCES)),$(COMPONENT_SOURCES),$(PLUGIN_DIR)/$*/component.c) \
+			$(if $(strip $(COMPONENT_SOURCES)),$(COMPONENT_SOURCES),"$(PLUGIN_DIR)/$*/component.c") \
 			"$$GEN_DIR/$(COMPONENT_NAME)_component_type.o"
 
 # Rule to build C plugins using Zig (bare WASM)
