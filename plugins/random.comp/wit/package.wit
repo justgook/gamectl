@@ -1,0 +1,12 @@
+package gams:random@1.0.0;
+
+interface seeded-random {
+  set-seed: func(seed: u64);
+  get-seed: func() -> u64;
+  get-generation: func() -> u64;
+}
+
+world random-provider {
+  export wasi:random/random@0.2.0;
+  export seeded-random;
+}
