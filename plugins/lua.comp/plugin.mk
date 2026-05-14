@@ -6,7 +6,8 @@ LUA_COMP_DIR := $(PLUGIN_PATH)/vendor/lua
 
 PLUGIN_COMPONENT_SOURCES := \
   $(PLUGIN_PATH)/component.c \
-  $(PLUGIN_PATH)/shim/setjmp.c \
+  $(PLUGIN_PATH)/shim/wasm_setjmp_shim.c \
+  $(PLUGIN_PATH)/shim/wasm_eh_tags.s \
   $(LUA_COMP_DIR)/lapi.c \
   $(LUA_COMP_DIR)/lauxlib.c \
   $(LUA_COMP_DIR)/lbaselib.c \
@@ -41,7 +42,11 @@ PLUGIN_COMPONENT_CFLAGS := \
   -Dl_signalT=int \
   -I$(LUA_COMP_DIR) \
   -I$(PLUGIN_PATH) \
-  -I$(PLUGIN_PATH)/shim \
+  -mexception-handling \
+  -mmultivalue \
+  -mreference-types \
+  -mllvm -wasm-enable-sjlj \
+  -mllvm -wasm-use-legacy-eh=false
 
 PLUGIN_COMPONENT_EXTRA_DEPS := \
   $(PLUGIN_PATH)/plugin.mk \
