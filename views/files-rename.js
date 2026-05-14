@@ -1,4 +1,4 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 import { createWriteInput } from '/util/fs.js'
 
@@ -13,10 +13,16 @@ function decodeOutput(result) {
 }
 
 function normalizePath(path) {
-  const raw = String(path || '/').trim()
-  if (!raw || raw === '/') return '/'
+  const raw = String(path || '.').trim()
+  if (!raw || raw === '.') return '.'
   const parts = raw.split('/').filter(Boolean)
-  return `/${parts.join('/')}`
+  return `${parts.join('/')}`
+}
+
+function joinPath(basePath, name) {
+  const base = normalizePath(basePath)
+  if (base === '.') return `${name}`
+  return `${base}/${name}`
 }
 
 function getBaseName(path) {
@@ -34,44 +40,32 @@ function getParentPath(path) {
   return parts.length === 0 ? '/' : `/${parts.join('/')}`
 }
 
-function joinPath(basePath, name) {
-  const base = normalizePath(basePath)
-  if (base === '/') return `/${name}`
-  return `${base}/${name}`
-}
-
-async function callFs(method, input) {
-  const result = await runtime.call('fs', method, input)
-  if (result.returnCode !== 0) {
-    throw new Error(decodeOutput(result) || `fs.${method} failed: ${result.returnCode}`)
-  }
-  return result
+async function callFs(method, ...input) {
+  return unwrap(await runtime.invoke(`fs/fs::${method}`, input))
 }
 
 async function pathExists(path) {
-  const result = await callFs('exists', path)
-  return decodeOutput(result) === 'true'
+  try {
+    await callFs('stats', path)
+  } catch (e) {
+    return false
+  }
+  return true
 }
 
 async function renameFile(sourcePath, targetPath) {
-  const readResult = await callFs('read', sourcePath)
-  await callFs('write', createWriteInput(targetPath, readResult.output))
-  await callFs('remove', sourcePath)
+  unwrap(await callFs('rename', sourcePath, targetPath))
 }
 
 async function renameDirectory(sourcePath, targetPath) {
-  await callFs('mkdir', targetPath)
+  await callFs('create-dir', targetPath)
 
-  const listResult = await callFs('list', sourcePath)
-  const names = JSON.parse(decodeOutput(listResult))
-  assert(Array.isArray(names), 'fs.list must return an array of entry names')
+  const files = unwrap(await callFs('list', sourcePath))
 
-  for (const name of names) {
+  for (const { name } of files) {
     const sourceChildPath = joinPath(sourcePath, name)
     const targetChildPath = joinPath(targetPath, name)
-    const statResult = await callFs('stat', sourceChildPath)
-    const stat = JSON.parse(decodeOutput(statResult))
-    assert(stat && typeof stat.type === 'string', `fs.stat missing type for '${sourceChildPath}'`)
+    const stat = unwrap(await callFs('stat', sourceChildPath))
 
     if (stat.type === 'directory') {
       await renameDirectory(sourceChildPath, targetChildPath)
@@ -80,7 +74,7 @@ async function renameDirectory(sourcePath, targetPath) {
     }
   }
 
-  await callFs('rmdir', sourcePath)
+  await callFs('remove-dir', sourcePath)
 }
 
 export class FileRename extends HTMLElement {
@@ -108,9 +102,8 @@ export class FileRename extends HTMLElement {
       <form data-element="form" novalidate>
         <label for="files-rename-name">${kind === 'directory' ? 'Folder name' : 'File name'}</label>
         <input id="files-rename-name" type="text" data-field="name" autocomplete="off" value="${escapeAttribute(initialName)}">
-        <label>Location</label>
-        <output data-element="location"></output>
         <footer>
+          <output data-element="location"></output>
           <output data-element="status"></output>
           <button type="button" data-action="cancel">Cancel</button>
           <button type="submit" data-action="save" class="accent">${mode === 'rename' ? 'Rename' : kind === 'directory' ? 'Create folder' : 'Create file'}</button>
@@ -212,9 +205,9 @@ export class FileRename extends HTMLElement {
     this.setStatus(this.kind === 'directory' ? 'Creating folder...' : 'Creating file...', 'info')
 
     if (this.kind === 'directory') {
-      await callFs('mkdir', targetPath)
+      await callFs('create-dir', targetPath)
     } else {
-      await callFs('write', createWriteInput(targetPath, new Uint8Array()))
+      await callFs('write-file', targetPath, [])
     }
 
     await runtime.call('ui.popup', 'close', {

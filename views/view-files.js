@@ -15,7 +15,7 @@ function decodeOutput(result) {
 
 function normalizePath(path) {
   const raw = String(path || '.').trim()
-  if (!raw || raw === '/') return '/'
+  if (!raw || raw === '.') return '.'
   const parts = raw.split('/').filter(Boolean)
   return `${parts.join('/')}`
 }
@@ -429,8 +429,8 @@ export class ViewFiles extends HTMLElement {
     this.updateFooterUI()
   }
 
-  async callFs(method, input) {
-    return unwrap(await runtime.invoke(`fs/fs::${method}`, [input]))
+  async callFs(method, ...input) {
+    return unwrap(await runtime.invoke(`fs/fs::${method}`, input))
   }
 
   async refresh() {
@@ -711,11 +711,11 @@ export class ViewFiles extends HTMLElement {
         return selectedEntry.path
       }
       const slashIndex = selectedEntry.path.lastIndexOf('/')
-      return slashIndex <= 0 ? '/' : selectedEntry.path.slice(0, slashIndex)
+      return slashIndex <= 0 ? '.' : selectedEntry.path.slice(0, slashIndex)
     }
 
     const slashIndex = this.selectedPath.lastIndexOf('/')
-    return slashIndex <= 0 ? '/' : this.selectedPath.slice(0, slashIndex)
+    return slashIndex <= 0 ? '.' : this.selectedPath.slice(0, slashIndex)
   }
 
   async newEntry() {
@@ -807,24 +807,20 @@ export class ViewFiles extends HTMLElement {
   }
 
   async deletePathRecursive(path) {
-    const statResult = await this.callFs('stat', path)
-    const stat = JSON.parse(decodeOutput(statResult))
-    assert(stat && typeof stat.type === 'string', `fs.stat missing type for '${path}'`)
+    const stat = await this.callFs('stat', path)
 
     if (stat.type === 'directory') {
-      const listResult = await this.callFs('list', path)
-      const names = JSON.parse(decodeOutput(listResult))
-      assert(Array.isArray(names), 'fs.list must return an array of entry names')
+      const files = await this.callFs('list', path)
 
-      for (const name of names) {
+      for (const { name } of files) {
         await this.deletePathRecursive(joinPath(path, name))
       }
 
-      await this.callFs('rmdir', path)
+      await this.callFs('remove-dir', path)
       return
     }
 
-    await this.callFs('remove', path)
+    await this.callFs('remove-file', path)
   }
 
   async deleteSelected() {
@@ -863,40 +859,58 @@ export class ViewFiles extends HTMLElement {
 
     const destinationDirectory = this.getUploadDirectoryPath()
     const input = document.createElement('input')
-    input.type = 'regular-file'
+    input.type = 'file'
     input.multiple = true
     input.hidden = true
 
-    input.addEventListener('change', async () => {
-      const files = Array.from(input.files || [])
-      input.remove()
-      if (files.length === 0) return
+    input.addEventListener(
+      'change',
+      async () => {
+        const files = Array.from(input.files || [])
+        input.remove()
+        if (files.length === 0) return
 
-      this.setStatus(`Uploading ${files.length} file${files.length === 1 ? '' : 's'} to ${destinationDirectory}...`, 'info')
+        this.setStatus(
+          `Uploading ${files.length} file${files.length === 1 ? '' : 's'} to ${destinationDirectory}...`,
+          'info'
+        )
 
-      try {
-        let selectedUploadPath = null
-        for (const file of files) {
-          const content = new Uint8Array(await file.arrayBuffer())
-          const filePath = joinPath(destinationDirectory, file.name)
-          await this.callFs('write', createWriteInput(filePath, content))
-          selectedUploadPath = filePath
+        try {
+          let selectedUploadPath = null
+
+          for (const file of files) {
+            // Convert ArrayBuffer -> Uint8Array -> plain number[]
+            const content = Array.from(new Uint8Array(await file.arrayBuffer()))
+            const filePath = joinPath(destinationDirectory, file.name)
+            await this.callFs('write-file', filePath, content)
+            selectedUploadPath = filePath
+          }
+
+          if (destinationDirectory !== this.rootPath) {
+            this.expandedPaths.add(destinationDirectory)
+          }
+
+          await this.refresh()
+
+          if (selectedUploadPath) {
+            this.selectRow(selectedUploadPath)
+          }
+
+          await runtime.call('ui.toast', 'success', {
+            message: `Uploaded ${files.length} file${files.length === 1 ? '' : 's'}`,
+          })
+        } catch (error) {
+          this.setStatus(`Error: ${error?.message || error}`, 'danger')
+
+          await runtime.call('ui.toast', 'error', {
+            message: String(error?.message || error),
+          })
+
+          console.error('view-files upload failed:', error)
         }
-
-        if (destinationDirectory !== this.rootPath) {
-          this.expandedPaths.add(destinationDirectory)
-        }
-        await this.refresh()
-        if (selectedUploadPath) this.selectRow(selectedUploadPath)
-        await runtime.call('ui.toast', 'success', {
-          message: `Uploaded ${files.length} file${files.length === 1 ? '' : 's'}`,
-        })
-      } catch (error) {
-        this.setStatus(`Error: ${error?.message || error}`, 'danger')
-        await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
-        console.error('view-files upload failed:', error)
-      }
-    }, { once: true })
+      },
+      { once: true }
+    )
 
     document.body.appendChild(input)
     input.click()
@@ -923,8 +937,8 @@ export class ViewFiles extends HTMLElement {
     this.setStatus(`Downloading ${entry.path}...`, 'info')
 
     try {
-      const result = await this.callFs('read', entry.path)
-      const blob = new Blob([result.output])
+      const result = await this.callFs('read-file', entry.path)
+      const blob = new Blob([new Uint8Array(result)])
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url

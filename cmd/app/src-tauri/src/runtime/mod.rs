@@ -1572,6 +1572,101 @@ mod tests {
     }
 
     #[test]
+    fn fs_proxy_mutates_files_and_directories_through_wasi() {
+        let fs = PathBuf::from("../../../build.nosync/plugins/fs.wasm");
+        if !fs.exists() {
+            eprintln!(
+                "skipping fs proxy mutation test; build it with `make build.nosync/plugins/fs.wasm`"
+            );
+            return;
+        }
+
+        let temp = tempfile::tempdir().unwrap();
+        let plugins_dir = temp.path().join("plugins");
+        std::fs::create_dir(&plugins_dir).unwrap();
+        std::fs::copy(fs, plugins_dir.join("fs.wasm")).unwrap();
+
+        let runtime =
+            Runtime::new_at(temp.path().to_path_buf(), test_preopens(temp.path())).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/fs.wasm".to_string()], false)
+            .unwrap();
+
+        let created = runtime
+            .invoke("fs/fs::create-dir", serde_json::json!(["assets"]))
+            .unwrap();
+        assert!(created.get("ok").is_some(), "{created}");
+
+        let written_text = runtime
+            .invoke(
+                "fs/fs::write-text",
+                serde_json::json!(["assets/hello.txt", "hello"]),
+            )
+            .unwrap();
+        assert!(written_text.get("ok").is_some(), "{written_text}");
+
+        let updated_text = runtime
+            .invoke(
+                "fs/fs::write-text",
+                serde_json::json!(["assets/hello.txt", "updated"]),
+            )
+            .unwrap();
+        assert!(updated_text.get("ok").is_some(), "{updated_text}");
+
+        let text = runtime
+            .invoke("fs/fs::read-text", serde_json::json!(["assets/hello.txt"]))
+            .unwrap();
+        assert_eq!(text["ok"], "updated");
+
+        let written_file = runtime
+            .invoke(
+                "fs/fs::write-file",
+                serde_json::json!(["assets/blob.bin", [0, 1, 255]]),
+            )
+            .unwrap();
+        assert!(written_file.get("ok").is_some(), "{written_file}");
+
+        let file = runtime
+            .invoke("fs/fs::read-file", serde_json::json!(["assets/blob.bin"]))
+            .unwrap();
+        assert_eq!(file["ok"], serde_json::json!([0, 1, 255]));
+
+        let renamed_file = runtime
+            .invoke(
+                "fs/fs::rename",
+                serde_json::json!(["assets/hello.txt", "assets/renamed.txt"]),
+            )
+            .unwrap();
+        assert!(renamed_file.get("ok").is_some(), "{renamed_file}");
+
+        let removed_file = runtime
+            .invoke(
+                "fs/fs::remove-file",
+                serde_json::json!(["assets/renamed.txt"]),
+            )
+            .unwrap();
+        assert!(removed_file.get("ok").is_some(), "{removed_file}");
+        let removed_blob = runtime
+            .invoke("fs/fs::remove-file", serde_json::json!(["assets/blob.bin"]))
+            .unwrap();
+        assert!(removed_blob.get("ok").is_some(), "{removed_blob}");
+
+        let renamed_dir = runtime
+            .invoke("fs/fs::rename", serde_json::json!(["assets", "assets2"]))
+            .unwrap();
+        assert!(renamed_dir.get("ok").is_some(), "{renamed_dir}");
+        let dir_stat = runtime
+            .invoke("fs/fs::stat", serde_json::json!(["assets2"]))
+            .unwrap();
+        assert_eq!(dir_stat["ok"]["type"], "directory");
+
+        let removed_dir = runtime
+            .invoke("fs/fs::remove-dir", serde_json::json!(["assets2"]))
+            .unwrap();
+        assert!(removed_dir.get("ok").is_some(), "{removed_dir}");
+    }
+
+    #[test]
     fn benchmark_exercises_json_wit_conversion() {
         let benchmark = "../../../build.nosync/plugins/benchmark.wasm";
         if !std::path::Path::new(benchmark).exists() {
