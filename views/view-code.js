@@ -1,6 +1,8 @@
 import { runtime } from '/core/runtime.js'
+import { unwrap } from '/util/unwrap.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 import { createWriteInput } from '/util/fs.js'
+import "/widgets/code-editor.js"
 
 const textDecoder = new TextDecoder()
 
@@ -136,11 +138,7 @@ export class ViewCode extends HTMLElement {
     this.setBusy(true)
     this.setStatus('Loading...', 'info')
     try {
-      const result = await runtime.call('fs', 'read', this.path)
-      if (result.returnCode !== 0) {
-        throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
-      }
-      this.editorElement.value = decodeOutput(result)
+      this.editorElement.value = unwrap(await runtime.invoke("fs/fs::read-text", [this.path]))
       this.setStatus('Ready', 'success')
       queueMicrotask(() => this.editorElement.focus())
     } catch (error) {

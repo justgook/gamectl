@@ -430,11 +430,7 @@ export class ViewFiles extends HTMLElement {
   }
 
   async callFs(method, input) {
-    console.log(method, input)
-    const result = unwrap(await runtime.invoke(`fs/fs::${method}`, [input]))
-    console.log("result", result)
-
-    return result
+    return unwrap(await runtime.invoke(`fs/fs::${method}`, [input]))
   }
 
   async refresh() {
@@ -652,7 +648,6 @@ export class ViewFiles extends HTMLElement {
       this.selectRow(entry.path)
     })
     row.addEventListener('dblclick', async () => {
-      console.log("AAAA", entry.type)
       if (entry.type === 'regular-file' && this.mode === 'browser') {
         await this.openFile(entry.path)
       }
