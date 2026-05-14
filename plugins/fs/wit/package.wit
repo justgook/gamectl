@@ -13,8 +13,14 @@ interface fs {
 
     read-file: func(path: string) -> result<list<u8>, string>;
     read-text: func(path: string) -> result<string, string>;
+    write-file: func(path: string, data: list<u8>) -> result<_, string>;
+    write-text: func(path: string, text: string) -> result<_, string>;
     %list: func(path: string) -> result<list<dir-entry>, string>;
     stat: func(path: string) -> result<file-stat, string>;
+    create-dir: func(path: string) -> result<_, string>;
+    remove-file: func(path: string) -> result<_, string>;
+    remove-dir: func(path: string) -> result<_, string>;
+    rename: func(source: string, target: string) -> result<_, string>;
 }
 
 world fs-proxy {

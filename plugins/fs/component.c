@@ -317,14 +317,19 @@ static void resolved_path_free(resolved_path_t *resolved) {
   memset(resolved, 0, sizeof(*resolved));
 }
 
-static bool open_resolved_path(resolved_path_t *resolved,
-                               wasi_filesystem_types_descriptor_flags_t flags,
-                               wasi_filesystem_types_own_descriptor_t *ret,
-                               bool *ret_is_preopen, fs_proxy_string_t *err) {
+static bool open_resolved_path_with_open_flags(
+    resolved_path_t *resolved, wasi_filesystem_types_open_flags_t open_flags,
+    wasi_filesystem_types_descriptor_flags_t flags,
+    wasi_filesystem_types_own_descriptor_t *ret, bool *ret_is_preopen,
+    fs_proxy_string_t *err) {
   wasi_filesystem_types_borrow_descriptor_t base = wasi_filesystem_types_borrow_descriptor(
       resolved->preopens.ptr[resolved->preopen_index].f0);
 
   if (resolved->relative_len == 0) {
+    if (open_flags != 0 || (flags & WASI_FILESYSTEM_TYPES_DESCRIPTOR_FLAGS_WRITE) != 0) {
+      set_error(err, "invalid path");
+      return false;
+    }
     *ret = resolved->preopens.ptr[resolved->preopen_index].f0;
     *ret_is_preopen = true;
     return true;
@@ -336,7 +341,7 @@ static bool open_resolved_path(resolved_path_t *resolved,
   };
   wasi_filesystem_types_error_code_t code = 0;
   bool ok = wasi_filesystem_types_method_descriptor_open_at(
-      base, 0, &relative, 0, flags, ret, &code);
+      base, 0, &relative, open_flags, flags, ret, &code);
   if (!ok && resolved->has_fallback &&
       code == WASI_FILESYSTEM_TYPES_ERROR_CODE_NOT_PERMITTED) {
     wasi_filesystem_types_borrow_descriptor_t fallback_base =
@@ -348,7 +353,7 @@ static bool open_resolved_path(resolved_path_t *resolved,
     };
     code = 0;
     ok = wasi_filesystem_types_method_descriptor_open_at(
-        fallback_base, 0, &fallback, 0, flags, ret, &code);
+        fallback_base, 0, &fallback, open_flags, flags, ret, &code);
   }
   if (!ok) {
     set_error(err, error_code_name(code));
@@ -356,6 +361,14 @@ static bool open_resolved_path(resolved_path_t *resolved,
   }
   *ret_is_preopen = false;
   return true;
+}
+
+static bool open_resolved_path(resolved_path_t *resolved,
+                               wasi_filesystem_types_descriptor_flags_t flags,
+                               wasi_filesystem_types_own_descriptor_t *ret,
+                               bool *ret_is_preopen, fs_proxy_string_t *err) {
+  return open_resolved_path_with_open_flags(resolved, 0, flags, ret,
+                                            ret_is_preopen, err);
 }
 
 static bool append_bytes(fs_proxy_list_u8_t *buffer, fs_proxy_list_u8_t *chunk) {
@@ -448,6 +461,220 @@ bool exports_gams_fs_fs_read_text(fs_proxy_string_t *path, fs_proxy_string_t *re
 
   ret->len = bytes.len;
   ret->ptr = bytes.ptr;
+  return true;
+}
+
+bool exports_gams_fs_fs_write_file(fs_proxy_string_t *path, fs_proxy_list_u8_t *data,
+                                   fs_proxy_string_t *err) {
+  resolved_path_t resolved;
+  if (!resolve_path(path, &resolved, err)) {
+    return false;
+  }
+
+  wasi_filesystem_types_own_descriptor_t file;
+  bool file_is_preopen = false;
+  if (!open_resolved_path_with_open_flags(
+          &resolved,
+          WASI_FILESYSTEM_TYPES_OPEN_FLAGS_CREATE |
+              WASI_FILESYSTEM_TYPES_OPEN_FLAGS_TRUNCATE,
+          WASI_FILESYSTEM_TYPES_DESCRIPTOR_FLAGS_WRITE, &file, &file_is_preopen,
+          err)) {
+    resolved_path_free(&resolved);
+    return false;
+  }
+
+  wasi_filesystem_types_borrow_descriptor_t borrowed = wasi_filesystem_types_borrow_descriptor(file);
+  size_t offset = 0;
+  while (offset < data->len) {
+    fs_proxy_list_u8_t chunk = {
+        .ptr = data->ptr + offset,
+        .len = data->len - offset,
+    };
+    wasi_filesystem_types_filesize_t written = 0;
+    wasi_filesystem_types_error_code_t code = 0;
+    bool ok = wasi_filesystem_types_method_descriptor_write(
+        borrowed, &chunk, (wasi_filesystem_types_filesize_t)offset, &written, &code);
+    if (!ok) {
+      if (!file_is_preopen) {
+        wasi_filesystem_types_descriptor_drop_own(file);
+      }
+      resolved_path_free(&resolved);
+      set_error(err, error_code_name(code));
+      return false;
+    }
+    if (written == 0) {
+      if (!file_is_preopen) {
+        wasi_filesystem_types_descriptor_drop_own(file);
+      }
+      resolved_path_free(&resolved);
+      set_error(err, "write returned zero bytes");
+      return false;
+    }
+    offset += (size_t)written;
+  }
+
+  wasi_filesystem_types_error_code_t code = 0;
+  if (!wasi_filesystem_types_method_descriptor_sync(borrowed, &code)) {
+    if (!file_is_preopen) {
+      wasi_filesystem_types_descriptor_drop_own(file);
+    }
+    resolved_path_free(&resolved);
+    set_error(err, error_code_name(code));
+    return false;
+  }
+
+  if (!file_is_preopen) {
+    wasi_filesystem_types_descriptor_drop_own(file);
+  }
+  resolved_path_free(&resolved);
+  return true;
+}
+
+bool exports_gams_fs_fs_write_text(fs_proxy_string_t *path, fs_proxy_string_t *text,
+                                   fs_proxy_string_t *err) {
+  fs_proxy_list_u8_t data = {
+      .ptr = text->ptr,
+      .len = text->len,
+  };
+  return exports_gams_fs_fs_write_file(path, &data, err);
+}
+
+typedef bool (*resolved_path_op_t)(wasi_filesystem_types_borrow_descriptor_t self,
+                                  fs_proxy_string_t *path,
+                                  wasi_filesystem_types_error_code_t *err);
+
+static bool call_resolved_path_op(resolved_path_t *resolved, resolved_path_op_t op,
+                                  fs_proxy_string_t *err) {
+  if (resolved->relative_len == 0) {
+    set_error(err, "invalid path");
+    return false;
+  }
+
+  wasi_filesystem_types_borrow_descriptor_t base = wasi_filesystem_types_borrow_descriptor(
+      resolved->preopens.ptr[resolved->preopen_index].f0);
+  fs_proxy_string_t relative = {
+      .ptr = (uint8_t *)resolved->relative_ptr,
+      .len = resolved->relative_len,
+  };
+  wasi_filesystem_types_error_code_t code = 0;
+  bool ok = op(base, &relative, &code);
+  if (!ok && resolved->has_fallback &&
+      code == WASI_FILESYSTEM_TYPES_ERROR_CODE_NOT_PERMITTED) {
+    wasi_filesystem_types_borrow_descriptor_t fallback_base =
+        wasi_filesystem_types_borrow_descriptor(
+            resolved->preopens.ptr[resolved->fallback_preopen_index].f0);
+    fs_proxy_string_t fallback = {
+        .ptr = (uint8_t *)resolved->fallback_ptr,
+        .len = resolved->fallback_len,
+    };
+    code = 0;
+    ok = op(fallback_base, &fallback, &code);
+  }
+  if (!ok) {
+    set_error(err, error_code_name(code));
+    return false;
+  }
+  return true;
+}
+
+bool exports_gams_fs_fs_create_dir(fs_proxy_string_t *path, fs_proxy_string_t *err) {
+  resolved_path_t resolved;
+  if (!resolve_path(path, &resolved, err)) {
+    return false;
+  }
+  bool ok = call_resolved_path_op(
+      &resolved, wasi_filesystem_types_method_descriptor_create_directory_at, err);
+  resolved_path_free(&resolved);
+  return ok;
+}
+
+bool exports_gams_fs_fs_remove_file(fs_proxy_string_t *path, fs_proxy_string_t *err) {
+  resolved_path_t resolved;
+  if (!resolve_path(path, &resolved, err)) {
+    return false;
+  }
+  bool ok = call_resolved_path_op(
+      &resolved, wasi_filesystem_types_method_descriptor_unlink_file_at, err);
+  resolved_path_free(&resolved);
+  return ok;
+}
+
+bool exports_gams_fs_fs_remove_dir(fs_proxy_string_t *path, fs_proxy_string_t *err) {
+  resolved_path_t resolved;
+  if (!resolve_path(path, &resolved, err)) {
+    return false;
+  }
+  bool ok = call_resolved_path_op(
+      &resolved, wasi_filesystem_types_method_descriptor_remove_directory_at, err);
+  resolved_path_free(&resolved);
+  return ok;
+}
+
+static void resolved_path_borrow_base_and_path(
+    resolved_path_t *resolved, bool use_fallback,
+    wasi_filesystem_types_borrow_descriptor_t *ret_base,
+    fs_proxy_string_t *ret_path) {
+  if (use_fallback) {
+    *ret_base = wasi_filesystem_types_borrow_descriptor(
+        resolved->preopens.ptr[resolved->fallback_preopen_index].f0);
+    ret_path->ptr = (uint8_t *)resolved->fallback_ptr;
+    ret_path->len = resolved->fallback_len;
+    return;
+  }
+
+  *ret_base = wasi_filesystem_types_borrow_descriptor(
+      resolved->preopens.ptr[resolved->preopen_index].f0);
+  ret_path->ptr = (uint8_t *)resolved->relative_ptr;
+  ret_path->len = resolved->relative_len;
+}
+
+bool exports_gams_fs_fs_rename(fs_proxy_string_t *from, fs_proxy_string_t *to,
+                               fs_proxy_string_t *err) {
+  resolved_path_t old_path;
+  if (!resolve_path(from, &old_path, err)) {
+    return false;
+  }
+
+  resolved_path_t new_path;
+  if (!resolve_path(to, &new_path, err)) {
+    resolved_path_free(&old_path);
+    return false;
+  }
+
+  if (old_path.relative_len == 0 || new_path.relative_len == 0) {
+    resolved_path_free(&new_path);
+    resolved_path_free(&old_path);
+    set_error(err, "invalid path");
+    return false;
+  }
+
+  wasi_filesystem_types_borrow_descriptor_t old_base;
+  wasi_filesystem_types_borrow_descriptor_t new_base;
+  fs_proxy_string_t old_relative;
+  fs_proxy_string_t new_relative;
+  resolved_path_borrow_base_and_path(&old_path, false, &old_base, &old_relative);
+  resolved_path_borrow_base_and_path(&new_path, false, &new_base, &new_relative);
+
+  wasi_filesystem_types_error_code_t code = 0;
+  bool ok = wasi_filesystem_types_method_descriptor_rename_at(
+      old_base, &old_relative, new_base, &new_relative, &code);
+  if (!ok && code == WASI_FILESYSTEM_TYPES_ERROR_CODE_NOT_PERMITTED &&
+      (old_path.has_fallback || new_path.has_fallback)) {
+    resolved_path_borrow_base_and_path(&old_path, old_path.has_fallback, &old_base,
+                                       &old_relative);
+    resolved_path_borrow_base_and_path(&new_path, new_path.has_fallback, &new_base,
+                                       &new_relative);
+    code = 0;
+    ok = wasi_filesystem_types_method_descriptor_rename_at(
+        old_base, &old_relative, new_base, &new_relative, &code);
+  }
+
+  resolved_path_free(&new_path);
+  resolved_path_free(&old_path);
+  if (!ok) {
+    set_error(err, error_code_name(code));
+    return false;
+  }
   return true;
 }
 

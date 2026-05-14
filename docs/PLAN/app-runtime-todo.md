@@ -35,8 +35,14 @@ Runtime model:
 - [x] Implemented `plugins/fs/component.c` with:
   - `gams:fs/fs::read-file`
   - `gams:fs/fs::read-text`
+  - `gams:fs/fs::write-file`
+  - `gams:fs/fs::write-text`
   - `gams:fs/fs::list`
   - `gams:fs/fs::stat`
+  - `gams:fs/fs::create-dir`
+  - `gams:fs/fs::remove-file`
+  - `gams:fs/fs::remove-dir`
+  - `gams:fs/fs::rename`
 - [x] Updated frontend app demo to use `gams:fs`, not raw `wasi:filesystem`.
 - [x] Removed obsolete frontend/native raw WASI filesystem wrappers from `cmd/app/src-tauri/src/runtime/mod.rs`.
 - [x] Removed manual frontend descriptor/preopen/directory-entry-stream resource tracking.
@@ -136,7 +142,7 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
   runtime.fs.stat(path)
   ```
 
-- [ ] Expand `gams:fs` methods only when needed; do not reintroduce raw frontend WASI wrapper complexity.
+- [x] Expanded `gams:fs` with simple file/folder CRUD methods; do not reintroduce raw frontend WASI wrapper complexity.
 
 ### WIT Value Conversion
 

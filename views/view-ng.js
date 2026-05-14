@@ -970,8 +970,7 @@ export class ViewNg extends HTMLElement {
     this.currentRunId = runId
     this._setStatus('compiling graph run...', 'info')
 
-    const compilerRead = await runtime.call('fs', 'read', 'demo/ng/run.lua')
-    assertRuntimeOk(compilerRead, 'read ng run compiler')
+    const compilerRead = unwrap(await runtime.invoke('fs/fs::read-text', ['ng/run.lua']))
 
     const graphJson = JSON.stringify(this.getGraph())
     const progressSource = `local __ng_progress_plugin = ${luaStringLiteral(this.progressPluginId)}
@@ -983,7 +982,7 @@ function __ng_progress(method, nodeId, message)
     message = message,
   }))
 end`
-    const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${decodeOutput(compilerRead)}`
+    const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${compilerRead}`
     const compileResult = await runtime.call('lua', 'run', compilerSource)
     assertRuntimeOk(compileResult, 'compile graph run')
 
@@ -1231,10 +1230,7 @@ end`
   async saveGraphToPath(path, graph) {
     assert(typeof path === 'string' && path.length > 0, 'view-ng save requires path')
     const json = `${JSON.stringify(graph, null, 2)}\n`
-    const writeResult = await runtime.call('fs', 'write', createWriteInput(path, json))
-    if (writeResult.returnCode !== 0) {
-      throw new Error(decodeOutput(writeResult) || `fs.write failed: ${writeResult.returnCode}`)
-    }
+    unwrap(await runtime.invoke('fs/fs::write-text', [path, json]))
   }
 
   setGraphPath(path) {
