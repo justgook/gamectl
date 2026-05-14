@@ -466,17 +466,18 @@ export class ViewFiles extends HTMLElement {
 
     const entries = await Promise.all(files.map(async (file) => {
       const fullPath = joinPath(normalizedPath, file.name)
-      let stat = { size: 0 }
+      let size = 0
 
-      if (file.type !== "directory") {
-        stat = await this.callFs('stat', fullPath)
+      if (file.type === 'regular-file') {
+        const stat = await this.callFs('stat', fullPath)
+        size = Number.isFinite(stat.size) ? stat.size : Number(stat.size || 0)
       }
 
       return ({
         name: file.name,
         path: fullPath,
         type: file.type,
-        size: Number.isFinite(stat.size) ? stat.size : Number(stat.size || 0),
+        size,
       })
     }))
     this.fileTree.set(normalizedPath, sortEntries(entries))
@@ -630,7 +631,11 @@ export class ViewFiles extends HTMLElement {
     nameCell.appendChild(document.createTextNode(entry.name))
 
     const typeCell = document.createElement('td')
-    typeCell.textContent = entry.type === 'directory' ? 'Folder' : 'File'
+    typeCell.textContent = entry.type === 'directory'
+      ? 'Folder'
+      : entry.type === 'regular-file'
+        ? 'File'
+        : entry.type
 
     const sizeCell = document.createElement('td')
     sizeCell.textContent = formatSize(entry.size, entry.type)
