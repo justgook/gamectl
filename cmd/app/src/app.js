@@ -39,8 +39,9 @@ runtime.onCallView(async (target, args) => {
   const call = { target, args }
   viewCalls.push(call)
   console.log("got view call", call)
-  if (target !== "benchmark:view") throw new Error(`unknown view ${target}`)
-  return JSON.stringify({ ok: true, received: call })
+  if (target === "benchmark:view") return JSON.stringify({ ok: true, received: call })
+  if (target === "ui.toast.confirm") return JSON.stringify({ ok: true })
+  throw new Error(`unknown view ${target}`)
 })
 
 function unwrapResult(result, label) {
@@ -49,7 +50,7 @@ function unwrapResult(result, label) {
   throw new Error(`${label}: expected WIT result object`)
 }
 
-await runtime.addPlugins(["plugins/benchmark.comp.wasm"], true)
+await runtime.addPlugins(["plugins/benchmark.comp.wasm", "plugins/lua.comp.wasm"], true)
 
 
 const gamsJsonText = unwrapResult(
@@ -82,6 +83,16 @@ const wasiBenchmark = unwrapResult(
   await runtime.invoke("benchmark/benchmark::check-wasi-filesystem", ["."]),
   "benchmark wasi filesystem",
 )
+const luaResult = unwrapResult(
+  await runtime.invoke("lua/lua::run", [`
+function main()
+  local result = host.call("ui.toast.confirm", '{"message":"Continue?"}')
+  return { confirmed = json.decode(result).ok, answer = 42 }
+end
+`]),
+  "lua run",
+)
+console.log({ luaResult })
 
 try {
   await runtime.addPlugins(["plugins/calculator.comp.wasm", "plugins/adder.comp.wasm"], true)
@@ -99,6 +110,7 @@ diagnostics.textContent = JSON.stringify({
   viewCalls,
   viewCallResult,
   wasiBenchmark,
+  luaResult,
   diagnostics: ddd,
 }, null, 2)
 console.log("gams.runtime ready", ddd)
