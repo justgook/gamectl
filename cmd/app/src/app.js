@@ -26,10 +26,12 @@ async function main() {
   console.timeEnd("runtime.ready")
 
   console.time("addPlugins")
-  await runtime.addPlugins(["plugins/random.comp.wasm",], true)
-  await runtime.addPlugins(["plugins/fs.comp.wasm",], true)
-  await runtime.addPlugins(["plugins/layout.comp.wasm",], true)
-  await runtime.addPlugins(["plugins/lua.comp.wasm"], true)
+  await runtime.addPlugins([
+    "plugins/random.comp.wasm",
+    "plugins/fs.comp.wasm",
+    "plugins/layout.comp.wasm",
+    // "plugins/lua.comp.wasm"
+  ], true)
   console.timeEnd("addPlugins")
 
   console.time("read gams.json")
