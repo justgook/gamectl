@@ -128,7 +128,13 @@ PLUGIN_GO_COMPONENT_MAIN :=
 PLUGIN_GO_COMPONENT_EXTRA_DEPS :=
 
 WIT_BINDGEN ?= wit-bindgen
+WASM_TOOLS ?= wasm-tools
 WASI_P2_CC ?= wasm32-wasip2-clang
+# Default component builds should be production-shaped: optimized and stripped.
+# wasm32-wasip2-clang otherwise emits DWARF custom sections even with -O2.
+COMPONENT_RELEASE_CFLAGS ?= -O2 -DNDEBUG
+COMPONENT_RELEASE_LDFLAGS ?= -Wl,--strip-all
+TINYGO_COMPONENT_RELEASE_FLAGS ?= -no-debug
 GO ?= go
 TINYGO ?= tinygo
 WKG ?= wkg
@@ -282,9 +288,12 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/go.
 		test -f "$(WIT_PACKAGE)"; \
 		$(GO) tool wit-bindgen-go generate --world "$(WIT_WORLD)" --out "$(GO_BINDINGS_OUT)" "./$(WIT_PACKAGE)"; \
 		$(TINYGO) build -target=wasip2 \
+			$(TINYGO_COMPONENT_RELEASE_FLAGS) \
 			-o "$(abspath $@)" \
 			--wit-package "$(WIT_PACKAGE)" \
-			--wit-world "$(WIT_WORLD)" "$(GO_COMPONENT_MAIN)"
+			--wit-world "$(WIT_WORLD)" "$(GO_COMPONENT_MAIN)"; \
+		$(WASM_TOOLS) strip -a "$(abspath $@)" -o "$(abspath $@).strip"; \
+		mv "$(abspath $@).strip" "$(abspath $@)"
 
 # Rule to build legacy Go plugins from the repository root module.
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $$(shell find $(PLUGIN_DIR)/$$* -name '*.go' 2>/dev/null) $(GO_PLUGIN_SHARED_DEPS) | $(BUILD_DIR)/plugins
@@ -329,11 +338,15 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/com
 		mkdir -p "$$GEN_DIR"; \
 		(cd "$$GEN_DIR" && $(WIT_BINDGEN) c "$(abspath $(PLUGIN_DIR)/$*/wit)" -w "$(WIT_WORLD)"); \
 		$(WASI_P2_CC) -o "$@" -mexec-model=reactor -I"$$GEN_DIR" \
+			$(COMPONENT_RELEASE_CFLAGS) \
 			$(COMPONENT_CFLAGS) \
 			"$$GEN_DIR/$(COMPONENT_NAME).c" \
 			$(if $(strip $(COMPONENT_SOURCES)),$(COMPONENT_SOURCES),"$(PLUGIN_DIR)/$*/component.c") \
 			"$$GEN_DIR/$(COMPONENT_NAME)_component_type.o" \
-			$(COMPONENT_LDFLAGS)
+			$(COMPONENT_RELEASE_LDFLAGS) \
+			$(COMPONENT_LDFLAGS); \
+		$(WASM_TOOLS) strip -a "$@" -o "$@.strip"; \
+		mv "$@.strip" "$@"
 
 # Rule to build C plugins using Zig (bare WASM)
 $(BUILD_DIR)/plugins/%.wasm: | $(BUILD_DIR)/plugins
