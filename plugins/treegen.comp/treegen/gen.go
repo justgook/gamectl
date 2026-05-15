@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/justgook/gams/sdk/go/tree"
+	"github.com/kkgams/sdk/go/tree"
 )
 
 type Random interface {

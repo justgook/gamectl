@@ -5,7 +5,7 @@ package main
 import (
 	"sort"
 
-	gamstree "github.com/justgook/gams/sdk/go/tree"
+	gamstree "github.com/kkgams/sdk/go/tree"
 	treegenerator "github.com/kkgams/treegen/internal/gams/tree-generator/tree-generator"
 	"github.com/kkgams/treegen/treegen"
 	"go.bytecodealliance.org/cm"

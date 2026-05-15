@@ -5,12 +5,15 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_cli::CliExt;
 
 #[tauri::command]
-fn runtime_add_plugins(
+async fn runtime_add_plugins(
     paths: Vec<String>,
     reload: bool,
     runtime: tauri::State<'_, runtime::Runtime>,
 ) -> Result<Vec<runtime::ComponentHandle>, String> {
-    runtime.add_plugins(paths, reload)
+    let runtime = runtime.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || runtime.add_plugins(paths, reload))
+        .await
+        .map_err(|error| format!("runtime add plugins task failed: {error}"))?
 }
 
 #[tauri::command]
