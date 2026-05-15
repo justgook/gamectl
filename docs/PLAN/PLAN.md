@@ -28,8 +28,9 @@ Current runtime direction:
 ## Priority Plans
 
 1. `PLAN/app-runtime-todo.md` — active `cmd/app` runtime TODO; current focus is `gams:fs` app-flow integration.
-2. `PLAN/app-runtime-component-ui-spec.md` — background architecture summary; active checklist moved to TODO file.
-3. `PLAN/fs-runtime.md` — historical/superseded app-side virtual FS plan.
+2. `PLAN/app-runtime-wrpc.md` — investigation plan for replacing frontend/backend Tauri command/event payloads with wRPC where appropriate.
+3. `PLAN/app-runtime-component-ui-spec.md` — background architecture summary; active checklist moved to TODO file.
+4. `PLAN/fs-runtime.md` — historical/superseded app-side virtual FS plan.
 
 ## Planning Chunks
 
@@ -44,6 +45,7 @@ Current next task:
 Remaining major runtime work:
 
 - Load/verify `plugins/fs.wasm` in the app flow and route frontend filesystem helpers through `gams:fs`.
+- Spike wRPC for frontend/backend communication if `PLAN/app-runtime-wrpc.md` open questions are resolved.
 - Expand JSON ↔ WIT value conversion.
 - Implement blocking `gams:runtime/runtime.call` bridge to frontend views.
 - Implement singleton WIT-shaped frontend `ui.plugins`.

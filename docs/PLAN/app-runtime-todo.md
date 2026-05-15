@@ -10,6 +10,7 @@ This is the current implementation TODO for the `cmd/app` runtime. It supersedes
 
 Runtime model:
 
+- wRPC for frontend/backend communication is under investigation in `app-runtime-wrpc.md`; do not replace the current Tauri bridge until the transport/JS-binding spike passes.
 - WASM components expose/import real WIT interfaces.
 - Frontend calls exported functions through structured `runtime.invoke(target, args)`; targets must be namespace-less and version-less, e.g. `fs/fs::read-text`.
 - Components are loaded through `runtime.addPlugins(paths)` without caller-defined plugin ids.
@@ -174,6 +175,17 @@ Namespace is ignored for compatibility but retained for diagnostics and exact Wa
 - [x] Response handling does not lock `RuntimeInner`; `runtime_call_view_response` talks only to the separate view bridge pending-call table.
 - [x] `runtime_invoke` runs Wasmtime execution in `spawn_blocking` so a synchronous component call waiting for frontend does not block Tauri IPC/event handling.
 - [ ] Add an automated integration test for the real frontend bridge/deadlock behavior. Current Rust unit tests still validate the no-frontend error path only.
+
+### wRPC Frontend/Backend Spike
+
+Detailed plan: `app-runtime-wrpc.md`.
+
+- [x] Decide transport: use Tauri IPC as the wRPC byte carrier; do not use WebTransport.
+- [ ] Add gated `runtime_wrpc_call(request: Vec<u8>) -> Vec<u8>` Tauri command.
+- [ ] Implement one manually encoded JS example in `cmd/app/src/core/runtime.js`.
+- [ ] Reuse or adapt `wrpc-runtime-wasmtime` dynamic `Val` decode/encode helpers.
+- [ ] Initially reject streams/resources/futures/deferred paths unless a concrete view needs them.
+- [ ] Only then consider replacing current `runtime.invoke`; keep `runtime.callView` separate unless Rust -> JS needs typed bytes too.
 
 ### Singleton UI Plugins
 
