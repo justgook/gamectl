@@ -135,6 +135,15 @@ fn run_cli_command(
                 .map_err(|error| anyhow::anyhow!(error))?;
             println!("compiled component cache cleared");
         }
+        "serve" => {
+            let addr = cli_arg_string(&subcommand.matches.args, "addr")?
+                .unwrap_or_else(|| "127.0.0.1:8080".to_string());
+            let component = cli_arg_string(&subcommand.matches.args, "component")?
+                .unwrap_or_else(|| "<component.wasm>".to_string());
+            println!(
+                "`serve` is not implemented yet. Planned shape: serve wasi:http/proxy component {component} on {addr}. Wasmtime provides the low-level wasi-http pieces, but GAMS still needs host integration."
+            );
+        }
         "init" => {
             let path = root.join("gams.json");
             let file = std::fs::OpenOptions::new()
