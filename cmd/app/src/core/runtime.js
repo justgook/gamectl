@@ -110,6 +110,10 @@ export class Runtime {
     return await invokeCommand('runtime_diagnostics', {})
   }
 
+  async clearCompiledComponentCache() {
+    await invokeCommand('runtime_clear_compiled_component_cache', {})
+  }
+
   register(plugin) {
     if (!plugin?.id) throw new Error('main-thread plugin requires id')
     this.#mainPlugins.set(plugin.id, plugin)

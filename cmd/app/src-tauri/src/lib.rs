@@ -50,6 +50,13 @@ fn runtime_call_view_response(
     runtime.respond_to_call_view(id, ok, err)
 }
 
+#[tauri::command]
+fn runtime_clear_compiled_component_cache(
+    runtime: tauri::State<'_, runtime::Runtime>,
+) -> Result<(), String> {
+    runtime.clear_compiled_component_cache()
+}
+
 fn runtime_root() -> anyhow::Result<PathBuf> {
     let raw = match std::env::var("GAMS_APP_CWD") {
         Ok(value) if !value.is_empty() => PathBuf::from(value),
@@ -100,8 +107,17 @@ pub fn run() {
         .manage(runtime)
         .plugin(tauri_plugin_cli::init())
         .setup(|app| {
-            app.state::<runtime::Runtime>()
-                .attach_app_handle(app.handle().clone())?;
+            let runtime = app.state::<runtime::Runtime>();
+            runtime.attach_app_handle(app.handle().clone())?;
+            let cache_dir = match std::env::var_os("GAMS_WASMTIME_CACHE_DIR") {
+                Some(path) => PathBuf::from(path),
+                None => app
+                    .path()
+                    .app_cache_dir()
+                    .map_err(|error| error.to_string())?
+                    .join("wasmtime-components"),
+            };
+            runtime.set_compiled_component_cache_dir(cache_dir)?;
 
             let matches = app.cli().matches().map_err(|error| error.to_string())?;
             if let Some(subcommand) = matches.subcommand {
@@ -128,6 +144,7 @@ pub fn run() {
             runtime_diagnostics,
             runtime_call_view_ready,
             runtime_call_view_response,
+            runtime_clear_compiled_component_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -38,6 +38,7 @@ TAURI_APP_DIR_SRC ?= $(TAURI_APP_DIR)/src-tauri
 NIX_SHELL ?= shell.nix
 TAURI_APP_TARGET_DIR ?= $(abspath $(BUILD_DIR)/app/target)
 TAURI_APP_BUNDLES ?= app,dmg
+APP_WASMTIME_CACHE_DIR ?= $(abspath $(BUILD_DIR)/wasmtime-cache)
 GAMS_CONFIG ?= demo/gams.json
 DEMO_DIR ?= demo
 CLI_DIR ?= cmd/cli
@@ -402,7 +403,7 @@ app-check:
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
 
 app-run: $(PLUGIN_TARGETS)
-	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
+	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" GAMS_WASMTIME_CACHE_DIR="$(APP_WASMTIME_CACHE_DIR)" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
 
 app-build: app-build-release
 
