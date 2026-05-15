@@ -96,6 +96,12 @@ fn cli_arg_strings(args: &HashMap<String, ArgData>, name: &str) -> anyhow::Resul
     }
 }
 
+fn is_wasi_http_proxy_export(export: &str) -> bool {
+    export.starts_with("wasi:http/incoming-handler")
+        || export.starts_with("wasi:http/handler")
+        || export.starts_with("wasi:http/proxy")
+}
+
 fn run_cli_command(
     root: &Path,
     runtime: &runtime::Runtime,
@@ -139,10 +145,43 @@ fn run_cli_command(
             let addr = cli_arg_string(&subcommand.matches.args, "addr")?
                 .unwrap_or_else(|| "127.0.0.1:8080".to_string());
             let plugin_paths = cli_arg_strings(&subcommand.matches.args, "plug")?;
-            println!(
-                "`serve` is not implemented yet. Planned shape: load --plug components {}, find the single component exporting wasi:http/proxy, then serve it on {addr} with the other plugged components linked as dependencies.",
-                serde_json::to_string(&plugin_paths)?
-            );
+            if plugin_paths.is_empty() {
+                anyhow::bail!("`serve` requires at least one --plug component");
+            }
+            let handles = runtime
+                .add_component_files(plugin_paths.into_iter().map(PathBuf::from).collect())
+                .map_err(|error| anyhow::anyhow!(error))?;
+            let http_handlers = handles
+                .iter()
+                .filter(|handle| {
+                    handle
+                        .exports
+                        .iter()
+                        .any(|export| is_wasi_http_proxy_export(export))
+                })
+                .collect::<Vec<_>>();
+            match http_handlers.as_slice() {
+                [] => anyhow::bail!(
+                    "`serve` loaded components successfully, but none export wasi:http/proxy"
+                ),
+                [handler] => {
+                    println!(
+                        "`serve` validated component graph. HTTP handler: {}. Next step: start HTTP server on {addr} and route requests to its wasi:http/proxy export.",
+                        handler.path
+                    );
+                }
+                handlers => {
+                    let paths = handlers
+                        .iter()
+                        .map(|handler| handler.path.as_str())
+                        .collect::<Vec<_>>();
+                    anyhow::bail!(
+                        "`serve` expected exactly one wasi:http/proxy exporter, found {}: {}",
+                        paths.len(),
+                        paths.join(", ")
+                    );
+                }
+            }
         }
         "init" => {
             let path = root.join("gams.json");
@@ -237,8 +276,13 @@ pub fn run() {
             runtime.set_compiled_component_cache_dir(cache_dir)?;
 
             let matches = app.cli().matches().map_err(|error| error.to_string())?;
-            if run_cli_command(&root, &runtime, &matches).map_err(|error| error.to_string())? {
-                std::process::exit(0);
+            match run_cli_command(&root, &runtime, &matches) {
+                Ok(true) => std::process::exit(0),
+                Ok(false) => {}
+                Err(error) => {
+                    eprintln!("error: {error:#}");
+                    std::process::exit(1);
+                }
             }
 
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
