@@ -3,6 +3,7 @@ mod values;
 use anyhow::{bail, Context as AnyhowContext, Result};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use tauri::Emitter;
@@ -34,6 +35,7 @@ struct RuntimeInner {
     components: BTreeMap<String, ComponentRecord>,
     funcs: BTreeMap<String, ExportedFunc>,
     linked_interfaces: BTreeSet<String>,
+    compiled_component_cache_dir: PathBuf,
 }
 
 #[derive(Clone)]
@@ -255,6 +257,36 @@ impl Runtime {
         self.view_bridge.attach_app_handle(app_handle)
     }
 
+    pub fn set_compiled_component_cache_dir(&self, path: PathBuf) -> Result<(), String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "runtime lock poisoned".to_string())?;
+        inner.compiled_component_cache_dir = path;
+        Ok(())
+    }
+
+    pub fn clear_compiled_component_cache(&self) -> Result<(), String> {
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| "runtime lock poisoned".to_string())?;
+        if inner.compiled_component_cache_dir.exists() {
+            fs::remove_dir_all(&inner.compiled_component_cache_dir).map_err(|error| {
+                format!(
+                    "failed to remove compiled component cache {}: {error}",
+                    inner.compiled_component_cache_dir.display()
+                )
+            })?;
+        }
+        fs::create_dir_all(&inner.compiled_component_cache_dir).map_err(|error| {
+            format!(
+                "failed to recreate compiled component cache {}: {error}",
+                inner.compiled_component_cache_dir.display()
+            )
+        })
+    }
+
     pub fn mark_call_view_ready(&self) -> Result<(), String> {
         self.view_bridge.mark_frontend_ready()
     }
@@ -316,6 +348,7 @@ impl Runtime {
                 "exports": component.exports,
             })).collect::<Vec<_>>(),
             "exports": inner.funcs.keys().cloned().collect::<Vec<_>>(),
+            "compiledComponentCacheDir": inner.compiled_component_cache_dir.display().to_string(),
         }))
     }
 }
@@ -363,12 +396,40 @@ impl RuntimeInner {
             linker,
             store,
             next_component: 1,
-            root: cwd,
+            root: cwd.clone(),
             preopens,
             components: BTreeMap::new(),
             funcs: BTreeMap::new(),
             linked_interfaces: BTreeSet::from(["gams:runtime/runtime@1.0.0".to_string()]),
+            compiled_component_cache_dir: default_compiled_component_cache_dir(&cwd),
         })
+    }
+
+    fn load_component(&self, path: &Path) -> Result<Component> {
+        let cache_path = compiled_component_cache_path(&self.compiled_component_cache_dir, path);
+        if compiled_component_cache_is_fresh(path, &cache_path)? {
+            let bytes = fs::read(&cache_path).with_context(|| {
+                format!(
+                    "failed to read compiled component cache {}",
+                    cache_path.display()
+                )
+            })?;
+            // SAFETY: GAMS only writes this cache from `Component::serialize` below, into a
+            // runtime-owned cache directory keyed by Wasmtime/runtime config and invalidated
+            // when the source `.wasm` mtime changes. Users can clear the cache if external
+            // filesystem operations make mtime insufficient.
+            return unsafe { Component::deserialize(&self.engine, bytes) }.map_err(|error| {
+                anyhow::anyhow!(
+                    "failed to deserialize compiled component cache {}: {error}",
+                    cache_path.display()
+                )
+            });
+        }
+
+        let component = Component::from_file(&self.engine, path)?;
+        let bytes = component.serialize()?;
+        write_compiled_component_cache(path, &cache_path, &bytes)?;
+        Ok(component)
     }
 
     fn add_plugins(&mut self, paths: Vec<String>, reload: bool) -> Result<Vec<ComponentHandle>> {
@@ -391,7 +452,7 @@ impl RuntimeInner {
                 continue;
             }
 
-            let component = Component::from_file(&self.engine, resolved_path).map_err(|error| {
+            let component = self.load_component(resolved_path).map_err(|error| {
                 anyhow::anyhow!(
                     "loading component {path} from {}: {error}",
                     resolved_path.display()
@@ -450,7 +511,9 @@ impl RuntimeInner {
         }
 
         let view_bridge = self.store.data().view_bridge.clone();
+        let compiled_component_cache_dir = self.compiled_component_cache_dir.clone();
         let mut rebuilt = RuntimeInner::new(root, self.preopens.clone(), view_bridge)?;
+        rebuilt.compiled_component_cache_dir = compiled_component_cache_dir;
         let handles = rebuilt.add_plugins(
             all_paths
                 .iter()
@@ -1128,6 +1191,101 @@ fn invocation_key_matches_request(
     requested.matches_provider(&candidate)
 }
 
+fn default_compiled_component_cache_dir(root: &Path) -> PathBuf {
+    std::env::var_os("GAMS_WASMTIME_CACHE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join("build.nosync/wasmtime-cache"))
+}
+
+fn compiled_component_cache_format_dir() -> String {
+    format!(
+        "wasmtime44-component-exceptions-v1-{}-{}",
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    )
+}
+
+fn compiled_component_cache_path(cache_dir: &Path, source_path: &Path) -> PathBuf {
+    let source = source_path.to_string_lossy();
+    let hash = fnv1a64(source.as_bytes());
+    let file_name = source_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("component.wasm");
+    cache_dir
+        .join(compiled_component_cache_format_dir())
+        .join(format!("{hash:016x}-{file_name}.cwasm"))
+}
+
+fn fnv1a64(bytes: &[u8]) -> u64 {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+fn compiled_component_cache_is_fresh(source_path: &Path, cache_path: &Path) -> Result<bool> {
+    if !cache_path.exists() {
+        return Ok(false);
+    }
+    let source_mtime = fs::metadata(source_path)
+        .with_context(|| format!("failed to stat component {}", source_path.display()))?
+        .modified()
+        .with_context(|| {
+            format!(
+                "failed to read mtime for component {}",
+                source_path.display()
+            )
+        })?;
+    let cache_mtime = fs::metadata(cache_path)
+        .with_context(|| format!("failed to stat component cache {}", cache_path.display()))?
+        .modified()
+        .with_context(|| {
+            format!(
+                "failed to read mtime for component cache {}",
+                cache_path.display()
+            )
+        })?;
+    Ok(cache_mtime >= source_mtime)
+}
+
+fn write_compiled_component_cache(
+    source_path: &Path,
+    cache_path: &Path,
+    bytes: &[u8],
+) -> Result<()> {
+    let parent = cache_path.parent().with_context(|| {
+        format!(
+            "compiled component cache path has no parent: {}",
+            cache_path.display()
+        )
+    })?;
+    fs::create_dir_all(parent).with_context(|| {
+        format!(
+            "failed to create compiled component cache directory {}",
+            parent.display()
+        )
+    })?;
+    let tmp_path = cache_path.with_extension("cwasm.tmp");
+    fs::write(&tmp_path, bytes).with_context(|| {
+        format!(
+            "failed to write compiled component cache {} for {}",
+            tmp_path.display(),
+            source_path.display()
+        )
+    })?;
+    fs::rename(&tmp_path, cache_path).with_context(|| {
+        format!(
+            "failed to install compiled component cache {} for {}",
+            cache_path.display(),
+            source_path.display()
+        )
+    })?;
+    Ok(())
+}
+
 fn safe_join(base: &Path, relative: &str) -> Result<PathBuf> {
     if relative.starts_with('/') || relative.starts_with('\\') {
         bail!("WASI paths must be relative to their descriptor: `{relative}`");
@@ -1205,7 +1363,7 @@ fn resolve_component_path(root: &Path, preopens: &[FsPreopen], path: &str) -> Re
 
 #[cfg(test)]
 mod tests {
-    use super::{FsPreopen, Runtime};
+    use super::{compiled_component_cache_path, FsPreopen, Runtime};
     use std::path::{Path, PathBuf};
 
     fn test_preopens(root: &Path) -> Vec<FsPreopen> {
@@ -1233,6 +1391,53 @@ mod tests {
             }
         }
         preopens
+    }
+
+    #[test]
+    fn compiled_component_cache_is_written_and_reused() {
+        let path = "../../../build.nosync/plugins/adder.comp.wasm";
+        if !std::path::Path::new(path).exists() {
+            eprintln!(
+                "skipping compiled cache test; build it with `make build.nosync/plugins/adder.comp.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../..").canonicalize().unwrap();
+        let source = PathBuf::from(path).canonicalize().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache_path = compiled_component_cache_path(cache_dir.path(), &source);
+
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .set_compiled_component_cache_dir(cache_dir.path().to_path_buf())
+            .unwrap();
+        runtime
+            .add_plugins(vec![source.display().to_string()], false)
+            .unwrap();
+        assert!(
+            cache_path.exists(),
+            "missing cache {}",
+            cache_path.display()
+        );
+        let first_cache_mtime = std::fs::metadata(&cache_path).unwrap().modified().unwrap();
+
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .set_compiled_component_cache_dir(cache_dir.path().to_path_buf())
+            .unwrap();
+        runtime
+            .add_plugins(vec![source.display().to_string()], false)
+            .unwrap();
+        let second_cache_mtime = std::fs::metadata(&cache_path).unwrap().modified().unwrap();
+        assert_eq!(first_cache_mtime, second_cache_mtime);
+        let value = runtime
+            .invoke("adder/add::add", serde_json::json!([2, 3]))
+            .unwrap();
+        assert_eq!(value, serde_json::json!(5));
+
+        runtime.clear_compiled_component_cache().unwrap();
+        assert!(!cache_path.exists());
     }
 
     #[test]
