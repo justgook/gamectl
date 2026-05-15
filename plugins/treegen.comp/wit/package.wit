@@ -1,0 +1,27 @@
+package gams:tree-generator@1.0.0;
+
+interface tree-generator {
+    type data-entry = tuple<string, string>;
+
+    record node {
+        data: list<data-entry>,
+        parent-id: s32,
+    }
+
+    type tree = list<node>;
+
+    record generate-tree-config {
+        node-count: u32,
+        max-depth: u32,
+        max-branching: u32,
+        root-branches: u32,
+    }
+
+    gen: func(config: generate-tree-config) -> result<tree, string>;
+}
+
+world generator {
+    include wasi:cli/imports@0.2.0;
+
+    export tree-generator;
+}

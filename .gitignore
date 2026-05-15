@@ -27,6 +27,7 @@ tmp/
 /build.nosync/
 /plugins/ng/build/
 *.wasm
+*.stamp
 /tools/opr-import/opr-import
 /game2-*.png
 /cmd/native/build/
