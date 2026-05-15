@@ -1,40 +1,50 @@
 import { runtime, unwrap } from "/core/runtime.js"
 import { init } from "/___/services.js"
-//
-// const app = document.querySelector("#app")
-// if (!app) throw new Error("missing #app")
-//
-// app.innerHTML = `
-//   <main>
-//     <h1>GAMS component runtime bootstrap</h1>
-//     <p>Destructive cmd/app rebuild: Tauri exposes structured component runtime APIs.</p>
-//     <section>
-//       <h2>Runtime diagnostics</h2>
-//       <pre id="diagnostics">loading...</pre>
-//     </section>
-//   </main>
-// `
-//
-// const diagnostics = document.querySelector("#diagnostics")
-// if (!diagnostics) throw new Error("missing #diagnostics")
+
+const app = document.querySelector("#app")
+if (!app) throw new Error("missing #app")
+
+app.innerHTML = `
+  <main>
+    <h1>GAMS component runtime bootstrap</h1>
+    <p>Destructive cmd/app rebuild: Tauri exposes structured component runtime APIs.</p>
+    <section>
+      <h2>Runtime diagnostics</h2>
+      <pre id="diagnostics">loading...</pre>
+    </section>
+  </main>
+`
+
+const diagnostics = document.querySelector("#diagnostics")
+if (!diagnostics) throw new Error("missing #diagnostics")
 
 async function main() {
+
+
+  console.time("runtime.ready")
   await runtime.ready
-  /* THE Real app Start */
+  console.timeEnd("runtime.ready")
 
+  console.time("addPlugins")
+  await runtime.addPlugins(["plugins/random.comp.wasm",], true)
+  await runtime.addPlugins(["plugins/fs.comp.wasm",], true)
+  await runtime.addPlugins(["plugins/layout.comp.wasm",], true)
+  await runtime.addPlugins(["plugins/lua.comp.wasm"], true)
+  console.timeEnd("addPlugins")
 
-  await runtime.addPlugins(["plugins/random.comp.wasm", "plugins/fs.comp.wasm", "plugins/layout.comp.wasm", "plugins/lua.comp.wasm"], true)
+  console.time("read gams.json")
+  const gamsJsonText2 = unwrap(await runtime.invoke("fs/fs::read-text", ["gams.json"]))
+  console.timeEnd("read gams.json")
 
-  const gamsJsonText2 = unwrap(
-    await runtime.invoke("fs/fs::read-text", ["gams.json"]),
-    "read /gams.json",
-  )
+  console.time("init UI")
   await init(JSON.parse(gamsJsonText2))
+  console.timeEnd("init UI")
+
 
   /* THE DEBUG STUFF*/
 
-  await runtime.addPlugins(["plugins/treegen.comp.wasm"], true)
-  await runtime.invoke("tree-generator/tree-generator::gen", [{ "node-count": 40, "max-depth": 0, "max-branching": 0, "root-branches": 0 }])
+  // await runtime.addPlugins(["plugins/treegen.comp.wasm"], true)
+  // await runtime.invoke("tree-generator/tree-generator::gen", [{ "node-count": 40, "max-depth": 0, "max-branching": 0, "root-branches": 0 }])
 
 }
 setTimeout(main, 0)

@@ -4,10 +4,10 @@ go 1.25.2
 
 tool go.bytecodealliance.org/cmd/wit-bindgen-go
 
-replace github.com/justgook/gams => ../../
+replace github.com/kkgams/sdk => ../../sdk
 
 require (
-	github.com/justgook/gams v0.0.0-00010101000000-000000000000
+	github.com/kkgams/sdk v0.0.0
 	go.bytecodealliance.org/cm v0.3.0
 )
 

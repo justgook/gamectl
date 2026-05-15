@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/justgook/gams/plugins/treegen/treegen"
+	"github.com/kkgams/treegen/treegen"
 )
 
 func TestGenerateTree(t *testing.T) {

@@ -59,10 +59,14 @@ WAILS_SDKROOT ?= $(shell xcrun --show-sdk-path)
 HOST_CC ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang ]; then echo /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang; else command -v clang || command -v cc; fi)
 HOST_CXX ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++ ]; then echo /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++; else command -v clang++ || command -v c++; fi)
 
-# Detect all plugin subdirectories.
-PLUGIN_DIRS := $(wildcard $(PLUGIN_DIR)/*)
+# Detect first-class plugin subdirectories.
+# Dotted `*.comp` plugins are the active component-plugin pattern. Non-`.comp`
+# directories are legacy plugins and are intentionally not part of the default
+# root build; migrate/refactor them into `*.comp` modules instead of adding new
+# root-go-module wiring here.
+PLUGIN_DIRS := $(wildcard $(PLUGIN_DIR)/*.comp)
 PLUGINS := $(notdir $(PLUGIN_DIRS))
-JS_PLUGIN_ENTRYPOINTS := $(wildcard $(PLUGIN_DIR)/*/index.js)
+JS_PLUGIN_ENTRYPOINTS := $(wildcard $(PLUGIN_DIR)/*.comp/index.js)
 PLUGIN_NAMES_JS := $(sort $(patsubst $(PLUGIN_DIR)/%/index.js,%,$(JS_PLUGIN_ENTRYPOINTS)))
 PLUGIN_NAMES_WASM := $(filter-out $(PLUGIN_NAMES_JS),$(PLUGINS))
 PLUGIN_TARGETS_WASM := $(addprefix $(BUILD_DIR)/plugins/,$(addsuffix .wasm,$(PLUGIN_NAMES_WASM)))
@@ -118,9 +122,16 @@ PLUGIN_COMPONENT_SOURCES :=
 PLUGIN_COMPONENT_CFLAGS :=
 PLUGIN_COMPONENT_LDFLAGS :=
 PLUGIN_COMPONENT_EXTRA_DEPS :=
+PLUGIN_WIT_PACKAGE :=
+PLUGIN_GO_BINDINGS_OUT :=
+PLUGIN_GO_COMPONENT_MAIN :=
+PLUGIN_GO_COMPONENT_EXTRA_DEPS :=
 
 WIT_BINDGEN ?= wit-bindgen
 WASI_P2_CC ?= wasm32-wasip2-clang
+GO ?= go
+TINYGO ?= tinygo
+WKG ?= wkg
 
 # Helper macro: attach manifest-defined variables to that plugin's wasm target
 #
@@ -166,6 +177,10 @@ define APPLY_PLUGIN_MANIFEST
   COMPONENT_CFLAGS_$(1) := $$(PLUGIN_COMPONENT_CFLAGS)
   COMPONENT_LDFLAGS_$(1) := $$(PLUGIN_COMPONENT_LDFLAGS)
   COMPONENT_EXTRA_DEPS_$(1) := $$(PLUGIN_COMPONENT_EXTRA_DEPS)
+  WIT_PACKAGE_$(1) := $$(PLUGIN_WIT_PACKAGE)
+  GO_BINDINGS_OUT_$(1) := $$(or $$(PLUGIN_GO_BINDINGS_OUT),internal)
+  GO_COMPONENT_MAIN_$(1) := $$(or $$(PLUGIN_GO_COMPONENT_MAIN),main.go)
+  GO_COMPONENT_EXTRA_DEPS_$(1) := $$(PLUGIN_GO_COMPONENT_EXTRA_DEPS)
 
   # Apply as target-specific vars for this plugin's .wasm output
   $(BUILD_DIR)/plugins/$(1).wasm: ODIN_WASM_TARGET := $$(ODIN_WASM_TARGET_$(1))
@@ -189,6 +204,10 @@ define APPLY_PLUGIN_MANIFEST
   $(BUILD_DIR)/plugins/$(1).wasm: COMPONENT_CFLAGS := $$(COMPONENT_CFLAGS_$(1))
   $(BUILD_DIR)/plugins/$(1).wasm: COMPONENT_LDFLAGS := $$(COMPONENT_LDFLAGS_$(1))
   $$(if $$(strip $$(COMPONENT_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(COMPONENT_EXTRA_DEPS_$(1)))
+  $(BUILD_DIR)/plugins/$(1).wasm: WIT_PACKAGE := $$(WIT_PACKAGE_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: GO_BINDINGS_OUT := $$(GO_BINDINGS_OUT_$(1))
+  $(BUILD_DIR)/plugins/$(1).wasm: GO_COMPONENT_MAIN := $$(GO_COMPONENT_MAIN_$(1))
+  $$(if $$(strip $$(GO_COMPONENT_EXTRA_DEPS_$(1))),$(BUILD_DIR)/plugins/$(1).wasm: $$(GO_COMPONENT_EXTRA_DEPS_$(1)))
 
   # Cleanup manifest locals so they don't leak into next plugin
   PLUGIN_ODIN_WASM_TARGET :=
@@ -211,6 +230,10 @@ define APPLY_PLUGIN_MANIFEST
   PLUGIN_COMPONENT_CFLAGS :=
   PLUGIN_COMPONENT_LDFLAGS :=
   PLUGIN_COMPONENT_EXTRA_DEPS :=
+  PLUGIN_WIT_PACKAGE :=
+  PLUGIN_GO_BINDINGS_OUT :=
+  PLUGIN_GO_COMPONENT_MAIN :=
+  PLUGIN_GO_COMPONENT_EXTRA_DEPS :=
   PLUGIN_NAME :=
   PLUGIN_PATH :=
 endef
@@ -248,9 +271,24 @@ plugins-release-js: $(PLUGIN_TARGETS_JS)
 
 GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
 
-# Rule to build Go plugins
+# Rule to build Go WASM component plugins. These are standalone Go modules
+# under plugins/*.comp and must not depend on the repository root go.mod.
+$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/go.mod $(PLUGIN_DIR)/%/main.go | $(BUILD_DIR)/plugins
+	$(Q)echo "Building Go component plugin $*..."
+	$(Q)test -n "$(WIT_WORLD)" || { echo "missing PLUGIN_WIT_WORLD for Go component plugin $*" >&2; exit 1; }
+	$(Q)test -n "$(WIT_PACKAGE)" || { echo "missing PLUGIN_WIT_PACKAGE for Go component plugin $*" >&2; exit 1; }
+	$(Q)cd "$(PLUGIN_DIR)/$*"; \
+		$(WKG) wit build; \
+		test -f "$(WIT_PACKAGE)"; \
+		$(GO) tool wit-bindgen-go generate --world "$(WIT_WORLD)" --out "$(GO_BINDINGS_OUT)" "./$(WIT_PACKAGE)"; \
+		$(TINYGO) build -target=wasip2 \
+			-o "$(abspath $@)" \
+			--wit-package "$(WIT_PACKAGE)" \
+			--wit-world "$(WIT_WORLD)" "$(GO_COMPONENT_MAIN)"
+
+# Rule to build legacy Go plugins from the repository root module.
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $$(shell find $(PLUGIN_DIR)/$$* -name '*.go' 2>/dev/null) $(GO_PLUGIN_SHARED_DEPS) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building Go plugin $*..."
+	$(Q)echo "Building legacy Go plugin $*..."
 	$(Q)GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o $@ ./$(PLUGIN_DIR)/$*/
 
 # Rule to build Zig plugins
