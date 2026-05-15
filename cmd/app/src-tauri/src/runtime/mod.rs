@@ -12,6 +12,8 @@ use wasmtime::component::types::{ComponentInstance, ComponentItem};
 use wasmtime::component::{Component, Func, Instance, Linker, ResourceTable, Val};
 use wasmtime::{Config, Engine, Store, StoreContextMut};
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxView, WasiView};
+use wasmtime_wasi_http::p2::{WasiHttpCtxView, WasiHttpView};
+use wasmtime_wasi_http::WasiHttpCtx;
 
 #[derive(Clone, Debug)]
 pub struct FsPreopen {
@@ -60,6 +62,7 @@ struct CallViewRequest {
 
 pub struct HostState {
     wasi_ctx: WasiCtx,
+    http_ctx: WasiHttpCtx,
     resource_table: ResourceTable,
     view_bridge: ViewBridge,
 }
@@ -69,6 +72,16 @@ impl WasiView for HostState {
         WasiCtxView {
             ctx: &mut self.wasi_ctx,
             table: &mut self.resource_table,
+        }
+    }
+}
+
+impl WasiHttpView for HostState {
+    fn http(&mut self) -> WasiHttpCtxView<'_> {
+        WasiHttpCtxView {
+            ctx: &mut self.http_ctx,
+            table: &mut self.resource_table,
+            hooks: Default::default(),
         }
     }
 }
@@ -414,6 +427,7 @@ impl RuntimeInner {
         let mut linker = Linker::new(&engine);
 
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
+        wasmtime_wasi_http::p2::add_only_http_to_linker_sync(&mut linker)?;
         add_gams_runtime_import(&mut linker, "gams:runtime/runtime@1.0.0")?;
         let mut wasi_builder = WasiCtx::builder();
         wasi_builder.inherit_stdio().inherit_args();
@@ -437,6 +451,7 @@ impl RuntimeInner {
         let wasi_ctx = wasi_builder.build();
         let state = HostState {
             wasi_ctx,
+            http_ctx: WasiHttpCtx::new(),
             resource_table: ResourceTable::new(),
             view_bridge,
         };
