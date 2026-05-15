@@ -266,6 +266,28 @@ impl Runtime {
         Ok(())
     }
 
+    pub fn cache_component(&self, path: PathBuf) -> Result<PathBuf, String> {
+        let source = if path.is_absolute() {
+            path
+        } else {
+            std::env::current_dir()
+                .map_err(|error| format!("failed to read current directory: {error}"))?
+                .join(path)
+        }
+        .canonicalize()
+        .map_err(|error| format!("failed to canonicalize component path: {error}"))?;
+        let inner = self
+            .inner
+            .lock()
+            .map_err(|_| "runtime lock poisoned".to_string())?;
+        let cache_path =
+            compiled_component_cache_path(&inner.compiled_component_cache_dir, &source);
+        inner
+            .load_component(&source)
+            .map_err(|error| format!("failed to cache component {}: {error}", source.display()))?;
+        Ok(cache_path)
+    }
+
     pub fn clear_compiled_component_cache(&self) -> Result<(), String> {
         let inner = self
             .inner
@@ -318,6 +340,35 @@ impl Runtime {
             .map_err(|_| "runtime lock poisoned".to_string())?;
         inner
             .add_plugins(paths, reload)
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn add_component_files(&self, paths: Vec<PathBuf>) -> Result<Vec<ComponentHandle>, String> {
+        let requests = paths
+            .into_iter()
+            .map(|path| {
+                let source = if path.is_absolute() {
+                    path
+                } else {
+                    std::env::current_dir()
+                        .map_err(|error| format!("failed to read current directory: {error}"))?
+                        .join(path)
+                };
+                source
+                    .canonicalize()
+                    .map_err(|error| format!("failed to canonicalize component path: {error}"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let display_paths = requests
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>();
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "runtime lock poisoned".to_string())?;
+        inner
+            .add_resolved_plugins(display_paths, requests)
             .map_err(|error| error.to_string())
     }
 
@@ -442,6 +493,14 @@ impl RuntimeInner {
             .map(|path| resolve_component_path(&self.root, &self.preopens, path))
             .collect::<Result<Vec<_>>>()?;
 
+        self.add_resolved_plugins(paths, requests)
+    }
+
+    fn add_resolved_plugins(
+        &mut self,
+        paths: Vec<String>,
+        requests: Vec<PathBuf>,
+    ) -> Result<Vec<ComponentHandle>> {
         let mut candidates = Vec::new();
         let mut candidate_by_path = BTreeMap::new();
         for (path, resolved_path) in paths.iter().zip(requests.iter()) {

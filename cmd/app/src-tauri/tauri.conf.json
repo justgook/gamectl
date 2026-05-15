@@ -28,25 +28,58 @@
   },
   "plugins": {
     "cli": {
-      "description": "Tauri CLI Plugin Example",
-      "args": [
-        {
-          "short": "v",
-          "name": "verbose",
-          "description": "Verbosity level"
-        }
-      ],
+      "description": "GAMS app runtime CLI",
       "subcommands": {
+        "add": {
+          "description": "Add/cache GAMS resources",
+          "subcommands": {
+            "plugin": {
+              "description": "Compile/cache a Wasm component plugin",
+              "args": [
+                {
+                  "name": "path",
+                  "description": "Path to a .wasm component plugin",
+                  "takesValue": true,
+                  "required": true,
+                  "index": 1
+                }
+              ]
+            },
+            "theme": {
+              "description": "Add a theme (placeholder)"
+            },
+            "view": {
+              "description": "Add a view (placeholder)"
+            }
+          }
+        },
+        "clean": {
+          "description": "Clean compiled component cache"
+        },
+        "init": {
+          "description": "Create an empty gams.json in the runtime root"
+        },
         "run": {
-          "description": "Run the application",
+          "description": "Run a plugin function",
           "args": [
             {
-              "name": "debug",
-              "description": "Run application in debug mode"
+              "name": "plug",
+              "description": "Plugin path to load before invocation",
+              "takesValue": true,
+              "multiple": true,
+              "short": "p"
             },
             {
-              "name": "release",
-              "description": "Run application in release mode"
+              "name": "target",
+              "description": "Runtime target to invoke, e.g. adder/add::add",
+              "takesValue": true,
+              "index": 1
+            },
+            {
+              "name": "args",
+              "description": "JSON arguments for runtime.invoke; defaults to []",
+              "takesValue": true,
+              "index": 2
             }
           ]
         }
