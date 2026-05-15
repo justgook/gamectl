@@ -1,8 +1,10 @@
 mod runtime;
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_cli::CliExt;
+use tauri_plugin_cli::{ArgData, Matches};
 
 #[tauri::command]
 async fn runtime_add_plugins(
@@ -65,6 +67,112 @@ fn runtime_root() -> anyhow::Result<PathBuf> {
     Ok(raw.canonicalize()?)
 }
 
+fn cli_arg_string(args: &HashMap<String, ArgData>, name: &str) -> anyhow::Result<Option<String>> {
+    let Some(arg) = args.get(name) else {
+        return Ok(None);
+    };
+    match &arg.value {
+        serde_json::Value::Null => Ok(None),
+        serde_json::Value::String(value) => Ok(Some(value.clone())),
+        other => anyhow::bail!("CLI argument `{name}` must be a string, got {other}"),
+    }
+}
+
+fn cli_arg_strings(args: &HashMap<String, ArgData>, name: &str) -> anyhow::Result<Vec<String>> {
+    let Some(arg) = args.get(name) else {
+        return Ok(Vec::new());
+    };
+    match &arg.value {
+        serde_json::Value::Null => Ok(Vec::new()),
+        serde_json::Value::String(value) => Ok(vec![value.clone()]),
+        serde_json::Value::Array(values) => values
+            .iter()
+            .map(|value| match value {
+                serde_json::Value::String(value) => Ok(value.clone()),
+                other => anyhow::bail!("CLI argument `{name}` values must be strings, got {other}"),
+            })
+            .collect(),
+        other => anyhow::bail!("CLI argument `{name}` must be a string array, got {other}"),
+    }
+}
+
+fn run_cli_command(
+    root: &Path,
+    runtime: &runtime::Runtime,
+    matches: &Matches,
+) -> anyhow::Result<bool> {
+    let Some(subcommand) = &matches.subcommand else {
+        return Ok(false);
+    };
+
+    match subcommand.name.as_str() {
+        "add" => {
+            let Some(add_subcommand) = &subcommand.matches.subcommand else {
+                anyhow::bail!("`add` requires one of: plugin, theme, view");
+            };
+            match add_subcommand.name.as_str() {
+                "plugin" => {
+                    let path = cli_arg_string(&add_subcommand.matches.args, "path")?
+                        .ok_or_else(|| anyhow::anyhow!("`add plugin` requires a plugin path"))?;
+                    let cache_path = runtime
+                        .cache_component(PathBuf::from(path))
+                        .map_err(|error| anyhow::anyhow!(error))?;
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "cached": cache_path,
+                        }))?
+                    );
+                }
+                "theme" => println!("`add theme` is not implemented yet"),
+                "view" => println!("`add view` is not implemented yet"),
+                other => anyhow::bail!("unknown `add` subcommand `{other}`"),
+            }
+        }
+        "clean" => {
+            runtime
+                .clear_compiled_component_cache()
+                .map_err(|error| anyhow::anyhow!(error))?;
+            println!("compiled component cache cleared");
+        }
+        "init" => {
+            let path = root.join("gams.json");
+            let file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+                .map_err(|error| anyhow::anyhow!("failed to create {}: {error}", path.display()))?;
+            serde_json::to_writer_pretty(file, &serde_json::json!({}))?;
+            println!("created {}", path.display());
+        }
+        "run" => {
+            let plugin_paths = cli_arg_strings(&subcommand.matches.args, "plug")?;
+            if !plugin_paths.is_empty() {
+                runtime
+                    .add_component_files(plugin_paths.into_iter().map(PathBuf::from).collect())
+                    .map_err(|error| anyhow::anyhow!(error))?;
+            }
+            let Some(target) = cli_arg_string(&subcommand.matches.args, "target")? else {
+                println!(
+                    "`run` needs a target; use `run --plug path/to/plugin.wasm target '[args]'`"
+                );
+                return Ok(true);
+            };
+            let args = cli_arg_string(&subcommand.matches.args, "args")?
+                .map(|raw| serde_json::from_str(&raw))
+                .transpose()?
+                .unwrap_or_else(|| serde_json::json!([]));
+            let value = runtime
+                .invoke(&target, args)
+                .map_err(|error| anyhow::anyhow!(error))?;
+            println!("{}", serde_json::to_string_pretty(&value)?);
+        }
+        other => anyhow::bail!("unknown CLI subcommand `{other}`"),
+    }
+
+    Ok(true)
+}
+
 fn preopens_for_root(root: &Path) -> anyhow::Result<Vec<runtime::FsPreopen>> {
     let mut preopens = vec![
         runtime::FsPreopen {
@@ -106,7 +214,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(runtime)
         .plugin(tauri_plugin_cli::init())
-        .setup(|app| {
+        .setup(move |app| {
             let runtime = app.state::<runtime::Runtime>();
             runtime.attach_app_handle(app.handle().clone())?;
             let cache_dir = match std::env::var_os("GAMS_WASMTIME_CACHE_DIR") {
@@ -120,14 +228,8 @@ pub fn run() {
             runtime.set_compiled_component_cache_dir(cache_dir)?;
 
             let matches = app.cli().matches().map_err(|error| error.to_string())?;
-            if let Some(subcommand) = matches.subcommand {
-                match subcommand.name.as_str() {
-                    "run" => {
-                        println!("GAMS component runtime CLI bootstrap is not implemented yet");
-                        std::process::exit(0);
-                    }
-                    other => return Err(format!("unknown CLI subcommand `{other}`").into()),
-                }
+            if run_cli_command(&root, &runtime, &matches).map_err(|error| error.to_string())? {
+                std::process::exit(0);
             }
 
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
