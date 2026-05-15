@@ -60,7 +60,7 @@
           "description": "Create an empty gams.json in the runtime root"
         },
         "serve": {
-          "description": "Serve a wasi:http/proxy component (placeholder)",
+          "description": "Serve the plugged wasi:http/proxy component (placeholder)",
           "args": [
             {
               "name": "addr",
@@ -68,10 +68,11 @@
               "takesValue": true
             },
             {
-              "name": "component",
-              "description": "Path to a wasi:http/proxy component",
+              "name": "plug",
+              "description": "Plugin/component path to load; exactly one must export wasi:http/proxy",
               "takesValue": true,
-              "index": 1
+              "multiple": true,
+              "short": "p"
             }
           ]
         },

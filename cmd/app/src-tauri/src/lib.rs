@@ -138,10 +138,10 @@ fn run_cli_command(
         "serve" => {
             let addr = cli_arg_string(&subcommand.matches.args, "addr")?
                 .unwrap_or_else(|| "127.0.0.1:8080".to_string());
-            let component = cli_arg_string(&subcommand.matches.args, "component")?
-                .unwrap_or_else(|| "<component.wasm>".to_string());
+            let plugin_paths = cli_arg_strings(&subcommand.matches.args, "plug")?;
             println!(
-                "`serve` is not implemented yet. Planned shape: serve wasi:http/proxy component {component} on {addr}. Wasmtime provides the low-level wasi-http pieces, but GAMS still needs host integration."
+                "`serve` is not implemented yet. Planned shape: load --plug components {}, find the single component exporting wasi:http/proxy, then serve it on {addr} with the other plugged components linked as dependencies.",
+                serde_json::to_string(&plugin_paths)?
             );
         }
         "init" => {
