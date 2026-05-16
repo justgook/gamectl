@@ -67,8 +67,8 @@
       {
         "id": 2,
         "name": "outputMap",
-        "srcNodeId": 0,
-        "srcOutputId": 0
+        "srcNodeId": 42,
+        "srcOutputId": 1
       },
       {
         "id": 3,
@@ -185,8 +185,8 @@
       {
         "id": 4,
         "name": "decoder",
-        "srcNodeId": 0,
-        "srcOutputId": 0
+        "srcNodeId": 3,
+        "srcOutputId": 1
       }
     ],
     "outputs": []
@@ -285,15 +285,15 @@
       {
         "id": 1,
         "name": "",
-        "value": "/minimap.map.json"
+        "value": "tmp/minimap.map.json"
       }
     ]
   },
   {
     "id": 10,
     "kind": 2,
-    "x": 516,
-    "y": 309,
+    "x": 287,
+    "y": 315,
     "name": "World Tree Generator",
     "codePath": "ng/presets/pipeline-world-tree.lua",
     "graphId": 0,
@@ -356,7 +356,7 @@
       {
         "id": 1,
         "name": "tree",
-        "srcNodeId": 10,
+        "srcNodeId": 43,
         "srcOutputId": 1
       },
       {
@@ -388,8 +388,8 @@
   {
     "id": 13,
     "kind": 4,
-    "x": 260,
-    "y": 322,
+    "x": 31,
+    "y": 328,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -419,7 +419,7 @@
       {
         "id": 5,
         "name": "",
-        "value": "progression.tree.json"
+        "value": "tmp/progression.tree.json"
       }
     ]
   },
@@ -642,7 +642,7 @@
   {
     "id": 21,
     "kind": 4,
-    "x": 1202,
+    "x": 1168,
     "y": 194,
     "name": "Rules",
     "codePath": "",
@@ -683,8 +683,8 @@
   {
     "id": 23,
     "kind": 4,
-    "x": 859,
-    "y": 414,
+    "x": 868,
+    "y": 447,
     "name": "scaleFactor",
     "codePath": "",
     "graphId": 0,
@@ -712,7 +712,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "automap_result.tilemap.json"
+        "value": "tmp/automap_result.map.json"
       }
     ]
   },
@@ -1015,6 +1015,222 @@
         "id": 1,
         "name": "",
         "value": "1"
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "kind": 2,
+    "x": 1396,
+    "y": 113,
+    "name": "Tilemap Automap",
+    "codePath": "ng/presets/pipeline-apply-automap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rulesMap",
+        "srcNodeId": 38,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "inputMap",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "outputMap",
+        "srcNodeId": 38,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "outputMap",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "kind": 4,
+    "x": 1060,
+    "y": 62,
+    "name": "Edges",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "/edge_rules.map.json"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "tmp/edge_done.map.json"
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "kind": 1,
+    "x": 1847,
+    "y": 47,
+    "name": "THE EDGE RESULT",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "mapID",
+        "srcNodeId": 44,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "err",
+        "srcNodeId": 44,
+        "srcOutputId": 2
+      },
+      {
+        "id": 3,
+        "name": "err2",
+        "srcNodeId": 37,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 41,
+    "kind": 4,
+    "x": 1300,
+    "y": -27,
+    "name": "tileset.prop",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[\"props.tilesets\", \"props.tileSize\"]"
+      }
+    ]
+  },
+  {
+    "id": 42,
+    "kind": 4,
+    "x": 839,
+    "y": 378,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "tmp/minimap_scaled.map.json"
+      }
+    ]
+  },
+  {
+    "id": 43,
+    "kind": 2,
+    "x": 553,
+    "y": 308,
+    "name": "Minimap Shape Assigner",
+    "codePath": "ng/presets/pipeline-assign-minimap-shapes.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "srcNodeId": 10,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "out",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "out",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 44,
+    "kind": 2,
+    "x": 1654,
+    "y": -23,
+    "name": "Copy Prop",
+    "codePath": "ng/presets/copy-prop.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "from",
+        "srcNodeId": 38,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "to",
+        "srcNodeId": 37,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "src",
+        "srcNodeId": 41,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "target",
+        "srcNodeId": 41,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "to",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
       }
     ]
   }
