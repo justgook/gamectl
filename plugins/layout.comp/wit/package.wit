@@ -1,4 +1,4 @@
-package gams:layout3@1.0.0;
+package gams:layout@1.0.0;
 
 /// Stateless rectangular panel layout protocol.
 ///
@@ -169,6 +169,6 @@ interface layout {
     rename-handle-content: func(request: rename-handle-content-request) -> result<layout-response, layout-error>;
 }
 
-world layout3-plugin {
+world layout-plugin {
     export layout;
 }

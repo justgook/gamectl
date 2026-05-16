@@ -13,11 +13,13 @@ const DEFAULT_LAYOUT = `
 function doInit(viewConfig) {
   Promise.all([
     require2("ui-plugins/context.js"),
-    require2("ui-plugins/layout3.js"),
+    require2("ui-plugins/keys.js"),
+    require2("ui-plugins/layout.js"),
     require2("ui-plugins/toast.js"),
     require2("ui-plugins/popup.js"),
-  ]).then(([{ createUiContext }]) => {
+  ]).then(([{ createUiContext }, { createUiKeys }]) => {
     runtime.register(createUiContext())
+    runtime.register(createUiKeys(viewConfig))
 
     const viewRegistry = createConfiguredViewRegistry(viewConfig)
 

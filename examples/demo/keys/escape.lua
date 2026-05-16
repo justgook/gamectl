@@ -1,24 +1,21 @@
-local popup = json.decode(host.call('ui.popup', 'isOpen', '{}'))
-if popup == nil or popup.count == nil then
-  error('escape shortcut requires ui.popup.isOpen count')
-end
+function main()
+	local popup = json.decode(host.call("ui.popup.isOpen", "{}")).ok
 
-if popup.count > 0 then
-  output = {
-    call = { 'ui.popup', 'closeTop', '{"ok":false,"cancelled":true,"reason":"escape"}' },
-  }
-  return
-end
+	if popup.count > 0 then
+		return {
+			call = { "ui.popup", "closeTop", '{"ok":false,"cancelled":true,"reason":"escape"}' },
+		}
+	end
 
-if ctx.key ~= nil and ctx.key.inTextInput then
-  output = nil
-  return
-end
+	if ctx.key ~= nil and ctx.key.inTextInput then
+		return nil
+	end
 
-if ctx.activeView == nil or ctx.activeView.id == nil or ctx.activeView.id == '' then
-  error('escape shortcut requires ctx.activeView.id when no popup is open')
-end
+	if ctx.activeView == nil or ctx.activeView.id == nil or ctx.activeView.id == "" then
+		error("escape shortcut requires ctx.activeView.id when no popup is open")
+	end
 
-output = {
-  call = { ctx.activeView.id, 'clearSelection', '{}' },
-}
+	return {
+		call = { ctx.activeView.id, "clearSelection", "{}" },
+	}
+end

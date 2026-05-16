@@ -1,37 +1,17 @@
-const ABI = {
-  HEADER_I32: 15,
-  AREA_I32: 5,
-  HANDLE_I32: 5,
-  MAX_PANELS: 16,
-  MAX_HANDLES: 15,
-  TRY_I32: 5,
-}
-
-const ERR = {
-  0: 'ok',
-  1: 'not_initialized',
-  2: 'invalid_arg',
-  3: 'invalid_handle',
-  4: 'invalid_area',
-  5: 'invalid_corner',
-  6: 'out_of_bounds',
-  7: 'min_size',
-  8: 'not_implemented',
-  9: 'capacity',
-}
+import { ensureThemeStylesheetLink } from "/util/add-style.js"
+import { runtime } from "/core/runtime.js"
+import { unwrap } from "/util/unwrap.js"
 
 function encodeResult(value) {
+  console.trace("replace encodeResult with result")
   return {
     returnCode: 0,
     output: new TextEncoder().encode(JSON.stringify(value ?? null)),
   }
 }
 
-function decodeBytes(bytes) {
-  return new TextDecoder().decode(bytes)
-}
-
 function decodeInput(input) {
+  console.trace("replace decodeInput with result")
   if (typeof input === 'string') return input
   if (input instanceof Uint8Array) return new TextDecoder().decode(input)
   if (ArrayBuffer.isView(input)) {
@@ -41,6 +21,7 @@ function decodeInput(input) {
 }
 
 function parseLayoutInput(input) {
+  console.trace("replace parseLayoutInput with result")
   if (typeof input === 'string') return input
   if (input == null) return ''
   if (typeof input === 'object' && !(input instanceof Uint8Array) && !ArrayBuffer.isView(input)) {
@@ -58,29 +39,6 @@ function parseLayoutInput(input) {
   return text
 }
 
-function readI32String(result) {
-  return Number(decodeBytes(result.output || new Uint8Array()))
-}
-
-function header(v) {
-  return {
-    initialized: v[0],
-    screenW: v[1],
-    screenH: v[2],
-    maxPanels: v[3],
-    maxHandles: v[4],
-    areaCount: v[5],
-    handleCount: v[6],
-    lastError: v[7],
-    generation: v[8],
-    lastAction: v[9],
-    lastIndex: v[10],
-    lastX: v[11],
-    lastY: v[12],
-    handleHalfSize: v[13],
-    minPanelSize: v[14],
-  }
-}
 
 export class ViewEmpty extends HTMLElement {
   connectedCallback() {
@@ -109,7 +67,7 @@ export class ViewArea extends HTMLElement {
     this._y = 0
     this._w = 0
     this._h = 0
-    this._panel = 0
+    this._panel = "unknown"
     this._selectorReady = false
 
     const shadowRoot = this.attachShadow({ mode: 'open' })
@@ -137,7 +95,7 @@ export class ViewArea extends HTMLElement {
     if (name === 'y') this._y = parseFloat(newVal)
     if (name === 'w') this._w = parseFloat(newVal)
     if (name === 'h') this._h = parseFloat(newVal)
-    if (name === 'panel') this._panel = parseFloat(newVal)
+    if (name === 'panel') this._panel = newVal
     this._updatePosition()
   }
 
@@ -243,7 +201,7 @@ class Handle extends HTMLElement {
     this._y = 0
     this._w = 0
     this._h = 0
-    this._panel = 0
+    this._panel = "unknown"
   }
 
   connectedCallback() {
@@ -256,7 +214,7 @@ class Handle extends HTMLElement {
     if (name === 'y') this._y = parseFloat(newVal)
     if (name === 'w') this._w = parseFloat(newVal)
     if (name === 'h') this._h = parseFloat(newVal)
-    if (name === 'panel') this._panel = parseFloat(newVal)
+    if (name === 'panel') this._panel = newVal
     this._updatePosition()
   }
 
@@ -283,14 +241,12 @@ class Handle extends HTMLElement {
 export class UiLayout extends HTMLElement {
   constructor() {
     super()
-    this.runtime = null
+    this.document = {}
+
+
+
+
     this.viewRegistry = new Map()
-    this.buffer = null
-    this.ptr = 0
-    this.size = 0
-    this.i32 = null
-    this.handleSize = 12
-    this.minPanelSize = 120
     this.content = new Map()
     this.contentCounter = 0
     this.handles = []
@@ -298,7 +254,7 @@ export class UiLayout extends HTMLElement {
     this.tryRectEl = null
     this.cornerDrag = {
       active: false,
-      areaIndex: -1,
+      contentId: -1,
       cornerIndex: -1,
       x: 0,
       y: 0,
@@ -306,6 +262,7 @@ export class UiLayout extends HTMLElement {
       lastY: Number.NaN,
       raf: 0,
     }
+
     this.api = {
       refresh: async () => {
         await this.refresh()
@@ -317,15 +274,15 @@ export class UiLayout extends HTMLElement {
         return encodeResult({ ok: true, generation: this.lastGeneration })
       },
     }
+
     this.resizeObserver = new ResizeObserver(async (entries) => {
-      if (!this.runtime) return
       for (const entry of entries) {
         if (entry.target !== this) continue
         const width = Math.max(64, Math.floor(entry.contentRect.width || 0))
         const height = Math.max(64, Math.floor(entry.contentRect.height || 0))
         if (!width || !height) continue
-        if (!this.i32 || !header(this.i32).initialized) continue
-        await this.resizeScreen(width, height, this.handleSize)
+
+        await this.resizeScreen(width, height)
         await this.refresh()
       }
     })
@@ -346,94 +303,62 @@ export class UiLayout extends HTMLElement {
     this.stopCornerPreview()
   }
 
-  async bindRuntime(runtime) {
-    this.runtime = runtime
-    this.buffer = await runtime.memory('layout')
-    this.size = readI32String(await runtime.call('layout', 'get_info_size', ''))
-    this.ptr = readI32String(await runtime.call('layout', 'get_info_ptr', ''))
-    this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+  async callLayout(method, ...args) {
+    const result = unwrap(await runtime.invoke(`layout/layout::${method}`, args), `Layout::${method}`)
+    this.document = result.document
+  }
 
-    const width = Math.max(64, Math.floor(this.clientWidth || window.innerWidth || 0))
-    const height = Math.max(64, Math.floor(this.clientHeight || window.innerHeight || 0))
-    if (!header(this.i32).initialized) {
-      await this.initScreen(width, height, this.handleSize, this.minPanelSize)
-      this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+  async initScreen(w, h, contentId) {
+    const config = {
+      "max-areas": 16,
+      "max-handles": 15,
+      "min-panel-size": 120,
+      "handle-half-size": 6,
     }
-    await this.ensureAreaContentIds()
-    this.render()
+    await this.callLayout('init-screen', { w, h, config, "root-content-id": `${contentId}` })
   }
 
-  async callLayout(method, input = '') {
-    if (!this.runtime) throw new Error('ui.layout is not bound to runtime')
-    return await this.runtime.call('layout', method, input)
-  }
-
-  async callLayoutCode(method, input = '') {
-    const result = await this.callLayout(method, input)
-    const code = Number(result?.returnCode || 0)
-    if (code !== 0) {
-      throw new Error(`${method} failed: ${ERR[code] || code}`)
-    }
-    return result
-  }
-
-  async initScreen(width, height, handleSize, minPanelSize) {
-    await this.callLayoutCode('init_screen', `${width},${height},${handleSize},${minPanelSize}`)
-  }
-
-  async resizeScreen(width, height, handleSize) {
-    await this.callLayoutCode('resize_screen', `${width},${height},${handleSize}`)
+  async resizeScreen(w, h) {
+    await this.callLayout('resize-screen', { w, h, "handle-half-size": 6, document: this.document })
   }
 
   clampPoint(x, y, inclusiveMax = false) {
-    if (!this.i32) {
-      return { x: Math.floor(x), y: Math.floor(y) }
-    }
-    const h = header(this.i32)
-    const maxX = inclusiveMax ? h.screenW : Math.max(0, h.screenW - 1)
-    const maxY = inclusiveMax ? h.screenH : Math.max(0, h.screenH - 1)
+    const maxX = inclusiveMax ? this.document["screen-w"] : Math.max(0, this.document["screen-w"] - 1)
+    const maxY = inclusiveMax ? this.document["screen-h"] : Math.max(0, this.document["screen-h"] - 1)
+
     return {
       x: Math.max(0, Math.min(maxX, Math.floor(x))),
       y: Math.max(0, Math.min(maxY, Math.floor(y))),
     }
   }
 
-  async moveHandle(handleIndex, x, y) {
-    const p = this.clampPoint(x, y, true)
-    await this.callLayoutCode('move_handle', `${handleIndex},${p.x},${p.y}`)
+  async moveHandle(contentId, x, y) {
+    await this.callLayout('move-handle', {
+      "handle-content-id": `${contentId}`,
+      document: this.document,
+      ...this.clampPoint(x, y, true)
+    })
   }
 
-  async moveCorner(areaIndex, cornerIndex, x, y) {
+  async moveCorner(contentId, cornerIndex, x, y, newId) {
     const p = this.clampPoint(x, y, false)
-    await this.callLayoutCode('move_corner', `${areaIndex},${cornerIndex},${p.x},${p.y}`)
+    await this.callLayout('move-corner', {
+      "area-content-id": `${contentId}`,
+      "new-area-content-id": `${newId}`,
+      "new-handle-content-id": `handle_${newId}`,
+      "corner-index": cornerIndex,
+      document: this.document,
+      ...p
+    })
   }
 
-  async tryCorner(areaIndex, cornerIndex, x, y) {
-    const p = this.clampPoint(x, y, false)
-    await this.callLayout('try_corner', `${areaIndex},${cornerIndex},${p.x},${p.y}`)
-  }
-
-  async setAreaContent(areaIndex, contentId) {
-    await this.callLayoutCode('set_area_content', `${areaIndex},${contentId}`)
-  }
-
-  areaAt(index) {
-    const base = ABI.HEADER_I32 + index * ABI.AREA_I32
-    const v = this.i32
-    return { x0: v[base], y0: v[base + 1], x1: v[base + 2], y1: v[base + 3], content: v[base + 4] }
-  }
-
-  handleAt(index) {
-    const handleBase = ABI.HEADER_I32 + ABI.MAX_PANELS * ABI.AREA_I32
-    const base = handleBase + index * ABI.HANDLE_I32
-    const v = this.i32
-    return { x0: v[base], y0: v[base + 1], x1: v[base + 2], y1: v[base + 3], content: v[base + 4] }
-  }
-
-  tryRect() {
-    const base = ABI.HEADER_I32 + ABI.MAX_PANELS * ABI.AREA_I32 + ABI.MAX_HANDLES * ABI.HANDLE_I32
-    const v = this.i32
-    return { valid: v[base], x0: v[base + 1], y0: v[base + 2], x1: v[base + 3], y1: v[base + 4] }
+  async tryCorner(contentId, cornerIndex, x, y) {
+    await this.callLayout('try-corner', {
+      "area-content-id": `${contentId}`,
+      "corner-index": cornerIndex,
+      document: this.document,
+      ...this.clampPoint(x, y, false)
+    })
   }
 
   setViewRegistry(registry) {
@@ -475,57 +400,21 @@ export class UiLayout extends HTMLElement {
     return clone
   }
 
-  createChromeForViewNode(viewNode, areaId, contentId) {
+  createChromeForViewNode(viewNode, contentId) {
     const chrome = document.createElement('view-area')
     chrome.owner = this
-    chrome.panel = areaId
+    chrome.panel = contentId
     chrome.appendChild(viewNode)
     chrome.refreshViewSelector()
-    this.addCorners(chrome, areaId)
+    this.addCorners(chrome, contentId)
     this.content.set(contentId, chrome)
     this.appendChild(chrome)
     return chrome
   }
 
-  async createChromeForViewSpec(spec, areaId) {
-    const contentId = ++this.contentCounter
-    await this.setAreaContent(areaId, contentId)
+  async createChromeForViewSpec(spec, contentId) {
     const viewNode = await this.instantiateView(spec)
-    return this.createChromeForViewNode(viewNode, areaId, contentId)
-  }
-
-  async ensureAreaContentIds() {
-    const h = header(this.i32)
-    const seen = new Set()
-    const pendingClones = []
-
-    for (let areaId = 0; areaId < h.areaCount; areaId += 1) {
-      const area = this.areaAt(areaId)
-      const duplicate = area.content !== 0 && seen.has(area.content)
-      if (area.content === 0 || duplicate) {
-        const nextContentId = ++this.contentCounter
-        await this.setAreaContent(areaId, nextContentId)
-        if (duplicate) {
-          pendingClones.push({
-            oldContentId: area.content,
-            newContentId: nextContentId,
-            areaId,
-          })
-        }
-      } else {
-        seen.add(area.content)
-        if (area.content > this.contentCounter) this.contentCounter = area.content
-      }
-    }
-
-    this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
-
-    for (const cloneInfo of pendingClones) {
-      const sourceChrome = this.content.get(cloneInfo.oldContentId)
-      const sourceView = sourceChrome?.getCurrentView?.() || sourceChrome?.firstElementChild || null
-      const cloneView = sourceView ? await this.cloneViewNode(sourceView) : document.createElement('view-empty')
-      this.createChromeForViewNode(cloneView, cloneInfo.areaId, cloneInfo.newContentId)
-    }
+    return this.createChromeForViewNode(viewNode, contentId)
   }
 
   ensureTryRect() {
@@ -536,9 +425,9 @@ export class UiLayout extends HTMLElement {
     this.appendChild(this.tryRectEl)
   }
 
-  startCornerPreview(areaIndex, cornerIndex, x, y) {
+  startCornerPreview(contentId, cornerIndex, x, y) {
     this.cornerDrag.active = true
-    this.cornerDrag.areaIndex = areaIndex
+    this.cornerDrag.contentId = contentId
     this.cornerDrag.cornerIndex = cornerIndex
     this.cornerDrag.x = x
     this.cornerDrag.y = y
@@ -561,7 +450,7 @@ export class UiLayout extends HTMLElement {
       this.cornerDrag.raf = 0
       if (!this.cornerDrag.active) return
       if (this.cornerDrag.x === this.cornerDrag.lastX && this.cornerDrag.y === this.cornerDrag.lastY) return
-      await this.tryCorner(this.cornerDrag.areaIndex, this.cornerDrag.cornerIndex, this.cornerDrag.x, this.cornerDrag.y)
+      await this.tryCorner(this.cornerDrag.contentId, this.cornerDrag.cornerIndex, this.cornerDrag.x, this.cornerDrag.y)
       this.cornerDrag.lastX = this.cornerDrag.x
       this.cornerDrag.lastY = this.cornerDrag.y
       this.render()
@@ -588,29 +477,26 @@ export class UiLayout extends HTMLElement {
     return node
   }
 
-  ensureChrome(areaId, contentId) {
+  ensureChrome(contentId) {
     let chrome = this.content.get(contentId)
     if (chrome) return chrome
-    chrome = this.createChromeForViewNode(document.createElement('view-empty'), areaId, contentId)
+    chrome = this.createChromeForViewNode(document.createElement('view-empty'), contentId)
     return chrome
   }
 
-  addCorners(node, areaId) {
+  addCorners(node, contentId) {
     if (node.dataset.cornersReady) return
     node.dataset.cornersReady = '1'
       ;['nw', 'ne', 'se', 'sw'].forEach((c, cornerId) => {
         const s = document.createElement('view--corner')
         s.classList.add(c)
         makeCornerDraggable(this, s, async (x, y) => {
-          const panel = Number.isFinite(Number(node.getAttribute('panel'))) ? Number(node.getAttribute('panel')) : areaId
-          await this.moveCorner(panel, cornerId, x, y)
-          await this.ensureAreaContentIds()
+          await this.moveCorner(contentId, cornerId, x, y, ++this.contentCounter)
           this.stopCornerPreview()
           await this.refresh()
         }, {
           onStart: (x, y) => {
-            const panel = Number.isFinite(Number(node.getAttribute('panel'))) ? Number(node.getAttribute('panel')) : areaId
-            this.startCornerPreview(panel, cornerId, x, y)
+            this.startCornerPreview(contentId, cornerId, x, y)
           },
           onMove: (x, y) => this.updateCornerPreview(x, y),
           onCancel: () => {
@@ -661,7 +547,6 @@ export class UiLayout extends HTMLElement {
   }
 
   async load(layoutData) {
-    if (!this.runtime) throw new Error('layout manager is not initialized')
     const markup = String(layoutData || '').trim()
     if (!markup) throw new Error('layout markup is required')
 
@@ -689,15 +574,15 @@ export class UiLayout extends HTMLElement {
     this.content.clear()
     this.handles.length = 0
     this.tryRectEl = null
-    this.contentCounter = 0
+    this.contentCounter = 45
 
     const width = Math.max(64, Math.floor(this.clientWidth || window.innerWidth || 0))
     const height = Math.max(64, Math.floor(this.clientHeight || window.innerHeight || 0))
-    await this.initScreen(width, height, this.handleSize, this.minPanelSize)
-    this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
 
-    await this.createChromeForViewSpec(specs[0], 0)
-    this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+    let contentId = `${++this.contentCounter}`
+    const areas = [contentId]
+    await this.initScreen(width, height, contentId)
+    await this.createChromeForViewSpec(specs[0], contentId)
 
     for (let i = 1; i < specs.length; i += 1) {
       const spec = specs[i]
@@ -705,38 +590,31 @@ export class UiLayout extends HTMLElement {
       if (!setup) throw new Error(`layout child ${i}: missing setup`)
 
       const { target, axis, percent } = this.parseSetup(setup, i)
-      const areaCount = header(this.i32).areaCount
-      if (target >= areaCount) throw new Error(`layout child ${i}: target ${target} is out of range`)
 
-      const area = this.areaAt(target)
-      const newPanel = areaCount
-      const split = this.splitPointForArea(area, axis, percent)
-
-      await this.moveCorner(target, split.corner, split.x, split.y)
-      this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
-      await this.createChromeForViewSpec(spec, newPanel)
-      this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
+      const split = this.splitPointForArea(this.document.areas[target].bounds, axis, percent)
+      contentId = `${++this.contentCounter}`
+      areas.push(contentId)
+      await this.moveCorner(areas[target], split.corner, split.x, split.y, contentId)
+      await this.createChromeForViewSpec(spec, contentId)
     }
 
     this.render()
   }
 
   render() {
-    if (!this.i32) return
-    const h = header(this.i32)
-    const tr = this.tryRect()
     const activeContent = new Set()
+    const { areas, handles } = this.document
 
-    for (let areaId = 0; areaId < h.areaCount; areaId += 1) {
-      const area = this.areaAt(areaId)
-      const contentId = area.content || areaId + 1
-      const node = this.ensureChrome(areaId, contentId)
+    for (let i = 0; i < areas.length; i += 1) {
+      const bounds = areas[i].bounds
+      const contentId = areas[i]["content-id"]
+      const node = this.ensureChrome(contentId)
       activeContent.add(contentId)
-      node.x = area.x0
-      node.y = area.y0
-      node.w = area.x1 - area.x0
-      node.h = area.y1 - area.y0
-      node.panel = areaId
+      node.x = bounds.x0
+      node.y = bounds.y0
+      node.w = bounds.x1 - bounds.x0
+      node.h = bounds.y1 - bounds.y0
+      node.panel = contentId
       node.refreshViewSelector?.()
     }
 
@@ -746,20 +624,22 @@ export class UiLayout extends HTMLElement {
       this.content.delete(contentId)
     }
 
-    while (this.handles.length < h.handleCount) this.spawnHandle()
-    for (let id = 0; id < h.handleCount; id += 1) {
-      const item = this.handleAt(id)
+
+    while (this.handles.length < handles.length) this.spawnHandle()
+    for (let id = 0; id < handles.length; id += 1) {
+      const item = handles[id].bounds
       const node = this.handles[id]
       node.x = item.x0
       node.y = item.y0
       node.w = item.x1 - item.x0
       node.h = item.y1 - item.y0
-      node.panel = id
+      node.panel = handles[id]["content-id"]
     }
-    for (let i = h.handleCount; i < this.handles.length; i += 1) this.handles[i]?.remove()
-    this.handles.length = h.handleCount
+    for (let i = handles.length; i < this.handles.length; i += 1) this.handles[i]?.remove()
+    this.handles.length = handles.length
 
-    if (this.cornerDrag.active && tr.valid) {
+    if (this.cornerDrag.active && this.document.preview.valid) {
+      const tr = this.document.preview.bounds
       this.ensureTryRect()
       this.tryRectEl.style.display = 'block'
       this.tryRectEl.style.left = `${tr.x0}px`
@@ -770,16 +650,10 @@ export class UiLayout extends HTMLElement {
       this.tryRectEl.style.display = 'none'
     }
 
-    this.lastGeneration = h.generation
+    this.lastGeneration = this.document.generation
   }
 
   async refresh() {
-    if (!this.runtime) throw new Error('ui.layout is not bound to runtime')
-    const nextPtr = readI32String(await this.callLayout('get_info_ptr', ''))
-    if (nextPtr !== this.ptr || !this.i32) {
-      this.ptr = nextPtr
-    }
-    this.i32 = new Int32Array(this.buffer, this.ptr, Math.floor(this.size / 4))
     this.render()
   }
 }
@@ -881,49 +755,6 @@ function makeHandleDraggable(host, handleEl, callback) {
     window.addEventListener('pointercancel', onUp, { passive: false })
   })
 }
-
-
-const THEME_SELECTOR = 'link[data-theme-stylesheet]'
-
-export function getThemeStylesheetSource() {
-  return document.getElementById('theme-stylesheet')
-    || document.querySelector(`head ${THEME_SELECTOR}`)
-    || document.querySelector(THEME_SELECTOR)
-}
-
-export function ensureThemeStylesheetLink(root, { insertAfter = 'link[href]:last-of-type' } = {}) {
-  if (!root?.querySelector) return null
-
-  const source = getThemeStylesheetSource()
-  if (!source) return null
-
-  let target = root.querySelector(THEME_SELECTOR)
-  const sourceHref = source.getAttribute('href')
-
-  if (target) {
-    if (sourceHref && target.getAttribute('href') !== sourceHref) {
-      target.setAttribute('href', sourceHref)
-    }
-    return target
-  }
-
-  target = source.cloneNode(false)
-  target.removeAttribute('id')
-  target.setAttribute('data-theme-stylesheet', '')
-
-  const anchor = root.querySelector(insertAfter)
-  if (anchor?.parentNode) {
-    anchor.parentNode.insertBefore(target, anchor.nextSibling)
-    return target
-  }
-
-  if (typeof root.prepend === 'function') {
-    root.prepend(target)
-  }
-
-  return target
-}
-
 
 if (!customElements.get('view-empty')) customElements.define('view-empty', ViewEmpty)
 if (!customElements.get('view-area')) customElements.define('view-area', ViewArea)

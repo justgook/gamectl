@@ -1,6 +1,6 @@
-# layout3
+# layout.comp
 
-`layout3` is the component-model replacement for `plugins/layout2`.
+`layout.comp` is the component-model replacement for `plugins/layout2`.
 
 The first migration target is the protocol only: `wit/package.wit` defines a
 stateless request → response API. Callers pass a `layout-document` into every
