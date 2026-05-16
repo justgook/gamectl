@@ -80,7 +80,9 @@ export class Runtime {
     assertString(target, 'runtime.callView target')
     assertString(args, 'runtime.callView args')
 
-    return JSON.stringify(await this.call(target, JSON.parse(args)))
+    const parsedArgs = JSON.parse(args)
+    assertArray(parsedArgs, 'runtime.callView args JSON')
+    return JSON.stringify(await this.call(target, ...parsedArgs))
   }
 
   async diagnostics() {
