@@ -17,7 +17,7 @@ local payload = {
 	biomesQuery = biomesQuery,
 }
 
-local resultText = host.awaitCall("biomes", "gen", json.encode(payload))
+local resultText = host.call("biomes/biomes::gen", payload)
 local ok, response = pcall(json.decode, resultText)
 if not ok then
 	outputs[1] = ""

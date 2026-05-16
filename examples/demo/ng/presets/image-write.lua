@@ -30,7 +30,7 @@ local format = inputs[3]
 if format == nil then format = "" end
 
 local function callImage(method, payload)
-    local resultText = host.awaitCall("image", method, json.encode(payload))
+    local resultText = host.call("image/image::" .. string.gsub(method, "_", "-"), payload)
     local ok, response = pcall(json.decode, resultText)
     if not ok then
         return nil, "Failed to parse image." .. method .. " response: " .. (resultText:sub(1, 100))

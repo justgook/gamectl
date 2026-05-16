@@ -5,6 +5,6 @@ if path == nil or path == "" then
     return
 end
 
-local content = host.awaitCall("fs", "read", path)
+local content = host.call("fs/fs::read-text", path)
 outputs[1] = content
 outputs[2] = ""

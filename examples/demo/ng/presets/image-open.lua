@@ -1,5 +1,5 @@
 local path = inputs[1]
-local resultText = host.awaitCall("image", "open", json.encode({ path = path }))
+local resultText = host.call("image/image::open", { path = path })
 local ok, _ = pcall(json.decode, resultText)
 if not ok then
 	outputs[1] = ""

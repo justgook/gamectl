@@ -66,7 +66,7 @@ if #srcPaths ~= #targetPaths then
 end
 
 local function readJson(path, label)
-	local text = host.awaitCall("fs", "read", path)
+	local text = host.call("fs/fs::read-text", path)
 	local ok, data = pcall(json.decode, text)
 	if not ok or type(data) ~= "table" then
 		fail("Failed to parse " .. label .. " JSON: " .. tostring(path))
@@ -137,7 +137,7 @@ for index, srcPath in ipairs(srcPaths) do
 end
 
 local encoded = json.encode(toData)
-host.awaitCall("fs", "write", toPath .. "\0" .. encoded)
+host.call("fs/fs::write-text", toPath, encoded)
 
 outputs[1] = toPath
 outputs[2] = ""

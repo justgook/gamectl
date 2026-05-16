@@ -22,7 +22,7 @@ local payload = {
 	outputMap = outputMap,
 }
 
-local resultText = host.awaitCall("automap", "automap", json.encode(payload))
+local resultText = host.call("automap/automap::automap", payload)
 local ok, response = pcall(json.decode, resultText)
 if not ok then
 	outputs[1] = ""

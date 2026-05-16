@@ -18,7 +18,7 @@ local payload = {
     scaleFactor = tonumber(scaleFactor) or 2,
 }
 
-local resultText = host.awaitCall("scaler", "scale", json.encode(payload))
+local resultText = host.call("scaler/scaler::scale", payload)
 local ok, response = pcall(json.decode, resultText)
 if not ok then
     outputs[1] = ""

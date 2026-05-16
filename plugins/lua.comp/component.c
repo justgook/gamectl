@@ -778,6 +778,17 @@ static int bytes_contains_literal(const char *s, size_t s_len, const char *needl
   return 0;
 }
 
+static int lua_table_field_count(lua_State *L, int idx) {
+  int count = 0;
+  idx = lua_absindex(L, idx);
+  lua_pushnil(L);
+  while (lua_next(L, idx) != 0) {
+    count++;
+    lua_pop(L, 1);
+  }
+  return count;
+}
+
 static int lua_host_raw_call(lua_State *L) {
   size_t target_len = 0;
   size_t args_len = 0;
@@ -854,25 +865,24 @@ static int lua_host_call(lua_State *L) {
   lua_remove(L, -2);
 
   if (lua_istable(L, -1)) {
-    lua_getfield(L, -1, "err");
-    if (!lua_isnil(L, -1)) {
-      return lua_error(L);
-    }
-    lua_pop(L, 1);
-
-    lua_getfield(L, -1, "ok");
-    if (!lua_isnil(L, -1)) {
-      lua_remove(L, -2);
-      return 1;
-    }
-    lua_pop(L, 1);
-
-    if (has_err_key) {
+    int field_count = lua_table_field_count(L, -1);
+    if (has_err_key && field_count == 1) {
+      lua_getfield(L, -1, "err");
+      if (!lua_isnil(L, -1)) {
+        return lua_error(L);
+      }
+      lua_pop(L, 1);
       return luaL_error(L, "host.call failed");
     }
-    if (has_ok_key) {
-      lua_pop(L, 1);
-      lua_pushnil(L);
+
+    if (has_ok_key && field_count <= 1) {
+      if (field_count == 0) {
+        lua_pop(L, 1);
+        lua_pushnil(L);
+        return 1;
+      }
+      lua_getfield(L, -1, "ok");
+      lua_remove(L, -2);
       return 1;
     }
   }

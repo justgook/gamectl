@@ -27,7 +27,7 @@ local function decodeJson(text, label)
 end
 
 local function callImage(method, payload)
-	local resultText = host.awaitCall("image", method, json.encode(payload))
+	local resultText = host.call("image/image::" .. string.gsub(method, "_", "-"), payload)
 	local response, decodeErr = decodeJson(resultText, "image." .. method .. " response")
 	if response == nil then
 		return nil, decodeErr
@@ -79,7 +79,7 @@ local function base64Encode(bytes)
 	return base64
 end
 
-local tilemapText = host.awaitCall("fs", "read", map)
+local tilemapText = host.call("fs/fs::read-text", map)
 local tilemapJson, tilemapErr = decodeJson(tilemapText or "", "tilemap JSON")
 if tilemapJson == nil then
 	fail(tilemapErr)

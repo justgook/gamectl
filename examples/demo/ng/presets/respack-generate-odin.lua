@@ -11,19 +11,23 @@ if outputFile == nil then
 	outputFile = ""
 end
 
-local function safeAwait(service, method, payload)
-	local ok, result = pcall(host.awaitCall, service, method, payload)
+local function safeCall(target, ...)
+	local ok, result = pcall(host.call, target, ...)
 	if not ok then
 		return false, tostring(result or "")
 	end
 	return true, tostring(result or "")
 end
 
-local function writeFile(path, content)
-	return safeAwait("fs", "write", path .. "\0" .. content)
+local function callRespack(method, payload)
+	return safeCall("respack/respack::" .. string.gsub(method, "_", "-"), payload)
 end
 
-local okInit, initText = safeAwait("respack", "init", schemaJson)
+local function writeFile(path, content)
+	return safeCall("fs/fs::write-text", path, content)
+end
+
+local okInit, initText = callRespack("init", schemaJson)
 if not okInit then
 	outputs[1] = ""
 	outputs[2] = ""
@@ -31,7 +35,7 @@ if not okInit then
 	return
 end
 
-local okGenerate, odinSource = safeAwait("respack", "generate_odin", "")
+local okGenerate, odinSource = callRespack("generate_odin", "")
 if not okGenerate then
 	outputs[1] = ""
 	outputs[2] = ""

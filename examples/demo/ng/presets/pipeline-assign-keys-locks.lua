@@ -32,7 +32,7 @@ local payload = {
 	maxKeysPerLock = tonumber(maxKeysPerLock) or 2,
 }
 
-local resultText = host.awaitCall("keylock", "gen", json.encode(payload))
+local resultText = host.call("keylock/keylock::gen", payload)
 local ok, response = pcall(json.decode, resultText)
 if not ok then
 	outputs[1] = ""
