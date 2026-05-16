@@ -1,11 +1,6 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 
-const textDecoder = new TextDecoder()
-
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
-}
 
 function quoteIdent(name) {
   return String(name).replace(/"/g, '""')
@@ -72,7 +67,7 @@ export class SqlTableEditor extends HTMLElement {
     })
 
     this.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { reload: false, cancelled: true })
+      unwrap(await runtime.call('ui.popup.close', { reload: false, cancelled: true }))
     })
 
     this.querySelector('[data-element="form"]').addEventListener('submit', async (event) => {
@@ -259,16 +254,12 @@ export class SqlTableEditor extends HTMLElement {
     this.setStatus('Creating table...', 'info')
 
     try {
-      const result = await runtime.call('sql', 'exec', sql)
-      if (result.returnCode !== 0) {
-        throw new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
-      }
-
-      await runtime.call('ui.popup', 'close', {
+      unwrap(await runtime.invoke('sql/sql::exec', sql))
+      unwrap(await runtime.call('ui.popup.close', {
         reload: true,
         tableName,
         mode: 'create',
-      })
+      }))
     } catch (error) {
       this.setStatus(`Error: ${error.message}`, 'danger')
       console.error('sql-table-editor create failed:', error)

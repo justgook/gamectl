@@ -1,5 +1,4 @@
-import { runtime } from '/core/runtime.js'
-import { createWriteInput } from '/util/fs.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { UndoHistory } from '/util/undo.js'
 import { ViewCanvasBase } from '/util/view-canvas-base.js'
 import { viewOk } from '/util/view-plugin.js'
@@ -22,7 +21,6 @@ const TOOL_LABELS = new Map([
   [TOOL.FILL, 'Fill'],
 ])
 
-const textDecoder = new TextDecoder()
 
 const SELECT_COLORS = {
   DRAG_BORDER: 'rgba(122,162,255,0.95)',
@@ -45,9 +43,7 @@ const DEFAULT_SELECT_ADD_KEY = 'Shift'
 const DEFAULT_SELECT_REMOVE_KEY = 'Control'
 const PASTE_PREVIEW_ALPHA = 0.55
 
-function decodeOutput(result) {
-  return textDecoder.decode(result.output || new Uint8Array())
-}
+
 
 function basename(path) {
   const normalized = String(path || '').trim()
@@ -694,9 +690,8 @@ class TilemapTileset {
   }
 
   static async load(spec, firstTileId) {
-    const result = await runtime.call('fs', 'read', spec.path)
-    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.read failed for tileset ${spec.path}: ${result.returnCode}`)
-    const image = TilemapTileset.decodeQoi(result.output)
+    const result = unwrap(await runtime.invoke("fs/fs::read-file", spec.path))
+    const image = TilemapTileset.decodeQoi(result)
     const columns = Math.floor(image.width / spec.tileWidth)
     const imageRows = Math.floor(image.height / spec.tileHeight)
     assert(columns > 0 && imageRows > 0, `tileset ${spec.name} image is smaller than tile size`)
@@ -1286,7 +1281,7 @@ export class ViewTilemap extends ViewCanvasBase {
       await this.openTilemapPath(path, { autoFit: true })
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
-      await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
+      await runtime.call('ui.toast.error', { message: String(error?.message || error) })
     } finally {
       this.setBusy(false)
     }
@@ -1360,7 +1355,7 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   async newTilemap() {
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Create Tilemap',
       size: 'medium',
       tag: 'tilemap-settings',
@@ -1368,11 +1363,10 @@ export class ViewTilemap extends ViewCanvasBase {
         'data-mode': 'create',
         'data-title': 'Create Tilemap',
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (payload?.reload) {
       await this.openTilemapPath(payload.path, { autoFit: true })
-      await runtime.call('ui.toast', 'success', { message: `Created tilemap ${payload.path}` })
+      await runtime.call('ui.toast.success', { message: `Created tilemap ${payload.path}` })
     }
   }
 
@@ -1383,8 +1377,7 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   async chooseTilemapFile() {
-    const result = await runtime.call('ui.popup', 'open', this.createOpenTilemapPopupOptions())
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    const payload = unwrap(await runtime.call('ui.popup.open', this.createOpenTilemapPopupOptions()))
     if (!payload || payload.cancelled) return { cancelled: true }
     const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
     assert(selection?.path, 'view-tilemap open requires selected tilemap file path')
@@ -1405,7 +1398,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async addTilesetFromChooser() {
     assert(this.snapshot, 'view-tilemap add tileset requires current snapshot')
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Choose Tileset QOI',
       size: 'medium',
       tag: 'view-files',
@@ -1413,8 +1406,7 @@ export class ViewTilemap extends ViewCanvasBase {
         mode: 'chooser',
         filter: '*.qoi',
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
     assert(selection?.path, 'view-tilemap add tileset requires selected QOI path')
@@ -1442,7 +1434,7 @@ export class ViewTilemap extends ViewCanvasBase {
     })))
     this.activeTilesetName = specs[specs.length - 1].name
     await this.refreshSnapshot(`Added tileset ${this.activeTilesetName}`)
-    await runtime.call('ui.toast', 'success', { message: `Added tileset ${this.activeTilesetName}` })
+    await runtime.call('ui.toast.success', { message: `Added tileset ${this.activeTilesetName}` })
   }
 
   uniqueTilesetName(name, specs) {
@@ -1456,21 +1448,11 @@ export class ViewTilemap extends ViewCanvasBase {
   }
 
   async loadTilemapFile(path) {
-    assert(typeof path === 'string' && path.length > 0, 'view-tilemap load requires tilemap file path')
-    const result = await runtime.call('fs', 'read', path)
-    if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
-    }
-    return { path, data: decodeOutput(result) }
+    return { path, data: unwrap(await runtime.invoke("fs/fs::read-text", path)) }
   }
 
   async writeTilemapFile(path, data) {
-    assert(typeof path === 'string' && path.length > 0, 'view-tilemap write requires tilemap file path')
-    assert(typeof data === 'string' && data.length > 0, 'view-tilemap write requires tilemap data')
-    const result = await runtime.call('fs', 'write', createWriteInput(path, data))
-    if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
-    }
+    unwrap(await runtime.invoke("fs/fs::write-text", path, data))
   }
 
   async saveAs() {
@@ -1478,7 +1460,7 @@ export class ViewTilemap extends ViewCanvasBase {
     if (payload.cancelled) return
     await this.saveToPath(payload.path)
     await this.refreshSnapshot(`Saved as ${payload.path}`)
-    await runtime.call('ui.toast', 'success', { message: `Saved tilemap ${payload.path}` })
+    await runtime.call('ui.toast.success', { message: `Saved tilemap ${payload.path}` })
   }
 
   async save() {
@@ -1486,12 +1468,11 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(typeof this.snapshot.path === 'string' && this.snapshot.path.length > 0, 'view-tilemap save requires current tilemap path')
     await this.saveToPath(this.snapshot.path)
     await this.refreshSnapshot('Saved')
-    await runtime.call('ui.toast', 'success', { message: `Saved tilemap ${this.snapshot.path}` })
+    await runtime.call('ui.toast.success', { message: `Saved tilemap ${this.snapshot.path}` })
   }
 
   async chooseSaveTarget() {
-    const result = await runtime.call('ui.popup', 'open', this.createSaveTilemapPopupOptions())
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    const payload = unwrap(await runtime.call('ui.popup.open', this.createSaveTilemapPopupOptions()))
     if (!payload || payload.cancelled) return { cancelled: true }
     assert(typeof payload.path === 'string' && payload.path.length > 0, 'view-tilemap save-as requires tilemap file path')
     return { cancelled: false, path: payload.path }
@@ -1522,7 +1503,7 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(typeof this.snapshot.path === 'string' && this.snapshot.path.length > 0, 'view-tilemap reload requires current tilemap path')
     await this.openTilemapPath(this.snapshot.path, { autoFit: true })
     this.setStatus(`Reloaded tilemap ${this.snapshot.path}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Reloaded tilemap ${this.snapshot.path}` })
+    await runtime.call('ui.toast.success', { message: `Reloaded tilemap ${this.snapshot.path}` })
   }
 
   async setTool(tool) {
@@ -1631,7 +1612,7 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async openMapProps() {
     const snapshot = this.requireSnapshot()
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Map Properties',
       size: 'medium',
       tag: 'view-props',
@@ -1639,8 +1620,7 @@ export class ViewTilemap extends ViewCanvasBase {
         title: 'Map Properties',
         dataSource: snapshot.props,
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     this.state.setMapProps(payload.data)
     await this.refreshSnapshot('Map properties updated')
@@ -1651,7 +1631,7 @@ export class ViewTilemap extends ViewCanvasBase {
     const layer = snapshot.layers.find((entry) => entry.index === layerIndex)
     assert(layer, `view-tilemap missing layer ${layerIndex}`)
     const label = layerDisplayName(layer)
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: `${label} Properties`,
       size: 'medium',
       tag: 'view-props',
@@ -1659,8 +1639,7 @@ export class ViewTilemap extends ViewCanvasBase {
         title: `${label} Properties`,
         dataSource: layer.props,
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     this.state.setLayerProps(layerIndex, payload.data)
     await this.refreshSnapshot(`${label} properties updated`)
@@ -1671,7 +1650,7 @@ export class ViewTilemap extends ViewCanvasBase {
     assert(typeof this.snapshot.path === 'string' && this.snapshot.path.length > 0, 'view-tilemap settings requires current tilemap path')
     await this.saveToPath(this.snapshot.path)
     await this.refreshSnapshot('Saved before opening settings')
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Tilemap Settings',
       size: 'medium',
       tag: 'tilemap-settings',
@@ -1680,11 +1659,10 @@ export class ViewTilemap extends ViewCanvasBase {
         'data-title': 'Tilemap Settings',
         'data-source': this.snapshot.path,
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (payload?.reload) {
       await this.openTilemapPath(payload.path, { autoFit: true })
-      await runtime.call('ui.toast', 'success', { message: `Updated tilemap ${payload.path}` })
+      await runtime.call('ui.toast.success', { message: `Updated tilemap ${payload.path}` })
     }
   }
 

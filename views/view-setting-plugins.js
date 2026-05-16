@@ -148,7 +148,7 @@ export class ViewSettingPlugins extends HTMLElement {
       queueMicrotask(() => this.editorElement.focus())
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
-      await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
+      await runtime.call('ui.toast.error', { message: String(error?.message || error) })
     } finally {
       this.setBusy(false)
     }
@@ -169,10 +169,10 @@ export class ViewSettingPlugins extends HTMLElement {
       this.editorElement.value = encoded
       this.setSummary(`Saved ${GAMS_CONFIG_PATH}. Reload the app to apply config changes.`, 'warning')
       this.setStatus('Saved. Reload required.', 'warning')
-      await runtime.call('ui.toast', 'success', { message: `Saved ${GAMS_CONFIG_PATH}` })
+      await runtime.call('ui.toast.success', { message: `Saved ${GAMS_CONFIG_PATH}` })
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
-      await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
+      await runtime.call('ui.toast.error', { message: String(error?.message || error) })
     } finally {
       this.setBusy(false)
     }

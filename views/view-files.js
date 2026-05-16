@@ -1,17 +1,11 @@
 import { runtime } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin, viewOk } from '/util/view-plugin.js'
-import { createWriteInput } from '/util/fs.js'
 import { unwrap } from '/util/unwrap.js'
-
-const decoder = new TextDecoder()
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
-}
 
 function normalizePath(path) {
   const raw = String(path || '.').trim()
@@ -169,7 +163,7 @@ export class ViewFiles extends HTMLElement {
 
   async closePopupResult(result) {
     if (this.popupId == null && !this.closest('view-popup')) return
-    await runtime.call('ui.popup', 'close', result)
+    unwrap(await runtime.call('ui.popup.close', result))
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -430,7 +424,7 @@ export class ViewFiles extends HTMLElement {
   }
 
   async callFs(method, ...input) {
-    return unwrap(await runtime.invoke(`fs/fs::${method}`, input))
+    return unwrap(await runtime.invoke(`fs/fs::${method}`, ...input))
   }
 
   async refresh() {
@@ -456,7 +450,7 @@ export class ViewFiles extends HTMLElement {
 
   async reload() {
     await this.refresh()
-    await runtime.call('ui.toast', 'success', { message: `Reloaded files from ${this.rootPath}` })
+    await runtime.call('ui.toast.success', { message: `Reloaded files from ${this.rootPath}` })
   }
 
   async loadDirectory(path) {
@@ -725,7 +719,7 @@ export class ViewFiles extends HTMLElement {
   async openCreatePopup(kind) {
     const parentPath = this.getTargetDirectoryPath()
     const title = kind === 'directory' ? 'Create Folder' : 'Create File'
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title,
       size: 'medium',
       tag: 'files-rename',
@@ -734,9 +728,8 @@ export class ViewFiles extends HTMLElement {
         kind,
         parentPath,
       },
-    })
+    }))
 
-    const payload = JSON.parse(decodeOutput(result) || 'null')
     if (payload?.reload) {
       if (payload.revealPath && payload.revealPath !== this.rootPath) {
         this.expandedPaths.add(payload.revealPath)
@@ -749,14 +742,14 @@ export class ViewFiles extends HTMLElement {
   async editSelected() {
     if (!this.selectedPath) {
       this.setStatus('No file selected for edit', 'warning')
-      await runtime.call('ui.toast', 'warning', { message: 'No file selected for edit' })
+      await runtime.call('ui.toast.warning', { message: 'No file selected for edit' })
       return
     }
     const entry = this.getEntry(this.selectedPath)
     assert(entry, `view-files selected path not found: ${this.selectedPath}`)
     if (entry.type !== 'regular-file') {
       this.setStatus('Folders cannot be edited directly', 'warning')
-      await runtime.call('ui.toast', 'warning', { message: 'Folders cannot be edited directly' })
+      await runtime.call('ui.toast.warning', { message: 'Folders cannot be edited directly' })
       return
     }
     await this.openFile(entry.path)
@@ -768,7 +761,7 @@ export class ViewFiles extends HTMLElement {
     assert(entry, `view-files selected path not found: ${this.selectedPath}`)
 
     const sourcePath = entry.path
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: entry.type === 'directory' ? 'Rename Folder' : 'Rename File',
       size: 'medium',
       tag: 'files-rename',
@@ -777,9 +770,8 @@ export class ViewFiles extends HTMLElement {
         kind: entry.type,
         targetPath: entry.path,
       },
-    })
+    }))
 
-    const payload = JSON.parse(decodeOutput(result) || 'null')
     if (payload?.reload) {
       if (entry.type === 'directory' && payload.selectedPath) {
         this.rewriteExpandedPaths(sourcePath, payload.selectedPath)
@@ -795,15 +787,15 @@ export class ViewFiles extends HTMLElement {
   }
 
   async confirmDelete(entry) {
-    const result = await runtime.call('ui.toast', 'confirm', {
+    const result = unwrap(await runtime.call('ui.toast.confirm', {
       message: entry.type === 'directory'
         ? `Delete folder "${entry.name}" and all its contents?`
         : `Delete file "${entry.name}"?`,
       type: 'warning',
       confirmText: 'Delete',
       cancelText: 'Cancel',
-    })
-    return JSON.parse(decodeOutput(result) || 'false') === true
+    }))
+    return result
   }
 
   async deletePathRecursive(path) {
@@ -896,13 +888,13 @@ export class ViewFiles extends HTMLElement {
             this.selectRow(selectedUploadPath)
           }
 
-          await runtime.call('ui.toast', 'success', {
+          await runtime.call('ui.toast.success', {
             message: `Uploaded ${files.length} file${files.length === 1 ? '' : 's'}`,
           })
         } catch (error) {
           this.setStatus(`Error: ${error?.message || error}`, 'danger')
 
-          await runtime.call('ui.toast', 'error', {
+          await runtime.call('ui.toast.error', {
             message: String(error?.message || error),
           })
 
@@ -921,7 +913,7 @@ export class ViewFiles extends HTMLElement {
 
     if (!this.selectedPath) {
       this.setStatus('No file selected for download', 'warning')
-      await runtime.call('ui.toast', 'warning', { message: 'No file selected for download' })
+      await runtime.call('ui.toast.warning', { message: 'No file selected for download' })
       return
     }
 
@@ -930,7 +922,7 @@ export class ViewFiles extends HTMLElement {
 
     if (entry.type !== 'regular-file') {
       this.setStatus('Folders cannot be downloaded directly', 'warning')
-      await runtime.call('ui.toast', 'warning', { message: 'Folders cannot be downloaded directly' })
+      await runtime.call('ui.toast.warning', { message: 'Folders cannot be downloaded directly' })
       return
     }
 
@@ -951,10 +943,10 @@ export class ViewFiles extends HTMLElement {
       }, 0)
 
       this.setStatus(`Downloaded ${entry.path}`, 'success')
-      await runtime.call('ui.toast', 'success', { message: `Downloaded ${entry.name}` })
+      await runtime.call('ui.toast.success', { message: `Downloaded ${entry.name}` })
     } catch (error) {
       this.setStatus(`Error: ${error?.message || error}`, 'danger')
-      await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
+      await runtime.call('ui.toast.error', { message: String(error?.message || error) })
       console.error('view-files download failed:', error)
     }
   }
@@ -970,16 +962,15 @@ export class ViewFiles extends HTMLElement {
     assert(entry, `view-files file path not found: ${path}`)
     assert(entry.type === 'regular-file', `view-files openFile expected file path: ${path}`)
 
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: entry.name,
       size: 'large',
       tag: this.resolveFileOpenTag(entry.path),
       props: {
         path: entry.path,
       },
-    })
+    }))
 
-    const payload = JSON.parse(decodeOutput(result) || 'null')
     if (payload?.reload) {
       await this.refresh()
       if (payload.selectedPath) this.selectRow(payload.selectedPath)

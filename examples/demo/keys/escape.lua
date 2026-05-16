@@ -3,7 +3,7 @@ function main()
 
 	if popup.count > 0 then
 		return {
-			call = { "ui.popup", "closeTop", '{"ok":false,"cancelled":true,"reason":"escape"}' },
+			call = { "ui.popup.closeTop", '{"ok":false,"cancelled":true,"reason":"escape"}' },
 		}
 	end
 
@@ -16,6 +16,6 @@ function main()
 	end
 
 	return {
-		call = { ctx.activeView.id, "clearSelection", "{}" },
+		call = { "activeView.clearSelection" },
 	}
 end

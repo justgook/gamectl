@@ -1,8 +1,5 @@
-import { runtime } from '/core/runtime.js'
-import { createWriteInput } from '/util/fs.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin, viewOk } from '/util/view-plugin.js'
-
-const textDecoder = new TextDecoder()
 
 const MIN_SCALE = 0.2
 const MAX_SCALE = 3.0
@@ -21,10 +18,6 @@ const CONTENT_PADDING_Y = 120
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
-}
-
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
 }
 
 function basename(path) {
@@ -434,17 +427,11 @@ export class ViewTree extends HTMLElement {
   }
 
   async loadTreeFile(path) {
-    assert(typeof path === 'string' && path.length > 0, 'view-tree load requires tree file path')
-    const result = await runtime.call('fs', 'read', path)
-    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
-    return decodeOutput(result)
+    return unwrap(await runtime.invoke("fs/fs::read-text", path))
   }
 
   async writeTreeFile(path, data) {
-    assert(typeof path === 'string' && path.length > 0, 'view-tree write requires tree file path')
-    assert(typeof data === 'string' && data.length > 0, 'view-tree write requires tree data')
-    const result = await runtime.call('fs', 'write', createWriteInput(path, data))
-    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
+    unwrap(await runtime.invoke('fs/fs::write-text', path, data))
   }
 
   setTreeData(data, { dirty = false, fit = false } = {}) {
@@ -473,19 +460,17 @@ export class ViewTree extends HTMLElement {
   }
 
   async newTree() {
-    const result = await runtime.call('ui.popup', 'open', this.createNewTreePopupOptions())
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    const payload = unwrap(await runtime.call('ui.popup.open', this.createNewTreePopupOptions()))
     if (!payload || payload.cancelled) return
     const path = typeof payload.path === 'string' ? payload.path.trim() : ''
     assert(path.length > 0, 'view-tree new requires tree file path')
     this.newTreeData(path, { dirty: false, fit: true })
     await this.saveToPath(path)
-    await runtime.call('ui.toast', 'success', { message: `Created tree ${path}` })
+    await runtime.call('ui.toast.success', { message: `Created tree ${path}` })
   }
 
   async openTree() {
-    const result = await runtime.call('ui.popup', 'open', this.createOpenTreePopupOptions())
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    const payload = unwrap(await runtime.call('ui.popup.open', this.createOpenTreePopupOptions()))
     if (!payload || payload.cancelled) return
     const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
     assert(selection?.path, 'view-tree open requires selected tree file path')
@@ -510,13 +495,12 @@ export class ViewTree extends HTMLElement {
     await this.saveToPath(this.treeKey)
     this.dirty = false
     this.updateFooter(`Saved ${this.treeKey}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Saved tree ${this.treeKey}` })
+    await runtime.call('ui.toast.success', { message: `Saved tree ${this.treeKey}` })
   }
 
   async saveAs() {
     assert(this.treeData.length > 0, 'view-tree save-as requires a tree')
-    const result = await runtime.call('ui.popup', 'open', this.createSaveTreePopupOptions())
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    const payload = unwrap(await runtime.call('ui.popup.open', this.createSaveTreePopupOptions()))
     if (!payload || payload.cancelled) return
     const path = typeof payload.path === 'string' ? payload.path.trim() : ''
     assert(path.length > 0, 'view-tree save-as requires tree file path')
@@ -524,7 +508,7 @@ export class ViewTree extends HTMLElement {
     this.treeKey = path
     this.dirty = false
     this.updateFooter(`Saved as ${this.treeKey}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Saved tree ${this.treeKey}` })
+    await runtime.call('ui.toast.success', { message: `Saved tree ${this.treeKey}` })
   }
 
   createNewTreePopupOptions() {
@@ -562,13 +546,13 @@ export class ViewTree extends HTMLElement {
   async reload() {
     assert(this.treeData.length > 0, 'view-tree reload requires a tree')
     await this.loadTree()
-    await runtime.call('ui.toast', 'success', { message: `Reloaded tree ${this.treeKey}` })
+    await runtime.call('ui.toast.success', { message: `Reloaded tree ${this.treeKey}` })
   }
 
   async addNode() {
     assert(this.treeData.length > 0, 'view-tree add node requires a tree')
     const defaultParent = this.selectedNodeIndex >= 0 ? this.selectedNodeIndex : 0
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Create Tree Node',
       size: 'medium',
       tag: 'view-tree-parent',
@@ -577,8 +561,7 @@ export class ViewTree extends HTMLElement {
         currentParent: defaultParent,
         candidates: this.treeData.map((_node, index) => ({ index, label: this.nodeDisplayLabel(index) })),
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     const parentIndex = Number(payload.parentIndex)
     assert(Number.isInteger(parentIndex) && parentIndex >= 0 && parentIndex < this.treeData.length, `view-tree invalid new node parent ${parentIndex}`)
@@ -593,7 +576,7 @@ export class ViewTree extends HTMLElement {
   async editSelectedNodeProps() {
     const index = this.requireSelectedNodeIndex()
     const node = this.treeData[index]
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: `Node ${index} Properties`,
       size: 'medium',
       tag: 'view-props',
@@ -601,8 +584,7 @@ export class ViewTree extends HTMLElement {
         title: `Node ${index} Properties`,
         dataSource: node.data || {},
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     node.data = cloneStringData(payload.data, `view-tree node ${index}`)
     this.dirty = true
@@ -615,7 +597,7 @@ export class ViewTree extends HTMLElement {
     assert(index > 0, 'view-tree root node parent cannot be changed')
     const candidates = this.validParentCandidates(index)
     assert(candidates.length > 0, 'view-tree selected node has no valid parent candidates')
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: `Change Parent for Node ${index}`,
       size: 'medium',
       tag: 'view-tree-parent',
@@ -623,8 +605,7 @@ export class ViewTree extends HTMLElement {
         currentParent: this.treeData[index].parent,
         candidates: candidates.map((candidate) => ({ index: candidate, label: this.nodeDisplayLabel(candidate) })),
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     const parentIndex = Number(payload.parentIndex)
     assert(candidates.includes(parentIndex), `view-tree invalid parent candidate ${parentIndex}`)

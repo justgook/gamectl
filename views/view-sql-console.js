@@ -1,12 +1,7 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 import { parseCSVLines } from '/util/csv.js'
 
-const textDecoder = new TextDecoder()
-
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
-}
 
 function isQueryStatement(sql) {
   const normalized = String(sql || '').trim().toUpperCase()
@@ -163,12 +158,7 @@ export class ViewSqlConsole extends HTMLElement {
 
     try {
       if (isQueryStatement(sql)) {
-        const result = await runtime.call('sql', 'query', sql)
-        if (result.returnCode !== 0) {
-          throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
-        }
-
-        const csv = decodeOutput(result)
+        const csv = unwrap(await runtime.invoke("sql/sql::query", sql))
         if (csv.trim()) {
           this.appendOutput('result', formatCsvAsTable(csv))
           this.setStatus('Query finished', 'success')
@@ -177,12 +167,8 @@ export class ViewSqlConsole extends HTMLElement {
           this.setStatus('Query finished', 'success')
         }
       } else {
-        const result = await runtime.call('sql', 'exec', sql)
-        if (result.returnCode !== 0) {
-          throw new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
-        }
-
-        this.appendOutput('success', decodeOutput(result) || 'OK')
+        unwrap(await runtime.invoke("sql/sql::exec", sql))
+        this.appendOutput('success', result || 'OK')
         this.setStatus('Statement finished', 'success')
       }
     } catch (error) {

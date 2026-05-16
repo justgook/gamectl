@@ -1,15 +1,11 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 
-const decoder = new TextDecoder()
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
-}
 
 function formatSize(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) return '--'
@@ -74,7 +70,7 @@ export class FilesDefault extends HTMLElement {
     assert(this.statusElement instanceof HTMLOutputElement, 'files-default missing status output')
 
     this.querySelector('[data-action="close"]')?.addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { reload: false, cancelled: true })
+      await runtime.call('ui.popup.close', { reload: false, cancelled: true })
     })
 
     void this.load()

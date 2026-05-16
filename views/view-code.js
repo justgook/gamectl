@@ -4,14 +4,8 @@ import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 import { createWriteInput } from '/util/fs.js'
 import "/widgets/code-editor.js"
 
-const textDecoder = new TextDecoder()
-
 function assert(condition, message) {
   if (!condition) throw new Error(message)
-}
-
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
 }
 
 function getFilename(path) {
@@ -90,7 +84,7 @@ export class ViewCode extends HTMLElement {
     this.syncEditorLanguage()
 
     cancelButton.addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { ok: false, cancelled: true, path: this.path, reload: false })
+      unwrap(await runtime.call('ui.popup.close', { ok: false, cancelled: true, path: this.path, reload: false }))
     })
 
     this.formElement.addEventListener('submit', async (event) => {
@@ -138,7 +132,7 @@ export class ViewCode extends HTMLElement {
     this.setBusy(true)
     this.setStatus('Loading...', 'info')
     try {
-      this.editorElement.value = unwrap(await runtime.invoke("fs/fs::read-text", [this.path]))
+      this.editorElement.value = unwrap(await runtime.invoke("fs/fs::read-text", this.path))
       this.setStatus('Ready', 'success')
       queueMicrotask(() => this.editorElement.focus())
     } catch (error) {
@@ -153,12 +147,9 @@ export class ViewCode extends HTMLElement {
     this.setBusy(true)
     this.setStatus('Saving...', 'info')
     try {
-      const result = await runtime.call('fs', 'write', createWriteInput(this.path, this.editorElement.value))
-      if (result.returnCode !== 0) {
-        throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
-      }
+      unwrap(await runtime.invoke('fs/fs::write-text', this.path, this.editorElement.value))
       this.setStatus('Saved', 'success')
-      await runtime.call('ui.popup', 'close', { ok: true, cancelled: false, path: this.path, reload: true, selectedPath: this.path })
+      unwrap(await runtime.call('ui.popup.close', { ok: true, cancelled: false, path: this.path, reload: true, selectedPath: this.path }))
     } catch (error) {
       this.setStatus(`Error: ${error?.message || error}`, 'danger')
       console.error('view-code save failed:', error)

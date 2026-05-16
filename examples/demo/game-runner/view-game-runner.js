@@ -1,4 +1,4 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { require } from '/util/require.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 
@@ -41,10 +41,6 @@ const ACTION_BY_KEY = new Map([
 const textDecoder = new TextDecoder()
 const textEncoder = new TextEncoder()
 
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
-}
-
 function encodeResult(value) {
   return {
     returnCode: 0,
@@ -57,10 +53,6 @@ function writeU64(view, offset, value) {
   const hi = Math.floor(value / 0x100000000) >>> 0
   view.setUint32(offset, lo, true)
   view.setUint32(offset + 4, hi, true)
-}
-
-function assertOk(result, label) {
-  if (Number(result?.returnCode || 0) !== 0) throw new Error(`${label} failed: ${decodeOutput(result)}`)
 }
 
 function normalizeConfig(config) {
@@ -184,8 +176,8 @@ export class ViewGameRunner extends HTMLElement {
     const { GLBridge } = await require(config.glBridge)
     this.glBridge = new GLBridge(gl, null)
 
-    const wasmResult = await this.runtime.call('fs', 'read', config.wasm)
-    assertOk(wasmResult, `read game wasm '${config.wasm}'`)
+
+    const wasmBytes = unwrap(await runtime.invoke("fs/fs::read-file", config.wasm))
 
     const importObject = {
       env: {
@@ -197,7 +189,7 @@ export class ViewGameRunner extends HTMLElement {
       },
     }
 
-    const instantiated = await WebAssembly.instantiate(wasmResult.output, importObject)
+    const instantiated = await WebAssembly.instantiate(wasmBytes, importObject)
     this.instance = instantiated.instance || instantiated
     this.exports = this.instance.exports
     this.memory = this.exports.memory
@@ -345,9 +337,7 @@ export class ViewGameRunner extends HTMLElement {
     const entries = Object.entries(assetSources)
     await Promise.all(entries.map(async ([assetPath, source]) => {
       if (typeof source !== 'string' || source.length === 0) throw new Error(`asset source for '${assetPath}' must be a non-empty string`)
-      const result = await this.runtime.call('fs', 'read', source)
-      assertOk(result, `read game asset '${assetPath}' from '${source}'`)
-      this._assetCache.set(assetPath, result.output instanceof Uint8Array ? result.output : new Uint8Array(result.output))
+      this._assetCache.set(assetPath, unwrap(await runtime.invoke("fs/fs::read-file", source)))
     }))
   }
 
@@ -500,7 +490,7 @@ export class ViewGameRunner extends HTMLElement {
   }
 
   async _toast(method, message) {
-    await this.runtime.call('ui.toast', method, String(message))
+    await this.runtime.call(`ui.toast${method}`, String(message))
   }
 }
 

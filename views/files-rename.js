@@ -2,15 +2,10 @@ import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 import { createWriteInput } from '/util/fs.js'
 
-const decoder = new TextDecoder()
-
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
-}
 
 function normalizePath(path) {
   const raw = String(path || '.').trim()
@@ -124,7 +119,7 @@ export class FileRename extends HTMLElement {
     this.locationOutput.textContent = this.getLocationPath()
 
     this.querySelector('[data-action="cancel"]')?.addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { reload: false, cancelled: true })
+      unwrap(await runtime.call('ui.popup.close', { reload: false, cancelled: true }))
     })
 
     this.formElement.addEventListener('submit', async (event) => {
@@ -210,13 +205,13 @@ export class FileRename extends HTMLElement {
       await callFs('write-file', targetPath, [])
     }
 
-    await runtime.call('ui.popup', 'close', {
+    unwrap(await runtime.call('ui.popup.close', {
       reload: true,
       mode: this.mode,
       kind: this.kind,
       selectedPath: targetPath,
       revealPath: this.getLocationPath(),
-    })
+    }))
   }
 
   async rename(name) {
@@ -227,12 +222,12 @@ export class FileRename extends HTMLElement {
     const targetPath = joinPath(parentPath, name)
 
     if (targetPath === sourcePath) {
-      await runtime.call('ui.popup', 'close', {
+      unwrap(await runtime.call('ui.popup.close', {
         reload: false,
         mode: this.mode,
         kind: this.kind,
         selectedPath: sourcePath,
-      })
+      }))
       return
     }
 
@@ -248,13 +243,13 @@ export class FileRename extends HTMLElement {
       await renameFile(sourcePath, targetPath)
     }
 
-    await runtime.call('ui.popup', 'close', {
+    unwrap(await runtime.call('ui.popup.close', {
       reload: true,
       mode: this.mode,
       kind: this.kind,
       selectedPath: targetPath,
       revealPath: parentPath,
-    })
+    }))
   }
 
   disconnectedCallback() {

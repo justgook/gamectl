@@ -1,31 +1,3 @@
-const textEncoder = new TextEncoder()
-const textDecoder = new TextDecoder()
-
-function encodeResult(value) {
-  console.trace("replace encodeResult with result")
-  return {
-    returnCode: 0,
-    output: textEncoder.encode(JSON.stringify(value ?? null)),
-  }
-}
-
-function decodeInput(input) {
-  console.trace("replace decodeOutput with result")
-  if (typeof input === 'string') return input
-  if (input instanceof Uint8Array) return textDecoder.decode(input)
-  if (ArrayBuffer.isView(input)) return textDecoder.decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
-  return String(input ?? '')
-}
-
-function parseJsonInput(input) {
-  console.trace("replace decodeOutput with result")
-  if (input == null || input === '') return {}
-  if (typeof input === 'object' && !(input instanceof Uint8Array) && !ArrayBuffer.isView(input)) return input
-  const text = decodeInput(input)
-  if (!text) return {}
-  return JSON.parse(text)
-}
-
 function viewFromEvent(event) {
   let sawViewArea = false
   for (const item of event.composedPath()) {
@@ -71,16 +43,14 @@ export function createUiContext() {
       window.removeEventListener('focusin', onInteraction, { capture: true })
     },
     methods: {
-      snapshot: async () => encodeResult(structuredClone(state)),
-      activateView: async (input) => {
-        const payload = parseJsonInput(input)
-        if (typeof payload.id !== 'string' || payload.id.length === 0) throw new Error('ui.context.activateView requires id')
-        state.activeView = { id: payload.id }
-        return encodeResult(structuredClone(state))
+      snapshot: async () => structuredClone(state),
+      activateView: async (id) => {
+        state.activeView = { id }
+        return structuredClone(state)
       },
       clearActiveView: async () => {
         state.activeView = { id: '' }
-        return encodeResult(structuredClone(state))
+        return structuredClone(state)
       },
     },
   }

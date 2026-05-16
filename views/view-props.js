@@ -69,7 +69,7 @@ export class ViewProps extends HTMLElement {
 
     this.querySelector('[data-action="add"]').addEventListener('click', () => this.addRow('', ''))
     this.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { ok: false, cancelled: true })
+      unwrap(await runtime.call('ui.popup.close', { ok: false, cancelled: true }))
     })
     this.formElement.addEventListener('submit', async (event) => {
       event.preventDefault()
@@ -175,7 +175,7 @@ export class ViewProps extends HTMLElement {
   async save() {
     try {
       const data = this.collectProps()
-      await runtime.call('ui.popup', 'close', { ok: true, cancelled: false, data })
+      unwrap(await runtime.call('ui.popup.close', { ok: true, cancelled: false, data }))
     } catch (error) {
       this.setStatus(`Error: ${error.message}`, 'danger')
     }

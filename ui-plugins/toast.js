@@ -1,24 +1,12 @@
-function decodeInput(input) {
-  if (typeof input === 'string') return input
-  if (input instanceof Uint8Array) return new TextDecoder().decode(input)
-  if (ArrayBuffer.isView(input)) {
-    return new TextDecoder().decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
-  }
-  return String(input ?? '')
-}
+
 
 function parseOptions(input) {
   if (input == null || input === '') return {}
-  if (typeof input === 'object' && !(input instanceof Uint8Array) && !ArrayBuffer.isView(input)) {
-    return input
+  if (typeof input === 'string') {
+    return { message: input }
   }
-  const text = decodeInput(input)
-  if (!text) return {}
-  try {
-    return JSON.parse(text)
-  } catch {
-    return { message: text }
-  }
+
+  return input
 }
 
 function encodeOK(value) {

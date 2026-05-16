@@ -1,19 +1,5 @@
-import { runtime } from "/core/runtime.js"
-const textEncoder = new TextEncoder()
-const textDecoder = new TextDecoder()
+import { runtime, unwrap } from "/core/runtime.js"
 
-function encodeResult(value) {
-  console.trace("replace encodeResult with result")
-  return {
-    returnCode: 0,
-    output: textEncoder.encode(JSON.stringify(value ?? null)),
-  }
-}
-
-function decodeOutput(result) {
-  console.trace("replace decodeOutput with result")
-  return textDecoder.decode(result?.output || new Uint8Array())
-}
 
 function normalizeKeyEvent(event) {
   const parts = []
@@ -64,40 +50,16 @@ function isTextInputEvent(event) {
   return false
 }
 
-function assertOk(result, label) {
-  if (Number(result?.returnCode || 0) !== 0) {
-    throw new Error(`${label} failed: ${decodeOutput(result)}`)
-  }
-}
 
 function luaStringLiteral(value) {
   return JSON.stringify(String(value))
 }
 
-function resolveContextPath(ctx, path) {
-  const parts = String(path).split('.')
-  let value = ctx
-  for (const part of parts) {
-    if (!part) throw new Error(`ui.keys invalid context path '${path}'`)
-    value = value[part]
-    if (value == null) throw new Error(`ui.keys context path '${path}' resolved to ${value}`)
-  }
-  return value
-}
 
 function parseBindings(config) {
   const keys = config?.ui?.keys || []
   if (!Array.isArray(keys)) throw new Error('gams config ui.keys must be an array')
-  return keys.map((binding, index) => {
-    if (!binding || typeof binding !== 'object' || Array.isArray(binding)) throw new Error(`ui.keys[${index}] must be an object`)
-    if (typeof binding.key !== 'string' || binding.key.trim().length === 0) throw new Error(`ui.keys[${index}].key is required`)
-    if (binding.call == null && binding.script == null) throw new Error(`ui.keys[${index}] requires call or script`)
-    if (binding.call != null && binding.script != null) throw new Error(`ui.keys[${index}] cannot define both call and script`)
-    if (binding.call != null) {
-      if (!Array.isArray(binding.call) || binding.call.length !== 3) throw new Error(`ui.keys[${index}].call must be [plugin, method, input]`)
-      if (typeof binding.call[0] !== 'string' || typeof binding.call[1] !== 'string') throw new Error(`ui.keys[${index}].call plugin and method must be strings`)
-    }
-    if (binding.script != null && typeof binding.script !== 'string') throw new Error(`ui.keys[${index}].script must be a string`)
+  return keys.map((binding) => {
     return {
       ...binding,
       normalizedKey: normalizeConfiguredKey(binding.key),
@@ -115,18 +77,16 @@ export function createUiKeys(config) {
   }
 
   async function snapshotContext(inTextInput) {
-    const result = await runtime.call('ui.context', 'snapshot', '{}')
-    assertOk(result, 'ui.context.snapshot')
-    const ctx = JSON.parse(decodeOutput(result))
+    const ctx = await runtime.call('ui.context.snapshot')
     ctx.key = { inTextInput }
     return ctx
   }
 
   async function runCall(callSpec, ctx) {
-    if (!Array.isArray(callSpec) || callSpec.length !== 3) throw new Error('shortcut call must be [plugin, method, input]')
-    const pluginId = callSpec[0] === 'activeView.id' ? resolveContextPath(ctx, callSpec[0]) : callSpec[0]
-    const result = await runtime.call(String(pluginId), callSpec[1], callSpec[2])
-    assertOk(result, `shortcut call ${pluginId}.${callSpec[1]}`)
+    const pluginId = callSpec[0].startsWith('activeView')
+      ? callSpec[0].replace("activeView", ctx.activeView.id)
+      : callSpec[0]
+    unwrap(await runtime.call(String(pluginId), callSpec?.[1] || undefined))
   }
 
   async function dispatchScriptOutput(value, ctx) {
@@ -147,13 +107,11 @@ export function createUiKeys(config) {
       return
     }
 
-    const readResult = unwrap(await runtime.invoke('fs/fs::read-text', [binding.script]))
-    assertOk(readResult, `read shortcut script '${binding.script}'`)
+    const readResult = unwrap(await runtime.invoke('fs/fs::read-text', binding.script))
     const source = `_G.ctx = json.decode(${luaStringLiteral(JSON.stringify(ctx))})\n${readResult}`
-    const runResult = unwrap(await runtime.invoke('lua/lua::run', [source]))
+    const runResult = JSON.parse(unwrap(await runtime.invoke('lua/lua::run', source)))
 
-    assertOk(runResult, `run shortcut script '${binding.script}'`)
-    await dispatchScriptOutput(JSON.parse(runResult), ctx)
+    await dispatchScriptOutput(runResult, ctx)
   }
 
   const onKeyDown = (event) => {
@@ -176,7 +134,7 @@ export function createUiKeys(config) {
       window.removeEventListener('keydown', onKeyDown, { capture: true })
     },
     methods: {
-      ping: async () => encodeResult({ ok: true, bindings: bindings.length }),
+      ping: async () => ({ ok: { bindings: bindings.length } }),
     },
   }
 }

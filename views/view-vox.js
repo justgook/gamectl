@@ -2,7 +2,6 @@ import { runtime, unwrap } from '/core/runtime.js'
 import { ViewCanvasBase } from '/util/view-canvas-base.js'
 import { decode as decodeVox } from '/util/vox/decode.js'
 
-const decoder = new TextDecoder()
 const TILE_W = 24
 const TILE_H = 12
 const CUBE_H = 18
@@ -11,9 +10,6 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
-}
 
 function colorForIndex(palette, index) {
   if (palette) {
@@ -312,7 +308,7 @@ export class ViewVox extends ViewCanvasBase {
 
   async reload() {
     await this.load()
-    await runtime.call('ui.toast', 'success', { message: `Reloaded ${this.path}` })
+    await runtime.call('ui.toast.success', { message: `Reloaded ${this.path}` })
   }
 
   setStatus(text, tone = null) {
@@ -327,7 +323,7 @@ export class ViewVox extends ViewCanvasBase {
     this.setStatus('Loading...', 'info')
 
     try {
-      const bytes = new Uint8Array(unwrap(await runtime.invoke('fs/fs::read-file', [this.path])))
+      const bytes = new Uint8Array(unwrap(await runtime.invoke('fs/fs::read-file', this.path)))
 
       const vox = decodeVox(bytes.buffer, bytes.byteOffset, bytes.byteLength)
       const instances = collectInstances(vox)

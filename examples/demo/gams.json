@@ -14,114 +14,86 @@
       {
         "key": "1",
         "call": [
-          "activeView.id",
-          "tool_1",
-          "{}"
+          "activeView.tool_1"
         ]
       },
       {
         "key": "2",
         "call": [
-          "activeView.id",
-          "tool_2",
-          "{}"
+          "activeView.tool_2"
         ]
       },
       {
         "key": "3",
         "call": [
-          "activeView.id",
-          "tool_3",
-          "{}"
+          "activeView.tool_3"
         ]
       },
       {
         "key": "4",
         "call": [
-          "activeView.id",
-          "tool_4",
-          "{}"
+          "activeView.tool_4"
         ]
       },
       {
         "key": "5",
         "call": [
-          "activeView.id",
-          "tool_5",
-          "{}"
+          "activeView.tool_5"
         ]
       },
       {
         "key": "6",
         "call": [
-          "activeView.id",
-          "tool_6",
-          "{}"
+          "activeView.tool_6"
         ]
       },
       {
         "key": "=",
         "call": [
-          "activeView.id",
-          "zoomIn",
-          "{}"
+          "activeView.zoomIn"
         ]
       },
       {
         "key": "-",
         "call": [
-          "activeView.id",
-          "zoomOut",
-          "{}"
+          "activeView.zoomOut"
         ]
       },
       {
         "key": "0",
         "call": [
-          "activeView.id",
-          "zoomFit",
-          "{}"
+          "activeView.zoomFit"
         ]
       },
       {
         "key": "f",
         "call": [
-          "activeView.id",
-          "zoomFit",
-          "{}"
+          "activeView.zoomFit"
         ]
       },
       {
         "key": "o",
         "call": [
-          "activeView.id",
-          "open",
-          "{}"
+          "activeView.open"
         ]
       },
       {
         "key": "r",
         "call": [
-          "activeView.id",
-          "reload",
-          "{}"
+          "activeView.reload"
         ]
       },
       {
         "key": "n",
         "call": [
-          "activeView.id",
-          "new",
-          "{}"
+          "activeView.new"
         ],
         "allowInput": false
       },
       {
         "key": "mod+shift+s",
         "call": [
-          "activeView.id",
-          "saveAs",
-          "{}"
+          "activeView.saveAs"
         ],
         "allowInput": true
       }
