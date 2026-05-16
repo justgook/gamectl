@@ -20,7 +20,7 @@ if tree == nil or tree == "" then
 end
 local map = inputs[2]
 if map == nil or map == "" then
-	map = "/minimap.map.json"
+	map = "minimap.map.json"
 end
 local direction = inputs[3]
 if direction == nil or direction == "" then
@@ -33,7 +33,7 @@ local payload = {
 	direction = direction,
 }
 
-local resultText = host.call("minimap2/minimap2::gen", payload)
+local resultText = host.call("minimap/minimap::gen", payload)
 local ok, response = pcall(json.decode, resultText)
 if not ok then
 	outputs[1] = ""
@@ -48,4 +48,3 @@ else
 	outputs[1] = "" -- No map source path on error
 	outputs[2] = response.error or "Unknown error"
 end
-

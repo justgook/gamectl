@@ -16,6 +16,7 @@ async function main() {
     "plugins/layout.comp.wasm",
     "plugins/lua.comp.wasm",
     "plugins/treegen.comp.wasm",
+    "plugins/minimap.comp.wasm",
   ], true)
   console.timeEnd("addPlugins")
 
