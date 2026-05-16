@@ -890,11 +890,11 @@ export class ViewNg extends HTMLElement {
     const progressSource = `local __ng_progress_plugin = ${luaStringLiteral(this.progressPluginId)}
 local __ng_progress_run_id = ${luaStringLiteral(runId)}
 function __ng_progress(method, nodeId, message)
-  host.call(__ng_progress_plugin .. "." .. method, json.encode({
+  host.call(__ng_progress_plugin .. "." .. method, {
     runId = __ng_progress_run_id,
     nodeId = nodeId,
     message = message,
-  }))
+  })
 end`
     const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${compilerRead}`
     const generatedSource = unwrap(await runtime.invoke("lua/lua::run", compilerSource))
