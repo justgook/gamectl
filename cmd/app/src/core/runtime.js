@@ -1,16 +1,5 @@
-let tauriInvoke = null
+const invokeCommand = globalThis.__TAURI__.core.invoke
 let tauriListen = null
-
-async function invokeCommand(command, args) {
-  if (tauriInvoke) return await tauriInvoke(command, args)
-
-  if (!globalThis.__TAURI__?.core?.invoke) {
-    throw new Error('Tauri invoke API is unavailable; cmd/app requires app.withGlobalTauri = true')
-  }
-
-  tauriInvoke = globalThis.__TAURI__.core.invoke
-  return await tauriInvoke(command, args)
-}
 
 async function listenEvent(event, callback) {
   if (tauriListen) return await tauriListen(event, callback)
@@ -66,7 +55,7 @@ export class Runtime {
     await invokeCommand('runtime_call_view_ready', {})
   }
 
-  async invoke(target, args = []) {
+  async invoke(target, ...args) {
     assertString(target, 'runtime.invoke target')
     assertArray(args, 'runtime.invoke args')
     return await invokeCommand('runtime_invoke', { target, args })
@@ -91,13 +80,7 @@ export class Runtime {
     assertString(target, 'runtime.callView target')
     assertString(args, 'runtime.callView args')
 
-    const parts = target.split(".")
-    const method = parts.pop()
-    console.log("calling to view", parts.join("."), method, args)
-    const result = await this.call(parts.join("."), method, JSON.parse(args))
-    console.log(result)
-
-    return JSON.stringify(result)
+    return JSON.stringify(await this.call(target, JSON.parse(args)))
   }
 
   async diagnostics() {
@@ -118,8 +101,17 @@ export class Runtime {
     this.#mainPlugins.delete(pluginId)
   }
 
-  async call(pluginId, method, input) {
+  async call(target, ...args) {
+    const parts = target.split(".")
+    if (parts.length < 2) {
+      throw Error(`${target} mutst be in form of "plugin.method"`)
+    }
+    const method = parts.pop()
+    const pluginId = parts.join(".")
+
+    console.log("runtime.call", pluginId, method, args)
     const plugin = this.#mainPlugins.get(pluginId)
+
     if (!plugin) {
       throw new Error(`Unknown main-thread plugin '${pluginId}'`)
     }
@@ -133,7 +125,7 @@ export class Runtime {
       throw new Error(`Main-thread plugin '${plugin.id}' does not implement method '${method}'`)
     }
 
-    return await fn(input)
+    return await fn.apply(null, args)
   }
 }
 

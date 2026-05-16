@@ -1,4 +1,4 @@
-import { require2 } from "/util/require.js"
+import { require } from "/util/require.js"
 import { runtime } from "/core/runtime.js"
 import { require2 as require } from "/util/require.js"
 
@@ -12,11 +12,11 @@ const DEFAULT_LAYOUT = `
 
 function doInit(viewConfig) {
   Promise.all([
-    require2("ui-plugins/context.js"),
-    require2("ui-plugins/keys.js"),
-    require2("ui-plugins/layout.js"),
-    require2("ui-plugins/toast.js"),
-    require2("ui-plugins/popup.js"),
+    require("ui-plugins/context.js"),
+    require("ui-plugins/keys.js"),
+    require("ui-plugins/layout.js"),
+    require("ui-plugins/toast.js"),
+    require("ui-plugins/popup.js"),
   ]).then(([{ createUiContext }, { createUiKeys }]) => {
     runtime.register(createUiContext())
     runtime.register(createUiKeys(viewConfig))
@@ -35,12 +35,12 @@ function doInit(viewConfig) {
 
 
     window.onerror = function (_message, _source, _lineno, _colno, error) {
-      runtime.call("ui.toast", "error", errorParse(error))
+      runtime.call("ui.toast.error", errorParse(error))
       return false // prevents default logging (optional)
     }
 
     window.addEventListener("unhandledrejection", (e) => {
-      runtime.call("ui.toast", "error", errorParse(e))
+      runtime.call("ui.toast.error", errorParse(e))
     })
   })
 }
@@ -98,7 +98,7 @@ function createConfiguredViewRegistry(config) {
 async function applyThemeStylesheet(config) {
   const themePath = config?.ui?.theme?.path
   if (typeof themePath !== 'string' || themePath.length === 0) throw new Error('gams config ui.theme.path is required')
-  const readResult = unwrapResult(await runtime.invoke("fs/fs::read-file", [themePath]), "theme read")
+  const readResult = unwrapResult(await runtime.invoke("fs/fs::read-file", themePath), "theme read")
 
   const blob = new Blob([new Uint8Array(readResult)], { type: 'text/css' })
   const themeHref = URL.createObjectURL(blob)

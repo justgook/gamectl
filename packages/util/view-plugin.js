@@ -55,7 +55,8 @@ export function registerViewPlugin(view, methods = {}) {
       ...methods,
     },
   })
-  void runtime.call('ui.context', 'activateView', { id: pluginId })
+  void runtime.call('ui.context.activateView', pluginId)
+
   return pluginId
 }
 

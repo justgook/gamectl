@@ -304,7 +304,7 @@ export class UiLayout extends HTMLElement {
   }
 
   async callLayout(method, ...args) {
-    const result = unwrap(await runtime.invoke(`layout/layout::${method}`, args), `Layout::${method}`)
+    const result = unwrap(await runtime.invoke(`layout/layout::${method}`, ...args), `Layout::${method}`)
     this.document = result.document
   }
 

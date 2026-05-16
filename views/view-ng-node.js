@@ -2,8 +2,6 @@ import { runtime } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 import { parseCSVLines } from '/util/csv.js'
 
-const textDecoder = new TextDecoder()
-
 const NG = {
   NODE_GOAL: 1,
   NODE_CODE: 2,
@@ -13,10 +11,6 @@ const NG = {
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
-}
-
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
 }
 
 function escapeAttribute(value) {
@@ -255,11 +249,7 @@ export class ViewNgNode extends HTMLElement {
   }
 
   async callSql(sql) {
-    const result = await runtime.call('sql', 'query', sql)
-    if (result.returnCode !== 0) {
-      throw new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
-    }
-    return decodeOutput(result)
+    return unwrap(await runtime.invoke("sql/sql::query", sql))
   }
 
   loadTemplates() {
@@ -339,9 +329,9 @@ export class ViewNgNode extends HTMLElement {
     const templateOptions = orderedGroups.length
       ? orderedGroups.map((group) => `<optgroup label="${escapeAttribute(group)}">
         ${groups.get(group).map((entry) => {
-          const value = `template:${entry.name}`
-          return `<option value="${escapeAttribute(value)}" ${selected === value ? 'selected' : ''}>${escapeAttribute(entry.name)}</option>`
-        }).join('')}
+        const value = `template:${entry.name}`
+        return `<option value="${escapeAttribute(value)}" ${selected === value ? 'selected' : ''}>${escapeAttribute(entry.name)}</option>`
+      }).join('')}
       </optgroup>`).join('')
       : '<optgroup label="Presets"><option value="template-empty" disabled>empty</option></optgroup>'
     return `
@@ -490,7 +480,7 @@ export class ViewNgNode extends HTMLElement {
     assert(this.statusOutput instanceof HTMLOutputElement, 'view-ng-node missing status output')
 
     this.querySelector('[data-action="cancel"]')?.addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { cancelled: true, ok: false, mode: this.mode, nodeId: this.nodeId })
+      unwrap(await runtime.call('ui.popup.close', { cancelled: true, ok: false, mode: this.mode, nodeId: this.nodeId }))
     })
 
     const kindSelect = this.querySelector('[name="node-kind"]')
@@ -634,7 +624,7 @@ export class ViewNgNode extends HTMLElement {
   }
 
   async chooseCodeFile() {
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Choose Code File',
       size: 'large',
       tag: 'view-files',
@@ -643,8 +633,7 @@ export class ViewNgNode extends HTMLElement {
         rootPath: dirname(this.draft.codePath),
         filter: '*.lua',
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (payload?.cancelled) return false
     const selection = payload?.selection
     if (!selection || Array.isArray(selection)) return false
@@ -724,13 +713,12 @@ export class ViewNgNode extends HTMLElement {
         return
       }
       try {
-        const result = await runtime.call('ui.popup', 'open', {
+        const payload = unwrap(await runtime.call('ui.popup.open', {
           title: 'Edit Code',
           size: 'large',
           tag: 'view-code',
           attributes: { 'data-source': this.draft.codePath },
-        })
-        const payload = JSON.parse(decodeOutput(result) || 'null')
+        }))
         this.draft.codeStatus = payload?.ok ? 'Code file saved.' : ''
       } catch (error) {
         this.draft.codeStatus = String(error?.message || error)
@@ -749,7 +737,7 @@ export class ViewNgNode extends HTMLElement {
     }
 
     if (this.mode === 'edit') {
-      await runtime.call('ui.popup', 'close', {
+      unwrap(await runtime.call('ui.popup.close', {
         ok: true,
         cancelled: false,
         mode: this.mode,
@@ -765,11 +753,11 @@ export class ViewNgNode extends HTMLElement {
           inputs: this.draft.inputs.map((port, index) => ({ inputId: Number(port.inputId || index + 1), name: String(port.name || '').trim(), value: String(port.value || '') })),
           outputs: this.draft.outputs.map((port, index) => ({ outputId: Number(port.outputId || index + 1), name: String(port.name || '').trim(), value: String(port.value || '') })),
         },
-      })
+      }))
       return
     }
 
-    await runtime.call('ui.popup', 'close', {
+    unwrap(await runtime.call('ui.popup.close', {
       ok: true,
       cancelled: false,
       mode: this.mode,
@@ -785,7 +773,7 @@ export class ViewNgNode extends HTMLElement {
         inputs: this.draft.inputs.map((port, index) => ({ inputId: Number(port.inputId || index + 1), name: String(port.name || '').trim(), value: String(port.value || '') })),
         outputs: this.draft.outputs.map((port, index) => ({ outputId: Number(port.outputId || index + 1), name: String(port.name || '').trim(), value: String(port.value || '') })),
       },
-    })
+    }))
   }
 
   disconnectedCallback() {

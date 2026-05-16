@@ -2,31 +2,12 @@ import { runtime } from '/core/runtime.js'
 import { unwrap } from '/util/unwrap.js'
 import { createWriteInput } from '/util/fs.js'
 
-const textDecoder = new TextDecoder()
-
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
-}
-
 function luaStringLiteral(value) {
   return JSON.stringify(String(value))
 }
 
-function assertRuntimeOk(result, label) {
-  if (Number(result.returnCode || 0) !== 0) {
-    throw new Error(`${label} failed: ${decodeOutput(result)}`)
-  }
-}
-
 function okResult() {
   return { returnCode: 0, output: new Uint8Array() }
-}
-
-function decodeRuntimeInput(input) {
-  if (typeof input === 'string') return input
-  if (input instanceof Uint8Array) return textDecoder.decode(input)
-  if (ArrayBuffer.isView(input)) return textDecoder.decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
-  return String(input ?? '')
 }
 
 function stripLuaLineComments(source) {
@@ -375,11 +356,11 @@ export class ViewNg extends HTMLElement {
     runtime.register({
       id: this.pluginId,
       methods: {
-        nodeStart: (input) => this._handleRunProgress('nodeStart', input),
-        nodeDone: (input) => this._handleRunProgress('nodeDone', input),
-        nodeError: (input) => this._handleRunProgress('nodeError', input),
-        goalStart: (input) => this._handleRunProgress('goalStart', input),
-        goalDone: (input) => this._handleRunProgress('goalDone', input),
+        nodeStart: (input) => this._handleRunProgress('nodeStart', unwrap(input)),
+        nodeDone: (input) => this._handleRunProgress('nodeDone', unwrap(input)),
+        nodeError: (input) => this._handleRunProgress('nodeError', unwrap(input)),
+        goalStart: (input) => this._handleRunProgress('goalStart', unwrap(input)),
+        goalDone: (input) => this._handleRunProgress('goalDone', unwrap(input)),
         save: async () => {
           await this.saveGraph()
           return okResult()
@@ -440,7 +421,7 @@ export class ViewNg extends HTMLElement {
         tool_6: async () => okResult(),
       },
     })
-    void runtime.call('ui.context', 'activateView', { id: this.pluginId })
+    void runtime.call('ui.context.activateView', this.pluginId)
     this._progressPluginRegistered = true
   }
 
@@ -453,8 +434,7 @@ export class ViewNg extends HTMLElement {
     await runtime.unregister(pluginId)
   }
 
-  _handleRunProgress(method, input) {
-    const payload = JSON.parse(decodeRuntimeInput(input))
+  _handleRunProgress(method, payload) {
     if (payload.runId !== this.currentRunId) return { returnCode: 0, output: new Uint8Array() }
     const nodeId = Number(payload.nodeId || 0)
     if (nodeId <= 0) throw new Error(`view-ng progress ${method} missing nodeId`)
@@ -630,7 +610,7 @@ export class ViewNg extends HTMLElement {
 
   async _showInfoPopup(title, message, tone = null) {
     const type = tone === 'danger' ? 'error' : tone || 'info'
-    await runtime.call('ui.toast', 'alert', {
+    await runtime.call('ui.toast.alert', {
       type,
       buttonText: 'OK',
       message: title ? `${title}\n\n${String(message || '')}` : String(message || ''),
@@ -970,7 +950,7 @@ export class ViewNg extends HTMLElement {
     this.currentRunId = runId
     this._setStatus('compiling graph run...', 'info')
 
-    const compilerRead = unwrap(await runtime.invoke('fs/fs::read-text', ['ng/run.lua']))
+    const compilerRead = unwrap(await runtime.invoke('fs/fs::read-text', 'ng/run.lua'))
 
     const graphJson = JSON.stringify(this.getGraph())
     const progressSource = `local __ng_progress_plugin = ${luaStringLiteral(this.progressPluginId)}
@@ -983,10 +963,7 @@ function __ng_progress(method, nodeId, message)
   }))
 end`
     const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${compilerRead}`
-    const compileResult = await runtime.call('lua', 'run', compilerSource)
-    assertRuntimeOk(compileResult, 'compile graph run')
-
-    const generatedSource = JSON.parse(decodeOutput(compileResult))
+    const generatedSource = unwrap(await runtime.invoke("lua/lua::run", compilerSource))
     // console.log("source ready", generatedSource)
 
     const requiredPlugins = collectHostCallPluginNames(generatedSource)
@@ -996,13 +973,11 @@ end`
     }
     this._setStatus('running generated graph code...', 'info')
 
-    const runResult = await runtime.call('lua', 'run', generatedSource)
-    assertRuntimeOk(runResult, 'run generated graph code')
+    const resultText = unwrap(await runtime.invoke("lua/lua::run", generatedSource))
 
     if (this.currentRunId !== runId) return
-    const resultText = decodeOutput(runResult)
     this._setStatus('graph run completed', 'success')
-    await runtime.call('ui.toast', 'success', { message: resultText })
+    await runtime.call('ui.toast.success', { message: resultText })
   }
 
   async resetGraph() {
@@ -1011,7 +986,7 @@ end`
   }
 
   async newGraph() {
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Create Graph',
       size: 'medium',
       tag: 'view-files',
@@ -1020,14 +995,13 @@ end`
         filter: '*.ng.json,*.json',
         defaultName: 'new-graph.ng.json',
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     assert(payload.path, 'view-ng new graph requires selected path')
     await this.saveGraphToPath(payload.path, [])
     await this.loadGraphFS(payload.path, false)
     this._setStatus(`created graph ${payload.path}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Created graph ${payload.path}` })
+    await runtime.call('ui.toast.success', { message: `Created graph ${payload.path}` })
   }
 
   async reloadGraph() {
@@ -1035,7 +1009,7 @@ end`
     assert(path.length > 0, 'view-ng reload requires current graph path')
     await this.loadGraphFS(path, false)
     this._setStatus(`reloaded graph from ${path}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Reloaded graph from ${path}` })
+    await runtime.call('ui.toast.success', { message: `Reloaded graph from ${path}` })
   }
 
   resetExecutionState() {
@@ -1204,11 +1178,11 @@ end`
     assert(path.length > 0, 'view-ng save requires current graph path')
     await this.saveGraphToPath(path, this.getGraph())
     this._setStatus(`saved graph to ${path}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Saved graph to ${path}` })
+    await runtime.call('ui.toast.success', { message: `Saved graph to ${path}` })
   }
 
   async saveGraphAs() {
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Save Graph As',
       size: 'medium',
       tag: 'view-files',
@@ -1217,20 +1191,19 @@ end`
         filter: '*.ng.json,*.json',
         defaultName: `${this.graphName || 'graph'}.ng.json`,
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     assert(payload.path, 'view-ng save-as requires selected path')
     await this.saveGraphToPath(payload.path, this.getGraph())
     this.setGraphPath(payload.path)
     this._setStatus(`saved graph to ${payload.path}`, 'success')
-    await runtime.call('ui.toast', 'success', { message: `Saved graph to ${payload.path}` })
+    await runtime.call('ui.toast.success', { message: `Saved graph to ${payload.path}` })
   }
 
   async saveGraphToPath(path, graph) {
     assert(typeof path === 'string' && path.length > 0, 'view-ng save requires path')
     const json = `${JSON.stringify(graph, null, 2)}\n`
-    unwrap(await runtime.invoke('fs/fs::write-text', [path, json]))
+    unwrap(await runtime.invoke('fs/fs::write-text', path, json))
   }
 
   setGraphPath(path) {
@@ -1245,7 +1218,7 @@ end`
   }
 
   async showLoadGraphPopup() {
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Load Graph',
       size: 'medium',
       tag: 'view-files',
@@ -1253,8 +1226,7 @@ end`
         mode: 'chooser',
         filter: '*.ng.json,*.json',
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     const selection = payload.selection
     const path = Array.isArray(selection) ? selection[0]?.path : selection?.path
@@ -1264,26 +1236,25 @@ end`
   }
 
   async loadGraphFS(path, notify = true) {
-    const readResult = unwrap(await runtime.invoke("fs/fs::read-text", [path]), path)
+    const readResult = unwrap(await runtime.invoke("fs/fs::read-text", path), path)
     const graph = JSON.parse(readResult)
     this.loadGraph(graph)
     this.setGraphPath(path)
     this._setStatus(`loaded graph from ${path}`, 'success')
     if (notify) {
-      await runtime.call('ui.toast', 'success', { message: `Loaded graph from ${path}` })
+      await runtime.call('ui.toast.success', { message: `Loaded graph from ${path}` })
     }
   }
 
   async showAddNodePopup() {
     if (!this._assertMutableGraphSource('showAddNodePopup')) return
     this._syncGraphNodePositionsFromLayout()
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Add node',
       size: 'medium',
       tag: 'view-ng-node',
       props: { mode: 'create' },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     const draft = payload.draft || {}
     const nodeId = this._nextAvailableNodeId()
@@ -1320,7 +1291,7 @@ end`
     const node = this._getNodeById(nodeId)
     const rawNode = this.graphNodes.find((item) => item.id === Number(nodeId))
     assert(node && rawNode, `view-ng missing selected node ${nodeId}`)
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: `Edit node #${nodeId}`,
       size: 'medium',
       tag: 'view-ng-node',
@@ -1340,8 +1311,7 @@ end`
         inputLabels: rawNode.inputs.map((input, index) => input.name || `input ${index + 1}`),
         outputLabels: rawNode.outputs.map((output, index) => rawNode.kind === NG.NODE_VALUE ? output.value : (output.name || `output ${index + 1}`)),
       },
-    })
-    const payload = JSON.parse(decodeOutput(result) || 'null')
+    }))
     if (!payload || payload.cancelled) return
     const layout = this.nodeLayout.get(nodeId) || { x: rawNode.x, y: rawNode.y }
     const next = this._nodeFromDraft(nodeId, payload.draft || {}, { ...rawNode, x: layout.x, y: layout.y })
@@ -2015,7 +1985,7 @@ end`
   }
 
   async _loadTextureFromUrl(url) {
-    const res = unwrap(await runtime.invoke("fs/fs::read-file", [url]), url)
+    const res = unwrap(await runtime.invoke("fs/fs::read-file", url), url)
     let image = null
     try {
       image = await createImageBitmap(new Blob([new Uint8Array(res)]))
@@ -2054,8 +2024,8 @@ end`
 
   async _loadTextAtlasFromAssets() {
     const [metaResult, atlasResult] = await Promise.all([
-      runtime.invoke("fs/fs::read-text", [this.assets.text.source.metaUrl]).then(unwrap),
-      runtime.invoke("fs/fs::read-file", [this.assets.text.source.atlasUrl]).then(unwrap),
+      runtime.invoke("fs/fs::read-text", this.assets.text.source.metaUrl).then(unwrap),
+      runtime.invoke("fs/fs::read-file", this.assets.text.source.atlasUrl).then(unwrap),
     ])
 
     const meta = JSON.parse(metaResult)

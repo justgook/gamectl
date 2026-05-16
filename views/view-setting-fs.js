@@ -175,11 +175,11 @@ export class ViewSettingFs extends HTMLElement {
       }
 
       this.setStatus('Reloading with updated filesystem provider...', 'info')
-      await runtime.call('ui.toast', 'info', { message: 'Reloading with updated filesystem provider...' })
+      await runtime.call('ui.toast.info', { message: 'Reloading with updated filesystem provider...' })
       window.location.reload()
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
-      await runtime.call('ui.toast', 'error', { message: String(error?.message || error) })
+      await runtime.call('ui.toast.error', { message: String(error?.message || error) })
     } finally {
       this.applyButtonElement.disabled = false
     }

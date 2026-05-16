@@ -46,7 +46,7 @@ export class ViewTreeParent extends HTMLElement {
     assert(this.statusElement instanceof HTMLOutputElement, 'view-tree-parent missing status output')
 
     this.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { ok: false, cancelled: true })
+      unwrap(await runtime.call('ui.popup.close', { ok: false, cancelled: true }))
     })
     this.formElement.addEventListener('submit', async (event) => {
       event.preventDefault()
@@ -82,7 +82,7 @@ export class ViewTreeParent extends HTMLElement {
     assert(this.selectElement.options.length > 0, 'view-tree-parent requires at least one parent candidate')
     const parentIndex = Number(this.selectElement.value)
     assert(Number.isInteger(parentIndex) && parentIndex >= 0, 'view-tree-parent selected parent must be non-negative integer')
-    await runtime.call('ui.popup', 'close', { ok: true, cancelled: false, parentIndex })
+    unwrap(await runtime.call('ui.popup.close', { ok: true, cancelled: false, parentIndex }))
   }
 
   disconnectedCallback() {

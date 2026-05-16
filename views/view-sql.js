@@ -2,12 +2,6 @@ import { runtime } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 import { parseCSVLines } from '/util/csv.js'
 
-const textDecoder = new TextDecoder()
-
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
-}
-
 function quoteIdent(name) {
   return String(name).replace(/"/g, '""')
 }
@@ -224,7 +218,7 @@ export class ViewSql extends HTMLElement {
     this.actionCancelButton.dataset.action = 'cancel'
     this.actionCancelButton.textContent = 'Cancel'
     this.actionCancelButton.addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { cancelled: true, ok: false })
+      unwrap(await runtime.call('ui.popup.close', { cancelled: true, ok: false }))
     })
     footer.appendChild(this.actionCancelButton)
 
@@ -261,23 +255,11 @@ export class ViewSql extends HTMLElement {
   }
 
   async callSql(sql) {
-    const result = await runtime.call('sql', 'query', sql)
-    if (result.returnCode !== 0) {
-      const err = new Error(decodeOutput(result) || `sql query failed: ${result.returnCode}`)
-      err.plugin = "view.sql"
-      throw err
-    }
-    return decodeOutput(result)
+    return unwrap(await runtime.invoke("sql/sql::query", sql))
   }
 
   async execSql(sql) {
-    const result = await runtime.call('sql', 'exec', sql)
-    if (result.returnCode !== 0) {
-      const err = new Error(decodeOutput(result) || `sql exec failed: ${result.returnCode}`)
-      err.plugin = "view.sql"
-      throw err
-    }
-    return decodeOutput(result)
+    return unwrap(await runtime.invoke("sql/sql::exec", sql))
   }
 
   async refresh(tableToSelect = null) {
@@ -438,14 +420,13 @@ export class ViewSql extends HTMLElement {
   }
 
   async openCreateTablePopup() {
-    const result = await runtime.call('ui.popup', 'open', {
+    const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Create New Table',
       size: 'medium',
       tag: 'sql-table-editor',
       props: { mode: 'create' },
-    })
+    }))
 
-    const payload = JSON.parse(decodeOutput(result) || 'null')
     if (payload?.reload) {
       await this.refresh(payload.tableName ?? null)
     }
@@ -699,17 +680,16 @@ export class ViewSql extends HTMLElement {
     if (this.mode === 'saver') {
       const value = this.value.trim()
       if (!value) return
-      await runtime.call('ui.popup', 'close', {
+      unwrap(await runtime.call('ui.popup.close', {
         ok: true,
         cancelled: false,
         value,
         row: selection?.row || null,
         selection: this.projectSelection(selection),
-      })
+      }))
       return
     }
-    const payload = this.projectSelection(selection)
-    await runtime.call('ui.popup', 'close', payload)
+    unwrap(await runtime.call('ui.popup.close', this.projectSelection(selection)))
   }
 
   startEdit(td, rowIndex, colIndex, currentValue, column) {
@@ -876,13 +856,12 @@ export class ViewSql extends HTMLElement {
     const pkValue = row[this.primaryKey]
     assert(pkValue !== undefined && pkValue !== null && pkValue !== '', 'Cannot delete: no primary key value')
 
-    const confirmResult = await runtime.call('ui.toast', 'confirm', {
+    const confirmed = unwrap(await runtime.call('ui.toast.confirm', {
       message: `Delete row with ${this.primaryKey} = ${pkValue}?`,
       type: 'warning',
       confirmText: 'Delete',
       cancelText: 'Cancel',
-    })
-    const confirmed = JSON.parse(decodeOutput(confirmResult) || 'false')
+    }))
     if (!confirmed) return
 
     try {

@@ -1,18 +1,12 @@
-import { runtime } from '/core/runtime.js'
-import { createWriteInput } from '/util/fs.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 
-const textDecoder = new TextDecoder()
 const DEFAULT_TILE_SIZE = 16
 const DEFAULT_MAP_WIDTH = 32
 const DEFAULT_MAP_HEIGHT = 32
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
-}
-
-function decodeOutput(result) {
-  return textDecoder.decode(result?.output || new Uint8Array())
 }
 
 function basename(path) {
@@ -98,7 +92,7 @@ export class TilemapSettings extends HTMLElement {
     this.applyModeText()
 
     this.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-      await runtime.call('ui.popup', 'close', { reload: false, cancelled: true })
+      unwrap(await runtime.call('ui.popup.close', { reload: false, cancelled: true }))
     })
 
     this.formElement.addEventListener('submit', async (event) => {
@@ -171,14 +165,13 @@ export class TilemapSettings extends HTMLElement {
   }
 
   async loadTilemap(path) {
-    const result = await runtime.call('fs', 'read', path)
-    if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
-    const data = JSON.parse(decodeOutput(result))
+    const data = unwrap(await runtime.invoke("fs/fs::read-text", path))
     this.validateStorageData(data)
     return { path, data }
   }
 
   validateStorageData(data) {
+    console.warn("update tilemap data validation to json-schema")
     assert(data && typeof data === 'object' && !Array.isArray(data), 'tilemap storage data must be object JSON')
     assert(Array.isArray(data.layers), 'tilemap storage data.layers must be array')
     assert(data.layers.length > 0, 'tilemap storage must contain at least one layer')
@@ -216,9 +209,8 @@ export class TilemapSettings extends HTMLElement {
     const data = this.updatedStorageData(this.tilemap.data, { tileSize, width, height })
     this.setStatus('Saving…', 'info')
     try {
-      const result = await runtime.call('fs', 'write', createWriteInput(path, `${JSON.stringify(data, null, 2)}\n`))
-      if (result.returnCode !== 0) throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
-      await runtime.call('ui.popup', 'close', { reload: true, cancelled: false, path, name: basename(path) })
+      unwrap(await runtime.invoke('fs/fs::write-text', path, `${JSON.stringify(data, null, 2)}\n`))
+      unwrap(await runtime.call('ui.popup.close', { reload: true, cancelled: false, path, name: basename(path) }))
     } catch (error) {
       this.setStatus(`Error: ${error.message}`, 'danger')
     }

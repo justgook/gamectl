@@ -418,8 +418,7 @@ export class ViewMarkov extends ViewCanvasBase {
     if (this.handle === 0) return
     const handle = this.handle
     this.handle = 0
-    const result = await runtime.call('markov', 'destroy', JSON.stringify({ handle }))
-    parseJsonOutput(result, 'markov.destroy')
+    unwrap(await runtime.invoke('markov/markov::run', { handle }))
   }
 
   async resetSession() {
@@ -438,14 +437,13 @@ export class ViewMarkov extends ViewCanvasBase {
         return
       }
       const started = performance.now()
-      const result = await runtime.call('markov', 'create', JSON.stringify({
+      const session = unwrap(await runtime.invoke('markov/markov::create', {
         model: modelPath(example),
         width: example.width,
         height: example.height,
         depth: example.depth,
         seed: this.seed(),
       }))
-      const session = parseJsonOutput(result, 'markov.create')
       assert(Number.isInteger(session.handle) && session.handle > 0, 'markov.create returned invalid handle')
       this.handle = session.handle
       this.applyGrid(session.grid, true)
@@ -469,6 +467,7 @@ export class ViewMarkov extends ViewCanvasBase {
     this.running = true
     const started = performance.now()
     try {
+      alert("implement")
       const result = await runtime.call('markov', 'step', JSON.stringify({ handle: this.handle, steps: this.steps() }))
       const session = parseJsonOutput(result, 'markov.step')
       this.applyGrid(session.grid, false)

@@ -112,7 +112,7 @@ export class ViewImage extends ViewCanvasBase {
 
   async reload() {
     await this.load()
-    await runtime.call('ui.toast', 'success', { message: `Reloaded ${this.path}` })
+    await runtime.call('ui.toast.success', { message: `Reloaded ${this.path}` })
   }
 
   setStatus(text, tone = null) {
@@ -127,7 +127,7 @@ export class ViewImage extends ViewCanvasBase {
     this.setStatus('Loading...', 'info')
 
     try {
-      const bytes = new Uint8Array(unwrap(await runtime.invoke('fs/fs::read-file', [this.path])))
+      const bytes = new Uint8Array(unwrap(await runtime.invoke('fs/fs::read-file', this.path)))
 
       const ext = getExtension(this.path)
       const source = ext === 'qoi'

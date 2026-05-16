@@ -1,38 +1,10 @@
 import { runtime } from '/core/runtime.js'
 import { ensureThemeStylesheetLink } from "/util/add-style.js"
 
-function decodeInput(input) {
-  console.trace("replace decodeInput with result")
-  if (typeof input === 'string') return input
-  if (input instanceof Uint8Array) return new TextDecoder().decode(input)
-  if (ArrayBuffer.isView(input)) {
-    return new TextDecoder().decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
-  }
-  return String(input ?? '')
-}
 
-function parseOptions(input) {
-  console.trace("replace parseOptions with result")
+function resultOk(ok) {
+  return { ok }
 
-  if (input == null || input === '') return {}
-  if (typeof input === 'object' && !(input instanceof Uint8Array) && !ArrayBuffer.isView(input)) {
-    return input
-  }
-  const text = decodeInput(input)
-  if (!text) return {}
-  try {
-    return JSON.parse(text)
-  } catch {
-    return { value: text }
-  }
-}
-
-function encodeResult(value) {
-  console.trace("replace encodeResult with result")
-  return {
-    returnCode: 0,
-    output: new TextEncoder().encode(JSON.stringify(value ?? null)),
-  }
 }
 
 /**
@@ -51,10 +23,10 @@ export class PopupManager extends HTMLElement {
     this.stack = []
     this.nextPopupId = 1
     this.api = {
-      open: async (input) => encodeResult(await this.open(parseOptions(input))),
-      close: async (input) => encodeResult(await this.close(parseOptions(input))),
-      closeTop: async (input) => encodeResult(await this.close(parseOptions(input))),
-      closeAll: async () => encodeResult(await this.closeAll()),
+      open: async (input) => resultOk(await this.open(input)),
+      close: async (input) => resultOk(await this.close(input)),
+      closeTop: async (input) => resultOk(await this.close(input)),
+      closeAll: async () => resultOk(await this.closeAll()),
       isOpen: async () => ({ ok: { count: this.popupCount } }),
     }
   }
@@ -333,7 +305,7 @@ export class ViewPopup extends HTMLElement {
     const closeBtn = this.shadowRoot.querySelector('[data-action="close"]')
     if (closeBtn) {
       closeBtn.addEventListener('click', async () => {
-        await runtime.call('ui.popup', 'close', { ok: false, cancelled: true, reason: 'dismissed' })
+        unwrap(await runtime.call('ui.popup.close', { ok: false, cancelled: true, reason: 'dismissed' }))
       })
     }
 
