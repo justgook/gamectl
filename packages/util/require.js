@@ -1,9 +1,5 @@
 import { runtime } from "/core/runtime.js"
 
-function decodeOutput(result) {
-  return new TextDecoder().decode(result?.output || new Uint8Array())
-}
-
 function unwrapResult(result, label) {
   if (result && Object.prototype.hasOwnProperty.call(result, "ok")) return result.ok
   if (result && Object.prototype.hasOwnProperty.call(result, "err")) throw new Error(`${label}: ${result.err}`)

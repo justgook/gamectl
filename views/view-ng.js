@@ -5,7 +5,7 @@ function luaStringLiteral(value) {
 }
 
 function okResult() {
-  return { returnCode: 0, output: new Uint8Array() }
+  return { ok: true }
 }
 
 function stripLuaLineComments(source) {
@@ -433,14 +433,14 @@ export class ViewNg extends HTMLElement {
   }
 
   _handleRunProgress(method, payload) {
-    if (payload.runId !== this.currentRunId) return { returnCode: 0, output: new Uint8Array() }
+    if (payload.runId !== this.currentRunId) return okResult()
     const nodeId = Number(payload.nodeId || 0)
     if (nodeId <= 0) throw new Error(`view-ng progress ${method} missing nodeId`)
     if (method === 'nodeStart' || method === 'goalStart') this._setExecutionState(nodeId, EXEC_RUNNING, 'incoming')
     if (method === 'nodeDone' || method === 'goalDone') this._setExecutionState(nodeId, EXEC_DONE, 'connected')
     if (method === 'nodeError') this._setExecutionState(nodeId, EXEC_ERROR, 'connected')
     this.render()
-    return { returnCode: 0, output: new Uint8Array() }
+    return okResult()
   }
 
   _setExecutionState(nodeId, state, edgeMode) {

@@ -43,14 +43,14 @@ export function createUiContext() {
       window.removeEventListener('focusin', onInteraction, { capture: true })
     },
     methods: {
-      snapshot: async () => structuredClone(state),
+      snapshot: async () => ({ ok: structuredClone(state) }),
       activateView: async (id) => {
         state.activeView = { id }
-        return structuredClone(state)
+        return { ok: structuredClone(state) }
       },
       clearActiveView: async () => {
         state.activeView = { id: '' }
-        return structuredClone(state)
+        return { ok: structuredClone(state) }
       },
     },
   }

@@ -1,16 +1,10 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 import { GAMS_CONFIG_PATH, loadDefaultGamsConfig, validateGamsConfig } from '/core/gams-config.js'
-import { createWriteInput } from '/util/fs.js'
 
-const decoder = new TextDecoder()
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
-}
-
-function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
 }
 
 function formatJson(value) {
@@ -122,25 +116,18 @@ export class ViewSettingPlugins extends HTMLElement {
     this.setStatus('Loading…', 'info')
 
     try {
-      const existsResult = await runtime.call('fs', 'exists', GAMS_CONFIG_PATH)
-      if (existsResult.returnCode !== 0) {
-        throw new Error(decodeOutput(existsResult) || `fs.exists failed: ${existsResult.returnCode}`)
-      }
-
-      const exists = decodeOutput(existsResult) === 'true'
-      if (exists) {
-        const result = await runtime.call('fs', 'read', GAMS_CONFIG_PATH)
-        if (result.returnCode !== 0) {
-          throw new Error(decodeOutput(result) || `fs.read failed: ${result.returnCode}`)
-        }
-
-        const parsed = validateGamsConfig(JSON.parse(decodeOutput(result)), GAMS_CONFIG_PATH)
+      const statResult = await runtime.invoke('fs/fs::stat', GAMS_CONFIG_PATH)
+      if (Object.hasOwn(statResult, 'ok')) {
+        const text = unwrap(await runtime.invoke('fs/fs::read-text', GAMS_CONFIG_PATH), GAMS_CONFIG_PATH)
+        const parsed = validateGamsConfig(JSON.parse(text), GAMS_CONFIG_PATH)
         this.editorElement.value = formatJson(parsed)
         this.setSummary(`Loaded GAMS config from ${GAMS_CONFIG_PATH}.`, 'success')
         this.setStatus('Ready', 'success')
         queueMicrotask(() => this.editorElement.focus())
         return
       }
+      if (!Object.hasOwn(statResult, 'err')) throw new Error('fs.stat returned invalid result')
+      if (statResult.err !== 'no-entry') throw new Error(`fs.stat ${GAMS_CONFIG_PATH}: ${statResult.err}`)
 
       this.editorElement.value = formatJson(await loadDefaultGamsConfig())
       this.setSummary(`No ${GAMS_CONFIG_PATH} found. Editor shows built-in fallback config until you save.`, 'warning')
@@ -161,10 +148,7 @@ export class ViewSettingPlugins extends HTMLElement {
     try {
       const parsed = validateGamsConfig(JSON.parse(this.editorElement.value), GAMS_CONFIG_PATH)
       const encoded = formatJson(parsed)
-      const result = await runtime.call('fs', 'write', createWriteInput(GAMS_CONFIG_PATH, encoded))
-      if (result.returnCode !== 0) {
-        throw new Error(decodeOutput(result) || `fs.write failed: ${result.returnCode}`)
-      }
+      unwrap(await runtime.invoke('fs/fs::write-text', GAMS_CONFIG_PATH, encoded), GAMS_CONFIG_PATH)
 
       this.editorElement.value = encoded
       this.setSummary(`Saved ${GAMS_CONFIG_PATH}. Reload the app to apply config changes.`, 'warning')
