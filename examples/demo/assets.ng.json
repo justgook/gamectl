@@ -5,7 +5,7 @@
     "x": 3299,
     "y": 430,
     "name": "Resources",
-    "codePath": "demo/ng/presets/array.lua",
+    "codePath": "ng/presets/array.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -54,7 +54,7 @@
     "x": 1162,
     "y": 290,
     "name": "Tilemap Scaler",
-    "codePath": "demo/ng/presets/pipeline-tilemap-scaler.lua",
+    "codePath": "ng/presets/pipeline-tilemap-scaler.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -96,7 +96,7 @@
     "x": 3721,
     "y": 339,
     "name": "Respack Build",
-    "codePath": "demo/ng/presets/respack-build.lua",
+    "codePath": "ng/presets/respack-build.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -197,7 +197,7 @@
     "x": 2924,
     "y": 590,
     "name": "Image Wrap",
-    "codePath": "demo/ng/presets/image-wrap.lua",
+    "codePath": "ng/presets/image-wrap.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -222,7 +222,7 @@
     "x": 2894,
     "y": 404,
     "name": "Demo UVs",
-    "codePath": "demo/ng/presets/uvs.lua",
+    "codePath": "ng/presets/uvs.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -247,7 +247,7 @@
     "x": 1991,
     "y": 254,
     "name": "Image FlipY",
-    "codePath": "demo/ng/presets/image-flipy.lua",
+    "codePath": "ng/presets/image-flipy.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -295,7 +295,7 @@
     "x": 516,
     "y": 309,
     "name": "World Tree Generator",
-    "codePath": "demo/ng/presets/pipeline-world-tree.lua",
+    "codePath": "ng/presets/pipeline-world-tree.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -349,7 +349,7 @@
     "x": 835,
     "y": 285,
     "name": "Minimap Generator",
-    "codePath": "demo/ng/presets/pipeline-create-minimap.lua",
+    "codePath": "ng/presets/pipeline-create-minimap.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -429,7 +429,7 @@
     "x": 3688,
     "y": 198,
     "name": "Respack Generate Odin",
-    "codePath": "demo/ng/presets/respack-generate-odin.lua",
+    "codePath": "ng/presets/respack-generate-odin.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -470,7 +470,7 @@
     "x": 2671,
     "y": 516,
     "name": "Image Atlas",
-    "codePath": "demo/ng/presets/image-atlas.lua",
+    "codePath": "ng/presets/image-atlas.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -500,7 +500,7 @@
     "x": 2404,
     "y": 620,
     "name": "Image Open",
-    "codePath": "demo/ng/presets/image-open.lua",
+    "codePath": "ng/presets/image-open.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -548,7 +548,7 @@
     "x": 2658,
     "y": 642,
     "name": "Image FlipY",
-    "codePath": "demo/ng/presets/image-flipy.lua",
+    "codePath": "ng/presets/image-flipy.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -578,7 +578,7 @@
     "x": 2913,
     "y": 499,
     "name": "Image Wrap",
-    "codePath": "demo/ng/presets/image-wrap.lua",
+    "codePath": "ng/presets/image-wrap.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -603,7 +603,7 @@
     "x": 1428,
     "y": 244,
     "name": "Tilemap Automap",
-    "codePath": "demo/ng/presets/pipeline-apply-automap.lua",
+    "codePath": "ng/presets/pipeline-apply-automap.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -741,7 +741,7 @@
     "x": 1989,
     "y": 381,
     "name": "Image FlipY",
-    "codePath": "demo/ng/presets/image-flipy.lua",
+    "codePath": "ng/presets/image-flipy.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -771,7 +771,7 @@
     "x": 2437,
     "y": 379,
     "name": "Pack Rects",
-    "codePath": "demo/ng/presets/pack-rects.lua",
+    "codePath": "ng/presets/pack-rects.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -825,7 +825,7 @@
     "x": 2228,
     "y": 361,
     "name": "Array",
-    "codePath": "demo/ng/presets/array.lua",
+    "codePath": "ng/presets/array.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -862,7 +862,7 @@
     "x": 1744,
     "y": 379,
     "name": "LUT Generator",
-    "codePath": "demo/ng/presets/lut-generator.lua",
+    "codePath": "ng/presets/lut-generator.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -898,7 +898,7 @@
     "x": 2887,
     "y": 231,
     "name": "Positions",
-    "codePath": "demo/ng/positions.lua",
+    "codePath": "ng/positions.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -934,7 +934,7 @@
     "x": 1750,
     "y": 245,
     "name": "LUT Generator",
-    "codePath": "demo/ng/presets/lut-generator.lua",
+    "codePath": "ng/presets/lut-generator.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -970,7 +970,7 @@
     "x": 2884,
     "y": 316,
     "name": "Tilemaps",
-    "codePath": "demo/ng/tilemaps.lua",
+    "codePath": "ng/tilemaps.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [

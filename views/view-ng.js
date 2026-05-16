@@ -9,22 +9,6 @@ function okResult() {
   return { ok: true }
 }
 
-function stripLuaLineComments(source) {
-  return String(source).split('\n').map((line) => line.replace(/--.*$/, '')).join('\n')
-}
-
-function collectHostCallPluginNames(source) {
-  const plugins = new Set()
-  const text = stripLuaLineComments(source)
-  const pattern = /\bhost\.(?:call|awaitCall)\s*\(\s*(['"])([^'"]+)\1/g
-  let match = pattern.exec(text)
-  while (match) {
-    plugins.add(match[2])
-    match = pattern.exec(text)
-  }
-  return [...plugins].sort()
-}
-
 const NG = {
   NODE_GOAL: 1,
   NODE_CODE: 2,
@@ -351,11 +335,11 @@ export class ViewNg extends HTMLElement {
   _registerProgressPlugin() {
     if (this._progressPluginRegistered) return
     const pluginId = registerViewPlugin(this, {
-      nodeStart: (input) => this._handleRunProgress('nodeStart', unwrap(input)),
-      nodeDone: (input) => this._handleRunProgress('nodeDone', unwrap(input)),
-      nodeError: (input) => this._handleRunProgress('nodeError', unwrap(input)),
-      goalStart: (input) => this._handleRunProgress('goalStart', unwrap(input)),
-      goalDone: (input) => this._handleRunProgress('goalDone', unwrap(input)),
+      nodeStart: (input) => this._handleRunProgress('nodeStart', (input)),
+      nodeDone: (input) => this._handleRunProgress('nodeDone', (input)),
+      nodeError: (input) => this._handleRunProgress('nodeError', (input)),
+      goalStart: (input) => this._handleRunProgress('goalStart', (input)),
+      goalDone: (input) => this._handleRunProgress('goalDone', (input)),
       tool_1: async () => {
         await this.run()
         return okResult()
@@ -914,20 +898,14 @@ function __ng_progress(method, nodeId, message)
 end`
     const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${compilerRead}`
     const generatedSource = unwrap(await runtime.invoke("lua/lua::run", compilerSource))
-    // console.log("source ready", generatedSource)
 
-    const requiredPlugins = collectHostCallPluginNames(generatedSource)
-    if (requiredPlugins.length > 0) {
-      this._setStatus(`loading graph plugins: ${requiredPlugins.join(', ')}`, 'info')
-      await runtime.ensureLoaded(requiredPlugins)
-    }
     this._setStatus('running generated graph code...', 'info')
 
     const resultText = unwrap(await runtime.invoke("lua/lua::run", generatedSource))
 
     if (this.currentRunId !== runId) return
     this._setStatus('graph run completed', 'success')
-    await runtime.call('ui.toast.success', { message: resultText })
+    await unwrap(runtime.call('ui.toast.success', { message: resultText }))
   }
 
   async resetGraph() {
