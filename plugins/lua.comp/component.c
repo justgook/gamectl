@@ -371,9 +371,7 @@ static int json_decode_value(lua_State *L, const JsonDoc *doc, int tok_idx,
   return luaL_error(L, "json.decode: unsupported token type");
 }
 
-static int lua_json_decode(lua_State *L) {
-  size_t len = 0;
-  const char *json = luaL_checklstring(L, 1, &len);
+static int push_json_decoded(lua_State *L, const char *json, size_t len) {
   JsonDoc doc;
   jsmn_parser parser;
   int rc;
@@ -410,6 +408,12 @@ static int lua_json_decode(lua_State *L) {
 
   free(doc.tokens);
   return 1;
+}
+
+static int lua_json_decode(lua_State *L) {
+  size_t len = 0;
+  const char *json = luaL_checklstring(L, 1, &len);
+  return push_json_decoded(L, json, len);
 }
 
 static int json_encode_string(StrBuf *out, const char *s, size_t len) {
@@ -757,7 +761,24 @@ static int lua_csv_parse(lua_State *L) {
 #undef LUA_CSV_FLUSH_FIELD
 #undef LUA_CSV_FLUSH_ROW
 
-static int lua_host_call(lua_State *L) {
+static int bytes_contains_literal(const char *s, size_t s_len, const char *needle) {
+  size_t needle_len = strlen(needle);
+  size_t i;
+  if (needle_len == 0) {
+    return 1;
+  }
+  if (needle_len > s_len) {
+    return 0;
+  }
+  for (i = 0; i <= s_len - needle_len; i++) {
+    if (memcmp(s + i, needle, needle_len) == 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static int lua_host_raw_call(lua_State *L) {
   size_t target_len = 0;
   size_t args_len = 0;
   const char *target = luaL_checklstring(L, 1, &target_len);
@@ -779,24 +800,83 @@ static int lua_host_call(lua_State *L) {
   memset(&err, 0, sizeof(err));
 
   if (!gams_runtime_runtime_call(&target_string, &args_string, &ret, &err)) {
-    free(pending_host_error);
-    pending_host_error = NULL;
-    pending_host_error_len = err.len;
-    if (err.len > 0) {
-      pending_host_error = (char *)malloc(err.len);
-      if (pending_host_error != NULL) {
-        memcpy(pending_host_error, err.ptr, err.len);
-      } else {
-        pending_host_error_len = 0;
-      }
-    }
+    const char *message = err.ptr != NULL ? (const char *)err.ptr : "host.call failed";
+    size_t message_len = err.len > 0 ? err.len : 16u;
+    lua_pushlstring(L, message, message_len);
     free(err.ptr);
-    lua_pushnil(L);
-    return 1;
+    return lua_error(L);
   }
 
   lua_pushlstring(L, (const char *)(ret.ptr != NULL ? ret.ptr : (uint8_t *)""), ret.len);
   free(ret.ptr);
+  return 1;
+}
+
+static int lua_host_call(lua_State *L) {
+  int top = lua_gettop(L);
+  int arg_count;
+  int table_idx;
+  int i;
+  StrBuf encoded_args;
+  const void *seen[LUA_JSON_RECURSION_LIMIT];
+  size_t raw_len = 0;
+  const char *raw;
+  int has_ok_key;
+  int has_err_key;
+
+  luaL_checkstring(L, 1);
+  arg_count = top > 1 ? top - 1 : 0;
+  lua_createtable(L, arg_count, 0);
+  table_idx = lua_gettop(L);
+  for (i = 2; i <= top; i++) {
+    lua_pushvalue(L, i);
+    lua_seti(L, table_idx, (lua_Integer)i - 1);
+  }
+
+  sb_init(&encoded_args);
+  if (!json_encode_value(L, table_idx, &encoded_args, seen, 0, 0)) {
+    sb_free(&encoded_args);
+    return luaL_error(L, "host.call: failed to encode arguments");
+  }
+  lua_pop(L, 1);
+
+  lua_pushlstring(L, encoded_args.buf != NULL ? encoded_args.buf : "[]", encoded_args.len);
+  sb_free(&encoded_args);
+  lua_replace(L, 2);
+  lua_settop(L, 2);
+
+  lua_host_raw_call(L);
+  raw = lua_tolstring(L, -1, &raw_len);
+  has_ok_key = bytes_contains_literal(raw, raw_len, "\"ok\"");
+  has_err_key = bytes_contains_literal(raw, raw_len, "\"err\"");
+
+  push_json_decoded(L, raw, raw_len);
+  lua_remove(L, -2);
+
+  if (lua_istable(L, -1)) {
+    lua_getfield(L, -1, "err");
+    if (!lua_isnil(L, -1)) {
+      return lua_error(L);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "ok");
+    if (!lua_isnil(L, -1)) {
+      lua_remove(L, -2);
+      return 1;
+    }
+    lua_pop(L, 1);
+
+    if (has_err_key) {
+      return luaL_error(L, "host.call failed");
+    }
+    if (has_ok_key) {
+      lua_pop(L, 1);
+      lua_pushnil(L);
+      return 1;
+    }
+  }
+
   return 1;
 }
 
@@ -1057,6 +1137,8 @@ static void register_host_lib(lua_State *L) {
   lua_newtable(L);
   lua_pushcfunction(L, lua_host_call);
   lua_setfield(L, -2, "call");
+  lua_pushcfunction(L, lua_host_raw_call);
+  lua_setfield(L, -2, "raw_call");
   lua_setglobal(L, "host");
 }
 

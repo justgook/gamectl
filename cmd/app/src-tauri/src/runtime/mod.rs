@@ -2160,9 +2160,8 @@ mod tests {
 
         let source = [
             "function main()",
-            "  local result = host.call('fs/fs::read-text', json.encode({ 'ng/run.lua' }))",
-            "  local decoded = json.decode(result)",
-            "  return string.find(decoded.ok, 'function main()', 1, true) ~= nil",
+            "  local text = host.call('fs/fs::read-text', 'ng/run.lua')",
+            "  return string.find(text, 'function main()', 1, true) ~= nil",
             "end",
         ]
         .join("\n");
@@ -2173,9 +2172,8 @@ mod tests {
 
         let source = [
             "function main()",
-            "  local result = host.call('gams:fs/fs::read-text', json.encode({ 'ng/run.lua' }))",
-            "  local decoded = json.decode(result)",
-            "  return string.find(decoded.ok, 'function main()', 1, true) ~= nil",
+            "  local text = host.call('gams:fs/fs::read-text', 'ng/run.lua')",
+            "  return string.find(text, 'function main()', 1, true) ~= nil",
             "end",
         ]
         .join("\n");
@@ -2183,6 +2181,18 @@ mod tests {
             .invoke("lua/lua::run", serde_json::json!([source]))
             .unwrap();
         assert_eq!(full_component_call["ok"].as_str().unwrap(), "true");
+
+        let source = [
+            "function main()",
+            "  local ok, message = pcall(host.call, 'fs/fs::read-text', 'missing.lua')",
+            "  return ok == false and string.len(tostring(message)) > 0",
+            "end",
+        ]
+        .join("\n");
+        let handled_error = runtime
+            .invoke("lua/lua::run", serde_json::json!([source]))
+            .unwrap();
+        assert_eq!(handled_error["ok"].as_str().unwrap(), "true");
 
         let graph = serde_json::json!([
             {

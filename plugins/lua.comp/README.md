@@ -18,12 +18,15 @@ It intentionally does **not** import `gams:fs`; that proxy is for frontend files
 ## Lua API
 
 ```lua
-host.call(target, args?)
+host.call(target, ...)
+host.raw_call(target, args_json)
 fs.read_text(path)
 fs.read(path) -- alias for read_text
 ```
 
-`host.call` maps directly to `gams:runtime/runtime.call(target, args)` and blocks until the host/frontend responds.
+`host.call` maps to `gams:runtime/runtime.call(target, args_json)` and blocks until the host/frontend responds. It JSON-encodes all arguments after `target` as an argument array, decodes the JSON response, unwraps `{ ok = value }`, and raises a Lua error for `{ err = message }` or transport failures. Those errors are regular Lua errors and can be handled with `pcall`.
+
+`host.raw_call` exposes the underlying string protocol directly.
 
 `fs.read_text` reads a text file from the component's WASI preopens and returns it as a Lua string. Missing or unreadable files raise a Lua error.
 
@@ -31,8 +34,7 @@ Example:
 
 ```lua
 function main()
-  local result = host.call("ui.toast.confirm", '{"message":"Continue?"}')
-  return json.decode(result).ok
+  return host.call("fs/fs::read-text", "ng/run.lua")
 end
 ```
 
