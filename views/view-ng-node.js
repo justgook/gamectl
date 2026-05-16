@@ -230,8 +230,7 @@ export class ViewNgNode extends HTMLElement {
   }
 
   async initialize() {
-    await this.loadTemplates()
-    await this.loadGraphs()
+    this.loadTemplates()
     if (this.mode !== 'edit') {
       this.ensureDraftShape()
     }
@@ -248,9 +247,6 @@ export class ViewNgNode extends HTMLElement {
     })
   }
 
-  async callSql(sql) {
-    return unwrap(await runtime.invoke("sql/sql::query", sql))
-  }
 
   loadTemplates() {
     const presets = this.config?.presets || []
@@ -266,21 +262,6 @@ export class ViewNgNode extends HTMLElement {
         data: { ...entry, name, kind, group },
       }
     }).filter(Boolean)
-  }
-
-  async loadGraphs() {
-    try {
-      const csv = await this.callSql('SELECT rowid, name, node_count, data FROM ng_graph_storage ORDER BY name')
-      const rows = parseCSVLines(csv.trim())
-      this.graphEntries = rows.slice(1).map((row) => ({
-        id: Number(row[0] || 0),
-        name: String(row[1] || '').trim(),
-        nodeCount: Number(row[2] || 0),
-        data: String(row[3] || ''),
-      })).filter((entry) => entry.name)
-    } catch (error) {
-      this.graphEntries = []
-    }
   }
 
   ensureDraftShape() {

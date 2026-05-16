@@ -1224,8 +1224,8 @@ export class ViewTilemap extends ViewCanvasBase {
       await this.refreshSnapshot('History state selected')
     })
 
-    this.queryHeader('[data-action="new"]').addEventListener('click', async () => this.newTilemap())
-    this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.openTilemap())
+    this.queryHeader('[data-action="new"]').addEventListener('click', async () => this.new())
+    this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.open())
     this.queryHeader('[data-action="save"]').addEventListener('click', async () => this.save())
     this.queryHeader('[data-action="save-as"]').addEventListener('click', async () => this.saveAs())
     this.queryHeader('[data-action="reload"]').addEventListener('click', async () => this.reload())
@@ -1245,7 +1245,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.queryHeader('[data-action="grid"]').addEventListener('click', () => this.toggleGrid())
     this.queryHeader('[data-action="zoom-in"]').addEventListener('click', () => this.zoomIn())
     this.queryHeader('[data-action="zoom-out"]').addEventListener('click', () => this.zoomOut())
-    this.queryHeader('[data-action="zoom-fit"]').addEventListener('click', () => this.fitToContent())
+    this.queryHeader('[data-action="zoom-fit"]').addEventListener('click', () => this.zoomFit())
     this.queryHeader('[data-action="map-props"]').addEventListener('click', async () => this.openMapProps())
     this.queryHeader('[data-action="settings"]').addEventListener('click', async () => this.openSettings())
   }
@@ -1278,7 +1278,7 @@ export class ViewTilemap extends ViewCanvasBase {
     this.setBusy(true)
     this.setStatus(`Opening ${path} tilemap…`, 'info')
     try {
-      await this.openTilemapPath(path, { autoFit: true })
+      await this.openPath(path, { autoFit: true })
     } catch (error) {
       this.setStatus(String(error?.message || error), 'danger')
       await runtime.call('ui.toast.error', { message: String(error?.message || error) })
@@ -1302,7 +1302,7 @@ export class ViewTilemap extends ViewCanvasBase {
     return source
   }
 
-  async openTilemapPath(path, { autoFit = true } = {}) {
+  async openPath(path, { autoFit = true } = {}) {
     assert(typeof path === 'string' && path.length > 0, 'view-tilemap open requires tilemap path')
     assert(typeof autoFit === 'boolean', 'view-tilemap open autoFit must be boolean')
     const tilemap = await this.loadTilemapFile(path)
@@ -1354,7 +1354,7 @@ export class ViewTilemap extends ViewCanvasBase {
     await this.refreshSnapshot('Layer updated')
   }
 
-  async newTilemap() {
+  async new() {
     const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Create Tilemap',
       size: 'medium',
@@ -1365,15 +1365,15 @@ export class ViewTilemap extends ViewCanvasBase {
       },
     }))
     if (payload?.reload) {
-      await this.openTilemapPath(payload.path, { autoFit: true })
+      await this.openPath(payload.path, { autoFit: true })
       await runtime.call('ui.toast.success', { message: `Created tilemap ${payload.path}` })
     }
   }
 
-  async openTilemap() {
+  async open() {
     const selection = await this.chooseTilemapFile()
     if (selection.cancelled) return
-    await this.openTilemapPath(selection.path, { autoFit: true })
+    await this.openPath(selection.path, { autoFit: true })
   }
 
   async chooseTilemapFile() {
@@ -1501,7 +1501,7 @@ export class ViewTilemap extends ViewCanvasBase {
   async reload() {
     assert(this.snapshot, 'view-tilemap reload requires current snapshot')
     assert(typeof this.snapshot.path === 'string' && this.snapshot.path.length > 0, 'view-tilemap reload requires current tilemap path')
-    await this.openTilemapPath(this.snapshot.path, { autoFit: true })
+    await this.openPath(this.snapshot.path, { autoFit: true })
     this.setStatus(`Reloaded tilemap ${this.snapshot.path}`, 'success')
     await runtime.call('ui.toast.success', { message: `Reloaded tilemap ${this.snapshot.path}` })
   }
@@ -1661,7 +1661,7 @@ export class ViewTilemap extends ViewCanvasBase {
       },
     }))
     if (payload?.reload) {
-      await this.openTilemapPath(payload.path, { autoFit: true })
+      await this.openPath(payload.path, { autoFit: true })
       await runtime.call('ui.toast.success', { message: `Updated tilemap ${payload.path}` })
     }
   }

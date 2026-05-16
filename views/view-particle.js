@@ -1,5 +1,8 @@
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+
 export class ViewParticle extends HTMLElement {
   connectedCallback() {
+    registerViewPlugin(this)
     this.style.display = 'contents'
     this.innerHTML = `
       <article>
@@ -11,6 +14,10 @@ This view is intended for editing emitters, lifetime, velocity, color and alpha 
       </article>
       <footer data-element="footer"><output>Placeholder view</output></footer>
     `
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 }
 

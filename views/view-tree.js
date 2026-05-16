@@ -346,14 +346,14 @@ export class ViewTree extends HTMLElement {
     if (!this.parentElement || this._headerControlsElement) return
     this._headerControlsElement = this.createHeaderControlsElement()
     this.parentElement.appendChild(this._headerControlsElement)
-    this.queryHeader('[data-action="new"]').addEventListener('click', () => this.newTree())
-    this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.openTree())
+    this.queryHeader('[data-action="new"]').addEventListener('click', () => this.new())
+    this.queryHeader('[data-action="open"]').addEventListener('click', async () => this.open())
     this.queryHeader('[data-action="save"]').addEventListener('click', async () => this.save())
     this.queryHeader('[data-action="save-as"]').addEventListener('click', async () => this.saveAs())
     this.queryHeader('[data-action="reload"]').addEventListener('click', async () => this.reload())
     this.queryHeader('[data-action="zoom-in"]').addEventListener('click', () => this.zoomIn())
     this.queryHeader('[data-action="zoom-out"]').addEventListener('click', () => this.zoomOut())
-    this.queryHeader('[data-action="zoom-fit"]').addEventListener('click', () => this.fitToContent())
+    this.queryHeader('[data-action="zoom-fit"]').addEventListener('click', () => this.zoomFit())
     this.queryHeader('[data-action="add-node"]').addEventListener('click', async () => this.addNode())
     this.queryHeader('[data-action="change-parent"]').addEventListener('click', async () => this.changeParent())
     this.queryHeader('[data-action="edit-node-props"]').addEventListener('click', async () => this.editSelectedNodeProps())
@@ -459,7 +459,7 @@ export class ViewTree extends HTMLElement {
     this.render()
   }
 
-  async newTree() {
+  async new() {
     const payload = unwrap(await runtime.call('ui.popup.open', this.createNewTreePopupOptions()))
     if (!payload || payload.cancelled) return
     const path = typeof payload.path === 'string' ? payload.path.trim() : ''
@@ -469,7 +469,7 @@ export class ViewTree extends HTMLElement {
     await runtime.call('ui.toast.success', { message: `Created tree ${path}` })
   }
 
-  async openTree() {
+  async open() {
     const payload = unwrap(await runtime.call('ui.popup.open', this.createOpenTreePopupOptions()))
     if (!payload || payload.cancelled) return
     const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
@@ -843,6 +843,10 @@ export class ViewTree extends HTMLElement {
     this.offsetX = screenX - worldX * this.scale
     this.offsetY = screenY - worldY * this.scale
     this.render()
+  }
+
+  zoomFit() {
+    return this.fitToContent()
   }
 
   fitToContent() {
