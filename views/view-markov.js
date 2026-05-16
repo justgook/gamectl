@@ -1,7 +1,6 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { ViewCanvasBase } from '/util/view-canvas-base.js'
 
-const decoder = new TextDecoder()
 
 const PALETTE = {
   B: '#000000', I: '#1D2B53', P: '#7E2553', E: '#008751', N: '#AB5236', D: '#5F574F', A: '#C2C3C7', W: '#FFF1E8',
@@ -195,16 +194,6 @@ const EXAMPLES = [
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
-}
-
-function decodeOutput(result) {
-  return decoder.decode(result?.output || new Uint8Array())
-}
-
-function parseJsonOutput(result, context) {
-  const text = decodeOutput(result)
-  if (result.returnCode !== 0) throw new Error(text || `${context} failed: ${result.returnCode}`)
-  return JSON.parse(text)
 }
 
 function exampleById(id) {
@@ -467,9 +456,7 @@ export class ViewMarkov extends ViewCanvasBase {
     this.running = true
     const started = performance.now()
     try {
-      alert("implement")
-      const result = await runtime.call('markov', 'step', JSON.stringify({ handle: this.handle, steps: this.steps() }))
-      const session = parseJsonOutput(result, 'markov.step')
+      const session = unwrap(await runtime.invoke('markov/markov::step', { handle: this.handle, steps: this.steps() }), 'markov.step')
       this.applyGrid(session.grid, false)
       const grid = session.grid
       this.setStatus(grid.done ? `Done in ${grid.stepsRun} steps` : `Stepped in ${Math.round(performance.now() - started)}ms`, grid.done ? 'success' : 'info')

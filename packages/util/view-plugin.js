@@ -1,10 +1,9 @@
-import { runtime } from '../core/runtime.js'
+import { runtime } from '/core/runtime.js'
 
-function encodeResult(value) {
-  return {
-    returnCode: 0,
-    output: new TextEncoder().encode(JSON.stringify(value ?? null)),
-  }
+function toResult(value) {
+  if (value && typeof value === 'object' && Object.hasOwn(value, 'ok')) return value
+  if (value && typeof value === 'object' && Object.hasOwn(value, 'err')) return value
+  return { ok: value ?? true }
 }
 
 function viewTypeForElement(view) {
@@ -17,13 +16,13 @@ async function callViewMethod(view, methodNames, input) {
   for (const methodName of methodNames) {
     if (typeof view[methodName] !== 'function') continue
     const value = await view[methodName](input)
-    return encodeResult(value ?? { ok: true })
+    return toResult(value)
   }
   throw new Error(`${view.pluginId} does not implement ${methodNames[0]}`)
 }
 
 async function noop() {
-  return encodeResult({ ok: true })
+  return { ok: true }
 }
 
 export function registerViewPlugin(view, methods = {}) {
@@ -35,7 +34,7 @@ export function registerViewPlugin(view, methods = {}) {
   runtime.register({
     id: pluginId,
     methods: {
-      ping: async () => encodeResult({ ok: true, id: pluginId }),
+      ping: async () => ({ ok: { id: pluginId } }),
       save: async (input) => callViewMethod(view, ['save', 'saveGraph'], input),
       saveAs: async (input) => callViewMethod(view, ['saveAs', 'saveGraphAs'], input),
       new: async (input) => callViewMethod(view, ['new', 'newGraph', 'newTree', 'newTilemap'], input),
@@ -68,6 +67,6 @@ export async function unregisterViewPlugin(view) {
   await runtime.unregister(pluginId)
 }
 
-export function viewOk(value = { ok: true }) {
-  return encodeResult(value)
+export function viewOk(value = true) {
+  return toResult(value)
 }

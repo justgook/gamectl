@@ -1,41 +1,18 @@
 import { ensureThemeStylesheetLink } from "/util/add-style.js"
 import { runtime, unwrap } from "/core/runtime.js"
 
-function encodeResult(value) {
-  console.trace("replace encodeResult with result")
-  return {
-    returnCode: 0,
-    output: new TextEncoder().encode(JSON.stringify(value ?? null)),
-  }
-}
-
-function decodeInput(input) {
-  console.trace("replace decodeInput with result")
-  if (typeof input === 'string') return input
-  if (input instanceof Uint8Array) return new TextDecoder().decode(input)
-  if (ArrayBuffer.isView(input)) {
-    return new TextDecoder().decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
-  }
-  return String(input ?? '')
+function resultOk(value) {
+  return { ok: value }
 }
 
 function parseLayoutInput(input) {
-  console.trace("replace parseLayoutInput with result")
   if (typeof input === 'string') return input
   if (input == null) return ''
-  if (typeof input === 'object' && !(input instanceof Uint8Array) && !ArrayBuffer.isView(input)) {
+  if (typeof input === 'object' && !Array.isArray(input)) {
     if (typeof input.layout === 'string') return input.layout
-    return String(input.layoutMarkup || '')
+    if (typeof input.layoutMarkup === 'string') return input.layoutMarkup
   }
-  const text = decodeInput(input)
-  if (!text) return ''
-  try {
-    const parsed = JSON.parse(text)
-    if (typeof parsed === 'string') return parsed
-    if (parsed && typeof parsed.layout === 'string') return parsed.layout
-    if (parsed && typeof parsed.layoutMarkup === 'string') return parsed.layoutMarkup
-  } catch { }
-  return text
+  throw new Error('ui.layout.load input must be a layout string or object with layout/layoutMarkup')
 }
 
 
@@ -265,12 +242,12 @@ export class UiLayout extends HTMLElement {
     this.api = {
       refresh: async () => {
         await this.refresh()
-        return encodeResult({ ok: true, generation: this.lastGeneration })
+        return resultOk({ ok: true, generation: this.lastGeneration })
       },
-      ping: async () => encodeResult({ ok: true, generation: this.lastGeneration }),
+      ping: async () => resultOk({ ok: true, generation: this.lastGeneration }),
       load: async (input) => {
         await this.load(parseLayoutInput(input))
-        return encodeResult({ ok: true, generation: this.lastGeneration })
+        return resultOk({ ok: true, generation: this.lastGeneration })
       },
     }
 

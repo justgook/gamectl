@@ -77,7 +77,7 @@ export function createUiKeys(config) {
   }
 
   async function snapshotContext(inTextInput) {
-    const ctx = await runtime.call('ui.context.snapshot')
+    const ctx = unwrap(await runtime.call('ui.context.snapshot'))
     ctx.key = { inTextInput }
     return ctx
   }
