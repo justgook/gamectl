@@ -65,6 +65,7 @@ pub struct HostState {
     http_ctx: WasiHttpCtx,
     resource_table: ResourceTable,
     view_bridge: ViewBridge,
+    runtime_funcs: BTreeMap<String, ExportedFunc>,
 }
 
 impl WasiView for HostState {
@@ -146,6 +147,13 @@ struct InterfaceId<'a> {
 
 #[derive(Clone, Debug)]
 struct InvocationInterfaceId<'a> {
+    package: &'a str,
+    interface: &'a str,
+    version: Option<Version>,
+}
+
+#[derive(Clone, Debug)]
+struct RuntimeCallInterfaceId<'a> {
     package: &'a str,
     interface: &'a str,
     version: Option<Version>,
@@ -454,6 +462,7 @@ impl RuntimeInner {
             http_ctx: WasiHttpCtx::new(),
             resource_table: ResourceTable::new(),
             view_bridge,
+            runtime_funcs: BTreeMap::new(),
         };
         let store = Store::new(&engine, state);
 
@@ -930,7 +939,7 @@ impl RuntimeInner {
                     let func = instance
                         .get_func(&mut self.store, &idx)
                         .with_context(|| format!("missing exported func `{name}`"))?;
-                    insert_unique_func(&mut self.funcs, name.to_string(), func)?;
+                    self.insert_exported_func(name.to_string(), func)?;
                 }
                 _ => {}
             }
@@ -950,36 +959,49 @@ impl RuntimeInner {
             .get_export_index(None, interface_name)
             .with_context(|| format!("missing interface export index `{interface_name}`"))?;
 
-        let mut linker_iface = self.linker.instance(interface_name)?;
+        let mut registrations = Vec::new();
+        {
+            let mut linker_iface = self.linker.instance(interface_name)?;
 
-        for (func_name, item) in iface_ty.exports(&self.engine) {
-            let ComponentItem::ComponentFunc(_) = item else {
-                continue;
-            };
+            for (func_name, item) in iface_ty.exports(&self.engine) {
+                let ComponentItem::ComponentFunc(_) = item else {
+                    continue;
+                };
 
-            let func_index = component
-                .get_export_index(Some(&iface_index), func_name)
-                .with_context(|| format!("missing func index `{interface_name}.{func_name}`"))?;
-            let exported_func = instance
-                .get_func(&mut self.store, &func_index)
-                .with_context(|| format!("missing exported func `{interface_name}.{func_name}`"))?;
+                let func_index = component
+                    .get_export_index(Some(&iface_index), func_name)
+                    .with_context(|| {
+                        format!("missing func index `{interface_name}.{func_name}`")
+                    })?;
+                let exported_func = instance
+                    .get_func(&mut self.store, &func_index)
+                    .with_context(|| {
+                        format!("missing exported func `{interface_name}.{func_name}`")
+                    })?;
 
-            let forward = exported_func.clone();
-            linker_iface.func_new(
-                func_name,
-                move |mut cx: StoreContextMut<'_, HostState>, _callee, params, results| {
-                    forward.call(&mut cx, params, results)
-                },
-            )?;
+                let forward = exported_func.clone();
+                linker_iface.func_new(
+                    func_name,
+                    move |mut cx: StoreContextMut<'_, HostState>, _callee, params, results| {
+                        forward.call(&mut cx, params, results)
+                    },
+                )?;
 
-            insert_unique_func(
-                &mut self.funcs,
-                format!("{interface_name}::{func_name}"),
-                exported_func,
-            )?;
+                registrations.push((format!("{interface_name}::{func_name}"), exported_func));
+            }
+        }
+
+        for (key, func) in registrations {
+            self.insert_exported_func(key, func)?;
         }
 
         self.linked_interfaces.insert(interface_name.to_string());
+        Ok(())
+    }
+
+    fn insert_exported_func(&mut self, key: String, func: Func) -> Result<()> {
+        insert_unique_func(&mut self.funcs, key.clone(), func.clone())?;
+        insert_unique_func(&mut self.store.data_mut().runtime_funcs, key, func)?;
         Ok(())
     }
 }
@@ -988,7 +1010,7 @@ fn add_gams_runtime_import(linker: &mut Linker<HostState>, interface_name: &str)
     let mut iface = linker.instance(interface_name)?;
     iface.func_new(
         "call",
-        |_cx: StoreContextMut<'_, HostState>, _callee, params, results| {
+        |mut _cx: StoreContextMut<'_, HostState>, _callee, params, results| {
             let target = match params.get(0) {
                 Some(Val::String(value)) => value.clone(),
                 other => {
@@ -1005,15 +1027,72 @@ fn add_gams_runtime_import(linker: &mut Linker<HostState>, interface_name: &str)
                     )))
                 }
             };
-            let bridge = _cx.data().view_bridge.clone();
-            match bridge.call_view(target, args) {
-                Ok(value) => results[0] = Val::Result(Ok(Some(Box::new(Val::String(value))))),
+            match call_runtime_target(&mut _cx, &target, &args) {
+                Ok(Some(value)) => results[0] = Val::Result(Ok(Some(Box::new(Val::String(value))))),
+                Ok(None) => {
+                    let bridge = _cx.data().view_bridge.clone();
+                    match bridge.call_view(target, args) {
+                        Ok(value) => {
+                            results[0] = Val::Result(Ok(Some(Box::new(Val::String(value)))))
+                        }
+                        Err(error) => {
+                            results[0] = Val::Result(Err(Some(Box::new(Val::String(error)))))
+                        }
+                    }
+                }
                 Err(error) => results[0] = Val::Result(Err(Some(Box::new(Val::String(error))))),
             }
             Ok(())
         },
     )?;
     Ok(())
+}
+
+fn call_runtime_target(
+    cx: &mut StoreContextMut<'_, HostState>,
+    target: &str,
+    args: &str,
+) -> std::result::Result<Option<String>, String> {
+    let func = match resolve_runtime_call_func(&cx.data().runtime_funcs, target)
+        .map_err(|error| error.to_string())?
+    {
+        Some(func) => func.clone(),
+        None => return Ok(None),
+    };
+
+    let ExportedFunc::Wasm(func) = func;
+    let ty = func.ty(&mut *cx);
+    let params_ty = ty.params().map(|(_, ty)| ty).collect::<Vec<_>>();
+    let args_json = serde_json::from_str::<serde_json::Value>(args)
+        .map_err(|error| format!("runtime.call component args must be a JSON array: {error}"))?;
+    let args_array = args_json
+        .as_array()
+        .ok_or_else(|| "runtime.call component args must be a JSON array".to_string())?;
+    if args_array.len() != params_ty.len() {
+        return Err(format!(
+            "{target} expects {} args, got {}",
+            params_ty.len(),
+            args_array.len()
+        ));
+    }
+
+    let params = args_array
+        .iter()
+        .zip(params_ty.iter())
+        .map(|(value, ty)| json_to_val(value, ty).map_err(|error| error.to_string()))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    let mut results = ty
+        .results()
+        .map(|ty| val_default_for_type(&ty).map_err(|error| error.to_string()))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    func.call(&mut *cx, &params, &mut results)
+        .map_err(|error| format!("calling {target}: {error}"))?;
+    let value = result_json(results).map_err(|error| error.to_string())?;
+    serde_json::to_string(&value)
+        .map(Some)
+        .map_err(|error| format!("encoding {target} result: {error}"))
 }
 
 fn insert_unique_func(
@@ -1123,6 +1202,15 @@ impl<'a> InvocationInterfaceId<'a> {
     }
 }
 
+impl<'a> RuntimeCallInterfaceId<'a> {
+    fn matches_provider(&self, provider: &InterfaceId<'_>) -> bool {
+        if self.package != provider.package || self.interface != provider.interface {
+            return false;
+        }
+        version_satisfies(provider.version, self.version)
+    }
+}
+
 fn version_satisfies(provider: Option<Version>, requested: Option<Version>) -> bool {
     match (provider, requested) {
         (Some(provider), Some(requested)) => {
@@ -1191,6 +1279,33 @@ fn parse_invocation_interface_id(value: &str) -> Result<InvocationInterfaceId<'_
     })
 }
 
+fn parse_runtime_call_interface_id(value: &str) -> Result<RuntimeCallInterfaceId<'_>> {
+    let interface = value
+        .split_once("::")
+        .map_or(value, |(interface, _)| interface);
+    let (namespace_and_package, interface_and_version) = interface
+        .split_once('/')
+        .with_context(|| format!("runtime.call interface `{value}` must be `package/interface`"))?;
+    let package = namespace_and_package
+        .split_once(':')
+        .map_or(namespace_and_package, |(_, package)| package);
+    if package.is_empty() {
+        bail!("runtime.call interface `{value}` has empty package");
+    }
+    let (interface, version) = match interface_and_version.rsplit_once('@') {
+        Some((interface, version)) => (interface, Some(parse_version(version)?)),
+        None => (interface_and_version, None),
+    };
+    if interface.is_empty() {
+        bail!("runtime.call interface `{value}` has empty interface");
+    }
+    Ok(RuntimeCallInterfaceId {
+        package,
+        interface,
+        version,
+    })
+}
+
 fn parse_version(value: &str) -> Result<Version> {
     let mut parts = value.split('.');
     let major = parts
@@ -1251,6 +1366,54 @@ fn component_exports(engine: &Engine, component: &Component) -> Vec<String> {
 fn invocation_key_matches_request(
     key: &str,
     requested: &InvocationInterfaceId<'_>,
+    function: &str,
+) -> bool {
+    let Some((candidate_interface, candidate_function)) = key.split_once("::") else {
+        return false;
+    };
+    if candidate_function != function {
+        return false;
+    }
+    let Ok(Some(candidate)) = parse_interface_id(candidate_interface) else {
+        return false;
+    };
+    requested.matches_provider(&candidate)
+}
+
+fn resolve_runtime_call_func<'a>(
+    funcs: &'a BTreeMap<String, ExportedFunc>,
+    target: &str,
+) -> Result<Option<&'a ExportedFunc>> {
+    if let Some(func) = funcs.get(target) {
+        return Ok(Some(func));
+    }
+
+    let Some((interface, function)) = target.split_once("::") else {
+        return Ok(None);
+    };
+    let requested = parse_runtime_call_interface_id(interface)?;
+    let mut matches = funcs
+        .iter()
+        .filter(|(key, _)| runtime_call_key_matches_request(key, &requested, function))
+        .collect::<Vec<_>>();
+
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(Some(matches.swap_remove(0).1)),
+        _ => {
+            let options = matches
+                .into_iter()
+                .map(|(key, _)| format!("  {key}"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            bail!("ambiguous runtime.call `{target}` matches:\n{options}");
+        }
+    }
+}
+
+fn runtime_call_key_matches_request(
+    key: &str,
+    requested: &RuntimeCallInterfaceId<'_>,
     function: &str,
 ) -> bool {
     let Some((candidate_interface, candidate_function)) = key.split_once("::") else {
@@ -1961,7 +2124,13 @@ mod tests {
             .unwrap();
         let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
         runtime
-            .add_plugins(vec!["plugins/lua.comp.wasm".to_string()], false)
+            .add_plugins(
+                vec![
+                    "plugins/fs.comp.wasm".to_string(),
+                    "plugins/lua.comp.wasm".to_string(),
+                ],
+                false,
+            )
             .unwrap();
 
         let source = [
@@ -1988,6 +2157,32 @@ mod tests {
             .invoke("lua/lua::run", serde_json::json!([source]))
             .unwrap();
         assert_eq!(fs_read["ok"].as_str().unwrap(), "true");
+
+        let source = [
+            "function main()",
+            "  local result = host.call('fs/fs::read-text', json.encode({ 'ng/run.lua' }))",
+            "  local decoded = json.decode(result)",
+            "  return string.find(decoded.ok, 'function main()', 1, true) ~= nil",
+            "end",
+        ]
+        .join("\n");
+        let component_call = runtime
+            .invoke("lua/lua::run", serde_json::json!([source]))
+            .unwrap();
+        assert_eq!(component_call["ok"].as_str().unwrap(), "true");
+
+        let source = [
+            "function main()",
+            "  local result = host.call('gams:fs/fs::read-text', json.encode({ 'ng/run.lua' }))",
+            "  local decoded = json.decode(result)",
+            "  return string.find(decoded.ok, 'function main()', 1, true) ~= nil",
+            "end",
+        ]
+        .join("\n");
+        let full_component_call = runtime
+            .invoke("lua/lua::run", serde_json::json!([source]))
+            .unwrap();
+        assert_eq!(full_component_call["ok"].as_str().unwrap(), "true");
 
         let graph = serde_json::json!([
             {
