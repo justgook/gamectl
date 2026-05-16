@@ -50,6 +50,22 @@ local function randomIndex(count)
 	return math.random(count)
 end
 
+local function ensureParentDirs(path)
+	local dir = string.match(path, "^(.*)/[^/]*$")
+	if dir == nil or dir == "" then
+		return
+	end
+	local current = ""
+	for part in string.gmatch(dir, "[^/]+") do
+		if current == "" then
+			current = part
+		else
+			current = current .. "/" .. part
+		end
+		pcall(host.call, "fs/fs::create-dir", current)
+	end
+end
+
 local tree = readJson(treePath, "tree")
 if tree == nil then
 	return
@@ -79,6 +95,7 @@ for index, node in ipairs(tree) do
 	node.data.minimap = ROOM_SHAPES[shapeIndex]
 end
 
+ensureParentDirs(outPath)
 host.call("fs/fs::write-text", outPath, json.encode(tree))
 
 outputs[1] = outPath

@@ -46,6 +46,22 @@ _G.host = host
 ---@type { encode: fun(value: any): string }
 _G.json = json
 
+local function ensureParentDirs(path)
+	local dir = string.match(path, "^(.*)/[^/]*$")
+	if dir == nil or dir == "" then
+		return
+	end
+	local current = ""
+	for part in string.gmatch(dir, "[^/]+") do
+		if current == "" then
+			current = part
+		else
+			current = current .. "/" .. part
+		end
+		pcall(host.call, "fs/fs::create-dir", current)
+	end
+end
+
 local generatedTree = host.call("tree-generator/tree-generator::gen", {
 	["node-count"] = payload.nodeCount,
 	["max-depth"] = payload.maxDepth,
@@ -65,6 +81,7 @@ for index, node in ipairs(generatedTree) do
 	}
 end
 
+ensureParentDirs(src)
 host.call("fs/fs::write-text", src, json.encode(tree))
 outputs[1] = src -- Return the tree source path
 outputs[2] = "" -- No error
