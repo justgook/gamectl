@@ -1,6 +1,4 @@
-import { runtime } from '/core/runtime.js'
-import { unwrap } from '/util/unwrap.js'
-import { createWriteInput } from '/util/fs.js'
+import { runtime, unwrap } from '/core/runtime.js'
 
 function luaStringLiteral(value) {
   return JSON.stringify(String(value))

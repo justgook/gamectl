@@ -1,6 +1,5 @@
-import { runtime } from '/core/runtime.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin, viewOk } from '/util/view-plugin.js'
-import { unwrap } from '/util/unwrap.js'
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
