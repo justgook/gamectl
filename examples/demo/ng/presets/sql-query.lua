@@ -5,7 +5,7 @@ if query == nil or query == "" then
     return
 end
 
-local csvText = host.awaitCall("sql", "query", query)
+local csvText = host.call("sql/sql::query", query)
 local ok, rows = pcall(csv.parse, csvText, { headers = true })
 if not ok then
     outputs[1] = ""

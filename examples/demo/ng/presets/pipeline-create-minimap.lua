@@ -3,7 +3,7 @@
 -- Inputs: tree, map, direction
 -- Outputs: map (success), error (failure)
 
----@type { awaitCall: fun(service: string, method: string, payload: string): string }
+---@type { call: fun(target: string, ...): any }
 _G.host = host
 
 ---@type { encode: fun(value: any): string, decode: fun(text: string): any }
@@ -33,7 +33,7 @@ local payload = {
 	direction = direction,
 }
 
-local resultText = host.awaitCall("minimap2", "gen", json.encode(payload))
+local resultText = host.call("minimap2/minimap2::gen", payload)
 local ok, response = pcall(json.decode, resultText)
 if not ok then
 	outputs[1] = ""

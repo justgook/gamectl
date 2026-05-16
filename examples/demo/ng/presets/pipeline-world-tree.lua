@@ -3,7 +3,7 @@
 -- Inputs: nodeCount, maxDepth, maxBranching, rootBranches, src
 -- Outputs: src (success), error (failure)
 
----@type { awaitCall: fun(service: string, method: string, payload: string): string }
+---@type { call: fun(target: string, ...): any }
 _G.host = host
 
 ---@type { encode: fun(value: any): string }
@@ -41,24 +41,30 @@ local payload = {
 	rootBranches = tonumber(rootBranches) or 0,
 }
 
----@type { awaitCall: fun(service: string, method: string, payload: string): string }
+---@type { call: fun(target: string, ...): any }
 _G.host = host
 ---@type { encode: fun(value: any): string }
 _G.json = json
 
-local resultText = host.awaitCall("treegen", "gen", json.encode(payload))
-local ok, response = pcall(json.decode, resultText)
-if not ok then
-	---@type string
-	outputs[1] = ""
-	outputs[2] = "Failed to parse plugin response: " .. (resultText:sub(1, 100))
-	return
+local generatedTree = host.call("tree-generator/tree-generator::gen", {
+	["node-count"] = payload.nodeCount,
+	["max-depth"] = payload.maxDepth,
+	["max-branching"] = payload.maxBranching,
+	["root-branches"] = payload.rootBranches,
+})
+
+local tree = {}
+for index, node in ipairs(generatedTree) do
+	local data = {}
+	for _, entry in ipairs(node.data or {}) do
+		data[tostring(entry[1])] = tostring(entry[2] or "")
+	end
+	tree[index] = {
+		parent = node["parent-id"],
+		data = data,
+	}
 end
 
-if response.success then
-	outputs[1] = src -- Return the tree source path
-	outputs[2] = "" -- No error
-else
-	outputs[1] = "" -- No source path on error
-	outputs[2] = response.error or "Unknown error"
-end
+host.call("fs/fs::write-text", src, json.encode(tree))
+outputs[1] = src -- Return the tree source path
+outputs[2] = "" -- No error

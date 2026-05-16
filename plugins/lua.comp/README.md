@@ -24,7 +24,7 @@ fs.read_text(path)
 fs.read(path) -- alias for read_text
 ```
 
-`host.call` maps to `gams:runtime/runtime.call(target, args_json)` and blocks until the host/frontend responds. It JSON-encodes all arguments after `target` as an argument array, decodes the JSON response, unwraps `{ ok = value }`, and raises a Lua error for `{ err = message }` or transport failures. Those errors are regular Lua errors and can be handled with `pcall`.
+`host.call` maps to `gams:runtime/runtime.call(target, args_json)` and blocks until the host/frontend responds. It JSON-encodes all arguments after `target` as an argument array, decodes the JSON response, unwraps single-field result envelopes `{ ok = value }`, and raises a Lua error for single-field `{ err = message }` envelopes or transport failures. Those errors are regular Lua errors and can be handled with `pcall`.
 
 `host.raw_call` exposes the underlying string protocol directly.
 

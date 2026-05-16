@@ -1,7 +1,7 @@
 local value = inputs[1]
 if value == nil then value = "" end
 
-local resultText = host.awaitCall("image", "close_all", "")
+local resultText = host.call("image/image::close-all")
 local ok, response = pcall(json.decode, resultText)
 if not ok then
     outputs[1] = value

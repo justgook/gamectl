@@ -55,7 +55,7 @@ local request = {
     rects = requestRects,
 }
 
-local resultText = host.awaitCall("pack", "pack", json.encode(request))
+local resultText = host.call("pack/pack::pack", request)
 local okResult, response = pcall(json.decode, resultText)
 if not okResult then
     outputs[1] = ""

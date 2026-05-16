@@ -23,7 +23,7 @@ if not okSlots or type(slots) ~= "table" then
 end
 
 local function callRespack(method, payload)
-    local result = host.awaitCall("respack", method, payload)
+    local result = host.call("respack/respack::" .. string.gsub(method, "_", "-"), payload)
     return true, tostring(result or "")
 end
 

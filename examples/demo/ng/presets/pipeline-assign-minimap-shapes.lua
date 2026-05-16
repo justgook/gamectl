@@ -37,7 +37,7 @@ local ROOM_SHAPES = {
 }
 
 local function readJson(path, label)
-	local text = host.awaitCall("fs", "read", path)
+	local text = host.call("fs/fs::read-text", path)
 	local ok, data = pcall(json.decode, text)
 	if not ok or type(data) ~= "table" then
 		fail("Failed to parse " .. label .. " JSON: " .. tostring(path))
@@ -79,7 +79,7 @@ for index, node in ipairs(tree) do
 	node.data.minimap = ROOM_SHAPES[shapeIndex]
 end
 
-host.awaitCall("fs", "write", outPath .. "\0" .. json.encode(tree))
+host.call("fs/fs::write-text", outPath, json.encode(tree))
 
 outputs[1] = outPath
 outputs[2] = ""
