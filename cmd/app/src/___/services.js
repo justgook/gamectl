@@ -4,9 +4,7 @@ import { runtime } from "/core/runtime.js"
 let currentThemeStylesheetObjectUrl = ''
 
 const DEFAULT_LAYOUT = `
-    <view-files />
-    <view-ng setup="0:h:30" />
-    <view-animation setup="0:h:60" />
+    <view-ng />
   `
 
 function doInit(viewConfig) {

@@ -906,7 +906,7 @@ export class ViewNg extends HTMLElement {
     const progressSource = `local __ng_progress_plugin = ${luaStringLiteral(this.progressPluginId)}
 local __ng_progress_run_id = ${luaStringLiteral(runId)}
 function __ng_progress(method, nodeId, message)
-  host.call(__ng_progress_plugin, method, json.encode({
+  host.call(__ng_progress_plugin .. "." .. method, json.encode({
     runId = __ng_progress_run_id,
     nodeId = nodeId,
     message = message,

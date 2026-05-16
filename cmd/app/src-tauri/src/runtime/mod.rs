@@ -1979,6 +1979,67 @@ mod tests {
 
         let source = [
             "function main()",
+            "  local text = fs.read_text('ng/run.lua')",
+            "  return string.find(text, 'function main()', 1, true) ~= nil",
+            "end",
+        ]
+        .join("\n");
+        let fs_read = runtime
+            .invoke("lua/lua::run", serde_json::json!([source]))
+            .unwrap();
+        assert_eq!(fs_read["ok"].as_str().unwrap(), "true");
+
+        let graph = serde_json::json!([
+            {
+                "id": 1,
+                "kind": 4,
+                "inputs": [],
+                "outputs": [{ "id": 1, "name": "", "value": "41" }]
+            },
+            {
+                "id": 2,
+                "kind": 2,
+                "name": "positions",
+                "codePath": "ng/positions.lua",
+                "inputs": [{ "id": 1, "name": "", "srcNodeId": 1, "srcOutputId": 1 }],
+                "outputs": [
+                    { "id": 1, "name": "entity", "value": "" },
+                    { "id": 2, "name": "positions", "value": "" }
+                ]
+            },
+            {
+                "id": 3,
+                "kind": 1,
+                "name": "result",
+                "inputs": [
+                    { "id": 1, "name": "entity", "srcNodeId": 2, "srcOutputId": 1 },
+                    { "id": 2, "name": "positions", "srcNodeId": 2, "srcOutputId": 2 }
+                ],
+                "outputs": []
+            }
+        ]);
+        let compiler = std::fs::read_to_string(root.join("ng/run.lua")).unwrap();
+        let compiler_source = format!(
+            "_G.input = {}\n{}",
+            serde_json::to_string(&graph.to_string()).unwrap(),
+            compiler
+        );
+        let generated = runtime
+            .invoke("lua/lua::run", serde_json::json!([compiler_source]))
+            .unwrap();
+        let generated_source = generated["ok"].as_str().unwrap();
+        assert!(generated_source.contains("function main()"));
+        assert!(generated_source.contains("return output"));
+        let graph_run = runtime
+            .invoke("lua/lua::run", serde_json::json!([generated_source]))
+            .unwrap();
+        let graph_result: serde_json::Value =
+            serde_json::from_str(graph_run["ok"].as_str().unwrap()).unwrap();
+        assert_eq!(graph_result["result"]["inputs"]["entity"], "42");
+        assert_eq!(graph_result["result"]["active"]["entity"], true);
+
+        let source = [
+            "function main()",
             "  return host.call('view:test', '{\"ping\":true}')",
             "end",
         ]

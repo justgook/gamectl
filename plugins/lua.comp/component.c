@@ -1010,6 +1010,49 @@ static void register_csv_lib(lua_State *L) {
   lua_setglobal(L, "csv");
 }
 
+static int lua_fs_read_text(lua_State *L) {
+  size_t path_len = 0;
+  const char *path = luaL_checklstring(L, 1, &path_len);
+  char *path_z;
+  uint8_t *file_data = NULL;
+  size_t file_len = 0;
+  int read_status;
+
+  if (memchr(path, '\0', path_len) != NULL) {
+    return luaL_error(L, "fs.read_text path must not contain NUL");
+  }
+
+  path_z = (char *)malloc(path_len + 1u);
+  if (path_z == NULL) {
+    return luaL_error(L, "fs.read_text: out of memory");
+  }
+  memcpy(path_z, path, path_len);
+  path_z[path_len] = '\0';
+
+  read_status = try_fs_read_candidate(path_z, &file_data, &file_len);
+  free(path_z);
+
+  if (read_status < 0) {
+    return luaL_error(L, "fs.read_text transport failed");
+  }
+  if (read_status == 0) {
+    return luaL_error(L, "fs.read_text failed: file not found or not readable");
+  }
+
+  lua_pushlstring(L, (const char *)(file_data != NULL ? file_data : (uint8_t *)""), file_len);
+  free(file_data);
+  return 1;
+}
+
+static void register_fs_lib(lua_State *L) {
+  lua_newtable(L);
+  lua_pushcfunction(L, lua_fs_read_text);
+  lua_setfield(L, -2, "read_text");
+  lua_pushcfunction(L, lua_fs_read_text);
+  lua_setfield(L, -2, "read");
+  lua_setglobal(L, "fs");
+}
+
 static void register_host_lib(lua_State *L) {
   lua_newtable(L);
   lua_pushcfunction(L, lua_host_call);
@@ -1062,6 +1105,7 @@ static void open_lua_libs(lua_State *L) {
   lua_pop(L, 1);
   register_json_lib(L);
   register_csv_lib(L);
+  register_fs_lib(L);
   register_host_lib(L);
   configure_package_searchers(L);
 }
