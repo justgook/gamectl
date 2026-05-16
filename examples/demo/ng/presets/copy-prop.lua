@@ -74,6 +74,22 @@ local function readJson(path, label)
 	return data
 end
 
+local function ensureParentDirs(path)
+	local dir = string.match(path, "^(.*)/[^/]*$")
+	if dir == nil or dir == "" then
+		return
+	end
+	local current = ""
+	for part in string.gmatch(dir, "[^/]+") do
+		if current == "" then
+			current = part
+		else
+			current = current .. "/" .. part
+		end
+		pcall(host.call, "fs/fs::create-dir", current)
+	end
+end
+
 local function parsePath(path, label)
 	local parts = {}
 	for part in string.gmatch(path, "[^%.]+") do
@@ -137,6 +153,7 @@ for index, srcPath in ipairs(srcPaths) do
 end
 
 local encoded = json.encode(toData)
+ensureParentDirs(toPath)
 host.call("fs/fs::write-text", toPath, encoded)
 
 outputs[1] = toPath
