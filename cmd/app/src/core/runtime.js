@@ -32,7 +32,6 @@ function assertArray(value, name) {
 }
 
 export class Runtime {
-  #viewDispatcher = null
   #callViewListenerReady = null
   #mainPlugins = new Map()
 
@@ -88,22 +87,17 @@ export class Runtime {
     return handles
   }
 
-  onCallView(callback) {
-    if (typeof callback !== 'function') throw new Error('runtime.onCallView callback must be a function')
-    this.#viewDispatcher = callback
-  }
-
   async #callView(target, args) {
     assertString(target, 'runtime.callView target')
     assertString(args, 'runtime.callView args')
-    if (!this.#viewDispatcher) throw new Error('runtime.onCallView has not been registered')
-    const result = await this.#viewDispatcher(target, args)
-    assertString(result, 'runtime.callView result')
-    return result
-  }
 
-  async addUiPlugin(_wit, _functions) {
-    throw new Error('runtime.addUiPlugin is planned but not implemented in the destructive bootstrap yet')
+    const parts = target.split(".")
+    const method = parts.pop()
+    console.log("calling to view", parts.join("."), method, args)
+    const result = await this.call(parts.join("."), method, JSON.parse(args))
+    console.log(result)
+
+    return JSON.stringify(result)
   }
 
   async diagnostics() {

@@ -19,8 +19,6 @@ const diagnostics = document.querySelector("#diagnostics")
 if (!diagnostics) throw new Error("missing #diagnostics")
 
 async function main() {
-
-
   console.time("runtime.ready")
   await runtime.ready
   console.timeEnd("runtime.ready")
@@ -30,7 +28,7 @@ async function main() {
     "plugins/random.comp.wasm",
     "plugins/fs.comp.wasm",
     "plugins/layout.comp.wasm",
-    // "plugins/lua.comp.wasm"
+    "plugins/lua.comp.wasm"
   ], true)
   console.timeEnd("addPlugins")
 

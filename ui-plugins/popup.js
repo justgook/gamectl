@@ -2,6 +2,7 @@ import { runtime } from '/core/runtime.js'
 import { ensureThemeStylesheetLink } from "/util/add-style.js"
 
 function decodeInput(input) {
+  console.trace("replace decodeInput with result")
   if (typeof input === 'string') return input
   if (input instanceof Uint8Array) return new TextDecoder().decode(input)
   if (ArrayBuffer.isView(input)) {
@@ -11,6 +12,8 @@ function decodeInput(input) {
 }
 
 function parseOptions(input) {
+  console.trace("replace parseOptions with result")
+
   if (input == null || input === '') return {}
   if (typeof input === 'object' && !(input instanceof Uint8Array) && !ArrayBuffer.isView(input)) {
     return input
@@ -25,6 +28,7 @@ function parseOptions(input) {
 }
 
 function encodeResult(value) {
+  console.trace("replace encodeResult with result")
   return {
     returnCode: 0,
     output: new TextEncoder().encode(JSON.stringify(value ?? null)),
@@ -51,7 +55,7 @@ export class PopupManager extends HTMLElement {
       close: async (input) => encodeResult(await this.close(parseOptions(input))),
       closeTop: async (input) => encodeResult(await this.close(parseOptions(input))),
       closeAll: async () => encodeResult(await this.closeAll()),
-      isOpen: async () => encodeResult({ ok: true, count: this.popupCount }),
+      isOpen: async () => ({ ok: { count: this.popupCount } }),
     }
   }
 

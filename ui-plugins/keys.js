@@ -1,7 +1,9 @@
+import { runtime } from "/core/runtime.js"
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
 function encodeResult(value) {
+  console.trace("replace encodeResult with result")
   return {
     returnCode: 0,
     output: textEncoder.encode(JSON.stringify(value ?? null)),
@@ -9,6 +11,7 @@ function encodeResult(value) {
 }
 
 function decodeOutput(result) {
+  console.trace("replace decodeOutput with result")
   return textDecoder.decode(result?.output || new Uint8Array())
 }
 
@@ -103,7 +106,7 @@ function parseBindings(config) {
   })
 }
 
-export function createUiKeys(runtime, config) {
+export function createUiKeys(config) {
   const bindings = parseBindings(config)
   const byKey = new Map()
   for (const binding of bindings) {
@@ -144,12 +147,13 @@ export function createUiKeys(runtime, config) {
       return
     }
 
-    const readResult = await runtime.call('fs', 'read', binding.script)
+    const readResult = unwrap(await runtime.invoke('fs/fs::read-text', [binding.script]))
     assertOk(readResult, `read shortcut script '${binding.script}'`)
-    const source = `_G.ctx = json.decode(${luaStringLiteral(JSON.stringify(ctx))})\n${decodeOutput(readResult)}`
-    const runResult = await runtime.call('lua', 'run', source)
+    const source = `_G.ctx = json.decode(${luaStringLiteral(JSON.stringify(ctx))})\n${readResult}`
+    const runResult = unwrap(await runtime.invoke('lua/lua::run', [source]))
+
     assertOk(runResult, `run shortcut script '${binding.script}'`)
-    await dispatchScriptOutput(JSON.parse(decodeOutput(runResult)), ctx)
+    await dispatchScriptOutput(JSON.parse(runResult), ctx)
   }
 
   const onKeyDown = (event) => {

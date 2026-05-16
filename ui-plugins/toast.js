@@ -21,11 +21,8 @@ function parseOptions(input) {
   }
 }
 
-function encodeResult(value) {
-  return {
-    returnCode: 0,
-    output: new TextEncoder().encode(JSON.stringify(value ?? null)),
-  }
+function encodeOK(value) {
+  return { ok: value }
 }
 
 export class ToastManager extends HTMLElement {
@@ -36,30 +33,30 @@ export class ToastManager extends HTMLElement {
     this.api = {
       show: async (input) => {
         this.show(parseOptions(input))
-        return encodeResult({ ok: true })
+        return encodeOK(true)
       },
       success: async (input) => {
         this.show({ ...parseOptions(input), type: 'success' })
-        return encodeResult({ ok: true })
+        return encodeOK(true)
       },
       error: async (input) => {
         this.show({ ...parseOptions(input), type: 'error' })
-        return encodeResult({ ok: true })
+        return encodeOK(true)
       },
       warning: async (input) => {
         this.show({ ...parseOptions(input), type: 'warning' })
-        return encodeResult({ ok: true })
+        return encodeOK(true)
       },
       info: async (input) => {
         this.show({ ...parseOptions(input), type: 'info' })
-        return encodeResult({ ok: true })
+        return encodeOK(true)
       },
-      alert: async (input) => encodeResult(await this.alert(parseOptions(input))),
-      confirm: async (input) => encodeResult(await this.confirm(parseOptions(input))),
+      alert: async (input) => encodeOK(await this.alert(parseOptions(input))),
+      confirm: async (input) => encodeOK(await this.confirm(parseOptions(input))),
       closeAll: async (input) => {
         const options = parseOptions(input)
         this.closeAll(options.position)
-        return encodeResult({ ok: true })
+        return encodeOK(true)
       },
     }
   }

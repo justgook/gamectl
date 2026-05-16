@@ -2,6 +2,7 @@ const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
 
 function encodeResult(value) {
+  console.trace("replace encodeResult with result")
   return {
     returnCode: 0,
     output: textEncoder.encode(JSON.stringify(value ?? null)),
@@ -9,6 +10,7 @@ function encodeResult(value) {
 }
 
 function decodeInput(input) {
+  console.trace("replace decodeOutput with result")
   if (typeof input === 'string') return input
   if (input instanceof Uint8Array) return textDecoder.decode(input)
   if (ArrayBuffer.isView(input)) return textDecoder.decode(new Uint8Array(input.buffer, input.byteOffset, input.byteLength))
@@ -16,6 +18,7 @@ function decodeInput(input) {
 }
 
 function parseJsonInput(input) {
+  console.trace("replace decodeOutput with result")
   if (input == null || input === '') return {}
   if (typeof input === 'object' && !(input instanceof Uint8Array) && !ArrayBuffer.isView(input)) return input
   const text = decodeInput(input)
