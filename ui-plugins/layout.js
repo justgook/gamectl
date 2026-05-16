@@ -1,6 +1,5 @@
 import { ensureThemeStylesheetLink } from "/util/add-style.js"
-import { runtime } from "/core/runtime.js"
-import { unwrap } from "/util/unwrap.js"
+import { runtime, unwrap } from "/core/runtime.js"
 
 function encodeResult(value) {
   console.trace("replace encodeResult with result")

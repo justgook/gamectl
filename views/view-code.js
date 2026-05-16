@@ -1,7 +1,5 @@
-import { runtime } from '/core/runtime.js'
-import { unwrap } from '/util/unwrap.js'
+import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { createWriteInput } from '/util/fs.js'
 import "/widgets/code-editor.js"
 
 function assert(condition, message) {

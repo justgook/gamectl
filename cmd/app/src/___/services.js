@@ -1,6 +1,5 @@
 import { require } from "/util/require.js"
 import { runtime } from "/core/runtime.js"
-import { require2 as require } from "/util/require.js"
 
 let currentThemeStylesheetObjectUrl = ''
 
