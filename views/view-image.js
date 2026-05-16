@@ -105,7 +105,7 @@ export class ViewImage extends ViewCanvasBase {
     `
     toolbar.querySelector('[data-action="reload"]').addEventListener('click', () => this.reload())
     toolbar.querySelector('[data-action="zoom-out"]').addEventListener('click', () => this.zoomOut())
-    toolbar.querySelector('[data-action="zoom-fit"]').addEventListener('click', () => this.fitToContent())
+    toolbar.querySelector('[data-action="zoom-fit"]').addEventListener('click', () => this.zoomFit())
     toolbar.querySelector('[data-action="zoom-in"]').addEventListener('click', () => this.zoomIn())
     return toolbar
   }

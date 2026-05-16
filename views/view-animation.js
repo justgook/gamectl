@@ -1,8 +1,9 @@
 import '/widgets/timeline.js'
-
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 
 export class ViewAnimation extends HTMLElement {
   connectedCallback() {
+    registerViewPlugin(this)
     this.style.display = 'contents'
     this.innerHTML = `
       <article>
@@ -17,6 +18,10 @@ This view is intended for editing frame order, frame duration, loop mode, and ti
 
     this.timeline = this.querySelector('widget-timeline')
     if (this._timelineModel) this.timeline.model = this._timelineModel
+  }
+
+  disconnectedCallback() {
+    void unregisterViewPlugin(this)
   }
 
   set timelineModel(model) {

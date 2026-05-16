@@ -12,17 +12,14 @@ function viewTypeForElement(view) {
   return tag.replace(/^view-/, '').replaceAll('-', '.')
 }
 
-async function callViewMethod(view, methodNames, input) {
-  for (const methodName of methodNames) {
-    if (typeof view[methodName] !== 'function') continue
-    const value = await view[methodName](input)
-    return toResult(value)
-  }
-  throw new Error(`${view.pluginId} does not implement ${methodNames[0]}`)
-}
-
 async function noop() {
   return { ok: true }
+}
+
+function viewMethod(view, methodName) {
+  const method = view[methodName]
+  if (typeof method !== 'function') return noop
+  return async (input) => toResult(await method.call(view, input))
 }
 
 export function registerViewPlugin(view, methods = {}) {
@@ -35,16 +32,16 @@ export function registerViewPlugin(view, methods = {}) {
     id: pluginId,
     methods: {
       ping: async () => ({ ok: { id: pluginId } }),
-      save: async (input) => callViewMethod(view, ['save', 'saveGraph'], input),
-      saveAs: async (input) => callViewMethod(view, ['saveAs', 'saveGraphAs'], input),
-      new: async (input) => callViewMethod(view, ['new', 'newGraph', 'newTree', 'newTilemap'], input),
-      open: async (input) => callViewMethod(view, ['open', 'showLoadGraphPopup', 'openTree', 'openTilemap'], input),
-      run: async (input) => callViewMethod(view, ['run', 'runGraph'], input),
-      reload: async (input) => callViewMethod(view, ['reload', 'reloadGraph'], input),
-      zoomIn: async (input) => callViewMethod(view, ['zoomIn'], input),
-      zoomOut: async (input) => callViewMethod(view, ['zoomOut'], input),
-      zoomFit: async (input) => callViewMethod(view, ['zoomFit', 'fitToContent'], input),
-      clearSelection: async (input) => callViewMethod(view, ['clearSelection'], input),
+      save: viewMethod(view, 'save'),
+      saveAs: viewMethod(view, 'saveAs'),
+      new: viewMethod(view, 'new'),
+      open: viewMethod(view, 'open'),
+      run: viewMethod(view, 'run'),
+      reload: viewMethod(view, 'reload'),
+      zoomIn: viewMethod(view, 'zoomIn'),
+      zoomOut: viewMethod(view, 'zoomOut'),
+      zoomFit: viewMethod(view, 'zoomFit'),
+      clearSelection: viewMethod(view, 'clearSelection'),
       tool_1: noop,
       tool_2: noop,
       tool_3: noop,

@@ -349,7 +349,7 @@ export class ViewMarkov extends ViewCanvasBase {
     toolbar.querySelector('[data-action="play-pause"]').addEventListener('click', () => this.togglePlayback())
     toolbar.querySelector('[data-action="reroll"]').addEventListener('click', () => this.reroll())
     toolbar.querySelector('[data-action="zoom-out"]').addEventListener('click', () => this.zoomOut())
-    toolbar.querySelector('[data-action="zoom-fit"]').addEventListener('click', () => this.fitToContent())
+    toolbar.querySelector('[data-action="zoom-fit"]').addEventListener('click', () => this.zoomFit())
     toolbar.querySelector('[data-action="zoom-in"]').addEventListener('click', () => this.zoomIn())
     return toolbar
   }

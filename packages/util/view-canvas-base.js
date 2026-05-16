@@ -218,6 +218,10 @@ export class ViewCanvasBase extends HTMLElement {
     this.zoom(this.canvas.width / 2, this.canvas.height / 2, 0.8)
   }
 
+  zoomFit() {
+    return this.fitToContent()
+  }
+
   fitToContent() {
     if (!(this.canvas instanceof HTMLCanvasElement)) return false
     if (!this._hasValidContentBounds()) {

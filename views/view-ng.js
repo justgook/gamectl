@@ -1,4 +1,5 @@
 import { runtime, unwrap } from '/core/runtime.js'
+import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
 
 function luaStringLiteral(value) {
   return JSON.stringify(String(value))
@@ -349,87 +350,38 @@ export class ViewNg extends HTMLElement {
 
   _registerProgressPlugin() {
     if (this._progressPluginRegistered) return
-    this.pluginId = `view.ng.${crypto.randomUUID()}`
-    this.progressPluginId = this.pluginId
-    runtime.register({
-      id: this.pluginId,
-      methods: {
-        nodeStart: (input) => this._handleRunProgress('nodeStart', unwrap(input)),
-        nodeDone: (input) => this._handleRunProgress('nodeDone', unwrap(input)),
-        nodeError: (input) => this._handleRunProgress('nodeError', unwrap(input)),
-        goalStart: (input) => this._handleRunProgress('goalStart', unwrap(input)),
-        goalDone: (input) => this._handleRunProgress('goalDone', unwrap(input)),
-        save: async () => {
-          await this.saveGraph()
-          return okResult()
-        },
-        saveAs: async () => {
-          await this.saveGraphAs()
-          return okResult()
-        },
-        new: async () => {
-          await this.newGraph()
-          return okResult()
-        },
-        open: async () => {
-          await this.showLoadGraphPopup()
-          return okResult()
-        },
-        run: async () => {
-          await this.runGraph()
-          return okResult()
-        },
-        reload: async () => {
-          await this.reloadGraph()
-          return okResult()
-        },
-        zoomIn: async () => {
-          this.zoomIn()
-          return okResult()
-        },
-        zoomOut: async () => {
-          this.zoomOut()
-          return okResult()
-        },
-        zoomFit: async () => {
-          this.fitToContent()
-          return okResult()
-        },
-        clearSelection: async () => {
-          this.clearSelection()
-          return okResult()
-        },
-        tool_1: async () => {
-          await this.runGraph()
-          return okResult()
-        },
-        tool_2: async () => {
-          await this.showAddNodePopup()
-          return okResult()
-        },
-        tool_3: async () => {
-          await this.showEditNodePopup()
-          return okResult()
-        },
-        tool_4: async () => {
-          await this.deleteSelectedNodes()
-          return okResult()
-        },
-        tool_5: async () => okResult(),
-        tool_6: async () => okResult(),
+    const pluginId = registerViewPlugin(this, {
+      nodeStart: (input) => this._handleRunProgress('nodeStart', unwrap(input)),
+      nodeDone: (input) => this._handleRunProgress('nodeDone', unwrap(input)),
+      nodeError: (input) => this._handleRunProgress('nodeError', unwrap(input)),
+      goalStart: (input) => this._handleRunProgress('goalStart', unwrap(input)),
+      goalDone: (input) => this._handleRunProgress('goalDone', unwrap(input)),
+      tool_1: async () => {
+        await this.run()
+        return okResult()
+      },
+      tool_2: async () => {
+        await this.showAddNodePopup()
+        return okResult()
+      },
+      tool_3: async () => {
+        await this.showEditNodePopup()
+        return okResult()
+      },
+      tool_4: async () => {
+        await this.deleteSelectedNodes()
+        return okResult()
       },
     })
-    void runtime.call('ui.context.activateView', this.pluginId)
+    this.progressPluginId = pluginId
     this._progressPluginRegistered = true
   }
 
   async _unregisterProgressPlugin() {
     if (!this._progressPluginRegistered) return
-    const pluginId = this.pluginId
     this._progressPluginRegistered = false
-    this.pluginId = ''
     this.progressPluginId = ''
-    await runtime.unregister(pluginId)
+    await unregisterViewPlugin(this)
   }
 
   _handleRunProgress(method, payload) {
@@ -505,22 +457,22 @@ export class ViewNg extends HTMLElement {
     this._headerControlsElement = this.createHeaderControlsElement()
     this.parentElement.appendChild(this._headerControlsElement)
     this._headerControlsElement.querySelector('[data-action="new"]')?.addEventListener('click', () => {
-      void this.newGraph()
+      void this.new()
     })
     this._headerControlsElement.querySelector('[data-action="open"]')?.addEventListener('click', () => {
-      void this.showLoadGraphPopup()
+      void this.open()
     })
     this._headerControlsElement.querySelector('[data-action="save"]')?.addEventListener('click', () => {
-      void this.saveGraph()
+      void this.save()
     })
     this._headerControlsElement.querySelector('[data-action="save-as"]')?.addEventListener('click', () => {
-      void this.saveGraphAs()
+      void this.saveAs()
     })
     this._headerControlsElement.querySelector('[data-action="reload"]')?.addEventListener('click', () => {
-      void this.reloadGraph()
+      void this.reload()
     })
     this._headerControlsElement.querySelector('[data-action="run"]')?.addEventListener('click', () => {
-      void this.runGraph()
+      void this.run()
     })
     this._headerControlsElement.querySelector('[data-action="add"]')?.addEventListener('click', () => {
       void this.showAddNodePopup()
@@ -533,7 +485,7 @@ export class ViewNg extends HTMLElement {
     })
     this._headerControlsElement.querySelector('[data-action="zoom-in"]')?.addEventListener('click', () => this.zoomIn())
     this._headerControlsElement.querySelector('[data-action="zoom-out"]')?.addEventListener('click', () => this.zoomOut())
-    this._headerControlsElement.querySelector('[data-action="zoom-fit"]')?.addEventListener('click', () => this.fitToContent())
+    this._headerControlsElement.querySelector('[data-action="zoom-fit"]')?.addEventListener('click', () => this.zoomFit())
     this._headerControlsElement.querySelector('[data-action="auto-arrange"]')?.addEventListener('click', () => this.autoArrangeNodes())
     this._syncSelectionActionButtons()
   }
@@ -942,7 +894,7 @@ export class ViewNg extends HTMLElement {
     this.render()
   }
 
-  async runGraph() {
+  async run() {
     this.resetExecutionState()
     const runId = crypto.randomUUID()
     this.currentRunId = runId
@@ -983,7 +935,7 @@ end`
     this._setStatus(`reset graph '${this.graphName}'`, 'info')
   }
 
-  async newGraph() {
+  async new() {
     const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Create Graph',
       size: 'medium',
@@ -996,13 +948,13 @@ end`
     }))
     if (!payload || payload.cancelled) return
     assert(payload.path, 'view-ng new graph requires selected path')
-    await this.saveGraphToPath(payload.path, [])
+    await this.saveToPath(payload.path, [])
     await this.loadGraphFS(payload.path, false)
     this._setStatus(`created graph ${payload.path}`, 'success')
     await runtime.call('ui.toast.success', { message: `Created graph ${payload.path}` })
   }
 
-  async reloadGraph() {
+  async reload() {
     const path = String(this.graphPath || '').trim()
     assert(path.length > 0, 'view-ng reload requires current graph path')
     await this.loadGraphFS(path, false)
@@ -1171,15 +1123,15 @@ end`
     this._setStatus(`deleted ${selected.size} selected node${selected.size === 1 ? '' : 's'}`, 'success')
   }
 
-  async saveGraph() {
+  async save() {
     const path = String(this.graphPath || '').trim()
     assert(path.length > 0, 'view-ng save requires current graph path')
-    await this.saveGraphToPath(path, this.getGraph())
+    await this.saveToPath(path, this.getGraph())
     this._setStatus(`saved graph to ${path}`, 'success')
     await runtime.call('ui.toast.success', { message: `Saved graph to ${path}` })
   }
 
-  async saveGraphAs() {
+  async saveAs() {
     const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Save Graph As',
       size: 'medium',
@@ -1192,13 +1144,13 @@ end`
     }))
     if (!payload || payload.cancelled) return
     assert(payload.path, 'view-ng save-as requires selected path')
-    await this.saveGraphToPath(payload.path, this.getGraph())
+    await this.saveToPath(payload.path, this.getGraph())
     this.setGraphPath(payload.path)
     this._setStatus(`saved graph to ${payload.path}`, 'success')
     await runtime.call('ui.toast.success', { message: `Saved graph to ${payload.path}` })
   }
 
-  async saveGraphToPath(path, graph) {
+  async saveToPath(path, graph) {
     assert(typeof path === 'string' && path.length > 0, 'view-ng save requires path')
     const json = `${JSON.stringify(graph, null, 2)}\n`
     unwrap(await runtime.invoke('fs/fs::write-text', path, json))
@@ -1215,7 +1167,7 @@ end`
     }
   }
 
-  async showLoadGraphPopup() {
+  async open() {
     const payload = unwrap(await runtime.call('ui.popup.open', {
       title: 'Load Graph',
       size: 'medium',
@@ -1702,6 +1654,10 @@ end`
     this.offsetX = screenX - worldX * this.scale
     this.offsetY = screenY - worldY * this.scale
     this.render()
+  }
+
+  zoomFit() {
+    return this.fitToContent()
   }
 
   fitToContent() {
