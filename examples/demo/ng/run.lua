@@ -6,15 +6,14 @@
 --   _G.input or input: JSON string containing the graph returned by view-ng.getGraph().
 --
 -- Compiler output:
---   output: generated Lua source code as a string. The lua plugin JSON-encodes this
---   global, so callers should JSON.parse(lua.run(...).output) to get the source.
+--   main() returns generated Lua source code as a string.
 --
 -- Generated program conventions:
 --   * code-node scripts execute with `inputs` and `outputs` tables in scope
 --   * branch activity is available as `inputs.active[portId]`
 --   * outgoing branch activity is controlled with `outputs.active[portId]`
 --   * code-node scripts may also use `_G.inputs` and `_G.outputs`
---   * final graph results are written to global `output`
+--   * final graph results are returned from generated main()
 --   * optional progress is provided by emitting an injected `__ng_progress` hook
 
 local NG = {
@@ -24,6 +23,7 @@ local NG = {
 	NODE_VALUE = 4,
 }
 
+function main()
 local graphJson = _G.input or input
 if type(graphJson) ~= "string" or graphJson == "" then
 	error("run.lua requires graph JSON in _G.input or input")
@@ -221,7 +221,10 @@ local function readTextFile(path)
 	if type(path) ~= "string" or path == "" then
 		error("code node is missing codePath")
 	end
-	return unwrapFsReadOutput(host.call("fs", "read", path), path)
+	if type(fs) ~= "table" or type(fs.read_text) ~= "function" then
+		error("run.lua requires lua.comp fs.read_text(path)")
+	end
+	return fs.read_text(path)
 end
 
 local needed = {}
@@ -482,7 +485,7 @@ local function emitNode(node)
 end
 
 local function emitFinalOutput(goalNodes)
-	emit("output = {")
+	emit("local output = {")
 	for _, goal in ipairs(goalNodes) do
 		emit(("  [%s] = {"):format(luaString(goal.name ~= "" and goal.name or ("goal_" .. tostring(goal.id)))))
 		emit(("    id = %d,"):format(goal.id))
@@ -515,6 +518,7 @@ local function emitFinalOutput(goalNodes)
 		emit(("__ng_goal_start(%d)"):format(goal.id))
 		emit(("__ng_goal_done(%d)"):format(goal.id))
 	end
+	emit("return output")
 end
 
 validateGraph()
@@ -525,6 +529,7 @@ orderNeededNodes()
 emit("-- Generated Lua file")
 emit("-- Do not edit manually")
 emit("")
+emit("function main()")
 emitProgressHelpers()
 
 for _, node in ipairs(ordered) do
@@ -537,5 +542,7 @@ for _, node in ipairs(ordered) do
 end
 
 emitFinalOutput(goalNodes)
+emit("end")
 
-output = table.concat(lines, "\n")
+return table.concat(lines, "\n")
+end

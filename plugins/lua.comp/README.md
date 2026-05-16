@@ -19,9 +19,13 @@ It intentionally does **not** import `gams:fs`; that proxy is for frontend files
 
 ```lua
 host.call(target, args?)
+fs.read_text(path)
+fs.read(path) -- alias for read_text
 ```
 
 `host.call` maps directly to `gams:runtime/runtime.call(target, args)` and blocks until the host/frontend responds.
+
+`fs.read_text` reads a text file from the component's WASI preopens and returns it as a Lua string. Missing or unreadable files raise a Lua error.
 
 Example:
 
