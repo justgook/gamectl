@@ -2,6 +2,8 @@
 
 Status: **phase 1 scaffold implemented; initial `cmd/app` JSON resource bridge implemented**.
 
+Active TODO: `TODO/image.comp.md`.
+
 ## Direction
 
 `plugins/image.comp` is the component-model migration target for legacy `plugins/image`.
