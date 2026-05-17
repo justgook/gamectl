@@ -122,7 +122,7 @@ Allowed via `createHeaderControlsElement()` and `[slot="header-controls"]`:
 - redo
 - zoom in/out/fit later
 
-Use documented elements from `VIEW_RULES.md`:
+Use documented elements from `docs/reference/gams-view-development-guide.md`:
 
 - `button`
 - `button > i`
@@ -179,7 +179,7 @@ Canvas phase later changes main element to:
 <footer><output data-element="status"></output></footer>
 ```
 
-Because `VIEW_RULES.md` says each view should contain exactly one main element, do not keep both `article` and `canvas` in the final view.
+Because `docs/reference/gams-view-development-guide.md` says each view should contain exactly one main element, do not keep both `article` and `canvas` in the final view.
 
 ## Backend Interaction Pattern
 

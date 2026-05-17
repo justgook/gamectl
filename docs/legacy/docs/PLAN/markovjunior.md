@@ -155,7 +155,7 @@ Responsibilities:
 - Preview returned symbolic grid on a canvas or generated tilemap through existing tilemap view integration.
 - Offer lock/edit tools later: paint locked cells, place exits, rerun with same/next seed.
 
-Follow `cmd/browser/VIEW_RULES.md`: one `form` or `canvas` main element, optional `aside` for model/settings, `footer` for run/status actions, header controls registered through the view plugin mechanism.
+Follow `docs/reference/gams-view-development-guide.md`: one `form` or `canvas` main element, optional `aside` for model/settings, `footer` for run/status actions, header controls registered through the view plugin mechanism.
 
 ## Implementation Phases
 

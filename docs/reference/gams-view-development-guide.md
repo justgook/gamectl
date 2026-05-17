@@ -1,8 +1,10 @@
-# View Rules
+# GAMS View Development Guide
 
-UI uses themeable semantic elements, classes, and attributes as a project UI vocabulary. This file is a compact lookup for the preferred combinations used when building or migrating views.
+This guide defines the supported UI vocabulary for **Core Views**: views provided and supported by the official GAMS development team.
 
-Views and UI should be built only from the elements, slots, classes, and attributes documented here. UI HTML should not contain custom CSS, inline styling, or undocumented elements/patterns. Existing code that does so is legacy/deprecated and a target for rework.
+Core Views use themeable semantic elements, classes, and attributes so they can be styled consistently by GAMS themes and behave as one coherent UI surface.
+
+Core Views should be built only from the elements, slots, classes, and attributes documented here. Core View HTML should not contain custom CSS, inline styling, or undocumented elements/patterns. Existing code that does so is legacy/deprecated and a target for rework.
 
 ## View layout
 

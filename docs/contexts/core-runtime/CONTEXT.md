@@ -44,6 +44,14 @@ _Avoid_: special-case view, host callback view.
 The package/interface/major-version identity used by the Plugin Manager to detect duplicate providers and resolve compatible imports.
 _Avoid_: full interface name when namespace or patch provenance matters.
 
+**Serve Host Mode**:
+A future CLI/app Host mode that adapts native HTTP requests to a Project Unit exporting a WASI HTTP handler interface.
+_Avoid_: dev-only server when describing the long-term capability.
+
+**HTTP Handler Project Unit**:
+A Project Unit WASM component that exports a WASI HTTP handler interface and can be run by Serve Host Mode.
+_Avoid_: standalone server plugin.
+
 ## Relationships
 
 - A **Host** uses the **GAMS Runtime** to run a Project.
@@ -53,6 +61,7 @@ _Avoid_: full interface name when namespace or patch provenance matters.
 - A **Singleton Plugin** is the preferred target model for new **Plugins**.
 - An **Instance Plugin** is legacy/migration-only unless explicitly clarified.
 - A **WIT Interface Family** ignores namespace and patch version for compatibility, while full WIT names remain visible for diagnostics and Wasmtime wiring.
+- **Serve Host Mode** requires exactly one active **HTTP Handler Project Unit** unless future Project Config adds explicit disambiguation.
 
 ## Example dialogue
 

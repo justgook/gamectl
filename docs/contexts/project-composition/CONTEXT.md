@@ -20,6 +20,10 @@ _Avoid_: component because WASM components already use that term; asset because 
 A singleton GUI-host service that provides UI-facing behavior such as key bindings, actions, scripts, context menus, layout helpers, toast notifications, or popup services.
 _Avoid_: UI plugin, frontend plugin, view service.
 
+**Core View**:
+A View provided and supported by the official GAMS development team, expected to follow the GAMS View Development Guide so themes can style Core Views consistently.
+_Avoid_: builtin view when the important distinction is official support and UI vocabulary compliance.
+
 **GAMS Distribution Package**:
 A separately distributed Project Unit or related asset/config schema that can be referenced by Project Config.
 _Avoid_: package when ambiguity with language package managers matters; top-level scripts/presets.
@@ -36,6 +40,7 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - View `label`, `group`, and `internal` are host-facing metadata; view `defaultSource` belongs to view-specific configuration.
 - Plugin Project Config entries use only `url` and `config` in v1; dependencies come from WASM component imports/exports.
 - A **Project** can be run by different Hosts when those Hosts support the Project Units it declares.
+- A **Core View** is a first-party **Project Unit** and should follow the GAMS View Development Guide.
 
 ## Example dialogue
 

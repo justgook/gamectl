@@ -13,7 +13,7 @@ Initial scope is a read-only asset preview, not an editor. Editing, palette auth
 - Keep browser host thin: file open routing stays in `demo/gams.json` / project config, and file bytes come from `fs.read`.
 - Do not add a new singleton plugin for MVP unless another plugin needs parsed `.vox` data outside this view.
 - Reuse existing `.vox` parsing knowledge from `plugins/markov/mj/vox.go`, but implement the browser preview parser in JS for direct rendering.
-- Follow `cmd/browser/VIEW_RULES.md`: one main `canvas`, optional `aside` for metadata/render settings, optional `footer` for path/status.
+- Follow `docs/reference/gams-view-development-guide.md`: one main `canvas`, optional `aside` for metadata/render settings, optional `footer` for path/status.
 
 ## MVP Behavior
 
@@ -101,7 +101,7 @@ Optional later side panel:
 </aside>
 ```
 
-Header controls should use documented button groups from `VIEW_RULES.md` and match `view-image`:
+Header controls should use documented button groups from `docs/reference/gams-view-development-guide.md` and match `view-image`:
 
 - `file-actions`: reload only
 - `view-actions`: zoom out, zoom fit, zoom in

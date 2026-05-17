@@ -12,6 +12,10 @@ Status: ready-for-agent
 - `docs/legacy/plugins/markov/README.md`
 - `docs/legacy/docs/PLAN/markovjunior.md`
 - `docs/legacy/plugins/minimap/minimap/TREE_LAYOUT_IMPLEMENTATION.md`
+- `docs/legacy/split/docs/PLAN/PLAN/tree-generation-source-of-truth.md`
+- `docs/legacy/split/docs/PLAN/PLAN/minimap-room-shape-generation.md`
+- `docs/legacy/split/docs/PLAN/PLAN/room-content-generation.md`
+- `docs/legacy/split/docs/PLAN/PLAN/generation-leftovers.md`
 
 ## Expected output
 
