@@ -1,9 +1,8 @@
 function main()
-	local popup = json.decode(host.call("ui.popup.isOpen", "{}")).ok
-
+	local popup = host.call("ui.popup.isOpen", {})
 	if popup.count > 0 then
 		return {
-			call = { "ui.popup.closeTop", '{"ok":false,"cancelled":true,"reason":"escape"}' },
+			call = { "ui.popup.closeTop", { ok = false, cancelled = true, reason = "escape" } },
 		}
 	end
 
