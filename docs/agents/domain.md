@@ -4,13 +4,13 @@ How the engineering skills should consume this repo's domain documentation when 
 
 ## Before exploring, read these
 
-- **`CONTEXT.md`** at the repo root, or
-- **`CONTEXT-MAP.md`** at the repo root if it exists — it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
+- **`CONTEXT-MAP.md`** at the repo root — it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
+- **`CONTEXT.md`** at the repo root as a short overview/pointer when present.
 - **`docs/adr/`** — read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
 - **`docs/prd/`** — read current PRDs that touch the capability or migration slice you're about to work in.
 - **`docs/legacy/INDEX.md`** and relevant files under **`docs/legacy/`** — use as source material only when current PRDs/ADRs have not replaced that area yet.
 
-If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved.
+If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved. This repo currently uses a multi-context layout.
 
 ## Legacy conversion workflow
 
@@ -24,7 +24,7 @@ When converting legacy markdown, follow a `grill-with-docs` style loop:
 
 ## File structure
 
-Single-context repo (most repos):
+Single-context repo:
 
 ```
 /
