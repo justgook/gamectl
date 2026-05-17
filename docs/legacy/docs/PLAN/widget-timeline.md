@@ -246,7 +246,7 @@ After each model operation, the widget should re-render from `model.layers`, `mo
 
 ## DOM / View Rules Vocabulary
 
-Implementation should follow `cmd/browser/VIEW_RULES.md` and preserve semantic/themed elements. The widget should be built from existing semantic HTML and documented UI patterns instead of introducing CSS-dependent wrapper structure.
+Implementation should follow `docs/reference/gams-view-development-guide.md` and preserve semantic/themed elements. The widget should be built from existing semantic HTML and documented UI patterns instead of introducing CSS-dependent wrapper structure.
 
 Recommended internal structure:
 
@@ -268,7 +268,7 @@ Recommended internal structure:
 </widget-timeline>
 ```
 
-Expected additions to `VIEW_RULES.md` when implemented:
+Expected additions to `docs/reference/gams-view-development-guide.md` when implemented:
 
 - `widget-timeline` - reusable timeline widget for layers, frames, cels, and tags
 - timeline-specific `data-element` / `data-action` names used by the widget
@@ -311,12 +311,12 @@ Prefer plugin-to-plugin calls for persistence/compositing. The widget should not
 
 1. Add `cmd/browser/widgets/timeline.js` with strict data/model validation and direct model/controller calls.
 2. Import it from `cmd/browser/app.js`.
-3. Update `cmd/browser/VIEW_RULES.md` with the new widget vocabulary.
+3. Update `docs/reference/gams-view-development-guide.md` with the new widget vocabulary.
 4. Embed a demo/static instance into `view-animation` using the sample Shadow/Gun/Body/Background stack from the screenshot, with Background represented as a normal layer.
 5. Add frame/cel strip support once the animation data shape is chosen.
 6. Connect to an animation/sprite plugin contract for loading/saving and compositing.
 
-Phase 1 deliberately excludes `cmd/browser/base.css` or theme updates. If later work needs styling, first record the missing reusable UI primitive in `VIEW_RULES.md` and keep any CSS generic rather than timeline-specific.
+Phase 1 deliberately excludes `cmd/browser/base.css` or theme updates. If later work needs styling, first record the missing reusable UI primitive in `docs/reference/gams-view-development-guide.md` and keep any CSS generic rather than timeline-specific.
 
 ## Requires Clarification
 

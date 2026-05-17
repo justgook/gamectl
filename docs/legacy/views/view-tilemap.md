@@ -14,7 +14,7 @@ Detailed follow-up docs:
 3. It must not recreate old `pluginManager.load(...)` per-view runtime ownership.
 4. Tilemap document/state logic should live in one global worker-side plugin.
 5. Browser UI code should own only rendering, interaction, camera, and header controls.
-6. The view should follow `cmd/browser/VIEW_RULES.md`.
+6. The view should follow `docs/reference/gams-view-development-guide.md`.
 7. Required state/config should fail fast; do not add silent fallbacks for internal wiring bugs.
 8. Prefer direct shared-memory ownership by the tilemap plugin/view pair over runtime-owned mirrored state.
 9. Start with the minimal useful editor loop, then add advanced tools.

@@ -8,6 +8,7 @@ Current documentation is organised around these forms:
 - `docs/adr/` — architectural decisions that are hard to reverse, surprising without context, and trade-off based.
 - `docs/ideas/` — pre-decision idea inbox; source material for discussion, conversion, or dismissal.
 - `docs/ideas/yoinking/` — competitive inspiration records.
+- `docs/reference/` — canonical operational guides and reference material, including the GAMS View Development Guide.
 
 Historical markdown source material lives in `docs/legacy/` and should be converted rather than extended.
 

@@ -6,13 +6,12 @@ Draft
 
 ## Source material
 
-- `docs/legacy/docs/PLAN/PLAN.md`
-- `docs/legacy/docs/PLAN/app-runtime-todo.md`
-- `docs/legacy/docs/PLAN/app-runtime-wrpc.md`
-- `docs/legacy/docs/PLAN/app-runtime-component-ui-spec.md`
-- `docs/legacy/docs/PLAN/fs-runtime.md`
+- migration backlog converted from deleted legacy `docs/PLAN/app-runtime-todo.md`
+- `docs/prd/0004-wrpc-frontend-backend-spike.md` (converted from legacy `app-runtime-wrpc.md`)
+- `docs/prd/0005-frontend-view-and-ui-service-bridge.md` (converted from legacy `app-runtime-component-ui-spec.md`)
+- `docs/adr/0005-use-wasi-and-gams-fs-instead-of-host-virtual-fs.md` (converted from legacy `fs-runtime.md`)
 - `docs/adr/0004-wit-interface-version-matching.md` (converted from deleted legacy `docs/VERSION.md`)
-- `docs/legacy/CLI_SERVE.md`
+- `docs/prd/0006-cli-http-serve-host.md` (converted from deleted legacy `CLI_SERVE.md`)
 
 ## Problem
 
@@ -66,6 +65,20 @@ GAMS is migrating toward a plugin-driven CMS/toolkit where hosts stay thin and m
 - `docs/legacy/INDEX.md` links the runtime legacy files to this PRD when conversion is complete.
 - `.scratch/docs-consolidation/issues/01-runtime-plugin-manager.md` records the conversion outcome.
 
+## Migration backlog
+
+Runtime work converted from legacy TODOs:
+
+- Load required dev-mode base plugins such as `gams:fs` before frontend filesystem calls; long-term loading comes from Project Config.
+- Keep frontend/app filesystem helpers routed through `gams:fs`; do not restore raw frontend `wasi:filesystem` wrappers.
+- Keep dependency loading order based on component import/export inspection and topological sorting.
+- Continue JSON ↔ WIT value conversion hardening for structured values and define a policy for resources, variants/results/flags, 64-bit integers, and `list<u8>`.
+- Keep `gams:runtime/runtime.call` as the dynamic WASM-to-view bridge and add automated bridge/deadlock coverage when implementation work resumes.
+- Implement UI Service registration in a later slice using `docs/prd/0005-frontend-view-and-ui-service-bridge.md`.
+- Keep `cmd/app` as the built-in development host while future `browser` and `cli` hosts are clarified.
+- Replace placeholder CLI/subcommand behavior through the same runtime instead of maintaining a separate runtime.
+- Treat HTTP `serve` as a future CLI/app Host mode tracked by `docs/prd/0006-cli-http-serve-host.md`, not part of Project Config v1.
+
 ## Open questions
 
 - Project Config details are split into `docs/prd/0003-project-config.md`; runtime PRD should only define runtime responsibilities and integration boundaries.
@@ -76,3 +89,5 @@ GAMS is migrating toward a plugin-driven CMS/toolkit where hosts stay thin and m
 - `docs/prd/0003-project-config.md`
 - `docs/adr/0003-project-config-owns-composition.md`
 - `docs/adr/0004-wit-interface-version-matching.md`
+- `docs/adr/0005-use-wasi-and-gams-fs-instead-of-host-virtual-fs.md`
+- `docs/prd/0006-cli-http-serve-host.md`

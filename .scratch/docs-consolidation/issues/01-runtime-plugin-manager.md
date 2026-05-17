@@ -4,13 +4,12 @@ Status: needs-info
 
 ## Source material
 
-- `docs/legacy/docs/PLAN/PLAN.md`
-- `docs/legacy/docs/PLAN/app-runtime-todo.md`
-- `docs/legacy/docs/PLAN/app-runtime-wrpc.md`
-- `docs/legacy/docs/PLAN/app-runtime-component-ui-spec.md`
-- `docs/legacy/docs/PLAN/fs-runtime.md`
+- `docs/prd/0002-runtime-plugin-manager.md` migration backlog (converted from legacy `app-runtime-todo.md`)
+- `docs/prd/0004-wrpc-frontend-backend-spike.md` (converted from legacy `app-runtime-wrpc.md`)
+- `docs/prd/0005-frontend-view-and-ui-service-bridge.md` (converted from legacy `app-runtime-component-ui-spec.md`)
+- `docs/adr/0005-use-wasi-and-gams-fs-instead-of-host-virtual-fs.md` (converted from legacy `fs-runtime.md`)
 - `docs/adr/0004-wit-interface-version-matching.md` (converted from deleted legacy `docs/VERSION.md`)
-- `docs/legacy/CLI_SERVE.md`
+- `docs/prd/0006-cli-http-serve-host.md` (converted from legacy `CLI_SERVE.md`)
 
 ## Expected output
 
@@ -50,3 +49,10 @@ Status: needs-info
 - Resolved: `theme.config` extension is by schema only. Any Project Unit schema may validate any needed part of `theme.config`; conflicts/overrides/ownership declarations are out of scope for v1.
 - Resolved: `docs/prd/0003-project-config.md` includes a concrete v1 `gams.json` example.
 - Resolved: do not migrate `examples/demo/gams.json` yet. Implementation starts after legacy docs are converted/removed.
+- Converted: legacy `app-runtime-wrpc.md` -> `docs/prd/0004-wrpc-frontend-backend-spike.md`.
+- Converted: legacy `app-runtime-component-ui-spec.md` -> `docs/prd/0005-frontend-view-and-ui-service-bridge.md`.
+- Converted: legacy `fs-runtime.md` -> `docs/adr/0005-use-wasi-and-gams-fs-instead-of-host-virtual-fs.md`.
+- Converted: legacy `app-runtime-todo.md` -> migration backlog in `docs/prd/0002-runtime-plugin-manager.md`.
+- Deleted split fragment `runtime-and-project-config.md` after covering it in runtime/project-config PRDs and ADRs.
+- Converted: legacy `CLI_SERVE.md` -> `docs/prd/0006-cli-http-serve-host.md`; `serve` is future/post-v1 CLI/app Host mode requiring an HTTP Handler Project Unit.
+- Deleted split fragment `implementation-order-and-clarifications.md` after moving generation leftovers to `docs/legacy/split/docs/PLAN/PLAN/generation-leftovers.md`.

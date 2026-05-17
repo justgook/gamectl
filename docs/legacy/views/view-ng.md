@@ -13,7 +13,7 @@ This file records the intended rules for the future `cmd/browser/view/view-ng.js
 5. It must not recreate `pluginManager.load(...)`-style per-view runtime ownership.
 6. It should bind to a **global worker-side** `ng2` plugin.
 7. It should operate on an explicit **graph/document handle**.
-8. It should follow `cmd/browser/VIEW_RULES.md`.
+8. It should follow `docs/reference/gams-view-development-guide.md`.
 9. It should use strict fail-fast behavior for required internal state.
 10. It should not add legacy compatibility behavior for old browser view contracts.
 
