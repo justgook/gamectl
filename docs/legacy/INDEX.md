@@ -12,15 +12,24 @@ Do not treat files in this archive as canonical without checking whether they ha
 
 ## Conversion status
 
-- Documentation architecture/consolidation is now represented by `docs/prd/0001-docs-consolidation.md` and `docs/adr/0001-docs-architecture.md`.
-- Remaining files below are source material for future conversion unless explicitly linked to a current PRD/ADR.
-- Convert one bounded area at a time using the workflow in `docs/README.md`.
-- Local conversion issues live under `.scratch/docs-consolidation/issues/`.
+- Initial archived markdown files: 45
+- Removed from legacy after conversion/dismissal: 4
+- Remaining legacy markdown files: 41
+- Documentation architecture/consolidation is represented by `docs/prd/0001-docs-consolidation.md` and `docs/adr/0001-docs-architecture.md`.
 - Runtime/plugin-manager conversion has started in `docs/prd/0002-runtime-plugin-manager.md`.
+- Project Config conversion has started in `docs/prd/0003-project-config.md`.
+- Local conversion issues live under `.scratch/docs-consolidation/issues/`.
+
+### Removed from legacy this session
+
+- `docs/VERSION.md` — converted to `docs/adr/0004-wit-interface-version-matching.md` and summarized in `docs/prd/0002-runtime-plugin-manager.md`.
+- `docs/INDEX.md` — empty legacy index, dismissed as unnecessary after `docs/README.md` and this archive index were created.
+- `TODO.md` — converted to `docs/ideas/legacy-notes-inbox.md`.
+- `NOTES.md` — converted to `docs/ideas/legacy-notes-inbox.md`.
 
 ## Inventory
 
-Total archived markdown files: 45
+Total remaining archived markdown files: 41
 
 ### Area README/source notes
 
@@ -29,17 +38,10 @@ Total archived markdown files: 45
 - `sdk/go/tilemap/README.md` — 157 lines — # wasm-tiled
 - `tools/opr-import/README.md` — 71 lines — # OPR Import Tool
 
-### Cross-cutting docs
-
-- `docs/INDEX.md` — 0 lines — (no heading)
-- `docs/VERSION.md` — 214 lines — # GAMS WIT Interface Version Matching
-
 ### Planning / design / TODO source material
 
 - `CLI_SERVE.md` — 214 lines — # Handoff: GAMS Wasmtime cache + CLI + `serve` validation
-- `NOTES.md` — 15 lines — # Notes
 - `TODO/image.comp.md` — 157 lines — # TODO: image.comp
-- `TODO.md` — 8 lines — # TODO
 - `docs/PLAN/PLAN.md` — 165 lines — # GAMS Planning
 - `docs/PLAN/app-runtime-component-ui-spec.md` — 107 lines — # App Runtime, Components, UI Plugins, and Views
 - `docs/PLAN/app-runtime-todo.md` — 225 lines — # cmd/app Runtime TODO

@@ -33,12 +33,13 @@ GAMS has useful project knowledge spread across READMEs, TODO files, plans, spec
 - `CONTEXT.md` contains only domain terminology and relationships.
 - `docs/prd/` contains numbered PRDs for coherent capabilities or migration slices.
 - `docs/adr/` contains numbered ADRs for hard-to-reverse, surprising, trade-off-based decisions.
-- `docs/legacy/INDEX.md` inventories archived markdown and serves as the conversion queue.
+- `docs/legacy/INDEX.md` inventories archived markdown, tracks conversion/removal counts, and serves as the conversion queue.
 - Agents must consult legacy files as source material until a corresponding PRD/ADR/current doc exists.
 
 ## Acceptance criteria
 
 - New documentation architecture is described in `docs/README.md`.
+- Legacy conversion/removal status is visible in `docs/legacy/INDEX.md`.
 - PRD and ADR formats are documented in `docs/prd/README.md` and `docs/adr/README.md`.
 - The first ADR records the documentation architecture decision.
 - Agent instructions point contributors at the conversion workflow.

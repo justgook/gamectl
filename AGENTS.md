@@ -32,7 +32,8 @@ This repository is moving toward a unified `pluginManager` architecture.
 - **`view`**: browser-rendered plugin that should be registered and routed through `pluginManager`.
 
 ## Important Planning Files
-- `CONTEXT.md` — glossary-only domain language for GAMS.
+- `CONTEXT-MAP.md` — multi-context domain glossary index for GAMS.
+- `CONTEXT.md` — root overview pointing at context-specific glossaries.
 - `docs/README.md` — current documentation architecture and legacy conversion workflow.
 - `docs/prd/` — current requirements and migration slices.
 - `docs/adr/` — accepted architectural decisions.
@@ -51,7 +52,7 @@ This repository is moving toward a unified `pluginManager` architecture.
 - Read `docs/legacy/docs/PLAN/PLAN.md` before proposing architecture changes until the relevant PRDs/ADRs exist.
 - When discussing a plugin, check whether it already has a legacy file under `docs/legacy/docs/PLAN/` or `docs/legacy/plugins/`.
 - Prefer converting legacy planning notes into clear PRDs/ADRs with migration targets instead of extending archived documents.
-- For documentation conversion, use the `grill-with-docs` style loop: read the legacy docs and nearby code, resolve glossary terms into `CONTEXT.md`, ask one sharp question at a time for ambiguity, write/update a focused PRD, and create ADRs only for hard-to-reverse trade-off decisions.
+- For documentation conversion, use the `grill-with-docs` style loop: read the legacy docs and nearby code, resolve glossary terms into the relevant context `CONTEXT.md` listed by `CONTEXT-MAP.md`, ask one sharp question at a time for ambiguity, write/update a focused PRD, and create ADRs only for hard-to-reverse trade-off decisions.
 - For external inspiration, use project-local skill `.pi/skills/yoinking/SKILL.md` to create Yoinking records under `docs/ideas/yoinking/`; do not treat them as implementation decisions until converted through `grill-with-docs`.
 - Treat `cmd/browser` as a fresh-start host: breaking changes are acceptable there and backwards-compatibility shims should not be introduced unless explicitly planned.
 - For browser planning/work, prefer worker-side setup/bootstrap for base plugins and document any main-thread bridge assumptions explicitly.
