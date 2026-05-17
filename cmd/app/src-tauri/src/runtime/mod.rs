@@ -7,9 +7,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use tauri::Emitter;
-use values::{json_to_val, result_json, val_default_for_type};
+use values::{json_to_val_with_resources, result_json_with_resources, val_default_for_type};
 use wasmtime::component::types::{ComponentInstance, ComponentItem};
-use wasmtime::component::{Component, Func, Instance, Linker, ResourceTable, Val};
+use wasmtime::component::{Component, Func, Instance, Linker, ResourceAny, ResourceTable, Val};
 use wasmtime::{Config, Engine, Store, StoreContextMut};
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxView, WasiView};
 use wasmtime_wasi_http::p2::{WasiHttpCtxView, WasiHttpView};
@@ -64,6 +64,8 @@ pub struct HostState {
     wasi_ctx: WasiCtx,
     http_ctx: WasiHttpCtx,
     resource_table: ResourceTable,
+    json_resource_refs: BTreeMap<String, JsonResourceRef>,
+    next_json_resource: u64,
     view_bridge: ViewBridge,
     runtime_funcs: BTreeMap<String, ExportedFunc>,
 }
@@ -85,6 +87,12 @@ impl WasiHttpView for HostState {
             hooks: Default::default(),
         }
     }
+}
+
+#[derive(Clone)]
+struct JsonResourceRef {
+    resource_type_name: String,
+    resource: ResourceAny,
 }
 
 #[derive(Clone)]
@@ -407,6 +415,16 @@ impl Runtime {
             .map_err(|error| error.to_string())
     }
 
+    pub fn release_resource(&self, resource: serde_json::Value) -> Result<(), String> {
+        let mut inner = self
+            .inner
+            .lock()
+            .map_err(|_| "runtime lock poisoned".to_string())?;
+        inner
+            .release_resource(resource)
+            .map_err(|error| error.to_string())
+    }
+
     pub fn diagnostics(&self) -> Result<serde_json::Value, String> {
         let inner = self
             .inner
@@ -420,6 +438,7 @@ impl Runtime {
                 "exports": component.exports,
             })).collect::<Vec<_>>(),
             "exports": inner.funcs.keys().cloned().collect::<Vec<_>>(),
+            "jsonResourceRefs": inner.store.data().json_resource_refs.len(),
             "compiledComponentCacheDir": inner.compiled_component_cache_dir.display().to_string(),
         }))
     }
@@ -461,6 +480,8 @@ impl RuntimeInner {
             wasi_ctx,
             http_ctx: WasiHttpCtx::new(),
             resource_table: ResourceTable::new(),
+            json_resource_refs: BTreeMap::new(),
+            next_json_resource: 1,
             view_bridge,
             runtime_funcs: BTreeMap::new(),
         };
@@ -780,9 +801,12 @@ impl RuntimeInner {
     }
 
     fn invoke(&mut self, target: &str, args: serde_json::Value) -> Result<serde_json::Value> {
-        let func = self.resolve_func(target)?.clone();
+        let (resolved_target, func) = {
+            let (key, func) = self.resolve_func(target)?;
+            (key.clone(), func.clone())
+        };
         match func {
-            ExportedFunc::Wasm(func) => self.invoke_wasm(target, func, args),
+            ExportedFunc::Wasm(func) => self.invoke_wasm(&resolved_target, func, args),
         }
     }
 
@@ -805,10 +829,33 @@ impl RuntimeInner {
             );
         }
 
+        let resource_type_name = invocation_resource_type_name(target);
+        let mut resolve_resource = |resource_type_name: &str, id: &str| {
+            let resource_ref = self
+                .store
+                .data()
+                .json_resource_refs
+                .get(id)
+                .with_context(|| format!("unknown resource ref `{id}`"))?;
+            if resource_ref.resource_type_name != resource_type_name {
+                bail!(
+                    "resource ref `{id}` has type `{}`, got `{resource_type_name}`",
+                    resource_ref.resource_type_name
+                );
+            }
+            Ok(resource_ref.resource)
+        };
         let params = args
             .iter()
             .zip(params_ty.iter())
-            .map(|(value, ty)| json_to_val(value, ty))
+            .map(|(value, ty)| {
+                json_to_val_with_resources(
+                    value,
+                    ty,
+                    Some(&resource_type_name),
+                    &mut resolve_resource,
+                )
+            })
             .collect::<Result<Vec<_>>>()?;
 
         let mut results = ty
@@ -819,12 +866,62 @@ impl RuntimeInner {
         func.call(&mut self.store, &params, &mut results)
             .map_err(|error| anyhow::anyhow!("calling {target}: {error}"))?;
 
-        result_json(results)
+        let mut register_resource = |resource: ResourceAny, resource_type_name: &str| {
+            let state = self.store.data_mut();
+            let id = format!("res_{:016x}", state.next_json_resource);
+            state.next_json_resource += 1;
+            state.json_resource_refs.insert(
+                id.clone(),
+                JsonResourceRef {
+                    resource_type_name: resource_type_name.to_string(),
+                    resource,
+                },
+            );
+            Ok(serde_json::json!({
+                "$resource": resource_type_name,
+                "id": id,
+            }))
+        };
+        result_json_with_resources(results, Some(&resource_type_name), &mut register_resource)
     }
 
-    fn resolve_func(&self, target: &str) -> Result<&ExportedFunc> {
-        if let Some(func) = self.funcs.get(target) {
-            return Ok(func);
+    fn release_resource(&mut self, resource: serde_json::Value) -> Result<()> {
+        let object = resource
+            .as_object()
+            .context("resource release expects resource object")?;
+        let resource_type_name = object
+            .get("$resource")
+            .and_then(|value| value.as_str())
+            .context("resource object must contain string `$resource`")?;
+        let id = object
+            .get("id")
+            .and_then(|value| value.as_str())
+            .context("resource object must contain string `id`")?;
+
+        let resource_ref = self
+            .store
+            .data_mut()
+            .json_resource_refs
+            .remove(id)
+            .with_context(|| format!("unknown resource ref `{id}`"))?;
+        if resource_ref.resource_type_name != resource_type_name {
+            let actual_type = resource_ref.resource_type_name.clone();
+            self.store
+                .data_mut()
+                .json_resource_refs
+                .insert(id.to_string(), resource_ref);
+            bail!("resource ref `{id}` has type `{actual_type}`, got `{resource_type_name}`");
+        }
+
+        resource_ref
+            .resource
+            .resource_drop(&mut self.store)
+            .map_err(|error| anyhow::anyhow!("failed to drop resource ref `{id}`: {error}"))
+    }
+
+    fn resolve_func(&self, target: &str) -> Result<(&String, &ExportedFunc)> {
+        if let Some((key, func)) = self.funcs.get_key_value(target) {
+            return Ok((key, func));
         }
 
         let Some((interface, function)) = target.split_once("::") else {
@@ -840,7 +937,10 @@ impl RuntimeInner {
 
         match matches.len() {
             0 => bail!("no exported function found for `{target}`"),
-            1 => Ok(matches.swap_remove(0).1),
+            1 => {
+                let (key, func) = matches.swap_remove(0);
+                Ok((key, func))
+            }
             _ => {
                 let options = matches
                     .into_iter()
@@ -1048,15 +1148,27 @@ fn add_gams_runtime_import(linker: &mut Linker<HostState>, interface_name: &str)
     Ok(())
 }
 
+fn invocation_resource_type_name(target: &str) -> String {
+    let interface = target
+        .split_once("::")
+        .map(|(interface, _)| interface)
+        .unwrap_or(target);
+    interface
+        .split_once('@')
+        .map(|(without_version, _)| without_version)
+        .unwrap_or(interface)
+        .to_string()
+}
+
 fn call_runtime_target(
     cx: &mut StoreContextMut<'_, HostState>,
     target: &str,
     args: &str,
 ) -> std::result::Result<Option<String>, String> {
-    let func = match resolve_runtime_call_func(&cx.data().runtime_funcs, target)
+    let (resolved_target, func) = match resolve_runtime_call_func(&cx.data().runtime_funcs, target)
         .map_err(|error| error.to_string())?
     {
-        Some(func) => func.clone(),
+        Some((key, func)) => (key.clone(), func.clone()),
         None => return Ok(None),
     };
 
@@ -1076,10 +1188,28 @@ fn call_runtime_target(
         ));
     }
 
+    let resource_type_name = invocation_resource_type_name(&resolved_target);
+    let mut resolve_resource = |resource_type_name: &str, id: &str| {
+        let resource_ref = cx
+            .data()
+            .json_resource_refs
+            .get(id)
+            .with_context(|| format!("unknown resource ref `{id}`"))?;
+        if resource_ref.resource_type_name != resource_type_name {
+            bail!(
+                "resource ref `{id}` has type `{}`, got `{resource_type_name}`",
+                resource_ref.resource_type_name
+            );
+        }
+        Ok(resource_ref.resource)
+    };
     let params = args_array
         .iter()
         .zip(params_ty.iter())
-        .map(|(value, ty)| json_to_val(value, ty).map_err(|error| error.to_string()))
+        .map(|(value, ty)| {
+            json_to_val_with_resources(value, ty, Some(&resource_type_name), &mut resolve_resource)
+                .map_err(|error| error.to_string())
+        })
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     let mut results = ty
@@ -1089,7 +1219,25 @@ fn call_runtime_target(
 
     func.call(&mut *cx, &params, &mut results)
         .map_err(|error| format!("calling {target}: {error}"))?;
-    let value = result_json(results).map_err(|error| error.to_string())?;
+    let mut register_resource = |resource: ResourceAny, resource_type_name: &str| {
+        let state = cx.data_mut();
+        let id = format!("res_{:016x}", state.next_json_resource);
+        state.next_json_resource += 1;
+        state.json_resource_refs.insert(
+            id.clone(),
+            JsonResourceRef {
+                resource_type_name: resource_type_name.to_string(),
+                resource,
+            },
+        );
+        Ok(serde_json::json!({
+            "$resource": resource_type_name,
+            "id": id,
+        }))
+    };
+    let value =
+        result_json_with_resources(results, Some(&resource_type_name), &mut register_resource)
+            .map_err(|error| error.to_string())?;
     serde_json::to_string(&value)
         .map(Some)
         .map_err(|error| format!("encoding {target} result: {error}"))
@@ -1383,9 +1531,9 @@ fn invocation_key_matches_request(
 fn resolve_runtime_call_func<'a>(
     funcs: &'a BTreeMap<String, ExportedFunc>,
     target: &str,
-) -> Result<Option<&'a ExportedFunc>> {
-    if let Some(func) = funcs.get(target) {
-        return Ok(Some(func));
+) -> Result<Option<(&'a String, &'a ExportedFunc)>> {
+    if let Some((key, func)) = funcs.get_key_value(target) {
+        return Ok(Some((key, func)));
     }
 
     let Some((interface, function)) = target.split_once("::") else {
@@ -1399,7 +1547,10 @@ fn resolve_runtime_call_func<'a>(
 
     match matches.len() {
         0 => Ok(None),
-        1 => Ok(Some(matches.swap_remove(0).1)),
+        1 => {
+            let (key, func) = matches.swap_remove(0);
+            Ok(Some((key, func)))
+        }
         _ => {
             let options = matches
                 .into_iter()
@@ -2425,6 +2576,182 @@ mod tests {
             let value = runtime.invoke(target, args).unwrap();
             assert_eq!(value, expected, "target {target}");
         }
+    }
+
+    #[test]
+    fn image_component_resources_round_trip_through_json_refs() {
+        let image = "../../../build.nosync/plugins/image.comp.wasm";
+        if !std::path::Path::new(image).exists() {
+            eprintln!(
+                "skipping image resource test; build it with `make build.nosync/plugins/image.comp.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/image.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let created = runtime
+            .invoke(
+                "image/image::create",
+                serde_json::json!([2, 3, { "r": 1, "g": 2, "b": 3, "a": 4 }]),
+            )
+            .unwrap();
+        let resource = created.get("ok").unwrap();
+        assert_eq!(resource["$resource"], serde_json::json!("gams:image/image"));
+        assert!(resource["id"].as_str().unwrap().starts_with("res_"));
+
+        let info = runtime
+            .invoke("image/image::info", serde_json::json!([resource]))
+            .unwrap();
+        assert_eq!(
+            info,
+            serde_json::json!({
+                "ok": {
+                    "width": 2,
+                    "height": 3,
+                    "pixel-format": "rgba8"
+                }
+            })
+        );
+
+        let pixel = runtime
+            .invoke(
+                "image/image::read-pixel",
+                serde_json::json!([resource, { "x": 1, "y": 2 }]),
+            )
+            .unwrap();
+        assert_eq!(
+            pixel,
+            serde_json::json!({ "ok": { "r": 1, "g": 2, "b": 3, "a": 4 } })
+        );
+
+        assert_eq!(
+            runtime.diagnostics().unwrap()["jsonResourceRefs"],
+            serde_json::json!(1)
+        );
+        runtime.release_resource(resource.clone()).unwrap();
+        assert_eq!(
+            runtime.diagnostics().unwrap()["jsonResourceRefs"],
+            serde_json::json!(0)
+        );
+        let after_release = runtime
+            .invoke("image/image::info", serde_json::json!([resource]))
+            .unwrap_err();
+        assert!(after_release.contains("unknown resource ref"));
+    }
+
+    #[test]
+    fn image_component_opens_exports_and_saves_files() {
+        let image_plugin = "../../../build.nosync/plugins/image.comp.wasm";
+        if !std::path::Path::new(image_plugin).exists() {
+            eprintln!(
+                "skipping image file test; build it with `make build.nosync/plugins/image.comp.wasm`"
+            );
+            return;
+        }
+
+        let repo = PathBuf::from("../../..").canonicalize().unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        std::fs::copy(
+            repo.join("examples/demo/ng/nine.png"),
+            temp.path().join("input.png"),
+        )
+        .unwrap();
+        std::fs::create_dir(temp.path().join("plugins")).unwrap();
+        std::fs::copy(
+            repo.join("build.nosync/plugins/image.comp.wasm"),
+            temp.path().join("plugins/image.comp.wasm"),
+        )
+        .unwrap();
+
+        let root = temp.path().canonicalize().unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/image.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let opened = runtime
+            .invoke("image/image::open", serde_json::json!(["input.png"]))
+            .unwrap();
+        let resource = opened.get("ok").unwrap();
+        assert_eq!(resource["$resource"], serde_json::json!("gams:image/image"));
+
+        let info = runtime
+            .invoke("image/image::info", serde_json::json!([resource]))
+            .unwrap();
+        assert_eq!(info["ok"]["pixel-format"], serde_json::json!("rgba8"));
+        let width = info["ok"]["width"].as_u64().unwrap();
+        let height = info["ok"]["height"].as_u64().unwrap();
+        assert!(width > 0);
+        assert!(height > 0);
+
+        let exported_qoi = runtime
+            .invoke("image/image::export", serde_json::json!([resource, "qoi"]))
+            .unwrap();
+        let qoi_bytes = exported_qoi["ok"].as_array().unwrap();
+        assert_eq!(qoi_bytes[0], serde_json::json!(113));
+        assert_eq!(qoi_bytes[1], serde_json::json!(111));
+        assert_eq!(qoi_bytes[2], serde_json::json!(105));
+        assert_eq!(qoi_bytes[3], serde_json::json!(102));
+
+        let exported_png = runtime
+            .invoke("image/image::export", serde_json::json!([resource, "png"]))
+            .unwrap();
+        let png_bytes = exported_png["ok"].as_array().unwrap();
+        assert_eq!(png_bytes[0], serde_json::json!(137));
+        assert_eq!(png_bytes[1], serde_json::json!(80));
+        assert_eq!(png_bytes[2], serde_json::json!(78));
+        assert_eq!(png_bytes[3], serde_json::json!(71));
+
+        let saved_qoi = runtime
+            .invoke(
+                "image/image::save",
+                serde_json::json!([resource, "out.qoi", "qoi"]),
+            )
+            .unwrap();
+        assert!(saved_qoi["ok"].as_u64().unwrap() > 0);
+        assert!(root.join("out.qoi").exists());
+
+        let saved_png = runtime
+            .invoke(
+                "image/image::save",
+                serde_json::json!([resource, "out.png", "png"]),
+            )
+            .unwrap();
+        assert!(saved_png["ok"].as_u64().unwrap() > 0);
+        assert!(root.join("out.png").exists());
+
+        let reopened_qoi = runtime
+            .invoke("image/image::open", serde_json::json!(["out.qoi"]))
+            .unwrap();
+        let reopened_qoi_resource = reopened_qoi.get("ok").unwrap();
+        let reopened_qoi_info = runtime
+            .invoke(
+                "image/image::info",
+                serde_json::json!([reopened_qoi_resource]),
+            )
+            .unwrap();
+        assert_eq!(reopened_qoi_info["ok"]["width"], serde_json::json!(width));
+        assert_eq!(reopened_qoi_info["ok"]["height"], serde_json::json!(height));
+
+        let reopened_png = runtime
+            .invoke("image/image::open", serde_json::json!(["out.png"]))
+            .unwrap();
+        let reopened_png_resource = reopened_png.get("ok").unwrap();
+        let reopened_png_info = runtime
+            .invoke(
+                "image/image::info",
+                serde_json::json!([reopened_png_resource]),
+            )
+            .unwrap();
+        assert_eq!(reopened_png_info["ok"]["width"], serde_json::json!(width));
+        assert_eq!(reopened_png_info["ok"]["height"], serde_json::json!(height));
     }
 
     #[test]

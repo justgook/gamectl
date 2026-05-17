@@ -89,6 +89,13 @@ export class Runtime {
     return await invokeCommand('runtime_diagnostics', {})
   }
 
+  async releaseResource(resource) {
+    if (!resource || typeof resource !== 'object') throw new Error('runtime.releaseResource resource must be an object')
+    assertString(resource.$resource, 'runtime.releaseResource resource.$resource')
+    assertString(resource.id, 'runtime.releaseResource resource.id')
+    await invokeCommand('runtime_release_resource', { resource })
+  }
+
   async clearCompiledComponentCache() {
     await invokeCommand('runtime_clear_compiled_component_cache', {})
   }
