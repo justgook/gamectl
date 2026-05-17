@@ -133,7 +133,7 @@ Current tab vocabulary follows the legacy/browser theme selectors and should be 
 
 ## Custom elements
 
-Reusable custom UI elements should live in `cmd/browser/widgets/`, one widget per file.
+Core Views should share reusable custom UI elements instead of hard-coding duplicate host/editor behavior inside each view. Reusable custom UI elements live in `packages/widgets/`, one widget per file, and view code must import/request them by absolute browser path such as `/widgets/code-editor.js`.
 
 - `code-editor` - text area for code editing with highlight.
 - `view-pagination` - generic pagination widget for paged views.
