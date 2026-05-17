@@ -13,15 +13,16 @@ Do not treat files in this archive as canonical without checking whether they ha
 ## Conversion status
 
 - Initial archived markdown files: 45
-- Removed from original legacy set after conversion/dismissal/splitting: 11
-- Remaining original legacy markdown files: 34
-- Temporary split reference fragments: 7 files
+- Removed from original legacy set after conversion/dismissal/splitting: 18
+- Remaining original legacy markdown files: 27
+- Temporary split reference fragments: 2 files
 - Documentation architecture/consolidation is represented by `docs/prd/0001-docs-consolidation.md` and `docs/adr/0001-docs-architecture.md`.
 - Runtime/plugin-manager conversion has started in `docs/prd/0002-runtime-plugin-manager.md`.
 - Project Config conversion has started in `docs/prd/0003-project-config.md`.
 - wRPC spike conversion is represented by `docs/prd/0004-wrpc-frontend-backend-spike.md`.
 - Frontend view/UI Service bridge conversion is represented by `docs/prd/0005-frontend-view-and-ui-service-bridge.md`.
 - CLI HTTP serve Host conversion is represented by `docs/prd/0006-cli-http-serve-host.md`.
+- Minimap Component conversion is represented by `docs/prd/0007-minimap-component.md`.
 - Core View development rules are represented by `docs/reference/gams-view-development-guide.md`.
 - Local conversion issues live under `.scratch/docs-consolidation/issues/`.
 
@@ -33,6 +34,13 @@ Do not treat files in this archive as canonical without checking whether they ha
 - `NOTES.md` — converted to `docs/ideas/legacy-notes-inbox.md`.
 - `CLI_SERVE.md` — converted to future/post-v1 `docs/prd/0006-cli-http-serve-host.md`.
 - `views/VIEW_RULES.md` — converted to canonical `docs/reference/gams-view-development-guide.md`.
+- `views/view-ng.md` — dismissed as outdated; future Project Unit PRD/ADR will be created separately if needed.
+- `docs/PLAN/view-ng-branching.md` — dismissed as outdated; future Project Unit PRD/ADR will be created separately if needed.
+- `views/view-tilemap.md` — dismissed as outdated; future Project Unit PRD/ADR will be created separately if needed.
+- `views/view-tilemap-api.md` — dismissed as outdated; future Project Unit PRD/ADR will be created separately if needed.
+- `views/view-tilemap-design.md` — dismissed as outdated; future Project Unit PRD/ADR will be created separately if needed.
+- `docs/PLAN/view-vox.md` — dismissed as outdated; future Project Unit PRD/ADR will be created separately if needed.
+- `docs/PLAN/widget-timeline.md` — dismissed as outdated; future Project Unit PRD/ADR will be created separately if needed.
 - `docs/PLAN/PLAN.md` — split into focused temporary fragments under `docs/legacy/split/docs/PLAN/PLAN/` and removed as an oversized source document.
 - `docs/PLAN/app-runtime-todo.md` — converted to the migration backlog in `docs/prd/0002-runtime-plugin-manager.md`.
 - `docs/PLAN/app-runtime-wrpc.md` — converted to `docs/prd/0004-wrpc-frontend-backend-spike.md`.
@@ -40,22 +48,22 @@ Do not treat files in this archive as canonical without checking whether they ha
 - `docs/PLAN/fs-runtime.md` — converted to `docs/adr/0005-use-wasi-and-gams-fs-instead-of-host-virtual-fs.md`.
 - `split/docs/PLAN/PLAN/runtime-and-project-config.md` — deleted after conversion into runtime/project-config PRDs and ADRs.
 - `split/docs/PLAN/PLAN/implementation-order-and-clarifications.md` — runtime parts converted; generation leftovers moved to `split/docs/PLAN/PLAN/generation-leftovers.md`.
+- `split/docs/PLAN/PLAN/reusable-browser-widgets.md` — deleted after preserving reusable-widget guidance in `docs/reference/gams-view-development-guide.md`.
+- `split/docs/PLAN/PLAN/browser-generation-views.md` — dismissed as deprecated and deleted without conversion.
+- `split/docs/PLAN/PLAN/tree-generation-source-of-truth.md` — converted into `docs/prd/0007-minimap-component.md` with broader pipeline treated as example only.
+- `split/docs/PLAN/PLAN/minimap-room-shape-generation.md` — converted into `docs/prd/0007-minimap-component.md`; `minimap2` renamed to current `minimap.comp`.
+- `split/docs/PLAN/PLAN/generation-leftovers.md` — minimap parts converted into `docs/prd/0007-minimap-component.md`; Markov/WFC items left to separate Project Unit sessions.
 
 ## Split reference fragments
 
 These are temporary fragments created from oversized legacy documents. They should be deleted as soon as their content is converted or dismissed.
 
 - `split/docs/PLAN/PLAN/README.md` — 16 lines — # Split fragments from legacy `docs/PLAN/PLAN.md`
-- `split/docs/PLAN/PLAN/browser-generation-views.md` — 23 lines — # Split from legacy docs/PLAN/PLAN.md: Browser Generation Views
-- `split/docs/PLAN/PLAN/generation-leftovers.md` — 16 lines — # Split from legacy docs/PLAN/PLAN.md: Generation Leftovers
-- `split/docs/PLAN/PLAN/minimap-room-shape-generation.md` — 21 lines — # Split from legacy docs/PLAN/PLAN.md: Minimap Room Shape Generation
-- `split/docs/PLAN/PLAN/reusable-browser-widgets.md` — 15 lines — # Split from legacy docs/PLAN/PLAN.md: Reusable Browser Widgets
 - `split/docs/PLAN/PLAN/room-content-generation.md` — 48 lines — # Split from legacy docs/PLAN/PLAN.md: Room Content Generation
-- `split/docs/PLAN/PLAN/tree-generation-source-of-truth.md` — 23 lines — # Split from legacy docs/PLAN/PLAN.md: Tree Generation Source Of Truth
 
 ## Inventory
 
-Total remaining original archived markdown files: 34
+Total remaining original archived markdown files: 27
 
 ### Area README/source notes
 
@@ -70,13 +78,6 @@ Total remaining original archived markdown files: 34
 - `docs/PLAN/image-comp.md` — 89 lines — # image.comp Plan
 - `docs/PLAN/layout3.md` — 103 lines — # layout3 plan
 - `docs/PLAN/markovjunior.md` — 212 lines — # MarkovJunior Plugin/View Plan
-- `docs/PLAN/view-ng-branching.md` — 205 lines — # view-ng Branch / Skip Flow Plan
-- `docs/PLAN/view-vox.md` — 133 lines — # Vox Preview / Renderer Plan
-- `docs/PLAN/widget-timeline.md` — 328 lines — # Timeline Widget Plan
-- `views/view-ng.md` — 95 lines — # view-ng Rules
-- `views/view-tilemap-api.md` — 521 lines — # view-tilemap State API
-- `views/view-tilemap-design.md` — 301 lines — # view-tilemap Design
-- `views/view-tilemap.md` — 219 lines — # view-tilemap Plan
 
 ### Plugin docs and specs
 

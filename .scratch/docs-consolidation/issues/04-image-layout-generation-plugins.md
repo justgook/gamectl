@@ -12,10 +12,9 @@ Status: ready-for-agent
 - `docs/legacy/plugins/markov/README.md`
 - `docs/legacy/docs/PLAN/markovjunior.md`
 - `docs/legacy/plugins/minimap/minimap/TREE_LAYOUT_IMPLEMENTATION.md`
-- `docs/legacy/split/docs/PLAN/PLAN/tree-generation-source-of-truth.md`
-- `docs/legacy/split/docs/PLAN/PLAN/minimap-room-shape-generation.md`
+- `docs/prd/0007-minimap-component.md` (converted from minimap-related split fragments)
 - `docs/legacy/split/docs/PLAN/PLAN/room-content-generation.md`
-- `docs/legacy/split/docs/PLAN/PLAN/generation-leftovers.md`
+- `docs/legacy/split/docs/PLAN/PLAN/browser-generation-views.md` — dismissed as deprecated and deleted without conversion.
 
 ## Expected output
 
@@ -25,3 +24,7 @@ Status: ready-for-agent
 - Conversion links/status in `docs/legacy/INDEX.md`.
 
 ## Comments
+
+- Converted minimap-related split fragments into `docs/prd/0007-minimap-component.md`.
+- Resolved current name: `minimap2` is now **Minimap Component** / `minimap.comp`.
+- Treated tree → minimap → room-content as an example composition, not canonical architecture.

@@ -24,6 +24,10 @@ _Avoid_: UI plugin, frontend plugin, view service.
 A View provided and supported by the official GAMS development team, expected to follow the GAMS View Development Guide so themes can style Core Views consistently.
 _Avoid_: builtin view when the important distinction is official support and UI vocabulary compliance.
 
+**Minimap Component**:
+The current minimap Project Unit, named `minimap.comp`, that converts tree-shaped room structure input into tilemap-shaped minimap output.
+_Avoid_: minimap2 when referring to the current Project Unit.
+
 **GAMS Distribution Package**:
 A separately distributed Project Unit or related asset/config schema that can be referenced by Project Config.
 _Avoid_: package when ambiguity with language package managers matters; top-level scripts/presets.
@@ -41,6 +45,7 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - Plugin Project Config entries use only `url` and `config` in v1; dependencies come from WASM component imports/exports.
 - A **Project** can be run by different Hosts when those Hosts support the Project Units it declares.
 - A **Core View** is a first-party **Project Unit** and should follow the GAMS View Development Guide.
+- A **Minimap Component** may participate in example generation compositions, but those compositions are not mandatory global Project architecture.
 
 ## Example dialogue
 

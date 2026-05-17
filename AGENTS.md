@@ -38,26 +38,21 @@ This repository is moving toward a unified `pluginManager` architecture.
 - `docs/prd/` — current requirements and migration slices.
 - `docs/adr/` — accepted architectural decisions.
 - `docs/ideas/` — pre-decision idea inbox, including Yoinking records for competitive inspiration.
-- `docs/legacy/docs/PLAN/PLAN.md` — legacy overall strategy, vocabulary, and priority migration targets to consult until converted into current PRDs/ADRs.
 - `docs/legacy/INDEX.md` — inventory and conversion queue for archived markdown moved from original repo paths.
 
 ## Current Priority Areas
-- `ng` runtime / `view-nodegraph2`
-- `layout`
-- `sql`
-- `cmd/browser` worker-side runtime/bootstrap
-- legacy `pluginManager.load(...)` view runtimes
+- Runtime / Plugin Manager migration (`docs/prd/0002-runtime-plugin-manager.md`)
+- Project Config v1 (`docs/prd/0003-project-config.md`)
+- Project Unit conversion planning, one focused PRD/ADR session per unit when needed
 
 ## Guidance For AI Agents
-- Read `docs/legacy/docs/PLAN/PLAN.md` before proposing architecture changes until the relevant PRDs/ADRs exist.
+- Before proposing architecture changes, read `CONTEXT-MAP.md`, the relevant context glossary, and current PRDs/ADRs for that area. Use `docs/legacy/INDEX.md` only to find unconverted source material.
 - When discussing a plugin, check whether it already has a legacy file under `docs/legacy/docs/PLAN/` or `docs/legacy/plugins/`.
 - Prefer converting legacy planning notes into clear PRDs/ADRs with migration targets instead of extending archived documents.
 - For documentation conversion, use the `grill-with-docs` style loop: read the legacy docs and nearby code, resolve glossary terms into the relevant context `CONTEXT.md` listed by `CONTEXT-MAP.md`, ask one sharp question at a time for ambiguity, write/update a focused PRD, and create ADRs only for hard-to-reverse trade-off decisions.
 - For external inspiration, use project-local skill `.pi/skills/yoinking/SKILL.md` to create Yoinking records under `docs/ideas/yoinking/`; do not treat them as implementation decisions until converted through `grill-with-docs`.
 - Treat `cmd/browser` as a fresh-start host: breaking changes are acceptable there and backwards-compatibility shims should not be introduced unless explicitly planned.
 - For browser planning/work, prefer worker-side setup/bootstrap for base plugins and document any main-thread bridge assumptions explicitly.
-- For browser internal plugin↔ui shared-memory designs, prefer direct ownership by the participating plugin/view pair over runtime-managed mirrored state when possible. In particular, if a WASM plugin already has a suitable in-memory state layout, prefer sharing that linear memory directly with the UI instead of adding runtime-owned copy layers, headers, or protocol versioning unless there is a concrete need.
-- Do not add API/protocol versioning or compatibility structure to internal first-party browser communication unless there is a real migration/interoperability requirement; browser is a fresh-start host owned as one codebase and can evolve in lockstep.
 - Browser/base/theme CSS relies on semantic meaning of HTML tags in the current browser UI. Preserve the original HTML structure/tags as much as possible instead of replacing them with arbitrary wrappers; tag choice is part of the styling contract here, even when it differs from conventional HTML semantics.
 - For Core View development, follow `docs/reference/gams-view-development-guide.md`. Core Views are official GAMS-supported views and must use the documented semantic UI vocabulary so themes can style them consistently.
 - Browser/internal app code should use a **strict fail-fast style**. Do not add graceful fallbacks, defensive optional behavior, best-effort recovery, or silent defaulting for required internal data/config/state. If required data is missing or malformed, treat it as a bug and fail loudly.
@@ -78,4 +73,4 @@ Triage uses the default five-role label vocabulary. See `docs/agents/triage-labe
 
 ### Domain docs
 
-Single-context layout: root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
+Multi-context layout: start at root `CONTEXT-MAP.md`, then read the relevant context `CONTEXT.md`, PRDs, and ADRs. See `docs/agents/domain.md`.
