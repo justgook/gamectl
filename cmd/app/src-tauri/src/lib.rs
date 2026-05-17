@@ -38,6 +38,14 @@ fn runtime_diagnostics(
 }
 
 #[tauri::command]
+fn runtime_release_resource(
+    resource: serde_json::Value,
+    runtime: tauri::State<'_, runtime::Runtime>,
+) -> Result<(), String> {
+    runtime.release_resource(resource)
+}
+
+#[tauri::command]
 fn runtime_call_view_ready(runtime: tauri::State<'_, runtime::Runtime>) -> Result<(), String> {
     runtime.mark_call_view_ready()
 }
@@ -297,6 +305,7 @@ pub fn run() {
             runtime_add_plugins,
             runtime_invoke,
             runtime_diagnostics,
+            runtime_release_resource,
             runtime_call_view_ready,
             runtime_call_view_response,
             runtime_clear_compiled_component_cache,

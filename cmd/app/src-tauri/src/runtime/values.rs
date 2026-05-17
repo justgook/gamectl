@@ -1,9 +1,24 @@
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use wasmtime::component::types::Type;
-use wasmtime::component::Val;
+use wasmtime::component::{ResourceAny, Val};
 
+#[allow(dead_code)]
 pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
+    json_to_val_with_resources(value, ty, None, &mut |_, _| {
+        bail!("JSON -> WIT resource conversion requires runtime resource context")
+    })
+}
+
+pub fn json_to_val_with_resources<F>(
+    value: &Value,
+    ty: &Type,
+    resource_type_name: Option<&str>,
+    resolve_resource: &mut F,
+) -> Result<Val>
+where
+    F: FnMut(&str, &str) -> Result<ResourceAny>,
+{
     Ok(match ty {
         Type::Bool => Val::Bool(value.as_bool().context("expected bool")?),
 
@@ -61,7 +76,9 @@ pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
             Val::List(
                 values
                     .iter()
-                    .map(|value| json_to_val(value, &ty))
+                    .map(|value| {
+                        json_to_val_with_resources(value, &ty, resource_type_name, resolve_resource)
+                    })
                     .collect::<Result<Vec<_>>>()?,
             )
         }
@@ -73,7 +90,15 @@ pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
                 let value = object
                     .get(field.name)
                     .with_context(|| format!("missing record field `{}`", field.name))?;
-                fields.push((field.name.to_string(), json_to_val(value, &field.ty)?));
+                fields.push((
+                    field.name.to_string(),
+                    json_to_val_with_resources(
+                        value,
+                        &field.ty,
+                        resource_type_name,
+                        resolve_resource,
+                    )?,
+                ));
             }
             Val::Record(fields)
         }
@@ -92,7 +117,9 @@ pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
                 values
                     .iter()
                     .zip(types.iter())
-                    .map(|(value, ty)| json_to_val(value, ty))
+                    .map(|(value, ty)| {
+                        json_to_val_with_resources(value, ty, resource_type_name, resolve_resource)
+                    })
                     .collect::<Result<Vec<_>>>()?,
             )
         }
@@ -116,7 +143,12 @@ pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
                     let value = object
                         .get("value")
                         .with_context(|| format!("variant case `{case}` requires `value`"))?;
-                    Some(Box::new(json_to_val(value, &ty)?))
+                    Some(Box::new(json_to_val_with_resources(
+                        value,
+                        &ty,
+                        resource_type_name,
+                        resolve_resource,
+                    )?))
                 }
                 None => None,
             };
@@ -127,7 +159,12 @@ pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
             if value.is_null() {
                 Val::Option(None)
             } else {
-                Val::Option(Some(Box::new(json_to_val(value, &option.ty())?)))
+                Val::Option(Some(Box::new(json_to_val_with_resources(
+                    value,
+                    &option.ty(),
+                    resource_type_name,
+                    resolve_resource,
+                )?)))
             }
         }
 
@@ -138,14 +175,24 @@ pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
             match (has_ok, has_err) {
                 (true, false) => {
                     let payload = match result.ok() {
-                        Some(ty) => Some(Box::new(json_to_val(&object["ok"], &ty)?)),
+                        Some(ty) => Some(Box::new(json_to_val_with_resources(
+                            &object["ok"],
+                            &ty,
+                            resource_type_name,
+                            resolve_resource,
+                        )?)),
                         None => None,
                     };
                     Val::Result(Ok(payload))
                 }
                 (false, true) => {
                     let payload = match result.err() {
-                        Some(ty) => Some(Box::new(json_to_val(&object["err"], &ty)?)),
+                        Some(ty) => Some(Box::new(json_to_val_with_resources(
+                            &object["err"],
+                            &ty,
+                            resource_type_name,
+                            resolve_resource,
+                        )?)),
                         None => None,
                     };
                     Val::Result(Err(payload))
@@ -155,23 +202,73 @@ pub fn json_to_val(value: &Value, ty: &Type) -> Result<Val> {
             }
         }
 
+        Type::Own(_) | Type::Borrow(_) => {
+            let object = value.as_object().context("expected resource object")?;
+            let resource_type = object
+                .get("$resource")
+                .and_then(|value| value.as_str())
+                .context("resource object must contain string `$resource`")?;
+            if let Some(expected) = resource_type_name {
+                if resource_type != expected {
+                    bail!("expected resource type `{expected}`, got `{resource_type}`");
+                }
+            }
+            let id = object
+                .get("id")
+                .and_then(|value| value.as_str())
+                .context("resource object must contain string `id`")?;
+            Val::Resource(resolve_resource(resource_type, id)?)
+        }
+
         unsupported => bail!("JSON -> WIT conversion is not implemented for type {unsupported:?}"),
     })
 }
 
+#[allow(dead_code)]
 pub fn result_json(results: Vec<Val>) -> Result<Value> {
+    result_json_with_resources(results, None, &mut |_, _| {
+        bail!("WIT resource -> JSON conversion requires runtime resource context")
+    })
+}
+
+pub fn result_json_with_resources<F>(
+    results: Vec<Val>,
+    resource_type_name: Option<&str>,
+    register_resource: &mut F,
+) -> Result<Value>
+where
+    F: FnMut(ResourceAny, &str) -> Result<Value>,
+{
     match results.len() {
         0 => Ok(Value::Null),
-        1 => val_to_json(results.into_iter().next().unwrap()),
+        1 => val_to_json_with_resources(
+            results.into_iter().next().unwrap(),
+            resource_type_name,
+            register_resource,
+        ),
         _ => results
             .into_iter()
-            .map(val_to_json)
+            .map(|value| val_to_json_with_resources(value, resource_type_name, register_resource))
             .collect::<Result<Vec<_>>>()
             .map(Value::Array),
     }
 }
 
+#[allow(dead_code)]
 pub fn val_to_json(value: Val) -> Result<Value> {
+    val_to_json_with_resources(value, None, &mut |_, _| {
+        bail!("WIT resource -> JSON conversion requires runtime resource context")
+    })
+}
+
+pub fn val_to_json_with_resources<F>(
+    value: Val,
+    resource_type_name: Option<&str>,
+    register_resource: &mut F,
+) -> Result<Value>
+where
+    F: FnMut(ResourceAny, &str) -> Result<Value>,
+{
     Ok(match value {
         Val::Bool(v) => Value::Bool(v),
         Val::S8(v) => json!(v),
@@ -188,34 +285,59 @@ pub fn val_to_json(value: Val) -> Result<Value> {
         Val::String(v) => Value::String(v),
         Val::Enum(v) => Value::String(v),
         Val::Flags(v) => Value::Array(v.into_iter().map(Value::String).collect()),
-        Val::List(v) => Value::Array(v.into_iter().map(val_to_json).collect::<Result<Vec<_>>>()?),
+        Val::List(v) => Value::Array(
+            v.into_iter()
+                .map(|value| {
+                    val_to_json_with_resources(value, resource_type_name, register_resource)
+                })
+                .collect::<Result<Vec<_>>>()?,
+        ),
         Val::Record(fields) => {
             let mut object = serde_json::Map::new();
             for (name, value) in fields {
-                object.insert(name, val_to_json(value)?);
+                object.insert(
+                    name,
+                    val_to_json_with_resources(value, resource_type_name, register_resource)?,
+                );
             }
             Value::Object(object)
         }
         Val::Tuple(values) => Value::Array(
             values
                 .into_iter()
-                .map(val_to_json)
+                .map(|value| {
+                    val_to_json_with_resources(value, resource_type_name, register_resource)
+                })
                 .collect::<Result<Vec<_>>>()?,
         ),
         Val::Variant(name, payload) => json!({
             "case": name,
-            "value": match payload { Some(value) => val_to_json(*value)?, None => Value::Null },
+            "value": match payload {
+                Some(value) => val_to_json_with_resources(*value, resource_type_name, register_resource)?,
+                None => Value::Null,
+            },
         }),
         Val::Option(value) => match value {
-            Some(value) => val_to_json(*value)?,
+            Some(value) => {
+                val_to_json_with_resources(*value, resource_type_name, register_resource)?
+            }
             None => Value::Null,
         },
         Val::Result(value) => match value {
-            Ok(Some(value)) => json!({ "ok": val_to_json(*value)? }),
+            Ok(Some(value)) => json!({
+                "ok": val_to_json_with_resources(*value, resource_type_name, register_resource)?
+            }),
             Ok(None) => json!({ "ok": null }),
-            Err(Some(value)) => json!({ "err": val_to_json(*value)? }),
+            Err(Some(value)) => json!({
+                "err": val_to_json_with_resources(*value, resource_type_name, register_resource)?
+            }),
             Err(None) => json!({ "err": null }),
         },
+        Val::Resource(resource) => {
+            let resource_type_name = resource_type_name
+                .context("cannot serialize WIT resource without expected resource type name")?;
+            register_resource(resource, resource_type_name)?
+        }
         unsupported => bail!("WIT -> JSON conversion is not implemented for value {unsupported:?}"),
     })
 }
