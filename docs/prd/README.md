@@ -18,11 +18,11 @@ Use sequential numbering with a short slug:
 
 ## Status
 
-Draft | Accepted | Superseded
+Draft | Accepted | Complete | Superseded
 
 ## Source material
 
-- `docs/legacy/...`
+- links to relevant current docs, code, issues, ideas, or historical migration notes
 
 ## Problem
 
@@ -53,6 +53,6 @@ What user/project problem are we solving?
 - `docs/adr/NNNN-slug.md`
 ```
 
-## Conversion rule
+## Clarification rule
 
-When converting legacy markdown, ask one question at a time when meaning is ambiguous. If code can answer the question, inspect code instead of asking.
+When creating or updating a PRD, ask one question at a time when meaning is ambiguous. If code can answer the question, inspect code instead of asking.

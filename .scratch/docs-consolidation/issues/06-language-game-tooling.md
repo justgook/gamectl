@@ -1,6 +1,6 @@
 # Convert language, game, SDK, and tooling legacy docs
 
-Status: ready-for-agent
+Status: complete
 
 ## Source material
 
@@ -18,6 +18,6 @@ Status: ready-for-agent
 - PRDs for language/runtime utilities, game/demo, SDK, and import tooling where still relevant.
 - ADRs only for durable SDK/tooling/runtime-boundary decisions.
 - `CONTEXT.md` updates for resolved vocabulary.
-- Conversion links/status in `docs/legacy/INDEX.md`.
+- Legacy source files were converted, dismissed, or deleted; `docs/legacy/` has been removed.
 
 ## Comments

@@ -38,7 +38,6 @@ This repository is moving toward a unified `pluginManager` architecture.
 - `docs/prd/` — current requirements and migration slices.
 - `docs/adr/` — accepted architectural decisions.
 - `docs/ideas/` — pre-decision idea inbox, including Yoinking records for competitive inspiration.
-- `docs/legacy/INDEX.md` — inventory and conversion queue for archived markdown moved from original repo paths.
 
 ## Current Priority Areas
 - Runtime / Plugin Manager migration (`docs/prd/0002-runtime-plugin-manager.md`)
@@ -46,8 +45,7 @@ This repository is moving toward a unified `pluginManager` architecture.
 - Project Unit conversion planning, one focused PRD/ADR session per unit when needed
 
 ## Guidance For AI Agents
-- Before proposing architecture changes, read `CONTEXT-MAP.md`, the relevant context glossary, and current PRDs/ADRs for that area. Use `docs/legacy/INDEX.md` only to find unconverted source material.
-- When discussing a plugin, check whether it already has a legacy file under `docs/legacy/docs/PLAN/` or `docs/legacy/plugins/`.
+- Before proposing architecture changes, read `CONTEXT-MAP.md`, the relevant context glossary, and current PRDs/ADRs for that area.
 - Prefer converting legacy planning notes into clear PRDs/ADRs with migration targets instead of extending archived documents.
 - For documentation conversion, use the `grill-with-docs` style loop: read the legacy docs and nearby code, resolve glossary terms into the relevant context `CONTEXT.md` listed by `CONTEXT-MAP.md`, ask one sharp question at a time for ambiguity, write/update a focused PRD, and create ADRs only for hard-to-reverse trade-off decisions.
 - For external inspiration, use project-local skill `.pi/skills/yoinking/SKILL.md` to create Yoinking records under `docs/ideas/yoinking/`; do not treat them as implementation decisions until converted through `grill-with-docs`.
@@ -55,6 +53,7 @@ This repository is moving toward a unified `pluginManager` architecture.
 - For browser planning/work, prefer worker-side setup/bootstrap for base plugins and document any main-thread bridge assumptions explicitly.
 - Browser/base/theme CSS relies on semantic meaning of HTML tags in the current browser UI. Preserve the original HTML structure/tags as much as possible instead of replacing them with arbitrary wrappers; tag choice is part of the styling contract here, even when it differs from conventional HTML semantics.
 - For Core View development, follow `docs/reference/gams-view-development-guide.md`. Core Views are official GAMS-supported views and must use the documented semantic UI vocabulary so themes can style them consistently.
+- Treat `docs/reference/` as protected reference/styleguide material. Do not edit, append, rename, or loosen a styleguide (including `docs/reference/gams-view-development-guide.md`) unless the user explicitly approves that styleguide change in the current task. If a new view needs an undocumented UI pattern, ask for a styleguide extension first, then implement code after approval.
 - Browser/internal app code should use a **strict fail-fast style**. Do not add graceful fallbacks, defensive optional behavior, best-effort recovery, or silent defaulting for required internal data/config/state. If required data is missing or malformed, treat it as a bug and fail loudly.
 - In particular for first-party browser JS/plugins/views: do not write code like "if config is missing, continue with {}", broad `try/catch` that hides invariant violations, optional chaining for elements/state that must exist, or fallback parsing paths that silently accept invalid internal data. Required values should be assumed present and should throw immediately when violated.
 - Reserve structured error returns / recoverable handling for true runtime outcomes that are expected as part of agent/tool/model behavior, not for internal wiring/config bugs.

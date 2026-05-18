@@ -1,12 +1,12 @@
 # Documentation System
 
-Documentation System covers legacy markdown conversion, PRDs, ADRs, Yoinking records, and documentation workflow.
+Documentation System covers completed legacy markdown migration, PRDs, ADRs, Yoinking records, and documentation workflow.
 
 ## Language
 
-**Legacy Markdown**:
-Pre-consolidation documentation archived under `docs/legacy/` for conversion into current PRDs, ADRs, and domain docs.
-_Avoid_: canonical docs once converted material exists elsewhere.
+**Legacy Markdown Migration**:
+The completed cleanup effort that converted, dismissed, or deleted pre-consolidation markdown and removed `docs/legacy/`.
+_Avoid_: active legacy archive.
 
 **Yoinking**:
 Competitive inspiration captured for possible GAMS adaptation before any implementation decision is made.
@@ -18,7 +18,7 @@ _Avoid_: PRD, ADR, specification.
 
 ## Relationships
 
-- **Legacy Markdown** is source material for PRDs, ADRs, and this glossary.
+- **Legacy Markdown Migration** is complete; future documentation work should update current docs directly.
 - A **Yoinking Record** may become source material for a PRD, ADR, or glossary update, or may be dismissed with a reason.
 
 ## Example dialogue

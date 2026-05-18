@@ -1,6 +1,6 @@
 # Convert runtime and plugin-manager legacy docs
 
-Status: needs-info
+Status: complete
 
 ## Source material
 
@@ -16,7 +16,7 @@ Status: needs-info
 - One or more PRDs under `docs/prd/` covering runtime/plugin-manager migration slices.
 - ADRs only for settled hard-to-reverse runtime decisions.
 - `CONTEXT.md` updates for resolved runtime vocabulary.
-- Conversion links/status in `docs/legacy/INDEX.md`.
+- Legacy source files were converted, dismissed, or deleted; `docs/legacy/` has been removed.
 
 ## Current output
 
