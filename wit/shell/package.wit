@@ -1,0 +1,50 @@
+package gams:shell@1.0.0;
+
+/// Host shell capability.
+///
+/// This interface lets trusted plugins and frontend runtime calls ask the Host
+/// to run a command from the GAMS runtime root using the Host process
+/// environment.
+/// It is intentionally small for v1: no custom environment, no custom working
+/// directory, no stdin, no streaming, and no interactive PTY.
+interface shell {
+  /// Completed command output.
+  ///
+  /// A non-zero exit code is a successful shell invocation and is represented as
+  /// `ok(output)` with the command's exit code. Transport/runtime failures use
+  /// `err(error)`.
+  record output {
+    exit-code: s32,
+    stdout: string,
+    stderr: string,
+  }
+
+  /// Failures that prevent the host from returning normal command output.
+  variant error {
+    /// The host could not start the shell command.
+    failed-to-start(string),
+
+    /// The timeout elapsed and the host terminated the command.
+    timeout,
+
+    /// The host failed while running or collecting command output.
+    host-error(string),
+  }
+
+  /// Run `command` through the Host's default shell.
+  ///
+  /// Semantics:
+  /// - Uses the GAMS runtime root as the working directory.
+  /// - Inherits the Host process environment.
+  /// - Captures stdout and stderr as strings.
+  /// - If callers expect large output, they should redirect/pipeline it to files
+  ///   in the shell command instead of relying on captured strings.
+  /// - `timeout-ms` is required so every caller chooses an execution bound.
+  /// - Non-zero command exits return `ok(output)`; only host/runtime execution
+  ///   failures return `err(error)`.
+  run: func(command: string, timeout-ms: u64) -> result<output, error>;
+}
+
+world imports {
+  import shell;
+}
