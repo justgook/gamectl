@@ -714,18 +714,14 @@
     height: 14px;
   }
 
-  table[data-element="issue-board"] {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: separate;
+  table[data-layout="separate"] {
     border-spacing: var(--grouped-element-spacing);
     background: var(--surface);
   }
 
-  table[data-element="issue-board"]>tbody>tr>td {
+  table[data-layout="separate"]>tbody>tr>td {
     height: auto;
     padding: var(--grouped-element-spacing);
-    vertical-align: top;
     background: var(--button-face);
     box-shadow: var(--border-sunken-outer), var(--border-sunken-inner);
   }
