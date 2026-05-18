@@ -730,6 +730,14 @@
     box-shadow: var(--border-sunken-outer), var(--border-sunken-inner);
   }
 
+  table[data-element="issue-board"]>tbody>tr>td[data-dnd="drop-target"] {
+    cursor: copy;
+  }
+
+  table[data-element="issue-board"]>tbody>tr>td[data-dnd="drop-target"][aria-selected="true"] {
+    background: color-mix(in oklab, var(--dialog-blue-light), var(--button-face) 78%);
+  }
+
   blockquote[data-element="issue-card"] {
     display: block;
     position: relative;
@@ -743,6 +751,22 @@
     font-family: "Pixelated MS Sans Serif", Arial;
     font-size: 11px;
     white-space: normal;
+  }
+
+  blockquote[data-element="issue-card"][data-draggable="true"] {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  blockquote[data-element="issue-card"][aria-grabbed="true"] {
+    cursor: grabbing;
+    opacity: 0.45;
+  }
+
+  blockquote[data-element="issue-card"][data-drag-ghost="true"] {
+    cursor: grabbing;
+    box-shadow: var(--border-window-outer), var(--border-window-inner), 4px 4px 0 color-mix(in oklab, black, transparent 70%);
   }
 
   blockquote[data-element="issue-card"]:last-child {

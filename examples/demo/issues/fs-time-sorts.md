@@ -1,7 +1,7 @@
 ---
 title: Sort issues from filesystem times
 description: Use mtime, ctime, and atime from gams:fs stat results.
-status: open
+status: in-progress
 tags: [plugin, view]
 ---
 
