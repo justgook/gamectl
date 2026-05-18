@@ -28,6 +28,10 @@ _Avoid_: builtin view when the important distinction is official support and UI 
 The current minimap Project Unit, named `minimap.comp`, that converts tree-shaped room structure input into tilemap-shaped minimap output.
 _Avoid_: minimap2 when referring to the current Project Unit.
 
+**Project Unit Styleguide**:
+A protected reference guide that defines supported development patterns for an official GAMS Project Unit family.
+_Avoid_: suggestion or example when the guide is normative for first-party code.
+
 **GAMS Distribution Package**:
 A separately distributed Project Unit or related asset/config schema that can be referenced by Project Config.
 _Avoid_: package when ambiguity with language package managers matters; top-level scripts/presets.
@@ -46,6 +50,7 @@ _Avoid_: package when ambiguity with language package managers matters; top-leve
 - A **Project** can be run by different Hosts when those Hosts support the Project Units it declares.
 - A **Core View** is a first-party **Project Unit** and should follow the GAMS View Development Guide.
 - A **Minimap Component** may participate in example generation compositions, but those compositions are not mandatory global Project architecture.
+- A **Project Unit Styleguide** is normative for official GAMS Project Units it covers and should only change with explicit approval.
 
 ## Example dialogue
 

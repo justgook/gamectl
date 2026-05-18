@@ -1,5 +1,7 @@
 # GAMS View Development Guide
 
+This is a protected GAMS styleguide. Do not edit, append, rename, or loosen this guide unless the user explicitly approves that styleguide change in the current task. If a Core View needs an undocumented UI pattern, propose the exact guide addition first and implement code only after approval.
+
 This guide defines the supported UI vocabulary for **Core Views**: views provided and supported by the official GAMS development team.
 
 Core Views use themeable semantic elements, classes, and attributes so they can be styled consistently by GAMS themes and behave as one coherent UI surface.
@@ -98,6 +100,7 @@ Optional elements should appear at most once per view.
 ## Tables
 
 - `table` - base element for tabular data in UI.
+- `table[data-layout="separate"]` - separated-cell table layout for board-like or card-grid views where cells contain block content rather than compact row values.
 - `caption` - optional table title/label when the table needs an intrinsic semantic heading.
 - `thead` - required table header section.
 - `tbody` - required table body section.
@@ -105,6 +108,18 @@ Optional elements should appear at most once per view.
 - `tr` - table row.
 - `th` - table header cell.
 - `td` - table data cell.
+
+## Cards / app windows
+
+GAMS themes may treat `blockquote` as an app-level card/window primitive rather than general prose quotation.
+
+- `blockquote` - card/window block for compact record previews and dashboard items.
+- `blockquote > header:first-child` - card/window title bar.
+- `blockquote > p` - card/window body text.
+- `blockquote > footer` - card/window metadata or secondary status area.
+- `blockquote[data-draggable="true"]` - draggable card/window.
+- `blockquote[aria-grabbed="true"]` - card/window currently being dragged.
+- `blockquote[data-drag-ghost="true"]` - pointer-drag preview clone.
 
 ## Data attributes
 

@@ -1,6 +1,6 @@
 # Convert browser view legacy docs
 
-Status: ready-for-human
+Status: complete
 
 ## Source material
 
@@ -20,7 +20,7 @@ Status: ready-for-human
 - Current Core View development guide extracted from shared rules.
 - Outdated view-specific plans deleted without conversion; future Project Unit PRDs/ADRs will be created in separate focused sessions.
 - `CONTEXT.md` updates for resolved view vocabulary.
-- Conversion links/status in `docs/legacy/INDEX.md`.
+- Legacy source files were converted, dismissed, or deleted; `docs/legacy/` has been removed.
 
 ## Comments
 

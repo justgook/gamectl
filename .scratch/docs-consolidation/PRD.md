@@ -1,14 +1,9 @@
 # PRD: Documentation consolidation issue tracker
 
-Status: ready-for-agent
+Status: complete
 
 Canonical PRD: `docs/prd/0001-docs-consolidation.md`
 
-This local tracker breaks the legacy markdown conversion into bounded, agent-grabbable slices. Each issue should use the `grill-with-docs` style loop described in `docs/README.md`:
+This local tracker broke the legacy markdown conversion into bounded, agent-grabbable slices. Legacy migration is now complete: all files under `docs/legacy/` were converted, dismissed, or deleted, and `docs/legacy/` was removed.
 
-1. read relevant legacy docs and nearby code;
-2. update `CONTEXT.md` for resolved domain terms;
-3. ask one question at a time for remaining ambiguity, with a recommended answer;
-4. write/update a focused PRD under `docs/prd/`;
-5. create ADRs only when the ADR threshold is met;
-6. update `docs/legacy/INDEX.md` with conversion links.
+Completion notes are in `session-2026-05-17.md`.
