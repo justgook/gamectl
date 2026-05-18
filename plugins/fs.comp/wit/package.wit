@@ -1,4 +1,4 @@
-package gams:fs@1.1.0;
+package gams:fs@1.2.0;
 
 interface fs {
     record dir-entry {
@@ -9,6 +9,9 @@ interface fs {
     record file-stat {
         %type: string,
         size: u64,
+        atime: u64,
+        mtime: u64,
+        ctime: u64,
     }
 
     read-file: func(path: string) -> result<list<u8>, string>;

@@ -1,4 +1,4 @@
 PLUGIN_WASM_COMPONENT := 1
-PLUGIN_WIT_WORLD := gams:fs/fs-proxy@1.1.0
+PLUGIN_WIT_WORLD := gams:fs/fs-proxy@1.2.0
 PLUGIN_COMPONENT_NAME := fs_proxy
 PLUGIN_COMPONENT_SOURCES := $(PLUGIN_PATH)/component.c

@@ -99,6 +99,37 @@
       }
     ],
     "views": {
+      "view-issues": {
+        "url": "views/view-issues.js",
+        "label": "Issues",
+        "group": "Project",
+        "internal": false,
+        "config": {
+          "defaultSource": "issues",
+          "filter": {
+            "status": [
+              "open",
+              "in-progress",
+              "done"
+            ],
+            "tags": [
+              "idea",
+              "plugin",
+              "view"
+            ]
+          },
+          "sort": {
+            "status": [
+              "open",
+              "in-progress",
+              "done"
+            ],
+            "mtime": "dsc",
+            "ctime": "asc",
+            "atime": "dsc"
+          }
+        }
+      },
       "view-animation": {
         "url": "views/view-animation.js",
         "label": "Animation",
