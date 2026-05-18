@@ -1299,10 +1299,7 @@
       "id": "automap",
       "runtime": "wasm",
       "role": "service",
-      "deps": [
-        "fs"
-      ],
-      "url": "builtin/plugins/automap.wasm"
+      "url": "builtin/plugins/automap.comp.wasm"
     },
     {
       "id": "image",
