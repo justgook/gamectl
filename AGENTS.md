@@ -59,7 +59,7 @@ This repository is moving toward a unified `pluginManager` architecture.
 - In particular for first-party browser JS/plugins/views: do not write code like "if config is missing, continue with {}", broad `try/catch` that hides invariant violations, optional chaining for elements/state that must exist, or fallback parsing paths that silently accept invalid internal data. Required values should be assumed present and should throw immediately when violated.
 - Reserve structured error returns / recoverable handling for true runtime outcomes that are expected as part of agent/tool/model behavior, not for internal wiring/config bugs.
 - If a plugin’s target shape is unclear, mark it as **requires clarification** instead of over-specifying.
-- Use the root `shell.nix` for repository tooling. Prefer commands like `nix-shell --run 'make app-check'`, `nix-shell --run 'make app-run'`, `nix-shell --run 'make app-build-release'`, and `nix-shell --run 'make app-bundle-release'`. Tauri/Cargo output is placed under top-level `$(TAURI_APP_TARGET_DIR)` / `build.nosync/app/target` by default.
+- Use the root Nix flake / direnv environment for repository tooling. Run `direnv allow` once, then prefer commands like `make app-check`, `make app-run`, `make app-build-release`, and `make app-bundle-release` from the loaded environment. Without direnv, use `nix develop --command make app-check` (or the corresponding make target). Tauri/Cargo output is placed under top-level `$(TAURI_APP_TARGET_DIR)` / `build.nosync/app/target` by default.
 
 ## Agent skills
 

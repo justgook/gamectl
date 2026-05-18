@@ -35,7 +35,6 @@ BUILD_DIR ?= build.nosync
 BROWSER_DIR ?= cmd/browser
 TAURI_APP_DIR ?= cmd/app
 TAURI_APP_DIR_SRC ?= $(TAURI_APP_DIR)/src-tauri
-NIX_SHELL ?= shell.nix
 TAURI_APP_TARGET_DIR ?= $(abspath $(BUILD_DIR)/app/target)
 TAURI_APP_BUNDLES ?= app,dmg
 APP_WASMTIME_CACHE_DIR ?= $(abspath $(BUILD_DIR)/wasmtime-cache)
