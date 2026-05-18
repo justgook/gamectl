@@ -4,12 +4,18 @@ use anyhow::{bail, Context as AnyhowContext, Result};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::{mpsc, Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
 use tauri::Emitter;
 use values::{json_to_val_with_resources, result_json_with_resources, val_default_for_type};
 use wasmtime::component::types::{ComponentInstance, ComponentItem};
-use wasmtime::component::{Component, Func, Instance, Linker, ResourceAny, ResourceTable, Val};
+use wasmtime::component::{
+    Component, Func, Instance, Linker, LinkerInstance, ResourceAny, ResourceTable, Val,
+};
 use wasmtime::{Config, Engine, Store, StoreContextMut};
 use wasmtime_wasi::{DirPerms, FilePerms, WasiCtx, WasiCtxView, WasiView};
 use wasmtime_wasi_http::p2::{WasiHttpCtxView, WasiHttpView};
@@ -67,6 +73,7 @@ pub struct HostState {
     json_resource_refs: BTreeMap<String, JsonResourceRef>,
     next_json_resource: u64,
     view_bridge: ViewBridge,
+    root: PathBuf,
     runtime_funcs: BTreeMap<String, ExportedFunc>,
 }
 
@@ -98,6 +105,7 @@ struct JsonResourceRef {
 #[derive(Clone)]
 enum ExportedFunc {
     Wasm(Func),
+    NativeShellRun,
 }
 
 #[derive(Clone)]
@@ -135,6 +143,7 @@ struct InterfaceProvider {
 #[derive(Clone)]
 enum ProviderSource {
     NativeRuntime,
+    NativeShell,
     LoadedComponent { path: String },
     NewComponent { index: usize, path: String },
 }
@@ -456,6 +465,7 @@ impl RuntimeInner {
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
         wasmtime_wasi_http::p2::add_only_http_to_linker_sync(&mut linker)?;
         add_gams_runtime_import(&mut linker, "gams:runtime/runtime@1.0.0")?;
+        add_gams_shell_import(&mut linker, "gams:shell/shell@1.0.0")?;
         let mut wasi_builder = WasiCtx::builder();
         wasi_builder.inherit_stdio().inherit_args();
         let preopens = canonicalize_preopens(preopens)?;
@@ -483,7 +493,11 @@ impl RuntimeInner {
             json_resource_refs: BTreeMap::new(),
             next_json_resource: 1,
             view_bridge,
-            runtime_funcs: BTreeMap::new(),
+            root: cwd.clone(),
+            runtime_funcs: BTreeMap::from([(
+                "gams:shell/shell@1.0.0::run".to_string(),
+                ExportedFunc::NativeShellRun,
+            )]),
         };
         let store = Store::new(&engine, state);
 
@@ -495,8 +509,14 @@ impl RuntimeInner {
             root: cwd.clone(),
             preopens,
             components: BTreeMap::new(),
-            funcs: BTreeMap::new(),
-            linked_interfaces: BTreeSet::from(["gams:runtime/runtime@1.0.0".to_string()]),
+            funcs: BTreeMap::from([(
+                "gams:shell/shell@1.0.0::run".to_string(),
+                ExportedFunc::NativeShellRun,
+            )]),
+            linked_interfaces: BTreeSet::from([
+                "gams:runtime/runtime@1.0.0".to_string(),
+                "gams:shell/shell@1.0.0".to_string(),
+            ]),
             compiled_component_cache_dir: default_compiled_component_cache_dir(&cwd),
         })
     }
@@ -721,6 +741,11 @@ impl RuntimeInner {
             "gams:runtime/runtime@1.0.0",
             ProviderSource::NativeRuntime,
         )?;
+        insert_provider(
+            &mut providers,
+            "gams:shell/shell@1.0.0",
+            ProviderSource::NativeShell,
+        )?;
 
         for component in self.components.values() {
             for export in &component.exports {
@@ -764,6 +789,7 @@ impl RuntimeInner {
             };
             match provider.source {
                 ProviderSource::NativeRuntime => self.ensure_gams_runtime_import(import)?,
+                ProviderSource::NativeShell => self.ensure_gams_shell_import(import)?,
                 ProviderSource::LoadedComponent { .. } | ProviderSource::NewComponent { .. } => {
                     self.ensure_interface_alias(import, &provider.interface)?;
                 }
@@ -807,6 +833,7 @@ impl RuntimeInner {
         };
         match func {
             ExportedFunc::Wasm(func) => self.invoke_wasm(&resolved_target, func, args),
+            ExportedFunc::NativeShellRun => invoke_native_shell_run(&self.root, args),
         }
     }
 
@@ -956,22 +983,18 @@ impl RuntimeInner {
         if self.linked_interfaces.contains(interface_name) {
             return Ok(());
         }
-        let parsed = parse_interface_id(interface_name)
-            .with_context(|| format!("invalid runtime import interface `{interface_name}`"))?
-            .with_context(|| format!("runtime import `{interface_name}` is not an interface id"))?;
-        if parsed.package != "runtime" || parsed.interface != "runtime" {
-            bail!("native runtime provider cannot satisfy `{interface_name}`");
-        }
-        let Some(version) = parsed.version else {
-            bail!("native runtime import `{interface_name}` must be versioned");
-        };
-        if version.major != 1 {
-            bail!(
-                "native runtime import `{interface_name}` requires unsupported major version {}",
-                version.major
-            );
-        }
+        ensure_native_import_interface(interface_name, "runtime", "runtime")?;
         add_gams_runtime_import(&mut self.linker, interface_name)?;
+        self.linked_interfaces.insert(interface_name.to_string());
+        Ok(())
+    }
+
+    fn ensure_gams_shell_import(&mut self, interface_name: &str) -> Result<()> {
+        if self.linked_interfaces.contains(interface_name) {
+            return Ok(());
+        }
+        ensure_native_import_interface(interface_name, "shell", "shell")?;
+        add_gams_shell_import(&mut self.linker, interface_name)?;
         self.linked_interfaces.insert(interface_name.to_string());
         Ok(())
     }
@@ -1003,13 +1026,19 @@ impl RuntimeInner {
 
         let mut linker_iface = self.linker.instance(import_interface)?;
         for (func_name, func) in exports {
-            let ExportedFunc::Wasm(forward) = func;
-            linker_iface.func_new(
-                &func_name,
-                move |mut cx: StoreContextMut<'_, HostState>, _callee, params, results| {
-                    forward.call(&mut cx, params, results)
-                },
-            )?;
+            match func {
+                ExportedFunc::Wasm(forward) => {
+                    linker_iface.func_new(
+                        &func_name,
+                        move |mut cx: StoreContextMut<'_, HostState>, _callee, params, results| {
+                            forward.call(&mut cx, params, results)
+                        },
+                    )?;
+                }
+                ExportedFunc::NativeShellRun => {
+                    add_shell_run_func(&mut linker_iface, &func_name)?;
+                }
+            }
         }
         self.linked_interfaces.insert(import_interface.to_string());
         Ok(())
@@ -1106,7 +1135,31 @@ impl RuntimeInner {
     }
 }
 
+fn ensure_native_import_interface(
+    interface_name: &str,
+    package: &str,
+    interface: &str,
+) -> Result<()> {
+    let parsed = parse_interface_id(interface_name)
+        .with_context(|| format!("invalid native import interface `{interface_name}`"))?
+        .with_context(|| format!("native import `{interface_name}` is not an interface id"))?;
+    if parsed.package != package || parsed.interface != interface {
+        bail!("native {package}/{interface} provider cannot satisfy `{interface_name}`");
+    }
+    let Some(version) = parsed.version else {
+        bail!("native import `{interface_name}` must be versioned");
+    };
+    if version.major != 1 {
+        bail!(
+            "native import `{interface_name}` requires unsupported major version {}",
+            version.major
+        );
+    }
+    Ok(())
+}
+
 fn add_gams_runtime_import(linker: &mut Linker<HostState>, interface_name: &str) -> Result<()> {
+    ensure_native_import_interface(interface_name, "runtime", "runtime")?;
     let mut iface = linker.instance(interface_name)?;
     iface.func_new(
         "call",
@@ -1148,6 +1201,41 @@ fn add_gams_runtime_import(linker: &mut Linker<HostState>, interface_name: &str)
     Ok(())
 }
 
+fn add_gams_shell_import(linker: &mut Linker<HostState>, interface_name: &str) -> Result<()> {
+    ensure_native_import_interface(interface_name, "shell", "shell")?;
+    let mut iface = linker.instance(interface_name)?;
+    add_shell_run_func(&mut iface, "run")?;
+    Ok(())
+}
+
+fn add_shell_run_func(iface: &mut LinkerInstance<'_, HostState>, func_name: &str) -> Result<()> {
+    iface.func_new(
+        func_name,
+        |cx: StoreContextMut<'_, HostState>, _callee, params, results| {
+            let command = match params.get(0) {
+                Some(Val::String(value)) => value.clone(),
+                other => {
+                    return Err(wasmtime::Error::msg(format!(
+                        "gams:shell/shell.run command must be string, got {other:?}"
+                    )))
+                }
+            };
+            let timeout_ms = match params.get(1) {
+                Some(Val::U64(value)) => *value,
+                other => {
+                    return Err(wasmtime::Error::msg(format!(
+                        "gams:shell/shell.run timeout-ms must be u64, got {other:?}"
+                    )))
+                }
+            };
+            results[0] =
+                shell_result_to_val(run_shell_command(&cx.data().root, command, timeout_ms));
+            Ok(())
+        },
+    )?;
+    Ok(())
+}
+
 fn invocation_resource_type_name(target: &str) -> String {
     let interface = target
         .split_once("::")
@@ -1172,7 +1260,19 @@ fn call_runtime_target(
         None => return Ok(None),
     };
 
-    let ExportedFunc::Wasm(func) = func;
+    let func = match func {
+        ExportedFunc::Wasm(func) => func,
+        ExportedFunc::NativeShellRun => {
+            let args_json = serde_json::from_str::<serde_json::Value>(args).map_err(|error| {
+                format!("runtime.call component args must be a JSON array: {error}")
+            })?;
+            let value = invoke_native_shell_run(&cx.data().root, args_json)
+                .map_err(|error| error.to_string())?;
+            return serde_json::to_string(&value)
+                .map(Some)
+                .map_err(|error| format!("encoding {target} result: {error}"));
+        }
+    };
     let ty = func.ty(&mut *cx);
     let params_ty = ty.params().map(|(_, ty)| ty).collect::<Vec<_>>();
     let args_json = serde_json::from_str::<serde_json::Value>(args)
@@ -1255,6 +1355,182 @@ fn insert_unique_func(
     Ok(())
 }
 
+#[derive(Debug)]
+struct ShellOutput {
+    exit_code: i32,
+    stdout: String,
+    stderr: String,
+}
+
+#[derive(Debug)]
+enum ShellError {
+    FailedToStart(String),
+    Timeout,
+    HostError(String),
+}
+
+fn invoke_native_shell_run(root: &Path, args: serde_json::Value) -> Result<serde_json::Value> {
+    let args = args
+        .as_array()
+        .context("shell/shell::run args must be a JSON array")?;
+    if args.len() != 2 {
+        bail!("shell/shell::run expects 2 args, got {}", args.len());
+    }
+    let command = args[0]
+        .as_str()
+        .context("shell/shell::run command must be a string")?
+        .to_string();
+    let timeout_ms = args[1]
+        .as_u64()
+        .context("shell/shell::run timeout-ms must be a u64")?;
+    Ok(shell_result_to_json(run_shell_command(
+        root, command, timeout_ms,
+    )))
+}
+
+fn shell_result_to_json(result: std::result::Result<ShellOutput, ShellError>) -> serde_json::Value {
+    match result {
+        Ok(output) => serde_json::json!({
+            "ok": {
+                "exit-code": output.exit_code,
+                "stdout": output.stdout,
+                "stderr": output.stderr,
+            }
+        }),
+        Err(error) => serde_json::json!({
+            "err": shell_error_to_json(error)
+        }),
+    }
+}
+
+fn shell_result_to_val(result: std::result::Result<ShellOutput, ShellError>) -> Val {
+    match result {
+        Ok(output) => Val::Result(Ok(Some(Box::new(Val::Record(vec![
+            ("exit-code".to_string(), Val::S32(output.exit_code)),
+            ("stdout".to_string(), Val::String(output.stdout)),
+            ("stderr".to_string(), Val::String(output.stderr)),
+        ]))))),
+        Err(error) => Val::Result(Err(Some(Box::new(shell_error_to_val(error))))),
+    }
+}
+
+fn shell_error_to_json(error: ShellError) -> serde_json::Value {
+    match error {
+        ShellError::FailedToStart(message) => serde_json::json!({
+            "case": "failed-to-start",
+            "value": message,
+        }),
+        ShellError::Timeout => serde_json::json!({
+            "case": "timeout",
+            "value": null,
+        }),
+        ShellError::HostError(message) => serde_json::json!({
+            "case": "host-error",
+            "value": message,
+        }),
+    }
+}
+
+fn shell_error_to_val(error: ShellError) -> Val {
+    match error {
+        ShellError::FailedToStart(message) => Val::Variant(
+            "failed-to-start".to_string(),
+            Some(Box::new(Val::String(message))),
+        ),
+        ShellError::Timeout => Val::Variant("timeout".to_string(), None),
+        ShellError::HostError(message) => Val::Variant(
+            "host-error".to_string(),
+            Some(Box::new(Val::String(message))),
+        ),
+    }
+}
+
+fn run_shell_command(
+    root: &Path,
+    command: String,
+    timeout_ms: u64,
+) -> std::result::Result<ShellOutput, ShellError> {
+    if timeout_ms == 0 {
+        return Err(ShellError::Timeout);
+    }
+
+    let mut child = default_shell_command(&command)
+        .current_dir(root)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| ShellError::FailedToStart(error.to_string()))?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| ShellError::HostError("child stdout was not piped".to_string()))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| ShellError::HostError("child stderr was not piped".to_string()))?;
+
+    let stdout_reader = thread::spawn(move || read_pipe(stdout));
+    let stderr_reader = thread::spawn(move || read_pipe(stderr));
+
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = join_reader(stdout_reader);
+                    let _ = join_reader(stderr_reader);
+                    return Err(ShellError::Timeout);
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => return Err(ShellError::HostError(error.to_string())),
+        }
+    };
+
+    let stdout = join_reader(stdout_reader)?;
+    let stderr = join_reader(stderr_reader)?;
+    Ok(ShellOutput {
+        exit_code: status.code().unwrap_or(-1),
+        stdout,
+        stderr,
+    })
+}
+
+fn read_pipe(mut pipe: impl Read) -> std::result::Result<String, String> {
+    let mut bytes = Vec::new();
+    pipe.read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+fn join_reader(
+    handle: thread::JoinHandle<std::result::Result<String, String>>,
+) -> std::result::Result<String, ShellError> {
+    handle
+        .join()
+        .map_err(|_| ShellError::HostError("shell output reader thread panicked".to_string()))?
+        .map_err(ShellError::HostError)
+}
+
+#[cfg(windows)]
+fn default_shell_command(command: &str) -> Command {
+    let mut shell = Command::new("cmd");
+    shell.arg("/C").arg(command);
+    shell
+}
+
+#[cfg(not(windows))]
+fn default_shell_command(command: &str) -> Command {
+    let mut shell = Command::new("/bin/sh");
+    shell.arg("-c").arg(command);
+    shell
+}
+
 fn insert_provider(
     providers: &mut BTreeMap<InterfaceFamily, InterfaceProvider>,
     interface: &str,
@@ -1309,6 +1585,7 @@ impl ProviderSource {
     fn display(&self) -> String {
         match self {
             ProviderSource::NativeRuntime => "native runtime".to_string(),
+            ProviderSource::NativeShell => "native shell".to_string(),
             ProviderSource::LoadedComponent { path } => format!("loaded component {path}"),
             ProviderSource::NewComponent { path, .. } => format!("requested component {path}"),
         }
@@ -1848,6 +2125,33 @@ mod tests {
             .invoke("adder/add::add", serde_json::json!([2, 3]))
             .unwrap();
         assert_eq!(value, serde_json::json!(5));
+    }
+
+    #[test]
+    fn invokes_native_shell_from_runtime_invoke() {
+        let root = tempfile::tempdir().unwrap();
+        let runtime =
+            Runtime::new_at(root.path().to_path_buf(), test_preopens(root.path())).unwrap();
+        let value = runtime
+            .invoke(
+                "shell/shell::run",
+                serde_json::json!(["printf shell-ok", 5_000]),
+            )
+            .unwrap();
+        assert_eq!(value["ok"]["exit-code"], serde_json::json!(0));
+        assert_eq!(value["ok"]["stdout"], serde_json::json!("shell-ok"));
+        assert_eq!(value["ok"]["stderr"], serde_json::json!(""));
+    }
+
+    #[test]
+    fn native_shell_timeout_is_structured_error() {
+        let root = tempfile::tempdir().unwrap();
+        let runtime =
+            Runtime::new_at(root.path().to_path_buf(), test_preopens(root.path())).unwrap();
+        let value = runtime
+            .invoke("shell/shell::run", serde_json::json!(["sleep 1", 1]))
+            .unwrap();
+        assert_eq!(value["err"]["case"], serde_json::json!("timeout"));
     }
 
     #[test]
