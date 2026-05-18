@@ -1,0 +1,23 @@
+package gams:respack@1.0.0;
+
+interface respack {
+    /// Initialize the singleton respack writer from schema JSON bytes.
+    ///
+    /// This keeps the current bare-WASM respack singleton shape while moving the
+    /// transport to typed component values. A future resource-based interface can
+    /// add explicit writer handles without changing the core schema/encoding code.
+    init: func(schema: list<u8>) -> result<string, string>;
+
+    /// Encode one JSON payload into the initialized writer slot.
+    write: func(slot: u32, payload: list<u8>) -> result<string, string>;
+
+    /// Return the packed RSPK bytes for the current singleton writer.
+    dump: func() -> result<list<u8>, string>;
+
+    /// Generate Odin decoder source for the current schema.
+    generate-odin: func() -> result<string, string>;
+}
+
+world respack-plugin {
+    export respack;
+}

@@ -19,6 +19,8 @@ async function main() {
     "plugins/scaler.comp.wasm",
     "plugins/treegen.comp.wasm",
     "plugins/minimap.comp.wasm",
+    "plugins/image.comp.wasm",
+    "plugins/respack.comp.wasm",
   ], true)
   console.timeEnd("addPlugins")
 
