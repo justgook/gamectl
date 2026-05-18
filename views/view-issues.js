@@ -161,7 +161,7 @@ export class ViewIssues extends HTMLElement {
     this.readConfig()
 
     this.innerHTML = `
-      <table data-element="issue-board">
+      <table data-layout="separate" data-element="issue-board">
         <thead></thead>
         <tbody></tbody>
       </table>

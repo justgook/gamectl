@@ -808,6 +808,11 @@
     color: inherit;
   }
 
+  table[data-layout="separate"] {
+    border-collapse: separate;
+    border-spacing: var(--space-3);
+  }
+
   th,
   td {
     text-align: left;
@@ -815,6 +820,14 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  table[data-layout="separate"]>tbody>tr>td,
+  table[data-layout="separate"]>tbody>tr>th {
+    vertical-align: top;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   caption {
