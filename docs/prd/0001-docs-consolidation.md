@@ -40,7 +40,7 @@ GAMS had useful project knowledge spread across READMEs, TODO files, plans, spec
 - Legacy conversion/removal status is visible in `.scratch/docs-consolidation/session-2026-05-17.md`.
 - PRD and ADR formats are documented in `docs/prd/README.md` and `docs/adr/README.md`.
 - The first ADR records the documentation architecture decision.
-- Agent instructions point contributors at the conversion workflow.
+- Agent instructions point contributors at the current documentation workflow.
 
 ## Outcome
 
