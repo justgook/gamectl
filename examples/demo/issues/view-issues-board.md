@@ -1,7 +1,7 @@
 ---
 title: View issues board
 description: Build the first table-based issue board view.
-status: in-progress
+status: done
 tags: [idea, view]
 ---
 

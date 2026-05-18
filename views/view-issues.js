@@ -83,7 +83,31 @@ function parseIssueMarkdown(path, text) {
   assert(typeof frontmatter.title === 'string' && frontmatter.title.trim().length > 0, `issue file ${path} requires string frontmatter title`)
   assert(typeof frontmatter.description === 'string', `issue file ${path} requires string frontmatter description`)
 
-  return { path, frontmatter, body }
+  return { path, text, frontmatter, body }
+}
+
+function updateFrontmatterScalar(text, path, field, value) {
+  assert(text.startsWith('---\n') || text.startsWith('---\r\n'), `issue file ${path} must start with frontmatter`)
+  const newline = text.startsWith('---\r\n') ? '\r\n' : '\n'
+  const closeMarker = `${newline}---${newline}`
+  const closeIndex = text.indexOf(closeMarker, 3)
+  assert(closeIndex >= 0, `issue file ${path} missing closing frontmatter marker`)
+
+  const frontmatterStart = 3 + newline.length
+  const frontmatterText = text.slice(frontmatterStart, closeIndex)
+  const lines = frontmatterText.split(/\r?\n/)
+  const fieldPrefix = `${field}:`
+  let replaced = false
+  const nextLines = lines.map((line) => {
+    if (line.trimStart().startsWith(fieldPrefix)) {
+      replaced = true
+      return `${field}: ${value}`
+    }
+    return line
+  })
+  if (!replaced) nextLines.push(`${field}: ${value}`)
+
+  return `${text.slice(0, frontmatterStart)}${nextLines.join(newline)}${text.slice(closeIndex)}`
 }
 
 function fieldValues(issue, field) {
@@ -124,6 +148,7 @@ export class ViewIssues extends HTMLElement {
     this.sourcePath = ''
     this.filterConfig = null
     this.sortConfig = null
+    this.dndConfig = null
     this.activeFilter = ''
     this.activeSort = ''
     this.issues = []
@@ -132,6 +157,7 @@ export class ViewIssues extends HTMLElement {
     this.sortSelect = null
     this.tableElement = null
     this.statusOutput = null
+    this.pointerDrag = null
     this._headerControlsElement = null
   }
 
@@ -179,6 +205,9 @@ export class ViewIssues extends HTMLElement {
       this.activeSort = this.sortSelect.value
       this.renderBoard()
     })
+    this.tableElement.addEventListener('dragover', (event) => this.handleBoardDragOver(event))
+    this.tableElement.addEventListener('drop', (event) => this.handleBoardDrop(event))
+    this.tableElement.addEventListener('dragleave', (event) => this.handleBoardDragLeave(event))
 
     void this.refresh()
   }
@@ -239,9 +268,11 @@ export class ViewIssues extends HTMLElement {
     assert(config && typeof config === 'object' && !Array.isArray(config), 'view-issues requires config object')
     assert(config.filter && typeof config.filter === 'object' && !Array.isArray(config.filter), 'view-issues config.filter must be an object')
     assert(config.sort && typeof config.sort === 'object' && !Array.isArray(config.sort), 'view-issues config.sort must be an object')
+    assert(config.dnd === undefined || config.dnd && typeof config.dnd === 'object' && !Array.isArray(config.dnd), 'view-issues config.dnd must be an object when present')
 
     this.filterConfig = config.filter
     this.sortConfig = config.sort
+    this.dndConfig = config.dnd || {}
 
     for (const [key, values] of Object.entries(this.filterConfig)) {
       assert(Array.isArray(values), `view-issues config.filter.${key} must be an array`)
@@ -256,6 +287,16 @@ export class ViewIssues extends HTMLElement {
       } else {
         assert(BUILTIN_TIME_SORTS.has(key), `view-issues config.sort.${key} direction sort is only supported for mtime, ctime, or atime`)
         normalizeSortDirection(value, key)
+      }
+    }
+
+    for (const [key, values] of Object.entries(this.dndConfig)) {
+      assert(Object.hasOwn(this.filterConfig, key), `view-issues config.dnd.${key} must reference a configured filter`)
+      assert(Array.isArray(values), `view-issues config.dnd.${key} must be an array`)
+      assert(values.length > 0, `view-issues config.dnd.${key} must not be empty`)
+      for (const value of values) {
+        assert(typeof value === 'string' && value.length > 0, `view-issues config.dnd.${key} values must be non-empty strings`)
+        assert(this.filterConfig[key].includes(value), `view-issues config.dnd.${key} value ${value} must exist in config.filter.${key}`)
       }
     }
 
@@ -347,6 +388,221 @@ export class ViewIssues extends HTMLElement {
     })
   }
 
+  canDrag(field, value) {
+    const values = this.dndConfig[field]
+    return Array.isArray(values) && values.includes(value)
+  }
+
+  canDragIssue(issue) {
+    const values = fieldValues(issue, this.activeFilter)
+    return values.length === 1 && this.canDrag(this.activeFilter, values[0])
+  }
+
+  columnCellFromDragEvent(event) {
+    const tableRect = this.tableElement.getBoundingClientRect()
+    if (event.clientX >= tableRect.left && event.clientX <= tableRect.right && event.clientY >= tableRect.top && event.clientY <= tableRect.bottom) {
+      const cells = [...this.tableElement.querySelectorAll('td[data-dnd="drop-target"]')]
+      for (const cell of cells) {
+        const rect = cell.getBoundingClientRect()
+        if (event.clientX >= rect.left && event.clientX <= rect.right) return cell
+      }
+    }
+
+    const pointed = document.elementFromPoint(event.clientX, event.clientY)
+    const pointedCell = pointed?.closest('td[data-dnd="drop-target"]')
+    if (pointedCell instanceof HTMLTableCellElement && this.tableElement.contains(pointedCell)) return pointedCell
+
+    return null
+  }
+
+  clearDropTargetHighlight() {
+    this.tableElement.querySelectorAll('td[data-dnd="drop-target"][aria-selected="true"]').forEach((cell) => {
+      cell.removeAttribute('aria-selected')
+    })
+  }
+
+  handleBoardDragOver(event) {
+    const cell = this.columnCellFromDragEvent(event)
+    console.debug('[view-issues] board dragover', {
+      hasCell: Boolean(cell),
+      field: cell?.dataset.field,
+      value: cell?.dataset.value,
+      target: event.target instanceof Element ? event.target.tagName : String(event.target),
+      types: event.dataTransfer ? [...event.dataTransfer.types] : [],
+    })
+    if (!cell) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    assert(event.dataTransfer, 'view-issues dragover missing dataTransfer')
+    event.dataTransfer.dropEffect = 'move'
+    this.clearDropTargetHighlight()
+    cell.setAttribute('aria-selected', 'true')
+  }
+
+  handleBoardDragLeave(event) {
+    const related = event.relatedTarget instanceof Node ? event.relatedTarget : null
+    if (related && this.tableElement.contains(related)) return
+    console.debug('[view-issues] board dragleave')
+    this.clearDropTargetHighlight()
+  }
+
+  handleBoardDrop(event) {
+    const cell = this.columnCellFromDragEvent(event)
+    console.debug('[view-issues] board drop', {
+      hasCell: Boolean(cell),
+      field: cell?.dataset.field,
+      value: cell?.dataset.value,
+      target: event.target instanceof Element ? event.target.tagName : String(event.target),
+      types: event.dataTransfer ? [...event.dataTransfer.types] : [],
+      gamsIssue: event.dataTransfer?.getData('application/gams-issue'),
+      text: event.dataTransfer?.getData('text/plain'),
+    })
+    if (!cell) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    this.clearDropTargetHighlight()
+    assert(event.dataTransfer, 'view-issues drop missing dataTransfer')
+    const payloadText = event.dataTransfer.getData('application/gams-issue')
+    const textPath = event.dataTransfer.getData('text/plain')
+    const payload = payloadText ? JSON.parse(payloadText) : { path: textPath, field: this.activeFilter }
+    assert(payload && typeof payload.path === 'string' && payload.path.length > 0, 'view-issues drop payload missing path')
+    assert(payload.field === this.activeFilter, `view-issues drop payload field ${payload.field} does not match active filter ${this.activeFilter}`)
+    assert(typeof cell.dataset.value === 'string' && cell.dataset.value.length > 0, 'view-issues drop target missing value')
+    void this.moveIssue(payload.path, payload.field, cell.dataset.value)
+  }
+
+  createPointerDragGhost(card, event) {
+    const rect = card.getBoundingClientRect()
+    const ghost = card.cloneNode(true)
+    ghost.dataset.dragGhost = 'true'
+    ghost.removeAttribute('aria-grabbed')
+    ghost.style.position = 'fixed'
+    ghost.style.left = `${event.clientX + 12}px`
+    ghost.style.top = `${event.clientY + 12}px`
+    ghost.style.width = `${rect.width}px`
+    ghost.style.margin = '0'
+    ghost.style.pointerEvents = 'none'
+    ghost.style.zIndex = '100000'
+    ghost.style.opacity = '0.85'
+    document.body.appendChild(ghost)
+    return ghost
+  }
+
+  updatePointerDragGhost(drag, event) {
+    if (!drag.ghost) return
+    drag.ghost.style.left = `${event.clientX + 12}px`
+    drag.ghost.style.top = `${event.clientY + 12}px`
+  }
+
+  removePointerDragGhost(drag) {
+    if (drag?.ghost?.parentElement) drag.ghost.remove()
+  }
+
+  startPointerDrag(event, issue, card) {
+    if (event.button !== 0) return
+    const values = fieldValues(issue, this.activeFilter)
+    assert(values.length === 1, `view-issues pointer drag only supports scalar ${this.activeFilter} values`)
+    assert(this.canDrag(this.activeFilter, values[0]), `view-issues cannot pointer-drag issue ${issue.path} from ${this.activeFilter}:${values[0]}`)
+
+    event.preventDefault()
+    document.documentElement.style.userSelect = 'none'
+    card.setPointerCapture(event.pointerId)
+    this.pointerDrag = {
+      pointerId: event.pointerId,
+      path: issue.path,
+      field: this.activeFilter,
+      from: values[0],
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      card,
+      ghost: null,
+    }
+    console.debug('[view-issues] pointer drag start', this.pointerDrag)
+  }
+
+  updatePointerDrag(event, card) {
+    const drag = this.pointerDrag
+    if (!drag || drag.card !== card || drag.pointerId !== event.pointerId) return
+    event.preventDefault()
+
+    const dx = event.clientX - drag.startX
+    const dy = event.clientY - drag.startY
+    if (!drag.active && Math.hypot(dx, dy) >= 4) {
+      drag.active = true
+      drag.ghost = this.createPointerDragGhost(card, event)
+      card.setAttribute('aria-grabbed', 'true')
+      console.debug('[view-issues] pointer drag active', { path: drag.path, field: drag.field, from: drag.from })
+    }
+    if (!drag.active) return
+
+    this.updatePointerDragGhost(drag, event)
+    const cell = this.columnCellFromDragEvent(event)
+    this.clearDropTargetHighlight()
+    if (cell) cell.setAttribute('aria-selected', 'true')
+    console.debug('[view-issues] pointer drag move', { hasCell: Boolean(cell), field: cell?.dataset.field, value: cell?.dataset.value })
+  }
+
+  finishPointerDrag(event, card) {
+    const drag = this.pointerDrag
+    if (!drag || drag.card !== card || drag.pointerId !== event.pointerId) return
+    event.preventDefault()
+
+    const cell = this.columnCellFromDragEvent(event)
+    console.debug('[view-issues] pointer drag finish', {
+      active: drag.active,
+      hasCell: Boolean(cell),
+      field: cell?.dataset.field,
+      value: cell?.dataset.value,
+      path: drag.path,
+    })
+
+    this.pointerDrag = null
+    document.documentElement.style.userSelect = ''
+    this.removePointerDragGhost(drag)
+    this.clearDropTargetHighlight()
+    card.removeAttribute('aria-grabbed')
+    if (card.hasPointerCapture(event.pointerId)) card.releasePointerCapture(event.pointerId)
+
+    if (!drag.active || !cell) return
+    assert(cell.dataset.field === drag.field, `view-issues pointer drop field ${cell.dataset.field} does not match drag field ${drag.field}`)
+    assert(typeof cell.dataset.value === 'string' && cell.dataset.value.length > 0, 'view-issues pointer drop target missing value')
+    void this.moveIssue(drag.path, drag.field, cell.dataset.value)
+  }
+
+  cancelPointerDrag(event, card) {
+    const drag = this.pointerDrag
+    if (!drag || drag.card !== card || drag.pointerId !== event.pointerId) return
+    console.debug('[view-issues] pointer drag cancel', { path: drag.path })
+    this.pointerDrag = null
+    document.documentElement.style.userSelect = ''
+    this.removePointerDragGhost(drag)
+    this.clearDropTargetHighlight()
+    card.removeAttribute('aria-grabbed')
+    if (card.hasPointerCapture(event.pointerId)) card.releasePointerCapture(event.pointerId)
+  }
+
+  async moveIssue(issuePath, field, targetValue) {
+    console.debug('[view-issues] moveIssue start', { issuePath, field, targetValue, activeFilter: this.activeFilter })
+    assert(field === this.activeFilter, `view-issues drop field ${field} does not match active filter ${this.activeFilter}`)
+    assert(this.canDrag(field, targetValue), `view-issues cannot drop into ${field}:${targetValue}`)
+    const issue = this.issues.find((candidate) => candidate.path === issuePath)
+    assert(issue, `view-issues unknown dragged issue ${issuePath}`)
+    const values = fieldValues(issue, field)
+    assert(values.length === 1, `view-issues drag/drop only supports scalar ${field} values`)
+    assert(this.canDrag(field, values[0]), `view-issues cannot drag issue ${issuePath} from ${field}:${values[0]}`)
+
+    const nextText = updateFrontmatterScalar(issue.text, issue.path, field, targetValue)
+    console.debug('[view-issues] moveIssue write-text', { path: issue.path, from: values[0], to: targetValue })
+    await this.callFs('write-text', issue.path, nextText)
+    console.debug('[view-issues] moveIssue refresh')
+    await this.refresh()
+    this.setStatus(`Moved ${issue.frontmatter.title} to ${field}:${targetValue}`, 'success')
+    console.debug('[view-issues] moveIssue done', { path: issue.path, field, targetValue })
+  }
+
   renderBoard() {
     const columns = this.filterConfig[this.activeFilter]
     assert(Array.isArray(columns), `view-issues active filter ${this.activeFilter} is not configured`)
@@ -377,6 +633,7 @@ export class ViewIssues extends HTMLElement {
       const td = document.createElement('td')
       td.dataset.field = this.activeFilter
       td.dataset.value = column
+      if (this.canDrag(this.activeFilter, column)) td.dataset.dnd = 'drop-target'
       for (const issue of groups.get(column)) td.appendChild(this.createIssueCard(issue))
       bodyRow.appendChild(td)
     }
@@ -387,6 +644,24 @@ export class ViewIssues extends HTMLElement {
     const card = document.createElement('blockquote')
     card.dataset.element = 'issue-card'
     card.dataset.source = issue.path
+    card.dataset.field = this.activeFilter
+    card.dataset.value = fieldValues(issue, this.activeFilter).join(',')
+    card.addEventListener('mousedown', () => {
+      console.debug('[view-issues] card mousedown', {
+        path: issue.path,
+        field: this.activeFilter,
+        values: fieldValues(issue, this.activeFilter),
+        draggable: card.dataset.draggable === 'true',
+        canDrag: this.canDragIssue(issue),
+      })
+    })
+    if (this.canDragIssue(issue)) {
+      card.dataset.draggable = 'true'
+      card.addEventListener('pointerdown', (event) => this.startPointerDrag(event, issue, card))
+      card.addEventListener('pointermove', (event) => this.updatePointerDrag(event, card))
+      card.addEventListener('pointerup', (event) => this.finishPointerDrag(event, card))
+      card.addEventListener('pointercancel', (event) => this.cancelPointerDrag(event, card))
+    }
 
     const title = document.createElement('strong')
     title.textContent = issue.frontmatter.title

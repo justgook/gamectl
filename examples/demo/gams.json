@@ -127,6 +127,13 @@
             "mtime": "dsc",
             "ctime": "asc",
             "atime": "dsc"
+          },
+          "dnd": {
+            "status": [
+              "open",
+              "in-progress",
+              "done"
+            ]
           }
         }
       },
