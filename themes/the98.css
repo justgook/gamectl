@@ -730,11 +730,7 @@
     box-shadow: var(--border-sunken-outer), var(--border-sunken-inner);
   }
 
-  table[data-element="issue-board"]>tbody>tr>td[data-dnd="drop-target"] {
-    cursor: copy;
-  }
-
-  table[data-element="issue-board"]>tbody>tr>td[data-dnd="drop-target"][aria-selected="true"] {
+  table>tbody>tr>td[data-dnd="drop-target"][aria-selected="true"] {
     background: color-mix(in oklab, var(--dialog-blue-light), var(--button-face) 78%);
   }
 
