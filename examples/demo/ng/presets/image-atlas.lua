@@ -8,21 +8,25 @@ if not okRects or type(images) ~= "table" then
     return
 end
 
-local function callImage(method, payload)
-    local resultText = host.call("image/image::" .. string.gsub(method, "_", "-"), payload)
-    local ok, response = pcall(json.decode, resultText)
-    if not ok then
-        return nil, "Failed to parse image." .. method .. " response: " .. (resultText:sub(1, 100))
+local function decodeResult(text, label)
+    local ok, response = pcall(json.decode, text)
+    if not ok or type(response) ~= "table" then
+        return nil, "Failed to parse " .. label .. " response: " .. tostring(text):sub(1, 100)
     end
-    if not response.ok then
-        return nil, response.message or response.code or ("image." .. method .. " failed")
+    if response.err ~= nil then
+        return nil, tostring(response.err)
     end
-    return response, nil
+    return response.ok, nil
 end
 
-local function closeHandle(handle)
-    if handle == nil or handle == 0 then return end
-    callImage("close", { src = handle })
+local function callImage(method, ...)
+    return decodeResult(host.call("image/image::" .. string.gsub(method, "_", "-"), ...), "image." .. method)
+end
+
+local function imageResource(image)
+    local resource = image.resource or image.image
+    if resource == nil and image["$resource"] ~= nil then resource = image end
+    return resource
 end
 
 local atlasWidth = 0
@@ -57,46 +61,36 @@ if imageCount == 0 then
     return
 end
 
-local created, createError = callImage("create", { width = atlasWidth, height = atlasHeight })
-if created == nil or created.handle == nil then
+local atlas, createError = callImage("create", atlasWidth, atlasHeight, { r = 0, g = 0, b = 0, a = 0 })
+if atlas == nil then
     outputs[1] = ""
-    outputs[2] = createError or "Failed to create atlas image handle"
+    outputs[2] = createError or "Failed to create atlas image"
     return
 end
 
-local atlasHandle = created.handle
-
 for _, image in ipairs(images) do
-    local srcHandle = tonumber(image.handle)
-    if srcHandle == nil or srcHandle == 0 then
-        closeHandle(atlasHandle)
+    local src = imageResource(image)
+    if type(src) ~= "table" then
         outputs[1] = ""
-        outputs[2] = "Image is missing handle"
+        outputs[2] = "Image is missing resource"
         return
     end
 
-    local blitted, blitError = callImage("blit", {
-        dst = atlasHandle,
-        src = srcHandle,
-        x = tonumber(image.x) or 0,
-        y = tonumber(image.y) or 0,
+    local blitted, blitError = callImage("blit", atlas, src, {
+        x = math.floor(tonumber(image.x) or 0),
+        y = math.floor(tonumber(image.y) or 0),
     })
     if blitted == nil then
-        closeHandle(atlasHandle)
         outputs[1] = ""
-        outputs[2] = blitError
+        outputs[2] = blitError or "image.blit failed"
         return
     end
-
-    local nextAtlasHandle = blitted.handle or atlasHandle
-    if nextAtlasHandle ~= atlasHandle then
-        closeHandle(atlasHandle)
-        atlasHandle = nextAtlasHandle
-    end
+    atlas = blitted
 end
 
 outputs[1] = json.encode({
-    handle = atlasHandle,
+    image = atlas,
+    resource = atlas,
     width = atlasWidth,
     height = atlasHeight,
 })

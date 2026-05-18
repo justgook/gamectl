@@ -12,10 +12,11 @@ if not okImage or type(image) ~= "table" then
     return
 end
 
-local handle = tonumber(image.handle)
-if handle == nil or handle == 0 then
+local resource = image.resource or image.image
+if resource == nil and image["$resource"] ~= nil then resource = image end
+if type(resource) ~= "table" then
     outputs[1] = ""
-    outputs[2] = "image.handle is required"
+    outputs[2] = "image resource is required"
     return
 end
 
@@ -27,30 +28,20 @@ if path == nil or path == "" then
 end
 
 local format = inputs[3]
-if format == nil then format = "" end
+if format == nil or format == "" then format = "qoi" end
 
-local function callImage(method, payload)
-    local resultText = host.call("image/image::" .. string.gsub(method, "_", "-"), payload)
-    local ok, response = pcall(json.decode, resultText)
-    if not ok then
-        return nil, "Failed to parse image." .. method .. " response: " .. (resultText:sub(1, 100))
-    end
-    if not response.ok then
-        return nil, response.message or response.code or ("image." .. method .. " failed")
-    end
-    return response, nil
-end
-
-local encoded, encodeError = callImage("encode", {
-    src = handle,
-    path = path,
-    format = format,
-})
-if encoded == nil then
+local resultText = host.call("image/image::save", resource, path, format)
+local ok, response = pcall(json.decode, resultText)
+if not ok or type(response) ~= "table" then
     outputs[1] = ""
-    outputs[2] = encodeError or "Failed to write image"
+    outputs[2] = "Failed to parse image.save response: " .. tostring(resultText):sub(1, 100)
+    return
+end
+if response.err ~= nil then
+    outputs[1] = ""
+    outputs[2] = tostring(response.err)
     return
 end
 
-outputs[1] = encoded.path or path
+outputs[1] = path
 outputs[2] = ""
