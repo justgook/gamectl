@@ -19,6 +19,7 @@
 #go.work
 
 # Build artifacts and tools
+/.direnv/
 /.dev-tools/
 /tmp/
 tmp/
@@ -48,6 +49,10 @@ Thumbs.db
 
 /.idea
 *.iml
+
+# direnv local/private overrides
+.envrc.local
+.envrc.private
 
 assets/**/backups/
 database.sqlite
