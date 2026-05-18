@@ -337,7 +337,24 @@ encode_bytes_value :: proc(
 		return false, file_err
 	}
 	if has_file {
-		return false, "bytes _file marker is not supported by respack component write; pass bytes inline or read the file host-side"
+		return false, "bytes _file marker is not supported by respack component build; pass bytes through the blobs side table"
+	}
+	blob_id, has_blob, blob_err := decode_bytes_blob_marker(input)
+	if blob_err != "" {
+		return false, blob_err
+	}
+	if has_blob {
+		blob, found := find_blob(transmute([]u8)blob_id)
+		if !found {
+			return false, "blob not found"
+		}
+		if max_len >= 0 && len(blob) > max_len {
+			return false, "bytes exceeds max_len"
+		}
+		if !writer_u32(w, u32(len(blob))) || !writer_write(w, blob) {
+			return false, "payload too large"
+		}
+		return true, ""
 	}
 	if len(input) >= 2 && input[0] == '"' && input[len(input) - 1] == '"' {
 		bytes, ok := decode_json_string_bytes(input)
@@ -378,6 +395,32 @@ encode_bytes_value :: proc(
 		cursor = next_cursor
 	}
 	return true, ""
+}
+
+decode_bytes_blob_marker :: proc(input: []u8) -> (string, bool, string) {
+	trimmed := trim_space_slice(input)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return "", false, ""
+	}
+	member, next_cursor, found := next_object_member(trimmed, 1)
+	if !found {
+		return "", false, ""
+	}
+	if !bytes_equal_string(trimmed[member.key_start:member.key_end], "_blob") {
+		return "", false, ""
+	}
+	_, _, extra_found := next_object_member(trimmed, next_cursor)
+	if extra_found {
+		return "", false, "bytes blob marker must contain only _blob"
+	}
+	id_bytes, ok := decode_json_string_bytes(trimmed[member.value_start:member.value_end])
+	if !ok {
+		return "", false, "_blob must be a string"
+	}
+	if len(id_bytes) == 0 {
+		return "", false, "_blob id empty"
+	}
+	return string(id_bytes), true, ""
 }
 
 decode_bytes_file_marker :: proc(input: []u8) -> (string, bool, string) {

@@ -16,40 +16,66 @@ local function safeCall(target, ...)
 	if not ok then
 		return false, tostring(result or "")
 	end
-	return true, tostring(result or "")
+	return true, result
 end
 
-local function callRespack(method, payload)
-	return safeCall("respack/respack::" .. string.gsub(method, "_", "-"), payload)
+local function callRespack(method, ...)
+	return safeCall("respack/respack::" .. string.gsub(method, "_", "-"), ...)
 end
 
-local function writeFile(path, content)
-	return safeCall("fs/fs::write-text", path, content)
+local function readText(path)
+	local ok, text = safeCall("fs/fs::read-text", path)
+	if ok then return true, text end
+	if string.sub(path, 1, 5) == "demo/" then
+		return safeCall("fs/fs::read-text", string.sub(path, 6))
+	end
+	return false, text
 end
 
-local okInit, initText = callRespack("init", schemaJson)
-if not okInit then
+local function isPureFileMarker(value)
+	if type(value) ~= "table" or type(value["_file"]) ~= "string" then
+		return false
+	end
+	local count = 0
+	for _ in pairs(value) do count = count + 1 end
+	return count == 1
+end
+
+local function resolveSchema(schemaText)
+	local ok, decoded = pcall(json.decode, schemaText)
+	if not ok or not isPureFileMarker(decoded) then
+		return true, schemaText
+	end
+	local path = decoded["_file"]
+	if path == "" then
+		return false, "schema _file must be a non-empty string"
+	end
+	return readText(path)
+end
+
+local okSchema, resolvedSchema = resolveSchema(schemaJson)
+if not okSchema then
 	outputs[1] = ""
 	outputs[2] = ""
-	outputs[3] = initText ~= "" and initText or "respack.init failed"
+	outputs[3] = tostring(resolvedSchema or "failed to read schema")
 	return
 end
 
-local okGenerate, odinSource = callRespack("generate_odin", "")
+local okGenerate, odinSource = callRespack("generate_odin", resolvedSchema)
 if not okGenerate then
 	outputs[1] = ""
 	outputs[2] = ""
-	outputs[3] = odinSource ~= "" and odinSource or "respack.generate_odin failed"
+	outputs[3] = tostring(odinSource ~= "" and odinSource or "respack.generate_odin failed")
 	return
 end
 
 if outputFile ~= "" then
-	local okWrite, writeText = writeFile(outputFile, odinSource)
+	local okWrite, writeText = safeCall("fs/fs::write-text", outputFile, odinSource)
 
 	if not okWrite then
 		outputs[1] = odinSource
 		outputs[2] = ""
-		outputs[3] = writeText ~= "" and writeText or "failed to write Odin source"
+		outputs[3] = tostring(writeText ~= "" and writeText or "failed to write Odin source")
 		return
 	end
 end
