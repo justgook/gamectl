@@ -1,7 +1,7 @@
 ---
 title: Review issue card semantics
 description: Decide whether table cells containing article cards should become official Core View vocabulary.
-status: open
+status: in-progress
 tags: [view]
 ---
 
