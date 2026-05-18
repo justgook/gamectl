@@ -91,48 +91,6 @@
     ]
   },
   {
-    "id": 3,
-    "kind": 2,
-    "x": 3721,
-    "y": 339,
-    "name": "Respack Build",
-    "codePath": "ng/presets/respack-build.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "schema",
-        "srcNodeId": 4,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "outputFile",
-        "srcNodeId": 4,
-        "srcOutputId": 2
-      },
-      {
-        "id": 3,
-        "name": "slots",
-        "srcNodeId": 1,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "outputFile",
-        "value": ""
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": ""
-      }
-    ]
-  },
-  {
     "id": 4,
     "kind": 4,
     "x": 3264,
@@ -151,12 +109,12 @@
       {
         "id": 2,
         "name": "",
-        "value": "/data.rspk"
+        "value": "data.rspk"
       },
       {
         "id": 3,
         "name": "",
-        "value": "/game/decode.odin"
+        "value": "game_decode.odin"
       }
     ]
   },
@@ -171,22 +129,22 @@
     "graphName": "",
     "inputs": [
       {
-        "id": 2,
+        "id": 1,
         "name": "error",
-        "srcNodeId": 3,
-        "srcOutputId": 2
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 2,
+        "name": "source_error",
+        "srcNodeId": 14,
+        "srcOutputId": 3
       },
       {
         "id": 3,
-        "name": "decoder",
-        "srcNodeId": 14,
-        "srcOutputId": 1
-      },
-      {
-        "id": 4,
-        "name": "decoder",
-        "srcNodeId": 3,
-        "srcOutputId": 1
+        "name": "binary_error",
+        "srcNodeId": 46,
+        "srcOutputId": 2
       }
     ],
     "outputs": []
@@ -1019,48 +977,6 @@
     ]
   },
   {
-    "id": 37,
-    "kind": 2,
-    "x": 1396,
-    "y": 113,
-    "name": "Tilemap Automap",
-    "codePath": "ng/presets/pipeline-apply-automap.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "rulesMap",
-        "srcNodeId": 38,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "inputMap",
-        "srcNodeId": 2,
-        "srcOutputId": 1
-      },
-      {
-        "id": 3,
-        "name": "outputMap",
-        "srcNodeId": 38,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "outputMap",
-        "value": ""
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": ""
-      }
-    ]
-  },
-  {
     "id": 38,
     "kind": 4,
     "x": 1060,
@@ -1082,37 +998,6 @@
         "value": "tmp/edge_done.map.json"
       }
     ]
-  },
-  {
-    "id": 39,
-    "kind": 1,
-    "x": 1847,
-    "y": 47,
-    "name": "THE EDGE RESULT",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "mapID",
-        "srcNodeId": 44,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "err",
-        "srcNodeId": 44,
-        "srcOutputId": 2
-      },
-      {
-        "id": 3,
-        "name": "err2",
-        "srcNodeId": 37,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": []
   },
   {
     "id": 41,
@@ -1205,7 +1090,7 @@
       {
         "id": 2,
         "name": "to",
-        "srcNodeId": 37,
+        "srcNodeId": 45,
         "srcOutputId": 1
       },
       {
@@ -1225,6 +1110,90 @@
       {
         "id": 1,
         "name": "to",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 45,
+    "kind": 2,
+    "x": 1441,
+    "y": 109,
+    "name": "Automap",
+    "codePath": "ng/presets/pipeline-apply-automap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rulesMap",
+        "srcNodeId": 38,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "inputMap",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "outputMap",
+        "srcNodeId": 38,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "outputMap",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 46,
+    "kind": 2,
+    "x": 3725,
+    "y": 337,
+    "name": "Respack Build",
+    "codePath": "ng/presets/respack-build.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "schema",
+        "srcNodeId": 4,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "outputFile",
+        "srcNodeId": 4,
+        "srcOutputId": 2
+      },
+      {
+        "id": 3,
+        "name": "slots",
+        "srcNodeId": 1,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "outputFile",
         "value": ""
       },
       {

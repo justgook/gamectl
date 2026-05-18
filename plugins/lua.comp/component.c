@@ -851,7 +851,11 @@ static int lua_host_call(lua_State *L) {
   }
   lua_pop(L, 1);
 
-  lua_pushlstring(L, encoded_args.buf != NULL ? encoded_args.buf : "[]", encoded_args.len);
+  if (encoded_args.len == 0) {
+    lua_pushliteral(L, "[]");
+  } else {
+    lua_pushlstring(L, encoded_args.buf, encoded_args.len);
+  }
   sb_free(&encoded_args);
   lua_replace(L, 2);
   lua_settop(L, 2);

@@ -7,6 +7,9 @@ import jsmn "jsmn"
 SCHEMA_BUFFER_CAPACITY :: 256 * 1024
 MAX_SLOTS :: 512
 PAYLOAD_CAPACITY :: 2 * 1024 * 1024
+BLOB_CAPACITY :: 8 * 1024 * 1024
+MAX_BLOBS :: 256
+BLOB_ID_MAX :: 128
 SCHEMA_TOKEN_MAX :: 4096
 WRITE_TOKEN_MAX :: 512
 
@@ -23,15 +26,29 @@ payload_used: int
 scratch_buffer: [PAYLOAD_CAPACITY]u8
 slots: [MAX_SLOTS]SlotValue
 writer_initialized: bool
+blob_ids: [MAX_BLOBS][BLOB_ID_MAX]u8
+blob_id_lens: [MAX_BLOBS]int
+blob_offsets: [MAX_BLOBS]int
+blob_lens: [MAX_BLOBS]int
+blob_count: int
+blob_buffer: [BLOB_CAPACITY]u8
+blob_used: int
 
 core_output_buffer: [PAYLOAD_CAPACITY]u8
 core_output_len: int
 
 @(export)
-respack_core_init :: proc "c" (ptr: rawptr, count: uintptr) -> u32 {
+respack_core_reset_blobs :: proc "c" () {
+	blob_count = 0
+	blob_used = 0
+}
+
+@(export)
+respack_core_add_blob :: proc "c" (id_ptr: rawptr, id_count: uintptr, data_ptr: rawptr, data_count: uintptr) -> u32 {
 	context = runtime.default_context()
-	input := core_input_slice(ptr, count)
-	ok, err := handle_init(input)
+	id := core_input_slice(id_ptr, id_count)
+	data := core_input_slice(data_ptr, data_count)
+	ok, err := add_blob(id, data)
 	if !ok {
 		return core_respond_error(err)
 	}
@@ -39,38 +56,32 @@ respack_core_init :: proc "c" (ptr: rawptr, count: uintptr) -> u32 {
 }
 
 @(export)
-respack_core_write :: proc "c" (slot: u32, ptr: rawptr, count: uintptr) -> u32 {
+respack_core_build :: proc "c" (schema_ptr: rawptr, schema_count: uintptr, slots_ptr: rawptr, slots_count: uintptr) -> u32 {
 	context = runtime.default_context()
-	input := core_input_slice(ptr, count)
-	ok, err := handle_write_direct(int(slot), input)
+	schema := core_input_slice(schema_ptr, schema_count)
+	slots_json := core_input_slice(slots_ptr, slots_count)
+	ok, err := handle_build(schema, slots_json)
 	if !ok {
 		return core_respond_error(err)
 	}
-	return core_respond_ok("ok")
-}
-
-@(export)
-respack_core_dump :: proc "c" () -> u32 {
-	context = runtime.default_context()
-	if !writer_initialized {
-		return core_respond_error("writer not initialized")
-	}
-	output, err := build_dump_bytes()
-	if err != "" {
-		return core_respond_error(err)
+	output, dump_err := build_dump_bytes()
+	if dump_err != "" {
+		return core_respond_error(dump_err)
 	}
 	return core_respond_bytes(output, 0)
 }
 
 @(export)
-respack_core_generate_odin :: proc "c" () -> u32 {
+respack_core_generate_odin :: proc "c" (schema_ptr: rawptr, schema_count: uintptr) -> u32 {
 	context = runtime.default_context()
-	if !writer_initialized {
-		return core_respond_error("writer not initialized")
-	}
-	source, err := build_odin_decoder()
-	if err != "" {
+	schema := core_input_slice(schema_ptr, schema_count)
+	ok, err := handle_init(schema)
+	if !ok {
 		return core_respond_error(err)
+	}
+	source, codegen_err := build_odin_decoder()
+	if codegen_err != "" {
+		return core_respond_error(codegen_err)
 	}
 	return core_respond_string(source, 0)
 }
@@ -117,6 +128,84 @@ core_respond_bytes :: proc(data: []u8, status: u32) -> u32 {
 	}
 	core_output_len = len(data)
 	return status
+}
+
+add_blob :: proc(id: []u8, data: []u8) -> (bool, string) {
+	if len(id) == 0 {
+		return false, "blob id empty"
+	}
+	if len(id) > BLOB_ID_MAX {
+		return false, "blob id too long"
+	}
+	if blob_count >= MAX_BLOBS {
+		return false, "blob limit exceeded"
+	}
+	if blob_used + len(data) > BLOB_CAPACITY {
+		return false, "blob data too large"
+	}
+	idx := blob_count
+	copy(blob_ids[idx][:len(id)], id)
+	blob_id_lens[idx] = len(id)
+	blob_offsets[idx] = blob_used
+	blob_lens[idx] = len(data)
+	if len(data) > 0 {
+		copy(blob_buffer[blob_used:blob_used + len(data)], data)
+	}
+	blob_used += len(data)
+	blob_count += 1
+	return true, ""
+}
+
+find_blob :: proc(id: []u8) -> ([]u8, bool) {
+	for i in 0 ..< blob_count {
+		if len(id) != blob_id_lens[i] {
+			continue
+		}
+		matched := true
+		for j in 0 ..< len(id) {
+			if id[j] != blob_ids[i][j] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			offset := blob_offsets[i]
+			return blob_buffer[offset:offset + blob_lens[i]], true
+		}
+	}
+	return nil, false
+}
+
+handle_build :: proc(schema: []u8, slots_json: []u8) -> (bool, string) {
+	ok, err := handle_init(schema)
+	if !ok {
+		return false, err
+	}
+	trimmed := trim_space_slice(slots_json)
+	if len(trimmed) == 0 {
+		return true, ""
+	}
+	if trimmed[0] != '[' {
+		return false, "slots must be a JSON array"
+	}
+	cursor := 1
+	slot_index := 0
+	for {
+		element, next_cursor, found := next_array_element(trimmed, cursor)
+		if !found {
+			break
+		}
+		if slot_index >= data_slot_count {
+			return false, "too many slots"
+		}
+		ok, write_err := handle_write_direct(slot_index, element)
+		if !ok {
+			return false, write_err
+		}
+		slot_index += 1
+		cursor = next_cursor
+	}
+	return true, ""
 }
 
 handle_init :: proc(input: []u8) -> (bool, string) {
