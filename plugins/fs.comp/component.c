@@ -92,6 +92,10 @@ static const char *error_code_name(wasi_filesystem_types_error_code_t code) {
   }
 }
 
+static uint64_t timestamp_seconds(wasi_filesystem_types_option_datetime_t timestamp) {
+  return timestamp.is_some ? timestamp.val.seconds : 0;
+}
+
 static const char *descriptor_type_name(wasi_filesystem_types_descriptor_type_t type) {
   switch (type) {
   case WASI_FILESYSTEM_TYPES_DESCRIPTOR_TYPE_BLOCK_DEVICE:
@@ -713,6 +717,9 @@ bool exports_gams_fs_fs_stat(fs_proxy_string_t *path,
 
   fs_proxy_string_dup(&ret->type, descriptor_type_name(stat.type));
   ret->size = stat.size;
+  ret->atime = timestamp_seconds(stat.data_access_timestamp);
+  ret->mtime = timestamp_seconds(stat.data_modification_timestamp);
+  ret->ctime = timestamp_seconds(stat.status_change_timestamp);
   wasi_filesystem_types_descriptor_stat_free(&stat);
 
   if (!descriptor_is_preopen) {
