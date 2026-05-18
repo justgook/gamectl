@@ -1293,10 +1293,7 @@
       "id": "scaler",
       "runtime": "wasm",
       "role": "service",
-      "deps": [
-        "sql"
-      ],
-      "url": "builtin/plugins/scaler.wasm"
+      "url": "builtin/plugins/scaler.comp.wasm"
     },
     {
       "id": "automap",

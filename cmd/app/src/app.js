@@ -15,6 +15,7 @@ async function main() {
     "plugins/fs.comp.wasm",
     "plugins/layout.comp.wasm",
     "plugins/lua.comp.wasm",
+    "plugins/scaler.comp.wasm",
     "plugins/treegen.comp.wasm",
     "plugins/minimap.comp.wasm",
   ], true)
