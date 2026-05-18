@@ -663,7 +663,7 @@ export class ViewIssues extends HTMLElement {
       card.addEventListener('pointercancel', (event) => this.cancelPointerDrag(event, card))
     }
 
-    const title = document.createElement('strong')
+    const title = document.createElement('header')
     title.textContent = issue.frontmatter.title
 
     const description = document.createElement('p')

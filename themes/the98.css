@@ -738,7 +738,7 @@
     background: color-mix(in oklab, var(--dialog-blue-light), var(--button-face) 78%);
   }
 
-  blockquote[data-element="issue-card"] {
+  blockquote {
     display: block;
     position: relative;
     box-sizing: border-box;
@@ -753,27 +753,27 @@
     white-space: normal;
   }
 
-  blockquote[data-element="issue-card"][data-draggable="true"] {
+  blockquote[data-draggable="true"] {
     cursor: grab;
     touch-action: none;
     user-select: none;
   }
 
-  blockquote[data-element="issue-card"][aria-grabbed="true"] {
+  blockquote[aria-grabbed="true"] {
     cursor: grabbing;
     opacity: 0.45;
   }
 
-  blockquote[data-element="issue-card"][data-drag-ghost="true"] {
+  blockquote[data-drag-ghost="true"] {
     cursor: grabbing;
     box-shadow: var(--border-window-outer), var(--border-window-inner), 4px 4px 0 color-mix(in oklab, black, transparent 70%);
   }
 
-  blockquote[data-element="issue-card"]:last-child {
+  blockquote:last-child {
     margin-bottom: 0;
   }
 
-  blockquote[data-element="issue-card"]>strong:first-child {
+  blockquote>header:first-child {
     display: block;
     position: absolute;
     top: 3px;
@@ -788,15 +788,15 @@
     white-space: nowrap;
   }
 
-  blockquote[data-element="issue-card"]>p {
+  blockquote>p {
     margin: 0 0 var(--grouped-element-spacing) 0;
   }
 
-  blockquote[data-element="issue-card"]>footer {
+  blockquote>footer {
     margin: var(--grouped-element-spacing) 0 0 0;
   }
 
-  blockquote[data-element="issue-card"]>footer>output {
+  blockquote>footer>output {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
