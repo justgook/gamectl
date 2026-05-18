@@ -808,11 +808,6 @@
     color: inherit;
   }
 
-  table[data-layout="separate"] {
-    border-collapse: separate;
-    border-spacing: var(--space-3);
-  }
-
   th,
   td {
     text-align: left;
@@ -822,13 +817,7 @@
     text-overflow: ellipsis;
   }
 
-  table[data-layout="separate"]>tbody>tr>td,
-  table[data-layout="separate"]>tbody>tr>th {
-    vertical-align: top;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
+
 
   caption {
     text-align: left;
@@ -868,6 +857,19 @@
 }
 
 @layer theme {
+  table[data-layout="separate"] {
+    border-collapse: separate;
+    border-spacing: var(--space-3);
+  }
+
+  table[data-layout="separate"]>tbody>tr>td,
+  table[data-layout="separate"]>tbody>tr>th {
+    vertical-align: top;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   [slot="header-controls"]>span[role="separator"] {
     width: 1px;
     height: 20px;
