@@ -35,8 +35,8 @@
   {
     "id": 47,
     "kind": 1,
-    "x": 1553,
-    "y": -49,
+    "x": 1827,
+    "y": -37,
     "name": "EDGE_RESULT",
     "codePath": "",
     "graphId": 0,
@@ -60,8 +60,8 @@
   {
     "id": 49,
     "kind": 2,
-    "x": 1335,
-    "y": -29,
+    "x": 1609,
+    "y": -17,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -76,7 +76,7 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 60,
+        "srcNodeId": 64,
         "srcOutputId": 1
       }
     ],
@@ -91,8 +91,8 @@
   {
     "id": 50,
     "kind": 4,
-    "x": 1139,
-    "y": -31,
+    "x": 1413,
+    "y": -19,
     "name": "edge_file",
     "codePath": "",
     "graphId": 0,
@@ -134,8 +134,8 @@
   {
     "id": 54,
     "kind": 2,
-    "x": 873,
-    "y": 200,
+    "x": 819,
+    "y": 245,
     "name": "Minimap Generator",
     "codePath": "ng/presets/pipeline-create-minimap.lua",
     "graphId": 0,
@@ -202,8 +202,8 @@
   {
     "id": 56,
     "kind": 4,
-    "x": 453,
-    "y": 89,
+    "x": 597,
+    "y": 417,
     "name": "DEBUG_tree",
     "codePath": "",
     "graphId": 0,
@@ -220,8 +220,8 @@
   {
     "id": 57,
     "kind": 2,
-    "x": 668,
-    "y": 91,
+    "x": 812,
+    "y": 419,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -251,8 +251,8 @@
   {
     "id": 58,
     "kind": 1,
-    "x": 860,
-    "y": 98,
+    "x": 1004,
+    "y": 426,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -270,8 +270,8 @@
   {
     "id": 60,
     "kind": 2,
-    "x": 1177,
-    "y": 130,
+    "x": 1101,
+    "y": 265,
     "name": "Scaler",
     "codePath": "ng/presets/pipeline-tilemap-scaler.lua",
     "graphId": 0,
@@ -307,8 +307,8 @@
   {
     "id": 61,
     "kind": 4,
-    "x": 914,
-    "y": 281,
+    "x": 825,
+    "y": 339,
     "name": "Scale factor",
     "codePath": "",
     "graphId": 0,
@@ -319,6 +319,96 @@
         "id": 1,
         "name": "",
         "value": "8"
+      }
+    ]
+  },
+  {
+    "id": 62,
+    "kind": 4,
+    "x": 820,
+    "y": 145,
+    "name": "Edges",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "output/edge_rules.map.json"
+      }
+    ]
+  },
+  {
+    "id": 63,
+    "kind": 2,
+    "x": 1093,
+    "y": 135,
+    "name": "Read File",
+    "codePath": "ng/presets/read-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 62,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "content",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 64,
+    "kind": 2,
+    "x": 1390,
+    "y": 198,
+    "name": "Automap",
+    "codePath": "ng/presets/pipeline-apply-automap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rulesMap",
+        "srcNodeId": 63,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "inputMap",
+        "srcNodeId": 60,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "outputMap",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "outputMap",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
       }
     ]
   }
