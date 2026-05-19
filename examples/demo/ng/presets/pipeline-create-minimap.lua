@@ -25,9 +25,15 @@ end
 
 local function entriesToMap(entries)
 	local map = {}
+
 	for _, entry in ipairs(entries or {}) do
 		map[tostring(entry[1])] = tostring(entry[2] or "")
 	end
+
+	if next(map) == nil then
+		return nil
+	end
+
 	return map
 end
 
