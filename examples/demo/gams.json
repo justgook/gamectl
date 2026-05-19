@@ -129,13 +129,9 @@
             "ctime": "asc",
             "atime": "dsc"
           },
-          "dnd": {
-            "status": [
-              "open",
-              "in-progress",
-              "done"
-            ]
-          }
+          "dnd": [
+            "status:*"
+          ]
         }
       },
       "view-animation": {
@@ -1208,9 +1204,6 @@
               "outputs": [
                 {
                   "name": "tree"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Progression"
