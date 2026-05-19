@@ -35,8 +35,8 @@
   {
     "id": 47,
     "kind": 1,
-    "x": 1252,
-    "y": -37,
+    "x": 1553,
+    "y": -49,
     "name": "EDGE_RESULT",
     "codePath": "",
     "graphId": 0,
@@ -60,8 +60,8 @@
   {
     "id": 49,
     "kind": 2,
-    "x": 1034,
-    "y": -17,
+    "x": 1335,
+    "y": -29,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -76,7 +76,7 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 54,
+        "srcNodeId": 60,
         "srcOutputId": 1
       }
     ],
@@ -91,8 +91,8 @@
   {
     "id": 50,
     "kind": 4,
-    "x": 838,
-    "y": -19,
+    "x": 1139,
+    "y": -31,
     "name": "edge_file",
     "codePath": "",
     "graphId": 0,
@@ -268,10 +268,10 @@
     "outputs": []
   },
   {
-    "id": 59,
+    "id": 60,
     "kind": 2,
-    "x": 1112,
-    "y": 261,
+    "x": 1177,
+    "y": 130,
     "name": "Scaler",
     "codePath": "ng/presets/pipeline-tilemap-scaler.lua",
     "graphId": 0,
@@ -280,8 +280,8 @@
       {
         "id": 1,
         "name": "inputMap",
-        "srcNodeId": 0,
-        "srcOutputId": 0
+        "srcNodeId": 54,
+        "srcOutputId": 1
       },
       {
         "id": 2,
@@ -292,8 +292,8 @@
       {
         "id": 3,
         "name": "scaleFactor",
-        "srcNodeId": 0,
-        "srcOutputId": 0
+        "srcNodeId": 61,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -301,11 +301,24 @@
         "id": 1,
         "name": "outputMap",
         "value": ""
-      },
+      }
+    ]
+  },
+  {
+    "id": 61,
+    "kind": 4,
+    "x": 914,
+    "y": 281,
+    "name": "Scale factor",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
       {
-        "id": 2,
-        "name": "error",
-        "value": ""
+        "id": 1,
+        "name": "",
+        "value": "8"
       }
     ]
   }
