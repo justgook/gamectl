@@ -875,14 +875,7 @@ impl RuntimeInner {
         let params = args
             .iter()
             .zip(params_ty.iter())
-            .map(|(value, ty)| {
-                json_to_val_with_resources(
-                    value,
-                    ty,
-                    Some(&resource_type_name),
-                    &mut resolve_resource,
-                )
-            })
+            .map(|(value, ty)| json_to_val_with_resources(value, ty, None, &mut resolve_resource))
             .collect::<Result<Vec<_>>>()?;
 
         let mut results = ty
@@ -1307,7 +1300,7 @@ fn call_runtime_target(
         .iter()
         .zip(params_ty.iter())
         .map(|(value, ty)| {
-            json_to_val_with_resources(value, ty, Some(&resource_type_name), &mut resolve_resource)
+            json_to_val_with_resources(value, ty, None, &mut resolve_resource)
                 .map_err(|error| error.to_string())
         })
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -1732,7 +1725,9 @@ fn parse_runtime_call_interface_id(value: &str) -> Result<RuntimeCallInterfaceId
 }
 
 fn parse_version(value: &str) -> Result<Version> {
-    let mut parts = value.split('.');
+    let metadata_start = value.find(['-', '+']).unwrap_or(value.len());
+    let numeric = &value[..metadata_start];
+    let mut parts = numeric.split('.');
     let major = parts
         .next()
         .context("version must contain major")?
@@ -2028,7 +2023,10 @@ fn resolve_component_path(root: &Path, preopens: &[FsPreopen], path: &str) -> Re
 
 #[cfg(test)]
 mod tests {
-    use super::{compiled_component_cache_path, FsPreopen, Runtime};
+    use super::{
+        compiled_component_cache_path, parse_interface_id, parse_version, version_satisfies,
+        FsPreopen, Runtime,
+    };
     use std::path::{Path, PathBuf};
 
     fn test_preopens(root: &Path) -> Vec<FsPreopen> {
@@ -2880,6 +2878,239 @@ mod tests {
             let value = runtime.invoke(target, args).unwrap();
             assert_eq!(value, expected, "target {target}");
         }
+    }
+
+    #[test]
+    fn interface_parser_accepts_semver_prerelease_and_build_metadata() {
+        let parsed = parse_interface_id("wasi:sql/readwrite@0.2.0-draft")
+            .unwrap()
+            .unwrap();
+        assert_eq!(parsed.package, "sql");
+        assert_eq!(parsed.interface, "readwrite");
+        assert_eq!(parsed.version.unwrap().major, 0);
+        assert_eq!(parsed.version.unwrap().minor, 2);
+        assert_eq!(parsed.version.unwrap().patch, 0);
+
+        let provider = parse_version("0.3.1-draft+upstream").unwrap();
+        let requested = parse_version("0.2.0-draft").unwrap();
+        assert!(version_satisfies(Some(provider), Some(requested)));
+    }
+
+    #[test]
+    fn sql_component_exports_wasi_sql_interfaces() {
+        let sql = "../../../build.nosync/plugins/sql.comp.wasm";
+        if !std::path::Path::new(sql).exists() {
+            eprintln!("skipping sql component test; build it with `make build.nosync/plugins/sql.comp.wasm`");
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/sql.comp.wasm".to_string()], false)
+            .unwrap();
+        let diagnostics = runtime.diagnostics().unwrap();
+        let exports = diagnostics["exports"].as_array().unwrap();
+        assert!(exports
+            .iter()
+            .any(|value| value == "wasi:sql/types@0.2.0-draft::[static]connection.open"));
+        assert!(exports
+            .iter()
+            .any(|value| value == "wasi:sql/types@0.2.0-draft::[static]statement.prepare"));
+        assert!(exports
+            .iter()
+            .any(|value| value == "wasi:sql/readwrite@0.2.0-draft::query"));
+        assert!(exports
+            .iter()
+            .any(|value| value == "wasi:sql/readwrite@0.2.0-draft::exec"));
+    }
+
+    #[test]
+    fn sql_component_round_trips_memory_database_through_runtime_invoke() {
+        let sql = "../../../build.nosync/plugins/sql.comp.wasm";
+        if !std::path::Path::new(sql).exists() {
+            eprintln!("skipping sql component invoke test; build it with `make build.nosync/plugins/sql.comp.wasm`");
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/sql.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let opened = runtime
+            .invoke(
+                "sql/types::[static]connection.open",
+                serde_json::json!([":memory:"]),
+            )
+            .unwrap();
+        let connection = opened.get("ok").unwrap();
+        assert_eq!(connection["$resource"], serde_json::json!("wasi:sql/types"));
+
+        let create = runtime
+            .invoke(
+                "sql/types::[static]statement.prepare",
+                serde_json::json!(["create table items(id integer primary key, name text)", []]),
+            )
+            .unwrap();
+        let create_statement = create.get("ok").unwrap();
+        runtime
+            .invoke(
+                "sql/readwrite::exec",
+                serde_json::json!([connection, create_statement]),
+            )
+            .unwrap();
+
+        let insert = runtime
+            .invoke(
+                "sql/types::[static]statement.prepare",
+                serde_json::json!(["insert into items(name) values (?)", ["sword"]]),
+            )
+            .unwrap();
+        runtime
+            .invoke(
+                "sql/readwrite::exec",
+                serde_json::json!([connection, insert.get("ok").unwrap()]),
+            )
+            .unwrap();
+
+        let select = runtime
+            .invoke(
+                "sql/types::[static]statement.prepare",
+                serde_json::json!(["select id, name from items order by id", []]),
+            )
+            .unwrap();
+        let queried = runtime
+            .invoke(
+                "sql/readwrite::query",
+                serde_json::json!([connection, select.get("ok").unwrap()]),
+            )
+            .unwrap();
+        assert_eq!(queried["ok"][0]["field-name"], serde_json::json!("id"));
+        assert_eq!(
+            queried["ok"][0]["value"],
+            serde_json::json!({ "case": "int64", "value": 1 })
+        );
+        assert_eq!(queried["ok"][1]["field-name"], serde_json::json!("name"));
+        assert_eq!(
+            queried["ok"][1]["value"],
+            serde_json::json!({ "case": "str", "value": "sword" })
+        );
+    }
+
+    #[test]
+    fn sql_component_can_open_file_backed_database_through_wasi_filesystem() {
+        let sql = "../../../build.nosync/plugins/sql.comp.wasm";
+        if !std::path::Path::new(sql).exists() {
+            eprintln!("skipping sql file-backed test; build it with `make build.nosync/plugins/sql.comp.wasm`");
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let db_path = root.join("sql-runtime-test.sqlite");
+        let _ = std::fs::remove_file(&db_path);
+
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/sql.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let opened = runtime
+            .invoke(
+                "sql/types::[static]connection.open",
+                serde_json::json!(["sql-runtime-test.sqlite"]),
+            )
+            .unwrap();
+        let connection = opened.get("ok").unwrap();
+        let create = runtime
+            .invoke(
+                "sql/types::[static]statement.prepare",
+                serde_json::json!(["create table persisted(id integer)", []]),
+            )
+            .unwrap();
+        runtime
+            .invoke(
+                "sql/readwrite::exec",
+                serde_json::json!([connection, create.get("ok").unwrap()]),
+            )
+            .unwrap();
+        runtime.release_resource(connection.clone()).unwrap();
+
+        assert!(db_path.exists());
+        std::fs::remove_file(db_path).unwrap();
+    }
+
+    #[test]
+    fn sql_vec_component_exposes_same_wasi_sql_interface_with_vec_functions() {
+        let sql_vec = "../../../build.nosync/plugins/sql-vec.comp.wasm";
+        if !std::path::Path::new(sql_vec).exists() {
+            eprintln!("skipping sql-vec component invoke test; build it with `make build.nosync/plugins/sql-vec.comp.wasm`");
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/sql-vec.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let connection = runtime
+            .invoke(
+                "sql/types::[static]connection.open",
+                serde_json::json!([":memory:"]),
+            )
+            .unwrap();
+        let statement = runtime
+            .invoke(
+                "sql/types::[static]statement.prepare",
+                serde_json::json!(["select vec_version() as version", []]),
+            )
+            .unwrap();
+        let queried = runtime
+            .invoke(
+                "sql/readwrite::query",
+                serde_json::json!([connection.get("ok").unwrap(), statement.get("ok").unwrap()]),
+            )
+            .unwrap();
+        assert_eq!(queried["ok"][0]["field-name"], serde_json::json!("version"));
+        assert_eq!(queried["ok"][0]["value"]["case"], serde_json::json!("str"));
+    }
+
+    #[test]
+    fn loading_sql_and_sql_vec_together_rejects_duplicate_wasi_sql_provider() {
+        let sql = "../../../build.nosync/plugins/sql.comp.wasm";
+        let sql_vec = "../../../build.nosync/plugins/sql-vec.comp.wasm";
+        if !std::path::Path::new(sql).exists() || !std::path::Path::new(sql_vec).exists() {
+            eprintln!(
+                "skipping sql duplicate-provider test; build sql.comp and sql-vec.comp first"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        let error = runtime
+            .add_plugins(
+                vec![
+                    "plugins/sql.comp.wasm".to_string(),
+                    "plugins/sql-vec.comp.wasm".to_string(),
+                ],
+                false,
+            )
+            .unwrap_err();
+        assert!(error.contains("duplicate provider"), "{error}");
+        assert!(error.contains("sql/types@0"), "{error}");
     }
 
     #[test]

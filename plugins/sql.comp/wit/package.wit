@@ -1,0 +1,6 @@
+package wasi:sql@0.2.0-draft;
+
+world provider {
+    export types;
+    export readwrite;
+}
