@@ -1,21 +1,6 @@
 import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin, viewOk } from '/util/view-plugin.js'
 
-const MIN_SCALE = 0.2
-const MAX_SCALE = 3.0
-const NODE_MIN_WIDTH = 200
-const NODE_MIN_HEIGHT = 72
-const NODE_PADDING_X = 14
-const NODE_PADDING_Y = 12
-const TITLE_FONT_PX = 13
-const DATA_FONT_PX = 11
-const LINE_HEIGHT = 17
-const MAX_VISIBLE_DATA = 5
-const HORIZONTAL_SPACING = 150
-const MIN_VERTICAL_SPACING = 42
-const CONTENT_PADDING_X = 180
-const CONTENT_PADDING_Y = 120
-
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
@@ -92,41 +77,88 @@ function buildGlyphMap(meta) {
   return map
 }
 
-function getTreeRenderAssets() {
-  return {
-    theme: {
-      clear: [11 / 255, 25 / 255, 34 / 255, 1],
-      text: [214 / 255, 236 / 255, 248 / 255, 1],
-      textMuted: [147 / 255, 177 / 255, 194 / 255, 1],
-      selection: [74 / 255, 199 / 255, 255 / 255, 1],
-      edge: [70 / 255, 108 / 255, 132 / 255, 0.95],
-    },
-    edge: {
-      handleMin: 26,
-      handleMax: 180,
-      halfWidthPx: 1.7,
-      glowPx: 2.2,
-      aaPx: 1.0,
-    },
-    text: {
-      aa: 8,
-      effect: 'fill',
-      stroke: 2.5,
-      glow: 2,
-      shadowX: 4,
-      shadowY: -4,
-      source: {
-        metaUrl: '/demo/ng/atlas-mtsdf.json',
-        atlasUrl: '/demo/ng/atlas-mtsdf.png',
-        channels: 4,
-      },
-    },
-    nineSlices: {
-      idle: { textureUrl: '/demo/ng/nine.png', left: 8, right: 8, top: 8, bottom: 8 },
-      hover: { textureUrl: '/demo/ng/nine-hover.png', left: 8, right: 8, top: 8, bottom: 8 },
-      selected: { textureUrl: '/demo/ng/nine-selected.png', left: 8, right: 8, top: 8, bottom: 8 },
-    },
+function isPlainObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function cloneConfigValue(value) {
+  if (Array.isArray(value)) return value.map((item) => cloneConfigValue(item))
+  if (isPlainObject(value)) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneConfigValue(item)]))
+  return value
+}
+
+function requireObject(value, label) {
+  if (!isPlainObject(value)) throw new Error(`${label} must be an object`)
+  return value
+}
+
+function requireConfigString(value, label) {
+  if (typeof value !== 'string' || value.length === 0) throw new Error(`${label} must be a non-empty string`)
+  return value
+}
+
+function requireConfigNumber(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${label} must be a finite number`)
+  return value
+}
+
+function requireConfigNumberArray(value, label, length = null) {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`)
+  if (length != null && value.length !== length) throw new Error(`${label} must contain ${length} numbers`)
+  for (let i = 0; i < value.length; i += 1) requireConfigNumber(value[i], `${label}[${i}]`)
+  return value
+}
+
+function requireKeys(object, label, keys) {
+  requireObject(object, label)
+  for (const key of keys) {
+    if (!(key in object)) throw new Error(`${label}.${key} is required`)
   }
+  return object
+}
+
+function validateNineSlice(slice, label) {
+  requireKeys(slice, label, ['textureUrl', 'left', 'right', 'top', 'bottom'])
+  requireConfigString(slice.textureUrl, `${label}.textureUrl`)
+  requireConfigNumber(slice.left, `${label}.left`)
+  requireConfigNumber(slice.right, `${label}.right`)
+  requireConfigNumber(slice.top, `${label}.top`)
+  requireConfigNumber(slice.bottom, `${label}.bottom`)
+}
+
+function validateTreeRenderConfig(config) {
+  requireKeys(config, 'view-tree config.config', ['zoom', 'layout', 'node', 'textLayout', 'theme', 'edge', 'text', 'nineSlices'])
+
+  requireKeys(config.zoom, 'view-tree config.config.zoom', ['minScale', 'maxScale'])
+  for (const key of Object.keys(config.zoom)) requireConfigNumber(config.zoom[key], `view-tree config.config.zoom.${key}`)
+
+  requireKeys(config.layout, 'view-tree config.config.layout', ['horizontalSpacing', 'minVerticalSpacing', 'contentPaddingX', 'contentPaddingY'])
+  for (const key of Object.keys(config.layout)) requireConfigNumber(config.layout[key], `view-tree config.config.layout.${key}`)
+
+  requireKeys(config.node, 'view-tree config.config.node', ['minWidth', 'minHeight', 'paddingX', 'paddingY'])
+  for (const key of Object.keys(config.node)) requireConfigNumber(config.node[key], `view-tree config.config.node.${key}`)
+
+  requireKeys(config.textLayout, 'view-tree config.config.textLayout', ['titleFontPx', 'dataFontPx', 'lineHeight', 'maxVisibleData'])
+  for (const key of Object.keys(config.textLayout)) requireConfigNumber(config.textLayout[key], `view-tree config.config.textLayout.${key}`)
+
+  requireKeys(config.theme, 'view-tree config.config.theme', ['clear', 'text', 'textMuted', 'selection', 'edge'])
+  for (const key of Object.keys(config.theme)) requireConfigNumberArray(config.theme[key], `view-tree config.config.theme.${key}`, 4)
+
+  requireKeys(config.edge, 'view-tree config.config.edge', ['handleMin', 'handleMax', 'halfWidthPx', 'glowPx', 'aaPx'])
+  for (const key of Object.keys(config.edge)) requireConfigNumber(config.edge[key], `view-tree config.config.edge.${key}`)
+
+  requireKeys(config.text, 'view-tree config.config.text', ['aa', 'effect', 'stroke', 'glow', 'shadowX', 'shadowY', 'source'])
+  requireConfigString(config.text.effect, 'view-tree config.config.text.effect')
+  for (const key of ['aa', 'stroke', 'glow', 'shadowX', 'shadowY']) requireConfigNumber(config.text[key], `view-tree config.config.text.${key}`)
+  requireKeys(config.text.source, 'view-tree config.config.text.source', ['metaUrl', 'atlasUrl', 'channels'])
+  requireConfigString(config.text.source.metaUrl, 'view-tree config.config.text.source.metaUrl')
+  requireConfigString(config.text.source.atlasUrl, 'view-tree config.config.text.source.atlasUrl')
+  requireConfigNumber(config.text.source.channels, 'view-tree config.config.text.source.channels')
+
+  requireKeys(config.nineSlices, 'view-tree config.config.nineSlices', ['idle', 'hover', 'selected'])
+  for (const key of Object.keys(config.nineSlices)) validateNineSlice(config.nineSlices[key], `view-tree config.config.nineSlices.${key}`)
+
+  return config
 }
 
 function cloneStringData(input, label) {
@@ -172,7 +204,8 @@ export class ViewTree extends HTMLElement {
 
   constructor() {
     super()
-    this.assets = getTreeRenderAssets()
+    this.viewConfig = null
+    this.assets = null
     this.canvas = null
     this.gl = null
     this.keyElement = null
@@ -221,6 +254,7 @@ export class ViewTree extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this, this.createViewPluginMethods())
     if (!this._ready) {
+      this._applyViewConfig()
       this._ready = true
       this.style.display = 'contents'
       this.innerHTML = `
@@ -256,6 +290,13 @@ export class ViewTree extends HTMLElement {
       }).catch((error) => { throw error })
     }
     this.render()
+  }
+
+  _applyViewConfig() {
+    const config = this.viewConfig
+    if (!isPlainObject(config)) throw new Error('view-tree config must be an object')
+    if (!isPlainObject(config.config)) throw new Error('view-tree config.config must be an object')
+    this.assets = validateTreeRenderConfig(cloneConfigValue(config.config))
   }
 
   disconnectedCallback() {
@@ -677,19 +718,20 @@ export class ViewTree extends HTMLElement {
     }
     assignLevels(0)
 
-    let x = CONTENT_PADDING_X
+    const layout = this.assets.layout
+    let x = layout.contentPaddingX
     for (let level = 0; level < levels.length; level += 1) {
       const ids = levels[level] || []
-      const totalHeight = ids.reduce((sum, id) => sum + this.nodeSizes.get(id).height, 0) + Math.max(0, ids.length - 1) * MIN_VERTICAL_SPACING
-      let y = CONTENT_PADDING_Y + Math.max(0, ((this.canvas?.height || 600) / Math.max(this.scale, 0.0001) - totalHeight) * 0.5)
+      const totalHeight = ids.reduce((sum, id) => sum + this.nodeSizes.get(id).height, 0) + Math.max(0, ids.length - 1) * layout.minVerticalSpacing
+      let y = layout.contentPaddingY + Math.max(0, ((this.canvas?.height || 600) / Math.max(this.scale, 0.0001) - totalHeight) * 0.5)
       let maxWidth = 0
       for (const id of ids) {
         const size = this.nodeSizes.get(id)
         this.nodePositions.set(id, { x, y: Math.round(y), width: size.width, height: size.height })
-        y += size.height + MIN_VERTICAL_SPACING
+        y += size.height + layout.minVerticalSpacing
         maxWidth = Math.max(maxWidth, size.width)
       }
-      x += maxWidth + HORIZONTAL_SPACING
+      x += maxWidth + layout.horizontalSpacing
     }
   }
 
@@ -697,13 +739,15 @@ export class ViewTree extends HTMLElement {
     const node = this.treeData[index]
     const title = this.nodeDisplayLabel(index)
     const entries = Object.entries(node.data || {})
-    const visible = entries.slice(0, MAX_VISIBLE_DATA)
-    let width = Math.max(NODE_MIN_WIDTH, NODE_PADDING_X * 2 + this._measureTextWidth(title, TITLE_FONT_PX / this.atlasSize()))
+    const nodeConfig = this.assets.node
+    const textLayout = this.assets.textLayout
+    const visible = entries.slice(0, textLayout.maxVisibleData)
+    let width = Math.max(nodeConfig.minWidth, nodeConfig.paddingX * 2 + this._measureTextWidth(title, textLayout.titleFontPx / this.atlasSize()))
     for (const [key, value] of visible) {
-      width = Math.max(width, NODE_PADDING_X * 2 + this._measureTextWidth(`${key}: ${value}`, DATA_FONT_PX / this.atlasSize()))
+      width = Math.max(width, nodeConfig.paddingX * 2 + this._measureTextWidth(`${key}: ${value}`, textLayout.dataFontPx / this.atlasSize()))
     }
-    const rows = visible.length + (entries.length > MAX_VISIBLE_DATA ? 1 : 0)
-    const height = Math.max(NODE_MIN_HEIGHT, NODE_PADDING_Y * 2 + TITLE_FONT_PX + 8 + rows * LINE_HEIGHT)
+    const rows = visible.length + (entries.length > textLayout.maxVisibleData ? 1 : 0)
+    const height = Math.max(nodeConfig.minHeight, nodeConfig.paddingY * 2 + textLayout.titleFontPx + 8 + rows * textLayout.lineHeight)
     return { width: Math.ceil(width), height: Math.ceil(height) }
   }
 
@@ -719,11 +763,12 @@ export class ViewTree extends HTMLElement {
       maxX = Math.max(maxX, pos.x + pos.width)
       maxY = Math.max(maxY, pos.y + pos.height)
     }
+    const layout = this.assets.layout
     return {
-      minX: minX - CONTENT_PADDING_X,
-      minY: minY - CONTENT_PADDING_Y,
-      maxX: maxX + CONTENT_PADDING_X,
-      maxY: maxY + CONTENT_PADDING_Y,
+      minX: minX - layout.contentPaddingX,
+      minY: minY - layout.contentPaddingY,
+      maxX: maxX + layout.contentPaddingX,
+      maxY: maxY + layout.contentPaddingY,
     }
   }
 
@@ -837,7 +882,8 @@ export class ViewTree extends HTMLElement {
 
   _zoomAt(screenX, screenY, factor) {
     const old = this.scale
-    this.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, this.scale * factor))
+    const zoom = this.assets.zoom
+    this.scale = Math.max(zoom.minScale, Math.min(zoom.maxScale, this.scale * factor))
     const worldX = (screenX - this.offsetX) / old
     const worldY = (screenY - this.offsetY) / old
     this.offsetX = screenX - worldX * this.scale
@@ -857,7 +903,8 @@ export class ViewTree extends HTMLElement {
     if (contentWidth <= 0 || contentHeight <= 0) return false
     const scaleX = this.canvas.width / contentWidth
     const scaleY = this.canvas.height / contentHeight
-    this.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(scaleX, scaleY)))
+    const zoom = this.assets.zoom
+    this.scale = Math.max(zoom.minScale, Math.min(zoom.maxScale, Math.min(scaleX, scaleY)))
     const contentCenterX = (this.contentBounds.minX + this.contentBounds.maxX) * 0.5
     const contentCenterY = (this.contentBounds.minY + this.contentBounds.maxY) * 0.5
     this.offsetX = this.canvas.width * 0.5 - contentCenterX * this.scale
@@ -897,10 +944,13 @@ export class ViewTree extends HTMLElement {
   }
 
   async _loadTextureFromUrl(url) {
-    const res = await fetch(url, { cache: 'no-cache' })
-    if (!res.ok) throw new Error(`failed to fetch ${url}: ${res.status}`)
-    const blob = await res.blob()
-    const image = await createImageBitmap(blob)
+    const data = unwrap(await runtime.invoke('fs/fs::read-file', url), url)
+    let image = null
+    try {
+      image = await createImageBitmap(new Blob([new Uint8Array(data)]))
+    } catch (error) {
+      throw new Error(`failed to create image ${url}`)
+    }
     const gl = this.gl
     const tex = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, tex)
@@ -923,15 +973,17 @@ export class ViewTree extends HTMLElement {
   }
 
   async _loadTextAtlasFromAssets() {
-    const [metaRes, atlasRes] = await Promise.all([
-      fetch(this.assets.text.source.metaUrl, { cache: 'no-cache' }),
-      fetch(this.assets.text.source.atlasUrl, { cache: 'no-cache' }),
+    const [metaResult, atlasResult] = await Promise.all([
+      runtime.invoke('fs/fs::read-text', this.assets.text.source.metaUrl).then(unwrap),
+      runtime.invoke('fs/fs::read-file', this.assets.text.source.atlasUrl).then(unwrap),
     ])
-    if (!metaRes.ok) throw new Error(`failed to fetch ${this.assets.text.source.metaUrl}: ${metaRes.status}`)
-    if (!atlasRes.ok) throw new Error(`failed to fetch ${this.assets.text.source.atlasUrl}: ${atlasRes.status}`)
-    const meta = await metaRes.json()
-    const atlasBlob = await atlasRes.blob()
-    const atlasImage = await createImageBitmap(atlasBlob)
+    const meta = JSON.parse(metaResult)
+    let atlasImage = null
+    try {
+      atlasImage = await createImageBitmap(new Blob([new Uint8Array(atlasResult)]))
+    } catch (error) {
+      throw new Error(`failed to create image ${this.assets.text.source.atlasUrl}`)
+    }
     const gl = this.gl
     const tex = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, tex)
@@ -1155,8 +1207,10 @@ export class ViewTree extends HTMLElement {
     gl.uniform2f(gl.getUniformLocation(this.textProgram, 'uShadowPx'), Number(this.assets.text.shadowX || 4), Number(this.assets.text.shadowY || -4))
     gl.uniform2f(gl.getUniformLocation(this.textProgram, 'uAtlasSize'), this.textAtlas.atlasW, this.textAtlas.atlasH)
     const atlasSize = this.atlasSize()
-    const titleScale = TITLE_FONT_PX / atlasSize
-    const dataScale = DATA_FONT_PX / atlasSize
+    const nodeConfig = this.assets.node
+    const textLayout = this.assets.textLayout
+    const titleScale = textLayout.titleFontPx / atlasSize
+    const dataScale = textLayout.dataFontPx / atlasSize
     const drawText = (text, startX, baselineY, scale) => {
       let x = startX
       for (const ch of String(text || '')) {
@@ -1180,16 +1234,16 @@ export class ViewTree extends HTMLElement {
       const pos = this.nodePositions.get(index)
       assert(pos, `view-tree missing label position ${index}`)
       gl.uniform4f(colorLoc, c[0], c[1], c[2], c[3])
-      drawText(this.nodeDisplayLabel(index), pos.x + NODE_PADDING_X, pos.y + NODE_PADDING_Y + TITLE_FONT_PX, titleScale)
+      drawText(this.nodeDisplayLabel(index), pos.x + nodeConfig.paddingX, pos.y + nodeConfig.paddingY + textLayout.titleFontPx, titleScale)
       gl.uniform4f(colorLoc, cMuted[0], cMuted[1], cMuted[2], cMuted[3])
       const entries = Object.entries(node.data || {})
-      let y = pos.y + NODE_PADDING_Y + TITLE_FONT_PX + 8 + DATA_FONT_PX
-      for (const [key, value] of entries.slice(0, MAX_VISIBLE_DATA)) {
-        drawText(`${key}: ${value}`, pos.x + NODE_PADDING_X, y, dataScale)
-        y += LINE_HEIGHT
+      let y = pos.y + nodeConfig.paddingY + textLayout.titleFontPx + 8 + textLayout.dataFontPx
+      for (const [key, value] of entries.slice(0, textLayout.maxVisibleData)) {
+        drawText(`${key}: ${value}`, pos.x + nodeConfig.paddingX, y, dataScale)
+        y += textLayout.lineHeight
       }
-      if (entries.length > MAX_VISIBLE_DATA) {
-        drawText(`+${entries.length - MAX_VISIBLE_DATA} more`, pos.x + NODE_PADDING_X, y, dataScale)
+      if (entries.length > textLayout.maxVisibleData) {
+        drawText(`+${entries.length - textLayout.maxVisibleData} more`, pos.x + nodeConfig.paddingX, y, dataScale)
       }
     }
   }

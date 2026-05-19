@@ -502,7 +502,106 @@
         "url": "views/view-tree.js",
         "label": "Tree",
         "internal": false,
-        "defaultSource": "tmp/progression.tree.json"
+        "defaultSource": "tmp/progression.tree.json",
+        "config": {
+          "zoom": {
+            "minScale": 0.2,
+            "maxScale": 3.0
+          },
+          "layout": {
+            "horizontalSpacing": 150,
+            "minVerticalSpacing": 42,
+            "contentPaddingX": 180,
+            "contentPaddingY": 120
+          },
+          "node": {
+            "minWidth": 200,
+            "minHeight": 72,
+            "paddingX": 14,
+            "paddingY": 12
+          },
+          "textLayout": {
+            "titleFontPx": 13,
+            "dataFontPx": 11,
+            "lineHeight": 17,
+            "maxVisibleData": 5
+          },
+          "theme": {
+            "clear": [
+              0.043137254901960784,
+              0.09803921568627451,
+              0.13333333333333333,
+              1
+            ],
+            "text": [
+              0.8392156862745098,
+              0.9254901960784314,
+              0.9725490196078431,
+              1
+            ],
+            "textMuted": [
+              0.5764705882352941,
+              0.6941176470588235,
+              0.7607843137254902,
+              1
+            ],
+            "selection": [
+              0.2901960784313726,
+              0.7803921568627451,
+              1.0,
+              1
+            ],
+            "edge": [
+              0.27450980392156865,
+              0.4235294117647059,
+              0.5176470588235295,
+              0.95
+            ]
+          },
+          "edge": {
+            "handleMin": 26,
+            "handleMax": 180,
+            "halfWidthPx": 1.7,
+            "glowPx": 2.2,
+            "aaPx": 1.0
+          },
+          "text": {
+            "aa": 8,
+            "effect": "fill",
+            "stroke": 2.5,
+            "glow": 2,
+            "shadowX": 4,
+            "shadowY": -4,
+            "source": {
+              "metaUrl": "ng/atlas-mtsdf.json",
+              "atlasUrl": "ng/atlas-mtsdf.png",
+              "channels": 4
+            }
+          },
+          "nineSlices": {
+            "idle": {
+              "textureUrl": "ng/nine.png",
+              "left": 8,
+              "right": 8,
+              "top": 8,
+              "bottom": 8
+            },
+            "hover": {
+              "textureUrl": "ng/nine-hover.png",
+              "left": 8,
+              "right": 8,
+              "top": 8,
+              "bottom": 8
+            },
+            "selected": {
+              "textureUrl": "ng/nine-selected.png",
+              "left": 8,
+              "right": 8,
+              "top": 8,
+              "bottom": 8
+            }
+          }
+        }
       },
       "view-setting-plugins": {
         "url": "views/view-setting-plugins.js",
