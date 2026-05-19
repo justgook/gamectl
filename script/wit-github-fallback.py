@@ -56,12 +56,24 @@ def collect_wasi_refs(wit_tree: Path) -> set[tuple[str, str]]:
     return refs
 
 
-def package_name(package_dir: Path) -> str:
+def package_decl(package_dir: Path) -> tuple[str, str] | None:
     for path in package_dir.glob("*.wit"):
         match = PACKAGE_RE.search(read_text(path))
         if match:
-            return match.group(1).split(":", 1)[1].split("@", 1)[0]
+            name, version = match.group(1).split(":", 1)[1].split("@", 1)
+            return name, version
+    return None
+
+
+def package_name(package_dir: Path) -> str:
+    declared = package_decl(package_dir)
+    if declared is not None:
+        return declared[0]
     return package_dir.name
+
+
+def has_package(deps_dir: Path, package: str, version: str) -> bool:
+    return any(package_decl(child) == (package, version) for child in deps_dir.iterdir() if child.is_dir())
 
 
 def github_ref(repo: str, version: str) -> str:
@@ -124,9 +136,10 @@ def copy_nested_deps_to_top_level(deps_dir: Path) -> None:
         for nested in list(deps_dir.glob("*/deps/*")):
             if not nested.is_dir():
                 continue
-            name = package_name(nested)
+            declared = package_decl(nested)
+            name = declared[0] if declared is not None else nested.name
             target = deps_dir / name
-            if target.exists():
+            if target.exists() or (declared is not None and has_package(deps_dir, declared[0], declared[1])):
                 continue
             shutil.copytree(nested, target)
             changed = True
@@ -165,14 +178,14 @@ def main() -> None:
         if repo is None:
             fail(f"no GitHub repository mapping for wasi:{package}@{version}")
         target = deps_dir / package
-        if target.exists():
+        if has_package(deps_dir, package, version):
             continue
         shutil.copytree(cached_wasi_package(package, version, repo), target, ignore=shutil.ignore_patterns(".complete"))
         copy_nested_deps_to_top_level(deps_dir)
 
     # Newly flattened dependency WIT can reference more WASI packages. Resolve until stable.
     while True:
-        unresolved = [(p, v) for p, v in sorted(collect_wasi_refs(work_wit)) if not (deps_dir / p).exists()]
+        unresolved = [(p, v) for p, v in sorted(collect_wasi_refs(work_wit)) if not has_package(deps_dir, p, v)]
         if not unresolved:
             break
         for package, version in unresolved:
