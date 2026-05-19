@@ -690,7 +690,12 @@ class TilemapTileset {
   }
 
   static async load(spec, firstTileId) {
-    const result = unwrap(await runtime.invoke("fs/fs::read-file", spec.path))
+    let result;
+    try {
+      result = unwrap(await runtime.invoke("fs/fs::read-file", spec.path))
+    } catch (e) {
+      console.warn(`failed to load ${spec.path}; ${e}`)
+    }
     const image = TilemapTileset.decodeQoi(result)
     const columns = Math.floor(image.width / spec.tileWidth)
     const imageRows = Math.floor(image.height / spec.tileHeight)

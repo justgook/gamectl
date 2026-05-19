@@ -336,7 +336,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "output/edge_rules.map.json"
+        "value": "pipe/edge.rules.map.json"
       }
     ]
   },

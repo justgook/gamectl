@@ -496,7 +496,7 @@
         "url": "views/view-tilemap.js",
         "label": "Tilemap",
         "internal": false,
-        "defaultSource": "rules.map.json"
+        "defaultSource": "pipe/edge.rules.map.json"
       },
       "view-tree": {
         "url": "views/view-tree.js",
