@@ -325,8 +325,8 @@
   {
     "id": 62,
     "kind": 4,
-    "x": 820,
-    "y": 145,
+    "x": 660,
+    "y": 141,
     "name": "Edges",
     "codePath": "",
     "graphId": 0,
@@ -343,8 +343,8 @@
   {
     "id": 63,
     "kind": 2,
-    "x": 1093,
-    "y": 135,
+    "x": 918,
+    "y": 137,
     "name": "Read File",
     "codePath": "ng/presets/read-file.lua",
     "graphId": 0,
@@ -383,7 +383,7 @@
       {
         "id": 1,
         "name": "rulesMap",
-        "srcNodeId": 63,
+        "srcNodeId": 66,
         "srcOutputId": 1
       },
       {
@@ -403,6 +403,31 @@
       {
         "id": 1,
         "name": "outputMap",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 66,
+    "kind": 2,
+    "x": 1132,
+    "y": 145,
+    "name": "JSON.Decode",
+    "codePath": "ng/presets/json_decode.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "text",
+        "srcNodeId": 63,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
         "value": ""
       }
     ]
