@@ -7,6 +7,7 @@ function assert(condition, message) {
 
 const BUILTIN_TIME_SORTS = new Set(['mtime', 'ctime', 'atime'])
 const SORT_DIRECTIONS = new Set(['asc', 'dsc'])
+const DND_ALL_VALUES = '*'
 
 function normalizePath(path) {
   const raw = String(path || '.').trim()
@@ -122,6 +123,47 @@ function renderMarkdownSummary(body) {
 function normalizeSortDirection(value, key) {
   assert(SORT_DIRECTIONS.has(value), `view-issues sort.${key} must be "asc", "dsc", or an enum array`)
   return value
+}
+
+function addDndValue(dndConfig, field, value, filterConfig) {
+  assert(Object.hasOwn(filterConfig, field), `view-issues config.dnd.${field} must reference a configured filter`)
+  assert(typeof value === 'string' && value.length > 0, `view-issues config.dnd.${field} values must be non-empty strings`)
+  if (value === DND_ALL_VALUES) {
+    dndConfig[field] = DND_ALL_VALUES
+    return
+  }
+  assert(filterConfig[field].includes(value), `view-issues config.dnd.${field} value ${value} must exist in config.filter.${field}`)
+  if (dndConfig[field] === DND_ALL_VALUES) return
+  if (!Array.isArray(dndConfig[field])) dndConfig[field] = []
+  dndConfig[field].push(value)
+}
+
+function normalizeDndConfig(rawDndConfig, filterConfig) {
+  const dndConfig = {}
+  if (rawDndConfig === undefined) return dndConfig
+
+  if (Array.isArray(rawDndConfig)) {
+    assert(rawDndConfig.length > 0, 'view-issues config.dnd must not be empty')
+    for (const token of rawDndConfig) {
+      assert(typeof token === 'string' && token.length > 0, 'view-issues config.dnd entries must be non-empty strings')
+      const separator = token.indexOf(':')
+      assert(separator > 0 && separator < token.length - 1, `view-issues config.dnd entry ${token} must use field:value`)
+      addDndValue(dndConfig, token.slice(0, separator), token.slice(separator + 1), filterConfig)
+    }
+    return dndConfig
+  }
+
+  assert(rawDndConfig && typeof rawDndConfig === 'object', 'view-issues config.dnd must be an object or field:value array when present')
+  for (const [field, values] of Object.entries(rawDndConfig)) {
+    if (values === DND_ALL_VALUES) {
+      addDndValue(dndConfig, field, DND_ALL_VALUES, filterConfig)
+      continue
+    }
+    assert(Array.isArray(values), `view-issues config.dnd.${field} must be "*" or an array`)
+    assert(values.length > 0, `view-issues config.dnd.${field} must not be empty`)
+    for (const value of values) addDndValue(dndConfig, field, value, filterConfig)
+  }
+  return dndConfig
 }
 
 function comparePrimitive(a, b) {
@@ -256,11 +298,11 @@ export class ViewIssues extends HTMLElement {
     assert(config && typeof config === 'object' && !Array.isArray(config), 'view-issues requires config object')
     assert(config.filter && typeof config.filter === 'object' && !Array.isArray(config.filter), 'view-issues config.filter must be an object')
     assert(config.sort && typeof config.sort === 'object' && !Array.isArray(config.sort), 'view-issues config.sort must be an object')
-    assert(config.dnd === undefined || config.dnd && typeof config.dnd === 'object' && !Array.isArray(config.dnd), 'view-issues config.dnd must be an object when present')
+    assert(config.dnd === undefined || config.dnd && typeof config.dnd === 'object', 'view-issues config.dnd must be an object or field:value array when present')
 
     this.filterConfig = config.filter
     this.sortConfig = config.sort
-    this.dndConfig = config.dnd || {}
+    this.dndConfig = null
 
     for (const [key, values] of Object.entries(this.filterConfig)) {
       assert(Array.isArray(values), `view-issues config.filter.${key} must be an array`)
@@ -278,15 +320,7 @@ export class ViewIssues extends HTMLElement {
       }
     }
 
-    for (const [key, values] of Object.entries(this.dndConfig)) {
-      assert(Object.hasOwn(this.filterConfig, key), `view-issues config.dnd.${key} must reference a configured filter`)
-      assert(Array.isArray(values), `view-issues config.dnd.${key} must be an array`)
-      assert(values.length > 0, `view-issues config.dnd.${key} must not be empty`)
-      for (const value of values) {
-        assert(typeof value === 'string' && value.length > 0, `view-issues config.dnd.${key} values must be non-empty strings`)
-        assert(this.filterConfig[key].includes(value), `view-issues config.dnd.${key} value ${value} must exist in config.filter.${key}`)
-      }
-    }
+    this.dndConfig = normalizeDndConfig(config.dnd, this.filterConfig)
 
     const attrSource = this.getAttribute('data-source')
     const configSource = config.defaultSource
@@ -378,7 +412,7 @@ export class ViewIssues extends HTMLElement {
 
   canDrag(field, value) {
     const values = this.dndConfig[field]
-    return Array.isArray(values) && values.includes(value)
+    return values === DND_ALL_VALUES || Array.isArray(values) && values.includes(value)
   }
 
   canDragIssue(issue) {
