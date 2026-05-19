@@ -35,8 +35,8 @@
   {
     "id": 47,
     "kind": 1,
-    "x": 1174,
-    "y": -20,
+    "x": 1252,
+    "y": -37,
     "name": "EDGE_RESULT",
     "codePath": "",
     "graphId": 0,
@@ -60,8 +60,8 @@
   {
     "id": 49,
     "kind": 2,
-    "x": 956,
-    "y": 0,
+    "x": 1034,
+    "y": -17,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -76,7 +76,7 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 53,
+        "srcNodeId": 54,
         "srcOutputId": 1
       }
     ],
@@ -91,8 +91,8 @@
   {
     "id": 50,
     "kind": 4,
-    "x": 760,
-    "y": -2,
+    "x": 838,
+    "y": -19,
     "name": "edge_file",
     "codePath": "",
     "graphId": 0,
@@ -175,6 +175,31 @@
       {
         "id": 1,
         "name": "tree",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 54,
+    "kind": 2,
+    "x": 873,
+    "y": 200,
+    "name": "Minimap Generator",
+    "codePath": "ng/presets/pipeline-create-minimap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "srcNodeId": 53,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "map",
         "value": ""
       }
     ]

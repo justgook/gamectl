@@ -108,6 +108,7 @@
           "defaultSource": "issues",
           "filter": {
             "status": [
+              "yonking",
               "open",
               "in-progress",
               "done"
@@ -1145,22 +1146,11 @@
                 {
                   "name": "tree",
                   "defaultValue": "progression.tree.json"
-                },
-                {
-                  "name": "map",
-                  "defaultValue": "minimap.map.json"
-                },
-                {
-                  "name": "direction",
-                  "defaultValue": "radial"
                 }
               ],
               "outputs": [
                 {
                   "name": "map"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Tilemap"

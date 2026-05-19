@@ -896,16 +896,23 @@ function __ng_progress(method, nodeId, message)
     message = message,
   })
 end`
+
     const compilerSource = `_G.input = ${luaStringLiteral(graphJson)}\n_G.ngProgressSource = ${luaStringLiteral(progressSource)}\n${compilerRead}`
-    const generatedSource = unwrap(await runtime.invoke("lua/lua::run", compilerSource))
+    let generatedSource = ""
+    try {
+      generatedSource = unwrap(await runtime.invoke("lua/lua::run", compilerSource))
 
-    this._setStatus('running generated graph code...', 'info')
+      this._setStatus('running generated graph code...', 'info')
 
-    const resultText = unwrap(await runtime.invoke("lua/lua::run", generatedSource))
+      const resultText = unwrap(await runtime.invoke("lua/lua::run", generatedSource))
 
-    if (this.currentRunId !== runId) return
-    this._setStatus('graph run completed', 'success')
-    await runtime.call('ui.toast.success', { message: resultText })
+      if (this.currentRunId !== runId) return
+      this._setStatus('graph run completed', 'success')
+      await runtime.call('ui.toast.success', { message: resultText })
+    } catch (e) {
+      console.log(generatedSource)
+      console.warn("THE ERROR", e)
+    }
   }
 
   async resetGraph() {
@@ -1808,9 +1815,9 @@ end`
 
   _colorForExec(state, key) {
     const t = this.assets.theme
-    if (state === 1) return t[`${key}Success`] || t[key]
-    if (state === 2) return t[`${key}Error`] || t[key]
-    if (state === 3) return t[`${key}Stale`] || t[key]
+    if (state === EXEC_DONE) return t[`${key}Success`] || t[key]
+    if (state === EXEC_ERROR) return t[`${key}Error`] || t[key]
+    if (state === EXEC_RUNNING) return t[`${key}Active`] || t[key]
     return t[key]
   }
 
