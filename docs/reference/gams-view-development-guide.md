@@ -86,6 +86,7 @@ Optional elements should appear at most once per view.
 
 ## Text output
 
+- `article.prose` - rendered prose/document text where normal reading flow matters; use for paragraphs, headings, lists, links, and other document-shaped content rather than app controls or structured editor UI.
 - `pre` - preformatted read-only text output for logs, console transcripts, and whitespace-sensitive textual results.
 
 ## File transfer helpers

@@ -675,7 +675,7 @@
 
   article,
   form {
-    display: flex;
+    /* display: flex; */
     overflow: auto;
     flex: 1;
   }

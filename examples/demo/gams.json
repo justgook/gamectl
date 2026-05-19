@@ -467,7 +467,7 @@
             "odin": "view-code",
             "xml": "view-code",
             "c": "view-code",
-            "md": "view-code",
+            "md": "view-markdow",
             "mk": "view-code",
             "makefile": "view-code",
             "glsl": "view-code",
@@ -522,6 +522,11 @@
       "view-code": {
         "url": "views/view-code.js",
         "label": "Code",
+        "internal": true
+      },
+      "view-markdow": {
+        "url": "views/view-markdow.js",
+        "label": "Markdown",
         "internal": true
       },
       "view-ng-node": {
