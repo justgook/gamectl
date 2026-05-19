@@ -12,18 +12,20 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
+import io
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = ROOT / "build.nosync" / "wit-github-fallback"
+CACHE_ROOT = BUILD_ROOT / "cache"
 
 WASI_REPOS = {
     "cli": "wasi-cli",
@@ -62,37 +64,55 @@ def package_name(package_dir: Path) -> str:
     return package_dir.name
 
 
-def github_json(url: str):
-    request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
-
-
-def download_url(url: str, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(url, headers={"Accept": "application/octet-stream"})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        destination.write_bytes(response.read())
-
-
 def github_ref(repo: str, version: str) -> str:
     return f"v{version}"
 
 
-def download_github_dir(repo: str, ref: str, github_path: str, destination: Path) -> None:
-    url = f"https://api.github.com/repos/WebAssembly/{repo}/contents/{github_path}?ref={ref}"
+def download_github_wit(repo: str, ref: str, destination: Path) -> None:
+    # Use the repository tarball instead of the GitHub contents API. This is
+    # one request per package and is much less likely to hit API rate limits.
+    url = f"https://codeload.github.com/WebAssembly/{repo}/tar.gz/refs/tags/{ref}"
+    request = urllib.request.Request(url, headers={"Accept": "application/octet-stream"})
     try:
-        entries = github_json(url)
+        with urllib.request.urlopen(request, timeout=60) as response:
+            archive = response.read()
     except urllib.error.HTTPError as exc:
-        fail(f"cannot fetch WebAssembly/{repo}/{github_path} at {ref}: HTTP {exc.code}")
+        fail(f"cannot fetch WebAssembly/{repo} at {ref}: HTTP {exc.code}")
+
     destination.mkdir(parents=True, exist_ok=True)
-    for entry in entries:
-        target = destination / entry["name"]
-        if entry["type"] == "file":
-            print(f"  download {entry['path']}")
-            download_url(entry["download_url"], target)
-        elif entry["type"] == "dir":
-            download_github_dir(repo, ref, entry["path"], target)
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
+        for member in tar.getmembers():
+            parts = Path(member.name).parts
+            if len(parts) < 3 or parts[1] != "wit" or not member.isfile():
+                continue
+            relative = Path(*parts[2:])
+            target = destination / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source = tar.extractfile(member)
+            if source is None:
+                fail(f"cannot extract {member.name} from WebAssembly/{repo}@{ref}")
+            target.write_bytes(source.read())
+
+
+def cached_wasi_package(package: str, version: str, repo: str) -> Path:
+    cache_dir = CACHE_ROOT / "wasi" / package / version
+    marker = cache_dir / ".complete"
+    if marker.exists():
+        print(f"cache hit wasi:{package}@{version}")
+        return cache_dir
+
+    ref = github_ref(repo, version)
+    tmp_dir = cache_dir.with_name(f".{version}.tmp")
+    if tmp_dir.exists():
+        shutil.rmtree(tmp_dir)
+    print(f"fetch wasi:{package}@{version} from WebAssembly/{repo}")
+    download_github_wit(repo, ref, tmp_dir)
+    cache_dir.parent.mkdir(parents=True, exist_ok=True)
+    if cache_dir.exists():
+        shutil.rmtree(cache_dir)
+    tmp_dir.rename(cache_dir)
+    (cache_dir / ".complete").write_text("ok\n", encoding="utf-8")
+    return cache_dir
 
 
 def copy_nested_deps_to_top_level(deps_dir: Path) -> None:
@@ -139,7 +159,7 @@ def main() -> None:
     if not refs:
         fail(f"no WASI package references found in {source_wit}")
 
-    print("wit-github-fallback: downloading WASI WIT dependencies directly from GitHub")
+    print(f"wit-github-fallback: using WASI WIT cache at {CACHE_ROOT}")
     for package, version in sorted(refs):
         repo = WASI_REPOS.get(package)
         if repo is None:
@@ -147,8 +167,7 @@ def main() -> None:
         target = deps_dir / package
         if target.exists():
             continue
-        print(f"fetch wasi:{package}@{version} from WebAssembly/{repo}")
-        download_github_dir(repo, github_ref(repo, version), "wit", target)
+        shutil.copytree(cached_wasi_package(package, version, repo), target, ignore=shutil.ignore_patterns(".complete"))
         copy_nested_deps_to_top_level(deps_dir)
 
     # Newly flattened dependency WIT can reference more WASI packages. Resolve until stable.
@@ -160,8 +179,7 @@ def main() -> None:
             repo = WASI_REPOS.get(package)
             if repo is None:
                 fail(f"no GitHub repository mapping for wasi:{package}@{version}")
-            print(f"fetch wasi:{package}@{version} from WebAssembly/{repo}")
-            download_github_dir(repo, github_ref(repo, version), "wit", deps_dir / package)
+            shutil.copytree(cached_wasi_package(package, version, repo), deps_dir / package, ignore=shutil.ignore_patterns(".complete"))
             copy_nested_deps_to_top_level(deps_dir)
 
     output.parent.mkdir(parents=True, exist_ok=True)
