@@ -632,6 +632,40 @@
         "config": {
           "presets": [
             {
+              "name": "JSON.Encode",
+              "kind": "code",
+              "codePath": "ng/presets/json_encode.lua",
+              "inputs": [
+                {
+                  "name": "data",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "text"
+                }
+              ],
+              "group": "Data"
+            },
+            {
+              "name": "JSON.Decode",
+              "kind": "code",
+              "codePath": "ng/presets/json_decode.lua",
+              "inputs": [
+                {
+                  "name": "text",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "data"
+                }
+              ],
+              "group": "Data"
+            },
+            {
               "name": "Array",
               "kind": "code",
               "codePath": "ng/presets/array.lua",
