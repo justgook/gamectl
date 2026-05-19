@@ -25,7 +25,9 @@
 /// returns it as a Lua string. Missing or unreadable files raise a Lua error.
 ///
 /// `main()` is the script entrypoint. String return values are returned directly,
-/// `nil` is returned as `null`, and non-string values are JSON encoded.
+/// `nil` is returned as `null`, and non-string values are JSON encoded. Use
+/// `json.null` when a table field or array slot must be encoded as JSON `null`;
+/// Lua `nil` still removes table fields and cannot be observed by the encoder.
 package gams:lua@1.0.0;
 
 interface lua {

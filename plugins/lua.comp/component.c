@@ -165,8 +165,19 @@ static int set_lua_error_string(lua_State *L, lua_plugin_string_t *err) {
   return 0;
 }
 
+static char json_null_registry_key;
+
 static int json_encode_value(lua_State *L, int idx, StrBuf *out,
                              const void **seen, int seen_count, int depth);
+
+static int lua_is_json_null(lua_State *L, int idx) {
+  int result;
+  idx = lua_absindex(L, idx);
+  lua_rawgetp(L, LUA_REGISTRYINDEX, &json_null_registry_key);
+  result = lua_rawequal(L, idx, -1);
+  lua_pop(L, 1);
+  return result;
+}
 
 static int json_hex_val(char c) {
   if (c >= '0' && c <= '9') {
@@ -554,7 +565,11 @@ static int json_encode_table(lua_State *L, int idx, StrBuf *out,
 
 static int json_encode_value(lua_State *L, int idx, StrBuf *out,
                              const void **seen, int seen_count, int depth) {
-  int t = lua_type(L, idx);
+  int t;
+  if (lua_is_json_null(L, idx)) {
+    return sb_append_len(out, "null", 4u);
+  }
+  t = lua_type(L, idx);
   if (t == LUA_TNIL) {
     return sb_append_len(out, "null", 4u);
   }
@@ -1094,6 +1109,10 @@ static void register_json_lib(lua_State *L) {
   lua_setfield(L, -2, "decode");
   lua_pushcfunction(L, lua_json_encode);
   lua_setfield(L, -2, "encode");
+  lua_newtable(L);
+  lua_pushvalue(L, -1);
+  lua_rawsetp(L, LUA_REGISTRYINDEX, &json_null_registry_key);
+  lua_setfield(L, -2, "null");
   lua_setglobal(L, "json");
 }
 
