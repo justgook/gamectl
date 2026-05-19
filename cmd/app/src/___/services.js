@@ -4,7 +4,7 @@ import { runtime } from "/core/runtime.js"
 let currentThemeStylesheetObjectUrl = ''
 
 const DEFAULT_LAYOUT = `
-    <view-ng />
+    <view-ng data-source="testing.ng.json" />
   `
 
 function doInit(viewConfig) {
