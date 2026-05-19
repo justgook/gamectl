@@ -26,6 +26,7 @@ tmp/
 #/aseprite/
 /build/
 /build.nosync/
+**/build.nosync/
 /plugins/ng/build/
 *.wasm
 *.stamp
