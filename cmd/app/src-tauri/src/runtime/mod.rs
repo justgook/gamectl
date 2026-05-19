@@ -2710,6 +2710,46 @@ mod tests {
             .unwrap()
             .contains("frontend view bridge is not attached"));
 
+        let treegen = "../../../build.nosync/plugins/treegen.comp.wasm";
+        if !std::path::Path::new(treegen).exists() {
+            eprintln!(
+                "skipping view-ng testing graph smoke test; build it with `make build.nosync/plugins/treegen.comp.wasm`"
+            );
+        } else {
+            runtime
+                .add_plugins(vec!["plugins/treegen.comp.wasm".to_string()], false)
+                .unwrap();
+            let mut testing_graph: serde_json::Value = serde_json::from_str(
+                &std::fs::read_to_string(root.join("testing.ng.json")).unwrap(),
+            )
+            .unwrap();
+            for node in testing_graph.as_array_mut().unwrap() {
+                if node["id"] == serde_json::json!(50) {
+                    node["outputs"][0]["value"] =
+                        serde_json::json!("tmp/testing-ng-test-output.json");
+                }
+            }
+            let compiler_source = format!(
+                "_G.input = {}\n{}",
+                serde_json::to_string(&testing_graph.to_string()).unwrap(),
+                compiler
+            );
+            let generated = runtime
+                .invoke("lua/lua::run", serde_json::json!([compiler_source]))
+                .unwrap();
+            let generated_source = generated["ok"].as_str().unwrap();
+            let graph_run = runtime
+                .invoke("lua/lua::run", serde_json::json!([generated_source]))
+                .unwrap();
+            let graph_result: serde_json::Value =
+                serde_json::from_str(graph_run["ok"].as_str().unwrap()).unwrap();
+            assert_eq!(graph_result["EDGE_RESULT"]["active"]["To"], true);
+            assert_eq!(
+                graph_result["EDGE_RESULT"]["inputs"]["To"],
+                "tmp/testing-ng-test-output.json"
+            );
+        }
+
         let source = [
             "function main()",
             "  local typo = nil",

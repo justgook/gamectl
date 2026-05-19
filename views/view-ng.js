@@ -905,7 +905,7 @@ end`
 
     if (this.currentRunId !== runId) return
     this._setStatus('graph run completed', 'success')
-    await unwrap(runtime.call('ui.toast.success', { message: resultText }))
+    await runtime.call('ui.toast.success', { message: resultText })
   }
 
   async resetGraph() {
