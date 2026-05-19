@@ -1271,9 +1271,6 @@
               "outputs": [
                 {
                   "name": "outputMap"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Tilemap"
