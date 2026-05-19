@@ -1,0 +1,182 @@
+[
+  {
+    "id": 13,
+    "kind": 4,
+    "x": 31,
+    "y": 288,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "40"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "0"
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "0"
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "id": 47,
+    "kind": 1,
+    "x": 1174,
+    "y": -20,
+    "name": "EDGE_RESULT",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "To",
+        "srcNodeId": 49,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "Err",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 49,
+    "kind": 2,
+    "x": 956,
+    "y": 0,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 50,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 53,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 50,
+    "kind": 4,
+    "x": 760,
+    "y": -2,
+    "name": "edge_file",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "tmp/DEBUG.json"
+      }
+    ]
+  },
+  {
+    "id": 51,
+    "kind": 2,
+    "x": 280,
+    "y": 284,
+    "name": "World Tree Generator",
+    "codePath": "ng/presets/pipeline-world-tree.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "nodeCount",
+        "srcNodeId": 13,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "maxDepth",
+        "srcNodeId": 13,
+        "srcOutputId": 2
+      },
+      {
+        "id": 3,
+        "name": "maxBranching",
+        "srcNodeId": 13,
+        "srcOutputId": 3
+      },
+      {
+        "id": 4,
+        "name": "rootBranches",
+        "srcNodeId": 13,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 53,
+    "kind": 2,
+    "x": 537,
+    "y": 281,
+    "name": "Minimap Shape Assigner",
+    "codePath": "ng/presets/pipeline-assign-minimap-shapes.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "srcNodeId": 51,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "value": ""
+      }
+    ]
+  }
+]

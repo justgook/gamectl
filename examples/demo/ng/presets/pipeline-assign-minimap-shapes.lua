@@ -4,21 +4,6 @@
 -- Inputs: tree, out
 -- Outputs: out (success), error (failure)
 
-local function fail(message)
-	outputs[1] = ""
-	outputs[2] = message
-end
-
-local treePath = inputs[1]
-if treePath == nil or treePath == "" then
-	treePath = "progression.tree.json"
-end
-
-local outPath = inputs[2]
-if outPath == nil or outPath == "" then
-	outPath = treePath
-end
-
 local ROOM_SHAPES = {
 	"#",
 	"##",
@@ -36,55 +21,30 @@ local ROOM_SHAPES = {
 	".#./###",
 }
 
-local function readJson(path, label)
-	local text = host.call("fs/fs::read-text", path)
-	local ok, data = pcall(json.decode, text)
-	if not ok or type(data) ~= "table" then
-		fail("Failed to parse " .. label .. " JSON: " .. tostring(path))
-		return nil
-	end
-	return data
-end
-
 local function randomIndex(count)
 	return math.random(count)
 end
 
-local function ensureParentDirs(path)
-	local dir = string.match(path, "^(.*)/[^/]*$")
-	if dir == nil or dir == "" then
-		return
-	end
-	local current = ""
-	for part in string.gmatch(dir, "[^/]+") do
-		if current == "" then
-			current = part
-		else
-			current = current .. "/" .. part
-		end
-		pcall(host.call, "fs/fs::create-dir", current)
-	end
-end
-
-local tree = readJson(treePath, "tree")
+local tree = inputs[1]
 if tree == nil then
+	error("tree must be defined")
 	return
 end
 
 if #tree == 0 then
-	fail("tree must contain at least one node")
+	error("tree must contain at least one node")
 	return
 end
 
 for index, node in ipairs(tree) do
 	if type(node) ~= "table" then
-		fail("tree node " .. tostring(index) .. " must be an object")
+		error("tree node " .. tostring(index) .. " must be an object")
 		return
 	end
 	if node.data == nil then
 		node.data = {}
 	elseif type(node.data) ~= "table" then
-		fail("tree node " .. tostring(index) .. " data must be an object")
+		error("tree node " .. tostring(index) .. " data must be an object")
 		return
 	end
 
@@ -95,8 +55,4 @@ for index, node in ipairs(tree) do
 	node.data.minimap = ROOM_SHAPES[shapeIndex]
 end
 
-ensureParentDirs(outPath)
-host.call("fs/fs::write-text", outPath, json.encode(tree))
-
-outputs[1] = outPath
-outputs[2] = ""
+outputs[1] = tree

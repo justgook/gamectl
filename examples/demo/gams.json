@@ -664,19 +664,12 @@
               "inputs": [
                 {
                   "name": "tree",
-                  "defaultValue": "progression.tree.json"
-                },
-                {
-                  "name": "out",
                   "defaultValue": ""
                 }
               ],
               "outputs": [
                 {
-                  "name": "out"
-                },
-                {
-                  "name": "error"
+                  "name": "tree"
                 }
               ],
               "group": "Progression"
@@ -981,6 +974,27 @@
               "group": "File"
             },
             {
+              "name": "Write File",
+              "kind": "code",
+              "codePath": "ng/presets/write-file.lua",
+              "inputs": [
+                {
+                  "name": "path",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "text",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "path"
+                }
+              ],
+              "group": "File"
+            },
+            {
               "name": "Remap",
               "kind": "code",
               "codePath": "ng/presets/remap.lua",
@@ -1199,15 +1213,11 @@
                 {
                   "name": "rootBranches",
                   "defaultValue": "0"
-                },
-                {
-                  "name": "src",
-                  "defaultValue": "progression.tree.json"
                 }
               ],
               "outputs": [
                 {
-                  "name": "src"
+                  "name": "tree"
                 },
                 {
                   "name": "error"

@@ -51,8 +51,8 @@
   {
     "id": 2,
     "kind": 2,
-    "x": 1162,
-    "y": 290,
+    "x": 1135,
+    "y": 289,
     "name": "Tilemap Scaler",
     "codePath": "ng/presets/pipeline-tilemap-scaler.lua",
     "graphId": 0,
@@ -611,7 +611,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "/demo/rules.map.json"
+        "value": "demo/rules.map.json"
       }
     ]
   },
@@ -979,8 +979,8 @@
   {
     "id": 38,
     "kind": 4,
-    "x": 1060,
-    "y": 62,
+    "x": 967,
+    "y": 73,
     "name": "Edges",
     "codePath": "",
     "graphId": 0,
@@ -990,30 +990,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "/edge_rules.map.json"
-      },
-      {
-        "id": 2,
-        "name": "",
-        "value": "tmp/edge_done.map.json"
-      }
-    ]
-  },
-  {
-    "id": 41,
-    "kind": 4,
-    "x": 1300,
-    "y": -27,
-    "name": "tileset.prop",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "[\"props.tilesets\", \"props.tileSize\"]"
+        "value": "output/edge_rules.map.json"
       }
     ]
   },
@@ -1072,54 +1049,6 @@
     ]
   },
   {
-    "id": 44,
-    "kind": 2,
-    "x": 1654,
-    "y": -23,
-    "name": "Copy Prop",
-    "codePath": "ng/presets/copy-prop.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "from",
-        "srcNodeId": 38,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "to",
-        "srcNodeId": 45,
-        "srcOutputId": 1
-      },
-      {
-        "id": 3,
-        "name": "src",
-        "srcNodeId": 41,
-        "srcOutputId": 1
-      },
-      {
-        "id": 4,
-        "name": "target",
-        "srcNodeId": 41,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "to",
-        "value": ""
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": ""
-      }
-    ]
-  },
-  {
     "id": 45,
     "kind": 2,
     "x": 1441,
@@ -1132,7 +1061,7 @@
       {
         "id": 1,
         "name": "rulesMap",
-        "srcNodeId": 38,
+        "srcNodeId": 48,
         "srcOutputId": 1
       },
       {
@@ -1144,8 +1073,8 @@
       {
         "id": 3,
         "name": "outputMap",
-        "srcNodeId": 38,
-        "srcOutputId": 2
+        "srcNodeId": 0,
+        "srcOutputId": 0
       }
     ],
     "outputs": [
@@ -1200,6 +1129,110 @@
         "id": 2,
         "name": "error",
         "value": ""
+      }
+    ]
+  },
+  {
+    "id": 47,
+    "kind": 1,
+    "x": 1877,
+    "y": 57,
+    "name": "EDGE_RESULT",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "To",
+        "srcNodeId": 49,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "Err",
+        "srcNodeId": 45,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 48,
+    "kind": 2,
+    "x": 1247,
+    "y": 85,
+    "name": "Read File",
+    "codePath": "ng/presets/read-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 38,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "content",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 49,
+    "kind": 2,
+    "x": 1681,
+    "y": 33,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 50,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 45,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 50,
+    "kind": 4,
+    "x": 1401,
+    "y": -2,
+    "name": "edge_file",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "tmp/edge_rules.done.map.json"
       }
     ]
   }
