@@ -284,7 +284,7 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/go.
 	$(Q)test -n "$(WIT_WORLD)" || { echo "missing PLUGIN_WIT_WORLD for Go component plugin $*" >&2; exit 1; }
 	$(Q)test -n "$(WIT_PACKAGE)" || { echo "missing PLUGIN_WIT_PACKAGE for Go component plugin $*" >&2; exit 1; }
 	$(Q)cd "$(PLUGIN_DIR)/$*"; \
-		$(WKG) wit build; \
+		$(WKG) wit build || "$(abspath script/wit-github-fallback.py)" --wit-dir wit --output "$(WIT_PACKAGE)"; \
 		test -f "$(WIT_PACKAGE)"; \
 		$(GO) tool wit-bindgen-go generate --world "$(WIT_WORLD)" --out "$(GO_BINDINGS_OUT)" "./$(WIT_PACKAGE)"; \
 		$(TINYGO) build -target=wasip2 \
