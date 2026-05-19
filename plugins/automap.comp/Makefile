@@ -26,7 +26,7 @@ test:
 	$(GO) test ./...
 
 $(WIT_STAMP): $(WIT_SOURCES)
-	$(WKG) wit build
+	$(WKG) wit build || ../../script/wit-github-fallback.py --wit-dir $(WIT_DIR) --output '$(WIT_PACKAGE)'
 	test -f '$(WIT_PACKAGE)'
 	touch $@
 
