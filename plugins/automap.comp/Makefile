@@ -1,45 +1,42 @@
 WIT_DIR := wit
 WIT_PACKAGE := gams:automap@1.0.0.wasm
 WIT_WORLD := automap-plugin
-WIT_SOURCES := $(shell find $(WIT_DIR) -name '*.wit')
+COMPONENT_NAME := automap_plugin
 WIT_STAMP := .wit-package.stamp
-BINDGEN_STAMP := .wit-bindgen.stamp
 WASM_OUT := automap.comp.wasm
 
-GO ?= go
-TINYGO ?= tinygo
-WKG ?= wkg
+WIT_BINDGEN ?= wit-bindgen
+WASI_P2_CC ?= wasm32-wasip2-clang
+WASM_TOOLS ?= wasm-tools
 
-export GOTOOLCHAIN ?= local
-
-.PHONY: all clean wit bindgen wasm test
+.PHONY: all clean bindgen wasm wit
 
 all: $(WASM_OUT)
 
 wit: $(WIT_STAMP)
 
-bindgen: $(BINDGEN_STAMP)
+bindgen: .wit-bindgen.stamp
 
 wasm: $(WASM_OUT)
 
-test:
-	$(GO) test ./...
-
-$(WIT_STAMP): $(WIT_SOURCES)
-	$(WKG) wit build || ../../script/wit-github-fallback.py --wit-dir $(WIT_DIR) --output '$(WIT_PACKAGE)'
+$(WIT_STAMP): $(WIT_DIR)/package.wit
+	../../script/wit-github-fallback.py --wit-dir $(WIT_DIR) --output '$(WIT_PACKAGE)'
 	test -f '$(WIT_PACKAGE)'
 	touch $@
 
-$(BINDGEN_STAMP): $(WIT_STAMP) go.mod
-	$(GO) tool wit-bindgen-go generate --world $(WIT_WORLD) --out internal './$(WIT_PACKAGE)'
+.wit-bindgen.stamp: $(WIT_STAMP)
+	rm -rf build
+	mkdir -p build
+	cd build && $(WIT_BINDGEN) c ../$(WIT_PACKAGE) -w $(WIT_WORLD)
 	touch $@
 
-$(WASM_OUT): $(wildcard *.go) go.mod go.sum $(WIT_STAMP) $(BINDGEN_STAMP)
-	$(TINYGO) build -target=wasip2 \
-		-o $@ \
-		--wit-package '$(WIT_PACKAGE)' \
-		--wit-world $(WIT_WORLD) .
+$(WASM_OUT): component.c $(WIT_STAMP) .wit-bindgen.stamp
+	$(WASI_P2_CC) -o $@ -mexec-model=reactor -Ibuild \
+		-O2 -DNDEBUG \
+		build/$(COMPONENT_NAME).c component.c build/$(COMPONENT_NAME)_component_type.o \
+		-Wl,--strip-all
+	$(WASM_TOOLS) strip -a $@ -o $@.strip
+	mv $@.strip $@
 
 clean:
-	rm -f '$(WIT_PACKAGE)' $(WASM_OUT) $(WIT_STAMP) $(BINDGEN_STAMP)
-	rm -rf internal
+	rm -rf build .wit-bindgen.stamp $(WIT_STAMP) $(WASM_OUT)

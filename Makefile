@@ -61,10 +61,10 @@ HOST_CXX ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.a
 
 # Detect first-class plugin subdirectories.
 # Dotted `*.comp` plugins are the active component-plugin pattern. Non-`.comp`
-# directories are legacy plugins and are intentionally not part of the default
-# root build; migrate/refactor them into `*.comp` modules instead of adding new
-# root-go-module wiring here.
-PLUGIN_DIRS := $(wildcard $(PLUGIN_DIR)/*.comp)
+# directories and `*.legacy.comp` snapshots are intentionally not part of the
+# default root build; migrate/refactor them into active `*.comp` modules instead
+# of adding new root-go-module wiring here.
+PLUGIN_DIRS := $(filter-out %.legacy.comp,$(wildcard $(PLUGIN_DIR)/*.comp))
 PLUGINS := $(notdir $(PLUGIN_DIRS))
 JS_PLUGIN_ENTRYPOINTS := $(wildcard $(PLUGIN_DIR)/*.comp/index.js)
 PLUGIN_NAMES_JS := $(sort $(patsubst $(PLUGIN_DIR)/%/index.js,%,$(JS_PLUGIN_ENTRYPOINTS)))
@@ -336,7 +336,11 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/com
 	$(Q)GEN_DIR="$(BUILD_DIR)/component-bindings/$*"; \
 		rm -rf "$$GEN_DIR"; \
 		mkdir -p "$$GEN_DIR"; \
-		(cd "$$GEN_DIR" && $(WIT_BINDGEN) c "$(abspath $(PLUGIN_DIR)/$*/wit)" -w "$(WIT_WORLD)"); \
+		WIT_INPUT="$(abspath $(PLUGIN_DIR)/$*/wit)"; \
+		if [ -n "$(WIT_PACKAGE)" ] && [ -f "$(abspath $(PLUGIN_DIR)/$*)/$(WIT_PACKAGE)" ]; then \
+			WIT_INPUT="$(abspath $(PLUGIN_DIR)/$*)/$(WIT_PACKAGE)"; \
+		fi; \
+		(cd "$$GEN_DIR" && $(WIT_BINDGEN) c "$$WIT_INPUT" -w "$(WIT_WORLD)"); \
 		$(WASI_P2_CC) -o "$@" -mexec-model=reactor -I"$$GEN_DIR" \
 			$(COMPONENT_RELEASE_CFLAGS) \
 			$(COMPONENT_CFLAGS) \
