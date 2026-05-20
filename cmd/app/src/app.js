@@ -43,3 +43,44 @@ setTimeout(main, 0)
 // // DO NOT USE - JSUT FOR DEBUG
 globalThis.runtime = runtime
 globalThis.unwrap = unwrap
+
+
+fpsMetter()
+function fpsMetter() {
+  const id = "__fps_overlay__";
+  document.getElementById(id)?.remove();
+
+  const el = document.createElement("div");
+  el.id = id;
+  Object.assign(el.style, {
+    position: "fixed",
+    top: "8px",
+    left: "8px",
+    zIndex: "2147483647",
+    padding: "4px 8px",
+    font: "12px monospace",
+    color: "#0f0",
+    background: "rgba(0,0,0,0.75)",
+    borderRadius: "4px",
+    pointerEvents: "none",
+    userSelect: "none",
+  });
+  el.textContent = "FPS: --";
+  document.documentElement.appendChild(el);
+
+  let frames = 0;
+  let last = performance.now();
+
+  function loop(now) {
+    frames++;
+    if (now - last >= 500) {
+      const fps = Math.round((frames * 1000) / (now - last));
+      el.textContent = `FPS: ${fps}`;
+      frames = 0;
+      last = now;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+}

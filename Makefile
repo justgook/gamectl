@@ -26,36 +26,14 @@ CP ?= cp -f
 
 .DEFAULT_GOAL := all
 
-APP_NAME ?= Game
-APP_TITLE ?= The Game
-APP_DIR ?= ./example/cmd/game
-ASSETS_DIR ?= example/assets
-
 BUILD_DIR ?= build.nosync
-BROWSER_DIR ?= cmd/browser
 TAURI_APP_DIR ?= cmd/app
 TAURI_APP_DIR_SRC ?= $(TAURI_APP_DIR)/src-tauri
 TAURI_APP_TARGET_DIR ?= $(abspath $(BUILD_DIR)/app/target)
 TAURI_APP_BUNDLES ?= app,dmg
 APP_WASMTIME_CACHE_DIR ?= $(abspath $(BUILD_DIR)/wasmtime-cache)
-GAMS_CONFIG ?= demo/gams.json
-DEMO_DIR ?= demo
-CLI_DIR ?= cmd/cli
 APP_CWD ?= $(or $(value GAMS_APP_CWD),examples/demo)
-NATIVE_DIR ?= cmd/native
-NATIVE_ASSETS_DIR ?= $(NATIVE_DIR)/assets
-NATIVE_OUTPUT_DIR ?= $(BUILD_DIR)/macos
-NATIVE_APP_BUNDLE ?= $(NATIVE_OUTPUT_DIR)/bin/gams.app
-NATIVE_APP_BUNDLE_DISPLAY ?= $(NATIVE_OUTPUT_DIR)/bin/GAMS.app
-NATIVE_OUTPUT_ASSETS := \
-	$(NATIVE_OUTPUT_DIR)/appicon.png \
-	$(NATIVE_OUTPUT_DIR)/darwin/Info.plist \
-	$(NATIVE_OUTPUT_DIR)/darwin/Info.dev.plist
 PLUGIN_DIR ?= plugins
-WAILS_RUN ?= go run github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
-WAILS_CC ?= $(shell xcrun -f clang)
-WAILS_CXX ?= $(shell xcrun -f clang++)
-WAILS_SDKROOT ?= $(shell xcrun --show-sdk-path)
 HOST_CC ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang ]; then echo /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang; else command -v clang || command -v cc; fi)
 HOST_CXX ?= $(shell if [ "$$(uname -s)" = Darwin ] && [ -x /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++ ]; then echo /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++; else command -v clang++ || command -v c++; fi)
 
@@ -247,15 +225,8 @@ endef
 $(foreach p,$(PLUGINS),$(eval $(call APPLY_PLUGIN_MANIFEST,$(p))))
 
 
-SYS_GOOS := $(shell go env GOOS)
-SYS_GOARCH := $(shell go env GOARCH)
-GO_MODULE_NAME ?= $(shell go list -m)
-
-
-
-
 .PHONY: all
-all: browser
+all: app-check plugins-release
 
 .PHONY: test
 test: $(PLUGIN_TEST_TARGETS)
@@ -275,10 +246,8 @@ plugins-release-wasm: $(PLUGIN_TARGETS_WASM)
 
 plugins-release-js: $(PLUGIN_TARGETS_JS)
 
-GO_PLUGIN_SHARED_DEPS := $(shell find pkg -name '*.go' 2>/dev/null)
-
 # Rule to build Go WASM component plugins. These are standalone Go modules
-# under plugins/*.comp and must not depend on the repository root go.mod.
+# under plugins/*.comp and must not depend on a repository root go.mod.
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/go.mod $(PLUGIN_DIR)/%/main.go | $(BUILD_DIR)/plugins
 	$(Q)echo "Building Go component plugin $*..."
 	$(Q)test -n "$(WIT_WORLD)" || { echo "missing PLUGIN_WIT_WORLD for Go component plugin $*" >&2; exit 1; }
@@ -294,11 +263,6 @@ $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/wit/package.wit $(PLUGIN_DIR)/%/go.
 			--wit-world "$(WIT_WORLD)" "$(GO_COMPONENT_MAIN)"; \
 		$(WASM_TOOLS) strip -a "$(abspath $@)" -o "$(abspath $@).strip"; \
 		mv "$(abspath $@).strip" "$(abspath $@)"
-
-# Rule to build legacy Go plugins from the repository root module.
-$(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.go $$(shell find $(PLUGIN_DIR)/$$* -name '*.go' 2>/dev/null) $(GO_PLUGIN_SHARED_DEPS) | $(BUILD_DIR)/plugins
-	$(Q)echo "Building legacy Go plugin $*..."
-	$(Q)GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o $@ ./$(PLUGIN_DIR)/$*/
 
 # Rule to build Zig plugins
 $(BUILD_DIR)/plugins/%.wasm: $(PLUGIN_DIR)/%/main.zig $(wildcard $(PLUGIN_DIR)/%/*.zig) | $(BUILD_DIR)/plugins
@@ -382,23 +346,6 @@ plugins/ng/build/lua54-wasi-modern.a plugins/ng/build/lua54-wasi-modern.o: plugi
 .PHONY: ng-lua-modern
 ng-lua-modern: plugins/ng/build/lua54-wasi-modern.a plugins/ng/build/lua54-wasi-modern.o
 
-.PHONY: browser
-browser: $(PLUGIN_TARGETS)
-	$(Q)go build -o $(BUILD_DIR)/browser-server ./$(BROWSER_DIR)/server.go
-
-.PHONY: browser-run
-browser-run: browser $(PLUGIN_TARGETS)
-	$(Q)echo "Starting GAMS Browser IDE..."
-	$(Q)BUILD_DIR=$(BUILD_DIR) $(BUILD_DIR)/browser-server -port 8080
-
-.PHONY: cli
-cli: plugins-release
-	$(Q)(cd $(CLI_DIR) && SDKROOT="$(WAILS_SDKROOT)" CC="$(WAILS_CC)" go build -mod=mod -o ../../$(BUILD_DIR)/gams .)
-
-.PHONY: cli-run
-cli-run: cli
-	$(Q)$(BUILD_DIR)/gams --workdir .
-
 .PHONY: app app-check app-run app-build app-build-debug app-build-release app-bundle app-bundle-debug app-bundle-release
 app: app-bundle-release
 
@@ -424,61 +371,12 @@ app-bundle-debug: $(PLUGIN_TARGETS)
 app-bundle-release: $(PLUGIN_TARGETS)
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --bundles $(TAURI_APP_BUNDLES)
 
-.PHONY: native-dev
-native-dev: plugins-release $(NATIVE_OUTPUT_ASSETS)
-	$(Q)(cd $(NATIVE_DIR) && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev)
-
-.PHONY: native-dev-inspector
-native-dev-inspector: plugins-release $(NATIVE_OUTPUT_ASSETS)
-	$(Q)(cd $(NATIVE_DIR) && GAMS_OPEN_INSPECTOR=1 GAMS_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) dev)
-
-.PHONY: native-build
-native-build: plugins-release $(NATIVE_OUTPUT_ASSETS)
-	$(Q)(cd $(NATIVE_DIR) && CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build)
-	$(Q)if [ -d "$(NATIVE_APP_BUNDLE)" ]; then rm -rf "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE)" "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" "$(NATIVE_APP_BUNDLE_DISPLAY)"; fi
-
-.PHONY: native-build-debug
-native-build-debug: plugins-release $(NATIVE_OUTPUT_ASSETS)
-	$(Q)(cd $(NATIVE_DIR) && GAMS_OPEN_INSPECTOR=1 GAMS_DEBUG=1 CC="$(WAILS_CC)" CXX="$(WAILS_CXX)" SDKROOT="$(WAILS_SDKROOT)" $(WAILS_RUN) build -debug -devtools)
-	$(Q)if [ -d "$(NATIVE_APP_BUNDLE)" ]; then rm -rf "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE)" "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" && mv "$(NATIVE_APP_BUNDLE_DISPLAY).tmp" "$(NATIVE_APP_BUNDLE_DISPLAY)"; fi
-
 # Ensure build directories exist
 $(BUILD_DIR):
 	$(Q)mkdir -p $@
 
-$(NATIVE_OUTPUT_DIR):
-	$(Q)mkdir -p $@
-
-$(NATIVE_OUTPUT_DIR)/darwin:
-	$(Q)mkdir -p $@
-
-$(NATIVE_OUTPUT_DIR)/appicon.png: $(NATIVE_ASSETS_DIR)/appicon.png | $(NATIVE_OUTPUT_DIR)
-	$(Q)cp "$<" "$@"
-
-$(NATIVE_OUTPUT_DIR)/darwin/Info.plist: $(NATIVE_ASSETS_DIR)/darwin/Info.plist | $(NATIVE_OUTPUT_DIR)/darwin
-	$(Q)cp "$<" "$@"
-
-$(NATIVE_OUTPUT_DIR)/darwin/Info.dev.plist: $(NATIVE_ASSETS_DIR)/darwin/Info.dev.plist | $(NATIVE_OUTPUT_DIR)/darwin
-	$(Q)cp "$<" "$@"
-
 $(BUILD_DIR)/plugins:
 	$(Q)mkdir -p $@
-
-# Production web deployment target
-.PHONY: web
-web: $(PLUGIN_TARGETS)
-	$(Q)rm -rf $(BUILD_DIR)/web
-	$(Q)echo "Creating production web build in $(BUILD_DIR)/web/..."
-	$(Q)mkdir -p $(BUILD_DIR)/web/plugins $(BUILD_DIR)/web/demo
-	$(Q)echo "  Copying browser files..."
-	$(Q)cp -r $(BROWSER_DIR)/. $(BUILD_DIR)/web/
-	$(Q)echo "  Copying GAMS config..."
-	$(Q)cp $(GAMS_CONFIG) $(BUILD_DIR)/web/demo/gams.json
-	$(Q)echo "  Copying plugins..."
-	$(Q)cp -r $(BUILD_DIR)/plugins/* $(BUILD_DIR)/web/plugins/
-	$(Q)echo "  Copying demo..."
-	$(Q)cp -r $(DEMO_DIR)/. $(BUILD_DIR)/web/demo/
-	$(Q)echo "✓ Production build ready at $(BUILD_DIR)/web/"
 
 .PHONY: clean
 clean:
