@@ -13,7 +13,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "40"
+        "value": "20"
       },
       {
         "id": 2,
@@ -31,31 +31,6 @@
         "value": "0"
       }
     ]
-  },
-  {
-    "id": 47,
-    "kind": 1,
-    "x": 1827,
-    "y": -37,
-    "name": "EDGE_RESULT",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "To",
-        "srcNodeId": 49,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "Err",
-        "srcNodeId": 0,
-        "srcOutputId": 0
-      }
-    ],
-    "outputs": []
   },
   {
     "id": 49,
@@ -80,13 +55,7 @@
         "srcOutputId": 1
       }
     ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "value": ""
-      }
-    ]
+    "outputs": []
   },
   {
     "id": 50,
@@ -237,31 +206,6 @@
         "id": 2,
         "name": "text",
         "srcNodeId": 53,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "value": ""
-      }
-    ]
-  },
-  {
-    "id": 58,
-    "kind": 1,
-    "x": 1004,
-    "y": 426,
-    "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "1",
-        "srcNodeId": 57,
         "srcOutputId": 1
       }
     ],
@@ -435,8 +379,8 @@
   {
     "id": 67,
     "kind": 4,
-    "x": 783,
-    "y": -17,
+    "x": 763,
+    "y": -2,
     "name": "Debug_minimap",
     "codePath": "",
     "graphId": 0,
@@ -473,31 +417,221 @@
         "srcOutputId": 1
       }
     ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "value": ""
-      }
-    ]
+    "outputs": []
   },
   {
-    "id": 69,
-    "kind": 1,
-    "x": 1214,
-    "y": 2,
-    "name": "Minimap",
-    "codePath": "",
+    "id": 70,
+    "kind": 2,
+    "x": 1382,
+    "y": 295,
+    "name": "Automap",
+    "codePath": "ng/presets/pipeline-apply-automap.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
       {
         "id": 1,
-        "name": "Minimap",
-        "srcNodeId": 68,
+        "name": "rulesMap",
+        "srcNodeId": 74,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "inputMap",
+        "srcNodeId": 60,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "outputMap",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "outputMap",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 71,
+    "kind": 4,
+    "x": 655,
+    "y": 580,
+    "name": "Rules",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "pipe/tiles.rules.map.json"
+      }
+    ]
+  },
+  {
+    "id": 72,
+    "kind": 2,
+    "x": 1648,
+    "y": 397,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 73,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 70,
         "srcOutputId": 1
       }
     ],
     "outputs": []
+  },
+  {
+    "id": 73,
+    "kind": 4,
+    "x": 1440,
+    "y": 418,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "tmp/collision.map.json"
+      }
+    ]
+  },
+  {
+    "id": 74,
+    "kind": 2,
+    "x": 1112,
+    "y": 367,
+    "name": "JSON.Decode",
+    "codePath": "ng/presets/json_decode.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "text",
+        "srcNodeId": 75,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 75,
+    "kind": 2,
+    "x": 900,
+    "y": 522,
+    "name": "Read File",
+    "codePath": "ng/presets/read-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 71,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "content",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 76,
+    "kind": 2,
+    "x": 1636,
+    "y": 178,
+    "name": "LUT Generator",
+    "codePath": "ng/presets/lut-generator.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "map",
+        "srcNodeId": 65,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layerIndex",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 77,
+    "kind": 2,
+    "x": 1628,
+    "y": 296,
+    "name": "LUT Generator",
+    "codePath": "ng/presets/lut-generator.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "map",
+        "srcNodeId": 70,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layerIndex",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": ""
+      }
+    ]
   }
 ]

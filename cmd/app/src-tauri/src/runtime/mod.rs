@@ -2653,7 +2653,7 @@ mod tests {
 
         let source = [
             "function main()",
-            "  local text = fs.read_text('ng/run.lua')",
+            "  local text = fs.read_text('ng/compile-graph.lua')",
             "  return string.find(text, 'function main()', 1, true) ~= nil",
             "end",
         ]
@@ -2665,7 +2665,7 @@ mod tests {
 
         let source = [
             "function main()",
-            "  local text = host.call('fs/fs::read-text', 'ng/run.lua')",
+            "  local text = host.call('fs/fs::read-text', 'ng/compile-graph.lua')",
             "  return string.find(text, 'function main()', 1, true) ~= nil",
             "end",
         ]
@@ -2677,7 +2677,7 @@ mod tests {
 
         let source = [
             "function main()",
-            "  local text = host.call('gams:fs/fs::read-text', 'ng/run.lua')",
+            "  local text = host.call('gams:fs/fs::read-text', 'ng/compile-graph.lua')",
             "  return string.find(text, 'function main()', 1, true) ~= nil",
             "end",
         ]
@@ -2728,7 +2728,7 @@ mod tests {
                 "outputs": []
             }
         ]);
-        let compiler = std::fs::read_to_string(root.join("ng/run.lua")).unwrap();
+        let compiler = std::fs::read_to_string(root.join("ng/compile-graph.lua")).unwrap();
         let compiler_source = format!(
             "_G.input = {}\n{}",
             serde_json::to_string(&graph.to_string()).unwrap(),
@@ -2747,6 +2747,53 @@ mod tests {
             serde_json::from_str(graph_run["ok"].as_str().unwrap()).unwrap();
         assert_eq!(graph_result["result"]["inputs"]["entity"], "42");
         assert_eq!(graph_result["result"]["active"]["entity"], true);
+
+        let code_goal_graph = serde_json::json!([
+            {
+                "id": 1,
+                "kind": 4,
+                "inputs": [],
+                "outputs": [{ "id": 1, "name": "", "value": "tmp/no-output-code-goal.txt" }]
+            },
+            {
+                "id": 2,
+                "kind": 4,
+                "inputs": [],
+                "outputs": [{ "id": 1, "name": "", "value": "ran no-output code goal" }]
+            },
+            {
+                "id": 3,
+                "kind": 2,
+                "name": "write side effect",
+                "codePath": "ng/presets/write-file.lua",
+                "inputs": [
+                    { "id": 1, "name": "path", "srcNodeId": 1, "srcOutputId": 1 },
+                    { "id": 2, "name": "content", "srcNodeId": 2, "srcOutputId": 1 }
+                ],
+                "outputs": []
+            }
+        ]);
+        let compiler_source = format!(
+            "_G.input = {}\n{}",
+            serde_json::to_string(&code_goal_graph.to_string()).unwrap(),
+            compiler
+        );
+        let generated = runtime
+            .invoke("lua/lua::run", serde_json::json!([compiler_source]))
+            .unwrap();
+        let generated_source = generated["ok"].as_str().unwrap();
+        assert!(generated_source.contains("write side effect"));
+        assert!(!generated_source.contains("__ng_goal_start(3)"));
+        runtime
+            .invoke("lua/lua::run", serde_json::json!([generated_source]))
+            .unwrap();
+        let written = runtime
+            .invoke(
+                "fs/fs::read-text",
+                serde_json::json!(["tmp/no-output-code-goal.txt"]),
+            )
+            .unwrap();
+        assert_eq!(written["ok"].as_str().unwrap(), "ran no-output code goal");
 
         let source = [
             "function main()",

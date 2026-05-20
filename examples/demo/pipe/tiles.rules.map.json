@@ -7,7 +7,7 @@
     "rule_Other": "1029",
     "rule_MatchOutsideMap": "true",
     "tileSize": "16",
-    "tilesets": "[{\"name\":\"atlas\",\"file\":\"demo/assets/the_atlas.qoi\",\"count\":1024},{\"name\":\"Rules\",\"file\":\"demo/tilemap/rules.qoi\",\"count\":8}]"
+    "tilesets": "[{\"name\":\"atlas\",\"file\":\"pipe/tileset/the_atlas.qoi\",\"count\":1024},{\"name\":\"Rules\",\"file\":\"pipe/rules/rules.qoi\",\"count\":8}]"
   },
   "layers": [
     {

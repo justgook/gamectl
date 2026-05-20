@@ -1,4 +1,4 @@
--- run.lua
+-- compile-graph.lua
 --
 -- Compiles a browser view-ng raw node-array graph into one Lua program.
 --
@@ -14,6 +14,7 @@
 --   * outgoing branch activity is controlled with `outputs.active[portId]`
 --   * code-node scripts may also use `_G.inputs` and `_G.outputs`
 --   * final graph results are returned from generated main()
+--   * NODE_CODE nodes with no outputs are treated as run targets without final result output
 --   * optional progress is provided by emitting an injected `__ng_progress` hook
 
 local NG = {
@@ -26,17 +27,17 @@ local NG = {
 function main()
 local graphJson = _G.input or input
 if type(graphJson) ~= "string" or graphJson == "" then
-	error("run.lua requires graph JSON in _G.input or input")
+	error("compile-graph.lua requires graph JSON in _G.input or input")
 end
 
 local graph = json.decode(graphJson)
 if type(graph) ~= "table" then
-	error("run.lua graph JSON must decode to an array")
+	error("compile-graph.lua graph JSON must decode to an array")
 end
 
 local progressSource = _G.ngProgressSource or ngProgressSource or ""
 if type(progressSource) ~= "string" then
-	error("run.lua ngProgressSource must be a string")
+	error("compile-graph.lua ngProgressSource must be a string")
 end
 
 local function assertInteger(value, label)
@@ -147,14 +148,21 @@ local function validateGraph()
 	end
 end
 
-local function findGoalNodes()
-	local goals = {}
+local function isCodeGoal(node)
+	return node.kind == NG.NODE_CODE and #getOutputs(node) == 0
+end
+
+local function findRunTargetNodes()
+	local explicitGoals = {}
+	local codeGoals = {}
 	for _, node in ipairs(graph) do
 		if node.kind == NG.NODE_GOAL then
-			goals[#goals + 1] = node
+			explicitGoals[#explicitGoals + 1] = node
+		elseif isCodeGoal(node) then
+			codeGoals[#codeGoals + 1] = node
 		end
 	end
-	return goals
+	return explicitGoals, codeGoals
 end
 
 local function luaVar(nodeId, outputId)
@@ -222,7 +230,7 @@ local function readTextFile(path)
 		error("code node is missing codePath")
 	end
 	if type(fs) ~= "table" or type(fs.read_text) ~= "function" then
-		error("run.lua requires lua.comp fs.read_text(path)")
+		error("compile-graph.lua requires lua.comp fs.read_text(path)")
 	end
 	return fs.read_text(path)
 end
@@ -241,11 +249,14 @@ local function markNeededNode(nodeId)
 	end
 end
 
-local function collectNeededNodes(goalNodes)
-	if #goalNodes == 0 then
-		error("graph has no goal nodes to run")
+local function collectNeededNodes(explicitGoalNodes, codeGoalNodes)
+	if #explicitGoalNodes == 0 and #codeGoalNodes == 0 then
+		error("graph has no goal nodes or no-output code nodes to run")
 	end
-	for _, goal in ipairs(goalNodes) do
+	for _, goal in ipairs(explicitGoalNodes) do
+		markNeededNode(goal.id)
+	end
+	for _, goal in ipairs(codeGoalNodes) do
 		markNeededNode(goal.id)
 	end
 end
@@ -522,8 +533,8 @@ local function emitFinalOutput(goalNodes)
 end
 
 validateGraph()
-local goalNodes = findGoalNodes()
-collectNeededNodes(goalNodes)
+local goalNodes, codeGoalNodes = findRunTargetNodes()
+collectNeededNodes(goalNodes, codeGoalNodes)
 orderNeededNodes()
 
 emit("-- Generated Lua file")

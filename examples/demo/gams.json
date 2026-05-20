@@ -354,7 +354,7 @@
         "url": "views/view-ng.js",
         "label": "Nodegraph",
         "internal": false,
-        "defaultSource": "assets.ng.json"
+        "defaultSource": "pipe/assets.ng.json"
       },
       "view-sql": {
         "url": "views/view-sql.js",
@@ -1015,10 +1015,7 @@
               ],
               "outputs": [
                 {
-                  "name": "image+"
-                },
-                {
-                  "name": "error"
+                  "name": "image"
                 }
               ],
               "group": "Image"

@@ -884,9 +884,11 @@ export class ViewNg extends HTMLElement {
     this.currentRunId = runId
     this._setStatus('compiling graph run...', 'info')
 
-    const compilerRead = unwrap(await runtime.invoke('fs/fs::read-text', 'ng/run.lua'))
+    const compilerRead = unwrap(await runtime.invoke('fs/fs::read-text', 'ng/compile-graph.lua'))
 
-    const graphJson = JSON.stringify(this.getGraph())
+    const graph = this.getGraph()
+    const hasExplicitGoal = graph.some((node) => Number(node.kind) === NG.NODE_GOAL)
+    const graphJson = JSON.stringify(graph)
     const progressSource = `local __ng_progress_plugin = ${luaStringLiteral(this.progressPluginId)}
 local __ng_progress_run_id = ${luaStringLiteral(runId)}
 function __ng_progress(method, nodeId, message)
@@ -908,7 +910,7 @@ end`
 
       if (this.currentRunId !== runId) return
       this._setStatus('graph run completed', 'success')
-      await runtime.call('ui.toast.success', { message: resultText })
+      if (hasExplicitGoal) await runtime.call('ui.toast.success', { message: resultText })
     } catch (e) {
       console.log(generatedSource)
       console.warn("THE ERROR", e)
