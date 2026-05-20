@@ -1,11 +1,10 @@
 local path = inputs[1]
 if path == nil or path == "" then
-    outputs[1] = ""
-    outputs[2] = "path is required"
-    return
+	outputs[1] = ""
+	outputs[2] = "path is required"
+	return
 end
 
 local content = host.call("fs/fs::read-text", path)
-host.call("ui.toast.success", content)
 outputs[1] = content
 outputs[2] = ""

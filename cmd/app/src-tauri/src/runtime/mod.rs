@@ -1186,7 +1186,10 @@ fn add_gams_runtime_import(linker: &mut Linker<HostState>, interface_name: &str)
                         }
                     }
                 }
-                Err(error) => results[0] = Val::Result(Err(Some(Box::new(Val::String(error))))),
+                Err(RuntimeCallError::Returned(error)) => {
+                    results[0] = Val::Result(Err(Some(Box::new(Val::String(error)))))
+                }
+                Err(RuntimeCallError::Trap(error)) => return Err(wasmtime::Error::msg(error)),
             }
             Ok(())
         },
@@ -1241,13 +1244,18 @@ fn invocation_resource_type_name(target: &str) -> String {
         .to_string()
 }
 
+enum RuntimeCallError {
+    Returned(String),
+    Trap(String),
+}
+
 fn call_runtime_target(
     cx: &mut StoreContextMut<'_, HostState>,
     target: &str,
     args: &str,
-) -> std::result::Result<Option<String>, String> {
+) -> std::result::Result<Option<String>, RuntimeCallError> {
     let (resolved_target, func) = match resolve_runtime_call_func(&cx.data().runtime_funcs, target)
-        .map_err(|error| error.to_string())?
+        .map_err(|error| RuntimeCallError::Returned(error.to_string()))?
     {
         Some((key, func)) => (key.clone(), func.clone()),
         None => return Ok(None),
@@ -1257,28 +1265,33 @@ fn call_runtime_target(
         ExportedFunc::Wasm(func) => func,
         ExportedFunc::NativeShellRun => {
             let args_json = serde_json::from_str::<serde_json::Value>(args).map_err(|error| {
-                format!("runtime.call component args must be a JSON array: {error}")
+                RuntimeCallError::Returned(format!(
+                    "runtime.call component args must be a JSON array: {error}"
+                ))
             })?;
             let value = invoke_native_shell_run(&cx.data().root, args_json)
-                .map_err(|error| error.to_string())?;
-            return serde_json::to_string(&value)
-                .map(Some)
-                .map_err(|error| format!("encoding {target} result: {error}"));
+                .map_err(|error| RuntimeCallError::Returned(error.to_string()))?;
+            return serde_json::to_string(&value).map(Some).map_err(|error| {
+                RuntimeCallError::Returned(format!("encoding {target} result: {error}"))
+            });
         }
     };
     let ty = func.ty(&mut *cx);
     let params_ty = ty.params().map(|(_, ty)| ty).collect::<Vec<_>>();
-    let args_json = serde_json::from_str::<serde_json::Value>(args)
-        .map_err(|error| format!("runtime.call component args must be a JSON array: {error}"))?;
-    let args_array = args_json
-        .as_array()
-        .ok_or_else(|| "runtime.call component args must be a JSON array".to_string())?;
+    let args_json = serde_json::from_str::<serde_json::Value>(args).map_err(|error| {
+        RuntimeCallError::Returned(format!(
+            "runtime.call component args must be a JSON array: {error}"
+        ))
+    })?;
+    let args_array = args_json.as_array().ok_or_else(|| {
+        RuntimeCallError::Returned("runtime.call component args must be a JSON array".to_string())
+    })?;
     if args_array.len() != params_ty.len() {
-        return Err(format!(
+        return Err(RuntimeCallError::Returned(format!(
             "{target} expects {} args, got {}",
             params_ty.len(),
             args_array.len()
-        ));
+        )));
     }
 
     let resource_type_name = invocation_resource_type_name(&resolved_target);
@@ -1301,17 +1314,19 @@ fn call_runtime_target(
         .zip(params_ty.iter())
         .map(|(value, ty)| {
             json_to_val_with_resources(value, ty, None, &mut resolve_resource)
-                .map_err(|error| error.to_string())
+                .map_err(|error| RuntimeCallError::Returned(error.to_string()))
         })
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     let mut results = ty
         .results()
-        .map(|ty| val_default_for_type(&ty).map_err(|error| error.to_string()))
+        .map(|ty| {
+            val_default_for_type(&ty).map_err(|error| RuntimeCallError::Returned(error.to_string()))
+        })
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     func.call(&mut *cx, &params, &mut results)
-        .map_err(|error| format!("calling {target}: {error}"))?;
+        .map_err(|error| RuntimeCallError::Trap(format!("calling {target}: {error}")))?;
     let mut register_resource = |resource: ResourceAny, resource_type_name: &str| {
         let state = cx.data_mut();
         let id = format!("res_{:016x}", state.next_json_resource);
@@ -1330,10 +1345,10 @@ fn call_runtime_target(
     };
     let value =
         result_json_with_resources(results, Some(&resource_type_name), &mut register_resource)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| RuntimeCallError::Returned(error.to_string()))?;
     serde_json::to_string(&value)
         .map(Some)
-        .map_err(|error| format!("encoding {target} result: {error}"))
+        .map_err(|error| RuntimeCallError::Returned(format!("encoding {target} result: {error}")))
 }
 
 fn insert_unique_func(
@@ -2809,6 +2824,70 @@ mod tests {
             value.get("ok").is_some() || value.get("err").is_some(),
             "{value}"
         );
+    }
+
+    #[test]
+    #[ignore = "regression for Wasmtime host-thread panic when component -> runtime.call -> automap nested call traps"]
+    fn nested_automap_component_trap_does_not_panic_runtime_call_host_task() {
+        let automap = "../../../build.nosync/plugins/automap.comp.wasm";
+        let benchmark = "../../../build.nosync/plugins/benchmark.comp.wasm";
+        if !std::path::Path::new(automap).exists() || !std::path::Path::new(benchmark).exists() {
+            eprintln!(
+                "skipping nested automap host-thread panic repro; build automap.comp.wasm and benchmark.comp.wasm"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+
+        let rules = tile_map_json_to_wit_value(
+            serde_json::from_str(
+                &std::fs::read_to_string(root.join("pipe/edge.rules.map.json")).unwrap(),
+            )
+            .unwrap(),
+        );
+        let input_width = 168usize;
+        let input_len = input_width * 152;
+        let input = serde_json::json!({
+            "layers": [
+                { "width": input_width, "data": vec![1u32; input_len], "props": [["name", "rooms"]] },
+                { "width": input_width, "data": vec![0u32; input_len], "props": [["type", "doors"]] }
+            ],
+            "props": []
+        });
+        let nested_args =
+            serde_json::to_string(&serde_json::json!([rules, input, serde_json::Value::Null,]))
+                .unwrap();
+
+        for _ in 0..20 {
+            let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+            runtime
+                .add_plugins(
+                    vec![
+                        "plugins/benchmark.comp.wasm".to_string(),
+                        "plugins/automap.comp.wasm".to_string(),
+                    ],
+                    false,
+                )
+                .unwrap();
+
+            let value = runtime.invoke(
+                "benchmark/benchmark::call-runtime-view",
+                serde_json::json!(["automap/automap::apply", nested_args]),
+            );
+            match value {
+                Ok(value) => assert!(
+                    value.get("ok").is_some() || value.get("err").is_some(),
+                    "{value}"
+                ),
+                Err(error) => assert!(
+                    !error.contains("current thread is not a host thread"),
+                    "{error}"
+                ),
+            }
+        }
     }
 
     #[test]
