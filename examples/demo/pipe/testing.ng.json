@@ -477,8 +477,8 @@
   {
     "id": 72,
     "kind": 2,
-    "x": 1648,
-    "y": 397,
+    "x": 1812,
+    "y": 120,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -502,8 +502,8 @@
   {
     "id": 73,
     "kind": 4,
-    "x": 1440,
-    "y": 418,
+    "x": 1595,
+    "y": 107,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -575,39 +575,8 @@
   {
     "id": 76,
     "kind": 2,
-    "x": 1636,
-    "y": 178,
-    "name": "LUT Generator",
-    "codePath": "ng/presets/lut-generator.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "map",
-        "srcNodeId": 65,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "layerIndex",
-        "srcNodeId": 0,
-        "srcOutputId": 0
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "image",
-        "value": ""
-      }
-    ]
-  },
-  {
-    "id": 77,
-    "kind": 2,
-    "x": 1628,
-    "y": 296,
+    "x": 1738,
+    "y": 276,
     "name": "LUT Generator",
     "codePath": "ng/presets/lut-generator.lua",
     "graphId": 0,
@@ -622,8 +591,8 @@
       {
         "id": 2,
         "name": "layerIndex",
-        "srcNodeId": 0,
-        "srcOutputId": 0
+        "srcNodeId": 79,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -631,6 +600,79 @@
         "id": 1,
         "name": "image",
         "value": ""
+      }
+    ]
+  },
+  {
+    "id": 77,
+    "kind": 2,
+    "x": 1750,
+    "y": 359,
+    "name": "LUT Generator",
+    "codePath": "ng/presets/lut-generator.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "map",
+        "srcNodeId": 70,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layerIndex",
+        "srcNodeId": 79,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 78,
+    "kind": 1,
+    "x": 1979,
+    "y": 352,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "Image?",
+        "srcNodeId": 77,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 79,
+    "kind": 4,
+    "x": 1373,
+    "y": 411,
+    "name": "Layers",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "1"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "2"
       }
     ]
   }

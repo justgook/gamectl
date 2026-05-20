@@ -10,29 +10,6 @@ end
 
 layerSelector = math.floor(layerSelector)
 
-local function decodeJson(text, label)
-	local ok, value = pcall(json.decode, text)
-	if not ok then
-		return nil, "Failed to parse " .. label
-	end
-	return value, nil
-end
-
-local function decodeResult(text, label)
-	local response, decodeErr = decodeJson(text, label .. " response")
-	if response == nil then
-		return nil, decodeErr
-	end
-	if response.err ~= nil then
-		return nil, tostring(response.err)
-	end
-	return response.ok, nil
-end
-
-local function callImage(method, ...)
-	return decodeResult(host.call("image/image::" .. string.gsub(method, "_", "-"), ...), "image." .. method)
-end
-
 local layers = tilemap.layers
 if type(layers) ~= "table" or #layers == 0 then
 	error("Tilemap has no layers")
@@ -71,20 +48,11 @@ for i = 1, #data do
 	bytes[offset + 4] = 255
 end
 
-local image, writeErr = callImage("write_pixels", width, height, "rgba8", bytes)
+local image, writeErr = host.call("image/image::write-pixels", width, height, "rgba8", bytes)
 if image == nil then
 	error(writeErr or "Failed to write pixel data")
 end
 
-local metadata = {
-	image = image,
-	resource = image,
-	width = width,
-	height = height,
-	tileCount = #data,
-	tilemapName = tilemap,
-	layerIndex = layerSelector,
-	layerName = ((type(layer.props) == "table" and layer.props.name) or ("layer " .. tostring(layerSelector))),
-}
+-- host.call("image/image::save", image, "tmp/lut1.qoi", "qoi")
 
-outputs[1] = json.encode(metadata)
+outputs[1] = image
