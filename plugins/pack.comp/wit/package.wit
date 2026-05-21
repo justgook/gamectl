@@ -1,0 +1,53 @@
+package gams:pack@1.0.0;
+
+interface pack {
+    enum pack-error-code {
+        invalid-arg,
+        out-of-range,
+        out-of-memory,
+    }
+
+    record pack-error {
+        code: pack-error-code,
+        message: string,
+    }
+
+    record rect-input {
+        id: option<u32>,
+        width: u32,
+        height: u32,
+    }
+
+    record pack-request {
+        width: u32,
+        height: u32,
+        padding: u32,
+        auto-size: bool,
+        rects: list<rect-input>,
+    }
+
+    record rect-output {
+        id: u32,
+        x: option<u32>,
+        y: option<u32>,
+        width: u32,
+        height: u32,
+        packed: bool,
+    }
+
+    record pack-response {
+        width: u32,
+        height: u32,
+        padding: u32,
+        packed-all: bool,
+        packed-count: u32,
+        failed-count: u32,
+        rects: list<rect-output>,
+    }
+
+    pack: func(request: pack-request) -> result<pack-response, pack-error>;
+}
+
+world pack-plugin {
+    export pack;
+}

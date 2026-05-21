@@ -635,25 +635,6 @@
     ]
   },
   {
-    "id": 78,
-    "kind": 1,
-    "x": 1979,
-    "y": 352,
-    "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "Image?",
-        "srcNodeId": 77,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": []
-  },
-  {
     "id": 79,
     "kind": 4,
     "x": 1373,
@@ -673,6 +654,205 @@
         "id": 2,
         "name": "",
         "value": "2"
+      }
+    ]
+  },
+  {
+    "id": 80,
+    "kind": 2,
+    "x": 1956,
+    "y": 275,
+    "name": "FlipY",
+    "codePath": "ng/presets/image-flipy.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 76,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 81,
+    "kind": 2,
+    "x": 1953,
+    "y": 359,
+    "name": "FlipY",
+    "codePath": "ng/presets/image-flipy.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 77,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 82,
+    "kind": 2,
+    "x": 2339,
+    "y": 318,
+    "name": "Array",
+    "codePath": "ng/presets/array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "lut1",
+        "srcNodeId": 84,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "lut2",
+        "srcNodeId": 85,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 83,
+    "kind": 1,
+    "x": 2733,
+    "y": 313,
+    "name": "TEMP_GOAL",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "Image",
+        "srcNodeId": 86,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 84,
+    "kind": 2,
+    "x": 2156,
+    "y": 285,
+    "name": "Info",
+    "codePath": "ng/presets/image-info.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "images",
+        "srcNodeId": 80,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "info",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 85,
+    "kind": 2,
+    "x": 2150,
+    "y": 369,
+    "name": "Info",
+    "codePath": "ng/presets/image-info.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "images",
+        "srcNodeId": 81,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "info",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 86,
+    "kind": 2,
+    "x": 2522,
+    "y": 318,
+    "name": "Pack Rects",
+    "codePath": "ng/presets/pack-rects.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 82,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "width",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 3,
+        "name": "height",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 4,
+        "name": "padding",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 5,
+        "name": "autoSize",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "packedRects",
+        "value": ""
       }
     ]
   }

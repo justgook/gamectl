@@ -1,0 +1,6 @@
+PLUGIN_WASM_COMPONENT := 1
+PLUGIN_WIT_WORLD := gams:pack/pack-plugin@1.0.0
+PLUGIN_COMPONENT_NAME := pack_plugin
+PLUGIN_COMPONENT_SOURCES := $(PLUGIN_PATH)/component.c
+PLUGIN_COMPONENT_EXTRA_DEPS := \
+	$(PLUGIN_PATH)/stb_rect_pack.h

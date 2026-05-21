@@ -816,6 +816,23 @@
               "group": "Demo"
             },
             {
+              "name": "Info",
+              "kind": "code",
+              "codePath": "ng/presets/image-info.lua",
+              "inputs": [
+                {
+                  "name": "images",
+                  "defaultValue": "[]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "info"
+                }
+              ],
+              "group": "Image"
+            },
+            {
               "name": "Atlas",
               "kind": "code",
               "codePath": "ng/presets/image-atlas.lua",
@@ -828,9 +845,6 @@
               "outputs": [
                 {
                   "name": "image"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Image"
@@ -841,16 +855,12 @@
               "codePath": "ng/presets/image-flipy.lua",
               "inputs": [
                 {
-                  "name": "image",
-                  "defaultValue": ""
+                  "name": "image"
                 }
               ],
               "outputs": [
                 {
                   "name": "image"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Image"
@@ -868,9 +878,6 @@
               "outputs": [
                 {
                   "name": "image"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Image"
@@ -1049,9 +1056,6 @@
               "outputs": [
                 {
                   "name": "packedRects"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Data"
@@ -1433,7 +1437,7 @@
       "id": "pack",
       "runtime": "wasm",
       "role": "service",
-      "url": "builtin/plugins/pack.wasm"
+      "url": "builtin/plugins/pack.comp.wasm"
     },
     {
       "id": "respack",

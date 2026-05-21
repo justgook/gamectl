@@ -11,6 +11,7 @@ async function main() {
 
   console.time("addPlugins")
   await runtime.addPlugins([
+    "plugins/pack.comp.wasm",
     "plugins/random.comp.wasm",
     "plugins/automap.comp.wasm",
     "plugins/fs.comp.wasm",
