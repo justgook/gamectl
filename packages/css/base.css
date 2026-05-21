@@ -767,7 +767,6 @@
   fieldset {
     margin: 0;
     border: 1px solid var(--border);
-    display: flex;
     flex-direction: column;
   }
 

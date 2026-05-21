@@ -520,8 +520,8 @@
   {
     "id": 74,
     "kind": 2,
-    "x": 1112,
-    "y": 367,
+    "x": 1107,
+    "y": 495,
     "name": "JSON.Decode",
     "codePath": "ng/presets/json_decode.lua",
     "graphId": 0,
@@ -710,8 +710,8 @@
   {
     "id": 82,
     "kind": 2,
-    "x": 2339,
-    "y": 318,
+    "x": 2337,
+    "y": 341,
     "name": "Array",
     "codePath": "ng/presets/array.lua",
     "graphId": 0,
@@ -741,8 +741,8 @@
   {
     "id": 83,
     "kind": 1,
-    "x": 2733,
-    "y": 313,
+    "x": 3131,
+    "y": 455,
     "name": "TEMP_GOAL",
     "codePath": "",
     "graphId": 0,
@@ -751,7 +751,7 @@
       {
         "id": 1,
         "name": "Image",
-        "srcNodeId": 86,
+        "srcNodeId": 89,
         "srcOutputId": 1
       }
     ],
@@ -810,8 +810,8 @@
   {
     "id": 86,
     "kind": 2,
-    "x": 2522,
-    "y": 318,
+    "x": 2517,
+    "y": 351,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
     "graphId": 0,
@@ -852,6 +852,213 @@
       {
         "id": 1,
         "name": "packedRects",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 87,
+    "kind": 2,
+    "x": 2732,
+    "y": 474,
+    "name": "Atlas",
+    "codePath": "ng/presets/image-atlas.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 86,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "srcNodeId": 88,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 88,
+    "kind": 2,
+    "x": 2181,
+    "y": 498,
+    "name": "Array",
+    "codePath": "ng/presets/array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "img1",
+        "srcNodeId": 80,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "img2",
+        "srcNodeId": 81,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 89,
+    "kind": 2,
+    "x": 2941,
+    "y": 458,
+    "name": "Array",
+    "codePath": "ng/presets/array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "Positions",
+        "srcNodeId": 94,
+        "srcOutputId": 3
+      },
+      {
+        "id": 2,
+        "name": "Atlas",
+        "srcNodeId": 90,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "LUT",
+        "srcNodeId": 87,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "Tilemaps",
+        "srcNodeId": 94,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "slots",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 90,
+    "kind": 2,
+    "x": 2730,
+    "y": 348,
+    "name": "Open",
+    "codePath": "ng/presets/image-open.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 91,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": ""
+      }
+    ]
+  },
+  {
+    "id": 91,
+    "kind": 4,
+    "x": 2446,
+    "y": 232,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "pipe/tileset/the_atlas.qoi"
+      }
+    ]
+  },
+  {
+    "id": 93,
+    "kind": 4,
+    "x": 2327,
+    "y": 594,
+    "name": "Entity Id",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "id": 94,
+    "kind": 2,
+    "x": 2687,
+    "y": 580,
+    "name": "Tilemaps",
+    "codePath": "pipe/mock/tilemaps.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "next_entity_id",
+        "srcNodeId": 93,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "rects",
+        "srcNodeId": 86,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "next_entity_id",
+        "value": ""
+      },
+      {
+        "id": 2,
+        "name": "tilemaps",
+        "value": ""
+      },
+      {
+        "id": 3,
+        "name": "positions",
         "value": ""
       }
     ]

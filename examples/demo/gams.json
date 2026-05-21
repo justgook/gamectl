@@ -838,8 +838,10 @@
               "codePath": "ng/presets/image-atlas.lua",
               "inputs": [
                 {
-                  "name": "images",
-                  "defaultValue": "[]"
+                  "name": "rects"
+                },
+                {
+                  "name": "images"
                 }
               ],
               "outputs": [
