@@ -10,4 +10,4 @@ for i = 0, 32 * 32 - 1 do
 	}
 end
 
-outputs[1] = json.encode(uvs)
+outputs[1] = uvs

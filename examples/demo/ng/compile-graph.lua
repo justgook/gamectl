@@ -367,7 +367,11 @@ end
 local function emitValueAssignments(node, indent)
 	indent = indent or ""
 	for _, outputPort in ipairs(getOutputs(node)) do
-		emit(("%s%s = %s"):format(indent, luaVar(node.id, outputPort.id), luaLiteral(outputPort.value)))
+		local value = outputPort.value
+		if value == "" then
+			value = nil
+		end
+		emit(("%s%s = %s"):format(indent, luaVar(node.id, outputPort.id), luaLiteral(value)))
 		emit(("%s%s = true"):format(indent, luaActiveVar(node.id, outputPort.id)))
 	end
 end

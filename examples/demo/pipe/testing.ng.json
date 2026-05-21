@@ -859,8 +859,8 @@
   {
     "id": 87,
     "kind": 2,
-    "x": 2732,
-    "y": 474,
+    "x": 2723,
+    "y": 496,
     "name": "Atlas",
     "codePath": "ng/presets/image-atlas.lua",
     "graphId": 0,
@@ -921,8 +921,8 @@
   {
     "id": 89,
     "kind": 2,
-    "x": 2941,
-    "y": 458,
+    "x": 2924,
+    "y": 459,
     "name": "Array",
     "codePath": "ng/presets/array.lua",
     "graphId": 0,
@@ -942,12 +942,18 @@
       },
       {
         "id": 3,
+        "name": "Sprites",
+        "srcNodeId": 95,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
         "name": "LUT",
         "srcNodeId": 87,
         "srcOutputId": 1
       },
       {
-        "id": 4,
+        "id": 5,
         "name": "Tilemaps",
         "srcNodeId": 94,
         "srcOutputId": 2
@@ -957,15 +963,15 @@
       {
         "id": 1,
         "name": "slots",
-        "value": ""
+        "value": null
       }
     ]
   },
   {
     "id": 90,
     "kind": 2,
-    "x": 2730,
-    "y": 348,
+    "x": 2752,
+    "y": 331,
     "name": "Open",
     "codePath": "ng/presets/image-open.lua",
     "graphId": 0,
@@ -982,7 +988,7 @@
       {
         "id": 1,
         "name": "image",
-        "value": ""
+        "value": null
       }
     ]
   },
@@ -1060,6 +1066,24 @@
         "id": 3,
         "name": "positions",
         "value": ""
+      }
+    ]
+  },
+  {
+    "id": 95,
+    "kind": 2,
+    "x": 2724,
+    "y": 421,
+    "name": "Demo UVs",
+    "codePath": "ng/presets/uvs.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "UVS",
+        "value": null
       }
     ]
   }

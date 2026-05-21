@@ -865,7 +865,7 @@ export class ViewNg extends HTMLElement {
         return {
           id: outputId,
           name: kind === NG.NODE_VALUE ? '' : String(port.name || existingOutput?.name || '').trim(),
-          value: String(port.value ?? existingOutput?.value ?? ''),
+          value: port.value === null || existingOutput?.value === null ? null : String(port.value ?? existingOutput?.value ?? '') || null,
         }
       }),
     }
@@ -2401,6 +2401,11 @@ function requireString(value, label) {
   return value
 }
 
+function requireOutputValue(value, label) {
+  assert(value === null || typeof value === 'string', `view-ng graph ${label} must be a string or null`)
+  return value
+}
+
 function cloneInput(input) {
   return {
     id: requireNumber(input.id, 'input.id'),
@@ -2414,7 +2419,7 @@ function cloneOutput(output) {
   return {
     id: requireNumber(output.id, 'output.id'),
     name: requireString(output.name, 'output.name'),
-    value: requireString(output.value, 'output.value'),
+    value: requireOutputValue(output.value, 'output.value'),
   }
 }
 
