@@ -902,8 +902,8 @@
   {
     "id": 89,
     "kind": 2,
-    "x": 2981,
-    "y": 450,
+    "x": 3266,
+    "y": 452,
     "name": "Array",
     "codePath": "ng/presets/array.lua",
     "graphId": 0,
@@ -918,7 +918,7 @@
       {
         "id": 2,
         "name": "Atlas",
-        "srcNodeId": 90,
+        "srcNodeId": 99,
         "srcOutputId": 1
       },
       {
@@ -930,7 +930,7 @@
       {
         "id": 4,
         "name": "LUT",
-        "srcNodeId": 87,
+        "srcNodeId": 100,
         "srcOutputId": 1
       },
       {
@@ -1071,8 +1071,8 @@
   {
     "id": 96,
     "kind": 2,
-    "x": 3316,
-    "y": 486,
+    "x": 3601,
+    "y": 488,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
     "graphId": 0,
@@ -1108,8 +1108,8 @@
   {
     "id": 97,
     "kind": 4,
-    "x": 2792,
-    "y": 716,
+    "x": 3077,
+    "y": 718,
     "name": "Result",
     "codePath": "",
     "graphId": 0,
@@ -1136,8 +1136,8 @@
   {
     "id": 98,
     "kind": 2,
-    "x": 3082,
-    "y": 770,
+    "x": 3367,
+    "y": 772,
     "name": "Read File",
     "codePath": "ng/presets/read-file.lua",
     "graphId": 0,
@@ -1159,6 +1159,56 @@
       {
         "id": 2,
         "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 99,
+    "kind": 2,
+    "x": 3034,
+    "y": 338,
+    "name": "Wrap",
+    "codePath": "ng/presets/image-wrap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 90,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "handle",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 100,
+    "kind": 2,
+    "x": 2958,
+    "y": 507,
+    "name": "Wrap",
+    "codePath": "ng/presets/image-wrap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 87,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "handle",
         "value": null
       }
     ]
