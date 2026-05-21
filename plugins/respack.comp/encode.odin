@@ -337,7 +337,8 @@ encode_bytes_value :: proc(
 		return false, file_err
 	}
 	if has_file {
-		return false, "bytes _file marker is not supported by respack component build; pass bytes through the blobs side table"
+		return false,
+			"bytes _file marker is not supported by respack component build; pass bytes through the blobs side table"
 	}
 	blob_id, has_blob, blob_err := decode_bytes_blob_marker(input)
 	if blob_err != "" {
@@ -359,7 +360,7 @@ encode_bytes_value :: proc(
 	if len(input) >= 2 && input[0] == '"' && input[len(input) - 1] == '"' {
 		bytes, ok := decode_json_string_bytes(input)
 		if !ok {
-			return false, "bytes must be string, array, or _file object"
+			return false, "bytes must be string, array, or _file object 1"
 		}
 		if max_len >= 0 && len(bytes) > max_len {
 			return false, "bytes exceeds max_len"
@@ -370,7 +371,7 @@ encode_bytes_value :: proc(
 		return true, ""
 	}
 	if len(input) == 0 || input[0] != '[' {
-		return false, "bytes must be string, array, or _file object"
+		return false, "bytes must be string, array, or _file object 2"
 	}
 	count := count_array_elements(input)
 	if max_len >= 0 && count > max_len {

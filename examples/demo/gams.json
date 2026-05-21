@@ -1168,6 +1168,27 @@
               "group": "Data"
             },
             {
+              "name": "Respack Save",
+              "kind": "code",
+              "codePath": "ng/presets/respack-save.lua",
+              "inputs": [
+                {
+                  "name": "schema"
+                },
+                {
+                  "name": "slots"
+                },
+                {
+                  "name": "path_bin"
+                },
+                {
+                  "name": "path_decoder"
+                }
+              ],
+              "outputs": [],
+              "group": "Respack"
+            },
+            {
               "name": "Build",
               "kind": "code",
               "codePath": "ng/presets/respack-build.lua",

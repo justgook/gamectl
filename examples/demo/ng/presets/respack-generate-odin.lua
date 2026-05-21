@@ -25,7 +25,9 @@ end
 
 local function readText(path)
 	local ok, text = safeCall("fs/fs::read-text", path)
-	if ok then return true, text end
+	if ok then
+		return true, text
+	end
 	if string.sub(path, 1, 5) == "demo/" then
 		return safeCall("fs/fs::read-text", string.sub(path, 6))
 	end
@@ -37,7 +39,9 @@ local function isPureFileMarker(value)
 		return false
 	end
 	local count = 0
-	for _ in pairs(value) do count = count + 1 end
+	for _ in pairs(value) do
+		count = count + 1
+	end
 	return count == 1
 end
 
