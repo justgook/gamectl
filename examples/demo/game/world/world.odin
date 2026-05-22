@@ -5,6 +5,7 @@ import sg "../sokol/gfx"
 import "core:math/linalg"
 import "grid"
 import "logic"
+import "shape"
 
 // GAME_RESOLUTION :: [2]int{320, 180}
 GAME_RESOLUTION_WIDTH :: 640
@@ -18,7 +19,6 @@ World :: struct {
 	accumulator:         f64,
 	atlas:               sg.Image,
 	lut:                 sg.Image,
-	grid:                grid.Grid,
 	cam:                 Camera,
 	player1:             ^Input,
 	sprite_pipe:         ^Sprite_Pipe,
@@ -40,6 +40,16 @@ World :: struct {
 	offscreen_pass:      sg.Pass,
 	display_pass_action: sg.Pass_Action,
 	display_pipe:        ^Display_Pipe,
+	// Platformer Physics
+	grid:                grid.Grid,
+	segments:            [dynamic][4]int,
+	collider:            logic.Component_Storage(shape.Capsule),
+	on_hit:              logic.Component_Storage(proc(_: ^World, src, target: int)),
+	on_hurt:             logic.Component_Storage(proc(_: ^World, src, target: int)),
+	enemy_hurt:          logic.Component_Storage(shape.Capsule),
+	enemy_hit:           logic.Component_Storage(shape.Circle),
+	player_hurt:         logic.Component_Storage(shape.Capsule),
+	player_hit:          logic.Component_Storage(shape.Circle),
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -171,6 +181,14 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.brain, entity_id)
 	logic.delete_component(&w.input, entity_id)
 	logic.delete_component(&w.timer, entity_id)
+	logic.delete_component(&w.animation, entity_id)
+	logic.delete_component(&w.collider, entity_id)
+	logic.delete_component(&w.on_hit, entity_id)
+	logic.delete_component(&w.on_hurt, entity_id)
+	logic.delete_component(&w.enemy_hurt, entity_id)
+	logic.delete_component(&w.enemy_hit, entity_id)
+	logic.delete_component(&w.player_hurt, entity_id)
+	logic.delete_component(&w.player_hit, entity_id)
 }
 
 cleanup :: proc(w: ^World) {
@@ -190,4 +208,14 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.brain)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.timer)
+	logic.destroy_storage(&w.animation)
+	grid.destroy_grid(&w.grid)
+	delete(w.segments)
+	logic.destroy_storage(&w.collider)
+	logic.destroy_storage(&w.on_hit)
+	logic.destroy_storage(&w.on_hurt)
+	logic.destroy_storage(&w.enemy_hurt)
+	logic.destroy_storage(&w.enemy_hit)
+	logic.destroy_storage(&w.player_hurt)
+	logic.destroy_storage(&w.player_hit)
 }
