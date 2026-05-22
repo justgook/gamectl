@@ -10,8 +10,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '../../..')
 const wasmPath = path.join(repoRoot, 'build.nosync/plugins/respack.wasm')
 const schemaPath = path.join(repoRoot, 'plugins/respack/testdata/simple.respack.json')
-const game2SchemaPath = path.join(repoRoot, 'demo/game2.rspk.json')
-const atlasPath = path.join(repoRoot, 'demo/assets/the_atlas.qoi')
+const game2SchemaPath = path.join(repoRoot, 'examples/demo/pipe/game2.rspk.json')
+const atlasPath = path.join(repoRoot, 'examples/demo/pipe/tileset/the_atlas.qoi')
 const tempDir = path.join(repoRoot, 'build.nosync/respack-e2e')
 
 function toArrayBuffer(buffer) {
@@ -301,13 +301,10 @@ async function main() {
 
   const runtime = await RespackRuntime.create(toArrayBuffer(wasmBytes))
   await fs.mkdir(tempDir, { recursive: true })
-  const blobPath = path.join(tempDir, 'blob.bin')
-  const textBlobPath = path.join(tempDir, 'text_blob.txt')
-  const missingBlobPath = path.join(tempDir, 'missing_blob.bin')
   const schemaCopyPath = path.join(tempDir, 'simple-schema.respack.json')
   const missingSchemaPath = path.join(tempDir, 'missing-schema.respack.json')
-  await fs.writeFile(blobPath, Buffer.from([0, 17, 34, 51, 200, 255]))
-  await fs.writeFile(textBlobPath, Buffer.from('line\n2', 'utf8'))
+  const blobBase64 = Buffer.from([0, 17, 34, 51, 200, 255]).toString('base64')
+  const textBlobBase64 = Buffer.from('line\n2', 'utf8').toString('base64')
   await fs.writeFile(schemaCopyPath, schemaText)
 
   await call(runtime, 'init', schemaText)
@@ -324,9 +321,9 @@ async function main() {
         { x: 3.5, y: -2.0 },
         { x: 10.25, y: 8.75 }
       ],
-      blob: { _file: blobPath, extra: true },
+      blob: { _file: "blob.bin" },
       label: "line\n2",
-      text_blob: "line\n2",
+      text_blob: textBlobBase64,
       shape: {
         rect: {
           size: { x: 6.0, y: 9.5 }
@@ -338,7 +335,7 @@ async function main() {
         [1, 2, 3]
       ]
     }
-  }), 'bytes file marker must contain only _file')
+  }), 'bytes must be a base64 string')
 
   await expectCallError(runtime, 'write', JSON.stringify({
     slot: 0,
@@ -347,9 +344,9 @@ async function main() {
         { x: 3.5, y: -2.0 },
         { x: 10.25, y: 8.75 }
       ],
-      blob: { _file: missingBlobPath },
+      blob: "not base64",
       label: "line\n2",
-      text_blob: "line\n2",
+      text_blob: textBlobBase64,
       shape: {
         rect: {
           size: { x: 6.0, y: 9.5 }
@@ -361,7 +358,7 @@ async function main() {
         [1, 2, 3]
       ]
     }
-  }), 'ENOENT')
+  }), 'bytes must be a valid base64 string')
 
   await call(runtime, 'write', JSON.stringify({
     slot: 0,
@@ -370,9 +367,9 @@ async function main() {
         { x: 3.5, y: -2.0 },
         { x: 10.25, y: 8.75 }
       ],
-      blob: { _file: blobPath },
+      blob: blobBase64,
       label: "line\n2",
-      text_blob: { _file: textBlobPath },
+      text_blob: textBlobBase64,
       shape: {
         rect: {
           size: { x: 6.0, y: 9.5 }
@@ -415,7 +412,7 @@ async function main() {
   }))
   await call(runtime, 'write', JSON.stringify({
     slot: 1,
-    payload: { _file: atlasPath }
+    payload: atlasBytes.toString('base64')
   }))
   await call(runtime, 'write', JSON.stringify({
     slot: 2,
