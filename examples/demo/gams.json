@@ -1063,6 +1063,31 @@
               "group": "Image"
             },
             {
+              "name": "Tilemap to Collision Segments",
+              "kind": "code",
+              "codePath": "ng/presets/collision/tilemap-to-segments.lua",
+              "inputs": [
+                {
+                  "name": "map",
+                  "defaultValue": "minimap.map.json"
+                },
+                {
+                  "name": "layerIndex",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "solidTileId",
+                  "defaultValue": "1"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "segments"
+                }
+              ],
+              "group": "Collision"
+            },
+            {
               "name": "Pack Rects",
               "kind": "code",
               "codePath": "ng/presets/pack-rects.lua",
