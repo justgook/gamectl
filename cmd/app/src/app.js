@@ -1,5 +1,5 @@
 import { runtime, unwrap } from "/core/runtime.js"
-import { openSqlVecConnection } from "/core/sql.js"
+// import { openSqlVecConnection, sql } from "/core/sql.js"
 import { init } from "/___/services.js"
 
 app.innerHTML = ""
@@ -10,6 +10,11 @@ async function main() {
   await runtime.ready
   console.timeEnd("runtime.ready")
 
+  await runtime.addPlugins(["plugins/fs.comp.wasm"], true)
+  console.time("read gams.json")
+  const gamsJsonText2 = unwrap(await runtime.invoke("fs/fs::read-text", "gams.json"))
+  console.timeEnd("read gams.json")
+
   console.time("addPlugins")
   await runtime.addPlugins([
     "plugins/sql-vec.comp.wasm",
@@ -17,7 +22,6 @@ async function main() {
     "plugins/pack.comp.wasm",
     "plugins/random.comp.wasm",
     "plugins/automap.comp.wasm",
-    "plugins/fs.comp.wasm",
     "plugins/layout.comp.wasm",
     "plugins/lua.comp.wasm",
     "plugins/scaler.comp.wasm",
@@ -28,34 +32,24 @@ async function main() {
   ], true)
   console.timeEnd("addPlugins")
 
-  console.time("open sql-vec")
-  const sql = await openSqlVecConnection(runtime, ":memory:")
-  console.log("sql-vec version", await sql.value("select vec_version() as version"))
-  globalThis.sql = sql
-  console.timeEnd("open sql-vec")
-
-  console.time("read gams.json")
-  const gamsJsonText2 = unwrap(await runtime.invoke("fs/fs::read-text", "gams.json"))
-  console.timeEnd("read gams.json")
 
   console.time("init UI")
   await init(JSON.parse(gamsJsonText2))
   console.timeEnd("init UI")
-
-
-  /* THE DEBUG STUFF*/
-
-  // await runtime.addPlugins(["plugins/treegen.comp.wasm"], true)
-  // await runtime.invoke("tree-generator/tree-generator::gen", [{ "node-count": 40, "max-depth": 0, "max-branching": 0, "root-branches": 0 }])
-
 }
-setTimeout(main, 0)
+
+await main()
 // // DO NOT USE - JSUT FOR DEBUG
 globalThis.runtime = runtime
 globalThis.unwrap = unwrap
-
+const { sql } = await import("/util/sql.js")
+globalThis.sql = sql
+console.time("open sql-vec")
+console.log("sql-vec version", await sql.value("select vec_version() as version"))
+console.timeEnd("open sql-vec")
 
 fpsMetter()
+
 function fpsMetter() {
   const id = "__fps_overlay__";
   document.getElementById(id)?.remove();

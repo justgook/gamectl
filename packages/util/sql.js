@@ -1,4 +1,4 @@
-
+import { runtime } from "/core/runtime.js"
 function assertString(value, name) {
   if (typeof value !== 'string' || value.length === 0) throw new Error(`${name} must be a non-empty string`)
 }
@@ -14,7 +14,7 @@ function assertSqlResource(value, name) {
   assertString(value.id, `${name}.id`)
 }
 
-async function unwrapSqlResult(runtime, result, label) {
+async function unwrapSqlResult(result, label) {
   if (!result || typeof result !== 'object') throw new Error(`${label}: expected result object`)
   if (Object.prototype.hasOwnProperty.call(result, 'ok')) return result.ok
   if (!Object.prototype.hasOwnProperty.call(result, 'err')) throw new Error(`${label}: expected result object`)
@@ -36,14 +36,11 @@ function cellValue(value) {
   return value.value
 }
 
-export class SqlConnection {
-  #runtime
+class SqlConnection {
   #connection
 
-  constructor(runtime, connection) {
-    if (!runtime || typeof runtime.invoke !== 'function') throw new Error('SqlConnection runtime must implement invoke')
+  constructor(connection) {
     assertSqlResource(connection, 'SqlConnection connection')
-    this.#runtime = runtime
     this.#connection = connection
   }
 
@@ -52,15 +49,14 @@ export class SqlConnection {
   }
 
   async close() {
-    await this.#runtime.releaseResource(this.#connection)
+    await runtime.releaseResource(this.#connection)
   }
 
   async prepare(sql, params = []) {
     assertString(sql, 'SQL statement')
     assertStringArray(params, 'SQL params')
     return await unwrapSqlResult(
-      this.#runtime,
-      await this.#runtime.invoke('sql/types::[static]statement.prepare', sql, params),
+      await runtime.invoke('sql/types::[static]statement.prepare', sql, params),
       'prepare SQL statement',
     )
   }
@@ -69,12 +65,11 @@ export class SqlConnection {
     const statement = await this.prepare(sql, params)
     try {
       return await unwrapSqlResult(
-        this.#runtime,
-        await this.#runtime.invoke('sql/readwrite::exec', this.#connection, statement),
+        await runtime.invoke('sql/readwrite::exec', this.#connection, statement),
         'exec SQL statement',
       )
     } finally {
-      await this.#runtime.releaseResource(statement)
+      await runtime.releaseResource(statement)
     }
   }
 
@@ -82,14 +77,13 @@ export class SqlConnection {
     const statement = await this.prepare(sql, params)
     try {
       const cells = await unwrapSqlResult(
-        this.#runtime,
-        await this.#runtime.invoke('sql/readwrite::query', this.#connection, statement),
+        await runtime.invoke('sql/readwrite::query', this.#connection, statement),
         'query SQL statement',
       )
       if (!Array.isArray(cells)) throw new Error('SQL query result must be an array')
       return cells
     } finally {
-      await this.#runtime.releaseResource(statement)
+      await runtime.releaseResource(statement)
     }
   }
 
@@ -126,12 +120,20 @@ export class SqlConnection {
   }
 }
 
-export async function openSqlVecConnection(runtime, name) {
+
+const UPDATE_FROM_CONFIG = ":memory:"
+const connection = await unwrapSqlResult(
+  await runtime.invoke('sql/types::[static]connection.open', UPDATE_FROM_CONFIG),
+  'open SQL connection',
+)
+export const sql = new SqlConnection(connection)
+
+
+export async function openSqlVecConnection(name) {
   assertString(name, 'SQL connection name')
   const connection = await unwrapSqlResult(
-    runtime,
     await runtime.invoke('sql/types::[static]connection.open', name),
     'open SQL connection',
   )
-  return new SqlConnection(runtime, connection)
+  return new SqlConnection(connection)
 }
