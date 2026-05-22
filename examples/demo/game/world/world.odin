@@ -132,8 +132,8 @@ init :: proc(w: ^World) {
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
 	w.grid = grid.create_grid(-256 * UNIT, -128 * UNIT, 1024 * UNIT, 512 * UNIT, 16 * UNIT)
-	append(&w.segments, [4]int{-128 * UNIT, 0, 512 * UNIT, 0})
-	append(&w.segments, [4]int{128 * UNIT, 0, 192 * UNIT, 32 * UNIT})
+	append(&w.segments, [4]int{-128 * UNIT, 0, 128 * UNIT, 0})
+	append(&w.segments, [4]int{128 * UNIT, 0, 256 * UNIT, 64 * UNIT})
 	append(&w.segments, [4]int{256 * UNIT, 0, 256 * UNIT, 128 * UNIT})
 	for &segment in w.segments {
 		grid.add_segment(&w.grid, &segment)
