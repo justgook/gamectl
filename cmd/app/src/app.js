@@ -1,4 +1,5 @@
 import { runtime, unwrap } from "/core/runtime.js"
+import { openSqlVecConnection } from "/core/sql.js"
 import { init } from "/___/services.js"
 
 app.innerHTML = ""
@@ -11,6 +12,7 @@ async function main() {
 
   console.time("addPlugins")
   await runtime.addPlugins([
+    "plugins/sql-vec.comp.wasm",
     "plugins/respack.comp.wasm",
     "plugins/pack.comp.wasm",
     "plugins/random.comp.wasm",
@@ -25,6 +27,12 @@ async function main() {
     "plugins/respack.comp.wasm",
   ], true)
   console.timeEnd("addPlugins")
+
+  console.time("open sql-vec")
+  const sql = await openSqlVecConnection(runtime, ":memory:")
+  console.log("sql-vec version", await sql.value("select vec_version() as version"))
+  globalThis.sql = sql
+  console.timeEnd("open sql-vec")
 
   console.time("read gams.json")
   const gamsJsonText2 = unwrap(await runtime.invoke("fs/fs::read-text", "gams.json"))
