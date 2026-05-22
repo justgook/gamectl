@@ -39,14 +39,6 @@ const ACTION_BY_KEY = new Map([
 ])
 
 const textDecoder = new TextDecoder()
-const textEncoder = new TextEncoder()
-
-function encodeResult(value) {
-  return {
-    returnCode: 0,
-    output: textEncoder.encode(JSON.stringify(value ?? null)),
-  }
-}
 
 function writeU64(view, offset, value) {
   const lo = value >>> 0
@@ -61,7 +53,16 @@ function normalizeConfig(config) {
   if (typeof config.glBridge !== 'string' || config.glBridge.length === 0) throw new Error('view-game-runner config.glBridge is required')
   const assetSources = config.assetSources
   if (typeof assetSources !== 'object' || assetSources == null || Array.isArray(assetSources)) throw new Error('view-game-runner config.assetSources must be an object')
+  for (const [assetPath, source] of Object.entries(assetSources)) {
+    if (typeof assetPath !== 'string' || assetPath.length === 0) throw new Error('view-game-runner assetSources keys must be non-empty strings')
+    if (typeof source !== 'string' || source.length === 0) throw new Error(`asset source for '${assetPath}' must be a non-empty string`)
+  }
   return { wasm: config.wasm, glBridge: config.glBridge, assetSources, pointerEvents: config.pointerEvents === true }
+}
+
+async function readProjectFileBytes(path) {
+  const bytes = unwrap(await runtime.invoke('fs/fs::read-file', path), path)
+  return bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
 }
 
 export class ViewGameRunner extends HTMLElement {
@@ -120,11 +121,11 @@ export class ViewGameRunner extends HTMLElement {
       run: async () => {
         this.isPaused = false
         this._syncControlState()
-        return encodeResult({ ok: true, paused: this.isPaused })
+        return { ok: { paused: this.isPaused } }
       },
       reload: async () => {
         await this.reload()
-        return encodeResult({ ok: true })
+        return { ok: true }
       },
     })
 
@@ -177,7 +178,7 @@ export class ViewGameRunner extends HTMLElement {
     this.glBridge = new GLBridge(gl, null)
 
 
-    const wasmBytes = unwrap(await runtime.invoke("fs/fs::read-file", config.wasm))
+    const wasmBytes = await readProjectFileBytes(config.wasm)
 
     const importObject = {
       env: {
@@ -336,8 +337,7 @@ export class ViewGameRunner extends HTMLElement {
     this._assetCache.clear()
     const entries = Object.entries(assetSources)
     await Promise.all(entries.map(async ([assetPath, source]) => {
-      if (typeof source !== 'string' || source.length === 0) throw new Error(`asset source for '${assetPath}' must be a non-empty string`)
-      this._assetCache.set(assetPath, unwrap(await runtime.invoke("fs/fs::read-file", source)))
+      this._assetCache.set(assetPath, await readProjectFileBytes(source))
     }))
   }
 
@@ -490,7 +490,7 @@ export class ViewGameRunner extends HTMLElement {
   }
 
   async _toast(method, message) {
-    await this.runtime.call(`ui.toast${method}`, String(message))
+    await this.runtime.call(`ui.toast.${method}`, String(message))
   }
 }
 
