@@ -4,8 +4,11 @@ import "grid"
 import "logic"
 import "shape"
 import air_jump "platformer/air_jump"
+import dash "platformer/dash"
 import slope "platformer/slope"
 import wall "platformer/wall"
+
+Dash_Direction_Proc :: proc(input: ^Input, p: ^Platformer) -> [2]i32
 
 Platformer_Config :: struct {
 	accel_ground:       i32,
@@ -23,6 +26,8 @@ Platformer_Config :: struct {
 	slope:              slope.Config,
 	wall:               wall.Config,
 	air_jump:           air_jump.Config,
+	dash:               dash.Config,
+	dash_direction:      Dash_Direction_Proc,
 }
 
 PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
@@ -61,6 +66,15 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 		max_jumps = 1,
 		jump_y_speed = 5 * UNIT,
 	},
+	dash = {
+		enabled = true,
+		ground = {enabled = true, speed = 5 * UNIT, frames = 8, count = 1},
+		air = {enabled = true, speed = 5 * UNIT, frames = 8, count = 1},
+		cooldown_frames = 20,
+		delay_frames = 4,
+		reset_air_on_ground = true,
+	},
+	dash_direction = default_dash_direction,
 }
 
 Platformer :: struct {
@@ -76,6 +90,14 @@ Platformer :: struct {
 	jump_held:     bool,
 	wall_jumps:    int,
 	air_jumps:     int,
+	dash_frames:   int,
+	dash_delay:    int,
+	dash_cooldown: int,
+	dash_ground_used: int,
+	dash_air_used:    int,
+	dash_dir:      [2]i32,
+	dash_held:     bool,
+	dash_air:      bool,
 	facing:        i32,
 }
 
@@ -86,11 +108,30 @@ sys_platformer :: proc(w: ^World) {
 		assert(has_collider)
 
 		platformer_refresh_ground(&w.grid, pos, vel, collider, platformer)
+		platformer_update_dash_reset_and_timers(platformer)
+		if platformer.dash_frames > 0 {
+			platformer_apply_jump(input, vel, platformer)
+			if platformer.dash_frames > 0 {
+				platformer_apply_dash_velocity(vel, platformer)
+				platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
+				platformer_finish_dash_frame(vel, platformer)
+				platformer.dash_held = .Action2 in input
+				continue
+			}
+		}
+
 		platformer_apply_input(input, vel, platformer)
 		platformer_apply_jump(input, vel, platformer)
+		if platformer_try_start_dash(input, vel, platformer) {
+			platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
+			platformer_finish_dash_frame(vel, platformer)
+			platformer.dash_held = .Action2 in input
+			continue
+		}
 		platformer_apply_gravity(vel, platformer)
 		platformer_apply_wall_slide(vel, platformer)
 		platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
+		platformer.dash_held = .Action2 in input
 	}
 }
 
@@ -112,6 +153,29 @@ platformer_refresh_ground :: proc(
 	if vel.y <= 0 && p.on_ground {
 		p.on_ground = false
 		p.ground_normal = {}
+	}
+}
+
+@(private = "file")
+platformer_update_dash_reset_and_timers :: proc(p: ^Platformer) {
+	cfg := platformer_config(p)
+	if p.dash_delay > 0 {
+		p.dash_delay -= 1
+	}
+	if p.dash_cooldown > 0 {
+		p.dash_cooldown -= 1
+		if p.dash_cooldown == 0 {
+			p.dash_ground_used = 0
+			if !cfg.dash.reset_air_on_ground {
+				p.dash_air_used = 0
+			}
+		}
+	}
+	if p.on_ground {
+		p.dash_ground_used = 0
+		if cfg.dash.reset_air_on_ground {
+			p.dash_air_used = 0
+		}
 	}
 }
 
@@ -157,6 +221,7 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 
 	if p.jump_buffer > 0 && p.coyote_timer > 0 {
 		vel.y = cfg.jump_speed
+		p.dash_frames = 0
 		p.on_ground = false
 		p.coyote_timer = 0
 		p.jump_buffer = 0
@@ -165,6 +230,7 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 		jump_x := wall.Jump_Direction_X(p.wall_normal, p.facing)
 		vel.x = jump_x * cfg.wall.jump_x_speed
 		vel.y = cfg.wall.jump_y_speed
+		p.dash_frames = 0
 		p.facing = jump_x
 		p.on_wall = false
 		p.wall_normal = {}
@@ -173,6 +239,7 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 		p.wall_jumps += 1
 	} else if p.jump_buffer > 0 && !p.on_ground && !p.on_wall && p.coyote_timer == 0 && air_jump.Can_Jump(cfg.air_jump, p.air_jumps) {
 		vel.y = cfg.air_jump.jump_y_speed
+		p.dash_frames = 0
 		p.jump_buffer = 0
 		p.jump_frames = cfg.jump_hold_frames
 		p.air_jumps += 1
@@ -186,6 +253,91 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 	}
 
 	p.jump_held = jump_down
+}
+
+@(private = "file")
+platformer_try_start_dash :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) -> bool {
+	cfg := platformer_config(p)
+	dash_pressed := .Action2 in input && !p.dash_held
+	if !dash_pressed {
+		return false
+	}
+
+	mode := cfg.dash.ground if p.on_ground else cfg.dash.air
+	used := p.dash_ground_used if p.on_ground else p.dash_air_used
+	if !dash.Can_Start(cfg.dash, mode, used, p.dash_cooldown, p.dash_delay) {
+		return false
+	}
+
+	dir := cfg.dash_direction(input, p)
+	if dir.x == 0 && dir.y == 0 {
+		return false
+	}
+
+	p.dash_dir = dir
+	p.dash_frames = mode.frames
+	p.dash_delay = cfg.dash.delay_frames
+	p.dash_air = !p.on_ground
+	p.on_wall = false
+	p.wall_normal = {}
+	if p.on_ground {
+		p.dash_ground_used += 1
+		if dash.Uses_Depleted(mode, p.dash_ground_used) && cfg.dash.cooldown_frames > 0 {
+			p.dash_cooldown = cfg.dash.cooldown_frames
+		}
+	} else {
+		p.dash_air_used += 1
+		if dash.Uses_Depleted(mode, p.dash_air_used) && !cfg.dash.reset_air_on_ground && cfg.dash.cooldown_frames > 0 {
+			p.dash_cooldown = cfg.dash.cooldown_frames
+		}
+	}
+
+	platformer_apply_dash_velocity(vel, p)
+	return true
+}
+
+@(private = "file")
+platformer_apply_dash_velocity :: proc(vel: ^Velocity, p: ^Platformer) {
+	cfg := platformer_config(p)
+	mode := cfg.dash.air if p.dash_air else cfg.dash.ground
+	dash_vel := dash.Velocity_For_Direction(p.dash_dir, mode.speed)
+	vel.x = dash_vel.x
+	vel.y = dash_vel.y
+}
+
+@(private = "file")
+platformer_finish_dash_frame :: proc(vel: ^Velocity, p: ^Platformer) {
+	if p.dash_frames > 0 {
+		p.dash_frames -= 1
+	}
+	if p.dash_frames == 0 && p.on_ground {
+		cfg := platformer_config(p)
+		vel.x = clamp(vel.x, -cfg.max_run, cfg.max_run)
+	}
+}
+
+@(private = "file")
+default_dash_direction :: proc(input: ^Input, p: ^Platformer) -> [2]i32 {
+	dir := [2]i32{}
+	if .East in input {
+		dir.x += 1
+	}
+	if .West in input {
+		dir.x -= 1
+	}
+	if .North in input {
+		dir.y += 1
+	}
+	if .South in input {
+		dir.y -= 1
+	}
+	if dir.x == 0 && dir.y == 0 {
+		dir.x = p.facing
+		if dir.x == 0 {
+			dir.x = 1
+		}
+	}
+	return dir
 }
 
 @(private = "file")

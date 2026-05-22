@@ -225,6 +225,79 @@ test_platformer_air_jump_disabled_by_config :: proc(t: ^testing.T) {
 	testing.expectf(t, platformer.air_jumps == 0, "air jumps=%d", platformer.air_jumps)
 }
 
+
+@(test)
+test_platformer_ground_dash_uses_action2_and_direction :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments([4]int{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(6)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.velocity, player, Velocity{})
+	logic.add_component(&w.input, player, Input{.East, .Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{on_ground = true, facing = 1})
+
+	sys_platformer(w)
+
+	vel, has_vel := logic.get_component(&w.velocity, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, vel.x == PLATFORMER_DEFAULT_CONFIG.dash.ground.speed, "dash vel=%v", vel^)
+	testing.expectf(t, vel.y == 0, "dash vel=%v", vel^)
+	testing.expectf(t, platformer.dash_frames == PLATFORMER_DEFAULT_CONFIG.dash.ground.frames - 1, "dash frames=%d", platformer.dash_frames)
+}
+
+@(test)
+test_platformer_dash_delay_blocks_immediate_second_dash :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments([4]int{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(7)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.dash.ground.frames = 1
+	config.dash.ground.count = 0
+	config.dash.delay_frames = 4
+	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.velocity, player, Velocity{})
+	logic.add_component(&w.input, player, Input{.East, .Action2})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, on_ground = true, facing = 1})
+
+	sys_platformer(w)
+	logic.add_component(&w.input, player, Input{})
+	sys_platformer(w)
+	logic.add_component(&w.input, player, Input{.East, .Action2})
+	sys_platformer(w)
+
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, platformer.dash_frames == 0, "dash delay should block second dash, frames=%d", platformer.dash_frames)
+}
+
+@(test)
+test_platformer_air_dash_resets_on_ground :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments([4]int{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(8)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.velocity, player, Velocity{})
+	logic.add_component(&w.input, player, Input{})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{air_jumps = 1, dash_air_used = 1, on_ground = true})
+
+	sys_platformer(w)
+
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, platformer.dash_air_used == 0, "air dashes should reset on ground, used=%d", platformer.dash_air_used)
+}
+
 @(private = "file")
 platformer_test_world_with_segments :: proc(segments: ..[4]int) -> ^World {
 	w := new(World)
