@@ -431,9 +431,11 @@ export class ViewNgNode extends HTMLElement {
         <table>
           <thead><tr><th>ID</th><th>Name</th><th></th></tr></thead>
           <tbody>${this.renderPortRows('input')}
-            <td>New</td>
-            <td><input type="text" name="new-input-name" value="${escapeAttribute(this.draft.newInputName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Input name"></td>
-            <td><button type="submit" name="intent" value="add-input" ${String(this.draft.newInputName).trim() ? '' : 'disabled'}><i aria-hidden="true">add</i></button></td>
+            <tr>
+              <td>New</td>
+              <td><input type="text" name="new-input-name" value="${escapeAttribute(this.draft.newInputName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Input name"></td>
+              <td><button type="submit" name="intent" value="add-input" ${String(this.draft.newInputName).trim() ? '' : 'disabled'}><i aria-hidden="true">add</i></button></td>
+            </tr>
           </tbody>
         </table>
       </fieldset>` : ''}
@@ -443,9 +445,11 @@ export class ViewNgNode extends HTMLElement {
         <table>
           <thead><tr><th>ID</th><th>${isValueNode ? 'Value' : 'Name'}</th><th></th></tr></thead>
           <tbody>${this.renderPortRows('output')}
-            <td>New</td>
-            <td><input type="text" name="${isValueNode ? 'new-output-value' : 'new-output-name'}" value="${escapeAttribute(isValueNode ? this.draft.newOutputValue : this.draft.newOutputName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="${isValueNode ? 'Value' : 'Output name'}"></td>
-            <td><button type="submit" name="intent" value="add-output" ${!isValueNode && !String(this.draft.newOutputName).trim() ? 'disabled' : ''}><i aria-hidden="true">add</i></button></td>
+            <tr>
+              <td>New</td>
+              <td><input type="text" name="${isValueNode ? 'new-output-value' : 'new-output-name'}" value="${escapeAttribute(isValueNode ? this.draft.newOutputValue : this.draft.newOutputName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="${isValueNode ? 'Value' : 'Output name'}"></td>
+              <td><button type="submit" name="intent" value="add-output" ${!isValueNode && !String(this.draft.newOutputName).trim() ? 'disabled' : ''}><i aria-hidden="true">add</i></button></td>
+            </tr>
           </tbody>
         </table>
       </fieldset>` : ''}

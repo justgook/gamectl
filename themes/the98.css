@@ -1229,7 +1229,7 @@
   }
 
 
-  table:has(:not(thead)) {
+  table:not(:has(> thead)) {
     table-layout: auto;
   }
 

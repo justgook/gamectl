@@ -660,29 +660,19 @@
     max-height: 100%;
   }
 
-  article,
-  canvas,
-  form {
-    align-self: stretch;
-  }
-
   table {
     align-self: start;
-    justify-self: stretch;
     width: 100%;
     height: auto;
   }
 
   article,
   form {
-    /* display: flex; */
     overflow: auto;
-    flex: 1;
   }
 
   form {
     flex-direction: column;
-    overflow: auto;
   }
 
   aside {
