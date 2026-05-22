@@ -2,8 +2,8 @@
 #define SOKOL_EXTERNAL_GL_LOADER
 #define IMPL
 
-#include "../game/web/wasm-include/GLES3/gl3.h"
-#include "../game/web/wasm-include/gl_funcs.h"
+#include "web/wasm-include/GLES3/gl3.h"
+#include "web/wasm-include/gl_funcs.h"
 
 static float game2_absf(float x) {
 	return x < 0.0f ? -x : x;

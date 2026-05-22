@@ -32,8 +32,10 @@ SOKOL_SHDC_DIR ?= $(TOOLS_DIR)/sokol-shdc
 WEB_DIR ?= $(BUILD_DIR)/web
 NATIVE_DIR ?= $(BUILD_DIR)/native
 NATIVE_BIN ?= $(NATIVE_DIR)/game2
-ROOT_BUILD_DIR ?= ../../build.nosync
-PLUGIN_WASM ?= $(ROOT_BUILD_DIR)/plugins/game2.wasm
+WASM_BIN ?= $(WEB_DIR)/game2.wasm
+WASM_INCLUDE_DIR ?= web/wasm-include
+ODIN_WASM_TARGET ?= freestanding_wasm32
+ODIN_WASM_OPT ?= speed
 SOKOL_NATIVE_PROFILE ?= debug
 SOKOL_MACOS_DEPLOYMENT_TARGET ?= 14.0
 
@@ -96,7 +98,7 @@ help:
 	  '  sokol-bindings  Download/update local sokol-odin bindings' \
 	  '  sokol-tools     Download/update local sokol-shdc binaries' \
 	  '  lint            Run Odin checks with warnings as errors' \
-	  '  plugin          Build embeddable freestanding game2.wasm via root Makefile' \
+	  '  wasm            Build standalone freestanding game2.wasm' \
 	  '  native          Build native game2 executable' \
 	  '  native-release  Build optimized native game2 executable' \
 	  '  native-run      Build and run native game2 executable' \
@@ -182,18 +184,23 @@ $(NATIVE_DIR):
 .PHONY: wasm-support
 wasm-support: env.o
 
-env.o: env.c sokol/c/sokol_gfx.c sokol/c/sokol_defines.h sokol/c/sokol_gfx.h ../game/web/wasm-include/gl_funcs.h ../game/web/wasm-include/GLES3/gl3.h
+env.o: env.c sokol/c/sokol_gfx.c sokol/c/sokol_defines.h sokol/c/sokol_gfx.h $(WASM_INCLUDE_DIR)/gl_funcs.h $(WASM_INCLUDE_DIR)/GLES3/gl3.h
 	$(Q)echo "Building game2 wasm support object"
 	$(Q)$(ZIG) cc -c \
 		-target wasm32-freestanding \
 		-O2 -DNDEBUG \
-		-I ../game/web/wasm-include \
+		-I $(WASM_INCLUDE_DIR) \
 		-o $@ \
 		env.c
 
-.PHONY: plugin
-plugin: deps shaders wasm-support
-	$(Q)$(MAKE) -C ../.. build.nosync/plugins/game2.wasm
+.PHONY: wasm
+wasm: deps shaders wasm-support | $(WEB_DIR)
+	$(Q)echo "Building standalone game2 wasm"
+	$(Q)$(ODIN) build . \
+		-target:$(ODIN_WASM_TARGET) \
+		-o:$(ODIN_WASM_OPT) \
+		--no-entry-point \
+		-out:"$(WASM_BIN)"
 
 .PHONY: native-libs
 native-libs: $(SOKOL_NATIVE_LIBS)
@@ -218,9 +225,8 @@ native-release:
 	$(Q)$(MAKE) native SOKOL_NATIVE_PROFILE=release NATIVE_BIN="$(NATIVE_DIR)/game2-release" ODIN_BUILD_FLAGS="-o:speed"
 
 .PHONY: web
-web: plugin | $(WEB_DIR)
+web: wasm | $(WEB_DIR)
 	$(Q)echo "Building standalone web bundle"
-	$(Q)$(CP) "$(PLUGIN_WASM)" "$(WEB_DIR)/game2.wasm"
 	$(Q)$(CP) web/index.html "$(WEB_DIR)/index.html"
 	$(Q)$(CP) web/gl-bridge.js "$(WEB_DIR)/gl-bridge.js"
 

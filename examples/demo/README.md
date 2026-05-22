@@ -4,7 +4,14 @@ This folder is a sample GAMS Project. It contains a `gams.json` Project Config, 
 
 ## Try it
 
-From the repository root:
+Build the demo game bundle first:
+
+```sh
+cd examples/demo/game
+make web
+```
+
+Then from the repository root:
 
 ```sh
 make app-run
@@ -15,6 +22,7 @@ The app starts with `examples/demo` as the project workspace by default.
 ## What is in here?
 
 - `gams.json` — Project Config declaring views, UI services, key bindings, and demo-specific settings.
+- `game/` — standalone demo game build system; builds its own web and native variants.
 - `issues/` — markdown issue cards used by `view-issues`.
 - `ng/` — node-graph scripts and visual assets.
 - `tilemap/` — tilemap example assets.

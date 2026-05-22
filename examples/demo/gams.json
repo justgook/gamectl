@@ -164,8 +164,8 @@
         "group": "Demo",
         "internal": false,
         "config": {
-          "wasm": "builtin/plugins/game2.wasm",
-          "glBridge": "game-runner/gl-bridge.js",
+          "wasm": "game/build.nosync/web/game2.wasm",
+          "glBridge": "game/build.nosync/web/gl-bridge.js",
           "assetSources": {
             "game/data.rspk": "/data.rspk"
           }
