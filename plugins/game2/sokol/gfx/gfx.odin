@@ -559,6 +559,12 @@ package sokol_gfx
                   rendering goes into
                 - an optional MTLTexture for the depth/stencil buffer
 
+    A sg_swapchain struct provided to sg_begin_pass() can indicate that the
+    swapchain is in an 'invalid state' via the boolean `sg_swapchain.invalid`.
+    When this flag is set, all other sg_swapchain members must be zeroed.
+    An invalid swapchain will cause all rendering operations in that pass
+    to be silently skipped.
+
     It's recommended that you create a helper function which returns an
     initialized sg_swapchain struct by value. This can then be directly plugged
     into the sg_begin_pass function like this:
@@ -2468,6 +2474,7 @@ Features :: struct {
     draw_base_vertex : bool,
     draw_base_instance : bool,
     dual_source_blending : bool,
+    vertexformat_int10_n2 : bool,
     gl_texture_views : bool,
 }
 
@@ -2715,6 +2722,7 @@ Vertex_Format :: enum i32 {
     SHORT4N,
     USHORT4,
     USHORT4N,
+    INT10_N2,
     UINT10_N2,
     HALF2,
     HALF4,
@@ -3090,7 +3098,14 @@ Pass_Action :: struct {
 
     The width and height *must* be > 0.
 
-    Additionally the following backend API specific objects must be passed in
+    The boolean `sg_swapchain.invalid` is used to communicate an invalid
+    swapchain state to sokol-gfx (for instance the swapchain code outside of
+    sokol-gfx not being able to create swapchain surfaces). When the .invalid
+    boolean is set to true, all other sg_swapchain struct items must be zeroed
+    (checked in the validation layer), and all rendering in this swapchain-pass
+    will be silently skipped.
+
+    For valid swapchains, the following backend API specific objects must be passed in
     as 'type erased' void pointers:
 
     GL:
@@ -3170,6 +3185,7 @@ Gl_Swapchain :: struct {
 }
 
 Swapchain :: struct {
+    invalid : bool,
     width : c.int,
     height : c.int,
     sample_count : c.int,
@@ -3478,9 +3494,9 @@ Buffer_Desc :: struct {
         the image content cannot be updated from the CPU side
         (but may be updated by the GPU in a render- or compute-pass)
     .dynamic_update (default: false)
-        the image content is updated infrequently by the CPU
+        the image content is updated infrequently by the CPU via sg_update_image()
     .stream_update (default: false)
-        the image content is updated each frame by the CPU via
+        the image content is updated each frame by the CPU via sg_update_image()
 
     Note that creating a texture view from the image to be used for
     texture-sampling in vertex-, fragment- or compute-shaders
@@ -4653,6 +4669,7 @@ Log_Item :: enum i32 {
     VALIDATE_IMAGEDATA_DATA_SIZE,
     VALIDATE_IMAGEDESC_CANARY,
     VALIDATE_IMAGEDESC_IMMUTABLE_DYNAMIC_STREAM,
+    VALIDATE_IMAGEDESC_ATTACHMENT_COLOR_DEPTH_STENCIL,
     VALIDATE_IMAGEDESC_IMAGETYPE_2D_NUMSLICES,
     VALIDATE_IMAGEDESC_IMAGETYPE_CUBE_NUMSLICES,
     VALIDATE_IMAGEDESC_IMAGETYPE_ARRAY_NUMSLICES,
@@ -4738,6 +4755,7 @@ Log_Item :: enum i32 {
     VALIDATE_PIPELINEDESC_NO_COMPUTE_SHADER_EXPECTED,
     VALIDATE_PIPELINEDESC_NO_CONT_ATTRS,
     VALIDATE_PIPELINEDESC_ATTR_BASETYPE_MISMATCH,
+    VALIDATE_PIPELINEDESC_ATTR_VERTEXFORMAT_INT10_N2_NOT_SUPPORTED,
     VALIDATE_PIPELINEDESC_LAYOUT_STRIDE4,
     VALIDATE_PIPELINEDESC_ATTR_SEMANTICS,
     VALIDATE_PIPELINEDESC_SHADER_READONLY_STORAGEBUFFERS,
@@ -4800,6 +4818,22 @@ Log_Item :: enum i32 {
     VALIDATE_BEGINPASS_SWAPCHAIN_WGPU_EXPECT_DEPTHSTENCILVIEW,
     VALIDATE_BEGINPASS_SWAPCHAIN_WGPU_EXPECT_DEPTHSTENCILVIEW_NOTSET,
     VALIDATE_BEGINPASS_SWAPCHAIN_GL_EXPECT_FRAMEBUFFER_NOTSET,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RENDERIMAGE,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RENDERIMAGE_NOTSET,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RENDERVIEW,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RENDERVIEW_NOTSET,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_DEPTHSTENCILIMAGE,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_DEPTHSTENCILIMAGE_NOTSET,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_DEPTHSTENCILVIEW,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_DEPTHSTENCILVIEW_NOTSET,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RESOLVEIMAGE,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RESOLVEIMAGE_NOTSET,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RESOLVEVIEW,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RESOLVEVIEW_NOTSET,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RENDERFINISHEDSEMAPHORE,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_RENDERFINISHEDSEMAPHORE_NOTSET,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_PRESENTCOMPLETESEMAPHORE,
+    VALIDATE_BEGINPASS_SWAPCHAIN_VULKAN_EXPECT_PRESENTCOMPLETESEMAPHORE_NOTSET,
     VALIDATE_BEGINPASS_COLORATTACHMENTVIEWS_CONTINUOUS,
     VALIDATE_BEGINPASS_COLORATTACHMENTVIEW_ALIVE,
     VALIDATE_BEGINPASS_COLORATTACHMENTVIEW_VALID,

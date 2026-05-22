@@ -18,6 +18,7 @@ CURL ?= curl -L
 TAR ?= tar
 PYTHON3 ?= python3
 ODIN ?= odin
+ZIG ?= zig
 ODIN_BUILD_FLAGS ?=
 VET_PACKAGES ?= main,host,world,logic,grid,shape,sprite,tilemap,qoi
 
@@ -34,6 +35,7 @@ NATIVE_BIN ?= $(NATIVE_DIR)/game2
 ROOT_BUILD_DIR ?= ../../build.nosync
 PLUGIN_WASM ?= $(ROOT_BUILD_DIR)/plugins/game2.wasm
 SOKOL_NATIVE_PROFILE ?= debug
+SOKOL_MACOS_DEPLOYMENT_TARGET ?= 14.0
 ATLAS_ASSET ?= ../../demo/assets/the_atlas.qoi
 
 SHADER_SOURCES := $(shell find . -name '*.glsl' -print | LC_ALL=C sort | sed 's#^\./##' | tr '\n' ' ')
@@ -125,6 +127,9 @@ $(SOKOL_DIR)/gfx/gfx.odin $(SOKOL_DIR)/app/app.odin $(SOKOL_DIR)/glue/glue.odin 
 	find "$(SOKOL_DIR)" -name '*.odin' -print | while IFS= read -r file; do \
 		perl -0pi -e 's/"env\.o"/"..\/..\/env.o"/g' "$$file"; \
 	done; \
+	if [ -f "$(SOKOL_DIR)/build_clibs_macos.sh" ]; then \
+		perl -0pi -e 's/MACOSX_DEPLOYMENT_TARGET=10\.13/MACOSX_DEPLOYMENT_TARGET=$(SOKOL_MACOS_DEPLOYMENT_TARGET)/g' "$(SOKOL_DIR)/build_clibs_macos.sh"; \
+	fi; \
 	$(RM_RF) "$$tmp_root" "$$archive"
 
 .PHONY: sokol-tools
@@ -175,8 +180,20 @@ $(NATIVE_DIR):
 	$(Q)$(MKDIR_P) "$(NATIVE_DIR)"
 
 
+.PHONY: wasm-support
+wasm-support: env.o
+
+env.o: env.c sokol/c/sokol_gfx.c sokol/c/sokol_defines.h sokol/c/sokol_gfx.h ../game/web/wasm-include/gl_funcs.h ../game/web/wasm-include/GLES3/gl3.h
+	$(Q)echo "Building game2 wasm support object"
+	$(Q)$(ZIG) cc -c \
+		-target wasm32-freestanding \
+		-O2 -DNDEBUG \
+		-I ../game/web/wasm-include \
+		-o $@ \
+		env.c
+
 .PHONY: plugin
-plugin: deps shaders
+plugin: deps shaders wasm-support
 	$(Q)$(MAKE) -C ../.. build.nosync/plugins/game2.wasm
 
 .PHONY: native-libs
