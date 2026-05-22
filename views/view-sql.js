@@ -223,6 +223,10 @@ export class ViewSql extends HTMLElement {
       this.actionValueInput.value = this.value
       this.actionValueInput.placeholder = this.valueLabel
       this.actionValueInput.setAttribute('aria-label', this.valueLabel)
+      this.actionValueInput.setAttribute('autocomplete', 'off')
+      this.actionValueInput.setAttribute('autocorrect', 'off')
+      this.actionValueInput.setAttribute('autocapitalize', 'off')
+      this.actionValueInput.spellcheck = false
       this.actionValueInput.addEventListener('input', () => {
         this.value = this.actionValueInput.value
         this.updateChooserUI()

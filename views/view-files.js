@@ -384,6 +384,10 @@ export class ViewFiles extends HTMLElement {
       this.filenameInput.type = 'text'
       this.filenameInput.dataset.field = 'filename'
       this.filenameInput.value = this.defaultName
+      this.filenameInput.setAttribute('autocomplete', 'off')
+      this.filenameInput.setAttribute('autocorrect', 'off')
+      this.filenameInput.setAttribute('autocapitalize', 'off')
+      this.filenameInput.spellcheck = false
       this.filenameInput.addEventListener('input', () => {
         this.defaultName = this.filenameInput.value
         this.updateFooterUI()

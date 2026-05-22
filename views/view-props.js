@@ -129,6 +129,10 @@ export class ViewProps extends HTMLElement {
     keyInput.name = 'prop-key'
     keyInput.value = key
     keyInput.placeholder = 'key'
+    keyInput.setAttribute('autocomplete', 'off')
+    keyInput.setAttribute('autocorrect', 'off')
+    keyInput.setAttribute('autocapitalize', 'off')
+    keyInput.spellcheck = false
     keyCell.appendChild(keyInput)
     row.appendChild(keyCell)
 
@@ -138,6 +142,10 @@ export class ViewProps extends HTMLElement {
     valueInput.name = 'prop-value'
     valueInput.value = value
     valueInput.placeholder = 'value'
+    valueInput.setAttribute('autocomplete', 'off')
+    valueInput.setAttribute('autocorrect', 'off')
+    valueInput.setAttribute('autocapitalize', 'off')
+    valueInput.spellcheck = false
     valueCell.appendChild(valueInput)
     row.appendChild(valueCell)
 

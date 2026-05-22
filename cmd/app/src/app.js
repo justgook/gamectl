@@ -13,28 +13,16 @@ async function main() {
   await runtime.addPlugins(["plugins/fs.comp.wasm"], true)
   console.time("read gams.json")
   const gamsJsonText2 = unwrap(await runtime.invoke("fs/fs::read-text", "gams.json"))
+  const config = JSON.parse(gamsJsonText2)
   console.timeEnd("read gams.json")
 
   console.time("addPlugins")
-  await runtime.addPlugins([
-    "plugins/sql-vec.comp.wasm",
-    "plugins/respack.comp.wasm",
-    "plugins/pack.comp.wasm",
-    "plugins/random.comp.wasm",
-    "plugins/automap.comp.wasm",
-    "plugins/layout.comp.wasm",
-    "plugins/lua.comp.wasm",
-    "plugins/scaler.comp.wasm",
-    "plugins/treegen.comp.wasm",
-    "plugins/minimap.comp.wasm",
-    "plugins/image.comp.wasm",
-    "plugins/respack.comp.wasm",
-  ], true)
+  await runtime.addPlugins(config.plugins, true)
   console.timeEnd("addPlugins")
 
 
   console.time("init UI")
-  await init(JSON.parse(gamsJsonText2))
+  await init(config)
   console.timeEnd("init UI")
 }
 

@@ -29,7 +29,7 @@ export class SqlTableEditor extends HTMLElement {
     this.innerHTML = `
       <form data-element="form" novalidate>
         <label for="sql-table-editor-name">Table name</label>
-        <input id="sql-table-editor-name" type="text" data-field="table-name" placeholder="my_table" autocomplete="off">
+        <input id="sql-table-editor-name" type="text" data-field="table-name" placeholder="my_table" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
         <table>
           <caption>Columns</caption>
@@ -129,7 +129,10 @@ export class SqlTableEditor extends HTMLElement {
     nameInput.dataset.field = 'column-name'
     nameInput.placeholder = 'column_name'
     nameInput.value = name
-    nameInput.autocomplete = 'off'
+    nameInput.setAttribute('autocomplete', 'off')
+    nameInput.setAttribute('autocorrect', 'off')
+    nameInput.setAttribute('autocapitalize', 'off')
+    nameInput.spellcheck = false
     nameCell.appendChild(nameInput)
 
     const typeCell = document.createElement('td')

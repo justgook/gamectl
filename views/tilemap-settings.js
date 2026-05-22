@@ -51,16 +51,16 @@ export class TilemapSettings extends HTMLElement {
           <legend data-element="legend">Tilemap Settings</legend>
 
           <label for="tilemap-settings-name">Path</label>
-          <input id="tilemap-settings-name" type="text" data-field="name" autocomplete="off" placeholder="/maps/world.tilemap.json">
+          <input id="tilemap-settings-name" type="text" data-field="name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="/maps/world.tilemap.json">
 
           <label for="tilemap-settings-tile-size">Tile size</label>
-          <input id="tilemap-settings-tile-size" type="number" min="1" step="1" data-field="tile-size">
+          <input id="tilemap-settings-tile-size" type="number" min="1" step="1" data-field="tile-size" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
           <label for="tilemap-settings-map-width">Map width</label>
-          <input id="tilemap-settings-map-width" type="number" min="1" step="1" data-field="map-width">
+          <input id="tilemap-settings-map-width" type="number" min="1" step="1" data-field="map-width" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
           <label for="tilemap-settings-map-height">Map height</label>
-          <input id="tilemap-settings-map-height" type="number" min="1" step="1" data-field="map-height">
+          <input id="tilemap-settings-map-height" type="number" min="1" step="1" data-field="map-height" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </fieldset>
 
         <footer>

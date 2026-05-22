@@ -332,7 +332,7 @@ export class ViewNgNode extends HTMLElement {
         <legend>Code file</legend>
         <label>
           Path
-          <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" placeholder="demo/ng/presets/example.lua">
+          <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="demo/ng/presets/example.lua">
         </label>
         <div role="buttongroup">
           <button type="submit" name="intent" value="browse-code-file">Browse</button>
@@ -381,10 +381,10 @@ export class ViewNgNode extends HTMLElement {
         <td>${Number(isInput ? port.inputId : port.outputId || index + 1)}</td>
         <td>
           ${isInput
-        ? `<input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}"><input type="text" name="input-port-name" value="${escapeAttribute(port.name || '')}" placeholder="Input ${index + 1}">`
+        ? `<input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}"><input type="text" name="input-port-name" value="${escapeAttribute(port.name || '')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Input ${index + 1}">`
         : isValueNode
-          ? `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-value" value="${escapeAttribute(port.value || '')}" placeholder="Value ${index + 1}">`
-          : `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-name" value="${escapeAttribute(port.name || '')}" placeholder="Output ${index + 1}">`}
+          ? `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-value" value="${escapeAttribute(port.value || '')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Value ${index + 1}">`
+          : `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-name" value="${escapeAttribute(port.name || '')}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Output ${index + 1}">`}
         </td>
         <td><button type="submit" name="${isInput ? 'remove-input-id' : 'remove-output-id'}" value="${Number(isInput ? port.inputId : port.outputId || index + 1)}" aria-label="Delete"><i aria-hidden="true">delete</i></button></td>
       </tr>
@@ -410,7 +410,7 @@ export class ViewNgNode extends HTMLElement {
       </label>
       <label>
         Node name
-        <input type="text" data-field="name" name="name" placeholder="Enter node name" value="${escapeAttribute(this.draft.name)}">
+        <input type="text" data-field="name" name="name" placeholder="Enter node name" value="${escapeAttribute(this.draft.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </label>
       ${isImportNode ? `
       <fieldset>
@@ -432,7 +432,7 @@ export class ViewNgNode extends HTMLElement {
           <thead><tr><th>ID</th><th>Name</th><th></th></tr></thead>
           <tbody>${this.renderPortRows('input')}
             <td>New</td>
-            <td><input type="text" name="new-input-name" value="${escapeAttribute(this.draft.newInputName)}" placeholder="Input name"></td>
+            <td><input type="text" name="new-input-name" value="${escapeAttribute(this.draft.newInputName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Input name"></td>
             <td><button type="submit" name="intent" value="add-input" ${String(this.draft.newInputName).trim() ? '' : 'disabled'}><i aria-hidden="true">add</i></button></td>
           </tbody>
         </table>
@@ -444,7 +444,7 @@ export class ViewNgNode extends HTMLElement {
           <thead><tr><th>ID</th><th>${isValueNode ? 'Value' : 'Name'}</th><th></th></tr></thead>
           <tbody>${this.renderPortRows('output')}
             <td>New</td>
-            <td><input type="text" name="${isValueNode ? 'new-output-value' : 'new-output-name'}" value="${escapeAttribute(isValueNode ? this.draft.newOutputValue : this.draft.newOutputName)}" placeholder="${isValueNode ? 'Value' : 'Output name'}"></td>
+            <td><input type="text" name="${isValueNode ? 'new-output-value' : 'new-output-name'}" value="${escapeAttribute(isValueNode ? this.draft.newOutputValue : this.draft.newOutputName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="${isValueNode ? 'Value' : 'Output name'}"></td>
             <td><button type="submit" name="intent" value="add-output" ${!isValueNode && !String(this.draft.newOutputName).trim() ? 'disabled' : ''}><i aria-hidden="true">add</i></button></td>
           </tbody>
         </table>

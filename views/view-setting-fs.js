@@ -69,7 +69,7 @@ export class ViewSettingFs extends HTMLElement {
         </label>
         <label data-element="webdav-url">
           WebDAV URL
-          <input type="url" data-field="webdav-url" placeholder="http://localhost:8080" />
+          <input type="url" data-field="webdav-url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="http://localhost:8080" />
         </label>
         <output data-element="summary"></output>
         <output data-element="status"></output>

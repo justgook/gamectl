@@ -1439,115 +1439,17 @@
     }
   },
   "plugins": [
-    {
-      "id": "sql",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/sql-vec.wasm"
-    },
-    {
-      "id": "random",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/random.wasm"
-    },
-    {
-      "id": "scaler",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/scaler.comp.wasm"
-    },
-    {
-      "id": "automap",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/automap.comp.wasm"
-    },
-    {
-      "id": "image",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/image.wasm"
-    },
-    {
-      "id": "pack",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/pack.comp.wasm"
-    },
-    {
-      "id": "respack",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/respack.wasm"
-    },
-    {
-      "id": "minimap2",
-      "runtime": "wasm",
-      "role": "service",
-      "deps": [
-        "sql",
-        "random"
-      ],
-      "url": "builtin/plugins/minimap2.wasm"
-    },
-    {
-      "id": "markov",
-      "runtime": "wasm",
-      "role": "service",
-      "deps": [
-        "fs"
-      ],
-      "url": "builtin/plugins/markov.wasm"
-    },
-    {
-      "id": "treegen",
-      "runtime": "wasm",
-      "role": "service",
-      "deps": [
-        "random"
-      ],
-      "url": "builtin/plugins/treegen.wasm"
-    },
-    {
-      "id": "lua",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/lua.wasm"
-    },
-    {
-      "id": "echo",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/echo.wasm"
-    },
-    {
-      "id": "layout",
-      "runtime": "wasm",
-      "role": "service",
-      "url": "builtin/plugins/layout2.wasm",
-      "memory": {
-        "import": true,
-        "shared": true,
-        "initialPages": 288,
-        "maximumPages": 512
-      }
-    },
-    {
-      "id": "ai.provider.mock",
-      "runtime": "js",
-      "role": "service",
-      "url": "builtin/plugins/ai_provider_mock/index.js"
-    },
-    {
-      "id": "ai.agent",
-      "runtime": "js",
-      "role": "service",
-      "deps": [
-        "fs",
-        "ai.provider.mock"
-      ],
-      "url": "builtin/plugins/ai_agent/index.js"
-    }
+    "plugins/sql-vec.comp.wasm",
+    "plugins/respack.comp.wasm",
+    "plugins/pack.comp.wasm",
+    "plugins/random.comp.wasm",
+    "plugins/automap.comp.wasm",
+    "plugins/layout.comp.wasm",
+    "plugins/lua.comp.wasm",
+    "plugins/scaler.comp.wasm",
+    "plugins/treegen.comp.wasm",
+    "plugins/minimap.comp.wasm",
+    "plugins/image.comp.wasm",
+    "plugins/respack.comp.wasm"
   ]
 }

@@ -311,8 +311,8 @@ export class ViewMarkov extends ViewCanvasBase {
         <button type="button" data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">restart_alt</i></button>
       </div>
       <div role="buttongroup" data-element="tool-actions">
-        <input type="number" data-field="seed" aria-label="Seed" title="Seed" min="0" step="1" value="1">
-        <input type="number" data-field="steps" aria-label="Steps per frame" title="Steps per frame" min="1" step="1" value="1">
+        <input type="number" data-field="seed" aria-label="Seed" title="Seed" min="0" step="1" value="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="number" data-field="steps" aria-label="Steps per frame" title="Steps per frame" min="1" step="1" value="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" data-action="step" aria-label="Step" title="Step"><i aria-hidden="true">skip_next</i></button>
         <button type="button" data-action="play-pause" aria-label="Play" title="Play"><i aria-hidden="true">play_arrow</i></button>
         <button type="button" data-action="reroll" aria-label="Reroll" title="Reroll seed"><i aria-hidden="true">casino</i></button>

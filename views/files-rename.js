@@ -96,7 +96,7 @@ export class FileRename extends HTMLElement {
     this.innerHTML = `
       <form data-element="form" novalidate>
         <label for="files-rename-name">${kind === 'directory' ? 'Folder name' : 'File name'}</label>
-        <input id="files-rename-name" type="text" data-field="name" autocomplete="off" value="${escapeAttribute(initialName)}">
+        <input id="files-rename-name" type="text" data-field="name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${escapeAttribute(initialName)}">
         <footer>
           <output data-element="location"></output>
           <output data-element="status"></output>
