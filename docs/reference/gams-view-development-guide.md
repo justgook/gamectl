@@ -82,6 +82,8 @@ Optional elements should appear at most once per view.
 - `option` - option item inside `select`.
 - `optgroup` - grouped options inside `select`.
 - `textarea` - multiline text input.
+- Text-like inputs (`text`, `number`, `url`, `search`, `email`, `password`, and `textarea`) should disable browser text assistance with `autocomplete="off"`, `autocorrect="off"`, `autocapitalize="off"`, and `spellcheck="false"` when the field captures app/domain identifiers, paths, code-like values, or other exact user input.
+- Do not add text-assistance attributes to non-text inputs such as `checkbox`, `file`, or `hidden`.
 - `output` - result or status text for form/view operations.
 
 ## Text output
