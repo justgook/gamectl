@@ -1,7 +1,7 @@
 package slope
 
-import "../grid"
-import "../shape"
+import "../../grid"
+import "../../shape"
 
 Config :: struct {
 	enabled:        bool,

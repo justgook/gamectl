@@ -3,7 +3,9 @@ package world
 import "grid"
 import "logic"
 import "shape"
-import "slope"
+import air_jump "platformer/air_jump"
+import slope "platformer/slope"
+import wall "platformer/wall"
 
 Platformer_Config :: struct {
 	accel_ground:       i32,
@@ -19,6 +21,8 @@ Platformer_Config :: struct {
 	jump_buffer_frames: int,
 	wall_stick:         int,
 	slope:              slope.Config,
+	wall:               wall.Config,
+	air_jump:           air_jump.Config,
 }
 
 PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
@@ -42,6 +46,21 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 		snap_down = 4 * UNIT,
 		ground_stick = 2 * UNIT,
 	},
+	wall = {
+		enabled = true,
+		slide_enabled = true,
+		slide_accel = 8,
+		max_slide_speed = 2 * UNIT,
+		jump_enabled = true,
+		max_jumps = 1,
+		jump_x_speed = 3 * UNIT,
+		jump_y_speed = 5 * UNIT,
+	},
+	air_jump = {
+		enabled = true,
+		max_jumps = 1,
+		jump_y_speed = 5 * UNIT,
+	},
 }
 
 Platformer :: struct {
@@ -55,6 +74,8 @@ Platformer :: struct {
 	jump_buffer:   int,
 	jump_frames:   int,
 	jump_held:     bool,
+	wall_jumps:    int,
+	air_jumps:     int,
 	facing:        i32,
 }
 
@@ -68,6 +89,7 @@ sys_platformer :: proc(w: ^World) {
 		platformer_apply_input(input, vel, platformer)
 		platformer_apply_jump(input, vel, platformer)
 		platformer_apply_gravity(vel, platformer)
+		platformer_apply_wall_slide(vel, platformer)
 		platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
 	}
 }
@@ -118,7 +140,8 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 	cfg := platformer_config(p)
 	jump_down := .Action1 in input
 
-	if jump_down {
+	jump_pressed := jump_down && !p.jump_held
+	if jump_pressed {
 		p.jump_buffer = cfg.jump_buffer_frames
 	} else if p.jump_buffer > 0 {
 		p.jump_buffer -= 1
@@ -126,6 +149,8 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 
 	if p.on_ground {
 		p.coyote_timer = cfg.coyote_frames
+		p.wall_jumps = 0
+		p.air_jumps = 0
 	} else if p.coyote_timer > 0 {
 		p.coyote_timer -= 1
 	}
@@ -136,6 +161,21 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 		p.coyote_timer = 0
 		p.jump_buffer = 0
 		p.jump_frames = cfg.jump_hold_frames
+	} else if p.jump_buffer > 0 && !p.on_ground && p.on_wall && wall.Can_Jump(cfg.wall, p.wall_jumps) {
+		jump_x := wall.Jump_Direction_X(p.wall_normal, p.facing)
+		vel.x = jump_x * cfg.wall.jump_x_speed
+		vel.y = cfg.wall.jump_y_speed
+		p.facing = jump_x
+		p.on_wall = false
+		p.wall_normal = {}
+		p.jump_buffer = 0
+		p.jump_frames = cfg.jump_hold_frames
+		p.wall_jumps += 1
+	} else if p.jump_buffer > 0 && !p.on_ground && !p.on_wall && p.coyote_timer == 0 && air_jump.Can_Jump(cfg.air_jump, p.air_jumps) {
+		vel.y = cfg.air_jump.jump_y_speed
+		p.jump_buffer = 0
+		p.jump_frames = cfg.jump_hold_frames
+		p.air_jumps += 1
 	}
 
 	if jump_down && p.jump_frames > 0 && vel.y > 0 {
@@ -146,6 +186,14 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 	}
 
 	p.jump_held = jump_down
+}
+
+@(private = "file")
+platformer_apply_wall_slide :: proc(vel: ^Velocity, p: ^Platformer) {
+	cfg := platformer_config(p)
+	if !p.on_ground && p.on_wall && vel.y < 0 {
+		wall.Apply_Slide(vel, cfg.wall)
+	}
 }
 
 @(private = "file")

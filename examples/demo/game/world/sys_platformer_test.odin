@@ -121,6 +121,110 @@ test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
 	}
 }
 
+
+@(test)
+test_platformer_wall_slide_clamps_fall_speed :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(2)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
+	logic.add_component(&w.velocity, player, Velocity{0, -4 * UNIT})
+	logic.add_component(&w.input, player, Input{})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{on_wall = true, wall_normal = {-1, 0}, facing = 1})
+
+	sys_platformer(w)
+
+	vel, has_vel := logic.get_component(&w.velocity, player)
+	testing.expect(t, has_vel)
+	testing.expectf(t, vel.y == -PLATFORMER_DEFAULT_CONFIG.wall.max_slide_speed, "wall slide vel=%v", vel^)
+}
+
+@(test)
+test_platformer_wall_jump_pushes_away_from_wall :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(3)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
+	logic.add_component(&w.velocity, player, Velocity{0, -UNIT})
+	logic.add_component(&w.input, player, Input{.Action1})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{on_wall = true, wall_normal = {-1, 0}, facing = 1})
+
+	sys_platformer(w)
+
+	vel, has_vel := logic.get_component(&w.velocity, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, vel.x < 0, "wall jump should push left, vel=%v", vel^)
+	testing.expectf(t, vel.y > 0, "wall jump should push upward, vel=%v", vel^)
+	testing.expectf(t, platformer.wall_jumps == 1, "wall jumps=%d", platformer.wall_jumps)
+}
+
+
+@(test)
+test_platformer_air_jump_uses_configured_jump_count :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(4)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
+	logic.add_component(&w.velocity, player, Velocity{0, -UNIT})
+	logic.add_component(&w.input, player, Input{.Action1})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{})
+
+	sys_platformer(w)
+
+	vel, has_vel := logic.get_component(&w.velocity, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, vel.y > 0, "air jump should push upward, vel=%v", vel^)
+	testing.expectf(t, platformer.air_jumps == 1, "air jumps=%d", platformer.air_jumps)
+
+	logic.add_component(&w.input, player, Input{})
+	sys_platformer(w)
+	logic.add_component(&w.input, player, Input{.Action1})
+	sys_platformer(w)
+
+	vel, _ = logic.get_component(&w.velocity, player)
+	platformer, _ = logic.get_component(&w.platformer, player)
+	testing.expectf(t, platformer.air_jumps == 1, "default max air jumps should block second air jump, jumps=%d", platformer.air_jumps)
+}
+
+@(test)
+test_platformer_air_jump_disabled_by_config :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(5)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.air_jump.enabled = false
+
+	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
+	logic.add_component(&w.velocity, player, Velocity{0, -UNIT})
+	logic.add_component(&w.input, player, Input{.Action1})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config})
+
+	sys_platformer(w)
+
+	vel, has_vel := logic.get_component(&w.velocity, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, vel.y < 0, "disabled air jump should keep falling, vel=%v", vel^)
+	testing.expectf(t, platformer.air_jumps == 0, "air jumps=%d", platformer.air_jumps)
+}
+
 @(private = "file")
 platformer_test_world_with_segments :: proc(segments: ..[4]int) -> ^World {
 	w := new(World)
