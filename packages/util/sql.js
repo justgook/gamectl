@@ -36,6 +36,35 @@ function cellValue(value) {
   return value.value
 }
 
+export function rowsFromCells(cells) {
+  if (!Array.isArray(cells)) throw new Error('SQL query result must be an array')
+  if (cells.length === 0) return { columns: [], rows: [] }
+
+  const firstColumn = cells[0]['field-name']
+  const columnCount = cells.findIndex((cell, index) => index > 0 && cell['field-name'] === firstColumn)
+  const columns = cells.slice(0, columnCount < 0 ? cells.length : columnCount).map((cell) => cell['field-name'])
+  if (columns.length === 0) throw new Error('SQL query returned no columns')
+  if (cells.length % columns.length !== 0) {
+    throw new Error(`SQL cell count ${cells.length} is not divisible by column count ${columns.length}`)
+  }
+
+  const rows = []
+  for (let offset = 0; offset < cells.length; offset += columns.length) {
+    const row = {}
+    for (let index = 0; index < columns.length; index++) {
+      const cell = cells[offset + index]
+      const column = columns[index]
+      if (!cell || typeof cell !== 'object') throw new Error('SQL row cell must be an object')
+      if (cell['field-name'] !== column) {
+        throw new Error(`SQL column mismatch at cell ${offset + index}: expected ${column}, got ${cell['field-name']}`)
+      }
+      row[column] = cellValue(cell.value)
+    }
+    rows.push(row)
+  }
+  return { columns, rows }
+}
+
 class SqlConnection {
   #connection
 
@@ -87,30 +116,24 @@ class SqlConnection {
     }
   }
 
+  async queryRows(sql, params = []) {
+    return rowsFromCells(await this.queryCells(sql, params))
+  }
+
   async queryObjects(sql, columns, params = []) {
     assertStringArray(columns, 'SQL query columns')
     if (columns.length === 0) throw new Error('SQL query columns must not be empty')
 
-    const cells = await this.queryCells(sql, params)
-    if (cells.length % columns.length !== 0) {
-      throw new Error(`SQL cell count ${cells.length} is not divisible by column count ${columns.length}`)
+    const result = await this.queryRows(sql, params)
+    if (result.columns.length > 0 && result.columns.length !== columns.length) {
+      throw new Error(`SQL query column count mismatch: expected ${columns.length}, got ${result.columns.length}`)
     }
-
-    const rows = []
-    for (let offset = 0; offset < cells.length; offset += columns.length) {
-      const row = {}
-      for (let index = 0; index < columns.length; index++) {
-        const cell = cells[offset + index]
-        const column = columns[index]
-        if (!cell || typeof cell !== 'object') throw new Error('SQL row cell must be an object')
-        if (cell['field-name'] !== column) {
-          throw new Error(`SQL column mismatch at cell ${offset + index}: expected ${column}, got ${cell['field-name']}`)
-        }
-        row[column] = cellValue(cell.value)
+    for (let index = 0; index < result.columns.length; index++) {
+      if (result.columns[index] !== columns[index]) {
+        throw new Error(`SQL column mismatch at column ${index}: expected ${columns[index]}, got ${result.columns[index]}`)
       }
-      rows.push(row)
     }
-    return rows
+    return result.rows
   }
 
   async value(sql, params = []) {

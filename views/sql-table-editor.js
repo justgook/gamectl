@@ -1,5 +1,6 @@
 import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { sql as sqlConnection } from '/util/sql.js'
 
 
 function quoteIdent(name) {
@@ -254,7 +255,7 @@ export class SqlTableEditor extends HTMLElement {
     this.setStatus('Creating table...', 'info')
 
     try {
-      unwrap(await runtime.invoke('sql/sql::exec', sql))
+      await sqlConnection.exec(sql)
       unwrap(await runtime.call('ui.popup.close', {
         reload: true,
         tableName,

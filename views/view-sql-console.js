@@ -1,6 +1,5 @@
-import { runtime, unwrap } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { parseCSVLines } from '/util/csv.js'
+import { sql as sqlConnection } from '/util/sql.js'
 
 
 function isQueryStatement(sql) {
@@ -11,37 +10,30 @@ function isQueryStatement(sql) {
     || normalized.startsWith('WITH')
 }
 
-function formatCsvAsTable(csv) {
-  const rows = parseCSVLines(String(csv || '').trim())
-  if (rows.length === 0) return ''
+function formatQueryResultAsTable(result) {
+  const { columns, rows } = result
+  if (columns.length === 0) return '(0 rows)'
 
-  const columnCount = rows[0].length
-  const columnWidths = []
-
-  for (let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-    let width = 1
-    for (const row of rows) {
-      width = Math.max(width, String(row[columnIndex] || '').length)
-    }
-    columnWidths.push(width)
+  const columnWidths = columns.map((column) => String(column).length)
+  for (const row of rows) {
+    columns.forEach((column, index) => {
+      columnWidths[index] = Math.max(columnWidths[index], String(row[column] ?? '').length)
+    })
   }
 
   const separator = `+${columnWidths.map((width) => '-'.repeat(width + 2)).join('+')}+`
-  const lines = []
+  const lines = [
+    separator,
+    `| ${columns.map((column, index) => String(column).padEnd(columnWidths[index])).join(' | ')} |`,
+    separator,
+  ]
 
-  lines.push(separator)
-  lines.push(`| ${rows[0].map((cell, index) => String(cell || '').padEnd(columnWidths[index])).join(' | ')} |`)
-  lines.push(separator)
-
-  for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
-    lines.push(`| ${rows[rowIndex].map((cell, index) => String(cell || '').padEnd(columnWidths[index])).join(' | ')} |`)
+  for (const row of rows) {
+    lines.push(`| ${columns.map((column, index) => String(row[column] ?? '').padEnd(columnWidths[index])).join(' | ')} |`)
   }
 
-  if (rows.length > 1) {
-    lines.push(separator)
-  }
-
-  lines.push(`(${rows.length - 1} row${rows.length - 1 === 1 ? '' : 's'})`)
+  if (rows.length > 0) lines.push(separator)
+  lines.push(`(${rows.length} row${rows.length === 1 ? '' : 's'})`)
   return lines.join('\n')
 }
 
@@ -158,17 +150,12 @@ export class ViewSqlConsole extends HTMLElement {
 
     try {
       if (isQueryStatement(sql)) {
-        const csv = unwrap(await runtime.invoke("sql/sql::query", sql))
-        if (csv.trim()) {
-          this.appendOutput('result', formatCsvAsTable(csv))
-          this.setStatus('Query finished', 'success')
-        } else {
-          this.appendOutput('info', '(empty result)')
-          this.setStatus('Query finished', 'success')
-        }
+        const result = await sqlConnection.queryRows(sql)
+        this.appendOutput('result', formatQueryResultAsTable(result))
+        this.setStatus('Query finished', 'success')
       } else {
-        unwrap(await runtime.invoke("sql/sql::exec", sql))
-        this.appendOutput('success', result || 'OK')
+        const changes = await sqlConnection.exec(sql)
+        this.appendOutput('success', `${changes} row${changes === 1 ? '' : 's'} changed`)
         this.setStatus('Statement finished', 'success')
       }
     } catch (error) {

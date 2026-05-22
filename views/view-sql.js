@@ -1,6 +1,6 @@
 import { runtime } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { parseCSVLines } from '/util/csv.js'
+import { rowsFromCells, sql } from '/util/sql.js'
 
 function quoteIdent(name) {
   return String(name).replace(/"/g, '""')
@@ -8,11 +8,6 @@ function quoteIdent(name) {
 
 function sqlIdent(name) {
   return `"${quoteIdent(name)}"`
-}
-
-function quoteSqlValue(value) {
-  if (value === null || value === undefined || value === '') return 'NULL'
-  return `'${String(value).replace(/'/g, "''")}'`
 }
 
 function assert(condition, message) {
@@ -254,14 +249,6 @@ export class ViewSql extends HTMLElement {
     this.updateChooserUI()
   }
 
-  async callSql(sql) {
-    return unwrap(await runtime.invoke("sql/sql::query", sql))
-  }
-
-  async execSql(sql) {
-    return unwrap(await runtime.invoke("sql/sql::exec", sql))
-  }
-
   async refresh(tableToSelect = null) {
     this.cancelEdit()
     this.readConfig()
@@ -308,15 +295,12 @@ export class ViewSql extends HTMLElement {
 
   async fetchTables() {
     const schemaQuery = `SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`
-    const csv = await this.callSql(schemaQuery)
-    const lines = parseCSVLines(csv.trim())
-    const names = lines.slice(1).map((line) => line[0]).filter(Boolean)
+    const tables = await sql.queryObjects(schemaQuery, ['name'])
 
     this.tables = []
-    for (const name of names) {
-      const countCsv = await this.callSql(`SELECT COUNT(*) as count FROM ${sqlIdent(name)}`)
-      const countLines = parseCSVLines(countCsv.trim())
-      const rowCount = parseInt(countLines[1][0], 10) || 0
+    for (const table of tables) {
+      const name = table.name
+      const rowCount = Number(await sql.value(`SELECT COUNT(*) as count FROM ${sqlIdent(name)}`)) || 0
       this.tables.push({ name, rowCount })
     }
 
@@ -330,29 +314,14 @@ export class ViewSql extends HTMLElement {
     if (!this.selectedTable) return
 
     const tableName = sqlIdent(this.selectedTable)
-    const countCsv = await this.callSql(`SELECT COUNT(*) AS count FROM ${tableName}`)
-    const countLines = parseCSVLines(countCsv.trim())
-    this.totalCount = parseInt(countLines[1][0], 10) || 0
+    this.totalCount = Number(await sql.value(`SELECT COUNT(*) AS count FROM ${tableName}`)) || 0
 
     const offset = this.currentPage * this.pageSize
-    const rowsCsv = await this.callSql(`SELECT * FROM ${tableName} LIMIT ${this.pageSize} OFFSET ${offset}`)
-    const lines = parseCSVLines(rowsCsv.trim())
-
-    if (lines.length > 0) {
-      this.columns = lines[0]
-      this.primaryKey = await this.detectPrimaryKey(this.selectedTable, this.columns)
-      this.rows = lines.slice(1).map((row) => {
-        const obj = {}
-        this.columns.forEach((column, index) => {
-          obj[column] = row[index] ?? ''
-        })
-        return obj
-      })
-    } else {
-      this.columns = []
-      this.rows = []
-      this.primaryKey = ''
-    }
+    this.columns = await this.fetchTableColumns(this.selectedTable)
+    this.primaryKey = await this.detectPrimaryKey(this.selectedTable, this.columns)
+    this.rows = this.columns.length > 0
+      ? await sql.queryObjects(`SELECT * FROM ${tableName} LIMIT ? OFFSET ?`, this.columns, [String(this.pageSize), String(offset)])
+      : []
 
     this.renderTable()
     this.renderPagination()
@@ -361,16 +330,18 @@ export class ViewSql extends HTMLElement {
     this.updateHeaderControlsUI()
   }
 
-  async detectPrimaryKey(tableName, columns) {
-    const csv = await this.callSql(`PRAGMA table_info(${sqlIdent(tableName)})`)
-    const lines = parseCSVLines(csv.trim())
-    const headers = lines[0] || []
-    const nameIndex = headers.indexOf('name')
-    const pkIndex = headers.indexOf('pk')
-    assert(nameIndex >= 0 && pkIndex >= 0, 'PRAGMA table_info returned unexpected columns')
+  async fetchTableInfo(tableName) {
+    return await sql.queryObjects(`PRAGMA table_info(${sqlIdent(tableName)})`, ['cid', 'name', 'type', 'notnull', 'dflt_value', 'pk'])
+  }
 
-    const pkRow = lines.slice(1).find((line) => Number(line[pkIndex]) > 0)
-    if (pkRow?.[nameIndex]) return pkRow[nameIndex]
+  async fetchTableColumns(tableName) {
+    return (await this.fetchTableInfo(tableName)).map((column) => column.name)
+  }
+
+  async detectPrimaryKey(tableName, columns) {
+    const tableInfo = await this.fetchTableInfo(tableName)
+    const pkRow = tableInfo.find((column) => Number(column.pk) > 0)
+    if (pkRow?.name) return pkRow.name
     if (columns.includes('id')) return 'id'
     return columns[0] || ''
   }
@@ -397,26 +368,11 @@ export class ViewSql extends HTMLElement {
       page: this.currentPage,
     }
 
-    const countCsv = await this.callSql(this.interpolateQuery(this.countQuery, params))
-    const countLines = parseCSVLines(countCsv.trim())
-    this.totalCount = parseInt(countLines[1]?.[0] || '0', 10) || 0
+    this.totalCount = Number(await sql.value(this.interpolateQuery(this.countQuery, params))) || 0
 
-    const rowsCsv = await this.callSql(this.interpolateQuery(this.query, params))
-    const lines = parseCSVLines(rowsCsv.trim())
-
-    if (lines.length > 0) {
-      this.columns = lines[0]
-      this.rows = lines.slice(1).map((row) => {
-        const obj = {}
-        this.columns.forEach((column, index) => {
-          obj[column] = row[index] ?? ''
-        })
-        return obj
-      })
-    } else {
-      this.columns = []
-      this.rows = []
-    }
+    const result = rowsFromCells(await sql.queryCells(this.interpolateQuery(this.query, params)))
+    this.columns = result.columns
+    this.rows = result.rows
   }
 
   async openCreateTablePopup() {
@@ -812,8 +768,10 @@ export class ViewSql extends HTMLElement {
     const pkValue = pkWhereValue ?? row[this.primaryKey]
     assert(pkValue !== undefined && pkValue !== null && pkValue !== '', 'Cannot update: no primary key value')
 
-    const sql = `UPDATE ${sqlIdent(this.selectedTable)} SET ${sqlIdent(column)} = ${quoteSqlValue(value)} WHERE ${sqlIdent(this.primaryKey)} = ${quoteSqlValue(pkValue)}`
-    await this.execSql(sql)
+    await sql.exec(
+      `UPDATE ${sqlIdent(this.selectedTable)} SET ${sqlIdent(column)} = ? WHERE ${sqlIdent(this.primaryKey)} = ?`,
+      [String(value ?? ''), String(pkValue)],
+    )
   }
 
   async insertRow() {
@@ -824,13 +782,11 @@ export class ViewSql extends HTMLElement {
     const insertColumns = this.columns.filter((column) => column !== this.primaryKey)
     assert(insertColumns.length > 0, 'Cannot insert: no insertable columns')
 
-    const sql = `INSERT INTO ${sqlIdent(this.selectedTable)} (${insertColumns.map(sqlIdent).join(', ')}) VALUES (${insertColumns.map(() => "''").join(', ')})`
+    const insertSql = `INSERT INTO ${sqlIdent(this.selectedTable)} (${insertColumns.map(sqlIdent).join(', ')}) VALUES (${insertColumns.map(() => '?').join(', ')})`
     try {
-      await this.execSql(sql)
+      await sql.exec(insertSql, insertColumns.map(() => ''))
       this.setTableStatus('Row inserted')
-      const countCsv = await this.callSql(`SELECT COUNT(*) AS count FROM ${sqlIdent(this.selectedTable)}`)
-      const countLines = parseCSVLines(countCsv.trim())
-      this.totalCount = parseInt(countLines[1]?.[0] || '0', 10) || 0
+      this.totalCount = Number(await sql.value(`SELECT COUNT(*) AS count FROM ${sqlIdent(this.selectedTable)}`)) || 0
       this.currentPage = Math.max(0, Math.ceil(this.totalCount / this.pageSize) - 1)
       this.selectedRowIndex = -1
       await this.fetchTableData()
@@ -865,7 +821,7 @@ export class ViewSql extends HTMLElement {
     if (!confirmed) return
 
     try {
-      await this.execSql(`DELETE FROM ${sqlIdent(this.selectedTable)} WHERE ${sqlIdent(this.primaryKey)} = ${quoteSqlValue(pkValue)}`)
+      await sql.exec(`DELETE FROM ${sqlIdent(this.selectedTable)} WHERE ${sqlIdent(this.primaryKey)} = ?`, [String(pkValue)])
       this.setTableStatus('Row deleted')
       this.selectedRowIndex = -1
       await this.fetchTableData()

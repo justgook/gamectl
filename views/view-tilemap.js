@@ -1303,7 +1303,6 @@ export class ViewTilemap extends ViewCanvasBase {
   normalizeTilemapDataSource(dataSource) {
     const source = String(dataSource || '').trim()
     assert(source.length > 0, 'view-tilemap data-source must be non-empty filesystem path')
-    assert(!source.startsWith('sql:'), 'view-tilemap data-source must be a filesystem path, not sql')
     return source
   }
 

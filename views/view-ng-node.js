@@ -1,6 +1,5 @@
 import { runtime } from '/core/runtime.js'
 import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { parseCSVLines } from '/util/csv.js'
 
 const NG = {
   NODE_GOAL: 1,

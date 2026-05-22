@@ -125,7 +125,6 @@ export class TilemapSettings extends HTMLElement {
   dataSourcePath() {
     const value = String(this.getAttribute('data-source') || '').trim()
     assert(value.length > 0, 'tilemap-settings requires data-source path')
-    assert(!value.startsWith('sql:'), 'tilemap-settings data-source must be a filesystem path, not sql')
     return value
   }
 
@@ -199,7 +198,6 @@ export class TilemapSettings extends HTMLElement {
       this.setStatus('Error: Path is required', 'danger')
       return
     }
-    assert(!path.startsWith('sql:'), 'tilemap-settings path must be a filesystem path, not sql')
     this.nameInput.classList.remove('danger')
 
     const tileSize = parsePositiveInt(this.tileSizeInput.value, 'Tile size')
