@@ -332,122 +332,103 @@ encode_bytes_value :: proc(
 	string,
 ) {
 	max_len := effective_type_max_len(type_idx, field)
-	_, has_file, file_err := decode_bytes_file_marker(input)
-	if file_err != "" {
-		return false, file_err
+	if len(input) < 2 || input[0] != '"' || input[len(input) - 1] != '"' {
+		return false, "bytes must be a base64 string"
 	}
-	if has_file {
-		return false,
-			"bytes _file marker is not supported by respack component build; pass bytes through the blobs side table"
+	encoded, ok := decode_json_string_bytes(input)
+	if !ok {
+		return false, "bytes must be a base64 string"
 	}
-	blob_id, has_blob, blob_err := decode_bytes_blob_marker(input)
-	if blob_err != "" {
-		return false, blob_err
+	bytes, base64_ok := decode_base64_bytes(encoded)
+	if !base64_ok {
+		return false, "bytes must be a valid base64 string"
 	}
-	if has_blob {
-		blob, found := find_blob(transmute([]u8)blob_id)
-		if !found {
-			return false, "blob not found"
-		}
-		if max_len >= 0 && len(blob) > max_len {
-			return false, "bytes exceeds max_len"
-		}
-		if !writer_u32(w, u32(len(blob))) || !writer_write(w, blob) {
-			return false, "payload too large"
-		}
-		return true, ""
-	}
-	if len(input) >= 2 && input[0] == '"' && input[len(input) - 1] == '"' {
-		bytes, ok := decode_json_string_bytes(input)
-		if !ok {
-			return false, "bytes must be string, array, or _file object 1"
-		}
-		if max_len >= 0 && len(bytes) > max_len {
-			return false, "bytes exceeds max_len"
-		}
-		if !writer_u32(w, u32(len(bytes))) || !writer_write(w, bytes) {
-			return false, "payload too large"
-		}
-		return true, ""
-	}
-	if len(input) == 0 || input[0] != '[' {
-		return false, "bytes must be string, array, or _file object 2"
-	}
-	count := count_array_elements(input)
-	if max_len >= 0 && count > max_len {
+	if max_len >= 0 && len(bytes) > max_len {
 		return false, "bytes exceeds max_len"
 	}
-	if !writer_u32(w, u32(count)) {
+	if !writer_u32(w, u32(len(bytes))) || !writer_write(w, bytes) {
 		return false, "payload too large"
-	}
-	cursor := 1
-	for {
-		element, next_cursor, found := next_array_element(input, cursor)
-		if !found {
-			break
-		}
-		value, ok := parse_i64_bytes(trim_space_slice(element))
-		if !ok || value < 0 || value > 255 {
-			return false, "bytes array values must be u8"
-		}
-		if !writer_u8(w, u8(value)) {
-			return false, "payload too large"
-		}
-		cursor = next_cursor
 	}
 	return true, ""
 }
 
-decode_bytes_blob_marker :: proc(input: []u8) -> (string, bool, string) {
-	trimmed := trim_space_slice(input)
-	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return "", false, ""
+decode_base64_bytes :: proc(input: []u8) -> ([]u8, bool) {
+	if len(input) % 4 != 0 {
+		return nil, false
 	}
-	member, next_cursor, found := next_object_member(trimmed, 1)
-	if !found {
-		return "", false, ""
+	padding := 0
+	if len(input) > 0 && input[len(input) - 1] == '=' {
+		padding += 1
 	}
-	if !bytes_equal_string(trimmed[member.key_start:member.key_end], "_blob") {
-		return "", false, ""
+	if len(input) > 1 && input[len(input) - 2] == '=' {
+		padding += 1
 	}
-	_, _, extra_found := next_object_member(trimmed, next_cursor)
-	if extra_found {
-		return "", false, "bytes blob marker must contain only _blob"
+	out_len := (len(input) / 4) * 3 - padding
+	if out_len > len(string_decode_buffer) {
+		return nil, false
 	}
-	id_bytes, ok := decode_json_string_bytes(trimmed[member.value_start:member.value_end])
-	if !ok {
-		return "", false, "_blob must be a string"
+	write_idx := 0
+	for i := 0; i < len(input); i += 4 {
+		v0, ok0 := base64_value(input[i])
+		v1, ok1 := base64_value(input[i + 1])
+		if !ok0 || !ok1 {
+			return nil, false
+		}
+		pad2 := input[i + 2] == '='
+		pad3 := input[i + 3] == '='
+		if (pad2 || pad3) && i + 4 != len(input) {
+			return nil, false
+		}
+		if pad2 && !pad3 {
+			return nil, false
+		}
+		v2: u8 = 0
+		v3: u8 = 0
+		if !pad2 {
+			ok2: bool
+			v2, ok2 = base64_value(input[i + 2])
+			if !ok2 {
+				return nil, false
+			}
+		}
+		if !pad3 {
+			ok3: bool
+			v3, ok3 = base64_value(input[i + 3])
+			if !ok3 {
+				return nil, false
+			}
+		}
+		triple := u32(v0) << 18 | u32(v1) << 12 | u32(v2) << 6 | u32(v3)
+		if write_idx < out_len {
+			string_decode_buffer[write_idx] = u8((triple >> 16) & 0xff)
+			write_idx += 1
+		}
+		if write_idx < out_len {
+			string_decode_buffer[write_idx] = u8((triple >> 8) & 0xff)
+			write_idx += 1
+		}
+		if write_idx < out_len {
+			string_decode_buffer[write_idx] = u8(triple & 0xff)
+			write_idx += 1
+		}
 	}
-	if len(id_bytes) == 0 {
-		return "", false, "_blob id empty"
-	}
-	return string(id_bytes), true, ""
+	return string_decode_buffer[:out_len], true
 }
 
-decode_bytes_file_marker :: proc(input: []u8) -> (string, bool, string) {
-	trimmed := trim_space_slice(input)
-	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return "", false, ""
+base64_value :: proc(c: u8) -> (u8, bool) {
+	switch {
+	case c >= 'A' && c <= 'Z':
+		return c - 'A', true
+	case c >= 'a' && c <= 'z':
+		return c - 'a' + 26, true
+	case c >= '0' && c <= '9':
+		return c - '0' + 52, true
+	case c == '+':
+		return 62, true
+	case c == '/':
+		return 63, true
 	}
-	member, next_cursor, found := next_object_member(trimmed, 1)
-	if !found {
-		return "", false, ""
-	}
-	if !bytes_equal_string(trimmed[member.key_start:member.key_end], "_file") {
-		return "", false, ""
-	}
-	_, _, extra_found := next_object_member(trimmed, next_cursor)
-	if extra_found {
-		return "", false, "bytes file marker must contain only _file"
-	}
-	path_bytes, ok := decode_json_string_bytes(trimmed[member.value_start:member.value_end])
-	if !ok {
-		return "", false, "_file must be a string"
-	}
-	if len(path_bytes) == 0 {
-		return "", false, "_file path empty"
-	}
-	return string(path_bytes), true, ""
+	return 0, false
 }
 
 decode_json_string_bytes :: proc(input: []u8) -> ([]u8, bool) {

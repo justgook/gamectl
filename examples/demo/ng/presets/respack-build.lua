@@ -36,15 +36,6 @@ local function readText(path)
     return false, text
 end
 
-local function readFile(path)
-    local ok, bytes = safeCall("fs/fs::read-file", path)
-    if ok then return true, bytes end
-    if string.sub(path, 1, 5) == "demo/" then
-        return safeCall("fs/fs::read-file", string.sub(path, 6))
-    end
-    return false, bytes
-end
-
 local function isPureMarker(value, key)
     if type(value) ~= "table" or type(value[key]) ~= "string" then
         return false
@@ -66,36 +57,6 @@ local function resolveSchema(schemaText)
     return readText(path)
 end
 
-local blobs = {}
-local nextBlobId = 1
-
-local function collectBlobs(value)
-    if type(value) ~= "table" then
-        return value
-    end
-
-    if isPureMarker(value, "_file") then
-        local path = value["_file"]
-        if path == "" then
-            error("bytes _file must be a non-empty string")
-        end
-        local okBytes, bytes = readFile(path)
-        if not okBytes then
-            error(tostring(bytes ~= "" and bytes or ("failed to read blob " .. path)))
-        end
-        local blobId = "blob_" .. tostring(nextBlobId)
-        nextBlobId = nextBlobId + 1
-        blobs[#blobs + 1] = { id = blobId, data = bytes }
-        return { _blob = blobId }
-    end
-
-    local out = {}
-    for key, child in pairs(value) do
-        out[key] = collectBlobs(child)
-    end
-    return out
-end
-
 local okSlots, slots = pcall(json.decode, slotsJson)
 if not okSlots or type(slots) ~= "table" then
     outputs[1] = ""
@@ -110,15 +71,8 @@ if not okSchema then
     return
 end
 
-local okCollect, resolvedSlotsOrErr = pcall(collectBlobs, slots)
-if not okCollect then
-    outputs[1] = ""
-    outputs[2] = tostring(resolvedSlotsOrErr or "failed to collect respack blobs")
-    return
-end
-
-local resolvedSlotsJson = json.encode(resolvedSlotsOrErr)
-local okBuild, rspkBytes = callRespack("build", resolvedSchema, resolvedSlotsJson, blobs)
+local resolvedSlotsJson = json.encode(slots)
+local okBuild, rspkBytes = callRespack("build", resolvedSchema, resolvedSlotsJson)
 if not okBuild then
     outputs[1] = ""
     outputs[2] = tostring(rspkBytes ~= "" and rspkBytes or "respack.build failed")

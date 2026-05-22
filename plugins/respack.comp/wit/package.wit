@@ -1,19 +1,14 @@
 package gams:respack@1.0.0;
 
 interface respack {
-    record blob {
-        id: string,
-        data: list<u8>,
-    }
-
     /// Generate Odin decoder source from schema JSON.
     generate-odin: func(schema: string) -> result<string, string>;
 
-    /// Build packed RSPK bytes from schema JSON, slot payloads JSON, and binary blobs.
+    /// Build packed RSPK bytes from schema JSON and slot payloads JSON.
     ///
     /// `slots-json` is a JSON array whose entries correspond to data slots. Bytes
-    /// values can reference `blobs` with `{ "_blob": "blob-id" }`.
-    build: func(schema: string, slots-json: string, blobs: list<blob>) -> result<list<u8>, string>;
+    /// values must be base64 strings in the slot JSON.
+    build: func(schema: string, slots-json: string) -> result<list<u8>, string>;
 }
 
 world respack-plugin {
