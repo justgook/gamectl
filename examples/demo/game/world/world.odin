@@ -41,6 +41,7 @@ World :: struct {
 	display_pass_action: sg.Pass_Action,
 	display_pipe:        ^Display_Pipe,
 	// Platformer Physics
+	platformer:          logic.Component_Storage(Platformer),
 	grid:                grid.Grid,
 	segments:            [dynamic][4]int,
 	collider:            logic.Component_Storage(shape.Capsule),
@@ -57,8 +58,7 @@ frame :: proc(w: ^World, dt: f64) {
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
 		sys_brain(w)
-		sys_move(w)
-		sys_velocity(w)
+		sys_platformer(w)
 	}
 
 	sys_camera(w, dt)
@@ -130,6 +130,13 @@ init :: proc(w: ^World) {
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
+	w.grid = grid.create_grid(-256 * UNIT, -128 * UNIT, 1024 * UNIT, 512 * UNIT, 16 * UNIT)
+	append(&w.segments, [4]int{-128 * UNIT, 0, 512 * UNIT, 0})
+	append(&w.segments, [4]int{128 * UNIT, 0, 192 * UNIT, 32 * UNIT})
+	append(&w.segments, [4]int{256 * UNIT, 0, 256 * UNIT, 128 * UNIT})
+	for &segment in w.segments {
+		grid.add_segment(&w.grid, &segment)
+	}
 	// TODO: delete MOCK DATA
 
 	player := create_entity(w)
@@ -139,7 +146,9 @@ init :: proc(w: ^World) {
 	w.player1, _ = logic.get_component(&w.input, player)
 	logic.add_component(&w.velocity, player, Velocity{})
 	// logic.add_component(&w.position, player, Position{150 * UNIT, 128 * UNIT})
-	logic.add_component(&w.position, player, Position{})
+	logic.add_component(&w.position, player, Position{64 * UNIT, 96 * UNIT})
+	logic.add_component(&w.collider, player, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
+	logic.add_component(&w.platformer, player, Platformer{facing = 1})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[969]})
 	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
 
@@ -180,6 +189,7 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.nine_patch, entity_id)
 	logic.delete_component(&w.brain, entity_id)
 	logic.delete_component(&w.input, entity_id)
+	logic.delete_component(&w.platformer, entity_id)
 	logic.delete_component(&w.timer, entity_id)
 	logic.delete_component(&w.animation, entity_id)
 	logic.delete_component(&w.collider, entity_id)
@@ -207,6 +217,7 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.nine_patch)
 	logic.destroy_storage(&w.brain)
 	logic.destroy_storage(&w.input)
+	logic.destroy_storage(&w.platformer)
 	logic.destroy_storage(&w.timer)
 	logic.destroy_storage(&w.animation)
 	grid.destroy_grid(&w.grid)
