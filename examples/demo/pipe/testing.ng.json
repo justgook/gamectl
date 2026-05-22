@@ -951,8 +951,8 @@
   {
     "id": 90,
     "kind": 2,
-    "x": 2752,
-    "y": 331,
+    "x": 2473,
+    "y": 208,
     "name": "Open",
     "codePath": "ng/presets/image-open.lua",
     "graphId": 0,
@@ -976,8 +976,8 @@
   {
     "id": 91,
     "kind": 4,
-    "x": 2446,
-    "y": 232,
+    "x": 2245,
+    "y": 190,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1176,7 +1176,7 @@
       {
         "id": 1,
         "name": "image",
-        "srcNodeId": 90,
+        "srcNodeId": 103,
         "srcOutputId": 1
       }
     ],
@@ -1209,6 +1209,31 @@
       {
         "id": 1,
         "name": "base64",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 103,
+    "kind": 2,
+    "x": 2670,
+    "y": 218,
+    "name": "FlipY",
+    "codePath": "ng/presets/image-flipy.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 90,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
         "value": null
       }
     ]

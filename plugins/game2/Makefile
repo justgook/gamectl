@@ -36,7 +36,6 @@ ROOT_BUILD_DIR ?= ../../build.nosync
 PLUGIN_WASM ?= $(ROOT_BUILD_DIR)/plugins/game2.wasm
 SOKOL_NATIVE_PROFILE ?= debug
 SOKOL_MACOS_DEPLOYMENT_TARGET ?= 14.0
-ATLAS_ASSET ?= ../../demo/assets/the_atlas.qoi
 
 SHADER_SOURCES := $(shell find . -name '*.glsl' -print | LC_ALL=C sort | sed 's#^\./##' | tr '\n' ' ')
 
