@@ -928,6 +928,39 @@
               "group": "Image"
             },
             {
+              "name": "Base64 Decode",
+              "kind": "code",
+              "codePath": "ng/presets/image-decode.lua",
+              "inputs": [
+                {
+                  "name": "base64",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "image"
+                }
+              ],
+              "group": "Image"
+            },
+            {
+              "name": "Base64 Encode",
+              "kind": "code",
+              "codePath": "ng/presets/image-encode.lua",
+              "inputs": [
+                {
+                  "name": "image"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "base64"
+                }
+              ],
+              "group": "Image"
+            },
+            {
               "name": "Wrap",
               "kind": "code",
               "codePath": "ng/presets/image-wrap.lua",

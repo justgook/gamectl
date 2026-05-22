@@ -918,7 +918,7 @@
       {
         "id": 2,
         "name": "Atlas",
-        "srcNodeId": 99,
+        "srcNodeId": 101,
         "srcOutputId": 1
       },
       {
@@ -930,7 +930,7 @@
       {
         "id": 4,
         "name": "LUT",
-        "srcNodeId": 100,
+        "srcNodeId": 102,
         "srcOutputId": 1
       },
       {
@@ -1164,12 +1164,12 @@
     ]
   },
   {
-    "id": 99,
+    "id": 101,
     "kind": 2,
-    "x": 3034,
-    "y": 338,
-    "name": "Wrap",
-    "codePath": "ng/presets/image-wrap.lua",
+    "x": 2946,
+    "y": 360,
+    "name": "Base64 Encode",
+    "codePath": "ng/presets/image-encode.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -1183,18 +1183,18 @@
     "outputs": [
       {
         "id": 1,
-        "name": "handle",
+        "name": "base64",
         "value": null
       }
     ]
   },
   {
-    "id": 100,
+    "id": 102,
     "kind": 2,
-    "x": 2958,
-    "y": 507,
-    "name": "Wrap",
-    "codePath": "ng/presets/image-wrap.lua",
+    "x": 2933,
+    "y": 503,
+    "name": "Base64 Encode",
+    "codePath": "ng/presets/image-encode.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -1208,7 +1208,7 @@
     "outputs": [
       {
         "id": 1,
-        "name": "handle",
+        "name": "base64",
         "value": null
       }
     ]
