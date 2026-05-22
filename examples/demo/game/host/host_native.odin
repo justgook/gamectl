@@ -114,42 +114,12 @@ sokol_logger_proc :: proc "c" (
 
 /// LOGGER END
 
-GAME_ASSET_PREFIX :: "/game/"
-
-asset_name_from_path :: proc(path: string) -> (string, bool) {
-	if !strings.has_prefix(path, GAME_ASSET_PREFIX) {
-		return "", false
-	}
-	name := path[len(GAME_ASSET_PREFIX):]
-	if len(name) == 0 {
-		return "", false
-	}
-	if strings.contains(name, "..") {
-		return "", false
-	}
-	if strings.contains(name, "/") {
-		return "", false
-	}
-	return name, true
-}
-
-
 asset_read_all_host :: proc(path: string) -> ([]u8, bool) {
-	name, ok := asset_name_from_path(path)
-	if !ok {
-		assert(false, fmt.tprintf("native asset read rejected invalid path: %s", path))
-		return nil, false
+	data, err := os.read_entire_file(path, context.allocator)
+	if err == nil {
+		return data, true
 	}
-	candidates := [?]string{fmt.tprintf("../../demo/output/%s", name), name}
-	for candidate in candidates {
-		if data, err := os.read_entire_file(candidate, context.allocator); err == nil {
-			return data, true
-		}
-	}
-	assert(
-		false,
-		fmt.tprintf("native asset not found: %s (tried: %s, %s, %s, %s)", path, candidates[0], candidates[1]),
-	)
+	assert(false, fmt.tprintf("native asset read failed: %s (%v)", path, err))
 	return nil, false
 }
 
