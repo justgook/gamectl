@@ -3458,6 +3458,39 @@ mod tests {
         assert_eq!(png_bytes[2], serde_json::json!(78));
         assert_eq!(png_bytes[3], serde_json::json!(71));
 
+        let encoded_png = runtime
+            .invoke(
+                "image/image::encode-base64",
+                serde_json::json!([resource, "png"]),
+            )
+            .unwrap();
+        let encoded_png = encoded_png["ok"].as_str().unwrap();
+        assert!(encoded_png.starts_with("iVBORw0KGgo"));
+
+        let decoded_png = runtime
+            .invoke(
+                "image/image::decode-base64",
+                serde_json::json!([encoded_png]),
+            )
+            .unwrap();
+        let decoded_png_resource = decoded_png.get("ok").unwrap();
+        let decoded_png_info = runtime
+            .invoke(
+                "image/image::info",
+                serde_json::json!([decoded_png_resource]),
+            )
+            .unwrap();
+        assert_eq!(decoded_png_info["ok"]["width"], serde_json::json!(width));
+        assert_eq!(decoded_png_info["ok"]["height"], serde_json::json!(height));
+
+        let invalid_base64 = runtime
+            .invoke(
+                "image/image::decode-base64",
+                serde_json::json!(["not base64!"]),
+            )
+            .unwrap();
+        assert_eq!(invalid_base64["err"], serde_json::json!("invalid base64 length"));
+
         let saved_qoi = runtime
             .invoke(
                 "image/image::save",

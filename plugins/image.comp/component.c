@@ -383,6 +383,131 @@ static exports_gams_image_image_image_t *decode_image_bytes(const uint8_t *bytes
   return NULL;
 }
 
+static int base64_value(uint8_t c) {
+  if (c >= 'A' && c <= 'Z') return (int)(c - 'A');
+  if (c >= 'a' && c <= 'z') return (int)(c - 'a' + 26);
+  if (c >= '0' && c <= '9') return (int)(c - '0' + 52);
+  if (c == '+') return 62;
+  if (c == '/') return 63;
+  return -1;
+}
+
+static bool is_base64_space(uint8_t c) {
+  return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+static bool base64_encode_bytes(const uint8_t *bytes, size_t len, image_plugin_string_t *ret, image_plugin_string_t *err) {
+  static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  ret->ptr = NULL;
+  ret->len = 0;
+
+  if (len > ((SIZE_MAX / 4u) * 3u) - 2u) {
+    set_error(err, "base64 input is too large");
+    return false;
+  }
+  size_t out_len = ((len + 2u) / 3u) * 4u;
+  char *out = out_len == 0 ? NULL : malloc(out_len);
+  if (out_len > 0 && !out) {
+    set_error(err, "out of memory");
+    return false;
+  }
+
+  size_t in = 0;
+  size_t pos = 0;
+  while (in < len) {
+    size_t remaining = len - in;
+    uint32_t a = bytes[in++];
+    uint32_t b = remaining > 1u ? bytes[in++] : 0;
+    uint32_t c = remaining > 2u ? bytes[in++] : 0;
+    uint32_t triple = (a << 16) | (b << 8) | c;
+    out[pos++] = alphabet[(triple >> 18) & 0x3f];
+    out[pos++] = alphabet[(triple >> 12) & 0x3f];
+    out[pos++] = remaining > 1u ? alphabet[(triple >> 6) & 0x3f] : '=';
+    out[pos++] = remaining > 2u ? alphabet[triple & 0x3f] : '=';
+  }
+
+  image_plugin_string_dup_n(ret, out, out_len);
+  free(out);
+  return true;
+}
+
+static bool base64_decode_string(image_plugin_string_t *encoded, image_plugin_list_u8_t *ret, image_plugin_string_t *err) {
+  ret->ptr = NULL;
+  ret->len = 0;
+
+  size_t clean_len = 0;
+  for (size_t i = 0; i < encoded->len; i++) {
+    if (!is_base64_space(encoded->ptr[i])) clean_len++;
+  }
+  if (clean_len % 4u != 0) {
+    set_error(err, "invalid base64 length");
+    return false;
+  }
+
+  uint8_t *clean = clean_len == 0 ? NULL : malloc(clean_len);
+  if (clean_len > 0 && !clean) {
+    set_error(err, "out of memory");
+    return false;
+  }
+  size_t pos = 0;
+  for (size_t i = 0; i < encoded->len; i++) {
+    if (!is_base64_space(encoded->ptr[i])) clean[pos++] = encoded->ptr[i];
+  }
+
+  size_t padding = 0;
+  if (clean_len >= 1 && clean[clean_len - 1] == '=') padding++;
+  if (clean_len >= 2 && clean[clean_len - 2] == '=') padding++;
+  for (size_t i = 0; i + padding < clean_len; i++) {
+    if (clean[i] == '=') {
+      free(clean);
+      set_error(err, "invalid base64 padding");
+      return false;
+    }
+  }
+  if (padding > 2) {
+    free(clean);
+    set_error(err, "invalid base64 padding");
+    return false;
+  }
+
+  size_t out_len = (clean_len / 4u) * 3u;
+  if (out_len < padding) {
+    free(clean);
+    set_error(err, "invalid base64 padding");
+    return false;
+  }
+  out_len -= padding;
+  uint8_t *out = out_len == 0 ? NULL : malloc(out_len);
+  if (out_len > 0 && !out) {
+    free(clean);
+    set_error(err, "out of memory");
+    return false;
+  }
+
+  size_t out_pos = 0;
+  for (size_t i = 0; i < clean_len; i += 4u) {
+    int v0 = base64_value(clean[i]);
+    int v1 = base64_value(clean[i + 1]);
+    int v2 = clean[i + 2] == '=' ? 0 : base64_value(clean[i + 2]);
+    int v3 = clean[i + 3] == '=' ? 0 : base64_value(clean[i + 3]);
+    if (v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0) {
+      free(out);
+      free(clean);
+      set_error(err, "invalid base64 character");
+      return false;
+    }
+    uint32_t triple = ((uint32_t)v0 << 18) | ((uint32_t)v1 << 12) | ((uint32_t)v2 << 6) | (uint32_t)v3;
+    if (out_pos < out_len) out[out_pos++] = (uint8_t)((triple >> 16) & 0xff);
+    if (out_pos < out_len) out[out_pos++] = (uint8_t)((triple >> 8) & 0xff);
+    if (out_pos < out_len) out[out_pos++] = (uint8_t)(triple & 0xff);
+  }
+
+  free(clean);
+  ret->ptr = out;
+  ret->len = out_len;
+  return true;
+}
+
 static bool encode_image(exports_gams_image_image_borrow_image_t src, exports_gams_image_image_image_format_t format, image_plugin_list_u8_t *ret, image_plugin_string_t *err) {
   ret->ptr = NULL;
   ret->len = 0;
@@ -571,7 +696,7 @@ bool exports_gams_image_image_write_pixel(exports_gams_image_image_borrow_image_
   return return_image(out, ret, err);
 }
 
-bool exports_gams_image_image_write_pixels(uint32_t width, uint32_t height, exports_gams_image_image_pixel_format_t pixel_format, image_plugin_list_u8_t *data, exports_gams_image_image_own_image_t *ret, image_plugin_string_t *err) {
+bool exports_gams_image_image_from_pixels(uint32_t width, uint32_t height, exports_gams_image_image_pixel_format_t pixel_format, image_plugin_list_u8_t *data, exports_gams_image_image_own_image_t *ret, image_plugin_string_t *err) {
   if (pixel_format != EXPORTS_GAMS_IMAGE_IMAGE_PIXEL_FORMAT_RGBA8) {
     set_error(err, "only rgba8 pixel data is supported");
     return false;
@@ -613,6 +738,22 @@ bool exports_gams_image_image_read_pixels(exports_gams_image_image_borrow_image_
 
 bool exports_gams_image_image_export(exports_gams_image_image_borrow_image_t src, exports_gams_image_image_image_format_t format, image_plugin_list_u8_t *ret, image_plugin_string_t *err) {
   return encode_image(src, format, ret, err);
+}
+
+bool exports_gams_image_image_decode_base64(image_plugin_string_t *encoded, exports_gams_image_image_own_image_t *ret, image_plugin_string_t *err) {
+  image_plugin_list_u8_t bytes;
+  if (!base64_decode_string(encoded, &bytes, err)) return false;
+  exports_gams_image_image_image_t *image = decode_image_bytes(bytes.ptr, bytes.len, err);
+  free(bytes.ptr);
+  return return_image(image, ret, err);
+}
+
+bool exports_gams_image_image_encode_base64(exports_gams_image_image_borrow_image_t src, exports_gams_image_image_image_format_t format, image_plugin_string_t *ret, image_plugin_string_t *err) {
+  image_plugin_list_u8_t bytes;
+  if (!encode_image(src, format, &bytes, err)) return false;
+  bool ok = base64_encode_bytes(bytes.ptr, bytes.len, ret, err);
+  free(bytes.ptr);
+  return ok;
 }
 
 bool exports_gams_image_image_save(exports_gams_image_image_borrow_image_t src, image_plugin_string_t *path, exports_gams_image_image_image_format_t format, uint64_t *ret, image_plugin_string_t *err) {

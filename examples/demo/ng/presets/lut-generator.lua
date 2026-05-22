@@ -48,9 +48,9 @@ for i = 1, #data do
 	bytes[offset + 4] = 255
 end
 
-local image, writeErr = host.call("image/image::write-pixels", width, height, "rgba8", bytes)
+local image, writeErr = host.call("image/image::from-pixels", width, height, "rgba8", bytes)
 if image == nil then
-	error(writeErr or "Failed to write pixel data")
+	error(writeErr or "Failed to create image from pixel data")
 end
 
 -- host.call("image/image::save", image, "tmp/lut1.qoi", "qoi")
