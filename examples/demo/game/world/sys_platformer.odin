@@ -16,6 +16,8 @@ Platformer_Config :: struct {
 	jump_hold_frames:   int,
 	coyote_frames:      int,
 	jump_buffer_frames: int,
+	ground_stick:       int,
+	wall_stick:         int,
 }
 
 PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
@@ -30,6 +32,8 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 	jump_hold_frames   = 8,
 	coyote_frames      = 6,
 	jump_buffer_frames = 6,
+	ground_stick       = 2 * UNIT,
+	wall_stick         = 2 * UNIT,
 }
 
 Platformer :: struct {
@@ -84,11 +88,14 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 	cfg := platformer_config(p)
 	jump_down := .Action1 in input
 
+	// host.info("platform", "jump", jump_down, "on_ground", p.on_ground)
+
 	if jump_down {
 		p.jump_buffer = cfg.jump_buffer_frames
 	} else if p.jump_buffer > 0 {
 		p.jump_buffer -= 1
 	}
+
 
 	if p.on_ground {
 		p.coyote_timer = cfg.coyote_frames
@@ -130,14 +137,27 @@ platformer_move_and_collide :: proc(
 	collider: ^shape.Capsule,
 	p: ^Platformer,
 ) {
-	p.on_ground = false
-	p.on_wall = false
+	cfg := platformer_config(p)
 	p.hit_ceiling = false
-	p.ground_normal = {}
-	p.wall_normal = {}
+
+	if vel.y > 0 {
+		p.on_ground = false
+		p.ground_normal = {}
+	}
+	if vel.x != 0 {
+		p.on_wall = false
+		p.wall_normal = {}
+	}
 
 	move_x_and_collide(g, pos, vel, collider, p)
 	move_y_and_collide(g, pos, vel, collider, p)
+
+	if p.on_ground && vel.y <= 0 {
+		stick_to_ground(g, pos, collider, p, cfg.ground_stick)
+	}
+	if p.on_wall && vel.x == 0 {
+		stick_to_wall(g, pos, collider, p, cfg.wall_stick)
+	}
 }
 
 @(private = "file")
@@ -252,6 +272,87 @@ move_y_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 	pos.y = i32(best_y)
 	if best_y != end_y {
 		vel.y = 0
+	}
+}
+
+@(private = "file")
+stick_to_ground :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer, stick: int) {
+	bounds := capsule_local_aabb(collider)
+	bottom := int(pos.y) + bounds.y
+	probe := [4]int{int(pos.x) + bounds.x, bottom - stick, int(pos.x) + bounds.z, bottom + stick}
+	found := grid.query_aabb(g, &probe)
+	defer delete(found)
+
+	best_delta := stick + 1
+	best_normal := [2]int{}
+	for floor in found {
+		normal := segment_left_normal(floor)
+		if normal.y <= 0 || abs(normal.y) < abs(normal.x) {
+			continue
+		}
+
+		contact_y, ok := segment_y_at_x(floor, int(pos.x) + collider.x)
+		if !ok {
+			continue
+		}
+
+		delta := contact_y - bottom
+		if abs(delta) <= stick && abs(delta) < abs(best_delta) {
+			best_delta = delta
+			best_normal = normal
+		}
+	}
+
+	if best_delta <= stick {
+		pos.y += i32(best_delta)
+		p.on_ground = true
+		p.ground_normal = best_normal
+	} else {
+		p.on_ground = false
+		p.ground_normal = {}
+	}
+}
+
+@(private = "file")
+stick_to_wall :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer, stick: int) {
+	bounds := capsule_local_aabb(collider)
+	center_y := int(pos.y) + collider.y
+	probe := [4]int {
+		int(pos.x) + bounds.x - stick,
+		int(pos.y) + bounds.y,
+		int(pos.x) + bounds.z + stick,
+		int(pos.y) + bounds.w,
+	}
+	found := grid.query_aabb(g, &probe)
+	defer delete(found)
+
+	best_delta := stick + 1
+	best_normal := [2]int{}
+	for wall in found {
+		normal := segment_left_normal(wall)
+		if abs(normal.x) < abs(normal.y) {
+			continue
+		}
+
+		contact_x, ok := segment_x_at_y(wall, center_y)
+		if !ok {
+			continue
+		}
+
+		touch_x := int(pos.x) + bounds.z if normal.x < 0 else int(pos.x) + bounds.x
+		delta := contact_x - touch_x
+		if abs(delta) <= stick && abs(delta) < abs(best_delta) {
+			best_delta = delta
+			best_normal = normal
+		}
+	}
+
+	if best_delta <= stick {
+		p.on_wall = true
+		p.wall_normal = best_normal
+	} else {
+		p.on_wall = false
+		p.wall_normal = {}
 	}
 }
 
