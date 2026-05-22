@@ -74,6 +74,7 @@ frame :: proc(w: ^World, dt: f64) {
 	sg.begin_pass(w.offscreen_pass)
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
+	sys_debug_collision(w, &w.cam.ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)
 	sg.end_pass()
 
