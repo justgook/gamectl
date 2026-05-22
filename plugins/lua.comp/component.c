@@ -622,160 +622,6 @@ static int lua_json_encode(lua_State *L) {
   return 1;
 }
 
-static int lua_csv_parse(lua_State *L) {
-  size_t len = 0;
-  const char *text = luaL_checklstring(L, 1, &len);
-  int with_headers = 1;
-  size_t i = 0;
-  int row_count = 0;
-  int field_count = 0;
-  int in_quotes = 0;
-  StrBuf field;
-  int lines_idx;
-  int row_idx;
-
-  if (lua_gettop(L) >= 2) {
-    if (lua_isboolean(L, 2)) {
-      with_headers = lua_toboolean(L, 2) ? 1 : 0;
-    } else if (lua_istable(L, 2)) {
-      lua_getfield(L, 2, "headers");
-      if (!lua_isnil(L, -1)) {
-        with_headers = lua_toboolean(L, -1) ? 1 : 0;
-      }
-      lua_pop(L, 1);
-    }
-  }
-
-  lua_newtable(L);
-  lines_idx = lua_gettop(L);
-  lua_newtable(L);
-  row_idx = lua_gettop(L);
-  sb_init(&field);
-
-#define LUA_CSV_FLUSH_FIELD()                                                  \
-  do {                                                                         \
-    lua_pushlstring(L, field.buf != NULL ? field.buf : "", field.len);         \
-    lua_seti(L, row_idx, (lua_Integer)(++field_count));                        \
-    field.len = 0;                                                             \
-    if (field.buf != NULL) {                                                   \
-      field.buf[0] = '\0';                                                     \
-    }                                                                          \
-  } while (0)
-
-#define LUA_CSV_FLUSH_ROW()                                                    \
-  do {                                                                         \
-    if (field.len > 0 || field_count > 0) {                                     \
-      LUA_CSV_FLUSH_FIELD();                                                   \
-      lua_pushvalue(L, row_idx);                                               \
-      lua_seti(L, lines_idx, (lua_Integer)(++row_count));                      \
-      lua_newtable(L);                                                         \
-      lua_replace(L, row_idx);                                                 \
-      field_count = 0;                                                         \
-    }                                                                          \
-  } while (0)
-
-  while (i < len) {
-    char c = text[i];
-    char next = (i + 1 < len) ? text[i + 1] : '\0';
-    if (in_quotes) {
-      if (c == '"') {
-        if (next == '"') {
-          if (!sb_append_c(&field, '"')) {
-            sb_free(&field);
-            return luaL_error(L, "csv.parse: out of memory");
-          }
-          i += 2;
-          continue;
-        }
-        in_quotes = 0;
-        i += 1;
-        continue;
-      }
-      if (!sb_append_c(&field, c)) {
-        sb_free(&field);
-        return luaL_error(L, "csv.parse: out of memory");
-      }
-      i += 1;
-      continue;
-    }
-
-    if (c == '"') {
-      in_quotes = 1;
-    } else if (c == ',') {
-      LUA_CSV_FLUSH_FIELD();
-    } else if (c == '\n' || c == '\r') {
-      LUA_CSV_FLUSH_ROW();
-      if (c == '\r' && next == '\n') {
-        i += 1;
-      }
-    } else {
-      if (!sb_append_c(&field, c)) {
-        sb_free(&field);
-        return luaL_error(L, "csv.parse: out of memory");
-      }
-    }
-    i += 1;
-  }
-
-  LUA_CSV_FLUSH_ROW();
-  sb_free(&field);
-  lua_pop(L, 1);
-
-  if (!with_headers || row_count == 0) {
-    return 1;
-  }
-
-  lua_newtable(L);
-  {
-    int out_idx = lua_gettop(L);
-    lua_Integer out_row = 0;
-    lua_Integer r;
-
-    lua_geti(L, lines_idx, 1);
-    if (!lua_istable(L, -1)) {
-      lua_pop(L, 1);
-      return 1;
-    }
-
-    for (r = 2; r <= (lua_Integer)row_count; r++) {
-      lua_Integer c;
-      lua_Integer header_len;
-      lua_geti(L, lines_idx, r);
-      if (!lua_istable(L, -1)) {
-        lua_pop(L, 1);
-        continue;
-      }
-      lua_newtable(L);
-      header_len = (lua_Integer)lua_rawlen(L, -3);
-      for (c = 1; c <= header_len; c++) {
-        size_t klen = 0;
-        const char *k;
-        lua_geti(L, -3, c);
-        k = lua_tolstring(L, -1, &klen);
-        lua_pop(L, 1);
-        if (k == NULL || klen == 0) {
-          continue;
-        }
-        lua_geti(L, -2, c);
-        if (lua_isnil(L, -1)) {
-          lua_pop(L, 1);
-          lua_pushliteral(L, "");
-        }
-        lua_setfield(L, -2, k);
-      }
-      lua_seti(L, out_idx, ++out_row);
-      lua_pop(L, 1);
-    }
-
-    lua_pop(L, 1);
-    lua_replace(L, lines_idx);
-  }
-  return 1;
-}
-
-#undef LUA_CSV_FLUSH_FIELD
-#undef LUA_CSV_FLUSH_ROW
-
 static int bytes_contains_literal(const char *s, size_t s_len, const char *needle) {
   size_t needle_len = strlen(needle);
   size_t i;
@@ -1116,13 +962,6 @@ static void register_json_lib(lua_State *L) {
   lua_setglobal(L, "json");
 }
 
-static void register_csv_lib(lua_State *L) {
-  lua_newtable(L);
-  lua_pushcfunction(L, lua_csv_parse);
-  lua_setfield(L, -2, "parse");
-  lua_setglobal(L, "csv");
-}
-
 static int lua_fs_read_text(lua_State *L) {
   size_t path_len = 0;
   const char *path = luaL_checklstring(L, 1, &path_len);
@@ -1219,7 +1058,6 @@ static void open_lua_libs(lua_State *L) {
   luaL_requiref(L, LUA_LOADLIBNAME, luaopen_package, 1);
   lua_pop(L, 1);
   register_json_lib(L);
-  register_csv_lib(L);
   register_fs_lib(L);
   register_host_lib(L);
   configure_package_searchers(L);

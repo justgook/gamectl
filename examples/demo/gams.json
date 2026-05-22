@@ -1277,26 +1277,6 @@
               "group": "Respack"
             },
             {
-              "name": "Query",
-              "kind": "code",
-              "codePath": "ng/presets/sql-query.lua",
-              "inputs": [
-                {
-                  "name": "query",
-                  "defaultValue": "SELECT 1 AS value"
-                }
-              ],
-              "outputs": [
-                {
-                  "name": "rows"
-                },
-                {
-                  "name": "error"
-                }
-              ],
-              "group": "SQL"
-            },
-            {
               "name": "Automap",
               "kind": "code",
               "codePath": "ng/presets/pipeline-apply-automap.lua",
