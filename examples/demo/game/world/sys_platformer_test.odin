@@ -33,7 +33,7 @@ test_platformer_walks_left_uphill_without_falling :: proc(t: ^testing.T) {
 		testing.expect(t, has_platformer)
 		testing.expect(t, has_vel)
 
-		touching_ground := test_capsule_has_ground_support(w.segments[:], pos, &collider, PLATFORMER_DEFAULT_CONFIG.slope_snap_up)
+		touching_ground := test_capsule_has_ground_support(w.segments[:], pos, &collider, PLATFORMER_DEFAULT_CONFIG.slope.snap_up)
 
 		testing.expectf(t, platformer.on_ground, "frame %d: player left ground", frame)
 		testing.expectf(t, touching_ground, "frame %d: player has no ground support pos=%v vel=%v", frame, pos^, vel^)
@@ -71,7 +71,7 @@ test_platformer_walks_from_flat_onto_uphill_without_falling :: proc(t: ^testing.
 		testing.expect(t, has_platformer)
 		testing.expect(t, has_vel)
 
-		touching_ground := test_capsule_has_ground_support(w.segments[:], pos, &collider, PLATFORMER_DEFAULT_CONFIG.slope_snap_up)
+		touching_ground := test_capsule_has_ground_support(w.segments[:], pos, &collider, PLATFORMER_DEFAULT_CONFIG.slope.snap_up)
 
 		testing.expectf(t, platformer.on_ground, "frame %d: player left ground", frame)
 		testing.expectf(t, touching_ground, "frame %d: player has no ground support pos=%v vel=%v", frame, pos^, vel^)
