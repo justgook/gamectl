@@ -14,6 +14,8 @@
 -- - segment_left_normal in sys_platformer.odin must point out of the solid tile area
 -- - floors are left-to-right, ceilings are right-to-left, left walls are bottom-to-top,
 --   and right walls are top-to-bottom
+-- - exterior edges are omitted; only solid-to-playable-empty edges are emitted
+-- - "exterior" means any empty tile connected to the tilemap border by empty tiles
 
 local tilemap = inputs[1]
 if tilemap == nil or tilemap == "" then
@@ -57,8 +59,12 @@ if height <= 0 then
 	error("Invalid layer dimensions")
 end
 
+local function in_bounds(x, y)
+	return x >= 0 and x < width and y >= 0 and y < height
+end
+
 local function is_solid_at(x, y)
-	if x < 0 or x >= width or y < 0 or y >= height then
+	if not in_bounds(x, y) then
 		return false
 	end
 
@@ -69,6 +75,52 @@ local function is_solid_at(x, y)
 	end
 
 	return math.floor(tileId) == solidTileId
+end
+
+local exteriorEmpty = {}
+local queue = {}
+local queueHead = 1
+
+local function cell_index(x, y)
+	return y * width + x + 1
+end
+
+local function enqueue_exterior_empty(x, y)
+	if not in_bounds(x, y) or is_solid_at(x, y) then
+		return
+	end
+
+	local index = cell_index(x, y)
+	if exteriorEmpty[index] then
+		return
+	end
+
+	exteriorEmpty[index] = true
+	queue[#queue + 1] = { x, y }
+end
+
+for x = 0, width - 1 do
+	enqueue_exterior_empty(x, 0)
+	enqueue_exterior_empty(x, height - 1)
+end
+for y = 0, height - 1 do
+	enqueue_exterior_empty(0, y)
+	enqueue_exterior_empty(width - 1, y)
+end
+
+while queueHead <= #queue do
+	local cell = queue[queueHead]
+	queueHead = queueHead + 1
+	local x = cell[1]
+	local y = cell[2]
+	enqueue_exterior_empty(x + 1, y)
+	enqueue_exterior_empty(x - 1, y)
+	enqueue_exterior_empty(x, y + 1)
+	enqueue_exterior_empty(x, y - 1)
+end
+
+local function is_playable_empty_at(x, y)
+	return in_bounds(x, y) and not is_solid_at(x, y) and not exteriorEmpty[cell_index(x, y)]
 end
 
 local segments = {}
@@ -84,8 +136,8 @@ for y = 0, height - 1 do
 	local bottomStart = nil
 
 	for x = 0, width do
-		local hasTopEdge = x < width and is_solid_at(x, y) and not is_solid_at(x, y + 1)
-		local hasBottomEdge = x < width and is_solid_at(x, y) and not is_solid_at(x, y - 1)
+		local hasTopEdge = x < width and is_solid_at(x, y) and is_playable_empty_at(x, y + 1)
+		local hasBottomEdge = x < width and is_solid_at(x, y) and is_playable_empty_at(x, y - 1)
 
 		if hasTopEdge and topStart == nil then
 			topStart = x
@@ -110,8 +162,8 @@ for x = 0, width - 1 do
 	local rightStart = nil
 
 	for y = 0, height do
-		local hasLeftEdge = y < height and is_solid_at(x, y) and not is_solid_at(x - 1, y)
-		local hasRightEdge = y < height and is_solid_at(x, y) and not is_solid_at(x + 1, y)
+		local hasLeftEdge = y < height and is_solid_at(x, y) and is_playable_empty_at(x - 1, y)
+		local hasRightEdge = y < height and is_solid_at(x, y) and is_playable_empty_at(x + 1, y)
 
 		if hasLeftEdge and leftStart == nil then
 			leftStart = y

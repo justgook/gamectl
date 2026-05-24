@@ -2,11 +2,11 @@ package world
 
 import "grid"
 import "logic"
-import "shape"
 import air_jump "platformer/air_jump"
 import dash "platformer/dash"
 import slope "platformer/slope"
 import wall "platformer/wall"
+import "shape"
 
 Dash_Direction_Proc :: proc(input: ^Input, p: ^Platformer) -> [2]i32
 
@@ -27,7 +27,7 @@ Platformer_Config :: struct {
 	wall:               wall.Config,
 	air_jump:           air_jump.Config,
 	dash:               dash.Config,
-	dash_direction:      Dash_Direction_Proc,
+	dash_direction:     Dash_Direction_Proc,
 }
 
 PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
@@ -61,11 +61,7 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 		jump_x_speed = 3 * UNIT,
 		jump_y_speed = 5 * UNIT,
 	},
-	air_jump = {
-		enabled = true,
-		max_jumps = 1,
-		jump_y_speed = 5 * UNIT,
-	},
+	air_jump = {enabled = true, max_jumps = 99, jump_y_speed = 5 * UNIT},
 	dash = {
 		enabled = true,
 		ground = {enabled = true, speed = 5 * UNIT, frames = 8, count = 1},
@@ -78,27 +74,27 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 }
 
 Platformer :: struct {
-	config:        Platformer_Config,
-	on_ground:     bool,
-	on_wall:       bool,
-	hit_ceiling:   bool,
-	ground_normal: [2]int,
-	wall_normal:   [2]int,
-	coyote_timer:  int,
-	jump_buffer:   int,
-	jump_frames:   int,
-	jump_held:     bool,
-	wall_jumps:    int,
-	air_jumps:     int,
-	dash_frames:   int,
-	dash_delay:    int,
-	dash_cooldown: int,
+	config:           Platformer_Config,
+	on_ground:        bool,
+	on_wall:          bool,
+	hit_ceiling:      bool,
+	ground_normal:    [2]int,
+	wall_normal:      [2]int,
+	coyote_timer:     int,
+	jump_buffer:      int,
+	jump_frames:      int,
+	jump_held:        bool,
+	wall_jumps:       int,
+	air_jumps:        int,
+	dash_frames:      int,
+	dash_delay:       int,
+	dash_cooldown:    int,
 	dash_ground_used: int,
 	dash_air_used:    int,
-	dash_dir:      [2]i32,
-	dash_held:     bool,
-	dash_air:      bool,
-	facing:        i32,
+	dash_dir:         [2]i32,
+	dash_held:        bool,
+	dash_air:         bool,
+	facing:           i32,
 }
 
 sys_platformer :: proc(w: ^World) {
@@ -237,7 +233,11 @@ platformer_apply_jump :: proc(input: ^Input, vel: ^Velocity, p: ^Platformer) {
 		p.jump_buffer = 0
 		p.jump_frames = cfg.jump_hold_frames
 		p.wall_jumps += 1
-	} else if p.jump_buffer > 0 && !p.on_ground && !p.on_wall && p.coyote_timer == 0 && air_jump.Can_Jump(cfg.air_jump, p.air_jumps) {
+	} else if p.jump_buffer > 0 &&
+	   !p.on_ground &&
+	   !p.on_wall &&
+	   p.coyote_timer == 0 &&
+	   air_jump.Can_Jump(cfg.air_jump, p.air_jumps) {
 		vel.y = cfg.air_jump.jump_y_speed
 		p.dash_frames = 0
 		p.jump_buffer = 0
