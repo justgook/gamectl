@@ -123,6 +123,65 @@ test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
 
 
 @(test)
+test_platformer_does_not_stand_on_ceiling_underside :: proc(t: ^testing.T) {
+	// Ceiling/underside segments are right-to-left so their left normal points down.
+	w := platformer_test_world_with_segments([4]int{64 * UNIT, 0, 0, 0})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(20)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{32 * UNIT, 14 * UNIT})
+	logic.add_component(&w.velocity, player, Velocity{0, -4 * UNIT})
+	logic.add_component(&w.input, player, Input{})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{})
+
+	sys_platformer(w)
+
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	pos, has_pos := logic.get_component(&w.position, player)
+	vel, has_vel := logic.get_component(&w.velocity, player)
+	testing.expect(t, has_platformer)
+	testing.expect(t, has_pos)
+	testing.expect(t, has_vel)
+
+	bottom := int(pos.y) + test_capsule_bottom(&collider)
+	bottom_above_ceiling := bottom >= 0
+	testing.expectf(t, !platformer.on_ground, "ceiling underside must not become ground pos=%v vel=%v", pos^, vel^)
+	testing.expectf(t, !bottom_above_ceiling, "player should keep falling through underside, bottom=%d pos=%v vel=%v", bottom, pos^, vel^)
+}
+
+@(test)
+test_platformer_corner_sweep_blocks_aabb_corner_escape :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(
+		[4]int{64 * UNIT, 64 * UNIT, 64 * UNIT, 128 * UNIT},
+		[4]int{64 * UNIT, 64 * UNIT, 0, 64 * UNIT},
+	)
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(21)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{52 * UNIT, 52 * UNIT + 1})
+	logic.add_component(&w.velocity, player, Velocity{20 * UNIT, 20 * UNIT})
+	logic.add_component(&w.input, player, Input{})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{})
+
+	sys_platformer(w)
+
+	pos, has_pos := logic.get_component(&w.position, player)
+	vel, has_vel := logic.get_component(&w.velocity, player)
+	testing.expect(t, has_pos)
+	testing.expect(t, has_vel)
+
+	right := int(pos.x) + collider.radius
+	top := int(pos.y) + collider.height / 2 + collider.radius
+	inside_corner_void := right > 64 * UNIT && top > 64 * UNIT
+
+	testing.expectf(t, !inside_corner_void, "corner sweep let player escape through corner pos=%v vel=%v right=%d top=%d", pos^, vel^, right, top)
+}
+
+@(test)
 test_platformer_wall_slide_clamps_fall_speed :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)

@@ -439,7 +439,7 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 			continue
 		}
 
-		contact_x, ok := segment_x_at_y(wall, int(pos.y) + collider.y)
+		contact_x, ok := segment_x_at_aabb_y(wall, int(pos.y) + bounds.y, int(pos.y) + bounds.w, int(pos.y) + collider.y)
 		if !ok {
 			continue
 		}
@@ -505,7 +505,7 @@ move_y_and_collide :: proc(
 			}
 		}
 
-		contact_y, ok := segment_y_at_x(floor, int(pos.x) + collider.x)
+		contact_y, ok := segment_y_at_aabb_x(floor, int(pos.x) + bounds.x, int(pos.x) + bounds.z, int(pos.x) + collider.x)
 		if !ok {
 			continue
 		}
@@ -632,6 +632,46 @@ segment_x_at_y :: proc(segment: ^[4]int, y: int) -> (int, bool) {
 		return 0, false
 	}
 	return segment.x + (y - segment.y) * (segment.z - segment.x) / (segment.w - segment.y), true
+}
+
+@(private = "file")
+segment_y_at_aabb_x :: proc(segment: ^[4]int, min_x, max_x, preferred_x: int) -> (int, bool) {
+	contact_y, ok := segment_y_at_x(segment, preferred_x)
+	if ok {
+		return contact_y, true
+	}
+
+	segment_min_x := min(segment.x, segment.z)
+	segment_max_x := max(segment.x, segment.z)
+	if max_x < segment_min_x || min_x > segment_max_x {
+		return 0, false
+	}
+	if segment.y == segment.w {
+		return segment.y, true
+	}
+
+	clamped_x := clamp(preferred_x, segment_min_x, segment_max_x)
+	return segment_y_at_x(segment, clamped_x)
+}
+
+@(private = "file")
+segment_x_at_aabb_y :: proc(segment: ^[4]int, min_y, max_y, preferred_y: int) -> (int, bool) {
+	contact_x, ok := segment_x_at_y(segment, preferred_y)
+	if ok {
+		return contact_x, true
+	}
+
+	segment_min_y := min(segment.y, segment.w)
+	segment_max_y := max(segment.y, segment.w)
+	if max_y < segment_min_y || min_y > segment_max_y {
+		return 0, false
+	}
+	if segment.x == segment.z {
+		return segment.x, true
+	}
+
+	clamped_y := clamp(preferred_y, segment_min_y, segment_max_y)
+	return segment_x_at_y(segment, clamped_y)
 }
 
 @(private = "file")

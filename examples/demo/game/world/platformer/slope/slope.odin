@@ -114,6 +114,11 @@ Stick_To_Ground :: proc(
 }
 
 Is_Walkable_Ground_Segment :: proc(segment: ^[4]int, cfg: Config) -> bool {
+	normal := segment_left_normal(segment)
+	if normal.y <= 0 {
+		return false
+	}
+
 	dx := abs(segment.z - segment.x)
 	dy := abs(segment.w - segment.y)
 	if dx == 0 {
