@@ -5,14 +5,15 @@
 --
 -- Coordinate contract:
 -- - tile units
--- - origin at top-left
--- - x grows right, y grows down
--- - tile (x, y) occupies [x, y] to [x + 1, y + 1]
+-- - origin at the bottom-left after the tilemap has been FlipY'd
+-- - x grows right, y grows up (matching examples/demo/game/world/sys_platformer.odin)
+-- - tile row y occupies vertical span [y - 1, y], so row 0 exposes a floor at y = 0
 --
 -- Segment contract:
 -- - each segment is { x1, y1, x2, y2 }
--- - segments are oriented clockwise for outer contours in y-down coordinates
--- - equivalently, the solid tile area is on the right-hand side of each segment
+-- - segment_left_normal in sys_platformer.odin must point out of the solid tile area
+-- - floors are left-to-right, ceilings are right-to-left, left walls are bottom-to-top,
+--   and right walls are top-to-bottom
 
 local tilemap = inputs[1]
 if tilemap == nil or tilemap == "" then
@@ -77,14 +78,14 @@ local function add_segment(x1, y1, x2, y2)
 end
 
 -- Horizontal edges.
--- Top edges are left-to-right; bottom edges are right-to-left.
+-- Top/floor edges are left-to-right at y; bottom/ceiling edges are right-to-left at y - 1.
 for y = 0, height - 1 do
 	local topStart = nil
 	local bottomStart = nil
 
 	for x = 0, width do
-		local hasTopEdge = x < width and is_solid_at(x, y) and not is_solid_at(x, y - 1)
-		local hasBottomEdge = x < width and is_solid_at(x, y) and not is_solid_at(x, y + 1)
+		local hasTopEdge = x < width and is_solid_at(x, y) and not is_solid_at(x, y + 1)
+		local hasBottomEdge = x < width and is_solid_at(x, y) and not is_solid_at(x, y - 1)
 
 		if hasTopEdge and topStart == nil then
 			topStart = x
@@ -96,7 +97,7 @@ for y = 0, height - 1 do
 		if hasBottomEdge and bottomStart == nil then
 			bottomStart = x
 		elseif (not hasBottomEdge or x == width) and bottomStart ~= nil then
-			add_segment(x, y + 1, bottomStart, y + 1)
+			add_segment(x, y - 1, bottomStart, y - 1)
 			bottomStart = nil
 		end
 	end
@@ -115,14 +116,14 @@ for x = 0, width - 1 do
 		if hasLeftEdge and leftStart == nil then
 			leftStart = y
 		elseif (not hasLeftEdge or y == height) and leftStart ~= nil then
-			add_segment(x, y, x, leftStart)
+			add_segment(x, leftStart - 1, x, y - 1)
 			leftStart = nil
 		end
 
 		if hasRightEdge and rightStart == nil then
 			rightStart = y
 		elseif (not hasRightEdge or y == height) and rightStart ~= nil then
-			add_segment(x + 1, rightStart, x + 1, y)
+			add_segment(x + 1, y - 1, x + 1, rightStart - 1)
 			rightStart = nil
 		end
 	end
