@@ -1257,7 +1257,7 @@
       {
         "id": 1,
         "name": "map",
-        "srcNodeId": 65,
+        "srcNodeId": 110,
         "srcOutputId": 1
       },
       {
@@ -1344,7 +1344,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "8"
+        "value": "16"
       }
     ]
   },
@@ -1366,5 +1366,30 @@
       }
     ],
     "outputs": []
+  },
+  {
+    "id": 110,
+    "kind": 2,
+    "x": 1599,
+    "y": 97,
+    "name": "tilemap FlipY",
+    "codePath": "ng/presets/tilemap-flipy.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "srcNodeId": 65,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "value": null
+      }
+    ]
   }
 ]

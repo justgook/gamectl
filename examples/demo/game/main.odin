@@ -106,7 +106,7 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
 	}
 
-	w.grid = grid.create_grid(-1024 * UNIT, -1024 * UNIT, 1024 * UNIT, 1024 * UNIT, 16 * UNIT)
+	w.grid = grid.create_grid(-10024 * UNIT, -10024 * UNIT, 10024 * UNIT, 10024 * UNIT, 16 * UNIT)
 	for &segment in w.segments {
 		grid.add_segment(&w.grid, &segment)
 	}

@@ -1389,6 +1389,22 @@
               "group": "Tilemap"
             },
             {
+              "name": "tilemap FlipY",
+              "kind": "code",
+              "codePath": "ng/presets/tilemap-flipy.lua",
+              "inputs": [
+                {
+                  "name": "tilemap"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tilemap"
+                }
+              ],
+              "group": "Tilemap"
+            },
+            {
               "name": "World Tree Generator",
               "kind": "code",
               "codePath": "ng/presets/pipeline-world-tree.lua",
