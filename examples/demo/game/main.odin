@@ -5,6 +5,7 @@ import "host"
 import sg "sokol/gfx"
 import qoi "third_party/qoi"
 import "world"
+import "world/grid"
 import "world/logic"
 
 ACTION_LEFT :: u32(1)
@@ -96,11 +97,25 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	delete(the_tilemaps.entity_ids)
 	delete(the_tilemaps.components)
 
+	UNIT := world.UNIT
+	the_segments := read_slot_5_segments(game_data) or_return
+	defer delete(the_segments)
+
+	for s in the_segments {
+		host.info("assets", "seg", s)
+		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
+	}
+
+	w.grid = grid.create_grid(-1024 * UNIT, -1024 * UNIT, 1024 * UNIT, 1024 * UNIT, 16 * UNIT)
+	for &segment in w.segments {
+		grid.add_segment(&w.grid, &segment)
+	}
+
 
 	w.lut = create_image(the_lut, lut_pixels[:]) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
 
-	host.info("assets", "game loaded", w.position, w.atlas)
+	host.info("assets", "game loaded", w.segments)
 
 	return true
 }

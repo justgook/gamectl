@@ -11,18 +11,18 @@ Reader :: struct {
 
 Package :: struct {
 	data: []u8,
-	offsets: [5]u32,
-	lengths: [5]u32,
+	offsets: [6]u32,
+	lengths: [6]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 { return Package{}, false }
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' { return Package{}, false }
 	if read_u16(data, 4) != RSPK_VERSION { return Package{}, false }
-	if int(read_u16(data, 6)) != 5 { return Package{}, false }
-	if len(data) < 48 { return Package{}, false }
+	if int(read_u16(data, 6)) != 6 { return Package{}, false }
+	if len(data) < 56 { return Package{}, false }
 	pkg := Package{data = data}
-	for i in 0..<5 {
+	for i in 0..<6 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -31,7 +31,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 }
 
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 5 { return Reader{}, false }
+	if slot < 0 || slot >= 6 { return Reader{}, false }
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 { return Reader{}, false }
@@ -107,6 +107,8 @@ tilemaps :: struct {
 	components: []world.Tilemap,
 }
 
+segments :: []i_vec4
+
 DecodedSlots :: struct {
 	has_slot_0: bool,
 	slot_0: positions,
@@ -118,6 +120,8 @@ DecodedSlots :: struct {
 	slot_3: lut,
 	has_slot_4: bool,
 	slot_4: tilemaps,
+	has_slot_5: bool,
+	slot_5: segments,
 }
 
 decode_bool :: proc(r: ^Reader, out: ^bool) -> bool {
@@ -466,6 +470,26 @@ decode_world_tilemap :: proc(r: ^Reader, out: ^world.Tilemap) -> bool {
 	return true
 }
 
+decode_segments :: proc(r: ^Reader, out: ^segments) -> bool {
+	{
+	count, ok := read_u32_reader(r)
+	if !ok { return false }
+	out^ = make(segments, int(count))
+	for i in 0..<int(count) {
+	{
+	for j in 0..<4 {
+	{
+	v, ok := read_u32_reader(r)
+	if !ok { return false }
+	out^[i][j] = transmute(i32)v
+	}
+	}
+	}
+	}
+	}
+	return true
+}
+
 read_slot_0_positions :: proc(pkg: Package) -> (positions, bool) {
 	r, ok := slot_reader(pkg, 0)
 	if !ok { return positions{}, false }
@@ -503,6 +527,14 @@ read_slot_4_tilemaps :: proc(pkg: Package) -> (tilemaps, bool) {
 	if !ok { return tilemaps{}, false }
 	value: tilemaps
 	if !decode_tilemaps(&r, &value) { return tilemaps{}, false }
+	return value, true
+}
+
+read_slot_5_segments :: proc(pkg: Package) -> (segments, bool) {
+	r, ok := slot_reader(pkg, 5)
+	if !ok { return nil, false }
+	value: segments
+	if !decode_segments(&r, &value) { return nil, false }
 	return value, true
 }
 

@@ -11,7 +11,8 @@
     "Atlas",
     "Sprites",
     "LUT",
-    "Tilemaps"
+    "Tilemaps",
+    "Segments"
   ],
   "types": {
     "Vec2": {
@@ -81,6 +82,10 @@
         "tileset_uv": "Vec4",
         "lut_uv": "Vec4"
       }
+    },
+    "Segments": {
+      "type": "vector",
+      "value": "iVec4"
     }
   }
 }

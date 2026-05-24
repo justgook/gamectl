@@ -1226,6 +1226,26 @@
               "group": "Data"
             },
             {
+              "name": "Scale",
+              "kind": "code",
+              "codePath": "ng/presets/scale.lua",
+              "inputs": [
+                {
+                  "name": "value"
+                },
+                {
+                  "name": "factor",
+                  "defaultValue": 2
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "value"
+                }
+              ],
+              "group": "Math"
+            },
+            {
               "name": "Respack Save",
               "kind": "code",
               "codePath": "ng/presets/respack-save.lua",
