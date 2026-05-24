@@ -505,7 +505,10 @@ move_y_and_collide :: proc(
 			}
 		}
 
-		contact_y, ok := segment_y_at_aabb_x(floor, int(pos.x) + bounds.x, int(pos.x) + bounds.z, int(pos.x) + collider.x)
+		contact_y, ok := segment_y_at_support_x(floor, int(pos.x) + collider.x)
+		if !ok && vel.y > 0 {
+			contact_y, ok = segment_y_at_aabb_x(floor, int(pos.x) + bounds.x, int(pos.x) + bounds.z, int(pos.x) + collider.x)
+		}
 		if !ok {
 			continue
 		}
@@ -619,6 +622,16 @@ segment_y_at_x :: proc(segment: ^[4]int, x: int) -> (int, bool) {
 		return 0, false
 	}
 	return segment.y + (x - segment.x) * (segment.w - segment.y) / (segment.z - segment.x), true
+}
+
+@(private = "file")
+segment_y_at_support_x :: proc(segment: ^[4]int, x: int) -> (int, bool) {
+	min_x := min(segment.x, segment.z)
+	max_x := max(segment.x, segment.z)
+	if x <= min_x || x >= max_x {
+		return 0, false
+	}
+	return segment_y_at_x(segment, x)
 }
 
 @(private = "file")

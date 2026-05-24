@@ -155,6 +155,16 @@ Segment_Y_At_X :: proc(segment: ^[4]int, x: int) -> (int, bool) {
 }
 
 @(private = "file")
+segment_y_at_support_x :: proc(segment: ^[4]int, x: int) -> (int, bool) {
+	min_x := min(segment.x, segment.z)
+	max_x := max(segment.x, segment.z)
+	if x <= min_x || x >= max_x {
+		return 0, false
+	}
+	return Segment_Y_At_X(segment, x)
+}
+
+@(private = "file")
 ground_snap :: proc(cfg: Config, collider: ^shape.Capsule) -> (snap_up, snap_down: int) {
 	snap_up = cfg.ground_stick
 	snap_down = cfg.ground_stick
@@ -222,7 +232,7 @@ find_walkable_ground_at_x :: proc(
 			continue
 		}
 
-		candidate_y, contact_ok := Segment_Y_At_X(floor, support_x)
+		candidate_y, contact_ok := segment_y_at_support_x(floor, support_x)
 		if !contact_ok {
 			continue
 		}
