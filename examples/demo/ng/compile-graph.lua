@@ -48,7 +48,12 @@ local function assertInteger(value, label)
 end
 
 local function nodeLabel(node)
-	return "node " .. tostring(node and node.id or "?")
+	local id = tostring(node and node.id or "?")
+	local name = tostring(node and node.name or "")
+	if name ~= "" then
+		return "node " .. string.format("%q", name) .. " (" .. id .. ")"
+	end
+	return "node " .. id
 end
 
 local function portLabel(node, port, direction)
@@ -177,7 +182,29 @@ local function luaString(value)
 	return string.format("%q", tostring(value or ""))
 end
 
+local function isArrayTable(value)
+	local length = 0
+	for key, _ in pairs(value) do
+		if type(key) ~= "number" or key ~= math.floor(key) or key < 1 then
+			return false
+		end
+		if key > length then
+			length = key
+		end
+	end
+	for index = 1, length do
+		if value[index] == nil then
+			return false
+		end
+	end
+	return true
+end
+
 local function luaLiteral(value)
+	if value == json.null then
+		return "json.null"
+	end
+
 	local valueType = type(value)
 	if valueType == "nil" then
 		return "nil"
@@ -187,8 +214,42 @@ local function luaLiteral(value)
 		return tostring(value)
 	elseif valueType == "boolean" then
 		return value and "true" or "false"
+	elseif valueType == "table" then
+		local parts = {}
+		if isArrayTable(value) then
+			for index = 1, #value do
+				parts[#parts + 1] = luaLiteral(value[index])
+			end
+		else
+			local keys = {}
+			for key, _ in pairs(value) do
+				if type(key) ~= "string" then
+					error("cannot emit Lua object literal with " .. type(key) .. " key")
+				end
+				keys[#keys + 1] = key
+			end
+			table.sort(keys)
+			for _, key in ipairs(keys) do
+				parts[#parts + 1] = ("[%s] = %s"):format(luaString(key), luaLiteral(value[key]))
+			end
+		end
+		return "{" .. table.concat(parts, ", ") .. "}"
 	end
 	error("cannot emit Lua literal for " .. valueType)
+end
+
+local function parseValueNodeLiteral(raw, label)
+	if type(raw) ~= "string" then
+		error(label .. " must be JSON literal text")
+	end
+	if raw == "" then
+		error(label .. " must be valid JSON; blank value-node literals are not allowed")
+	end
+	local ok, value = pcall(json.decode, raw)
+	if not ok then
+		error(label .. " must be valid JSON: " .. tostring(value))
+	end
+	return value
 end
 
 local function bytesToString(bytes)
@@ -367,10 +428,8 @@ end
 local function emitValueAssignments(node, indent)
 	indent = indent or ""
 	for _, outputPort in ipairs(getOutputs(node)) do
-		local value = outputPort.value
-		if value == "" then
-			value = nil
-		end
+		local label = portLabel(node, outputPort, "output") .. ".value"
+		local value = parseValueNodeLiteral(outputPort.value, label)
 		emit(("%s%s = %s"):format(indent, luaVar(node.id, outputPort.id), luaLiteral(value)))
 		emit(("%s%s = true"):format(indent, luaActiveVar(node.id, outputPort.id)))
 	end

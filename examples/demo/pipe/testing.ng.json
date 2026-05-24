@@ -71,7 +71,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "tmp/DEBUG.json"
+        "value": "\"tmp/DEBUG.json\""
       }
     ]
   },
@@ -182,7 +182,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "tmp/DEBUG_tree.json"
+        "value": "\"tmp/DEBUG_tree.json\""
       }
     ]
   },
@@ -280,7 +280,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "pipe/edge.rules.map.json"
+        "value": "\"pipe/edge.rules.map.json\""
       }
     ]
   },
@@ -390,7 +390,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "tmp/DEBUG_minimap.map.json"
+        "value": "\"tmp/DEBUG_minimap.map.json\""
       }
     ]
   },
@@ -470,7 +470,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "pipe/tiles.rules.map.json"
+        "value": "\"pipe/tiles.rules.map.json\""
       }
     ]
   },
@@ -513,7 +513,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "tmp/collision.map.json"
+        "value": "\"tmp/collision.map.json\""
       }
     ]
   },
@@ -993,7 +993,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "pipe/tileset/the_atlas.qoi"
+        "value": "\"pipe/tileset/the_atlas.qoi\""
       }
     ]
   },
@@ -1042,17 +1042,17 @@
       {
         "id": 1,
         "name": "next_entity_id",
-        "value": ""
+        "value": null
       },
       {
         "id": 2,
         "name": "tilemaps",
-        "value": ""
+        "value": null
       },
       {
         "id": 3,
         "name": "positions",
-        "value": ""
+        "value": null
       }
     ]
   },
@@ -1125,17 +1125,17 @@
       {
         "id": 1,
         "name": "",
-        "value": "pipe/game2.rspk.json"
+        "value": "\"pipe/game2.rspk.json\""
       },
       {
         "id": 2,
         "name": "",
-        "value": "tmp/data.rspk"
+        "value": "\"tmp/data.rspk\""
       },
       {
         "id": 3,
         "name": "",
-        "value": "game/decoder.odin"
+        "value": "\"game/decoder.odin\""
       }
     ]
   },
@@ -1347,5 +1347,24 @@
         "value": "8"
       }
     ]
+  },
+  {
+    "id": 109,
+    "kind": 1,
+    "x": 3339,
+    "y": 93,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "111",
+        "srcNodeId": 107,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
   }
 ]
