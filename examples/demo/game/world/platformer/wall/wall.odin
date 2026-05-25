@@ -1,14 +1,14 @@
 package wall
 
 Config :: struct {
-	enabled:          bool,
-	slide_enabled:    bool,
-	slide_accel:      i32,
+	enabled:         bool,
+	slide_enabled:   bool,
+	slide_accel:     i32,
 	max_slide_speed: i32,
-	jump_enabled:     bool,
-	max_jumps:        int,
-	jump_x_speed:     i32,
-	jump_y_speed:     i32,
+	jump_enabled:    bool,
+	max_jumps:       int,
+	jump_x_speed:    i32,
+	jump_y_speed:    i32,
 }
 
 Can_Jump :: proc(cfg: Config, jumps_used: int) -> bool {

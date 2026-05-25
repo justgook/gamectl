@@ -102,7 +102,6 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	defer delete(the_segments)
 
 	for s in the_segments {
-		host.info("assets", "seg", s)
 		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
 	}
 
@@ -115,7 +114,7 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	w.lut = create_image(the_lut, lut_pixels[:]) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
 
-	host.info("assets", "game loaded", w.segments)
+	host.info("assets", "game loaded", w.position)
 
 	return true
 }

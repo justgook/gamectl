@@ -366,6 +366,39 @@
         "label": "SQL Console",
         "internal": false
       },
+      "view-chat": {
+        "url": "views/view-chat.js",
+        "label": "Chat",
+        "internal": false,
+        "config": {
+          "tools": {
+            "read_text": {
+              "description": "Read a UTF-8 text file from the current workspace.",
+              "runtime": "invoke",
+              "target": "fs/fs::read-text",
+              "args": [
+                "$1"
+              ]
+            },
+            "list_files": {
+              "description": "List entries under a workspace path.",
+              "runtime": "invoke",
+              "target": "fs/fs::list",
+              "args": [
+                "$1"
+              ]
+            },
+            "toast_info": {
+              "description": "Show an informational toast through the UI toast service.",
+              "runtime": "call",
+              "target": "ui.toast.info",
+              "args": [
+                "$*"
+              ]
+            }
+          }
+        }
+      },
       "view-ai": {
         "url": "views/view-ai.js",
         "label": "AI",
