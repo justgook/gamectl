@@ -1,13 +1,16 @@
 # Issue tracker: Local Markdown
 
-Issues and PRDs for this repo live as markdown files in `.scratch/`.
+Implementation issues and PRDs for this repo live as markdown files in `.scratch/`.
+
+Demo-visible issue-board cards live under `examples/demo/issues/`. Use them for demo/reference discussion cards, archived example follow-ups, and anything the browser issue board should show.
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The PRD is `.scratch/<feature-slug>/PRD.md`
+- One implementation feature per directory: `.scratch/<feature-slug>/`
+- The implementation PRD is `.scratch/<feature-slug>/PRD.md`
 - Implementation issues are `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`
-- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
+- Triage state for `.scratch` issues is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
+- Demo issue-board cards are `examples/demo/issues/<slug>.md` with YAML frontmatter: `title`, `description`, `status`, and `tags`
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
 ## When a skill says "publish to the issue tracker"

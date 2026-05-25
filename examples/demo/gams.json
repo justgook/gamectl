@@ -399,83 +399,6 @@
           }
         }
       },
-      "view-ai": {
-        "url": "views/view-ai.js",
-        "label": "AI",
-        "internal": false,
-        "config": {
-          "provider": "ai.provider.mock",
-          "model": "mock-default",
-          "context": [
-            {
-              "kind": "system",
-              "source": "browser.app",
-              "label": "Default browser AI context",
-              "content": {
-                "text": "You are the GAMS browser AI assistant. Use tools when useful and explain tool results clearly."
-              }
-            }
-          ],
-          "tools": [
-            {
-              "name": "fs_list",
-              "description": "List files from the current workspace path.",
-              "parameters": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "path"
-                ],
-                "additionalProperties": false
-              },
-              "target": {
-                "plugin": "fs",
-                "method": "list"
-              }
-            },
-            {
-              "name": "fs_read",
-              "description": "Read a file from the current workspace path.",
-              "parameters": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "path"
-                ],
-                "additionalProperties": false
-              },
-              "target": {
-                "plugin": "fs",
-                "method": "read"
-              }
-            },
-            {
-              "name": "sql_query",
-              "description": "Execute a SQL query against the current database.",
-              "parameters": {
-                "type": "string"
-              },
-              "target": {
-                "plugin": "sql",
-                "method": "query"
-              }
-            }
-          ],
-          "persist": {
-            "driver": "fs",
-            "format": "jsonl",
-            "path": "ai/sessions/view-ai-default.jsonl"
-          }
-        }
-      },
       "view-files": {
         "url": "views/view-files.js",
         "label": "Files",
@@ -517,13 +440,6 @@
         "label": "Vox",
         "internal": false,
         "defaultSource": "vox/preview.vox"
-      },
-      "view-markov": {
-        "url": "views/view-markov.js",
-        "label": "Markov",
-        "group": "Generation",
-        "internal": false,
-        "defaultSource": "Basic"
       },
       "view-tilemap": {
         "url": "views/view-tilemap.js",
@@ -797,30 +713,6 @@
               "group": "Data"
             },
             {
-              "name": "Biome Assigner",
-              "kind": "code",
-              "codePath": "ng/presets/pipeline-assign-biomes.lua",
-              "inputs": [
-                {
-                  "name": "src",
-                  "defaultValue": "progression.tree.json"
-                },
-                {
-                  "name": "biomesQuery",
-                  "defaultValue": "SELECT name FROM biomes ORDER BY RANDOM()"
-                }
-              ],
-              "outputs": [
-                {
-                  "name": "src"
-                },
-                {
-                  "name": "error"
-                }
-              ],
-              "group": "Progression"
-            },
-            {
               "name": "Minimap Shape Assigner",
               "kind": "code",
               "codePath": "ng/presets/pipeline-assign-minimap-shapes.lua",
@@ -1037,42 +929,6 @@
                 }
               ],
               "group": "Image"
-            },
-            {
-              "name": "Keys & Locks Assigner",
-              "kind": "code",
-              "codePath": "ng/presets/pipeline-assign-keys-locks.lua",
-              "inputs": [
-                {
-                  "name": "src",
-                  "defaultValue": "progression.tree.json"
-                },
-                {
-                  "name": "keysQuery",
-                  "defaultValue": "SELECT name FROM keys ORDER BY RANDOM() LIMIT 15"
-                },
-                {
-                  "name": "keyChance",
-                  "defaultValue": "0.5"
-                },
-                {
-                  "name": "lockChance",
-                  "defaultValue": "0.7"
-                },
-                {
-                  "name": "maxKeysPerLock",
-                  "defaultValue": "2"
-                }
-              ],
-              "outputs": [
-                {
-                  "name": "src"
-                },
-                {
-                  "name": "error"
-                }
-              ],
-              "group": "Progression"
             },
             {
               "name": "LUT Generator",
@@ -1361,11 +1217,11 @@
               "inputs": [
                 {
                   "name": "rulesMap",
-                  "defaultValue": "plugins/automap/testdata/new_rules/rules.json"
+                  "defaultValue": "pipe/automap/new_rules/rules.json"
                 },
                 {
                   "name": "inputMap",
-                  "defaultValue": "plugins/automap/testdata/new_rules/input.json"
+                  "defaultValue": "pipe/automap/new_rules/input.json"
                 },
                 {
                   "name": "outputMap",
@@ -1543,7 +1399,6 @@
     "plugins/scaler.comp.wasm",
     "plugins/treegen.comp.wasm",
     "plugins/minimap.comp.wasm",
-    "plugins/image.comp.wasm",
-    "plugins/respack.comp.wasm"
+    "plugins/image.comp.wasm"
   ]
 }

@@ -1,7 +1,7 @@
 PLUGIN_WIT_WORLD := provider
 PLUGIN_COMPONENT_NAME := provider
 PLUGIN_COMPONENT_CFLAGS := \
-  -I$(PLUGIN_DIR)/sql-vec/vendor \
+  -I$(PLUGIN_DIR)/sql-vec.comp/vendor \
   -I$(PLUGIN_DIR)/sql.comp/sql-common \
   -DGAMS_SQL_WITH_VEC \
   -DSQLITE_THREADSAFE=0 \
@@ -14,8 +14,8 @@ PLUGIN_COMPONENT_CFLAGS := \
   -DSQLITE_VEC_OMIT_FS
 PLUGIN_COMPONENT_SOURCES := \
   $(PLUGIN_DIR)/sql-vec.comp/component.c \
-  $(PLUGIN_DIR)/sql-vec/vendor/sqlite3.c \
-  $(PLUGIN_DIR)/sql-vec/vendor/sqlite-vec.c
+  $(PLUGIN_DIR)/sql-vec.comp/vendor/sqlite3.c \
+  $(PLUGIN_DIR)/sql-vec.comp/vendor/sqlite-vec.c
 PLUGIN_COMPONENT_EXTRA_DEPS := \
   $(PLUGIN_DIR)/sql.comp/sql-common/sqlite_provider.c \
-  $(wildcard $(PLUGIN_DIR)/sql-vec/vendor/*.h)
+  $(wildcard $(PLUGIN_DIR)/sql-vec.comp/vendor/*.h)

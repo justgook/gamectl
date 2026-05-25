@@ -8,8 +8,8 @@ Use PRDs for requirements and plans. Use ADRs for hard-to-reverse decisions and 
 
 Use sequential numbering with a short slug:
 
-- `0001-docs-consolidation.md`
-- `0002-plugin-manager-runtime.md`
+- `0002-runtime-plugin-manager.md`
+- `0003-project-config.md`
 
 ## Template
 

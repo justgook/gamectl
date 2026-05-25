@@ -11,11 +11,11 @@ Draft
 - `docs/prd/0002-runtime-plugin-manager.md`
 - `docs/prd/0003-project-config.md`
 - `docs/prd/0005-frontend-view-and-ui-service-bridge.md`
-- Existing prototype `views/view-ai.js` and its demo config in `examples/demo/gams.json`.
+- Deleted prototype `views/view-ai.js` and its former demo config in `examples/demo/gams.json`.
 
 ## Problem
 
-GAMS needs a small, non-agent chat surface for manually invoking configured project tools from the browser. The first version should be simpler than `view-ai`: users type messages, and command messages such as `/tool:NAME arg1 arg2 argN` dispatch directly to configured runtime calls.
+GAMS needs a small, non-agent chat surface for manually invoking configured project tools from the browser. Users type messages, and command messages such as `/tool:NAME arg1 arg2 argN` dispatch directly to configured runtime calls.
 
 This gives the Project a lightweight operator console for plugin calls without committing to a full AI agent, tool schema negotiation, or provider-specific chat protocol.
 
@@ -133,7 +133,7 @@ Supported `runtime` values for v1:
 - A configured command such as `/tool:read_text README.md` calls `runtime.invoke("fs/fs::read-text", "README.md")`.
 - The transcript shows the entered command and the tool result.
 - Unknown or malformed commands show clear errors.
-- No `view-ai` provider/session behavior is required for `view-chat`.
+- No AI-provider/session behavior is required for `view-chat`.
 
 ## Future direction
 
@@ -141,7 +141,7 @@ A later **companion backend** may interact with `view-chat` from the other side:
 
 ## Idea cleanup
 
-This PRD absorbs the current loose idea for a simple chat/tool API view. Future AI-agent behavior should stay with `view-ai` or a separate PRD; `view-chat` is the manual tool-console slice.
+This PRD absorbs the current loose idea for a simple chat/tool API view. Future AI-agent behavior needs a separate PRD; `view-chat` is the manual tool-console slice.
 
 ## Open questions
 

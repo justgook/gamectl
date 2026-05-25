@@ -3,9 +3,8 @@ import { runtime } from "/core/runtime.js"
 
 let currentThemeStylesheetObjectUrl = ''
 
-const DEFAULT_LAYOUT = `
-    <view-ng data-source="pipe/testing.ng.json" />
-  `
+// const DEFAULT_LAYOUT = `<view-ng data-source="pipe/testing.ng.json" />`
+const DEFAULT_LAYOUT = `<view-issues />`
 
 function doInit(viewConfig) {
   Promise.all([
@@ -84,7 +83,6 @@ function createConfiguredViewRegistry(config) {
         el.viewConfig = viewConfig
         if (viewConfig.config !== undefined) el.config = viewConfig.config
         if (viewConfig.defaultSource !== undefined && !Object.hasOwn(options.attrs || {}, 'data-source')) el.setAttribute('data-source', viewConfig.defaultSource)
-        if (tag === 'view-ai') el.openConfig = structuredClone(viewConfig.config)
         return el
       },
     }]

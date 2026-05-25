@@ -63,7 +63,6 @@ GAMS is migrating toward a plugin-driven CMS/toolkit where hosts stay thin and m
 - Runtime/plugin-manager terminology is resolved in `CONTEXT.md`.
 - Version matching and provider conflict rules are captured in `docs/adr/0004-wit-interface-version-matching.md`.
 - Runtime legacy material has been converted or removed as part of completed legacy migration.
-- `.scratch/docs-consolidation/issues/01-runtime-plugin-manager.md` records the conversion outcome.
 
 ## Migration backlog
 
