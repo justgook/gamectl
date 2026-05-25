@@ -24,7 +24,7 @@ for _, image in ipairs(images) do
 		lut_uv = { u1, v1, u2, v2 },
 	})
 
-	table.insert(position_comps, { 0,0 })
+	table.insert(position_comps, { 0,  -32*64 })
 	entityId = entityId + 1
 	table.insert(entity_ids, entityId)
 end
