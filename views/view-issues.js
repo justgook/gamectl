@@ -182,6 +182,7 @@ export class ViewIssues extends HTMLElement {
     this.filterConfig = null
     this.sortConfig = null
     this.dndConfig = null
+    this.openViewTag = ''
     this.activeFilter = ''
     this.activeSort = ''
     this.issues = []
@@ -299,10 +300,12 @@ export class ViewIssues extends HTMLElement {
     assert(config.filter && typeof config.filter === 'object' && !Array.isArray(config.filter), 'view-issues config.filter must be an object')
     assert(config.sort && typeof config.sort === 'object' && !Array.isArray(config.sort), 'view-issues config.sort must be an object')
     assert(config.dnd === undefined || config.dnd && typeof config.dnd === 'object', 'view-issues config.dnd must be an object or field:value array when present')
+    assert(typeof config.open === 'string' && config.open.trim().length > 0, 'view-issues config.open must be a view tag string')
 
     this.filterConfig = config.filter
     this.sortConfig = config.sort
     this.dndConfig = null
+    this.openViewTag = config.open.trim()
 
     for (const [key, values] of Object.entries(this.filterConfig)) {
       assert(Array.isArray(values), `view-issues config.filter.${key} must be an array`)
@@ -544,6 +547,24 @@ export class ViewIssues extends HTMLElement {
     this.cleanupPointerDrag(drag, card, event.pointerId)
   }
 
+  async openIssue(issue) {
+    assert(issue && typeof issue === 'object', 'view-issues openIssue requires issue record')
+    assert(typeof issue.path === 'string' && issue.path.length > 0, 'view-issues issue record missing path')
+    assert(typeof this.openViewTag === 'string' && this.openViewTag.length > 0, 'view-issues config.open must be initialized')
+
+    const payload = unwrap(await runtime.call('ui.popup.open', {
+      title: issue.frontmatter.title,
+      size: 'large',
+      tag: this.openViewTag,
+      props: {
+        path: issue.path,
+        issue,
+      },
+    }))
+
+    if (payload?.reload) await this.refresh()
+  }
+
   async moveIssue(issuePath, field, targetValue) {
     assert(field === this.activeFilter, `view-issues drop field ${field} does not match active filter ${this.activeFilter}`)
     assert(this.canDrag(field, targetValue), `view-issues cannot drop into ${field}:${targetValue}`)
@@ -603,6 +624,11 @@ export class ViewIssues extends HTMLElement {
     card.dataset.source = issue.path
     card.dataset.field = this.activeFilter
     card.dataset.value = fieldValues(issue, this.activeFilter).join(',')
+    card.addEventListener('dblclick', async (event) => {
+      event.preventDefault()
+      await this.openIssue(issue)
+    })
+
     if (this.canDragIssue(issue)) {
       card.dataset.draggable = 'true'
       card.addEventListener('pointerdown', (event) => this.startPointerDrag(event, issue, card))

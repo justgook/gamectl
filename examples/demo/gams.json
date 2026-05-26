@@ -106,6 +106,7 @@
         "internal": false,
         "config": {
           "defaultSource": "issues",
+          "open": "view-markdow",
           "filter": {
             "status": [
               "yonking",
