@@ -553,18 +553,6 @@
           }
         }
       },
-      "view-setting-plugins": {
-        "url": "views/view-setting-plugins.js",
-        "label": "Setting GAMS Config",
-        "group": "Settings",
-        "internal": false
-      },
-      "view-setting-fs": {
-        "url": "views/view-setting-fs.js",
-        "label": "Setting FileSystem",
-        "group": "Settings",
-        "internal": false
-      },
       "view-code": {
         "url": "views/view-code.js",
         "label": "Code",

@@ -15,6 +15,8 @@ function parseLayoutInput(input) {
   throw new Error('ui.layout.load input must be a layout string or object with layout/layoutMarkup')
 }
 
+const DEFAULT_VIEW_GROUP_LABEL = 'Main'
+
 
 export class ViewEmpty extends HTMLElement {
   connectedCallback() {
@@ -137,7 +139,7 @@ export class ViewArea extends HTMLElement {
     const optionGroups = new Map()
     for (const [tag, entry] of [...owner.viewRegistry.entries()]) {
       if (entry.internal === true) continue
-      const groupName = entry.group || ""
+      const groupName = entry.group || DEFAULT_VIEW_GROUP_LABEL
       if (!optionGroups.has(groupName)) {
         const node = document.createElement('optgroup')
         node.label = groupName
