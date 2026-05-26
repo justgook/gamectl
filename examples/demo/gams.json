@@ -354,7 +354,7 @@
         "url": "views/view-ng.js",
         "label": "Nodegraph",
         "internal": false,
-        "defaultSource": "pipe/assets.ng.json"
+        "defaultSource": "pipe/testing.ng.json"
       },
       "view-sql": {
         "url": "views/view-sql.js",
