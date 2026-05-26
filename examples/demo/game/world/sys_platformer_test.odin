@@ -1,3 +1,7 @@
+#+build !freestanding
+#+build !js
+#+build !orca
+
 package world
 
 import "core:testing"
