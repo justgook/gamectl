@@ -10,6 +10,151 @@ function getFilename(path) {
   return String(path || '').split('/').pop() || ''
 }
 
+function hasFrontmatter(source) {
+  return source.startsWith('---\n') || source.startsWith('---\r\n')
+}
+
+function splitFrontmatter(source) {
+  if (!hasFrontmatter(source)) return { frontmatter: null, body: source }
+
+  const newline = source.startsWith('---\r\n') ? '\r\n' : '\n'
+  const contentStart = 3 + newline.length
+  const closingMarker = `${newline}---`
+  const closeIndex = source.indexOf(closingMarker, contentStart)
+  if (closeIndex < 0) return { frontmatter: null, body: source }
+
+  const bodyStart = closeIndex + closingMarker.length
+  const body = source.startsWith('\r\n', bodyStart)
+    ? source.slice(bodyStart + 2)
+    : source.startsWith('\n', bodyStart)
+      ? source.slice(bodyStart + 1)
+      : source.slice(bodyStart)
+
+  return {
+    frontmatter: source.slice(contentStart, closeIndex),
+    body,
+  }
+}
+
+function unquoteFrontmatterValue(value) {
+  const trimmed = value.trim()
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) return trimmed.slice(1, -1)
+  if (trimmed.length >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'")) return trimmed.slice(1, -1)
+  return trimmed
+}
+
+function parseFrontmatter(frontmatter) {
+  const entries = []
+  let currentEntry = null
+
+  for (const line of frontmatter.split(/\r?\n/)) {
+    if (line.trim().length === 0 || line.trimStart().startsWith('#')) continue
+
+    const listItemMatch = line.match(/^\s+-\s*(.*)$/)
+    if (listItemMatch && currentEntry) {
+      if (!Array.isArray(currentEntry.value)) currentEntry.value = currentEntry.value ? [currentEntry.value] : []
+      currentEntry.value.push(unquoteFrontmatterValue(listItemMatch[1]))
+      continue
+    }
+
+    const separator = line.indexOf(':')
+    if (separator <= 0) {
+      entries.push({ key: line.trim(), value: '' })
+      currentEntry = null
+      continue
+    }
+
+    const key = line.slice(0, separator).trim()
+    const rawValue = line.slice(separator + 1).trim()
+    const inlineList = rawValue.match(/^\[(.*)\]$/)
+    const value = inlineList
+      ? inlineList[1].split(',').map((item) => unquoteFrontmatterValue(item)).filter((item) => item.length > 0)
+      : unquoteFrontmatterValue(rawValue)
+
+    currentEntry = { key, value }
+    entries.push(currentEntry)
+  }
+
+  return entries
+}
+
+function renderFrontmatter(frontmatter) {
+  const details = document.createElement('details')
+  details.open = true
+  details.setAttribute('data-element', 'frontmatter')
+
+  const summary = document.createElement('summary')
+  summary.textContent = 'Frontmatter'
+  details.append(summary)
+
+  const entries = parseFrontmatter(frontmatter)
+  if (entries.length === 0) {
+    const pre = document.createElement('pre')
+    pre.textContent = frontmatter
+    details.append(pre)
+    return details
+  }
+
+  const table = document.createElement('table')
+  const tbody = document.createElement('tbody')
+  table.append(tbody)
+
+  for (const entry of entries) {
+    const row = document.createElement('tr')
+    const keyCell = document.createElement('th')
+    const valueCell = document.createElement('td')
+
+    keyCell.scope = 'row'
+    keyCell.textContent = entry.key
+    valueCell.textContent = Array.isArray(entry.value) ? entry.value.join(', ') : entry.value
+
+    row.append(keyCell, valueCell)
+    tbody.append(row)
+  }
+
+  details.append(table)
+  return details
+}
+
+function firstTaskMarkerTextNode(listItem) {
+  const walker = document.createTreeWalker(listItem, NodeFilter.SHOW_TEXT)
+  let textNode = walker.nextNode()
+  while (textNode) {
+    assert(textNode instanceof Text, 'view-markdow task list walker returned non-text node')
+    const parentElement = textNode.parentElement
+    assert(parentElement instanceof HTMLElement, 'view-markdow task list text node missing parent element')
+    if (!parentElement.closest('code, pre') && textNode.nodeValue.trim().length > 0) return textNode
+    textNode = walker.nextNode()
+  }
+  return null
+}
+
+function renderTaskLists(root) {
+  for (const listItem of root.querySelectorAll('li')) {
+    const textNode = firstTaskMarkerTextNode(listItem)
+    if (textNode === null) continue
+
+    const match = textNode.nodeValue.match(/^(\s*)\[( |x|X)\]\s+/)
+    if (!match) continue
+
+    const checkbox = document.createElement('input')
+    checkbox.type = 'checkbox'
+    checkbox.checked = match[2].toLowerCase() === 'x'
+    checkbox.disabled = true
+    checkbox.setAttribute('aria-label', checkbox.checked ? 'Completed task' : 'Incomplete task')
+
+    textNode.nodeValue = `${match[1]}${textNode.nodeValue.slice(match[0].length)}`
+    const parentNode = textNode.parentNode
+    assert(parentNode instanceof Node, 'view-markdow task list text node missing parent node')
+    parentNode.insertBefore(checkbox, textNode)
+
+    listItem.setAttribute('data-element', 'task-list-item')
+    const listElement = listItem.parentElement
+    assert(listElement instanceof HTMLElement, 'view-markdow task list item missing list parent')
+    listElement.setAttribute('data-element', 'task-list')
+  }
+}
+
 const markdown = markdownit({
   html: false,
   linkify: true,
@@ -94,7 +239,10 @@ export class ViewMarkdow extends HTMLElement {
     this.setStatus('Loading...', 'info')
     try {
       const source = unwrap(await runtime.invoke('fs/fs::read-text', this.path))
-      this.articleElement.innerHTML = markdown.render(source)
+      const { frontmatter, body } = splitFrontmatter(source)
+      this.articleElement.innerHTML = markdown.render(body)
+      renderTaskLists(this.articleElement)
+      if (frontmatter !== null) this.articleElement.prepend(renderFrontmatter(frontmatter))
       this.setStatus(`Rendered ${getFilename(this.path)}`, 'success')
     } catch (error) {
       this.articleElement.textContent = ''
