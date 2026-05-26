@@ -1,22 +1,25 @@
-import { runtime } from '/core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { runtime } from "/core/runtime.js"
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
 function cloneStringProps(input) {
-  assert(input && typeof input === 'object' && !Array.isArray(input), 'view-props data-source must be an object')
+  assert(
+    input && typeof input === "object" && !Array.isArray(input),
+    "view-props data-source must be an object",
+  )
   const props = {}
   for (const [key, value] of Object.entries(input)) {
-    props[String(key)] = String(value ?? '')
+    props[String(key)] = String(value ?? "")
   }
   return props
 }
 
 export class ViewProps extends HTMLElement {
   static get observedAttributes() {
-    return ['data-source', 'data-title']
+    return ["data-source", "data-title"]
   }
 
   constructor() {
@@ -32,8 +35,8 @@ export class ViewProps extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
     if (this.dataset.ready) return
-    this.dataset.ready = '1'
-    this.style.display = 'contents'
+    this.dataset.ready = "1"
+    this.style.display = "contents"
 
     this.innerHTML = `
       <form data-element="form" novalidate>
@@ -59,29 +62,54 @@ export class ViewProps extends HTMLElement {
     this.legendElement = this.querySelector('[data-element="legend"]')
     this.tableElement = this.querySelector('[data-element="props"]')
     this.statusElement = this.querySelector('[data-element="status"]')
-    this.rowsElement = this.querySelector('tbody')
+    this.rowsElement = this.querySelector("tbody")
 
-    assert(this.formElement instanceof HTMLFormElement, 'view-props missing form')
-    assert(this.legendElement instanceof HTMLLegendElement, 'view-props missing legend')
-    assert(this.tableElement instanceof HTMLTableElement, 'view-props missing props table')
-    assert(this.statusElement instanceof HTMLOutputElement, 'view-props missing status output')
-    assert(this.rowsElement instanceof HTMLTableSectionElement, 'view-props missing props tbody')
+    assert(
+      this.formElement instanceof HTMLFormElement,
+      "view-props missing form",
+    )
+    assert(
+      this.legendElement instanceof HTMLLegendElement,
+      "view-props missing legend",
+    )
+    assert(
+      this.tableElement instanceof HTMLTableElement,
+      "view-props missing props table",
+    )
+    assert(
+      this.statusElement instanceof HTMLOutputElement,
+      "view-props missing status output",
+    )
+    assert(
+      this.rowsElement instanceof HTMLTableSectionElement,
+      "view-props missing props tbody",
+    )
 
-    this.querySelector('[data-action="add"]').addEventListener('click', () => this.addRow('', ''))
-    this.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-      unwrap(await runtime.call('ui.popup.close', { ok: false, cancelled: true }))
-    })
-    this.formElement.addEventListener('submit', async (event) => {
+    this.querySelector('[data-action="add"]').addEventListener("click", () =>
+      this.addRow("", ""),
+    )
+    this.querySelector('[data-action="cancel"]').addEventListener(
+      "click",
+      async () => {
+        unwrap(
+          await runtime.call("ui.popup.close", { ok: false, cancelled: true }),
+        )
+      },
+    )
+    this.formElement.addEventListener("submit", async (event) => {
       event.preventDefault()
       await this.save()
     })
-    this.tableElement.addEventListener('click', (event) => {
+    this.tableElement.addEventListener("click", (event) => {
       const button = event.target.closest('button[data-action="delete-row"]')
       if (!(button instanceof HTMLButtonElement)) return
       const row = button.closest('tr[data-element="prop-row"]')
-      assert(row instanceof HTMLTableRowElement, 'view-props delete requires row')
+      assert(
+        row instanceof HTMLTableRowElement,
+        "view-props delete requires row",
+      )
       row.remove()
-      if (this.rowsElement.children.length === 0) this.addRow('', '')
+      if (this.rowsElement.children.length === 0) this.addRow("", "")
     })
 
     this.load()
@@ -90,22 +118,24 @@ export class ViewProps extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
     if (!this.dataset.ready) return
-    if (name === 'data-source' || name === 'data-title') this.load()
+    if (name === "data-source" || name === "data-title") this.load()
   }
 
   load() {
     const props = this.popupProps || {}
-    const title = String(props.title || this.getAttribute('data-title') || 'Properties')
+    const title = String(
+      props.title || this.getAttribute("data-title") || "Properties",
+    )
     this.legendElement.textContent = title
     this.props = cloneStringProps(this.readDataSource(props))
     this.renderRows()
-    this.setStatus('Edit string properties', 'info')
+    this.setStatus("Edit string properties", "info")
   }
 
   readDataSource(props) {
     if (props.dataSource !== undefined) return props.dataSource
-    const source = this.getAttribute('data-source')
-    if (source == null || source === '') return {}
+    const source = this.getAttribute("data-source")
+    if (source == null || source === "") return {}
     return JSON.parse(source)
   }
 
@@ -113,49 +143,49 @@ export class ViewProps extends HTMLElement {
     this.rowsElement.replaceChildren()
     const entries = Object.entries(this.props)
     if (entries.length === 0) {
-      this.addRow('', '')
+      this.addRow("", "")
       return
     }
     for (const [key, value] of entries) this.addRow(key, value)
   }
 
   addRow(key, value) {
-    const row = document.createElement('tr')
-    row.dataset.element = 'prop-row'
+    const row = document.createElement("tr")
+    row.dataset.element = "prop-row"
 
-    const keyCell = document.createElement('td')
-    const keyInput = document.createElement('input')
-    keyInput.type = 'text'
-    keyInput.name = 'prop-key'
+    const keyCell = document.createElement("td")
+    const keyInput = document.createElement("input")
+    keyInput.type = "text"
+    keyInput.name = "prop-key"
     keyInput.value = key
-    keyInput.placeholder = 'key'
-    keyInput.setAttribute('autocomplete', 'off')
-    keyInput.setAttribute('autocorrect', 'off')
-    keyInput.setAttribute('autocapitalize', 'off')
+    keyInput.placeholder = "key"
+    keyInput.setAttribute("autocomplete", "off")
+    keyInput.setAttribute("autocorrect", "off")
+    keyInput.setAttribute("autocapitalize", "off")
     keyInput.spellcheck = false
     keyCell.appendChild(keyInput)
     row.appendChild(keyCell)
 
-    const valueCell = document.createElement('td')
-    const valueInput = document.createElement('input')
-    valueInput.type = 'text'
-    valueInput.name = 'prop-value'
+    const valueCell = document.createElement("td")
+    const valueInput = document.createElement("input")
+    valueInput.type = "text"
+    valueInput.name = "prop-value"
     valueInput.value = value
-    valueInput.placeholder = 'value'
-    valueInput.setAttribute('autocomplete', 'off')
-    valueInput.setAttribute('autocorrect', 'off')
-    valueInput.setAttribute('autocapitalize', 'off')
+    valueInput.placeholder = "value"
+    valueInput.setAttribute("autocomplete", "off")
+    valueInput.setAttribute("autocorrect", "off")
+    valueInput.setAttribute("autocapitalize", "off")
     valueInput.spellcheck = false
     valueCell.appendChild(valueInput)
     row.appendChild(valueCell)
 
-    const actionsCell = document.createElement('td')
-    const deleteButton = document.createElement('button')
-    deleteButton.type = 'button'
-    deleteButton.dataset.action = 'delete-row'
-    const icon = document.createElement('i')
-    icon.setAttribute('aria-hidden', 'true')
-    icon.textContent = 'delete'
+    const actionsCell = document.createElement("td")
+    const deleteButton = document.createElement("button")
+    deleteButton.type = "button"
+    deleteButton.dataset.action = "delete-row"
+    const icon = document.createElement("i")
+    icon.setAttribute("aria-hidden", "true")
+    icon.textContent = "delete"
     deleteButton.appendChild(icon)
     actionsCell.appendChild(deleteButton)
     row.appendChild(actionsCell)
@@ -166,11 +196,19 @@ export class ViewProps extends HTMLElement {
   collectProps() {
     const props = {}
     const seen = new Set()
-    for (const row of this.rowsElement.querySelectorAll('tr[data-element="prop-row"]')) {
+    for (const row of this.rowsElement.querySelectorAll(
+      'tr[data-element="prop-row"]',
+    )) {
       const keyInput = row.querySelector('input[name="prop-key"]')
       const valueInput = row.querySelector('input[name="prop-value"]')
-      assert(keyInput instanceof HTMLInputElement, 'view-props row missing key input')
-      assert(valueInput instanceof HTMLInputElement, 'view-props row missing value input')
+      assert(
+        keyInput instanceof HTMLInputElement,
+        "view-props row missing key input",
+      )
+      assert(
+        valueInput instanceof HTMLInputElement,
+        "view-props row missing value input",
+      )
       const key = keyInput.value.trim()
       if (!key) continue
       if (seen.has(key)) throw new Error(`Duplicate property key ${key}`)
@@ -183,15 +221,21 @@ export class ViewProps extends HTMLElement {
   async save() {
     try {
       const data = this.collectProps()
-      unwrap(await runtime.call('ui.popup.close', { ok: true, cancelled: false, data }))
+      unwrap(
+        await runtime.call("ui.popup.close", {
+          ok: true,
+          cancelled: false,
+          data,
+        }),
+      )
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`, 'danger')
+      this.setStatus(`Error: ${error.message}`, "danger")
     }
   }
 
-  setStatus(text, tone = '') {
+  setStatus(text, tone = "") {
     this.statusElement.textContent = text
-    this.statusElement.className = ''
+    this.statusElement.className = ""
     if (tone) this.statusElement.classList.add(tone)
   }
 
@@ -200,6 +244,6 @@ export class ViewProps extends HTMLElement {
   }
 }
 
-if (!customElements.get('view-props')) {
-  customElements.define('view-props', ViewProps)
+if (!customElements.get("view-props")) {
+  customElements.define("view-props", ViewProps)
 }

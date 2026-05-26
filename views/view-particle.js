@@ -1,9 +1,9 @@
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 export class ViewParticle extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
-    this.style.display = 'contents'
+    this.style.display = "contents"
     this.innerHTML = `
       <article>
         <pre data-element="description">Particle
@@ -21,6 +21,6 @@ This view is intended for editing emitters, lifetime, velocity, color and alpha 
   }
 }
 
-if (!customElements.get('view-particle')) {
-  customElements.define('view-particle', ViewParticle)
+if (!customElements.get("view-particle")) {
+  customElements.define("view-particle", ViewParticle)
 }

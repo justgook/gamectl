@@ -1,4 +1,4 @@
-import { registerViewPlugin, unregisterViewPlugin } from './view-plugin.js'
+import { registerViewPlugin, unregisterViewPlugin } from "./view-plugin.js"
 
 const MIN_SCALE = 0.2
 const MAX_SCALE = 3
@@ -6,7 +6,6 @@ const MAX_SCALE = 3
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
-
 
 export class ViewCanvasBase extends HTMLElement {
   constructor() {
@@ -60,29 +59,31 @@ export class ViewCanvasBase extends HTMLElement {
 
   connectedCallback() {
     registerViewPlugin(this, this.createViewPluginMethods())
-    this.style.display = 'contents'
-    this.canvas = this.querySelector('canvas[data-element="canvas"]') || this.querySelector('canvas')
+    this.style.display = "contents"
+    this.canvas =
+      this.querySelector('canvas[data-element="canvas"]') ||
+      this.querySelector("canvas")
     if (!(this.canvas instanceof HTMLCanvasElement)) {
-      this.canvas = document.createElement('canvas')
-      this.canvas.dataset.element = 'canvas'
+      this.canvas = document.createElement("canvas")
+      this.canvas.dataset.element = "canvas"
       this.appendChild(this.canvas)
     }
 
-    this.canvas.style.width = '100%'
-    this.canvas.style.height = '100%'
-    this.canvas.style.minWidth = '0'
-    this.canvas.style.minHeight = '0'
-    this.canvas.style.maxWidth = '100%'
-    this.canvas.style.maxHeight = '100%'
-    this.canvas.style.justifySelf = 'stretch'
-    this.canvas.style.alignSelf = 'stretch'
+    this.canvas.style.width = "100%"
+    this.canvas.style.height = "100%"
+    this.canvas.style.minWidth = "0"
+    this.canvas.style.minHeight = "0"
+    this.canvas.style.maxWidth = "100%"
+    this.canvas.style.maxHeight = "100%"
+    this.canvas.style.justifySelf = "stretch"
+    this.canvas.style.alignSelf = "stretch"
 
-    this.ctx = this.canvas.getContext('2d')
-    assert(this.ctx, 'view-canvas-base failed to create 2d context')
+    this.ctx = this.canvas.getContext("2d")
+    assert(this.ctx, "view-canvas-base failed to create 2d context")
     this.ctx.imageSmoothingEnabled = false
 
-    if (!this.hasAttribute('tabindex')) {
-      this.setAttribute('tabindex', '0')
+    if (!this.hasAttribute("tabindex")) {
+      this.setAttribute("tabindex", "0")
     }
 
     this._mountHeaderControls()
@@ -115,7 +116,7 @@ export class ViewCanvasBase extends HTMLElement {
     if (!this.parentElement || this._headerControlsElement) return
     const headerControls = this.createHeaderControlsElement()
     if (!(headerControls instanceof HTMLElement)) return
-    headerControls.setAttribute('slot', 'header-controls')
+    headerControls.setAttribute("slot", "header-controls")
     this._headerControlsElement = headerControls
     this.parentElement.appendChild(headerControls)
   }
@@ -132,31 +133,35 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   _addEventListeners() {
-    this.canvas.addEventListener('wheel', this._onWheel, { passive: false })
-    this.canvas.addEventListener('mousedown', this._onMouseDown)
-    this.canvas.addEventListener('mousemove', this._onMouseMove)
-    this.canvas.addEventListener('mouseup', this._onMouseUp)
-    this.canvas.addEventListener('mouseleave', this._onMouseLeave)
-    this.addEventListener('keydown', this._onKeyDown)
-    this.addEventListener('keyup', this._onKeyUp)
+    this.canvas.addEventListener("wheel", this._onWheel, { passive: false })
+    this.canvas.addEventListener("mousedown", this._onMouseDown)
+    this.canvas.addEventListener("mousemove", this._onMouseMove)
+    this.canvas.addEventListener("mouseup", this._onMouseUp)
+    this.canvas.addEventListener("mouseleave", this._onMouseLeave)
+    this.addEventListener("keydown", this._onKeyDown)
+    this.addEventListener("keyup", this._onKeyUp)
   }
 
   _removeEventListeners() {
     if (!(this.canvas instanceof HTMLCanvasElement)) return
-    this.canvas.removeEventListener('wheel', this._onWheel)
-    this.canvas.removeEventListener('mousedown', this._onMouseDown)
-    this.canvas.removeEventListener('mousemove', this._onMouseMove)
-    this.canvas.removeEventListener('mouseup', this._onMouseUp)
-    this.canvas.removeEventListener('mouseleave', this._onMouseLeave)
-    this.removeEventListener('keydown', this._onKeyDown)
-    this.removeEventListener('keyup', this._onKeyUp)
+    this.canvas.removeEventListener("wheel", this._onWheel)
+    this.canvas.removeEventListener("mousedown", this._onMouseDown)
+    this.canvas.removeEventListener("mousemove", this._onMouseMove)
+    this.canvas.removeEventListener("mouseup", this._onMouseUp)
+    this.canvas.removeEventListener("mouseleave", this._onMouseLeave)
+    this.removeEventListener("keydown", this._onKeyDown)
+    this.removeEventListener("keyup", this._onKeyUp)
   }
 
   _onResized(width, height) {
     if (!(this.canvas instanceof HTMLCanvasElement)) return
     const roundedWidth = Math.max(1, Math.round(width))
     const roundedHeight = Math.max(1, Math.round(height))
-    if (this.canvas.width === roundedWidth && this.canvas.height === roundedHeight) return
+    if (
+      this.canvas.width === roundedWidth &&
+      this.canvas.height === roundedHeight
+    )
+      return
     this.canvas.width = roundedWidth
     this.canvas.height = roundedHeight
     this.draw()
@@ -164,7 +169,10 @@ export class ViewCanvasBase extends HTMLElement {
   }
 
   setData(data, { autoFit = true } = {}) {
-    assert(typeof autoFit === 'boolean', 'view-canvas-base setData autoFit must be boolean')
+    assert(
+      typeof autoFit === "boolean",
+      "view-canvas-base setData autoFit must be boolean",
+    )
     this.data = data
     this.contentBounds = this.calculateContentBounds(data)
     if (autoFit) {
@@ -241,7 +249,10 @@ export class ViewCanvasBase extends HTMLElement {
     const targetHeight = Math.max(1, wrapperHeight - padding * 2)
     const scaleX = targetWidth / contentWidth
     const scaleY = targetHeight / contentHeight
-    this.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(scaleX, scaleY)))
+    this.scale = Math.max(
+      MIN_SCALE,
+      Math.min(MAX_SCALE, Math.min(scaleX, scaleY)),
+    )
 
     const contentCenterX = (minX + maxX) / 2
     const contentCenterY = (minY + maxY) / 2
@@ -264,11 +275,22 @@ export class ViewCanvasBase extends HTMLElement {
 
   _hasValidContentBounds() {
     const { minX, maxX, minY, maxY } = this.contentBounds || {}
-    return Number.isFinite(minX) && Number.isFinite(maxX) && Number.isFinite(minY) && Number.isFinite(maxY) && maxX > minX && maxY > minY
+    return (
+      Number.isFinite(minX) &&
+      Number.isFinite(maxX) &&
+      Number.isFinite(minY) &&
+      Number.isFinite(maxY) &&
+      maxX > minX &&
+      maxY > minY
+    )
   }
 
   _constrainPosition() {
-    if (!(this.canvas instanceof HTMLCanvasElement) || !this._hasValidContentBounds()) return
+    if (
+      !(this.canvas instanceof HTMLCanvasElement) ||
+      !this._hasValidContentBounds()
+    )
+      return
     const wrapperWidth = this.canvas.width
     const wrapperHeight = this.canvas.height
     const { minX, maxX, minY, maxY } = this.contentBounds
@@ -309,7 +331,7 @@ export class ViewCanvasBase extends HTMLElement {
       this.isDragging = true
       this.dragStartX = event.clientX - this.offsetX
       this.dragStartY = event.clientY - this.offsetY
-      this.canvas.style.cursor = 'grabbing'
+      this.canvas.style.cursor = "grabbing"
       return
     }
     this.onCanvasMouseDown(event)
@@ -329,7 +351,7 @@ export class ViewCanvasBase extends HTMLElement {
   _onMouseUp(event) {
     if (this.isDragging && this.spacePressed) {
       this.isDragging = false
-      this.canvas.style.cursor = 'grab'
+      this.canvas.style.cursor = "grab"
       return
     }
     this.onCanvasMouseUp(event)
@@ -337,52 +359,57 @@ export class ViewCanvasBase extends HTMLElement {
 
   _onMouseLeave() {
     this.isDragging = false
-    if (this.canvas) this.canvas.style.cursor = this.spacePressed ? 'grab' : 'default'
+    if (this.canvas)
+      this.canvas.style.cursor = this.spacePressed ? "grab" : "default"
   }
 
   _onKeyDown(event) {
-    if (event.key === ' ') {
+    if (event.key === " ") {
       event.preventDefault()
       this.spacePressed = true
-      if (this.canvas) this.canvas.style.cursor = 'grab'
+      if (this.canvas) this.canvas.style.cursor = "grab"
       return
     }
 
-    if (event.key === '+') {
+    if (event.key === "+") {
       event.preventDefault()
       this.zoomIn()
       return
     }
 
-    if (event.key === '-') {
+    if (event.key === "-") {
       event.preventDefault()
       this.zoomOut()
       return
     }
 
-    if (event.key.toLowerCase() === 'f') {
+    if (event.key.toLowerCase() === "f") {
       event.preventDefault()
       this.fitToContent()
     }
   }
 
   _onKeyUp(event) {
-    if (event.key !== ' ') return
+    if (event.key !== " ") return
     event.preventDefault()
     this.spacePressed = false
     this.isDragging = false
-    if (this.canvas) this.canvas.style.cursor = 'default'
+    if (this.canvas) this.canvas.style.cursor = "default"
   }
 
-  onCanvasMouseDown(_event) { }
-  onCanvasMouseMove(_event) { }
-  onCanvasMouseUp(_event) { }
+  onCanvasMouseDown(_event) {}
+  onCanvasMouseMove(_event) {}
+  onCanvasMouseUp(_event) {}
 
   calculateContentBounds(_data) {
-    throw new Error('ViewCanvasBase subclass must implement calculateContentBounds(data)')
+    throw new Error(
+      "ViewCanvasBase subclass must implement calculateContentBounds(data)",
+    )
   }
 
   drawContent(_ctx, _data) {
-    throw new Error('ViewCanvasBase subclass must implement drawContent(ctx, data)')
+    throw new Error(
+      "ViewCanvasBase subclass must implement drawContent(ctx, data)",
+    )
   }
 }

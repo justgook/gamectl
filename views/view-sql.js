@@ -1,6 +1,6 @@
-import { runtime } from '/core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { rowsFromCells, sql } from '/util/sql.js'
+import { runtime } from "/core/runtime.js"
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
+import { rowsFromCells, sql } from "/util/sql.js"
 
 function quoteIdent(name) {
   return String(name).replace(/"/g, '""')
@@ -17,13 +17,13 @@ function assert(condition, message) {
 export class ViewSql extends HTMLElement {
   static get observedAttributes() {
     return [
-      'data-mode',
-      'data-query',
-      'data-count-query',
-      'data-page-size',
-      'data-confirm-label',
-      'data-return-column',
-      'data-return-fields',
+      "data-mode",
+      "data-query",
+      "data-count-query",
+      "data-page-size",
+      "data-confirm-label",
+      "data-return-column",
+      "data-return-fields",
     ]
   }
 
@@ -37,16 +37,16 @@ export class ViewSql extends HTMLElement {
     this.currentPage = 0
     this.pageSize = 20
     this.totalCount = 0
-    this.mode = 'browser'
-    this.query = ''
-    this.countQuery = ''
-    this.confirmLabel = 'Select'
-    this.valueLabel = 'Name'
-    this.value = ''
-    this.returnColumn = ''
+    this.mode = "browser"
+    this.query = ""
+    this.countQuery = ""
+    this.confirmLabel = "Select"
+    this.valueLabel = "Name"
+    this.value = ""
+    this.returnColumn = ""
     this.returnFields = []
     this.selectedRowIndex = -1
-    this.primaryKey = ''
+    this.primaryKey = ""
     this.editingCell = null
     this.tablesPaneElement = null
     this.tablesContainer = null
@@ -63,7 +63,7 @@ export class ViewSql extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
     if (this.dataset.ready) return
-    this.dataset.ready = '1'
+    this.dataset.ready = "1"
 
     this.style.display = "contents"
 
@@ -82,10 +82,14 @@ export class ViewSql extends HTMLElement {
     `
 
     this.tablesPaneElement = this.querySelector('[data-element="tables-pane"]')
-    this.tablesContainer = this.querySelector('[data-element="tables-container"]')
-    this.tablesStatusContainer = this.querySelector('[data-element="tables-status"]')
+    this.tablesContainer = this.querySelector(
+      '[data-element="tables-container"]',
+    )
+    this.tablesStatusContainer = this.querySelector(
+      '[data-element="tables-status"]',
+    )
     this.tableContainer = this.querySelector('[data-element="table-container"]')
-    this.paginationElement = this.querySelector('view-pagination')
+    this.paginationElement = this.querySelector("view-pagination")
     this.tableStatusContainer = this.querySelector('[data-element="status"]')
 
     this.readConfig()
@@ -93,12 +97,12 @@ export class ViewSql extends HTMLElement {
     this.renderFooter()
     this.updateModeUI()
 
-    this.paginationElement?.addEventListener('change', async (event) => {
+    this.paginationElement?.addEventListener("change", async (event) => {
       this.currentPage = event.detail.page
       this.pageSize = event.detail.pageSize
       this.selectedRowIndex = -1
       this.cancelEdit()
-      if (this.mode === 'chooser' || this.mode === 'saver') {
+      if (this.mode === "chooser" || this.mode === "saver") {
         await this.fetchQueryData()
         this.renderTable()
         this.renderPagination()
@@ -111,13 +115,21 @@ export class ViewSql extends HTMLElement {
 
     const toolbar = this._headerControlsElement
     if (toolbar) {
-      toolbar.querySelector('[data-action="refresh"]')?.addEventListener('click', () => this.refresh(null))
-      toolbar.querySelector('[data-action="insert"]')?.addEventListener('click', () => this.insertRow())
-      toolbar.querySelector('[data-action="delete"]')?.addEventListener('click', () => this.deleteSelectedRow())
-      toolbar.querySelector('[data-action="create-table"]')?.addEventListener('click', () => this.openCreateTablePopup())
+      toolbar
+        .querySelector('[data-action="refresh"]')
+        ?.addEventListener("click", () => this.refresh(null))
+      toolbar
+        .querySelector('[data-action="insert"]')
+        ?.addEventListener("click", () => this.insertRow())
+      toolbar
+        .querySelector('[data-action="delete"]')
+        ?.addEventListener("click", () => this.deleteSelectedRow())
+      toolbar
+        .querySelector('[data-action="create-table"]')
+        ?.addEventListener("click", () => this.openCreateTablePopup())
     }
 
-    this.addEventListener('keydown', (event) => this.handleKeyDown(event))
+    this.addEventListener("keydown", (event) => this.handleKeyDown(event))
 
     this.refresh()
   }
@@ -128,9 +140,9 @@ export class ViewSql extends HTMLElement {
   }
 
   createHeaderControlsElement() {
-    const toolbar = document.createElement('div')
-    toolbar.dataset.element = 'toolbar'
-    toolbar.setAttribute('slot', 'header-controls')
+    const toolbar = document.createElement("div")
+    toolbar.dataset.element = "toolbar"
+    toolbar.setAttribute("slot", "header-controls")
     toolbar.innerHTML = `
       <button data-action="refresh" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
       <button data-action="insert" aria-label="Insert row" title="Insert row"><i aria-hidden="true">add</i></button>
@@ -158,41 +170,64 @@ export class ViewSql extends HTMLElement {
 
   updateHeaderControlsUI() {
     if (!this._headerControlsElement) return
-    const canEdit = this.mode === 'browser' && !!this.selectedTable
-    const insertButton = this._headerControlsElement.querySelector('[data-action="insert"]')
+    const canEdit = this.mode === "browser" && !!this.selectedTable
+    const insertButton = this._headerControlsElement.querySelector(
+      '[data-action="insert"]',
+    )
     if (insertButton instanceof HTMLButtonElement) {
       insertButton.disabled = !canEdit || this.columns.length === 0
     }
-    const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
+    const deleteButton = this._headerControlsElement.querySelector(
+      '[data-action="delete"]',
+    )
     if (deleteButton instanceof HTMLButtonElement) {
       deleteButton.disabled = !canEdit || this.selectedRowIndex < 0
     }
-    const createTableButton = this._headerControlsElement.querySelector('[data-action="create-table"]')
+    const createTableButton = this._headerControlsElement.querySelector(
+      '[data-action="create-table"]',
+    )
     if (createTableButton instanceof HTMLButtonElement) {
-      createTableButton.disabled = this.mode !== 'browser'
+      createTableButton.disabled = this.mode !== "browser"
     }
   }
 
   readConfig() {
     const props = this.popupProps || {}
-    this.mode = String(props.mode || this.getAttribute('data-mode') || 'browser')
-    this.query = String(props.query || this.getAttribute('data-query') || '')
-    this.countQuery = String(props.countQuery || this.getAttribute('data-count-query') || '')
-    this.confirmLabel = String(props.confirmLabel || this.getAttribute('data-confirm-label') || (this.mode === 'saver' ? 'Save' : 'Select'))
-    this.valueLabel = String(props.valueLabel || this.getAttribute('data-value-label') || 'Name')
-    this.value = String(props.value ?? this.getAttribute('data-value') ?? '')
-    this.returnColumn = String(props.returnColumn || this.getAttribute('data-return-column') || '')
-    const returnFieldsInput = props.returnFields ?? this.getAttribute('data-return-fields') ?? ''
+    this.mode = String(
+      props.mode || this.getAttribute("data-mode") || "browser",
+    )
+    this.query = String(props.query || this.getAttribute("data-query") || "")
+    this.countQuery = String(
+      props.countQuery || this.getAttribute("data-count-query") || "",
+    )
+    this.confirmLabel = String(
+      props.confirmLabel ||
+        this.getAttribute("data-confirm-label") ||
+        (this.mode === "saver" ? "Save" : "Select"),
+    )
+    this.valueLabel = String(
+      props.valueLabel || this.getAttribute("data-value-label") || "Name",
+    )
+    this.value = String(props.value ?? this.getAttribute("data-value") ?? "")
+    this.returnColumn = String(
+      props.returnColumn || this.getAttribute("data-return-column") || "",
+    )
+    const returnFieldsInput =
+      props.returnFields ?? this.getAttribute("data-return-fields") ?? ""
     this.returnFields = Array.isArray(returnFieldsInput)
       ? returnFieldsInput.map((field) => String(field)).filter(Boolean)
       : String(returnFieldsInput)
-        .split(',')
-        .map((field) => field.trim())
-        .filter(Boolean)
+          .split(",")
+          .map((field) => field.trim())
+          .filter(Boolean)
 
-    const pageSizeValue = props.pageSize ?? this.getAttribute('data-page-size') ?? '20'
+    const pageSizeValue =
+      props.pageSize ?? this.getAttribute("data-page-size") ?? "20"
     const parsedPageSize = parseInt(String(pageSizeValue), 10)
-    this.pageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0 ? parsedPageSize : 20
+    this.pageSize =
+      Number.isFinite(parsedPageSize) && parsedPageSize > 0
+        ? parsedPageSize
+        : 20
   }
 
   renderFooter() {
@@ -206,40 +241,42 @@ export class ViewSql extends HTMLElement {
     this.actionSelectButton = null
     this.actionValueInput = null
 
-    if (this.mode !== 'chooser' && this.mode !== 'saver') return
+    if (this.mode !== "chooser" && this.mode !== "saver") return
 
-    this.actionCancelButton = document.createElement('button')
-    this.actionCancelButton.type = 'button'
-    this.actionCancelButton.dataset.action = 'cancel'
-    this.actionCancelButton.textContent = 'Cancel'
-    this.actionCancelButton.addEventListener('click', async () => {
-      unwrap(await runtime.call('ui.popup.close', { cancelled: true, ok: false }))
+    this.actionCancelButton = document.createElement("button")
+    this.actionCancelButton.type = "button"
+    this.actionCancelButton.dataset.action = "cancel"
+    this.actionCancelButton.textContent = "Cancel"
+    this.actionCancelButton.addEventListener("click", async () => {
+      unwrap(
+        await runtime.call("ui.popup.close", { cancelled: true, ok: false }),
+      )
     })
     footer.appendChild(this.actionCancelButton)
 
-    if (this.mode === 'saver') {
-      this.actionValueInput = document.createElement('input')
-      this.actionValueInput.type = 'text'
+    if (this.mode === "saver") {
+      this.actionValueInput = document.createElement("input")
+      this.actionValueInput.type = "text"
       this.actionValueInput.value = this.value
       this.actionValueInput.placeholder = this.valueLabel
-      this.actionValueInput.setAttribute('aria-label', this.valueLabel)
-      this.actionValueInput.setAttribute('autocomplete', 'off')
-      this.actionValueInput.setAttribute('autocorrect', 'off')
-      this.actionValueInput.setAttribute('autocapitalize', 'off')
+      this.actionValueInput.setAttribute("aria-label", this.valueLabel)
+      this.actionValueInput.setAttribute("autocomplete", "off")
+      this.actionValueInput.setAttribute("autocorrect", "off")
+      this.actionValueInput.setAttribute("autocapitalize", "off")
       this.actionValueInput.spellcheck = false
-      this.actionValueInput.addEventListener('input', () => {
+      this.actionValueInput.addEventListener("input", () => {
         this.value = this.actionValueInput.value
         this.updateChooserUI()
       })
       footer.appendChild(this.actionValueInput)
     }
 
-    this.actionSelectButton = document.createElement('button')
-    this.actionSelectButton.type = 'button'
-    this.actionSelectButton.dataset.action = 'select'
-    this.actionSelectButton.classList.add('accent')
+    this.actionSelectButton = document.createElement("button")
+    this.actionSelectButton.type = "button"
+    this.actionSelectButton.dataset.action = "select"
+    this.actionSelectButton.classList.add("accent")
     this.actionSelectButton.textContent = this.confirmLabel
-    this.actionSelectButton.addEventListener('click', async () => {
+    this.actionSelectButton.addEventListener("click", async () => {
       await this.confirmSelection()
     })
     footer.appendChild(this.actionSelectButton)
@@ -247,7 +284,8 @@ export class ViewSql extends HTMLElement {
 
   updateModeUI() {
     if (this.tablesPaneElement instanceof HTMLElement) {
-      this.tablesPaneElement.hidden = this.mode === 'chooser' || this.mode === 'saver'
+      this.tablesPaneElement.hidden =
+        this.mode === "chooser" || this.mode === "saver"
     }
     this.updateHeaderControlsUI()
     this.updateChooserUI()
@@ -259,9 +297,9 @@ export class ViewSql extends HTMLElement {
     this.renderFooter()
     this.updateModeUI()
 
-    if (this.mode === 'chooser' || this.mode === 'saver') {
-      this.setTableStatus('Loading...')
-      this.setTablesStatus('')
+    if (this.mode === "chooser" || this.mode === "saver") {
+      this.setTableStatus("Loading...")
+      this.setTablesStatus("")
       this.selectedTable = null
       this.selectedRowIndex = -1
       await this.fetchQueryData()
@@ -279,8 +317,8 @@ export class ViewSql extends HTMLElement {
       this.cancelEdit()
     }
 
-    this.setTablesStatus('Loading...')
-    this.setTableStatus('Loading...')
+    this.setTablesStatus("Loading...")
+    this.setTableStatus("Loading...")
     await this.fetchTables()
     this.renderTables()
     if (this.selectedTable) {
@@ -292,23 +330,29 @@ export class ViewSql extends HTMLElement {
       this.renderTable()
       this.renderPagination()
       this.setTablesStatus(`${this.tables.length} tables`)
-      this.setTableStatus('No table selected')
+      this.setTableStatus("No table selected")
       this.updateHeaderControlsUI()
     }
   }
 
   async fetchTables() {
     const schemaQuery = `SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`
-    const tables = await sql.queryObjects(schemaQuery, ['name'])
+    const tables = await sql.queryObjects(schemaQuery, ["name"])
 
     this.tables = []
     for (const table of tables) {
       const name = table.name
-      const rowCount = Number(await sql.value(`SELECT COUNT(*) as count FROM ${sqlIdent(name)}`)) || 0
+      const rowCount =
+        Number(
+          await sql.value(`SELECT COUNT(*) as count FROM ${sqlIdent(name)}`),
+        ) || 0
       this.tables.push({ name, rowCount })
     }
 
-    if (!this.selectedTable || !this.tables.some((table) => table.name === this.selectedTable)) {
+    if (
+      !this.selectedTable ||
+      !this.tables.some((table) => table.name === this.selectedTable)
+    ) {
       this.selectedTable = this.tables[0] ? this.tables[0].name : null
       this.currentPage = 0
     }
@@ -318,14 +362,23 @@ export class ViewSql extends HTMLElement {
     if (!this.selectedTable) return
 
     const tableName = sqlIdent(this.selectedTable)
-    this.totalCount = Number(await sql.value(`SELECT COUNT(*) AS count FROM ${tableName}`)) || 0
+    this.totalCount =
+      Number(await sql.value(`SELECT COUNT(*) AS count FROM ${tableName}`)) || 0
 
     const offset = this.currentPage * this.pageSize
     this.columns = await this.fetchTableColumns(this.selectedTable)
-    this.primaryKey = await this.detectPrimaryKey(this.selectedTable, this.columns)
-    this.rows = this.columns.length > 0
-      ? await sql.queryObjects(`SELECT * FROM ${tableName} LIMIT ? OFFSET ?`, this.columns, [String(this.pageSize), String(offset)])
-      : []
+    this.primaryKey = await this.detectPrimaryKey(
+      this.selectedTable,
+      this.columns,
+    )
+    this.rows =
+      this.columns.length > 0
+        ? await sql.queryObjects(
+            `SELECT * FROM ${tableName} LIMIT ? OFFSET ?`,
+            this.columns,
+            [String(this.pageSize), String(offset)],
+          )
+        : []
 
     this.renderTable()
     this.renderPagination()
@@ -335,7 +388,14 @@ export class ViewSql extends HTMLElement {
   }
 
   async fetchTableInfo(tableName) {
-    return await sql.queryObjects(`PRAGMA table_info(${sqlIdent(tableName)})`, ['cid', 'name', 'type', 'notnull', 'dflt_value', 'pk'])
+    return await sql.queryObjects(`PRAGMA table_info(${sqlIdent(tableName)})`, [
+      "cid",
+      "name",
+      "type",
+      "notnull",
+      "dflt_value",
+      "pk",
+    ])
   }
 
   async fetchTableColumns(tableName) {
@@ -346,15 +406,15 @@ export class ViewSql extends HTMLElement {
     const tableInfo = await this.fetchTableInfo(tableName)
     const pkRow = tableInfo.find((column) => Number(column.pk) > 0)
     if (pkRow?.name) return pkRow.name
-    if (columns.includes('id')) return 'id'
-    return columns[0] || ''
+    if (columns.includes("id")) return "id"
+    return columns[0] || ""
   }
 
   interpolateQuery(query, params) {
     return String(query).replace(/:(\w+)/g, (match, name) => {
       if (!(name in params)) return match
       const value = params[name]
-      if (typeof value === 'string') {
+      if (typeof value === "string") {
         return `'${value.replace(/'/g, "''")}'`
       }
       return String(value)
@@ -362,8 +422,8 @@ export class ViewSql extends HTMLElement {
   }
 
   async fetchQueryData() {
-    assert(this.query, 'view-sql chooser/saver mode requires query')
-    assert(this.countQuery, 'view-sql chooser/saver mode requires countQuery')
+    assert(this.query, "view-sql chooser/saver mode requires query")
+    assert(this.countQuery, "view-sql chooser/saver mode requires countQuery")
 
     const params = {
       offset: this.currentPage * this.pageSize,
@@ -372,20 +432,26 @@ export class ViewSql extends HTMLElement {
       page: this.currentPage,
     }
 
-    this.totalCount = Number(await sql.value(this.interpolateQuery(this.countQuery, params))) || 0
+    this.totalCount =
+      Number(await sql.value(this.interpolateQuery(this.countQuery, params))) ||
+      0
 
-    const result = rowsFromCells(await sql.queryCells(this.interpolateQuery(this.query, params)))
+    const result = rowsFromCells(
+      await sql.queryCells(this.interpolateQuery(this.query, params)),
+    )
     this.columns = result.columns
     this.rows = result.rows
   }
 
   async openCreateTablePopup() {
-    const payload = unwrap(await runtime.call('ui.popup.open', {
-      title: 'Create New Table',
-      size: 'medium',
-      tag: 'sql-table-editor',
-      props: { mode: 'create' },
-    }))
+    const payload = unwrap(
+      await runtime.call("ui.popup.open", {
+        title: "Create New Table",
+        size: "medium",
+        tag: "sql-table-editor",
+        props: { mode: "create" },
+      }),
+    )
 
     if (payload?.reload) {
       await this.refresh(payload.tableName ?? null)
@@ -393,34 +459,35 @@ export class ViewSql extends HTMLElement {
   }
 
   renderTables() {
-    this.tablesContainer.innerHTML = ''
+    this.tablesContainer.innerHTML = ""
 
-    const head = document.createElement('thead')
-    head.innerHTML = '<tr><th>Name</th><th>Rows</th></tr>'
+    const head = document.createElement("thead")
+    head.innerHTML = "<tr><th>Name</th><th>Rows</th></tr>"
     this.tablesContainer.appendChild(head)
 
-    const body = document.createElement('tbody')
+    const body = document.createElement("tbody")
     this.tablesContainer.appendChild(body)
 
     for (const tableInfo of this.tables) {
-      const row = document.createElement('tr')
-      row.dataset.element = 'table-row'
+      const row = document.createElement("tr")
+      row.dataset.element = "table-row"
       row.dataset.table = tableInfo.name
-      row.setAttribute('role', 'button')
-      row.setAttribute('tabindex', '0')
+      row.setAttribute("role", "button")
+      row.setAttribute("tabindex", "0")
 
-      const nameCell = document.createElement('td')
+      const nameCell = document.createElement("td")
       nameCell.textContent = tableInfo.name
 
-      const countCell = document.createElement('td')
-      countCell.textContent = tableInfo.rowCount >= 0 ? String(tableInfo.rowCount) : '?'
+      const countCell = document.createElement("td")
+      countCell.textContent =
+        tableInfo.rowCount >= 0 ? String(tableInfo.rowCount) : "?"
 
       row.appendChild(nameCell)
       row.appendChild(countCell)
 
-      row.addEventListener('click', () => this.selectTable(tableInfo.name))
-      row.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
+      row.addEventListener("click", () => this.selectTable(tableInfo.name))
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
           event.preventDefault()
           this.selectTable(tableInfo.name)
         }
@@ -448,19 +515,23 @@ export class ViewSql extends HTMLElement {
   updateSelectionUI() {
     this.querySelectorAll('[data-element="table-row"]').forEach((row) => {
       const isSelected = row.dataset.table === this.selectedTable
-      row.setAttribute('aria-selected', isSelected ? 'true' : 'false')
+      row.setAttribute("aria-selected", isSelected ? "true" : "false")
     })
   }
 
   renderTable() {
-    this.tableContainer.innerHTML = ''
+    this.tableContainer.innerHTML = ""
 
-    const tbody = document.createElement('tbody')
+    const tbody = document.createElement("tbody")
 
-    if (this.mode !== 'chooser' && this.mode !== 'saver' && !this.selectedTable) {
-      const tr = document.createElement('tr')
-      const td = document.createElement('td')
-      td.textContent = 'Select a table.'
+    if (
+      this.mode !== "chooser" &&
+      this.mode !== "saver" &&
+      !this.selectedTable
+    ) {
+      const tr = document.createElement("tr")
+      const td = document.createElement("td")
+      td.textContent = "Select a table."
       tr.appendChild(td)
       tbody.appendChild(tr)
       this.tableContainer.appendChild(tbody)
@@ -468,25 +539,25 @@ export class ViewSql extends HTMLElement {
     }
 
     if (this.columns.length === 0) {
-      const tr = document.createElement('tr')
-      const td = document.createElement('td')
-      td.textContent = 'No data. Set data-query attribute or check your query.'
+      const tr = document.createElement("tr")
+      const td = document.createElement("td")
+      td.textContent = "No data. Set data-query attribute or check your query."
       tr.appendChild(td)
       tbody.appendChild(tr)
       this.tableContainer.appendChild(tbody)
       return
     }
 
-    const colgroup = document.createElement('colgroup')
+    const colgroup = document.createElement("colgroup")
     this.columns.forEach(() => {
-      colgroup.appendChild(document.createElement('col'))
+      colgroup.appendChild(document.createElement("col"))
     })
     this.tableContainer.appendChild(colgroup)
 
-    const thead = document.createElement('thead')
-    const headerRow = document.createElement('tr')
+    const thead = document.createElement("thead")
+    const headerRow = document.createElement("tr")
     this.columns.forEach((column) => {
-      const th = document.createElement('th')
+      const th = document.createElement("th")
       th.textContent = column
       th.dataset.column = column
       headerRow.appendChild(th)
@@ -495,23 +566,27 @@ export class ViewSql extends HTMLElement {
     this.tableContainer.appendChild(thead)
 
     this.rows.forEach((row, rowIndex) => {
-      const tr = document.createElement('tr')
+      const tr = document.createElement("tr")
       tr.dataset.rowIndex = String(rowIndex)
-      tr.setAttribute('aria-selected', rowIndex === this.selectedRowIndex ? 'true' : 'false')
-      tr.addEventListener('click', () => this.selectRow(rowIndex))
-      tr.addEventListener('dblclick', async () => {
+      tr.setAttribute(
+        "aria-selected",
+        rowIndex === this.selectedRowIndex ? "true" : "false",
+      )
+      tr.addEventListener("click", () => this.selectRow(rowIndex))
+      tr.addEventListener("dblclick", async () => {
         this.selectRow(rowIndex)
-        if (this.mode === 'chooser' || this.mode === 'saver') await this.confirmSelection()
+        if (this.mode === "chooser" || this.mode === "saver")
+          await this.confirmSelection()
       })
 
       this.columns.forEach((column, colIndex) => {
-        const td = document.createElement('td')
+        const td = document.createElement("td")
         td.dataset.column = column
         td.dataset.rowIndex = String(rowIndex)
         td.dataset.colIndex = String(colIndex)
         this.renderCell(td, row[column], column)
-        td.addEventListener('dblclick', (event) => {
-          if (this.mode === 'chooser' || this.mode === 'saver') return
+        td.addEventListener("dblclick", (event) => {
+          if (this.mode === "chooser" || this.mode === "saver") return
           event.stopPropagation()
           this.selectRow(rowIndex)
           this.startEdit(td, rowIndex, colIndex, row[column], column)
@@ -528,39 +603,58 @@ export class ViewSql extends HTMLElement {
     const colType = this.detectColumnType(column, value)
 
     switch (colType) {
-      case 'boolean': {
-        const checkbox = document.createElement('input')
-        checkbox.type = 'checkbox'
-        checkbox.checked = value === '1' || value === 'true' || value === true
+      case "boolean": {
+        const checkbox = document.createElement("input")
+        checkbox.type = "checkbox"
+        checkbox.checked = value === "1" || value === "true" || value === true
         checkbox.disabled = true
         td.appendChild(checkbox)
         break
       }
-      case 'number':
-        td.textContent = value ?? ''
+      case "number":
+        td.textContent = value ?? ""
         break
       default:
         if (value && value.length > 100) {
-          td.textContent = value.substring(0, 100) + '...'
+          td.textContent = value.substring(0, 100) + "..."
           td.title = value
         } else {
-          td.textContent = value ?? ''
+          td.textContent = value ?? ""
         }
     }
   }
 
   detectColumnType(column, value) {
-    const lowerCol = String(column || '').toLowerCase()
+    const lowerCol = String(column || "").toLowerCase()
     const booleanWords = [
-      'enabled', 'disabled', 'stackable', 'active', 'visible', 'hidden',
-      'locked', 'deleted', 'archived', 'published', 'featured', 'verified',
-      'approved', 'completed', 'required', 'optional', 'default'
+      "enabled",
+      "disabled",
+      "stackable",
+      "active",
+      "visible",
+      "hidden",
+      "locked",
+      "deleted",
+      "archived",
+      "published",
+      "featured",
+      "verified",
+      "approved",
+      "completed",
+      "required",
+      "optional",
+      "default",
     ]
 
-    if (booleanWords.includes(lowerCol)) return 'boolean'
-    if (typeof value === 'number') return 'number'
-    if (typeof value === 'string' && value.trim() && /^-?\d+(\.\d+)?$/.test(value.trim())) return 'number'
-    return 'text'
+    if (booleanWords.includes(lowerCol)) return "boolean"
+    if (typeof value === "number") return "number"
+    if (
+      typeof value === "string" &&
+      value.trim() &&
+      /^-?\d+(\.\d+)?$/.test(value.trim())
+    )
+      return "number"
+    return "text"
   }
 
   renderPagination() {
@@ -572,17 +666,23 @@ export class ViewSql extends HTMLElement {
 
   selectRow(rowIndex) {
     this.selectedRowIndex = rowIndex
-    if (this.mode === 'saver') {
+    if (this.mode === "saver") {
       const selection = this.getSelection()
       const projected = this.projectSelection(selection)
-      const nextValue = String(projected?.value ?? selection?.primaryKeyValue ?? '')
+      const nextValue = String(
+        projected?.value ?? selection?.primaryKeyValue ?? "",
+      )
       if (nextValue.length > 0) {
         this.value = nextValue
-        if (this.actionValueInput instanceof HTMLInputElement) this.actionValueInput.value = nextValue
+        if (this.actionValueInput instanceof HTMLInputElement)
+          this.actionValueInput.value = nextValue
       }
     }
-    this.querySelectorAll('tr[data-row-index]').forEach((row) => {
-      row.setAttribute('aria-selected', Number(row.dataset.rowIndex) === rowIndex ? 'true' : 'false')
+    this.querySelectorAll("tr[data-row-index]").forEach((row) => {
+      row.setAttribute(
+        "aria-selected",
+        Number(row.dataset.rowIndex) === rowIndex ? "true" : "false",
+      )
     })
     this.updateHeaderControlsUI()
     this.updateChooserUI()
@@ -592,12 +692,14 @@ export class ViewSql extends HTMLElement {
     const row = this.rows[this.selectedRowIndex]
     if (!row) return null
 
-    const primaryKey = this.columns.includes('id') ? 'id' : this.columns[0] || null
+    const primaryKey = this.columns.includes("id")
+      ? "id"
+      : this.columns[0] || null
     return {
       row,
       rowIndex: this.selectedRowIndex,
       primaryKey,
-      primaryKeyValue: primaryKey ? row[primaryKey] ?? null : null,
+      primaryKeyValue: primaryKey ? (row[primaryKey] ?? null) : null,
     }
   }
 
@@ -621,82 +723,114 @@ export class ViewSql extends HTMLElement {
   }
 
   updateChooserUI() {
-    if (this.mode !== 'chooser' && this.mode !== 'saver') return
+    if (this.mode !== "chooser" && this.mode !== "saver") return
     const selection = this.getSelection()
     const projected = this.projectSelection(selection)
     if (this.actionSelectButton instanceof HTMLButtonElement) {
       this.actionSelectButton.textContent = this.confirmLabel
-      this.actionSelectButton.disabled = this.mode === 'chooser' ? !selection : this.value.trim().length === 0
+      this.actionSelectButton.disabled =
+        this.mode === "chooser" ? !selection : this.value.trim().length === 0
     }
-    this.dispatchEvent(new CustomEvent('selection-changed', {
-      bubbles: true,
-      detail: { selection: projected },
-    }))
+    this.dispatchEvent(
+      new CustomEvent("selection-changed", {
+        bubbles: true,
+        detail: { selection: projected },
+      }),
+    )
   }
 
   async confirmSelection() {
     const selection = this.getSelection()
-    if (this.mode === 'chooser' && !selection) return
-    if (this.mode === 'saver') {
+    if (this.mode === "chooser" && !selection) return
+    if (this.mode === "saver") {
       const value = this.value.trim()
       if (!value) return
-      unwrap(await runtime.call('ui.popup.close', {
-        ok: true,
-        cancelled: false,
-        value,
-        row: selection?.row || null,
-        selection: this.projectSelection(selection),
-      }))
+      unwrap(
+        await runtime.call("ui.popup.close", {
+          ok: true,
+          cancelled: false,
+          value,
+          row: selection?.row || null,
+          selection: this.projectSelection(selection),
+        }),
+      )
       return
     }
-    unwrap(await runtime.call('ui.popup.close', this.projectSelection(selection)))
+    unwrap(
+      await runtime.call("ui.popup.close", this.projectSelection(selection)),
+    )
   }
 
   startEdit(td, rowIndex, colIndex, currentValue, column) {
     this.cancelEdit()
 
     const colType = this.detectColumnType(column, currentValue)
-    this.editingCell = { td, rowIndex, colIndex, column, originalValue: currentValue ?? '' }
-
-    td.dataset.editing = 'true'
-    td.innerHTML = ''
-
-    const input = document.createElement(colType === 'text' && String(currentValue ?? '').length > 50 ? 'textarea' : 'input')
-    if (input instanceof HTMLInputElement) {
-      input.type = colType === 'boolean' ? 'checkbox' : colType === 'number' ? 'number' : 'text'
-      if (input.type === 'checkbox') input.checked = currentValue === '1' || currentValue === 'true' || currentValue === true
-      else input.value = currentValue ?? ''
-    } else {
-      input.value = currentValue ?? ''
+    this.editingCell = {
+      td,
+      rowIndex,
+      colIndex,
+      column,
+      originalValue: currentValue ?? "",
     }
 
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && !(input instanceof HTMLTextAreaElement && event.shiftKey)) {
+    td.dataset.editing = "true"
+    td.innerHTML = ""
+
+    const input = document.createElement(
+      colType === "text" && String(currentValue ?? "").length > 50
+        ? "textarea"
+        : "input",
+    )
+    if (input instanceof HTMLInputElement) {
+      input.type =
+        colType === "boolean"
+          ? "checkbox"
+          : colType === "number"
+            ? "number"
+            : "text"
+      if (input.type === "checkbox")
+        input.checked =
+          currentValue === "1" ||
+          currentValue === "true" ||
+          currentValue === true
+      else input.value = currentValue ?? ""
+    } else {
+      input.value = currentValue ?? ""
+    }
+
+    input.addEventListener("keydown", (event) => {
+      if (
+        event.key === "Enter" &&
+        !(input instanceof HTMLTextAreaElement && event.shiftKey)
+      ) {
         event.preventDefault()
         void this.commitEdit()
         return
       }
-      if (event.key === 'Escape') {
+      if (event.key === "Escape") {
         event.preventDefault()
         this.cancelEdit()
         return
       }
-      if (event.key === 'Tab') {
+      if (event.key === "Tab") {
         event.preventDefault()
         const direction = event.shiftKey ? -1 : 1
-        void this.commitEdit().then(() => this.startEditAt(rowIndex, colIndex + direction))
+        void this.commitEdit().then(() =>
+          this.startEditAt(rowIndex, colIndex + direction),
+        )
       }
     })
-    input.addEventListener('blur', () => {
+    input.addEventListener("blur", () => {
       if (this.editingCell?.td === td) void this.commitEdit()
     })
-    if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-      input.addEventListener('change', () => void this.commitEdit())
+    if (input instanceof HTMLInputElement && input.type === "checkbox") {
+      input.addEventListener("change", () => void this.commitEdit())
     }
 
     td.appendChild(input)
     input.focus()
-    if (input instanceof HTMLInputElement && input.type !== 'checkbox') input.select()
+    if (input instanceof HTMLInputElement && input.type !== "checkbox")
+      input.select()
     if (input instanceof HTMLTextAreaElement) input.select()
   }
 
@@ -714,8 +848,10 @@ export class ViewSql extends HTMLElement {
 
     const column = this.columns[nextColIndex]
     const row = this.rows[nextRowIndex]
-    const td = this.tableContainer.querySelector(`td[data-row-index="${nextRowIndex}"][data-col-index="${nextColIndex}"]`)
-    assert(td instanceof HTMLTableCellElement, 'editable table cell not found')
+    const td = this.tableContainer.querySelector(
+      `td[data-row-index="${nextRowIndex}"][data-col-index="${nextColIndex}"]`,
+    )
+    assert(td instanceof HTMLTableCellElement, "editable table cell not found")
     this.selectRow(nextRowIndex)
     this.startEdit(td, nextRowIndex, nextColIndex, row[column], column)
   }
@@ -723,8 +859,8 @@ export class ViewSql extends HTMLElement {
   cancelEdit() {
     if (!this.editingCell) return
     const { td, column, originalValue } = this.editingCell
-    td.removeAttribute('data-editing')
-    td.innerHTML = ''
+    td.removeAttribute("data-editing")
+    td.innerHTML = ""
     this.renderCell(td, originalValue, column)
     this.editingCell = null
   }
@@ -733,23 +869,32 @@ export class ViewSql extends HTMLElement {
     if (!this.editingCell) return
 
     const { td, rowIndex, column, originalValue } = this.editingCell
-    const input = td.querySelector('input, textarea')
-    assert(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement, 'edit input not found')
+    const input = td.querySelector("input, textarea")
+    assert(
+      input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement,
+      "edit input not found",
+    )
 
-    const newValue = input instanceof HTMLInputElement && input.type === 'checkbox'
-      ? (input.checked ? '1' : '0')
-      : input.value
+    const newValue =
+      input instanceof HTMLInputElement && input.type === "checkbox"
+        ? input.checked
+          ? "1"
+          : "0"
+        : input.value
 
     this.editingCell = null
-    td.removeAttribute('data-editing')
-    td.innerHTML = ''
+    td.removeAttribute("data-editing")
+    td.innerHTML = ""
 
-    if (newValue === String(originalValue ?? '')) {
+    if (newValue === String(originalValue ?? "")) {
       this.renderCell(td, originalValue, column)
       return
     }
 
-    const pkWhereValue = column === this.primaryKey ? originalValue : this.rows[rowIndex][this.primaryKey]
+    const pkWhereValue =
+      column === this.primaryKey
+        ? originalValue
+        : this.rows[rowIndex][this.primaryKey]
     this.rows[rowIndex][column] = newValue
     this.renderCell(td, newValue, column)
 
@@ -758,40 +903,56 @@ export class ViewSql extends HTMLElement {
       this.setTableStatus(`Updated ${column}`)
     } catch (error) {
       this.rows[rowIndex][column] = originalValue
-      td.innerHTML = ''
+      td.innerHTML = ""
       this.renderCell(td, originalValue, column)
       this.setTableStatus(`Update error: ${error.message}`)
     }
   }
 
   async updateRow(rowIndex, column, value, pkWhereValue = undefined) {
-    assert(this.selectedTable, 'Cannot update: no table selected')
-    assert(this.primaryKey, 'Cannot update: no primary key column')
+    assert(this.selectedTable, "Cannot update: no table selected")
+    assert(this.primaryKey, "Cannot update: no primary key column")
 
     const row = this.rows[rowIndex]
     const pkValue = pkWhereValue ?? row[this.primaryKey]
-    assert(pkValue !== undefined && pkValue !== null && pkValue !== '', 'Cannot update: no primary key value')
+    assert(
+      pkValue !== undefined && pkValue !== null && pkValue !== "",
+      "Cannot update: no primary key value",
+    )
 
     await sql.exec(
       `UPDATE ${sqlIdent(this.selectedTable)} SET ${sqlIdent(column)} = ? WHERE ${sqlIdent(this.primaryKey)} = ?`,
-      [String(value ?? ''), String(pkValue)],
+      [String(value ?? ""), String(pkValue)],
     )
   }
 
   async insertRow() {
-    if (this.mode !== 'browser') return
-    assert(this.selectedTable, 'Cannot insert: no table selected')
-    assert(this.columns.length > 0, 'Cannot insert: no columns loaded')
+    if (this.mode !== "browser") return
+    assert(this.selectedTable, "Cannot insert: no table selected")
+    assert(this.columns.length > 0, "Cannot insert: no columns loaded")
 
-    const insertColumns = this.columns.filter((column) => column !== this.primaryKey)
-    assert(insertColumns.length > 0, 'Cannot insert: no insertable columns')
+    const insertColumns = this.columns.filter(
+      (column) => column !== this.primaryKey,
+    )
+    assert(insertColumns.length > 0, "Cannot insert: no insertable columns")
 
-    const insertSql = `INSERT INTO ${sqlIdent(this.selectedTable)} (${insertColumns.map(sqlIdent).join(', ')}) VALUES (${insertColumns.map(() => '?').join(', ')})`
+    const insertSql = `INSERT INTO ${sqlIdent(this.selectedTable)} (${insertColumns.map(sqlIdent).join(", ")}) VALUES (${insertColumns.map(() => "?").join(", ")})`
     try {
-      await sql.exec(insertSql, insertColumns.map(() => ''))
-      this.setTableStatus('Row inserted')
-      this.totalCount = Number(await sql.value(`SELECT COUNT(*) AS count FROM ${sqlIdent(this.selectedTable)}`)) || 0
-      this.currentPage = Math.max(0, Math.ceil(this.totalCount / this.pageSize) - 1)
+      await sql.exec(
+        insertSql,
+        insertColumns.map(() => ""),
+      )
+      this.setTableStatus("Row inserted")
+      this.totalCount =
+        Number(
+          await sql.value(
+            `SELECT COUNT(*) AS count FROM ${sqlIdent(this.selectedTable)}`,
+          ),
+        ) || 0
+      this.currentPage = Math.max(
+        0,
+        Math.ceil(this.totalCount / this.pageSize) - 1,
+      )
       this.selectedRowIndex = -1
       await this.fetchTableData()
     } catch (error) {
@@ -800,33 +961,41 @@ export class ViewSql extends HTMLElement {
   }
 
   async deleteSelectedRow() {
-    if (this.mode !== 'browser') return
+    if (this.mode !== "browser") return
     if (this.selectedRowIndex < 0) {
-      this.setTableStatus('No row selected')
+      this.setTableStatus("No row selected")
       return
     }
     await this.deleteRow(this.selectedRowIndex)
   }
 
   async deleteRow(rowIndex) {
-    assert(this.selectedTable, 'Cannot delete: no table selected')
-    assert(this.primaryKey, 'Cannot delete: no primary key column')
+    assert(this.selectedTable, "Cannot delete: no table selected")
+    assert(this.primaryKey, "Cannot delete: no primary key column")
 
     const row = this.rows[rowIndex]
     const pkValue = row[this.primaryKey]
-    assert(pkValue !== undefined && pkValue !== null && pkValue !== '', 'Cannot delete: no primary key value')
+    assert(
+      pkValue !== undefined && pkValue !== null && pkValue !== "",
+      "Cannot delete: no primary key value",
+    )
 
-    const confirmed = unwrap(await runtime.call('ui.toast.confirm', {
-      message: `Delete row with ${this.primaryKey} = ${pkValue}?`,
-      type: 'warning',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-    }))
+    const confirmed = unwrap(
+      await runtime.call("ui.toast.confirm", {
+        message: `Delete row with ${this.primaryKey} = ${pkValue}?`,
+        type: "warning",
+        confirmText: "Delete",
+        cancelText: "Cancel",
+      }),
+    )
     if (!confirmed) return
 
     try {
-      await sql.exec(`DELETE FROM ${sqlIdent(this.selectedTable)} WHERE ${sqlIdent(this.primaryKey)} = ?`, [String(pkValue)])
-      this.setTableStatus('Row deleted')
+      await sql.exec(
+        `DELETE FROM ${sqlIdent(this.selectedTable)} WHERE ${sqlIdent(this.primaryKey)} = ?`,
+        [String(pkValue)],
+      )
+      this.setTableStatus("Row deleted")
       this.selectedRowIndex = -1
       await this.fetchTableData()
     } catch (error) {
@@ -837,8 +1006,8 @@ export class ViewSql extends HTMLElement {
   handleKeyDown(event) {
     if (this.editingCell) return
 
-    if (this.mode === 'chooser' || this.mode === 'saver') {
-      if (event.key === 'Enter') {
+    if (this.mode === "chooser" || this.mode === "saver") {
+      if (event.key === "Enter") {
         event.preventDefault()
         void this.confirmSelection()
         return
@@ -847,19 +1016,22 @@ export class ViewSql extends HTMLElement {
       return
     }
 
-    if (event.key === 'Insert') {
+    if (event.key === "Insert") {
       event.preventDefault()
       void this.insertRow()
       return
     }
 
-    if ((event.key === 'Delete' && (event.ctrlKey || event.metaKey)) || (event.key === 'Backspace' && event.metaKey)) {
+    if (
+      (event.key === "Delete" && (event.ctrlKey || event.metaKey)) ||
+      (event.key === "Backspace" && event.metaKey)
+    ) {
       event.preventDefault()
       void this.deleteSelectedRow()
       return
     }
 
-    if (event.key === 'Enter' && this.selectedRowIndex >= 0) {
+    if (event.key === "Enter" && this.selectedRowIndex >= 0) {
       event.preventDefault()
       this.startEditAt(this.selectedRowIndex, 0)
     }
@@ -880,15 +1052,22 @@ export class ViewSql extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue || !this.dataset.ready) return
 
-    if (name === 'data-page-size') {
-      const parsed = parseInt(String(newValue || '20'), 10)
+    if (name === "data-page-size") {
+      const parsed = parseInt(String(newValue || "20"), 10)
       this.pageSize = Number.isFinite(parsed) && parsed > 0 ? parsed : 20
       this.currentPage = 0
       void this.refresh()
       return
     }
 
-    if (name === 'data-mode' || name === 'data-query' || name === 'data-count-query' || name === 'data-confirm-label' || name === 'data-return-column' || name === 'data-return-fields') {
+    if (
+      name === "data-mode" ||
+      name === "data-query" ||
+      name === "data-count-query" ||
+      name === "data-confirm-label" ||
+      name === "data-return-column" ||
+      name === "data-return-fields"
+    ) {
       this.currentPage = 0
       this.selectedRowIndex = -1
       void this.refresh()
@@ -896,6 +1075,6 @@ export class ViewSql extends HTMLElement {
   }
 }
 
-if (!customElements.get('view-sql')) {
-  customElements.define('view-sql', ViewSql)
+if (!customElements.get("view-sql")) {
+  customElements.define("view-sql", ViewSql)
 }

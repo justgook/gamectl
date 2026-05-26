@@ -1,5 +1,4 @@
 @layer theme {
-
   /* ── palette overrides ── */
   :root {
     --accent: #7aa2ff;
@@ -23,27 +22,69 @@
   }
 
   /* ── child-count detection (used for responsive container queries) ── */
-  :has(> *:nth-child(0))  { --childs: 0; }
-  :has(> *:nth-child(1))  { --childs: 1; }
-  :has(> *:nth-child(2))  { --childs: 2; }
-  :has(> *:nth-child(3))  { --childs: 3; }
-  :has(> *:nth-child(4))  { --childs: 4; }
-  :has(> *:nth-child(5))  { --childs: 5; }
-  :has(> *:nth-child(6))  { --childs: 6; }
-  :has(> *:nth-child(7))  { --childs: 7; }
-  :has(> *:nth-child(8))  { --childs: 8; }
-  :has(> *:nth-child(9))  { --childs: 9; }
-  :has(> *:nth-child(10)) { --childs: 10; }
-  :has(> *:nth-child(11)) { --childs: 11; }
-  :has(> *:nth-child(12)) { --childs: 12; }
-  :has(> *:nth-child(13)) { --childs: 13; }
-  :has(> *:nth-child(14)) { --childs: 14; }
-  :has(> *:nth-child(15)) { --childs: 15; }
-  :has(> *:nth-child(16)) { --childs: 16; }
-  :has(> *:nth-child(17)) { --childs: 17; }
-  :has(> *:nth-child(18)) { --childs: 18; }
-  :has(> *:nth-child(19)) { --childs: 19; }
-  :has(> *:nth-child(20)) { --childs: 20; }
+  :has(> *:nth-child(0)) {
+    --childs: 0;
+  }
+  :has(> *:nth-child(1)) {
+    --childs: 1;
+  }
+  :has(> *:nth-child(2)) {
+    --childs: 2;
+  }
+  :has(> *:nth-child(3)) {
+    --childs: 3;
+  }
+  :has(> *:nth-child(4)) {
+    --childs: 4;
+  }
+  :has(> *:nth-child(5)) {
+    --childs: 5;
+  }
+  :has(> *:nth-child(6)) {
+    --childs: 6;
+  }
+  :has(> *:nth-child(7)) {
+    --childs: 7;
+  }
+  :has(> *:nth-child(8)) {
+    --childs: 8;
+  }
+  :has(> *:nth-child(9)) {
+    --childs: 9;
+  }
+  :has(> *:nth-child(10)) {
+    --childs: 10;
+  }
+  :has(> *:nth-child(11)) {
+    --childs: 11;
+  }
+  :has(> *:nth-child(12)) {
+    --childs: 12;
+  }
+  :has(> *:nth-child(13)) {
+    --childs: 13;
+  }
+  :has(> *:nth-child(14)) {
+    --childs: 14;
+  }
+  :has(> *:nth-child(15)) {
+    --childs: 15;
+  }
+  :has(> *:nth-child(16)) {
+    --childs: 16;
+  }
+  :has(> *:nth-child(17)) {
+    --childs: 17;
+  }
+  :has(> *:nth-child(18)) {
+    --childs: 18;
+  }
+  :has(> *:nth-child(19)) {
+    --childs: 19;
+  }
+  :has(> *:nth-child(20)) {
+    --childs: 20;
+  }
 
   /* ── body: gradient bg + noise overlay ── */
   body {
@@ -99,13 +140,34 @@
 
   view-area::before {
     border: 2px solid var(--border);
-    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+    clip-path: polygon(
+      0 0,
+      calc(100% - 12px) 0,
+      100% 12px,
+      100% 100%,
+      12px 100%,
+      0 calc(100% - 12px)
+    );
   }
 
   view-area::after {
     background:
-      linear-gradient(45deg, transparent calc(50% - var(--b) + 2px), var(--c) 0, var(--c) calc(50% + var(--b) + 2px), transparent 0) top right,
-      linear-gradient(45deg, transparent calc(50% - var(--b) - 2px), var(--c) 0, var(--c) calc(50% + var(--b) - 2px), transparent 0) bottom left;
+      linear-gradient(
+        45deg,
+        transparent calc(50% - var(--b) + 2px),
+        var(--c) 0,
+        var(--c) calc(50% + var(--b) + 2px),
+        transparent 0
+      )
+      top right,
+      linear-gradient(
+        45deg,
+        transparent calc(50% - var(--b) - 2px),
+        var(--c) 0,
+        var(--c) calc(50% + var(--b) - 2px),
+        transparent 0
+      )
+      bottom left;
     background-size: var(--cut) var(--cut);
     background-repeat: no-repeat;
   }
@@ -151,32 +213,40 @@
     height: 100%;
   }
 
-  view--corner::after  { width: 30px; }
-  view--corner::before { height: 30px; }
+  view--corner::after {
+    width: 30px;
+  }
+  view--corner::before {
+    height: 30px;
+  }
 
   view--handle {
     container-type: size;
   }
 
   view--handle::before {
-    transition: all .4s ease;
+    transition: all 0.4s ease;
     content: "";
     display: block;
     position: absolute;
     inset: 10px;
-    background: linear-gradient(to right,
+    background: linear-gradient(
+      to right,
       rgba(0, 255, 255, 0) 0%,
       rgba(0, 255, 255, 1) 50%,
-      rgba(0, 255, 255, 0) 100%);
+      rgba(0, 255, 255, 0) 100%
+    );
     opacity: 0;
   }
 
   @container (min-aspect-ratio: 1) {
     view--handle::before {
-      background: linear-gradient(to bottom,
+      background: linear-gradient(
+        to bottom,
         rgba(0, 255, 255, 0) 0%,
         rgba(0, 255, 255, 1) 50%,
-        rgba(0, 255, 255, 0) 100%);
+        rgba(0, 255, 255, 0) 100%
+      );
     }
   }
 

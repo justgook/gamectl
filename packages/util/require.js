@@ -1,13 +1,18 @@
 import { runtime } from "/core/runtime.js"
 
 function unwrapResult(result, label) {
-  if (result && Object.prototype.hasOwnProperty.call(result, "ok")) return result.ok
-  if (result && Object.prototype.hasOwnProperty.call(result, "err")) throw new Error(`${label}: ${result.err}`)
+  if (result && Object.prototype.hasOwnProperty.call(result, "ok"))
+    return result.ok
+  if (result && Object.prototype.hasOwnProperty.call(result, "err"))
+    throw new Error(`${label}: ${result.err}`)
   throw new Error(`${label}: expected WIT result object`)
 }
 
 export async function require(path) {
-  const readResult = unwrapResult(await runtime.invoke("fs/fs::read-file", path), `require failed "${path}"`)
+  const readResult = unwrapResult(
+    await runtime.invoke("fs/fs::read-file", path),
+    `require failed "${path}"`,
+  )
   return await importJsFromBytes(new Uint8Array(readResult))
 }
 
@@ -16,17 +21,17 @@ export async function importJsFromBytes(bytes) {
 
   source = source.replace(
     /from\s+["'](\/[^"']+)["']/g,
-    (_, path) => `from "${new URL(path, location.origin).href}"`
+    (_, path) => `from "${new URL(path, location.origin).href}"`,
   )
 
   source = source.replace(
     /import\s+["'](\/[^"']+)["']/g,
-    (_, path) => `import "${new URL(path, location.origin).href}"`
+    (_, path) => `import "${new URL(path, location.origin).href}"`,
   )
 
   source = source.replace(
     /import\s*\(\s*["'](\/[^"']+)["']\s*\)/g,
-    (_, path) => `import("${new URL(path, location.origin).href}")`
+    (_, path) => `import("${new URL(path, location.origin).href}")`,
   )
 
   const blob = new Blob([source], { type: "text/javascript" })
@@ -38,4 +43,3 @@ export async function importJsFromBytes(bytes) {
     URL.revokeObjectURL(url)
   }
 }
-

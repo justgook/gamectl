@@ -92,10 +92,7 @@
         "parentPackageUid": "A1",
         "type": "ArmyBookUpgradeSection",
         "variant": "replace",
-        "targets": [
-          "Gravity Pistol",
-          "CCW"
-        ]
+        "targets": ["Gravity Pistol", "CCW"]
       },
       {
         "id": "rUhFFei",
@@ -356,9 +353,7 @@
         "parentPackageUid": "A1",
         "type": "ArmyBookUpgradeSection",
         "variant": "replace",
-        "targets": [
-          "Gravity Pistol"
-        ]
+        "targets": ["Gravity Pistol"]
       },
       {
         "id": "ZXWo9_U",
@@ -569,9 +564,7 @@
           "type": "exactly",
           "value": 1
         },
-        "targets": [
-          "Master Heavy Rifle"
-        ]
+        "targets": ["Master Heavy Rifle"]
       },
       {
         "id": "VQOSU9d",
@@ -752,9 +745,7 @@
         "parentPackageUid": "A1",
         "type": "ArmyBookUpgradeSection",
         "variant": "replace",
-        "targets": [
-          "CCW"
-        ]
+        "targets": ["CCW"]
       }
     ],
     "calcErrors": false
@@ -831,10 +822,7 @@
         "originalCount": 1
       }
     ],
-    "upgrades": [
-      "PzePx",
-      "gIdERs5O"
-    ],
+    "upgrades": ["PzePx", "gIdERs5O"],
     "genericName": "Heavy Warrior Hero",
     "hasCustomRule": false,
     "disabledSections": [],

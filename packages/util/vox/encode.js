@@ -3,7 +3,10 @@ function assert(condition, message) {
 }
 
 function writeId(out, offset, id) {
-  assert(typeof id === 'string' && id.length === 4, 'VOX.encode: chunk id must be four characters')
+  assert(
+    typeof id === "string" && id.length === 4,
+    "VOX.encode: chunk id must be four characters",
+  )
   out[offset] = id.charCodeAt(0)
   out[offset + 1] = id.charCodeAt(1)
   out[offset + 2] = id.charCodeAt(2)
@@ -17,7 +20,9 @@ function writeU32(view, offset, value) {
 function createChunk(id, content, children) {
   const contentBytes = content || new Uint8Array()
   const childBytes = children || new Uint8Array()
-  const out = new Uint8Array(12 + contentBytes.byteLength + childBytes.byteLength)
+  const out = new Uint8Array(
+    12 + contentBytes.byteLength + childBytes.byteLength,
+  )
   const view = new DataView(out.buffer)
 
   writeId(out, 0, id)
@@ -40,28 +45,58 @@ function concat(parts) {
 }
 
 function validateModel(model, index) {
-  assert(model && typeof model === 'object', `VOX.encode: model ${index} must be an object`)
+  assert(
+    model && typeof model === "object",
+    `VOX.encode: model ${index} must be an object`,
+  )
 
   const width = Number(model.width)
   const height = Number(model.height)
   const depth = Number(model.depth)
-  assert(Number.isInteger(width) && width > 0 && width <= 256, `VOX.encode: model ${index} has invalid width`)
-  assert(Number.isInteger(height) && height > 0 && height <= 256, `VOX.encode: model ${index} has invalid height`)
-  assert(Number.isInteger(depth) && depth > 0 && depth <= 256, `VOX.encode: model ${index} has invalid depth`)
+  assert(
+    Number.isInteger(width) && width > 0 && width <= 256,
+    `VOX.encode: model ${index} has invalid width`,
+  )
+  assert(
+    Number.isInteger(height) && height > 0 && height <= 256,
+    `VOX.encode: model ${index} has invalid height`,
+  )
+  assert(
+    Number.isInteger(depth) && depth > 0 && depth <= 256,
+    `VOX.encode: model ${index} has invalid depth`,
+  )
 
   const voxels = model.voxels
-  assert(voxels instanceof Uint8Array, `VOX.encode: model ${index} voxels must be a Uint8Array`)
-  assert(voxels.byteLength % 4 === 0, `VOX.encode: model ${index} voxels length must be a multiple of 4`)
+  assert(
+    voxels instanceof Uint8Array,
+    `VOX.encode: model ${index} voxels must be a Uint8Array`,
+  )
+  assert(
+    voxels.byteLength % 4 === 0,
+    `VOX.encode: model ${index} voxels length must be a multiple of 4`,
+  )
 
   for (let p = 0; p < voxels.byteLength; p += 4) {
     const x = voxels[p]
     const y = voxels[p + 1]
     const z = voxels[p + 2]
     const colorIndex = voxels[p + 3]
-    assert(x < width, `VOX.encode: model ${index} voxel ${p / 4} x exceeds width`)
-    assert(y < height, `VOX.encode: model ${index} voxel ${p / 4} y exceeds height`)
-    assert(z < depth, `VOX.encode: model ${index} voxel ${p / 4} z exceeds depth`)
-    assert(colorIndex >= 1, `VOX.encode: model ${index} voxel ${p / 4} color index must be 1-based`)
+    assert(
+      x < width,
+      `VOX.encode: model ${index} voxel ${p / 4} x exceeds width`,
+    )
+    assert(
+      y < height,
+      `VOX.encode: model ${index} voxel ${p / 4} y exceeds height`,
+    )
+    assert(
+      z < depth,
+      `VOX.encode: model ${index} voxel ${p / 4} z exceeds depth`,
+    )
+    assert(
+      colorIndex >= 1,
+      `VOX.encode: model ${index} voxel ${p / 4} color index must be 1-based`,
+    )
   }
 
   return { width, height, depth, voxels }
@@ -82,10 +117,7 @@ function encodeModel(model, index) {
   writeU32(xyziView, 0, count)
   xyziContent.set(valid.voxels, 4)
 
-  return [
-    createChunk('SIZE', sizeContent),
-    createChunk('XYZI', xyziContent),
-  ]
+  return [createChunk("SIZE", sizeContent), createChunk("XYZI", xyziContent)]
 }
 
 /**
@@ -98,25 +130,42 @@ function encodeModel(model, index) {
  * @returns {ArrayBuffer}
  */
 export function encode(vox) {
-  assert(vox && typeof vox === 'object', 'VOX.encode: input must be an object')
-  assert(Array.isArray(vox.models) && vox.models.length > 0, 'VOX.encode: input.models must be a non-empty array')
+  assert(vox && typeof vox === "object", "VOX.encode: input must be an object")
+  assert(
+    Array.isArray(vox.models) && vox.models.length > 0,
+    "VOX.encode: input.models must be a non-empty array",
+  )
 
-  const version = vox.version === undefined || vox.version === null ? 150 : Number(vox.version)
-  assert(Number.isInteger(version) && version >= 0, 'VOX.encode: invalid version')
+  const version =
+    vox.version === undefined || vox.version === null
+      ? 150
+      : Number(vox.version)
+  assert(
+    Number.isInteger(version) && version >= 0,
+    "VOX.encode: invalid version",
+  )
 
   const childParts = []
-  vox.models.forEach((model, index) => childParts.push(...encodeModel(model, index)))
+  vox.models.forEach((model, index) =>
+    childParts.push(...encodeModel(model, index)),
+  )
 
   if (vox.palette !== undefined && vox.palette !== null) {
-    assert(vox.palette instanceof Uint8Array, 'VOX.encode: palette must be a Uint8Array')
-    assert(vox.palette.byteLength === 256 * 4, 'VOX.encode: palette must contain 256 RGBA colors')
-    childParts.push(createChunk('RGBA', vox.palette))
+    assert(
+      vox.palette instanceof Uint8Array,
+      "VOX.encode: palette must be a Uint8Array",
+    )
+    assert(
+      vox.palette.byteLength === 256 * 4,
+      "VOX.encode: palette must contain 256 RGBA colors",
+    )
+    childParts.push(createChunk("RGBA", vox.palette))
   }
 
-  const main = createChunk('MAIN', null, concat(childParts))
+  const main = createChunk("MAIN", null, concat(childParts))
   const out = new Uint8Array(8 + main.byteLength)
   const view = new DataView(out.buffer)
-  writeId(out, 0, 'VOX ')
+  writeId(out, 0, "VOX ")
   writeU32(view, 4, version)
   out.set(main, 8)
   return out.buffer

@@ -1,7 +1,6 @@
-import { runtime, unwrap } from '/core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { sql as sqlConnection } from '/util/sql.js'
-
+import { runtime, unwrap } from "/core/runtime.js"
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
+import { sql as sqlConnection } from "/util/sql.js"
 
 function quoteIdent(name) {
   return String(name).replace(/"/g, '""')
@@ -20,11 +19,11 @@ export class SqlTableEditor extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
     if (this.dataset.ready) return
-    this.dataset.ready = '1'
+    this.dataset.ready = "1"
 
-    this.style.display = 'contents'
+    this.style.display = "contents"
 
-    const mode = this.popupProps?.mode || 'create'
+    const mode = this.popupProps?.mode || "create"
 
     this.innerHTML = `
       <form data-element="form" novalidate>
@@ -49,7 +48,7 @@ export class SqlTableEditor extends HTMLElement {
         <footer>
           <output data-element="status"></output>
           <button type="button" data-action="cancel">Cancel</button>
-          <button type="submit" data-action="save" class="accent">${mode === 'create' ? 'Create table' : 'Save'}</button>
+          <button type="submit" data-action="save" class="accent">${mode === "create" ? "Create table" : "Save"}</button>
         </footer>
       </form>
     `
@@ -60,21 +59,34 @@ export class SqlTableEditor extends HTMLElement {
 
     this._mountHeaderControls()
 
-    this._addColumnRow(this.columnsContainer, 'id', 'INTEGER', true, true)
-    this._addColumnRow(this.columnsContainer, '', 'TEXT', false, false)
+    this._addColumnRow(this.columnsContainer, "id", "INTEGER", true, true)
+    this._addColumnRow(this.columnsContainer, "", "TEXT", false, false)
 
-    this._headerControlsElement?.querySelector('[data-action="add-column"]')?.addEventListener('click', () => {
-      this._addColumnRow(this.columnsContainer, '', 'TEXT', false, false)
-    })
+    this._headerControlsElement
+      ?.querySelector('[data-action="add-column"]')
+      ?.addEventListener("click", () => {
+        this._addColumnRow(this.columnsContainer, "", "TEXT", false, false)
+      })
 
-    this.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-      unwrap(await runtime.call('ui.popup.close', { reload: false, cancelled: true }))
-    })
+    this.querySelector('[data-action="cancel"]').addEventListener(
+      "click",
+      async () => {
+        unwrap(
+          await runtime.call("ui.popup.close", {
+            reload: false,
+            cancelled: true,
+          }),
+        )
+      },
+    )
 
-    this.querySelector('[data-element="form"]').addEventListener('submit', async (event) => {
-      event.preventDefault()
-      await this.save()
-    })
+    this.querySelector('[data-element="form"]').addEventListener(
+      "submit",
+      async (event) => {
+        event.preventDefault()
+        await this.save()
+      },
+    )
 
     queueMicrotask(() => {
       this.tableNameInput.focus()
@@ -87,9 +99,9 @@ export class SqlTableEditor extends HTMLElement {
   }
 
   createHeaderControlsElement() {
-    const toolbar = document.createElement('div')
-    toolbar.dataset.element = 'toolbar'
-    toolbar.setAttribute('slot', 'header-controls')
+    const toolbar = document.createElement("div")
+    toolbar.dataset.element = "toolbar"
+    toolbar.setAttribute("slot", "header-controls")
     toolbar.innerHTML = `
       <button data-action="add-column" aria-label="Add column" title="Add column"><i aria-hidden="true">playlist_add</i></button>
     `
@@ -113,33 +125,45 @@ export class SqlTableEditor extends HTMLElement {
 
   setStatus(text, tone = null) {
     this.statusContainer.textContent = text
-    this.statusContainer.classList.remove('accent', 'success', 'warning', 'danger', 'info')
+    this.statusContainer.classList.remove(
+      "accent",
+      "success",
+      "warning",
+      "danger",
+      "info",
+    )
     if (tone) {
       this.statusContainer.classList.add(tone)
     }
   }
 
-  _addColumnRow(container, name = '', type = 'TEXT', isPrimaryKey = false, isAutoIncrement = false) {
-    const row = document.createElement('tr')
-    row.dataset.element = 'column-row'
+  _addColumnRow(
+    container,
+    name = "",
+    type = "TEXT",
+    isPrimaryKey = false,
+    isAutoIncrement = false,
+  ) {
+    const row = document.createElement("tr")
+    row.dataset.element = "column-row"
 
-    const nameCell = document.createElement('td')
-    const nameInput = document.createElement('input')
-    nameInput.type = 'text'
-    nameInput.dataset.field = 'column-name'
-    nameInput.placeholder = 'column_name'
+    const nameCell = document.createElement("td")
+    const nameInput = document.createElement("input")
+    nameInput.type = "text"
+    nameInput.dataset.field = "column-name"
+    nameInput.placeholder = "column_name"
     nameInput.value = name
-    nameInput.setAttribute('autocomplete', 'off')
-    nameInput.setAttribute('autocorrect', 'off')
-    nameInput.setAttribute('autocapitalize', 'off')
+    nameInput.setAttribute("autocomplete", "off")
+    nameInput.setAttribute("autocorrect", "off")
+    nameInput.setAttribute("autocapitalize", "off")
     nameInput.spellcheck = false
     nameCell.appendChild(nameInput)
 
-    const typeCell = document.createElement('td')
-    const typeSelect = document.createElement('select')
-    typeSelect.dataset.field = 'column-type'
-    for (const optionType of ['TEXT', 'INTEGER', 'REAL', 'BLOB', 'NUMERIC']) {
-      const option = document.createElement('option')
+    const typeCell = document.createElement("td")
+    const typeSelect = document.createElement("select")
+    typeSelect.dataset.field = "column-type"
+    for (const optionType of ["TEXT", "INTEGER", "REAL", "BLOB", "NUMERIC"]) {
+      const option = document.createElement("option")
       option.value = optionType
       option.textContent = optionType
       option.selected = optionType === type
@@ -147,35 +171,35 @@ export class SqlTableEditor extends HTMLElement {
     }
     typeCell.appendChild(typeSelect)
 
-    const primaryCell = document.createElement('td')
-    const primaryInput = document.createElement('input')
-    primaryInput.type = 'checkbox'
-    primaryInput.dataset.field = 'primary-key'
+    const primaryCell = document.createElement("td")
+    const primaryInput = document.createElement("input")
+    primaryInput.type = "checkbox"
+    primaryInput.dataset.field = "primary-key"
     primaryInput.checked = isPrimaryKey
-    primaryInput.title = 'Primary Key'
+    primaryInput.title = "Primary Key"
     primaryCell.appendChild(primaryInput)
 
-    const autoCell = document.createElement('td')
-    const autoInput = document.createElement('input')
-    autoInput.type = 'checkbox'
-    autoInput.dataset.field = 'auto-increment'
+    const autoCell = document.createElement("td")
+    const autoInput = document.createElement("input")
+    autoInput.type = "checkbox"
+    autoInput.dataset.field = "auto-increment"
     autoInput.checked = isAutoIncrement
-    autoInput.title = 'Auto Increment (INTEGER only)'
+    autoInput.title = "Auto Increment (INTEGER only)"
     autoCell.appendChild(autoInput)
 
-    const notNullCell = document.createElement('td')
-    const notNullInput = document.createElement('input')
-    notNullInput.type = 'checkbox'
-    notNullInput.dataset.field = 'not-null'
-    notNullInput.title = 'Not Null'
+    const notNullCell = document.createElement("td")
+    const notNullInput = document.createElement("input")
+    notNullInput.type = "checkbox"
+    notNullInput.dataset.field = "not-null"
+    notNullInput.title = "Not Null"
     notNullCell.appendChild(notNullInput)
 
-    const removeCell = document.createElement('td')
-    const removeButton = document.createElement('button')
-    removeButton.type = 'button'
-    removeButton.dataset.action = 'remove-column'
-    removeButton.title = 'Remove Column'
-    removeButton.setAttribute('aria-label', 'Remove Column')
+    const removeCell = document.createElement("td")
+    const removeButton = document.createElement("button")
+    removeButton.type = "button"
+    removeButton.dataset.action = "remove-column"
+    removeButton.title = "Remove Column"
+    removeButton.setAttribute("aria-label", "Remove Column")
     removeButton.innerHTML = '<i aria-hidden="true">delete</i>'
     removeCell.appendChild(removeButton)
 
@@ -186,7 +210,7 @@ export class SqlTableEditor extends HTMLElement {
     row.appendChild(notNullCell)
     row.appendChild(removeCell)
 
-    removeButton.addEventListener('click', () => {
+    removeButton.addEventListener("click", () => {
       row.remove()
     })
 
@@ -198,14 +222,17 @@ export class SqlTableEditor extends HTMLElement {
     const columns = []
 
     for (const row of columnRows) {
-      const colName = row.querySelector('[data-field="column-name"]').value.trim()
+      const colName = row
+        .querySelector('[data-field="column-name"]')
+        .value.trim()
       if (!colName) continue
 
       columns.push({
         name: colName,
         type: row.querySelector('[data-field="column-type"]').value,
         primaryKey: row.querySelector('[data-field="primary-key"]').checked,
-        autoIncrement: row.querySelector('[data-field="auto-increment"]').checked,
+        autoIncrement: row.querySelector('[data-field="auto-increment"]')
+          .checked,
         notNull: row.querySelector('[data-field="not-null"]').checked,
       })
     }
@@ -217,60 +244,62 @@ export class SqlTableEditor extends HTMLElement {
     const tableName = this.tableNameInput.value.trim()
 
     if (!tableName) {
-      this.tableNameInput.classList.add('danger')
+      this.tableNameInput.classList.add("danger")
       this.tableNameInput.focus()
-      this.setStatus('Error: Table name is required', 'danger')
+      this.setStatus("Error: Table name is required", "danger")
       return
     }
 
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
-      this.tableNameInput.classList.add('danger')
+      this.tableNameInput.classList.add("danger")
       this.tableNameInput.focus()
-      this.setStatus('Error: Invalid table name', 'danger')
+      this.setStatus("Error: Invalid table name", "danger")
       return
     }
 
-    this.tableNameInput.classList.remove('danger')
+    this.tableNameInput.classList.remove("danger")
 
     const columns = this.collectColumns()
     if (columns.length === 0) {
-      this.setStatus('Error: At least one column required', 'danger')
+      this.setStatus("Error: At least one column required", "danger")
       return
     }
 
     for (const column of columns) {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(column.name)) {
-        this.setStatus(`Error: Invalid column name: ${column.name}`, 'danger')
+        this.setStatus(`Error: Invalid column name: ${column.name}`, "danger")
         return
       }
     }
 
     const columnDefs = columns.map((col) => {
       let def = `"${quoteIdent(col.name)}" ${col.type}`
-      if (col.primaryKey) def += ' PRIMARY KEY'
-      if (col.autoIncrement && col.type === 'INTEGER') def += ' AUTOINCREMENT'
-      if (col.notNull && !col.primaryKey) def += ' NOT NULL'
+      if (col.primaryKey) def += " PRIMARY KEY"
+      if (col.autoIncrement && col.type === "INTEGER") def += " AUTOINCREMENT"
+      if (col.notNull && !col.primaryKey) def += " NOT NULL"
       return def
     })
 
-    const sql = `CREATE TABLE "${quoteIdent(tableName)}" (\n  ${columnDefs.join(',\n  ')}\n)`
+    const sql = `CREATE TABLE "${quoteIdent(tableName)}" (\n  ${columnDefs.join(",\n  ")}\n)`
 
-    this.setStatus('Creating table...', 'info')
+    this.setStatus("Creating table...", "info")
 
     try {
       await sqlConnection.exec(sql)
-      unwrap(await runtime.call('ui.popup.close', {
-        reload: true,
-        tableName,
-        mode: 'create',
-      }))
+      unwrap(
+        await runtime.call("ui.popup.close", {
+          reload: true,
+          tableName,
+          mode: "create",
+        }),
+      )
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`, 'danger')
-      console.error('sql-table-editor create failed:', error)
+      this.setStatus(`Error: ${error.message}`, "danger")
+      console.error("sql-table-editor create failed:", error)
     }
   }
 }
 
-if (!customElements.get('sql-table-editor')) {
-  customElements.define('sql-table-editor', SqlTableEditor)
+if (!customElements.get("sql-table-editor")) {
+  customElements.define("sql-table-editor", SqlTableEditor)
 }

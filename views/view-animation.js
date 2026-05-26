@@ -1,10 +1,10 @@
-import '/widgets/timeline.js'
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import "/widgets/timeline.js"
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 export class ViewAnimation extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
-    this.style.display = 'contents'
+    this.style.display = "contents"
     this.innerHTML = `
       <article>
         <pre data-element="description">Animation
@@ -16,7 +16,7 @@ This view is intended for editing frame order, frame duration, loop mode, and ti
       <footer data-element="footer"><widget-timeline></widget-timeline></footer>
     `
 
-    this.timeline = this.querySelector('widget-timeline')
+    this.timeline = this.querySelector("widget-timeline")
     if (this._timelineModel) this.timeline.model = this._timelineModel
   }
 
@@ -35,6 +35,6 @@ This view is intended for editing frame order, frame duration, loop mode, and ti
   }
 }
 
-if (!customElements.get('view-animation')) {
-  customElements.define('view-animation', ViewAnimation)
+if (!customElements.get("view-animation")) {
+  customElements.define("view-animation", ViewAnimation)
 }

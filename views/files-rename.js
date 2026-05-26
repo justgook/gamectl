@@ -1,38 +1,37 @@
-import { runtime, unwrap } from '/core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { createWriteInput } from '/util/fs.js'
+import { runtime, unwrap } from "/core/runtime.js"
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
+import { createWriteInput } from "/util/fs.js"
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-
 function normalizePath(path) {
-  const raw = String(path || '.').trim()
-  if (!raw || raw === '.') return '.'
-  const parts = raw.split('/').filter(Boolean)
-  return `${parts.join('/')}`
+  const raw = String(path || ".").trim()
+  if (!raw || raw === ".") return "."
+  const parts = raw.split("/").filter(Boolean)
+  return `${parts.join("/")}`
 }
 
 function joinPath(basePath, name) {
   const base = normalizePath(basePath)
-  if (base === '.') return `${name}`
+  if (base === ".") return `${name}`
   return `${base}/${name}`
 }
 
 function getBaseName(path) {
   const normalized = normalizePath(path)
-  if (normalized === '/') return '/'
-  const parts = normalized.split('/').filter(Boolean)
+  if (normalized === "/") return "/"
+  const parts = normalized.split("/").filter(Boolean)
   return parts[parts.length - 1]
 }
 
 function getParentPath(path) {
   const normalized = normalizePath(path)
-  if (normalized === '/') return '/'
-  const parts = normalized.split('/').filter(Boolean)
+  if (normalized === "/") return "/"
+  const parts = normalized.split("/").filter(Boolean)
   parts.pop()
-  return parts.length === 0 ? '/' : `/${parts.join('/')}`
+  return parts.length === 0 ? "/" : `/${parts.join("/")}`
 }
 
 async function callFs(method, ...input) {
@@ -41,7 +40,7 @@ async function callFs(method, ...input) {
 
 async function pathExists(path) {
   try {
-    await callFs('stats', path)
+    await callFs("stats", path)
   } catch (e) {
     return false
   }
@@ -49,27 +48,27 @@ async function pathExists(path) {
 }
 
 async function renameFile(sourcePath, targetPath) {
-  unwrap(await callFs('rename', sourcePath, targetPath))
+  unwrap(await callFs("rename", sourcePath, targetPath))
 }
 
 async function renameDirectory(sourcePath, targetPath) {
-  await callFs('create-dir', targetPath)
+  await callFs("create-dir", targetPath)
 
-  const files = unwrap(await callFs('list', sourcePath))
+  const files = unwrap(await callFs("list", sourcePath))
 
   for (const { name } of files) {
     const sourceChildPath = joinPath(sourcePath, name)
     const targetChildPath = joinPath(targetPath, name)
-    const stat = unwrap(await callFs('stat', sourceChildPath))
+    const stat = unwrap(await callFs("stat", sourceChildPath))
 
-    if (stat.type === 'directory') {
+    if (stat.type === "directory") {
       await renameDirectory(sourceChildPath, targetChildPath)
     } else {
       await renameFile(sourceChildPath, targetChildPath)
     }
   }
 
-  await callFs('remove-dir', sourcePath)
+  await callFs("remove-dir", sourcePath)
 }
 
 export class FileRename extends HTMLElement {
@@ -85,23 +84,26 @@ export class FileRename extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
     if (this.dataset.ready) return
-    this.dataset.ready = '1'
+    this.dataset.ready = "1"
 
-    this.style.display = 'contents'
+    this.style.display = "contents"
 
-    const mode = this.popupProps?.mode || 'create'
-    const kind = this.popupProps?.kind || 'file'
-    const initialName = mode === 'rename' ? getBaseName(this.popupProps?.targetPath || '') : (this.popupProps?.initialName || '')
+    const mode = this.popupProps?.mode || "create"
+    const kind = this.popupProps?.kind || "file"
+    const initialName =
+      mode === "rename"
+        ? getBaseName(this.popupProps?.targetPath || "")
+        : this.popupProps?.initialName || ""
 
     this.innerHTML = `
       <form data-element="form" novalidate>
-        <label for="files-rename-name">${kind === 'directory' ? 'Folder name' : 'File name'}</label>
+        <label for="files-rename-name">${kind === "directory" ? "Folder name" : "File name"}</label>
         <input id="files-rename-name" type="text" data-field="name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="${escapeAttribute(initialName)}">
         <footer>
           <output data-element="location"></output>
           <output data-element="status"></output>
           <button type="button" data-action="cancel">Cancel</button>
-          <button type="submit" data-action="save" class="accent">${mode === 'rename' ? 'Rename' : kind === 'directory' ? 'Create folder' : 'Create file'}</button>
+          <button type="submit" data-action="save" class="accent">${mode === "rename" ? "Rename" : kind === "directory" ? "Create folder" : "Create file"}</button>
         </footer>
       </form>
     `
@@ -111,18 +113,38 @@ export class FileRename extends HTMLElement {
     this.locationOutput = this.querySelector('[data-element="location"]')
     this.statusOutput = this.querySelector('[data-element="status"]')
 
-    assert(this.formElement instanceof HTMLFormElement, 'files-rename missing form element')
-    assert(this.nameInput instanceof HTMLInputElement, 'files-rename missing name input')
-    assert(this.locationOutput instanceof HTMLOutputElement, 'files-rename missing location output')
-    assert(this.statusOutput instanceof HTMLOutputElement, 'files-rename missing status output')
+    assert(
+      this.formElement instanceof HTMLFormElement,
+      "files-rename missing form element",
+    )
+    assert(
+      this.nameInput instanceof HTMLInputElement,
+      "files-rename missing name input",
+    )
+    assert(
+      this.locationOutput instanceof HTMLOutputElement,
+      "files-rename missing location output",
+    )
+    assert(
+      this.statusOutput instanceof HTMLOutputElement,
+      "files-rename missing status output",
+    )
 
     this.locationOutput.textContent = this.getLocationPath()
 
-    this.querySelector('[data-action="cancel"]')?.addEventListener('click', async () => {
-      unwrap(await runtime.call('ui.popup.close', { reload: false, cancelled: true }))
-    })
+    this.querySelector('[data-action="cancel"]')?.addEventListener(
+      "click",
+      async () => {
+        unwrap(
+          await runtime.call("ui.popup.close", {
+            reload: false,
+            cancelled: true,
+          }),
+        )
+      },
+    )
 
-    this.formElement.addEventListener('submit', async (event) => {
+    this.formElement.addEventListener("submit", async (event) => {
       event.preventDefault()
       await this.save()
     })
@@ -134,18 +156,18 @@ export class FileRename extends HTMLElement {
   }
 
   get mode() {
-    return this.popupProps?.mode || 'create'
+    return this.popupProps?.mode || "create"
   }
 
   get kind() {
-    return this.popupProps?.kind || 'file'
+    return this.popupProps?.kind || "file"
   }
 
   getLocationPath() {
-    if (this.mode === 'rename') {
-      return getParentPath(this.popupProps?.targetPath || '/')
+    if (this.mode === "rename") {
+      return getParentPath(this.popupProps?.targetPath || "/")
     }
-    return normalizePath(this.popupProps?.parentPath || '/')
+    return normalizePath(this.popupProps?.parentPath || "/")
   }
 
   getTargetPath(name) {
@@ -154,19 +176,27 @@ export class FileRename extends HTMLElement {
 
   setStatus(text, tone = null) {
     this.statusOutput.textContent = text
-    this.statusOutput.classList.remove('accent', 'success', 'warning', 'danger', 'info')
+    this.statusOutput.classList.remove(
+      "accent",
+      "success",
+      "warning",
+      "danger",
+      "info",
+    )
     if (tone) this.statusOutput.classList.add(tone)
   }
 
   validateName(name) {
     if (!name) {
-      throw new Error(`${this.kind === 'directory' ? 'Folder' : 'File'} name is required`)
+      throw new Error(
+        `${this.kind === "directory" ? "Folder" : "File"} name is required`,
+      )
     }
-    if (name === '.' || name === '..') {
-      throw new Error('Reserved name is not allowed')
+    if (name === "." || name === "..") {
+      throw new Error("Reserved name is not allowed")
     }
-    if (name.includes('/')) {
-      throw new Error('Name must not contain /')
+    if (name.includes("/")) {
+      throw new Error("Name must not contain /")
     }
   }
 
@@ -175,19 +205,19 @@ export class FileRename extends HTMLElement {
 
     try {
       this.validateName(name)
-      this.nameInput.classList.remove('danger')
+      this.nameInput.classList.remove("danger")
 
-      if (this.mode === 'rename') {
+      if (this.mode === "rename") {
         await this.rename(name)
         return
       }
 
       await this.create(name)
     } catch (error) {
-      this.nameInput.classList.add('danger')
+      this.nameInput.classList.add("danger")
       this.nameInput.focus()
-      this.setStatus(`Error: ${error?.message || error}`, 'danger')
-      console.error('files-rename save failed:', error)
+      this.setStatus(`Error: ${error?.message || error}`, "danger")
+      console.error("files-rename save failed:", error)
     }
   }
 
@@ -197,37 +227,44 @@ export class FileRename extends HTMLElement {
       throw new Error(`Path already exists: ${targetPath}`)
     }
 
-    this.setStatus(this.kind === 'directory' ? 'Creating folder...' : 'Creating file...', 'info')
+    this.setStatus(
+      this.kind === "directory" ? "Creating folder..." : "Creating file...",
+      "info",
+    )
 
-    if (this.kind === 'directory') {
-      await callFs('create-dir', targetPath)
+    if (this.kind === "directory") {
+      await callFs("create-dir", targetPath)
     } else {
-      await callFs('write-file', targetPath, [])
+      await callFs("write-file", targetPath, [])
     }
 
-    unwrap(await runtime.call('ui.popup.close', {
-      reload: true,
-      mode: this.mode,
-      kind: this.kind,
-      selectedPath: targetPath,
-      revealPath: this.getLocationPath(),
-    }))
+    unwrap(
+      await runtime.call("ui.popup.close", {
+        reload: true,
+        mode: this.mode,
+        kind: this.kind,
+        selectedPath: targetPath,
+        revealPath: this.getLocationPath(),
+      }),
+    )
   }
 
   async rename(name) {
-    const sourcePath = normalizePath(this.popupProps?.targetPath || '')
-    assert(sourcePath !== '/', 'files-rename cannot rename root path')
+    const sourcePath = normalizePath(this.popupProps?.targetPath || "")
+    assert(sourcePath !== "/", "files-rename cannot rename root path")
 
     const parentPath = getParentPath(sourcePath)
     const targetPath = joinPath(parentPath, name)
 
     if (targetPath === sourcePath) {
-      unwrap(await runtime.call('ui.popup.close', {
-        reload: false,
-        mode: this.mode,
-        kind: this.kind,
-        selectedPath: sourcePath,
-      }))
+      unwrap(
+        await runtime.call("ui.popup.close", {
+          reload: false,
+          mode: this.mode,
+          kind: this.kind,
+          selectedPath: sourcePath,
+        }),
+      )
       return
     }
 
@@ -235,21 +272,23 @@ export class FileRename extends HTMLElement {
       throw new Error(`Path already exists: ${targetPath}`)
     }
 
-    this.setStatus('Renaming...', 'info')
+    this.setStatus("Renaming...", "info")
 
-    if (this.kind === 'directory') {
+    if (this.kind === "directory") {
       await renameDirectory(sourcePath, targetPath)
     } else {
       await renameFile(sourcePath, targetPath)
     }
 
-    unwrap(await runtime.call('ui.popup.close', {
-      reload: true,
-      mode: this.mode,
-      kind: this.kind,
-      selectedPath: targetPath,
-      revealPath: parentPath,
-    }))
+    unwrap(
+      await runtime.call("ui.popup.close", {
+        reload: true,
+        mode: this.mode,
+        kind: this.kind,
+        selectedPath: targetPath,
+        revealPath: parentPath,
+      }),
+    )
   }
 
   disconnectedCallback() {
@@ -259,12 +298,12 @@ export class FileRename extends HTMLElement {
 
 function escapeAttribute(value) {
   return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
 }
 
-if (!customElements.get('files-rename')) {
-  customElements.define('files-rename', FileRename)
+if (!customElements.get("files-rename")) {
+  customElements.define("files-rename", FileRename)
 }

@@ -1,9 +1,9 @@
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 export class ViewFont extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
-    this.style.display = 'contents'
+    this.style.display = "contents"
     this.innerHTML = `
       <article>
         <pre data-element="description">Artery Font
@@ -21,6 +21,6 @@ This view is intended for previewing glyph atlases, font metrics, sample text re
   }
 }
 
-if (!customElements.get('view-font')) {
-  customElements.define('view-font', ViewFont)
+if (!customElements.get("view-font")) {
+  customElements.define("view-font", ViewFont)
 }

@@ -1,9 +1,9 @@
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 export class ViewBullet extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
-    this.style.display = 'contents'
+    this.style.display = "contents"
     this.innerHTML = `
       <article>
         <pre data-element="description">BulletML
@@ -21,6 +21,6 @@ This view is intended for shmup and bullet-hell attack scripting, pattern simula
   }
 }
 
-if (!customElements.get('view-bullet')) {
-  customElements.define('view-bullet', ViewBullet)
+if (!customElements.get("view-bullet")) {
+  customElements.define("view-bullet", ViewBullet)
 }

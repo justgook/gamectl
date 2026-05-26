@@ -65,7 +65,11 @@
 
     /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
     --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--intent), var(--base-border) 60%);
+    --intent-soft-border: color-mix(
+      in oklab,
+      var(--intent),
+      var(--base-border) 60%
+    );
     --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
   }
 
@@ -114,7 +118,11 @@
 
     /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
     --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
-    --intent-soft-border: color-mix(in oklab, var(--intent), var(--base-border) 60%);
+    --intent-soft-border: color-mix(
+      in oklab,
+      var(--intent),
+      var(--base-border) 60%
+    );
     --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
   }
 }
@@ -138,7 +146,6 @@
     --base-text-muted: #a8afc3;
     --base-ink: #0b0c10;
   }
-
 
   /* ═══════════════════════════════════════════════════════════════════════════
      SIZING / SPACING
@@ -176,8 +183,6 @@
     --font-lg: 16px;
     --font-xl: 20px;
   }
-
-
 
   /* ═══════════════════════════════════════════════════════════════════════════
      COMPONENT TOKENS
@@ -241,14 +246,15 @@
      ═══════════════════════════════════════════════════════════════════════════ */
 
   @font-face {
-    font-family: 'Material Symbols Rounded';
+    font-family: "Material Symbols Rounded";
     font-style: normal;
     font-weight: 100 700;
-    src: url('/fonts/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2') format('woff2');
+    src: url("/fonts/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2")
+      format("woff2");
   }
 
   i {
-    font-family: 'Material Symbols Rounded';
+    font-family: "Material Symbols Rounded";
     font-weight: 400;
     font-style: normal;
     font-size: inherit;
@@ -259,8 +265,12 @@
     white-space: nowrap;
     word-wrap: normal;
     direction: ltr;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 14;
-    font-feature-settings: 'liga';
+    font-variation-settings:
+      "FILL" 0,
+      "wght" 400,
+      "GRAD" 0,
+      "opsz" 14;
+    font-feature-settings: "liga";
     -webkit-font-smoothing: antialiased;
   }
 
@@ -288,7 +298,10 @@
     padding: 0 var(--space-3);
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background 120ms, border-color 120ms, color 120ms;
+    transition:
+      background 120ms,
+      border-color 120ms,
+      color 120ms;
   }
 
   button:hover,
@@ -352,10 +365,14 @@
   }
 
   /* icon sizing inside buttons — larger than text but contained by --control-height */
-  button>i {
+  button > i {
     font-size: 20px;
     line-height: 1;
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+    font-variation-settings:
+      "FILL" 0,
+      "wght" 400,
+      "GRAD" 0,
+      "opsz" 20;
   }
 
   /* button groups */
@@ -366,21 +383,21 @@
     gap: 0;
   }
 
-  [role="buttongroup"]>button {
+  [role="buttongroup"] > button {
     border-radius: 0;
     position: relative;
   }
 
-  [role="buttongroup"]>button+button {
+  [role="buttongroup"] > button + button {
     margin-left: -1px;
   }
 
-  [role="buttongroup"]>button:first-child {
+  [role="buttongroup"] > button:first-child {
     border-top-left-radius: var(--radius-sm);
     border-bottom-left-radius: var(--radius-sm);
   }
 
-  [role="buttongroup"]>button:last-child {
+  [role="buttongroup"] > button:last-child {
     border-top-right-radius: var(--radius-sm);
     border-bottom-right-radius: var(--radius-sm);
   }
@@ -403,21 +420,18 @@
     width: 100%;
   }
 
-  form>footer {
+  form > footer {
     display: flex;
   }
-
 
   code {
     display: flex;
     flex: 1;
   }
 
-  code>textarea {
+  code > textarea {
     flex: 1;
   }
-
-
 
   input[type="text"],
   input[type="number"],
@@ -430,7 +444,9 @@
     border: 1px solid var(--border);
     color: inherit;
     padding: 0 var(--space-3);
-    transition: border-color 120ms, box-shadow 120ms;
+    transition:
+      border-color 120ms,
+      box-shadow 120ms;
   }
 
   textarea {
@@ -439,7 +455,9 @@
     color: inherit;
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-sm);
-    transition: border-color 120ms, box-shadow 120ms;
+    transition:
+      border-color 120ms,
+      box-shadow 120ms;
   }
 
   code-editor {
@@ -458,24 +476,38 @@
     font-family: var(--font-mono);
     font-size: var(--font-sm);
     line-height: var(--code-editor-line-height);
-    height: calc(var(--code-editor-rows) * 1em * var(--code-editor-line-height) + var(--code-editor-padding-y) * 2 + 2px);
+    height: calc(
+      var(--code-editor-rows) *
+      1em *
+      var(--code-editor-line-height) +
+      var(--code-editor-padding-y) *
+      2 +
+      2px
+    );
     overflow: hidden;
-    min-height: calc(var(--code-editor-rows) * 1em * var(--code-editor-line-height) + var(--code-editor-padding-y) * 2 + 2px);
+    min-height: calc(
+      var(--code-editor-rows) *
+      1em *
+      var(--code-editor-line-height) +
+      var(--code-editor-padding-y) *
+      2 +
+      2px
+    );
   }
 
   code-editor:focus-within {
     border-color: color-mix(in oklab, var(--intent), var(--surface) 40%);
   }
 
-  code-editor>.code-editor-scroller {
+  code-editor > .code-editor-scroller {
     position: relative;
     min-height: inherit;
     height: 100%;
     overflow: hidden;
   }
 
-  code-editor .code-editor-scroller>pre,
-  code-editor .code-editor-scroller>textarea {
+  code-editor .code-editor-scroller > pre,
+  code-editor .code-editor-scroller > textarea {
     margin: 0;
     padding: var(--code-editor-padding-y) var(--code-editor-padding-x);
     border: 0;
@@ -492,7 +524,7 @@
     word-break: normal;
   }
 
-  code-editor .code-editor-scroller>pre {
+  code-editor .code-editor-scroller > pre {
     position: absolute;
     top: 0;
     right: var(--code-editor-scrollbar-y);
@@ -503,13 +535,13 @@
     color: var(--code-editor-text);
   }
 
-  code-editor .code-editor-scroller>pre>code {
+  code-editor .code-editor-scroller > pre > code {
     display: block;
     white-space: inherit;
     will-change: transform;
   }
 
-  code-editor .code-editor-scroller>textarea {
+  code-editor .code-editor-scroller > textarea {
     position: absolute;
     inset: 0;
     background: transparent;
@@ -519,7 +551,7 @@
     resize: none;
   }
 
-  code-editor .code-editor-scroller>textarea::placeholder {
+  code-editor .code-editor-scroller > textarea::placeholder {
     color: var(--code-editor-placeholder);
   }
 
@@ -575,25 +607,25 @@
 
   /* intent on inputs = validation state (direct or cascaded from parent) */
   input.accent,
-  .accent>input,
-  .accent>select,
-  .accent>textarea,
+  .accent > input,
+  .accent > select,
+  .accent > textarea,
   input.success,
-  .success>input,
-  .success>select,
-  .success>textarea,
+  .success > input,
+  .success > select,
+  .success > textarea,
   input.warning,
-  .warning>input,
-  .warning>select,
-  .warning>textarea,
+  .warning > input,
+  .warning > select,
+  .warning > textarea,
   input.danger,
-  .danger>input,
-  .danger>select,
-  .danger>textarea,
+  .danger > input,
+  .danger > select,
+  .danger > textarea,
   input.info,
-  .info>input,
-  .info>select,
-  .info>textarea,
+  .info > input,
+  .info > select,
+  .info > textarea,
   select.accent,
   select.success,
   select.warning,
@@ -610,7 +642,6 @@
   /* ═══════════════════════════════════════════════════════════════════════════
      Lists
      ═══════════════════════════════════════════════════════════════════════════ */
-
 
   /* ═══════════════════════════════════════════════════════════════════════════
      INFRASTRUCTURE ELEMENTS
@@ -650,10 +681,10 @@
       "footer footer";
   }
 
-  main>article,
-  main>canvas,
-  main>table,
-  main>form {
+  main > article,
+  main > canvas,
+  main > table,
+  main > form {
     grid-area: main;
     min-width: 0;
     min-height: 0;
@@ -696,7 +727,6 @@
     max-width: min(100%, var(--aside-width));
   }
 
-
   /* Footer (optional) */
   footer {
     grid-area: footer;
@@ -727,12 +757,12 @@
     font-family: var(--font-mono);
   }
 
-  pre>[data-element="output-line"] {
+  pre > [data-element="output-line"] {
     display: block;
     color: var(--text);
   }
 
-  pre>[data-element="output-spacer"] {
+  pre > [data-element="output-spacer"] {
     display: block;
     height: 1lh;
   }
@@ -743,15 +773,15 @@
   }
 
   output.accent,
-  .accent>output,
+  .accent > output,
   output.success,
-  .success>output,
+  .success > output,
   output.warning,
-  .warning>output,
+  .warning > output,
   output.danger,
-  .danger>output,
+  .danger > output,
   output.info,
-  .info>output {
+  .info > output {
     color: var(--intent-soft-fg);
   }
 
@@ -761,7 +791,7 @@
     flex-direction: column;
   }
 
-  fieldset>canvas {
+  fieldset > canvas {
     align-self: center;
   }
 
@@ -807,8 +837,6 @@
     text-overflow: ellipsis;
   }
 
-
-
   caption {
     text-align: left;
     border-bottom: 0;
@@ -824,7 +852,7 @@
     overflow: auto;
   }
 
-  [role="tablist"]>[role="tab"] {
+  [role="tablist"] > [role="tab"] {
     flex: 0 0 clamp(4rem, 33%, 9rem);
     min-inline-size: 4rem;
     max-inline-size: 9rem;
@@ -832,7 +860,6 @@
     white-space: nowrap;
     text-overflow: ellipsis;
   }
-
 
   [role="tabpanel"] {
     min-inline-size: 0;
@@ -842,8 +869,6 @@
   [role="tabpanel"][hidden] {
     display: none !important;
   }
-
-
 }
 
 @layer theme {
@@ -852,25 +877,25 @@
     border-spacing: var(--space-3);
   }
 
-  table[data-layout="separate"]>tbody>tr>td,
-  table[data-layout="separate"]>tbody>tr>th {
+  table[data-layout="separate"] > tbody > tr > td,
+  table[data-layout="separate"] > tbody > tr > th {
     vertical-align: top;
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
   }
 
-  [slot="header-controls"]>span[role="separator"] {
+  [slot="header-controls"] > span[role="separator"] {
     width: 1px;
     height: 20px;
     background: var(--border);
   }
 
-  code-editor .code-editor-scroller>pre {
+  code-editor .code-editor-scroller > pre {
     color: var(--code-editor-text);
   }
 
-  code-editor .code-editor-scroller>textarea {
+  code-editor .code-editor-scroller > textarea {
     caret-color: var(--code-editor-caret);
   }
 
@@ -904,8 +929,6 @@
   view--handle {
     z-index: var(--z-index-handle);
   }
-
-
 
   /* backdrop + centering layer */
   view-popup {
@@ -1036,7 +1059,11 @@
   view-toast[position="primary"] {
     right: var(--spacing);
     --toast-stack-offset: 60px;
-    top: calc(var(--spacing) + var(--toast-stack-index, 0) * var(--toast-stack-offset));
+    top: calc(
+      var(--spacing) +
+      var(--toast-stack-index, 0) *
+      var(--toast-stack-offset)
+    );
   }
 
   /* ── position: secondary (bottom-center, last only) ── */

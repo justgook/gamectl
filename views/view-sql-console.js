@@ -1,40 +1,48 @@
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
-import { sql as sqlConnection } from '/util/sql.js'
-
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
+import { sql as sqlConnection } from "/util/sql.js"
 
 function isQueryStatement(sql) {
-  const normalized = String(sql || '').trim().toUpperCase()
-  return normalized.startsWith('SELECT')
-    || normalized.startsWith('PRAGMA')
-    || normalized.startsWith('EXPLAIN')
-    || normalized.startsWith('WITH')
+  const normalized = String(sql || "")
+    .trim()
+    .toUpperCase()
+  return (
+    normalized.startsWith("SELECT") ||
+    normalized.startsWith("PRAGMA") ||
+    normalized.startsWith("EXPLAIN") ||
+    normalized.startsWith("WITH")
+  )
 }
 
 function formatQueryResultAsTable(result) {
   const { columns, rows } = result
-  if (columns.length === 0) return '(0 rows)'
+  if (columns.length === 0) return "(0 rows)"
 
   const columnWidths = columns.map((column) => String(column).length)
   for (const row of rows) {
     columns.forEach((column, index) => {
-      columnWidths[index] = Math.max(columnWidths[index], String(row[column] ?? '').length)
+      columnWidths[index] = Math.max(
+        columnWidths[index],
+        String(row[column] ?? "").length,
+      )
     })
   }
 
-  const separator = `+${columnWidths.map((width) => '-'.repeat(width + 2)).join('+')}+`
+  const separator = `+${columnWidths.map((width) => "-".repeat(width + 2)).join("+")}+`
   const lines = [
     separator,
-    `| ${columns.map((column, index) => String(column).padEnd(columnWidths[index])).join(' | ')} |`,
+    `| ${columns.map((column, index) => String(column).padEnd(columnWidths[index])).join(" | ")} |`,
     separator,
   ]
 
   for (const row of rows) {
-    lines.push(`| ${columns.map((column, index) => String(row[column] ?? '').padEnd(columnWidths[index])).join(' | ')} |`)
+    lines.push(
+      `| ${columns.map((column, index) => String(row[column] ?? "").padEnd(columnWidths[index])).join(" | ")} |`,
+    )
   }
 
   if (rows.length > 0) lines.push(separator)
-  lines.push(`(${rows.length} row${rows.length === 1 ? '' : 's'})`)
-  return lines.join('\n')
+  lines.push(`(${rows.length} row${rows.length === 1 ? "" : "s"})`)
+  return lines.join("\n")
 }
 
 export class ViewSqlConsole extends HTMLElement {
@@ -52,10 +60,10 @@ export class ViewSqlConsole extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
     if (this.dataset.ready) return
-    this.dataset.ready = '1'
+    this.dataset.ready = "1"
 
-    this.style.display = 'contents'
-    this.setAttribute('tabindex', '0')
+    this.style.display = "contents"
+    this.setAttribute("tabindex", "0")
 
     this.innerHTML = `
       <article>
@@ -76,22 +84,27 @@ export class ViewSqlConsole extends HTMLElement {
     this.runButton = this.querySelector('button[type="submit"]')
     this.statusElement = this.querySelector('[data-element="status"]')
 
-    this.formElement?.addEventListener('submit', async (event) => {
+    this.formElement?.addEventListener("submit", async (event) => {
       event.preventDefault()
-      const sql = this.inputElement?.value.trim() || ''
+      const sql = this.inputElement?.value.trim() || ""
       if (!sql) return
       await this.executeQuery(sql)
       this.history.push(sql)
       this.historyIndex = this.history.length
       if (this.inputElement) {
-        this.inputElement.value = ''
+        this.inputElement.value = ""
       }
     })
 
-    this.inputElement?.addEventListener('keydown', (event) => this.handleInputKeyDown(event))
+    this.inputElement?.addEventListener("keydown", (event) =>
+      this.handleInputKeyDown(event),
+    )
 
-    this.appendOutput('info', 'SQL Console Ready. Type SQL queries and press Run or Enter.')
-    this.appendOutput('info', 'Use Shift+Enter for multi-line input.')
+    this.appendOutput(
+      "info",
+      "SQL Console Ready. Type SQL queries and press Run or Enter.",
+    )
+    this.appendOutput("info", "Use Shift+Enter for multi-line input.")
 
     queueMicrotask(() => this.inputElement?.focus())
   }
@@ -99,69 +112,74 @@ export class ViewSqlConsole extends HTMLElement {
   handleInputKeyDown(event) {
     if (!this.inputElement) return
 
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
       this.formElement?.requestSubmit()
       return
     }
 
-    const textarea = this.inputElement.querySelector('textarea')
+    const textarea = this.inputElement.querySelector("textarea")
     if (!textarea) return
 
-    if (event.key === 'ArrowUp' && !event.shiftKey) {
+    if (event.key === "ArrowUp" && !event.shiftKey) {
       const { selectionStart, selectionEnd } = textarea
       if (selectionStart === 0 && selectionEnd === 0 && this.historyIndex > 0) {
         event.preventDefault()
         this.historyIndex--
-        this.inputElement.value = this.history[this.historyIndex] || ''
+        this.inputElement.value = this.history[this.historyIndex] || ""
         queueMicrotask(() => {
-          const nextTextarea = this.inputElement?.querySelector('textarea')
+          const nextTextarea = this.inputElement?.querySelector("textarea")
           if (!nextTextarea) return
-          nextTextarea.selectionStart = nextTextarea.selectionEnd = nextTextarea.value.length
+          nextTextarea.selectionStart = nextTextarea.selectionEnd =
+            nextTextarea.value.length
         })
       }
       return
     }
 
-    if (event.key === 'ArrowDown' && !event.shiftKey) {
+    if (event.key === "ArrowDown" && !event.shiftKey) {
       const { selectionStart, selectionEnd, value } = textarea
       if (selectionStart === value.length && selectionEnd === value.length) {
         event.preventDefault()
         if (this.historyIndex < this.history.length - 1) {
           this.historyIndex++
-          this.inputElement.value = this.history[this.historyIndex] || ''
+          this.inputElement.value = this.history[this.historyIndex] || ""
         } else {
           this.historyIndex = this.history.length
-          this.inputElement.value = ''
+          this.inputElement.value = ""
         }
         queueMicrotask(() => {
-          const nextTextarea = this.inputElement?.querySelector('textarea')
+          const nextTextarea = this.inputElement?.querySelector("textarea")
           if (!nextTextarea) return
-          nextTextarea.selectionStart = nextTextarea.selectionEnd = nextTextarea.value.length
+          nextTextarea.selectionStart = nextTextarea.selectionEnd =
+            nextTextarea.value.length
         })
       }
     }
   }
 
   async executeQuery(sql) {
-    this.appendOutput('command', sql)
-    this.setStatus('Running...', 'info')
+    this.appendOutput("command", sql)
+    this.setStatus("Running...", "info")
     if (this.runButton) this.runButton.disabled = true
 
     try {
       if (isQueryStatement(sql)) {
         const result = await sqlConnection.queryRows(sql)
-        this.appendOutput('result', formatQueryResultAsTable(result))
-        this.setStatus('Query finished', 'success')
+        this.appendOutput("result", formatQueryResultAsTable(result))
+        this.setStatus("Query finished", "success")
       } else {
         const changes = await sqlConnection.exec(sql)
-        this.appendOutput('success', `${changes} row${changes === 1 ? '' : 's'} changed`)
-        this.setStatus('Statement finished', 'success')
+        this.appendOutput(
+          "success",
+          `${changes} row${changes === 1 ? "" : "s"} changed`,
+        )
+        this.setStatus("Statement finished", "success")
       }
     } catch (error) {
-      this.appendOutput('error', error?.message || String(error))
-      this.setStatus(`Error: ${error?.message || error}`, 'danger')
-      console.error('view-sql-console query failed:', error)
+      this.appendOutput("error", error?.message || String(error))
+      this.setStatus(`Error: ${error?.message || error}`, "danger")
+      console.error("view-sql-console query failed:", error)
     } finally {
       if (this.runButton) this.runButton.disabled = false
     }
@@ -170,30 +188,31 @@ export class ViewSqlConsole extends HTMLElement {
   appendOutput(type, content) {
     if (!this.outputElement) return
 
-    const tone = type === 'command'
-      ? 'accent'
-      : type === 'success'
-        ? 'success'
-        : type === 'error'
-          ? 'danger'
-          : type === 'info'
-            ? 'info'
-            : null
+    const tone =
+      type === "command"
+        ? "accent"
+        : type === "success"
+          ? "success"
+          : type === "error"
+            ? "danger"
+            : type === "info"
+              ? "info"
+              : null
 
     if (this.outputElement.childElementCount > 0) {
-      const spacer = document.createElement('span')
-      spacer.dataset.element = 'output-spacer'
-      spacer.textContent = ''
+      const spacer = document.createElement("span")
+      spacer.dataset.element = "output-spacer"
+      spacer.textContent = ""
       this.outputElement.appendChild(spacer)
     }
 
-    const line = document.createElement('span')
-    line.dataset.element = 'output-line'
+    const line = document.createElement("span")
+    line.dataset.element = "output-line"
     if (tone) {
       line.classList.add(tone)
     }
 
-    const prefix = type === 'command' ? '> ' : type === 'error' ? 'ERROR: ' : ''
+    const prefix = type === "command" ? "> " : type === "error" ? "ERROR: " : ""
     line.textContent = `${prefix}${content}`
     this.outputElement.appendChild(line)
     this.outputElement.scrollTop = this.outputElement.scrollHeight
@@ -202,7 +221,13 @@ export class ViewSqlConsole extends HTMLElement {
   setStatus(text, tone = null) {
     if (!this.statusElement) return
     this.statusElement.textContent = text
-    this.statusElement.classList.remove('accent', 'success', 'warning', 'danger', 'info')
+    this.statusElement.classList.remove(
+      "accent",
+      "success",
+      "warning",
+      "danger",
+      "info",
+    )
     if (tone) {
       this.statusElement.classList.add(tone)
     }
@@ -213,6 +238,6 @@ export class ViewSqlConsole extends HTMLElement {
   }
 }
 
-if (!customElements.get('view-sql-console')) {
-  customElements.define('view-sql-console', ViewSqlConsole)
+if (!customElements.get("view-sql-console")) {
+  customElements.define("view-sql-console", ViewSqlConsole)
 }

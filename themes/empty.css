@@ -4,11 +4,11 @@
     overflow: auto;
   }
 
-  .area> ::slotted(*) {
-    background: #CCC;
+  .area > ::slotted(*) {
+    background: #ccc;
   }
 
-  .area>header {
+  .area > header {
     background: aquamarine;
   }
 
@@ -82,7 +82,8 @@
   /**/
   /**/
   /* /* custom checkbox */
-  */
+  * 
+  /
   /* input[type="checkbox"] { */
   /*   appearance: none; */
   /*   width: 18px; */
@@ -116,8 +117,4 @@
   /*   font-size: 12px; */
   /*   font-weight: bold; */
   /* } */
-
-
-
-
 }

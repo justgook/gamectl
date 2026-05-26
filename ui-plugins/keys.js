@@ -1,42 +1,67 @@
 import { runtime, unwrap } from "/core/runtime.js"
 
-
 function normalizeKeyEvent(event) {
   const parts = []
-  if (event.ctrlKey || event.metaKey) parts.push('mod')
-  if (event.shiftKey) parts.push('shift')
-  if (event.altKey) parts.push('alt')
+  if (event.ctrlKey || event.metaKey) parts.push("mod")
+  if (event.shiftKey) parts.push("shift")
+  if (event.altKey) parts.push("alt")
 
   const key = normalizeKeyName(event.key)
-  if (key === 'control' || key === 'meta' || key === 'shift' || key === 'alt') return ''
+  if (key === "control" || key === "meta" || key === "shift" || key === "alt")
+    return ""
   parts.push(key)
-  return parts.join('+')
+  return parts.join("+")
 }
 
 function normalizeConfiguredKey(key) {
-  const parts = String(key).trim().toLowerCase().split('+').map((part) => part.trim()).filter(Boolean)
+  const parts = String(key)
+    .trim()
+    .toLowerCase()
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean)
   const modifiers = []
-  if (parts.includes('mod') || parts.includes('cmdorctrl')) modifiers.push('mod')
-  if (parts.includes('ctrl') || parts.includes('control')) modifiers.push('ctrl')
-  if (parts.includes('cmd') || parts.includes('meta')) modifiers.push('meta')
-  if (parts.includes('shift')) modifiers.push('shift')
-  if (parts.includes('alt') || parts.includes('option')) modifiers.push('alt')
-  const keyPart = [...parts].reverse().find((part) => !['mod', 'cmdorctrl', 'ctrl', 'control', 'cmd', 'meta', 'shift', 'alt', 'option'].includes(part))
-  if (!keyPart) throw new Error(`ui.keys key '${key}' is missing a non-modifier key`)
-  if (modifiers.includes('ctrl') || modifiers.includes('meta')) {
-    throw new Error(`ui.keys key '${key}' must use 'mod' instead of ctrl/cmd for browser shortcuts`)
+  if (parts.includes("mod") || parts.includes("cmdorctrl"))
+    modifiers.push("mod")
+  if (parts.includes("ctrl") || parts.includes("control"))
+    modifiers.push("ctrl")
+  if (parts.includes("cmd") || parts.includes("meta")) modifiers.push("meta")
+  if (parts.includes("shift")) modifiers.push("shift")
+  if (parts.includes("alt") || parts.includes("option")) modifiers.push("alt")
+  const keyPart = [...parts]
+    .reverse()
+    .find(
+      (part) =>
+        ![
+          "mod",
+          "cmdorctrl",
+          "ctrl",
+          "control",
+          "cmd",
+          "meta",
+          "shift",
+          "alt",
+          "option",
+        ].includes(part),
+    )
+  if (!keyPart)
+    throw new Error(`ui.keys key '${key}' is missing a non-modifier key`)
+  if (modifiers.includes("ctrl") || modifiers.includes("meta")) {
+    throw new Error(
+      `ui.keys key '${key}' must use 'mod' instead of ctrl/cmd for browser shortcuts`,
+    )
   }
-  return [...modifiers, normalizeKeyName(keyPart)].join('+')
+  return [...modifiers, normalizeKeyName(keyPart)].join("+")
 }
 
 function normalizeKeyName(key) {
   const text = String(key).toLowerCase()
-  if (text === ' ') return 'space'
-  if (text === 'esc') return 'escape'
-  if (text === 'arrowup') return 'up'
-  if (text === 'arrowdown') return 'down'
-  if (text === 'arrowleft') return 'left'
-  if (text === 'arrowright') return 'right'
+  if (text === " ") return "space"
+  if (text === "esc") return "escape"
+  if (text === "arrowup") return "up"
+  if (text === "arrowdown") return "down"
+  if (text === "arrowleft") return "left"
+  if (text === "arrowright") return "right"
   return text
 }
 
@@ -50,15 +75,14 @@ function isTextInputEvent(event) {
   return false
 }
 
-
 function luaStringLiteral(value) {
   return JSON.stringify(String(value))
 }
 
-
 function parseBindings(config) {
   const keys = config?.ui?.keys || []
-  if (!Array.isArray(keys)) throw new Error('gams config ui.keys must be an array')
+  if (!Array.isArray(keys))
+    throw new Error("gams config ui.keys must be an array")
   return keys.map((binding) => {
     return {
       ...binding,
@@ -77,13 +101,13 @@ export function createUiKeys(config) {
   }
 
   async function snapshotContext(inTextInput) {
-    const ctx = unwrap(await runtime.call('ui.context.snapshot'))
+    const ctx = unwrap(await runtime.call("ui.context.snapshot"))
     ctx.key = { inTextInput }
     return ctx
   }
 
   async function runCall(callSpec, ctx) {
-    const pluginId = callSpec[0].startsWith('activeView')
+    const pluginId = callSpec[0].startsWith("activeView")
       ? callSpec[0].replace("activeView", ctx.activeView.id)
       : callSpec[0]
     unwrap(await runtime.call(String(pluginId), callSpec?.[1] || undefined))
@@ -95,9 +119,14 @@ export function createUiKeys(config) {
       for (const item of value) await dispatchScriptOutput(item, ctx)
       return
     }
-    if (typeof value !== 'object') throw new Error('shortcut script output must be null, object, or array')
+    if (typeof value !== "object")
+      throw new Error("shortcut script output must be null, object, or array")
     if (value.call != null) await runCall(value.call, ctx)
-    if (value.calls != null) await dispatchScriptOutput(value.calls.map((call) => ({ call })), ctx)
+    if (value.calls != null)
+      await dispatchScriptOutput(
+        value.calls.map((call) => ({ call })),
+        ctx,
+      )
   }
 
   async function runBinding(binding, inTextInput) {
@@ -107,9 +136,13 @@ export function createUiKeys(config) {
       return
     }
 
-    const readResult = unwrap(await runtime.invoke('fs/fs::read-text', binding.script))
+    const readResult = unwrap(
+      await runtime.invoke("fs/fs::read-text", binding.script),
+    )
     const source = `_G.ctx = json.decode(${luaStringLiteral(JSON.stringify(ctx))})\n${readResult}`
-    const runResult = JSON.parse(unwrap(await runtime.invoke('lua/lua::run', source)))
+    const runResult = JSON.parse(
+      unwrap(await runtime.invoke("lua/lua::run", source)),
+    )
 
     await dispatchScriptOutput(runResult, ctx)
   }
@@ -126,12 +159,12 @@ export function createUiKeys(config) {
     void runBinding(binding, inTextInput)
   }
 
-  window.addEventListener('keydown', onKeyDown, { capture: true })
+  window.addEventListener("keydown", onKeyDown, { capture: true })
 
   return {
-    id: 'ui.keys',
+    id: "ui.keys",
     dispose() {
-      window.removeEventListener('keydown', onKeyDown, { capture: true })
+      window.removeEventListener("keydown", onKeyDown, { capture: true })
     },
     methods: {
       ping: async () => ({ ok: { bindings: bindings.length } }),

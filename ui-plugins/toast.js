@@ -1,8 +1,6 @@
-
-
 function parseOptions(input) {
-  if (input == null || input === '') return {}
-  if (typeof input === 'string') {
+  if (input == null || input === "") return {}
+  if (typeof input === "string") {
     return { message: input }
   }
 
@@ -24,23 +22,24 @@ export class ToastManager extends HTMLElement {
         return encodeOK(true)
       },
       success: async (input) => {
-        this.show({ ...parseOptions(input), type: 'success' })
+        this.show({ ...parseOptions(input), type: "success" })
         return encodeOK(true)
       },
       error: async (input) => {
-        this.show({ ...parseOptions(input), type: 'error' })
+        this.show({ ...parseOptions(input), type: "error" })
         return encodeOK(true)
       },
       warning: async (input) => {
-        this.show({ ...parseOptions(input), type: 'warning' })
+        this.show({ ...parseOptions(input), type: "warning" })
         return encodeOK(true)
       },
       info: async (input) => {
-        this.show({ ...parseOptions(input), type: 'info' })
+        this.show({ ...parseOptions(input), type: "info" })
         return encodeOK(true)
       },
       alert: async (input) => encodeOK(await this.alert(parseOptions(input))),
-      confirm: async (input) => encodeOK(await this.confirm(parseOptions(input))),
+      confirm: async (input) =>
+        encodeOK(await this.confirm(parseOptions(input))),
       closeAll: async (input) => {
         const options = parseOptions(input)
         this.closeAll(options.position)
@@ -55,7 +54,7 @@ export class ToastManager extends HTMLElement {
 
     this.observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
-        if (mutation.type === 'childList') {
+        if (mutation.type === "childList") {
           this.updateVisibility()
         }
       })
@@ -76,7 +75,7 @@ export class ToastManager extends HTMLElement {
   }
 
   updateVisibility() {
-    const toasts = Array.from(this.querySelectorAll('view-toast'))
+    const toasts = Array.from(this.querySelectorAll("view-toast"))
     const byPosition = {
       primary: [],
       secondary: [],
@@ -84,89 +83,101 @@ export class ToastManager extends HTMLElement {
     }
 
     toasts.forEach((toast) => {
-      const pos = toast.getAttribute('position') || 'primary'
+      const pos = toast.getAttribute("position") || "primary"
       if (byPosition[pos]) {
         byPosition[pos].push(toast)
       }
     })
 
     byPosition.primary.forEach((toast, index) => {
-      toast.removeAttribute('hidden')
-      toast.style.setProperty('--toast-stack-index', index)
+      toast.removeAttribute("hidden")
+      toast.style.setProperty("--toast-stack-index", index)
     })
 
     byPosition.secondary.forEach((toast, index, arr) => {
-      if (index === arr.length - 1) toast.removeAttribute('hidden')
-      else toast.setAttribute('hidden', '')
+      if (index === arr.length - 1) toast.removeAttribute("hidden")
+      else toast.setAttribute("hidden", "")
     })
 
     byPosition.modal.forEach((toast, index, arr) => {
-      if (index === arr.length - 1) toast.removeAttribute('hidden')
-      else toast.setAttribute('hidden', '')
+      if (index === arr.length - 1) toast.removeAttribute("hidden")
+      else toast.setAttribute("hidden", "")
     })
   }
 
-  show({ message = '', type = 'info', duration = 3000, position = 'primary' } = {}) {
-    const toast = document.createElement('view-toast')
-    toast.setAttribute('type', type)
-    toast.setAttribute('position', position)
-    toast.setAttribute('duration', duration.toString())
-    toast.setAttribute('mode', 'toast')
+  show({
+    message = "",
+    type = "info",
+    duration = 3000,
+    position = "primary",
+  } = {}) {
+    const toast = document.createElement("view-toast")
+    toast.setAttribute("type", type)
+    toast.setAttribute("position", position)
+    toast.setAttribute("duration", duration.toString())
+    toast.setAttribute("mode", "toast")
     toast.textContent = message
     this.appendChild(toast)
     return toast
   }
 
-  async alert({ message = '', type = 'info', buttonText = 'OK' } = {}) {
-    const toast = document.createElement('view-toast')
-    toast.setAttribute('type', type)
-    toast.setAttribute('position', 'modal')
-    toast.setAttribute('duration', '0')
-    toast.setAttribute('mode', 'alert')
-    toast.setAttribute('confirm-text', buttonText)
+  async alert({ message = "", type = "info", buttonText = "OK" } = {}) {
+    const toast = document.createElement("view-toast")
+    toast.setAttribute("type", type)
+    toast.setAttribute("position", "modal")
+    toast.setAttribute("duration", "0")
+    toast.setAttribute("mode", "alert")
+    toast.setAttribute("confirm-text", buttonText)
     toast.textContent = message
     this.appendChild(toast)
     return await toast.promise
   }
 
-  async confirm({ message = '', type = 'info', confirmText = 'Confirm', cancelText = 'Cancel' } = {}) {
-    const toast = document.createElement('view-toast')
-    toast.setAttribute('type', type)
-    toast.setAttribute('position', 'modal')
-    toast.setAttribute('duration', '0')
-    toast.setAttribute('mode', 'confirm')
-    toast.setAttribute('confirm-text', confirmText)
-    toast.setAttribute('cancel-text', cancelText)
+  async confirm({
+    message = "",
+    type = "info",
+    confirmText = "Confirm",
+    cancelText = "Cancel",
+  } = {}) {
+    const toast = document.createElement("view-toast")
+    toast.setAttribute("type", type)
+    toast.setAttribute("position", "modal")
+    toast.setAttribute("duration", "0")
+    toast.setAttribute("mode", "confirm")
+    toast.setAttribute("confirm-text", confirmText)
+    toast.setAttribute("cancel-text", cancelText)
     toast.textContent = message
     this.appendChild(toast)
     return await toast.promise
   }
 
   closeAll(position) {
-    const selector = position ? `view-toast[position="${position}"]` : 'view-toast'
+    const selector = position
+      ? `view-toast[position="${position}"]`
+      : "view-toast"
     const toasts = this.querySelectorAll(selector)
     toasts.forEach((toast) => toast.close(false))
   }
 
   get toasts() {
-    return Array.from(this.querySelectorAll('view-toast'))
+    return Array.from(this.querySelectorAll("view-toast"))
   }
 
   get toastCount() {
-    return this.querySelectorAll('view-toast').length
+    return this.querySelectorAll("view-toast").length
   }
 }
 
-if (!customElements.get('toast-manager')) {
-  customElements.define('toast-manager', ToastManager)
+if (!customElements.get("toast-manager")) {
+  customElements.define("toast-manager", ToastManager)
 }
 
 /**
  * Toast Component
- * 
+ *
  * Individual toast notification with auto-dismiss, hover pause, and action buttons.
  * Supports three modes: toast (simple notification), alert (requires acknowledgment), confirm (yes/no).
- * 
+ *
  * Attributes:
  * - type: 'info' | 'success' | 'warning' | 'error' (default: 'info')
  * - position: 'primary' | 'secondary' | 'modal' (default: 'primary')
@@ -175,10 +186,10 @@ if (!customElements.get('toast-manager')) {
  */
 
 const TYPE_TO_INTENT = {
-  info: 'info',
-  success: 'success',
-  warning: 'warning',
-  error: 'danger',
+  info: "info",
+  success: "success",
+  warning: "warning",
+  error: "danger",
 }
 
 const TOAST_TEMPLATE_HTML = {
@@ -205,11 +216,13 @@ const TOAST_TEMPLATE_HTML = {
   `,
 }
 
-const TOAST_TEMPLATES = Object.fromEntries(Object.entries(TOAST_TEMPLATE_HTML).map(([mode, html]) => {
-  const template = document.createElement('template')
-  template.innerHTML = html
-  return [mode, template]
-}))
+const TOAST_TEMPLATES = Object.fromEntries(
+  Object.entries(TOAST_TEMPLATE_HTML).map(([mode, html]) => {
+    const template = document.createElement("template")
+    template.innerHTML = html
+    return [mode, template]
+  }),
+)
 
 function cloneTemplateForMode(mode) {
   const template = TOAST_TEMPLATES[mode] || TOAST_TEMPLATES.toast
@@ -247,7 +260,7 @@ export class ViewToast extends HTMLElement {
    * Get duration from attribute (default 3000ms, 0 = no auto-dismiss)
    */
   get duration() {
-    const dur = parseInt(this.getAttribute('duration'), 10)
+    const dur = parseInt(this.getAttribute("duration"), 10)
     return isNaN(dur) ? 3000 : dur
   }
 
@@ -255,21 +268,21 @@ export class ViewToast extends HTMLElement {
    * Get mode from attribute
    */
   get mode() {
-    return this.getAttribute('mode') || 'toast'
+    return this.getAttribute("mode") || "toast"
   }
 
   /**
    * Get type from attribute
    */
   get type() {
-    return this.getAttribute('type') || 'info'
+    return this.getAttribute("type") || "info"
   }
 
   /**
    * Get position from attribute
    */
   get position() {
-    return this.getAttribute('position') || 'primary'
+    return this.getAttribute("position") || "primary"
   }
 
   /**
@@ -278,7 +291,7 @@ export class ViewToast extends HTMLElement {
   get promise() {
     if (this._promise) return this._promise
 
-    this._promise = new Promise(resolve => {
+    this._promise = new Promise((resolve) => {
       this._resolve = resolve
     })
 
@@ -293,35 +306,41 @@ export class ViewToast extends HTMLElement {
     const message = this.textContent.trim()
 
     // Clear current content
-    this.innerHTML = ''
+    this.innerHTML = ""
 
     // Apply intent class from type (info→.info, success→.success, error→.danger)
-    const intentClass = TYPE_TO_INTENT[this.type] || 'info'
+    const intentClass = TYPE_TO_INTENT[this.type] || "info"
     this.classList.add(intentClass)
 
     // Set position attribute for CSS
-    if (!this.hasAttribute('position')) {
-      this.setAttribute('position', 'primary')
+    if (!this.hasAttribute("position")) {
+      this.setAttribute("position", "primary")
     }
 
     // Clone mode template from local JS constants
     const templateContent = cloneTemplateForMode(this.mode)
 
     // Set message
-    const messageElement = templateContent.querySelector('[data-element="message"]')
+    const messageElement = templateContent.querySelector(
+      '[data-element="message"]',
+    )
     if (messageElement) {
       messageElement.textContent = message
     }
 
     // Set custom button text if provided
-    const confirmButton = templateContent.querySelector('[data-element="confirm-button"]')
-    if (confirmButton && this.hasAttribute('confirm-text')) {
-      confirmButton.textContent = this.getAttribute('confirm-text')
+    const confirmButton = templateContent.querySelector(
+      '[data-element="confirm-button"]',
+    )
+    if (confirmButton && this.hasAttribute("confirm-text")) {
+      confirmButton.textContent = this.getAttribute("confirm-text")
     }
 
-    const cancelButton = templateContent.querySelector('[data-element="cancel-button"]')
-    if (cancelButton && this.hasAttribute('cancel-text')) {
-      cancelButton.textContent = this.getAttribute('cancel-text')
+    const cancelButton = templateContent.querySelector(
+      '[data-element="cancel-button"]',
+    )
+    if (cancelButton && this.hasAttribute("cancel-text")) {
+      cancelButton.textContent = this.getAttribute("cancel-text")
     }
 
     // Handle close button visibility
@@ -329,7 +348,7 @@ export class ViewToast extends HTMLElement {
     if (closeButton) {
       // Always visible if no timer, hover-only if has timer
       if (this.duration > 0) {
-        closeButton.classList.add('toast-close-hover-only')
+        closeButton.classList.add("toast-close-hover-only")
       }
     }
 
@@ -342,8 +361,8 @@ export class ViewToast extends HTMLElement {
    */
   setupEventHandlers() {
     // Click to close (for toast mode)
-    if (this.mode === 'toast') {
-      this.addEventListener('click', (e) => {
+    if (this.mode === "toast") {
+      this.addEventListener("click", (e) => {
         // Don't close if clicking close button (it has its own handler)
         if (e.target.closest('[data-action="close"]')) return
         this.close(true)
@@ -351,7 +370,7 @@ export class ViewToast extends HTMLElement {
     }
 
     // Close button
-    this.addEventListener('click', (e) => {
+    this.addEventListener("click", (e) => {
       if (e.target.closest('[data-action="close"]')) {
         e.stopPropagation()
         this.close(true)
@@ -359,14 +378,14 @@ export class ViewToast extends HTMLElement {
     })
 
     // Confirm button
-    this.addEventListener('click', (e) => {
+    this.addEventListener("click", (e) => {
       if (e.target.closest('[data-action="confirm"]')) {
         this.close(true)
       }
     })
 
     // Cancel button
-    this.addEventListener('click', (e) => {
+    this.addEventListener("click", (e) => {
       if (e.target.closest('[data-action="cancel"]')) {
         this.close(false)
       }
@@ -374,8 +393,8 @@ export class ViewToast extends HTMLElement {
 
     // Hover pause/resume (only for timed toasts)
     if (this.duration > 0) {
-      this.addEventListener('mouseenter', () => this.pauseTimer())
-      this.addEventListener('mouseleave', () => this.resetTimer())
+      this.addEventListener("mouseenter", () => this.pauseTimer())
+      this.addEventListener("mouseleave", () => this.resetTimer())
     }
   }
 
@@ -386,39 +405,40 @@ export class ViewToast extends HTMLElement {
     const position = this.position
 
     // Set initial state based on position
-    this.style.opacity = '0'
+    this.style.opacity = "0"
 
-    if (position === 'primary') {
-      this.style.transform = 'translateX(100%)'
-    } else if (position === 'secondary') {
-      this.style.transform = 'translateX(-50%) translateY(100%)'
-    } else if (position === 'modal') {
-      this.style.transform = 'translate(-50%, -50%) scale(0.95)'
+    if (position === "primary") {
+      this.style.transform = "translateX(100%)"
+    } else if (position === "secondary") {
+      this.style.transform = "translateX(-50%) translateY(100%)"
+    } else if (position === "modal") {
+      this.style.transform = "translate(-50%, -50%) scale(0.95)"
     }
 
-    this.style.transition = 'none'
+    this.style.transition = "none"
 
     // Force reflow
     this.offsetHeight
 
     // Animate to final state
-    this.style.transition = 'opacity var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out), transform var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out)'
-    this.style.opacity = '1'
+    this.style.transition =
+      "opacity var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out), transform var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out)"
+    this.style.opacity = "1"
 
-    if (position === 'primary') {
-      this.style.transform = 'translateX(0)'
-    } else if (position === 'secondary') {
-      this.style.transform = 'translateX(-50%) translateY(0)'
-    } else if (position === 'modal') {
-      this.style.transform = 'translate(-50%, -50%) scale(1)'
+    if (position === "primary") {
+      this.style.transform = "translateX(0)"
+    } else if (position === "secondary") {
+      this.style.transform = "translateX(-50%) translateY(0)"
+    } else if (position === "modal") {
+      this.style.transform = "translate(-50%, -50%) scale(1)"
     }
 
     // Clean up inline styles after animation
     setTimeout(() => {
       if (!this.isClosing) {
-        this.style.transition = ''
-        this.style.transform = ''  // Clear to let CSS handle stacking
-        this.style.opacity = ''
+        this.style.transition = ""
+        this.style.transform = "" // Clear to let CSS handle stacking
+        this.style.opacity = ""
       }
     }, 200)
   }
@@ -428,7 +448,7 @@ export class ViewToast extends HTMLElement {
    */
   startTimer() {
     if (this.duration <= 0) return
-    if (this.mode !== 'toast') return // No auto-dismiss for alert/confirm
+    if (this.mode !== "toast") return // No auto-dismiss for alert/confirm
 
     this.remainingTime = this.duration
     this.startTime = Date.now()
@@ -495,24 +515,27 @@ export class ViewToast extends HTMLElement {
     }
 
     // Emit closing event
-    this.dispatchEvent(new CustomEvent('toast-closing', {
-      detail: { toast: this, result },
-      bubbles: true,
-      cancelable: false
-    }))
+    this.dispatchEvent(
+      new CustomEvent("toast-closing", {
+        detail: { toast: this, result },
+        bubbles: true,
+        cancelable: false,
+      }),
+    )
 
     // Animate out based on position
     const position = this.position
 
-    this.style.transition = 'opacity var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out), transform var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out)'
-    this.style.opacity = '0'
+    this.style.transition =
+      "opacity var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out), transform var(--toast-animation-duration, 200ms) var(--toast-animation-easing, ease-out)"
+    this.style.opacity = "0"
 
-    if (position === 'primary') {
-      this.style.transform = 'translateX(100%)'
-    } else if (position === 'secondary') {
-      this.style.transform = 'translateX(-50%) translateY(100%)'
-    } else if (position === 'modal') {
-      this.style.transform = 'translate(-50%, -50%) scale(0.95)'
+    if (position === "primary") {
+      this.style.transform = "translateX(100%)"
+    } else if (position === "secondary") {
+      this.style.transform = "translateX(-50%) translateY(100%)"
+    } else if (position === "modal") {
+      this.style.transform = "translate(-50%, -50%) scale(0.95)"
     }
 
     // Remove after animation
@@ -534,7 +557,6 @@ export class ViewToast extends HTMLElement {
   }
 }
 
-if (!customElements.get('view-toast')) {
-  customElements.define('view-toast', ViewToast)
+if (!customElements.get("view-toast")) {
+  customElements.define("view-toast", ViewToast)
 }
-

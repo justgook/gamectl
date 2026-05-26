@@ -1,5 +1,5 @@
-import { runtime, unwrap } from '/core/runtime.js'
-import { registerViewPlugin, unregisterViewPlugin } from '/util/view-plugin.js'
+import { runtime, unwrap } from "/core/runtime.js"
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 const DEFAULT_TILE_SIZE = 16
 const DEFAULT_MAP_WIDTH = 32
@@ -10,20 +10,21 @@ function assert(condition, message) {
 }
 
 function basename(path) {
-  const normalized = String(path || '').trim()
-  const parts = normalized.split('/').filter(Boolean)
+  const normalized = String(path || "").trim()
+  const parts = normalized.split("/").filter(Boolean)
   return parts.length > 0 ? parts[parts.length - 1] : normalized
 }
 
 function parsePositiveInt(value, label) {
   const parsed = Number.parseInt(String(value), 10)
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${label} must be a positive integer`)
+  if (!Number.isInteger(parsed) || parsed <= 0)
+    throw new Error(`${label} must be a positive integer`)
   return parsed
 }
 
 export class TilemapSettings extends HTMLElement {
   static get observedAttributes() {
-    return ['data-source', 'data-mode', 'data-title']
+    return ["data-source", "data-mode", "data-title"]
   }
 
   constructor() {
@@ -42,8 +43,8 @@ export class TilemapSettings extends HTMLElement {
   connectedCallback() {
     registerViewPlugin(this)
     if (this.dataset.ready) return
-    this.dataset.ready = '1'
-    this.style.display = 'contents'
+    this.dataset.ready = "1"
+    this.style.display = "contents"
 
     this.innerHTML = `
       <form data-element="form" novalidate>
@@ -80,22 +81,54 @@ export class TilemapSettings extends HTMLElement {
     this.statusElement = this.querySelector('[data-element="status"]')
     this.saveButton = this.querySelector('[data-action="save"]')
 
-    assert(this.formElement instanceof HTMLFormElement, 'tilemap-settings missing form')
-    assert(this.legendElement instanceof HTMLLegendElement, 'tilemap-settings missing legend')
-    assert(this.nameInput instanceof HTMLInputElement, 'tilemap-settings missing name input')
-    assert(this.tileSizeInput instanceof HTMLInputElement, 'tilemap-settings missing tile size input')
-    assert(this.widthInput instanceof HTMLInputElement, 'tilemap-settings missing map width input')
-    assert(this.heightInput instanceof HTMLInputElement, 'tilemap-settings missing map height input')
-    assert(this.statusElement instanceof HTMLOutputElement, 'tilemap-settings missing status output')
-    assert(this.saveButton instanceof HTMLButtonElement, 'tilemap-settings missing save button')
+    assert(
+      this.formElement instanceof HTMLFormElement,
+      "tilemap-settings missing form",
+    )
+    assert(
+      this.legendElement instanceof HTMLLegendElement,
+      "tilemap-settings missing legend",
+    )
+    assert(
+      this.nameInput instanceof HTMLInputElement,
+      "tilemap-settings missing name input",
+    )
+    assert(
+      this.tileSizeInput instanceof HTMLInputElement,
+      "tilemap-settings missing tile size input",
+    )
+    assert(
+      this.widthInput instanceof HTMLInputElement,
+      "tilemap-settings missing map width input",
+    )
+    assert(
+      this.heightInput instanceof HTMLInputElement,
+      "tilemap-settings missing map height input",
+    )
+    assert(
+      this.statusElement instanceof HTMLOutputElement,
+      "tilemap-settings missing status output",
+    )
+    assert(
+      this.saveButton instanceof HTMLButtonElement,
+      "tilemap-settings missing save button",
+    )
 
     this.applyModeText()
 
-    this.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-      unwrap(await runtime.call('ui.popup.close', { reload: false, cancelled: true }))
-    })
+    this.querySelector('[data-action="cancel"]').addEventListener(
+      "click",
+      async () => {
+        unwrap(
+          await runtime.call("ui.popup.close", {
+            reload: false,
+            cancelled: true,
+          }),
+        )
+      },
+    )
 
-    this.formElement.addEventListener('submit', async (event) => {
+    this.formElement.addEventListener("submit", async (event) => {
       event.preventDefault()
       await this.save()
     })
@@ -106,59 +139,67 @@ export class TilemapSettings extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
     if (!this.dataset.ready) return
-    if (name === 'data-source' || name === 'data-mode') void this.load()
-    if (name === 'data-title' || name === 'data-mode') this.applyModeText()
+    if (name === "data-source" || name === "data-mode") void this.load()
+    if (name === "data-title" || name === "data-mode") this.applyModeText()
   }
 
   get mode() {
-    const mode = String(this.getAttribute('data-mode') || 'edit').trim()
-    assert(mode === 'create' || mode === 'edit', `tilemap-settings unsupported data-mode ${mode}`)
+    const mode = String(this.getAttribute("data-mode") || "edit").trim()
+    assert(
+      mode === "create" || mode === "edit",
+      `tilemap-settings unsupported data-mode ${mode}`,
+    )
     return mode
   }
 
   applyModeText() {
-    const title = String(this.getAttribute('data-title') || (this.mode === 'create' ? 'Create Tilemap' : 'Tilemap Settings')).trim()
+    const title = String(
+      this.getAttribute("data-title") ||
+        (this.mode === "create" ? "Create Tilemap" : "Tilemap Settings"),
+    ).trim()
     this.legendElement.textContent = title
-    this.saveButton.textContent = this.mode === 'create' ? 'Create' : 'Save'
+    this.saveButton.textContent = this.mode === "create" ? "Create" : "Save"
   }
 
   dataSourcePath() {
-    const value = String(this.getAttribute('data-source') || '').trim()
-    assert(value.length > 0, 'tilemap-settings requires data-source path')
+    const value = String(this.getAttribute("data-source") || "").trim()
+    assert(value.length > 0, "tilemap-settings requires data-source path")
     return value
   }
 
   async load() {
     try {
-      if (this.mode === 'create') {
+      if (this.mode === "create") {
         this.tilemap = this.createDefaultTilemap()
         this.renderTilemap(this.tilemap)
-        this.setStatus('Enter tilemap path and settings', 'info')
+        this.setStatus("Enter tilemap path and settings", "info")
         queueMicrotask(() => this.nameInput.focus())
         return
       }
 
       const path = this.dataSourcePath()
-      this.setStatus(`Loading ${path}…`, 'info')
+      this.setStatus(`Loading ${path}…`, "info")
       this.tilemap = await this.loadTilemap(path)
       this.renderTilemap(this.tilemap)
-      this.setStatus(`Loaded ${path}`, 'success')
+      this.setStatus(`Loaded ${path}`, "success")
       queueMicrotask(() => this.nameInput.focus())
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`, 'danger')
+      this.setStatus(`Error: ${error.message}`, "danger")
     }
   }
 
   createDefaultTilemap() {
     return {
-      path: '',
+      path: "",
       data: {
         props: { tileSize: String(DEFAULT_TILE_SIZE) },
-        layers: [{
-          width: DEFAULT_MAP_WIDTH,
-          data: new Array(DEFAULT_MAP_WIDTH * DEFAULT_MAP_HEIGHT).fill(0),
-          props: { name: 'Layer 0' },
-        }],
+        layers: [
+          {
+            width: DEFAULT_MAP_WIDTH,
+            data: new Array(DEFAULT_MAP_WIDTH * DEFAULT_MAP_HEIGHT).fill(0),
+            props: { name: "Layer 0" },
+          },
+        ],
       },
     }
   }
@@ -171,51 +212,107 @@ export class TilemapSettings extends HTMLElement {
 
   validateStorageData(data) {
     console.warn("update tilemap data validation to json-schema")
-    assert(data && typeof data === 'object' && !Array.isArray(data), 'tilemap storage data must be object JSON')
-    assert(Array.isArray(data.layers), 'tilemap storage data.layers must be array')
-    assert(data.layers.length > 0, 'tilemap storage must contain at least one layer')
+    assert(
+      data && typeof data === "object" && !Array.isArray(data),
+      "tilemap storage data must be object JSON",
+    )
+    assert(
+      Array.isArray(data.layers),
+      "tilemap storage data.layers must be array",
+    )
+    assert(
+      data.layers.length > 0,
+      "tilemap storage must contain at least one layer",
+    )
     for (const [index, layer] of data.layers.entries()) {
-      assert(layer && typeof layer === 'object' && !Array.isArray(layer), `tilemap layer ${index} must be object`)
-      assert(Number.isInteger(layer.width) && layer.width > 0, `tilemap layer ${index}.width must be positive integer`)
-      assert(Array.isArray(layer.data), `tilemap layer ${index}.data must be array`)
+      assert(
+        layer && typeof layer === "object" && !Array.isArray(layer),
+        `tilemap layer ${index} must be object`,
+      )
+      assert(
+        Number.isInteger(layer.width) && layer.width > 0,
+        `tilemap layer ${index}.width must be positive integer`,
+      )
+      assert(
+        Array.isArray(layer.data),
+        `tilemap layer ${index}.data must be array`,
+      )
     }
   }
 
   renderTilemap(tilemap) {
-    const props = tilemap.data.props && typeof tilemap.data.props === 'object' && !Array.isArray(tilemap.data.props) ? tilemap.data.props : {}
+    const props =
+      tilemap.data.props &&
+      typeof tilemap.data.props === "object" &&
+      !Array.isArray(tilemap.data.props)
+        ? tilemap.data.props
+        : {}
     this.nameInput.value = tilemap.path
-    this.tileSizeInput.value = String(parsePositiveInt(props.tileSize ?? props.sourceTileSize ?? props.tw ?? DEFAULT_TILE_SIZE, 'Tile size'))
-    this.widthInput.value = String(Math.max(...tilemap.data.layers.map((layer) => layer.width)))
-    this.heightInput.value = String(Math.max(...tilemap.data.layers.map((layer) => Math.ceil(layer.data.length / layer.width))))
+    this.tileSizeInput.value = String(
+      parsePositiveInt(
+        props.tileSize ?? props.sourceTileSize ?? props.tw ?? DEFAULT_TILE_SIZE,
+        "Tile size",
+      ),
+    )
+    this.widthInput.value = String(
+      Math.max(...tilemap.data.layers.map((layer) => layer.width)),
+    )
+    this.heightInput.value = String(
+      Math.max(
+        ...tilemap.data.layers.map((layer) =>
+          Math.ceil(layer.data.length / layer.width),
+        ),
+      ),
+    )
   }
 
   async save() {
-    assert(this.tilemap, 'tilemap-settings save requires loaded tilemap')
+    assert(this.tilemap, "tilemap-settings save requires loaded tilemap")
     const path = this.nameInput.value.trim()
     if (!path) {
-      this.nameInput.classList.add('danger')
+      this.nameInput.classList.add("danger")
       this.nameInput.focus()
-      this.setStatus('Error: Path is required', 'danger')
+      this.setStatus("Error: Path is required", "danger")
       return
     }
-    this.nameInput.classList.remove('danger')
+    this.nameInput.classList.remove("danger")
 
-    const tileSize = parsePositiveInt(this.tileSizeInput.value, 'Tile size')
-    const width = parsePositiveInt(this.widthInput.value, 'Map width')
-    const height = parsePositiveInt(this.heightInput.value, 'Map height')
+    const tileSize = parsePositiveInt(this.tileSizeInput.value, "Tile size")
+    const width = parsePositiveInt(this.widthInput.value, "Map width")
+    const height = parsePositiveInt(this.heightInput.value, "Map height")
 
-    const data = this.updatedStorageData(this.tilemap.data, { tileSize, width, height })
-    this.setStatus('Saving…', 'info')
+    const data = this.updatedStorageData(this.tilemap.data, {
+      tileSize,
+      width,
+      height,
+    })
+    this.setStatus("Saving…", "info")
     try {
-      unwrap(await runtime.invoke('fs/fs::write-text', path, `${JSON.stringify(data, null, 2)}\n`))
-      unwrap(await runtime.call('ui.popup.close', { reload: true, cancelled: false, path, name: basename(path) }))
+      unwrap(
+        await runtime.invoke(
+          "fs/fs::write-text",
+          path,
+          `${JSON.stringify(data, null, 2)}\n`,
+        ),
+      )
+      unwrap(
+        await runtime.call("ui.popup.close", {
+          reload: true,
+          cancelled: false,
+          path,
+          name: basename(path),
+        }),
+      )
     } catch (error) {
-      this.setStatus(`Error: ${error.message}`, 'danger')
+      this.setStatus(`Error: ${error.message}`, "danger")
     }
   }
 
   updatedStorageData(data, settings) {
-    const props = data.props && typeof data.props === 'object' && !Array.isArray(data.props) ? { ...data.props } : {}
+    const props =
+      data.props && typeof data.props === "object" && !Array.isArray(data.props)
+        ? { ...data.props }
+        : {}
     props.tileSize = String(settings.tileSize)
 
     return {
@@ -223,7 +320,12 @@ export class TilemapSettings extends HTMLElement {
       layers: data.layers.map((layer) => ({
         width: settings.width,
         data: this.resizeLayerData(layer, settings.width, settings.height),
-        props: layer.props && typeof layer.props === 'object' && !Array.isArray(layer.props) ? { ...layer.props } : {},
+        props:
+          layer.props &&
+          typeof layer.props === "object" &&
+          !Array.isArray(layer.props)
+            ? { ...layer.props }
+            : {},
       })),
     }
   }
@@ -244,16 +346,21 @@ export class TilemapSettings extends HTMLElement {
 
   setStatus(text, tone = null) {
     this.statusElement.textContent = text
-    this.statusElement.classList.remove('accent', 'success', 'warning', 'danger', 'info')
+    this.statusElement.classList.remove(
+      "accent",
+      "success",
+      "warning",
+      "danger",
+      "info",
+    )
     if (tone) this.statusElement.classList.add(tone)
   }
-
 
   disconnectedCallback() {
     void unregisterViewPlugin(this)
   }
 }
 
-if (!customElements.get('tilemap-settings')) {
-  customElements.define('tilemap-settings', TilemapSettings)
+if (!customElements.get("tilemap-settings")) {
+  customElements.define("tilemap-settings", TilemapSettings)
 }

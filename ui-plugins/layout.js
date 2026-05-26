@@ -6,27 +6,28 @@ function resultOk(value) {
 }
 
 function parseLayoutInput(input) {
-  if (typeof input === 'string') return input
-  if (input == null) return ''
-  if (typeof input === 'object' && !Array.isArray(input)) {
-    if (typeof input.layout === 'string') return input.layout
-    if (typeof input.layoutMarkup === 'string') return input.layoutMarkup
+  if (typeof input === "string") return input
+  if (input == null) return ""
+  if (typeof input === "object" && !Array.isArray(input)) {
+    if (typeof input.layout === "string") return input.layout
+    if (typeof input.layoutMarkup === "string") return input.layoutMarkup
   }
-  throw new Error('ui.layout.load input must be a layout string or object with layout/layoutMarkup')
+  throw new Error(
+    "ui.layout.load input must be a layout string or object with layout/layoutMarkup",
+  )
 }
 
-const DEFAULT_VIEW_GROUP_LABEL = 'Main'
-
+const DEFAULT_VIEW_GROUP_LABEL = "Main"
 
 export class ViewEmpty extends HTMLElement {
   connectedCallback() {
-    this.style.display = 'grid'
-    this.style.placeItems = 'center'
-    this.style.minHeight = '100%'
-    this.style.padding = '16px'
-    this.style.color = 'var(--text-muted)'
-    const label = this.getAttribute('data-view-label') || 'Empty'
-    const tag = this.getAttribute('data-view-tag') || 'view-empty'
+    this.style.display = "grid"
+    this.style.placeItems = "center"
+    this.style.minHeight = "100%"
+    this.style.padding = "16px"
+    this.style.color = "var(--text-muted)"
+    const label = this.getAttribute("data-view-label") || "Empty"
+    const tag = this.getAttribute("data-view-tag") || "view-empty"
     this.innerHTML = `
       <div style="text-align:center; display:grid; gap:8px;">
         <strong style="color:var(--text);">${label}</strong>
@@ -37,7 +38,9 @@ export class ViewEmpty extends HTMLElement {
 }
 
 export class ViewArea extends HTMLElement {
-  static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel'] }
+  static get observedAttributes() {
+    return ["x", "y", "w", "h", "panel"]
+  }
 
   constructor() {
     super()
@@ -48,7 +51,7 @@ export class ViewArea extends HTMLElement {
     this._panel = "unknown"
     this._selectorReady = false
 
-    const shadowRoot = this.attachShadow({ mode: 'open' })
+    const shadowRoot = this.attachShadow({ mode: "open" })
     shadowRoot.innerHTML = `<link rel="stylesheet" href="/css/reset.css">
       <link rel="stylesheet" href="/css/base.css">
       <header part="header">
@@ -69,39 +72,68 @@ export class ViewArea extends HTMLElement {
   }
 
   attributeChangedCallback(name, _oldVal, newVal) {
-    if (name === 'x') this._x = parseFloat(newVal)
-    if (name === 'y') this._y = parseFloat(newVal)
-    if (name === 'w') this._w = parseFloat(newVal)
-    if (name === 'h') this._h = parseFloat(newVal)
-    if (name === 'panel') this._panel = newVal
+    if (name === "x") this._x = parseFloat(newVal)
+    if (name === "y") this._y = parseFloat(newVal)
+    if (name === "w") this._w = parseFloat(newVal)
+    if (name === "h") this._h = parseFloat(newVal)
+    if (name === "panel") this._panel = newVal
     this._updatePosition()
   }
 
-  set x(v) { this.setAttribute('x', v) }
-  set y(v) { this.setAttribute('y', v) }
-  set w(v) { this.setAttribute('w', v) }
-  set h(v) { this.setAttribute('h', v) }
-  set panel(v) { this.setAttribute('panel', v) }
+  set x(v) {
+    this.setAttribute("x", v)
+  }
+  set y(v) {
+    this.setAttribute("y", v)
+  }
+  set w(v) {
+    this.setAttribute("w", v)
+  }
+  set h(v) {
+    this.setAttribute("h", v)
+  }
+  set panel(v) {
+    this.setAttribute("panel", v)
+  }
 
-  get x() { return this._x; }
-  get y() { return this._y; }
-  get w() { return this._w; }
-  get h() { return this._h; }
-  get panel() { return this._panel; }
+  get x() {
+    return this._x
+  }
+  get y() {
+    return this._y
+  }
+  get w() {
+    return this._w
+  }
+  get h() {
+    return this._h
+  }
+  get panel() {
+    return this._panel
+  }
 
   getCurrentView() {
-    return this.shadowRoot.querySelector('slot:not([name])')?.assignedElements?.()[0] || this.firstElementChild || null
+    return (
+      this.shadowRoot
+        .querySelector("slot:not([name])")
+        ?.assignedElements?.()[0] ||
+      this.firstElementChild ||
+      null
+    )
   }
 
   getCurrentViewTag() {
     const currentView = this.getCurrentView()
-    if (!currentView) return 'view-empty'
-    return currentView.getAttribute('data-view-tag') || currentView.tagName.toLowerCase()
+    if (!currentView) return "view-empty"
+    return (
+      currentView.getAttribute("data-view-tag") ||
+      currentView.tagName.toLowerCase()
+    )
   }
 
   requireOwner() {
     if (!this.owner) {
-      throw new Error('view-area owner is not set')
+      throw new Error("view-area owner is not set")
     }
     return this.owner
   }
@@ -123,7 +155,7 @@ export class ViewArea extends HTMLElement {
     if (this._selectorReady) return
     this._selectorReady = true
     const select = this.shadowRoot.querySelector('[data-action="select-view"]')
-    select.addEventListener('change', (event) => {
+    select.addEventListener("change", (event) => {
       if (event.target.value) void this.switchView(event.target.value)
     })
   }
@@ -135,19 +167,19 @@ export class ViewArea extends HTMLElement {
     const owner = this.requireOwner()
     const currentTag = this.getCurrentViewTag()
 
-    select.innerHTML = ''
+    select.innerHTML = ""
     const optionGroups = new Map()
     for (const [tag, entry] of [...owner.viewRegistry.entries()]) {
       if (entry.internal === true) continue
       const groupName = entry.group || DEFAULT_VIEW_GROUP_LABEL
       if (!optionGroups.has(groupName)) {
-        const node = document.createElement('optgroup')
+        const node = document.createElement("optgroup")
         node.label = groupName
         optionGroups.set(groupName, node)
       }
       const optGroup = optionGroups.get(groupName)
 
-      const option = document.createElement('option')
+      const option = document.createElement("option")
       option.value = tag
       option.textContent = entry.label || tag
       optGroup.appendChild(option)
@@ -168,10 +200,12 @@ export class ViewArea extends HTMLElement {
   }
 }
 
-class Corner extends HTMLElement { }
+class Corner extends HTMLElement {}
 
 class Handle extends HTMLElement {
-  static get observedAttributes() { return ['x', 'y', 'w', 'h', 'panel'] }
+  static get observedAttributes() {
+    return ["x", "y", "w", "h", "panel"]
+  }
 
   constructor() {
     super()
@@ -183,30 +217,50 @@ class Handle extends HTMLElement {
   }
 
   connectedCallback() {
-    this.style.position = 'absolute'
+    this.style.position = "absolute"
     this._updatePosition()
   }
 
   attributeChangedCallback(name, _oldVal, newVal) {
-    if (name === 'x') this._x = parseFloat(newVal)
-    if (name === 'y') this._y = parseFloat(newVal)
-    if (name === 'w') this._w = parseFloat(newVal)
-    if (name === 'h') this._h = parseFloat(newVal)
-    if (name === 'panel') this._panel = newVal
+    if (name === "x") this._x = parseFloat(newVal)
+    if (name === "y") this._y = parseFloat(newVal)
+    if (name === "w") this._w = parseFloat(newVal)
+    if (name === "h") this._h = parseFloat(newVal)
+    if (name === "panel") this._panel = newVal
     this._updatePosition()
   }
 
-  set x(v) { this.setAttribute('x', v) }
-  set y(v) { this.setAttribute('y', v) }
-  set w(v) { this.setAttribute('w', v) }
-  set h(v) { this.setAttribute('h', v) }
-  set panel(v) { this.setAttribute('panel', v) }
+  set x(v) {
+    this.setAttribute("x", v)
+  }
+  set y(v) {
+    this.setAttribute("y", v)
+  }
+  set w(v) {
+    this.setAttribute("w", v)
+  }
+  set h(v) {
+    this.setAttribute("h", v)
+  }
+  set panel(v) {
+    this.setAttribute("panel", v)
+  }
 
-  get x() { return this._x; }
-  get y() { return this._y; }
-  get w() { return this._w; }
-  get h() { return this._h; }
-  get panel() { return this._panel; }
+  get x() {
+    return this._x
+  }
+  get y() {
+    return this._y
+  }
+  get w() {
+    return this._w
+  }
+  get h() {
+    return this._h
+  }
+  get panel() {
+    return this._panel
+  }
 
   _updatePosition() {
     this.style.left = `${this._x}px`
@@ -220,9 +274,6 @@ export class UiLayout extends HTMLElement {
   constructor() {
     super()
     this.document = {}
-
-
-
 
     this.viewRegistry = new Map()
     this.content = new Map()
@@ -268,11 +319,11 @@ export class UiLayout extends HTMLElement {
 
   connectedCallback() {
     this.style.isolation = "isolate"
-    this.style.position = 'fixed'
-    this.style.inset = '0'
-    this.style.display = 'block'
-    this.style.overflow = 'hidden'
-    this.style.background = 'var(--bg)'
+    this.style.position = "fixed"
+    this.style.inset = "0"
+    this.style.display = "block"
+    this.style.overflow = "hidden"
+    this.style.background = "var(--bg)"
     this.resizeObserver.observe(this)
   }
 
@@ -282,7 +333,10 @@ export class UiLayout extends HTMLElement {
   }
 
   async callLayout(method, ...args) {
-    const result = unwrap(await runtime.invoke(`layout/layout::${method}`, ...args), `Layout::${method}`)
+    const result = unwrap(
+      await runtime.invoke(`layout/layout::${method}`, ...args),
+      `Layout::${method}`,
+    )
     this.document = result.document
   }
 
@@ -293,16 +347,30 @@ export class UiLayout extends HTMLElement {
       "min-panel-size": 120,
       "handle-half-size": 6,
     }
-    await this.callLayout('init-screen', { w, h, config, "root-content-id": `${contentId}` })
+    await this.callLayout("init-screen", {
+      w,
+      h,
+      config,
+      "root-content-id": `${contentId}`,
+    })
   }
 
   async resizeScreen(w, h) {
-    await this.callLayout('resize-screen', { w, h, "handle-half-size": 6, document: this.document })
+    await this.callLayout("resize-screen", {
+      w,
+      h,
+      "handle-half-size": 6,
+      document: this.document,
+    })
   }
 
   clampPoint(x, y, inclusiveMax = false) {
-    const maxX = inclusiveMax ? this.document["screen-w"] : Math.max(0, this.document["screen-w"] - 1)
-    const maxY = inclusiveMax ? this.document["screen-h"] : Math.max(0, this.document["screen-h"] - 1)
+    const maxX = inclusiveMax
+      ? this.document["screen-w"]
+      : Math.max(0, this.document["screen-w"] - 1)
+    const maxY = inclusiveMax
+      ? this.document["screen-h"]
+      : Math.max(0, this.document["screen-h"] - 1)
 
     return {
       x: Math.max(0, Math.min(maxX, Math.floor(x))),
@@ -311,31 +379,31 @@ export class UiLayout extends HTMLElement {
   }
 
   async moveHandle(contentId, x, y) {
-    await this.callLayout('move-handle', {
+    await this.callLayout("move-handle", {
       "handle-content-id": `${contentId}`,
       document: this.document,
-      ...this.clampPoint(x, y, true)
+      ...this.clampPoint(x, y, true),
     })
   }
 
   async moveCorner(contentId, cornerIndex, x, y, newId) {
     const p = this.clampPoint(x, y, false)
-    await this.callLayout('move-corner', {
+    await this.callLayout("move-corner", {
       "area-content-id": `${contentId}`,
       "new-area-content-id": `${newId}`,
       "new-handle-content-id": `handle_${newId}`,
       "corner-index": cornerIndex,
       document: this.document,
-      ...p
+      ...p,
     })
   }
 
   async tryCorner(contentId, cornerIndex, x, y) {
-    await this.callLayout('try-corner', {
+    await this.callLayout("try-corner", {
       "area-content-id": `${contentId}`,
       "corner-index": cornerIndex,
       document: this.document,
-      ...this.clampPoint(x, y, false)
+      ...this.clampPoint(x, y, false),
     })
   }
 
@@ -346,13 +414,14 @@ export class UiLayout extends HTMLElement {
     }
   }
 
-  async createView(tag, attrs = {}, innerHTML = '') {
+  async createView(tag, attrs = {}, innerHTML = "") {
     const entry = this.viewRegistry.get(tag) || null
-    const viewNode = typeof entry?.create === 'function'
-      ? await entry.create({ tag, attrs, innerHTML, layout: this })
-      : document.createElement(tag)
+    const viewNode =
+      typeof entry?.create === "function"
+        ? await entry.create({ tag, attrs, innerHTML, layout: this })
+        : document.createElement(tag)
     for (const [name, value] of Object.entries(attrs || {})) {
-      if (name === 'setup') continue
+      if (name === "setup") continue
       if (!viewNode.hasAttribute?.(name)) viewNode.setAttribute?.(name, value)
     }
     if (innerHTML && !viewNode.innerHTML) viewNode.innerHTML = innerHTML
@@ -360,12 +429,16 @@ export class UiLayout extends HTMLElement {
   }
 
   async instantiateView(spec) {
-    const viewNode = await this.createView(spec.tag, spec.attrs || {}, spec.innerHTML || '')
+    const viewNode = await this.createView(
+      spec.tag,
+      spec.attrs || {},
+      spec.innerHTML || "",
+    )
     for (const [name, value] of Object.entries(spec.attrs || {})) {
-      if (name === 'setup') continue
+      if (name === "setup") continue
       viewNode.setAttribute(name, value)
     }
-    viewNode.innerHTML = spec.innerHTML || ''
+    viewNode.innerHTML = spec.innerHTML || ""
     return viewNode
   }
 
@@ -374,12 +447,12 @@ export class UiLayout extends HTMLElement {
     for (const attr of Array.from(node.attributes || [])) {
       clone.setAttribute(attr.name, attr.value)
     }
-    clone.innerHTML = node.innerHTML || ''
+    clone.innerHTML = node.innerHTML || ""
     return clone
   }
 
   createChromeForViewNode(viewNode, contentId) {
-    const chrome = document.createElement('view-area')
+    const chrome = document.createElement("view-area")
     chrome.owner = this
     chrome.panel = contentId
     chrome.appendChild(viewNode)
@@ -397,9 +470,9 @@ export class UiLayout extends HTMLElement {
 
   ensureTryRect() {
     if (this.tryRectEl) return
-    this.tryRectEl = document.createElement('div')
-    this.tryRectEl.className = 'layout-try-rect'
-    this.tryRectEl.style.display = 'none'
+    this.tryRectEl = document.createElement("div")
+    this.tryRectEl.className = "layout-try-rect"
+    this.tryRectEl.style.display = "none"
     this.appendChild(this.tryRectEl)
   }
 
@@ -427,8 +500,17 @@ export class UiLayout extends HTMLElement {
     this.cornerDrag.raf = requestAnimationFrame(async () => {
       this.cornerDrag.raf = 0
       if (!this.cornerDrag.active) return
-      if (this.cornerDrag.x === this.cornerDrag.lastX && this.cornerDrag.y === this.cornerDrag.lastY) return
-      await this.tryCorner(this.cornerDrag.contentId, this.cornerDrag.cornerIndex, this.cornerDrag.x, this.cornerDrag.y)
+      if (
+        this.cornerDrag.x === this.cornerDrag.lastX &&
+        this.cornerDrag.y === this.cornerDrag.lastY
+      )
+        return
+      await this.tryCorner(
+        this.cornerDrag.contentId,
+        this.cornerDrag.cornerIndex,
+        this.cornerDrag.x,
+        this.cornerDrag.y,
+      )
       this.cornerDrag.lastX = this.cornerDrag.x
       this.cornerDrag.lastY = this.cornerDrag.y
       this.render()
@@ -441,11 +523,11 @@ export class UiLayout extends HTMLElement {
       cancelAnimationFrame(this.cornerDrag.raf)
       this.cornerDrag.raf = 0
     }
-    if (this.tryRectEl) this.tryRectEl.style.display = 'none'
+    if (this.tryRectEl) this.tryRectEl.style.display = "none"
   }
 
   spawnHandle() {
-    const node = document.createElement('view--handle')
+    const node = document.createElement("view--handle")
     makeHandleDraggable(this, node, async (x, y) => {
       await this.moveHandle(node.panel, x, y)
       await this.refresh()
@@ -458,21 +540,34 @@ export class UiLayout extends HTMLElement {
   ensureChrome(contentId) {
     let chrome = this.content.get(contentId)
     if (chrome) return chrome
-    chrome = this.createChromeForViewNode(document.createElement('view-empty'), contentId)
+    chrome = this.createChromeForViewNode(
+      document.createElement("view-empty"),
+      contentId,
+    )
     return chrome
   }
 
   addCorners(node, contentId) {
     if (node.dataset.cornersReady) return
-    node.dataset.cornersReady = '1'
-      ;['nw', 'ne', 'se', 'sw'].forEach((c, cornerId) => {
-        const s = document.createElement('view--corner')
-        s.classList.add(c)
-        makeCornerDraggable(this, s, async (x, y) => {
-          await this.moveCorner(contentId, cornerId, x, y, ++this.contentCounter)
+    node.dataset.cornersReady = "1"
+    ;["nw", "ne", "se", "sw"].forEach((c, cornerId) => {
+      const s = document.createElement("view--corner")
+      s.classList.add(c)
+      makeCornerDraggable(
+        this,
+        s,
+        async (x, y) => {
+          await this.moveCorner(
+            contentId,
+            cornerId,
+            x,
+            y,
+            ++this.contentCounter,
+          )
           this.stopCornerPreview()
           await this.refresh()
-        }, {
+        },
+        {
           onStart: (x, y) => {
             this.startCornerPreview(contentId, cornerId, x, y)
           },
@@ -481,21 +576,25 @@ export class UiLayout extends HTMLElement {
             this.stopCornerPreview()
             this.render()
           },
-        })
-        node.appendChild(s)
-      })
+        },
+      )
+      node.appendChild(s)
+    })
   }
 
   parseSetup(setup, index) {
-    const parts = String(setup).split(':')
-    if (parts.length !== 3) throw new Error(`layout child ${index}: invalid setup format '${setup}'`)
+    const parts = String(setup).split(":")
+    if (parts.length !== 3)
+      throw new Error(`layout child ${index}: invalid setup format '${setup}'`)
 
     const [targetText, axis, percentText] = parts
     const target = Number.parseInt(targetText, 10)
     const percent = Number.parseInt(percentText, 10)
 
-    if (!Number.isInteger(target) || target < 0) throw new Error(`layout child ${index}: invalid target '${targetText}'`)
-    if (axis !== 'v' && axis !== 'h') throw new Error(`layout child ${index}: invalid axis '${axis}'`)
+    if (!Number.isInteger(target) || target < 0)
+      throw new Error(`layout child ${index}: invalid target '${targetText}'`)
+    if (axis !== "v" && axis !== "h")
+      throw new Error(`layout child ${index}: invalid axis '${axis}'`)
     if (!Number.isInteger(percent) || percent <= 0 || percent >= 100) {
       throw new Error(`layout child ${index}: invalid percent '${percentText}'`)
     }
@@ -509,7 +608,7 @@ export class UiLayout extends HTMLElement {
     const splitX = area.x0 + Math.floor(width * (percent / 100))
     const splitY = area.y0 + Math.floor(height * (percent / 100))
 
-    if (axis === 'h') {
+    if (axis === "h") {
       return {
         corner: 0,
         x: splitX,
@@ -525,14 +624,19 @@ export class UiLayout extends HTMLElement {
   }
 
   async load(layoutData) {
-    const markup = String(layoutData || '').trim()
-    if (!markup) throw new Error('layout markup is required')
+    const markup = String(layoutData || "").trim()
+    if (!markup) throw new Error("layout markup is required")
 
     const parser = new DOMParser()
-    const xmlDoc = parser.parseFromString(`<layout>${markup}</layout>`, 'text/xml')
-    const parseError = xmlDoc.querySelector('parsererror')
+    const xmlDoc = parser.parseFromString(
+      `<layout>${markup}</layout>`,
+      "text/xml",
+    )
+    const parseError = xmlDoc.querySelector("parsererror")
     if (parseError) {
-      throw new Error(`invalid layout markup: ${parseError.textContent?.trim() || 'parse error'}`)
+      throw new Error(
+        `invalid layout markup: ${parseError.textContent?.trim() || "parse error"}`,
+      )
     }
 
     const sourceSpecs = xmlDoc.childNodes[0].childNodes
@@ -540,12 +644,15 @@ export class UiLayout extends HTMLElement {
       .filter((n) => n.nodeType === 1)
       .map((n) => ({
         tag: n.tagName,
-        attrs: Object.fromEntries([...n.attributes].map((attr) => [attr.name, attr.value])),
-        innerHTML: n.innerHTML || '',
+        attrs: Object.fromEntries(
+          [...n.attributes].map((attr) => [attr.name, attr.value]),
+        ),
+        innerHTML: n.innerHTML || "",
       }))
 
-    if (specs.length === 0) throw new Error('root view must be defined')
-    if (specs[0].attrs.setup) throw new Error('layout child 0: root view cannot define setup')
+    if (specs.length === 0) throw new Error("root view must be defined")
+    if (specs[0].attrs.setup)
+      throw new Error("layout child 0: root view cannot define setup")
 
     this.stopCornerPreview()
     this.replaceChildren()
@@ -554,8 +661,14 @@ export class UiLayout extends HTMLElement {
     this.tryRectEl = null
     this.contentCounter = 45
 
-    const width = Math.max(64, Math.floor(this.clientWidth || window.innerWidth || 0))
-    const height = Math.max(64, Math.floor(this.clientHeight || window.innerHeight || 0))
+    const width = Math.max(
+      64,
+      Math.floor(this.clientWidth || window.innerWidth || 0),
+    )
+    const height = Math.max(
+      64,
+      Math.floor(this.clientHeight || window.innerHeight || 0),
+    )
 
     let contentId = `${++this.contentCounter}`
     const areas = [contentId]
@@ -569,10 +682,20 @@ export class UiLayout extends HTMLElement {
 
       const { target, axis, percent } = this.parseSetup(setup, i)
 
-      const split = this.splitPointForArea(this.document.areas[target].bounds, axis, percent)
+      const split = this.splitPointForArea(
+        this.document.areas[target].bounds,
+        axis,
+        percent,
+      )
       contentId = `${++this.contentCounter}`
       areas.push(contentId)
-      await this.moveCorner(areas[target], split.corner, split.x, split.y, contentId)
+      await this.moveCorner(
+        areas[target],
+        split.corner,
+        split.x,
+        split.y,
+        contentId,
+      )
       await this.createChromeForViewSpec(spec, contentId)
     }
 
@@ -602,7 +725,6 @@ export class UiLayout extends HTMLElement {
       this.content.delete(contentId)
     }
 
-
     while (this.handles.length < handles.length) this.spawnHandle()
     for (let id = 0; id < handles.length; id += 1) {
       const item = handles[id].bounds
@@ -613,19 +735,20 @@ export class UiLayout extends HTMLElement {
       node.h = item.y1 - item.y0
       node.panel = handles[id]["content-id"]
     }
-    for (let i = handles.length; i < this.handles.length; i += 1) this.handles[i]?.remove()
+    for (let i = handles.length; i < this.handles.length; i += 1)
+      this.handles[i]?.remove()
     this.handles.length = handles.length
 
     if (this.cornerDrag.active && this.document.preview.valid) {
       const tr = this.document.preview.bounds
       this.ensureTryRect()
-      this.tryRectEl.style.display = 'block'
+      this.tryRectEl.style.display = "block"
       this.tryRectEl.style.left = `${tr.x0}px`
       this.tryRectEl.style.top = `${tr.y0}px`
       this.tryRectEl.style.width = `${Math.max(1, tr.x1 - tr.x0)}px`
       this.tryRectEl.style.height = `${Math.max(1, tr.y1 - tr.y0)}px`
     } else if (this.tryRectEl) {
-      this.tryRectEl.style.display = 'none'
+      this.tryRectEl.style.display = "none"
     }
 
     this.lastGeneration = this.document.generation
@@ -637,8 +760,8 @@ export class UiLayout extends HTMLElement {
 }
 
 function makeCornerDraggable(host, handleEl, callback, options = {}) {
-  handleEl.style.touchAction = 'none'
-  handleEl.style.userSelect = 'none'
+  handleEl.style.touchAction = "none"
+  handleEl.style.userSelect = "none"
   let dragging = false
   let pointerId = null
 
@@ -648,21 +771,23 @@ function makeCornerDraggable(host, handleEl, callback, options = {}) {
   }
 
   const cleanup = () => {
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener("pointermove", onMove)
+    window.removeEventListener("pointerup", onUp)
+    window.removeEventListener("pointercancel", onCancel)
   }
 
   const onMove = (e) => {
     if (!dragging || e.pointerId !== pointerId) return
     const cur = toHostLocal(e.clientX, e.clientY)
-    if (typeof options.onMove === 'function') options.onMove(cur.x, cur.y)
+    if (typeof options.onMove === "function") options.onMove(cur.x, cur.y)
   }
 
   const onUp = (e) => {
     if (!dragging || e.pointerId !== pointerId) return
     dragging = false
-    try { handleEl.releasePointerCapture(pointerId) } catch { }
+    try {
+      handleEl.releasePointerCapture(pointerId)
+    } catch {}
     cleanup()
     const local = toHostLocal(e.clientX, e.clientY)
     callback(local.x, local.y)
@@ -671,28 +796,30 @@ function makeCornerDraggable(host, handleEl, callback, options = {}) {
   const onCancel = (e) => {
     if (!dragging || e.pointerId !== pointerId) return
     dragging = false
-    try { handleEl.releasePointerCapture(pointerId) } catch { }
+    try {
+      handleEl.releasePointerCapture(pointerId)
+    } catch {}
     cleanup()
-    if (typeof options.onCancel === 'function') options.onCancel()
+    if (typeof options.onCancel === "function") options.onCancel()
   }
 
-  handleEl.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return
+  handleEl.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return
     e.preventDefault()
     dragging = true
     pointerId = e.pointerId
     const start = toHostLocal(e.clientX, e.clientY)
-    if (typeof options.onStart === 'function') options.onStart(start.x, start.y)
+    if (typeof options.onStart === "function") options.onStart(start.x, start.y)
     handleEl.setPointerCapture(pointerId)
-    window.addEventListener('pointermove', onMove, { passive: false })
-    window.addEventListener('pointerup', onUp, { passive: false })
-    window.addEventListener('pointercancel', onCancel, { passive: false })
+    window.addEventListener("pointermove", onMove, { passive: false })
+    window.addEventListener("pointerup", onUp, { passive: false })
+    window.addEventListener("pointercancel", onCancel, { passive: false })
   })
 }
 
 function makeHandleDraggable(host, handleEl, callback) {
-  handleEl.style.touchAction = 'none'
-  handleEl.style.userSelect = 'none'
+  handleEl.style.touchAction = "none"
+  handleEl.style.userSelect = "none"
   let dragging = false
   let pointerId = null
 
@@ -702,9 +829,9 @@ function makeHandleDraggable(host, handleEl, callback) {
   }
 
   const cleanup = () => {
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onUp)
+    window.removeEventListener("pointermove", onMove)
+    window.removeEventListener("pointerup", onUp)
+    window.removeEventListener("pointercancel", onUp)
   }
 
   const onMove = (e) => {
@@ -716,30 +843,33 @@ function makeHandleDraggable(host, handleEl, callback) {
   const onUp = (e) => {
     if (!dragging || e.pointerId !== pointerId) return
     dragging = false
-    try { handleEl.releasePointerCapture(pointerId) } catch { }
+    try {
+      handleEl.releasePointerCapture(pointerId)
+    } catch {}
     cleanup()
     const local = toHostLocal(e.clientX, e.clientY)
     callback(local.x, local.y)
   }
 
-  handleEl.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return
+  handleEl.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return
     e.preventDefault()
     dragging = true
     pointerId = e.pointerId
     handleEl.setPointerCapture(pointerId)
-    window.addEventListener('pointermove', onMove, { passive: false })
-    window.addEventListener('pointerup', onUp, { passive: false })
-    window.addEventListener('pointercancel', onUp, { passive: false })
+    window.addEventListener("pointermove", onMove, { passive: false })
+    window.addEventListener("pointerup", onUp, { passive: false })
+    window.addEventListener("pointercancel", onUp, { passive: false })
   })
 }
 
-if (!customElements.get('view-empty')) customElements.define('view-empty', ViewEmpty)
-if (!customElements.get('view-area')) customElements.define('view-area', ViewArea)
-if (!customElements.get('view--corner')) customElements.define('view--corner', Corner)
-if (!customElements.get('view--handle')) customElements.define('view--handle', Handle)
-if (!customElements.get('ui-layout')) customElements.define('ui-layout', UiLayout)
-
-
-
-
+if (!customElements.get("view-empty"))
+  customElements.define("view-empty", ViewEmpty)
+if (!customElements.get("view-area"))
+  customElements.define("view-area", ViewArea)
+if (!customElements.get("view--corner"))
+  customElements.define("view--corner", Corner)
+if (!customElements.get("view--handle"))
+  customElements.define("view--handle", Handle)
+if (!customElements.get("ui-layout"))
+  customElements.define("ui-layout", UiLayout)

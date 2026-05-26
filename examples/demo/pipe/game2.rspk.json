@@ -6,14 +6,7 @@
       "world": "world"
     }
   },
-  "data": [
-    "Positions",
-    "Atlas",
-    "Sprites",
-    "LUT",
-    "Tilemaps",
-    "Segments"
-  ],
+  "data": ["Positions", "Atlas", "Sprites", "LUT", "Tilemaps", "Segments"],
   "types": {
     "Vec2": {
       "type": "array",

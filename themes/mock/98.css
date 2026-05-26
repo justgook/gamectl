@@ -34,7 +34,14 @@
   --radio-left: calc(-1 * var(--radio-total-width-precalc));
   --radio-dot-width: 4px;
   --radio-dot-top: calc(var(--radio-width) / 2 - var(--radio-dot-width) / 2);
-  --radio-dot-left: calc(-1 * (var(--radio-total-width-precalc)) + var(--radio-width) / 2 - var(--radio-dot-width) / 2);
+  --radio-dot-left: calc(
+    -1 *
+    (var(--radio-total-width-precalc)) +
+    var(--radio-width) /
+    2 -
+    var(--radio-dot-width) /
+    2
+  );
 
   --checkbox-total-width-precalc: var(--checkbox-width) + var(--radio-label-spacing);
   --checkbox-total-width: calc(var(--checkbox-total-width-precalc));
@@ -44,37 +51,45 @@
 
   /* Borders */
   --border-width: 1px;
-  --border-raised-outer: inset -1px -1px var(--window-frame),
-    inset 1px 1px var(--button-highlight);
-  --border-raised-inner: inset -2px -2px var(--button-shadow),
-    inset 2px 2px var(--button-face);
-  --border-sunken-outer: inset -1px -1px var(--button-highlight),
-    inset 1px 1px var(--window-frame);
-  --border-sunken-inner: inset -2px -2px var(--button-face),
-    inset 2px 2px var(--button-shadow);
-  --default-button-border-raised-outer: inset -2px -2px var(--window-frame), inset 1px 1px var(--window-frame);
-  --default-button-border-raised-inner: inset 2px 2px var(--button-highlight), inset -3px -3px var(--button-shadow), inset 3px 3px var(--button-face);
-  --default-button-border-sunken-outer: inset 2px 2px var(--window-frame), inset -1px -1px var(--window-frame);
-  --default-button-border-sunken-inner: inset -2px -2px var(--button-highlight), inset 3px 3px var(--button-shadow), inset -3px -3px var(--button-face);
-
+  --border-raised-outer:
+    inset -1px -1px var(--window-frame), inset 1px 1px var(--button-highlight);
+  --border-raised-inner:
+    inset -2px -2px var(--button-shadow), inset 2px 2px var(--button-face);
+  --border-sunken-outer:
+    inset -1px -1px var(--button-highlight), inset 1px 1px var(--window-frame);
+  --border-sunken-inner:
+    inset -2px -2px var(--button-face), inset 2px 2px var(--button-shadow);
+  --default-button-border-raised-outer:
+    inset -2px -2px var(--window-frame), inset 1px 1px var(--window-frame);
+  --default-button-border-raised-inner:
+    inset 2px 2px var(--button-highlight), inset -3px -3px var(--button-shadow),
+    inset 3px 3px var(--button-face);
+  --default-button-border-sunken-outer:
+    inset 2px 2px var(--window-frame), inset -1px -1px var(--window-frame);
+  --default-button-border-sunken-inner:
+    inset -2px -2px var(--button-highlight), inset 3px 3px var(--button-shadow),
+    inset -3px -3px var(--button-face);
 
   /* Window borders flip button-face and button-highlight */
-  --border-window-outer: inset -1px -1px var(--window-frame),
-    inset 1px 1px var(--button-face);
-  --border-window-inner: inset -2px -2px var(--button-shadow),
-    inset 2px 2px var(--button-highlight);
+  --border-window-outer:
+    inset -1px -1px var(--window-frame), inset 1px 1px var(--button-face);
+  --border-window-inner:
+    inset -2px -2px var(--button-shadow), inset 2px 2px var(--button-highlight);
 
   /* Field borders (checkbox, input, etc) flip window-frame and button-shadow */
-  --border-field: inset -1px -1px var(--button-highlight),
+  --border-field:
+    inset -1px -1px var(--button-highlight),
     inset 1px 1px var(--button-shadow), inset -2px -2px var(--button-face),
     inset 2px 2px var(--window-frame);
-  --border-status-field: inset -1px -1px var(--button-face), inset 1px 1px var(--button-shadow);
+  --border-status-field:
+    inset -1px -1px var(--button-face), inset 1px 1px var(--button-shadow);
 
   /* Tabs */
-  --border-tab: inset -1px 0 var(--window-frame),
+  --border-tab:
+    inset -1px 0 var(--window-frame),
     inset 1px 1px var(--button-face),
     inset -2px 0 var(--button-shadow),
-    inset 2px 2px var(--button-highlight)
+    inset 2px 2px var(--button-highlight);
 }
 
 @font-face {
@@ -110,7 +125,7 @@ table,
 ul.tree-view,
 .window,
 .title-bar,
-li[role=tab] {
+li[role="tab"] {
   font-family: "Pixelated MS Sans Serif", Arial;
   -webkit-font-smoothing: none;
   font-size: 11px;
@@ -156,7 +171,9 @@ input[type="reset"] {
 button.default,
 input[type="submit"].default,
 input[type="reset"].default {
-  box-shadow: var(--default-button-border-raised-outer), var(--default-button-border-raised-inner);
+  box-shadow:
+    var(--default-button-border-raised-outer),
+    var(--default-button-border-raised-inner);
 }
 
 .vertical-bar {
@@ -176,11 +193,12 @@ input[type="reset"]:not(:disabled):active {
 button.default:not(:disabled):active,
 input[type="submit"].default:not(:disabled):active,
 input[type="reset"].default:not(:disabled):active {
-  box-shadow: var(--default-button-border-sunken-outer), var(--default-button-border-sunken-inner);
+  box-shadow:
+    var(--default-button-border-sunken-outer),
+    var(--default-button-border-sunken-inner);
 }
 
-@media (not(hover)) {
-
+@media (not (hover)) {
   button:not(:disabled):hover,
   input[type="submit"]:not(:disabled):hover,
   input[type="reset"]:not(:disabled):hover {
@@ -202,16 +220,16 @@ input[type="reset"]::-moz-focus-inner {
 }
 
 :disabled,
-:disabled+label,
+:disabled + label,
 input[readonly],
-input[readonly]+label {
+input[readonly] + label {
   color: var(--button-shadow);
 }
 
 button:disabled,
 input[type="submit"]:disabled,
 input[type="reset"]:disabled,
-:disabled+label {
+:disabled + label {
   text-shadow: 1px 1px 0 var(--button-highlight);
 }
 
@@ -222,9 +240,11 @@ input[type="reset"]:disabled,
 }
 
 .title-bar {
-  background: linear-gradient(90deg,
-      var(--dialog-blue),
-      var(--dialog-blue-light));
+  background: linear-gradient(
+    90deg,
+    var(--dialog-blue),
+    var(--dialog-blue-light)
+  );
   padding: 3px 2px 3px 3px;
   display: flex;
   justify-content: space-between;
@@ -232,9 +252,11 @@ input[type="reset"]:disabled,
 }
 
 .title-bar.inactive {
-  background: linear-gradient(90deg,
-      var(--dialog-gray),
-      var(--dialog-gray-light));
+  background: linear-gradient(
+    90deg,
+    var(--dialog-gray),
+    var(--dialog-gray-light)
+  );
 }
 
 .title-bar-text {
@@ -339,11 +361,11 @@ legend {
   align-items: center;
 }
 
-[class^="field-row"]+[class^="field-row"] {
+[class^="field-row"] + [class^="field-row"] {
   margin-top: var(--grouped-element-spacing);
 }
 
-.field-row>*+* {
+.field-row > * + * {
   margin-left: var(--grouped-element-spacing);
 }
 
@@ -352,7 +374,7 @@ legend {
   flex-direction: column;
 }
 
-.field-row-stacked *+* {
+.field-row-stacked * + * {
   margin-top: var(--grouped-element-spacing);
 }
 
@@ -374,17 +396,17 @@ input[type="checkbox"] {
   border: none;
 }
 
-input[type="radio"]+label,
-input[type="checkbox"]+label {
+input[type="radio"] + label,
+input[type="checkbox"] + label {
   line-height: 13px;
 }
 
-input[type="radio"]+label {
+input[type="radio"] + label {
   position: relative;
   margin-left: var(--radio-total-width);
 }
 
-input[type="radio"]+label::before {
+input[type="radio"] + label::before {
   content: "";
   position: absolute;
   top: 0;
@@ -396,11 +418,11 @@ input[type="radio"]+label::before {
   background: svg-load("./icon/radio-border.svg");
 }
 
-input[type="radio"]:active+label::before {
+input[type="radio"]:active + label::before {
   background: svg-load("./icon/radio-border-disabled.svg");
 }
 
-input[type="radio"]:checked+label::after {
+input[type="radio"]:checked + label::after {
   content: "";
   display: block;
   width: var(--radio-dot-width);
@@ -411,25 +433,25 @@ input[type="radio"]:checked+label::after {
   background: svg-load("./icon/radio-dot.svg");
 }
 
-input[type="radio"]:focus+label,
-input[type="checkbox"]:focus+label {
+input[type="radio"]:focus + label,
+input[type="checkbox"]:focus + label {
   outline: 1px dotted #000000;
 }
 
-input[type="radio"][disabled]+label::before {
+input[type="radio"][disabled] + label::before {
   background: svg-load("./icon/radio-border-disabled.svg");
 }
 
-input[type="radio"][disabled]:checked+label::after {
+input[type="radio"][disabled]:checked + label::after {
   background: svg-load("./icon/radio-dot-disabled.svg");
 }
 
-input[type="checkbox"]+label {
+input[type="checkbox"] + label {
   position: relative;
   margin-left: var(--checkbox-total-width);
 }
 
-input[type="checkbox"]+label::before {
+input[type="checkbox"] + label::before {
   content: "";
   position: absolute;
   left: calc(-1 * (var(--checkbox-total-width-precalc)));
@@ -441,25 +463,29 @@ input[type="checkbox"]+label::before {
   margin-right: var(--radio-label-spacing);
 }
 
-input[type="checkbox"]:active+label::before {
+input[type="checkbox"]:active + label::before {
   background: var(--surface);
 }
 
-input[type="checkbox"]:checked+label::after {
+input[type="checkbox"]:checked + label::after {
   content: "";
   display: block;
   width: var(--checkmark-width);
   height: var(--checkmark-width);
   position: absolute;
-  left: calc(-1 * (var(--checkbox-total-width-precalc)) + var(--checkmark-left));
+  left: calc(
+    -1 *
+    (var(--checkbox-total-width-precalc)) +
+    var(--checkmark-left)
+  );
   background: svg-load("./icon/checkmark.svg");
 }
 
-input[type="checkbox"][disabled]+label::before {
+input[type="checkbox"][disabled] + label::before {
   background: var(--surface);
 }
 
-input[type="checkbox"][disabled]:checked+label::after {
+input[type="checkbox"][disabled]:checked + label::after {
   background: svg-load("./icon/checkmark-disabled.svg");
 }
 
@@ -499,13 +525,13 @@ input[type="number"] {
 }
 
 /* clears the ‘X’ from Internet Explorer */
-input[type=search]::-ms-clear {
+input[type="search"]::-ms-clear {
   display: none;
   width: 0;
   height: 0;
 }
 
-input[type=search]::-ms-reveal {
+input[type="search"]::-ms-reveal {
   display: none;
   width: 0;
   height: 0;
@@ -618,8 +644,15 @@ input[type="range"]::-webkit-slider-runnable-track {
   background: black;
   border-right: 1px solid grey;
   border-bottom: 1px solid grey;
-  box-shadow: 1px 0 0 white, 1px 1px 0 white, 0 1px 0 white, -1px 0 0 darkgrey,
-    -1px -1px 0 darkgrey, 0 -1px 0 darkgrey, -1px 1px 0 white, 1px -1px darkgrey;
+  box-shadow:
+    1px 0 0 white,
+    1px 1px 0 white,
+    0 1px 0 white,
+    -1px 0 0 darkgrey,
+    -1px -1px 0 darkgrey,
+    0 -1px 0 darkgrey,
+    -1px 1px 0 white,
+    1px -1px darkgrey;
 }
 
 input[type="range"]::-moz-range-track {
@@ -629,8 +662,15 @@ input[type="range"]::-moz-range-track {
   background: black;
   border-right: 1px solid grey;
   border-bottom: 1px solid grey;
-  box-shadow: 1px 0 0 white, 1px 1px 0 white, 0 1px 0 white, -1px 0 0 darkgrey,
-    -1px -1px 0 darkgrey, 0 -1px 0 darkgrey, -1px 1px 0 white, 1px -1px darkgrey;
+  box-shadow:
+    1px 0 0 white,
+    1px 1px 0 white,
+    0 1px 0 white,
+    -1px 0 0 darkgrey,
+    -1px -1px 0 darkgrey,
+    0 -1px 0 darkgrey,
+    -1px 1px 0 white,
+    1px -1px darkgrey;
 }
 
 .is-vertical {
@@ -640,43 +680,58 @@ input[type="range"]::-moz-range-track {
   transform: translateY(50%);
 }
 
-.is-vertical>input[type="range"] {
+.is-vertical > input[type="range"] {
   width: 150px;
   height: 4px;
-  margin: 0 calc(var(--grouped-element-spacing) + var(--range-spacing)) 0 var(--range-spacing);
+  margin: 0 calc(var(--grouped-element-spacing) + var(--range-spacing)) 0
+    var(--range-spacing);
   transform-origin: left;
   transform: rotate(270deg) translateX(calc(-50% + var(--element-spacing)));
 }
 
-.is-vertical>input[type="range"]::-webkit-slider-runnable-track {
+.is-vertical > input[type="range"]::-webkit-slider-runnable-track {
   border-left: 1px solid grey;
   border-right: 0;
   border-bottom: 1px solid grey;
-  box-shadow: -1px 0 0 white, -1px 1px 0 white, 0 1px 0 white, 1px 0 0 darkgrey,
-    1px -1px 0 darkgrey, 0 -1px 0 darkgrey, 1px 1px 0 white, -1px -1px darkgrey;
+  box-shadow:
+    -1px 0 0 white,
+    -1px 1px 0 white,
+    0 1px 0 white,
+    1px 0 0 darkgrey,
+    1px -1px 0 darkgrey,
+    0 -1px 0 darkgrey,
+    1px 1px 0 white,
+    -1px -1px darkgrey;
 }
 
-.is-vertical>input[type="range"]::-moz-range-track {
+.is-vertical > input[type="range"]::-moz-range-track {
   border-left: 1px solid grey;
   border-right: 0;
   border-bottom: 1px solid grey;
-  box-shadow: -1px 0 0 white, -1px 1px 0 white, 0 1px 0 white, 1px 0 0 darkgrey,
-    1px -1px 0 darkgrey, 0 -1px 0 darkgrey, 1px 1px 0 white, -1px -1px darkgrey;
+  box-shadow:
+    -1px 0 0 white,
+    -1px 1px 0 white,
+    0 1px 0 white,
+    1px 0 0 darkgrey,
+    1px -1px 0 darkgrey,
+    0 -1px 0 darkgrey,
+    1px 1px 0 white,
+    -1px -1px darkgrey;
 }
 
-.is-vertical>input[type="range"]::-webkit-slider-thumb {
+.is-vertical > input[type="range"]::-webkit-slider-thumb {
   transform: translateY(-8px) scaleX(-1);
 }
 
-.is-vertical>input[type="range"].has-box-indicator::-webkit-slider-thumb {
+.is-vertical > input[type="range"].has-box-indicator::-webkit-slider-thumb {
   transform: translateY(-10px) scaleX(-1);
 }
 
-.is-vertical>input[type="range"]::-moz-range-thumb {
+.is-vertical > input[type="range"]::-moz-range-thumb {
   transform: translateY(2px) scaleX(-1);
 }
 
-.is-vertical>input[type="range"].has-box-indicator::-moz-range-thumb {
+.is-vertical > input[type="range"].has-box-indicator::-moz-range-thumb {
   transform: translateY(0px) scaleX(-1);
 }
 
@@ -736,11 +791,11 @@ ul.tree-view ul {
   border-left: 1px dotted #808080;
 }
 
-ul.tree-view ul>li {
+ul.tree-view ul > li {
   position: relative;
 }
 
-ul.tree-view ul>li::before {
+ul.tree-view ul > li::before {
   content: "";
   display: block;
   position: absolute;
@@ -751,7 +806,7 @@ ul.tree-view ul>li::before {
 }
 
 /* Cover the bottom of the left dotted border */
-ul.tree-view ul>li:last-child::after {
+ul.tree-view ul > li:last-child::after {
   content: "";
   display: block;
   position: absolute;
@@ -770,13 +825,13 @@ ul.tree-view details[open] summary {
   margin-bottom: 0;
 }
 
-ul.tree-view ul details>summary:before {
+ul.tree-view ul details > summary:before {
   margin-left: -22px;
   position: relative;
   z-index: 1;
 }
 
-ul.tree-view details>summary:before {
+ul.tree-view details > summary:before {
   text-align: center;
   display: block;
   float: left;
@@ -790,12 +845,12 @@ ul.tree-view details>summary:before {
   background-color: #fff;
 }
 
-ul.tree-view details[open]>summary:before {
+ul.tree-view details[open] > summary:before {
   content: "-";
 }
 
-ul.tree-view details>summary::marker,
-ul.tree-view details>summary::-webkit-details-marker {
+ul.tree-view details > summary::marker,
+ul.tree-view details > summary::-webkit-details-marker {
   content: "";
 }
 
@@ -864,12 +919,12 @@ summary:focus {
   background-image: svg-load("./icon/button-right.svg");
 }
 
-.window[role=tabpanel] {
+.window[role="tabpanel"] {
   position: relative;
   z-index: 2;
 }
 
-menu[role=tablist] {
+menu[role="tablist"] {
   position: relative;
   margin: 0 0 -2px 0;
   text-indent: 0;
@@ -878,14 +933,14 @@ menu[role=tablist] {
   padding-left: 3px;
 }
 
-menu[role=tablist]>li {
+menu[role="tablist"] > li {
   border-top-left-radius: 3px;
   border-top-right-radius: 3px;
   box-shadow: var(--border-tab);
   z-index: 1;
 }
 
-menu[role=tablist]>li[aria-selected=true] {
+menu[role="tablist"] > li[aria-selected="true"] {
   padding-bottom: 2px;
   margin-top: -2px;
   background-color: var(--surface);
@@ -894,22 +949,22 @@ menu[role=tablist]>li[aria-selected=true] {
   margin-left: -3px;
 }
 
-menu[role=tablist]>li>a {
+menu[role="tablist"] > li > a {
   display: block;
   color: #222;
   margin: 6px;
   text-decoration: none;
 }
 
-menu[role=tablist]>li[aria-selected=true]>a:focus {
+menu[role="tablist"] > li[aria-selected="true"] > a:focus {
   outline: none;
 }
 
-menu[role=tablist]>li>a:focus {
+menu[role="tablist"] > li > a:focus {
   outline: 1px dotted #222;
 }
 
-menu[role=tablist].multirows>li {
+menu[role="tablist"].multirows > li {
   flex-grow: 1;
   text-align: center;
 }
@@ -930,7 +985,7 @@ table {
   background-color: #fff;
 }
 
-table>thead>tr>* {
+table > thead > tr > * {
   position: sticky;
   top: 0;
   height: 17px;
@@ -941,16 +996,16 @@ table>thead>tr>* {
   padding: 0 var(--grouped-element-spacing);
 }
 
-table.interactive>tbody>tr {
+table.interactive > tbody > tr {
   cursor: pointer;
 }
 
-table>tbody>tr.highlighted {
+table > tbody > tr.highlighted {
   color: #fff;
   background-color: var(--dialog-blue);
 }
 
-table>tbody>tr>* {
+table > tbody > tr > * {
   padding: 0 var(--grouped-element-spacing);
   height: 14px;
 }
@@ -968,20 +1023,21 @@ table>tbody>tr>* {
   border-radius: 0;
 }
 
-
-.progress-indicator>.progress-indicator-bar {
+.progress-indicator > .progress-indicator-bar {
   height: 100%;
   display: block;
   background-color: var(--dialog-blue);
 }
 
-.progress-indicator.segmented>.progress-indicator-bar {
+.progress-indicator.segmented > .progress-indicator-bar {
   width: 100%;
   background-color: transparent;
   /* resets the background color which is set to blue in the non-segmented selector */
-  background-image: linear-gradient(90deg,
-      var(--dialog-blue) 0 16px,
-      transparent 0 2px);
+  background-image: linear-gradient(
+    90deg,
+    var(--dialog-blue) 0 16px,
+    transparent 0 2px
+  );
   background-repeat: repeat;
   background-size: 18px 100%;
 }

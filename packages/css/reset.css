@@ -1,5 +1,4 @@
 @layer {
-
   body {
     background: #000;
   }
@@ -33,7 +32,6 @@
     /* 5. Improve text rendering */
     -webkit-font-smoothing: antialiased;
     font-family: sans-serif;
-
   }
 
   code,
