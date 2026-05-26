@@ -294,7 +294,7 @@ pub fn run() {
             }
 
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("gams")
+                .title("GAMS")
                 .inner_size(1000.0, 700.0)
                 .build()?;
 

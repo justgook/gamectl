@@ -30,6 +30,7 @@ BUILD_DIR ?= build.nosync
 TAURI_APP_DIR ?= cmd/app
 TAURI_APP_DIR_SRC ?= $(TAURI_APP_DIR)/src-tauri
 TAURI_APP_TARGET_DIR ?= $(abspath $(BUILD_DIR)/app/target)
+TAURI_APP_ICON_DIR ?= $(abspath $(BUILD_DIR)/app/icons)
 TAURI_APP_BUNDLES ?= app,dmg
 APP_WASMTIME_CACHE_DIR ?= $(abspath $(BUILD_DIR)/wasmtime-cache)
 APP_CWD ?= $(or $(value GAMS_APP_CWD),examples/demo)
@@ -346,29 +347,33 @@ plugins/ng/build/lua54-wasi-modern.a plugins/ng/build/lua54-wasi-modern.o: plugi
 .PHONY: ng-lua-modern
 ng-lua-modern: plugins/ng/build/lua54-wasi-modern.a plugins/ng/build/lua54-wasi-modern.o
 
-.PHONY: app app-check app-run app-build app-build-debug app-build-release app-bundle app-bundle-debug app-bundle-release
+.PHONY: app app-icons app-check app-run app-build app-build-debug app-build-release app-bundle app-bundle-debug app-bundle-release
 app: app-bundle-release
 
-app-check:
+app-icons:
+	$(Q)cd $(TAURI_APP_DIR_SRC) && cargo tauri icon "$(abspath $(TAURI_APP_DIR)/brand/icon.svg)" -o "$(TAURI_APP_ICON_DIR)"
+	$(Q)cp "$(abspath $(TAURI_APP_DIR)/brand/icon.svg)" "$(abspath $(TAURI_APP_DIR)/src/favicon.svg)"
+
+app-check: app-icons
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo check
 
-app-run: $(PLUGIN_TARGETS)
+app-run: app-icons $(PLUGIN_TARGETS)
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" GAMS_WASMTIME_CACHE_DIR="$(APP_WASMTIME_CACHE_DIR)" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri dev
 
 app-build: app-build-release
 
-app-build-debug: $(PLUGIN_TARGETS)
+app-build-debug: app-icons $(PLUGIN_TARGETS)
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --no-bundle
 
-app-build-release: $(PLUGIN_TARGETS)
+app-build-release: app-icons $(PLUGIN_TARGETS)
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --no-bundle
 
 app-bundle: app-bundle-release
 
-app-bundle-debug: $(PLUGIN_TARGETS)
+app-bundle-debug: app-icons $(PLUGIN_TARGETS)
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --debug --bundles $(TAURI_APP_BUNDLES)
 
-app-bundle-release: $(PLUGIN_TARGETS)
+app-bundle-release: app-icons $(PLUGIN_TARGETS)
 	$(Q)cd $(TAURI_APP_DIR_SRC) && GAMS_APP_CWD="$(abspath $(APP_CWD))" CC="$(HOST_CC)" CXX="$(HOST_CXX)" CARGO_TARGET_DIR="$(TAURI_APP_TARGET_DIR)" cargo tauri build --bundles $(TAURI_APP_BUNDLES)
 
 # Ensure build directories exist
