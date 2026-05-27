@@ -43,9 +43,7 @@ export const explicitModelConfigs = {
   StableCrawlers: { size: 60 },
 }
 
-export const knownParityMismatchModels = [
-  'BasicKeys',
-]
+export const knownParityMismatchModels = []
 
 export const noGenericOriginalOutputModels = [
   'BasicSnake',
@@ -68,6 +66,7 @@ export const rootMarkovModels = [
 export const rootSequenceModels = [
   'BacktrackerCycle',
   'BasicBrickWall',
+  'BasicKeys',
   'BasicSkyline',
   'BasicDungeonGrowth',
   'BasicPartitioning',

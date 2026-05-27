@@ -447,7 +447,7 @@ mj_prepare_node_states :: proc(g: ^Grid, nodes: []MJ_Node) -> []MJ_Markov_State 
 	states := make([]MJ_Markov_State, len(nodes))
 	for i in 0..<len(nodes) {
 		states[i].last_turn = -1
-		if nodes[i].kind == 1 || (nodes[i].kind == 2 && nodes[i].potentials != nil) {
+		if nodes[i].kind == 1 || nodes[i].kind == 2 {
 			states[i].match_mask = make([][]bool, nodes[i].count)
 			for r in 0..<nodes[i].count { states[i].match_mask[r] = make([]bool, len(g.state)) }
 		}
@@ -556,7 +556,7 @@ mj_markov_one_go_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, ra
 	return true
 }
 
-mj_markov_all_go_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRandom, state: ^MJ_Markov_State, changes_snapshot: []Cell, first: []int, turn: int, changes: ^[dynamic]Cell, node_counter: int) -> bool {
+mj_markov_all_go :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRandom, state: ^MJ_Markov_State, changes_snapshot: []Cell, first: []int, turn: int, changes: ^[dynamic]Cell, node_counter: int) -> bool {
 	if len(rules) == 0 { return false }
 	if state.last_turn >= 0 {
 		start := first[state.last_turn]
@@ -571,7 +571,23 @@ mj_markov_all_go_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, ra
 	defer delete(mask)
 	turn_changes := make([dynamic]Cell)
 	defer delete(turn_changes)
-	mj_apply_all_matches_with_fields(g, node, rules, state.matches[:], state.match_mask, mask, random, &turn_changes)
+	if node.potentials != nil {
+		mj_apply_all_matches_with_fields(g, node, rules, state.matches[:], state.match_mask, mask, random, &turn_changes)
+	} else {
+		shuffle := make([]int, len(state.matches))
+		defer delete(shuffle)
+		for i in 0..<len(shuffle) {
+			j := int(mj_random_next_max(random, i32(i + 1)))
+			shuffle[i] = shuffle[j]
+			shuffle[j] = i
+		}
+		for k in 0..<len(shuffle) {
+			m := state.matches[shuffle[k]]
+			si := m.x + m.y * g.mx + m.z * g.mx * g.my
+			state.match_mask[m.r][si] = false
+			all_fit(g, &rules[m.r], m.x, m.y, m.z, mask, &turn_changes)
+		}
+	}
 	for c in turn_changes {
 		mask[c.x + c.y * g.mx + c.z * g.mx * g.my] = false
 		append(changes, c)
@@ -640,8 +656,8 @@ mj_markov_nodes_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^M
 			}
 		} else {
 			node_changed := false
-			if node.kind == 2 && node.potentials != nil {
-				node_changed = mj_markov_all_go_with_fields(g, &nodes[i], rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, changes, counters[i])
+			if node.kind == 2 {
+				node_changed = mj_markov_all_go(g, &nodes[i], rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, changes, counters[i])
 			} else {
 				node_changed = mj_run_node_once_with_fields(g, &nodes[i], rules[node.start:node.start + node.count], random, changes, counters[i])
 			}
@@ -730,8 +746,8 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 			}
 		} else {
 			node_changed := false
-			if node.kind == 2 && node.potentials != nil {
-				node_changed = mj_markov_all_go_with_fields(g, &nodes[idx], rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes, counters[idx])
+			if node.kind == 2 {
+				node_changed = mj_markov_all_go(g, &nodes[idx], rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes, counters[idx])
 			} else {
 				node_changed = mj_run_node_once_with_fields(g, &nodes[idx], rules[node.start:node.start + node.count], random, changes, counters[idx])
 			}

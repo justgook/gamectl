@@ -101,6 +101,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `BacktrackerCycle.xml`
 - [x] `BasicBrickWall.xml`
 - [x] `BasicDungeonGrowth.xml`
+- [x] `BasicKeys.xml`
 - [x] `BasicSkyline.xml`
 - [x] `BasicPartitioning.xml`
 - [x] `BishopParity.xml`
@@ -163,7 +164,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Diagnosed `Division.xml`/`Dwarves.xml`: root sequence must stop when it completes instead of resetting/repeating until `max-steps`.
 - [x] Explicit config metadata for models absent from active `models.xml`: `RandomWalk.xml`, `LoopErasedWalk.xml`, `BasicSkyline.xml`, `Crawlers.xml`, `GoToGradient.xml`, `ParallelWalk.xml`, `Rectangle.xml`, `SequentialSnake.xml`, `StableCrawlers.xml`, `BasicKeys.xml`.
 - [x] `RandomWalk.xml` parity fixture.
-- [ ] `BasicKeys.xml` has explicit config but currently mismatches parity; diagnose `limit`/field path semantics before fixture-listing.
+- [x] `BasicKeys.xml` parity fixture.
+- [x] Diagnosed `BasicKeys.xml`: nested/container `<all>` nodes must preserve persistent match state, not rescan globally each turn.
 - [x] Root `<one>` with child `<field>`: `CentralSAW.xml`, `BlueNoise.xml`, `Laplace.xml`.
 - [x] Root `<all>` inline-rule models.
 - [x] Root `<prl>` child-rule models.
@@ -206,4 +208,4 @@ nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Ba
 
 ## Latest status
 
-Root `<one>`, `<all>`, `<prl>`, simple root `<markov>`, and simple root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures now pass for 20 added field models, non-search observation fixtures pass for 7 added models, and explicit fixture metadata unlocks 9 additional absent-from-active-models.xml parity fixtures. Discovery currently reports 87 compiler-supported XML models, 87 fixture-ready models, 83 parity-fixtured models, 1 known-mismatch model (`BasicKeys`), 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 0 unlisted fixture-ready models, 0 compiler-supported models that need explicit config, and 72 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.
+Root `<one>`, `<all>`, `<prl>`, simple root `<markov>`, and simple root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures now pass for 20 added field models, non-search observation fixtures pass for 7 added models, and explicit fixture metadata unlocks 9 additional absent-from-active-models.xml parity fixtures. Discovery currently reports 87 compiler-supported XML models, 87 fixture-ready models, 84 parity-fixtured models, 0 known-mismatch models, 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 0 unlisted fixture-ready models, 0 compiler-supported models that need explicit config, and 72 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.
