@@ -106,6 +106,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `SmoothTrail.xml`
 - [x] `StochasticVoronoi.xml`
 - [x] `StrangeDungeon.xml`
+- [x] `Tetris.xml`
 - [x] `Texture.xml`
 - [x] `Voronoi.xml`
 
@@ -116,7 +117,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Sequence models with direct child `<markov>` containers: `BacktrackerCycle.xml`, `BasicBrickWall.xml`, `Flowers.xml`, `Forest.xml`, `HamiltonianPaths.xml`, `NystromDungeon.xml`, `Texture.xml`.
 - [x] Diagnosed stale node boundary after nested-container open: fixed `BasicPartitioning.xml`.
 - [x] Diagnosed nested sequence reset/repeat semantics: fixed `MultiHeadedWalk.xml`.
-- [ ] Diagnose remaining discovered nested-container divergence: `Tetris.xml`; `BasicSnake.xml`/`Wilson.xml` currently produce no original output under the generic parity config.
+- [x] Diagnosed nested markov child `<prl>/<all>` context propagation: fixed `Tetris.xml`.
+- [ ] `BasicSnake.xml`/`Wilson.xml` currently produce no original output under the generic parity config.
 - [ ] Unlisted/no-config root `<one>` model: `RandomWalk.xml` (needs explicit config or fixture metadata).
 - [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
 - [x] Root `<all>` inline-rule models.

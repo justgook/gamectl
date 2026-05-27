@@ -295,7 +295,7 @@ mj_markov_nodes_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^M
 				return true
 			}
 		} else {
-			_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
+			node_changed := mj_run_node_once_with_changes(g, node.kind, rules[node.start:node.start + node.count], random, changes)
 			if node_changed {
 				counters[i] += 1
 				return true
@@ -373,7 +373,7 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 				return true
 			}
 		} else {
-			_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
+			node_changed := mj_run_node_once_with_changes(g, node.kind, rules[node.start:node.start + node.count], random, changes)
 			if node_changed {
 				counters[idx] += 1
 				return true
@@ -410,6 +410,60 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 		if !changed && steps <= 0 { break }
 	}
 	return counter, changed_any
+}
+
+mj_run_node_once_with_changes :: proc(g: ^Grid, kind: u32, rules: []Rule, random: ^MJRandom, changes: ^[dynamic]Cell) -> bool {
+	if kind == 2 do return mj_run_all_once_with_changes(g, rules, random, changes)
+	return mj_run_parallel_once_with_changes(g, rules, random, changes)
+}
+
+mj_run_all_once_with_changes :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, changes: ^[dynamic]Cell) -> bool {
+	matches := make([dynamic]Match)
+	defer delete(matches)
+	match_mask := make([][]bool, len(rules))
+	defer {
+		for i in 0..<len(match_mask) { if match_mask[i] != nil do delete(match_mask[i]) }
+		delete(match_mask)
+	}
+	for r in 0..<len(rules) { match_mask[r] = make([]bool, len(g.state)) }
+	one_initial_scan(g, rules, &matches, match_mask)
+	if len(matches) == 0 { return false }
+
+	mask := make([]bool, len(g.state))
+	defer delete(mask)
+	turn_changes := make([dynamic]Cell)
+	defer delete(turn_changes)
+	shuffle := make([]int, len(matches))
+	defer delete(shuffle)
+	for i in 0..<len(shuffle) {
+		j := int(mj_random_next_max(random, i32(i + 1)))
+		shuffle[i] = shuffle[j]
+		shuffle[j] = i
+	}
+	for k in 0..<len(shuffle) {
+		m := matches[shuffle[k]]
+		all_fit(g, &rules[m.r], m.x, m.y, m.z, mask, &turn_changes)
+	}
+	for c in turn_changes {
+		mask[c.x + c.y * g.mx + c.z * g.mx * g.my] = false
+		append(changes, c)
+	}
+	return len(turn_changes) > 0
+}
+
+mj_run_parallel_once_with_changes :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, changes: ^[dynamic]Cell) -> bool {
+	turn_changes := make([dynamic]Cell)
+	defer delete(turn_changes)
+	newstate := make([]u8, len(g.state))
+	defer delete(newstate)
+	parallel_initial_scan(g, rules, random, newstate, &turn_changes)
+	if len(turn_changes) == 0 { return false }
+	for c in turn_changes {
+		i := c.x + c.y * g.mx + c.z * g.mx * g.my
+		g.state[i] = newstate[i]
+		append(changes, c)
+	}
+	return true
 }
 
 mj_markov_one_go :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, state: ^MJ_Markov_State, changes_snapshot: []Cell, first: []int, turn: int, changes: ^[dynamic]Cell) -> bool {

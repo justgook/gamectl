@@ -55,6 +55,7 @@ export const rootSequenceModels = [
   'SmoothTrail',
   'StochasticVoronoi',
   'StrangeDungeon',
+  'Tetris',
   'Texture',
   'Voronoi',
 ]
