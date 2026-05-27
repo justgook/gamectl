@@ -156,6 +156,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 					append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps, 0, 0})
 					node_open = false
 				}
+				node_start = len(rules)
+				node_steps = 0
 				container_index := len(nodes)
 				append(&nodes, MJ_Node{kind, 0, 0, marker_steps, container_index + 1, 0})
 				append(&container_stack, container_index)
@@ -327,11 +329,70 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 	return counter, changed_any
 }
 
+mj_reset_runtime_range :: proc(states: []MJ_Markov_State, counters, positions: []int, start, count: int) {
+	for i in start..<start + count {
+		counters[i] = 0
+		positions[i] = 0
+		states[i].last_turn = -1
+		if states[i].matches != nil do clear(&states[i].matches)
+		if states[i].match_mask != nil {
+			for r in 0..<len(states[i].match_mask) { for c in 0..<len(states[i].match_mask[r]) { states[i].match_mask[r][c] = false } }
+		}
+	}
+}
+
+mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, count: int, random: ^MJRandom, states: []MJ_Markov_State, counters, positions: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int, child: ^int) -> bool {
+	for child^ < count {
+		idx := start + child^
+		node := nodes[idx]
+		if node.kind >= 4 && node.children_count > 0 {
+			if node.steps > 0 && counters[idx] >= node.steps {
+				child^ += node.children_count + 1
+				continue
+			}
+			node_changed := false
+			if node.kind == 4 {
+				node_changed = mj_markov_nodes_go(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, states[node.children_start:node.children_start + node.children_count], counters[node.children_start:node.children_start + node.children_count], changes, first, counter)
+			} else {
+				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter, &positions[idx])
+			}
+			if node_changed {
+				counters[idx] += 1
+				return true
+			}
+			child^ += node.children_count + 1
+			continue
+		}
+		if node.count <= 0 || (node.steps > 0 && counters[idx] >= node.steps) {
+			child^ += 1
+			continue
+		}
+		if node.kind == 1 {
+			if mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes) {
+				counters[idx] += 1
+				return true
+			}
+		} else {
+			_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
+			if node_changed {
+				counters[idx] += 1
+				return true
+			}
+		}
+		child^ += 1
+	}
+	mj_reset_runtime_range(states, counters, positions, start, count)
+	child^ = 0
+	return false
+}
+
 mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, steps: int) -> (int, bool) {
 	states := mj_prepare_node_states(g, nodes)
 	defer mj_destroy_node_states(states)
 	counters := make([]int, len(nodes))
 	defer delete(counters)
+	positions := make([]int, len(nodes))
+	defer delete(positions)
 	changes := make([dynamic]Cell)
 	defer delete(changes)
 	first := make([dynamic]int)
@@ -342,52 +403,11 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 	counter := 0
 	changed_any := false
 	for child < len(nodes) && (steps <= 0 || counter < steps) {
-		changed := false
-		for child < len(nodes) {
-			node := nodes[child]
-			if node.kind >= 4 && node.children_count > 0 {
-				if node.steps > 0 && counters[child] >= node.steps {
-					child += node.children_count + 1
-					continue
-				}
-				node_changed := false
-				if node.kind == 4 {
-					node_changed = mj_markov_nodes_go(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, states[node.children_start:node.children_start + node.children_count], counters[node.children_start:node.children_start + node.children_count], &changes, &first, counter)
-				} else {
-					_, node_changed = mj_run_sequence_nodes_with_count(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, 1)
-				}
-				if node_changed {
-					counters[child] += 1
-					changed = true
-					break
-				}
-				child += node.children_count + 1
-				continue
-			}
-			if node.count <= 0 || (node.steps > 0 && counters[child] >= node.steps) {
-				child += 1
-				continue
-			}
-			if node.kind == 1 {
-				if mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[child], changes[:], first[:], counter, &changes) {
-					counters[child] += 1
-					changed = true
-					break
-				}
-			} else {
-				_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
-				if node_changed {
-					counters[child] += 1
-					changed = true
-					break
-				}
-			}
-			child += 1
-		}
+		changed := mj_sequence_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, &changes, &first, counter, &child)
 		if changed do changed_any = true
 		counter += 1
 		append(&first, len(changes))
-		if !changed { break }
+		if !changed && steps <= 0 { break }
 	}
 	return counter, changed_any
 }

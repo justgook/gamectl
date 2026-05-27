@@ -90,6 +90,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `BacktrackerCycle.xml`
 - [x] `BasicBrickWall.xml`
 - [x] `BasicDungeonGrowth.xml`
+- [x] `BasicPartitioning.xml`
 - [x] `Cycles.xml`
 - [x] `DualRetraction.xml`
 - [x] `Flowers.xml`
@@ -97,6 +98,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `GrowthCompetition.xml`
 - [x] `HamiltonianPaths.xml`
 - [x] `LoopGrowth.xml`
+- [x] `MultiHeadedWalk.xml`
 - [x] `Noise.xml`
 - [x] `NystromDungeon.xml`
 - [x] `Push.xml`
@@ -112,7 +114,9 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Root `<all>` with child `<rule>` elements: `NestedGrowth.xml`.
 - [x] Union-backed sequence model: `BasicDungeonGrowth.xml`.
 - [x] Sequence models with direct child `<markov>` containers: `BacktrackerCycle.xml`, `BasicBrickWall.xml`, `Flowers.xml`, `Forest.xml`, `HamiltonianPaths.xml`, `NystromDungeon.xml`, `Texture.xml`.
-- [ ] Diagnose remaining discovered nested-container divergences: `BasicPartitioning.xml` fails at step 3 (first diff around cells 2637/2638); `MultiHeadedWalk.xml` and `Tetris.xml` also diverge; `BasicSnake.xml`/`Wilson.xml` currently produce no original output under the generic parity config.
+- [x] Diagnosed stale node boundary after nested-container open: fixed `BasicPartitioning.xml`.
+- [x] Diagnosed nested sequence reset/repeat semantics: fixed `MultiHeadedWalk.xml`.
+- [ ] Diagnose remaining discovered nested-container divergence: `Tetris.xml`; `BasicSnake.xml`/`Wilson.xml` currently produce no original output under the generic parity config.
 - [ ] Unlisted/no-config root `<one>` model: `RandomWalk.xml` (needs explicit config or fixture metadata).
 - [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
 - [x] Root `<all>` inline-rule models.
