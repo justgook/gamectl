@@ -185,6 +185,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			container_index := container_stack[len(container_stack) - 1]
 			_ = pop(&container_stack)
 			nodes[container_index].children_count = len(nodes) - nodes[container_index].children_start
+			node_start = len(rules)
+			node_steps = 0
 		} else if op == 1 {
 			if pos + 2 > len(model) { return mj_fail("truncated one-cell replace rule") }
 			input_index := int(model[pos]); output_index := int(model[pos + 1]); pos += 2
@@ -382,10 +384,10 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 			}
 			child += 1
 		}
-		if !changed { break }
-		changed_any = true
+		if changed do changed_any = true
 		counter += 1
 		append(&first, len(changes))
+		if !changed { break }
 	}
 	return counter, changed_any
 }

@@ -112,6 +112,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Root `<all>` with child `<rule>` elements: `NestedGrowth.xml`.
 - [x] Union-backed sequence model: `BasicDungeonGrowth.xml`.
 - [x] Sequence models with direct child `<markov>` containers: `BacktrackerCycle.xml`, `BasicBrickWall.xml`, `Flowers.xml`, `Forest.xml`, `HamiltonianPaths.xml`, `NystromDungeon.xml`, `Texture.xml`.
+- [ ] Diagnose remaining discovered nested-container divergences: `BasicPartitioning.xml` fails at step 3 (first diff around cells 2637/2638); `MultiHeadedWalk.xml` and `Tetris.xml` also diverge; `BasicSnake.xml`/`Wilson.xml` currently produce no original output under the generic parity config.
 - [ ] Unlisted/no-config root `<one>` model: `RandomWalk.xml` (needs explicit config or fixture metadata).
 - [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
 - [x] Root `<all>` inline-rule models.
