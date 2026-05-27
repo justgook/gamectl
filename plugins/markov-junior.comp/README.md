@@ -62,10 +62,11 @@ From GAMS repo root:
 make build.nosync/plugins/markov-junior.comp.wasm
 ```
 
-Run e2e:
+Run e2e and compiler unit tests:
 
 ```sh
 make markov-junior.comp-test
+node plugins/markov-junior.comp/test/compiler.mjs
 ```
 
 Run the parity fixtures against the original MarkovJunior Odin runner:

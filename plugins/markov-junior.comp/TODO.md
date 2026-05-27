@@ -27,7 +27,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Support root `<one>` with inline `values`, `in`, `out`, `origin`, `symmetry`.
 - [x] Support multi-cell 2D/3D pattern parsing syntax (`/` rows, space-separated layers).
 - [x] Fix attribute parsing so `in` does not match `origin`.
-- [ ] Add compiler unit tests independent of the component runtime.
+- [x] Add compiler unit tests independent of the component runtime.
 - [ ] Support child `<rule>` elements under `<one>`, `<all>`, and `<prl>`.
 - [ ] Support `<union>` declarations.
 - [ ] Decide how to represent unsupported children like `<field>` in MJIR.
@@ -86,6 +86,7 @@ From `/Users/gook/Repos/gams3`:
 ```sh
 nix develop -c make build.nosync/plugins/markov-junior.comp.wasm
 nix develop -c make markov-junior.comp-test
+node plugins/markov-junior.comp/test/compiler.mjs
 nix develop -c node plugins/markov-junior.comp/test/parity-basic.mjs
 nix develop -c node plugins/markov-junior.comp/test/parity-root-one.mjs --model=Basic --runs=2 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
