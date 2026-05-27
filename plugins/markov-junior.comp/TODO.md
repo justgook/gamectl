@@ -52,12 +52,17 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 
 - [x] `Basic.xml`
 - [x] `Growth.xml`
-- [x] `MazeGrowth.xml`
-- [x] `RegularSAW.xml`
-- [x] `SelfAvoidingWalk.xml`
+- [x] `GrowthContraction.xml`
+- [x] `GrowthWalk.xml`
 - [x] `IrregularMazeGrowth.xml`
 - [x] `IrregularSAW.xml`
+- [x] `MazeGrowth.xml`
+- [x] `MazeTrail.xml`
+- [x] `RainbowGrowth.xml`
+- [x] `RegularSAW.xml`
+- [x] `SelfAvoidingWalk.xml`
 - [x] `StrangeGrowth.xml`
+- [x] `Trail.xml`
 
 ### Passing root `<all>` inline fixtures
 
@@ -73,7 +78,10 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 ### Passing root `<markov>` fixtures
 
 - [x] `Backtracker.xml`
+- [x] `Digger.xml`
 - [x] `MazeBacktracker.xml`
+- [x] `NoDeadEnds.xml`
+- [x] `PutColoredLs.xml`
 - [x] `RegularSAWRestart.xml`
 - [x] `SAWRestart.xml`
 

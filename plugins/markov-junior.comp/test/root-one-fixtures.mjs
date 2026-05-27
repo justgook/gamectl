@@ -1,12 +1,17 @@
 export const rootOneModels = [
   'Basic',
   'Growth',
-  'MazeGrowth',
-  'RegularSAW',
-  'SelfAvoidingWalk',
+  'GrowthContraction',
+  'GrowthWalk',
   'IrregularMazeGrowth',
   'IrregularSAW',
+  'MazeGrowth',
+  'MazeTrail',
+  'RainbowGrowth',
+  'RegularSAW',
+  'SelfAvoidingWalk',
   'StrangeGrowth',
+  'Trail',
 ]
 
 export const rootAllModels = [
@@ -22,7 +27,10 @@ export const rootPrlModels = [
 
 export const rootMarkovModels = [
   'Backtracker',
+  'Digger',
   'MazeBacktracker',
+  'NoDeadEnds',
+  'PutColoredLs',
   'RegularSAWRestart',
   'SAWRestart',
 ]
