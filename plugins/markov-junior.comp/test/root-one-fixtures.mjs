@@ -36,17 +36,24 @@ export const rootMarkovModels = [
 ]
 
 export const rootSequenceModels = [
+  'BacktrackerCycle',
+  'BasicBrickWall',
   'BasicDungeonGrowth',
   'Cycles',
   'DualRetraction',
+  'Flowers',
+  'Forest',
   'GrowthCompetition',
+  'HamiltonianPaths',
   'LoopGrowth',
   'Noise',
+  'NystromDungeon',
   'Push',
   'River',
   'SmoothTrail',
   'StochasticVoronoi',
   'StrangeDungeon',
+  'Texture',
   'Voronoi',
 ]
 

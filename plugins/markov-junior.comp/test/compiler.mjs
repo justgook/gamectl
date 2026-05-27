@@ -48,6 +48,10 @@ function decodeMjirV1(bytes) {
       rules.push({ op, symbol, values: unionValues })
       continue
     }
+    if (op === 102) {
+      rules.push({ op })
+      continue
+    }
     const imx = readU32(bytes, pos); pos += 4
     const imy = readU32(bytes, pos); pos += 4
     const imz = readU32(bytes, pos); pos += 4
@@ -129,7 +133,7 @@ assert.deepEqual(xmlChildNodeTags('<markov values="BRWU"><one in="RB" out="WR"/>
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWU" origin="True"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>')).nodes, [{ kind: 4, steps: 0 }, { kind: 1, steps: 0 }, { kind: 1, steps: 0 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BR"><one in="B" out="R" steps="24"/><all in="RB" out="BR"/></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 1, steps: 24 }, { kind: 2, steps: 0 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BRACDG"><union symbol="?" values="BR"/><one in="?" out="A"/></sequence>')).rules[0], { op: 101, symbol: '?', values: 'BR' })
-assert.throws(() => compileXmlToMjir('<sequence values="BW"><sequence><one in="B" out="W"/></sequence></sequence>'), /unsupported direct children: sequence/)
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BW"><markov><one in="B" out="W"/></markov></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 4, steps: 0 }, { kind: 1, steps: 0 }])
 assert.throws(() => compileXmlToMjir('<one values="BW" in="B" out="W"><field for="W"/></one>'), /unsupported children: field/)
 assert.throws(() => compileXmlToMjir('<one values="BW" file="Rule"/>'), /unsupported file attribute/)
 assert.throws(() => compileXmlToMjir('<sequence values="BW"><union values="B"/><one in="B" out="W"/></sequence>'), /union missing symbol attribute/)

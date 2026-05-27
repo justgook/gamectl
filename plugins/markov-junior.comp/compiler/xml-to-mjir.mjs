@@ -53,8 +53,12 @@ export function parsePattern(pattern) {
 
 export function encodeMjirV1({ values, node = 'one', rules, children, unions = [] }) {
   const valueBytes = [...textEncoder.encode(values.replaceAll(' ', ''))]
+  const childOps = (child) => {
+    if (child.children) return [{ op: 'node', kind: child.node, steps: child.steps ?? 0 }, ...child.children.flatMap(childOps), { op: 'end' }]
+    return [{ op: 'node', kind: child.node, steps: child.steps ?? 0 }, ...child.rules]
+  }
   const bodyOps = children
-    ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap((child) => [{ op: 'node', kind: child.node, steps: child.steps ?? 0 }, ...child.rules])]
+    ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
     : (node === 'one' ? rules : [{ op: 'node', kind: node, steps: 0 }, ...rules])
   const ops = [...unions.map((union) => ({ op: 'union', ...union })), ...bodyOps]
   const bytes = []
@@ -79,6 +83,10 @@ export function encodeMjirV1({ values, node = 'one', rules, children, unions = [
       bytes.push(op.symbol.charCodeAt(0))
       u32le(bytes, valuesBytes.length)
       bytes.push(...valuesBytes)
+      continue
+    }
+    if (op.op === 'end') {
+      u32le(bytes, 102)
       continue
     }
     if (op.op !== 'pattern') throw new Error(`unsupported rule op: ${op.op}`)
@@ -154,6 +162,21 @@ export function xmlChildNodeTags(xml) {
   return xmlDirectChildTags(xml).filter((tag) => ['one', 'all', 'prl'].includes(xmlRootTag(tag)))
 }
 
+function nodeFromElement(elementXml, inheritedSymmetry = '') {
+  const tag = xmlRootTag(elementXml)
+  const start = xmlRootStartTag(elementXml)
+  const steps = Number(xmlAttr(start, 'steps', '0'))
+  if (tag === 'markov' || tag === 'sequence') {
+    const direct = xmlDirectChildTags(elementXml)
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl'].includes(childTag))
+    if (unsupported.length > 0) throw new Error(`${tag} child has unsupported direct children: ${unsupported.join(', ')}`)
+    const children = direct.map((childXml) => nodeFromElement(childXml, inheritedSymmetry))
+    if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
+    return { node: tag, steps, children }
+  }
+  return { node: tag, steps, rules: rulesFromElement(elementXml, inheritedSymmetry) }
+}
+
 function rulesFromElement(elementXml, inheritedSymmetry = '') {
   const start = xmlRootStartTag(elementXml)
   for (const attr of ['file', 'fin', 'fout', 'search']) {
@@ -194,11 +217,11 @@ export function compileXmlToMjir(xml) {
   const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(xml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'union'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'markov', 'sequence', 'union'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} root has unsupported direct children: ${unsupported.join(', ')}`)
-    const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => ({ node: xmlRootTag(childXml), steps: Number(xmlAttr(xmlRootStartTag(childXml), 'steps', '0')), rules: rulesFromElement(childXml, rootSymmetry) }))
+    const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => nodeFromElement(childXml, rootSymmetry))
     if (children.length === 0) throw new Error(`${tag} root missing child nodes`)
-    for (const child of children) if (child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
+    for (const child of children) if (!child.children && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
     return encodeMjirV1({ values, node: tag, children, unions: unionsFromXml(xml) })
   }
 

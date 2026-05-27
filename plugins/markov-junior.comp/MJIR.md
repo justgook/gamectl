@@ -51,6 +51,9 @@ symbol:       u8
 values-len:   u32
 values:       bytes
 
+# op 102, end nested container marker
+op:           u32      102
+
 # op 1, legacy one-cell replace
 op:           u32      1
 input:        u8       value index
@@ -88,7 +91,7 @@ Root `<prl>` uses the existing Odin parallel node loop: full scan each turn, app
 
 Simple root `<markov>` uses a container marker followed by child node markers/rules. It tries child nodes in order each outer step and applies the first child that changes, preserving persistent one-node match state for the currently supported fixtures.
 
-Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child.
+Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child. Nested child containers are delimited with `op = 102`; currently this is used for direct child `<markov>` containers in sequence fixtures.
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
 

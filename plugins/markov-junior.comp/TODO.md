@@ -87,23 +87,31 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 
 ### Passing root `<sequence>` fixtures
 
+- [x] `BacktrackerCycle.xml`
+- [x] `BasicBrickWall.xml`
 - [x] `BasicDungeonGrowth.xml`
 - [x] `Cycles.xml`
 - [x] `DualRetraction.xml`
+- [x] `Flowers.xml`
+- [x] `Forest.xml`
 - [x] `GrowthCompetition.xml`
+- [x] `HamiltonianPaths.xml`
 - [x] `LoopGrowth.xml`
 - [x] `Noise.xml`
+- [x] `NystromDungeon.xml`
 - [x] `Push.xml`
 - [x] `River.xml`
 - [x] `SmoothTrail.xml`
 - [x] `StochasticVoronoi.xml`
 - [x] `StrangeDungeon.xml`
+- [x] `Texture.xml`
 - [x] `Voronoi.xml`
 
 ### Next candidate fixtures
 
 - [x] Root `<all>` with child `<rule>` elements: `NestedGrowth.xml`.
 - [x] Union-backed sequence model: `BasicDungeonGrowth.xml`.
+- [x] Sequence models with direct child `<markov>` containers: `BacktrackerCycle.xml`, `BasicBrickWall.xml`, `Flowers.xml`, `Forest.xml`, `HamiltonianPaths.xml`, `NystromDungeon.xml`, `Texture.xml`.
 - [ ] Unlisted/no-config root `<one>` model: `RandomWalk.xml` (needs explicit config or fixture metadata).
 - [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
 - [x] Root `<all>` inline-rule models.

@@ -12,6 +12,8 @@ MJ_Node :: struct {
 	start: int,
 	count: int,
 	steps: int,
+	children_start: int,
+	children_count: int,
 }
 
 MJ_Markov_State :: struct {
@@ -136,6 +138,9 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	node_steps := 0
 	node_start := 0
 	node_open := false
+	container_stack := make([dynamic]int)
+	defer delete(container_stack)
+	root_marker_seen := false
 	for _ in 0..<rule_count {
 		op := mj_read_u32(model, &pos, &ok)
 		if !ok { return mj_fail("truncated model-ir rule opcode") }
@@ -143,16 +148,26 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			kind := mj_read_u32(model, &pos, &ok)
 			marker_steps := int(mj_read_u32(model, &pos, &ok))
 			if !ok || kind < 1 || kind > 5 { return mj_fail("invalid model-ir node kind") }
-			if kind >= 4 {
+			if kind >= 4 && !root_marker_seen && len(nodes) == 0 && !node_open {
 				container_kind = kind
+				root_marker_seen = true
+			} else if kind >= 4 {
+				if node_open || len(rules) > node_start {
+					append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps, 0, 0})
+					node_open = false
+				}
+				container_index := len(nodes)
+				append(&nodes, MJ_Node{kind, 0, 0, marker_steps, container_index + 1, 0})
+				append(&container_stack, container_index)
 			} else {
 				if node_open || len(rules) > node_start {
-					append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps})
+					append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps, 0, 0})
 				}
 				node_kind = kind
 				node_steps = marker_steps
 				node_start = len(rules)
 				node_open = true
+				root_marker_seen = true
 			}
 		} else if op == 101 {
 			if pos >= len(model) { return mj_fail("truncated model-ir union symbol") }
@@ -161,6 +176,15 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if !ok || union_values_len <= 0 || pos + union_values_len > len(model) { return mj_fail("invalid model-ir union values") }
 			grid_add_union(&g, symbol, string(model[pos:pos + union_values_len]))
 			pos += union_values_len
+		} else if op == 102 {
+			if node_open || len(rules) > node_start {
+				append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps, 0, 0})
+				node_open = false
+			}
+			if len(container_stack) == 0 { return mj_fail("model-ir container end without start") }
+			container_index := container_stack[len(container_stack) - 1]
+			_ = pop(&container_stack)
+			nodes[container_index].children_count = len(nodes) - nodes[container_index].children_start
 		} else if op == 1 {
 			if pos + 2 > len(model) { return mj_fail("truncated one-cell replace rule") }
 			input_index := int(model[pos]); output_index := int(model[pos + 1]); pos += 2
@@ -190,10 +214,11 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	}
 
 	if node_open || len(rules) > node_start {
-		append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps})
+		append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps, 0, 0})
 	}
+	if len(container_stack) != 0 { return mj_fail("model-ir unclosed container") }
 	if len(rules) == 0 { return mj_fail("model-ir contains no rules") }
-	if len(nodes) == 0 { append(&nodes, MJ_Node{node_kind, 0, len(rules), 0}) }
+	if len(nodes) == 0 { append(&nodes, MJ_Node{node_kind, 0, len(rules), 0, 0, 0}) }
 
 	random := mj_random_init(i32(seed & 0x7fffffff))
 	steps_run := 0
@@ -240,6 +265,42 @@ mj_destroy_node_states :: proc(states: []MJ_Markov_State) {
 	delete(states)
 }
 
+mj_markov_nodes_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, states: []MJ_Markov_State, counters: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int) -> bool {
+	for i := 0; i < len(nodes); i += 1 {
+		node := nodes[i]
+		if node.kind >= 4 && node.children_count > 0 {
+			if node.steps > 0 && counters[i] >= node.steps { i += node.children_count; continue }
+			node_changed := false
+			if node.kind == 4 {
+				node_changed = mj_markov_nodes_go(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, states[node.children_start:node.children_start + node.children_count], counters[node.children_start:node.children_start + node.children_count], changes, first, counter)
+			} else {
+				_, node_changed = mj_run_sequence_nodes_with_count(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, 1)
+			}
+			if node_changed {
+				counters[i] += 1
+				return true
+			}
+			i += node.children_count
+			continue
+		}
+		if node.count <= 0 { continue }
+		if node.steps > 0 && counters[i] >= node.steps { continue }
+		if node.kind == 1 {
+			if mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, changes) {
+				counters[i] += 1
+				return true
+			}
+		} else {
+			_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
+			if node_changed {
+				counters[i] += 1
+				return true
+			}
+		}
+	}
+	return false
+}
+
 mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, steps: int) -> (int, bool) {
 	counter := 0
 	changed_any := false
@@ -255,26 +316,7 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 	append(&first, 0)
 
 	for steps <= 0 || counter < steps {
-		changed := false
-		for i in 0..<len(nodes) {
-			node := nodes[i]
-			if node.count <= 0 { continue }
-			if node.steps > 0 && counters[i] >= node.steps { continue }
-			if node.kind == 1 {
-				if mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, &changes) {
-					counters[i] += 1
-					changed = true
-					break
-				}
-			} else {
-				_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
-				if node_changed {
-					counters[i] += 1
-					changed = true
-					break
-				}
-			}
-		}
+		changed := mj_markov_nodes_go(g, rules, nodes, random, states, counters, &changes, &first, counter)
 		if !changed { break }
 		changed_any = true
 		counter += 1
@@ -301,6 +343,25 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 		changed := false
 		for child < len(nodes) {
 			node := nodes[child]
+			if node.kind >= 4 && node.children_count > 0 {
+				if node.steps > 0 && counters[child] >= node.steps {
+					child += node.children_count + 1
+					continue
+				}
+				node_changed := false
+				if node.kind == 4 {
+					node_changed = mj_markov_nodes_go(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, states[node.children_start:node.children_start + node.children_count], counters[node.children_start:node.children_start + node.children_count], &changes, &first, counter)
+				} else {
+					_, node_changed = mj_run_sequence_nodes_with_count(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, 1)
+				}
+				if node_changed {
+					counters[child] += 1
+					changed = true
+					break
+				}
+				child += node.children_count + 1
+				continue
+			}
 			if node.count <= 0 || (node.steps > 0 && counters[child] >= node.steps) {
 				child += 1
 				continue
