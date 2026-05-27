@@ -8,9 +8,11 @@ export const rootOneModels = [
   'IrregularMazeGrowth',
   'IrregularSAW',
   'Laplace',
+  'LoopErasedWalk',
   'MazeGrowth',
   'MazeTrail',
   'RainbowGrowth',
+  'RandomWalk',
   'RegularSAW',
   'SelfAvoidingWalk',
   'StrangeGrowth',
@@ -28,6 +30,23 @@ export const rootPrlModels = [
   'ForestFire',
 ]
 
+export const explicitModelConfigs = {
+  BasicKeys: { size: 33 },
+  BasicSkyline: { size: 30 },
+  Crawlers: { size: 60 },
+  GoToGradient: { size: 60 },
+  LoopErasedWalk: { size: 59 },
+  ParallelWalk: { size: 60 },
+  RandomWalk: { size: 59 },
+  Rectangle: { size: 30 },
+  SequentialSnake: { size: 23, steps: 100 },
+  StableCrawlers: { size: 60 },
+}
+
+export const knownParityMismatchModels = [
+  'BasicKeys',
+]
+
 export const noGenericOriginalOutputModels = [
   'BasicSnake',
   'Chase',
@@ -37,6 +56,7 @@ export const noGenericOriginalOutputModels = [
 export const rootMarkovModels = [
   'Backtracker',
   'Digger',
+  'GoToGradient',
   'KnightPatrol',
   'MazeBacktracker',
   'NoDeadEnds',
@@ -48,6 +68,7 @@ export const rootMarkovModels = [
 export const rootSequenceModels = [
   'BacktrackerCycle',
   'BasicBrickWall',
+  'BasicSkyline',
   'BasicDungeonGrowth',
   'BasicPartitioning',
   'BishopParity',
@@ -57,6 +78,7 @@ export const rootSequenceModels = [
   'BiasedVoronoi',
   'CentralCrawlers',
   'Coupling',
+  'Crawlers',
   'CrawlersChase',
   'Cycles',
   'DenseSAW',
@@ -77,12 +99,16 @@ export const rootSequenceModels = [
   'NystromDungeon',
   'OrganicMechanic',
   'PaintCompetition',
+  'ParallelWalk',
   'Push',
+  'Rectangle',
   'RegularPath',
   'River',
+  'SequentialSnake',
   'SmoothTrail',
   'SnellLaw',
   'SoftPath',
+  'StableCrawlers',
   'StochasticVoronoi',
   'StrangeDungeon',
   'StrangeNoise',
@@ -122,13 +148,28 @@ export function parseArgs(argv, defaults = {}) {
   return options
 }
 
+export function modelConfigTag(name) {
+  const config = explicitModelConfigs[name]
+  if (!config) return undefined
+  const attrs = [`name="${name}"`]
+  if (config.size !== undefined) attrs.push(`size="${config.size}"`)
+  if (config.length !== undefined) attrs.push(`length="${config.length}"`)
+  if (config.width !== undefined) attrs.push(`width="${config.width}"`)
+  if (config.height !== undefined) attrs.push(`height="${config.height}"`)
+  if (config.depth === 3 || config.d === 3) attrs.push('d="3"')
+  if (config.steps !== undefined) attrs.push(`steps="${config.steps}"`)
+  return `<model ${attrs.join(' ')}/>`
+}
+
 export function configForModel(modelsXml, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const match = modelsXml.match(new RegExp(`<model\\s+[^>]*name="${escaped}"[^>]*>`))
-  if (!match) throw new Error(`${name}: not listed in models.xml; add explicit fixture metadata before fuzzing`)
-  const tag = match[0]
+  const tag = match?.[0] ?? modelConfigTag(name)
+  if (!tag) throw new Error(`${name}: not listed in models.xml; add explicit fixture metadata before fuzzing`)
   const size = Number(tag.match(/\bsize="(\d+)"/)?.[1])
-  if (!Number.isInteger(size)) throw new Error(`${name}: models.xml entry missing size`)
-  const depth = tag.match(/\bd="3"/) ? size : 1
-  return { width: size, height: size, depth }
+  const width = Number(tag.match(/\bwidth="(\d+)"/)?.[1] ?? size)
+  const height = Number(tag.match(/\bheight="(\d+)"/)?.[1] ?? (tag.match(/\bd="3"/) ? size : 1))
+  if (!Number.isInteger(size) && (!Number.isInteger(width) || !Number.isInteger(height))) throw new Error(`${name}: models.xml entry missing size`)
+  const depth = tag.match(/\bd="3"/) ? height : 1
+  return { width: Number(tag.match(/\blength="(\d+)"/)?.[1] ?? width), height: Number(tag.match(/\bwidth="(\d+)"/)?.[1] ?? size), depth }
 }

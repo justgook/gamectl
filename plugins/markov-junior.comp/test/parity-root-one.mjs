@@ -1,10 +1,10 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import { compileXmlToMjir, initialGridFromXml, parseMjstate } from './mjir-v1.mjs'
-import { parseArgs, rootOneModels } from './root-one-fixtures.mjs'
+import { modelConfigTag, parseArgs, rootOneModels } from './root-one-fixtures.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../../..')
@@ -59,12 +59,24 @@ function assertSameGrid(name, seed, actual, golden) {
   }
 }
 
+function originalRunCwd(name) {
+  const configTag = modelConfigTag(name)
+  if (!configTag) return mjRoot
+  const tempCwd = mkdtempSync(join(tempRoot, `${name}-original-`))
+  symlinkSync(join(mjRoot, 'bin'), join(tempCwd, 'bin'))
+  symlinkSync(join(mjRoot, 'models'), join(tempCwd, 'models'))
+  const patchedModelsXml = readFileSync(join(mjRoot, 'models.xml'), 'utf8').replace('</models>', `  ${configTag}\n</models>`)
+  writeFileSync(join(tempCwd, 'models.xml'), patchedModelsXml)
+  return tempCwd
+}
+
 export function parityModel(name, { runs, steps }) {
   const tempDir = join(tempRoot, name)
   rmSync(tempDir, { recursive: true, force: true })
   mkdirSync(tempDir, { recursive: true })
 
-  run('./bin/markovjunior-odin', [name, `--amount=${runs}`, `--steps=${steps}`, '--format=text', `--output=${tempDir}`], { cwd: mjRoot })
+  const originalCwd = originalRunCwd(name)
+  run('./bin/markovjunior-odin', [name, `--amount=${runs}`, `--steps=${steps}`, '--format=text', `--output=${tempDir}`], { cwd: originalCwd })
 
   const outputs = readdirSync(tempDir).filter((entry) => entry.endsWith('.txt')).sort()
   assert.equal(outputs.length, runs, `${name}: expected ${runs} original outputs, got ${outputs.join(', ')}`)

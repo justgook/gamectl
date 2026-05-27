@@ -93,4 +93,4 @@ node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 -
 node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
 ```
 
-`discover-supported.mjs` reports separate compiler-supported, fixture-ready, parity-fixtured, no-generic-original-output, unlisted, needs-config, and unsupported buckets so MJIR compiler support is not confused with byte-for-byte parity coverage. The fuzz script runs the component twice for each model/seed, checks deterministic replay and grid invariants, and prints every seed so failures can be reproduced with `--model`, `--steps`, and `--seed`.
+`discover-supported.mjs` reports separate compiler-supported, fixture-ready, parity-fixtured, known-mismatch, no-generic-original-output, unlisted, needs-config, and unsupported buckets so MJIR compiler support is not confused with byte-for-byte parity coverage. The fuzz script runs the component twice for each model/seed, checks deterministic replay and grid invariants, and prints every seed so failures can be reproduced with `--model`, `--steps`, and `--seed`.

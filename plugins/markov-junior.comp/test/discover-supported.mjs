@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { compileXmlToMjir, xmlRootTag } from '../compiler/xml-to-mjir.mjs'
 import {
   configForModel,
+  knownParityMismatchModels,
   noGenericOriginalOutputModels,
   rootAllModels,
   rootMarkovModels,
@@ -18,6 +19,7 @@ const mjRoot = process.env.MARKOV_JUNIOR_REPO ?? resolve(repoRoot, '../MarkovJun
 const modelsDir = join(mjRoot, 'models')
 const modelsXml = readFileSync(join(mjRoot, 'models.xml'), 'utf8')
 const requestedRoot = process.argv.find((arg) => arg.startsWith('--root='))?.slice('--root='.length)
+const knownParityMismatchNames = new Set(knownParityMismatchModels)
 const noGenericOriginalOutputNames = new Set(noGenericOriginalOutputModels)
 const parityFixtureNames = new Set([
   ...rootOneModels,
@@ -28,6 +30,7 @@ const parityFixtureNames = new Set([
 ])
 
 const parityFixtured = []
+const knownParityMismatch = []
 const noGenericOriginalOutput = []
 const fixtureReadyUnlisted = []
 const compilerSupportedNeedsConfig = []
@@ -54,14 +57,16 @@ for (const file of readdirSync(modelsDir).filter((entry) => entry.endsWith('.xml
   }
 
   if (parityFixtureNames.has(name)) parityFixtured.push({ name, root })
+  else if (knownParityMismatchNames.has(name)) knownParityMismatch.push({ name, root, reason: 'compiler-supported and fixture-configured, but byte-for-byte parity currently mismatches' })
   else if (noGenericOriginalOutputNames.has(name)) noGenericOriginalOutput.push({ name, root, reason: 'compiler-supported and has models.xml config, but original runner emits no output under the generic parity command' })
   else fixtureReadyUnlisted.push({ name, root, reason: 'compiler-supported and has models.xml config, but is not in a parity fixture list' })
 }
 
-const compilerSupported = parityFixtured.length + noGenericOriginalOutput.length + fixtureReadyUnlisted.length + compilerSupportedNeedsConfig.length
-const fixtureReady = parityFixtured.length + noGenericOriginalOutput.length + fixtureReadyUnlisted.length
-console.log(`compiler-supported=${compilerSupported} fixture-ready=${fixtureReady} parity-fixtured=${parityFixtured.length} no-generic-original-output=${noGenericOriginalOutput.length} unlisted-fixture-ready=${fixtureReadyUnlisted.length} needs-config=${compilerSupportedNeedsConfig.length} unsupported=${unsupported.length}`)
+const compilerSupported = parityFixtured.length + knownParityMismatch.length + noGenericOriginalOutput.length + fixtureReadyUnlisted.length + compilerSupportedNeedsConfig.length
+const fixtureReady = parityFixtured.length + knownParityMismatch.length + noGenericOriginalOutput.length + fixtureReadyUnlisted.length
+console.log(`compiler-supported=${compilerSupported} fixture-ready=${fixtureReady} parity-fixtured=${parityFixtured.length} known-mismatch=${knownParityMismatch.length} no-generic-original-output=${noGenericOriginalOutput.length} unlisted-fixture-ready=${fixtureReadyUnlisted.length} needs-config=${compilerSupportedNeedsConfig.length} unsupported=${unsupported.length}`)
 for (const item of parityFixtured) console.log(`parity ${item.root} ${item.name}`)
+for (const item of knownParityMismatch) console.log(`mismatch ${item.root} ${item.name}: ${item.reason}`)
 for (const item of noGenericOriginalOutput) console.log(`no-output ${item.root} ${item.name}: ${item.reason}`)
 for (const item of fixtureReadyUnlisted) console.log(`unlisted ${item.root} ${item.name}: ${item.reason}`)
 
