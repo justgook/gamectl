@@ -19,6 +19,8 @@ MJ_Node :: struct {
 	potentials: []int,
 	future: []i32,
 	future_computed: bool,
+	path: Path_State,
+	has_path: bool,
 	temperature: f64,
 }
 
@@ -158,13 +160,17 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	current_potentials: []int
 	current_observations: []Observation_State
 	current_future: []i32
+	current_path: Path_State
+	current_has_path := false
 	current_temperature := 0.0
-	flush_node :: proc(nodes: ^[dynamic]MJ_Node, kind: u32, start, count, steps: int, fields: ^[]Field_State, observations: ^[]Observation_State, potentials: ^[]int, future: ^[]i32, temperature: ^f64) {
-		append(nodes, MJ_Node{kind = kind, start = start, count = count, steps = steps, fields = fields^, observations = observations^, potentials = potentials^, future = future^, temperature = temperature^})
+	flush_node :: proc(nodes: ^[dynamic]MJ_Node, kind: u32, start, count, steps: int, fields: ^[]Field_State, observations: ^[]Observation_State, potentials: ^[]int, future: ^[]i32, path: ^Path_State, has_path: ^bool, temperature: ^f64) {
+		append(nodes, MJ_Node{kind = kind, start = start, count = count, steps = steps, fields = fields^, observations = observations^, potentials = potentials^, future = future^, path = path^, has_path = has_path^, temperature = temperature^})
 		fields^ = nil
 		observations^ = nil
 		potentials^ = nil
 		future^ = nil
+		path^ = {}
+		has_path^ = false
 		temperature^ = 0
 	}
 	root_marker_seen := false
@@ -174,13 +180,13 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		if op == 100 {
 			kind := mj_read_u32(model, &pos, &ok)
 			marker_steps := int(mj_read_u32(model, &pos, &ok))
-			if !ok || kind < 1 || kind > 5 { return mj_fail("invalid model-ir node kind") }
-			if kind >= 4 && !root_marker_seen && len(nodes) == 0 && !node_open {
+			if !ok || kind < 1 || kind > 6 { return mj_fail("invalid model-ir node kind") }
+			if (kind == 4 || kind == 5) && !root_marker_seen && len(nodes) == 0 && !node_open {
 				container_kind = kind
 				root_marker_seen = true
-			} else if kind >= 4 {
-				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil {
-					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_temperature)
+			} else if kind == 4 || kind == 5 {
+				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path {
+					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_temperature)
 					node_open = false
 				}
 				node_start = len(rules)
@@ -189,8 +195,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				append(&nodes, MJ_Node{kind = kind, steps = marker_steps, children_start = container_index + 1})
 				append(&container_stack, container_index)
 			} else {
-				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil {
-					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_temperature)
+				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path {
+					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_temperature)
 				}
 				node_kind = kind
 				node_steps = marker_steps
@@ -206,8 +212,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			grid_add_union(&g, symbol, string(model[pos:pos + union_values_len]))
 			pos += union_values_len
 		} else if op == 102 {
-			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil {
-				flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_temperature)
+			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path {
+				flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_temperature)
 				node_open = false
 			}
 			if len(container_stack) == 0 { return mj_fail("model-ir container end without start") }
@@ -262,6 +268,25 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			from_value := observe_value
 			if from_len > 0 do from_value = from_string[0]
 			current_observations[grid_value(&g, observe_value)] = Observation_State{present = true, from = grid_value(&g, from_value), to = grid_wave_string(&g, to_string)}
+		} else if op == 106 {
+			from_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || from_len <= 0 || pos + from_len > len(model) { return mj_fail("invalid model-ir path from") }
+			from_string := string(model[pos:pos + from_len]); pos += from_len
+			to_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || to_len <= 0 || pos + to_len > len(model) { return mj_fail("invalid model-ir path to") }
+			to_string := string(model[pos:pos + to_len]); pos += to_len
+			on_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || on_len <= 0 || pos + on_len > len(model) { return mj_fail("invalid model-ir path on") }
+			on_string := string(model[pos:pos + on_len]); pos += on_len
+			if pos >= len(model) { return mj_fail("truncated model-ir path color") }
+			color := model[pos]; pos += 1
+			inertia := mj_read_u32(model, &pos, &ok) != 0
+			longest := mj_read_u32(model, &pos, &ok) != 0
+			edges := mj_read_u32(model, &pos, &ok) != 0
+			vertices := mj_read_u32(model, &pos, &ok) != 0
+			if !ok { return mj_fail("invalid model-ir path flags") }
+			current_path = Path_State{start = grid_wave_string(&g, from_string), finish = grid_wave_string(&g, to_string), substrate = grid_wave_string(&g, on_string), value = grid_value(&g, color), inertia = inertia, longest = longest, edges = edges, vertices = vertices}
+			current_has_path = true
 		} else if op == 1 {
 			if pos + 2 > len(model) { return mj_fail("truncated one-cell replace rule") }
 			input_index := int(model[pos]); output_index := int(model[pos + 1]); pos += 2
@@ -290,11 +315,15 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		}
 	}
 
-	if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil {
-		flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_temperature)
+	if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path {
+		flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_temperature)
 	}
 	if len(container_stack) != 0 { return mj_fail("model-ir unclosed container") }
-	if len(rules) == 0 { return mj_fail("model-ir contains no rules") }
+	if len(rules) == 0 {
+		has_executable := false
+		for n in nodes do if n.kind == 6 && n.has_path { has_executable = true }
+		if !has_executable { return mj_fail("model-ir contains no rules") }
+	}
 	if len(nodes) == 0 { append(&nodes, MJ_Node{kind = node_kind, start = 0, count = len(rules)}) }
 
 	random := mj_random_init(i32(seed & 0x7fffffff))
@@ -314,6 +343,13 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 }
 
 mj_run_node_with_count :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRandom, steps: int) -> (int, bool) {
+	if node.kind == 6 {
+		changes := make([dynamic]Cell)
+		defer delete(changes)
+		changed := path_go(&node.path, g, random, &changes)
+		if changed do return 1, true
+		return 0, false
+	}
 	if node.kind == 1 && node.potentials != nil do return mj_run_one_node_with_fields_count(g, node, rules, random, steps)
 	if node.kind == 2 && node.potentials != nil do return mj_run_all_node_with_fields_count(g, node, rules, random, steps)
 	return mj_run_node_rules_with_count(g, node.kind, rules, random, steps)
@@ -597,6 +633,7 @@ mj_markov_all_go :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRan
 }
 
 mj_run_node_once_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRandom, changes: ^[dynamic]Cell, node_counter: int) -> bool {
+	if node.kind == 6 do return path_go(&node.path, g, random, changes)
 	if node.kind == 2 && node.potentials != nil {
 		if !mj_compute_node_fields(g, node, rules, node_counter) do return false
 		matches := make([dynamic]Match)
@@ -641,7 +678,7 @@ mj_markov_nodes_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^M
 			i += node.children_count
 			continue
 		}
-		if node.count <= 0 { continue }
+		if node.kind != 6 && node.count <= 0 { continue }
 		if node.steps > 0 && counters[i] >= node.steps { continue }
 		if node.kind == 1 {
 			changed := false
@@ -729,7 +766,7 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 			child^ += node.children_count + 1
 			continue
 		}
-		if node.count <= 0 || (node.steps > 0 && counters[idx] >= node.steps) {
+		if (node.kind != 6 && node.count <= 0) || (node.steps > 0 && counters[idx] >= node.steps) {
 			child^ += 1
 			continue
 		}

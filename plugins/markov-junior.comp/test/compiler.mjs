@@ -79,6 +79,21 @@ function decodeMjirV1(bytes) {
       rules.push({ op, value, from, to })
       continue
     }
+    if (op === 106) {
+      const fromLen = readU32(bytes, pos); pos += 4
+      const from = String.fromCharCode(...bytes.slice(pos, pos + fromLen)); pos += fromLen
+      const toLen = readU32(bytes, pos); pos += 4
+      const to = String.fromCharCode(...bytes.slice(pos, pos + toLen)); pos += toLen
+      const onLen = readU32(bytes, pos); pos += 4
+      const on = String.fromCharCode(...bytes.slice(pos, pos + onLen)); pos += onLen
+      const color = String.fromCharCode(bytes[pos]); pos += 1
+      const inertia = readU32(bytes, pos) !== 0; pos += 4
+      const longest = readU32(bytes, pos) !== 0; pos += 4
+      const edges = readU32(bytes, pos) !== 0; pos += 4
+      const vertices = readU32(bytes, pos) !== 0; pos += 4
+      rules.push({ op, from, to, on, color, inertia, longest, edges, vertices })
+      continue
+    }
     const imx = readU32(bytes, pos); pos += 4
     const imy = readU32(bytes, pos); pos += 4
     const imz = readU32(bytes, pos); pos += 4
@@ -173,7 +188,8 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRGW"><one in="R
 ])
 assert.throws(() => compileXmlToMjir('<one values="BW" file="Rule"/>'), /unsupported file attribute/)
 assert.throws(() => compileXmlToMjir('<sequence values="BW"><union values="B"/><one in="B" out="W"/></sequence>'), /union missing symbol attribute/)
-assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>/)
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWD"><path from="R" to="W" on="B" color="D" inertia="True"/></markov>')).rules[0], { op: 106, from: 'R', to: 'W', on: 'B', color: 'D', inertia: true, longest: false, edges: false, vertices: false })
+assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>\/<path>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)
 

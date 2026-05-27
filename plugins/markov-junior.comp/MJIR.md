@@ -78,6 +78,20 @@ from:         bytes    present-state replacement, empty means value
 to-len:       u32
 to:           bytes    future allowed symbols
 
+# op 106, path node payload for the current <path> node
+op:           u32      106
+from-len:     u32
+from:         bytes    start symbols
+to-len:       u32
+to:           bytes    finish symbols
+on-len:       u32
+on:           bytes    substrate symbols
+color:        u8       output symbol
+inertia:      u32      0/1
+longest:      u32      0/1
+edges:        u32      0/1
+vertices:     u32      0/1
+
 # op 1, legacy one-cell replace
 op:           u32      1
 input:        u8       value index
@@ -98,7 +112,7 @@ input:        bytes    pattern symbols in MarkovJunior parse order
 output:       bytes    pattern symbols in MarkovJunior parse order
 ```
 
-Root `<one>` execution semantics use the current Odin `one` node helpers. `<one>` and `<all>` nodes also support resource-free `<field>` children through MJIR ops 103/104 for field-guided rule choice, and non-search `<observe>` children through op 105 plus the existing backward-potential helpers:
+Root `<one>` execution semantics use the current Odin `one` node helpers. `<one>` and `<all>` nodes also support resource-free `<field>` children through MJIR ops 103/104 for field-guided rule choice, non-search `<observe>` children through op 105 plus the existing backward-potential helpers, and `<path>` nodes through op 106 plus the existing path finder:
 
 ```text
 expand pattern symmetries with append_rule_symmetries

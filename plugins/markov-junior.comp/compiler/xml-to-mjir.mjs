@@ -61,7 +61,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
   ]
   const childOps = (child) => {
     if (child.children) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...child.children.flatMap(childOps), { op: 'end' }]
-    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...child.rules]
+    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...(child.path ? [{ op: 'path', ...child.path }] : []), ...child.rules]
   }
   const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
@@ -76,7 +76,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
 
   for (const op of ops) {
     if (op.op === 'node') {
-      const kinds = { one: 1, all: 2, prl: 3, markov: 4, sequence: 5 }
+      const kinds = { one: 1, all: 2, prl: 3, markov: 4, sequence: 5, path: 6 }
       if (!kinds[op.kind]) throw new Error(`unsupported node kind: ${op.kind}`)
       u32le(bytes, 100)
       u32le(bytes, kinds[op.kind])
@@ -125,6 +125,22 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
       bytes.push(...fromBytes)
       u32le(bytes, toBytes.length)
       bytes.push(...toBytes)
+      continue
+    }
+    if (op.op === 'path') {
+      const fromBytes = [...textEncoder.encode(op.from)]
+      const toBytes = [...textEncoder.encode(op.to)]
+      const onBytes = [...textEncoder.encode(op.on)]
+      const colorBytes = [...textEncoder.encode(op.color ?? op.from[0])]
+      u32le(bytes, 106)
+      u32le(bytes, fromBytes.length); bytes.push(...fromBytes)
+      u32le(bytes, toBytes.length); bytes.push(...toBytes)
+      u32le(bytes, onBytes.length); bytes.push(...onBytes)
+      bytes.push(colorBytes[0])
+      u32le(bytes, op.inertia ? 1 : 0)
+      u32le(bytes, op.longest ? 1 : 0)
+      u32le(bytes, op.edges ? 1 : 0)
+      u32le(bytes, op.vertices ? 1 : 0)
       continue
     }
     if (op.op !== 'pattern') throw new Error(`unsupported rule op: ${op.op}`)
@@ -204,9 +220,13 @@ function nodeFromElement(elementXml, inheritedSymmetry = '') {
   const tag = xmlRootTag(elementXml)
   const start = xmlRootStartTag(elementXml)
   const steps = Number(xmlAttr(start, 'steps', '0'))
+  if (tag === 'path') {
+    const path = pathFromElement(elementXml)
+    return { node: tag, steps, rules: [], path }
+  }
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(elementXml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} child has unsupported direct children: ${unsupported.join(', ')}`)
     const children = direct.map((childXml) => nodeFromElement(childXml, inheritedSymmetry))
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
@@ -227,6 +247,26 @@ function fieldsFromElement(elementXml) {
     if (!to && !from) throw new Error('child <field> missing to/from attribute')
     return { for: forSymbol, on, to, from, recompute: xmlBoolAttr(start, 'recompute', false), essential: xmlBoolAttr(start, 'essential', false) }
   })
+}
+
+function pathFromElement(elementXml) {
+  const start = xmlRootStartTag(elementXml)
+  const from = xmlAttr(start, 'from')
+  const to = xmlAttr(start, 'to')
+  const on = xmlAttr(start, 'on')
+  if (!from) throw new Error('<path> missing from attribute')
+  if (!to) throw new Error('<path> missing to attribute')
+  if (!on) throw new Error('<path> missing on attribute')
+  return {
+    from,
+    to,
+    on,
+    color: xmlAttr(start, 'color', from[0]),
+    inertia: xmlBoolAttr(start, 'inertia', false),
+    longest: xmlBoolAttr(start, 'longest', false),
+    edges: xmlBoolAttr(start, 'edges', false),
+    vertices: xmlBoolAttr(start, 'vertices', false),
+  }
 }
 
 function observationsFromElement(elementXml) {
@@ -270,8 +310,8 @@ function rulesFromElement(elementXml, inheritedSymmetry = '') {
 
 export function compileXmlToMjir(xml) {
   const tag = xmlRootTag(xml)
-  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence') {
-    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>, got ${tag || 'unknown'}`)
+  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence' && tag !== 'path') {
+    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>/<path>, got ${tag || 'unknown'}`)
   }
   const rootStart = xmlRootStartTag(xml)
   const values = xmlAttr(rootStart, 'values')
@@ -280,12 +320,16 @@ export function compileXmlToMjir(xml) {
   const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(xml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'markov', 'sequence', 'union'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'markov', 'sequence', 'union'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} root has unsupported direct children: ${unsupported.join(', ')}`)
     const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => nodeFromElement(childXml, rootSymmetry))
     if (children.length === 0) throw new Error(`${tag} root missing child nodes`)
-    for (const child of children) if (!child.children && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
+    for (const child of children) if (!child.children && !child.path && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
     return encodeMjirV1({ values, node: tag, children, unions: unionsFromXml(xml) })
+  }
+
+  if (tag === 'path') {
+    return encodeMjirV1({ values, node: tag, rules: [{ op: 'path', ...pathFromElement(xml) }], unions: unionsFromXml(xml) })
   }
 
   const rules = rulesFromElement(xml, rootSymmetry)
