@@ -36,6 +36,7 @@ export const rootMarkovModels = [
 ]
 
 export const rootSequenceModels = [
+  'BasicDungeonGrowth',
   'Cycles',
   'DualRetraction',
   'GrowthCompetition',

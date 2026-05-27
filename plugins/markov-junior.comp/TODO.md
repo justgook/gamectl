@@ -30,7 +30,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Add compiler unit tests independent of the component runtime.
 - [x] Support child `<rule>` elements under root `<one>`, `<all>`, and `<prl>`.
 - [x] Support rule probability `p` for stochastic rules.
-- [ ] Support `<union>` declarations.
+- [x] Support `<union>` declarations.
 - [ ] Decide how to represent unsupported children like `<field>` in MJIR.
 
 ## Part 3 — MJIR v1 executor
@@ -87,6 +87,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 
 ### Passing root `<sequence>` fixtures
 
+- [x] `BasicDungeonGrowth.xml`
 - [x] `Cycles.xml`
 - [x] `DualRetraction.xml`
 - [x] `GrowthCompetition.xml`
@@ -102,6 +103,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 ### Next candidate fixtures
 
 - [x] Root `<all>` with child `<rule>` elements: `NestedGrowth.xml`.
+- [x] Union-backed sequence model: `BasicDungeonGrowth.xml`.
 - [ ] Unlisted/no-config root `<one>` model: `RandomWalk.xml` (needs explicit config or fixture metadata).
 - [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
 - [x] Root `<all>` inline-rule models.

@@ -154,6 +154,13 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				node_start = len(rules)
 				node_open = true
 			}
+		} else if op == 101 {
+			if pos >= len(model) { return mj_fail("truncated model-ir union symbol") }
+			symbol := model[pos]; pos += 1
+			union_values_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || union_values_len <= 0 || pos + union_values_len > len(model) { return mj_fail("invalid model-ir union values") }
+			grid_add_union(&g, symbol, string(model[pos:pos + union_values_len]))
+			pos += union_values_len
 		} else if op == 1 {
 			if pos + 2 > len(model) { return mj_fail("truncated one-cell replace rule") }
 			input_index := int(model[pos]); output_index := int(model[pos + 1]); pos += 2

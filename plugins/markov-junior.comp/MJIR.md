@@ -45,6 +45,12 @@ op:           u32      100
 kind:         u32      1 = one, 2 = all, 3 = prl, 4 = markov container, 5 = sequence container
 steps:        u32      child node step limit, 0 = unbounded/default
 
+# op 101, union declaration, available to following pattern rules
+op:           u32      101
+symbol:       u8
+values-len:   u32
+values:       bytes
+
 # op 1, legacy one-cell replace
 op:           u32      1
 input:        u8       value index

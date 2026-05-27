@@ -51,11 +51,12 @@ export function parsePattern(pattern) {
   return { width, height, depth, data }
 }
 
-export function encodeMjirV1({ values, node = 'one', rules, children }) {
+export function encodeMjirV1({ values, node = 'one', rules, children, unions = [] }) {
   const valueBytes = [...textEncoder.encode(values.replaceAll(' ', ''))]
-  const ops = children
+  const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap((child) => [{ op: 'node', kind: child.node, steps: child.steps ?? 0 }, ...child.rules])]
     : (node === 'one' ? rules : [{ op: 'node', kind: node, steps: 0 }, ...rules])
+  const ops = [...unions.map((union) => ({ op: 'union', ...union })), ...bodyOps]
   const bytes = []
   bytes.push('M'.charCodeAt(0), 'J'.charCodeAt(0), 'I'.charCodeAt(0), 'R'.charCodeAt(0))
   u32le(bytes, 1)
@@ -70,6 +71,14 @@ export function encodeMjirV1({ values, node = 'one', rules, children }) {
       u32le(bytes, 100)
       u32le(bytes, kinds[op.kind])
       u32le(bytes, op.steps ?? 0)
+      continue
+    }
+    if (op.op === 'union') {
+      const valuesBytes = [...textEncoder.encode(op.values)]
+      u32le(bytes, 101)
+      bytes.push(op.symbol.charCodeAt(0))
+      u32le(bytes, valuesBytes.length)
+      bytes.push(...valuesBytes)
       continue
     }
     if (op.op !== 'pattern') throw new Error(`unsupported rule op: ${op.op}`)
@@ -94,6 +103,20 @@ export function encodeMjirV1({ values, node = 'one', rules, children }) {
 
 export function xmlRuleTags(xml) {
   return [...xml.matchAll(/<rule\b([^>]*)\/?\s*>/g)].map((match) => match[0])
+}
+
+export function xmlUnionTags(xml) {
+  return [...xml.matchAll(/<union\b([^>]*)\/?\s*>/g)].map((match) => match[0])
+}
+
+function unionsFromXml(xml) {
+  return xmlUnionTags(xml).map((tag) => {
+    const symbol = xmlAttr(tag, 'symbol')
+    const values = xmlAttr(tag, 'values')
+    if (!symbol) throw new Error('union missing symbol attribute')
+    if (!values) throw new Error('union missing values attribute')
+    return { symbol, values }
+  })
 }
 
 export function xmlDirectChildTags(xml) {
@@ -171,17 +194,17 @@ export function compileXmlToMjir(xml) {
   const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(xml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'union'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} root has unsupported direct children: ${unsupported.join(', ')}`)
-    const children = direct.map((childXml) => ({ node: xmlRootTag(childXml), steps: Number(xmlAttr(xmlRootStartTag(childXml), 'steps', '0')), rules: rulesFromElement(childXml, rootSymmetry) }))
+    const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => ({ node: xmlRootTag(childXml), steps: Number(xmlAttr(xmlRootStartTag(childXml), 'steps', '0')), rules: rulesFromElement(childXml, rootSymmetry) }))
     if (children.length === 0) throw new Error(`${tag} root missing child nodes`)
     for (const child of children) if (child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
-    return encodeMjirV1({ values, node: tag, children })
+    return encodeMjirV1({ values, node: tag, children, unions: unionsFromXml(xml) })
   }
 
   const rules = rulesFromElement(xml, rootSymmetry)
   if (rules.length === 0) throw new Error('missing in/out attributes or child <rule> elements')
-  return encodeMjirV1({ values, node: tag, rules })
+  return encodeMjirV1({ values, node: tag, rules, unions: unionsFromXml(xml) })
 }
 
 export function compileMjirV1FromXml(xml) {

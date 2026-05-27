@@ -13,4 +13,5 @@ export {
   xmlRootTag,
   xmlRootStartTag,
   xmlRuleTags,
+  xmlUnionTags,
 } from '../compiler/xml-to-mjir.mjs'
