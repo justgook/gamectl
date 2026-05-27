@@ -28,8 +28,17 @@ export const rootMarkovModels = [
 ]
 
 export const rootSequenceModels = [
-  'LoopGrowth',
   'Cycles',
+  'DualRetraction',
+  'GrowthCompetition',
+  'LoopGrowth',
+  'Noise',
+  'Push',
+  'River',
+  'SmoothTrail',
+  'StochasticVoronoi',
+  'StrangeDungeon',
+  'Voronoi',
 ]
 
 export function parseList(value) {

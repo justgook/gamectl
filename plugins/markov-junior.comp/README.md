@@ -75,7 +75,7 @@ Run the parity fixtures against the original MarkovJunior Odin runner:
 MARKOV_JUNIOR_REPO=/Users/gook/Repos/MarkovJunior node plugins/markov-junior.comp/test/parity-root-one.mjs
 ```
 
-`parity-root-one.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `Growth`, `MazeGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `StrangeGrowth`) into MJIR v1, runs the original Odin CLI, extracts seeds from generated filenames, runs the component with the same seed/config, and compares final grid bytes. `parity-root-all.mjs` does the same for root `<all>` fixtures (`ParallelGrowth`, `ParallelMazeGrowth`, `PutLs`, `NestedGrowth`). `parity-root-prl.mjs` covers root `<prl>` fixtures (`ForestFire`). `parity-root-markov.mjs` covers simple root `<markov>` fixtures (`Backtracker`, `MazeBacktracker`, `RegularSAWRestart`, `SAWRestart`). `parity-root-sequence.mjs` covers simple root `<sequence>` fixtures (`LoopGrowth`, `Cycles`). `parity-basic.mjs` remains as a compatibility shim.
+`parity-root-one.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `Growth`, `MazeGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `StrangeGrowth`) into MJIR v1, runs the original Odin CLI, extracts seeds from generated filenames, runs the component with the same seed/config, and compares final grid bytes. `parity-root-all.mjs` does the same for root `<all>` fixtures (`ParallelGrowth`, `ParallelMazeGrowth`, `PutLs`, `NestedGrowth`). `parity-root-prl.mjs` covers root `<prl>` fixtures (`ForestFire`). `parity-root-markov.mjs` covers simple root `<markov>` fixtures (`Backtracker`, `MazeBacktracker`, `RegularSAWRestart`, `SAWRestart`). `parity-root-sequence.mjs` covers simple root `<sequence>` fixtures (`Cycles`, `DualRetraction`, `GrowthCompetition`, `LoopGrowth`, `Noise`, `Push`, `River`, `SmoothTrail`, `StochasticVoronoi`, `StrangeDungeon`, `Voronoi`). `parity-basic.mjs` remains as a compatibility shim.
 
 Useful replay/fuzz commands:
 
@@ -85,6 +85,7 @@ node plugins/markov-junior.comp/test/parity-root-all.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/parity-root-prl.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/parity-root-markov.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/parity-root-sequence.mjs --runs=1 --steps=10
+node plugins/markov-junior.comp/test/discover-supported.mjs --show-unsupported
 node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
 node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
 ```

@@ -9,6 +9,7 @@ export {
   xmlAttr,
   xmlBoolAttr,
   xmlChildNodeTags,
+  xmlDirectChildTags,
   xmlRootTag,
   xmlRootStartTag,
   xmlRuleTags,

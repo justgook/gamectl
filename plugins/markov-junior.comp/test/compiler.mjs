@@ -9,6 +9,7 @@ import {
   xmlAttr,
   xmlBoolAttr,
   xmlChildNodeTags,
+  xmlDirectChildTags,
   xmlRootTag,
   xmlRootStartTag,
   xmlRuleTags,
@@ -114,9 +115,13 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<prl values="BGR"><rule in="B" o
   nodes: [{ kind: 3, steps: 0 }],
   rules: [{ op: 2, imx: 1, imy: 1, imz: 1, omx: 1, omy: 1, omz: 1, probability: 0.01, symmetry: '', input: 'B', output: 'G' }],
 })
+assert.deepEqual(xmlDirectChildTags('<sequence><sequence><one in="B" out="W"/></sequence></sequence>').map(xmlRootTag), ['sequence'])
 assert.deepEqual(xmlChildNodeTags('<markov values="BRWU"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>').length, 2)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWU" origin="True"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>')).nodes, [{ kind: 4, steps: 0 }, { kind: 1, steps: 0 }, { kind: 1, steps: 0 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BR"><one in="B" out="R" steps="24"/><all in="RB" out="BR"/></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 1, steps: 24 }, { kind: 2, steps: 0 }])
+assert.throws(() => compileXmlToMjir('<sequence values="BW"><sequence><one in="B" out="W"/></sequence></sequence>'), /unsupported direct children: sequence/)
+assert.throws(() => compileXmlToMjir('<one values="BW" in="B" out="W"><field for="W"/></one>'), /unsupported children: field/)
+assert.throws(() => compileXmlToMjir('<one values="BW" file="Rule"/>'), /unsupported file attribute/)
 assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)

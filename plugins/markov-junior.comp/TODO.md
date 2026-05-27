@@ -79,8 +79,17 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 
 ### Passing root `<sequence>` fixtures
 
-- [x] `LoopGrowth.xml`
 - [x] `Cycles.xml`
+- [x] `DualRetraction.xml`
+- [x] `GrowthCompetition.xml`
+- [x] `LoopGrowth.xml`
+- [x] `Noise.xml`
+- [x] `Push.xml`
+- [x] `River.xml`
+- [x] `SmoothTrail.xml`
+- [x] `StochasticVoronoi.xml`
+- [x] `StrangeDungeon.xml`
+- [x] `Voronoi.xml`
 
 ### Next candidate fixtures
 
@@ -102,7 +111,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Split root-one parity into `parity-root-one.mjs`; keep `parity-basic.mjs` as compatibility shim.
 - [x] Add CLI filtering/replay flags: `--model`, `--models`, `--runs`, `--steps`.
 - [x] Add deterministic fuzz/replay script with printed seeds: `fuzz-root-one.mjs`.
-- [ ] Add fixture discovery/filtering so unsupported models are reported clearly.
+- [x] Add fixture discovery/filtering so unsupported models are reported clearly (`test/discover-supported.mjs`).
 - [ ] Add CI-friendly parity mode that can skip if original MarkovJunior repo is absent.
 
 ## Commands
@@ -119,6 +128,7 @@ nix develop -c node plugins/markov-junior.comp/test/parity-root-all.mjs --runs=1
 nix develop -c node plugins/markov-junior.comp/test/parity-root-prl.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-markov.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-sequence.mjs --runs=1 --steps=10
+node plugins/markov-junior.comp/test/discover-supported.mjs --show-unsupported
 nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
 ```

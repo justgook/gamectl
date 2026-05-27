@@ -96,16 +96,49 @@ export function xmlRuleTags(xml) {
   return [...xml.matchAll(/<rule\b([^>]*)\/?\s*>/g)].map((match) => match[0])
 }
 
+export function xmlDirectChildTags(xml) {
+  const source = xml.replace(/<!--([\s\S]*?)-->/g, '')
+  const rootStart = xmlRootStartTag(source)
+  const root = xmlRootTag(source)
+  const closeRoot = source.lastIndexOf(`</${root}>`)
+  const inner = closeRoot >= 0 ? source.slice(rootStart.length, closeRoot) : source.slice(rootStart.length)
+  const children = []
+  let i = 0
+  while (i < inner.length) {
+    const start = inner.indexOf('<', i)
+    if (start < 0) break
+    if (inner[start + 1] === '/') { i = start + 2; continue }
+    const headEnd = inner.indexOf('>', start)
+    if (headEnd < 0) break
+    const name = inner.slice(start + 1, headEnd).trim().match(/^([a-zA-Z0-9_-]+)/)?.[1]
+    if (!name) { i = headEnd + 1; continue }
+    if (inner[headEnd - 1] === '/') {
+      children.push(inner.slice(start, headEnd + 1))
+      i = headEnd + 1
+      continue
+    }
+
+    const close = `</${name}>`
+    const closeStart = inner.indexOf(close, headEnd + 1)
+    if (closeStart < 0) break
+    children.push(inner.slice(start, closeStart + close.length))
+    i = closeStart + close.length
+  }
+  return children
+}
+
 export function xmlChildNodeTags(xml) {
-  const withoutRootStart = xml.slice(xmlRootStartTag(xml).length)
-  const matches = []
-  const re = /<(one|all|prl)\b[^>]*(?:\/>|>[\s\S]*?<\/\1>)/g
-  for (const match of withoutRootStart.matchAll(re)) matches.push(match[0])
-  return matches
+  return xmlDirectChildTags(xml).filter((tag) => ['one', 'all', 'prl'].includes(xmlRootTag(tag)))
 }
 
 function rulesFromElement(elementXml, inheritedSymmetry = '') {
   const start = xmlRootStartTag(elementXml)
+  for (const attr of ['file', 'fin', 'fout', 'search']) {
+    if (xmlAttr(start, attr, '') !== '') throw new Error(`unsupported ${attr} attribute`)
+  }
+  const directChildren = xmlDirectChildTags(elementXml)
+  const unsupportedChildren = directChildren.map((childXml) => xmlRootTag(childXml)).filter((childTag) => childTag !== 'rule')
+  if (unsupportedChildren.length > 0) throw new Error(`unsupported children: ${unsupportedChildren.join(', ')}`)
   const input = xmlAttr(start, 'in')
   const output = xmlAttr(start, 'out')
   const symmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
@@ -137,7 +170,10 @@ export function compileXmlToMjir(xml) {
 
   const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
   if (tag === 'markov' || tag === 'sequence') {
-    const children = xmlChildNodeTags(xml).map((childXml) => ({ node: xmlRootTag(childXml), steps: Number(xmlAttr(xmlRootStartTag(childXml), 'steps', '0')), rules: rulesFromElement(childXml, rootSymmetry) }))
+    const direct = xmlDirectChildTags(xml)
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl'].includes(childTag))
+    if (unsupported.length > 0) throw new Error(`${tag} root has unsupported direct children: ${unsupported.join(', ')}`)
+    const children = direct.map((childXml) => ({ node: xmlRootTag(childXml), steps: Number(xmlAttr(xmlRootStartTag(childXml), 'steps', '0')), rules: rulesFromElement(childXml, rootSymmetry) }))
     if (children.length === 0) throw new Error(`${tag} root missing child nodes`)
     for (const child of children) if (child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
     return encodeMjirV1({ values, node: tag, children })
