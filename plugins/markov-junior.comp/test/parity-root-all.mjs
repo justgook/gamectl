@@ -1,8 +1,7 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parityModel } from './parity-root-one.mjs'
+import { parityModel, skipOrRequireOriginalRepo } from './parity-root-one.mjs'
 import { parseArgs, rootAllModels } from './root-one-fixtures.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -22,11 +21,9 @@ function run(command, args, options = {}) {
 }
 
 const options = parseArgs(process.argv.slice(2), { models: rootAllModels, runs: 1, steps: 10 })
-if (!existsSync(join(mjRoot, 'odin'))) {
-  throw new Error(`MarkovJunior repo not found at ${mjRoot}; set MARKOV_JUNIOR_REPO`)
+if (!skipOrRequireOriginalRepo(options, mjRoot)) {
+  run('make', [join(repoRoot, 'build.nosync/plugins/markov-junior.comp.wasm')])
+  run('make', ['odin'], { cwd: mjRoot })
+  console.log(`root-all parity: models=${options.models.join(',')} runs=${options.runs} steps=${options.steps}`)
+  for (const model of options.models) parityModel(model, options)
 }
-
-run('make', [join(repoRoot, 'build.nosync/plugins/markov-junior.comp.wasm')])
-run('make', ['odin'], { cwd: mjRoot })
-console.log(`root-all parity: models=${options.models.join(',')} runs=${options.runs} steps=${options.steps}`)
-for (const model of options.models) parityModel(model, options)

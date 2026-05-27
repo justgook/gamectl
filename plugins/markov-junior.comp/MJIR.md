@@ -54,6 +54,30 @@ values:       bytes
 # op 102, end nested container marker
 op:           u32      102
 
+# op 103, field declaration for the current <one>/<all> node
+op:           u32      103
+for:          u8       target symbol whose potential is computed
+recompute:    u32      0/1, matches field recompute attribute
+essential:    u32      0/1, matches field essential attribute
+to-len:       u32
+to:           bytes    field to symbols, empty when from is used
+from-len:     u32
+from:         bytes    field from symbols, empty when to is used
+on-len:       u32
+on:           bytes    substrate symbols
+
+# op 104, temperature for field/observation-guided rule choice on the current node
+op:           u32      104
+temperature:  f64
+
+# op 105, observation declaration for the current node
+op:           u32      105
+value:        u8       observed symbol
+from-len:     u32
+from:         bytes    present-state replacement, empty means value
+to-len:       u32
+to:           bytes    future allowed symbols
+
 # op 1, legacy one-cell replace
 op:           u32      1
 input:        u8       value index
@@ -74,7 +98,7 @@ input:        bytes    pattern symbols in MarkovJunior parse order
 output:       bytes    pattern symbols in MarkovJunior parse order
 ```
 
-Root `<one>` execution semantics use the current Odin `one` node helpers:
+Root `<one>` execution semantics use the current Odin `one` node helpers. `<one>` and `<all>` nodes also support resource-free `<field>` children through MJIR ops 103/104 for field-guided rule choice, and non-search `<observe>` children through op 105 plus the existing backward-potential helpers:
 
 ```text
 expand pattern symmetries with append_rule_symmetries

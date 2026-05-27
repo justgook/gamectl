@@ -51,15 +51,21 @@ export function parsePattern(pattern) {
   return { width, height, depth, data }
 }
 
-export function encodeMjirV1({ values, node = 'one', rules, children, unions = [] }) {
+export function encodeMjirV1({ values, node = 'one', rules, fields = [], temperature = 0, observations = [], children, unions = [] }) {
   const valueBytes = [...textEncoder.encode(values.replaceAll(' ', ''))]
+  const nodeOps = (kind, steps, nodeFields = [], nodeTemperature = 0, nodeObservations = []) => [
+    { op: 'node', kind, steps: steps ?? 0 },
+    ...(nodeTemperature ? [{ op: 'temperature', value: nodeTemperature }] : []),
+    ...nodeFields.map((field) => ({ op: 'field', ...field })),
+    ...nodeObservations.map((observation) => ({ op: 'observe', ...observation })),
+  ]
   const childOps = (child) => {
-    if (child.children) return [{ op: 'node', kind: child.node, steps: child.steps ?? 0 }, ...child.children.flatMap(childOps), { op: 'end' }]
-    return [{ op: 'node', kind: child.node, steps: child.steps ?? 0 }, ...child.rules]
+    if (child.children) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...child.children.flatMap(childOps), { op: 'end' }]
+    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...child.rules]
   }
   const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
-    : (node === 'one' ? rules : [{ op: 'node', kind: node, steps: 0 }, ...rules])
+    : (node === 'one' && fields.length === 0 && observations.length === 0 && temperature === 0 ? rules : [...nodeOps(node, 0, fields, temperature, observations), ...rules])
   const ops = [...unions.map((union) => ({ op: 'union', ...union })), ...bodyOps]
   const bytes = []
   bytes.push('M'.charCodeAt(0), 'J'.charCodeAt(0), 'I'.charCodeAt(0), 'R'.charCodeAt(0))
@@ -87,6 +93,38 @@ export function encodeMjirV1({ values, node = 'one', rules, children, unions = [
     }
     if (op.op === 'end') {
       u32le(bytes, 102)
+      continue
+    }
+    if (op.op === 'field') {
+      const toBytes = [...textEncoder.encode(op.to ?? '')]
+      const fromBytes = [...textEncoder.encode(op.from ?? '')]
+      const onBytes = [...textEncoder.encode(op.on ?? '')]
+      u32le(bytes, 103)
+      bytes.push(op.for.charCodeAt(0))
+      u32le(bytes, op.recompute ? 1 : 0)
+      u32le(bytes, op.essential ? 1 : 0)
+      u32le(bytes, toBytes.length)
+      bytes.push(...toBytes)
+      u32le(bytes, fromBytes.length)
+      bytes.push(...fromBytes)
+      u32le(bytes, onBytes.length)
+      bytes.push(...onBytes)
+      continue
+    }
+    if (op.op === 'temperature') {
+      u32le(bytes, 104)
+      f64le(bytes, op.value)
+      continue
+    }
+    if (op.op === 'observe') {
+      const fromBytes = [...textEncoder.encode(op.from ?? '')]
+      const toBytes = [...textEncoder.encode(op.to)]
+      u32le(bytes, 105)
+      bytes.push(op.value.charCodeAt(0))
+      u32le(bytes, fromBytes.length)
+      bytes.push(...fromBytes)
+      u32le(bytes, toBytes.length)
+      bytes.push(...toBytes)
       continue
     }
     if (op.op !== 'pattern') throw new Error(`unsupported rule op: ${op.op}`)
@@ -174,7 +212,32 @@ function nodeFromElement(elementXml, inheritedSymmetry = '') {
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
     return { node: tag, steps, children }
   }
-  return { node: tag, steps, rules: rulesFromElement(elementXml, inheritedSymmetry) }
+  return { node: tag, steps, rules: rulesFromElement(elementXml, inheritedSymmetry), fields: fieldsFromElement(elementXml), observations: observationsFromElement(elementXml), temperature: Number(xmlAttr(start, 'temperature', '0')) }
+}
+
+function fieldsFromElement(elementXml) {
+  return xmlDirectChildTags(elementXml).filter((childXml) => xmlRootTag(childXml) === 'field').map((fieldXml) => {
+    const start = xmlRootStartTag(fieldXml)
+    const forSymbol = xmlAttr(start, 'for')
+    const on = xmlAttr(start, 'on')
+    const to = xmlAttr(start, 'to')
+    const from = xmlAttr(start, 'from')
+    if (!forSymbol) throw new Error('child <field> missing for attribute')
+    if (!on) throw new Error('child <field> missing on attribute')
+    if (!to && !from) throw new Error('child <field> missing to/from attribute')
+    return { for: forSymbol, on, to, from, recompute: xmlBoolAttr(start, 'recompute', false), essential: xmlBoolAttr(start, 'essential', false) }
+  })
+}
+
+function observationsFromElement(elementXml) {
+  return xmlDirectChildTags(elementXml).filter((childXml) => xmlRootTag(childXml) === 'observe').map((observeXml) => {
+    const start = xmlRootStartTag(observeXml)
+    const value = xmlAttr(start, 'value')
+    const to = xmlAttr(start, 'to')
+    if (!value) throw new Error('child <observe> missing value attribute')
+    if (!to) throw new Error('child <observe> missing to attribute')
+    return { value, from: xmlAttr(start, 'from', ''), to }
+  })
 }
 
 function rulesFromElement(elementXml, inheritedSymmetry = '') {
@@ -183,7 +246,7 @@ function rulesFromElement(elementXml, inheritedSymmetry = '') {
     if (xmlAttr(start, attr, '') !== '') throw new Error(`unsupported ${attr} attribute`)
   }
   const directChildren = xmlDirectChildTags(elementXml)
-  const unsupportedChildren = directChildren.map((childXml) => xmlRootTag(childXml)).filter((childTag) => childTag !== 'rule')
+  const unsupportedChildren = directChildren.map((childXml) => xmlRootTag(childXml)).filter((childTag) => childTag !== 'rule' && childTag !== 'field' && childTag !== 'observe')
   if (unsupportedChildren.length > 0) throw new Error(`unsupported children: ${unsupportedChildren.join(', ')}`)
   const input = xmlAttr(start, 'in')
   const output = xmlAttr(start, 'out')
@@ -227,7 +290,7 @@ export function compileXmlToMjir(xml) {
 
   const rules = rulesFromElement(xml, rootSymmetry)
   if (rules.length === 0) throw new Error('missing in/out attributes or child <rule> elements')
-  return encodeMjirV1({ values, node: tag, rules, unions: unionsFromXml(xml) })
+  return encodeMjirV1({ values, node: tag, rules, fields: fieldsFromElement(xml), observations: observationsFromElement(xml), temperature: Number(xmlAttr(rootStart, 'temperature', '0')), unions: unionsFromXml(xml) })
 }
 
 export function compileMjirV1FromXml(xml) {

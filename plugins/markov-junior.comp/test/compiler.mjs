@@ -52,6 +52,33 @@ function decodeMjirV1(bytes) {
       rules.push({ op })
       continue
     }
+    if (op === 103) {
+      const forSymbol = String.fromCharCode(bytes[pos]); pos += 1
+      const recompute = readU32(bytes, pos) !== 0; pos += 4
+      const essential = readU32(bytes, pos) !== 0; pos += 4
+      const toLen = readU32(bytes, pos); pos += 4
+      const to = String.fromCharCode(...bytes.slice(pos, pos + toLen)); pos += toLen
+      const fromLen = readU32(bytes, pos); pos += 4
+      const from = String.fromCharCode(...bytes.slice(pos, pos + fromLen)); pos += fromLen
+      const onLen = readU32(bytes, pos); pos += 4
+      const on = String.fromCharCode(...bytes.slice(pos, pos + onLen)); pos += onLen
+      rules.push({ op, for: forSymbol, recompute, essential, to, from, on })
+      continue
+    }
+    if (op === 104) {
+      const temperature = readF64(bytes, pos); pos += 8
+      rules.push({ op, temperature })
+      continue
+    }
+    if (op === 105) {
+      const value = String.fromCharCode(bytes[pos]); pos += 1
+      const fromLen = readU32(bytes, pos); pos += 4
+      const from = String.fromCharCode(...bytes.slice(pos, pos + fromLen)); pos += fromLen
+      const toLen = readU32(bytes, pos); pos += 4
+      const to = String.fromCharCode(...bytes.slice(pos, pos + toLen)); pos += toLen
+      rules.push({ op, value, from, to })
+      continue
+    }
     const imx = readU32(bytes, pos); pos += 4
     const imy = readU32(bytes, pos); pos += 4
     const imz = readU32(bytes, pos); pos += 4
@@ -134,7 +161,16 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWU" origin="Tr
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BR"><one in="B" out="R" steps="24"/><all in="RB" out="BR"/></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 1, steps: 24 }, { kind: 2, steps: 0 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BRACDG"><union symbol="?" values="BR"/><one in="?" out="A"/></sequence>')).rules[0], { op: 101, symbol: '?', values: 'BR' })
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BW"><markov><one in="B" out="W"/></markov></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 4, steps: 0 }, { kind: 1, steps: 0 }])
-assert.throws(() => compileXmlToMjir('<one values="BW" in="B" out="W"><field for="W"/></one>'), /unsupported children: field/)
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<one values="BRW" in="RBB" out="WWR" temperature="0.1"><field for="W" to="R" on="B" recompute="False"/></one>')).rules.slice(0, 2), [
+  { op: 104, temperature: 0.1 },
+  { op: 103, for: 'W', recompute: false, essential: false, to: 'R', from: '', on: 'B' },
+])
+assert.throws(() => compileXmlToMjir('<one values="BW" in="B" out="W"><field for="W"/></one>'), /child <field> missing on attribute/)
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BW"><one in="B" out="W"><field for="W" to="B" on="B"/></one></sequence>')).rules[0], { op: 103, for: 'W', recompute: false, essential: false, to: 'B', from: '', on: 'B' })
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRGW"><one in="RB" out="WR"><observe value="G" from="B" to="R"/><observe value="B" to="BW"/></one></markov>')).rules.slice(0, 2), [
+  { op: 105, value: 'G', from: 'B', to: 'R' },
+  { op: 105, value: 'B', from: '', to: 'BW' },
+])
 assert.throws(() => compileXmlToMjir('<one values="BW" file="Rule"/>'), /unsupported file attribute/)
 assert.throws(() => compileXmlToMjir('<sequence values="BW"><union values="B"/><one in="B" out="W"/></sequence>'), /union missing symbol attribute/)
 assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>/)

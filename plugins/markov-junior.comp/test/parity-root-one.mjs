@@ -88,11 +88,21 @@ export function parityModel(name, { runs, steps }) {
   }
 }
 
+export function originalRepoAvailable(root = mjRoot) {
+  return existsSync(join(root, 'odin'))
+}
+
+export function skipOrRequireOriginalRepo(options, root = mjRoot) {
+  if (originalRepoAvailable(root)) return false
+  const message = `MarkovJunior repo not found at ${root}; set MARKOV_JUNIOR_REPO`
+  if (!options.skipMissingOriginal) throw new Error(message)
+  console.log(`skip parity: ${message}`)
+  return true
+}
+
 export function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv, { models: rootOneModels, runs: 1, steps: 10 })
-  if (!existsSync(join(mjRoot, 'odin'))) {
-    throw new Error(`MarkovJunior repo not found at ${mjRoot}; set MARKOV_JUNIOR_REPO`)
-  }
+  if (skipOrRequireOriginalRepo(options)) return
 
   run('make', [plugin])
   run('make', ['odin'], { cwd: mjRoot })

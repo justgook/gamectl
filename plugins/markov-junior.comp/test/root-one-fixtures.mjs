@@ -1,10 +1,13 @@
 export const rootOneModels = [
   'Basic',
+  'BlueNoise',
+  'CentralSAW',
   'Growth',
   'GrowthContraction',
   'GrowthWalk',
   'IrregularMazeGrowth',
   'IrregularSAW',
+  'Laplace',
   'MazeGrowth',
   'MazeTrail',
   'RainbowGrowth',
@@ -25,9 +28,16 @@ export const rootPrlModels = [
   'ForestFire',
 ]
 
+export const noGenericOriginalOutputModels = [
+  'BasicSnake',
+  'Chase',
+  'Wilson',
+]
+
 export const rootMarkovModels = [
   'Backtracker',
   'Digger',
+  'KnightPatrol',
   'MazeBacktracker',
   'NoDeadEnds',
   'PutColoredLs',
@@ -40,24 +50,47 @@ export const rootSequenceModels = [
   'BasicBrickWall',
   'BasicDungeonGrowth',
   'BasicPartitioning',
+  'BishopParity',
+  'BiasedGrowth',
+  'BiasedGrowthContraction',
+  'BiasedMazeGrowth',
+  'BiasedVoronoi',
+  'CentralCrawlers',
+  'Coupling',
+  'CrawlersChase',
   'Cycles',
+  'DenseSAW',
+  'DiagonalPath',
+  'Division',
   'DualRetraction',
+  'Dwarves',
+  'EuclideanPath',
   'Flowers',
   'Forest',
   'GrowthCompetition',
+  'GrowTo',
   'HamiltonianPaths',
+  'Keys',
   'LoopGrowth',
   'MultiHeadedWalk',
   'Noise',
   'NystromDungeon',
+  'OrganicMechanic',
+  'PaintCompetition',
   'Push',
+  'RegularPath',
   'River',
   'SmoothTrail',
+  'SnellLaw',
+  'SoftPath',
   'StochasticVoronoi',
   'StrangeDungeon',
+  'StrangeNoise',
+  'StormySnellLaw',
   'Tetris',
   'Texture',
   'Voronoi',
+  'WolfBasedApproach',
 ]
 
 export function parseList(value) {
@@ -70,6 +103,7 @@ export function parseArgs(argv, defaults = {}) {
     runs: defaults.runs ?? 1,
     steps: defaults.steps ?? 10,
     seed: defaults.seed,
+    skipMissingOriginal: defaults.skipMissingOriginal ?? false,
   }
 
   for (const arg of argv) {
@@ -78,6 +112,7 @@ export function parseArgs(argv, defaults = {}) {
     else if (arg.startsWith('--runs=')) options.runs = Number(arg.slice('--runs='.length))
     else if (arg.startsWith('--steps=')) options.steps = Number(arg.slice('--steps='.length))
     else if (arg.startsWith('--seed=')) options.seed = Number(arg.slice('--seed='.length))
+    else if (arg === '--skip-missing-original') options.skipMissingOriginal = true
     else throw new Error(`unknown argument: ${arg}`)
   }
 
