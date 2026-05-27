@@ -42,7 +42,7 @@ op-count:     u32
 
 # op 100, optional node kind marker (defaults to one if absent)
 op:           u32      100
-kind:         u32      1 = one, 2 = all, 3 = prl
+kind:         u32      1 = one, 2 = all, 3 = prl, 4 = markov container, 5 = sequence (reserved)
 
 # op 1, legacy one-cell replace
 op:           u32      1
@@ -78,6 +78,8 @@ repeat until max-steps or no match:
 Root `<all>` uses the existing Odin `all` node loop: collect matches, shuffle with `MJRandom`, apply non-overlapping outputs per step, and rescan around changed cells.
 
 Root `<prl>` uses the existing Odin parallel node loop: full scan each turn, apply probability `p` checks with `MJRandom.NextDouble`, stage output into a new state, then commit changed cells.
+
+Simple root `<markov>` uses a container marker followed by child node markers/rules. It tries child nodes in order each outer step and applies the first child that changes, preserving persistent one-node match state for the currently supported fixtures.
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
 

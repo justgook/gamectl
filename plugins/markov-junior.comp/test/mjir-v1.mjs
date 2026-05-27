@@ -8,6 +8,7 @@ export {
   parsePattern,
   xmlAttr,
   xmlBoolAttr,
+  xmlChildNodeTags,
   xmlRootTag,
   xmlRootStartTag,
   xmlRuleTags,

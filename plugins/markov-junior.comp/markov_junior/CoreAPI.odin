@@ -7,6 +7,18 @@ MJ_OUTPUT_CAPACITY :: 8 * 1024 * 1024
 mj_output_buffer: [MJ_OUTPUT_CAPACITY]u8
 mj_output_len: int
 
+MJ_Node :: struct {
+	kind: u32,
+	start: int,
+	count: int,
+}
+
+MJ_Markov_State :: struct {
+	matches: [dynamic]Match,
+	match_mask: [][]bool,
+	last_turn: int,
+}
+
 @(export)
 mj_core_run :: proc "c" (
 	model_ptr: rawptr,
@@ -116,14 +128,28 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		delete(rules)
 	}
 
+	nodes := make([dynamic]MJ_Node)
+	defer delete(nodes)
+	container_kind: u32 = 0
 	node_kind: u32 = 1
+	node_start := 0
+	node_open := false
 	for _ in 0..<rule_count {
 		op := mj_read_u32(model, &pos, &ok)
 		if !ok { return mj_fail("truncated model-ir rule opcode") }
 		if op == 100 {
 			kind := mj_read_u32(model, &pos, &ok)
-			if !ok || kind < 1 || kind > 3 { return mj_fail("invalid model-ir node kind") }
-			node_kind = kind
+			if !ok || kind < 1 || kind > 5 { return mj_fail("invalid model-ir node kind") }
+			if kind >= 4 {
+				container_kind = kind
+			} else {
+				if node_open || len(rules) > node_start {
+					append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start})
+				}
+				node_kind = kind
+				node_start = len(rules)
+				node_open = true
+			}
 		} else if op == 1 {
 			if pos + 2 > len(model) { return mj_fail("truncated one-cell replace rule") }
 			input_index := int(model[pos]); output_index := int(model[pos + 1]); pos += 2
@@ -152,21 +178,145 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		}
 	}
 
+	if node_open || len(rules) > node_start {
+		append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start})
+	}
 	if len(rules) == 0 { return mj_fail("model-ir contains no rules") }
+	if len(nodes) == 0 { append(&nodes, MJ_Node{node_kind, 0, len(rules)}) }
 
 	random := mj_random_init(i32(seed & 0x7fffffff))
 	steps_run := 0
 	changed := false
-	if node_kind == 1 {
-		steps_run, changed = mj_run_one_rules_with_count(&g, rules[:], &random, int(max_steps))
-	} else if node_kind == 2 {
-		steps_run, changed = mj_run_all_rules_with_count(&g, rules[:], &random, int(max_steps))
+	if container_kind == 4 {
+		steps_run, changed = mj_run_markov_nodes_with_count(&g, rules[:], nodes[:], &random, int(max_steps))
+	} else if container_kind == 5 {
+		return mj_fail("sequence container is not supported yet")
 	} else {
-		steps_run, changed = mj_run_parallel_rules_with_count(&g, rules[:], &random, int(max_steps))
+		node := nodes[0]
+		steps_run, changed = mj_run_node_rules_with_count(&g, node.kind, rules[node.start:node.start + node.count], &random, int(max_steps))
 	}
 	done := !mj_any_one_match(&g, rules[:])
 
 	return mj_respond_grid(&g, u32(steps_run), changed, done)
+}
+
+mj_run_node_rules_with_count :: proc(g: ^Grid, kind: u32, rules: []Rule, random: ^MJRandom, steps: int) -> (int, bool) {
+	if kind == 1 do return mj_run_one_rules_with_count(g, rules, random, steps)
+	if kind == 2 do return mj_run_all_rules_with_count(g, rules, random, steps)
+	return mj_run_parallel_rules_with_count(g, rules, random, steps)
+}
+
+mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, steps: int) -> (int, bool) {
+	counter := 0
+	changed_any := false
+	states := make([]MJ_Markov_State, len(nodes))
+	defer {
+		for i in 0..<len(states) {
+			if states[i].matches != nil do delete(states[i].matches)
+			if states[i].match_mask != nil {
+				for r in 0..<len(states[i].match_mask) { if states[i].match_mask[r] != nil do delete(states[i].match_mask[r]) }
+				delete(states[i].match_mask)
+			}
+		}
+		delete(states)
+	}
+	for i in 0..<len(nodes) {
+		states[i].last_turn = -1
+		if nodes[i].kind == 1 {
+			states[i].match_mask = make([][]bool, nodes[i].count)
+			for r in 0..<nodes[i].count { states[i].match_mask[r] = make([]bool, len(g.state)) }
+		}
+	}
+
+	changes := make([dynamic]Cell)
+	defer delete(changes)
+	first := make([dynamic]int)
+	defer delete(first)
+	append(&first, 0)
+
+	for steps <= 0 || counter < steps {
+		changed := false
+		for i in 0..<len(nodes) {
+			node := nodes[i]
+			if node.count <= 0 { continue }
+			if node.kind == 1 {
+				if mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, &changes) {
+					changed = true
+					break
+				}
+			} else {
+				_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
+				if node_changed {
+					changed = true
+					break
+				}
+			}
+		}
+		if !changed { break }
+		changed_any = true
+		counter += 1
+		append(&first, len(changes))
+	}
+	return counter, changed_any
+}
+
+mj_markov_one_go :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, state: ^MJ_Markov_State, changes_snapshot: []Cell, first: []int, turn: int, changes: ^[dynamic]Cell) -> bool {
+	if len(rules) == 0 { return false }
+	if state.last_turn >= 0 {
+		start := first[state.last_turn]
+		for ci := start; ci < len(changes_snapshot); ci += 1 {
+			c := changes_snapshot[ci]
+			value := g.state[c.x + c.y * g.mx + c.z * g.mx * g.my]
+			for r in 0..<len(rules) {
+				rule := &rules[r]
+				for shift in rule.ishifts[value] {
+					mj_markov_one_try_add(g, rules, r, c.x - shift.x, c.y - shift.y, c.z - shift.z, state)
+				}
+			}
+		}
+	} else {
+		clear(&state.matches)
+		for r in 0..<len(state.match_mask) { for i in 0..<len(state.match_mask[r]) { state.match_mask[r][i] = false } }
+		for r in 0..<len(rules) {
+			rule := &rules[r]
+			for z := rule.imz - 1; z < g.mz; z += rule.imz {
+				for y := rule.imy - 1; y < g.my; y += rule.imy {
+					for x := rule.imx - 1; x < g.mx; x += rule.imx {
+						value := g.state[x + y * g.mx + z * g.mx * g.my]
+						for shift in rule.ishifts[value] {
+							mj_markov_one_try_add(g, rules, r, x - shift.x, y - shift.y, z - shift.z, state)
+						}
+					}
+				}
+			}
+		}
+	}
+	state.last_turn = turn
+
+	for len(state.matches) > 0 {
+		arg := int(mj_random_next_max(random, i32(len(state.matches))))
+		m := state.matches[arg]
+		si := m.x + m.y * g.mx + m.z * g.mx * g.my
+		state.match_mask[m.r][si] = false
+		state.matches[arg] = state.matches[len(state.matches) - 1]
+		_ = pop(&state.matches)
+
+		if grid_matches(g, &rules[m.r], m.x, m.y, m.z) {
+			one_apply(g, &rules[m.r], m.x, m.y, m.z, changes)
+			return true
+		}
+	}
+	return false
+}
+
+mj_markov_one_try_add :: proc(g: ^Grid, rules: []Rule, r, sx, sy, sz: int, state: ^MJ_Markov_State) {
+	rule := &rules[r]
+	if sx < 0 || sy < 0 || sz < 0 || sx + rule.imx > g.mx || sy + rule.imy > g.my || sz + rule.imz > g.mz { return }
+	si := sx + sy * g.mx + sz * g.mx * g.my
+	if !state.match_mask[r][si] && grid_matches(g, rule, sx, sy, sz) {
+		state.match_mask[r][si] = true
+		append(&state.matches, Match{r, sx, sy, sz})
+	}
 }
 
 mj_run_one_rules_with_count :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, steps: int) -> (int, bool) {

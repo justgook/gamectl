@@ -8,6 +8,7 @@ import {
   parsePattern,
   xmlAttr,
   xmlBoolAttr,
+  xmlChildNodeTags,
   xmlRootTag,
   xmlRootStartTag,
   xmlRuleTags,
@@ -113,7 +114,9 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<prl values="BGR"><rule in="B" o
   nodes: [3],
   rules: [{ op: 2, imx: 1, imy: 1, imz: 1, omx: 1, omy: 1, omz: 1, probability: 0.01, symmetry: '', input: 'B', output: 'G' }],
 })
-assert.throws(() => compileXmlToMjir('<sequence values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>/)
+assert.deepEqual(xmlChildNodeTags('<markov values="BRWU"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>').length, 2)
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWU" origin="True"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>')).nodes, [4, 1, 1])
+assert.throws(() => compileXmlToMjir('<sequence values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)
 

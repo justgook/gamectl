@@ -20,6 +20,13 @@ export const rootPrlModels = [
   'ForestFire',
 ]
 
+export const rootMarkovModels = [
+  'Backtracker',
+  'MazeBacktracker',
+  'RegularSAWRestart',
+  'SAWRestart',
+]
+
 export function parseList(value) {
   return value.split(',').map((entry) => entry.trim()).filter(Boolean)
 }
