@@ -29,29 +29,45 @@ golden final grid from current implementation
 
 The component passes migration when each fixture produces the same final grid bytes.
 
-## MVP v1 tracer format
+## MJIR v1 tracer format
 
-The current committed v1 is only a tracer bullet for one-cell replacement:
+The current committed v1 is still a tracer bullet, but it now supports root `<one>` pattern rules used by the first parity fixtures:
 
 ```text
-magic:       4 bytes  "MJIR"
-version:     u32      1
-values-len:  u32
-values:      bytes
-rule-count:  u32      1
-op:          u32      1 = one-cell replace
-input:       u8       value index
-output:      u8       value index
+magic:        4 bytes  "MJIR"
+version:      u32      1
+values-len:   u32
+values:       bytes
+rule-count:   u32
+
+# op 1, legacy one-cell replace
+op:           u32      1
+input:        u8       value index
+output:       u8       value index
+
+# op 2, pattern rule
+op:           u32      2
+input-width:  u32
+input-height: u32
+input-depth:  u32
+output-width: u32
+output-height:u32
+output-depth: u32
+symmetry-len: u32
+symmetry:     bytes    MarkovJunior symmetry string, empty means default symmetries
+input:        bytes    pattern symbols in MarkovJunior parse order
+output:       bytes    pattern symbols in MarkovJunior parse order
 ```
 
-Execution semantics for `op = 1` match the current Odin `one` node for a one-cell rule:
+Execution semantics use the current Odin `one` node helpers:
 
 ```text
-initially collect every matching cell in scan order
+expand pattern symmetries with append_rule_symmetries
+initially collect every matching rule/location in scan order
 repeat until max-steps or no match:
   choose a match index with MJRandom.Next(match-count)
   swap-remove that match
-  replace input_value_index with output_value_index
+  if the rule still matches, apply it and add matches around changed cells
 ```
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
@@ -60,7 +76,7 @@ This format is intentionally insufficient for full MarkovJunior. It proves:
 - Odin object linked into a component via C wrapper
 - deterministic run API
 - GAMS e2e test path
-- first golden parity fixture: `models/Basic.xml` for a fixed seed and 10 steps
+- first golden parity fixtures: `Basic`, `Growth`, `MazeGrowth`, and `RegularSAW`
 
 ## Future real MJIR sections
 

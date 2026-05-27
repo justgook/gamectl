@@ -33,29 +33,11 @@ markov-junior/markov-junior::run(model-ir, initial-cells, config) -> result<grid
 
 ## MJIR MVP
 
-The first checked-in MJIR format is a tracer-bullet format, not the final complete MarkovJunior IR. It exists to prove the component build, WIT call path, deterministic execution, and e2e test shape.
+The first checked-in MJIR format is a tracer-bullet format, not the final complete MarkovJunior IR. It exists to prove the component build, WIT call path, deterministic execution, and e2e/parity test shape.
 
-Little-endian byte layout:
+`compiler/xml-to-mjir.mjs` is the reusable XML→MJIR entry point. It currently supports root `<one>` models with inline `in`/`out` patterns, `values`, `origin`, and `symmetry` attributes. It emits MJIR v1 pattern rules (`op = 2`) and prepares initial indexed grids outside the component.
 
-```text
-bytes[0..4]   "MJIR"
-u32           version = 1
-u32           values_len
-u8[]          values UTF-8/symbol bytes
-u32           rule_count = 1
-u32           op = 1              # one-cell replace
-u8            input_value_index
-u8            output_value_index
-```
-
-Semantics for `op = 1` in the tracer implementation:
-
-```text
-repeat until max-steps or no match:
-  replace the first cell equal to input_value_index with output_value_index
-```
-
-This is deliberately deterministic and minimal. The next step is to replace this tracer interpreter with a real MJIR executor matching the current Odin/C# model behavior.
+The component expands symmetries with the existing Odin rule helpers and runs the current Odin `one` node matching/apply loop with `MJRandom`, preserving deterministic seed behavior for the supported models.
 
 ## Test strategy
 
@@ -86,10 +68,10 @@ Run e2e:
 make markov-junior.comp-test
 ```
 
-Run the first parity fixture against the original MarkovJunior Odin runner:
+Run the parity fixtures against the original MarkovJunior Odin runner:
 
 ```sh
 MARKOV_JUNIOR_REPO=/Users/gook/Repos/MarkovJunior node plugins/markov-junior.comp/test/parity-basic.mjs
 ```
 
-`parity-basic.mjs` compiles `models/Basic.xml` into MJIR v1, runs the original Odin CLI for 10 steps, extracts the original seed from the generated filename, runs the component with the same seed/config, and compares final grid bytes.
+`parity-basic.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `Growth`, `MazeGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `StrangeGrowth`) into MJIR v1, runs the original Odin CLI for 10 steps, extracts the original seed from each generated filename, runs the component with the same seed/config, and compares final grid bytes.

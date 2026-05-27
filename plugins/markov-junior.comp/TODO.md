@@ -1,0 +1,92 @@
+# markov-junior.comp TODO
+
+This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM component.
+
+## Current rules
+
+- [x] No `gams:fs` import.
+- [x] No filesystem access in the component MVP.
+- [x] XML/resources are compiled outside the component.
+- [x] Component input is `MJIR + initial-cells + run-config`.
+- [x] Deterministic seed behavior uses existing `MJRandom`.
+- [ ] Keep original Odin/C# outputs as parity goldens before internal improvements.
+
+## Part 1 — component scaffold and pure API
+
+- [x] Create `plugins/markov-junior.comp/` scaffold.
+- [x] Copy Odin port into `markov_junior/` package.
+- [x] Add WIT API: `run(model-ir, initial-cells, config) -> result<grid, string>`.
+- [x] Add C WIT wrapper around Odin exports.
+- [x] Add Odin core exports.
+- [x] Build `build.nosync/plugins/markov-junior.comp.wasm` in `nix develop`.
+
+## Part 2 — reusable XML → MJIR compiler
+
+- [x] Add `compiler/xml-to-mjir.mjs` reusable module.
+- [x] Make `test/mjir-v1.mjs` re-export compiler helpers for compatibility.
+- [x] Support root `<one>` with inline `values`, `in`, `out`, `origin`, `symmetry`.
+- [x] Support multi-cell 2D/3D pattern parsing syntax (`/` rows, space-separated layers).
+- [x] Fix attribute parsing so `in` does not match `origin`.
+- [ ] Add compiler unit tests independent of the component runtime.
+- [ ] Support child `<rule>` elements under `<one>`, `<all>`, and `<prl>`.
+- [ ] Support `<union>` declarations.
+- [ ] Decide how to represent unsupported children like `<field>` in MJIR.
+
+## Part 3 — MJIR v1 executor
+
+- [x] Implement legacy `op = 1` one-cell rule.
+- [x] Implement `op = 2` pattern rule with dimensions and symmetry string.
+- [x] Build native Odin `Rule`s from MJIR pattern bytes.
+- [x] Expand symmetries via existing Odin helpers.
+- [x] Run existing Odin `one` node match/apply loop with `MJRandom`.
+- [ ] Add MJIR op/node support for `all`.
+- [ ] Add MJIR op/node support for `prl`.
+- [ ] Add sequence/markov container semantics.
+- [ ] Add resource-free representation for fields/observations/WFC data.
+
+## Part 4 — parity fixtures
+
+### Passing root `<one>` fixtures
+
+- [x] `Basic.xml`
+- [x] `Growth.xml`
+- [x] `MazeGrowth.xml`
+- [x] `RegularSAW.xml`
+- [x] `SelfAvoidingWalk.xml`
+- [x] `IrregularMazeGrowth.xml`
+- [x] `IrregularSAW.xml`
+- [x] `StrangeGrowth.xml`
+
+### Next candidate fixtures
+
+- [ ] Unlisted/no-config root `<one>` model: `RandomWalk.xml` (needs explicit config or fixture metadata).
+- [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
+- [ ] Root `<all>` inline-rule models.
+- [ ] Root `<prl>` inline-rule models.
+- [ ] Simple `<sequence>` models composed of supported child nodes.
+- [ ] Simple `<markov>` models composed of supported child nodes.
+
+## Part 5 — test and docs hygiene
+
+- [x] Component e2e test through GAMS runtime.
+- [x] Parity test invokes original MarkovJunior Odin CLI and compares final grid bytes.
+- [x] `README.md` documents pure boundary, build, and parity command.
+- [x] `MJIR.md` documents current v1 tracer layout and semantics.
+- [x] Add this `TODO.md` continuation tracker.
+- [ ] Rename/split `parity-basic.mjs` now that it covers multiple root-one fixtures.
+- [ ] Add fixture discovery/filtering so unsupported models are reported clearly.
+- [ ] Add CI-friendly parity mode that can skip if original MarkovJunior repo is absent.
+
+## Commands
+
+From `/Users/gook/Repos/gams3`:
+
+```sh
+nix develop -c make build.nosync/plugins/markov-junior.comp.wasm
+nix develop -c make markov-junior.comp-test
+nix develop -c node plugins/markov-junior.comp/test/parity-basic.mjs
+```
+
+## Latest status
+
+Root `<one>` inline-pattern models listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename.
