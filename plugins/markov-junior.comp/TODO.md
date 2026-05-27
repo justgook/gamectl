@@ -73,7 +73,9 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `README.md` documents pure boundary, build, and parity command.
 - [x] `MJIR.md` documents current v1 tracer layout and semantics.
 - [x] Add this `TODO.md` continuation tracker.
-- [ ] Rename/split `parity-basic.mjs` now that it covers multiple root-one fixtures.
+- [x] Split root-one parity into `parity-root-one.mjs`; keep `parity-basic.mjs` as compatibility shim.
+- [x] Add CLI filtering/replay flags: `--model`, `--models`, `--runs`, `--steps`.
+- [x] Add deterministic fuzz/replay script with printed seeds: `fuzz-root-one.mjs`.
 - [ ] Add fixture discovery/filtering so unsupported models are reported clearly.
 - [ ] Add CI-friendly parity mode that can skip if original MarkovJunior repo is absent.
 
@@ -85,8 +87,11 @@ From `/Users/gook/Repos/gams3`:
 nix develop -c make build.nosync/plugins/markov-junior.comp.wasm
 nix develop -c make markov-junior.comp-test
 nix develop -c node plugins/markov-junior.comp/test/parity-basic.mjs
+nix develop -c node plugins/markov-junior.comp/test/parity-root-one.mjs --model=Basic --runs=2 --steps=10
+nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
+nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
 ```
 
 ## Latest status
 
-Root `<one>` inline-pattern models listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename.
+Root `<one>` inline-pattern models listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.

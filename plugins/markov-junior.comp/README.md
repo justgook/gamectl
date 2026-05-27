@@ -71,7 +71,17 @@ make markov-junior.comp-test
 Run the parity fixtures against the original MarkovJunior Odin runner:
 
 ```sh
-MARKOV_JUNIOR_REPO=/Users/gook/Repos/MarkovJunior node plugins/markov-junior.comp/test/parity-basic.mjs
+MARKOV_JUNIOR_REPO=/Users/gook/Repos/MarkovJunior node plugins/markov-junior.comp/test/parity-root-one.mjs
 ```
 
-`parity-basic.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `Growth`, `MazeGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `StrangeGrowth`) into MJIR v1, runs the original Odin CLI for 10 steps, extracts the original seed from each generated filename, runs the component with the same seed/config, and compares final grid bytes.
+`parity-root-one.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `Growth`, `MazeGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `StrangeGrowth`) into MJIR v1, runs the original Odin CLI, extracts seeds from generated filenames, runs the component with the same seed/config, and compares final grid bytes. `parity-basic.mjs` remains as a compatibility shim.
+
+Useful replay/fuzz commands:
+
+```sh
+node plugins/markov-junior.comp/test/parity-root-one.mjs --model=Basic --runs=2 --steps=10
+node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
+node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
+```
+
+The fuzz script runs the component twice for each model/seed, checks deterministic replay and grid invariants, and prints every seed so failures can be reproduced with `--model`, `--steps`, and `--seed`.
