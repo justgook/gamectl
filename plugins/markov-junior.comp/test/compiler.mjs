@@ -36,7 +36,7 @@ function decodeMjirV1(bytes) {
   for (let i = 0; i < ruleCount; i++) {
     const op = readU32(bytes, pos); pos += 4
     if (op === 100) {
-      nodes.push(readU32(bytes, pos)); pos += 4
+      nodes.push({ kind: readU32(bytes, pos), steps: readU32(bytes, pos + 4) }); pos += 8
       continue
     }
     const imx = readU32(bytes, pos); pos += 4
@@ -91,14 +91,14 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<one values="B W" origin="True" 
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<all values="BW" origin="True" in="WB" out="*W"/>')), {
   version: 1,
   values: 'BW',
-  nodes: [2],
+  nodes: [{ kind: 2, steps: 0 }],
   rules: [{ op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, probability: 1, symmetry: '', input: 'WB', output: '*W' }],
 })
 assert.deepEqual(xmlRuleTags('<all><rule in="WB" out="WW"/><rule in="AW" out="AA" symmetry="()"/></all>').length, 2)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<all values="BWAD" origin="True" symmetry="(x)"><rule in="WB" out="WW"/><rule in="AW" out="AA" symmetry="()"/></all>')), {
   version: 1,
   values: 'BWAD',
-  nodes: [2],
+  nodes: [{ kind: 2, steps: 0 }],
   rules: [
     { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, probability: 1, symmetry: '(x)', input: 'WB', output: 'WW' },
     { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, probability: 1, symmetry: '()', input: 'AW', output: 'AA' },
@@ -111,12 +111,13 @@ assert.deepEqual(decodeMjirV1(encodeMjirV1({
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<prl values="BGR"><rule in="B" out="G" p="0.01"/></prl>')), {
   version: 1,
   values: 'BGR',
-  nodes: [3],
+  nodes: [{ kind: 3, steps: 0 }],
   rules: [{ op: 2, imx: 1, imy: 1, imz: 1, omx: 1, omy: 1, omz: 1, probability: 0.01, symmetry: '', input: 'B', output: 'G' }],
 })
 assert.deepEqual(xmlChildNodeTags('<markov values="BRWU"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>').length, 2)
-assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWU" origin="True"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>')).nodes, [4, 1, 1])
-assert.throws(() => compileXmlToMjir('<sequence values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>/)
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWU" origin="True"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>')).nodes, [{ kind: 4, steps: 0 }, { kind: 1, steps: 0 }, { kind: 1, steps: 0 }])
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BR"><one in="B" out="R" steps="24"/><all in="RB" out="BR"/></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 1, steps: 24 }, { kind: 2, steps: 0 }])
+assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)
 

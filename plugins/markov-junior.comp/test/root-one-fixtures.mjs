@@ -27,6 +27,11 @@ export const rootMarkovModels = [
   'SAWRestart',
 ]
 
+export const rootSequenceModels = [
+  'LoopGrowth',
+  'Cycles',
+]
+
 export function parseList(value) {
   return value.split(',').map((entry) => entry.trim()).filter(Boolean)
 }

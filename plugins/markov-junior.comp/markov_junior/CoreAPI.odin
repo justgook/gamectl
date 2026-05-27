@@ -11,6 +11,7 @@ MJ_Node :: struct {
 	kind: u32,
 	start: int,
 	count: int,
+	steps: int,
 }
 
 MJ_Markov_State :: struct {
@@ -132,6 +133,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	defer delete(nodes)
 	container_kind: u32 = 0
 	node_kind: u32 = 1
+	node_steps := 0
 	node_start := 0
 	node_open := false
 	for _ in 0..<rule_count {
@@ -139,14 +141,16 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		if !ok { return mj_fail("truncated model-ir rule opcode") }
 		if op == 100 {
 			kind := mj_read_u32(model, &pos, &ok)
+			marker_steps := int(mj_read_u32(model, &pos, &ok))
 			if !ok || kind < 1 || kind > 5 { return mj_fail("invalid model-ir node kind") }
 			if kind >= 4 {
 				container_kind = kind
 			} else {
 				if node_open || len(rules) > node_start {
-					append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start})
+					append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps})
 				}
 				node_kind = kind
+				node_steps = marker_steps
 				node_start = len(rules)
 				node_open = true
 			}
@@ -179,10 +183,10 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	}
 
 	if node_open || len(rules) > node_start {
-		append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start})
+		append(&nodes, MJ_Node{node_kind, node_start, len(rules) - node_start, node_steps})
 	}
 	if len(rules) == 0 { return mj_fail("model-ir contains no rules") }
-	if len(nodes) == 0 { append(&nodes, MJ_Node{node_kind, 0, len(rules)}) }
+	if len(nodes) == 0 { append(&nodes, MJ_Node{node_kind, 0, len(rules), 0}) }
 
 	random := mj_random_init(i32(seed & 0x7fffffff))
 	steps_run := 0
@@ -190,7 +194,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	if container_kind == 4 {
 		steps_run, changed = mj_run_markov_nodes_with_count(&g, rules[:], nodes[:], &random, int(max_steps))
 	} else if container_kind == 5 {
-		return mj_fail("sequence container is not supported yet")
+		steps_run, changed = mj_run_sequence_nodes_with_count(&g, rules[:], nodes[:], &random, int(max_steps))
 	} else {
 		node := nodes[0]
 		steps_run, changed = mj_run_node_rules_with_count(&g, node.kind, rules[node.start:node.start + node.count], &random, int(max_steps))
@@ -206,20 +210,8 @@ mj_run_node_rules_with_count :: proc(g: ^Grid, kind: u32, rules: []Rule, random:
 	return mj_run_parallel_rules_with_count(g, rules, random, steps)
 }
 
-mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, steps: int) -> (int, bool) {
-	counter := 0
-	changed_any := false
+mj_prepare_node_states :: proc(g: ^Grid, nodes: []MJ_Node) -> []MJ_Markov_State {
 	states := make([]MJ_Markov_State, len(nodes))
-	defer {
-		for i in 0..<len(states) {
-			if states[i].matches != nil do delete(states[i].matches)
-			if states[i].match_mask != nil {
-				for r in 0..<len(states[i].match_mask) { if states[i].match_mask[r] != nil do delete(states[i].match_mask[r]) }
-				delete(states[i].match_mask)
-			}
-		}
-		delete(states)
-	}
 	for i in 0..<len(nodes) {
 		states[i].last_turn = -1
 		if nodes[i].kind == 1 {
@@ -227,6 +219,27 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 			for r in 0..<nodes[i].count { states[i].match_mask[r] = make([]bool, len(g.state)) }
 		}
 	}
+	return states
+}
+
+mj_destroy_node_states :: proc(states: []MJ_Markov_State) {
+	for i in 0..<len(states) {
+		if states[i].matches != nil do delete(states[i].matches)
+		if states[i].match_mask != nil {
+			for r in 0..<len(states[i].match_mask) { if states[i].match_mask[r] != nil do delete(states[i].match_mask[r]) }
+			delete(states[i].match_mask)
+		}
+	}
+	delete(states)
+}
+
+mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, steps: int) -> (int, bool) {
+	counter := 0
+	changed_any := false
+	states := mj_prepare_node_states(g, nodes)
+	defer mj_destroy_node_states(states)
+	counters := make([]int, len(nodes))
+	defer delete(counters)
 
 	changes := make([dynamic]Cell)
 	defer delete(changes)
@@ -239,18 +252,67 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 		for i in 0..<len(nodes) {
 			node := nodes[i]
 			if node.count <= 0 { continue }
+			if node.steps > 0 && counters[i] >= node.steps { continue }
 			if node.kind == 1 {
 				if mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, &changes) {
+					counters[i] += 1
 					changed = true
 					break
 				}
 			} else {
 				_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
 				if node_changed {
+					counters[i] += 1
 					changed = true
 					break
 				}
 			}
+		}
+		if !changed { break }
+		changed_any = true
+		counter += 1
+		append(&first, len(changes))
+	}
+	return counter, changed_any
+}
+
+mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, steps: int) -> (int, bool) {
+	states := mj_prepare_node_states(g, nodes)
+	defer mj_destroy_node_states(states)
+	counters := make([]int, len(nodes))
+	defer delete(counters)
+	changes := make([dynamic]Cell)
+	defer delete(changes)
+	first := make([dynamic]int)
+	defer delete(first)
+	append(&first, 0)
+
+	child := 0
+	counter := 0
+	changed_any := false
+	for child < len(nodes) && (steps <= 0 || counter < steps) {
+		changed := false
+		for child < len(nodes) {
+			node := nodes[child]
+			if node.count <= 0 || (node.steps > 0 && counters[child] >= node.steps) {
+				child += 1
+				continue
+			}
+			if node.kind == 1 {
+				if mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[child], changes[:], first[:], counter, &changes) {
+					counters[child] += 1
+					changed = true
+					break
+				}
+			} else {
+				_, node_changed := mj_run_node_rules_with_count(g, node.kind, rules[node.start:node.start + node.count], random, 1)
+				if node_changed {
+					counters[child] += 1
+					changed = true
+					break
+				}
+			}
+			child += 1
 		}
 		if !changed { break }
 		changed_any = true

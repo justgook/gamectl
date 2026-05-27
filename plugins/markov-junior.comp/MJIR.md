@@ -42,7 +42,8 @@ op-count:     u32
 
 # op 100, optional node kind marker (defaults to one if absent)
 op:           u32      100
-kind:         u32      1 = one, 2 = all, 3 = prl, 4 = markov container, 5 = sequence (reserved)
+kind:         u32      1 = one, 2 = all, 3 = prl, 4 = markov container, 5 = sequence container
+steps:        u32      child node step limit, 0 = unbounded/default
 
 # op 1, legacy one-cell replace
 op:           u32      1
@@ -80,6 +81,8 @@ Root `<all>` uses the existing Odin `all` node loop: collect matches, shuffle wi
 Root `<prl>` uses the existing Odin parallel node loop: full scan each turn, apply probability `p` checks with `MJRandom.NextDouble`, stage output into a new state, then commit changed cells.
 
 Simple root `<markov>` uses a container marker followed by child node markers/rules. It tries child nodes in order each outer step and applies the first child that changes, preserving persistent one-node match state for the currently supported fixtures.
+
+Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child.
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
 

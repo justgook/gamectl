@@ -54,8 +54,8 @@ export function parsePattern(pattern) {
 export function encodeMjirV1({ values, node = 'one', rules, children }) {
   const valueBytes = [...textEncoder.encode(values.replaceAll(' ', ''))]
   const ops = children
-    ? [{ op: 'node', kind: node }, ...children.flatMap((child) => [{ op: 'node', kind: child.node }, ...child.rules])]
-    : (node === 'one' ? rules : [{ op: 'node', kind: node }, ...rules])
+    ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap((child) => [{ op: 'node', kind: child.node, steps: child.steps ?? 0 }, ...child.rules])]
+    : (node === 'one' ? rules : [{ op: 'node', kind: node, steps: 0 }, ...rules])
   const bytes = []
   bytes.push('M'.charCodeAt(0), 'J'.charCodeAt(0), 'I'.charCodeAt(0), 'R'.charCodeAt(0))
   u32le(bytes, 1)
@@ -69,6 +69,7 @@ export function encodeMjirV1({ values, node = 'one', rules, children }) {
       if (!kinds[op.kind]) throw new Error(`unsupported node kind: ${op.kind}`)
       u32le(bytes, 100)
       u32le(bytes, kinds[op.kind])
+      u32le(bytes, op.steps ?? 0)
       continue
     }
     if (op.op !== 'pattern') throw new Error(`unsupported rule op: ${op.op}`)
@@ -127,17 +128,17 @@ function rulesFromElement(elementXml, inheritedSymmetry = '') {
 
 export function compileXmlToMjir(xml) {
   const tag = xmlRootTag(xml)
-  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov') {
-    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>, got ${tag || 'unknown'}`)
+  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence') {
+    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>, got ${tag || 'unknown'}`)
   }
   const rootStart = xmlRootStartTag(xml)
   const values = xmlAttr(rootStart, 'values')
   if (!values) throw new Error('missing values attribute')
 
   const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
-  if (tag === 'markov') {
-    const children = xmlChildNodeTags(xml).map((childXml) => ({ node: xmlRootTag(childXml), rules: rulesFromElement(childXml, rootSymmetry) }))
-    if (children.length === 0) throw new Error('markov root missing child nodes')
+  if (tag === 'markov' || tag === 'sequence') {
+    const children = xmlChildNodeTags(xml).map((childXml) => ({ node: xmlRootTag(childXml), steps: Number(xmlAttr(xmlRootStartTag(childXml), 'steps', '0')), rules: rulesFromElement(childXml, rootSymmetry) }))
+    if (children.length === 0) throw new Error(`${tag} root missing child nodes`)
     for (const child of children) if (child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
     return encodeMjirV1({ values, node: tag, children })
   }

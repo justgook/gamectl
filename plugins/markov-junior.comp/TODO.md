@@ -43,7 +43,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Add MJIR node support for root `all` inline-pattern models.
 - [x] Add MJIR node support for root `prl` models.
 - [x] Add simple root `<markov>` container semantics for supported child nodes.
-- [ ] Add root `<sequence>` container semantics.
+- [x] Add simple root `<sequence>` container semantics for supported child nodes.
 - [ ] Add resource-free representation for fields/observations/WFC data.
 
 ## Part 4 — parity fixtures
@@ -77,6 +77,11 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `RegularSAWRestart.xml`
 - [x] `SAWRestart.xml`
 
+### Passing root `<sequence>` fixtures
+
+- [x] `LoopGrowth.xml`
+- [x] `Cycles.xml`
+
 ### Next candidate fixtures
 
 - [x] Root `<all>` with child `<rule>` elements: `NestedGrowth.xml`.
@@ -84,7 +89,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
 - [x] Root `<all>` inline-rule models.
 - [x] Root `<prl>` child-rule models.
-- [ ] Simple `<sequence>` models composed of supported child nodes.
+- [x] Simple `<sequence>` models composed of supported child nodes.
 - [x] Simple `<markov>` models composed of supported child nodes.
 
 ## Part 5 — test and docs hygiene
@@ -113,10 +118,11 @@ nix develop -c node plugins/markov-junior.comp/test/parity-root-one.mjs --model=
 nix develop -c node plugins/markov-junior.comp/test/parity-root-all.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-prl.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-markov.mjs --runs=1 --steps=10
+nix develop -c node plugins/markov-junior.comp/test/parity-root-sequence.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
 ```
 
 ## Latest status
 
-Root `<one>`, `<all>`, `<prl>`, and simple root `<markov>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.
+Root `<one>`, `<all>`, `<prl>`, simple root `<markov>`, and simple root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.
