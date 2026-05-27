@@ -10,9 +10,13 @@ export function xmlAttr(xml, name, fallback = '') {
   return match?.[1] ?? fallback
 }
 
-export function xmlRootTag(xml) {
+export function xmlRootStartTag(xml) {
   const withoutComments = xml.replace(/<!--([\s\S]*?)-->/g, '').trimStart()
-  return withoutComments.match(/^<([a-zA-Z0-9_-]+)/)?.[1] ?? ''
+  return withoutComments.match(/^<[^>]+>/)?.[0] ?? ''
+}
+
+export function xmlRootTag(xml) {
+  return xmlRootStartTag(xml).match(/^<([a-zA-Z0-9_-]+)/)?.[1] ?? ''
 }
 
 export function xmlBoolAttr(xml, name, fallback = false) {
@@ -78,22 +82,40 @@ export function encodeMjirV1({ values, node = 'one', rules }) {
   return bytes
 }
 
+export function xmlRuleTags(xml) {
+  return [...xml.matchAll(/<rule\b([^>]*)\/?\s*>/g)].map((match) => match[0])
+}
+
 export function compileXmlToMjir(xml) {
   const tag = xmlRootTag(xml)
   if (tag !== 'one' && tag !== 'all') {
     throw new Error(`MJIR v1 compiler supports only root <one>/<all>, got ${tag || 'unknown'}`)
   }
-  const values = xmlAttr(xml, 'values')
-  const input = xmlAttr(xml, 'in')
-  const output = xmlAttr(xml, 'out')
+  const rootStart = xmlRootStartTag(xml)
+  const values = xmlAttr(rootStart, 'values')
   if (!values) throw new Error('missing values attribute')
-  if (!input) throw new Error('missing in attribute')
-  if (!output) throw new Error('missing out attribute')
-  return encodeMjirV1({
-    values,
-    node: tag,
-    rules: [{ op: 'pattern', input, output, symmetry: xmlAttr(xml, 'symmetry', '') }],
-  })
+
+  const rootInput = xmlAttr(rootStart, 'in')
+  const rootOutput = xmlAttr(rootStart, 'out')
+  const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
+  const rules = []
+
+  if (rootInput || rootOutput) {
+    if (!rootInput) throw new Error('missing in attribute')
+    if (!rootOutput) throw new Error('missing out attribute')
+    rules.push({ op: 'pattern', input: rootInput, output: rootOutput, symmetry: rootSymmetry })
+  } else {
+    for (const ruleTag of xmlRuleTags(xml)) {
+      const input = xmlAttr(ruleTag, 'in')
+      const output = xmlAttr(ruleTag, 'out')
+      if (!input) throw new Error('child <rule> missing in attribute')
+      if (!output) throw new Error('child <rule> missing out attribute')
+      rules.push({ op: 'pattern', input, output, symmetry: xmlAttr(ruleTag, 'symmetry', rootSymmetry) })
+    }
+  }
+
+  if (rules.length === 0) throw new Error('missing in/out attributes or child <rule> elements')
+  return encodeMjirV1({ values, node: tag, rules })
 }
 
 export function compileMjirV1FromXml(xml) {

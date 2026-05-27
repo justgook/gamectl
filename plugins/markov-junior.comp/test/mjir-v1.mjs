@@ -9,4 +9,6 @@ export {
   xmlAttr,
   xmlBoolAttr,
   xmlRootTag,
+  xmlRootStartTag,
+  xmlRuleTags,
 } from '../compiler/xml-to-mjir.mjs'

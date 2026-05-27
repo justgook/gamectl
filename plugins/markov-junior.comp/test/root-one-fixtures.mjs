@@ -13,6 +13,7 @@ export const rootAllModels = [
   'ParallelGrowth',
   'ParallelMazeGrowth',
   'PutLs',
+  'NestedGrowth',
 ]
 
 export function parseList(value) {

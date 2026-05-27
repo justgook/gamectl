@@ -9,6 +9,8 @@ import {
   xmlAttr,
   xmlBoolAttr,
   xmlRootTag,
+  xmlRootStartTag,
+  xmlRuleTags,
 } from '../compiler/xml-to-mjir.mjs'
 
 function readU32(bytes, pos) {
@@ -54,6 +56,7 @@ assert.equal(xmlAttr('<one values="BW" origin="True" in="WB" out="WW"/>', 'origi
 assert.equal(xmlAttr('<one values="BW"/>', 'missing', 'fallback'), 'fallback')
 assert.equal(xmlBoolAttr('<one origin="True"/>', 'origin'), true)
 assert.equal(xmlBoolAttr('<one origin="false"/>', 'origin', true), false)
+assert.equal(xmlRootStartTag('<!-- comment -->\n<one values="BW"/>'), '<one values="BW"/>')
 assert.equal(xmlRootTag('<!-- comment -->\n<one values="BW"/>'), 'one')
 
 assert.deepEqual(parsePattern('WB'), { width: 2, height: 1, depth: 1, data: [...'WB'].map((c) => c.charCodeAt(0)) })
@@ -84,12 +87,23 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<all values="BW" origin="True" i
   nodes: [2],
   rules: [{ op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '', input: 'WB', output: '*W' }],
 })
+assert.deepEqual(xmlRuleTags('<all><rule in="WB" out="WW"/><rule in="AW" out="AA" symmetry="()"/></all>').length, 2)
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<all values="BWAD" origin="True" symmetry="(x)"><rule in="WB" out="WW"/><rule in="AW" out="AA" symmetry="()"/></all>')), {
+  version: 1,
+  values: 'BWAD',
+  nodes: [2],
+  rules: [
+    { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '(x)', input: 'WB', output: 'WW' },
+    { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '()', input: 'AW', output: 'AA' },
+  ],
+})
 assert.deepEqual(decodeMjirV1(encodeMjirV1({
   values: 'BWA',
   rules: [{ op: 'pattern', input: 'WBB', output: 'WAW', symmetry: '' }],
 })).rules[0], { op: 2, imx: 3, imy: 1, imz: 1, omx: 3, omy: 1, omz: 1, symmetry: '', input: 'WBB', output: 'WAW' })
 assert.throws(() => compileXmlToMjir('<prl values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
+assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)
 
 assert.deepEqual(initialGrid(2, 2, 1, 7), [7, 7, 7, 7])
 assert.deepEqual(initialGridFromXml('<one values="BW"/>', 3, 3, 1), [0, 0, 0, 0, 0, 0, 0, 0, 0])

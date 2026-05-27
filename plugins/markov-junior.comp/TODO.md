@@ -28,7 +28,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Support multi-cell 2D/3D pattern parsing syntax (`/` rows, space-separated layers).
 - [x] Fix attribute parsing so `in` does not match `origin`.
 - [x] Add compiler unit tests independent of the component runtime.
-- [ ] Support child `<rule>` elements under `<one>`, `<all>`, and `<prl>`.
+- [x] Support child `<rule>` elements under root `<one>` and `<all>`.
 - [ ] Support `<union>` declarations.
 - [ ] Decide how to represent unsupported children like `<field>` in MJIR.
 
@@ -62,10 +62,11 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `ParallelGrowth.xml`
 - [x] `ParallelMazeGrowth.xml`
 - [x] `PutLs.xml`
+- [x] `NestedGrowth.xml`
 
 ### Next candidate fixtures
 
-- [ ] Root `<all>` with child `<rule>` elements: `NestedGrowth.xml`.
+- [x] Root `<all>` with child `<rule>` elements: `NestedGrowth.xml`.
 - [ ] Unlisted/no-config root `<one>` model: `RandomWalk.xml` (needs explicit config or fixture metadata).
 - [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
 - [x] Root `<all>` inline-rule models.
