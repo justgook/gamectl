@@ -105,10 +105,15 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		delete(rules)
 	}
 
+	node_kind: u32 = 1
 	for _ in 0..<rule_count {
 		op := mj_read_u32(model, &pos, &ok)
 		if !ok { return mj_fail("truncated model-ir rule opcode") }
-		if op == 1 {
+		if op == 100 {
+			kind := mj_read_u32(model, &pos, &ok)
+			if !ok || kind < 1 || kind > 3 { return mj_fail("invalid model-ir node kind") }
+			node_kind = kind
+		} else if op == 1 {
 			if pos + 2 > len(model) { return mj_fail("truncated one-cell replace rule") }
 			input_index := int(model[pos]); output_index := int(model[pos + 1]); pos += 2
 			if input_index >= values_len || output_index >= values_len { return mj_fail("one-cell rule value index out of range") }
@@ -135,8 +140,18 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		}
 	}
 
+	if len(rules) == 0 { return mj_fail("model-ir contains no rules") }
+
 	random := mj_random_init(i32(seed & 0x7fffffff))
-	steps_run, changed := mj_run_one_rules_with_count(&g, rules[:], &random, int(max_steps))
+	steps_run := 0
+	changed := false
+	if node_kind == 1 {
+		steps_run, changed = mj_run_one_rules_with_count(&g, rules[:], &random, int(max_steps))
+	} else if node_kind == 2 {
+		steps_run, changed = mj_run_all_rules_with_count(&g, rules[:], &random, int(max_steps))
+	} else {
+		return mj_fail("prl node is not supported yet")
+	}
 	done := !mj_any_one_match(&g, rules[:])
 
 	return mj_respond_grid(&g, u32(steps_run), changed, done)
@@ -175,6 +190,64 @@ mj_run_one_rules_with_count :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, 
 				break
 			}
 		}
+	}
+	return counter, changed
+}
+
+mj_run_all_rules_with_count :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, steps: int) -> (int, bool) {
+	matches := make([dynamic]Match)
+	defer delete(matches)
+	match_mask := make([][]bool, len(rules))
+	defer {
+		for i in 0..<len(match_mask) { if match_mask[i] != nil do delete(match_mask[i]) }
+		delete(match_mask)
+	}
+	for r in 0..<len(rules) { match_mask[r] = make([]bool, len(g.state)) }
+
+	mask := make([]bool, len(g.state))
+	defer delete(mask)
+	previous_changes := make([dynamic]Cell)
+	defer delete(previous_changes)
+	current_changes := make([dynamic]Cell)
+	defer delete(current_changes)
+
+	counter := 0
+	changed := false
+	first_turn := true
+	for steps <= 0 || counter < steps {
+		clear(&matches)
+		if first_turn {
+			one_initial_scan(g, rules, &matches, match_mask)
+			first_turn = false
+		} else {
+			one_add_around_changes(g, rules, previous_changes[:], &matches, match_mask)
+		}
+
+		if len(matches) == 0 { break }
+
+		shuffle := make([]int, len(matches))
+		for i in 0..<len(shuffle) {
+			j := int(mj_random_next_max(random, i32(i + 1)))
+			shuffle[i] = shuffle[j]
+			shuffle[j] = i
+		}
+
+		clear(&current_changes)
+		for k in 0..<len(shuffle) {
+			m := matches[shuffle[k]]
+			si := m.x + m.y * g.mx + m.z * g.mx * g.my
+			match_mask[m.r][si] = false
+			all_fit(g, &rules[m.r], m.x, m.y, m.z, mask, &current_changes)
+		}
+		delete(shuffle)
+
+		for c in current_changes { mask[c.x + c.y * g.mx + c.z * g.mx * g.my] = false }
+
+		clear(&previous_changes)
+		for c in current_changes { append(&previous_changes, c) }
+
+		counter += 1
+		changed = true
 	}
 	return counter, changed
 }

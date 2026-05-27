@@ -39,7 +39,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Build native Odin `Rule`s from MJIR pattern bytes.
 - [x] Expand symmetries via existing Odin helpers.
 - [x] Run existing Odin `one` node match/apply loop with `MJRandom`.
-- [ ] Add MJIR op/node support for `all`.
+- [x] Add MJIR node support for root `all` inline-pattern models.
 - [ ] Add MJIR op/node support for `prl`.
 - [ ] Add sequence/markov container semantics.
 - [ ] Add resource-free representation for fields/observations/WFC data.
@@ -57,11 +57,18 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `IrregularSAW.xml`
 - [x] `StrangeGrowth.xml`
 
+### Passing root `<all>` inline fixtures
+
+- [x] `ParallelGrowth.xml`
+- [x] `ParallelMazeGrowth.xml`
+- [x] `PutLs.xml`
+
 ### Next candidate fixtures
 
+- [ ] Root `<all>` with child `<rule>` elements: `NestedGrowth.xml`.
 - [ ] Unlisted/no-config root `<one>` model: `RandomWalk.xml` (needs explicit config or fixture metadata).
 - [ ] Root `<one>` with child `<field>`: `CentralSAW.xml` (needs field decision/support or explicit unsupported-model test).
-- [ ] Root `<all>` inline-rule models.
+- [x] Root `<all>` inline-rule models.
 - [ ] Root `<prl>` inline-rule models.
 - [ ] Simple `<sequence>` models composed of supported child nodes.
 - [ ] Simple `<markov>` models composed of supported child nodes.
@@ -89,6 +96,7 @@ nix develop -c make markov-junior.comp-test
 node plugins/markov-junior.comp/test/compiler.mjs
 nix develop -c node plugins/markov-junior.comp/test/parity-basic.mjs
 nix develop -c node plugins/markov-junior.comp/test/parity-root-one.mjs --model=Basic --runs=2 --steps=10
+nix develop -c node plugins/markov-junior.comp/test/parity-root-all.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
 ```

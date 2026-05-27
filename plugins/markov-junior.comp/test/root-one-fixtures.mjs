@@ -9,6 +9,12 @@ export const rootOneModels = [
   'StrangeGrowth',
 ]
 
+export const rootAllModels = [
+  'ParallelGrowth',
+  'ParallelMazeGrowth',
+  'PutLs',
+]
+
 export function parseList(value) {
   return value.split(',').map((entry) => entry.trim()).filter(Boolean)
 }

@@ -38,7 +38,11 @@ magic:        4 bytes  "MJIR"
 version:      u32      1
 values-len:   u32
 values:       bytes
-rule-count:   u32
+op-count:     u32
+
+# op 100, optional node kind marker (defaults to one if absent)
+op:           u32      100
+kind:         u32      1 = one, 2 = all, 3 = prl (reserved, not executed yet)
 
 # op 1, legacy one-cell replace
 op:           u32      1
@@ -59,7 +63,7 @@ input:        bytes    pattern symbols in MarkovJunior parse order
 output:       bytes    pattern symbols in MarkovJunior parse order
 ```
 
-Execution semantics use the current Odin `one` node helpers:
+Root `<one>` execution semantics use the current Odin `one` node helpers:
 
 ```text
 expand pattern symmetries with append_rule_symmetries
@@ -69,6 +73,8 @@ repeat until max-steps or no match:
   swap-remove that match
   if the rule still matches, apply it and add matches around changed cells
 ```
+
+Root `<all>` uses the existing Odin `all` node loop: collect matches, shuffle with `MJRandom`, apply non-overlapping outputs per step, and rescan around changed cells.
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
 

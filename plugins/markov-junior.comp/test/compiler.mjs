@@ -24,8 +24,13 @@ function decodeMjirV1(bytes) {
   const values = String.fromCharCode(...bytes.slice(pos, pos + valuesLen)); pos += valuesLen
   const ruleCount = readU32(bytes, pos); pos += 4
   const rules = []
+  const nodes = []
   for (let i = 0; i < ruleCount; i++) {
     const op = readU32(bytes, pos); pos += 4
+    if (op === 100) {
+      nodes.push(readU32(bytes, pos)); pos += 4
+      continue
+    }
     const imx = readU32(bytes, pos); pos += 4
     const imy = readU32(bytes, pos); pos += 4
     const imz = readU32(bytes, pos); pos += 4
@@ -41,7 +46,7 @@ function decodeMjirV1(bytes) {
     rules.push({ op, imx, imy, imz, omx, omy, omz, symmetry, input, output })
   }
   assert.equal(pos, bytes.length)
-  return { version, values, rules }
+  return { version, values, nodes, rules }
 }
 
 assert.equal(xmlAttr('<one values="BW" origin="True" in="WB" out="WW"/>', 'in'), 'WB')
@@ -70,13 +75,20 @@ assert.throws(() => parsePattern('AB C/D'), /inconsistent row count/)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<one values="B W" origin="True" in="WB" out="WW" symmetry="()"/>')), {
   version: 1,
   values: 'BW',
+  nodes: [],
   rules: [{ op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '()', input: 'WB', output: 'WW' }],
+})
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<all values="BW" origin="True" in="WB" out="*W"/>')), {
+  version: 1,
+  values: 'BW',
+  nodes: [2],
+  rules: [{ op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '', input: 'WB', output: '*W' }],
 })
 assert.deepEqual(decodeMjirV1(encodeMjirV1({
   values: 'BWA',
   rules: [{ op: 'pattern', input: 'WBB', output: 'WAW', symmetry: '' }],
 })).rules[0], { op: 2, imx: 3, imy: 1, imz: 1, omx: 3, omy: 1, omz: 1, symmetry: '', input: 'WBB', output: 'WAW' })
-assert.throws(() => compileXmlToMjir('<all values="BW" in="B" out="W"/>'), /supports only root <one>/)
+assert.throws(() => compileXmlToMjir('<prl values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 
 assert.deepEqual(initialGrid(2, 2, 1, 7), [7, 7, 7, 7])

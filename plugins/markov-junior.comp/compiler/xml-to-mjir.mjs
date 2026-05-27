@@ -41,20 +41,28 @@ export function parsePattern(pattern) {
   return { width, height, depth, data }
 }
 
-export function encodeMjirV1({ values, rules }) {
+export function encodeMjirV1({ values, node = 'one', rules }) {
   const valueBytes = [...textEncoder.encode(values.replaceAll(' ', ''))]
+  const ops = node === 'one' ? rules : [{ op: 'node', kind: node }, ...rules]
   const bytes = []
   bytes.push('M'.charCodeAt(0), 'J'.charCodeAt(0), 'I'.charCodeAt(0), 'R'.charCodeAt(0))
   u32le(bytes, 1)
   u32le(bytes, valueBytes.length)
   bytes.push(...valueBytes)
-  u32le(bytes, rules.length)
+  u32le(bytes, ops.length)
 
-  for (const rule of rules) {
-    if (rule.op !== 'pattern') throw new Error(`unsupported rule op: ${rule.op}`)
-    const input = parsePattern(rule.input)
-    const output = parsePattern(rule.output)
-    const symmetryBytes = [...textEncoder.encode(rule.symmetry ?? '')]
+  for (const op of ops) {
+    if (op.op === 'node') {
+      const kinds = { one: 1, all: 2, prl: 3 }
+      if (!kinds[op.kind]) throw new Error(`unsupported node kind: ${op.kind}`)
+      u32le(bytes, 100)
+      u32le(bytes, kinds[op.kind])
+      continue
+    }
+    if (op.op !== 'pattern') throw new Error(`unsupported rule op: ${op.op}`)
+    const input = parsePattern(op.input)
+    const output = parsePattern(op.output)
+    const symmetryBytes = [...textEncoder.encode(op.symmetry ?? '')]
     bytes.push(2, 0, 0, 0) // op = pattern rule
     u32le(bytes, input.width)
     u32le(bytes, input.height)
@@ -72,8 +80,8 @@ export function encodeMjirV1({ values, rules }) {
 
 export function compileXmlToMjir(xml) {
   const tag = xmlRootTag(xml)
-  if (tag !== 'one') {
-    throw new Error(`MJIR v1 compiler supports only root <one>, got ${tag || 'unknown'}`)
+  if (tag !== 'one' && tag !== 'all') {
+    throw new Error(`MJIR v1 compiler supports only root <one>/<all>, got ${tag || 'unknown'}`)
   }
   const values = xmlAttr(xml, 'values')
   const input = xmlAttr(xml, 'in')
@@ -83,6 +91,7 @@ export function compileXmlToMjir(xml) {
   if (!output) throw new Error('missing out attribute')
   return encodeMjirV1({
     values,
+    node: tag,
     rules: [{ op: 'pattern', input, output, symmetry: xmlAttr(xml, 'symmetry', '') }],
   })
 }
