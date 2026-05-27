@@ -35,9 +35,9 @@ markov-junior/markov-junior::run(model-ir, initial-cells, config) -> result<grid
 
 The first checked-in MJIR format is a tracer-bullet format, not the final complete MarkovJunior IR. It exists to prove the component build, WIT call path, deterministic execution, and e2e/parity test shape.
 
-`compiler/xml-to-mjir.mjs` is the reusable XML→MJIR entry point. It currently supports root `<one>` and `<all>` models with inline `in`/`out` patterns or child `<rule>` patterns, `values`, `origin`, and `symmetry` attributes. It emits MJIR v1 pattern rules (`op = 2`) plus a node-kind marker (`op = 100`) when needed, and prepares initial indexed grids outside the component.
+`compiler/xml-to-mjir.mjs` is the reusable XML→MJIR entry point. It currently supports root `<one>`, `<all>`, and `<prl>` models with inline `in`/`out` patterns or child `<rule>` patterns, `values`, `origin`, `symmetry`, and rule probability `p` attributes. It emits MJIR v1 pattern rules (`op = 2`) plus a node-kind marker (`op = 100`) when needed, and prepares initial indexed grids outside the component.
 
-The component expands symmetries with the existing Odin rule helpers and runs the current Odin `one` / `all` node matching/apply loops with `MJRandom`, preserving deterministic seed behavior for the supported models.
+The component expands symmetries with the existing Odin rule helpers and runs the current Odin `one` / `all` / `prl` node matching/apply loops with `MJRandom`, preserving deterministic seed behavior for the supported models.
 
 ## Test strategy
 
@@ -75,13 +75,14 @@ Run the parity fixtures against the original MarkovJunior Odin runner:
 MARKOV_JUNIOR_REPO=/Users/gook/Repos/MarkovJunior node plugins/markov-junior.comp/test/parity-root-one.mjs
 ```
 
-`parity-root-one.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `Growth`, `MazeGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `StrangeGrowth`) into MJIR v1, runs the original Odin CLI, extracts seeds from generated filenames, runs the component with the same seed/config, and compares final grid bytes. `parity-root-all.mjs` does the same for root `<all>` fixtures (`ParallelGrowth`, `ParallelMazeGrowth`, `PutLs`, `NestedGrowth`). `parity-basic.mjs` remains as a compatibility shim.
+`parity-root-one.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `Growth`, `MazeGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `StrangeGrowth`) into MJIR v1, runs the original Odin CLI, extracts seeds from generated filenames, runs the component with the same seed/config, and compares final grid bytes. `parity-root-all.mjs` does the same for root `<all>` fixtures (`ParallelGrowth`, `ParallelMazeGrowth`, `PutLs`, `NestedGrowth`). `parity-root-prl.mjs` covers root `<prl>` fixtures (`ForestFire`). `parity-basic.mjs` remains as a compatibility shim.
 
 Useful replay/fuzz commands:
 
 ```sh
 node plugins/markov-junior.comp/test/parity-root-one.mjs --model=Basic --runs=2 --steps=10
 node plugins/markov-junior.comp/test/parity-root-all.mjs --runs=1 --steps=10
+node plugins/markov-junior.comp/test/parity-root-prl.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
 node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
 ```

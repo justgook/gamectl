@@ -4,6 +4,12 @@ function u32le(out, value) {
   out.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff)
 }
 
+function f64le(out, value) {
+  const buffer = new ArrayBuffer(8)
+  new DataView(buffer).setFloat64(0, value, true)
+  out.push(...new Uint8Array(buffer))
+}
+
 export function xmlAttr(xml, name, fallback = '') {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const match = xml.match(new RegExp(`(?:^|[\\s<])${escaped}\\s*=\\s*"([^"]*)"`))
@@ -74,6 +80,7 @@ export function encodeMjirV1({ values, node = 'one', rules }) {
     u32le(bytes, output.width)
     u32le(bytes, output.height)
     u32le(bytes, output.depth)
+    f64le(bytes, op.probability ?? 1)
     u32le(bytes, symmetryBytes.length)
     bytes.push(...symmetryBytes)
     bytes.push(...input.data)
@@ -88,8 +95,8 @@ export function xmlRuleTags(xml) {
 
 export function compileXmlToMjir(xml) {
   const tag = xmlRootTag(xml)
-  if (tag !== 'one' && tag !== 'all') {
-    throw new Error(`MJIR v1 compiler supports only root <one>/<all>, got ${tag || 'unknown'}`)
+  if (tag !== 'one' && tag !== 'all' && tag !== 'prl') {
+    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>, got ${tag || 'unknown'}`)
   }
   const rootStart = xmlRootStartTag(xml)
   const values = xmlAttr(rootStart, 'values')
@@ -103,14 +110,14 @@ export function compileXmlToMjir(xml) {
   if (rootInput || rootOutput) {
     if (!rootInput) throw new Error('missing in attribute')
     if (!rootOutput) throw new Error('missing out attribute')
-    rules.push({ op: 'pattern', input: rootInput, output: rootOutput, symmetry: rootSymmetry })
+    rules.push({ op: 'pattern', input: rootInput, output: rootOutput, symmetry: rootSymmetry, probability: Number(xmlAttr(rootStart, 'p', '1')) })
   } else {
     for (const ruleTag of xmlRuleTags(xml)) {
       const input = xmlAttr(ruleTag, 'in')
       const output = xmlAttr(ruleTag, 'out')
       if (!input) throw new Error('child <rule> missing in attribute')
       if (!output) throw new Error('child <rule> missing out attribute')
-      rules.push({ op: 'pattern', input, output, symmetry: xmlAttr(ruleTag, 'symmetry', rootSymmetry) })
+      rules.push({ op: 'pattern', input, output, symmetry: xmlAttr(ruleTag, 'symmetry', rootSymmetry), probability: Number(xmlAttr(ruleTag, 'p', '1')) })
     }
   }
 

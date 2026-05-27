@@ -42,7 +42,7 @@ op-count:     u32
 
 # op 100, optional node kind marker (defaults to one if absent)
 op:           u32      100
-kind:         u32      1 = one, 2 = all, 3 = prl (reserved, not executed yet)
+kind:         u32      1 = one, 2 = all, 3 = prl
 
 # op 1, legacy one-cell replace
 op:           u32      1
@@ -57,6 +57,7 @@ input-depth:  u32
 output-width: u32
 output-height:u32
 output-depth: u32
+probability:  f64      rule p, defaults to 1.0
 symmetry-len: u32
 symmetry:     bytes    MarkovJunior symmetry string, empty means default symmetries
 input:        bytes    pattern symbols in MarkovJunior parse order
@@ -75,6 +76,8 @@ repeat until max-steps or no match:
 ```
 
 Root `<all>` uses the existing Odin `all` node loop: collect matches, shuffle with `MJRandom`, apply non-overlapping outputs per step, and rescan around changed cells.
+
+Root `<prl>` uses the existing Odin parallel node loop: full scan each turn, apply probability `p` checks with `MJRandom.NextDouble`, stage output into a new state, then commit changed cells.
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
 

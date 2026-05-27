@@ -75,6 +75,17 @@ mj_read_u32 :: proc(data: []u8, pos: ^int, ok: ^bool) -> u32 {
 	return value
 }
 
+mj_read_f64 :: proc(data: []u8, pos: ^int, ok: ^bool) -> f64 {
+	if !ok^ || pos^ + 8 > len(data) {
+		ok^ = false
+		return 0
+	}
+	bits := u64(data[pos^]) | (u64(data[pos^ + 1]) << 8) | (u64(data[pos^ + 2]) << 16) | (u64(data[pos^ + 3]) << 24) |
+		(u64(data[pos^ + 4]) << 32) | (u64(data[pos^ + 5]) << 40) | (u64(data[pos^ + 6]) << 48) | (u64(data[pos^ + 7]) << 56)
+	pos^ += 8
+	return transmute(f64)bits
+}
+
 mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, seed: u64, max_steps: u32) -> u32 {
 	if len(model) < 20 { return mj_fail("model-ir is too short") }
 	if model[0] != 'M' || model[1] != 'J' || model[2] != 'I' || model[3] != 'R' { return mj_fail("model-ir magic mismatch") }
@@ -124,6 +135,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		} else if op == 2 {
 			imx := int(mj_read_u32(model, &pos, &ok)); imy := int(mj_read_u32(model, &pos, &ok)); imz := int(mj_read_u32(model, &pos, &ok))
 			omx := int(mj_read_u32(model, &pos, &ok)); omy := int(mj_read_u32(model, &pos, &ok)); omz := int(mj_read_u32(model, &pos, &ok))
+			probability := mj_read_f64(model, &pos, &ok)
 			symmetry_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || imx <= 0 || imy <= 0 || imz <= 0 || omx <= 0 || omy <= 0 || omz <= 0 || symmetry_len < 0 { return mj_fail("invalid pattern rule header") }
 			if pos + symmetry_len > len(model) { return mj_fail("truncated pattern rule symmetry") }
@@ -133,7 +145,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if pos + input_len + output_len > len(model) { return mj_fail("truncated pattern rule data") }
 			input_chars := model[pos:pos + input_len]; pos += input_len
 			output_chars := model[pos:pos + output_len]; pos += output_len
-			base := rule_from_char_arrays(&g, input_chars, imx, imy, imz, output_chars, omx, omy, omz)
+			base := rule_from_char_arrays(&g, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
 			append_rule_symmetries(&g, &rules, base, symmetry)
 		} else {
 			return mj_fail("unsupported model-ir rule opcode")
@@ -150,7 +162,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	} else if node_kind == 2 {
 		steps_run, changed = mj_run_all_rules_with_count(&g, rules[:], &random, int(max_steps))
 	} else {
-		return mj_fail("prl node is not supported yet")
+		steps_run, changed = mj_run_parallel_rules_with_count(&g, rules[:], &random, int(max_steps))
 	}
 	done := !mj_any_one_match(&g, rules[:])
 
@@ -245,6 +257,31 @@ mj_run_all_rules_with_count :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, 
 
 		clear(&previous_changes)
 		for c in current_changes { append(&previous_changes, c) }
+
+		counter += 1
+		changed = true
+	}
+	return counter, changed
+}
+
+mj_run_parallel_rules_with_count :: proc(g: ^Grid, rules: []Rule, random: ^MJRandom, steps: int) -> (int, bool) {
+	current_changes := make([dynamic]Cell)
+	defer delete(current_changes)
+	newstate := make([]u8, len(g.state))
+	defer delete(newstate)
+
+	counter := 0
+	changed := false
+	for steps <= 0 || counter < steps {
+		clear(&current_changes)
+		parallel_initial_scan(g, rules, random, newstate, &current_changes)
+
+		if len(current_changes) == 0 { break }
+
+		for c in current_changes {
+			i := c.x + c.y * g.mx + c.z * g.mx * g.my
+			g.state[i] = newstate[i]
+		}
 
 		counter += 1
 		changed = true

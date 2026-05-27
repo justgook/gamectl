@@ -16,6 +16,10 @@ export const rootAllModels = [
   'NestedGrowth',
 ]
 
+export const rootPrlModels = [
+  'ForestFire',
+]
+
 export function parseList(value) {
   return value.split(',').map((entry) => entry.trim()).filter(Boolean)
 }

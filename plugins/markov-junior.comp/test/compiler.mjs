@@ -17,6 +17,11 @@ function readU32(bytes, pos) {
   return bytes[pos] | (bytes[pos + 1] << 8) | (bytes[pos + 2] << 16) | (bytes[pos + 3] << 24)
 }
 
+function readF64(bytes, pos) {
+  const view = new DataView(Uint8Array.from(bytes.slice(pos, pos + 8)).buffer)
+  return view.getFloat64(0, true)
+}
+
 function decodeMjirV1(bytes) {
   let pos = 0
   assert.equal(String.fromCharCode(...bytes.slice(pos, pos + 4)), 'MJIR')
@@ -39,13 +44,14 @@ function decodeMjirV1(bytes) {
     const omx = readU32(bytes, pos); pos += 4
     const omy = readU32(bytes, pos); pos += 4
     const omz = readU32(bytes, pos); pos += 4
+    const probability = readF64(bytes, pos); pos += 8
     const symmetryLen = readU32(bytes, pos); pos += 4
     const symmetry = String.fromCharCode(...bytes.slice(pos, pos + symmetryLen)); pos += symmetryLen
     const inputLen = imx * imy * imz
     const outputLen = omx * omy * omz
     const input = String.fromCharCode(...bytes.slice(pos, pos + inputLen)); pos += inputLen
     const output = String.fromCharCode(...bytes.slice(pos, pos + outputLen)); pos += outputLen
-    rules.push({ op, imx, imy, imz, omx, omy, omz, symmetry, input, output })
+    rules.push({ op, imx, imy, imz, omx, omy, omz, probability, symmetry, input, output })
   }
   assert.equal(pos, bytes.length)
   return { version, values, nodes, rules }
@@ -79,13 +85,13 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<one values="B W" origin="True" 
   version: 1,
   values: 'BW',
   nodes: [],
-  rules: [{ op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '()', input: 'WB', output: 'WW' }],
+  rules: [{ op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, probability: 1, symmetry: '()', input: 'WB', output: 'WW' }],
 })
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<all values="BW" origin="True" in="WB" out="*W"/>')), {
   version: 1,
   values: 'BW',
   nodes: [2],
-  rules: [{ op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '', input: 'WB', output: '*W' }],
+  rules: [{ op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, probability: 1, symmetry: '', input: 'WB', output: '*W' }],
 })
 assert.deepEqual(xmlRuleTags('<all><rule in="WB" out="WW"/><rule in="AW" out="AA" symmetry="()"/></all>').length, 2)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<all values="BWAD" origin="True" symmetry="(x)"><rule in="WB" out="WW"/><rule in="AW" out="AA" symmetry="()"/></all>')), {
@@ -93,15 +99,21 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<all values="BWAD" origin="True"
   values: 'BWAD',
   nodes: [2],
   rules: [
-    { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '(x)', input: 'WB', output: 'WW' },
-    { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, symmetry: '()', input: 'AW', output: 'AA' },
+    { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, probability: 1, symmetry: '(x)', input: 'WB', output: 'WW' },
+    { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, probability: 1, symmetry: '()', input: 'AW', output: 'AA' },
   ],
 })
 assert.deepEqual(decodeMjirV1(encodeMjirV1({
   values: 'BWA',
   rules: [{ op: 'pattern', input: 'WBB', output: 'WAW', symmetry: '' }],
-})).rules[0], { op: 2, imx: 3, imy: 1, imz: 1, omx: 3, omy: 1, omz: 1, symmetry: '', input: 'WBB', output: 'WAW' })
-assert.throws(() => compileXmlToMjir('<prl values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>/)
+})).rules[0], { op: 2, imx: 3, imy: 1, imz: 1, omx: 3, omy: 1, omz: 1, probability: 1, symmetry: '', input: 'WBB', output: 'WAW' })
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<prl values="BGR"><rule in="B" out="G" p="0.01"/></prl>')), {
+  version: 1,
+  values: 'BGR',
+  nodes: [3],
+  rules: [{ op: 2, imx: 1, imy: 1, imz: 1, omx: 1, omy: 1, omz: 1, probability: 0.01, symmetry: '', input: 'B', output: 'G' }],
+})
+assert.throws(() => compileXmlToMjir('<sequence values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)
 
