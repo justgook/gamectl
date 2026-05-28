@@ -226,7 +226,7 @@ function nodeFromElement(elementXml, inheritedSymmetry = '') {
   }
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(elementXml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'markov', 'sequence'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} child has unsupported direct children: ${unsupported.join(', ')}`)
     const children = direct.map((childXml) => nodeFromElement(childXml, inheritedSymmetry))
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)

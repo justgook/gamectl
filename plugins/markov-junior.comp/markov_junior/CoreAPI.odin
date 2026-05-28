@@ -660,51 +660,63 @@ mj_run_node_once_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, ra
 	return mj_run_node_once_with_changes(g, node.kind, rules, random, changes)
 }
 
-mj_markov_nodes_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, states: []MJ_Markov_State, counters: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int) -> bool {
-	for i := 0; i < len(nodes); i += 1 {
-		node := nodes[i]
+mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, count: int, random: ^MJRandom, states: []MJ_Markov_State, counters, positions: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int) -> bool {
+	for child := 0; child < count; child += 1 {
+		idx := start + child
+		node := nodes[idx]
 		if node.kind >= 4 && node.children_count > 0 {
-			if node.steps > 0 && counters[i] >= node.steps { i += node.children_count; continue }
+			if node.steps > 0 && counters[idx] >= node.steps { child += node.children_count; continue }
+			was_active := counters[idx] > 0
 			node_changed := false
 			if node.kind == 4 {
-				node_changed = mj_markov_nodes_go(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, states[node.children_start:node.children_start + node.children_count], counters[node.children_start:node.children_start + node.children_count], changes, first, counter)
+				node_changed = mj_markov_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter)
 			} else {
-				_, node_changed = mj_run_sequence_nodes_with_count(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, 1)
+				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter, &positions[idx])
 			}
 			if node_changed {
-				counters[i] += 1
+				counters[idx] += 1
 				return true
 			}
-			i += node.children_count
+			if was_active {
+				mj_reset_runtime_range(nodes, states, counters, positions, idx, node.children_count + 1)
+				return false
+			}
+			child += node.children_count
 			continue
 		}
 		if node.kind != 6 && node.count <= 0 { continue }
-		if node.steps > 0 && counters[i] >= node.steps { continue }
+		if node.steps > 0 && counters[idx] >= node.steps { continue }
 		if node.kind == 1 {
 			changed := false
 			if node.potentials != nil {
-				changed = mj_markov_one_go_with_fields(g, &nodes[i], rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, changes, counters[i])
+				changed = mj_markov_one_go_with_fields(g, &nodes[idx], rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes, counters[idx])
 			} else {
-				changed = mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, changes)
+				changed = mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes)
 			}
 			if changed {
-				counters[i] += 1
+				counters[idx] += 1
 				return true
 			}
 		} else {
 			node_changed := false
 			if node.kind == 2 {
-				node_changed = mj_markov_all_go(g, &nodes[i], rules[node.start:node.start + node.count], random, &states[i], changes[:], first[:], counter, changes, counters[i])
+				node_changed = mj_markov_all_go(g, &nodes[idx], rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes, counters[idx])
 			} else {
-				node_changed = mj_run_node_once_with_fields(g, &nodes[i], rules[node.start:node.start + node.count], random, changes, counters[i])
+				node_changed = mj_run_node_once_with_fields(g, &nodes[idx], rules[node.start:node.start + node.count], random, changes, counters[idx])
 			}
 			if node_changed {
-				counters[i] += 1
+				counters[idx] += 1
 				return true
 			}
 		}
 	}
 	return false
+}
+
+mj_markov_nodes_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, states: []MJ_Markov_State, counters: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int) -> bool {
+	positions := make([]int, len(nodes))
+	defer delete(positions)
+	return mj_markov_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, changes, first, counter)
 }
 
 mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, steps: int) -> (int, bool) {
@@ -714,6 +726,8 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 	defer mj_destroy_node_states(states)
 	counters := make([]int, len(nodes))
 	defer delete(counters)
+	positions := make([]int, len(nodes))
+	defer delete(positions)
 
 	changes := make([dynamic]Cell)
 	defer delete(changes)
@@ -722,7 +736,7 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 	append(&first, 0)
 
 	for steps <= 0 || counter < steps {
-		changed := mj_markov_nodes_go(g, rules, nodes, random, states, counters, &changes, &first, counter)
+		changed := mj_markov_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, &changes, &first, counter)
 		if !changed { break }
 		changed_any = true
 		counter += 1
@@ -753,15 +767,20 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 				child^ += node.children_count + 1
 				continue
 			}
+			was_active := counters[idx] > 0
 			node_changed := false
 			if node.kind == 4 {
-				node_changed = mj_markov_nodes_go(g, rules, nodes[node.children_start:node.children_start + node.children_count], random, states[node.children_start:node.children_start + node.children_count], counters[node.children_start:node.children_start + node.children_count], changes, first, counter)
+				node_changed = mj_markov_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter)
 			} else {
 				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter, &positions[idx])
 			}
 			if node_changed {
 				counters[idx] += 1
 				return true
+			}
+			if was_active {
+				child^ = -child^ - 1
+				return false
 			}
 			child^ += node.children_count + 1
 			continue
@@ -822,6 +841,10 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 		counter += 1
 		append(&first, len(changes))
 		if !changed {
+			if child < 0 {
+				child = -child - 1
+				continue
+			}
 			// Original persistent execution keeps a current node pointer. If a root
 			// sequence consists of a single nested container, completing that child
 			// returns control to the root, which can enter the same child again on
