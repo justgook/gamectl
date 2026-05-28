@@ -88,6 +88,11 @@
               "short": "p"
             },
             {
+              "name": "args-file",
+              "description": "Path to JSON arguments for runtime.invoke; overrides positional args",
+              "takesValue": true
+            },
+            {
               "name": "target",
               "description": "Runtime target to invoke, e.g. adder/add::add",
               "takesValue": true,

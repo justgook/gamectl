@@ -30,6 +30,11 @@ export const rootPrlModels = [
   'ForestFire',
 ]
 
+export const rootConvolutionModels = [
+  'Counting',
+  'ForestFireCA',
+]
+
 export const explicitModelConfigs = {
   BasicKeys: { size: 33 },
   BasicSkyline: { size: 30 },
@@ -107,6 +112,7 @@ export const rootSequenceModels = [
   'HamiltonianPath',
   'HamiltonianPaths',
   'Hills',
+  'Island',
   'Keys',
   'Lightning',
   'LoopGrowth',

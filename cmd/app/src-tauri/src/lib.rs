@@ -214,10 +214,17 @@ fn run_cli_command(
                 );
                 return Ok(true);
             };
-            let args = cli_arg_string(&subcommand.matches.args, "args")?
-                .map(|raw| serde_json::from_str(&raw))
-                .transpose()?
-                .unwrap_or_else(|| serde_json::json!([]));
+            let args = if let Some(path) = cli_arg_string(&subcommand.matches.args, "args-file")? {
+                let file = std::fs::File::open(&path)
+                    .map_err(|error| anyhow::anyhow!("failed to open args file {path}: {error}"))?;
+                serde_json::from_reader(file)
+                    .map_err(|error| anyhow::anyhow!("failed to parse args file {path}: {error}"))?
+            } else {
+                cli_arg_string(&subcommand.matches.args, "args")?
+                    .map(|raw| serde_json::from_str(&raw))
+                    .transpose()?
+                    .unwrap_or_else(|| serde_json::json!([]))
+            };
             let value = runtime
                 .invoke(&target, args)
                 .map_err(|error| anyhow::anyhow!(error))?;

@@ -75,9 +75,11 @@ Run the parity fixtures against the original MarkovJunior Odin runner:
 MARKOV_JUNIOR_REPO=/Users/gook/Repos/MarkovJunior node plugins/markov-junior.comp/test/parity-root-one.mjs
 ```
 
+The parity harness writes large component argument payloads to an `--args-file` consumed by the GAMS CLI, avoiding argv-size limits for large MJIR fixtures.
+
 For CI jobs that do not have the original repo checked out, pass `--skip-missing-original` to skip parity cleanly instead of failing before component tests run.
 
-`parity-root-one.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `BlueNoise`, `CentralSAW`, `Growth`, `GrowthContraction`, `GrowthWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `Laplace`, `MazeGrowth`, `MazeTrail`, `RainbowGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `StrangeGrowth`, `Trail`) into MJIR v1, runs the original Odin CLI, extracts seeds from generated filenames, runs the component with the same seed/config, and compares final grid bytes. `parity-root-all.mjs` does the same for root `<all>` fixtures (`ParallelGrowth`, `ParallelMazeGrowth`, `PutLs`, `NestedGrowth`). `parity-root-prl.mjs` covers root `<prl>` fixtures (`ForestFire`). `parity-root-markov.mjs` covers simple root `<markov>` fixtures (`Backtracker`, `Digger`, `MazeBacktracker`, `NoDeadEnds`, `PutColoredLs`, `RegularSAWRestart`, `SAWRestart`). `parity-root-sequence.mjs` covers simple root `<sequence>` fixtures including field-guided, observation-guided, path, nested-container, and convolution models (`Cave`, `CaveContour`, `ConnectedCaves`, `CrossCountry`, `GameOfLife`, `Hills`, `LostCity`, `OpenCave`, `OpenCave3D`, `Rosettes`, `SelectLargeCaves`, plus the earlier sequence set). `parity-basic.mjs` remains as a compatibility shim.
+`parity-root-one.mjs` compiles the currently supported root `<one>` inline-pattern fixtures (`Basic`, `BlueNoise`, `CentralSAW`, `Growth`, `GrowthContraction`, `GrowthWalk`, `IrregularMazeGrowth`, `IrregularSAW`, `Laplace`, `MazeGrowth`, `MazeTrail`, `RainbowGrowth`, `RegularSAW`, `SelfAvoidingWalk`, `StrangeGrowth`, `Trail`) into MJIR v1, runs the original Odin CLI, extracts seeds from generated filenames, runs the component with the same seed/config, and compares final grid bytes. `parity-root-all.mjs` does the same for root `<all>` fixtures (`ParallelGrowth`, `ParallelMazeGrowth`, `PutLs`, `NestedGrowth`). `parity-root-prl.mjs` covers root `<prl>` fixtures (`ForestFire`). `parity-root-convolution.mjs` covers root `<convolution>` fixtures (`Counting`, `ForestFireCA`). `parity-root-markov.mjs` covers simple root `<markov>` fixtures (`Backtracker`, `Digger`, `MazeBacktracker`, `NoDeadEnds`, `PutColoredLs`, `RegularSAWRestart`, `SAWRestart`). `parity-root-sequence.mjs` covers simple root `<sequence>` fixtures including field-guided, observation-guided, path, nested-container, and convolution models (`Cave`, `CaveContour`, `ConnectedCaves`, `CrossCountry`, `GameOfLife`, `Hills`, `Island`, `LostCity`, `OpenCave`, `OpenCave3D`, `Rosettes`, `SelectLargeCaves`, plus the earlier sequence set). `parity-basic.mjs` remains as a compatibility shim.
 
 Useful replay/fuzz commands:
 
@@ -86,6 +88,7 @@ node plugins/markov-junior.comp/test/parity-root-one.mjs --model=Basic --runs=2 
 node plugins/markov-junior.comp/test/parity-root-all.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/parity-root-prl.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/parity-root-markov.mjs --runs=1 --steps=10
+node plugins/markov-junior.comp/test/parity-root-convolution.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/parity-root-sequence.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/discover-supported.mjs --show-unsupported
 node plugins/markov-junior.comp/test/parity-root-one.mjs --skip-missing-original

@@ -88,6 +88,11 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 
 - [x] `ForestFire.xml`
 
+### Passing root `<convolution>` fixtures
+
+- [x] `Counting.xml`
+- [x] `ForestFireCA.xml`
+
 ### Passing root `<markov>` fixtures
 
 - [x] `Backtracker.xml`
@@ -140,6 +145,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `HamiltonianPath.xml`
 - [x] `HamiltonianPaths.xml`
 - [x] `Hills.xml`
+- [x] `Island.xml`
 - [x] `Keys.xml`
 - [x] `Lightning.xml`
 - [x] `LoopGrowth.xml`
@@ -198,7 +204,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Simple `<sequence>` models composed of supported child nodes.
 - [x] Simple `<markov>` models composed of supported child nodes.
 - [x] Root `<sequence>` models containing `<convolution>` nodes.
-- [ ] `Island.xml` is compiler-supported but too large for the current JSON-command parity runner transport; re-check after moving parity invocation off argv/stdout JSON.
+- [x] Root `<convolution>` models.
+- [x] Parity runner uses GAMS CLI `--args-file` to avoid argv-size limits for large MJIR inputs like `Island.xml`.
 
 ## Part 5 — test and docs hygiene
 
@@ -227,6 +234,7 @@ nix develop -c node plugins/markov-junior.comp/test/parity-root-one.mjs --model=
 nix develop -c node plugins/markov-junior.comp/test/parity-root-all.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-prl.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-markov.mjs --runs=1 --steps=10
+nix develop -c node plugins/markov-junior.comp/test/parity-root-convolution.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-sequence.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/discover-supported.mjs --show-unsupported
 nix develop -c node plugins/markov-junior.comp/test/parity-root-one.mjs --skip-missing-original
@@ -236,4 +244,4 @@ nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Ba
 
 ## Latest status
 
-Root `<one>`, `<all>`, `<prl>`, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, and root `<sequence>` models containing `<convolution>` nodes are covered. Discovery currently reports 112 compiler-supported XML models, 112 fixture-ready models, 106 parity-fixtured models, 0 known-mismatch models, 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 3 unlisted fixture-ready models (`Counting`, `ForestFireCA`, and `Island`), 0 compiler-supported models that need explicit config, and 47 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.
+Root `<one>`, `<all>`, `<prl>`, root `<convolution>`, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, and root `<sequence>` models containing `<convolution>` nodes are covered. Discovery currently reports 112 compiler-supported XML models, 112 fixture-ready models, 109 parity-fixtured models, 0 known-mismatch models, 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 0 unlisted fixture-ready models, 0 compiler-supported models that need explicit config, and 47 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.

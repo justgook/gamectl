@@ -25,27 +25,35 @@ function run(command, args, options = {}) {
 }
 
 function runComponent(modelIr, initialCells, config) {
-  const stdout = run('cargo', [
-    'run',
-    '--quiet',
-    '--manifest-path',
-    'cmd/app/src-tauri/Cargo.toml',
-    '--',
-    'run',
-    '--plug',
-    plugin,
-    'markov-junior/markov-junior::run',
-    JSON.stringify([modelIr, initialCells, config]),
-  ], {
-    env: {
-      GAMS_APP_CWD: join(repoRoot, 'examples/demo'),
-      GAMS_WASMTIME_CACHE_DIR: join(repoRoot, 'build.nosync/wasmtime-cache-e2e/markov-junior-parity'),
-      CARGO_TARGET_DIR: join(repoRoot, 'build.nosync/app/target'),
-    },
-  })
-  const payload = JSON.parse(stdout)
-  assert.equal(payload.err, undefined, payload.err)
-  return payload.ok
+  mkdirSync(tempRoot, { recursive: true })
+  const argsFile = join(tempRoot, `invoke-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`)
+  writeFileSync(argsFile, JSON.stringify([modelIr, initialCells, config]))
+  try {
+    const stdout = run('cargo', [
+      'run',
+      '--quiet',
+      '--manifest-path',
+      'cmd/app/src-tauri/Cargo.toml',
+      '--',
+      'run',
+      '--plug',
+      plugin,
+      '--args-file',
+      argsFile,
+      'markov-junior/markov-junior::run',
+    ], {
+      env: {
+        GAMS_APP_CWD: join(repoRoot, 'examples/demo'),
+        GAMS_WASMTIME_CACHE_DIR: join(repoRoot, 'build.nosync/wasmtime-cache-e2e/markov-junior-parity'),
+        CARGO_TARGET_DIR: join(repoRoot, 'build.nosync/app/target'),
+      },
+    })
+    const payload = JSON.parse(stdout)
+    assert.equal(payload.err, undefined, payload.err)
+    return payload.ok
+  } finally {
+    rmSync(argsFile, { force: true })
+  }
 }
 
 function assertSameGrid(name, seed, actual, golden) {

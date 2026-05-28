@@ -7,6 +7,7 @@ import {
   knownParityMismatchModels,
   noGenericOriginalOutputModels,
   rootAllModels,
+  rootConvolutionModels,
   rootMarkovModels,
   rootOneModels,
   rootPrlModels,
@@ -25,6 +26,7 @@ const parityFixtureNames = new Set([
   ...rootOneModels,
   ...rootAllModels,
   ...rootPrlModels,
+  ...rootConvolutionModels,
   ...rootMarkovModels,
   ...rootSequenceModels,
 ])
