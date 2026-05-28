@@ -821,7 +821,14 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 		if changed do changed_any = true
 		counter += 1
 		append(&first, len(changes))
-		if !changed { break }
+		if !changed {
+			// Original persistent execution keeps a current node pointer. If a root
+			// sequence consists of a single nested container, completing that child
+			// returns control to the root, which can enter the same child again on
+			// the next outer turn (for example MultiHeadedWalk). Multi-child root
+			// sequences complete to nil and stop (for example Division/Dwarves).
+			if !(steps > 0 && len(nodes) == 1 + nodes[0].children_count && nodes[0].kind >= 4) { break }
+		}
 	}
 	return counter, changed_any
 }
