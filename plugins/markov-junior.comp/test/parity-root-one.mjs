@@ -90,7 +90,9 @@ export function parityModel(name, { runs, steps }) {
   assert.equal(outputs.length, runs, `${name}: expected ${runs} original outputs, got ${outputs.join(', ')}`)
 
   const xml = readFileSync(join(mjRoot, `models/${name}.xml`), 'utf8')
-  const modelIr = compileXmlToMjir(xml)
+  const modelIr = compileXmlToMjir(xml, {
+    loadSamplePng: (sample) => readFileSync(join(mjRoot, `resources/samples/${sample}.png`)),
+  })
 
   for (const output of outputs) {
     const golden = parseMjstate(readFileSync(join(tempDir, output), 'utf8'))

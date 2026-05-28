@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { compileXmlToMjir, xmlRootTag } from '../compiler/xml-to-mjir.mjs'
@@ -8,6 +8,7 @@ import {
   noGenericOriginalOutputModels,
   rootAllModels,
   rootConvolutionModels,
+  rootConvChainModels,
   rootMarkovModels,
   rootOneModels,
   rootPrlModels,
@@ -27,6 +28,7 @@ const parityFixtureNames = new Set([
   ...rootAllModels,
   ...rootPrlModels,
   ...rootConvolutionModels,
+  ...rootConvChainModels,
   ...rootMarkovModels,
   ...rootSequenceModels,
 ])
@@ -45,7 +47,12 @@ for (const file of readdirSync(modelsDir).filter((entry) => entry.endsWith('.xml
   if (requestedRoot && root !== requestedRoot) continue
 
   try {
-    compileXmlToMjir(xml)
+    compileXmlToMjir(xml, {
+      loadSamplePng: (sample) => {
+        const path = join(mjRoot, `resources/samples/${sample}.png`)
+        return existsSync(path) ? readFileSync(path) : undefined
+      },
+    })
   } catch (error) {
     unsupported.push({ name, root, reason: error.message })
     continue

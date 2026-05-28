@@ -1,3 +1,5 @@
+import { inflateSync } from 'node:zlib'
+
 const textEncoder = new TextEncoder()
 
 function u32le(out, value) {
@@ -51,6 +53,137 @@ export function parsePattern(pattern) {
   return { width, height, depth, data }
 }
 
+function paethPredictor(a, b, c) {
+  const p = a + b - c
+  const pa = Math.abs(p - a)
+  const pb = Math.abs(p - b)
+  const pc = Math.abs(p - c)
+  if (pa <= pb && pa <= pc) return a
+  if (pb <= pc) return b
+  return c
+}
+
+function decodePngWhiteMask(bytes) {
+  if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47) throw new Error('sample is not a PNG')
+  let pos = 8
+  let width = 0
+  let height = 0
+  let bitDepth = 0
+  let colorType = 0
+  const idat = []
+  while (pos + 8 <= bytes.length) {
+    const len = (bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]
+    const type = String.fromCharCode(...bytes.slice(pos + 4, pos + 8))
+    const dataStart = pos + 8
+    const dataEnd = dataStart + len
+    if (type === 'IHDR') {
+      width = (bytes[dataStart] << 24) | (bytes[dataStart + 1] << 16) | (bytes[dataStart + 2] << 8) | bytes[dataStart + 3]
+      height = (bytes[dataStart + 4] << 24) | (bytes[dataStart + 5] << 16) | (bytes[dataStart + 6] << 8) | bytes[dataStart + 7]
+      bitDepth = bytes[dataStart + 8]
+      colorType = bytes[dataStart + 9]
+      const interlace = bytes[dataStart + 12]
+      if (interlace !== 0) throw new Error('interlaced PNG samples are unsupported')
+    } else if (type === 'IDAT') {
+      idat.push(...bytes.slice(dataStart, dataEnd))
+    } else if (type === 'IEND') break
+    pos = dataEnd + 4
+  }
+  if (bitDepth !== 8 || (colorType !== 0 && colorType !== 2)) throw new Error(`unsupported PNG sample format bitDepth=${bitDepth} colorType=${colorType}`)
+  const channels = colorType === 2 ? 3 : 1
+  const stride = width * channels
+  const raw = inflateSync(Uint8Array.from(idat))
+  const pixels = new Uint8Array(width * height * channels)
+  let rp = 0
+  for (let y = 0; y < height; y++) {
+    const filter = raw[rp++]
+    const rowStart = y * stride
+    const prevStart = (y - 1) * stride
+    for (let x = 0; x < stride; x++) {
+      const left = x >= channels ? pixels[rowStart + x - channels] : 0
+      const up = y > 0 ? pixels[prevStart + x] : 0
+      const upLeft = y > 0 && x >= channels ? pixels[prevStart + x - channels] : 0
+      let value = raw[rp++]
+      if (filter === 1) value = (value + left) & 0xff
+      else if (filter === 2) value = (value + up) & 0xff
+      else if (filter === 3) value = (value + Math.floor((left + up) / 2)) & 0xff
+      else if (filter === 4) value = (value + paethPredictor(left, up, upLeft)) & 0xff
+      else if (filter !== 0) throw new Error(`unsupported PNG filter ${filter}`)
+      pixels[rowStart + x] = value
+    }
+  }
+  const sample = []
+  for (let i = 0; i < width * height; i++) {
+    const p = i * channels
+    sample.push(channels >= 3 ? pixels[p] === 255 && pixels[p + 1] === 255 && pixels[p + 2] === 255 : pixels[p] === 255)
+  }
+  return { width, height, sample }
+}
+
+function convchainPatternIndex(pattern) {
+  let index = 0
+  for (let i = 0; i < pattern.length; i++) if (pattern[i]) index += 1 << i
+  return index
+}
+
+function convchainRotated(pattern, n) {
+  const out = Array(n * n).fill(false)
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) out[x + y * n] = pattern[n - 1 - y + x * n]
+  return out
+}
+
+function convchainReflected(pattern, n) {
+  const out = Array(n * n).fill(false)
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) out[x + y * n] = pattern[n - 1 - x + y * n]
+  return out
+}
+
+function squareSymmetryEnabled(symmetry, i) {
+  if (symmetry === '' || symmetry === '(xy)') return true
+  if (symmetry === '()') return i === 0
+  if (symmetry === '(x)') return i === 0 || i === 1
+  if (symmetry === '(y)') return i === 0 || i === 5
+  if (symmetry === '(x)(y)') return i === 0 || i === 1 || i === 4 || i === 5
+  if (symmetry === '(xy+)') return i === 0 || i === 2 || i === 4 || i === 6
+  return true
+}
+
+function convchainWeightsFromSample(samplePngBytes, n, symmetry) {
+  const { width, height, sample } = decodePngWhiteMask(samplePngBytes)
+  const weights = Array(1 << (n * n)).fill(0)
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const base = []
+    for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) base.push(sample[((x + dx) % width) + ((y + dy) % height) * width])
+    const patterns = []
+    patterns[0] = base
+    patterns[1] = convchainReflected(patterns[0], n)
+    patterns[2] = convchainRotated(patterns[0], n)
+    patterns[3] = convchainReflected(patterns[2], n)
+    patterns[4] = convchainRotated(patterns[2], n)
+    patterns[5] = convchainReflected(patterns[4], n)
+    patterns[6] = convchainRotated(patterns[4], n)
+    patterns[7] = convchainReflected(patterns[6], n)
+    for (let i = 0; i < 8; i++) if (squareSymmetryEnabled(symmetry, i)) weights[convchainPatternIndex(patterns[i])] += 1
+  }
+  for (let i = 0; i < weights.length; i++) if (weights[i] <= 0) weights[i] = 0.1
+  return weights
+}
+
+function convchainFromElement(elementXml, inheritedSymmetry, options) {
+  const start = xmlRootStartTag(elementXml)
+  const sample = xmlAttr(start, 'sample')
+  const on = xmlAttr(start, 'on')
+  const black = xmlAttr(start, 'black')
+  const white = xmlAttr(start, 'white')
+  if (!sample) throw new Error('convchain missing sample attribute')
+  if (!on) throw new Error('convchain missing on attribute')
+  if (!black) throw new Error('convchain missing black attribute')
+  if (!white) throw new Error('convchain missing white attribute')
+  const samplePng = options?.loadSamplePng?.(sample)
+  if (!samplePng) throw new Error(`convchain sample ${sample} unavailable; pass loadSamplePng option`)
+  const n = Number(xmlAttr(start, 'n', '3'))
+  return { n, temperature: Number(xmlAttr(start, 'temperature', '1')), black, white, on, weights: convchainWeightsFromSample(samplePng, n, xmlAttr(start, 'symmetry', inheritedSymmetry)) }
+}
+
 function convolutionFromElement(elementXml) {
   const start = xmlRootStartTag(elementXml)
   const direct = xmlDirectChildTags(elementXml)
@@ -78,7 +211,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
   ]
   const childOps = (child) => {
     if (child.children) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...child.children.flatMap(childOps), { op: 'end' }]
-    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...(child.path ? [{ op: 'path', ...child.path }] : []), ...(child.convolution ? [{ op: 'convolution', ...child.convolution }] : []), ...child.rules]
+    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...(child.path ? [{ op: 'path', ...child.path }] : []), ...(child.convolution ? [{ op: 'convolution', ...child.convolution }] : []), ...(child.convchain ? [{ op: 'convchain', ...child.convchain }] : []), ...child.rules]
   }
   const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
@@ -93,7 +226,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
 
   for (const op of ops) {
     if (op.op === 'node') {
-      const kinds = { one: 1, all: 2, prl: 3, markov: 4, sequence: 5, path: 6, convolution: 7 }
+      const kinds = { one: 1, all: 2, prl: 3, markov: 4, sequence: 5, path: 6, convolution: 7, convchain: 8 }
       if (!kinds[op.kind]) throw new Error(`unsupported node kind: ${op.kind}`)
       u32le(bytes, 100)
       u32le(bytes, kinds[op.kind])
@@ -161,6 +294,15 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
         u32le(bytes, sumsBytes.length)
         bytes.push(...sumsBytes)
       }
+      continue
+    }
+    if (op.op === 'convchain') {
+      u32le(bytes, 108)
+      u32le(bytes, op.n)
+      f64le(bytes, op.temperature ?? 1)
+      bytes.push(op.black.charCodeAt(0), op.white.charCodeAt(0), op.on.charCodeAt(0))
+      u32le(bytes, op.weights.length)
+      for (const weight of op.weights) f64le(bytes, weight)
       continue
     }
     if (op.op === 'path') {
@@ -252,7 +394,7 @@ export function xmlChildNodeTags(xml) {
   return xmlDirectChildTags(xml).filter((tag) => ['one', 'all', 'prl'].includes(xmlRootTag(tag)))
 }
 
-function nodeFromElement(elementXml, inheritedSymmetry = '') {
+function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
   const tag = xmlRootTag(elementXml)
   const start = xmlRootStartTag(elementXml)
   const steps = Number(xmlAttr(start, 'steps', '0'))
@@ -264,11 +406,15 @@ function nodeFromElement(elementXml, inheritedSymmetry = '') {
     const convolution = convolutionFromElement(elementXml)
     return { node: tag, steps, rules: [], convolution }
   }
+  if (tag === 'convchain') {
+    const convchain = convchainFromElement(elementXml, inheritedSymmetry, options)
+    return { node: tag, steps, rules: [], convchain }
+  }
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(elementXml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'markov', 'sequence'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'markov', 'sequence'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} child has unsupported direct children: ${unsupported.join(', ')}`)
-    const children = direct.map((childXml) => nodeFromElement(childXml, inheritedSymmetry))
+    const children = direct.map((childXml) => nodeFromElement(childXml, inheritedSymmetry, options))
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
     return { node: tag, steps, children }
   }
@@ -348,10 +494,10 @@ function rulesFromElement(elementXml, inheritedSymmetry = '') {
   return rules
 }
 
-export function compileXmlToMjir(xml) {
+export function compileXmlToMjir(xml, options = {}) {
   const tag = xmlRootTag(xml)
-  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence' && tag !== 'path' && tag !== 'convolution') {
-    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>/<path>/<convolution>, got ${tag || 'unknown'}`)
+  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence' && tag !== 'path' && tag !== 'convolution' && tag !== 'convchain') {
+    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>/<path>/<convolution>/<convchain>, got ${tag || 'unknown'}`)
   }
   const rootStart = xmlRootStartTag(xml)
   const values = xmlAttr(rootStart, 'values')
@@ -360,11 +506,11 @@ export function compileXmlToMjir(xml) {
   const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(xml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'markov', 'sequence', 'union'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'markov', 'sequence', 'union'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} root has unsupported direct children: ${unsupported.join(', ')}`)
-    const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => nodeFromElement(childXml, rootSymmetry))
+    const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => nodeFromElement(childXml, rootSymmetry, options))
     if (children.length === 0) throw new Error(`${tag} root missing child nodes`)
-    for (const child of children) if (!child.children && !child.path && !child.convolution && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
+    for (const child of children) if (!child.children && !child.path && !child.convolution && !child.convchain && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
     return encodeMjirV1({ values, node: tag, children, unions: unionsFromXml(xml) })
   }
 
@@ -374,14 +520,17 @@ export function compileXmlToMjir(xml) {
   if (tag === 'convolution') {
     return encodeMjirV1({ values, node: tag, rules: [{ op: 'convolution', ...convolutionFromElement(xml) }], unions: unionsFromXml(xml) })
   }
+  if (tag === 'convchain') {
+    return encodeMjirV1({ values, node: tag, rules: [{ op: 'convchain', ...convchainFromElement(xml, rootSymmetry, options) }], unions: unionsFromXml(xml) })
+  }
 
   const rules = rulesFromElement(xml, rootSymmetry)
   if (rules.length === 0) throw new Error('missing in/out attributes or child <rule> elements')
   return encodeMjirV1({ values, node: tag, rules, fields: fieldsFromElement(xml), observations: observationsFromElement(xml), temperature: Number(xmlAttr(rootStart, 'temperature', '0')), unions: unionsFromXml(xml) })
 }
 
-export function compileMjirV1FromXml(xml) {
-  return compileXmlToMjir(xml)
+export function compileMjirV1FromXml(xml, options = {}) {
+  return compileXmlToMjir(xml, options)
 }
 
 export function initialGrid(width, height, depth, fillIndex = 0) {

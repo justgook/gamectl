@@ -35,6 +35,12 @@ export const rootConvolutionModels = [
   'ForestFireCA',
 ]
 
+export const rootConvChainModels = [
+  'ChainDungeon',
+  'ChainDungeonMaze',
+  'ChainMaze',
+]
+
 export const explicitModelConfigs = {
   BasicKeys: { size: 33 },
   BasicSkyline: { size: 30 },

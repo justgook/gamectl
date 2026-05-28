@@ -98,6 +98,18 @@ function decodeMjirV1(bytes) {
       rules.push({ op, neighborhood, periodic, rules: convolutionRules })
       continue
     }
+    if (op === 108) {
+      const n = readU32(bytes, pos); pos += 4
+      const temperature = readF64(bytes, pos); pos += 8
+      const black = String.fromCharCode(bytes[pos]); pos += 1
+      const white = String.fromCharCode(bytes[pos]); pos += 1
+      const on = String.fromCharCode(bytes[pos]); pos += 1
+      const weightCount = readU32(bytes, pos); pos += 4
+      const weights = []
+      for (let wi = 0; wi < weightCount; wi++) { weights.push(readF64(bytes, pos)); pos += 8 }
+      rules.push({ op, n, temperature, black, white, on, weights })
+      continue
+    }
     if (op === 106) {
       const fromLen = readU32(bytes, pos); pos += 4
       const from = String.fromCharCode(...bytes.slice(pos, pos + fromLen)); pos += fromLen
@@ -210,6 +222,10 @@ assert.throws(() => compileXmlToMjir('<one values="BW" file="Rule"/>'), /unsuppo
 assert.throws(() => compileXmlToMjir('<sequence values="BW"><union values="B"/><one in="B" out="W"/></sequence>'), /union missing symbol attribute/)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWD"><path from="R" to="W" on="B" color="D" inertia="True"/></markov>')).rules[0], { op: 106, from: 'R', to: 'W', on: 'B', color: 'D', inertia: true, longest: false, edges: false, vertices: false })
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="DA"><convolution neighborhood="Moore" periodic="True"><rule in="D" out="A" sum="3" values="A"/></convolution></sequence>')).rules[0], { op: 107, neighborhood: 'Moore', periodic: true, rules: [{ input: 'D', output: 'A', probability: 1, values: 'A', sum: '3' }] })
+const whitePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC', 'base64')
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BDA"><convchain sample="Tiny" on="B" black="D" white="A" n="1" steps="2"/></sequence>', { loadSamplePng: () => whitePng })).nodes, [{ kind: 5, steps: 0 }, { kind: 8, steps: 2 }])
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BDA"><convchain sample="Tiny" on="B" black="D" white="A" n="1"/></sequence>', { loadSamplePng: () => whitePng })).rules[0], { op: 108, n: 1, temperature: 1, black: 'D', white: 'A', on: 'B', weights: [0.1, 8] })
+assert.throws(() => compileXmlToMjir('<sequence values="BDA"><convchain sample="Tiny" on="B" black="D" white="A"/></sequence>'), /pass loadSamplePng/)
 assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>\/<path>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)
