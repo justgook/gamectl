@@ -43,7 +43,7 @@ op-count:     u32
 # op 100, optional node kind marker (defaults to one if absent)
 op:           u32      100
 kind:         u32      1 = one, 2 = all, 3 = prl, 4 = markov container, 5 = sequence container,
-                       6 = path, 7 = convolution, 8 = convchain
+                       6 = path, 7 = convolution, 8 = convchain, 9 = overlap wfc
 steps:        u32      child node step limit, 0 = unbounded/default
 
 # op 101, union declaration, available to following pattern rules
@@ -118,6 +118,27 @@ on:           u8       substrate symbol to initialize/toggle
 weight-count: u32      must be 1 << (n*n)
 weights:      f64[]    externally-precomputed pattern weights from sample PNG and symmetry
 
+# op 109, overlap WFC payload for the current <wfc sample="..."> node
+op:           u32      109
+n:            u32      pattern size
+periodic:     u32      0/1 output periodic flag
+shannon:      u32      0/1 entropy heuristic flag
+tries:        u32      seed search attempts
+values-len:   u32
+values:       bytes    WFC output grid symbols
+pattern-count:u32
+# repeated pattern-count times:
+weight:       f64
+pattern:      u8[n*n]  sample color ordinals in WFC output value space
+propagator-dir-count: u32  currently 4 for 2D overlap WFC
+# repeated dir-count * pattern-count times:
+adjacent-count: u32
+adjacent:     u32[]    compatible pattern indexes
+map-count:    u32
+# repeated map-count times:
+input:        u8       source grid symbol
+positions:    u8[pattern-count]  0/1 allowed patterns for this source symbol
+
 # op 1, legacy one-cell replace
 op:           u32      1
 input:        u8       value index
@@ -155,7 +176,7 @@ Root `<prl>` uses the existing Odin parallel node loop: full scan each turn, app
 
 Simple root `<markov>` uses a container marker followed by child node markers/rules. It tries child nodes in order each outer step and applies the first child that changes, preserving persistent one-node match state for the currently supported fixtures.
 
-Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child. Nested child containers are delimited with `op = 102`; currently this is used for direct child `<markov>` containers in sequence fixtures. `<convolution>` nodes are encoded as kind `7` plus op `107`, then executed with the existing Odin convolution kernel and `MJRandom` probability checks. `<convchain>` nodes are encoded as kind `8` plus op `108`; sample PNG loading and pattern-weight extraction happen in the external compiler, while the component only receives prepared weights and executes the existing convchain Markov-chain update loop.
+Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child. Nested child containers are delimited with `op = 102`; currently this is used for direct child `<markov>` containers in sequence fixtures. `<convolution>` nodes are encoded as kind `7` plus op `107`, then executed with the existing Odin convolution kernel and `MJRandom` probability checks. `<convchain>` nodes are encoded as kind `8` plus op `108`; sample PNG loading and pattern-weight extraction happen in the external compiler, while the component only receives prepared weights and executes the existing convchain Markov-chain update loop. Overlap `<wfc sample="...">` nodes are encoded as kind `9` plus op `109`; sample PNG color ordinals, patterns, weights, propagators, and source-to-pattern maps are prepared outside the component, then the component runs the existing WFC collapse/update loop.
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
 

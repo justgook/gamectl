@@ -41,6 +41,12 @@ export const rootConvChainModels = [
   'ChainMaze',
 ]
 
+export const rootWfcModels = [
+  'Sewers',
+  'WaveDungeon',
+  'WaveFlowers',
+]
+
 export const explicitModelConfigs = {
   BasicKeys: { size: 33 },
   BasicSkyline: { size: 30 },

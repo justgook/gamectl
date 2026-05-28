@@ -110,6 +110,43 @@ function decodeMjirV1(bytes) {
       rules.push({ op, n, temperature, black, white, on, weights })
       continue
     }
+    if (op === 109) {
+      const n = readU32(bytes, pos); pos += 4
+      const periodic = readU32(bytes, pos) !== 0; pos += 4
+      const shannon = readU32(bytes, pos) !== 0; pos += 4
+      const tries = readU32(bytes, pos); pos += 4
+      const valuesLen = readU32(bytes, pos); pos += 4
+      const wfcValues = String.fromCharCode(...bytes.slice(pos, pos + valuesLen)); pos += valuesLen
+      const patternCount = readU32(bytes, pos); pos += 4
+      const patterns = []
+      const weights = []
+      for (let pi = 0; pi < patternCount; pi++) {
+        weights.push(readF64(bytes, pos)); pos += 8
+        patterns.push([...bytes.slice(pos, pos + n * n)]); pos += n * n
+      }
+      const dirs = readU32(bytes, pos); pos += 4
+      const propagator = []
+      for (let d = 0; d < dirs; d++) {
+        const dir = []
+        for (let pi = 0; pi < patternCount; pi++) {
+          const listLen = readU32(bytes, pos); pos += 4
+          const list = []
+          for (let li = 0; li < listLen; li++) { list.push(readU32(bytes, pos)); pos += 4 }
+          dir.push(list)
+        }
+        propagator.push(dir)
+      }
+      const mapCount = readU32(bytes, pos); pos += 4
+      const maps = []
+      for (let mi = 0; mi < mapCount; mi++) {
+        const input = String.fromCharCode(bytes[pos]); pos += 1
+        const positions = []
+        for (let pi = 0; pi < patternCount; pi++) positions.push(bytes[pos++] !== 0)
+        maps.push({ input, positions })
+      }
+      rules.push({ op, n, periodic, shannon, tries, values: wfcValues, patterns, weights, propagator, maps })
+      continue
+    }
     if (op === 106) {
       const fromLen = readU32(bytes, pos); pos += 4
       const from = String.fromCharCode(...bytes.slice(pos, pos + fromLen)); pos += fromLen
@@ -226,6 +263,12 @@ const whitePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADE
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BDA"><convchain sample="Tiny" on="B" black="D" white="A" n="1" steps="2"/></sequence>', { loadSamplePng: () => whitePng })).nodes, [{ kind: 5, steps: 0 }, { kind: 8, steps: 2 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BDA"><convchain sample="Tiny" on="B" black="D" white="A" n="1"/></sequence>', { loadSamplePng: () => whitePng })).rules[0], { op: 108, n: 1, temperature: 1, black: 'D', white: 'A', on: 'B', weights: [0.1, 8] })
 assert.throws(() => compileXmlToMjir('<sequence values="BDA"><convchain sample="Tiny" on="B" black="D" white="A"/></sequence>'), /pass loadSamplePng/)
+const tinyWfc = decodeMjirV1(compileXmlToMjir('<sequence values="B"><wfc sample="Tiny" values="W" n="1" shannon="True"><rule in="B" out="W"/></wfc></sequence>', { loadSamplePng: () => whitePng }))
+assert.deepEqual(tinyWfc.nodes, [{ kind: 5, steps: 0 }, { kind: 9, steps: 0 }])
+assert.deepEqual(tinyWfc.rules[0].op, 109)
+assert.deepEqual(tinyWfc.rules[0].values, 'W')
+assert.deepEqual(tinyWfc.rules[0].patterns, [[0]])
+assert.deepEqual(tinyWfc.rules[0].maps, [{ input: 'B', positions: [true] }, { input: 'W', positions: [true] }])
 assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>\/<path>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)

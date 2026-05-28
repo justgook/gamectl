@@ -13,6 +13,7 @@ import {
   rootOneModels,
   rootPrlModels,
   rootSequenceModels,
+  rootWfcModels,
 } from './root-one-fixtures.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -31,6 +32,7 @@ const parityFixtureNames = new Set([
   ...rootConvChainModels,
   ...rootMarkovModels,
   ...rootSequenceModels,
+  ...rootWfcModels,
 ])
 
 const parityFixtured = []

@@ -36,7 +36,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Add resource-free `<path>` representation in MJIR (`op = 106`).
 - [x] Add resource-free `<convolution>` representation in MJIR (`op = 107`).
 - [x] Add resource-free `<convchain>` representation in MJIR (`op = 108`, with sample PNG weights precomputed externally).
-- [ ] Decide how to represent remaining unsupported features like `search`, WFC, and maps in MJIR.
+- [x] Add resource-free overlap `<wfc sample="...">` representation in MJIR (`op = 109`, with sample PNG patterns/propagators precomputed externally).
+- [ ] Decide how to represent remaining unsupported features like `search`, tile WFC, and maps in MJIR.
 
 ## Part 3 — MJIR v1 executor
 
@@ -54,7 +55,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Add resource-free path-node executor support.
 - [x] Add resource-free convolution-node executor support.
 - [x] Add resource-free convchain-node executor support.
-- [ ] Add resource-free representation for search/WFC data.
+- [x] Add resource-free overlap-WFC executor support.
+- [ ] Add resource-free representation for search/tile-WFC data.
 
 ## Part 4 — parity fixtures
 
@@ -100,6 +102,12 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `ChainDungeon.xml`
 - [x] `ChainDungeonMaze.xml`
 - [x] `ChainMaze.xml`
+
+### Passing overlap-WFC fixtures
+
+- [x] `Sewers.xml`
+- [x] `WaveDungeon.xml`
+- [x] `WaveFlowers.xml`
 
 ### Passing root `<markov>` fixtures
 
@@ -214,6 +222,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Root `<sequence>` models containing `<convolution>` nodes.
 - [x] Root `<convolution>` models.
 - [x] `<convchain>` models with external sample PNG weight compilation.
+- [x] Overlap-WFC models with external sample PNG pattern/propagator compilation.
+- [ ] `WaveBrickWall.xml` needs indexed-color PNG sample support in the external compiler.
 - [x] Diagnosed active nested container completion: reset nested runtime state before retrying parent sequence, fixing `ChainDungeon.xml` while preserving sequence regressions.
 - [x] Parity runner uses GAMS CLI `--args-file` to avoid argv-size limits for large MJIR inputs like `Island.xml`.
 
@@ -246,6 +256,7 @@ nix develop -c node plugins/markov-junior.comp/test/parity-root-prl.mjs --runs=1
 nix develop -c node plugins/markov-junior.comp/test/parity-root-markov.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-convolution.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-convchain.mjs --runs=1 --steps=10
+nix develop -c node plugins/markov-junior.comp/test/parity-root-wfc.mjs --runs=1 --steps=10
 nix develop -c node plugins/markov-junior.comp/test/parity-root-sequence.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/discover-supported.mjs --show-unsupported
 nix develop -c node plugins/markov-junior.comp/test/parity-root-one.mjs --skip-missing-original
@@ -255,4 +266,4 @@ nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Ba
 
 ## Latest status
 
-Root `<one>`, `<all>`, `<prl>`, root `<convolution>`, `<convchain>` sequence models, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, root `<sequence>` models containing `<convolution>` nodes, and `<convchain>` nodes are covered. Discovery currently reports 115 compiler-supported XML models, 115 fixture-ready models, 112 parity-fixtured models, 0 known-mismatch models, 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 0 unlisted fixture-ready models, 0 compiler-supported models that need explicit config, and 44 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.
+Root `<one>`, `<all>`, `<prl>`, root `<convolution>`, `<convchain>` sequence models, overlap-WFC sequence models, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, root `<sequence>` models containing `<convolution>` nodes, `<convchain>` nodes, and overlap-WFC nodes are covered. Discovery currently reports 118 compiler-supported XML models, 118 fixture-ready models, 115 parity-fixtured models, 0 known-mismatch models, 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 0 unlisted fixture-ready models, 0 compiler-supported models that need explicit config, and 41 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.

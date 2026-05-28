@@ -63,7 +63,7 @@ function paethPredictor(a, b, c) {
   return c
 }
 
-function decodePngWhiteMask(bytes) {
+function decodePngRgba(bytes) {
   if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47) throw new Error('sample is not a PNG')
   let pos = 8
   let width = 0
@@ -88,8 +88,8 @@ function decodePngWhiteMask(bytes) {
     } else if (type === 'IEND') break
     pos = dataEnd + 4
   }
-  if (bitDepth !== 8 || (colorType !== 0 && colorType !== 2)) throw new Error(`unsupported PNG sample format bitDepth=${bitDepth} colorType=${colorType}`)
-  const channels = colorType === 2 ? 3 : 1
+  if (bitDepth !== 8 || ![0, 2, 4, 6].includes(colorType)) throw new Error(`unsupported PNG sample format bitDepth=${bitDepth} colorType=${colorType}`)
+  const channels = colorType === 0 ? 1 : colorType === 2 ? 3 : colorType === 4 ? 2 : 4
   const stride = width * channels
   const raw = inflateSync(Uint8Array.from(idat))
   const pixels = new Uint8Array(width * height * channels)
@@ -111,12 +111,22 @@ function decodePngWhiteMask(bytes) {
       pixels[rowStart + x] = value
     }
   }
-  const sample = []
+  const colors = []
   for (let i = 0; i < width * height; i++) {
     const p = i * channels
-    sample.push(channels >= 3 ? pixels[p] === 255 && pixels[p + 1] === 255 && pixels[p + 2] === 255 : pixels[p] === 255)
+    let r, g, b, a = 0xff
+    if (colorType === 0) { r = g = b = pixels[p] }
+    else if (colorType === 2) { r = pixels[p]; g = pixels[p + 1]; b = pixels[p + 2] }
+    else if (colorType === 4) { r = g = b = pixels[p]; a = pixels[p + 1] }
+    else { r = pixels[p]; g = pixels[p + 1]; b = pixels[p + 2]; a = pixels[p + 3] }
+    colors.push(((a << 24) >>> 0) | (r << 16) | (g << 8) | b)
   }
-  return { width, height, sample }
+  return { width, height, colors }
+}
+
+function decodePngWhiteMask(bytes) {
+  const { width, height, colors } = decodePngRgba(bytes)
+  return { width, height, sample: colors.map((color) => ((color >>> 16) & 0xff) === 255 && ((color >>> 8) & 0xff) === 255 && (color & 0xff) === 255) }
 }
 
 function convchainPatternIndex(pattern) {
@@ -168,6 +178,100 @@ function convchainWeightsFromSample(samplePngBytes, n, symmetry) {
   return weights
 }
 
+function overlapPatternIndex(pattern, colorCount) {
+  let result = 0
+  let power = 1
+  for (let i = 0; i < pattern.length; i++) {
+    result += pattern[pattern.length - 1 - i] * power
+    power *= colorCount
+  }
+  return result
+}
+
+function overlapPatternFromIndex(index, colorCount, n) {
+  let residue = index
+  let power = 1
+  for (let i = 0; i < n * n; i++) power *= colorCount
+  const result = []
+  for (let i = 0; i < n * n; i++) {
+    power = Math.floor(power / colorCount)
+    let count = 0
+    while (residue >= power) { residue -= power; count++ }
+    result.push(count)
+  }
+  return result
+}
+
+function overlapAgrees(p1, p2, dx, dy, n) {
+  let xmin = 0, xmax = n, ymin = 0, ymax = n
+  if (dx < 0) xmax = dx + n
+  else xmin = dx
+  if (dy < 0) ymax = dy + n
+  else ymin = dy
+  for (let y = ymin; y < ymax; y++) for (let x = xmin; x < xmax; x++) if (p1[x + n * y] !== p2[x - dx + n * (y - dy)]) return false
+  return true
+}
+
+function wfcOverlapFromElement(elementXml, inheritedSymmetry, options) {
+  const start = xmlRootStartTag(elementXml)
+  const sampleName = xmlAttr(start, 'sample')
+  const values = xmlAttr(start, 'values')
+  if (!sampleName) throw new Error('wfc overlap missing sample attribute')
+  if (!values) throw new Error('wfc overlap missing values attribute')
+  const samplePng = options?.loadSamplePng?.(sampleName)
+  if (!samplePng) throw new Error(`wfc sample ${sampleName} unavailable; pass loadSamplePng option`)
+  const n = Number(xmlAttr(start, 'n', '3'))
+  const { width, height, colors } = decodePngRgba(samplePng)
+  const uniques = []
+  const sample = colors.map((color) => {
+    let idx = uniques.indexOf(color)
+    if (idx < 0) { idx = uniques.length; uniques.push(color) }
+    return idx
+  })
+  const colorCount = uniques.length
+  const keys = []
+  const counts = []
+  const ordering = []
+  const periodicInput = xmlBoolAttr(start, 'periodicInput', true)
+  const xmax = periodicInput ? width : width - n + 1
+  const ymax = periodicInput ? height : height - n + 1
+  const symmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
+  for (let y = 0; y < ymax; y++) for (let x = 0; x < xmax; x++) {
+    const base = []
+    for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) base.push(sample[((x + dx) % width) + ((y + dy) % height) * width])
+    const patterns = []
+    patterns[0] = base
+    patterns[1] = convchainReflected(patterns[0], n)
+    patterns[2] = convchainRotated(patterns[0], n)
+    patterns[3] = convchainReflected(patterns[2], n)
+    patterns[4] = convchainRotated(patterns[2], n)
+    patterns[5] = convchainReflected(patterns[4], n)
+    patterns[6] = convchainRotated(patterns[4], n)
+    patterns[7] = convchainReflected(patterns[6], n)
+    for (let i = 0; i < 8; i++) if (squareSymmetryEnabled(symmetry, i)) {
+      const index = overlapPatternIndex(patterns[i], colorCount)
+      const found = keys.indexOf(index)
+      if (found >= 0) counts[found] += 1
+      else { keys.push(index); counts.push(1); ordering.push(index) }
+    }
+  }
+  const patterns = ordering.map((index) => overlapPatternFromIndex(index, colorCount, n))
+  const weights = ordering.map((index) => counts[keys.indexOf(index)])
+  const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+  const propagator = dirs.map(([dx, dy]) => patterns.map((p) => patterns.map((p2, i) => overlapAgrees(p, p2, dx, dy, n) ? i : -1).filter((i) => i >= 0)))
+  const maps = xmlDirectChildTags(elementXml).filter((child) => xmlRootTag(child) === 'rule').map((ruleXml) => {
+    const tag = xmlRootStartTag(ruleXml)
+    const input = xmlAttr(tag, 'in')
+    const out = xmlAttr(tag, 'out')
+    if (!input) throw new Error('wfc rule missing in attribute')
+    if (!out) throw new Error('wfc rule missing out attribute')
+    const outs = out.split('|').map((part) => values.indexOf(part[0]))
+    return { input, positions: patterns.map((pattern) => outs.includes(pattern[0])) }
+  })
+  if (!maps.some((map) => map.input === values[0])) maps.push({ input: values[0], positions: patterns.map(() => true) })
+  return { n, values, periodic: xmlBoolAttr(start, 'periodic', true), shannon: xmlBoolAttr(start, 'shannon', false), tries: Number(xmlAttr(start, 'tries', '1000')), patterns, weights, propagator, maps }
+}
+
 function convchainFromElement(elementXml, inheritedSymmetry, options) {
   const start = xmlRootStartTag(elementXml)
   const sample = xmlAttr(start, 'sample')
@@ -211,7 +315,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
   ]
   const childOps = (child) => {
     if (child.children) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...child.children.flatMap(childOps), { op: 'end' }]
-    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...(child.path ? [{ op: 'path', ...child.path }] : []), ...(child.convolution ? [{ op: 'convolution', ...child.convolution }] : []), ...(child.convchain ? [{ op: 'convchain', ...child.convchain }] : []), ...child.rules]
+    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...(child.path ? [{ op: 'path', ...child.path }] : []), ...(child.convolution ? [{ op: 'convolution', ...child.convolution }] : []), ...(child.convchain ? [{ op: 'convchain', ...child.convchain }] : []), ...(child.wfc ? [{ op: 'wfc', ...child.wfc }] : []), ...child.rules]
   }
   const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
@@ -226,7 +330,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
 
   for (const op of ops) {
     if (op.op === 'node') {
-      const kinds = { one: 1, all: 2, prl: 3, markov: 4, sequence: 5, path: 6, convolution: 7, convchain: 8 }
+      const kinds = { one: 1, all: 2, prl: 3, markov: 4, sequence: 5, path: 6, convolution: 7, convchain: 8, wfc: 9 }
       if (!kinds[op.kind]) throw new Error(`unsupported node kind: ${op.kind}`)
       u32le(bytes, 100)
       u32le(bytes, kinds[op.kind])
@@ -303,6 +407,28 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
       bytes.push(op.black.charCodeAt(0), op.white.charCodeAt(0), op.on.charCodeAt(0))
       u32le(bytes, op.weights.length)
       for (const weight of op.weights) f64le(bytes, weight)
+      continue
+    }
+    if (op.op === 'wfc') {
+      const valuesBytes = [...textEncoder.encode(op.values)]
+      u32le(bytes, 109)
+      u32le(bytes, op.n)
+      u32le(bytes, op.periodic ? 1 : 0)
+      u32le(bytes, op.shannon ? 1 : 0)
+      u32le(bytes, op.tries ?? 1000)
+      u32le(bytes, valuesBytes.length); bytes.push(...valuesBytes)
+      u32le(bytes, op.patterns.length)
+      for (let i = 0; i < op.patterns.length; i++) {
+        f64le(bytes, op.weights[i])
+        bytes.push(...op.patterns[i])
+      }
+      u32le(bytes, op.propagator.length)
+      for (const dir of op.propagator) for (const list of dir) { u32le(bytes, list.length); for (const value of list) u32le(bytes, value) }
+      u32le(bytes, op.maps.length)
+      for (const map of op.maps) {
+        bytes.push(map.input.charCodeAt(0))
+        for (const present of map.positions) bytes.push(present ? 1 : 0)
+      }
       continue
     }
     if (op.op === 'path') {
@@ -410,9 +536,14 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
     const convchain = convchainFromElement(elementXml, inheritedSymmetry, options)
     return { node: tag, steps, rules: [], convchain }
   }
+  if (tag === 'wfc') {
+    if (!xmlAttr(start, 'sample')) throw new Error('tile wfc is unsupported')
+    const wfc = wfcOverlapFromElement(elementXml, inheritedSymmetry, options)
+    return { node: tag, steps, rules: [], wfc }
+  }
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(elementXml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'markov', 'sequence'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'markov', 'sequence'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} child has unsupported direct children: ${unsupported.join(', ')}`)
     const children = direct.map((childXml) => nodeFromElement(childXml, inheritedSymmetry, options))
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
@@ -496,8 +627,8 @@ function rulesFromElement(elementXml, inheritedSymmetry = '') {
 
 export function compileXmlToMjir(xml, options = {}) {
   const tag = xmlRootTag(xml)
-  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence' && tag !== 'path' && tag !== 'convolution' && tag !== 'convchain') {
-    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>/<path>/<convolution>/<convchain>, got ${tag || 'unknown'}`)
+  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence' && tag !== 'path' && tag !== 'convolution' && tag !== 'convchain' && tag !== 'wfc') {
+    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>/<path>/<convolution>/<convchain>/<wfc>, got ${tag || 'unknown'}`)
   }
   const rootStart = xmlRootStartTag(xml)
   const values = xmlAttr(rootStart, 'values')
@@ -506,11 +637,11 @@ export function compileXmlToMjir(xml, options = {}) {
   const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(xml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'markov', 'sequence', 'union'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'markov', 'sequence', 'union'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} root has unsupported direct children: ${unsupported.join(', ')}`)
     const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => nodeFromElement(childXml, rootSymmetry, options))
     if (children.length === 0) throw new Error(`${tag} root missing child nodes`)
-    for (const child of children) if (!child.children && !child.path && !child.convolution && !child.convchain && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
+    for (const child of children) if (!child.children && !child.path && !child.convolution && !child.convchain && !child.wfc && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
     return encodeMjirV1({ values, node: tag, children, unions: unionsFromXml(xml) })
   }
 
@@ -522,6 +653,9 @@ export function compileXmlToMjir(xml, options = {}) {
   }
   if (tag === 'convchain') {
     return encodeMjirV1({ values, node: tag, rules: [{ op: 'convchain', ...convchainFromElement(xml, rootSymmetry, options) }], unions: unionsFromXml(xml) })
+  }
+  if (tag === 'wfc') {
+    return encodeMjirV1({ values, node: tag, rules: [{ op: 'wfc', ...wfcOverlapFromElement(xml, rootSymmetry, options) }], unions: unionsFromXml(xml) })
   }
 
   const rules = rulesFromElement(xml, rootSymmetry)
