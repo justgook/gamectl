@@ -79,6 +79,25 @@ function decodeMjirV1(bytes) {
       rules.push({ op, value, from, to })
       continue
     }
+    if (op === 107) {
+      const neighborhoodLen = readU32(bytes, pos); pos += 4
+      const neighborhood = String.fromCharCode(...bytes.slice(pos, pos + neighborhoodLen)); pos += neighborhoodLen
+      const periodic = readU32(bytes, pos) !== 0; pos += 4
+      const ruleCount = readU32(bytes, pos); pos += 4
+      const convolutionRules = []
+      for (let ri = 0; ri < ruleCount; ri++) {
+        const input = String.fromCharCode(bytes[pos]); pos += 1
+        const output = String.fromCharCode(bytes[pos]); pos += 1
+        const probability = readF64(bytes, pos); pos += 8
+        const valuesLen = readU32(bytes, pos); pos += 4
+        const values = String.fromCharCode(...bytes.slice(pos, pos + valuesLen)); pos += valuesLen
+        const sumLen = readU32(bytes, pos); pos += 4
+        const sum = String.fromCharCode(...bytes.slice(pos, pos + sumLen)); pos += sumLen
+        convolutionRules.push({ input, output, probability, values, sum })
+      }
+      rules.push({ op, neighborhood, periodic, rules: convolutionRules })
+      continue
+    }
     if (op === 106) {
       const fromLen = readU32(bytes, pos); pos += 4
       const from = String.fromCharCode(...bytes.slice(pos, pos + fromLen)); pos += fromLen
@@ -190,6 +209,7 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRGW"><one in="R
 assert.throws(() => compileXmlToMjir('<one values="BW" file="Rule"/>'), /unsupported file attribute/)
 assert.throws(() => compileXmlToMjir('<sequence values="BW"><union values="B"/><one in="B" out="W"/></sequence>'), /union missing symbol attribute/)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWD"><path from="R" to="W" on="B" color="D" inertia="True"/></markov>')).rules[0], { op: 106, from: 'R', to: 'W', on: 'B', color: 'D', inertia: true, longest: false, edges: false, vertices: false })
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="DA"><convolution neighborhood="Moore" periodic="True"><rule in="D" out="A" sum="3" values="A"/></convolution></sequence>')).rules[0], { op: 107, neighborhood: 'Moore', periodic: true, rules: [{ input: 'D', output: 'A', probability: 1, values: 'A', sum: '3' }] })
 assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>\/<path>/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)

@@ -42,7 +42,8 @@ op-count:     u32
 
 # op 100, optional node kind marker (defaults to one if absent)
 op:           u32      100
-kind:         u32      1 = one, 2 = all, 3 = prl, 4 = markov container, 5 = sequence container
+kind:         u32      1 = one, 2 = all, 3 = prl, 4 = markov container, 5 = sequence container,
+                       6 = path, 7 = convolution
 steps:        u32      child node step limit, 0 = unbounded/default
 
 # op 101, union declaration, available to following pattern rules
@@ -92,6 +93,21 @@ longest:      u32      0/1
 edges:        u32      0/1
 vertices:     u32      0/1
 
+# op 107, convolution node payload for the current <convolution> node
+op:           u32      107
+neighborhood-len: u32
+neighborhood: bytes    e.g. Moore/Neumann; empty uses original default behavior
+periodic:     u32      0/1
+rule-count:   u32
+# repeated rule-count times:
+input:        u8       input symbol
+output:       u8       output symbol
+probability:  f64      rule p, defaults to 1.0
+values-len:   u32
+values:       bytes    symbols counted in the convolution neighborhood
+sum-len:      u32
+sum:          bytes    accepted counts/ranges, e.g. "3", "5..8", "0,1,4..8"
+
 # op 1, legacy one-cell replace
 op:           u32      1
 input:        u8       value index
@@ -129,7 +145,7 @@ Root `<prl>` uses the existing Odin parallel node loop: full scan each turn, app
 
 Simple root `<markov>` uses a container marker followed by child node markers/rules. It tries child nodes in order each outer step and applies the first child that changes, preserving persistent one-node match state for the currently supported fixtures.
 
-Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child. Nested child containers are delimited with `op = 102`; currently this is used for direct child `<markov>` containers in sequence fixtures.
+Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child. Nested child containers are delimited with `op = 102`; currently this is used for direct child `<markov>` containers in sequence fixtures. `<convolution>` nodes are encoded as kind `7` plus op `107`, then executed with the existing Odin convolution kernel and `MJRandom` probability checks.
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
 

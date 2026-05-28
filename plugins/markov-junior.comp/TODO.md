@@ -34,7 +34,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Add root and nested `<one>/<all>` resource-free `<field>` representation in MJIR (`op = 103`, plus `op = 104` temperature).
 - [x] Add non-search `<observe>` representation in MJIR (`op = 105`).
 - [x] Add resource-free `<path>` representation in MJIR (`op = 106`).
-- [ ] Decide how to represent remaining unsupported features like `search`, WFC, maps, convchain, and convolutions in MJIR.
+- [x] Add resource-free `<convolution>` representation in MJIR (`op = 107`).
+- [ ] Decide how to represent remaining unsupported features like `search`, WFC, maps, and convchain in MJIR.
 
 ## Part 3 — MJIR v1 executor
 
@@ -50,6 +51,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Add root and nested `<one>/<all>` resource-free field representation and field-guided executor paths.
 - [x] Add resource-free representation for non-search observations.
 - [x] Add resource-free path-node executor support.
+- [x] Add resource-free convolution-node executor support.
 - [ ] Add resource-free representation for search/WFC data.
 
 ## Part 4 — parity fixtures
@@ -113,10 +115,14 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `BiasedGrowthContraction.xml`
 - [x] `BiasedMazeGrowth.xml`
 - [x] `BiasedVoronoi.xml`
+- [x] `Cave.xml`
+- [x] `CaveContour.xml`
 - [x] `CentralCrawlers.xml`
+- [x] `ConnectedCaves.xml`
 - [x] `Coupling.xml`
 - [x] `Crawlers.xml`
 - [x] `CrawlersChase.xml`
+- [x] `CrossCountry.xml`
 - [x] `Cycles.xml`
 - [x] `DenseSAW.xml`
 - [x] `DiagonalPath.xml`
@@ -128,18 +134,23 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `FireNoise.xml`
 - [x] `Flowers.xml`
 - [x] `Forest.xml`
+- [x] `GameOfLife.xml`
 - [x] `GrowthCompetition.xml`
 - [x] `GrowTo.xml`
 - [x] `HamiltonianPath.xml`
 - [x] `HamiltonianPaths.xml`
+- [x] `Hills.xml`
 - [x] `Keys.xml`
 - [x] `Lightning.xml`
 - [x] `LoopGrowth.xml`
+- [x] `LostCity.xml`
 - [x] `MultiHeadedDungeon.xml`
 - [x] `MultiHeadedWalk.xml`
 - [x] `MultiHeadedWalkDungeon.xml`
 - [x] `Noise.xml`
 - [x] `NystromDungeon.xml`
+- [x] `OpenCave.xml`
+- [x] `OpenCave3D.xml`
 - [x] `OrganicMechanic.xml`
 - [x] `PaintCompetition.xml`
 - [x] `ParallelWalk.xml`
@@ -148,6 +159,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `Rectangle.xml`
 - [x] `RegularPath.xml`
 - [x] `River.xml`
+- [x] `Rosettes.xml`
+- [x] `SelectLargeCaves.xml`
 - [x] `SequentialSnake.xml`
 - [x] `SmoothTrail.xml`
 - [x] `Snake.xml`
@@ -184,6 +197,8 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Root `<prl>` child-rule models.
 - [x] Simple `<sequence>` models composed of supported child nodes.
 - [x] Simple `<markov>` models composed of supported child nodes.
+- [x] Root `<sequence>` models containing `<convolution>` nodes.
+- [ ] `Island.xml` is compiler-supported but too large for the current JSON-command parity runner transport; re-check after moving parity invocation off argv/stdout JSON.
 
 ## Part 5 — test and docs hygiene
 
@@ -221,4 +236,4 @@ nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Ba
 
 ## Latest status
 
-Root `<one>`, `<all>`, `<prl>`, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures now pass for 20 added field models, non-search observation fixtures pass for 7 added models, path fixtures pass, and explicit fixture metadata unlocks additional absent-from-active-models.xml parity fixtures. Discovery currently reports 98 compiler-supported XML models, 98 fixture-ready models, 95 parity-fixtured models, 0 known-mismatch models, 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 0 unlisted fixture-ready models, 0 compiler-supported models that need explicit config, and 61 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.
+Root `<one>`, `<all>`, `<prl>`, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, and root `<sequence>` models containing `<convolution>` nodes are covered. Discovery currently reports 112 compiler-supported XML models, 112 fixture-ready models, 106 parity-fixtured models, 0 known-mismatch models, 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 3 unlisted fixture-ready models (`Counting`, `ForestFireCA`, and `Island`), 0 compiler-supported models that need explicit config, and 47 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure.
