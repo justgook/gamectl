@@ -535,11 +535,20 @@ export function xmlDirectChildTags(xml) {
       continue
     }
 
-    const close = `</${name}>`
-    const closeStart = inner.indexOf(close, headEnd + 1)
-    if (closeStart < 0) break
-    children.push(inner.slice(start, closeStart + close.length))
-    i = closeStart + close.length
+    const tagRe = /<\/?([a-zA-Z0-9_-]+)\b[^>]*>/g
+    tagRe.lastIndex = headEnd + 1
+    let depth = 1
+    let closeEnd = -1
+    for (let match; (match = tagRe.exec(inner));) {
+      if (match[1] !== name) continue
+      const full = match[0]
+      if (full.startsWith('</')) depth -= 1
+      else if (!full.endsWith('/>')) depth += 1
+      if (depth === 0) { closeEnd = tagRe.lastIndex; break }
+    }
+    if (closeEnd < 0) break
+    children.push(inner.slice(start, closeEnd))
+    i = closeEnd
   }
   return children
 }

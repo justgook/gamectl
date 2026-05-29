@@ -239,12 +239,14 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<prl values="BGR"><rule in="B" o
 })
 assert.deepEqual(xmlUnionTags('<sequence><union symbol="?" values="BR"/></sequence>').length, 1)
 assert.deepEqual(xmlDirectChildTags('<sequence><sequence><one in="B" out="W"/></sequence></sequence>').map(xmlRootTag), ['sequence'])
+assert.deepEqual(xmlDirectChildTags('<markov><markov><one in="B" out="W"/></markov><markov><one in="W" out="B"/></markov></markov>').map(xmlRootTag), ['markov', 'markov'])
 assert.deepEqual(xmlChildNodeTags('<markov values="BRWU"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>').length, 2)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWU" origin="True"><one in="RB" out="WR"/><one in="RW" out="UR"/></markov>')).nodes, [{ kind: 4, steps: 0 }, { kind: 1, steps: 0 }, { kind: 1, steps: 0 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BR"><one in="B" out="R" steps="24"/><all in="RB" out="BR"/></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 1, steps: 24 }, { kind: 2, steps: 0 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BRACDG"><union symbol="?" values="BR"/><one in="?" out="A"/></sequence>')).rules[0], { op: 101, symbol: '?', values: 'BR' })
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BW"><markov><one in="B" out="W"/></markov></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 4, steps: 0 }, { kind: 1, steps: 0 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BRW"><markov><sequence><one in="B" out="R"/><all in="R" out="W"/></sequence></markov></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 4, steps: 0 }, { kind: 5, steps: 0 }, { kind: 1, steps: 0 }, { kind: 2, steps: 0 }])
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BRW"><markov><markov><one in="B" out="R"/></markov><markov><one in="R" out="W"/></markov></markov></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 4, steps: 0 }, { kind: 4, steps: 0 }, { kind: 1, steps: 0 }, { kind: 4, steps: 0 }, { kind: 1, steps: 0 }])
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<one values="BRW" in="RBB" out="WWR" temperature="0.1"><field for="W" to="R" on="B" recompute="False"/></one>')).rules.slice(0, 2), [
   { op: 104, temperature: 0.1 },
   { op: 103, for: 'W', recompute: false, essential: false, to: 'R', from: '', on: 'B' },
