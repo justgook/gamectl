@@ -817,8 +817,11 @@ mj_run_node_once_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, ra
 	return mj_run_node_once_with_changes(g, node.kind, rules, random, changes)
 }
 
-mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, count: int, random: ^MJRandom, states: []MJ_Markov_State, counters, positions: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int) -> bool {
-	for child := 0; child < count; child += 1 {
+mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, count: int, random: ^MJRandom, states: []MJ_Markov_State, counters, positions, active: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int, parent_idx: int) -> bool {
+	parent_slot := parent_idx + 1
+	start_child := 0
+	if active[parent_slot] > 0 do start_child = active[parent_slot] - 1
+	for child := start_child; child < count; child += 1 {
 		idx := start + child
 		node := nodes[idx]
 		if node.kind >= 4 && node.children_count > 0 {
@@ -826,16 +829,18 @@ mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, cou
 			was_active := counters[idx] > 0
 			node_changed := false
 			if node.kind == 4 {
-				node_changed = mj_markov_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter)
+				node_changed = mj_markov_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, active, changes, first, counter, idx)
 			} else {
-				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter, &positions[idx])
+				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, active, changes, first, counter, &positions[idx])
 			}
 			if node_changed {
 				counters[idx] += 1
+				active[parent_slot] = child + 1
 				return true
 			}
 			if was_active {
-				mj_reset_runtime_range(nodes, states, counters, positions, idx, node.children_count + 1)
+				active[parent_slot] = 0
+				mj_reset_runtime_range(nodes, states, counters, positions, active, idx, node.children_count + 1)
 				return false
 			}
 			child += node.children_count
@@ -873,7 +878,9 @@ mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, cou
 mj_markov_nodes_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, states: []MJ_Markov_State, counters: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int) -> bool {
 	positions := make([]int, len(nodes))
 	defer delete(positions)
-	return mj_markov_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, changes, first, counter)
+	active := make([]int, len(nodes) + 1)
+	defer delete(active)
+	return mj_markov_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, active, changes, first, counter, -1)
 }
 
 mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, random: ^MJRandom, steps: int) -> (int, bool) {
@@ -885,6 +892,8 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 	defer delete(counters)
 	positions := make([]int, len(nodes))
 	defer delete(positions)
+	active := make([]int, len(nodes) + 1)
+	defer delete(active)
 
 	changes := make([dynamic]Cell)
 	defer delete(changes)
@@ -893,7 +902,7 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 	append(&first, 0)
 
 	for steps <= 0 || counter < steps {
-		changed := mj_markov_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, &changes, &first, counter)
+		changed := mj_markov_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, active, &changes, &first, counter, -1)
 		if !changed { break }
 		changed_any = true
 		counter += 1
@@ -902,10 +911,11 @@ mj_run_markov_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node
 	return counter, changed_any
 }
 
-mj_reset_runtime_range :: proc(nodes: []MJ_Node, states: []MJ_Markov_State, counters, positions: []int, start, count: int) {
+mj_reset_runtime_range :: proc(nodes: []MJ_Node, states: []MJ_Markov_State, counters, positions, active: []int, start, count: int) {
 	for i in start..<start + count {
 		counters[i] = 0
 		positions[i] = 0
+		active[i + 1] = 0
 		states[i].last_turn = -1
 		nodes[i].future_computed = false
 		nodes[i].convolution.counter = 0
@@ -922,7 +932,7 @@ mj_reset_runtime_range :: proc(nodes: []MJ_Node, states: []MJ_Markov_State, coun
 	}
 }
 
-mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, count: int, random: ^MJRandom, states: []MJ_Markov_State, counters, positions: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int, child: ^int) -> bool {
+mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, count: int, random: ^MJRandom, states: []MJ_Markov_State, counters, positions, active: []int, changes: ^[dynamic]Cell, first: ^[dynamic]int, counter: int, child: ^int) -> bool {
 	for child^ < count {
 		idx := start + child^
 		node := nodes[idx]
@@ -934,16 +944,16 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 			was_active := counters[idx] > 0
 			node_changed := false
 			if node.kind == 4 {
-				node_changed = mj_markov_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter)
+				node_changed = mj_markov_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, active, changes, first, counter, idx)
 			} else {
-				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, changes, first, counter, &positions[idx])
+				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, active, changes, first, counter, &positions[idx])
 			}
 			if node_changed {
 				counters[idx] += 1
 				return true
 			}
 			if was_active {
-				mj_reset_runtime_range(nodes, states, counters, positions, idx, node.children_count + 1)
+				mj_reset_runtime_range(nodes, states, counters, positions, active, idx, node.children_count + 1)
 				child^ = -child^ - 1
 				return false
 			}
@@ -979,7 +989,7 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 		}
 		child^ += 1
 	}
-	mj_reset_runtime_range(nodes, states, counters, positions, start, count)
+	mj_reset_runtime_range(nodes, states, counters, positions, active, start, count)
 	child^ = 0
 	return false
 }
@@ -991,6 +1001,8 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 	defer delete(counters)
 	positions := make([]int, len(nodes))
 	defer delete(positions)
+	active := make([]int, len(nodes) + 1)
+	defer delete(active)
 	changes := make([dynamic]Cell)
 	defer delete(changes)
 	first := make([dynamic]int)
@@ -1001,7 +1013,7 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 	counter := 0
 	changed_any := false
 	for child < len(nodes) && (steps <= 0 || counter < steps) {
-		changed := mj_sequence_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, &changes, &first, counter, &child)
+		changed := mj_sequence_range_go(g, rules, nodes, 0, len(nodes), random, states, counters, positions, active, &changes, &first, counter, &child)
 		if changed do changed_any = true
 		counter += 1
 		append(&first, len(changes))

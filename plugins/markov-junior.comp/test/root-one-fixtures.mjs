@@ -65,9 +65,7 @@ export const explicitModelConfigs = {
   StableCrawlers: { size: 60 },
 }
 
-export const knownParityMismatchModels = [
-  'SmartSAW',
-]
+export const knownParityMismatchModels = []
 
 export const noGenericOriginalOutputModels = [
   'BasicSnake',
@@ -151,6 +149,7 @@ export const rootSequenceModels = [
   'Rosettes',
   'SelectLargeCaves',
   'SequentialSnake',
+  'SmartSAW',
   'SmoothTrail',
   'Snake',
   'SnellLaw',
