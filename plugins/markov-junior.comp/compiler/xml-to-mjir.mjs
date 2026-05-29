@@ -70,6 +70,8 @@ function decodePngRgba(bytes) {
   let height = 0
   let bitDepth = 0
   let colorType = 0
+  let palette = []
+  let transparency = []
   const idat = []
   while (pos + 8 <= bytes.length) {
     const len = (bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]
@@ -83,43 +85,69 @@ function decodePngRgba(bytes) {
       colorType = bytes[dataStart + 9]
       const interlace = bytes[dataStart + 12]
       if (interlace !== 0) throw new Error('interlaced PNG samples are unsupported')
+    } else if (type === 'PLTE') {
+      palette = []
+      for (let i = 0; i + 2 < len; i += 3) palette.push([bytes[dataStart + i], bytes[dataStart + i + 1], bytes[dataStart + i + 2]])
+    } else if (type === 'tRNS') {
+      transparency = [...bytes.slice(dataStart, dataEnd)]
     } else if (type === 'IDAT') {
       idat.push(...bytes.slice(dataStart, dataEnd))
     } else if (type === 'IEND') break
     pos = dataEnd + 4
   }
-  if (bitDepth !== 8 || ![0, 2, 4, 6].includes(colorType)) throw new Error(`unsupported PNG sample format bitDepth=${bitDepth} colorType=${colorType}`)
-  const channels = colorType === 0 ? 1 : colorType === 2 ? 3 : colorType === 4 ? 2 : 4
-  const stride = width * channels
+  if (colorType === 3) {
+    if (![1, 2, 4, 8].includes(bitDepth)) throw new Error(`unsupported indexed PNG bitDepth=${bitDepth}`)
+    if (palette.length === 0) throw new Error('indexed PNG sample missing palette')
+  } else if (bitDepth !== 8 || ![0, 2, 4, 6].includes(colorType)) {
+    throw new Error(`unsupported PNG sample format bitDepth=${bitDepth} colorType=${colorType}`)
+  }
+  const channels = colorType === 0 ? 1 : colorType === 2 ? 3 : colorType === 3 ? 1 : colorType === 4 ? 2 : 4
+  const bitsPerPixel = colorType === 3 ? bitDepth : channels * bitDepth
+  const stride = Math.ceil(width * bitsPerPixel / 8)
+  const filterBpp = Math.max(1, Math.ceil(bitsPerPixel / 8))
   const raw = inflateSync(Uint8Array.from(idat))
-  const pixels = new Uint8Array(width * height * channels)
+  const scanlines = new Uint8Array(height * stride)
   let rp = 0
   for (let y = 0; y < height; y++) {
     const filter = raw[rp++]
     const rowStart = y * stride
     const prevStart = (y - 1) * stride
     for (let x = 0; x < stride; x++) {
-      const left = x >= channels ? pixels[rowStart + x - channels] : 0
-      const up = y > 0 ? pixels[prevStart + x] : 0
-      const upLeft = y > 0 && x >= channels ? pixels[prevStart + x - channels] : 0
+      const left = x >= filterBpp ? scanlines[rowStart + x - filterBpp] : 0
+      const up = y > 0 ? scanlines[prevStart + x] : 0
+      const upLeft = y > 0 && x >= filterBpp ? scanlines[prevStart + x - filterBpp] : 0
       let value = raw[rp++]
       if (filter === 1) value = (value + left) & 0xff
       else if (filter === 2) value = (value + up) & 0xff
       else if (filter === 3) value = (value + Math.floor((left + up) / 2)) & 0xff
       else if (filter === 4) value = (value + paethPredictor(left, up, upLeft)) & 0xff
       else if (filter !== 0) throw new Error(`unsupported PNG filter ${filter}`)
-      pixels[rowStart + x] = value
+      scanlines[rowStart + x] = value
     }
   }
   const colors = []
-  for (let i = 0; i < width * height; i++) {
-    const p = i * channels
-    let r, g, b, a = 0xff
-    if (colorType === 0) { r = g = b = pixels[p] }
-    else if (colorType === 2) { r = pixels[p]; g = pixels[p + 1]; b = pixels[p + 2] }
-    else if (colorType === 4) { r = g = b = pixels[p]; a = pixels[p + 1] }
-    else { r = pixels[p]; g = pixels[p + 1]; b = pixels[p + 2]; a = pixels[p + 3] }
-    colors.push(((a << 24) >>> 0) | (r << 16) | (g << 8) | b)
+  if (colorType === 3) {
+    const mask = (1 << bitDepth) - 1
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const bitOffset = x * bitDepth
+      const packed = scanlines[y * stride + (bitOffset >> 3)]
+      const shift = 8 - bitDepth - (bitOffset & 7)
+      const index = (packed >> shift) & mask
+      const [r, g, b] = palette[index] ?? [0, 0, 0]
+      const a = transparency[index] ?? 0xff
+      colors.push(((a << 24) >>> 0) | (r << 16) | (g << 8) | b)
+    }
+  } else {
+    const pixels = scanlines
+    for (let i = 0; i < width * height; i++) {
+      const p = i * channels
+      let r, g, b, a = 0xff
+      if (colorType === 0) { r = g = b = pixels[p] }
+      else if (colorType === 2) { r = pixels[p]; g = pixels[p + 1]; b = pixels[p + 2] }
+      else if (colorType === 4) { r = g = b = pixels[p]; a = pixels[p + 1] }
+      else { r = pixels[p]; g = pixels[p + 1]; b = pixels[p + 2]; a = pixels[p + 3] }
+      colors.push(((a << 24) >>> 0) | (r << 16) | (g << 8) | b)
+    }
   }
   return { width, height, colors }
 }

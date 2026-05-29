@@ -43,6 +43,7 @@ export const rootConvChainModels = [
 
 export const rootWfcModels = [
   'Sewers',
+  'WaveBrickWall',
   'WaveDungeon',
   'WaveFlowers',
 ]
