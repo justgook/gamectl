@@ -24,7 +24,9 @@ for layer_index, layer in ipairs(layers) do
 	end
 
 	for tile_index, tile in ipairs(layer.data) do
-		layer.data[tile_index] = math.max(0, tile - diff)
+		if tile > 0 then
+			layer.data[tile_index] = math.max(0, tile - diff)
+		end
 	end
 	tilemap.layers[layer_index] = layer
 end
