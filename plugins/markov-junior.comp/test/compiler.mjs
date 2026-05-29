@@ -257,7 +257,8 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRGW"><one in="R
   { op: 105, value: 'G', from: 'B', to: 'R' },
   { op: 105, value: 'B', from: '', to: 'BW' },
 ])
-assert.throws(() => compileXmlToMjir('<one values="BW" file="Rule"/>'), /unsupported file attribute/)
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<one values="ABCD" file="Rule" legend="ABCD"/>', { loadRulePattern: () => ({ width: 4, height: 1, depth: 1, data: [...'ABCD'] }) })).rules[0], { op: 2, imx: 2, imy: 1, imz: 1, omx: 2, omy: 1, omz: 1, probability: 1, symmetry: '', input: 'AB', output: 'CD' })
+assert.throws(() => compileXmlToMjir('<one values="BW" file="Rule"/>'), /file rule missing legend attribute/)
 assert.throws(() => compileXmlToMjir('<sequence values="BW"><union values="B"/><one in="B" out="W"/></sequence>'), /union missing symbol attribute/)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRWD"><path from="R" to="W" on="B" color="D" inertia="True"/></markov>')).rules[0], { op: 106, from: 'R', to: 'W', on: 'B', color: 'D', inertia: true, longest: false, edges: false, vertices: false })
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="DA"><convolution neighborhood="Moore" periodic="True"><rule in="D" out="A" sum="3" values="A"/></convolution></sequence>')).rules[0], { op: 107, neighborhood: 'Moore', periodic: true, rules: [{ input: 'D', output: 'A', probability: 1, values: 'A', sum: '3' }] })

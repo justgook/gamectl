@@ -48,10 +48,22 @@ for (const file of readdirSync(modelsDir).filter((entry) => entry.endsWith('.xml
   const root = xmlRootTag(xml)
   if (requestedRoot && root !== requestedRoot) continue
 
+  let config
+  try { config = configForModel(modelsXml, name) } catch {}
+
   try {
     compileXmlToMjir(xml, {
+      depth: config?.depth,
       loadSamplePng: (sample) => {
         const path = join(mjRoot, `resources/samples/${sample}.png`)
+        return existsSync(path) ? readFileSync(path) : undefined
+      },
+      loadRulePng: (rule, folder = '') => {
+        const path = join(mjRoot, 'resources/rules', folder, `${rule}.png`)
+        return existsSync(path) ? readFileSync(path) : undefined
+      },
+      loadRuleVox: (rule, folder = '') => {
+        const path = join(mjRoot, 'resources/rules', folder, `${rule}.vox`)
         return existsSync(path) ? readFileSync(path) : undefined
       },
     })

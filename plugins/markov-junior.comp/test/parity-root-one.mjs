@@ -4,13 +4,14 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import { compileXmlToMjir, initialGridFromXml, parseMjstate } from './mjir-v1.mjs'
-import { modelConfigTag, parseArgs, rootOneModels } from './root-one-fixtures.mjs'
+import { configForModel, modelConfigTag, parseArgs, rootOneModels } from './root-one-fixtures.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../../..')
 const mjRoot = process.env.MARKOV_JUNIOR_REPO ?? resolve(repoRoot, '../MarkovJunior')
 const plugin = join(repoRoot, 'build.nosync/plugins/markov-junior.comp.wasm')
 const tempRoot = join(repoRoot, 'build.nosync/markov-junior-parity/root-one')
+const modelsXml = readFileSync(join(mjRoot, 'models.xml'), 'utf8')
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -73,7 +74,7 @@ function originalRunCwd(name) {
   const tempCwd = mkdtempSync(join(tempRoot, `${name}-original-`))
   symlinkSync(join(mjRoot, 'bin'), join(tempCwd, 'bin'))
   symlinkSync(join(mjRoot, 'models'), join(tempCwd, 'models'))
-  const patchedModelsXml = readFileSync(join(mjRoot, 'models.xml'), 'utf8').replace('</models>', `  ${configTag}\n</models>`)
+  const patchedModelsXml = modelsXml.replace('</models>', `  ${configTag}\n</models>`)
   writeFileSync(join(tempCwd, 'models.xml'), patchedModelsXml)
   return tempCwd
 }
@@ -90,8 +91,18 @@ export function parityModel(name, { runs, steps }) {
   assert.equal(outputs.length, runs, `${name}: expected ${runs} original outputs, got ${outputs.join(', ')}`)
 
   const xml = readFileSync(join(mjRoot, `models/${name}.xml`), 'utf8')
+  const config = configForModel(modelsXml, name)
   const modelIr = compileXmlToMjir(xml, {
+    depth: config.depth,
     loadSamplePng: (sample) => readFileSync(join(mjRoot, `resources/samples/${sample}.png`)),
+    loadRulePng: (file, folder = '') => {
+      const path = join(mjRoot, 'resources/rules', folder, `${file}.png`)
+      return existsSync(path) ? readFileSync(path) : undefined
+    },
+    loadRuleVox: (file, folder = '') => {
+      const path = join(mjRoot, 'resources/rules', folder, `${file}.vox`)
+      return existsSync(path) ? readFileSync(path) : undefined
+    },
   })
 
   for (const output of outputs) {

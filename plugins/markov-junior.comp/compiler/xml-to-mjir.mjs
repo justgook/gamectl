@@ -152,6 +152,56 @@ function decodePngRgba(bytes) {
   return { width, height, colors }
 }
 
+function decodePngPattern(bytes, legend) {
+  const { width, height, colors } = decodePngRgba(bytes)
+  const uniques = []
+  const data = colors.map((color) => {
+    let ord = uniques.indexOf(color)
+    if (ord < 0) { ord = uniques.length; uniques.push(color) }
+    if (ord >= legend.length) throw new Error(`rule PNG uses ${ord + 1} colors but legend has ${legend.length}`)
+    return legend[ord]
+  })
+  return { width, height, depth: 1, data }
+}
+
+function leI32(bytes, off) {
+  return bytes[off] | (bytes[off + 1] << 8) | (bytes[off + 2] << 16) | (bytes[off + 3] << 24)
+}
+
+function decodeVoxPattern(bytes, legend) {
+  if (String.fromCharCode(...bytes.slice(0, 4)) !== 'VOX ') throw new Error('rule resource is not a VOX file')
+  let mx = -1, my = -1, mz = -1
+  let colors = null
+  let off = 8
+  while (off + 12 <= bytes.length) {
+    const id = String.fromCharCode(...bytes.slice(off, off + 4))
+    const chunkSize = leI32(bytes, off + 4)
+    off += 12
+    if (id === 'SIZE' && off + 12 <= bytes.length) {
+      mx = leI32(bytes, off); my = leI32(bytes, off + 4); mz = leI32(bytes, off + 8)
+    } else if (id === 'XYZI' && mx > 0 && my > 0 && mz > 0 && off + 4 <= bytes.length) {
+      colors = Array(mx * my * mz).fill(-1)
+      const n = leI32(bytes, off)
+      let pos = off + 4
+      for (let i = 0; i < n; i++) {
+        const x = bytes[pos], y = bytes[pos + 1], z = bytes[pos + 2], c = bytes[pos + 3]
+        pos += 4
+        colors[x + y * mx + z * mx * my] = c
+      }
+    }
+    off += chunkSize
+  }
+  if (!colors) throw new Error('VOX rule resource missing SIZE/XYZI chunks')
+  const uniques = []
+  const data = colors.map((color) => {
+    let ord = uniques.indexOf(color)
+    if (ord < 0) { ord = uniques.length; uniques.push(color) }
+    if (ord >= legend.length) throw new Error(`rule VOX uses ${ord + 1} colors but legend has ${legend.length}`)
+    return legend[ord]
+  })
+  return { width: mx, height: my, depth: mz, data }
+}
+
 function decodePngWhiteMask(bytes) {
   const { width, height, colors } = decodePngRgba(bytes)
   return { width, height, sample: colors.map((color) => ((color >>> 16) & 0xff) === 255 && ((color >>> 8) & 0xff) === 255 && (color & 0xff) === 255) }
@@ -586,7 +636,7 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
     return { node: tag, steps, children }
   }
-  return { node: tag, steps, rules: rulesFromElement(elementXml, inheritedSymmetry), fields: fieldsFromElement(elementXml), observations: observationsFromElement(elementXml), temperature: Number(xmlAttr(start, 'temperature', '0')) }
+  return { node: tag, steps, rules: rulesFromElement(elementXml, inheritedSymmetry, options), fields: fieldsFromElement(elementXml), observations: observationsFromElement(elementXml), temperature: Number(xmlAttr(start, 'temperature', '0')) }
 }
 
 function fieldsFromElement(elementXml) {
@@ -634,9 +684,45 @@ function observationsFromElement(elementXml) {
   })
 }
 
-function rulesFromElement(elementXml, inheritedSymmetry = '') {
+function loadRuleResourcePattern(file, legend, options) {
+  const pattern = options?.loadRulePattern?.(file, legend, options.folder)
+  if (pattern) return pattern
+  if ((options?.depth ?? 1) > 1) {
+    const vox = options?.loadRuleVox?.(file, options.folder)
+    if (vox) return decodeVoxPattern(vox, legend)
+  }
+  const png = options?.loadRulePng?.(file, options.folder)
+  if (png) return decodePngPattern(png, legend)
+  const vox = options?.loadRuleVox?.(file, options.folder)
+  if (vox) return decodeVoxPattern(vox, legend)
+  throw new Error(`rule resource ${file} unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option`)
+}
+
+function splitFileRulePattern(pattern) {
+  if (pattern.width % 2 !== 0) throw new Error('file rule resource width must be even')
+  const half = pattern.width / 2
+  const input = []
+  const output = []
+  for (let z = 0; z < pattern.depth; z++) for (let y = 0; y < pattern.height; y++) for (let x = 0; x < half; x++) {
+    input.push(pattern.data[x + y * pattern.width + z * pattern.width * pattern.height])
+    output.push(pattern.data[x + half + y * pattern.width + z * pattern.width * pattern.height])
+  }
+  return { input: input.join(''), output: output.join(''), inputShape: { width: half, height: pattern.height, depth: pattern.depth }, outputShape: { width: half, height: pattern.height, depth: pattern.depth } }
+}
+
+function encodePatternLiteral(data, shape) {
+  const layers = []
+  for (let z = shape.depth - 1; z >= 0; z--) {
+    const rows = []
+    for (let y = 0; y < shape.height; y++) rows.push(data.slice(z * shape.width * shape.height + y * shape.width, z * shape.width * shape.height + (y + 1) * shape.width))
+    layers.push(rows.join('/'))
+  }
+  return layers.join(' ')
+}
+
+function rulesFromElement(elementXml, inheritedSymmetry = '', options = {}) {
   const start = xmlRootStartTag(elementXml)
-  for (const attr of ['file', 'fin', 'fout', 'search']) {
+  for (const attr of ['fin', 'fout', 'search']) {
     if (xmlAttr(start, attr, '') !== '') throw new Error(`unsupported ${attr} attribute`)
   }
   const directChildren = xmlDirectChildTags(elementXml)
@@ -644,7 +730,14 @@ function rulesFromElement(elementXml, inheritedSymmetry = '') {
   if (unsupportedChildren.length > 0) throw new Error(`unsupported children: ${unsupportedChildren.join(', ')}`)
   const input = xmlAttr(start, 'in')
   const output = xmlAttr(start, 'out')
+  const file = xmlAttr(start, 'file')
+  const legend = xmlAttr(start, 'legend')
   const symmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
+  if (file) {
+    if (!legend) throw new Error('file rule missing legend attribute')
+    const split = splitFileRulePattern(loadRuleResourcePattern(file, legend, options))
+    return [{ op: 'pattern', input: encodePatternLiteral(split.input, split.inputShape), output: encodePatternLiteral(split.output, split.outputShape), symmetry, probability: Number(xmlAttr(start, 'p', '1')) }]
+  }
   if (input || output) {
     if (!input) throw new Error('missing in attribute')
     if (!output) throw new Error('missing out attribute')
@@ -653,8 +746,16 @@ function rulesFromElement(elementXml, inheritedSymmetry = '') {
 
   const rules = []
   for (const ruleTag of xmlRuleTags(elementXml)) {
+    const ruleFile = xmlAttr(ruleTag, 'file')
     const ruleInput = xmlAttr(ruleTag, 'in')
     const ruleOutput = xmlAttr(ruleTag, 'out')
+    if (ruleFile) {
+      const ruleLegend = xmlAttr(ruleTag, 'legend')
+      if (!ruleLegend) throw new Error('child <rule file> missing legend attribute')
+      const split = splitFileRulePattern(loadRuleResourcePattern(ruleFile, ruleLegend, options))
+      rules.push({ op: 'pattern', input: encodePatternLiteral(split.input, split.inputShape), output: encodePatternLiteral(split.output, split.outputShape), symmetry: xmlAttr(ruleTag, 'symmetry', symmetry), probability: Number(xmlAttr(ruleTag, 'p', '1')) })
+      continue
+    }
     if (!ruleInput) throw new Error('child <rule> missing in attribute')
     if (!ruleOutput) throw new Error('child <rule> missing out attribute')
     rules.push({ op: 'pattern', input: ruleInput, output: ruleOutput, symmetry: xmlAttr(ruleTag, 'symmetry', symmetry), probability: Number(xmlAttr(ruleTag, 'p', '1')) })
@@ -672,6 +773,7 @@ export function compileXmlToMjir(xml, options = {}) {
   if (!values) throw new Error('missing values attribute')
 
   const rootSymmetry = xmlAttr(rootStart, 'symmetry', '')
+  options = { ...options, folder: xmlAttr(rootStart, 'folder', options.folder ?? '') }
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(xml)
     const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'markov', 'sequence', 'union'].includes(childTag))
@@ -695,7 +797,7 @@ export function compileXmlToMjir(xml, options = {}) {
     return encodeMjirV1({ values, node: tag, rules: [{ op: 'wfc', ...wfcOverlapFromElement(xml, rootSymmetry, options) }], unions: unionsFromXml(xml) })
   }
 
-  const rules = rulesFromElement(xml, rootSymmetry)
+  const rules = rulesFromElement(xml, rootSymmetry, options)
   if (rules.length === 0) throw new Error('missing in/out attributes or child <rule> elements')
   return encodeMjirV1({ values, node: tag, rules, fields: fieldsFromElement(xml), observations: observationsFromElement(xml), temperature: Number(xmlAttr(rootStart, 'temperature', '0')), unions: unionsFromXml(xml) })
 }
