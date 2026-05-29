@@ -19,13 +19,14 @@ if type(layers) ~= "table" then
 end
 
 for layer_index, layer in ipairs(layers) do
-	if type(layer) ~= "table" then
+	if type(layer.data) ~= "table" then
 		error("tilemap.layers[" .. layer_index .. "] must be a table")
 	end
 
-	for tile_index, tile in ipairs(layer) do
-		layer[tile_index] = math.max(0, tile - diff)
+	for tile_index, tile in ipairs(layer.data) do
+		layer.data[tile_index] = math.max(0, tile - diff)
 	end
+	tilemap.layers[layer_index] = layer
 end
 
 outputs[1] = tilemap

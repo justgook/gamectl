@@ -74,7 +74,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-tilemap />"
+          "layout": "<view-ng />"
         }
       }
     },
