@@ -610,9 +610,20 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		node := &nodes[0]
 		steps_run, changed = mj_run_node_with_count(&g, node, rules[node.start:node.start + node.count], &random, int(max_steps))
 	}
-	done := !mj_any_one_match(&g, rules[:])
+	output_grid := mj_output_grid_for_csharp_timing(&g, nodes[:])
+	done := !mj_any_one_match(output_grid, rules[:])
 
-	return mj_respond_grid(&g, u32(steps_run), changed, done)
+	return mj_respond_grid(output_grid, u32(steps_run), changed, done)
+}
+
+mj_output_grid_for_csharp_timing :: proc(g: ^Grid, nodes: []MJ_Node) -> ^Grid {
+	for i in 0..<len(nodes) {
+		n := &nodes[i]
+		if n.kind == 9 && n.has_wfc && n.wfc.tile_mode && !n.wfc.firstgo && n.wfc.counter < 0 {
+			return &n.wfc.newgrid
+		}
+	}
+	return g
 }
 
 mj_run_node_with_count :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRandom, steps: int) -> (int, bool) {

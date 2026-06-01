@@ -26,15 +26,6 @@ const tempRoot = join(repoRoot, 'build.nosync/markov-junior-parity/csharp')
 const modelsXml = readFileSync(join(mjRoot, 'models.xml'), 'utf8')
 
 const smokeModels = ['Basic', 'NestedGrowth', 'ForestFire', 'Backtracker', 'MarchingSquares', 'WaveFlowers']
-const knownCsharpMismatchModels = new Set([
-  // C# switches interpreter output to the expanded tile WFC grid on first Go(),
-  // while the Odin port delays handoff until tile observation completes. The
-  // component currently follows the Odin port for these models.
-  'Apartemazements', 'ClosedSurface', 'ColoredKnots', 'Escher', 'EscherSurface',
-  'Knots2D', 'Knots3D', 'ModernHouse', 'OrientedEscher', 'Partitioning',
-  'PeriodicEscher', 'PillarsOfEternity', 'SeaVilla', 'SelectLongKnots',
-  'SubmergedKnots', 'Surface', 'TileDungeon', 'TilePath',
-])
 const supportedModels = [
   ...rootOneModels,
   ...rootAllModels,
@@ -44,7 +35,7 @@ const supportedModels = [
   ...rootMarkovModels,
   ...rootSequenceModels,
   ...rootWfcModels,
-].filter((model) => !knownCsharpMismatchModels.has(model))
+]
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {

@@ -236,7 +236,19 @@ run_persistent_markov_root :: proc(doc: ^xml.Document, root: xml.Element_ID, g: 
 		append(&ctx.first, len(ctx.changes))
 		if changed do changed_any = true
 	}
+	persistent_apply_csharp_tile_wfc_output_timing(root_node, g)
 	return changed_any
+}
+
+persistent_apply_csharp_tile_wfc_output_timing :: proc(n: ^Persistent_Node, g: ^Grid) -> bool {
+	if n.kind == .WFC && n.wfc.tile_mode && !n.wfc.firstgo && n.wfc.counter < 0 {
+		old := g^
+		g^ = n.wfc.newgrid
+		n.wfc.newgrid = old
+		return true
+	}
+	for child in n.children do if persistent_apply_csharp_tile_wfc_output_timing(child, g) do return true
+	return false
 }
 
 persistent_node_go :: proc(n: ^Persistent_Node, current: ^^Persistent_Node, g: ^Grid, random: ^MJRandom, ctx: ^Exec_Context) -> bool {

@@ -142,9 +142,11 @@ wfc_go :: proc(w: ^WFC_State, g: ^Grid, random: ^MJRandom) -> bool {
 		wfc_wave_copy(&w.wave, &w.startwave)
 		w.firstgo = false
 		if w.tile_mode {
-			// Tile WFC observes on the original coarse grid; C# switches ip.grid to
-			// newgrid early, but WFCNode.grid remains the coarse grid. In Odin the
-			// grid pointer is shared, so delay handoff until observation is complete.
+			for i in 0..<len(w.newgrid.state) do w.newgrid.state[i] = 0
+			// Tile WFC observes on the original coarse grid, but C# switches
+			// interpreter output to the expanded tile grid immediately. The component
+			// keeps `g` coarse for WFC computation and returns `newgrid` as the output
+			// grid while observation is still in progress.
 			return true
 		}
 		for i in 0..<len(w.newgrid.state) do w.newgrid.state[i] = 0
