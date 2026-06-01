@@ -62,6 +62,10 @@ function paethPredictor(a, b, c) {
 }
 
 function decodePngRgba(bytes, options = {}) {
+  if (bytes && typeof bytes === 'object' && !ArrayBuffer.isView(bytes) && !Array.isArray(bytes)) {
+    if (!Number.isInteger(bytes.width) || !Number.isInteger(bytes.height) || !Array.isArray(bytes.colors)) throw new Error('decoded PNG sample must have width, height, and colors')
+    return { width: bytes.width, height: bytes.height, colors: bytes.colors }
+  }
   if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47) throw new Error('sample is not a PNG')
   let pos = 8
   let width = 0

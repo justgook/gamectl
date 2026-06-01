@@ -54,7 +54,7 @@ function joinResourcePath(root, ...parts) {
   return [root, ...parts].map((part) => String(part || "").trim()).filter(Boolean).join("/")
 }
 
-async function decodePngPattern(bytes, legend) {
+async function decodePngRgba(bytes) {
   const image = await createImageBitmap(new Blob([bytes], { type: "image/png" }))
   const canvas = document.createElement("canvas")
   canvas.width = image.width
@@ -65,18 +65,23 @@ async function decodePngPattern(bytes, legend) {
   image.close()
   const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data
   const colors = []
-  const data = []
-  for (let i = 0; i < rgba.length; i += 4) {
-    const color = (((rgba[i + 3] << 24) >>> 0) | (rgba[i] << 16) | (rgba[i + 1] << 8) | rgba[i + 2])
-    let index = colors.indexOf(color)
+  for (let i = 0; i < rgba.length; i += 4) colors.push((((rgba[i + 3] << 24) >>> 0) | (rgba[i] << 16) | (rgba[i + 1] << 8) | rgba[i + 2]))
+  return { width: canvas.width, height: canvas.height, colors }
+}
+
+async function decodePngPattern(bytes, legend) {
+  const { width, height, colors } = await decodePngRgba(bytes)
+  const uniqueColors = []
+  const data = colors.map((color) => {
+    let index = uniqueColors.indexOf(color)
     if (index < 0) {
-      index = colors.length
-      colors.push(color)
+      index = uniqueColors.length
+      uniqueColors.push(color)
     }
     if (index >= legend.length) throw new Error(`rule PNG uses ${index + 1} colors but legend has ${legend.length}`)
-    data.push(legend[index])
-  }
-  return { width: canvas.width, height: canvas.height, depth: 1, data }
+    return legend[index]
+  })
+  return { width, height, depth: 1, data }
 }
 
 function toRows(cells, width, height, values) {
@@ -314,6 +319,7 @@ export class ViewMarkov extends ViewCanvasBase {
     const folder = xmlAttr(xmlRootStartTag(xml), "folder", "")
     const rulePatterns = new Map()
     const ruleVox = new Map()
+    const samplePngs = new Map()
     const tilesetXml = new Map()
     const tileVox = new Map()
 
@@ -329,6 +335,11 @@ export class ViewMarkov extends ViewCanvasBase {
       const voxPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.vox`)
       const vox = await this.readOptionalFile(voxPath)
       if (vox) ruleVox.set(`${folder}\0${file}`, vox)
+    }
+
+    for (const sample of unique(uniqueXmlAttrValues(xml, "sample"))) {
+      const samplePath = joinResourcePath(resourceRoot, "samples", `${sample}.png`)
+      samplePngs.set(sample, await decodePngRgba(await this.readFile(samplePath)))
     }
 
     for (const tileset of unique(uniqueXmlAttrValues(xml, "tileset"))) {
@@ -353,6 +364,7 @@ export class ViewMarkov extends ViewCanvasBase {
         return undefined
       },
       loadRuleVox: (file, requestedFolder = "") => ruleVox.get(`${requestedFolder}\0${file}`),
+      loadSamplePng: (sample) => samplePngs.get(sample),
       loadTilesetXml: (name) => tilesetXml.get(name),
       loadTileVox: (tilesName, tileName) => tileVox.get(`${tilesName}\0${tileName}`),
     }
