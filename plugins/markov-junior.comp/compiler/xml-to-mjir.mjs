@@ -304,12 +304,14 @@ function mapFromElement(elementXml, inheritedSymmetry, options) {
   const values = xmlAttr(start, 'values')
   if (!scale) throw new Error('map missing scale attribute')
   if (!values) throw new Error('map missing values attribute')
+  if (xmlAttr(start, 'outputValues', '') !== '') throw new Error('map outputValues attribute is unsupported')
+  if (xmlAttr(start, 'transparent', '') !== '') throw new Error('map transparent attribute is unsupported')
   const scaleParts = scale.trim().split(/\s+/)
   if (scaleParts.length !== 3) throw new Error('map scale must have 3 parts')
   const [sx, sy, sz] = scaleParts.map(parseScalePair)
   const direct = xmlDirectChildTags(elementXml)
-  const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => childTag !== 'rule' && childTag !== 'union')
-  if (unsupported.length > 0) throw new Error(`map with nested child nodes is unsupported: ${unsupported.join(', ')}`)
+  const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['rule', 'union', 'one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'map', 'markov', 'sequence'].includes(childTag))
+  if (unsupported.length > 0) throw new Error(`map has unsupported direct children: ${unsupported.join(', ')}`)
   const symmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
   const mapOptions = { ...options, folder: xmlAttr(start, 'folder', options.folder ?? '') }
   const rules = []
@@ -345,8 +347,9 @@ function mapFromElement(elementXml, inheritedSymmetry, options) {
     if (!encodedOutput) throw new Error('map <rule> missing out/fout attribute')
     rules.push({ input: encodedInput, output: encodedOutput, symmetry: ruleSymmetry, probability })
   }
-  if (rules.length === 0) throw new Error('map missing child <rule> elements')
-  return { values, sx, sy, sz, rules, unions: unionsFromXml(elementXml) }
+  const children = direct.filter((childXml) => !['rule', 'union'].includes(xmlRootTag(childXml))).map((childXml) => nodeFromElement(childXml, symmetry, { ...mapOptions, values }))
+  if (rules.length === 0 && children.length === 0) throw new Error('map missing child <rule> elements or child nodes')
+  return { values, sx, sy, sz, rules, unions: unionsFromXml(elementXml), children }
 }
 
 function wfcOverlapFromElement(elementXml, inheritedSymmetry, options) {
@@ -450,9 +453,16 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
     ...nodeFields.map((field) => ({ op: 'field', ...field })),
     ...nodeObservations.map((observation) => ({ op: 'observe', ...observation })),
   ]
+  const childPayloadOps = (child) => [
+    ...(child.path ? [{ op: 'path', ...child.path }] : []),
+    ...(child.convolution ? [{ op: 'convolution', ...child.convolution }] : []),
+    ...(child.convchain ? [{ op: 'convchain', ...child.convchain }] : []),
+    ...(child.wfc ? [{ op: 'wfc', ...child.wfc }] : []),
+    ...(child.map ? [{ op: 'map', ...child.map }] : []),
+  ]
   const childOps = (child) => {
-    if (child.children) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...child.children.flatMap(childOps), { op: 'end' }]
-    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...(child.path ? [{ op: 'path', ...child.path }] : []), ...(child.convolution ? [{ op: 'convolution', ...child.convolution }] : []), ...(child.convchain ? [{ op: 'convchain', ...child.convchain }] : []), ...(child.wfc ? [{ op: 'wfc', ...child.wfc }] : []), ...(child.map ? [{ op: 'map', ...child.map }] : []), ...child.rules]
+    if (child.children || child.map) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...childPayloadOps(child), ...(child.children ?? []).flatMap(childOps), { op: 'end' }]
+    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...childPayloadOps(child), ...child.rules]
   }
   const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
@@ -713,13 +723,14 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
   }
   if (tag === 'map') {
     const map = mapFromElement(elementXml, inheritedSymmetry, options)
-    return { node: tag, steps, rules: [], map }
+    return map.children.length > 0 ? { node: tag, steps, rules: [], map, children: map.children } : { node: tag, steps, rules: [], map }
   }
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(elementXml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'map', 'markov', 'sequence'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'map', 'markov', 'sequence', 'union'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} child has unsupported direct children: ${unsupported.join(', ')}`)
-    const children = direct.map((childXml) => nodeFromElement(childXml, inheritedSymmetry, options))
+    const nodeSymmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
+    const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => nodeFromElement(childXml, nodeSymmetry, options))
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
     return { node: tag, steps, children }
   }

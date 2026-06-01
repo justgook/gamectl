@@ -147,6 +147,7 @@ export const rootSequenceModels = [
   'NystromDungeon',
   'OpenCave',
   'OddScale',
+  'OddScale3D',
   'OpenCave3D',
   'OrganicMechanic',
   'PaintCompetition',

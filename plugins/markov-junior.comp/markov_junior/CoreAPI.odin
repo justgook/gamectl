@@ -235,10 +235,11 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			kind := mj_read_u32(model, &pos, &ok)
 			marker_steps := int(mj_read_u32(model, &pos, &ok))
 			if !ok || kind < 1 || kind > 10 { return mj_fail("invalid model-ir node kind") }
+			is_container_kind := kind == 4 || kind == 5 || kind == 10
 			if (kind == 4 || kind == 5) && !root_marker_seen && len(nodes) == 0 && !node_open {
 				container_kind = kind
 				root_marker_seen = true
-			} else if kind == 4 || kind == 5 {
+			} else if is_container_kind {
 				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
 					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 					node_open = false
@@ -323,13 +324,22 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if from_len > 0 do from_value = from_string[0]
 			current_observations[grid_value(&g, observe_value)] = Observation_State{present = true, from = grid_value(&g, from_value), to = grid_wave_string(&g, to_string)}
 		} else if op == 107 {
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if si == 0 do break
+			}
 			neighborhood_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || neighborhood_len < 0 || pos + neighborhood_len > len(model) { return mj_fail("invalid model-ir convolution neighborhood") }
 			neighborhood := string(model[pos:pos + neighborhood_len]); pos += neighborhood_len
 			periodic := mj_read_u32(model, &pos, &ok) != 0
 			rule_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || rule_len <= 0 { return mj_fail("invalid model-ir convolution rule count") }
-			current_convolution = Convolution_State{kernel = convolution_kernel(g.mz == 1, neighborhood), periodic = periodic, c = len(g.characters), sumfield = make([]int, len(g.state) * len(g.characters)), steps = node_steps}
+			current_convolution = Convolution_State{kernel = convolution_kernel(target_grid.mz == 1, neighborhood), periodic = periodic, c = len(target_grid.characters), sumfield = make([]int, len(target_grid.state) * len(target_grid.characters)), steps = node_steps}
 			for _r in 0..<rule_len {
 				if pos + 2 > len(model) { return mj_fail("truncated model-ir convolution rule symbols") }
 				input := model[pos]; output := model[pos + 1]; pos += 2
@@ -340,8 +350,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				sum_len := int(mj_read_u32(model, &pos, &ok))
 				if !ok || sum_len < 0 || pos + sum_len > len(model) { return mj_fail("invalid model-ir convolution sum") }
 				sum_string := string(model[pos:pos + sum_len]); pos += sum_len
-				rule := Convolution_Rule{input = grid_value(&g, input), output = grid_value(&g, output), p = probability, sums = mj_convolution_sums_from_string(sum_string)}
-				for i in 0..<len(values_string) do append(&rule.values, grid_value(&g, values_string[i]))
+				rule := Convolution_Rule{input = grid_value(target_grid, input), output = grid_value(target_grid, output), p = probability, sums = mj_convolution_sums_from_string(sum_string)}
+				for i in 0..<len(values_string) do append(&rule.values, grid_value(target_grid, values_string[i]))
 				append(&current_convolution.rules, rule)
 			}
 			current_has_convolution = true
@@ -439,7 +449,14 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				base := rule_from_char_arrays_grids(&g, &current_map.grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
 				append_rule_symmetries(&current_map.grid, &current_map.rules, base, symmetry)
 			}
-			current_has_map = true
+			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 10 {
+				map_index := container_stack[len(container_stack) - 1]
+				nodes[map_index].map_state = current_map
+				nodes[map_index].has_map = true
+				current_map = {}
+			} else {
+				current_has_map = true
+			}
 		} else if op == 106 {
 			from_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || from_len <= 0 || pos + from_len > len(model) { return mj_fail("invalid model-ir path from") }
@@ -480,8 +497,17 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if pos + input_len + output_len > len(model) { return mj_fail("truncated pattern rule data") }
 			input_chars := model[pos:pos + input_len]; pos += input_len
 			output_chars := model[pos:pos + output_len]; pos += output_len
-			base := rule_from_char_arrays(&g, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
-			append_rule_symmetries(&g, &rules, base, symmetry)
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if si == 0 do break
+			}
+			base := rule_from_char_arrays(target_grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
+			append_rule_symmetries(target_grid, &rules, base, symmetry)
 		} else {
 			return mj_fail("unsupported model-ir rule opcode")
 		}
@@ -682,12 +708,16 @@ mj_run_one_node_with_fields_count :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rul
 }
 
 mj_prepare_node_states :: proc(g: ^Grid, nodes: []MJ_Node) -> []MJ_Markov_State {
+	state_len := len(g.state)
+	for n in nodes {
+		if n.has_map && len(n.map_state.grid.state) > state_len do state_len = len(n.map_state.grid.state)
+	}
 	states := make([]MJ_Markov_State, len(nodes))
 	for i in 0..<len(nodes) {
 		states[i].last_turn = -1
 		if nodes[i].kind == 1 || nodes[i].kind == 2 {
 			states[i].match_mask = make([][]bool, nodes[i].count)
-			for r in 0..<nodes[i].count { states[i].match_mask[r] = make([]bool, len(g.state)) }
+			for r in 0..<nodes[i].count { states[i].match_mask[r] = make([]bool, state_len) }
 		}
 	}
 	return states
@@ -881,7 +911,10 @@ mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, cou
 			if node.steps > 0 && counters[idx] >= node.steps { child += node.children_count; continue }
 			was_active := counters[idx] > 0
 			node_changed := false
-			if node.kind == 4 {
+			if node.kind == 10 && !nodes[idx].map_state.mapped {
+				map_go_initial(&nodes[idx].map_state, g)
+				node_changed = true
+			} else if node.kind == 4 {
 				node_changed = mj_markov_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, active, changes, first, counter, idx)
 			} else {
 				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, active, changes, first, counter, &positions[idx])
@@ -997,7 +1030,10 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 			}
 			was_active := counters[idx] > 0
 			node_changed := false
-			if node.kind == 4 {
+			if node.kind == 10 && !nodes[idx].map_state.mapped {
+				map_go_initial(&nodes[idx].map_state, g)
+				node_changed = true
+			} else if node.kind == 4 {
 				node_changed = mj_markov_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, active, changes, first, counter, idx)
 			} else {
 				node_changed = mj_sequence_range_go(g, rules, nodes, node.children_start, node.children_count, random, states, counters, positions, active, changes, first, counter, &positions[idx])
