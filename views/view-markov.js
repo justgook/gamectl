@@ -3,6 +3,8 @@ import { ViewCanvasBase } from "/util/view-canvas-base.js"
 import {
   compileXmlToMjir,
   initialGridFromXml,
+  xmlAttr,
+  xmlRootStartTag,
 } from "/util/markov-junior/xml-to-mjir.js"
 
 const PALETTE = {
@@ -38,6 +40,43 @@ function basename(path) {
 function exampleLabel(example) {
   const suffix = example.decoderReady ? "" : " [not ready]"
   return `${example.label || example.name || example.id}${suffix}`
+}
+
+function uniqueXmlAttrValues(xml, name) {
+  return [...xml.matchAll(new RegExp(`\\b${name}="([^"]+)"`, "g"))].map((match) => match[1])
+}
+
+function unique(values) {
+  return [...new Set(values)]
+}
+
+function joinResourcePath(root, ...parts) {
+  return [root, ...parts].map((part) => String(part || "").trim()).filter(Boolean).join("/")
+}
+
+async function decodePngPattern(bytes, legend) {
+  const image = await createImageBitmap(new Blob([bytes], { type: "image/png" }))
+  const canvas = document.createElement("canvas")
+  canvas.width = image.width
+  canvas.height = image.height
+  const ctx = canvas.getContext("2d")
+  assert(ctx, "view-markov PNG decode requires 2d context")
+  ctx.drawImage(image, 0, 0)
+  image.close()
+  const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+  const colors = []
+  const data = []
+  for (let i = 0; i < rgba.length; i += 4) {
+    const color = (((rgba[i + 3] << 24) >>> 0) | (rgba[i] << 16) | (rgba[i + 1] << 8) | rgba[i + 2])
+    let index = colors.indexOf(color)
+    if (index < 0) {
+      index = colors.length
+      colors.push(color)
+    }
+    if (index >= legend.length) throw new Error(`rule PNG uses ${index + 1} colors but legend has ${legend.length}`)
+    data.push(legend[index])
+  }
+  return { width: canvas.width, height: canvas.height, depth: 1, data }
 }
 
 function toRows(cells, width, height, values) {
@@ -256,6 +295,76 @@ export class ViewMarkov extends ViewCanvasBase {
     await this.generate()
   }
 
+  async readFile(path) {
+    return new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", path), path))
+  }
+
+  async readOptionalFile(path) {
+    try {
+      return await this.readFile(path)
+    } catch (error) {
+      const message = String(error?.message || error)
+      if (message.includes("No such file") || message.includes("not found") || message.includes("os error 2")) return null
+      throw error
+    }
+  }
+
+  async createCompileOptions(xml, example) {
+    const resourceRoot = normalizePath(this.config?.resourceRoot || "markov-junior/resources")
+    const folder = xmlAttr(xmlRootStartTag(xml), "folder", "")
+    const rulePatterns = new Map()
+    const ruleVox = new Map()
+    const tilesetXml = new Map()
+    const tileVox = new Map()
+
+    for (const file of unique([
+      ...uniqueXmlAttrValues(xml, "file"),
+      ...uniqueXmlAttrValues(xml, "fin"),
+      ...uniqueXmlAttrValues(xml, "fout"),
+    ])) {
+      const pngPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.png`)
+      const png = await this.readOptionalFile(pngPath)
+      if (png) rulePatterns.set(`${folder}\0${file}`, await decodePngPattern(png, this.legendForRule(xml, file)))
+
+      const voxPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.vox`)
+      const vox = await this.readOptionalFile(voxPath)
+      if (vox) ruleVox.set(`${folder}\0${file}`, vox)
+    }
+
+    for (const tileset of unique(uniqueXmlAttrValues(xml, "tileset"))) {
+      const tilesetPath = joinResourcePath(resourceRoot, "tilesets", `${tileset}.xml`)
+      const text = unwrap(await runtime.invoke("fs/fs::read-text", tilesetPath), tilesetPath)
+      tilesetXml.set(tileset, text)
+      const start = xmlRootStartTag(xml)
+      const tilesName = xmlAttr(start, "tiles", tileset)
+      for (const tileName of unique(uniqueXmlAttrValues(text, "name"))) {
+        const voxPath = joinResourcePath(resourceRoot, "tilesets", tilesName, `${tileName}.vox`)
+        tileVox.set(`${tilesName}\0${tileName}`, await this.readFile(voxPath))
+      }
+    }
+
+    return {
+      folder,
+      depth: example.depth,
+      loadRulePattern: (file, legend, requestedFolder = "") => {
+        const key = `${requestedFolder}\0${file}`
+        const pattern = rulePatterns.get(key)
+        if (pattern) return pattern
+        return undefined
+      },
+      loadRuleVox: (file, requestedFolder = "") => ruleVox.get(`${requestedFolder}\0${file}`),
+      loadTilesetXml: (name) => tilesetXml.get(name),
+      loadTileVox: (tilesName, tileName) => tileVox.get(`${tilesName}\0${tileName}`),
+    }
+  }
+
+  legendForRule(xml, file) {
+    const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const match = xml.match(new RegExp(`<[^>]+\\b(?:file|fin|fout)="${escaped}"[^>]*\\blegend="([^"]+)"`))
+    assert(match, `view-markov rule resource ${file} missing legend attribute`)
+    return match[1]
+  }
+
   async generate() {
     if (this.running) return
     this.running = true
@@ -278,7 +387,7 @@ export class ViewMarkov extends ViewCanvasBase {
 
       this.setStatus(`Generating ${exampleLabel(example)}...`, "info")
       const xml = unwrap(await runtime.invoke("fs/fs::read-text", example.source), example.source)
-      const modelIr = compileXmlToMjir(xml)
+      const modelIr = compileXmlToMjir(xml, await this.createCompileOptions(xml, example))
       const initialCells = initialGridFromXml(xml, example.width, example.height, example.depth)
       const grid = unwrap(await runtime.invoke(
         "markov-junior/markov-junior::run",

@@ -13,60 +13,88 @@
       },
       {
         "key": "1",
-        "call": ["activeView.tool_1"]
+        "call": [
+          "activeView.tool_1"
+        ]
       },
       {
         "key": "2",
-        "call": ["activeView.tool_2"]
+        "call": [
+          "activeView.tool_2"
+        ]
       },
       {
         "key": "3",
-        "call": ["activeView.tool_3"]
+        "call": [
+          "activeView.tool_3"
+        ]
       },
       {
         "key": "4",
-        "call": ["activeView.tool_4"]
+        "call": [
+          "activeView.tool_4"
+        ]
       },
       {
         "key": "5",
-        "call": ["activeView.tool_5"]
+        "call": [
+          "activeView.tool_5"
+        ]
       },
       {
         "key": "6",
-        "call": ["activeView.tool_6"]
+        "call": [
+          "activeView.tool_6"
+        ]
       },
       {
         "key": "=",
-        "call": ["activeView.zoomIn"]
+        "call": [
+          "activeView.zoomIn"
+        ]
       },
       {
         "key": "-",
-        "call": ["activeView.zoomOut"]
+        "call": [
+          "activeView.zoomOut"
+        ]
       },
       {
         "key": "0",
-        "call": ["activeView.zoomFit"]
+        "call": [
+          "activeView.zoomFit"
+        ]
       },
       {
         "key": "f",
-        "call": ["activeView.zoomFit"]
+        "call": [
+          "activeView.zoomFit"
+        ]
       },
       {
         "key": "o",
-        "call": ["activeView.open"]
+        "call": [
+          "activeView.open"
+        ]
       },
       {
         "key": "r",
-        "call": ["activeView.reload"]
+        "call": [
+          "activeView.reload"
+        ]
       },
       {
         "key": "n",
-        "call": ["activeView.new"],
+        "call": [
+          "activeView.new"
+        ],
         "allowInput": false
       },
       {
         "key": "mod+shift+s",
-        "call": ["activeView.saveAs"],
+        "call": [
+          "activeView.saveAs"
+        ],
         "allowInput": true
       }
     ],
@@ -78,7 +106,6 @@
         }
       }
     },
-
     "views": {
       "view-issues": {
         "url": "views/view-issues.js",
@@ -89,16 +116,31 @@
           "defaultSource": "issues",
           "open": "view-markdow",
           "filter": {
-            "status": ["yonking", "open", "in-progress", "done"],
-            "tags": ["idea", "plugin", "view"]
+            "status": [
+              "yonking",
+              "open",
+              "in-progress",
+              "done"
+            ],
+            "tags": [
+              "idea",
+              "plugin",
+              "view"
+            ]
           },
           "sort": {
-            "status": ["open", "in-progress", "done"],
+            "status": [
+              "open",
+              "in-progress",
+              "done"
+            ],
             "mtime": "dsc",
             "ctime": "asc",
             "atime": "dsc"
           },
-          "dnd": ["status:*"]
+          "dnd": [
+            "status:*"
+          ]
         }
       },
       "view-animation": {
@@ -141,15 +183,60 @@
       "view-ng": {
         "config": {
           "theme": {
-            "clear": [0.043137254901960784, 0.09803921568627451, 0.13333333333333333, 1],
-            "text": [0.8392156862745098, 0.9254901960784314, 0.9725490196078431, 1],
-            "textMuted": [0.5764705882352941, 0.6941176470588235, 0.7607843137254902, 1],
-            "selection": [0.2901960784313726, 0.7803921568627451, 1.0, 1],
-            "edge": [0.27450980392156865, 0.4235294117647059, 0.5176470588235295, 0.95],
-            "edgeActive": [0.5215686274509804, 0.7529411764705882, 1.0, 1],
-            "edgeSuccess": [0.17254901960784313, 0.788235294117647, 0.6666666666666666, 0.98],
-            "edgeError": [1.0, 0.4196078431372549, 0.4196078431372549, 0.98],
-            "edgeStale": [0.8705882352941177, 0.6941176470588235, 0.37254901960784315, 0.98]
+            "clear": [
+              0.043137254901960784,
+              0.09803921568627451,
+              0.13333333333333333,
+              1
+            ],
+            "text": [
+              0.8392156862745098,
+              0.9254901960784314,
+              0.9725490196078431,
+              1
+            ],
+            "textMuted": [
+              0.5764705882352941,
+              0.6941176470588235,
+              0.7607843137254902,
+              1
+            ],
+            "selection": [
+              0.2901960784313726,
+              0.7803921568627451,
+              1.0,
+              1
+            ],
+            "edge": [
+              0.27450980392156865,
+              0.4235294117647059,
+              0.5176470588235295,
+              0.95
+            ],
+            "edgeActive": [
+              0.5215686274509804,
+              0.7529411764705882,
+              1.0,
+              1
+            ],
+            "edgeSuccess": [
+              0.17254901960784313,
+              0.788235294117647,
+              0.6666666666666666,
+              0.98
+            ],
+            "edgeError": [
+              1.0,
+              0.4196078431372549,
+              0.4196078431372549,
+              0.98
+            ],
+            "edgeStale": [
+              0.8705882352941177,
+              0.6941176470588235,
+              0.37254901960784315,
+              0.98
+            ]
           },
           "layout": {
             "gridColumns": 4,
@@ -298,19 +385,25 @@
               "description": "Read a UTF-8 text file from the current workspace.",
               "runtime": "invoke",
               "target": "fs/fs::read-text",
-              "args": ["$1"]
+              "args": [
+                "$1"
+              ]
             },
             "list_files": {
               "description": "List entries under a workspace path.",
               "runtime": "invoke",
               "target": "fs/fs::list",
-              "args": ["$1"]
+              "args": [
+                "$1"
+              ]
             },
             "toast_info": {
               "description": "Show an informational toast through the UI toast service.",
               "runtime": "call",
               "target": "ui.toast.info",
-              "args": ["$*"]
+              "args": [
+                "$*"
+              ]
             }
           }
         }
@@ -551,11 +644,36 @@
             "maxVisibleData": 5
           },
           "theme": {
-            "clear": [0.043137254901960784, 0.09803921568627451, 0.13333333333333333, 1],
-            "text": [0.8392156862745098, 0.9254901960784314, 0.9725490196078431, 1],
-            "textMuted": [0.5764705882352941, 0.6941176470588235, 0.7607843137254902, 1],
-            "selection": [0.2901960784313726, 0.7803921568627451, 1.0, 1],
-            "edge": [0.27450980392156865, 0.4235294117647059, 0.5176470588235295, 0.95]
+            "clear": [
+              0.043137254901960784,
+              0.09803921568627451,
+              0.13333333333333333,
+              1
+            ],
+            "text": [
+              0.8392156862745098,
+              0.9254901960784314,
+              0.9725490196078431,
+              1
+            ],
+            "textMuted": [
+              0.5764705882352941,
+              0.6941176470588235,
+              0.7607843137254902,
+              1
+            ],
+            "selection": [
+              0.2901960784313726,
+              0.7803921568627451,
+              1.0,
+              1
+            ],
+            "edge": [
+              0.27450980392156865,
+              0.4235294117647059,
+              0.5176470588235295,
+              0.95
+            ]
           },
           "edge": {
             "handleMin": 26,
@@ -1523,8 +1641,7 @@
               "steps": -1,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Backtracker",
@@ -1538,8 +1655,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BacktrackerCycle",
@@ -1553,8 +1669,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Basic",
@@ -1568,8 +1683,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BasicBrickWall",
@@ -1583,8 +1697,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BasicDijkstraDungeon",
@@ -1598,8 +1711,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "rule resource BasicDijkstraRoom unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option"
+              "decoderReady": true
             },
             {
               "id": "BasicDijkstraFill",
@@ -1613,8 +1725,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "rule resource BasicDijkstraRoom unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option"
+              "decoderReady": true
             },
             {
               "id": "BasicDungeonGrowth",
@@ -1628,8 +1739,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BasicPartitioning",
@@ -1643,8 +1753,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BernoulliPercolation",
@@ -1658,8 +1767,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BiasedGrowth",
@@ -1673,8 +1781,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BiasedGrowthContraction",
@@ -1688,8 +1795,7 @@
               "steps": 5000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BiasedMazeGrowth",
@@ -1703,8 +1809,7 @@
               "steps": 400,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BiasedVoronoi",
@@ -1718,8 +1823,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BishopParity",
@@ -1733,8 +1837,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BlueNoise",
@@ -1748,8 +1851,7 @@
               "steps": 500,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Cave",
@@ -1763,8 +1865,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "CaveContour",
@@ -1778,8 +1879,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "CentralCrawlers",
@@ -1793,8 +1893,7 @@
               "steps": 300,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "CentralSAW",
@@ -1808,8 +1907,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "ChainDungeon",
@@ -1824,7 +1922,7 @@
               "seed": 1,
               "render": "2d",
               "decoderReady": false,
-              "disabledReason": "convchain sample Room unavailable; pass loadSamplePng option"
+              "disabledReason": "sample PNG WFC/convchain browser decoder is not enabled yet"
             },
             {
               "id": "ChainDungeonMaze",
@@ -1839,7 +1937,7 @@
               "seed": 1,
               "render": "2d",
               "decoderReady": false,
-              "disabledReason": "convchain sample Maze unavailable; pass loadSamplePng option"
+              "disabledReason": "sample PNG WFC/convchain browser decoder is not enabled yet"
             },
             {
               "id": "ChainMaze",
@@ -1854,7 +1952,7 @@
               "seed": 1,
               "render": "2d",
               "decoderReady": false,
-              "disabledReason": "convchain sample Maze unavailable; pass loadSamplePng option"
+              "disabledReason": "sample PNG WFC/convchain browser decoder is not enabled yet"
             },
             {
               "id": "Circuit",
@@ -1868,8 +1966,7 @@
               "steps": 1200,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "rule resource Chip unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option"
+              "decoderReady": true
             },
             {
               "id": "ClosedSurface",
@@ -1913,8 +2010,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "CompleteSAWSmart",
@@ -1928,8 +2024,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "ConnectedCaves",
@@ -1943,8 +2038,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "ConstrainedCaves",
@@ -1958,8 +2052,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "rule resource ConstrainedRoom unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option"
+              "decoderReady": true
             },
             {
               "id": "Counting",
@@ -1988,8 +2081,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "CrawlersChase",
@@ -2003,8 +2095,7 @@
               "steps": 200,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "CrossCountry",
@@ -2018,8 +2109,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Cycles",
@@ -2033,8 +2123,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "DenseSAW",
@@ -2048,8 +2137,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "DiagonalPath",
@@ -2063,8 +2151,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Digger",
@@ -2078,8 +2165,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "DijkstraDungeon",
@@ -2093,8 +2179,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "rule resource DijkstraRoom unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option"
+              "decoderReady": true
             },
             {
               "id": "Division",
@@ -2108,8 +2193,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "DualRetraction",
@@ -2123,8 +2207,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "DualRetraction3D",
@@ -2153,8 +2236,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "rule resource Room1 unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option"
+              "decoderReady": true
             },
             {
               "id": "Dwarves",
@@ -2168,8 +2250,7 @@
               "steps": 85,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Escher",
@@ -2213,8 +2294,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "FindLongCycle",
@@ -2228,8 +2308,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "FireNoise",
@@ -2243,8 +2322,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Flowers",
@@ -2258,8 +2336,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Forest",
@@ -2273,8 +2350,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "ForestFire",
@@ -2288,8 +2364,7 @@
               "steps": 80,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "ForestFireCA",
@@ -2303,8 +2378,7 @@
               "steps": 80,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "GameOfLife",
@@ -2318,8 +2392,7 @@
               "steps": 100,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Growth",
@@ -2333,8 +2406,7 @@
               "steps": 40000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "GrowthCompetition",
@@ -2348,8 +2420,7 @@
               "steps": 30000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "GrowthContraction",
@@ -2363,8 +2434,7 @@
               "steps": 10000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "GrowthWalk",
@@ -2378,8 +2448,7 @@
               "steps": 5000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "GrowTo",
@@ -2393,8 +2462,7 @@
               "steps": 2000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "HamiltonianPath",
@@ -2408,8 +2476,7 @@
               "steps": 150000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "HamiltonianPaths",
@@ -2423,8 +2490,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Hills",
@@ -2453,8 +2519,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "IrregularSAW",
@@ -2468,8 +2533,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Keys",
@@ -2483,8 +2547,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "KnightPatrol",
@@ -2498,8 +2561,7 @@
               "steps": 200,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Knots2D",
@@ -2513,8 +2575,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "tileset Knots2D unavailable; pass loadTilesetXml option"
+              "decoderReady": true
             },
             {
               "id": "Knots3D",
@@ -2543,8 +2604,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "LoopGrowth",
@@ -2558,8 +2618,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "LostCity",
@@ -2573,8 +2632,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MarchingSquares",
@@ -2588,8 +2646,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MazeBacktracker",
@@ -2603,8 +2660,7 @@
               "steps": 20000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MazeGrowth",
@@ -2618,8 +2674,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MazeMap",
@@ -2633,8 +2688,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MazeTrail",
@@ -2648,8 +2702,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MultiHeadedDungeon",
@@ -2663,8 +2716,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MultiHeadedWalk",
@@ -2678,8 +2730,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MultiHeadedWalkDungeon",
@@ -2693,8 +2744,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "NestedGrowth",
@@ -2708,8 +2758,7 @@
               "steps": 100,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "NoDeadEnds",
@@ -2723,8 +2772,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Noise",
@@ -2738,8 +2786,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "NystromDungeon",
@@ -2753,8 +2800,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "OddScale",
@@ -2768,8 +2814,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "OddScale3D",
@@ -2798,8 +2843,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "OpenCave3D",
@@ -2828,8 +2872,7 @@
               "steps": 200,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "OrientedEscher",
@@ -2858,8 +2901,7 @@
               "steps": 400,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "ParallelGrowth",
@@ -2888,8 +2930,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Partitioning",
@@ -2918,8 +2959,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "PeriodicEscher",
@@ -2963,8 +3003,7 @@
               "steps": 8000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "PutColoredLs",
@@ -2978,8 +3017,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "PutLs",
@@ -2993,8 +3031,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "RainbowGrowth",
@@ -3008,8 +3045,7 @@
               "steps": 1600,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "RegularPath",
@@ -3023,8 +3059,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "RegularSAW",
@@ -3038,8 +3073,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "RegularSAWRestart",
@@ -3053,8 +3087,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "River",
@@ -3068,8 +3101,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Rosettes",
@@ -3083,8 +3115,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "SAWRestart",
@@ -3098,8 +3129,7 @@
               "steps": 2000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "SelectLargeCaves",
@@ -3113,8 +3143,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "SelectLongKnots",
@@ -3143,8 +3172,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Sewers",
@@ -3159,7 +3187,7 @@
               "seed": 1,
               "render": "2d",
               "decoderReady": false,
-              "disabledReason": "wfc sample Sewers unavailable; pass loadSamplePng option"
+              "disabledReason": "sample PNG WFC/convchain browser decoder is not enabled yet"
             },
             {
               "id": "SmarterDigger",
@@ -3173,8 +3201,7 @@
               "steps": 800,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "SmartSAW",
@@ -3188,8 +3215,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "SmoothTrail",
@@ -3203,8 +3229,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "SnellLaw",
@@ -3218,8 +3243,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "SoftPath",
@@ -3233,8 +3257,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "StairsPath",
@@ -3263,8 +3286,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "StormySnellLaw",
@@ -3278,8 +3300,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "StrangeNoise",
@@ -3293,8 +3314,7 @@
               "steps": 500,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "StrangeDungeon",
@@ -3308,8 +3328,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "StrangeGrowth",
@@ -3323,8 +3342,7 @@
               "steps": 700,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "SubmergedKnots",
@@ -3368,8 +3386,7 @@
               "steps": 1500,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Texture",
@@ -3383,8 +3400,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "TileDungeon",
@@ -3398,8 +3414,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "tileset Dungeon unavailable; pass loadTilesetXml option"
+              "decoderReady": true
             },
             {
               "id": "TilePath",
@@ -3413,8 +3428,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "tileset Knots2D unavailable; pass loadTilesetXml option"
+              "decoderReady": true
             },
             {
               "id": "Trail",
@@ -3428,8 +3442,7 @@
               "steps": 3000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Voronoi",
@@ -3443,8 +3456,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "WaveBrickWall",
@@ -3459,7 +3471,7 @@
               "seed": 1,
               "render": "2d",
               "decoderReady": false,
-              "disabledReason": "wfc sample BrickWall unavailable; pass loadSamplePng option"
+              "disabledReason": "sample PNG WFC/convchain browser decoder is not enabled yet"
             },
             {
               "id": "WaveDungeon",
@@ -3474,7 +3486,7 @@
               "seed": 1,
               "render": "2d",
               "decoderReady": false,
-              "disabledReason": "wfc sample Dungeon unavailable; pass loadSamplePng option"
+              "disabledReason": "sample PNG WFC/convchain browser decoder is not enabled yet"
             },
             {
               "id": "WaveFlowers",
@@ -3489,7 +3501,7 @@
               "seed": 1,
               "render": "2d",
               "decoderReady": false,
-              "disabledReason": "wfc sample Flowers unavailable; pass loadSamplePng option"
+              "disabledReason": "sample PNG WFC/convchain browser decoder is not enabled yet"
             },
             {
               "id": "WolfBasedApproach",
@@ -3503,8 +3515,7 @@
               "steps": 300,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "BasicKeys",
@@ -3518,8 +3529,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "BasicSkyline",
@@ -3533,8 +3543,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "BasicSnake",
@@ -3548,8 +3557,7 @@
               "steps": 100,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Chase",
@@ -3563,8 +3571,7 @@
               "steps": 200,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Crawlers",
@@ -3578,8 +3585,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "DwarfPath",
@@ -3593,8 +3599,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "GoTo",
@@ -3608,8 +3613,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "GoToGradient",
@@ -3623,8 +3627,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "Lightning",
@@ -3638,8 +3641,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "LoopErasedWalk",
@@ -3653,8 +3655,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "MultiSokoban8",
@@ -3668,8 +3669,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "MultiSokoban9",
@@ -3683,8 +3683,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "ParallelWalk",
@@ -3698,8 +3697,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "RandomWalk",
@@ -3713,8 +3711,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "Rectangle",
@@ -3728,8 +3725,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "SequentialSnake",
@@ -3743,8 +3739,7 @@
               "steps": 100,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "SequentialSokoban",
@@ -3758,8 +3753,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             },
             {
               "id": "Snake",
@@ -3773,8 +3767,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "SokobanLevel1",
@@ -3788,8 +3781,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "rule resource Sokoban1 unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option"
+              "decoderReady": true
             },
             {
               "id": "SokobanLevel2",
@@ -3803,8 +3795,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "rule resource Sokoban2 unavailable; pass loadRulePattern/loadRulePng/loadRuleVox option"
+              "decoderReady": true
             },
             {
               "id": "StableCrawlers",
@@ -3818,8 +3809,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": false,
-              "disabledReason": "not preview-ready yet"
+              "decoderReady": true
             },
             {
               "id": "Wilson",
@@ -3833,8 +3823,7 @@
               "steps": 1000,
               "seed": 1,
               "render": "2d",
-              "decoderReady": true,
-              "disabledReason": null
+              "decoderReady": true
             }
           ]
         }
