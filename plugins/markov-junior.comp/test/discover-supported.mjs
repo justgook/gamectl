@@ -66,6 +66,14 @@ for (const file of readdirSync(modelsDir).filter((entry) => entry.endsWith('.xml
         const path = join(mjRoot, 'resources/rules', folder, `${rule}.vox`)
         return existsSync(path) ? readFileSync(path) : undefined
       },
+      loadTilesetXml: (tileset) => {
+        const path = join(mjRoot, 'resources/tilesets', `${tileset}.xml`)
+        return existsSync(path) ? readFileSync(path, 'utf8') : undefined
+      },
+      loadTileVox: (tiles, tile) => {
+        const path = join(mjRoot, 'resources/tilesets', tiles, `${tile}.vox`)
+        return existsSync(path) ? readFileSync(path) : undefined
+      },
     })
   } catch (error) {
     unsupported.push({ name, root, reason: error.message })

@@ -39,7 +39,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Add resource-free overlap `<wfc sample="...">` representation in MJIR (`op = 109`, with sample PNG patterns/propagators precomputed externally).
 - [x] Add terminal `<map>` representation in MJIR (`op = 110`).
 - [x] Add search observation representation in MJIR (`op = 111`).
-- [ ] Decide how to represent remaining unsupported features like tile WFC in MJIR.
+- [x] Add tile WFC representation in MJIR (`op = 112`, with tileset XML/VOX patterns and propagators precomputed externally).
 
 ## Part 3 — MJIR v1 executor
 
@@ -60,7 +60,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Add resource-free overlap-WFC executor support.
 - [x] Add terminal map executor support.
 - [x] Add resource-free representation for search observation config.
-- [ ] Add resource-free representation for tile-WFC data.
+- [x] Add resource-free representation for tile-WFC data.
 
 ## Part 4 — parity fixtures
 
@@ -298,4 +298,4 @@ nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Ba
 
 ## Latest status
 
-Root `<one>`, `<all>`, `<prl>`, root `<convolution>`, `<convchain>` sequence models, overlap-WFC sequence models, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, root `<sequence>` models containing `<convolution>` nodes, `<convchain>` nodes, and overlap-WFC nodes are covered. Discovery currently reports 141 compiler-supported XML models, 141 fixture-ready models, 136 parity-fixtured models, 0 known-mismatch models, 0 no-generic-original-output models, 5 unlisted fixture-ready search/Sokoban models, 0 compiler-supported models that need explicit config, and 18 unsupported tile-WFC models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure. `parity-csharp.mjs` provides a three-way C# original vs Odin port vs WASM component parity smoke/full-supported harness; the full supported fixture set currently passes for `--runs=1 --steps=10`.
+Root `<one>`, `<all>`, `<prl>`, root `<convolution>`, `<convchain>` sequence models, overlap-WFC sequence models, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, root `<sequence>` models containing `<convolution>` nodes, `<convchain>` nodes, and overlap-WFC nodes are covered. Discovery currently reports 159 compiler-supported XML models, 159 fixture-ready models, 154 parity-fixtured models, 0 known-mismatch models, 0 no-generic-original-output models, 5 unlisted fixture-ready Sokoban/search models, 0 compiler-supported models that need explicit config, and 0 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure. `parity-csharp.mjs` provides a three-way C# original vs Odin port vs WASM component parity smoke/full-supported harness; the non-tile full supported fixture set currently passes for `--runs=1 --steps=10`. Tile-WFC models expose a known C#↔Odin output-timing/dimension difference: C# switches text output to the expanded tile grid immediately, while the Odin port/component delay handoff until observation completes.

@@ -168,8 +168,8 @@ function leI32(bytes, off) {
   return bytes[off] | (bytes[off + 1] << 8) | (bytes[off + 2] << 16) | (bytes[off + 3] << 24)
 }
 
-function decodeVoxPattern(bytes, legend) {
-  if (String.fromCharCode(...bytes.slice(0, 4)) !== 'VOX ') throw new Error('rule resource is not a VOX file')
+function decodeVoxInts(bytes) {
+  if (String.fromCharCode(...bytes.slice(0, 4)) !== 'VOX ') throw new Error('resource is not a VOX file')
   let mx = -1, my = -1, mz = -1
   let colors = null
   let off = 8
@@ -191,7 +191,12 @@ function decodeVoxPattern(bytes, legend) {
     }
     off += chunkSize
   }
-  if (!colors) throw new Error('VOX rule resource missing SIZE/XYZI chunks')
+  if (!colors) throw new Error('VOX resource missing SIZE/XYZI chunks')
+  return { width: mx, height: my, depth: mz, colors }
+}
+
+function decodeVoxPattern(bytes, legend) {
+  const { width: mx, height: my, depth: mz, colors } = decodeVoxInts(bytes)
   const uniques = []
   const data = colors.map((color) => {
     let ord = uniques.indexOf(color)
@@ -348,6 +353,107 @@ function mapFromElement(elementXml, inheritedSymmetry, options) {
   const children = direct.filter((childXml) => !['rule', 'union'].includes(xmlRootTag(childXml))).map((childXml) => nodeFromElement(childXml, symmetry, { ...mapOptions, values }))
   if (rules.length === 0 && children.length === 0) throw new Error('map missing child <rule> elements or child nodes')
   return { values, sx, sy, sz, rules, unions: unionsFromXml(elementXml), children }
+}
+
+function tileZRotate(p, s, sz) { const q = Array(p.length); for (let z = 0; z < sz; z++) for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) q[x + y * s + z * s * s] = p[y + (s - 1 - x) * s + z * s * s]; return q }
+function tileYRotate(p, s, sz) { const q = Array(p.length); for (let z = 0; z < sz; z++) for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) q[x + y * s + z * s * s] = p[z + y * s + (s - 1 - x) * s * s]; return q }
+function tileXRotate(p, s, sz) { const q = Array(p.length); for (let z = 0; z < s; z++) for (let y = 0; y < sz; y++) for (let x = 0; x < s; x++) q[x + y * s + z * s * sz] = p[x + z * s + (s - 1 - y) * s * s]; return q }
+function tileXReflect(p, s, sz) { const q = Array(p.length); for (let z = 0; z < sz; z++) for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) q[x + y * s + z * s * s] = p[(s - 1 - x) + y * s + z * s * s]; return q }
+function tileYReflect(p, s, sz) { const q = Array(p.length); for (let z = 0; z < sz; z++) for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) q[x + y * s + z * s * s] = p[x + (s - 1 - y) * s + z * s * s]; return q }
+function tileZReflect(p, s, sz) { const q = Array(p.length); for (let z = 0; z < sz; z++) for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) q[x + y * s + z * s * s] = p[x + y * s + (sz - 1 - z) * s * s]; return q }
+function tileSame(a, b) { return a.length === b.length && a.every((v, i) => v === b[i]) }
+function tileIndex(list, p) { return list.findIndex((q) => tileSame(q, p)) }
+function tileSquareSymmetriesRf(base, s, sz, rot, refl) { const arr = []; arr[0] = [...base]; arr[1] = refl(arr[0], s, sz); arr[2] = rot(arr[0], s, sz); arr[3] = refl(arr[2], s, sz); arr[4] = rot(arr[2], s, sz); arr[5] = refl(arr[4], s, sz); arr[6] = rot(arr[4], s, sz); arr[7] = refl(arr[6], s, sz); return arr }
+function tileSquareSymmetriesNoUnique(base, s, sz) { return tileSquareSymmetriesRf(base, s, sz, tileZRotate, tileXReflect) }
+function tileSquareSymmetries(base, s, sz) { const out = []; for (const p of tileSquareSymmetriesNoUnique(base, s, sz)) if (!out.some((q) => tileSame(q, p))) out.push(p); return out }
+function tileCubeSymmetries(base, s, sz) {
+  const arr = []; arr[0] = [...base]; arr[1] = tileXReflect(arr[0], s, sz); arr[2] = tileZRotate(arr[0], s, sz); arr[3] = tileXReflect(arr[2], s, sz); arr[4] = tileZRotate(arr[2], s, sz); arr[5] = tileXReflect(arr[4], s, sz); arr[6] = tileZRotate(arr[4], s, sz); arr[7] = tileXReflect(arr[6], s, sz); arr[8] = tileYRotate(arr[0], s, sz); arr[9] = tileXReflect(arr[8], s, sz); arr[10] = tileYRotate(arr[2], s, sz); arr[11] = tileXReflect(arr[10], s, sz); arr[12] = tileYRotate(arr[4], s, sz); arr[13] = tileXReflect(arr[12], s, sz); arr[14] = tileYRotate(arr[6], s, sz); arr[15] = tileXReflect(arr[14], s, sz); arr[16] = tileYRotate(arr[8], s, sz); arr[17] = tileXReflect(arr[16], s, sz); arr[18] = tileYRotate(arr[10], s, sz); arr[19] = tileXReflect(arr[18], s, sz); arr[20] = tileYRotate(arr[12], s, sz); arr[21] = tileXReflect(arr[20], s, sz); arr[22] = tileYRotate(arr[14], s, sz); arr[23] = tileXReflect(arr[22], s, sz); arr[24] = tileYRotate(arr[16], s, sz); arr[25] = tileXReflect(arr[24], s, sz); arr[26] = tileYRotate(arr[18], s, sz); arr[27] = tileXReflect(arr[26], s, sz); arr[28] = tileYRotate(arr[20], s, sz); arr[29] = tileXReflect(arr[28], s, sz); arr[30] = tileYRotate(arr[22], s, sz); arr[31] = tileXReflect(arr[30], s, sz); arr[32] = tileZRotate(arr[8], s, sz); arr[33] = tileXReflect(arr[32], s, sz); arr[34] = tileZRotate(arr[10], s, sz); arr[35] = tileXReflect(arr[34], s, sz); arr[36] = tileZRotate(arr[12], s, sz); arr[37] = tileXReflect(arr[36], s, sz); arr[38] = tileZRotate(arr[14], s, sz); arr[39] = tileXReflect(arr[38], s, sz); arr[40] = tileZRotate(arr[24], s, sz); arr[41] = tileXReflect(arr[40], s, sz); arr[42] = tileZRotate(arr[26], s, sz); arr[43] = tileXReflect(arr[42], s, sz); arr[44] = tileZRotate(arr[28], s, sz); arr[45] = tileXReflect(arr[44], s, sz); arr[46] = tileZRotate(arr[30], s, sz); arr[47] = tileXReflect(arr[46], s, sz)
+  const out = []; for (const p of arr) if (!out.some((q) => tileSame(q, p))) out.push(p); return out
+}
+function tileFromAttr(attr, named, patterns, s, sz) {
+  const parts = attr.split(' '); const action = parts.length === 2 ? parts[0] : ''; const name = parts.length === 2 ? parts[1] : attr
+  const found = named.find((nt) => nt.name === name); let p = [...patterns[found?.start ?? 0]]
+  for (let i = action.length - 1; i >= 0; i--) { if (action[i] === 'z') p = tileZRotate(p, s, sz); else if (action[i] === 'y') p = tileYRotate(p, s, sz); else if (action[i] === 'x') p = tileXRotate(p, s, sz) }
+  return p
+}
+
+function tileWfcFromElement(elementXml, inheritedSymmetry, options) {
+  const start = xmlRootStartTag(elementXml)
+  const name = xmlAttr(start, 'tileset')
+  const tilesName = xmlAttr(start, 'tiles', name)
+  const values = xmlAttr(start, 'values')
+  if (!name) throw new Error('tile wfc missing tileset attribute')
+  if (!values) throw new Error('tile wfc missing values attribute')
+  const tilesetXml = options?.loadTilesetXml?.(name)
+  if (!tilesetXml) throw new Error(`tileset ${name} unavailable; pass loadTilesetXml option`)
+  const tilesParent = tilesetXml.match(/<tiles\b[^>]*>[\s\S]*?<\/tiles>/)?.[0] ?? ''
+  const neighborsParent = tilesetXml.match(/<neighbors\b[^>]*>[\s\S]*?<\/neighbors>/)?.[0] ?? ''
+  const tileTags = xmlDirectChildTags(tilesParent).filter((tag) => xmlRootTag(tag) === 'tile')
+  if (tileTags.length === 0) throw new Error(`tileset ${name} has no tiles`)
+  const full = xmlBoolAttr(xmlRootStartTag(tilesetXml), 'fullSymmetry', false)
+  const firstName = xmlAttr(xmlRootStartTag(tileTags[0]), 'name')
+  const firstVox = options?.loadTileVox?.(tilesName, firstName)
+  if (!firstVox) throw new Error(`tile ${tilesName}/${firstName} unavailable; pass loadTileVox option`)
+  const first = decodeVoxInts(firstVox)
+  if (first.width <= 0 || first.width !== first.height) throw new Error('tile WFC requires square tiles')
+  if (full && first.width !== first.depth) throw new Error('full-symmetry tile WFC requires cubic tiles')
+  const tileS = first.width, tileSz = first.depth
+  const uniques = []
+  const patterns = [], weights = [], named = []
+  const ords = (colors) => colors.map((color) => { let ord = uniques.indexOf(color); if (ord < 0) { ord = uniques.length; uniques.push(color) }; return ord })
+  for (const tileTag of tileTags) {
+    const tname = xmlAttr(xmlRootStartTag(tileTag), 'name')
+    const vox = options?.loadTileVox?.(tilesName, tname)
+    if (!vox) throw new Error(`tile ${tilesName}/${tname} unavailable; pass loadTileVox option`)
+    const decoded = decodeVoxInts(vox)
+    if (decoded.width !== tileS || decoded.height !== tileS || decoded.depth !== tileSz) throw new Error(`tile ${tilesName}/${tname} dimensions differ`)
+    const startIndex = patterns.length
+    const locals = full ? tileCubeSymmetries(ords(decoded.colors), tileS, tileSz) : tileSquareSymmetries(ords(decoded.colors), tileS, tileSz)
+    for (const p of locals) { patterns.push(p); weights.push(Number(xmlAttr(xmlRootStartTag(tileTag), 'weight', '1'))) }
+    named.push({ name: tname, start: startIndex, count: locals.length })
+  }
+  const p = patterns.length
+  if (p === 0) throw new Error('tile WFC has no patterns')
+  const temp = Array(6 * p * p).fill(false)
+  const setprop = (d, a, b) => { if (a >= 0 && b >= 0) temp[(d * p + a) * p + b] = true }
+  for (const neighborXml of xmlDirectChildTags(neighborsParent).filter((tag) => xmlRootTag(tag) === 'neighbor')) {
+    const tag = xmlRootStartTag(neighborXml), left = xmlAttr(tag, 'left'), right = xmlAttr(tag, 'right')
+    if (left && full) {
+      const lt = tileFromAttr(left, named, patterns, tileS, tileSz), rt = tileFromAttr(right, named, patterns, tileS, tileSz)
+      const lsym = tileSquareSymmetriesRf(lt, tileS, tileSz, tileXRotate, tileYReflect), rsym = tileSquareSymmetriesRf(rt, tileS, tileSz, tileXRotate, tileYReflect)
+      for (let i = 0; i < lsym.length; i++) { setprop(0, tileIndex(patterns, lsym[i]), tileIndex(patterns, rsym[i])); setprop(0, tileIndex(patterns, tileXReflect(rsym[i], tileS, tileSz)), tileIndex(patterns, tileXReflect(lsym[i], tileS, tileSz))) }
+      const dt = tileZRotate(lt, tileS, tileSz), ut = tileZRotate(rt, tileS, tileSz)
+      const dsym = tileSquareSymmetriesRf(dt, tileS, tileSz, tileYRotate, tileZReflect), usym = tileSquareSymmetriesRf(ut, tileS, tileSz, tileYRotate, tileZReflect)
+      for (let i = 0; i < dsym.length; i++) { setprop(1, tileIndex(patterns, dsym[i]), tileIndex(patterns, usym[i])); setprop(1, tileIndex(patterns, tileYReflect(usym[i], tileS, tileSz)), tileIndex(patterns, tileYReflect(dsym[i], tileS, tileSz))) }
+      const bt = tileYRotate(lt, tileS, tileSz), tt = tileYRotate(rt, tileS, tileSz)
+      const bsym = tileSquareSymmetriesRf(bt, tileS, tileSz, tileZRotate, tileXReflect), tsym = tileSquareSymmetriesRf(tt, tileS, tileSz, tileZRotate, tileXReflect)
+      for (let i = 0; i < bsym.length; i++) { setprop(4, tileIndex(patterns, bsym[i]), tileIndex(patterns, tsym[i])); setprop(4, tileIndex(patterns, tileZReflect(tsym[i], tileS, tileSz)), tileIndex(patterns, tileZReflect(bsym[i], tileS, tileSz))) }
+    } else if (left) {
+      const lt = tileFromAttr(left, named, patterns, tileS, tileSz), rt = tileFromAttr(right, named, patterns, tileS, tileSz)
+      setprop(0, tileIndex(patterns, lt), tileIndex(patterns, rt))
+      setprop(0, tileIndex(patterns, tileYReflect(lt, tileS, tileSz)), tileIndex(patterns, tileYReflect(rt, tileS, tileSz)))
+      setprop(0, tileIndex(patterns, tileXReflect(rt, tileS, tileSz)), tileIndex(patterns, tileXReflect(lt, tileS, tileSz)))
+      setprop(0, tileIndex(patterns, tileYReflect(tileXReflect(rt, tileS, tileSz), tileS, tileSz)), tileIndex(patterns, tileYReflect(tileXReflect(lt, tileS, tileSz), tileS, tileSz)))
+      const dt = tileZRotate(lt, tileS, tileSz), ut = tileZRotate(rt, tileS, tileSz)
+      setprop(1, tileIndex(patterns, dt), tileIndex(patterns, ut)); setprop(1, tileIndex(patterns, tileXReflect(dt, tileS, tileSz)), tileIndex(patterns, tileXReflect(ut, tileS, tileSz)))
+      setprop(1, tileIndex(patterns, tileYReflect(ut, tileS, tileSz)), tileIndex(patterns, tileYReflect(dt, tileS, tileSz))); setprop(1, tileIndex(patterns, tileXReflect(tileYReflect(ut, tileS, tileSz), tileS, tileSz)), tileIndex(patterns, tileXReflect(tileYReflect(dt, tileS, tileSz), tileS, tileSz)))
+    } else {
+      const tt = tileFromAttr(xmlAttr(tag, 'top'), named, patterns, tileS, tileSz), bt = tileFromAttr(xmlAttr(tag, 'bottom'), named, patterns, tileS, tileSz)
+      const tsym = tileSquareSymmetriesNoUnique(tt, tileS, tileSz), bsym = tileSquareSymmetriesNoUnique(bt, tileS, tileSz)
+      for (let i = 0; i < tsym.length; i++) setprop(4, tileIndex(patterns, bsym[i]), tileIndex(patterns, tsym[i]))
+    }
+  }
+  for (let p2 = 0; p2 < p; p2++) for (let p1 = 0; p1 < p; p1++) { temp[(2 * p + p2) * p + p1] = temp[(0 * p + p1) * p + p2]; temp[(3 * p + p2) * p + p1] = temp[(1 * p + p1) * p + p2]; temp[(5 * p + p2) * p + p1] = temp[(4 * p + p1) * p + p2] }
+  const propagator = []
+  for (let d = 0; d < 6; d++) { const dir = []; for (let p1 = 0; p1 < p; p1++) { const list = []; for (let p2 = 0; p2 < p; p2++) if (temp[(d * p + p1) * p + p2]) list.push(p2); dir.push(list) } propagator.push(dir) }
+  const maps = xmlDirectChildTags(elementXml).filter((tag) => xmlRootTag(tag) === 'rule').map((ruleXml) => {
+    const tag = xmlRootStartTag(ruleXml), outs = xmlAttr(tag, 'out').split('|')
+    const positions = Array(p).fill(false)
+    for (const out of outs) for (const nt of named) if (nt.name === out) for (let i = nt.start; i < nt.start + nt.count; i++) positions[i] = true
+    return { input: xmlAttr(tag, 'in'), positions }
+  })
+  if (!maps.some((map) => map.input.charCodeAt(0) === 0)) maps.push({ input: '\0', positions: Array(p).fill(true) })
+  return { tile: true, values, periodic: xmlBoolAttr(start, 'periodic', false), shannon: xmlBoolAttr(start, 'shannon', false), tries: Number(xmlAttr(start, 'tries', '1000')), tileS, tileSz, overlap: Number(xmlAttr(start, 'overlap', '0')), overlapz: Number(xmlAttr(start, 'overlapz', '0')), patterns, weights, propagator, maps }
 }
 
 function wfcOverlapFromElement(elementXml, inheritedSymmetry, options) {
@@ -564,8 +670,9 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
     }
     if (op.op === 'wfc') {
       const valuesBytes = [...textEncoder.encode(op.values)]
-      u32le(bytes, 109)
-      u32le(bytes, op.n)
+      u32le(bytes, op.tile ? 112 : 109)
+      if (op.tile) { u32le(bytes, op.tileS); u32le(bytes, op.tileSz); u32le(bytes, op.overlap ?? 0); u32le(bytes, op.overlapz ?? 0) }
+      else u32le(bytes, op.n)
       u32le(bytes, op.periodic ? 1 : 0)
       u32le(bytes, op.shannon ? 1 : 0)
       u32le(bytes, op.tries ?? 1000)
@@ -723,8 +830,7 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
     return { node: tag, steps, rules: [], convchain }
   }
   if (tag === 'wfc') {
-    if (!xmlAttr(start, 'sample')) throw new Error('tile wfc is unsupported')
-    const wfc = wfcOverlapFromElement(elementXml, inheritedSymmetry, options)
+    const wfc = xmlAttr(start, 'sample') ? wfcOverlapFromElement(elementXml, inheritedSymmetry, options) : tileWfcFromElement(elementXml, inheritedSymmetry, options)
     return { node: tag, steps, rules: [], wfc }
   }
   if (tag === 'map') {

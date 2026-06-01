@@ -124,6 +124,30 @@ on:           u8       substrate symbol to initialize/toggle
 weight-count: u32      must be 1 << (n*n)
 weights:      f64[]    externally-precomputed pattern weights from sample PNG and symmetry
 
+# op 112, tile WFC payload for the current <wfc tileset="..."> node
+op:           u32      112
+tile-s:       u32      tile x/y size
+tile-sz:      u32      tile z size
+overlap:      u32      signed i32 encoded as u32
+overlapz:     u32      signed i32 encoded as u32
+periodic:     u32      0/1 output periodic flag
+shannon:      u32      0/1 entropy heuristic flag
+tries:        u32      seed search attempts
+values-len:   u32
+values:       bytes    expanded WFC output grid symbols
+pattern-count:u32
+# repeated pattern-count times:
+weight:       f64
+pattern:      u8[tile-s*tile-s*tile-sz] tile voxel ordinals in output value space
+propagator-dir-count: u32  currently 6 for tile WFC
+# repeated dir-count * pattern-count times:
+adjacent-count: u32
+adjacent:     u32[]    compatible pattern indexes
+map-count:    u32
+# repeated map-count times:
+input:        u8       source grid symbol, 0 means default source symbol 0
+positions:    u8[pattern-count]  0/1 allowed patterns for this source symbol
+
 # op 110, terminal map payload for the current <map> node
 op:           u32      110
 sx-n:         u32
@@ -207,7 +231,7 @@ Root `<prl>` uses the existing Odin parallel node loop: full scan each turn, app
 
 Simple root `<markov>` uses a container marker followed by child node markers/rules. It tries child nodes in order each outer step and applies the first child that changes, preserving persistent one-node match state for the currently supported fixtures.
 
-Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child. Nested child containers are delimited with `op = 102`; currently this is used for direct child `<markov>` containers in sequence fixtures. `<convolution>` nodes are encoded as kind `7` plus op `107`, then executed with the existing Odin convolution kernel and `MJRandom` probability checks. `<convchain>` nodes are encoded as kind `8` plus op `108`; sample PNG loading and pattern-weight extraction happen in the external compiler, while the component only receives prepared weights and executes the existing convchain Markov-chain update loop. Overlap `<wfc sample="...">` nodes are encoded as kind `9` plus op `109`; sample PNG color ordinals, patterns, weights, propagators, and source-to-pattern maps are prepared outside the component, then the component runs the existing WFC collapse/update loop. Terminal `<map>` nodes are encoded as kind `10` plus op `110`; rule resources are pre-expanded outside the component and the component runs the existing initial map projection.
+Simple root `<sequence>` uses the same child marker representation. It runs the current child until its step limit is reached or it can no longer change, then advances to the next child. Nested child containers are delimited with `op = 102`; currently this is used for direct child `<markov>` containers in sequence fixtures. `<convolution>` nodes are encoded as kind `7` plus op `107`, then executed with the existing Odin convolution kernel and `MJRandom` probability checks. `<convchain>` nodes are encoded as kind `8` plus op `108`; sample PNG loading and pattern-weight extraction happen in the external compiler, while the component only receives prepared weights and executes the existing convchain Markov-chain update loop. Overlap `<wfc sample="...">` nodes are encoded as kind `9` plus op `109`; sample PNG color ordinals, patterns, weights, propagators, and source-to-pattern maps are prepared outside the component, then the component runs the existing WFC collapse/update loop. Tile `<wfc tileset="...">` nodes are encoded as kind `9` plus op `112`; tileset XML and tile VOX files are preprocessed outside the component into patterns, weights, propagators, tile dimensions, overlaps, and source-to-pattern maps. Terminal `<map>` nodes are encoded as kind `10` plus op `110`; rule resources are pre-expanded outside the component and the component runs the existing initial map projection.
 
 This format is intentionally insufficient for full MarkovJunior. It proves:
 

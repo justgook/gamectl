@@ -431,6 +431,64 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if !ok { return mj_fail("invalid model-ir wfc payload") }
 			wfc_base_finish(&current_wfc, &g)
 			current_has_wfc = true
+		} else if op == 112 {
+			tile_s := int(mj_read_u32(model, &pos, &ok))
+			tile_sz := int(mj_read_u32(model, &pos, &ok))
+			overlap_raw := mj_read_u32(model, &pos, &ok)
+			overlapz_raw := mj_read_u32(model, &pos, &ok)
+			overlap := int(overlap_raw)
+			overlapz := int(overlapz_raw)
+			if overlap_raw > 0x7fffffff do overlap = int(i64(overlap_raw) - i64(0x100000000))
+			if overlapz_raw > 0x7fffffff do overlapz = int(i64(overlapz_raw) - i64(0x100000000))
+			periodic := mj_read_u32(model, &pos, &ok) != 0
+			shannon := mj_read_u32(model, &pos, &ok) != 0
+			tries := int(mj_read_u32(model, &pos, &ok))
+			new_values_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || tile_s <= 0 || tile_sz <= 0 || new_values_len <= 0 || pos + new_values_len > len(model) { return mj_fail("invalid model-ir tile wfc header") }
+			new_values := string(model[pos:pos + new_values_len]); pos += new_values_len
+			p_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || p_count <= 0 { return mj_fail("invalid model-ir tile wfc pattern count") }
+			pattern_len := tile_s * tile_s * tile_sz
+			mx2 := (tile_s - overlap) * g.mx + overlap
+			my2 := (tile_s - overlap) * g.my + overlap
+			mz2 := (tile_sz - overlapz) * g.mz + overlapz
+			current_wfc = WFC_State{counter = -1, n = 1, p = p_count, periodic = periodic, shannon = shannon, tries = tries, tile_mode = true, tile_s = tile_s, tile_sz = tile_sz, overlap = overlap, overlapz = overlapz, newgrid = grid_init(mx2, my2, mz2, new_values, false)}
+			current_wfc.patterns = make([][]u8, p_count)
+			current_wfc.weights = make([]f64, p_count)
+			for pidx in 0..<p_count {
+				current_wfc.weights[pidx] = mj_read_f64(model, &pos, &ok)
+				if !ok || pos + pattern_len > len(model) { return mj_fail("invalid model-ir tile wfc pattern") }
+				current_wfc.patterns[pidx] = make([]u8, pattern_len)
+				copy(current_wfc.patterns[pidx], model[pos:pos + pattern_len]); pos += pattern_len
+			}
+			dirs := int(mj_read_u32(model, &pos, &ok))
+			if !ok || dirs <= 0 { return mj_fail("invalid model-ir tile wfc propagator") }
+			current_wfc.propagator = make([][][]int, dirs)
+			for d in 0..<dirs {
+				current_wfc.propagator[d] = make([][]int, p_count)
+				for pidx in 0..<p_count {
+					list_len := int(mj_read_u32(model, &pos, &ok))
+					if !ok || list_len < 0 { return mj_fail("invalid model-ir tile wfc propagator list") }
+					current_wfc.propagator[d][pidx] = make([]int, list_len)
+					for i in 0..<list_len do current_wfc.propagator[d][pidx][i] = int(mj_read_u32(model, &pos, &ok))
+				}
+			}
+			map_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || map_count <= 0 { return mj_fail("invalid model-ir tile wfc map count") }
+			for _m in 0..<map_count {
+				if pos >= len(model) { return mj_fail("truncated model-ir tile wfc map input") }
+				input_char := model[pos]; pos += 1
+				if pos + p_count > len(model) { return mj_fail("truncated model-ir tile wfc map positions") }
+				positions := make([]bool, p_count)
+				for i in 0..<p_count { positions[i] = model[pos] != 0; pos += 1 }
+				input := u8(0)
+				if input_char != 0 do input = grid_value(&g, input_char)
+				append(&current_wfc.map_values, input)
+				append(&current_wfc.map_positions, positions)
+			}
+			if !ok { return mj_fail("invalid model-ir tile wfc payload") }
+			wfc_base_finish(&current_wfc, &g)
+			current_has_wfc = true
 		} else if op == 110 {
 			nx := int(mj_read_u32(model, &pos, &ok)); dx := int(mj_read_u32(model, &pos, &ok))
 			ny := int(mj_read_u32(model, &pos, &ok)); dy := int(mj_read_u32(model, &pos, &ok))

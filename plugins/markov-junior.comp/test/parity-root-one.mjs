@@ -103,6 +103,14 @@ export function parityModel(name, { runs, steps }) {
       const path = join(mjRoot, 'resources/rules', folder, `${file}.vox`)
       return existsSync(path) ? readFileSync(path) : undefined
     },
+    loadTilesetXml: (tileset) => {
+      const path = join(mjRoot, 'resources/tilesets', `${tileset}.xml`)
+      return existsSync(path) ? readFileSync(path, 'utf8') : undefined
+    },
+    loadTileVox: (tiles, tile) => {
+      const path = join(mjRoot, 'resources/tilesets', tiles, `${tile}.vox`)
+      return existsSync(path) ? readFileSync(path) : undefined
+    },
   })
 
   for (const output of outputs) {
