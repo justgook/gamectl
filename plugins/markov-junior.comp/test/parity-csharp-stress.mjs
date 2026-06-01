@@ -112,6 +112,27 @@ function safeName(value) {
   return value.replace(/[^A-Za-z0-9_.-]/g, '_')
 }
 
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return 'unknown'
+  const totalSeconds = Math.round(ms / 1000)
+  const seconds = totalSeconds % 60
+  const totalMinutes = Math.floor(totalSeconds / 60)
+  const minutes = totalMinutes % 60
+  const hours = Math.floor(totalMinutes / 60)
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
+}
+
+function progressLine({ caseIndex, totalCases, model, steps, runs, skipped, completed, failures, startedAt, measuredCases, measuredMs }) {
+  const elapsedMs = Date.now() - startedAt
+  const percent = totalCases === 0 ? 100 : (caseIndex / totalCases) * 100
+  const remainingCases = totalCases - caseIndex
+  const avgMeasuredMs = measuredCases > 0 ? measuredMs / measuredCases : undefined
+  const etaMs = avgMeasuredMs === undefined ? undefined : avgMeasuredMs * remainingCases
+  return `[${caseIndex}/${totalCases} ${percent.toFixed(1)}%] model=${model} steps=${steps} runs=${runs} completed=${completed} skipped=${skipped} failures=${failures} elapsed=${formatDuration(elapsedMs)} eta=${formatDuration(etaMs)}`
+}
+
 function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv)
   const models = options.models ?? (options.group === 'smoke' ? smokeModels : allSupportedModels)
@@ -129,24 +150,31 @@ function main(argv = process.argv.slice(2)) {
     }
   }
 
-  console.log(`C#/Odin/component stress: models=${models.length} steps=${options.steps.join(',')} runs=${options.runs} log=${options.log}`)
-  appendJsonl(options.log, { status: 'run-start', models: models.length, steps: options.steps, runs: options.runs })
+  const totalCases = models.length * options.steps.length
+  const startedAt = Date.now()
+  console.log(`C#/Odin/component stress: models=${models.length} steps=${options.steps.join(',')} runs=${options.runs} cases=${totalCases} log=${options.log}`)
+  appendJsonl(options.log, { status: 'run-start', models: models.length, steps: options.steps, runs: options.runs, totalCases })
 
   let failures = 0
   let skipped = 0
   let completed = 0
+  let caseIndex = 0
+  let measuredCases = 0
+  let measuredMs = 0
   for (const model of models) {
     for (const steps of options.steps) {
+      caseIndex += 1
       const key = `${model}|steps=${steps}|runs=${options.runs}`
       const repro = `nix develop -c node plugins/markov-junior.comp/test/parity-csharp.mjs --model=${model} --runs=${options.runs} --steps=${steps}`
+      const progress = () => progressLine({ caseIndex, totalCases, model, steps, runs: options.runs, skipped, completed, failures, startedAt, measuredCases, measuredMs })
       if (passed.has(key)) {
         skipped += 1
-        console.log(`skip ${key}`)
+        console.log(`${progress()} skip ${key}`)
         continue
       }
 
-      console.log(`test ${key}`)
-      appendJsonl(options.log, { status: 'start', key, model, steps, runs: options.runs, repro })
+      console.log(`${progress()} test ${key}`)
+      appendJsonl(options.log, { status: 'start', key, model, steps, runs: options.runs, caseIndex, totalCases, repro })
       const result = run(process.execPath, [
         join(here, 'parity-csharp.mjs'),
         '--no-build',
@@ -159,27 +187,29 @@ function main(argv = process.argv.slice(2)) {
       writeFileSync(outPath, result.stdout)
       writeFileSync(errPath, result.stderr)
 
+      measuredCases += 1
+      measuredMs += result.durationMs
       if (result.status === 0) {
         completed += 1
-        appendJsonl(options.log, { status: 'pass', key, model, steps, runs: options.runs, durationMs: result.durationMs, stdout: outPath, stderr: errPath, repro })
-        console.log(`pass ${key} ${result.durationMs}ms`)
+        appendJsonl(options.log, { status: 'pass', key, model, steps, runs: options.runs, caseIndex, totalCases, durationMs: result.durationMs, elapsedMs: Date.now() - startedAt, stdout: outPath, stderr: errPath, repro })
+        console.log(`${progress()} pass ${key} duration=${formatDuration(result.durationMs)} avg=${formatDuration(measuredMs / measuredCases)}`)
       } else {
         failures += 1
-        appendJsonl(options.log, { status: 'fail', key, model, steps, runs: options.runs, durationMs: result.durationMs, code: result.status, stdout: outPath, stderr: errPath, repro })
-        console.error(`FAIL ${key}`)
+        appendJsonl(options.log, { status: 'fail', key, model, steps, runs: options.runs, caseIndex, totalCases, durationMs: result.durationMs, elapsedMs: Date.now() - startedAt, code: result.status, stdout: outPath, stderr: errPath, repro })
+        console.error(`${progress()} FAIL ${key} duration=${formatDuration(result.durationMs)} avg=${formatDuration(measuredMs / measuredCases)}`)
         console.error(`repro: ${repro}`)
         console.error(`stdout: ${outPath}`)
         console.error(`stderr: ${errPath}`)
         if (!options.keepGoing) {
-          appendJsonl(options.log, { status: 'run-stop', failures, skipped, completed })
+          appendJsonl(options.log, { status: 'run-stop', failures, skipped, completed, caseIndex, totalCases, elapsedMs: Date.now() - startedAt })
           process.exit(result.status || 1)
         }
       }
     }
   }
 
-  appendJsonl(options.log, { status: failures === 0 ? 'run-pass' : 'run-fail', failures, skipped, completed })
-  console.log(`stress done: completed=${completed} skipped=${skipped} failures=${failures}`)
+  appendJsonl(options.log, { status: failures === 0 ? 'run-pass' : 'run-fail', failures, skipped, completed, totalCases, elapsedMs: Date.now() - startedAt, averageCaseMs: measuredCases > 0 ? measuredMs / measuredCases : undefined })
+  console.log(`stress done: completed=${completed} skipped=${skipped} failures=${failures} elapsed=${formatDuration(Date.now() - startedAt)} avg=${formatDuration(measuredCases > 0 ? measuredMs / measuredCases : undefined)}`)
   if (failures > 0) process.exit(1)
 }
 
