@@ -109,6 +109,9 @@ export class ViewMarkov extends ViewCanvasBase {
     this.mode = "library"
     this.source = ""
     this.running = false
+    this.session = null
+    this.playing = false
+    this.animationFrame = 0
     this.statusElement = null
     this.metaElement = null
     this.pathElement = null
@@ -149,6 +152,7 @@ export class ViewMarkov extends ViewCanvasBase {
     if (name === "data-source") this.source = String(newValue || "").trim()
     if (name === "data-mode") this.mode = String(newValue || "library")
     if (this.dataset.ready) {
+      void this.dismissSession()
       this.syncHeaderControls({ resetRunConfig: name === "data-source" })
       this.showReadyState()
     }
@@ -157,11 +161,11 @@ export class ViewMarkov extends ViewCanvasBase {
   createViewPluginMethods() {
     return {
       reload: async () => {
-        await this.generate()
+        await this.resetSession()
         return { ok: true }
       },
       run: async () => {
-        await this.generate()
+        await this.stepCurrent()
         return { ok: true }
       },
       zoomIn: async () => {
@@ -190,7 +194,8 @@ export class ViewMarkov extends ViewCanvasBase {
       <div role="buttongroup" data-element="tool-actions">
         <input type="number" data-field="seed" aria-label="Seed" title="Seed" min="0" step="1" value="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <input type="number" data-field="steps" aria-label="Steps" title="Steps" min="0" step="1" value="1000" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <button type="button" data-action="generate" aria-label="Generate" title="Generate"><i aria-hidden="true">play_arrow</i></button>
+        <button type="button" data-action="step" aria-label="Step" title="Step"><i aria-hidden="true">skip_next</i></button>
+        <button type="button" data-action="play-pause" aria-label="Play" title="Play"><i aria-hidden="true">play_arrow</i></button>
         <button type="button" data-action="reroll" aria-label="Reroll seed" title="Reroll seed"><i aria-hidden="true">casino</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
@@ -209,8 +214,9 @@ export class ViewMarkov extends ViewCanvasBase {
       this.source = select.value
       this.setAttribute("data-source", this.source)
     })
-    toolbar.querySelector('[data-action="reset"]').addEventListener("click", () => this.generate())
-    toolbar.querySelector('[data-action="generate"]').addEventListener("click", () => this.generate())
+    toolbar.querySelector('[data-action="reset"]').addEventListener("click", () => this.resetSession())
+    toolbar.querySelector('[data-action="step"]').addEventListener("click", () => this.stepCurrent())
+    toolbar.querySelector('[data-action="play-pause"]').addEventListener("click", () => this.togglePlayback())
     toolbar.querySelector('[data-action="reroll"]').addEventListener("click", () => this.reroll())
     toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
     toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
@@ -297,7 +303,13 @@ export class ViewMarkov extends ViewCanvasBase {
     const input = this.queryHeaderControl('[data-field="seed"]')
     assert(input instanceof HTMLInputElement, "view-markov missing seed input")
     input.value = String(Math.floor(Math.random() * 0x7fffffff) + 1)
-    await this.generate()
+    await this.resetSession()
+  }
+
+  disconnectedCallback() {
+    this.stopPlayback()
+    void this.dismissSession()
+    super.disconnectedCallback()
   }
 
   async readFile(path) {
@@ -377,11 +389,21 @@ export class ViewMarkov extends ViewCanvasBase {
     return match[1]
   }
 
-  async generate() {
+  async dismissSession() {
+    this.stopPlayback()
+    if (!this.session) return
+    const session = this.session
+    this.session = null
+    unwrap(await runtime.invoke("markov-junior/markov-junior::dismiss", session), "markov-junior.dismiss")
+    await runtime.releaseResource(session)
+  }
+
+  async resetSession() {
     if (this.running) return
     this.running = true
     const started = performance.now()
     try {
+      await this.dismissSession()
       const example = this.selectedExample()
       assert(example, `view-markov could not resolve source '${this.source}'`)
       this.source = example.id
@@ -397,12 +419,12 @@ export class ViewMarkov extends ViewCanvasBase {
         return
       }
 
-      this.setStatus(`Generating ${exampleLabel(example)}...`, "info")
+      this.setStatus(`Resetting ${exampleLabel(example)}...`, "info")
       const xml = unwrap(await runtime.invoke("fs/fs::read-text", example.source), example.source)
       const modelIr = compileXmlToMjir(xml, await this.createCompileOptions(xml, example))
       const initialCells = initialGridFromXml(xml, example.width, example.height, example.depth)
-      const grid = unwrap(await runtime.invoke(
-        "markov-junior/markov-junior::run",
+      const state = unwrap(await runtime.invoke(
+        "markov-junior/markov-junior::create",
         modelIr,
         initialCells,
         {
@@ -410,19 +432,74 @@ export class ViewMarkov extends ViewCanvasBase {
           height: example.height,
           depth: example.depth,
           seed: this.seed(),
-          "max-steps": this.steps(),
         },
-      ), "markov-junior.run")
-
-      this.applyGrid(grid, example, Math.round(performance.now() - started))
-      this.setStatus(`${exampleLabel(example)} generated in ${Math.round(performance.now() - started)}ms`, "success")
+      ), "markov-junior.create")
+      this.session = state.handle
+      this.applyGrid(state.grid, example, Math.round(performance.now() - started))
+      this.setStatus(`${exampleLabel(example)} ready in ${Math.round(performance.now() - started)}ms`, "success")
     } catch (error) {
+      this.session = null
       this.setData(null, { autoFit: false })
       this.setStatus(`Error: ${error?.message || error}`, "danger")
-      console.error("view-markov generate failed:", error)
+      console.error("view-markov reset failed:", error)
     } finally {
       this.running = false
     }
+  }
+
+  async stepCurrent() {
+    if (this.running) return
+    if (!this.session) await this.resetSession()
+    if (!this.session) return
+    this.running = true
+    const started = performance.now()
+    try {
+      const example = this.selectedExample()
+      assert(example, `view-markov could not resolve source '${this.source}'`)
+      const grid = unwrap(await runtime.invoke("markov-junior/markov-junior::step", this.session, this.steps()), "markov-junior.step")
+      this.applyGrid(grid, example, Math.round(performance.now() - started))
+      this.setStatus(grid.done ? `Done in ${grid["steps-run"]} steps` : `Stepped in ${Math.round(performance.now() - started)}ms`, grid.done ? "success" : "info")
+      if (grid.done) this.stopPlayback()
+    } catch (error) {
+      this.stopPlayback()
+      this.setStatus(`Error: ${error?.message || error}`, "danger")
+      console.error("view-markov step failed:", error)
+    } finally {
+      this.running = false
+    }
+  }
+
+  togglePlayback() {
+    if (this.playing) {
+      this.stopPlayback()
+      return
+    }
+    this.playing = true
+    this.syncPlaybackButton()
+    this.animationFrame = requestAnimationFrame(() => this.playbackTick())
+  }
+
+  stopPlayback() {
+    this.playing = false
+    if (this.animationFrame !== 0) cancelAnimationFrame(this.animationFrame)
+    this.animationFrame = 0
+    this.syncPlaybackButton()
+  }
+
+  syncPlaybackButton() {
+    const button = this.queryHeaderControl('[data-action="play-pause"]')
+    if (!(button instanceof HTMLButtonElement)) return
+    const icon = button.querySelector("i")
+    if (icon) icon.textContent = this.playing ? "pause" : "play_arrow"
+    button.setAttribute("aria-label", this.playing ? "Pause" : "Play")
+    button.setAttribute("title", this.playing ? "Pause" : "Play")
+  }
+
+  async playbackTick() {
+    if (!this.playing) return
+    await this.stepCurrent()
+    if (!this.playing) return
+    this.animationFrame = requestAnimationFrame(() => this.playbackTick())
   }
 
   applyGrid(grid, example, durationMs) {

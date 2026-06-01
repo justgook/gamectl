@@ -9,7 +9,7 @@ const repoRoot = resolve(here, '../../..')
 const plugin = join(repoRoot, 'build.nosync/plugins/markov-junior.comp.wasm')
 const basicXml = '<one values="BW" in="B" out="W"/>'
 
-function runMarkov(modelIr, initialCells, config) {
+function invokeMarkov(target, args) {
   const result = spawnSync('cargo', [
     'run',
     '--quiet',
@@ -19,8 +19,8 @@ function runMarkov(modelIr, initialCells, config) {
     'run',
     '--plug',
     plugin,
-    'markov-junior/markov-junior::run',
-    JSON.stringify([modelIr, initialCells, config]),
+    target,
+    JSON.stringify(args),
   ], {
     cwd: repoRoot,
     encoding: 'utf8',
@@ -35,6 +35,10 @@ function runMarkov(modelIr, initialCells, config) {
 
   assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`)
   return JSON.parse(result.stdout)
+}
+
+function runMarkov(modelIr, initialCells, config) {
+  return invokeMarkov('markov-junior/markov-junior::run', [modelIr, initialCells, config])
 }
 
 const result = runMarkov(
