@@ -49,15 +49,21 @@ function run(command, args, options = {}) {
   return result.stdout
 }
 
-function originalRunCwd(name) {
+function patchedRunCwd(name, prefix) {
   const configTag = modelConfigTag(name)
   if (!configTag) return mjRoot
-  const tempCwd = mkdtempSync(join(tempRoot, `${name}-original-`))
+  const tempCwd = mkdtempSync(join(tempRoot, `${name}-${prefix}-`))
   symlinkSync(join(mjRoot, 'bin'), join(tempCwd, 'bin'))
   symlinkSync(join(mjRoot, 'models'), join(tempCwd, 'models'))
   symlinkSync(join(mjRoot, 'resources'), join(tempCwd, 'resources'))
+  symlinkSync(join(mjRoot, 'source'), join(tempCwd, 'source'))
+  symlinkSync(join(mjRoot, 'MarkovJunior.csproj'), join(tempCwd, 'MarkovJunior.csproj'))
   writeFileSync(join(tempCwd, 'models.xml'), modelsXml.replace('</models>', `  ${configTag}\n</models>`))
   return tempCwd
+}
+
+function originalRunCwd(name) {
+  return patchedRunCwd(name, 'original')
 }
 
 function runComponent(modelIr, initialCells, config) {
@@ -99,7 +105,7 @@ function outputs(dir) {
 function runCsharp(name, runs, steps, outDir) {
   rmSync(outDir, { recursive: true, force: true })
   mkdirSync(outDir, { recursive: true })
-  run('dotnet', ['run', '--project', 'MarkovJunior.csproj', '--', name, `--amount=${runs}`, `--steps=${steps}`, '--format=text', `--output=${outDir}`], { cwd: mjRoot })
+  run('dotnet', ['run', '--project', 'MarkovJunior.csproj', '--', name, '--model-index=0', `--amount=${runs}`, `--steps=${steps}`, '--format=text', `--output=${outDir}`], { cwd: patchedRunCwd(name, 'csharp') })
 }
 
 function runOdin(name, runs, steps, outDir) {
