@@ -96,7 +96,7 @@ export class ViewMarkov extends ViewCanvasBase {
     assert(this.pathElement instanceof HTMLOutputElement, "view-markov missing path output")
 
     super.connectedCallback()
-    this.syncHeaderControls()
+    this.syncHeaderControls({ resetRunConfig: true })
     void this.generate()
   }
 
@@ -105,7 +105,7 @@ export class ViewMarkov extends ViewCanvasBase {
     if (name === "data-source") this.source = String(newValue || "").trim()
     if (name === "data-mode") this.mode = String(newValue || "library")
     if (this.dataset.ready) {
-      this.syncHeaderControls()
+      this.syncHeaderControls({ resetRunConfig: name === "data-source" })
       void this.generate()
     }
   }
@@ -206,14 +206,14 @@ export class ViewMarkov extends ViewCanvasBase {
     return this.examples().find((example) => example.id === source || normalizePath(example.source) === normalized || basename(example.source) === basename(normalized)) || null
   }
 
-  syncHeaderControls() {
+  syncHeaderControls({ resetRunConfig = false } = {}) {
     const example = this.selectedExample()
     const select = this.queryHeaderControl('[data-field="model"]')
     const seedInput = this.queryHeaderControl('[data-field="seed"]')
     const stepsInput = this.queryHeaderControl('[data-field="steps"]')
     if (select instanceof HTMLSelectElement && example) select.value = example.id
-    if (seedInput instanceof HTMLInputElement && example?.seed != null) seedInput.value = String(example.seed)
-    if (stepsInput instanceof HTMLInputElement && example?.steps != null) stepsInput.value = String(example.steps)
+    if (resetRunConfig && seedInput instanceof HTMLInputElement && example?.seed != null) seedInput.value = String(example.seed)
+    if (resetRunConfig && stepsInput instanceof HTMLInputElement && example?.steps != null) stepsInput.value = String(example.steps)
     if (this.pathElement instanceof HTMLOutputElement) this.pathElement.textContent = example?.source || this.source
   }
 
