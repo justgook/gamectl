@@ -97,7 +97,7 @@ export class ViewMarkov extends ViewCanvasBase {
 
     super.connectedCallback()
     this.syncHeaderControls({ resetRunConfig: true })
-    void this.generate()
+    this.showReadyState()
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -106,7 +106,7 @@ export class ViewMarkov extends ViewCanvasBase {
     if (name === "data-mode") this.mode = String(newValue || "library")
     if (this.dataset.ready) {
       this.syncHeaderControls({ resetRunConfig: name === "data-source" })
-      void this.generate()
+      this.showReadyState()
     }
   }
 
@@ -215,6 +215,15 @@ export class ViewMarkov extends ViewCanvasBase {
     if (resetRunConfig && seedInput instanceof HTMLInputElement && example?.seed != null) seedInput.value = String(example.seed)
     if (resetRunConfig && stepsInput instanceof HTMLInputElement && example?.steps != null) stepsInput.value = String(example.steps)
     if (this.pathElement instanceof HTMLOutputElement) this.pathElement.textContent = example?.source || this.source
+  }
+
+  showReadyState() {
+    const example = this.selectedExample()
+    this.setData(null, { autoFit: false })
+    if (this.metaElement instanceof HTMLOutputElement && example) {
+      this.metaElement.textContent = `${example.width} × ${example.height} × ${example.depth} · seed ${this.seed()} · steps ${this.steps()} · ${example.id}`
+    }
+    this.setStatus(example ? `${exampleLabel(example)} ready; press Generate` : "Select a model", "info")
   }
 
   setStatus(text, tone = null) {
