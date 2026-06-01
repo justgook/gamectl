@@ -101,3 +101,89 @@ node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --
 ```
 
 `discover-supported.mjs` reports separate compiler-supported, fixture-ready, parity-fixtured, known-mismatch, no-generic-original-output, unlisted, needs-config, and unsupported buckets so MJIR compiler support is not confused with byte-for-byte parity coverage. Explicit fixture configs cover supported models absent from active `models.xml`. The fuzz script runs the component twice for each model/seed, checks deterministic replay and grid invariants, and prints every seed so failures can be reproduced with `--model`, `--steps`, and `--seed`. `parity-csharp-stress.mjs` runs resumable mass C#/Odin/component parity as model/steps/runs cases, writes JSONL progress records plus stdout/stderr files, skips passed cases on restart, prints progress/elapsed/ETA in stdout, and prints exact repro commands for failures.
+
+## Stress parity runs
+
+Use `parity-csharp-stress.mjs` for long-running migration confidence checks. It compares the original C# implementation, the Odin port, and the WASM component for each selected model/step-count case.
+
+The harness is resumable:
+
+- progress is appended as JSONL records to `--log`
+- stdout/stderr for each case are written next to the log
+- rerunning the same command skips cases already marked `pass`
+- `--keep-going` records failures and continues to the next case
+- failure records include an exact repro command
+
+Quick smoke check:
+
+```sh
+nix develop -c node plugins/markov-junior.comp/test/parity-csharp-stress.mjs \
+  --group=smoke \
+  --runs=1 \
+  --steps=10 \
+  --log=build.nosync/markov-junior-parity/csharp-stress/smoke.jsonl
+```
+
+Recommended broad run:
+
+```sh
+nix develop -c node plugins/markov-junior.comp/test/parity-csharp-stress.mjs \
+  --group=supported \
+  --runs=3 \
+  --steps=10,50,100 \
+  --keep-going \
+  --log=build.nosync/markov-junior-parity/csharp-stress/stress-r3-s10-50-100.jsonl
+```
+
+Larger overnight run:
+
+```sh
+nix develop -c node plugins/markov-junior.comp/test/parity-csharp-stress.mjs \
+  --group=supported \
+  --runs=10 \
+  --steps=10,50,100,250,500 \
+  --keep-going \
+  --log=build.nosync/markov-junior-parity/csharp-stress/stress-r10-s10-50-100-250-500.jsonl
+```
+
+Run one specific model:
+
+```sh
+nix develop -c node plugins/markov-junior.comp/test/parity-csharp-stress.mjs \
+  --model=TileDungeon \
+  --runs=20 \
+  --steps=10,50,100,250,500 \
+  --keep-going \
+  --log=build.nosync/markov-junior-parity/csharp-stress/TileDungeon-r20.jsonl
+```
+
+Run a focused set of models:
+
+```sh
+nix develop -c node plugins/markov-junior.comp/test/parity-csharp-stress.mjs \
+  --models=TileDungeon,SeaVilla,ModernHouse \
+  --runs=10 \
+  --steps=10,100,500 \
+  --keep-going \
+  --log=build.nosync/markov-junior-parity/csharp-stress/tile-wfc-r10.jsonl
+```
+
+Useful log inspection:
+
+```sh
+# live progress records
+tail -f build.nosync/markov-junior-parity/csharp-stress/stress-r3-s10-50-100.jsonl
+
+# failures with repro commands
+jq 'select(.status=="fail") | {time, key, repro, stdout, stderr}' \
+  build.nosync/markov-junior-parity/csharp-stress/stress-r3-s10-50-100.jsonl
+
+# summary by status
+jq -r '.status' build.nosync/markov-junior-parity/csharp-stress/stress-r3-s10-50-100.jsonl | sort | uniq -c
+```
+
+Useful flags:
+
+- `--no-build`: skip initial component/Odin rebuild when binaries are already current
+- `--no-resume`: rerun cases even if they already passed in the log
+- `--keep-going`: continue after failures instead of stopping at the first mismatch
