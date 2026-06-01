@@ -105,6 +105,8 @@ export const rootSequenceModels = [
   'CentralCrawlers',
   'Chase',
   'Circuit',
+  'CompleteSAW',
+  'CompleteSAWSmart',
   'ConnectedCaves',
   'ConstrainedCaves',
   'Coupling',

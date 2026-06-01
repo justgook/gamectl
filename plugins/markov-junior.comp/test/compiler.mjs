@@ -79,6 +79,14 @@ function decodeMjirV1(bytes) {
       rules.push({ op, value, from, to })
       continue
     }
+    if (op === 111) {
+      const enabled = readU32(bytes, pos) !== 0; pos += 4
+      const limitRaw = readU32(bytes, pos); pos += 4
+      const limit = limitRaw === -1 ? -1 : limitRaw
+      const depthCoefficient = readF64(bytes, pos); pos += 8
+      rules.push({ op, enabled, limit, depthCoefficient })
+      continue
+    }
     if (op === 107) {
       const neighborhoodLen = readU32(bytes, pos); pos += 4
       const neighborhood = String.fromCharCode(...bytes.slice(pos, pos + neighborhoodLen)); pos += neighborhoodLen
@@ -288,7 +296,8 @@ assert.deepEqual(decodeMjirV1(compileXmlToMjir('<one values="BRW" in="RBB" out="
 ])
 assert.throws(() => compileXmlToMjir('<one values="BW" in="B" out="W"><field for="W"/></one>'), /child <field> missing on attribute/)
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BW"><one in="B" out="W"><field for="W" to="B" on="B"/></one></sequence>')).rules[0], { op: 103, for: 'W', recompute: false, essential: false, to: 'B', from: '', on: 'B' })
-assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRGW"><one in="RB" out="WR"><observe value="G" from="B" to="R"/><observe value="B" to="BW"/></one></markov>')).rules.slice(0, 2), [
+assert.deepEqual(decodeMjirV1(compileXmlToMjir('<markov values="BRGW"><one search="True" limit="100" depthCoefficient="-1" in="RB" out="WR"><observe value="G" from="B" to="R"/><observe value="B" to="BW"/></one></markov>')).rules.slice(0, 3), [
+  { op: 111, enabled: true, limit: 100, depthCoefficient: -1 },
   { op: 105, value: 'G', from: 'B', to: 'R' },
   { op: 105, value: 'B', from: '', to: 'BW' },
 ])

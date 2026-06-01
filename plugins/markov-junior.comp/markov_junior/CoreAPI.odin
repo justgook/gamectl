@@ -19,6 +19,10 @@ MJ_Node :: struct {
 	potentials: []int,
 	future: []i32,
 	future_computed: bool,
+	trajectory: [][]u8,
+	search: bool,
+	limit: int,
+	depth_coefficient: f64,
 	path: Path_State,
 	has_path: bool,
 	convolution: Convolution_State,
@@ -180,6 +184,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if nodes[i].observations != nil do delete(nodes[i].observations)
 			if nodes[i].potentials != nil do delete(nodes[i].potentials)
 			if nodes[i].future != nil do delete(nodes[i].future)
+			if nodes[i].trajectory != nil do search_destroy_trajectory(nodes[i].trajectory)
 			if nodes[i].has_convolution do convolution_destroy(&nodes[i].convolution)
 			if nodes[i].has_convchain do convchain_destroy(&nodes[i].convchain)
 			if nodes[i].has_wfc do wfc_destroy(&nodes[i].wfc)
@@ -198,6 +203,9 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	current_potentials: []int
 	current_observations: []Observation_State
 	current_future: []i32
+	current_search := false
+	current_limit := -1
+	current_depth_coefficient := 0.5
 	current_path: Path_State
 	current_has_path := false
 	current_convolution: Convolution_State
@@ -209,12 +217,15 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	current_map: Map_State
 	current_has_map := false
 	current_temperature := 0.0
-	flush_node :: proc(nodes: ^[dynamic]MJ_Node, kind: u32, start, count, steps: int, fields: ^[]Field_State, observations: ^[]Observation_State, potentials: ^[]int, future: ^[]i32, path: ^Path_State, has_path: ^bool, convolution: ^Convolution_State, has_convolution: ^bool, convchain: ^ConvChain_State, has_convchain: ^bool, wfc: ^WFC_State, has_wfc: ^bool, map_state: ^Map_State, has_map: ^bool, temperature: ^f64) {
-		append(nodes, MJ_Node{kind = kind, start = start, count = count, steps = steps, fields = fields^, observations = observations^, potentials = potentials^, future = future^, path = path^, has_path = has_path^, convolution = convolution^, has_convolution = has_convolution^, convchain = convchain^, has_convchain = has_convchain^, wfc = wfc^, has_wfc = has_wfc^, map_state = map_state^, has_map = has_map^, temperature = temperature^})
+	flush_node :: proc(nodes: ^[dynamic]MJ_Node, kind: u32, start, count, steps: int, fields: ^[]Field_State, observations: ^[]Observation_State, potentials: ^[]int, future: ^[]i32, search: ^bool, limit: ^int, depth_coefficient: ^f64, path: ^Path_State, has_path: ^bool, convolution: ^Convolution_State, has_convolution: ^bool, convchain: ^ConvChain_State, has_convchain: ^bool, wfc: ^WFC_State, has_wfc: ^bool, map_state: ^Map_State, has_map: ^bool, temperature: ^f64) {
+		append(nodes, MJ_Node{kind = kind, start = start, count = count, steps = steps, fields = fields^, observations = observations^, potentials = potentials^, future = future^, search = search^, limit = limit^, depth_coefficient = depth_coefficient^, path = path^, has_path = has_path^, convolution = convolution^, has_convolution = has_convolution^, convchain = convchain^, has_convchain = has_convchain^, wfc = wfc^, has_wfc = has_wfc^, map_state = map_state^, has_map = has_map^, temperature = temperature^})
 		fields^ = nil
 		observations^ = nil
 		potentials^ = nil
 		future^ = nil
+		search^ = false
+		limit^ = -1
+		depth_coefficient^ = 0.5
 		path^ = {}
 		has_path^ = false
 		convolution^ = {}
@@ -240,8 +251,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				container_kind = kind
 				root_marker_seen = true
 			} else if is_container_kind {
-				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
-					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
+				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_search, &current_limit, &current_depth_coefficient, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 					node_open = false
 				}
 				node_start = len(rules)
@@ -250,8 +261,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				append(&nodes, MJ_Node{kind = kind, steps = marker_steps, children_start = container_index + 1})
 				append(&container_stack, container_index)
 			} else {
-				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
-					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
+				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_search, &current_limit, &current_depth_coefficient, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 				}
 				node_kind = kind
 				node_steps = marker_steps
@@ -267,8 +278,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			grid_add_union(&g, symbol, string(model[pos:pos + union_values_len]))
 			pos += union_values_len
 		} else if op == 102 {
-			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
-				flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
+			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+				flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_search, &current_limit, &current_depth_coefficient, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 				node_open = false
 			}
 			if len(container_stack) == 0 { return mj_fail("model-ir container end without start") }
@@ -317,12 +328,18 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			to_string := string(model[pos:pos + to_len]); pos += to_len
 			if current_observations == nil {
 				current_observations = make([]Observation_State, len(g.characters))
-				current_potentials = make([]int, len(g.state) * len(g.characters))
+				if !current_search do current_potentials = make([]int, len(g.state) * len(g.characters))
 				current_future = make([]i32, len(g.state))
 			}
 			from_value := observe_value
 			if from_len > 0 do from_value = from_string[0]
 			current_observations[grid_value(&g, observe_value)] = Observation_State{present = true, from = grid_value(&g, from_value), to = grid_wave_string(&g, to_string)}
+		} else if op == 111 {
+			current_search = mj_read_u32(model, &pos, &ok) != 0
+			limit_raw := mj_read_u32(model, &pos, &ok)
+			if limit_raw == 0xffffffff { current_limit = -1 } else { current_limit = int(limit_raw) }
+			current_depth_coefficient = mj_read_f64(model, &pos, &ok)
+			if !ok { return mj_fail("invalid model-ir search config") }
 		} else if op == 107 {
 			target_grid := &g
 			for si := len(container_stack) - 1; si >= 0; si -= 1 {
@@ -513,8 +530,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		}
 	}
 
-	if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
-		flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
+	if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+		flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_search, &current_limit, &current_depth_coefficient, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 	}
 	if len(container_stack) != 0 { return mj_fail("model-ir unclosed container") }
 	if len(rules) == 0 {
@@ -589,11 +606,20 @@ mj_run_node_rules_with_count :: proc(g: ^Grid, kind: u32, rules: []Rule, random:
 	return mj_run_parallel_rules_with_count(g, rules, random, steps)
 }
 
-mj_compute_node_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, counter: int) -> bool {
+mj_compute_node_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRandom, counter: int) -> bool {
 	if node.observations != nil && !node.future_computed {
 		if !observations_compute_future_set_present(node.future, g.state, node.observations) do return false
 		node.future_computed = true
-		observations_compute_backward_potentials(node.potentials, node.future, g.mx, g.my, g.mz, len(g.characters), rules)
+		if node.search {
+			if node.trajectory != nil { search_destroy_trajectory(node.trajectory); node.trajectory = nil }
+			tries := 1
+			if node.limit >= 0 do tries = 20
+			for k := 0; k < tries && node.trajectory == nil; k += 1 {
+				node.trajectory = search_run(g.state, node.future, rules, g.mx, g.my, g.mz, len(g.characters), node.kind == 2, node.limit, node.depth_coefficient, mj_random_next(random))
+			}
+		} else {
+			observations_compute_backward_potentials(node.potentials, node.future, g.mx, g.my, g.mz, len(g.characters), rules)
+		}
 	}
 	if node.potentials == nil || node.observations != nil do return true
 	any_success := false
@@ -633,7 +659,7 @@ mj_run_all_node_with_fields_count :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rul
 	changed := false
 	first_turn := true
 	for steps <= 0 || counter < steps {
-		if !mj_compute_node_fields(g, node, rules, counter) do break
+		if !mj_compute_node_fields(g, node, rules, random, counter) do break
 		clear(&matches)
 		if first_turn {
 			one_initial_scan(g, rules, &matches, match_mask)
@@ -671,7 +697,7 @@ mj_run_one_node_with_fields_count :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rul
 	counter := 0
 	changed := false
 	for (steps <= 0 || counter < steps) && len(matches) > 0 {
-		if !mj_compute_node_fields(g, node, rules, counter) do break
+		if !mj_compute_node_fields(g, node, rules, random, counter) do break
 		if node.observations != nil && observations_goal_reached(g.state, node.future) {
 			node.future_computed = false
 			break
@@ -765,9 +791,23 @@ mj_apply_all_matches_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule
 	}
 }
 
+mj_replay_search_trajectory :: proc(g: ^Grid, node: ^MJ_Node, node_counter: int, changes: ^[dynamic]Cell) -> bool {
+	if node.trajectory == nil do return false
+	if node_counter >= len(node.trajectory) do return false
+	state := node.trajectory[node_counter]
+	for i in 0..<len(g.state) {
+		if g.state[i] != state[i] {
+			g.state[i] = state[i]
+			append(changes, Cell{i % g.mx, (i % (g.mx * g.my)) / g.mx, i / (g.mx * g.my)})
+		}
+	}
+	return true
+}
+
 mj_markov_one_go_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRandom, state: ^MJ_Markov_State, changes_snapshot: []Cell, first: []int, turn: int, changes: ^[dynamic]Cell, node_counter: int) -> bool {
 	if len(rules) == 0 { return false }
-	if !mj_compute_node_fields(g, node, rules, node_counter) do return false
+	if !mj_compute_node_fields(g, node, rules, random, node_counter) do return false
+	if mj_replay_search_trajectory(g, node, node_counter, changes) do return true
 	if state.last_turn >= 0 {
 		start := first[state.last_turn]
 		for ci := start; ci < len(changes_snapshot); ci += 1 {
@@ -832,7 +872,7 @@ mj_markov_all_go :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: ^MJRan
 	} else {
 		one_initial_scan(g, rules, &state.matches, state.match_mask)
 	}
-	if !mj_compute_node_fields(g, node, rules, node_counter) do return false
+	if !mj_compute_node_fields(g, node, rules, random, node_counter) do return false
 	state.last_turn = turn
 	if len(state.matches) == 0 do return false
 	mask := make([]bool, len(g.state))
@@ -874,8 +914,10 @@ mj_run_node_once_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, ra
 		map_go_initial(&node.map_state, g)
 		return true
 	}
-	if node.kind == 2 && node.potentials != nil {
-		if !mj_compute_node_fields(g, node, rules, node_counter) do return false
+	if node.kind == 2 && (node.potentials != nil || node.search) {
+		if !mj_compute_node_fields(g, node, rules, random, node_counter) do return false
+		if mj_replay_search_trajectory(g, node, node_counter, changes) do return true
+		if node.potentials == nil do return mj_run_node_once_with_changes(g, node.kind, rules, random, changes)
 		matches := make([dynamic]Match)
 		defer delete(matches)
 		match_mask := make([][]bool, len(rules))
@@ -936,7 +978,7 @@ mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, cou
 		if node.steps > 0 && counters[idx] >= node.steps { continue }
 		if node.kind == 1 {
 			changed := false
-			if node.potentials != nil {
+			if node.potentials != nil || node.search {
 				changed = mj_markov_one_go_with_fields(g, &nodes[idx], rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes, counters[idx])
 			} else {
 				changed = mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes)
@@ -1004,6 +1046,7 @@ mj_reset_runtime_range :: proc(nodes: []MJ_Node, states: []MJ_Markov_State, coun
 		active[i + 1] = 0
 		states[i].last_turn = -1
 		nodes[i].future_computed = false
+		if nodes[i].trajectory != nil { search_destroy_trajectory(nodes[i].trajectory); nodes[i].trajectory = nil }
 		nodes[i].convolution.counter = 0
 		nodes[i].convchain.counter = 0
 		if nodes[i].has_wfc {
@@ -1056,7 +1099,7 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 		}
 		if node.kind == 1 {
 			changed := false
-			if node.potentials != nil {
+			if node.potentials != nil || node.search {
 				changed = mj_markov_one_go_with_fields(g, &nodes[idx], rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes, counters[idx])
 			} else {
 				changed = mj_markov_one_go(g, rules[node.start:node.start + node.count], random, &states[idx], changes[:], first[:], counter, changes)

@@ -443,11 +443,12 @@ function convolutionFromElement(elementXml) {
   return { neighborhood: xmlAttr(start, 'neighborhood', ''), periodic: xmlBoolAttr(start, 'periodic', false), rules }
 }
 
-export function encodeMjirV1({ values, node = 'one', rules, fields = [], temperature = 0, observations = [], children, unions = [] }) {
+export function encodeMjirV1({ values, node = 'one', rules, fields = [], temperature = 0, observations = [], search, children, unions = [] }) {
   const valueBytes = [...textEncoder.encode(values.replaceAll(' ', ''))]
-  const nodeOps = (kind, steps, nodeFields = [], nodeTemperature = 0, nodeObservations = []) => [
+  const nodeOps = (kind, steps, nodeFields = [], nodeTemperature = 0, nodeObservations = [], nodeSearch) => [
     { op: 'node', kind, steps: steps ?? 0 },
     ...(nodeTemperature ? [{ op: 'temperature', value: nodeTemperature }] : []),
+    ...(nodeSearch?.enabled ? [{ op: 'search', ...nodeSearch }] : []),
     ...nodeFields.map((field) => ({ op: 'field', ...field })),
     ...nodeObservations.map((observation) => ({ op: 'observe', ...observation })),
   ]
@@ -459,12 +460,12 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
     ...(child.map ? [{ op: 'map', ...child.map }] : []),
   ]
   const childOps = (child) => {
-    if (child.children || child.map) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...childPayloadOps(child), ...(child.children ?? []).flatMap(childOps), { op: 'end' }]
-    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...childPayloadOps(child), ...child.rules]
+    if (child.children || child.map) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...(child.children ?? []).flatMap(childOps), { op: 'end' }]
+    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...child.rules]
   }
   const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
-    : (node === 'one' && fields.length === 0 && observations.length === 0 && temperature === 0 ? rules : [...nodeOps(node, 0, fields, temperature, observations), ...rules])
+    : (node === 'one' && fields.length === 0 && observations.length === 0 && temperature === 0 && !search?.enabled ? rules : [...nodeOps(node, 0, fields, temperature, observations, search), ...rules])
   const ops = [...unions.map((union) => ({ op: 'union', ...union })), ...bodyOps]
   const bytes = []
   bytes.push('M'.charCodeAt(0), 'J'.charCodeAt(0), 'I'.charCodeAt(0), 'R'.charCodeAt(0))
@@ -513,6 +514,13 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
     if (op.op === 'temperature') {
       u32le(bytes, 104)
       f64le(bytes, op.value)
+      continue
+    }
+    if (op.op === 'search') {
+      u32le(bytes, 111)
+      u32le(bytes, op.enabled ? 1 : 0)
+      u32le(bytes, op.limit ?? -1)
+      f64le(bytes, op.depthCoefficient ?? 0.5)
       continue
     }
     if (op.op === 'observe') {
@@ -732,7 +740,7 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
     return { node: tag, steps, children }
   }
-  return { node: tag, steps, rules: rulesFromElement(elementXml, inheritedSymmetry, options), fields: fieldsFromElement(elementXml), observations: observationsFromElement(elementXml), temperature: Number(xmlAttr(start, 'temperature', '0')) }
+  return { node: tag, steps, rules: rulesFromElement(elementXml, inheritedSymmetry, options), fields: fieldsFromElement(elementXml), observations: observationsFromElement(elementXml), search: searchFromElement(elementXml), temperature: Number(xmlAttr(start, 'temperature', '0')) }
 }
 
 function fieldsFromElement(elementXml) {
@@ -767,6 +775,12 @@ function pathFromElement(elementXml) {
     edges: xmlBoolAttr(start, 'edges', false),
     vertices: xmlBoolAttr(start, 'vertices', false),
   }
+}
+
+function searchFromElement(elementXml) {
+  const start = xmlRootStartTag(elementXml)
+  if (!xmlBoolAttr(start, 'search', false)) return undefined
+  return { enabled: true, limit: Number(xmlAttr(start, 'limit', '-1')), depthCoefficient: Number(xmlAttr(start, 'depthCoefficient', '0.5')) }
 }
 
 function observationsFromElement(elementXml) {
@@ -818,7 +832,7 @@ function encodePatternLiteral(data, shape) {
 
 function rulesFromElement(elementXml, inheritedSymmetry = '', options = {}) {
   const start = xmlRootStartTag(elementXml)
-  for (const attr of ['fin', 'fout', 'search']) {
+  for (const attr of ['fin', 'fout']) {
     if (xmlAttr(start, attr, '') !== '') throw new Error(`unsupported ${attr} attribute`)
   }
   const directChildren = xmlDirectChildTags(elementXml)
@@ -898,7 +912,7 @@ export function compileXmlToMjir(xml, options = {}) {
 
   const rules = rulesFromElement(xml, rootSymmetry, options)
   if (rules.length === 0) throw new Error('missing in/out attributes or child <rule> elements')
-  return encodeMjirV1({ values, node: tag, rules, fields: fieldsFromElement(xml), observations: observationsFromElement(xml), temperature: Number(xmlAttr(rootStart, 'temperature', '0')), unions: unionsFromXml(xml) })
+  return encodeMjirV1({ values, node: tag, rules, fields: fieldsFromElement(xml), observations: observationsFromElement(xml), search: searchFromElement(xml), temperature: Number(xmlAttr(rootStart, 'temperature', '0')), unions: unionsFromXml(xml) })
 }
 
 export function compileMjirV1FromXml(xml, options = {}) {
