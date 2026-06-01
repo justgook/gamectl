@@ -310,6 +310,8 @@ assert.deepEqual(tinyWfc.rules[0].maps, [{ input: 'B', positions: [true] }, { in
 const tinyMap = decodeMjirV1(compileXmlToMjir('<sequence values="BW"><map scale="2 2 1" values="DA"><rule in="W" out="DA/AD"/></map></sequence>'))
 assert.deepEqual(tinyMap.nodes, [{ kind: 5, steps: 0 }, { kind: 10, steps: 0 }])
 assert.deepEqual(tinyMap.rules[0], { op: 110, sx: { n: 2, d: 1 }, sy: { n: 2, d: 1 }, sz: { n: 1, d: 1 }, values: 'DA', unions: [], rules: [{ imx: 1, imy: 1, imz: 1, omx: 2, omy: 2, omz: 1, probability: 1, symmetry: '', input: 'W', output: 'DAAD' }] })
+const tinyMapFout = decodeMjirV1(compileXmlToMjir('<sequence values="BW"><map scale="2 2 1" values="DA"><rule in="W" fout="Out" legend="DA"/></map></sequence>', { loadRulePattern: () => ({ width: 2, height: 1, depth: 1, data: [...'DA'] }) }))
+assert.equal(tinyMapFout.rules[0].rules[0].output, 'DA')
 assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /map missing scale attribute/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)

@@ -314,8 +314,9 @@ function mapFromElement(elementXml, inheritedSymmetry, options) {
   const mapOptions = { ...options, folder: xmlAttr(start, 'folder', options.folder ?? '') }
   const rules = []
   for (const ruleTag of xmlRuleTags(elementXml)) {
-    for (const attr of ['fin', 'fout']) if (xmlAttr(ruleTag, attr, '') !== '') throw new Error(`unsupported map rule ${attr} attribute`)
     const file = xmlAttr(ruleTag, 'file')
+    const fin = xmlAttr(ruleTag, 'fin')
+    const fout = xmlAttr(ruleTag, 'fout')
     const ruleSymmetry = xmlAttr(ruleTag, 'symmetry', symmetry)
     const probability = Number(xmlAttr(ruleTag, 'p', '1'))
     if (file) {
@@ -325,11 +326,24 @@ function mapFromElement(elementXml, inheritedSymmetry, options) {
       rules.push({ input: encodePatternLiteral(split.input, split.inputShape), output: encodePatternLiteral(split.output, split.outputShape), symmetry: ruleSymmetry, probability })
       continue
     }
+    const legend = xmlAttr(ruleTag, 'legend')
     const input = xmlAttr(ruleTag, 'in')
     const output = xmlAttr(ruleTag, 'out')
-    if (!input) throw new Error('map <rule> missing in attribute')
-    if (!output) throw new Error('map <rule> missing out attribute')
-    rules.push({ input, output, symmetry: ruleSymmetry, probability })
+    let encodedInput = input
+    let encodedOutput = output
+    if (fin) {
+      if (!legend) throw new Error('map <rule fin> missing legend attribute')
+      const p = loadRuleResourcePattern(fin, legend, mapOptions)
+      encodedInput = encodePatternLiteral(p.data.join(''), { width: p.width, height: p.height, depth: p.depth })
+    }
+    if (fout) {
+      if (!legend) throw new Error('map <rule fout> missing legend attribute')
+      const p = loadRuleResourcePattern(fout, legend, mapOptions)
+      encodedOutput = encodePatternLiteral(p.data.join(''), { width: p.width, height: p.height, depth: p.depth })
+    }
+    if (!encodedInput) throw new Error('map <rule> missing in/fin attribute')
+    if (!encodedOutput) throw new Error('map <rule> missing out/fout attribute')
+    rules.push({ input: encodedInput, output: encodedOutput, symmetry: ruleSymmetry, probability })
   }
   if (rules.length === 0) throw new Error('map missing child <rule> elements')
   return { values, sx, sy, sz, rules, unions: unionsFromXml(elementXml) }

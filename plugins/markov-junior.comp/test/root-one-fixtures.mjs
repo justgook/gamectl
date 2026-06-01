@@ -165,6 +165,7 @@ export const rootSequenceModels = [
   'SnellLaw',
   'SoftPath',
   'StableCrawlers',
+  'StairsPath',
   'StochasticVoronoi',
   'StrangeDungeon',
   'StrangeNoise',
