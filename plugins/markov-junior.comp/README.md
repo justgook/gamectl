@@ -93,10 +93,11 @@ node plugins/markov-junior.comp/test/parity-root-convchain.mjs --runs=1 --steps=
 node plugins/markov-junior.comp/test/parity-root-wfc.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/parity-root-sequence.mjs --runs=1 --steps=10
 node plugins/markov-junior.comp/test/parity-csharp.mjs --group=smoke --runs=1 --steps=10
+node plugins/markov-junior.comp/test/parity-csharp-stress.mjs --group=supported --runs=3 --steps=10,50,100 --log=build.nosync/markov-junior-parity/csharp-stress/stress.jsonl
 node plugins/markov-junior.comp/test/discover-supported.mjs --show-unsupported
 node plugins/markov-junior.comp/test/parity-root-one.mjs --skip-missing-original
 node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=10 --steps=10
 node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Basic --runs=1 --steps=10 --seed=12345
 ```
 
-`discover-supported.mjs` reports separate compiler-supported, fixture-ready, parity-fixtured, known-mismatch, no-generic-original-output, unlisted, needs-config, and unsupported buckets so MJIR compiler support is not confused with byte-for-byte parity coverage. Explicit fixture configs cover supported models absent from active `models.xml`. The fuzz script runs the component twice for each model/seed, checks deterministic replay and grid invariants, and prints every seed so failures can be reproduced with `--model`, `--steps`, and `--seed`.
+`discover-supported.mjs` reports separate compiler-supported, fixture-ready, parity-fixtured, known-mismatch, no-generic-original-output, unlisted, needs-config, and unsupported buckets so MJIR compiler support is not confused with byte-for-byte parity coverage. Explicit fixture configs cover supported models absent from active `models.xml`. The fuzz script runs the component twice for each model/seed, checks deterministic replay and grid invariants, and prints every seed so failures can be reproduced with `--model`, `--steps`, and `--seed`. `parity-csharp-stress.mjs` runs resumable mass C#/Odin/component parity as model/steps/runs cases, writes JSONL progress records plus stdout/stderr files, skips passed cases on restart, and prints exact repro commands for failures.

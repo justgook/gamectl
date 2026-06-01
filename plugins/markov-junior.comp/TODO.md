@@ -263,6 +263,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 
 - [x] Component e2e test through GAMS runtime.
 - [x] Parity test invokes original MarkovJunior Odin CLI and compares final grid bytes.
+- [x] Add resumable C#/Odin/component stress parity harness with JSONL progress logs.
 - [x] `README.md` documents pure boundary, build, and parity command.
 - [x] `MJIR.md` documents current v1 tracer layout and semantics.
 - [x] Add this `TODO.md` continuation tracker.

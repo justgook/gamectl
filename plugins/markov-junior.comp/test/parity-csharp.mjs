@@ -165,10 +165,13 @@ function parityModel(name, options) {
 
 function main(argv = process.argv.slice(2)) {
   const group = argv.find((arg) => arg.startsWith('--group='))?.slice('--group='.length) ?? 'smoke'
+  const noBuild = argv.includes('--no-build')
   const defaults = { models: group === 'supported' ? supportedModels : smokeModels, runs: 1, steps: 10 }
-  const options = parseArgs(argv.filter((arg) => !arg.startsWith('--group=')), defaults)
-  run('make', [plugin])
-  run('make', ['odin'], { cwd: mjRoot })
+  const options = parseArgs(argv.filter((arg) => !arg.startsWith('--group=') && arg !== '--no-build'), defaults)
+  if (!noBuild) {
+    run('make', [plugin])
+    run('make', ['odin'], { cwd: mjRoot })
+  }
   console.log(`C#/Odin/component parity: models=${options.models.join(',')} runs=${options.runs} steps=${options.steps}`)
   for (const model of options.models) parityModel(model, options)
 }
