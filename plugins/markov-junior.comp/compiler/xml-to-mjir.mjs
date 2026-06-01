@@ -290,6 +290,51 @@ function overlapAgrees(p1, p2, dx, dy, n) {
   return true
 }
 
+function parseScalePair(s) {
+  if (s.includes('/')) {
+    const [n, d] = s.split('/').map(Number)
+    return { n, d }
+  }
+  return { n: Number(s), d: 1 }
+}
+
+function mapFromElement(elementXml, inheritedSymmetry, options) {
+  const start = xmlRootStartTag(elementXml)
+  const scale = xmlAttr(start, 'scale')
+  const values = xmlAttr(start, 'values')
+  if (!scale) throw new Error('map missing scale attribute')
+  if (!values) throw new Error('map missing values attribute')
+  const scaleParts = scale.trim().split(/\s+/)
+  if (scaleParts.length !== 3) throw new Error('map scale must have 3 parts')
+  const [sx, sy, sz] = scaleParts.map(parseScalePair)
+  const direct = xmlDirectChildTags(elementXml)
+  const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => childTag !== 'rule' && childTag !== 'union')
+  if (unsupported.length > 0) throw new Error(`map with nested child nodes is unsupported: ${unsupported.join(', ')}`)
+  const symmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
+  const mapOptions = { ...options, folder: xmlAttr(start, 'folder', options.folder ?? '') }
+  const rules = []
+  for (const ruleTag of xmlRuleTags(elementXml)) {
+    for (const attr of ['fin', 'fout']) if (xmlAttr(ruleTag, attr, '') !== '') throw new Error(`unsupported map rule ${attr} attribute`)
+    const file = xmlAttr(ruleTag, 'file')
+    const ruleSymmetry = xmlAttr(ruleTag, 'symmetry', symmetry)
+    const probability = Number(xmlAttr(ruleTag, 'p', '1'))
+    if (file) {
+      const legend = xmlAttr(ruleTag, 'legend')
+      if (!legend) throw new Error('map <rule file> missing legend attribute')
+      const split = splitFileRulePattern(loadRuleResourcePattern(file, legend, mapOptions))
+      rules.push({ input: encodePatternLiteral(split.input, split.inputShape), output: encodePatternLiteral(split.output, split.outputShape), symmetry: ruleSymmetry, probability })
+      continue
+    }
+    const input = xmlAttr(ruleTag, 'in')
+    const output = xmlAttr(ruleTag, 'out')
+    if (!input) throw new Error('map <rule> missing in attribute')
+    if (!output) throw new Error('map <rule> missing out attribute')
+    rules.push({ input, output, symmetry: ruleSymmetry, probability })
+  }
+  if (rules.length === 0) throw new Error('map missing child <rule> elements')
+  return { values, sx, sy, sz, rules, unions: unionsFromXml(elementXml) }
+}
+
 function wfcOverlapFromElement(elementXml, inheritedSymmetry, options) {
   const start = xmlRootStartTag(elementXml)
   const sampleName = xmlAttr(start, 'sample')
@@ -393,7 +438,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
   ]
   const childOps = (child) => {
     if (child.children) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...child.children.flatMap(childOps), { op: 'end' }]
-    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...(child.path ? [{ op: 'path', ...child.path }] : []), ...(child.convolution ? [{ op: 'convolution', ...child.convolution }] : []), ...(child.convchain ? [{ op: 'convchain', ...child.convchain }] : []), ...(child.wfc ? [{ op: 'wfc', ...child.wfc }] : []), ...child.rules]
+    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations), ...(child.path ? [{ op: 'path', ...child.path }] : []), ...(child.convolution ? [{ op: 'convolution', ...child.convolution }] : []), ...(child.convchain ? [{ op: 'convchain', ...child.convchain }] : []), ...(child.wfc ? [{ op: 'wfc', ...child.wfc }] : []), ...(child.map ? [{ op: 'map', ...child.map }] : []), ...child.rules]
   }
   const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
@@ -408,7 +453,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
 
   for (const op of ops) {
     if (op.op === 'node') {
-      const kinds = { one: 1, all: 2, prl: 3, markov: 4, sequence: 5, path: 6, convolution: 7, convchain: 8, wfc: 9 }
+      const kinds = { one: 1, all: 2, prl: 3, markov: 4, sequence: 5, path: 6, convolution: 7, convchain: 8, wfc: 9, map: 10 }
       if (!kinds[op.kind]) throw new Error(`unsupported node kind: ${op.kind}`)
       u32le(bytes, 100)
       u32le(bytes, kinds[op.kind])
@@ -506,6 +551,30 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
       for (const map of op.maps) {
         bytes.push(map.input.charCodeAt(0))
         for (const present of map.positions) bytes.push(present ? 1 : 0)
+      }
+      continue
+    }
+    if (op.op === 'map') {
+      const valuesBytes = [...textEncoder.encode(op.values)]
+      u32le(bytes, 110)
+      for (const pair of [op.sx, op.sy, op.sz]) { u32le(bytes, pair.n); u32le(bytes, pair.d) }
+      u32le(bytes, valuesBytes.length); bytes.push(...valuesBytes)
+      u32le(bytes, op.unions.length)
+      for (const union of op.unions) {
+        bytes.push(union.symbol.charCodeAt(0))
+        const unionValues = [...textEncoder.encode(union.values)]
+        u32le(bytes, unionValues.length); bytes.push(...unionValues)
+      }
+      u32le(bytes, op.rules.length)
+      for (const rule of op.rules) {
+        const input = parsePattern(rule.input)
+        const output = parsePattern(rule.output)
+        const symmetryBytes = [...textEncoder.encode(rule.symmetry ?? '')]
+        u32le(bytes, input.width); u32le(bytes, input.height); u32le(bytes, input.depth)
+        u32le(bytes, output.width); u32le(bytes, output.height); u32le(bytes, output.depth)
+        f64le(bytes, rule.probability ?? 1)
+        u32le(bytes, symmetryBytes.length); bytes.push(...symmetryBytes)
+        bytes.push(...input.data, ...output.data)
       }
       continue
     }
@@ -628,9 +697,13 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
     const wfc = wfcOverlapFromElement(elementXml, inheritedSymmetry, options)
     return { node: tag, steps, rules: [], wfc }
   }
+  if (tag === 'map') {
+    const map = mapFromElement(elementXml, inheritedSymmetry, options)
+    return { node: tag, steps, rules: [], map }
+  }
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(elementXml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'markov', 'sequence'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'map', 'markov', 'sequence'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} child has unsupported direct children: ${unsupported.join(', ')}`)
     const children = direct.map((childXml) => nodeFromElement(childXml, inheritedSymmetry, options))
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
@@ -765,8 +838,8 @@ function rulesFromElement(elementXml, inheritedSymmetry = '', options = {}) {
 
 export function compileXmlToMjir(xml, options = {}) {
   const tag = xmlRootTag(xml)
-  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence' && tag !== 'path' && tag !== 'convolution' && tag !== 'convchain' && tag !== 'wfc') {
-    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>/<path>/<convolution>/<convchain>/<wfc>, got ${tag || 'unknown'}`)
+  if (tag !== 'one' && tag !== 'all' && tag !== 'prl' && tag !== 'markov' && tag !== 'sequence' && tag !== 'path' && tag !== 'convolution' && tag !== 'convchain' && tag !== 'wfc' && tag !== 'map') {
+    throw new Error(`MJIR v1 compiler supports only root <one>/<all>/<prl>/<markov>/<sequence>/<path>/<convolution>/<convchain>/<wfc>/<map>, got ${tag || 'unknown'}`)
   }
   const rootStart = xmlRootStartTag(xml)
   const values = xmlAttr(rootStart, 'values')
@@ -776,11 +849,11 @@ export function compileXmlToMjir(xml, options = {}) {
   options = { ...options, folder: xmlAttr(rootStart, 'folder', options.folder ?? '') }
   if (tag === 'markov' || tag === 'sequence') {
     const direct = xmlDirectChildTags(xml)
-    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'markov', 'sequence', 'union'].includes(childTag))
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'map', 'markov', 'sequence', 'union'].includes(childTag))
     if (unsupported.length > 0) throw new Error(`${tag} root has unsupported direct children: ${unsupported.join(', ')}`)
     const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => nodeFromElement(childXml, rootSymmetry, options))
     if (children.length === 0) throw new Error(`${tag} root missing child nodes`)
-    for (const child of children) if (!child.children && !child.path && !child.convolution && !child.convchain && !child.wfc && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
+    for (const child of children) if (!child.children && !child.path && !child.convolution && !child.convchain && !child.wfc && !child.map && child.rules.length === 0) throw new Error(`child <${child.node}> missing in/out attributes or child <rule> elements`)
     return encodeMjirV1({ values, node: tag, children, unions: unionsFromXml(xml) })
   }
 
@@ -795,6 +868,9 @@ export function compileXmlToMjir(xml, options = {}) {
   }
   if (tag === 'wfc') {
     return encodeMjirV1({ values, node: tag, rules: [{ op: 'wfc', ...wfcOverlapFromElement(xml, rootSymmetry, options) }], unions: unionsFromXml(xml) })
+  }
+  if (tag === 'map') {
+    return encodeMjirV1({ values, node: tag, rules: [{ op: 'map', ...mapFromElement(xml, rootSymmetry, options) }], unions: unionsFromXml(xml) })
   }
 
   const rules = rulesFromElement(xml, rootSymmetry, options)

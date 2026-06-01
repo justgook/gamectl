@@ -27,6 +27,8 @@ MJ_Node :: struct {
 	has_convchain: bool,
 	wfc: WFC_State,
 	has_wfc: bool,
+	map_state: Map_State,
+	has_map: bool,
 	temperature: f64,
 }
 
@@ -181,6 +183,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if nodes[i].has_convolution do convolution_destroy(&nodes[i].convolution)
 			if nodes[i].has_convchain do convchain_destroy(&nodes[i].convchain)
 			if nodes[i].has_wfc do wfc_destroy(&nodes[i].wfc)
+			if nodes[i].has_map do map_destroy(&nodes[i].map_state)
 		}
 		delete(nodes)
 	}
@@ -203,9 +206,11 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	current_has_convchain := false
 	current_wfc: WFC_State
 	current_has_wfc := false
+	current_map: Map_State
+	current_has_map := false
 	current_temperature := 0.0
-	flush_node :: proc(nodes: ^[dynamic]MJ_Node, kind: u32, start, count, steps: int, fields: ^[]Field_State, observations: ^[]Observation_State, potentials: ^[]int, future: ^[]i32, path: ^Path_State, has_path: ^bool, convolution: ^Convolution_State, has_convolution: ^bool, convchain: ^ConvChain_State, has_convchain: ^bool, wfc: ^WFC_State, has_wfc: ^bool, temperature: ^f64) {
-		append(nodes, MJ_Node{kind = kind, start = start, count = count, steps = steps, fields = fields^, observations = observations^, potentials = potentials^, future = future^, path = path^, has_path = has_path^, convolution = convolution^, has_convolution = has_convolution^, convchain = convchain^, has_convchain = has_convchain^, wfc = wfc^, has_wfc = has_wfc^, temperature = temperature^})
+	flush_node :: proc(nodes: ^[dynamic]MJ_Node, kind: u32, start, count, steps: int, fields: ^[]Field_State, observations: ^[]Observation_State, potentials: ^[]int, future: ^[]i32, path: ^Path_State, has_path: ^bool, convolution: ^Convolution_State, has_convolution: ^bool, convchain: ^ConvChain_State, has_convchain: ^bool, wfc: ^WFC_State, has_wfc: ^bool, map_state: ^Map_State, has_map: ^bool, temperature: ^f64) {
+		append(nodes, MJ_Node{kind = kind, start = start, count = count, steps = steps, fields = fields^, observations = observations^, potentials = potentials^, future = future^, path = path^, has_path = has_path^, convolution = convolution^, has_convolution = has_convolution^, convchain = convchain^, has_convchain = has_convchain^, wfc = wfc^, has_wfc = has_wfc^, map_state = map_state^, has_map = has_map^, temperature = temperature^})
 		fields^ = nil
 		observations^ = nil
 		potentials^ = nil
@@ -218,6 +223,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		has_convchain^ = false
 		wfc^ = {}
 		has_wfc^ = false
+		map_state^ = {}
+		has_map^ = false
 		temperature^ = 0
 	}
 	root_marker_seen := false
@@ -227,13 +234,13 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		if op == 100 {
 			kind := mj_read_u32(model, &pos, &ok)
 			marker_steps := int(mj_read_u32(model, &pos, &ok))
-			if !ok || kind < 1 || kind > 9 { return mj_fail("invalid model-ir node kind") }
+			if !ok || kind < 1 || kind > 10 { return mj_fail("invalid model-ir node kind") }
 			if (kind == 4 || kind == 5) && !root_marker_seen && len(nodes) == 0 && !node_open {
 				container_kind = kind
 				root_marker_seen = true
 			} else if kind == 4 || kind == 5 {
-				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc {
-					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_temperature)
+				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 					node_open = false
 				}
 				node_start = len(rules)
@@ -242,8 +249,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				append(&nodes, MJ_Node{kind = kind, steps = marker_steps, children_start = container_index + 1})
 				append(&container_stack, container_index)
 			} else {
-				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc {
-					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_temperature)
+				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 				}
 				node_kind = kind
 				node_steps = marker_steps
@@ -259,8 +266,8 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			grid_add_union(&g, symbol, string(model[pos:pos + union_values_len]))
 			pos += union_values_len
 		} else if op == 102 {
-			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc {
-				flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_temperature)
+			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+				flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 				node_open = false
 			}
 			if len(container_stack) == 0 { return mj_fail("model-ir container end without start") }
@@ -397,6 +404,42 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if !ok { return mj_fail("invalid model-ir wfc payload") }
 			wfc_base_finish(&current_wfc, &g)
 			current_has_wfc = true
+		} else if op == 110 {
+			nx := int(mj_read_u32(model, &pos, &ok)); dx := int(mj_read_u32(model, &pos, &ok))
+			ny := int(mj_read_u32(model, &pos, &ok)); dy := int(mj_read_u32(model, &pos, &ok))
+			nz := int(mj_read_u32(model, &pos, &ok)); dz := int(mj_read_u32(model, &pos, &ok))
+			values_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || nx <= 0 || dx <= 0 || ny <= 0 || dy <= 0 || nz <= 0 || dz <= 0 || values_len <= 0 || pos + values_len > len(model) { return mj_fail("invalid model-ir map header") }
+			map_values := string(model[pos:pos + values_len]); pos += values_len
+			current_map = Map_State{nx = nx, dx = dx, ny = ny, dy = dy, nz = nz, dz = dz, grid = grid_init(g.mx * nx / dx, g.my * ny / dy, g.mz * nz / dz, map_values, false)}
+			union_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || union_count < 0 { return mj_fail("invalid model-ir map union count") }
+			for _u in 0..<union_count {
+				if pos >= len(model) { return mj_fail("truncated model-ir map union symbol") }
+				symbol := model[pos]; pos += 1
+				ulen := int(mj_read_u32(model, &pos, &ok))
+				if !ok || ulen < 0 || pos + ulen > len(model) { return mj_fail("truncated model-ir map union values") }
+				grid_add_union(&current_map.grid, symbol, string(model[pos:pos + ulen])); pos += ulen
+			}
+			rule_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || rule_count <= 0 { return mj_fail("invalid model-ir map rule count") }
+			for _r in 0..<rule_count {
+				imx := int(mj_read_u32(model, &pos, &ok)); imy := int(mj_read_u32(model, &pos, &ok)); imz := int(mj_read_u32(model, &pos, &ok))
+				omx := int(mj_read_u32(model, &pos, &ok)); omy := int(mj_read_u32(model, &pos, &ok)); omz := int(mj_read_u32(model, &pos, &ok))
+				probability := mj_read_f64(model, &pos, &ok)
+				symmetry_len := int(mj_read_u32(model, &pos, &ok))
+				if !ok || imx <= 0 || imy <= 0 || imz <= 0 || omx <= 0 || omy <= 0 || omz <= 0 || symmetry_len < 0 { return mj_fail("invalid model-ir map rule header") }
+				if pos + symmetry_len > len(model) { return mj_fail("truncated model-ir map rule symmetry") }
+				symmetry := string(model[pos:pos + symmetry_len]); pos += symmetry_len
+				input_len := imx * imy * imz
+				output_len := omx * omy * omz
+				if pos + input_len + output_len > len(model) { return mj_fail("truncated model-ir map rule data") }
+				input_chars := model[pos:pos + input_len]; pos += input_len
+				output_chars := model[pos:pos + output_len]; pos += output_len
+				base := rule_from_char_arrays_grids(&g, &current_map.grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
+				append_rule_symmetries(&current_map.grid, &current_map.rules, base, symmetry)
+			}
+			current_has_map = true
 		} else if op == 106 {
 			from_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || from_len <= 0 || pos + from_len > len(model) { return mj_fail("invalid model-ir path from") }
@@ -444,13 +487,13 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 		}
 	}
 
-	if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc {
-		flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_temperature)
+	if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+		flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
 	}
 	if len(container_stack) != 0 { return mj_fail("model-ir unclosed container") }
 	if len(rules) == 0 {
 		has_executable := false
-		for n in nodes do if (n.kind == 6 && n.has_path) || (n.kind == 7 && n.has_convolution) || (n.kind == 8 && n.has_convchain) || (n.kind == 9 && n.has_wfc) { has_executable = true }
+		for n in nodes do if (n.kind == 6 && n.has_path) || (n.kind == 7 && n.has_convolution) || (n.kind == 8 && n.has_convchain) || (n.kind == 9 && n.has_wfc) || (n.kind == 10 && n.has_map) { has_executable = true }
 		if !has_executable { return mj_fail("model-ir contains no rules") }
 	}
 	if len(nodes) == 0 { append(&nodes, MJ_Node{kind = node_kind, start = 0, count = len(rules)}) }
@@ -503,6 +546,11 @@ mj_run_node_with_count :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, random: 
 		changed := wfc_go(&node.wfc, g, random)
 		if changed do return 1, true
 		return 0, false
+	}
+	if node.kind == 10 {
+		if node.map_state.mapped do return 0, false
+		map_go_initial(&node.map_state, g)
+		return 1, true
 	}
 	if node.kind == 1 && node.potentials != nil do return mj_run_one_node_with_fields_count(g, node, rules, random, steps)
 	if node.kind == 2 && node.potentials != nil do return mj_run_all_node_with_fields_count(g, node, rules, random, steps)
@@ -791,6 +839,11 @@ mj_run_node_once_with_fields :: proc(g: ^Grid, node: ^MJ_Node, rules: []Rule, ra
 	if node.kind == 7 do return convolution_go(&node.convolution, g, random)
 	if node.kind == 8 do return convchain_go(&node.convchain, g, random)
 	if node.kind == 9 do return wfc_go(&node.wfc, g, random)
+	if node.kind == 10 {
+		if node.map_state.mapped do return false
+		map_go_initial(&node.map_state, g)
+		return true
+	}
 	if node.kind == 2 && node.potentials != nil {
 		if !mj_compute_node_fields(g, node, rules, node_counter) do return false
 		matches := make([dynamic]Match)
@@ -846,7 +899,7 @@ mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, cou
 			child += node.children_count
 			continue
 		}
-		if node.kind != 6 && node.kind != 7 && node.kind != 8 && node.kind != 9 && node.count <= 0 { continue }
+		if node.kind != 6 && node.kind != 7 && node.kind != 8 && node.kind != 9 && node.kind != 10 && node.count <= 0 { continue }
 		if node.steps > 0 && counters[idx] >= node.steps { continue }
 		if node.kind == 1 {
 			changed := false
@@ -925,6 +978,7 @@ mj_reset_runtime_range :: proc(nodes: []MJ_Node, states: []MJ_Markov_State, coun
 			nodes[i].wfc.firstgo = true
 			nodes[i].wfc.stacksize = 0
 		}
+		if nodes[i].has_map do nodes[i].map_state.mapped = false
 		if states[i].matches != nil do clear(&states[i].matches)
 		if states[i].match_mask != nil {
 			for r in 0..<len(states[i].match_mask) { for c in 0..<len(states[i].match_mask[r]) { states[i].match_mask[r][c] = false } }
@@ -960,7 +1014,7 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 			child^ += node.children_count + 1
 			continue
 		}
-		if (node.kind != 6 && node.kind != 7 && node.kind != 8 && node.kind != 9 && node.count <= 0) || (node.steps > 0 && counters[idx] >= node.steps) {
+		if (node.kind != 6 && node.kind != 7 && node.kind != 8 && node.kind != 9 && node.kind != 10 && node.count <= 0) || (node.steps > 0 && counters[idx] >= node.steps) {
 			child^ += 1
 			continue
 		}

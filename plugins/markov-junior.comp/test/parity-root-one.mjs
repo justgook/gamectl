@@ -112,8 +112,8 @@ export function parityModel(name, { runs, steps }) {
 
     const actual = runComponent(
       modelIr,
-      initialGridFromXml(xml, golden.width, golden.height, golden.depth),
-      { width: golden.width, height: golden.height, depth: golden.depth, seed, 'max-steps': steps },
+      initialGridFromXml(xml, config.width, config.height, config.depth),
+      { width: config.width, height: config.height, depth: config.depth, seed, 'max-steps': steps },
     )
 
     assertSameGrid(name, seed, actual, golden)

@@ -110,6 +110,41 @@ function decodeMjirV1(bytes) {
       rules.push({ op, n, temperature, black, white, on, weights })
       continue
     }
+    if (op === 110) {
+      const sx = { n: readU32(bytes, pos), d: readU32(bytes, pos + 4) }; pos += 8
+      const sy = { n: readU32(bytes, pos), d: readU32(bytes, pos + 4) }; pos += 8
+      const sz = { n: readU32(bytes, pos), d: readU32(bytes, pos + 4) }; pos += 8
+      const valuesLen = readU32(bytes, pos); pos += 4
+      const mapValues = String.fromCharCode(...bytes.slice(pos, pos + valuesLen)); pos += valuesLen
+      const unionCount = readU32(bytes, pos); pos += 4
+      const unions = []
+      for (let ui = 0; ui < unionCount; ui++) {
+        const symbol = String.fromCharCode(bytes[pos]); pos += 1
+        const len = readU32(bytes, pos); pos += 4
+        const values = String.fromCharCode(...bytes.slice(pos, pos + len)); pos += len
+        unions.push({ symbol, values })
+      }
+      const ruleCount = readU32(bytes, pos); pos += 4
+      const mapRules = []
+      for (let ri = 0; ri < ruleCount; ri++) {
+        const imx = readU32(bytes, pos); pos += 4
+        const imy = readU32(bytes, pos); pos += 4
+        const imz = readU32(bytes, pos); pos += 4
+        const omx = readU32(bytes, pos); pos += 4
+        const omy = readU32(bytes, pos); pos += 4
+        const omz = readU32(bytes, pos); pos += 4
+        const probability = readF64(bytes, pos); pos += 8
+        const symmetryLen = readU32(bytes, pos); pos += 4
+        const symmetry = String.fromCharCode(...bytes.slice(pos, pos + symmetryLen)); pos += symmetryLen
+        const inputLen = imx * imy * imz
+        const outputLen = omx * omy * omz
+        const input = String.fromCharCode(...bytes.slice(pos, pos + inputLen)); pos += inputLen
+        const output = String.fromCharCode(...bytes.slice(pos, pos + outputLen)); pos += outputLen
+        mapRules.push({ imx, imy, imz, omx, omy, omz, probability, symmetry, input, output })
+      }
+      rules.push({ op, sx, sy, sz, values: mapValues, unions, rules: mapRules })
+      continue
+    }
     if (op === 109) {
       const n = readU32(bytes, pos); pos += 4
       const periodic = readU32(bytes, pos) !== 0; pos += 4
@@ -272,7 +307,10 @@ assert.deepEqual(tinyWfc.rules[0].op, 109)
 assert.deepEqual(tinyWfc.rules[0].values, 'W')
 assert.deepEqual(tinyWfc.rules[0].patterns, [[0]])
 assert.deepEqual(tinyWfc.rules[0].maps, [{ input: 'B', positions: [true] }, { input: 'W', positions: [true] }])
-assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /supports only root <one>\/<all>\/<prl>\/<markov>\/<sequence>\/<path>/)
+const tinyMap = decodeMjirV1(compileXmlToMjir('<sequence values="BW"><map scale="2 2 1" values="DA"><rule in="W" out="DA/AD"/></map></sequence>'))
+assert.deepEqual(tinyMap.nodes, [{ kind: 5, steps: 0 }, { kind: 10, steps: 0 }])
+assert.deepEqual(tinyMap.rules[0], { op: 110, sx: { n: 2, d: 1 }, sy: { n: 2, d: 1 }, sz: { n: 1, d: 1 }, values: 'DA', unions: [], rules: [{ imx: 1, imy: 1, imz: 1, omx: 2, omy: 2, omz: 1, probability: 1, symmetry: '', input: 'W', output: 'DAAD' }] })
+assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /map missing scale attribute/)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)
 
