@@ -67,11 +67,7 @@ export const explicitModelConfigs = {
 
 export const knownParityMismatchModels = []
 
-export const noGenericOriginalOutputModels = [
-  'BasicSnake',
-  'Chase',
-  'Wilson',
-]
+export const noGenericOriginalOutputModels = []
 
 export const rootMarkovModels = [
   'Backtracker',
@@ -92,6 +88,7 @@ export const rootSequenceModels = [
   'BasicBrickWall',
   'BasicKeys',
   'BasicSkyline',
+  'BasicSnake',
   'BasicDijkstraDungeon',
   'BasicDijkstraFill',
   'BasicDungeonGrowth',
@@ -106,6 +103,7 @@ export const rootSequenceModels = [
   'Cave',
   'CaveContour',
   'CentralCrawlers',
+  'Chase',
   'Circuit',
   'ConnectedCaves',
   'ConstrainedCaves',
@@ -175,6 +173,7 @@ export const rootSequenceModels = [
   'Tetris',
   'Texture',
   'Voronoi',
+  'Wilson',
   'WolfBasedApproach',
 ]
 

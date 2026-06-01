@@ -131,6 +131,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `BasicBrickWall.xml`
 - [x] `BasicDijkstraDungeon.xml`
 - [x] `BasicDijkstraFill.xml`
+- [x] `BasicSnake.xml`
 - [x] `BasicDungeonGrowth.xml`
 - [x] `BernoulliPercolation.xml`
 - [x] `BasicKeys.xml`
@@ -145,6 +146,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `Cave.xml`
 - [x] `CaveContour.xml`
 - [x] `CentralCrawlers.xml`
+- [x] `Chase.xml`
 - [x] `Circuit.xml`
 - [x] `ConnectedCaves.xml`
 - [x] `ConstrainedCaves.xml`
@@ -214,6 +216,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] `Tetris.xml`
 - [x] `Texture.xml`
 - [x] `Voronoi.xml`
+- [x] `Wilson.xml`
 - [x] `WolfBasedApproach.xml`
 
 ### Next candidate fixtures
@@ -226,7 +229,7 @@ This tracks the parity-first migration of MarkovJunior into a pure GAMS WASM com
 - [x] Diagnosed nested markov child `<prl>/<all>` context propagation: fixed `Tetris.xml`.
 - [x] Nested `<markov>` containing `<sequence>` fixtures: `FireNoise.xml`, `HamiltonianPath.xml`, `MultiHeadedDungeon.xml`, `MultiHeadedWalkDungeon.xml`.
 - [x] Discovery separates compiler-supported models whose original runner emits no generic parity output.
-- [ ] `BasicSnake.xml`/`Wilson.xml`/`Chase.xml` currently produce no original output under the generic parity config.
+- [x] `BasicSnake.xml`/`Wilson.xml`/`Chase.xml` are active in the local original `models.xml` and pass Odin/C#/component parity.
 - [x] Diagnosed `Division.xml`/`Dwarves.xml`: root sequence must stop when it completes instead of resetting/repeating until `max-steps`.
 - [x] Explicit config metadata for models absent from active `models.xml`: `RandomWalk.xml`, `LoopErasedWalk.xml`, `BasicSkyline.xml`, `Crawlers.xml`, `GoToGradient.xml`, `ParallelWalk.xml`, `Rectangle.xml`, `SequentialSnake.xml`, `StableCrawlers.xml`, `BasicKeys.xml`.
 - [x] `RandomWalk.xml` parity fixture.
@@ -291,4 +294,4 @@ nix develop -c node plugins/markov-junior.comp/test/fuzz-root-one.mjs --model=Ba
 
 ## Latest status
 
-Root `<one>`, `<all>`, `<prl>`, root `<convolution>`, `<convchain>` sequence models, overlap-WFC sequence models, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, root `<sequence>` models containing `<convolution>` nodes, `<convchain>` nodes, and overlap-WFC nodes are covered. Discovery currently reports 134 compiler-supported XML models, 134 fixture-ready models, 131 parity-fixtured models, 0 known-mismatch models, 3 no-generic-original-output models (`BasicSnake`, `Wilson`, `Chase`), 0 unlisted fixture-ready models, 0 compiler-supported models that need explicit config, and 25 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure. `parity-csharp.mjs` provides a three-way C# original vs Odin port vs WASM component parity smoke/full-supported harness; the full supported fixture set currently passes for `--runs=1 --steps=10`.
+Root `<one>`, `<all>`, `<prl>`, root `<convolution>`, `<convchain>` sequence models, overlap-WFC sequence models, simple root `<markov>`, and simple/nested root `<sequence>` fixtures listed above pass byte-for-byte against the original Odin runner for 10 steps using the seed emitted in the original output filename. Root and nested field-guided fixtures, non-search observation fixtures, path fixtures, nested-container fixtures, root `<sequence>` models containing `<convolution>` nodes, `<convchain>` nodes, and overlap-WFC nodes are covered. Discovery currently reports 134 compiler-supported XML models, 134 fixture-ready models, 134 parity-fixtured models, 0 known-mismatch models, 0 no-generic-original-output models, 0 unlisted fixture-ready models, 0 compiler-supported models that need explicit config, and 25 unsupported models. Fuzz/replay testing also verifies deterministic component output for random or explicit seeds and prints reproduction commands on failure. `parity-csharp.mjs` provides a three-way C# original vs Odin port vs WASM component parity smoke/full-supported harness; the full supported fixture set currently passes for `--runs=1 --steps=10`.
