@@ -2895,6 +2895,78 @@ mod tests {
     }
 
     #[test]
+    fn markov_junior_session_create_step_and_dismiss() {
+        let plugin = "../../../build.nosync/plugins/markov-junior.comp.wasm";
+        if !std::path::Path::new(plugin).exists() {
+            eprintln!(
+                "skipping markov-junior session test; build it with `make build.nosync/plugins/markov-junior.comp.wasm`"
+            );
+            return;
+        }
+
+        let repo = PathBuf::from("../../..").canonicalize().unwrap();
+        let runtime = Runtime::new_at(repo.clone(), test_preopens(&repo)).unwrap();
+        runtime
+            .add_plugins(vec!["build.nosync/plugins/markov-junior.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let model_ir = serde_json::json!([
+            77, 74, 73, 82, 1, 0, 0, 0, 2, 0, 0, 0, 66, 87, 1, 0, 0, 0, 2,
+            0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+            0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0,
+            66, 87
+        ]);
+        let initial = serde_json::json!([0, 0, 0, 0, 0, 0]);
+        let config = serde_json::json!({ "width": 3, "height": 2, "depth": 1, "seed": 42 });
+
+        let created = runtime
+            .invoke(
+                "markov-junior/markov-junior::create",
+                serde_json::json!([model_ir, initial, config]),
+            )
+            .unwrap();
+        let state = created.get("ok").unwrap();
+        let session = state.get("handle").unwrap().clone();
+        assert_eq!(state["grid"]["steps-run"], serde_json::json!(0));
+        assert_eq!(state["grid"]["cells"], serde_json::json!([0, 0, 0, 0, 0, 0]));
+
+        let stepped = runtime
+            .invoke(
+                "markov-junior/markov-junior::step",
+                serde_json::json!([session.clone(), 2]),
+            )
+            .unwrap();
+        assert_eq!(stepped["ok"]["steps-run"], serde_json::json!(2));
+        assert_eq!(
+            stepped["ok"]["cells"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|value| **value == serde_json::json!(1))
+                .count(),
+            2
+        );
+
+        let finished = runtime
+            .invoke(
+                "markov-junior/markov-junior::step",
+                serde_json::json!([session.clone(), 10]),
+            )
+            .unwrap();
+        assert_eq!(finished["ok"]["done"], serde_json::json!(true));
+        assert_eq!(finished["ok"]["cells"], serde_json::json!([1, 1, 1, 1, 1, 1]));
+
+        let dismissed = runtime
+            .invoke(
+                "markov-junior/markov-junior::dismiss",
+                serde_json::json!([session.clone()]),
+            )
+            .unwrap();
+        assert_eq!(dismissed, serde_json::json!({ "ok": null }));
+        runtime.release_resource(session).unwrap();
+    }
+
+    #[test]
     fn image_component_opens_exports_and_saves_files() {
         let image_plugin = "../../../build.nosync/plugins/image.comp.wasm";
         if !std::path::Path::new(image_plugin).exists() {
