@@ -102,6 +102,7 @@ export const rootSequenceModels = [
   'BiasedGrowthContraction',
   'BiasedMazeGrowth',
   'BiasedVoronoi',
+  'CarmaTower',
   'Cave',
   'CaveContour',
   'CentralCrawlers',
@@ -228,6 +229,6 @@ export function configForModel(modelsXml, name) {
   const width = Number(tag.match(/\bwidth="(\d+)"/)?.[1] ?? size)
   const height = Number(tag.match(/\bheight="(\d+)"/)?.[1] ?? (tag.match(/\bd="3"/) ? size : 1))
   if (!Number.isInteger(size) && (!Number.isInteger(width) || !Number.isInteger(height))) throw new Error(`${name}: models.xml entry missing size`)
-  const depth = tag.match(/\bd="3"/) ? height : 1
+  const depth = tag.match(/\bheight="(\d+)"/) ? height : (tag.match(/\bd="3"/) ? height : 1)
   return { width: Number(tag.match(/\blength="(\d+)"/)?.[1] ?? width), height: Number(tag.match(/\bwidth="(\d+)"/)?.[1] ?? size), depth }
 }

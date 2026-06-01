@@ -304,8 +304,6 @@ function mapFromElement(elementXml, inheritedSymmetry, options) {
   const values = xmlAttr(start, 'values')
   if (!scale) throw new Error('map missing scale attribute')
   if (!values) throw new Error('map missing values attribute')
-  if (xmlAttr(start, 'outputValues', '') !== '') throw new Error('map outputValues attribute is unsupported')
-  if (xmlAttr(start, 'transparent', '') !== '') throw new Error('map transparent attribute is unsupported')
   const scaleParts = scale.trim().split(/\s+/)
   if (scaleParts.length !== 3) throw new Error('map scale must have 3 parts')
   const [sx, sy, sz] = scaleParts.map(parseScalePair)

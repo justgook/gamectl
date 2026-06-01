@@ -314,7 +314,7 @@ const tinyMapFout = decodeMjirV1(compileXmlToMjir('<sequence values="BW"><map sc
 assert.equal(tinyMapFout.rules[0].rules[0].output, 'DA')
 assert.deepEqual(decodeMjirV1(compileXmlToMjir('<sequence values="BW"><map scale="2 2 1" values="DA"><rule in="W" out="DA/AD"/><sequence><all in="D" out="A"/></sequence></map></sequence>')).nodes, [{ kind: 5, steps: 0 }, { kind: 10, steps: 0 }, { kind: 5, steps: 0 }, { kind: 2, steps: 0 }])
 assert.throws(() => compileXmlToMjir('<map values="BW" in="B" out="W"/>'), /map missing scale attribute/)
-assert.throws(() => compileXmlToMjir('<map scale="1 1 1" values="BW" outputValues="B"/>'), /outputValues/)
+assert.equal(decodeMjirV1(compileXmlToMjir('<map scale="1 1 1" values="BW" outputValues="B" transparent="W"><rule in="B" out="W"/></map>')).rules[0].op, 110)
 assert.throws(() => compileXmlToMjir('<one values="BW" out="W"/>'), /missing in attribute/)
 assert.throws(() => compileXmlToMjir('<all values="BW"><rule out="W"/></all>'), /child <rule> missing in attribute/)
 
