@@ -42,6 +42,24 @@ MJ_Markov_State :: struct {
 	last_turn: int,
 }
 
+MJ_Runtime_Session :: struct {
+	g: Grid,
+	rules: [dynamic]Rule,
+	nodes: [dynamic]MJ_Node,
+	container_kind: u32,
+	random: MJRandom,
+	states: []MJ_Markov_State,
+	counters: []int,
+	positions: []int,
+	active: []int,
+	changes: [dynamic]Cell,
+	first: [dynamic]int,
+	child: int,
+	steps_run: u32,
+	done: bool,
+}
+
+
 mj_parse_sum_number :: proc(text: string, pos: ^int) -> int {
 	value := 0
 	for pos^ < len(text) && text[pos^] >= '0' && text[pos^] <= '9' {
@@ -84,6 +102,40 @@ mj_core_run :: proc "c" (
 	model := mj_core_input_slice(model_ptr, model_len)
 	initial := mj_core_input_slice(initial_ptr, initial_len)
 	return mj_run_mjir_v1(model, initial, width, height, depth, seed, max_steps)
+}
+
+@(export)
+mj_core_session_create :: proc "c" (
+	model_ptr: rawptr,
+	model_len: uintptr,
+	initial_ptr: rawptr,
+	initial_len: uintptr,
+	width: u32,
+	height: u32,
+	depth: u32,
+	seed: u64,
+) -> rawptr {
+	context = runtime.default_context()
+	model := mj_core_input_slice(model_ptr, model_len)
+	initial := mj_core_input_slice(initial_ptr, initial_len)
+	return mj_session_create_mjir_v1(model, initial, width, height, depth, seed)
+}
+
+@(export)
+mj_core_session_step :: proc "c" (session: rawptr, steps: u32) -> u32 {
+	context = runtime.default_context()
+	if session == nil do return mj_fail("markov session is null")
+	s := cast(^MJ_Runtime_Session)session
+	_, changed, done := mj_session_step_runtime(s, steps)
+	output_grid := mj_output_grid_for_csharp_timing(&s.g, s.nodes[:])
+	return mj_respond_grid(output_grid, s.steps_run, changed, done)
+}
+
+@(export)
+mj_core_session_destroy :: proc "c" (session: rawptr) {
+	context = runtime.default_context()
+	if session == nil do return
+	mj_session_destroy_runtime(cast(^MJ_Runtime_Session)session)
 }
 
 @(export)
@@ -614,6 +666,515 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 	done := !mj_any_one_match(output_grid, rules[:])
 
 	return mj_respond_grid(output_grid, u32(steps_run), changed, done)
+}
+
+mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, seed: u64) -> rawptr {
+	if len(model) < 20 { _ = mj_fail("model-ir is too short"); return nil }
+	if model[0] != 'M' || model[1] != 'J' || model[2] != 'I' || model[3] != 'R' { _ = mj_fail("model-ir magic mismatch"); return nil }
+	pos := 4
+	ok := true
+	version := mj_read_u32(model, &pos, &ok)
+	if !ok || version != 1 { _ = mj_fail("unsupported model-ir version"); return nil }
+	values_len := int(mj_read_u32(model, &pos, &ok))
+	if !ok || values_len <= 0 || pos + values_len > len(model) { _ = mj_fail("invalid model-ir values"); return nil }
+	values_start := pos
+	values := string(model[values_start:values_start + values_len])
+	pos += values_len
+	rule_count := int(mj_read_u32(model, &pos, &ok))
+	if !ok || rule_count <= 0 { _ = mj_fail("invalid model-ir rule count"); return nil }
+
+	cell_count_u64 := u64(width) * u64(height) * u64(depth)
+	if cell_count_u64 > u64(len(initial)) { _ = mj_fail("initial-cells shorter than configured grid"); return nil }
+	cell_count := int(cell_count_u64)
+	if cell_count > MJ_OUTPUT_CAPACITY { _ = mj_fail("grid too large for MVP output buffer"); return nil }
+
+	g := grid_init(int(width), int(height), int(depth), values, false)
+	copy(g.state, initial[:cell_count])
+
+	rules := make([dynamic]Rule)
+	nodes := make([dynamic]MJ_Node)
+	container_kind: u32 = 0
+	node_kind: u32 = 1
+	node_steps := 0
+	node_start := 0
+	node_open := false
+	container_stack := make([dynamic]int)
+	current_fields: []Field_State
+	current_potentials: []int
+	current_observations: []Observation_State
+	current_future: []i32
+	current_search := false
+	current_limit := -1
+	current_depth_coefficient := 0.5
+	current_path: Path_State
+	current_has_path := false
+	current_convolution: Convolution_State
+	current_has_convolution := false
+	current_convchain: ConvChain_State
+	current_has_convchain := false
+	current_wfc: WFC_State
+	current_has_wfc := false
+	current_map: Map_State
+	current_has_map := false
+	current_temperature := 0.0
+	flush_node :: proc(nodes: ^[dynamic]MJ_Node, kind: u32, start, count, steps: int, fields: ^[]Field_State, observations: ^[]Observation_State, potentials: ^[]int, future: ^[]i32, search: ^bool, limit: ^int, depth_coefficient: ^f64, path: ^Path_State, has_path: ^bool, convolution: ^Convolution_State, has_convolution: ^bool, convchain: ^ConvChain_State, has_convchain: ^bool, wfc: ^WFC_State, has_wfc: ^bool, map_state: ^Map_State, has_map: ^bool, temperature: ^f64) {
+		append(nodes, MJ_Node{kind = kind, start = start, count = count, steps = steps, fields = fields^, observations = observations^, potentials = potentials^, future = future^, search = search^, limit = limit^, depth_coefficient = depth_coefficient^, path = path^, has_path = has_path^, convolution = convolution^, has_convolution = has_convolution^, convchain = convchain^, has_convchain = has_convchain^, wfc = wfc^, has_wfc = has_wfc^, map_state = map_state^, has_map = has_map^, temperature = temperature^})
+		fields^ = nil
+		observations^ = nil
+		potentials^ = nil
+		future^ = nil
+		search^ = false
+		limit^ = -1
+		depth_coefficient^ = 0.5
+		path^ = {}
+		has_path^ = false
+		convolution^ = {}
+		has_convolution^ = false
+		convchain^ = {}
+		has_convchain^ = false
+		wfc^ = {}
+		has_wfc^ = false
+		map_state^ = {}
+		has_map^ = false
+		temperature^ = 0
+	}
+	root_marker_seen := false
+	for _ in 0..<rule_count {
+		op := mj_read_u32(model, &pos, &ok)
+		if !ok { _ = mj_fail("truncated model-ir rule opcode"); return nil }
+		if op == 100 {
+			kind := mj_read_u32(model, &pos, &ok)
+			marker_steps := int(mj_read_u32(model, &pos, &ok))
+			if !ok || kind < 1 || kind > 10 { _ = mj_fail("invalid model-ir node kind"); return nil }
+			is_container_kind := kind == 4 || kind == 5 || kind == 10
+			if (kind == 4 || kind == 5) && !root_marker_seen && len(nodes) == 0 && !node_open {
+				container_kind = kind
+				root_marker_seen = true
+			} else if is_container_kind {
+				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_search, &current_limit, &current_depth_coefficient, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
+					node_open = false
+				}
+				node_start = len(rules)
+				node_steps = 0
+				container_index := len(nodes)
+				append(&nodes, MJ_Node{kind = kind, steps = marker_steps, children_start = container_index + 1})
+				append(&container_stack, container_index)
+			} else {
+				if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+					flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_search, &current_limit, &current_depth_coefficient, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
+				}
+				node_kind = kind
+				node_steps = marker_steps
+				node_start = len(rules)
+				node_open = true
+				root_marker_seen = true
+			}
+		} else if op == 101 {
+			if pos >= len(model) { _ = mj_fail("truncated model-ir union symbol"); return nil }
+			symbol := model[pos]; pos += 1
+			union_values_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || union_values_len <= 0 || pos + union_values_len > len(model) { _ = mj_fail("invalid model-ir union values"); return nil }
+			grid_add_union(&g, symbol, string(model[pos:pos + union_values_len]))
+			pos += union_values_len
+		} else if op == 102 {
+			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+				flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_search, &current_limit, &current_depth_coefficient, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
+				node_open = false
+			}
+			if len(container_stack) == 0 { _ = mj_fail("model-ir container end without start"); return nil }
+			container_index := container_stack[len(container_stack) - 1]
+			_ = pop(&container_stack)
+			nodes[container_index].children_count = len(nodes) - nodes[container_index].children_start
+			node_start = len(rules)
+			node_steps = 0
+		} else if op == 103 {
+			if pos >= len(model) { _ = mj_fail("truncated model-ir field symbol"); return nil }
+			for_symbol := model[pos]; pos += 1
+			recompute := mj_read_u32(model, &pos, &ok) != 0
+			essential := mj_read_u32(model, &pos, &ok) != 0
+			to_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || to_len < 0 || pos + to_len > len(model) { _ = mj_fail("invalid model-ir field to"); return nil }
+			to_string := string(model[pos:pos + to_len]); pos += to_len
+			from_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || from_len < 0 || pos + from_len > len(model) { _ = mj_fail("invalid model-ir field from"); return nil }
+			from_string := string(model[pos:pos + from_len]); pos += from_len
+			on_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || on_len <= 0 || pos + on_len > len(model) { _ = mj_fail("invalid model-ir field on"); return nil }
+			on_string := string(model[pos:pos + on_len]); pos += on_len
+			if current_fields == nil {
+				current_fields = make([]Field_State, len(g.characters))
+				current_potentials = make([]int, len(g.state) * len(g.characters))
+			}
+			field := Field_State{present = true, recompute = recompute, essential = essential, substrate = grid_wave_string(&g, on_string)}
+			if from_len > 0 {
+				field.inversed = true
+				field.zero = grid_wave_string(&g, from_string)
+			} else {
+				field.zero = grid_wave_string(&g, to_string)
+			}
+			current_fields[grid_value(&g, for_symbol)] = field
+		} else if op == 104 {
+			current_temperature = mj_read_f64(model, &pos, &ok)
+			if !ok { _ = mj_fail("invalid model-ir temperature"); return nil }
+		} else if op == 105 {
+			if pos >= len(model) { _ = mj_fail("truncated model-ir observe value"); return nil }
+			observe_value := model[pos]; pos += 1
+			from_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || from_len < 0 || pos + from_len > len(model) { _ = mj_fail("invalid model-ir observe from"); return nil }
+			from_string := string(model[pos:pos + from_len]); pos += from_len
+			to_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || to_len <= 0 || pos + to_len > len(model) { _ = mj_fail("invalid model-ir observe to"); return nil }
+			to_string := string(model[pos:pos + to_len]); pos += to_len
+			if current_observations == nil {
+				current_observations = make([]Observation_State, len(g.characters))
+				if !current_search do current_potentials = make([]int, len(g.state) * len(g.characters))
+				current_future = make([]i32, len(g.state))
+			}
+			from_value := observe_value
+			if from_len > 0 do from_value = from_string[0]
+			current_observations[grid_value(&g, observe_value)] = Observation_State{present = true, from = grid_value(&g, from_value), to = grid_wave_string(&g, to_string)}
+		} else if op == 111 {
+			current_search = mj_read_u32(model, &pos, &ok) != 0
+			limit_raw := mj_read_u32(model, &pos, &ok)
+			if limit_raw == 0xffffffff { current_limit = -1 } else { current_limit = int(limit_raw) }
+			current_depth_coefficient = mj_read_f64(model, &pos, &ok)
+			if !ok { _ = mj_fail("invalid model-ir search config"); return nil }
+		} else if op == 107 {
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if si == 0 do break
+			}
+			neighborhood_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || neighborhood_len < 0 || pos + neighborhood_len > len(model) { _ = mj_fail("invalid model-ir convolution neighborhood"); return nil }
+			neighborhood := string(model[pos:pos + neighborhood_len]); pos += neighborhood_len
+			periodic := mj_read_u32(model, &pos, &ok) != 0
+			rule_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || rule_len <= 0 { _ = mj_fail("invalid model-ir convolution rule count"); return nil }
+			current_convolution = Convolution_State{kernel = convolution_kernel(target_grid.mz == 1, neighborhood), periodic = periodic, c = len(target_grid.characters), sumfield = make([]int, len(target_grid.state) * len(target_grid.characters)), steps = node_steps}
+			for _r in 0..<rule_len {
+				if pos + 2 > len(model) { _ = mj_fail("truncated model-ir convolution rule symbols"); return nil }
+				input := model[pos]; output := model[pos + 1]; pos += 2
+				probability := mj_read_f64(model, &pos, &ok)
+				values_len := int(mj_read_u32(model, &pos, &ok))
+				if !ok || values_len < 0 || pos + values_len > len(model) { _ = mj_fail("invalid model-ir convolution values"); return nil }
+				values_string := string(model[pos:pos + values_len]); pos += values_len
+				sum_len := int(mj_read_u32(model, &pos, &ok))
+				if !ok || sum_len < 0 || pos + sum_len > len(model) { _ = mj_fail("invalid model-ir convolution sum"); return nil }
+				sum_string := string(model[pos:pos + sum_len]); pos += sum_len
+				rule := Convolution_Rule{input = grid_value(target_grid, input), output = grid_value(target_grid, output), p = probability, sums = mj_convolution_sums_from_string(sum_string)}
+				for i in 0..<len(values_string) do append(&rule.values, grid_value(target_grid, values_string[i]))
+				append(&current_convolution.rules, rule)
+			}
+			current_has_convolution = true
+		} else if op == 108 {
+			n := int(mj_read_u32(model, &pos, &ok))
+			temperature := mj_read_f64(model, &pos, &ok)
+			if pos + 3 > len(model) { _ = mj_fail("truncated model-ir convchain symbols"); return nil }
+			black := model[pos]; white := model[pos + 1]; on := model[pos + 2]; pos += 3
+			weights_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || n <= 0 || weights_len != (1 << uint(n * n)) { _ = mj_fail("invalid model-ir convchain header"); return nil }
+			if pos + weights_len * 8 > len(model) { _ = mj_fail("truncated model-ir convchain weights"); return nil }
+			weights := make([]f64, weights_len)
+			for i in 0..<weights_len do weights[i] = mj_read_f64(model, &pos, &ok)
+			if !ok { _ = mj_fail("invalid model-ir convchain weights"); return nil }
+			current_convchain = ConvChain_State{n = n, steps = node_steps, temperature = temperature, c0 = grid_value(&g, black), c1 = grid_value(&g, white), substrate_color = grid_value(&g, on), substrate = make([]bool, len(g.state)), weights = weights}
+			current_has_convchain = true
+		} else if op == 109 {
+			n := int(mj_read_u32(model, &pos, &ok))
+			periodic := mj_read_u32(model, &pos, &ok) != 0
+			shannon := mj_read_u32(model, &pos, &ok) != 0
+			tries := int(mj_read_u32(model, &pos, &ok))
+			new_values_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || n <= 0 || new_values_len <= 0 || pos + new_values_len > len(model) { _ = mj_fail("invalid model-ir wfc header"); return nil }
+			new_values := string(model[pos:pos + new_values_len]); pos += new_values_len
+			p_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || p_count <= 0 { _ = mj_fail("invalid model-ir wfc pattern count"); return nil }
+			pattern_len := n * n
+			current_wfc = WFC_State{counter = -1, n = n, p = p_count, periodic = periodic, shannon = shannon, tries = tries, newgrid = grid_init(g.mx, g.my, g.mz, new_values, false)}
+			current_wfc.patterns = make([][]u8, p_count)
+			current_wfc.weights = make([]f64, p_count)
+			for pidx in 0..<p_count {
+				current_wfc.weights[pidx] = mj_read_f64(model, &pos, &ok)
+				if !ok || pos + pattern_len > len(model) { _ = mj_fail("invalid model-ir wfc pattern"); return nil }
+				current_wfc.patterns[pidx] = make([]u8, pattern_len)
+				copy(current_wfc.patterns[pidx], model[pos:pos + pattern_len]); pos += pattern_len
+			}
+			dirs := int(mj_read_u32(model, &pos, &ok))
+			if !ok || dirs <= 0 { _ = mj_fail("invalid model-ir wfc propagator"); return nil }
+			current_wfc.propagator = make([][][]int, dirs)
+			for d in 0..<dirs {
+				current_wfc.propagator[d] = make([][]int, p_count)
+				for pidx in 0..<p_count {
+					list_len := int(mj_read_u32(model, &pos, &ok))
+					if !ok || list_len < 0 { _ = mj_fail("invalid model-ir wfc propagator list"); return nil }
+					current_wfc.propagator[d][pidx] = make([]int, list_len)
+					for i in 0..<list_len do current_wfc.propagator[d][pidx][i] = int(mj_read_u32(model, &pos, &ok))
+				}
+			}
+			map_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || map_count <= 0 { _ = mj_fail("invalid model-ir wfc map count"); return nil }
+			for _m in 0..<map_count {
+				if pos >= len(model) { _ = mj_fail("truncated model-ir wfc map input"); return nil }
+				input := model[pos]; pos += 1
+				if pos + p_count > len(model) { _ = mj_fail("truncated model-ir wfc map positions"); return nil }
+				positions := make([]bool, p_count)
+				for i in 0..<p_count { positions[i] = model[pos] != 0; pos += 1 }
+				append(&current_wfc.map_values, grid_value(&g, input))
+				append(&current_wfc.map_positions, positions)
+			}
+			if !ok { _ = mj_fail("invalid model-ir wfc payload"); return nil }
+			wfc_base_finish(&current_wfc, &g)
+			current_has_wfc = true
+		} else if op == 112 {
+			tile_s := int(mj_read_u32(model, &pos, &ok))
+			tile_sz := int(mj_read_u32(model, &pos, &ok))
+			overlap_raw := mj_read_u32(model, &pos, &ok)
+			overlapz_raw := mj_read_u32(model, &pos, &ok)
+			overlap := int(overlap_raw)
+			overlapz := int(overlapz_raw)
+			if overlap_raw > 0x7fffffff do overlap = int(i64(overlap_raw) - i64(0x100000000))
+			if overlapz_raw > 0x7fffffff do overlapz = int(i64(overlapz_raw) - i64(0x100000000))
+			periodic := mj_read_u32(model, &pos, &ok) != 0
+			shannon := mj_read_u32(model, &pos, &ok) != 0
+			tries := int(mj_read_u32(model, &pos, &ok))
+			new_values_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || tile_s <= 0 || tile_sz <= 0 || new_values_len <= 0 || pos + new_values_len > len(model) { _ = mj_fail("invalid model-ir tile wfc header"); return nil }
+			new_values := string(model[pos:pos + new_values_len]); pos += new_values_len
+			p_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || p_count <= 0 { _ = mj_fail("invalid model-ir tile wfc pattern count"); return nil }
+			pattern_len := tile_s * tile_s * tile_sz
+			mx2 := (tile_s - overlap) * g.mx + overlap
+			my2 := (tile_s - overlap) * g.my + overlap
+			mz2 := (tile_sz - overlapz) * g.mz + overlapz
+			current_wfc = WFC_State{counter = -1, n = 1, p = p_count, periodic = periodic, shannon = shannon, tries = tries, tile_mode = true, tile_s = tile_s, tile_sz = tile_sz, overlap = overlap, overlapz = overlapz, newgrid = grid_init(mx2, my2, mz2, new_values, false)}
+			current_wfc.patterns = make([][]u8, p_count)
+			current_wfc.weights = make([]f64, p_count)
+			for pidx in 0..<p_count {
+				current_wfc.weights[pidx] = mj_read_f64(model, &pos, &ok)
+				if !ok || pos + pattern_len > len(model) { _ = mj_fail("invalid model-ir tile wfc pattern"); return nil }
+				current_wfc.patterns[pidx] = make([]u8, pattern_len)
+				copy(current_wfc.patterns[pidx], model[pos:pos + pattern_len]); pos += pattern_len
+			}
+			dirs := int(mj_read_u32(model, &pos, &ok))
+			if !ok || dirs <= 0 { _ = mj_fail("invalid model-ir tile wfc propagator"); return nil }
+			current_wfc.propagator = make([][][]int, dirs)
+			for d in 0..<dirs {
+				current_wfc.propagator[d] = make([][]int, p_count)
+				for pidx in 0..<p_count {
+					list_len := int(mj_read_u32(model, &pos, &ok))
+					if !ok || list_len < 0 { _ = mj_fail("invalid model-ir tile wfc propagator list"); return nil }
+					current_wfc.propagator[d][pidx] = make([]int, list_len)
+					for i in 0..<list_len do current_wfc.propagator[d][pidx][i] = int(mj_read_u32(model, &pos, &ok))
+				}
+			}
+			map_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || map_count <= 0 { _ = mj_fail("invalid model-ir tile wfc map count"); return nil }
+			for _m in 0..<map_count {
+				if pos >= len(model) { _ = mj_fail("truncated model-ir tile wfc map input"); return nil }
+				input_char := model[pos]; pos += 1
+				if pos + p_count > len(model) { _ = mj_fail("truncated model-ir tile wfc map positions"); return nil }
+				positions := make([]bool, p_count)
+				for i in 0..<p_count { positions[i] = model[pos] != 0; pos += 1 }
+				input := u8(0)
+				if input_char != 0 do input = grid_value(&g, input_char)
+				append(&current_wfc.map_values, input)
+				append(&current_wfc.map_positions, positions)
+			}
+			if !ok { _ = mj_fail("invalid model-ir tile wfc payload"); return nil }
+			wfc_base_finish(&current_wfc, &g)
+			current_has_wfc = true
+		} else if op == 110 {
+			nx := int(mj_read_u32(model, &pos, &ok)); dx := int(mj_read_u32(model, &pos, &ok))
+			ny := int(mj_read_u32(model, &pos, &ok)); dy := int(mj_read_u32(model, &pos, &ok))
+			nz := int(mj_read_u32(model, &pos, &ok)); dz := int(mj_read_u32(model, &pos, &ok))
+			values_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || nx <= 0 || dx <= 0 || ny <= 0 || dy <= 0 || nz <= 0 || dz <= 0 || values_len <= 0 || pos + values_len > len(model) { _ = mj_fail("invalid model-ir map header"); return nil }
+			map_values := string(model[pos:pos + values_len]); pos += values_len
+			current_map = Map_State{nx = nx, dx = dx, ny = ny, dy = dy, nz = nz, dz = dz, grid = grid_init(g.mx * nx / dx, g.my * ny / dy, g.mz * nz / dz, map_values, false)}
+			union_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || union_count < 0 { _ = mj_fail("invalid model-ir map union count"); return nil }
+			for _u in 0..<union_count {
+				if pos >= len(model) { _ = mj_fail("truncated model-ir map union symbol"); return nil }
+				symbol := model[pos]; pos += 1
+				ulen := int(mj_read_u32(model, &pos, &ok))
+				if !ok || ulen < 0 || pos + ulen > len(model) { _ = mj_fail("truncated model-ir map union values"); return nil }
+				grid_add_union(&current_map.grid, symbol, string(model[pos:pos + ulen])); pos += ulen
+			}
+			rule_count := int(mj_read_u32(model, &pos, &ok))
+			if !ok || rule_count <= 0 { _ = mj_fail("invalid model-ir map rule count"); return nil }
+			for _r in 0..<rule_count {
+				imx := int(mj_read_u32(model, &pos, &ok)); imy := int(mj_read_u32(model, &pos, &ok)); imz := int(mj_read_u32(model, &pos, &ok))
+				omx := int(mj_read_u32(model, &pos, &ok)); omy := int(mj_read_u32(model, &pos, &ok)); omz := int(mj_read_u32(model, &pos, &ok))
+				probability := mj_read_f64(model, &pos, &ok)
+				symmetry_len := int(mj_read_u32(model, &pos, &ok))
+				if !ok || imx <= 0 || imy <= 0 || imz <= 0 || omx <= 0 || omy <= 0 || omz <= 0 || symmetry_len < 0 { _ = mj_fail("invalid model-ir map rule header"); return nil }
+				if pos + symmetry_len > len(model) { _ = mj_fail("truncated model-ir map rule symmetry"); return nil }
+				symmetry := string(model[pos:pos + symmetry_len]); pos += symmetry_len
+				input_len := imx * imy * imz
+				output_len := omx * omy * omz
+				if pos + input_len + output_len > len(model) { _ = mj_fail("truncated model-ir map rule data"); return nil }
+				input_chars := model[pos:pos + input_len]; pos += input_len
+				output_chars := model[pos:pos + output_len]; pos += output_len
+				base := rule_from_char_arrays_grids(&g, &current_map.grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
+				append_rule_symmetries(&current_map.grid, &current_map.rules, base, symmetry)
+			}
+			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 10 {
+				map_index := container_stack[len(container_stack) - 1]
+				nodes[map_index].map_state = current_map
+				nodes[map_index].has_map = true
+				current_map = {}
+			} else {
+				current_has_map = true
+			}
+		} else if op == 106 {
+			from_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || from_len <= 0 || pos + from_len > len(model) { _ = mj_fail("invalid model-ir path from"); return nil }
+			from_string := string(model[pos:pos + from_len]); pos += from_len
+			to_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || to_len <= 0 || pos + to_len > len(model) { _ = mj_fail("invalid model-ir path to"); return nil }
+			to_string := string(model[pos:pos + to_len]); pos += to_len
+			on_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || on_len <= 0 || pos + on_len > len(model) { _ = mj_fail("invalid model-ir path on"); return nil }
+			on_string := string(model[pos:pos + on_len]); pos += on_len
+			if pos >= len(model) { _ = mj_fail("truncated model-ir path color"); return nil }
+			color := model[pos]; pos += 1
+			inertia := mj_read_u32(model, &pos, &ok) != 0
+			longest := mj_read_u32(model, &pos, &ok) != 0
+			edges := mj_read_u32(model, &pos, &ok) != 0
+			vertices := mj_read_u32(model, &pos, &ok) != 0
+			if !ok { _ = mj_fail("invalid model-ir path flags"); return nil }
+			current_path = Path_State{start = grid_wave_string(&g, from_string), finish = grid_wave_string(&g, to_string), substrate = grid_wave_string(&g, on_string), value = grid_value(&g, color), inertia = inertia, longest = longest, edges = edges, vertices = vertices}
+			current_has_path = true
+		} else if op == 1 {
+			if pos + 2 > len(model) { _ = mj_fail("truncated one-cell replace rule"); return nil }
+			input_index := int(model[pos]); output_index := int(model[pos + 1]); pos += 2
+			if input_index >= values_len || output_index >= values_len { _ = mj_fail("one-cell rule value index out of range"); return nil }
+			in_chars := []u8{values[input_index]}
+			out_chars := []u8{values[output_index]}
+			base := rule_from_char_arrays(&g, in_chars, 1, 1, 1, out_chars, 1, 1, 1)
+			append_rule_symmetries(&g, &rules, base, "()")
+		} else if op == 2 {
+			imx := int(mj_read_u32(model, &pos, &ok)); imy := int(mj_read_u32(model, &pos, &ok)); imz := int(mj_read_u32(model, &pos, &ok))
+			omx := int(mj_read_u32(model, &pos, &ok)); omy := int(mj_read_u32(model, &pos, &ok)); omz := int(mj_read_u32(model, &pos, &ok))
+			probability := mj_read_f64(model, &pos, &ok)
+			symmetry_len := int(mj_read_u32(model, &pos, &ok))
+			if !ok || imx <= 0 || imy <= 0 || imz <= 0 || omx <= 0 || omy <= 0 || omz <= 0 || symmetry_len < 0 { _ = mj_fail("invalid pattern rule header"); return nil }
+			if pos + symmetry_len > len(model) { _ = mj_fail("truncated pattern rule symmetry"); return nil }
+			symmetry := string(model[pos:pos + symmetry_len]); pos += symmetry_len
+			input_len := imx * imy * imz
+			output_len := omx * omy * omz
+			if pos + input_len + output_len > len(model) { _ = mj_fail("truncated pattern rule data"); return nil }
+			input_chars := model[pos:pos + input_len]; pos += input_len
+			output_chars := model[pos:pos + output_len]; pos += output_len
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if si == 0 do break
+			}
+			base := rule_from_char_arrays(target_grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
+			append_rule_symmetries(target_grid, &rules, base, symmetry)
+		} else {
+			{ _ = mj_fail("unsupported model-ir rule opcode"); return nil }
+		}
+	}
+
+	if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
+		flush_node(&nodes, node_kind, node_start, len(rules) - node_start, node_steps, &current_fields, &current_observations, &current_potentials, &current_future, &current_search, &current_limit, &current_depth_coefficient, &current_path, &current_has_path, &current_convolution, &current_has_convolution, &current_convchain, &current_has_convchain, &current_wfc, &current_has_wfc, &current_map, &current_has_map, &current_temperature)
+	}
+	if len(container_stack) != 0 { _ = mj_fail("model-ir unclosed container"); return nil }
+	if len(rules) == 0 {
+		has_executable := false
+		for n in nodes do if (n.kind == 6 && n.has_path) || (n.kind == 7 && n.has_convolution) || (n.kind == 8 && n.has_convchain) || (n.kind == 9 && n.has_wfc) || (n.kind == 10 && n.has_map) { has_executable = true }
+		if !has_executable { _ = mj_fail("model-ir contains no rules"); return nil }
+	}
+	if len(nodes) == 0 { append(&nodes, MJ_Node{kind = node_kind, start = 0, count = len(rules)}) }
+
+	delete(container_stack)
+	s := new(MJ_Runtime_Session)
+	s.g = g
+	s.rules = rules
+	s.nodes = nodes
+	s.container_kind = container_kind
+	s.random = mj_random_init(i32(seed & 0x7fffffff))
+	s.states = mj_prepare_node_states(&s.g, s.nodes[:])
+	s.counters = make([]int, len(s.nodes))
+	s.positions = make([]int, len(s.nodes))
+	s.active = make([]int, len(s.nodes))
+	s.changes = make([dynamic]Cell)
+	s.first = make([dynamic]int)
+	s.child = 0
+	s.steps_run = 0
+	s.done = false
+	_ = mj_respond_grid(&s.g, 0, false, false)
+	return rawptr(s)
+}
+
+mj_session_step_runtime :: proc(s: ^MJ_Runtime_Session, steps: u32) -> (u32, bool, bool) {
+	if s.done do return 0, false, true
+	counter := 0
+	changed_any := false
+	if s.container_kind == 4 {
+		for steps == 0 || counter < int(steps) {
+			changed := mj_markov_range_go(&s.g, s.rules[:], s.nodes[:], 0, len(s.nodes), &s.random, s.states, s.counters, s.positions, s.active, &s.changes, &s.first, int(s.steps_run) + counter, -1)
+			if !changed { s.done = true; break }
+			changed_any = true
+			counter += 1
+		}
+	} else if s.container_kind == 5 {
+		for s.child < len(s.nodes) && (steps == 0 || counter < int(steps)) {
+			changed := mj_sequence_range_go(&s.g, s.rules[:], s.nodes[:], 0, len(s.nodes), &s.random, s.states, s.counters, s.positions, s.active, &s.changes, &s.first, int(s.steps_run) + counter, &s.child)
+			if !changed { break }
+			changed_any = true
+			counter += 1
+		}
+		if s.child >= len(s.nodes) do s.done = true
+	} else {
+		node := &s.nodes[0]
+		run, changed := mj_run_node_with_count(&s.g, node, s.rules[node.start:node.start + node.count], &s.random, int(steps))
+		counter = run
+		changed_any = changed
+		if !changed do s.done = true
+	}
+	s.steps_run += u32(counter)
+	output_grid := mj_output_grid_for_csharp_timing(&s.g, s.nodes[:])
+	if !changed_any || !mj_any_one_match(output_grid, s.rules[:]) do s.done = true
+	return u32(counter), changed_any, s.done
+}
+
+mj_session_destroy_runtime :: proc(s: ^MJ_Runtime_Session) {
+	if s == nil do return
+	grid_destroy(&s.g)
+	for i in 0..<len(s.rules) { rule_destroy(&s.rules[i]) }
+	delete(s.rules)
+	for i in 0..<len(s.nodes) {
+		if s.nodes[i].fields != nil do delete(s.nodes[i].fields)
+		if s.nodes[i].observations != nil do delete(s.nodes[i].observations)
+		if s.nodes[i].potentials != nil do delete(s.nodes[i].potentials)
+		if s.nodes[i].future != nil do delete(s.nodes[i].future)
+		if s.nodes[i].trajectory != nil do search_destroy_trajectory(s.nodes[i].trajectory)
+		if s.nodes[i].has_convolution do convolution_destroy(&s.nodes[i].convolution)
+		if s.nodes[i].has_convchain do convchain_destroy(&s.nodes[i].convchain)
+		if s.nodes[i].has_wfc do wfc_destroy(&s.nodes[i].wfc)
+		if s.nodes[i].has_map do map_destroy(&s.nodes[i].map_state)
+	}
+	delete(s.nodes)
+	if s.states != nil do mj_destroy_node_states(s.states)
+	if s.counters != nil do delete(s.counters)
+	if s.positions != nil do delete(s.positions)
+	if s.active != nil do delete(s.active)
+	if s.changes != nil do delete(s.changes)
+	if s.first != nil do delete(s.first)
+	free(s)
 }
 
 mj_output_grid_for_csharp_timing :: proc(g: ^Grid, nodes: []MJ_Node) -> ^Grid {

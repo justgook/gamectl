@@ -10,17 +10,15 @@ extern uint32_t mj_core_run(const uint8_t *model_ptr, uintptr_t model_len,
                             uint64_t seed, uint32_t max_steps);
 extern const uint8_t *mj_core_output_ptr(void);
 extern uintptr_t mj_core_output_len(void);
+extern void *mj_core_session_create(const uint8_t *model_ptr, uintptr_t model_len,
+                                    const uint8_t *initial_ptr, uintptr_t initial_len,
+                                    uint32_t width, uint32_t height, uint32_t depth,
+                                    uint64_t seed);
+extern uint32_t mj_core_session_step(void *session, uint32_t steps);
+extern void mj_core_session_destroy(void *session);
 
 struct exports_gams_markov_junior_markov_junior_session_t {
-  uint8_t *model;
-  size_t model_len;
-  uint8_t *initial;
-  size_t initial_len;
-  uint32_t width;
-  uint32_t height;
-  uint32_t depth;
-  uint64_t seed;
-  uint32_t steps_run;
+  void *core_session;
   bool dismissed;
 };
 
@@ -33,64 +31,6 @@ static void set_error(markov_junior_plugin_string_t *err) {
   uintptr_t len = mj_core_output_len();
   const uint8_t *ptr = mj_core_output_ptr();
   markov_junior_plugin_string_dup_n(err, (const char *)ptr, (size_t)len);
-}
-
-static bool copy_list(markov_junior_plugin_list_u8_t *src, uint8_t **ptr, size_t *len, markov_junior_plugin_string_t *err) {
-  *ptr = NULL;
-  *len = src->len;
-  if (src->len == 0) return true;
-  *ptr = malloc(src->len);
-  if (!*ptr) {
-    markov_junior_plugin_string_dup(err, "out of memory copying session input");
-    return false;
-  }
-  memcpy(*ptr, src->ptr, src->len);
-  return true;
-}
-
-static bool parse_model_values(const uint8_t *model, size_t model_len, const uint8_t **values, uint32_t *values_len) {
-  if (model_len < 12 || model[0] != 'M' || model[1] != 'J' || model[2] != 'I' || model[3] != 'R') return false;
-  uint32_t version = read_u32(model + 4);
-  if (version != 1) return false;
-  *values_len = read_u32(model + 8);
-  if (*values_len == 0 || 12u + *values_len > model_len) return false;
-  *values = model + 12;
-  return true;
-}
-
-static bool initial_grid_result(exports_gams_markov_junior_markov_junior_session_t *session,
-                                exports_gams_markov_junior_markov_junior_grid_t *ret,
-                                markov_junior_plugin_string_t *err) {
-  const uint8_t *values = NULL;
-  uint32_t values_len = 0;
-  if (!parse_model_values(session->model, session->model_len, &values, &values_len)) {
-    markov_junior_plugin_string_dup(err, "invalid model-ir values");
-    return false;
-  }
-  uint64_t cell_count_u64 = (uint64_t)session->width * (uint64_t)session->height * (uint64_t)session->depth;
-  if (cell_count_u64 > session->initial_len || cell_count_u64 > SIZE_MAX) {
-    markov_junior_plugin_string_dup(err, "initial-cells shorter than configured grid");
-    return false;
-  }
-  size_t cell_count = (size_t)cell_count_u64;
-  ret->width = session->width;
-  ret->height = session->height;
-  ret->depth = session->depth;
-  ret->steps_run = 0;
-  ret->changed = false;
-  ret->done = false;
-  markov_junior_plugin_string_dup_n(&ret->values, (const char *)values, values_len);
-  ret->cells.len = cell_count;
-  ret->cells.ptr = NULL;
-  if (cell_count > 0) {
-    ret->cells.ptr = malloc(cell_count);
-    if (!ret->cells.ptr) {
-      markov_junior_plugin_string_dup(err, "out of memory copying cells");
-      return false;
-    }
-    memcpy(ret->cells.ptr, session->initial, cell_count);
-  }
-  return true;
 }
 
 static bool parse_grid_result(exports_gams_markov_junior_markov_junior_grid_t *ret, markov_junior_plugin_string_t *err) {
@@ -164,18 +104,16 @@ bool exports_gams_markov_junior_markov_junior_create(
     markov_junior_plugin_string_dup(err, "out of memory creating session");
     return false;
   }
-  if (!copy_list(model_ir, &session->model, &session->model_len, err) ||
-      !copy_list(initial_cells, &session->initial, &session->initial_len, err)) {
+  session->core_session = mj_core_session_create(model_ir->ptr, (uintptr_t)model_ir->len,
+                                                 initial_cells->ptr, (uintptr_t)initial_cells->len,
+                                                 config->width, config->height, config->depth,
+                                                 config->seed);
+  if (!session->core_session) {
+    set_error(err);
     exports_gams_markov_junior_markov_junior_session_destructor(session);
     return false;
   }
-  session->width = config->width;
-  session->height = config->height;
-  session->depth = config->depth;
-  session->seed = config->seed;
-  session->steps_run = 0;
-
-  if (!initial_grid_result(session, &ret->grid, err)) {
+  if (!parse_grid_result(&ret->grid, err)) {
     exports_gams_markov_junior_markov_junior_session_destructor(session);
     return false;
   }
@@ -198,20 +136,12 @@ bool exports_gams_markov_junior_markov_junior_step(
     markov_junior_plugin_string_dup(err, "markov session is dismissed");
     return false;
   }
-  uint32_t target_steps = handle->steps_run + steps;
-  if (target_steps < handle->steps_run) target_steps = UINT32_MAX;
-  uint32_t status = mj_core_run(handle->model, handle->model_len,
-                                handle->initial, handle->initial_len,
-                                handle->width, handle->height, handle->depth,
-                                handle->seed, target_steps);
+  uint32_t status = mj_core_session_step(handle->core_session, steps);
   if (status != 0) {
     set_error(err);
     return false;
   }
-  if (!parse_grid_result(ret, err)) return false;
-  ret->changed = ret->steps_run > handle->steps_run;
-  handle->steps_run = ret->steps_run;
-  return true;
+  return parse_grid_result(ret, err);
 }
 
 bool exports_gams_markov_junior_markov_junior_dismiss(
@@ -219,6 +149,10 @@ bool exports_gams_markov_junior_markov_junior_dismiss(
     markov_junior_plugin_string_t *err) {
   (void)err;
   if (!handle) return true;
+  if (!handle->dismissed && handle->core_session) {
+    mj_core_session_destroy(handle->core_session);
+    handle->core_session = NULL;
+  }
   handle->dismissed = true;
   return true;
 }
@@ -226,7 +160,6 @@ bool exports_gams_markov_junior_markov_junior_dismiss(
 void exports_gams_markov_junior_markov_junior_session_destructor(
     exports_gams_markov_junior_markov_junior_session_t *rep) {
   if (!rep) return;
-  free(rep->model);
-  free(rep->initial);
+  if (rep->core_session) mj_core_session_destroy(rep->core_session);
   free(rep);
 }
