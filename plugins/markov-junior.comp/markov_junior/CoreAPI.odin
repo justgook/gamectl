@@ -298,7 +298,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			kind := mj_read_u32(model, &pos, &ok)
 			marker_steps := int(mj_read_u32(model, &pos, &ok))
 			if !ok || kind < 1 || kind > 10 { return mj_fail("invalid model-ir node kind") }
-			is_container_kind := kind == 4 || kind == 5 || kind == 10
+			is_container_kind := kind == 4 || kind == 5 || kind == 9 || kind == 10
 			if (kind == 4 || kind == 5) && !root_marker_seen && len(nodes) == 0 && !node_open {
 				container_kind = kind
 				root_marker_seen = true
@@ -400,6 +400,10 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 					target_grid = &nodes[candidate].map_state.grid
 					break
 				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
 				if si == 0 do break
 			}
 			neighborhood_len := int(mj_read_u32(model, &pos, &ok))
@@ -482,7 +486,14 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			}
 			if !ok { return mj_fail("invalid model-ir wfc payload") }
 			wfc_base_finish(&current_wfc, &g)
-			current_has_wfc = true
+			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 9 {
+				wfc_index := container_stack[len(container_stack) - 1]
+				nodes[wfc_index].wfc = current_wfc
+				nodes[wfc_index].has_wfc = true
+				current_wfc = {}
+			} else {
+				current_has_wfc = true
+			}
 		} else if op == 112 {
 			tile_s := int(mj_read_u32(model, &pos, &ok))
 			tile_sz := int(mj_read_u32(model, &pos, &ok))
@@ -540,7 +551,14 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			}
 			if !ok { return mj_fail("invalid model-ir tile wfc payload") }
 			wfc_base_finish(&current_wfc, &g)
-			current_has_wfc = true
+			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 9 {
+				wfc_index := container_stack[len(container_stack) - 1]
+				nodes[wfc_index].wfc = current_wfc
+				nodes[wfc_index].has_wfc = true
+				current_wfc = {}
+			} else {
+				current_has_wfc = true
+			}
 		} else if op == 110 {
 			nx := int(mj_read_u32(model, &pos, &ok)); dx := int(mj_read_u32(model, &pos, &ok))
 			ny := int(mj_read_u32(model, &pos, &ok)); dy := int(mj_read_u32(model, &pos, &ok))
@@ -629,6 +647,10 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				candidate := container_stack[si]
 				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
 					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
 					break
 				}
 				if si == 0 do break
@@ -746,7 +768,7 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			kind := mj_read_u32(model, &pos, &ok)
 			marker_steps := int(mj_read_u32(model, &pos, &ok))
 			if !ok || kind < 1 || kind > 10 { _ = mj_fail("invalid model-ir node kind"); return nil }
-			is_container_kind := kind == 4 || kind == 5 || kind == 10
+			is_container_kind := kind == 4 || kind == 5 || kind == 9 || kind == 10
 			if (kind == 4 || kind == 5) && !root_marker_seen && len(nodes) == 0 && !node_open {
 				container_kind = kind
 				root_marker_seen = true
@@ -848,6 +870,10 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 					target_grid = &nodes[candidate].map_state.grid
 					break
 				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
 				if si == 0 do break
 			}
 			neighborhood_len := int(mj_read_u32(model, &pos, &ok))
@@ -930,7 +956,14 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			}
 			if !ok { _ = mj_fail("invalid model-ir wfc payload"); return nil }
 			wfc_base_finish(&current_wfc, &g)
-			current_has_wfc = true
+			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 9 {
+				wfc_index := container_stack[len(container_stack) - 1]
+				nodes[wfc_index].wfc = current_wfc
+				nodes[wfc_index].has_wfc = true
+				current_wfc = {}
+			} else {
+				current_has_wfc = true
+			}
 		} else if op == 112 {
 			tile_s := int(mj_read_u32(model, &pos, &ok))
 			tile_sz := int(mj_read_u32(model, &pos, &ok))
@@ -988,7 +1021,14 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			}
 			if !ok { _ = mj_fail("invalid model-ir tile wfc payload"); return nil }
 			wfc_base_finish(&current_wfc, &g)
-			current_has_wfc = true
+			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 9 {
+				wfc_index := container_stack[len(container_stack) - 1]
+				nodes[wfc_index].wfc = current_wfc
+				nodes[wfc_index].has_wfc = true
+				current_wfc = {}
+			} else {
+				current_has_wfc = true
+			}
 		} else if op == 110 {
 			nx := int(mj_read_u32(model, &pos, &ok)); dx := int(mj_read_u32(model, &pos, &ok))
 			ny := int(mj_read_u32(model, &pos, &ok)); dy := int(mj_read_u32(model, &pos, &ok))
@@ -1077,6 +1117,10 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 				candidate := container_stack[si]
 				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
 					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
 					break
 				}
 				if si == 0 do break
@@ -1381,6 +1425,7 @@ mj_prepare_node_states :: proc(g: ^Grid, nodes: []MJ_Node) -> []MJ_Markov_State 
 	state_len := len(g.state)
 	for n in nodes {
 		if n.has_map && len(n.map_state.grid.state) > state_len do state_len = len(n.map_state.grid.state)
+		if n.has_wfc && len(n.wfc.newgrid.state) > state_len do state_len = len(n.wfc.newgrid.state)
 	}
 	states := make([]MJ_Markov_State, len(nodes))
 	for i in 0..<len(nodes) {
@@ -1597,7 +1642,9 @@ mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, cou
 			if node.steps > 0 && counters[idx] >= node.steps { child += node.children_count; continue }
 			was_active := counters[idx] > 0
 			node_changed := false
-			if node.kind == 10 && !nodes[idx].map_state.mapped {
+			if node.kind == 9 && nodes[idx].wfc.counter < 0 {
+				node_changed = wfc_go(&nodes[idx].wfc, g, random)
+			} else if node.kind == 10 && !nodes[idx].map_state.mapped {
 				map_go_initial(&nodes[idx].map_state, g)
 				node_changed = true
 			} else if node.kind == 4 {
@@ -1717,7 +1764,9 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 			}
 			was_active := counters[idx] > 0
 			node_changed := false
-			if node.kind == 10 && !nodes[idx].map_state.mapped {
+			if node.kind == 9 && nodes[idx].wfc.counter < 0 {
+				node_changed = wfc_go(&nodes[idx].wfc, g, random)
+			} else if node.kind == 10 && !nodes[idx].map_state.mapped {
 				map_go_initial(&nodes[idx].map_state, g)
 				node_changed = true
 			} else if node.kind == 4 {
@@ -1730,6 +1779,10 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 				return true
 			}
 			if was_active {
+				if node.kind == 9 {
+					child^ += node.children_count + 1
+					return false
+				}
 				mj_reset_runtime_range(nodes, states, counters, positions, active, idx, node.children_count + 1)
 				child^ = -child^ - 1
 				return false
@@ -2050,6 +2103,7 @@ mj_any_one_match :: proc(g: ^Grid, rules: []Rule) -> bool {
 			for y := rule.imy - 1; y < g.my; y += rule.imy {
 				for x := rule.imx - 1; x < g.mx; x += rule.imx {
 					value := g.state[x + y * g.mx + z * g.mx * g.my]
+					if int(value) >= len(rule.ishifts) do continue
 					for shift in rule.ishifts[value] {
 						sx := x - shift.x; sy := y - shift.y; sz := z - shift.z
 						if sx < 0 || sy < 0 || sz < 0 || sx + rule.imx > g.mx || sy + rule.imy > g.my || sz + rule.imz > g.mz { continue }

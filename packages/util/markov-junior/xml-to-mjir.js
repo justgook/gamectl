@@ -570,7 +570,7 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
     ...(child.map ? [{ op: 'map', ...child.map }] : []),
   ]
   const childOps = (child) => {
-    if (child.children || child.map) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...(child.children ?? []).flatMap(childOps), { op: 'end' }]
+    if (child.children || child.map || child.wfc) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...(child.children ?? []).flatMap(childOps), { op: 'end' }]
     return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...child.rules]
   }
   const bodyOps = children
@@ -835,7 +835,13 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
   }
   if (tag === 'wfc') {
     const wfc = xmlAttr(start, 'sample') ? wfcOverlapFromElement(elementXml, inheritedSymmetry, options) : tileWfcFromElement(elementXml, inheritedSymmetry, options)
-    return { node: tag, steps, rules: [], wfc }
+    const direct = xmlDirectChildTags(elementXml)
+    const unsupported = direct.map((childXml) => xmlRootTag(childXml)).filter((childTag) => !['rule', 'union', 'one', 'all', 'prl', 'path', 'convolution', 'convchain', 'wfc', 'map', 'markov', 'sequence'].includes(childTag))
+    if (unsupported.length > 0) throw new Error(`wfc has unsupported direct children: ${unsupported.join(', ')}`)
+    const nodeSymmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
+    const childOptions = { ...options, values: wfc.values }
+    const children = direct.filter((childXml) => !['rule', 'union'].includes(xmlRootTag(childXml))).map((childXml) => nodeFromElement(childXml, nodeSymmetry, childOptions))
+    return children.length > 0 ? { node: tag, steps, rules: [], wfc, children } : { node: tag, steps, rules: [], wfc }
   }
   if (tag === 'map') {
     const map = mapFromElement(elementXml, inheritedSymmetry, options)
