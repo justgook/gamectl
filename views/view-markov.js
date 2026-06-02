@@ -484,7 +484,8 @@ export class ViewMarkov extends ViewCanvasBase {
     }
   }
 
-  async stepCurrent() {
+  async stepCurrent(stepBudget = this.steps()) {
+    assert(Number.isInteger(stepBudget) && stepBudget >= 0, "view-markov step budget must be a non-negative integer")
     if (this.running) return
     if (!this.session) await this.resetSession({ preservePlayback: this.playing })
     if (!this.session) {
@@ -496,7 +497,7 @@ export class ViewMarkov extends ViewCanvasBase {
     try {
       const example = this.selectedExample()
       assert(example, `view-markov could not resolve source '${this.source}'`)
-      const grid = unwrap(await runtime.invoke("markov-junior/markov-junior::step", this.session, this.steps()), "markov-junior.step")
+      const grid = unwrap(await runtime.invoke("markov-junior/markov-junior::step", this.session, stepBudget), "markov-junior.step")
       this.applyGrid(grid, example, Math.round(performance.now() - started))
       this.setStatus(grid.done ? `Done in ${grid["steps-run"]} steps` : `Stepped in ${Math.round(performance.now() - started)}ms`, grid.done ? "success" : "info")
       if (grid.done) this.stopPlayback()

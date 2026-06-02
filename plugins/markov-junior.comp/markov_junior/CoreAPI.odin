@@ -1330,6 +1330,9 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 	s.g = g
 	s.rules = rules
 	s.nodes = nodes
+	for i in 0..<len(s.nodes) {
+		if s.nodes[i].has_wfc do s.nodes[i].wfc.preview_updates = true
+	}
 	s.container_kind = container_kind
 	s.random = mj_random_init(i32(seed & 0x7fffffff))
 	s.states = mj_prepare_node_states(&s.g, s.nodes[:])

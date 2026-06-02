@@ -85,6 +85,7 @@ WFC_State :: struct {
 	random: MJRandom,
 	patterns: [][]u8,
 	tile_mode: bool,
+	preview_updates: bool,
 	tile_s, tile_sz, overlap, overlapz: int,
 }
 
@@ -157,6 +158,17 @@ wfc_go :: proc(w: ^WFC_State, g: ^Grid, random: ^MJRandom) -> bool {
 	if node >= 0 {
 		wfc_observe(w, node, &w.random)
 		wfc_propagate(w, g)
+		if w.preview_updates {
+			// Session stepping should expose WFC's incremental observation state to
+			// the browser preview.  Use a copy of the host random so preview frames do
+			// not consume the random value used by the final C#-parity update.
+			preview_random := random^
+			if w.tile_mode {
+				wfc_tile_update_to(w, &w.newgrid, g.mx, g.my, g.mz, &preview_random)
+			} else {
+				wfc_overlap_update(w, g, &preview_random)
+			}
+		}
 	} else {
 		if w.tile_mode {
 			for i in 0..<len(w.newgrid.state) do w.newgrid.state[i] = 0
