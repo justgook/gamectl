@@ -43,6 +43,22 @@ function exampleLabel(example) {
   return example.label || example.name || example.id
 }
 
+function exampleDimensionLabel(example) {
+  assert(example.render === "2d" || example.render === "vox", `view-markov unsupported render mode: ${example.render}`)
+  return example.render === "vox" ? "3D" : "2D"
+}
+
+function exampleSizeLabel(example) {
+  assert(Number.isInteger(example.width) && example.width > 0, `view-markov example ${example.id} width must be a positive integer`)
+  assert(Number.isInteger(example.height) && example.height > 0, `view-markov example ${example.id} height must be a positive integer`)
+  assert(Number.isInteger(example.depth) && example.depth > 0, `view-markov example ${example.id} depth must be a positive integer`)
+  return example.depth > 1 ? `${example.width}×${example.height}×${example.depth}` : `${example.width}×${example.height}`
+}
+
+function exampleSelectLabel(example) {
+  return `${exampleLabel(example)} · ${exampleDimensionLabel(example)} · ${exampleSizeLabel(example)}`
+}
+
 function uniqueXmlAttrValues(xml, name) {
   return [...xml.matchAll(new RegExp(`\\b${name}="([^"]+)"`, "g"))].map((match) => match[1])
 }
@@ -246,8 +262,11 @@ export class ViewMarkov extends ViewCanvasBase {
       }
       const option = document.createElement("option")
       option.value = example.id
-      option.textContent = exampleLabel(example)
+      option.textContent = exampleSelectLabel(example)
+      option.title = `${exampleLabel(example)} · ${example.source}`
       option.dataset.source = example.source
+      option.dataset.render = example.render
+      option.dataset.dimensions = exampleSizeLabel(example)
       group.appendChild(option)
     }
   }
