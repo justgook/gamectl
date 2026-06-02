@@ -1,267 +1,14 @@
 import { runtime, unwrap } from "/core/runtime.js"
-import { ViewCanvasBase } from "/util/view-canvas-base.js"
+import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
+import { VoxelOrbitRenderer } from "/util/voxel-orbit-renderer.js"
 import { decode as decodeVox } from "/util/vox/decode.js"
-
-const TILE_W = 24
-const TILE_H = 12
-const CUBE_H = 18
+import { collectVoxInstances, voxelRenderDataFromVox } from "/util/vox/scene.js"
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
-function colorForIndex(palette, index) {
-  if (palette) {
-    const p = (index - 1) * 4
-    return {
-      r: palette[p],
-      g: palette[p + 1],
-      b: palette[p + 2],
-      a: palette[p + 3] / 255,
-    }
-  }
-
-  const hue = (index * 47) % 360
-  return hslToRgb(hue, 68, 56)
-}
-
-function hslToRgb(h, s, l) {
-  s /= 100
-  l /= 100
-  const c = (1 - Math.abs(2 * l - 1)) * s
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  const m = l - c / 2
-  let r = 0
-  let g = 0
-  let b = 0
-  if (h < 60) [r, g, b] = [c, x, 0]
-  else if (h < 120) [r, g, b] = [x, c, 0]
-  else if (h < 180) [r, g, b] = [0, c, x]
-  else if (h < 240) [r, g, b] = [0, x, c]
-  else if (h < 300) [r, g, b] = [x, 0, c]
-  else [r, g, b] = [c, 0, x]
-  return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255),
-    a: 1,
-  }
-}
-
-function shade(color, factor) {
-  return `rgba(${Math.max(0, Math.min(255, Math.round(color.r * factor)))}, ${Math.max(0, Math.min(255, Math.round(color.g * factor)))}, ${Math.max(0, Math.min(255, Math.round(color.b * factor)))}, ${color.a})`
-}
-
-function parseTranslation(value) {
-  if (typeof value !== "string" || value.length === 0)
-    return { x: 0, y: 0, z: 0 }
-  const parts = value
-    .trim()
-    .split(/\s+/)
-    .map((part) => Number.parseInt(part, 10))
-  assert(
-    parts.length === 3 && parts.every(Number.isInteger),
-    `view-vox invalid nTRN translation: ${value}`,
-  )
-  return { x: parts[0], y: parts[1], z: parts[2] }
-}
-
-function decodeRotation(value) {
-  if (typeof value !== "string" || value.length === 0) return null
-  const packed = Number.parseInt(value, 10)
-  assert(
-    Number.isInteger(packed) && packed >= 0 && packed <= 255,
-    `view-vox invalid nTRN rotation: ${value}`,
-  )
-  const row0 = packed & 3
-  const row1 = (packed >> 2) & 3
-  const row2 = [0, 1, 2].find((axis) => axis !== row0 && axis !== row1)
-  assert(row2 !== undefined, `view-vox invalid nTRN rotation axes: ${value}`)
-  const signs = [
-    packed & 16 ? -1 : 1,
-    packed & 32 ? -1 : 1,
-    packed & 64 ? -1 : 1,
-  ]
-  return [
-    { axis: row0, sign: signs[0] },
-    { axis: row1, sign: signs[1] },
-    { axis: row2, sign: signs[2] },
-  ]
-}
-
-function applyRotation(point, rotation) {
-  if (!rotation) return point
-  const values = [point.x, point.y, point.z]
-  return {
-    x: values[rotation[0].axis] * rotation[0].sign,
-    y: values[rotation[1].axis] * rotation[1].sign,
-    z: values[rotation[2].axis] * rotation[2].sign,
-  }
-}
-
-function composeTransform(parent, frame) {
-  const translation = parseTranslation(frame?._t)
-  const rotation = decodeRotation(frame?._r)
-  return {
-    x: parent.x + translation.x,
-    y: parent.y + translation.y,
-    z: parent.z + translation.z,
-    rotation: rotation || parent.rotation,
-  }
-}
-
-function projectPoint(x, y, z, rotation) {
-  let rx = x
-  let ry = y
-  if (rotation === 1) {
-    rx = y
-    ry = -x
-  } else if (rotation === 2) {
-    rx = -x
-    ry = -y
-  } else if (rotation === 3) {
-    rx = -y
-    ry = x
-  }
-
-  return {
-    x: (rx - ry) * (TILE_W / 2),
-    y: (rx + ry) * (TILE_H / 2) - z * CUBE_H,
-    depth: rx + ry + z * 2,
-  }
-}
-
-function collectInstances(vox) {
-  const scene = vox.scene
-  if (!scene || scene.shapes.length === 0 || scene.transforms.length === 0) {
-    return vox.models.map((model, modelId) => ({
-      modelId,
-      model,
-      transform: { x: 0, y: 0, z: 0, rotation: null },
-    }))
-  }
-
-  const transforms = new Map(
-    scene.transforms.map((node) => [node.nodeId, node]),
-  )
-  const groups = new Map(scene.groups.map((node) => [node.nodeId, node]))
-  const shapes = new Map(scene.shapes.map((node) => [node.nodeId, node]))
-  const childIds = new Set()
-  for (const node of scene.transforms) childIds.add(node.childNodeId)
-  for (const node of scene.groups) {
-    for (const childNodeId of node.childNodeIds) childIds.add(childNodeId)
-  }
-  const roots = scene.transforms.filter((node) => !childIds.has(node.nodeId))
-  assert(roots.length > 0, "view-vox scene graph has no root transform")
-
-  const instances = []
-  function visit(nodeId, transform) {
-    if (transforms.has(nodeId)) {
-      const node = transforms.get(nodeId)
-      const next = composeTransform(transform, node.frames[0] || {})
-      visit(node.childNodeId, next)
-      return
-    }
-    if (groups.has(nodeId)) {
-      const node = groups.get(nodeId)
-      for (const childNodeId of node.childNodeIds) visit(childNodeId, transform)
-      return
-    }
-    if (shapes.has(nodeId)) {
-      const node = shapes.get(nodeId)
-      for (const entry of node.models) {
-        const model = vox.models[entry.modelId]
-        assert(
-          model,
-          `view-vox scene references missing model ${entry.modelId}`,
-        )
-        instances.push({ modelId: entry.modelId, model, transform })
-      }
-      return
-    }
-    throw new Error(`view-vox scene references missing node ${nodeId}`)
-  }
-
-  for (const root of roots)
-    visit(root.nodeId, { x: 0, y: 0, z: 0, rotation: null })
-  assert(
-    instances.length > 0,
-    "view-vox scene graph produced no model instances",
-  )
-  return instances
-}
-
-function buildRenderVoxels(data, rotation) {
-  const out = []
-  for (const instance of data.instances) {
-    const voxels = instance.model.voxels
-    for (let p = 0; p < voxels.length; p += 4) {
-      const local = applyRotation(
-        { x: voxels[p], y: voxels[p + 1], z: voxels[p + 2] },
-        instance.transform.rotation,
-      )
-      const x = local.x + instance.transform.x
-      const y = local.y + instance.transform.y
-      const z = local.z + instance.transform.z
-      const colorIndex = voxels[p + 3]
-      const projected = projectPoint(x, y, z, rotation)
-      out.push({
-        x,
-        y,
-        z,
-        colorIndex,
-        sx: projected.x,
-        sy: projected.y,
-        depth: projected.depth,
-      })
-    }
-  }
-  out.sort((a, b) => a.depth - b.depth || a.z - b.z || a.y - b.y || a.x - b.x)
-  return out
-}
-
-function drawFace(ctx, points, fillStyle) {
-  ctx.beginPath()
-  ctx.moveTo(points[0][0], points[0][1])
-  for (let i = 1; i < points.length; i += 1)
-    ctx.lineTo(points[i][0], points[i][1])
-  ctx.closePath()
-  ctx.fillStyle = fillStyle
-  ctx.fill()
-}
-
-function drawCube(ctx, voxel, color) {
-  const x = voxel.sx
-  const y = voxel.sy
-  const hw = TILE_W / 2
-  const hh = TILE_H / 2
-  const h = CUBE_H
-
-  const top = [
-    [x, y - h],
-    [x + hw, y - h + hh],
-    [x, y - h + TILE_H],
-    [x - hw, y - h + hh],
-  ]
-  const left = [
-    [x - hw, y - h + hh],
-    [x, y - h + TILE_H],
-    [x, y + TILE_H],
-    [x - hw, y + hh],
-  ]
-  const right = [
-    [x + hw, y - h + hh],
-    [x, y - h + TILE_H],
-    [x, y + TILE_H],
-    [x + hw, y + hh],
-  ]
-
-  drawFace(ctx, left, shade(color, 0.66))
-  drawFace(ctx, right, shade(color, 0.82))
-  drawFace(ctx, top, shade(color, 1.08))
-}
-
-export class ViewVox extends ViewCanvasBase {
+export class ViewVox extends HTMLElement {
   static get observedAttributes() {
     return ["data-source"]
   }
@@ -269,21 +16,38 @@ export class ViewVox extends ViewCanvasBase {
   constructor() {
     super()
     this.path = ""
+    this.canvas = null
+    this.renderer = null
     this.statusElement = null
     this.pathElement = null
-    this.rotation = 0
-    this.rotating = false
-    this.rotateStartX = 0
-    this.rotateStartRotation = 0
+    this.headerControlsElement = null
+    this.resizeFrame = 0
+    this.pendingCanvasSize = null
+    this.resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target !== this.canvas) continue
+        this.pendingCanvasSize = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        }
+        if (this.resizeFrame) return
+        this.resizeFrame = requestAnimationFrame(() => {
+          this.resizeFrame = 0
+          const size = this.pendingCanvasSize
+          this.pendingCanvasSize = null
+          if (!size || !this.renderer) return
+          this.renderer.resize(size.width, size.height)
+        })
+      }
+    })
   }
 
   connectedCallback() {
     if (this.dataset.ready) return
     this.dataset.ready = "1"
+    this.style.display = "contents"
 
-    this.path = String(
-      this.popupProps?.path || this.getAttribute("data-source") || "",
-    ).trim()
+    this.path = String(this.popupProps?.path || this.getAttribute("data-source") || "").trim()
     assert(this.path, "view-vox requires data-source")
 
     this.innerHTML = `
@@ -294,29 +58,50 @@ export class ViewVox extends ViewCanvasBase {
       </footer>
     `
 
+    this.canvas = this.querySelector('canvas[data-element="canvas"]')
     this.statusElement = this.querySelector('[data-element="status"]')
     this.pathElement = this.querySelector('[data-element="path"]')
-    assert(
-      this.statusElement instanceof HTMLOutputElement,
-      "view-vox missing status output",
-    )
-    assert(
-      this.pathElement instanceof HTMLOutputElement,
-      "view-vox missing path output",
-    )
+    assert(this.canvas instanceof HTMLCanvasElement, "view-vox missing canvas")
+    assert(this.statusElement instanceof HTMLOutputElement, "view-vox missing status output")
+    assert(this.pathElement instanceof HTMLOutputElement, "view-vox missing path output")
     this.pathElement.textContent = this.path
 
-    super.connectedCallback()
+    this.canvas.style.width = "100%"
+    this.canvas.style.height = "100%"
+    this.canvas.style.minWidth = "0"
+    this.canvas.style.minHeight = "0"
+    this.canvas.style.maxWidth = "100%"
+    this.canvas.style.maxHeight = "100%"
+    this.canvas.style.justifySelf = "stretch"
+    this.canvas.style.alignSelf = "stretch"
     this.canvas.style.cursor = "grab"
+    if (!this.hasAttribute("tabindex")) this.setAttribute("tabindex", "0")
+
+    this.renderer = new VoxelOrbitRenderer(this.canvas)
+    this.resizeObserver.observe(this.canvas)
+    this.mountHeaderControls()
+    registerViewPlugin(this, this.createViewPluginMethods())
+    this.addEventListener("keydown", (event) => this.onKeyDown(event))
     void this.load()
+  }
+
+  disconnectedCallback() {
+    if (this.resizeFrame) {
+      cancelAnimationFrame(this.resizeFrame)
+      this.resizeFrame = 0
+    }
+    this.resizeObserver.disconnect()
+    this.unmountHeaderControls()
+    if (this.renderer) this.renderer.dispose()
+    this.renderer = null
+    void unregisterViewPlugin(this)
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
     if (name !== "data-source") return
     this.path = String(newValue || "").trim()
-    if (this.pathElement instanceof HTMLOutputElement)
-      this.pathElement.textContent = this.path
+    if (this.pathElement instanceof HTMLOutputElement) this.pathElement.textContent = this.path
     if (this.dataset.ready) void this.load()
   }
 
@@ -326,12 +111,26 @@ export class ViewVox extends ViewCanvasBase {
         await this.reload()
         return { ok: true }
       },
+      zoomIn: async () => {
+        this.zoomIn()
+        return { ok: true }
+      },
+      zoomOut: async () => {
+        this.zoomOut()
+        return { ok: true }
+      },
+      zoomFit: async () => {
+        this.zoomFit()
+        return { ok: true }
+      },
     }
   }
 
-  createHeaderControlsElement() {
+  mountHeaderControls() {
+    if (!this.parentElement || this.headerControlsElement) return
     const toolbar = document.createElement("div")
     toolbar.dataset.element = "toolbar"
+    toolbar.setAttribute("slot", "header-controls")
     toolbar.innerHTML = `
       <div role="buttongroup" data-element="file-actions">
         <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
@@ -342,19 +141,17 @@ export class ViewVox extends ViewCanvasBase {
         <button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in"><i aria-hidden="true">zoom_in</i></button>
       </div>
     `
-    toolbar
-      .querySelector('[data-action="reload"]')
-      .addEventListener("click", () => this.reload())
-    toolbar
-      .querySelector('[data-action="zoom-out"]')
-      .addEventListener("click", () => this.zoomOut())
-    toolbar
-      .querySelector('[data-action="zoom-fit"]')
-      .addEventListener("click", () => this.zoomFit())
-    toolbar
-      .querySelector('[data-action="zoom-in"]')
-      .addEventListener("click", () => this.zoomIn())
-    return toolbar
+    toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => this.reload())
+    toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
+    toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
+    toolbar.querySelector('[data-action="zoom-in"]').addEventListener("click", () => this.zoomIn())
+    this.headerControlsElement = toolbar
+    this.parentElement.appendChild(toolbar)
+  }
+
+  unmountHeaderControls() {
+    if (this.headerControlsElement?.parentElement) this.headerControlsElement.remove()
+    this.headerControlsElement = null
   }
 
   async reload() {
@@ -362,152 +159,68 @@ export class ViewVox extends ViewCanvasBase {
     await runtime.call("ui.toast.success", { message: `Reloaded ${this.path}` })
   }
 
-  setStatus(text, tone = null) {
-    assert(
-      this.statusElement instanceof HTMLOutputElement,
-      "view-vox status output is not initialized",
-    )
-    this.statusElement.textContent = text
-    this.statusElement.classList.remove(
-      "accent",
-      "success",
-      "warning",
-      "danger",
-      "info",
-    )
-    if (tone) this.statusElement.classList.add(tone)
+  zoomIn() {
+    assert(this.renderer, "view-vox renderer is not initialized")
+    this.renderer.zoom(0.8)
   }
 
-  async load() {
-    assert(this.path, "view-vox requires data-source")
-    this.setStatus("Loading...", "info")
-
-    try {
-      const bytes = new Uint8Array(
-        unwrap(await runtime.invoke("fs/fs::read-file", this.path)),
-      )
-
-      const vox = decodeVox(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-      const instances = collectInstances(vox)
-
-      this.rotation = 0
-      this.setData({ vox, instances }, { autoFit: true })
-      this.setStatus(this.createStatusText(vox, instances), "success")
-    } catch (error) {
-      this.setData(null, { autoFit: false })
-      this.setStatus(`Error: ${error?.message || error}`, "danger")
-      console.error("view-vox load failed:", error)
-    }
+  zoomOut() {
+    assert(this.renderer, "view-vox renderer is not initialized")
+    this.renderer.zoom(1.25)
   }
 
-  createStatusText(vox, instances) {
-    const voxelCount = instances.reduce(
-      (sum, instance) => sum + instance.model.voxels.length / 4,
-      0,
-    )
-    const modelText =
-      vox.models.length === 1 ? "1 model" : `${vox.models.length} models`
-    const instanceText =
-      instances.length === 1 ? "1 instance" : `${instances.length} instances`
-    return [
-      modelText,
-      instanceText,
-      `${voxelCount} voxels`,
-      vox.palette ? "RGBA palette" : "debug palette",
-    ].join(" · ")
+  zoomFit() {
+    assert(this.renderer, "view-vox renderer is not initialized")
+    this.renderer.fit()
   }
 
-  calculateContentBounds(data) {
-    if (!data) return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
-
-    const rendered = buildRenderVoxels(data, this.rotation)
-    if (rendered.length === 0)
-      return { minX: 0, minY: 0, maxX: TILE_W, maxY: TILE_H }
-
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-    for (const voxel of rendered) {
-      minX = Math.min(minX, voxel.sx - TILE_W / 2)
-      maxX = Math.max(maxX, voxel.sx + TILE_W / 2)
-      minY = Math.min(minY, voxel.sy - CUBE_H)
-      maxY = Math.max(maxY, voxel.sy + TILE_H)
-    }
-
-    return { minX, minY, maxX, maxY }
-  }
-
-  drawContent(ctx, data) {
-    if (!data) return
-
-    const rendered = buildRenderVoxels(data, this.rotation)
-    for (const voxel of rendered) {
-      drawCube(ctx, voxel, colorForIndex(data.vox.palette, voxel.colorIndex))
-    }
-  }
-
-  rotateByDrag(deltaX) {
-    const quarterTurns = Math.round(deltaX / 80)
-    const next = (((this.rotateStartRotation + quarterTurns) % 4) + 4) % 4
-    if (next === this.rotation) return
-    this.rotation = next
-    this.contentBounds = this.calculateContentBounds(this.data)
-    this.fitToContent()
-  }
-
-  _onWheel(event) {
-    event.preventDefault()
-    const rect = this.canvas.getBoundingClientRect()
-    this.zoom(
-      event.clientX - rect.left,
-      event.clientY - rect.top,
-      event.deltaY < 0 ? 1.1 : 0.9,
-    )
-  }
-
-  _onMouseDown(event) {
-    this.rotating = true
-    this.rotateStartX = event.clientX
-    this.rotateStartRotation = this.rotation
-    this.canvas.style.cursor = "grabbing"
-  }
-
-  _onMouseMove(event) {
-    if (!this.rotating) return
-    this.rotateByDrag(event.clientX - this.rotateStartX)
-  }
-
-  _onMouseUp() {
-    this.rotating = false
-    if (this.canvas) this.canvas.style.cursor = "grab"
-  }
-
-  _onMouseLeave() {
-    this.rotating = false
-    if (this.canvas) this.canvas.style.cursor = "grab"
-  }
-
-  _onKeyDown(event) {
-    if (event.key === "+") {
+  onKeyDown(event) {
+    if (event.key === "+" || event.key === "=") {
       event.preventDefault()
       this.zoomIn()
       return
     }
-
     if (event.key === "-") {
       event.preventDefault()
       this.zoomOut()
       return
     }
-
     if (event.key.toLowerCase() === "f") {
       event.preventDefault()
-      this.fitToContent()
+      this.zoomFit()
     }
   }
 
-  _onKeyUp(_event) {}
+  setStatus(text, tone = null) {
+    assert(this.statusElement instanceof HTMLOutputElement, "view-vox status output is not initialized")
+    this.statusElement.textContent = text
+    this.statusElement.classList.remove("accent", "success", "warning", "danger", "info")
+    if (tone) this.statusElement.classList.add(tone)
+  }
+
+  async load() {
+    assert(this.path, "view-vox requires data-source")
+    assert(this.renderer, "view-vox renderer is not initialized")
+    this.setStatus("Loading...", "info")
+
+    try {
+      const bytes = new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", this.path), this.path))
+      const vox = decodeVox(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+      const instances = collectVoxInstances(vox)
+      const renderData = voxelRenderDataFromVox(vox, instances)
+      this.renderer.setInstances(renderData)
+      this.setStatus(this.createStatusText(vox, instances, renderData.instances.length / 4), "success")
+    } catch (error) {
+      this.setStatus(`Error: ${error?.message || error}`, "danger")
+      console.error("view-vox load failed:", error)
+    }
+  }
+
+  createStatusText(vox, instances, voxelCount) {
+    const modelText = vox.models.length === 1 ? "1 model" : `${vox.models.length} models`
+    const instanceText = instances.length === 1 ? "1 instance" : `${instances.length} instances`
+    return [modelText, instanceText, `${voxelCount} voxels`, vox.palette ? "RGBA palette" : "debug palette", "WebGL orbit"].join(" · ")
+  }
 }
 
 if (!customElements.get("view-vox")) {

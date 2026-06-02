@@ -1,5 +1,7 @@
 import { runtime, unwrap } from "/core/runtime.js"
 import { ViewCanvasBase } from "/util/view-canvas-base.js"
+import { VoxelOrbitRenderer } from "/util/voxel-orbit-renderer.js"
+import { paletteFromSymbolColors, voxelRenderDataFromIndexedGrid } from "/util/vox/grid.js"
 import {
   compileXmlToMjir,
   initialGridFromXml,
@@ -38,8 +40,7 @@ function basename(path) {
 }
 
 function exampleLabel(example) {
-  const suffix = example.decoderReady ? "" : " [not ready]"
-  return `${example.label || example.name || example.id}${suffix}`
+  return example.label || example.name || example.id
 }
 
 function uniqueXmlAttrValues(xml, name) {
@@ -115,6 +116,8 @@ export class ViewMarkov extends ViewCanvasBase {
     this.statusElement = null
     this.metaElement = null
     this.pathElement = null
+    this.voxelRenderer = null
+    this.voxelPalette = paletteFromSymbolColors(PALETTE)
   }
 
   connectedCallback() {
@@ -245,7 +248,6 @@ export class ViewMarkov extends ViewCanvasBase {
       option.value = example.id
       option.textContent = exampleLabel(example)
       option.dataset.source = example.source
-      option.dataset.decoderReady = example.decoderReady ? "true" : "false"
       group.appendChild(option)
     }
   }
@@ -308,6 +310,8 @@ export class ViewMarkov extends ViewCanvasBase {
 
   disconnectedCallback() {
     this.stopPlayback()
+    if (this.voxelRenderer) this.voxelRenderer.dispose()
+    this.voxelRenderer = null
     void this.dismissSession()
     super.disconnectedCallback()
   }
@@ -410,15 +414,12 @@ export class ViewMarkov extends ViewCanvasBase {
       assert(example, `view-markov could not resolve source '${this.source}'`)
       this.source = example.id
       this.syncHeaderControls()
-      if (example.decoderReady !== true) {
-        this.setData(null, { autoFit: false })
-        this.setStatus(`${exampleLabel(example)} is listed but not preview-ready yet`, "warning")
-        return
-      }
-      if (example.depth !== 1 || example.render !== "2d") {
-        this.setData(null, { autoFit: false })
-        this.setStatus(`${exampleLabel(example)} needs ${example.render || `${example.depth}D`} renderer`, "warning")
-        return
+      assert(example.render === "2d" || example.render === "vox", `view-markov unsupported render mode: ${example.render}`)
+      if (example.render === "2d") this.ensure2dCanvas()
+      if (example.render === "vox") {
+        assert(example.depth > 1, `view-markov vox render requires depth > 1 for ${example.id}`)
+        assert(typeof example.transparent === "string", `view-markov vox example ${example.id} requires transparent symbols`)
+        this.ensureVoxelCanvas()
       }
 
       this.setStatus(`Resetting ${exampleLabel(example)}...`, "info")
@@ -507,21 +508,109 @@ export class ViewMarkov extends ViewCanvasBase {
     this.animationFrame = requestAnimationFrame(() => this.playbackTick())
   }
 
+  _onResized(width, height) {
+    if (this.voxelRenderer) {
+      this.voxelRenderer.resize(width, height)
+      return
+    }
+    super._onResized(width, height)
+  }
+
+  applyCanvasLayout() {
+    assert(this.canvas instanceof HTMLCanvasElement, "view-markov missing canvas")
+    this.canvas.style.width = "100%"
+    this.canvas.style.height = "100%"
+    this.canvas.style.minWidth = "0"
+    this.canvas.style.minHeight = "0"
+    this.canvas.style.maxWidth = "100%"
+    this.canvas.style.maxHeight = "100%"
+    this.canvas.style.justifySelf = "stretch"
+    this.canvas.style.alignSelf = "stretch"
+  }
+
+  replaceCanvas() {
+    assert(this.canvas instanceof HTMLCanvasElement, "view-markov missing canvas")
+    this._resizeObserver.unobserve(this.canvas)
+    this._removeEventListeners()
+    const replacement = document.createElement("canvas")
+    replacement.dataset.element = "canvas"
+    this.canvas.replaceWith(replacement)
+    this.canvas = replacement
+    this.applyCanvasLayout()
+    this._resizeObserver.observe(this.canvas)
+    return replacement
+  }
+
+  ensureVoxelCanvas() {
+    if (this.voxelRenderer) return
+    this.replaceCanvas()
+    this.ctx = null
+    this.voxelRenderer = new VoxelOrbitRenderer(this.canvas)
+  }
+
+  ensure2dCanvas() {
+    if (!this.voxelRenderer && this.ctx) return
+    if (this.voxelRenderer) {
+      this.voxelRenderer.dispose()
+      this.voxelRenderer = null
+      this.replaceCanvas()
+    }
+    this.ctx = this.canvas.getContext("2d")
+    assert(this.ctx, "view-markov failed to create 2d context")
+    this.ctx.imageSmoothingEnabled = false
+    this._addEventListeners()
+  }
+
+  zoomIn() {
+    if (this.voxelRenderer) {
+      this.voxelRenderer.zoom(0.8)
+      return
+    }
+    super.zoomIn()
+  }
+
+  zoomOut() {
+    if (this.voxelRenderer) {
+      this.voxelRenderer.zoom(1.25)
+      return
+    }
+    super.zoomOut()
+  }
+
+  zoomFit() {
+    if (this.voxelRenderer) {
+      this.voxelRenderer.fit()
+      return true
+    }
+    return super.zoomFit()
+  }
+
   applyGrid(grid, example, durationMs) {
     assert(grid && typeof grid === "object" && !Array.isArray(grid), "view-markov grid must be object")
-    const rows = toRows(grid.cells, grid.width, grid.height, grid.values)
-    this.setData({ ...grid, rows }, { autoFit: true })
+    if (example.render === "vox") {
+      this.ensureVoxelCanvas()
+      const renderData = voxelRenderDataFromIndexedGrid(grid, {
+        ...this.voxelPalette,
+        transparent: example.transparent,
+      })
+      this.voxelRenderer.setInstances(renderData)
+      this.data = { ...grid, render: "vox" }
+    } else {
+      this.ensure2dCanvas()
+      const rows = toRows(grid.cells, grid.width, grid.height, grid.values)
+      this.setData({ ...grid, rows, render: "2d" }, { autoFit: true })
+    }
     assert(this.metaElement instanceof HTMLOutputElement, "view-markov meta output is not initialized")
     this.metaElement.textContent = `${grid.width} × ${grid.height} × ${grid.depth} · values ${grid.values} · seed ${this.seed()} · steps ${grid["steps-run"]}/${this.steps()} · changed ${grid.changed}${grid.done ? " · done" : ""} · ${durationMs}ms · ${example.id}`
   }
 
   calculateContentBounds(data) {
-    if (!data) return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
+    if (!data || data.render === "vox") return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
     return { minX: 0, minY: 0, maxX: data.width, maxY: data.height }
   }
 
   drawContent(ctx, data) {
-    if (!data) return
+    if (!data || data.render === "vox") return
     ctx.fillStyle = "#101820"
     ctx.fillRect(0, 0, data.width, data.height)
     for (let y = 0; y < data.height; y += 1) {

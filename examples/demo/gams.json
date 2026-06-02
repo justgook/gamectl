@@ -1462,8 +1462,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "CarmaTower",
@@ -1477,8 +1476,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "ModernHouse",
@@ -1492,8 +1490,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "SeaVilla",
@@ -1507,8 +1504,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "Island",
@@ -1521,8 +1517,7 @@
               "depth": 1,
               "steps": -1,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Backtracker",
@@ -1535,8 +1530,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BacktrackerCycle",
@@ -1549,8 +1543,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Basic",
@@ -1563,8 +1556,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BasicBrickWall",
@@ -1577,8 +1569,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BasicDijkstraDungeon",
@@ -1591,8 +1582,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BasicDijkstraFill",
@@ -1605,8 +1595,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BasicDungeonGrowth",
@@ -1619,8 +1608,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BasicPartitioning",
@@ -1633,8 +1621,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BernoulliPercolation",
@@ -1647,8 +1634,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BiasedGrowth",
@@ -1661,8 +1647,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BiasedGrowthContraction",
@@ -1675,8 +1660,7 @@
               "depth": 1,
               "steps": 5000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BiasedMazeGrowth",
@@ -1689,8 +1673,7 @@
               "depth": 1,
               "steps": 400,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BiasedVoronoi",
@@ -1703,8 +1686,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BishopParity",
@@ -1717,8 +1699,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BlueNoise",
@@ -1731,8 +1712,7 @@
               "depth": 1,
               "steps": 500,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Cave",
@@ -1745,8 +1725,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "CaveContour",
@@ -1759,8 +1738,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "CentralCrawlers",
@@ -1773,8 +1751,7 @@
               "depth": 1,
               "steps": 300,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "CentralSAW",
@@ -1787,8 +1764,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ChainDungeon",
@@ -1801,8 +1777,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ChainDungeonMaze",
@@ -1815,8 +1790,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ChainMaze",
@@ -1829,8 +1803,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Circuit",
@@ -1843,8 +1816,7 @@
               "depth": 1,
               "steps": 1200,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ClosedSurface",
@@ -1858,8 +1830,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "ColoredKnots",
@@ -1873,8 +1844,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "CompleteSAW",
@@ -1887,8 +1857,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "CompleteSAWSmart",
@@ -1901,8 +1870,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ConnectedCaves",
@@ -1915,8 +1883,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ConstrainedCaves",
@@ -1929,8 +1896,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Counting",
@@ -1944,8 +1910,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "Coupling",
@@ -1958,8 +1923,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "CrawlersChase",
@@ -1972,8 +1936,7 @@
               "depth": 1,
               "steps": 200,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "CrossCountry",
@@ -1986,8 +1949,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Cycles",
@@ -2000,8 +1962,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "DenseSAW",
@@ -2014,8 +1975,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "DiagonalPath",
@@ -2028,8 +1988,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Digger",
@@ -2042,8 +2001,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "DijkstraDungeon",
@@ -2056,8 +2014,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Division",
@@ -2070,8 +2027,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "DualRetraction",
@@ -2084,8 +2040,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "DualRetraction3D",
@@ -2099,8 +2054,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "DungeonGrowth",
@@ -2113,8 +2067,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Dwarves",
@@ -2127,8 +2080,7 @@
               "depth": 1,
               "steps": 85,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Escher",
@@ -2142,8 +2094,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "EscherSurface",
@@ -2157,8 +2108,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "EuclideanPath",
@@ -2171,8 +2121,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "FindLongCycle",
@@ -2185,8 +2134,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "FireNoise",
@@ -2199,8 +2147,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Flowers",
@@ -2213,8 +2160,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Forest",
@@ -2227,8 +2173,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ForestFire",
@@ -2241,8 +2186,7 @@
               "depth": 1,
               "steps": 80,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ForestFireCA",
@@ -2255,8 +2199,7 @@
               "depth": 1,
               "steps": 80,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "GameOfLife",
@@ -2269,8 +2212,7 @@
               "depth": 1,
               "steps": 100,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Growth",
@@ -2283,8 +2225,7 @@
               "depth": 1,
               "steps": 40000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "GrowthCompetition",
@@ -2297,8 +2238,7 @@
               "depth": 1,
               "steps": 30000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "GrowthContraction",
@@ -2311,8 +2251,7 @@
               "depth": 1,
               "steps": 10000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "GrowthWalk",
@@ -2325,8 +2264,7 @@
               "depth": 1,
               "steps": 5000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "GrowTo",
@@ -2339,8 +2277,7 @@
               "depth": 1,
               "steps": 2000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "HamiltonianPath",
@@ -2353,8 +2290,7 @@
               "depth": 1,
               "steps": 150000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "HamiltonianPaths",
@@ -2367,8 +2303,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Hills",
@@ -2382,8 +2317,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "IrregularMazeGrowth",
@@ -2396,8 +2330,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "IrregularSAW",
@@ -2410,8 +2343,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Keys",
@@ -2424,8 +2356,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "KnightPatrol",
@@ -2438,8 +2369,7 @@
               "depth": 1,
               "steps": 200,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Knots2D",
@@ -2452,8 +2382,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Knots3D",
@@ -2467,8 +2396,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "Laplace",
@@ -2481,8 +2409,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "LoopGrowth",
@@ -2495,8 +2422,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "LostCity",
@@ -2509,8 +2435,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MarchingSquares",
@@ -2523,8 +2448,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MazeBacktracker",
@@ -2537,8 +2461,7 @@
               "depth": 1,
               "steps": 20000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MazeGrowth",
@@ -2551,8 +2474,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MazeMap",
@@ -2565,8 +2487,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MazeTrail",
@@ -2579,8 +2500,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MultiHeadedDungeon",
@@ -2593,8 +2513,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MultiHeadedWalk",
@@ -2607,8 +2526,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MultiHeadedWalkDungeon",
@@ -2621,8 +2539,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "NestedGrowth",
@@ -2635,8 +2552,7 @@
               "depth": 1,
               "steps": 100,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "NoDeadEnds",
@@ -2649,8 +2565,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Noise",
@@ -2663,8 +2578,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "NystromDungeon",
@@ -2677,8 +2591,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "OddScale",
@@ -2691,8 +2604,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "OddScale3D",
@@ -2706,8 +2618,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "OpenCave",
@@ -2720,8 +2631,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "OpenCave3D",
@@ -2735,8 +2645,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "OrganicMechanic",
@@ -2749,8 +2658,7 @@
               "depth": 1,
               "steps": 200,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "OrientedEscher",
@@ -2764,8 +2672,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "PaintCompetition",
@@ -2778,8 +2685,7 @@
               "depth": 1,
               "steps": 400,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ParallelGrowth",
@@ -2793,8 +2699,7 @@
               "steps": 24,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "ParallelMazeGrowth",
@@ -2807,8 +2712,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Partitioning",
@@ -2822,8 +2726,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "Percolation",
@@ -2836,8 +2739,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "PeriodicEscher",
@@ -2851,8 +2753,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "PillarsOfEternity",
@@ -2866,8 +2767,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "Push",
@@ -2880,8 +2780,7 @@
               "depth": 1,
               "steps": 8000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "PutColoredLs",
@@ -2894,8 +2793,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "PutLs",
@@ -2908,8 +2806,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "RainbowGrowth",
@@ -2922,8 +2819,7 @@
               "depth": 1,
               "steps": 1600,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "RegularPath",
@@ -2936,8 +2832,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "RegularSAW",
@@ -2950,8 +2845,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "RegularSAWRestart",
@@ -2964,8 +2858,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "River",
@@ -2978,8 +2871,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Rosettes",
@@ -2992,8 +2884,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SAWRestart",
@@ -3006,8 +2897,7 @@
               "depth": 1,
               "steps": 2000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SelectLargeCaves",
@@ -3020,8 +2910,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SelectLongKnots",
@@ -3035,8 +2924,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "SelfAvoidingWalk",
@@ -3049,8 +2937,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Sewers",
@@ -3063,8 +2950,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SmarterDigger",
@@ -3077,8 +2963,7 @@
               "depth": 1,
               "steps": 800,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SmartSAW",
@@ -3091,8 +2976,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SmoothTrail",
@@ -3105,8 +2989,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SnellLaw",
@@ -3119,8 +3002,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SoftPath",
@@ -3133,8 +3015,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "StairsPath",
@@ -3148,8 +3029,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "StochasticVoronoi",
@@ -3162,8 +3042,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "StormySnellLaw",
@@ -3176,8 +3055,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "StrangeNoise",
@@ -3190,8 +3068,7 @@
               "depth": 1,
               "steps": 500,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "StrangeDungeon",
@@ -3204,8 +3081,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "StrangeGrowth",
@@ -3218,8 +3094,7 @@
               "depth": 1,
               "steps": 700,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SubmergedKnots",
@@ -3233,8 +3108,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "Surface",
@@ -3248,8 +3122,7 @@
               "steps": 50000,
               "seed": 1,
               "render": "vox",
-              "decoderReady": false,
-              "disabledReason": "2D canvas preview only; VOX renderer is planned"
+              "transparent": "B"
             },
             {
               "id": "Tetris",
@@ -3262,8 +3135,7 @@
               "depth": 1,
               "steps": 1500,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Texture",
@@ -3276,8 +3148,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "TileDungeon",
@@ -3290,8 +3161,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "TilePath",
@@ -3304,8 +3174,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Trail",
@@ -3318,8 +3187,7 @@
               "depth": 1,
               "steps": 3000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Voronoi",
@@ -3332,8 +3200,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "WaveBrickWall",
@@ -3346,8 +3213,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "WaveDungeon",
@@ -3360,8 +3226,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "WaveFlowers",
@@ -3374,8 +3239,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "WolfBasedApproach",
@@ -3388,8 +3252,7 @@
               "depth": 1,
               "steps": 300,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BasicKeys",
@@ -3402,8 +3265,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BasicSkyline",
@@ -3416,8 +3278,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "BasicSnake",
@@ -3430,8 +3291,7 @@
               "depth": 1,
               "steps": 100,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Chase",
@@ -3444,8 +3304,7 @@
               "depth": 1,
               "steps": 200,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Crawlers",
@@ -3458,8 +3317,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "DwarfPath",
@@ -3472,8 +3330,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "GoTo",
@@ -3486,8 +3343,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "GoToGradient",
@@ -3500,8 +3356,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Lightning",
@@ -3514,8 +3369,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "LoopErasedWalk",
@@ -3528,8 +3382,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MultiSokoban8",
@@ -3542,8 +3395,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "MultiSokoban9",
@@ -3556,8 +3408,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "ParallelWalk",
@@ -3570,8 +3421,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "RandomWalk",
@@ -3584,8 +3434,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Rectangle",
@@ -3598,8 +3447,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SequentialSnake",
@@ -3612,8 +3460,7 @@
               "depth": 1,
               "steps": 100,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SequentialSokoban",
@@ -3626,8 +3473,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Snake",
@@ -3640,8 +3486,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SokobanLevel1",
@@ -3654,8 +3499,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "SokobanLevel2",
@@ -3668,8 +3512,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "StableCrawlers",
@@ -3682,8 +3525,7 @@
               "depth": 1,
               "steps": 50000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             },
             {
               "id": "Wilson",
@@ -3696,8 +3538,7 @@
               "depth": 1,
               "steps": 1000,
               "seed": 1,
-              "render": "2d",
-              "decoderReady": true
+              "render": "2d"
             }
           ]
         }
