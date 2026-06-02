@@ -212,10 +212,10 @@ export class ViewMarkov extends ViewCanvasBase {
       </div>
       <div role="buttongroup" data-element="tool-actions">
         <input type="number" data-field="seed" aria-label="Seed" title="Seed" min="0" step="1" value="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <button type="button" data-action="reroll" aria-label="Reroll seed" title="Reroll seed"><i aria-hidden="true">casino</i></button>
         <input type="number" data-field="steps" aria-label="Steps" title="Steps" min="0" step="1" value="1000" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" data-action="step" aria-label="Step" title="Step"><i aria-hidden="true">skip_next</i></button>
         <button type="button" data-action="play-pause" aria-label="Play" title="Play"><i aria-hidden="true">play_arrow</i></button>
-        <button type="button" data-action="reroll" aria-label="Reroll seed" title="Reroll seed"><i aria-hidden="true">casino</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
         <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
