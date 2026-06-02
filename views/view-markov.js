@@ -389,8 +389,8 @@ export class ViewMarkov extends ViewCanvasBase {
     return match[1]
   }
 
-  async dismissSession() {
-    this.stopPlayback()
+  async dismissSession({ stopPlayback = true } = {}) {
+    if (stopPlayback) this.stopPlayback()
     if (!this.session) return
     const session = this.session
     this.session = null
@@ -398,12 +398,12 @@ export class ViewMarkov extends ViewCanvasBase {
     await runtime.releaseResource(session)
   }
 
-  async resetSession() {
+  async resetSession({ preservePlayback = false } = {}) {
     if (this.running) return
     this.running = true
     const started = performance.now()
     try {
-      await this.dismissSession()
+      await this.dismissSession({ stopPlayback: !preservePlayback })
       const example = this.selectedExample()
       assert(example, `view-markov could not resolve source '${this.source}'`)
       this.source = example.id
@@ -449,8 +449,11 @@ export class ViewMarkov extends ViewCanvasBase {
 
   async stepCurrent() {
     if (this.running) return
-    if (!this.session) await this.resetSession()
-    if (!this.session) return
+    if (!this.session) await this.resetSession({ preservePlayback: this.playing })
+    if (!this.session) {
+      if (this.playing) this.stopPlayback()
+      return
+    }
     this.running = true
     const started = performance.now()
     try {

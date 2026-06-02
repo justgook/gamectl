@@ -1109,9 +1109,10 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 	s.states = mj_prepare_node_states(&s.g, s.nodes[:])
 	s.counters = make([]int, len(s.nodes))
 	s.positions = make([]int, len(s.nodes))
-	s.active = make([]int, len(s.nodes))
+	s.active = make([]int, len(s.nodes) + 1)
 	s.changes = make([dynamic]Cell)
 	s.first = make([dynamic]int)
+	append(&s.first, 0)
 	s.child = 0
 	s.steps_run = 0
 	s.done = false
@@ -1129,13 +1130,24 @@ mj_session_step_runtime :: proc(s: ^MJ_Runtime_Session, steps: u32) -> (u32, boo
 			if !changed { s.done = true; break }
 			changed_any = true
 			counter += 1
+			append(&s.first, len(s.changes))
 		}
 	} else if s.container_kind == 5 {
 		for s.child < len(s.nodes) && (steps == 0 || counter < int(steps)) {
 			changed := mj_sequence_range_go(&s.g, s.rules[:], s.nodes[:], 0, len(s.nodes), &s.random, s.states, s.counters, s.positions, s.active, &s.changes, &s.first, int(s.steps_run) + counter, &s.child)
-			if !changed { break }
-			changed_any = true
+			if changed do changed_any = true
 			counter += 1
+			append(&s.first, len(s.changes))
+			if !changed {
+				if s.child < 0 {
+					s.child = -s.child - 1
+					continue
+				}
+				if !(steps > 0 && len(s.nodes) == 1 + s.nodes[0].children_count && s.nodes[0].kind >= 4) {
+					s.done = true
+					break
+				}
+			}
 		}
 		if s.child >= len(s.nodes) do s.done = true
 	} else {
@@ -1147,7 +1159,9 @@ mj_session_step_runtime :: proc(s: ^MJ_Runtime_Session, steps: u32) -> (u32, boo
 	}
 	s.steps_run += u32(counter)
 	output_grid := mj_output_grid_for_csharp_timing(&s.g, s.nodes[:])
-	if !changed_any || !mj_any_one_match(output_grid, s.rules[:]) do s.done = true
+	if s.container_kind != 5 && (!changed_any || !mj_any_one_match(output_grid, s.rules[:])) {
+		s.done = true
+	}
 	return u32(counter), changed_any, s.done
 }
 

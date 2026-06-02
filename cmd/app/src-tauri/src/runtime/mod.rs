@@ -2894,6 +2894,86 @@ mod tests {
         assert!(after_release.contains("unknown resource ref"));
     }
 
+
+    #[test]
+    fn markov_junior_basic_brick_wall_session_step_one_finishes_like_run() {
+        let plugin = "../../../build.nosync/plugins/markov-junior.comp.wasm";
+        if !std::path::Path::new(plugin).exists() {
+            eprintln!(
+                "skipping markov-junior BasicBrickWall session test; build it with `make build.nosync/plugins/markov-junior.comp.wasm`"
+            );
+            return;
+        }
+
+        let repo = PathBuf::from("../../..").canonicalize().unwrap();
+        let runtime = Runtime::new_at(repo.clone(), test_preopens(&repo)).unwrap();
+        runtime
+            .add_plugins(vec!["build.nosync/plugins/markov-junior.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let model_ir = serde_json::to_value(vec![
+            77, 74, 73, 82, 1, 0, 0, 0, 3, 0, 0, 0, 66, 87, 79, 23, 0, 0, 0, 100, 0, 0, 0, 5, 0, 0, 0, 0, 0,
+            0, 0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1,
+            0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 66, 42, 79,
+            42, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 1, 0,
+            0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 42, 42,
+            87, 42, 42, 100, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0,
+            0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            240, 63, 3, 0, 0, 0, 40, 120, 41, 66, 87, 66, 66, 100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0,
+            0, 1, 0, 0, 0, 8, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            240, 63, 3, 0, 0, 0, 40, 120, 41, 87, 87, 87, 87, 87, 87, 87, 87, 42, 42, 42, 66, 42, 42, 42,
+            42, 102, 0, 0, 0, 100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 8, 0, 0, 0, 2, 0, 0, 0, 1,
+            0, 0, 0, 8, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41,
+            79, 79, 79, 79, 79, 79, 79, 79, 66, 66, 66, 66, 66, 66, 66, 66, 42, 42, 42, 66, 42, 42, 42, 42,
+            42, 42, 42, 42, 42, 42, 42, 42, 100, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 2, 0, 0, 0,
+            0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 240, 63, 4, 0, 0, 0, 40, 120, 121, 41, 79, 87, 42, 79, 100, 0, 0, 0, 2, 0, 0,
+            0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 79, 79, 66, 42, 66, 42, 42, 100, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 3, 0,
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 79, 79, 79, 66, 66,
+            66, 66, 79, 79, 79, 79, 42, 42, 66, 42, 42, 42, 42, 42, 42, 42, 42, 42, 100, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 87, 87, 66, 66, 79, 66, 42, 79, 42, 42,
+            42, 42, 102, 0, 0, 0
+        ])
+        .unwrap();
+        let initial = serde_json::to_value(vec![0; 30 * 30]).unwrap();
+        let config = serde_json::json!({ "width": 30, "height": 30, "depth": 1, "seed": 1 });
+
+        let created = runtime
+            .invoke(
+                "markov-junior/markov-junior::create",
+                serde_json::json!([model_ir, initial, config]),
+            )
+            .unwrap();
+        let session = created.get("ok").unwrap().get("handle").unwrap().clone();
+
+        let mut last = serde_json::Value::Null;
+        for _ in 0..50000 {
+            last = runtime
+                .invoke(
+                    "markov-junior/markov-junior::step",
+                    serde_json::json!([session.clone(), 1]),
+                )
+                .unwrap();
+            if last["ok"]["done"] == serde_json::json!(true) {
+                break;
+            }
+        }
+
+        assert_eq!(last["ok"]["done"], serde_json::json!(true));
+        assert_eq!(last["ok"]["steps-run"], serde_json::json!(326));
+
+        runtime
+            .invoke(
+                "markov-junior/markov-junior::dismiss",
+                serde_json::json!([session.clone()]),
+            )
+            .unwrap();
+        runtime.release_resource(session).unwrap();
+    }
+
     #[test]
     fn markov_junior_session_create_step_and_dismiss() {
         let plugin = "../../../build.nosync/plugins/markov-junior.comp.wasm";
@@ -2909,6 +2989,60 @@ mod tests {
         runtime
             .add_plugins(vec!["build.nosync/plugins/markov-junior.comp.wasm".to_string()], false)
             .unwrap();
+
+        let sequence_model_ir = serde_json::to_value(vec![
+            77, 74, 73, 82, 1, 0, 0, 0, 2, 0, 0, 0, 66, 87, 7, 0, 0, 0, 100, 0,
+            0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0,
+            0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0,
+            0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 66, 87, 102, 0, 0, 0,
+            100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0,
+            1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 87, 66,
+        ])
+        .unwrap();
+        let initial = serde_json::json!([0, 0, 0, 0, 0, 0]);
+        let config = serde_json::json!({ "width": 3, "height": 2, "depth": 1, "seed": 42 });
+
+        let created = runtime
+            .invoke(
+                "markov-junior/markov-junior::create",
+                serde_json::json!([sequence_model_ir, initial.clone(), config.clone()]),
+            )
+            .unwrap();
+        let sequence_session = created.get("ok").unwrap().get("handle").unwrap().clone();
+
+        let first = runtime
+            .invoke(
+                "markov-junior/markov-junior::step",
+                serde_json::json!([sequence_session.clone(), 1]),
+            )
+            .unwrap();
+        assert_eq!(first["ok"]["cells"], serde_json::json!([1, 1, 1, 1, 1, 1]));
+
+        let second = runtime
+            .invoke(
+                "markov-junior/markov-junior::step",
+                serde_json::json!([sequence_session.clone(), 1]),
+            )
+            .unwrap();
+        assert_eq!(second["ok"]["done"], serde_json::json!(false));
+
+        let third = runtime
+            .invoke(
+                "markov-junior/markov-junior::step",
+                serde_json::json!([sequence_session.clone(), 1]),
+            )
+            .unwrap();
+        assert_eq!(third["ok"]["cells"].as_array().unwrap().iter().filter(|value| **value == serde_json::json!(0)).count(), 1);
+
+        runtime
+            .invoke(
+                "markov-junior/markov-junior::dismiss",
+                serde_json::json!([sequence_session.clone()]),
+            )
+            .unwrap();
+        runtime.release_resource(sequence_session).unwrap();
 
         let model_ir = serde_json::json!([
             77, 74, 73, 82, 1, 0, 0, 0, 2, 0, 0, 0, 66, 87, 1, 0, 0, 0, 2,
