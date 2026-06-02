@@ -339,19 +339,22 @@ export class ViewMarkov extends ViewCanvasBase {
     const tilesetXml = new Map()
     const tileVox = new Map()
 
+    const ruleFolders = unique([folder, ...uniqueXmlAttrValues(xml, "folder")])
     for (const file of unique([
       ...uniqueXmlAttrValues(xml, "file"),
       ...uniqueXmlAttrValues(xml, "fin"),
       ...uniqueXmlAttrValues(xml, "fout"),
     ])) {
-      if (example.depth === 1) {
-        const pngPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.png`)
-        const png = await this.readOptionalFile(pngPath)
-        if (png) rulePatterns.set(`${folder}\0${file}`, await decodePngPattern(png, this.legendForRule(xml, file)))
-      } else {
-        const voxPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.vox`)
-        const vox = await this.readOptionalFile(voxPath)
-        if (vox) ruleVox.set(`${folder}\0${file}`, vox)
+      for (const ruleFolder of ruleFolders) {
+        if (example.depth === 1) {
+          const pngPath = joinResourcePath(resourceRoot, "rules", ruleFolder, `${file}.png`)
+          const png = await this.readOptionalFile(pngPath)
+          if (png) rulePatterns.set(`${ruleFolder}\0${file}`, await decodePngPattern(png, this.legendForRule(xml, file)))
+        } else {
+          const voxPath = joinResourcePath(resourceRoot, "rules", ruleFolder, `${file}.vox`)
+          const vox = await this.readOptionalFile(voxPath)
+          if (vox) ruleVox.set(`${ruleFolder}\0${file}`, vox)
+        }
       }
     }
 

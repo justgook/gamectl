@@ -341,6 +341,19 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			node_start = len(rules)
 			node_steps = 0
 		} else if op == 103 {
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			if pos >= len(model) { return mj_fail("truncated model-ir field symbol") }
 			for_symbol := model[pos]; pos += 1
 			recompute := mj_read_u32(model, &pos, &ok) != 0
@@ -355,21 +368,34 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if !ok || on_len <= 0 || pos + on_len > len(model) { return mj_fail("invalid model-ir field on") }
 			on_string := string(model[pos:pos + on_len]); pos += on_len
 			if current_fields == nil {
-				current_fields = make([]Field_State, len(g.characters))
-				current_potentials = make([]int, len(g.state) * len(g.characters))
+				current_fields = make([]Field_State, len(target_grid.characters))
+				current_potentials = make([]int, len(target_grid.state) * len(target_grid.characters))
 			}
-			field := Field_State{present = true, recompute = recompute, essential = essential, substrate = grid_wave_string(&g, on_string)}
+			field := Field_State{present = true, recompute = recompute, essential = essential, substrate = grid_wave_string(target_grid, on_string)}
 			if from_len > 0 {
 				field.inversed = true
-				field.zero = grid_wave_string(&g, from_string)
+				field.zero = grid_wave_string(target_grid, from_string)
 			} else {
-				field.zero = grid_wave_string(&g, to_string)
+				field.zero = grid_wave_string(target_grid, to_string)
 			}
-			current_fields[grid_value(&g, for_symbol)] = field
+			current_fields[grid_value(target_grid, for_symbol)] = field
 		} else if op == 104 {
 			current_temperature = mj_read_f64(model, &pos, &ok)
 			if !ok { return mj_fail("invalid model-ir temperature") }
 		} else if op == 105 {
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			if pos >= len(model) { return mj_fail("truncated model-ir observe value") }
 			observe_value := model[pos]; pos += 1
 			from_len := int(mj_read_u32(model, &pos, &ok))
@@ -379,13 +405,13 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			if !ok || to_len <= 0 || pos + to_len > len(model) { return mj_fail("invalid model-ir observe to") }
 			to_string := string(model[pos:pos + to_len]); pos += to_len
 			if current_observations == nil {
-				current_observations = make([]Observation_State, len(g.characters))
-				if !current_search do current_potentials = make([]int, len(g.state) * len(g.characters))
-				current_future = make([]i32, len(g.state))
+				current_observations = make([]Observation_State, len(target_grid.characters))
+				if !current_search do current_potentials = make([]int, len(target_grid.state) * len(target_grid.characters))
+				current_future = make([]i32, len(target_grid.state))
 			}
 			from_value := observe_value
 			if from_len > 0 do from_value = from_string[0]
-			current_observations[grid_value(&g, observe_value)] = Observation_State{present = true, from = grid_value(&g, from_value), to = grid_wave_string(&g, to_string)}
+			current_observations[grid_value(target_grid, observe_value)] = Observation_State{present = true, from = grid_value(target_grid, from_value), to = grid_wave_string(target_grid, to_string)}
 		} else if op == 111 {
 			current_search = mj_read_u32(model, &pos, &ok) != 0
 			limit_raw := mj_read_u32(model, &pos, &ok)
@@ -603,6 +629,19 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				current_has_map = true
 			}
 		} else if op == 106 {
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			from_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || from_len <= 0 || pos + from_len > len(model) { return mj_fail("invalid model-ir path from") }
 			from_string := string(model[pos:pos + from_len]); pos += from_len
@@ -619,7 +658,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			edges := mj_read_u32(model, &pos, &ok) != 0
 			vertices := mj_read_u32(model, &pos, &ok) != 0
 			if !ok { return mj_fail("invalid model-ir path flags") }
-			current_path = Path_State{start = grid_wave_string(&g, from_string), finish = grid_wave_string(&g, to_string), substrate = grid_wave_string(&g, on_string), value = grid_value(&g, color), inertia = inertia, longest = longest, edges = edges, vertices = vertices}
+			current_path = Path_State{start = grid_wave_string(target_grid, from_string), finish = grid_wave_string(target_grid, to_string), substrate = grid_wave_string(target_grid, on_string), value = grid_value(target_grid, color), inertia = inertia, longest = longest, edges = edges, vertices = vertices}
 			current_has_path = true
 		} else if op == 1 {
 			if pos + 2 > len(model) { return mj_fail("truncated one-cell replace rule") }
@@ -811,6 +850,19 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			node_start = len(rules)
 			node_steps = 0
 		} else if op == 103 {
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			if pos >= len(model) { _ = mj_fail("truncated model-ir field symbol"); return nil }
 			for_symbol := model[pos]; pos += 1
 			recompute := mj_read_u32(model, &pos, &ok) != 0
@@ -825,21 +877,34 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			if !ok || on_len <= 0 || pos + on_len > len(model) { _ = mj_fail("invalid model-ir field on"); return nil }
 			on_string := string(model[pos:pos + on_len]); pos += on_len
 			if current_fields == nil {
-				current_fields = make([]Field_State, len(g.characters))
-				current_potentials = make([]int, len(g.state) * len(g.characters))
+				current_fields = make([]Field_State, len(target_grid.characters))
+				current_potentials = make([]int, len(target_grid.state) * len(target_grid.characters))
 			}
-			field := Field_State{present = true, recompute = recompute, essential = essential, substrate = grid_wave_string(&g, on_string)}
+			field := Field_State{present = true, recompute = recompute, essential = essential, substrate = grid_wave_string(target_grid, on_string)}
 			if from_len > 0 {
 				field.inversed = true
-				field.zero = grid_wave_string(&g, from_string)
+				field.zero = grid_wave_string(target_grid, from_string)
 			} else {
-				field.zero = grid_wave_string(&g, to_string)
+				field.zero = grid_wave_string(target_grid, to_string)
 			}
-			current_fields[grid_value(&g, for_symbol)] = field
+			current_fields[grid_value(target_grid, for_symbol)] = field
 		} else if op == 104 {
 			current_temperature = mj_read_f64(model, &pos, &ok)
 			if !ok { _ = mj_fail("invalid model-ir temperature"); return nil }
 		} else if op == 105 {
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			if pos >= len(model) { _ = mj_fail("truncated model-ir observe value"); return nil }
 			observe_value := model[pos]; pos += 1
 			from_len := int(mj_read_u32(model, &pos, &ok))
@@ -849,13 +914,13 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			if !ok || to_len <= 0 || pos + to_len > len(model) { _ = mj_fail("invalid model-ir observe to"); return nil }
 			to_string := string(model[pos:pos + to_len]); pos += to_len
 			if current_observations == nil {
-				current_observations = make([]Observation_State, len(g.characters))
-				if !current_search do current_potentials = make([]int, len(g.state) * len(g.characters))
-				current_future = make([]i32, len(g.state))
+				current_observations = make([]Observation_State, len(target_grid.characters))
+				if !current_search do current_potentials = make([]int, len(target_grid.state) * len(target_grid.characters))
+				current_future = make([]i32, len(target_grid.state))
 			}
 			from_value := observe_value
 			if from_len > 0 do from_value = from_string[0]
-			current_observations[grid_value(&g, observe_value)] = Observation_State{present = true, from = grid_value(&g, from_value), to = grid_wave_string(&g, to_string)}
+			current_observations[grid_value(target_grid, observe_value)] = Observation_State{present = true, from = grid_value(target_grid, from_value), to = grid_wave_string(target_grid, to_string)}
 		} else if op == 111 {
 			current_search = mj_read_u32(model, &pos, &ok) != 0
 			limit_raw := mj_read_u32(model, &pos, &ok)
@@ -1073,6 +1138,19 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 				current_has_map = true
 			}
 		} else if op == 106 {
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			from_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || from_len <= 0 || pos + from_len > len(model) { _ = mj_fail("invalid model-ir path from"); return nil }
 			from_string := string(model[pos:pos + from_len]); pos += from_len
@@ -1089,7 +1167,7 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			edges := mj_read_u32(model, &pos, &ok) != 0
 			vertices := mj_read_u32(model, &pos, &ok) != 0
 			if !ok { _ = mj_fail("invalid model-ir path flags"); return nil }
-			current_path = Path_State{start = grid_wave_string(&g, from_string), finish = grid_wave_string(&g, to_string), substrate = grid_wave_string(&g, on_string), value = grid_value(&g, color), inertia = inertia, longest = longest, edges = edges, vertices = vertices}
+			current_path = Path_State{start = grid_wave_string(target_grid, from_string), finish = grid_wave_string(target_grid, to_string), substrate = grid_wave_string(target_grid, on_string), value = grid_value(target_grid, color), inertia = inertia, longest = longest, edges = edges, vertices = vertices}
 			current_has_path = true
 		} else if op == 1 {
 			if pos + 2 > len(model) { _ = mj_fail("truncated one-cell replace rule"); return nil }
