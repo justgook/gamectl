@@ -116,7 +116,16 @@ rule_from_char_arrays :: proc(g: ^Grid, in_chars: []u8, imx, imy, imz: int, out_
 	return rule_from_char_arrays_grids(g, g, in_chars, imx, imy, imz, out_chars, omx, omy, omz, probability)
 }
 
+rule_input_symbol_known :: proc(g: ^Grid, ch: u8) -> bool {
+	if ch == '*' do return true
+	if grid_value(g, ch) != 0xff do return true
+	for i in 0..<len(g.union_keys) do if g.union_keys[i] == ch do return true
+	return false
+}
+
 rule_from_char_arrays_grids :: proc(gin, gout: ^Grid, in_chars: []u8, imx, imy, imz: int, out_chars: []u8, omx, omy, omz: int, probability := 1.0) -> Rule {
+	for ch in in_chars do if !rule_input_symbol_known(gin, ch) do return {}
+	for ch in out_chars do if ch != '*' && grid_value(gout, ch) == 0xff do return {}
 	input := make([]i32, len(in_chars))
 	output := make([]u8, len(out_chars))
 	for i in 0..<len(in_chars) do input[i] = grid_wave(gin, in_chars[i])
@@ -391,6 +400,7 @@ rule_same :: proc(a, b: ^Rule) -> bool {
 }
 
 append_rule_symmetries :: proc(g: ^Grid, rules: ^[dynamic]Rule, base: Rule, symmetry := "") {
+	if base.imx <= 0 do return
 	if g.mz == 1 {
 		append_square_symmetries(g, rules, base, symmetry)
 	} else {

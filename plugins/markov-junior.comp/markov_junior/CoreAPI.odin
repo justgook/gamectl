@@ -1741,6 +1741,15 @@ mj_markov_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, cou
 					active[parent_slot] = child + 1
 					return false
 				}
+				if node.kind == 10 {
+					if positions[idx] < 0 {
+						positions[idx] = -positions[idx] - 1
+						active[parent_slot] = child + 1
+						return false
+					}
+					active[parent_slot] = child + 1
+					return false
+				}
 				active[parent_slot] = 0
 				mj_reset_runtime_range(nodes, states, counters, positions, active, idx, node.children_count + 1)
 				return false
@@ -1863,6 +1872,15 @@ mj_sequence_range_go :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_Node, start, c
 			}
 			if was_active {
 				if node.kind == 9 {
+					if positions[idx] < 0 {
+						positions[idx] = -positions[idx] - 1
+						child^ = -child^ - 1
+						return false
+					}
+					child^ += node.children_count + 1
+					return false
+				}
+				if node.kind == 10 {
 					if positions[idx] < 0 {
 						positions[idx] = -positions[idx] - 1
 						child^ = -child^ - 1
