@@ -321,7 +321,7 @@ export class ViewMarkov extends ViewCanvasBase {
       return await this.readFile(path)
     } catch (error) {
       const message = String(error?.message || error)
-      if (message.includes("No such file") || message.includes("not found") || message.includes("os error 2")) return null
+      if (message.includes("no-entry") || message.includes("No such file") || message.includes("not found") || message.includes("os error 2")) return null
       throw error
     }
   }
@@ -340,13 +340,15 @@ export class ViewMarkov extends ViewCanvasBase {
       ...uniqueXmlAttrValues(xml, "fin"),
       ...uniqueXmlAttrValues(xml, "fout"),
     ])) {
-      const pngPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.png`)
-      const png = await this.readOptionalFile(pngPath)
-      if (png) rulePatterns.set(`${folder}\0${file}`, await decodePngPattern(png, this.legendForRule(xml, file)))
-
-      const voxPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.vox`)
-      const vox = await this.readOptionalFile(voxPath)
-      if (vox) ruleVox.set(`${folder}\0${file}`, vox)
+      if (example.depth === 1) {
+        const pngPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.png`)
+        const png = await this.readOptionalFile(pngPath)
+        if (png) rulePatterns.set(`${folder}\0${file}`, await decodePngPattern(png, this.legendForRule(xml, file)))
+      } else {
+        const voxPath = joinResourcePath(resourceRoot, "rules", folder, `${file}.vox`)
+        const vox = await this.readOptionalFile(voxPath)
+        if (vox) ruleVox.set(`${folder}\0${file}`, vox)
+      }
     }
 
     for (const sample of unique(uniqueXmlAttrValues(xml, "sample"))) {
