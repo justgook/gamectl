@@ -79,17 +79,7 @@ function originalRunCwd(name) {
   return tempCwd
 }
 
-export function parityModel(name, { runs, steps }) {
-  const tempDir = join(tempRoot, name)
-  rmSync(tempDir, { recursive: true, force: true })
-  mkdirSync(tempDir, { recursive: true })
-
-  const originalCwd = originalRunCwd(name)
-  run('./bin/markovjunior-odin', [name, `--amount=${runs}`, `--steps=${steps}`, '--format=text', `--output=${tempDir}`], { cwd: originalCwd })
-
-  const outputs = readdirSync(tempDir).filter((entry) => entry.endsWith('.txt')).sort()
-  assert.equal(outputs.length, runs, `${name}: expected ${runs} original outputs, got ${outputs.join(', ')}`)
-
+function compileModel(name) {
   const xml = readFileSync(join(mjRoot, `models/${name}.xml`), 'utf8')
   const config = configForModel(modelsXml, name)
   const modelIr = compileXmlToMjir(xml, {
@@ -112,6 +102,35 @@ export function parityModel(name, { runs, steps }) {
       return existsSync(path) ? readFileSync(path) : undefined
     },
   })
+  return { xml, config, modelIr }
+}
+
+export function parityModel(name, { runs, steps, seed }) {
+  const { xml, config, modelIr } = compileModel(name)
+
+  if (seed !== undefined) {
+    const actual = runComponent(
+      modelIr,
+      initialGridFromXml(xml, config.width, config.height, config.depth),
+      { width: config.width, height: config.height, depth: config.depth, seed, 'max-steps': steps },
+    )
+    assert.equal(actual.width > 0, true, `${name}/${seed}: width`)
+    assert.equal(actual.height > 0, true, `${name}/${seed}: height`)
+    assert.equal(actual.depth > 0, true, `${name}/${seed}: depth`)
+    assert.equal(actual.cells.length, actual.width * actual.height * actual.depth, `${name}/${seed}: cell count`)
+    console.log(`markov-junior ${name} seed=${seed} component replay ok`)
+    return
+  }
+
+  const tempDir = join(tempRoot, name)
+  rmSync(tempDir, { recursive: true, force: true })
+  mkdirSync(tempDir, { recursive: true })
+
+  const originalCwd = originalRunCwd(name)
+  run('./bin/markovjunior-odin', [name, `--amount=${runs}`, `--steps=${steps}`, '--format=text', `--output=${tempDir}`], { cwd: originalCwd })
+
+  const outputs = readdirSync(tempDir).filter((entry) => entry.endsWith('.txt')).sort()
+  assert.equal(outputs.length, runs, `${name}: expected ${runs} original outputs, got ${outputs.join(', ')}`)
 
   for (const output of outputs) {
     const golden = parseMjstate(readFileSync(join(tempDir, output), 'utf8'))

@@ -2063,11 +2063,14 @@ mj_run_sequence_nodes_with_count :: proc(g: ^Grid, rules: []Rule, nodes: []MJ_No
 				continue
 			}
 			// Original persistent execution keeps a current node pointer. If a root
-			// sequence consists of a single nested container, completing that child
-			// returns control to the root, which can enter the same child again on
-			// the next outer turn (for example MultiHeadedWalk). Multi-child root
-			// sequences complete to nil and stop (for example Division/Dwarves).
-			if !(steps > 0 && len(nodes) == 1 + nodes[0].children_count && nodes[0].kind >= 4) { break }
+			// sequence consists of a single nested markov/sequence container, completing
+			// that child returns control to the root, which can enter the same child
+			// again on the next outer turn (for example MultiHeadedWalk). Multi-child
+			// root sequences complete to nil and stop (for example Division/Dwarves).
+			// Do not apply this restart exception to leaf executable nodes such as WFC:
+			// tile WFC swaps `g` to its expanded output grid on completion, while its
+			// wave remains allocated for the coarse grid.
+			if !(steps > 0 && len(nodes) == 1 + nodes[0].children_count && (nodes[0].kind == 4 || nodes[0].kind == 5)) { break }
 		}
 	}
 	return counter, changed_any

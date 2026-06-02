@@ -67,6 +67,18 @@ function unique(values) {
   return [...new Set(values)]
 }
 
+function wfcStartTagsForTileset(xml, tileset) {
+  return [...xml.matchAll(/<wfc\b[^>]*>/g)]
+    .map((match) => match[0])
+    .filter((tag) => xmlAttr(tag, "tileset", "") === tileset)
+}
+
+function tileDirectoriesForTileset(xml, tileset) {
+  const tags = wfcStartTagsForTileset(xml, tileset)
+  assert(tags.length > 0, `view-markov tileset ${tileset} is not referenced by a tile wfc tag`)
+  return unique(tags.map((tag) => xmlAttr(tag, "tiles", tileset)))
+}
+
 function joinResourcePath(root, ...parts) {
   return [root, ...parts].map((part) => String(part || "").trim()).filter(Boolean).join("/")
 }
@@ -386,11 +398,11 @@ export class ViewMarkov extends ViewCanvasBase {
       const tilesetPath = joinResourcePath(resourceRoot, "tilesets", `${tileset}.xml`)
       const text = unwrap(await runtime.invoke("fs/fs::read-text", tilesetPath), tilesetPath)
       tilesetXml.set(tileset, text)
-      const start = xmlRootStartTag(xml)
-      const tilesName = xmlAttr(start, "tiles", tileset)
-      for (const tileName of unique(uniqueXmlAttrValues(text, "name"))) {
-        const voxPath = joinResourcePath(resourceRoot, "tilesets", tilesName, `${tileName}.vox`)
-        tileVox.set(`${tilesName}\0${tileName}`, await this.readFile(voxPath))
+      for (const tilesName of tileDirectoriesForTileset(xml, tileset)) {
+        for (const tileName of unique(uniqueXmlAttrValues(text, "name"))) {
+          const voxPath = joinResourcePath(resourceRoot, "tilesets", tilesName, `${tileName}.vox`)
+          tileVox.set(`${tilesName}\0${tileName}`, await this.readFile(voxPath))
+        }
       }
     }
 
