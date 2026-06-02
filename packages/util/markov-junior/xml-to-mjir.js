@@ -321,8 +321,9 @@ function mapFromElement(elementXml, inheritedSymmetry, options) {
   if (unsupported.length > 0) throw new Error(`map has unsupported direct children: ${unsupported.join(', ')}`)
   const symmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
   const mapOptions = { ...options, folder: xmlAttr(start, 'folder', options.folder ?? '') }
+  const ruleTags = direct.filter((childXml) => xmlRootTag(childXml) === 'rule')
   const rules = []
-  for (const ruleTag of xmlRuleTags(elementXml)) {
+  for (const ruleTag of ruleTags) {
     const file = xmlAttr(ruleTag, 'file')
     const fin = xmlAttr(ruleTag, 'fin')
     const fout = xmlAttr(ruleTag, 'fout')
@@ -570,8 +571,9 @@ export function encodeMjirV1({ values, node = 'one', rules, fields = [], tempera
     ...(child.map ? [{ op: 'map', ...child.map }] : []),
   ]
   const childOps = (child) => {
-    if (child.children || child.map || child.wfc) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...(child.children ?? []).flatMap(childOps), { op: 'end' }]
-    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...child.rules]
+    const unionOps = (child.unions ?? []).map((union) => ({ op: 'union', ...union }))
+    if (child.children || child.map || child.wfc) return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...unionOps, ...(child.children ?? []).flatMap(childOps), { op: 'end' }]
+    return [...nodeOps(child.node, child.steps, child.fields, child.temperature, child.observations, child.search), ...childPayloadOps(child), ...unionOps, ...child.rules]
   }
   const bodyOps = children
     ? [{ op: 'node', kind: node, steps: 0 }, ...children.flatMap(childOps)]
@@ -841,7 +843,8 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
     const nodeSymmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
     const childOptions = { ...options, values: wfc.values }
     const children = direct.filter((childXml) => !['rule', 'union'].includes(xmlRootTag(childXml))).map((childXml) => nodeFromElement(childXml, nodeSymmetry, childOptions))
-    return children.length > 0 ? { node: tag, steps, rules: [], wfc, children } : { node: tag, steps, rules: [], wfc }
+    const unions = unionsFromXml(elementXml)
+    return children.length > 0 ? { node: tag, steps, rules: [], wfc, unions, children } : { node: tag, steps, rules: [], wfc, unions }
   }
   if (tag === 'map') {
     const map = mapFromElement(elementXml, inheritedSymmetry, options)
@@ -854,7 +857,7 @@ function nodeFromElement(elementXml, inheritedSymmetry = '', options = {}) {
     const nodeSymmetry = xmlAttr(start, 'symmetry', inheritedSymmetry)
     const children = direct.filter((childXml) => xmlRootTag(childXml) !== 'union').map((childXml) => nodeFromElement(childXml, nodeSymmetry, options))
     if (children.length === 0) throw new Error(`child <${tag}> missing child nodes`)
-    return { node: tag, steps, children }
+    return { node: tag, steps, unions: unionsFromXml(elementXml), children }
   }
   return { node: tag, steps, rules: rulesFromElement(elementXml, inheritedSymmetry, options), fields: fieldsFromElement(elementXml), observations: observationsFromElement(elementXml), search: searchFromElement(elementXml), temperature: Number(xmlAttr(start, 'temperature', '0')) }
 }
@@ -970,8 +973,9 @@ function rulesFromElement(elementXml, inheritedSymmetry = '', options = {}) {
     return [{ op: 'pattern', input, output, symmetry, probability: Number(xmlAttr(start, 'p', '1')) }]
   }
 
+  const ruleTags = directChildren.filter((childXml) => xmlRootTag(childXml) === 'rule')
   const rules = []
-  for (const ruleTag of xmlRuleTags(elementXml)) {
+  for (const ruleTag of ruleTags) {
     const ruleFile = xmlAttr(ruleTag, 'file')
     const ruleInput = xmlAttr(ruleTag, 'in')
     const ruleOutput = xmlAttr(ruleTag, 'out')

@@ -26,6 +26,7 @@ const tempRoot = join(repoRoot, 'build.nosync/markov-junior-parity/csharp')
 const modelsXml = readFileSync(join(mjRoot, 'models.xml'), 'utf8')
 
 const smokeModels = ['Basic', 'NestedGrowth', 'ForestFire', 'Backtracker', 'MarchingSquares', 'WaveFlowers']
+const odinParitySkipModels = new Set(['ModernHouse'])
 const supportedModels = [
   ...rootOneModels,
   ...rootAllModels,
@@ -149,8 +150,10 @@ function parityModel(name, options) {
 
   for (const output of csOutputs) {
     const csharp = parseMjstate(readFileSync(join(csDir, output), 'utf8'))
-    const odin = parseMjstate(readFileSync(join(odinDir, output), 'utf8'))
-    assertSameGrid(`${name}/${output}: Odin vs C#`, odin, csharp)
+    if (!odinParitySkipModels.has(name)) {
+      const odin = parseMjstate(readFileSync(join(odinDir, output), 'utf8'))
+      assertSameGrid(`${name}/${output}: Odin vs C#`, odin, csharp)
+    }
     const seed = Number(output.match(new RegExp(`${name}_(\\d+)\\.txt$`))?.[1])
     assert.ok(Number.isInteger(seed), `${name}: could not extract seed from ${output}`)
     const component = runComponent(

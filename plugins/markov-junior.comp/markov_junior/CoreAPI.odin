@@ -327,7 +327,20 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			symbol := model[pos]; pos += 1
 			union_values_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || union_values_len <= 0 || pos + union_values_len > len(model) { return mj_fail("invalid model-ir union values") }
-			grid_add_union(&g, symbol, string(model[pos:pos + union_values_len]))
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
+			grid_add_union(target_grid, symbol, string(model[pos:pos + union_values_len]))
 			pos += union_values_len
 		} else if op == 102 {
 			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
@@ -475,10 +488,23 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			new_values_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || n <= 0 || new_values_len <= 0 || pos + new_values_len > len(model) { return mj_fail("invalid model-ir wfc header") }
 			new_values := string(model[pos:pos + new_values_len]); pos += new_values_len
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			p_count := int(mj_read_u32(model, &pos, &ok))
 			if !ok || p_count <= 0 { return mj_fail("invalid model-ir wfc pattern count") }
 			pattern_len := n * n
-			current_wfc = WFC_State{counter = -1, n = n, p = p_count, periodic = periodic, shannon = shannon, tries = tries, newgrid = grid_init(g.mx, g.my, g.mz, new_values, false)}
+			current_wfc = WFC_State{counter = -1, n = n, p = p_count, periodic = periodic, shannon = shannon, tries = tries, newgrid = grid_init(target_grid.mx, target_grid.my, target_grid.mz, new_values, false)}
 			current_wfc.patterns = make([][]u8, p_count)
 			current_wfc.weights = make([]f64, p_count)
 			for pidx in 0..<p_count {
@@ -507,11 +533,11 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				if pos + p_count > len(model) { return mj_fail("truncated model-ir wfc map positions") }
 				positions := make([]bool, p_count)
 				for i in 0..<p_count { positions[i] = model[pos] != 0; pos += 1 }
-				append(&current_wfc.map_values, grid_value(&g, input))
+				append(&current_wfc.map_values, grid_value(target_grid, input))
 				append(&current_wfc.map_positions, positions)
 			}
 			if !ok { return mj_fail("invalid model-ir wfc payload") }
-			wfc_base_finish(&current_wfc, &g)
+			wfc_base_finish(&current_wfc, target_grid)
 			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 9 {
 				wfc_index := container_stack[len(container_stack) - 1]
 				nodes[wfc_index].wfc = current_wfc
@@ -535,12 +561,25 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			new_values_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || tile_s <= 0 || tile_sz <= 0 || new_values_len <= 0 || pos + new_values_len > len(model) { return mj_fail("invalid model-ir tile wfc header") }
 			new_values := string(model[pos:pos + new_values_len]); pos += new_values_len
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			p_count := int(mj_read_u32(model, &pos, &ok))
 			if !ok || p_count <= 0 { return mj_fail("invalid model-ir tile wfc pattern count") }
 			pattern_len := tile_s * tile_s * tile_sz
-			mx2 := (tile_s - overlap) * g.mx + overlap
-			my2 := (tile_s - overlap) * g.my + overlap
-			mz2 := (tile_sz - overlapz) * g.mz + overlapz
+			mx2 := (tile_s - overlap) * target_grid.mx + overlap
+			my2 := (tile_s - overlap) * target_grid.my + overlap
+			mz2 := (tile_sz - overlapz) * target_grid.mz + overlapz
 			current_wfc = WFC_State{counter = -1, n = 1, p = p_count, periodic = periodic, shannon = shannon, tries = tries, tile_mode = true, tile_s = tile_s, tile_sz = tile_sz, overlap = overlap, overlapz = overlapz, newgrid = grid_init(mx2, my2, mz2, new_values, false)}
 			current_wfc.patterns = make([][]u8, p_count)
 			current_wfc.weights = make([]f64, p_count)
@@ -571,12 +610,12 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				positions := make([]bool, p_count)
 				for i in 0..<p_count { positions[i] = model[pos] != 0; pos += 1 }
 				input := u8(0)
-				if input_char != 0 do input = grid_value(&g, input_char)
+				if input_char != 0 do input = grid_value(target_grid, input_char)
 				append(&current_wfc.map_values, input)
 				append(&current_wfc.map_positions, positions)
 			}
 			if !ok { return mj_fail("invalid model-ir tile wfc payload") }
-			wfc_base_finish(&current_wfc, &g)
+			wfc_base_finish(&current_wfc, target_grid)
 			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 9 {
 				wfc_index := container_stack[len(container_stack) - 1]
 				nodes[wfc_index].wfc = current_wfc
@@ -592,7 +631,20 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 			values_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || nx <= 0 || dx <= 0 || ny <= 0 || dy <= 0 || nz <= 0 || dz <= 0 || values_len <= 0 || pos + values_len > len(model) { return mj_fail("invalid model-ir map header") }
 			map_values := string(model[pos:pos + values_len]); pos += values_len
-			current_map = Map_State{nx = nx, dx = dx, ny = ny, dy = dy, nz = nz, dz = dz, grid = grid_init(g.mx * nx / dx, g.my * ny / dy, g.mz * nz / dz, map_values, false)}
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
+			current_map = Map_State{nx = nx, dx = dx, ny = ny, dy = dy, nz = nz, dz = dz, grid = grid_init(target_grid.mx * nx / dx, target_grid.my * ny / dy, target_grid.mz * nz / dz, map_values, false)}
 			union_count := int(mj_read_u32(model, &pos, &ok))
 			if !ok || union_count < 0 { return mj_fail("invalid model-ir map union count") }
 			for _u in 0..<union_count {
@@ -617,7 +669,7 @@ mj_run_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, depth: u32, se
 				if pos + input_len + output_len > len(model) { return mj_fail("truncated model-ir map rule data") }
 				input_chars := model[pos:pos + input_len]; pos += input_len
 				output_chars := model[pos:pos + output_len]; pos += output_len
-				base := rule_from_char_arrays_grids(&g, &current_map.grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
+				base := rule_from_char_arrays_grids(target_grid, &current_map.grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
 				append_rule_symmetries(&current_map.grid, &current_map.rules, base, symmetry)
 			}
 			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 10 {
@@ -836,7 +888,20 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			symbol := model[pos]; pos += 1
 			union_values_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || union_values_len <= 0 || pos + union_values_len > len(model) { _ = mj_fail("invalid model-ir union values"); return nil }
-			grid_add_union(&g, symbol, string(model[pos:pos + union_values_len]))
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
+			grid_add_union(target_grid, symbol, string(model[pos:pos + union_values_len]))
 			pos += union_values_len
 		} else if op == 102 {
 			if node_open || len(rules) > node_start || current_fields != nil || current_observations != nil || current_search || current_has_path || current_has_convolution || current_has_convchain || current_has_wfc || current_has_map {
@@ -984,10 +1049,23 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			new_values_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || n <= 0 || new_values_len <= 0 || pos + new_values_len > len(model) { _ = mj_fail("invalid model-ir wfc header"); return nil }
 			new_values := string(model[pos:pos + new_values_len]); pos += new_values_len
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			p_count := int(mj_read_u32(model, &pos, &ok))
 			if !ok || p_count <= 0 { _ = mj_fail("invalid model-ir wfc pattern count"); return nil }
 			pattern_len := n * n
-			current_wfc = WFC_State{counter = -1, n = n, p = p_count, periodic = periodic, shannon = shannon, tries = tries, newgrid = grid_init(g.mx, g.my, g.mz, new_values, false)}
+			current_wfc = WFC_State{counter = -1, n = n, p = p_count, periodic = periodic, shannon = shannon, tries = tries, newgrid = grid_init(target_grid.mx, target_grid.my, target_grid.mz, new_values, false)}
 			current_wfc.patterns = make([][]u8, p_count)
 			current_wfc.weights = make([]f64, p_count)
 			for pidx in 0..<p_count {
@@ -1016,11 +1094,11 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 				if pos + p_count > len(model) { _ = mj_fail("truncated model-ir wfc map positions"); return nil }
 				positions := make([]bool, p_count)
 				for i in 0..<p_count { positions[i] = model[pos] != 0; pos += 1 }
-				append(&current_wfc.map_values, grid_value(&g, input))
+				append(&current_wfc.map_values, grid_value(target_grid, input))
 				append(&current_wfc.map_positions, positions)
 			}
 			if !ok { _ = mj_fail("invalid model-ir wfc payload"); return nil }
-			wfc_base_finish(&current_wfc, &g)
+			wfc_base_finish(&current_wfc, target_grid)
 			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 9 {
 				wfc_index := container_stack[len(container_stack) - 1]
 				nodes[wfc_index].wfc = current_wfc
@@ -1044,12 +1122,25 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			new_values_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || tile_s <= 0 || tile_sz <= 0 || new_values_len <= 0 || pos + new_values_len > len(model) { _ = mj_fail("invalid model-ir tile wfc header"); return nil }
 			new_values := string(model[pos:pos + new_values_len]); pos += new_values_len
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
 			p_count := int(mj_read_u32(model, &pos, &ok))
 			if !ok || p_count <= 0 { _ = mj_fail("invalid model-ir tile wfc pattern count"); return nil }
 			pattern_len := tile_s * tile_s * tile_sz
-			mx2 := (tile_s - overlap) * g.mx + overlap
-			my2 := (tile_s - overlap) * g.my + overlap
-			mz2 := (tile_sz - overlapz) * g.mz + overlapz
+			mx2 := (tile_s - overlap) * target_grid.mx + overlap
+			my2 := (tile_s - overlap) * target_grid.my + overlap
+			mz2 := (tile_sz - overlapz) * target_grid.mz + overlapz
 			current_wfc = WFC_State{counter = -1, n = 1, p = p_count, periodic = periodic, shannon = shannon, tries = tries, tile_mode = true, tile_s = tile_s, tile_sz = tile_sz, overlap = overlap, overlapz = overlapz, newgrid = grid_init(mx2, my2, mz2, new_values, false)}
 			current_wfc.patterns = make([][]u8, p_count)
 			current_wfc.weights = make([]f64, p_count)
@@ -1080,12 +1171,12 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 				positions := make([]bool, p_count)
 				for i in 0..<p_count { positions[i] = model[pos] != 0; pos += 1 }
 				input := u8(0)
-				if input_char != 0 do input = grid_value(&g, input_char)
+				if input_char != 0 do input = grid_value(target_grid, input_char)
 				append(&current_wfc.map_values, input)
 				append(&current_wfc.map_positions, positions)
 			}
 			if !ok { _ = mj_fail("invalid model-ir tile wfc payload"); return nil }
-			wfc_base_finish(&current_wfc, &g)
+			wfc_base_finish(&current_wfc, target_grid)
 			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 9 {
 				wfc_index := container_stack[len(container_stack) - 1]
 				nodes[wfc_index].wfc = current_wfc
@@ -1101,7 +1192,20 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 			values_len := int(mj_read_u32(model, &pos, &ok))
 			if !ok || nx <= 0 || dx <= 0 || ny <= 0 || dy <= 0 || nz <= 0 || dz <= 0 || values_len <= 0 || pos + values_len > len(model) { _ = mj_fail("invalid model-ir map header"); return nil }
 			map_values := string(model[pos:pos + values_len]); pos += values_len
-			current_map = Map_State{nx = nx, dx = dx, ny = ny, dy = dy, nz = nz, dz = dz, grid = grid_init(g.mx * nx / dx, g.my * ny / dy, g.mz * nz / dz, map_values, false)}
+			target_grid := &g
+			for si := len(container_stack) - 1; si >= 0; si -= 1 {
+				candidate := container_stack[si]
+				if nodes[candidate].kind == 10 && nodes[candidate].has_map {
+					target_grid = &nodes[candidate].map_state.grid
+					break
+				}
+				if nodes[candidate].kind == 9 && nodes[candidate].has_wfc {
+					target_grid = &nodes[candidate].wfc.newgrid
+					break
+				}
+				if si == 0 do break
+			}
+			current_map = Map_State{nx = nx, dx = dx, ny = ny, dy = dy, nz = nz, dz = dz, grid = grid_init(target_grid.mx * nx / dx, target_grid.my * ny / dy, target_grid.mz * nz / dz, map_values, false)}
 			union_count := int(mj_read_u32(model, &pos, &ok))
 			if !ok || union_count < 0 { _ = mj_fail("invalid model-ir map union count"); return nil }
 			for _u in 0..<union_count {
@@ -1126,7 +1230,7 @@ mj_session_create_mjir_v1 :: proc(model: []u8, initial: []u8, width, height, dep
 				if pos + input_len + output_len > len(model) { _ = mj_fail("truncated model-ir map rule data"); return nil }
 				input_chars := model[pos:pos + input_len]; pos += input_len
 				output_chars := model[pos:pos + output_len]; pos += output_len
-				base := rule_from_char_arrays_grids(&g, &current_map.grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
+				base := rule_from_char_arrays_grids(target_grid, &current_map.grid, input_chars, imx, imy, imz, output_chars, omx, omy, omz, probability)
 				append_rule_symmetries(&current_map.grid, &current_map.rules, base, symmetry)
 			}
 			if len(container_stack) > 0 && nodes[container_stack[len(container_stack) - 1]].kind == 10 {
