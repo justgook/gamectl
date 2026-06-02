@@ -1,280 +1,271 @@
 @layer reset, base, theme, intent;
 
 @layer intent {
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      SURFACES
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    --bg: var(--base-bg);
-    --surface-hover: color-mix(in oklab, var(--surface), white 5%);
-  }
+    :root {
+        --bg: var(--base-bg);
+        --surface-hover: color-mix(in oklab, var(--surface), white 5%);
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      BORDERS
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    --border: var(--base-border);
-    --border-hover: color-mix(in oklab, var(--border), var(--text) 18%);
-    --border-focus: var(--accent);
-  }
+    :root {
+        --border: var(--base-border);
+        --border-hover: color-mix(in oklab, var(--border), var(--text) 18%);
+        --border-focus: var(--accent);
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      TEXT
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    --text: var(--base-text);
-    --text-muted: var(--base-text-muted);
-    --text-faint: color-mix(in oklab, var(--text-muted), transparent 40%);
-    --ink: var(--base-ink);
-  }
+    :root {
+        --text: var(--base-text);
+        --text-muted: var(--base-text-muted);
+        --text-faint: color-mix(in oklab, var(--text-muted), transparent 40%);
+        --ink: var(--base-ink);
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      EFFECTS
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    --glow: 0 0 10px color-mix(in oklab, var(--accent), transparent 75%);
-    --shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
-    --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
+    :root {
+        --glow: 0 0 10px color-mix(in oklab, var(--accent), transparent 75%);
+        --shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+        --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      INTENT CLASSES
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  .accent,
-  .success,
-  .warning,
-  .danger,
-  .info {
-    --bg: var(--intent-soft-bg);
-    --border: var(--intent-soft-border);
-    --text: var(--intent-soft-fg);
-    --text-muted: color-mix(in oklab, var(--text), var(--base-text-muted) 60%);
-    --ink: var(--base-ink);
-    /* Weird requirement */
-    --intent-bg: var(--intent);
-    --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
-    --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
-    --intent-fg: var(--base-ink);
-    --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
-    --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
+    .accent,
+    .success,
+    .warning,
+    .danger,
+    .info {
+        --bg: var(--intent-soft-bg);
+        --border: var(--intent-soft-border);
+        --text: var(--intent-soft-fg);
+        --text-muted: color-mix(in oklab, var(--text), var(--base-text-muted) 60%);
+        --ink: var(--base-ink);
+        /* Weird requirement */
+        --intent-bg: var(--intent);
+        --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
+        --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
+        --intent-fg: var(--base-ink);
+        --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
+        --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
 
-    /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
-    --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
-    --intent-soft-border: color-mix(
-      in oklab,
-      var(--intent),
-      var(--base-border) 60%
-    );
-    --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
-  }
+        /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
+        --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
+        --intent-soft-border: color-mix(in oklab, var(--intent), var(--base-border) 60%);
+        --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
+    }
 
-  .accent {
-    --intent: var(--accent);
-  }
+    .accent {
+        --intent: var(--accent);
+    }
 
-  .success {
-    --intent: var(--success);
-  }
+    .success {
+        --intent: var(--success);
+    }
 
-  .warning {
-    --intent: var(--warning);
-  }
+    .warning {
+        --intent: var(--warning);
+    }
 
-  .danger {
-    --intent: var(--danger);
-  }
+    .danger {
+        --intent: var(--danger);
+    }
 
-  .info {
-    --intent: var(--info);
-  }
+    .info {
+        --intent: var(--info);
+    }
 
-  .elevated {
-    background: var(--surface-elevated);
-    box-shadow: var(--shadow-elevated);
-  }
+    .elevated {
+        background: var(--surface-elevated);
+        box-shadow: var(--shadow-elevated);
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      INTENT BUNDLE
 
      Default intent = accent. Override --intent via .accent/.success/.danger/etc
      to recolor any component that consumes these tokens.
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    --intent: var(--accent);
+    :root {
+        --intent: var(--accent);
 
-    /* filled (buttons, chips, slider fills, toggles) */
-    --intent-bg: var(--intent);
-    --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
-    --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
-    --intent-fg: var(--base-ink);
-    --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
-    --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
+        /* filled (buttons, chips, slider fills, toggles) */
+        --intent-bg: var(--intent);
+        --intent-hover-bg: color-mix(in oklab, var(--intent-bg), white 12%);
+        --intent-active-bg: color-mix(in oklab, var(--intent-bg), white 22%);
+        --intent-fg: var(--base-ink);
+        --intent-border: color-mix(in oklab, var(--intent-bg), black 20%);
+        --intent-ring: color-mix(in oklab, var(--intent), transparent 65%);
 
-    /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
-    --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
-    --intent-soft-border: color-mix(
-      in oklab,
-      var(--intent),
-      var(--base-border) 60%
-    );
-    --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
-  }
+        /* soft / subtle (toasts, alerts, tinted panels, validation hints) */
+        --intent-soft-bg: color-mix(in oklab, var(--intent), var(--surface) 85%);
+        --intent-soft-border: color-mix(in oklab, var(--intent), var(--base-border) 60%);
+        --intent-soft-fg: color-mix(in oklab, var(--intent), var(--base-text) 30%);
+    }
 }
 
 @layer base {
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      PALETTE
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    --accent: #7aa2ff;
-    --success: #3ddc97;
-    --warning: #ffcc66;
-    --danger: #ff5c7a;
-    --info: #5bd6ff;
-    --base-bg: #0b0c10;
-    --surface: #11131a;
-    --surface-elevated: #171a23;
-    --base-border: #262a36;
-    --base-text: #e8eaf0;
-    --base-text-muted: #a8afc3;
-    --base-ink: #0b0c10;
-  }
+    :root {
+        --accent: #7aa2ff;
+        --success: #3ddc97;
+        --warning: #ffcc66;
+        --danger: #ff5c7a;
+        --info: #5bd6ff;
+        --base-bg: #0b0c10;
+        --surface: #11131a;
+        --surface-elevated: #171a23;
+        --base-border: #262a36;
+        --base-text: #e8eaf0;
+        --base-text-muted: #a8afc3;
+        --base-ink: #0b0c10;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      SIZING / SPACING
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    --radius-sm: 4px;
-    --radius-md: 8px;
+    :root {
+        --radius-sm: 4px;
+        --radius-md: 8px;
 
-    --space-1: 2px;
-    --space-2: 4px;
-    --space-3: 8px;
-    --space-4: 12px;
-    --space-5: 16px;
-    --space-6: 24px;
-    --space-7: 32px;
-    --space-8: 48px;
+        --space-1: 2px;
+        --space-2: 4px;
+        --space-3: 8px;
+        --space-4: 12px;
+        --space-5: 16px;
+        --space-6: 24px;
+        --space-7: 32px;
+        --space-8: 48px;
 
-    --control-height: 30px;
-    --aside-width: 220px;
-  }
+        --control-height: 30px;
+        --aside-width: 220px;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      TYPOGRAPHY
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    --font-body: "Roboto", "Segoe UI", sans-serif;
-    --font-mono: "Roboto Mono", "JetBrains Mono", monospace;
-    --font-display: "Orbitron", "Space Grotesk", sans-serif;
+    :root {
+        --font-body: "Roboto", "Segoe UI", sans-serif;
+        --font-mono: "Roboto Mono", "JetBrains Mono", monospace;
+        --font-display: "Orbitron", "Space Grotesk", sans-serif;
 
-    --font-xs: 11px;
-    --font-sm: 12px;
-    --font-md: 14px;
-    --font-lg: 16px;
-    --font-xl: 20px;
-  }
+        --font-xs: 11px;
+        --font-sm: 12px;
+        --font-md: 14px;
+        --font-lg: 16px;
+        --font-xl: 20px;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      COMPONENT TOKENS
 
      Customisation points for structural components. Themes override these.
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  :root {
-    /* popup */
-    --popup-backdrop: rgba(2, 4, 8, 0.7);
+    :root {
+        /* popup */
+        --popup-backdrop: rgba(2, 4, 8, 0.7);
 
-    /* code editor - Catppuccin Mocha */
-    --code-editor-bg: #1e1e2e;
-    --code-editor-border: #313244;
-    --code-editor-text: #cdd6f4;
-    --code-editor-caret: #f5e0dc;
-    --code-editor-placeholder: #6c7086;
-    --code-token-comment: #6c7086;
-    --code-token-string: #a6e3a1;
-    --code-token-number: #fab387;
-    --code-token-keyword: #cba6f7;
-    --code-token-operator: #89dceb;
+        /* code editor - Catppuccin Mocha */
+        --code-editor-bg: #1e1e2e;
+        --code-editor-border: #313244;
+        --code-editor-text: #cdd6f4;
+        --code-editor-caret: #f5e0dc;
+        --code-editor-placeholder: #6c7086;
+        --code-token-comment: #6c7086;
+        --code-token-string: #a6e3a1;
+        --code-token-number: #fab387;
+        --code-token-keyword: #cba6f7;
+        --code-token-operator: #89dceb;
 
-    /* resize handles */
-    --resize-handle-size: 12px;
-    --resize-handle-bg: color-mix(in oklab, var(--border) 85%, transparent);
-    --resize-handle-hover-bg: var(--accent);
-    --resize-handle-active-bg: color-mix(in oklab, var(--accent), white 15%);
-    --resize-handle-hover-shadow: var(--glow);
+        /* resize handles */
+        --resize-handle-size: 12px;
+        --resize-handle-bg: color-mix(in oklab, var(--border) 85%, transparent);
+        --resize-handle-hover-bg: var(--accent);
+        --resize-handle-active-bg: color-mix(in oklab, var(--accent), white 15%);
+        --resize-handle-hover-shadow: var(--glow);
 
-    /* z-index scale */
-    --z-index-handle: 1;
-    --z-index-corner: 2;
-  }
+        /* z-index scale */
+        --z-index-handle: 1;
+        --z-index-corner: 2;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      BODY
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-body-override, var(--font-body));
-    font-size: var(--font-md);
-    line-height: 1.45;
-    color-scheme: dark;
-    margin: 0;
-    overflow: hidden;
-  }
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-body-override, var(--font-body));
+        font-size: var(--font-md);
+        line-height: 1.45;
+        color-scheme: dark;
+        margin: 0;
+        overflow: hidden;
+    }
 
-  pre,
-  code,
-  kbd,
-  samp {
-    font-family: var(--font-mono);
-    flex: 1;
-  }
+    pre,
+    code,
+    kbd,
+    samp {
+        font-family: var(--font-mono);
+        flex: 1;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      ICONS  —  bare <i> = Material Symbols Rounded
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  @font-face {
-    font-family: "Material Symbols Rounded";
-    font-style: normal;
-    font-weight: 100 700;
-    src: url("/fonts/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2")
-      format("woff2");
-  }
+    @font-face {
+        font-family: "Material Symbols Rounded";
+        font-style: normal;
+        font-weight: 100 700;
+        src: url("/fonts/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2") format("woff2");
+    }
 
-  i {
-    font-family: "Material Symbols Rounded";
-    font-weight: 400;
-    font-style: normal;
-    font-size: inherit;
-    line-height: inherit;
-    letter-spacing: normal;
-    text-transform: none;
-    display: inline-block;
-    white-space: nowrap;
-    word-wrap: normal;
-    direction: ltr;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 400,
-      "GRAD" 0,
-      "opsz" 14;
-    font-feature-settings: "liga";
-    -webkit-font-smoothing: antialiased;
-  }
+    i {
+        font-family: "Material Symbols Rounded";
+        font-weight: 400;
+        font-style: normal;
+        font-size: inherit;
+        line-height: inherit;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        font-variation-settings:
+            "FILL" 0,
+            "wght" 400,
+            "GRAD" 0,
+            "opsz" 14;
+        font-feature-settings: "liga";
+        -webkit-font-smoothing: antialiased;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      BUTTONS
 
      Default = neutral surface button.
@@ -282,715 +273,716 @@
      Icon-only:  <button class="accent" aria-label="Save"><i>save</i></button>
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  button,
-  [type="button"],
-  [type="submit"],
-  [type="reset"] {
-    user-select: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    min-height: var(--control-height);
-    background: var(--surface-elevated);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 0 var(--space-3);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition:
-      background 120ms,
-      border-color 120ms,
-      color 120ms;
-  }
+    button,
+    [type="button"],
+    [type="submit"],
+    [type="reset"] {
+        user-select: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        min-height: var(--control-height);
+        background: var(--surface-elevated);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 0 var(--space-3);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition:
+            background 120ms,
+            border-color 120ms,
+            color 120ms;
+    }
 
-  button:hover,
-  [type="button"]:hover,
-  [type="submit"]:hover,
-  [type="reset"]:hover {
-    background: var(--surface-hover);
-    border-color: var(--border-hover);
-  }
+    button:hover,
+    [type="button"]:hover,
+    [type="submit"]:hover,
+    [type="reset"]:hover {
+        background: var(--surface-hover);
+        border-color: var(--border-hover);
+    }
 
-  button:active,
-  button.active,
-  [type="button"]:active,
-  [type="button"].active,
-  [type="submit"]:active,
-  [type="submit"].active,
-  [type="reset"]:active,
-  [type="reset"].active {
-    background: var(--surface);
-  }
+    button:active,
+    button.active,
+    [type="button"]:active,
+    [type="button"].active,
+    [type="submit"]:active,
+    [type="submit"].active,
+    [type="reset"]:active,
+    [type="reset"].active {
+        background: var(--surface);
+    }
 
-  button:has(small) {
-    flex-direction: column;
-  }
+    button:has(small) {
+        flex-direction: column;
+    }
 
-  button small {
-    display: block;
-    margin-top: calc(-1 * var(--space-3));
-  }
+    button small {
+        display: block;
+        margin-top: calc(-1 * var(--space-3));
+    }
 
-  /* intent-filled buttons */
-  button.accent,
-  button.success,
-  button.warning,
-  button.danger,
-  button.info {
-    background: var(--intent-bg);
-    border-color: var(--intent-border);
-    color: var(--intent-fg);
-  }
+    /* intent-filled buttons */
+    button.accent,
+    button.success,
+    button.warning,
+    button.danger,
+    button.info {
+        background: var(--intent-bg);
+        border-color: var(--intent-border);
+        color: var(--intent-fg);
+    }
 
-  button.accent:hover,
-  button.success:hover,
-  button.warning:hover,
-  button.danger:hover,
-  button.info:hover {
-    background: var(--intent-hover-bg);
-  }
+    button.accent:hover,
+    button.success:hover,
+    button.warning:hover,
+    button.danger:hover,
+    button.info:hover {
+        background: var(--intent-hover-bg);
+    }
 
-  button.accent:active,
-  button.accent.active,
-  button.success:active,
-  button.success.active,
-  button.warning:active,
-  button.warning.active,
-  button.danger:active,
-  button.danger.active,
-  button.info:active,
-  button.info.active {
-    background: var(--intent-active-bg);
-  }
+    button.accent:active,
+    button.accent.active,
+    button.success:active,
+    button.success.active,
+    button.warning:active,
+    button.warning.active,
+    button.danger:active,
+    button.danger.active,
+    button.info:active,
+    button.info.active {
+        background: var(--intent-active-bg);
+    }
 
-  /* icon sizing inside buttons — larger than text but contained by --control-height */
-  button > i {
-    font-size: 20px;
-    line-height: 1;
-    font-variation-settings:
-      "FILL" 0,
-      "wght" 400,
-      "GRAD" 0,
-      "opsz" 20;
-  }
+    /* icon sizing inside buttons — larger than text but contained by --control-height */
+    button > i {
+        font-size: 20px;
+        line-height: 1;
+        font-variation-settings:
+            "FILL" 0,
+            "wght" 400,
+            "GRAD" 0,
+            "opsz" 20;
+    }
 
-  /* button groups */
-  [role="buttongroup"] {
-    padding: 3px;
-    display: inline-flex;
-    align-items: stretch;
-    gap: 0;
-  }
+    /* button groups */
+    [role="buttongroup"] {
+        padding: 3px;
+        display: inline-flex;
+        align-items: stretch;
+        gap: 0;
+    }
 
-  [role="buttongroup"] > button {
-    border-radius: 0;
-    position: relative;
-  }
+    [role="buttongroup"] > button {
+        border-radius: 0;
+        position: relative;
+    }
 
-  [role="buttongroup"] > button + button {
-    margin-left: -1px;
-  }
+    [role="buttongroup"] > button + button {
+        margin-left: -1px;
+    }
 
-  [role="buttongroup"] > button:first-child {
-    border-top-left-radius: var(--radius-sm);
-    border-bottom-left-radius: var(--radius-sm);
-  }
+    [role="buttongroup"] > button:first-child {
+        border-top-left-radius: var(--radius-sm);
+        border-bottom-left-radius: var(--radius-sm);
+    }
 
-  [role="buttongroup"] > button:last-child {
-    border-top-right-radius: var(--radius-sm);
-    border-bottom-right-radius: var(--radius-sm);
-  }
+    [role="buttongroup"] > button:last-child {
+        border-top-right-radius: var(--radius-sm);
+        border-bottom-right-radius: var(--radius-sm);
+    }
 
-  view-pagination {
-    display: flex;
-    align-items: center;
-  }
+    view-pagination {
+        display: flex;
+        align-items: center;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      INPUTS
 
      Neutral surface, intent-colored focus ring.
      Validation:  <input class="danger">  or  <div class="danger"><input></div>
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  form {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-  }
+    form {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
 
-  form > footer {
-    display: flex;
-  }
+    form > footer {
+        display: flex;
+    }
 
-  code {
-    display: flex;
-    flex: 1;
-  }
+    code {
+        display: flex;
+        flex: 1;
+    }
 
-  code > textarea {
-    flex: 1;
-  }
+    code > textarea {
+        flex: 1;
+    }
 
-  input[type="text"],
-  input[type="number"],
-  input[type="url"],
-  input[type="search"],
-  input[type="email"],
-  input[type="password"],
-  select {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: inherit;
-    padding: 0 var(--space-3);
-    transition:
-      border-color 120ms,
-      box-shadow 120ms;
-  }
+    input[type="text"],
+    input[type="number"],
+    input[type="url"],
+    input[type="search"],
+    input[type="email"],
+    input[type="password"],
+    select {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: inherit;
+        padding: 0 var(--space-3);
+        transition:
+            border-color 120ms,
+            box-shadow 120ms;
+    }
 
-  textarea {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: inherit;
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-sm);
-    transition:
-      border-color 120ms,
-      box-shadow 120ms;
-  }
+    textarea {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: inherit;
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-sm);
+        transition:
+            border-color 120ms,
+            box-shadow 120ms;
+    }
 
-  code-editor {
-    --code-editor-rows: 12;
-    --code-editor-line-height: 1.45;
-    --code-editor-padding-y: var(--space-2);
-    --code-editor-padding-x: var(--space-3);
-    --code-editor-scrollbar-x: 0px;
-    --code-editor-scrollbar-y: 0px;
-    max-height: 400px;
-    position: relative;
-    display: block;
-    border: 1px solid var(--code-editor-border);
-    border-radius: var(--radius-sm);
-    background: var(--code-editor-bg);
-    font-family: var(--font-mono);
-    font-size: var(--font-sm);
-    line-height: var(--code-editor-line-height);
-    height: calc(
-      var(--code-editor-rows) *
-      1em *
-      var(--code-editor-line-height) +
-      var(--code-editor-padding-y) *
-      2 +
-      2px
-    );
-    overflow: hidden;
-    min-height: calc(
-      var(--code-editor-rows) *
-      1em *
-      var(--code-editor-line-height) +
-      var(--code-editor-padding-y) *
-      2 +
-      2px
-    );
-  }
+    code-editor {
+        --code-editor-rows: 12;
+        --code-editor-line-height: 1.45;
+        --code-editor-padding-y: var(--space-2);
+        --code-editor-padding-x: var(--space-3);
+        --code-editor-scrollbar-x: 0px;
+        --code-editor-scrollbar-y: 0px;
+        max-height: 400px;
+        position: relative;
+        display: block;
+        border: 1px solid var(--code-editor-border);
+        border-radius: var(--radius-sm);
+        background: var(--code-editor-bg);
+        font-family: var(--font-mono);
+        font-size: var(--font-sm);
+        line-height: var(--code-editor-line-height);
+        height: calc(
+            var(--code-editor-rows) *
+            1em *
+            var(--code-editor-line-height) +
+            var(--code-editor-padding-y) *
+            2 +
+            2px
+        );
+        overflow: hidden;
+        min-height: calc(
+            var(--code-editor-rows) *
+            1em *
+            var(--code-editor-line-height) +
+            var(--code-editor-padding-y) *
+            2 +
+            2px
+        );
+    }
 
-  code-editor:focus-within {
-    border-color: color-mix(in oklab, var(--intent), var(--surface) 40%);
-  }
+    code-editor:focus-within {
+        border-color: color-mix(in oklab, var(--intent), var(--surface) 40%);
+    }
 
-  code-editor > .code-editor-scroller {
-    position: relative;
-    min-height: inherit;
-    height: 100%;
-    overflow: hidden;
-  }
+    code-editor > .code-editor-scroller {
+        position: relative;
+        min-height: inherit;
+        height: 100%;
+        overflow: hidden;
+    }
 
-  code-editor .code-editor-scroller > pre,
-  code-editor .code-editor-scroller > textarea {
-    margin: 0;
-    padding: var(--code-editor-padding-y) var(--code-editor-padding-x);
-    border: 0;
-    border-radius: 0;
-    width: 100%;
-    height: 100%;
-    min-height: inherit;
-    box-sizing: border-box;
-    font: inherit;
-    line-height: inherit;
-    tab-size: 2;
-    white-space: pre;
-    overflow-wrap: normal;
-    word-break: normal;
-  }
+    code-editor .code-editor-scroller > pre,
+    code-editor .code-editor-scroller > textarea {
+        margin: 0;
+        padding: var(--code-editor-padding-y) var(--code-editor-padding-x);
+        border: 0;
+        border-radius: 0;
+        width: 100%;
+        height: 100%;
+        min-height: inherit;
+        box-sizing: border-box;
+        font: inherit;
+        line-height: inherit;
+        tab-size: 2;
+        white-space: pre;
+        overflow-wrap: normal;
+        word-break: normal;
+    }
 
-  code-editor .code-editor-scroller > pre {
-    position: absolute;
-    top: 0;
-    right: var(--code-editor-scrollbar-y);
-    bottom: var(--code-editor-scrollbar-x);
-    left: 0;
-    overflow: hidden;
-    pointer-events: none;
-    color: var(--code-editor-text);
-  }
+    code-editor .code-editor-scroller > pre {
+        position: absolute;
+        top: 0;
+        right: var(--code-editor-scrollbar-y);
+        bottom: var(--code-editor-scrollbar-x);
+        left: 0;
+        overflow: hidden;
+        pointer-events: none;
+        color: var(--code-editor-text);
+    }
 
-  code-editor .code-editor-scroller > pre > code {
-    display: block;
-    white-space: inherit;
-    will-change: transform;
-  }
+    code-editor .code-editor-scroller > pre > code {
+        display: block;
+        white-space: inherit;
+        will-change: transform;
+    }
 
-  code-editor .code-editor-scroller > textarea {
-    position: absolute;
-    inset: 0;
-    background: transparent;
-    color: transparent;
-    caret-color: var(--code-editor-caret);
-    overflow: auto;
-    resize: none;
-  }
+    code-editor .code-editor-scroller > textarea {
+        position: absolute;
+        inset: 0;
+        background: transparent;
+        color: transparent;
+        caret-color: var(--code-editor-caret);
+        overflow: auto;
+        resize: none;
+    }
 
-  code-editor .code-editor-scroller > textarea::placeholder {
-    color: var(--code-editor-placeholder);
-  }
+    code-editor .code-editor-scroller > textarea::placeholder {
+        color: var(--code-editor-placeholder);
+    }
 
-  code-editor .comment {
-    color: var(--code-token-comment);
-    font-style: italic;
-  }
+    code-editor .comment {
+        color: var(--code-token-comment);
+        font-style: italic;
+    }
 
-  code-editor .string {
-    color: var(--code-token-string);
-    font-weight: 400;
-  }
+    code-editor .string {
+        color: var(--code-token-string);
+        font-weight: 400;
+    }
 
-  code-editor .number {
-    color: var(--code-token-number);
-  }
+    code-editor .number {
+        color: var(--code-token-number);
+    }
 
-  code-editor .keyword {
-    color: var(--code-token-keyword);
-    font-weight: 600;
-  }
+    code-editor .keyword {
+        color: var(--code-token-keyword);
+        font-weight: 600;
+    }
 
-  code-editor .operator {
-    color: var(--code-token-operator);
-  }
+    code-editor .operator {
+        color: var(--code-token-operator);
+    }
 
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--text-faint);
-  }
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--text-faint);
+    }
 
-  input[type="text"]:hover,
-  input[type="number"]:hover,
-  input[type="url"]:hover,
-  input[type="search"]:hover,
-  input[type="email"]:hover,
-  input[type="password"]:hover,
-  select:hover,
-  textarea:hover {
-    border-color: var(--border-hover);
-  }
+    input[type="text"]:hover,
+    input[type="number"]:hover,
+    input[type="url"]:hover,
+    input[type="search"]:hover,
+    input[type="email"]:hover,
+    input[type="password"]:hover,
+    select:hover,
+    textarea:hover {
+        border-color: var(--border-hover);
+    }
 
-  input[type="text"]:focus,
-  input[type="number"]:focus,
-  input[type="url"]:focus,
-  input[type="search"]:focus,
-  input[type="email"]:focus,
-  input[type="password"]:focus,
-  select:focus,
-  textarea:focus {
-    border-color: color-mix(in oklab, var(--intent), var(--surface) 40%);
-  }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="url"]:focus,
+    input[type="search"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus,
+    select:focus,
+    textarea:focus {
+        border-color: color-mix(in oklab, var(--intent), var(--surface) 40%);
+    }
 
-  /* intent on inputs = validation state (direct or cascaded from parent) */
-  input.accent,
-  .accent > input,
-  .accent > select,
-  .accent > textarea,
-  input.success,
-  .success > input,
-  .success > select,
-  .success > textarea,
-  input.warning,
-  .warning > input,
-  .warning > select,
-  .warning > textarea,
-  input.danger,
-  .danger > input,
-  .danger > select,
-  .danger > textarea,
-  input.info,
-  .info > input,
-  .info > select,
-  .info > textarea,
-  select.accent,
-  select.success,
-  select.warning,
-  select.danger,
-  select.info,
-  textarea.accent,
-  textarea.success,
-  textarea.warning,
-  textarea.danger,
-  textarea.info {
-    border-color: var(--intent-soft-border);
-  }
+    /* intent on inputs = validation state (direct or cascaded from parent) */
+    input.accent,
+    .accent > input,
+    .accent > select,
+    .accent > textarea,
+    input.success,
+    .success > input,
+    .success > select,
+    .success > textarea,
+    input.warning,
+    .warning > input,
+    .warning > select,
+    .warning > textarea,
+    input.danger,
+    .danger > input,
+    .danger > select,
+    .danger > textarea,
+    input.info,
+    .info > input,
+    .info > select,
+    .info > textarea,
+    select.accent,
+    select.success,
+    select.warning,
+    select.danger,
+    select.info,
+    textarea.accent,
+    textarea.success,
+    textarea.warning,
+    textarea.danger,
+    textarea.info {
+        border-color: var(--intent-soft-border);
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      Lists
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      INFRASTRUCTURE ELEMENTS
      ═══════════════════════════════════════════════════════════════════════════ */
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      POPUPS
 
      view-popup is a fixed overlay (backdrop + centering container).
      Its Shadow DOM holds <header> + <slot> which form the popup card.
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  /* only the topmost popup is visible */
-  popup-manager view-popup:not(:last-of-type) {
-    display: none;
-  }
+    /* only the topmost popup is visible */
+    popup-manager view-popup:not(:last-of-type) {
+        display: none;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      Views helpers (build block)
    ═══════════════════════════════════════════════════════════════════════════ */
-  :host {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-  }
+    :host {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+    }
 
-  main {
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "main aside"
-      "footer footer";
-  }
+    main {
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "main aside"
+            "footer footer";
+    }
 
-  main > article,
-  main > canvas,
-  main > table,
-  main > form {
-    grid-area: main;
-    min-width: 0;
-    min-height: 0;
-    max-width: 100%;
-    max-height: 100%;
-  }
+    main > article,
+    main > canvas,
+    main > table,
+    main > form {
+        grid-area: main;
+        min-width: 0;
+        min-height: 0;
+        max-width: 100%;
+        max-height: 100%;
+    }
 
-  table {
-    align-self: start;
-    width: 100%;
-    height: auto;
-  }
+    table {
+        align-self: start;
+        width: 100%;
+        height: auto;
+    }
 
-  article,
-  form {
-    overflow: auto;
-  }
+    article,
+    form {
+        overflow: auto;
+    }
 
-  form {
-    flex-direction: column;
-  }
+    form {
+        flex-direction: column;
+    }
 
-  aside {
-    grid-area: aside;
-    position: relative;
-    inset: auto;
-    z-index: 10;
-    width: var(--aside-width);
-    max-width: min(100%, var(--aside-width));
-    max-height: 100%;
-    min-width: 0;
-    min-height: 0;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-  }
+    aside {
+        grid-area: aside;
+        position: relative;
+        inset: auto;
+        z-index: 10;
+        width: var(--aside-width);
+        max-width: min(100%, var(--aside-width));
+        max-height: 100%;
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+    }
 
-  aside * {
-    max-width: min(100%, var(--aside-width));
-  }
+    aside * {
+        max-width: min(100%, var(--aside-width));
+    }
 
-  /* Footer (optional) */
-  footer {
-    grid-area: footer;
-    min-width: 0;
-    min-height: 0;
-    max-width: 100%;
-  }
+    /* Footer (optional) */
+    footer {
+        grid-area: footer;
+        min-width: 0;
+        min-height: 0;
+        max-width: 100%;
+        z-index: 1;
+    }
 
-  tbody {
-    height: auto;
-  }
+    tbody {
+        height: auto;
+    }
 
-  tr {
-    height: auto;
-  }
+    tr {
+        height: auto;
+    }
 
-  section {
-    display: flex;
-    flex-direction: column;
-  }
+    section {
+        display: flex;
+        flex-direction: column;
+    }
 
-  pre {
-    margin: 0;
-    min-width: 0;
-    min-height: 0;
-    overflow: auto;
-    white-space: pre-wrap;
-    font-family: var(--font-mono);
-  }
+    pre {
+        margin: 0;
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+        white-space: pre-wrap;
+        font-family: var(--font-mono);
+    }
 
-  pre > [data-element="output-line"] {
-    display: block;
-    color: var(--text);
-  }
+    pre > [data-element="output-line"] {
+        display: block;
+        color: var(--text);
+    }
 
-  pre > [data-element="output-spacer"] {
-    display: block;
-    height: 1lh;
-  }
+    pre > [data-element="output-spacer"] {
+        display: block;
+        height: 1lh;
+    }
 
-  output {
-    min-width: 0;
-    color: var(--text);
-  }
+    output {
+        min-width: 0;
+        color: var(--text);
+    }
 
-  output.accent,
-  .accent > output,
-  output.success,
-  .success > output,
-  output.warning,
-  .warning > output,
-  output.danger,
-  .danger > output,
-  output.info,
-  .info > output {
-    color: var(--intent-soft-fg);
-  }
+    output.accent,
+    .accent > output,
+    output.success,
+    .success > output,
+    output.warning,
+    .warning > output,
+    output.danger,
+    .danger > output,
+    output.info,
+    .info > output {
+        color: var(--intent-soft-fg);
+    }
 
-  fieldset {
-    margin: 0;
-    border: 1px solid var(--border);
-    flex-direction: column;
-  }
+    fieldset {
+        margin: 0;
+        border: 1px solid var(--border);
+        flex-direction: column;
+    }
 
-  fieldset > canvas {
-    align-self: center;
-  }
+    fieldset > canvas {
+        align-self: center;
+    }
 
-  legend {
-    color: inherit;
-    font-size: var(--font-xs);
-  }
+    legend {
+        color: inherit;
+        font-size: var(--font-xs);
+    }
 
-  /* .tooltip { */
-  /*   position: absolute; */
-  /*   z-index: 50; */
-  /*   max-width: min(360px, calc(100vw - 32px)); */
-  /*   padding: var(--space-2) var(--space-3); */
-  /*   border: 1px solid var(--border); */
-  /*   border-radius: var(--radius-sm); */
-  /*   background: color-mix(in oklab, var(--surface-elevated), black 12%); */
-  /*   color: var(--text); */
-  /*   font-size: var(--font-xs); */
-  /*   line-height: 1.35; */
-  /*   pointer-events: none; */
-  /*   box-shadow: var(--shadow-elevated); */
-  /*   white-space: nowrap; */
-  /* } */
-  /**/
+    /* .tooltip { */
+    /*   position: absolute; */
+    /*   z-index: 50; */
+    /*   max-width: min(360px, calc(100vw - 32px)); */
+    /*   padding: var(--space-2) var(--space-3); */
+    /*   border: 1px solid var(--border); */
+    /*   border-radius: var(--radius-sm); */
+    /*   background: color-mix(in oklab, var(--surface-elevated), black 12%); */
+    /*   color: var(--text); */
+    /*   font-size: var(--font-xs); */
+    /*   line-height: 1.35; */
+    /*   pointer-events: none; */
+    /*   box-shadow: var(--shadow-elevated); */
+    /*   white-space: nowrap; */
+    /* } */
+    /**/
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      TABLES
      ═══════════════════════════════════════════════════════════════════════════ */
-  table {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse;
-    border-spacing: 0;
-    color: inherit;
-  }
+    table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+        border-spacing: 0;
+        color: inherit;
+    }
 
-  th,
-  td {
-    text-align: left;
-    vertical-align: middle;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+    th,
+    td {
+        text-align: left;
+        vertical-align: middle;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
-  caption {
-    text-align: left;
-    border-bottom: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+    caption {
+        text-align: left;
+        border-bottom: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      TABS
      ═══════════════════════════════════════════════════════════════════════════ */
-  [role="tablist"] {
-    overflow: auto;
-  }
+    [role="tablist"] {
+        overflow: auto;
+    }
 
-  [role="tablist"] > [role="tab"] {
-    flex: 0 0 clamp(4rem, 33%, 9rem);
-    min-inline-size: 4rem;
-    max-inline-size: 9rem;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
+    [role="tablist"] > [role="tab"] {
+        flex: 0 0 clamp(4rem, 33%, 9rem);
+        min-inline-size: 4rem;
+        max-inline-size: 9rem;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
 
-  [role="tabpanel"] {
-    min-inline-size: 0;
-    min-block-size: 0;
-  }
+    [role="tabpanel"] {
+        min-inline-size: 0;
+        min-block-size: 0;
+    }
 
-  [role="tabpanel"][hidden] {
-    display: none !important;
-  }
+    [role="tabpanel"][hidden] {
+        display: none !important;
+    }
 }
 
 @layer theme {
-  table[data-layout="separate"] {
-    border-collapse: separate;
-    border-spacing: var(--space-3);
-  }
+    table[data-layout="separate"] {
+        border-collapse: separate;
+        border-spacing: var(--space-3);
+    }
 
-  table[data-layout="separate"] > tbody > tr > td,
-  table[data-layout="separate"] > tbody > tr > th {
-    vertical-align: top;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
+    table[data-layout="separate"] > tbody > tr > td,
+    table[data-layout="separate"] > tbody > tr > th {
+        vertical-align: top;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+    }
 
-  [slot="header-controls"] > span[role="separator"] {
-    width: 1px;
-    height: 20px;
-    background: var(--border);
-  }
+    [slot="header-controls"] > span[role="separator"] {
+        width: 1px;
+        height: 20px;
+        background: var(--border);
+    }
 
-  code-editor .code-editor-scroller > pre {
-    color: var(--code-editor-text);
-  }
+    code-editor .code-editor-scroller > pre {
+        color: var(--code-editor-text);
+    }
 
-  code-editor .code-editor-scroller > textarea {
-    caret-color: var(--code-editor-caret);
-  }
+    code-editor .code-editor-scroller > textarea {
+        caret-color: var(--code-editor-caret);
+    }
 
-  /* corners */
-  view--corner {
-    z-index: var(--z-index-corner);
-    position: absolute;
-  }
+    /* corners */
+    view--corner {
+        z-index: var(--z-index-corner);
+        position: absolute;
+    }
 
-  view--corner:nth-of-type(1),
-  view--corner:nth-of-type(2) {
-    top: 0;
-  }
+    view--corner:nth-of-type(1),
+    view--corner:nth-of-type(2) {
+        top: 0;
+    }
 
-  view--corner:nth-of-type(2),
-  view--corner:nth-of-type(3) {
-    right: 0;
-  }
+    view--corner:nth-of-type(2),
+    view--corner:nth-of-type(3) {
+        right: 0;
+    }
 
-  view--corner:nth-of-type(3),
-  view--corner:nth-of-type(4) {
-    bottom: 0;
-  }
+    view--corner:nth-of-type(3),
+    view--corner:nth-of-type(4) {
+        bottom: 0;
+    }
 
-  view--corner:nth-of-type(1),
-  view--corner:nth-of-type(4) {
-    left: 0;
-  }
+    view--corner:nth-of-type(1),
+    view--corner:nth-of-type(4) {
+        left: 0;
+    }
 
-  /* handles */
-  view--handle {
-    z-index: var(--z-index-handle);
-  }
+    /* handles */
+    view--handle {
+        z-index: var(--z-index-handle);
+    }
 
-  /* backdrop + centering layer */
-  view-popup {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+    /* backdrop + centering layer */
+    view-popup {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-  /* sizes — applied as light-DOM classes by view-popup.js */
-  view-popup.popup-size-small {
-    --popup-width: 360px;
-  }
+    /* sizes — applied as light-DOM classes by view-popup.js */
+    view-popup.popup-size-small {
+        --popup-width: 360px;
+    }
 
-  view-popup.popup-size-medium {
-    --popup-width: 560px;
-  }
+    view-popup.popup-size-medium {
+        --popup-width: 560px;
+    }
 
-  view-popup.popup-size-large {
-    --popup-width: 800px;
-  }
+    view-popup.popup-size-large {
+        --popup-width: 800px;
+    }
 
-  /* popup card (Shadow DOM parts) */
-  view-popup::part(container) {
-    width: min(var(--popup-width, 800px), calc(100vw - 2 * var(--space-6)));
-    max-height: calc(100vh - 4 * var(--space-6));
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    pointer-events: auto;
-  }
+    /* popup card (Shadow DOM parts) */
+    view-popup::part(container) {
+        width: min(var(--popup-width, 800px), calc(100vw - 2 * var(--space-6)));
+        max-height: calc(100vh - 4 * var(--space-6));
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        pointer-events: auto;
+    }
 
-  view-popup::part(header) {
-    display: flex;
-    align-items: center;
-  }
+    view-popup::part(header) {
+        display: flex;
+        align-items: center;
+    }
 
-  view-popup::part(body) {
-    max-height: calc(80vh);
-    overflow: auto;
-  }
+    view-popup::part(body) {
+        max-height: calc(80vh);
+        overflow: auto;
+    }
 
-  ::slotted([slot="title"]) {
-    margin: 0;
-    font-size: var(--font-lg);
-    font-weight: 600;
-    color: inherit;
-  }
+    ::slotted([slot="title"]) {
+        margin: 0;
+        font-size: var(--font-lg);
+        font-weight: 600;
+        color: inherit;
+    }
 
-  ::slotted([slot="header-controls"]) {
-    display: flex;
-    flex: 1 1 auto;
-    min-width: 0;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
+    ::slotted([slot="header-controls"]) {
+        display: flex;
+        flex: 1 1 auto;
+        min-width: 0;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
 
-  /* ═══════════════════════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════════════════════════════
      TOASTS
 
      Positions (semantic):
@@ -1002,81 +994,77 @@
        info → .info,  success → .success,  warning → .warning,  error → .danger
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  view-toast {
-    --spacing: var(--space-3);
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    position: fixed;
-    z-index: 10000;
-    pointer-events: auto;
-    max-width: calc(100vw - 2 * var(--spacing));
-    box-sizing: border-box;
+    view-toast {
+        --spacing: var(--space-3);
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        position: fixed;
+        z-index: 10000;
+        pointer-events: auto;
+        max-width: calc(100vw - 2 * var(--spacing));
+        box-sizing: border-box;
 
-    /* default appearance — soft intent surface */
-    background: var(--intent-soft-bg);
-    border: 1px solid var(--intent-soft-border);
-    color: var(--intent-soft-fg);
-    padding: var(--space-2) var(--space-4);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-elevated);
-  }
+        /* default appearance — soft intent surface */
+        background: var(--intent-soft-bg);
+        border: 1px solid var(--intent-soft-border);
+        color: var(--intent-soft-fg);
+        padding: var(--space-2) var(--space-4);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-elevated);
+    }
 
-  view-toast[hidden] {
-    display: none !important;
-  }
+    view-toast[hidden] {
+        display: none !important;
+    }
 
-  /* close button */
-  view-toast .toast-close {
-    background: none;
-    border: none;
-    color: inherit;
-    opacity: 0.6;
-    padding: 0 var(--space-2);
-    height: auto;
-    min-width: 0;
-    cursor: pointer;
-  }
+    /* close button */
+    view-toast .toast-close {
+        background: none;
+        border: none;
+        color: inherit;
+        opacity: 0.6;
+        padding: 0 var(--space-2);
+        height: auto;
+        min-width: 0;
+        cursor: pointer;
+    }
 
-  view-toast .toast-close:hover {
-    opacity: 1;
-  }
+    view-toast .toast-close:hover {
+        opacity: 1;
+    }
 
-  /* alert / confirm inner layout */
-  view-toast .toast-container {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
+    /* alert / confirm inner layout */
+    view-toast .toast-container {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+    }
 
-  view-toast .toast-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-2);
-  }
+    view-toast .toast-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--space-2);
+    }
 
-  /* ── position: primary (top-right stack) ── */
-  view-toast[position="primary"] {
-    right: var(--spacing);
-    --toast-stack-offset: 60px;
-    top: calc(
-      var(--spacing) +
-      var(--toast-stack-index, 0) *
-      var(--toast-stack-offset)
-    );
-  }
+    /* ── position: primary (top-right stack) ── */
+    view-toast[position="primary"] {
+        right: var(--spacing);
+        --toast-stack-offset: 60px;
+        top: calc(var(--spacing) + var(--toast-stack-index, 0) * var(--toast-stack-offset));
+    }
 
-  /* ── position: secondary (bottom-center, last only) ── */
-  view-toast[position="secondary"] {
-    bottom: var(--spacing);
-    left: 50%;
-    transform: translateX(-50%);
-  }
+    /* ── position: secondary (bottom-center, last only) ── */
+    view-toast[position="secondary"] {
+        bottom: var(--spacing);
+        left: 50%;
+        transform: translateX(-50%);
+    }
 
-  /* ── position: modal (center, last only — alert/confirm) ── */
-  view-toast[position="modal"] {
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
+    /* ── position: modal (center, last only — alert/confirm) ── */
+    view-toast[position="modal"] {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
 }

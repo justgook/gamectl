@@ -1164,6 +1164,7 @@
     margin: 0px 1px;
     display: flex;
     gap: 1px;
+    background: var(--surface);
   }
 
   footer > output {
