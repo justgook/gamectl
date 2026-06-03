@@ -39,10 +39,10 @@ export class PopupManager extends HTMLElement {
                 if (mutation.type === "childList") {
                     this.updateBackdrop()
 
-                    // Handle new popup animations
+                    // Handle new popup fade-in without transform-based compositing.
                     mutation.addedNodes.forEach((node) => {
                         if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "VIEW-POPUP") {
-                            this.animatePopupIn(node)
+                            this.fadePopupIn(node)
                         }
                     })
                 }
@@ -78,27 +78,21 @@ export class PopupManager extends HTMLElement {
     }
 
     /**
-     * Animate popup entrance
+     * Fade popup entrance without transform-based compositing.
      */
-    animatePopupIn(popup) {
-        // Set initial state for animation
+    fadePopupIn(popup) {
         popup.style.opacity = "0"
-        popup.style.transform = "scale(0.95)"
         popup.style.transition = "none"
 
-        // Force reflow
+        // Force reflow before enabling the opacity transition.
         popup.offsetHeight
 
-        // Enable transition and animate to final state
-        popup.style.transition =
-            "opacity var(--popup-animation-duration) var(--popup-animation-easing), transform var(--popup-animation-duration) var(--popup-animation-easing)"
+        popup.style.transition = "opacity var(--popup-animation-duration) var(--popup-animation-easing)"
         popup.style.opacity = "1"
-        popup.style.transform = "scale(1)"
 
-        // Clean up inline styles after animation
+        // Clean up inline styles after animation.
         setTimeout(() => {
             popup.style.opacity = ""
-            popup.style.transform = ""
             popup.style.transition = ""
         }, 200) // Match animation duration
     }
@@ -367,7 +361,7 @@ export class ViewPopup extends HTMLElement {
     }
 
     /**
-     * Close the popup with animation
+     * Close the popup with an opacity fade only.
      */
     close() {
         if (this.isClosing) return
@@ -383,11 +377,8 @@ export class ViewPopup extends HTMLElement {
             }),
         )
 
-        // Animate out
-        this.style.transition =
-            "opacity var(--popup-animation-duration) var(--popup-animation-easing), transform var(--popup-animation-duration) var(--popup-animation-easing)"
+        this.style.transition = "opacity var(--popup-animation-duration) var(--popup-animation-easing)"
         this.style.opacity = "0"
-        this.style.transform = "scale(0.95)"
 
         // Remove after animation
         setTimeout(() => {
