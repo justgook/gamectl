@@ -35,8 +35,8 @@
   {
     "id": 49,
     "kind": 2,
-    "x": 2138,
-    "y": -244,
+    "x": 2331,
+    "y": -293,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -51,7 +51,7 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 116,
+        "srcNodeId": 118,
         "srcOutputId": 1
       }
     ],
@@ -60,8 +60,8 @@
   {
     "id": 50,
     "kind": 4,
-    "x": 1942,
-    "y": -246,
+    "x": 2135,
+    "y": -295,
     "name": "edge_file",
     "codePath": "",
     "graphId": 0,
@@ -1529,6 +1529,90 @@
         "id": 1,
         "name": "",
         "value": "74"
+      }
+    ]
+  },
+  {
+    "id": 118,
+    "kind": 2,
+    "x": 2171,
+    "y": -170,
+    "name": "Copy Prop",
+    "codePath": "ng/presets/copy-prop.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "from",
+        "srcNodeId": 119,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "to",
+        "srcNodeId": 116,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "src",
+        "srcNodeId": 120,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "target",
+        "srcNodeId": 120,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "to",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 119,
+    "kind": 4,
+    "x": 1596,
+    "y": -259,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "{\"props\":{\"tilesets\":\"[{\\\"name\\\":\\\"primitives\\\",\\\"file\\\":\\\"pipe/rules/primitives.qoi\\\",\\\"tileWidth\\\":16,\\\"tileHeight\\\":16},{\\\"name\\\":\\\"rules\\\",\\\"file\\\":\\\"pipe/rules/rules.qoi\\\",\\\"tileWidth\\\":16,\\\"tileHeight\\\":16},{\\\"name\\\":\\\"platformer\\\",\\\"file\\\":\\\"pipe/tileset/platformer.qoi\\\",\\\"tileWidth\\\":16,\\\"tileHeight\\\":16}]\"}}"
+      }
+    ]
+  },
+  {
+    "id": 120,
+    "kind": 4,
+    "x": 1904,
+    "y": -135,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"props.tilesets\""
       }
     ]
   }

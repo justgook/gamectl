@@ -357,10 +357,11 @@ export class ViewCanvasBase extends HTMLElement {
     this.onCanvasMouseUp(event)
   }
 
-  _onMouseLeave() {
+  _onMouseLeave(event) {
     this.isDragging = false
     if (this.canvas)
       this.canvas.style.cursor = this.spacePressed ? "grab" : "default"
+    this.onCanvasMouseLeave(event)
   }
 
   _onKeyDown(event) {
@@ -400,6 +401,7 @@ export class ViewCanvasBase extends HTMLElement {
   onCanvasMouseDown(_event) {}
   onCanvasMouseMove(_event) {}
   onCanvasMouseUp(_event) {}
+  onCanvasMouseLeave(_event) {}
 
   calculateContentBounds(_data) {
     throw new Error(

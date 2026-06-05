@@ -9,6 +9,13 @@ function okResult() {
     return { ok: true }
 }
 
+function trimValueLabel(value) {
+    const text = String(value || "")
+    const symbols = Array.from(text)
+    if (symbols.length <= VALUE_LABEL_MAX_SYMBOLS) return text
+    return `${symbols.slice(0, VALUE_LABEL_MAX_SYMBOLS - 3).join("")}...`
+}
+
 const NG = {
     NODE_GOAL: 1,
     NODE_CODE: 2,
@@ -23,6 +30,7 @@ const EXEC_RUNNING = 3
 
 const MIN_SCALE = 0.2
 const MAX_SCALE = 3.0
+const VALUE_LABEL_MAX_SYMBOLS = 64
 
 function assert(condition, message) {
     if (!condition) throw new Error(message)
@@ -2047,7 +2055,7 @@ end`
             const outputId = node.outputs?.[i]?.outputId ?? i + 1
             const label =
                 node.kind === NG.NODE_VALUE
-                    ? this._getStoredNodeValue(node.id, outputId) || "value"
+                    ? trimValueLabel(this._getStoredNodeValue(node.id, outputId)) || "value"
                     : this._getPortLabel(node.id, "output", outputId, i)
             rightLabelWidth = Math.max(rightLabelWidth, this._measureTextWidth(label, portScale))
         }
@@ -2892,7 +2900,7 @@ end`
                 const outputId = node.outputs[i]?.outputId ?? i + 1
                 const label =
                     node.kind === NG.NODE_VALUE
-                        ? this._getStoredNodeValue(node.id, outputId) || "value"
+                        ? trimValueLabel(this._getStoredNodeValue(node.id, outputId)) || "value"
                         : this._getPortLabel(node.id, "output", outputId, i)
                 const p = this._getPortCenter(node, pos, false, i)
                 const labelWidth = this._measureTextWidth(label, portScale)

@@ -2877,28 +2877,24 @@ export class ViewTilemap extends ViewCanvasBase {
     )
     const scaledWidth = this.tilesetRender.layoutWidth(tileset) * viewport.scale
     const scaledHeight = this.tilesetRender.layoutHeight(tileset) * viewport.scale
-    const minVisibleX = Math.min(
-      tileset.tileWidth * viewport.scale,
-      canvas.width,
-      scaledWidth,
-    )
-    const minVisibleY = Math.min(
-      tileset.tileHeight * viewport.scale,
-      canvas.height,
-      scaledHeight,
-    )
-    const minOffsetX = minVisibleX - scaledWidth
-    const maxOffsetX = canvas.width - minVisibleX
-    const minOffsetY = minVisibleY - scaledHeight
-    const maxOffsetY = canvas.height - minVisibleY
-    viewport.offsetX = Math.max(
-      minOffsetX,
-      Math.min(maxOffsetX, viewport.offsetX),
-    )
-    viewport.offsetY = Math.max(
-      minOffsetY,
-      Math.min(maxOffsetY, viewport.offsetY),
-    )
+
+    if (scaledWidth <= canvas.width) {
+      viewport.offsetX = (canvas.width - scaledWidth) / 2
+    } else {
+      viewport.offsetX = Math.max(
+        canvas.width - scaledWidth,
+        Math.min(0, viewport.offsetX),
+      )
+    }
+
+    if (scaledHeight <= canvas.height) {
+      viewport.offsetY = (canvas.height - scaledHeight) / 2
+    } else {
+      viewport.offsetY = Math.max(
+        canvas.height - scaledHeight,
+        Math.min(0, viewport.offsetY),
+      )
+    }
   }
 
   tilesetZoomStep(scale, direction) {
@@ -3273,6 +3269,7 @@ export class ViewTilemap extends ViewCanvasBase {
     }
 
     if (snapshot.tool === TOOL.BRUSH) {
+      if (!this.pointerInsideTilemap(event, snapshot)) return
       event.preventDefault()
       this.focus()
       this.brushDragCells = new Map()
@@ -3282,6 +3279,7 @@ export class ViewTilemap extends ViewCanvasBase {
     }
 
     if (snapshot.tool === TOOL.ERASE) {
+      if (!this.pointerInsideTilemap(event, snapshot)) return
       event.preventDefault()
       this.focus()
       this.eraseDragCells = new Map()
@@ -3291,6 +3289,7 @@ export class ViewTilemap extends ViewCanvasBase {
     }
 
     if (snapshot.tool === TOOL.EYEDROPPER) {
+      if (!this.pointerInsideTilemap(event, snapshot)) return
       event.preventDefault()
       this.focus()
       void this.sampleTileAt(this.cellFromPointerEvent(event, snapshot))
@@ -3543,6 +3542,16 @@ export class ViewTilemap extends ViewCanvasBase {
       this.clipboard.height * this.tilemapRender.tileHeight,
     )
     ctx.restore()
+  }
+
+  pointerInsideTilemap(event, snapshot) {
+    const point = this.getWorldPoint(event.clientX, event.clientY)
+    return (
+      point.x >= 0 &&
+      point.y >= 0 &&
+      point.x < snapshot.width * this.tilemapRender.tileWidth &&
+      point.y < snapshot.height * this.tilemapRender.tileHeight
+    )
   }
 
   pasteCellFromPointerEvent(event, snapshot) {
