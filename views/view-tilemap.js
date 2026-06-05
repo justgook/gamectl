@@ -1628,6 +1628,9 @@ export class ViewTilemap extends ViewCanvasBase {
         </fieldset>
         <fieldset data-element="tilesets">
           <legend>Tilesets</legend>
+          <div role="buttongroup" data-element="tileset-actions">
+            <button type="button" data-action="reload-tilesets" title="Reload tilesets from disk"><i aria-hidden="true">refresh</i></button>
+          </div>
           <div role="tablist" data-element="tileset-tabs" aria-label="Tileset files"></div>
           <div data-element="tileset-panels"></div>
         </fieldset>
@@ -1790,6 +1793,18 @@ export class ViewTilemap extends ViewCanvasBase {
       )
       this.selectTilesetTab(button.dataset.tileset)
     })
+
+    const reloadTilesetsButton = this.querySelector(
+      '[data-action="reload-tilesets"]',
+    )
+    assert(
+      reloadTilesetsButton instanceof HTMLButtonElement,
+      "view-tilemap missing reload tilesets control",
+    )
+    reloadTilesetsButton.addEventListener(
+      "click",
+      async () => this.reloadTilesets(),
+    )
 
     this.layersElement.addEventListener("click", async (event) => {
       const button = event.target.closest("button[data-action]")
@@ -2233,6 +2248,83 @@ export class ViewTilemap extends ViewCanvasBase {
     await runtime.call("ui.toast.success", {
       message: `Reloaded tilemap ${this.snapshot.path}`,
     })
+  }
+
+  async reloadTilesets() {
+    const snapshot = this.requireSnapshot()
+    const specs = this.collectTilesetSpecs(snapshot)
+    if (specs.length === 0) {
+      this.setStatus("Tilemap has no file-backed tilesets to reload", "info")
+      return
+    }
+
+    this.setBusy(true)
+    try {
+      const previousTilesets = this.tilesets
+      const nextTilesets = await this.createTilesetsForSnapshot(snapshot)
+      this.validateReloadedTilesets(previousTilesets, nextTilesets)
+      this.tilesets = nextTilesets
+      this.tilemapRender.setTilesets(this.tilesets)
+      this.renderTilesets(snapshot)
+      this.draw()
+      this.setStatus("Reloaded tilesets from disk", "success")
+      await runtime.call("ui.toast.success", {
+        message: "Reloaded tilesets from disk",
+      })
+    } catch (error) {
+      this.setStatus(String(error?.message || error), "danger")
+      await runtime.call("ui.toast.error", {
+        message: String(error?.message || error),
+      })
+    } finally {
+      this.setBusy(false)
+    }
+  }
+
+  validateReloadedTilesets(previousTilesets, nextTilesets) {
+    assert(
+      Array.isArray(previousTilesets) && previousTilesets.length > 0,
+      "view-tilemap reload tilesets requires previous tilesets",
+    )
+    assert(
+      Array.isArray(nextTilesets) && nextTilesets.length > 0,
+      "view-tilemap reload tilesets requires next tilesets",
+    )
+    assert(
+      nextTilesets.length === previousTilesets.length,
+      "view-tilemap reload changed tileset count; update tilemap settings instead",
+    )
+
+    for (let index = 0; index < nextTilesets.length; index++) {
+      const previous = previousTilesets[index]
+      const next = nextTilesets[index]
+      assert(
+        next.name === previous.name,
+        "view-tilemap reload changed tileset order; update tilemap settings instead",
+      )
+      assert(
+        next.path === previous.path,
+        `view-tilemap reload changed tileset path for ${previous.name}; update tilemap settings instead`,
+      )
+      assert(
+        next.tileWidth === previous.tileWidth &&
+          next.tileHeight === previous.tileHeight,
+        `view-tilemap reload changed tile size for ${previous.name}; update tilemap settings instead`,
+      )
+      assert(
+        next.firstTileId === previous.firstTileId &&
+          next.tileCount === previous.tileCount,
+        `view-tilemap reload changed tile id range for ${previous.name}; update tilemap settings instead`,
+      )
+      assert(
+        next.columns === previous.columns && next.rows === previous.rows,
+        `view-tilemap reload changed tile grid for ${previous.name}; update tilemap settings instead`,
+      )
+      assert(
+        next.width === previous.width && next.height === previous.height,
+        `view-tilemap reload changed image size for ${previous.name}; update tilemap settings instead`,
+      )
+    }
   }
 
   async setTool(tool) {
