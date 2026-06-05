@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
@@ -59,4 +60,28 @@ end
 `);
 assert.equal(topLevelNil, 'null');
 
+const manyValueGraph = [];
+const manyGoalInputs = [];
+for (let id = 1; id <= 101; id += 1) {
+  manyValueGraph.push({
+    id,
+    kind: 4,
+    name: `v${id}`,
+    inputs: [],
+    outputs: [{ id: 1, name: `v${id}`, value: String(id) }],
+  });
+  manyGoalInputs.push({ id, name: `v${id}`, srcNodeId: id, srcOutputId: 1 });
+}
+manyValueGraph.push({ id: 102, kind: 1, name: 'result', inputs: manyGoalInputs, outputs: [] });
+
+const compiler = readFileSync(join(repoRoot, 'examples/demo/ng/compile-graph.lua'), 'utf8');
+const generatedGraphSource = runLua(`
+_G.input = ${JSON.stringify(JSON.stringify(manyValueGraph))}
+${compiler}
+`);
+const graphResult = JSON.parse(runLua(generatedGraphSource));
+assert.equal(graphResult.result.inputs.v101, 101);
+assert.equal(graphResult.result.active.v101, true);
+
 console.log('lua.comp json.null: ok');
+console.log('lua.comp view-ng large value graph: ok');

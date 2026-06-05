@@ -171,11 +171,11 @@ local function findRunTargetNodes()
 end
 
 local function luaVar(nodeId, outputId)
-	return ("n%d_o%d"):format(nodeId, outputId)
+	return ("__ng_values[%d][%d]"):format(nodeId, outputId)
 end
 
 local function luaActiveVar(nodeId, outputId)
-	return ("n%d_o%d_active"):format(nodeId, outputId)
+	return ("__ng_active[%d][%d]"):format(nodeId, outputId)
 end
 
 local function luaString(value)
@@ -359,10 +359,8 @@ local function emit(line)
 end
 
 local function emitOutputDeclarations(node)
-	for _, outputPort in ipairs(getOutputs(node)) do
-		emit(("local %s = nil"):format(luaVar(node.id, outputPort.id)))
-		emit(("local %s = false"):format(luaActiveVar(node.id, outputPort.id)))
-	end
+	emit(("__ng_values[%d] = {}"):format(node.id))
+	emit(("__ng_active[%d] = {}"):format(node.id))
 end
 
 local function emitProgressHelpers()
@@ -437,8 +435,8 @@ end
 
 local function emitValueNode(node)
 	emit(("-- value node %d: %s"):format(node.id, node.name or ""))
-	emit(("local __ng_node_%d_active = %s"):format(node.id, nodeActiveExpr(node)))
-	emit(("if __ng_node_%d_active then"):format(node.id))
+	emit(("__ng_node_active = %s"):format(nodeActiveExpr(node)))
+	emit("if __ng_node_active then")
 	emit(("  __ng_node_start(%d)"):format(node.id))
 	emitValueAssignments(node, "  ")
 	emit(("  __ng_node_done(%d)"):format(node.id))
@@ -516,10 +514,10 @@ local function emitCodeNode(node)
 	local source = readTextFile(node.codePath)
 
 	emit(("-- code node %d: %s"):format(node.id, node.name or ""))
-	emit(("local __ng_node_%d_active = %s"):format(node.id, nodeActiveExpr(node)))
-	emit(("if __ng_node_%d_active then"):format(node.id))
+	emit(("__ng_node_active = %s"):format(nodeActiveExpr(node)))
+	emit("if __ng_node_active then")
 	emit(("  __ng_node_start(%d)"):format(node.id))
-	emit("  local __ng_ok, __ng_err = xpcall(function()")
+	emit("  __ng_ok, __ng_err = xpcall(function()")
 	emit("  local inputs = { active = {} }")
 	emit("  local outputs = { active = {} }")
 	emit("  _G.inputs = inputs")
@@ -605,6 +603,12 @@ emit("-- Do not edit manually")
 emit("")
 emit("function main()")
 emitProgressHelpers()
+emit("local __ng_values = {}")
+emit("local __ng_active = {}")
+emit("local __ng_node_active = false")
+emit("local __ng_ok = true")
+emit("local __ng_err = nil")
+emit("")
 
 for _, node in ipairs(ordered) do
 	emitOutputDeclarations(node)
