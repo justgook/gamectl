@@ -269,6 +269,9 @@
     margin: 0;
   }
 
+  fieldset:has(canvas) {
+    padding: 0;
+  }
   legend {
     background: var(--surface);
   }

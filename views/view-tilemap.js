@@ -41,6 +41,9 @@ const SELECT_MODE = {
 const DEFAULT_SELECT_ADD_KEY = "Shift"
 const DEFAULT_SELECT_REMOVE_KEY = "Control"
 const PASTE_PREVIEW_ALPHA = 0.55
+const TILESET_MIN_SCALE = 0.5
+const TILESET_MAX_SCALE = 3
+const TILESET_ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3]
 
 function basename(path) {
   const normalized = String(path || "").trim()
@@ -1585,6 +1588,14 @@ export class ViewTilemap extends ViewCanvasBase {
     this.activeTilesetName = ""
     this.tilesets = [TilemapTileset.createDefault()]
     this.tilesetSourceKey = ""
+    this.tilesetViewports = new Map()
+    this.tilesetDrag = null
+    this.tilesetResizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (!(entry.target instanceof HTMLCanvasElement)) continue
+        this.redrawTilesetCanvas(entry.target)
+      }
+    })
     this.selectedLayerIndexes = new Set()
     this.selectionTool = new TilemapSelectionTool({
       getAddKey: () => this.selectionAddKey,
@@ -1690,6 +1701,11 @@ export class ViewTilemap extends ViewCanvasBase {
     this.setData(this.snapshot, { autoFit: false })
     this.renderSnapshot(this.snapshot)
     void this.bootstrap()
+  }
+
+  disconnectedCallback() {
+    this.tilesetResizeObserver.disconnect()
+    super.disconnectedCallback()
   }
 
   createViewPluginMethods() {
@@ -2659,6 +2675,15 @@ export class ViewTilemap extends ViewCanvasBase {
       )
       panel.hidden = panel.dataset.tileset !== name
     }
+
+    const canvas = this.tilesetPanelsElement.querySelector(
+      `[role="tabpanel"][data-tileset="${CSS.escape(name)}"] canvas[data-element="tileset-canvas"]`,
+    )
+    assert(
+      canvas instanceof HTMLCanvasElement,
+      "view-tilemap selected tileset panel requires canvas",
+    )
+    this.redrawTilesetCanvas(canvas)
   }
 
   renderTilesets(snapshot) {
@@ -2678,6 +2703,7 @@ export class ViewTilemap extends ViewCanvasBase {
       this.tilesetPanelsElement instanceof HTMLElement,
       "view-tilemap missing tileset panels",
     )
+    this.tilesetResizeObserver.disconnect()
     this.tilesetTabsElement.replaceChildren()
     this.tilesetPanelsElement.replaceChildren()
 
@@ -2688,8 +2714,6 @@ export class ViewTilemap extends ViewCanvasBase {
     const activeTile = this.canShowTilesetActiveTile(snapshot.tool)
       ? snapshot.activeTile
       : null
-    const clipboardTiles =
-      snapshot.tool === TOOL.PASTE ? this.clipboardTileSet() : new Set()
     const activeTileset = Number.isInteger(activeTile)
       ? tilesets.find((tileset) =>
           this.tilesetRender.containsTile(tileset, activeTile),
@@ -2737,23 +2761,262 @@ export class ViewTilemap extends ViewCanvasBase {
       const canvas = document.createElement("canvas")
       canvas.dataset.element = "tileset-canvas"
       canvas.dataset.tileset = tileset.name
-      canvas.width = tileset.columns * tileset.tileWidth
-      canvas.height = tileset.rows * tileset.tileHeight
+      canvas.style.width = "100%"
+      canvas.style.minWidth = "0"
+      canvas.style.maxWidth = "100%"
+      canvas.addEventListener("wheel", (event) =>
+        this.onTilesetWheel(event, tileset),
+      )
+      canvas.addEventListener("mousedown", (event) =>
+        this.onTilesetMouseDown(event, tileset),
+      )
+      canvas.addEventListener("mousemove", (event) =>
+        this.onTilesetMouseMove(event, tileset),
+      )
+      canvas.addEventListener("mouseup", (event) =>
+        this.onTilesetMouseUp(event, tileset),
+      )
+      canvas.addEventListener("mouseleave", (event) =>
+        this.onTilesetMouseLeave(event, tileset),
+      )
       canvas.addEventListener("click", async (event) =>
         this.selectTileFromTileset(event, tileset),
       )
       panel.appendChild(canvas)
-      this.tilesetRender.draw(canvas, tileset, activeTile, clipboardTiles)
-
-      const status = document.createElement("output")
-      status.dataset.element = "tileset-status"
-      status.textContent = this.tilesetStatusText(tileset)
-      panel.appendChild(status)
-
       this.tilesetPanelsElement.appendChild(panel)
+      this.resizeTilesetCanvas(canvas, tileset)
+      this.drawTilesetCanvas(canvas, tileset, snapshot)
+      this.tilesetResizeObserver.observe(canvas)
     }
 
     this.activeTilesetName = activeName
+  }
+
+  resizeTilesetCanvas(canvas, tileset) {
+    assert(
+      canvas instanceof HTMLCanvasElement,
+      "view-tilemap resize tileset requires canvas",
+    )
+    this.tilesetRender.validateTileset(tileset)
+    const layoutWidth = this.tilesetRender.layoutWidth(tileset)
+    const layoutHeight = this.tilesetRender.layoutHeight(tileset)
+    const rect = canvas.getBoundingClientRect()
+    assert(canvas.parentElement, "view-tilemap tileset canvas requires parent")
+    const parentWidth = canvas.parentElement.getBoundingClientRect().width
+    const measuredWidth = rect.width || parentWidth || layoutWidth
+    const cssWidth = Math.max(1, Math.round(measuredWidth))
+    const cssHeight = Math.max(
+      1,
+      Math.round(
+        Math.min(cssWidth * 2, cssWidth * (layoutHeight / layoutWidth)),
+      ),
+    )
+    canvas.style.height = `${cssHeight}px`
+    canvas.width = cssWidth
+    canvas.height = cssHeight
+    this.constrainTilesetViewport(tileset, canvas)
+  }
+
+  drawTilesetCanvas(canvas, tileset, snapshot) {
+    assert(
+      canvas instanceof HTMLCanvasElement,
+      "view-tilemap draw tileset requires canvas",
+    )
+    assert(
+      snapshot && typeof snapshot === "object" && !Array.isArray(snapshot),
+      "view-tilemap draw tileset requires snapshot",
+    )
+    const activeTile = this.canShowTilesetActiveTile(snapshot.tool)
+      ? snapshot.activeTile
+      : null
+    const clipboardTiles =
+      snapshot.tool === TOOL.PASTE ? this.clipboardTileSet() : new Set()
+    const viewport = this.getTilesetViewport(tileset)
+    this.tilesetRender.draw(
+      canvas,
+      tileset,
+      activeTile,
+      clipboardTiles,
+      viewport,
+    )
+  }
+
+  redrawTilesetCanvas(canvas) {
+    assert(
+      canvas instanceof HTMLCanvasElement,
+      "view-tilemap redraw tileset requires canvas",
+    )
+    assert(
+      typeof canvas.dataset.tileset === "string" &&
+        canvas.dataset.tileset.length > 0,
+      "view-tilemap redraw tileset requires data-tileset",
+    )
+    const tileset = this.tilesets.find(
+      (candidate) => candidate.name === canvas.dataset.tileset,
+    )
+    assert(tileset, "view-tilemap redraw tileset requires known tileset")
+    this.resizeTilesetCanvas(canvas, tileset)
+    this.drawTilesetCanvas(canvas, tileset, this.requireSnapshot())
+  }
+
+  getTilesetViewport(tileset) {
+    this.tilesetRender.validateTileset(tileset)
+    let viewport = this.tilesetViewports.get(tileset.name)
+    if (!viewport) {
+      viewport = { scale: 1, offsetX: 0, offsetY: 0 }
+      this.tilesetViewports.set(tileset.name, viewport)
+    }
+    return viewport
+  }
+
+  constrainTilesetViewport(tileset, canvas) {
+    const viewport = this.getTilesetViewport(tileset)
+    viewport.scale = Math.max(
+      TILESET_MIN_SCALE,
+      Math.min(TILESET_MAX_SCALE, viewport.scale),
+    )
+    const scaledWidth = this.tilesetRender.layoutWidth(tileset) * viewport.scale
+    const scaledHeight = this.tilesetRender.layoutHeight(tileset) * viewport.scale
+    const minVisibleX = Math.min(
+      tileset.tileWidth * viewport.scale,
+      canvas.width,
+      scaledWidth,
+    )
+    const minVisibleY = Math.min(
+      tileset.tileHeight * viewport.scale,
+      canvas.height,
+      scaledHeight,
+    )
+    const minOffsetX = minVisibleX - scaledWidth
+    const maxOffsetX = canvas.width - minVisibleX
+    const minOffsetY = minVisibleY - scaledHeight
+    const maxOffsetY = canvas.height - minVisibleY
+    viewport.offsetX = Math.max(
+      minOffsetX,
+      Math.min(maxOffsetX, viewport.offsetX),
+    )
+    viewport.offsetY = Math.max(
+      minOffsetY,
+      Math.min(maxOffsetY, viewport.offsetY),
+    )
+  }
+
+  tilesetZoomStep(scale, direction) {
+    assert(
+      direction === -1 || direction === 1,
+      "tileset zoom direction invalid",
+    )
+    if (direction > 0) {
+      return (
+        TILESET_ZOOM_STEPS.find((step) => step > scale) || TILESET_MAX_SCALE
+      )
+    }
+    for (let index = TILESET_ZOOM_STEPS.length - 1; index >= 0; index--) {
+      if (TILESET_ZOOM_STEPS[index] < scale) return TILESET_ZOOM_STEPS[index]
+    }
+    return TILESET_MIN_SCALE
+  }
+
+  zoomTilesetAt(canvas, tileset, x, y, direction) {
+    const viewport = this.getTilesetViewport(tileset)
+    const oldScale = viewport.scale
+    const newScale = this.tilesetZoomStep(oldScale, direction)
+    if (newScale === oldScale) return
+    const worldX = (x - viewport.offsetX) / oldScale
+    const worldY = (y - viewport.offsetY) / oldScale
+    viewport.scale = newScale
+    viewport.offsetX = x - worldX * newScale
+    viewport.offsetY = y - worldY * newScale
+    this.constrainTilesetViewport(tileset, canvas)
+    this.drawTilesetCanvas(canvas, tileset, this.requireSnapshot())
+  }
+
+  onTilesetWheel(event, tileset) {
+    assert(
+      event.currentTarget instanceof HTMLCanvasElement,
+      "view-tilemap tileset wheel requires canvas",
+    )
+    event.preventDefault()
+    const canvas = event.currentTarget
+    if (event.ctrlKey || event.metaKey) {
+      const rect = canvas.getBoundingClientRect()
+      this.zoomTilesetAt(
+        canvas,
+        tileset,
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+        event.deltaY < 0 ? 1 : -1,
+      )
+      return
+    }
+    const viewport = this.getTilesetViewport(tileset)
+    viewport.offsetX -= event.deltaX
+    viewport.offsetY -= event.deltaY
+    this.constrainTilesetViewport(tileset, canvas)
+    this.drawTilesetCanvas(canvas, tileset, this.requireSnapshot())
+  }
+
+  onTilesetMouseDown(event, tileset) {
+    assert(
+      event.currentTarget instanceof HTMLCanvasElement,
+      "view-tilemap tileset mousedown requires canvas",
+    )
+    if (!this.spacePressed) return
+    event.preventDefault()
+    const viewport = this.getTilesetViewport(tileset)
+    this.tilesetDrag = {
+      canvas: event.currentTarget,
+      tileset,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: viewport.offsetX,
+      offsetY: viewport.offsetY,
+      moved: false,
+    }
+    event.currentTarget.dataset.dragged = "0"
+    event.currentTarget.style.cursor = "grabbing"
+  }
+
+  onTilesetMouseMove(event, tileset) {
+    assert(
+      event.currentTarget instanceof HTMLCanvasElement,
+      "view-tilemap tileset mousemove requires canvas",
+    )
+    if (!this.tilesetDrag || this.tilesetDrag.canvas !== event.currentTarget)
+      return
+    event.preventDefault()
+    const viewport = this.getTilesetViewport(tileset)
+    const dx = event.clientX - this.tilesetDrag.startX
+    const dy = event.clientY - this.tilesetDrag.startY
+    if (Math.abs(dx) + Math.abs(dy) > 2) {
+      this.tilesetDrag.moved = true
+      event.currentTarget.dataset.dragged = "1"
+    }
+    viewport.offsetX = this.tilesetDrag.offsetX + dx
+    viewport.offsetY = this.tilesetDrag.offsetY + dy
+    this.constrainTilesetViewport(tileset, event.currentTarget)
+    this.drawTilesetCanvas(event.currentTarget, tileset, this.requireSnapshot())
+  }
+
+  onTilesetMouseUp(event, _tileset) {
+    assert(
+      event.currentTarget instanceof HTMLCanvasElement,
+      "view-tilemap tileset mouseup requires canvas",
+    )
+    if (!this.tilesetDrag || this.tilesetDrag.canvas !== event.currentTarget)
+      return
+    event.currentTarget.style.cursor = this.spacePressed ? "grab" : "default"
+    this.tilesetDrag = null
+  }
+
+  onTilesetMouseLeave(event, _tileset) {
+    assert(
+      event.currentTarget instanceof HTMLCanvasElement,
+      "view-tilemap tileset mouseleave requires canvas",
+    )
+    if (this.tilesetDrag && this.tilesetDrag.canvas === event.currentTarget)
+      this.tilesetDrag = null
+    event.currentTarget.style.cursor = this.spacePressed ? "grab" : "default"
   }
 
   canShowTilesetActiveTile(tool) {
@@ -2776,18 +3039,21 @@ export class ViewTilemap extends ViewCanvasBase {
     return tiles
   }
 
-  tilesetStatusText(tileset) {
-    if (tileset.colorOnly)
-      return `${tileset.path} — generated color tiles; click grid cells to set active tile id`
-    return `${tileset.path} — QOI ${tileset.width} × ${tileset.height}; ${tileset.columns} × ${tileset.rows} tiles; click grid cells to set active tile id`
-  }
-
   async selectTileFromTileset(event, tileset) {
     assert(
       event.currentTarget instanceof HTMLCanvasElement,
       "view-tilemap tileset click requires canvas",
     )
-    const tile = this.tilesetRender.tileFromPointerEvent(event, tileset)
+    if (event.currentTarget.dataset.dragged === "1") {
+      event.currentTarget.dataset.dragged = "0"
+      return
+    }
+    const tile = this.tilesetRender.tileFromPointerEvent(
+      event,
+      tileset,
+      this.getTilesetViewport(tileset),
+    )
+    if (tile === null) return
     this.state.setActiveTile(tile)
     const snapshot = this.requireSnapshot()
     if (snapshot.tool !== TOOL.BRUSH && snapshot.tool !== TOOL.FILL) {
@@ -3534,7 +3800,7 @@ class TilemapRender {
 }
 
 class TilesetRender {
-  draw(canvas, tileset, activeTile, highlightedTiles = new Set()) {
+  draw(canvas, tileset, activeTile, highlightedTiles = new Set(), viewport) {
     assert(
       canvas instanceof HTMLCanvasElement,
       "tileset render requires canvas",
@@ -3548,19 +3814,30 @@ class TilesetRender {
       highlightedTiles instanceof Set,
       "tileset render highlightedTiles must be Set",
     )
+    this.validateViewport(viewport)
 
     const ctx = canvas.getContext("2d")
     assert(ctx, "tileset render canvas requires 2d context")
+    ctx.imageSmoothingEnabled = false
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.fillStyle = "#222"
+    ctx.fillStyle = "#151821"
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.strokeStyle = "#888"
-    ctx.fillStyle = "#ddd"
-    ctx.font = "10px monospace"
+
+    ctx.save()
+    ctx.translate(viewport.offsetX, viewport.offsetY)
+    ctx.scale(viewport.scale, viewport.scale)
+
+    const layoutWidth = this.layoutWidth(tileset)
+    const layoutHeight = this.layoutHeight(tileset)
+    this.drawTransparencyBackground(ctx, 0, 0, layoutWidth, layoutHeight)
 
     if (tileset.canvas) {
       ctx.drawImage(tileset.canvas, 0, 0)
     }
+
+    ctx.strokeStyle = "#888"
+    ctx.fillStyle = "#ddd"
+    ctx.font = "10px monospace"
 
     for (let tileOffset = 0; tileOffset < tileset.tileCount; tileOffset++) {
       const tile = tileset.firstTileId + tileOffset
@@ -3572,34 +3849,42 @@ class TilesetRender {
         ctx.fillStyle = "#111"
         ctx.fillText(String(tile), px + 2, py + 11)
       }
-      ctx.strokeStyle = "#888"
+      ctx.strokeStyle = "rgba(255,255,255,0.42)"
+      ctx.lineWidth = 1 / viewport.scale
       ctx.strokeRect(px + 0.5, py + 0.5, tileset.tileWidth, tileset.tileHeight)
       if (
         (Number.isInteger(activeTile) && tile === activeTile) ||
         highlightedTiles.has(tile)
       )
-        this.drawActiveTile(ctx, px, py, tileset)
+        this.drawActiveTile(ctx, px, py, tileset, viewport.scale)
     }
+
+    ctx.restore()
   }
 
-  tileFromPointerEvent(event, tileset) {
+  tileFromPointerEvent(event, tileset, viewport) {
     assert(
       event.currentTarget instanceof HTMLCanvasElement,
       "tileset render pointer event requires canvas currentTarget",
     )
     this.validateTileset(tileset)
+    this.validateViewport(viewport)
     const rect = event.currentTarget.getBoundingClientRect()
-    const x = Math.floor((event.clientX - rect.left) / tileset.tileWidth)
-    const y = Math.floor((event.clientY - rect.top) / tileset.tileHeight)
-    assert(
-      x >= 0 && x < tileset.columns && y >= 0 && y < tileset.rows,
-      "tileset render pointer outside tileset bounds",
+    const worldX =
+      (event.clientX - rect.left - viewport.offsetX) / viewport.scale
+    const worldY =
+      (event.clientY - rect.top - viewport.offsetY) / viewport.scale
+    if (
+      worldX < 0 ||
+      worldY < 0 ||
+      worldX >= this.layoutWidth(tileset) ||
+      worldY >= this.layoutHeight(tileset)
     )
+      return null
+    const x = Math.floor(worldX / tileset.tileWidth)
+    const y = Math.floor(worldY / tileset.tileHeight)
     const tileOffset = y * tileset.columns + x
-    assert(
-      tileOffset < tileset.tileCount,
-      "tileset render pointer outside available tiles",
-    )
+    if (tileOffset >= tileset.tileCount) return null
     return tileset.firstTileId + tileOffset
   }
 
@@ -3609,10 +3894,14 @@ class TilesetRender {
     return tileset.containsTile(tile)
   }
 
-  drawActiveTile(ctx, px, py, tileset) {
+  drawActiveTile(ctx, px, py, tileset, scale) {
+    assert(
+      Number.isFinite(scale) && scale > 0,
+      "tileset render active tile scale must be positive number",
+    )
     ctx.save()
     ctx.strokeStyle = "#ffcc66"
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2 / scale
     ctx.strokeRect(
       px + 1,
       py + 1,
@@ -3620,7 +3909,7 @@ class TilesetRender {
       tileset.tileHeight - 2,
     )
     ctx.strokeStyle = "#111"
-    ctx.lineWidth = 1
+    ctx.lineWidth = 1 / scale
     ctx.strokeRect(
       px + 3.5,
       py + 3.5,
@@ -3628,6 +3917,55 @@ class TilesetRender {
       tileset.tileHeight - 7,
     )
     ctx.restore()
+  }
+
+  drawTransparencyBackground(ctx, x, y, width, height) {
+    assert(
+      ctx instanceof CanvasRenderingContext2D,
+      "tileset render background requires 2d context",
+    )
+    const size = 8
+    ctx.save()
+    ctx.fillStyle = "#2b2f3a"
+    ctx.fillRect(x, y, width, height)
+    ctx.fillStyle = "#3b4150"
+    for (let py = y; py < y + height; py += size) {
+      for (let px = x; px < x + width; px += size) {
+        if (((px / size + py / size) & 1) === 0) {
+          ctx.fillRect(px, py, size, size)
+        }
+      }
+    }
+    ctx.restore()
+  }
+
+  layoutWidth(tileset) {
+    this.validateTileset(tileset)
+    return tileset.columns * tileset.tileWidth
+  }
+
+  layoutHeight(tileset) {
+    this.validateTileset(tileset)
+    return tileset.rows * tileset.tileHeight
+  }
+
+  validateViewport(viewport) {
+    assert(
+      viewport && typeof viewport === "object" && !Array.isArray(viewport),
+      "tileset render viewport must be an object",
+    )
+    assert(
+      Number.isFinite(viewport.scale) && viewport.scale > 0,
+      "tileset render viewport.scale must be positive number",
+    )
+    assert(
+      Number.isFinite(viewport.offsetX),
+      "tileset render viewport.offsetX must be finite number",
+    )
+    assert(
+      Number.isFinite(viewport.offsetY),
+      "tileset render viewport.offsetY must be finite number",
+    )
   }
 
   validateTileset(tileset) {
