@@ -496,6 +496,71 @@ local function emitOutputDefaults(node)
 	end
 end
 
+local function portDisplay(port)
+	local text = tostring(port.id)
+	if port.name and port.name ~= "" then
+		text = text .. " " .. string.format("%q", port.name)
+	end
+	return text
+end
+
+local function emitCodeNodeErrorHandler(node)
+	emit("  end, function(err)")
+	emit("    local __ng_lines = {")
+	emit(("      %s,"):format(luaString("error in " .. nodeLabel(node) .. " (" .. tostring(node.codePath or "") .. ")")))
+	emit("      'cause: ' .. tostring(err),")
+	emit("      'inputs:',")
+	for _, inputPort in ipairs(getInputs(node)) do
+		local source = "unconnected"
+		if isConnectedInput(inputPort) then
+			local sourceNode = getNode(inputPort.srcNodeId)
+			source = nodeLabel(sourceNode) .. " output " .. portDisplay({ id = inputPort.srcOutputId, name = "" })
+			for _, outputPort in ipairs(getOutputs(sourceNode)) do
+				if outputPort.id == inputPort.srcOutputId then
+					source = nodeLabel(sourceNode) .. " output " .. portDisplay(outputPort)
+					break
+				end
+			end
+		end
+		emit(("      %s .. __ng_value_type(inputs[%d]),"):format(luaString("  input " .. portDisplay(inputPort) .. " <- " .. source .. ": "), inputPort.id))
+	end
+	emit("      'outputs:',")
+	for _, outputPort in ipairs(getOutputs(node)) do
+		emit(("      %s .. __ng_value_type(outputs[%d]),"):format(luaString("  output " .. portDisplay(outputPort) .. ": "), outputPort.id))
+	end
+	emit("    }")
+	emit("    return table.concat(__ng_lines, '\\n')")
+	emit("  end)")
+end
+
+local function emitValueTypeHelper()
+	emit("local function __ng_value_type(value)")
+	emit("  if value == nil then")
+	emit("    return 'nil'")
+	emit("  end")
+	emit("  local valueType = type(value)")
+	emit("  if valueType ~= 'table' then")
+	emit("    return valueType")
+	emit("  end")
+	emit("  local length = 0")
+	emit("  for key, _ in pairs(value) do")
+	emit("    if type(key) ~= 'number' or key ~= math.floor(key) or key < 1 then")
+	emit("      return 'object'")
+	emit("    end")
+	emit("    if key > length then")
+	emit("      length = key")
+	emit("    end")
+	emit("  end")
+	emit("  for index = 1, length do")
+	emit("    if value[index] == nil then")
+	emit("      return 'object'")
+	emit("    end")
+	emit("  end")
+	emit("  return 'array'")
+	emit("end")
+	emit("")
+end
+
 local function emitOutputAssignments(node)
 	for _, outputPort in ipairs(getOutputs(node)) do
 		local outVar = luaVar(node.id, outputPort.id)
@@ -517,11 +582,11 @@ local function emitCodeNode(node)
 	emit(("__ng_node_active = %s"):format(nodeActiveExpr(node)))
 	emit("if __ng_node_active then")
 	emit(("  __ng_node_start(%d)"):format(node.id))
-	emit("  __ng_ok, __ng_err = xpcall(function()")
 	emit("  local inputs = { active = {} }")
 	emit("  local outputs = { active = {} }")
 	emit("  _G.inputs = inputs")
 	emit("  _G.outputs = outputs")
+	emit("  __ng_ok, __ng_err = xpcall(function()")
 	emitInputAssignments(node)
 	emitOutputDefaults(node)
 	emit("")
@@ -530,7 +595,7 @@ local function emitCodeNode(node)
 	emit("  -- end user code")
 	emit("")
 	emitOutputAssignments(node)
-	emit("  end, function(err) return tostring(err) end)")
+	emitCodeNodeErrorHandler(node)
 	emit("  if not __ng_ok then")
 	emit(("    __ng_node_error(%d, __ng_err)"):format(node.id))
 	emit("    error(__ng_err)")
@@ -603,6 +668,7 @@ emit("-- Do not edit manually")
 emit("")
 emit("function main()")
 emitProgressHelpers()
+emitValueTypeHelper()
 emit("local __ng_values = {}")
 emit("local __ng_active = {}")
 emit("local __ng_node_active = false")

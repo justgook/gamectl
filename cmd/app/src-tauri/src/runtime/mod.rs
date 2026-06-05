@@ -2799,6 +2799,121 @@ mod tests {
     }
 
     #[test]
+    fn node_graph_errors_include_node_and_port_context() {
+        let lua = "../../../build.nosync/plugins/lua.comp.wasm";
+        if !std::path::Path::new(lua).exists() {
+            eprintln!(
+                "skipping lua component diagnostic test; build it with `make build.nosync/plugins/lua.comp.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(
+                vec![
+                    "plugins/fs.comp.wasm".to_string(),
+                    "plugins/lua.comp.wasm".to_string(),
+                ],
+                false,
+            )
+            .unwrap();
+
+        let compiler = std::fs::read_to_string(root.join("ng/compile-graph.lua")).unwrap();
+        let graph = serde_json::json!([
+            {
+                "id": 1,
+                "kind": 4,
+                "name": "object value",
+                "inputs": [],
+                "outputs": [{ "id": 1, "name": "value", "value": "{\"not\":\"a path\"}" }]
+            },
+            {
+                "id": 2,
+                "kind": 2,
+                "name": "bad read",
+                "codePath": "ng/presets/read-file.lua",
+                "inputs": [{ "id": 1, "name": "path", "srcNodeId": 1, "srcOutputId": 1 }],
+                "outputs": [{ "id": 1, "name": "content", "value": null }]
+            },
+            {
+                "id": 3,
+                "kind": 1,
+                "name": "result",
+                "inputs": [{ "id": 1, "name": "content", "srcNodeId": 2, "srcOutputId": 1 }],
+                "outputs": []
+            }
+        ]);
+        let compiler_source = format!(
+            "_G.input = {}\n{}",
+            serde_json::to_string(&graph.to_string()).unwrap(),
+            compiler
+        );
+        let generated = runtime
+            .invoke("lua/lua::run", serde_json::json!([compiler_source]))
+            .unwrap();
+        let generated_source = generated["ok"].as_str().unwrap();
+        let contextual_error = runtime
+            .invoke("lua/lua::run", serde_json::json!([generated_source]))
+            .unwrap();
+        let contextual_error_text = contextual_error["err"].as_str().unwrap();
+        assert!(contextual_error_text.contains("error in node \"bad read\" (2)"));
+        assert!(contextual_error_text.contains(
+            "input 1 \"path\" <- node \"object value\" (1) output 1 \"value\": object"
+        ));
+    }
+
+    #[test]
+    fn copy_prop_accepts_decoded_values() {
+        let lua = "../../../build.nosync/plugins/lua.comp.wasm";
+        if !std::path::Path::new(lua).exists() {
+            eprintln!(
+                "skipping copy-prop decoded-value test; build it with `make build.nosync/plugins/lua.comp.wasm`"
+            );
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(
+                vec![
+                    "plugins/fs.comp.wasm".to_string(),
+                    "plugins/lua.comp.wasm".to_string(),
+                ],
+                false,
+            )
+            .unwrap();
+
+        let source = [
+            "function main()",
+            "  local script = fs.read_text('ng/presets/copy-prop.lua')",
+            "  _G.inputs = {",
+            "    [1] = { props = { tilesets = 'copied tilesets' } },",
+            "    [2] = { props = { existing = true } },",
+            "    [3] = { 'props.tilesets' },",
+            "    [4] = { 'props.tilesets' },",
+            "  }",
+            "  _G.outputs = { active = {} }",
+            "  load(script, 'ng/presets/copy-prop.lua')()",
+            "  return _G.outputs[1]",
+            "end",
+        ]
+        .join("\n");
+        let result = runtime
+            .invoke("lua/lua::run", serde_json::json!([source]))
+            .unwrap();
+        let copied: serde_json::Value = serde_json::from_str(result["ok"].as_str().unwrap()).unwrap();
+        assert_eq!(copied["props"]["existing"], true);
+        assert_eq!(copied["props"]["tilesets"], "copied tilesets");
+    }
+
+    #[test]
     fn loading_sql_and_sql_vec_together_rejects_duplicate_wasi_sql_provider() {
         let sql = "../../../build.nosync/plugins/sql.comp.wasm";
         let sql_vec = "../../../build.nosync/plugins/sql-vec.comp.wasm";

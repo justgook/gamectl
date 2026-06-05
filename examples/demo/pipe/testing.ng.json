@@ -1535,7 +1535,7 @@
   {
     "id": 118,
     "kind": 2,
-    "x": 2171,
+    "x": 2170,
     "y": -170,
     "name": "Copy Prop",
     "codePath": "ng/presets/copy-prop.lua",
@@ -1594,7 +1594,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "{\"props\":{\"tilesets\":\"[{\\\"name\\\":\\\"primitives\\\",\\\"file\\\":\\\"pipe/rules/primitives.qoi\\\",\\\"tileWidth\\\":16,\\\"tileHeight\\\":16},{\\\"name\\\":\\\"rules\\\",\\\"file\\\":\\\"pipe/rules/rules.qoi\\\",\\\"tileWidth\\\":16,\\\"tileHeight\\\":16},{\\\"name\\\":\\\"platformer\\\",\\\"file\\\":\\\"pipe/tileset/platformer.qoi\\\",\\\"tileWidth\\\":16,\\\"tileHeight\\\":16}]\"}}"
+        "value": "{\"props\":{\"tilesets\":\"[{\\\"name\\\":\\\"platformer\\\",\\\"file\\\":\\\"pipe/tileset/platformer.qoi\\\",\\\"tileWidth\\\":16,\\\"tileHeight\\\":16}]\"}}"
       }
     ]
   },
@@ -1612,7 +1612,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"props.tilesets\""
+        "value": "[\"props.tilesets\"]"
       }
     ]
   }

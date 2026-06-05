@@ -1,8 +1,8 @@
 -- Copy Prop
--- Copies values from arbitrary JSON paths in one file to arbitrary JSON paths in another.
+-- Copies values from arbitrary paths in one decoded value to arbitrary paths in another decoded value.
 -- Inputs: from, to, src, target
---   src examples: "props.tileSize", ["props.tilesets", "props.tileSize"], ["0.test", "0.arr.3.test"]
---   target examples: "props.tileSize", ["props.tilesets", "props.tileSize"], ["prop1", "prop2"]
+--   src examples: props.tileSize, ["props.tilesets", "props.tileSize"], ["0.test", "0.arr.3.test"]
+--   target examples: props.tileSize, ["props.tilesets", "props.tileSize"], ["prop1", "prop2"]
 -- Numeric path segments are zero-based array indexes.
 -- Outputs: to (success), error (failure)
 
@@ -12,32 +12,33 @@ local function fail(message)
 	error(message)
 end
 
-local fromPath = inputs[1]
-if fromPath == nil or fromPath == "" then
+local fromData = inputs[1]
+if fromData == nil or fromData == "" then
 	fail("from is required")
 end
-
-local toPath = inputs[2]
-if toPath == nil or toPath == "" then
-	fail("to is required")
+if type(fromData) ~= "table" then
+	fail("from must be an object/array")
 end
 
-local srcText = inputs[3]
-if srcText == nil or srcText == "" then
+local toData = inputs[2]
+if toData == nil or toData == "" then
+	fail("to is required")
+end
+if type(toData) ~= "table" then
+	fail("to must be an object/array")
+end
+
+local srcValue = inputs[3]
+if srcValue == nil or srcValue == "" then
 	fail("src is required")
 end
 
-local targetText = inputs[4]
-if targetText == nil or targetText == "" then
+local targetValue = inputs[4]
+if targetValue == nil or targetValue == "" then
 	fail("target is required")
 end
 
-local function decodePathList(text, name)
-	local ok, value = pcall(json.decode, text)
-	if not ok then
-		fail(name .. ' must be JSON, e.g. ["props.tilesets", "props.tileSize"]')
-	end
-
+local function normalizePathList(value, name)
 	local paths = {}
 	if type(value) == "string" then
 		paths[1] = value
@@ -49,7 +50,7 @@ local function decodePathList(text, name)
 			paths[#paths + 1] = path
 		end
 	else
-		fail(name .. " must be a string or JSON array of path strings")
+		fail(name .. " must be a string or array of path strings")
 	end
 
 	if #paths == 0 then
@@ -58,36 +59,11 @@ local function decodePathList(text, name)
 	return paths
 end
 
-local srcPaths = decodePathList(srcText, "src")
-local targetPaths = decodePathList(targetText, "target")
+local srcPaths = normalizePathList(srcValue, "src")
+local targetPaths = normalizePathList(targetValue, "target")
 
 if #srcPaths ~= #targetPaths then
 	fail("src and target must contain the same number of paths")
-end
-
-local function readJson(path, label)
-	local text = host.call("fs/fs::read-text", path)
-	local ok, data = pcall(json.decode, text)
-	if not ok or type(data) ~= "table" then
-		fail("Failed to parse " .. label .. " JSON: " .. tostring(path))
-	end
-	return data
-end
-
-local function ensureParentDirs(path)
-	local dir = string.match(path, "^(.*)/[^/]*$")
-	if dir == nil or dir == "" then
-		return
-	end
-	local current = ""
-	for part in string.gmatch(dir, "[^/]+") do
-		if current == "" then
-			current = part
-		else
-			current = current .. "/" .. part
-		end
-		pcall(host.call, "fs/fs::create-dir", current)
-	end
 end
 
 local function parsePath(path, label)
@@ -145,16 +121,9 @@ local function setPath(root, path, value)
 	current[pathKey(parts[#parts])] = value
 end
 
-local fromData = readJson(fromPath, "from")
-local toData = readJson(toPath, "to")
-
 for index, srcPath in ipairs(srcPaths) do
 	setPath(toData, targetPaths[index], getPath(fromData, srcPath))
 end
 
-local encoded = json.encode(toData)
-ensureParentDirs(toPath)
-host.call("fs/fs::write-text", toPath, encoded)
-
-outputs[1] = toPath
+outputs[1] = toData
 outputs[2] = ""
