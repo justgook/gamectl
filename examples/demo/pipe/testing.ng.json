@@ -2,8 +2,8 @@
   {
     "id": 13,
     "kind": 4,
-    "x": 31,
-    "y": 288,
+    "x": -38,
+    "y": 292,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -78,8 +78,8 @@
   {
     "id": 53,
     "kind": 2,
-    "x": 537,
-    "y": 281,
+    "x": 459,
+    "y": 298,
     "name": "Minimap Shape Assigner",
     "codePath": "ng/presets/pipeline-assign-minimap-shapes.lua",
     "graphId": 0,
@@ -103,8 +103,8 @@
   {
     "id": 54,
     "kind": 2,
-    "x": 819,
-    "y": 245,
+    "x": 741,
+    "y": 262,
     "name": "Minimap Generator",
     "codePath": "ng/presets/pipeline-create-minimap.lua",
     "graphId": 0,
@@ -128,8 +128,8 @@
   {
     "id": 55,
     "kind": 2,
-    "x": 275,
-    "y": 275,
+    "x": 197,
+    "y": 292,
     "name": "World Tree Generator",
     "codePath": "ng/presets/pipeline-world-tree.lua",
     "graphId": 0,
@@ -171,8 +171,8 @@
   {
     "id": 56,
     "kind": 4,
-    "x": 597,
-    "y": 417,
+    "x": 519,
+    "y": 434,
     "name": "DEBUG_tree",
     "codePath": "",
     "graphId": 0,
@@ -189,8 +189,8 @@
   {
     "id": 57,
     "kind": 2,
-    "x": 812,
-    "y": 419,
+    "x": 734,
+    "y": 436,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -214,8 +214,8 @@
   {
     "id": 60,
     "kind": 2,
-    "x": 1101,
-    "y": 265,
+    "x": 1023,
+    "y": 282,
     "name": "Scaler",
     "codePath": "ng/presets/pipeline-tilemap-scaler.lua",
     "graphId": 0,
@@ -251,8 +251,8 @@
   {
     "id": 61,
     "kind": 4,
-    "x": 825,
-    "y": 339,
+    "x": 747,
+    "y": 356,
     "name": "Scale factor",
     "codePath": "",
     "graphId": 0,
@@ -269,8 +269,8 @@
   {
     "id": 62,
     "kind": 4,
-    "x": 660,
-    "y": 141,
+    "x": 522,
+    "y": -55,
     "name": "Edges",
     "codePath": "",
     "graphId": 0,
@@ -287,8 +287,8 @@
   {
     "id": 63,
     "kind": 2,
-    "x": 918,
-    "y": 137,
+    "x": 780,
+    "y": -59,
     "name": "Read File",
     "codePath": "ng/presets/read-file.lua",
     "graphId": 0,
@@ -317,8 +317,8 @@
   {
     "id": 65,
     "kind": 2,
-    "x": 1381,
-    "y": 175,
+    "x": 1281,
+    "y": 42,
     "name": "Automap",
     "codePath": "ng/presets/pipeline-apply-automap.lua",
     "graphId": 0,
@@ -354,8 +354,8 @@
   {
     "id": 66,
     "kind": 2,
-    "x": 1132,
-    "y": 145,
+    "x": 994,
+    "y": -51,
     "name": "JSON.Decode",
     "codePath": "ng/presets/json_decode.lua",
     "graphId": 0,
@@ -379,8 +379,8 @@
   {
     "id": 67,
     "kind": 4,
-    "x": 763,
-    "y": -2,
+    "x": 119,
+    "y": 118,
     "name": "Debug_minimap",
     "codePath": "",
     "graphId": 0,
@@ -397,8 +397,8 @@
   {
     "id": 68,
     "kind": 2,
-    "x": 1035,
-    "y": 2,
+    "x": 391,
+    "y": 122,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -420,163 +420,10 @@
     "outputs": []
   },
   {
-    "id": 70,
-    "kind": 2,
-    "x": 1382,
-    "y": 295,
-    "name": "Automap",
-    "codePath": "ng/presets/pipeline-apply-automap.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "rulesMap",
-        "srcNodeId": 74,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "inputMap",
-        "srcNodeId": 60,
-        "srcOutputId": 1
-      },
-      {
-        "id": 3,
-        "name": "outputMap",
-        "srcNodeId": 0,
-        "srcOutputId": 0
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "outputMap",
-        "value": ""
-      }
-    ]
-  },
-  {
-    "id": 71,
-    "kind": 4,
-    "x": 655,
-    "y": 580,
-    "name": "Rules",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"pipe/tiles.rules.map.json\""
-      }
-    ]
-  },
-  {
-    "id": 72,
-    "kind": 2,
-    "x": 1777,
-    "y": 596,
-    "name": "Write File",
-    "codePath": "ng/presets/write-file.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 73,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "text",
-        "srcNodeId": 70,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": []
-  },
-  {
-    "id": 73,
-    "kind": 4,
-    "x": 1560,
-    "y": 583,
-    "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"tmp/collision.map.json\""
-      }
-    ]
-  },
-  {
-    "id": 74,
-    "kind": 2,
-    "x": 1107,
-    "y": 495,
-    "name": "JSON.Decode",
-    "codePath": "ng/presets/json_decode.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "text",
-        "srcNodeId": 75,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "data",
-        "value": ""
-      }
-    ]
-  },
-  {
-    "id": 75,
-    "kind": 2,
-    "x": 900,
-    "y": 522,
-    "name": "Read File",
-    "codePath": "ng/presets/read-file.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 71,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "content",
-        "value": ""
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": ""
-      }
-    ]
-  },
-  {
     "id": 76,
     "kind": 2,
-    "x": 1738,
-    "y": 276,
+    "x": 1726,
+    "y": 377,
     "name": "LUT Generator",
     "codePath": "ng/presets/lut-generator.lua",
     "graphId": 0,
@@ -585,7 +432,7 @@
       {
         "id": 1,
         "name": "map",
-        "srcNodeId": 70,
+        "srcNodeId": 116,
         "srcOutputId": 1
       },
       {
@@ -606,8 +453,8 @@
   {
     "id": 77,
     "kind": 2,
-    "x": 1750,
-    "y": 359,
+    "x": 1736,
+    "y": 298,
     "name": "LUT Generator",
     "codePath": "ng/presets/lut-generator.lua",
     "graphId": 0,
@@ -616,14 +463,14 @@
       {
         "id": 1,
         "name": "map",
-        "srcNodeId": 70,
+        "srcNodeId": 128,
         "srcOutputId": 1
       },
       {
         "id": 2,
         "name": "layerIndex",
         "srcNodeId": 79,
-        "srcOutputId": 2
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -637,8 +484,8 @@
   {
     "id": 79,
     "kind": 4,
-    "x": 1373,
-    "y": 411,
+    "x": 1338,
+    "y": 446,
     "name": "Layers",
     "codePath": "",
     "graphId": 0,
@@ -660,8 +507,8 @@
   {
     "id": 80,
     "kind": 2,
-    "x": 1956,
-    "y": 275,
+    "x": 1944,
+    "y": 376,
     "name": "FlipY",
     "codePath": "ng/presets/image-flipy.lua",
     "graphId": 0,
@@ -685,8 +532,8 @@
   {
     "id": 81,
     "kind": 2,
-    "x": 1953,
-    "y": 359,
+    "x": 1939,
+    "y": 298,
     "name": "FlipY",
     "codePath": "ng/presets/image-flipy.lua",
     "graphId": 0,
@@ -720,13 +567,13 @@
       {
         "id": 1,
         "name": "lut1",
-        "srcNodeId": 84,
+        "srcNodeId": 85,
         "srcOutputId": 1
       },
       {
         "id": 2,
         "name": "lut2",
-        "srcNodeId": 85,
+        "srcNodeId": 84,
         "srcOutputId": 1
       }
     ],
@@ -741,8 +588,8 @@
   {
     "id": 84,
     "kind": 2,
-    "x": 2156,
-    "y": 285,
+    "x": 2160,
+    "y": 392,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "graphId": 0,
@@ -766,8 +613,8 @@
   {
     "id": 85,
     "kind": 2,
-    "x": 2150,
-    "y": 369,
+    "x": 2136,
+    "y": 308,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "graphId": 0,
@@ -840,8 +687,8 @@
   {
     "id": 87,
     "kind": 2,
-    "x": 2723,
-    "y": 496,
+    "x": 2862,
+    "y": 433,
     "name": "Atlas",
     "codePath": "ng/presets/image-atlas.lua",
     "graphId": 0,
@@ -881,13 +728,13 @@
       {
         "id": 1,
         "name": "img1",
-        "srcNodeId": 80,
+        "srcNodeId": 81,
         "srcOutputId": 1
       },
       {
         "id": 2,
         "name": "img2",
-        "srcNodeId": 81,
+        "srcNodeId": 80,
         "srcOutputId": 1
       }
     ],
@@ -993,7 +840,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"pipe/tileset/the_atlas.qoi\""
+        "value": "\"pipe/tileset/platformer.qoi\""
       }
     ]
   },
@@ -1059,8 +906,8 @@
   {
     "id": 95,
     "kind": 2,
-    "x": 2724,
-    "y": 421,
+    "x": 3139,
+    "y": 268,
     "name": "Demo UVs",
     "codePath": "ng/presets/uvs.lua",
     "graphId": 0,
@@ -1172,8 +1019,8 @@
   {
     "id": 101,
     "kind": 2,
-    "x": 2946,
-    "y": 360,
+    "x": 2881,
+    "y": 300,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
     "graphId": 0,
@@ -1197,8 +1044,8 @@
   {
     "id": 102,
     "kind": 2,
-    "x": 2933,
-    "y": 503,
+    "x": 3132,
+    "y": 392,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
     "graphId": 0,
@@ -1284,8 +1131,8 @@
   {
     "id": 106,
     "kind": 4,
-    "x": 1624,
-    "y": 178,
+    "x": 1607,
+    "y": 184,
     "name": "layer / index",
     "codePath": "",
     "graphId": 0,
@@ -1351,8 +1198,8 @@
   {
     "id": 110,
     "kind": 2,
-    "x": 1625,
-    "y": 99,
+    "x": 1604,
+    "y": 94,
     "name": "tilemap FlipY",
     "codePath": "ng/presets/tilemap-flipy.lua",
     "graphId": 0,
@@ -1413,8 +1260,8 @@
   {
     "id": 113,
     "kind": 2,
-    "x": 1102,
-    "y": -98,
+    "x": 787,
+    "y": -172,
     "name": "Read File",
     "codePath": "ng/presets/read-file.lua",
     "graphId": 0,
@@ -1443,8 +1290,8 @@
   {
     "id": 114,
     "kind": 2,
-    "x": 1312,
-    "y": -92,
+    "x": 997,
+    "y": -166,
     "name": "JSON.Decode",
     "codePath": "ng/presets/json_decode.lua",
     "graphId": 0,
@@ -1468,8 +1315,8 @@
   {
     "id": 115,
     "kind": 4,
-    "x": 780,
-    "y": -116,
+    "x": 465,
+    "y": -190,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1535,8 +1382,8 @@
   {
     "id": 118,
     "kind": 2,
-    "x": 2170,
-    "y": -170,
+    "x": 2233,
+    "y": -174,
     "name": "Copy Prop",
     "codePath": "ng/presets/copy-prop.lua",
     "graphId": 0,
@@ -1583,8 +1430,8 @@
   {
     "id": 119,
     "kind": 4,
-    "x": 1596,
-    "y": -259,
+    "x": 1737,
+    "y": -223,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1613,6 +1460,256 @@
         "id": 1,
         "name": "",
         "value": "[\"props.tilesets\"]"
+      }
+    ]
+  },
+  {
+    "id": 121,
+    "kind": 4,
+    "x": 508,
+    "y": 21,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"pipe/fill.rules.map.json\""
+      }
+    ]
+  },
+  {
+    "id": 122,
+    "kind": 2,
+    "x": 764,
+    "y": 25,
+    "name": "Read File",
+    "codePath": "ng/presets/read-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 121,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "content",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 123,
+    "kind": 2,
+    "x": 958,
+    "y": 55,
+    "name": "JSON.Decode",
+    "codePath": "ng/presets/json_decode.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "text",
+        "srcNodeId": 122,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 124,
+    "kind": 2,
+    "x": 1255,
+    "y": 257,
+    "name": "Automap",
+    "codePath": "ng/presets/pipeline-apply-automap.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rulesMap",
+        "srcNodeId": 123,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "inputMap",
+        "srcNodeId": 60,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "outputMap",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "outputMap",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 125,
+    "kind": 4,
+    "x": 1931,
+    "y": 972,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_fill.map.json\""
+      }
+    ]
+  },
+  {
+    "id": 126,
+    "kind": 2,
+    "x": 2183,
+    "y": 936,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 125,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 127,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 127,
+    "kind": 2,
+    "x": 1944,
+    "y": 856,
+    "name": "Copy Prop",
+    "codePath": "ng/presets/copy-prop.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "from",
+        "srcNodeId": 119,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "to",
+        "srcNodeId": 128,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "src",
+        "srcNodeId": 120,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "target",
+        "srcNodeId": 120,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "to",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 128,
+    "kind": 2,
+    "x": 1456,
+    "y": 291,
+    "name": "Reduce Tile index",
+    "codePath": "ng/presets/tilemap-subtract.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "srcNodeId": 124,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "firstId",
+        "srcNodeId": 129,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 129,
+    "kind": 4,
+    "x": 1226,
+    "y": 348,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "74"
       }
     ]
   }

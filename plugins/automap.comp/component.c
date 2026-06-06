@@ -1015,8 +1015,32 @@ static OutputVariant *choose_variant(RuleOutputs *o) {
   }
   return &o->variants[o->var_len - 1];
 }
-static void apply_tiles(Layer *t, int idx, OutputLayer *ol, Config *c,
-                        OccVec *occ, bool no_ov) {
+static bool output_would_overlap(int idx, int w, int h, OutputLayer **selected,
+                                 size_t slen, OccVec *occ) {
+  for (size_t si = 0; si < slen; si++)
+    for (size_t ti = 0; ti < selected[si]->len; ti++) {
+      int ai = rel_abs(idx, w, h, selected[si]->tiles[ti].p.x,
+                       selected[si]->tiles[ti].p.y);
+      if (ai < 0)
+        continue;
+      if (occ_has(occ, selected[si]->selector, ai % w, ai / w))
+        return true;
+    }
+  return false;
+}
+static void mark_output_region(int idx, int w, int h, OutputLayer **selected,
+                               size_t slen, OccVec *occ) {
+  for (size_t si = 0; si < slen; si++)
+    for (size_t ti = 0; ti < selected[si]->len; ti++) {
+      int ai = rel_abs(idx, w, h, selected[si]->tiles[ti].p.x,
+                       selected[si]->tiles[ti].p.y);
+      if (ai < 0)
+        continue;
+      if (!occ_has(occ, selected[si]->selector, ai % w, ai / w))
+        occ_mark(occ, selected[si]->selector, ai % w, ai / w);
+    }
+}
+static void apply_tiles(Layer *t, int idx, OutputLayer *ol, Config *c) {
   int w = t->width, h = layer_height(t);
   for (size_t i = 0; i < ol->len; i++) {
     uint32_t out = ol->tiles[i].value;
@@ -1025,12 +1049,7 @@ static void apply_tiles(Layer *t, int idx, OutputLayer *ol, Config *c,
     int ai = rel_abs(idx, w, h, ol->tiles[i].p.x, ol->tiles[i].p.y);
     if (ai < 0)
       continue;
-    int x = ai % w, y = ai / w;
-    if (no_ov && occ_has(occ, ol->selector, x, y))
-      continue;
     t->data[ai] = out;
-    if (no_ov)
-      occ_mark(occ, ol->selector, x, y);
   }
   for (size_t i = 0; i < ol->props.len; i++) {
     char *k = wit_to_cstr(&ol->props.ptr[i].f0);
@@ -1062,7 +1081,8 @@ static void clear_region(Layer *t, int idx, Rule *r) {
       t->data[ai] = 0;
     }
 }
-static void apply_rule(Map *res, int w, int h, int idx, Rule *r) {
+static void apply_rule(Map *res, int w, int h, int idx, Rule *r,
+                       OccVec *rule_occ) {
   OutputLayer **selected = NULL;
   size_t slen = 0, scap = 0;
   for (size_t i = 0; i < r->outputs.always_len; i++)
@@ -1071,7 +1091,11 @@ static void apply_rule(Map *res, int w, int h, int idx, Rule *r) {
   if (v)
     for (size_t i = 0; i < v->len; i++)
       outptr_push(&selected, &slen, &scap, v->layers[i]);
-  OccVec occ = {0};
+  if (r->config->no_overlap) {
+    if (output_would_overlap(idx, w, h, selected, slen, rule_occ))
+      return;
+    mark_output_region(idx, w, h, selected, slen, rule_occ);
+  }
   if (r->config->delete_tiles)
     for (size_t i = 0; i < slen; i++) {
       Layer *t =
@@ -1081,7 +1105,7 @@ static void apply_rule(Map *res, int w, int h, int idx, Rule *r) {
   for (size_t i = 0; i < slen; i++) {
     Layer *t =
         get_or_create(res, w, h, selected[i]->selector, &selected[i]->props);
-    apply_tiles(t, idx, selected[i], r->config, &occ, r->config->no_overlap);
+    apply_tiles(t, idx, selected[i], r->config);
   }
 }
 
@@ -1259,11 +1283,13 @@ bool exports_gams_automap_automap_apply(WitMap *rules_w, WitMap *input_w,
         }
         ml[ri].idx[ml[ri].len++] = i;
       }
-  for (size_t ri = 0; ri < rv.len; ri++)
+  for (size_t ri = 0; ri < rv.len; ri++) {
+    OccVec rule_occ = {0};
     for (size_t mi = 0; mi < ml[ri].len; mi++) {
-      apply_rule(&result, w, h, ml[ri].idx[mi], &rv.items[ri]);
+      apply_rule(&result, w, h, ml[ri].idx[mi], &rv.items[ri], &rule_occ);
       matched = true;
     }
+  }
   if (!matched) {
     set_err(err, "no rules match");
     return false;

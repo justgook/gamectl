@@ -5,28 +5,65 @@ import { init } from "/___/services.js"
 app.innerHTML = ""
 
 async function main() {
-  console.time("runtime.ready")
-  await runtime.ready
-  console.timeEnd("runtime.ready")
+    console.time("runtime.ready")
+    await runtime.ready
+    console.timeEnd("runtime.ready")
 
-  await runtime.addPlugins(["plugins/fs.comp.wasm"], true)
-  console.time("read gams.json")
-  const gamsJsonText2 = unwrap(
-    await runtime.invoke("fs/fs::read-text", "gams.json"),
-  )
-  const config = JSON.parse(gamsJsonText2)
-  console.timeEnd("read gams.json")
+    await runtime.addPlugins(["plugins/fs.comp.wasm"], true)
+    console.time("read gams.json")
+    const gamsJsonText2 = unwrap(await runtime.invoke("fs/fs::read-text", "gams.json"))
+    const config = JSON.parse(gamsJsonText2)
+    console.timeEnd("read gams.json")
 
-  console.time("addPlugins")
-  await runtime.addPlugins(config.plugins, true)
-  console.timeEnd("addPlugins")
+    console.time("addPlugins")
+    await runtime.addPlugins(config.plugins, true)
+    console.timeEnd("addPlugins")
 
-  console.time("init UI")
-  await init(config)
-  console.timeEnd("init UI")
+    console.time("init UI")
+    await init(config)
+    console.timeEnd("init UI")
 }
 
 await main()
 
 //Runtime debut
 globalThis.runtime = runtime
+
+;(() => {
+    const id = "__fps_overlay__"
+    document.getElementById(id)?.remove()
+
+    const el = document.createElement("div")
+    el.id = id
+    Object.assign(el.style, {
+        position: "fixed",
+        top: "8px",
+        left: "8px",
+        zIndex: "2147483647",
+        padding: "4px 8px",
+        font: "12px monospace",
+        color: "#0f0",
+        background: "rgba(0,0,0,0.75)",
+        borderRadius: "4px",
+        pointerEvents: "none",
+        userSelect: "none",
+    })
+    el.textContent = "FPS: --"
+    document.documentElement.appendChild(el)
+
+    let frames = 0
+    let last = performance.now()
+
+    function loop(now) {
+        frames++
+        if (now - last >= 500) {
+            const fps = Math.round((frames * 1000) / (now - last))
+            el.textContent = `FPS: ${fps}`
+            frames = 0
+            last = now
+        }
+        requestAnimationFrame(loop)
+    }
+
+    requestAnimationFrame(loop)
+})()
