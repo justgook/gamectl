@@ -485,6 +485,24 @@ class BulletMLEngine {
     return this.entities.filter((entity) => entity.alive && entity.visible)
   }
 
+  isScriptActive(entity) {
+    return entity.alive && (entity.wait > 0 || entity.frames.length > 0)
+  }
+
+  isSpawningDone() {
+    return !this.entities.some((entity) => this.isScriptActive(entity))
+  }
+
+  isSimulationDone() {
+    return this.isSpawningDone() && this.visibleBullets().length === 0
+  }
+
+  phase() {
+    if (this.isSimulationDone()) return "finished"
+    if (this.isSpawningDone()) return "draining"
+    return "running"
+  }
+
   stats() {
     return {
       frame: this.frame,
@@ -492,6 +510,7 @@ class BulletMLEngine {
       spawned: this.spawned,
       vanished: this.vanished,
       instructions: this.lastInstructionCount,
+      phase: this.phase(),
     }
   }
 }
@@ -746,7 +765,7 @@ export class ViewBullet extends ViewCanvasBase {
     this.dirtyOutput.textContent = this.dirty ? "Dirty" : "Saved"
     this.dirtyOutput.className = this.dirty ? "warning" : "success"
     const stats = this.engine.stats()
-    this.statsOutput.textContent = `Frame: ${stats.frame} Alive: ${stats.alive} Spawned: ${stats.spawned} Vanished: ${stats.vanished}`
+    this.statsOutput.textContent = `Frame: ${stats.frame} Phase: ${stats.phase} Alive: ${stats.alive} Spawned: ${stats.spawned} Vanished: ${stats.vanished}`
     if (status !== null) this.setStatus(status, tone)
     this.renderHeaderControls()
   }
@@ -891,6 +910,11 @@ export class ViewBullet extends ViewCanvasBase {
     for (let i = 0; i < steps; i += 1) this.engine.step()
     this._lastAnimationTime = time
     this.draw()
+    if (this.engine.isSimulationDone()) {
+      this.stopPlayback()
+      this.updateFooter("Finished", "success")
+      return
+    }
     this.updateFooter()
     if (!this.engine.running || token !== this._animationToken) return
     this._animationFrame = requestAnimationFrame((nextTime) =>
