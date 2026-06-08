@@ -148,7 +148,11 @@ class BulletMLEngine {
       map.set(definition.id, definition)
       if (definition.label) {
         const labelID = `${kind}:${definition.label}`
-        assert(!map.has(labelID), `duplicate ${kind} definition label ${definition.label}`)
+        const existing = map.get(labelID)
+        assert(
+          !existing || existing === definition,
+          `duplicate ${kind} definition label ${definition.label}`,
+        )
         map.set(labelID, definition)
       }
     }
