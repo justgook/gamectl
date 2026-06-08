@@ -516,6 +516,7 @@ export class ViewBullet extends ViewCanvasBase {
     this._lastAnimationTime = 0
     this._ready = false
     this._headerControlsBound = false
+    this._lastPlayPausePointerDown = -Infinity
     this._animate = this._animate.bind(this)
   }
 
@@ -588,7 +589,7 @@ export class ViewBullet extends ViewCanvasBase {
       <div role="buttongroup" data-element="tool-actions">
         <button type="button" data-action="edit" aria-label="Edit GBML JSON" title="Edit GBML JSON"><i aria-hidden="true">edit</i></button>
         <button type="button" data-action="restart" aria-label="Restart preview" title="Restart preview"><i aria-hidden="true">restart_alt</i></button>
-        <button type="button" data-action="play-pause" aria-label="Play or pause preview" title="Play/Pause"><i aria-hidden="true">play_arrow</i></button>
+        <button type="button" data-action="play-pause" aria-label="Play preview" title="Play preview" aria-pressed="false"><i aria-hidden="true">play_arrow</i></button>
         <button type="button" data-action="step" aria-label="Step one frame" title="Step one frame"><i aria-hidden="true">skip_next</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
@@ -614,8 +615,16 @@ export class ViewBullet extends ViewCanvasBase {
       event.preventDefault()
       this.restartPreview()
     })
-    this.headerButton("play-pause").addEventListener("click", (event) => {
+    const playPauseButton = this.headerButton("play-pause")
+    playPauseButton.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return
       event.preventDefault()
+      this._lastPlayPausePointerDown = performance.now()
+      this.togglePlayback()
+    })
+    playPauseButton.addEventListener("click", (event) => {
+      event.preventDefault()
+      if (event.detail > 0 && performance.now() - this._lastPlayPausePointerDown < 1000) return
       this.togglePlayback()
     })
     this.headerButton("step").addEventListener("click", (event) => {
@@ -645,9 +654,14 @@ export class ViewBullet extends ViewCanvasBase {
     this.headerButton("restart").disabled = !hasProgram
     this.headerButton("play-pause").disabled = !hasProgram
     this.headerButton("step").disabled = !hasProgram
-    const playIcon = this.headerButton("play-pause").querySelector("i")
+    const playbackButton = this.headerButton("play-pause")
+    const playIcon = playbackButton.querySelector("i")
     assert(playIcon instanceof HTMLElement, "view-bullet play-pause button missing icon")
-    playIcon.textContent = this.engine.running ? "pause" : "play_arrow"
+    const running = this.engine.running
+    playIcon.textContent = running ? "pause" : "play_arrow"
+    playbackButton.setAttribute("aria-pressed", running ? "true" : "false")
+    playbackButton.setAttribute("aria-label", running ? "Pause preview" : "Play preview")
+    playbackButton.setAttribute("title", running ? "Pause preview" : "Play preview")
   }
 
   calculateContentBounds(_data) {
@@ -840,6 +854,7 @@ export class ViewBullet extends ViewCanvasBase {
   }
 
   _animate(time, token) {
+    this._animationFrame = 0
     if (!this.engine.running || token !== this._animationToken) return
     if (this._lastAnimationTime === 0) this._lastAnimationTime = time
     const elapsed = time - this._lastAnimationTime
@@ -848,6 +863,7 @@ export class ViewBullet extends ViewCanvasBase {
     this._lastAnimationTime = time
     this.draw()
     this.updateFooter()
+    if (!this.engine.running || token !== this._animationToken) return
     this._animationFrame = requestAnimationFrame((nextTime) =>
       this._animate(nextTime, token),
     )
