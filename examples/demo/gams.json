@@ -116,7 +116,10 @@
         "url": "views/view-bullet.js",
         "label": "BulletML",
         "group": "TODO",
-        "internal": false
+        "internal": false,
+        "config": {
+          "defaultSource": "bulletML/simple.gbml.json"
+        }
       },
       "view-particle": {
         "url": "views/view-particle.js",
