@@ -13,6 +13,10 @@
     {
       "name": "top1",
       "action": "action:top1"
+    },
+    {
+      "name": "top2",
+      "action": "action:top2"
     }
   ],
   "definitions": {

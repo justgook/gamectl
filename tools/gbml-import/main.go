@@ -284,6 +284,13 @@ func convert(root *xmlNode, sourcePath string) (*GBML, error) {
 			gbml.Entrypoints = append(gbml.Entrypoints, Entrypoint{Name: "top", Action: action.ID})
 		}
 	}
+	if len(gbml.Entrypoints) == 0 {
+		for _, action := range gbml.Definitions.Actions {
+			if strings.HasPrefix(action.Label, "top") {
+				gbml.Entrypoints = append(gbml.Entrypoints, Entrypoint{Name: action.Label, Action: action.ID})
+			}
+		}
+	}
 	if len(gbml.Entrypoints) == 0 && len(gbml.Definitions.Actions) > 0 {
 		first := gbml.Definitions.Actions[0]
 		name := first.Label

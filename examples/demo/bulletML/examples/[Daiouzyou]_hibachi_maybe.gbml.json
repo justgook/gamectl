@@ -11,8 +11,16 @@
   },
   "entrypoints": [
     {
-      "name": "XWay",
-      "action": "action:XWay"
+      "name": "top1",
+      "action": "action:top1"
+    },
+    {
+      "name": "top2",
+      "action": "action:top2"
+    },
+    {
+      "name": "top3",
+      "action": "action:top3"
     }
   ],
   "definitions": {

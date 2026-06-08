@@ -11,8 +11,12 @@
   },
   "entrypoints": [
     {
-      "name": "XWayFan",
-      "action": "action:XWayFan"
+      "name": "top2",
+      "action": "action:top2"
+    },
+    {
+      "name": "top1",
+      "action": "action:top1"
     }
   ],
   "definitions": {

@@ -167,27 +167,27 @@ class BulletMLEngine {
     this.seed = 1
     this.lastInstructionCount = 0
     if (!this.gbml) return
-    const entrypoint = this.gbml.entrypoints[0]
-    if (!entrypoint) return
-    const action = this.resolveAction(entrypoint.action)
-    this.entities.push({
-      id: 0,
-      visible: false,
-      x: ROOT_X,
-      y: ROOT_Y,
-      direction: 180,
-      speed: 0,
-      accelX: 0,
-      accelY: 0,
-      wait: 0,
-      alive: true,
-      lastFireDirection: 180,
-      lastFireSpeed: 1,
-      frames: [createFrame(action)],
-      dirTween: null,
-      speedTween: null,
-      accelTween: null,
-    })
+    for (const [index, entrypoint] of this.gbml.entrypoints.entries()) {
+      const action = this.resolveAction(entrypoint.action)
+      this.entities.push({
+        id: index,
+        visible: false,
+        x: ROOT_X,
+        y: ROOT_Y,
+        direction: 180,
+        speed: 0,
+        accelX: 0,
+        accelY: 0,
+        wait: 0,
+        alive: true,
+        lastFireDirection: 180,
+        lastFireSpeed: 1,
+        frames: [createFrame(action)],
+        dirTween: null,
+        speedTween: null,
+        accelTween: null,
+      })
+    }
   }
 
   step() {
@@ -515,6 +515,7 @@ export class ViewBullet extends ViewCanvasBase {
     this._animationToken = 0
     this._lastAnimationTime = 0
     this._ready = false
+    this._headerControlsBound = false
     this._animate = this._animate.bind(this)
   }
 
@@ -560,6 +561,7 @@ export class ViewBullet extends ViewCanvasBase {
   disconnectedCallback() {
     this.stopPlayback()
     super.disconnectedCallback()
+    this._headerControlsBound = false
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -600,6 +602,8 @@ export class ViewBullet extends ViewCanvasBase {
   }
 
   bindHeaderControls() {
+    if (this._headerControlsBound) return
+    this._headerControlsBound = true
     this.headerButton("new").addEventListener("click", () => void this.new())
     this.headerButton("open").addEventListener("click", () => void this.open())
     this.headerButton("save").addEventListener("click", () => void this.save())
