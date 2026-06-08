@@ -431,11 +431,11 @@ class BulletMLEngine {
     const source = String(expression.source).trim()
     assert(source.length > 0, `GBML expression ${exprID} must not be empty`)
     const rewritten = source.replace(/\$(\d+|rand|rank)/g, (_match, name) => {
-      if (name === "rand") return String(this.random())
-      if (name === "rank") return String(this.rank)
+      if (name === "rand") return `(${this.random()})`
+      if (name === "rank") return `(${this.rank})`
       const index = Number(name) - 1
       assert(index >= 0 && index < params.length, `GBML expression ${exprID} missing parameter $${name}`)
-      return String(params[index])
+      return `(${params[index]})`
     })
     assert(
       /^[0-9+\-*/%().\s]+$/.test(rewritten),
@@ -512,6 +512,7 @@ export class ViewBullet extends ViewCanvasBase {
     this.statusOutput = null
     this.statsOutput = null
     this._animationFrame = 0
+    this._animationToken = 0
     this._lastAnimationTime = 0
     this._ready = false
     this._animate = this._animate.bind(this)
@@ -605,9 +606,18 @@ export class ViewBullet extends ViewCanvasBase {
     this.headerButton("save-as").addEventListener("click", () => void this.saveAs())
     this.headerButton("reload").addEventListener("click", () => void this.reload())
     this.headerButton("edit").addEventListener("click", () => void this.edit())
-    this.headerButton("restart").addEventListener("click", () => this.restartPreview())
-    this.headerButton("play-pause").addEventListener("click", () => this.togglePlayback())
-    this.headerButton("step").addEventListener("click", () => this.stepPreview())
+    this.headerButton("restart").addEventListener("click", (event) => {
+      event.preventDefault()
+      this.restartPreview()
+    })
+    this.headerButton("play-pause").addEventListener("click", (event) => {
+      event.preventDefault()
+      this.togglePlayback()
+    })
+    this.headerButton("step").addEventListener("click", (event) => {
+      event.preventDefault()
+      this.stepPreview()
+    })
     this.headerButton("zoom-in").addEventListener("click", () => this.zoomIn())
     this.headerButton("zoom-out").addEventListener("click", () => this.zoomOut())
     this.headerButton("zoom-fit").addEventListener("click", () => this.zoomFit())
@@ -809,19 +819,24 @@ export class ViewBullet extends ViewCanvasBase {
   startPlayback() {
     if (this.engine.running) return
     this.engine.running = true
+    this._animationToken += 1
     this._lastAnimationTime = 0
-    this._animationFrame = requestAnimationFrame(this._animate)
+    const token = this._animationToken
+    this._animationFrame = requestAnimationFrame((time) =>
+      this._animate(time, token),
+    )
   }
 
   stopPlayback() {
     this.engine.running = false
+    this._animationToken += 1
     if (this._animationFrame) cancelAnimationFrame(this._animationFrame)
     this._animationFrame = 0
     this.renderHeaderControls()
   }
 
-  _animate(time) {
-    if (!this.engine.running) return
+  _animate(time, token) {
+    if (!this.engine.running || token !== this._animationToken) return
     if (this._lastAnimationTime === 0) this._lastAnimationTime = time
     const elapsed = time - this._lastAnimationTime
     const steps = Math.max(1, Math.min(4, Math.floor(elapsed / (1000 / 60)) || 1))
@@ -829,7 +844,9 @@ export class ViewBullet extends ViewCanvasBase {
     this._lastAnimationTime = time
     this.draw()
     this.updateFooter()
-    this._animationFrame = requestAnimationFrame(this._animate)
+    this._animationFrame = requestAnimationFrame((nextTime) =>
+      this._animate(nextTime, token),
+    )
   }
 
   createOpenPopupOptions() {
