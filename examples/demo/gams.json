@@ -1112,6 +1112,26 @@
               "group": "File"
             },
             {
+              "name": "Read JSON",
+              "kind": "code",
+              "codePath": "ng/presets/read-json.lua",
+              "inputs": [
+                {
+                  "name": "path",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "data"
+                },
+                {
+                  "name": "error"
+                }
+              ],
+              "group": "File"
+            },
+            {
               "name": "Write File",
               "kind": "code",
               "codePath": "ng/presets/write-file.lua",
