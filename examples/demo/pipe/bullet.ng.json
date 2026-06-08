@@ -2,8 +2,8 @@
   {
     "id": 1,
     "kind": 2,
-    "x": 1936,
-    "y": 312,
+    "x": 351,
+    "y": 57,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "graphId": 0,
@@ -27,8 +27,8 @@
   {
     "id": 2,
     "kind": 4,
-    "x": 1666,
-    "y": 323,
+    "x": 80,
+    "y": 58,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -38,15 +38,15 @@
       {
         "id": 1,
         "name": "",
-        "value": "bulletML/examples/*.gbml.json"
+        "value": "\"bulletML/examples/*.gbml.json\""
       }
     ]
   },
   {
     "id": 3,
     "kind": 1,
-    "x": 2130,
-    "y": 306,
+    "x": 771,
+    "y": 75,
     "name": "RESULT",
     "codePath": "",
     "graphId": 0,
@@ -55,10 +55,46 @@
       {
         "id": 1,
         "name": "FILES",
+        "srcNodeId": 4,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "err",
+        "srcNodeId": 4,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 4,
+    "kind": 2,
+    "x": 548,
+    "y": 58,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
         "srcNodeId": 1,
         "srcOutputId": 1
       }
     ],
-    "outputs": []
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
   }
 ]
