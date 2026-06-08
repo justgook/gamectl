@@ -5,8 +5,8 @@ const VIEW_WIDTH = 480
 const VIEW_HEIGHT = 640
 const ROOT_X = VIEW_WIDTH / 2
 const ROOT_Y = 72
-const TARGET_X = VIEW_WIDTH / 2
-const TARGET_Y = VIEW_HEIGHT - 72
+const DEFAULT_TARGET_X = VIEW_WIDTH / 2
+const DEFAULT_TARGET_Y = VIEW_HEIGHT - 72
 const MAX_INSTRUCTIONS_PER_TICK = 2048
 const MAX_BULLETS = 4096
 
@@ -126,6 +126,8 @@ class BulletMLEngine {
     this.vanished = 0
     this.rank = 0.5
     this.seed = 1
+    this.targetX = DEFAULT_TARGET_X
+    this.targetY = DEFAULT_TARGET_Y
     this.running = false
     this.lastInstructionCount = 0
   }
@@ -390,9 +392,9 @@ class BulletMLEngine {
   }
 
   resolveDirection(entity, valueRef, params) {
-    if (!valueRef) return directionToPoint(entity.x, entity.y, TARGET_X, TARGET_Y)
+    if (!valueRef) return directionToPoint(entity.x, entity.y, this.targetX, this.targetY)
     const value = this.evalExpr(valueRef.expr, params)
-    if (valueRef.mode === "aim") return normalizeDirection(directionToPoint(entity.x, entity.y, TARGET_X, TARGET_Y) + value)
+    if (valueRef.mode === "aim") return normalizeDirection(directionToPoint(entity.x, entity.y, this.targetX, this.targetY) + value)
     if (valueRef.mode === "absolute") return normalizeDirection(value)
     if (valueRef.mode === "relative") return normalizeDirection(entity.direction + value)
     if (valueRef.mode === "sequence") return normalizeDirection(entity.lastFireDirection + value)
@@ -517,6 +519,7 @@ export class ViewBullet extends ViewCanvasBase {
     this._ready = false
     this._headerControlsBound = false
     this._lastPlayPausePointerDown = -Infinity
+    this._draggingTarget = false
     this._animate = this._animate.bind(this)
   }
 
@@ -669,11 +672,12 @@ export class ViewBullet extends ViewCanvasBase {
   }
 
   drawContent(ctx, _data) {
+    const visibleMinX = -this.offsetX / this.scale
+    const visibleMinY = -this.offsetY / this.scale
+    const visibleWidth = this.canvas.width / this.scale
+    const visibleHeight = this.canvas.height / this.scale
     ctx.fillStyle = "#08131a"
-    ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT)
-    ctx.strokeStyle = "#35566a"
-    ctx.lineWidth = 1
-    ctx.strokeRect(0.5, 0.5, VIEW_WIDTH - 1, VIEW_HEIGHT - 1)
+    ctx.fillRect(visibleMinX, visibleMinY, visibleWidth, visibleHeight)
 
     ctx.fillStyle = "#54d6ff"
     ctx.beginPath()
@@ -682,10 +686,10 @@ export class ViewBullet extends ViewCanvasBase {
 
     ctx.strokeStyle = "#6aff88"
     ctx.beginPath()
-    ctx.moveTo(TARGET_X - 8, TARGET_Y)
-    ctx.lineTo(TARGET_X + 8, TARGET_Y)
-    ctx.moveTo(TARGET_X, TARGET_Y - 8)
-    ctx.lineTo(TARGET_X, TARGET_Y + 8)
+    ctx.moveTo(this.engine.targetX - 8, this.engine.targetY)
+    ctx.lineTo(this.engine.targetX + 8, this.engine.targetY)
+    ctx.moveTo(this.engine.targetX, this.engine.targetY - 8)
+    ctx.lineTo(this.engine.targetX, this.engine.targetY + 8)
     ctx.stroke()
 
     for (const bullet of this.engine.visibleBullets()) {
@@ -700,6 +704,31 @@ export class ViewBullet extends ViewCanvasBase {
       ctx.lineTo(bullet.x + velocity.x, bullet.y + velocity.y)
       ctx.stroke()
     }
+  }
+
+  onCanvasMouseDown(event) {
+    this._draggingTarget = true
+    this.moveTargetToEvent(event)
+  }
+
+  onCanvasMouseMove(event) {
+    if (!this._draggingTarget) return
+    this.moveTargetToEvent(event)
+  }
+
+  onCanvasMouseUp(_event) {
+    this._draggingTarget = false
+  }
+
+  onCanvasMouseLeave(_event) {
+    this._draggingTarget = false
+  }
+
+  moveTargetToEvent(event) {
+    const point = this.getWorldPoint(event.clientX, event.clientY)
+    this.engine.targetX = point.x
+    this.engine.targetY = point.y
+    this.draw()
   }
 
   setStatus(text, tone = null) {
