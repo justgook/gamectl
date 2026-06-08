@@ -1,0 +1,580 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "vertical",
+    "path": "examples/[Bulletsmorph]_double_seduction.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "aim",
+                "expr": 0
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "parentbit",
+                  "params": [
+                    1
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "aim",
+                "expr": 2
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "parentbit",
+                  "params": [
+                    3
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 4
+          }
+        ]
+      },
+      {
+        "id": "action:cross",
+        "label": "cross",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 30
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "aimbit",
+                  "params": [
+                    31,
+                    32
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 33
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "aimbit",
+                  "params": [
+                    34,
+                    35
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 36
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "aimbit",
+                  "params": [
+                    37,
+                    38
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 39
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "aimbit",
+                  "params": [
+                    40,
+                    41
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 42
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:parentbit",
+        "label": "parentbit",
+        "speed": {
+          "mode": "absolute",
+          "expr": 5
+        },
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      6,
+                      7
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      8,
+                      9
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      10,
+                      11
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      12,
+                      13
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      14,
+                      15
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      16,
+                      17
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      18,
+                      19
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      20,
+                      21
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      22,
+                      23
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      24,
+                      25
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      26,
+                      27
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "cross",
+                    "params": [
+                      28,
+                      29
+                    ]
+                  }
+                },
+                {
+                  "op": "vanish"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "bullet:aimbit",
+        "label": "aimbit",
+        "speed": {
+          "mode": "absolute",
+          "expr": 43
+        },
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 44
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 45
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 46
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "repeat",
+                  "times": 47,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "sequence",
+                            "expr": 48
+                          },
+                          "speed": {
+                            "mode": "sequence",
+                            "expr": 49
+                          },
+                          "bullet": {
+                            "kind": "bullet",
+                            "bullet": {
+                              "id": "inline_bullet"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "op": "vanish"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "30"
+    },
+    {
+      "id": 1,
+      "source": "1"
+    },
+    {
+      "id": 2,
+      "source": "-30"
+    },
+    {
+      "id": 3,
+      "source": "-1"
+    },
+    {
+      "id": 4,
+      "source": "300"
+    },
+    {
+      "id": 5,
+      "source": "2.0"
+    },
+    {
+      "id": 6,
+      "source": "75"
+    },
+    {
+      "id": 7,
+      "source": "0"
+    },
+    {
+      "id": 8,
+      "source": "70"
+    },
+    {
+      "id": 9,
+      "source": "0"
+    },
+    {
+      "id": 10,
+      "source": "65"
+    },
+    {
+      "id": 11,
+      "source": "0"
+    },
+    {
+      "id": 12,
+      "source": "60"
+    },
+    {
+      "id": 13,
+      "source": "0"
+    },
+    {
+      "id": 14,
+      "source": "55"
+    },
+    {
+      "id": 15,
+      "source": "0"
+    },
+    {
+      "id": 16,
+      "source": "50"
+    },
+    {
+      "id": 17,
+      "source": "0"
+    },
+    {
+      "id": 18,
+      "source": "80"
+    },
+    {
+      "id": 19,
+      "source": "15 * $1"
+    },
+    {
+      "id": 20,
+      "source": "75"
+    },
+    {
+      "id": 21,
+      "source": "10 * $1"
+    },
+    {
+      "id": 22,
+      "source": "70"
+    },
+    {
+      "id": 23,
+      "source": "6 * $1"
+    },
+    {
+      "id": 24,
+      "source": "65"
+    },
+    {
+      "id": 25,
+      "source": "3 * $1"
+    },
+    {
+      "id": 26,
+      "source": "60"
+    },
+    {
+      "id": 27,
+      "source": "1 * $1"
+    },
+    {
+      "id": 28,
+      "source": "55"
+    },
+    {
+      "id": 29,
+      "source": "0"
+    },
+    {
+      "id": 30,
+      "source": "0"
+    },
+    {
+      "id": 31,
+      "source": "$1"
+    },
+    {
+      "id": 32,
+      "source": "$2"
+    },
+    {
+      "id": 33,
+      "source": "90"
+    },
+    {
+      "id": 34,
+      "source": "$1"
+    },
+    {
+      "id": 35,
+      "source": "$2"
+    },
+    {
+      "id": 36,
+      "source": "180"
+    },
+    {
+      "id": 37,
+      "source": "$1"
+    },
+    {
+      "id": 38,
+      "source": "$2"
+    },
+    {
+      "id": 39,
+      "source": "270"
+    },
+    {
+      "id": 40,
+      "source": "$1"
+    },
+    {
+      "id": 41,
+      "source": "$2"
+    },
+    {
+      "id": 42,
+      "source": "5"
+    },
+    {
+      "id": 43,
+      "source": "0.6"
+    },
+    {
+      "id": 44,
+      "source": "$1"
+    },
+    {
+      "id": 45,
+      "source": "$2"
+    },
+    {
+      "id": 46,
+      "source": "1.6 * (0.5 + 0.5 * $rank)"
+    },
+    {
+      "id": 47,
+      "source": "2 + 5 * $rank"
+    },
+    {
+      "id": 48,
+      "source": "0"
+    },
+    {
+      "id": 49,
+      "source": "0.1"
+    }
+  ]
+}

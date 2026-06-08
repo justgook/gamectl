@@ -1,0 +1,319 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[STORM_CALIBAR]_last_boss_double_roll_bullets.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "rollShots",
+      "action": "action:rollShots"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:rollShots",
+        "label": "rollShots",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 1
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 2
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "repeat",
+                  "times": 3,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "sequence",
+                            "expr": 4
+                          },
+                          "speed": {
+                            "mode": "sequence",
+                            "expr": 5
+                          },
+                          "bullet": {
+                            "kind": "bullet",
+                            "bullet": {
+                              "id": "inline_bullet"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 6
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:right",
+        "label": "right",
+        "ops": [
+          {
+            "op": "changeDirection",
+            "term": 8,
+            "direction": {
+              "mode": "absolute",
+              "expr": 7
+            }
+          },
+          {
+            "op": "changeSpeed",
+            "term": 10,
+            "speed": {
+              "mode": "absolute",
+              "expr": 9
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 11
+          }
+        ]
+      },
+      {
+        "id": "action:left",
+        "label": "left",
+        "ops": [
+          {
+            "op": "changeDirection",
+            "term": 13,
+            "direction": {
+              "mode": "absolute",
+              "expr": 12
+            }
+          },
+          {
+            "op": "changeSpeed",
+            "term": 15,
+            "speed": {
+              "mode": "absolute",
+              "expr": 14
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 16
+          }
+        ]
+      },
+      {
+        "id": "action:top1",
+        "label": "top1",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 17,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "right"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "left"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "left"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "right"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "op": "changeSpeed",
+            "term": 19,
+            "speed": {
+              "mode": "absolute",
+              "expr": 18
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 20
+          }
+        ]
+      },
+      {
+        "id": "action:top2",
+        "label": "top2",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "rollShots",
+              "params": [
+                21
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top3",
+        "label": "top3",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "rollShots",
+              "params": [
+                22
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "200"
+    },
+    {
+      "id": 1,
+      "source": "11*$1"
+    },
+    {
+      "id": 2,
+      "source": "1"
+    },
+    {
+      "id": 3,
+      "source": "3+$rank*4"
+    },
+    {
+      "id": 4,
+      "source": "0"
+    },
+    {
+      "id": 5,
+      "source": "0.3"
+    },
+    {
+      "id": 6,
+      "source": "2"
+    },
+    {
+      "id": 7,
+      "source": "90"
+    },
+    {
+      "id": 8,
+      "source": "1"
+    },
+    {
+      "id": 9,
+      "source": "1.5"
+    },
+    {
+      "id": 10,
+      "source": "1"
+    },
+    {
+      "id": 11,
+      "source": "50"
+    },
+    {
+      "id": 12,
+      "source": "-90"
+    },
+    {
+      "id": 13,
+      "source": "1"
+    },
+    {
+      "id": 14,
+      "source": "1.5"
+    },
+    {
+      "id": 15,
+      "source": "1"
+    },
+    {
+      "id": 16,
+      "source": "50"
+    },
+    {
+      "id": 17,
+      "source": "2"
+    },
+    {
+      "id": 18,
+      "source": "0"
+    },
+    {
+      "id": 19,
+      "source": "1"
+    },
+    {
+      "id": 20,
+      "source": "1"
+    },
+    {
+      "id": 21,
+      "source": "-1"
+    },
+    {
+      "id": 22,
+      "source": "1"
+    }
+  ]
+}

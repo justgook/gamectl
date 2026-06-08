@@ -1,0 +1,193 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[G-Wange]_roll_gara.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top1",
+      "action": "action:top1"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top1",
+        "label": "top1",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "line"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:line",
+        "label": "line",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "sequence",
+                "expr": 2
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 3
+              },
+              "bullet": {
+                "kind": "bullet",
+                "bullet": {
+                  "id": "inline_bullet"
+                }
+              }
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 4,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 5
+                    },
+                    "speed": {
+                      "mode": "sequence",
+                      "expr": 6
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top2",
+        "label": "top2",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 7,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "changeDirection",
+                  "term": 9,
+                  "direction": {
+                    "mode": "sequence",
+                    "expr": 8
+                  }
+                },
+                {
+                  "op": "changeSpeed",
+                  "term": 11,
+                  "speed": {
+                    "mode": "absolute",
+                    "expr": 10
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 12
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "600/(3-$rank*2)"
+    },
+    {
+      "id": 1,
+      "source": "3-$rank*2+$rand"
+    },
+    {
+      "id": 2,
+      "source": "-7"
+    },
+    {
+      "id": 3,
+      "source": "0.6"
+    },
+    {
+      "id": 4,
+      "source": "5+$rank*5"
+    },
+    {
+      "id": 5,
+      "source": "0"
+    },
+    {
+      "id": 6,
+      "source": "0.3"
+    },
+    {
+      "id": 7,
+      "source": "20"
+    },
+    {
+      "id": 8,
+      "source": "-1+$rand*2"
+    },
+    {
+      "id": 9,
+      "source": "30"
+    },
+    {
+      "id": 10,
+      "source": "(-1+$rand*2)*($rank*2+1)"
+    },
+    {
+      "id": 11,
+      "source": "30"
+    },
+    {
+      "id": 12,
+      "source": "30"
+    }
+  ]
+}

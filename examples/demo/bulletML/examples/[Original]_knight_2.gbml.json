@@ -1,0 +1,359 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "vertical",
+    "path": "examples/[Original]_knight_2.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 0
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "bit",
+                  "params": [
+                    1,
+                    2
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 3
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 4
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "bit",
+                  "params": [
+                    5,
+                    6
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 7
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 8
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "bit",
+                  "params": [
+                    9,
+                    10
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 11
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 12
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "bit",
+                  "params": [
+                    13,
+                    14
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 15
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 16
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "bit",
+                  "params": [
+                    17,
+                    18
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 19
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:bit",
+        "label": "bit",
+        "speed": {
+          "mode": "absolute",
+          "expr": 20
+        },
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 21
+                },
+                {
+                  "op": "changeSpeed",
+                  "term": 23,
+                  "speed": {
+                    "mode": "absolute",
+                    "expr": 22
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 24
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 25
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 26
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "repeat",
+                  "times": 27,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "sequence",
+                            "expr": 28
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 29
+                          },
+                          "bullet": {
+                            "kind": "bullet",
+                            "bullet": {
+                              "id": "inline_bullet"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "op": "vanish"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "120"
+    },
+    {
+      "id": 1,
+      "source": "90"
+    },
+    {
+      "id": 2,
+      "source": "1.0"
+    },
+    {
+      "id": 3,
+      "source": "10"
+    },
+    {
+      "id": 4,
+      "source": "150"
+    },
+    {
+      "id": 5,
+      "source": "70"
+    },
+    {
+      "id": 6,
+      "source": "1.2"
+    },
+    {
+      "id": 7,
+      "source": "10"
+    },
+    {
+      "id": 8,
+      "source": "180"
+    },
+    {
+      "id": 9,
+      "source": "50"
+    },
+    {
+      "id": 10,
+      "source": "1.4"
+    },
+    {
+      "id": 11,
+      "source": "10"
+    },
+    {
+      "id": 12,
+      "source": "210"
+    },
+    {
+      "id": 13,
+      "source": "30"
+    },
+    {
+      "id": 14,
+      "source": "1.6"
+    },
+    {
+      "id": 15,
+      "source": "10"
+    },
+    {
+      "id": 16,
+      "source": "240"
+    },
+    {
+      "id": 17,
+      "source": "10"
+    },
+    {
+      "id": 18,
+      "source": "1.8"
+    },
+    {
+      "id": 19,
+      "source": "300 - 100 * $rank"
+    },
+    {
+      "id": 20,
+      "source": "2.5"
+    },
+    {
+      "id": 21,
+      "source": "30"
+    },
+    {
+      "id": 22,
+      "source": "0"
+    },
+    {
+      "id": 23,
+      "source": "1"
+    },
+    {
+      "id": 24,
+      "source": "$1"
+    },
+    {
+      "id": 25,
+      "source": "0"
+    },
+    {
+      "id": 26,
+      "source": "$2 * (0.5 + 0.5 * $rank)"
+    },
+    {
+      "id": 27,
+      "source": "19 + 100 * $rank"
+    },
+    {
+      "id": 28,
+      "source": "360 / (19 + 100 * $rank)"
+    },
+    {
+      "id": 29,
+      "source": "$2 * (0.5 + 0.5 * $rank)"
+    }
+  ]
+}

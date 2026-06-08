@@ -1,0 +1,422 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[ESP_RADE]_round_5_boss_gara_5.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:accel",
+        "label": "accel",
+        "ops": [
+          {
+            "op": "changeDirection",
+            "term": 1,
+            "direction": {
+              "mode": "aim",
+              "expr": 0
+            }
+          },
+          {
+            "op": "changeSpeed",
+            "term": 3,
+            "speed": {
+              "mode": "absolute",
+              "expr": 2
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:stop",
+        "label": "stop",
+        "ops": [
+          {
+            "op": "changeSpeed",
+            "term": 5,
+            "speed": {
+              "mode": "absolute",
+              "expr": 4
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:stopAndWait",
+        "label": "stopAndWait",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "stop"
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 6
+          }
+        ]
+      },
+      {
+        "id": "action:ippon",
+        "label": "ippon",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 7,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 8
+                    },
+                    "speed": {
+                      "mode": "sequence",
+                      "expr": 9
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:murasaki",
+        "label": "murasaki",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 10
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 11
+              },
+              "bullet": {
+                "kind": "bullet",
+                "bullet": {
+                  "id": "inline_bullet"
+                }
+              }
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 12,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "ippon"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 13
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 14
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 15
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:ao",
+        "label": "ao",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 16,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 17
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "ippon"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 18
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:gara5",
+        "label": "gara5",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 19,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "accel"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "murasaki",
+                    "params": [
+                      20,
+                      21
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "stopAndWait"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "accel"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "ao"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "stopAndWait"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "accel"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "murasaki",
+                    "params": [
+                      22,
+                      23
+                    ]
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "stopAndWait"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "accel"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "ao"
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "stopAndWait"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "gara5"
+            }
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "360*$rand"
+    },
+    {
+      "id": 1,
+      "source": "1"
+    },
+    {
+      "id": 2,
+      "source": "0.5+$rand*0.5"
+    },
+    {
+      "id": 3,
+      "source": "1"
+    },
+    {
+      "id": 4,
+      "source": "0"
+    },
+    {
+      "id": 5,
+      "source": "1"
+    },
+    {
+      "id": 6,
+      "source": "70-$rank*50"
+    },
+    {
+      "id": 7,
+      "source": "26"
+    },
+    {
+      "id": 8,
+      "source": "0"
+    },
+    {
+      "id": 9,
+      "source": "0.12"
+    },
+    {
+      "id": 10,
+      "source": "$2"
+    },
+    {
+      "id": 11,
+      "source": "0.8"
+    },
+    {
+      "id": 12,
+      "source": "3+$rand*17"
+    },
+    {
+      "id": 13,
+      "source": "6"
+    },
+    {
+      "id": 14,
+      "source": "$1"
+    },
+    {
+      "id": 15,
+      "source": "0.8"
+    },
+    {
+      "id": 16,
+      "source": "3+$rand*17"
+    },
+    {
+      "id": 17,
+      "source": "0.8"
+    },
+    {
+      "id": 18,
+      "source": "6"
+    },
+    {
+      "id": 19,
+      "source": "2"
+    },
+    {
+      "id": 20,
+      "source": "5"
+    },
+    {
+      "id": 21,
+      "source": "180-$rand*90"
+    },
+    {
+      "id": 22,
+      "source": "-5"
+    },
+    {
+      "id": 23,
+      "source": "180+$rand*90"
+    }
+  ]
+}

@@ -1,0 +1,199 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[Original]_yokokasoku.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 4,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 5
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 6
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet",
+                        "actions": [
+                          {
+                            "kind": "action",
+                            "action": {
+                              "id": "inline_action",
+                              "ops": [
+                                {
+                                  "op": "repeat",
+                                  "times": 7,
+                                  "action": {
+                                    "id": "inline_action",
+                                    "ops": [
+                                      {
+                                        "op": "wait",
+                                        "expr": 8
+                                      },
+                                      {
+                                        "op": "fireRef",
+                                        "fireRef": {
+                                          "label": "accelShot",
+                                          "params": [
+                                            9
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "op": "fireRef",
+                                        "fireRef": {
+                                          "label": "accelShot",
+                                          "params": [
+                                            10
+                                          ]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 11
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 12
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": [
+      {
+        "id": "fire:accelShot",
+        "label": "accelShot",
+        "direction": {
+          "mode": "absolute",
+          "expr": 0
+        },
+        "speed": {
+          "mode": "absolute",
+          "expr": 1
+        },
+        "bullet": {
+          "kind": "bullet",
+          "bullet": {
+            "id": "inline_bullet",
+            "actions": [
+              {
+                "kind": "action",
+                "action": {
+                  "id": "inline_action",
+                  "ops": [
+                    {
+                      "op": "accel",
+                      "term": 3,
+                      "horizontal": {
+                        "mode": "absolute",
+                        "expr": 2
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "90"
+    },
+    {
+      "id": 1,
+      "source": "0"
+    },
+    {
+      "id": 2,
+      "source": "3*$1"
+    },
+    {
+      "id": 3,
+      "source": "80"
+    },
+    {
+      "id": 4,
+      "source": "20"
+    },
+    {
+      "id": 5,
+      "source": "$rand*90-45"
+    },
+    {
+      "id": 6,
+      "source": "1"
+    },
+    {
+      "id": 7,
+      "source": "9999"
+    },
+    {
+      "id": 8,
+      "source": "$rand*20+30-$rank*20"
+    },
+    {
+      "id": 9,
+      "source": "1"
+    },
+    {
+      "id": 10,
+      "source": "-1"
+    },
+    {
+      "id": 11,
+      "source": "10"
+    },
+    {
+      "id": 12,
+      "source": "120"
+    }
+  ]
+}

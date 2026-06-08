@@ -1,0 +1,860 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "vertical",
+    "path": "examples/[Daiouzyou]_round_4_boss_5.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:Stop",
+        "label": "Stop",
+        "ops": [
+          {
+            "op": "changeSpeed",
+            "term": 1,
+            "speed": {
+              "mode": "absolute",
+              "expr": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:XWay",
+        "label": "XWay",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 2,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 3
+                    },
+                    "speed": {
+                      "mode": "sequence",
+                      "expr": 4
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:singleRedAim",
+        "label": "singleRedAim",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "aim",
+                "expr": 19
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 20
+              },
+              "bullet": {
+                "kind": "bullet",
+                "bullet": {
+                  "id": "inline_bullet",
+                  "actions": [
+                    {
+                      "kind": "action",
+                      "action": {
+                        "id": "inline_action",
+                        "ops": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 21,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 22
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 23
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 24
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet",
+                        "actions": [
+                          {
+                            "kind": "action",
+                            "action": {
+                              "id": "inline_action",
+                              "ops": []
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:doubleRedAim",
+        "label": "doubleRedAim",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "aim",
+                "expr": 25
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 26
+              },
+              "bullet": {
+                "kind": "bullet",
+                "bullet": {
+                  "id": "inline_bullet",
+                  "actions": [
+                    {
+                      "kind": "action",
+                      "action": {
+                        "id": "inline_action",
+                        "ops": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "sequence",
+                "expr": 27
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 28
+              },
+              "bullet": {
+                "kind": "bullet",
+                "bullet": {
+                  "id": "inline_bullet",
+                  "actions": [
+                    {
+                      "kind": "action",
+                      "action": {
+                        "id": "inline_action",
+                        "ops": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 29,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 30
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 31
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 32
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet",
+                        "actions": [
+                          {
+                            "kind": "action",
+                            "action": {
+                              "id": "inline_action",
+                              "ops": []
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 33
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 34
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet",
+                        "actions": [
+                          {
+                            "kind": "action",
+                            "action": {
+                              "id": "inline_action",
+                              "ops": []
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 49
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "blueFan",
+                  "params": [
+                    50
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 51
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "blueFan",
+                  "params": [
+                    52
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 53
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "redAim2"
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 54
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "redAim1"
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 55
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:Dummy",
+        "label": "Dummy",
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "vanish"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "bullet:blueFan",
+        "label": "blueFan",
+        "speed": {
+          "mode": "absolute",
+          "expr": 5
+        },
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 6
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "Stop"
+                  }
+                },
+                {
+                  "op": "repeat",
+                  "times": 7,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "sequence",
+                            "expr": 8
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 9
+                          },
+                          "bullet": {
+                            "kind": "bullet",
+                            "bullet": {
+                              "id": "inline_bullet"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "actionRef",
+                        "actionRef": {
+                          "label": "XWay",
+                          "params": [
+                            10,
+                            11
+                          ]
+                        }
+                      },
+                      {
+                        "op": "repeat",
+                        "times": 12,
+                        "action": {
+                          "id": "inline_action",
+                          "ops": [
+                            {
+                              "op": "wait",
+                              "expr": 13
+                            },
+                            {
+                              "op": "fire",
+                              "fire": {
+                                "id": "inline_fire",
+                                "direction": {
+                                  "mode": "sequence",
+                                  "expr": 14
+                                },
+                                "speed": {
+                                  "mode": "absolute",
+                                  "expr": 15
+                                },
+                                "bullet": {
+                                  "kind": "bullet",
+                                  "bullet": {
+                                    "id": "inline_bullet"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "op": "actionRef",
+                              "actionRef": {
+                                "label": "XWay",
+                                "params": [
+                                  16,
+                                  17
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "op": "wait",
+                        "expr": 18
+                      }
+                    ]
+                  }
+                },
+                {
+                  "op": "vanish"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "bullet:redAim2",
+        "label": "redAim2",
+        "speed": {
+          "mode": "absolute",
+          "expr": 35
+        },
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 36
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "Stop"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 37
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "singleRedAim"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 38
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "doubleRedAim",
+                    "params": [
+                      39
+                    ]
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 40
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "doubleRedAim",
+                    "params": [
+                      41
+                    ]
+                  }
+                },
+                {
+                  "op": "vanish"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "bullet:redAim1",
+        "label": "redAim1",
+        "speed": {
+          "mode": "absolute",
+          "expr": 42
+        },
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 43
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "Stop"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 44
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "singleRedAim"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 45
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "doubleRedAim",
+                    "params": [
+                      46
+                    ]
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 47
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "doubleRedAim",
+                    "params": [
+                      48
+                    ]
+                  }
+                },
+                {
+                  "op": "vanish"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "0"
+    },
+    {
+      "id": 1,
+      "source": "1"
+    },
+    {
+      "id": 2,
+      "source": "$1-1"
+    },
+    {
+      "id": 3,
+      "source": "$2"
+    },
+    {
+      "id": 4,
+      "source": "0"
+    },
+    {
+      "id": 5,
+      "source": "3"
+    },
+    {
+      "id": 6,
+      "source": "20"
+    },
+    {
+      "id": 7,
+      "source": "6"
+    },
+    {
+      "id": 8,
+      "source": "120+$1*2"
+    },
+    {
+      "id": 9,
+      "source": "1.6"
+    },
+    {
+      "id": 10,
+      "source": "3"
+    },
+    {
+      "id": 11,
+      "source": "120"
+    },
+    {
+      "id": 12,
+      "source": "6+$rank*6"
+    },
+    {
+      "id": 13,
+      "source": "56/(6+$rank*6)"
+    },
+    {
+      "id": 14,
+      "source": "120+$1"
+    },
+    {
+      "id": 15,
+      "source": "1.6"
+    },
+    {
+      "id": 16,
+      "source": "3"
+    },
+    {
+      "id": 17,
+      "source": "120"
+    },
+    {
+      "id": 18,
+      "source": "14"
+    },
+    {
+      "id": 19,
+      "source": "0"
+    },
+    {
+      "id": 20,
+      "source": "2"
+    },
+    {
+      "id": 21,
+      "source": "15"
+    },
+    {
+      "id": 22,
+      "source": "4"
+    },
+    {
+      "id": 23,
+      "source": "0"
+    },
+    {
+      "id": 24,
+      "source": "2"
+    },
+    {
+      "id": 25,
+      "source": "-5*$1"
+    },
+    {
+      "id": 26,
+      "source": "2"
+    },
+    {
+      "id": 27,
+      "source": "20*$1"
+    },
+    {
+      "id": 28,
+      "source": "2"
+    },
+    {
+      "id": 29,
+      "source": "15"
+    },
+    {
+      "id": 30,
+      "source": "4"
+    },
+    {
+      "id": 31,
+      "source": "-20*$1"
+    },
+    {
+      "id": 32,
+      "source": "2"
+    },
+    {
+      "id": 33,
+      "source": "20*$1"
+    },
+    {
+      "id": 34,
+      "source": "2"
+    },
+    {
+      "id": 35,
+      "source": "1"
+    },
+    {
+      "id": 36,
+      "source": "20"
+    },
+    {
+      "id": 37,
+      "source": "100"
+    },
+    {
+      "id": 38,
+      "source": "60"
+    },
+    {
+      "id": 39,
+      "source": "-1"
+    },
+    {
+      "id": 40,
+      "source": "20"
+    },
+    {
+      "id": 41,
+      "source": "-1"
+    },
+    {
+      "id": 42,
+      "source": "1"
+    },
+    {
+      "id": 43,
+      "source": "20"
+    },
+    {
+      "id": 44,
+      "source": "40"
+    },
+    {
+      "id": 45,
+      "source": "60"
+    },
+    {
+      "id": 46,
+      "source": "1"
+    },
+    {
+      "id": 47,
+      "source": "80"
+    },
+    {
+      "id": 48,
+      "source": "1"
+    },
+    {
+      "id": 49,
+      "source": "90"
+    },
+    {
+      "id": 50,
+      "source": "4"
+    },
+    {
+      "id": 51,
+      "source": "-90"
+    },
+    {
+      "id": 52,
+      "source": "-4"
+    },
+    {
+      "id": 53,
+      "source": "90"
+    },
+    {
+      "id": 54,
+      "source": "-90"
+    },
+    {
+      "id": 55,
+      "source": "400"
+    }
+  ]
+}

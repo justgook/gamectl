@@ -1,0 +1,81 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[Original]_dokkaan.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 1
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 2
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 3
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "200+200*$rank"
+    },
+    {
+      "id": 1,
+      "source": "120*$rand-60"
+    },
+    {
+      "id": 2,
+      "source": "0.5+$rand*2"
+    },
+    {
+      "id": 3,
+      "source": "150"
+    }
+  ]
+}

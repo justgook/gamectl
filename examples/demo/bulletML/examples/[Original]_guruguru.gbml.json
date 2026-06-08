@@ -1,0 +1,206 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[Original]_guruguru.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:issyuu",
+        "label": "issyuu",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 1
+                    },
+                    "speed": {
+                      "mode": "sequence",
+                      "expr": 2
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "fireRef",
+            "fireRef": {
+              "label": "guruguru"
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 9
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": [
+      {
+        "id": "fire:guruguru",
+        "label": "guruguru",
+        "speed": {
+          "mode": "absolute",
+          "expr": 3
+        },
+        "bullet": {
+          "kind": "bullet",
+          "bullet": {
+            "id": "inline_bullet",
+            "actions": [
+              {
+                "kind": "action",
+                "action": {
+                  "id": "inline_action",
+                  "ops": [
+                    {
+                      "op": "fire",
+                      "fire": {
+                        "id": "inline_fire",
+                        "speed": {
+                          "mode": "absolute",
+                          "expr": 4
+                        },
+                        "bullet": {
+                          "kind": "bullet",
+                          "bullet": {
+                            "id": "inline_bullet"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "op": "actionRef",
+                      "actionRef": {
+                        "label": "issyuu"
+                      }
+                    },
+                    {
+                      "op": "repeat",
+                      "times": 5,
+                      "action": {
+                        "id": "inline_action",
+                        "ops": [
+                          {
+                            "op": "wait",
+                            "expr": 6
+                          },
+                          {
+                            "op": "fire",
+                            "fire": {
+                              "id": "inline_fire",
+                              "direction": {
+                                "mode": "sequence",
+                                "expr": 7
+                              },
+                              "speed": {
+                                "mode": "sequence",
+                                "expr": 8
+                              },
+                              "bullet": {
+                                "kind": "bullet",
+                                "bullet": {
+                                  "id": "inline_bullet"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "op": "actionRef",
+                            "actionRef": {
+                              "label": "issyuu"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "op": "vanish"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "360/(20-$rank*10)+1"
+    },
+    {
+      "id": 1,
+      "source": "18-$rank*6"
+    },
+    {
+      "id": 2,
+      "source": "0"
+    },
+    {
+      "id": 3,
+      "source": "0.3"
+    },
+    {
+      "id": 4,
+      "source": "0.7"
+    },
+    {
+      "id": 5,
+      "source": "30"
+    },
+    {
+      "id": 6,
+      "source": "12"
+    },
+    {
+      "id": 7,
+      "source": "-356"
+    },
+    {
+      "id": 8,
+      "source": "0"
+    },
+    {
+      "id": 9,
+      "source": "500"
+    }
+  ]
+}

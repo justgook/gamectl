@@ -1,0 +1,507 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "vertical",
+    "path": "examples/[Original]_tsunami.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "absolute",
+                      "expr": 1
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 2
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "absolute",
+                      "expr": 3
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 4
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "absolute",
+                      "expr": 5
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 6
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 7
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 8
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 9
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 10
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "layer1"
+                }
+              }
+            }
+          },
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "sequence",
+                "expr": 11
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 12
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "layer1"
+                }
+              }
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 13
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:layer1",
+        "label": "layer1",
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 14
+                },
+                {
+                  "op": "repeat",
+                  "times": 15,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "relative",
+                            "expr": 16
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 17
+                          },
+                          "bullet": {
+                            "kind": "bulletRef",
+                            "ref": {
+                              "label": "layer2"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "relative",
+                            "expr": 18
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 19
+                          },
+                          "bullet": {
+                            "kind": "bulletRef",
+                            "ref": {
+                              "label": "layer2"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "wait",
+                        "expr": 20
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "bullet:layer2",
+        "label": "layer2",
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 21
+                },
+                {
+                  "op": "repeat",
+                  "times": 22,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "relative",
+                            "expr": 23
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 24
+                          },
+                          "bullet": {
+                            "kind": "bulletRef",
+                            "ref": {
+                              "label": "layer3"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "relative",
+                            "expr": 25
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 26
+                          },
+                          "bullet": {
+                            "kind": "bulletRef",
+                            "ref": {
+                              "label": "layer3"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "wait",
+                        "expr": 27
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "bullet:layer3",
+        "label": "layer3",
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 28
+                },
+                {
+                  "op": "repeat",
+                  "times": 29,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "relative",
+                            "expr": 30
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 31
+                          },
+                          "bullet": {
+                            "kind": "bullet",
+                            "bullet": {
+                              "id": "inline_bullet"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "relative",
+                            "expr": 32
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 33
+                          },
+                          "bullet": {
+                            "kind": "bullet",
+                            "bullet": {
+                              "id": "inline_bullet"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "wait",
+                        "expr": 34
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "80+$rank*120"
+    },
+    {
+      "id": 1,
+      "source": "360 * $rand"
+    },
+    {
+      "id": 2,
+      "source": "0.6 - 0.5 * $rank + 0.15 * $rand"
+    },
+    {
+      "id": 3,
+      "source": "60 + 240 * $rand"
+    },
+    {
+      "id": 4,
+      "source": "0.6 - 0.5 * $rank + 0.15 * $rand"
+    },
+    {
+      "id": 5,
+      "source": "120 + 120 * $rand"
+    },
+    {
+      "id": 6,
+      "source": "0.6 - 0.5 * $rank + 0.15 * $rand"
+    },
+    {
+      "id": 7,
+      "source": "2"
+    },
+    {
+      "id": 8,
+      "source": "10 + 210 * $rank * $rank"
+    },
+    {
+      "id": 9,
+      "source": "70 + 40 * $rand"
+    },
+    {
+      "id": 10,
+      "source": "0.6 - 0.3 * $rank"
+    },
+    {
+      "id": 11,
+      "source": "180"
+    },
+    {
+      "id": 12,
+      "source": "0.6 - 0.3 * $rank"
+    },
+    {
+      "id": 13,
+      "source": "600"
+    },
+    {
+      "id": 14,
+      "source": "15"
+    },
+    {
+      "id": 15,
+      "source": "100"
+    },
+    {
+      "id": 16,
+      "source": "90"
+    },
+    {
+      "id": 17,
+      "source": "0.8 - 0.4 * $rank"
+    },
+    {
+      "id": 18,
+      "source": "-90"
+    },
+    {
+      "id": 19,
+      "source": "0.8 - 0.4 * $rank"
+    },
+    {
+      "id": 20,
+      "source": "60"
+    },
+    {
+      "id": 21,
+      "source": "15"
+    },
+    {
+      "id": 22,
+      "source": "100"
+    },
+    {
+      "id": 23,
+      "source": "45"
+    },
+    {
+      "id": 24,
+      "source": "1.0 - 0.5 * $rank"
+    },
+    {
+      "id": 25,
+      "source": "-45"
+    },
+    {
+      "id": 26,
+      "source": "1.0 - 0.5 * $rank"
+    },
+    {
+      "id": 27,
+      "source": "60"
+    },
+    {
+      "id": 28,
+      "source": "15"
+    },
+    {
+      "id": 29,
+      "source": "100"
+    },
+    {
+      "id": 30,
+      "source": "30"
+    },
+    {
+      "id": 31,
+      "source": "0.2 + 0.3 * $rank * $rand"
+    },
+    {
+      "id": 32,
+      "source": "-30"
+    },
+    {
+      "id": 33,
+      "source": "0.2 + 0.3 * $rank * $rand"
+    },
+    {
+      "id": 34,
+      "source": "60"
+    }
+  ]
+}

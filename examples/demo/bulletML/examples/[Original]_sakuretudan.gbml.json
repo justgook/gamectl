@@ -1,0 +1,229 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[Original]_sakuretudan.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 1
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 2
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet",
+                        "actions": [
+                          {
+                            "kind": "action",
+                            "action": {
+                              "id": "inline_action",
+                              "ops": [
+                                {
+                                  "op": "changeDirection",
+                                  "term": 4,
+                                  "direction": {
+                                    "mode": "aim",
+                                    "expr": 3
+                                  }
+                                },
+                                {
+                                  "op": "wait",
+                                  "expr": 5
+                                },
+                                {
+                                  "op": "repeat",
+                                  "times": 6,
+                                  "action": {
+                                    "id": "inline_action",
+                                    "ops": [
+                                      {
+                                        "op": "repeat",
+                                        "times": 7,
+                                        "action": {
+                                          "id": "inline_action",
+                                          "ops": [
+                                            {
+                                              "op": "fire",
+                                              "fire": {
+                                                "id": "inline_fire",
+                                                "direction": {
+                                                  "mode": "aim",
+                                                  "expr": 8
+                                                },
+                                                "speed": {
+                                                  "mode": "absolute",
+                                                  "expr": 9
+                                                },
+                                                "bullet": {
+                                                  "kind": "bullet",
+                                                  "bullet": {
+                                                    "id": "inline_bullet",
+                                                    "actions": [
+                                                      {
+                                                        "kind": "action",
+                                                        "action": {
+                                                          "id": "inline_action",
+                                                          "ops": [
+                                                            {
+                                                              "op": "wait",
+                                                              "expr": 10
+                                                            },
+                                                            {
+                                                              "op": "fire",
+                                                              "fire": {
+                                                                "id": "inline_fire",
+                                                                "speed": {
+                                                                  "mode": "absolute",
+                                                                  "expr": 11
+                                                                },
+                                                                "bullet": {
+                                                                  "kind": "bullet",
+                                                                  "bullet": {
+                                                                    "id": "inline_bullet"
+                                                                  }
+                                                                }
+                                                              }
+                                                            },
+                                                            {
+                                                              "op": "vanish"
+                                                            }
+                                                          ]
+                                                        }
+                                                      }
+                                                    ]
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "op": "wait",
+                                        "expr": 12
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "op": "vanish"
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 13
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 14
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "10"
+    },
+    {
+      "id": 1,
+      "source": "$rand*360"
+    },
+    {
+      "id": 2,
+      "source": "2"
+    },
+    {
+      "id": 3,
+      "source": "0"
+    },
+    {
+      "id": 4,
+      "source": "60"
+    },
+    {
+      "id": 5,
+      "source": "60"
+    },
+    {
+      "id": 6,
+      "source": "15+$rank*20"
+    },
+    {
+      "id": 7,
+      "source": "2"
+    },
+    {
+      "id": 8,
+      "source": "360*$rand"
+    },
+    {
+      "id": 9,
+      "source": "5"
+    },
+    {
+      "id": 10,
+      "source": "$rand*5"
+    },
+    {
+      "id": 11,
+      "source": "$rand*4+0.5"
+    },
+    {
+      "id": 12,
+      "source": "1"
+    },
+    {
+      "id": 13,
+      "source": "60"
+    },
+    {
+      "id": 14,
+      "source": "100"
+    }
+  ]
+}

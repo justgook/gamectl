@@ -1,0 +1,198 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[Original]_hirahira.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "5way",
+      "action": "action:5way"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:5way",
+        "label": "5way",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 1
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:hira",
+        "label": "hira",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "aim",
+                "expr": 2
+              },
+              "bullet": {
+                "kind": "bullet",
+                "bullet": {
+                  "id": "inline_bullet"
+                }
+              }
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "5way"
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 3,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 4
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 5
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "5way"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top1",
+        "label": "top1",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "hira",
+              "params": [
+                6
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 7
+          }
+        ]
+      },
+      {
+        "id": "action:top2",
+        "label": "top2",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "hira",
+              "params": [
+                8
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 9
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "4"
+    },
+    {
+      "id": 1,
+      "source": "20"
+    },
+    {
+      "id": 2,
+      "source": "-40+$1*60"
+    },
+    {
+      "id": 3,
+      "source": "60"
+    },
+    {
+      "id": 4,
+      "source": "8-$rank*2"
+    },
+    {
+      "id": 5,
+      "source": "-80-$1*2+$rand-0.5"
+    },
+    {
+      "id": 6,
+      "source": "-1"
+    },
+    {
+      "id": 7,
+      "source": "60"
+    },
+    {
+      "id": 8,
+      "source": "1"
+    },
+    {
+      "id": 9,
+      "source": "60"
+    }
+  ]
+}

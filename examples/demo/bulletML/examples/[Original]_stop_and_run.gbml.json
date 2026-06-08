@@ -1,0 +1,144 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "vertical",
+    "path": "examples/[Original]_stop_and_run.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 6,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 7
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 8
+                    },
+                    "bullet": {
+                      "kind": "bulletRef",
+                      "ref": {
+                        "label": "stopAndRun"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 9
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:stopAndRun",
+        "label": "stopAndRun",
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "changeSpeed",
+                  "term": 1,
+                  "speed": {
+                    "mode": "absolute",
+                    "expr": 0
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 2
+                },
+                {
+                  "op": "accel",
+                  "term": 4,
+                  "vertical": {
+                    "mode": "absolute",
+                    "expr": 3
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 5
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "0"
+    },
+    {
+      "id": 1,
+      "source": "60"
+    },
+    {
+      "id": 2,
+      "source": "180-$rank*120"
+    },
+    {
+      "id": 3,
+      "source": "3"
+    },
+    {
+      "id": 4,
+      "source": "120"
+    },
+    {
+      "id": 5,
+      "source": "120"
+    },
+    {
+      "id": 6,
+      "source": "200"
+    },
+    {
+      "id": 7,
+      "source": "$rand*360"
+    },
+    {
+      "id": 8,
+      "source": "3*$rand+0.5"
+    },
+    {
+      "id": 9,
+      "source": "260-$rank*120"
+    }
+  ]
+}

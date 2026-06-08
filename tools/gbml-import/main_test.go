@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -47,6 +48,42 @@ func TestFixturesValidateAgainstDTD(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRealExamplesConvertToDemoOutputs(t *testing.T) {
+	inputs := globXML(t, filepath.Join("examples", "*.xml"))
+	inputs = append(inputs, globXML(t, filepath.Join("examples", "mini", "*.xml"))...)
+	if len(inputs) == 0 {
+		t.Fatal("expected real BulletML examples")
+	}
+	for _, input := range inputs {
+		input := input
+		name := outputNameForInput(input)
+		t.Run(name, func(t *testing.T) {
+			tmp := filepath.Join(t.TempDir(), name)
+			if err := convertFile(input, tmp, false); err != nil {
+				t.Fatalf("convertFile() error = %v", err)
+			}
+			actual := readJSONFile(t, tmp)
+			expected := readJSONFile(t, filepath.Join("..", "..", "examples", "demo", "bulletML", "examples", name))
+			if !reflect.DeepEqual(actual, expected) {
+				t.Fatalf("converted example differs from demo output")
+			}
+		})
+	}
+}
+
+func globXML(t *testing.T, pattern string) []string {
+	t.Helper()
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		t.Fatalf("Glob(%q) error = %v", pattern, err)
+	}
+	return matches
+}
+
+func outputNameForInput(input string) string {
+	return strings.TrimSuffix(filepath.Base(input), filepath.Ext(input)) + ".gbml.json"
 }
 
 func readJSONFile(t *testing.T, path string) any {

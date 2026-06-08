@@ -1,0 +1,230 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "horizontal",
+    "path": "examples/[G_DARIUS]_homing_laser.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 1
+                    },
+                    "bullet": {
+                      "kind": "bulletRef",
+                      "ref": {
+                        "label": "hmgLsr"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "repeat",
+                  "times": 2,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "wait",
+                        "expr": 3
+                      },
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "sequence",
+                            "expr": 4
+                          },
+                          "bullet": {
+                            "kind": "bulletRef",
+                            "ref": {
+                              "label": "hmgLsr"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 5
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 6
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:hmgLsr",
+        "label": "hmgLsr",
+        "speed": {
+          "mode": "absolute",
+          "expr": 7
+        },
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "changeSpeed",
+                  "term": 9,
+                  "speed": {
+                    "mode": "absolute",
+                    "expr": 8
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 10
+                },
+                {
+                  "op": "changeSpeed",
+                  "term": 12,
+                  "speed": {
+                    "mode": "absolute",
+                    "expr": 11
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "repeat",
+                  "times": 13,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "changeDirection",
+                        "term": 15,
+                        "direction": {
+                          "mode": "aim",
+                          "expr": 14
+                        }
+                      },
+                      {
+                        "op": "wait",
+                        "expr": 16
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "20"
+    },
+    {
+      "id": 1,
+      "source": "-60+$rand*120"
+    },
+    {
+      "id": 2,
+      "source": "8"
+    },
+    {
+      "id": 3,
+      "source": "1"
+    },
+    {
+      "id": 4,
+      "source": "0"
+    },
+    {
+      "id": 5,
+      "source": "10"
+    },
+    {
+      "id": 6,
+      "source": "60"
+    },
+    {
+      "id": 7,
+      "source": "2"
+    },
+    {
+      "id": 8,
+      "source": "0.3"
+    },
+    {
+      "id": 9,
+      "source": "30"
+    },
+    {
+      "id": 10,
+      "source": "100"
+    },
+    {
+      "id": 11,
+      "source": "5"
+    },
+    {
+      "id": 12,
+      "source": "100"
+    },
+    {
+      "id": 13,
+      "source": "12"
+    },
+    {
+      "id": 14,
+      "source": "0"
+    },
+    {
+      "id": 15,
+      "source": "45-$rank*30"
+    },
+    {
+      "id": 16,
+      "source": "5"
+    }
+  ]
+}

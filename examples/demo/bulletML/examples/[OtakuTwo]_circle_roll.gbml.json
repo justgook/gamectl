@@ -1,0 +1,447 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[OtakuTwo]_circle_roll.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "move",
+              "params": [
+                0
+              ]
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 1,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "changeDirection",
+                  "term": 3,
+                  "direction": {
+                    "mode": "relative",
+                    "expr": 2
+                  }
+                },
+                {
+                  "op": "repeat",
+                  "times": 4,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "relative",
+                            "expr": 5
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 6
+                          },
+                          "bullet": {
+                            "kind": "bulletRef",
+                            "ref": {
+                              "label": "curve",
+                              "params": [
+                                7
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "fire",
+                        "fire": {
+                          "id": "inline_fire",
+                          "direction": {
+                            "mode": "sequence",
+                            "expr": 8
+                          },
+                          "speed": {
+                            "mode": "absolute",
+                            "expr": 9
+                          },
+                          "bullet": {
+                            "kind": "bulletRef",
+                            "ref": {
+                              "label": "curve",
+                              "params": [
+                                10
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "op": "repeat",
+                        "times": 11,
+                        "action": {
+                          "id": "inline_action",
+                          "ops": [
+                            {
+                              "op": "fire",
+                              "fire": {
+                                "id": "inline_fire",
+                                "direction": {
+                                  "mode": "sequence",
+                                  "expr": 12
+                                },
+                                "speed": {
+                                  "mode": "absolute",
+                                  "expr": 13
+                                },
+                                "bullet": {
+                                  "kind": "bulletRef",
+                                  "ref": {
+                                    "label": "curve",
+                                    "params": [
+                                      14
+                                    ]
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "op": "fire",
+                              "fire": {
+                                "id": "inline_fire",
+                                "direction": {
+                                  "mode": "sequence",
+                                  "expr": 15
+                                },
+                                "speed": {
+                                  "mode": "absolute",
+                                  "expr": 16
+                                },
+                                "bullet": {
+                                  "kind": "bulletRef",
+                                  "ref": {
+                                    "label": "curve",
+                                    "params": [
+                                      17
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "op": "wait",
+                        "expr": 18
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 19
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "move",
+              "params": [
+                20
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:move",
+        "label": "move",
+        "ops": [
+          {
+            "op": "changeDirection",
+            "term": 22,
+            "direction": {
+              "mode": "absolute",
+              "expr": 21
+            }
+          },
+          {
+            "op": "changeSpeed",
+            "term": 24,
+            "speed": {
+              "mode": "absolute",
+              "expr": 23
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 25
+          },
+          {
+            "op": "changeSpeed",
+            "term": 27,
+            "speed": {
+              "mode": "absolute",
+              "expr": 26
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 28
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:curve",
+        "label": "curve",
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 29
+                },
+                {
+                  "op": "changeDirection",
+                  "term": 31,
+                  "direction": {
+                    "mode": "relative",
+                    "expr": 30
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 32
+                },
+                {
+                  "op": "repeat",
+                  "times": 33,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "changeDirection",
+                        "term": 35,
+                        "direction": {
+                          "mode": "relative",
+                          "expr": 34
+                        }
+                      },
+                      {
+                        "op": "wait",
+                        "expr": 36
+                      },
+                      {
+                        "op": "changeDirection",
+                        "term": 38,
+                        "direction": {
+                          "mode": "relative",
+                          "expr": 37
+                        }
+                      },
+                      {
+                        "op": "wait",
+                        "expr": 39
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "180"
+    },
+    {
+      "id": 1,
+      "source": "20+$rank*20"
+    },
+    {
+      "id": 2,
+      "source": "-179+$rand*358"
+    },
+    {
+      "id": 3,
+      "source": "(80+$rand*40)/(1+$rank)"
+    },
+    {
+      "id": 4,
+      "source": "5"
+    },
+    {
+      "id": 5,
+      "source": "0"
+    },
+    {
+      "id": 6,
+      "source": "1+$rank*0.5"
+    },
+    {
+      "id": 7,
+      "source": "1"
+    },
+    {
+      "id": 8,
+      "source": "10"
+    },
+    {
+      "id": 9,
+      "source": "1+$rank*0.5"
+    },
+    {
+      "id": 10,
+      "source": "-1"
+    },
+    {
+      "id": 11,
+      "source": "17"
+    },
+    {
+      "id": 12,
+      "source": "10"
+    },
+    {
+      "id": 13,
+      "source": "1+$rank*0.5"
+    },
+    {
+      "id": 14,
+      "source": "1"
+    },
+    {
+      "id": 15,
+      "source": "10"
+    },
+    {
+      "id": 16,
+      "source": "1+$rank*0.5"
+    },
+    {
+      "id": 17,
+      "source": "-1"
+    },
+    {
+      "id": 18,
+      "source": "16-$rank*8"
+    },
+    {
+      "id": 19,
+      "source": "80"
+    },
+    {
+      "id": 20,
+      "source": "0"
+    },
+    {
+      "id": 21,
+      "source": "$1"
+    },
+    {
+      "id": 22,
+      "source": "1"
+    },
+    {
+      "id": 23,
+      "source": "2"
+    },
+    {
+      "id": 24,
+      "source": "1"
+    },
+    {
+      "id": 25,
+      "source": "12"
+    },
+    {
+      "id": 26,
+      "source": "0"
+    },
+    {
+      "id": 27,
+      "source": "1"
+    },
+    {
+      "id": 28,
+      "source": "5"
+    },
+    {
+      "id": 29,
+      "source": "30-$rank*15"
+    },
+    {
+      "id": 30,
+      "source": "150*$1"
+    },
+    {
+      "id": 31,
+      "source": "25"
+    },
+    {
+      "id": 32,
+      "source": "25"
+    },
+    {
+      "id": 33,
+      "source": "9999"
+    },
+    {
+      "id": 34,
+      "source": "-150*$1*$rank"
+    },
+    {
+      "id": 35,
+      "source": "1000-$rank*950"
+    },
+    {
+      "id": 36,
+      "source": "30"
+    },
+    {
+      "id": 37,
+      "source": "150*$1*$rank"
+    },
+    {
+      "id": 38,
+      "source": "1000-$rank*900"
+    },
+    {
+      "id": 39,
+      "source": "60"
+    }
+  ]
+}

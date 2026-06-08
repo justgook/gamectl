@@ -1,0 +1,229 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[Original]_circle.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:5sp",
+        "label": "5sp",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "aim",
+                "expr": 0
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 1
+              },
+              "bullet": {
+                "kind": "bullet",
+                "bullet": {
+                  "id": "inline_bullet"
+                }
+              }
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 2,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "speed": {
+                      "mode": "sequence",
+                      "expr": 3
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "fireRef",
+            "fireRef": {
+              "label": "maru"
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 13
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": [
+      {
+        "id": "fire:maru",
+        "label": "maru",
+        "direction": {
+          "mode": "absolute",
+          "expr": 4
+        },
+        "speed": {
+          "mode": "absolute",
+          "expr": 5
+        },
+        "bullet": {
+          "kind": "bullet",
+          "bullet": {
+            "id": "inline_bullet",
+            "actions": [
+              {
+                "kind": "action",
+                "action": {
+                  "id": "inline_action",
+                  "ops": [
+                    {
+                      "op": "changeDirection",
+                      "term": 7,
+                      "direction": {
+                        "mode": "sequence",
+                        "expr": 6
+                      }
+                    },
+                    {
+                      "op": "repeat",
+                      "times": 8,
+                      "action": {
+                        "id": "inline_action",
+                        "ops": [
+                          {
+                            "op": "actionRef",
+                            "actionRef": {
+                              "label": "5sp",
+                              "params": [
+                                9
+                              ]
+                            }
+                          },
+                          {
+                            "op": "actionRef",
+                            "actionRef": {
+                              "label": "5sp",
+                              "params": [
+                                10
+                              ]
+                            }
+                          },
+                          {
+                            "op": "actionRef",
+                            "actionRef": {
+                              "label": "5sp",
+                              "params": [
+                                11
+                              ]
+                            }
+                          },
+                          {
+                            "op": "wait",
+                            "expr": 12
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "op": "vanish"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "$1"
+    },
+    {
+      "id": 1,
+      "source": "1"
+    },
+    {
+      "id": 2,
+      "source": "3"
+    },
+    {
+      "id": 3,
+      "source": "0.4"
+    },
+    {
+      "id": 4,
+      "source": "90"
+    },
+    {
+      "id": 5,
+      "source": "4"
+    },
+    {
+      "id": 6,
+      "source": "4"
+    },
+    {
+      "id": 7,
+      "source": "1000"
+    },
+    {
+      "id": 8,
+      "source": "90"
+    },
+    {
+      "id": 9,
+      "source": "0"
+    },
+    {
+      "id": 10,
+      "source": "70-$rank*40"
+    },
+    {
+      "id": 11,
+      "source": "-70+$rank*40"
+    },
+    {
+      "id": 12,
+      "source": "3"
+    },
+    {
+      "id": 13,
+      "source": "320"
+    }
+  ]
+}

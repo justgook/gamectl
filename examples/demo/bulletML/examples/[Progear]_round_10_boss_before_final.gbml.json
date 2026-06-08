@@ -1,0 +1,451 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[Progear]_round_10_boss_before_final.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top1",
+      "action": "action:top1"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top1",
+        "label": "top1",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "absolute",
+                "expr": 11
+              },
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "setter"
+                }
+              }
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 12,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 13
+                    },
+                    "bullet": {
+                      "kind": "bulletRef",
+                      "ref": {
+                        "label": "setter"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 14
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 15
+          },
+          {
+            "op": "repeat",
+            "times": 16,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 17
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 18
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 19
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top2",
+        "label": "top2",
+        "ops": [
+          {
+            "op": "wait",
+            "expr": 20
+          },
+          {
+            "op": "changeSpeed",
+            "term": 22,
+            "speed": {
+              "mode": "absolute",
+              "expr": 21
+            }
+          },
+          {
+            "op": "changeDirection",
+            "term": 24,
+            "direction": {
+              "mode": "aim",
+              "expr": 23
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 25
+          },
+          {
+            "op": "changeDirection",
+            "term": 27,
+            "direction": {
+              "mode": "sequence",
+              "expr": 26
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 28
+          },
+          {
+            "op": "changeSpeed",
+            "term": 30,
+            "speed": {
+              "mode": "absolute",
+              "expr": 29
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 31
+          },
+          {
+            "op": "changeSpeed",
+            "term": 33,
+            "speed": {
+              "mode": "absolute",
+              "expr": 32
+            }
+          },
+          {
+            "op": "changeDirection",
+            "term": 35,
+            "direction": {
+              "mode": "sequence",
+              "expr": 34
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 36
+          },
+          {
+            "op": "changeSpeed",
+            "term": 38,
+            "speed": {
+              "mode": "absolute",
+              "expr": 37
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 39
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:setter",
+        "label": "setter",
+        "speed": {
+          "mode": "absolute",
+          "expr": 8
+        },
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "repeat",
+                  "times": 9,
+                  "action": {
+                    "id": "inline_action",
+                    "ops": [
+                      {
+                        "op": "wait",
+                        "expr": 10
+                      },
+                      {
+                        "op": "fireRef",
+                        "fireRef": {
+                          "label": "rollOut"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": [
+      {
+        "id": "fire:rollOut",
+        "label": "rollOut",
+        "direction": {
+          "mode": "relative",
+          "expr": 0
+        },
+        "speed": {
+          "mode": "absolute",
+          "expr": 1
+        },
+        "bullet": {
+          "kind": "bullet",
+          "bullet": {
+            "id": "inline_bullet",
+            "actions": [
+              {
+                "kind": "action",
+                "action": {
+                  "id": "inline_action",
+                  "ops": [
+                    {
+                      "op": "wait",
+                      "expr": 2
+                    },
+                    {
+                      "op": "changeSpeed",
+                      "term": 4,
+                      "speed": {
+                        "mode": "absolute",
+                        "expr": 3
+                      }
+                    },
+                    {
+                      "op": "changeDirection",
+                      "term": 6,
+                      "direction": {
+                        "mode": "relative",
+                        "expr": 5
+                      }
+                    },
+                    {
+                      "op": "wait",
+                      "expr": 7
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "90"
+    },
+    {
+      "id": 1,
+      "source": "0.0001"
+    },
+    {
+      "id": 2,
+      "source": "350"
+    },
+    {
+      "id": 3,
+      "source": "1"
+    },
+    {
+      "id": 4,
+      "source": "100"
+    },
+    {
+      "id": 5,
+      "source": "50-$rank*40"
+    },
+    {
+      "id": 6,
+      "source": "100"
+    },
+    {
+      "id": 7,
+      "source": "1000"
+    },
+    {
+      "id": 8,
+      "source": "3"
+    },
+    {
+      "id": 9,
+      "source": "999"
+    },
+    {
+      "id": 10,
+      "source": "5"
+    },
+    {
+      "id": 11,
+      "source": "$rand*10"
+    },
+    {
+      "id": 12,
+      "source": "45/(2-$rank)"
+    },
+    {
+      "id": 13,
+      "source": "16-$rank*8"
+    },
+    {
+      "id": 14,
+      "source": "1"
+    },
+    {
+      "id": 15,
+      "source": "40"
+    },
+    {
+      "id": 16,
+      "source": "125+$rank*125"
+    },
+    {
+      "id": 17,
+      "source": "1.5-$rank/2+$rand"
+    },
+    {
+      "id": 18,
+      "source": "45-$rand*90"
+    },
+    {
+      "id": 19,
+      "source": "1.2"
+    },
+    {
+      "id": 20,
+      "source": "80"
+    },
+    {
+      "id": 21,
+      "source": "0.7"
+    },
+    {
+      "id": 22,
+      "source": "1"
+    },
+    {
+      "id": 23,
+      "source": "0"
+    },
+    {
+      "id": 24,
+      "source": "1"
+    },
+    {
+      "id": 25,
+      "source": "1"
+    },
+    {
+      "id": 26,
+      "source": "1.44444"
+    },
+    {
+      "id": 27,
+      "source": "250"
+    },
+    {
+      "id": 28,
+      "source": "250"
+    },
+    {
+      "id": 29,
+      "source": "0"
+    },
+    {
+      "id": 30,
+      "source": "1"
+    },
+    {
+      "id": 31,
+      "source": "20"
+    },
+    {
+      "id": 32,
+      "source": "0.7"
+    },
+    {
+      "id": 33,
+      "source": "1"
+    },
+    {
+      "id": 34,
+      "source": "30"
+    },
+    {
+      "id": 35,
+      "source": "12"
+    },
+    {
+      "id": 36,
+      "source": "12"
+    },
+    {
+      "id": 37,
+      "source": "0"
+    },
+    {
+      "id": 38,
+      "source": "1"
+    },
+    {
+      "id": 39,
+      "source": "200-$rank*60"
+    }
+  ]
+}

@@ -1,0 +1,134 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "vertical",
+    "path": "examples/[1943]_rolling_fire.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "bullet": {
+                "kind": "bulletRef",
+                "ref": {
+                  "label": "roll"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:roll",
+        "label": "roll",
+        "actions": [
+          {
+            "kind": "action",
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "wait",
+                  "expr": 0
+                },
+                {
+                  "op": "changeDirection",
+                  "term": 2,
+                  "direction": {
+                    "mode": "relative",
+                    "expr": 1
+                  }
+                },
+                {
+                  "op": "changeSpeed",
+                  "term": 4,
+                  "speed": {
+                    "mode": "absolute",
+                    "expr": 3
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 5
+                },
+                {
+                  "op": "changeDirection",
+                  "term": 7,
+                  "direction": {
+                    "mode": "sequence",
+                    "expr": 6
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 8
+                },
+                {
+                  "op": "vanish"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "40+$rand*20"
+    },
+    {
+      "id": 1,
+      "source": "-90"
+    },
+    {
+      "id": 2,
+      "source": "4"
+    },
+    {
+      "id": 3,
+      "source": "3"
+    },
+    {
+      "id": 4,
+      "source": "4"
+    },
+    {
+      "id": 5,
+      "source": "4"
+    },
+    {
+      "id": 6,
+      "source": "15"
+    },
+    {
+      "id": 7,
+      "source": "9999"
+    },
+    {
+      "id": 8,
+      "source": "80+$rand*40"
+    }
+  ]
+}

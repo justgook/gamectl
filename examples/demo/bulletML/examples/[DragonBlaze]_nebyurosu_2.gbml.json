@@ -1,0 +1,211 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "vertical",
+    "path": "examples/[DragonBlaze]_nebyurosu_2.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "add3",
+      "action": "action:add3"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:add3",
+        "label": "add3",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 1
+                    },
+                    "speed": {
+                      "mode": "sequence",
+                      "expr": 2
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top1",
+        "label": "top1",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 3,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 4
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 5
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "add3"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 6
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 7
+          }
+        ]
+      },
+      {
+        "id": "action:top2",
+        "label": "top2",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 8,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 9
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 10
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "actionRef",
+                  "actionRef": {
+                    "label": "add3"
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 11
+                }
+              ]
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 12
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "3"
+    },
+    {
+      "id": 1,
+      "source": "90"
+    },
+    {
+      "id": 2,
+      "source": "0"
+    },
+    {
+      "id": 3,
+      "source": "150"
+    },
+    {
+      "id": 4,
+      "source": "4"
+    },
+    {
+      "id": 5,
+      "source": "1+$rank"
+    },
+    {
+      "id": 6,
+      "source": "2"
+    },
+    {
+      "id": 7,
+      "source": "60-$rank*30"
+    },
+    {
+      "id": 8,
+      "source": "150"
+    },
+    {
+      "id": 9,
+      "source": "-5"
+    },
+    {
+      "id": 10,
+      "source": "1+$rank"
+    },
+    {
+      "id": 11,
+      "source": "2"
+    },
+    {
+      "id": 12,
+      "source": "60-$rank*30"
+    }
+  ]
+}

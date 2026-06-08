@@ -1,0 +1,371 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "none",
+    "path": "examples/[ESP_RADE]_round_123_boss_satoru_5way.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:1way",
+        "label": "1way",
+        "ops": [
+          {
+            "op": "fire",
+            "fire": {
+              "id": "inline_fire",
+              "direction": {
+                "mode": "aim",
+                "expr": 0
+              },
+              "speed": {
+                "mode": "absolute",
+                "expr": 1
+              },
+              "bullet": {
+                "kind": "bullet",
+                "bullet": {
+                  "id": "inline_bullet"
+                }
+              }
+            }
+          },
+          {
+            "op": "repeat",
+            "times": 2,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "aim",
+                      "expr": 3
+                    },
+                    "speed": {
+                      "mode": "sequence",
+                      "expr": 4
+                    },
+                    "bullet": {
+                      "kind": "bullet",
+                      "bullet": {
+                        "id": "inline_bullet"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:5way",
+        "label": "5way",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "1way",
+              "params": [
+                5,
+                6
+              ]
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "1way",
+              "params": [
+                7,
+                8
+              ]
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "1way",
+              "params": [
+                9,
+                10
+              ]
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "1way",
+              "params": [
+                11,
+                12
+              ]
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "1way",
+              "params": [
+                13,
+                14
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:idousite5way",
+        "label": "idousite5way",
+        "ops": [
+          {
+            "op": "changeDirection",
+            "term": 16,
+            "direction": {
+              "mode": "aim",
+              "expr": 15
+            }
+          },
+          {
+            "op": "changeSpeed",
+            "term": 18,
+            "speed": {
+              "mode": "absolute",
+              "expr": 17
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 19
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "5way",
+              "params": [
+                20
+              ]
+            }
+          },
+          {
+            "op": "changeSpeed",
+            "term": 22,
+            "speed": {
+              "mode": "absolute",
+              "expr": 21
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 23
+          }
+        ]
+      },
+      {
+        "id": "action:satoru",
+        "label": "satoru",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "idousite5way",
+              "params": [
+                24
+              ]
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "idousite5way",
+              "params": [
+                25
+              ]
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "idousite5way",
+              "params": [
+                26
+              ]
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "idousite5way",
+              "params": [
+                27
+              ]
+            }
+          },
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "idousite5way",
+              "params": [
+                28
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "actionRef",
+            "actionRef": {
+              "label": "satoru"
+            }
+          },
+          {
+            "op": "wait",
+            "expr": 29
+          }
+        ]
+      }
+    ],
+    "bullets": [],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "$2+$1*$rand*2-$1"
+    },
+    {
+      "id": 1,
+      "source": "1"
+    },
+    {
+      "id": 2,
+      "source": "20"
+    },
+    {
+      "id": 3,
+      "source": "$2+$1*$rand*2-$1"
+    },
+    {
+      "id": 4,
+      "source": "0.1"
+    },
+    {
+      "id": 5,
+      "source": "$1"
+    },
+    {
+      "id": 6,
+      "source": "-30"
+    },
+    {
+      "id": 7,
+      "source": "$1"
+    },
+    {
+      "id": 8,
+      "source": "-15"
+    },
+    {
+      "id": 9,
+      "source": "$1"
+    },
+    {
+      "id": 10,
+      "source": "0"
+    },
+    {
+      "id": 11,
+      "source": "$1"
+    },
+    {
+      "id": 12,
+      "source": "15"
+    },
+    {
+      "id": 13,
+      "source": "$1"
+    },
+    {
+      "id": 14,
+      "source": "30"
+    },
+    {
+      "id": 15,
+      "source": "$rand*360"
+    },
+    {
+      "id": 16,
+      "source": "1"
+    },
+    {
+      "id": 17,
+      "source": "2"
+    },
+    {
+      "id": 18,
+      "source": "1"
+    },
+    {
+      "id": 19,
+      "source": "30"
+    },
+    {
+      "id": 20,
+      "source": "$1"
+    },
+    {
+      "id": 21,
+      "source": "0"
+    },
+    {
+      "id": 22,
+      "source": "1"
+    },
+    {
+      "id": 23,
+      "source": "90-$rank*60"
+    },
+    {
+      "id": 24,
+      "source": "1"
+    },
+    {
+      "id": 25,
+      "source": "2"
+    },
+    {
+      "id": 26,
+      "source": "3"
+    },
+    {
+      "id": 27,
+      "source": "4"
+    },
+    {
+      "id": 28,
+      "source": "5"
+    },
+    {
+      "id": 29,
+      "source": "30"
+    }
+  ]
+}

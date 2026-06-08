@@ -1,5 +1,14 @@
 import { runtime, unwrap } from "/core/runtime.js"
-import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
+import { ViewCanvasBase } from "/util/view-canvas-base.js"
+
+const VIEW_WIDTH = 480
+const VIEW_HEIGHT = 640
+const ROOT_X = VIEW_WIDTH / 2
+const ROOT_Y = 72
+const TARGET_X = VIEW_WIDTH / 2
+const TARGET_Y = VIEW_HEIGHT - 72
+const MAX_INSTRUCTIONS_PER_TICK = 2048
+const MAX_BULLETS = 4096
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -78,7 +87,410 @@ function summarizeGbml(gbml) {
   ].join("\n")
 }
 
-export class ViewBullet extends HTMLElement {
+function degToRad(degrees) {
+  return (degrees * Math.PI) / 180
+}
+
+function velocityFromDirection(direction, speed) {
+  const radians = degToRad(direction)
+  return {
+    x: Math.sin(radians) * speed,
+    y: -Math.cos(radians) * speed,
+  }
+}
+
+function directionToPoint(fromX, fromY, toX, toY) {
+  return (Math.atan2(toX - fromX, -(toY - fromY)) * 180) / Math.PI
+}
+
+function normalizeDirection(direction) {
+  const normalized = direction % 360
+  return normalized < 0 ? normalized + 360 : normalized
+}
+
+function createFrame(action, params = [], repeat = 1) {
+  assert(action && Array.isArray(action.ops), "GBML action frame requires ops")
+  return { ops: action.ops, pc: 0, params, repeat }
+}
+
+class BulletMLEngine {
+  constructor() {
+    this.gbml = null
+    this.expressions = []
+    this.actions = new Map()
+    this.bullets = new Map()
+    this.fires = new Map()
+    this.entities = []
+    this.frame = 0
+    this.spawned = 0
+    this.vanished = 0
+    this.rank = 0.5
+    this.seed = 1
+    this.running = false
+    this.lastInstructionCount = 0
+  }
+
+  load(gbml) {
+    summarizeGbml(gbml)
+    this.gbml = gbml
+    this.expressions = gbml.expressions
+    this.actions = this.mapDefinitions(gbml.definitions.actions, "action")
+    this.bullets = this.mapDefinitions(gbml.definitions.bullets, "bullet")
+    this.fires = this.mapDefinitions(gbml.definitions.fires, "fire")
+    this.reset()
+  }
+
+  mapDefinitions(definitions, kind) {
+    const map = new Map()
+    for (const definition of definitions) {
+      assert(typeof definition.id === "string" && definition.id.length > 0, `${kind} definition requires id`)
+      assert(!map.has(definition.id), `duplicate ${kind} definition id ${definition.id}`)
+      map.set(definition.id, definition)
+      if (definition.label) {
+        const labelID = `${kind}:${definition.label}`
+        assert(!map.has(labelID), `duplicate ${kind} definition label ${definition.label}`)
+        map.set(labelID, definition)
+      }
+    }
+    return map
+  }
+
+  reset() {
+    this.entities = []
+    this.frame = 0
+    this.spawned = 0
+    this.vanished = 0
+    this.seed = 1
+    this.lastInstructionCount = 0
+    if (!this.gbml) return
+    const entrypoint = this.gbml.entrypoints[0]
+    if (!entrypoint) return
+    const action = this.resolveAction(entrypoint.action)
+    this.entities.push({
+      id: 0,
+      visible: false,
+      x: ROOT_X,
+      y: ROOT_Y,
+      direction: 180,
+      speed: 0,
+      accelX: 0,
+      accelY: 0,
+      wait: 0,
+      alive: true,
+      lastFireDirection: 180,
+      lastFireSpeed: 1,
+      frames: [createFrame(action)],
+      dirTween: null,
+      speedTween: null,
+      accelTween: null,
+    })
+  }
+
+  step() {
+    if (!this.gbml) return
+    this.frame += 1
+    this.lastInstructionCount = 0
+    const entities = [...this.entities]
+    for (const entity of entities) {
+      if (!entity.alive) continue
+      this.updateTweens(entity)
+      this.moveEntity(entity)
+      this.runEntity(entity)
+      if (entity.visible && this.isOutOfBounds(entity)) this.kill(entity)
+    }
+    this.entities = this.entities.filter((entity) => entity.alive)
+  }
+
+  updateTweens(entity) {
+    this.updateTween(entity, "direction", "dirTween")
+    this.updateTween(entity, "speed", "speedTween")
+    if (entity.accelTween) {
+      const tween = entity.accelTween
+      if (tween.remaining <= 0) {
+        entity.accelX = tween.targetX
+        entity.accelY = tween.targetY
+        entity.accelTween = null
+      } else {
+        entity.accelX += (tween.targetX - entity.accelX) / tween.remaining
+        entity.accelY += (tween.targetY - entity.accelY) / tween.remaining
+        tween.remaining -= 1
+      }
+    }
+  }
+
+  updateTween(entity, field, tweenField) {
+    const tween = entity[tweenField]
+    if (!tween) return
+    if (tween.remaining <= 0) {
+      entity[field] = tween.target
+      entity[tweenField] = null
+      return
+    }
+    entity[field] += (tween.target - entity[field]) / tween.remaining
+    tween.remaining -= 1
+  }
+
+  moveEntity(entity) {
+    if (!entity.visible) return
+    entity.x += entity.accelX
+    entity.y += entity.accelY
+    const velocity = velocityFromDirection(entity.direction, entity.speed)
+    entity.x += velocity.x
+    entity.y += velocity.y
+  }
+
+  runEntity(entity) {
+    if (entity.wait > 0) {
+      entity.wait -= 1
+      return
+    }
+
+    while (entity.alive && entity.frames.length > 0) {
+      this.lastInstructionCount += 1
+      assert(
+        this.lastInstructionCount <= MAX_INSTRUCTIONS_PER_TICK,
+        "GBML runner exceeded max instructions in one frame",
+      )
+      const frame = entity.frames[entity.frames.length - 1]
+      if (frame.pc >= frame.ops.length) {
+        if (frame.repeat > 1) {
+          frame.repeat -= 1
+          frame.pc = 0
+          continue
+        }
+        entity.frames.pop()
+        continue
+      }
+      const op = frame.ops[frame.pc]
+      frame.pc += 1
+      const paused = this.executeOp(entity, frame, op)
+      if (paused) return
+    }
+  }
+
+  executeOp(entity, frame, op) {
+    assert(op && typeof op.op === "string", "GBML op requires op string")
+    if (op.op === "wait") {
+      entity.wait = Math.max(0, Math.floor(this.evalExpr(op.expr, frame.params)))
+      return true
+    }
+    if (op.op === "vanish") {
+      this.kill(entity)
+      return true
+    }
+    if (op.op === "fire") {
+      this.fire(entity, op.fire, frame.params)
+      return false
+    }
+    if (op.op === "fireRef") {
+      const ref = this.evalRef(op.fireRef, frame.params)
+      this.fire(entity, this.resolveFire(`fire:${ref.label}`), ref.params)
+      return false
+    }
+    if (op.op === "action") {
+      entity.frames.push(createFrame(op.action, frame.params))
+      return false
+    }
+    if (op.op === "actionRef") {
+      const ref = this.evalRef(op.actionRef, frame.params)
+      entity.frames.push(createFrame(this.resolveAction(`action:${ref.label}`), ref.params))
+      return false
+    }
+    if (op.op === "repeat") {
+      const repeat = Math.max(0, Math.floor(this.evalExpr(op.times, frame.params)))
+      if (repeat <= 0) return false
+      if (op.action) entity.frames.push(createFrame(op.action, frame.params, repeat))
+      else if (op.actionRef) {
+        const ref = this.evalRef(op.actionRef, frame.params)
+        entity.frames.push(createFrame(this.resolveAction(`action:${ref.label}`), ref.params, repeat))
+      } else throw new Error("GBML repeat requires action or actionRef")
+      return false
+    }
+    if (op.op === "changeDirection") {
+      const target = this.resolveDirection(entity, op.direction, frame.params)
+      const term = Math.max(0, Math.floor(this.evalExpr(op.term, frame.params)))
+      entity.dirTween = { target, remaining: term }
+      return false
+    }
+    if (op.op === "changeSpeed") {
+      const target = this.resolveSpeed(entity, op.speed, frame.params)
+      const term = Math.max(0, Math.floor(this.evalExpr(op.term, frame.params)))
+      entity.speedTween = { target, remaining: term }
+      return false
+    }
+    if (op.op === "accel") {
+      const targetX = op.horizontal ? this.resolveAxis(entity.accelX, op.horizontal, frame.params) : entity.accelX
+      const targetY = op.vertical ? this.resolveAxis(entity.accelY, op.vertical, frame.params) : entity.accelY
+      const term = Math.max(0, Math.floor(this.evalExpr(op.term, frame.params)))
+      entity.accelTween = { targetX, targetY, remaining: term }
+      return false
+    }
+    throw new Error(`unsupported GBML op ${op.op}`)
+  }
+
+  fire(parent, fireSpec, params) {
+    assert(this.entities.length < MAX_BULLETS, "GBML runner exceeded max bullets")
+    assert(fireSpec && fireSpec.bullet, "GBML fire requires bullet")
+    const direction = this.resolveDirection(parent, fireSpec.direction, params)
+    const speed = this.resolveSpeed(parent, fireSpec.speed, params)
+    const bullet = this.resolveBulletUse(fireSpec.bullet, params)
+    const child = {
+      id: this.spawned + 1,
+      visible: true,
+      x: parent.x,
+      y: parent.y,
+      direction,
+      speed,
+      accelX: 0,
+      accelY: 0,
+      wait: 0,
+      alive: true,
+      lastFireDirection: direction,
+      lastFireSpeed: speed,
+      frames: this.createBulletFrames(bullet.definition, bullet.params),
+      dirTween: null,
+      speedTween: null,
+      accelTween: null,
+    }
+    this.applyBulletInitializers(parent, child, bullet.definition, bullet.params)
+    parent.lastFireDirection = direction
+    parent.lastFireSpeed = speed
+    this.spawned += 1
+    this.entities.push(child)
+  }
+
+  createBulletFrames(bullet, params) {
+    const frames = []
+    for (const actionUse of bullet.actions || []) {
+      if (actionUse.kind === "action") frames.push(createFrame(actionUse.action, params))
+      else if (actionUse.kind === "actionRef") {
+        const ref = this.evalRef(actionUse.ref, params)
+        frames.push(createFrame(this.resolveAction(`action:${ref.label}`), ref.params))
+      } else throw new Error(`unsupported bullet action kind ${actionUse.kind}`)
+    }
+    return frames
+  }
+
+  applyBulletInitializers(parent, child, bullet, params) {
+    if (bullet.direction) child.direction = this.resolveDirection(parent, bullet.direction, params)
+    if (bullet.speed) child.speed = this.resolveSpeed(parent, bullet.speed, params)
+  }
+
+  resolveBulletUse(bulletUse, params) {
+    if (bulletUse.kind === "bullet") return { definition: bulletUse.bullet, params }
+    if (bulletUse.kind === "bulletRef") {
+      const ref = this.evalRef(bulletUse.ref, params)
+      return { definition: this.resolveBullet(`bullet:${ref.label}`), params: ref.params }
+    }
+    throw new Error(`unsupported bullet use kind ${bulletUse.kind}`)
+  }
+
+  resolveDirection(entity, valueRef, params) {
+    if (!valueRef) return directionToPoint(entity.x, entity.y, TARGET_X, TARGET_Y)
+    const value = this.evalExpr(valueRef.expr, params)
+    if (valueRef.mode === "aim") return normalizeDirection(directionToPoint(entity.x, entity.y, TARGET_X, TARGET_Y) + value)
+    if (valueRef.mode === "absolute") return normalizeDirection(value)
+    if (valueRef.mode === "relative") return normalizeDirection(entity.direction + value)
+    if (valueRef.mode === "sequence") return normalizeDirection(entity.lastFireDirection + value)
+    throw new Error(`unsupported direction mode ${valueRef.mode}`)
+  }
+
+  resolveSpeed(entity, valueRef, params) {
+    if (!valueRef) return 1
+    const value = this.evalExpr(valueRef.expr, params)
+    if (valueRef.mode === "absolute") return value
+    if (valueRef.mode === "relative") return entity.speed + value
+    if (valueRef.mode === "sequence") return entity.lastFireSpeed + value
+    throw new Error(`unsupported speed mode ${valueRef.mode}`)
+  }
+
+  resolveAxis(current, valueRef, params) {
+    const value = this.evalExpr(valueRef.expr, params)
+    if (valueRef.mode === "absolute") return value
+    if (valueRef.mode === "relative") return current + value
+    if (valueRef.mode === "sequence") return current + value
+    throw new Error(`unsupported accel mode ${valueRef.mode}`)
+  }
+
+  evalRef(ref, params) {
+    assert(ref && typeof ref.label === "string" && ref.label.length > 0, "GBML ref requires label")
+    return {
+      label: ref.label,
+      params: (ref.params || []).map((expr) => this.evalExpr(expr, params)),
+    }
+  }
+
+  evalExpr(exprID, params) {
+    assert(Number.isInteger(exprID), "GBML expression id must be integer")
+    const expression = this.expressions[exprID]
+    assert(expression, `GBML missing expression ${exprID}`)
+    const source = String(expression.source).trim()
+    assert(source.length > 0, `GBML expression ${exprID} must not be empty`)
+    const rewritten = source.replace(/\$(\d+|rand|rank)/g, (_match, name) => {
+      if (name === "rand") return String(this.random())
+      if (name === "rank") return String(this.rank)
+      const index = Number(name) - 1
+      assert(index >= 0 && index < params.length, `GBML expression ${exprID} missing parameter $${name}`)
+      return String(params[index])
+    })
+    assert(
+      /^[0-9+\-*/%().\s]+$/.test(rewritten),
+      `GBML expression ${exprID} contains unsupported syntax: ${source}`,
+    )
+    const value = Function(`"use strict"; return (${rewritten})`)()
+    assert(Number.isFinite(value), `GBML expression ${exprID} did not produce finite number`)
+    return value
+  }
+
+  random() {
+    this.seed = (1664525 * this.seed + 1013904223) >>> 0
+    return this.seed / 0x100000000
+  }
+
+  resolveAction(id) {
+    const action = this.actions.get(id)
+    assert(action, `GBML missing action ${id}`)
+    return action
+  }
+
+  resolveBullet(id) {
+    const bullet = this.bullets.get(id)
+    assert(bullet, `GBML missing bullet ${id}`)
+    return bullet
+  }
+
+  resolveFire(id) {
+    const fire = this.fires.get(id)
+    assert(fire, `GBML missing fire ${id}`)
+    return fire
+  }
+
+  kill(entity) {
+    if (!entity.alive) return
+    entity.alive = false
+    this.vanished += 1
+  }
+
+  isOutOfBounds(entity) {
+    return entity.x < -96 || entity.x > VIEW_WIDTH + 96 || entity.y < -96 || entity.y > VIEW_HEIGHT + 96
+  }
+
+  visibleBullets() {
+    return this.entities.filter((entity) => entity.alive && entity.visible)
+  }
+
+  stats() {
+    return {
+      frame: this.frame,
+      alive: this.visibleBullets().length,
+      spawned: this.spawned,
+      vanished: this.vanished,
+      instructions: this.lastInstructionCount,
+    }
+  }
+}
+
+export class ViewBullet extends ViewCanvasBase {
   static get observedAttributes() {
     return ["data-source"]
   }
@@ -89,84 +501,67 @@ export class ViewBullet extends HTMLElement {
     this.gbml = null
     this.programText = ""
     this.dirty = false
+    this.engine = new BulletMLEngine()
     this.summaryOutput = null
-    this.programOutput = null
     this.pathOutput = null
     this.dirtyOutput = null
     this.statusOutput = null
-    this._headerControlsElement = null
+    this.statsOutput = null
+    this._animationFrame = 0
+    this._lastAnimationTime = 0
+    this._ready = false
+    this._animate = this._animate.bind(this)
   }
 
   connectedCallback() {
-    registerViewPlugin(this)
-    if (this.dataset.ready) return
-    this.dataset.ready = "1"
-    this.style.display = "contents"
-
-    const config = this.config
-    const configSource = config && typeof config === "object" ? config.defaultSource : undefined
-    const attrSource = this.getAttribute("data-source")
-    assert(
-      (typeof attrSource === "string" && attrSource.trim().length > 0) ||
-        (typeof configSource === "string" && configSource.trim().length > 0),
-      "view-bullet requires data-source or config.defaultSource",
-    )
-    this.sourcePath = String(attrSource || configSource).trim()
-
-    this.innerHTML = `
-      <article>
-        <pre data-element="summary">Loading GBML...</pre>
-        <pre data-element="program"></pre>
-      </article>
-      <footer>
-        <output data-element="path"></output>
-        <output data-element="dirty"></output>
-        <output data-element="status">Loading...</output>
-      </footer>
-    `
-
-    this.summaryOutput = this.querySelector('[data-element="summary"]')
-    this.programOutput = this.querySelector('[data-element="program"]')
-    this.pathOutput = this.querySelector('[data-element="path"]')
-    this.dirtyOutput = this.querySelector('[data-element="dirty"]')
-    this.statusOutput = this.querySelector('[data-element="status"]')
-
-    assert(
-      this.summaryOutput instanceof HTMLPreElement,
-      "view-bullet missing summary output",
-    )
-    assert(
-      this.programOutput instanceof HTMLPreElement,
-      "view-bullet missing program output",
-    )
-    assert(
-      this.pathOutput instanceof HTMLOutputElement,
-      "view-bullet missing path output",
-    )
-    assert(
-      this.dirtyOutput instanceof HTMLOutputElement,
-      "view-bullet missing dirty output",
-    )
-    assert(
-      this.statusOutput instanceof HTMLOutputElement,
-      "view-bullet missing status output",
-    )
-
-    this._mountHeaderControls()
+    if (!this._ready) {
+      const config = this.config
+      const configSource = config && typeof config === "object" ? config.defaultSource : undefined
+      const attrSource = this.getAttribute("data-source")
+      assert(
+        (typeof attrSource === "string" && attrSource.trim().length > 0) ||
+          (typeof configSource === "string" && configSource.trim().length > 0),
+        "view-bullet requires data-source or config.defaultSource",
+      )
+      this.sourcePath = String(attrSource || configSource).trim()
+      this.autoFitOnLoad = true
+      this.innerHTML = `
+        <canvas data-element="canvas"></canvas>
+        <footer>
+          <output data-element="path"></output>
+          <output data-element="dirty"></output>
+          <output data-element="stats"></output>
+          <output data-element="status">Loading...</output>
+          <pre data-element="summary">Loading GBML...</pre>
+        </footer>
+      `
+      this.summaryOutput = this.querySelector('[data-element="summary"]')
+      this.pathOutput = this.querySelector('[data-element="path"]')
+      this.dirtyOutput = this.querySelector('[data-element="dirty"]')
+      this.statusOutput = this.querySelector('[data-element="status"]')
+      this.statsOutput = this.querySelector('[data-element="stats"]')
+      assert(this.summaryOutput instanceof HTMLPreElement, "view-bullet missing summary output")
+      assert(this.pathOutput instanceof HTMLOutputElement, "view-bullet missing path output")
+      assert(this.dirtyOutput instanceof HTMLOutputElement, "view-bullet missing dirty output")
+      assert(this.statusOutput instanceof HTMLOutputElement, "view-bullet missing status output")
+      assert(this.statsOutput instanceof HTMLOutputElement, "view-bullet missing stats output")
+      this._ready = true
+    }
+    super.connectedCallback()
     this.updateFooter()
     void this.load()
   }
 
   disconnectedCallback() {
-    this._unmountHeaderControls()
-    void unregisterViewPlugin(this)
+    this.stopPlayback()
+    super.disconnectedCallback()
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
     if (name !== "data-source") return
     this.sourcePath = String(newValue || "").trim()
-    if (!this.dataset.ready) return
+    if (!this._ready) return
     assert(this.sourcePath.length > 0, "view-bullet data-source must not be empty")
     this.updateFooter()
     void this.load()
@@ -175,7 +570,6 @@ export class ViewBullet extends HTMLElement {
   createHeaderControlsElement() {
     const controls = document.createElement("div")
     controls.dataset.element = "header-controls"
-    controls.setAttribute("slot", "header-controls")
     controls.innerHTML = `
       <div role="buttongroup" data-element="file-actions">
         <button type="button" data-action="new" aria-label="New GBML" title="New GBML"><i aria-hidden="true">docs</i></button>
@@ -186,45 +580,39 @@ export class ViewBullet extends HTMLElement {
       </div>
       <div role="buttongroup" data-element="tool-actions">
         <button type="button" data-action="edit" aria-label="Edit GBML JSON" title="Edit GBML JSON"><i aria-hidden="true">edit</i></button>
+        <button type="button" data-action="restart" aria-label="Restart preview" title="Restart preview"><i aria-hidden="true">restart_alt</i></button>
+        <button type="button" data-action="play-pause" aria-label="Play or pause preview" title="Play/Pause"><i aria-hidden="true">play_arrow</i></button>
+        <button type="button" data-action="step" aria-label="Step one frame" title="Step one frame"><i aria-hidden="true">skip_next</i></button>
+      </div>
+      <div role="buttongroup" data-element="view-actions">
+        <button type="button" data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
+        <button type="button" data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
       </div>
     `
+    queueMicrotask(() => this.bindHeaderControls())
     return controls
   }
 
-  _mountHeaderControls() {
-    if (!this.parentElement || this._headerControlsElement) return
-    this._headerControlsElement = this.createHeaderControlsElement()
-    this.parentElement.appendChild(this._headerControlsElement)
-    this.queryHeader('[data-action="new"]').addEventListener("click", () =>
-      void this.new(),
-    )
-    this.queryHeader('[data-action="open"]').addEventListener("click", () =>
-      void this.open(),
-    )
-    this.queryHeader('[data-action="save"]').addEventListener("click", () =>
-      void this.save(),
-    )
-    this.queryHeader('[data-action="save-as"]').addEventListener("click", () =>
-      void this.saveAs(),
-    )
-    this.queryHeader('[data-action="reload"]').addEventListener("click", () =>
-      void this.reload(),
-    )
-    this.queryHeader('[data-action="edit"]').addEventListener("click", () =>
-      void this.edit(),
-    )
+  bindHeaderControls() {
+    this.headerButton("new").addEventListener("click", () => void this.new())
+    this.headerButton("open").addEventListener("click", () => void this.open())
+    this.headerButton("save").addEventListener("click", () => void this.save())
+    this.headerButton("save-as").addEventListener("click", () => void this.saveAs())
+    this.headerButton("reload").addEventListener("click", () => void this.reload())
+    this.headerButton("edit").addEventListener("click", () => void this.edit())
+    this.headerButton("restart").addEventListener("click", () => this.restartPreview())
+    this.headerButton("play-pause").addEventListener("click", () => this.togglePlayback())
+    this.headerButton("step").addEventListener("click", () => this.stepPreview())
+    this.headerButton("zoom-in").addEventListener("click", () => this.zoomIn())
+    this.headerButton("zoom-out").addEventListener("click", () => this.zoomOut())
+    this.headerButton("zoom-fit").addEventListener("click", () => this.zoomFit())
     this.renderHeaderControls()
   }
 
-  _unmountHeaderControls() {
-    if (this._headerControlsElement) this._headerControlsElement.remove()
-    this._headerControlsElement = null
-  }
-
-  queryHeader(selector) {
-    assert(this._headerControlsElement, "view-bullet missing header controls")
-    const element = this._headerControlsElement.querySelector(selector)
-    assert(element instanceof HTMLElement, `view-bullet missing header control ${selector}`)
+  headerButton(action) {
+    const element = this.queryHeaderControl(`[data-action="${action}"]`)
+    assert(element instanceof HTMLButtonElement, `view-bullet missing ${action} header button`)
     return element
   }
 
@@ -232,25 +620,58 @@ export class ViewBullet extends HTMLElement {
     if (!this._headerControlsElement) return
     const hasProgram = this.gbml !== null
     const hasPath = this.sourcePath.length > 0
-    const saveButton = this.queryHeader('[data-action="save"]')
-    const saveAsButton = this.queryHeader('[data-action="save-as"]')
-    const reloadButton = this.queryHeader('[data-action="reload"]')
-    const editButton = this.queryHeader('[data-action="edit"]')
-    assert(saveButton instanceof HTMLButtonElement, "view-bullet save control must be a button")
-    assert(saveAsButton instanceof HTMLButtonElement, "view-bullet save-as control must be a button")
-    assert(reloadButton instanceof HTMLButtonElement, "view-bullet reload control must be a button")
-    assert(editButton instanceof HTMLButtonElement, "view-bullet edit control must be a button")
-    saveButton.disabled = !hasProgram || !hasPath
-    saveAsButton.disabled = !hasProgram
-    reloadButton.disabled = !hasPath
-    editButton.disabled = !hasPath
+    this.headerButton("save").disabled = !hasProgram || !hasPath
+    this.headerButton("save-as").disabled = !hasProgram
+    this.headerButton("reload").disabled = !hasPath
+    this.headerButton("edit").disabled = !hasPath
+    this.headerButton("restart").disabled = !hasProgram
+    this.headerButton("play-pause").disabled = !hasProgram
+    this.headerButton("step").disabled = !hasProgram
+    const playIcon = this.headerButton("play-pause").querySelector("i")
+    assert(playIcon instanceof HTMLElement, "view-bullet play-pause button missing icon")
+    playIcon.textContent = this.engine.running ? "pause" : "play_arrow"
+  }
+
+  calculateContentBounds(_data) {
+    return { minX: 0, minY: 0, maxX: VIEW_WIDTH, maxY: VIEW_HEIGHT }
+  }
+
+  drawContent(ctx, _data) {
+    ctx.fillStyle = "#08131a"
+    ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT)
+    ctx.strokeStyle = "#35566a"
+    ctx.lineWidth = 1
+    ctx.strokeRect(0.5, 0.5, VIEW_WIDTH - 1, VIEW_HEIGHT - 1)
+
+    ctx.fillStyle = "#54d6ff"
+    ctx.beginPath()
+    ctx.arc(ROOT_X, ROOT_Y, 5, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.strokeStyle = "#6aff88"
+    ctx.beginPath()
+    ctx.moveTo(TARGET_X - 8, TARGET_Y)
+    ctx.lineTo(TARGET_X + 8, TARGET_Y)
+    ctx.moveTo(TARGET_X, TARGET_Y - 8)
+    ctx.lineTo(TARGET_X, TARGET_Y + 8)
+    ctx.stroke()
+
+    for (const bullet of this.engine.visibleBullets()) {
+      ctx.fillStyle = "#ff6688"
+      ctx.beginPath()
+      ctx.arc(bullet.x, bullet.y, 3, 0, Math.PI * 2)
+      ctx.fill()
+      const velocity = velocityFromDirection(bullet.direction, 8)
+      ctx.strokeStyle = "#ffd1dc"
+      ctx.beginPath()
+      ctx.moveTo(bullet.x, bullet.y)
+      ctx.lineTo(bullet.x + velocity.x, bullet.y + velocity.y)
+      ctx.stroke()
+    }
   }
 
   setStatus(text, tone = null) {
-    assert(
-      this.statusOutput instanceof HTMLOutputElement,
-      "view-bullet missing status output",
-    )
+    assert(this.statusOutput instanceof HTMLOutputElement, "view-bullet missing status output")
     this.statusOutput.textContent = text
     this.statusOutput.classList.remove("accent", "success", "warning", "danger", "info")
     if (tone) this.statusOutput.classList.add(tone)
@@ -259,9 +680,12 @@ export class ViewBullet extends HTMLElement {
   updateFooter(status = null, tone = null) {
     assert(this.pathOutput instanceof HTMLOutputElement, "view-bullet missing path output")
     assert(this.dirtyOutput instanceof HTMLOutputElement, "view-bullet missing dirty output")
+    assert(this.statsOutput instanceof HTMLOutputElement, "view-bullet missing stats output")
     this.pathOutput.textContent = `Path: ${this.sourcePath}`
     this.dirtyOutput.textContent = this.dirty ? "Dirty" : "Saved"
     this.dirtyOutput.className = this.dirty ? "warning" : "success"
+    const stats = this.engine.stats()
+    this.statsOutput.textContent = `Frame: ${stats.frame} Alive: ${stats.alive} Spawned: ${stats.spawned} Vanished: ${stats.vanished}`
     if (status !== null) this.setStatus(status, tone)
     this.renderHeaderControls()
   }
@@ -271,12 +695,14 @@ export class ViewBullet extends HTMLElement {
     this.programText = stringifyGbml(gbml)
     this.dirty = dirty
     this.summaryOutput.textContent = summarizeGbml(gbml)
-    this.programOutput.textContent = this.programText
+    this.engine.load(gbml)
+    this.setData(gbml, { autoFit: true })
     this.updateFooter(status, tone)
   }
 
   async load() {
     assert(this.sourcePath.length > 0, "view-bullet load requires source path")
+    this.stopPlayback()
     this.setStatus("Loading...", "info")
     try {
       const text = unwrap(await runtime.invoke("fs/fs::read-text", this.sourcePath))
@@ -294,30 +720,20 @@ export class ViewBullet extends HTMLElement {
   }
 
   async new() {
-    const payload = unwrap(
-      await runtime.call("ui.popup.open", this.createNewPopupOptions()),
-    )
+    const payload = unwrap(await runtime.call("ui.popup.open", this.createNewPopupOptions()))
     if (!payload || payload.cancelled) return
     const path = typeof payload.path === "string" ? payload.path.trim() : ""
     assert(path.length > 0, "view-bullet new requires GBML file path")
     this.sourcePath = path
-    this.setProgram(createEmptyGbml(), {
-      dirty: false,
-      status: `Created ${path}`,
-      tone: "success",
-    })
+    this.setProgram(createEmptyGbml(), { dirty: false, status: `Created ${path}`, tone: "success" })
     await this.saveToPath(path)
     await runtime.call("ui.toast.success", { message: `Created ${path}` })
   }
 
   async open() {
-    const payload = unwrap(
-      await runtime.call("ui.popup.open", this.createOpenPopupOptions()),
-    )
+    const payload = unwrap(await runtime.call("ui.popup.open", this.createOpenPopupOptions()))
     if (!payload || payload.cancelled) return
-    const selection = Array.isArray(payload.selection)
-      ? payload.selection[0]
-      : payload.selection
+    const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
     assert(selection && selection.path, "view-bullet open requires selected GBML file path")
     this.sourcePath = selection.path
     await this.load()
@@ -334,9 +750,7 @@ export class ViewBullet extends HTMLElement {
 
   async saveAs() {
     assert(this.gbml !== null, "view-bullet save-as requires loaded GBML")
-    const payload = unwrap(
-      await runtime.call("ui.popup.open", this.createSavePopupOptions()),
-    )
+    const payload = unwrap(await runtime.call("ui.popup.open", this.createSavePopupOptions()))
     if (!payload || payload.cancelled) return
     const path = typeof payload.path === "string" ? payload.path.trim() : ""
     assert(path.length > 0, "view-bullet save-as requires GBML file path")
@@ -367,15 +781,59 @@ export class ViewBullet extends HTMLElement {
     unwrap(await runtime.invoke("fs/fs::write-text", path, this.programText))
   }
 
+  restartPreview() {
+    assert(this.gbml !== null, "view-bullet restart requires loaded GBML")
+    this.engine.reset()
+    this.draw()
+    this.updateFooter("Restarted", "success")
+  }
+
+  stepPreview() {
+    assert(this.gbml !== null, "view-bullet step requires loaded GBML")
+    this.engine.step()
+    this.draw()
+    this.updateFooter("Stepped one frame", "info")
+  }
+
+  togglePlayback() {
+    assert(this.gbml !== null, "view-bullet playback requires loaded GBML")
+    if (this.engine.running) this.stopPlayback()
+    else this.startPlayback()
+    this.renderHeaderControls()
+  }
+
+  startPlayback() {
+    if (this.engine.running) return
+    this.engine.running = true
+    this._lastAnimationTime = 0
+    this._animationFrame = requestAnimationFrame(this._animate)
+  }
+
+  stopPlayback() {
+    this.engine.running = false
+    if (this._animationFrame) cancelAnimationFrame(this._animationFrame)
+    this._animationFrame = 0
+    this.renderHeaderControls()
+  }
+
+  _animate(time) {
+    if (!this.engine.running) return
+    if (this._lastAnimationTime === 0) this._lastAnimationTime = time
+    const elapsed = time - this._lastAnimationTime
+    const steps = Math.max(1, Math.min(4, Math.floor(elapsed / (1000 / 60)) || 1))
+    for (let i = 0; i < steps; i += 1) this.engine.step()
+    this._lastAnimationTime = time
+    this.draw()
+    this.updateFooter()
+    this._animationFrame = requestAnimationFrame(this._animate)
+  }
+
   createOpenPopupOptions() {
     return {
       title: "Open GBML",
       size: "medium",
       tag: "view-files",
-      props: {
-        mode: "chooser",
-        filter: "*.gbml.json,*.json",
-      },
+      props: { mode: "chooser", filter: "*.gbml.json,*.json" },
     }
   }
 
@@ -384,11 +842,7 @@ export class ViewBullet extends HTMLElement {
       title: "Create GBML",
       size: "medium",
       tag: "view-files",
-      props: {
-        mode: "saver",
-        filter: "*.gbml.json,*.json",
-        defaultName: "new.gbml.json",
-      },
+      props: { mode: "saver", filter: "*.gbml.json,*.json", defaultName: "new.gbml.json" },
     }
   }
 
