@@ -1148,6 +1148,9 @@
               "outputs": [
                 {
                   "name": "path"
+                },
+                {
+                  "name": "error"
                 }
               ],
               "group": "File"
