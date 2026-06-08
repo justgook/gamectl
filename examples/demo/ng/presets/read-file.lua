@@ -39,24 +39,23 @@ if type(path) == "table" then
 	if not okArray then
 		outputs[1] = nil
 		outputs[2] = "path must be string or array"
-		return
-	end
-
-	local contents = {}
-	for index, itemPath in ipairs(path) do
-		local content, err = readFile(itemPath)
-		if err ~= "" then
-			outputs[1] = nil
-			outputs[2] = "item " .. tostring(index) .. ": " .. err
-			return
+	else
+		local contents = {}
+		local err = ""
+		for index, itemPath in ipairs(path) do
+			local content, itemErr = readFile(itemPath)
+			if itemErr ~= "" then
+				err = "item " .. tostring(index) .. ": " .. itemErr
+				contents = nil
+				break
+			end
+			contents[index] = content
 		end
-		contents[index] = content
+		outputs[1] = contents
+		outputs[2] = err
 	end
-	outputs[1] = contents
-	outputs[2] = ""
-	return
+else
+	local content, err = readFile(path)
+	outputs[1] = content
+	outputs[2] = err
 end
-
-local content, err = readFile(path)
-outputs[1] = content
-outputs[2] = err

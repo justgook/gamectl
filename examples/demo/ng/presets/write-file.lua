@@ -60,40 +60,33 @@ local content = inputs[2]
 
 if type(path) == "table" then
 	local okPaths, pathCount = isArray(path)
+	local okContents, contentCount = isArray(content)
 	if not okPaths then
 		outputs[1] = nil
 		outputs[2] = "path must be string or array"
-		return
-	end
-
-	local okContents, contentCount = isArray(content)
-	if not okContents then
+	elseif not okContents then
 		outputs[1] = nil
 		outputs[2] = "text must be array when path is array"
-		return
-	end
-
-	if pathCount ~= contentCount then
+	elseif pathCount ~= contentCount then
 		outputs[1] = nil
 		outputs[2] = "path and text arrays must have the same length"
-		return
-	end
-
-	local written = {}
-	for index, itemPath in ipairs(path) do
-		local itemWritten, err = writeFile(itemPath, content[index])
-		if err ~= "" then
-			outputs[1] = nil
-			outputs[2] = "item " .. tostring(index) .. ": " .. err
-			return
+	else
+		local written = {}
+		local err = ""
+		for index, itemPath in ipairs(path) do
+			local itemWritten, itemErr = writeFile(itemPath, content[index])
+			if itemErr ~= "" then
+				err = "item " .. tostring(index) .. ": " .. itemErr
+				written = nil
+				break
+			end
+			written[index] = itemWritten
 		end
-		written[index] = itemWritten
+		outputs[1] = written
+		outputs[2] = err
 	end
+else
+	local written, err = writeFile(path, content)
 	outputs[1] = written
-	outputs[2] = ""
-	return
+	outputs[2] = err
 end
-
-local written, err = writeFile(path, content)
-outputs[1] = written
-outputs[2] = err

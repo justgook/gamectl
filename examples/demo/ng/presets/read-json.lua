@@ -40,24 +40,23 @@ if type(path) == "table" then
 	if not okArray then
 		outputs[1] = nil
 		outputs[2] = "path must be string or array"
-		return
-	end
-
-	local data = {}
-	for index, itemPath in ipairs(path) do
-		local item, err = readJson(itemPath)
-		if err ~= "" then
-			outputs[1] = nil
-			outputs[2] = "item " .. tostring(index) .. ": " .. err
-			return
+	else
+		local data = {}
+		local err = ""
+		for index, itemPath in ipairs(path) do
+			local item, itemErr = readJson(itemPath)
+			if itemErr ~= "" then
+				err = "item " .. tostring(index) .. ": " .. itemErr
+				data = nil
+				break
+			end
+			data[index] = item
 		end
-		data[index] = item
+		outputs[1] = data
+		outputs[2] = err
 	end
+else
+	local data, err = readJson(path)
 	outputs[1] = data
-	outputs[2] = ""
-	return
+	outputs[2] = err
 end
-
-local data, err = readJson(path)
-outputs[1] = data
-outputs[2] = err
