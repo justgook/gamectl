@@ -172,6 +172,10 @@
     border-bottom: 0.5px solid #222222;
   }
 
+  [tabindex] {
+    cursor: pointer;
+  }
+
   button,
   input[type="submit"],
   input[type="reset"] {

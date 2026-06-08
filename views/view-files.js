@@ -772,6 +772,12 @@ export class ViewFiles extends HTMLElement {
     row.addEventListener("dblclick", async () => {
       if (entry.type === "regular-file" && this.mode === "browser") {
         await this.openFile(entry.path)
+        return
+      }
+
+      if (entry.type === "regular-file" && this.mode === "chooser") {
+        this.selectChooserEntryForActivation(entry)
+        this.confirmChooserSelection()
       }
     })
     row.addEventListener("keydown", (event) =>
@@ -1157,6 +1163,22 @@ export class ViewFiles extends HTMLElement {
     }
 
     this.expandedPaths = next
+  }
+
+  selectChooserEntryForActivation(entry) {
+    if (!this.isSelectableEntry(entry)) return
+
+    this.selectedPath = entry.path
+
+    if (this.multiSelect) {
+      this.selectedPaths.add(entry.path)
+    } else {
+      this.selectedPaths = new Set([entry.path])
+    }
+
+    this.updateSelectionUI()
+    this.updateHeaderControlsUI()
+    this.emitSelectionChanged()
   }
 
   selectRow(path) {
