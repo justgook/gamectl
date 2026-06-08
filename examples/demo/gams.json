@@ -1092,6 +1092,23 @@
               "group": "Data"
             },
             {
+              "name": "Glob",
+              "kind": "code",
+              "codePath": "ng/presets/glob.lua",
+              "inputs": [
+                {
+                  "name": "pattern",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "paths"
+                }
+              ],
+              "group": "File"
+            },
+            {
               "name": "Read File",
               "kind": "code",
               "codePath": "ng/presets/read-file.lua",

@@ -1,0 +1,64 @@
+[
+  {
+    "id": 1,
+    "kind": 2,
+    "x": 1936,
+    "y": 312,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "kind": 4,
+    "x": 1666,
+    "y": 323,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "bulletML/examples/*.gbml.json"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "kind": 1,
+    "x": 2130,
+    "y": 306,
+    "name": "RESULT",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "FILES",
+        "srcNodeId": 1,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  }
+]
