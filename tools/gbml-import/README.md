@@ -27,6 +27,15 @@ cd tools/gbml-import
 go run . -o ../../examples/demo/bulletML fixtures/*.xml
 ```
 
+## Run importer tests
+
+```sh
+cd tools/gbml-import
+go test ./...
+```
+
+The tests validate XML fixtures against `bulletml.dtd` when `xmllint` is available and compare generated GBML JSON against `examples/demo/bulletML/` golden outputs.
+
 ## Current importer scope
 
 The first importer parses the full BulletML 0.21 element vocabulary from the DTD into a normalized GBML JSON document:
