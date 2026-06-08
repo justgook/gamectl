@@ -48,8 +48,68 @@
                   }
                 },
                 {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 3
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 4
+                    },
+                    "bullet": {
+                      "kind": "bulletRef",
+                      "ref": {
+                        "label": "green"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 5
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 6
+                    },
+                    "bullet": {
+                      "kind": "bulletRef",
+                      "ref": {
+                        "label": "blue"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 7
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 8
+                    },
+                    "bullet": {
+                      "kind": "bulletRef",
+                      "ref": {
+                        "label": "gold"
+                      }
+                    }
+                  }
+                },
+                {
                   "op": "wait",
-                  "expr": 3
+                  "expr": 9
                 }
               ]
             }
@@ -64,8 +124,41 @@
         "data": {
           "format": "gams-bullet-data-v1",
           "fields": {
-            "color": "#FF0000",
-            "sprite": "foo"
+            "color": "#FF3333",
+            "sprite": "bullet/red"
+          }
+        }
+      },
+      {
+        "id": "bullet:green",
+        "label": "green",
+        "data": {
+          "format": "gams-bullet-data-v1",
+          "fields": {
+            "color": "#33FF66",
+            "sprite": "bullet/green"
+          }
+        }
+      },
+      {
+        "id": "bullet:blue",
+        "label": "blue",
+        "data": {
+          "format": "gams-bullet-data-v1",
+          "fields": {
+            "color": "#4488FF",
+            "sprite": "bullet/blue"
+          }
+        }
+      },
+      {
+        "id": "bullet:gold",
+        "label": "gold",
+        "data": {
+          "format": "gams-bullet-data-v1",
+          "fields": {
+            "color": "#FFD24A",
+            "sprite": "bullet/gold"
           }
         }
       }
@@ -75,19 +168,43 @@
   "expressions": [
     {
       "id": 0,
-      "source": "8"
+      "source": "12"
     },
     {
       "id": 1,
-      "source": "45"
+      "source": "30"
     },
     {
       "id": 2,
-      "source": "2"
+      "source": "2.0"
     },
     {
       "id": 3,
-      "source": "4"
+      "source": "30"
+    },
+    {
+      "id": 4,
+      "source": "2.2"
+    },
+    {
+      "id": 5,
+      "source": "30"
+    },
+    {
+      "id": 6,
+      "source": "2.4"
+    },
+    {
+      "id": 7,
+      "source": "30"
+    },
+    {
+      "id": 8,
+      "source": "2.6"
+    },
+    {
+      "id": 9,
+      "source": "5"
     }
   ]
 }
