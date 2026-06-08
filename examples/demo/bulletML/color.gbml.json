@@ -1,0 +1,93 @@
+{
+  "format": "gams.gbml",
+  "version": 1,
+  "source": {
+    "language": "bulletml-0.21",
+    "orientation": "vertical",
+    "path": "fixtures/color.xml"
+  },
+  "compatibility": {
+    "semantics": "gams-corrected-v1"
+  },
+  "entrypoints": [
+    {
+      "name": "top",
+      "action": "action:top"
+    }
+  ],
+  "definitions": {
+    "actions": [
+      {
+        "id": "action:top",
+        "label": "top",
+        "ops": [
+          {
+            "op": "repeat",
+            "times": 0,
+            "action": {
+              "id": "inline_action",
+              "ops": [
+                {
+                  "op": "fire",
+                  "fire": {
+                    "id": "inline_fire",
+                    "direction": {
+                      "mode": "sequence",
+                      "expr": 1
+                    },
+                    "speed": {
+                      "mode": "absolute",
+                      "expr": 2
+                    },
+                    "bullet": {
+                      "kind": "bulletRef",
+                      "ref": {
+                        "label": "red"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "wait",
+                  "expr": 3
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "bullets": [
+      {
+        "id": "bullet:red",
+        "label": "red",
+        "data": {
+          "format": "gams-bullet-data-v1",
+          "fields": {
+            "color": "#FF0000",
+            "sprite": "foo"
+          }
+        }
+      }
+    ],
+    "fires": []
+  },
+  "expressions": [
+    {
+      "id": 0,
+      "source": "8"
+    },
+    {
+      "id": 1,
+      "source": "45"
+    },
+    {
+      "id": 2,
+      "source": "2"
+    },
+    {
+      "id": 3,
+      "source": "4"
+    }
+  ]
+}

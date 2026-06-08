@@ -43,7 +43,8 @@ The first importer parses the full BulletML 0.21 element vocabulary from the DTD
 - top-level `bullet`, `action`, and `fire` definitions;
 - `repeat`, `fire`, `fireRef`, `changeSpeed`, `changeDirection`, `accel`, `wait`, `vanish`, nested `action`, and `actionRef` operations;
 - `bulletRef`, `actionRef`, and `fireRef` parameters;
-- `direction`, `speed`, `horizontal`, `vertical`, `term`, `times`, and expression text.
+- `direction`, `speed`, `horizontal`, `vertical`, `term`, `times`, and expression text;
+- GAMS extension `<bullet><data>...</data></bullet>` with one-level text fields such as `color`, `sprite`, and `sound`.
 
 It does not yet compile expressions to expression bytecode or resolve refs into numeric ids. Those are later compiler/semantic-validation steps.
 

@@ -41,7 +41,13 @@
 <!ELEMENT horizontal (#PCDATA)>
 <!ATTLIST horizontal type (absolute|relative|sequence) "absolute">
 
-<!ELEMENT bullet (direction?, speed?, (action | actionRef)*)>
+<!-- GAMS extension: bullet payload metadata for preview/game-specific data. -->
+<!ELEMENT data ANY>
+<!ELEMENT color (#PCDATA)>
+<!ELEMENT sprite (#PCDATA)>
+<!ELEMENT sound (#PCDATA)>
+
+<!ELEMENT bullet (direction?, speed?, data?, (action | actionRef)*)>
 <!ATTLIST bullet label CDATA #IMPLIED>
 
 <!ELEMENT direction (#PCDATA)>

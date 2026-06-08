@@ -353,6 +353,7 @@ class BulletMLEngine {
       alive: true,
       lastFireDirection: direction,
       lastFireSpeed: speed,
+      data: bullet.definition.data || null,
       frames: this.createBulletFrames(bullet.definition, bullet.params),
       dirTween: null,
       speedTween: null,
@@ -712,7 +713,7 @@ export class ViewBullet extends ViewCanvasBase {
     ctx.stroke()
 
     for (const bullet of this.engine.visibleBullets()) {
-      ctx.fillStyle = "#ff6688"
+      ctx.fillStyle = this.bulletColor(bullet)
       ctx.beginPath()
       ctx.arc(bullet.x, bullet.y, 3, 0, Math.PI * 2)
       ctx.fill()
@@ -723,6 +724,18 @@ export class ViewBullet extends ViewCanvasBase {
       ctx.lineTo(bullet.x + velocity.x, bullet.y + velocity.y)
       ctx.stroke()
     }
+  }
+
+  bulletColor(bullet) {
+    const data = bullet.data
+    if (!data) return "#ff6688"
+    requireObject(data, "GBML bullet data")
+    assert(data.format === "gams-bullet-data-v1", `unsupported GBML bullet data format ${data.format}`)
+    const fields = requireObject(data.fields, "GBML bullet data fields")
+    const color = fields.color
+    if (color === undefined) return "#ff6688"
+    assert(typeof color === "string" && color.length > 0, "GBML bullet data color must be a non-empty string")
+    return color
   }
 
   onCanvasMouseDown(event) {

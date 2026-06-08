@@ -62,7 +62,13 @@ type BulletDef struct {
 	Label     string      `json:"label,omitempty"`
 	Direction *ValueRef   `json:"direction,omitempty"`
 	Speed     *ValueRef   `json:"speed,omitempty"`
+	Data      *BulletData `json:"data,omitempty"`
 	Actions   []ActionUse `json:"actions,omitempty"`
+}
+
+type BulletData struct {
+	Format string            `json:"format"`
+	Fields map[string]string `json:"fields"`
 }
 
 type FireDef struct {
@@ -340,6 +346,14 @@ func (c *converter) bulletDef(n *xmlNode, fallbackID string) (*BulletDef, error)
 		def.Speed = v
 		idx++
 	}
+	if idx < len(n.Children) && n.Children[idx].Name == "data" {
+		data, err := c.bulletData(n.Children[idx])
+		if err != nil {
+			return nil, err
+		}
+		def.Data = data
+		idx++
+	}
 	for ; idx < len(n.Children); idx++ {
 		child := n.Children[idx]
 		switch child.Name {
@@ -360,6 +374,23 @@ func (c *converter) bulletDef(n *xmlNode, fallbackID string) (*BulletDef, error)
 		}
 	}
 	return def, nil
+}
+
+func (c *converter) bulletData(n *xmlNode) (*BulletData, error) {
+	fields := map[string]string{}
+	for _, child := range n.Children {
+		if len(child.Children) != 0 {
+			return nil, fmt.Errorf("<data><%s> must contain only text", child.Name)
+		}
+		if child.Name == "" {
+			return nil, fmt.Errorf("<data> child name must not be empty")
+		}
+		if _, exists := fields[child.Name]; exists {
+			return nil, fmt.Errorf("duplicate <data><%s>", child.Name)
+		}
+		fields[child.Name] = child.Text
+	}
+	return &BulletData{Format: "gams-bullet-data-v1", Fields: fields}, nil
 }
 
 func (c *converter) fireDef(n *xmlNode, fallbackID string) (*FireDef, error) {

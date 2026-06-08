@@ -11,7 +11,7 @@ import (
 )
 
 func TestFixturesConvertToDemoOutputs(t *testing.T) {
-	fixtures := []string{"simple", "sequence", "aimed"}
+	fixtures := []string{"simple", "sequence", "aimed", "color"}
 	for _, name := range fixtures {
 		t.Run(name, func(t *testing.T) {
 			tmp := filepath.Join(t.TempDir(), name+".gbml.json")
@@ -33,7 +33,7 @@ func TestFixturesValidateAgainstDTD(t *testing.T) {
 	if _, err := exec.LookPath("xmllint"); err != nil {
 		t.Skip("xmllint not available")
 	}
-	fixtures := []string{"simple", "sequence", "aimed"}
+	fixtures := []string{"simple", "sequence", "aimed", "color"}
 	for _, name := range fixtures {
 		t.Run(name, func(t *testing.T) {
 			cmd := exec.Command(

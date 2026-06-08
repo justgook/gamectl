@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE bulletml SYSTEM "../bulletml.dtd">
+<bulletml type="vertical">
+  <bullet label="red">
+    <data>
+      <color>#FF0000</color>
+      <sprite>foo</sprite>
+    </data>
+  </bullet>
+  <action label="top">
+    <repeat>
+      <times>8</times>
+      <action>
+        <fire>
+          <direction type="sequence">45</direction>
+          <speed type="absolute">2</speed>
+          <bulletRef label="red"/>
+        </fire>
+        <wait>4</wait>
+      </action>
+    </repeat>
+  </action>
+</bulletml>

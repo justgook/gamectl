@@ -78,7 +78,20 @@
         "label": { "type": "string" },
         "direction": { "$ref": "#/$defs/valueRef" },
         "speed": { "$ref": "#/$defs/valueRef" },
+        "data": { "$ref": "#/$defs/bulletData" },
         "actions": { "type": "array", "items": { "$ref": "#/$defs/actionUse" } }
+      }
+    },
+    "bulletData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "fields"],
+      "properties": {
+        "format": { "const": "gams-bullet-data-v1" },
+        "fields": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
       }
     },
     "fireDef": {

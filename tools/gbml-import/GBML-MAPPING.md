@@ -127,6 +127,31 @@ Bullet initial `direction` and `speed` become bullet initialization fields or de
 
 A bullet fired by `<fire>` references a compiled bullet id.
 
+GAMS extends strict BulletML with optional bullet data after `direction?` and `speed?` and before actions:
+
+```xml
+<bullet label="red">
+  <data>
+    <color>#FF0000</color>
+    <sprite>foo</sprite>
+  </data>
+</bullet>
+```
+
+The importer maps one-level text children to GBML bullet data:
+
+```json
+"data": {
+  "format": "gams-bullet-data-v1",
+  "fields": {
+    "color": "#FF0000",
+    "sprite": "foo"
+  }
+}
+```
+
+`color` is a preview convention. Other fields are preserved for game/runtime-specific interpretation.
+
 ### `<fire>`
 
 BulletML fire definitions become `fireSpecs[]` entries plus `FIRE` instructions.
