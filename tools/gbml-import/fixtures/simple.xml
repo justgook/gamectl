@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bulletml type="vertical">
+  <action label="top">
+    <fire>
+      <direction type="absolute">180</direction>
+      <speed type="absolute">2</speed>
+      <bullet/>
+    </fire>
+    <wait>30</wait>
+    <vanish/>
+  </action>
+</bulletml>

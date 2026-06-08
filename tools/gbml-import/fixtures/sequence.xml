@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bulletml type="vertical">
+  <bullet label="basic">
+    <action>
+      <wait>90</wait>
+      <vanish/>
+    </action>
+  </bullet>
+  <action label="top">
+    <repeat>
+      <times>12</times>
+      <action>
+        <fire>
+          <direction type="sequence">30</direction>
+          <speed type="absolute">2</speed>
+          <bulletRef label="basic"/>
+        </fire>
+        <wait>4</wait>
+      </action>
+    </repeat>
+  </action>
+</bulletml>

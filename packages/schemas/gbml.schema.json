@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gams.local/schemas/gbml.schema.json",
+  "title": "GAMS BulletML JSON",
+  "description": "First GBML JSON shape produced by tools/gbml-import. This schema validates structure; semantic validation is performed by importer/view/runner code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "source", "compatibility", "entrypoints", "definitions", "expressions"],
+  "properties": {
+    "format": { "const": "gams.gbml" },
+    "version": { "const": 1 },
+    "source": { "$ref": "#/$defs/source" },
+    "compatibility": { "$ref": "#/$defs/compatibility" },
+    "entrypoints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entrypoint" }
+    },
+    "definitions": { "$ref": "#/$defs/definitions" },
+    "expressions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/expression" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "orientation"],
+      "properties": {
+        "language": { "const": "bulletml-0.21" },
+        "orientation": { "enum": ["none", "vertical", "horizontal"] },
+        "path": { "type": "string" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semantics"],
+      "properties": {
+        "semantics": { "const": "gams-corrected-v1" }
+      }
+    },
+    "entrypoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "action"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "minLength": 1 }
+      }
+    },
+    "definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actions", "bullets", "fires"],
+      "properties": {
+        "actions": { "type": "array", "items": { "$ref": "#/$defs/actionDef" } },
+        "bullets": { "type": "array", "items": { "$ref": "#/$defs/bulletDef" } },
+        "fires": { "type": "array", "items": { "$ref": "#/$defs/fireDef" } }
+      }
+    },
+    "actionDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ops"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "ops": { "type": "array", "items": { "$ref": "#/$defs/op" } }
+      }
+    },
+    "bulletDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "direction": { "$ref": "#/$defs/valueRef" },
+        "speed": { "$ref": "#/$defs/valueRef" },
+        "actions": { "type": "array", "items": { "$ref": "#/$defs/actionUse" } }
+      }
+    },
+    "fireDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "bullet"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "direction": { "$ref": "#/$defs/valueRef" },
+        "speed": { "$ref": "#/$defs/valueRef" },
+        "bullet": { "$ref": "#/$defs/bulletUse" }
+      }
+    },
+    "actionUse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["action", "actionRef"] },
+        "action": { "$ref": "#/$defs/actionDef" },
+        "ref": { "$ref": "#/$defs/refWithArg" }
+      }
+    },
+    "bulletUse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["bullet", "bulletRef"] },
+        "bullet": { "$ref": "#/$defs/bulletDef" },
+        "ref": { "$ref": "#/$defs/refWithArg" }
+      }
+    },
+    "refWithArg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "params": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "valueRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "expr"],
+      "properties": {
+        "mode": { "enum": ["aim", "absolute", "relative", "sequence"] },
+        "expr": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "op": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op"],
+      "properties": {
+        "op": { "enum": ["wait", "vanish", "fire", "fireRef", "action", "actionRef", "repeat", "changeDirection", "changeSpeed", "accel"] },
+        "expr": { "type": "integer", "minimum": 0 },
+        "times": { "type": "integer", "minimum": 0 },
+        "term": { "type": "integer", "minimum": 0 },
+        "direction": { "$ref": "#/$defs/valueRef" },
+        "speed": { "$ref": "#/$defs/valueRef" },
+        "horizontal": { "$ref": "#/$defs/valueRef" },
+        "vertical": { "$ref": "#/$defs/valueRef" },
+        "fire": { "$ref": "#/$defs/fireDef" },
+        "fireRef": { "$ref": "#/$defs/refWithArg" },
+        "action": { "$ref": "#/$defs/actionDef" },
+        "actionRef": { "$ref": "#/$defs/refWithArg" }
+      }
+    },
+    "expression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "source": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
