@@ -56,6 +56,8 @@ FieldDef :: struct {
 	type_index:    int,
 	has_default:   bool,
 	default_token: int,
+	default_start: int,
+	default_end:   int,
 	has_min:       bool,
 	has_max:       bool,
 	min_value:     f64,
@@ -413,7 +415,9 @@ compile_named_type_from_top_level_value :: proc(
 	value_abs_start: int,
 	type_idx: int,
 ) -> string {
+	trim_offset := trim_left_space_count(value_slice)
 	trimmed := trim_bytes_space(value_slice)
+	trimmed_abs_start := value_abs_start + trim_offset
 	if len(trimmed) == 0 {
 		return "type definition missing value"
 	}
@@ -447,7 +451,10 @@ compile_named_type_from_top_level_value :: proc(
 		return compile_oneof_type_from_slice(trimmed, type_idx)
 	}
 	if slice_matches_string(type_name, "struct") {
-		return compile_struct_type_from_slice(trimmed, value_abs_start, type_idx)
+		return compile_struct_type_from_slice(trimmed, trimmed_abs_start, type_idx)
+	}
+	if slice_matches_string(type_name, "enum") {
+		return compile_enum_type_from_slice(trimmed, trimmed_abs_start, type_idx)
 	}
 	if slice_matches_string(type_name, "bytes") {
 		types[type_idx].kind = .Bytes
@@ -461,11 +468,11 @@ compile_named_type_from_top_level_value :: proc(
 	}
 	value_token_idx := find_token_by_start(
 		schema_tokens[:schema_token_count],
-		value_abs_start,
+		trimmed_abs_start,
 		jsmn.JsmnType.Object,
 	)
 	if value_token_idx < 0 {
-		return "type token lookup failed"
+		return join2("type token lookup failed: ", type_name_string(type_idx))
 	}
 	return compile_named_type(input, value_token_idx, type_idx)
 }
@@ -515,6 +522,8 @@ compile_field_from_slice :: proc(
 		name_start    = fields_abs_start + member.key_start,
 		name_end      = fields_abs_start + member.key_end,
 		default_token = -1,
+		default_start = -1,
+		default_end   = -1,
 		max_len       = -1,
 	}
 	value_raw_slice := fields_slice[member.value_start:member.value_end]
@@ -570,17 +579,29 @@ compile_field_from_slice :: proc(
 		}
 		field.type_index = anon_idx
 		field.max_len = read_optional_int_from_slice(value_slice, "max_len")
-		if default_start, _, has_default := find_top_level_value_bounds(value_slice, "default"); has_default {
+		if default_start, default_end, has_default := find_top_level_value_bounds(value_slice, "default"); has_default {
 			default_token := find_token_by_value_start(schema_tokens[:schema_token_count], value_abs_start + default_start)
-			if default_token < 0 {
-				return FieldDef{}, "field default token lookup failed"
-			}
 			field.has_default = true
 			field.default_token = default_token
+			field.default_start = value_abs_start + default_start
+			field.default_end = value_abs_start + default_end
 		}
 		return field, ""
 	}
-	return FieldDef{}, "unsupported top-level field object"
+	type_idx, err := resolve_type_from_value_slice(type_name)
+	if err != "" {
+		return FieldDef{}, "unsupported top-level field object"
+	}
+	field.type_index = type_idx
+	field.max_len = read_optional_int_from_slice(value_slice, "max_len")
+	if default_start, default_end, has_default := find_top_level_value_bounds(value_slice, "default"); has_default {
+		default_token := find_token_by_value_start(schema_tokens[:schema_token_count], value_abs_start + default_start)
+		field.has_default = true
+		field.default_token = default_token
+		field.default_start = value_abs_start + default_start
+		field.default_end = value_abs_start + default_end
+	}
+	return field, ""
 }
 
 find_token_by_bounds :: proc(tokens: []jsmn.Token, start, end: int, kind: jsmn.JsmnType) -> int {
@@ -602,10 +623,20 @@ find_token_by_start :: proc(tokens: []jsmn.Token, start: int, kind: jsmn.JsmnTyp
 }
 
 find_token_by_value_start :: proc(tokens: []jsmn.Token, start: int) -> int {
+	best := -1
+	best_delta := 1024
 	for i in 0 ..< len(tokens) {
-		if tokens[i].start == start || tokens[i].start == start + 1 {
-			return i
+		if tokens[i].start < start {
+			continue
 		}
+		delta := tokens[i].start - start
+		if delta < best_delta {
+			best = i
+			best_delta = delta
+		}
+	}
+	if best_delta <= 64 {
+		return best
 	}
 	return -1
 }
@@ -971,6 +1002,9 @@ compile_named_type_from_key_bounds :: proc(
 	if slice_matches_string(type_name, "oneof") {
 		return compile_oneof_type_from_slice(value_slice, type_idx)
 	}
+	if slice_matches_string(type_name, "enum") {
+		return compile_enum_type_from_slice(value_slice, value_start, type_idx)
+	}
 	if slice_matches_string(type_name, "bytes") {
 		types[type_idx].kind = .Bytes
 		types[type_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
@@ -982,6 +1016,75 @@ compile_named_type_from_key_bounds :: proc(
 		return ""
 	}
 	return "type object token invalid"
+}
+
+compile_enum_type_from_slice :: proc(obj_slice: []u8, abs_start: int, type_idx: int) -> string {
+	value_start, value_end, has_value := find_top_level_value_bounds(obj_slice, "value")
+	if !has_value {
+		return "enum missing value"
+	}
+	value_slice := trim_bytes_space(obj_slice[value_start:value_end])
+	start := enum_value_count
+	if len(value_slice) == 0 {
+		return "enum value must be array or object"
+	}
+	if value_slice[0] == '[' {
+		ordinal: i64 = 0
+		cursor := 1
+		for {
+			element_start := cursor
+			for element_start < len(value_slice) && is_space(value_slice[element_start]) {
+				element_start += 1
+			}
+			element, next_cursor, found := next_array_element(value_slice, cursor)
+			if !found {
+				break
+			}
+			trimmed := trim_bytes_space(element)
+			if len(trimmed) < 2 || trimmed[0] != '"' || trimmed[len(trimmed) - 1] != '"' {
+				return "enum array values must be strings"
+			}
+			if enum_value_count >= MAX_ENUM_VALUES {
+				return "enum value limit exceeded"
+			}
+			enum_values[enum_value_count] = EnumValue {
+				name_start = abs_start + value_start + element_start + 1,
+				name_end   = abs_start + value_start + element_start + len(trimmed) - 1,
+				value      = ordinal,
+			}
+			enum_value_count += 1
+			ordinal += 1
+			cursor = next_cursor
+		}
+	} else if value_slice[0] == '{' {
+		cursor := 1
+		for {
+			member, next_cursor, found := next_object_member(value_slice, cursor)
+			if !found {
+				break
+			}
+			if enum_value_count >= MAX_ENUM_VALUES {
+				return "enum value limit exceeded"
+			}
+			v, ok := parse_i64_bytes(value_slice[member.value_start:member.value_end])
+			if !ok {
+				return "enum object values must be integers"
+			}
+			enum_values[enum_value_count] = EnumValue {
+				name_start = abs_start + value_start + member.key_start,
+				name_end   = abs_start + value_start + member.key_end,
+				value      = v,
+			}
+			enum_value_count += 1
+			cursor = next_cursor
+		}
+	} else {
+		return "enum value must be array or object"
+	}
+	types[type_idx].kind = .Enum
+	types[type_idx].enum_start = start
+	types[type_idx].enum_count = enum_value_count - start
+	return ""
 }
 
 compile_enum_type :: proc(input: []u8, obj_idx: int, type_idx: int) -> string {
@@ -1198,6 +1301,8 @@ compile_field :: proc(input: []u8, name_tok: jsmn.Token, value_idx: int) -> (Fie
 		name_start    = name_tok.start,
 		name_end      = name_tok.end,
 		default_token = -1,
+		default_start = -1,
+		default_end   = -1,
 		max_len       = -1,
 	}
 	tok := schema_tokens[value_idx]
@@ -1230,6 +1335,13 @@ compile_field :: proc(input: []u8, name_tok: jsmn.Token, value_idx: int) -> (Fie
 	if default_idx >= 0 {
 		field.has_default = true
 		field.default_token = default_idx
+		default_tok := schema_tokens[default_idx]
+		field.default_start = default_tok.start
+		field.default_end = default_tok.end
+		if default_tok.type == jsmn.JsmnType.String && default_tok.start > 0 && default_tok.end < len(input) {
+			field.default_start = default_tok.start - 1
+			field.default_end = default_tok.end + 1
+		}
 	}
 	if min_idx := find_object_value(input, schema_tokens[:schema_token_count], value_idx, "min");
 	   min_idx >= 0 {
@@ -1499,10 +1611,35 @@ parse_f64_bytes :: proc(data: []u8) -> (f64, bool) {
 			has_digit = true
 		}
 	}
+	value := whole + frac / divisor
+	if idx < len(data) && (data[idx] == 'e' || data[idx] == 'E') {
+		idx += 1
+		exp_neg := false
+		if idx < len(data) && (data[idx] == '-' || data[idx] == '+') {
+			exp_neg = data[idx] == '-'
+			idx += 1
+		}
+		if idx >= len(data) || data[idx] < '0' || data[idx] > '9' {
+			return 0, false
+		}
+		exp: int = 0
+		for idx < len(data) && data[idx] >= '0' && data[idx] <= '9' {
+			exp = exp * 10 + int(data[idx] - '0')
+			idx += 1
+		}
+		factor: f64 = 1
+		for _ in 0 ..< exp {
+			factor *= 10
+		}
+		if exp_neg {
+			value /= factor
+		} else {
+			value *= factor
+		}
+	}
 	if !has_digit || idx != len(data) {
 		return 0, false
 	}
-	value := whole + frac / divisor
 	if neg {
 		value = -value
 	}

@@ -9,10 +9,12 @@ codegen_len: int
 temp_string_slots: [TEMP_STRING_SLOTS][TEMP_STRING_CAPACITY]u8
 temp_string_lens: [TEMP_STRING_SLOTS]int
 temp_string_index: int
+decode_loop_index: int
 
 build_odin_decoder :: proc() -> (string, string) {
 	codegen_len = 0
 	temp_string_index = 0
+	decode_loop_index = 0
 	resolved_package := schema_odin_package()
 	resolved_package = sanitize_identifier(resolved_package)
 	if resolved_package == "" {
@@ -352,18 +354,24 @@ emit_decode_assign :: proc(type_idx: int, target: string, _label: string) {
 		emit(target)
 		emit(") { return false }\n")
 	case .Array:
-		emit("\tfor j in 0..<")
+		loop_var := next_decode_loop_var()
+		emit("\tfor ")
+		emit(loop_var)
+		emit(" in 0 ..< ")
 		emit_int(type_def.fixed_len)
 		emit(" {\n")
-		emit_decode_assign(type_def.target_type, join2(target, "[j]"), "")
+		emit_decode_assign(type_def.target_type, join3(target, "[", join2(loop_var, "]")), "")
 		emit("\t}\n")
 	case .Vector:
+		loop_var := next_decode_loop_var()
 		emit("\tcount, ok := read_u32_reader(r)\n\tif !ok { return false }\n\t")
 		emit(target)
 		emit(" = make(")
 		emit(type_expr(type_idx))
-		emit(", int(count))\n\tfor i in 0..<int(count) {\n")
-		emit_decode_assign(type_def.target_type, join2(target, "[i]"), "")
+		emit(", int(count))\n\tfor ")
+		emit(loop_var)
+		emit(" in 0 ..< int(count) {\n")
+		emit_decode_assign(type_def.target_type, join3(target, "[", join2(loop_var, "]")), "")
 		emit("\t}\n")
 	case:
 		emit("\treturn false\n")
@@ -593,6 +601,12 @@ i64_string :: proc(value: i64) -> string {
 	}
 	temp_string_lens[slot] = TEMP_STRING_CAPACITY - idx
 	return string(temp_string_slots[slot][idx:TEMP_STRING_CAPACITY])
+}
+
+next_decode_loop_var :: proc() -> string {
+	value := join2("i", int_string(decode_loop_index))
+	decode_loop_index += 1
+	return value
 }
 
 next_temp_string_slot :: proc() -> int {

@@ -202,7 +202,13 @@ encode_json_value :: proc(
 
 encode_schema_default :: proc(w: ^BinaryWriter, field_idx: int) -> (bool, string) {
 	field := fields[field_idx]
-	if !field.has_default || field.default_token < 0 {
+	if !field.has_default {
+		return false, "missing required field"
+	}
+	if field.default_start >= 0 && field.default_end > field.default_start && field.default_end <= schema_len {
+		return encode_json_value(w, schema_buffer[field.default_start:field.default_end], field.type_index, field)
+	}
+	if field.default_token < 0 {
 		return false, "missing required field"
 	}
 	default_tok := schema_tokens[field.default_token]

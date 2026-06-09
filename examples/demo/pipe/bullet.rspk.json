@@ -59,6 +59,20 @@
     "Bullet": {
       "type": "struct",
       "fields": {
+        "direction": {
+          "type": "Direction",
+          "default": {
+            "type": "absolute",
+            "value": 0
+          }
+        },
+        "speed": {
+          "type": "Speed",
+          "default": {
+            "type": "absolute",
+            "value": 0
+          }
+        },
         "actionRefs": {
           "type": "vector",
           "value": "Ref",
@@ -73,10 +87,21 @@
     },
     "Command": {
       "type": "oneof",
-      "value": ["fireRef", "wait", "repeat"]
+      "value": [
+        "fireRef",
+        "actionRef",
+        "wait",
+        "repeat",
+        "vanish",
+        "changeDirection",
+        "changeSpeed",
+        "accel"
+      ]
     },
     "fireRef": "Ref",
+    "actionRef": "Ref",
     "wait": "Expr",
+    "vanish": "bool",
     "repeat": {
       "type": "struct",
       "fields": {
@@ -84,12 +109,65 @@
         "actionRef": "Ref"
       }
     },
+    "changeDirection": {
+      "type": "struct",
+      "fields": {
+        "direction": "Direction",
+        "term": "Expr"
+      }
+    },
+    "changeSpeed": {
+      "type": "struct",
+      "fields": {
+        "speed": "Speed",
+        "term": "Expr"
+      }
+    },
+    "accel": {
+      "type": "struct",
+      "fields": {
+        "horizontal": {
+          "type": "AccelValue",
+          "default": {
+            "type": "absolute",
+            "value": 0
+          }
+        },
+        "vertical": {
+          "type": "AccelValue",
+          "default": {
+            "type": "absolute",
+            "value": 0
+          }
+        },
+        "term": "Expr"
+      }
+    },
+    "AccelValue": {
+      "type": "struct",
+      "fields": {
+        "type": "SpeedType",
+        "value": "Expr"
+      }
+    },
 
     "Fire": {
       "type": "struct",
       "fields": {
-        "direction": "Direction",
-        "speed": "Speed",
+        "direction": {
+          "type": "Direction",
+          "default": {
+            "type": "absolute",
+            "value": 0
+          }
+        },
+        "speed": {
+          "type": "Speed",
+          "default": {
+            "type": "absolute",
+            "value": 0
+          }
+        },
         "bulletRef": "Ref"
       }
     },
