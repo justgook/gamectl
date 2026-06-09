@@ -1,21 +1,168 @@
 {
   "package": "main",
   "odin": {
-    "package": "main",
-    "imports": {
-      "world": "world"
-    }
+    "package": "main"
   },
-  "data": ["Bullets"],
+  "data": ["GBMLPack"],
   "types": {
-    "iVec4": {
-      "type": "array",
-      "len": 4,
+    "GBMLPack": {
+      "type": "struct",
+      "fields": {
+        "patterns": "GBMLPatternList"
+      }
+    },
+    "GBMLPatternList": {
+      "type": "vector",
+      "value": "GBMLPattern"
+    },
+    "GBMLPattern": {
+      "type": "struct",
+      "fields": {
+        "name": "string",
+        "orientation": "GBMLOrientation",
+        "entrypoints": "GBMLEntrypointList",
+        "actions": "GBMLActionList",
+        "bullets": "GBMLBulletList",
+        "fires": "GBMLFireList",
+        "ops": "GBMLOpList",
+        "expressions": "GBMLExpressionList",
+        "params": "GBMLParamList",
+        "data_fields": "GBMLDataFieldList"
+      }
+    },
+    "GBMLOrientation": {
+      "type": "enum",
+      "value": {
+        "Vertical": 0,
+        "Horizontal": 1
+      }
+    },
+    "GBMLValueMode": {
+      "type": "enum",
+      "value": {
+        "None": 0,
+        "Aim": 1,
+        "Absolute": 2,
+        "Relative": 3,
+        "Sequence": 4
+      }
+    },
+    "GBMLOpCode": {
+      "type": "enum",
+      "value": {
+        "Noop": 0,
+        "Wait": 1,
+        "Repeat": 2,
+        "Fire": 3,
+        "FireRef": 4,
+        "Action": 5,
+        "ActionRef": 6,
+        "ChangeDirection": 7,
+        "ChangeSpeed": 8,
+        "Accel": 9,
+        "Vanish": 10
+      }
+    },
+    "GBMLEntrypointList": {
+      "type": "vector",
+      "value": "GBMLEntrypoint"
+    },
+    "GBMLEntrypoint": {
+      "type": "struct",
+      "fields": {
+        "name": "string",
+        "action_index": "u32"
+      }
+    },
+    "GBMLActionList": {
+      "type": "vector",
+      "value": "GBMLAction"
+    },
+    "GBMLAction": {
+      "type": "struct",
+      "fields": {
+        "label": "string",
+        "op_start": "u32",
+        "op_count": "u32"
+      }
+    },
+    "GBMLBulletList": {
+      "type": "vector",
+      "value": "GBMLBullet"
+    },
+    "GBMLBullet": {
+      "type": "struct",
+      "fields": {
+        "label": "string",
+        "direction_mode": "GBMLValueMode",
+        "direction_expr": "i32",
+        "speed_mode": "GBMLValueMode",
+        "speed_expr": "i32",
+        "action_start": "u32",
+        "action_count": "u32",
+        "data_start": "u32",
+        "data_count": "u32"
+      }
+    },
+    "GBMLFireList": {
+      "type": "vector",
+      "value": "GBMLFire"
+    },
+    "GBMLFire": {
+      "type": "struct",
+      "fields": {
+        "label": "string",
+        "direction_mode": "GBMLValueMode",
+        "direction_expr": "i32",
+        "speed_mode": "GBMLValueMode",
+        "speed_expr": "i32",
+        "bullet_index": "u32",
+        "param_start": "u32",
+        "param_count": "u32"
+      }
+    },
+    "GBMLOpList": {
+      "type": "vector",
+      "value": "GBMLOp"
+    },
+    "GBMLOp": {
+      "type": "struct",
+      "fields": {
+        "code": "GBMLOpCode",
+        "expr": "i32",
+        "term_expr": "i32",
+        "target_index": "u32",
+        "param_start": "u32",
+        "param_count": "u32",
+        "direction_mode": "GBMLValueMode",
+        "direction_expr": "i32",
+        "speed_mode": "GBMLValueMode",
+        "speed_expr": "i32",
+        "horizontal_mode": "GBMLValueMode",
+        "horizontal_expr": "i32",
+        "vertical_mode": "GBMLValueMode",
+        "vertical_expr": "i32"
+      }
+    },
+    "GBMLExpressionList": {
+      "type": "vector",
+      "value": "string"
+    },
+    "GBMLParamList": {
+      "type": "vector",
       "value": "i32"
     },
-    "Bullets": {
+    "GBMLDataFieldList": {
       "type": "vector",
-      "value": "iVec4"
+      "value": "GBMLDataField"
+    },
+    "GBMLDataField": {
+      "type": "struct",
+      "fields": {
+        "bullet_index": "u32",
+        "key": "string",
+        "value": "string"
+      }
     }
   }
 }
