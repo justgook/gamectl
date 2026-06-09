@@ -7,36 +7,19 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      },
-      {
-        "actionRef": 4
-      },
-      {
-        "actionRef": 5
-      }
-    ],
-    [
-      {
         "fireRef": 0
       },
       {
         "repeat": {
           "times": 20,
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],
     [
       {
         "actionRef": {
-          "ref": 1,
+          "ref": 0,
           "params": [
             "$1",
             -30
@@ -45,7 +28,7 @@
       },
       {
         "actionRef": {
-          "ref": 1,
+          "ref": 0,
           "params": [
             "$1",
             -15
@@ -54,7 +37,7 @@
       },
       {
         "actionRef": {
-          "ref": 1,
+          "ref": 0,
           "params": [
             "$1",
             0
@@ -63,7 +46,7 @@
       },
       {
         "actionRef": {
-          "ref": 1,
+          "ref": 0,
           "params": [
             "$1",
             15
@@ -72,7 +55,7 @@
       },
       {
         "actionRef": {
-          "ref": 1,
+          "ref": 0,
           "params": [
             "$1",
             30
@@ -104,7 +87,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$1"
           ]
@@ -126,7 +109,7 @@
     [
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             1
           ]
@@ -134,7 +117,7 @@
       },
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             2
           ]
@@ -142,7 +125,7 @@
       },
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             3
           ]
@@ -150,7 +133,7 @@
       },
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             4
           ]
@@ -158,7 +141,7 @@
       },
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             5
           ]
@@ -167,7 +150,7 @@
     ],
     [
       {
-        "actionRef": 4
+        "actionRef": 3
       },
       {
         "wait": 30

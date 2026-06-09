@@ -117,7 +117,7 @@
         "label": "BulletML",
         "internal": false,
         "config": {
-          "defaultSource": "bulletML/simple.gbml.json"
+          "defaultSource": "bulletML-json/[1943]_rolling_fire.bulletml.json"
         }
       },
       "view-particle": {

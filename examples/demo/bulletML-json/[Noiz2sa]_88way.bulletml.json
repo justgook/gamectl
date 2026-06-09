@@ -7,7 +7,7 @@
         "value": "$rand+1"
       },
       "actionRefs": [
-        3
+        2
       ]
     },
     {
@@ -18,19 +18,11 @@
     },
     {
       "actionRefs": [
-        2
+        1
       ]
     }
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
     [
       {
         "fireRef": 1
@@ -43,7 +35,7 @@
       {
         "repeat": {
           "times": "6+$rank*10",
-          "actionRef": 5
+          "actionRef": 4
         }
       },
       {
@@ -57,7 +49,7 @@
       {
         "repeat": {
           "times": 16,
-          "actionRef": 4
+          "actionRef": 3
         }
       },
       {

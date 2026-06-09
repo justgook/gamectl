@@ -9,37 +9,17 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      },
-      {
-        "actionRef": 4
-      },
-      {
-        "actionRef": 5
-      },
-      {
-        "actionRef": 6
-      }
-    ],
-    [
-      {
         "fireRef": 0
       },
       {
-        "actionRef": 2
+        "actionRef": 1
       }
     ],
     [
       {
         "repeat": {
           "times": 2,
-          "actionRef": 7
+          "actionRef": 6
         }
       }
     ],
@@ -48,12 +28,12 @@
         "fireRef": 2
       },
       {
-        "actionRef": 2
+        "actionRef": 1
       },
       {
         "repeat": {
           "times": 11,
-          "actionRef": 1
+          "actionRef": 0
         }
       },
       {
@@ -65,12 +45,12 @@
         "fireRef": 3
       },
       {
-        "actionRef": 2
+        "actionRef": 1
       },
       {
         "repeat": {
           "times": 11,
-          "actionRef": 1
+          "actionRef": 0
         }
       },
       {
@@ -81,13 +61,13 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 8
+          "actionRef": 7
         }
       }
     ],
     [
       {
-        "actionRef": 5
+        "actionRef": 4
       }
     ],
     [
@@ -115,12 +95,12 @@
         }
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
         "repeat": {
           "times": "$rand*(3+$rank*2)+1+$rank*2",
-          "actionRef": 9
+          "actionRef": 8
         }
       },
       {
@@ -138,7 +118,7 @@
     ],
     [
       {
-        "actionRef": 4
+        "actionRef": 3
       }
     ]
   ],

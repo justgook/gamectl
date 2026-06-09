@@ -8,17 +8,9 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
-    [
-      {
         "repeat": {
           "times": 11,
-          "actionRef": 3
+          "actionRef": 2
         }
       }
     ],
@@ -26,7 +18,7 @@
       {
         "repeat": {
           "times": 30,
-          "actionRef": 4
+          "actionRef": 3
         }
       },
       {
@@ -43,12 +35,12 @@
         "fireRef": 1
       },
       {
-        "actionRef": 1
+        "actionRef": 0
       },
       {
         "repeat": {
           "times": 3,
-          "actionRef": 5
+          "actionRef": 4
         }
       },
       {
@@ -63,7 +55,7 @@
         "fireRef": 2
       },
       {
-        "actionRef": 1
+        "actionRef": 0
       }
     ]
   ],

@@ -3,7 +3,7 @@
   "bullets": [
     {
       "actionRefs": [
-        3
+        2
       ]
     },
     {},
@@ -14,16 +14,8 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
-    [
-      {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             1,
@@ -35,7 +27,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             -1,
@@ -47,7 +39,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             -1,
@@ -59,7 +51,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             1,
@@ -71,7 +63,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             1,
@@ -83,7 +75,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             -1,
@@ -95,7 +87,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             -1,
@@ -107,7 +99,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             1,
@@ -125,7 +117,7 @@
       {
         "repeat": {
           "times": "1+$rank*2",
-          "actionRef": 5
+          "actionRef": 4
         }
       },
       {
@@ -134,7 +126,7 @@
       {
         "repeat": {
           "times": "1+$rank*2",
-          "actionRef": 6
+          "actionRef": 5
         }
       },
       {
@@ -143,7 +135,7 @@
       {
         "repeat": {
           "times": "1+$rank*2",
-          "actionRef": 7
+          "actionRef": 6
         }
       },
       {
@@ -152,7 +144,7 @@
       {
         "repeat": {
           "times": "1+$rank*2",
-          "actionRef": 8
+          "actionRef": 7
         }
       },
       {
@@ -181,7 +173,7 @@
       {
         "repeat": {
           "times": 49,
-          "actionRef": 4
+          "actionRef": 3
         }
       },
       {

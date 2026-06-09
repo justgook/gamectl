@@ -5,7 +5,7 @@
     {
       "actionRefs": [
         {
-          "ref": 3,
+          "ref": 2,
           "params": [
             "-1*$2"
           ]
@@ -15,7 +15,7 @@
     {
       "actionRefs": [
         {
-          "ref": 3,
+          "ref": 2,
           "params": [
             "$2"
           ]
@@ -30,31 +30,8 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      },
-      {
-        "actionRef": 4
-      },
-      {
-        "actionRef": 5
-      },
-      {
-        "actionRef": 6
-      },
-      {
-        "actionRef": 7
-      }
-    ],
-    [
-      {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             -2,
             0
@@ -63,7 +40,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             25,
             10
@@ -72,7 +49,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             41,
             -10
@@ -80,7 +57,7 @@
         }
       },
       {
-        "actionRef": 4
+        "actionRef": 3
       },
       {
         "wait": 180
@@ -113,7 +90,7 @@
       {
         "repeat": {
           "times": "10+($rank*30)",
-          "actionRef": 8
+          "actionRef": 7
         }
       },
       {
@@ -127,7 +104,7 @@
       {
         "repeat": {
           "times": "12+($rank*20)",
-          "actionRef": 9
+          "actionRef": 8
         }
       }
     ],
@@ -138,7 +115,7 @@
       {
         "repeat": {
           "times": 12,
-          "actionRef": 10
+          "actionRef": 9
         }
       },
       {
@@ -148,7 +125,7 @@
     [
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             46
           ]
@@ -156,7 +133,7 @@
       },
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             16
           ]
@@ -164,7 +141,7 @@
       },
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             47.5
           ]
@@ -172,7 +149,7 @@
       },
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             15
           ]
@@ -215,12 +192,12 @@
     ],
     [
       {
-        "actionRef": 5
+        "actionRef": 4
       },
       {
         "repeat": {
           "times": "7-1",
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],

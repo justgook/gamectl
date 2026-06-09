@@ -3,13 +3,26 @@
   "bullets": [
     {
       "actionRefs": [
-        4
+        3
       ]
     },
     {
       "direction": {
         "type": "absolute",
         "value": 120
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "9.2-$rank*4"
+      },
+      "actionRefs": [
+        1
+      ]
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 240
       },
       "speed": {
         "type": "absolute",
@@ -29,20 +42,7 @@
         "value": "9.2-$rank*4"
       },
       "actionRefs": [
-        3
-      ]
-    },
-    {
-      "direction": {
-        "type": "absolute",
-        "value": 240
-      },
-      "speed": {
-        "type": "absolute",
-        "value": "9.2-$rank*4"
-      },
-      "actionRefs": [
-        2
+        1
       ]
     },
     {
@@ -55,22 +55,11 @@
         "value": "9.2-$rank*4"
       },
       "actionRefs": [
-        3
+        2
       ]
     }
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      }
-    ],
     [
       {
         "fireRef": 1
@@ -95,7 +84,7 @@
       {
         "repeat": {
           "times": 32,
-          "actionRef": 5
+          "actionRef": 4
         }
       }
     ],
@@ -103,7 +92,7 @@
       {
         "repeat": {
           "times": 32,
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],

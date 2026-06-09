@@ -3,19 +3,11 @@
   "bullets": [
     {
       "actionRefs": [
-        3
+        2
       ]
     }
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
     [
       {
         "changeSpeed": {
@@ -53,7 +45,7 @@
       {
         "repeat": {
           "times": 32,
-          "actionRef": 4
+          "actionRef": 3
         }
       },
       {
@@ -73,7 +65,7 @@
       {
         "repeat": {
           "times": "1+(63*$rank)",
-          "actionRef": 5
+          "actionRef": 4
         }
       }
     ],
@@ -96,7 +88,7 @@
     ],
     [
       {
-        "actionRef": 2
+        "actionRef": 1
       },
       {
         "wait": 16

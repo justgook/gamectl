@@ -16,7 +16,7 @@ function assert(condition, message) {
 
 function basename(path) {
     const parts = String(path).split("/")
-    return parts[parts.length - 1] || "new.gbml.json"
+    return parts[parts.length - 1] || "new.bulletml.json"
 }
 
 function errorMessage(error) {
@@ -34,29 +34,29 @@ function requireArray(value, name) {
     return value
 }
 
-function createEmptyGbml() {
+function createEmptyBulletml() {
     return {
-        format: "gams.gbml",
-        version: 1,
-        source: {
-            language: "bulletml-0.21",
-            orientation: "vertical",
-        },
-        compatibility: {
-            semantics: "gams-corrected-v1",
-        },
-        entrypoints: [],
-        definitions: {
-            actions: [],
-            bullets: [],
-            fires: [],
-        },
-        expressions: [],
+        type: "vertical",
+        bullets: [],
+        actions: [[]],
+        fires: [],
     }
 }
 
-function stringifyGbml(gbml) {
-    return `${JSON.stringify(gbml, null, 2)}\n`
+function stringifyBulletml(bulletml) {
+    return `${JSON.stringify(bulletml, null, 2)}\n`
+}
+
+function requireCommand(command) {
+    requireObject(command, "JSON BulletML command")
+    const keys = Object.keys(command)
+    assert(keys.length === 1, "JSON BulletML command must contain exactly one command property")
+    return { name: keys[0], value: command[keys[0]] }
+}
+
+function requireIndex(value, name) {
+    assert(Number.isInteger(value) && value >= 0, `${name} must be a non-negative integer`)
+    return value
 }
 
 function degToRad(degrees) {
@@ -81,17 +81,16 @@ function normalizeDirection(direction) {
 }
 
 function createFrame(action, params = [], repeat = 1) {
-    assert(action && Array.isArray(action.ops), "GBML action frame requires ops")
-    return { ops: action.ops, pc: 0, params, repeat }
+    assert(Array.isArray(action), "JSON BulletML action frame requires command array")
+    return { action, pc: 0, params, repeat }
 }
 
 class BulletMLEngine {
     constructor() {
-        this.gbml = null
-        this.expressions = []
-        this.actions = new Map()
-        this.bullets = new Map()
-        this.fires = new Map()
+        this.bulletml = null
+        this.actions = []
+        this.bullets = []
+        this.fires = []
         this.entities = []
         this.frame = 0
         this.spawned = 0
@@ -104,29 +103,32 @@ class BulletMLEngine {
         this.lastInstructionCount = 0
     }
 
-    load(gbml) {
-        this.gbml = gbml
-        this.expressions = gbml.expressions
-        this.actions = this.mapDefinitions(gbml.definitions.actions, "action")
-        this.bullets = this.mapDefinitions(gbml.definitions.bullets, "bullet")
-        this.fires = this.mapDefinitions(gbml.definitions.fires, "fire")
+    load(bulletml) {
+        this.validateDocument(bulletml)
+        this.bulletml = bulletml
+        this.actions = bulletml.actions
+        this.bullets = bulletml.bullets
+        this.fires = bulletml.fires
         this.reset()
     }
 
-    mapDefinitions(definitions, kind) {
-        const map = new Map()
-        for (const definition of definitions) {
-            assert(typeof definition.id === "string" && definition.id.length > 0, `${kind} definition requires id`)
-            assert(!map.has(definition.id), `duplicate ${kind} definition id ${definition.id}`)
-            map.set(definition.id, definition)
-            if (definition.label) {
-                const labelID = `${kind}:${definition.label}`
-                const existing = map.get(labelID)
-                assert(!existing || existing === definition, `duplicate ${kind} definition label ${definition.label}`)
-                map.set(labelID, definition)
-            }
+    validateDocument(bulletml) {
+        requireObject(bulletml, "JSON BulletML document")
+        assert(["none", "vertical", "horizontal"].includes(bulletml.type), "JSON BulletML type must be none, vertical, or horizontal")
+        requireArray(bulletml.bullets, "JSON BulletML bullets")
+        requireArray(bulletml.actions, "JSON BulletML actions")
+        requireArray(bulletml.fires, "JSON BulletML fires")
+        assert(bulletml.actions.length > 0, "JSON BulletML requires at least one action")
+        for (const [index, action] of bulletml.actions.entries()) {
+            requireArray(action, `JSON BulletML action ${index}`)
         }
-        return map
+        for (const [index, bullet] of bulletml.bullets.entries()) {
+            requireObject(bullet, `JSON BulletML bullet ${index}`)
+        }
+        for (const [index, fire] of bulletml.fires.entries()) {
+            requireObject(fire, `JSON BulletML fire ${index}`)
+            assert(Object.hasOwn(fire, "bulletRef"), `JSON BulletML fire ${index} requires bulletRef`)
+        }
     }
 
     reset() {
@@ -136,32 +138,52 @@ class BulletMLEngine {
         this.vanished = 0
         this.seed = 1
         this.lastInstructionCount = 0
-        if (!this.gbml) return
-        for (const [index, entrypoint] of this.gbml.entrypoints.entries()) {
-            const action = this.resolveAction(entrypoint.action)
-            this.entities.push({
-                id: index,
-                visible: false,
-                x: ROOT_X,
-                y: ROOT_Y,
-                direction: 180,
-                speed: 0,
-                accelX: 0,
-                accelY: 0,
-                wait: 0,
-                alive: true,
-                lastFireDirection: 180,
-                lastFireSpeed: 1,
-                frames: [createFrame(action)],
-                dirTween: null,
-                speedTween: null,
-                accelTween: null,
-            })
+        if (!this.bulletml) return
+        const action = this.resolveAction(0)
+        const wrapperRefs = this.rootWrapperRefs(action)
+        if (wrapperRefs.length > 0) {
+            for (const [index, ref] of wrapperRefs.entries()) {
+                this.entities.push(this.createRootEntity(index, this.resolveAction(ref.index), ref.params))
+            }
+            return
+        }
+        this.entities.push(this.createRootEntity(0, action, []))
+    }
+
+    rootWrapperRefs(action) {
+        if (action.length <= 1) return []
+        const refs = []
+        for (const command of action) {
+            const { name, value } = requireCommand(command)
+            if (name !== "actionRef") return []
+            refs.push(this.evalRef(value, [], "root.actionRef"))
+        }
+        return refs
+    }
+
+    createRootEntity(id, action, params) {
+        return {
+            id,
+            visible: false,
+            x: ROOT_X,
+            y: ROOT_Y,
+            direction: 180,
+            speed: 0,
+            accelX: 0,
+            accelY: 0,
+            wait: 0,
+            alive: true,
+            lastFireDirection: 180,
+            lastFireSpeed: 1,
+            frames: [createFrame(action, params)],
+            dirTween: null,
+            speedTween: null,
+            accelTween: null,
         }
     }
 
     step() {
-        if (!this.gbml) return
+        if (!this.bulletml) return
         this.frame += 1
         this.lastInstructionCount = 0
         const entities = [...this.entities]
@@ -223,10 +245,10 @@ class BulletMLEngine {
             this.lastInstructionCount += 1
             assert(
                 this.lastInstructionCount <= MAX_INSTRUCTIONS_PER_TICK,
-                "GBML runner exceeded max instructions in one frame",
+                "JSON BulletML runner exceeded max instructions in one frame",
             )
             const frame = entity.frames[entity.frames.length - 1]
-            if (frame.pc >= frame.ops.length) {
+            if (frame.pc >= frame.action.length) {
                 if (frame.repeat > 1) {
                     frame.repeat -= 1
                     frame.pc = 0
@@ -235,79 +257,78 @@ class BulletMLEngine {
                 entity.frames.pop()
                 continue
             }
-            const op = frame.ops[frame.pc]
+            const command = frame.action[frame.pc]
             frame.pc += 1
-            const paused = this.executeOp(entity, frame, op)
+            const paused = this.executeCommand(entity, frame, command)
             if (paused) return
         }
     }
 
-    executeOp(entity, frame, op) {
-        assert(op && typeof op.op === "string", "GBML op requires op string")
-        if (op.op === "wait") {
-            entity.wait = Math.max(0, Math.floor(this.evalExpr(op.expr, frame.params)))
+    executeCommand(entity, frame, command) {
+        const { name, value } = requireCommand(command)
+        if (name === "wait") {
+            entity.wait = Math.max(0, Math.floor(this.evalValue(value, frame.params)))
             return true
         }
-        if (op.op === "vanish") {
+        if (name === "vanish") {
+            assert(value === true, "JSON BulletML vanish command value must be true")
             this.kill(entity)
             return true
         }
-        if (op.op === "fire") {
-            this.fire(entity, op.fire, frame.params)
+        if (name === "fireRef") {
+            const ref = this.evalRef(value, frame.params, "fireRef")
+            this.fire(entity, this.resolveFire(ref.index), ref.params)
             return false
         }
-        if (op.op === "fireRef") {
-            const ref = this.evalRef(op.fireRef, frame.params)
-            this.fire(entity, this.resolveFire(`fire:${ref.label}`), ref.params)
+        if (name === "actionRef") {
+            const ref = this.evalRef(value, frame.params, "actionRef")
+            entity.frames.push(createFrame(this.resolveAction(ref.index), ref.params))
             return false
         }
-        if (op.op === "action") {
-            entity.frames.push(createFrame(op.action, frame.params))
-            return false
-        }
-        if (op.op === "actionRef") {
-            const ref = this.evalRef(op.actionRef, frame.params)
-            entity.frames.push(createFrame(this.resolveAction(`action:${ref.label}`), ref.params))
-            return false
-        }
-        if (op.op === "repeat") {
-            const repeat = Math.max(0, Math.floor(this.evalExpr(op.times, frame.params)))
+        if (name === "repeat") {
+            const repeatSpec = requireObject(value, "JSON BulletML repeat")
+            const repeat = Math.max(0, Math.floor(this.evalValue(repeatSpec.times, frame.params)))
             if (repeat <= 0) return false
-            if (op.action) entity.frames.push(createFrame(op.action, frame.params, repeat))
-            else if (op.actionRef) {
-                const ref = this.evalRef(op.actionRef, frame.params)
-                entity.frames.push(createFrame(this.resolveAction(`action:${ref.label}`), ref.params, repeat))
-            } else throw new Error("GBML repeat requires action or actionRef")
+            const ref = this.evalRef(repeatSpec.actionRef, frame.params, "repeat.actionRef")
+            entity.frames.push(createFrame(this.resolveAction(ref.index), ref.params, repeat))
             return false
         }
-        if (op.op === "changeDirection") {
-            const target = this.resolveDirection(entity, op.direction, frame.params)
-            const term = Math.max(0, Math.floor(this.evalExpr(op.term, frame.params)))
+        if (name === "changeDirection") {
+            const change = requireObject(value, "JSON BulletML changeDirection")
+            const target = this.resolveDirection(entity, change.direction, frame.params)
+            const term = Math.max(0, Math.floor(this.evalValue(change.term, frame.params)))
             entity.dirTween = { target, remaining: term }
             return false
         }
-        if (op.op === "changeSpeed") {
-            const target = this.resolveSpeed(entity, op.speed, frame.params)
-            const term = Math.max(0, Math.floor(this.evalExpr(op.term, frame.params)))
+        if (name === "changeSpeed") {
+            const change = requireObject(value, "JSON BulletML changeSpeed")
+            const target = this.resolveSpeed(entity, change.speed, frame.params)
+            const term = Math.max(0, Math.floor(this.evalValue(change.term, frame.params)))
             entity.speedTween = { target, remaining: term }
             return false
         }
-        if (op.op === "accel") {
-            const targetX = op.horizontal ? this.resolveAxis(entity.accelX, op.horizontal, frame.params) : entity.accelX
-            const targetY = op.vertical ? this.resolveAxis(entity.accelY, op.vertical, frame.params) : entity.accelY
-            const term = Math.max(0, Math.floor(this.evalExpr(op.term, frame.params)))
+        if (name === "accel") {
+            const accel = requireObject(value, "JSON BulletML accel")
+            const targetX = Object.hasOwn(accel, "horizontal")
+                ? this.resolveAxis(entity.accelX, accel.horizontal, frame.params)
+                : entity.accelX
+            const targetY = Object.hasOwn(accel, "vertical")
+                ? this.resolveAxis(entity.accelY, accel.vertical, frame.params)
+                : entity.accelY
+            const term = Math.max(0, Math.floor(this.evalValue(accel.term, frame.params)))
             entity.accelTween = { targetX, targetY, remaining: term }
             return false
         }
-        throw new Error(`unsupported GBML op ${op.op}`)
+        throw new Error(`unsupported JSON BulletML command ${name}`)
     }
 
     fire(parent, fireSpec, params) {
-        assert(this.entities.length < MAX_BULLETS, "GBML runner exceeded max bullets")
-        assert(fireSpec && fireSpec.bullet, "GBML fire requires bullet")
+        assert(this.entities.length < MAX_BULLETS, "JSON BulletML runner exceeded max bullets")
+        requireObject(fireSpec, "JSON BulletML fire")
+        assert(Object.hasOwn(fireSpec, "bulletRef"), "JSON BulletML fire requires bulletRef")
         const direction = this.resolveDirection(parent, fireSpec.direction, params)
         const speed = this.resolveSpeed(parent, fireSpec.speed, params)
-        const bullet = this.resolveBulletUse(fireSpec.bullet, params)
+        const bullet = this.resolveBulletRef(fireSpec.bulletRef, params)
         const child = {
             id: this.spawned + 1,
             visible: true,
@@ -321,7 +342,6 @@ class BulletMLEngine {
             alive: true,
             lastFireDirection: direction,
             lastFireSpeed: speed,
-            data: bullet.definition.data || null,
             frames: this.createBulletFrames(bullet.definition, bullet.params),
             dirTween: null,
             speedTween: null,
@@ -336,12 +356,10 @@ class BulletMLEngine {
 
     createBulletFrames(bullet, params) {
         const frames = []
-        for (const actionUse of bullet.actions || []) {
-            if (actionUse.kind === "action") frames.push(createFrame(actionUse.action, params))
-            else if (actionUse.kind === "actionRef") {
-                const ref = this.evalRef(actionUse.ref, params)
-                frames.push(createFrame(this.resolveAction(`action:${ref.label}`), ref.params))
-            } else throw new Error(`unsupported bullet action kind ${actionUse.kind}`)
+        const actionRefs = bullet.actionRefs === undefined ? [] : requireArray(bullet.actionRefs, "JSON BulletML bullet actionRefs")
+        for (const actionRef of actionRefs) {
+            const ref = this.evalRef(actionRef, params, "bullet.actionRefs[]")
+            frames.push(createFrame(this.resolveAction(ref.index), ref.params))
         }
         return frames
     }
@@ -351,71 +369,67 @@ class BulletMLEngine {
         if (bullet.speed) child.speed = this.resolveSpeed(parent, bullet.speed, params)
     }
 
-    resolveBulletUse(bulletUse, params) {
-        if (bulletUse.kind === "bullet") return { definition: bulletUse.bullet, params }
-        if (bulletUse.kind === "bulletRef") {
-            const ref = this.evalRef(bulletUse.ref, params)
-            return { definition: this.resolveBullet(`bullet:${ref.label}`), params: ref.params }
+    resolveBulletRef(bulletRef, params) {
+        const ref = this.evalRef(bulletRef, params, "bulletRef")
+        return { definition: this.resolveBullet(ref.index), params: ref.params }
+    }
+
+    resolveDirection(entity, valueSpec, params) {
+        if (valueSpec === undefined) return directionToPoint(entity.x, entity.y, this.targetX, this.targetY)
+        const spec = requireObject(valueSpec, "JSON BulletML direction")
+        const value = this.evalValue(spec.value, params)
+        if (spec.type === "aim") return normalizeDirection(directionToPoint(entity.x, entity.y, this.targetX, this.targetY) + value)
+        if (spec.type === "absolute") return normalizeDirection(value)
+        if (spec.type === "relative") return normalizeDirection(entity.direction + value)
+        if (spec.type === "sequence") return normalizeDirection(entity.lastFireDirection + value)
+        throw new Error(`unsupported direction type ${spec.type}`)
+    }
+
+    resolveSpeed(entity, valueSpec, params) {
+        if (valueSpec === undefined) return 1
+        const spec = requireObject(valueSpec, "JSON BulletML speed")
+        const value = this.evalValue(spec.value, params)
+        if (spec.type === "absolute") return value
+        if (spec.type === "relative") return entity.speed + value
+        if (spec.type === "sequence") return entity.lastFireSpeed + value
+        throw new Error(`unsupported speed type ${spec.type}`)
+    }
+
+    resolveAxis(current, valueSpec, params) {
+        const spec = requireObject(valueSpec, "JSON BulletML acceleration")
+        const value = this.evalValue(spec.value, params)
+        if (spec.type === "absolute") return value
+        if (spec.type === "relative") return current + value
+        if (spec.type === "sequence") return current + value
+        throw new Error(`unsupported accel type ${spec.type}`)
+    }
+
+    evalRef(ref, params, name) {
+        if (Number.isInteger(ref)) return { index: requireIndex(ref, name), params }
+        const refObject = requireObject(ref, `JSON BulletML ${name}`)
+        const index = requireIndex(refObject.ref, `${name}.ref`)
+        const refParams = requireArray(refObject.params, `${name}.params`).map((value) => this.evalValue(value, params))
+        return { index, params: refParams }
+    }
+
+    evalValue(value, params) {
+        if (typeof value === "number") {
+            assert(Number.isFinite(value), "JSON BulletML numeric value must be finite")
+            return value
         }
-        throw new Error(`unsupported bullet use kind ${bulletUse.kind}`)
-    }
-
-    resolveDirection(entity, valueRef, params) {
-        if (!valueRef) return directionToPoint(entity.x, entity.y, this.targetX, this.targetY)
-        const value = this.evalExpr(valueRef.expr, params)
-        if (valueRef.mode === "aim")
-            return normalizeDirection(directionToPoint(entity.x, entity.y, this.targetX, this.targetY) + value)
-        if (valueRef.mode === "absolute") return normalizeDirection(value)
-        if (valueRef.mode === "relative") return normalizeDirection(entity.direction + value)
-        if (valueRef.mode === "sequence") return normalizeDirection(entity.lastFireDirection + value)
-        throw new Error(`unsupported direction mode ${valueRef.mode}`)
-    }
-
-    resolveSpeed(entity, valueRef, params) {
-        if (!valueRef) return 1
-        const value = this.evalExpr(valueRef.expr, params)
-        if (valueRef.mode === "absolute") return value
-        if (valueRef.mode === "relative") return entity.speed + value
-        if (valueRef.mode === "sequence") return entity.lastFireSpeed + value
-        throw new Error(`unsupported speed mode ${valueRef.mode}`)
-    }
-
-    resolveAxis(current, valueRef, params) {
-        const value = this.evalExpr(valueRef.expr, params)
-        if (valueRef.mode === "absolute") return value
-        if (valueRef.mode === "relative") return current + value
-        if (valueRef.mode === "sequence") return current + value
-        throw new Error(`unsupported accel mode ${valueRef.mode}`)
-    }
-
-    evalRef(ref, params) {
-        assert(ref && typeof ref.label === "string" && ref.label.length > 0, "GBML ref requires label")
-        return {
-            label: ref.label,
-            params: (ref.params || []).map((expr) => this.evalExpr(expr, params)),
-        }
-    }
-
-    evalExpr(exprID, params) {
-        assert(Number.isInteger(exprID), "GBML expression id must be integer")
-        const expression = this.expressions[exprID]
-        assert(expression, `GBML missing expression ${exprID}`)
-        const source = String(expression.source).trim()
-        assert(source.length > 0, `GBML expression ${exprID} must not be empty`)
+        assert(typeof value === "string" && value.trim().length > 0, "JSON BulletML expression value must be non-empty string")
+        const source = value.trim()
         const rewritten = source.replace(/\$(\d+|rand|rank)/g, (_match, name) => {
             if (name === "rand") return `(${this.random()})`
             if (name === "rank") return `(${this.rank})`
             const index = Number(name) - 1
-            assert(index >= 0 && index < params.length, `GBML expression ${exprID} missing parameter $${name}`)
+            assert(index >= 0 && index < params.length, `JSON BulletML expression missing parameter $${name}`)
             return `(${params[index]})`
         })
-        assert(
-            /^[0-9+\-*/%().\s]+$/.test(rewritten),
-            `GBML expression ${exprID} contains unsupported syntax: ${source}`,
-        )
-        const value = Function(`"use strict"; return (${rewritten})`)()
-        assert(Number.isFinite(value), `GBML expression ${exprID} did not produce finite number`)
-        return value
+        assert(/^[0-9+\-*/%().\s]+$/.test(rewritten), `JSON BulletML expression contains unsupported syntax: ${source}`)
+        const result = Function(`"use strict"; return (${rewritten})`)()
+        assert(Number.isFinite(result), "JSON BulletML expression did not produce finite number")
+        return result
     }
 
     random() {
@@ -423,21 +437,24 @@ class BulletMLEngine {
         return this.seed / 0x100000000
     }
 
-    resolveAction(id) {
-        const action = this.actions.get(id)
-        assert(action, `GBML missing action ${id}`)
+    resolveAction(index) {
+        requireIndex(index, "action index")
+        const action = this.actions[index]
+        assert(action, `JSON BulletML missing action ${index}`)
         return action
     }
 
-    resolveBullet(id) {
-        const bullet = this.bullets.get(id)
-        assert(bullet, `GBML missing bullet ${id}`)
+    resolveBullet(index) {
+        requireIndex(index, "bullet index")
+        const bullet = this.bullets[index]
+        assert(bullet, `JSON BulletML missing bullet ${index}`)
         return bullet
     }
 
-    resolveFire(id) {
-        const fire = this.fires.get(id)
-        assert(fire, `GBML missing fire ${id}`)
+    resolveFire(index) {
+        requireIndex(index, "fire index")
+        const fire = this.fires[index]
+        assert(fire, `JSON BulletML missing fire ${index}`)
         return fire
     }
 
@@ -493,7 +510,7 @@ export class ViewBullet extends ViewCanvasBase {
     constructor() {
         super()
         this.sourcePath = ""
-        this.gbml = null
+        this.bulletml = null
         this.programText = ""
         this.dirty = false
         this.engine = new BulletMLEngine()
@@ -568,14 +585,14 @@ export class ViewBullet extends ViewCanvasBase {
         controls.dataset.element = "header-controls"
         controls.innerHTML = `
       <div role="buttongroup" data-element="file-actions">
-        <button type="button" data-action="new" aria-label="New GBML" title="New GBML"><i aria-hidden="true">docs</i></button>
-        <button type="button" data-action="open" aria-label="Open GBML" title="Open GBML"><i aria-hidden="true">folder_open</i></button>
-        <button type="button" data-action="save" class="accent" aria-label="Save GBML" title="Save GBML"><i aria-hidden="true">save</i></button>
-        <button type="button" data-action="save-as" aria-label="Save GBML as" title="Save GBML as"><i aria-hidden="true">save_as</i></button>
-        <button type="button" data-action="reload" aria-label="Reload GBML" title="Reload GBML"><i aria-hidden="true">refresh</i></button>
+        <button type="button" data-action="new" aria-label="New JSON BulletML" title="New JSON BulletML"><i aria-hidden="true">docs</i></button>
+        <button type="button" data-action="open" aria-label="Open JSON BulletML" title="Open JSON BulletML"><i aria-hidden="true">folder_open</i></button>
+        <button type="button" data-action="save" class="accent" aria-label="Save JSON BulletML" title="Save JSON BulletML"><i aria-hidden="true">save</i></button>
+        <button type="button" data-action="save-as" aria-label="Save JSON BulletML as" title="Save JSON BulletML as"><i aria-hidden="true">save_as</i></button>
+        <button type="button" data-action="reload" aria-label="Reload JSON BulletML" title="Reload JSON BulletML"><i aria-hidden="true">refresh</i></button>
       </div>
       <div role="buttongroup" data-element="tool-actions">
-        <button type="button" data-action="edit" aria-label="Edit GBML JSON" title="Edit GBML JSON"><i aria-hidden="true">edit</i></button>
+        <button type="button" data-action="edit" aria-label="Edit JSON BulletML" title="Edit JSON BulletML"><i aria-hidden="true">edit</i></button>
         <button type="button" data-action="restart" aria-label="Restart preview" title="Restart preview"><i aria-hidden="true">restart_alt</i></button>
         <button type="button" data-action="play-pause" aria-label="Play preview" title="Play preview" aria-pressed="false"><i aria-hidden="true">play_arrow</i></button>
         <button type="button" data-action="step" aria-label="Step one frame" title="Step one frame"><i aria-hidden="true">skip_next</i></button>
@@ -633,7 +650,7 @@ export class ViewBullet extends ViewCanvasBase {
 
     renderHeaderControls() {
         if (!this._headerControlsElement) return
-        const hasProgram = this.gbml !== null
+        const hasProgram = this.bulletml !== null
         const hasPath = this.sourcePath.length > 0
         this.headerButton("save").disabled = !hasProgram || !hasPath
         this.headerButton("save-as").disabled = !hasProgram
@@ -691,16 +708,8 @@ export class ViewBullet extends ViewCanvasBase {
         }
     }
 
-    bulletColor(bullet) {
-        const data = bullet.data
-        if (!data) return "#ff6688"
-        requireObject(data, "GBML bullet data")
-        assert(data.format === "gams-bullet-data-v1", `unsupported GBML bullet data format ${data.format}`)
-        const fields = requireObject(data.fields, "GBML bullet data fields")
-        const color = fields.color
-        if (color === undefined) return "#ff6688"
-        assert(typeof color === "string" && color.length > 0, "GBML bullet data color must be a non-empty string")
-        return color
+    bulletColor(_bullet) {
+        return "#ff6688"
     }
 
     onCanvasMouseDown(event) {
@@ -748,12 +757,12 @@ export class ViewBullet extends ViewCanvasBase {
         this.renderHeaderControls()
     }
 
-    setProgram(gbml, { dirty = false, status = "Ready", tone = "success" } = {}) {
-        this.gbml = gbml
-        this.programText = stringifyGbml(gbml)
+    setProgram(bulletml, { dirty = false, status = "Ready", tone = "success" } = {}) {
+        this.bulletml = bulletml
+        this.programText = stringifyBulletml(bulletml)
         this.dirty = dirty
-        this.engine.load(gbml)
-        this.setData(gbml, { autoFit: true })
+        this.engine.load(bulletml)
+        this.setData(bulletml, { autoFit: true })
         this.updateFooter(status, tone)
     }
 
@@ -763,8 +772,8 @@ export class ViewBullet extends ViewCanvasBase {
         this.setStatus("Loading...", "info")
         try {
             const text = unwrap(await runtime.invoke("fs/fs::read-text", this.sourcePath))
-            const gbml = JSON.parse(text)
-            this.setProgram(gbml, { dirty: false, status: "Ready", tone: "success" })
+            const bulletml = JSON.parse(text)
+            this.setProgram(bulletml, { dirty: false, status: "Ready", tone: "success" })
         } catch (error) {
             this.setStatus(`Error: ${errorMessage(error)}`, "danger")
             console.error("view-bullet load failed:", error)
@@ -780,9 +789,9 @@ export class ViewBullet extends ViewCanvasBase {
         const payload = unwrap(await runtime.call("ui.popup.open", this.createNewPopupOptions()))
         if (!payload || payload.cancelled) return
         const path = typeof payload.path === "string" ? payload.path.trim() : ""
-        assert(path.length > 0, "view-bullet new requires GBML file path")
+        assert(path.length > 0, "view-bullet new requires JSON BulletML file path")
         this.sourcePath = path
-        this.setProgram(createEmptyGbml(), { dirty: false, status: `Created ${path}`, tone: "success" })
+        this.setProgram(createEmptyBulletml(), { dirty: false, status: `Created ${path}`, tone: "success" })
         await this.saveToPath(path)
         await runtime.call("ui.toast.success", { message: `Created ${path}` })
     }
@@ -791,14 +800,14 @@ export class ViewBullet extends ViewCanvasBase {
         const payload = unwrap(await runtime.call("ui.popup.open", this.createOpenPopupOptions()))
         if (!payload || payload.cancelled) return
         const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
-        assert(selection && selection.path, "view-bullet open requires selected GBML file path")
+        assert(selection && selection.path, "view-bullet open requires selected JSON BulletML file path")
         this.sourcePath = selection.path
         await this.load()
     }
 
     async save() {
-        assert(this.gbml !== null, "view-bullet save requires loaded GBML")
-        assert(this.sourcePath.length > 0, "view-bullet save requires GBML file path")
+        assert(this.bulletml !== null, "view-bullet save requires loaded JSON BulletML")
+        assert(this.sourcePath.length > 0, "view-bullet save requires JSON BulletML file path")
         await this.saveToPath(this.sourcePath)
         this.dirty = false
         this.updateFooter(`Saved ${this.sourcePath}`, "success")
@@ -806,11 +815,11 @@ export class ViewBullet extends ViewCanvasBase {
     }
 
     async saveAs() {
-        assert(this.gbml !== null, "view-bullet save-as requires loaded GBML")
+        assert(this.bulletml !== null, "view-bullet save-as requires loaded JSON BulletML")
         const payload = unwrap(await runtime.call("ui.popup.open", this.createSavePopupOptions()))
         if (!payload || payload.cancelled) return
         const path = typeof payload.path === "string" ? payload.path.trim() : ""
-        assert(path.length > 0, "view-bullet save-as requires GBML file path")
+        assert(path.length > 0, "view-bullet save-as requires JSON BulletML file path")
         await this.saveToPath(path)
         this.sourcePath = path
         this.dirty = false
@@ -819,10 +828,10 @@ export class ViewBullet extends ViewCanvasBase {
     }
 
     async edit() {
-        assert(this.sourcePath.length > 0, "view-bullet edit requires GBML file path")
+        assert(this.sourcePath.length > 0, "view-bullet edit requires JSON BulletML file path")
         const payload = unwrap(
             await runtime.call("ui.popup.open", {
-                title: "Edit GBML JSON",
+                title: "Edit JSON BulletML",
                 size: "large",
                 tag: "view-code",
                 attributes: { "data-source": this.sourcePath, "data-lang": "json" },
@@ -832,28 +841,28 @@ export class ViewBullet extends ViewCanvasBase {
     }
 
     async saveToPath(path) {
-        assert(this.gbml !== null, "view-bullet save requires loaded GBML")
-        assert(typeof path === "string" && path.length > 0, "view-bullet save requires GBML path")
-        this.programText = stringifyGbml(this.gbml)
+        assert(this.bulletml !== null, "view-bullet save requires loaded JSON BulletML")
+        assert(typeof path === "string" && path.length > 0, "view-bullet save requires JSON BulletML path")
+        this.programText = stringifyBulletml(this.bulletml)
         unwrap(await runtime.invoke("fs/fs::write-text", path, this.programText))
     }
 
     restartPreview() {
-        assert(this.gbml !== null, "view-bullet restart requires loaded GBML")
+        assert(this.bulletml !== null, "view-bullet restart requires loaded JSON BulletML")
         this.engine.reset()
         this.draw()
         this.updateFooter("Restarted", "success")
     }
 
     stepPreview() {
-        assert(this.gbml !== null, "view-bullet step requires loaded GBML")
+        assert(this.bulletml !== null, "view-bullet step requires loaded JSON BulletML")
         this.engine.step()
         this.draw()
         this.updateFooter("Stepped one frame", "info")
     }
 
     togglePlayback() {
-        assert(this.gbml !== null, "view-bullet playback requires loaded GBML")
+        assert(this.bulletml !== null, "view-bullet playback requires loaded JSON BulletML")
         if (this.engine.running) this.stopPlayback()
         else this.startPlayback()
         this.renderHeaderControls()
@@ -897,31 +906,31 @@ export class ViewBullet extends ViewCanvasBase {
 
     createOpenPopupOptions() {
         return {
-            title: "Open GBML",
+            title: "Open JSON BulletML",
             size: "medium",
             tag: "view-files",
-            props: { mode: "chooser", filter: "*.gbml.json,*.json" },
+            props: { mode: "chooser", filter: "*.bulletml.json,*.json" },
         }
     }
 
     createNewPopupOptions() {
         return {
-            title: "Create GBML",
+            title: "Create JSON BulletML",
             size: "medium",
             tag: "view-files",
-            props: { mode: "saver", filter: "*.gbml.json,*.json", defaultName: "new.gbml.json" },
+            props: { mode: "saver", filter: "*.bulletml.json,*.json", defaultName: "new.bulletml.json" },
         }
     }
 
     createSavePopupOptions() {
         return {
-            title: "Save GBML As",
+            title: "Save JSON BulletML As",
             size: "medium",
             tag: "view-files",
             props: {
                 mode: "saver",
-                filter: "*.gbml.json,*.json",
-                defaultName: basename(this.sourcePath || "new.gbml.json"),
+                filter: "*.bulletml.json,*.json",
+                defaultName: basename(this.sourcePath || "new.bulletml.json"),
             },
         }
     }

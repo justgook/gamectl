@@ -3,43 +3,23 @@
   "bullets": [
     {
       "actionRefs": [
+        6
+      ]
+    },
+    {
+      "actionRefs": [
         7
       ]
     },
-    {
-      "actionRefs": [
-        8
-      ]
-    },
     {},
     {},
     {
       "actionRefs": [
-        10
+        9
       ]
     }
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      },
-      {
-        "actionRef": 4
-      },
-      {
-        "actionRef": 5
-      },
-      {
-        "actionRef": 6
-      }
-    ],
     [
       {
         "changeSpeed": {
@@ -54,7 +34,7 @@
     [
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             "$1",
             "$2",
@@ -67,7 +47,7 @@
       {
         "repeat": {
           "times": "$1-1",
-          "actionRef": 9
+          "actionRef": 8
         }
       }
     ],
@@ -88,14 +68,14 @@
         "wait": "1-$1"
       },
       {
-        "actionRef": 1
+        "actionRef": 0
       },
       {
         "fireRef": 1
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$1",
             "$4"
@@ -104,7 +84,7 @@
       },
       {
         "actionRef": {
-          "ref": 4,
+          "ref": 3,
           "params": [
             "$1-1",
             "$2+0.1",
@@ -118,7 +98,7 @@
     [
       {
         "actionRef": {
-          "ref": 6,
+          "ref": 5,
           "params": [
             "11+$rank*6",
             1,
@@ -130,7 +110,7 @@
       },
       {
         "actionRef": {
-          "ref": 6,
+          "ref": 5,
           "params": [
             "11+$rank*6",
             1,
@@ -142,7 +122,7 @@
       },
       {
         "actionRef": {
-          "ref": 6,
+          "ref": 5,
           "params": [
             "13+$rank*8",
             1,
@@ -154,7 +134,7 @@
       },
       {
         "actionRef": {
-          "ref": 6,
+          "ref": 5,
           "params": [
             "13+$rank*8",
             1,
@@ -187,7 +167,7 @@
     [
       {
         "actionRef": {
-          "ref": 4,
+          "ref": 3,
           "params": [
             "$1",
             "$2",

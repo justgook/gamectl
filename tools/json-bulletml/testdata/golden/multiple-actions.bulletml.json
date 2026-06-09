@@ -6,21 +6,13 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
-    [
-      {
         "fireRef": 0
       }
     ],
     [
       {
         "actionRef": {
-          "ref": 1,
+          "ref": 0,
           "params": [
             12,
             "0.5 + $rank"

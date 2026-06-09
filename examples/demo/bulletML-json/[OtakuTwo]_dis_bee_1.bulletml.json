@@ -7,25 +7,8 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      },
-      {
-        "actionRef": 4
-      },
-      {
-        "actionRef": 5
-      }
-    ],
-    [
-      {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             "$rand",
@@ -36,7 +19,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             "$rand",
@@ -47,7 +30,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             "$rand",
@@ -58,7 +41,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             "$rand",
@@ -69,7 +52,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand",
             "$rand",
@@ -82,7 +65,7 @@
     [
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             "100+$1*160",
             "$2"
@@ -103,7 +86,7 @@
       },
       {
         "actionRef": {
-          "ref": 4,
+          "ref": 3,
           "params": [
             "$3",
             "$4"
@@ -112,7 +95,7 @@
       },
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             "(100+$1*160)+180",
             "$2"
@@ -159,7 +142,7 @@
       {
         "repeat": {
           "times": 3,
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],
@@ -170,14 +153,14 @@
       {
         "repeat": {
           "times": "$2-1",
-          "actionRef": 7
+          "actionRef": 6
         }
       }
     ],
     [
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             0,
             "$1"
@@ -189,7 +172,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             3,
             "$1"
@@ -201,7 +184,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             5,
             "$1"
@@ -213,7 +196,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             6,
             "$1"
@@ -225,7 +208,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             6.5,
             "$1"
@@ -237,7 +220,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             6,
             "$1"
@@ -249,7 +232,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             5,
             "$1"
@@ -261,7 +244,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             3,
             "$1"
@@ -273,7 +256,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             0,
             "$1"
@@ -285,7 +268,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -3,
             "$1"
@@ -297,7 +280,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -5,
             "$1"
@@ -309,7 +292,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -6,
             "$1"
@@ -321,7 +304,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -6.5,
             "$1"
@@ -333,7 +316,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -6,
             "$1"
@@ -345,7 +328,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -5,
             "$1"
@@ -357,7 +340,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -3,
             "$1"

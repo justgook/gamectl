@@ -9,32 +9,6 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      },
-      {
-        "actionRef": 4
-      },
-      {
-        "actionRef": 5
-      },
-      {
-        "actionRef": 6
-      },
-      {
-        "actionRef": 7
-      },
-      {
-        "actionRef": 8
-      }
-    ],
-    [
-      {
         "changeDirection": {
           "direction": {
             "type": "aim",
@@ -66,7 +40,7 @@
     ],
     [
       {
-        "actionRef": 2
+        "actionRef": 1
       },
       {
         "wait": "70-$rank*50"
@@ -76,7 +50,7 @@
       {
         "repeat": {
           "times": 26,
-          "actionRef": 9
+          "actionRef": 8
         }
       }
     ],
@@ -87,7 +61,7 @@
       {
         "repeat": {
           "times": "3+$rand*17",
-          "actionRef": 10
+          "actionRef": 9
         }
       }
     ],
@@ -95,7 +69,7 @@
       {
         "repeat": {
           "times": "3+$rand*17",
-          "actionRef": 11
+          "actionRef": 10
         }
       }
     ],
@@ -103,13 +77,13 @@
       {
         "repeat": {
           "times": 2,
-          "actionRef": 12
+          "actionRef": 11
         }
       }
     ],
     [
       {
-        "actionRef": 7
+        "actionRef": 6
       }
     ],
     [
@@ -119,7 +93,7 @@
     ],
     [
       {
-        "actionRef": 4
+        "actionRef": 3
       },
       {
         "wait": 6
@@ -133,7 +107,7 @@
         "fireRef": 3
       },
       {
-        "actionRef": 4
+        "actionRef": 3
       },
       {
         "wait": 6
@@ -141,11 +115,11 @@
     ],
     [
       {
-        "actionRef": 1
+        "actionRef": 0
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             5,
             "180-$rand*90"
@@ -153,23 +127,23 @@
         }
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
-        "actionRef": 1
+        "actionRef": 0
       },
       {
-        "actionRef": 6
+        "actionRef": 5
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
-        "actionRef": 1
+        "actionRef": 0
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -5,
             "180+$rand*90"
@@ -177,16 +151,16 @@
         }
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
-        "actionRef": 1
+        "actionRef": 0
       },
       {
-        "actionRef": 6
+        "actionRef": 5
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       }
     ]
   ],

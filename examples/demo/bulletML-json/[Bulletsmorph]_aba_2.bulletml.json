@@ -7,7 +7,7 @@
         "value": 1.3
       },
       "actionRefs": [
-        3
+        2
       ]
     },
     {
@@ -16,24 +16,16 @@
         "value": 0.1
       },
       "actionRefs": [
-        4
+        3
       ]
     }
   ],
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
-    [
-      {
         "repeat": {
           "times": 8,
-          "actionRef": 5
+          "actionRef": 4
         }
       },
       {
@@ -47,7 +39,7 @@
       {
         "repeat": {
           "times": "(4 + 8 * $rank) - 1",
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],
@@ -88,7 +80,7 @@
     [
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "90 * $rand",
             1
@@ -100,7 +92,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "90 * $rand",
             -1
@@ -112,7 +104,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "30 * $rand",
             1
@@ -124,7 +116,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "30 * $rand",
             -1

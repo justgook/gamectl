@@ -3,36 +3,28 @@
   "bullets": [
     {
       "actionRefs": [
-        3
+        2
       ]
     },
     {},
     {},
     {
       "actionRefs": [
-        5
+        4
       ]
     },
     {
       "actionRefs": [
-        7
+        6
       ]
     },
     {
       "actionRefs": [
-        9
+        8
       ]
     }
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
     [
       {
         "fireRef": 0
@@ -40,7 +32,7 @@
       {
         "repeat": {
           "times": "35+$rank*21",
-          "actionRef": 2
+          "actionRef": 1
         }
       },
       {
@@ -54,7 +46,7 @@
       {
         "repeat": {
           "times": "$rank*6",
-          "actionRef": 10
+          "actionRef": 9
         }
       },
       {
@@ -63,7 +55,7 @@
       {
         "repeat": {
           "times": "$rank*6",
-          "actionRef": 11
+          "actionRef": 10
         }
       },
       {
@@ -80,7 +72,7 @@
       {
         "repeat": {
           "times": "7-1",
-          "actionRef": 4
+          "actionRef": 3
         }
       },
       {
@@ -96,7 +88,7 @@
       {
         "repeat": {
           "times": "3+$rank*7",
-          "actionRef": 6
+          "actionRef": 5
         }
       },
       {
@@ -163,7 +155,7 @@
       {
         "repeat": {
           "times": "4+$rank*5",
-          "actionRef": 8
+          "actionRef": 7
         }
       },
       {

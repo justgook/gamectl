@@ -269,8 +269,9 @@ func compile(root *xmlNode) (*Document, error) {
 			return nil, err
 		}
 	}
+	wrapperActionIndices := wrapperActionIndices(topActions)
 	actionOffset := 0
-	if len(topActions) > 1 {
+	if len(wrapperActionIndices) > 1 {
 		actionOffset = 1
 		c.doc.Actions = append(c.doc.Actions, nil)
 	}
@@ -311,15 +312,50 @@ func compile(root *xmlNode) (*Document, error) {
 		}
 		c.doc.Actions[i+actionOffset] = action
 	}
-	if len(topActions) > 1 {
+	if len(wrapperActionIndices) > 1 {
 		wrapper := Action{}
-		for i := range topActions {
+		for _, i := range wrapperActionIndices {
 			wrapper = append(wrapper, Command{Name: "actionRef", Value: Ref{Index: i + actionOffset}})
 		}
 		c.doc.Actions[0] = wrapper
 	}
 
 	return &c.doc, nil
+}
+
+func wrapperActionIndices(topActions []*xmlNode) []int {
+	if len(topActions) == 1 {
+		return []int{0}
+	}
+	referenced := map[string]bool{}
+	for _, action := range topActions {
+		collectActionRefLabels(action, referenced)
+	}
+	indices := []int{}
+	for i, action := range topActions {
+		label := action.Attrs["label"]
+		if label == "" || !referenced[label] {
+			indices = append(indices, i)
+		}
+	}
+	if len(indices) == 0 {
+		for i := range topActions {
+			indices = append(indices, i)
+		}
+	}
+	return indices
+}
+
+func collectActionRefLabels(node *xmlNode, labels map[string]bool) {
+	if node.Name == "actionRef" {
+		label := node.Attrs["label"]
+		if label != "" {
+			labels[label] = true
+		}
+	}
+	for _, child := range node.Children {
+		collectActionRefLabels(child, labels)
+	}
 }
 
 func registerLabel(labels map[string]int, node *xmlNode, index int, kind string) error {

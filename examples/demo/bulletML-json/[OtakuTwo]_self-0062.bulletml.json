@@ -6,16 +6,8 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
-    [
-      {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             180
           ]
@@ -36,13 +28,13 @@
       {
         "repeat": {
           "times": 50,
-          "actionRef": 3
+          "actionRef": 2
         }
       },
       {
         "repeat": {
           "times": 20,
-          "actionRef": 4
+          "actionRef": 3
         }
       },
       {
@@ -50,7 +42,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             0
           ]
@@ -146,7 +138,7 @@
       {
         "repeat": {
           "times": "100-$rand*50",
-          "actionRef": 5
+          "actionRef": 4
         }
       }
     ],

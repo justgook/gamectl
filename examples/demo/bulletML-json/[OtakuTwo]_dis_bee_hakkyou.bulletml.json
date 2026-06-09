@@ -7,38 +7,27 @@
         "value": "0.2+$rank*0.2"
       },
       "actionRefs": [
-        4
+        3
       ]
     },
     {
       "actionRefs": [
-        6
+        5
       ]
     },
     {},
     {},
     {
       "actionRefs": [
-        9
+        8
       ]
     }
   ],
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      }
-    ],
-    [
-      {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             180
           ]
@@ -65,12 +54,12 @@
       {
         "repeat": {
           "times": 30,
-          "actionRef": 3
+          "actionRef": 2
         }
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             0
           ]
@@ -127,7 +116,7 @@
       {
         "repeat": {
           "times": 12,
-          "actionRef": 10
+          "actionRef": 9
         }
       },
       {
@@ -138,7 +127,7 @@
       {
         "repeat": {
           "times": 9999,
-          "actionRef": 5
+          "actionRef": 4
         }
       }
     ],
@@ -177,7 +166,7 @@
       {
         "repeat": {
           "times": "150+$rank*150",
-          "actionRef": 7
+          "actionRef": 6
         }
       },
       {
@@ -191,7 +180,7 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 8
+          "actionRef": 7
         }
       },
       {
@@ -215,7 +204,7 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 11
+          "actionRef": 10
         }
       },
       {
@@ -224,7 +213,7 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 12
+          "actionRef": 11
         }
       }
     ],

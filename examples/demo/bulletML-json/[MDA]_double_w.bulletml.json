@@ -7,16 +7,8 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
-    [
-      {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             0.31
           ]
@@ -24,7 +16,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             0
           ]
@@ -38,7 +30,7 @@
       {
         "repeat": {
           "times": "($rank*$rank*50+21)*(2-$1)",
-          "actionRef": 3
+          "actionRef": 2
         }
       },
       {
@@ -57,7 +49,7 @@
       {
         "repeat": {
           "times": "10*(1+$1)",
-          "actionRef": 4
+          "actionRef": 3
         }
       },
       {
