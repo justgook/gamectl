@@ -517,7 +517,10 @@ compile_field_from_slice :: proc(
 		default_token = -1,
 		max_len       = -1,
 	}
-	value_slice := trim_bytes_space(fields_slice[member.value_start:member.value_end])
+	value_raw_slice := fields_slice[member.value_start:member.value_end]
+	value_trim_offset := trim_left_space_count(value_raw_slice)
+	value_slice := trim_bytes_space(value_raw_slice)
+	value_abs_start := fields_abs_start + member.value_start + value_trim_offset
 	if len(value_slice) == 0 {
 		return FieldDef{}, "field definition missing value"
 	}
@@ -567,6 +570,14 @@ compile_field_from_slice :: proc(
 		}
 		field.type_index = anon_idx
 		field.max_len = read_optional_int_from_slice(value_slice, "max_len")
+		if default_start, _, has_default := find_top_level_value_bounds(value_slice, "default"); has_default {
+			default_token := find_token_by_value_start(schema_tokens[:schema_token_count], value_abs_start + default_start)
+			if default_token < 0 {
+				return FieldDef{}, "field default token lookup failed"
+			}
+			field.has_default = true
+			field.default_token = default_token
+		}
 		return field, ""
 	}
 	return FieldDef{}, "unsupported top-level field object"
@@ -588,6 +599,23 @@ find_token_by_start :: proc(tokens: []jsmn.Token, start: int, kind: jsmn.JsmnTyp
 		}
 	}
 	return -1
+}
+
+find_token_by_value_start :: proc(tokens: []jsmn.Token, start: int) -> int {
+	for i in 0 ..< len(tokens) {
+		if tokens[i].start == start || tokens[i].start == start + 1 {
+			return i
+		}
+	}
+	return -1
+}
+
+trim_left_space_count :: proc(data: []u8) -> int {
+	count := 0
+	for count < len(data) && is_space(data[count]) {
+		count += 1
+	}
+	return count
 }
 
 resolve_named_type_bytes :: proc(input: []u8, tok: jsmn.Token) -> (int, string) {
@@ -754,6 +782,9 @@ add_builtin_type :: proc(kind: TypeKind, name: string) {
 	types[idx].has_name = true
 	types[idx].name_start = -1
 	types[idx].name_end = -1
+	types[idx].max_len = -1
+	types[idx].target_type = -1
+	types[idx].fixed_len = -1
 	type_count += 1
 	store_builtin_name(idx, name)
 }

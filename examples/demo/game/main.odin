@@ -1,6 +1,7 @@
 package main
 
 import "core:c"
+import "decoder2"
 import "host"
 import sg "sokol/gfx"
 import qoi "third_party/qoi"
@@ -31,8 +32,11 @@ app_init :: proc() {
 	host.setup_graphics()
 	host.info("app", "init")
 
+	assert(test_load_bullet_assets("bullet.rspk", &state.world))
+
 	load_ok := load_game_assets(GAME_ASSET_PATH, &state.world)
 	assert(load_ok)
+
 
 	world.init(&state.world)
 }
@@ -73,13 +77,24 @@ app_cleanup :: proc() {
 // 	state.mouse_y = mouse_y
 // }
 
+@(private = "file")
+test_load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
+	asset_data := host.asset_read_all(filepath) or_return
+	game_data := decoder2.open_respack(asset_data) or_return
+	the_bullets := decoder2.read_slot_0_bullet_patterns(game_data) or_return
+	host.info("testing decoder", "data", the_bullets)
+
+	return true
+}
+
 
 @(private = "file")
 load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
-	host.info("assets", "loading")
+	host.info("assets", "loading", decoder2.speed_type.absolute)
+
 
 	asset_data := host.asset_read_all(filepath) or_return
-	// defer delete(asset_data) - impement it as host.file_close - so we can use delete version in native and web based
+	// defer delete(asset_data) - implement it as host.file_close - so we can use delete version in native and web based
 
 	game_data := open_respack(asset_data) or_return
 

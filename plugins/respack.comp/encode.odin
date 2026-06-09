@@ -123,7 +123,7 @@ encode_json_value :: proc(
 			child_slice, found := find_object_field_slice(input, field_name_string(field_idx))
 			if !found {
 				if !fields[field_idx].has_default {
-					return false, "missing required field"
+					return false, join2("missing required field: ", field_name_string(field_idx))
 				}
 				ok, err := encode_schema_default(w, field_idx)
 				if !ok {
@@ -596,31 +596,63 @@ encode_utf8_into_decoded_buffer :: proc(offset: int, codepoint: rune) -> (int, b
 
 encode_oneof_value :: proc(w: ^BinaryWriter, input: []u8, type_idx: int) -> (bool, string) {
 	trimmed := trim_space_slice(input)
-	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return false, "expected object for oneof"
+	if len(trimmed) == 0 {
+		return false, "expected value for oneof"
 	}
-	member, next_cursor, found := next_object_member(trimmed, 1)
-	if !found {
-		return false, "oneof requires exactly one field"
+
+	if trimmed[0] == '{' {
+		member, next_cursor, found := next_object_member(trimmed, 1)
+		if found {
+			_, _, extra_found := next_object_member(trimmed, next_cursor)
+			if !extra_found {
+				variant_idx := oneof_variant_index_from_name(
+					trimmed[member.key_start:member.key_end],
+					type_idx,
+				)
+				if variant_idx >= 0 {
+					variant_type := oneof_options[types[type_idx].option_start + variant_idx]
+					return encode_oneof_variant_value(
+						w,
+						trimmed[member.value_start:member.value_end],
+						variant_idx,
+						variant_type,
+					)
+				}
+			}
+		}
 	}
-	_, _, extra_found := next_object_member(trimmed, next_cursor)
-	if extra_found {
-		return false, "oneof requires exactly one field"
+
+	last_err := ""
+	for variant_idx in 0 ..< types[type_idx].option_count {
+		variant_type := oneof_options[types[type_idx].option_start + variant_idx]
+		trial := BinaryWriter{len = w.len}
+		ok, err := encode_json_value(
+			&trial,
+			trimmed,
+			variant_type,
+			FieldDef{type_index = variant_type, default_token = -1, max_len = -1},
+		)
+		if ok {
+			return encode_oneof_variant_value(w, trimmed, variant_idx, variant_type)
+		}
+		last_err = err
 	}
-	variant_idx := oneof_variant_index_from_name(
-		trimmed[member.key_start:member.key_end],
-		type_idx,
-	)
-	if variant_idx < 0 {
-		return false, "unknown oneof variant"
-	}
+
+	return false, join3("unknown oneof variant: ", type_name_string(type_idx), join2("; last error: ", last_err))
+}
+
+encode_oneof_variant_value :: proc(
+	w: ^BinaryWriter,
+	input: []u8,
+	variant_idx: int,
+	variant_type: int,
+) -> (bool, string) {
 	if !writer_u16(w, u16(variant_idx + 1)) {
 		return false, "payload too large"
 	}
-	variant_type := oneof_options[types[type_idx].option_start + variant_idx]
 	return encode_json_value(
 		w,
-		trimmed[member.value_start:member.value_end],
+		input,
 		variant_type,
 		FieldDef{type_index = variant_type, default_token = -1, max_len = -1},
 	)

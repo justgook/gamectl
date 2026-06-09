@@ -38,7 +38,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"bulletML-json/*.bulletml.json\""
+        "value": "\"bulletML-fixtures/*.bulletml.json\""
       }
     ]
   },
@@ -47,14 +47,14 @@
     "kind": 2,
     "x": 521,
     "y": 45,
-    "name": "Read JSON",
-    "codePath": "ng/presets/read-json.lua",
+    "name": "BulletML Slots JSON",
+    "codePath": "ng/presets/bulletml-slots-json.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
       {
         "id": 1,
-        "name": "path",
+        "name": "paths",
         "srcNodeId": 1,
         "srcOutputId": 1
       }
@@ -62,7 +62,7 @@
     "outputs": [
       {
         "id": 1,
-        "name": "data",
+        "name": "slots_json",
         "value": null
       },
       {
@@ -75,8 +75,8 @@
   {
     "id": 5,
     "kind": 2,
-    "x": 937,
-    "y": 56,
+    "x": 980,
+    "y": 59,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
     "graphId": 0,
@@ -91,7 +91,7 @@
       {
         "id": 2,
         "name": "slots",
-        "srcNodeId": 10,
+        "srcNodeId": 4,
         "srcOutputId": 1
       },
       {
@@ -133,15 +133,15 @@
       {
         "id": 3,
         "name": "",
-        "value": "\"game/decoder2.odin\""
+        "value": "\"game/decoder2/decoder2.odin\""
       }
     ]
   },
   {
     "id": 9,
     "kind": 2,
-    "x": 737,
-    "y": 206,
+    "x": 804,
+    "y": 226,
     "name": "Read File",
     "codePath": "ng/presets/read-file.lua",
     "graphId": 0,
@@ -163,31 +163,6 @@
       {
         "id": 2,
         "name": "error",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 10,
-    "kind": 2,
-    "x": 725,
-    "y": 39,
-    "name": "toArray",
-    "codePath": "ng/presets/to-array.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "item1",
-        "srcNodeId": 4,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "array",
         "value": null
       }
     ]
