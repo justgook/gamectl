@@ -3,6 +3,7 @@ package world
 import "../decoder2"
 import "../host"
 import sg "../sokol/gfx"
+import "bullet"
 import "core:math/linalg"
 import "grid"
 import "logic"
@@ -54,6 +55,7 @@ World :: struct {
 	player_hit:          logic.Component_Storage(shape.Circle),
 	// Bullet patterns
 	bullet_patterns:     decoder2.bullet_patterns,
+	bullet:              logic.Component_Storage(bullet.State),
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -62,6 +64,7 @@ frame :: proc(w: ^World, dt: f64) {
 		w.accumulator -= w.sim_frame_length
 		sys_brain(w)
 		sys_platformer(w)
+		sys_bullet(w)
 	}
 
 	sys_camera(w, dt)
@@ -145,6 +148,7 @@ init :: proc(w: ^World) {
 	// TODO: delete MOCK DATA
 
 	player := create_entity(w)
+	logic.add_component(&w.bullet, player, bullet.init_pattern_state(&w.bullet_patterns[0]))
 	camera_track(&w.cam, player)
 	logic.add_component(&w.brain, player, Brain{})
 	logic.add_component(&w.input, player, Input{})

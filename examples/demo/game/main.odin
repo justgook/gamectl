@@ -82,7 +82,7 @@ test_load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	asset_data := host.asset_read_all(filepath) or_return
 	game_data := decoder2.open_respack(asset_data) or_return
 	w.bullet_patterns = decoder2.read_slot_0_bullet_patterns(game_data) or_return
-	host.info("bullet decoder", "syccess", true)
+	host.info("bullet decoder", "success", true)
 
 	return true
 }
