@@ -74,7 +74,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-ng />"
+          "layout": "<view-ng data-source=\"pipe/bullet.ng.json\" />"
         }
       }
     },
@@ -654,9 +654,9 @@
               "group": "Data"
             },
             {
-              "name": "Array",
+              "name": "toArray",
               "kind": "code",
-              "codePath": "ng/presets/array.lua",
+              "codePath": "ng/presets/to-array.lua",
               "inputs": [
                 {
                   "name": "item1",

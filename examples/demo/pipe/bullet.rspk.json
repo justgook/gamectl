@@ -1,0 +1,21 @@
+{
+  "package": "main",
+  "odin": {
+    "package": "main",
+    "imports": {
+      "world": "world"
+    }
+  },
+  "data": ["Bullets"],
+  "types": {
+    "iVec4": {
+      "type": "array",
+      "len": 4,
+      "value": "i32"
+    },
+    "Bullets": {
+      "type": "vector",
+      "value": "iVec4"
+    }
+  }
+}
