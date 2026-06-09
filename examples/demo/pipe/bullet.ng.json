@@ -38,7 +38,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"bulletML/examples/*.gbml.json\""
+        "value": "\"bulletML-json/*.bulletml.json\""
       }
     ]
   },
@@ -91,7 +91,7 @@
       {
         "id": 2,
         "name": "slots",
-        "srcNodeId": 8,
+        "srcNodeId": 10,
         "srcOutputId": 1
       },
       {
@@ -138,31 +138,6 @@
     ]
   },
   {
-    "id": 8,
-    "kind": 2,
-    "x": 724,
-    "y": 53,
-    "name": "toArray",
-    "codePath": "ng/presets/array.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "item1",
-        "srcNodeId": 4,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "value": null
-      }
-    ]
-  },
-  {
     "id": 9,
     "kind": 2,
     "x": 737,
@@ -188,6 +163,31 @@
       {
         "id": 2,
         "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "kind": 2,
+    "x": 725,
+    "y": 39,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "srcNodeId": 4,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
         "value": null
       }
     ]

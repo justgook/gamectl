@@ -1,5 +1,0 @@
-<fire>
- <direction type="absolute">270</direction>
- <speed>2</speed>
- <bulletRef label="rocket"/>
-</fire>
