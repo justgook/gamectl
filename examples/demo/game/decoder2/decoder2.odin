@@ -128,6 +128,8 @@ ref_with_params :: struct {
 }
 
 bullet :: struct {
+	direction: direction,
+	speed: speed,
 	action_refs: []ref,
 }
 
@@ -533,6 +535,12 @@ decode_ref_with_params :: proc(r: ^Reader, out: ^ref_with_params) -> bool {
 }
 
 decode_bullet :: proc(r: ^Reader, out: ^bullet) -> bool {
+	{
+	if !decode_direction(r, &out.direction) { return false }
+	}
+	{
+	if !decode_speed(r, &out.speed) { return false }
+	}
 	{
 	count, ok := read_u32_reader(r)
 	if !ok { return false }

@@ -1,5 +1,6 @@
 package world
 
+import "../decoder2"
 import "../host"
 import sg "../sokol/gfx"
 import "core:math/linalg"
@@ -51,6 +52,8 @@ World :: struct {
 	enemy_hit:           logic.Component_Storage(shape.Circle),
 	player_hurt:         logic.Component_Storage(shape.Capsule),
 	player_hit:          logic.Component_Storage(shape.Circle),
+	// Bullet patterns
+	bullet_patterns:     decoder2.bullet_patterns,
 }
 
 frame :: proc(w: ^World, dt: f64) {
