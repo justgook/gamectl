@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/json-bulletml.schema.json",
+  "title": "JSON BulletML",
+  "description": "Normalized JSON representation of BulletML using zero-based array references.",
+  "type": "object",
+  "required": ["type", "bullets", "actions", "fires"],
+  "properties": {
+    "type": {
+      "description": "Orientation of the barrage.",
+      "enum": ["none", "vertical", "horizontal"]
+    },
+    "bullets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/bullet" }
+    },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/action" }
+    },
+    "fires": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fire" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "value": {
+      "description": "A numeric value or a BulletML expression string.",
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+    "reference": {
+      "description": "A zero-based array index or a parameterized reference.",
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        {
+          "type": "object",
+          "required": ["ref", "params"],
+          "properties": {
+            "ref": { "type": "integer", "minimum": 0 },
+            "params": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/value" }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "direction": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "enum": ["aim", "absolute", "relative", "sequence"]
+        },
+        "value": { "$ref": "#/$defs/value" }
+      },
+      "additionalProperties": false
+    },
+    "speed": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "enum": ["absolute", "relative", "sequence"]
+        },
+        "value": { "$ref": "#/$defs/value" }
+      },
+      "additionalProperties": false
+    },
+    "acceleration": {
+      "type": "object",
+      "required": ["type", "value"],
+      "properties": {
+        "type": {
+          "enum": ["absolute", "relative", "sequence"]
+        },
+        "value": { "$ref": "#/$defs/value" }
+      },
+      "additionalProperties": false
+    },
+    "bullet": {
+      "type": "object",
+      "properties": {
+        "direction": { "$ref": "#/$defs/direction" },
+        "speed": { "$ref": "#/$defs/speed" },
+        "actionRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reference" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "fire": {
+      "type": "object",
+      "required": ["bulletRef"],
+      "properties": {
+        "direction": { "$ref": "#/$defs/direction" },
+        "speed": { "$ref": "#/$defs/speed" },
+        "bulletRef": { "$ref": "#/$defs/reference" }
+      },
+      "additionalProperties": false
+    },
+    "action": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/command" }
+    },
+    "command": {
+      "oneOf": [
+        { "$ref": "#/$defs/waitCommand" },
+        { "$ref": "#/$defs/vanishCommand" },
+        { "$ref": "#/$defs/actionRefCommand" },
+        { "$ref": "#/$defs/fireRefCommand" },
+        { "$ref": "#/$defs/changeSpeedCommand" },
+        { "$ref": "#/$defs/changeDirectionCommand" },
+        { "$ref": "#/$defs/accelCommand" },
+        { "$ref": "#/$defs/repeatCommand" }
+      ]
+    },
+    "waitCommand": {
+      "type": "object",
+      "required": ["wait"],
+      "properties": {
+        "wait": { "$ref": "#/$defs/value" }
+      },
+      "additionalProperties": false
+    },
+    "vanishCommand": {
+      "type": "object",
+      "required": ["vanish"],
+      "properties": {
+        "vanish": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "actionRefCommand": {
+      "type": "object",
+      "required": ["actionRef"],
+      "properties": {
+        "actionRef": { "$ref": "#/$defs/reference" }
+      },
+      "additionalProperties": false
+    },
+    "fireRefCommand": {
+      "type": "object",
+      "required": ["fireRef"],
+      "properties": {
+        "fireRef": { "$ref": "#/$defs/reference" }
+      },
+      "additionalProperties": false
+    },
+    "changeSpeedCommand": {
+      "type": "object",
+      "required": ["changeSpeed"],
+      "properties": {
+        "changeSpeed": {
+          "type": "object",
+          "required": ["speed", "term"],
+          "properties": {
+            "speed": { "$ref": "#/$defs/speed" },
+            "term": { "$ref": "#/$defs/value" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "changeDirectionCommand": {
+      "type": "object",
+      "required": ["changeDirection"],
+      "properties": {
+        "changeDirection": {
+          "type": "object",
+          "required": ["direction", "term"],
+          "properties": {
+            "direction": { "$ref": "#/$defs/direction" },
+            "term": { "$ref": "#/$defs/value" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "accelCommand": {
+      "type": "object",
+      "required": ["accel"],
+      "properties": {
+        "accel": {
+          "type": "object",
+          "required": ["term"],
+          "properties": {
+            "horizontal": { "$ref": "#/$defs/acceleration" },
+            "vertical": { "$ref": "#/$defs/acceleration" },
+            "term": { "$ref": "#/$defs/value" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "repeatCommand": {
+      "type": "object",
+      "required": ["repeat"],
+      "properties": {
+        "repeat": {
+          "type": "object",
+          "required": ["times", "actionRef"],
+          "properties": {
+            "times": { "$ref": "#/$defs/value" },
+            "actionRef": { "$ref": "#/$defs/reference" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

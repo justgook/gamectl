@@ -1,0 +1,58 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 270
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 2
+      },
+      "actionRefs": [1]
+    }
+  ],
+  "actions": [
+    [
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 60
+        }
+      },
+      {
+        "wait": 60
+      },
+      {
+        "fireRef": 0
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "accel": {
+          "vertical": {
+            "type": "absolute",
+            "value": 3
+          },
+          "term": 120
+        }
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "330 + $rand * 25"
+      },
+      "bulletRef": 0
+    }
+  ]
+}
