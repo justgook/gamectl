@@ -1,0 +1,382 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "actionRefs": [
+        1
+      ]
+    },
+    {
+      "actionRefs": [
+        3
+      ]
+    },
+    {
+      "actionRefs": [
+        5
+      ]
+    },
+    {
+      "actionRefs": [
+        6
+      ]
+    },
+    {
+      "actionRefs": [
+        7
+      ]
+    },
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "repeat": {
+          "times": 10,
+          "actionRef": 8
+        }
+      },
+      {
+        "wait": 450
+      }
+    ],
+    [
+      {
+        "wait": "$2"
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0.0001
+          },
+          "term": 1
+        }
+      },
+      {
+        "fireRef": 0
+      },
+      {
+        "fireRef": 1
+      },
+      {
+        "repeat": {
+          "times": 15,
+          "actionRef": 2
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "wait": 2
+      }
+    ],
+    [
+      {
+        "wait": "$2"
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0.0001
+          },
+          "term": 1
+        }
+      },
+      {
+        "fireRef": 3
+      },
+      {
+        "fireRef": 4
+      },
+      {
+        "repeat": {
+          "times": 15,
+          "actionRef": 4
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 5
+      },
+      {
+        "wait": 2
+      }
+    ],
+    [
+      {
+        "fireRef": 6
+      },
+      {
+        "fireRef": 7
+      },
+      {
+        "fireRef": 8
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 9
+      },
+      {
+        "fireRef": 10
+      },
+      {
+        "fireRef": 11
+      },
+      {
+        "fireRef": 12
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "wait": "$1"
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 13
+      },
+      {
+        "wait": 15
+      },
+      {
+        "fireRef": 14
+      },
+      {
+        "wait": 30
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "relative",
+        "value": "$3"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "bulletRef": {
+        "ref": 1,
+        "params": [
+          "$1",
+          "$2 * 0.2",
+          "$3"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "bulletRef": {
+        "ref": 4,
+        "params": [
+          "$2 * 0.2"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": "$3"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          "$1",
+          "$2 * 6.0",
+          "$3"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": 3
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "bulletRef": {
+        "ref": 4,
+        "params": [
+          "$2 * 6.0"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "-(60- 40 * $rank)"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "3.6 - 2.0 * $rank"
+      },
+      "bulletRef": 5
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.8 + 0.5 * $rank"
+      },
+      "bulletRef": 6
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "(60- 40 * $rank)"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "3.6 - 2.0 * $rank"
+      },
+      "bulletRef": 7
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "-((40 - 30 * $rank) * 3)"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "3.6 - 2.0 * $rank"
+      },
+      "bulletRef": 8
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "-(40 - 30 * $rank)"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "3.3 - 2.0 * $rank"
+      },
+      "bulletRef": 9
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "(40 - 30 * $rank)"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "3.3 - 2.0 * $rank"
+      },
+      "bulletRef": 10
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "((40 - 30 * $rank) * 3)"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "3.6 - 2.0 * $rank"
+      },
+      "bulletRef": 11
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "180 - 30"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 3
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          1.7,
+          30,
+          -120
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "180 + 30"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 3
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          1.7,
+          30,
+          120
+        ]
+      }
+    }
+  ]
+}

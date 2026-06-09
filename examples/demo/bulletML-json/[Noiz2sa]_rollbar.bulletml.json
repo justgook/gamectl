@@ -1,0 +1,162 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "speed": {
+        "type": "absolute",
+        "value": 10
+      },
+      "actionRefs": [
+        4
+      ]
+    },
+    {
+      "speed": {
+        "type": "absolute",
+        "value": 1.5
+      }
+    },
+    {
+      "actionRefs": [
+        6
+      ]
+    },
+    {
+      "actionRefs": [
+        7
+      ]
+    }
+  ],
+  "actions": [
+    [
+      {
+        "actionRef": 1
+      },
+      {
+        "actionRef": 2
+      },
+      {
+        "actionRef": 3
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      },
+      {
+        "actionRef": 3
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "actionRef": 3
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": "15+$rank*10",
+          "actionRef": 8
+        }
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 5,
+          "actionRef": 5
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "wait": 1
+      },
+      {
+        "fireRef": 0
+      }
+    ],
+    [
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 3
+      },
+      {
+        "fireRef": 4
+      },
+      {
+        "wait": "200/(15+$rank*10)"
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "relative",
+        "value": "$1"
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "$rand*50"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "180+$rank*50"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": 3
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 180
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          90
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 160
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          -90
+        ]
+      }
+    }
+  ]
+}

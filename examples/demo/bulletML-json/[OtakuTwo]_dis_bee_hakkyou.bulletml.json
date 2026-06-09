@@ -1,0 +1,336 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "speed": {
+        "type": "absolute",
+        "value": "0.2+$rank*0.2"
+      },
+      "actionRefs": [
+        4
+      ]
+    },
+    {
+      "actionRefs": [
+        6
+      ]
+    },
+    {},
+    {},
+    {
+      "actionRefs": [
+        9
+      ]
+    }
+  ],
+  "actions": [
+    [
+      {
+        "actionRef": 1
+      },
+      {
+        "actionRef": 2
+      },
+      {
+        "actionRef": 3
+      }
+    ],
+    [
+      {
+        "actionRef": {
+          "ref": 2,
+          "params": [
+            180
+          ]
+        }
+      },
+      {
+        "fireRef": {
+          "ref": 0,
+          "params": [
+            1,
+            0
+          ]
+        }
+      },
+      {
+        "fireRef": {
+          "ref": 0,
+          "params": [
+            -1,
+            1
+          ]
+        }
+      },
+      {
+        "repeat": {
+          "times": 30,
+          "actionRef": 3
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 2,
+          "params": [
+            0
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "absolute",
+            "value": "$1"
+          },
+          "term": 2
+        }
+      },
+      {
+        "wait": 3
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 2
+          },
+          "term": 25
+        }
+      },
+      {
+        "wait": 27
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 25
+        }
+      },
+      {
+        "wait": 27
+      }
+    ],
+    [
+      {
+        "fireRef": {
+          "ref": 1,
+          "params": [
+            "$rand*360"
+          ]
+        }
+      },
+      {
+        "repeat": {
+          "times": 12,
+          "actionRef": 10
+        }
+      },
+      {
+        "wait": 50
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 9999,
+          "actionRef": 5
+        }
+      }
+    ],
+    [
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "relative",
+            "value": "150*$1"
+          },
+          "term": "800-$rank*600"
+        }
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "relative",
+            "value": 1
+          },
+          "term": "150-$rank*75"
+        }
+      },
+      {
+        "wait": 50
+      }
+    ],
+    [
+      {
+        "fireRef": {
+          "ref": 1,
+          "params": [
+            "-(65.3+$2)*$1"
+          ]
+        }
+      },
+      {
+        "repeat": {
+          "times": "150+$rank*150",
+          "actionRef": 7
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "repeat": {
+          "times": 5,
+          "actionRef": 8
+        }
+      },
+      {
+        "wait": "10-$rank*5"
+      }
+    ],
+    [
+      {
+        "fireRef": 3
+      }
+    ],
+    [
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 4
+      },
+      {
+        "repeat": {
+          "times": 5,
+          "actionRef": 11
+        }
+      },
+      {
+        "fireRef": 6
+      },
+      {
+        "repeat": {
+          "times": 5,
+          "actionRef": 12
+        }
+      }
+    ],
+    [
+      {
+        "fireRef": 5
+      }
+    ],
+    [
+      {
+        "fireRef": 7
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": 4
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": "(65.3+$2)*$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "1+$rank"
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": "60*$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "1+$rank*$rank*2"
+      },
+      "bulletRef": 3
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 7.5
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          1
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 1.5
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          1
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 7.5
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          -1
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 1.5
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          -1
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "fireRef": 0
+      },
+      {
+        "wait": 30
+      },
+      {
+        "vanish": true
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 180
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 2
+      },
+      "bulletRef": 0
+    }
+  ]
+}

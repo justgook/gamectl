@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bulletml type="vertical">
+  <bullet label="basic"/>
+  <action label="a">
+    <fire>
+      <bulletRef label="basic"/>
+    </fire>
+  </action>
+  <action label="b">
+    <actionRef label="a">
+      <param>12</param>
+      <param>0.5 + $rank</param>
+    </actionRef>
+  </action>
+</bulletml>

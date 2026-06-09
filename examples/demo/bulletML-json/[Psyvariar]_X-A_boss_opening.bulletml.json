@@ -1,0 +1,40 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "repeat": {
+          "times": 600,
+          "actionRef": 1
+        }
+      },
+      {
+        "wait": 100
+      }
+    ],
+    [
+      {
+        "fireRef": 0
+      },
+      {
+        "wait": 1
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "aim",
+        "value": "-45+$rand*90"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "(0.3+$rand*0.5)*($rank+1)"
+      },
+      "bulletRef": 0
+    }
+  ]
+}

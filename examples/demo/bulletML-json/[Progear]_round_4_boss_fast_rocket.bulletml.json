@@ -1,0 +1,165 @@
+{
+  "type": "horizontal",
+  "bullets": [
+    {
+      "actionRefs": [
+        3
+      ]
+    },
+    {
+      "speed": {
+        "type": "absolute",
+        "value": "5+$rand"
+      },
+      "actionRefs": [
+        4
+      ]
+    },
+    {
+      "actionRefs": [
+        6
+      ]
+    }
+  ],
+  "actions": [
+    [
+      {
+        "actionRef": 1
+      },
+      {
+        "actionRef": 2
+      }
+    ],
+    [
+      {
+        "fireRef": 3
+      },
+      {
+        "repeat": {
+          "times": 3,
+          "actionRef": 7
+        }
+      }
+    ],
+    [
+      {
+        "actionRef": {
+          "ref": 1,
+          "params": [
+            "$rand*16"
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 1,
+          "params": [
+            "180+$rand*16"
+          ]
+        }
+      },
+      {
+        "wait": 120
+      }
+    ],
+    [
+      {
+        "wait": 40
+      },
+      {
+        "fireRef": 0
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 9999,
+          "actionRef": 5
+        }
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      },
+      {
+        "fireRef": 2
+      },
+      {
+        "wait": "5-$rank*4"
+      }
+    ],
+    [
+      {
+        "accel": {
+          "vertical": {
+            "type": "absolute",
+            "value": 2.7
+          },
+          "term": 120
+        }
+      }
+    ],
+    [
+      {
+        "fireRef": 4
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "274+$rand*4"
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 60
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1.8
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0.2
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "sequence",
+        "value": 0.5
+      },
+      "bulletRef": 0
+    }
+  ]
+}

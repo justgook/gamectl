@@ -1,0 +1,250 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "actionRefs": [
+        1
+      ]
+    },
+    {
+      "actionRefs": [
+        3
+      ]
+    },
+    {
+      "actionRefs": [
+        5
+      ]
+    },
+    {},
+    {},
+    {},
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "repeat": {
+          "times": "80+$rank*120",
+          "actionRef": 7
+        }
+      },
+      {
+        "wait": "10 + 210 * $rank * $rank"
+      },
+      {
+        "fireRef": 9
+      },
+      {
+        "fireRef": 10
+      },
+      {
+        "wait": 600
+      }
+    ],
+    [
+      {
+        "wait": 15
+      },
+      {
+        "repeat": {
+          "times": 100,
+          "actionRef": 2
+        }
+      }
+    ],
+    [
+      {
+        "fireRef": 0
+      },
+      {
+        "fireRef": 1
+      },
+      {
+        "wait": 60
+      }
+    ],
+    [
+      {
+        "wait": 15
+      },
+      {
+        "repeat": {
+          "times": 100,
+          "actionRef": 4
+        }
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "fireRef": 3
+      },
+      {
+        "wait": 60
+      }
+    ],
+    [
+      {
+        "wait": 15
+      },
+      {
+        "repeat": {
+          "times": 100,
+          "actionRef": 6
+        }
+      }
+    ],
+    [
+      {
+        "fireRef": 4
+      },
+      {
+        "fireRef": 5
+      },
+      {
+        "wait": 60
+      }
+    ],
+    [
+      {
+        "fireRef": 6
+      },
+      {
+        "fireRef": 7
+      },
+      {
+        "fireRef": 8
+      },
+      {
+        "wait": 2
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "relative",
+        "value": 90
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.8 - 0.4 * $rank"
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": -90
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.8 - 0.4 * $rank"
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": 45
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "1.0 - 0.5 * $rank"
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": -45
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "1.0 - 0.5 * $rank"
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": 30
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.2 + 0.3 * $rank * $rand"
+      },
+      "bulletRef": 3
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": -30
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.2 + 0.3 * $rank * $rand"
+      },
+      "bulletRef": 4
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "360 * $rand"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.6 - 0.5 * $rank + 0.15 * $rand"
+      },
+      "bulletRef": 5
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "60 + 240 * $rand"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.6 - 0.5 * $rank + 0.15 * $rand"
+      },
+      "bulletRef": 6
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "120 + 120 * $rand"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.6 - 0.5 * $rank + 0.15 * $rand"
+      },
+      "bulletRef": 7
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "70 + 40 * $rand"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.6 - 0.3 * $rank"
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 180
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.6 - 0.3 * $rank"
+      },
+      "bulletRef": 0
+    }
+  ]
+}

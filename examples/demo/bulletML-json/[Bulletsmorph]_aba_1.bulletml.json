@@ -1,0 +1,97 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "speed": {
+        "type": "absolute",
+        "value": "2.4 * (0.25 + 0.75 * $rank)"
+      },
+      "actionRefs": [
+        1
+      ]
+    },
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "repeat": {
+          "times": 5,
+          "actionRef": 2
+        }
+      },
+      {
+        "wait": 100
+      }
+    ],
+    [
+      {
+        "wait": "(24 + 6 * $rand)/ (2.4 * (0.25 + 0.75 * $rank))"
+      },
+      {
+        "fireRef": 0
+      },
+      {
+        "fireRef": 1
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "repeat": {
+          "times": 71,
+          "actionRef": 3
+        }
+      },
+      {
+        "wait": "30 - 20 * $rank"
+      }
+    ],
+    [
+      {
+        "fireRef": 3
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "relative",
+        "value": 17
+      },
+      "speed": {
+        "type": "relative",
+        "value": 0
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": -17
+      },
+      "speed": {
+        "type": "relative",
+        "value": 0
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "360 * $rand"
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 5
+      },
+      "bulletRef": 0
+    }
+  ]
+}

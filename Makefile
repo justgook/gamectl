@@ -118,6 +118,12 @@ GO ?= go
 TINYGO ?= tinygo
 WKG ?= wkg
 
+BULLETML_JSON_TOOL_DIR ?= tools/json-bulletml
+BULLETML_JSON_INPUT_DIR ?= $(BULLETML_JSON_TOOL_DIR)/examples
+BULLETML_JSON_DEMO_DIR ?= examples/demo/bulletML-json
+BULLETML_JSON_INPUTS := $(wildcard $(BULLETML_JSON_INPUT_DIR)/*.xml) $(wildcard $(BULLETML_JSON_INPUT_DIR)/mini/*.xml)
+BULLETML_JSON_DEMO_TARGETS := $(patsubst $(BULLETML_JSON_INPUT_DIR)/%.xml,$(BULLETML_JSON_DEMO_DIR)/%.bulletml.json,$(BULLETML_JSON_INPUTS))
+
 # Helper macro: attach manifest-defined variables to that plugin's wasm target
 #
 # How it works:
@@ -246,6 +252,13 @@ plugins-release: $(PLUGIN_TARGETS)
 plugins-release-wasm: $(PLUGIN_TARGETS_WASM)
 
 plugins-release-js: $(PLUGIN_TARGETS_JS)
+
+.PHONY: bullet-demo
+bullet-demo: $(BULLETML_JSON_DEMO_TARGETS)
+
+$(BULLETML_JSON_DEMO_DIR)/%.bulletml.json: $(BULLETML_JSON_INPUT_DIR)/%.xml $(BULLETML_JSON_TOOL_DIR)/go.mod $(BULLETML_JSON_TOOL_DIR)/main.go
+	$(Q)mkdir -p "$(dir $@)"
+	$(Q)cd "$(BULLETML_JSON_TOOL_DIR)" && $(GO) run . -o "$(abspath $@)" "$(abspath $<)"
 
 # Rule to build Go WASM component plugins. These are standalone Go modules
 # under plugins/*.comp and must not depend on a repository root go.mod.

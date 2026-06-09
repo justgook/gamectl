@@ -1,0 +1,237 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "actionRefs": [
+        1
+      ]
+    },
+    {
+      "actionRefs": [
+        3
+      ]
+    }
+  ],
+  "actions": [
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "wait": 5
+      },
+      {
+        "fireRef": 3
+      },
+      {
+        "wait": 5
+      },
+      {
+        "fireRef": 4
+      },
+      {
+        "wait": 5
+      },
+      {
+        "fireRef": 5
+      },
+      {
+        "wait": 5
+      },
+      {
+        "fireRef": 6
+      },
+      {
+        "wait": "800 - 350 * $rank"
+      }
+    ],
+    [
+      {
+        "wait": 50
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 1
+        }
+      },
+      {
+        "wait": 10
+      },
+      {
+        "repeat": {
+          "times": 50,
+          "actionRef": 2
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 0
+      },
+      {
+        "fireRef": 1
+      },
+      {
+        "wait": 5
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 999,
+          "actionRef": 4
+        }
+      }
+    ],
+    [
+      {
+        "wait": "$1"
+      },
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "absolute",
+            "value": "$2"
+          },
+          "term": 1
+        }
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": "$3"
+          },
+          "term": 1
+        }
+      },
+      {
+        "wait": "$4"
+      },
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "absolute",
+            "value": "$5"
+          },
+          "term": 1
+        }
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": "$6"
+          },
+          "term": 1
+        }
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 210
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.5 + 1.0 * $rank"
+      },
+      "bulletRef": {
+        "ref": 1,
+        "params": [
+          "36 / (0.5 + 1.0 * $rank)",
+          90,
+          "1.0 + 2.0 * $rank",
+          "18 / (1.0 + 2.0 * $rank)",
+          210,
+          "0.5 + 1.0 * $rank"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 150
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "0.5 + 1.0 * $rank"
+      },
+      "bulletRef": {
+        "ref": 1,
+        "params": [
+          "36 / (0.5 + 1.0 * $rank)",
+          270,
+          "1.0 + 2.0 * $rank",
+          "18 / (1.0 + 2.0 * $rank)",
+          150,
+          "0.5 + 1.0 * $rank"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 270
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1.2
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 315
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 45
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 90
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1.2
+      },
+      "bulletRef": 0
+    }
+  ]
+}

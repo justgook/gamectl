@@ -1,0 +1,132 @@
+{
+  "type": "none",
+  "bullets": [
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "actionRef": 1
+      },
+      {
+        "actionRef": 2
+      }
+    ],
+    [
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "absolute",
+            "value": 180
+          },
+          "term": 1
+        }
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 2
+          },
+          "term": 20
+        }
+      },
+      {
+        "wait": 60
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 20
+        }
+      },
+      {
+        "wait": 20
+      },
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 1
+        }
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 2
+          },
+          "term": 30
+        }
+      },
+      {
+        "fireRef": 0
+      },
+      {
+        "repeat": {
+          "times": 80,
+          "actionRef": 3
+        }
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 1
+        }
+      },
+      {
+        "wait": 10
+      }
+    ],
+    [
+      {
+        "actionRef": 1
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": "2+$rank*2",
+          "actionRef": 4
+        }
+      },
+      {
+        "wait": 1
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "speed": {
+        "type": "absolute",
+        "value": 0.6
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "$rand*120-60"
+      },
+      "speed": {
+        "type": "sequence",
+        "value": 0.005
+      },
+      "bulletRef": 1
+    }
+  ]
+}

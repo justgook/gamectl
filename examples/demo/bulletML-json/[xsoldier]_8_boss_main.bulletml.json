@@ -1,0 +1,293 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "actionRefs": [
+        1
+      ]
+    },
+    {
+      "actionRefs": [
+        2
+      ]
+    },
+    {
+      "actionRefs": [
+        4
+      ]
+    },
+    {},
+    {},
+    {},
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "fireRef": 9
+      },
+      {
+        "fireRef": 10
+      },
+      {
+        "wait": "100 - $rank * 90"
+      },
+      {
+        "fireRef": 11
+      },
+      {
+        "wait": 5
+      },
+      {
+        "fireRef": 12
+      },
+      {
+        "wait": 20
+      }
+    ],
+    [
+      {
+        "fireRef": 0
+      },
+      {
+        "fireRef": 1
+      },
+      {
+        "fireRef": 2
+      },
+      {
+        "fireRef": 3
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 4
+      },
+      {
+        "repeat": {
+          "times": 71,
+          "actionRef": 3
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 5
+      }
+    ],
+    [
+      {
+        "wait": 20
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 1
+        }
+      },
+      {
+        "wait": "105 - $rank * 90"
+      },
+      {
+        "repeat": {
+          "times": 20,
+          "actionRef": 5
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 6
+      },
+      {
+        "fireRef": 7
+      },
+      {
+        "fireRef": 8
+      },
+      {
+        "wait": 1
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0.5
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1.5
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "$2"
+      },
+      "bulletRef": 3
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 5
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "$2"
+      },
+      "bulletRef": 4
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 180
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 3
+      },
+      "bulletRef": 5
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 180
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 3.5
+      },
+      "bulletRef": 6
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 180
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 4
+      },
+      "bulletRef": 7
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          90
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          270
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": {
+        "ref": 1,
+        "params": [
+          0,
+          1.5
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "bulletRef": {
+        "ref": 1,
+        "params": [
+          2.5,
+          1.8
+        ]
+      }
+    }
+  ]
+}

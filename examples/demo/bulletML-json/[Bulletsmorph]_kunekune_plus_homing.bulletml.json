@@ -1,0 +1,208 @@
+{
+  "type": "none",
+  "bullets": [
+    {
+      "speed": {
+        "type": "absolute",
+        "value": 2
+      },
+      "actionRefs": [
+        6,
+        7
+      ]
+    },
+    {
+      "actionRefs": [
+        10
+      ]
+    },
+    {
+      "actionRefs": [
+        11
+      ]
+    },
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "actionRef": 1
+      },
+      {
+        "actionRef": 2
+      },
+      {
+        "actionRef": 3
+      },
+      {
+        "actionRef": 4
+      },
+      {
+        "actionRef": 5
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 4,
+          "actionRef": 9
+        }
+      },
+      {
+        "wait": 60
+      }
+    ],
+    [
+      {
+        "fireRef": 0
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      },
+      {
+        "repeat": {
+          "times": "10+$rank*10",
+          "actionRef": 12
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "wait": 1
+      },
+      {
+        "fireRef": 2
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 9999,
+          "actionRef": 13
+        }
+      }
+    ],
+    [
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0.3
+          },
+          "term": 30
+        }
+      },
+      {
+        "wait": 100
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 5
+          },
+          "term": 100
+        }
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 12,
+          "actionRef": 8
+        }
+      }
+    ],
+    [
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "aim",
+            "value": 0
+          },
+          "term": "45-$rank*30"
+        }
+      },
+      {
+        "wait": 5
+      }
+    ],
+    [
+      {
+        "actionRef": 2
+      },
+      {
+        "wait": 50
+      }
+    ],
+    [
+      {
+        "actionRef": 3
+      }
+    ],
+    [
+      {
+        "actionRef": 4
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "actionRef": 5
+      }
+    ],
+    [
+      {
+        "wait": 2
+      },
+      {
+        "fireRef": 3
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "aim",
+        "value": "15+30*$rand"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "1.8-$rank+$rand"
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$2"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 0
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 15
+      },
+      "bulletRef": 3
+    }
+  ]
+}

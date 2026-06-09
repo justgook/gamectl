@@ -1,0 +1,206 @@
+{
+  "type": "none",
+  "bullets": [
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "actionRef": 1
+      },
+      {
+        "actionRef": 2
+      },
+      {
+        "actionRef": 3
+      },
+      {
+        "actionRef": 4
+      },
+      {
+        "actionRef": 5
+      }
+    ],
+    [
+      {
+        "fireRef": 0
+      },
+      {
+        "repeat": {
+          "times": 20,
+          "actionRef": 6
+        }
+      }
+    ],
+    [
+      {
+        "actionRef": {
+          "ref": 1,
+          "params": [
+            "$1",
+            -30
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 1,
+          "params": [
+            "$1",
+            -15
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 1,
+          "params": [
+            "$1",
+            0
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 1,
+          "params": [
+            "$1",
+            15
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 1,
+          "params": [
+            "$1",
+            30
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "aim",
+            "value": "$rand*360"
+          },
+          "term": 1
+        }
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 2
+          },
+          "term": 1
+        }
+      },
+      {
+        "wait": 30
+      },
+      {
+        "actionRef": {
+          "ref": 2,
+          "params": [
+            "$1"
+          ]
+        }
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 1
+        }
+      },
+      {
+        "wait": "90-$rank*60"
+      }
+    ],
+    [
+      {
+        "actionRef": {
+          "ref": 3,
+          "params": [
+            1
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 3,
+          "params": [
+            2
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 3,
+          "params": [
+            3
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 3,
+          "params": [
+            4
+          ]
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 3,
+          "params": [
+            5
+          ]
+        }
+      }
+    ],
+    [
+      {
+        "actionRef": 4
+      },
+      {
+        "wait": 30
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "aim",
+        "value": "$2+$1*$rand*2-$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "$2+$1*$rand*2-$1"
+      },
+      "speed": {
+        "type": "sequence",
+        "value": 0.1
+      },
+      "bulletRef": 1
+    }
+  ]
+}
