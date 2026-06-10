@@ -1,0 +1,76 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "actionRefs": [
+        2
+      ]
+    },
+    {
+      "actionRefs": [
+        4
+      ]
+    }
+  ],
+  "actions": [
+    [
+      {
+        "repeat": {
+          "times": 999,
+          "actionRef": 1
+        }
+      }
+    ],
+    [
+      {
+        "fireRef": 0
+      },
+      {
+        "repeat": {
+          "times": 7,
+          "actionRef": 3
+        }
+      },
+      {
+        "wait": 2
+      }
+    ],
+    [
+      {
+        "wait": 50
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      }
+    ],
+    [
+      {
+        "wait": 50
+      },
+      {
+        "vanish": true
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "sequence",
+        "value": -5
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 45
+      },
+      "bulletRef": 1
+    }
+  ]
+}

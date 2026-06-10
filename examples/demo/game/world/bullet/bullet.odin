@@ -1,6 +1,7 @@
 package bullet
 
 import "../../decoder2"
+import "core:math"
 
 @(private = "file")
 MAX_TICK_STEPS :: 1024
@@ -46,10 +47,15 @@ State :: struct {
 	wait:      int,
 	done:      bool,
 
-	// Current motion context. The VM updates this for sequence/relative commands;
+	// Current motion context. The VM updates this for relative motion commands;
 	// the caller may also mirror it into ECS velocity/state.
 	direction: f64,
 	speed:     f64,
+
+	// BulletML sequence fire context. Sequence fire directions/speeds are relative
+	// to the previously fired bullet, not to this bullet's own motion direction.
+	last_fire_direction: f64,
+	last_fire_speed:     f64,
 }
 
 @(private = "file")
@@ -63,8 +69,12 @@ Frame :: struct {
 
 init_pattern_state :: proc(pattern: ^decoder2.Bullet_Pattern, action_index := 0) -> State {
 	state := State {
-		pattern = pattern,
-		frames  = make([dynamic]Frame),
+		pattern             = pattern,
+		frames              = make([dynamic]Frame),
+		direction           = 180,
+		speed               = 0,
+		last_fire_direction = 180,
+		last_fire_speed     = 1,
 	}
 	push_action(&state, action_index, nil)
 	return state
@@ -80,11 +90,15 @@ init_bullet_state :: proc(
 	assert(bullet_index >= 0 && bullet_index < len(pattern.bullets))
 
 	bullet_def := pattern.bullets[bullet_index]
+	direction := eval_direction(bullet_def.direction, 0, parent_params, ctx)
+	speed := eval_speed(bullet_def.speed, 0, parent_params, ctx)
 	state := State {
-		pattern   = pattern,
-		frames    = make([dynamic]Frame),
-		direction = eval_direction(bullet_def.direction, 0, parent_params, ctx),
-		speed     = eval_speed(bullet_def.speed, 0, parent_params, ctx),
+		pattern             = pattern,
+		frames              = make([dynamic]Frame),
+		direction           = direction,
+		speed               = speed,
+		last_fire_direction = direction,
+		last_fire_speed     = speed,
 	}
 
 	// Stack is LIFO, so push refs in reverse to execute source order.
@@ -325,11 +339,15 @@ execute_fire_ref :: proc(
 	fire_def := state.pattern.fires[fire_index]
 
 	bullet_index, bullet_params := resolve_ref(fire_def.bullet_ref, fire_params, ctx)
-	direction := eval_direction(fire_def.direction, state.direction, fire_params, ctx)
-	speed := eval_speed(fire_def.speed, state.speed, fire_params, ctx)
+	direction := eval_direction(fire_def.direction, state.last_fire_direction, fire_params, ctx)
+	speed := eval_speed(fire_def.speed, state.last_fire_speed, fire_params, ctx)
 	child := init_bullet_state(state.pattern, bullet_index, bullet_params, ctx)
 	child.direction = direction
 	child.speed = speed
+	child.last_fire_direction = direction
+	child.last_fire_speed = speed
+	state.last_fire_direction = direction
+	state.last_fire_speed = speed
 
 	append(
 		events,
@@ -360,15 +378,24 @@ eval_direction :: proc(direction: decoder2.Direction, current: f64, params: []f6
 	value := eval_expr(direction.value, params, ctx)
 	switch direction.type {
 	case .Aim:
-		return ctx.aim_direction + value
+		return normalize_direction(ctx.aim_direction + value)
 	case .Absolute:
-		return value
+		return normalize_direction(value)
 	case .Relative:
-		return current + value
+		return normalize_direction(current + value)
 	case .Sequence:
-		return current + value
+		return normalize_direction(current + value)
 	}
 	panic("unsupported BulletML direction type")
+}
+
+@(private = "file")
+normalize_direction :: proc(direction: f64) -> f64 {
+	normalized := math.mod(direction, 360)
+	if normalized < 0 {
+		return normalized + 360
+	}
+	return normalized
 }
 
 @(private = "file")

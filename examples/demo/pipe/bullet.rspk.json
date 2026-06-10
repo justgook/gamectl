@@ -70,7 +70,7 @@
           "type": "Speed",
           "default": {
             "type": "absolute",
-            "value": 0
+            "value": 1
           }
         },
         "actionRefs": {
@@ -87,16 +87,7 @@
     },
     "Command": {
       "type": "oneof",
-      "value": [
-        "fireRef",
-        "actionRef",
-        "wait",
-        "repeat",
-        "vanish",
-        "changeDirection",
-        "changeSpeed",
-        "accel"
-      ]
+      "value": ["fireRef", "actionRef", "wait", "repeat", "vanish", "changeDirection", "changeSpeed", "accel"]
     },
     "fireRef": "Ref",
     "actionRef": "Ref",
@@ -165,7 +156,7 @@
           "type": "Speed",
           "default": {
             "type": "absolute",
-            "value": 0
+            "value": 1
           }
         },
         "bulletRef": "Ref"

@@ -67,10 +67,7 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 
 		center := debug_collision_capsule_center_px(pos, collider)
 		if platformer.on_ground {
-			start := [2]f32 {
-				center.x,
-				debug_collision_subpixel(int(pos.y) + collider.y - collider.height / 2 - collider.radius),
-			}
+			start := [2]f32{center.x, to_pixelf(int(pos.y) + collider.y - collider.height / 2 - collider.radius)}
 			debug_collision_add_normal(start, platformer.ground_normal, {0.1, 1.0, 0.2, 1.0})
 		}
 		if platformer.on_wall {
@@ -158,8 +155,8 @@ debug_collision_add_line :: proc(a, b: [2]f32, color: [4]f32) {
 @(private = "file")
 debug_collision_add_segment_subpixel :: proc(segment: ^[4]int, color: [4]f32) {
 	debug_collision_add_line(
-		{debug_collision_subpixel(segment.x), debug_collision_subpixel(segment.y)},
-		{debug_collision_subpixel(segment.z), debug_collision_subpixel(segment.w)},
+		{to_pixelf(segment.x), to_pixelf(segment.y)},
+		{to_pixelf(segment.z), to_pixelf(segment.w)},
 		color,
 	)
 }
@@ -181,8 +178,8 @@ debug_collision_add_circle :: proc(center: [2]f32, radius: f32, color: [4]f32) {
 @(private = "file")
 debug_collision_add_capsule_at_position :: proc(pos: ^Position, capsule: ^shape.Capsule, color: [4]f32) {
 	center := debug_collision_capsule_center_px(pos, capsule)
-	radius := debug_collision_subpixel(capsule.radius)
-	height := debug_collision_subpixel(capsule.height)
+	radius := to_pixelf(capsule.radius)
+	height := to_pixelf(capsule.height)
 	half_height := height * 0.5
 	top_y := center.y + half_height
 	bottom_y := center.y - half_height
@@ -233,12 +230,9 @@ debug_collision_add_circle_storage :: proc(
 ) {
 	view := logic.view(position, storage)
 	for _, pos, circle in logic.each(&view) {
-		host.info("debug_circle", "circle")
-		center := [2]f32 {
-			debug_collision_subpixel(int(pos.x) + circle.x),
-			debug_collision_subpixel(int(pos.y) + circle.y),
-		}
-		debug_collision_add_circle(center, debug_collision_subpixel(circle.radius), color)
+		// host.info("debug_circle", "circle", pos)
+		center := [2]f32{to_pixelf(int(pos.x) + circle.x), to_pixelf(int(pos.y) + circle.y)}
+		debug_collision_add_circle(center, to_pixelf(circle.radius), color)
 	}
 }
 
@@ -255,21 +249,16 @@ debug_collision_add_normal :: proc(start: [2]f32, normal: [2]int, color: [4]f32)
 
 @(private = "file")
 debug_collision_capsule_center_px :: proc(pos: ^Position, capsule: ^shape.Capsule) -> [2]f32 {
-	return {debug_collision_subpixel(int(pos.x) + capsule.x), debug_collision_subpixel(int(pos.y) + capsule.y)}
+	return {to_pixelf(int(pos.x) + capsule.x), to_pixelf(int(pos.y) + capsule.y)}
 }
 
 @(private = "file")
 debug_collision_capsule_bounds_subpixel :: proc(pos: ^Position, capsule: ^shape.Capsule) -> [4]f32 {
 	half_height := capsule.height / 2
 	return {
-		debug_collision_subpixel(int(pos.x) + capsule.x - capsule.radius),
-		debug_collision_subpixel(int(pos.y) + capsule.y - half_height - capsule.radius),
-		debug_collision_subpixel(int(pos.x) + capsule.x + capsule.radius),
-		debug_collision_subpixel(int(pos.y) + capsule.y + half_height + capsule.radius),
+		to_pixelf(int(pos.x) + capsule.x - capsule.radius),
+		to_pixelf(int(pos.y) + capsule.y - half_height - capsule.radius),
+		to_pixelf(int(pos.x) + capsule.x + capsule.radius),
+		to_pixelf(int(pos.y) + capsule.y + half_height + capsule.radius),
 	}
-}
-
-@(private = "file")
-debug_collision_subpixel :: proc(value: int) -> f32 {
-	return f32(value) / f32(UNIT)
 }

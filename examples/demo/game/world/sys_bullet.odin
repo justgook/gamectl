@@ -222,9 +222,10 @@ sys_bullet :: proc(w: ^World) {
 						bullet_apply_accel(vel, cmd.horizontal, cmd.vertical)
 					}
 				}
-			case .Vanish, .Done:
+			case .Vanish:
 				delete_entity = true
 				host.info("delete", "entity", entity)
+			case .Done:
 			}
 		}
 		delete(cmds)
@@ -244,9 +245,9 @@ sys_bullet :: proc(w: ^World) {
 		if moves_with_bullet_velocity {
 			pos.x += vel.x
 			pos.y += vel.y
+			// host.info("THE BULLET", "pos", pos)
 		}
 
-		// host.info("THE BULLET", "pos", pos)
 	}
 
 	for entity in deletes {
@@ -263,6 +264,6 @@ sys_bullet :: proc(w: ^World) {
 		logic.add_component(&w.position, child, spawn.position)
 		logic.add_component(&w.velocity, child, spawn.velocity)
 		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[418]})
-		logic.add_component(&w.enemy_hit, child, shape.Circle{radius = 20 * UNIT})
+		logic.add_component(&w.enemy_hit, child, shape.Circle{radius = 4 * UNIT})
 	}
 }
