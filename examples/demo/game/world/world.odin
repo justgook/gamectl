@@ -56,6 +56,7 @@ World :: struct {
 	// Bullet patterns
 	bullet_patterns:     decoder2.Bullet_Patterns,
 	bullet:              logic.Component_Storage(bullet.State),
+	bullet_motion:       logic.Component_Storage(Bullet_Motion),
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -192,6 +193,7 @@ create_entity :: proc(w: ^World) -> logic.Entity {
 
 entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	bullet_delete_component(&w.bullet, entity_id)
+	logic.delete_component(&w.bullet_motion, entity_id)
 
 	logic.delete_component(&w.position, entity_id)
 	logic.delete_component(&w.velocity, entity_id)
@@ -241,5 +243,6 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.player_hurt)
 	logic.destroy_storage(&w.player_hit)
 	bullet_destroy_state_storage(&w.bullet)
+	logic.destroy_storage(&w.bullet_motion)
 	bullet.destroy_patterns(&w.bullet_patterns)
 }

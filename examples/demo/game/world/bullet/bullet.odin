@@ -24,9 +24,11 @@ Event :: struct {
 	child_state:  State,
 
 	// Motion-change payloads.
-	term:         int,
-	horizontal:   f64,
-	vertical:     f64,
+	term:               int,
+	previous_direction: f64,
+	previous_speed:     f64,
+	horizontal:         f64,
+	vertical:           f64,
 }
 
 Tick_Context :: struct {
@@ -270,23 +272,27 @@ execute_command :: proc(
 		state.done = true
 		append(events, Event{kind = .Vanish})
 	case .Change_Direction:
+		previous_direction := state.direction
 		new_direction := eval_direction(command.change_direction.direction, state.direction, params, ctx)
 		state.direction = new_direction
 		append(
 			events,
 			Event {
 				kind = .ChangeDirection,
+				previous_direction = previous_direction,
 				direction = new_direction,
 				term = max(0, int(eval_expr(command.change_direction.term, params, ctx))),
 			},
 		)
 	case .Change_Speed:
+		previous_speed := state.speed
 		new_speed := eval_speed(command.change_speed.speed, state.speed, params, ctx)
 		state.speed = new_speed
 		append(
 			events,
 			Event {
 				kind = .ChangeSpeed,
+				previous_speed = previous_speed,
 				speed = new_speed,
 				term = max(0, int(eval_expr(command.change_speed.term, params, ctx))),
 			},

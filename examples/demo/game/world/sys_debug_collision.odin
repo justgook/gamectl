@@ -1,5 +1,6 @@
 package world
 
+import "../host"
 import sg "../sokol/gfx"
 import "core:c"
 import "core:math"
@@ -66,7 +67,10 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 
 		center := debug_collision_capsule_center_px(pos, collider)
 		if platformer.on_ground {
-			start := [2]f32{center.x, debug_collision_subpixel(int(pos.y) + collider.y - collider.height / 2 - collider.radius)}
+			start := [2]f32 {
+				center.x,
+				debug_collision_subpixel(int(pos.y) + collider.y - collider.height / 2 - collider.radius),
+			}
 			debug_collision_add_normal(start, platformer.ground_normal, {0.1, 1.0, 0.2, 1.0})
 		}
 		if platformer.on_wall {
@@ -89,18 +93,18 @@ debug_collision_init_once :: proc() {
 	debug_collision_state.bind.vertex_buffers[0] = sg.make_buffer(
 		{
 			usage = {vertex_buffer = true, stream_update = true},
-			size  = DEBUG_COLLISION_MAX_VERTICES * size_of(Debug_Collision_Vertex),
+			size = DEBUG_COLLISION_MAX_VERTICES * size_of(Debug_Collision_Vertex),
 		},
 	)
 
 	pipeline_desc := sg.Pipeline_Desc {
-		shader         = sg.make_shader(debug_collision_shader_desc(sg.query_backend())),
+		shader = sg.make_shader(debug_collision_shader_desc(sg.query_backend())),
 		primitive_type = .LINES,
-		cull_mode      = .NONE,
-		depth          = {compare = .ALWAYS, write_enabled = false},
-		layout         = {
+		cull_mode = .NONE,
+		depth = {compare = .ALWAYS, write_enabled = false},
+		layout = {
 			attrs = {
-				ATTR_debug_collision_debug_collision_pos    = {format = .FLOAT2, buffer_index = 0},
+				ATTR_debug_collision_debug_collision_pos = {format = .FLOAT2, buffer_index = 0},
 				ATTR_debug_collision_debug_collision_color0 = {format = .FLOAT4, buffer_index = 0},
 			},
 		},
@@ -132,7 +136,9 @@ debug_collision_flush :: proc(ortho: ^linalg.Matrix4f32) {
 	}
 	assert(count <= DEBUG_COLLISION_MAX_VERTICES)
 
-	params := Debug_Collision_Vs_Params{ortho = ortho^}
+	params := Debug_Collision_Vs_Params {
+		ortho = ortho^,
+	}
 	sg.update_buffer(
 		debug_collision_state.bind.vertex_buffers[0],
 		{ptr = raw_data(debug_collision_state.vertices[:]), size = c.size_t(count * size_of(Debug_Collision_Vertex))},
@@ -208,7 +214,11 @@ debug_collision_add_capsule_at_position :: proc(pos: ^Position, capsule: ^shape.
 }
 
 @(private = "file")
-debug_collision_add_capsule_storage :: proc(position: ^logic.Component_Storage(Position), storage: ^logic.Component_Storage(shape.Capsule), color: [4]f32) {
+debug_collision_add_capsule_storage :: proc(
+	position: ^logic.Component_Storage(Position),
+	storage: ^logic.Component_Storage(shape.Capsule),
+	color: [4]f32,
+) {
 	view := logic.view(position, storage)
 	for _, pos, capsule in logic.each(&view) {
 		debug_collision_add_capsule_at_position(pos, capsule, color)
@@ -216,10 +226,15 @@ debug_collision_add_capsule_storage :: proc(position: ^logic.Component_Storage(P
 }
 
 @(private = "file")
-debug_collision_add_circle_storage :: proc(position: ^logic.Component_Storage(Position), storage: ^logic.Component_Storage(shape.Circle), color: [4]f32) {
+debug_collision_add_circle_storage :: proc(
+	position: ^logic.Component_Storage(Position),
+	storage: ^logic.Component_Storage(shape.Circle),
+	color: [4]f32,
+) {
 	view := logic.view(position, storage)
 	for _, pos, circle in logic.each(&view) {
-		center := [2]f32{
+		host.info("debug_circle", "circle")
+		center := [2]f32 {
 			debug_collision_subpixel(int(pos.x) + circle.x),
 			debug_collision_subpixel(int(pos.y) + circle.y),
 		}
@@ -240,10 +255,7 @@ debug_collision_add_normal :: proc(start: [2]f32, normal: [2]int, color: [4]f32)
 
 @(private = "file")
 debug_collision_capsule_center_px :: proc(pos: ^Position, capsule: ^shape.Capsule) -> [2]f32 {
-	return {
-		debug_collision_subpixel(int(pos.x) + capsule.x),
-		debug_collision_subpixel(int(pos.y) + capsule.y),
-	}
+	return {debug_collision_subpixel(int(pos.x) + capsule.x), debug_collision_subpixel(int(pos.y) + capsule.y)}
 }
 
 @(private = "file")
