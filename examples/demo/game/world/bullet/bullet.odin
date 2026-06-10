@@ -39,7 +39,7 @@ Tick_Context :: struct {
 }
 
 State :: struct {
-	pattern:   ^decoder2.bullet_pattern,
+	pattern:   ^decoder2.Bullet_Pattern,
 	frames:    [dynamic]Frame,
 	wait:      int,
 	done:      bool,
@@ -59,7 +59,7 @@ Frame :: struct {
 	repeat_remaining:    int,
 }
 
-init_pattern_state :: proc(pattern: ^decoder2.bullet_pattern, action_index := 0) -> State {
+init_pattern_state :: proc(pattern: ^decoder2.Bullet_Pattern, action_index := 0) -> State {
 	state := State {
 		pattern = pattern,
 		frames  = make([dynamic]Frame),
@@ -69,7 +69,7 @@ init_pattern_state :: proc(pattern: ^decoder2.bullet_pattern, action_index := 0)
 }
 
 init_bullet_state :: proc(
-	pattern: ^decoder2.bullet_pattern,
+	pattern: ^decoder2.Bullet_Pattern,
 	bullet_index: int,
 	parent_params: []f64,
 	ctx: Tick_Context,
@@ -189,7 +189,7 @@ pop_frame :: proc(state: ^State) {
 @(private = "file")
 execute_command :: proc(
 	state: ^State,
-	command: decoder2.command,
+	command: decoder2.Command,
 	params: []f64,
 	ctx: Tick_Context,
 	events: ^[dynamic]Event,
@@ -197,23 +197,23 @@ execute_command :: proc(
 	switch command.kind {
 	case .None:
 		panic("empty BulletML command")
-	case .fire_ref:
+	case .Fire_Ref:
 		execute_fire_ref(state, command.fire_ref, params, ctx, events)
-	case .action_ref:
+	case .Action_Ref:
 		action_index, action_params := resolve_ref(command.action_ref, params, ctx)
 		push_action(state, action_index, action_params)
-	case .wait:
+	case .Wait:
 		state.wait = max(0, int(eval_expr(command.wait, params, ctx)))
-	case .repeat:
+	case .Repeat:
 		repeat_count := max(0, int(eval_expr(command.repeat.times, params, ctx)))
 		if repeat_count > 0 {
 			action_index, action_params := resolve_ref(command.repeat.action_ref, params, ctx)
 			push_action(state, action_index, action_params, repeat_count)
 		}
-	case .vanish:
+	case .Vanish:
 		state.done = true
 		append(events, Event{kind = .Vanish})
-	case .change_direction:
+	case .Change_Direction:
 		new_direction := eval_direction(command.change_direction.direction, state.direction, params, ctx)
 		state.direction = new_direction
 		append(
@@ -224,7 +224,7 @@ execute_command :: proc(
 				term = max(0, int(eval_expr(command.change_direction.term, params, ctx))),
 			},
 		)
-	case .change_speed:
+	case .Change_Speed:
 		new_speed := eval_speed(command.change_speed.speed, state.speed, params, ctx)
 		state.speed = new_speed
 		append(
@@ -235,7 +235,7 @@ execute_command :: proc(
 				term = max(0, int(eval_expr(command.change_speed.term, params, ctx))),
 			},
 		)
-	case .accel:
+	case .Accel:
 		append(
 			events,
 			Event {
@@ -253,7 +253,7 @@ execute_command :: proc(
 @(private = "file")
 execute_fire_ref :: proc(
 	state: ^State,
-	fire_ref: decoder2.fire_ref,
+	fire_ref: decoder2.Fire_Ref,
 	params: []f64,
 	ctx: Tick_Context,
 	events: ^[dynamic]Event,
@@ -276,13 +276,13 @@ execute_fire_ref :: proc(
 }
 
 @(private = "file")
-resolve_ref :: proc(ref: decoder2.ref, parent_params: []f64, ctx: Tick_Context) -> (int, []f64) {
+resolve_ref :: proc(ref: decoder2.Ref, parent_params: []f64, ctx: Tick_Context) -> (int, []f64) {
 	switch ref.kind {
 	case .None:
 		panic("empty BulletML ref")
-	case .ref_index:
+	case .Ref_Index:
 		return int(ref.ref_index), nil
-	case .ref_with_params:
+	case .Ref_With_Params:
 		params := make([]f64, len(ref.ref_with_params.params))
 		for i in 0 ..< len(ref.ref_with_params.params) {
 			params[i] = eval_expr(ref.ref_with_params.params[i], parent_params, ctx)
@@ -294,43 +294,43 @@ resolve_ref :: proc(ref: decoder2.ref, parent_params: []f64, ctx: Tick_Context) 
 }
 
 @(private = "file")
-eval_direction :: proc(direction: decoder2.direction, current: f64, params: []f64, ctx: Tick_Context) -> f64 {
+eval_direction :: proc(direction: decoder2.Direction, current: f64, params: []f64, ctx: Tick_Context) -> f64 {
 	value := eval_expr(direction.value, params, ctx)
 	switch direction.type {
-	case .aim:
+	case .Aim:
 		return ctx.aim_direction + value
-	case .absolute:
+	case .Absolute:
 		return value
-	case .relative:
+	case .Relative:
 		return current + value
-	case .sequence:
+	case .Sequence:
 		return current + value
 	}
 	panic("unsupported BulletML direction type")
 }
 
 @(private = "file")
-eval_speed :: proc(speed: decoder2.speed, current: f64, params: []f64, ctx: Tick_Context) -> f64 {
+eval_speed :: proc(speed: decoder2.Speed, current: f64, params: []f64, ctx: Tick_Context) -> f64 {
 	value := eval_expr(speed.value, params, ctx)
 	switch speed.type {
-	case .absolute:
+	case .Absolute:
 		return value
-	case .relative:
+	case .Relative:
 		return current + value
-	case .sequence:
+	case .Sequence:
 		return current + value
 	}
 	panic("unsupported BulletML speed type")
 }
 
 @(private = "file")
-eval_expr :: proc(expr: decoder2.expr, params: []f64, ctx: Tick_Context) -> f64 {
+eval_expr :: proc(expr: decoder2.Expr, params: []f64, ctx: Tick_Context) -> f64 {
 	switch expr.kind {
 	case .None:
 		panic("empty BulletML expr")
-	case .expr_number:
+	case .Expr_Number:
 		return f64(expr.expr_number)
-	case .expr_string:
+	case .Expr_String:
 		parser := Expr_Parser {
 			source = string(expr.expr_string),
 			params = params,

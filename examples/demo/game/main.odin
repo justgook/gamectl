@@ -90,7 +90,7 @@ test_load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
 
 @(private = "file")
 load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
-	host.info("assets", "loading", decoder2.speed_type.absolute)
+	host.info("assets", "loading", decoder2.Speed_Type.Absolute)
 
 
 	asset_data := host.asset_read_all(filepath) or_return

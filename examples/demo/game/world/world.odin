@@ -54,7 +54,7 @@ World :: struct {
 	player_hurt:         logic.Component_Storage(shape.Capsule),
 	player_hit:          logic.Component_Storage(shape.Circle),
 	// Bullet patterns
-	bullet_patterns:     decoder2.bullet_patterns,
+	bullet_patterns:     decoder2.Bullet_Patterns,
 	bullet:              logic.Component_Storage(bullet.State),
 }
 

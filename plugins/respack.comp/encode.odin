@@ -683,6 +683,10 @@ oneof_name_matches_slice :: proc(name: []u8, option_type: int) -> bool {
 	if bytes_equal_string(name, lower) {
 		return true
 	}
+	ada := identifier_ada(full)
+	if bytes_equal_string(name, ada) {
+		return true
+	}
 	trimmed := trim_variant_suffix(lower)
 	if trimmed != lower && bytes_equal_string(name, trimmed) {
 		return true
@@ -783,6 +787,10 @@ oneof_name_matches :: proc(input: []u8, key: jsmn.Token, option_type: int) -> bo
 	}
 	lower := sanitize_identifier(full)
 	if token_matches(input, key, lower) {
+		return true
+	}
+	ada := identifier_ada(full)
+	if token_matches(input, key, ada) {
 		return true
 	}
 	trimmed := trim_variant_suffix(lower)
