@@ -4,6 +4,20 @@ import "bullet"
 import "logic"
 
 
+bullet_delete_component :: proc(storage: ^logic.Component_Storage(bullet.State), entity: logic.Entity) {
+	if state, ok := logic.get_component(storage, entity); ok {
+		bullet.destroy_state(state)
+		logic.delete_component(storage, entity)
+	}
+}
+
+bullet_destroy_state_storage :: proc(storage: ^logic.Component_Storage(bullet.State)) {
+	for &state in storage.components {
+		bullet.destroy_state(&state)
+	}
+	logic.destroy_storage(storage)
+}
+
 sys_bullet :: proc(w: ^World) {
 	ctx := bullet.Tick_Context {
 		// BulletML variables.
@@ -23,13 +37,12 @@ sys_bullet :: proc(w: ^World) {
 			case .Spawn:
 				child := create_entity(w)
 				logic.add_component(&w.bullet, child, cmd.child_state)
-
-			case .Vanish:
-				entity_delete(w, entity)
+				logic.add_component(&w.position, child, pos^)
+				logic.add_component(&w.velocity, child, Velocity{})
 			case .ChangeDirection:
 			case .ChangeSpeed:
 			case .Accel:
-			case .Done:
+			case .Vanish, .Done:
 				entity_delete(w, entity)
 			}
 

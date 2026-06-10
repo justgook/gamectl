@@ -176,6 +176,62 @@ destroy_state :: proc(state: ^State) {
 	state^ = State{}
 }
 
+destroy_patterns :: proc(patterns: ^decoder2.Bullet_Patterns) {
+	for &pattern in patterns^ {
+		destroy_pattern(&pattern)
+	}
+	delete(patterns^)
+	patterns^ = nil
+}
+
+@(private = "file")
+destroy_pattern :: proc(pattern: ^decoder2.Bullet_Pattern) {
+	for &b in pattern.bullets {
+		for &ref in b.action_refs {
+			destroy_ref(&ref)
+		}
+		delete(b.action_refs)
+	}
+	delete(pattern.bullets)
+
+	for action in pattern.actions {
+		for &command in action {
+			destroy_command(&command)
+		}
+		delete(action)
+	}
+	delete(pattern.actions)
+
+	for &fire in pattern.fires {
+		destroy_ref(&fire.bullet_ref)
+	}
+	delete(pattern.fires)
+
+	pattern^ = {}
+}
+
+@(private = "file")
+destroy_command :: proc(command: ^decoder2.Command) {
+	#partial switch command.kind {
+	case .Fire_Ref:
+		destroy_ref(&command.fire_ref)
+	case .Action_Ref:
+		destroy_ref(&command.action_ref)
+	case .Repeat:
+		destroy_ref(&command.repeat.action_ref)
+	case:
+	}
+	command^ = {}
+}
+
+@(private = "file")
+destroy_ref :: proc(ref: ^decoder2.Ref) {
+	if ref.kind == .Ref_With_Params {
+		delete(ref.ref_with_params.params)
+	}
+	ref^ = {}
+}
+
 @(private = "file")
 pop_frame :: proc(state: ^State) {
 	assert(len(state.frames) > 0)
