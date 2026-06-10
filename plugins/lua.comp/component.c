@@ -982,15 +982,19 @@ static int lua_fs_read_text(lua_State *L) {
   path_z[path_len] = '\0';
 
   read_status = try_fs_read_candidate(path_z, &file_data, &file_len);
-  free(path_z);
 
   if (read_status < 0) {
-    return luaL_error(L, "fs.read_text transport failed");
+    lua_pushfstring(L, "fs.read_text failed for '%s': transport failed", path_z);
+    free(path_z);
+    return lua_error(L);
   }
   if (read_status == 0) {
-    return luaL_error(L, "fs.read_text failed: file not found or not readable");
+    lua_pushfstring(L, "fs.read_text failed for '%s': file not found or not readable", path_z);
+    free(path_z);
+    return lua_error(L);
   }
 
+  free(path_z);
   lua_pushlstring(L, (const char *)(file_data != NULL ? file_data : (uint8_t *)""), file_len);
   free(file_data);
   return 1;

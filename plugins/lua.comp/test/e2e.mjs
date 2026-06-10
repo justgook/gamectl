@@ -8,7 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../../..');
 const lua = join(repoRoot, 'build.nosync/plugins/lua.comp.wasm');
 
-function runLua(source) {
+function runLuaRaw(source) {
   const result = spawnSync('cargo', [
     'run',
     '--quiet',
@@ -33,7 +33,11 @@ function runLua(source) {
   });
 
   assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
-  const output = JSON.parse(result.stdout);
+  return JSON.parse(result.stdout);
+}
+
+function runLua(source) {
+  const output = runLuaRaw(source);
   assert.equal(output.err, undefined, output.err);
   return output.ok;
 }
@@ -52,6 +56,13 @@ function main()
 end
 `);
 assert.deepEqual(JSON.parse(absentNilField), { b: 1 });
+
+const missingRead = runLuaRaw(`
+function main()
+  return fs.read_text('missing.lua')
+end
+`);
+assert.match(missingRead.err, /fs\.read_text failed for 'missing\.lua': file not found or not readable/);
 
 const topLevelNil = runLua(`
 function main()

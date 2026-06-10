@@ -388,6 +388,53 @@ test_platformer_air_dash_resets_on_ground :: proc(t: ^testing.T) {
 	testing.expectf(t, platformer.dash_air_used == 0, "air dashes should reset on ground, used=%d", platformer.dash_air_used)
 }
 
+@(test)
+test_entity_pool_reuses_deleted_entity_id :: proc(t: ^testing.T) {
+	w := new(World)
+	defer entity_pool_test_destroy(w)
+
+	first := create_entity(w)
+	second := create_entity(w)
+
+	testing.expectf(t, first == ENTITY_ID_START, "first entity id = %v", first)
+	testing.expectf(t, second == ENTITY_ID_START + 1, "second entity id = %v", second)
+
+	entity_delete(w, first)
+	reused := create_entity(w)
+	next := create_entity(w)
+
+	testing.expectf(t, reused == first, "deleted entity id was not reused: got %v want %v", reused, first)
+	testing.expectf(t, next == ENTITY_ID_START + 2, "next fresh entity id = %v", next)
+}
+
+@(test)
+test_entity_pool_reuses_deleted_entity_ids_lifo :: proc(t: ^testing.T) {
+	w := new(World)
+	defer entity_pool_test_destroy(w)
+
+	first := create_entity(w)
+	second := create_entity(w)
+	third := create_entity(w)
+
+	entity_delete(w, first)
+	entity_delete(w, second)
+
+	reused_second := create_entity(w)
+	reused_first := create_entity(w)
+	fresh := create_entity(w)
+
+	testing.expectf(t, reused_second == second, "first reused id = %v want %v", reused_second, second)
+	testing.expectf(t, reused_first == first, "second reused id = %v want %v", reused_first, first)
+	testing.expectf(t, fresh == third + 1, "fresh id = %v want %v", fresh, third + 1)
+}
+
+@(private = "file")
+entity_pool_test_destroy :: proc(w: ^World) {
+	delete(w.free_entity_ids)
+	delete(w.free_entity_ids_lookup)
+	free(w)
+}
+
 @(private = "file")
 platformer_test_world_with_segments :: proc(segments: ..[4]int) -> ^World {
 	w := new(World)

@@ -13,11 +13,14 @@ import "shape"
 GAME_RESOLUTION_WIDTH :: 640
 GAME_RESOLUTION_HEIGHT :: 360
 OFFSCREEN_SAMPLE_COUNT :: 1
+ENTITY_ID_START :: logic.Entity(100)
 
 
 World :: struct {
-	next_entity_id:      logic.Entity,
-	sim_frame_length:    f64,
+	next_entity_id:          logic.Entity,
+	free_entity_ids:         [dynamic]logic.Entity,
+	free_entity_ids_lookup:  map[logic.Entity]bool,
+	sim_frame_length:        f64,
 	accumulator:         f64,
 	atlas:               sg.Image,
 	lut:                 sg.Image,
@@ -132,7 +135,8 @@ init :: proc(w: ^World) {
 	w.display_pipe = display_init(color_img)
 
 
-	w.next_entity_id = 100
+	w.next_entity_id = ENTITY_ID_START
+	w.free_entity_ids_lookup = make(map[logic.Entity]bool)
 	w.sim_frame_length = 1.0 / 60.0
 	w.cam = camera_init({GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
@@ -185,6 +189,21 @@ init :: proc(w: ^World) {
 }
 
 create_entity :: proc(w: ^World) -> logic.Entity {
+	if w.free_entity_ids_lookup == nil {
+		w.free_entity_ids_lookup = make(map[logic.Entity]bool)
+	}
+	if w.next_entity_id == 0 {
+		w.next_entity_id = ENTITY_ID_START
+	}
+
+	if len(w.free_entity_ids) > 0 {
+		id := w.free_entity_ids[len(w.free_entity_ids) - 1]
+		_ = pop(&w.free_entity_ids)
+		assert(id in w.free_entity_ids_lookup)
+		delete_key(&w.free_entity_ids_lookup, id)
+		return id
+	}
+
 	id := w.next_entity_id
 	w.next_entity_id += 1
 
@@ -192,6 +211,11 @@ create_entity :: proc(w: ^World) -> logic.Entity {
 }
 
 entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
+	if w.free_entity_ids_lookup == nil {
+		w.free_entity_ids_lookup = make(map[logic.Entity]bool)
+	}
+	assert(!(entity_id in w.free_entity_ids_lookup))
+
 	bullet_delete_component(&w.bullet, entity_id)
 	logic.delete_component(&w.bullet_motion, entity_id)
 
@@ -212,6 +236,9 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.enemy_hit, entity_id)
 	logic.delete_component(&w.player_hurt, entity_id)
 	logic.delete_component(&w.player_hit, entity_id)
+
+	w.free_entity_ids_lookup[entity_id] = true
+	append(&w.free_entity_ids, entity_id)
 }
 
 cleanup :: proc(w: ^World) {
@@ -219,6 +246,8 @@ cleanup :: proc(w: ^World) {
 	// w.offscreen_image = {}
 	display_cleanup(w.display_pipe)
 
+	delete(w.free_entity_ids)
+	delete(w.free_entity_ids_lookup)
 	delete(w.uv)
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.velocity)
