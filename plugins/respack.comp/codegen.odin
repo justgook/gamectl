@@ -10,11 +10,13 @@ temp_string_slots: [TEMP_STRING_SLOTS][TEMP_STRING_CAPACITY]u8
 temp_string_lens: [TEMP_STRING_SLOTS]int
 temp_string_index: int
 decode_loop_index: int
+decode_emit_indent: int
 
 build_odin_decoder :: proc() -> (string, string) {
 	codegen_len = 0
 	temp_string_index = 0
 	decode_loop_index = 0
+	decode_emit_indent = 0
 	resolved_package := schema_odin_package()
 	resolved_package = sanitize_identifier(resolved_package)
 	if resolved_package == "" {
@@ -55,27 +57,27 @@ emit_import_declarations :: proc() {
 }
 
 emit_reader_runtime :: proc() {
-	emit("Reader :: struct {\n\tdata: []u8,\n\tpos: int,\n}\n\n")
-	emit("Package :: struct {\n\tdata: []u8,\n")
+	emit("Reader :: struct {\n\tdata: []u8,\n\tpos:  int,\n}\n\n")
+	emit("Package :: struct {\n\tdata:    []u8,\n")
 	emit("\toffsets: [")
 	emit_int(data_slot_count)
 	emit("]u32,\n\tlengths: [")
 	emit_int(data_slot_count)
 	emit("]u32,\n}\n\n")
 	emit("open_respack :: proc(data: []u8) -> (Package, bool) {\n")
-	emit("\tif len(data) < 8 { return Package{}, false }\n")
+	emit("\tif len(data) < 8 {return Package{}, false}\n")
 	emit(
-		"\tif data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' { return Package{}, false }\n",
+		"\tif data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}\n",
 	)
-	emit("\tif read_u16(data, 4) != RSPK_VERSION { return Package{}, false }\n")
+	emit("\tif read_u16(data, 4) != RSPK_VERSION {return Package{}, false}\n")
 	emit("\tif int(read_u16(data, 6)) != ")
 	emit_int(data_slot_count)
-	emit(" { return Package{}, false }\n")
+	emit(" {return Package{}, false}\n")
 	emit("\tif len(data) < ")
 	emit_int(8 + data_slot_count * 8)
-	emit(" { return Package{}, false }\n")
-	emit("\tpkg := Package{data = data}\n")
-	emit("\tfor i in 0..<")
+	emit(" {return Package{}, false}\n")
+	emit("\tpkg := Package {\n\t\tdata = data,\n\t}\n")
+	emit("\tfor i in 0 ..< ")
 	emit_int(data_slot_count)
 	emit(" {\n")
 	emit("\t\tentry := 8 + i * 8\n")
@@ -85,31 +87,31 @@ emit_reader_runtime :: proc() {
 	emit("slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {\n")
 	emit("\tif slot < 0 || slot >= ")
 	emit_int(data_slot_count)
-	emit(" { return Reader{}, false }\n")
+	emit(" {return Reader{}, false}\n")
 	emit("\toffset := int(pkg.offsets[slot])\n\tlength := int(pkg.lengths[slot])\n")
-	emit("\tif length == 0 { return Reader{}, false }\n")
-	emit("\tif offset < 0 || offset + length > len(pkg.data) { return Reader{}, false }\n")
-	emit("\treturn Reader{data = pkg.data[offset:offset+length]}, true\n}\n\n")
+	emit("\tif length == 0 {return Reader{}, false}\n")
+	emit("\tif offset < 0 || offset + length > len(pkg.data) {return Reader{}, false}\n")
+	emit("\treturn Reader{data = pkg.data[offset:offset + length]}, true\n}\n\n")
 	emit(
-		"read_u8_reader :: proc(r: ^Reader) -> (u8, bool) {\n\tif r.pos + 1 > len(r.data) { return 0, false }\n\tv := r.data[r.pos]\n\tr.pos += 1\n\treturn v, true\n}\n\n",
+		"read_u8_reader :: proc(r: ^Reader) -> (u8, bool) {\n\tif r.pos + 1 > len(r.data) {return 0, false}\n\tv := r.data[r.pos]\n\tr.pos += 1\n\treturn v, true\n}\n\n",
 	)
 	emit(
-		"read_u16_reader :: proc(r: ^Reader) -> (u16, bool) {\n\tif r.pos + 2 > len(r.data) { return 0, false }\n\tv := u16(r.data[r.pos]) | (u16(r.data[r.pos+1]) << 8)\n\tr.pos += 2\n\treturn v, true\n}\n\n",
+		"read_u16_reader :: proc(r: ^Reader) -> (u16, bool) {\n\tif r.pos + 2 > len(r.data) {return 0, false}\n\tv := u16(r.data[r.pos]) | (u16(r.data[r.pos + 1]) << 8)\n\tr.pos += 2\n\treturn v, true\n}\n\n",
 	)
 	emit(
-		"read_u32_reader :: proc(r: ^Reader) -> (u32, bool) {\n\tif r.pos + 4 > len(r.data) { return 0, false }\n\tv := u32(r.data[r.pos]) | (u32(r.data[r.pos+1]) << 8) | (u32(r.data[r.pos+2]) << 16) | (u32(r.data[r.pos+3]) << 24)\n\tr.pos += 4\n\treturn v, true\n}\n\n",
+		"read_u32_reader :: proc(r: ^Reader) -> (u32, bool) {\n\tif r.pos + 4 > len(r.data) {return 0, false}\n\tv :=\n\t\tu32(r.data[r.pos]) |\n\t\t(u32(r.data[r.pos + 1]) << 8) |\n\t\t(u32(r.data[r.pos + 2]) << 16) |\n\t\t(u32(r.data[r.pos + 3]) << 24)\n\tr.pos += 4\n\treturn v, true\n}\n\n",
 	)
 	emit(
-		"read_u64_reader :: proc(r: ^Reader) -> (u64, bool) {\n\tif r.pos + 8 > len(r.data) { return 0, false }\n\tv := u64(0)\n\tfor i in 0..<8 { v |= u64(r.data[r.pos+i]) << (8 * u64(i)) }\n\tr.pos += 8\n\treturn v, true\n}\n\n",
+		"read_u64_reader :: proc(r: ^Reader) -> (u64, bool) {\n\tif r.pos + 8 > len(r.data) {return 0, false}\n\tv := u64(0)\n\tfor i in 0 ..< 8 {v |= u64(r.data[r.pos + i]) << (8 * u64(i))}\n\tr.pos += 8\n\treturn v, true\n}\n\n",
 	)
 	emit(
-		"read_u16 :: proc(data: []u8, offset: int) -> u16 { return u16(data[offset]) | (u16(data[offset+1]) << 8) }\n",
+		"read_u16 :: proc(data: []u8, offset: int) -> u16 {return u16(data[offset]) | (u16(data[offset + 1]) << 8)}\n",
 	)
 	emit(
-		"read_u32 :: proc(data: []u8, offset: int) -> u32 { return u32(data[offset]) | (u32(data[offset+1]) << 8) | (u32(data[offset+2]) << 16) | (u32(data[offset+3]) << 24) }\n\n",
+		"read_u32 :: proc(data: []u8, offset: int) -> u32 {return(\n\t\tu32(data[offset]) |\n\t\t(u32(data[offset + 1]) << 8) |\n\t\t(u32(data[offset + 2]) << 16) |\n\t\t(u32(data[offset + 3]) << 24) \\\n\t)}\n\n",
 	)
 	emit(
-		"read_string_reader :: proc(r: ^Reader) -> (string, bool) {\n\tcount, ok := read_u32_reader(r)\n\tif !ok { return \"\", false }\n\tstart := r.pos\n\tend := start + int(count)\n\tif end > len(r.data) { return \"\", false }\n\tr.pos = end\n\treturn string(r.data[start:end]), true\n}\n\n",
+		"read_string_reader :: proc(r: ^Reader) -> (string, bool) {\n\tcount, ok := read_u32_reader(r)\n\tif !ok {return \"\", false}\n\tstart := r.pos\n\tend := start + int(count)\n\tif end > len(r.data) {return \"\", false}\n\tr.pos = end\n\treturn string(r.data[start:end]), true\n}\n\n",
 	)
 }
 
@@ -138,11 +140,20 @@ emit_type_declaration :: proc(type_idx: int) {
 	case .Enum:
 		emit(sanitized_name)
 		emit(" :: enum u32 {\n")
+		max_name_len := 0
+		for i in 0 ..< type_def.enum_count {
+			ename := sanitize_identifier(enum_name_string(type_def.enum_start + i))
+			if len(ename) > max_name_len {
+				max_name_len = len(ename)
+			}
+		}
 		for i in 0 ..< type_def.enum_count {
 			enum_idx := type_def.enum_start + i
+			ename := sanitize_identifier(enum_name_string(enum_idx))
 			emit("\t")
-			emit(sanitize_identifier(enum_name_string(enum_idx)))
-			emit(" = ")
+			emit(ename)
+			emit_spaces(max_name_len - len(ename) + 1)
+			emit("= ")
 			emit_i64(enum_values[enum_idx].value)
 			emit(",\n")
 		}
@@ -150,36 +161,60 @@ emit_type_declaration :: proc(type_idx: int) {
 	case .Struct:
 		emit(sanitized_name)
 		emit(" :: struct {\n")
+		max_name_len := 0
+		for i in 0 ..< type_def.field_count {
+			fname := sanitize_identifier(field_name_string(type_def.field_start + i))
+			if len(fname) > max_name_len {
+				max_name_len = len(fname)
+			}
+		}
 		for i in 0 ..< type_def.field_count {
 			field_idx := type_def.field_start + i
+			fname := sanitize_identifier(field_name_string(field_idx))
 			emit("\t")
-			emit(sanitize_identifier(field_name_string(field_idx)))
-			emit(": ")
+			emit(fname)
+			emit(":")
+			emit_spaces(max_name_len - len(fname) + 1)
 			emit(type_expr(fields[field_idx].type_index))
 			emit(",\n")
 		}
 		emit("}\n\n")
 	case .Oneof:
 		emit(sanitized_name)
-		emit("_Kind :: enum u16 {\n\t\tNone = 0,\n")
+		emit("_Kind :: enum u16 {\n")
+		max_option_len := len("None")
+		for i in 0 ..< type_def.option_count {
+			oname := sanitize_identifier(type_name_string(oneof_options[type_def.option_start + i]))
+			if len(oname) > max_option_len {
+				max_option_len = len(oname)
+			}
+		}
+		emit("\tNone")
+		emit_spaces(max_option_len - len("None") + 1)
+		emit("= 0,\n")
 		for i in 0 ..< type_def.option_count {
 			option_type := oneof_options[type_def.option_start + i]
-			emit("\t\t")
-			emit(sanitize_identifier(type_name_string(option_type)))
-			emit(" = ")
+			oname := sanitize_identifier(type_name_string(option_type))
+			emit("\t")
+			emit(oname)
+			emit_spaces(max_option_len - len(oname) + 1)
+			emit("= ")
 			emit_int(i + 1)
 			emit(",\n")
 		}
-		emit("\t}\n")
+		emit("}\n")
 		emit(sanitized_name)
-		emit(" :: struct {\n\t\tkind: ")
+		emit(" :: struct {\n\tkind:")
+		emit_spaces(max_option_len - len("kind") + 1)
 		emit(sanitized_name)
 		emit("_Kind,\n")
 		for i in 0 ..< type_def.option_count {
 			option_type := oneof_options[type_def.option_start + i]
-			emit("\t\t")
-			emit(sanitize_identifier(type_name_string(option_type)))
-			emit(": ")
+			oname := sanitize_identifier(type_name_string(option_type))
+			emit("\t")
+			emit(oname)
+			emit(":")
+			emit_spaces(max_option_len - len(oname) + 1)
 			emit(type_expr(option_type))
 			emit(",\n")
 		}
@@ -195,12 +230,28 @@ emit_type_declaration :: proc(type_idx: int) {
 
 emit_slot_reader_struct :: proc() {
 	emit("DecodedSlots :: struct {\n")
+	max_name_len := 0
 	for i in 0 ..< data_slot_count {
-		emit("\thas_slot_")
-		emit_int(i)
-		emit(": bool,\n\tslot_")
-		emit_int(i)
-		emit(": ")
+		has_name := join2("has_slot_", int_string(i))
+		slot_name := join2("slot_", int_string(i))
+		if len(has_name) > max_name_len {
+			max_name_len = len(has_name)
+		}
+		if len(slot_name) > max_name_len {
+			max_name_len = len(slot_name)
+		}
+	}
+	for i in 0 ..< data_slot_count {
+		has_name := join2("has_slot_", int_string(i))
+		slot_name := join2("slot_", int_string(i))
+		emit("\t")
+		emit(has_name)
+		emit(":")
+		emit_spaces(max_name_len - len(has_name) + 1)
+		emit("bool,\n\t")
+		emit(slot_name)
+		emit(":")
+		emit_spaces(max_name_len - len(slot_name) + 1)
 		emit(type_expr(data_slots[i]))
 		emit(",\n")
 	}
@@ -228,6 +279,7 @@ emit_decoder_proc :: proc(type_idx: int) {
 	emit(" :: proc(r: ^Reader, out: ^")
 	emit(type_expr(type_idx))
 	emit(") -> bool {\n")
+	decode_emit_indent = 1
 	#partial switch type_def.kind {
 	case .Struct:
 		for i in 0 ..< type_def.field_count {
@@ -239,7 +291,7 @@ emit_decoder_proc :: proc(type_idx: int) {
 			)
 		}
 	case .Oneof:
-		emit("\ttag, ok := read_u16_reader(r)\n\tif !ok { return false }\n")
+		emit("\ttag, ok := read_u16_reader(r)\n\tif !ok {return false}\n")
 		emit("\tout.kind = ")
 		emit(sanitized_name)
 		emit("_Kind(tag)\n\t#partial switch out.kind {\n")
@@ -249,7 +301,9 @@ emit_decoder_proc :: proc(type_idx: int) {
 			emit("\tcase .")
 			emit(option_name)
 			emit(":\n")
+			decode_emit_indent = 2
 			emit_decode_assign(option_type, join2("out.", option_name), option_name)
+			decode_emit_indent = 1
 		}
 		emit("\tcase .None:\n\t\treturn false\n\tcase:\n\t\treturn false\n\t}\n")
 	case:
@@ -269,38 +323,53 @@ emit_slot_readers :: proc() {
 		emit(", bool) {\n")
 		emit("\tr, ok := slot_reader(pkg, ")
 		emit_int(i)
-		emit(")\n\tif !ok { return ")
+		emit(")\n\tif !ok {return ")
 		emit(zero_value_expr(data_slots[i]))
-		emit(", false }\n\tvalue: ")
+		emit(", false}\n\tvalue: ")
 		emit(type_expr(data_slots[i]))
 		emit("\n\tif !decode_")
 		emit(sanitize_identifier(type_name_string(data_slots[i])))
-		emit("(&r, &value) { return ")
+		emit("(&r, &value) {return ")
 		emit(zero_value_expr(data_slots[i]))
-		emit(", false }\n\treturn value, true\n}\n\n")
+		emit(", false}\n\treturn value, true\n}")
+		if i + 1 < data_slot_count {
+			emit("\n\n")
+		} else {
+			emit("\n")
+		}
 	}
 }
 
 emit_decode_assign :: proc(type_idx: int, target: string, _label: string) {
 	type_def := types[type_idx]
-	emit("\t{\n")
+	emit_decode_tabs()
+	emit("{\n")
+	decode_emit_indent += 1
 	#partial switch type_def.kind {
 	case .Alias:
 		emit_alias_decode_assign(type_idx, target)
 	case .Bool:
-		emit("\tb, ok := read_u8_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("b, ok := read_u8_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = b != 0\n")
 	case .U8:
-		emit("\tv, ok := read_u8_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u8_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = v\n")
 	case .U16:
-		emit("\tv, ok := read_u16_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u16_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = v\n")
 	case .U32, .Enum:
-		emit("\tv, ok := read_u32_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u32_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		if type_def.kind == .Enum {
 			emit(" = ")
@@ -310,73 +379,104 @@ emit_decode_assign :: proc(type_idx: int, target: string, _label: string) {
 			emit(" = v\n")
 		}
 	case .U64:
-		emit("\tv, ok := read_u64_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u64_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = v\n")
 	case .I8:
-		emit("\tv, ok := read_u8_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u8_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = transmute(i8)v\n")
 	case .I16:
-		emit("\tv, ok := read_u16_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u16_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = transmute(i16)v\n")
 	case .I32:
-		emit("\tv, ok := read_u32_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u32_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = transmute(i32)v\n")
 	case .I64:
-		emit("\tv, ok := read_u64_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u64_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = transmute(i64)v\n")
 	case .F32:
-		emit("\tv, ok := read_u32_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u32_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = transmute(f32)v\n")
 	case .F64:
-		emit("\tv, ok := read_u64_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("v, ok := read_u64_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = transmute(f64)v\n")
 	case .String:
-		emit("\ts, ok := read_string_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("s, ok := read_string_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = s\n")
 	case .Bytes:
-		emit(
-			"\tcount, ok := read_u32_reader(r)\n\tif !ok { return false }\n\tstart := r.pos\n\tend := start + int(count)\n\tif end > len(r.data) { return false }\n\tr.pos = end\n\t",
-		)
+		emit_decode_line("count, ok := read_u32_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_line("start := r.pos\n")
+		emit_decode_line("end := start + int(count)\n")
+		emit_decode_line("if end > len(r.data) {return false}\n")
+		emit_decode_line("r.pos = end\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = r.data[start:end]\n")
 	case .Struct, .Oneof:
-		emit("\tif !decode_")
+		emit_decode_tabs()
+		emit("if !decode_")
 		emit(sanitize_identifier(type_name_string(type_idx)))
 		emit("(r, &")
 		emit(target)
-		emit(") { return false }\n")
+		emit(") {return false}\n")
 	case .Array:
 		loop_var := next_decode_loop_var()
-		emit("\tfor ")
+		emit_decode_tabs()
+		emit("for ")
 		emit(loop_var)
 		emit(" in 0 ..< ")
 		emit_int(type_def.fixed_len)
 		emit(" {\n")
+		decode_emit_indent += 1
 		emit_decode_assign(type_def.target_type, join3(target, "[", join2(loop_var, "]")), "")
-		emit("\t}\n")
+		decode_emit_indent -= 1
+		emit_decode_line("}\n")
 	case .Vector:
 		loop_var := next_decode_loop_var()
-		emit("\tcount, ok := read_u32_reader(r)\n\tif !ok { return false }\n\t")
+		emit_decode_line("count, ok := read_u32_reader(r)\n")
+		emit_decode_line("if !ok {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = make(")
 		emit(type_expr(type_idx))
-		emit(", int(count))\n\tfor ")
+		emit(", int(count))\n")
+		emit_decode_tabs()
+		emit("for ")
 		emit(loop_var)
 		emit(" in 0 ..< int(count) {\n")
+		decode_emit_indent += 1
 		emit_decode_assign(type_def.target_type, join3(target, "[", join2(loop_var, "]")), "")
-		emit("\t}\n")
+		decode_emit_indent -= 1
+		emit_decode_line("}\n")
 	case:
-		emit("\treturn false\n")
+		emit_decode_line("return false\n")
 	}
-	emit("\t}\n")
+	decode_emit_indent -= 1
+	emit_decode_line("}\n")
 }
 
 emit_alias_decode_assign :: proc(type_idx: int, target: string) {
@@ -384,26 +484,38 @@ emit_alias_decode_assign :: proc(type_idx: int, target: string) {
 	base := type_expr(type_idx)
 	#partial switch types[target_type].kind {
 	case .Struct, .Oneof:
-		emit("\tvalue: ")
-		emit(type_expr(target_type))
-		emit("\n\tif !decode_")
+		emit_decode_line(join2("value: ", type_expr(target_type)))
+		emit("\n")
+		emit_decode_tabs()
+		emit("if !decode_")
 		emit(sanitize_identifier(type_name_string(target_type)))
-		emit("(r, &value) { return false }\n\t")
+		emit("(r, &value) {return false}\n")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = ")
 		emit(base)
 		emit("(value)\n")
 	case:
-		emit("\tvalue: ")
-		emit(type_expr(target_type))
+		emit_decode_line(join2("value: ", type_expr(target_type)))
 		emit("\n")
 		emit_decode_assign(target_type, "value", "")
-		emit("\t")
+		emit_decode_tabs()
 		emit(target)
 		emit(" = ")
 		emit(base)
 		emit("(value)\n")
 	}
+}
+
+emit_decode_tabs :: proc() {
+	for i in 0 ..< decode_emit_indent {
+		emit("\t")
+	}
+}
+
+emit_decode_line :: proc(text: string) {
+	emit_decode_tabs()
+	emit(text)
 }
 
 type_expr :: proc(type_idx: int) -> string {
@@ -569,6 +681,12 @@ emit :: proc(text: string) {
 
 emit_int :: proc(value: int) {
 	emit(int_string(value))
+}
+
+emit_spaces :: proc(count: int) {
+	for i in 0 ..< count {
+		emit(" ")
+	}
 }
 
 emit_i64 :: proc(value: i64) {
