@@ -23,6 +23,29 @@ local function callRespack(method, ...)
 	return safeCall("respack/respack::" .. string.gsub(method, "_", "-"), ...)
 end
 
+local function ensureParentDirs(path)
+	local dir = string.match(path, "^(.*)/[^/]*$")
+	if dir == nil or dir == "" then
+		return true, ""
+	end
+	local current = ""
+	for part in string.gmatch(dir, "[^/]+") do
+		if current == "" then
+			current = part
+		else
+			current = current .. "/" .. part
+		end
+		local ok, err = safeCall("fs/fs::create-dir", current)
+		if not ok then
+			local statOk = safeCall("fs/fs::stat", current)
+			if not statOk then
+				return false, tostring(err ~= "" and err or "failed to create directory: " .. current)
+			end
+		end
+	end
+	return true, ""
+end
+
 local function readText(path)
 	local ok, text = safeCall("fs/fs::read-text", path)
 	if ok then
@@ -74,6 +97,14 @@ if not okGenerate then
 end
 
 if outputFile ~= "" then
+	local okDirs, dirErr = ensureParentDirs(outputFile)
+	if not okDirs then
+		outputs[1] = odinSource
+		outputs[2] = ""
+		outputs[3] = dirErr
+		return
+	end
+
 	local okWrite, writeText = safeCall("fs/fs::write-text", outputFile, odinSource)
 
 	if not okWrite then
