@@ -1020,6 +1020,42 @@
               "group": "Tilemap"
             },
             {
+              "name": "Split Tilemap",
+              "kind": "code",
+              "codePath": "ng/presets/tilemap-split.lua",
+              "inputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "layer",
+                  "defaultValue": "1"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tilemaps"
+                }
+              ],
+              "group": "Tilemap"
+            },
+            {
+              "name": "Merge Tilemaps",
+              "kind": "code",
+              "codePath": "ng/presets/tilemap-merge.lua",
+              "inputs": [
+                {
+                  "name": "tilemaps"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tilemap"
+                }
+              ],
+              "group": "Tilemap"
+            },
+            {
               "name": "Tilemap to Collision Segments",
               "kind": "code",
               "codePath": "ng/presets/collision/tilemap-to-segments.lua",
