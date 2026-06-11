@@ -892,6 +892,10 @@
         background-color: var(--dialog-blue);
     }
 
+    table > tbody > tr[aria-selected="true"] input {
+        color: #000;
+    }
+
     table > tbody > tr > * {
         padding: 0 var(--grouped-element-spacing);
         height: 14px;

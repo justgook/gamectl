@@ -6,7 +6,9 @@ function assertString(value, name) {
 
 function assertStringArray(value, name) {
   if (!Array.isArray(value)) throw new Error(`${name} must be an array`)
-  for (const item of value) assertString(item, `${name} item`)
+  for (const item of value) {
+    if (typeof item !== "string") throw new Error(`${name} item must be a string`)
+  }
 }
 
 function assertSqlResource(value, name) {

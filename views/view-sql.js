@@ -62,7 +62,11 @@ export class ViewSql extends HTMLElement {
 
     connectedCallback() {
         registerViewPlugin(this)
-        if (this.dataset.ready) return
+        if (this.dataset.ready) {
+            this._mountHeaderControls()
+            this.updateHeaderControlsUI()
+            return
+        }
         this.dataset.ready = "1"
 
         this.style.display = "contents"
@@ -109,16 +113,6 @@ export class ViewSql extends HTMLElement {
             await this.fetchTableData()
         })
 
-        const toolbar = this._headerControlsElement
-        if (toolbar) {
-            toolbar.querySelector('[data-action="refresh"]')?.addEventListener("click", () => this.refresh(null))
-            toolbar.querySelector('[data-action="insert"]')?.addEventListener("click", () => this.insertRow())
-            toolbar.querySelector('[data-action="delete"]')?.addEventListener("click", () => this.deleteSelected())
-            toolbar
-                .querySelector('[data-action="create-table"]')
-                ?.addEventListener("click", () => this.openCreateTablePopup())
-        }
-
         this.addEventListener("keydown", (event) => this.handleKeyDown(event))
 
         this.refresh()
@@ -148,7 +142,19 @@ export class ViewSql extends HTMLElement {
         const headerControls = this.createHeaderControlsElement()
         this._headerControlsElement = headerControls
         this.parentElement.appendChild(headerControls)
+        this._bindHeaderControls()
         this.updateHeaderControlsUI()
+    }
+
+    _bindHeaderControls() {
+        const toolbar = this._headerControlsElement
+        assert(toolbar instanceof HTMLElement, "view-sql header controls not mounted")
+        toolbar.querySelector('[data-action="refresh"]').addEventListener("click", () => this.refresh(null))
+        toolbar.querySelector('[data-action="insert"]').addEventListener("click", () => this.insertRow())
+        toolbar.querySelector('[data-action="delete"]').addEventListener("click", () => this.deleteSelected())
+        toolbar
+            .querySelector('[data-action="create-table"]')
+            .addEventListener("click", () => this.openCreateTablePopup())
     }
 
     _unmountHeaderControls() {
@@ -831,9 +837,10 @@ export class ViewSql extends HTMLElement {
         assert(this.columns.length > 0, "Cannot insert: no columns loaded")
 
         const insertColumns = this.columns.filter((column) => column !== this.primaryKey)
-        assert(insertColumns.length > 0, "Cannot insert: no insertable columns")
-
-        const insertSql = `INSERT INTO ${sqlIdent(this.selectedTable)} (${insertColumns.map(sqlIdent).join(", ")}) VALUES (${insertColumns.map(() => "?").join(", ")})`
+        const insertSql =
+            insertColumns.length > 0
+                ? `INSERT INTO ${sqlIdent(this.selectedTable)} (${insertColumns.map(sqlIdent).join(", ")}) VALUES (${insertColumns.map(() => "?").join(", ")})`
+                : `INSERT INTO ${sqlIdent(this.selectedTable)} DEFAULT VALUES`
         try {
             await sql.exec(
                 insertSql,
