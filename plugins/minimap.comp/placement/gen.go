@@ -647,11 +647,9 @@ func (p *Placement) ToTileMap() *tilemap.TileMap {
 	height := maxY - minY + 1
 	offset := Point{X: minX, Y: minY}
 
-	// Create rooms layer
+	// Create rooms layer from final occupied tiles, including extensions.
 	roomLayer := tilemap.NewTileLayer(width, height)
-	roomLayer.Props = map[string]string{"name": "rooms"}
-
-	// Fill in room IDs (offset by 1, as RoomID is already nodeIndex+1)
+	roomLayer.Props["name"] = "rooms"
 	for pos, roomID := range p.Grid {
 		x := pos.X - minX
 		y := pos.Y - minY
@@ -659,20 +657,25 @@ func (p *Placement) ToTileMap() *tilemap.TileMap {
 		roomLayer.Data[idx] = uint32(roomID)
 	}
 
-	// Create doors layer
+	// Create doors layer.
 	doorLayer := generateDoorLayer(p.Doors, width, height, offset)
+
+	// Create original rooms layer from each room's initially placed shape,
+	// excluding extension tiles added while creating corridors/connections.
+	originalRoomsLayer := generateOriginalRoomsLayer(p.Rooms, width, height, offset)
 
 	tm := tilemap.NewTileMap()
 	tm.Layers = append(tm.Layers, *roomLayer)
 	tm.Layers = append(tm.Layers, *doorLayer)
+	tm.Layers = append(tm.Layers, *originalRoomsLayer)
 
 	return tm
 }
 
-// generateDoorLayer creates door layer data from door connections
+// generateDoorLayer creates door layer data from door connections.
 func generateDoorLayer(doors []DoorConnection, width, height int, offset Point) *tilemap.TileLayer {
 	layer := tilemap.NewTileLayer(width, height)
-	layer.Props = map[string]string{"type": "doors"}
+	layer.Props["name"] = "doors"
 
 	for _, door := range doors {
 		x := door.Point.X - offset.X
@@ -680,6 +683,25 @@ func generateDoorLayer(doors []DoorConnection, width, height int, offset Point) 
 		idx := y*width + x
 		if idx >= 0 && idx < len(layer.Data) {
 			layer.Data[idx] |= uint32(door.Direction)
+		}
+	}
+
+	return layer
+}
+
+// generateOriginalRoomsLayer creates a layer from original placed room shapes.
+func generateOriginalRoomsLayer(rooms map[RoomID]*PlacedRoom, width, height int, offset Point) *tilemap.TileLayer {
+	layer := tilemap.NewTileLayer(width, height)
+	layer.Props["name"] = "original-rooms"
+
+	for roomID, room := range rooms {
+		for _, tile := range room.OriginalShape {
+			x := tile.X - offset.X
+			y := tile.Y - offset.Y
+			idx := y*width + x
+			if idx >= 0 && idx < len(layer.Data) {
+				layer.Data[idx] = uint32(roomID)
+			}
 		}
 	}
 
