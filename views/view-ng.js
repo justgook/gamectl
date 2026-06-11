@@ -1,4 +1,5 @@
 import { runtime, unwrap } from "/core/runtime.js"
+import { showContextMenu } from "/util/context-menu.js"
 import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 function luaStringLiteral(value) {
@@ -16,11 +17,49 @@ function trimValueLabel(value) {
     return `${symbols.slice(0, VALUE_LABEL_MAX_SYMBOLS - 3).join("")}...`
 }
 
+function kindFromFormValue(value, fallback) {
+    if (value === "value") return NG.NODE_VALUE
+    if (value === "goal") return NG.NODE_GOAL
+    if (value === "import") return NG.NODE_CALL
+    if (value === "code") return NG.NODE_CODE
+    return fallback
+}
+
+function kindFromConfigValue(value, fallback) {
+    if (typeof value === "string") return kindFromFormValue(value.trim().toLowerCase(), fallback)
+    const kind = Number(value || fallback)
+    if (kind === NG.NODE_VALUE || kind === NG.NODE_GOAL || kind === NG.NODE_CODE || kind === NG.NODE_CALL) return kind
+    return fallback
+}
+
 const NG = {
     NODE_GOAL: 1,
     NODE_CODE: 2,
     NODE_CALL: 3,
     NODE_VALUE: 4,
+}
+
+function normalizePresetDraft(payload, fallbackKind = NG.NODE_CODE) {
+    const kind = kindFromConfigValue(payload?.kind, fallbackKind)
+    const inputs = Array.isArray(payload?.inputs) ? payload.inputs : []
+    const outputs = Array.isArray(payload?.outputs) ? payload.outputs : []
+    return {
+        kind,
+        name: String(payload?.name || "").trim(),
+        codePath: kind === NG.NODE_CODE ? String(payload?.codePath || "").trim() : "",
+        graphId: kind === NG.NODE_CALL ? Number(payload?.graphId || 0) : 0,
+        graphName: kind === NG.NODE_CALL ? String(payload?.graphName || "").trim() : "",
+        inputs: inputs.map((input, index) => ({
+            inputId: Number(input?.inputId || input?.id || index + 1),
+            name: String(input?.name || "").trim(),
+            value: String(input?.defaultValue || input?.value || ""),
+        })),
+        outputs: outputs.map((output, index) => ({
+            outputId: Number(output?.outputId || output?.id || index + 1),
+            name: kind === NG.NODE_VALUE ? "" : String(output?.name || "").trim(),
+            value: String(output?.value || ""),
+        })),
+    }
 }
 
 const EXEC_IDLE = 0
@@ -270,6 +309,7 @@ export class ViewNg extends HTMLElement {
         this.canvas = null
         this.gl = null
         this.viewConfig = null
+        this.nodePresetConfig = null
         this.assets = null
         this.skinTextures = null
         this.portTextures = null
@@ -318,6 +358,7 @@ export class ViewNg extends HTMLElement {
         this.hoverPick = null
         this.connectionDrag = null
         this._headerControlsElement = null
+        this.nodeContextMenu = null
         this._ready = false
         this._renderQueued = false
         this._pointerMode = "idle"
@@ -348,6 +389,7 @@ export class ViewNg extends HTMLElement {
         this._onKeyDown = this._onKeyDown.bind(this)
         this._onCopy = this._onCopy.bind(this)
         this._onPaste = this._onPaste.bind(this)
+        this._onContextMenu = this._onContextMenu.bind(this)
     }
 
     connectedCallback() {
@@ -389,6 +431,7 @@ export class ViewNg extends HTMLElement {
             })
             assert(this.gl, "view-ng requires WebGL2")
             this._mountHeaderControls()
+            void this._loadNodePresetConfig()
             if (!this.graphNodes.length) this._initSampleLayout()
             this._initPrograms()
             this._bindEvents()
@@ -454,6 +497,10 @@ export class ViewNg extends HTMLElement {
         })
         this.progressPluginId = pluginId
         this._progressPluginRegistered = true
+    }
+
+    async _loadNodePresetConfig() {
+        this.nodePresetConfig = await runtime.call("ui.views.config", "view-ng-node")
     }
 
     async _unregisterProgressPlugin() {
@@ -1389,6 +1436,83 @@ end`
         this.render()
     }
 
+    _nodePresetEntries() {
+        const presets =
+            this.config?.presets ||
+            this.config?.nodePresets ||
+            this.viewConfig?.nodePresets ||
+            this.nodePresetConfig?.presets ||
+            []
+        return presets
+            .map((entry) => {
+                const name = String(entry?.name || "").trim()
+                if (!name) return null
+                const kind = kindFromConfigValue(entry?.kind, NG.NODE_CODE)
+                const group = String(entry?.group || "Presets").trim() || "Presets"
+                return { name, kind, group, data: { ...entry, name, kind, group } }
+            })
+            .filter(Boolean)
+    }
+
+    _contextMenuBaseEntries() {
+        return [
+            { label: "value", draft: normalizePresetDraft({ kind: NG.NODE_VALUE, outputs: [{ value: "" }] }) },
+            { label: "code", draft: normalizePresetDraft({ kind: NG.NODE_CODE }) },
+            { label: "goal", draft: normalizePresetDraft({ kind: NG.NODE_GOAL }) },
+            { label: "import", draft: normalizePresetDraft({ kind: NG.NODE_CALL }) },
+        ]
+    }
+
+    _buildNodeContextMenuItems(worldPoint) {
+        const presetEntries = this._nodePresetEntries()
+        const groups = new Map()
+        for (const entry of presetEntries) {
+            if (!groups.has(entry.group)) groups.set(entry.group, [])
+            groups.get(entry.group).push(entry)
+        }
+        const orderedGroups = [
+            ...Array.from(groups.keys())
+                .filter((group) => group !== "Presets")
+                .sort((a, b) => a.localeCompare(b)),
+            ...(groups.has("Presets") ? ["Presets"] : []),
+        ]
+        return [
+            {
+                label: "Base",
+                items: this._contextMenuBaseEntries().map((entry) => ({
+                    label: entry.label,
+                    action: async () => this.createNodeFromDraftAt(entry.draft, worldPoint),
+                })),
+            },
+            ...orderedGroups.map((group) => ({
+                label: group,
+                items: groups.get(group).map((entry) => ({
+                    label: entry.name,
+                    action: async () =>
+                        this.createNodeFromDraftAt(normalizePresetDraft(entry.data, entry.kind), worldPoint),
+                })),
+            })),
+        ]
+    }
+
+    async createNodeFromDraftAt(draft, worldPoint) {
+        if (!this._assertMutableGraphSource("createNodeFromDraftAt")) return
+        this._syncGraphNodePositionsFromLayout()
+        const nodeId = this._nextAvailableNodeId()
+        const node = this._nodeFromDraft(nodeId, draft, {
+            x: Math.round(worldPoint.x),
+            y: Math.round(worldPoint.y),
+        })
+        this._pushUndoHistory("add node")
+        this.graphNodes.push(node)
+        this.selectedNodeIds.clear()
+        this.selectedNodeIds.add(nodeId)
+        this.activeNodeId = nodeId
+        this._applyGraphMetadataFromNodes(this.graphNodes)
+        this._syncGraphSnapshotFromState({ preserveLayout: true, fit: false })
+        this._setStatus(`added ${String(draft.name || "node").trim() || "node"} #${nodeId}`, "success")
+    }
+
     _buildClipboardPayload() {
         if (!this.selectedNodeIds.size) return null
         this._syncGraphNodePositionsFromLayout()
@@ -1695,6 +1819,7 @@ end`
         this.canvas.addEventListener("keydown", this._onKeyDown)
         this.canvas.addEventListener("copy", this._onCopy)
         this.canvas.addEventListener("paste", this._onPaste)
+        this.canvas.addEventListener("contextmenu", this._onContextMenu)
     }
 
     _unbindEvents() {
@@ -1707,6 +1832,24 @@ end`
         this.canvas.removeEventListener("keydown", this._onKeyDown)
         this.canvas.removeEventListener("copy", this._onCopy)
         this.canvas.removeEventListener("paste", this._onPaste)
+        this.canvas.removeEventListener("contextmenu", this._onContextMenu)
+        this.nodeContextMenu?.close()
+        this.nodeContextMenu = null
+    }
+
+    async _onContextMenu(event) {
+        const canvasPoint = this._clientToCanvasPoint(event.clientX, event.clientY)
+        const worldPoint = this._canvasToWorld(canvasPoint.x, canvasPoint.y)
+        const pick = this._pickAtWorld(worldPoint.x, worldPoint.y)
+        if (pick) return
+        event.preventDefault()
+        this.canvas.focus()
+        if (!this.nodePresetConfig) await this._loadNodePresetConfig()
+        this.nodeContextMenu = showContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            items: this._buildNodeContextMenuItems(worldPoint),
+        })
     }
 
     _onKeyDown(event) {

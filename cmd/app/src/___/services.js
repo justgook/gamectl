@@ -15,6 +15,16 @@ function doInit(config) {
         runtime.register(createUiKeys(config))
 
         const viewRegistry = createConfiguredViewRegistry(config)
+        runtime.register({
+            id: "ui.views",
+            methods: {
+                config(tag) {
+                    const entry = config.ui.views[String(tag || "")]
+                    if (!entry) throw new Error(`Unknown view '${tag}'`)
+                    return entry.config || null
+                },
+            },
+        })
 
         const layout = document.querySelector("ui-layout")
         layout.setViewRegistry(viewRegistry)
