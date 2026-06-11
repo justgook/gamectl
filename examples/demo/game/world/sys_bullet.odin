@@ -46,7 +46,6 @@ sys_bullet :: proc(w: ^World) {
 	view := logic.view(&w.bullet, &w.position, &w.velocity)
 	for entity, pew, pos, vel in logic.each(&view) {
 		delete_entity := false
-		moves_with_bullet_velocity := !logic.has_component(&w.platformer, entity)
 
 		cmds := bullet.tick(&pew.state, ctx)
 		for &cmd in cmds {
@@ -61,32 +60,26 @@ sys_bullet :: proc(w: ^World) {
 					},
 				)
 			case .ChangeDirection:
-				if moves_with_bullet_velocity {
-					if cmd.term > 0 {
-						start := bullet_motion_current_direction(&pew.motion, cmd.previous_direction)
-						bullet_motion_set_direction(&pew.motion, start, cmd.direction, cmd.term)
-					} else {
-						speed := bullet_motion_current_speed(&pew.motion, pew.state.speed)
-						vel^ = bullet_velocity(pew.state.direction, speed)
-					}
+				if cmd.term > 0 {
+					start := bullet_motion_current_direction(&pew.motion, cmd.previous_direction)
+					bullet_motion_set_direction(&pew.motion, start, cmd.direction, cmd.term)
+				} else {
+					speed := bullet_motion_current_speed(&pew.motion, pew.state.speed)
+					vel^ = bullet_velocity(pew.state.direction, speed)
 				}
 			case .ChangeSpeed:
-				if moves_with_bullet_velocity {
-					if cmd.term > 0 {
-						start := bullet_motion_current_speed(&pew.motion, cmd.previous_speed)
-						bullet_motion_set_speed(&pew.motion, start, cmd.speed, cmd.term)
-					} else {
-						direction := bullet_motion_current_direction(&pew.motion, pew.state.direction)
-						vel^ = bullet_velocity(direction, pew.state.speed)
-					}
+				if cmd.term > 0 {
+					start := bullet_motion_current_speed(&pew.motion, cmd.previous_speed)
+					bullet_motion_set_speed(&pew.motion, start, cmd.speed, cmd.term)
+				} else {
+					direction := bullet_motion_current_direction(&pew.motion, pew.state.direction)
+					vel^ = bullet_velocity(direction, pew.state.speed)
 				}
 			case .Accel:
-				if moves_with_bullet_velocity {
-					if cmd.term > 0 {
-						bullet_motion_set_accel(&pew.motion, cmd.horizontal, cmd.vertical, cmd.term)
-					} else {
-						bullet_apply_accel(vel, cmd.horizontal, cmd.vertical)
-					}
+				if cmd.term > 0 {
+					bullet_motion_set_accel(&pew.motion, cmd.horizontal, cmd.vertical, cmd.term)
+				} else {
+					bullet_apply_accel(vel, cmd.horizontal, cmd.vertical)
 				}
 			case .Vanish:
 				delete_entity = true
@@ -95,19 +88,11 @@ sys_bullet :: proc(w: ^World) {
 		}
 		delete(cmds)
 
-		if moves_with_bullet_velocity {
-			bullet_motion_step(&pew.motion, &pew.state, vel)
-		}
+		bullet_motion_step(&pew.motion, &pew.state, vel)
 
 		if delete_entity {
 			append(&deletes, entity)
 			continue
-		}
-
-		if moves_with_bullet_velocity {
-			pos.x += vel.x
-			pos.y += vel.y
-			// host.info("THE BULLET", "pos", pos)
 		}
 
 	}

@@ -68,6 +68,7 @@ frame :: proc(w: ^World, dt: f64) {
 		sys_brain(w)
 		sys_platformer(w)
 		sys_bullet(w)
+		sys_velocity(w)
 	}
 
 	sys_camera(w, dt)

@@ -75,6 +75,7 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 
 Platformer :: struct {
 	config:           Platformer_Config,
+	velocity:         Velocity,
 	on_ground:        bool,
 	on_wall:          bool,
 	hit_ceiling:      bool,
@@ -98,11 +99,12 @@ Platformer :: struct {
 }
 
 sys_platformer :: proc(w: ^World) {
-	view := logic.view(&w.position, &w.velocity, &w.input, &w.platformer)
-	for entity, pos, vel, input, platformer in logic.each(&view) {
+	view := logic.view(&w.position, &w.input, &w.platformer)
+	for entity, pos, input, platformer in logic.each(&view) {
 		collider, has_collider := logic.get_component(&w.collider, entity)
 		assert(has_collider)
 
+		vel := &platformer.velocity
 		platformer_refresh_ground(&w.grid, pos, vel, collider, platformer)
 		platformer_update_dash_reset_and_timers(platformer)
 		if platformer.dash_frames > 0 {
