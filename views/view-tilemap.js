@@ -1987,6 +1987,7 @@ export class ViewTilemap extends ViewCanvasBase {
       "view-tilemap open returned invalid handle",
     )
     this.handle = result.handle
+    this.tilesetSourceKey = null
     this.selectedLayerIndexes.clear()
     this.selectedLayerIndexes.add(0)
     this.selectionTool.clear()
@@ -2531,10 +2532,20 @@ export class ViewTilemap extends ViewCanvasBase {
 
   async syncTilesets(snapshot) {
     const sourceKey = this.createTilesetSourceKey(snapshot)
-    if (sourceKey === this.tilesetSourceKey) return
+    if (
+      sourceKey === this.tilesetSourceKey &&
+      this.tilesetsCoverSnapshot(snapshot)
+    )
+      return
     this.tilesets = await this.createTilesetsForSnapshot(snapshot)
     this.tilesetSourceKey = sourceKey
     this.tilemapRender.setTilesets(this.tilesets)
+  }
+
+  tilesetsCoverSnapshot(snapshot) {
+    const maxTileId = this.maxTileId(snapshot)
+    if (maxTileId === 0) return true
+    return this.tilesets.some((tileset) => tileset.containsTile(maxTileId))
   }
 
   createTilesetSourceKey(snapshot) {
