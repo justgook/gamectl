@@ -16,13 +16,13 @@ Event_Kind :: enum {
 }
 
 Event :: struct {
-	kind:         Event_Kind,
+	kind:               Event_Kind,
 
 	// Spawn payload. The caller decides how to map this to ECS/world state.
-	bullet_index: int,
-	direction:    f64,
-	speed:        f64,
-	child_state:  State,
+	bullet_index:       int,
+	direction:          f64,
+	speed:              f64,
+	child_state:        State,
 
 	// Motion-change payloads.
 	term:               int,
@@ -42,15 +42,15 @@ Tick_Context :: struct {
 }
 
 State :: struct {
-	pattern:   ^decoder2.Bullet_Pattern,
-	frames:    [dynamic]Frame,
-	wait:      int,
-	done:      bool,
+	pattern:             ^decoder2.Bullet_Pattern,
+	frames:              [dynamic]Frame,
+	wait:                int,
+	done:                bool,
 
 	// Current motion context. The VM updates this for relative motion commands;
 	// the caller may also mirror it into ECS velocity/state.
-	direction: f64,
-	speed:     f64,
+	direction:           f64,
+	speed:               f64,
 
 	// BulletML sequence fire context. Sequence fire directions/speeds are relative
 	// to the previously fired bullet, not to this bullet's own motion direction.
@@ -67,8 +67,9 @@ Frame :: struct {
 	repeat_remaining:    int,
 }
 
-init_pattern_state :: proc(pattern: ^decoder2.Bullet_Pattern, action_index := 0) -> State {
+init_pattern_state :: proc(pattern: ^decoder2.Bullet_Pattern, action_index := 0, done := false) -> State {
 	state := State {
+		done                = done,
 		pattern             = pattern,
 		frames              = make([dynamic]Frame),
 		direction           = 180,
@@ -77,7 +78,14 @@ init_pattern_state :: proc(pattern: ^decoder2.Bullet_Pattern, action_index := 0)
 		last_fire_speed     = 1,
 	}
 	push_action(&state, action_index, nil)
+
 	return state
+}
+restart :: proc(state: ^State, action_index := 0) {
+	clear(&state.frames)
+	state.wait = 0
+	state.done = false
+	push_action(state, action_index, nil)
 }
 
 init_bullet_state :: proc(

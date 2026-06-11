@@ -1,7 +1,9 @@
 package world
+import "../decoder2"
 import "bullet"
 import "core:math"
 import "logic"
+
 // import "shape"
 
 
@@ -10,8 +12,12 @@ Bullet :: struct {
 	using motion: Bullet_Motion,
 }
 
-bullet_component :: proc(state: bullet.State) -> Bullet {
-	return Bullet{state = state}
+bullet_restart :: proc(pew: ^Bullet) {
+	bullet.restart(pew)
+}
+
+bullet_component :: proc(pattern: ^decoder2.Bullet_Pattern) -> Bullet {
+	return Bullet{state = bullet.init_pattern_state(pattern, done = true)}
 }
 
 bullet_delete_component :: proc(storage: ^logic.Component_Storage(Bullet), entity: logic.Entity) {
@@ -104,7 +110,7 @@ sys_bullet :: proc(w: ^World) {
 
 	for spawn in spawns {
 		child := create_entity(w)
-		logic.add_component(&w.bullet, child, bullet_component(spawn.state))
+		logic.add_component(&w.bullet, child, Bullet{state = spawn.state})
 		logic.add_component(&w.position, child, spawn.position)
 		logic.add_component(&w.velocity, child, spawn.velocity)
 		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[12]})

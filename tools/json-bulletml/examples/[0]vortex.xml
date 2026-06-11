@@ -1,36 +1,36 @@
-<?xml version="1.0" ?>
+<?xml version="1.0"?>
 <!DOCTYPE bulletml SYSTEM "http://www.asahi-net.or.jp/~cs8k-cyu/bulletml/bulletml.dtd">
 <bulletml type="vertical"
-	xmlns="http://www.asahi-net.or.jp/~cs8k-cyu/bulletml">
-	<action label="top">
-		<repeat>
-			<times>999</times>
-			<action>
-                               <fire>
-                    <direction type="sequence">-5</direction>
-	<bullet>
-								<action>
-									<wait>50</wait>
-									<vanish />
-								</action>
-							</bullet>
-                </fire>
-				<repeat>
-					<times>7</times>
-					<action>
-						<fire>
-							<direction type="sequence">45</direction>
-							<bullet>
-								<action>
-									<wait>50</wait>
-									<vanish />
-								</action>
-							</bullet>
-						</fire>
-					</action>
-				</repeat>
-				<wait>2</wait>
-			</action>
-		</repeat>
-	</action>
+  xmlns="http://www.asahi-net.or.jp/~cs8k-cyu/bulletml">
+  <action label="top">
+    <repeat>
+      <times>1</times>
+      <action>
+        <fire>
+          <direction type="sequence">-5</direction>
+          <bullet>
+            <action>
+              <wait>50</wait>
+              <vanish/>
+            </action>
+          </bullet>
+        </fire>
+        <repeat>
+          <times>7</times>
+          <action>
+            <fire>
+              <direction type="sequence">45</direction>
+              <bullet>
+                <action>
+                  <wait>50</wait>
+                  <vanish/>
+                </action>
+              </bullet>
+            </fire>
+          </action>
+        </repeat>
+        <wait>2</wait>
+      </action>
+    </repeat>
+  </action>
 </bulletml>

@@ -66,6 +66,7 @@ frame :: proc(w: ^World, dt: f64) {
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
 		sys_brain(w)
+		sys_weapon(w)
 		sys_bullet(w)
 		sys_platformer(w)
 		sys_velocity(w)
@@ -153,7 +154,7 @@ init :: proc(w: ^World) {
 	// TODO: delete MOCK DATA
 
 	player := create_entity(w)
-	logic.add_component(&w.bullet, player, bullet_component(bullet.init_pattern_state(&w.bullet_patterns[0])))
+	logic.add_component(&w.bullet, player, bullet_component(&w.bullet_patterns[0]))
 	camera_track(&w.cam, player)
 	logic.add_component(&w.brain, player, Brain{})
 	logic.add_component(&w.input, player, Input{})

@@ -16,7 +16,7 @@
     [
       {
         "repeat": {
-          "times": 999,
+          "times": 1,
           "actionRef": 1
         }
       }
