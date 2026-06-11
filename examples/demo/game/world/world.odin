@@ -17,49 +17,48 @@ ENTITY_ID_START :: logic.Entity(100)
 
 
 World :: struct {
-	next_entity_id:          logic.Entity,
-	free_entity_ids:         [dynamic]logic.Entity,
-	free_entity_ids_lookup:  map[logic.Entity]bool,
-	sim_frame_length:        f64,
-	accumulator:         f64,
-	atlas:               sg.Image,
-	lut:                 sg.Image,
-	cam:                 Camera,
-	player1:             ^Input,
-	sprite_pipe:         ^Sprite_Pipe,
-	tilemap_pipe:        ^Tilemap_Pipe,
-	nine_patch_pipe:     ^Nine_Patch_Pipe,
-	uv:                  []UV,
-	position:            logic.Component_Storage(Position),
-	velocity:            logic.Component_Storage(Velocity),
-	sprite:              logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
-	tilemap:             logic.Component_Storage_Fixed(Tilemap, MAX_TILEMAPS),
-	nine_patch:          logic.Component_Storage_Fixed(Nine_Patch, NINE_PATCH_RENDER_MAX),
-	brain:               logic.Component_Storage(Brain),
-	input:               logic.Component_Storage(Input),
-	timer:               logic.Component_Storage(Timer),
+	next_entity_id:         logic.Entity,
+	free_entity_ids:        [dynamic]logic.Entity,
+	free_entity_ids_lookup: map[logic.Entity]bool,
+	sim_frame_length:       f64,
+	accumulator:            f64,
+	atlas:                  sg.Image,
+	lut:                    sg.Image,
+	cam:                    Camera,
+	player1:                ^Input,
+	sprite_pipe:            ^Sprite_Pipe,
+	tilemap_pipe:           ^Tilemap_Pipe,
+	nine_patch_pipe:        ^Nine_Patch_Pipe,
+	uv:                     []UV,
+	position:               logic.Component_Storage(Position),
+	velocity:               logic.Component_Storage(Velocity),
+	sprite:                 logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
+	tilemap:                logic.Component_Storage_Fixed(Tilemap, MAX_TILEMAPS),
+	nine_patch:             logic.Component_Storage_Fixed(Nine_Patch, NINE_PATCH_RENDER_MAX),
+	brain:                  logic.Component_Storage(Brain),
+	input:                  logic.Component_Storage(Input),
+	timer:                  logic.Component_Storage(Timer),
 	// animations
-	animation_atlas:     Animation_Atlas,
-	animation:           logic.Component_Storage(Animation),
+	animation_atlas:        Animation_Atlas,
+	animation:              logic.Component_Storage(Animation),
 	// NEW rendering
-	offscreen_pass:      sg.Pass,
-	display_pass_action: sg.Pass_Action,
-	display_pipe:        ^Display_Pipe,
+	offscreen_pass:         sg.Pass,
+	display_pass_action:    sg.Pass_Action,
+	display_pipe:           ^Display_Pipe,
 	// Platformer Physics
-	platformer:          logic.Component_Storage(Platformer),
-	grid:                grid.Grid,
-	segments:            [dynamic][4]int,
-	collider:            logic.Component_Storage(shape.Capsule),
-	on_hit:              logic.Component_Storage(proc(_: ^World, src, target: int)),
-	on_hurt:             logic.Component_Storage(proc(_: ^World, src, target: int)),
-	enemy_hurt:          logic.Component_Storage(shape.Capsule),
-	enemy_hit:           logic.Component_Storage(shape.Circle),
-	player_hurt:         logic.Component_Storage(shape.Capsule),
-	player_hit:          logic.Component_Storage(shape.Circle),
+	platformer:             logic.Component_Storage(Platformer),
+	grid:                   grid.Grid,
+	segments:               [dynamic][4]int,
+	collider:               logic.Component_Storage(shape.Capsule),
+	on_hit:                 logic.Component_Storage(proc(_: ^World, src, target: int)),
+	on_hurt:                logic.Component_Storage(proc(_: ^World, src, target: int)),
+	enemy_hurt:             logic.Component_Storage(shape.Capsule),
+	enemy_hit:              logic.Component_Storage(shape.Circle),
+	player_hurt:            logic.Component_Storage(shape.Capsule),
+	player_hit:             logic.Component_Storage(shape.Circle),
 	// Bullet patterns
-	bullet_patterns:     decoder2.Bullet_Patterns,
-	bullet:              logic.Component_Storage(bullet.State),
-	bullet_motion:       logic.Component_Storage(Bullet_Motion),
+	bullet_patterns:        decoder2.Bullet_Patterns,
+	bullet:                 logic.Component_Storage(Bullet),
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -153,7 +152,7 @@ init :: proc(w: ^World) {
 	// TODO: delete MOCK DATA
 
 	player := create_entity(w)
-	logic.add_component(&w.bullet, player, bullet.init_pattern_state(&w.bullet_patterns[0]))
+	logic.add_component(&w.bullet, player, bullet_component(bullet.init_pattern_state(&w.bullet_patterns[0])))
 	camera_track(&w.cam, player)
 	logic.add_component(&w.brain, player, Brain{})
 	logic.add_component(&w.input, player, Input{})
@@ -217,7 +216,6 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	assert(!(entity_id in w.free_entity_ids_lookup))
 
 	bullet_delete_component(&w.bullet, entity_id)
-	logic.delete_component(&w.bullet_motion, entity_id)
 
 	logic.delete_component(&w.position, entity_id)
 	logic.delete_component(&w.velocity, entity_id)
@@ -272,6 +270,5 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.player_hurt)
 	logic.destroy_storage(&w.player_hit)
 	bullet_destroy_state_storage(&w.bullet)
-	logic.destroy_storage(&w.bullet_motion)
 	bullet.destroy_patterns(&w.bullet_patterns)
 }

@@ -2,19 +2,28 @@ package world
 import "bullet"
 import "core:math"
 import "logic"
-import "shape"
+// import "shape"
 
 
-bullet_delete_component :: proc(storage: ^logic.Component_Storage(bullet.State), entity: logic.Entity) {
-	if state, ok := logic.get_component(storage, entity); ok {
-		bullet.destroy_state(state)
+Bullet :: struct {
+	using state:  bullet.State,
+	using motion: Bullet_Motion,
+}
+
+bullet_component :: proc(state: bullet.State) -> Bullet {
+	return Bullet{state = state}
+}
+
+bullet_delete_component :: proc(storage: ^logic.Component_Storage(Bullet), entity: logic.Entity) {
+	if pew, ok := logic.get_component(storage, entity); ok {
+		bullet.destroy_state(&pew.state)
 		logic.delete_component(storage, entity)
 	}
 }
 
-bullet_destroy_state_storage :: proc(storage: ^logic.Component_Storage(bullet.State)) {
-	for &state in storage.components {
-		bullet.destroy_state(&state)
+bullet_destroy_state_storage :: proc(storage: ^logic.Component_Storage(Bullet)) {
+	for &pew in storage.components {
+		bullet.destroy_state(&pew.state)
 	}
 	logic.destroy_storage(storage)
 }
@@ -39,9 +48,7 @@ sys_bullet :: proc(w: ^World) {
 		delete_entity := false
 		moves_with_bullet_velocity := !logic.has_component(&w.platformer, entity)
 
-		motion, has_motion := logic.get_component(&w.bullet_motion, entity)
-
-		cmds := bullet.tick(pew, ctx)
+		cmds := bullet.tick(&pew.state, ctx)
 		for &cmd in cmds {
 			switch cmd.kind {
 			case .Spawn:
@@ -56,39 +63,27 @@ sys_bullet :: proc(w: ^World) {
 			case .ChangeDirection:
 				if moves_with_bullet_velocity {
 					if cmd.term > 0 {
-						if !has_motion {
-							motion = bullet_motion_get_or_add(w, entity)
-							has_motion = true
-						}
-						start := bullet_motion_current_direction(motion, cmd.previous_direction)
-						bullet_motion_set_direction(motion, start, cmd.direction, cmd.term)
+						start := bullet_motion_current_direction(&pew.motion, cmd.previous_direction)
+						bullet_motion_set_direction(&pew.motion, start, cmd.direction, cmd.term)
 					} else {
-						speed := bullet_motion_current_speed(motion, pew.speed)
-						vel^ = bullet_velocity(pew.direction, speed)
+						speed := bullet_motion_current_speed(&pew.motion, pew.state.speed)
+						vel^ = bullet_velocity(pew.state.direction, speed)
 					}
 				}
 			case .ChangeSpeed:
 				if moves_with_bullet_velocity {
 					if cmd.term > 0 {
-						if !has_motion {
-							motion = bullet_motion_get_or_add(w, entity)
-							has_motion = true
-						}
-						start := bullet_motion_current_speed(motion, cmd.previous_speed)
-						bullet_motion_set_speed(motion, start, cmd.speed, cmd.term)
+						start := bullet_motion_current_speed(&pew.motion, cmd.previous_speed)
+						bullet_motion_set_speed(&pew.motion, start, cmd.speed, cmd.term)
 					} else {
-						direction := bullet_motion_current_direction(motion, pew.direction)
-						vel^ = bullet_velocity(direction, pew.speed)
+						direction := bullet_motion_current_direction(&pew.motion, pew.state.direction)
+						vel^ = bullet_velocity(direction, pew.state.speed)
 					}
 				}
 			case .Accel:
 				if moves_with_bullet_velocity {
 					if cmd.term > 0 {
-						if !has_motion {
-							motion = bullet_motion_get_or_add(w, entity)
-							has_motion = true
-						}
-						bullet_motion_set_accel(motion, cmd.horizontal, cmd.vertical, cmd.term)
+						bullet_motion_set_accel(&pew.motion, cmd.horizontal, cmd.vertical, cmd.term)
 					} else {
 						bullet_apply_accel(vel, cmd.horizontal, cmd.vertical)
 					}
@@ -100,11 +95,8 @@ sys_bullet :: proc(w: ^World) {
 		}
 		delete(cmds)
 
-		if moves_with_bullet_velocity && has_motion {
-			bullet_motion_step(motion, pew, vel)
-			if !bullet_motion_is_active(motion) {
-				logic.delete_component(&w.bullet_motion, entity)
-			}
+		if moves_with_bullet_velocity {
+			bullet_motion_step(&pew.motion, &pew.state, vel)
 		}
 
 		if delete_entity {
@@ -127,7 +119,7 @@ sys_bullet :: proc(w: ^World) {
 
 	for spawn in spawns {
 		child := create_entity(w)
-		logic.add_component(&w.bullet, child, spawn.state)
+		logic.add_component(&w.bullet, child, bullet_component(spawn.state))
 		logic.add_component(&w.position, child, spawn.position)
 		logic.add_component(&w.velocity, child, spawn.velocity)
 		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[12]})
@@ -143,6 +135,7 @@ Bullet_Spawn :: struct {
 	state:    bullet.State,
 }
 
+@(private = "file")
 Bullet_Motion :: struct {
 	direction_value:       f64,
 	direction_target:      f64,
@@ -166,27 +159,9 @@ bullet_velocity :: proc(direction, speed: f64) -> Velocity {
 }
 
 @(private = "file")
-bullet_velocity_from_state :: proc(state: ^bullet.State) -> Velocity {
-	return bullet_velocity(state.direction, state.speed)
-}
-
-@(private = "file")
 bullet_apply_accel :: proc(vel: ^Velocity, horizontal, vertical: f64) {
 	vel.x += i32(horizontal * UNIT)
 	vel.y += i32(vertical * UNIT)
-}
-
-@(private = "file")
-bullet_motion_get_or_add :: proc(w: ^World, entity: logic.Entity) -> ^Bullet_Motion {
-	if motion, ok := logic.get_component(&w.bullet_motion, entity); ok {
-		return motion
-	}
-
-	logic.add_component(&w.bullet_motion, entity, Bullet_Motion{})
-
-	motion, ok := logic.get_component(&w.bullet_motion, entity)
-	assert(ok)
-	return motion
 }
 
 @(private = "file")
@@ -259,9 +234,4 @@ bullet_motion_step :: proc(motion: ^Bullet_Motion, state: ^bullet.State, vel: ^V
 		bullet_apply_accel(vel, motion.accel_horizontal_step, motion.accel_vertical_step)
 		motion.accel_remaining -= 1
 	}
-}
-
-@(private = "file")
-bullet_motion_is_active :: proc(motion: ^Bullet_Motion) -> bool {
-	return motion.direction_remaining > 0 || motion.speed_remaining > 0 || motion.accel_remaining > 0
 }
