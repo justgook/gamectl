@@ -285,36 +285,6 @@
     ]
   },
   {
-    "id": 63,
-    "kind": 2,
-    "x": 780,
-    "y": -59,
-    "name": "Read File",
-    "codePath": "ng/presets/read-file.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 62,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "content",
-        "value": ""
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": ""
-      }
-    ]
-  },
-  {
     "id": 65,
     "kind": 2,
     "x": 1281,
@@ -327,7 +297,7 @@
       {
         "id": 1,
         "name": "rulesMap",
-        "srcNodeId": 66,
+        "srcNodeId": 136,
         "srcOutputId": 1
       },
       {
@@ -347,31 +317,6 @@
       {
         "id": 1,
         "name": "outputMap",
-        "value": ""
-      }
-    ]
-  },
-  {
-    "id": 66,
-    "kind": 2,
-    "x": 994,
-    "y": -51,
-    "name": "JSON.Decode",
-    "codePath": "ng/presets/json_decode.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "text",
-        "srcNodeId": 63,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "data",
         "value": ""
       }
     ]
@@ -1203,7 +1148,7 @@
       {
         "id": 1,
         "name": "rulesMap",
-        "srcNodeId": 114,
+        "srcNodeId": 137,
         "srcOutputId": 1
       },
       {
@@ -1223,61 +1168,6 @@
       {
         "id": 1,
         "name": "outputMap",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 113,
-    "kind": 2,
-    "x": 787,
-    "y": -172,
-    "name": "Read File",
-    "codePath": "ng/presets/read-file.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "srcNodeId": 115,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "content",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 114,
-    "kind": 2,
-    "x": 997,
-    "y": -166,
-    "name": "JSON.Decode",
-    "codePath": "ng/presets/json_decode.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "text",
-        "srcNodeId": 113,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "data",
         "value": null
       }
     ]
@@ -1715,6 +1605,66 @@
         "id": 1,
         "name": "path",
         "srcNodeId": 121,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 136,
+    "kind": 2,
+    "x": 845,
+    "y": -45,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 62,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 137,
+    "kind": 2,
+    "x": 857,
+    "y": -170,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 115,
         "srcOutputId": 1
       }
     ],

@@ -31,6 +31,8 @@ const EXEC_RUNNING = 3
 const MIN_SCALE = 0.2
 const MAX_SCALE = 3.0
 const VALUE_LABEL_MAX_SYMBOLS = 64
+const HISTORY_LIMIT = 100
+const CLIPBOARD_FORMAT = "gams.view-ng.nodes"
 
 function assert(condition, message) {
     if (!condition) throw new Error(message)
@@ -308,6 +310,9 @@ export class ViewNg extends HTMLElement {
         this.selectedNodeIds = new Set()
         this.activeNodeId = 0
         this.graphNodes = []
+        this.undoStack = []
+        this.redoStack = []
+        this.clipboardGraph = null
         this.lastGraph = { nodes: [], edges: [] }
         this.lastPosById = new Map()
         this.hoverPick = null
@@ -340,6 +345,9 @@ export class ViewNg extends HTMLElement {
         this._onPointerDown = this._onPointerDown.bind(this)
         this._onPointerMove = this._onPointerMove.bind(this)
         this._onPointerUp = this._onPointerUp.bind(this)
+        this._onKeyDown = this._onKeyDown.bind(this)
+        this._onCopy = this._onCopy.bind(this)
+        this._onPaste = this._onPaste.bind(this)
     }
 
     connectedCallback() {
@@ -513,6 +521,12 @@ export class ViewNg extends HTMLElement {
         <button type="button" data-action="edit" aria-label="Edit" title="Edit"><i aria-hidden="true">edit</i></button>
         <button type="button" data-action="delete" aria-label="Delete Selected" title="Delete Selected"><i aria-hidden="true">delete</i></button>
       </div>
+      <div role="buttongroup" data-element="edit-actions">
+        <button type="button" data-action="undo" aria-label="Undo" title="Undo"><i aria-hidden="true">undo</i></button>
+        <button type="button" data-action="redo" aria-label="Redo" title="Redo"><i aria-hidden="true">redo</i></button>
+        <button type="button" data-action="copy" aria-label="Copy Selected" title="Copy Selected"><i aria-hidden="true">content_copy</i></button>
+        <button type="button" data-action="paste" aria-label="Paste" title="Paste"><i aria-hidden="true">content_paste</i></button>
+      </div>
       <div role="buttongroup" data-element="view-actions">
         <button type="button" data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
         <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
@@ -553,6 +567,18 @@ export class ViewNg extends HTMLElement {
         })
         this._headerControlsElement.querySelector('[data-action="delete"]')?.addEventListener("click", () => {
             this.deleteSelectedNodes()
+        })
+        this._headerControlsElement.querySelector('[data-action="undo"]')?.addEventListener("click", () => {
+            this.undo()
+        })
+        this._headerControlsElement.querySelector('[data-action="redo"]')?.addEventListener("click", () => {
+            this.redo()
+        })
+        this._headerControlsElement.querySelector('[data-action="copy"]')?.addEventListener("click", () => {
+            void this.copySelectedNodesToClipboard()
+        })
+        this._headerControlsElement.querySelector('[data-action="paste"]')?.addEventListener("click", () => {
+            void this.pasteNodesFromClipboard()
         })
         this._headerControlsElement
             .querySelector('[data-action="zoom-in"]')
@@ -597,8 +623,14 @@ export class ViewNg extends HTMLElement {
         const hasSelection = this.selectedNodeIds.size > 0
         const editButton = this._headerControlsElement.querySelector('[data-action="edit"]')
         const deleteButton = this._headerControlsElement.querySelector('[data-action="delete"]')
+        const copyButton = this._headerControlsElement.querySelector('[data-action="copy"]')
+        const undoButton = this._headerControlsElement.querySelector('[data-action="undo"]')
+        const redoButton = this._headerControlsElement.querySelector('[data-action="redo"]')
         if (editButton instanceof HTMLButtonElement) editButton.disabled = !hasSelection
         if (deleteButton instanceof HTMLButtonElement) deleteButton.disabled = !hasSelection
+        if (copyButton instanceof HTMLButtonElement) copyButton.disabled = !hasSelection
+        if (undoButton instanceof HTMLButtonElement) undoButton.disabled = this.undoStack.length === 0
+        if (redoButton instanceof HTMLButtonElement) redoButton.disabled = this.redoStack.length === 0
     }
 
     _setInteractionStatusFromState() {
@@ -986,6 +1018,7 @@ export class ViewNg extends HTMLElement {
                     to.nodeId === orig.to &&
                     to.portId === orig.toInputId,
             )
+            if (!sameAsOriginal) this._pushUndoHistory(isReconnect ? "reconnect nodes" : "connect nodes")
             if (isReconnect && orig && !sameAsOriginal) {
                 await this._applyInputDisconnect(orig.to, orig.toInputId)
             }
@@ -993,6 +1026,7 @@ export class ViewNg extends HTMLElement {
                 await this._applyInputConnect(to.nodeId, to.portId, from.nodeId, from.portId)
             }
         } else if (isReconnect && orig) {
+            this._pushUndoHistory("disconnect nodes")
             await this._applyInputDisconnect(orig.to, orig.toInputId)
         }
         this.connectionDrag = null
@@ -1011,6 +1045,65 @@ export class ViewNg extends HTMLElement {
 
     _assertMutableGraphSource(_action) {
         return true
+    }
+
+    _captureHistorySnapshot({ syncLayout = true } = {}) {
+        if (syncLayout) this._syncGraphNodePositionsFromLayout()
+        return {
+            graph: cloneNgGraph(this.graphNodes),
+            selectedNodeIds: [...this.selectedNodeIds].map((id) => Number(id)),
+            activeNodeId: Number(this.activeNodeId || 0),
+        }
+    }
+
+    _historySnapshotKey(snapshot) {
+        return JSON.stringify(snapshot.graph)
+    }
+
+    _pushUndoHistory(label, { syncLayout = true } = {}) {
+        const snapshot = this._captureHistorySnapshot({ syncLayout })
+        const previous = this.undoStack[this.undoStack.length - 1]
+        if (previous && this._historySnapshotKey(previous.snapshot) === this._historySnapshotKey(snapshot)) return
+        this.undoStack.push({ label: String(label || "edit graph"), snapshot })
+        if (this.undoStack.length > HISTORY_LIMIT) this.undoStack.shift()
+        this.redoStack = []
+        this._syncSelectionActionButtons()
+    }
+
+    _resetUndoHistory() {
+        this.undoStack = []
+        this.redoStack = []
+        this._syncSelectionActionButtons()
+    }
+
+    _restoreHistorySnapshot(snapshot, label) {
+        this.graphNodes = cloneNgGraph(snapshot.graph)
+        this._applyGraphMetadataFromNodes(this.graphNodes)
+        const validNodeIds = new Set(this.graphNodes.map((node) => Number(node.id)))
+        this.selectedNodeIds = new Set(snapshot.selectedNodeIds.filter((id) => validNodeIds.has(Number(id))))
+        this.activeNodeId = validNodeIds.has(Number(snapshot.activeNodeId))
+            ? Number(snapshot.activeNodeId)
+            : this.selectedNodeIds.size
+              ? [...this.selectedNodeIds][this.selectedNodeIds.size - 1]
+              : 0
+        this._syncGraphSnapshotFromState({ preserveLayout: true, fit: false })
+        this._setStatus(label, "info")
+    }
+
+    undo() {
+        if (!this.undoStack.length) return
+        const current = this._captureHistorySnapshot()
+        const entry = this.undoStack.pop()
+        this.redoStack.push({ label: entry.label, snapshot: current })
+        this._restoreHistorySnapshot(entry.snapshot, `undid ${entry.label}`)
+    }
+
+    redo() {
+        if (!this.redoStack.length) return
+        const current = this._captureHistorySnapshot()
+        const entry = this.redoStack.pop()
+        this.undoStack.push({ label: entry.label, snapshot: current })
+        this._restoreHistorySnapshot(entry.snapshot, `redid ${entry.label}`)
     }
 
     _syncGraphSnapshotFromState({ preserveLayout = true, fit = false } = {}) {
@@ -1106,7 +1199,8 @@ end`
     }
 
     async resetGraph() {
-        this.loadGraph([])
+        this._pushUndoHistory("reset graph")
+        this.loadGraph([], { resetHistory: false })
         this._setStatus(`reset graph '${this.graphName}'`, "info")
     }
 
@@ -1152,6 +1246,7 @@ end`
     autoArrangeNodes() {
         const nodes = this.lastGraph.nodes
         if (!nodes.length) return
+        this._pushUndoHistory("auto arrange")
 
         const nodeById = new Map(nodes.map((node) => [Number(node.id), node]))
         const incoming = new Map(nodes.map((node) => [Number(node.id), []]))
@@ -1294,9 +1389,90 @@ end`
         this.render()
     }
 
+    _buildClipboardPayload() {
+        if (!this.selectedNodeIds.size) return null
+        this._syncGraphNodePositionsFromLayout()
+        const selected = new Set([...this.selectedNodeIds].map((id) => Number(id)))
+        const nodes = cloneNgGraph(this.graphNodes)
+            .filter((node) => selected.has(Number(node.id)))
+            .map((node) => ({
+                ...node,
+                inputs: node.inputs.map((input) =>
+                    selected.has(Number(input.srcNodeId)) ? input : { ...input, srcNodeId: 0, srcOutputId: 0 },
+                ),
+            }))
+        return { format: CLIPBOARD_FORMAT, version: 1, nodes }
+    }
+
+    _parseClipboardPayload(text) {
+        const payload = JSON.parse(String(text || ""))
+        if (payload?.format === CLIPBOARD_FORMAT && payload.version === 1) return cloneNgGraph(payload.nodes)
+        if (Array.isArray(payload)) return cloneNgGraph(payload)
+        throw new Error("view-ng clipboard does not contain graph nodes")
+    }
+
+    async copySelectedNodesToClipboard(clipboardData = null) {
+        const payload = this._buildClipboardPayload()
+        if (!payload) return false
+        const text = JSON.stringify(payload, null, 2)
+        this.clipboardGraph = payload
+        if (clipboardData) clipboardData.setData("text/plain", text)
+        else {
+            assert(navigator.clipboard, "view-ng copy requires navigator.clipboard")
+            await navigator.clipboard.writeText(text)
+        }
+        this._setStatus(`copied ${payload.nodes.length} node${payload.nodes.length === 1 ? "" : "s"}`, "success")
+        return true
+    }
+
+    async pasteNodesFromClipboard(text = null) {
+        if (text == null && !this.clipboardGraph) assert(navigator.clipboard, "view-ng paste requires navigator.clipboard")
+        const sourceText =
+            text == null
+                ? this.clipboardGraph
+                    ? JSON.stringify(this.clipboardGraph)
+                    : await navigator.clipboard.readText()
+                : String(text)
+        const sourceNodes = this._parseClipboardPayload(sourceText)
+        if (!sourceNodes.length) return false
+        this._pushUndoHistory("paste nodes")
+        const idMap = new Map()
+        let nextId = this._nextAvailableNodeId()
+        for (const node of sourceNodes) idMap.set(Number(node.id), nextId++)
+        const minX = Math.min(...sourceNodes.map((node) => Number(node.x)))
+        const minY = Math.min(...sourceNodes.map((node) => Number(node.y)))
+        const maxX = Math.max(...sourceNodes.map((node) => Number(node.x)))
+        const maxY = Math.max(...sourceNodes.map((node) => Number(node.y)))
+        const center = this._viewportCenterWorld()
+        const offsetX = Math.round(center.x - (minX + maxX) * 0.5 + 32)
+        const offsetY = Math.round(center.y - (minY + maxY) * 0.5 + 32)
+        const pasted = sourceNodes.map((node) => ({
+            ...node,
+            id: idMap.get(Number(node.id)),
+            x: Math.round(Number(node.x) + offsetX),
+            y: Math.round(Number(node.y) + offsetY),
+            inputs: node.inputs.map((input) => {
+                const hasSource = input.srcNodeId && idMap.has(Number(input.srcNodeId))
+                return {
+                    ...input,
+                    srcNodeId: hasSource ? idMap.get(Number(input.srcNodeId)) : 0,
+                    srcOutputId: hasSource ? input.srcOutputId : 0,
+                }
+            }),
+        }))
+        this.graphNodes.push(...pasted)
+        this.selectedNodeIds = new Set(pasted.map((node) => Number(node.id)))
+        this.activeNodeId = pasted[pasted.length - 1].id
+        this._applyGraphMetadataFromNodes(this.graphNodes)
+        this._syncGraphSnapshotFromState({ preserveLayout: true, fit: false })
+        this._setStatus(`pasted ${pasted.length} node${pasted.length === 1 ? "" : "s"}`, "success")
+        return true
+    }
+
     async deleteSelectedNodes() {
         if (!this._assertMutableGraphSource("deleteSelectedNodes")) return
         if (!this.selectedNodeIds.size) return
+        this._pushUndoHistory("delete nodes")
         const selected = new Set([...this.selectedNodeIds].map((id) => Number(id)))
         this._syncGraphNodePositionsFromLayout()
         this.graphNodes = this.graphNodes
@@ -1443,6 +1619,7 @@ end`
         const size = this._measureNodeSize(preview)
         node.x = Math.round(center.x - size.width * 0.5)
         node.y = Math.round(center.y - size.height * 0.5)
+        this._pushUndoHistory("add node")
         this.graphNodes.push(node)
         this.selectedNodeIds.clear()
         this.selectedNodeIds.add(nodeId)
@@ -1502,6 +1679,7 @@ end`
 
         console.log(payload, next)
 
+        this._pushUndoHistory("edit node")
         this.graphNodes = this.graphNodes.map((item) => (item.id === Number(nodeId) ? next : item))
         this._applyGraphMetadataFromNodes(this.graphNodes)
         this._syncGraphSnapshotFromState({ preserveLayout: true, fit: false })
@@ -1514,6 +1692,9 @@ end`
         this.canvas.addEventListener("pointermove", this._onPointerMove)
         this.canvas.addEventListener("pointerup", this._onPointerUp)
         this.canvas.addEventListener("pointerleave", this._onPointerUp)
+        this.canvas.addEventListener("keydown", this._onKeyDown)
+        this.canvas.addEventListener("copy", this._onCopy)
+        this.canvas.addEventListener("paste", this._onPaste)
     }
 
     _unbindEvents() {
@@ -1523,6 +1704,50 @@ end`
         this.canvas.removeEventListener("pointermove", this._onPointerMove)
         this.canvas.removeEventListener("pointerup", this._onPointerUp)
         this.canvas.removeEventListener("pointerleave", this._onPointerUp)
+        this.canvas.removeEventListener("keydown", this._onKeyDown)
+        this.canvas.removeEventListener("copy", this._onCopy)
+        this.canvas.removeEventListener("paste", this._onPaste)
+    }
+
+    _onKeyDown(event) {
+        const key = String(event.key || "").toLowerCase()
+        const commandKey = event.metaKey || event.ctrlKey
+        if (commandKey && key === "z") {
+            event.preventDefault()
+            if (event.shiftKey) this.redo()
+            else this.undo()
+            return
+        }
+        if (commandKey && key === "y") {
+            event.preventDefault()
+            this.redo()
+            return
+        }
+        if (commandKey && key === "a") {
+            event.preventDefault()
+            this.selectedNodeIds = new Set(this.graphNodes.map((node) => Number(node.id)))
+            this.activeNodeId = this.graphNodes.length ? this.graphNodes[this.graphNodes.length - 1].id : 0
+            this._syncSelectionActionButtons()
+            this.render()
+            return
+        }
+        if ((event.key === "Delete" || event.key === "Backspace") && this.selectedNodeIds.size) {
+            event.preventDefault()
+            void this.deleteSelectedNodes()
+        }
+    }
+
+    _onCopy(event) {
+        if (!this.selectedNodeIds.size) return
+        event.preventDefault()
+        void this.copySelectedNodesToClipboard(event.clipboardData)
+    }
+
+    _onPaste(event) {
+        const text = event.clipboardData?.getData("text/plain") || ""
+        if (!text) return
+        event.preventDefault()
+        void this.pasteNodesFromClipboard(text)
     }
 
     _onWheel(event) {
@@ -1710,6 +1935,7 @@ end`
             this.selectedNodeIds.clear()
             this.activeNodeId = 0
         }
+        if (pointerMode === "drag-node" && moved) this._pushUndoHistory("move nodes", { syncLayout: false })
         if (pointerMode === "drag-node") this._syncGraphNodePositionsFromLayout()
         if (pointerMode === "drag-node" && !moved && hitNodeId > 0 && !event.shiftKey) {
             this.selectedNodeIds.clear()
@@ -1804,7 +2030,7 @@ end`
         return cloneNgGraph(this.graphNodes)
     }
 
-    loadGraph(graph) {
+    loadGraph(graph, { resetHistory = true } = {}) {
         this.graphNodes = cloneNgGraph(graph)
         this._applyGraphMetadataFromNodes(this.graphNodes)
         this.selectedNodeIds.clear()
@@ -1815,6 +2041,7 @@ end`
         if (this.handleElement instanceof HTMLOutputElement)
             this.handleElement.textContent = `nodes: ${this.graphNodes.length}`
         if (this.backendElement instanceof HTMLOutputElement) this._setBackendStatus("state: frontend", "success")
+        if (resetHistory) this._resetUndoHistory()
     }
 
     _buildPersistedGraphDocument() {
