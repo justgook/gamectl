@@ -1,75 +1,104 @@
-local itemsJson = inputs[1]
-if itemsJson == nil or itemsJson == "" then itemsJson = "[]" end
+-- Pick
+-- Selects a subset of fields from one decoded Lua object/table or from each object in a decoded Lua array.
+--
+-- Expected input format:
+--   inputs[1] "items": a Lua table that is either:
+--     * an object-like table: { id = 1, name = "hero", hp = 10 }
+--     * an array-like table of object-like tables: { { id = 1, name = "hero" }, { id = 2, name = "slime" } }
+--   inputs[2] "fields": a non-empty array-like table of names: { "id", "name" }
+--
+-- This preset works on already-decoded Lua values. It does not JSON-decode inputs and does not
+-- JSON-encode outputs. Use json_decode/json_encode nodes at the graph boundary when needed.
+-- Outputs: items. Failures are thrown with error().
 
-local fieldsInput = inputs[2]
-if fieldsInput == nil then fieldsInput = "" end
-
-local function detect_root_kind(raw, defaultKind)
-    if type(raw) ~= "string" then return defaultKind end
-    local first = raw:match("^%s*(.)")
-    if first == "[" then return "array" end
-    if first == "{" then return "object" end
-    return defaultKind
+local function fail(message)
+	error(message)
 end
 
-local function pick_fields(item, fields)
-    local copy = {}
-    if #fields == 0 then
-        for key, value in pairs(item) do
-            copy[key] = value
-        end
-        return copy
-    end
+local function is_array_table(value)
+	if type(value) ~= "table" then
+		return false
+	end
 
-    for _, field in ipairs(fields) do
-        if item[field] ~= nil then
-            copy[field] = item[field]
-        end
-    end
-    return copy
+	local length = 0
+	for key, _ in pairs(value) do
+		if type(key) ~= "number" or key ~= math.floor(key) or key < 1 then
+			return false
+		end
+		if key > length then
+			length = key
+		end
+	end
+
+	for index = 1, length do
+		if value[index] == nil then
+			return false
+		end
+	end
+
+	return true
 end
 
-local itemsRootKind = detect_root_kind(itemsJson, "array")
+local function normalize_fields(value)
+	local fields = {}
 
-local okItems, items = pcall(json.decode, itemsJson)
-if not okItems or type(items) ~= "table" then
-    outputs[1] = ""
-    outputs[2] = "Invalid items JSON"
-    return
+	if value == nil or value == "" then
+		fail("fields is required")
+	end
+
+	if type(value) ~= "table" then
+		fail("fields must be an array of field names")
+	end
+
+	if not is_array_table(value) then
+		fail("fields must be an array of field names")
+	end
+
+	for index, field in ipairs(value) do
+		if type(field) ~= "string" or field == "" then
+			fail("fields[" .. tostring(index) .. "] must be a non-empty string")
+		end
+		fields[#fields + 1] = field
+	end
+
+	if #fields == 0 then
+		fail("fields must contain at least one field name")
+	end
+
+	return fields
 end
 
-local fields = {}
-if type(fieldsInput) == "string" and fieldsInput ~= "" then
-    local okFields, decodedFields = pcall(json.decode, fieldsInput)
-    if okFields and type(decodedFields) == "table" then
-        for _, field in ipairs(decodedFields) do
-            if field ~= nil and field ~= "" then
-                fields[#fields + 1] = tostring(field)
-            end
-        end
-    else
-        for field in fieldsInput:gmatch("[^,%s]+") do
-            fields[#fields + 1] = field
-        end
-    end
+local function pick_fields(item, fields, label)
+	if type(item) ~= "table" then
+		fail(label .. " must be an object")
+	end
+
+	local copy = {}
+	for _, field in ipairs(fields) do
+		if item[field] ~= nil then
+			copy[field] = item[field]
+		end
+	end
+	return copy
 end
 
-if itemsRootKind == "object" then
-    outputs[1] = json.encode(pick_fields(items, fields))
-    outputs[2] = ""
-    return
+local items = inputs[1]
+if items == nil or items == "" then
+	fail("items is required")
+end
+if type(items) ~= "table" then
+	fail("items must be an object or array of objects")
 end
 
-local picked = {}
-for index, item in ipairs(items) do
-    if type(item) ~= "table" then
-        outputs[1] = ""
-        outputs[2] = "Item " .. tostring(index) .. " must be an object"
-        return
-    end
+local fields = normalize_fields(inputs[2])
 
-    picked[#picked + 1] = pick_fields(item, fields)
+if is_array_table(items) then
+	local picked = {}
+	for index, item in ipairs(items) do
+		picked[#picked + 1] = pick_fields(item, fields, "Item " .. tostring(index))
+	end
+	outputs[1] = picked
+	return
 end
 
-outputs[1] = json.encode(picked)
-outputs[2] = ""
+outputs[1] = pick_fields(items, fields, "Item")

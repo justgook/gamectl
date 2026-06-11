@@ -429,8 +429,8 @@
   {
     "id": 79,
     "kind": 4,
-    "x": 1338,
-    "y": 446,
+    "x": 1378,
+    "y": 450,
     "name": "Layers",
     "codePath": "",
     "graphId": 0,
@@ -1472,8 +1472,8 @@
   {
     "id": 128,
     "kind": 2,
-    "x": 1456,
-    "y": 291,
+    "x": 1496,
+    "y": 295,
     "name": "Reduce Tile index",
     "codePath": "ng/presets/tilemap-subtract.lua",
     "graphId": 0,
@@ -1503,8 +1503,8 @@
   {
     "id": 129,
     "kind": 4,
-    "x": 1226,
-    "y": 348,
+    "x": 1266,
+    "y": 352,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1551,8 +1551,8 @@
   {
     "id": 131,
     "kind": 4,
-    "x": 970,
-    "y": 467,
+    "x": 1068,
+    "y": 150,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1569,8 +1569,8 @@
   {
     "id": 132,
     "kind": 2,
-    "x": 1214,
-    "y": 560,
+    "x": 1312,
+    "y": 153,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -1677,6 +1677,128 @@
       {
         "id": 2,
         "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 138,
+    "kind": 2,
+    "x": 1118,
+    "y": 528,
+    "name": "Split Tilemap",
+    "codePath": "ng/presets/tilemap-split.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "srcNodeId": 60,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layer",
+        "srcNodeId": 139,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tilemaps",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 139,
+    "kind": 4,
+    "x": 876,
+    "y": 592,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "id": 142,
+    "kind": 4,
+    "x": 1321,
+    "y": 675,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/isolated.map.json\""
+      }
+    ]
+  },
+  {
+    "id": 143,
+    "kind": 2,
+    "x": 1565,
+    "y": 678,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 142,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 144,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 144,
+    "kind": 2,
+    "x": 1340,
+    "y": 570,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 138,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "item2",
         "value": null
       }
     ]

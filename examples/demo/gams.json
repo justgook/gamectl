@@ -685,6 +685,26 @@
               "group": "Data"
             },
             {
+              "name": "fromArray",
+              "kind": "code",
+              "codePath": "ng/presets/from-array.lua",
+              "inputs": [
+                {
+                  "name": "array",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "item1"
+                },
+                {
+                  "name": "item2"
+                }
+              ],
+              "group": "Data"
+            },
+            {
               "name": "IF",
               "kind": "code",
               "codePath": "ng/presets/if.lua",
@@ -1124,15 +1144,12 @@
                 },
                 {
                   "name": "fields",
-                  "defaultValue": ""
+                  "defaultValue": "[\"id\"]"
                 }
               ],
               "outputs": [
                 {
                   "name": "items"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Data"
