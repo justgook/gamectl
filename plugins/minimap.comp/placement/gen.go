@@ -676,6 +676,7 @@ func (p *Placement) ToTileMap() *tilemap.TileMap {
 func generateDoorLayer(doors []DoorConnection, width, height int, offset Point) *tilemap.TileLayer {
 	layer := tilemap.NewTileLayer(width, height)
 	layer.Props["name"] = "doors"
+	layer.Props["type"] = "doors"
 
 	for _, door := range doors {
 		x := door.Point.X - offset.X
