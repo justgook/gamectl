@@ -65,6 +65,16 @@
         "allowInput": false
       },
       {
+        "key": "delete",
+        "call": ["activeView.deleteSelected"],
+        "allowInput": false
+      },
+      {
+        "key": "backspace",
+        "call": ["activeView.deleteSelected"],
+        "allowInput": false
+      },
+      {
         "key": "mod+shift+s",
         "call": ["activeView.saveAs"],
         "allowInput": true

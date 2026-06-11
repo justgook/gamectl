@@ -62,6 +62,17 @@ Optional elements should appear at most once per view.
 - `[role="buttongroup"]` - grouped related buttons, especially compact toolbars and one-off action groups.
 - `[role="buttongroup"] > button` - button inside a grouped toolbar.
 
+## Context menus
+
+- `menu[role="menu"]` - floating context menu surface opened from pointer/context-menu interactions.
+- `menu[role="menu"] > li` - context menu item wrapper.
+- `menu[role="menu"] menu[role="group"]` - grouped list of related context actions.
+- `menu[role="menu"] label` - non-interactive group heading inside a context menu.
+- `button[role="menuitem"]` - actionable context menu entry.
+- `button[role="menuitem"]:disabled` - unavailable context action.
+
+Use context menus for local actions tied to the clicked point/record. Prefer header controls or popup flows for global, multi-step, or form-heavy actions.
+
 ## Form
 
 - `form` - base element for grouped inputs and actions; default layout is column.
@@ -156,6 +167,12 @@ Core Views should share reusable custom UI elements instead of hard-coding dupli
 - `code-editor` - text area for code editing with highlight.
 - `view-pagination` - generic pagination widget for paged views.
 - `widget-timeline` - reusable timeline widget for layers, frames, cels, and later tags.
+
+## Reusable UI utilities
+
+Reusable non-custom-element UI helpers may live in `packages/util/` when they create short-lived browser UI behavior rather than a mounted component.
+
+- `/util/context-menu.js` - creates floating `menu[role="menu"]` context menus from action data.
 
 ## Timeline widget
 

@@ -491,7 +491,7 @@ export class ViewNg extends HTMLElement {
                 return okResult()
             },
             tool_4: async () => {
-                await this.deleteSelectedNodes()
+                await this.deleteSelected()
                 return okResult()
             },
         })
@@ -613,7 +613,7 @@ export class ViewNg extends HTMLElement {
             void this.showEditNodePopup()
         })
         this._headerControlsElement.querySelector('[data-action="delete"]')?.addEventListener("click", () => {
-            this.deleteSelectedNodes()
+            this.deleteSelected()
         })
         this._headerControlsElement.querySelector('[data-action="undo"]')?.addEventListener("click", () => {
             this.undo()
@@ -1550,7 +1550,8 @@ end`
     }
 
     async pasteNodesFromClipboard(text = null) {
-        if (text == null && !this.clipboardGraph) assert(navigator.clipboard, "view-ng paste requires navigator.clipboard")
+        if (text == null && !this.clipboardGraph)
+            assert(navigator.clipboard, "view-ng paste requires navigator.clipboard")
         const sourceText =
             text == null
                 ? this.clipboardGraph
@@ -1593,8 +1594,8 @@ end`
         return true
     }
 
-    async deleteSelectedNodes() {
-        if (!this._assertMutableGraphSource("deleteSelectedNodes")) return
+    async deleteSelected() {
+        if (!this._assertMutableGraphSource("deleteSelected")) return
         if (!this.selectedNodeIds.size) return
         this._pushUndoHistory("delete nodes")
         const selected = new Set([...this.selectedNodeIds].map((id) => Number(id)))
@@ -1873,10 +1874,6 @@ end`
             this._syncSelectionActionButtons()
             this.render()
             return
-        }
-        if ((event.key === "Delete" || event.key === "Backspace") && this.selectedNodeIds.size) {
-            event.preventDefault()
-            void this.deleteSelectedNodes()
         }
     }
 
