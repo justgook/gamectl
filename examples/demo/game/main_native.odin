@@ -52,10 +52,14 @@ map_action :: proc(key: sapp.Keycode) -> (u32, bool) {
 		return 3, true
 	case .A, .LEFT:
 		return 4, true
-	case .J:
+	case .J, .Z:
 		return 5, true
-	case .K:
+	case .K, .X:
 		return 6, true
+	case .L, .C:
+		return 7, true
+	case .I, .V:
+		return 8, true
 	case:
 		return 0, false
 	}

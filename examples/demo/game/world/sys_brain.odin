@@ -13,6 +13,8 @@ InputSet :: enum {
 	West,
 	Action1,
 	Action2,
+	Action3,
+	Action4,
 }
 
 InputSet_Vectors :: [InputSet][2]int {
@@ -22,6 +24,8 @@ InputSet_Vectors :: [InputSet][2]int {
 	.West    = {-1, 0},
 	.Action1 = {0, 0},
 	.Action2 = {0, 0},
+	.Action3 = {0, 0},
+	.Action4 = {0, 0},
 }
 
 Input :: bit_set[InputSet;u8]

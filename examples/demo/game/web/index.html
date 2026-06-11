@@ -72,6 +72,8 @@
     const ACTION_LEFT = 4
     const ACTION_1 = 5
     const ACTION_2 = 6
+    const ACTION_3 = 7
+    const ACTION_4 = 8
     const DEFAULT_ASSETS = new Map([
       ["data.rspk", "./data.rspk"]
     ])
@@ -101,7 +103,13 @@
       ['KeyS', ACTION_DOWN],
       ['ArrowDown', ACTION_DOWN],
       ['KeyJ', ACTION_1],
+      ['KeyZ', ACTION_1],
       ['KeyK', ACTION_2],
+      ['KeyX', ACTION_2],
+      ['KeyL', ACTION_3],
+      ['KeyC', ACTION_3],
+      ['KeyI', ACTION_4],
+      ['KeyV', ACTION_4],
     ])
 
     function writeU64(view, offset, value) {

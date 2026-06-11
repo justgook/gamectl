@@ -22,6 +22,8 @@ const ACTION_DOWN = 3
 const ACTION_LEFT = 4
 const ACTION_1 = 5
 const ACTION_2 = 6
+const ACTION_3 = 7
+const ACTION_4 = 8
 
 const ACTION_BY_KEY = new Map([
   ["w", ACTION_UP],
@@ -36,6 +38,10 @@ const ACTION_BY_KEY = new Map([
   ["z", ACTION_1],
   ["k", ACTION_2],
   ["x", ACTION_2],
+  ["l", ACTION_3],
+  ["c", ACTION_3],
+  ["i", ACTION_4],
+  ["v", ACTION_4],
 ])
 
 const textDecoder = new TextDecoder()

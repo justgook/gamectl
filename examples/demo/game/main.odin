@@ -9,12 +9,6 @@ import "world"
 import "world/grid"
 import "world/logic"
 
-ACTION_LEFT :: u32(1)
-ACTION_RIGHT :: u32(2)
-ACTION_UP :: u32(3)
-ACTION_DOWN :: u32(4)
-ACTION_1 :: u32(5)
-ACTION_2 :: u32(6)
 GAME_ASSET_PATH :: "data.rspk"
 ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
 LUT_RGBA_CAPACITY :: 512 * 512 * 4
