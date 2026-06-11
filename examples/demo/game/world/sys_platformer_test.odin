@@ -376,6 +376,36 @@ test_platformer_air_dash_resets_on_ground :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_platformer_consumes_external_velocity_with_collision :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments([4]int{80 * UNIT, 0, 80 * UNIT, 128 * UNIT})
+	defer platformer_test_world_destroy(w)
+
+	player := logic.Entity(9)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
+	logic.add_component(&w.velocity, player, Velocity{32 * UNIT, 0})
+	logic.add_component(&w.input, player, Input{})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{})
+
+	sys_platformer(w)
+
+	pos, has_pos := logic.get_component(&w.position, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	external, has_external := logic.get_component(&w.velocity, player)
+	testing.expect(t, has_pos)
+	testing.expect(t, has_platformer)
+	testing.expect(t, has_external)
+	if !has_pos || !has_platformer || !has_external {
+		return
+	}
+
+	testing.expectf(t, pos.x == 74 * UNIT, "external velocity should collide with wall, pos=%v", pos^)
+	testing.expectf(t, platformer.velocity.x == 0, "platformer velocity should be collision-resolved, vel=%v", platformer.velocity)
+	testing.expectf(t, external^ == {}, "external velocity should be consumed, external=%v", external^)
+}
+
+@(test)
 test_entity_pool_reuses_deleted_entity_id :: proc(t: ^testing.T) {
 	w := new(World)
 	defer entity_pool_test_destroy(w)
@@ -447,6 +477,7 @@ platformer_test_world_with_segments :: proc(segments: ..[4]int) -> ^World {
 @(private = "file")
 platformer_test_world_destroy :: proc(w: ^World) {
 	logic.destroy_storage(&w.position)
+	logic.destroy_storage(&w.velocity)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.collider)
 	logic.destroy_storage(&w.platformer)

@@ -105,6 +105,7 @@ sys_platformer :: proc(w: ^World) {
 		assert(has_collider)
 
 		vel := &platformer.velocity
+		platformer_consume_external_velocity(&w.velocity, entity, vel)
 		platformer_refresh_ground(&w.grid, pos, vel, collider, platformer)
 		platformer_update_dash_reset_and_timers(platformer)
 		if platformer.dash_frames > 0 {
@@ -131,6 +132,22 @@ sys_platformer :: proc(w: ^World) {
 		platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
 		platformer.dash_held = .Action2 in input
 	}
+}
+
+@(private = "file")
+platformer_consume_external_velocity :: proc(
+	storage: ^logic.Component_Storage(Velocity),
+	entity: logic.Entity,
+	vel: ^Velocity,
+) {
+	external, has_external := logic.get_component(storage, entity)
+	if !has_external {
+		return
+	}
+
+	vel.x += external.x
+	vel.y += external.y
+	external^ = {}
 }
 
 @(private = "file")

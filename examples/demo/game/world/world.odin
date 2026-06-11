@@ -66,8 +66,8 @@ frame :: proc(w: ^World, dt: f64) {
 	for (w.accumulator >= w.sim_frame_length) {
 		w.accumulator -= w.sim_frame_length
 		sys_brain(w)
-		sys_platformer(w)
 		sys_bullet(w)
+		sys_platformer(w)
 		sys_velocity(w)
 	}
 
