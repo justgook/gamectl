@@ -1455,6 +1455,52 @@
               "group": "Tilemap"
             },
             {
+              "name": "Tilemap Markov Maze",
+              "kind": "code",
+              "codePath": "ng/presets/tilemap-markov-maze.lua",
+              "inputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "layer",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "seed",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "maxSteps",
+                  "defaultValue": "10000"
+                },
+                {
+                  "name": "wallTile",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "floorTile",
+                  "defaultValue": "0"
+                },
+                {
+                  "name": "modelIrPath",
+                  "defaultValue": "ng/markov/maze-growth.mjir.json"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "grid"
+                },
+                {
+                  "name": "stats"
+                }
+              ],
+              "group": "Tilemap"
+            },
+            {
               "name": "World Tree Generator",
               "kind": "code",
               "codePath": "ng/presets/pipeline-world-tree.lua",
