@@ -1802,5 +1802,336 @@
         "value": null
       }
     ]
+  },
+  {
+    "id": 145,
+    "kind": 4,
+    "x": 1004,
+    "y": 1235,
+    "name": "paths/config",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"pipe/markov-maze/input.tilemap.json\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"tmp/markov-maze-output.tilemap.json\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "1"
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "10000"
+      },
+      {
+        "id": 5,
+        "name": "",
+        "value": "1"
+      },
+      {
+        "id": 6,
+        "name": "",
+        "value": "0"
+      },
+      {
+        "id": 7,
+        "name": "",
+        "value": "\"ng/markov/maze-growth.mjir.json\""
+      }
+    ]
+  },
+  {
+    "id": 147,
+    "kind": 2,
+    "x": 1424,
+    "y": 1235,
+    "name": "Tilemap Markov Maze",
+    "codePath": "ng/presets/tilemap-markov-maze.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "srcNodeId": 144,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layer",
+        "srcNodeId": 145,
+        "srcOutputId": 3
+      },
+      {
+        "id": 3,
+        "name": "seed",
+        "srcNodeId": 145,
+        "srcOutputId": 3
+      },
+      {
+        "id": 4,
+        "name": "maxSteps",
+        "srcNodeId": 145,
+        "srcOutputId": 4
+      },
+      {
+        "id": 5,
+        "name": "wallTile",
+        "srcNodeId": 145,
+        "srcOutputId": 5
+      },
+      {
+        "id": 6,
+        "name": "floorTile",
+        "srcNodeId": 145,
+        "srcOutputId": 6
+      },
+      {
+        "id": 7,
+        "name": "modelIrPath",
+        "srcNodeId": 145,
+        "srcOutputId": 7
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "grid",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "stats",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 148,
+    "kind": 2,
+    "x": 1684,
+    "y": 1235,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 145,
+        "srcOutputId": 2
+      },
+      {
+        "id": 2,
+        "name": "content",
+        "srcNodeId": 147,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 149,
+    "kind": 1,
+    "x": 1684,
+    "y": 1377,
+    "name": "result",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "stats",
+        "srcNodeId": 147,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 150,
+    "kind": 2,
+    "x": 2241,
+    "y": 1281,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 151,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 151,
+    "kind": 4,
+    "x": 1970,
+    "y": 1282,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"bulletML-json/*.bulletml.json\""
+      }
+    ]
+  },
+  {
+    "id": 152,
+    "kind": 2,
+    "x": 2411,
+    "y": 1269,
+    "name": "BulletML Slots JSON",
+    "codePath": "ng/presets/bulletml-slots-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "srcNodeId": 150,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "slots_json",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 153,
+    "kind": 2,
+    "x": 2870,
+    "y": 1283,
+    "name": "Respack Save",
+    "codePath": "ng/presets/respack-save.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "schema",
+        "srcNodeId": 155,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "slots",
+        "srcNodeId": 152,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "path_bin",
+        "srcNodeId": 154,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "path_decoder",
+        "srcNodeId": 154,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 154,
+    "kind": 4,
+    "x": 2387,
+    "y": 1412,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"pipe/bullet.rspk.json\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"tmp/bullet.rspk\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "\"game/decoder2/decoder2.odin\""
+      }
+    ]
+  },
+  {
+    "id": 155,
+    "kind": 2,
+    "x": 2694,
+    "y": 1450,
+    "name": "Read File",
+    "codePath": "ng/presets/read-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 154,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "content",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
   }
 ]
