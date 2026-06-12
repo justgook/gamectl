@@ -1847,7 +1847,7 @@
       {
         "id": 7,
         "name": "",
-        "value": "\"ng/markov/maze-growth.mjir.json\""
+        "value": "\"ng/markov/masked-maze-growth.mjir.json\""
       }
     ]
   },
@@ -1925,8 +1925,8 @@
   {
     "id": 148,
     "kind": 2,
-    "x": 1684,
-    "y": 1235,
+    "x": 1697,
+    "y": 1158,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -1935,8 +1935,8 @@
       {
         "id": 1,
         "name": "path",
-        "srcNodeId": 145,
-        "srcOutputId": 2
+        "srcNodeId": 156,
+        "srcOutputId": 1
       },
       {
         "id": 2,
@@ -2131,6 +2131,24 @@
         "id": 2,
         "name": "error",
         "value": null
+      }
+    ]
+  },
+  {
+    "id": 156,
+    "kind": 4,
+    "x": 1378,
+    "y": 1158,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/markov-maze-output.tilemap.json\""
       }
     ]
   }

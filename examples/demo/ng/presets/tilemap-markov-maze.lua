@@ -103,18 +103,63 @@ local seed = optional_integer(inputs[3], "seed", 1)
 local maxSteps = optional_integer(inputs[4], "maxSteps", 10000)
 local wallTile = optional_integer(inputs[5], "wallTile", 1)
 local floorTile = optional_integer(inputs[6], "floorTile", 0)
-local modelIrPath = tostring(inputs[7] or "ng/markov/maze-growth.mjir.json")
+local modelIrPath = tostring(inputs[7] or "ng/markov/masked-maze-growth.mjir.json")
 if modelIrPath == "" then
 	fail("modelIrPath must be non-empty")
 end
 
+local minX = width
+local minY = height
+local maxX = -1
+local maxY = -1
+local maskCount = 0
+for y = 0, height - 1 do
+	for x = 0, width - 1 do
+		local index = y * width + x + 1
+		if layer.data[index] == wallTile then
+			if x < minX then minX = x end
+			if y < minY then minY = y end
+			if x > maxX then maxX = x end
+			if y > maxY then maxY = y end
+			maskCount = maskCount + 1
+		end
+	end
+end
+if maskCount == 0 then
+	fail("selected layer contains no wallTile/mask tiles: " .. tostring(wallTile))
+end
+
 local cells = {}
 for index = 1, width * height do
-	cells[index] = 0 -- B: wall/background
+	if layer.data[index] == wallTile then
+		cells[index] = 1 -- B: mutable maze wall/mask
+	else
+		cells[index] = 0 -- X: locked outside/non-mask tile
+	end
 end
-local cx = math.floor(width / 2)
-local cy = math.floor(height / 2)
-cells[cy * width + cx + 1] = 1 -- W: origin corridor/head
+
+local targetX = math.floor((minX + maxX) / 2)
+local targetY = math.floor((minY + maxY) / 2)
+local originIndex = 0
+local originDistance = nil
+for y = 0, height - 1 do
+	for x = 0, width - 1 do
+		local index = y * width + x + 1
+		if layer.data[index] == wallTile then
+			local dx = x - targetX
+			local dy = y - targetY
+			local distance = dx * dx + dy * dy
+			if originDistance == nil or distance < originDistance then
+				originDistance = distance
+				originIndex = index
+			end
+		end
+	end
+end
+if originIndex <= 0 then
+	fail("could not choose Markov origin inside mask")
+end
+cells[originIndex] = 2 -- W: origin corridor/head
 
 local grid = host.call(
 	"markov-junior/markov-junior::run",
@@ -138,8 +183,8 @@ end
 if #grid.cells ~= width * height then
 	fail("markov-junior grid.cells length does not match tilemap layer size")
 end
-if grid.values ~= "BWA" then
-	fail("expected MazeGrowth grid values BWA, got " .. tostring(grid.values))
+if grid.values ~= "XBWA" then
+	fail("expected masked MazeGrowth grid values XBWA, got " .. tostring(grid.values))
 end
 
 local symbolToTile = {
@@ -148,17 +193,19 @@ local symbolToTile = {
 	A = floorTile,
 }
 
-local outputData = {}
+local outputData = deep_copy(layer.data)
 for index, cell in ipairs(grid.cells) do
-	if type(cell) ~= "number" or cell ~= math.floor(cell) then
-		fail("markov-junior cell " .. tostring(index) .. " must be an integer")
+	if layer.data[index] == wallTile then
+		if type(cell) ~= "number" or cell ~= math.floor(cell) then
+			fail("markov-junior cell " .. tostring(index) .. " must be an integer")
+		end
+		local symbol = string.sub(grid.values, cell + 1, cell + 1)
+		local tile = symbolToTile[symbol]
+		if tile == nil then
+			fail("no tile mapping for mutable Markov symbol " .. tostring(symbol))
+		end
+		outputData[index] = tile
 	end
-	local symbol = string.sub(grid.values, cell + 1, cell + 1)
-	local tile = symbolToTile[symbol]
-	if tile == nil then
-		fail("no tile mapping for Markov symbol " .. tostring(symbol))
-	end
-	outputData[index] = tile
 end
 
 local result = deep_copy(tilemap)
@@ -170,6 +217,9 @@ outputs[2] = grid
 outputs[3] = {
 	width = width,
 	height = height,
+	runWidth = width,
+	runHeight = height,
+	maskCount = maskCount,
 	seed = seed,
 	maxSteps = maxSteps,
 	stepsRun = grid["steps-run"],

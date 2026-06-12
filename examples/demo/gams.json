@@ -1484,7 +1484,7 @@
                 },
                 {
                   "name": "modelIrPath",
-                  "defaultValue": "ng/markov/maze-growth.mjir.json"
+                  "defaultValue": "ng/markov/masked-maze-growth.mjir.json"
                 }
               ],
               "outputs": [
