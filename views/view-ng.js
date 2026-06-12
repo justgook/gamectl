@@ -368,6 +368,9 @@ export class ViewNg extends HTMLElement {
         this._pointerStartCanvasY = 0
         this._pointerStartWorldX = 0
         this._pointerStartWorldY = 0
+        this._lastPointerWorldX = 0
+        this._lastPointerWorldY = 0
+        this._hasLastPointerWorld = false
         this._pointerStartOffsetX = 0
         this._pointerStartOffsetY = 0
         this._pointerMoved = false
@@ -754,6 +757,19 @@ export class ViewNg extends HTMLElement {
 
     _viewportCenterWorld() {
         return this._canvasToWorld(this.canvas.width * 0.5, this.canvas.height * 0.5)
+    }
+
+    _rememberPointerWorld(worldPoint) {
+        this._lastPointerWorldX = worldPoint.x
+        this._lastPointerWorldY = worldPoint.y
+        this._hasLastPointerWorld = true
+    }
+
+    _pasteAnchorWorld() {
+        if (this._hasLastPointerWorld) {
+            return { x: this._lastPointerWorldX, y: this._lastPointerWorldY }
+        }
+        return this._viewportCenterWorld()
     }
 
     _hitTestNode(worldX, worldY) {
@@ -1549,7 +1565,7 @@ end`
         return true
     }
 
-    async pasteNodesFromClipboard(text = null) {
+    async pasteNodesFromClipboard(text = null, anchorWorld = null) {
         if (text == null && !this.clipboardGraph)
             assert(navigator.clipboard, "view-ng paste requires navigator.clipboard")
         const sourceText =
@@ -1566,11 +1582,9 @@ end`
         for (const node of sourceNodes) idMap.set(Number(node.id), nextId++)
         const minX = Math.min(...sourceNodes.map((node) => Number(node.x)))
         const minY = Math.min(...sourceNodes.map((node) => Number(node.y)))
-        const maxX = Math.max(...sourceNodes.map((node) => Number(node.x)))
-        const maxY = Math.max(...sourceNodes.map((node) => Number(node.y)))
-        const center = this._viewportCenterWorld()
-        const offsetX = Math.round(center.x - (minX + maxX) * 0.5 + 32)
-        const offsetY = Math.round(center.y - (minY + maxY) * 0.5 + 32)
+        const anchor = anchorWorld || this._pasteAnchorWorld()
+        const offsetX = Math.round(anchor.x - minX)
+        const offsetY = Math.round(anchor.y - minY)
         const pasted = sourceNodes.map((node) => ({
             ...node,
             id: idMap.get(Number(node.id)),
@@ -1841,6 +1855,7 @@ end`
     async _onContextMenu(event) {
         const canvasPoint = this._clientToCanvasPoint(event.clientX, event.clientY)
         const worldPoint = this._canvasToWorld(canvasPoint.x, canvasPoint.y)
+        this._rememberPointerWorld(worldPoint)
         const pick = this._pickAtWorld(worldPoint.x, worldPoint.y)
         if (pick) return
         event.preventDefault()
@@ -1887,7 +1902,7 @@ end`
         const text = event.clipboardData?.getData("text/plain") || ""
         if (!text) return
         event.preventDefault()
-        void this.pasteNodesFromClipboard(text)
+        void this.pasteNodesFromClipboard(text, this._pasteAnchorWorld())
     }
 
     _onWheel(event) {
@@ -1897,10 +1912,12 @@ end`
         const y = (event.clientY - rect.top) * (this.canvas.height / Math.max(1, rect.height))
         if (event.ctrlKey || event.metaKey) {
             this._zoomAt(x, y, event.deltaY < 0 ? 1.1 : 0.9)
+            this._rememberPointerWorld(this._canvasToWorld(x, y))
             return
         }
         this.offsetX -= event.deltaX
         this.offsetY -= event.deltaY
+        this._rememberPointerWorld(this._canvasToWorld(x, y))
         this.render()
     }
 
@@ -1908,6 +1925,7 @@ end`
         if (event.button !== 0 && event.button !== 1) return
         const canvasPoint = this._clientToCanvasPoint(event.clientX, event.clientY)
         const worldPoint = this._canvasToWorld(canvasPoint.x, canvasPoint.y)
+        this._rememberPointerWorld(worldPoint)
         const pick = this._pickAtWorld(worldPoint.x, worldPoint.y)
         const hitNode = pick?.kind === "node" ? this._getNodeById(pick.nodeId) : null
         this.hoverPick = pick
@@ -1992,6 +2010,7 @@ end`
     _onPointerMove(event) {
         const canvasPoint = this._clientToCanvasPoint(event.clientX, event.clientY)
         const worldPoint = this._canvasToWorld(canvasPoint.x, canvasPoint.y)
+        this._rememberPointerWorld(worldPoint)
         if (this._pointerMode === "idle") {
             this.hoverPick = this._pickAtWorld(worldPoint.x, worldPoint.y)
             this.canvas.style.cursor = this.hoverPick ? "crosshair" : "default"
