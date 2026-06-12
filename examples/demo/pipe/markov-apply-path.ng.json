@@ -1,0 +1,178 @@
+[
+  {
+    "id": 1,
+    "kind": 4,
+    "x": 80,
+    "y": 58,
+    "name": "config",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"pipe/markov-apply/path-input.tilemap.json\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"tmp/markov-apply-path-output.tilemap.json\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "1"
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "\"ng/markov/fixed-path-s-e.mjir.json\""
+      },
+      {
+        "id": 5,
+        "name": "",
+        "value": "1"
+      },
+      {
+        "id": 6,
+        "name": "",
+        "value": "10000"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "kind": 2,
+    "x": 280,
+    "y": 58,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 1,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "kind": 2,
+    "x": 500,
+    "y": 58,
+    "name": "Tilemap Markov Apply",
+    "codePath": "ng/presets/tilemap-markov-apply.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layer",
+        "srcNodeId": 1,
+        "srcOutputId": 3
+      },
+      {
+        "id": 3,
+        "name": "modelIrPath",
+        "srcNodeId": 1,
+        "srcOutputId": 4
+      },
+      {
+        "id": 4,
+        "name": "seed",
+        "srcNodeId": 1,
+        "srcOutputId": 5
+      },
+      {
+        "id": 5,
+        "name": "maxSteps",
+        "srcNodeId": 1,
+        "srcOutputId": 6
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "grid",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "stats",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "kind": 2,
+    "x": 760,
+    "y": 58,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 1,
+        "srcOutputId": 2
+      },
+      {
+        "id": 2,
+        "name": "content",
+        "srcNodeId": 3,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 5,
+    "kind": 1,
+    "x": 760,
+    "y": 200,
+    "name": "result",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "stats",
+        "srcNodeId": 3,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": []
+  }
+]

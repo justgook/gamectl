@@ -1501,6 +1501,44 @@
               "group": "Tilemap"
             },
             {
+              "name": "Tilemap Markov Apply",
+              "kind": "code",
+              "codePath": "ng/presets/tilemap-markov-apply.lua",
+              "inputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "layer",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "modelIrPath",
+                  "defaultValue": "ng/markov/fixed-path-s-e.mjir.json"
+                },
+                {
+                  "name": "seed",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "maxSteps",
+                  "defaultValue": "10000"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "grid"
+                },
+                {
+                  "name": "stats"
+                }
+              ],
+              "group": "Tilemap"
+            },
+            {
               "name": "World Tree Generator",
               "kind": "code",
               "codePath": "ng/presets/pipeline-world-tree.lua",
