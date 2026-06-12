@@ -3,8 +3,7 @@ import "../decoder2"
 import "bullet"
 import "core:math"
 import "logic"
-
-// import "shape"
+import "shape"
 
 
 Bullet :: struct {
@@ -114,7 +113,7 @@ sys_bullet :: proc(w: ^World) {
 		logic.add_component(&w.position, child, spawn.position)
 		logic.add_component(&w.velocity, child, spawn.velocity)
 		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[12]})
-		// logic.add_component(&w.enemy_hit, child, shape.Circle{radius = 4 * UNIT})
+		logic.add_component(&w.player_hit, child, shape.Circle{radius = 4 * UNIT})
 	}
 }
 

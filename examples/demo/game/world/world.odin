@@ -70,6 +70,7 @@ frame :: proc(w: ^World, dt: f64) {
 		sys_bullet(w)
 		sys_platformer(w)
 		sys_velocity(w)
+		sys_bullet_collision(w)
 	}
 
 	sys_camera(w, dt)
