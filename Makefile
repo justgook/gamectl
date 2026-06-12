@@ -124,6 +124,10 @@ BULLETML_JSON_DEMO_DIR ?= examples/demo/bulletML-json
 BULLETML_JSON_INPUTS := $(wildcard $(BULLETML_JSON_INPUT_DIR)/*.xml) $(wildcard $(BULLETML_JSON_INPUT_DIR)/mini/*.xml)
 BULLETML_JSON_DEMO_TARGETS := $(patsubst $(BULLETML_JSON_INPUT_DIR)/%.xml,$(BULLETML_JSON_DEMO_DIR)/%.bulletml.json,$(BULLETML_JSON_INPUTS))
 
+MARKOV_XML_TO_MJIR_JSON ?= node script/markov-xml-to-mjir-json.mjs
+MARKOV_MJIR_DEMO_XMLS := $(wildcard examples/demo/ng/markov/*.xml)
+MARKOV_MJIR_DEMO_TARGETS := $(patsubst %.xml,%.mjir.json,$(MARKOV_MJIR_DEMO_XMLS))
+
 # Helper macro: attach manifest-defined variables to that plugin's wasm target
 #
 # How it works:
@@ -259,6 +263,13 @@ bullet-demo: $(BULLETML_JSON_DEMO_TARGETS)
 $(BULLETML_JSON_DEMO_DIR)/%.bulletml.json: $(BULLETML_JSON_INPUT_DIR)/%.xml $(BULLETML_JSON_TOOL_DIR)/go.mod $(BULLETML_JSON_TOOL_DIR)/main.go
 	$(Q)mkdir -p "$(dir $@)"
 	$(Q)cd "$(BULLETML_JSON_TOOL_DIR)" && $(GO) run . -o "$(abspath $@)" "$(abspath $<)"
+
+.PHONY: markov-mjir-demo
+markov-mjir-demo: $(MARKOV_MJIR_DEMO_TARGETS)
+
+%.mjir.json: %.xml script/markov-xml-to-mjir-json.mjs packages/util/markov-junior/xml-to-mjir.js plugins/markov-junior.comp/compiler/xml-to-mjir.mjs
+	$(Q)$(MKDIR_P) "$(dir $@)"
+	$(Q)$(MARKOV_XML_TO_MJIR_JSON) "$<" "$@"
 
 # Rule to build Go WASM component plugins. These are standalone Go modules
 # under plugins/*.comp and must not depend on a repository root go.mod.
