@@ -1061,6 +1061,63 @@
               "group": "Tilemap"
             },
             {
+              "name": "Tilemap Remap Tiles",
+              "kind": "code",
+              "codePath": "ng/presets/tilemap-remap-tiles.lua",
+              "inputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "layer",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "from",
+                  "defaultValue": "*"
+                },
+                {
+                  "name": "to"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "stats"
+                }
+              ],
+              "group": "Tilemap"
+            },
+            {
+              "name": "Flatten Tilemap",
+              "kind": "code",
+              "codePath": "ng/presets/tilemap-flatten.lua",
+              "inputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "layers",
+                  "defaultValue": "*"
+                },
+                {
+                  "name": "outputLayerName",
+                  "defaultValue": "flattened"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tilemap"
+                },
+                {
+                  "name": "stats"
+                }
+              ],
+              "group": "Tilemap"
+            },
+            {
               "name": "Split Tilemap",
               "kind": "code",
               "codePath": "ng/presets/tilemap-split.lua",
@@ -1450,6 +1507,38 @@
                 {
                   "name": "scaleFactor",
                   "defaultValue": "2"
+                },
+                {
+                  "name": "northDoorWidth",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "northDoorHeight",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "eastDoorWidth",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "eastDoorHeight",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "southDoorWidth",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "southDoorHeight",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "westDoorWidth",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "westDoorHeight",
+                  "defaultValue": "1"
                 }
               ],
               "outputs": [

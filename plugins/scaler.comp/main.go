@@ -191,10 +191,10 @@ const (
 // getDefaultDoorSizes returns the default door sizes for each direction.
 func getDefaultDoorSizes() DoorSizesConfig {
 	return DoorSizesConfig{
-		North: DoorSize{Width: 2, Height: 1},
-		East:  DoorSize{Width: 1, Height: 2},
-		South: DoorSize{Width: 2, Height: 1},
-		West:  DoorSize{Width: 1, Height: 2},
+		North: DoorSize{Width: 1, Height: 1},
+		East:  DoorSize{Width: 1, Height: 1},
+		South: DoorSize{Width: 1, Height: 1},
+		West:  DoorSize{Width: 1, Height: 1},
 	}
 }
 

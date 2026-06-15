@@ -36,7 +36,7 @@ func TestScaleTilemapScalesStandardLayer(t *testing.T) {
 	}
 }
 
-func TestScaleTilemapScalesDoorLayer(t *testing.T) {
+func TestScaleTilemapScalesDoorLayerWithDefaultOneByOneDoors(t *testing.T) {
 	src := &tilemap.TileMap{
 		Layers: []tilemap.TileLayer{{
 			Width: 1,
@@ -45,12 +45,7 @@ func TestScaleTilemapScalesDoorLayer(t *testing.T) {
 		}},
 	}
 
-	scaled := scaleTilemap(src, 3, DoorSizesConfig{
-		North: DoorSize{Width: 1, Height: 1},
-		East:  DoorSize{Width: 1, Height: 1},
-		South: DoorSize{Width: 1, Height: 1},
-		West:  DoorSize{Width: 1, Height: 1},
-	})
+	scaled := scaleTilemap(src, 3, getDefaultDoorSizes())
 
 	wantData := []uint32{
 		0, uint32(DoorNorth), 0,

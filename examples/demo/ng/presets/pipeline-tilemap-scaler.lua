@@ -70,13 +70,29 @@ local function tilemap_from_wit(tm)
 	}
 end
 
+local function optional_size(value)
+	if value == nil or value == "" then
+		return 1
+	end
+	local size = tonumber(value)
+	if size == nil then
+		error("door size must be a number")
+	end
+	return size
+end
+
+local parsedScaleFactor = tonumber(scaleFactor)
+if parsedScaleFactor == nil then
+	error("scale factor must be a number")
+end
+
 local opt = {}
-opt["scale-factor"] = tonumber(scaleFactor)
+opt["scale-factor"] = parsedScaleFactor
 opt["door-sizes"] = {
-	north = { width = 2, height = 1 },
-	east = { width = 1, height = 2 },
-	south = { width = 2, height = 1 },
-	west = { width = 1, height = 2 },
+	north = { width = optional_size(inputs[4]), height = optional_size(inputs[5]) },
+	east = { width = optional_size(inputs[6]), height = optional_size(inputs[7]) },
+	south = { width = optional_size(inputs[8]), height = optional_size(inputs[9]) },
+	west = { width = optional_size(inputs[10]), height = optional_size(inputs[11]) },
 }
 local scaleResult = host.call("scaler/scaler::scale", tilemap_to_wit(inputMap), opt)
 

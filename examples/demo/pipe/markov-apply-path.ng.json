@@ -45,8 +45,8 @@
   {
     "id": 2,
     "kind": 2,
-    "x": 280,
-    "y": 58,
+    "x": 360,
+    "y": -67,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
     "graphId": 0,
