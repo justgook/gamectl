@@ -53,10 +53,13 @@ end
 
 local result = {
 	layers = {},
-	props = deep_copy(first.props or {}),
 }
-result.props["gams.room.id"] = nil
-result.props["gams.room.sourceLayerIndex"] = nil
+local resultProps = deep_copy(first.props or {})
+resultProps["gams.room.id"] = nil
+resultProps["gams.room.sourceLayerIndex"] = nil
+if next(resultProps) ~= nil then
+	result.props = resultProps
+end
 
 for layerIndex, sourceLayer in ipairs(first.layers) do
 	local resultLayer = deep_copy(sourceLayer)

@@ -94,5 +94,20 @@ const graphResult = JSON.parse(runLua(generatedGraphSource));
 assert.equal(graphResult.result.inputs.v101, 101);
 assert.equal(graphResult.result.active.v101, true);
 
+const tilemapMergePreset = readFileSync(join(repoRoot, 'examples/demo/ng/presets/tilemap-merge.lua'), 'utf8');
+const mergedTilemap = JSON.parse(runLua(`
+function main()
+  inputs = {{
+    { layers = {{ width = 2, data = { 1, 0, 0, 0 } }} },
+    { layers = {{ width = 2, data = { 0, 2, 0, 0 } }} },
+  }}
+  outputs = {}
+  ${tilemapMergePreset}
+  return outputs[1]
+end
+`));
+assert.deepEqual(mergedTilemap, { layers: [{ width: 2, data: [1, 2, 0, 0] }] });
+
 console.log('lua.comp json.null: ok');
 console.log('lua.comp view-ng large value graph: ok');
+console.log('lua.comp tilemap merge omits empty props: ok');

@@ -1,12 +1,12 @@
 -- Tilemap Remap Tiles
 -- Remaps tile ids in one tilemap layer.
 --
--- Inputs: tilemap, layer, from, to
+-- Inputs: tilemap-or-tilemaps, layer, from, to
 --   layer: 1-based layer index or layer props.name
 --   from: tile id, comma-separated tile ids, JSON array of tile ids, or "*"
 --         "*" means every nonzero tile.
 --   to: destination tile id
--- Outputs: tilemap
+-- Outputs: tilemap-or-tilemaps, stats-or-stats-list
 
 local function fail(message)
 	error("tilemap-remap-tiles: " .. message)
@@ -118,25 +118,67 @@ local function parse_from(value)
 	return "set", seen
 end
 
-local tilemap = inputs[1]
-if type(tilemap) ~= "table" then
+local function is_tilemap(value)
+	return type(value) == "table" and type(value.layers) == "table"
+end
+
+local function apply_to_tilemap(tilemap, mapLabel, layerSelector, fromInput, fromMode, fromSet, toTile)
+	if type(tilemap) ~= "table" then
+		fail(mapLabel .. " must be a table")
+	end
+
+	local layerIndex, layer = select_layer(tilemap, layerSelector)
+	if type(layer) ~= "table" then
+		fail(mapLabel .. " selected layer must be a table")
+	end
+
+	local width = require_integer(layer.width, mapLabel .. " layer.width")
+	if width <= 0 then
+		fail(mapLabel .. " layer.width must be greater than zero")
+	end
+	if type(layer.data) ~= "table" then
+		fail(mapLabel .. " selected layer.data must be a table")
+	end
+	if (#layer.data % width) ~= 0 then
+		fail(mapLabel .. " selected layer.data length must be divisible by layer.width")
+	end
+
+	local outputData = {}
+	local changed = 0
+	for index, tile in ipairs(layer.data) do
+		local tileId = require_integer(tile, mapLabel .. " layer.data[" .. tostring(index) .. "]")
+		local shouldRemap = false
+		if fromMode == "nonzero" then
+			shouldRemap = tileId ~= 0
+		else
+			shouldRemap = fromSet[tileId] == true
+		end
+
+		if shouldRemap then
+			outputData[index] = toTile
+			if tileId ~= toTile then
+				changed = changed + 1
+			end
+		else
+			outputData[index] = tile
+		end
+	end
+
+	local result = deep_copy(tilemap)
+	result.layers[layerIndex] = deep_copy(result.layers[layerIndex])
+	result.layers[layerIndex].data = outputData
+
+	return result, {
+		layer = layerIndex,
+		from = fromInput,
+		to = toTile,
+		changed = changed,
+	}
+end
+
+local tilemapInput = inputs[1]
+if type(tilemapInput) ~= "table" then
 	fail("tilemap input must be a table")
-end
-
-local layerIndex, layer = select_layer(tilemap, inputs[2])
-if type(layer) ~= "table" then
-	fail("selected layer must be a table")
-end
-
-local width = require_integer(layer.width, "layer.width")
-if width <= 0 then
-	fail("layer.width must be greater than zero")
-end
-if type(layer.data) ~= "table" then
-	fail("selected layer.data must be a table")
-end
-if (#layer.data % width) ~= 0 then
-	fail("selected layer.data length must be divisible by layer.width")
 end
 
 local fromMode, fromSet = parse_from(inputs[3])
@@ -145,35 +187,32 @@ if toTile < 0 then
 	fail("to must be greater than or equal to zero")
 end
 
-local outputData = {}
-local changed = 0
-for index, tile in ipairs(layer.data) do
-	local tileId = require_integer(tile, "layer.data[" .. tostring(index) .. "]")
-	local shouldRemap = false
-	if fromMode == "nonzero" then
-		shouldRemap = tileId ~= 0
-	else
-		shouldRemap = fromSet[tileId] == true
+if is_tilemap(tilemapInput) then
+	local result, stats = apply_to_tilemap(tilemapInput, "tilemap", inputs[2], inputs[3], fromMode, fromSet, toTile)
+	outputs[1] = result
+	outputs[2] = stats
+else
+	local results = {}
+	local statsList = {}
+	if #tilemapInput == 0 then
+		fail("tilemaps input array must not be empty")
 	end
-
-	if shouldRemap then
-		outputData[index] = toTile
-		if tileId ~= toTile then
-			changed = changed + 1
-		end
-	else
-		outputData[index] = tile
+	for index, tilemap in ipairs(tilemapInput) do
+		local result, stats = apply_to_tilemap(
+			tilemap,
+			"tilemaps[" .. tostring(index) .. "]",
+			inputs[2],
+			inputs[3],
+			fromMode,
+			fromSet,
+			toTile
+		)
+		results[index] = result
+		statsList[index] = stats
 	end
+	if #results ~= #tilemapInput then
+		fail("tilemaps input must be a dense array of tilemaps")
+	end
+	outputs[1] = results
+	outputs[2] = statsList
 end
-
-local result = deep_copy(tilemap)
-result.layers[layerIndex] = deep_copy(result.layers[layerIndex])
-result.layers[layerIndex].data = outputData
-
-outputs[1] = result
-outputs[2] = {
-	layer = layerIndex,
-	from = inputs[3],
-	to = toTile,
-	changed = changed,
-}

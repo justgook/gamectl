@@ -1820,47 +1820,17 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 144,
+        "srcNodeId": 164,
         "srcOutputId": 1
       }
     ],
     "outputs": []
   },
   {
-    "id": 144,
-    "kind": 2,
-    "x": 1566,
-    "y": 764,
-    "name": "fromArray",
-    "codePath": "ng/presets/from-array.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "array",
-        "srcNodeId": 138,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "item1",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "item2",
-        "value": null
-      }
-    ]
-  },
-  {
     "id": 148,
     "kind": 2,
-    "x": 2035,
-    "y": 1166,
+    "x": 2422,
+    "y": 1113,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -1875,7 +1845,7 @@
       {
         "id": 2,
         "name": "content",
-        "srcNodeId": 159,
+        "srcNodeId": 166,
         "srcOutputId": 1
       }
     ],
@@ -2071,8 +2041,8 @@
   {
     "id": 156,
     "kind": 4,
-    "x": 1830,
-    "y": 1100,
+    "x": 2217,
+    "y": 1047,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -2230,8 +2200,8 @@
   {
     "id": 161,
     "kind": 2,
-    "x": 1540,
-    "y": 951,
+    "x": 1367,
+    "y": 994,
     "name": "Tilemap Remap Tiles",
     "codePath": "ng/presets/tilemap-remap-tiles.lua",
     "graphId": 0,
@@ -2240,7 +2210,7 @@
       {
         "id": 1,
         "name": "tilemap",
-        "srcNodeId": 144,
+        "srcNodeId": 165,
         "srcOutputId": 1
       },
       {
@@ -2278,8 +2248,8 @@
   {
     "id": 162,
     "kind": 4,
-    "x": 1345,
-    "y": 977,
+    "x": 1166,
+    "y": 976,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -2341,6 +2311,109 @@
       {
         "id": 2,
         "name": "stats",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 164,
+    "kind": 2,
+    "x": 1564,
+    "y": 763,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 138,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "item2",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 165,
+    "kind": 2,
+    "x": 1328,
+    "y": 864,
+    "name": "Tilemap Remap Room Mask",
+    "codePath": "ng/presets/tilemap-remap-tiles.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "srcNodeId": 138,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layer",
+        "srcNodeId": 139,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "from",
+        "srcNodeId": 162,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "to",
+        "srcNodeId": 139,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "stats",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 166,
+    "kind": 2,
+    "x": 2057,
+    "y": 1203,
+    "name": "Merge Tilemaps",
+    "codePath": "ng/presets/tilemap-merge.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemaps",
+        "srcNodeId": 159,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
         "value": null
       }
     ]

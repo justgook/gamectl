@@ -1,12 +1,12 @@
 -- Tilemap Flatten
 -- Flattens selected tilemap layers into one layer.
 --
--- Inputs: tilemap, layers, outputLayerName
+-- Inputs: tilemap-or-tilemaps, layers, outputLayerName
 --   layers: "*", comma-separated layer indexes/names, JSON array, or Lua table.
 --           Layers are composited in the provided order: first is bottom,
 --           later layers are top and overwrite nonzero cells below.
 --   outputLayerName: optional props.name for the resulting layer.
--- Outputs: tilemap, stats
+-- Outputs: tilemap-or-tilemaps, stats-or-stats-list
 
 local function fail(message)
 	error("tilemap-flatten: " .. message)
@@ -32,10 +32,10 @@ local function require_integer(value, label)
 	return number
 end
 
-local function require_layers(tilemap)
+local function require_layers(tilemap, mapLabel)
 	local layers = tilemap.layers
 	if type(layers) ~= "table" or #layers == 0 then
-		fail("tilemap.layers must be a non-empty table")
+		fail(mapLabel .. " tilemap.layers must be a non-empty table")
 	end
 	return layers
 end
@@ -62,8 +62,8 @@ local function select_layer_index(layers, selector, label)
 	fail(label .. " name not found: " .. name)
 end
 
-local function parse_layer_selectors(tilemap, value)
-	local layers = require_layers(tilemap)
+local function parse_layer_selectors(tilemap, mapLabel, value)
+	local layers = require_layers(tilemap, mapLabel)
 	if value == nil or value == "" or tostring(value) == "*" then
 		local indexes = {}
 		for index = 1, #layers do
@@ -103,89 +103,124 @@ local function parse_layer_selectors(tilemap, value)
 
 	local indexes = {}
 	for selectorIndex, selector in ipairs(rawSelectors) do
-		indexes[#indexes + 1] = select_layer_index(layers, selector, "layers[" .. tostring(selectorIndex) .. "]")
+		indexes[#indexes + 1] = select_layer_index(layers, selector, mapLabel .. " layers[" .. tostring(selectorIndex) .. "]")
 	end
 	return indexes
 end
 
-local function validate_layer(layer, index, expectedWidth, expectedLength)
+local function validate_layer(layer, mapLabel, index, expectedWidth, expectedLength)
 	if type(layer) ~= "table" then
-		fail("layer " .. tostring(index) .. " must be a table")
+		fail(mapLabel .. " layer " .. tostring(index) .. " must be a table")
 	end
-	local width = require_integer(layer.width, "layer " .. tostring(index) .. " width")
+	local width = require_integer(layer.width, mapLabel .. " layer " .. tostring(index) .. " width")
 	if width <= 0 then
-		fail("layer " .. tostring(index) .. " width must be greater than zero")
+		fail(mapLabel .. " layer " .. tostring(index) .. " width must be greater than zero")
 	end
 	if type(layer.data) ~= "table" then
-		fail("layer " .. tostring(index) .. " data must be a table")
+		fail(mapLabel .. " layer " .. tostring(index) .. " data must be a table")
 	end
 	if (#layer.data % width) ~= 0 then
-		fail("layer " .. tostring(index) .. " data length must be divisible by width")
+		fail(mapLabel .. " layer " .. tostring(index) .. " data length must be divisible by width")
 	end
 	if expectedWidth ~= nil and width ~= expectedWidth then
-		fail("layer " .. tostring(index) .. " width must match bottom layer width")
+		fail(mapLabel .. " layer " .. tostring(index) .. " width must match bottom layer width")
 	end
 	if expectedLength ~= nil and #layer.data ~= expectedLength then
-		fail("layer " .. tostring(index) .. " data length must match bottom layer data length")
+		fail(mapLabel .. " layer " .. tostring(index) .. " data length must match bottom layer data length")
 	end
 	return width, #layer.data
 end
 
-local tilemap = inputs[1]
-if type(tilemap) ~= "table" then
+local function is_tilemap(value)
+	return type(value) == "table" and type(value.layers) == "table"
+end
+
+local function apply_to_tilemap(tilemap, mapLabel, layerSelectors, outputLayerName)
+	if type(tilemap) ~= "table" then
+		fail(mapLabel .. " must be a table")
+	end
+
+	local layers = require_layers(tilemap, mapLabel)
+	local selectedIndexes = parse_layer_selectors(tilemap, mapLabel, layerSelectors)
+	local bottomLayerIndex = selectedIndexes[1]
+	local bottomLayer = layers[bottomLayerIndex]
+	local width, length = validate_layer(bottomLayer, mapLabel, bottomLayerIndex)
+
+	local outputData = {}
+	for tileIndex, tile in ipairs(bottomLayer.data) do
+		outputData[tileIndex] = require_integer(tile, mapLabel .. " layer " .. tostring(bottomLayerIndex) .. " data[" .. tostring(tileIndex) .. "]")
+	end
+
+	local overwritten = 0
+	local written = 0
+	for orderIndex = 2, #selectedIndexes do
+		local layerIndex = selectedIndexes[orderIndex]
+		local layer = layers[layerIndex]
+		validate_layer(layer, mapLabel, layerIndex, width, length)
+		for tileIndex, tile in ipairs(layer.data) do
+			local tileId = require_integer(tile, mapLabel .. " layer " .. tostring(layerIndex) .. " data[" .. tostring(tileIndex) .. "]")
+			if tileId ~= 0 then
+				if outputData[tileIndex] ~= tileId then
+					overwritten = overwritten + 1
+				end
+				outputData[tileIndex] = tileId
+				written = written + 1
+			end
+		end
+	end
+
+	local resultLayer = deep_copy(bottomLayer)
+	resultLayer.data = outputData
+
+	if outputLayerName ~= nil and outputLayerName ~= "" then
+		if type(resultLayer.props) ~= "table" then
+			resultLayer.props = {}
+		end
+		resultLayer.props.name = tostring(outputLayerName)
+	end
+
+	local result = {
+		props = deep_copy(tilemap.props or {}),
+		layers = { resultLayer },
+	}
+
+	return result, {
+		layers = selectedIndexes,
+		width = width,
+		height = length / width,
+		written = written,
+		overwritten = overwritten,
+	}
+end
+
+local tilemapInput = inputs[1]
+if type(tilemapInput) ~= "table" then
 	fail("tilemap input must be a table")
 end
 
-local layers = require_layers(tilemap)
-local selectedIndexes = parse_layer_selectors(tilemap, inputs[2])
-local bottomLayerIndex = selectedIndexes[1]
-local bottomLayer = layers[bottomLayerIndex]
-local width, length = validate_layer(bottomLayer, bottomLayerIndex)
-
-local outputData = {}
-for tileIndex, tile in ipairs(bottomLayer.data) do
-	outputData[tileIndex] = require_integer(tile, "layer " .. tostring(bottomLayerIndex) .. " data[" .. tostring(tileIndex) .. "]")
-end
-
-local overwritten = 0
-local written = 0
-for orderIndex = 2, #selectedIndexes do
-	local layerIndex = selectedIndexes[orderIndex]
-	local layer = layers[layerIndex]
-	validate_layer(layer, layerIndex, width, length)
-	for tileIndex, tile in ipairs(layer.data) do
-		local tileId = require_integer(tile, "layer " .. tostring(layerIndex) .. " data[" .. tostring(tileIndex) .. "]")
-		if tileId ~= 0 then
-			if outputData[tileIndex] ~= tileId then
-				overwritten = overwritten + 1
-			end
-			outputData[tileIndex] = tileId
-			written = written + 1
-		end
+if is_tilemap(tilemapInput) then
+	local result, stats = apply_to_tilemap(tilemapInput, "tilemap", inputs[2], inputs[3])
+	outputs[1] = result
+	outputs[2] = stats
+else
+	local results = {}
+	local statsList = {}
+	if #tilemapInput == 0 then
+		fail("tilemaps input array must not be empty")
 	end
-end
-
-local resultLayer = deep_copy(bottomLayer)
-resultLayer.data = outputData
-
-local outputLayerName = inputs[3]
-if outputLayerName ~= nil and outputLayerName ~= "" then
-	if type(resultLayer.props) ~= "table" then
-		resultLayer.props = {}
+	for index, tilemap in ipairs(tilemapInput) do
+		local result, stats = apply_to_tilemap(
+			tilemap,
+			"tilemaps[" .. tostring(index) .. "]",
+			inputs[2],
+			inputs[3]
+		)
+		results[index] = result
+		statsList[index] = stats
 	end
-	resultLayer.props.name = tostring(outputLayerName)
+	if #results ~= #tilemapInput then
+		fail("tilemaps input must be a dense array of tilemaps")
+	end
+	outputs[1] = results
+	outputs[2] = statsList
 end
-
-local result = {
-	props = deep_copy(tilemap.props or {}),
-	layers = { resultLayer },
-}
-
-outputs[1] = result
-outputs[2] = {
-	layers = selectedIndexes,
-	width = width,
-	height = length / width,
-	written = written,
-	overwritten = overwritten,
-}
