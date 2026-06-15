@@ -1,6 +1,7 @@
-<sequence values="XBDSPWN" symmetry="(xy)">
+<sequence values="XBDSPWNU" symmetry="(xy)">
   <one in="D" out="S" steps="1"/>
   <one in="XB" out="XW"/>
+  <one in="XW/WB" out="XW/WW"/>
   <markov>
     <sequence>
       <path from="SP" to="D" on="BP" color="P" steps="1"/>
@@ -16,7 +17,16 @@
       </one>
     </sequence>
   </markov>
-  <one in="BPB" out="NPB"/>
-  <one in="BPW" out="NPW"/>
-  <one in="BPS" out="NPS"/>
+  <one in="PB" out="PN"/>
+  <one in="WSW" out="SSS"/>
+  <one in="W" out="W"/>
+  <one in="B" out="W"/>
+  <one in="NX" out="NW"/>
+  <one in="PX" out="PW"/>
+  <one in="P" out="B"/>
+  <one in="N" out="B"/>
+  <one in="XSSS" out="WSSS"/>
+  <one in="S" out="B"/>
+  <one in="B" out="X"/>
+  <one in="W" out="B"/>
 </sequence>
