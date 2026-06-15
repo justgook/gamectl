@@ -105,10 +105,28 @@ local function is_tilemap(value)
 	return type(value) == "table" and type(value.layers) == "table"
 end
 
+local function describe_tilemap(tilemap, fallbackLabel)
+	local parts = { fallbackLabel }
+	local props = tilemap.props
+	if type(props) == "table" then
+		local roomId = props["gams.room.id"]
+		if roomId ~= nil and roomId ~= "" then
+			parts[#parts + 1] = "room " .. tostring(roomId)
+		end
+		local name = props.name or props["gams.room.name"]
+		if name ~= nil and name ~= "" then
+			parts[#parts + 1] = "name " .. tostring(name)
+		end
+	end
+	return table.concat(parts, " / ")
+end
+
 local function apply_to_tilemap(tilemap, mapLabel, layerSelector, modelIr, modelValueCount, seed, maxSteps)
 	if type(tilemap) ~= "table" then
 		fail(mapLabel .. " must be a table")
 	end
+
+	mapLabel = describe_tilemap(tilemap, mapLabel)
 
 	local layerIndex, layer = select_layer(tilemap, layerSelector)
 	if type(layer) ~= "table" then
@@ -138,13 +156,22 @@ local function apply_to_tilemap(tilemap, mapLabel, layerSelector, modelIr, model
 			fail(mapLabel .. " tile id " .. tostring(tileId) .. " must be in 0..255 for Markov cells")
 		end
 		if tileId >= modelValueCount then
+			local zeroBased = index - 1
+			local x = zeroBased % width
+			local y = math.floor(zeroBased / width)
 			fail(
 				mapLabel
+					.. " layer "
+					.. tostring(layerIndex)
 					.. " tile id "
 					.. tostring(tileId)
 					.. " at layer.data["
 					.. tostring(index)
-					.. "] is outside the Markov model value range 0.."
+					.. "] (x="
+					.. tostring(x)
+					.. ", y="
+					.. tostring(y)
+					.. ") is outside the Markov model value range 0.."
 					.. tostring(modelValueCount - 1)
 			)
 		end
