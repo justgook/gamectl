@@ -1,18 +1,22 @@
-<sequence values="XBDCP" symmetry="(xy)">
-  <one in="D" out="C"/>
+<sequence values="XBDSPWN" symmetry="(xy)">
+  <one in="D" out="S" steps="1"/>
+  <one in="XB" out="XW"/>
   <markov>
     <sequence>
-      <path from="CP" to="D" on="BP" color="P"/>
+      <path from="SP" to="D" on="BP" color="P" steps="1"/>
       <one>
-        <rule in="PD" out="PC"/>
-        <rule in="DP" out="CP"/>
-        <rule in="P/D" out="P/C"/>
-        <rule in="D/P" out="C/P"/>
-        <rule in="CD" out="CC"/>
-        <rule in="DC" out="CC"/>
-        <rule in="C/D" out="C/C"/>
-        <rule in="D/C" out="C/C"/>
+        <rule in="PD" out="PS"/>
+        <rule in="DP" out="SP"/>
+        <rule in="P/D" out="P/S"/>
+        <rule in="D/P" out="S/P"/>
+        <rule in="SD" out="SS"/>
+        <rule in="DS" out="SS"/>
+        <rule in="S/D" out="S/S"/>
+        <rule in="D/S" out="S/S"/>
       </one>
     </sequence>
   </markov>
+  <one in="BPB" out="NPB"/>
+  <one in="BPW" out="NPW"/>
+  <one in="BPS" out="NPS"/>
 </sequence>

@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
@@ -70,5 +71,23 @@ assert.equal(partial.ok.cells.filter((cell) => cell === 1).length, 2)
 assert.equal(partial.ok.cells.filter((cell) => cell === 0).length, 4)
 assert.equal(partial.ok['steps-run'], 2)
 assert.equal(partial.ok.done, false)
+
+const connectExitsXml = readFileSync(join(repoRoot, 'examples/demo/ng/markov/connect-exits.xml'), 'utf8')
+const connectExits = runMarkov(
+  compileMjirV1FromXml(connectExitsXml),
+  [
+    0, 0, 0, 0, 0, 0, 0,
+    0, 2, 1, 1, 1, 2, 0,
+    0, 0, 0, 0, 0, 0, 0,
+  ],
+  { width: 7, height: 3, depth: 1, seed: 1, 'max-steps': 50 },
+)
+
+assert.equal(connectExits.err, undefined, connectExits.err)
+assert.equal(connectExits.ok.values, 'XBDSP')
+assert.equal(connectExits.ok.cells.filter((cell) => cell === 2).length, 0, 'all door candidates should be consumed when there are two exits')
+assert.equal(connectExits.ok.cells.filter((cell) => cell === 3).length, 2, 'both exits become connected entrances')
+assert.equal(connectExits.ok.cells.filter((cell) => cell === 4).length, 3, 'path connects exits')
+assert.equal(connectExits.ok.done, true)
 
 console.log('markov-junior.comp e2e ok')
