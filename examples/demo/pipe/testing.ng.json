@@ -2041,8 +2041,8 @@
   {
     "id": 156,
     "kind": 4,
-    "x": 2217,
-    "y": 1047,
+    "x": 2042,
+    "y": 1075,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -2108,8 +2108,8 @@
   {
     "id": 159,
     "kind": 2,
-    "x": 1720,
-    "y": 1246,
+    "x": 1769,
+    "y": 1251,
     "name": "Tilemap Markov Apply",
     "codePath": "ng/presets/tilemap-markov-apply.lua",
     "graphId": 0,
@@ -2276,8 +2276,8 @@
   {
     "id": 163,
     "kind": 2,
-    "x": 1562,
-    "y": 1108,
+    "x": 1603,
+    "y": 1002,
     "name": "Flatten Tilemap",
     "codePath": "ng/presets/tilemap-flatten.lua",
     "graphId": 0,
@@ -2443,6 +2443,36 @@
         "id": 3,
         "name": "",
         "value": "1"
+      }
+    ]
+  },
+  {
+    "id": 169,
+    "kind": 2,
+    "x": 1599,
+    "y": 1200,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "item2",
+        "value": null
       }
     ]
   }
