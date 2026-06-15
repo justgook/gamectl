@@ -782,6 +782,27 @@
               "group": "Data"
             },
             {
+              "name": "Remove Prop",
+              "kind": "code",
+              "codePath": "ng/presets/remove-prop.lua",
+              "inputs": [
+                {
+                  "name": "value",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "path",
+                  "defaultValue": "layers[1]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "value"
+                }
+              ],
+              "group": "Data"
+            },
+            {
               "name": "Minimap Shape Assigner",
               "kind": "code",
               "codePath": "ng/presets/pipeline-assign-minimap-shapes.lua",

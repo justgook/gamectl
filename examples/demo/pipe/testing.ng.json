@@ -1684,8 +1684,8 @@
   {
     "id": 138,
     "kind": 2,
-    "x": 1118,
-    "y": 528,
+    "x": 1153,
+    "y": 553,
     "name": "Split Tilemap",
     "codePath": "ng/presets/tilemap-split.lua",
     "graphId": 0,
@@ -1694,7 +1694,7 @@
       {
         "id": 1,
         "name": "tilemap",
-        "srcNodeId": 60,
+        "srcNodeId": 157,
         "srcOutputId": 1
       },
       {
@@ -1733,8 +1733,8 @@
   {
     "id": 142,
     "kind": 4,
-    "x": 1321,
-    "y": 675,
+    "x": 1404,
+    "y": 529,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1751,8 +1751,8 @@
   {
     "id": 143,
     "kind": 2,
-    "x": 1565,
-    "y": 678,
+    "x": 1683,
+    "y": 584,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -1776,8 +1776,8 @@
   {
     "id": 144,
     "kind": 2,
-    "x": 1340,
-    "y": 570,
+    "x": 1398,
+    "y": 599,
     "name": "fromArray",
     "codePath": "ng/presets/from-array.lua",
     "graphId": 0,
@@ -1806,8 +1806,8 @@
   {
     "id": 145,
     "kind": 4,
-    "x": 1004,
-    "y": 1235,
+    "x": 1342,
+    "y": 1243,
     "name": "paths/config",
     "codePath": "",
     "graphId": 0,
@@ -1854,8 +1854,8 @@
   {
     "id": 147,
     "kind": 2,
-    "x": 1424,
-    "y": 1235,
+    "x": 1762,
+    "y": 1243,
     "name": "Tilemap Markov Maze",
     "codePath": "ng/presets/tilemap-markov-maze.lua",
     "graphId": 0,
@@ -1925,8 +1925,8 @@
   {
     "id": 148,
     "kind": 2,
-    "x": 1697,
-    "y": 1158,
+    "x": 2035,
+    "y": 1166,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -1950,8 +1950,8 @@
   {
     "id": 149,
     "kind": 1,
-    "x": 1684,
-    "y": 1377,
+    "x": 2022,
+    "y": 1385,
     "name": "result",
     "codePath": "",
     "graphId": 0,
@@ -1969,8 +1969,8 @@
   {
     "id": 150,
     "kind": 2,
-    "x": 2241,
-    "y": 1281,
+    "x": 2579,
+    "y": 1289,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "graphId": 0,
@@ -1994,8 +1994,8 @@
   {
     "id": 151,
     "kind": 4,
-    "x": 1970,
-    "y": 1282,
+    "x": 2308,
+    "y": 1290,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -2012,8 +2012,8 @@
   {
     "id": 152,
     "kind": 2,
-    "x": 2411,
-    "y": 1269,
+    "x": 2749,
+    "y": 1277,
     "name": "BulletML Slots JSON",
     "codePath": "ng/presets/bulletml-slots-json.lua",
     "graphId": 0,
@@ -2042,8 +2042,8 @@
   {
     "id": 153,
     "kind": 2,
-    "x": 2870,
-    "y": 1283,
+    "x": 3208,
+    "y": 1291,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
     "graphId": 0,
@@ -2079,8 +2079,8 @@
   {
     "id": 154,
     "kind": 4,
-    "x": 2387,
-    "y": 1412,
+    "x": 2725,
+    "y": 1420,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -2107,8 +2107,8 @@
   {
     "id": 155,
     "kind": 2,
-    "x": 2694,
-    "y": 1450,
+    "x": 3032,
+    "y": 1458,
     "name": "Read File",
     "codePath": "ng/presets/read-file.lua",
     "graphId": 0,
@@ -2137,8 +2137,8 @@
   {
     "id": 156,
     "kind": 4,
-    "x": 1378,
-    "y": 1158,
+    "x": 1706,
+    "y": 1124,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -2149,6 +2149,55 @@
         "id": 1,
         "name": "",
         "value": "\"tmp/markov-maze-output.tilemap.json\""
+      }
+    ]
+  },
+  {
+    "id": 157,
+    "kind": 2,
+    "x": 992,
+    "y": 462,
+    "name": "Remove Prop",
+    "codePath": "ng/presets/remove-prop.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "value",
+        "srcNodeId": 60,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "path",
+        "srcNodeId": 158,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "value",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 158,
+    "kind": 4,
+    "x": 819,
+    "y": 509,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"layers[3]\""
       }
     ]
   }

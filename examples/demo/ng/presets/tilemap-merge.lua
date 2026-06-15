@@ -111,17 +111,6 @@ for roomIndex, room in ipairs(rooms) do
 				)
 			end
 			if tileValue ~= 0 then
-				local existing = tonumber(resultData[tileIndex]) or 0
-				if existing ~= 0 and existing ~= tileValue then
-					error(
-						"tile conflict at room "
-							.. tostring(roomIndex)
-							.. ", layer "
-							.. tostring(layerIndex)
-							.. ", tile "
-							.. tostring(tileIndex)
-					)
-				end
 				resultData[tileIndex] = tile
 			end
 		end
