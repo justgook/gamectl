@@ -19,6 +19,10 @@ MarkovJunior XML + resources -> MJIR + initial indexed grid -> markov-junior.com
 
 If file access is needed later, prefer standard `wasi:filesystem`; do not add `gams:fs`.
 
+## Documentation
+
+- `docs/xml-reference.md` is a Markdown tag/attribute reference for MarkovJunior XML, modeled after the readable BulletML reference style.
+
 ## Public API
 
 See `wit/package.wit`.
