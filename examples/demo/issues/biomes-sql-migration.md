@@ -1,33 +1,28 @@
 ---
-title: Migrate archived Biomes to new SQL integration pattern
-description: Decide how to restore Biomes after project SQL storage and migration patterns are defined.
+title: Decide future Biomes SQL integration
+description: Decide whether Biomes should exist as a future SQL-backed Project Unit.
 status: open
 tags: [plugin]
 ---
 
-The Biomes generator was moved out of active plugin paths during cleanup and preserved as reference material. It should not be restored as-is.
+The old archived Biomes prototype code has been deleted. Do not restore it as a legacy plugin.
 
-Biomes should return only after deeper project-level SQL work clarifies database storage patterns, migrations, and SQL-backed Project Unit integration.
-
-## Reference material
-
-- `issues/references/generation-experiments/plugins/biomes/`
+Biomes should return only if deeper project-level SQL work clarifies database storage patterns, migrations, and SQL-backed Project Unit integration.
 
 ## Decision needed
 
-Decide whether Biomes should be deleted permanently, kept archived, or migrated into a future SQL-backed Project Unit.
+Decide whether Biomes should be deleted permanently as a concept or specified as a future SQL-backed Project Unit.
 
 ## Scope
 
-- Review the archived Biomes generator and tests.
 - Identify the SQL database storage and migration prerequisites.
-- Define the target Project Unit/API shape before restoring any active Biomes code.
+- Define the target Project Unit/API shape before implementing new Biomes code.
 - Keep the implementation separate from Assets Inventory inspiration until that direction is documented.
 
 ## Acceptance criteria
 
 - [ ] SQL/storage/migration prerequisites are named or linked.
-- [ ] Decision recorded: delete permanently, keep archived, or migrate into a SQL-backed Project Unit.
-- [ ] No active Biomes code is restored before the SQL integration direction is documented.
+- [ ] Decision recorded: delete permanently as a concept or specify a future SQL-backed Project Unit.
+- [ ] No legacy Biomes code is restored.
 
 ## Comments

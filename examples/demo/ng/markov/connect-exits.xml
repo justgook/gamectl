@@ -2,21 +2,19 @@
   <one in="D" out="S" steps="1"/>
   <one in="XB" out="XW"/>
   <one in="XW/WB" out="XW/WW"/>
-  <markov>
-    <sequence>
-      <path from="SP" to="D" on="BP" color="P" steps="1"/>
-      <one>
-        <rule in="PD" out="PS"/>
-        <rule in="DP" out="SP"/>
-        <rule in="P/D" out="P/S"/>
-        <rule in="D/P" out="S/P"/>
-        <rule in="SD" out="SS"/>
-        <rule in="DS" out="SS"/>
-        <rule in="S/D" out="S/S"/>
-        <rule in="D/S" out="S/S"/>
-      </one>
-    </sequence>
-  </markov>
+  <sequence>
+    <path from="SP" to="D" on="BP" color="P" steps="1"/>
+    <one>
+      <rule in="PD" out="PS"/>
+      <rule in="DP" out="SP"/>
+      <rule in="P/D" out="P/S"/>
+      <rule in="D/P" out="S/P"/>
+      <rule in="SD" out="SS"/>
+      <rule in="DS" out="SS"/>
+      <rule in="S/D" out="S/S"/>
+      <rule in="D/S" out="S/S"/>
+    </one>
+  </sequence>
   <!-- Reserve one extra tile around map-edge/wall cells before room packing.
        This is a single all-step, not a flood: rooms and later connector paths
        should not consume the protected W/X boundary band. -->
