@@ -147,6 +147,8 @@ export class ViewMarkov extends ViewCanvasBase {
     this.voxelRenderer = null
     this.currentXmlText = ""
     this.customExample = null
+    this.inputGrid = null
+    this.currentRunExample = null
     this.voxelPalette = paletteFromSymbolColors(PALETTE)
   }
 
@@ -229,6 +231,8 @@ export class ViewMarkov extends ViewCanvasBase {
       </div>
       <div role="buttongroup" data-element="tool-actions">
         <button type="button" data-action="edit" aria-label="Edit XML" title="Edit XML"><i aria-hidden="true">edit</i></button>
+        <button type="button" data-action="load-input" aria-label="Load tilemap input" title="Load tilemap input"><i aria-hidden="true">input</i></button>
+        <button type="button" data-action="clear-input" aria-label="Clear input" title="Clear input"><i aria-hidden="true">close</i></button>
         <button type="button" data-action="reset" aria-label="Reset preview" title="Reset preview"><i aria-hidden="true">restart_alt</i></button>
         <input type="number" data-field="seed" aria-label="Seed" title="Seed" min="0" step="1" value="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" data-action="reroll" aria-label="Reroll seed" title="Reroll seed"><i aria-hidden="true">casino</i></button>
@@ -249,6 +253,8 @@ export class ViewMarkov extends ViewCanvasBase {
     toolbar.querySelector('[data-action="save-as"]').addEventListener("click", () => void this.saveAs())
     toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => void this.reload())
     toolbar.querySelector('[data-action="edit"]').addEventListener("click", () => void this.edit())
+    toolbar.querySelector('[data-action="load-input"]').addEventListener("click", () => void this.loadTilemapInput())
+    toolbar.querySelector('[data-action="clear-input"]').addEventListener("click", () => void this.clearInputGrid())
     toolbar.querySelector('[data-action="reset"]').addEventListener("click", () => this.resetSession())
     toolbar.querySelector('[data-action="step"]').addEventListener("click", () => this.stepCurrent())
     toolbar.querySelector('[data-action="play-pause"]').addEventListener("click", () => this.togglePlayback())
@@ -305,6 +311,7 @@ export class ViewMarkov extends ViewCanvasBase {
 
   showReadyState() {
     const example = this.selectedExample()
+    this.currentRunExample = null
     this.setData(null, { autoFit: false })
     if (this.metaElement instanceof HTMLOutputElement) {
       this.metaElement.textContent = example ? `${example.width} × ${example.height} × ${example.depth} · seed ${this.seed()} · steps ${this.steps()} · ${example.id}` : ""
@@ -436,6 +443,104 @@ export class ViewMarkov extends ViewCanvasBase {
     if (payload && payload.reload) await this.reload()
   }
 
+  async loadTilemapInput() {
+    const payload = unwrap(await runtime.call("ui.popup.open", {
+      title: "Load Tilemap Input",
+      size: "medium",
+      tag: "view-files",
+      props: { mode: "chooser", filter: "*.tilemap.json,*.json" },
+    }))
+    if (!payload || payload.cancelled) return
+    const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
+    assert(selection && selection.path, "view-markov load input requires selected tilemap file path")
+    const path = String(selection.path).trim()
+    assert(path.length > 0, "view-markov load input requires non-empty tilemap file path")
+    const tilemap = JSON.parse(unwrap(await runtime.invoke("fs/fs::read-text", path), path))
+    const xml = unwrap(await runtime.invoke("fs/fs::read-text", this.currentSourcePath()), this.currentSourcePath())
+    this.currentXmlText = xml
+    this.inputGrid = this.tilemapInputGridFromTilemap(tilemap, path, 0, this.valuesFromXml(xml))
+    await this.dismissSession()
+    this.showInputGridPreview(xml)
+    this.setStatus(`Loaded input ${this.inputGrid.path} · layer ${this.inputGrid.layerLabel}`, "success")
+  }
+
+  async clearInputGrid() {
+    this.inputGrid = null
+    this.currentRunExample = null
+    await this.dismissSession()
+    this.showReadyState()
+  }
+
+  assertInputGridMatchesXml(xml) {
+    assert(this.inputGrid, "view-markov input validation requires loaded input grid")
+    const values = this.valuesFromXml(xml)
+    for (let index = 0; index < this.inputGrid.cells.length; index += 1) {
+      const cell = this.inputGrid.cells[index]
+      assert(cell >= 0 && cell < values.length, `view-markov input cell ${index + 1} value ${cell} is outside Markov values range 0..${values.length - 1}`)
+    }
+  }
+
+  valuesFromXml(xml) {
+    const values = xmlAttr(xmlRootStartTag(xml), "values", "")
+    assert(values.length > 0, "view-markov XML root must declare values before loading tilemap input")
+    return values
+  }
+
+  tilemapInputGridFromTilemap(tilemap, path, layerIndexZero, values) {
+    assert(tilemap && typeof tilemap === "object" && !Array.isArray(tilemap), "view-markov tilemap input must be an object")
+    assert(Array.isArray(tilemap.layers), "view-markov tilemap.layers must be an array")
+    assert(tilemap.layers.length > layerIndexZero, `view-markov tilemap missing layer ${layerIndexZero + 1}`)
+    const layer = tilemap.layers[layerIndexZero]
+    assert(layer && typeof layer === "object" && !Array.isArray(layer), "view-markov tilemap layer must be an object")
+    const width = Number(layer.width)
+    assert(Number.isInteger(width) && width > 0, "view-markov tilemap layer.width must be a positive integer")
+    assert(Array.isArray(layer.data), "view-markov tilemap layer.data must be an array")
+    assert(layer.data.length > 0, "view-markov tilemap layer.data must not be empty")
+    assert(layer.data.length % width === 0, "view-markov tilemap layer.data length must be divisible by layer.width")
+    const cells = layer.data.map((value, index) => {
+      const cell = Number(value)
+      assert(Number.isInteger(cell), `view-markov tilemap cell ${index + 1} must be an integer`)
+      assert(cell >= 0 && cell < values.length, `view-markov tilemap cell ${index + 1} value ${cell} is outside Markov values range 0..${values.length - 1}`)
+      return cell
+    })
+    const layerProps = layer.props
+    const layerName = layerProps && typeof layerProps === "object" && !Array.isArray(layerProps) ? String(layerProps.name || "").trim() : ""
+    return {
+      type: "tilemap",
+      path,
+      layerIndex: layerIndexZero + 1,
+      layerLabel: layerName || String(layerIndexZero + 1),
+      width,
+      height: cells.length / width,
+      depth: 1,
+      cells,
+    }
+  }
+
+  inputGridMetaLabel() {
+    if (!this.inputGrid) return ""
+    return ` · input ${this.inputGrid.path} layer ${this.inputGrid.layerLabel}`
+  }
+
+  showInputGridPreview(xml = this.currentXmlText) {
+    assert(this.inputGrid, "view-markov input preview requires loaded input grid")
+    const example = this.selectedExample()
+    assert(example, "view-markov input preview requires selected example")
+    const values = this.valuesFromXml(xml)
+    const previewExample = { ...example, width: this.inputGrid.width, height: this.inputGrid.height, depth: 1, render: "2d" }
+    this.currentRunExample = previewExample
+    this.applyGrid({
+      width: this.inputGrid.width,
+      height: this.inputGrid.height,
+      depth: 1,
+      values,
+      cells: [...this.inputGrid.cells],
+      "steps-run": 0,
+      changed: 0,
+      done: false,
+    }, previewExample, 0)
+  }
+
   createOpenPopupOptions() {
     return { title: "Open MarkovJunior XML", size: "medium", tag: "view-files", props: { mode: "chooser", filter: "*.xml" } }
   }
@@ -549,35 +654,41 @@ export class ViewMarkov extends ViewCanvasBase {
       assert(example, `view-markov could not resolve source '${this.source}'`)
       this.source = example.id
       this.syncHeaderControls()
-      assert(example.render === "2d" || example.render === "vox", `view-markov unsupported render mode: ${example.render}`)
-      if (example.render === "2d") this.ensure2dCanvas()
-      if (example.render === "vox") {
-        assert(example.depth > 1, `view-markov vox render requires depth > 1 for ${example.id}`)
-        assert(typeof example.transparent === "string", `view-markov vox example ${example.id} requires transparent symbols`)
+      const runExample = this.inputGrid
+        ? { ...example, width: this.inputGrid.width, height: this.inputGrid.height, depth: 1, render: "2d" }
+        : example
+      this.currentRunExample = runExample
+      assert(runExample.render === "2d" || runExample.render === "vox", `view-markov unsupported render mode: ${runExample.render}`)
+      if (runExample.render === "2d") this.ensure2dCanvas()
+      if (runExample.render === "vox") {
+        assert(runExample.depth > 1, `view-markov vox render requires depth > 1 for ${runExample.id}`)
+        assert(typeof runExample.transparent === "string", `view-markov vox example ${runExample.id} requires transparent symbols`)
         this.ensureVoxelCanvas()
       }
 
       this.setStatus(`Resetting ${exampleLabel(example)}...`, "info")
       const xml = unwrap(await runtime.invoke("fs/fs::read-text", example.source), example.source)
       this.currentXmlText = xml
-      const modelIr = compileXmlToMjir(xml, await this.createCompileOptions(xml, example))
-      const initialCells = initialGridFromXml(xml, example.width, example.height, example.depth)
+      const modelIr = compileXmlToMjir(xml, await this.createCompileOptions(xml, runExample))
+      if (this.inputGrid) this.assertInputGridMatchesXml(xml)
+      const initialCells = this.inputGrid ? [...this.inputGrid.cells] : initialGridFromXml(xml, runExample.width, runExample.height, runExample.depth)
       const state = unwrap(await runtime.invoke(
         "markov-junior/markov-junior::create",
         modelIr,
         initialCells,
         {
-          width: example.width,
-          height: example.height,
-          depth: example.depth,
+          width: runExample.width,
+          height: runExample.height,
+          depth: runExample.depth,
           seed: this.seed(),
         },
       ), "markov-junior.create")
       this.session = state.handle
-      this.applyGrid(state.grid, example, Math.round(performance.now() - started))
+      this.applyGrid(state.grid, runExample, Math.round(performance.now() - started))
       this.setStatus(`${exampleLabel(example)} ready in ${Math.round(performance.now() - started)}ms`, "success")
     } catch (error) {
       this.session = null
+      this.currentRunExample = null
       this.setData(null, { autoFit: false })
       this.setStatus(`Error: ${error?.message || error}`, "danger")
       console.error("view-markov reset failed:", error)
@@ -597,7 +708,7 @@ export class ViewMarkov extends ViewCanvasBase {
     this.running = true
     const started = performance.now()
     try {
-      const example = this.selectedExample()
+      const example = this.currentRunExample || this.selectedExample()
       assert(example, `view-markov could not resolve source '${this.source}'`)
       const grid = unwrap(await runtime.invoke("markov-junior/markov-junior::step", this.session, stepBudget), "markov-junior.step")
       this.applyGrid(grid, example, Math.round(performance.now() - started))
@@ -738,7 +849,7 @@ export class ViewMarkov extends ViewCanvasBase {
       this.setData({ ...grid, rows, render: "2d" }, { autoFit: true })
     }
     assert(this.metaElement instanceof HTMLOutputElement, "view-markov meta output is not initialized")
-    this.metaElement.textContent = `${grid.width} × ${grid.height} × ${grid.depth} · values ${grid.values} · seed ${this.seed()} · steps ${grid["steps-run"]}/${this.steps()} · changed ${grid.changed}${grid.done ? " · done" : ""} · ${durationMs}ms · ${example.id}`
+    this.metaElement.textContent = `${grid.width} × ${grid.height} × ${grid.depth} · values ${grid.values} · seed ${this.seed()} · steps ${grid["steps-run"]}/${this.steps()} · changed ${grid.changed}${grid.done ? " · done" : ""} · ${durationMs}ms · ${example.id}${this.inputGridMetaLabel()}`
   }
 
   calculateContentBounds(data) {

@@ -196,7 +196,7 @@ export class VoxelOrbitRenderer {
   }
 
   zoom(factor) {
-    this.radius = clamp(this.radius * factor, 1, 10000)
+    this.radius = clamp(this.radius * factor, 0.1, 100000)
     this.render()
   }
 

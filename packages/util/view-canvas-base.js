@@ -1,7 +1,7 @@
 import { registerViewPlugin, unregisterViewPlugin } from "./view-plugin.js"
 
-const MIN_SCALE = 0.2
-const MAX_SCALE = 3
+const MIN_SCALE = 0.02
+const MAX_SCALE = 64
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
