@@ -781,7 +781,7 @@ export class ViewMarkov extends ViewCanvasBase {
       const example = this.currentRunExample || this.selectedExample()
       assert(example, `view-markov could not resolve source '${this.source}'`)
       const grid = unwrap(await runtime.invoke("markov-junior/markov-junior::step", this.session, stepBudget), "markov-junior.step")
-      this.applyGrid(grid, example, Math.round(performance.now() - started))
+      this.applyGrid(grid, example, Math.round(performance.now() - started), { autoFit: false })
       this.setStatus(grid.done ? `Done in ${grid["steps-run"]} steps` : `Stepped in ${Math.round(performance.now() - started)}ms`, grid.done ? "success" : "info")
       if (grid.done) this.stopPlayback()
     } catch (error) {
@@ -903,7 +903,7 @@ export class ViewMarkov extends ViewCanvasBase {
     return super.zoomFit()
   }
 
-  applyGrid(grid, example, durationMs) {
+  applyGrid(grid, example, durationMs, { autoFit = true } = {}) {
     assert(grid && typeof grid === "object" && !Array.isArray(grid), "view-markov grid must be object")
     if (example.render === "vox") {
       this.ensureVoxelCanvas()
@@ -916,7 +916,7 @@ export class ViewMarkov extends ViewCanvasBase {
     } else {
       this.ensure2dCanvas()
       const rows = toRows(grid.cells, grid.width, grid.height, grid.values)
-      this.setData({ ...grid, rows, render: "2d" }, { autoFit: true })
+      this.setData({ ...grid, rows, render: "2d" }, { autoFit })
     }
     assert(this.metaElement instanceof HTMLOutputElement, "view-markov meta output is not initialized")
     this.metaElement.textContent = `${grid.width} × ${grid.height} × ${grid.depth} · values ${grid.values} · seed ${this.seed()} · steps ${grid["steps-run"]}/${this.steps()} · changed ${grid.changed}${grid.done ? " · done" : ""} · ${durationMs}ms · ${example.id}${this.inputGridMetaLabel()}`
