@@ -130,13 +130,15 @@ function toRows(cells, width, height, values) {
 
 export class ViewMarkov extends ViewCanvasBase {
   static get observedAttributes() {
-    return ["data-source", "data-mode"]
+    return ["data-source", "data-source-input", "data-mode"]
   }
 
   constructor() {
     super()
     this.mode = "library"
     this.source = ""
+    this.sourceInput = ""
+    this.suppressSourceInputAttribute = false
     this.running = false
     this.session = null
     this.playing = false
@@ -158,6 +160,7 @@ export class ViewMarkov extends ViewCanvasBase {
 
     this.mode = String(this.popupProps?.mode || (this.popupProps?.path ? "preview" : "") || this.getAttribute("data-mode") || this.config?.mode || "library")
     this.source = String(this.popupProps?.path || this.getAttribute("data-source") || this.config?.defaultSource || "").trim()
+    this.sourceInput = String(this.popupProps?.inputPath || this.getAttribute("data-source-input") || "").trim()
     if (!this.source && this.mode === "library") this.source = this.examples()[0].id
     assert(this.mode === "library" || this.mode === "preview", `view-markov unsupported mode: ${this.mode}`)
 
@@ -180,16 +183,24 @@ export class ViewMarkov extends ViewCanvasBase {
     super.connectedCallback()
     this.syncHeaderControls({ resetRunConfig: true })
     this.showReadyState()
+    if (this.sourceInput) void this.loadTilemapInputPath(this.sourceInput)
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return
     if (name === "data-source") this.source = String(newValue || "").trim()
+    if (name === "data-source-input") this.sourceInput = String(newValue || "").trim()
     if (name === "data-mode") this.mode = String(newValue || "library")
+    if (this.suppressSourceInputAttribute) return
     if (this.dataset.ready) {
       void this.dismissSession()
       this.syncHeaderControls({ resetRunConfig: name === "data-source" })
-      this.showReadyState()
+      if (name === "data-source-input") {
+        if (this.sourceInput) void this.loadTilemapInputPath(this.sourceInput)
+        else void this.clearInputGrid()
+      } else {
+        this.showReadyState()
+      }
     }
   }
 
@@ -231,9 +242,9 @@ export class ViewMarkov extends ViewCanvasBase {
       </div>
       <div role="buttongroup" data-element="tool-actions">
         <button type="button" data-action="edit" aria-label="Edit XML" title="Edit XML"><i aria-hidden="true">edit</i></button>
+        <button type="button" data-action="compile" aria-label="Compile XML to MJIR JSON" title="Compile XML to MJIR JSON"><i aria-hidden="true">deployed_code_update</i></button>
         <button type="button" data-action="load-input" aria-label="Load tilemap input" title="Load tilemap input"><i aria-hidden="true">input</i></button>
         <button type="button" data-action="clear-input" aria-label="Clear input" title="Clear input"><i aria-hidden="true">close</i></button>
-        <button type="button" data-action="reset" aria-label="Reset preview" title="Reset preview"><i aria-hidden="true">restart_alt</i></button>
         <input type="number" data-field="seed" aria-label="Seed" title="Seed" min="0" step="1" value="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" data-action="reroll" aria-label="Reroll seed" title="Reroll seed"><i aria-hidden="true">casino</i></button>
         <input type="number" data-field="steps" aria-label="Steps" title="Steps" min="0" step="1" value="1000" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -253,9 +264,9 @@ export class ViewMarkov extends ViewCanvasBase {
     toolbar.querySelector('[data-action="save-as"]').addEventListener("click", () => void this.saveAs())
     toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => void this.reload())
     toolbar.querySelector('[data-action="edit"]').addEventListener("click", () => void this.edit())
+    toolbar.querySelector('[data-action="compile"]').addEventListener("click", () => void this.compileToMjirJson())
     toolbar.querySelector('[data-action="load-input"]').addEventListener("click", () => void this.loadTilemapInput())
     toolbar.querySelector('[data-action="clear-input"]').addEventListener("click", () => void this.clearInputGrid())
-    toolbar.querySelector('[data-action="reset"]').addEventListener("click", () => this.resetSession())
     toolbar.querySelector('[data-action="step"]').addEventListener("click", () => this.stepCurrent())
     toolbar.querySelector('[data-action="play-pause"]').addEventListener("click", () => this.togglePlayback())
     toolbar.querySelector('[data-action="reroll"]').addEventListener("click", () => this.reroll())
@@ -368,6 +379,28 @@ export class ViewMarkov extends ViewCanvasBase {
     return { ...baseExample, id, name: id, label: id, source: path }
   }
 
+  ensureSourceExample(overrides = {}) {
+    const existing = this.selectedExample()
+    if (existing) return existing
+    const sourcePath = normalizePath(this.source)
+    const id = basename(sourcePath).replace(/\.xml$/i, "")
+    const example = {
+      id,
+      name: id,
+      label: id,
+      category: "Custom",
+      source: sourcePath,
+      width: Number(overrides.width || 1),
+      height: Number(overrides.height || 1),
+      depth: Number(overrides.depth || 1),
+      steps: Number(overrides.steps || 1000),
+      seed: Number(overrides.seed || 1),
+      render: String(overrides.render || "2d"),
+    }
+    this.customExample = example
+    return example
+  }
+
   async new() {
     const payload = unwrap(await runtime.call("ui.popup.open", this.createNewPopupOptions()))
     if (!payload || payload.cancelled) return
@@ -443,6 +476,26 @@ export class ViewMarkov extends ViewCanvasBase {
     if (payload && payload.reload) await this.reload()
   }
 
+  async compileToMjirJson() {
+    const example = this.inputGrid
+      ? this.ensureSourceExample({ width: this.inputGrid.width, height: this.inputGrid.height, depth: 1, render: "2d" })
+      : this.ensureSourceExample()
+    const sourcePath = this.currentSourcePath()
+    const xml = unwrap(await runtime.invoke("fs/fs::read-text", sourcePath), sourcePath)
+    this.currentXmlText = xml
+    const compileExample = this.inputGrid ? { ...example, width: this.inputGrid.width, height: this.inputGrid.height, depth: 1, render: "2d" } : example
+    const modelIr = compileXmlToMjir(xml, await this.createCompileOptions(xml, compileExample))
+    const outputPath = this.mjirJsonPathForXmlPath(sourcePath)
+    unwrap(await runtime.invoke("fs/fs::write-text", outputPath, `${JSON.stringify([...modelIr])}\n`), outputPath)
+    this.setStatus(`Compiled ${outputPath}`, "success")
+    await runtime.call("ui.toast.success", { message: `Compiled ${outputPath}` })
+  }
+
+  mjirJsonPathForXmlPath(path) {
+    const normalized = normalizePath(path)
+    return normalized.toLowerCase().endsWith(".xml") ? `${normalized.slice(0, -4)}.mjir.json` : `${normalized}.mjir.json`
+  }
+
   async loadTilemapInput() {
     const payload = unwrap(await runtime.call("ui.popup.open", {
       title: "Load Tilemap Input",
@@ -453,12 +506,23 @@ export class ViewMarkov extends ViewCanvasBase {
     if (!payload || payload.cancelled) return
     const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
     assert(selection && selection.path, "view-markov load input requires selected tilemap file path")
-    const path = String(selection.path).trim()
+    await this.loadTilemapInputPath(String(selection.path).trim())
+  }
+
+  async loadTilemapInputPath(path) {
     assert(path.length > 0, "view-markov load input requires non-empty tilemap file path")
     const tilemap = JSON.parse(unwrap(await runtime.invoke("fs/fs::read-text", path), path))
-    const xml = unwrap(await runtime.invoke("fs/fs::read-text", this.currentSourcePath()), this.currentSourcePath())
+    const sourcePath = this.currentSourcePath()
+    const xml = unwrap(await runtime.invoke("fs/fs::read-text", sourcePath), sourcePath)
     this.currentXmlText = xml
     this.inputGrid = this.tilemapInputGridFromTilemap(tilemap, path, 0, this.valuesFromXml(xml))
+    this.ensureSourceExample({ width: this.inputGrid.width, height: this.inputGrid.height, depth: 1, render: "2d" })
+    this.sourceInput = path
+    if (this.getAttribute("data-source-input") !== path) {
+      this.suppressSourceInputAttribute = true
+      this.setAttribute("data-source-input", path)
+      this.suppressSourceInputAttribute = false
+    }
     await this.dismissSession()
     this.showInputGridPreview(xml)
     this.setStatus(`Loaded input ${this.inputGrid.path} · layer ${this.inputGrid.layerLabel}`, "success")
@@ -466,7 +530,13 @@ export class ViewMarkov extends ViewCanvasBase {
 
   async clearInputGrid() {
     this.inputGrid = null
+    this.sourceInput = ""
     this.currentRunExample = null
+    if (this.getAttribute("data-source-input") !== "") {
+      this.suppressSourceInputAttribute = true
+      this.removeAttribute("data-source-input")
+      this.suppressSourceInputAttribute = false
+    }
     await this.dismissSession()
     this.showReadyState()
   }
@@ -524,8 +594,7 @@ export class ViewMarkov extends ViewCanvasBase {
 
   showInputGridPreview(xml = this.currentXmlText) {
     assert(this.inputGrid, "view-markov input preview requires loaded input grid")
-    const example = this.selectedExample()
-    assert(example, "view-markov input preview requires selected example")
+    const example = this.ensureSourceExample({ width: this.inputGrid.width, height: this.inputGrid.height, depth: 1, render: "2d" })
     const values = this.valuesFromXml(xml)
     const previewExample = { ...example, width: this.inputGrid.width, height: this.inputGrid.height, depth: 1, render: "2d" }
     this.currentRunExample = previewExample
@@ -650,8 +719,9 @@ export class ViewMarkov extends ViewCanvasBase {
     const started = performance.now()
     try {
       await this.dismissSession({ stopPlayback: !preservePlayback })
-      const example = this.selectedExample()
-      assert(example, `view-markov could not resolve source '${this.source}'`)
+      const example = this.inputGrid
+        ? this.ensureSourceExample({ width: this.inputGrid.width, height: this.inputGrid.height, depth: 1, render: "2d" })
+        : this.ensureSourceExample()
       this.source = example.id
       this.syncHeaderControls()
       const runExample = this.inputGrid

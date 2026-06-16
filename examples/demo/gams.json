@@ -84,7 +84,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-ng data-source=\"pipe/testing.ng.json\" />"
+          "layout": "<view-markov data-source=\"ng/markov/connect-exits.xml\" data-source-input=\"tmp/DEBUG_Input_markov.map.json\"/>"
         }
       }
     },
