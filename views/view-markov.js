@@ -145,6 +145,8 @@ export class ViewMarkov extends ViewCanvasBase {
     this.metaElement = null
     this.pathElement = null
     this.voxelRenderer = null
+    this.currentXmlText = ""
+    this.customExample = null
     this.voxelPalette = paletteFromSymbolColors(PALETTE)
   }
 
@@ -219,10 +221,15 @@ export class ViewMarkov extends ViewCanvasBase {
     toolbar.dataset.element = "toolbar"
     toolbar.innerHTML = `
       <div role="buttongroup" data-element="file-actions">
-        <select data-field="model" aria-label="MarkovJunior model"></select>
-        <button type="button" data-action="reset" aria-label="Reset" title="Reset"><i aria-hidden="true">restart_alt</i></button>
+        <button type="button" data-action="new" aria-label="New MarkovJunior XML" title="New MarkovJunior XML"><i aria-hidden="true">docs</i></button>
+        <button type="button" data-action="open" aria-label="Open MarkovJunior XML" title="Open MarkovJunior XML"><i aria-hidden="true">folder_open</i></button>
+        <button type="button" data-action="save" class="accent" aria-label="Save MarkovJunior XML" title="Save MarkovJunior XML"><i aria-hidden="true">save</i></button>
+        <button type="button" data-action="save-as" aria-label="Save MarkovJunior XML as" title="Save MarkovJunior XML as"><i aria-hidden="true">save_as</i></button>
+        <button type="button" data-action="reload" aria-label="Reload MarkovJunior XML" title="Reload MarkovJunior XML"><i aria-hidden="true">refresh</i></button>
       </div>
       <div role="buttongroup" data-element="tool-actions">
+        <button type="button" data-action="edit" aria-label="Edit XML" title="Edit XML"><i aria-hidden="true">edit</i></button>
+        <button type="button" data-action="reset" aria-label="Reset preview" title="Reset preview"><i aria-hidden="true">restart_alt</i></button>
         <input type="number" data-field="seed" aria-label="Seed" title="Seed" min="0" step="1" value="1" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button type="button" data-action="reroll" aria-label="Reroll seed" title="Reroll seed"><i aria-hidden="true">casino</i></button>
         <input type="number" data-field="steps" aria-label="Steps" title="Steps" min="0" step="1" value="1000" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -236,15 +243,12 @@ export class ViewMarkov extends ViewCanvasBase {
       </div>
     `
 
-    const select = toolbar.querySelector('[data-field="model"]')
-    assert(select instanceof HTMLSelectElement, "view-markov model select missing")
-    if (this.mode === "preview") select.hidden = true
-    this.populateModelSelect(select)
-
-    select.addEventListener("change", () => {
-      this.source = select.value
-      this.setAttribute("data-source", this.source)
-    })
+    toolbar.querySelector('[data-action="new"]').addEventListener("click", () => void this.new())
+    toolbar.querySelector('[data-action="open"]').addEventListener("click", () => void this.open())
+    toolbar.querySelector('[data-action="save"]').addEventListener("click", () => void this.save())
+    toolbar.querySelector('[data-action="save-as"]').addEventListener("click", () => void this.saveAs())
+    toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => void this.reload())
+    toolbar.querySelector('[data-action="edit"]').addEventListener("click", () => void this.edit())
     toolbar.querySelector('[data-action="reset"]').addEventListener("click", () => this.resetSession())
     toolbar.querySelector('[data-action="step"]').addEventListener("click", () => this.stepCurrent())
     toolbar.querySelector('[data-action="play-pause"]').addEventListener("click", () => this.togglePlayback())
@@ -286,15 +290,14 @@ export class ViewMarkov extends ViewCanvasBase {
   selectedExample() {
     const source = this.source || this.config?.defaultSource
     const normalized = source ? normalizePath(source) : ""
+    if (this.customExample && (this.customExample.id === source || normalizePath(this.customExample.source) === normalized)) return this.customExample
     return this.examples().find((example) => example.id === source || normalizePath(example.source) === normalized || basename(example.source) === basename(normalized)) || null
   }
 
   syncHeaderControls({ resetRunConfig = false } = {}) {
     const example = this.selectedExample()
-    const select = this.queryHeaderControl('[data-field="model"]')
     const seedInput = this.queryHeaderControl('[data-field="seed"]')
     const stepsInput = this.queryHeaderControl('[data-field="steps"]')
-    if (select instanceof HTMLSelectElement && example) select.value = example.id
     if (resetRunConfig && seedInput instanceof HTMLInputElement && example?.seed != null) seedInput.value = String(example.seed)
     if (resetRunConfig && stepsInput instanceof HTMLInputElement && example?.steps != null) stepsInput.value = String(example.steps)
     if (this.pathElement instanceof HTMLOutputElement) this.pathElement.textContent = example?.source || this.source
@@ -303,10 +306,10 @@ export class ViewMarkov extends ViewCanvasBase {
   showReadyState() {
     const example = this.selectedExample()
     this.setData(null, { autoFit: false })
-    if (this.metaElement instanceof HTMLOutputElement && example) {
-      this.metaElement.textContent = `${example.width} × ${example.height} × ${example.depth} · seed ${this.seed()} · steps ${this.steps()} · ${example.id}`
+    if (this.metaElement instanceof HTMLOutputElement) {
+      this.metaElement.textContent = example ? `${example.width} × ${example.height} × ${example.depth} · seed ${this.seed()} · steps ${this.steps()} · ${example.id}` : ""
     }
-    this.setStatus(example ? `${exampleLabel(example)} ready; press Generate` : "Select a model", "info")
+    this.setStatus(example ? `${exampleLabel(example)} ready; press Reset or Step` : "Open a MarkovJunior XML model", "info")
   }
 
   setStatus(text, tone = null) {
@@ -345,6 +348,104 @@ export class ViewMarkov extends ViewCanvasBase {
     this.voxelRenderer = null
     void this.dismissSession()
     super.disconnectedCallback()
+  }
+
+  currentSourcePath() {
+    const example = this.selectedExample()
+    return example?.source || normalizePath(this.source)
+  }
+
+  createExampleForPath(path, baseExample = this.selectedExample()) {
+    assert(baseExample, "view-markov requires a current model before creating a model file")
+    const id = basename(path).replace(/\.xml$/i, "")
+    return { ...baseExample, id, name: id, label: id, source: path }
+  }
+
+  async new() {
+    const payload = unwrap(await runtime.call("ui.popup.open", this.createNewPopupOptions()))
+    if (!payload || payload.cancelled) return
+    const path = typeof payload.path === "string" ? payload.path.trim() : ""
+    assert(path.length > 0, "view-markov new requires XML file path")
+    const baseExample = this.selectedExample()
+    assert(baseExample, "view-markov new requires a current model to use as template metadata")
+    const xml = this.currentXmlText || unwrap(await runtime.invoke("fs/fs::read-text", baseExample.source), baseExample.source)
+    unwrap(await runtime.invoke("fs/fs::write-text", path, xml), path)
+    this.currentXmlText = xml
+    this.customExample = this.createExampleForPath(path, baseExample)
+    this.source = path
+    if (this.getAttribute("data-source") !== path) this.setAttribute("data-source", path)
+    this.syncHeaderControls({ resetRunConfig: true })
+    this.showReadyState()
+    await runtime.call("ui.toast.success", { message: `Created ${path}` })
+  }
+
+  async open() {
+    const baseExample = this.selectedExample()
+    const payload = unwrap(await runtime.call("ui.popup.open", this.createOpenPopupOptions()))
+    if (!payload || payload.cancelled) return
+    const selection = Array.isArray(payload.selection) ? payload.selection[0] : payload.selection
+    assert(selection?.path, "view-markov open requires selected XML file path")
+    const path = selection.path
+    this.source = path
+    const knownExample = this.selectedExample()
+    this.customExample = knownExample || this.createExampleForPath(path, baseExample)
+    if (this.getAttribute("data-source") !== path) this.setAttribute("data-source", path)
+    await this.reload()
+  }
+
+  async save() {
+    const path = this.currentSourcePath()
+    const text = this.currentXmlText || unwrap(await runtime.invoke("fs/fs::read-text", path), path)
+    unwrap(await runtime.invoke("fs/fs::write-text", path, text), path)
+    this.currentXmlText = text
+    this.setStatus(`Saved ${path}`, "success")
+    await runtime.call("ui.toast.success", { message: `Saved ${path}` })
+  }
+
+  async saveAs() {
+    const payload = unwrap(await runtime.call("ui.popup.open", this.createSavePopupOptions()))
+    if (!payload || payload.cancelled) return
+    const path = typeof payload.path === "string" ? payload.path.trim() : ""
+    assert(path.length > 0, "view-markov save-as requires XML file path")
+    const baseExample = this.selectedExample()
+    assert(baseExample, "view-markov save-as requires current model metadata")
+    const text = this.currentXmlText || unwrap(await runtime.invoke("fs/fs::read-text", baseExample.source), baseExample.source)
+    unwrap(await runtime.invoke("fs/fs::write-text", path, text), path)
+    this.currentXmlText = text
+    this.customExample = this.createExampleForPath(path, baseExample)
+    this.source = path
+    if (this.getAttribute("data-source") !== path) this.setAttribute("data-source", path)
+    this.syncHeaderControls()
+    this.setStatus(`Saved as ${path}`, "success")
+    await runtime.call("ui.toast.success", { message: `Saved ${path}` })
+  }
+
+  async reload() {
+    await this.resetSession()
+    await runtime.call("ui.toast.success", { message: `Reloaded ${this.currentSourcePath()}` })
+  }
+
+  async edit() {
+    const path = this.currentSourcePath()
+    const payload = unwrap(await runtime.call("ui.popup.open", {
+      title: "Edit MarkovJunior XML",
+      size: "large",
+      tag: "view-code",
+      attributes: { "data-source": path, "data-lang": "xml" },
+    }))
+    if (payload && payload.reload) await this.reload()
+  }
+
+  createOpenPopupOptions() {
+    return { title: "Open MarkovJunior XML", size: "medium", tag: "view-files", props: { mode: "chooser", filter: "*.xml" } }
+  }
+
+  createNewPopupOptions() {
+    return { title: "Create MarkovJunior XML", size: "medium", tag: "view-files", props: { mode: "saver", filter: "*.xml", defaultName: "new-markov.xml" } }
+  }
+
+  createSavePopupOptions() {
+    return { title: "Save MarkovJunior XML As", size: "medium", tag: "view-files", props: { mode: "saver", filter: "*.xml", defaultName: `${basename(this.currentSourcePath()).replace(/\.xml$/i, "") || "markov"}.xml` } }
   }
 
   async readFile(path) {
@@ -458,6 +559,7 @@ export class ViewMarkov extends ViewCanvasBase {
 
       this.setStatus(`Resetting ${exampleLabel(example)}...`, "info")
       const xml = unwrap(await runtime.invoke("fs/fs::read-text", example.source), example.source)
+      this.currentXmlText = xml
       const modelIr = compileXmlToMjir(xml, await this.createCompileOptions(xml, example))
       const initialCells = initialGridFromXml(xml, example.width, example.height, example.depth)
       const state = unwrap(await runtime.invoke(

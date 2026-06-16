@@ -484,6 +484,7 @@
     input[type="number"] {
         /* need this 1 pixel to fit the spinner controls in box */
         height: 22px;
+        width: 5em;
     }
 
     /* clears the ‘X’ from Internet Explorer */
@@ -517,6 +518,9 @@
         /* For some reason descenders are getting cut off without this */
         line-height: 2;
         text-indent: 2px;
+    }
+    input[type="number"] {
+        text-indent: calc(100% - 4em);
     }
 
     input[type="email"]:disabled,
