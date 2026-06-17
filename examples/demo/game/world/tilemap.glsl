@@ -15,6 +15,8 @@ in vec2 inst_pos;
 in vec2 inst_tile_size;
 in vec4 inst_tileset_uv;
 in vec4 inst_lut_uv;
+in vec2 inst_repeat;
+in vec2 inst_draw_size;
 
 out vec2 frag_uv;
 out vec2 frag_tile_size;
@@ -24,12 +26,14 @@ out vec2 frag_tileset_size_px;
 out vec2 frag_lut_size_px;
 out vec2 frag_tileset_tex_size;
 out vec2 frag_lut_tex_size;
+out vec2 frag_repeat;
+out vec2 frag_draw_size;
 
 void main() {
     frag_lut_size_px = (inst_lut_uv.zw - inst_lut_uv.xy) * lut_tex_size;
     frag_tileset_size_px = (inst_tileset_uv.zw - inst_tileset_uv.xy) * tileset_tex_size;
 
-    vec2 world_pos = (pos + vec2(0.5)) * frag_lut_size_px * inst_tile_size + inst_pos;
+    vec2 world_pos = (pos + vec2(0.5)) * inst_draw_size + inst_pos;
     gl_Position = ortho * vec4(world_pos, 0.0, 1.0);
 
     frag_uv = pos + vec2(0.5);
@@ -38,6 +42,8 @@ void main() {
     frag_lut_uv = inst_lut_uv;
     frag_tileset_tex_size = tileset_tex_size;
     frag_lut_tex_size = lut_tex_size;
+    frag_repeat = inst_repeat;
+    frag_draw_size = inst_draw_size;
 }
 @end
 
@@ -55,6 +61,8 @@ in vec2 frag_tileset_size_px;
 in vec2 frag_lut_size_px;
 in vec2 frag_tileset_tex_size;
 in vec2 frag_lut_tex_size;
+in vec2 frag_repeat;
+in vec2 frag_draw_size;
 
 out vec4 frag_color;
 
@@ -64,7 +72,20 @@ float decode_tile_index(vec4 color) {
 }
 
 void main() {
-    vec2 map_pixel = frag_uv * frag_lut_size_px;
+    vec2 map_pixel = frag_uv * frag_draw_size / frag_tile_size;
+
+    if (frag_repeat.x > 0.5) {
+        map_pixel.x = mod(map_pixel.x, frag_lut_size_px.x);
+    } else if (map_pixel.x < 0.0 || map_pixel.x >= frag_lut_size_px.x) {
+        discard;
+    }
+
+    if (frag_repeat.y > 0.5) {
+        map_pixel.y = mod(map_pixel.y, frag_lut_size_px.y);
+    } else if (map_pixel.y < 0.0 || map_pixel.y >= frag_lut_size_px.y) {
+        discard;
+    }
+
     vec2 lut_uv = frag_lut_uv.xy + (floor(map_pixel) + 0.5) / frag_lut_tex_size;
     vec4 lut_color = texture(sampler2D(lut_tex, lut_smp), lut_uv);
     float index = decode_tile_index(lut_color);
