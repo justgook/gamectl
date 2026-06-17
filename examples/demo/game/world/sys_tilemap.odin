@@ -2,7 +2,6 @@ package world
 
 import sg "../sokol/gfx"
 import "core:c"
-import "core:math"
 import "core:math/linalg"
 import "logic"
 
@@ -27,8 +26,8 @@ Tilemap_Instance :: struct {
 	tile_size:  [2]f32,
 	tileset_uv: [4]f32,
 	lut_uv:     [4]f32,
+	parallax:   [2]f32,
 	repeat:     [2]f32,
-	draw_size:  [2]f32,
 }
 
 Tilemap_Pipe :: struct {
@@ -46,11 +45,6 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 	pipe := w.tilemap_pipe
 	camera_pos := camera_get_render_position(&w.cam)
 	camera_zoom := camera_get_render_zoom(&w.cam)
-	view_min := [2]f32{
-		camera_pos.x - w.cam.viewport.x * camera_zoom * 0.5,
-		camera_pos.y - w.cam.viewport.y * camera_zoom * 0.5,
-	}
-	view_size := [2]f32{w.cam.viewport.x * camera_zoom, w.cam.viewport.y * camera_zoom}
 
 	instances: [MAX_TILEMAPS]Tilemap_Instance
 	view := logic.view(&w.position, &w.tilemap)
@@ -58,27 +52,14 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 	for _, pos, t in logic.each(&view) {
 		base_pos := to_pixelf(pos^)
 		t.pos = base_pos
-		render_pos := [2]f32{
-			base_pos.x + camera_pos.x * t.parallax.x,
-			base_pos.y + camera_pos.y * t.parallax.y,
-		}
-
-		map_size := tilemap_source_size(t^, pipe.lut_tex_size)
-		instance := Tilemap_Instance{
-			pos = render_pos,
+		instances[instance_count] = Tilemap_Instance{
+			pos = base_pos,
 			tile_size = t.tile_size,
 			tileset_uv = t.tileset_uv,
 			lut_uv = t.lut_uv,
+			parallax = t.parallax,
 			repeat = t.repeat,
-			draw_size = map_size,
 		}
-		for axis in 0 ..< 2 {
-			if t.repeat[axis] > 0.5 {
-				instance.pos[axis] = repeat_draw_start(render_pos[axis], view_min[axis], map_size[axis])
-				instance.draw_size[axis] = view_size[axis] + map_size[axis] * 2
-			}
-		}
-		instances[instance_count] = instance
 		instance_count += 1
 	}
 
@@ -86,6 +67,9 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 		ortho            = ortho^,
 		tileset_tex_size = pipe.tileset_tex_size,
 		lut_tex_size     = pipe.lut_tex_size,
+		camera_pos       = camera_pos,
+		viewport_size    = w.cam.viewport,
+		camera_zoom      = camera_zoom,
 	}
 
 	sg.update_buffer(
@@ -100,24 +84,6 @@ sys_tilemap :: proc(w: ^World, ortho: ^linalg.Matrix4f32) { 	// proc(renderer: ^
 	sg.apply_uniforms(UB_tilemap_vs_params, {ptr = &vs_params, size = size_of(vs_params)})
 	sg.draw(0, 6, instance_count)
 }
-
-@(private = "file")
-tilemap_source_size :: proc(t: Tilemap, lut_tex_size: [2]f32) -> [2]f32 {
-	lut_size_px := [2]f32{
-		(t.lut_uv.z - t.lut_uv.x) * lut_tex_size.x,
-		(t.lut_uv.w - t.lut_uv.y) * lut_tex_size.y,
-	}
-	return {lut_size_px.x * t.tile_size.x, lut_size_px.y * t.tile_size.y}
-}
-
-@(private = "file")
-repeat_draw_start :: proc(anchor, view_min, period: f32) -> f32 {
-	if period <= 0 {
-		return anchor
-	}
-	return anchor + (math.floor((view_min - anchor) / period) - 1) * period
-}
-
 
 tilemap_init :: proc(atlas_tex, lut_tex: sg.Image) -> ^Tilemap_Pipe {
 	pipe := new(Tilemap_Pipe)
@@ -178,8 +144,8 @@ tilemap_init :: proc(atlas_tex, lut_tex: sg.Image) -> ^Tilemap_Pipe {
 				ATTR_tilemap_tilemap_inst_tile_size = {format = .FLOAT2, buffer_index = 1},
 				ATTR_tilemap_tilemap_inst_tileset_uv = {format = .FLOAT4, buffer_index = 1},
 				ATTR_tilemap_tilemap_inst_lut_uv = {format = .FLOAT4, buffer_index = 1},
+				ATTR_tilemap_tilemap_inst_parallax = {format = .FLOAT2, buffer_index = 1},
 				ATTR_tilemap_tilemap_inst_repeat = {format = .FLOAT2, buffer_index = 1},
-				ATTR_tilemap_tilemap_inst_draw_size = {format = .FLOAT2, buffer_index = 1},
 			},
 		},
 	}

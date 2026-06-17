@@ -8,6 +8,9 @@ layout(binding=0) uniform vs_params {
     mat4 ortho;
     vec2 tileset_tex_size;
     vec2 lut_tex_size;
+    vec2 camera_pos;
+    vec2 viewport_size;
+    float camera_zoom;
 };
 
 in vec2 pos;
@@ -15,8 +18,8 @@ in vec2 inst_pos;
 in vec2 inst_tile_size;
 in vec4 inst_tileset_uv;
 in vec4 inst_lut_uv;
+in vec2 inst_parallax;
 in vec2 inst_repeat;
-in vec2 inst_draw_size;
 
 out vec2 frag_uv;
 out vec2 frag_tile_size;
@@ -27,23 +30,32 @@ out vec2 frag_lut_size_px;
 out vec2 frag_tileset_tex_size;
 out vec2 frag_lut_tex_size;
 out vec2 frag_repeat;
-out vec2 frag_draw_size;
+out vec2 frag_map_pixel;
 
 void main() {
     frag_lut_size_px = (inst_lut_uv.zw - inst_lut_uv.xy) * lut_tex_size;
     frag_tileset_size_px = (inst_tileset_uv.zw - inst_tileset_uv.xy) * tileset_tex_size;
 
-    vec2 world_pos = (pos + vec2(0.5)) * inst_draw_size + inst_pos;
-    gl_Position = ortho * vec4(world_pos, 0.0, 1.0);
+    vec2 map_size = frag_lut_size_px * inst_tile_size;
+    vec2 draw_pos = inst_pos + camera_pos * inst_parallax;
+    bool has_repeat = inst_repeat.x > 0.5 || inst_repeat.y > 0.5;
 
     frag_uv = pos + vec2(0.5);
+    if (has_repeat) {
+        gl_Position = vec4(pos * 2.0, 0.0, 1.0);
+        vec2 world_pos = camera_pos + pos * viewport_size * camera_zoom;
+        frag_map_pixel = (world_pos - draw_pos) / inst_tile_size;
+    } else {
+        vec2 world_pos = frag_uv * map_size + draw_pos;
+        gl_Position = ortho * vec4(world_pos, 0.0, 1.0);
+        frag_map_pixel = frag_uv * frag_lut_size_px;
+    }
     frag_tile_size = inst_tile_size;
     frag_tileset_uv = inst_tileset_uv;
     frag_lut_uv = inst_lut_uv;
     frag_tileset_tex_size = tileset_tex_size;
     frag_lut_tex_size = lut_tex_size;
     frag_repeat = inst_repeat;
-    frag_draw_size = inst_draw_size;
 }
 @end
 
@@ -62,7 +74,7 @@ in vec2 frag_lut_size_px;
 in vec2 frag_tileset_tex_size;
 in vec2 frag_lut_tex_size;
 in vec2 frag_repeat;
-in vec2 frag_draw_size;
+in vec2 frag_map_pixel;
 
 out vec4 frag_color;
 
@@ -72,7 +84,7 @@ float decode_tile_index(vec4 color) {
 }
 
 void main() {
-    vec2 map_pixel = frag_uv * frag_draw_size / frag_tile_size;
+    vec2 map_pixel = frag_map_pixel;
 
     if (frag_repeat.x > 0.5) {
         map_pixel.x = mod(map_pixel.x, frag_lut_size_px.x);

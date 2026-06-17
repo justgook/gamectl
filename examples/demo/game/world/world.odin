@@ -154,6 +154,8 @@ init :: proc(w: ^World) {
 	}
 	// TODO: delete MOCK DATA
 
+	w.tilemap.components[0].parallax = {0.5, 0.5}
+	w.tilemap.components[0].repeat.xy = 1
 	player := create_entity(w)
 	logic.add_component(&w.bullet, player, bullet_component(&w.bullet_patterns[0]))
 	camera_track(&w.cam, player)
