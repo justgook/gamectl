@@ -75,6 +75,7 @@ frame :: proc(w: ^World, dt: f64) {
 
 	sys_camera(w, dt)
 	sys_animation(w, dt)
+	sys_ui(w)
 
 
 	// RENDER START HERE
