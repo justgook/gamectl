@@ -1121,7 +1121,7 @@
       {
         "id": 1,
         "name": "tilemap",
-        "srcNodeId": 166,
+        "srcNodeId": 172,
         "srcOutputId": 1
       }
     ],
@@ -1152,7 +1152,7 @@
       {
         "id": 2,
         "name": "inputMap",
-        "srcNodeId": 166,
+        "srcNodeId": 172,
         "srcOutputId": 1
       },
       {
@@ -1567,8 +1567,8 @@
   {
     "id": 148,
     "kind": 2,
-    "x": 3156,
-    "y": 612,
+    "x": 3440,
+    "y": 613,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -1583,7 +1583,7 @@
       {
         "id": 2,
         "name": "content",
-        "srcNodeId": 166,
+        "srcNodeId": 172,
         "srcOutputId": 1
       }
     ],
@@ -1760,8 +1760,8 @@
   {
     "id": 156,
     "kind": 4,
-    "x": 2848,
-    "y": 617,
+    "x": 3132,
+    "y": 618,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1771,7 +1771,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"tmp/DEBUG-markov1.map.json\""
+        "value": "\"tmp/DEBUG-clean.map.json\""
       }
     ]
   },
@@ -1827,8 +1827,8 @@
   {
     "id": 159,
     "kind": 2,
-    "x": 2588,
-    "y": 75,
+    "x": 2564,
+    "y": 58,
     "name": "Tilemap Markov Apply",
     "codePath": "ng/presets/tilemap-markov-apply.lua",
     "graphId": 0,
@@ -2037,8 +2037,8 @@
   {
     "id": 166,
     "kind": 2,
-    "x": 2862,
-    "y": 80,
+    "x": 2838,
+    "y": 63,
     "name": "Merge Tilemaps",
     "codePath": "ng/presets/tilemap-merge.lua",
     "graphId": 0,
@@ -2205,6 +2205,141 @@
         "id": 2,
         "name": "item2",
         "value": null
+      }
+    ]
+  },
+  {
+    "id": 172,
+    "kind": 2,
+    "x": 3100,
+    "y": 103,
+    "name": "Tilemap Markov Apply",
+    "codePath": "ng/presets/tilemap-markov-apply.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "srcNodeId": 166,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layer",
+        "srcNodeId": 173,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "modelIrPath",
+        "srcNodeId": 173,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "seed",
+        "srcNodeId": 173,
+        "srcOutputId": 3
+      },
+      {
+        "id": 5,
+        "name": "maxSteps",
+        "srcNodeId": 173,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tilemap",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "grid",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "stats",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 173,
+    "kind": 4,
+    "x": 2814,
+    "y": 152,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "1"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"ng/markov/cleanup.mjir.json\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "7634567345"
+      },
+      {
+        "id": 4,
+        "name": "",
+        "value": "50000"
+      }
+    ]
+  },
+  {
+    "id": 174,
+    "kind": 2,
+    "x": 3129,
+    "y": 515,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 175,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "content",
+        "srcNodeId": 166,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 175,
+    "kind": 4,
+    "x": 2838,
+    "y": 540,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG-merged.map.json\""
       }
     ]
   }

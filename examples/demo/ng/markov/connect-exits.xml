@@ -79,6 +79,4 @@
     <all in="PBP" out="PPP"/>
   </markov>
   <!-- Cleanup -->
-  <all in="W" out="B"/>
-  <all in="P" out="X"/>
 </sequence>
