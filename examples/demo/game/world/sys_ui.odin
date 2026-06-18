@@ -4,9 +4,11 @@ import "ui"
 
 sys_ui :: proc(w: ^World) {
 	the_nine := ui.move(nine(w.uv[418], 100, 100), 20, ui.wave(10, 30, 120, w.frame_count))
-	a1 := ui.group([]ui.Node(UI_Item){ui.move(sprite(w.uv[418]), 20, 40), sprite(w.uv[1]), the_nine})
+	the_text := ui.move(text(w.uv[1]), 160, 40)
+	a1 := ui.group([]ui.Node(UI_Item){ui.move(sprite(w.uv[418]), 20, 40), sprite(w.uv[1]), the_nine, the_text})
 
 	w.nine_patch.count = 0
+	w.text_glyph.count = 0
 	ui.flatten(a1, w, render_shapes)
 
 
@@ -26,6 +28,13 @@ render_shapes :: proc(shape: ui.Shape, item: UI_Item, w: ^World) {
 
 		w.nine_patch.count += 1
 	case UI_Text:
+		assert(w.text_glyph.count < TEXT_GLYPH_RENDER_MAX)
+		w.text_glyph.components[w.text_glyph.count] = Text_Glyph {
+			pos   = {shape.x, shape.y},
+			uv    = value.uv,
+			color = {1, 1, 1, 1},
+		}
+		w.text_glyph.count += 1
 	}
 
 }
@@ -60,4 +69,9 @@ sprite :: proc(uv: UV) -> ui.Leaf(UI_Item) {
 @(private = "file")
 nine :: proc(uv: UV, w, h: f32) -> ui.Leaf(UI_Item) {
 	return ui.leaf(UI_Item(UI_Nine{uv = uv, w = w, h = h}))
+}
+
+@(private = "file")
+text :: proc(uv: UV) -> ui.Leaf(UI_Item) {
+	return ui.leaf(UI_Item(UI_Text{uv = uv}))
 }

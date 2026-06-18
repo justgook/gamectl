@@ -30,12 +30,14 @@ World :: struct {
 	sprite_pipe:            ^Sprite_Pipe,
 	tilemap_pipe:           ^Tilemap_Pipe,
 	nine_patch_pipe:        ^Nine_Patch_Pipe,
+	text_pipe:              ^Text_Pipe,
 	uv:                     []UV,
 	position:               logic.Component_Storage(Position),
 	velocity:               logic.Component_Storage(Velocity),
 	sprite:                 logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
 	tilemap:                logic.Component_Storage_Fixed(Tilemap, MAX_TILEMAPS),
 	nine_patch:             logic.Component_Storage_Fixed(Nine_Patch, NINE_PATCH_RENDER_MAX),
+	text_glyph:             logic.Component_Storage_Fixed(Text_Glyph, TEXT_GLYPH_RENDER_MAX),
 	brain:                  logic.Component_Storage(Brain),
 	input:                  logic.Component_Storage(Input),
 	timer:                  logic.Component_Storage(Timer),
@@ -91,6 +93,7 @@ frame :: proc(w: ^World, dt: f64) {
 	sys_sprite(w, &w.cam.ortho)
 	sys_debug_collision(w, &w.cam.ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)
+	sys_text(w, &virtual_screen_ortho)
 	sg.end_pass()
 
 	// RENDER THE CANVAS ON SCREEN
@@ -147,6 +150,7 @@ init :: proc(w: ^World) {
 	w.sprite_pipe = sprites_init(w.atlas)
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
+	w.text_pipe = text_init(w.atlas)
 
 	// w.grid = grid.create_grid(-256 * UNIT, -128 * UNIT, 1024 * UNIT, 512 * UNIT, 16 * UNIT)
 	append(&w.segments, [4]int{-128 * UNIT, 0, 128 * UNIT, 0})
@@ -257,6 +261,8 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.tilemap)
 	nine_patch_cleanup(w.nine_patch_pipe)
 	logic.destroy_storage(&w.nine_patch)
+	text_cleanup(w.text_pipe)
+	logic.destroy_storage(&w.text_glyph)
 	logic.destroy_storage(&w.brain)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.platformer)
