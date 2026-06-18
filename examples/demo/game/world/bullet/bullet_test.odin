@@ -1,3 +1,7 @@
+#+build !freestanding
+#+build !js
+#+build !orca
+
 package bullet
 
 import "../../decoder2"
