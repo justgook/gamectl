@@ -171,12 +171,6 @@ init :: proc(w: ^World) {
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[969]})
 	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
 
-	ui := create_entity(w)
-	logic.add_component(
-		&w.nine_patch,
-		ui,
-		Nine_Patch{bounds = {20, 20, 420, 120}, slices = {6, 7, 11, 10}, size = {16, 16}, uv = w.uv[418]},
-	)
 
 	// logic.add_component(&w.position, background, Position{0 * UNIT, 0 * UNIT})
 	// // logic.add_component(
