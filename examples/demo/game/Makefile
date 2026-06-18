@@ -229,6 +229,8 @@ web: wasm | $(WEB_DIR)
 	$(Q)echo "Building standalone web bundle"
 	$(Q)$(CP) web/index.html "$(WEB_DIR)/index.html"
 	$(Q)$(CP) web/gl-bridge.js "$(WEB_DIR)/gl-bridge.js"
+	$(Q)$(CP) data.rspk "$(WEB_DIR)/data.rspk"
+	$(Q)$(CP) bullet.rspk "$(WEB_DIR)/bullet.rspk"
 
 .PHONY: serve
 serve: web

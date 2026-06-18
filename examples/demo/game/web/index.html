@@ -75,7 +75,8 @@
     const ACTION_3 = 7
     const ACTION_4 = 8
     const DEFAULT_ASSETS = new Map([
-      ["data.rspk", "./data.rspk"]
+      ["data.rspk", "./data.rspk"],
+      ["bullet.rspk", "./bullet.rspk"],
     ])
 
     const canvas = document.getElementById('canvas')
@@ -90,6 +91,8 @@
     let eventOffsets = {...FALLBACK_EVENT_OFFSETS}
     let eventBufferPtr = 0
     let eventFrameCount = 0
+    let lastFrameTimeMs = 0
+    let frameDurationSec = 1 / 60
     const assetCache = new Map()
     const pressedActions = new Set()
 
@@ -198,9 +201,19 @@
     }
 
     function startLoop() {
-      const tick = () => {
+      const tick = (timeMs) => {
         raf = requestAnimationFrame(tick)
-        if (!paused) instance?.exports?.frame?.()
+        if (paused) {
+          lastFrameTimeMs = timeMs
+          return
+        }
+        if (lastFrameTimeMs === 0) {
+          frameDurationSec = 1 / 60
+        } else {
+          frameDurationSec = (timeMs - lastFrameTimeMs) / 1000
+        }
+        lastFrameTimeMs = timeMs
+        instance?.exports?.frame?.()
       }
       raf = requestAnimationFrame(tick)
     }
@@ -245,6 +258,10 @@
           js_canvas_width: () => canvas.width,
           js_canvas_height: () => canvas.height,
           js_webgl_framebuffer: () => 0,
+          js_frame_duration: () => frameDurationSec,
+          cos: Math.cos,
+          sin: Math.sin,
+          powf: Math.pow,
           js_log: (level, tagPtr, tagLen, messagePtr, messageLen) => {
             const tag = readWasmUtf8(tagPtr, tagLen)
             const message = readWasmUtf8(messagePtr, messageLen)
@@ -290,6 +307,8 @@
       resolveEventOffsets()
       eventBufferPtr = 0
       eventFrameCount = 0
+      lastFrameTimeMs = 0
+      frameDurationSec = 1 / 60
 
       instance.exports.init()
       dispatchResized()
@@ -302,6 +321,8 @@
       instance = null
       eventBufferPtr = 0
       eventFrameCount = 0
+      lastFrameTimeMs = 0
+      frameDurationSec = 1 / 60
       pressedActions.clear()
       await boot()
     }
