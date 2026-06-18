@@ -5,16 +5,15 @@ package ui
 // Shape is only transform/style data. It does not know about sprites,
 // nine-patches, text, input, ECS, or rendering.
 //
-// Node allows a tree of leaf items and groups. Group embeds Shape with `using`, so
-// the same transform helpers can work with a Shape or a Group. Flattening walks
-// the Node tree and appends leaf items with inherited group transforms applied.
+// Node allows a tree of leaf items and groups. Leaf and Group embed Shape with
+// `using`, so the same transform helpers can work on either one. Flattening walks
+// the Node tree and calls the output callback for each leaf with its final Shape.
 //
-// Node/Group are parametric over the leaf type. Groups carry transform state;
-// leaves are handed to the flatten callback with their inherited parent shape.
-// Call compose(parent, leaf) when a leaf's own Shape should be folded in.
+// Node/Leaf/Group are parametric over the leaf item type. Shape stays separate
+// from item payloads, so game-specific item unions do not need transform fields.
 
 Node :: union($T: typeid) {
-	T,
+	Leaf(T),
 	Group(T),
 }
 
@@ -26,6 +25,11 @@ Shape :: struct {
 	sx: f32,
 	sy: f32,
 	o:  f32,
+}
+
+Leaf :: struct($T: typeid) {
+	using shape: Shape,
+	item:        T,
 }
 
 Group :: struct($T: typeid) {
@@ -41,7 +45,12 @@ shape :: proc() -> Shape {
 
 
 @(require_results)
-group :: proc(children: []Node($T)) -> Node(T) {
+leaf :: proc(item: $T) -> Leaf(T) {
+	return Leaf(T){shape = shape(), item = item}
+}
+
+@(require_results)
+group :: proc(children: []Node($T)) -> Group(T) {
 	return Group(T){shape = shape(), children = children}
 }
 
@@ -84,8 +93,10 @@ opacity :: proc(s: $T, value: f32) -> T {
 }
 
 
-flatten :: proc(root: Node($Item), user_data: $Data, out: proc(_: Item, _: Data)) {
-	flatten_node(shape(), root, user_data, out)
+flatten :: proc {
+	flatten_node,
+	flatten_leaf,
+	flatten_group,
 }
 
 
@@ -107,16 +118,40 @@ compose :: proc(parent: Shape, child: $T) -> Shape {
 	return compose_shape(parent, Shape(child))
 }
 
+@(private = "file")
+flatten_node :: proc(root: Node($Item), user_data: $Data, out: proc(_: Shape, _: Item, _: Data)) {
+	flatten_node_with(shape(), root, user_data, out)
+}
 
 @(private = "file")
-flatten_node :: proc(parent: Shape, node: Node($Item), user_data: $Data, out: proc(_: Item, _: Data)) {
+flatten_leaf :: proc(root: Leaf($Item), user_data: $Data, out: proc(_: Shape, _: Item, _: Data)) {
+	out(Shape(root), root.item, user_data)
+}
+
+@(private = "file")
+flatten_group :: proc(root: Group($Item), user_data: $Data, out: proc(_: Shape, _: Item, _: Data)) {
+	flatten_group_with(shape(), root, user_data, out)
+}
+
+@(private = "file")
+flatten_node_with :: proc(parent: Shape, node: Node($Item), user_data: $Data, out: proc(_: Shape, _: Item, _: Data)) {
 	switch value in node {
-	case Item:
-		out(value, user_data)
+	case Leaf(Item):
+		out(compose_shape(parent, Shape(value)), value.item, user_data)
 	case Group(Item):
-		group_shape := compose_shape(parent, Shape(value))
-		for child in value.children {
-			flatten_node(group_shape, child, user_data, out)
-		}
+		flatten_group_with(parent, value, user_data, out)
+	}
+}
+
+@(private = "file")
+flatten_group_with :: proc(
+	parent: Shape,
+	group: Group($Item),
+	user_data: $Data,
+	out: proc(_: Shape, _: Item, _: Data),
+) {
+	group_shape := compose_shape(parent, Shape(group))
+	for child in group.children {
+		flatten_node_with(group_shape, child, user_data, out)
 	}
 }
