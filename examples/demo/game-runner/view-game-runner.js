@@ -107,6 +107,8 @@ export class ViewGameRunner extends HTMLElement {
     this._eventOffsets = { ...FALLBACK_EVENT_OFFSETS }
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
+    this._lastFrameTimeMs = 0
+    this._frameDurationSec = 1 / 60
     this._pressedActions = new Set()
     this._assetCache = new Map()
     this._headerControls = null
@@ -213,6 +215,7 @@ export class ViewGameRunner extends HTMLElement {
         js_canvas_width: () => this.canvas.width,
         js_canvas_height: () => this.canvas.height,
         js_webgl_framebuffer: () => 0,
+        js_frame_duration: () => this._frameDurationSec,
         ...this._createAssetImports(),
         ...this.glBridge.createImportObject(),
       },
@@ -229,6 +232,8 @@ export class ViewGameRunner extends HTMLElement {
     this._eventOffsets = this._resolveEventOffsets()
     this._eventBufferPtr = 0
     this._eventFrameCount = 0
+    this._lastFrameTimeMs = 0
+    this._frameDurationSec = 1 / 60
     this._pressedActions.clear()
 
     if (typeof this.exports.init !== "function")
@@ -245,9 +250,13 @@ export class ViewGameRunner extends HTMLElement {
 
   _startLoop() {
     this._stopLoop()
-    const tick = () => {
+    const tick = (timeMs) => {
       this._raf = requestAnimationFrame(tick)
-      if (this.isPaused) return
+      if (this.isPaused) {
+        this._lastFrameTimeMs = timeMs
+        return
+      }
+      this._beginFrame(timeMs)
       try {
         this.exports.frame()
       } catch (error) {
@@ -266,6 +275,15 @@ export class ViewGameRunner extends HTMLElement {
     if (!this._raf) return
     cancelAnimationFrame(this._raf)
     this._raf = 0
+  }
+
+  _beginFrame(timeMs) {
+    if (this._lastFrameTimeMs === 0) {
+      this._frameDurationSec = 1 / 60
+    } else {
+      this._frameDurationSec = (timeMs - this._lastFrameTimeMs) / 1000
+    }
+    this._lastFrameTimeMs = timeMs
   }
 
   _teardownWasm() {

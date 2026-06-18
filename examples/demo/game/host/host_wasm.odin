@@ -120,6 +120,7 @@ foreign env {
 	js_canvas_width :: proc() -> c.int ---
 	js_canvas_height :: proc() -> c.int ---
 	js_webgl_framebuffer :: proc() -> u32 ---
+	js_frame_duration :: proc() -> f64 ---
 	game_asset_size :: proc(path_ptr: u32, path_len: u32) -> i32 ---
 	game_asset_read :: proc(path_ptr: u32, path_len: u32, dst_ptr: u32, dst_cap: u32) -> i32 ---
 }
@@ -192,7 +193,7 @@ swapchain_host :: proc() -> sg.Swapchain {
 }
 
 frame_duration_host :: proc() -> f64 {
-	return 1.0 / 60.0
+	return js_frame_duration()
 }
 
 widthf_host :: proc() -> f32 {
