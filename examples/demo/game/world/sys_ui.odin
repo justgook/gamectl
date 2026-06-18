@@ -3,7 +3,7 @@ package world
 import "ui"
 
 sys_ui :: proc(w: ^World) {
-	the_nine := ui.move(nine(w.uv[418], 100, 100), 20, 20)
+	the_nine := ui.move(nine(w.uv[418], 100, 100), 20, ui.wave(10, 30, 120, w.frame_count))
 	a1 := ui.group([]ui.Node(UI_Item){ui.move(sprite(w.uv[418]), 20, 40), sprite(w.uv[1]), the_nine})
 
 	w.nine_patch.count = 0

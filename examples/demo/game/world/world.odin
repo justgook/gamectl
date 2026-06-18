@@ -17,6 +17,7 @@ ENTITY_ID_START :: logic.Entity(100)
 
 
 World :: struct {
+	frame_count:            u64,
 	next_entity_id:         logic.Entity,
 	free_entity_ids:        [dynamic]logic.Entity,
 	free_entity_ids_lookup: map[logic.Entity]bool,
@@ -64,6 +65,7 @@ World :: struct {
 frame :: proc(w: ^World, dt: f64) {
 	w.accumulator += dt
 	for (w.accumulator >= w.sim_frame_length) {
+		w.frame_count += 1
 		w.accumulator -= w.sim_frame_length
 		sys_brain(w)
 		sys_weapon(w)
