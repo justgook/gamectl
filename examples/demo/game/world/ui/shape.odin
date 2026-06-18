@@ -9,8 +9,9 @@ package ui
 // the same transform helpers can work with a Shape or a Group. Flattening walks
 // the Node tree and appends leaf items with inherited group transforms applied.
 //
-// Node/Group are parametric over the leaf type. The leaf type only needs to have
-// the Shape fields used by compose, either directly or through an embedded Shape.
+// Node/Group are parametric over the leaf type. Groups carry transform state;
+// leaves are handed to the flatten callback with their inherited parent shape.
+// Call compose(parent, leaf) when a leaf's own Shape should be folded in.
 
 Node :: union($T: typeid) {
 	T,
@@ -38,10 +39,6 @@ shape :: proc() -> Shape {
 	return Shape{sx = 1, sy = 1, o = 1}
 }
 
-@(require_results)
-node :: proc(s: $T) -> Node(T) {
-	return s
-}
 
 @(require_results)
 group :: proc(children: []Node($T)) -> Node(T) {
@@ -88,16 +85,7 @@ opacity :: proc(s: $T, value: f32) -> T {
 
 
 flatten :: proc(root: Node($Item), user_data: $Data, out: proc(_: Item, _: Data)) {
-	flatten_with(root, user_data, compose, out)
-}
-
-flatten_with :: proc(
-	root: Node($Item),
-	user_data: $Data,
-	compose_item: proc(_: Shape, _: Item) -> Item,
-	out: proc(_: Item, _: Data),
-) {
-	flatten_node(shape(), root, user_data, compose_item, out)
+	flatten_node(shape(), root, user_data, out)
 }
 
 
@@ -114,37 +102,21 @@ compose_shape :: proc(parent, child: Shape) -> Shape {
 	}
 }
 
-@(private = "file")
 @(require_results)
-compose :: proc(parent: Shape, child: $T) -> T {
-	result := child
-	composed := compose_shape(parent, Shape(child))
-	result.x = composed.x
-	result.y = composed.y
-	result.z = composed.z
-	result.a = composed.a
-	result.sx = composed.sx
-	result.sy = composed.sy
-	result.o = composed.o
-	return result
+compose :: proc(parent: Shape, child: $T) -> Shape {
+	return compose_shape(parent, Shape(child))
 }
 
 
 @(private = "file")
-flatten_node :: proc(
-	parent: Shape,
-	node: Node($Item),
-	user_data: $Data,
-	compose_item: proc(_: Shape, _: Item) -> Item,
-	out: proc(_: Item, _: Data),
-) {
+flatten_node :: proc(parent: Shape, node: Node($Item), user_data: $Data, out: proc(_: Item, _: Data)) {
 	switch value in node {
 	case Item:
-		out(compose_item(parent, value), user_data)
+		out(value, user_data)
 	case Group(Item):
 		group_shape := compose_shape(parent, Shape(value))
 		for child in value.children {
-			flatten_node(group_shape, child, user_data, compose_item, out)
+			flatten_node(group_shape, child, user_data, out)
 		}
 	}
 }
