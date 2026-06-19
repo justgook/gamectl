@@ -6,10 +6,10 @@ sys_ui :: proc(w: ^World) {
 	panel := group(
 		{
 			nine(w.uv[418], 240, 52),
-			ui.move(text("use WASD to move"), 8, 38),
-			ui.move(text1("J - jump"), 8, 28),
-			ui.move(text2("K - dash"), 8, 18),
-			ui.move(text5("L - fire"), 8, 8),
+			ui.move(text("\x04 use WASD to move "), 8, 38),
+			ui.move(text1("\x1C J - jump"), 8, 28),
+			ui.move(text2("\x93 K - dash"), 8, 18),
+			ui.move(text5("\xCA L - fire"), 8, 8),
 		},
 	)
 	panel = ui.move(panel, 20, ui.wave(10, 30, 120, w.frame_count))
@@ -122,7 +122,8 @@ text_font :: proc(font: Text_Font, value: string) -> ui.Group(UI_Item) {
 	cursor_y: f32 = 0
 	count := 0
 
-	for ch in value {
+	for index := 0; index < len(value); index += 1 {
+		ch := value[index]
 		switch ch {
 		case '\r':
 			cursor_x = 0
@@ -132,8 +133,8 @@ text_font :: proc(font: Text_Font, value: string) -> ui.Group(UI_Item) {
 		case '\t':
 			cursor_x += font.glyph_size.x * 4
 		case:
-			assert(ch >= 0 && ch < rune(font.columns * font.rows))
-			children[count] = ui.move(text_glyph(text_font_glyph_uv(font, u8(ch))), cursor_x, cursor_y)
+			assert(int(ch) < font.columns * font.rows)
+			children[count] = ui.move(text_glyph(text_font_glyph_uv(font, ch)), cursor_x, cursor_y)
 			count += 1
 			cursor_x += font.glyph_size.x
 		}
