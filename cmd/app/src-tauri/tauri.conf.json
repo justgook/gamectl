@@ -28,6 +28,9 @@
     ]
   },
   "plugins": {
+    "macos-fps": {
+      "enabled": true
+    },
     "cli": {
       "description": "GAMS app runtime CLI",
       "subcommands": {

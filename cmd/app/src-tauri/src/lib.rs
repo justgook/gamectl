@@ -277,6 +277,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(runtime)
         .plugin(tauri_plugin_cli::init())
+        .plugin(tauri_plugin_macos_fps::init())
         .setup(move |app| {
             let runtime = app.state::<runtime::Runtime>();
             runtime.attach_app_handle(app.handle().clone())?;
