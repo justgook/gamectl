@@ -1345,16 +1345,19 @@
         text-align: center;
     }
 
-    table > tbody > tr > td:has(button:nth-of-type(4)) {
+    table:has(tr:nth-of-type(4)) td,
+    td:has(button:nth-of-type(4)) {
         padding: 4px 4px 0 4px;
         text-align: right;
     }
 
+    table:has(tr:nth-of-type(4)) td > button:has(i),
     td:has(button:nth-of-type(4)) > button:has(i) {
         padding: 0 1px;
         min-height: 14px;
     }
 
+    table:has(tr:nth-of-type(4)) td > button > i,
     td:has(button:nth-of-type(4)) > button > i {
         font-size: inherit;
     }
