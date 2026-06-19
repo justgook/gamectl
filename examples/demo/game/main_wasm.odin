@@ -67,6 +67,7 @@ init :: proc "c" () {
 @(export)
 frame :: proc "c" () {
 	context = host.default_context()
+	host.reset_frame_temp_allocator()
 	app_frame()
 }
 

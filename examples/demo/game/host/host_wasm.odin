@@ -11,9 +11,16 @@ import "core:strings"
 foreign import env "env"
 
 LOG_MESSAGE_CAPACITY :: 1024
+WASM_TEMP_ALLOCATOR_SIZE :: 4 * 1024 * 1024
 
 @(private)
 log_message_buf: [LOG_MESSAGE_CAPACITY]u8
+
+@(private)
+wasm_temp_arena: runtime.Arena
+
+@(private)
+wasm_temp_allocator_initialized: bool
 
 @(default_calling_convention = "c")
 foreign env {
@@ -23,8 +30,20 @@ foreign env {
 default_context_host :: proc() -> runtime.Context {
 	ctx := runtime.default_context()
 	ctx.allocator = runtime.default_wasm_allocator()
+	if !wasm_temp_allocator_initialized {
+		err := runtime.arena_init(&wasm_temp_arena, WASM_TEMP_ALLOCATOR_SIZE, ctx.allocator)
+		assert(err == nil, "failed to initialize wasm temp allocator")
+		wasm_temp_allocator_initialized = true
+	}
+	ctx.temp_allocator = runtime.arena_allocator(&wasm_temp_arena)
 
 	return ctx
+}
+
+reset_frame_temp_allocator_host :: proc() {
+	if wasm_temp_allocator_initialized {
+		runtime.arena_free_all(&wasm_temp_arena)
+	}
 }
 
 logger_host :: proc() -> Logger {
@@ -90,15 +109,7 @@ sokol_logger_proc :: proc "c" (
 	message_text := cstring_or_empty(message)
 	write(sokol_level(log_level), tag_text, fmt.tprintf("(%d) %s", log_item, message_text))
 	if log_level == 0 {
-		assert(
-			false,
-			fmt.tprintf(
-				"sokol panic at %s:%d: %s",
-				cstring_or_empty(filename),
-				line_nr,
-				message_text,
-			),
-		)
+		assert(false, fmt.tprintf("sokol panic at %s:%d: %s", cstring_or_empty(filename), line_nr, message_text))
 	}
 }
 
@@ -149,33 +160,15 @@ asset_read_all_host :: proc(path: string) -> ([]u8, bool) {
 	if size > ASSET_SCRATCH_CAPACITY {
 		assert(
 			false,
-			fmt.tprintf(
-				"wasm asset too large for scratch buffer: %s (%d > %d)",
-				path,
-				size,
-				ASSET_SCRATCH_CAPACITY,
-			),
+			fmt.tprintf("wasm asset too large for scratch buffer: %s (%d > %d)", path, size, ASSET_SCRATCH_CAPACITY),
 		)
 		return nil, false
 	}
 
 	buf := asset_scratch[:size]
-	bytes_read := game_asset_read(
-		path_ptr,
-		u32(len(path_bytes)),
-		u32(uintptr(&buf[0])),
-		u32(len(buf)),
-	)
+	bytes_read := game_asset_read(path_ptr, u32(len(path_bytes)), u32(uintptr(&buf[0])), u32(len(buf)))
 	if bytes_read != size {
-		assert(
-			false,
-			fmt.tprintf(
-				"wasm asset read failed: %s (expected %d bytes, got %d)",
-				path,
-				size,
-				bytes_read,
-			),
-		)
+		assert(false, fmt.tprintf("wasm asset read failed: %s (expected %d bytes, got %d)", path, size, bytes_read))
 		return nil, false
 	}
 	return buf, true
