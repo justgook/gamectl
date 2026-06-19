@@ -57,6 +57,8 @@ export class ViewAseprite extends ViewCanvasBase {
         this.slices = []
         this.tilesets = []
         this.frameIndex = 0
+        this.selectedTagIndex = null
+        this.playbackDirection = 1
         this.layerVisibility = new Map()
         this.celsByFrame = new Map()
         this.statusElement = null
@@ -153,11 +155,11 @@ export class ViewAseprite extends ViewCanvasBase {
       </div>
     `
         toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => this.reload())
-        toolbar.querySelector('[data-action="first-frame"]').addEventListener("click", () => this.setFrame(0))
+        toolbar.querySelector('[data-action="first-frame"]').addEventListener("click", () => this.setFrame(this.playbackStartFrame()))
         toolbar.querySelector('[data-action="previous-frame"]').addEventListener("click", () => this.previousFrame())
         toolbar.querySelector('[data-action="play-pause"]').addEventListener("click", () => this.togglePlayback())
         toolbar.querySelector('[data-action="next-frame"]').addEventListener("click", () => this.nextFrame())
-        toolbar.querySelector('[data-action="last-frame"]').addEventListener("click", () => this.setFrame(this.frames.length - 1))
+        toolbar.querySelector('[data-action="last-frame"]').addEventListener("click", () => this.setFrame(this.playbackEndFrame()))
         toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
         toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
         toolbar.querySelector('[data-action="zoom-in"]').addEventListener("click", () => this.zoomIn())
@@ -214,6 +216,8 @@ export class ViewAseprite extends ViewCanvasBase {
             assert(this.frames.length > 0, "view-aseprite requires at least one frame")
             this.layerVisibility = new Map(this.layers.map((layer) => [layer.index, layerInitiallyVisible(layer)]))
             this.celsByFrame = new Map()
+            this.selectedTagIndex = null
+            this.playbackDirection = 1
             this.frameIndex = 0
             this.renderInspector()
             await this.renderFrame()
@@ -277,6 +281,49 @@ export class ViewAseprite extends ViewCanvasBase {
         await this.renderFrame({ autoFit: false })
     }
 
+    selectedTag() {
+        if (this.selectedTagIndex === null) return null
+        const tag = this.tags[this.selectedTagIndex]
+        assert(tag, "view-aseprite selected tag must exist")
+        return tag
+    }
+
+    selectedTagDirection() {
+        const tag = this.selectedTag()
+        return tag ? String(tag.direction) : "forward"
+    }
+
+    playbackStartFrame() {
+        const tag = this.selectedTag()
+        return tag ? Number(tag["from-frame"]) : 0
+    }
+
+    playbackEndFrame() {
+        const tag = this.selectedTag()
+        return tag ? Number(tag["to-frame"]) : this.frames.length - 1
+    }
+
+    playbackInitialDirection() {
+        const direction = this.selectedTagDirection()
+        if (direction === "reverse" || direction === "ping-pong-reverse") return -1
+        return 1
+    }
+
+    playbackEntryFrame() {
+        return this.playbackInitialDirection() < 0 ? this.playbackEndFrame() : this.playbackStartFrame()
+    }
+
+    async selectTag(tagIndex) {
+        assert(Number.isInteger(tagIndex), "view-aseprite tag index must be an integer")
+        assert(tagIndex >= 0 && tagIndex < this.tags.length, "view-aseprite tag index out of range")
+        this.selectedTagIndex = this.selectedTagIndex === tagIndex ? null : tagIndex
+        this.playbackDirection = this.playbackInitialDirection()
+        this.renderInspector()
+        if (this.selectedTagIndex !== null) {
+            await this.setFrame(this.playbackEntryFrame())
+        }
+    }
+
     async setFrame(frameIndex) {
         if (!this.documentResource || this.frames.length === 0) return
         assert(Number.isInteger(frameIndex), "view-aseprite frame index must be an integer")
@@ -286,16 +333,46 @@ export class ViewAseprite extends ViewCanvasBase {
         await this.renderFrame({ autoFit: false })
     }
 
+    frameStep(manualDirection) {
+        const start = this.playbackStartFrame()
+        const end = this.playbackEndFrame()
+        const direction = this.selectedTagDirection()
+
+        if (start === end) return start
+
+        if (direction === "reverse") {
+            if (manualDirection > 0) return this.frameIndex <= start ? end : this.frameIndex - 1
+            return this.frameIndex >= end ? start : this.frameIndex + 1
+        }
+
+        if (direction === "ping-pong" || direction === "ping-pong-reverse") {
+            const step = this.playbackDirection * manualDirection
+            if (step > 0) {
+                if (this.frameIndex >= end) {
+                    this.playbackDirection = -1
+                    return end - 1
+                }
+                return this.frameIndex + 1
+            }
+            if (this.frameIndex <= start) {
+                this.playbackDirection = 1
+                return start + 1
+            }
+            return this.frameIndex - 1
+        }
+
+        if (manualDirection > 0) return this.frameIndex >= end ? start : this.frameIndex + 1
+        return this.frameIndex <= start ? end : this.frameIndex - 1
+    }
+
     async previousFrame() {
         if (this.frames.length === 0) return
-        const next = this.frameIndex <= 0 ? this.frames.length - 1 : this.frameIndex - 1
-        await this.setFrame(next)
+        await this.setFrame(this.frameStep(-1))
     }
 
     async nextFrame() {
         if (this.frames.length === 0) return
-        const next = this.frameIndex >= this.frames.length - 1 ? 0 : this.frameIndex + 1
-        await this.setFrame(next)
+        await this.setFrame(this.frameStep(1))
     }
 
     togglePlayback() {
@@ -376,14 +453,15 @@ export class ViewAseprite extends ViewCanvasBase {
             .join("")
 
         const tagRows = this.tags
-            .map(
-                (tag) => `
-          <tr>
+            .map((tag, index) => {
+                const selected = this.selectedTagIndex === index
+                return `
+          <tr data-action="select-tag" data-tag-index="${escapeHtml(index)}" aria-selected="${selected ? "true" : "false"}">
             <td>${escapeHtml(tag.name)}</td>
             <td>${escapeHtml(tag["from-frame"])}–${escapeHtml(tag["to-frame"])}</td>
             <td>${escapeHtml(tag.direction)}</td>
-          </tr>`,
-            )
+          </tr>`
+            })
             .join("")
 
         this.asideElement.innerHTML = `
@@ -407,6 +485,13 @@ export class ViewAseprite extends ViewCanvasBase {
             button.addEventListener("click", () => {
                 const layerIndex = Number(button.dataset.layerIndex)
                 void this.toggleLayerVisible(layerIndex)
+            })
+        }
+        for (const row of this.asideElement.querySelectorAll('[data-action="select-tag"]')) {
+            assert(row instanceof HTMLTableRowElement, "view-aseprite tag selector must be a table row")
+            row.addEventListener("click", () => {
+                const tagIndex = Number(row.dataset.tagIndex)
+                void this.selectTag(tagIndex)
             })
         }
     }

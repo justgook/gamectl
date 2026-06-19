@@ -182,6 +182,32 @@ static bool cel_to_rgba(document_t *doc, cel_t *cel, uint8_t **out, size_t *out_
 
 static void blend(uint8_t *dst, uint8_t r, uint8_t g, uint8_t b, double a) { double sa=a/255.0; if(sa<=0)return; double da=dst[3]/255.0; double oa=sa+da*(1-sa); if(oa<=0)return; dst[0]=(uint8_t)((r*sa+dst[0]*da*(1-sa))/oa+0.5); dst[1]=(uint8_t)((g*sa+dst[1]*da*(1-sa))/oa+0.5); dst[2]=(uint8_t)((b*sa+dst[2]*da*(1-sa))/oa+0.5); dst[3]=(uint8_t)(oa*255+0.5); }
 
+static bool blend_cel_into_output(document_t *doc, cel_t *cel, uint8_t *out, double opacity, const char **err) {
+  if (cel->cel_type == 3) { *err="Aseprite tilemap frame rendering is not implemented"; return false; }
+  size_t pixels = (size_t)cel->w * cel->h;
+  if (doc->color_depth == 32 && cel->data.len < pixels * 4) { *err="Aseprite RGBA cel data too short"; return false; }
+  if (doc->color_depth == 16 && cel->data.len < pixels * 2) { *err="Aseprite grayscale cel data too short"; return false; }
+  if (doc->color_depth == 8) {
+    if (!doc->palette.present) { *err="indexed Aseprite file has no palette"; return false; }
+    if (cel->data.len < pixels) { *err="Aseprite indexed cel data too short"; return false; }
+  }
+  for(uint32_t y=0;y<cel->h;y++){
+    int32_t ty=cel->y+(int32_t)y;
+    if(ty<0||ty>=(int32_t)doc->height)continue;
+    for(uint32_t x=0;x<cel->w;x++){
+      int32_t tx=cel->x+(int32_t)x;
+      if(tx<0||tx>=(int32_t)doc->width)continue;
+      size_t p=(size_t)y*cel->w+x;
+      uint8_t r=0,g=0,b=0,a=0;
+      if (doc->color_depth == 32) { size_t s=p*4; r=cel->data.ptr[s]; g=cel->data.ptr[s+1]; b=cel->data.ptr[s+2]; a=cel->data.ptr[s+3]; }
+      else if (doc->color_depth == 16) { size_t s=p*2; r=g=b=cel->data.ptr[s]; a=cel->data.ptr[s+1]; }
+      else { uint8_t pi=cel->data.ptr[p]; if (pi >= doc->palette.size) { *err="Aseprite palette index out of range"; return false; } palette_color_t *c=&doc->palette.colors[pi]; r=c->color.r; g=c->color.g; b=c->color.b; a=(pi==doc->palette_index)?0:c->color.a; }
+      blend(out+(((size_t)ty*doc->width+tx)*4),r,g,b,a*opacity);
+    }
+  }
+  return true;
+}
+
 typedef struct render_order_t { cel_t *cel; int32_t order; int16_t z; } render_order_t;
 static int compare_render_order(const void *a, const void *b) { const render_order_t *aa=(const render_order_t *)a; const render_order_t *bb=(const render_order_t *)b; if(aa->order < bb->order) return -1; if(aa->order > bb->order) return 1; if(aa->z < bb->z) return -1; if(aa->z > bb->z) return 1; return 0; }
 
@@ -217,7 +243,7 @@ bool exports_gams_aseprite_aseprite_cel_data(document_t *doc, uint32_t frame_ind
 
 bool exports_gams_aseprite_aseprite_cel_pixels(document_t *doc, uint32_t frame_index, uint32_t cel_index, exports_gams_aseprite_aseprite_pixels_t *ret, aseprite_plugin_string_t *err) { frame_t*f; cel_t*c; if(!get_cel(doc,frame_index,cel_index,&f,&c,err))return false; (void)f; const char *msg=NULL; uint8_t *rgba=NULL; size_t len=0; if(!cel_to_rgba(doc,c,&rgba,&len,&msg)){set_error(err,msg);return false;} ret->width=c->w; ret->height=c->h; ret->data.ptr=rgba; ret->data.len=len; return true; }
 
-bool exports_gams_aseprite_aseprite_render_frame(document_t *doc, uint32_t frame_index, exports_gams_aseprite_aseprite_pixels_t *ret, aseprite_plugin_string_t *err) { if(frame_index>=doc->frame_count){set_error(err,"Aseprite frame index out of range");return false;} size_t len=(size_t)doc->width*doc->height*4; uint8_t*out=calloc(len?len:1,1); if(!out){set_error(err,"out of memory");return false;} frame_t*f=&doc->frames[frame_index]; render_order_t *order=calloc(f->cel_count?f->cel_count:1,sizeof(*order)); if(!order){free(out);set_error(err,"out of memory");return false;} for(size_t ci=0;ci<f->cel_count;ci++){cel_t*c=&f->cels[ci]; order[ci].cel=c; order[ci].order=(int32_t)c->layer_index+(int32_t)c->z_index; order[ci].z=c->z_index;} qsort(order,f->cel_count,sizeof(*order),compare_render_order); for(size_t oi=0;oi<f->cel_count;oi++){cel_t*c=order[oi].cel; if(c->cel_type==3){free(order);free(out);set_error(err,"Aseprite tilemap frame rendering is not implemented");return false;} if(c->layer_index>=doc->layer_count){free(order);free(out);set_error(err,"Aseprite cel references missing layer");return false;} layer_t*l=&doc->layers[c->layer_index]; if(!(l->flags&1))continue; const char*msg=NULL; uint8_t*rgba=NULL; size_t rlen=0; if(!cel_to_rgba(doc,c,&rgba,&rlen,&msg)){free(order);free(out);set_error(err,msg);return false;} double opacity=((double)c->opacity/255.0)*((double)l->opacity/255.0); for(uint32_t y=0;y<c->h;y++){int32_t ty=c->y+(int32_t)y; if(ty<0||ty>=(int32_t)doc->height)continue; for(uint32_t x=0;x<c->w;x++){int32_t tx=c->x+(int32_t)x; if(tx<0||tx>=(int32_t)doc->width)continue; size_t s=((size_t)y*c->w+x)*4; blend(out+(((size_t)ty*doc->width+tx)*4),rgba[s],rgba[s+1],rgba[s+2],rgba[s+3]*opacity);}} free(rgba);} free(order); ret->width=doc->width; ret->height=doc->height; ret->data.ptr=out; ret->data.len=len; return true; }
+bool exports_gams_aseprite_aseprite_render_frame(document_t *doc, uint32_t frame_index, exports_gams_aseprite_aseprite_pixels_t *ret, aseprite_plugin_string_t *err) { if(frame_index>=doc->frame_count){set_error(err,"Aseprite frame index out of range");return false;} size_t len=(size_t)doc->width*doc->height*4; uint8_t*out=calloc(len?len:1,1); if(!out){set_error(err,"out of memory");return false;} frame_t*f=&doc->frames[frame_index]; render_order_t *order=calloc(f->cel_count?f->cel_count:1,sizeof(*order)); if(!order){free(out);set_error(err,"out of memory");return false;} for(size_t ci=0;ci<f->cel_count;ci++){cel_t*c=&f->cels[ci]; order[ci].cel=c; order[ci].order=(int32_t)c->layer_index+(int32_t)c->z_index; order[ci].z=c->z_index;} qsort(order,f->cel_count,sizeof(*order),compare_render_order); for(size_t oi=0;oi<f->cel_count;oi++){cel_t*c=order[oi].cel; if(c->layer_index>=doc->layer_count){free(order);free(out);set_error(err,"Aseprite cel references missing layer");return false;} layer_t*l=&doc->layers[c->layer_index]; if(!(l->flags&1))continue; const char*msg=NULL; double opacity=((double)c->opacity/255.0)*((double)l->opacity/255.0); if(!blend_cel_into_output(doc,c,out,opacity,&msg)){free(order);free(out);set_error(err,msg);return false;}} free(order); ret->width=doc->width; ret->height=doc->height; ret->data.ptr=out; ret->data.len=len; return true; }
 
 bool exports_gams_aseprite_aseprite_to_json(document_t *doc, aseprite_plugin_string_t *ret, aseprite_plugin_string_t *err) { (void)err; char buf[512]; int n=snprintf(buf,sizeof(buf),"{\"fileSize\":%u,\"numFrames\":%u,\"width\":%u,\"height\":%u,\"colorDepth\":%u,\"numColors\":%u,\"layers\":%zu,\"tags\":%zu,\"slices\":%zu,\"tilesets\":%zu}",doc->file_size,doc->num_frames,doc->width,doc->height,doc->color_depth,doc->num_colors,doc->layer_count,doc->tag_count,doc->slice_count,doc->tileset_count); if(n<0){set_error(err,"failed to format Aseprite JSON");return false;} aseprite_plugin_string_set(ret,buf); return true; }
 

@@ -2754,6 +2754,42 @@ mod tests {
         assert_eq!(rendered["ok"]["width"], serde_json::json!(1));
         assert_eq!(rendered["ok"]["height"], serde_json::json!(1));
         assert_eq!(rendered["ok"]["data"], serde_json::json!([255, 0, 0, 255]));
+
+        runtime.release_resource(document.clone()).unwrap();
+    }
+
+    #[test]
+    fn aseprite_component_releases_demo_file_resource() {
+        let aseprite = "../../../build.nosync/plugins/aseprite.comp.wasm";
+        if !std::path::Path::new(aseprite).exists() {
+            eprintln!("skipping aseprite release test; build it with `make build.nosync/plugins/aseprite.comp.wasm`");
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/aseprite.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let opened = runtime
+            .invoke(
+                "aseprite/aseprite::open",
+                serde_json::json!(["aseprite/Jotem.aseprite"]),
+            )
+            .unwrap();
+        let document = opened.get("ok").unwrap();
+        for cel_index in 0..11 {
+            runtime
+                .invoke(
+                    "aseprite/aseprite::cel-pixels",
+                    serde_json::json!([document, 0, cel_index]),
+                )
+                .unwrap();
+        }
+        runtime.release_resource(document.clone()).unwrap();
     }
 
     #[test]
