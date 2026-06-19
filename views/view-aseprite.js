@@ -1,0 +1,376 @@
+import { runtime, unwrap } from "/core/runtime.js"
+import { ViewCanvasBase } from "/util/view-canvas-base.js"
+
+function assert(condition, message) {
+    if (!condition) throw new Error(message)
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+}
+
+function makeFrameCanvas(frame) {
+    assert(frame && typeof frame === "object", "view-aseprite render-frame result must be an object")
+    assert(Number.isInteger(frame.width), "view-aseprite frame width must be an integer")
+    assert(Number.isInteger(frame.height), "view-aseprite frame height must be an integer")
+    assert(Array.isArray(frame.data), "view-aseprite frame data must be an array")
+    const pixels = new Uint8ClampedArray(frame.data)
+    assert(pixels.length === frame.width * frame.height * 4, "view-aseprite frame data length must match RGBA dimensions")
+    const canvas = document.createElement("canvas")
+    canvas.width = frame.width
+    canvas.height = frame.height
+    const ctx = canvas.getContext("2d")
+    assert(ctx, "view-aseprite frame canvas requires 2d context")
+    ctx.putImageData(new ImageData(pixels, frame.width, frame.height), 0, 0)
+    return canvas
+}
+
+export class ViewAseprite extends ViewCanvasBase {
+    static get observedAttributes() {
+        return ["data-source"]
+    }
+
+    constructor() {
+        super()
+        this.path = ""
+        this.documentResource = null
+        this.info = null
+        this.frames = []
+        this.layers = []
+        this.tags = []
+        this.paletteInfo = null
+        this.paletteColors = []
+        this.slices = []
+        this.tilesets = []
+        this.frameIndex = 0
+        this.statusElement = null
+        this.pathElement = null
+        this.frameElement = null
+        this.asideElement = null
+        this.playTimer = 0
+    }
+
+    connectedCallback() {
+        if (this.dataset.ready) return
+        this.dataset.ready = "1"
+
+        this.path = String(this.popupProps?.path || this.getAttribute("data-source") || this.config?.defaultSource || "").trim()
+        assert(this.path, "view-aseprite requires data-source")
+
+        this.innerHTML = `
+      <canvas data-element="canvas"></canvas>
+      <aside data-element="inspector"></aside>
+      <footer data-element="footer">
+        <output data-element="path"></output>
+        <output data-element="frame"></output>
+        <output data-element="status">Loading...</output>
+      </footer>
+    `
+
+        this.statusElement = this.querySelector('[data-element="status"]')
+        this.pathElement = this.querySelector('[data-element="path"]')
+        this.frameElement = this.querySelector('[data-element="frame"]')
+        this.asideElement = this.querySelector('[data-element="inspector"]')
+        assert(this.statusElement instanceof HTMLOutputElement, "view-aseprite missing status output")
+        assert(this.pathElement instanceof HTMLOutputElement, "view-aseprite missing path output")
+        assert(this.frameElement instanceof HTMLOutputElement, "view-aseprite missing frame output")
+        assert(this.asideElement instanceof HTMLElement, "view-aseprite missing inspector aside")
+        this.pathElement.textContent = this.path
+
+        super.connectedCallback()
+        void this.load()
+    }
+
+    disconnectedCallback() {
+        this.stopPlayback()
+        void this.releaseDocument()
+        super.disconnectedCallback()
+    }
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue === newValue) return
+        if (name !== "data-source") return
+        this.path = String(newValue || "").trim()
+        if (this.pathElement instanceof HTMLOutputElement) this.pathElement.textContent = this.path
+        if (this.dataset.ready) void this.load()
+    }
+
+    createViewPluginMethods() {
+        return {
+            reload: async () => {
+                await this.reload()
+                return { ok: true }
+            },
+            nextFrame: async () => {
+                await this.nextFrame()
+                return { ok: true }
+            },
+            previousFrame: async () => {
+                await this.previousFrame()
+                return { ok: true }
+            },
+            setFrame: async (frameIndex) => {
+                await this.setFrame(Number(frameIndex))
+                return { ok: true }
+            },
+        }
+    }
+
+    createHeaderControlsElement() {
+        const toolbar = document.createElement("div")
+        toolbar.dataset.element = "toolbar"
+        toolbar.innerHTML = `
+      <div role="buttongroup" data-element="file-actions">
+        <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+      </div>
+      <div role="buttongroup" data-element="playback-actions">
+        <button type="button" data-action="first-frame" aria-label="First frame" title="First frame"><i aria-hidden="true">first_page</i></button>
+        <button type="button" data-action="previous-frame" aria-label="Previous frame" title="Previous frame"><i aria-hidden="true">chevron_left</i></button>
+        <button type="button" data-action="play-pause" aria-label="Play" title="Play"><i aria-hidden="true">play_arrow</i></button>
+        <button type="button" data-action="next-frame" aria-label="Next frame" title="Next frame"><i aria-hidden="true">chevron_right</i></button>
+        <button type="button" data-action="last-frame" aria-label="Last frame" title="Last frame"><i aria-hidden="true">last_page</i></button>
+      </div>
+      <div role="buttongroup" data-element="view-actions">
+        <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
+        <button type="button" data-action="zoom-fit" aria-label="Fit" title="Fit"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in"><i aria-hidden="true">zoom_in</i></button>
+      </div>
+    `
+        toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => this.reload())
+        toolbar.querySelector('[data-action="first-frame"]').addEventListener("click", () => this.setFrame(0))
+        toolbar.querySelector('[data-action="previous-frame"]').addEventListener("click", () => this.previousFrame())
+        toolbar.querySelector('[data-action="play-pause"]').addEventListener("click", () => this.togglePlayback())
+        toolbar.querySelector('[data-action="next-frame"]').addEventListener("click", () => this.nextFrame())
+        toolbar.querySelector('[data-action="last-frame"]').addEventListener("click", () => this.setFrame(this.frames.length - 1))
+        toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
+        toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
+        toolbar.querySelector('[data-action="zoom-in"]').addEventListener("click", () => this.zoomIn())
+        return toolbar
+    }
+
+    async reload() {
+        await this.load()
+        await runtime.call("ui.toast.success", { message: `Reloaded ${this.path}` })
+    }
+
+    async releaseDocument() {
+        if (!this.documentResource) return
+        const resource = this.documentResource
+        this.documentResource = null
+        await runtime.releaseResource(resource)
+    }
+
+    setStatus(text, tone = null) {
+        assert(this.statusElement instanceof HTMLOutputElement, "view-aseprite status output is not initialized")
+        this.statusElement.textContent = text
+        this.statusElement.classList.remove("accent", "success", "warning", "danger", "info")
+        if (tone) this.statusElement.classList.add(tone)
+    }
+
+    setFrameStatus() {
+        assert(this.frameElement instanceof HTMLOutputElement, "view-aseprite frame output is not initialized")
+        if (this.frames.length === 0) {
+            this.frameElement.textContent = "Frame 0 / 0"
+            return
+        }
+        const frame = this.frames[this.frameIndex]
+        assert(frame, "view-aseprite active frame must exist")
+        this.frameElement.textContent = `Frame ${this.frameIndex + 1} / ${this.frames.length} · ${frame["duration-ms"]}ms`
+    }
+
+    async load() {
+        assert(this.path, "view-aseprite requires data-source")
+        this.stopPlayback()
+        this.setStatus("Loading...", "info")
+        this.setData(null, { autoFit: false })
+
+        try {
+            await this.releaseDocument()
+            this.documentResource = unwrap(await runtime.invoke("aseprite/aseprite::open", this.path), "aseprite open")
+            this.info = unwrap(await runtime.invoke("aseprite/aseprite::info", this.documentResource), "aseprite info")
+            this.frames = unwrap(await runtime.invoke("aseprite/aseprite::frames", this.documentResource), "aseprite frames")
+            this.layers = unwrap(await runtime.invoke("aseprite/aseprite::layers", this.documentResource), "aseprite layers")
+            this.tags = unwrap(await runtime.invoke("aseprite/aseprite::tags", this.documentResource), "aseprite tags")
+            this.paletteInfo = unwrap(await runtime.invoke("aseprite/aseprite::get-palette-info", this.documentResource), "aseprite palette info")
+            this.paletteColors = unwrap(await runtime.invoke("aseprite/aseprite::palette-colors", this.documentResource), "aseprite palette colors")
+            this.slices = unwrap(await runtime.invoke("aseprite/aseprite::slices", this.documentResource), "aseprite slices")
+            this.tilesets = unwrap(await runtime.invoke("aseprite/aseprite::tilesets", this.documentResource), "aseprite tilesets")
+            assert(this.frames.length > 0, "view-aseprite requires at least one frame")
+            this.frameIndex = 0
+            this.renderInspector()
+            await this.renderFrame()
+            this.setStatus(`${this.info.width} × ${this.info.height} · ${this.frames.length} frames`, "success")
+        } catch (error) {
+            this.stopPlayback()
+            await this.releaseDocument()
+            this.renderInspector()
+            this.setData(null, { autoFit: false })
+            this.setStatus(`Error: ${error?.message || error}`, "danger")
+            console.error("view-aseprite load failed:", error)
+        }
+    }
+
+    async renderFrame({ autoFit = false } = {}) {
+        assert(this.documentResource, "view-aseprite requires loaded document")
+        assert(this.frames[this.frameIndex], "view-aseprite active frame must exist")
+        const frame = unwrap(await runtime.invoke("aseprite/aseprite::render-frame", this.documentResource, this.frameIndex), "aseprite render frame")
+        const source = makeFrameCanvas(frame)
+        this.setData({ source, width: frame.width, height: frame.height }, { autoFit })
+        this.setFrameStatus()
+    }
+
+    async setFrame(frameIndex) {
+        if (!this.documentResource || this.frames.length === 0) return
+        assert(Number.isInteger(frameIndex), "view-aseprite frame index must be an integer")
+        const clamped = Math.max(0, Math.min(this.frames.length - 1, frameIndex))
+        if (clamped === this.frameIndex && this.data) return
+        this.frameIndex = clamped
+        await this.renderFrame({ autoFit: false })
+    }
+
+    async previousFrame() {
+        if (this.frames.length === 0) return
+        const next = this.frameIndex <= 0 ? this.frames.length - 1 : this.frameIndex - 1
+        await this.setFrame(next)
+    }
+
+    async nextFrame() {
+        if (this.frames.length === 0) return
+        const next = this.frameIndex >= this.frames.length - 1 ? 0 : this.frameIndex + 1
+        await this.setFrame(next)
+    }
+
+    togglePlayback() {
+        if (this.playTimer) {
+            this.stopPlayback()
+            return
+        }
+        this.startPlayback()
+    }
+
+    startPlayback() {
+        if (this.playTimer || this.frames.length <= 1) return
+        const button = this.queryHeaderControl('[data-action="play-pause"]')
+        if (button instanceof HTMLButtonElement) {
+            button.setAttribute("aria-label", "Pause")
+            button.setAttribute("title", "Pause")
+            const icon = button.querySelector("i")
+            assert(icon instanceof HTMLElement, "view-aseprite play button missing icon")
+            icon.textContent = "pause"
+        }
+        const tick = async () => {
+            this.playTimer = 0
+            await this.nextFrame()
+            const frame = this.frames[this.frameIndex]
+            assert(frame, "view-aseprite playback frame must exist")
+            this.playTimer = window.setTimeout(() => void tick(), Math.max(16, Number(frame["duration-ms"])))
+        }
+        const frame = this.frames[this.frameIndex]
+        assert(frame, "view-aseprite playback frame must exist")
+        this.playTimer = window.setTimeout(() => void tick(), Math.max(16, Number(frame["duration-ms"])))
+    }
+
+    stopPlayback() {
+        if (this.playTimer) {
+            window.clearTimeout(this.playTimer)
+            this.playTimer = 0
+        }
+        const button = this.queryHeaderControl('[data-action="play-pause"]')
+        if (button instanceof HTMLButtonElement) {
+            button.setAttribute("aria-label", "Play")
+            button.setAttribute("title", "Play")
+            const icon = button.querySelector("i")
+            assert(icon instanceof HTMLElement, "view-aseprite play button missing icon")
+            icon.textContent = "play_arrow"
+        }
+    }
+
+    renderInspector() {
+        assert(this.asideElement instanceof HTMLElement, "view-aseprite inspector aside is not initialized")
+        if (!this.info) {
+            this.asideElement.innerHTML = `<table><tbody><tr><th>Status</th><td>No Aseprite loaded</td></tr></tbody></table>`
+            return
+        }
+
+        const rows = [
+            ["Size", `${this.info.width} × ${this.info.height}`],
+            ["Frames", this.info.frames],
+            ["Color depth", this.info["color-depth"]],
+            ["Pixel ratio", `${this.info["pixel-ratio-width"]}:${this.info["pixel-ratio-height"]}`],
+            ["Layers", this.layers.length],
+            ["Tags", this.tags.length],
+            ["Slices", this.slices.length],
+            ["Tilesets", this.tilesets.length],
+            ["Palette", this.paletteInfo ? `${this.paletteInfo.size} colors` : "none"],
+        ]
+
+        const layerRows = this.layers
+            .map(
+                (layer) => `
+          <tr>
+            <td>${escapeHtml(layer.index)}</td>
+            <td>${escapeHtml(layer.name)}</td>
+            <td>${escapeHtml(layer.opacity)}</td>
+          </tr>`,
+            )
+            .join("")
+
+        const tagRows = this.tags
+            .map(
+                (tag) => `
+          <tr>
+            <td>${escapeHtml(tag.name)}</td>
+            <td>${escapeHtml(tag["from-frame"])}–${escapeHtml(tag["to-frame"])}</td>
+            <td>${escapeHtml(tag.direction)}</td>
+          </tr>`,
+            )
+            .join("")
+
+        this.asideElement.innerHTML = `
+      <table>
+        <caption>Aseprite</caption>
+        <tbody>${rows.map(([key, value]) => `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(value)}</td></tr>`).join("")}</tbody>
+      </table>
+      <table>
+        <caption>Layers</caption>
+        <thead><tr><th>#</th><th>Name</th><th>Opacity</th></tr></thead>
+        <tbody>${layerRows || `<tr><td colspan="3">No layers</td></tr>`}</tbody>
+      </table>
+      <table>
+        <caption>Tags</caption>
+        <thead><tr><th>Name</th><th>Frames</th><th>Direction</th></tr></thead>
+        <tbody>${tagRows || `<tr><td colspan="3">No tags</td></tr>`}</tbody>
+      </table>
+    `
+    }
+
+    calculateContentBounds(data) {
+        if (!data) return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
+        return { minX: 0, minY: 0, maxX: data.width, maxY: data.height }
+    }
+
+    drawContent(ctx, data) {
+        if (!data) return
+
+        const tile = 16
+        const cols = Math.ceil(data.width / tile)
+        const rows = Math.ceil(data.height / tile)
+        for (let y = 0; y < rows; y += 1) {
+            for (let x = 0; x < cols; x += 1) {
+                ctx.fillStyle = (x + y) % 2 === 0 ? "#d0d0d0" : "#f0f0f0"
+                ctx.fillRect(x * tile, y * tile, tile, tile)
+            }
+        }
+
+        ctx.imageSmoothingEnabled = false
+        ctx.drawImage(data.source, 0, 0)
+    }
+}
+
+if (!customElements.get("view-aseprite")) {
+    customElements.define("view-aseprite", ViewAseprite)
+}

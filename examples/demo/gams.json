@@ -327,12 +327,23 @@
           }
         }
       },
+      "view-aseprite": {
+        "url": "views/view-aseprite.js",
+        "label": "Aseprite",
+        "internal": false,
+        "config": {
+          "defaultSource": "aseprite/Jotem.aseprite"
+        }
+      },
+
       "view-files": {
         "url": "views/view-files.js",
         "label": "Files",
         "internal": false,
         "config": {
           "open": {
+            "ase": "view-aseprite",
+            "aseprite": "view-aseprite",
             "qoi": "view-image",
             "png": "view-image",
             "jpg": "view-image",
@@ -3860,6 +3871,7 @@
     "plugins/treegen.comp.wasm",
     "plugins/minimap.comp.wasm",
     "plugins/image.comp.wasm",
-    "plugins/markov-junior.comp.wasm"
+    "plugins/markov-junior.comp.wasm",
+    "plugins/aseprite.comp.wasm"
   ]
 }
