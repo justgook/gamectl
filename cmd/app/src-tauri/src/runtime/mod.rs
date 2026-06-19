@@ -2781,14 +2781,42 @@ mod tests {
             )
             .unwrap();
         let document = opened.get("ok").unwrap();
-        for cel_index in 0..11 {
-            runtime
-                .invoke(
-                    "aseprite/aseprite::cel-pixels",
-                    serde_json::json!([document, 0, cel_index]),
-                )
-                .unwrap();
-        }
+        runtime
+            .invoke("aseprite/aseprite::info", serde_json::json!([document]))
+            .unwrap();
+        runtime
+            .invoke("aseprite/aseprite::frames", serde_json::json!([document]))
+            .unwrap();
+        runtime
+            .invoke("aseprite/aseprite::layers", serde_json::json!([document]))
+            .unwrap();
+        runtime
+            .invoke("aseprite/aseprite::tags", serde_json::json!([document]))
+            .unwrap();
+        runtime
+            .invoke(
+                "aseprite/aseprite::get-palette-info",
+                serde_json::json!([document]),
+            )
+            .unwrap();
+        runtime
+            .invoke("aseprite/aseprite::palette-colors", serde_json::json!([document]))
+            .unwrap();
+        runtime
+            .invoke("aseprite/aseprite::slices", serde_json::json!([document]))
+            .unwrap();
+        runtime
+            .invoke("aseprite/aseprite::tilesets", serde_json::json!([document]))
+            .unwrap();
+        runtime
+            .invoke("aseprite/aseprite::cels", serde_json::json!([document, 0]))
+            .unwrap();
+        runtime
+            .invoke(
+                "aseprite/aseprite::cel-pixels",
+                serde_json::json!([document, 0, 0]),
+            )
+            .unwrap();
         runtime.release_resource(document.clone()).unwrap();
     }
 
