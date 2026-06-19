@@ -1,0 +1,180 @@
+package gams:aseprite@1.0.0;
+
+interface aseprite {
+    resource document;
+
+    enum color-depth {
+        indexed8,
+        grayscale16,
+        rgba32,
+    }
+
+    enum cel-type {
+        raw,
+        linked,
+        compressed,
+        tilemap,
+    }
+
+    enum tag-direction {
+        forward,
+        reverse,
+        ping-pong,
+        ping-pong-reverse,
+    }
+
+    record rgba8 {
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+    }
+
+    record document-info {
+        file-size: u32,
+        frames: u32,
+        width: u32,
+        height: u32,
+        color-depth: color-depth,
+        palette-index: u8,
+        num-colors: u16,
+        pixel-ratio-width: u8,
+        pixel-ratio-height: u8,
+        name: string,
+    }
+
+    flags layer-flags {
+        visible,
+        editable,
+        lock-movement,
+        background,
+        prefer-linked-cels,
+        collapsed-group,
+        reference,
+    }
+
+    record layer-info {
+        index: u32,
+        layer-flags: layer-flags,
+        layer-type: u16,
+        child-level: u16,
+        blend-mode: u16,
+        opacity: u8,
+        tileset-index: option<u32>,
+        name: string,
+    }
+
+    record frame-info {
+        index: u32,
+        bytes-in-frame: u32,
+        duration-ms: u16,
+        chunks: u32,
+        cels: u32,
+    }
+
+    record cel-info {
+        frame-index: u32,
+        cel-index: u32,
+        layer-index: u16,
+        x: s16,
+        y: s16,
+        opacity: u8,
+        cel-type: cel-type,
+        z-index: s16,
+        width: u16,
+        height: u16,
+        linked-frame: option<u16>,
+    }
+
+    record tag-info {
+        from-frame: u16,
+        to-frame: u16,
+        direction: tag-direction,
+        repeat: u16,
+        color: rgba8,
+        name: string,
+    }
+
+    record palette-color {
+        index: u32,
+        color: rgba8,
+        name: option<string>,
+    }
+
+    record palette-info {
+        size: u32,
+        first-color: u32,
+        last-color: u32,
+        transparent-index: option<u8>,
+    }
+
+    record rect {
+        x: s32,
+        y: s32,
+        width: u32,
+        height: u32,
+    }
+
+    record point {
+        x: s32,
+        y: s32,
+    }
+
+    record slice-key {
+        frame: u32,
+        x: s32,
+        y: s32,
+        width: u32,
+        height: u32,
+        patch: option<rect>,
+        pivot: option<point>,
+    }
+
+    record slice-info {
+        name: string,
+        keys: list<slice-key>,
+    }
+
+    record tileset-info {
+        id: u32,
+        tileset-flags: u32,
+        tile-count: u32,
+        tile-width: u16,
+        tile-height: u16,
+        external-file-id: option<u32>,
+        external-tileset-id: option<u32>,
+        data-length: u32,
+        name: string,
+    }
+
+    record pixels {
+        width: u32,
+        height: u32,
+        data: list<u8>,
+    }
+
+    open: func(path: string) -> result<document, string>;
+    parse-bytes: func(name: string, data: list<u8>) -> result<document, string>;
+
+    info: func(doc: borrow<document>) -> result<document-info, string>;
+    layers: func(doc: borrow<document>) -> result<list<layer-info>, string>;
+    frames: func(doc: borrow<document>) -> result<list<frame-info>, string>;
+    cels: func(doc: borrow<document>, frame-index: u32) -> result<list<cel-info>, string>;
+    tags: func(doc: borrow<document>) -> result<list<tag-info>, string>;
+    get-palette-info: func(doc: borrow<document>) -> result<option<palette-info>, string>;
+    palette-colors: func(doc: borrow<document>) -> result<list<palette-color>, string>;
+    slices: func(doc: borrow<document>) -> result<list<slice-info>, string>;
+    tilesets: func(doc: borrow<document>) -> result<list<tileset-info>, string>;
+
+    cel-data: func(doc: borrow<document>, frame-index: u32, cel-index: u32) -> result<list<u8>, string>;
+    cel-pixels: func(doc: borrow<document>, frame-index: u32, cel-index: u32) -> result<pixels, string>;
+    render-frame: func(doc: borrow<document>, frame-index: u32) -> result<pixels, string>;
+    to-json: func(doc: borrow<document>) -> result<string, string>;
+}
+
+world aseprite-plugin {
+    import wasi:filesystem/types@0.2.0;
+    import wasi:filesystem/preopens@0.2.0;
+
+    export aseprite;
+}

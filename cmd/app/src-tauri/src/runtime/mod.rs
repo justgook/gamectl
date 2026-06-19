@@ -2640,6 +2640,122 @@ mod tests {
             .any(|value| value == "wasi:sql/readwrite@0.2.0-draft::exec"));
     }
 
+    fn minimal_aseprite_rgba32_bytes() -> Vec<u8> {
+        let layer_chunk_size = 6u32 + 18u32 + 7u32;
+        let cel_chunk_size = 6u32 + 20u32 + 4u32;
+        let frame_size = 16u32 + layer_chunk_size + cel_chunk_size;
+        let mut bytes = Vec::with_capacity(128 + frame_size as usize);
+        let push_u8 = |bytes: &mut Vec<u8>, value: u8| bytes.push(value);
+        let push_u16 =
+            |bytes: &mut Vec<u8>, value: u16| bytes.extend_from_slice(&value.to_le_bytes());
+        let push_i16 =
+            |bytes: &mut Vec<u8>, value: i16| bytes.extend_from_slice(&value.to_le_bytes());
+        let push_u32 =
+            |bytes: &mut Vec<u8>, value: u32| bytes.extend_from_slice(&value.to_le_bytes());
+        let push_string = |bytes: &mut Vec<u8>, value: &str| {
+            bytes.extend_from_slice(&(value.len() as u16).to_le_bytes());
+            bytes.extend_from_slice(value.as_bytes());
+        };
+
+        push_u32(&mut bytes, 128 + frame_size);
+        push_u16(&mut bytes, 0xa5e0);
+        push_u16(&mut bytes, 1);
+        push_u16(&mut bytes, 1);
+        push_u16(&mut bytes, 1);
+        push_u16(&mut bytes, 32);
+        bytes.resize(bytes.len() + 14, 0);
+        push_u8(&mut bytes, 0);
+        bytes.resize(bytes.len() + 3, 0);
+        push_u16(&mut bytes, 256);
+        push_u8(&mut bytes, 1);
+        push_u8(&mut bytes, 1);
+        bytes.resize(bytes.len() + 92, 0);
+
+        push_u32(&mut bytes, frame_size);
+        push_u16(&mut bytes, 0xf1fa);
+        push_u16(&mut bytes, 2);
+        push_u16(&mut bytes, 100);
+        bytes.resize(bytes.len() + 2, 0);
+        push_u32(&mut bytes, 2);
+
+        push_u32(&mut bytes, layer_chunk_size);
+        push_u16(&mut bytes, 0x2004);
+        push_u16(&mut bytes, 1);
+        push_u16(&mut bytes, 0);
+        push_u16(&mut bytes, 0);
+        bytes.resize(bytes.len() + 4, 0);
+        push_u16(&mut bytes, 0);
+        push_u8(&mut bytes, 255);
+        bytes.resize(bytes.len() + 3, 0);
+        push_string(&mut bytes, "Layer 1");
+
+        push_u32(&mut bytes, cel_chunk_size);
+        push_u16(&mut bytes, 0x2005);
+        push_u16(&mut bytes, 0);
+        push_i16(&mut bytes, 0);
+        push_i16(&mut bytes, 0);
+        push_u8(&mut bytes, 255);
+        push_u16(&mut bytes, 0);
+        push_i16(&mut bytes, 0);
+        bytes.resize(bytes.len() + 5, 0);
+        push_u16(&mut bytes, 1);
+        push_u16(&mut bytes, 1);
+        bytes.extend_from_slice(&[255, 0, 0, 255]);
+
+        bytes
+    }
+
+    #[test]
+    fn aseprite_component_parses_and_renders_rgba32_file_through_runtime_invoke() {
+        let aseprite = "../../../build.nosync/plugins/aseprite.comp.wasm";
+        if !std::path::Path::new(aseprite).exists() {
+            eprintln!("skipping aseprite component invoke test; build it with `make build.nosync/plugins/aseprite.comp.wasm`");
+            return;
+        }
+
+        let root = PathBuf::from("../../../examples/demo")
+            .canonicalize()
+            .unwrap();
+        let runtime = Runtime::new_at(root.clone(), test_preopens(&root)).unwrap();
+        runtime
+            .add_plugins(vec!["plugins/aseprite.comp.wasm".to_string()], false)
+            .unwrap();
+
+        let opened = runtime
+            .invoke(
+                "aseprite/aseprite::parse-bytes",
+                serde_json::json!(["minimal.aseprite", minimal_aseprite_rgba32_bytes()]),
+            )
+            .unwrap();
+        let document = opened.get("ok").unwrap();
+        assert_eq!(
+            document["$resource"],
+            serde_json::json!("gams:aseprite/aseprite")
+        );
+
+        let info = runtime
+            .invoke("aseprite/aseprite::info", serde_json::json!([document]))
+            .unwrap();
+        assert_eq!(info["ok"]["width"], serde_json::json!(1));
+        assert_eq!(info["ok"]["height"], serde_json::json!(1));
+        assert_eq!(info["ok"]["color-depth"], serde_json::json!("rgba32"));
+
+        let layers = runtime
+            .invoke("aseprite/aseprite::layers", serde_json::json!([document]))
+            .unwrap();
+        assert_eq!(layers["ok"][0]["name"], serde_json::json!("Layer 1"));
+
+        let rendered = runtime
+            .invoke(
+                "aseprite/aseprite::render-frame",
+                serde_json::json!([document, 0]),
+            )
+            .unwrap();
+        assert_eq!(rendered["ok"]["width"], serde_json::json!(1));
+        assert_eq!(rendered["ok"]["height"], serde_json::json!(1));
+        assert_eq!(rendered["ok"]["data"], serde_json::json!([255, 0, 0, 255]));
+    }
+
     #[test]
     fn sql_component_round_trips_memory_database_through_runtime_invoke() {
         let sql = "../../../build.nosync/plugins/sql.comp.wasm";
@@ -2861,9 +2977,8 @@ mod tests {
             .unwrap();
         let contextual_error_text = contextual_error["err"].as_str().unwrap();
         assert!(contextual_error_text.contains("error in node \"bad read\" (2)"));
-        assert!(contextual_error_text.contains(
-            "input 1 \"path\" <- node \"object value\" (1) output 1 \"value\": object"
-        ));
+        assert!(contextual_error_text
+            .contains("input 1 \"path\" <- node \"object value\" (1) output 1 \"value\": object"));
     }
 
     #[test]
@@ -2908,7 +3023,8 @@ mod tests {
         let result = runtime
             .invoke("lua/lua::run", serde_json::json!([source]))
             .unwrap();
-        let copied: serde_json::Value = serde_json::from_str(result["ok"].as_str().unwrap()).unwrap();
+        let copied: serde_json::Value =
+            serde_json::from_str(result["ok"].as_str().unwrap()).unwrap();
         assert_eq!(copied["props"]["existing"], true);
         assert_eq!(copied["props"]["tilesets"], "copied tilesets");
     }
@@ -3009,7 +3125,6 @@ mod tests {
         assert!(after_release.contains("unknown resource ref"));
     }
 
-
     #[test]
     fn markov_junior_basic_brick_wall_session_step_one_finishes_like_run() {
         let plugin = "../../../build.nosync/plugins/markov-junior.comp.wasm";
@@ -3023,34 +3138,39 @@ mod tests {
         let repo = PathBuf::from("../../..").canonicalize().unwrap();
         let runtime = Runtime::new_at(repo.clone(), test_preopens(&repo)).unwrap();
         runtime
-            .add_plugins(vec!["build.nosync/plugins/markov-junior.comp.wasm".to_string()], false)
+            .add_plugins(
+                vec!["build.nosync/plugins/markov-junior.comp.wasm".to_string()],
+                false,
+            )
             .unwrap();
 
         let model_ir = serde_json::to_value(vec![
-            77, 74, 73, 82, 1, 0, 0, 0, 3, 0, 0, 0, 66, 87, 79, 23, 0, 0, 0, 100, 0, 0, 0, 5, 0, 0, 0, 0, 0,
-            0, 0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1,
-            0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 66, 42, 79,
-            42, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 1, 0,
-            0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 42, 42,
-            87, 42, 42, 100, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0,
-            0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            240, 63, 3, 0, 0, 0, 40, 120, 41, 66, 87, 66, 66, 100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0,
-            0, 1, 0, 0, 0, 8, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            240, 63, 3, 0, 0, 0, 40, 120, 41, 87, 87, 87, 87, 87, 87, 87, 87, 42, 42, 42, 66, 42, 42, 42,
-            42, 102, 0, 0, 0, 100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 8, 0, 0, 0, 2, 0, 0, 0, 1,
-            0, 0, 0, 8, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41,
-            79, 79, 79, 79, 79, 79, 79, 79, 66, 66, 66, 66, 66, 66, 66, 66, 42, 42, 42, 66, 42, 42, 42, 42,
-            42, 42, 42, 42, 42, 42, 42, 42, 100, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 2, 0, 0, 0,
-            0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 240, 63, 4, 0, 0, 0, 40, 120, 121, 41, 79, 87, 42, 79, 100, 0, 0, 0, 2, 0, 0,
-            0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 79, 79, 66, 42, 66, 42, 42, 100, 0,
-            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 3, 0,
-            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 79, 79, 79, 66, 66,
-            66, 66, 79, 79, 79, 79, 42, 42, 66, 42, 42, 42, 42, 42, 42, 42, 42, 42, 100, 0, 0, 0, 1, 0, 0,
-            0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 87, 87, 66, 66, 79, 66, 42, 79, 42, 42,
-            42, 42, 102, 0, 0, 0
+            77, 74, 73, 82, 1, 0, 0, 0, 3, 0, 0, 0, 66, 87, 79, 23, 0, 0, 0, 100, 0, 0, 0, 5, 0, 0,
+            0, 0, 0, 0, 0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0,
+            0, 1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0,
+            0, 40, 120, 41, 66, 42, 79, 42, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0,
+            0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 42, 42, 87, 42, 42, 100, 0, 0, 0, 4, 0, 0, 0, 0,
+            0, 0, 0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1,
+            0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40,
+            120, 41, 66, 87, 66, 66, 100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0,
+            8, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 8, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63,
+            3, 0, 0, 0, 40, 120, 41, 87, 87, 87, 87, 87, 87, 87, 87, 42, 42, 42, 66, 42, 42, 42,
+            42, 102, 0, 0, 0, 100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 8, 0, 0, 0, 2, 0,
+            0, 0, 1, 0, 0, 0, 8, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0,
+            0, 0, 40, 120, 41, 79, 79, 79, 79, 79, 79, 79, 79, 66, 66, 66, 66, 66, 66, 66, 66, 42,
+            42, 42, 66, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 100, 0, 0, 0, 4, 0, 0, 0,
+            0, 0, 0, 0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0,
+            1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 4, 0, 0, 0,
+            40, 120, 121, 41, 79, 87, 42, 79, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2,
+            0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 79, 79, 66, 42, 66, 42, 42, 100, 0, 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 3, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 79, 79, 79, 79, 66,
+            66, 66, 66, 79, 79, 79, 79, 42, 42, 66, 42, 42, 42, 42, 42, 42, 42, 42, 42, 100, 0, 0,
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0,
+            3, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 3, 0, 0, 0, 40, 120, 41, 87, 87, 66,
+            66, 79, 66, 42, 79, 42, 42, 42, 42, 102, 0, 0, 0,
         ])
         .unwrap();
         let initial = serde_json::to_value(vec![0; 30 * 30]).unwrap();
@@ -3102,18 +3222,19 @@ mod tests {
         let repo = PathBuf::from("../../..").canonicalize().unwrap();
         let runtime = Runtime::new_at(repo.clone(), test_preopens(&repo)).unwrap();
         runtime
-            .add_plugins(vec!["build.nosync/plugins/markov-junior.comp.wasm".to_string()], false)
+            .add_plugins(
+                vec!["build.nosync/plugins/markov-junior.comp.wasm".to_string()],
+                false,
+            )
             .unwrap();
 
         let sequence_model_ir = serde_json::to_value(vec![
-            77, 74, 73, 82, 1, 0, 0, 0, 2, 0, 0, 0, 66, 87, 7, 0, 0, 0, 100, 0,
-            0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0,
-            0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0,
-            0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 66, 87, 102, 0, 0, 0,
-            100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0,
-            1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 87, 66,
+            77, 74, 73, 82, 1, 0, 0, 0, 2, 0, 0, 0, 66, 87, 7, 0, 0, 0, 100, 0, 0, 0, 5, 0, 0, 0,
+            0, 0, 0, 0, 100, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+            2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 66, 87, 102, 0, 0, 0, 100, 0, 0, 0, 1, 0, 0, 0, 0,
+            0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 87, 66,
         ])
         .unwrap();
         let initial = serde_json::json!([0, 0, 0, 0, 0, 0]);
@@ -3149,7 +3270,15 @@ mod tests {
                 serde_json::json!([sequence_session.clone(), 1]),
             )
             .unwrap();
-        assert_eq!(third["ok"]["cells"].as_array().unwrap().iter().filter(|value| **value == serde_json::json!(0)).count(), 1);
+        assert_eq!(
+            third["ok"]["cells"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|value| **value == serde_json::json!(0))
+                .count(),
+            1
+        );
 
         runtime
             .invoke(
@@ -3160,10 +3289,9 @@ mod tests {
         runtime.release_resource(sequence_session).unwrap();
 
         let model_ir = serde_json::json!([
-            77, 74, 73, 82, 1, 0, 0, 0, 2, 0, 0, 0, 66, 87, 1, 0, 0, 0, 2,
-            0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
-            0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0,
-            66, 87
+            77, 74, 73, 82, 1, 0, 0, 0, 2, 0, 0, 0, 66, 87, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 1,
+            0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 0,
+            0, 0, 0, 66, 87
         ]);
         let initial = serde_json::json!([0, 0, 0, 0, 0, 0]);
         let config = serde_json::json!({ "width": 3, "height": 2, "depth": 1, "seed": 42 });
@@ -3177,7 +3305,10 @@ mod tests {
         let state = created.get("ok").unwrap();
         let session = state.get("handle").unwrap().clone();
         assert_eq!(state["grid"]["steps-run"], serde_json::json!(0));
-        assert_eq!(state["grid"]["cells"], serde_json::json!([0, 0, 0, 0, 0, 0]));
+        assert_eq!(
+            state["grid"]["cells"],
+            serde_json::json!([0, 0, 0, 0, 0, 0])
+        );
 
         let stepped = runtime
             .invoke(
@@ -3203,7 +3334,10 @@ mod tests {
             )
             .unwrap();
         assert_eq!(finished["ok"]["done"], serde_json::json!(true));
-        assert_eq!(finished["ok"]["cells"], serde_json::json!([1, 1, 1, 1, 1, 1]));
+        assert_eq!(
+            finished["ok"]["cells"],
+            serde_json::json!([1, 1, 1, 1, 1, 1])
+        );
 
         let dismissed = runtime
             .invoke(
@@ -3309,7 +3443,10 @@ mod tests {
                 serde_json::json!(["not base64!"]),
             )
             .unwrap();
-        assert_eq!(invalid_base64["err"], serde_json::json!("invalid base64 length"));
+        assert_eq!(
+            invalid_base64["err"],
+            serde_json::json!("invalid base64 length")
+        );
 
         let saved_qoi = runtime
             .invoke(
