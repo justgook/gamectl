@@ -69,7 +69,7 @@ static bool read_string(reader_t *r, string_t *out) {
 }
 
 static string_t dup_string_bytes(const uint8_t *ptr, size_t len) { string_t s = {0}; s.ptr = malloc(len + 1); if (s.ptr) { memcpy(s.ptr, ptr, len); s.ptr[len] = 0; s.len = len; } return s; }
-static void return_string(aseprite_plugin_string_t *out, const string_t *s) { out->ptr = NULL; out->len = 0; if (s->len) aseprite_plugin_string_set(out, s->ptr); else aseprite_plugin_string_set(out, ""); }
+static void return_string(aseprite_plugin_string_t *out, const string_t *s) { aseprite_plugin_string_dup_n(out, s->ptr ? s->ptr : "", s->len); }
 
 #define PUSH(doc, arr, count, cap, value) do { \
   if ((doc)->count == (doc)->cap) { size_t nc = (doc)->cap ? (doc)->cap * 2u : 8u; void *np = realloc((doc)->arr, nc * sizeof(*(doc)->arr)); if (!np) return false; (doc)->arr = np; (doc)->cap = nc; } \
@@ -247,4 +247,4 @@ bool exports_gams_aseprite_aseprite_render_frame(document_t *doc, uint32_t frame
 
 bool exports_gams_aseprite_aseprite_to_json(document_t *doc, aseprite_plugin_string_t *ret, aseprite_plugin_string_t *err) { (void)err; char buf[512]; int n=snprintf(buf,sizeof(buf),"{\"fileSize\":%u,\"numFrames\":%u,\"width\":%u,\"height\":%u,\"colorDepth\":%u,\"numColors\":%u,\"layers\":%zu,\"tags\":%zu,\"slices\":%zu,\"tilesets\":%zu}",doc->file_size,doc->num_frames,doc->width,doc->height,doc->color_depth,doc->num_colors,doc->layer_count,doc->tag_count,doc->slice_count,doc->tileset_count); if(n<0){set_error(err,"failed to format Aseprite JSON");return false;} aseprite_plugin_string_set(ret,buf); return true; }
 
-void exports_gams_aseprite_aseprite_document_destructor(document_t *doc) { if(!doc)return; free(doc); }
+void exports_gams_aseprite_aseprite_document_destructor(document_t *doc) { if(!doc)return; free(doc->name.ptr); for(size_t i=0;i<doc->layer_count;i++)free(doc->layers[i].name.ptr); free(doc->layers); for(size_t i=0;i<doc->frame_count;i++){for(size_t c=0;c<doc->frames[i].cel_count;c++) if(doc->frames[i].cels[c].cel_type!=1) free(doc->frames[i].cels[c].data.ptr); free(doc->frames[i].cels);} free(doc->frames); for(size_t i=0;i<doc->tag_count;i++)free(doc->tags[i].name.ptr); free(doc->tags); if(doc->palette.colors){for(size_t i=0;i<doc->palette.size;i++)free(doc->palette.colors[i].name.ptr); free(doc->palette.colors);} for(size_t i=0;i<doc->slice_count;i++){free(doc->slices[i].name.ptr); free(doc->slices[i].keys);} free(doc->slices); for(size_t i=0;i<doc->tileset_count;i++){free(doc->tilesets[i].name.ptr); free(doc->tilesets[i].data.ptr);} free(doc->tilesets); free(doc); }
