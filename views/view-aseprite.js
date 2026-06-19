@@ -13,20 +13,30 @@ function escapeHtml(value) {
         .replaceAll('"', "&quot;")
 }
 
-function makeFrameCanvas(frame) {
-    assert(frame && typeof frame === "object", "view-aseprite render-frame result must be an object")
-    assert(Number.isInteger(frame.width), "view-aseprite frame width must be an integer")
-    assert(Number.isInteger(frame.height), "view-aseprite frame height must be an integer")
-    assert(Array.isArray(frame.data), "view-aseprite frame data must be an array")
-    const pixels = new Uint8ClampedArray(frame.data)
-    assert(pixels.length === frame.width * frame.height * 4, "view-aseprite frame data length must match RGBA dimensions")
+function makePixelsCanvas(pixels) {
+    assert(pixels && typeof pixels === "object", "view-aseprite pixels result must be an object")
+    assert(Number.isInteger(pixels.width), "view-aseprite pixels width must be an integer")
+    assert(Number.isInteger(pixels.height), "view-aseprite pixels height must be an integer")
+    assert(Array.isArray(pixels.data), "view-aseprite pixels data must be an array")
+    const data = new Uint8ClampedArray(pixels.data)
+    assert(data.length === pixels.width * pixels.height * 4, "view-aseprite pixels data length must match RGBA dimensions")
     const canvas = document.createElement("canvas")
-    canvas.width = frame.width
-    canvas.height = frame.height
+    canvas.width = pixels.width
+    canvas.height = pixels.height
     const ctx = canvas.getContext("2d")
-    assert(ctx, "view-aseprite frame canvas requires 2d context")
-    ctx.putImageData(new ImageData(pixels, frame.width, frame.height), 0, 0)
+    assert(ctx, "view-aseprite pixels canvas requires 2d context")
+    ctx.putImageData(new ImageData(data, pixels.width, pixels.height), 0, 0)
     return canvas
+}
+
+function layerInitiallyVisible(layer) {
+    const flags = layer["layer-flags"]
+    assert(Array.isArray(flags), "view-aseprite layer-flags must be an array")
+    return flags.includes("visible")
+}
+
+function blendOrder(a, b) {
+    return a["layer-index"] + a["z-index"] - (b["layer-index"] + b["z-index"]) || a["z-index"] - b["z-index"]
 }
 
 export class ViewAseprite extends ViewCanvasBase {
@@ -47,6 +57,8 @@ export class ViewAseprite extends ViewCanvasBase {
         this.slices = []
         this.tilesets = []
         this.frameIndex = 0
+        this.layerVisibility = new Map()
+        this.celsByFrame = new Map()
         this.statusElement = null
         this.pathElement = null
         this.frameElement = null
@@ -200,6 +212,8 @@ export class ViewAseprite extends ViewCanvasBase {
             this.slices = unwrap(await runtime.invoke("aseprite/aseprite::slices", this.documentResource), "aseprite slices")
             this.tilesets = unwrap(await runtime.invoke("aseprite/aseprite::tilesets", this.documentResource), "aseprite tilesets")
             assert(this.frames.length > 0, "view-aseprite requires at least one frame")
+            this.layerVisibility = new Map(this.layers.map((layer) => [layer.index, layerInitiallyVisible(layer)]))
+            this.celsByFrame = new Map()
             this.frameIndex = 0
             this.renderInspector()
             await this.renderFrame()
@@ -217,10 +231,50 @@ export class ViewAseprite extends ViewCanvasBase {
     async renderFrame({ autoFit = false } = {}) {
         assert(this.documentResource, "view-aseprite requires loaded document")
         assert(this.frames[this.frameIndex], "view-aseprite active frame must exist")
-        const frame = unwrap(await runtime.invoke("aseprite/aseprite::render-frame", this.documentResource, this.frameIndex), "aseprite render frame")
-        const source = makeFrameCanvas(frame)
-        this.setData({ source, width: frame.width, height: frame.height }, { autoFit })
+        const source = await this.composeFrameCanvas(this.frameIndex)
+        this.setData({ source, width: source.width, height: source.height }, { autoFit })
         this.setFrameStatus()
+    }
+
+    async celsForFrame(frameIndex) {
+        if (this.celsByFrame.has(frameIndex)) return this.celsByFrame.get(frameIndex)
+        assert(this.documentResource, "view-aseprite requires loaded document")
+        const cels = unwrap(await runtime.invoke("aseprite/aseprite::cels", this.documentResource, frameIndex), "aseprite cels")
+        this.celsByFrame.set(frameIndex, cels)
+        return cels
+    }
+
+    async composeFrameCanvas(frameIndex) {
+        assert(this.info, "view-aseprite requires loaded info")
+        assert(this.documentResource, "view-aseprite requires loaded document")
+        const canvas = document.createElement("canvas")
+        canvas.width = this.info.width
+        canvas.height = this.info.height
+        const ctx = canvas.getContext("2d")
+        assert(ctx, "view-aseprite compose canvas requires 2d context")
+        ctx.imageSmoothingEnabled = false
+
+        const cels = [...(await this.celsForFrame(frameIndex))].sort(blendOrder)
+        for (const cel of cels) {
+            const layer = this.layers[cel["layer-index"]]
+            assert(layer, `view-aseprite cel references missing layer ${cel["layer-index"]}`)
+            if (this.layerVisibility.get(layer.index) !== true) continue
+            const celPixels = unwrap(await runtime.invoke("aseprite/aseprite::cel-pixels", this.documentResource, frameIndex, cel["cel-index"]), "aseprite cel pixels")
+            const celCanvas = makePixelsCanvas(celPixels)
+            ctx.globalAlpha = (cel.opacity / 255) * (layer.opacity / 255)
+            ctx.drawImage(celCanvas, cel.x, cel.y)
+            ctx.globalAlpha = 1
+        }
+
+        return canvas
+    }
+
+    async toggleLayerVisible(layerIndex) {
+        assert(Number.isInteger(layerIndex), "view-aseprite layer index must be an integer")
+        assert(this.layerVisibility.has(layerIndex), `view-aseprite unknown layer ${layerIndex}`)
+        this.layerVisibility.set(layerIndex, !this.layerVisibility.get(layerIndex))
+        this.renderInspector()
+        await this.renderFrame({ autoFit: false })
     }
 
     async setFrame(frameIndex) {
@@ -309,14 +363,16 @@ export class ViewAseprite extends ViewCanvasBase {
         ]
 
         const layerRows = this.layers
-            .map(
-                (layer) => `
+            .map((layer) => {
+                const visible = this.layerVisibility.get(layer.index) === true
+                return `
           <tr>
             <td>${escapeHtml(layer.index)}</td>
+            <td><button type="button" data-action="toggle-layer-visible" data-layer-index="${escapeHtml(layer.index)}" aria-pressed="${visible ? "true" : "false"}" aria-label="${visible ? "Hide" : "Show"} ${escapeHtml(layer.name)}"><i aria-hidden="true">${visible ? "visibility" : "visibility_off"}</i></button></td>
             <td>${escapeHtml(layer.name)}</td>
             <td>${escapeHtml(layer.opacity)}</td>
-          </tr>`,
-            )
+          </tr>`
+            })
             .join("")
 
         const tagRows = this.tags
@@ -337,8 +393,8 @@ export class ViewAseprite extends ViewCanvasBase {
       </table>
       <table>
         <caption>Layers</caption>
-        <thead><tr><th>#</th><th>Name</th><th>Opacity</th></tr></thead>
-        <tbody>${layerRows || `<tr><td colspan="3">No layers</td></tr>`}</tbody>
+        <thead><tr><th>#</th><th>Visible</th><th>Name</th><th>Opacity</th></tr></thead>
+        <tbody>${layerRows || `<tr><td colspan="4">No layers</td></tr>`}</tbody>
       </table>
       <table>
         <caption>Tags</caption>
@@ -346,6 +402,13 @@ export class ViewAseprite extends ViewCanvasBase {
         <tbody>${tagRows || `<tr><td colspan="3">No tags</td></tr>`}</tbody>
       </table>
     `
+        for (const button of this.asideElement.querySelectorAll('[data-action="toggle-layer-visible"]')) {
+            assert(button instanceof HTMLButtonElement, "view-aseprite layer visibility control must be a button")
+            button.addEventListener("click", () => {
+                const layerIndex = Number(button.dataset.layerIndex)
+                void this.toggleLayerVisible(layerIndex)
+            })
+        }
     }
 
     calculateContentBounds(data) {
