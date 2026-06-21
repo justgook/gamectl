@@ -26,6 +26,7 @@ function assertArray(value, name) {
 export class Runtime {
   #callViewListenerReady = null
   #mainPlugins = new Map()
+  #projectConfig = null
 
   constructor() {
     this.#callViewListenerReady = this.#setupCallViewBridge()
@@ -100,6 +101,17 @@ export class Runtime {
     const parsedArgs = JSON.parse(args)
     assertArray(parsedArgs, "runtime.callView args JSON")
     return JSON.stringify(await this.call(target, ...parsedArgs))
+  }
+
+  setProjectConfig(config) {
+    if (!config || typeof config !== "object" || Array.isArray(config))
+      throw new Error("runtime project config must be an object")
+    this.#projectConfig = config
+  }
+
+  get projectConfig() {
+    if (!this.#projectConfig) throw new Error("runtime project config is not loaded")
+    return this.#projectConfig
   }
 
   async diagnostics() {

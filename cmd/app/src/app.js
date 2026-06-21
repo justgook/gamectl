@@ -13,6 +13,7 @@ async function main() {
     console.time("read gams.json")
     const gamsJsonText2 = unwrap(await runtime.invoke("fs/fs::read-text", "gams.json"))
     const config = JSON.parse(gamsJsonText2)
+    runtime.setProjectConfig(config)
     console.timeEnd("read gams.json")
 
     console.time("addPlugins")

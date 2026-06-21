@@ -178,11 +178,16 @@ class SqlConnection {
   }
 }
 
-const UPDATE_FROM_CONFIG = ":memory:"
+function defaultSqlConnectionName() {
+  const value = runtime.projectConfig.sql
+  assertString(value, "gams config sql")
+  return value
+}
+
 const connection = await unwrapSqlResult(
   await runtime.invoke(
     "sql/types::[static]connection.open",
-    UPDATE_FROM_CONFIG,
+    defaultSqlConnectionName(),
   ),
   "open SQL connection",
 )
