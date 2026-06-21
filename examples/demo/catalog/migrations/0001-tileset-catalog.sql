@@ -115,3 +115,26 @@ CREATE TABLE IF NOT EXISTS sprite_animation (
 
 CREATE INDEX IF NOT EXISTS idx_sprite_animation_sprite
 ON sprite_animation (sprite_id);
+
+CREATE TABLE IF NOT EXISTS nine_patch (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    name TEXT NOT NULL UNIQUE,
+    display_name TEXT,
+    description TEXT,
+
+    -- Source image/authoring file for a 9-slice scalable image.
+    image_path TEXT NOT NULL,
+
+    -- Source-pixel slice line positions: left/top are first split lines from origin;
+    -- right/bottom are second split lines from origin, matching Nine_Patch.slices.
+    slice_left INTEGER NOT NULL CHECK (slice_left >= 0),
+    slice_top INTEGER NOT NULL CHECK (slice_top >= 0),
+    slice_right INTEGER NOT NULL CHECK (slice_right > slice_left),
+    slice_bottom INTEGER NOT NULL CHECK (slice_bottom > slice_top),
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (image_path)
+);

@@ -162,6 +162,11 @@
         "label": "Import Sprite",
         "internal": true
       },
+      "view-catalog-nine-patch-edit": {
+        "url": "views/view-catalog-nine-patch-edit.js",
+        "label": "Edit Nine Patch",
+        "internal": true
+      },
       "view-ng": {
         "config": {
           "theme": {

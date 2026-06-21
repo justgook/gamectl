@@ -55,10 +55,13 @@ export class ViewCatalog extends HTMLElement {
         this.activeTab = "tilesets"
         this.selectedTilesetId = 0
         this.selectedSpriteId = 0
+        this.selectedNinePatchId = 0
         this.tilesetRows = []
         this.spriteRows = []
+        this.ninePatchRows = []
         this.tilesetTableElement = null
         this.spriteTableElement = null
+        this.ninePatchTableElement = null
         this.statusElement = null
         this.headerControlsElement = null
     }
@@ -77,6 +80,7 @@ export class ViewCatalog extends HTMLElement {
         <div role="tablist">
           <button type="button" role="tab" data-tab="tilesets" aria-selected="true">Tilesets</button>
           <button type="button" role="tab" data-tab="sprites" aria-selected="false">Sprites</button>
+          <button type="button" role="tab" data-tab="nine-patches" aria-selected="false">Nine patches</button>
         </div>
         <section role="tabpanel" data-panel="tilesets">
           <table data-element="tileset-table">
@@ -110,6 +114,20 @@ export class ViewCatalog extends HTMLElement {
             <tbody></tbody>
           </table>
         </section>
+        <section role="tabpanel" data-panel="nine-patches" hidden>
+          <table data-element="nine-patch-table">
+            <thead>
+              <tr>
+                <th>Preview</th>
+                <th>Name</th>
+                <th>Source</th>
+                <th>Slices</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
       </article>
       <footer data-element="footer">
         <output data-element="status">Loading...</output>
@@ -118,13 +136,16 @@ export class ViewCatalog extends HTMLElement {
 
         this.tilesetTableElement = this.querySelector('[data-element="tileset-table"]')
         this.spriteTableElement = this.querySelector('[data-element="sprite-table"]')
+        this.ninePatchTableElement = this.querySelector('[data-element="nine-patch-table"]')
         this.statusElement = this.querySelector('[data-element="status"]')
         assert(this.tilesetTableElement instanceof HTMLTableElement, "view-catalog missing tileset table")
         assert(this.spriteTableElement instanceof HTMLTableElement, "view-catalog missing sprite table")
+        assert(this.ninePatchTableElement instanceof HTMLTableElement, "view-catalog missing nine-patch table")
         assert(this.statusElement instanceof HTMLOutputElement, "view-catalog missing status output")
 
         this.querySelector('[data-tab="tilesets"]').addEventListener("click", () => this.selectTab("tilesets"))
         this.querySelector('[data-tab="sprites"]').addEventListener("click", () => this.selectTab("sprites"))
+        this.querySelector('[data-tab="nine-patches"]').addEventListener("click", () => this.selectTab("nine-patches"))
 
         this.mountHeaderControls()
         void this.refresh()
@@ -180,7 +201,7 @@ export class ViewCatalog extends HTMLElement {
     }
 
     selectTab(tab) {
-        assert(tab === "tilesets" || tab === "sprites", `unknown catalog tab ${tab}`)
+        assert(tab === "tilesets" || tab === "sprites" || tab === "nine-patches", `unknown catalog tab ${tab}`)
         this.activeTab = tab
         for (const button of this.querySelectorAll('[role="tab"]')) {
             button.setAttribute("aria-selected", button.dataset.tab === tab ? "true" : "false")
@@ -198,7 +219,12 @@ export class ViewCatalog extends HTMLElement {
         const editButton = this.headerControlsElement.querySelector('[data-action="edit"]')
         assert(previewButton instanceof HTMLButtonElement, "view-catalog preview button missing")
         assert(editButton instanceof HTMLButtonElement, "view-catalog edit button missing")
-        const hasSelection = this.activeTab === "tilesets" ? this.selectedTilesetId > 0 : this.selectedSpriteId > 0
+        const hasSelection =
+            this.activeTab === "tilesets"
+                ? this.selectedTilesetId > 0
+                : this.activeTab === "sprites"
+                  ? this.selectedSpriteId > 0
+                  : this.selectedNinePatchId > 0
         previewButton.disabled = !hasSelection
         editButton.disabled = !hasSelection
     }
@@ -215,12 +241,20 @@ export class ViewCatalog extends HTMLElement {
             this.setStatus(`${this.tilesetRows.length} tilesets`, "success")
             return
         }
-        this.setStatus(`${this.spriteRows.length} sprites`, "success")
+        if (this.activeTab === "sprites") {
+            this.setStatus(`${this.spriteRows.length} sprites`, "success")
+            return
+        }
+        this.setStatus(`${this.ninePatchRows.length} nine patches`, "success")
     }
 
     async importForActiveTab() {
         if (this.activeTab === "sprites") {
             await this.importSprite()
+            return
+        }
+        if (this.activeTab === "nine-patches") {
+            await this.importNinePatch()
             return
         }
         assert(this.activeTab === "tilesets", `unknown catalog tab ${this.activeTab}`)
@@ -252,6 +286,25 @@ export class ViewCatalog extends HTMLElement {
         return row
     }
 
+    selectedNinePatchRow() {
+        const row = this.ninePatchRows.find((item) => Number(item.id) === this.selectedNinePatchId)
+        assert(row, `selected nine patch ${this.selectedNinePatchId} not found`)
+        return row
+    }
+
+    async importNinePatch() {
+        const payload = unwrap(
+            await runtime.call("ui.popup.open", {
+                title: "Import Nine Patch",
+                size: "large",
+                tag: "view-catalog-nine-patch-edit",
+            }),
+        )
+        if (payload?.cancelled) return
+        await this.refresh()
+        this.selectTab("nine-patches")
+    }
+
     async previewSelectedForActiveTab() {
         if (this.activeTab === "sprites") {
             assert(this.selectedSpriteId > 0, "select a sprite before preview")
@@ -262,6 +315,19 @@ export class ViewCatalog extends HTMLElement {
                 title: path.split("/").pop() || path,
                 size: "large",
                 tag: "view-aseprite",
+                props: { path },
+            })
+            return
+        }
+        if (this.activeTab === "nine-patches") {
+            assert(this.selectedNinePatchId > 0, "select a nine patch before preview")
+            const row = this.selectedNinePatchRow()
+            const path = String(row.image_path || "").trim()
+            assert(path, "selected nine patch requires image path")
+            await runtime.call("ui.popup.open", {
+                title: path.split("/").pop() || path,
+                size: "large",
+                tag: "view-image",
                 props: { path },
             })
             return
@@ -298,6 +364,24 @@ export class ViewCatalog extends HTMLElement {
             this.selectTab("sprites")
             return
         }
+        if (this.activeTab === "nine-patches") {
+            assert(this.selectedNinePatchId > 0, "select a nine patch before editing")
+            const payload = unwrap(
+                await runtime.call("ui.popup.open", {
+                    title: "Edit Nine Patch",
+                    size: "large",
+                    tag: "view-catalog-nine-patch-edit",
+                    props: {
+                        mode: "edit",
+                        ninePatchId: this.selectedNinePatchId,
+                    },
+                }),
+            )
+            if (payload?.cancelled) return
+            await this.refresh()
+            this.selectTab("nine-patches")
+            return
+        }
         assert(this.activeTab === "tilesets", `unknown catalog tab ${this.activeTab}`)
         assert(this.selectedTilesetId > 0, "select a tileset before editing")
         this.setStatus("Tileset editing is not implemented yet.", "warning")
@@ -307,12 +391,16 @@ export class ViewCatalog extends HTMLElement {
         this.setStatus("Loading...", "info")
         this.tilesetRows = await this.fetchTilesets()
         this.spriteRows = await this.fetchSprites()
+        this.ninePatchRows = await this.fetchNinePatches()
         if (!this.tilesetRows.some((row) => Number(row.id) === this.selectedTilesetId)) this.selectedTilesetId = 0
         if (!this.spriteRows.some((row) => Number(row.id) === this.selectedSpriteId)) this.selectedSpriteId = 0
+        if (!this.ninePatchRows.some((row) => Number(row.id) === this.selectedNinePatchId)) this.selectedNinePatchId = 0
         this.renderTilesets()
         this.renderSprites()
+        this.renderNinePatches()
         await this.renderTilesetPreviews()
         await this.renderSpritePreviews()
+        await this.renderNinePatchPreviews()
         this.updateHeaderControlsUI()
         this.updateStatus()
     }
@@ -394,6 +482,26 @@ export class ViewCatalog extends HTMLElement {
         ORDER BY s.name
       `,
             ["id", "name", "display_name", "description", "image_path", "grid_width", "grid_height", "animation_count"],
+        )
+    }
+
+    async fetchNinePatches() {
+        return await sql.queryObjects(
+            `
+        SELECT
+          id,
+          name,
+          COALESCE(display_name, name) AS display_name,
+          COALESCE(description, '') AS description,
+          image_path,
+          slice_left,
+          slice_top,
+          slice_right,
+          slice_bottom
+        FROM nine_patch
+        ORDER BY name
+      `,
+            ["id", "name", "display_name", "description", "image_path", "slice_left", "slice_top", "slice_right", "slice_bottom"],
         )
     }
 
@@ -487,6 +595,45 @@ export class ViewCatalog extends HTMLElement {
         }
     }
 
+    renderNinePatches() {
+        assert(this.ninePatchTableElement instanceof HTMLTableElement, "view-catalog nine-patch table is not initialized")
+        const body = this.ninePatchTableElement.querySelector("tbody")
+        assert(body instanceof HTMLTableSectionElement, "view-catalog missing nine-patch table body")
+        body.replaceChildren()
+
+        for (const row of this.ninePatchRows) {
+            const tr = document.createElement("tr")
+            tr.dataset.ninePatchId = String(row.id)
+            tr.setAttribute("aria-selected", Number(row.id) === this.selectedNinePatchId ? "true" : "false")
+            tr.addEventListener("click", () => this.selectNinePatch(Number(row.id)))
+            tr.addEventListener("dblclick", async () => {
+                this.selectNinePatch(Number(row.id))
+                await this.editSelectedForActiveTab()
+            })
+
+            const preview = document.createElement("td")
+            const canvas = document.createElement("canvas")
+            canvas.dataset.element = "preview"
+            canvas.dataset.ninePatchId = String(row.id)
+            preview.appendChild(canvas)
+
+            const name = document.createElement("td")
+            name.textContent = row.display_name
+
+            const source = document.createElement("td")
+            source.textContent = row.image_path
+
+            const slices = document.createElement("td")
+            slices.textContent = `${row.slice_left}, ${row.slice_top}, ${row.slice_right}, ${row.slice_bottom}`
+
+            const description = document.createElement("td")
+            description.textContent = row.description
+
+            tr.append(preview, name, source, slices, description)
+            body.appendChild(tr)
+        }
+    }
+
     selectTileset(tilesetId) {
         assert(Number.isInteger(tilesetId) && tilesetId > 0, "tileset selection requires positive id")
         this.selectedTilesetId = tilesetId
@@ -501,6 +648,15 @@ export class ViewCatalog extends HTMLElement {
         this.selectedSpriteId = spriteId
         for (const row of this.querySelectorAll("tr[data-sprite-id]")) {
             row.setAttribute("aria-selected", Number(row.dataset.spriteId) === spriteId ? "true" : "false")
+        }
+        this.updateHeaderControlsUI()
+    }
+
+    selectNinePatch(ninePatchId) {
+        assert(Number.isInteger(ninePatchId) && ninePatchId > 0, "nine-patch selection requires positive id")
+        this.selectedNinePatchId = ninePatchId
+        for (const row of this.querySelectorAll("tr[data-nine-patch-id]")) {
+            row.setAttribute("aria-selected", Number(row.dataset.ninePatchId) === ninePatchId ? "true" : "false")
         }
         this.updateHeaderControlsUI()
     }
@@ -598,6 +754,51 @@ export class ViewCatalog extends HTMLElement {
         } finally {
             if (documentResource) await runtime.releaseResource(documentResource)
         }
+    }
+
+    async renderNinePatchPreviews() {
+        const imageCache = new Map()
+        for (const row of this.ninePatchRows) {
+            const canvas = this.querySelector(`canvas[data-nine-patch-id="${row.id}"]`)
+            assert(canvas instanceof HTMLCanvasElement, `view-catalog missing preview canvas for nine patch ${row.id}`)
+            await this.renderNinePatchPreview(canvas, row, imageCache)
+        }
+    }
+
+    async renderNinePatchPreview(canvas, row, imageCache) {
+        const path = String(row.image_path || "")
+        assert(path.length > 0, "nine-patch preview requires image path")
+
+        if (getExtension(path) !== "qoi") {
+            canvas.width = 96
+            canvas.height = 48
+            const ctx = canvas.getContext("2d")
+            assert(ctx, "view-catalog nine-patch preview requires 2d context")
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
+            ctx.fillText("image", 8, 26)
+            return
+        }
+
+        let source = imageCache.get(path)
+        if (!source) {
+            const bytes = new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", path)))
+            source = createCanvasFromQoi(bytes)
+            imageCache.set(path, source)
+        }
+
+        const scale = Math.max(1, Math.floor(96 / Math.max(source.width, source.height)))
+        canvas.width = source.width * scale
+        canvas.height = source.height * scale
+        const ctx = canvas.getContext("2d")
+        assert(ctx, "view-catalog nine-patch preview requires 2d context")
+        ctx.imageSmoothingEnabled = false
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
+        ctx.strokeRect(Number(row.slice_left) * scale + 0.5, 0.5, 0, canvas.height - 1)
+        ctx.strokeRect(Number(row.slice_right) * scale + 0.5, 0.5, 0, canvas.height - 1)
+        ctx.strokeRect(0.5, Number(row.slice_top) * scale + 0.5, canvas.width - 1, 0)
+        ctx.strokeRect(0.5, Number(row.slice_bottom) * scale + 0.5, canvas.width - 1, 0)
     }
 }
 
