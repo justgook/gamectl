@@ -73,3 +73,45 @@ ON tile (tileset_id, mask);
 
 CREATE INDEX IF NOT EXISTS idx_tile_image_source
 ON tile (image_source_id);
+
+CREATE TABLE IF NOT EXISTS sprite (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    name TEXT NOT NULL UNIQUE,
+    display_name TEXT,
+    description TEXT,
+
+    -- Source image/authoring file. MVP may use .aseprite, later may use qoi/png/etc.
+    image_path TEXT NOT NULL,
+
+    -- Tile footprint for placement/generation compatibility.
+    grid_width INTEGER NOT NULL CHECK (grid_width > 0),
+    grid_height INTEGER NOT NULL CHECK (grid_height > 0),
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (image_path)
+);
+
+CREATE TABLE IF NOT EXISTS sprite_animation (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    sprite_id INTEGER NOT NULL,
+
+    name TEXT NOT NULL,
+
+    -- Zero-based frame indexes matching the Aseprite plugin/runtime frame API.
+    start_frame INTEGER NOT NULL CHECK (start_frame >= 0),
+    end_frame INTEGER NOT NULL CHECK (end_frame >= start_frame),
+
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (sprite_id) REFERENCES sprite(id) ON DELETE CASCADE,
+
+    UNIQUE (sprite_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sprite_animation_sprite
+ON sprite_animation (sprite_id);

@@ -29,6 +29,22 @@ function createCanvasFromQoi(bytes) {
     return canvas
 }
 
+function createCanvasFromPixels(pixels, label) {
+    assert(pixels && typeof pixels === "object", `${label} pixels result must be an object`)
+    assert(Number.isInteger(pixels.width) && pixels.width > 0, `${label} pixels width must be a positive integer`)
+    assert(Number.isInteger(pixels.height) && pixels.height > 0, `${label} pixels height must be a positive integer`)
+    assert(Array.isArray(pixels.data), `${label} pixels data must be an array`)
+    const data = new Uint8ClampedArray(pixels.data)
+    assert(data.length === pixels.width * pixels.height * 4, `${label} pixels data length must match RGBA dimensions`)
+    const canvas = document.createElement("canvas")
+    canvas.width = pixels.width
+    canvas.height = pixels.height
+    const ctx = canvas.getContext("2d")
+    assert(ctx, `${label} pixels canvas requires 2d context`)
+    ctx.putImageData(new ImageData(data, pixels.width, pixels.height), 0, 0)
+    return canvas
+}
+
 function assertPositiveInteger(value, name) {
     assert(Number.isInteger(value) && value > 0, `${name} must be a positive integer`)
 }
@@ -36,8 +52,13 @@ function assertPositiveInteger(value, name) {
 export class ViewCatalog extends HTMLElement {
     constructor() {
         super()
-        this.rows = []
-        this.tableElement = null
+        this.activeTab = "tilesets"
+        this.selectedTilesetId = 0
+        this.selectedSpriteId = 0
+        this.tilesetRows = []
+        this.spriteRows = []
+        this.tilesetTableElement = null
+        this.spriteTableElement = null
         this.statusElement = null
         this.headerControlsElement = null
     }
@@ -52,30 +73,58 @@ export class ViewCatalog extends HTMLElement {
         this.style.display = "contents"
 
         this.innerHTML = `
-      <table data-element="catalog-table">
-        <thead>
-          <tr>
-            <th>Preview</th>
-            <th>Name</th>
-            <th>Source</th>
-            <th>Tile size</th>
-            <th>Masks</th>
-            <th>Tiles</th>
-            <th>Variants</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <article>
+        <div role="tablist">
+          <button type="button" role="tab" data-tab="tilesets" aria-selected="true">Tilesets</button>
+          <button type="button" role="tab" data-tab="sprites" aria-selected="false">Sprites</button>
+        </div>
+        <section role="tabpanel" data-panel="tilesets">
+          <table data-element="tileset-table">
+            <thead>
+              <tr>
+                <th>Preview</th>
+                <th>Name</th>
+                <th>Source</th>
+                <th>Tile size</th>
+                <th>Masks</th>
+                <th>Tiles</th>
+                <th>Variants</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+        <section role="tabpanel" data-panel="sprites" hidden>
+          <table data-element="sprite-table">
+            <thead>
+              <tr>
+                <th>Preview</th>
+                <th>Name</th>
+                <th>Source</th>
+                <th>Grid</th>
+                <th>Animations</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </article>
       <footer data-element="footer">
         <output data-element="status">Loading...</output>
       </footer>
     `
 
-        this.tableElement = this.querySelector('[data-element="catalog-table"]')
+        this.tilesetTableElement = this.querySelector('[data-element="tileset-table"]')
+        this.spriteTableElement = this.querySelector('[data-element="sprite-table"]')
         this.statusElement = this.querySelector('[data-element="status"]')
-        assert(this.tableElement instanceof HTMLTableElement, "view-catalog missing table")
+        assert(this.tilesetTableElement instanceof HTMLTableElement, "view-catalog missing tileset table")
+        assert(this.spriteTableElement instanceof HTMLTableElement, "view-catalog missing sprite table")
         assert(this.statusElement instanceof HTMLOutputElement, "view-catalog missing status output")
+
+        this.querySelector('[data-tab="tilesets"]').addEventListener("click", () => this.selectTab("tilesets"))
+        this.querySelector('[data-tab="sprites"]').addEventListener("click", () => this.selectTab("sprites"))
 
         this.mountHeaderControls()
         void this.refresh()
@@ -103,8 +152,14 @@ export class ViewCatalog extends HTMLElement {
       <div role="buttongroup" data-element="file-actions">
         <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
       </div>
+      <div role="buttongroup" data-element="tool-actions">
+        <button type="button" data-action="new" aria-label="New catalog record" title="New"><i aria-hidden="true">add</i></button>
+        <button type="button" data-action="edit" aria-label="Edit selected catalog record" title="Edit"><i aria-hidden="true">edit</i></button>
+      </div>
     `
         toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => this.refresh())
+        toolbar.querySelector('[data-action="new"]').addEventListener("click", () => this.importForActiveTab())
+        toolbar.querySelector('[data-action="edit"]').addEventListener("click", () => this.editSelectedForActiveTab())
         return toolbar
     }
 
@@ -113,12 +168,33 @@ export class ViewCatalog extends HTMLElement {
         const toolbar = this.createHeaderControlsElement()
         this.headerControlsElement = toolbar
         this.parentElement.appendChild(toolbar)
+        this.updateHeaderControlsUI()
     }
 
     unmountHeaderControls() {
         if (!this.headerControlsElement) return
         this.headerControlsElement.remove()
         this.headerControlsElement = null
+    }
+
+    selectTab(tab) {
+        assert(tab === "tilesets" || tab === "sprites", `unknown catalog tab ${tab}`)
+        this.activeTab = tab
+        for (const button of this.querySelectorAll('[role="tab"]')) {
+            button.setAttribute("aria-selected", button.dataset.tab === tab ? "true" : "false")
+        }
+        for (const panel of this.querySelectorAll('[role="tabpanel"]')) {
+            panel.hidden = panel.dataset.panel !== tab
+        }
+        this.updateHeaderControlsUI()
+        this.updateStatus()
+    }
+
+    updateHeaderControlsUI() {
+        if (!this.headerControlsElement) return
+        const editButton = this.headerControlsElement.querySelector('[data-action="edit"]')
+        assert(editButton instanceof HTMLButtonElement, "view-catalog edit button missing")
+        editButton.disabled = this.activeTab === "tilesets" ? this.selectedTilesetId <= 0 : this.selectedSpriteId <= 0
     }
 
     setStatus(text, tone = null) {
@@ -128,9 +204,76 @@ export class ViewCatalog extends HTMLElement {
         if (tone) this.statusElement.classList.add(tone)
     }
 
+    updateStatus() {
+        if (this.activeTab === "tilesets") {
+            this.setStatus(`${this.tilesetRows.length} tilesets`, "success")
+            return
+        }
+        this.setStatus(`${this.spriteRows.length} sprites`, "success")
+    }
+
+    async importForActiveTab() {
+        if (this.activeTab === "sprites") {
+            await this.importSprite()
+            return
+        }
+        assert(this.activeTab === "tilesets", `unknown catalog tab ${this.activeTab}`)
+        this.setStatus("Tileset import is not implemented yet.", "warning")
+    }
+
+    async importSprite() {
+        const payload = unwrap(
+            await runtime.call("ui.popup.open", {
+                title: "Import Sprite",
+                size: "large",
+                tag: "view-catalog-sprite-import",
+            }),
+        )
+        if (payload?.cancelled) return
+        await this.refresh()
+        this.selectTab("sprites")
+    }
+
+    async editSelectedForActiveTab() {
+        if (this.activeTab === "sprites") {
+            assert(this.selectedSpriteId > 0, "select a sprite before editing")
+            const payload = unwrap(
+                await runtime.call("ui.popup.open", {
+                    title: "Edit Sprite",
+                    size: "large",
+                    tag: "view-catalog-sprite-import",
+                    props: {
+                        mode: "edit",
+                        spriteId: this.selectedSpriteId,
+                    },
+                }),
+            )
+            if (payload?.cancelled) return
+            await this.refresh()
+            this.selectTab("sprites")
+            return
+        }
+        assert(this.activeTab === "tilesets", `unknown catalog tab ${this.activeTab}`)
+        assert(this.selectedTilesetId > 0, "select a tileset before editing")
+        this.setStatus("Tileset editing is not implemented yet.", "warning")
+    }
+
     async refresh() {
         this.setStatus("Loading...", "info")
-        this.rows = await sql.queryObjects(
+        this.tilesetRows = await this.fetchTilesets()
+        this.spriteRows = await this.fetchSprites()
+        if (!this.tilesetRows.some((row) => Number(row.id) === this.selectedTilesetId)) this.selectedTilesetId = 0
+        if (!this.spriteRows.some((row) => Number(row.id) === this.selectedSpriteId)) this.selectedSpriteId = 0
+        this.renderTilesets()
+        this.renderSprites()
+        await this.renderTilesetPreviews()
+        await this.renderSpritePreviews()
+        this.updateHeaderControlsUI()
+        this.updateStatus()
+    }
+
+    async fetchTilesets() {
+        return await sql.queryObjects(
             `
         WITH stats AS (
           SELECT
@@ -186,20 +329,40 @@ export class ViewCatalog extends HTMLElement {
                 "variant_count",
             ],
         )
-        this.render()
-        await this.renderPreviews()
-        this.setStatus(`${this.rows.length} tilesets`, "success")
     }
 
-    render() {
-        assert(this.tableElement instanceof HTMLTableElement, "view-catalog table is not initialized")
-        const body = this.tableElement.querySelector("tbody")
-        assert(body instanceof HTMLTableSectionElement, "view-catalog missing table body")
+    async fetchSprites() {
+        return await sql.queryObjects(
+            `
+        SELECT
+          s.id AS id,
+          s.name AS name,
+          COALESCE(s.display_name, s.name) AS display_name,
+          COALESCE(s.description, '') AS description,
+          s.image_path AS image_path,
+          s.grid_width AS grid_width,
+          s.grid_height AS grid_height,
+          COUNT(a.id) AS animation_count
+        FROM sprite s
+        LEFT JOIN sprite_animation a ON a.sprite_id = s.id
+        GROUP BY s.id
+        ORDER BY s.name
+      `,
+            ["id", "name", "display_name", "description", "image_path", "grid_width", "grid_height", "animation_count"],
+        )
+    }
+
+    renderTilesets() {
+        assert(this.tilesetTableElement instanceof HTMLTableElement, "view-catalog tileset table is not initialized")
+        const body = this.tilesetTableElement.querySelector("tbody")
+        assert(body instanceof HTMLTableSectionElement, "view-catalog missing tileset table body")
         body.replaceChildren()
 
-        for (const row of this.rows) {
+        for (const row of this.tilesetRows) {
             const tr = document.createElement("tr")
             tr.dataset.tilesetId = String(row.id)
+            tr.setAttribute("aria-selected", Number(row.id) === this.selectedTilesetId ? "true" : "false")
+            tr.addEventListener("click", () => this.selectTileset(Number(row.id)))
 
             const preview = document.createElement("td")
             const canvas = document.createElement("canvas")
@@ -233,16 +396,72 @@ export class ViewCatalog extends HTMLElement {
         }
     }
 
-    async renderPreviews() {
-        const imageCache = new Map()
-        for (const row of this.rows) {
-            const canvas = this.querySelector(`canvas[data-tileset-id="${row.id}"]`)
-            assert(canvas instanceof HTMLCanvasElement, `view-catalog missing preview canvas for tileset ${row.id}`)
-            await this.renderPreview(canvas, row, imageCache)
+    renderSprites() {
+        assert(this.spriteTableElement instanceof HTMLTableElement, "view-catalog sprite table is not initialized")
+        const body = this.spriteTableElement.querySelector("tbody")
+        assert(body instanceof HTMLTableSectionElement, "view-catalog missing sprite table body")
+        body.replaceChildren()
+
+        for (const row of this.spriteRows) {
+            const tr = document.createElement("tr")
+            tr.dataset.spriteId = String(row.id)
+            tr.setAttribute("aria-selected", Number(row.id) === this.selectedSpriteId ? "true" : "false")
+            tr.addEventListener("click", () => this.selectSprite(Number(row.id)))
+
+            const preview = document.createElement("td")
+            const canvas = document.createElement("canvas")
+            canvas.dataset.element = "preview"
+            canvas.dataset.spriteId = String(row.id)
+            preview.appendChild(canvas)
+
+            const name = document.createElement("td")
+            name.textContent = row.display_name
+
+            const source = document.createElement("td")
+            source.textContent = row.image_path
+
+            const grid = document.createElement("td")
+            grid.textContent = `${row.grid_width}×${row.grid_height}`
+
+            const animations = document.createElement("td")
+            animations.textContent = String(row.animation_count)
+
+            const description = document.createElement("td")
+            description.textContent = row.description
+
+            tr.append(preview, name, source, grid, animations, description)
+            body.appendChild(tr)
         }
     }
 
-    async renderPreview(canvas, row, imageCache) {
+    selectTileset(tilesetId) {
+        assert(Number.isInteger(tilesetId) && tilesetId > 0, "tileset selection requires positive id")
+        this.selectedTilesetId = tilesetId
+        for (const row of this.querySelectorAll("tr[data-tileset-id]")) {
+            row.setAttribute("aria-selected", Number(row.dataset.tilesetId) === tilesetId ? "true" : "false")
+        }
+        this.updateHeaderControlsUI()
+    }
+
+    selectSprite(spriteId) {
+        assert(Number.isInteger(spriteId) && spriteId > 0, "sprite selection requires positive id")
+        this.selectedSpriteId = spriteId
+        for (const row of this.querySelectorAll("tr[data-sprite-id]")) {
+            row.setAttribute("aria-selected", Number(row.dataset.spriteId) === spriteId ? "true" : "false")
+        }
+        this.updateHeaderControlsUI()
+    }
+
+    async renderTilesetPreviews() {
+        const imageCache = new Map()
+        for (const row of this.tilesetRows) {
+            const canvas = this.querySelector(`canvas[data-tileset-id="${row.id}"]`)
+            assert(canvas instanceof HTMLCanvasElement, `view-catalog missing preview canvas for tileset ${row.id}`)
+            await this.renderTilesetPreview(canvas, row, imageCache)
+        }
+    }
+
+    async renderTilesetPreview(canvas, row, imageCache) {
         const path = row.preview_image_path
         assert(typeof path === "string" && path.length > 0, "catalog preview requires image path")
         assert(getExtension(path) === "qoi", `catalog preview currently supports qoi files only: ${path}`)
@@ -279,6 +498,53 @@ export class ViewCatalog extends HTMLElement {
         ctx.imageSmoothingEnabled = false
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(source, tileX * tileWidth, tileY * tileHeight, tileWidth, tileHeight, 0, 0, canvas.width, canvas.height)
+    }
+
+    async renderSpritePreviews() {
+        const spriteCache = new Map()
+        for (const row of this.spriteRows) {
+            const canvas = this.querySelector(`canvas[data-sprite-id="${row.id}"]`)
+            assert(canvas instanceof HTMLCanvasElement, `view-catalog missing preview canvas for sprite ${row.id}`)
+            await this.renderSpritePreview(canvas, row, spriteCache)
+        }
+    }
+
+    async renderSpritePreview(canvas, row, spriteCache) {
+        const path = row.image_path
+        assert(typeof path === "string" && path.length > 0, "sprite preview requires image path")
+        assert(getExtension(path) === "aseprite" || getExtension(path) === "ase", `sprite preview currently supports aseprite files only: ${path}`)
+
+        let sprite = spriteCache.get(path)
+        if (!sprite) {
+            sprite = await this.loadAsepriteSprite(path)
+            spriteCache.set(path, sprite)
+        }
+
+        const source = sprite.preview
+        const maxSize = 64
+        const scale = Math.max(1, Math.floor(maxSize / Math.max(source.width, source.height)))
+        canvas.width = source.width * scale
+        canvas.height = source.height * scale
+        const ctx = canvas.getContext("2d")
+        assert(ctx, "view-catalog sprite preview requires 2d context")
+        ctx.imageSmoothingEnabled = false
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
+
+        return sprite
+    }
+
+    async loadAsepriteSprite(path) {
+        let documentResource = null
+        try {
+            documentResource = unwrap(await runtime.invoke("aseprite/aseprite::open", path), "aseprite open")
+            const pixels = unwrap(await runtime.invoke("aseprite/aseprite::render-frame", documentResource, 0), "aseprite render frame")
+            return {
+                preview: createCanvasFromPixels(pixels, "view-catalog sprite preview"),
+            }
+        } finally {
+            if (documentResource) await runtime.releaseResource(documentResource)
+        }
     }
 }
 

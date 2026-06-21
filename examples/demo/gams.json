@@ -85,7 +85,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-markov data-source=\"ng/markov/connect-exits.xml\" data-source-input=\"tmp/DEBUG_Input_markov.map.json\"/>"
+          "layout": "<view-catalog />"
         }
       }
     },
@@ -156,6 +156,11 @@
         "label": "Catalog",
         "group": "Generation",
         "internal": false
+      },
+      "view-catalog-sprite-import": {
+        "url": "views/view-catalog-sprite-import.js",
+        "label": "Import Sprite",
+        "internal": true
       },
       "view-ng": {
         "config": {
