@@ -151,6 +151,12 @@
           }
         }
       },
+      "view-catalog": {
+        "url": "views/view-catalog.js",
+        "label": "Catalog",
+        "group": "Generation",
+        "internal": false
+      },
       "view-ng": {
         "config": {
           "theme": {
