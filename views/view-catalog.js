@@ -154,11 +154,13 @@ export class ViewCatalog extends HTMLElement {
       </div>
       <div role="buttongroup" data-element="tool-actions">
         <button type="button" data-action="new" aria-label="New catalog record" title="New"><i aria-hidden="true">add</i></button>
+        <button type="button" data-action="preview" aria-label="Preview selected catalog record" title="Preview"><i aria-hidden="true">visibility</i></button>
         <button type="button" data-action="edit" aria-label="Edit selected catalog record" title="Edit"><i aria-hidden="true">edit</i></button>
       </div>
     `
         toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => this.refresh())
         toolbar.querySelector('[data-action="new"]').addEventListener("click", () => this.importForActiveTab())
+        toolbar.querySelector('[data-action="preview"]').addEventListener("click", () => this.previewSelectedForActiveTab())
         toolbar.querySelector('[data-action="edit"]').addEventListener("click", () => this.editSelectedForActiveTab())
         return toolbar
     }
@@ -192,9 +194,13 @@ export class ViewCatalog extends HTMLElement {
 
     updateHeaderControlsUI() {
         if (!this.headerControlsElement) return
+        const previewButton = this.headerControlsElement.querySelector('[data-action="preview"]')
         const editButton = this.headerControlsElement.querySelector('[data-action="edit"]')
+        assert(previewButton instanceof HTMLButtonElement, "view-catalog preview button missing")
         assert(editButton instanceof HTMLButtonElement, "view-catalog edit button missing")
-        editButton.disabled = this.activeTab === "tilesets" ? this.selectedTilesetId <= 0 : this.selectedSpriteId <= 0
+        const hasSelection = this.activeTab === "tilesets" ? this.selectedTilesetId > 0 : this.selectedSpriteId > 0
+        previewButton.disabled = !hasSelection
+        editButton.disabled = !hasSelection
     }
 
     setStatus(text, tone = null) {
@@ -232,6 +238,45 @@ export class ViewCatalog extends HTMLElement {
         if (payload?.cancelled) return
         await this.refresh()
         this.selectTab("sprites")
+    }
+
+    selectedTilesetRow() {
+        const row = this.tilesetRows.find((item) => Number(item.id) === this.selectedTilesetId)
+        assert(row, `selected tileset ${this.selectedTilesetId} not found`)
+        return row
+    }
+
+    selectedSpriteRow() {
+        const row = this.spriteRows.find((item) => Number(item.id) === this.selectedSpriteId)
+        assert(row, `selected sprite ${this.selectedSpriteId} not found`)
+        return row
+    }
+
+    async previewSelectedForActiveTab() {
+        if (this.activeTab === "sprites") {
+            assert(this.selectedSpriteId > 0, "select a sprite before preview")
+            const row = this.selectedSpriteRow()
+            const path = String(row.image_path || "").trim()
+            assert(path, "selected sprite requires image path")
+            await runtime.call("ui.popup.open", {
+                title: path.split("/").pop() || path,
+                size: "large",
+                tag: "view-aseprite",
+                props: { path },
+            })
+            return
+        }
+        assert(this.activeTab === "tilesets", `unknown catalog tab ${this.activeTab}`)
+        assert(this.selectedTilesetId > 0, "select a tileset before preview")
+        const row = this.selectedTilesetRow()
+        const path = String(row.preview_image_path || "").trim()
+        assert(path, "selected tileset requires preview image path")
+        await runtime.call("ui.popup.open", {
+            title: path.split("/").pop() || path,
+            size: "large",
+            tag: "view-image",
+            props: { path },
+        })
     }
 
     async editSelectedForActiveTab() {
@@ -363,6 +408,10 @@ export class ViewCatalog extends HTMLElement {
             tr.dataset.tilesetId = String(row.id)
             tr.setAttribute("aria-selected", Number(row.id) === this.selectedTilesetId ? "true" : "false")
             tr.addEventListener("click", () => this.selectTileset(Number(row.id)))
+            tr.addEventListener("dblclick", async () => {
+                this.selectTileset(Number(row.id))
+                await this.editSelectedForActiveTab()
+            })
 
             const preview = document.createElement("td")
             const canvas = document.createElement("canvas")
@@ -407,6 +456,10 @@ export class ViewCatalog extends HTMLElement {
             tr.dataset.spriteId = String(row.id)
             tr.setAttribute("aria-selected", Number(row.id) === this.selectedSpriteId ? "true" : "false")
             tr.addEventListener("click", () => this.selectSprite(Number(row.id)))
+            tr.addEventListener("dblclick", async () => {
+                this.selectSprite(Number(row.id))
+                await this.editSelectedForActiveTab()
+            })
 
             const preview = document.createElement("td")
             const canvas = document.createElement("canvas")

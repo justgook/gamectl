@@ -1345,7 +1345,7 @@
         text-align: center;
     }
 
-    table:has(tr:nth-of-type(4)) td,
+    table:has(tr:nth-of-type(4) > td > button > i) td,
     td:has(button:nth-of-type(4)) {
         padding: 4px 4px 0 4px;
         text-align: right;
