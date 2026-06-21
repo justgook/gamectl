@@ -45,7 +45,7 @@ CastleDB is a game-data editor with spreadsheet-like sheets plus a 2D map editor
 - First model should use **three tables**: `tileset`, `tileset_image_source`, and `tile`.
 - Image source is referenced from tile/source-reference level via `tile.image_source_id`, not treated as only tileset-level data.
 - Avoid storing `image_width` / `image_height` in the database for MVP; those are derivable from the image file and would be denormalized state.
-- Use `tile_index` as the canonical source reference for regular spritesheets/atlases; derive `(x, y)` and pixel coordinates from actual image dimensions and tile size at load/validation time.
+- Use one-based `tile_index` as the canonical source reference for regular spritesheets/atlases; for current demo tilesets, source tile index 1 maps to mask `0b0001`. Derive `(x, y)` and pixel coordinates from actual image dimensions and tile size at load/validation time.
 - Treat dual-grid tiles as the first searchable catalog schema, not proof that GAMS needs a universal asset abstraction.
 - First likely expansion after static tilesets is animated tilesets / animated tiles.
 - Later extensions may add sprites, models, sounds, music, generic asset types, per-tile properties, terrain/autotile rules, search facets, importers, validation, thumbnails, embeddings, and generation-time search.
@@ -56,7 +56,8 @@ CastleDB is a game-data editor with spreadsheet-like sheets plus a 2D map editor
 - Project Unit area: likely Project Composition for declaring the Asset Catalog unit/view and its query/result configuration in Project Config.
 - Runtime area: likely Core Runtime through singleton plugins and View Plugins routed via the Plugin Manager.
 - Browser UI area: a Core View for configured query filters and result rendering, not a full tileset/tilemap editor.
-- Demo integration: register a `view-catalog` entry in `examples/demo/gams.json` and point it at project-root-relative database/migration files such as `catalog/catalog.sqlite` and `catalog/migrations/0001-tilesets.sql`; do not introduce a separate `catalogRoot` config.
+- Demo integration: persistent database selection is handled by `examples/demo/gams.json`, SQL utilities, and runtime wiring. Catalog MVP only needs project-local migration files that the user can apply to the configured database.
+- First migration created at `examples/demo/catalog/migrations/0001-tileset-catalog.sql`; do not introduce a separate `catalogRoot` config.
 
 ## Risks / mismatches
 
@@ -64,6 +65,7 @@ CastleDB is a game-data editor with spreadsheet-like sheets plus a 2D map editor
 - Deferring search/meta is good for focus, but the base tileset/tile fields should not block future metadata/semantic layers.
 - If `tileset_image_source` is deferred, the `tile` table still needs a clear image source reference or the model becomes implicitly one-image-per-tileset.
 - `tile_index` validation depends on reading image dimensions and checking divisibility by tile size at load/validation time.
+- DB should not reject non-QOI paths even though MVP source files are currently QOI-only; format support remains an application/import concern.
 - CastleDB's level-editor concepts may pull scope into map editing before inventory foundations are stable.
 
 ## Open questions for grilling
@@ -73,7 +75,7 @@ CastleDB is a game-data editor with spreadsheet-like sheets plus a 2D map editor
 - Should `tile_width` / `tile_height` live on `tileset_image_source`, or on `tileset` if all sources in a tileset must share dimensions?
 - Should static tiles be implemented first and animated tiles as the first follow-up slice, or should animation tables be included from day one?
 - Should storage be SQLite-first, plugin-owned, or abstracted behind a GAMS data plugin contract?
-- Should the one-time catalog creation artifact be a raw SQL migration/seed file, a JSON manifest imported by the view/plugin, or both?
+- Should future catalog creation artifacts stay as raw SQL migrations, or should a later importer add JSON/manifest input on top?
 
 ## Conversion outcome
 
