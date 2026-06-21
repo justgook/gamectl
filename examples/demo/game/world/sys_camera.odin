@@ -363,9 +363,10 @@ screen_to_world :: proc(cam: ^Camera, screen_pos: [2]f32, viewport_size: [2]f32)
 }
 
 // Convert world coordinates to screen coordinates
-world_to_screen :: proc(cam: ^Camera, world_pos: [2]f32, viewport_size: [2]f32) -> [2]f32 {
+world_to_screen :: proc(cam: ^Camera, world_pos: [2]f32) -> [2]f32 {
 	pos := camera_get_render_position(cam)
 	zoom := camera_get_render_zoom(cam)
+	viewport_size := cam.viewport
 
 	offset_x := (world_pos.x - pos.x) / zoom
 	offset_y := (world_pos.y - pos.y) / zoom

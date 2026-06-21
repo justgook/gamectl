@@ -26,6 +26,7 @@ World :: struct {
 	atlas:                  sg.Image,
 	lut:                    sg.Image,
 	cam:                    Camera,
+	player1_id:             logic.Entity,
 	player1:                ^Input,
 	sprite_pipe:            ^Sprite_Pipe,
 	tilemap_pipe:           ^Tilemap_Pipe,
@@ -62,6 +63,11 @@ World :: struct {
 	// Bullet patterns
 	bullet_patterns:        decoder2.Bullet_Patterns,
 	bullet:                 logic.Component_Storage(Bullet),
+	// UI
+	ui_sprite:              struct {
+		using pipe: ^Sprite_Pipe,
+		using comp: logic.Component_Storage_Fixed(Sprite, SPRITE_RENDER_MAX),
+	},
 }
 
 frame :: proc(w: ^World, dt: f64) {
@@ -92,6 +98,8 @@ frame :: proc(w: ^World, dt: f64) {
 	sys_tilemap(w, &w.cam.ortho)
 	sys_sprite(w, &w.cam.ortho)
 	sys_debug_collision(w, &w.cam.ortho)
+	// UI
+	sprites_draw(w.ui_sprite.pipe, w.ui_sprite.count, &w.ui_sprite.components, &virtual_screen_ortho)
 	sys_nine_patch(w, &virtual_screen_ortho)
 	sys_text(w, &virtual_screen_ortho)
 	sg.end_pass()
@@ -152,6 +160,8 @@ init :: proc(w: ^World) {
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
 	w.text_pipe = text_init(w.atlas)
 
+	// UI
+	w.ui_sprite.pipe = sprites_init(w.atlas)
 	// w.grid = grid.create_grid(-256 * UNIT, -128 * UNIT, 1024 * UNIT, 512 * UNIT, 16 * UNIT)
 	append(&w.segments, [4]int{-128 * UNIT, 0, 128 * UNIT, 0})
 	append(&w.segments, [4]int{128 * UNIT, 0, 256 * UNIT, 64 * UNIT})
@@ -163,7 +173,9 @@ init :: proc(w: ^World) {
 
 	w.tilemap.components[0].parallax = {0.5, 0.5}
 	w.tilemap.components[0].repeat.xy = 1
+
 	player := create_entity(w)
+	w.player1_id = player
 	logic.add_component(&w.bullet, player, bullet_component(&w.bullet_patterns[0]))
 	camera_track(&w.cam, player)
 	logic.add_component(&w.brain, player, Brain{})

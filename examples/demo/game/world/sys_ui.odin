@@ -1,5 +1,7 @@
 package world
 
+import "../host"
+import "logic"
 import "ui"
 
 sys_ui :: proc(w: ^World) {
@@ -12,21 +14,40 @@ sys_ui :: proc(w: ^World) {
 			ui.move(text5("\xCA L - fire"), 8, 8),
 		},
 	)
-	panel = ui.move(panel, 20, ui.wave(10, 30, 120, w.frame_count))
 
-	a1 := group({ui.move(sprite(w.uv[418]), 20, 40), sprite(w.uv[1]), panel})
+	panel = ui.move(panel, 20, ui.wave(10, 30, 120, w.frame_count))
+	statusbar := sprite({0.5, 1 - 48.0 / 512.0, 1.0 - 7 * 16.0 / 512.0, 1})
+	statusbar = ui.move(statusbar, 8 + 4.5 * 16, GAME_RESOLUTION_HEIGHT - 24 - 8)
+
+	c: f32 = 16.0 / 512
+	hp2 := sprite({27 * c, 1 - 4 * c, 1 - 2 * c, 1 - 3 * c})
+
+	pp := logic.get_component(&w.position, w.player1_id)
+	p := world_to_screen(&w.cam, to_pixelf(pp^))
+	hp2 = ui.move(hp2, p.x, p.y + 20)
+
 
 	w.nine_patch.count = 0
 	w.text_glyph.count = 0
-	ui.flatten(a1, w, render_shapes)
+	w.ui_sprite.count = 0
+
+	ui.flatten(group({panel, statusbar, hp2}), w, render_shapes)
 }
+
 
 @(private = "file")
 render_shapes :: proc(shape: ui.Shape, item: UI_Item, w: ^World) {
 	switch value in item {
 	case UI_Sprite:
+		w.ui_sprite.components[w.ui_sprite.count] = Sprite {
+			pos     = {shape.x, shape.y},
+			opacity = 1,
+			uv      = value.uv,
+		}
+
+		w.ui_sprite.count += 1
 	case UI_Nine:
-		w.nine_patch.components = Nine_Patch {
+		w.nine_patch.components[w.nine_patch.count] = Nine_Patch {
 			bounds = {shape.x, shape.y, shape.x + value.w * shape.sx, shape.y + value.h * shape.sy},
 			slices = {6, 7, 11, 10},
 			size   = {16, 16},

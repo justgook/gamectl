@@ -24,10 +24,11 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		s.pos = to_pixelf(pos^)
 	}
 
-	pipe := w.sprite_pipe
-	the_count := w.sprite.count
+	sprites_draw(w.sprite_pipe, w.sprite.count, &w.sprite.components, ortho)
+}
 
-	if the_count < 1 {
+sprites_draw :: proc(pipe: ^Sprite_Pipe, count: int, sprites: ^[SPRITE_RENDER_MAX]Sprite, ortho: ^linalg.Matrix4f32) {
+	if count < 1 {
 		return
 	}
 
@@ -36,14 +37,13 @@ sys_sprite :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		atlas_size = pipe.atlas_size,
 	}
 
-
 	// update instance data
-	sg.update_buffer(pipe.bind.vertex_buffers[1], {ptr = &w.sprite, size = c.size_t(the_count * size_of(Sprite))})
+	sg.update_buffer(pipe.bind.vertex_buffers[1], {ptr = sprites, size = c.size_t(count * size_of(Sprite))})
 
 	sg.apply_pipeline(pipe.pip)
 	sg.apply_bindings(pipe.bind)
 	sg.apply_uniforms(UB_sprite_vs_params, {ptr = &vs_params, size = size_of(vs_params)})
-	sg.draw(0, 6, the_count)
+	sg.draw(0, 6, count)
 }
 
 
