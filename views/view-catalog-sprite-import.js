@@ -40,8 +40,143 @@ function assertPositiveInteger(value, name) {
     assert(Number.isInteger(value) && value > 0, `${name} must be a positive integer`)
 }
 
+function assertInteger(value, name) {
+    assert(Number.isInteger(value), `${name} must be an integer`)
+}
+
 function assertNonNegativeInteger(value, name) {
     assert(Number.isInteger(value) && value >= 0, `${name} must be a non-negative integer`)
+}
+
+const ANIMATION_DIRECTIONS = ["forward", "reverse", "ping-pong", "ping-pong-reverse"]
+
+function assertAnimationDirection(value, name) {
+    assert(ANIMATION_DIRECTIONS.includes(value), `${name} must be one of: ${ANIMATION_DIRECTIONS.join(", ")}`)
+}
+
+function normalizePivot(value, name) {
+    if (value === null) return null
+    assert(value && typeof value === "object", `${name} must be a point option`)
+    const pivot = "is_some" in value ? (value.is_some ? value.val : null) : "isSome" in value ? (value.isSome ? value.val : null) : value
+    if (pivot === null) return null
+    const x = Number(pivot.x)
+    const y = Number(pivot.y)
+    assertInteger(x, `${name} x`)
+    assertInteger(y, `${name} y`)
+    return { x, y }
+}
+
+function pivotForFrame(framePivots, frame) {
+    const pivot = framePivots.find((item) => Number(item.frame) === frame)
+    assert(pivot, `missing sprite pivot for frame ${frame}`)
+    return pivot
+}
+
+function buildConstantFramePivots(frameCount, x, y) {
+    assertPositiveInteger(frameCount, "sprite frame count")
+    assertInteger(x, "sprite pivot x")
+    assertInteger(y, "sprite pivot y")
+    return Array.from({ length: frameCount }, (_, frame) => ({ frame, x, y }))
+}
+
+function buildFramePivotsFromSlice(slice, frameCount, sourceX, sourceY, defaultPivot) {
+    assert(slice && typeof slice === "object", "Aseprite slice must be an object")
+    assert(Array.isArray(slice.keys), `Aseprite slice ${String(slice.name || "")} keys must be an array`)
+    assertPositiveInteger(frameCount, "sprite frame count")
+    const keyedPivots = []
+    for (const key of slice.keys) {
+        const pivot = normalizePivot(key.pivot, `Aseprite slice ${String(slice.name || "")} pivot`)
+        if (!pivot) continue
+        const frame = Number(key.frame)
+        assertNonNegativeInteger(frame, `Aseprite slice ${String(slice.name || "")} pivot frame`)
+        assert(frame < frameCount, `Aseprite slice ${String(slice.name || "")} pivot frame is outside source frame count`)
+        keyedPivots.push({ frame, x: pivot.x - sourceX, y: pivot.y - sourceY })
+    }
+    if (keyedPivots.length === 0) return buildConstantFramePivots(frameCount, defaultPivot.x, defaultPivot.y)
+    keyedPivots.sort((left, right) => left.frame - right.frame)
+
+    const uniquePivots = []
+    for (const pivot of keyedPivots) {
+        const previous = uniquePivots[uniquePivots.length - 1]
+        if (previous && previous.frame === pivot.frame) {
+            assert(previous.x === pivot.x && previous.y === pivot.y, `multiple Aseprite slice pivots disagree for frame ${pivot.frame}`)
+            continue
+        }
+        uniquePivots.push(pivot)
+    }
+
+    const framePivots = []
+    let pivotIndex = 0
+    for (let frame = 0; frame < frameCount; frame += 1) {
+        while (pivotIndex + 1 < uniquePivots.length && uniquePivots[pivotIndex + 1].frame <= frame) pivotIndex += 1
+        const pivot = frame < uniquePivots[0].frame ? uniquePivots[0] : uniquePivots[pivotIndex]
+        framePivots.push({ frame, x: pivot.x, y: pivot.y })
+    }
+    return framePivots
+}
+
+function firstSliceKey(slice) {
+    assert(slice && typeof slice === "object", "Aseprite slice must be an object")
+    assert(Array.isArray(slice.keys), `Aseprite slice ${String(slice.name || "")} keys must be an array`)
+    assert(slice.keys.length > 0, `Aseprite slice ${String(slice.name || "")} requires at least one key`)
+    const sortedKeys = [...slice.keys].sort((left, right) => Number(left.frame) - Number(right.frame))
+    return sortedKeys[0]
+}
+
+function buildSourceSprites({ baseName, width, height, frameCount, slices }) {
+    assert(Array.isArray(slices), "Aseprite slices must be an array")
+    assertPositiveInteger(width, "sprite source width")
+    assertPositiveInteger(height, "sprite source height")
+    assertPositiveInteger(frameCount, "sprite source frame count")
+    if (slices.length === 0) {
+        const pivotX = Math.floor(width / 2)
+        const pivotY = Math.floor(height / 2)
+        return [
+            {
+                sliceName: "",
+                name: normalizeName(baseName),
+                displayName: baseName,
+                sourceX: 0,
+                sourceY: 0,
+                sourceWidth: width,
+                sourceHeight: height,
+                framePivots: buildConstantFramePivots(frameCount, pivotX, pivotY),
+            },
+        ]
+    }
+
+    const multiple = slices.length > 1
+    const sourceSprites = slices.map((slice) => {
+        const sliceName = String(slice.name || "").trim()
+        assert(sliceName, "Aseprite slice requires name")
+        const key = firstSliceKey(slice)
+        const sourceX = Number(key.x)
+        const sourceY = Number(key.y)
+        const sourceWidth = Number(key.width)
+        const sourceHeight = Number(key.height)
+        assertInteger(sourceX, `Aseprite slice ${sliceName} source x`)
+        assertInteger(sourceY, `Aseprite slice ${sliceName} source y`)
+        assertPositiveInteger(sourceWidth, `Aseprite slice ${sliceName} source width`)
+        assertPositiveInteger(sourceHeight, `Aseprite slice ${sliceName} source height`)
+        const defaultPivot = { x: Math.floor(sourceWidth / 2), y: Math.floor(sourceHeight / 2) }
+        return {
+            sliceName,
+            name: multiple ? normalizeName(`${baseName}_${sliceName}`) : normalizeName(baseName),
+            displayName: multiple ? `${baseName} ${sliceName}` : baseName,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            framePivots: buildFramePivotsFromSlice(slice, frameCount, sourceX, sourceY, defaultPivot),
+        }
+    })
+    const names = new Set()
+    for (const sourceSprite of sourceSprites) {
+        assert(sourceSprite.name, `Aseprite slice ${sourceSprite.sliceName} produced empty sprite name`)
+        assert(!names.has(sourceSprite.name), `duplicate sprite name from Aseprite slices: ${sourceSprite.name}`)
+        names.add(sourceSprite.name)
+    }
+    return sourceSprites
 }
 
 export class ViewCatalogSpriteImport extends HTMLElement {
@@ -62,6 +197,8 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             width: 0,
             height: 0,
             frameCount: 0,
+            sourceSprites: [],
+            framePivots: [],
             animations: [],
         }
     }
@@ -108,11 +245,16 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         this.draft.description = String(formData.get("description") || "").trim()
         this.draft.gridWidth = Number(formData.get("grid-width"))
         this.draft.gridHeight = Number(formData.get("grid-height"))
+        if (this.draft.sourceSprites.length === 1) {
+            this.draft.sourceSprites[0].name = this.draft.name
+            this.draft.sourceSprites[0].displayName = this.draft.displayName
+        }
 
         this.draft.animations = this.draft.animations.map((animation, index) => ({
             name: String(formData.get(`animation-name-${index}`) || "").trim(),
             startFrame: Number(formData.get(`animation-start-${index}`)),
             endFrame: Number(formData.get(`animation-end-${index}`)),
+            direction: String(formData.get(`animation-direction-${index}`) || "").trim(),
         }))
     }
 
@@ -120,17 +262,22 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         assert(this.formElement instanceof HTMLFormElement, "view-catalog-sprite-import form is not initialized")
         const isEdit = this.mode === "edit"
         const submitLabel = isEdit ? "Save sprite" : "Import sprite"
-        const sourceInfo = this.draft.frameCount > 0 ? `${Number(this.draft.width)}×${Number(this.draft.height)} · ${Number(this.draft.frameCount)} frames` : isEdit ? "Loaded from database." : "Choose an Aseprite file."
+        const sourceInfo = this.draft.frameCount > 0 ? `${Number(this.draft.width)}×${Number(this.draft.height)} · ${Number(this.draft.frameCount)} frames · ${Number(this.draft.sourceSprites.length)} sprites` : isEdit ? "Loaded from database." : "Choose an Aseprite file."
         const animationsRows = this.draft.animations
-            .map(
-                (animation, index) => `
+            .map((animation, index) => {
+                assertAnimationDirection(animation.direction, `animation ${animation.name || index} direction`)
+                const directionOptions = ANIMATION_DIRECTIONS.map(
+                    (direction) => `<option value="${escapeHtml(direction)}" ${animation.direction === direction ? "selected" : ""}>${escapeHtml(direction)}</option>`,
+                ).join("")
+                return `
               <tr>
                 <td><input type="text" name="animation-name-${index}" value="${escapeHtml(animation.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></td>
                 <td><input type="number" name="animation-start-${index}" min="0" value="${Number(animation.startFrame)}"></td>
                 <td><input type="number" name="animation-end-${index}" min="0" value="${Number(animation.endFrame)}"></td>
+                <td><select name="animation-direction-${index}">${directionOptions}</select></td>
               </tr>
-            `,
-            )
+            `
+            })
             .join("")
 
         this.formElement.innerHTML = `
@@ -170,6 +317,7 @@ export class ViewCatalogSpriteImport extends HTMLElement {
               <th>Name</th>
               <th>Start frame</th>
               <th>End frame</th>
+              <th>Direction</th>
             </tr>
           </thead>
           <tbody>${animationsRows}</tbody>
@@ -214,6 +362,7 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             const info = unwrap(await runtime.invoke("aseprite/aseprite::info", documentResource), "aseprite info")
             const frames = unwrap(await runtime.invoke("aseprite/aseprite::frames", documentResource), "aseprite frames")
             const tags = unwrap(await runtime.invoke("aseprite/aseprite::tags", documentResource), "aseprite tags")
+            const slices = unwrap(await runtime.invoke("aseprite/aseprite::slices", documentResource), "aseprite slices")
             const baseName = basenameWithoutExtension(path)
             this.draft.imagePath = path
             this.draft.name = normalizeName(baseName)
@@ -221,10 +370,15 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             this.draft.width = Number(info.width)
             this.draft.height = Number(info.height)
             this.draft.frameCount = frames.length
+            this.draft.sourceSprites = buildSourceSprites({ baseName, width: this.draft.width, height: this.draft.height, frameCount: this.draft.frameCount, slices })
+            this.draft.name = this.draft.sourceSprites[0].name
+            this.draft.displayName = this.draft.sourceSprites[0].displayName
+            this.draft.framePivots = this.draft.sourceSprites[0].framePivots
             this.draft.animations = tags.map((tag) => ({
                 name: String(tag.name || "").trim(),
                 startFrame: Number(tag["from-frame"] ?? tag.from),
                 endFrame: Number(tag["to-frame"] ?? tag.to),
+                direction: String(tag.direction || "").trim(),
             }))
             assertPositiveInteger(this.draft.width, "sprite source width")
             assertPositiveInteger(this.draft.height, "sprite source height")
@@ -234,6 +388,7 @@ export class ViewCatalogSpriteImport extends HTMLElement {
                 assertNonNegativeInteger(animation.startFrame, `sprite animation ${animation.name} start frame`)
                 assertNonNegativeInteger(animation.endFrame, `sprite animation ${animation.name} end frame`)
                 assert(animation.endFrame >= animation.startFrame, `sprite animation ${animation.name} end frame must be >= start frame`)
+                assertAnimationDirection(animation.direction, `sprite animation ${animation.name} direction`)
             }
         } finally {
             if (documentResource) await runtime.releaseResource(documentResource)
@@ -248,21 +403,26 @@ export class ViewCatalogSpriteImport extends HTMLElement {
                COALESCE(display_name, '') AS display_name,
                COALESCE(description, '') AS description,
                image_path,
+               source_x,
+               source_y,
+               source_width,
+               source_height,
+               source_slice_name,
                grid_width,
                grid_height
              FROM sprite
              WHERE id = ?`,
-            ["id", "name", "display_name", "description", "image_path", "grid_width", "grid_height"],
+            ["id", "name", "display_name", "description", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "grid_width", "grid_height"],
             [String(spriteId)],
         )
         assert(sprites.length === 1, `expected one sprite for id ${spriteId}, got ${sprites.length}`)
         const sprite = sprites[0]
         const animations = await sql.queryObjects(
-            `SELECT name, start_frame, end_frame
+            `SELECT id, name, start_frame, end_frame, direction
              FROM sprite_animation
              WHERE sprite_id = ?
              ORDER BY start_frame, id`,
-            ["name", "start_frame", "end_frame"],
+            ["id", "name", "start_frame", "end_frame", "direction"],
             [String(spriteId)],
         )
         this.draft.imagePath = String(sprite.image_path)
@@ -274,11 +434,55 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         this.draft.width = 0
         this.draft.height = 0
         this.draft.frameCount = 0
+        this.draft.framePivots = await this.loadFramePivots(animations.map((animation) => Number(animation.id)))
+        this.draft.sourceSprites = [
+            {
+                sliceName: String(sprite.source_slice_name || ""),
+                name: this.draft.name,
+                displayName: this.draft.displayName,
+                sourceX: Number(sprite.source_x),
+                sourceY: Number(sprite.source_y),
+                sourceWidth: Number(sprite.source_width),
+                sourceHeight: Number(sprite.source_height),
+                framePivots: this.draft.framePivots,
+            },
+        ]
         this.draft.animations = animations.map((animation) => ({
             name: String(animation.name),
             startFrame: Number(animation.start_frame),
             endFrame: Number(animation.end_frame),
+            direction: String(animation.direction),
         }))
+    }
+
+    async loadFramePivots(animationIds) {
+        if (animationIds.length === 0) return []
+        const placeholders = animationIds.map(() => "?").join(", ")
+        const rows = await sql.queryObjects(
+            `SELECT f.frame_index, f.pivot_x, f.pivot_y
+             FROM sprite_animation_frame f
+             JOIN sprite_animation a ON a.id = f.sprite_animation_id
+             WHERE f.sprite_animation_id IN (${placeholders})
+             ORDER BY f.frame_index`,
+            ["frame_index", "pivot_x", "pivot_y"],
+            animationIds.map((id) => String(id)),
+        )
+        const pivots = []
+        for (const row of rows) {
+            const frame = Number(row.frame_index)
+            const x = Number(row.pivot_x)
+            const y = Number(row.pivot_y)
+            assertNonNegativeInteger(frame, "sprite animation frame pivot frame")
+            assertInteger(x, `sprite animation frame ${frame} pivot x`)
+            assertInteger(y, `sprite animation frame ${frame} pivot y`)
+            const previous = pivots[pivots.length - 1]
+            if (previous && previous.frame === frame) {
+                assert(previous.x === x && previous.y === y, `sprite animation frame pivots disagree for frame ${frame}`)
+                continue
+            }
+            pivots.push({ frame, x, y })
+        }
+        return pivots
     }
 
     validateDraft() {
@@ -287,6 +491,20 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         assertPositiveInteger(this.draft.gridWidth, "grid width")
         assertPositiveInteger(this.draft.gridHeight, "grid height")
         assert(this.draft.animations.length > 0, "Sprite import requires at least one animation")
+        assert(Array.isArray(this.draft.sourceSprites), "Sprite import source sprites must be an array")
+        assert(this.draft.sourceSprites.length > 0, "Sprite import requires at least one source sprite")
+        const spriteNames = new Set()
+        for (const sourceSprite of this.draft.sourceSprites) {
+            assert(sourceSprite.name, "Sprite name is required")
+            assert(!spriteNames.has(sourceSprite.name), `Duplicate sprite name: ${sourceSprite.name}`)
+            spriteNames.add(sourceSprite.name)
+            assertInteger(Number(sourceSprite.sourceX), `sprite ${sourceSprite.name} source x`)
+            assertInteger(Number(sourceSprite.sourceY), `sprite ${sourceSprite.name} source y`)
+            assertPositiveInteger(Number(sourceSprite.sourceWidth), `sprite ${sourceSprite.name} source width`)
+            assertPositiveInteger(Number(sourceSprite.sourceHeight), `sprite ${sourceSprite.name} source height`)
+            assert(Array.isArray(sourceSprite.framePivots), `sprite ${sourceSprite.name} frame pivots must be an array`)
+            assert(sourceSprite.framePivots.length > 0, `sprite ${sourceSprite.name} requires frame pivots`)
+        }
         const names = new Set()
         for (const animation of this.draft.animations) {
             assert(animation.name, "Animation name is required")
@@ -295,6 +513,26 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             assertNonNegativeInteger(animation.startFrame, `animation ${animation.name} start frame`)
             assertNonNegativeInteger(animation.endFrame, `animation ${animation.name} end frame`)
             assert(animation.endFrame >= animation.startFrame, `animation ${animation.name} end frame must be >= start frame`)
+            assertAnimationDirection(animation.direction, `animation ${animation.name} direction`)
+        }
+    }
+
+    async saveSpriteAnimations(spriteId, sourceSprite) {
+        for (const animation of this.draft.animations) {
+            await sql.exec(
+                `INSERT INTO sprite_animation (sprite_id, name, start_frame, end_frame, direction)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [String(spriteId), animation.name, String(animation.startFrame), String(animation.endFrame), animation.direction],
+            )
+            const animationId = await sql.value("SELECT last_insert_rowid()", [])
+            for (let frame = animation.startFrame; frame <= animation.endFrame; frame += 1) {
+                const pivot = pivotForFrame(sourceSprite.framePivots, frame)
+                await sql.exec(
+                    `INSERT INTO sprite_animation_frame (sprite_animation_id, frame_index, pivot_x, pivot_y)
+                     VALUES (?, ?, ?, ?)`,
+                    [String(animationId), String(frame), String(pivot.x), String(pivot.y)],
+                )
+            }
         }
     }
 
@@ -302,46 +540,58 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         this.validateDraft()
         await sql.exec("BEGIN TRANSACTION", [])
         try {
-            let spriteId = this.spriteId
+            let firstSpriteId = this.spriteId
             if (this.mode === "edit") {
-                assert(Number.isInteger(spriteId) && spriteId > 0, "sprite edit requires spriteId")
+                assert(this.draft.sourceSprites.length === 1, "sprite edit requires exactly one source sprite")
+                const sourceSprite = this.draft.sourceSprites[0]
+                assert(Number.isInteger(firstSpriteId) && firstSpriteId > 0, "sprite edit requires spriteId")
                 await sql.exec(
                     `UPDATE sprite
-                     SET name = ?, display_name = ?, description = ?, image_path = ?, grid_width = ?, grid_height = ?, updated_at = CURRENT_TIMESTAMP
+                     SET name = ?, display_name = ?, description = ?, image_path = ?, source_x = ?, source_y = ?, source_width = ?, source_height = ?, source_slice_name = ?, grid_width = ?, grid_height = ?, updated_at = CURRENT_TIMESTAMP
                      WHERE id = ?`,
                     [
-                        this.draft.name,
-                        this.draft.displayName,
+                        sourceSprite.name,
+                        sourceSprite.displayName,
                         this.draft.description,
                         this.draft.imagePath,
+                        String(sourceSprite.sourceX),
+                        String(sourceSprite.sourceY),
+                        String(sourceSprite.sourceWidth),
+                        String(sourceSprite.sourceHeight),
+                        String(sourceSprite.sliceName || ""),
                         String(this.draft.gridWidth),
                         String(this.draft.gridHeight),
-                        String(spriteId),
+                        String(firstSpriteId),
                     ],
                 )
-                await sql.exec("DELETE FROM sprite_animation WHERE sprite_id = ?", [String(spriteId)])
+                await sql.exec("DELETE FROM sprite_animation WHERE sprite_id = ?", [String(firstSpriteId)])
+                await this.saveSpriteAnimations(firstSpriteId, sourceSprite)
             } else {
-                await sql.exec(
-                    `INSERT INTO sprite (name, display_name, description, image_path, grid_width, grid_height)
-                     VALUES (?, ?, ?, ?, ?, ?)`,
-                    [
-                        this.draft.name,
-                        this.draft.displayName,
-                        this.draft.description,
-                        this.draft.imagePath,
-                        String(this.draft.gridWidth),
-                        String(this.draft.gridHeight),
-                    ],
-                )
-                spriteId = await sql.value("SELECT last_insert_rowid()", [])
+                firstSpriteId = 0
+                for (const sourceSprite of this.draft.sourceSprites) {
+                    await sql.exec(
+                        `INSERT INTO sprite (name, display_name, description, image_path, source_x, source_y, source_width, source_height, source_slice_name, grid_width, grid_height)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            sourceSprite.name,
+                            sourceSprite.displayName,
+                            this.draft.description,
+                            this.draft.imagePath,
+                            String(sourceSprite.sourceX),
+                            String(sourceSprite.sourceY),
+                            String(sourceSprite.sourceWidth),
+                            String(sourceSprite.sourceHeight),
+                            String(sourceSprite.sliceName || ""),
+                            String(this.draft.gridWidth),
+                            String(this.draft.gridHeight),
+                        ],
+                    )
+                    const spriteId = await sql.value("SELECT last_insert_rowid()", [])
+                    if (!firstSpriteId) firstSpriteId = Number(spriteId)
+                    await this.saveSpriteAnimations(spriteId, sourceSprite)
+                }
             }
-            for (const animation of this.draft.animations) {
-                await sql.exec(
-                    `INSERT INTO sprite_animation (sprite_id, name, start_frame, end_frame)
-                     VALUES (?, ?, ?, ?)`,
-                    [String(spriteId), animation.name, String(animation.startFrame), String(animation.endFrame)],
-                )
-            }
+            this.spriteId = Number(firstSpriteId)
             await sql.exec("COMMIT", [])
         } catch (error) {
             await sql.exec("ROLLBACK", [])

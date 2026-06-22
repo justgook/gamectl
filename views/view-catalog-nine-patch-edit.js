@@ -36,8 +36,83 @@ function normalizeName(value) {
         .replace(/^_+|_+$/g, "")
 }
 
+function assertInteger(value, name) {
+    assert(Number.isInteger(value), `${name} must be an integer`)
+}
+
 function assertNonNegativeInteger(value, name) {
     assert(Number.isInteger(value) && value >= 0, `${name} must be a non-negative integer`)
+}
+
+function assertPositiveInteger(value, name) {
+    assert(Number.isInteger(value) && value > 0, `${name} must be a positive integer`)
+}
+
+function normalizePatch(value, name) {
+    if (value === null) return null
+    assert(value && typeof value === "object", `${name} must be a rect option`)
+    const patch = "is_some" in value ? (value.is_some ? value.val : null) : "isSome" in value ? (value.isSome ? value.val : null) : value
+    if (patch === null) return null
+    const x = Number(patch.x)
+    const y = Number(patch.y)
+    const width = Number(patch.width)
+    const height = Number(patch.height)
+    assertNonNegativeInteger(x, `${name} x`)
+    assertNonNegativeInteger(y, `${name} y`)
+    assertPositiveInteger(width, `${name} width`)
+    assertPositiveInteger(height, `${name} height`)
+    return { x, y, width, height }
+}
+
+function firstSliceKey(slice) {
+    assert(slice && typeof slice === "object", "Aseprite slice must be an object")
+    assert(Array.isArray(slice.keys), `Aseprite slice ${String(slice.name || "")} keys must be an array`)
+    assert(slice.keys.length > 0, `Aseprite slice ${String(slice.name || "")} requires at least one key`)
+    const sortedKeys = [...slice.keys].sort((left, right) => Number(left.frame) - Number(right.frame))
+    return sortedKeys[0]
+}
+
+function buildSourceNinePatches({ baseName, slices }) {
+    assert(Array.isArray(slices), "Aseprite slices must be an array")
+    assert(slices.length > 0, "Aseprite nine-patch import requires at least one slice")
+    const multiple = slices.length > 1
+    const ninePatches = slices.map((slice) => {
+        const sliceName = String(slice.name || "").trim()
+        assert(sliceName, "Aseprite slice requires name")
+        const key = firstSliceKey(slice)
+        const sourceX = Number(key.x)
+        const sourceY = Number(key.y)
+        const sourceWidth = Number(key.width)
+        const sourceHeight = Number(key.height)
+        assertInteger(sourceX, `Aseprite slice ${sliceName} source x`)
+        assertInteger(sourceY, `Aseprite slice ${sliceName} source y`)
+        assertPositiveInteger(sourceWidth, `Aseprite slice ${sliceName} source width`)
+        assertPositiveInteger(sourceHeight, `Aseprite slice ${sliceName} source height`)
+        const patch = normalizePatch(key.patch, `Aseprite slice ${sliceName} patch`)
+        assert(patch, `Aseprite slice ${sliceName} requires a nine-patch center patch`)
+        assert(patch.x + patch.width <= sourceWidth, `Aseprite slice ${sliceName} patch exceeds source width`)
+        assert(patch.y + patch.height <= sourceHeight, `Aseprite slice ${sliceName} patch exceeds source height`)
+        return {
+            sliceName,
+            name: multiple ? normalizeName(sliceName) : normalizeName(baseName),
+            displayName: multiple ? sliceName : baseName,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            sliceLeft: patch.x,
+            sliceTop: patch.y,
+            sliceRight: patch.x + patch.width,
+            sliceBottom: patch.y + patch.height,
+        }
+    })
+    const names = new Set()
+    for (const ninePatch of ninePatches) {
+        assert(ninePatch.name, `Aseprite slice ${ninePatch.sliceName} produced empty nine-patch name`)
+        assert(!names.has(ninePatch.name), `duplicate nine-patch name from Aseprite slices: ${ninePatch.name}`)
+        names.add(ninePatch.name)
+    }
+    return ninePatches
 }
 
 export class ViewCatalogNinePatchEdit extends HTMLElement {
@@ -53,6 +128,12 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             name: "",
             displayName: "",
             description: "",
+            sourceNinePatches: [],
+            sourceX: 0,
+            sourceY: 0,
+            sourceWidth: 0,
+            sourceHeight: 0,
+            sourceSliceName: "",
             sliceLeft: 0,
             sliceTop: 0,
             sliceRight: 1,
@@ -104,11 +185,24 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         this.draft.sliceTop = Number(formData.get("slice-top"))
         this.draft.sliceRight = Number(formData.get("slice-right"))
         this.draft.sliceBottom = Number(formData.get("slice-bottom"))
+        if (this.draft.sourceNinePatches.length === 1) {
+            this.draft.sourceNinePatches[0].name = this.draft.name
+            this.draft.sourceNinePatches[0].displayName = this.draft.displayName
+            this.draft.sourceNinePatches[0].sliceLeft = this.draft.sliceLeft
+            this.draft.sourceNinePatches[0].sliceTop = this.draft.sliceTop
+            this.draft.sourceNinePatches[0].sliceRight = this.draft.sliceRight
+            this.draft.sourceNinePatches[0].sliceBottom = this.draft.sliceBottom
+        }
     }
 
     render() {
         assert(this.formElement instanceof HTMLFormElement, "view-catalog-nine-patch-edit form is not initialized")
         const submitLabel = this.mode === "edit" ? "Save nine patch" : "Import nine patch"
+        const sourceInfo = this.draft.sourceNinePatches.length > 0
+            ? `${this.draft.sourceNinePatches.length} nine patches from Aseprite slices`
+            : this.mode === "edit"
+              ? "Loaded from database."
+              : "Choose a QOI/PNG/etc file for manual entry, or an Aseprite file with slices."
         this.formElement.innerHTML = `
       <fieldset>
         <legend>Source</legend>
@@ -116,6 +210,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
           <input type="text" name="image-path" value="${escapeHtml(this.draft.imagePath)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </label>
         <button type="submit" name="intent" value="choose-file">Choose file</button>
+        <p>${escapeHtml(sourceInfo)}</p>
       </fieldset>
 
       <fieldset>
@@ -175,19 +270,56 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         assert(selection && !Array.isArray(selection), "nine-patch import requires one selected file")
         const path = String(selection.path || "").trim()
         assert(path, "nine-patch selected file requires path")
+        const lowerPath = path.toLowerCase()
+        if (lowerPath.endsWith(".aseprite") || lowerPath.endsWith(".ase")) {
+            await this.loadAsepriteDraft(path)
+            return
+        }
         const baseName = basenameWithoutExtension(path)
         this.draft.imagePath = path
+        this.draft.sourceNinePatches = []
+        this.draft.sourceX = 0
+        this.draft.sourceY = 0
+        this.draft.sourceWidth = 0
+        this.draft.sourceHeight = 0
+        this.draft.sourceSliceName = ""
         if (!this.draft.name) this.draft.name = normalizeName(baseName)
         if (!this.draft.displayName) this.draft.displayName = baseName
+    }
+
+    async loadAsepriteDraft(path) {
+        let documentResource = null
+        try {
+            documentResource = unwrap(await runtime.invoke("aseprite/aseprite::open", path), "aseprite open")
+            const slices = unwrap(await runtime.invoke("aseprite/aseprite::slices", documentResource), "aseprite slices")
+            const baseName = basenameWithoutExtension(path)
+            this.draft.imagePath = path
+            this.draft.sourceNinePatches = buildSourceNinePatches({ baseName, slices })
+            const first = this.draft.sourceNinePatches[0]
+            this.draft.name = first.name
+            this.draft.displayName = first.displayName
+            this.draft.sourceX = first.sourceX
+            this.draft.sourceY = first.sourceY
+            this.draft.sourceWidth = first.sourceWidth
+            this.draft.sourceHeight = first.sourceHeight
+            this.draft.sourceSliceName = first.sliceName
+            this.draft.sliceLeft = first.sliceLeft
+            this.draft.sliceTop = first.sliceTop
+            this.draft.sliceRight = first.sliceRight
+            this.draft.sliceBottom = first.sliceBottom
+        } finally {
+            if (documentResource) await runtime.releaseResource(documentResource)
+        }
     }
 
     async loadDraft(ninePatchId) {
         const rows = await sql.queryObjects(
             `SELECT id, name, COALESCE(display_name, '') AS display_name, COALESCE(description, '') AS description,
-                    image_path, slice_left, slice_top, slice_right, slice_bottom
+                    image_path, source_x, source_y, source_width, source_height, source_slice_name,
+                    slice_left, slice_top, slice_right, slice_bottom
              FROM nine_patch
              WHERE id = ?`,
-            ["id", "name", "display_name", "description", "image_path", "slice_left", "slice_top", "slice_right", "slice_bottom"],
+            ["id", "name", "display_name", "description", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "slice_left", "slice_top", "slice_right", "slice_bottom"],
             [String(ninePatchId)],
         )
         assert(rows.length === 1, `expected one nine_patch for id ${ninePatchId}, got ${rows.length}`)
@@ -196,6 +328,26 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         this.draft.name = String(row.name)
         this.draft.displayName = String(row.display_name)
         this.draft.description = String(row.description)
+        this.draft.sourceX = Number(row.source_x)
+        this.draft.sourceY = Number(row.source_y)
+        this.draft.sourceWidth = Number(row.source_width)
+        this.draft.sourceHeight = Number(row.source_height)
+        this.draft.sourceSliceName = String(row.source_slice_name || "")
+        this.draft.sourceNinePatches = [
+            {
+                sliceName: this.draft.sourceSliceName,
+                name: this.draft.name,
+                displayName: this.draft.displayName,
+                sourceX: this.draft.sourceX,
+                sourceY: this.draft.sourceY,
+                sourceWidth: this.draft.sourceWidth,
+                sourceHeight: this.draft.sourceHeight,
+                sliceLeft: Number(row.slice_left),
+                sliceTop: Number(row.slice_top),
+                sliceRight: Number(row.slice_right),
+                sliceBottom: Number(row.slice_bottom),
+            },
+        ]
         this.draft.sliceLeft = Number(row.slice_left)
         this.draft.sliceTop = Number(row.slice_top)
         this.draft.sliceRight = Number(row.slice_right)
@@ -211,44 +363,92 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         assertNonNegativeInteger(this.draft.sliceBottom, "slice bottom")
         assert(this.draft.sliceRight > this.draft.sliceLeft, "slice right must be greater than slice left")
         assert(this.draft.sliceBottom > this.draft.sliceTop, "slice bottom must be greater than slice top")
+        if (this.draft.sourceNinePatches.length > 0) {
+            const names = new Set()
+            for (const ninePatch of this.draft.sourceNinePatches) {
+                assert(ninePatch.name, "Nine-patch name is required")
+                assert(!names.has(ninePatch.name), `Duplicate nine-patch name: ${ninePatch.name}`)
+                names.add(ninePatch.name)
+                assertInteger(Number(ninePatch.sourceX), `nine-patch ${ninePatch.name} source x`)
+                assertInteger(Number(ninePatch.sourceY), `nine-patch ${ninePatch.name} source y`)
+                assertNonNegativeInteger(Number(ninePatch.sourceWidth), `nine-patch ${ninePatch.name} source width`)
+                assertNonNegativeInteger(Number(ninePatch.sourceHeight), `nine-patch ${ninePatch.name} source height`)
+                assertNonNegativeInteger(Number(ninePatch.sliceLeft), `nine-patch ${ninePatch.name} slice left`)
+                assertNonNegativeInteger(Number(ninePatch.sliceTop), `nine-patch ${ninePatch.name} slice top`)
+                assertNonNegativeInteger(Number(ninePatch.sliceRight), `nine-patch ${ninePatch.name} slice right`)
+                assertNonNegativeInteger(Number(ninePatch.sliceBottom), `nine-patch ${ninePatch.name} slice bottom`)
+                assert(Number(ninePatch.sliceRight) > Number(ninePatch.sliceLeft), `nine-patch ${ninePatch.name} slice right must be greater than slice left`)
+                assert(Number(ninePatch.sliceBottom) > Number(ninePatch.sliceTop), `nine-patch ${ninePatch.name} slice bottom must be greater than slice top`)
+            }
+        }
+    }
+
+    manualNinePatch() {
+        return {
+            sliceName: this.draft.sourceSliceName || "",
+            name: this.draft.name,
+            displayName: this.draft.displayName,
+            sourceX: this.draft.sourceX,
+            sourceY: this.draft.sourceY,
+            sourceWidth: this.draft.sourceWidth,
+            sourceHeight: this.draft.sourceHeight,
+            sliceLeft: this.draft.sliceLeft,
+            sliceTop: this.draft.sliceTop,
+            sliceRight: this.draft.sliceRight,
+            sliceBottom: this.draft.sliceBottom,
+        }
+    }
+
+    async saveNinePatchRow(ninePatch, id = null) {
+        const params = [
+            ninePatch.name,
+            ninePatch.displayName,
+            this.draft.description,
+            this.draft.imagePath,
+            String(ninePatch.sourceX),
+            String(ninePatch.sourceY),
+            String(ninePatch.sourceWidth),
+            String(ninePatch.sourceHeight),
+            String(ninePatch.sliceName || ""),
+            String(ninePatch.sliceLeft),
+            String(ninePatch.sliceTop),
+            String(ninePatch.sliceRight),
+            String(ninePatch.sliceBottom),
+        ]
+        if (id !== null) {
+            await sql.exec(
+                `UPDATE nine_patch
+                 SET name = ?, display_name = ?, description = ?, image_path = ?,
+                     source_x = ?, source_y = ?, source_width = ?, source_height = ?, source_slice_name = ?,
+                     slice_left = ?, slice_top = ?, slice_right = ?, slice_bottom = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?`,
+                [...params, String(id)],
+            )
+            return
+        }
+        await sql.exec(
+            `INSERT INTO nine_patch (name, display_name, description, image_path, source_x, source_y, source_width, source_height, source_slice_name, slice_left, slice_top, slice_right, slice_bottom)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            params,
+        )
     }
 
     async saveNinePatch() {
         this.validateDraft()
         if (this.mode === "edit") {
-            await sql.exec(
-                `UPDATE nine_patch
-                 SET name = ?, display_name = ?, description = ?, image_path = ?,
-                     slice_left = ?, slice_top = ?, slice_right = ?, slice_bottom = ?, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?`,
-                [
-                    this.draft.name,
-                    this.draft.displayName,
-                    this.draft.description,
-                    this.draft.imagePath,
-                    String(this.draft.sliceLeft),
-                    String(this.draft.sliceTop),
-                    String(this.draft.sliceRight),
-                    String(this.draft.sliceBottom),
-                    String(this.ninePatchId),
-                ],
-            )
+            assert(this.draft.sourceNinePatches.length <= 1, "nine-patch edit requires at most one source nine-patch")
+            await this.saveNinePatchRow(this.draft.sourceNinePatches[0] || this.manualNinePatch(), this.ninePatchId)
             return
         }
-        await sql.exec(
-            `INSERT INTO nine_patch (name, display_name, description, image_path, slice_left, slice_top, slice_right, slice_bottom)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                this.draft.name,
-                this.draft.displayName,
-                this.draft.description,
-                this.draft.imagePath,
-                String(this.draft.sliceLeft),
-                String(this.draft.sliceTop),
-                String(this.draft.sliceRight),
-                String(this.draft.sliceBottom),
-            ],
-        )
+        const ninePatches = this.draft.sourceNinePatches.length > 0 ? this.draft.sourceNinePatches : [this.manualNinePatch()]
+        await sql.exec("BEGIN TRANSACTION", [])
+        try {
+            for (const ninePatch of ninePatches) await this.saveNinePatchRow(ninePatch)
+            await sql.exec("COMMIT", [])
+        } catch (error) {
+            await sql.exec("ROLLBACK", [])
+            throw error
+        }
     }
 
     async handleSubmit(event) {

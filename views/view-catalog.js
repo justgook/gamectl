@@ -3,6 +3,34 @@ import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 import { sql } from "/util/sql.js"
 import { decode as decodeQoi } from "/util/qoi/decode.js"
 
+const CATALOG_TABLES = Object.freeze({
+    tileset: "tileset",
+    tilesetImageSource: "tileset_image_source",
+    tile: "tile",
+    sprite: "sprite",
+    spriteAnimation: "sprite_animation",
+    spriteAnimationFrame: "sprite_animation_frame",
+    ninePatch: "nine_patch",
+})
+
+const CATALOG_INDEXES = Object.freeze({
+    tilesetImageSourceTileset: "idx_tileset_image_source_tileset",
+    tileTilesetMask: "idx_tile_tileset_mask",
+    tileImageSource: "idx_tile_image_source",
+    spriteAnimationSprite: "idx_sprite_animation_sprite",
+    spriteAnimationFrameAnimation: "idx_sprite_animation_frame_animation",
+})
+
+const CATALOG_SCHEMA_TABLE_NAMES = Object.freeze(Object.values(CATALOG_TABLES))
+
+function quoteIdent(name) {
+    return String(name).replace(/"/g, '""')
+}
+
+function sqlIdent(name) {
+    return `"${quoteIdent(name)}"`
+}
+
 function assert(condition, message) {
     if (!condition) throw new Error(message)
 }
@@ -47,6 +75,118 @@ function createCanvasFromPixels(pixels, label) {
 
 function assertPositiveInteger(value, name) {
     assert(Number.isInteger(value) && value > 0, `${name} must be a positive integer`)
+}
+
+function catalogSchemaStatements() {
+    const tileset = sqlIdent(CATALOG_TABLES.tileset)
+    const tilesetImageSource = sqlIdent(CATALOG_TABLES.tilesetImageSource)
+    const tile = sqlIdent(CATALOG_TABLES.tile)
+    const sprite = sqlIdent(CATALOG_TABLES.sprite)
+    const spriteAnimation = sqlIdent(CATALOG_TABLES.spriteAnimation)
+    const spriteAnimationFrame = sqlIdent(CATALOG_TABLES.spriteAnimationFrame)
+    const ninePatch = sqlIdent(CATALOG_TABLES.ninePatch)
+
+    return [
+        `CREATE TABLE IF NOT EXISTS ${tileset} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            display_name TEXT,
+            description TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS ${tilesetImageSource} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tileset_id INTEGER NOT NULL,
+            image_path TEXT NOT NULL,
+            tile_width INTEGER NOT NULL CHECK (tile_width > 0),
+            tile_height INTEGER NOT NULL CHECK (tile_height > 0),
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (tileset_id) REFERENCES ${tileset}(id) ON DELETE CASCADE,
+            UNIQUE (tileset_id, image_path),
+            UNIQUE (id, tileset_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS ${tile} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tileset_id INTEGER NOT NULL,
+            image_source_id INTEGER NOT NULL,
+            mask INTEGER NOT NULL CHECK (mask >= 1 AND mask <= 15),
+            tile_index INTEGER NOT NULL CHECK (tile_index >= 1),
+            variant_index INTEGER NOT NULL DEFAULT 0 CHECK (variant_index >= 0),
+            weight INTEGER NOT NULL DEFAULT 1 CHECK (weight > 0),
+            name TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (tileset_id) REFERENCES ${tileset}(id) ON DELETE CASCADE,
+            FOREIGN KEY (image_source_id, tileset_id) REFERENCES ${tilesetImageSource}(id, tileset_id) ON DELETE CASCADE,
+            UNIQUE (tileset_id, mask, variant_index)
+        )`,
+        `CREATE INDEX IF NOT EXISTS ${sqlIdent(CATALOG_INDEXES.tilesetImageSourceTileset)} ON ${tilesetImageSource} (tileset_id)`,
+        `CREATE INDEX IF NOT EXISTS ${sqlIdent(CATALOG_INDEXES.tileTilesetMask)} ON ${tile} (tileset_id, mask)`,
+        `CREATE INDEX IF NOT EXISTS ${sqlIdent(CATALOG_INDEXES.tileImageSource)} ON ${tile} (image_source_id)`,
+        `CREATE TABLE IF NOT EXISTS ${sprite} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            display_name TEXT,
+            description TEXT,
+            image_path TEXT NOT NULL,
+            source_x INTEGER NOT NULL DEFAULT 0,
+            source_y INTEGER NOT NULL DEFAULT 0,
+            source_width INTEGER NOT NULL DEFAULT 1 CHECK (source_width > 0),
+            source_height INTEGER NOT NULL DEFAULT 1 CHECK (source_height > 0),
+            source_slice_name TEXT NOT NULL DEFAULT '',
+            grid_width INTEGER NOT NULL CHECK (grid_width > 0),
+            grid_height INTEGER NOT NULL CHECK (grid_height > 0),
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (image_path, source_slice_name)
+        )`,
+        `CREATE TABLE IF NOT EXISTS ${spriteAnimation} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sprite_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            start_frame INTEGER NOT NULL CHECK (start_frame >= 0),
+            end_frame INTEGER NOT NULL CHECK (end_frame >= start_frame),
+            direction TEXT NOT NULL CHECK (direction IN ('forward', 'reverse', 'ping-pong', 'ping-pong-reverse')),
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (sprite_id) REFERENCES ${sprite}(id) ON DELETE CASCADE,
+            UNIQUE (sprite_id, name)
+        )`,
+        `CREATE INDEX IF NOT EXISTS ${sqlIdent(CATALOG_INDEXES.spriteAnimationSprite)} ON ${spriteAnimation} (sprite_id)`,
+        `CREATE TABLE IF NOT EXISTS ${spriteAnimationFrame} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sprite_animation_id INTEGER NOT NULL,
+            frame_index INTEGER NOT NULL CHECK (frame_index >= 0),
+            pivot_x INTEGER NOT NULL,
+            pivot_y INTEGER NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (sprite_animation_id) REFERENCES ${spriteAnimation}(id) ON DELETE CASCADE,
+            UNIQUE (sprite_animation_id, frame_index)
+        )`,
+        `CREATE INDEX IF NOT EXISTS ${sqlIdent(CATALOG_INDEXES.spriteAnimationFrameAnimation)} ON ${spriteAnimationFrame} (sprite_animation_id)`,
+        `CREATE TABLE IF NOT EXISTS ${ninePatch} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            display_name TEXT,
+            description TEXT,
+            image_path TEXT NOT NULL,
+            source_x INTEGER NOT NULL DEFAULT 0,
+            source_y INTEGER NOT NULL DEFAULT 0,
+            source_width INTEGER NOT NULL DEFAULT 0 CHECK (source_width >= 0),
+            source_height INTEGER NOT NULL DEFAULT 0 CHECK (source_height >= 0),
+            source_slice_name TEXT NOT NULL DEFAULT '',
+            slice_left INTEGER NOT NULL CHECK (slice_left >= 0),
+            slice_top INTEGER NOT NULL CHECK (slice_top >= 0),
+            slice_right INTEGER NOT NULL CHECK (slice_right > slice_left),
+            slice_bottom INTEGER NOT NULL CHECK (slice_bottom > slice_top),
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (image_path, source_slice_name)
+        )`,
+    ]
 }
 
 export class ViewCatalog extends HTMLElement {
@@ -389,6 +529,7 @@ export class ViewCatalog extends HTMLElement {
 
     async refresh() {
         this.setStatus("Loading...", "info")
+        await this.ensureCatalogSchema()
         this.tilesetRows = await this.fetchTilesets()
         this.spriteRows = await this.fetchSprites()
         this.ninePatchRows = await this.fetchNinePatches()
@@ -405,7 +546,25 @@ export class ViewCatalog extends HTMLElement {
         this.updateStatus()
     }
 
+    async ensureCatalogSchema() {
+        const placeholders = CATALOG_SCHEMA_TABLE_NAMES.map(() => "?").join(", ")
+        const existingTables = await sql.queryObjects(
+            `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${placeholders})`,
+            ["name"],
+            CATALOG_SCHEMA_TABLE_NAMES,
+        )
+        if (existingTables.length === CATALOG_SCHEMA_TABLE_NAMES.length) return
+
+        await sql.exec("PRAGMA foreign_keys = ON")
+        for (const statement of catalogSchemaStatements()) {
+            await sql.exec(statement)
+        }
+    }
+
     async fetchTilesets() {
+        const tileTable = sqlIdent(CATALOG_TABLES.tile)
+        const tilesetImageSourceTable = sqlIdent(CATALOG_TABLES.tilesetImageSource)
+        const tilesetTable = sqlIdent(CATALOG_TABLES.tileset)
         return await sql.queryObjects(
             `
         WITH stats AS (
@@ -414,7 +573,7 @@ export class ViewCatalog extends HTMLElement {
             COUNT(*) AS tile_count,
             COUNT(DISTINCT mask) AS mask_count,
             SUM(CASE WHEN variant_index > 0 THEN 1 ELSE 0 END) AS variant_count
-          FROM tile
+          FROM ${tileTable}
           GROUP BY tileset_id
         ),
         previews AS (
@@ -424,8 +583,8 @@ export class ViewCatalog extends HTMLElement {
             src.image_path AS preview_image_path,
             src.tile_width AS preview_tile_width,
             src.tile_height AS preview_tile_height
-          FROM tile t
-          JOIN tileset_image_source src
+          FROM ${tileTable} t
+          JOIN ${tilesetImageSourceTable} src
             ON src.id = t.image_source_id
            AND src.tileset_id = t.tileset_id
           WHERE t.mask = 15
@@ -443,7 +602,7 @@ export class ViewCatalog extends HTMLElement {
           stats.mask_count AS mask_count,
           stats.tile_count AS tile_count,
           stats.variant_count AS variant_count
-        FROM tileset ts
+        FROM ${tilesetTable} ts
         JOIN stats ON stats.tileset_id = ts.id
         JOIN previews ON previews.tileset_id = ts.id
         ORDER BY ts.name
@@ -465,6 +624,8 @@ export class ViewCatalog extends HTMLElement {
     }
 
     async fetchSprites() {
+        const spriteTable = sqlIdent(CATALOG_TABLES.sprite)
+        const spriteAnimationTable = sqlIdent(CATALOG_TABLES.spriteAnimation)
         return await sql.queryObjects(
             `
         SELECT
@@ -476,8 +637,8 @@ export class ViewCatalog extends HTMLElement {
           s.grid_width AS grid_width,
           s.grid_height AS grid_height,
           COUNT(a.id) AS animation_count
-        FROM sprite s
-        LEFT JOIN sprite_animation a ON a.sprite_id = s.id
+        FROM ${spriteTable} s
+        LEFT JOIN ${spriteAnimationTable} a ON a.sprite_id = s.id
         GROUP BY s.id
         ORDER BY s.name
       `,
@@ -486,6 +647,7 @@ export class ViewCatalog extends HTMLElement {
     }
 
     async fetchNinePatches() {
+        const ninePatchTable = sqlIdent(CATALOG_TABLES.ninePatch)
         return await sql.queryObjects(
             `
         SELECT
@@ -494,14 +656,19 @@ export class ViewCatalog extends HTMLElement {
           COALESCE(display_name, name) AS display_name,
           COALESCE(description, '') AS description,
           image_path,
+          source_x,
+          source_y,
+          source_width,
+          source_height,
+          source_slice_name,
           slice_left,
           slice_top,
           slice_right,
           slice_bottom
-        FROM nine_patch
+        FROM ${ninePatchTable}
         ORDER BY name
       `,
-            ["id", "name", "display_name", "description", "image_path", "slice_left", "slice_top", "slice_right", "slice_bottom"],
+            ["id", "name", "display_name", "description", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "slice_left", "slice_top", "slice_right", "slice_bottom"],
         )
     }
 
@@ -621,7 +788,8 @@ export class ViewCatalog extends HTMLElement {
             name.textContent = row.display_name
 
             const source = document.createElement("td")
-            source.textContent = row.image_path
+            const sourceSliceName = String(row.source_slice_name || "")
+            source.textContent = sourceSliceName ? `${row.image_path}#${sourceSliceName}` : row.image_path
 
             const slices = document.createElement("td")
             slices.textContent = `${row.slice_left}, ${row.slice_top}, ${row.slice_right}, ${row.slice_bottom}`
@@ -769,36 +937,59 @@ export class ViewCatalog extends HTMLElement {
         const path = String(row.image_path || "")
         assert(path.length > 0, "nine-patch preview requires image path")
 
-        if (getExtension(path) !== "qoi") {
-            canvas.width = 96
-            canvas.height = 48
-            const ctx = canvas.getContext("2d")
-            assert(ctx, "view-catalog nine-patch preview requires 2d context")
-            ctx.clearRect(0, 0, canvas.width, canvas.height)
-            ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
-            ctx.fillText("image", 8, 26)
-            return
-        }
-
         let source = imageCache.get(path)
         if (!source) {
-            const bytes = new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", path)))
-            source = createCanvasFromQoi(bytes)
+            const extension = getExtension(path)
+            if (extension === "qoi") {
+                const bytes = new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", path)))
+                source = createCanvasFromQoi(bytes)
+            } else if (extension === "aseprite" || extension === "ase") {
+                source = await this.loadAsepriteFrameCanvas(path)
+            } else {
+                canvas.width = 96
+                canvas.height = 48
+                const ctx = canvas.getContext("2d")
+                assert(ctx, "view-catalog nine-patch preview requires 2d context")
+                ctx.clearRect(0, 0, canvas.width, canvas.height)
+                ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
+                ctx.fillText("image", 8, 26)
+                return
+            }
             imageCache.set(path, source)
         }
 
-        const scale = Math.max(1, Math.floor(96 / Math.max(source.width, source.height)))
-        canvas.width = source.width * scale
-        canvas.height = source.height * scale
+        const sourceX = Number(row.source_x)
+        const sourceY = Number(row.source_y)
+        const sourceWidth = Number(row.source_width) || source.width
+        const sourceHeight = Number(row.source_height) || source.height
+        assert(Number.isInteger(sourceX), "nine-patch preview source x must be an integer")
+        assert(Number.isInteger(sourceY), "nine-patch preview source y must be an integer")
+        assertPositiveInteger(sourceWidth, "nine-patch preview source width")
+        assertPositiveInteger(sourceHeight, "nine-patch preview source height")
+
+        const scale = Math.max(1, Math.floor(96 / Math.max(sourceWidth, sourceHeight)))
+        canvas.width = sourceWidth * scale
+        canvas.height = sourceHeight * scale
         const ctx = canvas.getContext("2d")
         assert(ctx, "view-catalog nine-patch preview requires 2d context")
         ctx.imageSmoothingEnabled = false
         ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
+        ctx.drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
         ctx.strokeRect(Number(row.slice_left) * scale + 0.5, 0.5, 0, canvas.height - 1)
         ctx.strokeRect(Number(row.slice_right) * scale + 0.5, 0.5, 0, canvas.height - 1)
         ctx.strokeRect(0.5, Number(row.slice_top) * scale + 0.5, canvas.width - 1, 0)
         ctx.strokeRect(0.5, Number(row.slice_bottom) * scale + 0.5, canvas.width - 1, 0)
+    }
+
+    async loadAsepriteFrameCanvas(path) {
+        let documentResource = null
+        try {
+            documentResource = unwrap(await runtime.invoke("aseprite/aseprite::open", path), "aseprite open")
+            const pixels = unwrap(await runtime.invoke("aseprite/aseprite::render-frame", documentResource, 0), "aseprite render frame")
+            return createCanvasFromPixels(pixels, "view-catalog nine-patch preview")
+        } finally {
+            if (documentResource) await runtime.releaseResource(documentResource)
+        }
     }
 }
 
