@@ -130,9 +130,15 @@ interface aseprite {
         pivot: option<point>,
     }
 
+    record user-data {
+        text: option<string>,
+        color: option<rgba8>,
+    }
+
     record slice-info {
         name: string,
         keys: list<slice-key>,
+        user-data: option<user-data>,
     }
 
     record tileset-info {

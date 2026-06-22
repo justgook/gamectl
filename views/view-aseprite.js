@@ -39,6 +39,150 @@ function blendOrder(a, b) {
     return a["layer-index"] + a["z-index"] - (b["layer-index"] + b["z-index"]) || a["z-index"] - b["z-index"]
 }
 
+function optionValue(value, name) {
+    if (value === null) return null
+    assert(value !== undefined, `${name} must be present`)
+    if (typeof value !== "object") return value
+    if ("is_some" in value) return value.is_some ? value.val : null
+    if ("isSome" in value) return value.isSome ? value.val : null
+    return value
+}
+
+function normalizeOptionalRect(value, name) {
+    const rect = optionValue(value, name)
+    if (rect === null) return null
+    const x = Number(rect.x)
+    const y = Number(rect.y)
+    const width = Number(rect.width)
+    const height = Number(rect.height)
+    assert(Number.isInteger(x), `${name} x must be an integer`)
+    assert(Number.isInteger(y), `${name} y must be an integer`)
+    assert(Number.isInteger(width) && width > 0, `${name} width must be a positive integer`)
+    assert(Number.isInteger(height) && height > 0, `${name} height must be a positive integer`)
+    return { x, y, width, height }
+}
+
+function normalizeOptionalPoint(value, name) {
+    const point = optionValue(value, name)
+    if (point === null) return null
+    const x = Number(point.x)
+    const y = Number(point.y)
+    assert(Number.isInteger(x), `${name} x must be an integer`)
+    assert(Number.isInteger(y), `${name} y must be an integer`)
+    return { x, y }
+}
+
+function normalizeRgba(value, name) {
+    assert(value && typeof value === "object", `${name} must be an rgba object`)
+    const r = Number(value.r)
+    const g = Number(value.g)
+    const b = Number(value.b)
+    const a = Number(value.a)
+    assert(Number.isInteger(r) && r >= 0 && r <= 255, `${name} red must be a byte`)
+    assert(Number.isInteger(g) && g >= 0 && g <= 255, `${name} green must be a byte`)
+    assert(Number.isInteger(b) && b >= 0 && b <= 255, `${name} blue must be a byte`)
+    assert(Number.isInteger(a) && a >= 0 && a <= 255, `${name} alpha must be a byte`)
+    return { r, g, b, a }
+}
+
+function rgbaCss(color) {
+    return `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a / 255})`
+}
+
+function sliceUserData(slice) {
+    const userData = optionValue(slice["user-data"], `view-aseprite slice ${String(slice.name || "")} user data`)
+    if (userData === null) return { text: null, color: null }
+    assert(userData && typeof userData === "object", `view-aseprite slice ${String(slice.name || "")} user data must be an object`)
+    const text = optionValue(userData.text, `view-aseprite slice ${String(slice.name || "")} user data text`)
+    const colorValue = optionValue(userData.color, `view-aseprite slice ${String(slice.name || "")} user data color`)
+    const color = colorValue === null ? null : normalizeRgba(colorValue, `view-aseprite slice ${String(slice.name || "")} user data color`)
+    return { text, color }
+}
+
+function sliceOverlayColor(slice) {
+    return sliceUserData(slice).color || { r: 255, g: 0, b: 255, a: 255 }
+}
+
+function sliceKeyForFrame(slice, frameIndex) {
+    assert(slice && typeof slice === "object", "view-aseprite slice must be an object")
+    assert(Array.isArray(slice.keys), `view-aseprite slice ${String(slice.name || "")} keys must be an array`)
+    assert(slice.keys.length > 0, `view-aseprite slice ${String(slice.name || "")} requires at least one key`)
+    assert(Number.isInteger(frameIndex), "view-aseprite slice frame index must be an integer")
+    const keys = [...slice.keys].sort((left, right) => Number(left.frame) - Number(right.frame))
+    for (const key of keys) {
+        assert(Number.isInteger(Number(key.frame)), `view-aseprite slice ${String(slice.name || "")} key frame must be an integer`)
+        assert(Number.isInteger(Number(key.x)), `view-aseprite slice ${String(slice.name || "")} x must be an integer`)
+        assert(Number.isInteger(Number(key.y)), `view-aseprite slice ${String(slice.name || "")} y must be an integer`)
+        assert(Number.isInteger(Number(key.width)) && Number(key.width) > 0, `view-aseprite slice ${String(slice.name || "")} width must be a positive integer`)
+        assert(Number.isInteger(Number(key.height)) && Number(key.height) > 0, `view-aseprite slice ${String(slice.name || "")} height must be a positive integer`)
+    }
+    let selected = keys[0]
+    for (const key of keys) {
+        if (Number(key.frame) > frameIndex) break
+        selected = key
+    }
+    const name = `view-aseprite slice ${String(slice.name || "")}`
+    const patch = normalizeOptionalRect(selected.patch, `${name} nine-slice patch`)
+    const pivot = normalizeOptionalPoint(selected.pivot, `${name} pivot`)
+    const width = Number(selected.width)
+    const height = Number(selected.height)
+    if (patch) {
+        assert(patch.x >= 0 && patch.x + patch.width <= width, `${name} nine-slice patch must fit within slice width`)
+        assert(patch.y >= 0 && patch.y + patch.height <= height, `${name} nine-slice patch must fit within slice height`)
+    }
+    return {
+        frame: Number(selected.frame),
+        x: Number(selected.x),
+        y: Number(selected.y),
+        width,
+        height,
+        patch,
+        pivot,
+    }
+}
+
+function drawSliceOverlay(ctx, key, { offsetX = 0, offsetY = 0, lineWidth = 1, includeBounds = true, color = { r: 255, g: 0, b: 255, a: 255 } } = {}) {
+    const x = offsetX
+    const y = offsetY
+    ctx.save()
+    ctx.lineWidth = lineWidth
+    ctx.setLineDash([])
+    if (includeBounds) {
+        ctx.strokeStyle = rgbaCss(color)
+        ctx.strokeRect(x, y, key.width, key.height)
+    }
+    if (key.patch) {
+        const left = x + key.patch.x
+        const right = x + key.patch.x + key.patch.width
+        const top = y + key.patch.y
+        const bottom = y + key.patch.y + key.patch.height
+        ctx.strokeStyle = "#00e5ff"
+        ctx.beginPath()
+        ctx.moveTo(left, y)
+        ctx.lineTo(left, y + key.height)
+        ctx.moveTo(right, y)
+        ctx.lineTo(right, y + key.height)
+        ctx.moveTo(x, top)
+        ctx.lineTo(x + key.width, top)
+        ctx.moveTo(x, bottom)
+        ctx.lineTo(x + key.width, bottom)
+        ctx.stroke()
+    }
+    if (key.pivot) {
+        const pivotX = x + key.pivot.x
+        const pivotY = y + key.pivot.y
+        const radius = Math.max(2 * lineWidth, 2)
+        ctx.strokeStyle = "#ffcc00"
+        ctx.beginPath()
+        ctx.moveTo(pivotX - radius, pivotY)
+        ctx.lineTo(pivotX + radius, pivotY)
+        ctx.moveTo(pivotX, pivotY - radius)
+        ctx.lineTo(pivotX, pivotY + radius)
+        ctx.stroke()
+    }
+    ctx.restore()
+}
+
 export class ViewAseprite extends ViewCanvasBase {
     static get observedAttributes() {
         return ["data-source"]
@@ -58,6 +202,7 @@ export class ViewAseprite extends ViewCanvasBase {
         this.tilesets = []
         this.frameIndex = 0
         this.selectedTagIndex = null
+        this.selectedSliceIndex = null
         this.playbackDirection = 1
         this.layerVisibility = new Map()
         this.celsByFrame = new Map()
@@ -217,6 +362,7 @@ export class ViewAseprite extends ViewCanvasBase {
             this.layerVisibility = new Map(this.layers.map((layer) => [layer.index, layerInitiallyVisible(layer)]))
             this.celsByFrame = new Map()
             this.selectedTagIndex = null
+            this.selectedSliceIndex = null
             this.playbackDirection = 1
             this.frameIndex = 0
             this.renderInspector()
@@ -238,6 +384,7 @@ export class ViewAseprite extends ViewCanvasBase {
         const source = await this.composeFrameCanvas(this.frameIndex)
         this.setData({ source, width: source.width, height: source.height }, { autoFit })
         this.setFrameStatus()
+        this.renderSlicePreviews()
     }
 
     async celsForFrame(frameIndex) {
@@ -324,6 +471,14 @@ export class ViewAseprite extends ViewCanvasBase {
         }
     }
 
+    selectSlice(sliceIndex) {
+        assert(Number.isInteger(sliceIndex), "view-aseprite slice index must be an integer")
+        assert(sliceIndex >= 0 && sliceIndex < this.slices.length, "view-aseprite slice index out of range")
+        this.selectedSliceIndex = this.selectedSliceIndex === sliceIndex ? null : sliceIndex
+        this.renderInspector()
+        this.draw()
+    }
+
     async setFrame(frameIndex) {
         if (!this.documentResource || this.frames.length === 0) return
         assert(Number.isInteger(frameIndex), "view-aseprite frame index must be an integer")
@@ -331,6 +486,7 @@ export class ViewAseprite extends ViewCanvasBase {
         if (clamped === this.frameIndex && this.data) return
         this.frameIndex = clamped
         await this.renderFrame({ autoFit: false })
+        this.renderInspector()
     }
 
     frameStep(manualDirection) {
@@ -464,6 +620,24 @@ export class ViewAseprite extends ViewCanvasBase {
             })
             .join("")
 
+        const sliceRows = this.slices
+            .map((slice, index) => {
+                const selected = this.selectedSliceIndex === index
+                const key = sliceKeyForFrame(slice, this.frameIndex)
+                const userData = sliceUserData(slice)
+                return `
+          <tr data-action="select-slice" data-slice-index="${escapeHtml(index)}" aria-selected="${selected ? "true" : "false"}">
+            <td><canvas data-element="slice-preview" data-slice-index="${escapeHtml(index)}"></canvas></td>
+            <td>${escapeHtml(slice.name)}</td>
+            <td>${escapeHtml(key.x)}, ${escapeHtml(key.y)}</td>
+            <td>${escapeHtml(key.width)}×${escapeHtml(key.height)}</td>
+            <td>${escapeHtml(key.frame)}</td>
+            <td>${userData.color ? escapeHtml(`${userData.color.r}, ${userData.color.g}, ${userData.color.b}, ${userData.color.a}`) : "none"}</td>
+            <td>${userData.text === null ? "" : escapeHtml(userData.text)}</td>
+          </tr>`
+            })
+            .join("")
+
         this.asideElement.innerHTML = `
       <table>
         <caption>Aseprite</caption>
@@ -479,6 +653,11 @@ export class ViewAseprite extends ViewCanvasBase {
         <thead><tr><th>Name</th><th>Frames</th><th>Direction</th></tr></thead>
         <tbody>${tagRows || `<tr><td colspan="3">No tags</td></tr>`}</tbody>
       </table>
+      <table>
+        <caption>Slices</caption>
+        <thead><tr><th>Preview</th><th>Name</th><th>Origin</th><th>Size</th><th>Key</th><th>Color</th><th>User data</th></tr></thead>
+        <tbody>${sliceRows || `<tr><td colspan="7">No slices</td></tr>`}</tbody>
+      </table>
     `
         for (const button of this.asideElement.querySelectorAll('[data-action="toggle-layer-visible"]')) {
             assert(button instanceof HTMLButtonElement, "view-aseprite layer visibility control must be a button")
@@ -493,6 +672,35 @@ export class ViewAseprite extends ViewCanvasBase {
                 const tagIndex = Number(row.dataset.tagIndex)
                 void this.selectTag(tagIndex)
             })
+        }
+        for (const row of this.asideElement.querySelectorAll('[data-action="select-slice"]')) {
+            assert(row instanceof HTMLTableRowElement, "view-aseprite slice selector must be a table row")
+            row.addEventListener("click", () => {
+                const sliceIndex = Number(row.dataset.sliceIndex)
+                this.selectSlice(sliceIndex)
+            })
+        }
+        this.renderSlicePreviews()
+    }
+
+    renderSlicePreviews() {
+        if (!this.data) return
+        assert(this.asideElement instanceof HTMLElement, "view-aseprite inspector aside is not initialized")
+        for (const canvas of this.asideElement.querySelectorAll('canvas[data-element="slice-preview"]')) {
+            assert(canvas instanceof HTMLCanvasElement, "view-aseprite slice preview must be a canvas")
+            const sliceIndex = Number(canvas.dataset.sliceIndex)
+            assert(Number.isInteger(sliceIndex), "view-aseprite slice preview index must be an integer")
+            const slice = this.slices[sliceIndex]
+            assert(slice, `view-aseprite slice preview missing slice ${sliceIndex}`)
+            const key = sliceKeyForFrame(slice, this.frameIndex)
+            canvas.width = key.width
+            canvas.height = key.height
+            const ctx = canvas.getContext("2d")
+            assert(ctx, "view-aseprite slice preview requires 2d context")
+            ctx.imageSmoothingEnabled = false
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            ctx.drawImage(this.data.source, key.x, key.y, key.width, key.height, 0, 0, key.width, key.height)
+            drawSliceOverlay(ctx, key, { lineWidth: 1, includeBounds: true, color: sliceOverlayColor(slice) })
         }
     }
 
@@ -516,6 +724,13 @@ export class ViewAseprite extends ViewCanvasBase {
 
         ctx.imageSmoothingEnabled = false
         ctx.drawImage(data.source, 0, 0)
+
+        if (this.selectedSliceIndex !== null) {
+            const slice = this.slices[this.selectedSliceIndex]
+            assert(slice, "view-aseprite selected slice must exist")
+            const key = sliceKeyForFrame(slice, this.frameIndex)
+            drawSliceOverlay(ctx, key, { offsetX: key.x, offsetY: key.y, lineWidth: 1 / this.scale, color: sliceOverlayColor(slice) })
+        }
     }
 }
 

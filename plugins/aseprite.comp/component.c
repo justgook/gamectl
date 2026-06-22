@@ -25,8 +25,9 @@ typedef struct layer_t { uint16_t flags, type, child_level, blend_mode; uint8_t 
 typedef struct cel_t { uint16_t layer_index; int16_t x, y, z_index; uint8_t opacity; uint16_t cel_type, w, h, link; byte_list_t data; uint16_t bits_per_tile; uint32_t mask_tile_id, mask_x_flip, mask_y_flip, mask_rotation; } cel_t;
 typedef struct frame_t { uint32_t bytes_in_frame, chunks; uint16_t duration_ms; cel_t *cels; size_t cel_count, cel_cap; } frame_t;
 typedef struct tag_t { uint16_t from, to, repeat; uint8_t direction; rgba_t color; string_t name; } tag_t;
+typedef struct user_data_t { bool present, has_text, has_color; string_t text; rgba_t color; } user_data_t;
 typedef struct slice_key_t { uint32_t frame, width, height; int32_t x, y; bool has_patch, has_pivot; exports_gams_aseprite_aseprite_rect_t patch; exports_gams_aseprite_aseprite_point_t pivot; } slice_key_t;
-typedef struct slice_t { string_t name; slice_key_t *keys; size_t key_count; } slice_t;
+typedef struct slice_t { string_t name; slice_key_t *keys; size_t key_count; user_data_t user_data; } slice_t;
 typedef struct tileset_t { uint32_t id, flags, tile_count; uint16_t tile_width, tile_height; uint32_t external_file_id, external_tileset_id; bool has_external; byte_list_t data; string_t name; } tileset_t;
 
 struct exports_gams_aseprite_aseprite_document_t {
@@ -123,6 +124,15 @@ static bool parse_slice(document_t *doc, reader_t *r) {
   PUSH(doc,slices,slice_count,slice_cap,s); return true;
 }
 
+static bool parse_user_data(reader_t *r, user_data_t *out) {
+  uint32_t flags; memset(out,0,sizeof(*out)); out->present = true;
+  if (!read_u32(r,&flags)) return false;
+  if (flags&1) { out->has_text = true; if (!read_string(r,&out->text)) return false; }
+  if (flags&2) { out->has_color = true; if (!read_u8(r,&out->color.r)||!read_u8(r,&out->color.g)||!read_u8(r,&out->color.b)||!read_u8(r,&out->color.a)) return false; }
+  if (flags&4) { uint32_t size; if (!read_u32(r,&size)) return false; if (size < 8) return fail(r,"invalid Aseprite user data properties size"); if (!skip(r,size - 4)) return false; }
+  return true;
+}
+
 static bool parse_tileset(document_t *doc, reader_t *r) {
   tileset_t ts; memset(&ts,0,sizeof(ts));
   if (!read_u32(r,&ts.id)||!read_u32(r,&ts.flags)||!read_u32(r,&ts.tile_count)||!read_u16(r,&ts.tile_width)||!read_u16(r,&ts.tile_height)||!skip(r,16)||!read_string(r,&ts.name)) return false;
@@ -145,11 +155,19 @@ static bool parse_cel(frame_t *frame, reader_t *r, uint32_t chunk_size) {
 }
 
 static bool parse_frame(document_t *doc, reader_t *r) {
-  frame_t f; memset(&f,0,sizeof(f)); uint16_t magic, old_chunks; uint32_t new_chunks;
+  frame_t f; memset(&f,0,sizeof(f)); uint16_t magic, old_chunks; uint32_t new_chunks; int last_object = 0; size_t last_slice_index = 0;
   if (!read_u32(r,&f.bytes_in_frame)||!read_u16(r,&magic)) return false; if (magic != 0xf1fa) return fail(r,"invalid Aseprite frame magic");
   if (!read_u16(r,&old_chunks)||!read_u16(r,&f.duration_ms)||!skip(r,2)||!read_u32(r,&new_chunks)) return false; f.chunks = new_chunks ? new_chunks : old_chunks;
   for (uint32_t i=0;i<f.chunks;i++) { uint32_t chunk_size; uint16_t type; size_t start = r->offset; if (!read_u32(r,&chunk_size)||!read_u16(r,&type)) return false;
-    bool ok = true; if (type==0x2004) ok=parse_layer(doc,r); else if (type==0x2005) ok=parse_cel(&f,r,chunk_size); else if (type==0x2007) ok=parse_color_profile(r); else if (type==0x2018) ok=parse_tags(doc,r); else if (type==0x2019) ok=parse_palette(doc,r); else if (type==0x2022) ok=parse_slice(doc,r); else if (type==0x2023) ok=parse_tileset(doc,r);
+    bool ok = true;
+    if (type==0x2004) { ok=parse_layer(doc,r); last_object = 1; }
+    else if (type==0x2005) { ok=parse_cel(&f,r,chunk_size); last_object = 2; }
+    else if (type==0x2007) ok=parse_color_profile(r);
+    else if (type==0x2018) { ok=parse_tags(doc,r); last_object = 3; }
+    else if (type==0x2019) ok=parse_palette(doc,r);
+    else if (type==0x2020) { user_data_t user_data; ok=parse_user_data(r,&user_data); if (ok && last_object == 4) { slice_t *slice = &doc->slices[last_slice_index]; free(slice->user_data.text.ptr); slice->user_data = user_data; } else free(user_data.text.ptr); }
+    else if (type==0x2022) { size_t before = doc->slice_count; ok=parse_slice(doc,r); if (ok) { last_object = 4; last_slice_index = before; } }
+    else if (type==0x2023) { ok=parse_tileset(doc,r); last_object = 5; }
     if (!ok) return false; size_t end = start + chunk_size; if (r->offset > end) return fail(r,"Aseprite chunk over-read"); r->offset = end; }
   PUSH(doc,frames,frame_count,frame_cap,f); return true;
 }
@@ -235,7 +253,7 @@ bool exports_gams_aseprite_aseprite_get_palette_info(document_t *doc, exports_ga
 
 bool exports_gams_aseprite_aseprite_palette_colors(document_t *doc, exports_gams_aseprite_aseprite_list_palette_color_t *ret, aseprite_plugin_string_t *err) { if(!doc->palette.present){ret->ptr=NULL;ret->len=0;return true;} ret->len=doc->palette.size; ret->ptr=calloc(ret->len?ret->len:1,sizeof(*ret->ptr)); if(!ret->ptr){set_error(err,"out of memory");return false;} for(size_t i=0;i<ret->len;i++){palette_color_t*c=&doc->palette.colors[i]; ret->ptr[i].index=i; ret->ptr[i].color=c->color; ret->ptr[i].name.is_some=c->has_name; if(c->has_name) return_string(&ret->ptr[i].name.val,&c->name);} return true; }
 
-bool exports_gams_aseprite_aseprite_slices(document_t *doc, exports_gams_aseprite_aseprite_list_slice_info_t *ret, aseprite_plugin_string_t *err) { ret->len=doc->slice_count; ret->ptr=calloc(ret->len?ret->len:1,sizeof(*ret->ptr)); if(!ret->ptr){set_error(err,"out of memory");return false;} for(size_t i=0;i<doc->slice_count;i++){slice_t*s=&doc->slices[i]; return_string(&ret->ptr[i].name,&s->name); ret->ptr[i].keys.len=s->key_count; ret->ptr[i].keys.ptr=calloc(s->key_count?s->key_count:1,sizeof(*ret->ptr[i].keys.ptr)); if(!ret->ptr[i].keys.ptr){set_error(err,"out of memory");return false;} for(size_t k=0;k<s->key_count;k++){slice_key_t*sk=&s->keys[k]; ret->ptr[i].keys.ptr[k]=(exports_gams_aseprite_aseprite_slice_key_t){sk->frame,sk->x,sk->y,sk->width,sk->height,{sk->has_patch,sk->patch},{sk->has_pivot,sk->pivot}};}} return true; }
+bool exports_gams_aseprite_aseprite_slices(document_t *doc, exports_gams_aseprite_aseprite_list_slice_info_t *ret, aseprite_plugin_string_t *err) { ret->len=doc->slice_count; ret->ptr=calloc(ret->len?ret->len:1,sizeof(*ret->ptr)); if(!ret->ptr){set_error(err,"out of memory");return false;} for(size_t i=0;i<doc->slice_count;i++){slice_t*s=&doc->slices[i]; return_string(&ret->ptr[i].name,&s->name); ret->ptr[i].keys.len=s->key_count; ret->ptr[i].keys.ptr=calloc(s->key_count?s->key_count:1,sizeof(*ret->ptr[i].keys.ptr)); if(!ret->ptr[i].keys.ptr){set_error(err,"out of memory");return false;} for(size_t k=0;k<s->key_count;k++){slice_key_t*sk=&s->keys[k]; ret->ptr[i].keys.ptr[k]=(exports_gams_aseprite_aseprite_slice_key_t){sk->frame,sk->x,sk->y,sk->width,sk->height,{sk->has_patch,sk->patch},{sk->has_pivot,sk->pivot}};} ret->ptr[i].user_data.is_some=s->user_data.present; if(s->user_data.present){ret->ptr[i].user_data.val.text.is_some=s->user_data.has_text; if(s->user_data.has_text) return_string(&ret->ptr[i].user_data.val.text.val,&s->user_data.text); ret->ptr[i].user_data.val.color.is_some=s->user_data.has_color; if(s->user_data.has_color) ret->ptr[i].user_data.val.color.val=s->user_data.color;}} return true; }
 
 bool exports_gams_aseprite_aseprite_tilesets(document_t *doc, exports_gams_aseprite_aseprite_list_tileset_info_t *ret, aseprite_plugin_string_t *err) { (void)err; ret->len=doc->tileset_count; ret->ptr=calloc(ret->len?ret->len:1,sizeof(*ret->ptr)); if(!ret->ptr)return false; for(size_t i=0;i<doc->tileset_count;i++){tileset_t*t=&doc->tilesets[i]; ret->ptr[i]=(exports_gams_aseprite_aseprite_tileset_info_t){t->id,t->flags,t->tile_count,t->tile_width,t->tile_height,{t->has_external,t->external_file_id},{t->has_external,t->external_tileset_id},t->data.len,{0}}; return_string(&ret->ptr[i].name,&t->name);} return true; }
 
@@ -247,4 +265,4 @@ bool exports_gams_aseprite_aseprite_render_frame(document_t *doc, uint32_t frame
 
 bool exports_gams_aseprite_aseprite_to_json(document_t *doc, aseprite_plugin_string_t *ret, aseprite_plugin_string_t *err) { (void)err; char buf[512]; int n=snprintf(buf,sizeof(buf),"{\"fileSize\":%u,\"numFrames\":%u,\"width\":%u,\"height\":%u,\"colorDepth\":%u,\"numColors\":%u,\"layers\":%zu,\"tags\":%zu,\"slices\":%zu,\"tilesets\":%zu}",doc->file_size,doc->num_frames,doc->width,doc->height,doc->color_depth,doc->num_colors,doc->layer_count,doc->tag_count,doc->slice_count,doc->tileset_count); if(n<0){set_error(err,"failed to format Aseprite JSON");return false;} aseprite_plugin_string_set(ret,buf); return true; }
 
-void exports_gams_aseprite_aseprite_document_destructor(document_t *doc) { if(!doc)return; free(doc->name.ptr); for(size_t i=0;i<doc->layer_count;i++)free(doc->layers[i].name.ptr); free(doc->layers); for(size_t i=0;i<doc->frame_count;i++){for(size_t c=0;c<doc->frames[i].cel_count;c++) if(doc->frames[i].cels[c].cel_type!=1) free(doc->frames[i].cels[c].data.ptr); free(doc->frames[i].cels);} free(doc->frames); for(size_t i=0;i<doc->tag_count;i++)free(doc->tags[i].name.ptr); free(doc->tags); if(doc->palette.colors){for(size_t i=0;i<doc->palette.size;i++)free(doc->palette.colors[i].name.ptr); free(doc->palette.colors);} for(size_t i=0;i<doc->slice_count;i++){free(doc->slices[i].name.ptr); free(doc->slices[i].keys);} free(doc->slices); for(size_t i=0;i<doc->tileset_count;i++){free(doc->tilesets[i].name.ptr); free(doc->tilesets[i].data.ptr);} free(doc->tilesets); free(doc); }
+void exports_gams_aseprite_aseprite_document_destructor(document_t *doc) { if(!doc)return; free(doc->name.ptr); for(size_t i=0;i<doc->layer_count;i++)free(doc->layers[i].name.ptr); free(doc->layers); for(size_t i=0;i<doc->frame_count;i++){for(size_t c=0;c<doc->frames[i].cel_count;c++) if(doc->frames[i].cels[c].cel_type!=1) free(doc->frames[i].cels[c].data.ptr); free(doc->frames[i].cels);} free(doc->frames); for(size_t i=0;i<doc->tag_count;i++)free(doc->tags[i].name.ptr); free(doc->tags); if(doc->palette.colors){for(size_t i=0;i<doc->palette.size;i++)free(doc->palette.colors[i].name.ptr); free(doc->palette.colors);} for(size_t i=0;i<doc->slice_count;i++){free(doc->slices[i].name.ptr); free(doc->slices[i].user_data.text.ptr); free(doc->slices[i].keys);} free(doc->slices); for(size_t i=0;i<doc->tileset_count;i++){free(doc->tilesets[i].name.ptr); free(doc->tilesets[i].data.ptr);} free(doc->tilesets); free(doc); }
