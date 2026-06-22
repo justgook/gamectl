@@ -66,53 +66,78 @@ function normalizePivot(value, name) {
     return { x, y }
 }
 
-function pivotForFrame(framePivots, frame) {
-    const pivot = framePivots.find((item) => Number(item.frame) === frame)
-    assert(pivot, `missing sprite pivot for frame ${frame}`)
-    return pivot
+function frameSourceForFrame(frameSources, frame) {
+    const frameSource = frameSources.find((item) => Number(item.frame) === frame)
+    assert(frameSource, `missing sprite frame source for frame ${frame}`)
+    return frameSource
 }
 
-function buildConstantFramePivots(frameCount, x, y) {
+function buildConstantFrameSources(frameCount, sourceX, sourceY, sourceWidth, sourceHeight, sliceName, pivotX, pivotY) {
     assertPositiveInteger(frameCount, "sprite frame count")
-    assertInteger(x, "sprite pivot x")
-    assertInteger(y, "sprite pivot y")
-    return Array.from({ length: frameCount }, (_, frame) => ({ frame, x, y }))
+    assertInteger(sourceX, "sprite frame source x")
+    assertInteger(sourceY, "sprite frame source y")
+    assertPositiveInteger(sourceWidth, "sprite frame source width")
+    assertPositiveInteger(sourceHeight, "sprite frame source height")
+    assertInteger(pivotX, "sprite pivot x")
+    assertInteger(pivotY, "sprite pivot y")
+    return Array.from({ length: frameCount }, (_, frame) => ({ frame, sourceX, sourceY, sourceWidth, sourceHeight, sliceName, x: pivotX, y: pivotY }))
 }
 
-function buildFramePivotsFromSlice(slice, frameCount, sourceX, sourceY, defaultPivot) {
+function normalizeSliceKey(slice, key) {
+    const sliceName = String(slice.name || "").trim()
+    const frame = Number(key.frame)
+    const sourceX = Number(key.x)
+    const sourceY = Number(key.y)
+    const sourceWidth = Number(key.width)
+    const sourceHeight = Number(key.height)
+    assertNonNegativeInteger(frame, `Aseprite slice ${sliceName} key frame`)
+    assertInteger(sourceX, `Aseprite slice ${sliceName} source x`)
+    assertInteger(sourceY, `Aseprite slice ${sliceName} source y`)
+    assertPositiveInteger(sourceWidth, `Aseprite slice ${sliceName} source width`)
+    assertPositiveInteger(sourceHeight, `Aseprite slice ${sliceName} source height`)
+    const pivot = normalizePivot(key.pivot, `Aseprite slice ${sliceName} pivot`)
+    const pivotX = pivot ? pivot.x : Math.floor(sourceWidth / 2)
+    const pivotY = pivot ? pivot.y : Math.floor(sourceHeight / 2)
+    assertInteger(pivotX, `Aseprite slice ${sliceName} relative pivot x`)
+    assertInteger(pivotY, `Aseprite slice ${sliceName} relative pivot y`)
+    return { frame, sourceX, sourceY, sourceWidth, sourceHeight, sliceName, x: pivotX, y: pivotY }
+}
+
+function buildFrameSourcesFromSlice(slice, frameCount) {
     assert(slice && typeof slice === "object", "Aseprite slice must be an object")
     assert(Array.isArray(slice.keys), `Aseprite slice ${String(slice.name || "")} keys must be an array`)
     assertPositiveInteger(frameCount, "sprite frame count")
-    const keyedPivots = []
-    for (const key of slice.keys) {
-        const pivot = normalizePivot(key.pivot, `Aseprite slice ${String(slice.name || "")} pivot`)
-        if (!pivot) continue
-        const frame = Number(key.frame)
-        assertNonNegativeInteger(frame, `Aseprite slice ${String(slice.name || "")} pivot frame`)
-        assert(frame < frameCount, `Aseprite slice ${String(slice.name || "")} pivot frame is outside source frame count`)
-        keyedPivots.push({ frame, x: pivot.x - sourceX, y: pivot.y - sourceY })
-    }
-    if (keyedPivots.length === 0) return buildConstantFramePivots(frameCount, defaultPivot.x, defaultPivot.y)
-    keyedPivots.sort((left, right) => left.frame - right.frame)
+    const keyedSources = slice.keys.map((key) => normalizeSliceKey(slice, key))
+    assert(keyedSources.length > 0, `Aseprite slice ${String(slice.name || "")} requires at least one key`)
+    for (const source of keyedSources) assert(source.frame < frameCount, `Aseprite slice ${String(slice.name || "")} key frame is outside source frame count`)
+    keyedSources.sort((left, right) => left.frame - right.frame)
 
-    const uniquePivots = []
-    for (const pivot of keyedPivots) {
-        const previous = uniquePivots[uniquePivots.length - 1]
-        if (previous && previous.frame === pivot.frame) {
-            assert(previous.x === pivot.x && previous.y === pivot.y, `multiple Aseprite slice pivots disagree for frame ${pivot.frame}`)
+    const uniqueSources = []
+    for (const source of keyedSources) {
+        const previous = uniqueSources[uniqueSources.length - 1]
+        if (previous && previous.frame === source.frame) {
+            assert(
+                previous.sourceX === source.sourceX &&
+                    previous.sourceY === source.sourceY &&
+                    previous.sourceWidth === source.sourceWidth &&
+                    previous.sourceHeight === source.sourceHeight &&
+                    previous.x === source.x &&
+                    previous.y === source.y,
+                `multiple Aseprite slice keys disagree for frame ${source.frame}`,
+            )
             continue
         }
-        uniquePivots.push(pivot)
+        uniqueSources.push(source)
     }
 
-    const framePivots = []
-    let pivotIndex = 0
+    const frameSources = []
+    let sourceIndex = 0
     for (let frame = 0; frame < frameCount; frame += 1) {
-        while (pivotIndex + 1 < uniquePivots.length && uniquePivots[pivotIndex + 1].frame <= frame) pivotIndex += 1
-        const pivot = frame < uniquePivots[0].frame ? uniquePivots[0] : uniquePivots[pivotIndex]
-        framePivots.push({ frame, x: pivot.x, y: pivot.y })
+        while (sourceIndex + 1 < uniqueSources.length && uniqueSources[sourceIndex + 1].frame <= frame) sourceIndex += 1
+        const source = frame < uniqueSources[0].frame ? uniqueSources[0] : uniqueSources[sourceIndex]
+        frameSources.push({ ...source, frame })
     }
-    return framePivots
+    return frameSources
 }
 
 function firstSliceKey(slice) {
@@ -140,7 +165,7 @@ function buildSourceSprites({ baseName, width, height, frameCount, slices }) {
                 sourceY: 0,
                 sourceWidth: width,
                 sourceHeight: height,
-                framePivots: buildConstantFramePivots(frameCount, pivotX, pivotY),
+                frameSources: buildConstantFrameSources(frameCount, 0, 0, width, height, "", pivotX, pivotY),
             },
         ]
     }
@@ -150,24 +175,16 @@ function buildSourceSprites({ baseName, width, height, frameCount, slices }) {
         const sliceName = String(slice.name || "").trim()
         assert(sliceName, "Aseprite slice requires name")
         const key = firstSliceKey(slice)
-        const sourceX = Number(key.x)
-        const sourceY = Number(key.y)
-        const sourceWidth = Number(key.width)
-        const sourceHeight = Number(key.height)
-        assertInteger(sourceX, `Aseprite slice ${sliceName} source x`)
-        assertInteger(sourceY, `Aseprite slice ${sliceName} source y`)
-        assertPositiveInteger(sourceWidth, `Aseprite slice ${sliceName} source width`)
-        assertPositiveInteger(sourceHeight, `Aseprite slice ${sliceName} source height`)
-        const defaultPivot = { x: Math.floor(sourceWidth / 2), y: Math.floor(sourceHeight / 2) }
+        const firstSource = normalizeSliceKey(slice, key)
         return {
             sliceName,
             name: multiple ? normalizeName(`${baseName}_${sliceName}`) : normalizeName(baseName),
             displayName: multiple ? `${baseName} ${sliceName}` : baseName,
-            sourceX,
-            sourceY,
-            sourceWidth,
-            sourceHeight,
-            framePivots: buildFramePivotsFromSlice(slice, frameCount, sourceX, sourceY, defaultPivot),
+            sourceX: firstSource.sourceX,
+            sourceY: firstSource.sourceY,
+            sourceWidth: firstSource.sourceWidth,
+            sourceHeight: firstSource.sourceHeight,
+            frameSources: buildFrameSourcesFromSlice(slice, frameCount),
         }
     })
     const names = new Set()
@@ -197,7 +214,8 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             height: 0,
             frameCount: 0,
             sourceSprites: [],
-            framePivots: [],
+            selectedSourceIndex: 0,
+            frameSources: [],
             animations: [],
         }
     }
@@ -216,6 +234,7 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         this.formElement = this.querySelector('[data-element="form"]')
         assert(this.formElement instanceof HTMLFormElement, "view-catalog-sprite-import missing form")
         this.formElement.addEventListener("submit", async (event) => this.handleSubmit(event))
+        this.formElement.addEventListener("change", (event) => this.handleChange(event))
         void this.initialize()
     }
 
@@ -235,6 +254,28 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         if (tone) this.statusElement.classList.add(tone)
     }
 
+    selectedSourceSprite() {
+        assert(this.draft.sourceSprites.length > 0, "sprite source selection requires imported source sprites")
+        assertNonNegativeInteger(this.draft.selectedSourceIndex, "selected sprite source index")
+        assert(this.draft.selectedSourceIndex < this.draft.sourceSprites.length, "selected sprite source index is out of range")
+        return this.draft.sourceSprites[this.draft.selectedSourceIndex]
+    }
+
+    applySourceSpriteToDraft(sourceSprite) {
+        this.draft.name = sourceSprite.name
+        this.draft.displayName = sourceSprite.displayName
+        this.draft.frameSources = sourceSprite.frameSources
+    }
+
+    captureDraftFieldsIntoSourceSprite(index, formData) {
+        assertNonNegativeInteger(index, "sprite source index")
+        assert(index < this.draft.sourceSprites.length, "sprite source index is out of range")
+        const sourceSprite = this.draft.sourceSprites[index]
+        sourceSprite.name = normalizeName(formData.get("name"))
+        sourceSprite.displayName = String(formData.get("display-name") || "").trim()
+        this.applySourceSpriteToDraft(sourceSprite)
+    }
+
     captureDraft() {
         assert(this.formElement instanceof HTMLFormElement, "view-catalog-sprite-import form is not initialized")
         const formData = new FormData(this.formElement)
@@ -243,9 +284,8 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         this.draft.displayName = String(formData.get("display-name") || "").trim()
         this.draft.gridWidth = Number(formData.get("grid-width"))
         this.draft.gridHeight = Number(formData.get("grid-height"))
-        if (this.draft.sourceSprites.length === 1) {
-            this.draft.sourceSprites[0].name = this.draft.name
-            this.draft.sourceSprites[0].displayName = this.draft.displayName
+        if (this.draft.sourceSprites.length > 0) {
+            this.captureDraftFieldsIntoSourceSprite(this.draft.selectedSourceIndex, formData)
         }
 
         this.draft.animations = this.draft.animations.map((animation, index) => ({
@@ -261,6 +301,25 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         const isEdit = this.mode === "edit"
         const submitLabel = isEdit ? "Save sprite" : "Import sprite"
         const sourceInfo = this.draft.frameCount > 0 ? `${Number(this.draft.width)}×${Number(this.draft.height)} · ${Number(this.draft.frameCount)} frames · ${Number(this.draft.sourceSprites.length)} sprites` : isEdit ? "Loaded from database." : "Choose an Aseprite file."
+        const sourceSelector = this.draft.sourceSprites.length > 1
+            ? `
+      <fieldset>
+        <legend>Aseprite slice imports</legend>
+        <label>Sprite to inspect/edit
+          <select name="source-sprite-index">
+            ${this.draft.sourceSprites
+                .map((sourceSprite, index) => `<option value="${index}" ${index === this.draft.selectedSourceIndex ? "selected" : ""}>${escapeHtml(sourceSprite.sliceName)} → ${escapeHtml(sourceSprite.name)}</option>`)
+                .join("")}
+          </select>
+        </label>
+        <p>Changes below apply to the selected slice. Saving imports all ${this.draft.sourceSprites.length} sprites.</p>
+      </fieldset>
+`
+            : ""
+        const selectedSourceSprite = this.draft.sourceSprites.length > 0 ? this.selectedSourceSprite() : null
+        const sourceRect = selectedSourceSprite
+            ? `<p>Source slice: ${escapeHtml(selectedSourceSprite.sliceName)} · first frame rect ${Number(selectedSourceSprite.sourceX)}, ${Number(selectedSourceSprite.sourceY)}, ${Number(selectedSourceSprite.sourceWidth)}×${Number(selectedSourceSprite.sourceHeight)}</p>`
+            : ""
         const animationsRows = this.draft.animations
             .map((animation, index) => {
                 assertAnimationDirection(animation.direction, `animation ${animation.name || index} direction`)
@@ -288,8 +347,11 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         <output data-element="source-info">${sourceInfo}</output>
       </fieldset>
 
+      ${sourceSelector}
+
       <fieldset>
         <legend>Sprite record</legend>
+        ${sourceRect}
         <label>Name
           <input type="text" name="name" value="${escapeHtml(this.draft.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </label>
@@ -366,9 +428,8 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             this.draft.height = Number(info.height)
             this.draft.frameCount = frames.length
             this.draft.sourceSprites = buildSourceSprites({ baseName, width: this.draft.width, height: this.draft.height, frameCount: this.draft.frameCount, slices })
-            this.draft.name = this.draft.sourceSprites[0].name
-            this.draft.displayName = this.draft.sourceSprites[0].displayName
-            this.draft.framePivots = this.draft.sourceSprites[0].framePivots
+            this.draft.selectedSourceIndex = 0
+            this.applySourceSpriteToDraft(this.draft.sourceSprites[0])
             this.draft.animations = tags.map((tag) => ({
                 name: String(tag.name || "").trim(),
                 startFrame: Number(tag["from-frame"] ?? tag.from),
@@ -427,7 +488,7 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         this.draft.width = 0
         this.draft.height = 0
         this.draft.frameCount = 0
-        this.draft.framePivots = await this.loadFramePivots(animations.map((animation) => Number(animation.id)))
+        this.draft.frameSources = await this.loadFrameSources(animations.map((animation) => Number(animation.id)))
         this.draft.sourceSprites = [
             {
                 sliceName: String(sprite.source_slice_name || ""),
@@ -437,9 +498,10 @@ export class ViewCatalogSpriteImport extends HTMLElement {
                 sourceY: Number(sprite.source_y),
                 sourceWidth: Number(sprite.source_width),
                 sourceHeight: Number(sprite.source_height),
-                framePivots: this.draft.framePivots,
+                frameSources: this.draft.frameSources,
             },
         ]
+        this.draft.selectedSourceIndex = 0
         this.draft.animations = animations.map((animation) => ({
             name: String(animation.name),
             startFrame: Number(animation.start_frame),
@@ -448,34 +510,52 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         }))
     }
 
-    async loadFramePivots(animationIds) {
+    async loadFrameSources(animationIds) {
         if (animationIds.length === 0) return []
         const placeholders = animationIds.map(() => "?").join(", ")
         const rows = await sql.queryObjects(
-            `SELECT f.frame_index, f.pivot_x, f.pivot_y
+            `SELECT f.frame_index, f.pivot_x, f.pivot_y, f.source_x, f.source_y, f.source_width, f.source_height, f.source_slice_name
              FROM sprite_animation_frame f
              JOIN sprite_animation a ON a.id = f.sprite_animation_id
              WHERE f.sprite_animation_id IN (${placeholders})
              ORDER BY f.frame_index`,
-            ["frame_index", "pivot_x", "pivot_y"],
+            ["frame_index", "pivot_x", "pivot_y", "source_x", "source_y", "source_width", "source_height", "source_slice_name"],
             animationIds.map((id) => String(id)),
         )
-        const pivots = []
+        const frameSources = []
         for (const row of rows) {
             const frame = Number(row.frame_index)
             const x = Number(row.pivot_x)
             const y = Number(row.pivot_y)
-            assertNonNegativeInteger(frame, "sprite animation frame pivot frame")
+            const sourceX = Number(row.source_x)
+            const sourceY = Number(row.source_y)
+            const sourceWidth = Number(row.source_width)
+            const sourceHeight = Number(row.source_height)
+            const sliceName = String(row.source_slice_name || "")
+            assertNonNegativeInteger(frame, "sprite animation frame source frame")
             assertInteger(x, `sprite animation frame ${frame} pivot x`)
             assertInteger(y, `sprite animation frame ${frame} pivot y`)
-            const previous = pivots[pivots.length - 1]
+            assertInteger(sourceX, `sprite animation frame ${frame} source x`)
+            assertInteger(sourceY, `sprite animation frame ${frame} source y`)
+            assertPositiveInteger(sourceWidth, `sprite animation frame ${frame} source width`)
+            assertPositiveInteger(sourceHeight, `sprite animation frame ${frame} source height`)
+            const previous = frameSources[frameSources.length - 1]
             if (previous && previous.frame === frame) {
-                assert(previous.x === x && previous.y === y, `sprite animation frame pivots disagree for frame ${frame}`)
+                assert(
+                    previous.x === x &&
+                        previous.y === y &&
+                        previous.sourceX === sourceX &&
+                        previous.sourceY === sourceY &&
+                        previous.sourceWidth === sourceWidth &&
+                        previous.sourceHeight === sourceHeight &&
+                        previous.sliceName === sliceName,
+                    `sprite animation frame sources disagree for frame ${frame}`,
+                )
                 continue
             }
-            pivots.push({ frame, x, y })
+            frameSources.push({ frame, x, y, sourceX, sourceY, sourceWidth, sourceHeight, sliceName })
         }
-        return pivots
+        return frameSources
     }
 
     validateDraft() {
@@ -495,8 +575,17 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             assertInteger(Number(sourceSprite.sourceY), `sprite ${sourceSprite.name} source y`)
             assertPositiveInteger(Number(sourceSprite.sourceWidth), `sprite ${sourceSprite.name} source width`)
             assertPositiveInteger(Number(sourceSprite.sourceHeight), `sprite ${sourceSprite.name} source height`)
-            assert(Array.isArray(sourceSprite.framePivots), `sprite ${sourceSprite.name} frame pivots must be an array`)
-            assert(sourceSprite.framePivots.length > 0, `sprite ${sourceSprite.name} requires frame pivots`)
+            assert(Array.isArray(sourceSprite.frameSources), `sprite ${sourceSprite.name} frame sources must be an array`)
+            assert(sourceSprite.frameSources.length > 0, `sprite ${sourceSprite.name} requires frame sources`)
+            for (const frameSource of sourceSprite.frameSources) {
+                assertNonNegativeInteger(Number(frameSource.frame), `sprite ${sourceSprite.name} frame source frame`)
+                assertInteger(Number(frameSource.x), `sprite ${sourceSprite.name} frame ${frameSource.frame} pivot x`)
+                assertInteger(Number(frameSource.y), `sprite ${sourceSprite.name} frame ${frameSource.frame} pivot y`)
+                assertInteger(Number(frameSource.sourceX), `sprite ${sourceSprite.name} frame ${frameSource.frame} source x`)
+                assertInteger(Number(frameSource.sourceY), `sprite ${sourceSprite.name} frame ${frameSource.frame} source y`)
+                assertPositiveInteger(Number(frameSource.sourceWidth), `sprite ${sourceSprite.name} frame ${frameSource.frame} source width`)
+                assertPositiveInteger(Number(frameSource.sourceHeight), `sprite ${sourceSprite.name} frame ${frameSource.frame} source height`)
+            }
         }
         const names = new Set()
         for (const animation of this.draft.animations) {
@@ -519,11 +608,21 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             )
             const animationId = await sql.value("SELECT last_insert_rowid()", [])
             for (let frame = animation.startFrame; frame <= animation.endFrame; frame += 1) {
-                const pivot = pivotForFrame(sourceSprite.framePivots, frame)
+                const frameSource = frameSourceForFrame(sourceSprite.frameSources, frame)
                 await sql.exec(
-                    `INSERT INTO sprite_animation_frame (sprite_animation_id, frame_index, pivot_x, pivot_y)
-                     VALUES (?, ?, ?, ?)`,
-                    [String(animationId), String(frame), String(pivot.x), String(pivot.y)],
+                    `INSERT INTO sprite_animation_frame (sprite_animation_id, frame_index, pivot_x, pivot_y, source_x, source_y, source_width, source_height, source_slice_name)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        String(animationId),
+                        String(frame),
+                        String(frameSource.x),
+                        String(frameSource.y),
+                        String(frameSource.sourceX),
+                        String(frameSource.sourceY),
+                        String(frameSource.sourceWidth),
+                        String(frameSource.sourceHeight),
+                        String(frameSource.sliceName || ""),
+                    ],
                 )
             }
         }
@@ -588,6 +687,21 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             await sql.exec("ROLLBACK", [])
             throw error
         }
+    }
+
+    handleChange(event) {
+        const target = event.target
+        if (!(target instanceof HTMLSelectElement)) return
+        if (target.name !== "source-sprite-index") return
+        assert(this.formElement instanceof HTMLFormElement, "view-catalog-sprite-import form is not initialized")
+        this.captureDraft()
+        const nextIndex = Number(target.value)
+        assertNonNegativeInteger(nextIndex, "selected sprite source index")
+        assert(nextIndex < this.draft.sourceSprites.length, "selected sprite source index is out of range")
+        this.draft.selectedSourceIndex = nextIndex
+        this.applySourceSpriteToDraft(this.selectedSourceSprite())
+        this.render()
+        this.setStatus(`Editing ${this.draft.sourceSprites[this.draft.selectedSourceIndex].sliceName}. Save imports all ${this.draft.sourceSprites.length} sprites.`, "info")
     }
 
     async handleSubmit(event) {

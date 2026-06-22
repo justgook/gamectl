@@ -159,6 +159,11 @@ function catalogSchemaStatements() {
             frame_index INTEGER NOT NULL CHECK (frame_index >= 0),
             pivot_x INTEGER NOT NULL,
             pivot_y INTEGER NOT NULL,
+            source_x INTEGER NOT NULL DEFAULT 0,
+            source_y INTEGER NOT NULL DEFAULT 0,
+            source_width INTEGER NOT NULL DEFAULT 1 CHECK (source_width > 0),
+            source_height INTEGER NOT NULL DEFAULT 1 CHECK (source_height > 0),
+            source_slice_name TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (sprite_animation_id) REFERENCES ${spriteAnimation}(id) ON DELETE CASCADE,
@@ -574,11 +579,45 @@ export class ViewCatalog extends HTMLElement {
             ["name"],
             CATALOG_SCHEMA_TABLE_NAMES,
         )
-        if (existingTables.length === CATALOG_SCHEMA_TABLE_NAMES.length) return
 
         await sql.exec("PRAGMA foreign_keys = ON")
-        for (const statement of catalogSchemaStatements()) {
-            await sql.exec(statement)
+        if (existingTables.length !== CATALOG_SCHEMA_TABLE_NAMES.length) {
+            for (const statement of catalogSchemaStatements()) {
+                await sql.exec(statement)
+            }
+        }
+        await this.ensureCatalogSchemaMigrations()
+    }
+
+    async ensureCatalogSchemaMigrations() {
+        const spriteAnimationFrame = sqlIdent(CATALOG_TABLES.spriteAnimationFrame)
+        const columns = await sql.queryObjects(`PRAGMA table_info(${spriteAnimationFrame})`, ["cid", "name", "type", "notnull", "dflt_value", "pk"])
+        const columnNames = new Set(columns.map((column) => String(column.name)))
+        const missingColumnStatements = [
+            ["source_x", `ALTER TABLE ${spriteAnimationFrame} ADD COLUMN source_x INTEGER NOT NULL DEFAULT 0`],
+            ["source_y", `ALTER TABLE ${spriteAnimationFrame} ADD COLUMN source_y INTEGER NOT NULL DEFAULT 0`],
+            ["source_width", `ALTER TABLE ${spriteAnimationFrame} ADD COLUMN source_width INTEGER NOT NULL DEFAULT 1`],
+            ["source_height", `ALTER TABLE ${spriteAnimationFrame} ADD COLUMN source_height INTEGER NOT NULL DEFAULT 1`],
+            ["source_slice_name", `ALTER TABLE ${spriteAnimationFrame} ADD COLUMN source_slice_name TEXT NOT NULL DEFAULT ''`],
+        ]
+        let addedFrameSourceColumn = false
+        for (const [columnName, statement] of missingColumnStatements) {
+            if (!columnNames.has(columnName)) {
+                await sql.exec(statement)
+                addedFrameSourceColumn = true
+            }
+        }
+        if (addedFrameSourceColumn) {
+            const spriteAnimation = sqlIdent(CATALOG_TABLES.spriteAnimation)
+            const sprite = sqlIdent(CATALOG_TABLES.sprite)
+            await sql.exec(
+                `UPDATE ${spriteAnimationFrame}
+                 SET source_x = (SELECT s.source_x FROM ${spriteAnimation} a JOIN ${sprite} s ON s.id = a.sprite_id WHERE a.id = ${spriteAnimationFrame}.sprite_animation_id),
+                     source_y = (SELECT s.source_y FROM ${spriteAnimation} a JOIN ${sprite} s ON s.id = a.sprite_id WHERE a.id = ${spriteAnimationFrame}.sprite_animation_id),
+                     source_width = (SELECT s.source_width FROM ${spriteAnimation} a JOIN ${sprite} s ON s.id = a.sprite_id WHERE a.id = ${spriteAnimationFrame}.sprite_animation_id),
+                     source_height = (SELECT s.source_height FROM ${spriteAnimation} a JOIN ${sprite} s ON s.id = a.sprite_id WHERE a.id = ${spriteAnimationFrame}.sprite_animation_id),
+                     source_slice_name = (SELECT s.source_slice_name FROM ${spriteAnimation} a JOIN ${sprite} s ON s.id = a.sprite_id WHERE a.id = ${spriteAnimationFrame}.sprite_animation_id)`,
+            )
         }
     }
 
@@ -645,8 +684,21 @@ export class ViewCatalog extends HTMLElement {
     async fetchSprites() {
         const spriteTable = sqlIdent(CATALOG_TABLES.sprite)
         const spriteAnimationTable = sqlIdent(CATALOG_TABLES.spriteAnimation)
+        const spriteAnimationFrameTable = sqlIdent(CATALOG_TABLES.spriteAnimationFrame)
         return await sql.queryObjects(
             `
+        WITH preview_frames AS (
+          SELECT
+            a.sprite_id,
+            f.source_x,
+            f.source_y,
+            f.source_width,
+            f.source_height,
+            f.source_slice_name,
+            ROW_NUMBER() OVER (PARTITION BY a.sprite_id ORDER BY a.start_frame, f.frame_index, a.id, f.id) AS rn
+          FROM ${spriteAnimationTable} a
+          JOIN ${spriteAnimationFrameTable} f ON f.sprite_animation_id = a.id
+        )
         SELECT
           s.id AS id,
           s.name AS name,
@@ -654,13 +706,19 @@ export class ViewCatalog extends HTMLElement {
           s.image_path AS image_path,
           s.grid_width AS grid_width,
           s.grid_height AS grid_height,
-          COUNT(a.id) AS animation_count
+          COUNT(a.id) AS animation_count,
+          COALESCE(p.source_x, s.source_x) AS source_x,
+          COALESCE(p.source_y, s.source_y) AS source_y,
+          COALESCE(p.source_width, s.source_width) AS source_width,
+          COALESCE(p.source_height, s.source_height) AS source_height,
+          COALESCE(p.source_slice_name, s.source_slice_name) AS source_slice_name
         FROM ${spriteTable} s
         LEFT JOIN ${spriteAnimationTable} a ON a.sprite_id = s.id
+        LEFT JOIN preview_frames p ON p.sprite_id = s.id AND p.rn = 1
         GROUP BY s.id
         ORDER BY s.name
       `,
-            ["id", "name", "display_name", "image_path", "grid_width", "grid_height", "animation_count"],
+            ["id", "name", "display_name", "image_path", "grid_width", "grid_height", "animation_count", "source_x", "source_y", "source_width", "source_height", "source_slice_name"],
         )
     }
 
@@ -760,7 +818,8 @@ export class ViewCatalog extends HTMLElement {
             name.textContent = row.display_name
 
             const source = document.createElement("td")
-            source.textContent = row.image_path
+            const sourceSliceName = String(row.source_slice_name || "")
+            source.textContent = sourceSliceName ? `${row.image_path}#${sourceSliceName}` : row.image_path
 
             const grid = document.createElement("td")
             grid.textContent = `${row.grid_width}×${row.grid_height}`
@@ -911,15 +970,23 @@ export class ViewCatalog extends HTMLElement {
         }
 
         const source = sprite.preview
+        const sourceX = Number(row.source_x)
+        const sourceY = Number(row.source_y)
+        const sourceWidth = Number(row.source_width)
+        const sourceHeight = Number(row.source_height)
+        assert(Number.isInteger(sourceX), "sprite preview source x must be an integer")
+        assert(Number.isInteger(sourceY), "sprite preview source y must be an integer")
+        assertPositiveInteger(sourceWidth, "sprite preview source width")
+        assertPositiveInteger(sourceHeight, "sprite preview source height")
         const maxSize = 64
-        const scale = Math.max(1, Math.floor(maxSize / Math.max(source.width, source.height)))
-        canvas.width = source.width * scale
-        canvas.height = source.height * scale
+        const scale = Math.max(1, Math.floor(maxSize / Math.max(sourceWidth, sourceHeight)))
+        canvas.width = sourceWidth * scale
+        canvas.height = sourceHeight * scale
         const ctx = canvas.getContext("2d")
         assert(ctx, "view-catalog sprite preview requires 2d context")
         ctx.imageSmoothingEnabled = false
         ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
+        ctx.drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
 
         return sprite
     }

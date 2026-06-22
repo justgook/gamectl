@@ -1,5 +1,5 @@
 {
-  "sql": ":memory:",
+  "sql": "database.sqlite",
   "ui": {
     "keys": [
       {
