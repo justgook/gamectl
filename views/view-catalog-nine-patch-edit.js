@@ -96,6 +96,7 @@ function buildSourceNinePatches({ baseName, slices }) {
             sliceName,
             name: multiple ? normalizeName(sliceName) : normalizeName(baseName),
             displayName: multiple ? sliceName : baseName,
+            description: "",
             sourceX,
             sourceY,
             sourceWidth,
@@ -129,6 +130,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             displayName: "",
             description: "",
             sourceNinePatches: [],
+            selectedSourceIndex: 0,
             sourceX: 0,
             sourceY: 0,
             sourceWidth: 0,
@@ -155,6 +157,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         this.formElement = this.querySelector('[data-element="form"]')
         assert(this.formElement instanceof HTMLFormElement, "view-catalog-nine-patch-edit missing form")
         this.formElement.addEventListener("submit", async (event) => this.handleSubmit(event))
+        this.formElement.addEventListener("change", (event) => this.handleChange(event))
         void this.initialize()
     }
 
@@ -174,6 +177,42 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         if (tone) this.statusElement.classList.add(tone)
     }
 
+    selectedSourceNinePatch() {
+        assert(this.draft.sourceNinePatches.length > 0, "nine-patch source selection requires imported source patches")
+        assertNonNegativeInteger(this.draft.selectedSourceIndex, "selected nine-patch source index")
+        assert(this.draft.selectedSourceIndex < this.draft.sourceNinePatches.length, "selected nine-patch source index is out of range")
+        return this.draft.sourceNinePatches[this.draft.selectedSourceIndex]
+    }
+
+    applySourceNinePatchToDraft(ninePatch) {
+        this.draft.name = ninePatch.name
+        this.draft.displayName = ninePatch.displayName
+        this.draft.description = ninePatch.description
+        this.draft.sourceX = ninePatch.sourceX
+        this.draft.sourceY = ninePatch.sourceY
+        this.draft.sourceWidth = ninePatch.sourceWidth
+        this.draft.sourceHeight = ninePatch.sourceHeight
+        this.draft.sourceSliceName = ninePatch.sliceName
+        this.draft.sliceLeft = ninePatch.sliceLeft
+        this.draft.sliceTop = ninePatch.sliceTop
+        this.draft.sliceRight = ninePatch.sliceRight
+        this.draft.sliceBottom = ninePatch.sliceBottom
+    }
+
+    captureDraftFieldsIntoSourceNinePatch(index, formData) {
+        assertNonNegativeInteger(index, "nine-patch source index")
+        assert(index < this.draft.sourceNinePatches.length, "nine-patch source index is out of range")
+        const ninePatch = this.draft.sourceNinePatches[index]
+        ninePatch.name = normalizeName(formData.get("name"))
+        ninePatch.displayName = String(formData.get("display-name") || "").trim()
+        ninePatch.description = String(formData.get("description") || "").trim()
+        ninePatch.sliceLeft = Number(formData.get("slice-left"))
+        ninePatch.sliceTop = Number(formData.get("slice-top"))
+        ninePatch.sliceRight = Number(formData.get("slice-right"))
+        ninePatch.sliceBottom = Number(formData.get("slice-bottom"))
+        this.applySourceNinePatchToDraft(ninePatch)
+    }
+
     captureDraft() {
         assert(this.formElement instanceof HTMLFormElement, "view-catalog-nine-patch-edit form is not initialized")
         const formData = new FormData(this.formElement)
@@ -185,13 +224,8 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         this.draft.sliceTop = Number(formData.get("slice-top"))
         this.draft.sliceRight = Number(formData.get("slice-right"))
         this.draft.sliceBottom = Number(formData.get("slice-bottom"))
-        if (this.draft.sourceNinePatches.length === 1) {
-            this.draft.sourceNinePatches[0].name = this.draft.name
-            this.draft.sourceNinePatches[0].displayName = this.draft.displayName
-            this.draft.sourceNinePatches[0].sliceLeft = this.draft.sliceLeft
-            this.draft.sourceNinePatches[0].sliceTop = this.draft.sliceTop
-            this.draft.sourceNinePatches[0].sliceRight = this.draft.sliceRight
-            this.draft.sourceNinePatches[0].sliceBottom = this.draft.sliceBottom
+        if (this.draft.sourceNinePatches.length > 0) {
+            this.captureDraftFieldsIntoSourceNinePatch(this.draft.selectedSourceIndex, formData)
         }
     }
 
@@ -203,6 +237,24 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             : this.mode === "edit"
               ? "Loaded from database."
               : "Choose a QOI/PNG/etc file for manual entry, or an Aseprite file with slices."
+        const sourceSelector = this.draft.sourceNinePatches.length > 1
+            ? `
+      <fieldset>
+        <legend>Aseprite slice imports</legend>
+        <label>Nine patch to inspect/edit
+          <select name="source-nine-patch-index">
+            ${this.draft.sourceNinePatches
+                .map((ninePatch, index) => `<option value="${index}" ${index === this.draft.selectedSourceIndex ? "selected" : ""}>${escapeHtml(ninePatch.sliceName)} → ${escapeHtml(ninePatch.name)}</option>`)
+                .join("")}
+          </select>
+        </label>
+        <p>Changes below apply to the selected slice. Saving imports all ${this.draft.sourceNinePatches.length} nine patches.</p>
+      </fieldset>
+`
+            : ""
+        const sourceRect = this.draft.sourceNinePatches.length > 0
+            ? `<p>Source slice: ${escapeHtml(this.draft.sourceSliceName)} · rect ${Number(this.draft.sourceX)}, ${Number(this.draft.sourceY)}, ${Number(this.draft.sourceWidth)}×${Number(this.draft.sourceHeight)}</p>`
+            : ""
         this.formElement.innerHTML = `
       <fieldset>
         <legend>Source</legend>
@@ -213,8 +265,11 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         <p>${escapeHtml(sourceInfo)}</p>
       </fieldset>
 
+      ${sourceSelector}
+
       <fieldset>
         <legend>Nine patch record</legend>
+        ${sourceRect}
         <label>Name
           <input type="text" name="name" value="${escapeHtml(this.draft.name)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         </label>
@@ -278,6 +333,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         const baseName = basenameWithoutExtension(path)
         this.draft.imagePath = path
         this.draft.sourceNinePatches = []
+        this.draft.selectedSourceIndex = 0
         this.draft.sourceX = 0
         this.draft.sourceY = 0
         this.draft.sourceWidth = 0
@@ -295,18 +351,8 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             const baseName = basenameWithoutExtension(path)
             this.draft.imagePath = path
             this.draft.sourceNinePatches = buildSourceNinePatches({ baseName, slices })
-            const first = this.draft.sourceNinePatches[0]
-            this.draft.name = first.name
-            this.draft.displayName = first.displayName
-            this.draft.sourceX = first.sourceX
-            this.draft.sourceY = first.sourceY
-            this.draft.sourceWidth = first.sourceWidth
-            this.draft.sourceHeight = first.sourceHeight
-            this.draft.sourceSliceName = first.sliceName
-            this.draft.sliceLeft = first.sliceLeft
-            this.draft.sliceTop = first.sliceTop
-            this.draft.sliceRight = first.sliceRight
-            this.draft.sliceBottom = first.sliceBottom
+            this.draft.selectedSourceIndex = 0
+            this.applySourceNinePatchToDraft(this.draft.sourceNinePatches[0])
         } finally {
             if (documentResource) await runtime.releaseResource(documentResource)
         }
@@ -338,6 +384,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
                 sliceName: this.draft.sourceSliceName,
                 name: this.draft.name,
                 displayName: this.draft.displayName,
+                description: this.draft.description,
                 sourceX: this.draft.sourceX,
                 sourceY: this.draft.sourceY,
                 sourceWidth: this.draft.sourceWidth,
@@ -348,6 +395,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
                 sliceBottom: Number(row.slice_bottom),
             },
         ]
+        this.draft.selectedSourceIndex = 0
         this.draft.sliceLeft = Number(row.slice_left)
         this.draft.sliceTop = Number(row.slice_top)
         this.draft.sliceRight = Number(row.slice_right)
@@ -388,6 +436,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             sliceName: this.draft.sourceSliceName || "",
             name: this.draft.name,
             displayName: this.draft.displayName,
+            description: this.draft.description,
             sourceX: this.draft.sourceX,
             sourceY: this.draft.sourceY,
             sourceWidth: this.draft.sourceWidth,
@@ -403,7 +452,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         const params = [
             ninePatch.name,
             ninePatch.displayName,
-            this.draft.description,
+            ninePatch.description,
             this.draft.imagePath,
             String(ninePatch.sourceX),
             String(ninePatch.sourceY),
@@ -449,6 +498,23 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             await sql.exec("ROLLBACK", [])
             throw error
         }
+    }
+
+    handleChange(event) {
+        const target = event.target
+        if (!(target instanceof HTMLSelectElement)) return
+        if (target.name !== "source-nine-patch-index") return
+        assert(this.formElement instanceof HTMLFormElement, "view-catalog-nine-patch-edit form is not initialized")
+        const formData = new FormData(this.formElement)
+        this.draft.imagePath = String(formData.get("image-path") || "").trim()
+        this.captureDraftFieldsIntoSourceNinePatch(this.draft.selectedSourceIndex, formData)
+        const nextIndex = Number(target.value)
+        assertNonNegativeInteger(nextIndex, "selected nine-patch source index")
+        assert(nextIndex < this.draft.sourceNinePatches.length, "selected nine-patch source index is out of range")
+        this.draft.selectedSourceIndex = nextIndex
+        this.applySourceNinePatchToDraft(this.selectedSourceNinePatch())
+        this.render()
+        this.setStatus(`Editing ${this.draft.sourceSliceName}. Save imports all ${this.draft.sourceNinePatches.length} nine patches.`, "info")
     }
 
     async handleSubmit(event) {
