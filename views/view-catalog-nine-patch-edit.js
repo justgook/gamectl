@@ -96,7 +96,6 @@ function buildSourceNinePatches({ baseName, slices }) {
             sliceName,
             name: multiple ? normalizeName(sliceName) : normalizeName(baseName),
             displayName: multiple ? sliceName : baseName,
-            description: "",
             sourceX,
             sourceY,
             sourceWidth,
@@ -128,7 +127,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             imagePath: "",
             name: "",
             displayName: "",
-            description: "",
             sourceNinePatches: [],
             selectedSourceIndex: 0,
             sourceX: 0,
@@ -187,7 +185,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
     applySourceNinePatchToDraft(ninePatch) {
         this.draft.name = ninePatch.name
         this.draft.displayName = ninePatch.displayName
-        this.draft.description = ninePatch.description
         this.draft.sourceX = ninePatch.sourceX
         this.draft.sourceY = ninePatch.sourceY
         this.draft.sourceWidth = ninePatch.sourceWidth
@@ -205,7 +202,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         const ninePatch = this.draft.sourceNinePatches[index]
         ninePatch.name = normalizeName(formData.get("name"))
         ninePatch.displayName = String(formData.get("display-name") || "").trim()
-        ninePatch.description = String(formData.get("description") || "").trim()
         ninePatch.sliceLeft = Number(formData.get("slice-left"))
         ninePatch.sliceTop = Number(formData.get("slice-top"))
         ninePatch.sliceRight = Number(formData.get("slice-right"))
@@ -219,7 +215,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         this.draft.imagePath = String(formData.get("image-path") || "").trim()
         this.draft.name = normalizeName(formData.get("name"))
         this.draft.displayName = String(formData.get("display-name") || "").trim()
-        this.draft.description = String(formData.get("description") || "").trim()
         this.draft.sliceLeft = Number(formData.get("slice-left"))
         this.draft.sliceTop = Number(formData.get("slice-top"))
         this.draft.sliceRight = Number(formData.get("slice-right"))
@@ -275,9 +270,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         </label>
         <label>Display name
           <input type="text" name="display-name" value="${escapeHtml(this.draft.displayName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        </label>
-        <label>Description
-          <textarea name="description" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">${escapeHtml(this.draft.description)}</textarea>
         </label>
       </fieldset>
 
@@ -360,12 +352,12 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
 
     async loadDraft(ninePatchId) {
         const rows = await sql.queryObjects(
-            `SELECT id, name, COALESCE(display_name, '') AS display_name, COALESCE(description, '') AS description,
+            `SELECT id, name, COALESCE(display_name, '') AS display_name,
                     image_path, source_x, source_y, source_width, source_height, source_slice_name,
                     slice_left, slice_top, slice_right, slice_bottom
              FROM nine_patch
              WHERE id = ?`,
-            ["id", "name", "display_name", "description", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "slice_left", "slice_top", "slice_right", "slice_bottom"],
+            ["id", "name", "display_name", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "slice_left", "slice_top", "slice_right", "slice_bottom"],
             [String(ninePatchId)],
         )
         assert(rows.length === 1, `expected one nine_patch for id ${ninePatchId}, got ${rows.length}`)
@@ -373,7 +365,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         this.draft.imagePath = String(row.image_path)
         this.draft.name = String(row.name)
         this.draft.displayName = String(row.display_name)
-        this.draft.description = String(row.description)
         this.draft.sourceX = Number(row.source_x)
         this.draft.sourceY = Number(row.source_y)
         this.draft.sourceWidth = Number(row.source_width)
@@ -384,7 +375,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
                 sliceName: this.draft.sourceSliceName,
                 name: this.draft.name,
                 displayName: this.draft.displayName,
-                description: this.draft.description,
                 sourceX: this.draft.sourceX,
                 sourceY: this.draft.sourceY,
                 sourceWidth: this.draft.sourceWidth,
@@ -436,7 +426,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             sliceName: this.draft.sourceSliceName || "",
             name: this.draft.name,
             displayName: this.draft.displayName,
-            description: this.draft.description,
             sourceX: this.draft.sourceX,
             sourceY: this.draft.sourceY,
             sourceWidth: this.draft.sourceWidth,
@@ -452,7 +441,6 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         const params = [
             ninePatch.name,
             ninePatch.displayName,
-            ninePatch.description,
             this.draft.imagePath,
             String(ninePatch.sourceX),
             String(ninePatch.sourceY),
@@ -467,7 +455,7 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
         if (id !== null) {
             await sql.exec(
                 `UPDATE nine_patch
-                 SET name = ?, display_name = ?, description = ?, image_path = ?,
+                 SET name = ?, display_name = ?, image_path = ?,
                      source_x = ?, source_y = ?, source_width = ?, source_height = ?, source_slice_name = ?,
                      slice_left = ?, slice_top = ?, slice_right = ?, slice_bottom = ?, updated_at = CURRENT_TIMESTAMP
                  WHERE id = ?`,
@@ -476,8 +464,8 @@ export class ViewCatalogNinePatchEdit extends HTMLElement {
             return
         }
         await sql.exec(
-            `INSERT INTO nine_patch (name, display_name, description, image_path, source_x, source_y, source_width, source_height, source_slice_name, slice_left, slice_top, slice_right, slice_bottom)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO nine_patch (name, display_name, image_path, source_x, source_y, source_width, source_height, source_slice_name, slice_left, slice_top, slice_right, slice_bottom)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             params,
         )
     }

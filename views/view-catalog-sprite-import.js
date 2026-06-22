@@ -191,7 +191,6 @@ export class ViewCatalogSpriteImport extends HTMLElement {
             imagePath: "",
             name: "",
             displayName: "",
-            description: "",
             gridWidth: 1,
             gridHeight: 1,
             width: 0,
@@ -242,7 +241,6 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         this.draft.imagePath = String(formData.get("image-path") || "").trim()
         this.draft.name = normalizeName(formData.get("name"))
         this.draft.displayName = String(formData.get("display-name") || "").trim()
-        this.draft.description = String(formData.get("description") || "").trim()
         this.draft.gridWidth = Number(formData.get("grid-width"))
         this.draft.gridHeight = Number(formData.get("grid-height"))
         if (this.draft.sourceSprites.length === 1) {
@@ -297,9 +295,6 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         </label>
         <label>Display name
           <input type="text" name="display-name" value="${escapeHtml(this.draft.displayName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        </label>
-        <label>Description
-          <textarea name="description" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">${escapeHtml(this.draft.description)}</textarea>
         </label>
         <label>Grid width
           <input type="number" name="grid-width" min="1" value="${Number(this.draft.gridWidth)}">
@@ -401,7 +396,6 @@ export class ViewCatalogSpriteImport extends HTMLElement {
                id,
                name,
                COALESCE(display_name, '') AS display_name,
-               COALESCE(description, '') AS description,
                image_path,
                source_x,
                source_y,
@@ -412,7 +406,7 @@ export class ViewCatalogSpriteImport extends HTMLElement {
                grid_height
              FROM sprite
              WHERE id = ?`,
-            ["id", "name", "display_name", "description", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "grid_width", "grid_height"],
+            ["id", "name", "display_name", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "grid_width", "grid_height"],
             [String(spriteId)],
         )
         assert(sprites.length === 1, `expected one sprite for id ${spriteId}, got ${sprites.length}`)
@@ -428,7 +422,6 @@ export class ViewCatalogSpriteImport extends HTMLElement {
         this.draft.imagePath = String(sprite.image_path)
         this.draft.name = String(sprite.name)
         this.draft.displayName = String(sprite.display_name)
-        this.draft.description = String(sprite.description)
         this.draft.gridWidth = Number(sprite.grid_width)
         this.draft.gridHeight = Number(sprite.grid_height)
         this.draft.width = 0
@@ -547,12 +540,11 @@ export class ViewCatalogSpriteImport extends HTMLElement {
                 assert(Number.isInteger(firstSpriteId) && firstSpriteId > 0, "sprite edit requires spriteId")
                 await sql.exec(
                     `UPDATE sprite
-                     SET name = ?, display_name = ?, description = ?, image_path = ?, source_x = ?, source_y = ?, source_width = ?, source_height = ?, source_slice_name = ?, grid_width = ?, grid_height = ?, updated_at = CURRENT_TIMESTAMP
+                     SET name = ?, display_name = ?, image_path = ?, source_x = ?, source_y = ?, source_width = ?, source_height = ?, source_slice_name = ?, grid_width = ?, grid_height = ?, updated_at = CURRENT_TIMESTAMP
                      WHERE id = ?`,
                     [
                         sourceSprite.name,
                         sourceSprite.displayName,
-                        this.draft.description,
                         this.draft.imagePath,
                         String(sourceSprite.sourceX),
                         String(sourceSprite.sourceY),
@@ -570,12 +562,11 @@ export class ViewCatalogSpriteImport extends HTMLElement {
                 firstSpriteId = 0
                 for (const sourceSprite of this.draft.sourceSprites) {
                     await sql.exec(
-                        `INSERT INTO sprite (name, display_name, description, image_path, source_x, source_y, source_width, source_height, source_slice_name, grid_width, grid_height)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        `INSERT INTO sprite (name, display_name, image_path, source_x, source_y, source_width, source_height, source_slice_name, grid_width, grid_height)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                         [
                             sourceSprite.name,
                             sourceSprite.displayName,
-                            this.draft.description,
                             this.draft.imagePath,
                             String(sourceSprite.sourceX),
                             String(sourceSprite.sourceY),

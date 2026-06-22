@@ -81,7 +81,6 @@ export class ViewCatalogTilesetEdit extends HTMLElement {
             imagePath: "",
             name: "",
             displayName: "",
-            description: "",
             sourceWidth: 0,
             sourceHeight: 0,
             tileWidth: 0,
@@ -128,7 +127,6 @@ export class ViewCatalogTilesetEdit extends HTMLElement {
         this.draft.imagePath = String(formData.get("image-path") || "").trim()
         this.draft.name = normalizeName(formData.get("name"))
         this.draft.displayName = String(formData.get("display-name") || "").trim()
-        this.draft.description = String(formData.get("description") || "").trim()
         this.draft.tileWidth = Number(formData.get("tile-width"))
         this.draft.tileHeight = Number(formData.get("tile-height"))
     }
@@ -154,9 +152,6 @@ export class ViewCatalogTilesetEdit extends HTMLElement {
         </label>
         <label>Display name
           <input type="text" name="display-name" value="${escapeHtml(this.draft.displayName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        </label>
-        <label>Description
-          <textarea name="description" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">${escapeHtml(this.draft.description)}</textarea>
         </label>
         <label>Tile width
           <input type="number" name="tile-width" min="1" value="${Number(this.draft.tileWidth)}">
@@ -240,14 +235,14 @@ export class ViewCatalogTilesetEdit extends HTMLElement {
 
     async loadTilesetDraft(tilesetId) {
         const rows = await sql.queryObjects(
-            `SELECT ts.id, ts.name, COALESCE(ts.display_name, '') AS display_name, COALESCE(ts.description, '') AS description,
+            `SELECT ts.id, ts.name, COALESCE(ts.display_name, '') AS display_name,
                     src.image_path, src.tile_width, src.tile_height
              FROM tileset ts
              JOIN tileset_image_source src ON src.tileset_id = ts.id
              WHERE ts.id = ?
              ORDER BY src.id
              LIMIT 1`,
-            ["id", "name", "display_name", "description", "image_path", "tile_width", "tile_height"],
+            ["id", "name", "display_name", "image_path", "tile_width", "tile_height"],
             [String(tilesetId)],
         )
         assert(rows.length === 1, `expected one tileset for id ${tilesetId}, got ${rows.length}`)
@@ -255,7 +250,6 @@ export class ViewCatalogTilesetEdit extends HTMLElement {
         this.draft.imagePath = String(row.image_path)
         this.draft.name = String(row.name)
         this.draft.displayName = String(row.display_name)
-        this.draft.description = String(row.description)
         this.draft.tileWidth = Number(row.tile_width)
         this.draft.tileHeight = Number(row.tile_height)
     }
@@ -292,17 +286,17 @@ export class ViewCatalogTilesetEdit extends HTMLElement {
                 assert(Number.isInteger(tilesetId) && tilesetId > 0, "tileset edit requires tilesetId")
                 await sql.exec(
                     `UPDATE tileset
-                     SET name = ?, display_name = ?, description = ?, updated_at = CURRENT_TIMESTAMP
+                     SET name = ?, display_name = ?, updated_at = CURRENT_TIMESTAMP
                      WHERE id = ?`,
-                    [this.draft.name, this.draft.displayName, this.draft.description, String(tilesetId)],
+                    [this.draft.name, this.draft.displayName, String(tilesetId)],
                 )
                 await sql.exec("DELETE FROM tile WHERE tileset_id = ?", [String(tilesetId)])
                 await sql.exec("DELETE FROM tileset_image_source WHERE tileset_id = ?", [String(tilesetId)])
             } else {
                 await sql.exec(
-                    `INSERT INTO tileset (name, display_name, description)
-                     VALUES (?, ?, ?)`,
-                    [this.draft.name, this.draft.displayName, this.draft.description],
+                    `INSERT INTO tileset (name, display_name)
+                     VALUES (?, ?)`,
+                    [this.draft.name, this.draft.displayName],
                 )
                 tilesetId = Number(await sql.value("SELECT last_insert_rowid()", []))
             }

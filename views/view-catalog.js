@@ -91,7 +91,6 @@ function catalogSchemaStatements() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             display_name TEXT,
-            description TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`,
@@ -129,7 +128,6 @@ function catalogSchemaStatements() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             display_name TEXT,
-            description TEXT,
             image_path TEXT NOT NULL,
             source_x INTEGER NOT NULL DEFAULT 0,
             source_y INTEGER NOT NULL DEFAULT 0,
@@ -171,7 +169,6 @@ function catalogSchemaStatements() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             display_name TEXT,
-            description TEXT,
             image_path TEXT NOT NULL,
             source_x INTEGER NOT NULL DEFAULT 0,
             source_y INTEGER NOT NULL DEFAULT 0,
@@ -233,7 +230,6 @@ export class ViewCatalog extends HTMLElement {
                 <th>Masks</th>
                 <th>Tiles</th>
                 <th>Variants</th>
-                <th>Description</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -248,7 +244,6 @@ export class ViewCatalog extends HTMLElement {
                 <th>Source</th>
                 <th>Grid</th>
                 <th>Animations</th>
-                <th>Description</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -262,7 +257,6 @@ export class ViewCatalog extends HTMLElement {
                 <th>Name</th>
                 <th>Source</th>
                 <th>Slices</th>
-                <th>Description</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -621,7 +615,6 @@ export class ViewCatalog extends HTMLElement {
           ts.id AS id,
           ts.name AS name,
           COALESCE(ts.display_name, ts.name) AS display_name,
-          COALESCE(ts.description, '') AS description,
           previews.preview_image_path AS preview_image_path,
           previews.preview_tile_width AS preview_tile_width,
           previews.preview_tile_height AS preview_tile_height,
@@ -638,7 +631,6 @@ export class ViewCatalog extends HTMLElement {
                 "id",
                 "name",
                 "display_name",
-                "description",
                 "preview_image_path",
                 "preview_tile_width",
                 "preview_tile_height",
@@ -659,7 +651,6 @@ export class ViewCatalog extends HTMLElement {
           s.id AS id,
           s.name AS name,
           COALESCE(s.display_name, s.name) AS display_name,
-          COALESCE(s.description, '') AS description,
           s.image_path AS image_path,
           s.grid_width AS grid_width,
           s.grid_height AS grid_height,
@@ -669,7 +660,7 @@ export class ViewCatalog extends HTMLElement {
         GROUP BY s.id
         ORDER BY s.name
       `,
-            ["id", "name", "display_name", "description", "image_path", "grid_width", "grid_height", "animation_count"],
+            ["id", "name", "display_name", "image_path", "grid_width", "grid_height", "animation_count"],
         )
     }
 
@@ -681,7 +672,6 @@ export class ViewCatalog extends HTMLElement {
           id,
           name,
           COALESCE(display_name, name) AS display_name,
-          COALESCE(description, '') AS description,
           image_path,
           source_x,
           source_y,
@@ -695,7 +685,7 @@ export class ViewCatalog extends HTMLElement {
         FROM ${ninePatchTable}
         ORDER BY name
       `,
-            ["id", "name", "display_name", "description", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "slice_left", "slice_top", "slice_right", "slice_bottom"],
+            ["id", "name", "display_name", "image_path", "source_x", "source_y", "source_width", "source_height", "source_slice_name", "slice_left", "slice_top", "slice_right", "slice_bottom"],
         )
     }
 
@@ -739,10 +729,7 @@ export class ViewCatalog extends HTMLElement {
             const variants = document.createElement("td")
             variants.textContent = String(row.variant_count)
 
-            const description = document.createElement("td")
-            description.textContent = row.description
-
-            tr.append(preview, name, source, tileSize, masks, tiles, variants, description)
+            tr.append(preview, name, source, tileSize, masks, tiles, variants)
             body.appendChild(tr)
         }
     }
@@ -781,10 +768,7 @@ export class ViewCatalog extends HTMLElement {
             const animations = document.createElement("td")
             animations.textContent = String(row.animation_count)
 
-            const description = document.createElement("td")
-            description.textContent = row.description
-
-            tr.append(preview, name, source, grid, animations, description)
+            tr.append(preview, name, source, grid, animations)
             body.appendChild(tr)
         }
     }
@@ -821,10 +805,7 @@ export class ViewCatalog extends HTMLElement {
             const slices = document.createElement("td")
             slices.textContent = `${row.slice_left}, ${row.slice_top}, ${row.slice_right}, ${row.slice_bottom}`
 
-            const description = document.createElement("td")
-            description.textContent = row.description
-
-            tr.append(preview, name, source, slices, description)
+            tr.append(preview, name, source, slices)
             body.appendChild(tr)
         }
     }
