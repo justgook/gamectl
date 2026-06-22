@@ -123,6 +123,7 @@ export class ViewPagination extends HTMLElement {
     this.querySelector('[data-action="page-size"]')?.addEventListener(
       "change",
       (event) => {
+        event.stopPropagation()
         const nextPageSize = parsePositiveInt(event.target.value, pageSize)
         this._emitChange(0, nextPageSize)
       },

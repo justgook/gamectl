@@ -157,6 +157,11 @@
         "group": "Generation",
         "internal": false
       },
+      "view-catalog-tileset-edit": {
+        "url": "views/view-catalog-tileset-edit.js",
+        "label": "Edit Tileset",
+        "internal": true
+      },
       "view-catalog-sprite-import": {
         "url": "views/view-catalog-sprite-import.js",
         "label": "Import Sprite",

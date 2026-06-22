@@ -398,7 +398,20 @@ export class ViewCatalog extends HTMLElement {
             return
         }
         assert(this.activeTab === "tilesets", `unknown catalog tab ${this.activeTab}`)
-        this.setStatus("Tileset import is not implemented yet.", "warning")
+        await this.importTileset()
+    }
+
+    async importTileset() {
+        const payload = unwrap(
+            await runtime.call("ui.popup.open", {
+                title: "Import Tileset",
+                size: "large",
+                tag: "view-catalog-tileset-edit",
+            }),
+        )
+        if (payload?.cancelled) return
+        await this.refresh()
+        this.selectTab("tilesets")
     }
 
     async importSprite() {
@@ -477,10 +490,11 @@ export class ViewCatalog extends HTMLElement {
         const row = this.selectedTilesetRow()
         const path = String(row.preview_image_path || "").trim()
         assert(path, "selected tileset requires preview image path")
+        const extension = getExtension(path)
         await runtime.call("ui.popup.open", {
             title: path.split("/").pop() || path,
             size: "large",
-            tag: "view-image",
+            tag: extension === "aseprite" || extension === "ase" ? "view-aseprite" : "view-image",
             props: { path },
         })
     }
@@ -524,7 +538,20 @@ export class ViewCatalog extends HTMLElement {
         }
         assert(this.activeTab === "tilesets", `unknown catalog tab ${this.activeTab}`)
         assert(this.selectedTilesetId > 0, "select a tileset before editing")
-        this.setStatus("Tileset editing is not implemented yet.", "warning")
+        const payload = unwrap(
+            await runtime.call("ui.popup.open", {
+                title: "Edit Tileset",
+                size: "large",
+                tag: "view-catalog-tileset-edit",
+                props: {
+                    mode: "edit",
+                    tilesetId: this.selectedTilesetId,
+                },
+            }),
+        )
+        if (payload?.cancelled) return
+        await this.refresh()
+        this.selectTab("tilesets")
     }
 
     async refresh() {
@@ -841,12 +868,17 @@ export class ViewCatalog extends HTMLElement {
     async renderTilesetPreview(canvas, row, imageCache) {
         const path = row.preview_image_path
         assert(typeof path === "string" && path.length > 0, "catalog preview requires image path")
-        assert(getExtension(path) === "qoi", `catalog preview currently supports qoi files only: ${path}`)
+        const extension = getExtension(path)
+        assert(extension === "qoi" || extension === "aseprite" || extension === "ase", `catalog preview supports qoi or aseprite files only: ${path}`)
 
         let source = imageCache.get(path)
         if (!source) {
-            const bytes = new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", path)))
-            source = createCanvasFromQoi(bytes)
+            if (extension === "qoi") {
+                const bytes = new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", path)))
+                source = createCanvasFromQoi(bytes)
+            } else {
+                source = await this.loadAsepriteFrameCanvas(path)
+            }
             imageCache.set(path, source)
         }
 

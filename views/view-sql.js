@@ -1,6 +1,7 @@
 import { runtime, unwrap } from "/core/runtime.js"
 import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 import { rowsFromCells, sql } from "/util/sql.js"
+import "/widgets/view-pagination.js"
 
 function quoteIdent(name) {
     return String(name).replace(/"/g, '""')
