@@ -55,12 +55,53 @@ local request = {
 }
 
 local response = host.call("pack/pack::pack", request)
+if type(response) ~= "table" then
+	error("pack-rects: pack response must be a table")
+end
+if type(response.rects) ~= "table" then
+	error("pack-rects: pack response rects must be an array")
+end
 
+local atlasWidth = tonumber(response.width) or 0
+local atlasHeight = tonumber(response.height) or 0
+if atlasWidth <= 0 or atlasHeight <= 0 then
+	error("pack-rects: response atlas width and height must be positive")
+end
+
+local uvs = {}
 for index, rect in ipairs(rects) do
 	local packedRect = response.rects[index]
-	rect.x = packedRect.x or 0
-	rect.y = packedRect.y or 0
-	rect.packed = packedRect.packed == true
+	if type(packedRect) ~= "table" then
+		error("pack-rects: missing packed rect " .. tostring(index))
+	end
+	if packedRect.packed ~= true then
+		error("pack-rects: rect " .. tostring(index) .. " was not packed")
+	end
+
+	local x = tonumber(packedRect.x)
+	local y = tonumber(packedRect.y)
+	local rectWidth = tonumber(packedRect.width) or tonumber(rect.width) or 0
+	local rectHeight = tonumber(packedRect.height) or tonumber(rect.height) or 0
+	if x == nil or y == nil then
+		error("pack-rects: packed rect " .. tostring(index) .. " is missing x/y")
+	end
+	if rectWidth <= 0 or rectHeight <= 0 then
+		error("pack-rects: packed rect " .. tostring(index) .. " width and height must be positive")
+	end
+
+	rect.x = x
+	rect.y = y
+	rect.width = rectWidth
+	rect.height = rectHeight
+	rect.packed = true
+
+	uvs[index] = {
+		x / atlasWidth,
+		y / atlasHeight,
+		(x + rectWidth) / atlasWidth,
+		(y + rectHeight) / atlasHeight,
+	}
 end
 
 outputs[1] = rects
+outputs[2] = uvs

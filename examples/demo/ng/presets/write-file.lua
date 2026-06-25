@@ -40,10 +40,10 @@ end
 
 local function writeFile(path, content)
 	if path == nil or path == "" then
-		return nil, "path is required"
+		error("path is required")
 	end
 	if type(path) ~= "string" then
-		return nil, "path must be string"
+		error("path must be string")
 	end
 
 	if type(content) ~= "string" then
@@ -52,7 +52,7 @@ local function writeFile(path, content)
 
 	ensureParentDirs(path)
 	host.call("fs/fs::write-text", path, content)
-	return path, ""
+	return path
 end
 
 local path = inputs[1]
@@ -62,31 +62,20 @@ if type(path) == "table" then
 	local okPaths, pathCount = isArray(path)
 	local okContents, contentCount = isArray(content)
 	if not okPaths then
-		outputs[1] = nil
-		outputs[2] = "path must be string or array"
-	elseif not okContents then
-		outputs[1] = nil
-		outputs[2] = "text must be array when path is array"
-	elseif pathCount ~= contentCount then
-		outputs[1] = nil
-		outputs[2] = "path and text arrays must have the same length"
-	else
-		local written = {}
-		local err = ""
-		for index, itemPath in ipairs(path) do
-			local itemWritten, itemErr = writeFile(itemPath, content[index])
-			if itemErr ~= "" then
-				err = "item " .. tostring(index) .. ": " .. itemErr
-				written = nil
-				break
-			end
-			written[index] = itemWritten
-		end
-		outputs[1] = written
-		outputs[2] = err
+		error("path must be string or array")
 	end
-else
-	local written, err = writeFile(path, content)
+	if not okContents then
+		error("text must be array when path is array")
+	end
+	if pathCount ~= contentCount then
+		error("path and text arrays must have the same length")
+	end
+
+	local written = {}
+	for index, itemPath in ipairs(path) do
+		written[index] = writeFile(itemPath, content[index])
+	end
 	outputs[1] = written
-	outputs[2] = err
+else
+	outputs[1] = writeFile(path, content)
 end
