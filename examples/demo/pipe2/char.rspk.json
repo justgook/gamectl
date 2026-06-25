@@ -3,15 +3,18 @@
   "odin": {
     "package": "char_data",
     "imports": {
-      "world": "world"
+      "world": "../world"
     }
   },
-  "data": ["UVs"],
+  "data": ["UVs", "Atlas"],
   "types": {
     "Vec2": {
       "type": "array",
       "len": 2,
       "value": "f32"
+    },
+    "Atlas": {
+      "type": "bytes"
     },
     "UV": {
       "type": "array",

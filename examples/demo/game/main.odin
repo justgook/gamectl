@@ -1,5 +1,6 @@
 package main
 
+import "char_data"
 import "core:c"
 import "decoder2"
 import "host"
@@ -26,10 +27,9 @@ app_init :: proc() {
 	host.setup_graphics()
 	host.info("app", "init")
 
-	assert(test_load_bullet_assets("bullet.rspk", &state.world))
-
-	load_ok := load_game_assets(GAME_ASSET_PATH, &state.world)
-	assert(load_ok)
+	assert(load_bullet_assets("bullet.rspk", &state.world))
+	assert(load_char_data("char.rspk", &state.world))
+	assert(load_game_assets(GAME_ASSET_PATH, &state.world))
 
 
 	world.init(&state.world)
@@ -72,7 +72,7 @@ app_cleanup :: proc() {
 // }
 
 @(private = "file")
-test_load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
+load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	asset_data := host.asset_read_all(filepath) or_return
 	game_data := decoder2.open_respack(asset_data) or_return
 	w.bullet_patterns = decoder2.read_slot_0_bullet_patterns(game_data) or_return
@@ -81,6 +81,16 @@ test_load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	return true
 }
 
+
+load_char_data :: proc(filepath: string, w: ^world.World) -> bool {
+	asset_data := host.asset_read_all(filepath) or_return
+	game_data := char_data.open_respack(asset_data) or_return
+	uvs := char_data.read_slot_0_u_vs(game_data) or_return
+	// w.bullet_patterns = decoder2.read_slot_0_bullet_patterns(game_data) or_return
+	host.info("char_data decoder", "success", true, "uvs", uvs)
+
+	return true
+}
 
 @(private = "file")
 load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {

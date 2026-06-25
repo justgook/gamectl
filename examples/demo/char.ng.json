@@ -56,8 +56,8 @@
   {
     "id": 6,
     "kind": 2,
-    "x": 1157,
-    "y": 201,
+    "x": 1121,
+    "y": 255,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
     "graphId": 0,
@@ -200,8 +200,8 @@
   {
     "id": 14,
     "kind": 4,
-    "x": 1232,
-    "y": -33,
+    "x": 1871,
+    "y": -71,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -218,8 +218,8 @@
   {
     "id": 15,
     "kind": 2,
-    "x": 1452,
-    "y": 93,
+    "x": 2091,
+    "y": 55,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -234,41 +234,131 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 6,
-        "srcOutputId": 2
+        "srcNodeId": 18,
+        "srcOutputId": 1
       }
     ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "path",
-        "value": null
-      }
-    ]
+    "outputs": []
   },
   {
-    "id": 16,
-    "kind": 1,
-    "x": 1695,
-    "y": 82,
-    "name": "",
-    "codePath": "",
+    "id": 17,
+    "kind": 2,
+    "x": 2108,
+    "y": 274,
+    "name": "Respack Save",
+    "codePath": "ng/presets/respack-save.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
       {
         "id": 1,
-        "name": "path",
-        "srcNodeId": 15,
+        "name": "schema",
+        "srcNodeId": 19,
         "srcOutputId": 1
       },
       {
         "id": 2,
-        "name": "data",
-        "srcNodeId": 6,
+        "name": "slots",
+        "srcNodeId": 18,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "path_bin",
+        "srcNodeId": 19,
         "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "path_decoder",
+        "srcNodeId": 19,
+        "srcOutputId": 3
       }
     ],
     "outputs": []
+  },
+  {
+    "id": 18,
+    "kind": 2,
+    "x": 1833,
+    "y": 302,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "UV",
+        "srcNodeId": 6,
+        "srcOutputId": 2
+      },
+      {
+        "id": 2,
+        "name": "Atlas",
+        "srcNodeId": 20,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "kind": 4,
+    "x": 1805,
+    "y": 196,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"pipe2/char.rspk.json\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"tmp/char.rspk\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "\"game/char_data/decoder.odin\""
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "kind": 2,
+    "x": 1584,
+    "y": 360,
+    "name": "Base64 Encode",
+    "codePath": "ng/presets/image-encode.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 5,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "base64",
+        "value": null
+      }
+    ]
   }
 ]
