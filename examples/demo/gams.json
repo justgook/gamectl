@@ -85,7 +85,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-catalog />"
+          "layout": "<view-ng data-source=\"char.ng.json\"  />"
         }
       }
     },

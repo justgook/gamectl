@@ -1,0 +1,26 @@
+{
+  "package": "main",
+  "odin": {
+    "package": "char_data",
+    "imports": {
+      "world": "world"
+    }
+  },
+  "data": ["UVs"],
+  "types": {
+    "Vec2": {
+      "type": "array",
+      "len": 2,
+      "value": "f32"
+    },
+    "UV": {
+      "type": "array",
+      "len": 4,
+      "value": "f32"
+    },
+    "UVs": {
+      "type": "vector",
+      "value": "UV"
+    }
+  }
+}
