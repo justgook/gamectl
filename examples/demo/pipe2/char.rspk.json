@@ -6,7 +6,7 @@
       "world": "../world"
     }
   },
-  "data": ["UVs", "Atlas"],
+  "data": ["UVs", "Atlas", "world.Animation_Atlas"],
   "types": {
     "Vec2": {
       "type": "array",
@@ -24,6 +24,40 @@
     "UVs": {
       "type": "vector",
       "value": "UV"
+    },
+    "world.AnimFrame": {
+      "type": "struct",
+      "fields": {
+        "uv_index": "u32",
+        "offset": {
+          "type": "array",
+          "len": 2,
+          "value": "i32"
+        },
+        "duration": "f32",
+        "flip": "u8"
+      }
+    },
+    "world.AnimDef": {
+      "type": "struct",
+      "fields": {
+        "frame_start": "u32",
+        "frame_count": "u32",
+        "repeat": "u32"
+      }
+    },
+    "world.Animation_Atlas": {
+      "type": "struct",
+      "fields": {
+        "defs": {
+          "type": "vector",
+          "value": "world.AnimDef"
+        },
+        "frames": {
+          "type": "vector",
+          "value": "world.AnimFrame"
+        }
+      }
     }
   }
 }

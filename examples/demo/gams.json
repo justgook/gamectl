@@ -764,6 +764,27 @@
               "group": "Data"
             },
             {
+              "name": "toObject",
+              "kind": "code",
+              "codePath": "ng/presets/wrap-object.lua",
+              "inputs": [
+                {
+                  "name": "value",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "key",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "object"
+                }
+              ],
+              "group": "Data"
+            },
+            {
               "name": "mergeArrays",
               "kind": "code",
               "codePath": "ng/presets/merge-arrays.lua",
@@ -836,27 +857,24 @@
               "inputs": [
                 {
                   "name": "from",
-                  "defaultValue": ""
+                  "defaultValue": "props.tilesets"
                 },
                 {
                   "name": "to",
-                  "defaultValue": ""
+                  "defaultValue": "props.tilesets"
                 },
                 {
                   "name": "src",
-                  "defaultValue": "[\"props.tilesets\", \"props.tileSize\"]"
+                  "defaultValue": ""
                 },
                 {
                   "name": "target",
-                  "defaultValue": "[\"props.tilesets\", \"props.tileSize\"]"
+                  "defaultValue": ""
                 }
               ],
               "outputs": [
                 {
-                  "name": "to"
-                },
-                {
-                  "name": "error"
+                  "name": "target"
                 }
               ],
               "group": "Data"
@@ -1775,9 +1793,6 @@
               "outputs": [
                 {
                   "name": "items"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Data"

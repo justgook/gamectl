@@ -25,6 +25,22 @@ local function field(value, kebab, snake)
 	return value[snake]
 end
 
+local function repeatCount(tag)
+	local value = tag["repeat"]
+	if value == nil or value == false or value == "" then
+		return 0
+	end
+	local count = tonumber(value)
+	if count == nil then
+		error("aseprite-animation: tag " .. tostring(tag.name or "") .. " repeat must be numeric")
+	end
+	count = math.floor(count)
+	if count < 0 then
+		error("aseprite-animation: tag " .. tostring(tag.name or "") .. " repeat must be non-negative")
+	end
+	return count
+end
+
 local function frameSequence(fromFrame, toFrame, direction)
 	local result = {}
 	if direction == "reverse" then
@@ -146,13 +162,17 @@ for _, animationName in ipairs(animationNames) do
 		images[rectId] = image
 	end
 
+	local rectCount = #rects - rectStart + 1
 	animations[#animations + 1] = {
 		name = animationName,
 		from_frame = fromFrame,
 		to_frame = toFrame,
 		direction = direction,
 		rect_start = rectStart,
-		rect_count = #rects - rectStart + 1,
+		rect_count = rectCount,
+		frame_start = rectStart - 1,
+		frame_count = rectCount,
+		["repeat"] = repeatCount(tag),
 	}
 end
 
