@@ -1767,6 +1767,10 @@ end`
         this._setStatus(`added node #${nodeId}`, "success")
     }
 
+    async add() {
+        await this.showAddNodePopup()
+    }
+
     async edit() {
         await this.showEditNodePopup()
     }

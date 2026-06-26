@@ -38,6 +38,7 @@ export function registerViewPlugin(view, methods = {}) {
             open: viewMethod(view, "open"),
             run: viewMethod(view, "run"),
             reload: viewMethod(view, "reload"),
+            add: viewMethod(view, "add"),
             edit: viewMethod(view, "edit"),
             undo: viewMethod(view, "undo"),
             redo: viewMethod(view, "redo"),

@@ -61,6 +61,11 @@
         "allowInput": false
       },
       {
+        "key": "a",
+        "call": ["activeView.add"],
+        "allowInput": false
+      },
+      {
         "key": "n",
         "call": ["activeView.new"],
         "allowInput": false
