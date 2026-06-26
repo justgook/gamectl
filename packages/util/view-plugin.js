@@ -38,6 +38,8 @@ export function registerViewPlugin(view, methods = {}) {
             open: viewMethod(view, "open"),
             run: viewMethod(view, "run"),
             reload: viewMethod(view, "reload"),
+            undo: viewMethod(view, "undo"),
+            redo: viewMethod(view, "redo"),
             zoomIn: viewMethod(view, "zoomIn"),
             zoomOut: viewMethod(view, "zoomOut"),
             zoomFit: viewMethod(view, "zoomFit"),

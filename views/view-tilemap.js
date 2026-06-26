@@ -1740,6 +1740,14 @@ export class ViewTilemap extends ViewCanvasBase {
     }
   }
 
+  async undo() {
+    await this.command("undo", "Undo")
+  }
+
+  async redo() {
+    await this.command("redo", "Redo")
+  }
+
   createHeaderControlsElement() {
     const controls = document.createElement("div")
     controls.dataset.element = "header-controls"
@@ -1882,11 +1890,11 @@ export class ViewTilemap extends ViewCanvasBase {
     )
     this.queryHeader('[data-action="undo"]').addEventListener(
       "click",
-      async () => this.command("undo", "Undo"),
+      async () => this.undo(),
     )
     this.queryHeader('[data-action="redo"]').addEventListener(
       "click",
-      async () => this.command("redo", "Redo"),
+      async () => this.redo(),
     )
     this.queryHeader('[data-action="grid"]').addEventListener("click", () =>
       this.toggleGrid(),

@@ -371,23 +371,6 @@ export class ViewCanvasBase extends HTMLElement {
       if (this.canvas) this.canvas.style.cursor = "grab"
       return
     }
-
-    if (event.key === "+") {
-      event.preventDefault()
-      this.zoomIn()
-      return
-    }
-
-    if (event.key === "-") {
-      event.preventDefault()
-      this.zoomOut()
-      return
-    }
-
-    if (event.key.toLowerCase() === "f") {
-      event.preventDefault()
-      this.fitToContent()
-    }
   }
 
   _onKeyUp(event) {

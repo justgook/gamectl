@@ -81,7 +81,6 @@ export class ViewVox extends HTMLElement {
     this.resizeObserver.observe(this.canvas)
     this.mountHeaderControls()
     registerViewPlugin(this, this.createViewPluginMethods())
-    this.addEventListener("keydown", (event) => this.onKeyDown(event))
     void this.load()
   }
 
@@ -109,18 +108,6 @@ export class ViewVox extends HTMLElement {
     return {
       reload: async () => {
         await this.reload()
-        return { ok: true }
-      },
-      zoomIn: async () => {
-        this.zoomIn()
-        return { ok: true }
-      },
-      zoomOut: async () => {
-        this.zoomOut()
-        return { ok: true }
-      },
-      zoomFit: async () => {
-        this.zoomFit()
         return { ok: true }
       },
     }
@@ -172,23 +159,6 @@ export class ViewVox extends HTMLElement {
   zoomFit() {
     assert(this.renderer, "view-vox renderer is not initialized")
     this.renderer.fit()
-  }
-
-  onKeyDown(event) {
-    if (event.key === "+" || event.key === "=") {
-      event.preventDefault()
-      this.zoomIn()
-      return
-    }
-    if (event.key === "-") {
-      event.preventDefault()
-      this.zoomOut()
-      return
-    }
-    if (event.key.toLowerCase() === "f") {
-      event.preventDefault()
-      this.zoomFit()
-    }
   }
 
   setStatus(text, tone = null) {

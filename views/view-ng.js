@@ -389,7 +389,6 @@ export class ViewNg extends HTMLElement {
         this._onPointerDown = this._onPointerDown.bind(this)
         this._onPointerMove = this._onPointerMove.bind(this)
         this._onPointerUp = this._onPointerUp.bind(this)
-        this._onKeyDown = this._onKeyDown.bind(this)
         this._onCopy = this._onCopy.bind(this)
         this._onPaste = this._onPaste.bind(this)
         this._onContextMenu = this._onContextMenu.bind(this)
@@ -1831,7 +1830,6 @@ end`
         this.canvas.addEventListener("pointermove", this._onPointerMove)
         this.canvas.addEventListener("pointerup", this._onPointerUp)
         this.canvas.addEventListener("pointerleave", this._onPointerUp)
-        this.canvas.addEventListener("keydown", this._onKeyDown)
         this.canvas.addEventListener("copy", this._onCopy)
         this.canvas.addEventListener("paste", this._onPaste)
         this.canvas.addEventListener("contextmenu", this._onContextMenu)
@@ -1844,7 +1842,6 @@ end`
         this.canvas.removeEventListener("pointermove", this._onPointerMove)
         this.canvas.removeEventListener("pointerup", this._onPointerUp)
         this.canvas.removeEventListener("pointerleave", this._onPointerUp)
-        this.canvas.removeEventListener("keydown", this._onKeyDown)
         this.canvas.removeEventListener("copy", this._onCopy)
         this.canvas.removeEventListener("paste", this._onPaste)
         this.canvas.removeEventListener("contextmenu", this._onContextMenu)
@@ -1866,30 +1863,6 @@ end`
             y: event.clientY,
             items: this._buildNodeContextMenuItems(worldPoint),
         })
-    }
-
-    _onKeyDown(event) {
-        const key = String(event.key || "").toLowerCase()
-        const commandKey = event.metaKey || event.ctrlKey
-        if (commandKey && key === "z") {
-            event.preventDefault()
-            if (event.shiftKey) this.redo()
-            else this.undo()
-            return
-        }
-        if (commandKey && key === "y") {
-            event.preventDefault()
-            this.redo()
-            return
-        }
-        if (commandKey && key === "a") {
-            event.preventDefault()
-            this.selectedNodeIds = new Set(this.graphNodes.map((node) => Number(node.id)))
-            this.activeNodeId = this.graphNodes.length ? this.graphNodes[this.graphNodes.length - 1].id : 0
-            this._syncSelectionActionButtons()
-            this.render()
-            return
-        }
     }
 
     _onCopy(event) {

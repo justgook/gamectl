@@ -3,11 +3,6 @@
   "ui": {
     "keys": [
       {
-        "key": "mod+s",
-        "script": "keys/save-active-view.lua",
-        "allowInput": true
-      },
-      {
         "key": "escape",
         "script": "keys/escape.lua",
         "allowInput": false
@@ -76,8 +71,28 @@
         "allowInput": false
       },
       {
+        "key": "mod+z",
+        "call": ["activeView.undo"],
+        "allowInput": false
+      },
+      {
+        "key": "mod+shift+z",
+        "call": ["activeView.redo"],
+        "allowInput": false
+      },
+      {
+        "key": "mod+y",
+        "call": ["activeView.redo"],
+        "allowInput": false
+      },
+      {
         "key": "mod+shift+s",
         "call": ["activeView.saveAs"],
+        "allowInput": true
+      },
+      {
+        "key": "mod+s",
+        "call": ["activeView.save"],
         "allowInput": true
       }
     ],
