@@ -51,7 +51,7 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 118,
+        "srcNodeId": 176,
         "srcOutputId": 1
       }
     ],
@@ -1238,54 +1238,6 @@
     ]
   },
   {
-    "id": 118,
-    "kind": 2,
-    "x": 4082,
-    "y": -749,
-    "name": "Copy Prop",
-    "codePath": "ng/presets/copy-prop.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "from",
-        "srcNodeId": 119,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "to",
-        "srcNodeId": 116,
-        "srcOutputId": 1
-      },
-      {
-        "id": 3,
-        "name": "src",
-        "srcNodeId": 120,
-        "srcOutputId": 1
-      },
-      {
-        "id": 4,
-        "name": "target",
-        "srcNodeId": 120,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "to",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "error",
-        "value": null
-      }
-    ]
-  },
-  {
     "id": 119,
     "kind": 4,
     "x": 3586,
@@ -2340,6 +2292,92 @@
         "id": 1,
         "name": "",
         "value": "\"tmp/DEBUG-merged.map.json\""
+      }
+    ]
+  },
+  {
+    "id": 176,
+    "kind": 2,
+    "x": 4073,
+    "y": -730,
+    "name": "Copy Prop",
+    "codePath": "ng/presets/copy-prop.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "from",
+        "srcNodeId": 120,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "to",
+        "srcNodeId": 120,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "src",
+        "srcNodeId": 119,
+        "srcOutputId": 1
+      },
+      {
+        "id": 4,
+        "name": "target",
+        "srcNodeId": 116,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "target",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 177,
+    "kind": 2,
+    "x": 5668,
+    "y": 45,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 178,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "content",
+        "srcNodeId": 107,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 178,
+    "kind": 4,
+    "x": 5360,
+    "y": 50,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG-segments.json\""
       }
     ]
   }

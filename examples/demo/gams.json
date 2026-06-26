@@ -953,9 +953,9 @@
                 {
                   "name": "rects"
                 },
-                {
-                  "name": "images"
-                }
+                { "name": "images" },
+                { "name": "width" },
+                { "name": "height" }
               ],
               "outputs": [
                 {
@@ -1074,23 +1074,6 @@
               "group": "Image"
             },
             {
-              "name": "Wrap",
-              "kind": "code",
-              "codePath": "ng/presets/image-wrap.lua",
-              "inputs": [
-                {
-                  "name": "image",
-                  "defaultValue": ""
-                }
-              ],
-              "outputs": [
-                {
-                  "name": "handle"
-                }
-              ],
-              "group": "Image"
-            },
-            {
               "name": "Write",
               "kind": "code",
               "codePath": "ng/presets/image-write.lua",
@@ -1111,9 +1094,6 @@
               "outputs": [
                 {
                   "name": "path"
-                },
-                {
-                  "name": "error"
                 }
               ],
               "group": "Image"
@@ -1304,8 +1284,11 @@
               ],
               "outputs": [
                 {
-                  "name": "packedRects"
-                }
+                  "name": "rects"
+                },
+                { "name": "UV" },
+                { "name": "width" },
+                { "name": "height" }
               ],
               "group": "Data"
             },

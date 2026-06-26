@@ -187,7 +187,8 @@ init :: proc(w: ^World) {
 	logic.add_component(&w.collider, player, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
 	logic.add_component(&w.platformer, player, Platformer{facing = 1})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[969]})
-	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
+	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
+	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[2]})
 
 
 	// logic.add_component(&w.position, background, Position{0 * UNIT, 0 * UNIT})

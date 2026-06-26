@@ -135,3 +135,5 @@ local uvs = applyPackedRects(rects, "rects")
 
 outputs[1] = rects
 outputs[2] = uvs
+outputs[3] = atlasWidth
+outputs[4] = atlasHeight

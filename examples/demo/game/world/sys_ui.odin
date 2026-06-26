@@ -1,13 +1,14 @@
 package world
 
-import "../host"
 import "logic"
 import "ui"
 
 sys_ui :: proc(w: ^World) {
+	// panel1_uv := 418
+	panel1_uv := 1
 	panel := group(
 		{
-			nine(w.uv[418], 240, 52),
+			nine(w.uv[panel1_uv], 240, 52),
 			ui.move(text("\x04 use WASD to move "), 8, 38),
 			ui.move(text1("\x1C J - jump"), 8, 28),
 			ui.move(text2("\x93 K - dash"), 8, 18),

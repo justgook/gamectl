@@ -85,9 +85,12 @@ load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
 load_char_data :: proc(filepath: string, w: ^world.World) -> bool {
 	asset_data := host.asset_read_all(filepath) or_return
 	game_data := char_data.open_respack(asset_data) or_return
-	uvs := char_data.read_slot_0_u_vs(game_data) or_return
-	// w.bullet_patterns = decoder2.read_slot_0_bullet_patterns(game_data) or_return
-	host.info("char_data decoder", "success", true, "uvs", uvs)
+
+	// atlas_bytes := char_data.read_slot_1_atlas(game_data) or_return
+	// w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
+	// w.uv = char_data.read_slot_0_u_vs(game_data) or_return
+
+	host.info("char_data decoder", "success", true, "w.uv", w.uv)
 
 	return true
 }
@@ -108,7 +111,6 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	delete(the_pos.components)
 
 	atlas_bytes := read_slot_1_atlas(game_data) or_return
-	w.uv = read_slot_2_sprites(game_data) or_return
 	the_lut := read_slot_3_lut(game_data) or_return
 
 	the_tilemaps := read_slot_4_tilemaps(game_data) or_return
@@ -123,6 +125,7 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	for s in the_segments {
 		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
 	}
+	host.info("SSEEGGMENTS", "segments", w.segments[:])
 
 	w.grid = grid.create_grid(-10024 * UNIT, -10024 * UNIT, 10024 * UNIT, 10024 * UNIT, 16 * UNIT)
 	for &segment in w.segments {
@@ -132,6 +135,8 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 
 	w.lut = create_image(the_lut, lut_pixels[:]) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
+	w.uv = read_slot_2_sprites(game_data) or_return
+
 
 	host.info("assets", "game loaded", w.position)
 
