@@ -26,25 +26,39 @@ end
 local autoSizeBool = autoSize == true or autoSize == "true" or autoSize == "1" or autoSize == 1
 local requestRects = {}
 
-for index, rect in ipairs(rects) do
-	if type(rect) ~= "table" then
-		error("Rect item must be an object")
-	end
-
-	local rectId = tonumber(rect.id) or index
-	local rectWidth = tonumber(rect.width) or 0
-	local rectHeight = tonumber(rect.height) or 0
-	if rectWidth <= 0 or rectHeight <= 0 then
-		error("Rect width and height must be positive")
-	end
-
-	requestRects[#requestRects + 1] = {
-		id = rectId,
-		width = rectWidth,
-		height = rectHeight,
-	}
-	rect.id = rectId
+local function isRect(value)
+	return type(value) == "table" and (value.width ~= nil or value.height ~= nil or value.id ~= nil)
 end
+
+local function collectRects(node, path)
+	if type(node) ~= "table" then
+		error("Rect tree item at " .. path .. " must be an array or rect object")
+	end
+
+	if isRect(node) then
+		local flatIndex = #requestRects + 1
+		local rectId = tonumber(node.id) or flatIndex
+		local rectWidth = tonumber(node.width) or 0
+		local rectHeight = tonumber(node.height) or 0
+		if rectWidth <= 0 or rectHeight <= 0 then
+			error("Rect width and height at " .. path .. " must be positive")
+		end
+
+		requestRects[flatIndex] = {
+			id = rectId,
+			width = rectWidth,
+			height = rectHeight,
+		}
+		node.id = rectId
+		return
+	end
+
+	for index, child in ipairs(node) do
+		collectRects(child, path .. "[" .. tostring(index) .. "]")
+	end
+end
+
+collectRects(rects, "rects")
 
 local request = {
 	width = tonumber(width) or 1,
@@ -68,40 +82,56 @@ if atlasWidth <= 0 or atlasHeight <= 0 then
 	error("pack-rects: response atlas width and height must be positive")
 end
 
-local uvs = {}
-for index, rect in ipairs(rects) do
-	local packedRect = response.rects[index]
-	if type(packedRect) ~= "table" then
-		error("pack-rects: missing packed rect " .. tostring(index))
-	end
-	if packedRect.packed ~= true then
-		error("pack-rects: rect " .. tostring(index) .. " was not packed")
+local packedIndex = 0
+
+local function applyPackedRects(node, path)
+	if type(node) ~= "table" then
+		error("Rect tree item at " .. path .. " must be an array or rect object")
 	end
 
-	local x = tonumber(packedRect.x)
-	local y = tonumber(packedRect.y)
-	local rectWidth = tonumber(packedRect.width) or tonumber(rect.width) or 0
-	local rectHeight = tonumber(packedRect.height) or tonumber(rect.height) or 0
-	if x == nil or y == nil then
-		error("pack-rects: packed rect " .. tostring(index) .. " is missing x/y")
-	end
-	if rectWidth <= 0 or rectHeight <= 0 then
-		error("pack-rects: packed rect " .. tostring(index) .. " width and height must be positive")
+	if isRect(node) then
+		packedIndex = packedIndex + 1
+		local packedRect = response.rects[packedIndex]
+		if type(packedRect) ~= "table" then
+			error("pack-rects: missing packed rect " .. tostring(packedIndex) .. " for " .. path)
+		end
+		if packedRect.packed ~= true then
+			error("pack-rects: rect " .. tostring(packedIndex) .. " at " .. path .. " was not packed")
+		end
+
+		local x = tonumber(packedRect.x)
+		local y = tonumber(packedRect.y)
+		local rectWidth = tonumber(packedRect.width) or tonumber(node.width) or 0
+		local rectHeight = tonumber(packedRect.height) or tonumber(node.height) or 0
+		if x == nil or y == nil then
+			error("pack-rects: packed rect " .. tostring(packedIndex) .. " at " .. path .. " is missing x/y")
+		end
+		if rectWidth <= 0 or rectHeight <= 0 then
+			error("pack-rects: packed rect " .. tostring(packedIndex) .. " at " .. path .. " width and height must be positive")
+		end
+
+		node.x = x
+		node.y = y
+		node.width = rectWidth
+		node.height = rectHeight
+		node.packed = true
+
+		return {
+			x / atlasWidth,
+			y / atlasHeight,
+			(x + rectWidth) / atlasWidth,
+			(y + rectHeight) / atlasHeight,
+		}
 	end
 
-	rect.x = x
-	rect.y = y
-	rect.width = rectWidth
-	rect.height = rectHeight
-	rect.packed = true
-
-	uvs[index] = {
-		x / atlasWidth,
-		y / atlasHeight,
-		(x + rectWidth) / atlasWidth,
-		(y + rectHeight) / atlasHeight,
-	}
+	local uvs = {}
+	for index, child in ipairs(node) do
+		uvs[index] = applyPackedRects(child, path .. "[" .. tostring(index) .. "]")
+	end
+	return uvs
 end
+
+local uvs = applyPackedRects(rects, "rects")
 
 outputs[1] = rects
 outputs[2] = uvs
