@@ -5,6 +5,24 @@ function resultOk(ok) {
     return { ok }
 }
 
+function findViewByPluginId(pluginId) {
+    const all = document.querySelectorAll("*")
+    for (const element of all) {
+        if (element.pluginId === pluginId) return element
+    }
+    return null
+}
+
+async function restoreActiveView(pluginId) {
+    if (typeof pluginId !== "string" || pluginId.length === 0) {
+        await runtime.call("ui.context.clearActiveView")
+        return
+    }
+    await runtime.call("ui.context.activateView", pluginId)
+    const view = findViewByPluginId(pluginId)
+    if (view instanceof HTMLElement && typeof view.focus === "function") view.focus({ preventScroll: true })
+}
+
 /**
  * Popup Manager Component
  *
@@ -178,6 +196,8 @@ export class PopupManager extends HTMLElement {
     }
 
     async open(options = {}) {
+        const previousContext = unwrap(await runtime.call("ui.context.snapshot"))
+        const restoreActiveViewId = String(previousContext.activeView?.id || "")
         const popupId = this.nextPopupId++
         const content = await this.createContent(options)
         const popup = this.showPopup({
@@ -195,7 +215,7 @@ export class PopupManager extends HTMLElement {
         }
 
         return await new Promise((resolve) => {
-            const frame = { popupId, popup, resolve, closed: false }
+            const frame = { popupId, popup, resolve, closed: false, restoreActiveViewId }
             this.stack.push(frame)
             popup.addEventListener(
                 "popup-closing",
@@ -205,6 +225,7 @@ export class PopupManager extends HTMLElement {
                     if (idx >= 0) this.stack.splice(idx, 1)
                     frame.closed = true
                     frame.resolve({ ok: false, cancelled: true, reason: "closed" })
+                    void restoreActiveView(frame.restoreActiveViewId)
                 },
                 { once: true },
             )
@@ -221,6 +242,7 @@ export class PopupManager extends HTMLElement {
         frame.closed = true
         frame.resolve(result)
         frame.popup.close()
+        await restoreActiveView(frame.restoreActiveViewId)
         return { ok: true, popupId: frame.popupId, result }
     }
 
@@ -230,6 +252,7 @@ export class PopupManager extends HTMLElement {
             frame.closed = true
             frame.resolve(result)
             frame.popup.close()
+            await restoreActiveView(frame.restoreActiveViewId)
         }
         return { ok: true, closed: frames.length }
     }
