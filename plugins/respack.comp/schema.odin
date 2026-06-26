@@ -1066,7 +1066,7 @@ compile_enum_type_from_slice :: proc(obj_slice: []u8, abs_start: int, type_idx: 
 			if enum_value_count >= MAX_ENUM_VALUES {
 				return "enum value limit exceeded"
 			}
-			v, ok := parse_i64_bytes(value_slice[member.value_start:member.value_end])
+			v, ok := parse_i64_bytes(trim_bytes_space(value_slice[member.value_start:member.value_end]))
 			if !ok {
 				return "enum object values must be integers"
 			}
@@ -1126,7 +1126,7 @@ compile_enum_type :: proc(input: []u8, obj_idx: int, type_idx: int) -> string {
 			if enum_value_count >= MAX_ENUM_VALUES {
 				return "enum value limit exceeded"
 			}
-			v, ok := parse_i64_bytes(input[schema_tokens[i + 1].start:schema_tokens[i + 1].end])
+			v, ok := parse_i64_bytes(trim_bytes_space(input[schema_tokens[i + 1].start:schema_tokens[i + 1].end]))
 			if !ok {
 				return "enum object values must be integers"
 			}
