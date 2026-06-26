@@ -13,20 +13,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [2]u32,
-	lengths: [2]u32,
+	offsets: [3]u32,
+	lengths: [3]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 2 {return Package{}, false}
-	if len(data) < 24 {return Package{}, false}
+	if int(read_u16(data, 6)) != 3 {return Package{}, false}
+	if len(data) < 32 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 2 {
+	for i in 0 ..< 3 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -36,7 +36,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 2 {return Reader{}, false}
+	if slot < 0 || slot >= 3 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -116,6 +116,8 @@ DecodedSlots :: struct {
 	slot_0:     U_Vs,
 	has_slot_1: bool,
 	slot_1:     Atlas,
+	has_slot_2: bool,
+	slot_2:     world.Animation_Atlas,
 }
 
 @(private = "file")
@@ -315,6 +317,80 @@ decode_u_vs :: proc(r: ^Reader, out: ^U_Vs) -> bool {
 	return true
 }
 
+@(private = "file")
+decode_world_anim_frame :: proc(r: ^Reader, out: ^world.AnimFrame) -> bool {
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.id = v
+	}
+	{
+		for i4 in 0 ..< 2 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.offset[i4] = transmute(i32)v
+			}
+		}
+	}
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.duration = transmute(f32)v
+	}
+	{
+		v, ok := read_u8_reader(r)
+		if !ok {return false}
+		out.flip = v
+	}
+	return true
+}
+
+@(private = "file")
+decode_world_anim_def :: proc(r: ^Reader, out: ^world.AnimDef) -> bool {
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.frame_start = v
+	}
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.frame_count = v
+	}
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.repeat = v
+	}
+	return true
+}
+
+@(private = "file")
+decode_world_animation_atlas :: proc(r: ^Reader, out: ^world.Animation_Atlas) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.defs = make([]world.AnimDef, int(count))
+		for i5 in 0 ..< int(count) {
+			{
+				if !decode_world_anim_def(r, &out.defs[i5]) {return false}
+			}
+		}
+	}
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.frames = make([]world.AnimFrame, int(count))
+		for i6 in 0 ..< int(count) {
+			{
+				if !decode_world_anim_frame(r, &out.frames[i6]) {return false}
+			}
+		}
+	}
+	return true
+}
+
 read_slot_0_u_vs :: proc(pkg: Package) -> (U_Vs, bool) {
 	r, ok := slot_reader(pkg, 0)
 	if !ok {return nil, false}
@@ -328,5 +404,13 @@ read_slot_1_atlas :: proc(pkg: Package) -> (Atlas, bool) {
 	if !ok {return nil, false}
 	value: Atlas
 	if !decode_atlas(&r, &value) {return nil, false}
+	return value, true
+}
+
+read_slot_2_world_animation_atlas :: proc(pkg: Package) -> (world.Animation_Atlas, bool) {
+	r, ok := slot_reader(pkg, 2)
+	if !ok {return world.Animation_Atlas{}, false}
+	value: world.Animation_Atlas
+	if !decode_world_animation_atlas(&r, &value) {return world.Animation_Atlas{}, false}
 	return value, true
 }

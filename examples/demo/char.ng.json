@@ -56,8 +56,8 @@
   {
     "id": 6,
     "kind": 2,
-    "x": 1124,
-    "y": 256,
+    "x": 211,
+    "y": 141,
     "name": "Pack Rects",
     "codePath": "ng/presets/pack-rects.lua",
     "graphId": 0,
@@ -302,7 +302,7 @@
       {
         "id": 3,
         "name": "Animation Atlas",
-        "srcNodeId": 40,
+        "srcNodeId": 38,
         "srcOutputId": 1
       }
     ],
@@ -370,8 +370,8 @@
   {
     "id": 21,
     "kind": 4,
-    "x": -520,
-    "y": 222,
+    "x": -1174,
+    "y": 163,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -388,8 +388,8 @@
   {
     "id": 22,
     "kind": 2,
-    "x": 262,
-    "y": 196,
+    "x": -392,
+    "y": 137,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "graphId": 0,
@@ -413,8 +413,8 @@
   {
     "id": 23,
     "kind": 2,
-    "x": 835,
-    "y": 180,
+    "x": -26,
+    "y": 79,
     "name": "toArray",
     "codePath": "ng/presets/to-array.lua",
     "graphId": 0,
@@ -444,8 +444,8 @@
   {
     "id": 25,
     "kind": 2,
-    "x": -109,
-    "y": 229,
+    "x": -763,
+    "y": 170,
     "name": "Open",
     "codePath": "ng/presets/image-open.lua",
     "graphId": 0,
@@ -469,8 +469,8 @@
   {
     "id": 27,
     "kind": 2,
-    "x": 488,
-    "y": 329,
+    "x": 571,
+    "y": 328,
     "name": "mergeArrays",
     "codePath": "ng/presets/merge-arrays.lua",
     "graphId": 0,
@@ -550,8 +550,8 @@
   {
     "id": 31,
     "kind": 2,
-    "x": -318,
-    "y": 224,
+    "x": -972,
+    "y": 165,
     "name": "Glob",
     "codePath": "ng/presets/glob.lua",
     "graphId": 0,
@@ -585,8 +585,8 @@
       {
         "id": 1,
         "name": "frames",
-        "srcNodeId": 9,
-        "srcOutputId": 1
+        "srcNodeId": 41,
+        "srcOutputId": 2
       }
     ],
     "outputs": [
@@ -600,7 +600,7 @@
   {
     "id": 38,
     "kind": 2,
-    "x": 675,
+    "x": 749,
     "y": 455,
     "name": "Copy Prop",
     "codePath": "ng/presets/copy-prop.lua",
@@ -664,24 +664,18 @@
     ]
   },
   {
-    "id": 40,
+    "id": 41,
     "kind": 2,
-    "x": 1045,
-    "y": 455,
-    "name": "Animation Atlas",
-    "codePath": "ng/presets/animation-atlas.lua",
+    "x": 414,
+    "y": 224,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
       {
         "id": 1,
-        "name": "atlas",
-        "srcNodeId": 38,
-        "srcOutputId": 1
-      },
-      {
-        "id": 2,
-        "name": "rects",
+        "name": "array",
         "srcNodeId": 6,
         "srcOutputId": 1
       }
@@ -689,7 +683,12 @@
     "outputs": [
       {
         "id": 1,
-        "name": "atlas",
+        "name": "item1",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "item2",
         "value": null
       }
     ]

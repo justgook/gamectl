@@ -28,7 +28,7 @@
     "world.AnimFrame": {
       "type": "struct",
       "fields": {
-        "uv_index": "u32",
+        "id": "u32",
         "offset": {
           "type": "array",
           "len": 2,

@@ -9,7 +9,7 @@ import "logic"
 // in the atlas. Frames reference World.uv by index so sprite UVs remain shared.
 
 AnimFrame :: struct {
-	uv_index: u32,
+	id:       u32,
 	offset:   [2]i32,
 	duration: f32,
 	flip:     u8,
@@ -191,8 +191,8 @@ sys_animation :: proc(w: ^World, dt: f64) {
 		}
 
 		frame := &frames[anim.frame_index]
-		assert(int(frame.uv_index) < len(w.uv))
-		sprite.uv = w.uv[frame.uv_index]
+		assert(int(frame.id) < len(w.uv))
+		sprite.uv = w.uv[frame.id]
 		sprite.offset = frame.offset
 		sprite.flip = frame.flip
 	}

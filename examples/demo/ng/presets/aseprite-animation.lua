@@ -21,7 +21,9 @@ end
 
 local function field(value, kebab, snake)
 	local result = value[kebab]
-	if result ~= nil then return result end
+	if result ~= nil then
+		return result
+	end
 	return value[snake]
 end
 
@@ -157,7 +159,7 @@ for _, animationName in ipairs(animationNames) do
 			frame = frameIndex,
 			width = width,
 			height = height,
-			duration_ms = durationMs,
+			duration = durationMs,
 		}
 		images[rectId] = image
 	end
