@@ -32,10 +32,11 @@
         "offset": {
           "type": "array",
           "len": 2,
-          "value": "i32"
+          "value": "i32",
+          "default": [0, 0]
         },
         "duration": "f32",
-        "flip": "u8"
+        "flip": { "type": "u8", "default": 0 }
       }
     },
     "world.AnimDef": {
