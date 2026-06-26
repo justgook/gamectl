@@ -321,7 +321,7 @@ export class ViewCatalog extends HTMLElement {
         toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => this.refresh())
         toolbar.querySelector('[data-action="new"]').addEventListener("click", () => this.importForActiveTab())
         toolbar.querySelector('[data-action="preview"]').addEventListener("click", () => this.previewSelectedForActiveTab())
-        toolbar.querySelector('[data-action="edit"]').addEventListener("click", () => this.editSelectedForActiveTab())
+        toolbar.querySelector('[data-action="edit"]').addEventListener("click", () => this.edit())
         return toolbar
     }
 
@@ -496,6 +496,10 @@ export class ViewCatalog extends HTMLElement {
             tag: extension === "aseprite" || extension === "ase" ? "view-aseprite" : "view-image",
             props: { path },
         })
+    }
+
+    async edit() {
+        await this.editSelectedForActiveTab()
     }
 
     async editSelectedForActiveTab() {

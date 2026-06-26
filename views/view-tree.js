@@ -500,7 +500,7 @@ export class ViewTree extends HTMLElement {
         return viewOk()
       },
       tool_3: async () => {
-        await this.editSelectedNodeProps()
+        await this.edit()
         return viewOk()
       },
     }
@@ -574,7 +574,7 @@ export class ViewTree extends HTMLElement {
     )
     this.queryHeader('[data-action="edit-node-props"]').addEventListener(
       "click",
-      async () => this.editSelectedNodeProps(),
+      async () => this.edit(),
     )
     this.renderHeaderControls()
   }
@@ -856,6 +856,10 @@ export class ViewTree extends HTMLElement {
       `Added ${this.nodeDisplayLabel(this.selectedNodeIndex)}`,
       "success",
     )
+  }
+
+  async edit() {
+    await this.editSelectedNodeProps()
   }
 
   async editSelectedNodeProps() {

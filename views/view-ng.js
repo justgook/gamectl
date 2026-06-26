@@ -489,7 +489,7 @@ export class ViewNg extends HTMLElement {
                 return okResult()
             },
             tool_3: async () => {
-                await this.showEditNodePopup()
+                await this.edit()
                 return okResult()
             },
             tool_4: async () => {
@@ -612,7 +612,7 @@ export class ViewNg extends HTMLElement {
             void this.showAddNodePopup()
         })
         this._headerControlsElement.querySelector('[data-action="edit"]')?.addEventListener("click", () => {
-            void this.showEditNodePopup()
+            void this.edit()
         })
         this._headerControlsElement.querySelector('[data-action="delete"]')?.addEventListener("click", () => {
             this.deleteSelected()
@@ -1765,6 +1765,10 @@ end`
         this._applyGraphMetadataFromNodes(this.graphNodes)
         this._syncGraphSnapshotFromState({ preserveLayout: true, fit: false })
         this._setStatus(`added node #${nodeId}`, "success")
+    }
+
+    async edit() {
+        await this.showEditNodePopup()
     }
 
     async showEditNodePopup() {

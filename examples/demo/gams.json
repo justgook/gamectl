@@ -56,6 +56,11 @@
         "call": ["activeView.reload"]
       },
       {
+        "key": "e",
+        "call": ["activeView.edit"],
+        "allowInput": false
+      },
+      {
         "key": "n",
         "call": ["activeView.new"],
         "allowInput": false

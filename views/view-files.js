@@ -154,7 +154,7 @@ export class ViewFiles extends HTMLElement {
       ?.addEventListener("click", () => this.reload())
     toolbar
       .querySelector('[data-action="edit"]')
-      ?.addEventListener("click", () => this.editSelected())
+      ?.addEventListener("click", () => this.edit())
     toolbar
       .querySelector('[data-action="delete"]')
       ?.addEventListener("click", () => this.deleteSelected())
@@ -306,7 +306,7 @@ export class ViewFiles extends HTMLElement {
         return viewOk()
       },
       tool_1: async () => {
-        await this.editSelected()
+        await this.edit()
         return viewOk()
       },
       tool_2: async () => {
@@ -860,6 +860,10 @@ export class ViewFiles extends HTMLElement {
       await this.refresh()
       if (payload.selectedPath) this.selectRow(payload.selectedPath)
     }
+  }
+
+  async edit() {
+    await this.editSelected()
   }
 
   async editSelected() {
