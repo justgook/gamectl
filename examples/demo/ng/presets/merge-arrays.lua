@@ -34,11 +34,25 @@ local function assertArray(value, label)
 end
 
 local result = {}
-for _, inputId in ipairs(inputIds) do
-	local value = inputs[inputId]
-	local count = assertArray(value, "input '" .. inputId .. "'")
-	for index = 1, count do
-		result[#result + 1] = value[index]
+
+if #inputIds == 1 then
+	local inputId = inputIds[1]
+	local outer = inputs[inputId]
+	local outerCount = assertArray(outer, "input '" .. inputId .. "'")
+	for outerIndex = 1, outerCount do
+		local inner = outer[outerIndex]
+		local innerCount = assertArray(inner, "input '" .. inputId .. "' item '" .. outerIndex .. "'")
+		for innerIndex = 1, innerCount do
+			result[#result + 1] = inner[innerIndex]
+		end
+	end
+else
+	for _, inputId in ipairs(inputIds) do
+		local value = inputs[inputId]
+		local count = assertArray(value, "input '" .. inputId .. "'")
+		for index = 1, count do
+			result[#result + 1] = value[index]
+		end
 	end
 end
 
