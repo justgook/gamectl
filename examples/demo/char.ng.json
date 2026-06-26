@@ -2,8 +2,8 @@
   {
     "id": 1,
     "kind": 4,
-    "x": 25,
-    "y": 372,
+    "x": -125,
+    "y": 375,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -41,8 +41,8 @@
       {
         "id": 2,
         "name": "images",
-        "srcNodeId": 9,
-        "srcOutputId": 2
+        "srcNodeId": 27,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -110,8 +110,8 @@
   {
     "id": 9,
     "kind": 2,
-    "x": 300,
-    "y": 372,
+    "x": 150,
+    "y": 375,
     "name": "Aseprite Animations",
     "codePath": "ng/presets/aseprite-animation.lua",
     "graphId": 0,
@@ -290,7 +290,7 @@
       {
         "id": 1,
         "name": "UV",
-        "srcNodeId": 6,
+        "srcNodeId": 26,
         "srcOutputId": 2
       },
       {
@@ -364,8 +364,8 @@
   {
     "id": 21,
     "kind": 4,
-    "x": -55,
-    "y": 258,
+    "x": -205,
+    "y": 261,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -382,8 +382,8 @@
   {
     "id": 22,
     "kind": 2,
-    "x": 371,
-    "y": 265,
+    "x": 221,
+    "y": 268,
     "name": "Info",
     "codePath": "ng/presets/image-info.lua",
     "graphId": 0,
@@ -468,8 +468,8 @@
   {
     "id": 25,
     "kind": 2,
-    "x": 196,
-    "y": 258,
+    "x": 46,
+    "y": 261,
     "name": "Open",
     "codePath": "ng/presets/image-open.lua",
     "graphId": 0,
@@ -486,6 +486,92 @@
       {
         "id": 1,
         "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 26,
+    "kind": 2,
+    "x": 1055,
+    "y": 245,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 6,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "item2",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "kind": 2,
+    "x": 713,
+    "y": 433,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 28,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 9,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "kind": 2,
+    "x": 496,
+    "y": 365,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "srcNodeId": 22,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
         "value": null
       }
     ]

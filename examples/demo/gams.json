@@ -764,6 +764,27 @@
               "group": "Data"
             },
             {
+              "name": "mergeArrays",
+              "kind": "code",
+              "codePath": "ng/presets/merge-arrays.lua",
+              "inputs": [
+                {
+                  "name": "array1",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "array2",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "array"
+                }
+              ],
+              "group": "Data"
+            },
+            {
               "name": "IF",
               "kind": "code",
               "codePath": "ng/presets/if.lua",
