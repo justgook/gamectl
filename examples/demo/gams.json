@@ -5,7 +5,7 @@
       {
         "key": "escape",
         "script": "keys/escape.lua",
-        "allowInput": false
+        "allowInput": true
       },
       {
         "key": "1",

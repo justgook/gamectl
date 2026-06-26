@@ -70,6 +70,7 @@ function isTextInputEvent(event) {
     if (!(item instanceof HTMLElement)) continue
     if (item instanceof HTMLInputElement) return true
     if (item instanceof HTMLTextAreaElement) return true
+    if (item instanceof HTMLSelectElement) return true
     if (item.isContentEditable) return true
   }
   return false
@@ -77,6 +78,21 @@ function isTextInputEvent(event) {
 
 function luaStringLiteral(value) {
   return JSON.stringify(String(value))
+}
+
+function blurActiveTextInput() {
+  const element = document.activeElement
+  if (!(element instanceof HTMLElement)) return false
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement ||
+    element.isContentEditable
+  ) {
+    element.blur()
+    return true
+  }
+  return false
 }
 
 function parseBindings(config) {
@@ -168,6 +184,7 @@ export function createUiKeys(config) {
     },
     methods: {
       ping: async () => ({ ok: { bindings: bindings.length } }),
+      blurActiveElement: async () => ({ ok: { blurred: blurActiveTextInput() } }),
     },
   }
 }
