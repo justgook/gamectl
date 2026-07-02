@@ -18,7 +18,7 @@
       {
         "id": 2,
         "name": "",
-        "value": "[\"Running\",\"Kick\"]"
+        "value": "[\"Running\", \"Kick\"]"
       }
     ]
   },
@@ -66,8 +66,8 @@
   {
     "id": 12,
     "kind": 4,
-    "x": 1166,
-    "y": 445,
+    "x": 1195,
+    "y": 540,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -84,8 +84,8 @@
   {
     "id": 13,
     "kind": 2,
-    "x": 1434,
-    "y": 485,
+    "x": 1477,
+    "y": 515,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "graphId": 0,
@@ -126,7 +126,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"tmp/DEBUG_uv.json\""
+        "value": "\"tmp/DEBUG_slots.json\""
       }
     ]
   },
@@ -338,13 +338,13 @@
       {
         "id": 1,
         "name": "item1",
-        "srcNodeId": 22,
+        "srcNodeId": 9,
         "srcOutputId": 1
       },
       {
         "id": 2,
         "name": "item2",
-        "srcNodeId": 9,
+        "srcNodeId": 22,
         "srcOutputId": 1
       }
     ],
@@ -394,13 +394,13 @@
       {
         "id": 1,
         "name": "array1",
-        "srcNodeId": 44,
+        "srcNodeId": 45,
         "srcOutputId": 1
       },
       {
         "id": 2,
         "name": "array2",
-        "srcNodeId": 45,
+        "srcNodeId": 44,
         "srcOutputId": 1
       }
     ],
@@ -415,8 +415,8 @@
   {
     "id": 29,
     "kind": 2,
-    "x": 973,
-    "y": 277,
+    "x": 971,
+    "y": 271,
     "name": "mergeArrays",
     "codePath": "ng/presets/merge-arrays.lua",
     "graphId": 0,
@@ -501,7 +501,7 @@
         "id": 1,
         "name": "frames",
         "srcNodeId": 41,
-        "srcOutputId": 2
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -764,5 +764,48 @@
         "value": null
       }
     ]
+  },
+  {
+    "id": 46,
+    "kind": 4,
+    "x": 1394,
+    "y": 834,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_frames.json\""
+      }
+    ]
+  },
+  {
+    "id": 47,
+    "kind": 2,
+    "x": 1615,
+    "y": 835,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 46,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 38,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
   }
 ]

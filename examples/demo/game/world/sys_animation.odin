@@ -1,15 +1,17 @@
 package world
 
+import "../host"
 import "logic"
 
 // Animation playback data.
 //
 // Animation_Atlas owns shared animation definitions and frames. Each entity's
 // Animation component stores only playback state and a pointer to one definition
-// in the atlas. Frames reference World.uv by index so sprite UVs remain shared.
+// in the atlas. Frames carry their sprite UV directly so playback does not need
+// to translate through the global World.uv table.
 
 AnimFrame :: struct {
-	id:       u32,
+	uv:       UV,
 	offset:   [2]i32,
 	duration: f32,
 	flip:     u8,
@@ -143,6 +145,7 @@ sys_animation :: proc(w: ^World, dt: f64) {
 	atlas := &w.animation_atlas
 
 	for entity, anim, sprite in logic.each(&view) {
+		// host.info("sys_animation", "hit", anim)
 		if anim.def == nil || !anim.playing {
 			continue
 		}
@@ -154,7 +157,7 @@ sys_animation :: proc(w: ^World, dt: f64) {
 		assert(int(anim.frame_index) < len(frames))
 
 		previous_frame := anim.frame_index
-		anim.frame_timer += f32(dt) * anim.speed
+		anim.frame_timer += f32(dt) * anim.speed * 1000
 		current_frame := &frames[anim.frame_index]
 		assert(current_frame.duration > 0)
 
@@ -191,8 +194,7 @@ sys_animation :: proc(w: ^World, dt: f64) {
 		}
 
 		frame := &frames[anim.frame_index]
-		assert(int(frame.id) < len(w.uv))
-		sprite.uv = w.uv[frame.id]
+		sprite.uv = frame.uv
 		sprite.offset = frame.offset
 		sprite.flip = frame.flip
 	}

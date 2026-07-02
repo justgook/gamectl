@@ -28,8 +28,8 @@ app_init :: proc() {
 	host.info("app", "init")
 
 	assert(load_bullet_assets("bullet.rspk", &state.world))
-	assert(load_char_data("char.rspk", &state.world))
 	assert(load_game_assets(GAME_ASSET_PATH, &state.world))
+	assert(load_char_data("char.rspk", &state.world))
 
 
 	world.init(&state.world)
@@ -86,11 +86,12 @@ load_char_data :: proc(filepath: string, w: ^world.World) -> bool {
 	asset_data := host.asset_read_all(filepath) or_return
 	game_data := char_data.open_respack(asset_data) or_return
 
-	// atlas_bytes := char_data.read_slot_1_atlas(game_data) or_return
-	// w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
-	// w.uv = char_data.read_slot_0_u_vs(game_data) or_return
+	atlas_bytes := char_data.read_slot_1_atlas(game_data) or_return
+	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
+	w.uv = char_data.read_slot_0_u_vs(game_data) or_return
+	w.animation_atlas = char_data.read_slot_2_world_animation_atlas(game_data) or_return
 
-	host.info("char_data decoder", "success", true, "w.uv", w.uv)
+	host.info("char_data decoder", "success", true, "w.animation_atlas", w.animation_atlas)
 
 	return true
 }

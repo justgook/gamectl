@@ -116,12 +116,15 @@ local function applyPackedRects(node, path)
 		node.height = rectHeight
 		node.packed = true
 
-		return {
+		local uv = {
 			x / atlasWidth,
 			y / atlasHeight,
 			(x + rectWidth) / atlasWidth,
 			(y + rectHeight) / atlasHeight,
 		}
+		node.uv = uv
+
+		return uv
 	end
 
 	local uvs = {}

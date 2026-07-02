@@ -320,16 +320,20 @@ decode_u_vs :: proc(r: ^Reader, out: ^U_Vs) -> bool {
 @(private = "file")
 decode_world_anim_frame :: proc(r: ^Reader, out: ^world.AnimFrame) -> bool {
 	{
-		v, ok := read_u32_reader(r)
-		if !ok {return false}
-		out.id = v
-	}
-	{
-		for i4 in 0 ..< 2 {
+		for i4 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.offset[i4] = transmute(i32)v
+				out.uv[i4] = transmute(f32)v
+			}
+		}
+	}
+	{
+		for i5 in 0 ..< 2 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.offset[i5] = transmute(i32)v
 			}
 		}
 	}
@@ -372,9 +376,9 @@ decode_world_animation_atlas :: proc(r: ^Reader, out: ^world.Animation_Atlas) ->
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.defs = make([]world.AnimDef, int(count))
-		for i5 in 0 ..< int(count) {
+		for i6 in 0 ..< int(count) {
 			{
-				if !decode_world_anim_def(r, &out.defs[i5]) {return false}
+				if !decode_world_anim_def(r, &out.defs[i6]) {return false}
 			}
 		}
 	}
@@ -382,9 +386,9 @@ decode_world_animation_atlas :: proc(r: ^Reader, out: ^world.Animation_Atlas) ->
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.frames = make([]world.AnimFrame, int(count))
-		for i6 in 0 ..< int(count) {
+		for i7 in 0 ..< int(count) {
 			{
-				if !decode_world_anim_frame(r, &out.frames[i6]) {return false}
+				if !decode_world_anim_frame(r, &out.frames[i7]) {return false}
 			}
 		}
 	}
