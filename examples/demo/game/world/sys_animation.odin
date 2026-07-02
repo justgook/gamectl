@@ -197,5 +197,10 @@ sys_animation :: proc(w: ^World, dt: f64) {
 		sprite.uv = frame.uv
 		sprite.offset = frame.offset
 		sprite.flip = frame.flip
+		if platformer_anim, has_platformer_anim := logic.get_component(&w.platformer_anim, entity); has_platformer_anim {
+			if platformer_anim.facing < 0 {
+				sprite.flip |= 1
+			}
+		}
 	}
 }

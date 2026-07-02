@@ -2,8 +2,8 @@
   {
     "id": 1,
     "kind": 4,
-    "x": -125,
-    "y": 375,
+    "x": -292,
+    "y": 378,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -18,7 +18,7 @@
       {
         "id": 2,
         "name": "",
-        "value": "[\"Running\", \"Kick\"]"
+        "value": "[\"Idle\", \"Run\", \"Jump\", \"Fall\", \"Wall_Slide\", \"Dash\", \"Land\", \"Hurt\", \"Death\"]"
       }
     ]
   },

@@ -45,6 +45,7 @@ World :: struct {
 	// animations
 	animation_atlas:        Animation_Atlas,
 	animation:              logic.Component_Storage(Animation),
+	platformer_anim:        logic.Component_Storage(Platformer_Anim),
 	// NEW rendering
 	offscreen_pass:         sg.Pass,
 	display_pass_action:    sg.Pass_Action,
@@ -84,6 +85,7 @@ frame :: proc(w: ^World, dt: f64) {
 	}
 
 	sys_camera(w, dt)
+	sys_platformer_anim(w)
 	sys_animation(w, dt)
 	sys_ui(w)
 
@@ -190,6 +192,7 @@ init :: proc(w: ^World) {
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[2]})
 	logic.add_component(&w.animation, player, animation_create(&w.animation_atlas.defs[0]))
+	logic.add_component(&w.platformer_anim, player, platformer_anim_create_default(&w.animation_atlas.defs[0]))
 	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1})
 
 
@@ -248,6 +251,7 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.platformer, entity_id)
 	logic.delete_component(&w.timer, entity_id)
 	logic.delete_component(&w.animation, entity_id)
+	logic.delete_component(&w.platformer_anim, entity_id)
 	logic.delete_component(&w.collider, entity_id)
 	logic.delete_component(&w.on_hit, entity_id)
 	logic.delete_component(&w.on_hurt, entity_id)
@@ -283,6 +287,7 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.platformer)
 	logic.destroy_storage(&w.timer)
 	logic.destroy_storage(&w.animation)
+	logic.destroy_storage(&w.platformer_anim)
 	grid.destroy_grid(&w.grid)
 	delete(w.segments)
 	logic.destroy_storage(&w.collider)
