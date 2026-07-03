@@ -596,7 +596,7 @@
         "url": "views/view-tree.js",
         "label": "Tree",
         "internal": false,
-        "defaultSource": "tmp/progression.tree.json",
+        "defaultSource": "tmp/DEBUG_tree.json",
         "config": {
           "zoom": {
             "minScale": 0.2,

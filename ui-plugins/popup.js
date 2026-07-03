@@ -159,6 +159,15 @@ export class PopupManager extends HTMLElement {
 
     async createContent(options = {}) {
         const { tag = "", html = "", props = {}, attributes = {} } = options
+        const popupProps = props || {}
+        const popupAttributes = { ...(attributes || {}) }
+        if (
+            Object.hasOwn(popupProps, "path") &&
+            popupProps.path != null &&
+            !Object.hasOwn(popupAttributes, "data-source")
+        ) {
+            popupAttributes["data-source"] = popupProps.path
+        }
 
         if (tag) {
             const entry = this.viewRegistry?.get(tag) || null
@@ -166,13 +175,13 @@ export class PopupManager extends HTMLElement {
                 typeof entry?.create === "function"
                     ? await entry.create({
                           tag,
-                          attrs: attributes,
+                          attrs: popupAttributes,
                           innerHTML: "",
                           popup: this,
                       })
                     : document.createElement(tag)
-            element.popupProps = props || {}
-            for (const [key, value] of Object.entries(attributes || {})) {
+            element.popupProps = popupProps
+            for (const [key, value] of Object.entries(popupAttributes)) {
                 if (value == null) continue
                 element.setAttribute(key, String(value))
             }
@@ -184,14 +193,18 @@ export class PopupManager extends HTMLElement {
             wrapper.innerHTML = html
             const firstElement = wrapper.firstElementChild
             if (firstElement) {
-                firstElement.popupProps = props || {}
+                firstElement.popupProps = popupProps
+                for (const [key, value] of Object.entries(popupAttributes)) {
+                    if (value == null) continue
+                    firstElement.setAttribute(key, String(value))
+                }
             }
             return firstElement || wrapper
         }
 
         const empty = document.createElement("div")
         empty.textContent = ""
-        empty.popupProps = props || {}
+        empty.popupProps = popupProps
         return empty
     }
 
