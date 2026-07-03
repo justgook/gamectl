@@ -2,8 +2,8 @@
   {
     "id": 13,
     "kind": 4,
-    "x": -383,
-    "y": 292,
+    "x": -877,
+    "y": 291,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -88,7 +88,7 @@
       {
         "id": 1,
         "name": "tree",
-        "srcNodeId": 179,
+        "srcNodeId": 182,
         "srcOutputId": 1
       }
     ],
@@ -128,8 +128,8 @@
   {
     "id": 55,
     "kind": 2,
-    "x": -148,
-    "y": 292,
+    "x": -642,
+    "y": 291,
     "name": "World Tree Generator",
     "codePath": "ng/presets/pipeline-world-tree.lua",
     "graphId": 0,
@@ -2384,8 +2384,8 @@
   {
     "id": 179,
     "kind": 2,
-    "x": 128,
-    "y": 300,
+    "x": -366,
+    "y": 299,
     "name": "Keylock Progression Annotator",
     "codePath": "ng/presets/pipeline-annotate-keylocks.lua",
     "graphId": 0,
@@ -2421,8 +2421,8 @@
   {
     "id": 180,
     "kind": 4,
-    "x": -335,
-    "y": 428,
+    "x": -829,
+    "y": 427,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -2438,6 +2438,121 @@
         "id": 2,
         "name": "",
         "value": "[     \"Double Jump\",     \"Wall Climb / Wall Jump\",     \"Dash / Air Dash\",     \"Ground Pound\",     \"Morph / Crawl Form\",     \"Power Gauntlet\",     \"Rune Key\",     \"Red / Blue / Green Keycard\",     \"Swim / Dive Ability\",     \"Water Breathing\",     \"Heat Resistance\",     \"Poison Mask / Antidote Event\",     \"Lantern / Light Spell\",     \"Heavy Boots\",     \"Grappling Hook\",     \"Grapple Ability\",     \"Bombs / Explosive Shot\",     \"Armor-Piercing Attack\",     \"Charged Beam\",     \"Fire Spell\",     \"Water Spell / Rain Event\",     \"Fire Spell / Thaw Event\",     \"Power Core Restored\",     \"Repair Event / Engineer NPC\",     \"City Permit\",     \"3 Relic Fragments\",     \"Boss Emblem\",     \"Defeat Mini-boss\",     \"Drain Water Switch\",     \"Flood Canal Switch\",     \"Lower Bridge Lever\",     \"Activate 2–4 Gears\",     \"Learn Ancient Language\",     \"True Sight Ability\",     \"Speak to Ghost NPC\",     \"Remove Curse Event\",     \"Find Teleporter Sigil\",     \"Magnet Boots\",     \"Invert Gravity\",     \"Desert Cloak\",     \"Echo Bell\",     \"Dream Flute\",     \"Mine Cart License / Switch\",     \"Disable Generator\",     \"Align Sun Mirrors\",     \"Acid Blade\",     \"Activate Time Shrine\",     \"Any 5 Major Abilities\" ]"
+      }
+    ]
+  },
+  {
+    "id": 181,
+    "kind": 2,
+    "x": -60,
+    "y": 302,
+    "name": "Room Item Placer",
+    "codePath": "ng/presets/pipeline-place-room-items.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "srcNodeId": 179,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "items",
+        "srcNodeId": 183,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "fieldName",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 182,
+    "kind": 2,
+    "x": 212,
+    "y": 297,
+    "name": "Room Item Placer",
+    "codePath": "ng/presets/pipeline-place-room-items.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "srcNodeId": 181,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "items",
+        "srcNodeId": 184,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "fieldName",
+        "srcNodeId": 184,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 183,
+    "kind": 4,
+    "x": -403,
+    "y": 464,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[     \"Scrap Metal\",     \"Copper Wire\",     \"Circuit Board\",     \"Battery Cell\",     \"Med Injector\",     \"Dirty Bandage\",     \"Antibiotic Ampoule\",     \"Painkiller Pack\",     \"Canned Food\",     \"Water Flask\",     \"Filter Cartridge\",     \"Fuel Canister\",     \"Flare\",     \"Glowstick Bundle\",     \"Old Key\",     \"Security Keycard\",     \"Maintenance Badge\",     \"Fuse\",     \"Valve Wheel\",     \"Data Chip\",     \"Encrypted Drive\",     \"Handwritten Map\",     \"Emergency Radio\",     \"Rope Coil\",     \"Climbing Hook\",     \"Reinforced Boots\",     \"Gas Mask\",     \"Rebreather\",     \"Heat Shield Lining\",     \"EMP Charge\",     \"Bolt Cutter\",     \"Crowbar\",     \"Compact Welder\",     \"Lockpick Kit\",     \"Silenced Pistol\",     \"Pipe Rifle\",     \"Hunting Shotgun\",     \"Homemade Crossbow\",     \"Sawblade Launcher\",     \"Arc Baton\",     \"Shock Trap Kit\",     \"Makeshift Mine\",     \"Smoke Bomb\",     \"Adrenaline Syringe\",     \"Armor Plate\",     \"Reinforced Jacket\",     \"Riot Helmet\",     \"Radiation Dosimeter\",     \"Signal Jammer\",     \"Drone Beacon\",     \"Old World Coin\",     \"Black Market Token\",     \"Relic Photograph\",     \"Corporate ID Tag\",     \"Mutated Seed Pod\",     \"Animal Pheromone Vial\",     \"Robot Memory Core\",     \"Synth Muscle Fiber\",     \"Purified Water\",     \"Field Ration\",     \"Experimental Serum\",     \"Broken Watch\",     \"Prayer Charm\",     \"Raider Insignia\",     \"Settlement Seal\",     \"Train Control Lever\",     \"Elevator Crank\",     \"Server Access Token\",     \"Bio-Sample Canister\",     \"Power Regulator\",     \"Hydraulic Pump\",     \"Storm Drain Handle\",     \"Signal Antenna\",     \"Generator Fusebox\" ]"
+      }
+    ]
+  },
+  {
+    "id": 184,
+    "kind": 4,
+    "x": -217,
+    "y": 195,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[     \"Broken Service Bot\",     \"Security Drone\",     \"Patrol Turret\",     \"Wall Turret\",     \"Riot Bot\",     \"Maintenance Crawler\",     \"Saw Drone\",     \"Shock Spider Bot\",     \"Medical Bot\",     \"Cleanup Bot\",     \"Sentry Walker\",     \"Mine Dispenser Bot\",     \"Alarm Drone\",     \"Sniper Turret\",     \"Cargo Loader\",     \"Furnace Automaton\",     \"Excavation Bot\",     \"Rail Gun Drone\",     \"Shield Projector Bot\",     \"Hacked Companion Bot\",     \"Factory Arm\",     \"Autonomous Tankette\",     \"Swarm Nanobots\",     \"Power Core Guardian\",     \"Scrap Golem\" ]"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"enemies\""
       }
     ]
   }

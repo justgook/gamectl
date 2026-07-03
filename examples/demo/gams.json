@@ -943,6 +943,31 @@
               "group": "Progression"
             },
             {
+              "name": "Room Item Placer",
+              "kind": "code",
+              "codePath": "ng/presets/pipeline-place-room-items.lua",
+              "inputs": [
+                {
+                  "name": "tree",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "items",
+                  "defaultValue": "[\"item.coin\", {\"kind\": \"enemy-spawn\", \"id\": \"slime\"}, 1]"
+                },
+                {
+                  "name": "fieldName",
+                  "defaultValue": "items"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tree"
+                }
+              ],
+              "group": "Progression"
+            },
+            {
               "name": "UVs",
               "kind": "code",
               "codePath": "ng/presets/uvs.lua",
