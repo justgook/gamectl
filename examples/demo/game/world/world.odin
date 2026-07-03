@@ -197,15 +197,15 @@ init :: proc(w: ^World) {
 		&w.platformer_anim,
 		player,
 		platformer_anim_create_char(
-			&anim[0],
-			&anim[1],
-			&anim[2],
-			&anim[2],
-			&anim[3],
-			&anim[5],
-			&anim[6],
-			&anim[7],
-			&anim[8],
+			&anim[0], // idle
+			&anim[1], // run
+			&anim[2], // jump
+			&anim[3], // fall
+			&anim[4], // wall_slide
+			&anim[5], // dash
+			&anim[6], // land
+			&anim[7], // hurt
+			&anim[8], // death
 		),
 	)
 	logic.add_component(&w.animation, player, animation_create(&anim[0]))
