@@ -3,20 +3,12 @@
   "bullets": [
     {
       "actionRefs": [
-        3
+        2
       ]
     },
     {}
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
     [
       {
         "fireRef": {
@@ -46,7 +38,7 @@
       {
         "repeat": {
           "times": "22*8",
-          "actionRef": 4
+          "actionRef": 3
         }
       }
     ],
@@ -62,7 +54,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$2"
           ]

@@ -270,8 +270,9 @@ func compile(root *xmlNode) (*Document, error) {
 		}
 	}
 	wrapperActionIndices := wrapperActionIndices(topActions)
+	needsWrapperAction := len(wrapperActionIndices) != 1 || wrapperActionIndices[0] != 0
 	actionOffset := 0
-	if len(wrapperActionIndices) > 1 {
+	if needsWrapperAction {
 		actionOffset = 1
 		c.doc.Actions = append(c.doc.Actions, nil)
 	}
@@ -312,7 +313,7 @@ func compile(root *xmlNode) (*Document, error) {
 		}
 		c.doc.Actions[i+actionOffset] = action
 	}
-	if len(wrapperActionIndices) > 1 {
+	if needsWrapperAction {
 		wrapper := Action{}
 		for _, i := range wrapperActionIndices {
 			wrapper = append(wrapper, Command{Name: "actionRef", Value: Ref{Index: i + actionOffset}})
@@ -326,6 +327,15 @@ func compile(root *xmlNode) (*Document, error) {
 func wrapperActionIndices(topActions []*xmlNode) []int {
 	if len(topActions) == 1 {
 		return []int{0}
+	}
+	topLabelIndices := []int{}
+	for i, action := range topActions {
+		if isRootActionLabel(action.Attrs["label"]) {
+			topLabelIndices = append(topLabelIndices, i)
+		}
+	}
+	if len(topLabelIndices) > 0 {
+		return topLabelIndices
 	}
 	referenced := map[string]bool{}
 	for _, action := range topActions {
@@ -344,6 +354,10 @@ func wrapperActionIndices(topActions []*xmlNode) []int {
 		}
 	}
 	return indices
+}
+
+func isRootActionLabel(label string) bool {
+	return strings.HasPrefix(label, "top")
 }
 
 func collectActionRefLabels(node *xmlNode, labels map[string]bool) {

@@ -17,9 +17,6 @@
   "actions": [
     [
       {
-        "actionRef": 3
-      },
-      {
         "actionRef": 4
       }
     ],

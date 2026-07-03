@@ -7,12 +7,12 @@
         "value": 6
       },
       "actionRefs": [
-        4
+        3
       ]
     },
     {
       "actionRefs": [
-        5
+        4
       ]
     },
     {
@@ -21,7 +21,7 @@
         "value": 10
       },
       "actionRefs": [
-        7
+        6
       ]
     },
     {},
@@ -30,25 +30,25 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 3
-      }
-    ],
-    [
-      {
         "fireRef": 4
       },
       {
         "fireRef": 5
       },
       {
-        "actionRef": 2
+        "actionRef": 1
       },
       {
         "repeat": {
           "times": "120+$rank*$rank*$rank*120",
+          "actionRef": 7
+        }
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 2,
           "actionRef": 8
         }
       }
@@ -58,14 +58,6 @@
         "repeat": {
           "times": 2,
           "actionRef": 9
-        }
-      }
-    ],
-    [
-      {
-        "repeat": {
-          "times": 2,
-          "actionRef": 10
         }
       }
     ],
@@ -135,12 +127,12 @@
         "fireRef": 2
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
         "repeat": {
           "times": "120+$rank*$rank*$rank*120",
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],
@@ -152,7 +144,7 @@
         "fireRef": 3
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       }
     ],
     [
@@ -211,7 +203,7 @@
         "fireRef": 6
       },
       {
-        "actionRef": 2
+        "actionRef": 1
       }
     ],
     [

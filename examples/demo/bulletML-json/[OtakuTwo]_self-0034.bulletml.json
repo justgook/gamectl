@@ -3,32 +3,32 @@
   "bullets": [
     {
       "actionRefs": [
+        5
+      ]
+    },
+    {
+      "actionRefs": [
         6
       ]
     },
     {
       "actionRefs": [
-        7
+        8
       ]
     },
     {
       "actionRefs": [
-        9
+        10
       ]
     },
     {
       "actionRefs": [
-        11
+        12
       ]
     },
     {
       "actionRefs": [
-        13
-      ]
-    },
-    {
-      "actionRefs": [
-        15
+        14
       ]
     },
     {}
@@ -36,19 +36,8 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 4
-      },
-      {
-        "actionRef": 5
-      }
-    ],
-    [
-      {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             180
           ]
@@ -63,7 +52,7 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 16
+          "actionRef": 15
         }
       },
       {
@@ -72,7 +61,7 @@
       {
         "repeat": {
           "times": "16+$rank*16",
-          "actionRef": 19
+          "actionRef": 18
         }
       },
       {
@@ -80,7 +69,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             0
           ]
@@ -129,7 +118,7 @@
       {
         "repeat": {
           "times": 2,
-          "actionRef": 21
+          "actionRef": 20
         }
       }
     ],
@@ -160,13 +149,13 @@
       {
         "repeat": {
           "times": "(3+$rank*3)*$2",
-          "actionRef": 23
+          "actionRef": 22
         }
       }
     ],
     [
       {
-        "actionRef": 4
+        "actionRef": 3
       },
       {
         "wait": 960
@@ -177,12 +166,12 @@
     ],
     [
       {
-        "actionRef": 4
+        "actionRef": 3
       },
       {
         "repeat": {
           "times": 4,
-          "actionRef": 8
+          "actionRef": 7
         }
       },
       {
@@ -192,7 +181,7 @@
     [
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             60,
             1
@@ -201,7 +190,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -120,
             2
@@ -210,7 +199,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             60,
             1
@@ -220,12 +209,12 @@
     ],
     [
       {
-        "actionRef": 4
+        "actionRef": 3
       },
       {
         "repeat": {
           "times": 4,
-          "actionRef": 10
+          "actionRef": 9
         }
       },
       {
@@ -235,7 +224,7 @@
     [
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -60,
             1
@@ -244,7 +233,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             120,
             2
@@ -253,7 +242,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -60,
             1
@@ -265,7 +254,7 @@
       {
         "repeat": {
           "times": 9999,
-          "actionRef": 12
+          "actionRef": 11
         }
       }
     ],
@@ -287,7 +276,7 @@
       {
         "repeat": {
           "times": 9999,
-          "actionRef": 14
+          "actionRef": 13
         }
       }
     ],
@@ -317,14 +306,14 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 17
+          "actionRef": 16
         }
       },
       {
         "wait": 2
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
         "fireRef": 3
@@ -332,14 +321,14 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 18
+          "actionRef": 17
         }
       },
       {
         "wait": 2
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       }
     ],
     [
@@ -368,7 +357,7 @@
       {
         "repeat": {
           "times": 6,
-          "actionRef": 20
+          "actionRef": 19
         }
       },
       {
@@ -396,7 +385,7 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 22
+          "actionRef": 21
         }
       },
       {

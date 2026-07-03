@@ -11,21 +11,13 @@
         "value": "$1"
       },
       "actionRefs": [
-        4
+        3
       ]
     },
     {},
     {}
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 3
-      }
-    ],
     [
       {
         "fireRef": 0
@@ -44,14 +36,14 @@
       {
         "repeat": {
           "times": "$1-1",
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],
     [
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             3
           ]
@@ -62,7 +54,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             5
           ]
@@ -76,7 +68,7 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 5
+          "actionRef": 4
         }
       }
     ],
@@ -91,7 +83,7 @@
         }
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
         "changeDirection": {
@@ -112,7 +104,7 @@
         }
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
         "changeSpeed": {
@@ -124,7 +116,7 @@
         }
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
         "changeDirection": {
@@ -145,7 +137,7 @@
         }
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       }
     ],
     [

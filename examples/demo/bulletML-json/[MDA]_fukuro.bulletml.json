@@ -3,24 +3,16 @@
   "bullets": [
     {
       "actionRefs": [
-        3
+        2
       ]
     },
     {
       "actionRefs": [
-        4
+        3
       ]
     }
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
     [
       {
         "changeDirection": {
@@ -55,7 +47,7 @@
       {
         "repeat": {
           "times": "$rank*17+1",
-          "actionRef": 5
+          "actionRef": 4
         }
       },
       {
@@ -180,7 +172,7 @@
         "wait": "(($1-1)*($2*10))+30"
       },
       {
-        "actionRef": 2
+        "actionRef": 1
       },
       {
         "vanish": true

@@ -8,9 +8,14 @@
   "actions": [
     [
       {
+        "actionRef": 3
+      }
+    ],
+    [
+      {
         "repeat": {
           "times": 20,
-          "actionRef": 3
+          "actionRef": 4
         }
       }
     ],
@@ -19,19 +24,19 @@
         "fireRef": 1
       },
       {
-        "actionRef": 0
+        "actionRef": 1
       },
       {
         "repeat": {
           "times": "10+$rank*10",
-          "actionRef": 4
+          "actionRef": 5
         }
       }
     ],
     [
       {
         "actionRef": {
-          "ref": 1,
+          "ref": 2,
           "params": [
             161,
             "0.8+$rank*0.4"
@@ -43,7 +48,7 @@
       },
       {
         "actionRef": {
-          "ref": 1,
+          "ref": 2,
           "params": [
             159,
             "1+$rank*0.6"
@@ -67,7 +72,7 @@
         "fireRef": 2
       },
       {
-        "actionRef": 0
+        "actionRef": 1
       }
     ]
   ],

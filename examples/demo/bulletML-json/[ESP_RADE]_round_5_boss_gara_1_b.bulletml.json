@@ -7,7 +7,7 @@
     {},
     {
       "actionRefs": [
-        6
+        7
       ]
     },
     {}
@@ -15,12 +15,17 @@
   "actions": [
     [
       {
+        "actionRef": 4
+      }
+    ],
+    [
+      {
         "fireRef": 0
       },
       {
         "repeat": {
           "times": 7,
-          "actionRef": 4
+          "actionRef": 5
         }
       },
       {
@@ -29,7 +34,7 @@
       {
         "repeat": {
           "times": 7,
-          "actionRef": 5
+          "actionRef": 6
         }
       }
     ],
@@ -60,7 +65,7 @@
       {
         "repeat": {
           "times": "3+$rank*4",
-          "actionRef": 7
+          "actionRef": 8
         }
       }
     ],
@@ -68,7 +73,7 @@
       {
         "repeat": {
           "times": 5,
-          "actionRef": 2
+          "actionRef": 3
         }
       },
       {
@@ -109,16 +114,16 @@
       {
         "repeat": {
           "times": 8,
-          "actionRef": 8
+          "actionRef": 9
         }
       },
       {
-        "actionRef": 0
+        "actionRef": 1
       }
     ],
     [
       {
-        "actionRef": 1
+        "actionRef": 2
       },
       {
         "wait": "3*(3-$rank*2)*$rand"

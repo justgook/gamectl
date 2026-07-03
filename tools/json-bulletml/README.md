@@ -22,7 +22,7 @@ The runtime starts at `actions[0]`.
 
 If the source XML has one top-level `<action>`, that action becomes `actions[0]`.
 
-If the source XML has multiple top-level `<action>` elements, the compiler creates a synthetic wrapper action at `actions[0]` that calls each top-level action in source order.
+If the source XML has multiple top-level `<action>` elements with labels beginning with `top`, the compiler creates a synthetic wrapper action at `actions[0]` that calls those root actions in source order. If no `top*` labels exist, it falls back to wrapping unreferenced top-level actions.
 
 If the source XML has zero top-level actions, compilation fails.
 

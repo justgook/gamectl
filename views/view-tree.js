@@ -525,8 +525,8 @@ export class ViewTree extends HTMLElement {
       </div>
       <div role="buttongroup" data-element="view-actions">
         <button type="button" data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
-        <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
         <button type="button" data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
       </div>
     `
     return controls
@@ -558,11 +558,11 @@ export class ViewTree extends HTMLElement {
     this.queryHeader('[data-action="zoom-in"]').addEventListener("click", () =>
       this.zoomIn(),
     )
-    this.queryHeader('[data-action="zoom-out"]').addEventListener("click", () =>
-      this.zoomOut(),
-    )
     this.queryHeader('[data-action="zoom-fit"]').addEventListener("click", () =>
       this.zoomFit(),
+    )
+    this.queryHeader('[data-action="zoom-out"]').addEventListener("click", () =>
+      this.zoomOut(),
     )
     this.queryHeader('[data-action="add-node"]').addEventListener(
       "click",

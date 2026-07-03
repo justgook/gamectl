@@ -7,6 +7,11 @@
   "actions": [
     [
       {
+        "actionRef": 2
+      }
+    ],
+    [
+      {
         "changeDirection": {
           "direction": {
             "type": "absolute",
@@ -63,7 +68,7 @@
       {
         "repeat": {
           "times": 80,
-          "actionRef": 2
+          "actionRef": 3
         }
       },
       {
@@ -81,14 +86,14 @@
     ],
     [
       {
-        "actionRef": 0
+        "actionRef": 1
       }
     ],
     [
       {
         "repeat": {
           "times": "2+$rank*2",
-          "actionRef": 3
+          "actionRef": 4
         }
       },
       {

@@ -578,8 +578,8 @@ export class ViewNg extends HTMLElement {
       </div>
       <div role="buttongroup" data-element="view-actions">
         <button type="button" data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
-        <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
         <button type="button" data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
         <button type="button" data-action="auto-arrange" aria-label="Auto Arrange" title="Auto Arrange"><i aria-hidden="true">account_tree</i></button>
       </div>
     `
@@ -633,11 +633,11 @@ export class ViewNg extends HTMLElement {
             .querySelector('[data-action="zoom-in"]')
             ?.addEventListener("click", () => this.zoomIn())
         this._headerControlsElement
-            .querySelector('[data-action="zoom-out"]')
-            ?.addEventListener("click", () => this.zoomOut())
-        this._headerControlsElement
             .querySelector('[data-action="zoom-fit"]')
             ?.addEventListener("click", () => this.zoomFit())
+        this._headerControlsElement
+            .querySelector('[data-action="zoom-out"]')
+            ?.addEventListener("click", () => this.zoomOut())
         this._headerControlsElement
             .querySelector('[data-action="auto-arrange"]')
             ?.addEventListener("click", () => this.autoArrangeNodes())

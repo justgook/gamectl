@@ -7,7 +7,7 @@
         "value": 24
       },
       "actionRefs": [
-        3
+        2
       ]
     },
     {
@@ -16,7 +16,7 @@
         "value": 0
       },
       "actionRefs": [
-        4
+        3
       ]
     },
     {
@@ -29,7 +29,7 @@
         "value": 3
       },
       "actionRefs": [
-        2
+        1
       ]
     },
     {
@@ -42,7 +42,7 @@
         "value": 2
       },
       "actionRefs": [
-        2
+        1
       ]
     },
     {},
@@ -51,17 +51,9 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
-    [
-      {
         "repeat": {
           "times": 3,
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],
@@ -112,7 +104,7 @@
       {
         "repeat": {
           "times": "10+$rank*10",
-          "actionRef": 5
+          "actionRef": 4
         }
       },
       {

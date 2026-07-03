@@ -38,6 +38,29 @@ func TestZeroTopLevelActionsFails(t *testing.T) {
 	}
 }
 
+func TestTopLabelActionsAreRootWrappers(t *testing.T) {
+	input := filepath.Join(t.TempDir(), "top-labels.xml")
+	output := filepath.Join(t.TempDir(), "top-labels.bulletml.json")
+	if err := os.WriteFile(input, []byte(`<?xml version="1.0"?>
+<bulletml type="vertical">
+  <action label="helper"><repeat><times>$1</times><action><wait>1</wait></action></repeat></action>
+  <action label="top"><wait>1</wait></action>
+</bulletml>`), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := convertFile(input, output, false); err != nil {
+		t.Fatalf("convertFile() error = %v", err)
+	}
+	actual := readJSONFile(t, output).(map[string]any)
+	actions := actual["actions"].([]any)
+	firstAction := actions[0].([]any)
+	firstCommand := firstAction[0].(map[string]any)
+	ref, exists := firstCommand["actionRef"]
+	if !exists || ref != float64(2) {
+		t.Fatalf("expected action 0 to wrap labeled top action, got %#v", firstAction)
+	}
+}
+
 func TestExampleCorpusCompiles(t *testing.T) {
 	inputs := globXML(t, filepath.Join("examples", "*.xml"))
 	inputs = append(inputs, globXML(t, filepath.Join("examples", "mini", "*.xml"))...)

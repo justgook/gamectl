@@ -3,31 +3,23 @@
   "bullets": [
     {
       "actionRefs": [
-        4
+        3
       ]
     },
     {},
     {
       "actionRefs": [
-        5
+        4
       ]
     },
     {
       "actionRefs": [
-        6
+        5
       ]
     },
     {}
   ],
   "actions": [
-    [
-      {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 3
-      }
-    ],
     [
       {
         "fireRef": {
@@ -49,7 +41,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             0,
             0.9
@@ -62,7 +54,7 @@
       {
         "repeat": {
           "times": "100+100*$rank",
-          "actionRef": 7
+          "actionRef": 6
         }
       },
       {
@@ -70,7 +62,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             180,
             0.9
@@ -120,7 +112,7 @@
       {
         "repeat": {
           "times": 500,
-          "actionRef": 8
+          "actionRef": 7
         }
       },
       {
@@ -141,7 +133,7 @@
     [
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$1",
             "$2"
@@ -173,7 +165,7 @@
     [
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$1",
             "$2"
@@ -196,7 +188,7 @@
         "wait": 10
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
         "vanish": true

@@ -4,7 +4,7 @@
     {
       "actionRefs": [
         {
-          "ref": 3,
+          "ref": 2,
           "params": [
             "$1+$rand*20-10"
           ]
@@ -16,17 +16,9 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 3
-      }
-    ],
-    [
-      {
         "repeat": {
           "times": 64,
-          "actionRef": 4
+          "actionRef": 3
         }
       }
     ],
@@ -37,7 +29,7 @@
       {
         "repeat": {
           "times": 3,
-          "actionRef": 5
+          "actionRef": 4
         }
       }
     ],
@@ -58,7 +50,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$rand*90+135"
           ]

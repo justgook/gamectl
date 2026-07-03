@@ -3,25 +3,25 @@
   "bullets": [
     {
       "actionRefs": [
-        11
+        10
       ]
     },
     {
       "actionRefs": [
-        12
+        11
       ]
     },
     {},
     {
       "actionRefs": [
-        14
+        13
       ]
     },
     {},
     {
       "actionRefs": [
         {
-          "ref": 2,
+          "ref": 1,
           "params": [
             1
           ]
@@ -31,7 +31,7 @@
     {
       "actionRefs": [
         {
-          "ref": 2,
+          "ref": 1,
           "params": [
             -1
           ]
@@ -40,19 +40,19 @@
     },
     {
       "actionRefs": [
-        4
+        3
       ]
     },
     {},
     {},
     {
       "actionRefs": [
-        18
+        17
       ]
     },
     {
       "actionRefs": [
-        20
+        19
       ]
     },
     {},
@@ -61,7 +61,7 @@
     {},
     {
       "actionRefs": [
-        22
+        21
       ]
     },
     {}
@@ -69,16 +69,8 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 6
-      }
-    ],
-    [
-      {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             1
           ]
@@ -86,7 +78,7 @@
       },
       {
         "actionRef": {
-          "ref": 5,
+          "ref": 4,
           "params": [
             -1
           ]
@@ -94,7 +86,7 @@
       },
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             "180-55",
             -5
@@ -103,7 +95,7 @@
       },
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             180,
             0
@@ -112,7 +104,7 @@
       },
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             "180+55",
             5
@@ -121,7 +113,7 @@
       },
       {
         "actionRef": {
-          "ref": 8,
+          "ref": 7,
           "params": [
             "180+45",
             1
@@ -130,7 +122,7 @@
       },
       {
         "actionRef": {
-          "ref": 8,
+          "ref": 7,
           "params": [
             "180-45",
             -1
@@ -139,7 +131,7 @@
       },
       {
         "actionRef": {
-          "ref": 9,
+          "ref": 8,
           "params": [
             1
           ]
@@ -147,7 +139,7 @@
       },
       {
         "actionRef": {
-          "ref": 9,
+          "ref": 8,
           "params": [
             -1
           ]
@@ -159,7 +151,7 @@
       {
         "repeat": {
           "times": "3*$rank",
-          "actionRef": 16
+          "actionRef": 15
         }
       },
       {
@@ -169,7 +161,7 @@
     [
       {
         "actionRef": {
-          "ref": 3,
+          "ref": 2,
           "params": [
             "$1"
           ]
@@ -189,7 +181,7 @@
       {
         "repeat": {
           "times": "1+$rank*32",
-          "actionRef": 17
+          "actionRef": 16
         }
       }
     ],
@@ -307,7 +299,7 @@
       {
         "repeat": {
           "times": 7,
-          "actionRef": 23
+          "actionRef": 22
         }
       },
       {
@@ -344,7 +336,7 @@
       {
         "repeat": {
           "times": "6+(12*$rank)",
-          "actionRef": 13
+          "actionRef": 12
         }
       },
       {
@@ -378,7 +370,7 @@
       {
         "repeat": {
           "times": "10-(5/($rank+0.001))",
-          "actionRef": 15
+          "actionRef": 14
         }
       },
       {
@@ -389,7 +381,7 @@
       {
         "repeat": {
           "times": 3,
-          "actionRef": 6
+          "actionRef": 5
         }
       },
       {
@@ -437,7 +429,7 @@
       {
         "repeat": {
           "times": "7+(10*$rank)",
-          "actionRef": 19
+          "actionRef": 18
         }
       },
       {
@@ -501,7 +493,7 @@
       {
         "repeat": {
           "times": "11+(17*$rank)",
-          "actionRef": 21
+          "actionRef": 20
         }
       },
       {
@@ -538,7 +530,7 @@
       {
         "repeat": {
           "times": "3+(5*$rank)",
-          "actionRef": 10
+          "actionRef": 9
         }
       },
       {

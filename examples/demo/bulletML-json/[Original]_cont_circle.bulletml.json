@@ -20,9 +20,6 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
         "actionRef": 3
       }
     ],

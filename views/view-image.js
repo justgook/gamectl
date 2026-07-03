@@ -100,15 +100,15 @@ export class ViewImage extends ViewCanvasBase {
         <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
-        <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
-        <button type="button" data-action="zoom-fit" aria-label="Fit" title="Fit"><i aria-hidden="true">fit_screen</i></button>
         <button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in"><i aria-hidden="true">zoom_in</i></button>
+        <button type="button" data-action="zoom-fit" aria-label="Fit" title="Fit"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
       </div>
     `
         toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => this.reload())
-        toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
-        toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
         toolbar.querySelector('[data-action="zoom-in"]').addEventListener("click", () => this.zoomIn())
+        toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
+        toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
         return toolbar
     }
 

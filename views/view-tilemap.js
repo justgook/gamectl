@@ -1776,8 +1776,8 @@ export class ViewTilemap extends ViewCanvasBase {
       <div role="buttongroup" data-element="view-actions">
         <button type="button" data-action="grid" aria-selected="true"><i aria-hidden="true">grid_on</i></button>
         <button type="button" data-action="zoom-in"><i aria-hidden="true">zoom_in</i></button>
-        <button type="button" data-action="zoom-out"><i aria-hidden="true">zoom_out</i></button>
         <button type="button" data-action="zoom-fit"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-out"><i aria-hidden="true">zoom_out</i></button>
       </div>
       <div role="buttongroup" data-element="config-actions">
         <button type="button" data-action="map-props"><i aria-hidden="true">tune</i></button>
@@ -1902,11 +1902,11 @@ export class ViewTilemap extends ViewCanvasBase {
     this.queryHeader('[data-action="zoom-in"]').addEventListener("click", () =>
       this.zoomIn(),
     )
-    this.queryHeader('[data-action="zoom-out"]').addEventListener("click", () =>
-      this.zoomOut(),
-    )
     this.queryHeader('[data-action="zoom-fit"]').addEventListener("click", () =>
       this.zoomFit(),
+    )
+    this.queryHeader('[data-action="zoom-out"]').addEventListener("click", () =>
+      this.zoomOut(),
     )
     this.queryHeader('[data-action="map-props"]').addEventListener(
       "click",

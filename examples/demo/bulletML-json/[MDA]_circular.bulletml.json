@@ -3,7 +3,7 @@
   "bullets": [
     {
       "actionRefs": [
-        3
+        2
       ]
     },
     {},
@@ -12,23 +12,15 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      }
-    ],
-    [
-      {
         "repeat": {
           "times": "$rank*10",
-          "actionRef": 4
+          "actionRef": 3
         }
       },
       {
         "repeat": {
           "times": 9,
-          "actionRef": 5
+          "actionRef": 4
         }
       }
     ],
@@ -36,7 +28,7 @@
       {
         "repeat": {
           "times": 22,
-          "actionRef": 6
+          "actionRef": 5
         }
       }
     ],
@@ -52,7 +44,7 @@
       },
       {
         "actionRef": {
-          "ref": 2,
+          "ref": 1,
           "params": [
             "$2"
           ]

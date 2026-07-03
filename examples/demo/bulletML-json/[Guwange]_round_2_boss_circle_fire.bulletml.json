@@ -3,7 +3,7 @@
   "bullets": [
     {
       "actionRefs": [
-        2
+        3
       ]
     },
     {}
@@ -11,9 +11,14 @@
   "actions": [
     [
       {
+        "actionRef": 2
+      }
+    ],
+    [
+      {
         "repeat": {
           "times": 18,
-          "actionRef": 3
+          "actionRef": 4
         }
       }
     ],
@@ -21,7 +26,7 @@
       {
         "repeat": {
           "times": 50,
-          "actionRef": 4
+          "actionRef": 5
         }
       },
       {
@@ -53,7 +58,7 @@
     [
       {
         "actionRef": {
-          "ref": 0,
+          "ref": 1,
           "params": [
             "180-45+90*$rand"
           ]

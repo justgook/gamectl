@@ -3,7 +3,7 @@
   "bullets": [
     {
       "actionRefs": [
-        8
+        7
       ]
     },
     {
@@ -12,38 +12,38 @@
         "value": 0.5
       },
       "actionRefs": [
-        10
+        9
       ]
     },
     {
       "speed": {
         "type": "absolute",
         "value": 0.5
+      },
+      "actionRefs": [
+        11
+      ]
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 180
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1.5
       },
       "actionRefs": [
         12
       ]
     },
     {
-      "direction": {
-        "type": "absolute",
-        "value": 180
-      },
-      "speed": {
-        "type": "absolute",
-        "value": 1.5
-      },
-      "actionRefs": [
-        13
-      ]
-    },
-    {
       "speed": {
         "type": "absolute",
         "value": 1.1
       },
       "actionRefs": [
-        15
+        14
       ]
     },
     {
@@ -56,7 +56,7 @@
         "value": 1.5
       },
       "actionRefs": [
-        17
+        16
       ]
     },
     {
@@ -65,7 +65,7 @@
         "value": 1.1
       },
       "actionRefs": [
-        19
+        18
       ]
     },
     {
@@ -78,7 +78,7 @@
         "value": 0.5
       },
       "actionRefs": [
-        20
+        19
       ]
     },
     {},
@@ -94,10 +94,14 @@
         "actionRef": 1
       },
       {
-        "actionRef": 7
-      }
-    ],
-    [
+        "wait": "60 - 40 * $rank"
+      },
+      {
+        "actionRef": 3
+      },
+      {
+        "wait": "60 - 40 * $rank"
+      },
       {
         "actionRef": 2
       },
@@ -111,19 +115,7 @@
         "wait": "60 - 40 * $rank"
       },
       {
-        "actionRef": 3
-      },
-      {
-        "wait": "60 - 40 * $rank"
-      },
-      {
         "actionRef": 5
-      },
-      {
-        "wait": "60 - 40 * $rank"
-      },
-      {
-        "actionRef": 6
       },
       {
         "wait": 450
@@ -144,7 +136,7 @@
       {
         "repeat": {
           "times": 20,
-          "actionRef": 24
+          "actionRef": 23
         }
       }
     ],
@@ -187,7 +179,7 @@
       {
         "repeat": {
           "times": 40,
-          "actionRef": 9
+          "actionRef": 8
         }
       },
       {
@@ -218,7 +210,7 @@
       {
         "repeat": {
           "times": "5 + 5 * $rank",
-          "actionRef": 11
+          "actionRef": 10
         }
       },
       {
@@ -263,7 +255,7 @@
       {
         "repeat": {
           "times": 10,
-          "actionRef": 14
+          "actionRef": 13
         }
       },
       {
@@ -303,7 +295,7 @@
       {
         "repeat": {
           "times": 20,
-          "actionRef": 16
+          "actionRef": 15
         }
       }
     ],
@@ -346,7 +338,7 @@
       {
         "repeat": {
           "times": 50,
-          "actionRef": 18
+          "actionRef": 17
         }
       },
       {
@@ -388,7 +380,7 @@
       {
         "repeat": {
           "times": 24,
-          "actionRef": 21
+          "actionRef": 20
         }
       },
       {
@@ -403,7 +395,7 @@
       {
         "repeat": {
           "times": 24,
-          "actionRef": 22
+          "actionRef": 21
         }
       },
       {
@@ -412,7 +404,7 @@
       {
         "repeat": {
           "times": "80 + 220 * $rank",
-          "actionRef": 23
+          "actionRef": 22
         }
       },
       {
@@ -450,7 +442,7 @@
     [
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             "180 * $rand",
             1
@@ -459,7 +451,7 @@
       },
       {
         "actionRef": {
-          "ref": 7,
+          "ref": 6,
           "params": [
             "180 * $rand",
             -1

@@ -3,14 +3,14 @@
   "bullets": [
     {
       "actionRefs": [
-        4
+        3
       ]
     },
     {},
     {},
     {
       "actionRefs": [
-        6
+        5
       ]
     },
     {},
@@ -27,20 +27,9 @@
   "actions": [
     [
       {
-        "actionRef": 1
-      },
-      {
-        "actionRef": 2
-      },
-      {
-        "actionRef": 3
-      }
-    ],
-    [
-      {
         "repeat": {
           "times": 3,
-          "actionRef": 8
+          "actionRef": 7
         }
       }
     ],
@@ -80,12 +69,12 @@
         "fireRef": 1
       },
       {
-        "actionRef": 2
+        "actionRef": 1
       },
       {
         "repeat": {
           "times": 16,
-          "actionRef": 5
+          "actionRef": 4
         }
       },
       {
@@ -100,7 +89,7 @@
         "fireRef": 2
       },
       {
-        "actionRef": 2
+        "actionRef": 1
       }
     ],
     [
@@ -108,12 +97,12 @@
         "fireRef": 3
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       },
       {
         "repeat": {
           "times": 16,
-          "actionRef": 7
+          "actionRef": 6
         }
       },
       {
@@ -125,7 +114,7 @@
         "fireRef": 4
       },
       {
-        "actionRef": 3
+        "actionRef": 2
       }
     ],
     [

@@ -139,6 +139,19 @@ class BulletMLEngine {
         this.seed = 1
         this.lastInstructionCount = 0
         if (!this.bulletml) return
+        this.startRootActions()
+    }
+
+    startRootActions() {
+        assert(this.bulletml !== null, "JSON BulletML root start requires loaded document")
+        const roots = this.rootControllers()
+        if (roots.length > 0) {
+            for (const root of roots) {
+                if (this.isScriptActive(root)) continue
+                this.restartRootEntity(root)
+            }
+            return
+        }
         const action = this.resolveAction(0)
         const wrapperRefs = this.rootWrapperRefs(action)
         if (wrapperRefs.length > 0) {
@@ -148,6 +161,16 @@ class BulletMLEngine {
             return
         }
         this.entities.push(this.createRootEntity(0, action, []))
+    }
+
+    rootControllers() {
+        return this.entities.filter((entity) => entity.isRoot)
+    }
+
+    restartRootEntity(entity) {
+        entity.alive = true
+        entity.wait = 0
+        entity.frames = [createFrame(entity.rootAction, entity.rootParams)]
     }
 
     rootWrapperRefs(action) {
@@ -173,6 +196,9 @@ class BulletMLEngine {
             accelY: 0,
             wait: 0,
             alive: true,
+            isRoot: true,
+            rootAction: action,
+            rootParams: params,
             lastFireDirection: 180,
             lastFireSpeed: 1,
             frames: [createFrame(action, params)],
@@ -480,6 +506,10 @@ class BulletMLEngine {
         return !this.entities.some((entity) => this.isScriptActive(entity))
     }
 
+    areRootActionsDone() {
+        return this.rootControllers().every((entity) => !this.isScriptActive(entity))
+    }
+
     isSimulationDone() {
         return this.isSpawningDone() && this.visibleBullets().length === 0
     }
@@ -514,6 +544,7 @@ export class ViewBullet extends ViewCanvasBase {
         this.programText = ""
         this.dirty = false
         this.engine = new BulletMLEngine()
+        this.holdFire = false
         this.pathOutput = null
         this.dirtyOutput = null
         this.statusOutput = null
@@ -524,6 +555,7 @@ export class ViewBullet extends ViewCanvasBase {
         this._ready = false
         this._headerControlsBound = false
         this._lastPlayPausePointerDown = -Infinity
+        this._lastHoldFirePointerDown = -Infinity
         this._draggingTarget = false
         this._animate = this._animate.bind(this)
     }
@@ -595,12 +627,13 @@ export class ViewBullet extends ViewCanvasBase {
         <button type="button" data-action="edit" aria-label="Edit JSON BulletML" title="Edit JSON BulletML"><i aria-hidden="true">edit</i></button>
         <button type="button" data-action="restart" aria-label="Restart preview" title="Restart preview"><i aria-hidden="true">restart_alt</i></button>
         <button type="button" data-action="play-pause" aria-label="Play preview" title="Play preview" aria-pressed="false"><i aria-hidden="true">play_arrow</i></button>
+        <button type="button" data-action="hold-fire" aria-label="Hold fire" title="Hold fire" aria-pressed="false"><i aria-hidden="true">repeat</i></button>
         <button type="button" data-action="step" aria-label="Step one frame" title="Step one frame"><i aria-hidden="true">skip_next</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
         <button type="button" data-action="zoom-in" aria-label="Zoom In" title="Zoom In"><i aria-hidden="true">zoom_in</i></button>
-        <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
         <button type="button" data-action="zoom-fit" aria-label="Fit View" title="Fit View"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom Out" title="Zoom Out"><i aria-hidden="true">zoom_out</i></button>
       </div>
     `
         queueMicrotask(() => this.bindHeaderControls())
@@ -632,13 +665,25 @@ export class ViewBullet extends ViewCanvasBase {
             if (event.detail > 0 && performance.now() - this._lastPlayPausePointerDown < 1000) return
             this.togglePlayback()
         })
+        const holdFireButton = this.headerButton("hold-fire")
+        holdFireButton.addEventListener("pointerdown", (event) => {
+            if (event.button !== 0) return
+            event.preventDefault()
+            this._lastHoldFirePointerDown = performance.now()
+            this.toggleHoldFire()
+        })
+        holdFireButton.addEventListener("click", (event) => {
+            event.preventDefault()
+            if (event.detail > 0 && performance.now() - this._lastHoldFirePointerDown < 1000) return
+            this.toggleHoldFire()
+        })
         this.headerButton("step").addEventListener("click", (event) => {
             event.preventDefault()
             this.stepPreview()
         })
         this.headerButton("zoom-in").addEventListener("click", () => this.zoomIn())
-        this.headerButton("zoom-out").addEventListener("click", () => this.zoomOut())
         this.headerButton("zoom-fit").addEventListener("click", () => this.zoomFit())
+        this.headerButton("zoom-out").addEventListener("click", () => this.zoomOut())
         this.renderHeaderControls()
     }
 
@@ -658,6 +703,7 @@ export class ViewBullet extends ViewCanvasBase {
         this.headerButton("edit").disabled = !hasPath
         this.headerButton("restart").disabled = !hasProgram
         this.headerButton("play-pause").disabled = !hasProgram
+        this.headerButton("hold-fire").disabled = !hasProgram
         this.headerButton("step").disabled = !hasProgram
         const playbackButton = this.headerButton("play-pause")
         const playIcon = playbackButton.querySelector("i")
@@ -667,6 +713,14 @@ export class ViewBullet extends ViewCanvasBase {
         playbackButton.setAttribute("aria-pressed", running ? "true" : "false")
         playbackButton.setAttribute("aria-label", running ? "Pause preview" : "Play preview")
         playbackButton.setAttribute("title", running ? "Pause preview" : "Play preview")
+        const holdFireButton = this.headerButton("hold-fire")
+        const holdFireIcon = holdFireButton.querySelector("i")
+        assert(holdFireIcon instanceof HTMLElement, "view-bullet hold-fire button missing icon")
+        holdFireIcon.textContent = "repeat"
+        holdFireButton.setAttribute("aria-pressed", this.holdFire ? "true" : "false")
+        holdFireButton.setAttribute("aria-label", this.holdFire ? "Disable hold fire" : "Hold fire")
+        holdFireButton.setAttribute("title", this.holdFire ? "Disable hold fire" : "Hold fire")
+        holdFireButton.classList.toggle("accent", this.holdFire)
     }
 
     calculateContentBounds(_data) {
@@ -849,6 +903,7 @@ export class ViewBullet extends ViewCanvasBase {
 
     restartPreview() {
         assert(this.bulletml !== null, "view-bullet restart requires loaded JSON BulletML")
+        this.holdFire = false
         this.engine.reset()
         this.draw()
         this.updateFooter("Restarted", "success")
@@ -868,8 +923,21 @@ export class ViewBullet extends ViewCanvasBase {
         this.renderHeaderControls()
     }
 
-    startPlayback() {
+    toggleHoldFire() {
+        assert(this.bulletml !== null, "view-bullet hold fire requires loaded JSON BulletML")
+        this.holdFire = !this.holdFire
+        if (this.holdFire) {
+            if (this.engine.areRootActionsDone()) this.engine.startRootActions()
+            this.startPlayback({ restartFinished: false })
+            this.updateFooter("Repeat on", "info")
+            return
+        }
+        this.updateFooter("Repeat off", "info")
+    }
+
+    startPlayback({ restartFinished = true } = {}) {
         if (this.engine.running) return
+        if (restartFinished && this.engine.isSimulationDone()) this.engine.reset()
         this.engine.running = true
         this._animationToken += 1
         this._lastAnimationTime = 0
@@ -891,15 +959,23 @@ export class ViewBullet extends ViewCanvasBase {
         if (this._lastAnimationTime === 0) this._lastAnimationTime = time
         const elapsed = time - this._lastAnimationTime
         const steps = Math.max(1, Math.min(4, Math.floor(elapsed / (1000 / 60)) || 1))
-        for (let i = 0; i < steps; i += 1) this.engine.step()
+        try {
+            for (let i = 0; i < steps; i += 1) this.engine.step()
+        } catch (error) {
+            this.stopPlayback()
+            this.updateFooter(`Error: ${errorMessage(error)}`, "danger")
+            console.error("view-bullet playback failed:", error)
+            return
+        }
         this._lastAnimationTime = time
+        if (this.holdFire && this.engine.areRootActionsDone()) this.engine.startRootActions()
         this.draw()
         if (this.engine.isSimulationDone()) {
             this.stopPlayback()
             this.updateFooter("Finished", "success")
             return
         }
-        this.updateFooter()
+        this.updateFooter(this.holdFire ? "Holding fire" : null, this.holdFire ? "info" : null)
         if (!this.engine.running || token !== this._animationToken) return
         this._animationFrame = requestAnimationFrame((nextTime) => this._animate(nextTime, token))
     }

@@ -294,9 +294,9 @@ export class ViewAseprite extends ViewCanvasBase {
         <button type="button" data-action="last-frame" aria-label="Last frame" title="Last frame"><i aria-hidden="true">last_page</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
-        <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
-        <button type="button" data-action="zoom-fit" aria-label="Fit" title="Fit"><i aria-hidden="true">fit_screen</i></button>
         <button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in"><i aria-hidden="true">zoom_in</i></button>
+        <button type="button" data-action="zoom-fit" aria-label="Fit" title="Fit"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
       </div>
     `
         toolbar.querySelector('[data-action="reload"]').addEventListener("click", () => this.reload())
@@ -305,9 +305,9 @@ export class ViewAseprite extends ViewCanvasBase {
         toolbar.querySelector('[data-action="play-pause"]').addEventListener("click", () => this.togglePlayback())
         toolbar.querySelector('[data-action="next-frame"]').addEventListener("click", () => this.nextFrame())
         toolbar.querySelector('[data-action="last-frame"]').addEventListener("click", () => this.setFrame(this.playbackEndFrame()))
-        toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
-        toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
         toolbar.querySelector('[data-action="zoom-in"]').addEventListener("click", () => this.zoomIn())
+        toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
+        toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
         return toolbar
     }
 

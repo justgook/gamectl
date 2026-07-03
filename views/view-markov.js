@@ -252,9 +252,9 @@ export class ViewMarkov extends ViewCanvasBase {
         <button type="button" data-action="play-pause" aria-label="Play" title="Play"><i aria-hidden="true">play_arrow</i></button>
       </div>
       <div role="buttongroup" data-element="view-actions">
-        <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
-        <button type="button" data-action="zoom-fit" aria-label="Fit" title="Fit"><i aria-hidden="true">fit_screen</i></button>
         <button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in"><i aria-hidden="true">zoom_in</i></button>
+        <button type="button" data-action="zoom-fit" aria-label="Fit" title="Fit"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
       </div>
     `
 
@@ -270,9 +270,9 @@ export class ViewMarkov extends ViewCanvasBase {
     toolbar.querySelector('[data-action="step"]').addEventListener("click", () => this.stepCurrent())
     toolbar.querySelector('[data-action="play-pause"]').addEventListener("click", () => this.togglePlayback())
     toolbar.querySelector('[data-action="reroll"]').addEventListener("click", () => this.reroll())
-    toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
-    toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
     toolbar.querySelector('[data-action="zoom-in"]').addEventListener("click", () => this.zoomIn())
+    toolbar.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
+    toolbar.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
     return toolbar
   }
 
