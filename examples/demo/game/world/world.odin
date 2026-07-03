@@ -191,8 +191,24 @@ init :: proc(w: ^World) {
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[969]})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[2]})
-	logic.add_component(&w.animation, player, animation_create(&w.animation_atlas.defs[0]))
-	logic.add_component(&w.platformer_anim, player, platformer_anim_create_default(&w.animation_atlas.defs[0]))
+	// logic.add_component(&w.platformer_anim, player, platformer_anim_create_default(&w.animation_atlas.defs[0]))
+	anim := w.animation_atlas.defs
+	logic.add_component(
+		&w.platformer_anim,
+		player,
+		platformer_anim_create_char(
+			&anim[0],
+			&anim[1],
+			&anim[2],
+			&anim[2],
+			&anim[3],
+			&anim[5],
+			&anim[6],
+			&anim[7],
+			&anim[8],
+		),
+	)
+	logic.add_component(&w.animation, player, animation_create(&anim[0]))
 	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1})
 
 

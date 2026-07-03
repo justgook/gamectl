@@ -28,20 +28,8 @@ Platformer_Anim_Clip :: struct {
 	lock_until_finished:  bool,
 }
 
-Platformer_Anim_Set :: struct {
-	idle:       Platformer_Anim_Clip,
-	run:        Platformer_Anim_Clip,
-	jump:       Platformer_Anim_Clip,
-	fall:       Platformer_Anim_Clip,
-	wall_slide: Platformer_Anim_Clip,
-	dash:       Platformer_Anim_Clip,
-	land:       Platformer_Anim_Clip,
-	hurt:       Platformer_Anim_Clip,
-	death:      Platformer_Anim_Clip,
-}
-
 Platformer_Anim :: struct {
-	set:     Platformer_Anim_Set,
+	set:     [Platformer_Anim_Key]Platformer_Anim_Clip,
 	current: Platformer_Anim_Key,
 	facing:  i32,
 	locked:  bool,
@@ -69,77 +57,41 @@ sys_platformer_anim :: proc(w: ^World) {
 	}
 }
 
-platformer_anim_create_default :: proc(default_def: ^AnimDef) -> Platformer_Anim {
-	clip := Platformer_Anim_Clip {
-		def        = default_def,
-		base_speed = 1,
-	}
+platformer_anim_create_char :: proc(
+	idle, run, jump, fall, wall_slide, dash, land, hurt, death: ^AnimDef,
+) -> Platformer_Anim {
 	return Platformer_Anim {
 		set = {
-			idle = clip,
-			run = {def = default_def, base_speed = 1, velocity_speed_scale = 0.0005},
-			jump = clip,
-			fall = clip,
-			wall_slide = clip,
-			dash = clip,
-			land = clip,
-			hurt = clip,
-			death = clip,
+			.Idle = Platformer_Anim_Clip{def = idle, base_speed = 1},
+			.Run = Platformer_Anim_Clip{def = run, base_speed = 1},
+			.Jump = Platformer_Anim_Clip{def = jump, base_speed = 1},
+			.Fall = Platformer_Anim_Clip{def = fall, base_speed = 1},
+			.Wall_Slide = Platformer_Anim_Clip{def = wall_slide, base_speed = 1},
+			.Dash = Platformer_Anim_Clip{def = dash, base_speed = 1},
+			.Land = Platformer_Anim_Clip{def = land, base_speed = 1},
+			.Hurt = Platformer_Anim_Clip{def = hurt, base_speed = 1},
+			.Death = Platformer_Anim_Clip{def = death, base_speed = 1},
 		},
 		current = .Idle,
 		facing = 1,
 	}
 }
 
-@(private = "file")
-platformer_anim_clip :: proc(set: ^Platformer_Anim_Set, key: Platformer_Anim_Key) -> Platformer_Anim_Clip {
-	switch key {
-	case .Idle:
-		return set.idle
-	case .Run:
-		return set.run
-	case .Jump:
-		return set.jump
-	case .Fall:
-		return set.fall
-	case .Wall_Slide:
-		return set.wall_slide
-	case .Dash:
-		return set.dash
-	case .Land:
-		return set.land
-	case .Hurt:
-		return set.hurt
-	case .Death:
-		return set.death
-	}
-
-	return set.idle
-}
 
 @(private = "file")
 platformer_anim_select :: proc(p: ^Platformer) -> Platformer_Anim_Key {
-	if p.dash_frames > 0 {
-		return .Dash
-	}
-	if !p.on_ground && p.on_wall {
-		return .Wall_Slide
-	}
-	if !p.on_ground && p.velocity.y > 0 {
-		return .Jump
-	}
-	if !p.on_ground {
-		return .Fall
-	}
-	if abs(p.velocity.x) > 0 {
-		return .Run
-	}
+	if p.dash_frames > 0 {return .Dash}
+	if !p.on_ground && p.on_wall {return .Wall_Slide}
+	if !p.on_ground && p.velocity.y > 0 {return .Jump}
+	if !p.on_ground {return .Fall}
+	if abs(p.velocity.x) > 0 {return .Run}
+
 	return .Idle
 }
 
 @(private = "file")
 platformer_anim_play :: proc(anim: ^Animation, ctrl: ^Platformer_Anim, key: Platformer_Anim_Key, velocity_abs: i32) {
-	clip := platformer_anim_clip(&ctrl.set, key)
+	clip := &ctrl.set[key]
 	assert(clip.def != nil)
 
 	if ctrl.current != key || anim.def != clip.def {
@@ -152,5 +104,6 @@ platformer_anim_play :: proc(anim: ^Animation, ctrl: ^Platformer_Anim, key: Plat
 	if clip.velocity_speed_scale != 0 {
 		speed += f32(velocity_abs) * clip.velocity_speed_scale
 	}
+
 	animation_set_speed(anim, speed)
 }
