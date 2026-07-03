@@ -918,6 +918,31 @@
               "group": "Progression"
             },
             {
+              "name": "Keylock Progression Annotator",
+              "kind": "code",
+              "codePath": "ng/presets/pipeline-annotate-keylocks.lua",
+              "inputs": [
+                {
+                  "name": "tree",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "locks",
+                  "defaultValue": "[\"lock.red\", \"lock.blue\"]"
+                },
+                {
+                  "name": "keys",
+                  "defaultValue": "[\"key.red\", \"key.blue\"]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "tree"
+                }
+              ],
+              "group": "Progression"
+            },
+            {
               "name": "UVs",
               "kind": "code",
               "codePath": "ng/presets/uvs.lua",

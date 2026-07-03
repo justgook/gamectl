@@ -2,7 +2,7 @@
   {
     "id": 13,
     "kind": 4,
-    "x": -38,
+    "x": -383,
     "y": 292,
     "name": "",
     "codePath": "",
@@ -88,7 +88,7 @@
       {
         "id": 1,
         "name": "tree",
-        "srcNodeId": 55,
+        "srcNodeId": 179,
         "srcOutputId": 1
       }
     ],
@@ -128,7 +128,7 @@
   {
     "id": 55,
     "kind": 2,
-    "x": 197,
+    "x": -148,
     "y": 292,
     "name": "World Tree Generator",
     "codePath": "ng/presets/pipeline-world-tree.lua",
@@ -171,8 +171,8 @@
   {
     "id": 56,
     "kind": 4,
-    "x": 519,
-    "y": 434,
+    "x": 338,
+    "y": -90,
     "name": "DEBUG_tree",
     "codePath": "",
     "graphId": 0,
@@ -189,8 +189,8 @@
   {
     "id": 57,
     "kind": 2,
-    "x": 734,
-    "y": 436,
+    "x": 553,
+    "y": -88,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -2378,6 +2378,66 @@
         "id": 1,
         "name": "",
         "value": "\"tmp/DEBUG-segments.json\""
+      }
+    ]
+  },
+  {
+    "id": 179,
+    "kind": 2,
+    "x": 128,
+    "y": 300,
+    "name": "Keylock Progression Annotator",
+    "codePath": "ng/presets/pipeline-annotate-keylocks.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "srcNodeId": 55,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "locks",
+        "srcNodeId": 180,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "keys",
+        "srcNodeId": 180,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "tree",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 180,
+    "kind": 4,
+    "x": -335,
+    "y": 428,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[     \"High ledge\",     \"Tall shaft\",     \"Wide gap\",     \"Crumbling floor\",     \"Narrow tunnel\",     \"Heavy stone door\",     \"Sealed magic door\",     \"Color-coded door\",     \"Underwater passage\",     \"Deep water zone\",     \"Lava corridor\",     \"Toxic swamp\",     \"Dark cave\",     \"Wind tunnel\",     \"One-way cliff\",     \"Hook nodes\",     \"Fragile wall\",     \"Armored enemy blocking path\",     \"Shielded crystal barrier\",     \"Ice wall\",     \"Burning vines\",     \"Frozen lake\",     \"Machine door\",     \"Broken elevator\",     \"Guard checkpoint\",     \"Ancient shrine\",     \"Boss door\",     \"Arena exit\",     \"Flooded ruins\",     \"Dry canal\",     \"Locked bridge\",     \"Clockwork gate\",     \"Door with inscription\",     \"Illusion wall\",     \"Spirit barrier\",     \"Cursed forest path\",     \"Teleporter network\",     \"Magnetic rails\",     \"Ceiling tunnel\",     \"Sandstorm area\",     \"Sonic barrier\",     \"Sleeping beast blocks path\",     \"Locked mine cart route\",     \"Security laser\",     \"Temple door\",     \"Organic membrane\",     \"Time-sealed door\",     \"Final region gate\" ]"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "[     \"Double Jump\",     \"Wall Climb / Wall Jump\",     \"Dash / Air Dash\",     \"Ground Pound\",     \"Morph / Crawl Form\",     \"Power Gauntlet\",     \"Rune Key\",     \"Red / Blue / Green Keycard\",     \"Swim / Dive Ability\",     \"Water Breathing\",     \"Heat Resistance\",     \"Poison Mask / Antidote Event\",     \"Lantern / Light Spell\",     \"Heavy Boots\",     \"Grappling Hook\",     \"Grapple Ability\",     \"Bombs / Explosive Shot\",     \"Armor-Piercing Attack\",     \"Charged Beam\",     \"Fire Spell\",     \"Water Spell / Rain Event\",     \"Fire Spell / Thaw Event\",     \"Power Core Restored\",     \"Repair Event / Engineer NPC\",     \"City Permit\",     \"3 Relic Fragments\",     \"Boss Emblem\",     \"Defeat Mini-boss\",     \"Drain Water Switch\",     \"Flood Canal Switch\",     \"Lower Bridge Lever\",     \"Activate 2–4 Gears\",     \"Learn Ancient Language\",     \"True Sight Ability\",     \"Speak to Ghost NPC\",     \"Remove Curse Event\",     \"Find Teleporter Sigil\",     \"Magnet Boots\",     \"Invert Gravity\",     \"Desert Cloak\",     \"Echo Bell\",     \"Dream Flute\",     \"Mine Cart License / Switch\",     \"Disable Generator\",     \"Align Sun Mirrors\",     \"Acid Blade\",     \"Activate Time Shrine\",     \"Any 5 Major Abilities\" ]"
       }
     ]
   }
