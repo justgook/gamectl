@@ -1158,7 +1158,17 @@
         margin: 0;
     }
 
+    view-tooltip,
     menu[role="menu"] {
+        /* pointer-events: none; */
+        padding: 0;
+    }
+
+    view-tooltip input[type="search"] {
+        width: 100%;
+    }
+
+    view-tooltip {
         box-sizing: border-box;
         margin: 0;
         padding: 2px;

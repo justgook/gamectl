@@ -347,6 +347,8 @@ export class ViewTree extends HTMLElement {
     this.nodeSizes = new Map()
     this.selectedNodeIndex = -1
     this.hoverNodeIndex = -1
+    this.hoverTooltipNodeIndex = -1
+    this.hoverTooltipId = 0
     this.dirty = false
     this.scale = 1
     this.offsetX = 0
@@ -1092,6 +1094,7 @@ export class ViewTree extends HTMLElement {
     this.canvas.removeEventListener("pointermove", this._onPointerMove)
     this.canvas.removeEventListener("pointerup", this._onPointerUp)
     this.canvas.removeEventListener("pointerleave", this._onPointerUp)
+    this._closeNodeTip()
   }
 
   _clientToCanvasPoint(clientX, clientY) {
@@ -1111,6 +1114,7 @@ export class ViewTree extends HTMLElement {
 
   _onWheel(event) {
     event.preventDefault()
+    this._closeNodeTip()
     const canvasPoint = this._clientToCanvasPoint(event.clientX, event.clientY)
     if (event.ctrlKey || event.metaKey) {
       this._zoomAt(canvasPoint.x, canvasPoint.y, event.deltaY < 0 ? 1.1 : 0.9)
@@ -1156,6 +1160,7 @@ export class ViewTree extends HTMLElement {
         this._pointerStartOffsetX + event.clientX - this._pointerStartClientX
       this.offsetY =
         this._pointerStartOffsetY + event.clientY - this._pointerStartClientY
+      this._closeNodeTip()
       this.render()
       return
     }
@@ -1164,6 +1169,8 @@ export class ViewTree extends HTMLElement {
     if (nextHover !== this.hoverNodeIndex) {
       this.hoverNodeIndex = nextHover
       this.canvas.style.cursor = nextHover >= 0 ? "pointer" : "default"
+      if (nextHover >= 0) this._openNodeTip(nextHover, event)
+      else this._closeNodeTip()
       this.render()
     }
   }
@@ -1172,7 +1179,75 @@ export class ViewTree extends HTMLElement {
     if (this.canvas?.hasPointerCapture?.(event.pointerId))
       this.canvas.releasePointerCapture(event.pointerId)
     this._pointerMode = "idle"
+    if (event.type === "pointerleave") {
+      this.hoverNodeIndex = -1
+      this._closeNodeTip()
+      this.render()
+    }
     this.canvas.style.cursor = this.hoverNodeIndex >= 0 ? "pointer" : "default"
+  }
+
+  _worldAabbToClientAabb(worldAabb) {
+    const rect = this.canvas.getBoundingClientRect()
+    const scaleX = rect.width / Math.max(1, this.canvas.width)
+    const scaleY = rect.height / Math.max(1, this.canvas.height)
+    return {
+      kind: "aabb",
+      x: rect.left + (worldAabb.x * this.scale + this.offsetX) * scaleX,
+      y: rect.top + (worldAabb.y * this.scale + this.offsetY) * scaleY,
+      width: worldAabb.width * this.scale * scaleX,
+      height: worldAabb.height * this.scale * scaleY,
+    }
+  }
+
+  _nodeTipContent(index) {
+    const node = this.treeData[index]
+    assert(node, `view-tree missing node ${index}`)
+    const entries = Object.entries(node.data || {}).map(([key, value]) => `${key}: ${value}`)
+    return [`node: ${index}`, `parent: ${node.parent}`, ...entries].join("\n")
+  }
+
+  _openNodeTip(index, event) {
+    if (this.hoverTooltipNodeIndex === index) return
+    const pos = this.nodePositions.get(index)
+    assert(pos, `view-tree missing node position ${index}`)
+    const aabb = this._worldAabbToClientAabb(pos)
+    this.hoverTooltipNodeIndex = index
+    void runtime
+      .call("ui.tooltip.tip", {
+        anchor: {
+          kind: "point",
+          x: event.clientX,
+          y: event.clientY,
+        },
+        track: aabb,
+        trackPadding: 2,
+        followPointer: true,
+        pointerOffsetX: 14,
+        pointerOffsetY: 18,
+        content: this._nodeTipContent(index),
+        minWidth: 220,
+      })
+      .then((result) => {
+        const payload = unwrap(result, "ui.tooltip.tip")
+        if (this.hoverTooltipNodeIndex === index) {
+          this.hoverTooltipId = Number(payload.id)
+          return
+        }
+        void runtime.call("ui.tooltip.close", { id: payload.id, reason: "stale-hover" })
+      })
+  }
+
+  _closeNodeTip() {
+    if (this.hoverTooltipNodeIndex < 0 && this.hoverTooltipId <= 0) return
+    const tooltipId = this.hoverTooltipId
+    this.hoverTooltipNodeIndex = -1
+    this.hoverTooltipId = 0
+    if (tooltipId > 0)
+      void runtime.call("ui.tooltip.close", {
+        id: tooltipId,
+        reason: "view-tree-hover",
+      })
   }
 
   _hitTestNode(worldX, worldY) {

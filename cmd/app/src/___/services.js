@@ -10,6 +10,7 @@ function doInit(config) {
         require("ui-plugins/layout.js"),
         require("ui-plugins/toast.js"),
         require("ui-plugins/popup.js"),
+        require("ui-plugins/tooltip.js"),
     ]).then(([{ createUiContext }, { createUiKeys }]) => {
         runtime.register(createUiContext())
         runtime.register(createUiKeys(config))
@@ -35,6 +36,8 @@ function doInit(config) {
         const popup = document.querySelector("popup-manager")
         runtime.register({ id: "ui.popup", methods: popup.api })
         popup.setViewRegistry(viewRegistry)
+        const tooltip = document.querySelector("tooltip-manager")
+        runtime.register({ id: "ui.tooltip", methods: tooltip.api })
 
         window.onerror = function (_message, _source, _lineno, _colno, error) {
             runtime.call("ui.toast.error", errorParse(error))
@@ -52,6 +55,7 @@ export async function init(config) {
     const fragment = new DocumentFragment()
     fragment.appendChild(document.createElement("ui-layout"))
     fragment.appendChild(document.createElement("popup-manager"))
+    fragment.appendChild(document.createElement("tooltip-manager"))
     fragment.appendChild(document.createElement("toast-manager"))
 
     void doInit(config)

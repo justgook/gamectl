@@ -1,5 +1,4 @@
 import { runtime, unwrap } from "/core/runtime.js"
-import { showContextMenu } from "/util/context-menu.js"
 import { registerViewPlugin, unregisterViewPlugin } from "/util/view-plugin.js"
 
 function luaStringLiteral(value) {
@@ -1478,7 +1477,7 @@ end`
         ]
     }
 
-    _buildNodeContextMenuItems(worldPoint) {
+    _buildNodeContextMenuItems() {
         const presetEntries = this._nodePresetEntries()
         const groups = new Map()
         for (const entry of presetEntries) {
@@ -1496,15 +1495,16 @@ end`
                 label: "Base",
                 items: this._contextMenuBaseEntries().map((entry) => ({
                     label: entry.label,
-                    action: async () => this.createNodeFromDraftAt(entry.draft, worldPoint),
+                    keywords: [entry.label],
+                    value: { draft: entry.draft },
                 })),
             },
             ...orderedGroups.map((group) => ({
                 label: group,
                 items: groups.get(group).map((entry) => ({
                     label: entry.name,
-                    action: async () =>
-                        this.createNodeFromDraftAt(normalizePresetDraft(entry.data, entry.kind), worldPoint),
+                    keywords: [entry.name, group, String(entry.data?.kind || "")],
+                    value: { draft: normalizePresetDraft(entry.data, entry.kind) },
                 })),
             })),
         ]
@@ -1853,7 +1853,7 @@ end`
         this.canvas.removeEventListener("copy", this._onCopy)
         this.canvas.removeEventListener("paste", this._onPaste)
         this.canvas.removeEventListener("contextmenu", this._onContextMenu)
-        this.nodeContextMenu?.close()
+        void runtime.call("ui.tooltip.closeAll")
         this.nodeContextMenu = null
     }
 
@@ -1866,11 +1866,21 @@ end`
         event.preventDefault()
         this.canvas.focus()
         if (!this.nodePresetConfig) await this._loadNodePresetConfig()
-        this.nodeContextMenu = showContextMenu({
-            x: event.clientX,
-            y: event.clientY,
-            items: this._buildNodeContextMenuItems(worldPoint),
-        })
+        const result = unwrap(
+            await runtime.call("ui.tooltip.contextMenu", {
+                anchor: {
+                    kind: "point",
+                    x: event.clientX,
+                    y: event.clientY,
+                },
+                searchable: true,
+                placeholder: "Search node presets…",
+                items: this._buildNodeContextMenuItems(),
+            }),
+            "ui.tooltip.contextMenu",
+        )
+        if (!result.ok) return
+        await this.createNodeFromDraftAt(result.selected.value.draft, worldPoint)
     }
 
     _onCopy(event) {
