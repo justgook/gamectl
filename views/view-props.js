@@ -41,7 +41,7 @@ export class ViewProps extends HTMLElement {
           <legend data-element="legend">Properties</legend>
           <table data-element="props">
             <thead>
-              <tr><th>Key</th><th>Value</th><th>Actions</th></tr>
+              <tr><th>Key</th><th>Value</th><th></th></tr>
             </thead>
             <tbody></tbody>
           </table>

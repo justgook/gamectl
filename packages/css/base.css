@@ -451,6 +451,11 @@
             box-shadow 120ms;
     }
 
+    td > input {
+        width: 100%;
+        height: 100%;
+    }
+
     code-editor {
         --code-editor-rows: 12;
         --code-editor-line-height: 1.45;
@@ -806,6 +811,9 @@
         border-collapse: collapse;
         border-spacing: 0;
         color: inherit;
+    }
+    table:has(td > button) {
+        table-layout: auto;
     }
 
     th,

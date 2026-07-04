@@ -461,7 +461,8 @@
     input[type="tel"],
     input[type="number"],
     input[type="search"],
-    select {
+    select,
+    td > textarea {
         padding: 3px 4px;
         border: none;
         box-shadow: var(--border-field);
@@ -482,11 +483,87 @@
     select {
         height: 21px;
     }
+    td > input[type="text"],
+    td > input[type="password"],
+    td > input[type="email"],
+    td > input[type="url"],
+    td > input[type="tel"],
+    td > input[type="search"],
+    td > select,
+    td > textarea {
+        width: 100%;
+        height: 100%;
+        background: none;
+        border-radius: 0;
+    }
 
+    table > tbody > tr > td:has(> input) {
+        padding: 0;
+    }
+
+    table > tbody > tr > td:has(> textarea) {
+        padding: 0;
+    }
+
+    table > tbody > tr > td > textarea {
+        margin-top: 3px;
+        resize: vertical;
+    }
+
+    table > tbody > tr > td > textarea::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
+
+    table > tbody > tr > td > textarea::-webkit-scrollbar-track,
+    table > tbody > tr > td > textarea::-webkit-scrollbar-thumb {
+        border-right: 3px solid transparent;
+        background-clip: padding-box;
+    }
+
+    table > tbody > tr > td > textarea::-webkit-scrollbar-track:vertical,
+    table > tbody > tr > td > textarea::-webkit-scrollbar-thumb:vertical {
+        border-top: 3px solid transparent;
+    }
+
+    /* table > tbody > tr > td > textarea::-webkit-scrollbar-button:vertical:start:decrement, */
+    /* table > tbody > tr > td > textarea::-webkit-scrollbar-button:vertical:end:increment { */
+    /*     width: 12px; */
+    /*     height: 12px; */
+    /*     border-right: 3px solid transparent; */
+    /*     background-size: 12px 12px; */
+    /*     background-repeat: no-repeat; */
+    /*     background-position: left top; */
+    /*     background-clip: padding-box; */
+    /*     box-sizing: border-box; */
+    /* } */
+
+    table > tbody > tr > td > textarea::-webkit-scrollbar-button,
+    table > tbody > tr > td > textarea::-webkit-scrollbar-button:vertical:start:decrement,
+    table > tbody > tr > td > textarea::-webkit-scrollbar-button:vertical:end:increment,
+    table > tbody > tr > td > textarea::-webkit-scrollbar-button:horizontal:start:decrement,
+    table > tbody > tr > td > textarea::-webkit-scrollbar-button:horizontal:end:increment {
+        display: none;
+        width: 0;
+        height: 0;
+    }
+
+    table > tbody > tr > td > textarea::-webkit-scrollbar-corner,
+    table > tbody > tr > td > textarea::-webkit-resizer {
+        border-right: 3px solid transparent;
+        border-bottom: 3px solid transparent;
+        background-clip: padding-box;
+    }
     input[type="number"] {
-        /* need this 1 pixel to fit the spinner controls in box */
-        height: 22px;
+        height: 21px;
         width: 5em;
+        -moz-appearance: textfield;
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
     }
 
     /* clears the ‘X’ from Internet Explorer */
@@ -517,12 +594,7 @@
     input[type="tel"],
     input[type="number"],
     input[type="search"] {
-        /* For some reason descenders are getting cut off without this */
-        line-height: 2;
         text-indent: 2px;
-    }
-    input[type="number"] {
-        text-indent: calc(100% - 4em);
     }
 
     input[type="email"]:disabled,
@@ -898,9 +970,9 @@
         background-color: var(--dialog-blue);
     }
 
-    table > tbody > tr[aria-selected="true"] input {
-        color: #000;
-    }
+    /* table > tbody > tr[aria-selected="true"] input { */
+    /*     color: #000; */
+    /* } */
 
     table > tbody > tr > * {
         padding: 0 var(--grouped-element-spacing);
@@ -1357,7 +1429,6 @@
         text-align: center;
     }
 
-    table:has(tr:nth-of-type(4) > td > button > i) td,
     td:has(button:nth-of-type(4)) {
         padding: 4px 4px 0 4px;
         text-align: right;
