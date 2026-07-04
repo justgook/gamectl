@@ -49,6 +49,14 @@ Optional elements should appear at most once per view.
 - when add/edit flows are mostly the same, prefer one popup view with a mode prop over near-duplicate popup views.
 - reuse existing chooser/editor views such as `view-files`, `view-sql`, and `view-code` when they already fit the job.
 
+### Tooltip flows
+
+- tooltip, context menu, and autocomplete opening/closing should go through `runtime.call('ui.tooltip', ...)` instead of creating floating DOM directly in a view.
+- use `runtime.call('ui.tooltip.tip', ...)` for hover/read-only tips. Canvas views should pass screen-space AABB `track` regions so visibility is geometry-based instead of DOM-only.
+- use `runtime.call('ui.tooltip.contextMenu', ...)` for context menus tied to a clicked point or record.
+- use `runtime.call('ui.tooltip.autocomplete', ...)` for searchable/selectable completion menus next to pointer, caret, or input positions.
+- views should pass action/item data to `ui.tooltip` and then apply the resolved selection result; do not put context menu rendering, filtering, or keyboard navigation inside individual views.
+
 ## Intent
 
 - `.accent` - primary/default emphasis for main actions and highlighted UI state.
@@ -62,16 +70,24 @@ Optional elements should appear at most once per view.
 - `[role="buttongroup"]` - grouped related buttons, especially compact toolbars and one-off action groups.
 - `[role="buttongroup"] > button` - button inside a grouped toolbar.
 
-## Context menus
+## Tooltip / context menu / autocomplete surfaces
 
-- `menu[role="menu"]` - floating context menu surface opened from pointer/context-menu interactions.
-- `menu[role="menu"] > li` - context menu item wrapper.
-- `menu[role="menu"] menu[role="group"]` - grouped list of related context actions.
-- `menu[role="menu"] label` - non-interactive group heading inside a context menu.
-- `button[role="menuitem"]` - actionable context menu entry.
-- `button[role="menuitem"]:disabled` - unavailable context action.
+Core Views must request floating tooltip-family UI through the `ui.tooltip` UI Service. The service owns rendering, positioning, filtering, focus trapping, keyboard navigation, and close behavior.
 
-Use context menus for local actions tied to the clicked point/record. Prefer header controls or popup flows for global, multi-step, or form-heavy actions.
+- `view-tooltip` - service-created floating tooltip-family surface. Views should not create this element directly.
+- `view-tooltip[data-tooltip-type="tip"]` - read-only tip surface.
+- `view-tooltip[data-tooltip-type="context-menu"]` - context menu surface opened from pointer/context-menu interactions.
+- `view-tooltip[data-tooltip-type="autocomplete"]` - searchable/selectable completion surface.
+- `output[data-element="tooltip-tip"]` - read-only tip content container.
+- `input[type="search"][data-element="tooltip-search"]` - service-owned search field for context menu/autocomplete filtering.
+- `menu[role="menu"][data-element="tooltip-menu"]` - service-owned selectable menu surface.
+- `menu[role="menu"] > li` - context menu/autocomplete item wrapper.
+- `menu[role="menu"] menu[role="group"]` - grouped list of related actions/items.
+- `menu[role="menu"] label` - non-interactive group heading inside a context menu/autocomplete menu.
+- `button[role="menuitem"]` - actionable/selectable entry.
+- `button[role="menuitem"]:disabled` - unavailable action/item.
+
+Use context menus for local actions tied to the clicked point/record. Use autocomplete for searchable, selectable completion flows. Use tips for read-only hover details. Prefer header controls or popup flows for global, multi-step, or form-heavy actions.
 
 ## Form
 
@@ -170,9 +186,7 @@ Core Views should share reusable custom UI elements instead of hard-coding dupli
 
 ## Reusable UI utilities
 
-Reusable non-custom-element UI helpers may live in `packages/util/` when they create short-lived browser UI behavior rather than a mounted component.
-
-- `/util/context-menu.js` - creates floating `menu[role="menu"]` context menus from action data.
+Reusable non-custom-element UI helpers may live in `packages/util/` when they create short-lived browser UI behavior rather than a mounted component. Floating tooltip-family UI is not a utility concern; Core Views must use the `ui.tooltip` UI Service for tips, context menus, and autocomplete menus.
 
 ## Timeline widget
 
