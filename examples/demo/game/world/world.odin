@@ -54,6 +54,7 @@ World :: struct {
 	platformer:             logic.Component_Storage(Platformer),
 	grid:                   grid.Grid,
 	segments:               [dynamic][4]int,
+	segment_triggers:       map[^[4]int]Segment_Trigger,
 	collider:               logic.Component_Storage(shape.Capsule),
 	on_hit:                 logic.Component_Storage(proc(_: ^World, src, target: int)),
 	on_hurt:                logic.Component_Storage(proc(_: ^World, src, target: int)),
@@ -81,6 +82,7 @@ frame :: proc(w: ^World, dt: f64) {
 		sys_bullet(w)
 		sys_platformer(w)
 		sys_velocity(w)
+		sys_trigger(w)
 		sys_bullet_collision(w)
 	}
 
@@ -170,6 +172,11 @@ init :: proc(w: ^World) {
 	append(&w.segments, [4]int{256 * UNIT, 0, 256 * UNIT, 128 * UNIT})
 	for &segment in w.segments {
 		grid.add_segment(&w.grid, &segment)
+	}
+	w.segment_triggers = make(map[^[4]int]Segment_Trigger)
+	w.segment_triggers[&w.segments[len(&w.segments) - 2]] = Segment_Trigger {
+		id   = "demo.floor.start",
+		once = true,
 	}
 	// TODO: delete MOCK DATA
 
@@ -305,6 +312,7 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.animation)
 	logic.destroy_storage(&w.platformer_anim)
 	grid.destroy_grid(&w.grid)
+	delete(w.segment_triggers)
 	delete(w.segments)
 	logic.destroy_storage(&w.collider)
 	logic.destroy_storage(&w.on_hit)

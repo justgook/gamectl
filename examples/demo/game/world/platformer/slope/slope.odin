@@ -4,18 +4,19 @@ import "../../grid"
 import "../../shape"
 
 Config :: struct {
-	enabled:        bool,
-	max_rise:      int,
-	max_run:       int,
-	snap_up:       int,
-	snap_down:     int,
-	ground_stick:  int,
+	enabled:      bool,
+	max_rise:     int,
+	max_run:      int,
+	snap_up:      int,
+	snap_down:    int,
+	ground_stick: int,
 }
 
 Ground_Result :: struct {
-	ok:       bool,
-	delta_y:  int,
-	normal:   [2]int,
+	ok:      bool,
+	delta_y: int,
+	normal:  [2]int,
+	segment: ^[4]int,
 }
 
 Refresh_Ground :: proc(
@@ -54,15 +55,7 @@ Follow_Ground :: proc(
 		old_x := int(old_pos.x) + collider.x + offset
 		new_x := int(pos.x) + collider.x + offset
 
-		segment, old_ground_y, ok := find_walkable_ground_at_x(
-			g,
-			old_pos,
-			collider,
-			cfg,
-			old_x,
-			step_snap,
-			step_snap,
-		)
+		segment, old_ground_y, ok := find_walkable_ground_at_x(g, old_pos, collider, cfg, old_x, step_snap, step_snap)
 		if !ok || abs(segment.w - segment.y) == 0 {
 			continue
 		}
@@ -81,6 +74,7 @@ Follow_Ground :: proc(
 			ok = true,
 			delta_y = int(old_pos.y) + slope_delta - int(pos.y),
 			normal = Segment_Up_Normal(segment),
+			segment = segment,
 		}
 	}
 
@@ -102,12 +96,7 @@ Follow_Ground :: proc(
 	return {}
 }
 
-Stick_To_Ground :: proc(
-	g: ^grid.Grid,
-	pos: ^[2]i32,
-	collider: ^shape.Capsule,
-	cfg: Config,
-) -> Ground_Result {
+Stick_To_Ground :: proc(g: ^grid.Grid, pos: ^[2]i32, collider: ^shape.Capsule, cfg: Config) -> Ground_Result {
 	snap_up, snap_down := ground_snap(cfg, collider)
 	offsets := [3]int{0, collider.radius, -collider.radius}
 	return find_ground_delta_for_offsets(g, pos, collider, cfg, offsets, snap_up, snap_down)
@@ -212,15 +201,14 @@ find_walkable_ground_at_x :: proc(
 	support_x: int,
 	snap_up: int,
 	snap_down: int,
-) -> (segment: ^[4]int, contact_y: int, ok: bool) {
+) -> (
+	segment: ^[4]int,
+	contact_y: int,
+	ok: bool,
+) {
 	bounds := capsule_local_aabb(collider)
 	bottom := int(pos.y) + bounds.y
-	probe := [4]int {
-		int(pos.x) + bounds.x,
-		bottom - snap_down,
-		int(pos.x) + bounds.z,
-		bottom + snap_up,
-	}
+	probe := [4]int{int(pos.x) + bounds.x, bottom - snap_down, int(pos.x) + bounds.z, bottom + snap_up}
 	found := grid.query_aabb(g, &probe)
 	defer delete(found)
 
@@ -270,7 +258,7 @@ find_walkable_ground_delta :: proc(
 	}
 	bounds := capsule_local_aabb(collider)
 	bottom := int(pos.y) + bounds.y
-	return {ok = true, delta_y = contact_y - bottom, normal = Segment_Up_Normal(segment)}
+	return {ok = true, delta_y = contact_y - bottom, normal = Segment_Up_Normal(segment), segment = segment}
 }
 
 @(private = "file")

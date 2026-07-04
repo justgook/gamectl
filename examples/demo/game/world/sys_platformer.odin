@@ -81,6 +81,8 @@ Platformer :: struct {
 	hit_ceiling:      bool,
 	ground_normal:    [2]int,
 	wall_normal:      [2]int,
+	ground_segment:   ^[4]int,
+	wall_segment:     ^[4]int,
 	coyote_timer:     int,
 	jump_buffer:      int,
 	jump_frames:      int,
@@ -168,6 +170,7 @@ platformer_refresh_ground :: proc(
 	if vel.y <= 0 && p.on_ground {
 		p.on_ground = false
 		p.ground_normal = {}
+		p.ground_segment = nil
 	}
 }
 
@@ -389,10 +392,12 @@ platformer_move_and_collide :: proc(
 	if vel.y > 0 {
 		p.on_ground = false
 		p.ground_normal = {}
+		p.ground_segment = nil
 	}
 	if vel.x != 0 {
 		p.on_wall = false
 		p.wall_normal = {}
+		p.wall_segment = nil
 	}
 
 	old_pos := pos^
@@ -416,6 +421,7 @@ platformer_move_and_collide :: proc(
 		} else {
 			p.on_ground = false
 			p.ground_normal = {}
+			p.ground_segment = nil
 		}
 	}
 	if p.on_wall && vel.x == 0 {
@@ -458,7 +464,12 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 			continue
 		}
 
-		contact_x, ok := segment_x_at_aabb_y(wall, int(pos.y) + bounds.y, int(pos.y) + bounds.w, int(pos.y) + collider.y)
+		contact_x, ok := segment_x_at_aabb_y(
+			wall,
+			int(pos.y) + bounds.y,
+			int(pos.y) + bounds.w,
+			int(pos.y) + collider.y,
+		)
 		if !ok {
 			continue
 		}
@@ -469,12 +480,14 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 				best_x = min(best_x, candidate)
 				p.on_wall = true
 				p.wall_normal = normal
+				p.wall_segment = wall
 			}
 		} else {
 			if start_x + bounds.x >= contact_x && end_x + bounds.x <= contact_x {
 				best_x = max(best_x, candidate)
 				p.on_wall = true
 				p.wall_normal = normal
+				p.wall_segment = wall
 			}
 		}
 	}
@@ -526,7 +539,12 @@ move_y_and_collide :: proc(
 
 		contact_y, ok := segment_y_at_support_x(floor, int(pos.x) + collider.x)
 		if !ok && vel.y > 0 {
-			contact_y, ok = segment_y_at_aabb_x(floor, int(pos.x) + bounds.x, int(pos.x) + bounds.z, int(pos.x) + collider.x)
+			contact_y, ok = segment_y_at_aabb_x(
+				floor,
+				int(pos.x) + bounds.x,
+				int(pos.x) + bounds.z,
+				int(pos.x) + collider.x,
+			)
 		}
 		if !ok {
 			continue
@@ -538,6 +556,7 @@ move_y_and_collide :: proc(
 				best_y = max(best_y, candidate)
 				p.on_ground = true
 				p.ground_normal = normal
+				p.ground_segment = floor
 			}
 		} else {
 			if start_y + bounds.w <= contact_y && end_y + bounds.w >= contact_y {
@@ -568,6 +587,7 @@ stick_to_wall :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p
 
 	best_delta := stick + 1
 	best_normal := [2]int{}
+	best_segment: ^[4]int = nil
 	for wall in found {
 		normal := segment_left_normal(wall)
 		if abs(normal.x) < abs(normal.y) {
@@ -584,15 +604,18 @@ stick_to_wall :: proc(g: ^grid.Grid, pos: ^Position, collider: ^shape.Capsule, p
 		if abs(delta) <= stick && abs(delta) < abs(best_delta) {
 			best_delta = delta
 			best_normal = normal
+			best_segment = wall
 		}
 	}
 
 	if best_delta <= stick {
 		p.on_wall = true
 		p.wall_normal = best_normal
+		p.wall_segment = best_segment
 	} else {
 		p.on_wall = false
 		p.wall_normal = {}
+		p.wall_segment = nil
 	}
 }
 
@@ -602,6 +625,7 @@ apply_ground_result :: proc(pos: ^Position, vel: ^Velocity, p: ^Platformer, resu
 	vel.y = 0
 	p.on_ground = true
 	p.ground_normal = result.normal
+	p.ground_segment = result.segment
 }
 
 @(private = "file")
