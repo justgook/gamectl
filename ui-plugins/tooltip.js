@@ -263,7 +263,7 @@ export class ViewTooltip extends HTMLElement {
         this.renderSelectable(options)
         this.position(options)
         this.addGlobalListeners({ pointerMove: false, pointerDown: this.closeOnOutsidePointer, keyDown: options.closeOnEscape !== false })
-        this.focusInitialElement()
+        if (options.focusOnOpen !== false) this.focusInitialElement()
     }
 
     addGlobalListeners({ pointerMove, pointerDown, keyDown }) {

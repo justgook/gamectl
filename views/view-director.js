@@ -73,12 +73,21 @@ function entityIdFromEntityText(entityText) {
     return match ? match[1] : ""
 }
 
-function propertyKeysFromText(text) {
-    const keys = new Set()
-    for (const match of String(text || "").matchAll(/\.-?([A-Za-z0-9_-]+)/g)) {
-        if (match[1]) keys.add(match[1])
+function parseEntityCompletionData(entityText, entities, properties) {
+    const [entityId, ...propertyParts] = String(entityText || "").replace(/\(.+?\)/g, "").split(".")
+    if (entityId) entities.add(entityId)
+    for (const propertyPart of propertyParts) {
+        const propertyName = propertyPart.replace(/=.+$/, "")
+        if (propertyName) properties.add(propertyName)
     }
-    return keys
+}
+
+function parseRuleCompletionData(ruleText, properties) {
+    const doClause = String(ruleText || "").split("DO:")[1]
+    if (!doClause) return
+    for (const match of doClause.replace(/\(.+?\)/g, "").matchAll(/\.-?([a-z0-9_-]+)/g)) {
+        if (match[1]) properties.add(match[1].replace(/=.+$/, ""))
+    }
 }
 
 function validateDirectorDocument(document) {
@@ -108,27 +117,30 @@ function validateDirectorDocument(document) {
     return errors
 }
 
-function completionContext(input, mode) {
+function completionContext(input, isRule) {
     const value = input.value
     const cursor = Number(input.selectionStart || 0)
     const before = value.slice(0, cursor)
-    const propertyMatch = before.match(/((?:\$|\*|[A-Za-z0-9_-]+)\.-?)([A-Za-z0-9_-]*)$/)
-    if (propertyMatch) {
-        return {
-            kind: "property",
-            prefix: propertyMatch[2],
-            start: cursor - propertyMatch[2].length,
-            end: cursor,
-        }
-    }
 
-    const entityPattern = mode === "manifest" ? /(^|[A-Za-z0-9_-]+=\(?(?:link\s+)?)([A-Z0-9_-]*)$/ : /(\s*|[A-Za-z0-9_-]+=\(?(?:link\s+)?)([A-Z0-9_-]*)$/
+    const entityPattern = isRule
+        ? /(\s*|[a-z0-9_-]+=(?:\((?:link\s)?)?)([A-Z0-9\-_]+)$/
+        : /(^|[a-z0-9_-]+=(?:\((?:link\s)?)?)([A-Z0-9\-_]+)$/
     const entityMatch = before.match(entityPattern)
     if (entityMatch) {
         return {
             kind: "entity",
             prefix: entityMatch[2],
             start: cursor - entityMatch[2].length,
+            end: cursor,
+        }
+    }
+
+    const propertyMatch = before.match(/((?:\$|\*|[A-Za-z0-9_-]+)\.-?)([a-z0-9_-]*)$/)
+    if (propertyMatch) {
+        return {
+            kind: "property",
+            prefix: propertyMatch[2],
+            start: cursor - propertyMatch[2].length,
             end: cursor,
         }
     }
@@ -163,6 +175,8 @@ export class ViewDirector extends HTMLElement {
         this.manifestTableElement = null
         this.rulesTableElement = null
         this.settingsPanelElement = null
+        this.autocompleteRequestId = 0
+        this.suppressAutocompleteInput = false
     }
 
     connectedCallback() {
@@ -239,6 +253,7 @@ export class ViewDirector extends HTMLElement {
         this.addEventListener("input", (event) => this.handleInput(event))
         this.addEventListener("keydown", (event) => this.handleKeyDown(event))
         this.addEventListener("click", (event) => this.handleClick(event))
+        this.addEventListener("focusin", (event) => this.handleFocusIn(event))
 
         this.mountHeaderControls()
         void this.load()
@@ -554,8 +569,16 @@ export class ViewDirector extends HTMLElement {
         const row = target.closest("tr[data-row-id]")
         if (!(row instanceof HTMLTableRowElement)) return
         this.selectRow(row)
-        this.updateRowField(String(row.dataset.kind || ""), String(row.dataset.rowId || ""), field, target.value)
+        const kind = String(row.dataset.kind || "")
+        this.updateRowField(kind, String(row.dataset.rowId || ""), field, target.value)
         this.markDirty()
+        if (field === "entity" || field === "rule") {
+            if (this.suppressAutocompleteInput) {
+                this.suppressAutocompleteInput = false
+                return
+            }
+            void this.autocomplete(target, kind === "rules")
+        }
     }
 
     syncSettingsFromDom() {
@@ -578,63 +601,77 @@ export class ViewDirector extends HTMLElement {
         row[field] = value
     }
 
+    handleFocusIn(event) {
+        if (!(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)) return
+        const field = String(event.target.dataset.field || "")
+        if (field !== "entity" && field !== "rule") return
+        const row = event.target.closest("tr[data-row-id]")
+        if (!(row instanceof HTMLTableRowElement)) return
+        void this.autocomplete(event.target, String(row.dataset.kind || "") === "rules")
+    }
+
     handleKeyDown(event) {
         if (!(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)) return
-        if ((event.ctrlKey || event.metaKey) && event.key === " ") {
-            event.preventDefault()
-            void this.autocomplete(event.target)
-            return
-        }
         if (event.key === "Escape") void runtime.call("ui.tooltip.closeAll")
     }
 
-    async autocomplete(input) {
+    async autocomplete(input, isRule) {
         const row = input.closest("tr[data-row-id]")
         if (!(row instanceof HTMLTableRowElement)) return false
         const field = String(input.dataset.field || "")
         if (field !== "entity" && field !== "rule") return false
-        const context = completionContext(input, field === "entity" ? "manifest" : "rules")
+        const context = completionContext(input, isRule)
         if (!context) {
-            this.setStatus("No completion available at cursor", "info")
+            await runtime.call("ui.tooltip.closeAll")
             return false
         }
         const items = this.completionItems(context.kind, context.prefix)
         if (!items.length) {
-            this.setStatus(`No ${context.kind} completions`, "info")
+            await runtime.call("ui.tooltip.closeAll")
             return false
         }
+
+        const requestId = ++this.autocompleteRequestId
         const result = unwrap(
             await runtime.call("ui.tooltip.autocomplete", {
                 anchor: { kind: "caret", input },
-                placement: "bottom",
-                minWidth: 260,
-                placeholder: `Search ${context.kind}...`,
+                placement: "top",
+                minWidth: 220,
+                maxHeight: "14rem",
+                searchable: false,
+                focusOnOpen: false,
                 items,
             }),
         )
+        if (requestId !== this.autocompleteRequestId) return false
         if (!result || result.cancelled || !result.selected) return false
+        this.suppressAutocompleteInput = true
         replaceInputRange(input, context.start, context.end, String(result.selected.value))
         return true
     }
 
     completionItems(kind, prefix) {
-        const normalizedPrefix = String(prefix || "").toLowerCase()
         const values = kind === "entity" ? this.entityIds() : this.propertyKeys()
         return values
-            .filter((value) => value.toLowerCase().startsWith(normalizedPrefix))
-            .sort((a, b) => a.localeCompare(b))
+            .filter((value) => value.startsWith(prefix))
+            .slice(0, 4)
             .map((value) => ({ label: value, value, group: kind === "entity" ? "Entities" : "Properties" }))
     }
 
+    completionData() {
+        const entities = new Set()
+        const properties = new Set()
+        for (const row of this.document.manifest) parseEntityCompletionData(row.entity, entities, properties)
+        for (const row of this.document.rules) parseRuleCompletionData(row.rule, properties)
+        return { entities, properties }
+    }
+
     entityIds() {
-        return [...new Set(this.document.manifest.map((row) => entityIdFromEntityText(row.entity)).filter(Boolean))]
+        return [...this.completionData().entities]
     }
 
     propertyKeys() {
-        const keys = new Set()
-        for (const row of this.document.manifest) for (const key of propertyKeysFromText(row.entity)) keys.add(key)
-        for (const row of this.document.rules) for (const key of propertyKeysFromText(row.rule)) keys.add(key)
-        return [...keys]
+        return [...this.completionData().properties]
     }
 }
 
