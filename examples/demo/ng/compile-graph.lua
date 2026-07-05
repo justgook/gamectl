@@ -11,6 +11,7 @@
 -- Generated program conventions:
 --   * code-node scripts execute with `inputs` and `outputs` tables in scope
 --   * branch activity is available as `inputs.active[portId]`
+--   * port names are available as `inputs.names[portId]` / `outputs.names[portId]`
 --   * outgoing branch activity is controlled with `outputs.active[portId]`
 --   * code-node scripts may also use `_G.inputs` and `_G.outputs`
 --   * final graph results are returned from generated main()
@@ -473,6 +474,7 @@ local function emitInputAssignments(node)
 		emit(("  inputs.active[%d] = %s"):format(inputPort.id, activeExpr))
 		if inputPort.name and inputPort.name ~= "" then
 			emit(("  inputs.active[%s] = %s"):format(luaString(inputPort.name), activeExpr))
+			emit(("  inputs.names[%d] = %s"):format(inputPort.id, luaString(inputPort.name)))
 		end
 	end
 end
@@ -492,6 +494,7 @@ local function emitOutputDefaults(node)
 		emit(("  outputs.active[%d] = true"):format(outputPort.id))
 		if outputPort.name and outputPort.name ~= "" then
 			emit(("  outputs.active[%s] = true"):format(luaString(outputPort.name)))
+			emit(("  outputs.names[%d] = %s"):format(outputPort.id, luaString(outputPort.name)))
 		end
 	end
 end
@@ -582,8 +585,8 @@ local function emitCodeNode(node)
 	emit(("__ng_node_active = %s"):format(nodeActiveExpr(node)))
 	emit("if __ng_node_active then")
 	emit(("  __ng_node_start(%d)"):format(node.id))
-	emit("  local inputs = { active = {} }")
-	emit("  local outputs = { active = {} }")
+	emit("  local inputs = { active = {}, names = {} }")
+	emit("  local outputs = { active = {}, names = {} }")
 	emit("  _G.inputs = inputs")
 	emit("  _G.outputs = outputs")
 	emit("  __ng_ok, __ng_err = xpcall(function()")

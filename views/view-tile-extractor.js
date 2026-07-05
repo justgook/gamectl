@@ -1,0 +1,566 @@
+import { runtime, unwrap } from "/core/runtime.js"
+import { ViewCanvasBase } from "/util/view-canvas-base.js"
+import { decode as decodeQoi } from "/util/qoi/decode.js"
+
+const TEXT_INPUT_ATTRS = 'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"'
+const TILE_COLORS = [
+  "rgba(230,25,75,0.30)",
+  "rgba(60,180,75,0.30)",
+  "rgba(255,225,25,0.30)",
+  "rgba(67,99,216,0.30)",
+  "rgba(245,130,49,0.30)",
+  "rgba(145,30,180,0.30)",
+  "rgba(70,240,240,0.30)",
+  "rgba(240,50,230,0.30)",
+]
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message)
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+}
+
+function basename(path) {
+  const parts = String(path || "").split("/").filter(Boolean)
+  return parts.length > 0 ? parts[parts.length - 1] : "extracted"
+}
+
+function stem(path) {
+  return basename(path).replace(/\.[^.]+$/u, "") || "extracted"
+}
+
+function getExtension(path) {
+  const name = basename(path)
+  const parts = name.split(".")
+  if (parts.length <= 1) return ""
+  return parts.pop().toLowerCase()
+}
+
+function mimeTypeForPath(path) {
+  const ext = getExtension(path)
+  if (ext === "png") return "image/png"
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg"
+  if (ext === "webp") return "image/webp"
+  if (ext === "gif") return "image/gif"
+  if (ext === "bmp") return "image/bmp"
+  return "application/octet-stream"
+}
+
+function createCanvasFromQoi(bytes) {
+  const decoded = decodeQoi(bytes.buffer, bytes.byteOffset, bytes.byteLength, 4)
+  const pixels = new Uint8ClampedArray(decoded.data.buffer, decoded.data.byteOffset, decoded.data.byteLength)
+  const canvas = document.createElement("canvas")
+  canvas.width = decoded.width
+  canvas.height = decoded.height
+  const ctx = canvas.getContext("2d")
+  assert(ctx, "view-tile-extractor qoi canvas requires 2d context")
+  ctx.putImageData(new ImageData(pixels, decoded.width, decoded.height), 0, 0)
+  return canvas
+}
+
+export class ViewTileExtractor extends ViewCanvasBase {
+  static get observedAttributes() {
+    return ["data-source", "data-output-dir"]
+  }
+
+  constructor() {
+    super()
+    this.sourcePath = ""
+    this.outputDir = "tiles"
+    this.tileW = 16
+    this.tileH = 16
+    this.tolerance = 0
+    this.skipNthPixel = 1
+    this.showGrid = true
+    this.highlightDuplicates = true
+    this.sourceImage = null
+    this.sourceWidth = 0
+    this.sourceHeight = 0
+    this.extractOutput = null
+    this.hoveredTile = { x: -1, y: -1 }
+    this.hoverTooltipTileKey = ""
+    this.hoverTooltipId = 0
+    this.statusElement = null
+    this.resultElement = null
+    this.previewBody = null
+  }
+
+  connectedCallback() {
+    if (this.dataset.ready) return
+    this.dataset.ready = "1"
+
+    this.sourcePath = String(this.popupProps?.path || this.getAttribute("data-source") || "").trim()
+    this.outputDir = String(this.getAttribute("data-output-dir") || "tiles").trim()
+
+    this.innerHTML = `
+      <canvas data-element="canvas"></canvas>
+      <aside data-element="settings">
+        <fieldset>
+          <legend>Source</legend>
+          <label>Image path
+            <input type="text" data-field="source-path" value="${escapeHtml(this.sourcePath)}" ${TEXT_INPUT_ATTRS}>
+          </label>
+          <label>Output directory
+            <input type="text" data-field="output-dir" value="${escapeHtml(this.outputDir)}" ${TEXT_INPUT_ATTRS}>
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Tile size</legend>
+          <label>Width
+            <input type="number" min="1" step="1" data-field="tile-w" value="${this.tileW}" ${TEXT_INPUT_ATTRS}>
+          </label>
+          <label>Height
+            <input type="number" min="1" step="1" data-field="tile-h" value="${this.tileH}" ${TEXT_INPUT_ATTRS}>
+          </label>
+          <label>Tolerance
+            <input type="number" min="0" step="1" data-field="tolerance" value="${this.tolerance}" ${TEXT_INPUT_ATTRS}>
+          </label>
+          <label>Sample every Nth pixel
+            <input type="number" min="1" step="1" data-field="skip-nth-pixel" value="${this.skipNthPixel}" ${TEXT_INPUT_ATTRS}>
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>Display</legend>
+          <label><input type="checkbox" data-field="show-grid" checked> Show grid</label>
+          <label><input type="checkbox" data-field="highlight-duplicates" checked> Highlight duplicate tiles</label>
+        </fieldset>
+        <fieldset>
+          <legend>Actions</legend>
+          <button type="button" data-action="load">Load image</button>
+          <button type="button" data-action="detect-size">Auto detect size</button>
+          <button type="button" data-action="extract" class="accent">Extract tiles</button>
+          <button type="button" data-action="save-tileset" disabled>Save tileset QOI</button>
+          <button type="button" data-action="save-tilemap" disabled>Save tilemap JSON</button>
+        </fieldset>
+        <fieldset>
+          <legend>Status</legend>
+          <output data-element="status">Ready</output>
+          <output data-element="result">No extraction performed</output>
+        </fieldset>
+        <table data-element="tilebank" data-layout="separate">
+          <caption>Unique tiles</caption>
+          <thead><tr><th>ID</th><th>Source</th><th>Hash</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </aside>
+      <footer data-element="footer">
+        <output data-element="footer-status">Tile extractor</output>
+      </footer>
+    `
+
+    this.statusElement = this.querySelector('[data-element="status"]')
+    this.resultElement = this.querySelector('[data-element="result"]')
+    this.previewBody = this.querySelector('[data-element="tilebank"] tbody')
+    assert(this.statusElement instanceof HTMLOutputElement, "view-tile-extractor missing status output")
+    assert(this.resultElement instanceof HTMLOutputElement, "view-tile-extractor missing result output")
+    assert(this.previewBody instanceof HTMLTableSectionElement, "view-tile-extractor missing tilebank table body")
+
+    this.bindControls()
+    super.connectedCallback()
+
+    if (this.sourcePath) void this.loadSourceImage()
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (oldValue === newValue) return
+    if (name === "data-source") {
+      this.sourcePath = String(newValue || "").trim()
+      const input = this.querySelector('[data-field="source-path"]')
+      if (input instanceof HTMLInputElement) input.value = this.sourcePath
+      if (this.dataset.ready && this.sourcePath) void this.loadSourceImage()
+      return
+    }
+    if (name === "data-output-dir") {
+      this.outputDir = String(newValue || "").trim()
+      const input = this.querySelector('[data-field="output-dir"]')
+      if (input instanceof HTMLInputElement) input.value = this.outputDir
+    }
+  }
+
+  createViewPluginMethods() {
+    return {
+      reload: async () => {
+        await this.loadSourceImage()
+        return { ok: true }
+      },
+      extract: async () => {
+        await this.extractTiles()
+        return { ok: true }
+      },
+      save: async () => {
+        await this.saveTilemapJson()
+        return { ok: true }
+      },
+      zoomIn: () => this.zoomIn(),
+      zoomOut: () => this.zoomOut(),
+      zoomFit: () => this.zoomFit(),
+    }
+  }
+
+  createHeaderControlsElement() {
+    const controls = document.createElement("div")
+    controls.dataset.element = "toolbar"
+    controls.innerHTML = `
+      <div role="buttongroup" data-element="file-actions">
+        <button type="button" data-action="reload" aria-label="Reload" title="Reload"><i aria-hidden="true">refresh</i></button>
+        <button type="button" data-action="save" aria-label="Save tilemap" title="Save tilemap"><i aria-hidden="true">save</i></button>
+      </div>
+      <div role="buttongroup" data-element="tool-actions">
+        <button type="button" data-action="extract" aria-label="Extract tiles" title="Extract tiles"><i aria-hidden="true">auto_awesome_motion</i></button>
+      </div>
+      <div role="buttongroup" data-element="view-actions">
+        <button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in"><i aria-hidden="true">zoom_in</i></button>
+        <button type="button" data-action="zoom-fit" aria-label="Fit" title="Fit"><i aria-hidden="true">fit_screen</i></button>
+        <button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out"><i aria-hidden="true">zoom_out</i></button>
+      </div>
+    `
+    controls.querySelector('[data-action="reload"]').addEventListener("click", () => this.loadSourceImage())
+    controls.querySelector('[data-action="save"]').addEventListener("click", () => this.saveTilemapJson())
+    controls.querySelector('[data-action="extract"]').addEventListener("click", () => this.extractTiles())
+    controls.querySelector('[data-action="zoom-in"]').addEventListener("click", () => this.zoomIn())
+    controls.querySelector('[data-action="zoom-fit"]').addEventListener("click", () => this.zoomFit())
+    controls.querySelector('[data-action="zoom-out"]').addEventListener("click", () => this.zoomOut())
+    return controls
+  }
+
+  bindControls() {
+    const sourceInput = this.requiredInput('[data-field="source-path"]')
+    sourceInput.addEventListener("change", () => {
+      this.sourcePath = sourceInput.value.trim()
+      assert(this.sourcePath, "view-tile-extractor requires source path")
+    })
+
+    const outputInput = this.requiredInput('[data-field="output-dir"]')
+    outputInput.addEventListener("change", () => {
+      this.outputDir = outputInput.value.trim()
+      assert(this.outputDir, "view-tile-extractor requires output directory")
+    })
+
+    this.bindNumberField("tile-w", (value) => {
+      this.tileW = value
+      this.draw()
+    })
+    this.bindNumberField("tile-h", (value) => {
+      this.tileH = value
+      this.draw()
+    })
+    this.bindNumberField("tolerance", (value) => {
+      this.tolerance = value
+    })
+    this.bindNumberField("skip-nth-pixel", (value) => {
+      this.skipNthPixel = value
+    })
+
+    this.requiredInput('[data-field="show-grid"]').addEventListener("change", (event) => {
+      this.showGrid = event.target.checked
+      this.draw()
+    })
+    this.requiredInput('[data-field="highlight-duplicates"]').addEventListener("change", (event) => {
+      this.highlightDuplicates = event.target.checked
+      this.draw()
+    })
+
+    this.requiredButton("load").addEventListener("click", () => this.loadSourceImage())
+    this.requiredButton("detect-size").addEventListener("click", () => this.autoDetectSize())
+    this.requiredButton("extract").addEventListener("click", () => this.extractTiles())
+    this.requiredButton("save-tileset").addEventListener("click", () => this.saveTileset())
+    this.requiredButton("save-tilemap").addEventListener("click", () => this.saveTilemapJson())
+  }
+
+  bindNumberField(field, apply) {
+    const input = this.requiredInput(`[data-field="${field}"]`)
+    input.addEventListener("change", () => {
+      const value = Number(input.value)
+      assert(Number.isInteger(value) && value >= Number(input.min || 0), `invalid ${field}`)
+      apply(value)
+    })
+  }
+
+  requiredInput(selector) {
+    const input = this.querySelector(selector)
+    assert(input instanceof HTMLInputElement, `view-tile-extractor missing input ${selector}`)
+    return input
+  }
+
+  requiredButton(action) {
+    const button = this.querySelector(`button[data-action="${action}"]`)
+    assert(button instanceof HTMLButtonElement, `view-tile-extractor missing button ${action}`)
+    return button
+  }
+
+  setStatus(message, tone = null) {
+    assert(this.statusElement instanceof HTMLOutputElement, "view-tile-extractor status not initialized")
+    this.statusElement.textContent = message
+    this.statusElement.classList.remove("accent", "success", "warning", "danger", "info")
+    if (tone) this.statusElement.classList.add(tone)
+  }
+
+  setResult(message) {
+    assert(this.resultElement instanceof HTMLOutputElement, "view-tile-extractor result not initialized")
+    this.resultElement.textContent = message
+  }
+
+  async loadSourceImage() {
+    assert(this.sourcePath, "view-tile-extractor requires source path")
+    this.setStatus(`Loading ${this.sourcePath}...`, "info")
+    try {
+      const bytes = new Uint8Array(unwrap(await runtime.invoke("fs/fs::read-file", this.sourcePath), this.sourcePath))
+      const source = getExtension(this.sourcePath) === "qoi"
+        ? createCanvasFromQoi(bytes)
+        : await createImageBitmap(new Blob([bytes], { type: mimeTypeForPath(this.sourcePath) }))
+      this.sourceImage = source
+      this.sourceWidth = source.width
+      this.sourceHeight = source.height
+      this.extractOutput = null
+      this.hoveredTile = { x: -1, y: -1 }
+      this.renderTilebankPreview()
+      this.updateSaveButtons()
+      this.setData({ width: source.width, height: source.height }, { autoFit: true })
+      this.setStatus(`Loaded ${source.width} × ${source.height}`, "success")
+      this.setResult("No extraction performed")
+    } catch (error) {
+      this.sourceImage = null
+      this.sourceWidth = 0
+      this.sourceHeight = 0
+      this.setData(null, { autoFit: false })
+      this.setStatus(`Load failed: ${error?.message || error}`, "danger")
+      throw error
+    }
+  }
+
+  async autoDetectSize() {
+    assert(this.sourcePath, "view-tile-extractor requires source path")
+    this.setStatus("Detecting tile size...", "info")
+    try {
+      const output = unwrap(await runtime.invoke("tile-detect/tile-detect::detect-size", this.sourcePath, 4, 128), "tile size detection")
+      this.tileW = Number(output["tile-w"])
+      this.tileH = Number(output["tile-h"])
+      this.requiredInput('[data-field="tile-w"]').value = String(this.tileW)
+      this.requiredInput('[data-field="tile-h"]').value = String(this.tileH)
+      this.setStatus(`Detected ${this.tileW} × ${this.tileH}`, "success")
+      this.setResult(`Confidence ${(Number(output.confidence) * 100).toFixed(0)}%`)
+      this.draw()
+    } catch (error) {
+      this.setStatus(`Detect failed: ${error?.message || error}`, "danger")
+      throw error
+    }
+  }
+
+  async extractTiles() {
+    assert(this.sourcePath, "view-tile-extractor requires source path")
+    if (!this.sourceImage) await this.loadSourceImage()
+    this.setStatus("Extracting tiles...", "info")
+    try {
+      const output = unwrap(await runtime.invoke("tile-detect/tile-detect::extract", {
+        path: this.sourcePath,
+        "tile-w": this.tileW,
+        "tile-h": this.tileH,
+        tolerance: this.tolerance,
+        "skip-nth-pixel": this.skipNthPixel,
+      }), "tile extraction")
+      this.extractOutput = output
+      this.renderTilebankPreview()
+      this.updateSaveButtons()
+      this.draw()
+      this.setStatus("Extraction complete", "success")
+      this.setResult(`${output.tilemap.width} × ${output.tilemap.height} map, ${output.tilebank.length} unique tiles`)
+    } catch (error) {
+      this.setStatus(`Extraction failed: ${error?.message || error}`, "danger")
+      throw error
+    }
+  }
+
+  async saveTileset() {
+    assert(this.extractOutput, "view-tile-extractor requires extraction before saving tileset")
+    const outputPath = `${this.outputDir}/${stem(this.sourcePath)}.tileset.qoi`
+    this.setStatus(`Saving ${outputPath}...`, "info")
+    try {
+      const output = unwrap(await runtime.invoke("tile-detect/tile-detect::export-tileset", {
+        tilebank: this.extractOutput.tilebank,
+        "source-path": this.sourcePath,
+        "source-cols": this.extractOutput.tilemap.width,
+        "tile-w": this.tileW,
+        "tile-h": this.tileH,
+        "output-path": outputPath,
+      }), "tileset export")
+      this.setStatus(`Saved ${output.path}`, "success")
+      this.setResult(`Tileset ${output.width} × ${output.height}, ${output.cols} × ${output.rows} tiles`)
+    } catch (error) {
+      this.setStatus(`Save failed: ${error?.message || error}`, "danger")
+      throw error
+    }
+  }
+
+  async saveTilemapJson() {
+    assert(this.extractOutput, "view-tile-extractor requires extraction before saving tilemap")
+    const outputPath = `${this.outputDir}/${stem(this.sourcePath)}.tilemap.json`
+    this.setStatus(`Saving ${outputPath}...`, "info")
+    try {
+      const tilemap = unwrap(await runtime.invoke("tile-detect/tile-detect::to-tilemap", this.extractOutput), "tilemap conversion")
+      unwrap(await runtime.invoke("fs/fs::write-text", outputPath, `${JSON.stringify(tilemap, null, 2)}\n`), outputPath)
+      this.setStatus(`Saved ${outputPath}`, "success")
+      this.setResult(`Tilemap saved to ${outputPath}`)
+    } catch (error) {
+      this.setStatus(`Save failed: ${error?.message || error}`, "danger")
+      throw error
+    }
+  }
+
+  updateSaveButtons() {
+    const disabled = !this.extractOutput
+    this.requiredButton("save-tileset").disabled = disabled
+    this.requiredButton("save-tilemap").disabled = disabled
+    const headerSave = this.queryHeaderControl('[data-action="save"]')
+    if (headerSave instanceof HTMLButtonElement) headerSave.disabled = disabled
+  }
+
+  renderTilebankPreview() {
+    assert(this.previewBody instanceof HTMLTableSectionElement, "view-tile-extractor preview not initialized")
+    this.previewBody.textContent = ""
+    if (!this.extractOutput) return
+    for (const tile of this.extractOutput.tilebank.slice(0, 64)) {
+      const row = document.createElement("tr")
+      row.innerHTML = `<td>${Number(tile.id)}</td><td>${Number(tile["source-index"])}</td><td>${String(tile.hash)}</td>`
+      this.previewBody.appendChild(row)
+    }
+  }
+
+  calculateContentBounds(data) {
+    if (!data) return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
+    return { minX: 0, minY: 0, maxX: data.width, maxY: data.height }
+  }
+
+  drawContent(ctx) {
+    if (!this.sourceImage) return
+    ctx.imageSmoothingEnabled = false
+    ctx.drawImage(this.sourceImage, 0, 0)
+    if (this.highlightDuplicates && this.extractOutput) this.drawDuplicateHighlights(ctx)
+    if (this.showGrid) this.drawGrid(ctx)
+    if (this.hoveredTile.x >= 0 && this.hoveredTile.y >= 0) {
+      ctx.strokeStyle = "rgba(255,204,102,0.95)"
+      ctx.lineWidth = 2 / this.scale
+      ctx.strokeRect(this.hoveredTile.x * this.tileW, this.hoveredTile.y * this.tileH, this.tileW, this.tileH)
+    }
+  }
+
+  drawGrid(ctx) {
+    const cols = Math.floor(this.sourceWidth / this.tileW)
+    const rows = Math.floor(this.sourceHeight / this.tileH)
+    ctx.strokeStyle = "rgba(255,255,255,0.30)"
+    ctx.lineWidth = 1 / this.scale
+    for (let x = 0; x <= cols; x += 1) {
+      ctx.beginPath()
+      ctx.moveTo(x * this.tileW, 0)
+      ctx.lineTo(x * this.tileW, rows * this.tileH)
+      ctx.stroke()
+    }
+    for (let y = 0; y <= rows; y += 1) {
+      ctx.beginPath()
+      ctx.moveTo(0, y * this.tileH)
+      ctx.lineTo(cols * this.tileW, y * this.tileH)
+      ctx.stroke()
+    }
+  }
+
+  drawDuplicateHighlights(ctx) {
+    const tilemap = this.extractOutput.tilemap
+    for (let y = 0; y < tilemap.height; y += 1) {
+      for (let x = 0; x < tilemap.width; x += 1) {
+        const tileId = Number(tilemap.data[y * tilemap.width + x])
+        if (tileId <= 0) continue
+        ctx.fillStyle = TILE_COLORS[tileId % TILE_COLORS.length]
+        ctx.fillRect(x * this.tileW, y * this.tileH, this.tileW, this.tileH)
+      }
+    }
+  }
+
+  onCanvasMouseMove(event) {
+    if (!this.sourceImage) return
+    const world = this.getWorldPoint(event.clientX, event.clientY)
+    const tileX = Math.floor(world.x / this.tileW)
+    const tileY = Math.floor(world.y / this.tileH)
+    const cols = Math.floor(this.sourceWidth / this.tileW)
+    const rows = Math.floor(this.sourceHeight / this.tileH)
+    if (tileX < 0 || tileY < 0 || tileX >= cols || tileY >= rows) {
+      this.hoveredTile = { x: -1, y: -1 }
+      this.closeTileTip()
+      this.draw()
+      return
+    }
+    if (this.hoveredTile.x === tileX && this.hoveredTile.y === tileY) return
+    this.hoveredTile = { x: tileX, y: tileY }
+    this.openTileTip(tileX, tileY, event)
+    this.draw()
+  }
+
+  onCanvasMouseLeave() {
+    this.hoveredTile = { x: -1, y: -1 }
+    this.closeTileTip()
+    this.draw()
+  }
+
+  openTileTip(tileX, tileY, event) {
+    const key = `${tileX},${tileY}`
+    if (this.hoverTooltipTileKey === key) return
+    this.closeTileTip()
+    this.hoverTooltipTileKey = key
+    const content = this.tileTipContent(tileX, tileY)
+    const rect = this.canvas.getBoundingClientRect()
+    const scaleX = rect.width / Math.max(1, this.canvas.width)
+    const scaleY = rect.height / Math.max(1, this.canvas.height)
+    const track = {
+      kind: "aabb",
+      x: rect.left + (tileX * this.tileW * this.scale + this.offsetX) * scaleX,
+      y: rect.top + (tileY * this.tileH * this.scale + this.offsetY) * scaleY,
+      width: this.tileW * this.scale * scaleX,
+      height: this.tileH * this.scale * scaleY,
+    }
+    void runtime.call("ui.tooltip.tip", {
+      anchor: { kind: "point", x: event.clientX, y: event.clientY },
+      track,
+      trackPadding: 2,
+      followPointer: true,
+      pointerOffsetX: 14,
+      pointerOffsetY: 18,
+      content,
+      minWidth: 180,
+    }).then((result) => {
+      const payload = unwrap(result, "ui.tooltip.tip")
+      if (this.hoverTooltipTileKey === key) {
+        this.hoverTooltipId = Number(payload.id)
+        return
+      }
+      void runtime.call("ui.tooltip.close", { id: payload.id, reason: "stale-hover" })
+    })
+  }
+
+  tileTipContent(tileX, tileY) {
+    const lines = [`tile: ${tileX}, ${tileY}`]
+    if (this.extractOutput) {
+      const tilemap = this.extractOutput.tilemap
+      if (tileX >= 0 && tileY >= 0 && tileX < tilemap.width && tileY < tilemap.height) {
+        const tileId = tilemap.data[tileY * tilemap.width + tileX]
+        lines.push(`id: ${tileId}`)
+      }
+    }
+    return lines.join("\n")
+  }
+
+  closeTileTip() {
+    if (!this.hoverTooltipTileKey && this.hoverTooltipId <= 0) return
+    const tooltipId = this.hoverTooltipId
+    this.hoverTooltipTileKey = ""
+    this.hoverTooltipId = 0
+    if (tooltipId > 0) void runtime.call("ui.tooltip.close", { id: tooltipId, reason: "view-tile-extractor-hover" })
+  }
+}
+
+if (!customElements.get("view-tile-extractor")) {
+  customElements.define("view-tile-extractor", ViewTileExtractor)
+}

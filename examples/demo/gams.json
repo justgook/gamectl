@@ -590,6 +590,13 @@
         "internal": false,
         "defaultSource": "ng/nine.png"
       },
+      "view-tile-extractor": {
+        "url": "views/view-tile-extractor.js",
+        "label": "Tile Extractor",
+        "group": "Tiles",
+        "internal": false,
+        "defaultSource": "ng/nine.png"
+      },
       "view-vox": {
         "url": "views/view-vox.js",
         "label": "Vox",
@@ -779,17 +786,37 @@
               "codePath": "ng/presets/wrap-object.lua",
               "inputs": [
                 {
-                  "name": "value",
+                  "name": "field1",
                   "defaultValue": ""
                 },
                 {
-                  "name": "key",
+                  "name": "field2",
                   "defaultValue": ""
                 }
               ],
               "outputs": [
                 {
                   "name": "object"
+                }
+              ],
+              "group": "Data"
+            },
+            {
+              "name": "fromObject",
+              "kind": "code",
+              "codePath": "ng/presets/from-object.lua",
+              "inputs": [
+                {
+                  "name": "object",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "field1"
+                },
+                {
+                  "name": "field2"
                 }
               ],
               "group": "Data"
@@ -3994,6 +4021,7 @@
     "plugins/treegen.comp.wasm",
     "plugins/minimap.comp.wasm",
     "plugins/image.comp.wasm",
+    "plugins/tile-detect.comp.wasm",
     "plugins/markov-junior.comp.wasm",
     "plugins/aseprite.comp.wasm"
   ]

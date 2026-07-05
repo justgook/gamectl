@@ -90,6 +90,10 @@ load_char_data :: proc(filepath: string, w: ^world.World) -> bool {
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
 	w.uv = char_data.read_slot_0_u_vs(game_data) or_return
 	w.animation_atlas = char_data.read_slot_2_world_animation_atlas(game_data) or_return
+	for &frame in w.animation_atlas.frames {
+		frame.offset.y = 14
+		frame.offset.x = 10
+	}
 
 	host.info("char_data decoder", "success", true, "w.animation_atlas", w.animation_atlas)
 

@@ -1,50 +1,35 @@
--- Wrap Object
--- Wraps one decoded Lua value in an object.
+-- toObject
+-- Builds an object from all active named inputs.
 --
--- Inputs:
---   value: any non-nil decoded Lua value, commonly an array
---   key: optional non-empty string field name
---
--- If key is omitted, the field name is inferred from the single active named input other than
--- "key". This lets a renamed input port such as "defs" produce { defs = value }.
+-- Each connected input becomes one object field, using the input port name as the key.
+-- Rename input ports to control the produced object shape.
 --
 -- Output:
---   object: { [key] = value }
---
--- This preset works on already-decoded Lua values. It does not JSON-decode inputs and does not
--- JSON-encode outputs. Use json_decode/json_encode nodes at graph boundaries when needed.
+--   object: { [inputName] = inputValue, ... }
 
-local function infer_key()
-	local candidates = {}
-	for key, active in pairs(inputs.active) do
-		if type(key) == "string" and key ~= "key" and active then
-			candidates[#candidates + 1] = key
-		end
+local inputIds = {}
+for key, isActive in pairs(inputs.active) do
+	if type(key) == "number" and isActive then
+		inputIds[#inputIds + 1] = key
 	end
-	table.sort(candidates)
+end
+table.sort(inputIds)
 
-	if #candidates ~= 1 then
-		error("key is required unless exactly one non-key named input is active")
+if #inputIds == 0 then
+	error("at least one named input is required")
+end
+
+local object = {}
+for _, inputId in ipairs(inputIds) do
+	local key = inputs.names[inputId]
+	if type(key) ~= "string" or key == "" then
+		error("input '" .. tostring(inputId) .. "' must have a non-empty name")
 	end
-	return candidates[1]
+	local value = inputs[inputId]
+	if value == nil then
+		error("input '" .. key .. "' is nil")
+	end
+	object[key] = value
 end
 
-local key = inputs[2]
-if key == nil or key == "" then
-	key = infer_key()
-end
-if type(key) ~= "string" or key == "" then
-	error("key must be a non-empty string")
-end
-
-local value = inputs[key]
-if value == nil then
-	value = inputs[1]
-end
-if value == nil then
-	error("value is required")
-end
-
-outputs[1] = {
-	[key] = value,
-}
+outputs[1] = object
