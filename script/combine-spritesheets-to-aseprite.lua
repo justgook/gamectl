@@ -28,10 +28,21 @@ for line in io.lines(manifestPath) do
 end
 if #rows == 0 then fail("manifest has no input files") end
 
+local function loadRgbImage(path)
+  local sourceSprite = Sprite{ fromFile = path, oneFrame = true }
+  if sourceSprite.colorMode ~= ColorMode.RGB then
+    app.activeSprite = sourceSprite
+    app.command.ChangePixelFormat{ format = "rgb" }
+  end
+  local image = Image(sourceSprite)
+  sourceSprite:close()
+  return image
+end
+
 local maxHeight = frameHeight or 0
 local totalFrames = 0
 for _, row in ipairs(rows) do
-  local image = Image{ fromFile = row.path }
+  local image = loadRgbImage(row.path)
   if image.width % frameWidth ~= 0 then
     fail(row.path .. " width " .. image.width .. " is not divisible by frame width " .. frameWidth)
   end

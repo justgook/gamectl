@@ -1,0 +1,134 @@
+[
+  {
+    "id": 1,
+    "kind": 4,
+    "x": 159,
+    "y": 339,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"catalog/sprites/*_player.aseprite\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "[\"idle\", \"run\", \"jump\", \"fall\", \"hurt\", \"death\"]"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "kind": 2,
+    "x": 784,
+    "y": 322,
+    "name": "Aseprite Animations",
+    "codePath": "ng/presets/aseprite-animation.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "file",
+        "srcNodeId": 29,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "animation_names",
+        "srcNodeId": 1,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "info",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "kind": 4,
+    "x": 957,
+    "y": 507,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_frames.json\""
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "kind": 2,
+    "x": 1178,
+    "y": 508,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 27,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 29,
+    "kind": 2,
+    "x": 552,
+    "y": 304,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 1,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  }
+]
