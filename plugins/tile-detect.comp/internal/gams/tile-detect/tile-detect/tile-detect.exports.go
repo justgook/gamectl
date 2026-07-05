@@ -10,9 +10,9 @@ import (
 var Exports struct {
 	// DetectSize represents the caller-defined, exported function "detect-size".
 	//
-	//	detect-size: func(path: string, min-size: u32, max-size: u32) -> result<detect-size-output,
+	//	detect-size: func(source-data: list<u8>, min-size: u32, max-size: u32) -> result<detect-size-output,
 	//	string>
-	DetectSize func(path string, minSize uint32, maxSize uint32) (result cm.Result[DetectSizeOutputShape, DetectSizeOutput, string])
+	DetectSize func(sourceData cm.List[uint8], minSize uint32, maxSize uint32) (result cm.Result[DetectSizeOutputShape, DetectSizeOutput, string])
 
 	// Extract represents the caller-defined, exported function "extract".
 	//

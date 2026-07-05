@@ -29,19 +29,19 @@ type DetectSizeOutput struct {
 // ExtractConfig represents the record "gams:tile-detect/tile-detect@1.0.0#extract-config".
 //
 //	record extract-config {
-//		path: string,
+//		source-data: list<u8>,
 //		tile-w: u32,
 //		tile-h: u32,
 //		tolerance: u32,
 //		skip-nth-pixel: u32,
 //	}
 type ExtractConfig struct {
-	_            cm.HostLayout `json:"-"`
-	Path         string        `json:"path"`
-	TileW        uint32        `json:"tile-w"`
-	TileH        uint32        `json:"tile-h"`
-	Tolerance    uint32        `json:"tolerance"`
-	SkipNthPixel uint32        `json:"skip-nth-pixel"`
+	_            cm.HostLayout  `json:"-"`
+	SourceData   cm.List[uint8] `json:"source-data"`
+	TileW        uint32         `json:"tile-w"`
+	TileH        uint32         `json:"tile-h"`
+	Tolerance    uint32         `json:"tolerance"`
+	SkipNthPixel uint32         `json:"skip-nth-pixel"`
 }
 
 // TileBankEntry represents the record "gams:tile-detect/tile-detect@1.0.0#tile-bank-entry".
@@ -92,38 +92,36 @@ type ExtractOutput struct {
 //
 //	record export-tileset-config {
 //		tilebank: list<tile-bank-entry>,
-//		source-path: string,
+//		source-data: list<u8>,
 //		source-cols: u32,
 //		tile-w: u32,
 //		tile-h: u32,
-//		output-path: string,
 //	}
 type ExportTilesetConfig struct {
 	_          cm.HostLayout          `json:"-"`
 	Tilebank   cm.List[TileBankEntry] `json:"tilebank"`
-	SourcePath string                 `json:"source-path"`
+	SourceData cm.List[uint8]         `json:"source-data"`
 	SourceCols uint32                 `json:"source-cols"`
 	TileW      uint32                 `json:"tile-w"`
 	TileH      uint32                 `json:"tile-h"`
-	OutputPath string                 `json:"output-path"`
 }
 
 // ExportTilesetOutput represents the record "gams:tile-detect/tile-detect@1.0.0#export-tileset-output".
 //
 //	record export-tileset-output {
-//		path: string,
+//		data: list<u8>,
 //		width: u32,
 //		height: u32,
 //		cols: u32,
 //		rows: u32,
 //	}
 type ExportTilesetOutput struct {
-	_      cm.HostLayout `json:"-"`
-	Path   string        `json:"path"`
-	Width  uint32        `json:"width"`
-	Height uint32        `json:"height"`
-	Cols   uint32        `json:"cols"`
-	Rows   uint32        `json:"rows"`
+	_      cm.HostLayout  `json:"-"`
+	Data   cm.List[uint8] `json:"data"`
+	Width  uint32         `json:"width"`
+	Height uint32         `json:"height"`
+	Cols   uint32         `json:"cols"`
+	Rows   uint32         `json:"rows"`
 }
 
 // TileLayer represents the record "gams:tile-detect/tile-detect@1.0.0#tile-layer".

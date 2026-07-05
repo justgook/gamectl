@@ -8,8 +8,6 @@ import (
 	"image"
 	"image/png"
 	"math"
-	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/kkgams/sdk/go/qoi"
@@ -19,9 +17,9 @@ import (
 )
 
 func init() {
-	tilewit.Exports.DetectSize = func(path string, minSize uint32, maxSize uint32) cm.Result[tilewit.DetectSizeOutputShape, tilewit.DetectSizeOutput, string] {
-		if path == "" {
-			return cm.Err[cm.Result[tilewit.DetectSizeOutputShape, tilewit.DetectSizeOutput, string]]("path is required")
+	tilewit.Exports.DetectSize = func(sourceData cm.List[uint8], minSize uint32, maxSize uint32) cm.Result[tilewit.DetectSizeOutputShape, tilewit.DetectSizeOutput, string] {
+		if sourceData.Len() == 0 {
+			return cm.Err[cm.Result[tilewit.DetectSizeOutputShape, tilewit.DetectSizeOutput, string]]("source-data is required")
 		}
 		if minSize == 0 {
 			minSize = 8
@@ -29,7 +27,7 @@ func init() {
 		if maxSize == 0 {
 			maxSize = 64
 		}
-		img, err := loadImage(path)
+		img, err := loadImageBytes(sourceData.Slice())
 		if err != nil {
 			return cm.Err[cm.Result[tilewit.DetectSizeOutputShape, tilewit.DetectSizeOutput, string]]("failed to load image: " + err.Error())
 		}
@@ -62,13 +60,13 @@ func init() {
 	}
 }
 
-func loadImage(path string) (*image.NRGBA, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+func loadImageBytes(data []byte) (*image.NRGBA, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("source-data is required")
 	}
 
 	var img image.Image
+	var err error
 	if len(data) >= 4 && string(data[:4]) == "qoif" {
 		img, err = qoi.Decode(bytes.NewReader(data))
 	} else {
@@ -92,17 +90,12 @@ func loadImage(path string) (*image.NRGBA, error) {
 	return nrgba, nil
 }
 
-func saveImage(path string, img *image.NRGBA) error {
-	if dir := filepath.Dir(path); dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return err
-		}
-	}
+func encodeImage(img *image.NRGBA) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := qoi.Encode(&buf, img); err != nil {
-		return err
+		return nil, err
 	}
-	return os.WriteFile(path, buf.Bytes(), 0o644)
+	return buf.Bytes(), nil
 }
 
 func hashTile(img *image.NRGBA, tileX, tileY, tileW, tileH, imgW, skipNth int) uint64 {
@@ -237,13 +230,13 @@ func scoreTileSize(img *image.NRGBA, tileW, tileH, imgW, imgH int) float64 {
 }
 
 func extract(config tilewit.ExtractConfig) (tilewit.ExtractOutput, error) {
-	if config.Path == "" {
-		return tilewit.ExtractOutput{}, fmt.Errorf("path is required")
+	if config.SourceData.Len() == 0 {
+		return tilewit.ExtractOutput{}, fmt.Errorf("source-data is required")
 	}
 	if config.TileW == 0 || config.TileH == 0 {
 		return tilewit.ExtractOutput{}, fmt.Errorf("tile-w and tile-h must be positive")
 	}
-	img, err := loadImage(config.Path)
+	img, err := loadImageBytes(config.SourceData.Slice())
 	if err != nil {
 		return tilewit.ExtractOutput{}, fmt.Errorf("failed to load image: %w", err)
 	}
@@ -327,8 +320,8 @@ func exportTileset(config tilewit.ExportTilesetConfig) (tilewit.ExportTilesetOut
 	if len(tilebank) == 0 {
 		return tilewit.ExportTilesetOutput{}, fmt.Errorf("tilebank is empty")
 	}
-	if config.SourcePath == "" {
-		return tilewit.ExportTilesetOutput{}, fmt.Errorf("source-path is required")
+	if config.SourceData.Len() == 0 {
+		return tilewit.ExportTilesetOutput{}, fmt.Errorf("source-data is required")
 	}
 	if config.SourceCols == 0 {
 		return tilewit.ExportTilesetOutput{}, fmt.Errorf("source-cols must be positive")
@@ -336,10 +329,7 @@ func exportTileset(config tilewit.ExportTilesetConfig) (tilewit.ExportTilesetOut
 	if config.TileW == 0 || config.TileH == 0 {
 		return tilewit.ExportTilesetOutput{}, fmt.Errorf("tile-w and tile-h must be positive")
 	}
-	if config.OutputPath == "" {
-		return tilewit.ExportTilesetOutput{}, fmt.Errorf("output-path is required")
-	}
-	sourceImg, err := loadImage(config.SourcePath)
+	sourceImg, err := loadImageBytes(config.SourceData.Slice())
 	if err != nil {
 		return tilewit.ExportTilesetOutput{}, fmt.Errorf("failed to load source image: %w", err)
 	}
@@ -369,11 +359,12 @@ func exportTileset(config tilewit.ExportTilesetConfig) (tilewit.ExportTilesetOut
 			}
 		}
 	}
-	if err := saveImage(config.OutputPath, tileset); err != nil {
-		return tilewit.ExportTilesetOutput{}, fmt.Errorf("failed to save tileset: %w", err)
+	data, err := encodeImage(tileset)
+	if err != nil {
+		return tilewit.ExportTilesetOutput{}, fmt.Errorf("failed to encode tileset: %w", err)
 	}
 	return tilewit.ExportTilesetOutput{
-		Path:   config.OutputPath,
+		Data:   cm.ToList(data),
 		Width:  uint32(tilesetW),
 		Height: uint32(tilesetH),
 		Cols:   uint32(cols),

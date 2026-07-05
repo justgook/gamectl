@@ -10,7 +10,7 @@ interface tile-detect {
     }
 
     record extract-config {
-        path: string,
+        source-data: list<u8>,
         tile-w: u32,
         tile-h: u32,
         tolerance: u32,
@@ -38,15 +38,14 @@ interface tile-detect {
 
     record export-tileset-config {
         tilebank: list<tile-bank-entry>,
-        source-path: string,
+        source-data: list<u8>,
         source-cols: u32,
         tile-w: u32,
         tile-h: u32,
-        output-path: string,
     }
 
     record export-tileset-output {
-        path: string,
+        data: list<u8>,
         width: u32,
         height: u32,
         cols: u32,
@@ -64,7 +63,7 @@ interface tile-detect {
         props: list<data-entry>,
     }
 
-    detect-size: func(path: string, min-size: u32, max-size: u32) -> result<detect-size-output, string>;
+    detect-size: func(source-data: list<u8>, min-size: u32, max-size: u32) -> result<detect-size-output, string>;
 
     extract: func(config: extract-config) -> result<extract-output, string>;
 

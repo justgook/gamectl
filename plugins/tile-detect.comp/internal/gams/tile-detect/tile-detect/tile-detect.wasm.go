@@ -10,11 +10,11 @@ import (
 
 //go:wasmexport gams:tile-detect/tile-detect@1.0.0#detect-size
 //export gams:tile-detect/tile-detect@1.0.0#detect-size
-func wasmexport_DetectSize(path0 *uint8, path1 uint32, minSize0 uint32, maxSize0 uint32) (result *cm.Result[DetectSizeOutputShape, DetectSizeOutput, string]) {
-	path := cm.LiftString[string]((*uint8)(path0), (uint32)(path1))
+func wasmexport_DetectSize(sourceData0 *uint8, sourceData1 uint32, minSize0 uint32, maxSize0 uint32) (result *cm.Result[DetectSizeOutputShape, DetectSizeOutput, string]) {
+	sourceData := cm.LiftList[cm.List[uint8]]((*uint8)(sourceData0), (uint32)(sourceData1))
 	minSize := (uint32)((uint32)(minSize0))
 	maxSize := (uint32)((uint32)(maxSize0))
-	result_ := Exports.DetectSize(path, minSize, maxSize)
+	result_ := Exports.DetectSize(sourceData, minSize, maxSize)
 	result = &result_
 	return
 }
@@ -30,8 +30,8 @@ func wasmexport_Extract(config0 *uint8, config1 uint32, config2 uint32, config3 
 
 //go:wasmexport gams:tile-detect/tile-detect@1.0.0#export-tileset
 //export gams:tile-detect/tile-detect@1.0.0#export-tileset
-func wasmexport_ExportTileset(config0 *TileBankEntry, config1 uint32, config2 *uint8, config3 uint32, config4 uint32, config5 uint32, config6 uint32, config7 *uint8, config8 uint32) (result *cm.Result[ExportTilesetOutputShape, ExportTilesetOutput, string]) {
-	config := lift_ExportTilesetConfig((*TileBankEntry)(config0), (uint32)(config1), (*uint8)(config2), (uint32)(config3), (uint32)(config4), (uint32)(config5), (uint32)(config6), (*uint8)(config7), (uint32)(config8))
+func wasmexport_ExportTileset(config0 *TileBankEntry, config1 uint32, config2 *uint8, config3 uint32, config4 uint32, config5 uint32, config6 uint32) (result *cm.Result[ExportTilesetOutputShape, ExportTilesetOutput, string]) {
+	config := lift_ExportTilesetConfig((*TileBankEntry)(config0), (uint32)(config1), (*uint8)(config2), (uint32)(config3), (uint32)(config4), (uint32)(config5), (uint32)(config6))
 	result_ := Exports.ExportTileset(config)
 	result = &result_
 	return

@@ -20,7 +20,7 @@ type ExtractOutputShape struct {
 }
 
 func lift_ExtractConfig(f0 *uint8, f1 uint32, f2 uint32, f3 uint32, f4 uint32, f5 uint32) (v ExtractConfig) {
-	v.Path = cm.LiftString[string](f0, f1)
+	v.SourceData = cm.LiftList[cm.List[uint8]](f0, f1)
 	v.TileW = (uint32)(f2)
 	v.TileH = (uint32)(f3)
 	v.Tolerance = (uint32)(f4)
@@ -34,13 +34,12 @@ type ExportTilesetOutputShape struct {
 	shape [unsafe.Sizeof(ExportTilesetOutput{})]byte
 }
 
-func lift_ExportTilesetConfig(f0 *TileBankEntry, f1 uint32, f2 *uint8, f3 uint32, f4 uint32, f5 uint32, f6 uint32, f7 *uint8, f8 uint32) (v ExportTilesetConfig) {
+func lift_ExportTilesetConfig(f0 *TileBankEntry, f1 uint32, f2 *uint8, f3 uint32, f4 uint32, f5 uint32, f6 uint32) (v ExportTilesetConfig) {
 	v.Tilebank = cm.LiftList[cm.List[TileBankEntry]](f0, f1)
-	v.SourcePath = cm.LiftString[string](f2, f3)
+	v.SourceData = cm.LiftList[cm.List[uint8]](f2, f3)
 	v.SourceCols = (uint32)(f4)
 	v.TileW = (uint32)(f5)
 	v.TileH = (uint32)(f6)
-	v.OutputPath = cm.LiftString[string](f7, f8)
 	return
 }
 
