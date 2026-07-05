@@ -127,19 +127,15 @@ export class ViewTileExtractor extends ViewCanvasBase {
           <label><input type="checkbox" data-field="show-grid" checked> Show grid</label>
           <label><input type="checkbox" data-field="highlight-duplicates" checked> Highlight duplicate tiles</label>
         </fieldset>
-        <fieldset>
-          <legend>Status</legend>
-          <output data-element="status">Ready</output>
-          <output data-element="result">No extraction performed</output>
-        </fieldset>
         <table data-element="tilebank">
-          <caption>Unique tiles</caption>
-          <thead><tr><th>ID</th><th>Source</th><th>Hash</th></tr></thead>
+          <caption>Top duplicate tiles</caption>
+          <thead><tr><th>ID</th><th>Uses</th><th>Source</th><th>Hash</th></tr></thead>
           <tbody></tbody>
         </table>
       </aside>
       <footer data-element="footer">
-        <output data-element="footer-status">Tile extractor</output>
+        <output data-element="status">Ready</output>
+        <output data-element="result">No extraction performed</output>
       </footer>
     `
 
@@ -450,9 +446,24 @@ export class ViewTileExtractor extends ViewCanvasBase {
         assert(this.previewBody instanceof HTMLTableSectionElement, "view-tile-extractor preview not initialized")
         this.previewBody.textContent = ""
         if (!this.extractOutput) return
-        for (const tile of this.extractOutput.tilebank.slice(0, 64)) {
+
+        const counts = new Map()
+        for (const tileId of this.extractOutput.tilemap.data) {
+            const id = Number(tileId)
+            if (id <= 0) continue
+            counts.set(id, (counts.get(id) || 0) + 1)
+        }
+
+        const tilesById = new Map(this.extractOutput.tilebank.map((tile) => [Number(tile.id), tile]))
+        const topDuplicates = [...counts.entries()]
+            .map(([id, uses]) => ({ id, uses, tile: tilesById.get(id) }))
+            .filter((entry) => entry.tile)
+            .sort((a, b) => b.uses - a.uses || a.id - b.id)
+            .slice(0, 10)
+
+        for (const entry of topDuplicates) {
             const row = document.createElement("tr")
-            row.innerHTML = `<td>${Number(tile.id)}</td><td>${Number(tile["source-index"])}</td><td>${String(tile.hash)}</td>`
+            row.innerHTML = `<td>${entry.id}</td><td>${entry.uses}</td><td>${Number(entry.tile["source-index"])}</td><td>${String(entry.tile.hash)}</td>`
             this.previewBody.appendChild(row)
         }
     }
