@@ -29,6 +29,7 @@ export class TilemapSettings extends HTMLElement {
     constructor() {
         super()
         this.nameInput = null
+        this.choosePathButton = null
         this.tileSizeInput = null
         this.widthInput = null
         this.heightInput = null
@@ -49,8 +50,9 @@ export class TilemapSettings extends HTMLElement {
       <form data-element="form" novalidate>
         <fieldset>
           <legend data-element="legend">Tilemap Settings</legend>
-          <label>Path<input type="text" data-field="name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="/maps/world.tilemap.json"></label>
-          <label >Tile size<input type="number" min="1" step="1" data-field="tile-size" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
+          <label>Path<input type="text" data-field="name" readonly autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Choose a tilemap file…"></label>
+          <button type="button" data-action="choose-path">Choose path…</button>
+          <label>Tile size<input type="number" min="1" step="1" data-field="tile-size" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
           <label>Map width <input id="tilemap-settings-map-width" type="number" min="1" step="1" data-field="map-width" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
           <label>Map height <input type="number" min="1" step="1" data-field="map-height" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>
         </fieldset>
@@ -66,6 +68,7 @@ export class TilemapSettings extends HTMLElement {
         this.formElement = this.querySelector('[data-element="form"]')
         this.legendElement = this.querySelector('[data-element="legend"]')
         this.nameInput = this.querySelector('[data-field="name"]')
+        this.choosePathButton = this.querySelector('[data-action="choose-path"]')
         this.tileSizeInput = this.querySelector('[data-field="tile-size"]')
         this.widthInput = this.querySelector('[data-field="map-width"]')
         this.heightInput = this.querySelector('[data-field="map-height"]')
@@ -75,6 +78,7 @@ export class TilemapSettings extends HTMLElement {
         assert(this.formElement instanceof HTMLFormElement, "tilemap-settings missing form")
         assert(this.legendElement instanceof HTMLLegendElement, "tilemap-settings missing legend")
         assert(this.nameInput instanceof HTMLInputElement, "tilemap-settings missing name input")
+        assert(this.choosePathButton instanceof HTMLButtonElement, "tilemap-settings missing choose path button")
         assert(this.tileSizeInput instanceof HTMLInputElement, "tilemap-settings missing tile size input")
         assert(this.widthInput instanceof HTMLInputElement, "tilemap-settings missing map width input")
         assert(this.heightInput instanceof HTMLInputElement, "tilemap-settings missing map height input")
@@ -90,6 +94,10 @@ export class TilemapSettings extends HTMLElement {
                     cancelled: true,
                 }),
             )
+        })
+
+        this.choosePathButton.addEventListener("click", async () => {
+            await this.choosePath()
         })
 
         this.formElement.addEventListener("submit", async (event) => {
@@ -132,8 +140,8 @@ export class TilemapSettings extends HTMLElement {
             if (this.mode === "create") {
                 this.tilemap = this.createDefaultTilemap()
                 this.renderTilemap(this.tilemap)
-                this.setStatus("Enter tilemap path and settings", "info")
-                queueMicrotask(() => this.nameInput.focus())
+                this.setStatus("Choose tilemap path and settings", "info")
+                queueMicrotask(() => this.choosePathButton.focus())
                 return
             }
 
@@ -142,7 +150,7 @@ export class TilemapSettings extends HTMLElement {
             this.tilemap = await this.loadTilemap(path)
             this.renderTilemap(this.tilemap)
             this.setStatus(`Loaded ${path}`, "success")
-            queueMicrotask(() => this.nameInput.focus())
+            queueMicrotask(() => this.choosePathButton.focus())
         } catch (error) {
             this.setStatus(`Error: ${error.message}`, "danger")
         }
@@ -200,13 +208,39 @@ export class TilemapSettings extends HTMLElement {
         )
     }
 
+    async choosePath() {
+        const currentPath = this.nameInput.value.trim()
+        const payload = unwrap(
+            await runtime.call("ui.popup.open", {
+                title: this.mode === "create" ? "Create Tilemap" : "Save Tilemap As",
+                size: "medium",
+                tag: "view-files",
+                props: {
+                    mode: "saver",
+                    filter: "*.tilemap.json,*.json",
+                    defaultName: basename(currentPath || this.dataSourcePathOrDefault()),
+                },
+            }),
+        )
+        if (!payload || payload.cancelled) return
+        assert(payload.path, "tilemap-settings choose path requires selected file path")
+        this.nameInput.value = payload.path
+        this.nameInput.classList.remove("danger")
+        this.setStatus(`Selected ${payload.path}`, "success")
+    }
+
+    dataSourcePathOrDefault() {
+        const value = String(this.getAttribute("data-source") || "").trim()
+        return value || "new.tilemap.json"
+    }
+
     async save() {
         assert(this.tilemap, "tilemap-settings save requires loaded tilemap")
         const path = this.nameInput.value.trim()
         if (!path) {
             this.nameInput.classList.add("danger")
-            this.nameInput.focus()
-            this.setStatus("Error: Path is required", "danger")
+            this.choosePathButton.focus()
+            this.setStatus("Error: Choose a tilemap path", "danger")
             return
         }
         this.nameInput.classList.remove("danger")
