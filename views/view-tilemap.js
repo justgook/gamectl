@@ -116,8 +116,6 @@ const GENERATED_TILESET_PALETTE = [
 const DEFAULT_COLOR_TILESET_SPEC = {
   name: "colors",
   path: "generated:colors",
-  tileWidth: 16,
-  tileHeight: 16,
   columns: 16,
   firstTileId: 1,
 }
@@ -926,10 +924,15 @@ class TilemapTileset {
   }
 
   static createDefault() {
-    return TilemapTileset.createGenerated(1, 1)
+    return TilemapTileset.createGenerated({ firstTileId: 1, tileCount: 1 })
   }
 
-  static createGenerated(firstTileId, tileCount = firstTileId) {
+  static createGenerated({
+    firstTileId,
+    tileCount = firstTileId,
+    tileWidth = DEFAULT_TILE_WIDTH,
+    tileHeight = DEFAULT_TILE_HEIGHT,
+  }) {
     assert(
       Number.isInteger(firstTileId) && firstTileId > 0,
       "generated tileset first tile id must be positive integer",
@@ -938,11 +941,19 @@ class TilemapTileset {
       Number.isInteger(tileCount) && tileCount > 0,
       "generated tileset tile count must be positive integer",
     )
+    assert(
+      Number.isInteger(tileWidth) && tileWidth > 0,
+      "generated tileset tile width must be positive integer",
+    )
+    assert(
+      Number.isInteger(tileHeight) && tileHeight > 0,
+      "generated tileset tile height must be positive integer",
+    )
     const count = tileCount
     const columns = TilemapTileset.generatedColumnCount(count)
     const rows = count / columns
-    const width = columns * DEFAULT_COLOR_TILESET_SPEC.tileWidth
-    const height = rows * DEFAULT_COLOR_TILESET_SPEC.tileHeight
+    const width = columns * tileWidth
+    const height = rows * tileHeight
     const pixels = new Uint8ClampedArray(width * height * 4)
     const canvas = document.createElement("canvas")
     canvas.width = width
@@ -957,10 +968,10 @@ class TilemapTileset {
       TilemapTileset.drawGeneratedTile(
         ctx,
         tile,
-        x * DEFAULT_COLOR_TILESET_SPEC.tileWidth,
-        y * DEFAULT_COLOR_TILESET_SPEC.tileHeight,
-        DEFAULT_COLOR_TILESET_SPEC.tileWidth,
-        DEFAULT_COLOR_TILESET_SPEC.tileHeight,
+        x * tileWidth,
+        y * tileHeight,
+        tileWidth,
+        tileHeight,
       )
     }
 
@@ -968,6 +979,8 @@ class TilemapTileset {
     pixels.set(image.data)
     return new TilemapTileset({
       ...DEFAULT_COLOR_TILESET_SPEC,
+      tileWidth,
+      tileHeight,
       firstTileId,
       columns,
       rows,
@@ -2132,28 +2145,12 @@ export class ViewTilemap extends ViewCanvasBase {
     specs.push({
       name: this.uniqueTilesetName(this.nameFromTilesetPath(path), specs),
       path,
-      tileWidth: this.parsePositiveInt(
-        snapshot.props?.sourceTileSize ??
-          snapshot.props?.tileSize ??
-          snapshot.props?.tw ??
-          DEFAULT_TILE_WIDTH,
-        "tileset tile width",
-      ),
-      tileHeight: this.parsePositiveInt(
-        snapshot.props?.sourceTileSize ??
-          snapshot.props?.tileSize ??
-          snapshot.props?.th ??
-          DEFAULT_TILE_HEIGHT,
-        "tileset tile height",
-      ),
       count: 0,
     })
     this.state.setTilesetSpecs(
       specs.map((spec) => ({
         name: spec.name,
         file: spec.path,
-        tileWidth: spec.tileWidth,
-        tileHeight: spec.tileHeight,
         ...(spec.count > 0 ? { count: spec.count } : {}),
       })),
     )
@@ -2560,31 +2557,41 @@ export class ViewTilemap extends ViewCanvasBase {
     return JSON.stringify({
       tilesets: snapshot.props?.tilesets ?? "",
       tileSize: snapshot.props?.tileSize ?? "",
-      sourceTileSize: snapshot.props?.sourceTileSize ?? "",
-      tw: snapshot.props?.tw ?? "",
-      th: snapshot.props?.th ?? "",
     })
   }
 
   async createTilesetsForSnapshot(snapshot) {
     const specs = this.collectTilesetSpecs(snapshot)
     const maxTileId = this.maxTileId(snapshot)
+    const tileSize = this.tileSizeForSnapshot(snapshot)
     if (specs.length === 0)
-      return [TilemapTileset.createGenerated(1, Math.max(1, maxTileId))]
+      return [
+        TilemapTileset.createGenerated({
+          firstTileId: 1,
+          tileCount: Math.max(1, maxTileId),
+          tileWidth: tileSize,
+          tileHeight: tileSize,
+        }),
+      ]
 
     let firstTileId = 1
     const tilesets = []
     for (const spec of specs) {
-      const tileset = await TilemapTileset.load(spec, firstTileId)
+      const tileset = await TilemapTileset.load(
+        { ...spec, tileWidth: tileSize, tileHeight: tileSize },
+        firstTileId,
+      )
       tilesets.push(tileset)
       firstTileId += tileset.tileCount
     }
     if (maxTileId >= firstTileId)
       tilesets.push(
-        TilemapTileset.createGenerated(
+        TilemapTileset.createGenerated({
           firstTileId,
-          maxTileId - firstTileId + 1,
-        ),
+          tileCount: maxTileId - firstTileId + 1,
+          tileWidth: tileSize,
+          tileHeight: tileSize,
+        }),
       )
     return tilesets
   }
@@ -2620,29 +2627,11 @@ export class ViewTilemap extends ViewCanvasBase {
     const file = String(entry.file ?? entry.path ?? entry.url ?? "")
     assert(file.length > 0, "view-tilemap tileset entry requires file")
     const name = String(entry.name || this.nameFromTilesetPath(file))
-    const tileWidth = this.parsePositiveInt(
-      entry.tileWidth ??
-        entry.tw ??
-        props?.sourceTileSize ??
-        props?.tileSize ??
-        props?.tw ??
-        DEFAULT_TILE_WIDTH,
-      "tileset tile width",
-    )
-    const tileHeight = this.parsePositiveInt(
-      entry.tileHeight ??
-        entry.th ??
-        props?.sourceTileSize ??
-        props?.tileSize ??
-        props?.th ??
-        DEFAULT_TILE_HEIGHT,
-      "tileset tile height",
-    )
     const count =
       entry.count == null
         ? 0
         : this.parsePositiveInt(entry.count, "tileset count")
-    return { name, path: file, tileWidth, tileHeight, count }
+    return { name, path: file, count }
   }
 
   nameFromTilesetPath(path) {
@@ -2660,14 +2649,15 @@ export class ViewTilemap extends ViewCanvasBase {
     return parsed
   }
 
-  applyTileSize(snapshot) {
-    const tileSize = this.parsePositiveInt(
-      snapshot.props?.tileSize ??
-        snapshot.props?.sourceTileSize ??
-        snapshot.props?.tw ??
-        DEFAULT_TILE_WIDTH,
+  tileSizeForSnapshot(snapshot) {
+    return this.parsePositiveInt(
+      snapshot.props?.tileSize ?? DEFAULT_TILE_WIDTH,
       "tile size",
     )
+  }
+
+  applyTileSize(snapshot) {
+    const tileSize = this.tileSizeForSnapshot(snapshot)
     this.tilemapRender.tileWidth = tileSize
     this.tilemapRender.tileHeight = tileSize
   }

@@ -199,9 +199,7 @@ export class TilemapSettings extends HTMLElement {
                 ? tilemap.data.props
                 : {}
         this.nameInput.value = tilemap.path
-        this.tileSizeInput.value = String(
-            parsePositiveInt(props.tileSize ?? props.sourceTileSize ?? props.tw ?? DEFAULT_TILE_SIZE, "Tile size"),
-        )
+        this.tileSizeInput.value = String(parsePositiveInt(props.tileSize ?? DEFAULT_TILE_SIZE, "Tile size"))
         this.widthInput.value = String(Math.max(...tilemap.data.layers.map((layer) => layer.width)))
         this.heightInput.value = String(
             Math.max(...tilemap.data.layers.map((layer) => Math.ceil(layer.data.length / layer.width))),
@@ -274,6 +272,7 @@ export class TilemapSettings extends HTMLElement {
         const props =
             data.props && typeof data.props === "object" && !Array.isArray(data.props) ? { ...data.props } : {}
         props.tileSize = String(settings.tileSize)
+        this.removeTilesetTileSizes(props)
 
         return {
             props,
@@ -286,6 +285,26 @@ export class TilemapSettings extends HTMLElement {
                         : {},
             })),
         }
+    }
+
+    removeTilesetTileSizes(props) {
+        if (typeof props.tilesets !== "string" || props.tilesets.length === 0) return
+        const tilesets = JSON.parse(props.tilesets)
+        assert(Array.isArray(tilesets), "tilemap settings props.tilesets must be JSON array")
+        props.tilesets = JSON.stringify(
+            tilesets.map((entry) => {
+                assert(
+                    entry && typeof entry === "object" && !Array.isArray(entry),
+                    "tilemap settings tileset entry must be object",
+                )
+                const next = { ...entry }
+                delete next.tileWidth
+                delete next.tileHeight
+                delete next.tw
+                delete next.th
+                return next
+            }),
+        )
     }
 
     resizeLayerData(layer, width, height) {
