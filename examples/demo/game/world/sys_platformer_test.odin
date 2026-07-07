@@ -406,6 +406,137 @@ test_platformer_consumes_external_velocity_with_collision :: proc(t: ^testing.T)
 }
 
 @(test)
+test_platformer_grabs_ladder_with_up_and_climbs :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	append(&w.platformer_zones, Platformer_Zone{
+		id = "test.ladder",
+		kind = .Ladder,
+		bounds = {min_x = 60 * UNIT, min_y = 0, max_x = 68 * UNIT, max_y = 128 * UNIT},
+	})
+
+	player := logic.Entity(30)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 32 * UNIT})
+	logic.add_component(&w.input, player, Input{.North})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{0, -4 * UNIT}, facing = 1})
+
+	sys_platformer(w)
+
+	pos, has_pos := logic.get_component(&w.position, player)
+	vel, has_vel := test_platformer_velocity(w, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_pos)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, platformer.on_ladder, "player should grab ladder")
+	testing.expectf(t, vel.y == PLATFORMER_DEFAULT_CONFIG.ladder.climb_speed, "ladder climb vel=%v", vel^)
+	testing.expectf(t, pos.y > 32 * UNIT, "player should climb up, pos=%v", pos^)
+}
+
+@(test)
+test_platformer_ladder_disables_horizontal_input_and_centers :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	append(&w.platformer_zones, Platformer_Zone{
+		id = "test.ladder",
+		kind = .Ladder,
+		bounds = {min_x = 64 * UNIT, min_y = 0, max_x = 80 * UNIT, max_y = 128 * UNIT},
+	})
+
+	player := logic.Entity(31)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{65 * UNIT, 32 * UNIT})
+	logic.add_component(&w.input, player, Input{.North, .East})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{facing = 1})
+
+	sys_platformer(w)
+
+	vel, has_vel := test_platformer_velocity(w, player)
+	testing.expect(t, has_vel)
+	testing.expectf(t, vel.x == PLATFORMER_DEFAULT_CONFIG.ladder.center_speed, "ladder should center instead of using horizontal input, vel=%v", vel^)
+}
+
+@(test)
+test_platformer_ladder_jump_detaches_and_jumps :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	append(&w.platformer_zones, Platformer_Zone{
+		id = "test.ladder",
+		kind = .Ladder,
+		bounds = {min_x = 60 * UNIT, min_y = 0, max_x = 68 * UNIT, max_y = 128 * UNIT},
+	})
+
+	player := logic.Entity(32)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 32 * UNIT})
+	logic.add_component(&w.input, player, Input{.Action1})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, on_ladder = true, ladder_zone = 0, facing = 1})
+
+	sys_platformer(w)
+
+	vel, has_vel := test_platformer_velocity(w, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, !platformer.on_ladder, "jump should detach from ladder")
+	testing.expectf(t, vel.y > 0, "jump should launch upward, vel=%v", vel^)
+}
+
+@(test)
+test_platformer_ladder_down_climbs_down :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	append(&w.platformer_zones, Platformer_Zone{
+		id = "test.ladder",
+		kind = .Ladder,
+		bounds = {min_x = 60 * UNIT, min_y = 0, max_x = 68 * UNIT, max_y = 128 * UNIT},
+	})
+
+	player := logic.Entity(33)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 32 * UNIT})
+	logic.add_component(&w.input, player, Input{.South})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, on_ladder = true, ladder_zone = 0, facing = 1})
+
+	sys_platformer(w)
+
+	vel, has_vel := test_platformer_velocity(w, player)
+	pos, has_pos := logic.get_component(&w.position, player)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_pos)
+	testing.expectf(t, vel.y == -PLATFORMER_DEFAULT_CONFIG.ladder.climb_speed, "ladder climb down vel=%v", vel^)
+	testing.expectf(t, pos.y < 32 * UNIT, "player should climb down, pos=%v", pos^)
+}
+
+@(test)
+test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
+	w := new(World)
+	defer platformer_anim_test_world_destroy(w)
+	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
+	player := logic.Entity(40)
+	logic.add_component(&w.platformer, player, Platformer{on_ladder = true, velocity = Velocity{0, PLATFORMER_DEFAULT_CONFIG.ladder.climb_speed}})
+	logic.add_component(&w.animation, player, animation_create(&defs[0]))
+	logic.add_component(&w.platformer_anim, player, platformer_anim_create_char(
+		&defs[0], &defs[1], &defs[2], &defs[3], &defs[4], &defs[5], &defs[6], &defs[7], &defs[8], &defs[9],
+	))
+
+	sys_platformer_anim(w)
+
+	anim, has_anim := logic.get_component(&w.animation, player)
+	ctrl, has_ctrl := logic.get_component(&w.platformer_anim, player)
+	testing.expect(t, has_anim)
+	testing.expect(t, has_ctrl)
+	testing.expectf(t, ctrl.current == .Climb, "expected climb animation, got %v", ctrl.current)
+	testing.expectf(t, anim.def == &defs[9], "expected climb def")
+	testing.expectf(t, anim.speed > 0, "climb animation should advance while moving, speed=%f", anim.speed)
+}
+
+@(test)
 test_entity_pool_reuses_deleted_entity_id :: proc(t: ^testing.T) {
 	w := new(World)
 	defer entity_pool_test_destroy(w)
@@ -455,6 +586,14 @@ test_platformer_velocity :: proc(w: ^World, entity: logic.Entity) -> (^Velocity,
 }
 
 @(private = "file")
+platformer_anim_test_world_destroy :: proc(w: ^World) {
+	logic.destroy_storage(&w.platformer)
+	logic.destroy_storage(&w.animation)
+	logic.destroy_storage(&w.platformer_anim)
+	free(w)
+}
+
+@(private = "file")
 entity_pool_test_destroy :: proc(w: ^World) {
 	delete(w.free_entity_ids)
 	delete(w.free_entity_ids_lookup)
@@ -483,6 +622,7 @@ platformer_test_world_destroy :: proc(w: ^World) {
 	logic.destroy_storage(&w.platformer)
 	grid.destroy_grid(&w.grid)
 	delete(w.segments)
+	delete(w.platformer_zones)
 	free(w)
 }
 

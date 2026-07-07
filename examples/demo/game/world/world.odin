@@ -55,6 +55,7 @@ World :: struct {
 	grid:                   grid.Grid,
 	segments:               [dynamic][4]int,
 	segment_triggers:       map[^[4]int]Segment_Trigger,
+	platformer_zones:       [dynamic]Platformer_Zone,
 	collider:               logic.Component_Storage(shape.Capsule),
 	on_hit:                 logic.Component_Storage(proc(_: ^World, src, target: int)),
 	on_hurt:                logic.Component_Storage(proc(_: ^World, src, target: int)),
@@ -178,6 +179,14 @@ init :: proc(w: ^World) {
 		id   = "demo.floor.start",
 		once = true,
 	}
+	append(
+		&w.platformer_zones,
+		Platformer_Zone {
+			id = "demo.ladder.start",
+			kind = .Ladder,
+			bounds = {min_x = 192 * UNIT, min_y = 0, max_x = 208 * UNIT, max_y = 128 * UNIT},
+		},
+	)
 	// TODO: delete MOCK DATA
 
 	w.tilemap.components[0].parallax = {0.5, 0.5}
@@ -200,6 +209,7 @@ init :: proc(w: ^World) {
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[2]})
 	// logic.add_component(&w.platformer_anim, player, platformer_anim_create_default(&w.animation_atlas.defs[0]))
 	anim := w.animation_atlas.defs
+	assert(len(anim) >= 10)
 	logic.add_component(
 		&w.platformer_anim,
 		player,
@@ -213,6 +223,7 @@ init :: proc(w: ^World) {
 			&anim[6], // land
 			&anim[7], // hurt
 			&anim[8], // death
+			&anim[9], // climb
 		),
 	)
 	logic.add_component(&w.animation, player, animation_create(&anim[0]))
@@ -313,6 +324,7 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.platformer_anim)
 	grid.destroy_grid(&w.grid)
 	delete(w.segment_triggers)
+	delete(w.platformer_zones)
 	delete(w.segments)
 	logic.destroy_storage(&w.collider)
 	logic.destroy_storage(&w.on_hit)

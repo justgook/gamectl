@@ -1,6 +1,6 @@
 package main
 
-import "char_data"
+import "assets_data"
 import "core:c"
 import "decoder2"
 import "host"
@@ -29,7 +29,7 @@ app_init :: proc() {
 
 	assert(load_bullet_assets("bullet.rspk", &state.world))
 	assert(load_game_assets(GAME_ASSET_PATH, &state.world))
-	assert(load_char_data("char.rspk", &state.world))
+	assert(load_assets_data("assets.rspk", &state.world))
 
 
 	world.init(&state.world)
@@ -82,18 +82,35 @@ load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
 }
 
 
-load_char_data :: proc(filepath: string, w: ^world.World) -> bool {
+load_assets_data :: proc(filepath: string, w: ^world.World) -> bool {
 	asset_data := host.asset_read_all(filepath) or_return
-	game_data := char_data.open_respack(asset_data) or_return
+	game_data := assets_data.open_respack(asset_data) or_return
 
-	atlas_bytes := char_data.read_slot_1_atlas(game_data) or_return
+	atlas_bytes := assets_data.read_slot_1_atlas(game_data) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
-	w.uv = char_data.read_slot_0_u_vs(game_data) or_return
-	w.animation_atlas = char_data.read_slot_2_world_animation_atlas(game_data) or_return
+	w.uv = assets_data.read_slot_0_u_vs(game_data) or_return
+	w.animation_atlas = assets_data.read_slot_2_world_animation_atlas(game_data) or_return
 	for &frame in w.animation_atlas.frames {
 		frame.offset.y = 14
 		frame.offset.x = 10
 	}
+
+
+	UNIT := world.UNIT
+	the_segments := assets_data.read_slot_3_segments(game_data) or_return
+	defer delete(the_segments)
+
+	clear(&w.segments)
+	for s in the_segments {
+		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
+	}
+
+	grid.destroy_grid(&w.grid)
+	w.grid = grid.create_grid(-10024 * UNIT, -10024 * UNIT, 10024 * UNIT, 10024 * UNIT, 16 * UNIT)
+	for &segment in w.segments {
+		grid.add_segment(&w.grid, &segment)
+	}
+
 
 	host.info("char_data decoder", "success", true, "w.animation_atlas", w.animation_atlas)
 

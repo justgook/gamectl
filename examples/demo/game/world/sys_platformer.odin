@@ -4,6 +4,7 @@ import "grid"
 import "logic"
 import air_jump "platformer/air_jump"
 import dash "platformer/dash"
+import ladder "platformer/ladder"
 import slope "platformer/slope"
 import wall "platformer/wall"
 import "shape"
@@ -25,6 +26,7 @@ Platformer_Config :: struct {
 	wall_stick:         int,
 	slope:              slope.Config,
 	wall:               wall.Config,
+	ladder:             ladder.Config,
 	air_jump:           air_jump.Config,
 	dash:               dash.Config,
 	dash_direction:     Dash_Direction_Proc,
@@ -61,7 +63,8 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 		jump_x_speed = 3 * UNIT,
 		jump_y_speed = 5 * UNIT,
 	},
-	air_jump = {enabled = true, max_jumps = 99, jump_y_speed = 5 * UNIT},
+	ladder = {enabled = true, climb_speed = 2 * UNIT, center_speed = 3 * UNIT},
+	air_jump = {enabled = true, max_jumps = 999, jump_y_speed = 5 * UNIT},
 	dash = {
 		enabled = true,
 		ground = {enabled = true, speed = 5 * UNIT, frames = 8, count = 1},
@@ -78,11 +81,13 @@ Platformer :: struct {
 	velocity:         Velocity,
 	on_ground:        bool,
 	on_wall:          bool,
+	on_ladder:        bool,
 	hit_ceiling:      bool,
 	ground_normal:    [2]int,
 	wall_normal:      [2]int,
 	ground_segment:   ^[4]int,
 	wall_segment:     ^[4]int,
+	ladder_zone:      int,
 	coyote_timer:     int,
 	jump_buffer:      int,
 	jump_frames:      int,
@@ -100,6 +105,16 @@ Platformer :: struct {
 	facing:           i32,
 }
 
+Platformer_Zone_Kind :: enum {
+	Ladder,
+}
+
+Platformer_Zone :: struct {
+	id:     string,
+	kind:   Platformer_Zone_Kind,
+	bounds: shape.Aabb,
+}
+
 sys_platformer :: proc(w: ^World) {
 	view := logic.view(&w.position, &w.input, &w.platformer)
 	for entity, pos, input, platformer in logic.each(&view) {
@@ -110,6 +125,13 @@ sys_platformer :: proc(w: ^World) {
 		platformer_consume_external_velocity(&w.velocity, entity, vel)
 		platformer_refresh_ground(&w.grid, pos, vel, collider, platformer)
 		platformer_update_dash_reset_and_timers(platformer)
+
+		ladder_zone, touching_ladder := platformer_find_ladder_zone(w, pos, collider, platformer)
+		if platformer_handle_ladder(w, pos, input, vel, collider, platformer, ladder_zone, touching_ladder) {
+			platformer.dash_held = .Action2 in input
+			continue
+		}
+
 		if platformer.dash_frames > 0 {
 			platformer_apply_jump(input, vel, platformer)
 			if platformer.dash_frames > 0 {
@@ -195,6 +217,153 @@ platformer_update_dash_reset_and_timers :: proc(p: ^Platformer) {
 			p.dash_air_used = 0
 		}
 	}
+}
+
+@(private = "file")
+platformer_find_ladder_zone :: proc(
+	w: ^World,
+	pos: ^Position,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+) -> (
+	int,
+	bool,
+) {
+	cfg := platformer_config(p)
+	if !cfg.ladder.enabled {
+		return -1, false
+	}
+
+	player_bounds := platformer_world_aabb(pos, collider)
+	if p.on_ladder {
+		assert(p.ladder_zone >= 0 && p.ladder_zone < len(w.platformer_zones))
+		zone := &w.platformer_zones[p.ladder_zone]
+		assert(zone.kind == .Ladder)
+		if aabb_overlaps(player_bounds, zone.bounds) {
+			return p.ladder_zone, true
+		}
+	}
+
+	for zone, index in w.platformer_zones {
+		if zone.kind != .Ladder {
+			continue
+		}
+		if aabb_overlaps(player_bounds, zone.bounds) {
+			return index, true
+		}
+	}
+
+	return -1, false
+}
+
+@(private = "file")
+platformer_handle_ladder :: proc(
+	w: ^World,
+	pos: ^Position,
+	input: ^Input,
+	vel: ^Velocity,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+	zone_index: int,
+	touching_ladder: bool,
+) -> bool {
+	cfg := platformer_config(p)
+	jump_down := .Action1 in input
+	jump_pressed := jump_down && !p.jump_held
+
+	if p.on_ladder {
+		if !touching_ladder {
+			platformer_leave_ladder(p)
+			return false
+		}
+		if jump_pressed {
+			platformer_leave_ladder(p)
+			platformer_apply_ladder_jump(vel, p)
+			p.jump_held = true
+			return false
+		}
+
+		platformer_apply_ladder(w, pos, input, vel, collider, p, &w.platformer_zones[zone_index], cfg.ladder)
+		p.jump_held = jump_down
+		return true
+	}
+
+	if touching_ladder && .North in input {
+		platformer_enter_ladder(p, zone_index)
+		platformer_apply_ladder(w, pos, input, vel, collider, p, &w.platformer_zones[zone_index], cfg.ladder)
+		p.jump_held = jump_down
+		return true
+	}
+
+	return false
+}
+
+@(private = "file")
+platformer_enter_ladder :: proc(p: ^Platformer, zone_index: int) {
+	p.on_ladder = true
+	p.ladder_zone = zone_index
+	p.on_ground = false
+	p.on_wall = false
+	p.ground_normal = {}
+	p.wall_normal = {}
+	p.ground_segment = nil
+	p.wall_segment = nil
+	p.dash_frames = 0
+	p.dash_delay = 0
+	p.jump_buffer = 0
+	p.coyote_timer = 0
+}
+
+@(private = "file")
+platformer_leave_ladder :: proc(p: ^Platformer) {
+	p.on_ladder = false
+	p.ladder_zone = -1
+}
+
+@(private = "file")
+platformer_apply_ladder_jump :: proc(vel: ^Velocity, p: ^Platformer) {
+	cfg := platformer_config(p)
+	vel.y = cfg.jump_speed
+	p.jump_buffer = 0
+	p.jump_frames = cfg.jump_hold_frames
+	p.on_ground = false
+	p.coyote_timer = 0
+}
+
+@(private = "file")
+platformer_apply_ladder :: proc(
+	w: ^World,
+	pos: ^Position,
+	input: ^Input,
+	vel: ^Velocity,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+	zone: ^Platformer_Zone,
+	cfg: ladder.Config,
+) {
+	assert(zone.kind == .Ladder)
+	center_x := (zone.bounds.min_x + zone.bounds.max_x) / 2
+	target_pos_x := center_x - collider.x
+	delta_x := target_pos_x - int(pos.x)
+	vel.x = i32(clamp(delta_x, -int(cfg.center_speed), int(cfg.center_speed)))
+
+	move_y := i32(0)
+	if .North in input {
+		move_y += 1
+	}
+	if .South in input {
+		move_y -= 1
+	}
+	vel.y = move_y * cfg.climb_speed
+
+	p.on_ground = false
+	p.on_wall = false
+	p.ground_normal = {}
+	p.wall_normal = {}
+	p.ground_segment = nil
+	p.wall_segment = nil
+
+	platformer_move_and_collide(&w.grid, pos, vel, collider, p)
 }
 
 @(private = "file")
@@ -645,6 +814,22 @@ capsule_local_aabb :: proc(capsule: ^shape.Capsule) -> [4]int {
 		capsule.x + capsule.radius,
 		capsule.y + half_height + capsule.radius,
 	}
+}
+
+@(private = "file")
+platformer_world_aabb :: proc(pos: ^Position, collider: ^shape.Capsule) -> shape.Aabb {
+	bounds := capsule_local_aabb(collider)
+	return {
+		min_x = int(pos.x) + bounds.x,
+		min_y = int(pos.y) + bounds.y,
+		max_x = int(pos.x) + bounds.z,
+		max_y = int(pos.y) + bounds.w,
+	}
+}
+
+@(private = "file")
+aabb_overlaps :: proc(a, b: shape.Aabb) -> bool {
+	return a.min_x <= b.max_x && a.max_x >= b.min_x && a.min_y <= b.max_y && a.max_y >= b.min_y
 }
 
 @(private = "file")

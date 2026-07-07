@@ -1,6 +1,6 @@
 -- Tilemap to Collision Segments
 -- Converts one tilemap layer into merged exterior collision edge segments.
--- Inputs: map or array of maps, layerIndex, solidTileId
+-- Inputs: map or array of maps, layerIndex, solidTileId, oneWayTileId (optional)
 -- Outputs: segments, or array of segment arrays when map input is an array
 --
 -- Coordinate contract:
@@ -48,7 +48,7 @@ local function itemAt(value, index)
 	return value
 end
 
-local function generateSegments(tilemap, layerInput, solidTileInput, label)
+local function generateSegments(tilemap, layerInput, solidTileInput, oneWayTileInput, label)
 	if tilemap == nil or tilemap == "" then
 		error(label .. " map is required")
 	end
@@ -64,6 +64,18 @@ local function generateSegments(tilemap, layerInput, solidTileInput, label)
 		error(label .. " solid tile id is required")
 	end
 	solidTileId = math.floor(solidTileId)
+
+	local oneWayTileId = nil
+	if oneWayTileInput ~= nil and oneWayTileInput ~= "" then
+		oneWayTileId = tonumber(oneWayTileInput)
+		if oneWayTileId == nil then
+			error(label .. " one-way tile id must be numeric when provided")
+		end
+		oneWayTileId = math.floor(oneWayTileId)
+		if oneWayTileId == solidTileId then
+			error(label .. " one-way tile id must be different from solid tile id")
+		end
+	end
 
 	local layers = tilemap.layers
 	if type(layers) ~= "table" or #layers == 0 then
@@ -94,9 +106,9 @@ local function generateSegments(tilemap, layerInput, solidTileInput, label)
 		return x >= 0 and x < width and y >= 0 and y < height
 	end
 
-	local function is_solid_at(x, y)
+	local function tile_id_at(x, y)
 		if not in_bounds(x, y) then
-			return false
+			return nil
 		end
 
 		local index = y * width + x + 1
@@ -105,7 +117,20 @@ local function generateSegments(tilemap, layerInput, solidTileInput, label)
 			error(label .. " tile id at index " .. tostring(index) .. " is not numeric")
 		end
 
-		return math.floor(tileId) == solidTileId
+		return math.floor(tileId)
+	end
+
+	local function is_solid_at(x, y)
+		return tile_id_at(x, y) == solidTileId
+	end
+
+	local function is_one_way_at(x, y)
+		return oneWayTileId ~= nil and tile_id_at(x, y) == oneWayTileId
+	end
+
+	local function is_blocking_at(x, y)
+		local tileId = tile_id_at(x, y)
+		return tileId == solidTileId or (oneWayTileId ~= nil and tileId == oneWayTileId)
 	end
 
 	local exteriorEmpty = {}
@@ -117,7 +142,7 @@ local function generateSegments(tilemap, layerInput, solidTileInput, label)
 	end
 
 	local function enqueue_exterior_empty(x, y)
-		if not in_bounds(x, y) or is_solid_at(x, y) then
+		if not in_bounds(x, y) or is_blocking_at(x, y) then
 			return
 		end
 
@@ -151,6 +176,10 @@ local function generateSegments(tilemap, layerInput, solidTileInput, label)
 	end
 
 	local function is_playable_empty_at(x, y)
+		return in_bounds(x, y) and not is_blocking_at(x, y) and not exteriorEmpty[cell_index(x, y)]
+	end
+
+	local function is_playable_empty_or_one_way_at(x, y)
 		return in_bounds(x, y) and not is_solid_at(x, y) and not exteriorEmpty[cell_index(x, y)]
 	end
 
@@ -161,13 +190,14 @@ local function generateSegments(tilemap, layerInput, solidTileInput, label)
 	end
 
 	-- Horizontal edges.
-	-- Top/floor edges are left-to-right at y; bottom/ceiling edges are right-to-left at y - 1.
+	-- Top/floor edges are left-to-right at y; one-way platform tiles only emit these top edges.
+	-- Bottom/ceiling edges are right-to-left at y - 1 and are emitted for solid tiles only.
 	for y = 0, height - 1 do
 		local topStart = nil
 		local bottomStart = nil
 
 		for x = 0, width do
-			local hasTopEdge = x < width and is_solid_at(x, y) and is_playable_empty_at(x, y + 1)
+			local hasTopEdge = x < width and (is_solid_at(x, y) or is_one_way_at(x, y)) and is_playable_empty_at(x, y + 1)
 			local hasBottomEdge = x < width and is_solid_at(x, y) and is_playable_empty_at(x, y - 1)
 
 			if hasTopEdge and topStart == nil then
@@ -188,13 +218,15 @@ local function generateSegments(tilemap, layerInput, solidTileInput, label)
 
 	-- Vertical edges.
 	-- Left edges are bottom-to-top; right edges are top-to-bottom.
+	-- One-way platform tile bodies are passable from the sides, so solid side edges facing
+	-- a one-way platform tile are still emitted.
 	for x = 0, width - 1 do
 		local leftStart = nil
 		local rightStart = nil
 
 		for y = 0, height do
-			local hasLeftEdge = y < height and is_solid_at(x, y) and is_playable_empty_at(x - 1, y)
-			local hasRightEdge = y < height and is_solid_at(x, y) and is_playable_empty_at(x + 1, y)
+			local hasLeftEdge = y < height and is_solid_at(x, y) and is_playable_empty_or_one_way_at(x - 1, y)
+			local hasRightEdge = y < height and is_solid_at(x, y) and is_playable_empty_or_one_way_at(x + 1, y)
 
 			if hasLeftEdge and leftStart == nil then
 				leftStart = y
@@ -218,6 +250,7 @@ end
 local tilemap = inputs[1]
 local layerInput = inputs[2]
 local solidTileInput = inputs[3]
+local oneWayTileInput = inputs[4]
 
 if type(tilemap) == "table" and isArray(tilemap) then
 	local segmentLists = {}
@@ -226,10 +259,11 @@ if type(tilemap) == "table" and isArray(tilemap) then
 			item,
 			itemAt(layerInput, index),
 			itemAt(solidTileInput, index),
+			itemAt(oneWayTileInput, index),
 			"map[" .. tostring(index) .. "]"
 		)
 	end
 	outputs[1] = segmentLists
 else
-	outputs[1] = generateSegments(tilemap, layerInput, solidTileInput, "map input")
+	outputs[1] = generateSegments(tilemap, layerInput, solidTileInput, oneWayTileInput, "map input")
 end

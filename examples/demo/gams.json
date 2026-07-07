@@ -1334,6 +1334,10 @@
                 {
                   "name": "solidTileId",
                   "defaultValue": "1"
+                },
+                {
+                  "name": "oneWayTileId",
+                  "defaultValue": ""
                 }
               ],
               "outputs": [

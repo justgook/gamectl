@@ -1,0 +1,77 @@
+{
+  "package": "main",
+  "odin": {
+    "package": "assets_data",
+    "imports": {
+      "world": "../world"
+    }
+  },
+  "data": ["UVs", "Atlas", "world.Animation_Atlas", "Segments"],
+  "types": {
+    "Vec2": {
+      "type": "array",
+      "len": 2,
+      "value": "f32"
+    },
+    "iVec4": {
+      "type": "array",
+      "len": 4,
+      "value": "i32"
+    },
+    "Atlas": {
+      "type": "bytes"
+    },
+    "UV": {
+      "type": "array",
+      "len": 4,
+      "value": "f32"
+    },
+    "UVs": {
+      "type": "vector",
+      "value": "UV"
+    },
+    "world.AnimFrame": {
+      "type": "struct",
+      "fields": {
+        "uv": {
+          "type": "array",
+          "len": 4,
+          "value": "f32"
+        },
+        "offset": {
+          "type": "array",
+          "len": 2,
+          "value": "i32",
+          "default": [0, 0]
+        },
+        "duration": "f32",
+        "flip": { "type": "u8", "default": 0 }
+      }
+    },
+    "world.AnimDef": {
+      "type": "struct",
+      "fields": {
+        "frame_start": "u32",
+        "frame_count": "u32",
+        "repeat": "u32"
+      }
+    },
+    "world.Animation_Atlas": {
+      "type": "struct",
+      "fields": {
+        "defs": {
+          "type": "vector",
+          "value": "world.AnimDef"
+        },
+        "frames": {
+          "type": "vector",
+          "value": "world.AnimFrame"
+        }
+      }
+    },
+    "Segments": {
+      "type": "vector",
+      "value": "iVec4"
+    }
+  }
+}

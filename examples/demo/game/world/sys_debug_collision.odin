@@ -20,9 +20,12 @@ Debug_Collision_Vertex :: struct {
 @(private = "file")
 Debug_Collision_State :: struct {
 	initialized: bool,
-	pip:         sg.Pipeline,
-	bind:        sg.Bindings,
-	vertices:    [dynamic]Debug_Collision_Vertex,
+	line_pip:      sg.Pipeline,
+	fill_pip:      sg.Pipeline,
+	line_bind:     sg.Bindings,
+	fill_bind:     sg.Bindings,
+	vertices:      [dynamic]Debug_Collision_Vertex,
+	fill_vertices: [dynamic]Debug_Collision_Vertex,
 }
 
 @(private = "file")
@@ -31,6 +34,14 @@ debug_collision_state: Debug_Collision_State
 sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	debug_collision_init_once()
 	debug_collision_clear()
+
+	// Platformer environmental zones.
+	for &zone in w.platformer_zones {
+		switch zone.kind {
+		case .Ladder:
+			debug_collision_add_aabb_subpixel(zone.bounds, {1.0, 0.9, 0.1, 0.18}, {1.0, 0.9, 0.1, 0.9})
+		}
+	}
 
 	// Static world collision.
 	for &segment in w.segments {
@@ -87,15 +98,23 @@ debug_collision_init_once :: proc() {
 	}
 
 	debug_collision_state.vertices = make([dynamic]Debug_Collision_Vertex, 0, 4096)
-	debug_collision_state.bind.vertex_buffers[0] = sg.make_buffer(
+	debug_collision_state.fill_vertices = make([dynamic]Debug_Collision_Vertex, 0, 256)
+	debug_collision_state.line_bind.vertex_buffers[0] = sg.make_buffer(
+		{
+			usage = {vertex_buffer = true, stream_update = true},
+			size = DEBUG_COLLISION_MAX_VERTICES * size_of(Debug_Collision_Vertex),
+		},
+	)
+	debug_collision_state.fill_bind.vertex_buffers[0] = sg.make_buffer(
 		{
 			usage = {vertex_buffer = true, stream_update = true},
 			size = DEBUG_COLLISION_MAX_VERTICES * size_of(Debug_Collision_Vertex),
 		},
 	)
 
+	shader := sg.make_shader(debug_collision_shader_desc(sg.query_backend()))
 	pipeline_desc := sg.Pipeline_Desc {
-		shader = sg.make_shader(debug_collision_shader_desc(sg.query_backend())),
+		shader = shader,
 		primitive_type = .LINES,
 		cull_mode = .NONE,
 		depth = {compare = .ALWAYS, write_enabled = false},
@@ -116,32 +135,48 @@ debug_collision_init_once :: proc() {
 		op_alpha         = .ADD,
 	}
 
-	debug_collision_state.pip = sg.make_pipeline(pipeline_desc)
+	debug_collision_state.line_pip = sg.make_pipeline(pipeline_desc)
+	pipeline_desc.primitive_type = .TRIANGLES
+	debug_collision_state.fill_pip = sg.make_pipeline(pipeline_desc)
 	debug_collision_state.initialized = true
 }
 
 @(private = "file")
 debug_collision_clear :: proc() {
 	clear(&debug_collision_state.vertices)
+	clear(&debug_collision_state.fill_vertices)
 }
 
 @(private = "file")
 debug_collision_flush :: proc(ortho: ^linalg.Matrix4f32) {
-	count := len(debug_collision_state.vertices)
-	if count == 0 {
-		return
-	}
-	assert(count <= DEBUG_COLLISION_MAX_VERTICES)
-
 	params := Debug_Collision_Vs_Params {
 		ortho = ortho^,
 	}
+
+	fill_count := len(debug_collision_state.fill_vertices)
+	assert(fill_count <= DEBUG_COLLISION_MAX_VERTICES)
+	if fill_count > 0 {
+		sg.update_buffer(
+			debug_collision_state.fill_bind.vertex_buffers[0],
+			{ptr = raw_data(debug_collision_state.fill_vertices[:]), size = c.size_t(fill_count * size_of(Debug_Collision_Vertex))},
+		)
+		sg.apply_pipeline(debug_collision_state.fill_pip)
+		sg.apply_bindings(debug_collision_state.fill_bind)
+		sg.apply_uniforms(UB_debug_collision_vs_params, {ptr = &params, size = size_of(params)})
+		sg.draw(0, i32(fill_count), 1)
+	}
+
+	count := len(debug_collision_state.vertices)
+	assert(count <= DEBUG_COLLISION_MAX_VERTICES)
+	if count == 0 {
+		return
+	}
 	sg.update_buffer(
-		debug_collision_state.bind.vertex_buffers[0],
+		debug_collision_state.line_bind.vertex_buffers[0],
 		{ptr = raw_data(debug_collision_state.vertices[:]), size = c.size_t(count * size_of(Debug_Collision_Vertex))},
 	)
-	sg.apply_pipeline(debug_collision_state.pip)
-	sg.apply_bindings(debug_collision_state.bind)
+	sg.apply_pipeline(debug_collision_state.line_pip)
+	sg.apply_bindings(debug_collision_state.line_bind)
 	sg.apply_uniforms(UB_debug_collision_vs_params, {ptr = &params, size = size_of(params)})
 	sg.draw(0, i32(count), 1)
 }
@@ -159,6 +194,31 @@ debug_collision_add_segment_subpixel :: proc(segment: ^[4]int, color: [4]f32) {
 		{to_pixelf(segment.z), to_pixelf(segment.w)},
 		color,
 	)
+}
+
+@(private = "file")
+debug_collision_add_aabb_subpixel :: proc(bounds: shape.Aabb, fill_color, outline_color: [4]f32) {
+	min := [2]f32{to_pixelf(bounds.min_x), to_pixelf(bounds.min_y)}
+	max := [2]f32{to_pixelf(bounds.max_x), to_pixelf(bounds.max_y)}
+	bottom_left := [2]f32{min.x, min.y}
+	bottom_right := [2]f32{max.x, min.y}
+	top_right := [2]f32{max.x, max.y}
+	top_left := [2]f32{min.x, max.y}
+
+	debug_collision_add_filled_triangle(bottom_left, bottom_right, top_right, fill_color)
+	debug_collision_add_filled_triangle(bottom_left, top_right, top_left, fill_color)
+
+	debug_collision_add_line(bottom_left, bottom_right, outline_color)
+	debug_collision_add_line(bottom_right, top_right, outline_color)
+	debug_collision_add_line(top_right, top_left, outline_color)
+	debug_collision_add_line(top_left, bottom_left, outline_color)
+}
+
+@(private = "file")
+debug_collision_add_filled_triangle :: proc(a, b, c: [2]f32, color: [4]f32) {
+	append(&debug_collision_state.fill_vertices, Debug_Collision_Vertex{pos = a, color = color})
+	append(&debug_collision_state.fill_vertices, Debug_Collision_Vertex{pos = b, color = color})
+	append(&debug_collision_state.fill_vertices, Debug_Collision_Vertex{pos = c, color = color})
 }
 
 @(private = "file")
