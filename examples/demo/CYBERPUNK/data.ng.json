@@ -134,8 +134,8 @@
   {
     "id": 32,
     "kind": 4,
-    "x": 2490,
-    "y": -188,
+    "x": 2535,
+    "y": -627,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -152,8 +152,8 @@
   {
     "id": 33,
     "kind": 2,
-    "x": 2738,
-    "y": -220,
+    "x": 2783,
+    "y": -659,
     "name": "Write",
     "codePath": "ng/presets/image-write.lua",
     "graphId": 0,
@@ -183,8 +183,8 @@
   {
     "id": 34,
     "kind": 4,
-    "x": 3189,
-    "y": -196,
+    "x": 3118,
+    "y": -633,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -201,8 +201,8 @@
   {
     "id": 35,
     "kind": 2,
-    "x": 3410,
-    "y": -195,
+    "x": 3339,
+    "y": -632,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
