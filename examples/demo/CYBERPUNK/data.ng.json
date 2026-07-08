@@ -579,7 +579,7 @@
     "x": 2016,
     "y": 384,
     "name": "Wrap Object",
-    "codePath": "ng/presets/wrap-object.lua",
+    "codePath": "ng/presets/to-object.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -1042,8 +1042,8 @@
   {
     "id": 70,
     "kind": 4,
-    "x": 1621,
-    "y": -326,
+    "x": 1883,
+    "y": -601,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1053,15 +1053,15 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"tmp/DEBUG_segments.json\""
+        "value": "\"tmp/DEBUG_ladder.json\""
       }
     ]
   },
   {
     "id": 71,
     "kind": 2,
-    "x": 1932,
-    "y": -329,
+    "x": 2194,
+    "y": -604,
     "name": "Write File",
     "codePath": "ng/presets/write-file.lua",
     "graphId": 0,
@@ -1076,7 +1076,7 @@
       {
         "id": 2,
         "name": "text",
-        "srcNodeId": 72,
+        "srcNodeId": 82,
         "srcOutputId": 1
       }
     ],
@@ -1159,8 +1159,8 @@
   {
     "id": 75,
     "kind": 2,
-    "x": 1063,
-    "y": -202,
+    "x": 1064,
+    "y": -187,
     "name": "tilemap FlipY",
     "codePath": "ng/presets/tilemap-flipy.lua",
     "graphId": 0,
@@ -1220,6 +1220,214 @@
       {
         "id": 1,
         "name": "segments",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 77,
+    "kind": 2,
+    "x": 1343,
+    "y": -272,
+    "name": "Tilemap to AABBs",
+    "codePath": "ng/presets/collision/tilemap-to-aabbs.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "map",
+        "srcNodeId": 78,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "layerIndex",
+        "srcNodeId": 79,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "tileId",
+        "srcNodeId": 79,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "aabbs",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 78,
+    "kind": 2,
+    "x": 1212,
+    "y": -441,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 75,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 79,
+    "kind": 4,
+    "x": 1074,
+    "y": -285,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "1"
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "3"
+      }
+    ]
+  },
+  {
+    "id": 80,
+    "kind": 2,
+    "x": 1595,
+    "y": -297,
+    "name": "Scale",
+    "codePath": "ng/presets/scale.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "value",
+        "srcNodeId": 77,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "factor",
+        "srcNodeId": 81,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "value",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 81,
+    "kind": 4,
+    "x": 1405,
+    "y": -350,
+    "name": "tilesize",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "16"
+      }
+    ]
+  },
+  {
+    "id": 82,
+    "kind": 2,
+    "x": 2009,
+    "y": -382,
+    "name": "Zip",
+    "codePath": "ng/presets/zip.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "items1",
+        "srcNodeId": 83,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "items2",
+        "srcNodeId": 84,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "items",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 83,
+    "kind": 4,
+    "x": 1740,
+    "y": -487,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "{\"id\":\"0000\", \"kind\":\"Ladder\"}"
+      }
+    ]
+  },
+  {
+    "id": 84,
+    "kind": 2,
+    "x": 1785,
+    "y": -338,
+    "name": "toObjectEach",
+    "codePath": "ng/presets/to-object-each.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "aabb",
+        "srcNodeId": 80,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "objects",
         "value": null
       }
     ]

@@ -783,7 +783,7 @@
             {
               "name": "toObject",
               "kind": "code",
-              "codePath": "ng/presets/wrap-object.lua",
+              "codePath": "ng/presets/to-object.lua",
               "inputs": [
                 {
                   "name": "field1",
@@ -797,6 +797,27 @@
               "outputs": [
                 {
                   "name": "object"
+                }
+              ],
+              "group": "Data"
+            },
+            {
+              "name": "toObjectEach",
+              "kind": "code",
+              "codePath": "ng/presets/to-object-each.lua",
+              "inputs": [
+                {
+                  "name": "field1",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "field2",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "objects"
                 }
               ],
               "group": "Data"
@@ -1343,6 +1364,31 @@
               "outputs": [
                 {
                   "name": "segments"
+                }
+              ],
+              "group": "Collision"
+            },
+            {
+              "name": "Tilemap to AABBs",
+              "kind": "code",
+              "codePath": "ng/presets/collision/tilemap-to-aabbs.lua",
+              "inputs": [
+                {
+                  "name": "map",
+                  "defaultValue": "minimap.map.json"
+                },
+                {
+                  "name": "layerIndex",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "tileId",
+                  "defaultValue": "44"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "aabbs"
                 }
               ],
               "group": "Collision"

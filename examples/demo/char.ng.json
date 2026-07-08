@@ -493,7 +493,7 @@
     "x": 723,
     "y": 422,
     "name": "Wrap Object",
-    "codePath": "ng/presets/wrap-object.lua",
+    "codePath": "ng/presets/to-object.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [

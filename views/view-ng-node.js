@@ -356,8 +356,8 @@ export class ViewNgNode extends HTMLElement {
           <input type="text" name="code-path" data-field="code-path" value="${escapeAttribute(this.draft.codePath)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="demo/ng/presets/example.lua">
         </label>
         <div role="buttongroup">
-          <button type="submit" name="intent" value="browse-code-file">Browse</button>
-          <button type="submit" name="intent" value="edit-code-file">Edit</button>
+          <button type="button" data-action="browse-code-file">Browse</button>
+          <button type="button" data-action="edit-code-file">Edit</button>
         </div>
         ${message ? `<output class="warning">${escapeAttribute(message)}</output>` : ""}
       </fieldset>
@@ -419,13 +419,13 @@ export class ViewNgNode extends HTMLElement {
         <td>
           ${
               isInput
-                  ? `<input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}"><input type="text" name="input-port-name" value="${escapeAttribute(port.name || "")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Input ${index + 1}">`
+                  ? `<input type="hidden" name="input-port-id" value="${Number(port.inputId || index + 1)}"><input type="text" name="input-port-name" data-port-id="${Number(port.inputId || index + 1)}" value="${escapeAttribute(port.name || "")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Input ${index + 1}">`
                   : isValueNode
-                    ? `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-value" value="${escapeAttribute(port.value || "")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Value ${index + 1}">`
-                    : `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-name" value="${escapeAttribute(port.name || "")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Output ${index + 1}">`
+                    ? `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-value" data-port-id="${Number(port.outputId || index + 1)}" value="${escapeAttribute(port.value || "")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Value ${index + 1}">`
+                    : `<input type="hidden" name="output-port-id" value="${Number(port.outputId || index + 1)}"><input type="text" name="output-port-name" data-port-id="${Number(port.outputId || index + 1)}" value="${escapeAttribute(port.name || "")}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Output ${index + 1}">`
 }
         </td>
-        <td><button type="submit" name="${isInput ? "remove-input-id" : "remove-output-id"}" value="${Number(isInput ? port.inputId : port.outputId || index + 1)}" aria-label="Delete"><i aria-hidden="true">delete</i></button></td>
+        <td><button type="button" data-action="${isInput ? "remove-input" : "remove-output"}" data-port-id="${Number(isInput ? port.inputId : port.outputId || index + 1)}" aria-label="Delete"><i aria-hidden="true">delete</i></button></td>
       </tr>
     `,
             )
@@ -486,7 +486,7 @@ export class ViewNgNode extends HTMLElement {
             <tr>
               <td>New</td>
               <td><input type="text" name="new-input-name" value="${escapeAttribute(this.draft.newInputName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Input name"></td>
-              <td><button type="submit" name="intent" value="add-input" ${String(this.draft.newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button></td>
+              <td><button type="button" data-action="add-input" ${String(this.draft.newInputName).trim() ? "" : "disabled"}><i aria-hidden="true">add</i></button></td>
             </tr>
           </tbody>
         </table>
@@ -504,7 +504,7 @@ export class ViewNgNode extends HTMLElement {
             <tr>
               <td>New</td>
               <td><input type="text" name="${isValueNode ? "new-output-value" : "new-output-name"}" value="${escapeAttribute(isValueNode ? this.draft.newOutputValue : this.draft.newOutputName)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="${isValueNode ? "Value" : "Output name"}"></td>
-              <td><button type="submit" name="intent" value="add-output" ${!isValueNode && !String(this.draft.newOutputName).trim() ? "disabled" : ""}><i aria-hidden="true">add</i></button></td>
+              <td><button type="button" data-action="add-output" ${!isValueNode && !String(this.draft.newOutputName).trim() ? "disabled" : ""}><i aria-hidden="true">add</i></button></td>
             </tr>
           </tbody>
         </table>
@@ -570,21 +570,65 @@ export class ViewNgNode extends HTMLElement {
             }
         }
 
+        this.querySelector('[data-action="browse-code-file"]')?.addEventListener("click", async () => {
+            await this.handleAction("browse-code-file")
+        })
+        this.querySelector('[data-action="edit-code-file"]')?.addEventListener("click", async () => {
+            await this.handleAction("edit-code-file")
+        })
+        this.querySelector('[data-action="add-input"]')?.addEventListener("click", async () => {
+            await this.handleAction("add-input")
+        })
+        this.querySelector('[data-action="add-output"]')?.addEventListener("click", async () => {
+            await this.handleAction("add-output")
+        })
+        this.querySelectorAll('[data-action="remove-input"]').forEach((button) => {
+            button.addEventListener("click", async () => {
+                assert(button instanceof HTMLButtonElement, "view-ng-node remove input action must be a button")
+                await this.handleAction(`remove-input:${String(button.dataset.portId || "")}`)
+            })
+        })
+        this.querySelectorAll('[data-action="remove-output"]').forEach((button) => {
+            button.addEventListener("click", async () => {
+                assert(button instanceof HTMLButtonElement, "view-ng-node remove output action must be a button")
+                await this.handleAction(`remove-output:${String(button.dataset.portId || "")}`)
+            })
+        })
+
         const newInput = this.querySelector('[name="new-input-name"]')
-        const addInput = this.querySelector('[name="intent"][value="add-input"]')
+        const addInput = this.querySelector('[data-action="add-input"]')
         if (newInput instanceof HTMLInputElement && addInput instanceof HTMLButtonElement) {
             newInput.addEventListener("input", () => {
-                this.draft.newInputName = newInput.value
+                this.captureDraftFromForm()
                 addInput.disabled = !String(newInput.value || "").trim()
+                if (!String(newInput.value || "").trim()) return
+                const inputId = this.addInputPort(newInput.value)
+                this.renderForm()
+                this.focusPortInput("input", inputId)
             })
         }
 
-        const newOutput = this.querySelector('[name="new-output-name"]')
-        const addOutput = this.querySelector('[name="intent"][value="add-output"]')
-        if (newOutput instanceof HTMLInputElement && addOutput instanceof HTMLButtonElement && !isValueNode) {
-            newOutput.addEventListener("input", () => {
-                this.draft.newOutputName = newOutput.value
-                addOutput.disabled = !String(newOutput.value || "").trim()
+        const newOutputName = this.querySelector('[name="new-output-name"]')
+        const addOutput = this.querySelector('[data-action="add-output"]')
+        if (newOutputName instanceof HTMLInputElement && addOutput instanceof HTMLButtonElement && !isValueNode) {
+            newOutputName.addEventListener("input", () => {
+                this.captureDraftFromForm()
+                addOutput.disabled = !String(newOutputName.value || "").trim()
+                if (!String(newOutputName.value || "").trim()) return
+                const outputId = this.addOutputPort(newOutputName.value, "")
+                this.renderForm()
+                this.focusPortInput("output", outputId)
+            })
+        }
+
+        const newOutputValue = this.querySelector('[name="new-output-value"]')
+        if (newOutputValue instanceof HTMLInputElement && addOutput instanceof HTMLButtonElement && isValueNode) {
+            newOutputValue.addEventListener("input", () => {
+                this.captureDraftFromForm()
+                if (!String(newOutputValue.value || "").length) return
+                const outputId = this.addOutputPort("", newOutputValue.value)
+                this.renderForm()
+                this.focusPortInput("output", outputId)
             })
         }
     }
@@ -626,6 +670,111 @@ export class ViewNgNode extends HTMLElement {
 
         this.draft.inputs = nextInputs
         this.draft.outputs = nextOutputs
+    }
+
+    addInputPort(name) {
+        const inputName = String(name || "").trim()
+        assert(inputName, "view-ng-node cannot add an unnamed input port")
+        const nextId = this.draft.inputs.reduce((max, port) => Math.max(max, Number(port.inputId || 0)), 0) + 1
+        this.draft.inputs.push({ inputId: nextId, name: inputName, value: "" })
+        this.draft.newInputName = ""
+        return nextId
+    }
+
+    addOutputPort(name, value) {
+        const outputName = String(name || "").trim()
+        const outputValue = String(value || "")
+        assert(this.draft.kind === NG.NODE_VALUE || outputName, "view-ng-node cannot add an unnamed output port")
+        const nextId = this.draft.outputs.reduce((max, port) => Math.max(max, Number(port.outputId || 0)), 0) + 1
+        this.draft.outputs.push({
+            outputId: nextId,
+            name: outputName,
+            value: outputValue,
+        })
+        this.draft.newOutputName = ""
+        this.draft.newOutputValue = ""
+        return nextId
+    }
+
+    focusPortInput(direction, portId) {
+        const selector =
+            direction === "input"
+                ? `[name="input-port-name"][data-port-id="${Number(portId)}"]`
+                : this.draft.kind === NG.NODE_VALUE
+                  ? `[name="output-port-value"][data-port-id="${Number(portId)}"]`
+                  : `[name="output-port-name"][data-port-id="${Number(portId)}"]`
+        const input = this.querySelector(selector)
+        assert(input instanceof HTMLInputElement, "view-ng-node missing newly-created port input")
+        input.focus()
+        input.setSelectionRange(input.value.length, input.value.length)
+    }
+
+    async handleAction(intent) {
+        this.captureDraftFromForm()
+
+        if (intent === "add-input") {
+            if (String(this.draft.newInputName || "").trim()) this.addInputPort(this.draft.newInputName)
+            this.renderForm()
+            return
+        }
+
+        if (intent.startsWith("remove-input:")) {
+            const inputId = Number(intent.split(":")[1])
+            this.draft.inputs = this.draft.inputs.filter((port) => Number(port.inputId) !== inputId)
+            this.renderForm()
+            return
+        }
+
+        if (intent === "add-output") {
+            if (this.draft.kind === NG.NODE_VALUE || String(this.draft.newOutputName || "").trim()) {
+                this.addOutputPort(this.draft.newOutputName, this.draft.newOutputValue)
+            }
+            this.renderForm()
+            return
+        }
+
+        if (intent.startsWith("remove-output:")) {
+            const outputId = Number(intent.split(":")[1])
+            this.draft.outputs = this.draft.outputs.filter((port) => Number(port.outputId) !== outputId)
+            this.renderForm()
+            return
+        }
+
+        if (intent === "browse-code-file") {
+            try {
+                const selected = await this.chooseCodeFile()
+                if (selected) this.draft.codeStatus = ""
+            } catch (error) {
+                this.draft.codeStatus = String(error?.message || error)
+            }
+            this.renderForm()
+            return
+        }
+
+        if (intent === "edit-code-file") {
+            if (!this.draft.codePath) {
+                this.draft.codeStatus = "Choose a code file path first."
+                this.renderForm()
+                return
+            }
+            try {
+                const payload = unwrap(
+                    await runtime.call("ui.popup.open", {
+                        title: "Edit Code",
+                        size: "large",
+                        tag: "view-code",
+                        attributes: { "data-source": this.draft.codePath },
+                    }),
+                )
+                this.draft.codeStatus = payload?.ok ? "Code file saved." : ""
+            } catch (error) {
+                this.draft.codeStatus = String(error?.message || error)
+            }
+            this.renderForm()
+            return
+        }
+
+        throw new Error(`view-ng-node unknown action: ${intent}`)
     }
 
     applyNodeTemplateToDraft(templateEntry) {
