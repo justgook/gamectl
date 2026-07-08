@@ -1,288 +1,642 @@
 package director
 
-// Director package design notes
-// =============================
+// Director is a small runtime for already-compiled narrative/world-model rules.
 //
-// Purpose:
-// The Director is the future data-driven game/narrative logic layer for the
-// demo game. It should decide what game events *mean* and return commands for
-// the low-level Odin world simulation to execute.
+// The package intentionally does not parse author-facing rule strings. A GAMS-side
+// compiler is expected to turn names such as `PLAYER.current_location=ROOM` and
+// rule syntax such as `ON: *.item` into this package's typed IR. The game then
+// initializes State from Director_Data, sends Trigger values, and observes the
+// Result plus mutated world model state.
 //
-// Short version:
-//   World systems detect physical facts.
-//   Director updates logical game state.
-//   Director emits commands.
-//   World systems execute commands.
+// Typical use:
 //
-// Example:
-//   1. world/sys_trigger detects player entered trigger "room_02.start".
-//   2. World sends Event{kind = .Trigger_Entered, trigger = "room_02.start"}.
-//   3. Director checks flags/room state and returns commands:
-//        Close_Door("room_02.left")
-//        Close_Door("room_02.right")
-//        Spawn_Enemy("room_02.wave_1.crawler_1", "crawler", "room_02.spawn_a")
-//   4. World creates physical entities, closes doors, plays sounds, etc.
+//     state := director.init(&compiled_director_data)
+//     defer director.destroy(&state)
 //
-// Inspiration:
-//   https://enegames.itch.io/elm-narrative-engine
+//     result := director.trigger(&state, director.Trigger{kind = .Signal, signal = START})
+//     if result.matched {
+//         // Use result.rule/result.narrative for game-side sys_director behavior.
+//     }
 //
-// Long-term GAMS idea:
-//   Use a GAMS editor/view to author this data visually, similar in spirit to
-//   Elm Narrative Engine's visual authoring flow. GAMS could produce room,
-//   narrative, encounter, inventory, skill, loot, and rule data files. The game
-//   would load those files at runtime so game logic can be updated without
-//   recompiling the Odin executable/wasm.
+// Runtime ids are separate from authored/debug strings. Generated Odin constants
+// should give meaningful names to Entity_Id, Word_Id, Rule_Id, and Text_Id values.
+
+// Entity_Id identifies an authored entity in compiled Director data.
+Entity_Id :: distinct u32
+
+// Word_Id identifies an authored word/property/tag/signal in compiled Director data.
+Word_Id :: distinct u32
+
+// Rule_Id identifies an authored rule in compiled Director data.
+Rule_Id :: distinct u32
+
+// Text_Id identifies authored text/narrative content in compiled Director data.
+Text_Id :: distinct u32
+
+INVALID_ENTITY :: Entity_Id(0xffffffff)
+INVALID_WORD :: Word_Id(0xffffffff)
+INVALID_RULE :: Rule_Id(0xffffffff)
+INVALID_TEXT :: Text_Id(0xffffffff)
+
+// Range references a contiguous slice inside one of Director_Data's flat IR pools.
+Range :: struct {
+	offset: u32,
+	count:  u32,
+}
+
+// Selector_Kind describes the subject of a Matcher.
+Selector_Kind :: enum u8 {
+	Entity, // Match one compiled entity id.
+	Any, // Match any entity in State.
+	Trigger, // Match the triggering entity.
+}
+
+// Selector is the compiled equivalent of an Elm matcher prefix: `ID`, `*`, or `$`.
+Selector :: struct {
+	kind:   Selector_Kind,
+	entity: Entity_Id,
+}
+
+Compare_Op :: enum u8 {
+	Eq,
+	Gt,
+	Lt,
+}
+
+Query_Kind :: enum u8 {
+	Has_Tag,
+	Has_Stat,
+	Has_Link,
+	Not,
+}
+
+Stat_Value_Kind :: enum u8 {
+	Immediate,
+	From_Entity_Stat,
+	From_Trigger_Stat,
+}
+
+Stat_Value :: struct {
+	kind:   Stat_Value_Kind,
+	entity: Entity_Id,
+	key:    Word_Id,
+	value:  i32,
+}
+
+Link_Value_Kind :: enum u8 {
+	Specific_Matcher,
+	From_Entity_Link,
+	From_Trigger_Link,
+}
+
+Link_Value :: struct {
+	kind:          Link_Value_Kind,
+	matcher_index: u32,
+	entity:        Entity_Id,
+	key:           Word_Id,
+}
+
+// Query is one compiled entity predicate.
 //
-// This file is intentionally an Odin package with comments/examples instead of
-// a markdown document, so the idea lives near the game code and can gradually
-// become real code.
+// Examples from source syntax:
+// - `.item` compiles to Has_Tag.
+// - `.level>2` compiles to Has_Stat.
+// - `.location=(*.dark)` compiles to Has_Link with a nested matcher.
+// - `.!locked` compiles to Not pointing at another Query.
+Query :: struct {
+	kind:       Query_Kind,
+	key:        Word_Id,
+	op:         Compare_Op,
+	stat_value: Stat_Value,
+	link_value: Link_Value,
+	nested:     u32,
+}
 
-Logic_Id :: string
-
-// Runtime_Entity is the transient ECS/entity id used by the physical world.
-// The concrete world package currently uses logic.Entity, but this package
-// should avoid depending on world internals while the boundary is still being
-// designed.
-Runtime_Entity :: i64
-
-// Stable ids used by the Director should be authored data ids, not raw runtime
-// entity ids. Examples:
-//   "player"
-//   "room.green_hall"
-//   "room.green_hall.door.left"
-//   "room.green_hall.wave_1.crawler_3"
-//   "bullet.player.shot_42"
+// Matcher is the compiled equivalent of an entity matcher/query expression.
 //
-// The world can bridge runtime entities to logical ids with a future component:
-//   Logic_Link :: struct { id: director.Logic_Id }
-
-Event_Kind :: enum {
-	// Low-level physical/sensor facts from the world to the Director.
-	Trigger_Entered,
-	Trigger_Left,
-	Player_Entered_Room,
-	Player_Left_Room,
-	Entity_Hit_Entity,
-	Entity_Left_World,
-	Player_Interacted,
-	Timer_Finished,
-
-	// Director-generated synthetic events. These are derived from logical state,
-	// not detected directly by physics/collision systems.
-	Room_Cleared,
-	Encounter_Started,
-	Encounter_Cleared,
-	Enemy_Killed,
-	Item_Collected,
-	Skill_Unlocked,
+// Examples from source syntax:
+// - `PLAYER`
+// - `*.item.!fixed`
+// - `PLAYER.location=(*.dark)`
+Matcher :: struct {
+	selector: Selector,
+	queries:  Range,
 }
 
-Event :: struct {
-	kind:           Event_Kind,
-
-	// Generic ids. Not every event uses every field.
-	source:         Logic_Id,
-	target:         Logic_Id,
-	room:           Logic_Id,
-	trigger:        Logic_Id,
-	item:           Logic_Id,
-	skill:          Logic_Id,
-
-	// Optional physical ids for command routing/debugging. Scripts should prefer
-	// stable logical ids; runtime ids can be recreated between runs/loads.
-	source_runtime: Runtime_Entity,
-	target_runtime: Runtime_Entity,
-
-	// Lightweight numeric payloads. Future serialized data can use a richer tagged
-	// value format if needed.
-	amount:         int,
+Change_Kind :: enum u8 {
+	Add_Tag,
+	Remove_Tag,
+	Set_Stat,
+	Inc_Stat,
+	Dec_Stat,
+	Set_Link,
 }
 
-Command_Kind :: enum {
-	// World/physics/entity commands.
-	Spawn_Enemy,
-	Destroy_Entity,
-	Close_Door,
-	Open_Door,
-	Spawn_Loot,
-	Play_Effect,
-	Play_Sound,
-	Apply_Knockback,
-	Set_Brain,
-	Set_Animation,
-
-	// Director state commands. These may be applied internally by the Director or
-	// persisted to save data.
-	Set_Flag,
-	Set_Room_State,
-	Set_Encounter_State,
-	Give_Item,
-	Remove_Item,
-	Unlock_Skill,
-	Apply_Damage,
-	Start_Timer,
+Change_Target_Kind :: enum u8 {
+	Entity,
+	Trigger,
+	All_Matching,
 }
 
-Command :: struct {
-	kind:       Command_Kind,
-
-	// Stable ids used by command executor.
-	target:     Logic_Id,
-	room:       Logic_Id,
-	spawn:      Logic_Id,
-	enemy_kind: Logic_Id,
-	item_kind:  Logic_Id,
-	skill:      Logic_Id,
-	flag:       Logic_Id,
-	effect:     Logic_Id,
-	sound:      Logic_Id,
-	brain:      Logic_Id,
-	animation:  Logic_Id,
-
-	// Common numeric payloads.
-	amount:     int,
-	x:          int,
-	y:          int,
+Change_Target :: struct {
+	kind:          Change_Target_Kind,
+	entity:        Entity_Id,
+	matcher_index: u32,
 }
 
-Room_State :: enum {
-	Unknown,
-	Inactive,
-	Entered,
-	Combat,
-	Cleared,
-	Locked,
+Link_Target_Kind :: enum u8 {
+	Entity,
+	Trigger,
+	Lookup_Entity_Link,
+	Lookup_Trigger_Link,
 }
 
-Encounter_State :: enum {
-	Idle,
-	Running,
-	Cleared,
+Link_Target :: struct {
+	kind:   Link_Target_Kind,
+	entity: Entity_Id,
+	key:    Word_Id,
 }
 
-Enemy_State :: enum {
-	Alive,
-	Dead,
+Change :: struct {
+	target:      Change_Target,
+	kind:        Change_Kind,
+	key:         Word_Id,
+	int_value:   i32,
+	link_target: Link_Target,
 }
 
-Room :: struct {
-	id:        Logic_Id,
-	state:     Room_State,
-	cleared:   bool,
-	encounter: Logic_Id,
+Rule_Trigger_Kind :: enum u8 {
+	Signal,
+	Entity_Matcher,
 }
 
-Encounter :: struct {
-	id:           Logic_Id,
-	room:         Logic_Id,
-	state:        Encounter_State,
-	current_wave: int,
-	live_enemies: int,
+Rule_Trigger :: struct {
+	kind:          Rule_Trigger_Kind,
+	signal:        Word_Id,
+	matcher_index: u32,
 }
 
-Enemy :: struct {
-	id:      Logic_Id,
-	kind:    Logic_Id,
-	room:    Logic_Id,
-	state:   Enemy_State,
-	hp:      int,
-	max_hp:  int,
-	loot:    Logic_Id,
-	runtime: Runtime_Entity,
+// Rule is one compiled rule. The compiler should precompute weight so runtime
+// matching can choose the most specific rule without re-deriving authoring syntax.
+Rule :: struct {
+	id:         Rule_Id,
+	trigger:    Rule_Trigger,
+	conditions: Range,
+	changes:    Range,
+	narrative:  Text_Id,
+	weight:     i32,
 }
 
-Inventory_Item :: struct {
-	id:    Logic_Id,
-	count: int,
+Stat :: struct {
+	key:   Word_Id,
+	value: i32,
 }
 
-Skill :: struct {
-	id:       Logic_Id,
-	unlocked: bool,
+Link :: struct {
+	key:    Word_Id,
+	target: Entity_Id,
 }
 
+Entity_Def :: struct {
+	id:          Entity_Id,
+	tags:        []Word_Id,
+	stats:       []Stat,
+	links:       []Link,
+	name:        Text_Id,
+	description: Text_Id,
+}
+
+// Director_Data is immutable compiled data generated by GAMS or by a generated
+// Odin fixture. The runtime borrows these slices; it does not own or free them.
+Director_Data :: struct {
+	entities: []Entity_Def,
+	rules:    []Rule,
+	matchers: []Matcher,
+	queries:  []Query,
+	changes:  []Change,
+	words:    []string, // Optional debug dictionary for Word_Id values.
+	texts:    []string, // Optional debug/source text dictionary for Text_Id values.
+}
+
+Entity_State :: struct {
+	id:          Entity_Id,
+	tags:        [dynamic]Word_Id,
+	stats:       [dynamic]Stat,
+	links:       [dynamic]Link,
+	name:        Text_Id,
+	description: Text_Id,
+}
+
+// State is the mutable Director world model initialized from Director_Data.
+// Game code should treat fields as read-only and use package procedures to query
+// or advance state.
 State :: struct {
-	// Future runtime state owned by Director.
-	// These are intentionally plain data containers so they can later be loaded
-	// from/generated by GAMS tools and saved/restored by the game.
-	rooms:      []Room,
-	encounters: []Encounter,
-	enemies:    []Enemy,
-	inventory:  []Inventory_Item,
-	skills:     []Skill,
-
-	// TODO: flags should probably become a string->bool map or a compact id table.
-	// flags: map[Logic_Id]bool,
+	data:     ^Director_Data,
+	entities: [dynamic]Entity_State,
 }
 
-// update is the eventual boundary function.
-//
-// Input:
-//   events from the world, such as Trigger_Entered or Entity_Hit_Entity.
-//
-// Output:
-//   commands for the world command executor, such as Spawn_Enemy or Open_Door.
-//
-// The first implementation can be tiny and hardcoded. Later this should evaluate
-// loaded rule data authored by external tools/GAMS.
-update :: proc(state: ^State, events: []Event, commands: ^[dynamic]Command) {
-	// TODO: implement rule evaluation.
-	// Keep high-level meaning here:
-	//   - room clear checks
-	//   - encounter wave progression
-	//   - damage calculation
-	//   - loot selection
-	//   - inventory/skill changes
-	//   - door lock/open decisions
-	//
-	// Keep low-level simulation in world systems:
-	//   - platformer movement
-	//   - bullet movement
-	//   - hitbox/hurtbox overlap checks
-	//   - tile/grid collision
-	//   - rendering and animation frame stepping
+Trigger_Kind :: enum u8 {
+	Entity,
+	Signal,
 }
 
-// Example rule data shape, shown as comments for now.
-//
-// room "room_02" {
-//   kind = "combat"
-//   cleared_flag = "room_02.cleared"
-//
-//   on Trigger_Entered trigger="room_02.start" if !flag("room_02.cleared") {
-//     Close_Door target="room_02.door.left"
-//     Close_Door target="room_02.door.right"
-//     Spawn_Enemy target="room_02.wave_1.crawler_1" enemy_kind="crawler" spawn="room_02.spawn_a"
-//     Spawn_Enemy target="room_02.wave_1.crawler_2" enemy_kind="crawler" spawn="room_02.spawn_b"
-//     Set_Room_State room="room_02" state="Combat"
-//   }
-//
-//   on Enemy_Killed room="room_02" {
-//     // Director decrements live enemy count internally.
-//     // If no enemies and no waves remain, Director creates Room_Cleared.
-//   }
-//
-//   on Room_Cleared room="room_02" {
-//     Open_Door target="room_02.door.left"
-//     Open_Door target="room_02.door.right"
-//     Set_Flag flag="room_02.cleared"
-//     Spawn_Loot item_kind="minor_health" spawn="room_02.reward"
-//   }
-// }
-//
-// Combat example:
-//
-// World event:
-//   Entity_Hit_Entity source="bullet.player.shot_42" target="room_02.wave_1.crawler_1" amount=1
-//
-// Director reaction:
-//   - look up bullet owner/weapon/skills
-//   - look up enemy hp/armor/resistance
-//   - calculate final damage
-//   - reduce Enemy.hp
-//   - command Destroy_Entity target="bullet.player.shot_42"
-//   - if enemy hp <= 0:
-//       command Destroy_Entity target="room_02.wave_1.crawler_1"
-//       create synthetic Enemy_Killed
-//       maybe command Spawn_Loot
-//       maybe create synthetic Room_Cleared
+// Trigger is a runtime event sent by game-specific code such as sys_director.
+// Entity triggers correspond to interactions with authored entities. Signal
+// triggers correspond to programmatic events such as `start`, `wait`, or room hooks.
+Trigger :: struct {
+	kind:   Trigger_Kind,
+	entity: Entity_Id,
+	signal: Word_Id,
+}
+
+// Result reports the rule selected by trigger. If matched is false, rule and
+// narrative are INVALID_RULE/INVALID_TEXT.
+Result :: struct {
+	rule:      Rule_Id,
+	narrative: Text_Id,
+	matched:   bool,
+}
+
+// init creates mutable runtime State from immutable compiled Director_Data.
+@(require_results)
+init :: proc(data: ^Director_Data) -> State {
+	assert(data != nil)
+	state := State {
+		data = data,
+	}
+	for def in data.entities {
+		assert(int(def.id) == len(state.entities))
+		entity := Entity_State {
+			id          = def.id,
+			name        = def.name,
+			description = def.description,
+		}
+		for tag in def.tags do append(&entity.tags, tag)
+		for stat in def.stats do append(&entity.stats, stat)
+		for link in def.links do append(&entity.links, link)
+		append(&state.entities, entity)
+	}
+	return state
+}
+
+// destroy releases memory owned by State. It does not release Director_Data.
+destroy :: proc(state: ^State) {
+	for &entity in state.entities {
+		delete(entity.tags)
+		delete(entity.stats)
+		delete(entity.links)
+	}
+	delete(state.entities)
+	state^ = {}
+}
+
+// trigger finds the best matching rule for event, applies its compiled changes,
+// and returns the selected rule/narrative ids.
+@(require_results)
+trigger :: proc(state: ^State, event: Trigger) -> Result {
+	rule_index, ok := find_matching_rule(state, event)
+	if !ok {
+		return Result{rule = INVALID_RULE, narrative = INVALID_TEXT, matched = false}
+	}
+	rule := &state.data.rules[rule_index]
+	apply_rule(state, rule_index, event)
+	return Result{rule = rule.id, narrative = rule.narrative, matched = true}
+}
+
+// find_matching_rule returns the index into Director_Data.rules for event without
+// applying changes. Use trigger for normal game flow.
+@(require_results)
+find_matching_rule :: proc(state: ^State, event: Trigger) -> (u32, bool) {
+	best_index: u32
+	best_weight: i32
+	found := false
+	for &rule, index in state.data.rules {
+		if !rule_trigger_matches(state, &rule, event) do continue
+		if !conditions_match(state, &rule, event) do continue
+		if !found || rule.weight > best_weight {
+			found = true
+			best_index = u32(index)
+			best_weight = rule.weight
+		}
+	}
+	return best_index, found
+}
+
+// apply_rule applies a previously selected rule by Director_Data.rules index.
+// This is primarily useful when game code wants to inspect the selected rule
+// before committing its changes.
+apply_rule :: proc(state: ^State, rule_index: u32, event: Trigger) {
+	assert(int(rule_index) < len(state.data.rules))
+	rule := &state.data.rules[rule_index]
+	for change_index in int(rule.changes.offset) ..< int(rule.changes.offset + rule.changes.count) {
+		apply_change(state, &state.data.changes[change_index], event)
+	}
+}
+
+// query appends all entities matching Director_Data.matchers[matcher_index] to out.
+// The caller owns out and may reuse it across calls.
+query :: proc(state: ^State, matcher_index: u32, event: Trigger, out: ^[dynamic]Entity_Id) {
+	assert(int(matcher_index) < len(state.data.matchers))
+	matcher := &state.data.matchers[matcher_index]
+	#partial switch matcher.selector.kind {
+	case .Entity:
+		if entity_matches_matcher(state, matcher, matcher.selector.entity, event) do append(out, matcher.selector.entity)
+	case .Trigger:
+		if event.kind == .Entity && entity_matches_matcher(state, matcher, event.entity, event) do append(out, event.entity)
+	case .Any:
+		for &entity in state.entities {
+			if entity_matches_matcher(state, matcher, entity.id, event) do append(out, entity.id)
+		}
+	}
+}
+
+// entity_has_tag reports whether an entity currently has a tag.
+@(require_results)
+entity_has_tag :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) -> bool {
+	assert(valid_entity(state, entity_id))
+	return has_tag(&state.entities[int(entity_id)], key)
+}
+
+// entity_stat returns an entity stat. Missing stats are treated as 0, matching
+// Elm Narrative Engine semantics.
+@(require_results)
+entity_stat :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) -> i32 {
+	assert(valid_entity(state, entity_id))
+	return get_stat_value(&state.entities[int(entity_id)], key)
+}
+
+// entity_link returns an entity link target, or false when the link is absent.
+@(require_results)
+entity_link :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) -> (Entity_Id, bool) {
+	assert(valid_entity(state, entity_id))
+	return get_link_target(&state.entities[int(entity_id)], key)
+}
+
+@(private = "file")
+@(require_results)
+rule_trigger_matches :: proc(state: ^State, rule: ^Rule, event: Trigger) -> bool {
+	#partial switch rule.trigger.kind {
+	case .Signal:
+		return event.kind == .Signal && event.signal == rule.trigger.signal
+	case .Entity_Matcher:
+		if event.kind != .Entity do return false
+		assert(int(rule.trigger.matcher_index) < len(state.data.matchers))
+		return entity_matches_link_matcher(
+			state,
+			&state.data.matchers[rule.trigger.matcher_index],
+			event.entity,
+			event,
+		)
+	}
+	return false
+}
+
+@(private = "file")
+@(require_results)
+conditions_match :: proc(state: ^State, rule: ^Rule, event: Trigger) -> bool {
+	for matcher_index in int(rule.conditions.offset) ..< int(rule.conditions.offset + rule.conditions.count) {
+		assert(matcher_index < len(state.data.matchers))
+		matches: [dynamic]Entity_Id
+		query(state, u32(matcher_index), event, &matches)
+		ok := len(matches) > 0
+		delete(matches)
+		if !ok do return false
+	}
+	return true
+}
+
+@(private = "file")
+@(require_results)
+entity_matches_link_matcher :: proc(state: ^State, matcher: ^Matcher, entity_id: Entity_Id, event: Trigger) -> bool {
+	#partial switch matcher.selector.kind {
+	case .Entity:
+		if entity_id != matcher.selector.entity do return false
+	case .Trigger:
+		if event.kind != .Entity || entity_id != event.entity do return false
+	case .Any:
+	}
+	return entity_matches_queries(state, matcher.queries, entity_id, event)
+}
+
+@(private = "file")
+@(require_results)
+entity_matches_matcher :: proc(state: ^State, matcher: ^Matcher, entity_id: Entity_Id, event: Trigger) -> bool {
+	if !valid_entity(state, entity_id) do return false
+	#partial switch matcher.selector.kind {
+	case .Entity:
+		assert(entity_id == matcher.selector.entity)
+	case .Trigger:
+		assert(event.kind == .Entity && entity_id == event.entity)
+	case .Any:
+	}
+	return entity_matches_queries(state, matcher.queries, entity_id, event)
+}
+
+@(private = "file")
+@(require_results)
+entity_matches_queries :: proc(state: ^State, queries: Range, entity_id: Entity_Id, event: Trigger) -> bool {
+	if !valid_entity(state, entity_id) do return false
+	for query_index in int(queries.offset) ..< int(queries.offset + queries.count) {
+		if !query_matches(state, u32(query_index), entity_id, event) do return false
+	}
+	return true
+}
+
+@(private = "file")
+@(require_results)
+query_matches :: proc(state: ^State, query_index: u32, entity_id: Entity_Id, event: Trigger) -> bool {
+	assert(int(query_index) < len(state.data.queries))
+	q := &state.data.queries[query_index]
+	entity := &state.entities[int(entity_id)]
+	#partial switch q.kind {
+	case .Has_Tag:
+		return has_tag(entity, q.key)
+	case .Has_Stat:
+		actual := get_stat_value(entity, q.key)
+		expected, ok := resolve_stat_value(state, q.stat_value, event)
+		if !ok do return false
+		return compare_i32(actual, q.op, expected)
+	case .Has_Link:
+		actual, ok := get_link_target(entity, q.key)
+		if !ok do return false
+		return resolve_link_match(state, actual, q.link_value, event)
+	case .Not:
+		return !query_matches(state, q.nested, entity_id, event)
+	}
+	return false
+}
+
+@(private = "file")
+@(require_results)
+resolve_stat_value :: proc(state: ^State, value: Stat_Value, event: Trigger) -> (i32, bool) {
+	#partial switch value.kind {
+	case .Immediate:
+		return value.value, true
+	case .From_Entity_Stat:
+		if !valid_entity(state, value.entity) do return 0, false
+		return get_stat_value(&state.entities[int(value.entity)], value.key), true
+	case .From_Trigger_Stat:
+		if event.kind != .Entity do return 0, false
+		return get_stat_value(&state.entities[int(event.entity)], value.key), true
+	}
+	return 0, false
+}
+
+@(private = "file")
+@(require_results)
+resolve_link_match :: proc(state: ^State, actual: Entity_Id, value: Link_Value, event: Trigger) -> bool {
+	if !valid_entity(state, actual) do return false
+	#partial switch value.kind {
+	case .Specific_Matcher:
+		assert(int(value.matcher_index) < len(state.data.matchers))
+		return entity_matches_link_matcher(state, &state.data.matchers[value.matcher_index], actual, event)
+	case .From_Entity_Link:
+		if !valid_entity(state, value.entity) do return false
+		expected, ok := get_link_target(&state.entities[int(value.entity)], value.key)
+		return ok && actual == expected
+	case .From_Trigger_Link:
+		if event.kind != .Entity do return false
+		expected, ok := get_link_target(&state.entities[int(event.entity)], value.key)
+		return ok && actual == expected
+	}
+	return false
+}
+
+@(private = "file")
+apply_change :: proc(state: ^State, change: ^Change, event: Trigger) {
+	#partial switch change.target.kind {
+	case .Entity:
+		apply_change_to_entity(state, change.target.entity, change, event)
+	case .Trigger:
+		if event.kind == .Entity do apply_change_to_entity(state, event.entity, change, event)
+	case .All_Matching:
+		matches: [dynamic]Entity_Id
+		query(state, change.target.matcher_index, event, &matches)
+		for entity_id in matches do apply_change_to_entity(state, entity_id, change, event)
+		delete(matches)
+	}
+}
+
+@(private = "file")
+apply_change_to_entity :: proc(state: ^State, entity_id: Entity_Id, change: ^Change, event: Trigger) {
+	assert(valid_entity(state, entity_id))
+	entity := &state.entities[int(entity_id)]
+	#partial switch change.kind {
+	case .Add_Tag:
+		add_tag(entity, change.key)
+	case .Remove_Tag:
+		remove_tag(entity, change.key)
+	case .Set_Stat:
+		set_stat(entity, change.key, change.int_value)
+	case .Inc_Stat:
+		set_stat(entity, change.key, get_stat_value(entity, change.key) + change.int_value)
+	case .Dec_Stat:
+		set_stat(entity, change.key, get_stat_value(entity, change.key) - change.int_value)
+	case .Set_Link:
+		target, ok := resolve_link_target(state, change.link_target, event)
+		if ok do set_link(entity, change.key, target)
+	}
+}
+
+@(private = "file")
+@(require_results)
+resolve_link_target :: proc(state: ^State, target: Link_Target, event: Trigger) -> (Entity_Id, bool) {
+	#partial switch target.kind {
+	case .Entity:
+		return target.entity, valid_entity(state, target.entity)
+	case .Trigger:
+		return event.entity, event.kind == .Entity && valid_entity(state, event.entity)
+	case .Lookup_Entity_Link:
+		if !valid_entity(state, target.entity) do return INVALID_ENTITY, false
+		return get_link_target(&state.entities[int(target.entity)], target.key)
+	case .Lookup_Trigger_Link:
+		if event.kind != .Entity do return INVALID_ENTITY, false
+		return get_link_target(&state.entities[int(event.entity)], target.key)
+	}
+	return INVALID_ENTITY, false
+}
+
+@(private = "file")
+@(require_results)
+valid_entity :: proc(state: ^State, id: Entity_Id) -> bool {
+	return id != INVALID_ENTITY && int(id) >= 0 && int(id) < len(state.entities)
+}
+
+@(private = "file")
+@(require_results)
+has_tag :: proc(entity: ^Entity_State, key: Word_Id) -> bool {
+	for tag in entity.tags {
+		if tag == key do return true
+	}
+	return false
+}
+
+@(private = "file")
+add_tag :: proc(entity: ^Entity_State, key: Word_Id) {
+	if has_tag(entity, key) do return
+	append(&entity.tags, key)
+}
+
+@(private = "file")
+remove_tag :: proc(entity: ^Entity_State, key: Word_Id) {
+	for tag, index in entity.tags {
+		if tag == key {
+			unordered_remove(&entity.tags, index)
+			return
+		}
+	}
+}
+
+@(private = "file")
+@(require_results)
+get_stat_value :: proc(entity: ^Entity_State, key: Word_Id) -> i32 {
+	for stat in entity.stats {
+		if stat.key == key do return stat.value
+	}
+	return 0
+}
+
+@(private = "file")
+set_stat :: proc(entity: ^Entity_State, key: Word_Id, value: i32) {
+	for &stat in entity.stats {
+		if stat.key == key {
+			stat.value = value
+			return
+		}
+	}
+	append(&entity.stats, Stat{key = key, value = value})
+}
+
+@(private = "file")
+@(require_results)
+get_link_target :: proc(entity: ^Entity_State, key: Word_Id) -> (Entity_Id, bool) {
+	for link in entity.links {
+		if link.key == key do return link.target, true
+	}
+	return INVALID_ENTITY, false
+}
+
+@(private = "file")
+set_link :: proc(entity: ^Entity_State, key: Word_Id, target: Entity_Id) {
+	for &link in entity.links {
+		if link.key == key {
+			link.target = target
+			return
+		}
+	}
+	append(&entity.links, Link{key = key, target = target})
+}
+
+@(private = "file")
+@(require_results)
+compare_i32 :: proc(actual: i32, op: Compare_Op, expected: i32) -> bool {
+	#partial switch op {
+	case .Eq:
+		return actual == expected
+	case .Gt:
+		return actual > expected
+	case .Lt:
+		return actual < expected
+	}
+	return false
+}
