@@ -13,20 +13,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [4]u32,
-	lengths: [4]u32,
+	offsets: [5]u32,
+	lengths: [5]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 4 {return Package{}, false}
-	if len(data) < 40 {return Package{}, false}
+	if int(read_u16(data, 6)) != 5 {return Package{}, false}
+	if len(data) < 48 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 4 {
+	for i in 0 ..< 5 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -36,7 +36,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 4 {return Reader{}, false}
+	if slot < 0 || slot >= 5 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -112,6 +112,8 @@ Uv :: [4]f32
 
 U_Vs :: []Uv
 
+Platformer_Zones :: []world.Platformer_Zone
+
 Segments :: []I_Vec4
 
 @(private = "file")
@@ -124,6 +126,8 @@ DecodedSlots :: struct {
 	slot_2:     world.Animation_Atlas,
 	has_slot_3: bool,
 	slot_3:     Segments,
+	has_slot_4: bool,
+	slot_4:     Platformer_Zones,
 }
 
 @(private = "file")
@@ -416,18 +420,67 @@ decode_world_animation_atlas :: proc(r: ^Reader, out: ^world.Animation_Atlas) ->
 }
 
 @(private = "file")
+decode_world_platformer_zone_kind :: proc(r: ^Reader, out: ^world.Platformer_Zone_Kind) -> bool {
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out^ = world.Platformer_Zone_Kind(v)
+	}
+	return true
+}
+
+@(private = "file")
+decode_world_platformer_zone :: proc(r: ^Reader, out: ^world.Platformer_Zone) -> bool {
+	{
+		s, ok := read_string_reader(r)
+		if !ok {return false}
+		out.id = s
+	}
+	{
+		v, ok := read_u32_reader(r)
+		if !ok {return false}
+		out.kind = world.Platformer_Zone_Kind(v)
+	}
+	{
+		for i9 in 0 ..< 4 {
+			{
+				v, ok := read_u32_reader(r)
+				if !ok {return false}
+				out.bounds[i9] = transmute(i32)v
+			}
+		}
+	}
+	return true
+}
+
+@(private = "file")
+decode_platformer_zones :: proc(r: ^Reader, out: ^Platformer_Zones) -> bool {
+	{
+		count, ok := read_u32_reader(r)
+		if !ok {return false}
+		out^ = make(Platformer_Zones, int(count))
+		for i10 in 0 ..< int(count) {
+			{
+				if !decode_world_platformer_zone(r, &out^[i10]) {return false}
+			}
+		}
+	}
+	return true
+}
+
+@(private = "file")
 decode_segments :: proc(r: ^Reader, out: ^Segments) -> bool {
 	{
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Segments, int(count))
-		for i9 in 0 ..< int(count) {
+		for i11 in 0 ..< int(count) {
 			{
-				for i10 in 0 ..< 4 {
+				for i12 in 0 ..< 4 {
 					{
 						v, ok := read_u32_reader(r)
 						if !ok {return false}
-						out^[i9][i10] = transmute(i32)v
+						out^[i11][i12] = transmute(i32)v
 					}
 				}
 			}
@@ -465,5 +518,13 @@ read_slot_3_segments :: proc(pkg: Package) -> (Segments, bool) {
 	if !ok {return nil, false}
 	value: Segments
 	if !decode_segments(&r, &value) {return nil, false}
+	return value, true
+}
+
+read_slot_4_platformer_zones :: proc(pkg: Package) -> (Platformer_Zones, bool) {
+	r, ok := slot_reader(pkg, 4)
+	if !ok {return nil, false}
+	value: Platformer_Zones
+	if !decode_platformer_zones(&r, &value) {return nil, false}
 	return value, true
 }

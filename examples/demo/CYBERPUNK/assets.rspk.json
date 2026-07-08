@@ -6,7 +6,7 @@
       "world": "../world"
     }
   },
-  "data": ["UVs", "Atlas", "world.Animation_Atlas", "Segments"],
+  "data": ["UVs", "Atlas", "world.Animation_Atlas", "Segments", "Platformer_Zones"],
   "types": {
     "Vec2": {
       "type": "array",
@@ -68,6 +68,22 @@
           "value": "world.AnimFrame"
         }
       }
+    },
+    "world.Platformer_Zone_Kind": {
+      "type": "enum",
+      "value": ["Ladder"]
+    },
+    "world.Platformer_Zone": {
+      "type": "struct",
+      "fields": {
+        "id": "string",
+        "kind": "world.Platformer_Zone_Kind",
+        "bounds": "iVec4"
+      }
+    },
+    "Platformer_Zones": {
+      "type": "vector",
+      "value": "world.Platformer_Zone"
     },
     "Segments": {
       "type": "vector",

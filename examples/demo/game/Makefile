@@ -20,6 +20,7 @@ PYTHON3 ?= python3
 ODIN ?= odin
 ZIG ?= zig
 ODIN_BUILD_FLAGS ?=
+ODIN_TEST_FLAGS ?= -all-packages
 VET_PACKAGES ?= main,host,world,logic,grid,shape,sprite,tilemap,qoi
 
 .DEFAULT_GOAL := help
@@ -98,6 +99,7 @@ help:
 	  '  sokol-bindings  Download/update local sokol-odin bindings' \
 	  '  sokol-tools     Download/update local sokol-shdc binaries' \
 	  '  lint            Run Odin checks with warnings as errors' \
+	  '  test            Run Odin tests' \
 	  '  wasm            Build standalone freestanding game2.wasm' \
 	  '  native          Build native game2 executable' \
 	  '  native-release  Build optimized native game2 executable' \
@@ -239,6 +241,12 @@ serve: web
 # fmt.tprintf("-vet-packages:%s", vet_packages),
 # 				-vet-unused-procedures \
 # 		-strict-target-features \
+
+.PHONY: test
+test: sokol-bindings shaders native-libs | $(NATIVE_DIR)
+	$(Q)$(ODIN_NATIVE_ENV) $(ODIN) test . $(ODIN_TEST_FLAGS) \
+		-out:"$(NATIVE_DIR)/game2-tests" \
+		$(if $(strip $(NATIVE_EXTRA_LINKER_FLAGS)),-extra-linker-flags:'$(NATIVE_EXTRA_LINKER_FLAGS)',)
 
 .PHONY: lint
 lint:

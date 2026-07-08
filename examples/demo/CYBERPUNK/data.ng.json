@@ -293,6 +293,12 @@
         "name": "Segments",
         "srcNodeId": 73,
         "srcOutputId": 1
+      },
+      {
+        "id": 5,
+        "name": "Platformer Zones",
+        "srcNodeId": 82,
+        "srcOutputId": 1
       }
     ],
     "outputs": [
@@ -1419,7 +1425,7 @@
     "inputs": [
       {
         "id": 1,
-        "name": "aabb",
+        "name": "bounds",
         "srcNodeId": 80,
         "srcOutputId": 1
       }

@@ -188,7 +188,7 @@ query_aabb :: proc(grid: ^Grid, aabb: ^[4]int) -> [dynamic]^[4]int {
 }
 // Creates new grid with given bounds and cell size
 @(require_results)
-create_grid :: proc(min_x, min_y, max_x, max_y, cell_size: int) -> Grid {
+create_grid :: proc(#any_int min_x, #any_int min_y, #any_int max_x, #any_int max_y, #any_int cell_size: int) -> Grid {
 	width := ((max_x - min_x) / cell_size) + 1
 	height := ((max_y - min_y) / cell_size) + 1
 

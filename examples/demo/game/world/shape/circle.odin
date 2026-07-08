@@ -13,7 +13,7 @@ move_circle :: proc(s: ^Circle, p: [2]int) {
 
 // Create a new circle from components
 @(require_results)
-make_circle :: proc(x, y: int, radius: int) -> Circle {
+make_circle :: proc(#any_int x, #any_int y, #any_int radius: int) -> Circle {
 	return Circle{x = x, y = y, radius = radius}
 }
 

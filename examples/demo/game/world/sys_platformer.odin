@@ -342,7 +342,7 @@ platformer_apply_ladder :: proc(
 	cfg: ladder.Config,
 ) {
 	assert(zone.kind == .Ladder)
-	center_x := (zone.bounds.min_x + zone.bounds.max_x) / 2
+	center_x := int((zone.bounds.x + zone.bounds.z) / 2)
 	target_pos_x := center_x - collider.x
 	delta_x := target_pos_x - int(pos.x)
 	vel.x = i32(clamp(delta_x, -int(cfg.center_speed), int(cfg.center_speed)))
@@ -820,16 +820,16 @@ capsule_local_aabb :: proc(capsule: ^shape.Capsule) -> [4]int {
 platformer_world_aabb :: proc(pos: ^Position, collider: ^shape.Capsule) -> shape.Aabb {
 	bounds := capsule_local_aabb(collider)
 	return {
-		min_x = int(pos.x) + bounds.x,
-		min_y = int(pos.y) + bounds.y,
-		max_x = int(pos.x) + bounds.z,
-		max_y = int(pos.y) + bounds.w,
+		i32(int(pos.x) + bounds.x),
+		i32(int(pos.y) + bounds.y),
+		i32(int(pos.x) + bounds.z),
+		i32(int(pos.y) + bounds.w),
 	}
 }
 
 @(private = "file")
 aabb_overlaps :: proc(a, b: shape.Aabb) -> bool {
-	return a.min_x <= b.max_x && a.max_x >= b.min_x && a.min_y <= b.max_y && a.max_y >= b.min_y
+	return a.x <= b.z && a.z >= b.x && a.y <= b.w && a.w >= b.y
 }
 
 @(private = "file")

@@ -12,17 +12,16 @@ move_capsule :: proc(s: ^Capsule, p: [2]int) {
 	s.y += p.y
 }
 capsule_aabb :: proc(s: ^Capsule) -> Aabb {
-	return Aabb {
-		min_x = s.x - s.radius,
-		min_y = s.y - s.height / 2 - s.radius,
-		max_x = s.x + s.radius,
-		max_y = s.y + s.height / 2 + s.radius,
+	return {
+		i32(s.x - s.radius),
+		i32(s.y - s.height / 2 - s.radius),
+		i32(s.x + s.radius),
+		i32(s.y + s.height / 2 + s.radius),
 	}
-
 }
 // Create a new capsule from components
 @(require_results)
-make_capsule :: proc(x, y, radius, height: int) -> Capsule {
+make_capsule :: proc(#any_int x, #any_int y, #any_int radius, #any_int height: int) -> Capsule {
 	return Capsule{x = x, y = y, radius = radius, height = height}
 }
 
@@ -30,8 +29,7 @@ make_capsule :: proc(x, y, radius, height: int) -> Capsule {
 @(require_results)
 capsule_point_test :: proc(capsule: ^Capsule, point: ^[2]int) -> bool {
 	// First check if point is within the horizontal bounds of the capsule
-	if point.x < capsule.x - capsule.radius ||
-	   point.x > capsule.x + capsule.radius {
+	if point.x < capsule.x - capsule.radius || point.x > capsule.x + capsule.radius {
 		return false
 	}
 
@@ -109,8 +107,7 @@ capsule_segment_test :: proc(capsule: ^Capsule, segment: ^[4]int) -> bool {
 	right_segment := [4]int{right_x, rect_bottom, right_x, rect_top}
 
 	// Test segment against rectangle sides
-	if segment_segment_test(segment, &left_segment) ||
-	   segment_segment_test(segment, &right_segment) {
+	if segment_segment_test(segment, &left_segment) || segment_segment_test(segment, &right_segment) {
 		return true
 	}
 
@@ -213,15 +210,9 @@ capsule_capsule_test :: proc(a, b: ^Capsule) -> bool {
 
 
 @(require_results)
-swept_capsule_segment_test :: proc(
-	capsule: ^Capsule,
-	start_pos: [2]int,
-	velocity: [2]int,
-	segment: ^[4]int,
-) -> f32 {
+swept_capsule_segment_test :: proc(capsule: ^Capsule, start_pos: [2]int, velocity: [2]int, segment: ^[4]int) -> f32 {
 	// Calculate segment orientation
-	is_horizontal :=
-		abs(segment[3] - segment[1]) < abs(segment[2] - segment[0])
+	is_horizontal := abs(segment[3] - segment[1]) < abs(segment[2] - segment[0])
 
 	// Convert to float for calculations
 	vel_f32 := [2]f32{f32(velocity.x), f32(velocity.y)}
@@ -254,25 +245,19 @@ swept_capsule_segment_test :: proc(
 			t_entry_y: f32
 			if vel_f32.y > 0 {
 				// Moving up, bottom edge of capsule enters expanded segment
-				t_entry_y =
-					(expanded_min_y - capsule_max_y) /
-					vel_f32.y
+				t_entry_y = (expanded_min_y - capsule_max_y) / vel_f32.y
 			} else {
 				// Moving down, top edge of capsule enters expanded segment
-				t_entry_y =
-					(expanded_max_y - capsule_min_y) /
-					vel_f32.y
+				t_entry_y = (expanded_max_y - capsule_min_y) / vel_f32.y
 			}
 
 			// Only process if collision happens within this frame (0 <= t <= 1)
 			if t_entry_y >= 0 && t_entry_y <= 1 {
 				// X position at time of y-collision
-				x_at_collision :=
-					capsule_x + vel_f32.x * t_entry_y
+				x_at_collision := capsule_x + vel_f32.x * t_entry_y
 
 				// Check if X position is within segment bounds
-				if x_at_collision + radius >= segment_min_x &&
-				   x_at_collision - radius <= segment_max_x {
+				if x_at_collision + radius >= segment_min_x && x_at_collision - radius <= segment_max_x {
 					return t_entry_y
 				}
 			}
@@ -281,42 +266,25 @@ swept_capsule_segment_test :: proc(
 		// If no Y collision, check if capsule horizontally enters segment range
 		if vel_f32.x != 0 {
 			// Only need to check if capsule is already in Y range of expanded segment
-			if (capsule_min_y <= expanded_max_y &&
-				   capsule_max_y >= expanded_min_y) ||
-			   (capsule_min_y + vel_f32.y <= expanded_max_y &&
-					   capsule_max_y + vel_f32.y >=
-						   expanded_min_y) {
+			if (capsule_min_y <= expanded_max_y && capsule_max_y >= expanded_min_y) ||
+			   (capsule_min_y + vel_f32.y <= expanded_max_y && capsule_max_y + vel_f32.y >= expanded_min_y) {
 
 				t_entry_x: f32
 				if vel_f32.x > 0 {
 					// Moving right
-					t_entry_x =
-						(segment_min_x -
-							capsule_max_x) /
-						vel_f32.x
+					t_entry_x = (segment_min_x - capsule_max_x) / vel_f32.x
 				} else {
 					// Moving left
-					t_entry_x =
-						(segment_max_x -
-							capsule_min_x) /
-						vel_f32.x
+					t_entry_x = (segment_max_x - capsule_min_x) / vel_f32.x
 				}
 
 				if t_entry_x >= 0 && t_entry_x <= 1 {
 					// Y position at time of x-collision
-					y_at_collision :=
-						capsule_y +
-						vel_f32.y * t_entry_x
+					y_at_collision := capsule_y + vel_f32.y * t_entry_x
 
 					// Check if Y position is within expanded segment bounds
-					if y_at_collision -
-							   half_height -
-							   radius <=
-						   expanded_max_y &&
-					   y_at_collision +
-							   half_height +
-							   radius >=
-						   expanded_min_y {
+					if y_at_collision - half_height - radius <= expanded_max_y &&
+					   y_at_collision + half_height + radius >= expanded_min_y {
 						return t_entry_x
 					}
 				}
@@ -338,41 +306,31 @@ swept_capsule_segment_test :: proc(
 			t_entry_x: f32
 			if vel_f32.x > 0 {
 				// Moving right, left edge of capsule enters expanded segment
-				t_entry_x =
-					(expanded_min_x - capsule_max_x) /
-					vel_f32.x
+				t_entry_x = (expanded_min_x - capsule_max_x) / vel_f32.x
 			} else {
 				// Moving left, right edge of capsule enters expanded segment
-				t_entry_x =
-					(expanded_max_x - capsule_min_x) /
-					vel_f32.x
+				t_entry_x = (expanded_max_x - capsule_min_x) / vel_f32.x
 			}
 
 			// Only process if collision happens within this frame
 			if t_entry_x >= 0 && t_entry_x <= 1 {
 				// Y position at time of x-collision
-				y_at_collision :=
-					capsule_y + vel_f32.y * t_entry_x
+				y_at_collision := capsule_y + vel_f32.y * t_entry_x
 
 				// Check if capsule's vertical extent overlaps with segment
-				if y_at_collision - half_height <=
-					   segment_max_y &&
-				   y_at_collision + half_height >=
-					   segment_min_y {
+				if y_at_collision - half_height <= segment_max_y && y_at_collision + half_height >= segment_min_y {
 					return t_entry_x
 				}
 
 				// Check for collision with top circle
 				top_y := y_at_collision + half_height
-				if top_y - radius <= segment_max_y &&
-				   top_y + radius >= segment_min_y {
+				if top_y - radius <= segment_max_y && top_y + radius >= segment_min_y {
 					return t_entry_x
 				}
 
 				// Check for collision with bottom circle
 				bottom_y := y_at_collision - half_height
-				if bottom_y - radius <= segment_max_y &&
-				   bottom_y + radius >= segment_min_y {
+				if bottom_y - radius <= segment_max_y && bottom_y + radius >= segment_min_y {
 					return t_entry_x
 				}
 			}

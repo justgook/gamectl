@@ -1,6 +1,7 @@
 #+build !freestanding
 #+build !js
 #+build !orca
+#+test
 
 package world
 
@@ -15,7 +16,10 @@ test_platformer_walks_left_uphill_without_falling :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(1)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	start_x := 220 * UNIT
 	start_ground_y, _ := test_segment_y_at_x(&w.segments[0], start_x)
 	start_y := start_ground_y - test_capsule_bottom(&collider)
@@ -23,7 +27,11 @@ test_platformer_walks_left_uphill_without_falling :: proc(t: ^testing.T) {
 	logic.add_component(&w.position, player, Position{i32(start_x), i32(start_y)})
 	logic.add_component(&w.input, player, Input{.West})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, on_ground = true, ground_normal = {1, 1}, facing = -1})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{}, on_ground = true, ground_normal = {1, 1}, facing = -1},
+	)
 
 	previous_x := start_x
 	for frame := 0; frame < 70; frame += 1 {
@@ -36,7 +44,12 @@ test_platformer_walks_left_uphill_without_falling :: proc(t: ^testing.T) {
 		testing.expect(t, has_platformer)
 		testing.expect(t, has_vel)
 
-		touching_ground := test_capsule_has_ground_support(w.segments[:], pos, &collider, PLATFORMER_DEFAULT_CONFIG.slope.snap_up)
+		touching_ground := test_capsule_has_ground_support(
+			w.segments[:],
+			pos,
+			&collider,
+			PLATFORMER_DEFAULT_CONFIG.slope.snap_up,
+		)
 
 		testing.expectf(t, platformer.on_ground, "frame %d: player left ground", frame)
 		testing.expectf(t, touching_ground, "frame %d: player has no ground support pos=%v vel=%v", frame, pos^, vel^)
@@ -52,7 +65,10 @@ test_platformer_walks_from_flat_onto_uphill_without_falling :: proc(t: ^testing.
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(1)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	start_x := 16 * UNIT
 	start_ground_y := 0
 	start_y := start_ground_y - test_capsule_bottom(&collider)
@@ -60,7 +76,11 @@ test_platformer_walks_from_flat_onto_uphill_without_falling :: proc(t: ^testing.
 	logic.add_component(&w.position, player, Position{i32(start_x), i32(start_y)})
 	logic.add_component(&w.input, player, Input{.East})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, on_ground = true, ground_normal = {0, 1}, facing = 1})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{}, on_ground = true, ground_normal = {0, 1}, facing = 1},
+	)
 
 	previous_x := start_x
 	for frame := 0; frame < 80; frame += 1 {
@@ -73,7 +93,12 @@ test_platformer_walks_from_flat_onto_uphill_without_falling :: proc(t: ^testing.
 		testing.expect(t, has_platformer)
 		testing.expect(t, has_vel)
 
-		touching_ground := test_capsule_has_ground_support(w.segments[:], pos, &collider, PLATFORMER_DEFAULT_CONFIG.slope.snap_up)
+		touching_ground := test_capsule_has_ground_support(
+			w.segments[:],
+			pos,
+			&collider,
+			PLATFORMER_DEFAULT_CONFIG.slope.snap_up,
+		)
 
 		testing.expectf(t, platformer.on_ground, "frame %d: player left ground", frame)
 		testing.expectf(t, touching_ground, "frame %d: player has no ground support pos=%v vel=%v", frame, pos^, vel^)
@@ -89,7 +114,10 @@ test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(1)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	start_x := 8 * UNIT
 	start_ground_y := start_x
 	start_y := start_ground_y - test_capsule_bottom(&collider)
@@ -97,7 +125,11 @@ test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
 	logic.add_component(&w.position, player, Position{i32(start_x), i32(start_y)})
 	logic.add_component(&w.input, player, Input{.East})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, on_ground = true, ground_normal = {-1, 1}, facing = 1})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{}, on_ground = true, ground_normal = {-1, 1}, facing = 1},
+	)
 
 	previous_x := start_x
 	for frame := 0; frame < 40; frame += 1 {
@@ -115,7 +147,16 @@ test_platformer_walks_uphill_without_falling :: proc(t: ^testing.T) {
 
 		testing.expectf(t, platformer.on_ground, "frame %d: player left ground", frame)
 		testing.expectf(t, on_slope, "frame %d: player left slope x range", frame)
-		testing.expectf(t, bottom == ground_y, "frame %d: bottom=%d ground=%d pos=%v vel=%v", frame, bottom, ground_y, pos^, vel^)
+		testing.expectf(
+			t,
+			bottom == ground_y,
+			"frame %d: bottom=%d ground=%d pos=%v vel=%v",
+			frame,
+			bottom,
+			ground_y,
+			pos^,
+			vel^,
+		)
 		testing.expectf(t, int(pos.x) > previous_x, "frame %d: player did not move uphill", frame)
 
 		previous_x = int(pos.x)
@@ -130,7 +171,10 @@ test_platformer_does_not_stand_on_ceiling_underside :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(20)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{32 * UNIT, 14 * UNIT})
 	logic.add_component(&w.input, player, Input{})
 	logic.add_component(&w.collider, player, collider)
@@ -148,7 +192,14 @@ test_platformer_does_not_stand_on_ceiling_underside :: proc(t: ^testing.T) {
 	bottom := int(pos.y) + test_capsule_bottom(&collider)
 	bottom_above_ceiling := bottom >= 0
 	testing.expectf(t, !platformer.on_ground, "ceiling underside must not become ground pos=%v vel=%v", pos^, vel^)
-	testing.expectf(t, !bottom_above_ceiling, "player should keep falling through underside, bottom=%d pos=%v vel=%v", bottom, pos^, vel^)
+	testing.expectf(
+		t,
+		!bottom_above_ceiling,
+		"player should keep falling through underside, bottom=%d pos=%v vel=%v",
+		bottom,
+		pos^,
+		vel^,
+	)
 }
 
 @(test)
@@ -157,7 +208,10 @@ test_platformer_does_not_stand_on_floor_endpoint_without_support :: proc(t: ^tes
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(22)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{70 * UNIT, 14 * UNIT})
 	logic.add_component(&w.input, player, Input{})
 	logic.add_component(&w.collider, player, collider)
@@ -173,8 +227,21 @@ test_platformer_does_not_stand_on_floor_endpoint_without_support :: proc(t: ^tes
 	testing.expect(t, has_vel)
 
 	bottom := int(pos.y) + test_capsule_bottom(&collider)
-	testing.expectf(t, !platformer.on_ground, "floor endpoint without support must not become ground pos=%v vel=%v", pos^, vel^)
-	testing.expectf(t, bottom < 0, "player should slide/fall past unsupported endpoint, bottom=%d pos=%v vel=%v", bottom, pos^, vel^)
+	testing.expectf(
+		t,
+		!platformer.on_ground,
+		"floor endpoint without support must not become ground pos=%v vel=%v",
+		pos^,
+		vel^,
+	)
+	testing.expectf(
+		t,
+		bottom < 0,
+		"player should slide/fall past unsupported endpoint, bottom=%d pos=%v vel=%v",
+		bottom,
+		pos^,
+		vel^,
+	)
 }
 
 @(test)
@@ -186,7 +253,10 @@ test_platformer_corner_sweep_blocks_aabb_corner_escape :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(21)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{52 * UNIT, 52 * UNIT + 1})
 	logic.add_component(&w.input, player, Input{})
 	logic.add_component(&w.collider, player, collider)
@@ -203,7 +273,15 @@ test_platformer_corner_sweep_blocks_aabb_corner_escape :: proc(t: ^testing.T) {
 	top := int(pos.y) + collider.height / 2 + collider.radius
 	inside_corner_void := right > 64 * UNIT && top > 64 * UNIT
 
-	testing.expectf(t, !inside_corner_void, "corner sweep let player escape through corner pos=%v vel=%v right=%d top=%d", pos^, vel^, right, top)
+	testing.expectf(
+		t,
+		!inside_corner_void,
+		"corner sweep let player escape through corner pos=%v vel=%v right=%d top=%d",
+		pos^,
+		vel^,
+		right,
+		top,
+	)
 }
 
 @(test)
@@ -212,11 +290,18 @@ test_platformer_wall_slide_clamps_fall_speed :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(2)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
 	logic.add_component(&w.input, player, Input{})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{0, -4 * UNIT}, on_wall = true, wall_normal = {-1, 0}, facing = 1})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{0, -4 * UNIT}, on_wall = true, wall_normal = {-1, 0}, facing = 1},
+	)
 
 	sys_platformer(w)
 
@@ -231,11 +316,18 @@ test_platformer_wall_jump_pushes_away_from_wall :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(3)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
 	logic.add_component(&w.input, player, Input{.Action1})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{0, -UNIT}, on_wall = true, wall_normal = {-1, 0}, facing = 1})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{0, -UNIT}, on_wall = true, wall_normal = {-1, 0}, facing = 1},
+	)
 
 	sys_platformer(w)
 
@@ -255,7 +347,10 @@ test_platformer_air_jump_uses_configured_jump_count :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(4)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
 	logic.add_component(&w.input, player, Input{.Action1})
 	logic.add_component(&w.collider, player, collider)
@@ -277,7 +372,12 @@ test_platformer_air_jump_uses_configured_jump_count :: proc(t: ^testing.T) {
 
 	vel, _ = test_platformer_velocity(w, player)
 	platformer, _ = logic.get_component(&w.platformer, player)
-	testing.expectf(t, platformer.air_jumps == 1, "default max air jumps should block second air jump, jumps=%d", platformer.air_jumps)
+	testing.expectf(
+		t,
+		platformer.air_jumps == 1,
+		"default max air jumps should block second air jump, jumps=%d",
+		platformer.air_jumps,
+	)
 }
 
 @(test)
@@ -286,7 +386,10 @@ test_platformer_air_jump_disabled_by_config :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(5)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	config := PLATFORMER_DEFAULT_CONFIG
 	config.air_jump.enabled = false
 
@@ -312,7 +415,10 @@ test_platformer_ground_dash_uses_action2_and_direction :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(6)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
 	logic.add_component(&w.input, player, Input{.East, .Action2})
 	logic.add_component(&w.collider, player, collider)
@@ -326,7 +432,12 @@ test_platformer_ground_dash_uses_action2_and_direction :: proc(t: ^testing.T) {
 	testing.expect(t, has_platformer)
 	testing.expectf(t, vel.x == PLATFORMER_DEFAULT_CONFIG.dash.ground.speed, "dash vel=%v", vel^)
 	testing.expectf(t, vel.y == 0, "dash vel=%v", vel^)
-	testing.expectf(t, platformer.dash_frames == PLATFORMER_DEFAULT_CONFIG.dash.ground.frames - 1, "dash frames=%d", platformer.dash_frames)
+	testing.expectf(
+		t,
+		platformer.dash_frames == PLATFORMER_DEFAULT_CONFIG.dash.ground.frames - 1,
+		"dash frames=%d",
+		platformer.dash_frames,
+	)
 }
 
 @(test)
@@ -335,7 +446,10 @@ test_platformer_dash_delay_blocks_immediate_second_dash :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(7)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	config := PLATFORMER_DEFAULT_CONFIG
 	config.dash.ground.frames = 1
 	config.dash.ground.count = 0
@@ -343,7 +457,11 @@ test_platformer_dash_delay_blocks_immediate_second_dash :: proc(t: ^testing.T) {
 	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
 	logic.add_component(&w.input, player, Input{.East, .Action2})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, config = config, on_ground = true, facing = 1})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{}, config = config, on_ground = true, facing = 1},
+	)
 
 	sys_platformer(w)
 	logic.add_component(&w.input, player, Input{})
@@ -353,7 +471,12 @@ test_platformer_dash_delay_blocks_immediate_second_dash :: proc(t: ^testing.T) {
 
 	platformer, has_platformer := logic.get_component(&w.platformer, player)
 	testing.expect(t, has_platformer)
-	testing.expectf(t, platformer.dash_frames == 0, "dash delay should block second dash, frames=%d", platformer.dash_frames)
+	testing.expectf(
+		t,
+		platformer.dash_frames == 0,
+		"dash delay should block second dash, frames=%d",
+		platformer.dash_frames,
+	)
 }
 
 @(test)
@@ -362,17 +485,29 @@ test_platformer_air_dash_resets_on_ground :: proc(t: ^testing.T) {
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(8)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, i32(-test_capsule_bottom(&collider))})
 	logic.add_component(&w.input, player, Input{})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, air_jumps = 1, dash_air_used = 1, on_ground = true})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{}, air_jumps = 1, dash_air_used = 1, on_ground = true},
+	)
 
 	sys_platformer(w)
 
 	platformer, has_platformer := logic.get_component(&w.platformer, player)
 	testing.expect(t, has_platformer)
-	testing.expectf(t, platformer.dash_air_used == 0, "air dashes should reset on ground, used=%d", platformer.dash_air_used)
+	testing.expectf(
+		t,
+		platformer.dash_air_used == 0,
+		"air dashes should reset on ground, used=%d",
+		platformer.dash_air_used,
+	)
 }
 
 @(test)
@@ -381,7 +516,10 @@ test_platformer_consumes_external_velocity_with_collision :: proc(t: ^testing.T)
 	defer platformer_test_world_destroy(w)
 
 	player := logic.Entity(9)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
 	logic.add_component(&w.velocity, player, Velocity{32 * UNIT, 0})
 	logic.add_component(&w.input, player, Input{})
@@ -401,7 +539,12 @@ test_platformer_consumes_external_velocity_with_collision :: proc(t: ^testing.T)
 	}
 
 	testing.expectf(t, pos.x == 74 * UNIT, "external velocity should collide with wall, pos=%v", pos^)
-	testing.expectf(t, platformer.velocity.x == 0, "platformer velocity should be collision-resolved, vel=%v", platformer.velocity)
+	testing.expectf(
+		t,
+		platformer.velocity.x == 0,
+		"platformer velocity should be collision-resolved, vel=%v",
+		platformer.velocity,
+	)
 	testing.expectf(t, external^ == {}, "external velocity should be consumed, external=%v", external^)
 }
 
@@ -409,14 +552,13 @@ test_platformer_consumes_external_velocity_with_collision :: proc(t: ^testing.T)
 test_platformer_grabs_ladder_with_up_and_climbs :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)
-	append(&w.platformer_zones, Platformer_Zone{
-		id = "test.ladder",
-		kind = .Ladder,
-		bounds = {min_x = 60 * UNIT, min_y = 0, max_x = 68 * UNIT, max_y = 128 * UNIT},
-	})
+	platformer_test_add_zone(w, Platformer_Zone{id = "test.ladder", kind = .Ladder, bounds = {60 * UNIT, 0, 68 * UNIT, 128 * UNIT}})
 
 	player := logic.Entity(30)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, 32 * UNIT})
 	logic.add_component(&w.input, player, Input{.North})
 	logic.add_component(&w.collider, player, collider)
@@ -439,14 +581,13 @@ test_platformer_grabs_ladder_with_up_and_climbs :: proc(t: ^testing.T) {
 test_platformer_ladder_disables_horizontal_input_and_centers :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)
-	append(&w.platformer_zones, Platformer_Zone{
-		id = "test.ladder",
-		kind = .Ladder,
-		bounds = {min_x = 64 * UNIT, min_y = 0, max_x = 80 * UNIT, max_y = 128 * UNIT},
-	})
+	platformer_test_add_zone(w, Platformer_Zone{id = "test.ladder", kind = .Ladder, bounds = {64 * UNIT, 0, 80 * UNIT, 128 * UNIT}})
 
 	player := logic.Entity(31)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{65 * UNIT, 32 * UNIT})
 	logic.add_component(&w.input, player, Input{.North, .East})
 	logic.add_component(&w.collider, player, collider)
@@ -456,25 +597,33 @@ test_platformer_ladder_disables_horizontal_input_and_centers :: proc(t: ^testing
 
 	vel, has_vel := test_platformer_velocity(w, player)
 	testing.expect(t, has_vel)
-	testing.expectf(t, vel.x == PLATFORMER_DEFAULT_CONFIG.ladder.center_speed, "ladder should center instead of using horizontal input, vel=%v", vel^)
+	testing.expectf(
+		t,
+		vel.x == PLATFORMER_DEFAULT_CONFIG.ladder.center_speed,
+		"ladder should center instead of using horizontal input, vel=%v",
+		vel^,
+	)
 }
 
 @(test)
 test_platformer_ladder_jump_detaches_and_jumps :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)
-	append(&w.platformer_zones, Platformer_Zone{
-		id = "test.ladder",
-		kind = .Ladder,
-		bounds = {min_x = 60 * UNIT, min_y = 0, max_x = 68 * UNIT, max_y = 128 * UNIT},
-	})
+	platformer_test_add_zone(w, Platformer_Zone{id = "test.ladder", kind = .Ladder, bounds = {60 * UNIT, 0, 68 * UNIT, 128 * UNIT}})
 
 	player := logic.Entity(32)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, 32 * UNIT})
 	logic.add_component(&w.input, player, Input{.Action1})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, on_ladder = true, ladder_zone = 0, facing = 1})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{}, on_ladder = true, ladder_zone = 0, facing = 1},
+	)
 
 	sys_platformer(w)
 
@@ -490,18 +639,21 @@ test_platformer_ladder_jump_detaches_and_jumps :: proc(t: ^testing.T) {
 test_platformer_ladder_down_climbs_down :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)
-	append(&w.platformer_zones, Platformer_Zone{
-		id = "test.ladder",
-		kind = .Ladder,
-		bounds = {min_x = 60 * UNIT, min_y = 0, max_x = 68 * UNIT, max_y = 128 * UNIT},
-	})
+	platformer_test_add_zone(w, Platformer_Zone{id = "test.ladder", kind = .Ladder, bounds = {60 * UNIT, 0, 68 * UNIT, 128 * UNIT}})
 
 	player := logic.Entity(33)
-	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
 	logic.add_component(&w.position, player, Position{64 * UNIT, 32 * UNIT})
 	logic.add_component(&w.input, player, Input{.South})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{}, on_ladder = true, ladder_zone = 0, facing = 1})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{}, on_ladder = true, ladder_zone = 0, facing = 1},
+	)
 
 	sys_platformer(w)
 
@@ -519,11 +671,28 @@ test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
 	defer platformer_anim_test_world_destroy(w)
 	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
 	player := logic.Entity(40)
-	logic.add_component(&w.platformer, player, Platformer{on_ladder = true, velocity = Velocity{0, PLATFORMER_DEFAULT_CONFIG.ladder.climb_speed}})
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{on_ladder = true, velocity = Velocity{0, PLATFORMER_DEFAULT_CONFIG.ladder.climb_speed}},
+	)
 	logic.add_component(&w.animation, player, animation_create(&defs[0]))
-	logic.add_component(&w.platformer_anim, player, platformer_anim_create_char(
-		&defs[0], &defs[1], &defs[2], &defs[3], &defs[4], &defs[5], &defs[6], &defs[7], &defs[8], &defs[9],
-	))
+	logic.add_component(
+		&w.platformer_anim,
+		player,
+		platformer_anim_create_char(
+			&defs[0],
+			&defs[1],
+			&defs[2],
+			&defs[3],
+			&defs[4],
+			&defs[5],
+			&defs[6],
+			&defs[7],
+			&defs[8],
+			&defs[9],
+		),
+	)
 
 	sys_platformer_anim(w)
 
@@ -614,6 +783,13 @@ platformer_test_world_with_segments :: proc(segments: ..[4]int) -> ^World {
 }
 
 @(private = "file")
+platformer_test_add_zone :: proc(w: ^World, zone: Platformer_Zone) {
+	assert(len(w.platformer_zones) == 0)
+	w.platformer_zones = make([]Platformer_Zone, 1)
+	w.platformer_zones[0] = zone
+}
+
+@(private = "file")
 platformer_test_world_destroy :: proc(w: ^World) {
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.velocity)
@@ -632,7 +808,12 @@ test_capsule_bottom :: proc(capsule: ^shape.Capsule) -> int {
 }
 
 @(private = "file")
-test_capsule_has_ground_support :: proc(segments: [][4]int, pos: ^Position, collider: ^shape.Capsule, tolerance: int) -> bool {
+test_capsule_has_ground_support :: proc(
+	segments: [][4]int,
+	pos: ^Position,
+	collider: ^shape.Capsule,
+	tolerance: int,
+) -> bool {
 	bottom := int(pos.y) + test_capsule_bottom(collider)
 	offsets := [3]int{0, collider.radius, -collider.radius}
 	for offset in offsets {

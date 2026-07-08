@@ -19,7 +19,7 @@ Debug_Collision_Vertex :: struct {
 
 @(private = "file")
 Debug_Collision_State :: struct {
-	initialized: bool,
+	initialized:   bool,
 	line_pip:      sg.Pipeline,
 	fill_pip:      sg.Pipeline,
 	line_bind:     sg.Bindings,
@@ -158,7 +158,10 @@ debug_collision_flush :: proc(ortho: ^linalg.Matrix4f32) {
 	if fill_count > 0 {
 		sg.update_buffer(
 			debug_collision_state.fill_bind.vertex_buffers[0],
-			{ptr = raw_data(debug_collision_state.fill_vertices[:]), size = c.size_t(fill_count * size_of(Debug_Collision_Vertex))},
+			{
+				ptr = raw_data(debug_collision_state.fill_vertices[:]),
+				size = c.size_t(fill_count * size_of(Debug_Collision_Vertex)),
+			},
 		)
 		sg.apply_pipeline(debug_collision_state.fill_pip)
 		sg.apply_bindings(debug_collision_state.fill_bind)
@@ -198,8 +201,8 @@ debug_collision_add_segment_subpixel :: proc(segment: ^[4]int, color: [4]f32) {
 
 @(private = "file")
 debug_collision_add_aabb_subpixel :: proc(bounds: shape.Aabb, fill_color, outline_color: [4]f32) {
-	min := [2]f32{to_pixelf(bounds.min_x), to_pixelf(bounds.min_y)}
-	max := [2]f32{to_pixelf(bounds.max_x), to_pixelf(bounds.max_y)}
+	min := [2]f32{to_pixelf(bounds.x), to_pixelf(bounds.y)}
+	max := [2]f32{to_pixelf(bounds.z), to_pixelf(bounds.w)}
 	bottom_left := [2]f32{min.x, min.y}
 	bottom_right := [2]f32{max.x, min.y}
 	top_right := [2]f32{max.x, max.y}

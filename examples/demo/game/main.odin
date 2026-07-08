@@ -76,15 +76,15 @@ load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	asset_data := host.asset_read_all(filepath) or_return
 	game_data := decoder2.open_respack(asset_data) or_return
 	w.bullet_patterns = decoder2.read_slot_0_bullet_patterns(game_data) or_return
-	host.info("bullet decoder", "success", true)
+	// host.info("bullet decoder", "success", true)
 
 	return true
 }
 
 
 load_assets_data :: proc(filepath: string, w: ^world.World) -> bool {
-	asset_data := host.asset_read_all(filepath) or_return
-	game_data := assets_data.open_respack(asset_data) or_return
+	file_data := host.asset_read_all(filepath) or_return
+	game_data := assets_data.open_respack(file_data) or_return
 
 	atlas_bytes := assets_data.read_slot_1_atlas(game_data) or_return
 	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
@@ -94,6 +94,12 @@ load_assets_data :: proc(filepath: string, w: ^world.World) -> bool {
 		frame.offset.y = 14
 		frame.offset.x = 10
 	}
+
+	w.platformer_zones = assets_data.read_slot_4_platformer_zones(game_data) or_return
+	for &l in w.platformer_zones {
+		l.bounds.xyzw *= world.UNIT
+	}
+	host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
 
 
 	UNIT := world.UNIT
@@ -112,14 +118,12 @@ load_assets_data :: proc(filepath: string, w: ^world.World) -> bool {
 	}
 
 
-	host.info("char_data decoder", "success", true, "w.animation_atlas", w.animation_atlas)
-
 	return true
 }
 
 @(private = "file")
 load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
-	host.info("assets", "loading", decoder2.Speed_Type.Absolute)
+	// host.info("assets", "loading", decoder2.Speed_Type.Absolute)
 
 
 	asset_data := host.asset_read_all(filepath) or_return
@@ -147,7 +151,7 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	for s in the_segments {
 		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
 	}
-	host.info("SSEEGGMENTS", "segments", w.segments[:])
+	// host.info("SSEEGGMENTS", "segments", w.segments[:])
 
 	w.grid = grid.create_grid(-10024 * UNIT, -10024 * UNIT, 10024 * UNIT, 10024 * UNIT, 16 * UNIT)
 	for &segment in w.segments {
@@ -160,7 +164,7 @@ load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
 	w.uv = read_slot_2_sprites(game_data) or_return
 
 
-	host.info("assets", "game loaded", w.position)
+	// host.info("assets", "game loaded", w.position)
 
 	return true
 }

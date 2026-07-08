@@ -55,7 +55,7 @@ World :: struct {
 	grid:                   grid.Grid,
 	segments:               [dynamic][4]int,
 	segment_triggers:       map[^[4]int]Segment_Trigger,
-	platformer_zones:       [dynamic]Platformer_Zone,
+	platformer_zones:       []Platformer_Zone,
 	collider:               logic.Component_Storage(shape.Capsule),
 	on_hit:                 logic.Component_Storage(proc(_: ^World, src, target: int)),
 	on_hurt:                logic.Component_Storage(proc(_: ^World, src, target: int)),
@@ -179,14 +179,14 @@ init :: proc(w: ^World) {
 		id   = "demo.floor.start",
 		once = true,
 	}
-	append(
-		&w.platformer_zones,
-		Platformer_Zone {
-			id = "demo.ladder.start",
-			kind = .Ladder,
-			bounds = {min_x = 192 * UNIT, min_y = 0, max_x = 208 * UNIT, max_y = 128 * UNIT},
-		},
-	)
+	// append(
+	// 	&w.platformer_zones,
+	// 	Platformer_Zone {
+	// 		id = "demo.ladder.start",
+	// 		kind = .Ladder,
+	// 		bounds = {192 * UNIT, 0, 208 * UNIT, 128 * UNIT},
+	// 	},
+	// )
 	// TODO: delete MOCK DATA
 
 	w.tilemap.components[0].parallax = {0.5, 0.5}
@@ -242,7 +242,7 @@ init :: proc(w: ^World) {
 	// 	Tilemap{tile_size = {16, 16}, tileset_uv = {0, 0, 1, 1}, lut_uv = {0, 0, 1, 1}},
 	// )
 	//
-	host.info("world", "init", w.tilemap.components[0])
+	// host.info("world", "init", w.tilemap.components[0])
 }
 
 create_entity :: proc(w: ^World) -> logic.Entity {

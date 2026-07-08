@@ -9,7 +9,7 @@ move_segment :: proc(s: ^[4]int, p: [2]int) {
 
 // Create a new segment from coordinates
 @(require_results)
-make_segment :: proc(x1, y1, x2, y2: int) -> [4]int {
+make_segment :: proc(#any_int x1, #any_int y1, #any_int x2, #any_int y2: int) -> [4]int {
 	return [4]int{x1, y1, x2, y2}
 }
 
