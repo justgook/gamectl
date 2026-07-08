@@ -7,7 +7,7 @@
 -- - tile units
 -- - origin at the bottom-left after the tilemap has been FlipY'd
 -- - x grows right, y grows up
--- - each selected tile occupies [x, y] -> [x + 1, y + 1]
+-- - tile row y occupies vertical span [y - 1, y], matching tilemap-to-segments.lua
 --
 -- AABB contract:
 -- - each AABB is { min_x, min_y, max_x, max_y }
@@ -141,7 +141,7 @@ local function generateAabbs(tilemap, layerInput, tileInput, label)
 				end
 
 				markVisited(x, y, x + rectWidth, y + rectHeight)
-				aabbs[#aabbs + 1] = { x, y, x + rectWidth, y + rectHeight }
+				aabbs[#aabbs + 1] = { x, y - 1, x + rectWidth, y + rectHeight - 1 }
 			end
 		end
 	end
