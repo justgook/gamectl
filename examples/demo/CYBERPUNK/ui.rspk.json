@@ -1,0 +1,65 @@
+{
+  "package": "main",
+  "odin": {
+    "package": "data_ui",
+    "imports": {
+      "world": "../world"
+    }
+  },
+  "data": ["Atlas", "Fonts"],
+  "types": {
+    "Atlas": {
+      "type": "bytes"
+    },
+    "Nines": {
+      "type": "array",
+      "len": 12,
+      "value": "world.Nine_Patch"
+    },
+    "world.Nine_Patch": {
+      "type": "struct",
+      "fields": {
+        "slices": {
+          "type": "array",
+          "len": 4,
+          "value": "f32",
+          "default": [1, 1, 2, 2]
+        },
+        "size": {
+          "type": "array",
+          "len": 2,
+          "value": "f32",
+          "default": [8, 8]
+        },
+        "uv": {
+          "type": "array",
+          "len": 4,
+          "value": "f32"
+        }
+      }
+    },
+    "Fonts": {
+      "type": "array",
+      "len": 6,
+      "value": "world.Text_Font"
+    },
+    "world.Text_Font": {
+      "type": "struct",
+      "fields": {
+        "uv": {
+          "type": "array",
+          "len": 4,
+          "value": "f32"
+        },
+        "glyph_size": {
+          "type": "array",
+          "len": 2,
+          "value": "f32",
+          "default": [8, 8]
+        },
+        "columns": { "type": "u32", "default": 1 },
+        "rows": { "type": "u32", "default": 1 }
+      }
+    }
+  }
+}

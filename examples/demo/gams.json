@@ -110,7 +110,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-ng data-source=\"CYBERPUNK/data.ng.json\" />"
+          "layout": "<view-ng data-source=\"CYBERPUNK/ui.ng.json\" />"
         }
       }
     },

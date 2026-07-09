@@ -1,0 +1,512 @@
+[
+  {
+    "id": 1,
+    "kind": 4,
+    "x": 504,
+    "y": 203,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"catalog/nine/*.aseprite\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"catalog/fonts/*.qoi\""
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "kind": 2,
+    "x": 738,
+    "y": 254,
+    "name": "Glob",
+    "codePath": "ng/presets/glob.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 1,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "kind": 2,
+    "x": 920,
+    "y": 253,
+    "name": "Open",
+    "codePath": "ng/presets/image-open.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 3,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "kind": 2,
+    "x": 1547,
+    "y": 224,
+    "name": "Pack Rects",
+    "codePath": "ng/presets/pack-rects.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 17,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "width",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 3,
+        "name": "height",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 4,
+        "name": "padding",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 5,
+        "name": "autoSize",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "UV",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "width",
+        "value": null
+      },
+      {
+        "id": 4,
+        "name": "height",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "kind": 2,
+    "x": 1115,
+    "y": 253,
+    "name": "Info",
+    "codePath": "ng/presets/image-info.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "images",
+        "srcNodeId": 4,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "info",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "kind": 2,
+    "x": 2818,
+    "y": 113,
+    "name": "Respack Save",
+    "codePath": "ng/presets/respack-save.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "schema",
+        "srcNodeId": 8,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "slots",
+        "srcNodeId": 12,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "path_bin",
+        "srcNodeId": 8,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "path_decoder",
+        "srcNodeId": 8,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 8,
+    "kind": 4,
+    "x": 2502,
+    "y": 11,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"CYBERPUNK/ui.rspk.json\""
+      },
+      {
+        "id": 2,
+        "name": "",
+        "value": "\"tmp/ui.rspk\""
+      },
+      {
+        "id": 3,
+        "name": "",
+        "value": "\"game/data_ui/decoder.odin\""
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "kind": 2,
+    "x": 2052,
+    "y": 279,
+    "name": "Atlas",
+    "codePath": "ng/presets/image-atlas.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "srcNodeId": 18,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "srcNodeId": 10,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "width",
+        "srcNodeId": 5,
+        "srcOutputId": 3
+      },
+      {
+        "id": 4,
+        "name": "height",
+        "srcNodeId": 5,
+        "srcOutputId": 4
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "kind": 2,
+    "x": 1312,
+    "y": 159,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 11,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 4,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "kind": 4,
+    "x": 909,
+    "y": 155,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[]"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "kind": 2,
+    "x": 2510,
+    "y": 177,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "Atlas",
+        "srcNodeId": 21,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "Nines",
+        "srcNodeId": 13,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "Fonts",
+        "srcNodeId": 13,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "kind": 2,
+    "x": 2049,
+    "y": 115,
+    "name": "fromArray",
+    "codePath": "ng/presets/from-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "srcNodeId": 5,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "item2",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "kind": 2,
+    "x": 1313,
+    "y": 236,
+    "name": "toArray",
+    "codePath": "ng/presets/to-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "item1",
+        "srcNodeId": 11,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "item2",
+        "srcNodeId": 6,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "kind": 2,
+    "x": 1829,
+    "y": 232,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "arrays",
+        "srcNodeId": 5,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "kind": 2,
+    "x": 2884,
+    "y": 453,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 20,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "content",
+        "srcNodeId": 12,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "id": 20,
+    "kind": 4,
+    "x": 2576,
+    "y": 458,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG-ui.json\""
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "kind": 2,
+    "x": 2261,
+    "y": 266,
+    "name": "Base64 Encode",
+    "codePath": "ng/presets/image-encode.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 9,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "base64",
+        "value": null
+      }
+    ]
+  }
+]

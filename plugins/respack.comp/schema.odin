@@ -442,13 +442,25 @@ compile_named_type_from_top_level_value :: proc(
 		type_name = type_name[1:len(type_name) - 1]
 	}
 	if slice_matches_string(type_name, "array") {
-		return compile_array_type_from_slice(trimmed, type_idx)
+		err := compile_array_type_from_slice(trimmed, type_idx)
+		if err != "" {
+			return schema_type_error(type_idx, ".len", err)
+		}
+		return ""
 	}
 	if slice_matches_string(type_name, "vector") {
-		return compile_vector_type_from_slice(trimmed, type_idx)
+		err := compile_vector_type_from_slice(trimmed, type_idx)
+		if err != "" {
+			return schema_type_error(type_idx, ".value", err)
+		}
+		return ""
 	}
 	if slice_matches_string(type_name, "oneof") {
-		return compile_oneof_type_from_slice(trimmed, type_idx)
+		err := compile_oneof_type_from_slice(trimmed, type_idx)
+		if err != "" {
+			return schema_type_error(type_idx, ".value", err)
+		}
+		return ""
 	}
 	if slice_matches_string(type_name, "struct") {
 		return compile_struct_type_from_slice(trimmed, trimmed_abs_start, type_idx)
@@ -496,7 +508,7 @@ compile_struct_type_from_slice :: proc(obj_slice: []u8, abs_start: int, type_idx
 		if field_count >= MAX_FIELDS {
 			return "field limit exceeded"
 		}
-		field, err := compile_field_from_slice(fields_slice, abs_start + fields_start, member)
+		field, err := compile_field_from_slice(fields_slice, abs_start + fields_start, type_idx, member)
 		if err != "" {
 			return err
 		}
@@ -513,6 +525,7 @@ compile_struct_type_from_slice :: proc(obj_slice: []u8, abs_start: int, type_idx
 compile_field_from_slice :: proc(
 	fields_slice: []u8,
 	fields_abs_start: int,
+	parent_type_idx: int,
 	member: ObjectMember,
 ) -> (
 	FieldDef,
@@ -561,12 +574,17 @@ compile_field_from_slice :: proc(
 		if err != "" {
 			return FieldDef{}, err
 		}
+		field_name := string(fields_slice[member.key_start:member.key_end])
+		err_suffix := ""
 		if slice_matches_string(type_name, "vector") {
 			err = compile_vector_type_from_slice(value_slice, anon_idx)
+			err_suffix = ".value"
 		} else if slice_matches_string(type_name, "array") {
 			err = compile_array_type_from_slice(value_slice, anon_idx)
+			err_suffix = ".len"
 		} else if slice_matches_string(type_name, "oneof") {
 			err = compile_oneof_type_from_slice(value_slice, anon_idx)
+			err_suffix = ".value"
 		} else if slice_matches_string(type_name, "bytes") {
 			types[anon_idx].kind = .Bytes
 			types[anon_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
@@ -575,7 +593,7 @@ compile_field_from_slice :: proc(
 			types[anon_idx].max_len = read_optional_int_from_slice(value_slice, "max_len")
 		}
 		if err != "" {
-			return FieldDef{}, err
+			return FieldDef{}, schema_field_error(parent_type_idx, field_name, err_suffix, err)
 		}
 		field.type_index = anon_idx
 		field.max_len = read_optional_int_from_slice(value_slice, "max_len")
@@ -1545,6 +1563,14 @@ type_name_string :: proc(type_idx: int) -> string {
 field_name_string :: proc(field_idx: int) -> string {
 	field := fields[field_idx]
 	return string(schema_buffer[field.name_start:field.name_end])
+}
+
+schema_type_error :: proc(type_idx: int, suffix: string, err: string) -> string {
+	return join3(join3("schema.types.", type_name_string(type_idx), suffix), ": ", err)
+}
+
+schema_field_error :: proc(parent_type_idx: int, field_name: string, suffix: string, err: string) -> string {
+	return join3(join3(join3("schema.types.", type_name_string(parent_type_idx), ".fields."), field_name, suffix), ": ", err)
 }
 
 enum_name_string :: proc(enum_idx: int) -> string {

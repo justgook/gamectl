@@ -233,6 +233,7 @@ web: wasm | $(WEB_DIR)
 	$(Q)$(CP) web/gl-bridge.js "$(WEB_DIR)/gl-bridge.js"
 	$(Q)$(CP) data.rspk "$(WEB_DIR)/data.rspk"
 	$(Q)$(CP) bullet.rspk "$(WEB_DIR)/bullet.rspk"
+	$(Q)$(CP) assets.rspk "$(WEB_DIR)/assets.rspk"
 
 .PHONY: serve
 serve: web

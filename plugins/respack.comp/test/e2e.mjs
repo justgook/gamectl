@@ -70,6 +70,14 @@ function inspectDump(bytes) {
 const schema = readFileSync(exampleSchemaPath, 'utf8')
 const slotsJson = readFileSync(exampleSlotsPath, 'utf8')
 
+const invalidLenSchema = schema.replace('"len": 16', '"len": "16"')
+const invalidLen = invokeRespack('respack/respack::generate-odin', [invalidLenSchema])
+assert.equal(
+  invalidLen.err,
+  'schema.types.Mat4.len: array len must be non-negative integer',
+  'array len diagnostics should include the schema path',
+)
+
 const odin = invokeRespack('respack/respack::generate-odin', [schema])
 assert.equal(odin.err, undefined, `respack.generate-odin failed for restored gams2 example: ${odin.err}`)
 assert.match(odin.ok, /read_slot_0_atlas/)

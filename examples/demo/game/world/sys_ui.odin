@@ -1,18 +1,22 @@
 package world
 
+import "../director"
+import "core:fmt"
 import "logic"
 import "ui"
 
 sys_ui :: proc(w: ^World) {
 	// panel1_uv := 418
 	panel1_uv := 1
+	player_hp := director_player_hp(w)
 	panel := group(
 		{
-			nine(w.uv[panel1_uv], 240, 52),
-			ui.move(text("\x04 use WASD to move "), 8, 38),
-			ui.move(text1("\x1C J - jump"), 8, 28),
-			ui.move(text2("\x93 K - dash"), 8, 18),
-			ui.move(text5("\xCA L - fire"), 8, 8),
+			nine(w.uv[panel1_uv], 240, 62),
+			ui.move(text("\x04 use WASD to move "), 8, 48),
+			ui.move(text1("\x1C J - jump"), 8, 38),
+			ui.move(text2("\x93 K - dash"), 8, 28),
+			ui.move(text5("\xCA L - fire"), 8, 18),
+			ui.move(text3(fmt.tprintf("Director player hp: %d", player_hp)), 8, 8),
 		},
 	)
 
@@ -35,6 +39,11 @@ sys_ui :: proc(w: ^World) {
 	ui.flatten(group({panel, statusbar, hp2}), w, render_shapes)
 }
 
+@(private = "file")
+@(require_results)
+director_player_hp :: proc(w: ^World) -> i32 {
+	return director.entity_stat(&w.director, director.Entity_Id(0), director.Word_Id(0))
+}
 
 @(private = "file")
 render_shapes :: proc(shape: ui.Shape, item: UI_Item, w: ^World) {
@@ -155,7 +164,7 @@ text_font :: proc(font: Text_Font, value: string) -> ui.Group(UI_Item) {
 		case '\t':
 			cursor_x += font.glyph_size.x * 4
 		case:
-			assert(int(ch) < font.columns * font.rows)
+			assert(u32(ch) < font.columns * font.rows)
 			children[count] = ui.move(text_glyph(text_font_glyph_uv(font, ch)), cursor_x, cursor_y)
 			count += 1
 			cursor_x += font.glyph_size.x
@@ -168,8 +177,8 @@ text_font :: proc(font: Text_Font, value: string) -> ui.Group(UI_Item) {
 Text_Font :: struct {
 	uv:         UV,
 	glyph_size: [2]f32,
-	columns:    int,
-	rows:       int,
+	columns:    u32,
+	rows:       u32,
 }
 
 TEXT_DEBUG_GLYPH_SIZE :: [2]f32{8, 8}
@@ -215,7 +224,7 @@ TEXT_DEBUG_FONT_5 :: Text_Font {
 @(private = "file")
 text_font_glyph_uv :: proc(font: Text_Font, char_code: u8) -> UV {
 	glyph_u := f32(char_code % u8(font.columns))
-	glyph_v := f32(font.rows - 1 - int(char_code / u8(font.columns)))
+	glyph_v := f32(font.rows - 1 - u32(char_code / u8(font.columns)))
 	cell_w := (font.uv.z - font.uv.x) / f32(font.columns)
 	cell_h := (font.uv.w - font.uv.y) / f32(font.rows)
 	u0 := font.uv.x + glyph_u * cell_w

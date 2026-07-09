@@ -1,6 +1,7 @@
 package world
 
 import "../decoder2"
+import "../director"
 import "../host"
 import sg "../sokol/gfx"
 import "bullet"
@@ -66,6 +67,8 @@ World :: struct {
 	// Bullet patterns
 	bullet_patterns:        decoder2.Bullet_Patterns,
 	bullet:                 logic.Component_Storage(Bullet),
+	// Director
+	director:               director.State,
 	// UI
 	ui_sprite:              struct {
 		using pipe: ^Sprite_Pipe,
@@ -164,6 +167,7 @@ init :: proc(w: ^World) {
 	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.atlas)
 	w.text_pipe = text_init(w.atlas)
+	w.director = director.init(&MOCK_DIRECTOR_DATA)
 
 	// UI
 	w.ui_sprite.pipe = sprites_init(w.atlas)
@@ -333,6 +337,7 @@ cleanup :: proc(w: ^World) {
 	logic.destroy_storage(&w.enemy_hit)
 	logic.destroy_storage(&w.player_hurt)
 	logic.destroy_storage(&w.player_hit)
+	director.destroy(&w.director)
 	bullet_destroy_state_storage(&w.bullet)
 	bullet.destroy_patterns(&w.bullet_patterns)
 }
