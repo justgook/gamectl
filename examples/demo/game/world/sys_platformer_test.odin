@@ -354,7 +354,9 @@ test_platformer_air_jump_uses_configured_jump_count :: proc(t: ^testing.T) {
 	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
 	logic.add_component(&w.input, player, Input{.Action1})
 	logic.add_component(&w.collider, player, collider)
-	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{0, -UNIT}})
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.air_jump.max_jumps = 1
+	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{0, -UNIT}, config = config})
 
 	sys_platformer(w)
 
@@ -375,7 +377,7 @@ test_platformer_air_jump_uses_configured_jump_count :: proc(t: ^testing.T) {
 	testing.expectf(
 		t,
 		platformer.air_jumps == 1,
-		"default max air jumps should block second air jump, jumps=%d",
+		"configured max air jumps should block second air jump, jumps=%d",
 		platformer.air_jumps,
 	)
 }
