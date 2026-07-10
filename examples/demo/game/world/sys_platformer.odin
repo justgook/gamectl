@@ -131,6 +131,9 @@ sys_platformer :: proc(w: ^World) {
 			platformer.dash_held = .Action2 in input
 			continue
 		}
+		if touching_ladder {
+			platformer_apply_ladder_top_support(pos, vel, collider, platformer, &w.platformer_zones[ladder_zone])
+		}
 
 		if platformer.dash_frames > 0 {
 			platformer_apply_jump(input, vel, platformer)
@@ -154,6 +157,9 @@ sys_platformer :: proc(w: ^World) {
 		platformer_apply_gravity(vel, platformer)
 		platformer_apply_wall_slide(vel, platformer)
 		platformer_move_and_collide(&w.grid, pos, vel, collider, platformer)
+		if touching_ladder {
+			platformer_apply_ladder_top_support(pos, vel, collider, platformer, &w.platformer_zones[ladder_zone])
+		}
 		platformer.dash_held = .Action2 in input
 	}
 }
@@ -288,6 +294,15 @@ platformer_handle_ladder :: proc(
 		return true
 	}
 
+	if touching_ladder &&
+	   .South in input &&
+	   platformer_is_on_ladder_top(pos, collider, &w.platformer_zones[zone_index]) {
+		platformer_enter_ladder(p, zone_index)
+		platformer_apply_ladder(w, pos, input, vel, collider, p, &w.platformer_zones[zone_index], cfg.ladder)
+		p.jump_held = jump_down
+		return true
+	}
+
 	if touching_ladder && .North in input {
 		platformer_enter_ladder(p, zone_index)
 		platformer_apply_ladder(w, pos, input, vel, collider, p, &w.platformer_zones[zone_index], cfg.ladder)
@@ -342,6 +357,8 @@ platformer_apply_ladder :: proc(
 	cfg: ladder.Config,
 ) {
 	assert(zone.kind == .Ladder)
+	start_bounds := platformer_world_aabb(pos, collider)
+	start_bottom := int(start_bounds.y)
 	center_x := int((zone.bounds.x + zone.bounds.z) / 2)
 	target_pos_x := center_x - collider.x
 	delta_x := target_pos_x - int(pos.x)
@@ -364,6 +381,62 @@ platformer_apply_ladder :: proc(
 	p.wall_segment = nil
 
 	platformer_move_and_collide(&w.grid, pos, vel, collider, p)
+	if move_y > 0 {
+		platformer_finish_ladder_top_climb(pos, vel, collider, p, zone, start_bottom)
+	}
+}
+
+@(private = "file")
+platformer_is_on_ladder_top :: proc(pos: ^Position, collider: ^shape.Capsule, zone: ^Platformer_Zone) -> bool {
+	assert(zone.kind == .Ladder)
+	bounds := platformer_world_aabb(pos, collider)
+	return bounds.y == zone.bounds.w && bounds.z >= zone.bounds.x && bounds.x <= zone.bounds.z
+}
+
+@(private = "file")
+platformer_apply_ladder_top_support :: proc(
+	pos: ^Position,
+	vel: ^Velocity,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+	zone: ^Platformer_Zone,
+) {
+	if !platformer_is_on_ladder_top(pos, collider, zone) {
+		return
+	}
+	vel.y = 0
+	p.on_ground = true
+	p.on_wall = false
+	p.ground_normal = {0, 1}
+	p.wall_normal = {}
+	p.ground_segment = nil
+	p.wall_segment = nil
+}
+
+@(private = "file")
+platformer_finish_ladder_top_climb :: proc(
+	pos: ^Position,
+	vel: ^Velocity,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+	zone: ^Platformer_Zone,
+	start_bottom: int,
+) {
+	assert(zone.kind == .Ladder)
+	bounds := platformer_world_aabb(pos, collider)
+	if start_bottom > int(zone.bounds.w) || bounds.y < zone.bounds.w {
+		return
+	}
+	local_bounds := capsule_local_aabb(collider)
+	pos.y = zone.bounds.w - i32(local_bounds.y)
+	vel.y = 0
+	platformer_leave_ladder(p)
+	p.on_ground = true
+	p.on_wall = false
+	p.ground_normal = {0, 1}
+	p.wall_normal = {}
+	p.ground_segment = nil
+	p.wall_segment = nil
 }
 
 @(private = "file")
