@@ -720,6 +720,43 @@ test_platformer_ladder_down_climbs_down :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_platformer_ladder_bottom_releases_on_floor :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments([4]int{0, 0, 256 * UNIT, 0})
+	defer platformer_test_world_destroy(w)
+	platformer_test_add_zone(
+		w,
+		Platformer_Zone{id = "test.ladder", kind = .Ladder, bounds = {60 * UNIT, 0, 68 * UNIT, 128 * UNIT}},
+	)
+
+	player := logic.Entity(34)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 13 * UNIT})
+	logic.add_component(&w.input, player, Input{.South})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(
+		&w.platformer,
+		player,
+		Platformer{velocity = Velocity{}, on_ladder = true, ladder_zone = 0, facing = 1},
+	)
+
+	sys_platformer(w)
+
+	pos, has_pos := logic.get_component(&w.position, player)
+	vel, has_vel := test_platformer_velocity(w, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_pos)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, !platformer.on_ladder, "bottom floor should release ladder")
+	testing.expectf(t, platformer.on_ground, "bottom floor should become ground")
+	testing.expectf(t, vel.y == 0, "bottom floor should stop vertical velocity, vel=%v", vel^)
+	testing.expectf(t, pos.y == 12 * UNIT, "player bottom should rest on floor, pos=%v", pos^)
+}
+
+@(test)
 test_platformer_ladder_top_becomes_platform :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)

@@ -383,6 +383,8 @@ platformer_apply_ladder :: proc(
 	platformer_move_and_collide(&w.grid, pos, vel, collider, p)
 	if move_y > 0 {
 		platformer_finish_ladder_top_climb(pos, vel, collider, p, zone, start_bottom)
+	} else if move_y < 0 && p.on_ground {
+		platformer_leave_ladder(p)
 	}
 }
 
