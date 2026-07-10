@@ -706,10 +706,16 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 			continue
 		}
 
+		wall_min_y := int(pos.y) + bounds.y
+		wall_max_y := int(pos.y) + bounds.w
+		if p.on_ground {
+			wall_min_y += collider.radius
+			wall_max_y -= collider.radius
+		}
 		contact_x, ok := segment_x_at_aabb_y(
 			wall,
-			int(pos.y) + bounds.y,
-			int(pos.y) + bounds.w,
+			wall_min_y,
+			wall_max_y,
 			int(pos.y) + collider.y,
 		)
 		if !ok {

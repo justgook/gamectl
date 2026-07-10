@@ -311,6 +311,46 @@ test_platformer_wall_slide_clamps_fall_speed :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_platformer_horizontal_move_ignores_dangling_segment_below_floor :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(
+		[4]int{0, 0, 256 * UNIT, 0},
+		[4]int{64 * UNIT, -8 * UNIT, 64 * UNIT, 1},
+	)
+	defer platformer_test_world_destroy(w)
+
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	player := logic.Entity(50)
+	start_x := 52 * UNIT
+	logic.add_component(&w.position, player, Position{i32(start_x), i32(-test_capsule_bottom(&collider))})
+	logic.add_component(&w.input, player, Input{.East})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{32 * UNIT, 0}, on_ground = true, ground_normal = {0, 1}, facing = 1})
+
+	pos: ^Position
+	platformer: ^Platformer
+	vel: ^Velocity
+	for frame := 0; frame < 8; frame += 1 {
+		sys_platformer(w)
+
+		has_pos: bool
+		has_platformer: bool
+		has_vel: bool
+		pos, has_pos = logic.get_component(&w.position, player)
+		platformer, has_platformer = logic.get_component(&w.platformer, player)
+		vel, has_vel = test_platformer_velocity(w, player)
+		testing.expect(t, has_pos)
+		testing.expect(t, has_platformer)
+		testing.expect(t, has_vel)
+		testing.expectf(t, vel.x > 0, "frame %d: horizontal velocity should remain positive, pos=%v vel=%v", frame, pos^, vel^)
+		testing.expectf(t, !platformer.on_wall, "frame %d: dangling segment below floor should not count as wall, platformer=%v", frame, platformer^)
+	}
+	testing.expectf(t, int(pos.x) > 64 * UNIT, "dangling segment below floor should not block horizontal movement past its x, pos=%v vel=%v", pos^, vel^)
+}
+
+@(test)
 test_platformer_wall_jump_pushes_away_from_wall :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)
