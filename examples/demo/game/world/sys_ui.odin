@@ -5,13 +5,16 @@ import "core:fmt"
 import "logic"
 import "ui"
 
+ui_fonts_storage := [6]Text_Font{}
+ui_nines_storage := [12]Nine_Patch{}
+
 sys_ui :: proc(w: ^World) {
 	// panel1_uv := 418
 	panel1_uv := 1
 	player_hp := director_player_hp(w)
 	panel := group(
 		{
-			nine(w.uv[panel1_uv], 240, 62),
+			nine(8, 240, 62),
 			ui.move(text("\x04 use WASD to move "), 8, 48),
 			ui.move(text1("\x1C J - jump"), 8, 38),
 			ui.move(text2("\x93 K - dash"), 8, 28),
@@ -19,6 +22,7 @@ sys_ui :: proc(w: ^World) {
 			ui.move(text3(fmt.tprintf("Director player hp: %d", player_hp)), 8, 8),
 		},
 	)
+
 
 	panel = ui.move(panel, 20, ui.wave(10, 30, 120, w.frame_count))
 	statusbar := sprite({0.5, 1 - 48.0 / 512.0, 1.0 - 7 * 16.0 / 512.0, 1})
@@ -39,6 +43,7 @@ sys_ui :: proc(w: ^World) {
 	ui.flatten(group({panel, statusbar, hp2}), w, render_shapes)
 }
 
+
 @(private = "file")
 @(require_results)
 director_player_hp :: proc(w: ^World) -> i32 {
@@ -57,11 +62,12 @@ render_shapes :: proc(shape: ui.Shape, item: UI_Item, w: ^World) {
 
 		w.ui_sprite.count += 1
 	case UI_Nine:
+		item := ui_nines_storage[value.id]
 		w.nine_patch.components[w.nine_patch.count] = Nine_Patch {
 			bounds = {shape.x, shape.y, shape.x + value.w * shape.sx, shape.y + value.h * shape.sy},
-			slices = {6, 7, 11, 10},
-			size   = {16, 16},
-			uv     = value.uv,
+			slices = item.slices,
+			size   = item.size,
+			uv     = item.uv,
 		}
 
 		w.nine_patch.count += 1
@@ -90,7 +96,7 @@ UI_Sprite :: struct {
 
 @(private = "file")
 UI_Nine :: struct {
-	uv:   UV,
+	id:   int,
 	w, h: f32,
 }
 
@@ -107,8 +113,8 @@ sprite :: proc(uv: UV) -> ui.Leaf(UI_Item) {
 	return ui.leaf(UI_Item(UI_Sprite{uv = uv}))
 }
 @(private = "file")
-nine :: proc(uv: UV, w, h: f32) -> ui.Leaf(UI_Item) {
-	return ui.leaf(UI_Item(UI_Nine{uv = uv, w = w, h = h}))
+nine :: proc(id: int, w, h: f32) -> ui.Leaf(UI_Item) {
+	return ui.leaf(UI_Item(UI_Nine{id = id, w = w, h = h}))
 }
 
 @(private = "file")
@@ -118,32 +124,32 @@ text_glyph :: proc(uv: UV) -> ui.Leaf(UI_Item) {
 
 @(private = "file")
 text :: proc(value: string) -> ui.Group(UI_Item) {
-	return text_font(TEXT_DEBUG_FONT_0, value)
+	return text_font(ui_fonts_storage[0], value)
 }
 
 @(private = "file")
 text1 :: proc(value: string) -> ui.Group(UI_Item) {
-	return text_font(TEXT_DEBUG_FONT_1, value)
+	return text_font(ui_fonts_storage[1], value)
 }
 
 @(private = "file")
 text2 :: proc(value: string) -> ui.Group(UI_Item) {
-	return text_font(TEXT_DEBUG_FONT_2, value)
+	return text_font(ui_fonts_storage[2], value)
 }
 
 @(private = "file")
 text3 :: proc(value: string) -> ui.Group(UI_Item) {
-	return text_font(TEXT_DEBUG_FONT_3, value)
+	return text_font(ui_fonts_storage[3], value)
 }
 
 @(private = "file")
 text4 :: proc(value: string) -> ui.Group(UI_Item) {
-	return text_font(TEXT_DEBUG_FONT_4, value)
+	return text_font(ui_fonts_storage[4], value)
 }
 
 @(private = "file")
 text5 :: proc(value: string) -> ui.Group(UI_Item) {
-	return text_font(TEXT_DEBUG_FONT_5, value)
+	return text_font(ui_fonts_storage[5], value)
 }
 
 @(private = "file")
@@ -179,46 +185,6 @@ Text_Font :: struct {
 	glyph_size: [2]f32,
 	columns:    u32,
 	rows:       u32,
-}
-
-TEXT_DEBUG_GLYPH_SIZE :: [2]f32{8, 8}
-TEXT_DEBUG_FONT_COLUMNS :: 16
-TEXT_DEBUG_FONT_ROWS :: 16
-TEXT_DEBUG_FONT_0 :: Text_Font {
-	uv         = {0.5, 0.5, 0.75, 0.75},
-	glyph_size = TEXT_DEBUG_GLYPH_SIZE,
-	columns    = TEXT_DEBUG_FONT_COLUMNS,
-	rows       = TEXT_DEBUG_FONT_ROWS,
-}
-TEXT_DEBUG_FONT_1 :: Text_Font {
-	uv         = {0.75, 0.5, 1.0, 0.75},
-	glyph_size = TEXT_DEBUG_GLYPH_SIZE,
-	columns    = TEXT_DEBUG_FONT_COLUMNS,
-	rows       = TEXT_DEBUG_FONT_ROWS,
-}
-TEXT_DEBUG_FONT_2 :: Text_Font {
-	uv         = {0.5, 0.25, 0.75, 0.5},
-	glyph_size = TEXT_DEBUG_GLYPH_SIZE,
-	columns    = TEXT_DEBUG_FONT_COLUMNS,
-	rows       = TEXT_DEBUG_FONT_ROWS,
-}
-TEXT_DEBUG_FONT_3 :: Text_Font {
-	uv         = {0.75, 0.25, 1.0, 0.5},
-	glyph_size = TEXT_DEBUG_GLYPH_SIZE,
-	columns    = TEXT_DEBUG_FONT_COLUMNS,
-	rows       = TEXT_DEBUG_FONT_ROWS,
-}
-TEXT_DEBUG_FONT_4 :: Text_Font {
-	uv         = {0.5, 0.0, 0.75, 0.25},
-	glyph_size = TEXT_DEBUG_GLYPH_SIZE,
-	columns    = TEXT_DEBUG_FONT_COLUMNS,
-	rows       = TEXT_DEBUG_FONT_ROWS,
-}
-TEXT_DEBUG_FONT_5 :: Text_Font {
-	uv         = {0.75, 0.0, 1.0, 0.25},
-	glyph_size = TEXT_DEBUG_GLYPH_SIZE,
-	columns    = TEXT_DEBUG_FONT_COLUMNS,
-	rows       = TEXT_DEBUG_FONT_ROWS,
 }
 
 @(private = "file")

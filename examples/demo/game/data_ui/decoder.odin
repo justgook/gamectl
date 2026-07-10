@@ -13,20 +13,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [2]u32,
-	lengths: [2]u32,
+	offsets: [3]u32,
+	lengths: [3]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 2 {return Package{}, false}
-	if len(data) < 24 {return Package{}, false}
+	if int(read_u16(data, 6)) != 3 {return Package{}, false}
+	if len(data) < 32 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 2 {
+	for i in 0 ..< 3 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -36,7 +36,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 2 {return Reader{}, false}
+	if slot < 0 || slot >= 3 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -113,7 +113,9 @@ DecodedSlots :: struct {
 	has_slot_0: bool,
 	slot_0:     Atlas,
 	has_slot_1: bool,
-	slot_1:     Fonts,
+	slot_1:     Nines,
+	has_slot_2: bool,
+	slot_2:     Fonts,
 }
 
 @(private = "file")
@@ -361,8 +363,16 @@ read_slot_0_atlas :: proc(pkg: Package) -> (Atlas, bool) {
 	return value, true
 }
 
-read_slot_1_fonts :: proc(pkg: Package) -> (Fonts, bool) {
+read_slot_1_nines :: proc(pkg: Package) -> (Nines, bool) {
 	r, ok := slot_reader(pkg, 1)
+	if !ok {return Nines{}, false}
+	value: Nines
+	if !decode_nines(&r, &value) {return Nines{}, false}
+	return value, true
+}
+
+read_slot_2_fonts :: proc(pkg: Package) -> (Fonts, bool) {
+	r, ok := slot_reader(pkg, 2)
 	if !ok {return Fonts{}, false}
 	value: Fonts
 	if !decode_fonts(&r, &value) {return Fonts{}, false}

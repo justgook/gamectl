@@ -23,6 +23,78 @@
     ]
   },
   {
+    "id": 22,
+    "kind": 2,
+    "x": 738,
+    "y": 94,
+    "name": "Glob Nines",
+    "codePath": "ng/presets/glob.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "pattern",
+        "srcNodeId": 1,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "paths",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "kind": 2,
+    "x": 1019,
+    "y": 120,
+    "name": "Aseprite Nine Slices",
+    "codePath": "ng/presets/aseprite-nine-slices.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 22,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "slice_names",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      },
+      {
+        "id": 3,
+        "name": "frame",
+        "srcNodeId": 0,
+        "srcOutputId": 0
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "rects",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "images",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "info",
+        "value": null
+      }
+    ]
+  },
+  {
     "id": 3,
     "kind": 2,
     "x": 738,
@@ -245,7 +317,7 @@
       {
         "id": 2,
         "name": "images",
-        "srcNodeId": 10,
+        "srcNodeId": 24,
         "srcOutputId": 1
       },
       {
@@ -282,8 +354,8 @@
       {
         "id": 1,
         "name": "array1",
-        "srcNodeId": 11,
-        "srcOutputId": 1
+        "srcNodeId": 23,
+        "srcOutputId": 2
       },
       {
         "id": 2,
@@ -297,24 +369,6 @@
         "id": 1,
         "name": "array",
         "value": null
-      }
-    ]
-  },
-  {
-    "id": 11,
-    "kind": 4,
-    "x": 909,
-    "y": 155,
-    "name": "",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "[]"
       }
     ]
   },
@@ -398,7 +452,7 @@
       {
         "id": 1,
         "name": "item1",
-        "srcNodeId": 11,
+        "srcNodeId": 23,
         "srcOutputId": 1
       },
       {
@@ -487,8 +541,8 @@
   {
     "id": 21,
     "kind": 2,
-    "x": 2261,
-    "y": 266,
+    "x": 2248,
+    "y": 265,
     "name": "Base64 Encode",
     "codePath": "ng/presets/image-encode.lua",
     "graphId": 0,
@@ -505,6 +559,31 @@
       {
         "id": 1,
         "name": "base64",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "kind": 2,
+    "x": 1547,
+    "y": 128,
+    "name": "FlipY",
+    "codePath": "ng/presets/image-flipy.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "image",
+        "srcNodeId": 10,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "image",
         "value": null
       }
     ]

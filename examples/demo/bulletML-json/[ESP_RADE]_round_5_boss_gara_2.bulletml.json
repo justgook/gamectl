@@ -1,0 +1,150 @@
+{
+  "type": "none",
+  "bullets": [
+    {
+      "speed": {
+        "type": "absolute",
+        "value": 6
+      },
+      "actionRefs": [
+        1
+      ]
+    },
+    {
+      "speed": {
+        "type": "absolute",
+        "value": 0
+      },
+      "actionRefs": [
+        3
+      ]
+    },
+    {},
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "fireRef": 4
+      },
+      {
+        "fireRef": 5
+      },
+      {
+        "wait": 550
+      }
+    ],
+    [
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0
+          },
+          "term": 20
+        }
+      },
+      {
+        "wait": 20
+      },
+      {
+        "fireRef": 0
+      },
+      {
+        "repeat": {
+          "times": "150+$rank*100",
+          "actionRef": 2
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      },
+      {
+        "wait": "3-$rank*2"
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 7,
+          "actionRef": 4
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "repeat": {
+          "times": 20,
+          "actionRef": 5
+        }
+      },
+      {
+        "wait": 30
+      }
+    ],
+    [
+      {
+        "wait": 2
+      },
+      {
+        "fireRef": 3
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": "90*$rand-45"
+      },
+      "bulletRef": 2
+    },
+    {
+      "speed": {
+        "type": "absolute",
+        "value": 3
+      },
+      "bulletRef": 3
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 3
+      },
+      "bulletRef": 4
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 90
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": -90
+      },
+      "bulletRef": 0
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 package world
 
-import "../decoder2"
+import "../data_bullet"
 import "../director"
 import "../host"
 import sg "../sokol/gfx"
@@ -24,6 +24,8 @@ World :: struct {
 	free_entity_ids_lookup: map[logic.Entity]bool,
 	sim_frame_length:       f64,
 	accumulator:            f64,
+	ui_atlas:               sg.Image,
+	level_atlas:            sg.Image,
 	atlas:                  sg.Image,
 	lut:                    sg.Image,
 	cam:                    Camera,
@@ -65,7 +67,7 @@ World :: struct {
 	player_hurt:            logic.Component_Storage(shape.Capsule),
 	player_hit:             logic.Component_Storage(shape.Circle),
 	// Bullet patterns
-	bullet_patterns:        decoder2.Bullet_Patterns,
+	bullet_patterns:        data_bullet.Bullet_Patterns,
 	bullet:                 logic.Component_Storage(Bullet),
 	// Director
 	director:               director.State,
@@ -164,13 +166,13 @@ init :: proc(w: ^World) {
 	w.sim_frame_length = 1.0 / 60.0
 	w.cam = camera_init({GAME_RESOLUTION_WIDTH, GAME_RESOLUTION_HEIGHT}, {200, 100}, 1.0)
 	w.sprite_pipe = sprites_init(w.atlas)
-	w.tilemap_pipe = tilemap_init(w.atlas, w.lut)
-	w.nine_patch_pipe = nine_patch_init(w.atlas)
-	w.text_pipe = text_init(w.atlas)
-	w.director = director.init(&MOCK_DIRECTOR_DATA)
+	w.tilemap_pipe = tilemap_init(w.level_atlas, w.lut)
+	w.nine_patch_pipe = nine_patch_init(w.ui_atlas)
+	w.text_pipe = text_init(w.ui_atlas)
+	w.director = director.init(mock_director_data())
 
 	// UI
-	w.ui_sprite.pipe = sprites_init(w.atlas)
+	w.ui_sprite.pipe = sprites_init(w.ui_atlas)
 	// w.grid = grid.create_grid(-256 * UNIT, -128 * UNIT, 1024 * UNIT, 512 * UNIT, 16 * UNIT)
 	append(&w.segments, [4]int{-128 * UNIT, 0, 128 * UNIT, 0})
 	append(&w.segments, [4]int{128 * UNIT, 0, 256 * UNIT, 64 * UNIT})

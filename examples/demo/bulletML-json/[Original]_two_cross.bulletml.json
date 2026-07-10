@@ -1,0 +1,113 @@
+{
+  "type": "none",
+  "bullets": [
+    {
+      "actionRefs": [
+        3
+      ]
+    },
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "actionRef": 2
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 3,
+          "actionRef": 5
+        }
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 3,
+          "actionRef": 6
+        }
+      },
+      {
+        "wait": 60
+      }
+    ],
+    [
+      {
+        "wait": 5
+      },
+      {
+        "repeat": {
+          "times": 100,
+          "actionRef": 4
+        }
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      },
+      {
+        "actionRef": 1
+      },
+      {
+        "wait": 4
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      }
+    ],
+    [
+      {
+        "fireRef": {
+          "ref": 0,
+          "params": [
+            1
+          ]
+        }
+      },
+      {
+        "fireRef": {
+          "ref": 0,
+          "params": [
+            -1
+          ]
+        }
+      },
+      {
+        "wait": 80
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "aim",
+        "value": "(50-$rank*20)*$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 2
+      },
+      "bulletRef": 0
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": "4*$1"
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": 90
+      },
+      "bulletRef": 2
+    }
+  ]
+}

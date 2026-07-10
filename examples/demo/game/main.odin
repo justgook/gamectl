@@ -1,35 +1,35 @@
 package main
 
-import "assets_data"
 import "core:c"
-import "decoder2"
+import "data_anim"
+import "data_bullet"
+import "data_level"
+import "data_ui"
 import "host"
 import sg "sokol/gfx"
 import qoi "third_party/qoi"
 import "world"
 import "world/grid"
-import "world/logic"
-
-GAME_ASSET_PATH :: "data.rspk"
-ATLAS_RGBA_CAPACITY :: 4 * 1024 * 1024
-LUT_RGBA_CAPACITY :: 512 * 512 * 4
-
 
 State :: struct {
 	world: world.World,
 }
 
 state: State
-atlas_pixels: [ATLAS_RGBA_CAPACITY]u8
-lut_pixels: [LUT_RGBA_CAPACITY]u8
+
+lut_pixels: [1024 * 1024 * 4]u8
+ui_atlas_pixels: [1024 * 1024 * 4]u8
+level_atlas_pixels: [1024 * 1024 * 4]u8
+atlas_pixels: [1024 * 1024 * 4]u8
 
 app_init :: proc() {
 	host.setup_graphics()
 	host.info("app", "init")
 
-	assert(load_bullet_assets("bullet.rspk", &state.world))
-	assert(load_game_assets(GAME_ASSET_PATH, &state.world))
-	assert(load_assets_data("assets.rspk", &state.world))
+	assert(load_data_bullet("bullet.rspk", &state.world))
+	assert(load_data_anim("anim.rspk", &state.world))
+	assert(load_data_ui("ui.rspk", &state.world))
+	assert(load_data_level("level.rspk", &state.world))
 
 
 	world.init(&state.world)
@@ -72,38 +72,12 @@ app_cleanup :: proc() {
 // }
 
 @(private = "file")
-load_bullet_assets :: proc(filepath: string, w: ^world.World) -> bool {
-	asset_data := host.asset_read_all(filepath) or_return
-	game_data := decoder2.open_respack(asset_data) or_return
-	w.bullet_patterns = decoder2.read_slot_0_bullet_patterns(game_data) or_return
-	// host.info("bullet decoder", "success", true)
-
-	return true
-}
-
-
-load_assets_data :: proc(filepath: string, w: ^world.World) -> bool {
+load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	file_data := host.asset_read_all(filepath) or_return
-	game_data := assets_data.open_respack(file_data) or_return
-
-	atlas_bytes := assets_data.read_slot_1_atlas(game_data) or_return
-	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
-	w.uv = assets_data.read_slot_0_u_vs(game_data) or_return
-	w.animation_atlas = assets_data.read_slot_2_world_animation_atlas(game_data) or_return
-	for &frame in w.animation_atlas.frames {
-		frame.offset.y = 14
-		frame.offset.x = 10
-	}
-
-	w.platformer_zones = assets_data.read_slot_4_platformer_zones(game_data) or_return
-	for &l in w.platformer_zones {
-		l.bounds.xyzw *= world.UNIT
-	}
-	host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
-
+	game_data := data_level.open_respack(file_data) or_return
 
 	UNIT := world.UNIT
-	the_segments := assets_data.read_slot_3_segments(game_data) or_return
+	the_segments := data_level.read_slot_1_segments(game_data) or_return
 	defer delete(the_segments)
 
 	clear(&w.segments)
@@ -117,54 +91,62 @@ load_assets_data :: proc(filepath: string, w: ^world.World) -> bool {
 		grid.add_segment(&w.grid, &segment)
 	}
 
+	w.platformer_zones = data_level.read_slot_2_platformer_zones(game_data) or_return
+	for &l in w.platformer_zones {
+		l.bounds.xyzw *= world.UNIT
+	}
+
+	atlas_bytes := data_level.read_slot_0_atlas(game_data) or_return
+	w.level_atlas = create_image(atlas_bytes, level_atlas_pixels[:]) or_return
+	w.lut = w.level_atlas
+
+
+	host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
 
 	return true
 }
 
 @(private = "file")
-load_game_assets :: proc(filepath: string, w: ^world.World) -> bool {
-	// host.info("assets", "loading", decoder2.Speed_Type.Absolute)
+load_data_bullet :: proc(filepath: string, w: ^world.World) -> bool {
+	asset_data := host.asset_read_all(filepath) or_return
+	game_data := data_bullet.open_respack(asset_data) or_return
+	w.bullet_patterns = data_bullet.read_slot_0_bullet_patterns(game_data) or_return
+
+	return true
+}
+
+@(private = "file")
+load_data_anim :: proc(filepath: string, w: ^world.World) -> bool {
+	file_data := host.asset_read_all(filepath) or_return
+	game_data := data_anim.open_respack(file_data) or_return
+
+	atlas_bytes := data_anim.read_slot_1_atlas(game_data) or_return
+	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
+	w.uv = data_anim.read_slot_0_u_vs(game_data) or_return
+
+	w.animation_atlas = data_anim.read_slot_2_world_animation_atlas(game_data) or_return
+	for &frame in w.animation_atlas.frames {
+		frame.offset.y = 14
+		frame.offset.x = 10
+	}
 
 
+	return true
+}
+
+@(private = "file")
+load_data_ui :: proc(filepath: string, w: ^world.World) -> bool {
 	asset_data := host.asset_read_all(filepath) or_return
 	// defer delete(asset_data) - implement it as host.file_close - so we can use delete version in native and web based
+	game_data := data_ui.open_respack(asset_data) or_return
+	atlas_bytes := data_ui.read_slot_0_atlas(game_data) or_return
+	w.ui_atlas = create_image(atlas_bytes, ui_atlas_pixels[:]) or_return
 
-	game_data := open_respack(asset_data) or_return
-
-	the_pos := read_slot_0_positions(game_data) or_return
-	logic.load_storage(&w.position, the_pos.components, the_pos.entity_ids)
-	delete(the_pos.entity_ids)
-	delete(the_pos.components)
-
-	atlas_bytes := read_slot_1_atlas(game_data) or_return
-	the_lut := read_slot_3_lut(game_data) or_return
-
-	the_tilemaps := read_slot_4_tilemaps(game_data) or_return
-	logic.load_storage(&w.tilemap, the_tilemaps.components, the_tilemaps.entity_ids)
-	delete(the_tilemaps.entity_ids)
-	delete(the_tilemaps.components)
-
-	UNIT := world.UNIT
-	the_segments := read_slot_5_segments(game_data) or_return
-	defer delete(the_segments)
-
-	for s in the_segments {
-		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
+	world.ui_nines_storage = data_ui.read_slot_1_nines(game_data) or_return
+	for &nine in world.ui_nines_storage {
+		nine.slices.yw = nine.size.yy - nine.slices.wy // weird flip fix
 	}
-	// host.info("SSEEGGMENTS", "segments", w.segments[:])
-
-	w.grid = grid.create_grid(-10024 * UNIT, -10024 * UNIT, 10024 * UNIT, 10024 * UNIT, 16 * UNIT)
-	for &segment in w.segments {
-		grid.add_segment(&w.grid, &segment)
-	}
-
-
-	w.lut = create_image(the_lut, lut_pixels[:]) or_return
-	w.atlas = create_image(atlas_bytes, atlas_pixels[:]) or_return
-	w.uv = read_slot_2_sprites(game_data) or_return
-
-
-	// host.info("assets", "game loaded", w.position)
+	world.ui_fonts_storage = data_ui.read_slot_2_fonts(game_data) or_return
 
 	return true
 }

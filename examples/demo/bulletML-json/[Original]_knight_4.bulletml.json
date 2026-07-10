@@ -1,0 +1,151 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "direction": {
+        "type": "aim",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1.5
+      },
+      "actionRefs": [
+        1
+      ]
+    },
+    {
+      "speed": {
+        "type": "absolute",
+        "value": 2.5
+      },
+      "actionRefs": [
+        3
+      ]
+    },
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "fireRef": 3
+      },
+      {
+        "wait": "300 - 100 * $rank"
+      }
+    ],
+    [
+      {
+        "wait": "20 + 10 * $rand"
+      },
+      {
+        "repeat": {
+          "times": 3,
+          "actionRef": 2
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 0
+      },
+      {
+        "wait": 10
+      },
+      {
+        "fireRef": 1
+      },
+      {
+        "wait": 10
+      }
+    ],
+    [
+      {
+        "wait": 10
+      },
+      {
+        "changeSpeed": {
+          "speed": {
+            "type": "absolute",
+            "value": 0.0001
+          },
+          "term": 1
+        }
+      },
+      {
+        "wait": 5
+      },
+      {
+        "repeat": {
+          "times": "4 + 4 * $rank",
+          "actionRef": 4
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "wait": 5
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "relative",
+        "value": 60
+      },
+      "bulletRef": {
+        "ref": 1,
+        "params": [
+          -120,
+          "$1"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": -60
+      },
+      "bulletRef": {
+        "ref": 1,
+        "params": [
+          120,
+          "$1"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "relative",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": "$2 * (0.5 + 0.5 * $rank)"
+      },
+      "bulletRef": 2
+    },
+    {
+      "direction": {
+        "type": "absolute",
+        "value": 120
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          1.6
+        ]
+      }
+    }
+  ]
+}

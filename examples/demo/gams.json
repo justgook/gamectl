@@ -110,7 +110,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-ng data-source=\"CYBERPUNK/ui.ng.json\" />"
+          "layout": "<view-ng data-source=\"CYBERPUNK/level.ng.json\" />"
         }
       }
     },
@@ -171,7 +171,9 @@
           "wasm": "game/build.nosync/web/game2.wasm",
           "glBridge": "game/build.nosync/web/gl-bridge.js",
           "assetSources": {
-            "data.rspk": "tmp/data.rspk",
+            "level.rspk": "tmp/level.rspk",
+            "ui.rspk": "tmp/ui.rspk",
+            "anim.rspk": "tmp/anim.rspk",
             "bullet.rspk": "tmp/bullet.rspk"
           }
         }
@@ -1180,6 +1182,64 @@
                 }
               ],
               "group": "Image"
+            },
+            {
+              "name": "Aseprite Animations",
+              "kind": "code",
+              "codePath": "ng/presets/aseprite-animation.lua",
+              "inputs": [
+                {
+                  "name": "path",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "animation_names",
+                  "defaultValue": "[]"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "rects"
+                },
+                {
+                  "name": "images"
+                },
+                {
+                  "name": "info"
+                }
+              ],
+              "group": "Aseprite"
+            },
+            {
+              "name": "Aseprite Nine Slices",
+              "kind": "code",
+              "codePath": "ng/presets/aseprite-nine-slices.lua",
+              "inputs": [
+                {
+                  "name": "path",
+                  "defaultValue": ""
+                },
+                {
+                  "name": "slice_names",
+                  "defaultValue": "[]"
+                },
+                {
+                  "name": "frame",
+                  "defaultValue": "0"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "rects"
+                },
+                {
+                  "name": "images"
+                },
+                {
+                  "name": "info"
+                }
+              ],
+              "group": "Aseprite"
             },
             {
               "name": "Write",

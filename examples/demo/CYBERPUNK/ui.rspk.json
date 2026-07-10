@@ -6,7 +6,7 @@
       "world": "../world"
     }
   },
-  "data": ["Atlas", "Fonts"],
+  "data": ["Atlas", "Nines", "Fonts"],
   "types": {
     "Atlas": {
       "type": "bytes"
@@ -57,8 +57,8 @@
           "value": "f32",
           "default": [8, 8]
         },
-        "columns": { "type": "u32", "default": 1 },
-        "rows": { "type": "u32", "default": 1 }
+        "columns": { "type": "u32", "default": 16 },
+        "rows": { "type": "u32", "default": 16 }
       }
     }
   }

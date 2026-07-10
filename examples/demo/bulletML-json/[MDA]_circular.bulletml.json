@@ -1,0 +1,143 @@
+{
+  "type": "vertical",
+  "bullets": [
+    {
+      "actionRefs": [
+        2
+      ]
+    },
+    {},
+    {}
+  ],
+  "actions": [
+    [
+      {
+        "repeat": {
+          "times": "$rank*10",
+          "actionRef": 3
+        }
+      },
+      {
+        "repeat": {
+          "times": 9,
+          "actionRef": 4
+        }
+      }
+    ],
+    [
+      {
+        "repeat": {
+          "times": 22,
+          "actionRef": 5
+        }
+      }
+    ],
+    [
+      {
+        "changeDirection": {
+          "direction": {
+            "type": "sequence",
+            "value": "$1"
+          },
+          "term": 9999
+        }
+      },
+      {
+        "actionRef": {
+          "ref": 1,
+          "params": [
+            "$2"
+          ]
+        }
+      },
+      {
+        "vanish": true
+      }
+    ],
+    [
+      {
+        "fireRef": {
+          "ref": 0,
+          "params": [
+            90,
+            2,
+            355
+          ]
+        }
+      },
+      {
+        "fireRef": {
+          "ref": 0,
+          "params": [
+            270,
+            358,
+            5
+          ]
+        }
+      },
+      {
+        "fireRef": 1
+      },
+      {
+        "wait": 20
+      }
+    ],
+    [
+      {
+        "fireRef": 1
+      },
+      {
+        "wait": 20
+      }
+    ],
+    [
+      {
+        "fireRef": 2
+      },
+      {
+        "wait": "4+$rand*8"
+      }
+    ]
+  ],
+  "fires": [
+    {
+      "direction": {
+        "type": "absolute",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 2.8
+      },
+      "bulletRef": {
+        "ref": 0,
+        "params": [
+          "$2",
+          "$3"
+        ]
+      }
+    },
+    {
+      "direction": {
+        "type": "aim",
+        "value": 0
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 2.8
+      },
+      "bulletRef": 1
+    },
+    {
+      "direction": {
+        "type": "sequence",
+        "value": "$1"
+      },
+      "speed": {
+        "type": "absolute",
+        "value": 1.4
+      },
+      "bulletRef": 2
+    }
+  ]
+}

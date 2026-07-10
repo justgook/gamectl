@@ -1,5 +1,5 @@
 package world
-import "../decoder2"
+import "../data_bullet"
 import "bullet"
 import "core:math"
 import "logic"
@@ -15,7 +15,7 @@ bullet_restart :: proc(pew: ^Bullet) {
 	bullet.restart(pew)
 }
 
-bullet_component :: proc(pattern: ^decoder2.Bullet_Pattern) -> Bullet {
+bullet_component :: proc(pattern: ^data_bullet.Bullet_Pattern) -> Bullet {
 	return Bullet{state = bullet.init_pattern_state(pattern, done = true)}
 }
 

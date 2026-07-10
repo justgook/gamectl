@@ -1,6 +1,6 @@
 package bullet
 
-import "../../decoder2"
+import "../../data_bullet"
 import "core:math"
 
 @(private = "file")
@@ -42,7 +42,7 @@ Tick_Context :: struct {
 }
 
 State :: struct {
-	pattern:             ^decoder2.Bullet_Pattern,
+	pattern:             ^data_bullet.Bullet_Pattern,
 	frames:              [dynamic]Frame,
 	wait:                int,
 	done:                bool,
@@ -67,7 +67,7 @@ Frame :: struct {
 	repeat_remaining:    int,
 }
 
-init_pattern_state :: proc(pattern: ^decoder2.Bullet_Pattern, action_index := 0, done := false) -> State {
+init_pattern_state :: proc(pattern: ^data_bullet.Bullet_Pattern, action_index := 0, done := false) -> State {
 	state := State {
 		done                = done,
 		pattern             = pattern,
@@ -89,7 +89,7 @@ restart :: proc(state: ^State, action_index := 0) {
 }
 
 init_bullet_state :: proc(
-	pattern: ^decoder2.Bullet_Pattern,
+	pattern: ^data_bullet.Bullet_Pattern,
 	bullet_index: int,
 	parent_params: []f64,
 	ctx: Tick_Context,
@@ -200,7 +200,7 @@ destroy_state :: proc(state: ^State) {
 	state^ = State{}
 }
 
-destroy_patterns :: proc(patterns: ^decoder2.Bullet_Patterns) {
+destroy_patterns :: proc(patterns: ^data_bullet.Bullet_Patterns) {
 	for &pattern in patterns^ {
 		destroy_pattern(&pattern)
 	}
@@ -209,7 +209,7 @@ destroy_patterns :: proc(patterns: ^decoder2.Bullet_Patterns) {
 }
 
 @(private = "file")
-destroy_pattern :: proc(pattern: ^decoder2.Bullet_Pattern) {
+destroy_pattern :: proc(pattern: ^data_bullet.Bullet_Pattern) {
 	for &b in pattern.bullets {
 		for &ref in b.action_refs {
 			destroy_ref(&ref)
@@ -235,7 +235,7 @@ destroy_pattern :: proc(pattern: ^decoder2.Bullet_Pattern) {
 }
 
 @(private = "file")
-destroy_command :: proc(command: ^decoder2.Command) {
+destroy_command :: proc(command: ^data_bullet.Command) {
 	#partial switch command.kind {
 	case .Fire_Ref:
 		destroy_ref(&command.fire_ref)
@@ -249,7 +249,7 @@ destroy_command :: proc(command: ^decoder2.Command) {
 }
 
 @(private = "file")
-destroy_ref :: proc(ref: ^decoder2.Ref) {
+destroy_ref :: proc(ref: ^data_bullet.Ref) {
 	if ref.kind == .Ref_With_Params {
 		delete(ref.ref_with_params.params)
 	}
@@ -269,7 +269,7 @@ pop_frame :: proc(state: ^State) {
 @(private = "file")
 execute_command :: proc(
 	state: ^State,
-	command: decoder2.Command,
+	command: data_bullet.Command,
 	params: []f64,
 	ctx: Tick_Context,
 	events: ^[dynamic]Event,
@@ -337,7 +337,7 @@ execute_command :: proc(
 @(private = "file")
 execute_fire_ref :: proc(
 	state: ^State,
-	fire_ref: decoder2.Fire_Ref,
+	fire_ref: data_bullet.Fire_Ref,
 	params: []f64,
 	ctx: Tick_Context,
 	events: ^[dynamic]Event,
@@ -364,7 +364,7 @@ execute_fire_ref :: proc(
 }
 
 @(private = "file")
-resolve_ref :: proc(ref: decoder2.Ref, parent_params: []f64, ctx: Tick_Context) -> (int, []f64) {
+resolve_ref :: proc(ref: data_bullet.Ref, parent_params: []f64, ctx: Tick_Context) -> (int, []f64) {
 	switch ref.kind {
 	case .None:
 		panic("empty BulletML ref")
@@ -382,7 +382,7 @@ resolve_ref :: proc(ref: decoder2.Ref, parent_params: []f64, ctx: Tick_Context) 
 }
 
 @(private = "file")
-eval_direction :: proc(direction: decoder2.Direction, current: f64, params: []f64, ctx: Tick_Context) -> f64 {
+eval_direction :: proc(direction: data_bullet.Direction, current: f64, params: []f64, ctx: Tick_Context) -> f64 {
 	value := eval_expr(direction.value, params, ctx)
 	switch direction.type {
 	case .Aim:
@@ -407,7 +407,7 @@ normalize_direction :: proc(direction: f64) -> f64 {
 }
 
 @(private = "file")
-eval_speed :: proc(speed: decoder2.Speed, current: f64, params: []f64, ctx: Tick_Context) -> f64 {
+eval_speed :: proc(speed: data_bullet.Speed, current: f64, params: []f64, ctx: Tick_Context) -> f64 {
 	value := eval_expr(speed.value, params, ctx)
 	switch speed.type {
 	case .Absolute:
@@ -421,7 +421,7 @@ eval_speed :: proc(speed: decoder2.Speed, current: f64, params: []f64, ctx: Tick
 }
 
 @(private = "file")
-eval_expr :: proc(expr: decoder2.Expr, params: []f64, ctx: Tick_Context) -> f64 {
+eval_expr :: proc(expr: data_bullet.Expr, params: []f64, ctx: Tick_Context) -> f64 {
 	switch expr.kind {
 	case .None:
 		panic("empty BulletML expr")
