@@ -26,10 +26,6 @@ W_held_by :: Word_Id(10)
 W_suspect :: Word_Id(11)
 W_blinded :: Word_Id(12)
 
-T_intro :: Text_Id(0)
-T_take :: Text_Id(1)
-T_unlock :: Text_Id(2)
-
 R_intro :: Rule_Id(0)
 R_take_item :: Rule_Id(1)
 R_unlock :: Rule_Id(2)
@@ -113,15 +109,13 @@ test_rules := [?]Rule {
 		id = R_intro,
 		trigger = {kind = .Signal, signal = W_start},
 		changes = {offset = 0, count = 1},
-		narrative = T_intro,
 		weight = 0,
 	},
-	{id = R_generic_item, trigger = {kind = .Entity_Matcher, matcher_index = 10}, narrative = T_take, weight = 1},
+	{id = R_generic_item, trigger = {kind = .Entity_Matcher, matcher_index = 10}, weight = 1},
 	{
 		id = R_take_item,
 		trigger = {kind = .Entity_Matcher, matcher_index = 1},
 		changes = {offset = 1, count = 1},
-		narrative = T_take,
 		weight = 10,
 	},
 	{
@@ -129,7 +123,6 @@ test_rules := [?]Rule {
 		trigger = {kind = .Entity_Matcher, matcher_index = 0},
 		conditions = {offset = 8, count = 1},
 		changes = {offset = 2, count = 1},
-		narrative = T_unlock,
 		weight = 20,
 	},
 	{id = R_mark_items, trigger = {kind = .Signal, signal = W_blinded}, changes = {offset = 3, count = 1}},
@@ -147,8 +140,6 @@ test_words := [?]string {
 	"start",
 	"locked",
 }
-test_texts := [?]string{"intro", "take", "unlock"}
-
 test_data := Director_Data {
 	entities = test_entities[:],
 	rules    = test_rules[:],
@@ -156,5 +147,4 @@ test_data := Director_Data {
 	queries  = test_queries[:],
 	changes  = test_changes[:],
 	words    = test_words[:],
-	texts    = test_texts[:],
 }
