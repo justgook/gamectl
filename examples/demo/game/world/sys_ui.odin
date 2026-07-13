@@ -12,6 +12,7 @@ sys_ui :: proc(w: ^World) {
 	// panel1_uv := 418
 	panel1_uv := 1
 	player_hp := director_player_hp(w)
+	player_money := director_player_money(w)
 	panel := group(
 		{
 			nine(8, 240, 62),
@@ -19,7 +20,7 @@ sys_ui :: proc(w: ^World) {
 			ui.move(text1("\x1C J - jump"), 8, 38),
 			ui.move(text2("\x93 K - dash"), 8, 28),
 			ui.move(text5("\xCA L - fire"), 8, 18),
-			ui.move(text3(fmt.tprintf("Director player hp: %d", player_hp)), 8, 8),
+			ui.move(text3(fmt.tprintf("Director HP: %d  money: %d", player_hp, player_money)), 8, 8),
 		},
 	)
 
@@ -48,6 +49,12 @@ sys_ui :: proc(w: ^World) {
 @(require_results)
 director_player_hp :: proc(w: ^World) -> i32 {
 	return director.entity_stat(&w.director, director.Entity_Id(0), director.Word_Id(0))
+}
+
+@(private = "file")
+@(require_results)
+director_player_money :: proc(w: ^World) -> i32 {
+	return director.entity_stat(&w.director, director.Entity_Id(0), director.Word_Id(1))
 }
 
 @(private = "file")
