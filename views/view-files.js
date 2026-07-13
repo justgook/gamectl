@@ -354,7 +354,9 @@ export class ViewFiles extends HTMLElement {
     if (!this._headerControlsElement) return
 
     const isBrowserMode = this.mode === "browser"
-    const isSaverMode = this.mode === "saver"
+    const canManageEntries = ["browser", "chooser", "saver"].includes(
+      this.mode,
+    )
 
     const selectedEntry = this.selectedPath
       ? this.getEntry(this.selectedPath)
@@ -364,7 +366,7 @@ export class ViewFiles extends HTMLElement {
       '[data-action="new"]',
     )
     if (newButton instanceof HTMLButtonElement) {
-      newButton.disabled = !(isBrowserMode || isSaverMode)
+      newButton.disabled = !canManageEntries
     }
 
     const downloadButton = this._headerControlsElement.querySelector(
@@ -401,7 +403,7 @@ export class ViewFiles extends HTMLElement {
       '[data-action="delete"]',
     )
     if (deleteButton instanceof HTMLButtonElement) {
-      deleteButton.disabled = !isBrowserMode || !this.selectedPath
+      deleteButton.disabled = !canManageEntries || !this.selectedPath
     }
 
     this.updateFooterUI()
