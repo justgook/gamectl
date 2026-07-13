@@ -160,13 +160,11 @@ Link_Target :: struct {
 }
 
 Change :: struct {
-	target:         Change_Target,
-	kind:           Change_Kind,
-	key:            Word_Id,
-	int_value:      i32,
-	link_target:    Link_Target,
-	spawn_prefab:   Word_Id,
-	spawn_position: [2]i32,
+	target:      Change_Target,
+	kind:        Change_Kind,
+	key:         Word_Id,
+	int_value:   i32,
+	link_target: Link_Target,
 }
 
 Rule_Trigger_Kind :: enum u8 {
@@ -258,16 +256,16 @@ Trigger :: struct {
 
 // Result reports the rule selected by trigger. If matched is false, rule and
 // narrative are INVALID_RULE/INVALID_TEXT.
+// Effect is a generic Director entity lifecycle event. Games query the entity's
+// authored stats, links, and tags to decide how to represent it in their world.
 Effect_Kind :: enum u8 {
-	Spawn_World_Entity,
-	Remove_World_Entity,
+	Spawn,
+	Remove,
 }
 
 Effect :: struct {
-	kind:     Effect_Kind,
-	entity:   Entity_Id,
-	prefab:   Word_Id,
-	position: [2]i32,
+	kind:   Effect_Kind,
+	entity: Entity_Id,
 }
 
 Result :: struct {
@@ -613,15 +611,10 @@ apply_change_to_entity :: proc(state: ^State, entity_id: Entity_Id, change: ^Cha
 		}
 	case .Spawn_Entity:
 		entity.removed = false
-		append(&state.effects, Effect {
-			kind     = .Spawn_World_Entity,
-			entity   = entity_id,
-			prefab   = change.spawn_prefab,
-			position = change.spawn_position,
-		})
+		append(&state.effects, Effect{kind = .Spawn, entity = entity_id})
 	case .Remove_Entity:
 		entity.removed = true
-		append(&state.effects, Effect{kind = .Remove_World_Entity, entity = entity_id})
+		append(&state.effects, Effect{kind = .Remove, entity = entity_id})
 	}
 }
 

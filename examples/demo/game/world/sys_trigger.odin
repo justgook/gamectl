@@ -102,24 +102,29 @@ director_trigger_aabb_contact :: proc(w: ^World) {
 apply_director_effects :: proc(w: ^World, effects: []director.Effect) {
 	for effect in effects {
 		#partial switch effect.kind {
-		case .Spawn_World_Entity:
-			director_spawn_world_entity(w, effect)
-		case .Remove_World_Entity:
+		case .Spawn:
+			director_spawn_world_entity(w, effect.entity)
+		case .Remove:
 			director_remove_world_entity(w, effect.entity)
 		}
 	}
 }
 
 @(private = "file")
-director_spawn_world_entity :: proc(w: ^World, effect: director.Effect) {
-	assert(effect.prefab == MOCK_DIRECTOR_COIN_PREFAB)
-	assert(!(effect.entity in w.director_entities))
+director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_Id) {
+	prefab, has_prefab := director.entity_link(&w.director, director_entity, MOCK_DIRECTOR_PREFAB)
+	assert(has_prefab)
+	assert(prefab == MOCK_DIRECTOR_COIN_PREFAB)
+	assert(!(director_entity in w.director_entities))
 	assert(len(w.uv) > 12)
 
+	spawn_x := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_SPAWN_X)
+	spawn_y := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_SPAWN_Y)
+
 	entity := create_entity(w)
-	w.director_entities[effect.entity] = entity
-	logic.add_component(&w.director_entity, entity, Director_Entity{id = effect.entity})
-	logic.add_component(&w.position, entity, Position{effect.position.x, effect.position.y})
+	w.director_entities[director_entity] = entity
+	logic.add_component(&w.director_entity, entity, Director_Entity{id = director_entity})
+	logic.add_component(&w.position, entity, Position{spawn_x, spawn_y})
 	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
 	logic.add_component(
 		&w.director_trigger_aabb,

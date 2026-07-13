@@ -14,6 +14,8 @@ MOCK_DIRECTOR_COIN_001 :: director.Entity_Id(2)
 @(private = "file")
 MOCK_DIRECTOR_COIN_002 :: director.Entity_Id(3)
 
+MOCK_DIRECTOR_COIN_PREFAB :: director.Entity_Id(4)
+
 @(private = "file")
 MOCK_DIRECTOR_HP :: director.Word_Id(0)
 
@@ -25,7 +27,11 @@ MOCK_DIRECTOR_ENTER_ROOM_001 :: director.Word_Id(2)
 @(private = "file")
 MOCK_DIRECTOR_COIN :: director.Word_Id(3)
 
-MOCK_DIRECTOR_COIN_PREFAB :: director.Word_Id(4)
+MOCK_DIRECTOR_PREFAB :: director.Word_Id(4)
+
+MOCK_DIRECTOR_SPAWN_X :: director.Word_Id(5)
+
+MOCK_DIRECTOR_SPAWN_Y :: director.Word_Id(6)
 
 @(private = "file")
 MOCK_DIRECTOR_SPAWN_ROOM_001_COINS_RULE :: director.Rule_Id(0)
@@ -37,10 +43,22 @@ MOCK_DIRECTOR_COLLECT_COIN_RULE :: director.Rule_Id(1)
 mock_director_runtime_player_stats: [2]director.Stat
 
 @(private = "file")
+mock_director_runtime_coin_001_stats: [2]director.Stat
+
+@(private = "file")
+mock_director_runtime_coin_002_stats: [2]director.Stat
+
+@(private = "file")
 mock_director_runtime_coin_tags: [1]director.Word_Id
 
 @(private = "file")
-mock_director_runtime_entities: [4]director.Entity_Def
+mock_director_runtime_coin_001_links: [1]director.Link
+
+@(private = "file")
+mock_director_runtime_coin_002_links: [1]director.Link
+
+@(private = "file")
+mock_director_runtime_entities: [5]director.Entity_Def
 
 @(private = "file")
 mock_director_runtime_queries: [1]director.Query
@@ -55,7 +73,7 @@ mock_director_runtime_changes: [4]director.Change
 mock_director_runtime_rules: [2]director.Rule
 
 @(private = "file")
-mock_director_runtime_words: [5]string
+mock_director_runtime_words: [7]string
 
 @(private = "file")
 mock_director_runtime_data: director.Director_Data
@@ -65,12 +83,35 @@ mock_director_data :: proc() -> ^director.Director_Data {
 		{key = MOCK_DIRECTOR_HP, value = 100},
 		{key = MOCK_DIRECTOR_MONEY, value = 0},
 	}
+	mock_director_runtime_coin_001_stats = {
+		{key = MOCK_DIRECTOR_SPAWN_X, value = 180 * UNIT},
+		{key = MOCK_DIRECTOR_SPAWN_Y, value = 82 * UNIT},
+	}
+	mock_director_runtime_coin_002_stats = {
+		{key = MOCK_DIRECTOR_SPAWN_X, value = 220 * UNIT},
+		{key = MOCK_DIRECTOR_SPAWN_Y, value = 102 * UNIT},
+	}
 	mock_director_runtime_coin_tags = {MOCK_DIRECTOR_COIN}
+	mock_director_runtime_coin_001_links = {{key = MOCK_DIRECTOR_PREFAB, target = MOCK_DIRECTOR_COIN_PREFAB}}
+	mock_director_runtime_coin_002_links = {{key = MOCK_DIRECTOR_PREFAB, target = MOCK_DIRECTOR_COIN_PREFAB}}
 	mock_director_runtime_entities = {
 		{id = MOCK_DIRECTOR_PLAYER, stats = mock_director_runtime_player_stats[:]},
 		{id = MOCK_DIRECTOR_ROOM_001},
-		{id = MOCK_DIRECTOR_COIN_001, tags = mock_director_runtime_coin_tags[:], removed = true},
-		{id = MOCK_DIRECTOR_COIN_002, tags = mock_director_runtime_coin_tags[:], removed = true},
+		{
+			id = MOCK_DIRECTOR_COIN_001,
+			tags = mock_director_runtime_coin_tags[:],
+			stats = mock_director_runtime_coin_001_stats[:],
+			links = mock_director_runtime_coin_001_links[:],
+			removed = true,
+		},
+		{
+			id = MOCK_DIRECTOR_COIN_002,
+			tags = mock_director_runtime_coin_tags[:],
+			stats = mock_director_runtime_coin_002_stats[:],
+			links = mock_director_runtime_coin_002_links[:],
+			removed = true,
+		},
+		{id = MOCK_DIRECTOR_COIN_PREFAB},
 	}
 	mock_director_runtime_queries = {
 		{kind = .Has_Tag, key = MOCK_DIRECTOR_COIN},
@@ -79,28 +120,15 @@ mock_director_data :: proc() -> ^director.Director_Data {
 		{selector = {kind = .Trigger}, queries = {offset = 0, count = 1}},
 	}
 	mock_director_runtime_changes = {
-		{
-			target = {kind = .Entity, entity = MOCK_DIRECTOR_COIN_001},
-			kind = .Spawn_Entity,
-			spawn_prefab = MOCK_DIRECTOR_COIN_PREFAB,
-			spawn_position = {180 * UNIT, 82 * UNIT},
-		},
-		{
-			target = {kind = .Entity, entity = MOCK_DIRECTOR_COIN_002},
-			kind = .Spawn_Entity,
-			spawn_prefab = MOCK_DIRECTOR_COIN_PREFAB,
-			spawn_position = {220 * UNIT, 102 * UNIT},
-		},
+		{target = {kind = .Entity, entity = MOCK_DIRECTOR_COIN_001}, kind = .Spawn_Entity},
+		{target = {kind = .Entity, entity = MOCK_DIRECTOR_COIN_002}, kind = .Spawn_Entity},
 		{
 			target = {kind = .Entity, entity = MOCK_DIRECTOR_PLAYER},
 			kind = .Inc_Stat,
 			key = MOCK_DIRECTOR_MONEY,
 			int_value = 1,
 		},
-		{
-			target = {kind = .Trigger},
-			kind = .Remove_Entity,
-		},
+		{target = {kind = .Trigger}, kind = .Remove_Entity},
 	}
 	mock_director_runtime_rules = {
 		{
@@ -121,7 +149,9 @@ mock_director_data :: proc() -> ^director.Director_Data {
 		"money",
 		"enter_room_001",
 		"coin",
-		"coin_prefab",
+		"prefab",
+		"spawn_x",
+		"spawn_y",
 	}
 	mock_director_runtime_data = director.Director_Data {
 		entities = mock_director_runtime_entities[:],
