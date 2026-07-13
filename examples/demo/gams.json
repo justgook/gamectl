@@ -110,7 +110,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-ng data-source=\"CYBERPUNK/anim.ng.json\" />"
+          "layout": "<view-ng data-source=\"CYBERPUNK/level.ng.json\" />"
         }
       }
     },
@@ -1411,6 +1411,31 @@
               "outputs": [
                 {
                   "name": "tilemap"
+                }
+              ],
+              "group": "Tilemap"
+            },
+            {
+              "name": "Tilemap Find Tile Positions",
+              "kind": "code",
+              "codePath": "ng/presets/tilemap-find-tile-positions.lua",
+              "inputs": [
+                {
+                  "name": "map",
+                  "defaultValue": "minimap.map.json"
+                },
+                {
+                  "name": "layerIndex",
+                  "defaultValue": "1"
+                },
+                {
+                  "name": "tileId",
+                  "defaultValue": "1"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "positions"
                 }
               ],
               "group": "Tilemap"

@@ -10,6 +10,7 @@ import sg "sokol/gfx"
 import qoi "third_party/qoi"
 import "world"
 import "world/grid"
+import "world/logic"
 
 State :: struct {
 	world: world.World,
@@ -100,8 +101,14 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	w.level_atlas = create_image(atlas_bytes, level_atlas_pixels[:]) or_return
 	w.lut = w.level_atlas
 
+	pos := data_level.read_slot_3_positions(game_data) or_return
+	logic.load_storage(&w.position, pos.components, pos.entity_ids)
+	for &pos in &w.position.components {
+		pos.xy *= world.UNIT
+	}
 
-	host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
+
+	// host.info("load_assets_data", "success", true, "w.platformer_zones", w.platformer_zones)
 
 	return true
 }
