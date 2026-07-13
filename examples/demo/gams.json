@@ -110,7 +110,7 @@
       "ui-layout": {
         "url": "ui-plugins/layout.js",
         "config": {
-          "layout": "<view-ng data-source=\"CYBERPUNK/level.ng.json\" />"
+          "layout": "<view-ng data-source=\"CYBERPUNK/anim.ng.json\" />"
         }
       }
     },
@@ -778,6 +778,22 @@
                 },
                 {
                   "name": "item2"
+                }
+              ],
+              "group": "Data"
+            },
+            {
+              "name": "Array Length",
+              "kind": "code",
+              "codePath": "ng/presets/array-length.lua",
+              "inputs": [
+                {
+                  "name": "array"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "length"
                 }
               ],
               "group": "Data"
@@ -1627,6 +1643,28 @@
                 }
               ],
               "group": "Data"
+            },
+            {
+              "name": "Add Fields",
+              "kind": "code",
+              "codePath": "ng/presets/add-fields.lua",
+              "inputs": [
+                {
+                  "name": "value"
+                },
+                {
+                  "name": "fields"
+                },
+                {
+                  "name": "amount"
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "value"
+                }
+              ],
+              "group": "Math"
             },
             {
               "name": "Scale",

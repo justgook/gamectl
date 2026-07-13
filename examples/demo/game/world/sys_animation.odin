@@ -1,6 +1,5 @@
 package world
 
-import "../host"
 import "logic"
 
 // Animation playback data.
