@@ -174,7 +174,8 @@
             "level.rspk": "tmp/level.rspk",
             "ui.rspk": "tmp/ui.rspk",
             "anim.rspk": "tmp/anim.rspk",
-            "bullet.rspk": "tmp/bullet.rspk"
+            "bullet.rspk": "tmp/bullet.rspk",
+            "director.rspk": "tmp/director.rspk"
           }
         }
       },

@@ -235,6 +235,7 @@ web: wasm | $(WEB_DIR)
 	$(Q)$(CP) ui.rspk "$(WEB_DIR)/ui.rspk"
 	$(Q)$(CP) anim.rspk "$(WEB_DIR)/anim.rspk"
 	$(Q)$(CP) bullet.rspk "$(WEB_DIR)/bullet.rspk"
+	$(Q)$(CP) director.rspk "$(WEB_DIR)/director.rspk"
 
 .PHONY: serve
 serve: web

@@ -1,0 +1,8 @@
+[
+  {
+    "segment": [8192, 1024, 16384, 4096],
+    "id": "demo.room_001.enter",
+    "once": true,
+    "director_signal": 2
+  }
+]

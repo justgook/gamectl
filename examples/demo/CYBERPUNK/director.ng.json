@@ -48,6 +48,54 @@
     ]
   },
   {
+    "id": 6,
+    "kind": 4,
+    "x": 73,
+    "y": 205,
+    "name": "Segment triggers source",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"CYBERPUNK/mock_segment_triggers.json\""
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "kind": 2,
+    "x": 376,
+    "y": 205,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 6,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
     "id": 3,
     "kind": 2,
     "x": 620,
@@ -61,6 +109,12 @@
         "id": 1,
         "name": "Director Data",
         "srcNodeId": 2,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "Segment Trigger Defs",
+        "srcNodeId": 7,
         "srcOutputId": 1
       }
     ],

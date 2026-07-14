@@ -5,11 +5,42 @@ import "../host"
 import "logic"
 import "shape"
 
+Segment_Trigger_Def :: struct {
+	segment:         [4]i32,
+	id:              string,
+	once:            bool,
+	director_signal: director.Word_Id,
+}
+
+Segment_Trigger_Defs :: []Segment_Trigger_Def
+
 Segment_Trigger :: struct {
 	id:              string,
 	once:            bool,
 	used:            bool,
 	director_signal: director.Word_Id,
+}
+
+load_segment_triggers :: proc(w: ^World, defs: Segment_Trigger_Defs) {
+	assert(w.segment_triggers == nil)
+	w.segment_triggers = make(map[^[4]int]Segment_Trigger)
+
+	for def in defs {
+		coordinates := [4]int{int(def.segment[0]), int(def.segment[1]), int(def.segment[2]), int(def.segment[3])}
+		matched_segment: ^[4]int
+		for &segment in w.segments {
+			if segment == coordinates {
+				assert(matched_segment == nil, "segment trigger coordinates must identify exactly one segment")
+				matched_segment = &segment
+			}
+		}
+		assert(matched_segment != nil, "segment trigger references an unknown segment")
+		w.segment_triggers[matched_segment] = Segment_Trigger {
+			id              = def.id,
+			once            = def.once,
+			director_signal = def.director_signal,
+		}
+	}
 }
 
 Director_Entity :: struct {

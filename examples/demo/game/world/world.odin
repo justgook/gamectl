@@ -182,12 +182,6 @@ init :: proc(w: ^World) {
 	for &segment in w.segments {
 		grid.add_segment(&w.grid, &segment)
 	}
-	w.segment_triggers = make(map[^[4]int]Segment_Trigger)
-	w.segment_triggers[&w.segments[len(&w.segments) - 2]] = Segment_Trigger {
-		id              = "demo.room_001.enter",
-		once            = true,
-		director_signal = MOCK_DIRECTOR_ENTER_ROOM_001,
-	}
 	// append(
 	// 	&w.platformer_zones,
 	// 	Platformer_Zone {

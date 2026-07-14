@@ -33,10 +33,9 @@ app_init :: proc() {
 	assert(load_data_anim("anim.rspk", &state.world))
 	assert(load_data_ui("ui.rspk", &state.world))
 	assert(load_data_level("level.rspk", &state.world))
-	assert(load_data_director("director.rspk", &state.world))
-
 
 	world.init(&state.world)
+	assert(load_data_director("director.rspk", &state.world))
 }
 
 app_frame :: proc() {
@@ -83,7 +82,11 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 	director_data := data_director.read_slot_0_director_director_data(game_data) or_return
 	w.director = director.init(director_data)
 
-	host.info("load_data_director", "director", director_data)
+	segment_trigger_defs := data_director.read_slot_1_world_segment_trigger_defs(game_data) or_return
+	defer delete(segment_trigger_defs)
+	world.load_segment_triggers(w, segment_trigger_defs)
+
+	host.info("load_data_director", "director", director_data, "segment triggers", len(segment_trigger_defs))
 
 	return true
 }
