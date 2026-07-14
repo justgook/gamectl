@@ -40,6 +40,8 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		switch zone.kind {
 		case .Ladder:
 			debug_collision_add_aabb_subpixel(zone.bounds, {1.0, 0.9, 0.1, 0.18}, {1.0, 0.9, 0.1, 0.9})
+		case .Water:
+			debug_collision_add_aabb_subpixel(zone.bounds, {0.0, 0.45, 1.0, 0.2}, {0.1, 0.65, 1.0, 0.9})
 		}
 	}
 

@@ -37,7 +37,7 @@
     },
     "world.Platformer_Zone_Kind": {
       "type": "enum",
-      "value": ["Ladder"]
+      "value": ["Ladder", "Water"]
     },
     "world.Platformer_Zone": {
       "type": "struct",

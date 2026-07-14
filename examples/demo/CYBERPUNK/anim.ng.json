@@ -18,7 +18,7 @@
       {
         "id": 2,
         "name": "",
-        "value": "[\"idle\", \"run\", \"jump\", \"fall\",\"hang\", \"dash\", \"land\", \"hurt\", \"death\", \"climb\"]"
+        "value": "[\"idle\", \"run\", \"jump\", \"fall\",\"hang\", \"dash\", \"land\", \"hurt\", \"death\", \"climb\", \"swim\", \"swim2\", \"swim_idle\", \"swim_death\",\"swim_jump\"]"
       }
     ]
   },

@@ -1022,8 +1022,8 @@
   {
     "id": 83,
     "kind": 4,
-    "x": 1738,
-    "y": -458,
+    "x": 1748,
+    "y": -399,
     "name": "",
     "codePath": "",
     "graphId": 0,
@@ -1147,7 +1147,7 @@
       {
         "id": 3,
         "name": "Platformer Zones",
-        "srcNodeId": 82,
+        "srcNodeId": 98,
         "srcOutputId": 1
       },
       {
@@ -1327,6 +1327,55 @@
       {
         "id": 1,
         "name": "map1",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 97,
+    "kind": 4,
+    "x": 1831,
+    "y": -225,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "[{\"id\":\"water.0001\", \"kind\":\"Water\", \"bounds\":[0, 0, 128, 128]}]"
+      }
+    ]
+  },
+  {
+    "id": 98,
+    "kind": 2,
+    "x": 2296,
+    "y": -374,
+    "name": "mergeArrays",
+    "codePath": "ng/presets/merge-arrays.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "array1",
+        "srcNodeId": 82,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "array2",
+        "srcNodeId": 97,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "array",
         "value": null
       }
     ]

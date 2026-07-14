@@ -591,6 +591,70 @@ test_platformer_consumes_external_velocity_with_collision :: proc(t: ^testing.T)
 }
 
 @(test)
+test_platformer_swims_in_all_input_directions_without_gravity :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	platformer_test_add_zone(
+		w,
+		Platformer_Zone{id = "test.water", kind = .Water, bounds = {0, 0, 128 * UNIT, 128 * UNIT}},
+	)
+
+	player := logic.Entity(60)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 64 * UNIT})
+	logic.add_component(&w.input, player, Input{.West, .North})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{3 * UNIT, -4 * UNIT}, facing = 1})
+
+	sys_platformer(w)
+
+	pos, has_pos := logic.get_component(&w.position, player)
+	vel, has_vel := test_platformer_velocity(w, player)
+	platformer, has_platformer := logic.get_component(&w.platformer, player)
+	testing.expect(t, has_pos)
+	testing.expect(t, has_vel)
+	testing.expect(t, has_platformer)
+	testing.expectf(t, platformer.in_water, "player should be swimming")
+	diagonal_speed := PLATFORMER_DEFAULT_CONFIG.water.swim_speed * 707 / 1000
+	testing.expectf(t, vel.x == -diagonal_speed, "swim x velocity=%v", vel^)
+	testing.expectf(t, vel.y == diagonal_speed, "swim y velocity=%v", vel^)
+	testing.expectf(t, pos.x < 64 * UNIT && pos.y > 64 * UNIT, "player should swim north-west, pos=%v", pos^)
+}
+
+@(test)
+test_platformer_water_disables_jump_and_gravity_while_idle :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	platformer_test_add_zone(
+		w,
+		Platformer_Zone{id = "test.water", kind = .Water, bounds = {0, 0, 128 * UNIT, 128 * UNIT}},
+	)
+
+	player := logic.Entity(61)
+	collider := shape.Capsule {
+		radius = 6 * UNIT,
+		height = 12 * UNIT,
+	}
+	start := Position{64 * UNIT, 64 * UNIT}
+	logic.add_component(&w.position, player, start)
+	logic.add_component(&w.input, player, Input{.Action1})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{0, -4 * UNIT}, facing = 1})
+
+	sys_platformer(w)
+
+	pos, _ := logic.get_component(&w.position, player)
+	vel, _ := test_platformer_velocity(w, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(t, platformer.in_water, "player should be swimming")
+	testing.expectf(t, vel^ == {}, "idle water should cancel jump and gravity, vel=%v", vel^)
+	testing.expectf(t, pos^ == start, "idle swimmer should remain still, pos=%v", pos^)
+}
+
+@(test)
 test_platformer_grabs_ladder_with_up_and_climbs :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)
@@ -860,10 +924,48 @@ test_platformer_ladder_top_down_enters_ladder :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_platformer_anim_selects_swim_and_swim_idle_in_water :: proc(t: ^testing.T) {
+	w := new(World)
+	defer platformer_anim_test_world_destroy(w)
+	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
+	player := logic.Entity(41)
+	logic.add_component(&w.platformer, player, Platformer{in_water = true, velocity = Velocity{UNIT, -UNIT}})
+	logic.add_component(&w.animation, player, animation_create(&defs[0]))
+	logic.add_component(
+		&w.platformer_anim,
+		player,
+		platformer_anim_create_char(
+			&defs[0],
+			&defs[1],
+			&defs[2],
+			&defs[3],
+			&defs[4],
+			&defs[5],
+			&defs[6],
+			&defs[7],
+			&defs[8],
+			&defs[9],
+			&defs[10],
+			&defs[11],
+		),
+	)
+
+	sys_platformer_anim(w)
+	ctrl, _ := logic.get_component(&w.platformer_anim, player)
+	testing.expectf(t, ctrl.current == .Swim, "moving swimmer should use swim animation")
+
+	platformer, _ := logic.get_component(&w.platformer, player)
+	platformer.velocity = {}
+	sys_platformer_anim(w)
+	ctrl, _ = logic.get_component(&w.platformer_anim, player)
+	testing.expectf(t, ctrl.current == .Swim_Idle, "idle swimmer should use swim idle animation")
+}
+
+@(test)
 test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
 	w := new(World)
 	defer platformer_anim_test_world_destroy(w)
-	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
+	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
 	player := logic.Entity(40)
 	logic.add_component(
 		&w.platformer,
@@ -885,6 +987,8 @@ test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
 			&defs[7],
 			&defs[8],
 			&defs[9],
+			&defs[10],
+			&defs[11],
 		),
 	)
 

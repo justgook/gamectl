@@ -17,6 +17,8 @@ Platformer_Anim_Key :: enum {
 	Wall_Slide,
 	Dash,
 	Climb,
+	Swim,
+	Swim_Idle,
 	Land,
 	Hurt,
 	Death,
@@ -54,13 +56,14 @@ sys_platformer_anim :: proc(w: ^World) {
 			ctrl.facing = p.facing
 		}
 
-		velocity_abs := abs(p.velocity.y) if p.on_ladder else abs(p.velocity.x)
+		velocity_abs :=
+			max(abs(p.velocity.x), abs(p.velocity.y)) if p.in_water else abs(p.velocity.y) if p.on_ladder else abs(p.velocity.x)
 		platformer_anim_play(anim, ctrl, next, velocity_abs)
 	}
 }
 
 platformer_anim_create_char :: proc(
-	idle, run, jump, fall, wall_slide, dash, land, hurt, death, climb: ^AnimDef,
+	idle, run, jump, fall, wall_slide, dash, land, hurt, death, climb, swim, swim_idle: ^AnimDef,
 ) -> Platformer_Anim {
 	return Platformer_Anim {
 		set = {
@@ -71,6 +74,8 @@ platformer_anim_create_char :: proc(
 			.Wall_Slide = Platformer_Anim_Clip{def = wall_slide, base_speed = 1},
 			.Dash = Platformer_Anim_Clip{def = dash, base_speed = 1},
 			.Climb = Platformer_Anim_Clip{def = climb, base_speed = 0, velocity_speed_scale = 1.0 / f32(UNIT * 2)},
+			.Swim = Platformer_Anim_Clip{def = swim, base_speed = 1},
+			.Swim_Idle = Platformer_Anim_Clip{def = swim_idle, base_speed = 1},
 			.Land = Platformer_Anim_Clip{def = land, base_speed = 1},
 			.Hurt = Platformer_Anim_Clip{def = hurt, base_speed = 1},
 			.Death = Platformer_Anim_Clip{def = death, base_speed = 1},
@@ -83,6 +88,10 @@ platformer_anim_create_char :: proc(
 
 @(private = "file")
 platformer_anim_select :: proc(p: ^Platformer) -> Platformer_Anim_Key {
+	if p.in_water {
+		if p.velocity.x != 0 || p.velocity.y != 0 {return .Swim}
+		return .Swim_Idle
+	}
 	if p.dash_frames > 0 {return .Dash}
 	if p.on_ladder {return .Climb}
 	if !p.on_ground && p.on_wall {return .Wall_Slide}

@@ -7,6 +7,7 @@ import dash "platformer/dash"
 import ladder "platformer/ladder"
 import slope "platformer/slope"
 import wall "platformer/wall"
+import water "platformer/water"
 import "shape"
 
 Dash_Direction_Proc :: proc(input: ^Input, p: ^Platformer) -> [2]i32
@@ -27,6 +28,7 @@ Platformer_Config :: struct {
 	slope:              slope.Config,
 	wall:               wall.Config,
 	ladder:             ladder.Config,
+	water:              water.Config,
 	air_jump:           air_jump.Config,
 	dash:               dash.Config,
 	dash_direction:     Dash_Direction_Proc,
@@ -64,6 +66,7 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 		jump_y_speed = 5 * UNIT,
 	},
 	ladder = {enabled = true, climb_speed = 2 * UNIT, center_speed = 3 * UNIT},
+	water = {enabled = true, swim_speed = 2 * UNIT},
 	air_jump = {enabled = true, max_jumps = 999, jump_y_speed = 5 * UNIT},
 	dash = {
 		enabled = true,
@@ -82,6 +85,7 @@ Platformer :: struct {
 	on_ground:        bool,
 	on_wall:          bool,
 	on_ladder:        bool,
+	in_water:         bool,
 	hit_ceiling:      bool,
 	ground_normal:    [2]int,
 	wall_normal:      [2]int,
@@ -107,6 +111,7 @@ Platformer :: struct {
 
 Platformer_Zone_Kind :: enum {
 	Ladder,
+	Water,
 }
 
 Platformer_Zone :: struct {
@@ -123,6 +128,13 @@ sys_platformer :: proc(w: ^World) {
 
 		vel := &platformer.velocity
 		platformer_consume_external_velocity(&w.velocity, entity, vel)
+
+		if platformer_is_in_water(w, pos, collider, platformer) {
+			platformer_apply_swim(&w.grid, pos, input, vel, collider, platformer)
+			continue
+		}
+		platformer.in_water = false
+
 		platformer_refresh_ground(&w.grid, pos, vel, collider, platformer)
 		platformer_update_dash_reset_and_timers(platformer)
 
@@ -223,6 +235,66 @@ platformer_update_dash_reset_and_timers :: proc(p: ^Platformer) {
 			p.dash_air_used = 0
 		}
 	}
+}
+
+@(private = "file")
+platformer_is_in_water :: proc(w: ^World, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer) -> bool {
+	cfg := platformer_config(p)
+	if !cfg.water.enabled {
+		return false
+	}
+
+	player_bounds := platformer_world_aabb(pos, collider)
+	for &zone in w.platformer_zones {
+		if zone.kind == .Water && aabb_overlaps(player_bounds, zone.bounds) {
+			return true
+		}
+	}
+	return false
+}
+
+@(private = "file")
+platformer_apply_swim :: proc(
+	g: ^grid.Grid,
+	pos: ^Position,
+	input: ^Input,
+	vel: ^Velocity,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+) {
+	cfg := platformer_config(p)
+	move := [2]i32{}
+	if .East in input {move.x += 1}
+	if .West in input {move.x -= 1}
+	if .North in input {move.y += 1}
+	if .South in input {move.y -= 1}
+
+	swim_velocity := water.Velocity_For_Direction(move, cfg.water.swim_speed)
+	vel.x = swim_velocity.x
+	vel.y = swim_velocity.y
+	if move.x != 0 {
+		p.facing = move.x
+	}
+
+	p.in_water = true
+	p.on_ground = false
+	p.on_wall = false
+	p.hit_ceiling = false
+	p.ground_normal = {}
+	p.wall_normal = {}
+	p.ground_segment = nil
+	p.wall_segment = nil
+	p.on_ladder = false
+	p.ladder_zone = -1
+	p.coyote_timer = 0
+	p.jump_buffer = 0
+	p.jump_frames = 0
+	p.jump_held = .Action1 in input
+	p.dash_frames = 0
+	p.dash_delay = 0
+	p.dash_held = .Action2 in input
+
+	platformer_move_and_collide(g, pos, vel, collider, p)
 }
 
 @(private = "file")
