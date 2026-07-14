@@ -1,7 +1,6 @@
 package data_director
 
 import director "../director"
-import world "../world"
 
 @(private = "file")
 RSPK_VERSION :: u16(1)
@@ -103,12 +102,20 @@ read_string_reader :: proc(r: ^Reader) -> (string, bool) {
 	return string(r.data[start:end]), true
 }
 
+Segment_Trigger_Def :: struct {
+	segment:         i32,
+	once:            bool,
+	director_signal: director.Word_Id,
+}
+
+Segment_Trigger_Defs :: []Segment_Trigger_Def
+
 @(private = "file")
 DecodedSlots :: struct {
 	has_slot_0: bool,
 	slot_0:     director.Director_Data,
 	has_slot_1: bool,
-	slot_1:     world.Segment_Trigger_Defs,
+	slot_1:     Segment_Trigger_Defs,
 }
 
 @(private = "file")
@@ -822,20 +829,11 @@ decode_director_director_data :: proc(r: ^Reader, out: ^director.Director_Data) 
 }
 
 @(private = "file")
-decode_world_segment_trigger_def :: proc(r: ^Reader, out: ^world.Segment_Trigger_Def) -> bool {
+decode_segment_trigger_def :: proc(r: ^Reader, out: ^Segment_Trigger_Def) -> bool {
 	{
-		for i9 in 0 ..< 4 {
-			{
-				v, ok := read_u32_reader(r)
-				if !ok {return false}
-				out.segment[i9] = transmute(i32)v
-			}
-		}
-	}
-	{
-		s, ok := read_string_reader(r)
+		v, ok := read_u32_reader(r)
 		if !ok {return false}
-		out.id = s
+		out.segment = transmute(i32)v
 	}
 	{
 		b, ok := read_u8_reader(r)
@@ -855,14 +853,14 @@ decode_world_segment_trigger_def :: proc(r: ^Reader, out: ^world.Segment_Trigger
 }
 
 @(private = "file")
-decode_world_segment_trigger_defs :: proc(r: ^Reader, out: ^world.Segment_Trigger_Defs) -> bool {
+decode_segment_trigger_defs :: proc(r: ^Reader, out: ^Segment_Trigger_Defs) -> bool {
 	{
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
-		out^ = make(world.Segment_Trigger_Defs, int(count))
-		for i10 in 0 ..< int(count) {
+		out^ = make(Segment_Trigger_Defs, int(count))
+		for i9 in 0 ..< int(count) {
 			{
-				if !decode_world_segment_trigger_def(r, &out^[i10]) {return false}
+				if !decode_segment_trigger_def(r, &out^[i9]) {return false}
 			}
 		}
 	}
@@ -877,10 +875,11 @@ read_slot_0_director_director_data :: proc(pkg: Package) -> (director.Director_D
 	return value, true
 }
 
-read_slot_1_world_segment_trigger_defs :: proc(pkg: Package) -> (world.Segment_Trigger_Defs, bool) {
+read_slot_1_segment_trigger_defs :: proc(pkg: Package) -> (Segment_Trigger_Defs, bool) {
 	r, ok := slot_reader(pkg, 1)
 	if !ok {return nil, false}
-	value: world.Segment_Trigger_Defs
-	if !decode_world_segment_trigger_defs(&r, &value) {return nil, false}
+	value: Segment_Trigger_Defs
+	if !decode_segment_trigger_defs(&r, &value) {return nil, false}
 	return value, true
 }
+

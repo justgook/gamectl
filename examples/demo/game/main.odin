@@ -29,13 +29,21 @@ app_init :: proc() {
 	host.setup_graphics()
 	host.info("app", "init")
 
+	w := &state.world
+	// TODO: delete those debug segments
+	UNIT := world.UNIT
+	append(&w.segments, [4]int{-128 * UNIT, 16 * UNIT, 128 * UNIT, 16 * UNIT})
+	append(&w.segments, [4]int{128 * UNIT, 16 * UNIT, 256 * UNIT, 64 * UNIT})
+	append(&w.segments, [4]int{256 * UNIT, 16 * UNIT, 256 * UNIT, 128 * UNIT})
+	// MOCK SEGMENTS END
+
 	assert(load_data_bullet("bullet.rspk", &state.world))
 	assert(load_data_anim("anim.rspk", &state.world))
 	assert(load_data_ui("ui.rspk", &state.world))
 	assert(load_data_level("level.rspk", &state.world))
+	assert(load_data_director("director.rspk", &state.world))
 
 	world.init(&state.world)
-	assert(load_data_director("director.rspk", &state.world))
 }
 
 app_frame :: proc() {
@@ -82,9 +90,19 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 	director_data := data_director.read_slot_0_director_director_data(game_data) or_return
 	w.director = director.init(director_data)
 
-	segment_trigger_defs := data_director.read_slot_1_world_segment_trigger_defs(game_data) or_return
+	segment_trigger_defs := data_director.read_slot_1_segment_trigger_defs(game_data) or_return
 	defer delete(segment_trigger_defs)
-	world.load_segment_triggers(w, segment_trigger_defs)
+	assert(w.segment_triggers == nil)
+	w.segment_triggers = make(map[^[4]int]world.Segment_Trigger)
+	for def in segment_trigger_defs {
+		assert(def.segment >= 0)
+		assert(int(def.segment) < len(w.segments))
+		segment := &w.segments[int(def.segment)]
+		w.segment_triggers[segment] = world.Segment_Trigger {
+			once            = def.once,
+			director_signal = def.director_signal,
+		}
+	}
 
 	host.info("load_data_director", "director", director_data, "segment triggers", len(segment_trigger_defs))
 
@@ -100,7 +118,6 @@ load_data_level :: proc(filepath: string, w: ^world.World) -> bool {
 	the_segments := data_level.read_slot_1_segments(game_data) or_return
 	defer delete(the_segments)
 
-	clear(&w.segments)
 	for s in the_segments {
 		append(&w.segments, [4]int{int(s.x), int(s.y), int(s.z), int(s.w)} * UNIT)
 	}

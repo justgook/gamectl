@@ -176,9 +176,6 @@ init :: proc(w: ^World) {
 	// UI
 	w.ui_sprite.pipe = sprites_init(w.ui_atlas)
 	// w.grid = grid.create_grid(-256 * UNIT, -128 * UNIT, 1024 * UNIT, 512 * UNIT, 16 * UNIT)
-	append(&w.segments, [4]int{-128 * UNIT, 16 * UNIT, 128 * UNIT, 16 * UNIT})
-	append(&w.segments, [4]int{128 * UNIT, 16 * UNIT, 256 * UNIT, 64 * UNIT})
-	append(&w.segments, [4]int{256 * UNIT, 16 * UNIT, 256 * UNIT, 128 * UNIT})
 	for &segment in w.segments {
 		grid.add_segment(&w.grid, &segment)
 	}
