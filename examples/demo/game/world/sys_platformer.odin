@@ -250,7 +250,10 @@ platformer_find_water_zone :: proc(
 	pos: ^Position,
 	collider: ^shape.Capsule,
 	p: ^Platformer,
-) -> (int, bool) {
+) -> (
+	int,
+	bool,
+) {
 	cfg := platformer_config(p)
 	if !cfg.water.enabled {
 		return -1, false
@@ -830,6 +833,12 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 	found := grid.query_aabb(g, &query)
 	defer delete(found)
 
+	trim_capsule_ends := p.on_ground
+	if p.in_water && !trim_capsule_ends {
+		ground := slope.Stick_To_Ground(g, pos, collider, cfg.slope)
+		trim_capsule_ends = ground.ok && ground.delta_y == 0
+	}
+
 	best_x := end_x
 	for wall in found {
 		if slope.Is_Walkable_Ground_Segment(wall, cfg.slope) {
@@ -848,7 +857,7 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 
 		wall_min_y := int(pos.y) + bounds.y
 		wall_max_y := int(pos.y) + bounds.w
-		if p.on_ground {
+		if trim_capsule_ends {
 			wall_min_y += collider.radius
 			wall_max_y -= collider.radius
 		}

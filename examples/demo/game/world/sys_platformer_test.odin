@@ -351,6 +351,44 @@ test_platformer_horizontal_move_ignores_dangling_segment_below_floor :: proc(t: 
 }
 
 @(test)
+test_platformer_swims_past_dangling_segment_below_floor :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments(
+		[4]int{0, 0, 256 * UNIT, 0},
+		[4]int{64 * UNIT, -8 * UNIT, 64 * UNIT, 1},
+	)
+	defer platformer_test_world_destroy(w)
+	platformer_test_add_zone(
+		w,
+		Platformer_Zone{id = "test.water", kind = .Water, bounds = {0, -16 * UNIT, 256 * UNIT, 128 * UNIT}},
+	)
+
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	player := logic.Entity(51)
+	logic.add_component(
+		&w.position,
+		player,
+		Position{52 * UNIT, i32(-test_capsule_bottom(&collider))},
+	)
+	logic.add_component(&w.input, player, Input{.East})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{in_water = true, facing = 1})
+
+	for frame := 0; frame < 8; frame += 1 {
+		sys_platformer(w)
+	}
+
+	pos, _ := logic.get_component(&w.position, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(
+		t,
+		int(pos.x) > 64 * UNIT,
+		"floor-touching swimmer should pass dangling segment endpoint, pos=%v platformer=%v",
+		pos^,
+		platformer^,
+	)
+}
+
+@(test)
 test_platformer_wall_jump_pushes_away_from_wall :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)
