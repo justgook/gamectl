@@ -200,7 +200,8 @@ sys_animation :: proc(w: ^World, dt: f64) {
 		// TODO find a way how to move that to the sys_platformer_anim.odin file
 		if platformer_anim, has_platformer_anim := logic.get_component(&w.platformer_anim, entity);
 		   has_platformer_anim {
-			if platformer_anim.facing < 0 {
+			sprite.flip |= platformer_anim.sprite_flip
+			if platformer_anim.apply_facing && platformer_anim.facing < 0 {
 				sprite.flip |= 1
 				sprite.offset.x *= -1
 			}

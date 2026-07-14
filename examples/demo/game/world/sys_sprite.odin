@@ -13,8 +13,8 @@ import "logic"
 // FLIP_V :: Flip(2) // Vertical flip
 // FLIP_HV :: Flip(3) // Horizontal + Vertical (180° rotation)
 // FLIP_D :: Flip(4) // Anti-diagonal flip (transpose)
-// FLIP_DH :: Flip(5) // Anti-diagonal + Horizontal (90° CW)
-// FLIP_DV :: Flip(6) // Anti-diagonal + Vertical (90° CCW)
+// FLIP_DH :: Flip(5) // Anti-diagonal + Horizontal (displays as 90° CCW)
+// FLIP_DV :: Flip(6) // Anti-diagonal + Vertical (displays as 90° CW)
 // FLIP_DHV :: Flip(7) // Anti-diagonal + H + V
 //
 

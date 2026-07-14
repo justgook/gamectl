@@ -66,7 +66,7 @@ PLATFORMER_DEFAULT_CONFIG :: Platformer_Config {
 		jump_y_speed = 5 * UNIT,
 	},
 	ladder = {enabled = true, climb_speed = 2 * UNIT, center_speed = 3 * UNIT},
-	water = {enabled = true, swim_speed = 2 * UNIT},
+	water = {enabled = true, swim_speed = 2 * UNIT, jump_speed = 8 * UNIT},
 	air_jump = {enabled = true, max_jumps = 999, jump_y_speed = 5 * UNIT},
 	dash = {
 		enabled = true,
@@ -86,6 +86,7 @@ Platformer :: struct {
 	on_wall:          bool,
 	on_ladder:        bool,
 	in_water:         bool,
+	swim_jumping:     bool,
 	hit_ceiling:      bool,
 	ground_normal:    [2]int,
 	wall_normal:      [2]int,
@@ -129,8 +130,14 @@ sys_platformer :: proc(w: ^World) {
 		vel := &platformer.velocity
 		platformer_consume_external_velocity(&w.velocity, entity, vel)
 
-		if platformer_is_in_water(w, pos, collider, platformer) {
-			platformer_apply_swim(&w.grid, pos, input, vel, collider, platformer)
+		if platformer.swim_jumping {
+			platformer_apply_swim_jump(&w.grid, pos, input, vel, collider, platformer)
+			continue
+		}
+
+		water_zone, in_water := platformer_find_water_zone(w, pos, collider, platformer)
+		if in_water {
+			platformer_apply_swim(&w.grid, pos, input, vel, collider, platformer, &w.platformer_zones[water_zone])
 			continue
 		}
 		platformer.in_water = false
@@ -238,19 +245,24 @@ platformer_update_dash_reset_and_timers :: proc(p: ^Platformer) {
 }
 
 @(private = "file")
-platformer_is_in_water :: proc(w: ^World, pos: ^Position, collider: ^shape.Capsule, p: ^Platformer) -> bool {
+platformer_find_water_zone :: proc(
+	w: ^World,
+	pos: ^Position,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+) -> (int, bool) {
 	cfg := platformer_config(p)
 	if !cfg.water.enabled {
-		return false
+		return -1, false
 	}
 
 	player_bounds := platformer_world_aabb(pos, collider)
-	for &zone in w.platformer_zones {
-		if zone.kind == .Water && aabb_overlaps(player_bounds, zone.bounds) {
-			return true
+	for zone, index in w.platformer_zones {
+		if zone.kind == .Water && aabb_overlaps_strict(player_bounds, zone.bounds) {
+			return index, true
 		}
 	}
-	return false
+	return -1, false
 }
 
 @(private = "file")
@@ -261,8 +273,17 @@ platformer_apply_swim :: proc(
 	vel: ^Velocity,
 	collider: ^shape.Capsule,
 	p: ^Platformer,
+	zone: ^Platformer_Zone,
 ) {
+	assert(zone.kind == .Water)
 	cfg := platformer_config(p)
+	bounds := platformer_world_aabb(pos, collider)
+	if bounds.w > zone.bounds.w {
+		pos.y -= bounds.w - zone.bounds.w
+		bounds = platformer_world_aabb(pos, collider)
+	}
+	jump_down := .Action1 in input
+	jump_pressed := jump_down && !p.jump_held
 	move := [2]i32{}
 	if .East in input {move.x += 1}
 	if .West in input {move.x -= 1}
@@ -277,6 +298,7 @@ platformer_apply_swim :: proc(
 	}
 
 	p.in_water = true
+	p.swim_jumping = false
 	p.on_ground = false
 	p.on_wall = false
 	p.hit_ceiling = false
@@ -289,12 +311,55 @@ platformer_apply_swim :: proc(
 	p.coyote_timer = 0
 	p.jump_buffer = 0
 	p.jump_frames = 0
-	p.jump_held = .Action1 in input
+	p.jump_held = jump_down
 	p.dash_frames = 0
 	p.dash_delay = 0
 	p.dash_held = .Action2 in input
 
+	if jump_pressed && bounds.w == zone.bounds.w {
+		p.in_water = false
+		p.swim_jumping = true
+		vel.y = cfg.water.jump_speed
+		p.jump_held = true
+		platformer_move_and_collide(g, pos, vel, collider, p)
+		return
+	}
+
 	platformer_move_and_collide(g, pos, vel, collider, p)
+	if move.y > 0 {
+		bounds = platformer_world_aabb(pos, collider)
+		if bounds.w > zone.bounds.w {
+			pos.y -= bounds.w - zone.bounds.w
+			vel.y = 0
+		}
+	}
+}
+
+@(private = "file")
+platformer_apply_swim_jump :: proc(
+	g: ^grid.Grid,
+	pos: ^Position,
+	input: ^Input,
+	vel: ^Velocity,
+	collider: ^shape.Capsule,
+	p: ^Platformer,
+) {
+	p.in_water = false
+	p.on_ground = false
+	p.on_wall = false
+	p.ground_normal = {}
+	p.wall_normal = {}
+	p.ground_segment = nil
+	p.wall_segment = nil
+
+	platformer_apply_input(input, vel, p)
+	platformer_apply_gravity(vel, p)
+	platformer_move_and_collide(g, pos, vel, collider, p)
+	if vel.y <= 0 {
+		p.swim_jumping = false
+	}
+	p.jump_held = .Action1 in input
+	p.dash_held = .Action2 in input
 }
 
 @(private = "file")
@@ -979,6 +1044,11 @@ platformer_world_aabb :: proc(pos: ^Position, collider: ^shape.Capsule) -> shape
 @(private = "file")
 aabb_overlaps :: proc(a, b: shape.Aabb) -> bool {
 	return a.x <= b.z && a.z >= b.x && a.y <= b.w && a.w >= b.y
+}
+
+@(private = "file")
+aabb_overlaps_strict :: proc(a, b: shape.Aabb) -> bool {
+	return a.x < b.z && a.z > b.x && a.y < b.w && a.w > b.y
 }
 
 @(private = "file")

@@ -3,6 +3,7 @@ package water
 Config :: struct {
 	enabled:    bool,
 	swim_speed: i32,
+	jump_speed: i32,
 }
 
 Velocity_For_Direction :: proc(direction: [2]i32, speed: i32) -> [2]i32 {

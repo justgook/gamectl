@@ -625,6 +625,105 @@ test_platformer_swims_in_all_input_directions_without_gravity :: proc(t: ^testin
 }
 
 @(test)
+test_platformer_does_not_stand_on_top_of_water :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	platformer_test_add_zone(
+		w,
+		Platformer_Zone{id = "test.water", kind = .Water, bounds = {0, 0, 128 * UNIT, 128 * UNIT}},
+	)
+
+	player := logic.Entity(62)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	start := Position{64 * UNIT, 140 * UNIT}
+	logic.add_component(&w.position, player, start)
+	logic.add_component(&w.input, player, Input{})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{velocity = Velocity{0, -UNIT}, facing = 1})
+
+	sys_platformer(w)
+
+	pos, _ := logic.get_component(&w.position, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(t, !platformer.in_water, "capsule bottom touching water must not count as submerged")
+	testing.expectf(t, pos.y < start.y, "player touching water from above should keep falling, pos=%v", pos^)
+
+	sys_platformer(w)
+	pos, _ = logic.get_component(&w.position, player)
+	platformer, _ = logic.get_component(&w.platformer, player)
+	capsule_top := int(pos.y) + collider.y + collider.height / 2 + collider.radius
+	testing.expectf(t, platformer.in_water, "player should swim after entering the water")
+	testing.expectf(t, capsule_top == 128 * UNIT, "entered swimmer top=%d water top=%d", capsule_top, 128 * UNIT)
+}
+
+@(test)
+test_platformer_swim_stops_with_capsule_top_at_water_surface :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	water_top := 128 * UNIT
+	platformer_test_add_zone(
+		w,
+		Platformer_Zone{id = "test.water", kind = .Water, bounds = {0, 0, 128 * UNIT, i32(water_top)}},
+	)
+
+	player := logic.Entity(63)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	logic.add_component(&w.position, player, Position{64 * UNIT, 115 * UNIT})
+	logic.add_component(&w.input, player, Input{.North})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{facing = 1})
+
+	sys_platformer(w)
+
+	pos, _ := logic.get_component(&w.position, player)
+	vel, _ := test_platformer_velocity(w, player)
+	capsule_top := int(pos.y) + collider.y + collider.height / 2 + collider.radius
+	testing.expectf(t, capsule_top == water_top, "swimmer top=%d water top=%d", capsule_top, water_top)
+	testing.expectf(t, vel.y == 0, "water surface should stop upward swim velocity, vel=%v", vel^)
+}
+
+@(test)
+test_platformer_jump_out_of_water_uses_configured_speed :: proc(t: ^testing.T) {
+	w := platformer_test_world_with_segments()
+	defer platformer_test_world_destroy(w)
+	water_top := 128 * UNIT
+	platformer_test_add_zone(
+		w,
+		Platformer_Zone{id = "test.water", kind = .Water, bounds = {0, 0, 128 * UNIT, i32(water_top)}},
+	)
+
+	player := logic.Entity(64)
+	collider := shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT}
+	config := PLATFORMER_DEFAULT_CONFIG
+	config.water.jump_speed = 10 * UNIT
+	start := Position{64 * UNIT, 116 * UNIT}
+	logic.add_component(&w.position, player, start)
+	logic.add_component(&w.input, player, Input{.Action1})
+	logic.add_component(&w.collider, player, collider)
+	logic.add_component(&w.platformer, player, Platformer{config = config, in_water = true, facing = 1})
+
+	sys_platformer(w)
+
+	pos, _ := logic.get_component(&w.position, player)
+	vel, _ := test_platformer_velocity(w, player)
+	platformer, _ := logic.get_component(&w.platformer, player)
+	testing.expectf(t, platformer.swim_jumping, "surface jump should enter swim jump state")
+	testing.expectf(t, !platformer.in_water, "surface jump should leave swimming state")
+	testing.expectf(t, vel.y == config.water.jump_speed, "swim jump velocity=%v", vel^)
+	testing.expectf(t, pos.y == start.y + config.water.jump_speed, "swim jump position=%v", pos^)
+
+	first_jump_y := pos.y
+	sys_platformer(w)
+	pos, _ = logic.get_component(&w.position, player)
+	vel, _ = test_platformer_velocity(w, player)
+	platformer, _ = logic.get_component(&w.platformer, player)
+	testing.expectf(t, platformer.swim_jumping, "swim jump should not be recaptured while leaving water")
+	testing.expectf(t, !platformer.in_water, "swim jump should remain outside swimming movement")
+	testing.expectf(t, pos.y > first_jump_y, "swim jump should continue rising, pos=%v", pos^)
+	testing.expectf(t, vel.y < config.water.jump_speed && vel.y > 0, "gravity should affect swim jump after launch, vel=%v", vel^)
+}
+
+@(test)
 test_platformer_water_disables_jump_and_gravity_while_idle :: proc(t: ^testing.T) {
 	w := platformer_test_world_with_segments()
 	defer platformer_test_world_destroy(w)
@@ -927,9 +1026,9 @@ test_platformer_ladder_top_down_enters_ladder :: proc(t: ^testing.T) {
 test_platformer_anim_selects_swim_and_swim_idle_in_water :: proc(t: ^testing.T) {
 	w := new(World)
 	defer platformer_anim_test_world_destroy(w)
-	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
+	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
 	player := logic.Entity(41)
-	logic.add_component(&w.platformer, player, Platformer{in_water = true, velocity = Velocity{UNIT, -UNIT}})
+	logic.add_component(&w.platformer, player, Platformer{in_water = true, velocity = Velocity{UNIT, -UNIT}, facing = -1})
 	logic.add_component(&w.animation, player, animation_create(&defs[0]))
 	logic.add_component(
 		&w.platformer_anim,
@@ -947,25 +1046,51 @@ test_platformer_anim_selects_swim_and_swim_idle_in_water :: proc(t: ^testing.T) 
 			&defs[9],
 			&defs[10],
 			&defs[11],
+			&defs[12],
+			&defs[13],
 		),
 	)
 
 	sys_platformer_anim(w)
+	anim, _ := logic.get_component(&w.animation, player)
 	ctrl, _ := logic.get_component(&w.platformer_anim, player)
-	testing.expectf(t, ctrl.current == .Swim, "moving swimmer should use swim animation")
+	testing.expectf(t, ctrl.current == .Swim_Vertical, "vertical input should win over horizontal input")
+	testing.expectf(t, anim.def == &defs[11], "expected vertical swim def")
+	testing.expectf(t, ctrl.sprite_flip == 6, "downward swim should rotate 90 degrees clockwise")
+	testing.expectf(t, ctrl.apply_facing, "vertical swim should preserve horizontal facing")
+	testing.expectf(t, ctrl.facing == -1, "vertical swim facing=%d", ctrl.facing)
 
 	platformer, _ := logic.get_component(&w.platformer, player)
+	platformer.velocity = {UNIT, UNIT}
+	sys_platformer_anim(w)
+	ctrl, _ = logic.get_component(&w.platformer_anim, player)
+	testing.expectf(t, ctrl.current == .Swim_Vertical, "upward diagonal should use vertical swim")
+	testing.expectf(t, ctrl.sprite_flip == 0, "upward swim should use default orientation")
+
+	platformer.velocity = {UNIT, 0}
+	sys_platformer_anim(w)
+	ctrl, _ = logic.get_component(&w.platformer_anim, player)
+	testing.expectf(t, ctrl.current == .Swim, "horizontal swimmer should use swim animation")
+
 	platformer.velocity = {}
 	sys_platformer_anim(w)
 	ctrl, _ = logic.get_component(&w.platformer_anim, player)
 	testing.expectf(t, ctrl.current == .Swim_Idle, "idle swimmer should use swim idle animation")
+
+	platformer.in_water = false
+	platformer.swim_jumping = true
+	sys_platformer_anim(w)
+	anim, _ = logic.get_component(&w.animation, player)
+	ctrl, _ = logic.get_component(&w.platformer_anim, player)
+	testing.expectf(t, ctrl.current == .Swim_Jump, "water exit should use swim jump animation")
+	testing.expectf(t, anim.def == &defs[13], "expected swim jump def")
 }
 
 @(test)
 test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
 	w := new(World)
 	defer platformer_anim_test_world_destroy(w)
-	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
+	defs := [?]AnimDef{{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}}
 	player := logic.Entity(40)
 	logic.add_component(
 		&w.platformer,
@@ -989,6 +1114,8 @@ test_platformer_anim_selects_climb_on_ladder :: proc(t: ^testing.T) {
 			&defs[9],
 			&defs[10],
 			&defs[11],
+			&defs[12],
+			&defs[13],
 		),
 	)
 

@@ -18,7 +18,9 @@ Platformer_Anim_Key :: enum {
 	Dash,
 	Climb,
 	Swim,
+	Swim_Vertical,
 	Swim_Idle,
+	Swim_Jump,
 	Land,
 	Hurt,
 	Death,
@@ -32,10 +34,12 @@ Platformer_Anim_Clip :: struct {
 }
 
 Platformer_Anim :: struct {
-	set:     [Platformer_Anim_Key]Platformer_Anim_Clip,
-	current: Platformer_Anim_Key,
-	facing:  i32,
-	locked:  bool,
+	set:          [Platformer_Anim_Key]Platformer_Anim_Clip,
+	current:      Platformer_Anim_Key,
+	facing:       i32,
+	sprite_flip:  u8,
+	apply_facing: bool,
+	locked:       bool,
 }
 
 sys_platformer_anim :: proc(w: ^World) {
@@ -55,6 +59,11 @@ sys_platformer_anim :: proc(w: ^World) {
 		if p.facing != 0 {
 			ctrl.facing = p.facing
 		}
+		ctrl.sprite_flip = 0
+		ctrl.apply_facing = true
+		if next == .Swim_Vertical && p.velocity.y < 0 {
+			ctrl.sprite_flip = 6 // Anti-diagonal + vertical displays as 90 degrees clockwise.
+		}
 
 		velocity_abs :=
 			max(abs(p.velocity.x), abs(p.velocity.y)) if p.in_water else abs(p.velocity.y) if p.on_ladder else abs(p.velocity.x)
@@ -63,7 +72,7 @@ sys_platformer_anim :: proc(w: ^World) {
 }
 
 platformer_anim_create_char :: proc(
-	idle, run, jump, fall, wall_slide, dash, land, hurt, death, climb, swim, swim_idle: ^AnimDef,
+	idle, run, jump, fall, wall_slide, dash, land, hurt, death, climb, swim, swim_vertical, swim_idle, swim_jump: ^AnimDef,
 ) -> Platformer_Anim {
 	return Platformer_Anim {
 		set = {
@@ -75,21 +84,26 @@ platformer_anim_create_char :: proc(
 			.Dash = Platformer_Anim_Clip{def = dash, base_speed = 1},
 			.Climb = Platformer_Anim_Clip{def = climb, base_speed = 0, velocity_speed_scale = 1.0 / f32(UNIT * 2)},
 			.Swim = Platformer_Anim_Clip{def = swim, base_speed = 1},
+			.Swim_Vertical = Platformer_Anim_Clip{def = swim_vertical, base_speed = 1},
 			.Swim_Idle = Platformer_Anim_Clip{def = swim_idle, base_speed = 1},
+			.Swim_Jump = Platformer_Anim_Clip{def = swim_jump, base_speed = 1},
 			.Land = Platformer_Anim_Clip{def = land, base_speed = 1},
 			.Hurt = Platformer_Anim_Clip{def = hurt, base_speed = 1},
 			.Death = Platformer_Anim_Clip{def = death, base_speed = 1},
 		},
 		current = .Idle,
 		facing = 1,
+		apply_facing = true,
 	}
 }
 
 
 @(private = "file")
 platformer_anim_select :: proc(p: ^Platformer) -> Platformer_Anim_Key {
+	if p.swim_jumping {return .Swim_Jump}
 	if p.in_water {
-		if p.velocity.x != 0 || p.velocity.y != 0 {return .Swim}
+		if p.velocity.y != 0 {return .Swim_Vertical}
+		if p.velocity.x != 0 {return .Swim}
 		return .Swim_Idle
 	}
 	if p.dash_frames > 0 {return .Dash}
