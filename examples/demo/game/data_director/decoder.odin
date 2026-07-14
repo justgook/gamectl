@@ -925,4 +925,3 @@ read_slot_2_world_director_config :: proc(pkg: Package) -> (world.Director_Confi
 	if !decode_world_director_config(&r, &value) {return world.Director_Config{}, false}
 	return value, true
 }
-

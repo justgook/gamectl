@@ -57,10 +57,6 @@ World :: struct {
 	platformer:             logic.Component_Storage(Platformer),
 	grid:                   grid.Grid,
 	segments:               [dynamic][4]int,
-	segment_triggers:       map[^[4]int]Segment_Trigger,
-	platformer_zones:       []Platformer_Zone,
-	director_entity:        logic.Component_Storage(Director_Entity),
-	director_trigger_aabb:  logic.Component_Storage(Director_Trigger_Aabb),
 	collider:               logic.Component_Storage(shape.Capsule),
 	on_hit:                 logic.Component_Storage(proc(_: ^World, src, target: int)),
 	on_hurt:                logic.Component_Storage(proc(_: ^World, src, target: int)),
@@ -72,8 +68,13 @@ World :: struct {
 	bullet_patterns:        data_bullet.Bullet_Patterns,
 	bullet:                 logic.Component_Storage(Bullet),
 	// Director
+	// TODO : simplify and combine
 	director_config:        Director_Config,
 	director:               director.State,
+	segment_triggers:       map[^[4]int]Segment_Trigger,
+	platformer_zones:       []Platformer_Zone,
+	director_entity:        logic.Component_Storage(Director_Entity),
+	director_trigger_aabb:  logic.Component_Storage(Director_Trigger_Aabb),
 	// UI
 	ui_sprite:              struct {
 		using pipe: ^Sprite_Pipe,

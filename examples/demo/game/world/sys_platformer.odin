@@ -254,6 +254,7 @@ platformer_find_ladder_zone :: proc(
 		if zone.kind != .Ladder {
 			continue
 		}
+
 		if aabb_overlaps(player_bounds, zone.bounds) {
 			return index, true
 		}
@@ -714,12 +715,7 @@ move_x_and_collide :: proc(g: ^grid.Grid, pos: ^Position, vel: ^Velocity, collid
 			wall_min_y += collider.radius
 			wall_max_y -= collider.radius
 		}
-		contact_x, ok := segment_x_at_aabb_y(
-			wall,
-			wall_min_y,
-			wall_max_y,
-			int(pos.y) + collider.y,
-		)
+		contact_x, ok := segment_x_at_aabb_y(wall, wall_min_y, wall_max_y, int(pos.y) + collider.y)
 		if !ok {
 			continue
 		}

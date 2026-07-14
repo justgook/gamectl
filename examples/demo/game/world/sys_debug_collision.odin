@@ -43,6 +43,22 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		}
 	}
 
+	// Director trigger volumes: magenta distinguishes event regions from physical collision.
+	director_trigger_view := logic.view(&w.position, &w.director_trigger_aabb)
+	for _, pos, trigger in logic.each(&director_trigger_view) {
+		bounds := shape.Aabb {
+			pos.x + trigger.bounds.x,
+			pos.y + trigger.bounds.y,
+			pos.x + trigger.bounds.z,
+			pos.y + trigger.bounds.w,
+		}
+		if trigger.used {
+			debug_collision_add_aabb_subpixel(bounds, {0.45, 0.15, 0.5, 0.08}, {0.65, 0.3, 0.7, 0.6})
+		} else {
+			debug_collision_add_aabb_subpixel(bounds, {1.0, 0.1, 0.8, 0.16}, {1.0, 0.2, 0.85, 0.95})
+		}
+	}
+
 	// Static world collision.
 	for &segment in w.segments {
 		debug_collision_add_segment_subpixel(&segment, {1.0, 0.9, 0.1, 1.0})
