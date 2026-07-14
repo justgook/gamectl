@@ -126,7 +126,7 @@ director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_
 	logic.add_component(&w.position, entity, Position{spawn_x, spawn_y})
 	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
 
-	money_anim := 30 // len(&w.animation_atlas.defs) - 1
+	money_anim := 45 // len(&w.animation_atlas.defs) - 1
 	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[money_anim]))
 	logic.add_component(
 		&w.director_trigger_aabb,
