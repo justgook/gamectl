@@ -36,6 +36,21 @@ test_query_supports_nested_matchers_compare_links_and_not :: proc(t: ^testing.T)
 }
 
 @(test)
+test_entity_set_stat_updates_and_adds_runtime_stats :: proc(t: ^testing.T) {
+	state := init(&test_data)
+	defer destroy(&state)
+
+	entity_set_stat(&state, E_PLAYER, W_strength, 8)
+	testing.expectf(t, entity_stat(&state, E_PLAYER, W_strength) == 8, "existing stat was not updated")
+
+	entity_set_stat(&state, E_PLAYER, W_world_entity, 100)
+	testing.expectf(t, entity_stat(&state, E_PLAYER, W_world_entity) == 100, "runtime stat was not added")
+
+	entity_remove_stat(&state, E_PLAYER, W_world_entity)
+	testing.expectf(t, entity_stat(&state, E_PLAYER, W_world_entity) == 0, "runtime stat was not removed")
+}
+
+@(test)
 test_signal_rule_applies_changes :: proc(t: ^testing.T) {
 	state := init(&test_data)
 	defer destroy(&state)

@@ -59,7 +59,6 @@ World :: struct {
 	segments:               [dynamic][4]int,
 	segment_triggers:       map[^[4]int]Segment_Trigger,
 	platformer_zones:       []Platformer_Zone,
-	director_entities:      map[director.Entity_Id]logic.Entity,
 	director_entity:        logic.Component_Storage(Director_Entity),
 	director_trigger_aabb:  logic.Component_Storage(Director_Trigger_Aabb),
 	collider:               logic.Component_Storage(shape.Capsule),
@@ -184,7 +183,6 @@ init :: proc(w: ^World) {
 		grid.add_segment(&w.grid, &segment)
 	}
 	w.segment_triggers = make(map[^[4]int]Segment_Trigger)
-	w.director_entities = make(map[director.Entity_Id]logic.Entity)
 	w.segment_triggers[&w.segments[len(&w.segments) - 2]] = Segment_Trigger {
 		id              = "demo.room_001.enter",
 		once            = true,
@@ -301,7 +299,7 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.animation, entity_id)
 	logic.delete_component(&w.platformer_anim, entity_id)
 	if director_entity, ok := logic.get_component(&w.director_entity, entity_id); ok {
-		delete_key(&w.director_entities, director_entity.id)
+		director.entity_remove_stat(&w.director, director_entity.id, MOCK_DIRECTOR_WORLD_ENTITY)
 	}
 	logic.delete_component(&w.director_entity, entity_id)
 	logic.delete_component(&w.director_trigger_aabb, entity_id)
@@ -345,7 +343,6 @@ cleanup :: proc(w: ^World) {
 	delete(w.segment_triggers)
 	delete(w.platformer_zones)
 	delete(w.segments)
-	delete(w.director_entities)
 	logic.destroy_storage(&w.director_entity)
 	logic.destroy_storage(&w.director_trigger_aabb)
 	logic.destroy_storage(&w.collider)

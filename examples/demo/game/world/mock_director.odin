@@ -33,6 +33,8 @@ MOCK_DIRECTOR_SPAWN_X :: director.Word_Id(5)
 
 MOCK_DIRECTOR_SPAWN_Y :: director.Word_Id(6)
 
+MOCK_DIRECTOR_WORLD_ENTITY :: director.Word_Id(7)
+
 @(private = "file")
 MOCK_DIRECTOR_SPAWN_ROOM_001_COINS_RULE :: director.Rule_Id(0)
 
@@ -73,7 +75,7 @@ mock_director_runtime_changes: [4]director.Change
 mock_director_runtime_rules: [2]director.Rule
 
 @(private = "file")
-mock_director_runtime_words: [7]string
+mock_director_runtime_words: [8]string
 
 @(private = "file")
 mock_director_runtime_data: director.Director_Data
@@ -113,12 +115,8 @@ mock_director_data :: proc() -> ^director.Director_Data {
 		},
 		{id = MOCK_DIRECTOR_COIN_PREFAB},
 	}
-	mock_director_runtime_queries = {
-		{kind = .Has_Tag, key = MOCK_DIRECTOR_COIN},
-	}
-	mock_director_runtime_matchers = {
-		{selector = {kind = .Trigger}, queries = {offset = 0, count = 1}},
-	}
+	mock_director_runtime_queries = {{kind = .Has_Tag, key = MOCK_DIRECTOR_COIN}}
+	mock_director_runtime_matchers = {{selector = {kind = .Trigger}, queries = {offset = 0, count = 1}}}
 	mock_director_runtime_changes = {
 		{target = {kind = .Entity, entity = MOCK_DIRECTOR_COIN_001}, kind = .Spawn_Entity},
 		{target = {kind = .Entity, entity = MOCK_DIRECTOR_COIN_002}, kind = .Spawn_Entity},
@@ -144,15 +142,7 @@ mock_director_data :: proc() -> ^director.Director_Data {
 			weight = 10,
 		},
 	}
-	mock_director_runtime_words = {
-		"hp",
-		"money",
-		"enter_room_001",
-		"coin",
-		"prefab",
-		"spawn_x",
-		"spawn_y",
-	}
+	mock_director_runtime_words = {"hp", "money", "enter_room_001", "coin", "prefab", "spawn_x", "spawn_y", "world_entity"}
 	mock_director_runtime_data = director.Director_Data {
 		entities = mock_director_runtime_entities[:],
 		rules    = mock_director_runtime_rules[:],
@@ -161,5 +151,6 @@ mock_director_data :: proc() -> ^director.Director_Data {
 		changes  = mock_director_runtime_changes[:],
 		words    = mock_director_runtime_words[:],
 	}
+
 	return &mock_director_runtime_data
 }

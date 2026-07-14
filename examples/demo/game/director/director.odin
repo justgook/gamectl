@@ -389,6 +389,19 @@ entity_stat :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) -> i32 {
 	return get_stat_value(&state.entities[int(entity_id)], key)
 }
 
+// entity_set_stat updates or dynamically adds a stat to mutable runtime state.
+// It does not modify the immutable compiled Director_Data.
+entity_set_stat :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id, value: i32) {
+	assert(valid_entity(state, entity_id))
+	set_stat(&state.entities[int(entity_id)], key, value)
+}
+
+// entity_remove_stat removes a dynamically managed stat from mutable runtime state.
+entity_remove_stat :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) {
+	assert(valid_entity(state, entity_id))
+	remove_stat(&state.entities[int(entity_id)], key)
+}
+
 // entity_link returns an entity link target, or false when the link is absent.
 @(require_results)
 entity_link :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) -> (Entity_Id, bool) {
@@ -688,6 +701,16 @@ set_stat :: proc(entity: ^Entity_State, key: Word_Id, value: i32) {
 		}
 	}
 	append(&entity.stats, Stat{key = key, value = value})
+}
+
+@(private = "file")
+remove_stat :: proc(entity: ^Entity_State, key: Word_Id) {
+	for stat, index in entity.stats {
+		if stat.key == key {
+			unordered_remove(&entity.stats, index)
+			return
+		}
+	}
 }
 
 @(private = "file")

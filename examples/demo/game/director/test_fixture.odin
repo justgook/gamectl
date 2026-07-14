@@ -25,6 +25,7 @@ W_locked :: Word_Id(9)
 W_held_by :: Word_Id(10)
 W_suspect :: Word_Id(11)
 W_blinded :: Word_Id(12)
+W_world_entity :: Word_Id(13)
 
 R_intro :: Rule_Id(0)
 R_take_item :: Rule_Id(1)

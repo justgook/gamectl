@@ -115,14 +115,14 @@ director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_
 	prefab, has_prefab := director.entity_link(&w.director, director_entity, MOCK_DIRECTOR_PREFAB)
 	assert(has_prefab)
 	assert(prefab == MOCK_DIRECTOR_COIN_PREFAB)
-	assert(!(director_entity in w.director_entities))
+	assert(director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_WORLD_ENTITY) == 0)
 	assert(len(w.uv) > 12)
 
 	spawn_x := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_SPAWN_X)
 	spawn_y := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_SPAWN_Y)
 
 	entity := create_entity(w)
-	w.director_entities[director_entity] = entity
+	director.entity_set_stat(&w.director, director_entity, MOCK_DIRECTOR_WORLD_ENTITY, i32(entity))
 	logic.add_component(&w.director_entity, entity, Director_Entity{id = director_entity})
 	logic.add_component(&w.position, entity, Position{spawn_x, spawn_y})
 	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
@@ -138,9 +138,9 @@ director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_
 
 @(private = "file")
 director_remove_world_entity :: proc(w: ^World, director_entity: director.Entity_Id) {
-	entity, ok := w.director_entities[director_entity]
-	assert(ok)
-	entity_delete(w, entity)
+	entity := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_WORLD_ENTITY)
+	assert(entity != 0)
+	entity_delete(w, logic.Entity(entity))
 }
 
 @(private = "file")
