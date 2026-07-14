@@ -103,12 +103,12 @@ director_trigger_aabb_contact :: proc(w: ^World) {
 		result := director.trigger(&w.director, director.Trigger{kind = .Entity, entity = director_entity.id})
 		assert(result.matched)
 		if director.entity_has_tag(&w.director, director_entity.id, w.director_config.dialog) {
-			w.active_dialog_text_id = director.entity_stat(
+			text_id := director.entity_stat(
 				&w.director,
 				director_entity.id,
 				w.director_config.text_id,
 			)
-			w.dialog_active = true
+			enter_dialog_mode(w, text_id)
 		}
 		apply_director_effects(w, result.effects)
 	}

@@ -75,8 +75,10 @@ World :: struct {
 	platformer_zones:       []Platformer_Zone,
 	director_entity:        logic.Component_Storage(Director_Entity),
 	director_trigger_aabb:  logic.Component_Storage(Director_Trigger_Aabb),
-	dialog_active:          bool,
-	active_dialog_text_id: i32,
+	input_mode:             Input_Mode,
+	physical_input:         Input,
+	dialog_pressed:         Input,
+	active_dialog_text_id:  i32,
 	// UI
 	ui_sprite:              struct {
 		using pipe: ^Sprite_Pipe,
@@ -89,18 +91,26 @@ frame :: proc(w: ^World, dt: f64) {
 	for (w.accumulator >= w.sim_frame_length) {
 		w.frame_count += 1
 		w.accumulator -= w.sim_frame_length
-		sys_brain(w)
-		sys_weapon(w)
-		sys_bullet(w)
-		sys_platformer(w)
-		sys_velocity(w)
-		sys_trigger(w)
-		sys_bullet_collision(w)
+		switch w.input_mode {
+		case .Gameplay:
+			sys_brain(w)
+			sys_weapon(w)
+			sys_bullet(w)
+			sys_platformer(w)
+			sys_velocity(w)
+			sys_trigger(w)
+			sys_bullet_collision(w)
+		case .Dialog:
+			sys_dialog(w)
+		}
 	}
 
-	sys_camera(w, dt)
-	sys_platformer_anim(w)
-	sys_animation(w, dt)
+	if w.input_mode == .Gameplay {
+		sys_camera(w, dt)
+		sys_platformer_anim(w)
+		sys_animation(w, dt)
+	}
+	// UI and rendering continue while gameplay simulation is frozen.
 	sys_ui(w)
 
 

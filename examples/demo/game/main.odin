@@ -64,9 +64,11 @@ app_event :: proc(event: host.Event) {
 			f32(event.framebuffer_height),
 		)
 	case .Action_Down:
-		state.world.player1^ += {world.InputSet(event.action_code - 1)}
+		assert(event.action_code >= 1 && event.action_code <= 8)
+		world.input_action_down(&state.world, world.InputSet(event.action_code - 1))
 	case .Action_Up:
-		state.world.player1^ -= {world.InputSet(event.action_code - 1)}
+		assert(event.action_code >= 1 && event.action_code <= 8)
+		world.input_action_up(&state.world, world.InputSet(event.action_code - 1))
 	case:
 	}
 }

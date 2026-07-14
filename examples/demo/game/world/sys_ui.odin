@@ -32,14 +32,22 @@ sys_ui :: proc(w: ^World) {
 	w.text_glyph.count = 0
 	w.ui_sprite.count = 0
 
-	if w.dialog_active {
+	if w.input_mode == .Dialog {
 		dialog_panel := group(
 			{
 				nine(8, GAME_RESOLUTION_WIDTH - 24, GAME_RESOLUTION_HEIGHT / 3 - 12),
 				ui.move(nine(8, 80, 76), 12, 12),
 				ui.move(text3("?"), 48, 46),
-				ui.move(text3("FIXER"), 108, 76),
-				ui.move(text3(dialog_text(w.active_dialog_text_id)), 108, 50),
+				ui.move(text3("FIXER"), 108, 78),
+				ui.move(text3(dialog_text(w.active_dialog_text_id)), 108, 56),
+				ui.move(nine(8, 112, 26), 108, 10),
+				ui.move(text3("1  JOB"), 116, 18),
+				ui.move(nine(8, 112, 26), 226, 10),
+				ui.move(text3("2  PAY"), 234, 18),
+				ui.move(nine(8, 112, 26), 344, 10),
+				ui.move(text3("3  REFUSE"), 352, 18),
+				ui.move(nine(8, 112, 26), 462, 10),
+				ui.move(text3("4  LEAVE"), 470, 18),
 			},
 		)
 		dialog_panel = ui.move(dialog_panel, 12, 6)
