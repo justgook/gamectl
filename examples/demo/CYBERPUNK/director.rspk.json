@@ -3,12 +3,14 @@
   "odin": {
     "package": "data_director",
     "imports": {
-      "director": "../director"
+      "director": "../director",
+      "world": "../world"
     }
   },
   "data": [
     "director.Director_Data",
-    "Segment_Trigger_Defs"
+    "Segment_Trigger_Defs",
+    "world.Director_Config"
   ],
   "types": {
     "director.Entity_Id": "u32",
@@ -295,6 +297,14 @@
     "Segment_Trigger_Defs": {
       "type": "vector",
       "value": "Segment_Trigger_Def"
+    },
+    "world.Director_Config": {
+      "type": "struct",
+      "fields": {
+        "spawn_x": "director.Word_Id",
+        "spawn_y": "director.Word_Id",
+        "world_entity": "director.Word_Id"
+      }
     }
   }
 }

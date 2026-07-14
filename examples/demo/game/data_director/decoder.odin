@@ -1,6 +1,7 @@
 package data_director
 
 import director "../director"
+import world "../world"
 
 @(private = "file")
 RSPK_VERSION :: u16(1)
@@ -13,20 +14,20 @@ Reader :: struct {
 
 Package :: struct {
 	data:    []u8,
-	offsets: [2]u32,
-	lengths: [2]u32,
+	offsets: [3]u32,
+	lengths: [3]u32,
 }
 
 open_respack :: proc(data: []u8) -> (Package, bool) {
 	if len(data) < 8 {return Package{}, false}
 	if data[0] != 'R' || data[1] != 'S' || data[2] != 'P' || data[3] != 'K' {return Package{}, false}
 	if read_u16(data, 4) != RSPK_VERSION {return Package{}, false}
-	if int(read_u16(data, 6)) != 2 {return Package{}, false}
-	if len(data) < 24 {return Package{}, false}
+	if int(read_u16(data, 6)) != 3 {return Package{}, false}
+	if len(data) < 32 {return Package{}, false}
 	pkg := Package {
 		data = data,
 	}
-	for i in 0 ..< 2 {
+	for i in 0 ..< 3 {
 		entry := 8 + i * 8
 		pkg.offsets[i] = read_u32(data, entry)
 		pkg.lengths[i] = read_u32(data, entry + 4)
@@ -36,7 +37,7 @@ open_respack :: proc(data: []u8) -> (Package, bool) {
 
 @(private = "file")
 slot_reader :: proc(pkg: Package, slot: int) -> (Reader, bool) {
-	if slot < 0 || slot >= 2 {return Reader{}, false}
+	if slot < 0 || slot >= 3 {return Reader{}, false}
 	offset := int(pkg.offsets[slot])
 	length := int(pkg.lengths[slot])
 	if length == 0 {return Reader{}, false}
@@ -116,6 +117,8 @@ DecodedSlots :: struct {
 	slot_0:     director.Director_Data,
 	has_slot_1: bool,
 	slot_1:     Segment_Trigger_Defs,
+	has_slot_2: bool,
+	slot_2:     world.Director_Config,
 }
 
 @(private = "file")
@@ -867,6 +870,38 @@ decode_segment_trigger_defs :: proc(r: ^Reader, out: ^Segment_Trigger_Defs) -> b
 	return true
 }
 
+@(private = "file")
+decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) -> bool {
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.spawn_x = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.spawn_y = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.world_entity = director.Word_Id(value)
+	}
+	return true
+}
+
 read_slot_0_director_director_data :: proc(pkg: Package) -> (director.Director_Data, bool) {
 	r, ok := slot_reader(pkg, 0)
 	if !ok {return director.Director_Data{}, false}
@@ -880,6 +915,14 @@ read_slot_1_segment_trigger_defs :: proc(pkg: Package) -> (Segment_Trigger_Defs,
 	if !ok {return nil, false}
 	value: Segment_Trigger_Defs
 	if !decode_segment_trigger_defs(&r, &value) {return nil, false}
+	return value, true
+}
+
+read_slot_2_world_director_config :: proc(pkg: Package) -> (world.Director_Config, bool) {
+	r, ok := slot_reader(pkg, 2)
+	if !ok {return world.Director_Config{}, false}
+	value: world.Director_Config
+	if !decode_world_director_config(&r, &value) {return world.Director_Config{}, false}
 	return value, true
 }
 

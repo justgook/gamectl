@@ -5,6 +5,12 @@ import "../host"
 import "logic"
 import "shape"
 
+Director_Config :: struct {
+	spawn_x:      director.Word_Id,
+	spawn_y:      director.Word_Id,
+	world_entity: director.Word_Id,
+}
+
 Segment_Trigger :: struct {
 	once:            bool,
 	used:            bool,
@@ -111,17 +117,11 @@ apply_director_effects :: proc(w: ^World, effects: []director.Effect) {
 
 @(private = "file")
 director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_Id) {
-	// prefab, has_prefab := director.entity_link(&w.director, director_entity, MOCK_DIRECTOR_PREFAB)
-	// assert(has_prefab)
-	// assert(prefab == MOCK_DIRECTOR_COIN_PREFAB)
-	// assert(director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_WORLD_ENTITY) == 0)
-	// assert(len(w.uv) > 12)
-
-	spawn_x := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_SPAWN_X)
-	spawn_y := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_SPAWN_Y)
+	spawn_x := director.entity_stat(&w.director, director_entity, w.director_config.spawn_x)
+	spawn_y := director.entity_stat(&w.director, director_entity, w.director_config.spawn_y)
 
 	entity := create_entity(w)
-	director.entity_set_stat(&w.director, director_entity, MOCK_DIRECTOR_WORLD_ENTITY, i32(entity))
+	director.entity_set_stat(&w.director, director_entity, w.director_config.world_entity, i32(entity))
 	logic.add_component(&w.director_entity, entity, Director_Entity{id = director_entity})
 	logic.add_component(&w.position, entity, Position{spawn_x, spawn_y})
 	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
@@ -137,7 +137,7 @@ director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_
 
 @(private = "file")
 director_remove_world_entity :: proc(w: ^World, director_entity: director.Entity_Id) {
-	entity := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_WORLD_ENTITY)
+	entity := director.entity_stat(&w.director, director_entity, w.director_config.world_entity)
 	assert(entity != 0)
 	entity_delete(w, logic.Entity(entity))
 }
