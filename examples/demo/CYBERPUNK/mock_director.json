@@ -68,6 +68,17 @@
       "tags": [],
       "stats": [],
       "links": []
+    },
+    {
+      "id": 5,
+      "tags": [8],
+      "stats": [
+        {
+          "key": 9,
+          "value": 1
+        }
+      ],
+      "links": []
     }
   ],
   "rules": [
@@ -103,6 +114,23 @@
         "offset": 0,
         "count": 0
       }
+    },
+    {
+      "id": 2,
+      "trigger": {
+        "kind": "Entity_Matcher",
+        "matcher_index": 1,
+        "signal": 0
+      },
+      "changes": {
+        "offset": 4,
+        "count": 0
+      },
+      "weight": 10,
+      "conditions": {
+        "offset": 0,
+        "count": 0
+      }
     }
   ],
   "matchers": [
@@ -115,12 +143,37 @@
         "offset": 0,
         "count": 1
       }
+    },
+    {
+      "selector": {
+        "kind": "Trigger",
+        "entity": 0
+      },
+      "queries": {
+        "offset": 1,
+        "count": 1
+      }
     }
   ],
   "queries": [
     {
       "kind": "Has_Tag",
       "key": 3,
+      "op": "Eq",
+      "stat_value": {
+        "kind": "Immediate",
+        "entity": 0,
+        "key": 0
+      },
+      "link_value": {
+        "kind": "Specific_Matcher",
+        "entity": 0,
+        "key": 0
+      }
+    },
+    {
+      "kind": "Has_Tag",
+      "key": 8,
       "op": "Eq",
       "stat_value": {
         "kind": "Immediate",
@@ -189,5 +242,5 @@
       "key": 0
     }
   ],
-  "words": ["hp", "money", "enter_room_001", "coin", "prefab", "spawn_x", "spawn_y", "world_entity"]
+  "words": ["hp", "money", "enter_room_001", "coin", "prefab", "spawn_x", "spawn_y", "world_entity", "dialog", "text_id"]
 }

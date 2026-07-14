@@ -108,7 +108,44 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 		}
 	}
 
-	host.info("load_data_director", "director", director_data, "segment triggers", len(segment_trigger_defs))
+	director_trigger_aabbs := data_director.read_slot_3_director_trigger_aabbs(game_data) or_return
+	assert(len(director_trigger_aabbs.components) == len(director_trigger_aabbs.entity_ids))
+	for entity_id in director_trigger_aabbs.entity_ids {
+		assert(entity_id < world.ENTITY_ID_START)
+	}
+	for &trigger in director_trigger_aabbs.components {
+		trigger.bounds.xyzw *= world.UNIT
+	}
+
+	logic.load_storage(&w.director_trigger_aabb, director_trigger_aabbs.components, director_trigger_aabbs.entity_ids)
+
+	positions := data_director.read_slot_4_positions(game_data) or_return
+	assert(len(positions.components) == len(positions.entity_ids))
+	for entity_id in positions.entity_ids {
+		assert(entity_id < world.ENTITY_ID_START)
+	}
+	for &position in positions.components {
+		position.xy *= world.UNIT
+	}
+	logic.load_storage(&w.position, positions.components, positions.entity_ids)
+
+	director_entities := data_director.read_slot_5_director_entities(game_data) or_return
+	assert(len(director_entities.components) == len(director_entities.entity_ids))
+	for entity_id in director_entities.entity_ids {
+		assert(entity_id < world.ENTITY_ID_START)
+	}
+
+	logic.load_storage(&w.director_entity, director_entities.components, director_entities.entity_ids)
+
+	host.info(
+		"load_data_director",
+		"director",
+		director_data,
+		"segment triggers",
+		len(segment_trigger_defs),
+		"aabb triggers",
+		len(director_trigger_aabbs.components),
+	)
 
 	return true
 }

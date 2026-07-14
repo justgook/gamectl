@@ -75,6 +75,8 @@ World :: struct {
 	platformer_zones:       []Platformer_Zone,
 	director_entity:        logic.Component_Storage(Director_Entity),
 	director_trigger_aabb:  logic.Component_Storage(Director_Trigger_Aabb),
+	dialog_active:          bool,
+	active_dialog_text_id: i32,
 	// UI
 	ui_sprite:              struct {
 		using pipe: ^Sprite_Pipe,

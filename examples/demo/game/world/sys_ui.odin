@@ -9,25 +9,16 @@ ui_fonts_storage := [6]Text_Font{}
 ui_nines_storage := [12]Nine_Patch{}
 
 sys_ui :: proc(w: ^World) {
-	// panel1_uv := 418
-	panel1_uv := 1
 	player_hp := director_player_hp(w)
 	player_money := director_player_money(w)
-	panel := group(
-		{
-			nine(8, 240, 62),
-			ui.move(text("\x04 use WASD to move "), 8, 48),
-			ui.move(text1("\x1C J - jump"), 8, 38),
-			ui.move(text2("\x93 K - dash"), 8, 28),
-			ui.move(text5("\xCA L - fire"), 8, 18),
-			ui.move(text3(fmt.tprintf("Director HP: %d  money: %d", player_hp, player_money)), 8, 8),
-		},
-	)
 
-
-	panel = ui.move(panel, 20, ui.wave(10, 30, 120, w.frame_count))
 	statusbar := sprite({0.5, 1 - 48.0 / 512.0, 1.0 - 7 * 16.0 / 512.0, 1})
 	statusbar = ui.move(statusbar, 8 + 4.5 * 16, GAME_RESOLUTION_HEIGHT - 24 - 8)
+	hud_text := ui.move(
+		text3(fmt.tprintf("HP %d   MONEY %d", player_hp, player_money)),
+		16,
+		GAME_RESOLUTION_HEIGHT - 28,
+	)
 
 	c: f32 = 16.0 / 512
 	hp2 := sprite({27 * c, 1 - 4 * c, 1 - 2 * c, 1 - 3 * c})
@@ -41,9 +32,34 @@ sys_ui :: proc(w: ^World) {
 	w.text_glyph.count = 0
 	w.ui_sprite.count = 0
 
-	ui.flatten(group({panel, statusbar, hp2}), w, render_shapes)
+	if w.dialog_active {
+		dialog_panel := group(
+			{
+				nine(8, GAME_RESOLUTION_WIDTH - 24, GAME_RESOLUTION_HEIGHT / 3 - 12),
+				ui.move(nine(8, 80, 76), 12, 12),
+				ui.move(text3("?"), 48, 46),
+				ui.move(text3("FIXER"), 108, 76),
+				ui.move(text3(dialog_text(w.active_dialog_text_id)), 108, 50),
+			},
+		)
+		dialog_panel = ui.move(dialog_panel, 12, 6)
+		ui.flatten(group({statusbar, hud_text, hp2, dialog_panel}), w, render_shapes)
+	} else {
+		ui.flatten(group({statusbar, hud_text, hp2}), w, render_shapes)
+	}
 }
 
+@(private = "file")
+@(require_results)
+dialog_text :: proc(text_id: i32) -> string {
+	switch text_id {
+	case 1:
+		return "Wake up, merc. Night City has another job for you."
+	case:
+		assert(false, "unknown mock dialog text id")
+	}
+	return ""
+}
 
 @(private = "file")
 @(require_results)

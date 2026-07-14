@@ -9,6 +9,8 @@ Director_Config :: struct {
 	spawn_x:      director.Word_Id,
 	spawn_y:      director.Word_Id,
 	world_entity: director.Word_Id,
+	dialog:       director.Word_Id,
+	text_id:      director.Word_Id,
 }
 
 Segment_Trigger :: struct {
@@ -100,6 +102,14 @@ director_trigger_aabb_contact :: proc(w: ^World) {
 		trigger.used = true
 		result := director.trigger(&w.director, director.Trigger{kind = .Entity, entity = director_entity.id})
 		assert(result.matched)
+		if director.entity_has_tag(&w.director, director_entity.id, w.director_config.dialog) {
+			w.active_dialog_text_id = director.entity_stat(
+				&w.director,
+				director_entity.id,
+				w.director_config.text_id,
+			)
+			w.dialog_active = true
+		}
 		apply_director_effects(w, result.effects)
 	}
 }

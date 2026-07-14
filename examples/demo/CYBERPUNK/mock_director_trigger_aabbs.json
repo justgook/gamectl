@@ -1,0 +1,10 @@
+{
+  "entity_ids": [1],
+  "components": [
+    {
+      "bounds": [-8, -8, 8, 8],
+      "once": true,
+      "used": false
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 {
   "spawn_x": 5,
   "spawn_y": 6,
-  "world_entity": 7
+  "world_entity": 7,
+  "dialog": 8,
+  "text_id": 9
 }
