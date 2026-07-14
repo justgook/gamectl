@@ -1,0 +1,193 @@
+{
+  "entities": [
+    {
+      "id": 0,
+      "stats": [
+        {
+          "key": 0,
+          "value": 100
+        },
+        {
+          "key": 1,
+          "value": 0
+        }
+      ],
+      "tags": [],
+      "links": []
+    },
+    {
+      "id": 1,
+      "tags": [],
+      "stats": [],
+      "links": []
+    },
+    {
+      "id": 2,
+      "tags": [3],
+      "stats": [
+        {
+          "key": 5,
+          "value": 11520
+        },
+        {
+          "key": 6,
+          "value": 5248
+        }
+      ],
+      "links": [
+        {
+          "key": 4,
+          "target": 4
+        }
+      ],
+      "removed": true
+    },
+    {
+      "id": 3,
+      "tags": [3],
+      "stats": [
+        {
+          "key": 5,
+          "value": 14080
+        },
+        {
+          "key": 6,
+          "value": 6528
+        }
+      ],
+      "links": [
+        {
+          "key": 4,
+          "target": 4
+        }
+      ],
+      "removed": true
+    },
+    {
+      "id": 4,
+      "tags": [],
+      "stats": [],
+      "links": []
+    }
+  ],
+  "rules": [
+    {
+      "id": 0,
+      "trigger": {
+        "kind": "Signal",
+        "signal": 2,
+        "matcher_index": 0
+      },
+      "changes": {
+        "offset": 0,
+        "count": 2
+      },
+      "conditions": {
+        "offset": 0,
+        "count": 0
+      }
+    },
+    {
+      "id": 1,
+      "trigger": {
+        "kind": "Entity_Matcher",
+        "matcher_index": 0,
+        "signal": 0
+      },
+      "changes": {
+        "offset": 2,
+        "count": 2
+      },
+      "weight": 10,
+      "conditions": {
+        "offset": 0,
+        "count": 0
+      }
+    }
+  ],
+  "matchers": [
+    {
+      "selector": {
+        "kind": "Trigger",
+        "entity": 0
+      },
+      "queries": {
+        "offset": 0,
+        "count": 1
+      }
+    }
+  ],
+  "queries": [
+    {
+      "kind": "Has_Tag",
+      "key": 3,
+      "op": "Eq",
+      "stat_value": {
+        "kind": "Immediate",
+        "entity": 0,
+        "key": 0
+      },
+      "link_value": {
+        "kind": "Specific_Matcher",
+        "entity": 0,
+        "key": 0
+      }
+    }
+  ],
+  "changes": [
+    {
+      "target": {
+        "kind": "Entity",
+        "entity": 2
+      },
+      "kind": "Spawn_Entity",
+      "link_target": {
+        "kind": "Entity",
+        "entity": 0,
+        "key": 0
+      },
+      "key": 0
+    },
+    {
+      "target": {
+        "kind": "Entity",
+        "entity": 3
+      },
+      "kind": "Spawn_Entity",
+      "link_target": {
+        "kind": "Entity",
+        "entity": 0,
+        "key": 0
+      },
+      "key": 0
+    },
+    {
+      "target": {
+        "kind": "Entity",
+        "entity": 0
+      },
+      "kind": "Inc_Stat",
+      "key": 1,
+      "int_value": 1,
+      "link_target": {
+        "kind": "Entity",
+        "entity": 0,
+        "key": 0
+      }
+    },
+    {
+      "target": {
+        "kind": "Trigger",
+        "entity": 0
+      },
+      "kind": "Remove_Entity",
+      "link_target": {
+        "kind": "Entity",
+        "entity": 0,
+        "key": 0
+      },
+      "key": 0
+    }
+  ],
+  "words": ["hp", "money", "enter_room_001", "coin", "prefab", "spawn_x", "spawn_y", "world_entity"]
+}

@@ -171,7 +171,7 @@ init :: proc(w: ^World) {
 	w.tilemap_pipe = tilemap_init(w.level_atlas, w.lut)
 	w.nine_patch_pipe = nine_patch_init(w.ui_atlas)
 	w.text_pipe = text_init(w.ui_atlas)
-	w.director = director.init(mock_director_data())
+	// w.director = director.init(mock_director_data())
 
 	// UI
 	w.ui_sprite.pipe = sprites_init(w.ui_atlas)

@@ -3,8 +3,10 @@ package main
 import "core:c"
 import "data_anim"
 import "data_bullet"
+import "data_director"
 import "data_level"
 import "data_ui"
+import "director"
 import "host"
 import sg "sokol/gfx"
 import qoi "third_party/qoi"
@@ -31,6 +33,7 @@ app_init :: proc() {
 	assert(load_data_anim("anim.rspk", &state.world))
 	assert(load_data_ui("ui.rspk", &state.world))
 	assert(load_data_level("level.rspk", &state.world))
+	assert(load_data_director("director.rspk", &state.world))
 
 
 	world.init(&state.world)
@@ -71,6 +74,19 @@ app_cleanup :: proc() {
 // core_handle_mouse_move :: proc(mouse_y: f32) {
 // 	state.mouse_y = mouse_y
 // }
+
+@(private = "file")
+load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
+	file_data := host.asset_read_all(filepath) or_return
+	game_data := data_director.open_respack(file_data) or_return
+
+	director_data := data_director.read_slot_0_director_director_data(game_data) or_return
+	w.director = director.init(director_data)
+
+	host.info("load_data_director", "director", director_data)
+
+	return true
+}
 
 @(private = "file")
 load_data_level :: proc(filepath: string, w: ^world.World) -> bool {

@@ -112,11 +112,11 @@ apply_director_effects :: proc(w: ^World, effects: []director.Effect) {
 
 @(private = "file")
 director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_Id) {
-	prefab, has_prefab := director.entity_link(&w.director, director_entity, MOCK_DIRECTOR_PREFAB)
-	assert(has_prefab)
-	assert(prefab == MOCK_DIRECTOR_COIN_PREFAB)
-	assert(director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_WORLD_ENTITY) == 0)
-	assert(len(w.uv) > 12)
+	// prefab, has_prefab := director.entity_link(&w.director, director_entity, MOCK_DIRECTOR_PREFAB)
+	// assert(has_prefab)
+	// assert(prefab == MOCK_DIRECTOR_COIN_PREFAB)
+	// assert(director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_WORLD_ENTITY) == 0)
+	// assert(len(w.uv) > 12)
 
 	spawn_x := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_SPAWN_X)
 	spawn_y := director.entity_stat(&w.director, director_entity, MOCK_DIRECTOR_SPAWN_Y)

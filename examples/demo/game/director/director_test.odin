@@ -9,7 +9,7 @@ import "core:testing"
 
 @(test)
 test_query_supports_nested_matchers_compare_links_and_not :: proc(t: ^testing.T) {
-	state := init(&test_data)
+	state := init(test_data)
 	defer destroy(&state)
 
 	event := Trigger {
@@ -37,7 +37,7 @@ test_query_supports_nested_matchers_compare_links_and_not :: proc(t: ^testing.T)
 
 @(test)
 test_entity_set_stat_updates_and_adds_runtime_stats :: proc(t: ^testing.T) {
-	state := init(&test_data)
+	state := init(test_data)
 	defer destroy(&state)
 
 	entity_set_stat(&state, E_PLAYER, W_strength, 8)
@@ -52,7 +52,7 @@ test_entity_set_stat_updates_and_adds_runtime_stats :: proc(t: ^testing.T) {
 
 @(test)
 test_signal_rule_applies_changes :: proc(t: ^testing.T) {
-	state := init(&test_data)
+	state := init(test_data)
 	defer destroy(&state)
 
 	result := trigger(&state, Trigger{kind = .Signal, signal = W_start})
@@ -62,7 +62,7 @@ test_signal_rule_applies_changes :: proc(t: ^testing.T) {
 
 @(test)
 test_specific_rule_weight_beats_generic_rule_and_uses_trigger_target :: proc(t: ^testing.T) {
-	state := init(&test_data)
+	state := init(test_data)
 	defer destroy(&state)
 
 	result := trigger(&state, Trigger{kind = .Entity, entity = E_TORCH})
@@ -73,7 +73,7 @@ test_specific_rule_weight_beats_generic_rule_and_uses_trigger_target :: proc(t: 
 
 @(test)
 test_update_all_applies_to_query_matches :: proc(t: ^testing.T) {
-	state := init(&test_data)
+	state := init(test_data)
 	defer destroy(&state)
 
 	result := trigger(&state, Trigger{kind = .Signal, signal = W_blinded})
@@ -86,7 +86,7 @@ test_update_all_applies_to_query_matches :: proc(t: ^testing.T) {
 
 @(test)
 test_conditioned_trigger_can_unlock_cave :: proc(t: ^testing.T) {
-	state := init(&test_data)
+	state := init(test_data)
 	defer destroy(&state)
 
 	result := trigger(&state, Trigger{kind = .Entity, entity = E_PLAYER})

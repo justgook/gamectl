@@ -1,0 +1,140 @@
+[
+  {
+    "id": 1,
+    "kind": 4,
+    "x": 80,
+    "y": 80,
+    "name": "Director source",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"CYBERPUNK/mock_director.json\""
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "kind": 2,
+    "x": 360,
+    "y": 80,
+    "name": "Read JSON",
+    "codePath": "ng/presets/read-json.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 1,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "kind": 2,
+    "x": 620,
+    "y": 80,
+    "name": "Director slots",
+    "codePath": "ng/presets/to-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "Director Data",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "slots",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "kind": 4,
+    "x": 620,
+    "y": 250,
+    "name": "Director respack",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "schema",
+        "value": "\"CYBERPUNK/director.rspk.json\""
+      },
+      {
+        "id": 2,
+        "name": "binary",
+        "value": "\"tmp/director.rspk\""
+      },
+      {
+        "id": 3,
+        "name": "decoder",
+        "value": "\"game/data_director/decoder.odin\""
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "kind": 2,
+    "x": 930,
+    "y": 100,
+    "name": "Respack Save",
+    "codePath": "ng/presets/respack-save.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "schema",
+        "srcNodeId": 4,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "slots",
+        "srcNodeId": 3,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "path_bin",
+        "srcNodeId": 4,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "path_decoder",
+        "srcNodeId": 4,
+        "srcOutputId": 3
+      }
+    ],
+    "outputs": []
+  }
+]

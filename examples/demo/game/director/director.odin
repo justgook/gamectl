@@ -10,7 +10,7 @@ package director
 //
 // Typical use:
 //
-//     state := director.init(&compiled_director_data)
+//     state := director.init(compiled_director_data)
 //     defer director.destroy(&state)
 //
 //     result := director.trigger(&state, director.Trigger{kind = .Signal, signal = START})
@@ -225,7 +225,9 @@ Entity_State :: struct {
 // Game code should treat fields as read-only and use package procedures to query
 // or advance state.
 State :: struct {
-	data:     ^Director_Data,
+	// Store the immutable data value so State does not borrow a pointer to a
+	// caller's stack variable. Its slices still reference their backing storage.
+	data:     Director_Data,
 	entities: [dynamic]Entity_State,
 	effects:  [dynamic]Effect,
 }
@@ -266,8 +268,7 @@ Result :: struct {
 
 // init creates mutable runtime State from immutable compiled Director_Data.
 @(require_results)
-init :: proc(data: ^Director_Data) -> State {
-	assert(data != nil)
+init :: proc(data: Director_Data) -> State {
 	state := State {
 		data = data,
 	}
@@ -358,11 +359,14 @@ query :: proc(state: ^State, matcher_index: u32, event: Trigger, out: ^[dynamic]
 	matcher := &state.data.matchers[matcher_index]
 	#partial switch matcher.selector.kind {
 	case .Entity:
-		if entity_is_active(state, matcher.selector.entity) && entity_matches_matcher(state, matcher, matcher.selector.entity, event) {
+		if entity_is_active(state, matcher.selector.entity) &&
+		   entity_matches_matcher(state, matcher, matcher.selector.entity, event) {
 			append(out, matcher.selector.entity)
 		}
 	case .Trigger:
-		if event.kind == .Entity && entity_is_active(state, event.entity) && entity_matches_matcher(state, matcher, event.entity, event) {
+		if event.kind == .Entity &&
+		   entity_is_active(state, event.entity) &&
+		   entity_matches_matcher(state, matcher, event.entity, event) {
 			append(out, event.entity)
 		}
 	case .Any:
