@@ -841,18 +841,6 @@ decode_director_director_data :: proc(r: ^Reader, out: ^director.Director_Data) 
 			}
 		}
 	}
-	{
-		count, ok := read_u32_reader(r)
-		if !ok {return false}
-		out.words = make([]string, int(count))
-		for i8 in 0 ..< int(count) {
-			{
-				s, ok := read_string_reader(r)
-				if !ok {return false}
-				out.words[i8] = s
-			}
-		}
-	}
 	return true
 }
 

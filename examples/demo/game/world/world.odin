@@ -228,25 +228,27 @@ init :: proc(w: ^World) {
 	// logic.add_component(&w.platformer_anim, player, platformer_anim_create_default(&w.animation_atlas.defs[0]))
 	anim := w.animation_atlas.defs
 	assert(len(anim) >= 15)
+
+	idleAnimID := 30
 	logic.add_component(
 		&w.platformer_anim,
 		player,
 		platformer_anim_create_char(
-			&anim[0], // idle
-			&anim[1], // run
-			&anim[2], // jump
-			&anim[3], // fall
-			&anim[4], // wall_slide
-			&anim[5], // dash
-			&anim[6], // land
-			&anim[7], // hurt
-			&anim[8], // death
-			&anim[9], // climb
-			&anim[10], // swim
-			&anim[11], // swim2 (vertical)
-			&anim[12], // swim_idle
-			&anim[14], // swim_jump
+			&anim[idleAnimID + 0], // idle
+			&anim[idleAnimID + 1], // run
+			&anim[idleAnimID + 2], // jump
+			&anim[idleAnimID + 3], // fall
+			&anim[idleAnimID + 4], // wall_slide
+			&anim[idleAnimID + 5], // dash
+			&anim[idleAnimID + 6], // land
+			&anim[idleAnimID + 7], // hurt
+			&anim[idleAnimID + 8], // death
+			&anim[idleAnimID + 9], // climb
+			&anim[idleAnimID + 10], // swim
+			&anim[idleAnimID + 11], // swim2 (vertical)
+			&anim[idleAnimID + 12], // swim_idle
 			// &anim[13], // swim_death
+			&anim[idleAnimID + 14], // swim_jump
 		),
 	)
 	// ["idle", "run", "jump", "fall","hang", "dash", "land", "hurt", "death", "climb", "swim", "swim2", "swim_idle", "swim_death","swim_jump"]

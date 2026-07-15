@@ -134,23 +134,10 @@ test_rules := [?]Rule {
 	{id = R_cleanup, trigger = {kind = .Signal, signal = W_cleanup}, changes = {offset = 5, count = 3}},
 }
 
-test_words := [?]string {
-	"item",
-	"location",
-	"dark",
-	"home_to",
-	"enemy",
-	"strength",
-	"armor",
-	"explored",
-	"start",
-	"locked",
-}
 test_data := Director_Data {
 	entities = test_entities[:],
 	rules    = test_rules[:],
 	matchers = test_matchers[:],
 	queries  = test_queries[:],
 	changes  = test_changes[:],
-	words    = test_words[:],
 }

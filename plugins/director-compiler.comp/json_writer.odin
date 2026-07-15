@@ -70,11 +70,6 @@ build_director_json :: proc() -> bool {
 		   !write_text(`,"link_target":{"kind":"`) || !write_text(link_target_kind_name(change.link_kind)) ||
 		   !write_text(`","entity":`) || !write_int(change.link_entity) || !write_text(`,"key":0}}`) {return false}
 	}
-	if !write_text(`],"words":[`) {return false}
-	for word_index in 0 ..< word_count {
-		if word_index > 0 && !write_byte(',') {return false}
-		if !write_byte('"') || !write_canonical_word(words[word_index], word_is_signal[word_index]) || !write_byte('"') {return false}
-	}
 	if !write_text(`],"value_paths":[],"path_steps":[],"symbols":{"entities":{`) {return false}
 	for entity_index in 0 ..< entity_count {
 		if entity_index > 0 && !write_byte(',') {return false}

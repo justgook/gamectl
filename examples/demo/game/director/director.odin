@@ -212,7 +212,6 @@ Director_Data :: struct {
 	matchers: []Matcher,
 	queries:  []Query,
 	changes:  []Change,
-	words:    []string, // Optional debug dictionary for Word_Id values.
 }
 
 Entity_State :: struct {

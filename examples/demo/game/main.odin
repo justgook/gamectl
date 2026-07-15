@@ -92,14 +92,6 @@ load_data_director :: proc(filepath: string, w: ^world.World) -> bool {
 	director_data := data_director.read_slot_0_director_director_data(game_data) or_return
 	w.director_config = data_director.read_slot_2_world_director_config(game_data) or_return
 	assert(u64(w.director_config.player) < u64(len(director_data.entities)))
-	assert(u64(w.director_config.spawn_x) < u64(len(director_data.words)))
-	assert(u64(w.director_config.spawn_y) < u64(len(director_data.words)))
-	assert(u64(w.director_config.world_entity) < u64(len(director_data.words)))
-	assert(u64(w.director_config.dialog) < u64(len(director_data.words)))
-	assert(u64(w.director_config.text_id) < u64(len(director_data.words)))
-	for answer_link in w.director_config.answer_links {
-		assert(u64(answer_link) < u64(len(director_data.words)))
-	}
 	w.director = director.init(director_data)
 
 	segment_trigger_defs := data_director.read_slot_1_segment_trigger_defs(game_data) or_return

@@ -107,7 +107,7 @@ Cave
 cAvE
 ```
 
-Identifiers are ASCII-only in v1 and use ASCII lowercase as their canonical identity. The compiler emits canonical lowercase names into the IR `words` table while retaining the author's original spelling and source span for diagnostics. Unicode identifiers and Unicode case folding are not supported.
+Identifiers are ASCII-only in v1 and use ASCII lowercase as their canonical identity. The compiler emits canonical lowercase names in symbol metadata while retaining the author's original spelling and source span for diagnostics. Runtime IR contains only numeric word IDs. Unicode identifiers and Unicode case folding are not supported.
 
 Case variants are therefore duplicates rather than distinct declarations:
 
@@ -636,9 +636,9 @@ The rule's IR weight is the sum of its trigger and condition contributions. Nest
 
 ### Word identity and deterministic output
 
-The compiler interns canonical lowercase property names and quoted signals by first semantic occurrence in source order. Entity identifiers are not added to `words` merely because they declare or reference entities. Repeated spellings and case variants reuse the existing word ID.
+The compiler interns canonical lowercase property names and quoted signals by first semantic occurrence in source order. Entity identifiers do not allocate word IDs merely because they declare or reference entities. Repeated spellings and case variants reuse the existing word ID. Canonical names and their IDs are emitted in symbol metadata, not in runtime IR.
 
-Word collection occurs from the validated semantic AST before IR flattening so lowering traversal details cannot change word IDs. Given identical source and compiler version, compilation must produce byte-identical JSON output.
+Word-ID allocation occurs from the validated semantic AST before IR flattening so lowering traversal details cannot change IDs. Given identical source and compiler version, compilation must produce byte-identical JSON output.
 
 ### Entity identity and references
 

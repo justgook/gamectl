@@ -44,7 +44,6 @@ assert.deepEqual(JSON.parse(result.ok), {
   matchers: [],
   queries: [],
   changes: [],
-  words: [],
   value_paths: [],
   path_steps: [],
   symbols: { entities: {}, words: {} },
@@ -82,7 +81,6 @@ assert.deepEqual(JSON.parse(entities.ok), {
   matchers: [],
   queries: [],
   changes: [],
-  words: ['money', 'mp', 'hp', 'item', 'illumination', 'current_location', 'location', 'dark'],
   value_paths: [],
   path_steps: [],
   symbols: {
@@ -179,7 +177,6 @@ assert.deepEqual(mockLikeIr.rules[0], {
   changes: { offset: 0, count: 9 },
   weight: 0,
 })
-assert.equal(mockLikeIr.words[5], 'enter_"room\\a#1', 'quoted signal must be unescaped and canonicalized')
 assert.equal(mockLikeIr.symbols.entities.player, 0, 'entity symbols must use canonical lowercase names')
 assert.equal(mockLikeIr.symbols.words['enter_"room\\a#1'], 5, 'word symbols must use canonical unescaped names')
 assert.deepEqual(mockLikeIr.changes.map(({ target, kind, key, int_value }) => ({
@@ -206,10 +203,6 @@ assert.equal(cyberpunk.err, undefined, `CYBERPUNK Director source failed: ${JSON
 const cyberpunkIr = JSON.parse(cyberpunk.ok)
 assert.equal(cyberpunkIr.entities.length, 15)
 assert.equal(cyberpunkIr.rules.length, 8)
-assert.deepEqual(cyberpunkIr.words, [
-  'hp', 'money', 'enter_room_001', 'coin', 'prefab', 'spawn_x', 'spawn_y',
-  'world_entity', 'dialog', 'text_id', 'answer_1', 'answer_2', 'answer_3', 'answer_4',
-])
 assert.deepEqual(cyberpunkIr.symbols, {
   entities: {
     player: 0,

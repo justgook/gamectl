@@ -284,10 +284,6 @@
         "changes": {
           "type": "vector",
           "value": "director.Change"
-        },
-        "words": {
-          "type": "vector",
-          "value": "string"
         }
       }
     },

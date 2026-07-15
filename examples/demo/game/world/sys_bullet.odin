@@ -112,7 +112,7 @@ sys_bullet :: proc(w: ^World) {
 		logic.add_component(&w.bullet, child, Bullet{state = spawn.state})
 		logic.add_component(&w.position, child, spawn.position)
 		logic.add_component(&w.velocity, child, spawn.velocity)
-		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[12]})
+		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[100]})
 		logic.add_component(&w.player_hit, child, shape.Circle{radius = 4 * UNIT})
 	}
 }
