@@ -4,8 +4,9 @@
 -- Input:
 --   object: object table, or array of object tables
 --
--- Each active output reads the property with the same name as the output port.
--- If the input is an array, each output receives an array of that property from every object.
+-- Each active output reads the property path with the same name as the output port.
+-- Dot-separated names traverse nested objects (for example, "words.spawn_x").
+-- If the input is an array, each output receives an array of that path from every object.
 
 local value = inputs[1]
 if not inputs.active[1] then
@@ -36,11 +37,27 @@ local function array_length(t)
 	return count
 end
 
-local function extract_object_property(object, propertyName)
-	if type(object) ~= "table" then
-		error("array item must be an object table")
+local function validate_property_path(propertyPath)
+	if propertyPath:sub(1, 1) == "."
+		or propertyPath:sub(-1) == "."
+		or propertyPath:find("..", 1, true) ~= nil
+	then
+		error("output property path '" .. propertyPath .. "' is invalid")
 	end
-	return object[propertyName]
+end
+
+local function extract_object_path(object, propertyPath)
+	local current = object
+	for propertyName in propertyPath:gmatch("[^.]+") do
+		if type(current) ~= "table" then
+			error("property path '" .. propertyPath .. "' cannot traverse '" .. propertyName .. "'")
+		end
+		current = current[propertyName]
+		if current == nil then
+			return nil
+		end
+	end
+	return current
 end
 
 local outputIds = {}
@@ -57,19 +74,20 @@ for _, outputId in ipairs(outputIds) do
 	if type(propertyName) ~= "string" or propertyName == "" then
 		error("output '" .. tostring(outputId) .. "' must have a non-empty name")
 	end
+	validate_property_path(propertyName)
 
 	if count ~= nil then
 		local result = {}
 		for index = 1, count do
-			local itemValue = extract_object_property(value[index], propertyName)
+			local itemValue = extract_object_path(value[index], propertyName)
 			if itemValue == nil then
-				error("array item '" .. tostring(index) .. "' property '" .. propertyName .. "' is nil")
+				error("array item '" .. tostring(index) .. "' property path '" .. propertyName .. "' is nil")
 			end
 			result[index] = itemValue
 		end
 		outputs[outputId] = result
 	else
-		local itemValue = extract_object_property(value, propertyName)
+		local itemValue = extract_object_path(value, propertyName)
 		if itemValue == nil then
 			outputs.active[outputId] = false
 			outputs.active[propertyName] = false

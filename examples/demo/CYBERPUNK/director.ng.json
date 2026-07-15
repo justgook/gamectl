@@ -145,102 +145,52 @@
     "outputs": [
       {
         "id": 1,
-        "name": "entities",
+        "name": "entities.player",
         "value": null
       },
       {
         "id": 2,
-        "name": "words",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 18,
-    "kind": 2,
-    "x": 1035,
-    "y": 210,
-    "name": "Entity symbols",
-    "codePath": "ng/presets/from-object.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "object",
-        "srcNodeId": 17,
-        "srcOutputId": 1
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "player",
-        "value": null
-      }
-    ]
-  },
-  {
-    "id": 19,
-    "kind": 2,
-    "x": 1034,
-    "y": 285,
-    "name": "Word symbols",
-    "codePath": "ng/presets/from-object.lua",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [
-      {
-        "id": 1,
-        "name": "object",
-        "srcNodeId": 17,
-        "srcOutputId": 2
-      }
-    ],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "spawn_x",
-        "value": null
-      },
-      {
-        "id": 2,
-        "name": "spawn_y",
+        "name": "words.spawn_x",
         "value": null
       },
       {
         "id": 3,
-        "name": "world_entity",
+        "name": "words.spawn_y",
         "value": null
       },
       {
         "id": 4,
-        "name": "dialog",
+        "name": "words.world_entity",
         "value": null
       },
       {
         "id": 5,
-        "name": "text_id",
+        "name": "words.dialog",
         "value": null
       },
       {
         "id": 6,
-        "name": "answer_1",
+        "name": "words.text_id",
         "value": null
       },
       {
         "id": 7,
-        "name": "answer_2",
+        "name": "words.answer_1",
         "value": null
       },
       {
         "id": 8,
-        "name": "answer_3",
+        "name": "words.answer_2",
         "value": null
       },
       {
         "id": 9,
-        "name": "answer_4",
+        "name": "words.answer_3",
+        "value": null
+      },
+      {
+        "id": 10,
+        "name": "words.answer_4",
         "value": null
       }
     ]
@@ -258,26 +208,26 @@
       {
         "id": 1,
         "name": "answer_1",
-        "srcNodeId": 19,
-        "srcOutputId": 6
+        "srcNodeId": 17,
+        "srcOutputId": 7
       },
       {
         "id": 2,
         "name": "answer_2",
-        "srcNodeId": 19,
-        "srcOutputId": 7
+        "srcNodeId": 17,
+        "srcOutputId": 8
       },
       {
         "id": 3,
         "name": "answer_3",
-        "srcNodeId": 19,
-        "srcOutputId": 8
+        "srcNodeId": 17,
+        "srcOutputId": 9
       },
       {
         "id": 4,
         "name": "answer_4",
-        "srcNodeId": 19,
-        "srcOutputId": 9
+        "srcNodeId": 17,
+        "srcOutputId": 10
       }
     ],
     "outputs": [
@@ -301,38 +251,38 @@
       {
         "id": 1,
         "name": "player",
-        "srcNodeId": 18,
+        "srcNodeId": 17,
         "srcOutputId": 1
       },
       {
         "id": 2,
         "name": "spawn_x",
-        "srcNodeId": 19,
-        "srcOutputId": 1
+        "srcNodeId": 17,
+        "srcOutputId": 2
       },
       {
         "id": 3,
         "name": "spawn_y",
-        "srcNodeId": 19,
-        "srcOutputId": 2
+        "srcNodeId": 17,
+        "srcOutputId": 3
       },
       {
         "id": 4,
         "name": "world_entity",
-        "srcNodeId": 19,
-        "srcOutputId": 3
+        "srcNodeId": 17,
+        "srcOutputId": 4
       },
       {
         "id": 5,
         "name": "dialog",
-        "srcNodeId": 19,
-        "srcOutputId": 4
+        "srcNodeId": 17,
+        "srcOutputId": 5
       },
       {
         "id": 6,
         "name": "text_id",
-        "srcNodeId": 19,
-        "srcOutputId": 5
+        "srcNodeId": 17,
+        "srcOutputId": 6
       },
       {
         "id": 7,
