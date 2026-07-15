@@ -743,6 +743,23 @@
               "group": "Data"
             },
             {
+              "name": "Director Compile",
+              "kind": "code",
+              "codePath": "ng/presets/director-compile.lua",
+              "inputs": [
+                {
+                  "name": "source",
+                  "defaultValue": ""
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "data"
+                }
+              ],
+              "group": "Director"
+            },
+            {
               "name": "toArray",
               "kind": "code",
               "codePath": "ng/presets/to-array.lua",

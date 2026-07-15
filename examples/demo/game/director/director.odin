@@ -129,6 +129,7 @@ Change_Kind :: enum u8 {
 	Remove_Link,
 	Spawn_Entity,
 	Remove_Entity,
+	Remove_Property,
 }
 
 Change_Target_Kind :: enum u8 {
@@ -622,6 +623,10 @@ apply_change_to_entity :: proc(state: ^State, entity_id: Entity_Id, change: ^Cha
 	case .Remove_Entity:
 		entity.removed = true
 		append(&state.effects, Effect{kind = .Remove, entity = entity_id})
+	case .Remove_Property:
+		remove_tag(entity, change.key)
+		remove_stat(entity, change.key)
+		remove_link(entity, change.key)
 	}
 }
 

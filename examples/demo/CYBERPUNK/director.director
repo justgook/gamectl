@@ -1,0 +1,53 @@
+# Player and world entities. Declaration order is part of the packed ID contract.
+PLAYER.hp = 100.money = 0
+SEGMENT_TRIGGER.enter_room_001
+COIN_A.coin.prefab = COIN_PREFAB.spawn_x = 11520.spawn_y = 5248
+COIN_B.coin.prefab = COIN_PREFAB.spawn_x = 14080.spawn_y = 6528
+COIN_PREFAB
+WORLD_TRIGGER.world_entity = 0
+
+# Dialog nodes and answers.
+DIALOG_ROOT.dialog.text_id = 1.answer_1 = JOB_ANSWER.answer_2 = DAMAGE_ANSWER.answer_3 = HEAL_ANSWER.answer_4 = LEAVE_DIALOG_ANSWER
+DIALOG_JOB_RESULT.dialog.text_id = 2.answer_1 = LEAVE_ANSWER
+DIALOG_DAMAGE_RESULT.dialog.text_id = 3.answer_1 = LEAVE_ANSWER
+DIALOG_HEAL_RESULT.dialog.text_id = 4.answer_1 = LEAVE_ANSWER
+JOB_ANSWER.text_id = 10
+DAMAGE_ANSWER.text_id = 11
+HEAL_ANSWER.text_id = 12
+LEAVE_DIALOG_ANSWER.text_id = 13
+LEAVE_ANSWER.text_id = 14
+
+# Entering the segment creates the two coin entities.
+ON: "enter_room_001"
+DO: +COIN_A
+    +COIN_B
+
+# Collecting a coin awards money and removes the triggering entity.
+ON: *.coin
+DO: PLAYER.money + 1
+    -$
+
+# The world trigger opens the root dialog.
+ON: WORLD_TRIGGER
+DO: PLAYER.dialog = DIALOG_ROOT
+
+# Dialog answer effects.
+ON: JOB_ANSWER
+DO: PLAYER.hp - 10
+    .money + 25
+    .dialog = DIALOG_JOB_RESULT
+
+ON: DAMAGE_ANSWER
+DO: PLAYER.hp - 20
+    .money + 50
+    .dialog = DIALOG_DAMAGE_RESULT
+
+ON: HEAL_ANSWER
+DO: PLAYER.hp + 5
+    .dialog = DIALOG_HEAL_RESULT
+
+ON: LEAVE_DIALOG_ANSWER
+DO: PLAYER.-dialog
+
+ON: LEAVE_ANSWER
+DO: PLAYER.-dialog

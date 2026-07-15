@@ -75,6 +75,32 @@ test_rule_can_remove_link :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_remove_property_removes_tags_stats_and_links_and_absent_is_noop :: proc(t: ^testing.T) {
+	state := init(test_data)
+	defer destroy(&state)
+
+	testing.expect(t, entity_has_tag(&state, E_CAVE, W_locked))
+	testing.expectf(t, entity_stat(&state, E_PLAYER, W_strength) == 5, "player strength fixture missing")
+	_, had_location := entity_link(&state, E_PLAYER, W_location)
+	testing.expect(t, had_location)
+
+	result := trigger(&state, Trigger{kind = .Signal, signal = W_cleanup})
+	testing.expectf(t, result.matched && result.rule == R_cleanup, "cleanup result = %v", result)
+	testing.expect(t, !entity_has_tag(&state, E_CAVE, W_locked))
+	testing.expectf(t, entity_stat(&state, E_PLAYER, W_strength) == 0, "cleanup should remove strength stat")
+	_, has_location := entity_link(&state, E_PLAYER, W_location)
+	testing.expect(t, !has_location)
+
+	// Applying the same changes again exercises removal of absent properties.
+	result = trigger(&state, Trigger{kind = .Signal, signal = W_cleanup})
+	testing.expectf(t, result.matched && result.rule == R_cleanup, "repeated cleanup result = %v", result)
+	testing.expect(t, !entity_has_tag(&state, E_CAVE, W_locked))
+	testing.expectf(t, entity_stat(&state, E_PLAYER, W_strength) == 0, "absent stat removal should be a no-op")
+	_, has_location = entity_link(&state, E_PLAYER, W_location)
+	testing.expect(t, !has_location)
+}
+
+@(test)
 test_specific_rule_weight_beats_generic_rule_and_uses_trigger_target :: proc(t: ^testing.T) {
 	state := init(test_data)
 	defer destroy(&state)

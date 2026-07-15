@@ -2,8 +2,8 @@
   {
     "id": 1,
     "kind": 4,
-    "x": 80,
-    "y": 80,
+    "x": 23,
+    "y": 79,
     "name": "Director source",
     "codePath": "",
     "graphId": 0,
@@ -13,7 +13,7 @@
       {
         "id": 1,
         "name": "",
-        "value": "\"CYBERPUNK/mock_director.json\""
+        "value": "\"CYBERPUNK/director.director\""
       }
     ]
   },
@@ -22,8 +22,8 @@
     "kind": 2,
     "x": 360,
     "y": 80,
-    "name": "Read JSON",
-    "codePath": "ng/presets/read-json.lua",
+    "name": "Read File",
+    "codePath": "ng/presets/read-file.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
@@ -37,7 +37,7 @@
     "outputs": [
       {
         "id": 1,
-        "name": "data",
+        "name": "content",
         "value": null
       },
       {
@@ -48,10 +48,35 @@
     ]
   },
   {
+    "id": 16,
+    "kind": 2,
+    "x": 540,
+    "y": 80,
+    "name": "Director Compile",
+    "codePath": "ng/presets/director-compile.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "source",
+        "srcNodeId": 2,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      }
+    ]
+  },
+  {
     "id": 6,
     "kind": 4,
-    "x": 73,
-    "y": 205,
+    "x": 16,
+    "y": 204,
     "name": "Segment triggers source",
     "codePath": "",
     "graphId": 0,
@@ -98,8 +123,8 @@
   {
     "id": 8,
     "kind": 4,
-    "x": 73,
-    "y": 330,
+    "x": 16,
+    "y": 329,
     "name": "Director config source",
     "codePath": "",
     "graphId": 0,
@@ -146,8 +171,8 @@
   {
     "id": 3,
     "kind": 2,
-    "x": 620,
-    "y": 80,
+    "x": 799,
+    "y": 99,
     "name": "Director slots",
     "codePath": "ng/presets/to-array.lua",
     "graphId": 0,
@@ -156,7 +181,7 @@
       {
         "id": 1,
         "name": "Director Data",
-        "srcNodeId": 2,
+        "srcNodeId": 16,
         "srcOutputId": 1
       },
       {
@@ -201,8 +226,8 @@
   {
     "id": 4,
     "kind": 4,
-    "x": 620,
-    "y": 250,
+    "x": 799,
+    "y": 269,
     "name": "Director respack",
     "codePath": "",
     "graphId": 0,
@@ -229,8 +254,8 @@
   {
     "id": 5,
     "kind": 2,
-    "x": 930,
-    "y": 100,
+    "x": 1109,
+    "y": 119,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
     "graphId": 0,
@@ -266,8 +291,8 @@
   {
     "id": 10,
     "kind": 4,
-    "x": 73,
-    "y": 455,
+    "x": 16,
+    "y": 454,
     "name": "Director trigger AABBs source",
     "codePath": "",
     "graphId": 0,
@@ -299,15 +324,23 @@
       }
     ],
     "outputs": [
-      {"id": 1, "name": "data", "value": null},
-      {"id": 2, "name": "error", "value": null}
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
     ]
   },
   {
     "id": 12,
     "kind": 4,
-    "x": 73,
-    "y": 580,
+    "x": 16,
+    "y": 579,
     "name": "Positions source",
     "codePath": "",
     "graphId": 0,
@@ -339,15 +372,23 @@
       }
     ],
     "outputs": [
-      {"id": 1, "name": "data", "value": null},
-      {"id": 2, "name": "error", "value": null}
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
     ]
   },
   {
     "id": 14,
     "kind": 4,
-    "x": 73,
-    "y": 705,
+    "x": 16,
+    "y": 704,
     "name": "Director entities source",
     "codePath": "",
     "graphId": 0,
@@ -379,8 +420,16 @@
       }
     ],
     "outputs": [
-      {"id": 1, "name": "data", "value": null},
-      {"id": 2, "name": "error", "value": null}
+      {
+        "id": 1,
+        "name": "data",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "error",
+        "value": null
+      }
     ]
   }
 ]

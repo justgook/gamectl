@@ -72,8 +72,6 @@ if type(slots) == "string" then
 else
 	slots_json = json.encode(slots)
 end
-host.call("ui.toast.warning", slots_json)
-
 local byte_data = host.call("respack/respack::build", schema, slots_json)
 ensureParentDirs(path_bin)
 host.call("fs/fs::write-file", path_bin, byte_data)

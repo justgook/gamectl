@@ -6,8 +6,8 @@ Accepted
 
 ## Source material
 
-- `examples/demo/CYBERPUNK/mock_director.json` — current numeric Director IR example.
-- `examples/demo/CYBERPUNK/director.rspk.json` — current Director data schema.
+- `examples/demo/CYBERPUNK/director.director` — authored Director DSL example used by the demo graph.
+- `examples/demo/CYBERPUNK/director.rspk.json` — current Director data schema and compiled JSON IR contract.
 - [Elm Narrative Engine 6.0.3](https://package.elm-lang.org/packages/jschomay/elm-narrative-engine/latest/) — inspiration for the world model, matcher, change, and rule syntax.
 - [Elm Narrative Engine entity parser](https://github.com/jschomay/elm-narrative-engine/blob/cc613b8b002a3eed794505f0cc37d080d75d6c8d/src/NarrativeEngine/Syntax/EntityParser.elm)
 - [Elm Narrative Engine rule parser](https://github.com/jschomay/elm-narrative-engine/blob/cc613b8b002a3eed794505f0cc37d080d75d6c8d/src/NarrativeEngine/Syntax/RuleParser.elm)
@@ -716,7 +716,7 @@ Nested structures must not disturb the source ordering or contiguity required by
 
 ### Compiler output
 
-The compiler returns Director IR encoded as JSON text, based on the shape demonstrated by `examples/demo/CYBERPUNK/mock_director.json` and defined by `examples/demo/CYBERPUNK/director.rspk.json`. The schema must be extended with the explicitly specified generic property removal and structured path comparison facilities.
+The compiler returns Director IR encoded as JSON text using the contract defined by `examples/demo/CYBERPUNK/director.rspk.json`. The schema includes the explicitly specified generic property-removal facilities and remains the integration point for structured path comparison additions.
 
 The compiler does not pack resource data. When packed output is needed, the JSON Director IR is passed to `respack.comp`; this keeps Director source compilation separate from generic resource packing.
 

@@ -7,6 +7,7 @@ MAX_CHANGES :: 16384
 MAX_MATCHER_QUERIES :: 128
 
 Selector_Kind :: enum {Entity, Any, Trigger}
+Trigger_Kind :: enum {Entity_Matcher, Signal}
 Query_Kind :: enum {Has_Tag, Has_Stat, Has_Link, Not}
 Compare_Op :: enum {Eq, Gt, Lt}
 Change_Target_Kind :: enum {Entity, Trigger, All_Matching}
@@ -14,6 +15,8 @@ Change_Kind :: enum {Add_Tag, Remove_Property, Set_Stat, Inc_Stat, Dec_Stat, Set
 Link_Target_Kind :: enum {Entity, Trigger}
 
 Rule_Data :: struct {
+	trigger_kind:     Trigger_Kind,
+	signal:           int,
 	matcher_index:    int,
 	condition_offset: int,
 	condition_count:  int,
@@ -39,13 +42,14 @@ Query_Data :: struct {
 }
 
 Change_Data :: struct {
-	target_kind: Selector_Kind,
-	entity:      int,
-	kind:        Change_Kind,
-	key:         int,
-	int_value:   i32,
-	link_kind:   Link_Target_Kind,
-	link_entity: int,
+	target_kind:   Change_Target_Kind,
+	entity:        int,
+	matcher_index: int,
+	kind:          Change_Kind,
+	key:           int,
+	int_value:     i32,
+	link_kind:     Link_Target_Kind,
+	link_entity:   int,
 }
 
 Matcher_Query_Source :: struct {
@@ -65,6 +69,7 @@ queries: [MAX_QUERIES]Query_Data
 query_count: int
 changes: [MAX_CHANGES]Change_Data
 change_count: int
+trigger_references_allowed: bool
 
 reset_rules :: proc() {
 	rule_count = 0
@@ -85,20 +90,37 @@ parse_rules_from :: proc(start: int, start_line: u32) -> bool {
 		for cursor < len(compiler_source) && compiler_source[cursor] != '\n' {cursor += 1}
 		line_end := cursor
 		if cursor < len(compiler_source) {cursor += 1}
-		content_end := line_end
-		for i in line_start ..< line_end {
-			if compiler_source[i] == '#' {content_end = i; break}
-		}
+		content_end := source_content_end(line_start, line_end)
 		for content_end > line_start && is_horizontal_space(compiler_source[content_end-1]) {content_end -= 1}
 		first := line_start
 		for first < content_end && is_horizontal_space(compiler_source[first]) {first += 1}
 		if first == content_end {line += 1; continue}
+		if compiler_source[first] == '.' && first == line_start {
+			if active_rule < 0 || section != 2 || rules[active_rule].change_count == 0 {
+				add_simple_diagnostic("parse-orphan-continuation", "property continuation has no preceding compatible change", first, content_end, line)
+				return false
+			}
+			before := change_count
+			if !parse_change_properties(changes[change_count - 1], first, content_end, line) {return false}
+			rules[active_rule].change_count += change_count - before
+			line += 1
+			continue
+		}
 		if first != line_start {
 			if active_rule < 0 || (section != 1 && section != 2) {
 				add_simple_diagnostic("parse-unexpected-indentation", "indented expression requires active IF or DO section", first, content_end, line)
 				return false
 			}
-			if section == 1 {
+			if compiler_source[first] == '.' {
+				if section != 2 || rules[active_rule].change_count == 0 {
+					add_simple_diagnostic("parse-orphan-continuation", "property continuation has no preceding compatible change", first, content_end, line)
+					return false
+				}
+				before := change_count
+				if !parse_change_properties(changes[change_count - 1], first, content_end, line) {return false}
+				rules[active_rule].change_count += change_count - before
+			} else if section == 1 {
+				trigger_references_allowed = rules[active_rule].trigger_kind == .Entity_Matcher
 				matcher_index, ok := parse_matcher(first, content_end, line)
 				if !ok {return false}
 				expected := rules[active_rule].condition_offset + rules[active_rule].condition_count
@@ -109,6 +131,7 @@ parse_rules_from :: proc(start: int, start_line: u32) -> bool {
 				rules[active_rule].condition_count += 1
 				rules[active_rule].weight += matcher_weight(matchers[matcher_index], true)
 			} else {
+				trigger_references_allowed = rules[active_rule].trigger_kind == .Entity_Matcher
 				before := change_count
 				if !parse_change(first, content_end, line) {return false}
 				rules[active_rule].change_count += change_count - before
@@ -135,14 +158,34 @@ parse_rules_from :: proc(start: int, start_line: u32) -> bool {
 				return false
 			}
 			if rule_count >= MAX_RULES {return false}
-			matcher_index, ok := parse_matcher(value_start, content_end, line)
-			if !ok {return false}
+			trigger_kind := Trigger_Kind.Entity_Matcher
+			signal := 0
+			matcher_index := 0
+			weight := 0
+			if compiler_source[value_start] == '"' {
+				signal_text, signal_end, signal_ok := parse_quoted_signal(value_start, content_end)
+				if !signal_ok || skip_horizontal_space(signal_end, content_end) != content_end {
+					add_simple_diagnostic("parse-unexpected-token", "expected one quoted signal trigger", value_start, content_end, line)
+					return false
+				}
+				signal = intern_signal_word(signal_text)
+				if signal < 0 {return false}
+				trigger_kind = .Signal
+			} else {
+				trigger_references_allowed = false
+				ok: bool
+				matcher_index, ok = parse_matcher(value_start, content_end, line)
+				if !ok {return false}
+				weight = matcher_weight(matchers[matcher_index], false)
+			}
 			active_rule = rule_count
 			rules[rule_count] = Rule_Data{
+				trigger_kind=trigger_kind,
+				signal=signal,
 				matcher_index=matcher_index,
 				condition_offset=0,
 				change_offset=change_count,
-				weight=matcher_weight(matchers[matcher_index], false),
+				weight=weight,
 			}
 			rule_count += 1
 			has_do = false
@@ -152,6 +195,7 @@ parse_rules_from :: proc(start: int, start_line: u32) -> bool {
 				add_simple_diagnostic("parse-invalid-rule-order", "DO requires one active rule after ON", first, keyword_end, line)
 				return false
 			}
+			trigger_references_allowed = rules[active_rule].trigger_kind == .Entity_Matcher
 			before := change_count
 			if !parse_change(value_start, content_end, line) {return false}
 			rules[active_rule].change_count += change_count - before
@@ -162,6 +206,7 @@ parse_rules_from :: proc(start: int, start_line: u32) -> bool {
 				add_simple_diagnostic("parse-invalid-rule-order", "IF must occur once between ON and DO", first, keyword_end, line)
 				return false
 			}
+			trigger_references_allowed = rules[active_rule].trigger_kind == .Entity_Matcher
 			matcher_index, ok := parse_matcher(value_start, content_end, line)
 			if !ok {return false}
 			rules[active_rule].condition_offset = matcher_index
@@ -198,6 +243,10 @@ parse_matcher :: proc(start, end: int, line: u32) -> (int, bool) {
 		selector_kind = .Any
 		pos += 1
 	} else if compiler_source[pos] == '$' {
+		if !trigger_references_allowed {
+			add_simple_diagnostic("semantic-invalid-trigger-reference", "trigger-relative matcher requires an entity trigger", pos, pos + 1, line)
+			return -1, false
+		}
 		selector_kind = .Trigger
 		pos += 1
 	} else {
@@ -300,59 +349,153 @@ parse_matcher :: proc(start, end: int, line: u32) -> (int, bool) {
 
 parse_change :: proc(start, end: int, line: u32) -> bool {
 	pos := start
-	target_kind := Selector_Kind.Entity
-	target_entity := 0
-	if compiler_source[pos] == '$' {
-		target_kind = .Trigger
+	if compiler_source[pos] == '+' || compiler_source[pos] == '-' {
+		spawn := compiler_source[pos] == '+'
 		pos += 1
-	} else {
-		name, next, ok := parse_entity_identifier(pos, end)
+		target, next, ok := parse_change_target(pos, end, line)
 		if !ok {return false}
-		target_entity = find_entity(name)
-		if target_entity < 0 {return false}
-		pos = next
-	}
-	pos = skip_horizontal_space(pos, end)
-	if pos >= end || compiler_source[pos] != '.' {return false}
-	pos += 1
-	pos = skip_horizontal_space(pos, end)
-	property, next, ok := parse_property_identifier(pos, end)
-	if !ok {return false}
-	key := intern_word(property)
-	pos = skip_horizontal_space(next, end)
-	if pos >= end || compiler_source[pos] != '=' {return false}
-	pos += 1
-	pos = skip_horizontal_space(pos, end)
-	link_kind := Link_Target_Kind.Entity
-	link_entity := 0
-	change_kind := Change_Kind.Set_Link
-	int_value: i32 = 0
-	value, value_end, number_ok := parse_i32(pos, end)
-	if number_ok {
-		change_kind = .Set_Stat
-		int_value = value
-		pos = value_end
-	} else if pos < end && compiler_source[pos] == '$' {
-		link_kind = .Trigger
-		pos += 1
-	} else {
-		target, target_end, target_ok := parse_entity_identifier(pos, end)
-		if !target_ok {return false}
-		link_entity = find_entity(target)
-		if link_entity < 0 {
-			add_simple_diagnostic("semantic-unknown-entity", "unknown entity reference", target.start, target.end, line)
+		if spawn && target.target_kind != .Entity {
+			add_simple_diagnostic("semantic-invalid-spawn-target", "spawn requires a specific declared entity", start, next, line)
 			return false
 		}
-		pos = target_end
+		if skip_horizontal_space(next, end) != end {return false}
+		target.kind = .Remove_Entity
+		if spawn {
+			target.kind = .Spawn_Entity
+			entities[target.entity].spawned = true
+		}
+		return append_change(target)
 	}
-	pos = skip_horizontal_space(pos, end)
-	if pos != end {return false}
-	changes[change_count] = Change_Data{
-		target_kind=target_kind, entity=target_entity, kind=change_kind, key=key,
-		int_value=int_value, link_kind=link_kind, link_entity=link_entity,
+
+	target, target_end, ok := parse_change_target(pos, end, line)
+	if !ok {return false}
+	pos = skip_horizontal_space(target_end, end)
+	return parse_change_properties(target, pos, end, line)
+}
+
+parse_change_target :: proc(start, end: int, line: u32) -> (Change_Data, int, bool) {
+	pos := start
+	result := Change_Data{target_kind=.Entity, link_kind=.Entity}
+	if pos < end && compiler_source[pos] == '$' {
+		if !trigger_references_allowed {
+			add_simple_diagnostic("semantic-invalid-trigger-reference", "trigger-relative change requires an entity trigger", pos, pos + 1, line)
+			return result, start, false
+		}
+		result.target_kind = .Trigger
+		return result, pos + 1, true
 	}
+	if pos < end && compiler_source[pos] == '(' {
+		close := pos + 1
+		for close < end && compiler_source[close] != ')' {close += 1}
+		if close >= end {return result, start, false}
+		matcher, ok := parse_matcher(pos + 1, close, line)
+		if !ok {return result, start, false}
+		result.target_kind = .All_Matching
+		result.matcher_index = matcher
+		return result, close + 1, true
+	}
+	name, next, ok := parse_entity_identifier(pos, end)
+	if !ok {return result, start, false}
+	result.entity = find_entity(name)
+	if result.entity < 0 {
+		add_simple_diagnostic("semantic-unknown-entity", "unknown entity reference", name.start, name.end, line)
+		return result, start, false
+	}
+	return result, next, true
+}
+
+parse_change_properties :: proc(target: Change_Data, start, end: int, line: u32) -> bool {
+	pos := start
+	parsed := false
+	for {
+		pos = skip_horizontal_space(pos, end)
+		if pos >= end {return parsed}
+		if compiler_source[pos] != '.' {return false}
+		pos += 1
+		pos = skip_horizontal_space(pos, end)
+		remove := false
+		if pos < end && compiler_source[pos] == '-' {
+			remove = true
+			pos += 1
+		}
+		property, next, ok := parse_property_identifier(pos, end)
+		if !ok {return false}
+		change := target
+		change.key = intern_word(property)
+		change.kind = .Add_Tag
+		change.int_value = 0
+		change.link_kind = .Entity
+		change.link_entity = 0
+		pos = skip_horizontal_space(next, end)
+		if remove {
+			change.kind = .Remove_Property
+		} else if pos < end && compiler_source[pos] == '=' {
+			pos += 1
+			pos = skip_horizontal_space(pos, end)
+			value, value_end, number_ok := parse_i32(pos, end)
+			if number_ok {
+				change.kind = .Set_Stat
+				change.int_value = value
+				pos = value_end
+			} else if pos < end && compiler_source[pos] == '$' {
+				if !trigger_references_allowed {
+					add_simple_diagnostic("semantic-invalid-trigger-reference", "trigger-relative link requires an entity trigger", pos, pos + 1, line)
+					return false
+				}
+				change.kind = .Set_Link
+				change.link_kind = .Trigger
+				pos += 1
+			} else {
+				link_target, target_end, target_ok := parse_entity_identifier(pos, end)
+				if !target_ok {return false}
+				change.kind = .Set_Link
+				change.link_entity = find_entity(link_target)
+				if change.link_entity < 0 {
+					add_simple_diagnostic("semantic-unknown-entity", "unknown entity reference", link_target.start, link_target.end, line)
+					return false
+				}
+				pos = target_end
+			}
+		} else if pos < end && (compiler_source[pos] == '+' || compiler_source[pos] == '-') {
+			increment := compiler_source[pos] == '+'
+			pos += 1
+			pos = skip_horizontal_space(pos, end)
+			value, value_end, number_ok := parse_i32(pos, end)
+			if !number_ok {return false}
+			change.kind = .Dec_Stat
+			if increment {change.kind = .Inc_Stat}
+			change.int_value = value
+			pos = value_end
+		}
+		if !append_change(change) {return false}
+		parsed = true
+		pos = skip_horizontal_space(pos, end)
+		if pos < end && compiler_source[pos] != '.' {return false}
+	}
+}
+
+append_change :: proc(change: Change_Data) -> bool {
+	if change_count >= MAX_CHANGES {return false}
+	changes[change_count] = change
 	change_count += 1
 	return true
+}
+
+parse_quoted_signal :: proc(start, end: int) -> (Text_Ref, int, bool) {
+	if start >= end || compiler_source[start] != '"' {return Text_Ref{}, start, false}
+	pos := start + 1
+	content_start := pos
+	for pos < end {
+		if compiler_source[pos] == '\\' {
+			pos += 2
+			continue
+		}
+		if compiler_source[pos] == '"' {
+			return Text_Ref{start=content_start, end=pos}, pos + 1, true
+		}
+		pos += 1
+	}
+	return Text_Ref{}, start, false
 }
 
 find_entity :: proc(name: Text_Ref) -> int {

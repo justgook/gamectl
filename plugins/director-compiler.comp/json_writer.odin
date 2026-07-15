@@ -25,14 +25,17 @@ build_director_json :: proc() -> bool {
 			if !write_text(`{"key":`) || !write_int(link.key) ||
 			   !write_text(`,"target":`) || !write_int(link.target) || !write_byte('}') {return false}
 		}
-		if !write_text(`]}`) {return false}
+		if !write_byte(']') {return false}
+		if entity.spawned && !write_text(`,"removed":true`) {return false}
+		if !write_byte('}') {return false}
 	}
 	if !write_text(`],"rules":[`) {return false}
 	for i in 0 ..< rule_count {
 		if i > 0 && !write_byte(',') {return false}
 		rule := rules[i]
 		if !write_text(`{"id":`) || !write_int(i) ||
-		   !write_text(`,"trigger":{"kind":"Entity_Matcher","signal":0,"matcher_index":`) || !write_int(rule.matcher_index) ||
+		   !write_text(`,"trigger":{"kind":"`) || !write_text(trigger_kind_name(rule.trigger_kind)) ||
+		   !write_text(`","signal":`) || !write_int(rule.signal) || !write_text(`,"matcher_index":`) || !write_int(rule.matcher_index) ||
 		   !write_text(`},"conditions":{"offset":`) || !write_int(rule.condition_offset) || !write_text(`,"count":`) || !write_int(rule.condition_count) ||
 		   !write_text(`},"changes":{"offset":`) || !write_int(rule.change_offset) || !write_text(`,"count":`) || !write_int(rule.change_count) ||
 		   !write_text(`},"weight":`) || !write_int(rule.weight) || !write_byte('}') {return false}
@@ -60,8 +63,8 @@ build_director_json :: proc() -> bool {
 	for i in 0 ..< change_count {
 		if i > 0 && !write_byte(',') {return false}
 		change := changes[i]
-		if !write_text(`{"target":{"kind":"`) || !write_text(selector_kind_name(change.target_kind)) ||
-		   !write_text(`","entity":`) || !write_int(change.entity) || !write_text(`,"matcher_index":0},`) ||
+		if !write_text(`{"target":{"kind":"`) || !write_text(change_target_kind_name(change.target_kind)) ||
+		   !write_text(`","entity":`) || !write_int(change.entity) || !write_text(`,"matcher_index":`) || !write_int(change.matcher_index) || !write_text(`},`) ||
 		   !write_text(`"kind":"`) || !write_text(change_kind_name(change.kind)) || !write_text(`","key":`) || !write_int(change.key) ||
 		   !write_text(`,"int_value":`) || !write_int(int(change.int_value)) ||
 		   !write_text(`,"link_target":{"kind":"`) || !write_text(link_target_kind_name(change.link_kind)) ||
@@ -70,13 +73,23 @@ build_director_json :: proc() -> bool {
 	if !write_text(`],"words":[`) {return false}
 	for word_index in 0 ..< word_count {
 		if word_index > 0 && !write_byte(',') {return false}
-		if !write_byte('"') || !write_text_ref_lower(words[word_index]) || !write_byte('"') {return false}
+		if !write_byte('"') || !write_canonical_word(words[word_index], word_is_signal[word_index]) || !write_byte('"') {return false}
 	}
 	return write_text(`],"value_paths":[],"path_steps":[]}`)
 }
 
 selector_kind_name :: proc(kind: Selector_Kind) -> string {
 	switch kind {case .Entity: return "Entity"; case .Any: return "Any"; case .Trigger: return "Trigger"}
+	return ""
+}
+
+trigger_kind_name :: proc(kind: Trigger_Kind) -> string {
+	switch kind {case .Entity_Matcher: return "Entity_Matcher"; case .Signal: return "Signal"}
+	return ""
+}
+
+change_target_kind_name :: proc(kind: Change_Target_Kind) -> string {
+	switch kind {case .Entity: return "Entity"; case .Trigger: return "Trigger"; case .All_Matching: return "All_Matching"}
 	return ""
 }
 
@@ -104,13 +117,18 @@ link_target_kind_name :: proc(kind: Link_Target_Kind) -> string {
 	return ""
 }
 
-write_text_ref_lower :: proc(text: Text_Ref) -> bool {
-	for i in text.start ..< text.end {
-		if !write_byte(ascii_lower(compiler_source[i])) {
-			return false
+write_canonical_word :: proc(text: Text_Ref, quoted: bool) -> bool {
+	pos := text.start
+	for {
+		byte, next, ok := canonical_text_next(text, quoted, pos)
+		if !ok {return true}
+		byte = ascii_lower(byte)
+		if byte == '"' || byte == '\\' {
+			if !write_byte('\\') {return false}
 		}
+		if !write_byte(byte) {return false}
+		pos = next
 	}
-	return true
 }
 
 write_text :: proc(text: string) -> bool {

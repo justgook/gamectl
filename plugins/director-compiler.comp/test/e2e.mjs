@@ -149,6 +149,76 @@ assert.deepEqual(conditionedIr.changes.map(({ kind, key, int_value }) => ({ kind
   { kind: 'Set_Stat', key: 2, int_value: 2 },
 ])
 
+const mockLike = invokeCompiler(String.raw`
+PLAYER.hp = 100.money = 0.dialog
+COIN.coin
+GOBLIN.enemy
+
+ON: "ENTER_\"ROOM\\A#1"
+DO: +COIN
+    PLAYER.money + 1.dialog
+.hp - 2
+    PLAYER.-dialog
+    -GOBLIN
+    -(*.enemy)
+    (*.enemy).stunned.hp = 3
+`)
+assert.equal(mockLike.err, undefined, `mock-like lifecycle compilation failed: ${JSON.stringify(mockLike.err)}`)
+const mockLikeIr = JSON.parse(mockLike.ok)
+assert.equal(mockLikeIr.entities[1].removed, true, 'spawned declarations must start removed')
+assert.equal(mockLikeIr.entities[0].removed, undefined, 'ordinary declarations must not be inferred removed')
+assert.deepEqual(mockLikeIr.rules[0], {
+  id: 0,
+  trigger: { kind: 'Signal', signal: 5, matcher_index: 0 },
+  conditions: { offset: 0, count: 0 },
+  changes: { offset: 0, count: 9 },
+  weight: 0,
+})
+assert.equal(mockLikeIr.words[5], 'enter_"room\\a#1', 'quoted signal must be unescaped and canonicalized')
+assert.deepEqual(mockLikeIr.changes.map(({ target, kind, key, int_value }) => ({
+  target: target.kind,
+  matcher_index: target.matcher_index,
+  kind,
+  key,
+  int_value,
+})), [
+  { target: 'Entity', matcher_index: 0, kind: 'Spawn_Entity', key: 0, int_value: 0 },
+  { target: 'Entity', matcher_index: 0, kind: 'Inc_Stat', key: 1, int_value: 1 },
+  { target: 'Entity', matcher_index: 0, kind: 'Add_Tag', key: 2, int_value: 0 },
+  { target: 'Entity', matcher_index: 0, kind: 'Dec_Stat', key: 0, int_value: 2 },
+  { target: 'Entity', matcher_index: 0, kind: 'Remove_Property', key: 2, int_value: 0 },
+  { target: 'Entity', matcher_index: 0, kind: 'Remove_Entity', key: 0, int_value: 0 },
+  { target: 'All_Matching', matcher_index: 0, kind: 'Remove_Entity', key: 0, int_value: 0 },
+  { target: 'All_Matching', matcher_index: 1, kind: 'Add_Tag', key: 6, int_value: 0 },
+  { target: 'All_Matching', matcher_index: 1, kind: 'Set_Stat', key: 0, int_value: 3 },
+])
+
+const cyberpunkSource = readFileSync(join(repoRoot, 'examples/demo/CYBERPUNK/director.director'), 'utf8')
+const cyberpunk = invokeCompiler(cyberpunkSource)
+assert.equal(cyberpunk.err, undefined, `CYBERPUNK Director source failed: ${JSON.stringify(cyberpunk.err)}`)
+const cyberpunkIr = JSON.parse(cyberpunk.ok)
+assert.equal(cyberpunkIr.entities.length, 15)
+assert.equal(cyberpunkIr.rules.length, 8)
+assert.deepEqual(cyberpunkIr.words, [
+  'hp', 'money', 'enter_room_001', 'coin', 'prefab', 'spawn_x', 'spawn_y',
+  'world_entity', 'dialog', 'text_id', 'answer_1', 'answer_2', 'answer_3', 'answer_4',
+])
+assert.deepEqual(cyberpunkIr.changes.map(({ kind }) => kind), [
+  'Spawn_Entity', 'Spawn_Entity', 'Inc_Stat', 'Remove_Entity', 'Set_Link',
+  'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link',
+  'Inc_Stat', 'Set_Link', 'Remove_Property', 'Remove_Property',
+])
+assert.equal(cyberpunkIr.entities[2].removed, true)
+assert.equal(cyberpunkIr.entities[3].removed, true)
+
+const invalidSignalTriggerReference = invokeCompiler(`
+PLAYER
+ON: "signal"
+DO: -$
+`)
+assert.equal(invalidSignalTriggerReference.ok, undefined)
+assert.equal(invalidSignalTriggerReference.err[0].code, 'semantic-invalid-trigger-reference')
+
 const minimumInteger = invokeCompiler('DEBT.value = -2147483648\n')
 assert.equal(minimumInteger.err, undefined, 'minimum i32 value must compile')
 assert.deepEqual(JSON.parse(minimumInteger.ok).entities[0].stats, [{ key: 0, value: -2147483648 }])

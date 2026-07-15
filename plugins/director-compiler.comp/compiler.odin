@@ -19,6 +19,7 @@ Entity_Source :: struct {
 	stat_count:   int,
 	link_offset:  int,
 	link_count:   int,
+	spawned:      bool,
 }
 
 Stat_Source :: struct {
@@ -35,6 +36,7 @@ Link_Source :: struct {
 entities: [MAX_ENTITIES]Entity_Source
 entity_count: int
 words: [MAX_WORDS]Text_Ref
+word_is_signal: [MAX_WORDS]bool
 word_count: int
 tags: [MAX_TAGS]int
 tag_count: int
@@ -60,13 +62,7 @@ compile_entities :: proc(source: []u8) -> bool {
 			cursor += 1
 		}
 
-		content_end := line_end
-		for i in line_start ..< line_end {
-			if source[i] == '#' {
-				content_end = i
-				break
-			}
-		}
+		content_end := source_content_end(line_start, line_end)
 		for content_end > line_start && is_horizontal_space(source[content_end - 1]) {
 			content_end -= 1
 		}
@@ -240,8 +236,16 @@ resolve_entity_links :: proc() -> bool {
 }
 
 intern_word :: proc(text: Text_Ref) -> int {
+	return intern_canonical_word(text, false)
+}
+
+intern_signal_word :: proc(text: Text_Ref) -> int {
+	return intern_canonical_word(text, true)
+}
+
+intern_canonical_word :: proc(text: Text_Ref, quoted: bool) -> int {
 	for i in 0 ..< word_count {
-		if text_equal_fold(words[i], text) {
+		if canonical_text_equal(words[i], word_is_signal[i], text, quoted) {
 			return i
 		}
 	}
@@ -250,8 +254,29 @@ intern_word :: proc(text: Text_Ref) -> int {
 	}
 	result := word_count
 	words[word_count] = text
+	word_is_signal[word_count] = quoted
 	word_count += 1
 	return result
+}
+
+canonical_text_equal :: proc(left: Text_Ref, left_quoted: bool, right: Text_Ref, right_quoted: bool) -> bool {
+	left_pos, right_pos := left.start, right.start
+	for {
+		left_byte, left_next, left_ok := canonical_text_next(left, left_quoted, left_pos)
+		right_byte, right_next, right_ok := canonical_text_next(right, right_quoted, right_pos)
+		if left_ok != right_ok {return false}
+		if !left_ok {return true}
+		if ascii_lower(left_byte) != ascii_lower(right_byte) {return false}
+		left_pos, right_pos = left_next, right_next
+	}
+}
+
+canonical_text_next :: proc(text: Text_Ref, quoted: bool, pos: int) -> (u8, int, bool) {
+	if pos >= text.end {return 0, pos, false}
+	if quoted && compiler_source[pos] == '\\' {
+		return compiler_source[pos + 1], pos + 2, true
+	}
+	return compiler_source[pos], pos + 1, true
 }
 
 parse_entity_identifier :: proc(start, end: int) -> (Text_Ref, int, bool) {
@@ -348,6 +373,28 @@ skip_horizontal_space :: proc(start, end: int) -> int {
 		pos += 1
 	}
 	return pos
+}
+
+source_content_end :: proc(start, end: int) -> int {
+	quoted := false
+	escaped := false
+	for i in start ..< end {
+		byte := compiler_source[i]
+		if quoted {
+			if escaped {
+				escaped = false
+			} else if byte == '\\' {
+				escaped = true
+			} else if byte == '"' {
+				quoted = false
+			}
+		} else if byte == '"' {
+			quoted = true
+		} else if byte == '#' {
+			return i
+		}
+	}
+	return end
 }
 
 starts_rule_keyword :: proc(line: []u8) -> bool {

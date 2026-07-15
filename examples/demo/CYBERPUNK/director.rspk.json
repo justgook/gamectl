@@ -136,7 +136,8 @@
         "Set_Link",
         "Remove_Link",
         "Spawn_Entity",
-        "Remove_Entity"
+        "Remove_Entity",
+        "Remove_Property"
       ]
     },
     "director.Change_Target_Kind": {
