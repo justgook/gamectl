@@ -7,6 +7,7 @@ import "ui"
 
 ui_fonts_storage := [6]Text_Font{}
 ui_nines_storage := [12]Nine_Patch{}
+ui_dialog_answers_storage := [8]ui.Node(UI_Item){}
 
 sys_ui :: proc(w: ^World) {
 	player_hp := director_player_hp(w)
@@ -33,21 +34,15 @@ sys_ui :: proc(w: ^World) {
 	w.ui_sprite.count = 0
 
 	if w.input_mode == .Dialog {
+		text_id := director.entity_stat(&w.director, w.active_dialog, w.director_config.text_id)
 		dialog_panel := group(
 			{
 				nine(8, GAME_RESOLUTION_WIDTH - 24, GAME_RESOLUTION_HEIGHT / 3 - 12),
 				ui.move(nine(8, 80, 76), 12, 12),
 				ui.move(text3("?"), 48, 46),
 				ui.move(text3("FIXER"), 108, 78),
-				ui.move(text3(dialog_text(w.active_dialog_text_id)), 108, 56),
-				ui.move(nine(8, 112, 26), 108, 10),
-				ui.move(text3("1  JOB"), 116, 18),
-				ui.move(nine(8, 112, 26), 226, 10),
-				ui.move(text3("2  PAY"), 234, 18),
-				ui.move(nine(8, 112, 26), 344, 10),
-				ui.move(text3("3  REFUSE"), 352, 18),
-				ui.move(nine(8, 112, 26), 462, 10),
-				ui.move(text3("4  LEAVE"), 470, 18),
+				ui.move(text3(dialog_text(text_id)), 108, 56),
+				dialog_answers(w),
 			},
 		)
 		dialog_panel = ui.move(dialog_panel, 12, 6)
@@ -63,10 +58,48 @@ dialog_text :: proc(text_id: i32) -> string {
 	switch text_id {
 	case 1:
 		return "Wake up, merc. Night City has another job for you."
+	case 2:
+		return "Job accepted. The target is a vending machine with trust issues."
+	case 3:
+		return "Advance paid. Accounting removed it from your ribs."
+	case 4:
+		return "Refusal logged. Your blood pressure approves this decision."
+	case 10:
+		return "JOB"
+	case 11:
+		return "PAY"
+	case 12:
+		return "REFUSE"
+	case 13:
+		return "LEAVE"
+	case 14:
+		return "DONE"
 	case:
 		assert(false, "unknown mock dialog text id")
 	}
 	return ""
+}
+
+@(require_results)
+dialog_answers :: proc(w: ^World) -> ui.Group(UI_Item) {
+	children := ui_dialog_answers_storage[:]
+	child_count := 0
+	for answer_link, index in w.director_config.answer_links {
+		answer, exists := director.entity_link(&w.director, w.active_dialog, answer_link)
+		if !exists {
+			continue
+		}
+
+		answer_text_id := director.entity_stat(&w.director, answer, w.director_config.text_id)
+		assert(answer_text_id > 0)
+		x := f32(108 + index * 118)
+		children[child_count] = ui.move(nine(8, 112, 26), x, 10)
+		child_count += 1
+		label := fmt.tprintf("%d  %s", index + 1, dialog_text(answer_text_id))
+		children[child_count] = ui.move(text3(label), x + 8, 18)
+		child_count += 1
+	}
+	return group(children[:child_count])
 }
 
 @(private = "file")

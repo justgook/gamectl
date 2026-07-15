@@ -61,6 +61,20 @@ test_signal_rule_applies_changes :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_rule_can_remove_link :: proc(t: ^testing.T) {
+	state := init(test_data)
+	defer destroy(&state)
+
+	_, had_location := entity_link(&state, E_PLAYER, W_location)
+	testing.expect(t, had_location)
+
+	result := trigger(&state, Trigger{kind = .Signal, signal = W_close})
+	testing.expectf(t, result.matched && result.rule == R_close, "close result = %v", result)
+	_, has_location := entity_link(&state, E_PLAYER, W_location)
+	testing.expect(t, !has_location)
+}
+
+@(test)
 test_specific_rule_weight_beats_generic_rule_and_uses_trigger_target :: proc(t: ^testing.T) {
 	state := init(test_data)
 	defer destroy(&state)

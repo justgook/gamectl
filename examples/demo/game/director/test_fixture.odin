@@ -26,12 +26,14 @@ W_held_by :: Word_Id(10)
 W_suspect :: Word_Id(11)
 W_blinded :: Word_Id(12)
 W_world_entity :: Word_Id(13)
+W_close :: Word_Id(14)
 
 R_intro :: Rule_Id(0)
 R_take_item :: Rule_Id(1)
 R_unlock :: Rule_Id(2)
 R_generic_item :: Rule_Id(3)
 R_mark_items :: Rule_Id(4)
+R_close :: Rule_Id(5)
 
 test_player_links := [?]Link{{key = W_location, target = E_CAVE}}
 test_player_stats := [?]Stat{{key = W_strength, value = 5}}
@@ -103,15 +105,11 @@ test_changes := [?]Change {
 		key = W_held_by,
 		link_target = {kind = .Entity, entity = E_PLAYER},
 	},
+	{target = {kind = .Entity, entity = E_PLAYER}, kind = .Remove_Link, key = W_location},
 }
 
 test_rules := [?]Rule {
-	{
-		id = R_intro,
-		trigger = {kind = .Signal, signal = W_start},
-		changes = {offset = 0, count = 1},
-		weight = 0,
-	},
+	{id = R_intro, trigger = {kind = .Signal, signal = W_start}, changes = {offset = 0, count = 1}, weight = 0},
 	{id = R_generic_item, trigger = {kind = .Entity_Matcher, matcher_index = 10}, weight = 1},
 	{
 		id = R_take_item,
@@ -127,6 +125,7 @@ test_rules := [?]Rule {
 		weight = 20,
 	},
 	{id = R_mark_items, trigger = {kind = .Signal, signal = W_blinded}, changes = {offset = 3, count = 1}},
+	{id = R_close, trigger = {kind = .Signal, signal = W_close}, changes = {offset = 4, count = 1}},
 }
 
 test_words := [?]string {

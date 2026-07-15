@@ -904,6 +904,15 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 			if !ok {return false}
 			value = v
 		}
+		out.player = director.Entity_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
 		out.spawn_x = director.Word_Id(value)
 	}
 	{
@@ -942,17 +951,30 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 		}
 		out.text_id = director.Word_Id(value)
 	}
+	{
+		for i10 in 0 ..< 4 {
+			{
+				value: u32
+				{
+					v, ok := read_u32_reader(r)
+					if !ok {return false}
+					value = v
+				}
+				out.answer_links[i10] = director.Word_Id(value)
+			}
+		}
+	}
 	return true
 }
 
 @(private = "file")
 decode_i_vec4 :: proc(r: ^Reader, out: ^I_Vec4) -> bool {
 	{
-		for i10 in 0 ..< 4 {
+		for i11 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out^[i10] = transmute(i32)v
+				out^[i11] = transmute(i32)v
 			}
 		}
 	}
@@ -965,11 +987,11 @@ decode_entity_ids :: proc(r: ^Reader, out: ^Entity_Ids) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out^ = make(Entity_Ids, int(count))
-		for i11 in 0 ..< int(count) {
+		for i12 in 0 ..< int(count) {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out^[i11] = v
+				out^[i12] = v
 			}
 		}
 	}
@@ -979,11 +1001,11 @@ decode_entity_ids :: proc(r: ^Reader, out: ^Entity_Ids) -> bool {
 @(private = "file")
 decode_world_position :: proc(r: ^Reader, out: ^world.Position) -> bool {
 	{
-		for i12 in 0 ..< 2 {
+		for i13 in 0 ..< 2 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out^[i12] = transmute(i32)v
+				out^[i13] = transmute(i32)v
 			}
 		}
 	}
@@ -993,11 +1015,11 @@ decode_world_position :: proc(r: ^Reader, out: ^world.Position) -> bool {
 @(private = "file")
 decode_world_director_trigger_aabb :: proc(r: ^Reader, out: ^world.Director_Trigger_Aabb) -> bool {
 	{
-		for i13 in 0 ..< 4 {
+		for i14 in 0 ..< 4 {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.bounds[i13] = transmute(i32)v
+				out.bounds[i14] = transmute(i32)v
 			}
 		}
 	}
@@ -1034,11 +1056,11 @@ decode_director_trigger_aabbs :: proc(r: ^Reader, out: ^Director_Trigger_Aabbs) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.entity_ids = make(Entity_Ids, int(count))
-		for i14 in 0 ..< int(count) {
+		for i15 in 0 ..< int(count) {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.entity_ids[i14] = v
+				out.entity_ids[i15] = v
 			}
 		}
 	}
@@ -1046,9 +1068,9 @@ decode_director_trigger_aabbs :: proc(r: ^Reader, out: ^Director_Trigger_Aabbs) 
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.components = make([]world.Director_Trigger_Aabb, int(count))
-		for i15 in 0 ..< int(count) {
+		for i16 in 0 ..< int(count) {
 			{
-				if !decode_world_director_trigger_aabb(r, &out.components[i15]) {return false}
+				if !decode_world_director_trigger_aabb(r, &out.components[i16]) {return false}
 			}
 		}
 	}
@@ -1061,11 +1083,11 @@ decode_positions :: proc(r: ^Reader, out: ^Positions) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.entity_ids = make(Entity_Ids, int(count))
-		for i16 in 0 ..< int(count) {
+		for i17 in 0 ..< int(count) {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.entity_ids[i16] = v
+				out.entity_ids[i17] = v
 			}
 		}
 	}
@@ -1073,13 +1095,13 @@ decode_positions :: proc(r: ^Reader, out: ^Positions) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.components = make([]world.Position, int(count))
-		for i17 in 0 ..< int(count) {
+		for i18 in 0 ..< int(count) {
 			{
-				for i18 in 0 ..< 2 {
+				for i19 in 0 ..< 2 {
 					{
 						v, ok := read_u32_reader(r)
 						if !ok {return false}
-						out.components[i17][i18] = transmute(i32)v
+						out.components[i18][i19] = transmute(i32)v
 					}
 				}
 			}
@@ -1094,11 +1116,11 @@ decode_director_entities :: proc(r: ^Reader, out: ^Director_Entities) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.entity_ids = make(Entity_Ids, int(count))
-		for i19 in 0 ..< int(count) {
+		for i20 in 0 ..< int(count) {
 			{
 				v, ok := read_u32_reader(r)
 				if !ok {return false}
-				out.entity_ids[i19] = v
+				out.entity_ids[i20] = v
 			}
 		}
 	}
@@ -1106,9 +1128,9 @@ decode_director_entities :: proc(r: ^Reader, out: ^Director_Entities) -> bool {
 		count, ok := read_u32_reader(r)
 		if !ok {return false}
 		out.components = make([]world.Director_Entity, int(count))
-		for i20 in 0 ..< int(count) {
+		for i21 in 0 ..< int(count) {
 			{
-				if !decode_world_director_entity(r, &out.components[i20]) {return false}
+				if !decode_world_director_entity(r, &out.components[i21]) {return false}
 			}
 		}
 	}

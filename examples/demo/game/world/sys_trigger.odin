@@ -6,11 +6,13 @@ import "logic"
 import "shape"
 
 Director_Config :: struct {
+	player:       director.Entity_Id,
 	spawn_x:      director.Word_Id,
 	spawn_y:      director.Word_Id,
 	world_entity: director.Word_Id,
 	dialog:       director.Word_Id,
 	text_id:      director.Word_Id,
+	answer_links: [4]director.Word_Id,
 }
 
 Segment_Trigger :: struct {
@@ -102,14 +104,6 @@ director_trigger_aabb_contact :: proc(w: ^World) {
 		trigger.used = true
 		result := director.trigger(&w.director, director.Trigger{kind = .Entity, entity = director_entity.id})
 		assert(result.matched)
-		if director.entity_has_tag(&w.director, director_entity.id, w.director_config.dialog) {
-			text_id := director.entity_stat(
-				&w.director,
-				director_entity.id,
-				w.director_config.text_id,
-			)
-			enter_dialog_mode(w, text_id)
-		}
 		apply_director_effects(w, result.effects)
 	}
 }

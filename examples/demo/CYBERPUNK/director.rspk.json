@@ -134,6 +134,7 @@
         "Inc_Stat",
         "Dec_Stat",
         "Set_Link",
+        "Remove_Link",
         "Spawn_Entity",
         "Remove_Entity"
       ]
@@ -304,11 +305,17 @@
     "world.Director_Config": {
       "type": "struct",
       "fields": {
+        "player": "director.Entity_Id",
         "spawn_x": "director.Word_Id",
         "spawn_y": "director.Word_Id",
         "world_entity": "director.Word_Id",
         "dialog": "director.Word_Id",
-        "text_id": "director.Word_Id"
+        "text_id": "director.Word_Id",
+        "answer_links": {
+          "type": "array",
+          "len": 4,
+          "value": "director.Word_Id"
+        }
       }
     },
     "iVec4": {

@@ -15,6 +15,7 @@ GAME_RESOLUTION_WIDTH :: 640
 GAME_RESOLUTION_HEIGHT :: 360
 OFFSCREEN_SAMPLE_COUNT :: 1
 ENTITY_ID_START :: logic.Entity(100)
+Director_Entity_Id :: director.Entity_Id
 
 
 World :: struct {
@@ -78,7 +79,7 @@ World :: struct {
 	input_mode:             Input_Mode,
 	physical_input:         Input,
 	dialog_pressed:         Input,
-	active_dialog_text_id:  i32,
+	active_dialog:          Director_Entity_Id,
 	// UI
 	ui_sprite:              struct {
 		using pipe: ^Sprite_Pipe,
@@ -103,6 +104,7 @@ frame :: proc(w: ^World, dt: f64) {
 		case .Dialog:
 			sys_dialog(w)
 		}
+		sys_dialog_state(w)
 	}
 
 	if w.input_mode == .Gameplay {

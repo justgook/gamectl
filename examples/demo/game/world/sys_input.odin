@@ -1,5 +1,7 @@
 package world
 
+import "../director"
+
 Input_Mode :: enum {
 	Gameplay,
 	Dialog,
@@ -33,18 +35,25 @@ input_action_up :: proc(w: ^World, action: InputSet) {
 	}
 }
 
-enter_dialog_mode :: proc(w: ^World, text_id: i32) {
+enter_dialog_mode :: proc(w: ^World, dialog: director.Entity_Id) {
 	assert(w.input_mode == .Gameplay)
-	assert(text_id > 0)
+	assert(dialog != director.INVALID_ENTITY)
 	clear_routed_input(w)
-	w.active_dialog_text_id = text_id
+	w.active_dialog = dialog
 	w.input_mode = .Dialog
+}
+
+change_dialog_mode :: proc(w: ^World, dialog: director.Entity_Id) {
+	assert(w.input_mode == .Dialog)
+	assert(dialog != director.INVALID_ENTITY)
+	clear_routed_input(w)
+	w.active_dialog = dialog
 }
 
 exit_dialog_mode :: proc(w: ^World) {
 	assert(w.input_mode == .Dialog)
 	clear_routed_input(w)
-	w.active_dialog_text_id = 0
+	w.active_dialog = director.INVALID_ENTITY
 	w.input_mode = .Gameplay
 }
 

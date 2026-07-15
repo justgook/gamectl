@@ -126,6 +126,7 @@ Change_Kind :: enum u8 {
 	Inc_Stat,
 	Dec_Stat,
 	Set_Link,
+	Remove_Link,
 	Spawn_Entity,
 	Remove_Entity,
 }
@@ -613,6 +614,8 @@ apply_change_to_entity :: proc(state: ^State, entity_id: Entity_Id, change: ^Cha
 		if ok {
 			set_link(entity, change.key, target)
 		}
+	case .Remove_Link:
+		remove_link(entity, change.key)
 	case .Spawn_Entity:
 		entity.removed = false
 		append(&state.effects, Effect{kind = .Spawn, entity = entity_id})
@@ -737,6 +740,16 @@ set_link :: proc(entity: ^Entity_State, key: Word_Id, target: Entity_Id) {
 		}
 	}
 	append(&entity.links, Link{key = key, target = target})
+}
+
+@(private = "file")
+remove_link :: proc(entity: ^Entity_State, key: Word_Id) {
+	for link, index in entity.links {
+		if link.key == key {
+			unordered_remove(&entity.links, index)
+			return
+		}
+	}
 }
 
 @(private = "file")
