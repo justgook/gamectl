@@ -4186,6 +4186,7 @@
   "plugins": [
     "plugins/sql-vec.comp.wasm",
     "plugins/respack.comp.wasm",
+    "plugins/director-compiler.comp.wasm",
     "plugins/pack.comp.wasm",
     "plugins/random.comp.wasm",
     "plugins/automap.comp.wasm",

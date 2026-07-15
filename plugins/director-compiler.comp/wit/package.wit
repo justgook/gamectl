@@ -1,0 +1,26 @@
+package gams:director-compiler@1.0.0;
+
+interface director-compiler {
+    record source-position {
+        byte-offset: u32,
+        line: u32,
+        column: u32,
+    }
+
+    record source-span {
+        start: source-position,
+        end: source-position,
+    }
+
+    record diagnostic {
+        code: string,
+        message: string,
+        span: source-span,
+    }
+
+    compile: func(source: string) -> result<string, list<diagnostic>>;
+}
+
+world director-compiler-plugin {
+    export director-compiler;
+}

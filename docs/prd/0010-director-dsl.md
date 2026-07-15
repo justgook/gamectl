@@ -725,24 +725,24 @@ The Project Unit exports this v1 WIT contract:
 ```wit
 package gams:director-compiler@1.0.0;
 
-record source-position {
-    byte-offset: u32,
-    line: u32,
-    column: u32,
-}
-
-record source-span {
-    start: source-position,
-    end: source-position,
-}
-
-record diagnostic {
-    code: string,
-    message: string,
-    span: source-span,
-}
-
 interface director-compiler {
+    record source-position {
+        byte-offset: u32,
+        line: u32,
+        column: u32,
+    }
+
+    record source-span {
+        start: source-position,
+        end: source-position,
+    }
+
+    record diagnostic {
+        code: string,
+        message: string,
+        span: source-span,
+    }
+
     compile: func(source: string) -> result<string, list<diagnostic>>;
 }
 
