@@ -75,7 +75,19 @@ build_director_json :: proc() -> bool {
 		if word_index > 0 && !write_byte(',') {return false}
 		if !write_byte('"') || !write_canonical_word(words[word_index], word_is_signal[word_index]) || !write_byte('"') {return false}
 	}
-	return write_text(`],"value_paths":[],"path_steps":[]}`)
+	if !write_text(`],"value_paths":[],"path_steps":[],"symbols":{"entities":{`) {return false}
+	for entity_index in 0 ..< entity_count {
+		if entity_index > 0 && !write_byte(',') {return false}
+		if !write_byte('"') || !write_canonical_word(entities[entity_index].name, false) ||
+		   !write_text(`":`) || !write_int(entity_index) {return false}
+	}
+	if !write_text(`},"words":{`) {return false}
+	for word_index in 0 ..< word_count {
+		if word_index > 0 && !write_byte(',') {return false}
+		if !write_byte('"') || !write_canonical_word(words[word_index], word_is_signal[word_index]) ||
+		   !write_text(`":`) || !write_int(word_index) {return false}
+	}
+	return write_text(`}}}`)
 }
 
 selector_kind_name :: proc(kind: Selector_Kind) -> string {

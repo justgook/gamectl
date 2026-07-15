@@ -4,4 +4,11 @@ if type(source) ~= "string" then
 end
 
 local irJson = host.call("director-compiler/director-compiler::compile", source)
-outputs[1] = json.decode(irJson)
+local ir = json.decode(irJson)
+local symbols = ir.symbols
+if type(symbols) ~= "table" then
+	error("Director Compile result must contain symbols")
+end
+ir.symbols = nil
+outputs[1] = ir
+outputs[2] = symbols

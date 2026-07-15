@@ -755,6 +755,9 @@
               "outputs": [
                 {
                   "name": "data"
+                },
+                {
+                  "name": "symbols"
                 }
               ],
               "group": "Director"

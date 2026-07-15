@@ -47,6 +47,7 @@ assert.deepEqual(JSON.parse(result.ok), {
   words: [],
   value_paths: [],
   path_steps: [],
+  symbols: { entities: {}, words: {} },
 })
 
 const entities = invokeCompiler(`
@@ -84,6 +85,10 @@ assert.deepEqual(JSON.parse(entities.ok), {
   words: ['money', 'mp', 'hp', 'item', 'illumination', 'current_location', 'location', 'dark'],
   value_paths: [],
   path_steps: [],
+  symbols: {
+    entities: { player: 0, torch: 1, cave: 2 },
+    words: { money: 0, mp: 1, hp: 2, item: 3, illumination: 4, current_location: 5, location: 6, dark: 7 },
+  },
 })
 
 const interaction = invokeCompiler(`
@@ -175,6 +180,8 @@ assert.deepEqual(mockLikeIr.rules[0], {
   weight: 0,
 })
 assert.equal(mockLikeIr.words[5], 'enter_"room\\a#1', 'quoted signal must be unescaped and canonicalized')
+assert.equal(mockLikeIr.symbols.entities.player, 0, 'entity symbols must use canonical lowercase names')
+assert.equal(mockLikeIr.symbols.words['enter_"room\\a#1'], 5, 'word symbols must use canonical unescaped names')
 assert.deepEqual(mockLikeIr.changes.map(({ target, kind, key, int_value }) => ({
   target: target.kind,
   matcher_index: target.matcher_index,
@@ -203,6 +210,41 @@ assert.deepEqual(cyberpunkIr.words, [
   'hp', 'money', 'enter_room_001', 'coin', 'prefab', 'spawn_x', 'spawn_y',
   'world_entity', 'dialog', 'text_id', 'answer_1', 'answer_2', 'answer_3', 'answer_4',
 ])
+assert.deepEqual(cyberpunkIr.symbols, {
+  entities: {
+    player: 0,
+    segment_trigger: 1,
+    coin_a: 2,
+    coin_b: 3,
+    coin_prefab: 4,
+    world_trigger: 5,
+    dialog_root: 6,
+    dialog_job_result: 7,
+    dialog_damage_result: 8,
+    dialog_heal_result: 9,
+    job_answer: 10,
+    damage_answer: 11,
+    heal_answer: 12,
+    leave_dialog_answer: 13,
+    leave_answer: 14,
+  },
+  words: {
+    hp: 0,
+    money: 1,
+    enter_room_001: 2,
+    coin: 3,
+    prefab: 4,
+    spawn_x: 5,
+    spawn_y: 6,
+    world_entity: 7,
+    dialog: 8,
+    text_id: 9,
+    answer_1: 10,
+    answer_2: 11,
+    answer_3: 12,
+    answer_4: 13,
+  },
+})
 assert.deepEqual(cyberpunkIr.changes.map(({ kind }) => kind), [
   'Spawn_Entity', 'Spawn_Entity', 'Inc_Stat', 'Remove_Entity', 'Set_Link',
   'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link',

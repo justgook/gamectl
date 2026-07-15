@@ -69,14 +69,19 @@
         "id": 1,
         "name": "data",
         "value": null
+      },
+      {
+        "id": 2,
+        "name": "symbols",
+        "value": null
       }
     ]
   },
   {
     "id": 6,
     "kind": 4,
-    "x": 16,
-    "y": 204,
+    "x": 18,
+    "y": -499,
     "name": "Segment triggers source",
     "codePath": "",
     "graphId": 0,
@@ -93,8 +98,8 @@
   {
     "id": 7,
     "kind": 2,
-    "x": 376,
-    "y": 205,
+    "x": 378,
+    "y": -498,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
     "graphId": 0,
@@ -121,49 +126,225 @@
     ]
   },
   {
-    "id": 8,
-    "kind": 4,
-    "x": 16,
-    "y": 329,
-    "name": "Director config source",
-    "codePath": "",
-    "graphId": 0,
-    "graphName": "",
-    "inputs": [],
-    "outputs": [
-      {
-        "id": 1,
-        "name": "",
-        "value": "\"CYBERPUNK/mock_director_config.json\""
-      }
-    ]
-  },
-  {
-    "id": 9,
+    "id": 17,
     "kind": 2,
-    "x": 376,
-    "y": 330,
-    "name": "Read JSON",
-    "codePath": "ng/presets/read-json.lua",
+    "x": 692,
+    "y": 232,
+    "name": "Director symbols",
+    "codePath": "ng/presets/from-object.lua",
     "graphId": 0,
     "graphName": "",
     "inputs": [
       {
         "id": 1,
-        "name": "path",
-        "srcNodeId": 8,
+        "name": "object",
+        "srcNodeId": 16,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "entities",
+        "value": null
+      },
+      {
+        "id": 2,
+        "name": "words",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "kind": 2,
+    "x": 1035,
+    "y": 210,
+    "name": "Entity symbols",
+    "codePath": "ng/presets/from-object.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "srcNodeId": 17,
         "srcOutputId": 1
       }
     ],
     "outputs": [
       {
         "id": 1,
-        "name": "data",
+        "name": "player",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "kind": 2,
+    "x": 1034,
+    "y": 285,
+    "name": "Word symbols",
+    "codePath": "ng/presets/from-object.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "object",
+        "srcNodeId": 17,
+        "srcOutputId": 2
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "spawn_x",
         "value": null
       },
       {
         "id": 2,
-        "name": "error",
+        "name": "spawn_y",
+        "value": null
+      },
+      {
+        "id": 3,
+        "name": "world_entity",
+        "value": null
+      },
+      {
+        "id": 4,
+        "name": "dialog",
+        "value": null
+      },
+      {
+        "id": 5,
+        "name": "text_id",
+        "value": null
+      },
+      {
+        "id": 6,
+        "name": "answer_1",
+        "value": null
+      },
+      {
+        "id": 7,
+        "name": "answer_2",
+        "value": null
+      },
+      {
+        "id": 8,
+        "name": "answer_3",
+        "value": null
+      },
+      {
+        "id": 9,
+        "name": "answer_4",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "kind": 2,
+    "x": 1248,
+    "y": 441,
+    "name": "Answer links",
+    "codePath": "ng/presets/to-array.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "answer_1",
+        "srcNodeId": 19,
+        "srcOutputId": 6
+      },
+      {
+        "id": 2,
+        "name": "answer_2",
+        "srcNodeId": 19,
+        "srcOutputId": 7
+      },
+      {
+        "id": 3,
+        "name": "answer_3",
+        "srcNodeId": 19,
+        "srcOutputId": 8
+      },
+      {
+        "id": 4,
+        "name": "answer_4",
+        "srcNodeId": 19,
+        "srcOutputId": 9
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "answer_links",
+        "value": null
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "kind": 2,
+    "x": 1463,
+    "y": 308,
+    "name": "Director config",
+    "codePath": "ng/presets/to-object.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "player",
+        "srcNodeId": 18,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "spawn_x",
+        "srcNodeId": 19,
+        "srcOutputId": 1
+      },
+      {
+        "id": 3,
+        "name": "spawn_y",
+        "srcNodeId": 19,
+        "srcOutputId": 2
+      },
+      {
+        "id": 4,
+        "name": "world_entity",
+        "srcNodeId": 19,
+        "srcOutputId": 3
+      },
+      {
+        "id": 5,
+        "name": "dialog",
+        "srcNodeId": 19,
+        "srcOutputId": 4
+      },
+      {
+        "id": 6,
+        "name": "text_id",
+        "srcNodeId": 19,
+        "srcOutputId": 5
+      },
+      {
+        "id": 7,
+        "name": "answer_links",
+        "srcNodeId": 20,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "config",
         "value": null
       }
     ]
@@ -171,8 +352,8 @@
   {
     "id": 3,
     "kind": 2,
-    "x": 799,
-    "y": 99,
+    "x": 1842,
+    "y": 183,
     "name": "Director slots",
     "codePath": "ng/presets/to-array.lua",
     "graphId": 0,
@@ -193,7 +374,7 @@
       {
         "id": 3,
         "name": "Director Config",
-        "srcNodeId": 9,
+        "srcNodeId": 21,
         "srcOutputId": 1
       },
       {
@@ -226,8 +407,8 @@
   {
     "id": 4,
     "kind": 4,
-    "x": 799,
-    "y": 269,
+    "x": 2061,
+    "y": 80,
     "name": "Director respack",
     "codePath": "",
     "graphId": 0,
@@ -254,8 +435,8 @@
   {
     "id": 5,
     "kind": 2,
-    "x": 1109,
-    "y": 119,
+    "x": 2483,
+    "y": 113,
     "name": "Respack Save",
     "codePath": "ng/presets/respack-save.lua",
     "graphId": 0,
@@ -291,8 +472,8 @@
   {
     "id": 10,
     "kind": 4,
-    "x": 16,
-    "y": 454,
+    "x": 18,
+    "y": -391,
     "name": "Director trigger AABBs source",
     "codePath": "",
     "graphId": 0,
@@ -309,8 +490,8 @@
   {
     "id": 11,
     "kind": 2,
-    "x": 376,
-    "y": 455,
+    "x": 378,
+    "y": -390,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
     "graphId": 0,
@@ -339,8 +520,8 @@
   {
     "id": 12,
     "kind": 4,
-    "x": 16,
-    "y": 579,
+    "x": 18,
+    "y": -266,
     "name": "Positions source",
     "codePath": "",
     "graphId": 0,
@@ -357,8 +538,8 @@
   {
     "id": 13,
     "kind": 2,
-    "x": 376,
-    "y": 580,
+    "x": 378,
+    "y": -265,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
     "graphId": 0,
@@ -387,8 +568,8 @@
   {
     "id": 14,
     "kind": 4,
-    "x": 16,
-    "y": 704,
+    "x": 18,
+    "y": -141,
     "name": "Director entities source",
     "codePath": "",
     "graphId": 0,
@@ -405,8 +586,8 @@
   {
     "id": 15,
     "kind": 2,
-    "x": 376,
-    "y": 705,
+    "x": 378,
+    "y": -140,
     "name": "Read JSON",
     "codePath": "ng/presets/read-json.lua",
     "graphId": 0,

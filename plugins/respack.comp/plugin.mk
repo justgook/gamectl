@@ -3,7 +3,7 @@ PLUGIN_WIT_WORLD := gams:respack/respack-plugin@1.0.0
 PLUGIN_COMPONENT_NAME := respack_plugin
 
 RESPACK_COMP_PATH := $(PLUGIN_DIR)/respack.comp
-RESPACK_ODIN_OBJ := $(BUILD_DIR)/obj/plugins/respack.comp/respack_core.o.wasm
+RESPACK_ODIN_OBJ := $(BUILD_DIR)/obj/plugins/respack.comp/respack_core.o.obj
 
 PLUGIN_COMPONENT_SOURCES := \
   $(RESPACK_COMP_PATH)/component.c \

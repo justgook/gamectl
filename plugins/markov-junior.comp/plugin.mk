@@ -4,7 +4,7 @@ PLUGIN_COMPONENT_NAME := markov_junior_plugin
 PLUGIN_WIT_PACKAGE := gams:markov-junior@1.0.0.wasm
 
 MARKOV_JUNIOR_COMP_PATH := $(PLUGIN_DIR)/markov-junior.comp
-MARKOV_JUNIOR_ODIN_OBJ := $(BUILD_DIR)/obj/plugins/markov-junior.comp/markov_junior.o.wasm
+MARKOV_JUNIOR_ODIN_OBJ := $(BUILD_DIR)/obj/plugins/markov-junior.comp/markov_junior.o.obj
 
 PLUGIN_COMPONENT_SOURCES := \
   $(MARKOV_JUNIOR_COMP_PATH)/component.c \

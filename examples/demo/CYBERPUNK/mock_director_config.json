@@ -1,9 +1,0 @@
-{
-  "player": 0,
-  "spawn_x": 5,
-  "spawn_y": 6,
-  "world_entity": 7,
-  "dialog": 8,
-  "text_id": 9,
-  "answer_links": [10, 11, 12, 13]
-}
