@@ -128,8 +128,8 @@
   {
     "id": 17,
     "kind": 2,
-    "x": 692,
-    "y": 232,
+    "x": 876,
+    "y": 162,
     "name": "Director symbols",
     "codePath": "ng/presets/from-object.lua",
     "graphId": 0,
@@ -198,8 +198,8 @@
   {
     "id": 20,
     "kind": 2,
-    "x": 1248,
-    "y": 441,
+    "x": 1173,
+    "y": 432,
     "name": "Answer links",
     "codePath": "ng/presets/to-array.lua",
     "graphId": 0,
@@ -562,5 +562,48 @@
         "value": null
       }
     ]
+  },
+  {
+    "id": 22,
+    "kind": 4,
+    "x": 573,
+    "y": 519,
+    "name": "",
+    "codePath": "",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [],
+    "outputs": [
+      {
+        "id": 1,
+        "name": "",
+        "value": "\"tmp/DEBUG_director_ir.json\""
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "kind": 2,
+    "x": 913,
+    "y": 540,
+    "name": "Write File",
+    "codePath": "ng/presets/write-file.lua",
+    "graphId": 0,
+    "graphName": "",
+    "inputs": [
+      {
+        "id": 1,
+        "name": "path",
+        "srcNodeId": 22,
+        "srcOutputId": 1
+      },
+      {
+        "id": 2,
+        "name": "text",
+        "srcNodeId": 16,
+        "srcOutputId": 1
+      }
+    ],
+    "outputs": []
   }
 ]
