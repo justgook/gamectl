@@ -60,6 +60,7 @@ spawn_test_world_destroy :: proc(w: ^World) {
 	logic.destroy_storage(&w.position)
 	logic.destroy_storage(&w.sprite)
 	logic.destroy_storage(&w.animation)
+	logic.destroy_storage(&w.platformer_anim)
 	logic.destroy_storage(&w.collider)
 	logic.destroy_storage(&w.brain)
 	logic.destroy_storage(&w.input)
@@ -105,7 +106,22 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 		director_entity,
 	)
 	testing.expect(t, logic.has_component(&w.sprite, world_entity))
-	testing.expect(t, logic.has_component(&w.animation, world_entity))
+	animation, has_animation := logic.get_component(&w.animation, world_entity)
+	testing.expectf(
+		t,
+		has_animation && animation.def == &w.animation_atlas.defs[15],
+		"enemy animation = %v",
+		animation,
+	)
+	platformer_anim, has_platformer_anim := logic.get_component(&w.platformer_anim, world_entity)
+	testing.expectf(
+		t,
+		has_platformer_anim && platformer_anim.set[.Idle].def == &w.animation_atlas.defs[15] &&
+		platformer_anim.set[.Run].def == &w.animation_atlas.defs[16] &&
+		platformer_anim.set[.Swim_Jump].def == &w.animation_atlas.defs[29],
+		"enemy platformer animation = %v",
+		platformer_anim,
+	)
 	testing.expect(t, logic.has_component(&w.collider, world_entity))
 	brain, has_brain := logic.get_component(&w.brain, world_entity)
 	testing.expectf(t, has_brain && brain^ == 1, "enemy brain = %v", brain)

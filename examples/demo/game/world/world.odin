@@ -227,32 +227,15 @@ init :: proc(w: ^World) {
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[2]})
 	// logic.add_component(&w.platformer_anim, player, platformer_anim_create_default(&w.animation_atlas.defs[0]))
 	anim := w.animation_atlas.defs
-	assert(len(anim) >= 15)
+	assert(len(anim) > 45)
 
-	idleAnimID := 30
+	player_anim_base := 30
 	logic.add_component(
 		&w.platformer_anim,
 		player,
-		platformer_anim_create_char(
-			&anim[idleAnimID + 0], // idle
-			&anim[idleAnimID + 1], // run
-			&anim[idleAnimID + 2], // jump
-			&anim[idleAnimID + 3], // fall
-			&anim[idleAnimID + 4], // wall_slide
-			&anim[idleAnimID + 5], // dash
-			&anim[idleAnimID + 6], // land
-			&anim[idleAnimID + 7], // hurt
-			&anim[idleAnimID + 8], // death
-			&anim[idleAnimID + 9], // climb
-			&anim[idleAnimID + 10], // swim
-			&anim[idleAnimID + 11], // swim2 (vertical)
-			&anim[idleAnimID + 12], // swim_idle
-			// &anim[13], // swim_death
-			&anim[idleAnimID + 14], // swim_jump
-		),
+		platformer_anim_create_char_from_atlas(&w.animation_atlas, player_anim_base),
 	)
-	// ["idle", "run", "jump", "fall","hang", "dash", "land", "hurt", "death", "climb", "swim", "swim2", "swim_idle", "swim_death","swim_jump"]
-	logic.add_component(&w.animation, player, animation_create(&anim[0]))
+	logic.add_component(&w.animation, player, animation_create(&anim[player_anim_base]))
 	logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1})
 
 

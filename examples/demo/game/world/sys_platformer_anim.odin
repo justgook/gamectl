@@ -71,6 +71,28 @@ sys_platformer_anim :: proc(w: ^World) {
 	}
 }
 
+platformer_anim_create_char_from_atlas :: proc(atlas: ^Animation_Atlas, base_id: int) -> Platformer_Anim {
+	assert(base_id >= 0)
+	assert(base_id + 14 < len(atlas.defs))
+	anim := atlas.defs
+	return platformer_anim_create_char(
+		&anim[base_id + 0],
+		&anim[base_id + 1],
+		&anim[base_id + 2],
+		&anim[base_id + 3],
+		&anim[base_id + 4],
+		&anim[base_id + 5],
+		&anim[base_id + 6],
+		&anim[base_id + 7],
+		&anim[base_id + 8],
+		&anim[base_id + 9],
+		&anim[base_id + 10],
+		&anim[base_id + 11],
+		&anim[base_id + 12],
+		&anim[base_id + 14],
+	)
+}
+
 platformer_anim_create_char :: proc(
 	idle, run, jump, fall, wall_slide, dash, land, hurt, death, climb, swim, swim_vertical, swim_idle, swim_jump: ^AnimDef,
 ) -> Platformer_Anim {

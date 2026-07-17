@@ -184,8 +184,14 @@ director_spawn_coin :: proc(w: ^World, entity: logic.Entity) {
 
 @(private = "file")
 director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
+	enemy_anim_base := 15
 	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
-	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[30]))
+	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[enemy_anim_base]))
+	logic.add_component(
+		&w.platformer_anim,
+		entity,
+		platformer_anim_create_char_from_atlas(&w.animation_atlas, enemy_anim_base),
+	)
 	logic.add_component(&w.collider, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
 	logic.add_component(&w.brain, entity, Brain(1))
 	logic.add_component(&w.input, entity, Input{.East})
