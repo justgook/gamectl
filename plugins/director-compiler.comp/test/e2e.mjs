@@ -201,8 +201,8 @@ const cyberpunkSource = readFileSync(join(repoRoot, 'examples/demo/CYBERPUNK/dir
 const cyberpunk = invokeCompiler(cyberpunkSource)
 assert.equal(cyberpunk.err, undefined, `CYBERPUNK Director source failed: ${JSON.stringify(cyberpunk.err)}`)
 const cyberpunkIr = JSON.parse(cyberpunk.ok)
-assert.equal(cyberpunkIr.entities.length, 15)
-assert.equal(cyberpunkIr.rules.length, 8)
+assert.equal(cyberpunkIr.entities.length, 17)
+assert.equal(cyberpunkIr.rules.length, 9)
 assert.deepEqual(cyberpunkIr.symbols, {
   entities: {
     player: 0,
@@ -210,16 +210,18 @@ assert.deepEqual(cyberpunkIr.symbols, {
     coin_a: 2,
     coin_b: 3,
     coin_prefab: 4,
-    world_trigger: 5,
-    dialog_root: 6,
-    dialog_job_result: 7,
-    dialog_damage_result: 8,
-    dialog_heal_result: 9,
-    job_answer: 10,
-    damage_answer: 11,
-    heal_answer: 12,
-    leave_dialog_answer: 13,
-    leave_answer: 14,
+    enemy_a: 5,
+    enemy_prefab: 6,
+    world_trigger: 7,
+    dialog_root: 8,
+    dialog_job_result: 9,
+    dialog_damage_result: 10,
+    dialog_heal_result: 11,
+    job_answer: 12,
+    damage_answer: 13,
+    heal_answer: 14,
+    leave_dialog_answer: 15,
+    leave_answer: 16,
   },
   words: {
     hp: 0,
@@ -229,22 +231,36 @@ assert.deepEqual(cyberpunkIr.symbols, {
     prefab: 4,
     spawn_x: 5,
     spawn_y: 6,
-    world_entity: 7,
-    dialog: 8,
-    text_id: 9,
-    answer_1: 10,
-    answer_2: 11,
-    answer_3: 12,
-    answer_4: 13,
+    prefab_id: 7,
+    enemy: 8,
+    world_entity: 9,
+    dialog: 10,
+    text_id: 11,
+    answer_1: 12,
+    answer_2: 13,
+    answer_3: 14,
+    answer_4: 15,
   },
 })
 assert.deepEqual(cyberpunkIr.changes.map(({ kind }) => kind), [
-  'Spawn_Entity', 'Spawn_Entity', 'Inc_Stat', 'Remove_Entity', 'Set_Link',
-  'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link',
-  'Inc_Stat', 'Set_Link', 'Remove_Property', 'Remove_Property',
+  'Spawn_Entity', 'Spawn_Entity', 'Spawn_Entity', 'Inc_Stat', 'Remove_Entity',
+  'Inc_Stat', 'Remove_Entity', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link',
+  'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Inc_Stat', 'Set_Link',
+  'Remove_Property', 'Remove_Property',
 ])
 assert.equal(cyberpunkIr.entities[2].removed, true)
 assert.equal(cyberpunkIr.entities[3].removed, true)
+assert.equal(cyberpunkIr.entities[5].removed, true)
+
+const cyberpunkDirectorEntities = JSON.parse(readFileSync(
+  join(repoRoot, 'examples/demo/CYBERPUNK/mock_director_entities.json'),
+  'utf8',
+))
+assert.equal(
+  cyberpunkDirectorEntities.components[0].id,
+  cyberpunkIr.symbols.entities.world_trigger,
+  'dialogue trigger world entity must track the compiled WORLD_TRIGGER id',
+)
 
 const invalidSignalTriggerReference = invokeCompiler(`
 PLAYER

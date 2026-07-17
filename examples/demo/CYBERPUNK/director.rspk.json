@@ -306,6 +306,8 @@
         "spawn_x": "director.Word_Id",
         "spawn_y": "director.Word_Id",
         "world_entity": "director.Word_Id",
+        "prefab": "director.Word_Id",
+        "prefab_id": "director.Word_Id",
         "dialog": "director.Word_Id",
         "text_id": "director.Word_Id",
         "answer_links": {

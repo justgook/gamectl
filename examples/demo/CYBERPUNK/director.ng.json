@@ -192,6 +192,16 @@
         "id": 10,
         "name": "words.answer_4",
         "value": null
+      },
+      {
+        "id": 11,
+        "name": "words.prefab",
+        "value": null
+      },
+      {
+        "id": 12,
+        "name": "words.prefab_id",
+        "value": null
       }
     ]
   },
@@ -271,6 +281,18 @@
         "name": "world_entity",
         "srcNodeId": 17,
         "srcOutputId": 4
+      },
+      {
+        "id": 8,
+        "name": "prefab",
+        "srcNodeId": 17,
+        "srcOutputId": 11
+      },
+      {
+        "id": 9,
+        "name": "prefab_id",
+        "srcNodeId": 17,
+        "srcOutputId": 12
       },
       {
         "id": 5,

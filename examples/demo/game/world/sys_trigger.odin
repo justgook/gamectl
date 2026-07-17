@@ -10,6 +10,8 @@ Director_Config :: struct {
 	spawn_x:      director.Word_Id,
 	spawn_y:      director.Word_Id,
 	world_entity: director.Word_Id,
+	prefab:       director.Word_Id,
+	prefab_id:    director.Word_Id,
 	dialog:       director.Word_Id,
 	text_id:      director.Word_Id,
 	answer_links: [4]director.Word_Id,
@@ -119,24 +121,72 @@ apply_director_effects :: proc(w: ^World, effects: []director.Effect) {
 	}
 }
 
+Prefab_Id :: enum i32 {
+	Coin  = 1,
+	Enemy = 2,
+}
+
+Prefab_Resolve_Error :: enum {
+	None,
+	Missing_Link,
+	Unknown_Id,
+}
+
+@(require_results)
+director_resolve_prefab :: proc(w: ^World, director_entity: director.Entity_Id) -> (Prefab_Id, Prefab_Resolve_Error) {
+	prefab, has_prefab := director.entity_link(&w.director, director_entity, w.director_config.prefab)
+	if !has_prefab {
+		return {}, .Missing_Link
+	}
+
+	prefab_id := director.entity_stat(&w.director, prefab, w.director_config.prefab_id)
+	switch prefab_id {
+	case i32(Prefab_Id.Coin):
+		return .Coin, .None
+	case i32(Prefab_Id.Enemy):
+		return .Enemy, .None
+	case:
+		return {}, .Unknown_Id
+	}
+}
+
 @(private = "file")
 director_spawn_world_entity :: proc(w: ^World, director_entity: director.Entity_Id) {
+	prefab_id, prefab_error := director_resolve_prefab(w, director_entity)
+	assert(prefab_error != .Missing_Link, "spawned Director entity must have a prefab link")
+	assert(prefab_error != .Unknown_Id, "unknown prefab id")
+
 	spawn_x := director.entity_stat(&w.director, director_entity, w.director_config.spawn_x)
 	spawn_y := director.entity_stat(&w.director, director_entity, w.director_config.spawn_y)
-
 	entity := create_entity(w)
 	director.entity_set_stat(&w.director, director_entity, w.director_config.world_entity, i32(entity))
 	logic.add_component(&w.director_entity, entity, Director_Entity{id = director_entity})
 	logic.add_component(&w.position, entity, Position{spawn_x, spawn_y})
-	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
 
-	money_anim := 45 // len(&w.animation_atlas.defs) - 1
-	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[money_anim]))
+	switch prefab_id {
+	case .Coin:
+		director_spawn_coin(w, entity)
+	case .Enemy:
+		director_spawn_enemy(w, entity)
+	}
+}
+
+@(private = "file")
+director_spawn_coin :: proc(w: ^World, entity: logic.Entity) {
+	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
+	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[45]))
 	logic.add_component(
 		&w.director_trigger_aabb,
 		entity,
 		Director_Trigger_Aabb{bounds = {-8 * UNIT, -8 * UNIT, 8 * UNIT, 8 * UNIT}, once = true},
 	)
+}
+
+@(private = "file")
+director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
+	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
+	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[30]))
+	logic.add_component(&w.collider, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
 }
 
 @(private = "file")
