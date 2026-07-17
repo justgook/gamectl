@@ -32,9 +32,9 @@ app_init :: proc() {
 	w := &state.world
 	// TODO: delete those debug segments
 	UNIT := world.UNIT
-	append(&w.segments, [4]int{-128 * UNIT, 16 * UNIT, 128 * UNIT, 16 * UNIT})
+	append(&w.segments, [4]int{32 * UNIT, 16 * UNIT, 128 * UNIT, 16 * UNIT})
 	append(&w.segments, [4]int{128 * UNIT, 16 * UNIT, 256 * UNIT, 64 * UNIT})
-	append(&w.segments, [4]int{256 * UNIT, 16 * UNIT, 256 * UNIT, 128 * UNIT})
+	append(&w.segments, [4]int{256 * UNIT, -16 * UNIT, 256 * UNIT, 128 * UNIT})
 	// MOCK SEGMENTS END
 
 	assert(load_data_bullet("bullet.rspk", &state.world))

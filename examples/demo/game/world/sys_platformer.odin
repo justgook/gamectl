@@ -121,6 +121,37 @@ Platformer_Zone :: struct {
 	bounds: shape.Aabb,
 }
 
+Platformer_Ground_Ahead_Result :: struct {
+	found:   bool,
+	probe_x: i32,
+	delta_y: int,
+	normal:  [2]int,
+	segment: ^[4]int,
+}
+
+@(require_results)
+platformer_probe_ground_ahead :: proc(
+	g: ^grid.Grid,
+	pos: ^Position,
+	collider: ^shape.Capsule,
+	platformer: ^Platformer,
+	lookahead: int,
+	direction: int,
+) -> Platformer_Ground_Ahead_Result {
+	assert(direction == -1 || direction == 1)
+	assert(lookahead >= 0)
+
+	probe_x := int(pos.x) + collider.x + direction * (collider.radius + lookahead)
+	ground := slope.Probe_Ground_At_X(g, pos, collider, platformer_config(platformer).slope, probe_x)
+	return {
+		found = ground.ok,
+		probe_x = i32(probe_x),
+		delta_y = ground.delta_y,
+		normal = ground.normal,
+		segment = ground.segment,
+	}
+}
+
 sys_platformer :: proc(w: ^World) {
 	view := logic.view(&w.position, &w.input, &w.platformer)
 	for entity, pos, input, platformer in logic.each(&view) {

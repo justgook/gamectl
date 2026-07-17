@@ -32,7 +32,7 @@ Input :: bit_set[InputSet;u8]
 
 sys_brain :: proc(w: ^World) {
 	view := logic.view(&w.brain, &w.position, &w.input)
-	for _, brain, pos, input in logic.each(&view) {
+	for entity, brain, pos, input in logic.each(&view) {
 		if brain^ == 0 {
 			w.player1 = input
 
@@ -41,7 +41,11 @@ sys_brain :: proc(w: ^World) {
 
 		switch brain^ {
 		case 1:
-			brain1(w, input, pos)
+			collider, has_collider := logic.get_component(&w.collider, entity)
+			assert(has_collider)
+			platformer, has_platformer := logic.get_component(&w.platformer, entity)
+			assert(has_platformer)
+			brain1(w, input, pos, collider, platformer)
 		case:
 			host.error("sys_brain", "unknown brain")
 		}
@@ -50,32 +54,44 @@ sys_brain :: proc(w: ^World) {
 }
 
 @(private = "file")
-brain1 :: proc(w: ^World, input: ^Input, pos: ^Position) {
-	inputX := 0
-	if .East in input {
-		inputX = 1
-	}
-	if .West in input {
-		inputX = -1
-	}
-	test := [4]int{}
-	test.xy = {int(pos^.x), int(pos^.y)}
-
-	test.z = test.x + inputX * 10 * UNIT
-	test.w = test.y
+brain1 :: proc(w: ^World, input: ^Input, pos: ^Position, collider: ^shape.Capsule, platformer: ^Platformer) {
+	direction := brain1_direction(input)
+	test := [4]int{int(pos.x), int(pos.y), int(pos.x) + direction * 10 * UNIT, int(pos.y)}
 	found := grid.query_segment(&w.grid, &test)
 	defer delete(found)
 
 	for wall in found {
 		shape.segment_segment_test(wall, &test) or_continue
-		if .East in input {
-			input^ -= {.East}
-			input^ += {.West}
-		} else if .West in input {
-			input^ -= {.West}
-			input^ += {.East}
-		}
+		brain1_reverse(input, direction)
+		return
+	}
 
-		break
+	if platformer.on_ground {
+		ground := platformer_probe_ground_ahead(&w.grid, pos, collider, platformer, direction, 16 * UNIT)
+		if !ground.found {
+			brain1_reverse(input, direction)
+		}
+	}
+}
+
+@(private = "file")
+@(require_results)
+brain1_direction :: proc(input: ^Input) -> int {
+	if .East in input {
+		return 1
+	}
+	assert(.West in input)
+	return -1
+}
+
+@(private = "file")
+brain1_reverse :: proc(input: ^Input, direction: int) {
+	assert(direction == -1 || direction == 1)
+	if direction > 0 {
+		input^ -= {.East}
+		input^ += {.West}
+	} else {
+		input^ -= {.West}
+		input^ += {.East}
 	}
 }

@@ -102,6 +102,17 @@ Stick_To_Ground :: proc(g: ^grid.Grid, pos: ^[2]i32, collider: ^shape.Capsule, c
 	return find_ground_delta_for_offsets(g, pos, collider, cfg, offsets, snap_up, snap_down)
 }
 
+Probe_Ground_At_X :: proc(
+	g: ^grid.Grid,
+	pos: ^[2]i32,
+	collider: ^shape.Capsule,
+	cfg: Config,
+	support_x: int,
+) -> Ground_Result {
+	snap_up, snap_down := ground_snap(cfg, collider)
+	return find_walkable_ground_delta(g, pos, collider, cfg, support_x, snap_up, snap_down)
+}
+
 Is_Walkable_Ground_Segment :: proc(segment: ^[4]int, cfg: Config) -> bool {
 	normal := segment_left_normal(segment)
 	if normal.y <= 0 {
