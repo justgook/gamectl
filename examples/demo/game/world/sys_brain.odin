@@ -1,5 +1,14 @@
 package world
 
+// Enemy behavior roadmap:
+// 1. [done] Ledge-safe patrol — reverse at walls and before leaving walkable ground.
+// 2. [todo] Radius-based perception sensor — detect targets within an omnidirectional range.
+// 3. [todo] Detection enter/exit transitions — notify decisions only when perception changes.
+// 4. [todo] Director patrolling ↔ chasing — let Director rules own discrete enemy intent.
+// 5. [todo] Chase Brain behavior — convert chasing intent into movement toward the target.
+// 6. [todo] Cone perception and optional line-of-sight — add directional sight and map occlusion.
+// 7. [todo] Damage and combat integration — route hits, damage sources, health, and death through Director.
+
 import "../host"
 import "grid"
 import "logic"
