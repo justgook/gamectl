@@ -187,6 +187,9 @@ director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
 	logic.add_component(&w.sprite, entity, Sprite{opacity = 1, uv = w.uv[12]})
 	logic.add_component(&w.animation, entity, animation_create(&w.animation_atlas.defs[30]))
 	logic.add_component(&w.collider, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
+	logic.add_component(&w.brain, entity, Brain(1))
+	logic.add_component(&w.input, entity, Input{.East})
+	logic.add_component(&w.platformer, entity, Platformer{facing = 1})
 }
 
 @(private = "file")

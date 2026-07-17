@@ -61,6 +61,9 @@ spawn_test_world_destroy :: proc(w: ^World) {
 	logic.destroy_storage(&w.sprite)
 	logic.destroy_storage(&w.animation)
 	logic.destroy_storage(&w.collider)
+	logic.destroy_storage(&w.brain)
+	logic.destroy_storage(&w.input)
+	logic.destroy_storage(&w.platformer)
 	logic.destroy_storage(&w.director_entity)
 	logic.destroy_storage(&w.director_trigger_aabb)
 	free(w)
@@ -104,6 +107,12 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	testing.expect(t, logic.has_component(&w.sprite, world_entity))
 	testing.expect(t, logic.has_component(&w.animation, world_entity))
 	testing.expect(t, logic.has_component(&w.collider, world_entity))
+	brain, has_brain := logic.get_component(&w.brain, world_entity)
+	testing.expectf(t, has_brain && brain^ == 1, "enemy brain = %v", brain)
+	input, has_input := logic.get_component(&w.input, world_entity)
+	testing.expectf(t, has_input && input^ == Input{.East}, "enemy input = %v", input)
+	platformer, has_platformer := logic.get_component(&w.platformer, world_entity)
+	testing.expectf(t, has_platformer && platformer.facing == 1, "enemy platformer = %v", platformer)
 	testing.expect(t, !logic.has_component(&w.director_trigger_aabb, world_entity))
 }
 

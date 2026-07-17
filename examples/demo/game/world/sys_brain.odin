@@ -71,9 +71,9 @@ brain1 :: proc(w: ^World, input: ^Input, pos: ^Position) {
 		if .East in input {
 			input^ -= {.East}
 			input^ += {.West}
-		} else {
-			input^ -= {.East}
-			input^ += {.West}
+		} else if .West in input {
+			input^ -= {.West}
+			input^ += {.East}
 		}
 
 		break
