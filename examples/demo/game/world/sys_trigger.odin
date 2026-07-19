@@ -12,6 +12,8 @@ Director_Config :: struct {
 	world_entity: director.Word_Id,
 	prefab:       director.Word_Id,
 	prefab_id:    director.Word_Id,
+	vision_enter: director.Word_Id,
+	vision_exit:  director.Word_Id,
 	dialog:       director.Word_Id,
 	text_id:      director.Word_Id,
 	answer_links: [4]director.Word_Id,
@@ -194,6 +196,7 @@ director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
 	)
 	logic.add_component(&w.collider, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
 	logic.add_component(&w.brain, entity, Brain(1))
+	logic.add_component(&w.enemy_vision, entity, Enemy_Vision{radius = 96 * UNIT})
 	logic.add_component(&w.input, entity, Input{.East})
 	logic.add_component(&w.platformer, entity, Platformer{facing = 1})
 }

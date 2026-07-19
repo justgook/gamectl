@@ -82,6 +82,16 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		debug_collision_add_capsule_at_position(pos, collider, color)
 	}
 
+	// Enemy perception radius: yellow while idle, orange while the player is inside.
+	vision_view := logic.view(&w.position, &w.enemy_vision)
+	for _, pos, vision in logic.each(&vision_view) {
+		color := [4]f32{1.0, 0.85, 0.1, 0.65}
+		if vision.player_inside {
+			color = {1.0, 0.35, 0.05, 0.9}
+		}
+		debug_collision_add_circle({to_pixelf(int(pos.x)), to_pixelf(int(pos.y))}, to_pixelf(vision.radius), color)
+	}
+
 	// Combat hurt / hit volumes.
 	debug_collision_add_capsule_storage(&w.position, &w.player_hurt, {0.1, 0.35, 1.0, 1.0})
 	debug_collision_add_circle_storage(&w.position, &w.player_hit, {0.65, 0.9, 1.0, 1.0})

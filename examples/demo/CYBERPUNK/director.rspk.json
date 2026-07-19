@@ -308,6 +308,8 @@
         "world_entity": "director.Word_Id",
         "prefab": "director.Word_Id",
         "prefab_id": "director.Word_Id",
+        "vision_enter": "director.Word_Id",
+        "vision_exit": "director.Word_Id",
         "dialog": "director.Word_Id",
         "text_id": "director.Word_Id",
         "answer_links": {

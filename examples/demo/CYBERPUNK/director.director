@@ -36,6 +36,13 @@ DO: PLAYER.money + 100
     -$
 
 
+# Vision transitions arrive as temporary links on the observing enemy.
+ON: *.enemy.vision_enter=PLAYER
+DO: $.sees=PLAYER
+
+ON: *.enemy.vision_exit=PLAYER
+DO: $.-sees
+
 # The world trigger opens the root dialog.
 ON: WORLD_TRIGGER
 DO: PLAYER.dialog = DIALOG_ROOT

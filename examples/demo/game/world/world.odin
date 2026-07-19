@@ -44,6 +44,7 @@ World :: struct {
 	nine_patch:             logic.Component_Storage_Fixed(Nine_Patch, NINE_PATCH_RENDER_MAX),
 	text_glyph:             logic.Component_Storage_Fixed(Text_Glyph, TEXT_GLYPH_RENDER_MAX),
 	brain:                  logic.Component_Storage(Brain),
+	enemy_vision:           logic.Component_Storage(Enemy_Vision),
 	input:                  logic.Component_Storage(Input),
 	timer:                  logic.Component_Storage(Timer),
 	// animations
@@ -99,6 +100,7 @@ frame :: proc(w: ^World, dt: f64) {
 			sys_bullet(w)
 			sys_platformer(w)
 			sys_velocity(w)
+			sys_enemy_vision(w)
 			sys_trigger(w)
 			sys_bullet_collision(w)
 		case .Dialog:
@@ -290,6 +292,7 @@ entity_delete :: proc(w: ^World, entity_id: logic.Entity) {
 	logic.delete_component(&w.tilemap, entity_id)
 	logic.delete_component(&w.nine_patch, entity_id)
 	logic.delete_component(&w.brain, entity_id)
+	logic.delete_component(&w.enemy_vision, entity_id)
 	logic.delete_component(&w.input, entity_id)
 	logic.delete_component(&w.platformer, entity_id)
 	logic.delete_component(&w.timer, entity_id)
@@ -331,6 +334,7 @@ cleanup :: proc(w: ^World) {
 	text_cleanup(w.text_pipe)
 	logic.destroy_storage(&w.text_glyph)
 	logic.destroy_storage(&w.brain)
+	logic.destroy_storage(&w.enemy_vision)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.platformer)
 	logic.destroy_storage(&w.timer)

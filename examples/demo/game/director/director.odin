@@ -386,6 +386,18 @@ entity_has_tag :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) -> boo
 	return has_tag(&state.entities[int(entity_id)], key)
 }
 
+// entity_add_tag adds a tag to mutable runtime state.
+entity_add_tag :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) {
+	assert(valid_entity(state, entity_id))
+	add_tag(&state.entities[int(entity_id)], key)
+}
+
+// entity_remove_tag removes a tag from mutable runtime state.
+entity_remove_tag :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) {
+	assert(valid_entity(state, entity_id))
+	remove_tag(&state.entities[int(entity_id)], key)
+}
+
 // entity_stat returns an entity stat. Missing stats are treated as 0, matching
 // Elm Narrative Engine semantics.
 @(require_results)
@@ -412,6 +424,19 @@ entity_remove_stat :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) {
 entity_link :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) -> (Entity_Id, bool) {
 	assert(valid_entity(state, entity_id))
 	return get_link_target(&state.entities[int(entity_id)], key)
+}
+
+// entity_set_link updates or dynamically adds a link to mutable runtime state.
+entity_set_link :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id, target: Entity_Id) {
+	assert(valid_entity(state, entity_id))
+	assert(valid_entity(state, target))
+	set_link(&state.entities[int(entity_id)], key, target)
+}
+
+// entity_remove_link removes a dynamically managed link from mutable runtime state.
+entity_remove_link :: proc(state: ^State, entity_id: Entity_Id, key: Word_Id) {
+	assert(valid_entity(state, entity_id))
+	remove_link(&state.entities[int(entity_id)], key)
 }
 
 @(private = "file")

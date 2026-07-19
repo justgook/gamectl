@@ -46,7 +46,7 @@ brain_test_ground_probe :: proc(w: ^World, direction: int) -> Platformer_Ground_
 	assert(has_collider)
 	platformer, has_platformer := logic.get_component(&w.platformer, 1)
 	assert(has_platformer)
-	return platformer_probe_ground_ahead(&w.grid, pos, collider, platformer, direction, 2 * UNIT)
+	return platformer_probe_ground_ahead(&w.grid, pos, collider, platformer, 2 * UNIT, direction)
 }
 
 @(test)

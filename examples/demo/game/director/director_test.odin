@@ -51,6 +51,44 @@ test_entity_set_stat_updates_and_adds_runtime_stats :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_entity_tag_mutation_updates_runtime_tags :: proc(t: ^testing.T) {
+	state := init(test_data)
+	defer destroy(&state)
+
+	entity_add_tag(&state, E_PLAYER, W_explored)
+	testing.expect(t, entity_has_tag(&state, E_PLAYER, W_explored))
+
+	// Adding an existing tag is idempotent.
+	entity_add_tag(&state, E_PLAYER, W_explored)
+	entity_remove_tag(&state, E_PLAYER, W_explored)
+	testing.expect(t, !entity_has_tag(&state, E_PLAYER, W_explored))
+
+	// Removing an absent tag is a no-op.
+	entity_remove_tag(&state, E_PLAYER, W_explored)
+}
+
+@(test)
+test_entity_link_mutation_updates_runtime_links :: proc(t: ^testing.T) {
+	state := init(test_data)
+	defer destroy(&state)
+
+	entity_set_link(&state, E_PLAYER, W_held_by, E_TORCH)
+	target, ok := entity_link(&state, E_PLAYER, W_held_by)
+	testing.expectf(t, ok && target == E_TORCH, "runtime link = %v %v", ok, target)
+
+	entity_set_link(&state, E_PLAYER, W_held_by, E_KEY)
+	target, ok = entity_link(&state, E_PLAYER, W_held_by)
+	testing.expectf(t, ok && target == E_KEY, "updated runtime link = %v %v", ok, target)
+
+	entity_remove_link(&state, E_PLAYER, W_held_by)
+	_, ok = entity_link(&state, E_PLAYER, W_held_by)
+	testing.expect(t, !ok)
+
+	// Removing an absent link is a no-op.
+	entity_remove_link(&state, E_PLAYER, W_held_by)
+}
+
+@(test)
 test_signal_rule_applies_changes :: proc(t: ^testing.T) {
 	state := init(test_data)
 	defer destroy(&state)

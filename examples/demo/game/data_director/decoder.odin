@@ -946,6 +946,24 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 			if !ok {return false}
 			value = v
 		}
+		out.vision_enter = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
+		out.vision_exit = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
 		out.dialog = director.Word_Id(value)
 	}
 	{

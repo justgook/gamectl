@@ -32,7 +32,9 @@ spawn_entities := [?]director.Entity_Def {
 	{id = SPAWN_ENEMY, stats = spawn_enemy_stats[:], links = spawn_enemy_links[:]},
 	{id = SPAWN_ENEMY_PREFAB, stats = spawn_enemy_prefab_stats[:]},
 }
-spawn_data := director.Director_Data{entities = spawn_entities[:]}
+spawn_data := director.Director_Data {
+	entities = spawn_entities[:],
+}
 
 @(private = "file")
 spawn_test_world :: proc(data: director.Director_Data) -> ^World {
@@ -63,6 +65,7 @@ spawn_test_world_destroy :: proc(w: ^World) {
 	logic.destroy_storage(&w.platformer_anim)
 	logic.destroy_storage(&w.collider)
 	logic.destroy_storage(&w.brain)
+	logic.destroy_storage(&w.enemy_vision)
 	logic.destroy_storage(&w.input)
 	logic.destroy_storage(&w.platformer)
 	logic.destroy_storage(&w.director_entity)
@@ -116,7 +119,8 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	platformer_anim, has_platformer_anim := logic.get_component(&w.platformer_anim, world_entity)
 	testing.expectf(
 		t,
-		has_platformer_anim && platformer_anim.set[.Idle].def == &w.animation_atlas.defs[15] &&
+		has_platformer_anim &&
+		platformer_anim.set[.Idle].def == &w.animation_atlas.defs[15] &&
 		platformer_anim.set[.Run].def == &w.animation_atlas.defs[16] &&
 		platformer_anim.set[.Swim_Jump].def == &w.animation_atlas.defs[29],
 		"enemy platformer animation = %v",
@@ -125,6 +129,8 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	testing.expect(t, logic.has_component(&w.collider, world_entity))
 	brain, has_brain := logic.get_component(&w.brain, world_entity)
 	testing.expectf(t, has_brain && brain^ == 1, "enemy brain = %v", brain)
+	vision, has_vision := logic.get_component(&w.enemy_vision, world_entity)
+	testing.expectf(t, has_vision && vision.radius == 96 * UNIT && !vision.player_inside, "enemy vision = %v", vision)
 	input, has_input := logic.get_component(&w.input, world_entity)
 	testing.expectf(t, has_input && input^ == Input{.East}, "enemy input = %v", input)
 	platformer, has_platformer := logic.get_component(&w.platformer, world_entity)
@@ -146,10 +152,7 @@ test_director_spawn_requires_prefab_link :: proc(t: ^testing.T) {
 test_director_spawn_rejects_unknown_prefab_id :: proc(t: ^testing.T) {
 	instance_links := [?]director.Link{{key = SPAWN_PREFAB, target = 1}}
 	prefab_stats := [?]director.Stat{{key = SPAWN_PREFAB_ID, value = 999}}
-	entities := [?]director.Entity_Def {
-		{id = 0, links = instance_links[:]},
-		{id = 1, stats = prefab_stats[:]},
-	}
+	entities := [?]director.Entity_Def{{id = 0, links = instance_links[:]}, {id = 1, stats = prefab_stats[:]}}
 	w := spawn_test_world(director.Director_Data{entities = entities[:]})
 	defer spawn_test_world_destroy(w)
 
