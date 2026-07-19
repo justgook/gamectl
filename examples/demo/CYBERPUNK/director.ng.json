@@ -257,6 +257,11 @@
         "id": 23,
         "name": "words.spawn",
         "value": null
+      },
+      {
+        "id": 24,
+        "name": "words.damage_source",
+        "value": null
       }
     ]
   },
@@ -414,6 +419,12 @@
         "name": "spawn",
         "srcNodeId": 17,
         "srcOutputId": 23
+      },
+      {
+        "id": 21,
+        "name": "damage_source",
+        "srcNodeId": 17,
+        "srcOutputId": 24
       },
       {
         "id": 5,

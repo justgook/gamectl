@@ -215,7 +215,9 @@ init :: proc(w: ^World) {
 	player := create_entity(w)
 	host.info("PLAYER", "ID", player)
 	w.player1_id = player
-	logic.add_component(&w.bullet, player, bullet_component(&w.bullet_patterns[0]))
+	director.entity_set_stat(&w.director, w.director_config.player, w.director_config.world_entity, i32(player))
+	logic.add_component(&w.director_entity, player, Director_Entity{id = w.director_config.player})
+	logic.add_component(&w.bullet, player, bullet_component(&w.bullet_patterns[0], w.director_config.player, .Player))
 	camera_track(&w.cam, player)
 	logic.add_component(&w.brain, player, Brain{})
 	logic.add_component(&w.input, player, Input{})
@@ -225,6 +227,7 @@ init :: proc(w: ^World) {
 	// logic.add_component(&w.position, player, Position{64 * UNIT, 96 * UNIT})
 
 	logic.add_component(&w.collider, player, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
+	logic.add_component(&w.player_hurt, player, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
 	logic.add_component(&w.platformer, player, Platformer{facing = 1})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[969]})
 	// logic.add_component(&w.sprite, player, Sprite{pos = {00, 00}, opacity = 1, uv = w.uv[418]})

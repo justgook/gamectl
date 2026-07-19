@@ -203,7 +203,7 @@ const cyberpunk = invokeCompiler(cyberpunkSource)
 assert.equal(cyberpunk.err, undefined, `CYBERPUNK Director source failed: ${JSON.stringify(cyberpunk.err)}`)
 const cyberpunkIr = JSON.parse(cyberpunk.ok)
 assert.equal(cyberpunkIr.entities.length, 20)
-assert.equal(cyberpunkIr.rules.length, 16)
+assert.equal(cyberpunkIr.rules.length, 19)
 assert.deepEqual(cyberpunkIr.symbols, {
   entities: {
     player: 0,
@@ -246,26 +246,27 @@ assert.deepEqual(cyberpunkIr.symbols, {
     answer_4: 15,
     behavior: 16,
     spawn: 17,
-    vision_enter: 18,
-    attack_range: 19,
-    sees: 20,
-    target: 21,
-    firing: 22,
-    vision_exit: 23,
-    attack_enter: 24,
-    attack_exit: 25,
+    damage_source: 18,
+    vision_enter: 19,
+    attack_range: 20,
+    sees: 21,
+    target: 22,
+    firing: 23,
+    vision_exit: 24,
+    attack_enter: 25,
+    attack_exit: 26,
   },
 })
 assert.deepEqual(cyberpunkIr.changes.map(({ kind }) => kind), [
   'Add_Tag', 'Add_Tag', 'Add_Tag', 'Set_Link', 'Inc_Stat',
-  'Remove_Property', 'Inc_Stat', 'Remove_Property', 'Set_Link', 'Set_Link',
-  'Set_Link', 'Add_Tag', 'Set_Link', 'Set_Link', 'Set_Link',
-  'Remove_Property', 'Set_Link', 'Add_Tag', 'Remove_Property', 'Remove_Property',
-  'Remove_Property', 'Set_Link', 'Set_Link', 'Set_Link', 'Set_Link', 'Add_Tag',
-  'Remove_Property', 'Remove_Property', 'Set_Link', 'Remove_Property',
-  'Remove_Property', 'Remove_Property', 'Set_Link', 'Set_Link', 'Dec_Stat',
-  'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Inc_Stat',
-  'Set_Link', 'Remove_Property', 'Remove_Property',
+  'Remove_Property', 'Inc_Stat', 'Remove_Property', 'Dec_Stat', 'Dec_Stat',
+  'Remove_Property', 'Dec_Stat', 'Set_Link', 'Set_Link', 'Set_Link', 'Add_Tag',
+  'Set_Link', 'Set_Link', 'Set_Link', 'Remove_Property', 'Set_Link', 'Add_Tag',
+  'Remove_Property', 'Remove_Property', 'Remove_Property', 'Set_Link', 'Set_Link',
+  'Set_Link', 'Set_Link', 'Add_Tag', 'Remove_Property', 'Remove_Property',
+  'Set_Link', 'Remove_Property', 'Remove_Property', 'Remove_Property', 'Set_Link',
+  'Set_Link', 'Dec_Stat', 'Inc_Stat', 'Set_Link', 'Dec_Stat', 'Inc_Stat',
+  'Set_Link', 'Inc_Stat', 'Set_Link', 'Remove_Property', 'Remove_Property',
 ])
 assert.equal(cyberpunkIr.entities[2].removed, undefined)
 assert.equal(cyberpunkIr.entities[3].removed, undefined)

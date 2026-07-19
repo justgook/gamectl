@@ -1,22 +1,34 @@
 package world
 import "../data_bullet"
+import "../director"
 import "bullet"
 import "core:math"
 import "logic"
 import "shape"
 
 
+Bullet_Side :: enum u8 {
+	Player,
+	Enemy,
+}
+
 Bullet :: struct {
-	using state:  bullet.State,
-	using motion: Bullet_Motion,
+	using state:   bullet.State,
+	using motion:  Bullet_Motion,
+	damage_source: director.Entity_Id,
+	side:          Bullet_Side,
 }
 
 bullet_restart :: proc(pew: ^Bullet) {
 	bullet.restart(pew)
 }
 
-bullet_component :: proc(pattern: ^data_bullet.Bullet_Pattern) -> Bullet {
-	return Bullet{state = bullet.init_pattern_state(pattern, done = true)}
+bullet_component :: proc(
+	pattern: ^data_bullet.Bullet_Pattern,
+	damage_source: director.Entity_Id,
+	side: Bullet_Side,
+) -> Bullet {
+	return Bullet{state = bullet.init_pattern_state(pattern, done = true), damage_source = damage_source, side = side}
 }
 
 bullet_delete_component :: proc(storage: ^logic.Component_Storage(Bullet), entity: logic.Entity) {
@@ -62,6 +74,8 @@ sys_bullet :: proc(w: ^World) {
 						position = pos^,
 						velocity = bullet_velocity(cmd.direction, cmd.speed),
 						state = cmd.child_state,
+						damage_source = pew.damage_source,
+						side = pew.side,
 					},
 				)
 			case .ChangeDirection:
@@ -109,20 +123,31 @@ sys_bullet :: proc(w: ^World) {
 
 	for spawn in spawns {
 		child := create_entity(w)
-		logic.add_component(&w.bullet, child, Bullet{state = spawn.state})
+		logic.add_component(
+			&w.bullet,
+			child,
+			Bullet{state = spawn.state, damage_source = spawn.damage_source, side = spawn.side},
+		)
 		logic.add_component(&w.position, child, spawn.position)
 		logic.add_component(&w.velocity, child, spawn.velocity)
 		logic.add_component(&w.sprite, child, Sprite{opacity = 1, uv = w.uv[100]})
-		logic.add_component(&w.player_hit, child, shape.Circle{radius = 4 * UNIT})
+		switch spawn.side {
+		case .Player:
+			logic.add_component(&w.player_hit, child, shape.Circle{radius = 4 * UNIT})
+		case .Enemy:
+			logic.add_component(&w.enemy_hit, child, shape.Circle{radius = 4 * UNIT})
+		}
 	}
 }
 
 
 @(private = "file")
 Bullet_Spawn :: struct {
-	position: Position,
-	velocity: Velocity,
-	state:    bullet.State,
+	position:      Position,
+	velocity:      Velocity,
+	state:         bullet.State,
+	damage_source: director.Entity_Id,
+	side:          Bullet_Side,
 }
 
 @(private = "file")

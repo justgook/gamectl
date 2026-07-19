@@ -6,26 +6,27 @@ import "logic"
 import "shape"
 
 Director_Config :: struct {
-	player:       director.Entity_Id,
-	spawn_x:      director.Word_Id,
-	spawn_y:      director.Word_Id,
-	world_entity: director.Word_Id,
-	spawn:        director.Word_Id,
-	prefab:       director.Word_Id,
-	prefab_id:    director.Word_Id,
-	vision_enter: director.Word_Id,
-	vision_exit:  director.Word_Id,
-	attack_enter: director.Word_Id,
-	attack_exit:  director.Word_Id,
-	behavior:     director.Word_Id,
-	target:       director.Word_Id,
-	firing:       director.Word_Id,
-	patrolling:   director.Entity_Id,
-	chasing:      director.Entity_Id,
-	attacking:    director.Entity_Id,
-	dialog:       director.Word_Id,
-	text_id:      director.Word_Id,
-	answer_links: [4]director.Word_Id,
+	player:        director.Entity_Id,
+	spawn_x:       director.Word_Id,
+	spawn_y:       director.Word_Id,
+	world_entity:  director.Word_Id,
+	spawn:         director.Word_Id,
+	prefab:        director.Word_Id,
+	prefab_id:     director.Word_Id,
+	vision_enter:  director.Word_Id,
+	vision_exit:   director.Word_Id,
+	attack_enter:  director.Word_Id,
+	attack_exit:   director.Word_Id,
+	damage_source: director.Word_Id,
+	behavior:      director.Word_Id,
+	target:        director.Word_Id,
+	firing:        director.Word_Id,
+	patrolling:    director.Entity_Id,
+	chasing:       director.Entity_Id,
+	attacking:     director.Entity_Id,
+	dialog:        director.Word_Id,
+	text_id:       director.Word_Id,
+	answer_links:  [4]director.Word_Id,
 }
 
 Segment_Trigger :: struct {
@@ -209,6 +210,7 @@ director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
 		platformer_anim_create_char_from_atlas(&w.animation_atlas, enemy_anim_base),
 	)
 	logic.add_component(&w.collider, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
+	logic.add_component(&w.enemy_hurt, entity, shape.Capsule{radius = 6 * UNIT, height = 12 * UNIT})
 	logic.add_component(&w.brain, entity, Brain(1))
 	logic.add_component(
 		&w.enemy_vision,
@@ -216,7 +218,9 @@ director_spawn_enemy :: proc(w: ^World, entity: logic.Entity) {
 		Enemy_Vision{sector = shape.make_sector_degrees(0, 0, 96 * UNIT, {1, 0}, 45)},
 	)
 	logic.add_component(&w.enemy_attack_area, entity, Enemy_Attack_Area{circle = shape.Circle{radius = 16 * UNIT}})
-	logic.add_component(&w.bullet, entity, bullet_component(&w.bullet_patterns[0]))
+	director_entity, has_director_entity := logic.get_component(&w.director_entity, entity)
+	assert(has_director_entity)
+	logic.add_component(&w.bullet, entity, bullet_component(&w.bullet_patterns[0], director_entity.id, .Enemy))
 	logic.add_component(&w.velocity, entity, Velocity{})
 	logic.add_component(&w.input, entity, Input{.East})
 	logic.add_component(&w.platformer, entity, Platformer{facing = 1})

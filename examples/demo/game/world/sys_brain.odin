@@ -10,7 +10,8 @@ package world
 // 7. [done] Chase retention — use omnidirectional vision while chasing or attacking.
 // 8. [done] Attack range and firing command — let Director switch intent and command the existing weapon input.
 // 9. [todo] Optional line-of-sight — add map occlusion to directional sight.
-// 10. [todo] Damage and combat integration — route hits, damage sources, health, and death through Director.
+// 10. [done] Basic damage integration — route opposing bullet hits, health changes, and enemy removal through Director.
+// 11. [todo] Advanced combat outcomes — add player death, damage types, status effects, and invulnerability.
 
 import "../director"
 import "../host"

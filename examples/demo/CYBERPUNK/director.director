@@ -4,7 +4,7 @@ SEGMENT_TRIGGER.enter_room_001
 COIN_A.coin.prefab = COIN_PREFAB.spawn_x = 11520.spawn_y = 5248
 COIN_B.coin.prefab = COIN_PREFAB.spawn_x = 14080.spawn_y = 6528
 COIN_PREFAB.prefab_id = 1
-ENEMY_A.enemy.prefab = ENEMY_PREFAB.spawn_x = 10240.spawn_y = 5248
+ENEMY_A.enemy.prefab = ENEMY_PREFAB.spawn_x = 10240.spawn_y = 5248.hp = 30
 ENEMY_PREFAB.prefab_id = 2
 WORLD_TRIGGER.world_entity = 0
 
@@ -41,6 +41,20 @@ ON: COIN_A.spawn
 DO: PLAYER.money + 100
     $.-spawn
 
+
+# Damage sources are temporary links projected by world hit detection.
+ON: *.enemy.spawn.damage_source=PLAYER
+IF: $.hp>10
+DO: $.hp - 10
+
+ON: *.enemy.spawn.damage_source=PLAYER
+IF: $.hp<11
+DO: $.hp - 10
+    $.-spawn
+
+ON: PLAYER
+IF: PLAYER.damage_source=ENEMY_A
+DO: PLAYER.hp - 5
 
 # Vision and attack transitions arrive as temporary links on the observing enemy.
 # Area facts remain independent; Director selects one exclusive behavior.

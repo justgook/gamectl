@@ -313,6 +313,7 @@
         "vision_exit": "director.Word_Id",
         "attack_enter": "director.Word_Id",
         "attack_exit": "director.Word_Id",
+        "damage_source": "director.Word_Id",
         "behavior": "director.Word_Id",
         "target": "director.Word_Id",
         "firing": "director.Word_Id",

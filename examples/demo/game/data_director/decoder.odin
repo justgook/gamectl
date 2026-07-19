@@ -991,6 +991,15 @@ decode_world_director_config :: proc(r: ^Reader, out: ^world.Director_Config) ->
 			if !ok {return false}
 			value = v
 		}
+		out.damage_source = director.Word_Id(value)
+	}
+	{
+		value: u32
+		{
+			v, ok := read_u32_reader(r)
+			if !ok {return false}
+			value = v
+		}
 		out.behavior = director.Word_Id(value)
 	}
 	{

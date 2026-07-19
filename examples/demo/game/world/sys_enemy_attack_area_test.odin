@@ -119,7 +119,7 @@ attack_test_world :: proc() -> ^World {
 	logic.add_component(&w.director_entity, 11, Director_Entity{id = ATTACK_ENEMY})
 	logic.add_component(&w.brain, 11, Brain(1))
 	logic.add_component(&w.input, 11, Input{.East})
-	logic.add_component(&w.bullet, 11, bullet_component(&attack_test_bullet_pattern))
+	logic.add_component(&w.bullet, 11, bullet_component(&attack_test_bullet_pattern, ATTACK_ENEMY, .Enemy))
 	logic.add_component(&w.platformer, 11, Platformer{facing = 1})
 	return w
 }
