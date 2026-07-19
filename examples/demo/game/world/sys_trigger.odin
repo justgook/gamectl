@@ -10,6 +10,7 @@ Director_Config :: struct {
 	spawn_x:      director.Word_Id,
 	spawn_y:      director.Word_Id,
 	world_entity: director.Word_Id,
+	spawn:        director.Word_Id,
 	prefab:       director.Word_Id,
 	prefab_id:    director.Word_Id,
 	vision_enter: director.Word_Id,
@@ -76,7 +77,7 @@ segment_trigger_contact :: proc(w: ^World, entity: logic.Entity, segment: ^[4]in
 
 	result := director.trigger(&w.director, director.Trigger{kind = .Signal, signal = trigger.director_signal})
 	assert(result.matched)
-	apply_director_effects(w, result.effects)
+	apply_director_changes(w, result.changes)
 
 	trigger.used = true
 }
@@ -116,17 +117,22 @@ director_trigger_aabb_contact :: proc(w: ^World) {
 		trigger.used = true
 		result := director.trigger(&w.director, director.Trigger{kind = .Entity, entity = director_entity.id})
 		assert(result.matched)
-		apply_director_effects(w, result.effects)
+		apply_director_changes(w, result.changes)
 	}
 }
 
-apply_director_effects :: proc(w: ^World, effects: []director.Effect) {
-	for effect in effects {
-		#partial switch effect.kind {
-		case .Spawn:
-			director_spawn_world_entity(w, effect.entity)
-		case .Remove:
-			director_remove_world_entity(w, effect.entity)
+apply_director_changes :: proc(w: ^World, changes: []director.Applied_Change) {
+	for change in changes {
+		#partial switch change.kind {
+		case .Tag_Added:
+			if change.key == w.director_config.spawn {
+				director_spawn_world_entity(w, change.entity)
+			}
+		case .Tag_Removed:
+			if change.key == w.director_config.spawn {
+				director_remove_world_entity(w, change.entity)
+			}
+		case .Stat_Set, .Stat_Removed, .Link_Set, .Link_Removed:
 		}
 	}
 }

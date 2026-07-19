@@ -24,22 +24,22 @@ PATROLLING.behavior
 CHASING.behavior
 ATTACKING.behavior
 
-# Entering the segment creates the coin and enemy world entities.
+# Entering the segment marks the coin and enemy for projection into the game world.
 ON: "enter_room_001"
-DO: +COIN_A
-    +COIN_B
-    +ENEMY_A
+DO: COIN_A.spawn
+    COIN_B.spawn
+    ENEMY_A.spawn
     ENEMY_A.behavior=PATROLLING
 
-# Collecting a coin awards money and removes the triggering entity.
-ON: *.coin
+# Collecting a coin awards money and removes its game-world projection.
+ON: *.coin.spawn
 DO: PLAYER.money + 1
-    -$
+    $.-spawn
 
 # just example of higher priority selector (COIN_A > *.coin)
-ON: COIN_A
+ON: COIN_A.spawn
 DO: PLAYER.money + 100
-    -$
+    $.-spawn
 
 
 # Vision and attack transitions arrive as temporary links on the observing enemy.

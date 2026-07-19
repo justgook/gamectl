@@ -129,7 +129,7 @@ director_trigger_entity_link_event :: proc(w: ^World, entity: director.Entity_Id
 	result := director.trigger(&w.director, director.Trigger{kind = .Entity, entity = entity})
 	director.entity_remove_link(&w.director, entity, event_key)
 	assert(result.matched)
-	apply_director_effects(w, result.effects)
+	apply_director_changes(w, result.changes)
 }
 
 sys_brain :: proc(w: ^World) {

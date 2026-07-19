@@ -28,6 +28,7 @@ W_blinded :: Word_Id(12)
 W_world_entity :: Word_Id(13)
 W_close :: Word_Id(14)
 W_cleanup :: Word_Id(15)
+W_adjust :: Word_Id(16)
 
 R_intro :: Rule_Id(0)
 R_take_item :: Rule_Id(1)
@@ -36,6 +37,7 @@ R_generic_item :: Rule_Id(3)
 R_mark_items :: Rule_Id(4)
 R_close :: Rule_Id(5)
 R_cleanup :: Rule_Id(6)
+R_adjust :: Rule_Id(7)
 
 test_player_links := [?]Link{{key = W_location, target = E_CAVE}}
 test_player_stats := [?]Stat{{key = W_strength, value = 5}}
@@ -111,6 +113,7 @@ test_changes := [?]Change {
 	{target = {kind = .Entity, entity = E_CAVE}, kind = .Remove_Property, key = W_locked},
 	{target = {kind = .Entity, entity = E_PLAYER}, kind = .Remove_Property, key = W_strength},
 	{target = {kind = .Entity, entity = E_PLAYER}, kind = .Remove_Property, key = W_location},
+	{target = {kind = .Entity, entity = E_PLAYER}, kind = .Dec_Stat, key = W_strength, int_value = 2},
 }
 
 test_rules := [?]Rule {
@@ -132,6 +135,7 @@ test_rules := [?]Rule {
 	{id = R_mark_items, trigger = {kind = .Signal, signal = W_blinded}, changes = {offset = 3, count = 1}},
 	{id = R_close, trigger = {kind = .Signal, signal = W_close}, changes = {offset = 4, count = 1}},
 	{id = R_cleanup, trigger = {kind = .Signal, signal = W_cleanup}, changes = {offset = 5, count = 3}},
+	{id = R_adjust, trigger = {kind = .Signal, signal = W_adjust}, changes = {offset = 8, count = 1}},
 }
 
 test_data := Director_Data {

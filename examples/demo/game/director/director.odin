@@ -15,7 +15,7 @@ package director
 //
 //     result := director.trigger(&state, director.Trigger{kind = .Signal, signal = START})
 //     if result.matched {
-//         // Use result.rule/result.effects for game-side sys_director behavior.
+//         // Use result.rule/result.changes for game-side sys_director behavior.
 //     }
 //
 // Runtime ids are separate from authored/debug strings. Generated Odin constants
@@ -230,7 +230,7 @@ State :: struct {
 	// caller's stack variable. Its slices still reference their backing storage.
 	data:     Director_Data,
 	entities: [dynamic]Entity_State,
-	effects:  [dynamic]Effect,
+	changes:  [dynamic]Applied_Change,
 }
 
 Trigger_Kind :: enum u8 {
@@ -247,24 +247,36 @@ Trigger :: struct {
 	signal: Word_Id,
 }
 
+// Applied_Change describes one concrete property mutation produced while
+// applying a rule. Matcher targets are resolved, so entity is always the id
+// that actually changed. Only effective mutations are reported; idempotent
+// writes and removals of absent properties produce no entry.
+Applied_Change_Kind :: enum u8 {
+	Tag_Added,
+	Tag_Removed,
+	Stat_Set,
+	Stat_Removed,
+	Link_Set,
+	Link_Removed,
+}
+
+Applied_Change :: struct {
+	kind:        Applied_Change_Kind,
+	entity:      Entity_Id,
+	key:         Word_Id,
+	stat_before: i32,
+	stat_after:  i32,
+	link_before: Entity_Id,
+	link_after:  Entity_Id,
+}
+
 // Result reports the rule selected by trigger. If matched is false, rule is
-// INVALID_RULE and effects is empty.
-// Effect is a generic Director entity lifecycle event. Games query the entity's
-// authored stats, links, and tags to decide how to represent it in their world.
-Effect_Kind :: enum u8 {
-	Spawn,
-	Remove,
-}
-
-Effect :: struct {
-	kind:   Effect_Kind,
-	entity: Entity_Id,
-}
-
+// INVALID_RULE and changes is empty. changes borrows State scratch storage and
+// remains valid only until the next trigger call or destroy.
 Result :: struct {
 	rule:    Rule_Id,
 	matched: bool,
-	effects: []Effect,
+	changes: []Applied_Change,
 }
 
 // init creates mutable runtime State from immutable compiled Director_Data.
@@ -301,22 +313,22 @@ destroy :: proc(state: ^State) {
 		delete(entity.links)
 	}
 	delete(state.entities)
-	delete(state.effects)
+	delete(state.changes)
 	state^ = {}
 }
 
 // trigger finds the best matching rule for event, applies its compiled changes,
-// and returns the selected rule plus emitted lifecycle effects.
+// and returns the selected rule plus the concrete property mutations it made.
 @(require_results)
 trigger :: proc(state: ^State, event: Trigger) -> Result {
-	clear(&state.effects)
+	clear(&state.changes)
 	rule_index, ok := find_matching_rule(state, event)
 	if !ok {
-		return Result{rule = INVALID_RULE, matched = false, effects = state.effects[:]}
+		return Result{rule = INVALID_RULE, matched = false, changes = state.changes[:]}
 	}
 	rule := &state.data.rules[rule_index]
 	apply_rule(state, rule_index, event)
-	return Result{rule = rule.id, matched = true, effects = state.effects[:]}
+	return Result{rule = rule.id, matched = true, changes = state.changes[:]}
 }
 
 // find_matching_rule returns the index into Director_Data.rules for event without
@@ -625,32 +637,114 @@ apply_change_to_entity :: proc(state: ^State, entity_id: Entity_Id, change: ^Cha
 	entity := &state.entities[int(entity_id)]
 	#partial switch change.kind {
 	case .Add_Tag:
-		add_tag(entity, change.key)
+		if !has_tag(entity, change.key) {
+			add_tag(entity, change.key)
+			append(&state.changes, Applied_Change{kind = .Tag_Added, entity = entity_id, key = change.key})
+		}
 	case .Remove_Tag:
-		remove_tag(entity, change.key)
+		if has_tag(entity, change.key) {
+			remove_tag(entity, change.key)
+			append(&state.changes, Applied_Change{kind = .Tag_Removed, entity = entity_id, key = change.key})
+		}
 	case .Set_Stat:
-		set_stat(entity, change.key, change.int_value)
+		before, present := get_stat(entity, change.key)
+		if !present || before != change.int_value {
+			set_stat(entity, change.key, change.int_value)
+			append(
+				&state.changes,
+				Applied_Change {
+					kind = .Stat_Set,
+					entity = entity_id,
+					key = change.key,
+					stat_before = before,
+					stat_after = change.int_value,
+				},
+			)
+		}
 	case .Inc_Stat:
-		set_stat(entity, change.key, get_stat_value(entity, change.key) + change.int_value)
+		before, present := get_stat(entity, change.key)
+		after := before + change.int_value
+		if !present || before != after {
+			set_stat(entity, change.key, after)
+			append(
+				&state.changes,
+				Applied_Change {
+					kind = .Stat_Set,
+					entity = entity_id,
+					key = change.key,
+					stat_before = before,
+					stat_after = after,
+				},
+			)
+		}
 	case .Dec_Stat:
-		set_stat(entity, change.key, get_stat_value(entity, change.key) - change.int_value)
+		before, present := get_stat(entity, change.key)
+		after := before - change.int_value
+		if !present || before != after {
+			set_stat(entity, change.key, after)
+			append(
+				&state.changes,
+				Applied_Change {
+					kind = .Stat_Set,
+					entity = entity_id,
+					key = change.key,
+					stat_before = before,
+					stat_after = after,
+				},
+			)
+		}
 	case .Set_Link:
 		target, ok := resolve_link_target(state, change.link_target, event)
 		if ok {
-			set_link(entity, change.key, target)
+			before, present := get_link_target(entity, change.key)
+			if !present || before != target {
+				set_link(entity, change.key, target)
+				append(
+					&state.changes,
+					Applied_Change {
+						kind = .Link_Set,
+						entity = entity_id,
+						key = change.key,
+						link_before = before,
+						link_after = target,
+					},
+				)
+			}
 		}
 	case .Remove_Link:
-		remove_link(entity, change.key)
+		before, present := get_link_target(entity, change.key)
+		if present {
+			remove_link(entity, change.key)
+			append(
+				&state.changes,
+				Applied_Change{kind = .Link_Removed, entity = entity_id, key = change.key, link_before = before},
+			)
+		}
 	case .Spawn_Entity:
+		// Legacy compiler operation retained until +ENTITY is repurposed.
 		entity.removed = false
-		append(&state.effects, Effect{kind = .Spawn, entity = entity_id})
 	case .Remove_Entity:
+		// Legacy compiler operation retained until -ENTITY is repurposed.
 		entity.removed = true
-		append(&state.effects, Effect{kind = .Remove, entity = entity_id})
 	case .Remove_Property:
-		remove_tag(entity, change.key)
-		remove_stat(entity, change.key)
-		remove_link(entity, change.key)
+		if has_tag(entity, change.key) {
+			remove_tag(entity, change.key)
+			append(&state.changes, Applied_Change{kind = .Tag_Removed, entity = entity_id, key = change.key})
+		}
+		if before, present := get_stat(entity, change.key); present {
+			remove_stat(entity, change.key)
+			append(
+				&state.changes,
+				Applied_Change{kind = .Stat_Removed, entity = entity_id, key = change.key, stat_before = before},
+			)
+		}
+		if before, present := get_link_target(entity, change.key); present {
+			remove_link(entity, change.key)
+			append(
+				&state.changes,
+				Applied_Change{kind = .Link_Removed, entity = entity_id, key = change.key, link_before = before},
+			)
+		}
 	}
 }
 
@@ -719,13 +813,20 @@ remove_tag :: proc(entity: ^Entity_State, key: Word_Id) {
 
 @(private = "file")
 @(require_results)
-get_stat_value :: proc(entity: ^Entity_State, key: Word_Id) -> i32 {
+get_stat :: proc(entity: ^Entity_State, key: Word_Id) -> (i32, bool) {
 	for stat in entity.stats {
 		if stat.key == key {
-			return stat.value
+			return stat.value, true
 		}
 	}
-	return 0
+	return 0, false
+}
+
+@(private = "file")
+@(require_results)
+get_stat_value :: proc(entity: ^Entity_State, key: Word_Id) -> i32 {
+	value, _ := get_stat(entity, key)
+	return value
 }
 
 @(private = "file")

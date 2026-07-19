@@ -20,6 +20,8 @@ SPAWN_PREFAB_ID :: director.Word_Id(1)
 SPAWN_X :: director.Word_Id(2)
 SPAWN_Y :: director.Word_Id(3)
 SPAWN_WORLD_ENTITY :: director.Word_Id(4)
+SPAWN_TAG :: director.Word_Id(5)
+SPAWN_SIGNAL :: director.Word_Id(6)
 
 spawn_coin_links := [?]director.Link{{key = SPAWN_PREFAB, target = SPAWN_COIN_PREFAB}}
 spawn_coin_stats := [?]director.Stat{{key = SPAWN_X, value = 10}, {key = SPAWN_Y, value = 20}}
@@ -33,8 +35,14 @@ spawn_entities := [?]director.Entity_Def {
 	{id = SPAWN_ENEMY, stats = spawn_enemy_stats[:], links = spawn_enemy_links[:]},
 	{id = SPAWN_ENEMY_PREFAB, stats = spawn_enemy_prefab_stats[:]},
 }
+spawn_changes := [?]director.Change{{target = {kind = .Entity, entity = SPAWN_COIN}, kind = .Add_Tag, key = SPAWN_TAG}}
+spawn_rules := [?]director.Rule {
+	{id = 0, trigger = {kind = .Signal, signal = SPAWN_SIGNAL}, changes = {offset = 0, count = 1}},
+}
 spawn_data := director.Director_Data {
 	entities = spawn_entities[:],
+	rules    = spawn_rules[:],
+	changes  = spawn_changes[:],
 }
 spawn_test_bullet_actions := [?]data_bullet.Action{nil}
 spawn_test_bullet_patterns := [?]data_bullet.Bullet_Pattern{{actions = spawn_test_bullet_actions[:]}}
@@ -47,6 +55,7 @@ spawn_test_world :: proc(data: director.Director_Data) -> ^World {
 		spawn_x      = SPAWN_X,
 		spawn_y      = SPAWN_Y,
 		world_entity = SPAWN_WORLD_ENTITY,
+		spawn        = SPAWN_TAG,
 		prefab       = SPAWN_PREFAB,
 		prefab_id    = SPAWN_PREFAB_ID,
 	}
@@ -85,7 +94,9 @@ test_director_spawn_dispatches_coin_prefab :: proc(t: ^testing.T) {
 	w := spawn_test_world(spawn_data)
 	defer spawn_test_world_destroy(w)
 
-	apply_director_effects(w, []director.Effect{{kind = .Spawn, entity = SPAWN_COIN}})
+	result := director.trigger(&w.director, director.Trigger{kind = .Signal, signal = SPAWN_SIGNAL})
+	testing.expect(t, result.matched)
+	apply_director_changes(w, result.changes)
 
 	world_entity := logic.Entity(director.entity_stat(&w.director, SPAWN_COIN, SPAWN_WORLD_ENTITY))
 	testing.expect(t, world_entity >= ENTITY_ID_START)
@@ -102,7 +113,7 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	w := spawn_test_world(spawn_data)
 	defer spawn_test_world_destroy(w)
 
-	apply_director_effects(w, []director.Effect{{kind = .Spawn, entity = SPAWN_ENEMY}})
+	apply_director_changes(w, []director.Applied_Change{{kind = .Tag_Added, entity = SPAWN_ENEMY, key = SPAWN_TAG}})
 
 	world_entity := logic.Entity(director.entity_stat(&w.director, SPAWN_ENEMY, SPAWN_WORLD_ENTITY))
 	testing.expect(t, world_entity >= ENTITY_ID_START)
@@ -157,6 +168,23 @@ test_director_spawn_dispatches_enemy_prefab :: proc(t: ^testing.T) {
 	platformer, has_platformer := logic.get_component(&w.platformer, world_entity)
 	testing.expectf(t, has_platformer && platformer.facing == 1, "enemy platformer = %v", platformer)
 	testing.expect(t, !logic.has_component(&w.director_trigger_aabb, world_entity))
+}
+
+@(test)
+test_director_spawn_tag_removal_deletes_world_projection :: proc(t: ^testing.T) {
+	w := spawn_test_world(spawn_data)
+	defer spawn_test_world_destroy(w)
+
+	result := director.trigger(&w.director, director.Trigger{kind = .Signal, signal = SPAWN_SIGNAL})
+	testing.expect(t, result.matched)
+	apply_director_changes(w, result.changes)
+	world_entity := logic.Entity(director.entity_stat(&w.director, SPAWN_COIN, SPAWN_WORLD_ENTITY))
+	testing.expect(t, world_entity >= ENTITY_ID_START)
+
+	apply_director_changes(w, []director.Applied_Change{{kind = .Tag_Removed, entity = SPAWN_COIN, key = SPAWN_TAG}})
+	testing.expect(t, director.entity_stat(&w.director, SPAWN_COIN, SPAWN_WORLD_ENTITY) == 0)
+	testing.expect(t, !logic.has_component(&w.position, world_entity))
+	testing.expect(t, !logic.has_component(&w.director_entity, world_entity))
 }
 
 @(test)

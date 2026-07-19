@@ -30,7 +30,7 @@ sys_dialog :: proc(w: ^World) {
 	host.info("sys_dialog", "answer selected", answer_index + 1, answer)
 	result := director.trigger(&w.director, director.Trigger{kind = .Entity, entity = answer})
 	assert(result.matched)
-	apply_director_effects(w, result.effects)
+	apply_director_changes(w, result.changes)
 }
 
 // sys_dialog_state reconciles the game input mode with Director's PLAYER.dialog

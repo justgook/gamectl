@@ -96,6 +96,34 @@ test_signal_rule_applies_changes :: proc(t: ^testing.T) {
 	result := trigger(&state, Trigger{kind = .Signal, signal = W_start})
 	testing.expectf(t, result.matched && result.rule == R_intro, "intro result = %v", result)
 	testing.expectf(t, entity_has_tag(&state, E_CAVE, W_explored), "intro should add explored tag")
+	testing.expectf(
+		t,
+		len(result.changes) == 1 &&
+		result.changes[0] == Applied_Change{kind = .Tag_Added, entity = E_CAVE, key = W_explored},
+		"intro changes = %v",
+		result.changes,
+	)
+
+	result = trigger(&state, Trigger{kind = .Signal, signal = W_start})
+	testing.expectf(t, result.matched && len(result.changes) == 0, "idempotent intro changes = %v", result.changes)
+}
+
+@(test)
+test_stat_change_reports_resolved_before_and_after_values :: proc(t: ^testing.T) {
+	state := init(test_data)
+	defer destroy(&state)
+
+	result := trigger(&state, Trigger{kind = .Signal, signal = W_adjust})
+	testing.expectf(t, result.matched && result.rule == R_adjust, "adjust result = %v", result)
+	testing.expectf(t, entity_stat(&state, E_PLAYER, W_strength) == 3, "adjusted strength")
+	testing.expectf(
+		t,
+		len(result.changes) == 1 &&
+		result.changes[0] ==
+			Applied_Change{kind = .Stat_Set, entity = E_PLAYER, key = W_strength, stat_before = 5, stat_after = 3},
+		"adjust changes = %v",
+		result.changes,
+	)
 }
 
 @(test)
@@ -110,6 +138,14 @@ test_rule_can_remove_link :: proc(t: ^testing.T) {
 	testing.expectf(t, result.matched && result.rule == R_close, "close result = %v", result)
 	_, has_location := entity_link(&state, E_PLAYER, W_location)
 	testing.expect(t, !has_location)
+	testing.expectf(
+		t,
+		len(result.changes) == 1 &&
+		result.changes[0] ==
+			Applied_Change{kind = .Link_Removed, entity = E_PLAYER, key = W_location, link_before = E_CAVE},
+		"close changes = %v",
+		result.changes,
+	)
 }
 
 @(test)
@@ -128,10 +164,32 @@ test_remove_property_removes_tags_stats_and_links_and_absent_is_noop :: proc(t: 
 	testing.expectf(t, entity_stat(&state, E_PLAYER, W_strength) == 0, "cleanup should remove strength stat")
 	_, has_location := entity_link(&state, E_PLAYER, W_location)
 	testing.expect(t, !has_location)
+	testing.expectf(t, len(result.changes) == 3, "cleanup changes = %v", result.changes)
+	testing.expectf(
+		t,
+		result.changes[0] == Applied_Change{kind = .Tag_Removed, entity = E_CAVE, key = W_locked},
+		"cleanup tag change = %v",
+		result.changes[0],
+	)
+	testing.expectf(
+		t,
+		result.changes[1] ==
+		Applied_Change{kind = .Stat_Removed, entity = E_PLAYER, key = W_strength, stat_before = 5},
+		"cleanup stat change = %v",
+		result.changes[1],
+	)
+	testing.expectf(
+		t,
+		result.changes[2] ==
+		Applied_Change{kind = .Link_Removed, entity = E_PLAYER, key = W_location, link_before = E_CAVE},
+		"cleanup link change = %v",
+		result.changes[2],
+	)
 
 	// Applying the same changes again exercises removal of absent properties.
 	result = trigger(&state, Trigger{kind = .Signal, signal = W_cleanup})
 	testing.expectf(t, result.matched && result.rule == R_cleanup, "repeated cleanup result = %v", result)
+	testing.expectf(t, len(result.changes) == 0, "absent property changes = %v", result.changes)
 	testing.expect(t, !entity_has_tag(&state, E_CAVE, W_locked))
 	testing.expectf(t, entity_stat(&state, E_PLAYER, W_strength) == 0, "absent stat removal should be a no-op")
 	_, has_location = entity_link(&state, E_PLAYER, W_location)
@@ -160,6 +218,25 @@ test_update_all_applies_to_query_matches :: proc(t: ^testing.T) {
 	key_holder, key_ok := entity_link(&state, E_KEY, W_held_by)
 	testing.expectf(t, torch_ok && torch_holder == E_PLAYER, "torch holder = %v %v", torch_ok, torch_holder)
 	testing.expectf(t, key_ok && key_holder == E_PLAYER, "key holder = %v %v", key_ok, key_holder)
+	testing.expectf(t, len(result.changes) == 2, "wildcard changes = %v", result.changes)
+	testing.expectf(
+		t,
+		result.changes[0].kind == .Link_Set &&
+		result.changes[0].entity == E_TORCH &&
+		result.changes[0].key == W_held_by &&
+		result.changes[0].link_after == E_PLAYER,
+		"torch wildcard change = %v",
+		result.changes[0],
+	)
+	testing.expectf(
+		t,
+		result.changes[1].kind == .Link_Set &&
+		result.changes[1].entity == E_KEY &&
+		result.changes[1].key == W_held_by &&
+		result.changes[1].link_after == E_PLAYER,
+		"key wildcard change = %v",
+		result.changes[1],
+	)
 }
 
 @(test)

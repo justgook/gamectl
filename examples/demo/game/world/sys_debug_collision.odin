@@ -1,5 +1,6 @@
 package world
 
+import "../director"
 import "../host"
 import sg "../sokol/gfx"
 import "core:c"
@@ -83,8 +84,8 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 	}
 
 	// Enemy perception radius: yellow while idle, orange while the player is inside.
-	vision_view := logic.view(&w.position, &w.enemy_vision, &w.platformer)
-	for _, pos, vision, platformer in logic.each(&vision_view) {
+	vision_view := logic.view(&w.position, &w.enemy_vision, &w.platformer, &w.director_entity)
+	for _, pos, vision, platformer, director_entity in logic.each(&vision_view) {
 		assert(platformer.facing == -1 || platformer.facing == 1)
 		color := [4]f32{1.0, 0.85, 0.1, 0.65}
 		if vision.player_inside {
@@ -93,7 +94,15 @@ sys_debug_collision :: proc(w: ^World, ortho: ^linalg.Matrix4f32) {
 		sector := vision.sector
 		shape.move_sector(&sector, {int(pos.x), int(pos.y)})
 		sector.direction = {int(platformer.facing), 0}
-		debug_collision_add_sector(&sector, color)
+
+		behavior, has_behavior := director.entity_link(&w.director, director_entity.id, w.director_config.behavior)
+		assert(has_behavior)
+		if behavior == w.director_config.patrolling {
+			debug_collision_add_sector(&sector, color)
+		} else {
+			assert(behavior == w.director_config.chasing || behavior == w.director_config.attacking)
+			debug_collision_add_circle({to_pixelf(sector.x), to_pixelf(sector.y)}, to_pixelf(sector.radius), color)
+		}
 	}
 
 	// Enemy attack ranges remain independent from their vision sectors.
